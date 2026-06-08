@@ -24,3 +24,29 @@ passphrases.txt
 /.env
 
 ECC_MYCUTE_PLUGIN_ROOT.md
+**/target
+**/dist
+./models/*
+*.onnx
+wavs/
+**/node_modules
+
+# Build artifacts
+**/bin/
+**/obj/
+*.pdb
+*.lib
+*.exp
+*.a
+*.dylib
+target/swift/
+**/usage_*.json
+passphrases.txt
+/settings.json
+**/input.ltjruby
+**/template-tate.tex
+
+# apply-edition.js によって自動生成される環境変数ファイル　2回コミットしない。
+/.env
+
+ECC_MYCUTE_PLUGIN_ROOT.md
