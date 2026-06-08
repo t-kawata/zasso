@@ -4,17 +4,25 @@
   "version": "0.1.0",
   "identifier": "net.shyme.zasso",
   "build": {
-    "frontendDist": "../src"
+    "beforeDevCommand": "cd ../fe && pnpm dev",
+    "beforeBuildCommand": "cd ../fe && pnpm build",
+    "devUrl": "http://localhost:7654",
+    "frontendDist": "../fe/dist/spa"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "title": "zasso",
-        "width": 800,
-        "height": 600
+        "width": 160,
+        "height": 185,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "acceptFirstMouse": true
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": null
     }

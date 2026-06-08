@@ -1,0 +1,35 @@
+{
+  "mycute": {
+    "display_name": "MYCUTE",
+    "slug": "mycute",
+    "identifier": "com.t-kawata.mycute",
+    "data_dir": ".mycute",
+    "repo": "mycute-os/mycute",
+    "icon_path": "fe/public/logos/mycute-512.png",
+    "app_caption": "Growing hearts of sweet AI kids, only for you.",
+    "logo_img_src": "${PUBLIC_PATH}/logos/mycute-white-256.png",
+    "logo_img_white_src": "${PUBLIC_PATH}/logos/mycute-white-256.png"
+  },
+  "zasso": {
+    "display_name": "zasso",
+    "slug": "zasso",
+    "identifier": "com.t-kawata.zasso",
+    "data_dir": ".zasso",
+    "repo": "zasso/zasso",
+    "icon_path": "fe/public/logos/zasso-512.png",
+    "app_caption": "The truest form of thriving can be found in the weeds.",
+    "logo_img_src": "${PUBLIC_PATH}/logos/zasso-white-256.png",
+    "logo_img_white_src": "${PUBLIC_PATH}/logos/zasso-white-256.png"
+  },
+  "neco-asovi": {
+    "display_name": "NECO-ASOVI",
+    "slug": "neco-asovi",
+    "identifier": "com.t-kawata.neco-asovi",
+    "data_dir": ".neco-asovi",
+    "repo": "neco-asovi/neco-asovi",
+    "icon_path": "fe/public/logos/neco-asovi-512.png",
+    "app_caption": "Networked ECOsystem for Agentic AI SOVereign, In vitro.",
+    "logo_img_src": "${PUBLIC_PATH}/logos/neco-asovi-white-256.png",
+    "logo_img_white_src": "${PUBLIC_PATH}/logos/neco-asovi-white-256.png"
+  }
+}
