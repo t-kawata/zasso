@@ -7,18 +7,23 @@
 
 const path = require('path');
 
+// スクリプト自身の場所（.claude/scripts/lib/）からプロジェクトルートを算出
+// これにより、どのディレクトリから node を起動しても正しいパスを参照できる。
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+const TICKETS_DIR = path.resolve(PROJECT_ROOT, 'tickets');
+
 /** @returns {{ ticketsDir: string, specsDir: string, contextDir: string, draftsDir: string, queueFile: string, backupDir: string, review: object }} */
 function loadConfig() {
   return {
-    // ディレクトリ・ファイルパス（プロジェクトルートからの相対パス）
-    ticketsDir: 'tickets',
-    specsDir: 'tickets/specs',
-    contextDir: 'tickets/context',
-    draftsDir: 'tickets/drafts',
-    queueFile: 'tickets/queue.md',
-    queueArchiveFile: 'tickets/queue-archive.md',
+    // ディレクトリ・ファイルパス（全パスは __dirname 基準で絶対解決済み）
+    ticketsDir: TICKETS_DIR,
+    specsDir: path.resolve(TICKETS_DIR, 'specs'),
+    contextDir: path.resolve(TICKETS_DIR, 'context'),
+    draftsDir: path.resolve(TICKETS_DIR, 'drafts'),
+    queueFile: path.resolve(TICKETS_DIR, 'queue.md'),
+    queueArchiveFile: path.resolve(TICKETS_DIR, 'queue-archive.md'),
     archivalDays: 14,
-    backupDir: 'tickets/.backups',
+    backupDir: path.resolve(TICKETS_DIR, '.backups'),
 
     // レビュー品質チェックの閾値
     review: {

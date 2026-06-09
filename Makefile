@@ -26,7 +26,7 @@ else
     SED_I := sed -i
 endif
 
-.PHONY: run build check test write-settings
+.PHONY: run build check test write-settings generate-icons
 .PHONY: run-zasso run-mycute run-neco-asovi
 .PHONY: build-zasso build-mycute build-neco-asovi
 .PHONY: commit push pull
@@ -41,29 +41,55 @@ write-settings:
 	EDITION_SLUG=$(EDITION) OS_TYPE=$(OS_TYPE) node scripts/sync-version.mjs
 
 # ═══════════════════════════════════════════════
+#  アイコン生成 — run / build の前に自動実行
+# ═══════════════════════════════════════════════
+generate-icons:
+# editions.json からカレントエディションの icon_path を読み取り、
+# Quasar（フロントエンド）用と Tauri（ネイティブ）用の両方を生成する。
+	@echo "Generating icons for edition: $(EDITION)..."
+	@ICON_PATH=$$(node -e "const j=JSON.parse(require('fs').readFileSync('editions.json','utf8'));console.log(j['$(EDITION)']?j['$(EDITION)'].icon_path:'');"); \
+	if [ -z "$$ICON_PATH" ]; then \
+		echo "\033[1;31mError: icon_path not found for edition '$(EDITION)' in editions.json\033[0m"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$$ICON_PATH" ]; then \
+		echo "\033[1;31mError: Source icon not found at $$ICON_PATH\033[0m"; \
+		exit 1; \
+	fi; \
+	echo "  Source: $$ICON_PATH"; \
+	echo "  Generating Quasar favicons..."; \
+	EDITION_SLUG=$(EDITION) node scripts/generate-favicons.mjs || \
+		{ echo "\033[1;31mFavicon generation failed\033[0m"; exit 1; }; \
+	echo "  Generating Tauri icons..."; \
+	(cargo tauri icon "$$ICON_PATH") || \
+		{ echo "\033[1;31mTauri icon generation failed\033[0m"; exit 1; }; \
+	echo "\033[1;32mIcon generation complete for edition: $(EDITION)\033[0m"
+
+# ═══════════════════════════════════════════════
 #  cargo のラップ
 # ═══════════════════════════════════════════════
 check:
-	cd src-tauri && EDITION_SLUG=$(EDITION) cargo check
+	EDITION_SLUG=$(EDITION) cargo check --manifest-path src-tauri/Cargo.toml
 
 test:
-	cd src-tauri && EDITION_SLUG=$(EDITION) cargo test
+	EDITION_SLUG=$(EDITION) cargo test --manifest-path src-tauri/Cargo.toml
 
 # ═══════════════════════════════════════════════
 #  開発
 # ═══════════════════════════════════════════════
 
 # 開発サーバー起動
-run: write-settings
+run: write-settings generate-icons
 	EDITION_SLUG=$(EDITION) cargo tauri dev
 
 # ═══════════════════════════════════════════════
 #  ビルド
 # ═══════════════════════════════════════════════
 
-# 現在のOS用にビルド（make build EDITION=mycute でエディション指定）
-build: write-settings
+# 現在のOS用にビルドし、インストーラーを dist/ に配置する（make build EDITION=mycute でエディション指定）
+build: write-settings generate-icons
 	EDITION_SLUG=$(EDITION) cargo tauri build --bundles $(BUNDLE)
+	@EDITION_SLUG=$(EDITION) node scripts/deploy-installer.mjs
 
 # ═══════════════════════════════════════════════
 #  エディション別ショートカット ── run ──

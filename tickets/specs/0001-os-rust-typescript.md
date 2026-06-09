@@ -2,11 +2,12 @@
 ticket_id: 1
 title: ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する
 slug: os-rust-typescript
-status: done
+status: reviewed
 created_at: 2026-06-09
 updated_at: 2026-06-09
 plan_path: /Users/kawata/shyme/zasso/tickets/context/0001-os-rust-typescript/plan.md
 implementation_path: /Users/kawata/shyme/zasso/tickets/context/0001-os-rust-typescript/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0001-os-rust-typescript/review.md
 ---
 # ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する
 

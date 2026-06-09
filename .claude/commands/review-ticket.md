@@ -52,20 +52,20 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 ### Step 0: 初期化
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 ```
 
 ### Step 1: 存在確認 + done 確認
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 ```
 
 `exists` が false なら終了。存在すれば status を確認：
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" done
 ```
 
@@ -74,12 +74,12 @@ node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" done
 ### Step 2: spec + implementation 読み取り
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
 ```
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
 ```
 
@@ -100,14 +100,14 @@ make test TEST_ARGS="<パッケージ指定など>"
 ### Step 4: 静的品質チェック
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node "$_R/scripts/tickets/review/generate-report.js"
 ```
 
 ### Step 4: 構造整合性チェック
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/validate-structure.js"
 ```
 
@@ -122,7 +122,7 @@ node "$_R/scripts/tickets/validate-structure.js"
 全チェック通過後、レビュー結果を `save-artifact.js` にパイプして保存する：
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 cat <<'REVIEW_EOF' | node "$_R/scripts/tickets/save-artifact.js" "$ARGUMENTS" review
 # 各チェックの結果（静的品質チェック、構造整合性チェック、翻訳可能性チェックの結果と合否、見つかった問題と修正内容）
 REVIEW_EOF
@@ -135,7 +135,7 @@ REVIEW_EOF
 全チェック通過後：
 
 ```bash
-_R=".claude"
+_R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
 ```
 
@@ -145,6 +145,6 @@ node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
 - **重大**: ユーザーに報告して修正方針を相談。差し戻しが必要な場合は implementing に戻す：
 
   ```bash
-  _R=".claude"
+  _R="$(git rev-parse --show-toplevel)/.claude"
   node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
   ```

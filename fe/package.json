@@ -1,6 +1,6 @@
 {
   "name": "net.shyme.zasso",
-  "version": "0.24.237",
+  "version": "0.24.238",
   "description": "zasso",
   "productName": "zasso",
   "author": "Toshimi Kawata <kawata@shyme.net>",
@@ -13,18 +13,19 @@
     "postinstall": "quasar prepare"
   },
   "dependencies": {
-    "vue-i18n": "^11.3.0",
-    "pinia": "^3.0.1",
     "@quasar/extras": "^1.16.4",
+    "pinia": "^3.0.1",
     "quasar": "^2.16.0",
     "vue": "^3.5.22",
+    "vue-i18n": "^11.3.0",
     "vue-router": "^5.0.3"
   },
   "devDependencies": {
-    "@types/node": "^22.19.11",
     "@intlify/unplugin-vue-i18n": "^11.0.0",
     "@quasar/app-vite": "^2.5.1",
+    "@types/node": "^22.19.11",
     "autoprefixer": "^10.4.27",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3"
   },
   "engines": {

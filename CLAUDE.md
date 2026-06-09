@@ -264,6 +264,7 @@ MYCUTE は SQLite をプライマリDBとしつつ、MySQL および PostgreSQL 
   - `make check-be`: Rust（バックエンド）のみ編集時
   - `make check-fe`: フロントエンドのみ編集時
   - `make check-all`: 両方編集時
+- **`cd` によるワーキングディレクトリ変更禁止**: Bash で直接 `cd dir && cmd` すると cwd が永続化され、後続コマンドに影響する。Makefile 経由か `(cd dir && cmd)` のサブシェルを使うこと。絶対パスが必要な場合は `$(git rev-parse --show-toplevel)` でプロジェクトルートを取得する。
 - **Cargo.toml への依存関係の直接手書き禁止**: 新しいクレート導入時は必ず `cargo add` を使用する
 - **ビルド生成物の不完全同期禁止**: フロントエンド資産配置は `cp` ではなく `rsync --delete` 相当のミラーリングを行う
 

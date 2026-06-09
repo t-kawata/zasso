@@ -2,4 +2,5 @@
 
 export const EDITION_SLUG = "zasso";
 export const OS_TYPE = "macos";
-export const APP_VERSION = "v0.24.237";
+export const APP_VERSION = "v0.24.238";
+export const APP_DISPLAY_NAME = "zasso";
