@@ -1,4 +1,4 @@
-# Code Review Context — MYCUTE
+# Code Review Context — zasso
 
 Mode: PR review, code analysis
 Focus: Quality, security, maintainability
@@ -9,7 +9,7 @@ Focus: Quality, security, maintainability
 - Suggest fixes, don't just point out problems
 - Check for security vulnerabilities
 
-## Review Checklist (MYCUTE-specific additions)
+## Review Checklist (zasso-specific additions)
 - [ ] Rust: `unwrap()` / `expect()` が実務コードにないか
 - [ ] Rust: `// SAFETY:` コメントのない `unsafe` ブロックがないか
 - [ ] Security: Chain of Trust 検証ロジックが正しいか

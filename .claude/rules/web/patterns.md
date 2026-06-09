@@ -2,9 +2,9 @@
 
 # Web Patterns
 
-## Vue 3 Patterns (MYCUTE)
+## Vue 3 Patterns (zasso)
 
-MYCUTE のフロントエンドは **Vue 3 Composition API + `<script setup>`** を標準とする。
+zasso のフロントエンドは **Vue 3 Composition API + `<script setup>`** を標準とする。
 
 ### コンポーネント構成
 
@@ -61,7 +61,7 @@ const activeTab = inject('activeTab', ref('overview'))
 
 ### 状態管理: Pinia
 
-MYCUTE は Pinia を唯一の状態管理ライブラリとして使用する：
+zasso は Pinia を唯一の状態管理ライブラリとして使用する：
 
 ```typescript
 // src/stores/main-store.ts
@@ -106,7 +106,7 @@ router.push({ query: { ...route.query, tab: 'settings' } })
 
 ### データ取得 (Axios)
 
-MYCUTE は `boot/axios.ts` で設定された Axios インスタンスを介してバックエンドと通信する：
+zasso は `boot/axios.ts` で設定された Axios インスタンスを介してバックエンドと通信する：
 
 ```typescript
 import { api } from 'boot/axios'

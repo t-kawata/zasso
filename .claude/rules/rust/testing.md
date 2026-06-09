@@ -138,16 +138,16 @@ cargo llvm-cov --html                # HTML report
 cargo llvm-cov --fail-under-lines 80 # Fail if below threshold
 ```
 
-## Testing Commands (MYCUTE)
+## Testing Commands (zasso)
 
-MYCUTE プロジェクトでは Makefile が存在するため、テストは必ず `make` 経由で実行する：
+zasso プロジェクトでは Makefile が存在するため、テストは必ず `make` 経由で実行する：
 
 ```bash
 # 全テスト実行（推奨）
 make test
 
 # 特定パッケージのテスト
-make test TEST_ARGS="--package mycute-server-core --lib"
+make test TEST_ARGS="--package zasso-server-core --lib"
 
 # 全テスト（明示的）
 make test-all
@@ -155,14 +155,14 @@ make test-all
 
 Makefile が参照できない特殊な状況でのみ、直接 `cargo test` を使用すること。
 
-## MYCUTE テスト注意点
+## zasso テスト注意点
 
 - **ネイティブライブラリ依存**: テスト実行前に `make test` は自動的にネイティブライブラリ（Swift SpeechHelper, onnxruntime, sherpa-onnx）のビルド依存を解決する。`cargo test` を直接実行した場合、これらのリンクに失敗する可能性がある
 - **テストの配置**:
   - Unit tests: 各モジュール内の `#[cfg(test)] mod tests`
   - Integration tests: `tests/` ディレクトリ
 - **テストコードでも `unwrap()` を避けること**: テスト関数は `Result<()>` を返し `?` 演算子でエラー伝播すること。パニック依存のテストは極小に留める
-- **非同期テスト**: `#[tokio::test]` を使用する。MYCUTE は Tokio ランタイムで動作する
+- **非同期テスト**: `#[tokio::test]` を使用する。zasso は Tokio ランタイムで動作する
 
 ```rust
 // GOOD: Result を返すテスト

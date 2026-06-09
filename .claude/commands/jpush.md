@@ -88,17 +88,17 @@ fix: ユーザー名に特殊文字を含む場合の認証エラーを修正
 
 ### Step 4: リリースノートを生成
 
-Step 2 の分析結果をもとに、MYCUTE プロジェクトのリリースノートを英語で生成する。
+Step 2 の分析結果をもとに、zasso プロジェクトのリリースノートを英語で生成する。
 
 ```bash
-# MYCUTE プロジェクトの次のバージョン番号を取得
-cd ~/shyme/mycute && make next-version
+# zasso プロジェクトの次のバージョン番号を取得
+cd ~/shyme/zasso && make next-version
 ```
 
 手順:
-1. `cd ~/shyme/mycute && make next-version` を実行し、次のバージョン番号を取得する（例: `v0.24.42`）
-2. `~/shyme/mycute/release-notes/` ディレクトリが存在しない場合は作成する
-3. `~/shyme/mycute/release-notes/<バージョン>.md` にリリースノートを書き出す（例: `v0.24.42.md`）
+1. `cd ~/shyme/zasso && make next-version` を実行し、次のバージョン番号を取得する（例: `v0.24.42`）
+2. `~/shyme/zasso/release-notes/` ディレクトリが存在しない場合は作成する
+3. `~/shyme/zasso/release-notes/<バージョン>.md` にリリースノートを書き出す（例: `v0.24.42.md`）
 
 リリースノートのフォーマット:
 
@@ -122,12 +122,12 @@ cd ~/shyme/mycute && make next-version
 - ファイル名は `v` から始め、バージョン番号 + `.md`（例: `v0.24.41.md`）
 - 書き出す前に既に同名ファイルが存在する場合は上書きしてよい
 
-### Step 5: リリースノートを MYCUTE リポジトリにコミット＆プッシュ
+### Step 5: リリースノートを zasso リポジトリにコミット＆プッシュ
 
-生成したリリースノートを MYCUTE プロジェクトのリポジトリにコミットし、プッシュする。
+生成したリリースノートを zasso プロジェクトのリポジトリにコミットし、プッシュする。
 
 ```bash
-cd ~/shyme/mycute
+cd ~/shyme/zasso
 git add release-notes/
 git commit -m "docs: add release notes for <バージョン>"
 git push origin master

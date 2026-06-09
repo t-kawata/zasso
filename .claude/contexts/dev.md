@@ -16,7 +16,6 @@ Focus: Implementation, coding, building features
 
 ## Port Layout
 - 3910: REST API (Axum), 3911: Static content/proxy, 3912: LLM Proxy
-- 3913: Agent Gateway, 58300: MITM HTTPS proxy
 
 ## Behavior
 - 日本語でコミュニケーション（チャット・コメント・設計書）

@@ -429,7 +429,5 @@ let is_valid = verify_signature(&public_key, &data, &sig)?;
 | `RT_PORT` | 3910 | REST API (Axum) |
 | `SW_PORT` | 3911 | Static content / proxy |
 | `BIFROST_PORT` | 3912 | LLM Proxy |
-| `ZEROCLAW_PORT` | 3913 | Agent Gateway |
-| `PROXY_PORT` | 58300 | MITM HTTPS proxy |
 
 ポート番号はハードコードせず定数として定義し、必要に応じて環境変数で上書き可能にすること。

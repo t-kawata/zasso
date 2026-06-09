@@ -79,7 +79,7 @@ Block oversized writes from tool input content, not from a file that may not exi
 }
 ```
 
-## Ordering (MYCUTE)
+## Ordering (zasso)
 
 推奨順序（利用可能なツールに応じて）:
 1. type check (`vue-tsc --noEmit`)

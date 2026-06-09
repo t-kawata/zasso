@@ -94,9 +94,9 @@ Do not reach for generic wrapper `div` stacks when a semantic element exists.
 
 ---
 
-## MYCUTE / Quasar 固有規約
+## zasso / Quasar 固有規約
 
-MYCUTE のフロントエンドは **Quasar (Vue.js) + Vite** で構築されている。
+zasso のフロントエンドは **Quasar (Vue.js) + Vite** で構築されている。
 
 ### プロジェクト構成
 

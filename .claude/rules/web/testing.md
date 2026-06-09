@@ -54,9 +54,9 @@ test('landing hero loads', async ({ page }) => {
 - For highly visual components, visual regression often carries more signal than brittle markup assertions
 - Visual regression supplements coverage targets; it does not replace them
 
-### MYCUTE / Quasar 注記
+### zasso / Quasar 注記
 
-- 現在 MYCUTE フロントエンドにテストフレームワークは導入されていない
+- 現在 zasso フロントエンドにテストフレームワークは導入されていない
 - フロントエンド変更後の動作確認は `cd web && pnpm quasar build` でビルド検証
 - 開発時は `make run-web`（= `cd web && pnpm quasar dev`）でホットリロード開発サーバー起動
 - フロントエンド変更後は `make check-fe`（`make sync-frontend && make build-sdk-ts`）で変更を反映

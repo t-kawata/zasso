@@ -1,10 +1,10 @@
-# Research Context — MYCUTE
+# Research Context — zasso
 
 Mode: Exploration, investigation, learning
 Focus: Understanding before acting
 
 ## Technology Context
-This project is MYCUTE — an "OS on OS" for decentralized application ecosystem.
+This project is zasso — an "OS on OS" for decentralized application ecosystem.
 Key research areas:
 - **Rust + Tauri v2**: Desktop application framework
 - **Axum 0.8 + utoipa**: REST API with OpenAPI documentation

@@ -83,9 +83,21 @@ _R=".claude"
 node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
 ```
 
-spec の Acceptance Criteria と実装サマリを確認する。
+spec の Acceptance Criteria と実装サマリを確認する。spec の Test Plan に記載されたユニットテストが全て実装されているか確認する。
 
-### Step 3: 静的品質チェック
+### Step 3: ユニットテスト検証
+
+plan のテスト計画および spec の Test Plan で定義されたユニットテストが全て実装されていることを確認する。
+
+```bash
+# テストが存在し、全て通過することを確認
+make test TEST_ARGS="<パッケージ指定など>"
+```
+
+テストが存在しない、または失敗がある場合 → 修正してから先に進む。
+「ユニットテスト不可能な項目（例外）」として spec に明記されたものだけが未テストを許容される。
+
+### Step 4: 静的品質チェック
 
 ```bash
 _R=".claude"

@@ -250,7 +250,7 @@ fn dispatch_command(state: &AppState, cmd: Command) -> Result<Response, Error> {
 - コメント（日本語）→ **「なぜこの設計を選んだか」「どのような制約があるか」** を説明する
 - 翻訳可能性の低いコードをコメントで補おうとしてはならない。コード自体を改善するのが唯一の正しい方法
 
-## MYCUTE-Specific Prohibitions
+## zasso-Specific Prohibitions
 
 ### Result 伝播の徹底（防弾設計）
 - すべての `main` 関数およびエントリポイントは `Result` を返し、エラーを最上位で集中管理する
