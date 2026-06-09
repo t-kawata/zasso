@@ -8,7 +8,14 @@ export const useMainStore = defineStore("main", {
     /** アプリケーションのアクティブ状態（q-toggle にバインド） */
     isVoiceActive: true,
     /** ウィンドウ展開状態（true = 展開 / false = 折りたたみ） */
-    isWindowExpanded: false,
+    isWindowExpanded: (() => {
+      // リロード時に URL のハッシュから状態を復元する（TitleBar の onMounted より前に確定させる）
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash;
+        return hash !== "" && hash !== "#/" && hash !== "#";
+      }
+      return false;
+    })(),
   }),
 
   getters: {},

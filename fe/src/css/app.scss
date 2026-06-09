@@ -24,6 +24,10 @@ $PAGE_CONTAINER_AFTER_TOP: 3px;
 $PAGE_CONTAINER_AFTER_INSET: 16px; // ::after の左右内側への差（130px - 16px = 幅114px）
 $PAGE_CONTAINER_AFTER_RADIUS: 55px;
 
+// ── ページフレーム ──
+// 展開時のフレーム幅（370px = 400dvw - 30px）に対する正円 130px の比率: 130 / 370 ≈ 0.35
+$PAGE_FRAME_ENTER_SCALE: 0.35;
+
 // ── グラデーションカラー（RGB成分） ──
 // タイトルバーとページコンテナで色味を共有し、opacity のみ変える
 $GRADIENT_1_R: 151;
@@ -42,10 +46,10 @@ $TITLE_BAR_OPACITY: 0.8;
 $PAGE_OPACITY: 0.7;
 
 // ── 影 ──
-$SHADOW_DEFAULT: 0 5px 15px 0 rgba(0, 0, 0, 0.3);
+$SHADOW_DEFAULT: 0 5px 8px 0 rgba(0, 0, 0, 0.3);
 $SHADOW_HOVER: 0 2px 7px 0 rgba(0, 0, 0, 0.3);
-$SHADOW_ACTIVE: 0 5px 15px 0
-    rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, 0.7);
+$SHADOW_ACTIVE: 0 5px 8px 0
+    rgba($GRADIENT_2_R, $GRADIENT_2_G, $GRADIENT_2_B, 0.7);
 
 // ── トランジション ──
 $TRANSITION_DURATION: 0.3s;
@@ -69,42 +73,22 @@ $Z_TITLE_BAR: 1000;
         z-index: $Z_TITLE_BAR;
         width: $PAGE_CONTAINER_SIZE;
         height: $TITLE_BAR_HEIGHT;
-        transition: width 0.3s ease;
+        opacity: $TITLE_BAR_OPACITY;
+        transition:
+            width 0.3s ease,
+            opacity 0.3s ease;
         background: linear-gradient(
             90deg,
-            rgba(
-                    $GRADIENT_1_R,
-                    $GRADIENT_1_G,
-                    $GRADIENT_1_B,
-                    $TITLE_BAR_OPACITY
-                )
-                0%,
-            rgba(
-                    $GRADIENT_2_R,
-                    $GRADIENT_2_G,
-                    $GRADIENT_2_B,
-                    $TITLE_BAR_OPACITY
-                )
-                33%,
-            rgba(
-                    $GRADIENT_3_R,
-                    $GRADIENT_3_G,
-                    $GRADIENT_3_B,
-                    $TITLE_BAR_OPACITY
-                )
-                66%,
-            rgba(
-                    $GRADIENT_4_R,
-                    $GRADIENT_4_G,
-                    $GRADIENT_4_B,
-                    $TITLE_BAR_OPACITY
-                )
-                100%
+            rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, 1) 0%,
+            rgba($GRADIENT_2_R, $GRADIENT_2_G, $GRADIENT_2_B, 1) 33%,
+            rgba($GRADIENT_3_R, $GRADIENT_3_G, $GRADIENT_3_B, 1) 66%,
+            rgba($GRADIENT_4_R, $GRADIENT_4_G, $GRADIENT_4_B, 1) 100%
         );
         border-radius: $TITLE_BAR_RADIUS;
         cursor: pointer;
         &-expanded {
             width: calc(100dvw - $TITLE_BAR_TOTAL_MARGIN_X);
+            opacity: 1;
         }
     }
 
@@ -122,8 +106,14 @@ $Z_TITLE_BAR: 1000;
 
     // IndexPage 専用の円形コンテナ（旧 __zasso-page-container）
     &-index-container {
-        &-off {
+        &.__zasso-index-container-off {
             background: rgba(204, 204, 204, 0.8) !important;
+
+            &:hover,
+            &:active {
+                background: rgba(204, 204, 204, 0.8) !important;
+                box-shadow: $SHADOW_DEFAULT;
+            }
         }
 
         &.__zasso-index-container-hidden {
@@ -157,10 +147,22 @@ $Z_TITLE_BAR: 1000;
 
         &:hover {
             box-shadow: $SHADOW_HOVER;
+            background: rgba(
+                $GRADIENT_3_R,
+                $GRADIENT_3_G,
+                $GRADIENT_3_B,
+                $PAGE_OPACITY
+            ) !important;
         }
 
         &:active {
             box-shadow: $SHADOW_ACTIVE;
+            background: rgba(
+                $GRADIENT_2_R,
+                $GRADIENT_2_G,
+                $GRADIENT_2_B,
+                $PAGE_OPACITY
+            ) !important;
         }
 
         &::after {
@@ -178,17 +180,64 @@ $Z_TITLE_BAR: 1000;
         }
     }
 
-    // 各ページのコンテンツを包む共通フレーム
+    // 各ページのコンテンツを包む共通フレーム（130px 正円から拡大するアニメーション対応）
     &-page-frame {
         padding: 0px;
-        background: rgba(0, 0, 0, 0.3);
+        box-shadow: 0px 3px 10px 0px rgba(120, 120, 120, 0.3);
         width: calc(100dvw - $TITLE_BAR_TOTAL_MARGIN_X);
-        height: calc(100dvh - $PAGE_CONTAINER_TOP);
+        height: calc(100dvh - $PAGE_CONTAINER_TOP - 10px);
         position: relative;
         top: $PAGE_CONTAINER_TOP;
         left: $PAGE_CONTAINER_LEFT;
         overflow: hidden;
         border-radius: 50px;
+        transform-origin: calc($PAGE_CONTAINER_SIZE / 2)
+            calc($PAGE_CONTAINER_SIZE / 2);
+        transition:
+            transform $TRANSITION_DURATION $TRANSITION_EASING,
+            opacity $TRANSITION_DURATION $TRANSITION_EASING;
+
+        &-entering {
+            transform: scale($PAGE_FRAME_ENTER_SCALE);
+        }
+
+        &-leaving {
+            transform: scale($PAGE_FRAME_ENTER_SCALE);
+            opacity: 0;
+        }
+
+        &-inner {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            top: 6px;
+            left: 6px;
+            width: calc(100% - 12px);
+            height: calc(100% - 12px);
+            padding: 10px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 45px;
+        }
+
+        &:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url(/bg/sakura.jpg);
+            background-size: cover;
+            background-position: center;
+            filter: brightness(1.5) saturate(1.3);
+            z-index: 0;
+        }
     }
 }
 
