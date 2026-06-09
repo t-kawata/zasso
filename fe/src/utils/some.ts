@@ -1,5 +1,5 @@
 import editions from "../../../editions.json";
-import { EDITION_KEY } from "src/configs/settings";
+import { EDITION_SLUG } from "src/configs/settings";
 
 interface EditionConfig {
   display_name: string;
@@ -20,10 +20,10 @@ function resolveEditionPath(path: string): string {
 }
 
 export function getCurrentEdition(): EditionConfig {
-  const key = EDITION_KEY as keyof EditionsMap;
+  const key = EDITION_SLUG as keyof EditionsMap;
   const edition = editions[key] as EditionConfig | undefined;
   if (!edition) {
-    throw new Error(`Unknown edition key: ${EDITION_KEY}`);
+    throw new Error(`Unknown edition key: ${EDITION_SLUG}`);
   }
   return {
     ...edition,
