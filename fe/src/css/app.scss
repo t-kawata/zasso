@@ -17,7 +17,8 @@ $PAGE_CONTAINER_SIZE: 130px; // ページコンテナ（円形）の直径。タ
 $TITLE_BAR_TOTAL_MARGIN_X: 30px;
 $TITLE_BAR_HEIGHT: 30px;
 $TITLE_BAR_RADIUS: 15px;
-$PAGE_CONTAINER_BOTTOM: 15px;
+$PAGE_CONTAINER_TOP: 45px;
+$PAGE_CONTAINER_LEFT: 15px;
 $PAGE_CONTAINER_BORDER_WIDTH: 5px;
 $PAGE_CONTAINER_AFTER_TOP: 3px;
 $PAGE_CONTAINER_AFTER_INSET: 16px; // ::after の左右内側への差（130px - 16px = 幅114px）
@@ -115,63 +116,79 @@ $Z_TITLE_BAR: 1000;
     }
 
     &-page {
-        &-container {
-            &-off {
-                background: #ccc !important;
-            }
-
-            position: absolute;
-            bottom: $PAGE_CONTAINER_BOTTOM;
-            right: 0;
-            left: 0;
-            margin: auto;
-            width: $PAGE_CONTAINER_SIZE;
-            height: $PAGE_CONTAINER_SIZE;
-            border-radius: $PAGE_CONTAINER_SIZE * 0.5;
-            overflow: hidden;
-            background: linear-gradient(
-                135deg,
-                rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, $PAGE_OPACITY)
-                    0%,
-                rgba($GRADIENT_2_R, $GRADIENT_2_G, $GRADIENT_2_B, $PAGE_OPACITY)
-                    33%,
-                rgba($GRADIENT_3_R, $GRADIENT_3_G, $GRADIENT_3_B, $PAGE_OPACITY)
-                    66%,
-                rgba($GRADIENT_4_R, $GRADIENT_4_G, $GRADIENT_4_B, $PAGE_OPACITY)
-                    100%
-            );
-            border: $PAGE_CONTAINER_BORDER_WIDTH solid rgba(255, 255, 255, 0.65);
-            transition:
-                transform $TRANSITION_DURATION $TRANSITION_EASING,
-                box-shadow $TRANSITION_DURATION $TRANSITION_EASING;
-            box-shadow: $SHADOW_DEFAULT;
-            cursor: pointer;
-
-            &:hover {
-                box-shadow: $SHADOW_HOVER;
-            }
-
-            &:active {
-                box-shadow: $SHADOW_ACTIVE;
-            }
-
-            &::after {
-                content: "";
-                position: absolute;
-                top: $PAGE_CONTAINER_AFTER_TOP;
-                left: 0;
-                right: 0;
-                margin: 0 auto;
-                border-top-left-radius: $PAGE_CONTAINER_AFTER_RADIUS;
-                border-top-right-radius: $PAGE_CONTAINER_AFTER_RADIUS;
-                width: $PAGE_CONTAINER_SIZE - $PAGE_CONTAINER_AFTER_INSET;
-                height: 50%;
-                background-image: linear-gradient(180deg, #ffffff73, #ffffff0d);
-            }
-        }
-
         width: 100%;
         height: 100%;
+    }
+
+    // IndexPage 専用の円形コンテナ（旧 __zasso-page-container）
+    &-index-container {
+        &-off {
+            background: rgba(204, 204, 204, 0.8) !important;
+        }
+
+        &.__zasso-index-container-hidden {
+            opacity: 0;
+            transition: opacity $TRANSITION_DURATION $TRANSITION_EASING 0s;
+        }
+
+        position: absolute;
+        top: $PAGE_CONTAINER_TOP;
+        left: $PAGE_CONTAINER_LEFT;
+        width: $PAGE_CONTAINER_SIZE;
+        height: $PAGE_CONTAINER_SIZE;
+        border-radius: $PAGE_CONTAINER_SIZE * 0.5;
+        overflow: hidden;
+        opacity: 1;
+        transition:
+            opacity $TRANSITION_DURATION $TRANSITION_EASING 0s,
+            transform $TRANSITION_DURATION $TRANSITION_EASING,
+            box-shadow $TRANSITION_DURATION $TRANSITION_EASING;
+        background: linear-gradient(
+            135deg,
+            rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, $PAGE_OPACITY) 0%,
+            rgba($GRADIENT_2_R, $GRADIENT_2_G, $GRADIENT_2_B, $PAGE_OPACITY) 33%,
+            rgba($GRADIENT_3_R, $GRADIENT_3_G, $GRADIENT_3_B, $PAGE_OPACITY) 66%,
+            rgba($GRADIENT_4_R, $GRADIENT_4_G, $GRADIENT_4_B, $PAGE_OPACITY)
+                100%
+        );
+        border: $PAGE_CONTAINER_BORDER_WIDTH solid rgba(255, 255, 255, 0.65);
+        box-shadow: $SHADOW_DEFAULT;
+        cursor: pointer;
+
+        &:hover {
+            box-shadow: $SHADOW_HOVER;
+        }
+
+        &:active {
+            box-shadow: $SHADOW_ACTIVE;
+        }
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: $PAGE_CONTAINER_AFTER_TOP;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            border-top-left-radius: $PAGE_CONTAINER_AFTER_RADIUS;
+            border-top-right-radius: $PAGE_CONTAINER_AFTER_RADIUS;
+            width: $PAGE_CONTAINER_SIZE - $PAGE_CONTAINER_AFTER_INSET;
+            height: 50%;
+            background-image: linear-gradient(180deg, #ffffff73, #ffffff0d);
+        }
+    }
+
+    // 各ページのコンテンツを包む共通フレーム
+    &-page-frame {
+        padding: 0px;
+        background: rgba(0, 0, 0, 0.3);
+        width: calc(100dvw - $TITLE_BAR_TOTAL_MARGIN_X);
+        height: calc(100dvh - $PAGE_CONTAINER_TOP);
+        position: relative;
+        top: $PAGE_CONTAINER_TOP;
+        left: $PAGE_CONTAINER_LEFT;
+        overflow: hidden;
+        border-radius: 50px;
     }
 }
 

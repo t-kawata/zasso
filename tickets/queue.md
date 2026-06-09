@@ -4,4 +4,5 @@
 - [x] #3 make build 後のインストーラー自動検証・dist配置 | /Users/kawata/shyme/zasso/tickets/specs/0003-make-build-dist.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #4 エディション別アプリ名・識別子の自動切替 | /Users/kawata/shyme/zasso/tickets/specs/0004-untitled.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [ ] #5 タイトルバーを App.vue に移動し、全レイアウトで表示可能にする | /Users/kawata/shyme/zasso/tickets/specs/0005-appvue.md | 2026-06-09 | 2026-06-09
-- [ ] #6 円形コンテナを IndexPage.vue に移動し、クラス名を再命名する | /Users/kawata/shyme/zasso/tickets/specs/0006-indexpagevue.md | 2026-06-09
+- [ ] #6 円形コンテナを IndexPage.vue に移動し、クラス名を再命名する | /Users/kawata/shyme/zasso/tickets/specs/0006-indexpagevue.md | 2026-06-09 | 2026-06-09
+- [ ] #7 DummyAppPage とルーティングを追加し、ウィンドウ開閉とページ遷移を連携させる | /Users/kawata/shyme/zasso/tickets/specs/0007-dummyapppage.md | 2026-06-09 | 2026-06-09

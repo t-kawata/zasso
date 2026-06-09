@@ -2,9 +2,11 @@
 ticket_id: 6
 title: 円形コンテナを IndexPage.vue に移動し、クラス名を再命名する
 slug: indexpagevue
-status: approved
+status: done
 created_at: 2026-06-09
 updated_at: 2026-06-09
+plan_path: /Users/kawata/shyme/zasso/tickets/context/0006-indexpagevue/plan.md
+implementation_path: /Users/kawata/shyme/zasso/tickets/context/0006-indexpagevue/implementation.md
 ---
 # 円形コンテナを IndexPage.vue に移動し、クラス名を再命名する
 

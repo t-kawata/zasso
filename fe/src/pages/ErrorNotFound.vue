@@ -14,10 +14,14 @@
         color="white"
         text-color="blue"
         unelevated
-        to="/"
+        :to="URL.INDEX"
         label="Go Home"
         no-caps
       />
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { URL } from "src/router/routes";
+</script>
