@@ -1,22 +1,14 @@
 <template>
   <q-layout>
-    <div data-tauri-drag-region class="__zasso-title-bar">
-      <q-toggle
-        dense
-        color="white"
-        v-model="ACTIVE"
-        style="margin-left: 5px; margin-top: 5px"
-      />
-    </div>
     <q-page-container
       :class="[
         '__zasso-page-container',
-        ACTIVE ? 'puyon' : '',
-        !ACTIVE ? '__zasso-page-container-off' : '',
+        mainStore.isVoiceActive ? 'puyon' : '',
+        !mainStore.isVoiceActive ? '__zasso-page-container-off' : '',
       ]"
     >
       <!-- <q-spinner-puff
-        v-if="ACTIVE"
+        v-if="mainStore.isVoiceActive"
         color="white"
         size="7em"
         style="
@@ -30,7 +22,7 @@
         "
       /> -->
       <q-spinner
-        v-if="ACTIVE"
+        v-if="mainStore.isVoiceActive"
         color="white"
         size="8.6em"
         :thickness="1"
@@ -90,9 +82,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
 import { getCurrentEdition } from "src/utils/some";
+import { useMainStore } from "src/stores/main-store";
 
-const ACTIVE = ref(true);
+const mainStore = useMainStore();
 const { logo_img_white_src: logoWhiteSrc } = getCurrentEdition();
 </script>

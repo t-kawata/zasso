@@ -7,83 +7,179 @@ body {
     background: rgba(255, 255, 255, 0);
 }
 
+// ═══════════════════════════════════════════════
+//  デザイントークン
+//  数値の意図を名前で表現し、一箇所の変更で全体に反映する
+// ═══════════════════════════════════════════════
+
+// ── 寸法 ──
+$PAGE_CONTAINER_SIZE: 130px; // ページコンテナ（円形）の直径。タイトルバー幅にも使用
+$TITLE_BAR_TOTAL_MARGIN_X: 30px;
+$TITLE_BAR_HEIGHT: 30px;
+$TITLE_BAR_RADIUS: 15px;
+$PAGE_CONTAINER_BOTTOM: 15px;
+$PAGE_CONTAINER_BORDER_WIDTH: 5px;
+$PAGE_CONTAINER_AFTER_TOP: 3px;
+$PAGE_CONTAINER_AFTER_INSET: 16px; // ::after の左右内側への差（130px - 16px = 幅114px）
+$PAGE_CONTAINER_AFTER_RADIUS: 55px;
+
+// ── グラデーションカラー（RGB成分） ──
+// タイトルバーとページコンテナで色味を共有し、opacity のみ変える
+$GRADIENT_1_R: 151;
+$GRADIENT_1_G: 224;
+$GRADIENT_1_B: 233; // シアン
+$GRADIENT_2_R: 193;
+$GRADIENT_2_G: 164;
+$GRADIENT_2_B: 248; // パープル
+$GRADIENT_3_R: 240;
+$GRADIENT_3_G: 153;
+$GRADIENT_3_B: 195; // ピンク
+$GRADIENT_4_R: 236;
+$GRADIENT_4_G: 237;
+$GRADIENT_4_B: 135; // イエロー
+$TITLE_BAR_OPACITY: 0.8;
+$PAGE_OPACITY: 0.7;
+
+// ── 影 ──
+$SHADOW_DEFAULT: 0 5px 15px 0 rgba(0, 0, 0, 0.3);
+$SHADOW_HOVER: 0 2px 7px 0 rgba(0, 0, 0, 0.3);
+$SHADOW_ACTIVE: 0 5px 15px 0
+    rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, 0.7);
+
+// ── トランジション ──
+$TRANSITION_DURATION: 0.3s;
+$TRANSITION_EASING: ease;
+
+// ── アニメーション ──
+$PUYON_DURATION: 6s;
+
+// ── z-index ──
+$Z_TITLE_BAR: 1000;
+
+// ═══════════════════════════════════════════════
+//  スタイル定義
+// ═══════════════════════════════════════════════
+
 .__zasso {
     &-title-bar {
-        width: calc(100dvw - 30px);
-        height: 30px;
-        margin: 0 auto;
+        position: fixed;
+        top: 0;
+        left: 15px;
+        z-index: $Z_TITLE_BAR;
+        width: $PAGE_CONTAINER_SIZE;
+        height: $TITLE_BAR_HEIGHT;
+        transition: width 0.3s ease;
         background: linear-gradient(
             90deg,
-            rgba(151, 224, 233, 0.8) 0%,
-            rgba(193, 164, 248, 0.8) 33%,
-            rgba(240, 153, 195, 0.8) 66%,
-            rgba(236, 237, 135, 0.8) 100%
+            rgba(
+                    $GRADIENT_1_R,
+                    $GRADIENT_1_G,
+                    $GRADIENT_1_B,
+                    $TITLE_BAR_OPACITY
+                )
+                0%,
+            rgba(
+                    $GRADIENT_2_R,
+                    $GRADIENT_2_G,
+                    $GRADIENT_2_B,
+                    $TITLE_BAR_OPACITY
+                )
+                33%,
+            rgba(
+                    $GRADIENT_3_R,
+                    $GRADIENT_3_G,
+                    $GRADIENT_3_B,
+                    $TITLE_BAR_OPACITY
+                )
+                66%,
+            rgba(
+                    $GRADIENT_4_R,
+                    $GRADIENT_4_G,
+                    $GRADIENT_4_B,
+                    $TITLE_BAR_OPACITY
+                )
+                100%
         );
-        border-radius: 15px;
+        border-radius: $TITLE_BAR_RADIUS;
         cursor: pointer;
+        &-expanded {
+            width: calc(100dvw - $TITLE_BAR_TOTAL_MARGIN_X);
+        }
     }
+
     &-layout {
         background: rgba(255, 255, 255, 0);
         width: 100dvw;
         height: 100dvh;
         position: relative;
     }
+
     &-page {
         &-container {
             &-off {
                 background: #ccc !important;
             }
+
             position: absolute;
-            bottom: 15px;
+            bottom: $PAGE_CONTAINER_BOTTOM;
             right: 0;
             left: 0;
             margin: auto;
-            width: 130px;
-            height: 130px;
-            border-radius: 65px;
+            width: $PAGE_CONTAINER_SIZE;
+            height: $PAGE_CONTAINER_SIZE;
+            border-radius: $PAGE_CONTAINER_SIZE * 0.5;
             overflow: hidden;
             background: linear-gradient(
                 135deg,
-                rgba(151, 224, 233, 0.7) 0%,
-                rgba(193, 164, 248, 0.7) 33%,
-                rgba(240, 153, 195, 0.7) 66%,
-                rgba(236, 237, 135, 0.7) 100%
+                rgba($GRADIENT_1_R, $GRADIENT_1_G, $GRADIENT_1_B, $PAGE_OPACITY)
+                    0%,
+                rgba($GRADIENT_2_R, $GRADIENT_2_G, $GRADIENT_2_B, $PAGE_OPACITY)
+                    33%,
+                rgba($GRADIENT_3_R, $GRADIENT_3_G, $GRADIENT_3_B, $PAGE_OPACITY)
+                    66%,
+                rgba($GRADIENT_4_R, $GRADIENT_4_G, $GRADIENT_4_B, $PAGE_OPACITY)
+                    100%
             );
-            border: 5px solid rgba(255, 255, 255, 0.65);
+            border: $PAGE_CONTAINER_BORDER_WIDTH solid rgba(255, 255, 255, 0.65);
             transition:
-                transform 0.3s ease,
-                box-shadow 0.3s ease;
-            box-shadow: 0px 5px 15px 0px rgba(0, 0, 0, 0.3);
+                transform $TRANSITION_DURATION $TRANSITION_EASING,
+                box-shadow $TRANSITION_DURATION $TRANSITION_EASING;
+            box-shadow: $SHADOW_DEFAULT;
             cursor: pointer;
+
             &:hover {
-                box-shadow: 0px 2px 7px 0px rgba(0, 0, 0, 0.3);
+                box-shadow: $SHADOW_HOVER;
             }
+
             &:active {
-                box-shadow: 0px 5px 15px 0px rgba(0, 0, 0, 0.3);
+                box-shadow: $SHADOW_ACTIVE;
             }
+
             &::after {
                 content: "";
                 position: absolute;
-                top: 3px;
+                top: $PAGE_CONTAINER_AFTER_TOP;
                 left: 0;
                 right: 0;
                 margin: 0 auto;
-                border-top-left-radius: 55px;
-                border-top-right-radius: 55px;
-                width: calc(130px - 16px);
+                border-top-left-radius: $PAGE_CONTAINER_AFTER_RADIUS;
+                border-top-right-radius: $PAGE_CONTAINER_AFTER_RADIUS;
+                width: $PAGE_CONTAINER_SIZE - $PAGE_CONTAINER_AFTER_INSET;
                 height: 50%;
                 background-image: linear-gradient(180deg, #ffffff73, #ffffff0d);
             }
         }
+
         width: 100%;
         height: 100%;
     }
 }
 
 .puyon {
-    animation: puyon 6s linear 0s infinite;
-    /*              ↑ トータル時間（アニメーション + インターバル） */
+    animation: puyon $PUYON_DURATION linear 0s infinite;
+    /*                  ↑ トータル時間（アニメーション + インターバル） */
 }
+
 @keyframes puyon {
     0% {
         transform: scale(1, 1) translate(0%, 0%);

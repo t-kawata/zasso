@@ -7,8 +7,8 @@ pub(crate) const EDITIONS_JSON: &str = include_str!("../../../editions.json");
 mod edition;
 // 再公開する型・関数が現時点で外部から未参照のため lint を抑止する
 #[allow(unused_imports)]
-pub use edition::EditionConfig;
-#[allow(unused_imports)]
 pub use edition::current_edition;
+#[allow(unused_imports)]
+pub use edition::EditionConfig;
 
 pub(crate) mod settings;

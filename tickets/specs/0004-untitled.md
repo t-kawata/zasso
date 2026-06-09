@@ -2,10 +2,11 @@
 ticket_id: 4
 title: エディション別アプリ名・識別子の自動切替
 slug: edition-aware-app-name
-status: done
+status: reviewed
 created_at: 2026-06-09
 updated_at: 2026-06-09
 implementation_path: /Users/kawata/shyme/zasso/tickets/context/0004-untitled/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0004-untitled/review.md
 ---
 # エディション別アプリ名・識別子の自動切替
 

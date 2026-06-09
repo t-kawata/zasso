@@ -4,8 +4,8 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use super::EDITION_SLUG;
 use super::EDITIONS_JSON;
+use super::EDITION_SLUG;
 
 /// エディション設定
 #[derive(Debug, Clone, Deserialize)]
@@ -26,13 +26,10 @@ pub fn current_edition() -> Result<EditionConfig, String> {
     let editions: HashMap<String, EditionConfig> = serde_json::from_str(EDITIONS_JSON)
         .map_err(|e| format!("editions.json のパースに失敗しました: {}", e))?;
 
-    editions
-        .get(EDITION_SLUG)
-        .cloned()
-        .ok_or_else(|| {
-            format!(
-                "edition '{slug}' が editions.json に見つかりません",
-                slug = EDITION_SLUG
-            )
-        })
+    editions.get(EDITION_SLUG).cloned().ok_or_else(|| {
+        format!(
+            "edition '{slug}' が editions.json に見つかりません",
+            slug = EDITION_SLUG
+        )
+    })
 }

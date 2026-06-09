@@ -11,6 +11,9 @@ importers:
       '@quasar/extras':
         specifier: ^1.16.4
         version: 1.18.0
+      '@tauri-apps/api':
+        specifier: ^2.11.0
+        version: 2.11.0
       pinia:
         specifier: ^3.0.1
         version: 3.0.4(typescript@5.9.3)(vue@3.5.35(typescript@5.9.3))
@@ -1143,6 +1146,9 @@ packages:
     peerDependenciesMeta:
       rollup:
         optional: true
+
+  '@tauri-apps/api@2.11.0':
+    resolution: {integrity: sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==}
 
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
@@ -3946,6 +3952,8 @@ snapshots:
       '@types/estree': 1.0.9
       estree-walker: 2.0.2
       picomatch: 4.0.4
+
+  '@tauri-apps/api@2.11.0': {}
 
   '@tybys/wasm-util@0.10.2':
     dependencies:

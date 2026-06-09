@@ -2,5 +2,11 @@
 
 export const EDITION_SLUG = "zasso";
 export const OS_TYPE = "macos";
-export const APP_VERSION = "v0.24.238";
+export const APP_VERSION = "v0.24.239";
 export const APP_DISPLAY_NAME = "zasso";
+
+// ウィンドウサイズ設定（src-tauri/src/consts/settings.rs から同期）
+export const WINDOW_WIDTH_COLLAPSED = 160;
+export const WINDOW_HEIGHT_COLLAPSED = 185;
+export const WINDOW_WIDTH_EXPANDED = 400;
+export const WINDOW_HEIGHT_EXPANDED = 760;
