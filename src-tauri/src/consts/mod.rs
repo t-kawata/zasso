@@ -10,3 +10,5 @@ mod edition;
 pub use edition::EditionConfig;
 #[allow(unused_imports)]
 pub use edition::current_edition;
+
+pub(crate) mod settings;
