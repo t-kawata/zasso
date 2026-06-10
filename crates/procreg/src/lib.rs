@@ -19,12 +19,14 @@ pub use crate::error::RegistryError;
 pub mod graph;
 pub mod panic;
 pub mod platform;
+pub mod port;
 pub mod ready;
 pub mod registry;
 pub mod signal;
 pub mod spawn;
 pub mod state;
 pub mod watch;
+pub(crate) mod watchdog;
 pub use crate::registry::ProcessRegistry;
 // ChildGuard, RegistryEntry の再公開は利用箇所が出た時点で追加する
 pub use crate::state::ProcessState;

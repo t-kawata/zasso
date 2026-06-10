@@ -3,6 +3,7 @@
 //! このモジュールはクレート全体で使用するエラー型 `RegistryError` を定義する。
 //! `thiserror` により `std::error::Error` が自動導出される。
 
+use std::net::IpAddr;
 use std::time::Duration;
 
 /// プロセスレジストリ操作で発生しうるすべてのエラーを表現する。
@@ -50,6 +51,16 @@ pub enum RegistryError {
         name: String,
         /// 設定されていたタイムアウト値。
         timeout: Duration,
+    },
+
+    /// 起動前に確認したポートが既に他のプロセスに占有されていた。
+    /// ゾンビプロセスの残留や二重起動が原因として考えられる。
+    #[error("Port {port} is already in use on {host}")]
+    PortInUse {
+        /// 競合が発生したホストアドレス。
+        host: IpAddr,
+        /// 競合が発生したポート番号。
+        port: u16,
     },
 }
 
@@ -159,5 +170,24 @@ mod tests {
         let debug_str = format!("{:?}", err);
         assert!(!debug_str.is_empty());
         assert!(debug_str.contains("CircularDependency"));
+    }
+
+    /// PortInUse の Display 出力にポート番号とホストアドレスが含まれることを確認する。
+    #[test]
+    fn port_inuse_display() {
+        let host = IpAddr::from([127, 0, 0, 1]);
+        let err = RegistryError::PortInUse { host, port: 3912 };
+        let display = err.to_string();
+        assert!(display.contains("3912"), "port number should appear in message");
+        assert!(display.contains("127.0.0.1"), "host should appear in message");
+    }
+
+    /// PortInUse の `.source()` が `None` を返すことを確認する。
+    /// このバリアントは内包エラーを持たないため。
+    #[test]
+    fn port_inuse_source_is_none() {
+        let host = IpAddr::from([127, 0, 0, 1]);
+        let err = RegistryError::PortInUse { host, port: 3912 };
+        assert!(err.source().is_none());
     }
 }

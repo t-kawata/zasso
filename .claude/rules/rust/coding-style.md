@@ -302,6 +302,34 @@ std::fs::write(&path, &data).map_err(|e| Error::Io(e.to_string()))?;
 - `main_of_rt.rs` の環境変数収集ブロックで読み込み
 - 設定値は `Arc<Config>` 等の引数で各コンポーネントに伝搬
 
+### コンパイル時設定定数は `consts/settings.rs` で一元管理（zasso）
+
+`src-tauri/src/consts/settings.rs` はアプリケーション全体で共有される設定定数の唯一の情報源（Source of Truth）である。
+
+- ポート番号・パス・閾値等の設定値は `settings.rs` に `pub(crate) const` として定義する
+- `consts/mod.rs` で `pub(crate) use settings::XXX` により再公開し、各モジュールからは `crate::consts::XXX` で参照する
+- **テストコード内でもマジックナンバーを直書きせず**、必ず `settings.rs` の定数を参照する
+- 新しい設定値が必要になった場合、最初のステップとして `settings.rs` に定数を追加する習慣を徹底する（実装の afterthought にしない）
+
+```rust
+// src-tauri/src/consts/settings.rs — 設定定数の唯一の情報源
+pub(crate) const BIFROST_PORT: u16 = 3912;
+
+// src-tauri/src/consts/mod.rs — 再公開
+pub(crate) use settings::BIFROST_PORT;
+
+// src-tauri/src/sidecar.rs — 参照側
+use crate::consts::BIFROST_PORT;
+fn sidecar_defs() -> Vec<ProcessDef> {
+    vec![ProcessDef {
+        ready: ReadyCondition::TcpPort { port: BIFROST_PORT, .. },
+        ..
+    }]
+}
+```
+
+このルールは、設定値がコード中に散逸して発見困難になる「魔術定数問題」を防止する。また、一箇所を変更するだけで全モジュールに反映される保守性を担保する。
+
 ## References
 
 See skill: `rust-patterns` for comprehensive Rust idioms and patterns.

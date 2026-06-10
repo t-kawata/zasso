@@ -13,6 +13,9 @@
 - **再起動ポリシー** — `Never / OnCrash / Always` + 指数バックオフ
 - **出力キャプチャ** — stdout/stderr を `broadcast` チャンネルで購読可能
 - **Graceful Shutdown** — Unix は SIGTERM → 待機 → SIGKILL、Windows は TerminateProcess
+- **ポート競合検出** — 起動前にポート使用中を確認し、ゾンビプロセスがいる場合は起動をブロック
+- **Watchdog ラッパー** — 全サイドカーは Watchdog プロセスを介して起動。親が死んだら子を自動終了
+- **運命共同体（Fate Sharing）** — リトライ上限到達時はアプリ全体が停止。子も親も孤児にならない
 - **パニック安全網** — パニック時に全子プロセスを自動停止
 - **クロスプラットフォーム** — macOS / Linux / Windows で同一 API
 
@@ -306,32 +309,48 @@ registry.stop("app").await.unwrap();
    - **Unix**: SIGTERM → `unix_sigterm_timeout`(デフォルト5秒)待機 → SIGKILL
    - **Windows**: `start_kill()` → `windows_ctrl_break_timeout`(デフォルト8秒)待機
 
-### Step 9: アプリ終了時の安全網
+### Step 9: 運命共同体（Fate Sharing）
 
-```rust
-use process_registry::ProcessRegistry;
+process-registry は **Watchdog ラッパー** により全 OS で共通の運命共同体を実現します。
 
-// パニック時に全プロセスを自動停止するフック
-// main() の最初に呼んでおく
-process_registry::install_panic_hook(registry.clone());
+**仕組み**:
 
-// Unix の場合: SIGTERM を受けたら全プロセスを停止
-#[cfg(unix)]
-process_registry::install_sigterm_handler(registry.clone());
+```
+親プロセス（アプリ）
+  └── spawn → [Watchdog]
+        ├── 1秒ごとに kill -0 (Unix) / tasklist (Windows) で親PIDを確認
+        ├── 親が死んだ → 子プロセスを強制終了 → 自身も exit
+        ├── 子が先に死んだ → exit(子の終了コード)
+        └── spawn → [実際のサイドカー（bifrost-http 等）]
 ```
 
-`install_panic_hook` は専用スレッド + `current_thread` Tokio ランタイムで `shutdown_all` を実行するため、Tokio ワーカースレッド上でのパニックでもデッドロックしません。
+Watchdog は build.rs で自動コンパイルされ、`include_bytes!` でライブラリに埋め込まれます。
+利用者は意識することなく、`start_all()` が自動的に Watchdog 経由でプロセスを起動します。
+
+**子が永久に死んだ場合の連鎖停止**:
+
+`RestartPolicy::OnCrash` / `Always` でリトライ上限に達するか、再起動の spawn に失敗した場合、
+`watch_loop` が `registry.shutdown_all().await` を呼び出し、アプリ全体を停止します。
+
+```rust
+// 通常の start_all を呼ぶだけで Watchdog による保護が適用される
+registry.start_all(defs).await.unwrap();
+
+// パニック安全網（任意）
+process_registry::install_panic_hook(registry.clone());
+```
+
+| シナリオ | 動作 |
+|---------|------|
+| 親が SIGKILL / 即死 | Watchdog が kill -0 で検知 → 子を強制終了 |
+| 親が Ctrl+C / SIGTERM | Watchdog または shutdown_all で子に SIGTERM |
+| 子がクラッシュ | OnCrash でリトライ×3 → 上限到達 → shutdown_all で親も停止 |
+| 子が自然終了 | 同上。exit code 0 でもリトライ上限に達すれば親も停止 |
+| RestartPolicy::Never | 子は終了するが親は動き続ける（設計上の意図） |
 
 ### Step 10: コンパイル時の注意
 
-`install_sigterm_handler` は Unix 専用です。Windows ではコンパイルされません。
-
-```rust
-#[cfg(unix)]
-process_registry::install_sigterm_handler(registry.clone());
-```
-
-また、`install_panic_hook` を正しく動作させるには、`Cargo.toml` で `panic = "unwind"` を設定する必要があります。
+`install_panic_hook` を正しく動作させるには、`Cargo.toml` で `panic = "unwind"` を設定する必要があります。
 
 ```toml
 [profile.release]
@@ -343,25 +362,38 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
 ## アーキテクチャ
 
 ```
-┌──────────────────────────────────────────┐
-│              ProcessRegistry              │
-│                                          │
-│  HashMap<String, RegistryEntry>          │
-│  ├── "db"   → RegistryEntry{child,tx,…} │
-│  └── "app"  → RegistryEntry{child,tx,…} │
-│                                          │
-│  tokio::process::Command で直接 spawn:    │
-│    ChildGuard ─ drop 時に GracefulShutdown│
-│    BufReader  ─ stdout/stderr→broadcast  │
-└──────────────────────────────────────────┘
-         ↑
-   Arc<Mutex<Inner>>
-         ↑
-┌────────────────────┐  ┌───────────────────┐
-│  アプリケーション   │  │   Watch Task      │
-│  (snapshot / stop) │  │  exit_rx.await    │
-│                    │  │  → 再起動判断     │
-└────────────────────┘  └───────────────────┘
+                    ┌─────────────────────────────────────┐
+                    │           ProcessRegistry            │
+                    │                                     │
+                    │  HashMap<String, RegistryEntry>     │
+                    │  ├── "bifrost" → Entry              │
+                    │  └── "tensorzero" → Entry            │
+                    └─────────────────────────────────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  spawn_one()        │
+                    │  ─ ポート競合チェック │
+                    │  ─ Watchdog 展開     │
+                    └─────────────────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │    [Watchdog]        │ ← 独立プロセス
+                    │  kill -0 親PID      │    親が死んだら子をkill
+                    │  1秒間隔            │    全OS共通
+                    └──────────▼──────────┘
+                               │ spawn
+                    ┌──────────▼──────────┐
+                    │  [サイドカー]        │
+                    │  bifrost-http 等     │
+                    └─────────────────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │   watch_loop         │
+                    │  exit_rx.await       │
+                    │  → 再起動 or         │
+                    │  → 上限到達→親停止   │
+                    └─────────────────────┘
 ```
 
 ### 主要モジュール
@@ -370,21 +402,23 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
 |-----------|------|
 | `registry` | `ProcessRegistry` — 公開 API（new, snapshot, subscribe, start_all, shutdown_all, stop）|
 | `graph` | `resolve_start_order` — DAG トポロジカルソート |
-| `spawn` | `spawn_one` — プロセス起動・出力キャプチャ・PID probe |
+| `spawn` | `spawn_one` — Watchdog ラッパー経由のプロセス起動・出力キャプチャ |
 | `child` | `ChildGuard` — Graceful Shutdown（SIGTERM → wait → SIGKILL）|
 | `ready` | `wait_ready` — 起動完了条件の非同期待機 |
-| `watch` | `watch_loop` — イベント駆動監視・再起動ループ |
+| `watch` | `watch_loop` — イベント駆動監視・再起動ループ・Fate Sharing |
 | `platform` | `is_process_alive` — クロスプラットフォーム生存確認 |
+| `port` | `is_port_free` — ポート競合検出（`TcpListener::bind`）|
+| `watchdog`（build.rs）| `procreg-watchdog` — 親死検知ラッパーバイナリ（全OS統一）|
 | `signal` | `install_sigterm_handler` — Unix SIGTERM ハンドラ |
 | `panic` | `install_panic_hook` — パニック安全網 |
-| `error` | `RegistryError` — エラー型（5バリアント）|
+| `error` | `RegistryError` — エラー型（6バリアント）|
 | `state` | `ProcessState` — プロセス状態（serde 対応）|
 
 ---
 
 ## エラーハンドリング
 
-`RegistryError` は 5 種類のエラーを統一的に扱います。
+`RegistryError` は 6 種類のエラーを統一的に扱います。
 
 | エラーバリアント | 発生タイミング | 意味 |
 |-----------------|--------------|------|
@@ -393,6 +427,7 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
 | `NotFound(String)` | `stop` | 指定したプロセス名が存在しない |
 | `SpawnFailed { name, source }` | `start_all` / 再起動 | プロセスの起動に失敗した |
 | `ReadyTimeout { name, timeout }` | 起動時 | ReadyCondition がタイムアウトした |
+| `PortInUse { host, port }` | `start_all` | ポートが既に他のプロセスに占有されている |
 
 ```rust
 use process_registry::RegistryError;
@@ -414,11 +449,11 @@ match registry.start_all(defs).await {
 ## テスト
 
 ```bash
-# 全テスト実行（単体 76 + 統合 2 = 78）
+# 全テスト実行
 cargo test
 
 # 高速フィードバック（単体のみ）
-cargo test --lib
+cargo test --lib          # 84 tests
 ```
 
 ---

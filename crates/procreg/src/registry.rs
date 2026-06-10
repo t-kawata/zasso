@@ -165,12 +165,13 @@ impl ProcessRegistry {
                 }
             }
 
-            // watch_loop タスクを起動
+            // watch_loop タスクを起動（リトライ上限到達時の shutdown_all 用に registry も渡す）
             crate::watch::start_watch_task(
                 Arc::clone(&self.inner),
                 def.clone(),
                 result.exit_rx,
                 cancel_token.clone(),
+                self.clone(),
             );
         }
 

@@ -25,6 +25,7 @@ serde_json = "1"
 dirs = "6.0.0"
 flate2 = "1.1.9"
 tar = "0.4.46"
+process-registry = { path = "../crates/procreg" }
 
 [dev-dependencies]
 tempfile = "3.27.0"

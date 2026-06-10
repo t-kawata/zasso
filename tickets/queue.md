@@ -24,3 +24,8 @@
 - [x] #23 M12-1: Tauri コマンド + RunEvent::Exit ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0023-m12-1-tauri-runeventexit.md | 2026-06-10
 - [x] #24 M13-1: 統合テストスイート | /Users/kawata/shyme/zasso/tickets/specs/0024-m13-1.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #25 EDITION_HOME導入とbifrostバイナリの自動展開 | /Users/kawata/shyme/zasso/tickets/specs/0025-edition-homebifrost.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #26 process-registry による宣言的サイドカー管理基盤（Fate Sharing） | /Users/kawata/shyme/zasso/tickets/specs/0026-process-registry-fate-sharing.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #27 process-registry: ポート競合検出による起動時安全機構 | /Users/kawata/shyme/zasso/tickets/specs/0027-process-registry.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #28 process-registry: 親プロセス生死監視とサイドカー自殺機構 | /Users/kawata/shyme/zasso/tickets/specs/0028-process-registry-2.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #29 process-registry: Watchdogラッパーによる全OS統一の親死検知機構 | /Users/kawata/shyme/zasso/tickets/specs/0029-process-registry-watchdogos.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #30 process-registry: 子プロセス永久死検知と親プロセス連鎖停止 | /Users/kawata/shyme/zasso/tickets/specs/0030-process-registry-3.md | 2026-06-10 | 2026-06-10 | 2026-06-10

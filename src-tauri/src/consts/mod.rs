@@ -16,3 +16,5 @@ pub(crate) use edition::ensure_edition_data_dir;
 pub(crate) use edition::{edition_home, init_edition_home};
 
 pub(crate) mod settings;
+/// settings.rs の BIFROST_PORT を consts 直下に再公開する
+pub(crate) use settings::BIFROST_PORT;

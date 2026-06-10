@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::registry::ProcessRegistry;
 use crate::state::ProcessState;
 use crate::{ProcessDef, RestartPolicy};
 use crate::registry::RegistryInner;
@@ -13,43 +14,35 @@ use crate::registry::RegistryInner;
 /// プロセス監視タスクを起動する。
 ///
 /// `tokio::spawn` で `watch_loop` をバックグラウンドタスクとして実行する。
-///
-/// # 未使用警告について
-///
-/// この関数は M8-1（spawn_one/start_all）で使用される。現時点では定義のみ。
-#[allow(dead_code)]
+/// `registry` はリトライ上限到達時に `shutdown_all()` を呼び出すために使用される。
 pub(crate) fn start_watch_task(
     inner: Arc<Mutex<RegistryInner>>,
     def: ProcessDef,
     exit_rx: tokio::sync::oneshot::Receiver<Option<i32>>,
     cancel_token: tokio_util::sync::CancellationToken,
+    registry: ProcessRegistry,
 ) {
     tokio::spawn(async move {
-        watch_loop(inner, def, exit_rx, cancel_token).await;
+        watch_loop(inner, def, exit_rx, cancel_token, registry).await;
     });
 }
 
 /// プロセス終了を監視し、`RestartPolicy` に基づいて再起動するループ。
 ///
+/// `registry` が必要な理由: リトライ上限到達時や spawn 失敗時に
+/// `shutdown_all()` を呼び出し、子の永久死を検知してアプリ全体を停止する。
+/// これにより「親が死ねば子も死ぬ、子が永久に死ねば親も死ぬ」が実現する。
+///
 /// # イベント駆動
 ///
 /// `tokio::select!` で終了通知（exit_rx）とキャンセルトークンを同時待機する。
 /// ポーリングは行わず、イベント駆動で効率的に動作する。
-///
-/// # 再起動パス（M8-1 完了後）
-///
-/// 現在の実装では再起動パスはスタブとなっている。
-/// M8-1 完了後に `Self::spawn_one(...)` 呼び出しに置き換える。
-///
-/// # 未使用警告について
-///
-/// この関数は M8-1（spawn_one/start_all）で使用される。現時点では定義のみ。
-#[allow(dead_code)]
 async fn watch_loop(
     inner: Arc<Mutex<RegistryInner>>,
     def: ProcessDef,
     mut exit_rx: tokio::sync::oneshot::Receiver<Option<i32>>,
     cancel_token: tokio_util::sync::CancellationToken,
+    registry: ProcessRegistry,
 ) {
     loop {
         // プロセス終了シグナル または キャンセル を待つ（イベント駆動）
@@ -127,6 +120,10 @@ async fn watch_loop(
                     };
                     entry.child = None;
                 }
+                // リトライ上限に達した = 子は永久に復帰しない
+                // Mutex ロックを解放してから shutdown_all を呼ぶ（デッドロック回避）
+                drop(guard);
+                registry.shutdown_all().await;
                 return;
             }
         };
@@ -191,6 +188,10 @@ async fn watch_loop(
                         message: e.to_string(),
                     };
                 }
+                // 再起動の spawn 自体に失敗 = 子は永久に復帰しない
+                // Mutex ロックを解放してから shutdown_all を呼ぶ（デッドロック回避）
+                drop(guard);
+                registry.shutdown_all().await;
                 return;
             }
         }
@@ -258,7 +259,8 @@ mod tests {
         // cancel_token を発火して watch_loop が停止することを確認
         cancel_token.cancel();
 
-        watch_loop(inner, def, rx, cancel_token).await;
+        let registry = ProcessRegistry::new();
+        watch_loop(inner, def, rx, cancel_token, registry).await;
         // 即座に return するはず（タイムアウトなしで確認）
         // ここに到達すればテスト成功
         let _ = tx; // drop
@@ -276,7 +278,8 @@ mod tests {
         let (tx, rx) = tokio::sync::oneshot::channel::<Option<i32>>();
         tx.send(Some(1)).unwrap();
 
-        watch_loop(inner.clone(), def.clone(), rx, cancel_token).await;
+        let registry = ProcessRegistry::new();
+        watch_loop(inner.clone(), def.clone(), rx, cancel_token, registry).await;
 
         // Failed 状態になっていることを確認
         let guard = inner.lock().await;
@@ -302,8 +305,9 @@ mod tests {
         let (tx, rx) = tokio::sync::oneshot::channel::<Option<i32>>();
         let cancel_token = CancellationToken::new();
 
+        let registry = ProcessRegistry::new();
         // watch_loop をバックグラウンドで起動（本番と同様の実行順序）
-        let handle = tokio::spawn(watch_loop(inner, def, rx, cancel_token));
+        let handle = tokio::spawn(watch_loop(inner, def, rx, cancel_token, registry));
 
         // PID probe タスク相当: 短い遅延後に終了コードを送信
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;

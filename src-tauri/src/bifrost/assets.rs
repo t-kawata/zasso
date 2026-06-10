@@ -7,15 +7,22 @@
 pub(crate) const BIFROST_VERSION: &str = "v1.5.11";
 
 /// 現在のビルドターゲットに対応するbifrost圧縮アーカイブのファイル名
+///
+/// デバッグログ用。include_bytes! の埋め込みファイル名と一致する。
+/// 現時点では Rust コード中から直接参照されていないが、`bundled_archive()`
+/// と対をなす定数であり、将来のログ出力のために維持する。
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[allow(dead_code)]
 pub(crate) const ARCHIVE_FILENAME: &str = "bifrost-http-darwin-arm64-v1.5.11.tar.gz";
 
 /// 現在のビルドターゲットに対応するbifrost圧縮アーカイブのファイル名
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[allow(dead_code)]
 pub(crate) const ARCHIVE_FILENAME: &str = "bifrost-http-linux-amd64-v1.5.11.tar.gz";
 
 /// 現在のビルドターゲットに対応するbifrost圧縮アーカイブのファイル名
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+#[allow(dead_code)]
 pub(crate) const ARCHIVE_FILENAME: &str = "bifrost-http-windows-amd64-v1.5.11.tar.gz";
 
 /// 現在のビルドターゲットに対応するbifrost圧縮アーカイブのバイト列を返す

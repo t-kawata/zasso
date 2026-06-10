@@ -273,6 +273,7 @@ MYCUTE は SQLite をプライマリDBとしつつ、MySQL および PostgreSQL 
 - **検証なき完了報告禁止**: 最終編集の直後に必ずコンパイル・テストを実行
 - **検証リソースの放置禁止**: 起動したプロセスや一時ファイルは完了前に停止・削除
 - **憶測ハードコーディング禁止**: パス・マジックナンバーをハードコードしない
+- **設定値は `consts/settings.rs` で一元管理**: ポート番号・パス・閾値等の設定定数は `src-tauri/src/consts/settings.rs` に定義し、`consts/mod.rs` 経由で参照する。テストコード内も含めてマジックナンバーの直書きを禁止する。新しい設定値はまず `settings.rs` に追加する習慣を徹底する
 - **Makefile 抽象化の強制**: `cargo check`, `cargo run` 等を直接使用せず、`Makefile` に定義された `make` コマンド経由で呼び出す
   - `make check-be`: Rust（バックエンド）のみ編集時
   - `make check-fe`: フロントエンドのみ編集時
