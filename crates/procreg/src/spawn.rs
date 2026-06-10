@@ -171,8 +171,10 @@ mod tests {
         }
     }
 
-    /// /bin/echo を spawn し、プロセスが正常に起動して出力が broadcast に
-    /// 配信されることを確認する。
+    /// echo 相当のプロセスを spawn し、正常に起動することを確認する。
+    ///
+    /// Unix: `/bin/echo`（引数なし。起動して即終了）
+    /// Windows: `cmd.exe /c echo`（同上）
     #[tokio::test(flavor = "multi_thread")]
     async fn spawn_one_echo_process() {
         let inner = Arc::new(Mutex::new(RegistryInner {
@@ -181,7 +183,19 @@ mod tests {
         }));
         let (tx, _rx) = broadcast::channel::<String>(2048);
         let cancel = CancellationToken::new();
+        #[cfg(unix)]
         let def = test_def("echo_test", "/bin/echo");
+        #[cfg(windows)]
+        let def = ProcessDef {
+            name: "echo_test".to_string(),
+            program: "cmd.exe".to_string(),
+            args: vec!["/c".to_string(), "echo".to_string()],
+            env: vec![],
+            depends_on: vec![],
+            restart: RestartPolicy::Never,
+            ready: ReadyCondition::Immediate,
+            shutdown_timeout: None,
+        };
 
         // RegistryEntry を事前登録（start_all 相当）
         let entry = RegistryEntry {
