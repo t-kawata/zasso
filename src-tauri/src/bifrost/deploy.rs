@@ -50,7 +50,7 @@ pub(crate) fn ensure_bifrost_binary(home: &Path) -> Result<(), String> {
     {
         use std::os::unix::fs::PermissionsExt;
 
-        let binary_path = bifrost_dir.join(binary_filename());
+        let binary_path = bifrost_dir.join(crate::sidecar::binary_filename());
         std::fs::set_permissions(&binary_path, std::fs::Permissions::from_mode(0o755))
             .map_err(|e| format!("Failed to set permissions on {:?}: {}", binary_path, e))?;
     }
@@ -60,15 +60,6 @@ pub(crate) fn ensure_bifrost_binary(home: &Path) -> Result<(), String> {
         .map_err(|e| format!("Failed to write version marker: {}", e))?;
 
     Ok(())
-}
-
-/// プラットフォームに応じたbifrost実行ファイル名を返す
-fn binary_filename() -> &'static str {
-    if cfg!(target_os = "windows") {
-        "bifrost-http.exe"
-    } else {
-        "bifrost-http"
-    }
 }
 
 #[cfg(test)]
@@ -92,7 +83,7 @@ mod tests {
         let bifrost_dir = home.join("bifrost");
         assert!(bifrost_dir.exists(), "bifrost directory should exist");
 
-        let binary = bifrost_dir.join(binary_filename());
+        let binary = bifrost_dir.join(crate::sidecar::binary_filename());
         assert!(binary.exists(), "bifrost binary should exist");
         let binary_meta = binary.metadata().map_err(|e| e.to_string())?;
         assert!(binary_meta.len() > 0, "binary should not be empty");
@@ -116,7 +107,7 @@ mod tests {
 
         // 初回展開（確実に展開される）
         ensure_bifrost_binary(&home)?;
-        let binary_path = home.join("bifrost").join(binary_filename());
+        let binary_path = home.join("bifrost").join(crate::sidecar::binary_filename());
         let original_meta = binary_path.metadata().map_err(|e| e.to_string())?;
         let original_modified = original_meta.modified().map_err(|e| e.to_string())?;
 
@@ -157,9 +148,10 @@ mod tests {
     }
 
     /// ターゲットに応じたバイナリファイル名が返ることを確認する
+    ///（sidecar.rs の binary_filename を間接的に検証）
     #[test]
     fn test_binary_filename_is_platform_specific() {
-        let name = binary_filename();
+        let name = crate::sidecar::binary_filename();
         #[cfg(not(target_os = "windows"))]
         assert_eq!(name, "bifrost-http");
         #[cfg(target_os = "windows")]

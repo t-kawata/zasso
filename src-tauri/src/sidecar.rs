@@ -75,7 +75,9 @@ pub(crate) fn sidecar_defs(edition_home: &Path) -> Vec<ProcessDef> {
 }
 
 /// 実行ファイル名をプラットフォームに応じて返す
-fn binary_filename() -> &'static str {
+///
+/// deploy.rs からも参照されるため pub(crate) で公開する。
+pub(crate) fn binary_filename() -> &'static str {
     if cfg!(target_os = "windows") {
         "bifrost-http.exe"
     } else {
