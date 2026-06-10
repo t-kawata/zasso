@@ -11,8 +11,7 @@
 pub fn install_sigterm_handler(registry: crate::registry::ProcessRegistry) {
     use tokio::signal::unix::{signal, SignalKind};
 
-    let mut sigterm = signal(SignalKind::terminate())
-        .expect("Failed to install SIGTERM handler");
+    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to install SIGTERM handler");
 
     tokio::spawn(async move {
         sigterm.recv().await;

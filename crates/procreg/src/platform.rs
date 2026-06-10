@@ -36,25 +36,20 @@ pub(crate) fn is_process_alive(pid: u32) -> bool {
         // pid が無効でも未定義動作は発生せず、ESRCH が返る。
         unsafe {
             let result = libc::kill(pid as libc::pid_t, 0);
-            result == 0
-                || std::io::Error::last_os_error().raw_os_error()
-                    != Some(libc::ESRCH)
+            result == 0 || std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
         }
     }
 
     #[cfg(windows)]
     {
         use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{
-            OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
-        };
+        use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
 
         // SAFETY: OpenProcess は指定 PID のプロセスハンドルを取得する。
         // 無効な PID でもエラーが返るのみで未定義動作は発生しない。
         // 取得したハンドルは必ず CloseHandle で解放する。
         unsafe {
-            let handle =
-                OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
             if let Ok(h) = handle {
                 let _ = CloseHandle(h);
                 true

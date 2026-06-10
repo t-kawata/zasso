@@ -21,8 +21,12 @@ const VERSION_MARKER: &str = ".version";
 /// 5. `.version` に `BIFROST_VERSION` を書き込む
 pub(crate) fn ensure_bifrost_binary(home: &Path) -> Result<(), String> {
     let bifrost_dir = home.join("bifrost");
-    std::fs::create_dir_all(&bifrost_dir)
-        .map_err(|e| format!("Failed to create bifrost directory {:?}: {}", bifrost_dir, e))?;
+    std::fs::create_dir_all(&bifrost_dir).map_err(|e| {
+        format!(
+            "Failed to create bifrost directory {:?}: {}",
+            bifrost_dir, e
+        )
+    })?;
 
     // バージョンマーカーを確認する
     let marker_path = bifrost_dir.join(VERSION_MARKER);
@@ -96,7 +100,11 @@ mod tests {
         let marker = bifrost_dir.join(VERSION_MARKER);
         assert!(marker.exists(), "version marker should exist");
         let version = std::fs::read_to_string(&marker).map_err(|e| e.to_string())?;
-        assert_eq!(version.trim(), BIFROST_VERSION, "version marker should match");
+        assert_eq!(
+            version.trim(),
+            BIFROST_VERSION,
+            "version marker should match"
+        );
 
         Ok(())
     }
@@ -158,4 +166,3 @@ mod tests {
         assert_eq!(name, "bifrost-http.exe");
     }
 }
-

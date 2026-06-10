@@ -98,7 +98,10 @@ mod tests {
             retry_in_ms: 3000,
         };
         let json = serde_json::to_string(&state).unwrap();
-        assert_eq!(json, r#"{"state":"restarting","attempt":2,"retry_in_ms":3000}"#);
+        assert_eq!(
+            json,
+            r#"{"state":"restarting","attempt":2,"retry_in_ms":3000}"#
+        );
 
         let deserialized: ProcessState = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, state);
@@ -158,21 +161,30 @@ mod tests {
             (ProcessState::Pending, "pending"),
             (ProcessState::Starting, "starting"),
             (ProcessState::Running { pid: 1 }, "running"),
-            (ProcessState::Restarting {
-                attempt: 0,
-                retry_in_ms: 0,
-            }, "restarting"),
-            (ProcessState::Failed {
-                exit_code: None,
-                message: "".to_string(),
-            }, "failed"),
+            (
+                ProcessState::Restarting {
+                    attempt: 0,
+                    retry_in_ms: 0,
+                },
+                "restarting",
+            ),
+            (
+                ProcessState::Failed {
+                    exit_code: None,
+                    message: "".to_string(),
+                },
+                "failed",
+            ),
             (ProcessState::Stopped, "stopped"),
         ];
 
         for (state, expected_tag) in states {
             let json = serde_json::to_value(&state).unwrap();
             let tag = json.get("state").and_then(|v| v.as_str()).unwrap();
-            assert_eq!(tag, expected_tag, "Expected tag '{expected_tag}' for {state:?}");
+            assert_eq!(
+                tag, expected_tag,
+                "Expected tag '{expected_tag}' for {state:?}"
+            );
         }
     }
 }

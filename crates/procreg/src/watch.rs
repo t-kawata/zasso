@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::registry::ProcessRegistry;
+use crate::registry::RegistryInner;
 use crate::state::ProcessState;
 use crate::{ProcessDef, RestartPolicy};
-use crate::registry::RegistryInner;
 
 /// プロセス監視タスクを起動する。
 ///
@@ -95,10 +95,7 @@ async fn watch_loop(
             if let Some(entry) = guard.entries.get_mut(&def.name) {
                 entry.state = ProcessState::Failed {
                     exit_code,
-                    message: format!(
-                        "Process exited with {:?}, RestartPolicy::Never",
-                        exit_code
-                    ),
+                    message: format!("Process exited with {:?}, RestartPolicy::Never", exit_code),
                 };
                 entry.child = None;
             }
@@ -152,12 +149,11 @@ async fn watch_loop(
         // レジストリの output_tx を取得（再起動後も同じチャンネルを使い続ける）
         let output_tx = {
             let guard = inner.lock().await;
-            guard
-                .entries
-                .get(&def.name)
-                .map(|e| e.output_tx.clone())
+            guard.entries.get(&def.name).map(|e| e.output_tx.clone())
         };
-        let Some(output_tx) = output_tx else { return; };
+        let Some(output_tx) = output_tx else {
+            return;
+        };
 
         // 再起動
         match crate::spawn::spawn_one(
@@ -201,11 +197,11 @@ async fn watch_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry::RegistryEntry;
+    use crate::state::ProcessState;
     use crate::ProcessDef;
     use crate::ReadyCondition;
     use crate::RestartPolicy;
-    use crate::state::ProcessState;
-    use crate::registry::RegistryEntry;
     use std::collections::HashMap;
     use tokio::sync::broadcast;
     use tokio_util::sync::CancellationToken;
@@ -284,13 +280,13 @@ mod tests {
         // Failed 状態になっていることを確認
         let guard = inner.lock().await;
         let entry = guard.entries.get("test").unwrap();
-        assert_eq!(entry.state, ProcessState::Failed {
-            exit_code: Some(1),
-            message: format!(
-                "Process exited with {:?}, RestartPolicy::Never",
-                Some(1)
-            ),
-        });
+        assert_eq!(
+            entry.state,
+            ProcessState::Failed {
+                exit_code: Some(1),
+                message: format!("Process exited with {:?}, RestartPolicy::Never", Some(1)),
+            }
+        );
     }
 
     /// プロセスが Stopped 状態の場合、watch_loop が return することを確認する。

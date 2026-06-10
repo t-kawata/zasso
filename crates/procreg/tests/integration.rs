@@ -3,8 +3,17 @@
 //! 実プロセスを使用した start_all → Running → shutdown_all → Stopped の
 //! フルライフサイクルを検証する。
 //! `#[tokio::test(flavor = "multi_thread")]` 必須。
+//!
+//! # タイムアウト
+//!
+//! 各テストは tokio::time::timeout でラップし、ハングを防止する。
+//! Windows の tasklist 呼び出しが高負荷時に応答しなくなるケースに備える。
 
 use process_registry::*;
+use std::time::Duration;
+
+/// 全テストに適用する最大実行時間（tasklist ハング等の安全網）
+const TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// テスト用の ProcessDef を構築する。
 fn make_def(name: &str, deps: &[&str], program: &str, args: Vec<String>) -> ProcessDef {
@@ -22,74 +31,131 @@ fn make_def(name: &str, deps: &[&str], program: &str, args: Vec<String>) -> Proc
 
 /// start_all でプロセスを起動し、Running 状態を確認した後、
 /// shutdown_all で Stopped 状態になることを検証する。
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_start_and_stop() {
-    let registry = ProcessRegistry::new();
+///
+/// 手動ランタイム + shutdown_timeout(1) により、バックグラウンドタスクが
+/// ランタイムシャットダウンをブロックしないことを保証する（Windows 対策）。
+#[test]
+fn test_start_and_stop() {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .expect("Failed to build tokio runtime");
 
-    #[cfg(unix)]
-    let def = make_def("sleep_proc", &[], "sleep", vec!["100".to_string()]);
-    #[cfg(windows)]
-    let def = make_def("sleep_proc", &[], "timeout", vec!["/t".to_string(), "100".to_string()]);
+    let result = rt.block_on(async {
+        tokio::time::timeout(TEST_TIMEOUT, async {
+            let registry = ProcessRegistry::new();
 
-    registry
-        .start_all(vec![def])
+            #[cfg(unix)]
+            let def = make_def("sleep_proc", &[], "sleep", vec!["100".to_string()]);
+            #[cfg(windows)]
+            let def = make_def(
+                "sleep_proc",
+                &[],
+                "timeout",
+                vec!["/t".to_string(), "100".to_string()],
+            );
+
+            registry
+                .start_all(vec![def])
+                .await
+                .expect("start_all should succeed");
+
+            // Running 状態を確認
+            let snapshot = registry.snapshot().await;
+            assert!(
+                matches!(
+                    snapshot.get("sleep_proc"),
+                    Some(ProcessState::Running { .. })
+                ),
+                "Process should be Running after start_all"
+            );
+
+            // shutdown_all で停止
+            registry.shutdown_all().await;
+
+            // Stopped 状態を確認
+            let snapshot = registry.snapshot().await;
+            assert!(
+                matches!(snapshot.get("sleep_proc"), Some(ProcessState::Stopped)),
+                "Process should be Stopped after shutdown_all"
+            );
+        })
         .await
-        .expect("start_all should succeed");
+    });
 
-    // Running 状態を確認
-    let snapshot = registry.snapshot().await;
-    assert!(matches!(
-        snapshot.get("sleep_proc"),
-        Some(ProcessState::Running { .. })
-    ), "Process should be Running after start_all");
-
-    // shutdown_all で停止
-    registry.shutdown_all().await;
-
-    // Stopped 状態を確認
-    let snapshot = registry.snapshot().await;
-    assert!(matches!(
-        snapshot.get("sleep_proc"),
-        Some(ProcessState::Stopped)
-    ), "Process should be Stopped after shutdown_all");
+    // Runtime を shutdown_timeout で破棄（未完了タスクがあれば最大1秒で強制終了）
+    // これにより Windows でパイプ読み取りタスクがランタイムシャットダウンを
+    // ブロックする問題を回避する。
+    rt.shutdown_timeout(Duration::from_secs(1));
+    result.expect("test_start_and_stop timed out (30s)");
 }
 
 /// A → B → C の依存関係を持つプロセス群を起動し、起動順序が
 /// 依存関係を満たしていることを確認する。
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_depends_on_ordering() {
-    let registry = ProcessRegistry::new();
+///
+/// 手動ランタイム + shutdown_timeout(1) により、バックグラウンドタスクが
+/// ランタイムシャットダウンをブロックしないことを保証する（Windows 対策）。
+#[test]
+fn test_depends_on_ordering() {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_io()
+        .enable_time()
+        .build()
+        .expect("Failed to build tokio runtime");
 
-    #[cfg(unix)]
-    let program = "sleep";
-    #[cfg(unix)]
-    let args = || vec!["100".to_string()];
-    #[cfg(windows)]
-    let program = "timeout";
-    #[cfg(windows)]
-    let args = || vec!["/t".to_string(), "100".to_string()];
+    let result = rt.block_on(async {
+        tokio::time::timeout(TEST_TIMEOUT, async {
+            eprintln!("[test_depends_on_ordering] Step 1: Creating ProcessRegistry");
+            let registry = ProcessRegistry::new();
 
-    let defs = vec![
-        make_def("c", &["b"], program, args()),
-        make_def("a", &[], program, args()),
-        make_def("b", &["a"], program, args()),
-    ];
+            #[cfg(unix)]
+            let program = "sleep";
+            #[cfg(unix)]
+            let args = || vec!["100".to_string()];
+            #[cfg(windows)]
+            let program = "timeout";
+            #[cfg(windows)]
+            let args = || vec!["/t".to_string(), "100".to_string()];
 
-    registry
-        .start_all(defs)
+            let defs = vec![
+                make_def("c", &["b"], program, args()),
+                make_def("a", &[], program, args()),
+                make_def("b", &["a"], program, args()),
+            ];
+
+            eprintln!("[test_depends_on_ordering] Step 2: Calling start_all (3 processes)");
+            registry
+                .start_all(defs)
+                .await
+                .expect("start_all with dependencies should succeed");
+            eprintln!("[test_depends_on_ordering] Step 3: start_all completed, checking snapshot");
+
+            // 全プロセスが Running 状態であることを確認
+            let snapshot = registry.snapshot().await;
+            for name in &["a", "b", "c"] {
+                assert!(
+                    matches!(snapshot.get(*name), Some(ProcessState::Running { .. })),
+                    "Process '{name}' should be Running"
+                );
+            }
+            eprintln!(
+                "[test_depends_on_ordering] Step 4: All processes Running, calling shutdown_all"
+            );
+
+            registry.shutdown_all().await;
+            eprintln!("[test_depends_on_ordering] Step 5: shutdown_all completed");
+        })
         .await
-        .expect("start_all with dependencies should succeed");
+    });
 
-    // 全プロセスが Running 状態であることを確認
-    let snapshot = registry.snapshot().await;
-    for name in &["a", "b", "c"] {
-        assert!(
-            matches!(snapshot.get(*name), Some(ProcessState::Running { .. })),
-            "Process '{name}' should be Running"
-        );
-    }
-
-    registry.shutdown_all().await;
+    // Runtime を shutdown_timeout で破棄（未完了タスクがあれば最大1秒で強制終了）
+    // これにより Windows でパイプ読み取りタスクがランタイムシャットダウンを
+    // ブロックする問題を回避する。
+    rt.shutdown_timeout(Duration::from_secs(1));
+    result.expect("test_depends_on_ordering timed out (30s)");
 }
 
 /// 運命共同体（Fate Sharing）完全検証テスト。
@@ -206,7 +272,10 @@ async fn test_fate_sharing() {
     // メッセージを送信
     let message = b"Hello, World!";
     stream.write_all(message).await.unwrap();
-    println!("[6/7] ✓ メッセージを送信しました: \"{}\"", String::from_utf8_lossy(message));
+    println!(
+        "[6/7] ✓ メッセージを送信しました: \"{}\"",
+        String::from_utf8_lossy(message)
+    );
 
     // 応答を受信
     let mut buf = vec![0u8; 1024];

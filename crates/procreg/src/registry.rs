@@ -68,12 +68,12 @@ impl ProcessRegistry {
     ///
     /// 存在するプロセス名の場合は `Some(broadcast::Receiver)` を返す。
     /// 存在しないプロセス名の場合は `None` を返す。
-    pub async fn subscribe_output(
-        &self,
-        name: &str,
-    ) -> Option<broadcast::Receiver<String>> {
+    pub async fn subscribe_output(&self, name: &str) -> Option<broadcast::Receiver<String>> {
         let guard = self.inner.lock().await;
-        guard.entries.get(name).map(|entry| entry.output_tx.subscribe())
+        guard
+            .entries
+            .get(name)
+            .map(|entry| entry.output_tx.subscribe())
     }
 
     /// 指定されたプロセスの出力を sink クロージャに流す専用タスクを起動する。
@@ -112,8 +112,8 @@ impl ProcessRegistry {
         &self,
         defs: Vec<ProcessDef>,
     ) -> Result<(), crate::error::RegistryError> {
-        use std::collections::HashMap;
         use crate::graph;
+        use std::collections::HashMap;
 
         let order = graph::resolve_start_order(&defs)?;
 
@@ -123,10 +123,8 @@ impl ProcessRegistry {
             guard.start_order = order.clone();
         }
 
-        let def_map: HashMap<String, ProcessDef> = defs
-            .into_iter()
-            .map(|d| (d.name.clone(), d))
-            .collect();
+        let def_map: HashMap<String, ProcessDef> =
+            defs.into_iter().map(|d| (d.name.clone(), d)).collect();
 
         for name in &order {
             let def = def_map[name].clone();
@@ -136,14 +134,17 @@ impl ProcessRegistry {
             // RegistryEntry を事前登録
             {
                 let mut guard = self.inner.lock().await;
-                guard.entries.insert(name.clone(), RegistryEntry {
-                    def: def.clone(),
-                    state: ProcessState::Pending,
-                    child: None,
-                    output_tx: tx.clone(),
-                    cancel_token: cancel_token.clone(),
-                    restart_count: 0,
-                });
+                guard.entries.insert(
+                    name.clone(),
+                    RegistryEntry {
+                        def: def.clone(),
+                        state: ProcessState::Pending,
+                        child: None,
+                        output_tx: tx.clone(),
+                        cancel_token: cancel_token.clone(),
+                        restart_count: 0,
+                    },
+                );
             }
 
             // spawn_one（ReadyCondition 待機を含む）
@@ -365,7 +366,10 @@ mod tests {
 
         let snapshot = reg.snapshot().await;
         assert_eq!(snapshot.len(), 1);
-        assert_eq!(snapshot.get("test"), Some(&ProcessState::Running { pid: 42 }));
+        assert_eq!(
+            snapshot.get("test"),
+            Some(&ProcessState::Running { pid: 42 })
+        );
     }
 
     /// 存在するプロセス名に対して subscribe_output() が Some を返すことを確認する。

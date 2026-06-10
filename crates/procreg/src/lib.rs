@@ -158,7 +158,9 @@ impl RestartPolicy {
             return None;
         }
         let secs = initial.as_secs_f64() * factor.powi(attempt as i32);
-        Some(std::time::Duration::from_secs_f64(secs.min(max_d.as_secs_f64())))
+        Some(std::time::Duration::from_secs_f64(
+            secs.min(max_d.as_secs_f64()),
+        ))
     }
 }
 
@@ -444,12 +446,17 @@ mod tests {
         // ReadyCondition の Clone
         let condition = ReadyCondition::Delay(Duration::from_secs(3));
         let condition_cloned = condition.clone();
-        assert!(matches!(condition_cloned, ReadyCondition::Delay(d) if d == Duration::from_secs(3)));
+        assert!(
+            matches!(condition_cloned, ReadyCondition::Delay(d) if d == Duration::from_secs(3))
+        );
 
         // ShutdownTimeoutConfig の Clone
         let config = ShutdownTimeoutConfig::default();
         let config_cloned = config.clone();
-        assert_eq!(config.unix_sigterm_timeout, config_cloned.unix_sigterm_timeout);
+        assert_eq!(
+            config.unix_sigterm_timeout,
+            config_cloned.unix_sigterm_timeout
+        );
     }
 
     /// ProcessDef のクローンがディープコピーであり、元の値を変更しても
@@ -576,8 +583,14 @@ mod tests {
             backoff_factor: 2.0,
             max_delay: std::time::Duration::from_secs(30),
         };
-        assert_eq!(policy.next_delay(0), Some(std::time::Duration::from_secs(1)));
-        assert_eq!(policy.next_delay(1), Some(std::time::Duration::from_secs(2)));
+        assert_eq!(
+            policy.next_delay(0),
+            Some(std::time::Duration::from_secs(1))
+        );
+        assert_eq!(
+            policy.next_delay(1),
+            Some(std::time::Duration::from_secs(2))
+        );
         assert_eq!(policy.next_delay(3), None);
     }
 }

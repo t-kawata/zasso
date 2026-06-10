@@ -19,6 +19,7 @@
 //! 5. stdio は子に透過的に継承する
 
 use std::process::{Command, ExitStatus};
+use std::sync::mpsc;
 use std::time::Duration;
 
 fn main() {
@@ -94,18 +95,43 @@ fn process_is_alive(pid: u32) -> bool {
 }
 
 /// 指定された PID のプロセスが生存しているか確認する
+///
+/// `tasklist` にタイムアウト（3秒）を設定し、応答がない場合は安全側に倒して生存とみなす。
+/// タイムアウトは std::sync::mpsc::Receiver::recv_timeout で実現する。
+/// watchdog は rustc 直接ビルドのため stdlib のみ使用可能。
 #[cfg(windows)]
 fn process_is_alive(pid: u32) -> bool {
-    // tasklist /FI で PID フィルタリング → 結果に行が含まれていれば生存
-    // /NH でヘッダー行を抑制
-    Command::new("tasklist")
+    const TASKLIST_TIMEOUT: Duration = Duration::from_secs(1);
+
+    let mut child = match Command::new("tasklist")
         .args(["/FI", &format!("PID eq {pid}"), "/NH"])
-        .output()
-        .map(|o| {
-            let out = String::from_utf8_lossy(&o.stdout);
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    let (tx, rx) = mpsc::channel();
+    // 別スレッドで tasklist の完了を待つ（タイムアウト後もスレッドは
+    // バックグラウンドで完了し、tasklist プロセスは自然終了する）
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+
+    match rx.recv_timeout(TASKLIST_TIMEOUT) {
+        Ok(Ok(output)) => {
+            let out = String::from_utf8_lossy(&output.stdout);
+            // tasklist /FI "PID eq N" /NH の出力に行が含まれていれば生存
             out.contains(&pid.to_string())
-        })
-        .unwrap_or(false)
+        }
+        _ => {
+            // タイムアウトまたは tasklist の実行エラー
+            // → 安全側に倒して「生存」とみなす
+            true
+        }
+    }
 }
 
 // ---- プラットフォーム固有のプロセス強制終了 ----
@@ -113,14 +139,19 @@ fn process_is_alive(pid: u32) -> bool {
 /// 指定された PID のプロセスを強制終了する
 #[cfg(unix)]
 fn kill_process(pid: u32) {
-    let _ = Command::new("kill").arg(pid.to_string()).status();
+    if let Err(e) = Command::new("kill").arg(pid.to_string()).status() {
+        eprintln!("[watchdog] Failed to kill process {pid}: {e}");
+    }
 }
 
 /// 指定された PID のプロセスを強制終了する
 #[cfg(windows)]
 fn kill_process(pid: u32) {
-    // /F は強制終了フラグ
-    let _ = Command::new("taskkill")
+    // /F は強制終了フラグ。エラーはログに出力する（プロセスが既に終了している場合がある）
+    if let Err(e) = Command::new("taskkill")
         .args(["/F", "/PID", &pid.to_string()])
-        .status();
+        .status()
+    {
+        eprintln!("[watchdog] Failed to kill process {pid}: {e}");
+    }
 }

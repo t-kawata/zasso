@@ -29,3 +29,5 @@
 - [x] #28 process-registry: 親プロセス生死監視とサイドカー自殺機構 | /Users/kawata/shyme/zasso/tickets/specs/0028-process-registry-2.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #29 process-registry: Watchdogラッパーによる全OS統一の親死検知機構 | /Users/kawata/shyme/zasso/tickets/specs/0029-process-registry-watchdogos.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #30 process-registry: 子プロセス永久死検知と親プロセス連鎖停止 | /Users/kawata/shyme/zasso/tickets/specs/0030-process-registry-3.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #31 Windows: sidecar テストが拡張子 .exe で失敗する問題の修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0031-windows-sidecar-exe.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #32 Windows: procreg 統合テストがフリーズする問題の調査と修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0032-windows-procreg.md | 2026-06-10 | 2026-06-10 | 2026-06-10

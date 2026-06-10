@@ -15,9 +15,9 @@ use tokio_util::sync::CancellationToken;
 use crate::error::RegistryError;
 use crate::port;
 use crate::ready;
+use crate::registry::ChildGuard;
 use crate::registry::RegistryInner;
 use crate::state::ProcessState;
-use crate::registry::ChildGuard;
 use crate::{ProcessDef, ReadyCondition};
 
 /// `spawn_one` の戻り値。
@@ -54,7 +54,7 @@ pub(crate) async fn spawn_one(
     inner: Arc<Mutex<RegistryInner>>,
     def: ProcessDef,
     output_tx: broadcast::Sender<String>,
-    _cancel_token: CancellationToken,
+    cancel_token: CancellationToken,
 ) -> Result<SpawnResult, RegistryError> {
     // ---- Step 1: ポート競合チェック ----
     // TcpPort レディネス条件のプロセスのみ、起動前にポート使用中を確認する。
@@ -74,8 +74,8 @@ pub(crate) async fn spawn_one(
     }
 
     // ---- Step 2: Watchdog バイナリを展開 ----
-    let watchdog_path = crate::watchdog::extract_watchdog()
-        .map_err(|e| RegistryError::SpawnFailed {
+    let watchdog_path =
+        crate::watchdog::extract_watchdog().map_err(|e| RegistryError::SpawnFailed {
             name: def.name.clone(),
             source: anyhow::anyhow!("Failed to extract watchdog: {e}"),
         })?;
@@ -115,35 +115,61 @@ pub(crate) async fn spawn_one(
     }
 
     // stdout 読み取りタスク（行単位で broadcast に送信）
+    // cancel_token でキャンセル可能（shutdown_all 時に強制終了させるため）
     let stdout_tx = output_tx.clone();
+    let stdout_cancel = cancel_token.clone();
     if let Some(stdout) = child.stdout.take() {
         tokio::spawn(async move {
             let mut reader = tokio::io::BufReader::new(stdout);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-                let trimmed = line
-                    .trim_end_matches('\n')
-                    .trim_end_matches('\r')
-                    .to_string();
-                let _ = stdout_tx.send(trimmed);
-                line.clear();
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = stdout_cancel.cancelled() => {
+                        break; // シャットダウンによる強制終了
+                    }
+                    result = reader.read_line(&mut line) => {
+                        if result.unwrap_or(0) == 0 {
+                            break; // EOF
+                        }
+                        let trimmed = line
+                            .trim_end_matches('\n')
+                            .trim_end_matches('\r')
+                            .to_string();
+                        let _ = stdout_tx.send(trimmed);
+                        line.clear();
+                    }
+                }
             }
         });
     }
 
     // stderr 読み取りタスク（同じ output_tx にマージして送信）
+    // cancel_token でキャンセル可能（shutdown_all 時に強制終了させるため）
     let stderr_tx = output_tx.clone();
+    let stderr_cancel = cancel_token.clone();
     if let Some(stderr) = child.stderr.take() {
         tokio::spawn(async move {
             let mut reader = tokio::io::BufReader::new(stderr);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-                let trimmed = line
-                    .trim_end_matches('\n')
-                    .trim_end_matches('\r')
-                    .to_string();
-                let _ = stderr_tx.send(trimmed);
-                line.clear();
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = stderr_cancel.cancelled() => {
+                        break; // シャットダウンによる強制終了
+                    }
+                    result = reader.read_line(&mut line) => {
+                        if result.unwrap_or(0) == 0 {
+                            break; // EOF
+                        }
+                        let trimmed = line
+                            .trim_end_matches('\n')
+                            .trim_end_matches('\r')
+                            .to_string();
+                        let _ = stderr_tx.send(trimmed);
+                        line.clear();
+                    }
+                }
             }
         });
     }
@@ -160,10 +186,7 @@ pub(crate) async fn spawn_one(
     ready::wait_ready(&def.ready, &def.name, output_tx.clone()).await?;
 
     // ChildGuard でラップ（運命共同体の核心）
-    let timeout_cfg = def
-        .shutdown_timeout
-        .clone()
-        .unwrap_or_default();
+    let timeout_cfg = def.shutdown_timeout.clone().unwrap_or_default();
     let child_guard = ChildGuard::new(child, timeout_cfg);
 
     // プロセス終了検知用の oneshot チャンネル
@@ -192,10 +215,10 @@ pub(crate) async fn spawn_one(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry::RegistryEntry;
     use crate::ProcessDef;
     use crate::ReadyCondition;
     use crate::RestartPolicy;
-    use crate::registry::RegistryEntry;
     use std::collections::HashMap;
 
     /// テスト用の ProcessDef を構築する。
@@ -253,7 +276,11 @@ mod tests {
         }
 
         let result = spawn_one(inner, def, tx.clone(), cancel).await;
-        assert!(result.is_ok(), "spawn_one should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "spawn_one should succeed: {:?}",
+            result.err()
+        );
 
         let spawn_result = result.unwrap();
         assert!(spawn_result.pid > 0, "PID should be positive");
@@ -313,7 +340,11 @@ mod tests {
         }
 
         let result = spawn_one(inner, def, tx.clone(), cancel).await;
-        assert!(result.is_ok(), "spawn_one should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "spawn_one should succeed: {:?}",
+            result.err()
+        );
 
         // stdout に出力された PROCREG_WATCHDOG_PARENT_PID の値を broadcast から受信する
         let parent_pid = std::process::id().to_string();
@@ -326,6 +357,39 @@ mod tests {
             output.trim(),
             parent_pid,
             "PROCREG_WATCHDOG_PARENT_PID env var should be set to parent PID"
+        );
+    }
+
+    /// Watchdog バイナリが Windows で正しく起動し、コマンドを実行できることを確認する。
+    ///
+    /// `cmd.exe /c echo hello` を Watchdog 経由で実行し、標準出力に "hello" が
+    /// 含まれることを検証する。
+    #[cfg(windows)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_watchdog_spawns_cmd_on_windows() {
+        let watchdog_path = crate::watchdog::extract_watchdog()
+            .expect("extract_watchdog should succeed on Windows");
+        let output = tokio::process::Command::new(&watchdog_path)
+            .arg("--")
+            .arg("cmd.exe")
+            .arg("/c")
+            .arg("echo hello")
+            .env(
+                "PROCREG_WATCHDOG_PARENT_PID",
+                std::process::id().to_string(),
+            )
+            .output()
+            .await
+            .expect("watchdog should spawn successfully");
+        assert!(
+            output.status.success(),
+            "watchdog should exit successfully: {:?}",
+            output.status
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("hello"),
+            "stdout should contain 'hello': {stdout}"
         );
     }
 
@@ -350,6 +414,9 @@ mod tests {
 
         // Watchdog 自体は正常に起動するため spawn_one は成功する
         let result = spawn_one(inner, def, tx, cancel).await;
-        assert!(result.is_ok(), "spawn_one should succeed because watchdog starts");
+        assert!(
+            result.is_ok(),
+            "spawn_one should succeed because watchdog starts"
+        );
     }
 }

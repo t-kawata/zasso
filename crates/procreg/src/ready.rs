@@ -171,7 +171,10 @@ mod tests {
 
         let result = wait_ready(&condition, "test", tx).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RegistryError::ReadyTimeout { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            RegistryError::ReadyTimeout { .. }
+        ));
     }
 
     /// LogContains がチャンネルの Lagged をスキップして継続することを確認する。

@@ -22,10 +22,7 @@ fn main() {
     let watchdog_src = manifest_dir.join("watchdog").join("src").join("main.rs");
 
     if !watchdog_src.exists() {
-        panic!(
-            "Watchdog source not found at: {}",
-            watchdog_src.display()
-        );
+        panic!("Watchdog source not found at: {}", watchdog_src.display());
     }
 
     // rustc を呼び出して watchdog をコンパイルする
@@ -50,10 +47,7 @@ fn main() {
     );
 
     // OUT_DIR をライブラリコンパイル時に参照可能にする
-    println!(
-        "cargo:rustc-env=PROCREG_OUT_DIR={}",
-        out_dir.display()
-    );
+    println!("cargo:rustc-env=PROCREG_OUT_DIR={}", out_dir.display());
 
     // ソースが変更された場合のみ再ビルド
     println!("cargo:rerun-if-changed=watchdog/src/main.rs");

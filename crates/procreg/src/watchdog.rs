@@ -2,6 +2,19 @@
 //!
 //! build.rs でコンパイルされた procreg-watchdog バイナリを
 //! include_bytes! で埋め込み、実行時に一時ファイルに展開する。
+//!
+//! # 設計意図
+//!
+//! - build.rs が rustc 直接呼び出しで watchdog バイナリをコンパイルする
+//! - コンパイルされたバイナリは include_bytes! でライブラリに埋め込まれる
+//! - 実行時に一時ファイルに展開し、process-registry が起動する
+//! - 一時ファイル名に PID を含めることで、並行テスト実行時の競合を防止する
+
+/// Watchdog 一時ファイル展開の最大リトライ回数
+///
+/// 同一 PID からの create_new 排他ロック衝突時にこの回数だけ再挑戦する。
+/// 100回を超える場合はファイルシステムに深刻な問題があると判断し、エラーを返す。
+const MAX_EXTRACT_ATTEMPTS: u32 = 100;
 
 /// コンパイル時に埋め込まれた procreg-watchdog バイナリ
 ///
@@ -52,13 +65,16 @@ pub(crate) fn extract_watchdog() -> Result<std::path::PathBuf, String> {
                         .map_err(|e| format!("Failed to set watchdog permissions: {e}"))?;
                 }
 
+                // デバッグ情報: 展開先パスを出力（テスト時のトラブルシューティング用）
+                eprintln!("[watchdog] Extracted to: {}", path.display());
+
                 return Ok(path);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                 attempt += 1;
-                if attempt > 100 {
+                if attempt > MAX_EXTRACT_ATTEMPTS {
                     return Err(format!(
-                        "Failed to create unique watchdog temp file after 100 attempts"
+                        "Failed to create unique watchdog temp file after {MAX_EXTRACT_ATTEMPTS} attempts"
                     ));
                 }
                 continue;

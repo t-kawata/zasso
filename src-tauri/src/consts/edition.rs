@@ -26,8 +26,8 @@ pub struct EditionConfig {
 impl EditionConfig {
     /// データディレクトリの絶対パスを返す（例: /Users/kawata/.zasso/zasso）
     pub fn data_dir_path(&self) -> Result<PathBuf, String> {
-        let home = dirs::home_dir()
-            .ok_or_else(|| "Failed to determine home directory".to_string())?;
+        let home =
+            dirs::home_dir().ok_or_else(|| "Failed to determine home directory".to_string())?;
         Ok(home.join(&self.data_dir))
     }
 
@@ -44,12 +44,10 @@ pub fn current_edition() -> Result<EditionConfig, String> {
     let editions: HashMap<String, EditionConfig> = serde_json::from_str(EDITIONS_JSON)
         .map_err(|e| format!("Failed to parse editions.json: {}", e))?;
 
-    editions.get(EDITION_SLUG).cloned().ok_or_else(|| {
-        format!(
-            "Edition '{}' not found in editions.json",
-            EDITION_SLUG
-        )
-    })
+    editions
+        .get(EDITION_SLUG)
+        .cloned()
+        .ok_or_else(|| format!("Edition '{}' not found in editions.json", EDITION_SLUG))
 }
 
 /// 起動時に現在のエディションのデータディレクトリを確保する
@@ -71,7 +69,9 @@ static EDITION_HOME: OnceLock<PathBuf> = OnceLock::new();
 /// 絶対パスを OnceLock に設定する。2回目以降の呼び出しはエラーを返す。
 pub fn init_edition_home() -> Result<(), String> {
     let path = current_edition()?.data_dir_path()?;
-    EDITION_HOME.set(path).map_err(|_| "EDITION_HOME already initialized".to_string())
+    EDITION_HOME
+        .set(path)
+        .map_err(|_| "EDITION_HOME already initialized".to_string())
 }
 
 /// エディションホームディレクトリの絶対パスを返す
@@ -79,7 +79,9 @@ pub fn init_edition_home() -> Result<(), String> {
 /// 事前に init_edition_home() が setup() フックで呼ばれている必要がある。
 /// 未初期化状態では Err を返す。
 pub fn edition_home() -> Result<&'static PathBuf, String> {
-    EDITION_HOME.get().ok_or_else(|| "EDITION_HOME not initialized".to_string())
+    EDITION_HOME
+        .get()
+        .ok_or_else(|| "EDITION_HOME not initialized".to_string())
 }
 
 #[cfg(test)]
@@ -97,7 +99,10 @@ mod tests {
         assert!(init_edition_home().is_ok(), "first init should succeed");
 
         let home = edition_home().map_err(|e| e.to_string())?;
-        assert!(home.is_absolute(), "edition home should be an absolute path");
+        assert!(
+            home.is_absolute(),
+            "edition home should be an absolute path"
+        );
         assert!(
             home.ends_with(EDITION_SLUG),
             "edition home should end with the current slug"
@@ -116,4 +121,3 @@ mod tests {
         Ok(())
     }
 }
-

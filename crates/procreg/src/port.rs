@@ -54,7 +54,10 @@ mod tests {
         let host = IpAddr::from([127, 0, 0, 1]);
         let result = is_port_free(host, port);
         // TIME_WAIT の影響で false になる可能性もあるが、Err は出ないこと
-        assert!(result.is_ok(), "is_port_free should not return Err for a freed port");
+        assert!(
+            result.is_ok(),
+            "is_port_free should not return Err for a freed port"
+        );
     }
 
     /// 使用中のポートに対して `is_port_free` が `false` を返すことを確認する。

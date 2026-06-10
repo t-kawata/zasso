@@ -65,10 +65,7 @@ impl ChildGuard {
     /// GracefulShutdown の内部実装。
     ///
     /// `shutdown()` と `panic_hook` の両方から利用される共有ロジック。
-    async fn graceful_shutdown(
-        child: &mut tokio::process::Child,
-        config: &ShutdownTimeoutConfig,
-    ) {
+    async fn graceful_shutdown(child: &mut tokio::process::Child, config: &ShutdownTimeoutConfig) {
         #[cfg(unix)]
         {
             // SAFETY: child.id() は OS から割り当てられた有効な PID を返す。
@@ -102,11 +99,7 @@ impl ChildGuard {
         {
             // Windows の簡易実装: start_kill() → TerminateProcess
             let _ = child.start_kill();
-            let _ = tokio::time::timeout(
-                config.windows_ctrl_break_timeout,
-                child.wait(),
-            )
-            .await;
+            let _ = tokio::time::timeout(config.windows_ctrl_break_timeout, child.wait()).await;
         }
 
         #[cfg(not(any(unix, windows)))]

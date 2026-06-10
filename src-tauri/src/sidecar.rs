@@ -54,7 +54,11 @@ pub(crate) fn sidecar_defs(edition_home: &Path) -> Vec<ProcessDef> {
         // 起動後に BIFROST_PORT で受付を開始することを確認してから完了する。
         ProcessDef {
             name: "bifrost".to_string(),
-            program: edition_home.join("bifrost").join(binary_filename()).display().to_string(),
+            program: edition_home
+                .join("bifrost")
+                .join(binary_filename())
+                .display()
+                .to_string(),
             args: vec!["--port".to_string(), BIFROST_PORT.to_string()],
             env: vec![],
             depends_on: vec![],
@@ -104,8 +108,8 @@ mod tests {
         assert_eq!(defs[0].name, "bifrost");
     }
 
-    /// Bifrost の program パスが edition_home/bifrost/bifrost-http の
-    /// 形式になっていることを確認する
+    /// Bifrost の program パスが edition_home/bifrost/<binary_filename()> の
+    /// 形式になっていることを確認する（プラットフォームに応じて拡張子 .exe が付く）
     #[test]
     fn bifrost_def_program_path_ends_with_bifrost_http() {
         let home = test_home();
@@ -119,11 +123,12 @@ mod tests {
             "program path should start with edition_home: {program}"
         );
 
-        // パスが bifrost/bifrost-http で終わる
-        let expected_suffix = format!("bifrost{}bifrost-http", std::path::MAIN_SEPARATOR);
+        // パスが bifrost/binary_filename() で終わる（プラットフォーム依存の拡張子を含む）
+        let expected_suffix = format!("bifrost{}{}", std::path::MAIN_SEPARATOR, binary_filename());
         assert!(
             program.ends_with(&expected_suffix),
-            "program path should end with 'bifrost/bifrost-http': {program}"
+            "program path should end with 'bifrost/{}': {program}",
+            binary_filename(),
         );
     }
 
@@ -133,13 +138,18 @@ mod tests {
         let home = test_home();
         let defs = sidecar_defs(&home);
         match &defs[0].ready {
-            ReadyCondition::TcpPort { host, port, timeout, poll_interval } => {
+            ReadyCondition::TcpPort {
+                host,
+                port,
+                timeout,
+                poll_interval,
+            } => {
                 assert!(host.is_loopback(), "host should be loopback address");
-                assert_eq!(*port, BIFROST_PORT, "port should be BIFROST_PORT ({BIFROST_PORT})");
-                assert!(
-                    timeout.as_secs() > 0,
-                    "timeout should be positive"
+                assert_eq!(
+                    *port, BIFROST_PORT,
+                    "port should be BIFROST_PORT ({BIFROST_PORT})"
                 );
+                assert!(timeout.as_secs() > 0, "timeout should be positive");
                 assert!(
                     poll_interval.as_millis() > 0,
                     "poll_interval should be positive"

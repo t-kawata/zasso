@@ -29,9 +29,7 @@ use crate::ProcessDef;
 ///
 /// この関数は M8-1（start_all）で使用される。現時点では定義のみ。
 #[allow(dead_code)]
-pub(crate) fn resolve_start_order(
-    defs: &[ProcessDef],
-) -> Result<Vec<String>, RegistryError> {
+pub(crate) fn resolve_start_order(defs: &[ProcessDef]) -> Result<Vec<String>, RegistryError> {
     let mut graph: DiGraph<&str, ()> = DiGraph::new();
     let mut name_to_node: HashMap<&str, NodeIndex> = HashMap::new();
 
@@ -57,10 +55,12 @@ pub(crate) fn resolve_start_order(
     }
 
     // トポロジカルソート
-    let sorted =
-        toposort(&graph, None).map_err(|_| RegistryError::CircularDependency)?;
+    let sorted = toposort(&graph, None).map_err(|_| RegistryError::CircularDependency)?;
 
-    Ok(sorted.iter().map(|node_idx| graph[*node_idx].to_string()).collect())
+    Ok(sorted
+        .iter()
+        .map(|node_idx| graph[*node_idx].to_string())
+        .collect())
 }
 
 #[cfg(test)]
@@ -86,11 +86,7 @@ mod tests {
     /// 入力順が B, C, A でも [A, B, C] が返ることを検証する。
     #[test]
     fn linear_dependency() {
-        let defs = vec![
-            def("B", &["A"]),
-            def("C", &["B"]),
-            def("A", &[]),
-        ];
+        let defs = vec![def("B", &["A"]), def("C", &["B"]), def("A", &[])];
         let order = resolve_start_order(&defs).unwrap();
         assert_eq!(order, vec!["A", "B", "C"]);
     }
@@ -114,22 +110,20 @@ mod tests {
     /// 循環依存 A→B→A を検出し CircularDependency を返すことを確認する。
     #[test]
     fn circular_dependency() {
-        let defs = vec![
-            def("A", &["B"]),
-            def("B", &["A"]),
-        ];
+        let defs = vec![def("A", &["B"]), def("B", &["A"])];
         let result = resolve_start_order(&defs);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RegistryError::CircularDependency));
+        assert!(matches!(
+            result.unwrap_err(),
+            RegistryError::CircularDependency
+        ));
     }
 
     /// 存在しないプロセスを依存先に指定した場合、
     /// UnknownDependency を返すことを確認する。
     #[test]
     fn unknown_dependency() {
-        let defs = vec![
-            def("A", &["B"]),
-        ];
+        let defs = vec![def("A", &["B"])];
         let result = resolve_start_order(&defs);
         assert!(result.is_err());
         match result.unwrap_err() {

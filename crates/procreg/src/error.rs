@@ -77,10 +77,7 @@ mod tests {
             src: "A".to_string(),
             dep: "B".to_string(),
         };
-        assert_eq!(
-            err.to_string(),
-            "Unknown dependency 'B' referenced by 'A'"
-        );
+        assert_eq!(err.to_string(), "Unknown dependency 'B' referenced by 'A'");
     }
 
     /// CircularDependency の Display 出力が期待値と一致することを確認する。
@@ -97,10 +94,7 @@ mod tests {
     #[test]
     fn not_found_display() {
         let err = RegistryError::NotFound("myapp".to_string());
-        assert_eq!(
-            err.to_string(),
-            "Process 'myapp' not found in registry"
-        );
+        assert_eq!(err.to_string(), "Process 'myapp' not found in registry");
     }
 
     /// SpawnFailed の Display 出力に内包エラーの内容が含まれることを確認する。
@@ -126,8 +120,8 @@ mod tests {
             source: inner,
         };
 
-        let source = std::error::Error::source(&err)
-            .expect("SpawnFailed should wrap an inner error");
+        let source =
+            std::error::Error::source(&err).expect("SpawnFailed should wrap an inner error");
 
         let source_msg = source.to_string();
         assert_eq!(source_msg, "command not found");
@@ -178,8 +172,14 @@ mod tests {
         let host = IpAddr::from([127, 0, 0, 1]);
         let err = RegistryError::PortInUse { host, port: 3912 };
         let display = err.to_string();
-        assert!(display.contains("3912"), "port number should appear in message");
-        assert!(display.contains("127.0.0.1"), "host should appear in message");
+        assert!(
+            display.contains("3912"),
+            "port number should appear in message"
+        );
+        assert!(
+            display.contains("127.0.0.1"),
+            "host should appear in message"
+        );
     }
 
     /// PortInUse の `.source()` が `None` を返すことを確認する。
