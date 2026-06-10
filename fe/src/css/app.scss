@@ -1,5 +1,12 @@
 * {
     user-select: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+/* Chrome / Safari / 新 Edge */
+*::-webkit-scrollbar {
+    display: none;
 }
 
 html,
