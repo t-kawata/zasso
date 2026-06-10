@@ -17,6 +17,7 @@ pub mod error;
 pub use crate::error::RegistryError;
 
 pub mod graph;
+pub mod panic;
 pub mod platform;
 pub mod ready;
 pub mod registry;

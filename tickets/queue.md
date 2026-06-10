@@ -20,3 +20,6 @@
 - [x] #19 M9-1: shutdown_all と stop の実装 | /Users/kawata/shyme/zasso/tickets/specs/0019-m9-1-shutdown-all-stop.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #20 M10-1: Unix 実装（libc）+ SIGTERM ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0020-m10-1-unix-libc-sigterm.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #21 M10-2: Windows 実装（win32） | /Users/kawata/shyme/zasso/tickets/specs/0021-m10-2-windows-win32.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #22 M11-1: install_panic_hook（パニック安全網） | /Users/kawata/shyme/zasso/tickets/specs/0022-m11-1-install-panic-hook.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #23 M12-1: Tauri コマンド + RunEvent::Exit ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0023-m12-1-tauri-runeventexit.md | 2026-06-10
+- [x] #24 M13-1: 統合テストスイート | /Users/kawata/shyme/zasso/tickets/specs/0024-m13-1.md | 2026-06-10 | 2026-06-10 | 2026-06-10

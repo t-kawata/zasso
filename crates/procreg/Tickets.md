@@ -275,7 +275,7 @@
   - `install_sigterm_handler`（tokio::signal::unix）
 * **テストコードによる検証:** 実プロセス kill、SIGTERM 送信テスト
 
-#### チケット M10-2: Windows 実装（win32）
+#### ✅ チケット M10-2: Windows 実装（win32）
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§5.8, §10)
 * **対象不変条件 / 規範:** §5.8（graceful_shutdown Windows）、§10（is_process_alive Windows）
@@ -289,7 +289,7 @@
 
 > **依存:** ProcessRegistry（全API）
 
-#### チケット M11-1: install_panic_hook
+#### ✅ チケット M11-1: install_panic_hook
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§15)
 * **対象不変条件 / 規範:** §15 パニック時の安全網
@@ -299,15 +299,12 @@
 
 ### M12: Tauri 統合
 
-> **依存:** ProcessRegistry（全API）、`tauri` v2
-
-#### チケット M12-1: Tauri コマンド + RunEvent::Exit ハンドラ
-
-* **参照設計書:** docs/RFC-001-process-registry.md (§13)
-* **対象不変条件 / 規範:** §13 Tauri 統合
-* **実装の背景と目的:** Tauri アプリから ProcessRegistry を操作・監視するコマンドとライフサイクルフック。
-* **実装スコープ:** §13 Tauri 統合（cmd_list_processes、cmd_stream_process_output、RunEvent::Exit）
-* **テストコードによる検証:** Tauri コマンド応答確認
+> **判断: スコープ外（2026-06-10 決定）**
+> Tauri 統合はアプリケーション層（zasso 本体の src-tauri/）の責務であり、
+> `process-registry` クレートに含めるべきではない。
+> - `tauri` 依存追加によるクレート独立性の喪失を避ける
+> - `Clone + Send + Sync` は既に充足、`ProcessState` の serde により JSON シリアライズも可能
+> - Tauri コマンド定義はアプリ側で 10 行程度で記述可能
 
 ### M13: 統合テスト
 

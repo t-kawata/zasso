@@ -121,7 +121,7 @@ impl Drop for ChildGuard {
     /// 確実な GracefulShutdown が必要な場合は、事前に `shutdown().await` を
     /// 呼ぶこと。
     fn drop(&mut self) {
-        if let Some(ref mut child) = self.child {
+        if let Some(mut child) = self.child.take() {
             let _ = child.start_kill();
         }
     }
