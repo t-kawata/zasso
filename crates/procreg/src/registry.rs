@@ -91,18 +91,7 @@ pub(crate) struct RegistryEntry {
     pub restart_count: u32,
 }
 
-/// ChildGuard のスタブ定義。
-///
-/// M3-1 で以下の本実装に置き換えられる:
-/// - `child: Option<tokio::process::Child>`
-/// - `config: ShutdownTimeoutConfig`
-/// - `pub fn new(child, config) -> Self`
-/// - `pub async fn shutdown(mut self)`
-/// - `impl Drop for ChildGuard`
-///
-/// 現在は RegistryEntry の型シグネチャを確定させるための空構造体。
-#[derive(Debug)]
-pub(crate) struct ChildGuard;
+pub(crate) use crate::child::ChildGuard;
 
 #[cfg(test)]
 mod tests {

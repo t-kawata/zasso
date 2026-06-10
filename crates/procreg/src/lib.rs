@@ -12,9 +12,11 @@
 //! - Phase 2: ライフサイクル管理・統合
 //! - Phase 3: プラットフォーム固有実装・Tauri統合
 
+pub mod child;
 pub mod error;
 pub use crate::error::RegistryError;
 
+pub mod graph;
 pub mod registry;
 pub mod state;
 pub use crate::registry::ProcessRegistry;
@@ -100,6 +102,56 @@ pub enum RestartPolicy {
         /// バックオフの上限。
         max_delay: std::time::Duration,
     },
+}
+
+impl RestartPolicy {
+    /// `OnCrash` のデフォルト設定を返す。
+    ///
+    /// - max_retries: 3（最大3回再起動）
+    /// - initial_delay: 1秒
+    /// - backoff_factor: 2.0（指数バックオフ）
+    /// - max_delay: 30秒（バックオフの上限）
+    pub fn on_crash_default() -> Self {
+        Self::OnCrash {
+            max_retries: 3,
+            initial_delay: std::time::Duration::from_secs(1),
+            backoff_factor: 2.0,
+            max_delay: std::time::Duration::from_secs(30),
+        }
+    }
+
+    /// 指定された試行回数に基づく再起動待機時間を計算する。
+    ///
+    /// 計算式: `initial_delay * backoff_factor^attempt`（max_delay で上限クランプ）
+    /// `Never` の場合は常に `None` を返す。
+    /// attempt >= max_retries の場合は `None`（リトライ上限到達）を返す。
+    ///
+    /// # 未使用警告について
+    ///
+    /// このメソッドは M7-1（watch_loop）で使用される。現時点では定義のみ。
+    #[allow(dead_code)]
+    pub(crate) fn next_delay(&self, attempt: u32) -> Option<std::time::Duration> {
+        let (max_retries, initial, factor, max_d) = match self {
+            Self::Never => return None,
+            Self::OnCrash {
+                max_retries,
+                initial_delay,
+                backoff_factor,
+                max_delay,
+            } => (*max_retries, *initial_delay, *backoff_factor, *max_delay),
+            Self::Always {
+                max_retries,
+                initial_delay,
+                backoff_factor,
+                max_delay,
+            } => (*max_retries, *initial_delay, *backoff_factor, *max_delay),
+        };
+        if attempt >= max_retries {
+            return None;
+        }
+        let secs = initial.as_secs_f64() * factor.powi(attempt as i32);
+        Some(std::time::Duration::from_secs_f64(secs.min(max_d.as_secs_f64())))
+    }
 }
 
 /// プロセスが「起動完了」とみなされる条件。
@@ -416,5 +468,108 @@ mod tests {
         // クローンに影響がないことを確認
         assert_eq!(cloned.name, "original");
         assert_eq!(cloned.args, vec!["arg1"]);
+    }
+
+    // ============================================================
+    // M1-1: RestartPolicy::on_crash_default / next_delay
+    // ============================================================
+
+    /// on_crash_default() の全フィールドが期待値と一致することを確認する。
+    #[test]
+    fn on_crash_default_values() {
+        let policy = RestartPolicy::on_crash_default();
+        assert!(matches!(policy, RestartPolicy::OnCrash { .. }));
+        if let RestartPolicy::OnCrash {
+            max_retries,
+            initial_delay,
+            backoff_factor,
+            max_delay,
+        } = policy
+        {
+            assert_eq!(max_retries, 3);
+            assert_eq!(initial_delay, std::time::Duration::from_secs(1));
+            assert!((backoff_factor - 2.0).abs() < f64::EPSILON);
+            assert_eq!(max_delay, std::time::Duration::from_secs(30));
+        } else {
+            panic!("Expected OnCrash variant");
+        }
+    }
+
+    /// next_delay() が attempt=0 で initial_delay を返すことを確認する。
+    #[test]
+    fn next_delay_attempt_zero() {
+        let policy = RestartPolicy::on_crash_default();
+        let delay = policy.next_delay(0);
+        assert_eq!(delay, Some(std::time::Duration::from_secs(1)));
+    }
+
+    /// next_delay() が attempt=1 で initial_delay * factor を返すことを確認する。
+    #[test]
+    fn next_delay_attempt_one() {
+        let policy = RestartPolicy::on_crash_default();
+        let delay = policy.next_delay(1);
+        assert_eq!(delay, Some(std::time::Duration::from_secs(2)));
+    }
+
+    /// next_delay() が attempt=2 で initial_delay * factor^2 を返すことを確認する。
+    #[test]
+    fn next_delay_attempt_two() {
+        let policy = RestartPolicy::on_crash_default();
+        let delay = policy.next_delay(2);
+        assert_eq!(delay, Some(std::time::Duration::from_secs(4)));
+    }
+
+    /// next_delay() が attempt >= max_retries で None を返すことを確認する。
+    #[test]
+    fn next_delay_retries_exhausted() {
+        let policy = RestartPolicy::on_crash_default();
+        assert_eq!(policy.next_delay(3), None);
+        assert_eq!(policy.next_delay(100), None);
+    }
+
+    /// next_delay() の計算結果が max_delay を超える場合にクランプされることを確認する。
+    #[test]
+    fn next_delay_max_delay_clamp() {
+        let policy = RestartPolicy::OnCrash {
+            max_retries: 10,
+            initial_delay: std::time::Duration::from_secs(1),
+            backoff_factor: 10.0,
+            max_delay: std::time::Duration::from_secs(5),
+        };
+        // attempt=1: 1 * 10^1 = 10s → max_delay=5s でクランプ
+        let delay = policy.next_delay(1);
+        assert_eq!(delay, Some(std::time::Duration::from_secs(5)));
+    }
+
+    /// RestartPolicy::Never では next_delay() が常に None を返すことを確認する。
+    #[test]
+    fn next_delay_never_returns_none() {
+        let policy = RestartPolicy::Never;
+        assert_eq!(policy.next_delay(0), None);
+        assert_eq!(policy.next_delay(100), None);
+    }
+
+    /// next_delay() が同一入力に対して常に同一出力を返すことを確認する。
+    #[test]
+    fn next_delay_deterministic() {
+        let policy = RestartPolicy::on_crash_default();
+        let expected = policy.next_delay(2);
+        for _ in 0..100 {
+            assert_eq!(policy.next_delay(2), expected);
+        }
+    }
+
+    /// OnCrash と Always で同一パラメータの場合、同一の遅延値が返ることを確認する。
+    #[test]
+    fn next_delay_always_same_as_on_crash() {
+        let policy = RestartPolicy::Always {
+            max_retries: 3,
+            initial_delay: std::time::Duration::from_secs(1),
+            backoff_factor: 2.0,
+            max_delay: std::time::Duration::from_secs(30),
+        };
+        assert_eq!(policy.next_delay(0), Some(std::time::Duration::from_secs(1)));
+        assert_eq!(policy.next_delay(1), Some(std::time::Duration::from_secs(2)));
+        assert_eq!(policy.next_delay(3), None);
     }
 }

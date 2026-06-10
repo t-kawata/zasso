@@ -51,7 +51,7 @@
   3. `SpawnFailed` の `source()` が内包された `anyhow::Error` を返すこと
 * **計装方法・観測対象:** コンパイル時エラーハンドリングの網羅性チェック
 
-#### チケット M0-3: プロセス状態とレジストリ型の定義
+#### ✅ チケット M0-3: プロセス状態とレジストリ型の定義
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§5.5, §5.6, §5.7)
 * **対象不変条件 / 規範:** §5.5 ProcessState、§5.6 RegistryEntry、§5.7 ProcessRegistry（構造体のみ）、RegistryInner
@@ -71,7 +71,7 @@
 > **DB:** メモリ内完結
 > **依存:** M0-1（RestartPolicy）
 
-#### チケット M1-1: RestartPolicy::on_crash_default と next_delay の実装
+#### ✅ チケット M1-1: RestartPolicy::on_crash_default と next_delay の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§5.2)
 * **対象不変条件 / 規範:** §5.2 RestartPolicy（`on_crash_default()`、`next_delay()`）
@@ -94,7 +94,7 @@
 > **DB:** メモリ内完結
 > **依存:** M0-1（ProcessDef）、M0-2（RegistryError）
 
-#### チケット M2-1: resolve_start_order の実装
+#### ✅ チケット M2-1: resolve_start_order の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§6)
 * **対象不変条件 / 規範:** §6 depends_on — トポロジカルソート（循環検出＋不明依存検出）

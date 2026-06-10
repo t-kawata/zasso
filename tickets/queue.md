@@ -9,3 +9,6 @@
 - [x] #8 M0-1: 純粋データ型の定義（ProcessDef, RestartPolicy, ReadyCondition, ShutdownTimeoutConfig） | /Users/kawata/shyme/zasso/tickets/specs/0008-m0-1-processdef-restartpolicy-readycondition-shutdowntimeoutconfig.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #9 M0-2: エラー型の定義（RegistryError with thiserror + anyhow） | /Users/kawata/shyme/zasso/tickets/specs/0009-m0-2-registryerror-with-thiserror-anyhow.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #10 M0-3: プロセス状態とレジストリ型の定義（ProcessState, RegistryEntry, RegistryInner, ProcessRegistry） | /Users/kawata/shyme/zasso/tickets/specs/0010-m0-3-processstate-registryentry-registryinner-processregistry.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #11 M1-1: RestartPolicy::on_crash_default と next_delay の実装 | /Users/kawata/shyme/zasso/tickets/specs/0011-m1-1-restartpolicyon-crash-default-next-delay.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #12 M2-1: resolve_start_order の実装（DAG トポロジカルソート） | /Users/kawata/shyme/zasso/tickets/specs/0012-m2-1-resolve-start-order-dag.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #13 M3-1: ChildGuard 構造体と shutdown メソッドの実装 | /Users/kawata/shyme/zasso/tickets/specs/0013-m3-1-childguard-shutdown.md | 2026-06-10 | 2026-06-10 | 2026-06-10

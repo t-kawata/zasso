@@ -10,7 +10,7 @@
 // Cargo.toml のバージョンは 0.0.0 固定のダミーであり参照してはならない。
 
 /// アプリケーションバージョン（セマンティックバージョニング）
-pub(crate) const APP_VERSION: &str = "v0.24.243";
+pub(crate) const APP_VERSION: &str = "v0.24.244";
 
 /// アプリケーション表示名
 pub(crate) const APP_DISPLAY_NAME: &str = "zasso";
