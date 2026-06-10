@@ -4,6 +4,7 @@
 *.onnx
 wavs/
 **/node_modules
+**/.DS_Store
 
 # Build artifacts
 **/bin/

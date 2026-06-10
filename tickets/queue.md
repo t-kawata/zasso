@@ -23,3 +23,4 @@
 - [x] #22 M11-1: install_panic_hook（パニック安全網） | /Users/kawata/shyme/zasso/tickets/specs/0022-m11-1-install-panic-hook.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #23 M12-1: Tauri コマンド + RunEvent::Exit ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0023-m12-1-tauri-runeventexit.md | 2026-06-10
 - [x] #24 M13-1: 統合テストスイート | /Users/kawata/shyme/zasso/tickets/specs/0024-m13-1.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #25 EDITION_HOME導入とbifrostバイナリの自動展開 | /Users/kawata/shyme/zasso/tickets/specs/0025-edition-homebifrost.md | 2026-06-10 | 2026-06-10 | 2026-06-10
