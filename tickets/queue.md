@@ -12,3 +12,7 @@
 - [x] #11 M1-1: RestartPolicy::on_crash_default と next_delay の実装 | /Users/kawata/shyme/zasso/tickets/specs/0011-m1-1-restartpolicyon-crash-default-next-delay.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #12 M2-1: resolve_start_order の実装（DAG トポロジカルソート） | /Users/kawata/shyme/zasso/tickets/specs/0012-m2-1-resolve-start-order-dag.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #13 M3-1: ChildGuard 構造体と shutdown メソッドの実装 | /Users/kawata/shyme/zasso/tickets/specs/0013-m3-1-childguard-shutdown.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #14 M4-1: is_process_alive の実装（プロセス生存確認） | /Users/kawata/shyme/zasso/tickets/specs/0014-m4-1-is-process-alive.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #15 M5-1: wait_ready の実装（ReadyCondition 待機） | /Users/kawata/shyme/zasso/tickets/specs/0015-m5-1-wait-ready-readycondition.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #16 M6-1: ProcessRegistry::new, snapshot, subscribe_output, pipe_output_to | /Users/kawata/shyme/zasso/tickets/specs/0016-m6-1-processregistrynew-snapshot-subscribe-output-pipe-output-to.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #17 M7-1: start_watch_task と watch_loop の実装（監視・再起動ループ） | /Users/kawata/shyme/zasso/tickets/specs/0017-m7-1-start-watch-task-watch-loop.md | 2026-06-10 | 2026-06-10 | 2026-06-10

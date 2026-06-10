@@ -123,7 +123,7 @@
 > **DB:** メモリ内完結
 > **依存:** M0-1（ShutdownTimeoutConfig）、`tokio`、`libc` / `windows`
 
-#### チケット M3-1: ChildGuard 構造体と shutdown メソッドの実装
+#### ✅ チケット M3-1: ChildGuard 構造体と shutdown メソッドの実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§5.8)
 * **対象不変条件 / 規範:** §5.8 ChildGuard
@@ -144,7 +144,7 @@
 > **DB:** メモリ内完結
 > **依存:** `libc`（Unix）、`windows`（Windows）
 
-#### チケット M4-1: is_process_alive の実装
+#### ✅ チケット M4-1: is_process_alive の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§10)
 * **対象不変条件 / 規範:** §10 `is_process_alive`、PID 0 ガード
@@ -170,7 +170,7 @@
 
 > **依存:** M0-1（ReadyCondition）、M0-2（RegistryError）
 
-#### チケット M5-1: wait_ready の実装
+#### ✅ チケット M5-1: wait_ready の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§8)
 * **対象不変条件 / 規範:** §8 ReadyCondition の待機実装
@@ -188,7 +188,7 @@
 
 > **依存:** M0-3（全型）
 
-#### チケット M6-1: ProcessRegistry::new, snapshot, subscribe_output, pipe_output_to
+#### ✅ チケット M6-1: ProcessRegistry::new, snapshot, subscribe_output, pipe_output_to
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§9, §11, §12)
 * **対象不変条件 / 規範:** §9（new）、§11（Output Capture）、§12（snapshot）
@@ -204,7 +204,7 @@
 
 > **依存:** M1-1、M6-1
 
-#### チケット M7-1: start_watch_task と watch_loop の実装
+#### ✅ チケット M7-1: start_watch_task と watch_loop の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§10)
 * **対象不変条件 / 規範:** §10 監視・再起動ループ
