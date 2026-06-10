@@ -4,6 +4,13 @@
 //! include_bytes! で埋め込み、実行時に一時ファイルに展開する。
 
 /// コンパイル時に埋め込まれた procreg-watchdog バイナリ
+///
+/// Windows では build.rs が `.exe` 拡張子で出力するため、パスもそれに合わせる。
+#[cfg(target_os = "windows")]
+pub(crate) static WATCHDOG_BINARY: &[u8] =
+    include_bytes!(concat!(env!("PROCREG_OUT_DIR"), "/procreg-watchdog.exe"));
+
+#[cfg(not(target_os = "windows"))]
 pub(crate) static WATCHDOG_BINARY: &[u8] =
     include_bytes!(concat!(env!("PROCREG_OUT_DIR"), "/procreg-watchdog"));
 
