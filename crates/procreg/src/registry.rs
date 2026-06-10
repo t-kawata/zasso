@@ -102,6 +102,133 @@ impl ProcessRegistry {
         });
         Some(handle)
     }
+
+    /// 全プロセス定義を受け取り、`depends_on` を解決して順番に起動する。
+    ///
+    /// 1. `resolve_start_order()` で依存関係を解決
+    /// 2. 各プロセスを順に: RegistryEntry 登録 → `spawn_one` → 状態更新 → `start_watch_task`
+    /// 3. 一つでも起動に失敗した場合は即座に `Err` を返す
+    pub async fn start_all(
+        &self,
+        defs: Vec<ProcessDef>,
+    ) -> Result<(), crate::error::RegistryError> {
+        use std::collections::HashMap;
+        use crate::graph;
+
+        let order = graph::resolve_start_order(&defs)?;
+
+        // 起動順序を保存（shutdown_all での逆順停止に使用）
+        {
+            let mut guard = self.inner.lock().await;
+            guard.start_order = order.clone();
+        }
+
+        let def_map: HashMap<String, ProcessDef> = defs
+            .into_iter()
+            .map(|d| (d.name.clone(), d))
+            .collect();
+
+        for name in &order {
+            let def = def_map[name].clone();
+            let cancel_token = CancellationToken::new();
+            let (tx, _) = broadcast::channel::<String>(2048);
+
+            // RegistryEntry を事前登録
+            {
+                let mut guard = self.inner.lock().await;
+                guard.entries.insert(name.clone(), RegistryEntry {
+                    def: def.clone(),
+                    state: ProcessState::Pending,
+                    child: None,
+                    output_tx: tx.clone(),
+                    cancel_token: cancel_token.clone(),
+                    restart_count: 0,
+                });
+            }
+
+            // spawn_one（ReadyCondition 待機を含む）
+            let result = crate::spawn::spawn_one(
+                Arc::clone(&self.inner),
+                def.clone(),
+                tx.clone(),
+                cancel_token.clone(),
+            )
+            .await
+            .map_err(|e| e)?;
+
+            // SpawnResult をレジストリに反映
+            {
+                let mut guard = self.inner.lock().await;
+                if let Some(entry) = guard.entries.get_mut(&def.name) {
+                    entry.state = ProcessState::Running { pid: result.pid };
+                    entry.child = Some(result.child_guard);
+                }
+            }
+
+            // watch_loop タスクを起動
+            crate::watch::start_watch_task(
+                Arc::clone(&self.inner),
+                def.clone(),
+                result.exit_rx,
+                cancel_token.clone(),
+            );
+        }
+
+        Ok(())
+    }
+
+    /// 全プロセスを起動の逆順で停止する。
+    ///
+    /// 1. `CancellationToken.cancel()` → `watch_loop` を即座に終了
+    /// 2. `ChildGuard::shutdown().await` で GracefulShutdown 完了まで待機
+    ///
+    /// # デッドロック回避
+    ///
+    /// Mutex ロック内で `child.take()` し、ロック解放後に
+    /// `shutdown().await` することでデッドロックを防止する。
+    pub async fn shutdown_all(&self) {
+        let stop_order: Vec<String> = {
+            let guard = self.inner.lock().await;
+            guard.start_order.iter().rev().cloned().collect()
+        };
+
+        for name in &stop_order {
+            let guard = {
+                let mut g = self.inner.lock().await;
+                if let Some(entry) = g.entries.get_mut(name) {
+                    entry.cancel_token.cancel();
+                    entry.state = ProcessState::Stopped;
+                    entry.child.take()
+                } else {
+                    None
+                }
+            };
+            // Mutex ロック解放後に GracefulShutdown を await
+            if let Some(child_guard) = guard {
+                child_guard.shutdown().await;
+            }
+        }
+    }
+
+    /// 単一プロセスのみ停止する（デバッグ・動的管理用）。
+    ///
+    /// 存在しないプロセス名の場合は `RegistryError::NotFound` を返す。
+    pub async fn stop(&self, name: &str) -> Result<(), crate::error::RegistryError> {
+        let guard = {
+            let mut g = self.inner.lock().await;
+            let entry = g
+                .entries
+                .get_mut(name)
+                .ok_or_else(|| crate::error::RegistryError::NotFound(name.to_string()))?;
+            entry.cancel_token.cancel();
+            entry.state = ProcessState::Stopped;
+            entry.child.take()
+        };
+        if let Some(child_guard) = guard {
+            child_guard.shutdown().await;
+        }
+        Ok(())
+    }
 }
 
 /// レジストリの内部状態（非公開）。
@@ -369,5 +496,29 @@ mod tests {
         assert!(none_handle.is_none());
 
         handle.abort();
+    }
+
+    // ============================================================
+    // M9-1: ProcessRegistry::shutdown_all / stop
+    // ============================================================
+
+    /// shutdown_all() が空のレジストリでもパニックせず完了することを確認する。
+    #[tokio::test]
+    async fn shutdown_all_empty_registry() {
+        let reg = ProcessRegistry::new();
+        // 空のレジストリで shutdown_all を呼んでもパニックしない
+        reg.shutdown_all().await;
+    }
+
+    /// stop() が存在しないプロセス名に NotFound を返すことを確認する。
+    #[tokio::test]
+    async fn stop_nonexistent_returns_not_found() {
+        let reg = ProcessRegistry::new();
+        let result = reg.stop("nonexistent").await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::RegistryError::NotFound(_)
+        ));
     }
 }

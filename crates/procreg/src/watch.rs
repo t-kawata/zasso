@@ -152,10 +152,48 @@ async fn watch_loop(
             }
         }
 
-        // TODO: M8-1 完了後に以下の再起動パスを本実装に置き換える
-        // 現状は再起動せずにループを抜ける（M8-1 で SpawnResult を用いた
-        // Self::spawn_one 呼び出し + 新しい exit_rx でのループ継続に置き換え）
-        return;
+        // レジストリの output_tx を取得（再起動後も同じチャンネルを使い続ける）
+        let output_tx = {
+            let guard = inner.lock().await;
+            guard
+                .entries
+                .get(&def.name)
+                .map(|e| e.output_tx.clone())
+        };
+        let Some(output_tx) = output_tx else { return; };
+
+        // 再起動
+        match crate::spawn::spawn_one(
+            Arc::clone(&inner),
+            def.clone(),
+            output_tx,
+            cancel_token.clone(),
+        )
+        .await
+        {
+            Ok(result) => {
+                let new_exit_rx = result.exit_rx;
+                {
+                    let mut guard = inner.lock().await;
+                    if let Some(entry) = guard.entries.get_mut(&def.name) {
+                        entry.state = ProcessState::Running { pid: result.pid };
+                        entry.child = Some(result.child_guard);
+                    }
+                }
+                // 新しい exit_rx で次のループへ
+                exit_rx = new_exit_rx;
+            }
+            Err(e) => {
+                let mut guard = inner.lock().await;
+                if let Some(entry) = guard.entries.get_mut(&def.name) {
+                    entry.state = ProcessState::Failed {
+                        exit_code: None,
+                        message: e.to_string(),
+                    };
+                }
+                return;
+            }
+        }
     }
 }
 
@@ -210,11 +248,6 @@ mod tests {
     }
 
     /// cancel_token のキャンセルで watch_loop が即座に return することを確認する。
-    ///
-    /// M8-1（spawn_one）完了後に有効化すること。
-    /// watch_loop の再起動パスが未実装のため、exit_rx のタイミング依存で
-    /// テストがハングする可能性がある。
-    #[ignore = "M8-1 完了後に有効化（再起動パス未実装のため exit_rx のタイミング依存）"]
     #[tokio::test]
     async fn cancel_stops_immediately() {
         let def = never_def("test");
@@ -233,7 +266,6 @@ mod tests {
 
     /// RestartPolicy::Never でプロセスが終了した場合、
     /// Failed 状態に遷移することを確認する。
-    #[ignore = "M8-1 完了後に有効化（再起動パス未実装のため）"]
     #[tokio::test]
     async fn never_policy_sets_failed() {
         let def = never_def("test");
@@ -260,8 +292,9 @@ mod tests {
 
     /// プロセスが Stopped 状態の場合、watch_loop が return することを確認する。
     ///
-    /// exit_rx で終了コードを受信した後、Stopped 状態を検出して return する。
-    #[ignore = "M8-1 完了後に有効化（exit_rx のタイミング依存によりハングするため）"]
+    /// 本番と同様に `watch_loop` を `tokio::spawn` でバックグラウンド実行し、
+    /// PID probe タスク相当の遅延後に `oneshot` で終了コードを送信する。
+    /// タイムアウトでラップすることでハングを防止する。
     #[tokio::test]
     async fn stopped_state_exits() {
         let def = never_def("test");
@@ -269,10 +302,17 @@ mod tests {
         let (tx, rx) = tokio::sync::oneshot::channel::<Option<i32>>();
         let cancel_token = CancellationToken::new();
 
-        // exit_rx に終了コードを送信して select! を通過させる
+        // watch_loop をバックグラウンドで起動（本番と同様の実行順序）
+        let handle = tokio::spawn(watch_loop(inner, def, rx, cancel_token));
+
+        // PID probe タスク相当: 短い遅延後に終了コードを送信
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         tx.send(Some(0)).unwrap();
 
-        // Stopped 状態なので exit_rx 受信後、Failed に遷移せずに return
-        watch_loop(inner, def, rx, cancel_token).await;
+        // watch_loop が Stopped を検出して return するのを待つ（タイムアウト付き）
+        tokio::time::timeout(std::time::Duration::from_secs(1), handle)
+            .await
+            .expect("watch_loop timed out - Stopped state was not detected")
+            .expect("watch_loop task panicked");
     }
 }

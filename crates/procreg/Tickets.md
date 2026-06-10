@@ -223,7 +223,7 @@
 
 > **依存:** M5-1（wait_ready）、M6-1、M7-1
 
-#### チケット M8-1: spawn_one（Fake プロセス版）と start_all の実装
+#### ✅ チケット M8-1: spawn_one（Fake プロセス版）と start_all の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§7, §9)
 * **対象不変条件 / 規範:** §7 プロセス起動（spawn_one）、§9 start_all
@@ -241,7 +241,7 @@
 
 > **依存:** M3-1（ChildGuard::shutdown）、M8-1
 
-#### チケット M9-1: shutdown_all と stop の実装
+#### ✅ チケット M9-1: shutdown_all と stop の実装
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§12)
 * **対象不変条件 / 規範:** §12 shutdown_all — 運命共同体のシャットダウン
@@ -265,7 +265,7 @@
 
 > **依存:** M3-1（graceful_shutdown）、M4-1（is_process_alive）
 
-#### チケット M10-1: Unix 実装（libc）+ SIGTERM ハンドラ
+#### ✅ チケット M10-1: Unix 実装（libc）+ SIGTERM ハンドラ
 
 * **参照設計書:** docs/RFC-001-process-registry.md (§5.8, §10, §14)
 * **対象不変条件 / 規範:** §5.8（graceful_shutdown Unix）、§10（is_process_alive Unix）、§14（install_sigterm_handler）

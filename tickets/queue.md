@@ -16,3 +16,7 @@
 - [x] #15 M5-1: wait_ready の実装（ReadyCondition 待機） | /Users/kawata/shyme/zasso/tickets/specs/0015-m5-1-wait-ready-readycondition.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #16 M6-1: ProcessRegistry::new, snapshot, subscribe_output, pipe_output_to | /Users/kawata/shyme/zasso/tickets/specs/0016-m6-1-processregistrynew-snapshot-subscribe-output-pipe-output-to.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #17 M7-1: start_watch_task と watch_loop の実装（監視・再起動ループ） | /Users/kawata/shyme/zasso/tickets/specs/0017-m7-1-start-watch-task-watch-loop.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #18 M8-1: spawn_one（Fake プロセス版）と start_all の実装 | /Users/kawata/shyme/zasso/tickets/specs/0018-m8-1-spawn-onefake-start-all.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #19 M9-1: shutdown_all と stop の実装 | /Users/kawata/shyme/zasso/tickets/specs/0019-m9-1-shutdown-all-stop.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #20 M10-1: Unix 実装（libc）+ SIGTERM ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0020-m10-1-unix-libc-sigterm.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #21 M10-2: Windows 実装（win32） | /Users/kawata/shyme/zasso/tickets/specs/0021-m10-2-windows-win32.md | 2026-06-10 | 2026-06-10 | 2026-06-10

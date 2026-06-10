@@ -20,6 +20,8 @@ pub mod graph;
 pub mod platform;
 pub mod ready;
 pub mod registry;
+pub mod signal;
+pub mod spawn;
 pub mod state;
 pub mod watch;
 pub use crate::registry::ProcessRegistry;
