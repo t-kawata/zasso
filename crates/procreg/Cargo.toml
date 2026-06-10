@@ -1,0 +1,15 @@
+[package]
+name = "process-registry"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform sidecar process manager — pure data types, lifecycle, and supervision"
+
+[dependencies]
+anyhow = "1.0.102"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["sync"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
+
+[dev-dependencies]
+serde_json = "1.0.150"
