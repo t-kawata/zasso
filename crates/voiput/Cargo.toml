@@ -17,8 +17,12 @@ path = "src/binary/test-run.rs"
 anyhow = "1.0.102"
 async-trait = "0.1.89"
 indexmap = { version = "2.14.0", features = ["serde"] }
+lazy_static = "1.5.0"
+lindera = { version = "3.0.7", features = ["embed-ipadic"] }
+lindera-ipadic = "3.0.7"
 log = "0.4.32"
 parking_lot = "0.12.5"
+rodio = "0.21"
 rubato = "0.16"
 serde = { version = "1.0.228", features = ["derive"] }
 sherpa-rs = "0.6.8"

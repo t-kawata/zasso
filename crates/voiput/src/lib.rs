@@ -30,11 +30,11 @@ mod types;
 // M1-1 以降で実装
 pub(crate) mod pipeline;
 
-// M2-3 で実装
-// mod lindera_util;
+// M2-3: 句読点挿入（Lindera IPADIC）
+mod lindera_util;
 
-// M2-4 で実装
-// mod audio;
+// M2-4: 効果音再生（rodio Actor）
+mod audio;
 
 // M1-4: 置換辞書（M5-1 でインターセプタースレッドに統合）
 mod recognizer;
@@ -51,10 +51,13 @@ pub use error::VoiceKitError;
 pub use types::*;
 
 // 内部パイプライン（test-run.rs からアクセス可能にするため pub で re-export）
+pub use audio::{init, play_commit_sound, play_ready_sound};
+pub use lindera_util::get_tokenizer;
 pub use pipeline::denoiser::SpeechDenoiser;
 pub use pipeline::post_correct::{
     PostCorrectionBackend, PostCorrectionProcessor, ProcessorOutput, SttModelType,
 };
+pub use pipeline::punctuation::PunctuationMachine;
 pub use pipeline::resampler::{InternalResampler, SincResampler};
 pub use pipeline::signal_filter::is_worthy_to_run_asr;
 pub use pipeline::vad::VadConfig as VadProcessorConfig;

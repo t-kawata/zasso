@@ -3,17 +3,18 @@
 //! `cargo run --bin test-run` で実行。
 //! 各チケット完了時に関数が追加されていく。
 //!
-//! M2-1 時点: Stage 5/6 — Phase 2 （VadProcessor 追加）
+//! M2-3 時点: Stage 5/6 — Phase 2 （PunctuationMachine 追加）
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use voiput::apply_replaces;
-use voiput::is_worthy_to_run_asr;
+use voiput::{
+    apply_replaces, get_tokenizer, init, is_worthy_to_run_asr, play_commit_sound, play_ready_sound,
+};
 use voiput::{
     DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, PostCorrectionBackend,
-    PostCorrectionConfig, ProcessorOutput, SignalFilterConfig, SincResampler, SttEngine, VadConfig,
-    VadModelPaths, VoiceKitConfig,
+    PostCorrectionConfig, ProcessorOutput, PunctuationMachine, SignalFilterConfig, SincResampler,
+    SttEngine, VadConfig, VadModelPaths, VoiceKitConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
@@ -31,6 +32,12 @@ impl PostCorrectionBackend for MockPostCorrectBackend {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "--audio-verify" {
+        audio_verify();
+        return;
+    }
+
     println!("========================================");
     println!("  voiput test-run");
     println!("  Stage 5/6 —  Phase 2 パイプライン基盤");
@@ -43,6 +50,30 @@ fn main() {
     test_signal_filter();
     test_interceptor();
     test_vad();
+    test_punctuation();
+    test_audio();
+}
+
+fn audio_verify() {
+    println!("=== 音声再生確認 ===");
+    match init() {
+        Ok(_) => println!("✓ 初期化成功"),
+        Err(e) => {
+            println!("✗ 初期化失敗: {}", e);
+            return;
+        }
+    }
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    println!("→ 準備音 (piro.wav) 再生中...");
+    play_ready_sound();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    println!("→ 確定音 (commit.wav) 再生中...");
+    play_commit_sound();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    println!("✓ 音声再生確認完了");
 }
 
 fn test_config() {
@@ -448,6 +479,110 @@ fn test_post_correct() {
         }
         _ => println!("    ✗ バッファクリア失敗"),
     }
+
+    println!();
+}
+
+fn test_punctuation() {
+    show_section("PUNCTUATION");
+
+    println!("  [TEST] Lindera tokenizer 初期化");
+    match get_tokenizer() {
+        Ok(_) => println!("    ✓ get_tokenizer() 成功"),
+        Err(e) => println!("    ✗ get_tokenizer() 失敗: {}", e),
+    }
+
+    println!("  [TEST] 日本語句読点付与 (allow_terminal=false)");
+    match PunctuationMachine::new() {
+        Ok(machine) => {
+            let inputs = [
+                ("こんにちは元気ですか", &LocaleCode::Ja, false),
+                ("そうです", &LocaleCode::Ja, false),
+                ("それですか", &LocaleCode::Ja, false),
+            ];
+            for (text, locale, allow_terminal) in &inputs {
+                match machine.insert_with_context(text, "", *locale, *allow_terminal) {
+                    Ok(result) => {
+                        let has_period = result.contains('。') || result.contains('、');
+                        let has_question = result.contains('？');
+                        let punct = if has_question {
+                            "？"
+                        } else if has_period {
+                            "。"
+                        } else {
+                            "なし"
+                        };
+                        println!("    \"{}\" → \"{}\"  [句読点: {}]", text, result, punct);
+                    }
+                    Err(e) => println!("    ✗ 句読点挿入失敗: {}", e),
+                }
+            }
+        }
+        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
+    }
+
+    println!("  [TEST] 日本語句読点付与 (allow_terminal=true: タイムアウト時相当)");
+    match PunctuationMachine::new() {
+        Ok(machine) => {
+            let inputs = ["こんにちは元気ですか", "そうです", "それですか"];
+            for text in &inputs {
+                match machine.insert_with_context(text, "", &LocaleCode::Ja, true) {
+                    Ok(result) => {
+                        let has_question = result.contains('？');
+                        let has_period = result.contains('。');
+                        let punct = if has_question {
+                            "？"
+                        } else if has_period {
+                            "。"
+                        } else {
+                            "なし"
+                        };
+                        println!("    \"{}\" → \"{}\"  [{}]", text, result, punct);
+                    }
+                    Err(e) => println!("    ✗ エラー: {}", e),
+                }
+            }
+        }
+        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
+    }
+
+    println!("  [TEST] 英語パススルー");
+    match PunctuationMachine::new() {
+        Ok(machine) => match machine.insert("hello world", &LocaleCode::En) {
+            Ok(result) => {
+                if result == "hello world" {
+                    println!("    ✓ \"hello world\" → \"{}\"", result);
+                } else {
+                    println!("    ✗ 変更が発生しました: \"{}\"", result);
+                }
+            }
+            Err(e) => println!("    ✗ エラー: {}", e),
+        },
+        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
+    }
+
+    println!();
+}
+
+fn test_audio() {
+    show_section("AUDIO");
+
+    println!("  [TEST] オーディオ初期化");
+    match init() {
+        Ok(_) => println!("    ✓ init() 成功"),
+        Err(e) => {
+            println!("    [SKIP] init() 失敗: {} (ヘッドレス環境では無視)", e);
+            println!();
+            return;
+        }
+    }
+
+    println!("  [TEST] 効果音再生呼び出し");
+    play_ready_sound();
+    println!("    ✓ play_ready_sound() 呼び出し成功");
+    play_commit_sound();
+    println!("    ✓ play_commit_sound() 呼び出し成功");
+    println!("  [NOTE] 実際の音声は別スレッドで非同期再生されます");
 
     println!();
 }

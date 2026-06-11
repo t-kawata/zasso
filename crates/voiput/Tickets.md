@@ -35,11 +35,13 @@ cd crates/voiput && cargo add <crate-name> --features <feature1>,<feature2>  # f
 |---------|------------|------------------|
 | M0-1 | 初期依存9つ＋コメントアウト6つ | 以下の「M0-1 作業内容」参照 |
 | M2-1 | sherpa-rs, sherpa-rs-sys（コメントアウト解除） | `cargo add sherpa-rs && cargo add sherpa-rs-sys` |
+| M2.5 | sherpa-rs, sherpa-rs-sys → sherpa-onnx へ移行 | `cargo rm sherpa-rs && cargo rm sherpa-rs-sys && cargo add sherpa-onnx --no-default-features --features shared` |
 | M2-3 | lindera, lindera-ipadic（コメントアウト解除） | `cargo add lindera --features embed-ipadic && cargo add lindera-ipadic` |
 | M2-4 | rodio（コメントアウト解除） | `cargo add rodio` |
 | M3-1 | hound（新規追加） | `cargo add hound` |
 | M4-2 | async-openai（コメントアウト解除） | `cargo add async-openai --features audio` |
 | M6-1 | winapi（コメントアウト解除） | `cargo add winapi --features fileapi,winbase` |
+| M6-1 | libs/ 収集（全ランタイムDLL/dylib） | build.rs 内で sherpa-onnx-sys の OUT_DIR からコピー |
 
 ---
 
@@ -81,10 +83,25 @@ test-run.rs のコードも MYCUTE の各モジュールの呼び出し方に従
 ```
 crates/voiput/
 ├── Cargo.toml              ← MYCUTE Cargo.toml から不要な依存を削ったもの + sherpa-rs 等
-├── build.rs                ← MYCUTE build.rs から Tauri 依存を削除したもの
-├── prebuilt/               ← MYCUTE native/ からビルド済みライブラリを配置
+├── build.rs                ← モデル自動DL + ネイティブライブラリ自動ビルド + ランタイムDLL収集
+├── prebuilt/               ← MYCUTE native/ からビルド済み静的自リンク用ライブラリ
 │   ├── macos/libspeech_helper.a
 │   └── windows/{speech_helper.lib, SpeechHelper.dll}
+├── libs/                   ← build.rs が収集した全ランタイムDLL/dylib（アプリケーションがバンドルに使用）
+│   ├── macOS/              ← sherpa-onnx の shared 配布物 + SpeechHelper
+│   │   ├── libsherpa-onnx-c-api.dylib    ← k2-fsa/sherpa-onnx
+│   │   ├── libsherpa-onnx-cxx-api.dylib  ← k2-fsa/sherpa-onnx（必要な場合のみ）
+│   │   ├── libonnxruntime.1.17.1.dylib   ← k2-fsa/sherpa-onnx（version は変わりうる）
+│   │   └── libonnxruntime.dylib          ← @rpath 解決用シンボリックリンク（必要な場合）
+│   │   ※ Swift ランタイムは macOS 15+ のシステムライブラリ (usr/lib/swift/) のため同封不要
+│   └── windows/
+│       ├── sherpa-onnx-c-api.dll         ← k2-fsa/sherpa-onnx
+│       ├── onnxruntime.dll               ← k2-fsa/sherpa-onnx（version は変わりうる）
+│       ├── SpeechHelper.dll              ← C# Native AOT ビルド出力
+│       ├── vcruntime140.dll              ← VC++ 再頒布可能パッケージ
+│       ├── vcruntime140_1.dll            ← VC++ 再頒布可能パッケージ
+│       └── msvcp140.dll                  ← VC++ 再頒布可能パッケージ
+│       ※ concrt140.dll / vcomp140.dll は onnxruntime がリンクしていないため不要（MYCUTE で実績）
 ├── native/                 ← MYCUTE native/ からコピー（リビルド用ソース）
 │   ├── swift/SpeechHelper.swift + build.sh
 │   └── cs/SpeechHelper/{SpeechHelper.cs, Check.cs, SpeechHelper.csproj} + build.ps1
@@ -220,7 +237,7 @@ crates/voiput/
   1. `pipeline/vad.rs` に VadProcessor をコピー。Windows の resolve_ascii_path も含む。
   2. test-run.rs `[VAD]`: モデルファイルが存在すれば初期化→accept_waveform→reset の一連テスト。なければスキップ。
 
-##### チケット M2-2: SpeechDenoiser
+##### ✅ チケット M2-2: SpeechDenoiser
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.5
 * **移植元:** ~/shyme/mycute/src/tools/pseudo_asr_streamer.rs の SpeechDenoiser struct を抽出
@@ -228,7 +245,7 @@ crates/voiput/
   1. `pipeline/denoiser.rs` に SpeechDenoiser を独立ファイルとして抽出。
   2. test-run.rs: 単体テストは難しい（モデルファイル依存）ため、test-run.rs `[STREAMER]`（M3-1）の中でパイプライン統合時に自動的に呼ばれる形で確認する。`[DENOISER]` セクションは用意せず、モデルファイルが存在すれば M3-1 のデモ内部で動作。
 
-##### チケット M2-3: PunctuationMachine + test-run.rs [PUNCTUATION]
+##### ✅ チケット M2-3: PunctuationMachine + test-run.rs [PUNCTUATION]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.9, §7.16
 * **移植元:**
@@ -238,13 +255,110 @@ crates/voiput/
   1. `lindera_util.rs` / `pipeline/punctuation.rs` にコピー。
   2. test-run.rs `[PUNCTUATION]`: "こんにちは元気ですか" に句読点を挿入するデモ。
 
-##### チケット M2-4: 効果音再生 + test-run.rs [AUDIO]
+##### ✅ チケット M2-4: 効果音再生 + test-run.rs [AUDIO]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.15, §6.4
 * **移植元:** ~/shyme/mycute/src/tools/audio.rs — 完全移植（include_bytes! パスのみ変更）
 * **作業内容:**
   1. `audio.rs` にコピー（rodio Actor パターン）。WAV ファイルもコピー。
   2. test-run.rs `[AUDIO]`: init → play_ready_sound → play_commit_sound の一連デモ。
+* **注意:** ~/shyme/mycute で実際に使用されている音声ファイルを完全に移植すること。
+
+#### M2.5: sherpa-rs → sherpa-onnx 移行
+
+> **参照ドキュメント:** https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
+>
+> `sherpa-rs`（v0.6.8, コミュニティメンテナンス）は非推奨状態。
+> 後継の `sherpa-onnx`（v1.13.2, k2-fsa公式メンテナンス）に移行する。
+>
+> **移行による改善点:**
+> - `unsafe` コード削減（生ポインタ → RAII）
+> - 手動 `Drop`・手動リソース解放が不要に
+> - `unsafe impl Send/Sync` が不要に（`sherpa-onnx` が自動実装）
+> - 安全な `Option<Self>` ベースのコンストラクタ
+> - 公式チームによる継続的メンテナンス
+
+##### チケット M2.5-1: Cargo.toml 依存置き換え
+
+* **参照ドキュメント:** https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
+* **作業内容:**
+  1. `cargo rm sherpa-rs && cargo rm sherpa-rs-sys` で削除
+  2. `cargo add sherpa-onnx --no-default-features --features shared` で追加（動的リンク）
+  3. build.rs の `cargo:rustc-link-lib` 関連を確認・調整
+  4. `cargo check` でコンパイルエラーの一覧を取得（M2.5-2, M2.5-3 のスコープ確定用）
+* **注意（atomicity）:** M2.5-1 実行後、`vad.rs` と `denoiser.rs` が `sherpa_rs_sys` を参照しているため **ビルドが確実に壊れる**。M2.5-2 と M2.5-3 を同一セッション内で連続実行し、M2.5-4 でビルド回復を確認すること。分離して実行するとビルドが通らない期間が発生する。
+* **依存置き換えの影響範囲:**
+  - 削除: `sherpa-rs`, `sherpa-rs-sys`
+  - 追加: `sherpa-onnx`（`shared` feature）
+  - feature `shared`: 動的リンク（DLL/dylib を libs/ に収集可能に）
+  - feature 未指定（デフォルト）: 静的リンク（巨大なバイナリになる）
+* **参考:** sherpa-onnx-sys（低レベルFFI）は `sherpa-onnx` の内部依存として自動解決される
+
+##### チケット M2.5-2: VadProcessor の safe API 書き換え
+
+* **参照ドキュメント:** https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.VoiceActivityDetector.html
+* **移植元:** ~/shyme/mycute/src/tools/vad_processor.rs（API 置き換え）
+* **変更点（sherpa-rs-sys → sherpa-onnx）:**
+
+| 旧（sherpa_rs_sys as sys） | 新（sherpa_onnx） |
+|---|---|
+| `sys::SherpaOnnxVadModelConfig` | `VadModelConfig` |
+| `sys::SileroVadModelConfig` の埋め込み | `SileroVadModelConfig` 構造体 |
+| `unsafe { sys::SherpaOnnxCreateVoiceActivityDetector(&c, dur) }` — 生ポインタ | `VoiceActivityDetector::create(&config, dur)` — `Option<Self>` |
+| `unsafe { sys::SherpaOnnxVoiceActivityDetectorAcceptWaveform(v, p, l) }` | `vad.accept_waveform(&samples)` |
+| `sys::SherpaOnnxVoiceActivityDetectorDetected(v) == 1` | `vad.detected()` |
+| `unsafe { sys::SherpaOnnxVoiceActivityDetectorReset(v) }` | `vad.reset()` |
+| `*const sys::SherpaOnnxVoiceActivityDetector` — 生ポインタ | `VoiceActivityDetector` — safe value |
+| `unsafe impl Send for VadProcessor {}` | 不要（sherpa-onnx が保証） |
+| 手動 `Drop` impl | 不要（RAII） |
+| `anyhow::Result<Self>` （nullチェック） | `Option<VoiceActivityDetector>` → `Self` 変換 |
+
+* **作業内容:**
+  1. `pipeline/vad.rs` の全 `sherpa_rs_sys as sys` 参照を `sherpa_onnx` の safe API に置き換え
+  2. 生ポインタフィールド `vad: *const sys::SherpaOnnxVoiceActivityDetector` → `Option<VoiceActivityDetector>`
+  3. `unsafe impl Send/Sync` 削除
+  4. 手動 `Drop` impl 削除
+  5. `VadProcessor::new()` の戻り値を `anyhow::Result<Self>` に維持（`Option` を `anyhow!` でラップ）
+  6. テスト調整（if `cfg(windows)` の resolve_ascii_path は維持）
+* **テスト:** `cargo test --lib pipeline::vad` が全テスト PASS
+
+##### チケット M2.5-3: SpeechDenoiser の safe API 書き換え
+
+* **参照ドキュメント:**
+  - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.OfflineSpeechDenoiser.html
+  - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.DenoisedAudio.html
+* **移植元:** ~/shyme/mycute/src/tools/pseudo_asr_streamer.rs（API 置き換え）
+* **変更点（sherpa-rs-sys → sherpa-onnx）:**
+
+| 旧（sherpa_rs_sys as sys） | 新（sherpa_onnx） |
+|---|---|
+| `sys::SherpaOnnxOfflineSpeechDenoiserConfig` | `OfflineSpeechDenoiserConfig` |
+| `sys::SherpaOnnxOfflineSpeechDenoiserModelConfig` | `OfflineSpeechDenoiserModelConfig` |
+| `sys::SherpaOnnxOfflineSpeechDenoiserGtcrnModelConfig` | `OfflineSpeechDenoiserGtcrnModelConfig` |
+| `unsafe { sys::SherpaOnnxCreateOfflineSpeechDenoiser(&c) }` — nullチェック | `OfflineSpeechDenoiser::create(&config)` — `Option<Self>` |
+| `unsafe { sys::SherpaOnnxOfflineSpeechDenoiserRun(p, s, n, r) }` → 生ポインタ | `denoiser.run(&samples, sample_rate)` → `DenoisedAudio` |
+| `unsafe { sys::SherpaOnnxDestroyDenoisedAudio(p) }` | 不要（`DenoisedAudio` の Drop が自動処理） |
+| `unsafe { sys::SherpaOnnxDestroyOfflineSpeechDenoiser(p) }` | 不要（RAII） |
+| `*const sys::SherpaOnnxOfflineSpeechDenoiser` | `OfflineSpeechDenoiser` — safe value |
+| `unsafe impl Send/Sync` | 不要 |
+| 手動 `Drop` | 不要 |
+
+* **作業内容:**
+  1. `pipeline/denoiser.rs` の全 `sherpa_rs_sys as sys` 参照を `sherpa_onnx` の safe API に置き換え
+  2. `DenoisedAudio` の `samples` フィールドに直接アクセス（`result.samples` → `audio.samples` 等）
+  3. `unsafe impl Send/Sync` 削除
+  4. 手動 `Drop` impl 削除
+  5. `SpeechDenoiser::new()` → `OfflineSpeechDenoiser::create()` のラッパーに簡略化
+* **注意（DenoisedAudio のフィールド名）:** 実装時に https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.DenoisedAudio.html で `.samples` フィールドの有無と名前を確認すること。C API の `SherpaOnnxDenoisedAudio` と同じ構造なら `.samples` だが、Rust ラッパーで異なる名前になっている可能性がある（例: `.data` や `.samples()` メソッド）。
+* **テスト:** `cargo test --lib pipeline::denoiser` が PASS
+
+##### チケット M2.5-4: 移行後の動作確認
+
+* **作業内容:**
+  1. `cargo test` 全78テスト PASS（M3-1 完了後は 78、それ以前は 72）
+  2. `cargo run --bin test-run` で `[VAD]` が実モデル初期化に成功すること
+  3. build.rs の依存クリーンアップ（`cargo:rustc-link-lib` 重複・過不足の確認）
+  4. Cargo.toml のコメントアウト行整理
 
 ### Phase 3: パイプライン統合（PseudoAsrStreamer）
 
@@ -252,20 +366,28 @@ crates/voiput/
 
 ##### チケット M3-1: PseudoAsrStreamer + test-run.rs [STREAMER]
 
+* **依存関係:** M2.5（sherpa-onnx 移行）が完了していること
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.5
 * **移植元:** ~/shyme/mycute/src/tools/pseudo_asr_streamer.rs
   - SpeechDenoiser 参照を `crate::pipeline::denoiser` に変更
   - インポートパス変更（crate::tools → crate::pipeline）
   - それ以外は完全移植
+* **実モデルに関する注意:**
+  Silero VAD や GTCRN は実声紋・実環境音で学習された ML モデルである。
+  人工的な正弦波やノイズでは正しい判定が得られないため、test-run.rs での実モデルテストは行わない。
+  実モデルを使った確認は M4（実マイク入力が得られるバックエンド）まで待つ。
+  VAD/Denoiser の「モデルが初期化できること」は test-run.rs `[VAD]` で既に確認済み。
 * **作業内容:**
-  1. `pipeline/streamer.rs` に PseudoAsrStreamer をコピー。
-  2. `pipeline/denoiser.rs` に SpeechDenoiser をコピー（M2-2 と重複する場合は統合）。
-  3. test-run.rs `[STREAMER]`:
-     - **MockBackend モード**: MockBackend を AsrBackend にセットし、疑似的な push_samples → tick → イベント出力のパイプラインデモ。
-     - **実モデル VAD モード**: `models/` にある silero_vad.onnx を使用し、VadProcessor を初期化 → PseudoAsrStreamer に組み込んで VAD 区間検出のデモ。
-       実際のマイク入力はなくても、数秒分の f32 サイン波（+ 無音区間）を push_samples で送り、SpeechStart/SpeechEnd イベントが正しく発火することを確認する。
-     - **実モデル Denoiser モード**: GTCRN モデル（gtcrn.onnx）で SpeechDenoiser を初期化し、ノイズ付きサイン波を入力 → 出力の RMS が改善（ノイズ低減）することを確認する。
-     - いずれかのモデルが欠けている場合は build.rs の保証により到達しない（常に全モデル存在）。
+  1. `pipeline/streamer.rs` に PseudoAsrStreamer を移植。
+  2. `cargo test --lib pipeline::streamer` で以下を確認するユニットテストを実装：
+     - MockBackend による push_samples → tick → StreamerEvent の一連フロー
+     - 空データでの start/stop 正常終了
+     - start → stop → start の再起動サイクル
+     - 信号品質フィルタが ASR 実行をスキップする条件
+     - 発話キューが複数チャンクを正しく処理する順序
+     - 最大発話時間超過時の自動分割
+  3. test-run.rs `[STREAMER]`: **MockBackend モードのみ**。
+     push_samples で疑似的な音声データを投入し、tick ごとに StreamerEvent の流れを表示。
 
 ### Phase 4: バックエンド移植 + 認識器統括
 
@@ -360,14 +482,129 @@ crates/voiput/
   - 不在 → `native/<platform>/build.sh` または `native/<platform>/build.ps1` を自動実行
   - 自動ビルド失敗 → `panic!` でビルド停止
   - `cargo:rerun-if-changed=native/` で全ネイティブソースファイルの変更を1バイト単位で検出し、変更があれば再ビルド、なければスキップ
+  - ビルド後、`libs/<platform>/` にランタイムDLL/dylib を収集（ファイル一覧は「ファイル構成」セクション参照）
+    - macOS: sherpa-onnx の build 出力（OUT_DIR）から `*.dylib` をコピー
+    - Windows: sherpa-onnx の build 出力（OUT_DIR）から `*.dll` をコピー + SpeechHelper.dll + VC++ 再頒布可能 DLL
+    - `cargo:rerun-if-changed=libs/` で DLL/dylib の変更を検出
+  - `libs/` の全ファイルが揃っていることを cargo build 完了時に確認。1つでも欠けていれば `panic!`。
 * **作業内容:**
   1. `~/shyme/mycute/native/swift/SpeechHelper.swift` を `native/swift/` にコピー。
   2. `~/shyme/mycute/native/cs/SpeechHelper/*` を `native/cs/SpeechHelper/` にコピー。
   3. `native/swift/build.sh` を作成（RFC §6.1 の内容）。
   4. `native/cs/build.ps1` を作成（RFC §6.2 の内容）。
-  5. build.rs の自動ビルドロジックが正しく動作することの確認。
-  ※ build.rs の panic!/リンク設定/自動ビルドロジックは M2-1 完了時点で既に実装済み。
-  ※ 本チケットはソースコードのコピーとビルドスクリプトの作成のみ。
+  5. build.rs に `libs/<platform>/` 収集ロジックを追加:
+     - macOS: `OUT_DIR` (sherpa-onnx) から `libsherpa-onnx-c-api.dylib`, `libonnxruntime.1.17.1.dylib` (version は変わりうる) を `libs/macos/` にコピー。
+       `libsherpa-onnx-cxx-api.dylib` は不要な場合はスキップしてよい。
+     - Windows: `OUT_DIR` (sherpa-onnx) から `sherpa-onnx-c-api.dll`, `onnxruntime.dll` を `libs/windows/` にコピー。
+       `sherpa-onnx-cxx-api.dll` は不要な場合はスキップ。
+     - Windows: `SpeechHelper.dll` を C# Native AOT ビルド出力から `libs/windows/` にコピー。
+     - Windows: VC++ 再頒布可能 DLL（`vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll`）を
+       Visual Studio の再頒布可能ディレクトリまたはシステムからコピー。
+       `concrt140.dll` / `vcomp140.dll` は onnxruntime がリンクしていないため不要（MYCUTE で実績あり）。
+  7. Tauri バンドル用の設定サンプルを README に記載。
+
+##### チケット M6-1.5 macOS: `libs/macos/` ランタイムライブラリ収集
+
+* **参照ドキュメント:**
+  - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
+  - docs/rfc-stt-portable-crate.md §6.1（Swift ビルド手順）
+* **目的:** macOS で音声入力が動作するために必要な全ランタイム dylib を `libs/macos/` に揃え、voiput crate が `libs/` を開けば全て揃っていることを保証する。
+* **収集対象:**
+
+| # | ファイル | 入手元 | 必須 |
+|---|---------|--------|------|
+| 1 | `libsherpa-onnx-c-api.dylib` | sherpa-onnx shared 配布物 | ✅ |
+| 2 | `libonnxruntime.1.17.1.dylib` | sherpa-onnx shared 配布物（version 可変） | ✅ |
+| 3 | `libonnxruntime.dylib` | 上記のシンボリックリンク (@rpath 解決用) | ⚠️ |
+| 4 | `libsherpa-onnx-cxx-api.dylib` | sherpa-onnx shared 配布物（必要な場合のみ） | ⚠️ |
+
+※ Swift SpeechHelper は静的リンク (`-static`) のためランタイム dylib 不要。
+※ macOS 15+ では Swift ランタイム (`/usr/lib/swift/`) はシステムライブラリのため同封不要。
+* **build.rs の処理（`models/` と同じパターン）:**
+
+  ```
+  build.rs 起動
+    ├─ libs/macos/ が存在しなければ mkdir
+    │
+    ├─ [要収集ファイルの存在確認]
+    │  for each (ファイル名, 入手元) in 収集対象:
+    │    ├─ ファイルが既に libs/macos/ にある → OK
+    │    └─ ファイルがない → 入手元から libs/macos/ にコピー
+    │
+    ├─ [最終確認]
+    │  for each (ファイル名) in 収集対象（必須のみ）:
+    │    ├─ libs/macos/ に存在 → OK
+    │    └─ 存在しない → panic!("必須ライブラリが不足")
+    │
+    ├─ [変更検出]
+    │  println!("cargo:rerun-if-changed=libs/macos/");
+    │  // libs/ は target/ 下ではなく crate ルート直下のため cargo clean では削除されない
+    │  // ファイルが既に存在する場合、build.rs は即座にスキップされる
+    ```
+
+* **作業内容:**
+  1. sherpa-onnx の shared 出力ディレクトリ（sherpa-onnx-sys の OUT_DIR）を build.rs から特定する方法を確立
+  2. 上記アルゴリズムを build.rs に実装
+  3. `libs/macos/` の existence check を実装（必須ファイル1つでも欠け → `panic!`）
+  4. `cargo clean` 後も `libs/` が残ることを確認（設計動作）
+  5. macOS 実機で過不足なくロードされることを確認（`DYLD_PRINT_LIBRARIES=1` で確認）
+
+##### チケット M6-1.6 Windows: `libs/windows/` ランタイムライブラリ収集
+
+* **参照ドキュメント:**
+  - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
+  - docs/rfc-stt-portable-crate.md §6.2（C# Native AOT ビルド手順）
+* **目的:** Windows で音声入力が動作するために必要な全ランタイム DLL を `libs/windows/` に揃え、voiput crate が `libs/` を開けば全て揃っていることを保証する。
+* **収集対象:**
+
+| # | ファイル | 入手元 | 必須 |
+|---|---------|--------|------|
+| 1 | `sherpa-onnx-c-api.dll` | sherpa-onnx shared 配布物 | ✅ |
+| 2 | `onnxruntime.dll` | sherpa-onnx shared 配布物（version 可変） | ✅ |
+| 3 | `SpeechHelper.dll` | C# Native AOT ビルド出力 | ✅ |
+| 4 | `vcruntime140.dll` | VC++ 再頒布可能パッケージ | ✅ |
+| 5 | `vcruntime140_1.dll` | 同上（VS 2019+） | ✅ |
+| 6 | `msvcp140.dll` | 同上（C++ 標準ライブラリ） | ✅ |
+| 7 | `sherpa-onnx-cxx-api.dll` | sherpa-onnx shared 配布物（必要な場合のみ） | ⚠️ |
+| 8 | `concrt140.dll` | VC++ 再頒布可能（onnxruntime がリンクしている場合のみ） | ❌ |
+| 9 | `vcomp140.dll` | 同上（MYCUTE 実績では不要） | ❌ |
+
+* **build.rs の処理（`models/` と同じパターン）:**
+
+  ```
+  build.rs 起動
+    ├─ libs/windows/ が存在しなければ mkdir
+    │
+    ├─ [要収集ファイルの存在確認]
+    │  for each (ファイル名, 入手元) in 収集対象:
+    │    ├─ ファイルが既に libs/windows/ にある → OK
+    │    └─ ファイルがない → 入手元から libs/windows/ にコピー
+    │       ├─ sherpa-onnx-c-api.dll / onnxruntime.dll
+    │       │  → sherpa-onnx-sys の OUT_DIR から
+    │       ├─ SpeechHelper.dll
+    │       │  → C# Native AOT ビルド出力から
+    │       └─ vcruntime140.dll / vcruntime140_1.dll / msvcp140.dll
+    │          → VS インストール先の redist/ からコピー
+    │
+    ├─ [最終確認]
+    │  for each (ファイル名) in 収集対象（必須のみ）:
+    │    ├─ libs/windows/ に存在 → OK
+    │    └─ 存在しない → panic!("必須ライブラリが不足")
+    │
+    ├─ [変更検出]
+    │  println!("cargo:rerun-if-changed=libs/windows/");
+    │  // libs/ は target/ 下ではなく crate ルート直下のため cargo clean では削除されない
+    │  // ファイルが既に存在する場合、build.rs は即座にスキップされる
+    ```
+
+* **作業内容:**
+  1. sherpa-onnx の shared 出力ディレクトリ（sherpa-onnx-sys の OUT_DIR）を build.rs から特定
+  2. VC++ 再頒布可能 DLL の自動検出（VS インストール先の `redist/` 探索）を実装
+  3. SpeechHelper.dll の C# Native AOT ビルド出力先特定とコピー
+  4. 上記アルゴリズムを build.rs に実装
+  5. `libs/windows/` の existence check 実装
+  6. `cargo clean` 後も `libs/` が残ることを確認（設計動作）
+  7. Windows 実機での動作確認（プロセスモニタで不足なくロードされることを確認）
 
 ##### チケット M6-2: 統合テスト
 
@@ -395,6 +632,11 @@ M2-1: VadProcessor (+ [VAD]) ─────────────────
 M2-2: SpeechDenoiser ───────────────────────────────────┤  ← sherpa-rs-sys
 M2-3: PunctuationMachine (+ [PUNCTUATION]) ─────────────┤  ← lindera
 M2-4: 効果音再生 (+ [AUDIO]) ──────────────────────────┤  ← rodio
+                                                           ↓
+M2.5-1: Cargo.toml依存置換 ────────────────────────────┤  ← sherpa-rs → sherpa-onnx
+M2.5-2: VadProcessor safe化 ───────────────────────────┤  ← VoiceActivityDetector
+M2.5-3: SpeechDenoiser safe化 ─────────────────────────┤  ← OfflineSpeechDenoiser
+M2.5-4: 移行後動作確認 ────────────────────────────────┤
                                                            ↓
 M3-1: PseudoAsrStreamer (+ [STREAMER]) ─────────────────┤  ← tokio, hound（M1〜M2全コンポーネント統合）
                                                            ↓

@@ -41,3 +41,5 @@
 - [x] #40 M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR] | /Users/kawata/shyme/zasso/tickets/specs/0040-m1-4-test-runrs-interceptor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #41 M2-1: VadProcessor + test-run.rs [VAD] | /Users/kawata/shyme/zasso/tickets/specs/0041-m2-1-vadprocessor-test-runrs-vad.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #42 M2-2: SpeechDenoiser | /Users/kawata/shyme/zasso/tickets/specs/0042-m2-2-speechdenoiser.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #43 M2-3: PunctuationMachine + test-run.rs [PUNCTUATION] | /Users/kawata/shyme/zasso/tickets/specs/0043-m2-3-punctuationmachine-test-runrs-punctuation.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #44 M2-4: 効果音再生 + test-run.rs [AUDIO] | /Users/kawata/shyme/zasso/tickets/specs/0044-m2-4-test-runrs-audio.md | 2026-06-11 | 2026-06-11 | 2026-06-11

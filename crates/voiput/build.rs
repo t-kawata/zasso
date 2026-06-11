@@ -158,8 +158,10 @@ fn link_macos(prebuilt: &PathBuf) {
         if lib_path.exists() {
             println!("cargo:rustc-link-lib=static=SpeechHelper");
             println!("cargo:rustc-link-search=native={}", mac_dir.display());
-            println!("cargo:warning=Using stub libSpeechHelper.a. \
-                      Replace with real library at M6-1.");
+            println!(
+                "cargo:warning=Using stub libSpeechHelper.a. \
+                      Replace with real library at M6-1."
+            );
         } else {
             // ar が使えない環境用（稀）: 最小限の ar archive を自力生成
             let data = create_minimal_coff_lib();
@@ -209,8 +211,7 @@ fn link_windows(prebuilt: &PathBuf) {
         println!("cargo:rustc-link-search=native={}", win_dir.display());
     } else {
         // スタブ .lib を自動生成（M6-1 で本物に差し替え）
-        std::fs::create_dir_all(&win_dir)
-            .expect("Failed to create prebuilt/windows/ directory");
+        std::fs::create_dir_all(&win_dir).expect("Failed to create prebuilt/windows/ directory");
         create_stub_windows_lib(&lib_path);
 
         if !lib_path.exists() {
@@ -222,8 +223,10 @@ fn link_windows(prebuilt: &PathBuf) {
         }
         println!("cargo:rustc-link-lib=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", win_dir.display());
-        println!("cargo:warning=Using stub speech_helper.lib. \
-                  Replace with real library at M6-1.");
+        println!(
+            "cargo:warning=Using stub speech_helper.lib. \
+                  Replace with real library at M6-1."
+        );
     }
 
     if dll_path.exists() {
@@ -276,8 +279,7 @@ fn create_stub_windows_lib(lib_path: &std::path::Path) {
             // （MSVC リンカが認識しない可能性があるが、ないよりはマシ）
             println!("cargo:warning=MSVC lib.exe not found. Creating minimal COFF stub.");
             let data = create_minimal_coff_lib();
-            std::fs::write(lib_path, &data)
-                .expect("Failed to create stub speech_helper.lib");
+            std::fs::write(lib_path, &data).expect("Failed to create stub speech_helper.lib");
         }
     }
 }
@@ -289,9 +291,7 @@ fn create_stub_windows_lib(lib_path: &std::path::Path) {
 #[cfg(target_os = "windows")]
 fn find_msvc_lib_exe() -> Option<std::path::PathBuf> {
     // 1. 環境変数から VC ルートを取得
-    if let (Ok(vc_dir), Ok(vc_ver)) =
-        (env::var("VCINSTALLDIR"), env::var("VCTOOLSVERSION"))
-    {
+    if let (Ok(vc_dir), Ok(vc_ver)) = (env::var("VCINSTALLDIR"), env::var("VCTOOLSVERSION")) {
         let candidate = std::path::PathBuf::from(&vc_dir)
             .join("Tools")
             .join("MSVC")
@@ -352,12 +352,12 @@ fn find_msvc_lib_exe() -> Option<std::path::PathBuf> {
 /// macOS の ar フォールバック、および Windows の lib.exe 不在時の最終手段。
 fn create_minimal_coff_lib() -> Vec<u8> {
     let mut data = b"!<arch>\n".to_vec(); // magic
-    let name = b"/               ";       // linker member name (16 bytes)
+    let name = b"/               "; // linker member name (16 bytes)
     let size = 4u32;
     let size_str = format!("{:<12}", size);
     data.extend_from_slice(name);
     data.extend_from_slice(size_str.as_bytes());
-    data.extend_from_slice(b"`\n");       // trailing
+    data.extend_from_slice(b"`\n"); // trailing
     data.extend_from_slice(&0u32.to_le_bytes()); // 0 symbols
     data.push(b'\n');
     data
