@@ -399,7 +399,7 @@ crates/voiput/
 * **移植元:** ~/shyme/mycute/src/stt/mac.rs の extern "C" ブロック, ~/shyme/mycute/src/stt/win.rs の extern "C" ブロック
 * **作業内容:** FFI 宣言のみを独立ファイルに抽出。Windows はヘルスチェック状態管理（AtomicU32 + AtomicBool）も移動。
 
-##### チケット M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI]
+##### ✅ チケット M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.11
 * **移植元:** ~/shyme/mycute/src/stt/openai.rs
