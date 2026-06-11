@@ -6,6 +6,7 @@ description = "Cross-platform sidecar process manager — pure data types, lifec
 
 [dependencies]
 anyhow = "1.0.102"
+log = "0.4.32"
 petgraph = "0.8.3"
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"

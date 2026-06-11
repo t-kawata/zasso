@@ -66,7 +66,7 @@ pub(crate) fn extract_watchdog() -> Result<std::path::PathBuf, String> {
                 }
 
                 // デバッグ情報: 展開先パスを出力（テスト時のトラブルシューティング用）
-                eprintln!("[watchdog] Extracted to: {}", path.display());
+                log::info!("[watchdog] Extracted to: {}", path.display());
 
                 return Ok(path);
             }
