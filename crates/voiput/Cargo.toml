@@ -11,7 +11,7 @@ crate-type = ["lib"]
 
 [[bin]]
 name = "test-run"
-path = "src/bin/test-run.rs"
+path = "src/binary/test-run.rs"
 
 [dependencies]
 anyhow = "1.0.102"

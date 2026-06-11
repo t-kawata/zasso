@@ -1,0 +1,453 @@
+//! voiput test-run — 開発用デモツール
+//!
+//! `cargo run --bin test-run` で実行。
+//! 各チケット完了時に関数が追加されていく。
+//!
+//! M2-1 時点: Stage 5/6 — Phase 2 （VadProcessor 追加）
+
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
+use voiput::apply_replaces;
+use voiput::is_worthy_to_run_asr;
+use voiput::{
+    DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, PostCorrectionBackend,
+    PostCorrectionConfig, ProcessorOutput, SignalFilterConfig, SincResampler, SttEngine, VadConfig,
+    VadModelPaths, VoiceKitConfig,
+};
+use voiput::{PostCorrectionProcessor, SttModelType};
+use voiput::{
+    VadProcessor, VadProcessorConfig, VadProcessorType, SILERO_VAD_WINDOW_SIZE,
+    TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE,
+};
+
+struct MockPostCorrectBackend;
+
+#[async_trait::async_trait]
+impl PostCorrectionBackend for MockPostCorrectBackend {
+    async fn post_correct(&self, text: &str) -> anyhow::Result<String> {
+        Ok(format!("[OK] {}", text))
+    }
+}
+
+fn main() {
+    println!("========================================");
+    println!("  voiput test-run");
+    println!("  Stage 5/6 —  Phase 2 パイプライン基盤");
+    println!("========================================");
+    println!();
+
+    test_config();
+    test_resampler();
+    test_post_correct();
+    test_signal_filter();
+    test_interceptor();
+    test_vad();
+}
+
+fn test_config() {
+    show_section("CONFIG");
+
+    println!("  [TEST] 正常系: 最小構成 (Engine=Os, locale=Ja)");
+    let config = VoiceKitConfig::builder()
+        .engine(SttEngine::Os)
+        .locale(LocaleCode::Ja)
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match config {
+        Ok(cfg) => {
+            println!("    ✓ build() 成功");
+            println!("    engine: {:?}", cfg.engine);
+            println!("    locale: {:?}", cfg.locale);
+            println!("    speech_timeout_sec: {}", cfg.speech_timeout_sec);
+            println!("    punctuation: {}", cfg.punctuation);
+        }
+        Err(e) => println!("    ✗ build() 失敗: {}", e),
+    }
+
+    println!("  [TEST] 正常系: OpenAI 設定付き");
+    let config = VoiceKitConfig::builder()
+        .engine(SttEngine::OpenAI)
+        .locale(LocaleCode::En)
+        .openai_config(OpenAiConfig {
+            base_url: "http://127.0.0.1:3912".into(),
+            api_key: "sk-xxxx".into(),
+            model: "gpt-4o-mini-transcribe".into(),
+        })
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match config {
+        Ok(cfg) => {
+            println!("    ✓ build() 成功");
+            println!("    engine: {:?}", cfg.engine);
+            println!("    locale: {:?}", cfg.locale);
+            println!("    openai model: {:?}", cfg.openai_config.map(|c| c.model));
+        }
+        Err(e) => println!("    ✗ build() 失敗: {}", e),
+    }
+
+    println!("  [TEST] 異常系: locale 未指定");
+    let result = VoiceKitConfig::builder()
+        .engine(SttEngine::Os)
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match result {
+        Ok(_) => {
+            println!("    ✗ エラーになるべき");
+        }
+        Err(e) => println!("    ✓ 正しくエラー: {}", e),
+    }
+
+    println!("  [TEST] 異常系: OpenAI config なし (engine=OpenAi)");
+    let result = VoiceKitConfig::builder()
+        .engine(SttEngine::OpenAI)
+        .locale(LocaleCode::Ja)
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match result {
+        Ok(_) => {
+            println!("    ✗ エラーになるべき");
+        }
+        Err(e) => println!("    ✓ 正しくエラー: {}", e),
+    }
+
+    println!("  [INFO] Config デフォルト値:");
+    println!(
+        "    VadConfig.threshold: {}",
+        VadConfig::default().threshold
+    );
+    println!(
+        "    PostCorrectionConfig.sentence_count: {}",
+        PostCorrectionConfig::default().sentence_count_threshold
+    );
+    println!(
+        "    SignalFilterConfig.rms_threshold: {}",
+        SignalFilterConfig::default().rms_threshold
+    );
+    println!(
+        "    DenoiserConfig.enabled: {}",
+        DenoiserConfig::default().enabled
+    );
+    println!();
+}
+
+fn test_resampler() {
+    show_section("RESAMPLER");
+
+    // 48kHz 正弦波を生成して 16kHz にリサンプリング
+    let input_rate = 48000u32;
+    let output_rate = 16000u32;
+    let sample_count = 4800;
+    let input: Vec<f32> = (0..sample_count).map(|i| (i as f32 * 0.01).sin()).collect();
+
+    println!(
+        "  [TEST] SincResampler: {}Hz → {}Hz ({} samples)",
+        input_rate,
+        output_rate,
+        input.len()
+    );
+
+    match SincResampler::new(input_rate, output_rate) {
+        Ok(mut resampler) => match resampler.process(&input) {
+            Ok(output) => {
+                println!("    入力長: {}", input.len());
+                println!("    出力長: {}", output.len());
+                if !output.is_empty() && output.len() > input.len() / 4 {
+                    println!("    ✓ PASS: 出力が空でなく、期待範囲内");
+                } else {
+                    println!(
+                        "    ✗ FAIL: 出力長={} (期待: {}〜{})",
+                        output.len(),
+                        input.len() / 4,
+                        input.len() / 2
+                    );
+                }
+            }
+            Err(e) => println!("    ✗ FAIL: process() エラー: {}", e),
+        },
+        Err(e) => println!("    ✗ FAIL: SincResampler::new() エラー: {}", e),
+    }
+
+    // 同一レートのパススルーテスト
+    println!("  [TEST] パススルー: 16000Hz → 16000Hz");
+    match SincResampler::new(16000, 16000) {
+        Ok(mut resampler) => {
+            let passthrough_input = vec![1.0f32; 1024];
+            match resampler.process(&passthrough_input) {
+                Ok(output) => {
+                    if !output.is_empty() {
+                        println!("    ✓ PASS: 出力長={}", output.len());
+                    } else {
+                        println!("    ✗ FAIL: 出力が空");
+                    }
+                }
+                Err(e) => println!("    ✗ FAIL: {}", e),
+            }
+        }
+        Err(e) => println!("    ✗ FAIL: SincResampler::new() エラー: {}", e),
+    }
+
+    println!();
+}
+
+fn test_interceptor() {
+    use indexmap::IndexMap;
+    use parking_lot::RwLock;
+
+    show_section("INTERCEPTOR");
+
+    // 1. 空マップ → passthrough
+    let empty_map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
+    if apply_replaces(&empty_map, "hello") == "hello" {
+        println!("  [TEST] 空マップ → passthrough: ✓ PASS");
+    } else {
+        println!("  [TEST] 空マップ → passthrough: ✗ FAIL");
+    }
+
+    // 2. 単一置換
+    let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
+    {
+        let mut m = map.write();
+        m.insert("world".to_string(), vec!["hello".to_string()]);
+    }
+    if apply_replaces(&map, "hello") == "world" {
+        println!("  [TEST] 単一置換 → world: ✓ PASS");
+    } else {
+        println!("  [TEST] 単一置換 → world: ✗ FAIL");
+    }
+
+    // 3. 複数置換
+    let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
+    {
+        let mut m = map.write();
+        m.insert(
+            "MYCUTE".to_string(),
+            vec!["mycute".to_string(), "MyCute".to_string()],
+        );
+    }
+    let result = apply_replaces(&map, "mycute is MyCute");
+    if result == "MYCUTE is MYCUTE" {
+        println!("  [TEST] 複数置換: ✓ PASS");
+    } else {
+        println!("  [TEST] 複数置換: ✗ FAIL (got: {})", result);
+    }
+
+    // 4. 最長一致優先
+    let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
+    {
+        let mut m = map.write();
+        m.insert("α".to_string(), vec!["a".to_string()]);
+        m.insert("αβ".to_string(), vec!["ab".to_string()]);
+    }
+    if apply_replaces(&map, "ab") == "αβ" {
+        println!("  [TEST] 最長一致優先 → αβ: ✓ PASS");
+    } else {
+        println!("  [TEST] 最長一致優先 → αβ: ✗ FAIL");
+    }
+
+    println!();
+}
+
+fn show_section(name: &str) {
+    println!("--- [{}] ---", name);
+}
+
+fn test_vad() {
+    show_section("VAD");
+
+    // 定数確認（モデルファイル不要）
+    assert_eq!(VAD_SAMPLE_RATE, 16000);
+    assert_eq!(SILERO_VAD_WINDOW_SIZE, 512);
+    assert_eq!(TEN_VAD_WINDOW_SIZE, 256);
+    println!("  ✓ 定数一致");
+
+    // モデルファイルは build.rs によって $CARGO_MANIFEST_DIR/models/ に自動配置される
+    let models_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models");
+    let model_candidates = [
+        "silero_vad.onnx",
+        "silero_vad.int8.onnx",
+        "ten_vad.onnx",
+        "ten-vad.int8.onnx",
+    ];
+
+    // 最初に見つかった VAD モデルで初期化テスト
+    let mut initialized = false;
+    for name in &model_candidates {
+        let path = models_dir.join(name);
+        if !path.exists() {
+            continue;
+        }
+        let is_speaking = Arc::new(AtomicBool::new(false));
+        let vad_type = if name.contains("ten") {
+            VadProcessorType::Ten
+        } else {
+            VadProcessorType::Silero
+        };
+        let config = VadProcessorConfig {
+            vad_type,
+            model_path: path.display().to_string(),
+            threshold: 0.5,
+            min_silence_duration: 0.2,
+            min_speech_duration: 0.25,
+            max_speech_duration: 25.0,
+            num_threads: 4,
+        };
+        match VadProcessor::new(config, is_speaking) {
+            Ok(vad) => {
+                println!(
+                    "    ✓ VadProcessor::new(\"{}\") 成功 (window_size={})",
+                    name,
+                    vad.window_size()
+                );
+                initialized = true;
+                break;
+            }
+            Err(e) => {
+                println!("    ✗ VadProcessor::new(\"{}\") 失敗: {}", name, e);
+            }
+        }
+    }
+    if !initialized {
+        println!("  ✗ FAIL: いずれの VAD モデルも初期化できませんでした");
+        println!("         build.rs が自動ダウンロードしたモデルが");
+        println!(
+            "         {} に存在することを確認してください",
+            models_dir.display()
+        );
+    }
+    println!();
+}
+
+fn test_signal_filter() {
+    show_section("SIGNAL_FILTER");
+
+    let config = SignalFilterConfig::default();
+    let good_samples = vec![0.1f32; 16000];
+
+    // 1. 空スライス
+    if !is_worthy_to_run_asr(&[], &config, 300, 16000) {
+        println!("  [TEST] 空スライス → false: ✓ PASS");
+    } else {
+        println!("  [TEST] 空スライス → false: ✗ FAIL");
+    }
+
+    // 2. 低振幅
+    let low_rms = vec![0.001f32; 16000];
+    if !is_worthy_to_run_asr(&low_rms, &config, 300, 16000) {
+        println!("  [TEST] 低振幅 (RMS不足) → false: ✓ PASS");
+    } else {
+        println!("  [TEST] 低振幅 (RMS不足) → false: ✗ FAIL");
+    }
+
+    // 3. 正常信号
+    if is_worthy_to_run_asr(&good_samples, &config, 300, 16000) {
+        println!("  [TEST] 正常信号 → true: ✓ PASS");
+    } else {
+        println!("  [TEST] 正常信号 → true: ✗ FAIL");
+    }
+
+    // 4. disabled
+    let disabled = SignalFilterConfig {
+        enabled: false,
+        ..Default::default()
+    };
+    if is_worthy_to_run_asr(&[], &disabled, 300, 16000) {
+        println!("  [TEST] disabled → true: ✓ PASS");
+    } else {
+        println!("  [TEST] disabled → true: ✗ FAIL");
+    }
+
+    println!();
+}
+
+fn test_post_correct() {
+    show_section("POST_CORRECT");
+
+    let is_speaking = Arc::new(AtomicBool::new(false));
+    let backend: Arc<dyn PostCorrectionBackend> = Arc::new(MockPostCorrectBackend);
+
+    // 1. OfflineModel: 追記動作
+    println!("  [TEST] OfflineModel: 追記動作");
+    let mut proc = PostCorrectionProcessor::with_model_type(
+        backend.clone(),
+        PostCorrectionConfig {
+            sentence_count_threshold: 3,
+            min_text_length: 10,
+            interval_ms: 2000,
+        },
+        SttModelType::UseOfflineModel,
+        is_speaking.clone(),
+    );
+    let out1 = proc.process_input("hello");
+    let out2 = proc.process_input("world");
+    match (out1, out2) {
+        (Some(ProcessorOutput::Partial(a)), Some(ProcessorOutput::Partial(b))) => {
+            if a == "hello" && b == "helloworld" {
+                println!("    ✓ PASS: \"hello\" + \"world\" → \"helloworld\"");
+            } else {
+                println!("    ✗ FAIL: expected \"hello\" + \"world\" → \"helloworld\", got \"{}\" + \"{}\"", a, b);
+            }
+        }
+        _ => println!("    ✗ FAIL: unexpected output type"),
+    }
+
+    // 2. OnlineModel: 上書き動作
+    println!("  [TEST] OnlineModel: 上書き動作");
+    let mut proc = PostCorrectionProcessor::with_model_type(
+        backend.clone(),
+        PostCorrectionConfig::default(),
+        SttModelType::UseOnlineModel,
+        is_speaking.clone(),
+    );
+    let out1 = proc.process_input("hello");
+    let out2 = proc.process_input("hello world");
+    match (out1, out2) {
+        (Some(ProcessorOutput::Partial(a)), Some(ProcessorOutput::Partial(b))) => {
+            if a == "hello" && b == "hello world" {
+                println!("    ✓ PASS: \"hello\" + \"hello world\" → \"hello world\"");
+            } else {
+                println!("    ✗ FAIL: got \"{}\" + \"{}\"", a, b);
+            }
+        }
+        _ => println!("    ✗ FAIL: unexpected output type"),
+    }
+
+    // 3. commit_correction: バッファクリア確認
+    println!("  [TEST] commit_correction: バッファクリア");
+    let mut proc = PostCorrectionProcessor::new(
+        backend.clone(),
+        PostCorrectionConfig::default(),
+        is_speaking.clone(),
+    );
+    let _ = proc.process_input("hello world");
+    match proc.commit_correction("corrected output") {
+        ProcessorOutput::Final(ref text) if text.contains("corrected output") => {
+            println!("    ✓ commit OK");
+        }
+        _ => println!("    ✗ commit 失敗"),
+    }
+    match proc.process_input("next") {
+        Some(ProcessorOutput::Partial(ref text)) if text == "next" => {
+            println!("    ✓ バッファクリア確認: \"{}\" (重複なし)", text);
+        }
+        _ => println!("    ✗ バッファクリア失敗"),
+    }
+
+    println!();
+}
