@@ -47,3 +47,6 @@
 - [x] #46 M2.5-2: VadProcessor の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0046-m25-2-vadprocessor-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #47 M2.5-3: SpeechDenoiser の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0047-m25-3-speechdenoiser-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #48 M2.5-4: 移行後の動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0048-m25-4.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #49 M3-1: PseudoAsrStreamer + test-run.rs [STREAMER] | /Users/kawata/shyme/zasso/tickets/specs/0049-m3-1-pseudoasrstreamer-test-runrs-streamer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #50 M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs） | /Users/kawata/shyme/zasso/tickets/specs/0050-m4-1-native-ffinativemac-ffirs-win-ffirs.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #51 M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI] | /Users/kawata/shyme/zasso/tickets/specs/0051-m4-2-openaibackend-openairecognizer-test-runrs-openai.md | 2026-06-12 | 2026-06-12 | 2026-06-12

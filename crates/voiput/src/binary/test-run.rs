@@ -3,7 +3,7 @@
 //! `cargo run --bin test-run` で実行。
 //! 各チケット完了時に関数が追加されていく。
 //!
-//! M2-3 時点: Stage 5/6 — Phase 2 （PunctuationMachine 追加）
+//! M3-1 時点: Stage 6/6 — Phase 3 （PseudoAsrStreamer 統合）
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -12,9 +12,9 @@ use voiput::{
     apply_replaces, get_tokenizer, init, is_worthy_to_run_asr, play_commit_sound, play_ready_sound,
 };
 use voiput::{
-    DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, PostCorrectionBackend,
-    PostCorrectionConfig, ProcessorOutput, PunctuationMachine, SignalFilterConfig, SincResampler,
-    SttEngine, VadConfig, VadModelPaths, VoiceKitConfig,
+    DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, OpenAIBackend,
+    PostCorrectionBackend, PostCorrectionConfig, ProcessorOutput, PunctuationMachine,
+    SignalFilterConfig, SincResampler, SttEngine, VadConfig, VadModelPaths, VoiceKitConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
@@ -40,7 +40,7 @@ fn main() {
 
     println!("========================================");
     println!("  voiput test-run");
-    println!("  Stage 5/6 —  Phase 2 パイプライン基盤");
+    println!("  Stage 6/6 —  Phase 3 パイプライン統合");
     println!("========================================");
     println!();
 
@@ -52,6 +52,8 @@ fn main() {
     test_vad();
     test_punctuation();
     test_audio();
+    test_streamer();
+    test_openai();
 }
 
 fn audio_verify() {
@@ -583,6 +585,168 @@ fn test_audio() {
     play_commit_sound();
     println!("    ✓ play_commit_sound() 呼び出し成功");
     println!("  [NOTE] 実際の音声は別スレッドで非同期再生されます");
+
+    println!();
+}
+
+use std::sync::Mutex;
+use tokio::sync::mpsc;
+use voiput::AsrBackend;
+use voiput::{PseudoAsrStreamer, StreamerConfig};
+
+struct MockStreamerBackend {
+    call_count: Arc<Mutex<usize>>,
+}
+
+impl AsrBackend for MockStreamerBackend {
+    fn transcribe(&mut self, _samples: &[f32]) -> anyhow::Result<String> {
+        *self.call_count.lock().unwrap() += 1;
+        Ok("test transcription".to_string())
+    }
+    fn post_correct(&mut self, text: &str) -> anyhow::Result<String> {
+        Ok(format!("[corrected] {}", text))
+    }
+    fn model_name(&self) -> String {
+        "mock".to_string()
+    }
+    fn record_asr_usage(&mut self, _duration_ms: u64) {}
+}
+
+fn test_streamer() {
+    show_section("STREAMER");
+
+    let (tx, _rx) = mpsc::channel(10);
+
+    let config = StreamerConfig {
+        utterance_min_ms: 100,
+        signal_check_enabled: false,
+        use_denoiser: false,
+        vad_model_path: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("models")
+            .join("silero_vad.onnx")
+            .display()
+            .to_string(),
+        ..Default::default()
+    };
+
+    let call_count = Arc::new(Mutex::new(0usize));
+    let backend = MockStreamerBackend {
+        call_count: call_count.clone(),
+    };
+
+    match PseudoAsrStreamer::new(backend, tx, config) {
+        Ok(mut streamer) => {
+            println!("  ✓ PseudoAsrStreamer::new() 成功");
+            match streamer.start() {
+                Ok(_) => println!("  ✓ start() 成功（VAD モデル: silero_vad.onnx）"),
+                Err(e) => println!("  ✗ start() 失敗: {}", e),
+            }
+            streamer.stop();
+            println!("  ✓ start → stop 正常終了");
+        }
+        Err(e) => println!("  ✗ PseudoAsrStreamer::new() 失敗: {}", e),
+    }
+
+    println!();
+}
+
+fn decode_wav_to_f32(path: &std::path::Path) -> anyhow::Result<Vec<f32>> {
+    let mut reader = hound::WavReader::open(path)?;
+    let spec = reader.spec();
+    match spec.sample_format {
+        hound::SampleFormat::Float => reader
+            .samples::<f32>()
+            .collect::<Result<Vec<f32>, _>>()
+            .map_err(|e| anyhow::anyhow!("WAV float 読み取り失敗: {}", e)),
+        hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
+            .samples::<i16>()
+            .map(|s| s.map(|v| v as f32 / 32768.0))
+            .collect::<Result<Vec<f32>, _>>()
+            .map_err(|e| anyhow::anyhow!("WAV int16 読み取り失敗: {}", e)),
+        _ => anyhow::bail!(
+            "未対応の WAV 形式: {} bits {} (16-bit PCM または Float のみ対応)",
+            spec.bits_per_sample,
+            match spec.sample_format {
+                hound::SampleFormat::Float => "Float",
+                hound::SampleFormat::Int => "Int",
+            },
+        ),
+    }
+}
+
+fn test_openai() {
+    show_section("OPENAI");
+
+    let api_key = std::env::args()
+        .skip(1)
+        .find(|a| a.starts_with("--openai-key="))
+        .map(|a| a.trim_start_matches("--openai-key=").to_string())
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok());
+
+    let base_url = std::env::args()
+        .skip(1)
+        .find(|a| a.starts_with("--base-url="))
+        .map(|a| a.trim_start_matches("--base-url=").to_string())
+        .or_else(|| std::env::var("OPENAI_BASE_URL").ok())
+        .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+
+    let Some(key) = api_key else {
+        println!("  [SKIP] OpenAI API キーが設定されていません");
+        println!("  [HELP] cargo run --bin test-run -- --openai-key=sk-xxxxx [--base-url=...]");
+        println!();
+        return;
+    };
+
+    let wav_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("wav")
+        .join("sample-voice.wav");
+
+    if !wav_path.exists() {
+        println!("  ✗ サンプル音声が見つかりません: {}", wav_path.display());
+        println!();
+        return;
+    }
+
+    let samples = match decode_wav_to_f32(&wav_path) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("  ✗ WAV デコード失敗: {}", e);
+            println!();
+            return;
+        }
+    };
+
+    println!("  [INFO] API 設定:");
+    println!("    base_url: {} (デフォルト: https://api.openai.com/v1, 上書き: --base-url=... または OPENAI_BASE_URL)", base_url);
+    println!("    model: gpt-4o-mini-transcribe");
+    println!("  [INFO] サンプル音声: {} ({} samples)", wav_path.display(), samples.len());
+
+    let oa_config = OpenAiConfig {
+        base_url,
+        api_key: key,
+        model: "gpt-4o-mini-transcribe".into(),
+    };
+    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
+    let mut backend = OpenAIBackend::new(&oa_config, locale);
+
+    // transcribe() は内部で Tokio ランタイムが必要（async-openai 呼び出しのため）
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            println!("  ✗ Tokio ランタイム作成失敗: {}", e);
+            println!();
+            return;
+        }
+    };
+    match rt.block_on(async { backend.transcribe(&samples) }) {
+        Ok(text) => {
+            println!("  ✓ 認識結果: \"{}\"", text.trim());
+        }
+        Err(e) => {
+            println!("  ✗ 認識失敗: {}", e);
+        }
+    }
 
     println!();
 }

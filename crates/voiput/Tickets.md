@@ -364,7 +364,7 @@ crates/voiput/
 
 #### M3: ストリーミングパイプライン
 
-##### チケット M3-1: PseudoAsrStreamer + test-run.rs [STREAMER]
+##### ✅ チケット M3-1: PseudoAsrStreamer + test-run.rs [STREAMER]
 
 * **依存関係:** M2.5（sherpa-onnx 移行）が完了していること
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.5
@@ -393,7 +393,7 @@ crates/voiput/
 
 #### M4: 各バックエンド
 
-##### チケット M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs）
+##### ✅ チケット M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs）
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.14, 付録E, 付録F
 * **移植元:** ~/shyme/mycute/src/stt/mac.rs の extern "C" ブロック, ~/shyme/mycute/src/stt/win.rs の extern "C" ブロック

@@ -43,8 +43,8 @@ mod recognizer;
 // mod voice_kit;
 
 // Phase 4 で実装
-// mod backends;
-// mod native;
+mod backends;
+mod native;
 
 pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};
 pub use error::VoiceKitError;
@@ -60,6 +60,10 @@ pub use pipeline::post_correct::{
 pub use pipeline::punctuation::PunctuationMachine;
 pub use pipeline::resampler::{InternalResampler, SincResampler};
 pub use pipeline::signal_filter::is_worthy_to_run_asr;
+pub use backends::openai::{OpenAIBackend, OpenAIRecognizer};
+pub use pipeline::streamer::{
+    AsrBackend, BackendWrapper, PseudoAsrStreamer, StreamerConfig, StreamerEvent, StreamerLocale,
+};
 pub use pipeline::vad::VadConfig as VadProcessorConfig;
 pub use pipeline::vad::VadProcessor;
 pub use pipeline::vad::VadType as VadProcessorType;

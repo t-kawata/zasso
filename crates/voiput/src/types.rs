@@ -103,7 +103,7 @@ pub struct OpenAiConfig {
     pub base_url: String,
     /// API キー
     pub api_key: String,
-    /// 使用モデル名（例: "openai/gpt-4o-mini-transcribe"）
+    /// 使用モデル名（例: "gpt-4o-mini-transcribe"）
     pub model: String,
 }
 

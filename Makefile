@@ -29,7 +29,7 @@ endif
 .PHONY: run build check test write-settings generate-icons
 .PHONY: run-zasso run-mycute run-neco-asovi
 .PHONY: build-zasso build-mycute build-neco-asovi
-.PHONY: commit push pull
+.PHONY: commit push pull master branch commit-branch push-branch
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -171,3 +171,53 @@ pull:
 	git checkout master 2>/dev/null || git checkout --force master
 	git fetch origin master
 	git reset --hard origin/master
+
+# ═══════════════════════════════════════════════
+#  branch operations（master 以外での作業用）
+# ═══════════════════════════════════════════════
+
+master:
+	@echo "=== master: Switching to master branch ==="
+	git checkout master
+
+branch:
+	@if [ -z "$(name)" ]; then \
+		echo ""; \
+		echo "============================================================"; \
+		echo "[ABORT] 'name' is required. Usage: make branch name=\"<branch-name>\""; \
+		echo "============================================================"; \
+		exit 1; \
+	fi
+	git checkout -b "$(name)"
+
+commit-branch:
+	@BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$BRANCH" = "master" ]; then \
+		echo ""; \
+		echo "============================================================"; \
+		echo "[ABORT] Current branch is 'master'. Use 'make commit' for master."; \
+		echo "============================================================"; \
+		exit 1; \
+	fi; \
+	VERSION=$$(grep 'APP_VERSION' src-tauri/src/consts/settings.rs | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'); \
+	PREFIX="Branch $$BRANCH commit on v$$VERSION"; \
+	git add .; \
+	if [ -n "$$PUSH_MSG" ]; then \
+		{ echo "$$PREFIX"; echo ""; echo "$$PUSH_MSG"; } | git commit -F -; \
+	elif [ -n "$(msg)" ]; then \
+		git commit -m "$$PREFIX" -m "$(msg)"; \
+	else \
+		git commit -m "$$PREFIX"; \
+	fi
+
+push-branch:
+	@BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$BRANCH" = "master" ]; then \
+		echo ""; \
+		echo "============================================================"; \
+		echo "[ABORT] Current branch is 'master'. Use 'make push' for master."; \
+		echo "============================================================"; \
+		exit 1; \
+	fi; \
+	echo "=== push-branch: Pushing $$BRANCH to origin ==="; \
+	git push origin "$$BRANCH"
