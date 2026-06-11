@@ -51,9 +51,14 @@ pub use error::VoiceKitError;
 pub use types::*;
 
 // 内部パイプライン（test-run.rs からアクセス可能にするため pub で re-export）
+pub use pipeline::denoiser::SpeechDenoiser;
 pub use pipeline::post_correct::{
     PostCorrectionBackend, PostCorrectionProcessor, ProcessorOutput, SttModelType,
 };
 pub use pipeline::resampler::{InternalResampler, SincResampler};
 pub use pipeline::signal_filter::is_worthy_to_run_asr;
+pub use pipeline::vad::VadConfig as VadProcessorConfig;
+pub use pipeline::vad::VadProcessor;
+pub use pipeline::vad::VadType as VadProcessorType;
+pub use pipeline::vad::{SILERO_VAD_WINDOW_SIZE, TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE};
 pub use recognizer::apply_replaces;

@@ -39,3 +39,5 @@
 - [x] #38 M1-2: PostCorrectionProcessor + test-run.rs [POST_CORRECT] | /Users/kawata/shyme/zasso/tickets/specs/0038-m1-2-postcorrectionprocessor-test-runrs-post-correct.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #39 M1-3: 信号品質フィルタ + test-run.rs [SIGNAL_FILTER] | /Users/kawata/shyme/zasso/tickets/specs/0039-m1-3-test-runrs-signal-filter.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #40 M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR] | /Users/kawata/shyme/zasso/tickets/specs/0040-m1-4-test-runrs-interceptor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #41 M2-1: VadProcessor + test-run.rs [VAD] | /Users/kawata/shyme/zasso/tickets/specs/0041-m2-1-vadprocessor-test-runrs-vad.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #42 M2-2: SpeechDenoiser | /Users/kawata/shyme/zasso/tickets/specs/0042-m2-2-speechdenoiser.md | 2026-06-11 | 2026-06-11 | 2026-06-11

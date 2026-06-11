@@ -200,7 +200,7 @@ crates/voiput/
   1. `pipeline/signal_filter.rs` に `is_worthy_to_run_asr()` を独立関数として抽出。
   2. test-run.rs `[SIGNAL_FILTER]`: MYCUTE のシグナルフィルタロジックを直接呼び出すデモ。各種条件での判定結果表示。
 
-##### チケット M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR]
+##### ✅ チケット M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.4
 * **移植元:** ~/shyme/mycute/src/stt/recognizer.rs の `apply_replaces_from_map()` 関数
@@ -212,7 +212,7 @@ crates/voiput/
 
 #### M2: パイプライン基盤
 
-##### チケット M2-1: VadProcessor + test-run.rs [VAD]
+##### ✅ チケット M2-1: VadProcessor + test-run.rs [VAD]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.6
 * **移植元:** ~/shyme/mycute/src/tools/vad_processor.rs — 完全移植
@@ -259,7 +259,13 @@ crates/voiput/
   - それ以外は完全移植
 * **作業内容:**
   1. `pipeline/streamer.rs` に PseudoAsrStreamer をコピー。
-  2. test-run.rs `[STREAMER]`: MockBackend を AsrBackend にセットし、疑似的な push_samples → tick → イベント出力のパイプラインデモ。
+  2. `pipeline/denoiser.rs` に SpeechDenoiser をコピー（M2-2 と重複する場合は統合）。
+  3. test-run.rs `[STREAMER]`:
+     - **MockBackend モード**: MockBackend を AsrBackend にセットし、疑似的な push_samples → tick → イベント出力のパイプラインデモ。
+     - **実モデル VAD モード**: `models/` にある silero_vad.onnx を使用し、VadProcessor を初期化 → PseudoAsrStreamer に組み込んで VAD 区間検出のデモ。
+       実際のマイク入力はなくても、数秒分の f32 サイン波（+ 無音区間）を push_samples で送り、SpeechStart/SpeechEnd イベントが正しく発火することを確認する。
+     - **実モデル Denoiser モード**: GTCRN モデル（gtcrn.onnx）で SpeechDenoiser を初期化し、ノイズ付きサイン波を入力 → 出力の RMS が改善（ノイズ低減）することを確認する。
+     - いずれかのモデルが欠けている場合は build.rs の保証により到達しない（常に全モデル存在）。
 
 ### Phase 4: バックエンド移植 + 認識器統括
 
@@ -345,14 +351,23 @@ crates/voiput/
 
 #### M6: ビルド・ドキュメント
 
-##### チケット M6-1: プリビルドライブラリ + build.rs 完成
+##### チケット M6-1: プリビルドライブラリ自動ビルド
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §6, §9
-* **移植元:** ~/shyme/mycute/native/ の Swift / C# コード + ~/shyme/mycute/build.rs
+* **移植元:** ~/shyme/mycute/native/ の Swift / C# コード
+* **build.rs の動作（M2-1 完了時点で既に実装済み）:**
+  - 起動時に `prebuilt/<platform>/<lib>` の存在確認
+  - 不在 → `native/<platform>/build.sh` または `native/<platform>/build.ps1` を自動実行
+  - 自動ビルド失敗 → `panic!` でビルド停止
+  - `cargo:rerun-if-changed=native/` で全ネイティブソースファイルの変更を1バイト単位で検出し、変更があれば再ビルド、なければスキップ
 * **作業内容:**
-  1. MYCUTE のネイティブコードを `native/` にコピー。
-  2. プリビルドスクリプト（build.sh / build.ps1）を実行して `prebuilt/` にライブラリ配置。
-  3. build.rs を完成（Tauri依存削除, macOS: 静的リンク, Windows: 静的リンク＋DLLコピー）。
+  1. `~/shyme/mycute/native/swift/SpeechHelper.swift` を `native/swift/` にコピー。
+  2. `~/shyme/mycute/native/cs/SpeechHelper/*` を `native/cs/SpeechHelper/` にコピー。
+  3. `native/swift/build.sh` を作成（RFC §6.1 の内容）。
+  4. `native/cs/build.ps1` を作成（RFC §6.2 の内容）。
+  5. build.rs の自動ビルドロジックが正しく動作することの確認。
+  ※ build.rs の panic!/リンク設定/自動ビルドロジックは M2-1 完了時点で既に実装済み。
+  ※ 本チケットはソースコードのコピーとビルドスクリプトの作成のみ。
 
 ##### チケット M6-2: 統合テスト
 

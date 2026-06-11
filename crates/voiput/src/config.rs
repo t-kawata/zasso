@@ -30,8 +30,12 @@ pub struct VoiceKitConfig {
     pub signal_filter: SignalFilterConfig,
     /// 発話タイムアウト（秒, デフォルト 30.0）
     pub speech_timeout_sec: f64,
-    /// VAD モデルファイルパス群
+    /// VAD モデルファイルパス群（model_dir が設定されていれば、相対パスはそちらからの結合で解決される）
     pub vad_model_paths: VadModelPaths,
+    /// モデルファイルのベースディレクトリ（省略可）
+    /// 設定された場合、VadModelPaths の相対パスはこのディレクトリとの結合で解決される。
+    /// 絶対パス（/ 始まり）のファイルはそのまま使用される。
+    pub model_dir: Option<String>,
 }
 
 impl VoiceKitConfig {
@@ -64,6 +68,7 @@ pub struct VoiceKitConfigBuilder {
     signal_filter: Option<SignalFilterConfig>,
     speech_timeout_sec: Option<f64>,
     vad_model_paths: Option<VadModelPaths>,
+    model_dir: Option<String>,
 }
 
 #[allow(missing_docs)]
@@ -108,6 +113,14 @@ impl VoiceKitConfigBuilder {
         self.vad_model_paths = Some(p);
         self
     }
+    /// モデルファイルのベースディレクトリを設定する。
+    ///
+    /// 設定後、`vad_model_paths` の相対パスはこのディレクトリを起点として解決される。
+    /// 絶対パス（/ 始まり）はそのまま使用される。
+    pub fn model_dir(mut self, dir: impl Into<String>) -> Self {
+        self.model_dir = Some(dir.into());
+        self
+    }
 
     /// 設定を確定して VoiceKitConfig を生成する。
     ///
@@ -141,6 +154,7 @@ impl VoiceKitConfigBuilder {
             signal_filter: self.signal_filter.unwrap_or_default(),
             speech_timeout_sec: self.speech_timeout_sec.unwrap_or(30.0),
             vad_model_paths,
+            model_dir: self.model_dir,
         })
     }
 }
@@ -176,6 +190,7 @@ mod tests {
         assert_eq!(config.locale, LocaleCode::Ja);
         assert_eq!(config.speech_timeout_sec, 30.0);
         assert!(config.punctuation);
+        assert!(config.model_dir.is_none());
     }
 
     #[test]
@@ -236,6 +251,25 @@ mod tests {
         assert_eq!(config.vad_model_paths.gtcrn, "/custom/gtcrn.onnx");
     }
 
+    // ---- model_dir ----
+
+    #[test]
+    fn test_build_with_model_dir() {
+        let config = VoiceKitConfig::builder()
+            .engine(SttEngine::Os)
+            .locale(LocaleCode::Ja)
+            .model_dir("/opt/models")
+            .vad_model_paths(VadModelPaths {
+                silero: "silero_vad.onnx".into(),
+                ten: "ten_vad.onnx".into(),
+                gtcrn: String::new(),
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(config.model_dir.as_deref(), Some("/opt/models"));
+    }
+
     // ---- 異常系（バリデーション） ----
 
     #[test]
@@ -285,19 +319,18 @@ mod tests {
             .build()
             .unwrap();
 
-        // 未指定のフィールドはそれぞれの Default 値が使われる
         assert_eq!(config.engine, SttEngine::Os);
         assert!(config.punctuation);
         assert!(config.denoiser.enabled);
         assert!(config.signal_filter.enabled);
         assert_eq!(config.speech_timeout_sec, 30.0);
+        assert!(config.model_dir.is_none());
     }
 
     // ---- Builder のチェーン ----
 
     #[test]
     fn test_builder_chainability() {
-        // 各 setter が self を返すことでチェーン可能であること
         let builder = VoiceKitConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
