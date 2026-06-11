@@ -278,7 +278,7 @@ crates/voiput/
 > - 安全な `Option<Self>` ベースのコンストラクタ
 > - 公式チームによる継続的メンテナンス
 
-##### チケット M2.5-1: Cargo.toml 依存置き換え
+##### ✅ チケット M2.5-1: Cargo.toml 依存置き換え
 
 * **参照ドキュメント:** https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
 * **作業内容:**
@@ -294,7 +294,7 @@ crates/voiput/
   - feature 未指定（デフォルト）: 静的リンク（巨大なバイナリになる）
 * **参考:** sherpa-onnx-sys（低レベルFFI）は `sherpa-onnx` の内部依存として自動解決される
 
-##### チケット M2.5-2: VadProcessor の safe API 書き換え
+##### ✅ チケット M2.5-2: VadProcessor の safe API 書き換え
 
 * **参照ドキュメント:** https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.VoiceActivityDetector.html
 * **移植元:** ~/shyme/mycute/src/tools/vad_processor.rs（API 置き換え）
@@ -322,7 +322,7 @@ crates/voiput/
   6. テスト調整（if `cfg(windows)` の resolve_ascii_path は維持）
 * **テスト:** `cargo test --lib pipeline::vad` が全テスト PASS
 
-##### チケット M2.5-3: SpeechDenoiser の safe API 書き換え
+##### ✅ チケット M2.5-3: SpeechDenoiser の safe API 書き換え
 
 * **参照ドキュメント:**
   - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.OfflineSpeechDenoiser.html
@@ -352,7 +352,7 @@ crates/voiput/
 * **注意（DenoisedAudio のフィールド名）:** 実装時に https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/struct.DenoisedAudio.html で `.samples` フィールドの有無と名前を確認すること。C API の `SherpaOnnxDenoisedAudio` と同じ構造なら `.samples` だが、Rust ラッパーで異なる名前になっている可能性がある（例: `.data` や `.samples()` メソッド）。
 * **テスト:** `cargo test --lib pipeline::denoiser` が PASS
 
-##### チケット M2.5-4: 移行後の動作確認
+##### ✅ チケット M2.5-4: 移行後の動作確認
 
 * **作業内容:**
   1. `cargo test` 全78テスト PASS（M3-1 完了後は 78、それ以前は 72）

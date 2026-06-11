@@ -25,15 +25,10 @@ parking_lot = "0.12.5"
 rodio = "0.21"
 rubato = "0.16"
 serde = { version = "1.0.228", features = ["derive"] }
-sherpa-rs = "0.6.8"
-sherpa-rs-sys = "0.6.8"
+sherpa-onnx = { version = "1.13.2", default-features = false, features = ["shared"] }  # k2-fsa 公式。shared=動的リンク
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["full"] }
 
-# Phase 2 で有効化: cargo add sherpa-rs
-# sherpa-rs = "latest"
-# Phase 2 で有効化: cargo add sherpa-rs-sys
-# sherpa-rs-sys = "latest"
 # Phase 2 で有効化: cargo add lindera --features embed-ipadic
 # lindera = { version = "latest", features = ["embed-ipadic"] }
 # Phase 2 で有効化: cargo add lindera-ipadic

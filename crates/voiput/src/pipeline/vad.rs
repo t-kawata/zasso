@@ -3,15 +3,14 @@
 //! OpenAI モードおよび OS モード (Mac/Win) で共通して使用可能な
 //! 高精度な音声区間検出 (VAD) 機能を提供する。
 //!
-//! 移植元: ~/shyme/mycute/src/tools/vad_processor.rs（完全移植）
+//! 移植元: ~/shyme/mycute/src/tools/vad_processor.rs
+//! API 置き換え: sherpa_rs_sys（低レベルFFI）→ sherpa_onnx（safe Rust API）
 
-use std::ffi::CString;
-use std::mem;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use sherpa_rs_sys as sys;
+use sherpa_onnx::{SileroVadModelConfig, TenVadModelConfig, VadModelConfig, VoiceActivityDetector};
 
 /// 内部処理用サンプリングレート (16kHz)
 pub const VAD_SAMPLE_RATE: i32 = 16000;
@@ -43,56 +42,59 @@ pub struct VadConfig {
 
 /// Sherpa-ONNX VAD を用いて発話状態を管理するプロセッサ
 pub struct VadProcessor {
-    vad: *const sys::SherpaOnnxVoiceActivityDetector,
+    /// sherpa-onnx の safe Rust ラッパー（RAII、Drop 自動処理）
+    vad: Option<VoiceActivityDetector>,
+    /// 発話状態（外部からも参照可能）
     is_speaking: Arc<AtomicBool>,
+    /// VAD モデルのウィンドウサイズ
     window_size: usize,
 }
-
-unsafe impl Send for VadProcessor {}
-unsafe impl Sync for VadProcessor {}
 
 impl VadProcessor {
     /// 新しい VadProcessor を作成する。
     pub fn new(config: VadConfig, is_speaking: Arc<AtomicBool>) -> Result<Self> {
         let model_path = resolve_ascii_path(&config.model_path);
-        let c_model = CString::new(model_path)?;
-        let c_provider = CString::new("cpu")?;
 
-        let mut vad_config: sys::SherpaOnnxVadModelConfig = unsafe { mem::zeroed() };
-        let window_size = match config.vad_type {
+        let (vad_config, window_size) = match config.vad_type {
             VadType::Ten => {
-                vad_config.ten_vad.model = c_model.as_ptr();
-                vad_config.ten_vad.threshold = config.threshold;
-                vad_config.ten_vad.min_silence_duration = config.min_silence_duration;
-                vad_config.ten_vad.min_speech_duration = config.min_speech_duration;
-                vad_config.ten_vad.window_size = TEN_VAD_WINDOW_SIZE as i32;
-                TEN_VAD_WINDOW_SIZE
+                let mut ten = TenVadModelConfig::default();
+                ten.model = Some(model_path);
+                ten.threshold = config.threshold;
+                ten.min_silence_duration = config.min_silence_duration;
+                ten.min_speech_duration = config.min_speech_duration;
+                ten.window_size = TEN_VAD_WINDOW_SIZE as i32;
+                ten.max_speech_duration = config.max_speech_duration;
+                let cfg = VadModelConfig {
+                    ten_vad: ten,
+                    sample_rate: VAD_SAMPLE_RATE,
+                    num_threads: config.num_threads,
+                    ..Default::default()
+                };
+                (cfg, TEN_VAD_WINDOW_SIZE)
             }
             VadType::Silero => {
-                vad_config.silero_vad.model = c_model.as_ptr();
-                vad_config.silero_vad.threshold = config.threshold;
-                vad_config.silero_vad.min_silence_duration = config.min_silence_duration;
-                vad_config.silero_vad.min_speech_duration = config.min_speech_duration;
-                vad_config.silero_vad.window_size = SILERO_VAD_WINDOW_SIZE as i32;
-                SILERO_VAD_WINDOW_SIZE
+                let mut silero = SileroVadModelConfig::default();
+                silero.model = Some(model_path);
+                silero.threshold = config.threshold;
+                silero.min_silence_duration = config.min_silence_duration;
+                silero.min_speech_duration = config.min_speech_duration;
+                silero.window_size = SILERO_VAD_WINDOW_SIZE as i32;
+                silero.max_speech_duration = config.max_speech_duration;
+                let cfg = VadModelConfig {
+                    silero_vad: silero,
+                    sample_rate: VAD_SAMPLE_RATE,
+                    num_threads: config.num_threads,
+                    ..Default::default()
+                };
+                (cfg, SILERO_VAD_WINDOW_SIZE)
             }
         };
 
-        vad_config.sample_rate = VAD_SAMPLE_RATE;
-        vad_config.num_threads = config.num_threads;
-        vad_config.provider = c_provider.as_ptr();
-        vad_config.debug = 0;
-
-        let vad = unsafe {
-            sys::SherpaOnnxCreateVoiceActivityDetector(&vad_config, config.max_speech_duration)
-        };
-
-        if vad.is_null() {
-            return Err(anyhow!("Failed to create SherpaOnnxVoiceActivityDetector"));
-        }
+        let vad = VoiceActivityDetector::create(&vad_config, config.max_speech_duration)
+            .ok_or_else(|| anyhow!("Failed to create VoiceActivityDetector"))?;
 
         Ok(Self {
-            vad,
+            vad: Some(vad),
             is_speaking,
             window_size,
         })
@@ -101,28 +103,20 @@ impl VadProcessor {
     /// 音声サンプルを入力し、VAD 状態を更新する。
     /// 渡されるデータは 16kHz モノラル f32 である必要がある。
     pub fn accept_waveform(&self, samples: &[f32]) {
-        if self.vad.is_null() || samples.is_empty() {
+        if samples.is_empty() {
             return;
         }
-
-        unsafe {
-            sys::SherpaOnnxVoiceActivityDetectorAcceptWaveform(
-                self.vad,
-                samples.as_ptr(),
-                samples.len() as i32,
-            );
-
-            let detected = sys::SherpaOnnxVoiceActivityDetectorDetected(self.vad) == 1;
+        if let Some(ref vad) = self.vad {
+            vad.accept_waveform(samples);
+            let detected = vad.detected();
             self.is_speaking.store(detected, Ordering::SeqCst);
         }
     }
 
     /// 現在の状態をリセットする。
     pub fn reset(&self) {
-        if !self.vad.is_null() {
-            unsafe {
-                sys::SherpaOnnxVoiceActivityDetectorReset(self.vad);
-            }
+        if let Some(ref vad) = self.vad {
+            vad.reset();
         }
         self.is_speaking.store(false, Ordering::SeqCst);
     }
@@ -135,16 +129,6 @@ impl VadProcessor {
     /// 現在の発話状態を返す。
     pub fn is_speaking(&self) -> bool {
         self.is_speaking.load(Ordering::SeqCst)
-    }
-}
-
-impl Drop for VadProcessor {
-    fn drop(&mut self) {
-        if !self.vad.is_null() {
-            unsafe {
-                sys::SherpaOnnxDestroyVoiceActivityDetector(self.vad);
-            }
-        }
     }
 }
 
@@ -259,11 +243,7 @@ mod tests {
             unsafe { GetShortPathNameW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) }
                 as usize;
 
-        assert_eq!(
-            short.len(),
-            api_len,
-            "short path length differs from GetShortPathNameW return value"
-        );
+        assert_eq!(short.len(), api_len);
     }
 
     #[cfg(windows)]

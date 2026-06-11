@@ -43,3 +43,7 @@
 - [x] #42 M2-2: SpeechDenoiser | /Users/kawata/shyme/zasso/tickets/specs/0042-m2-2-speechdenoiser.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #43 M2-3: PunctuationMachine + test-run.rs [PUNCTUATION] | /Users/kawata/shyme/zasso/tickets/specs/0043-m2-3-punctuationmachine-test-runrs-punctuation.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #44 M2-4: 効果音再生 + test-run.rs [AUDIO] | /Users/kawata/shyme/zasso/tickets/specs/0044-m2-4-test-runrs-audio.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #45 M2.5-1: Cargo.toml 依存置き換え | /Users/kawata/shyme/zasso/tickets/specs/0045-m25-1-cargotoml.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #46 M2.5-2: VadProcessor の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0046-m25-2-vadprocessor-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #47 M2.5-3: SpeechDenoiser の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0047-m25-3-speechdenoiser-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #48 M2.5-4: 移行後の動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0048-m25-4.md | 2026-06-11 | 2026-06-11 | 2026-06-11
