@@ -54,6 +54,10 @@ fn main() {
     test_audio();
     test_streamer();
     test_openai();
+    #[cfg(target_os = "macos")]
+    test_macos();
+    #[cfg(target_os = "windows")]
+    test_windows();
 }
 
 fn audio_verify() {
@@ -647,6 +651,54 @@ fn test_streamer() {
         Err(e) => println!("  ✗ PseudoAsrStreamer::new() 失敗: {}", e),
     }
 
+    println!();
+}
+
+#[cfg(target_os = "windows")]
+fn test_windows() {
+    use tokio::sync::mpsc;
+    use voiput::{LocaleCode, WinSpeechBackend};
+
+    show_section("WINDOWS");
+
+    let (tx, _rx) = mpsc::channel(10);
+    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
+
+    match WinSpeechBackend::new(tx, locale, None, None, None) {
+        Ok(backend) => {
+            println!("  ✓ WinSpeechBackend::new() 成功 (SpeechHelper.lib リンク OK)");
+            backend.cleanup();
+        }
+        Err(msg) => {
+            println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
+            println!("  [INFO] M6-1 で本物の SpeechHelper.lib に差し替えてください");
+        }
+    }
+    println!();
+}
+
+#[cfg(target_os = "macos")]
+fn test_macos() {
+    use tokio::sync::mpsc;
+    use voiput::{LocaleCode, MacSpeechBackend};
+
+    show_section("MACOS");
+
+    // build.rs が自動生成するスタブ libSpeechHelper.a がリンクされる。
+    // スタブでもリンク自体は成功するため、new() の戻り値で状態を確認する。
+    let (tx, _rx) = mpsc::channel(10);
+    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
+
+    match MacSpeechBackend::new(tx, locale, None, None, None) {
+        Ok(backend) => {
+            println!("  ✓ MacSpeechBackend::new() 成功 (libSpeechHelper.a リンク OK)");
+            backend.cleanup();
+        }
+        Err(msg) => {
+            println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
+            println!("  [INFO] M6-1 で本物の libSpeechHelper.a に差し替えてください");
+        }
+    }
     println!();
 }
 

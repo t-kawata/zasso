@@ -6,5 +6,8 @@
 
 pub(crate) mod openai;
 
-// M4-3 で追加: pub(crate) mod mac;
-// M4-4 で追加: pub(crate) mod win;
+#[cfg(target_os = "macos")]
+pub(crate) mod mac;
+
+#[cfg(target_os = "windows")]
+pub(crate) mod win;

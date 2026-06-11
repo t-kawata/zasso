@@ -145,29 +145,89 @@ fn download_file(url: &str, dest: &PathBuf) {
 #[cfg(target_os = "macos")]
 fn link_macos(prebuilt: &PathBuf) {
     let mac_dir = prebuilt.join("macos");
+    std::fs::create_dir_all(&mac_dir).expect("Failed to create prebuilt/macos/ directory");
     let lib_path = mac_dir.join("libSpeechHelper.a");
 
-    if lib_path.exists() {
+    // 本物のライブラリ（100KB以上想定）が存在すればそれを使う
+    if lib_path.exists() && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000 {
         println!("cargo:rustc-link-lib=static=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", mac_dir.display());
     } else {
-        // スタブ .a を自動生成（M6-1 で本物に差し替え）
-        let _ = std::process::Command::new("ar")
-            .args(["crs", &lib_path.to_string_lossy(), "/dev/null"])
-            .status();
-        if lib_path.exists() {
-            println!("cargo:rustc-link-lib=static=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", mac_dir.display());
-            println!(
-                "cargo:warning=Using stub libSpeechHelper.a. \
-                      Replace with real library at M6-1."
-            );
+        // スタブ C ソースを生成しコンパイル（M6-1 で本物に差し替え）
+        let stub_c = mac_dir.join("stub.c");
+        let stub_o = mac_dir.join("stub.o");
+        std::fs::write(
+            &stub_c,
+            r#"#include <stdint.h>
+
+// SpeechHelper FFI stubs — リンク解決のための最小実装。
+// M6-1 で本物の libSpeechHelper.a に差し替えること。
+
+int32_t speech_helper_init(double speech_timeout_sec) { return -1; }
+int32_t speech_helper_request_authorization(void) { return 0; }
+void speech_helper_set_result_callback(void (*cb)(const char*, int32_t)) { (void)cb; }
+void speech_helper_set_error_callback(void (*cb)(const char*)) { (void)cb; }
+void speech_helper_set_ready_callback(void (*cb)(void)) { (void)cb; }
+void speech_helper_set_audio_data_callback(void (*cb)(const float*, int32_t, int32_t)) { (void)cb; }
+int32_t speech_helper_start_capture(void) { return -1; }
+void speech_helper_stop_capture(void) {}
+int32_t speech_helper_start(const char* locale) { (void)locale; return -1; }
+void speech_helper_stop(void) {}
+void speech_helper_cleanup(void) {}
+void speech_helper_tick(void) {}
+int32_t tahoe_helper_init(const char* locale, double speech_timeout_sec) { (void)locale; (void)speech_timeout_sec; return -1; }
+int32_t tahoe_helper_start(const char* locale) { (void)locale; return -1; }
+void tahoe_helper_stop(void) {}
+"#,
+        )
+        .expect("Failed to write stub.c");
+
+        let cc = std::env::var("CC").unwrap_or_else(|_| "cc".to_string());
+        let cc_status = Command::new(&cc)
+            .args([
+                "-c",
+                "-o",
+                &stub_o.to_string_lossy(),
+                &stub_c.to_string_lossy(),
+            ])
+            .status()
+            .expect("Failed to execute C compiler for stub generation");
+
+        if cc_status.success() {
+            let ar_status = Command::new("ar")
+                .args(["crs", &lib_path.to_string_lossy(), &stub_o.to_string_lossy()])
+                .status()
+                .expect("Failed to execute ar for stub generation");
+
+            if ar_status.success() && lib_path.exists() {
+                println!("cargo:rustc-link-lib=static=SpeechHelper");
+                println!("cargo:rustc-link-search=native={}", mac_dir.display());
+                println!(
+                    "cargo:warning=Using stub libSpeechHelper.a ({}). \
+                          Replace with real library at M6-1.",
+                    lib_path.display()
+                );
+                let _ = std::fs::remove_file(&stub_c);
+                let _ = std::fs::remove_file(&stub_o);
+            } else {
+                panic!("Failed to create stub archive. Install Xcode Command Line Tools.");
+            }
         } else {
-            // ar が使えない環境用（稀）: 最小限の ar archive を自力生成
-            let data = create_minimal_coff_lib();
-            std::fs::write(&lib_path, &data).expect("Failed to create stub libSpeechHelper.a");
-            println!("cargo:rustc-link-lib=static=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+            // C コンパイラが使えない環境 → ar fallback (シンボルなし)
+            let _ = Command::new("ar")
+                .args(["crs", &lib_path.to_string_lossy(), "/dev/null"])
+                .status();
+            if lib_path.exists() {
+                println!("cargo:rustc-link-lib=static=SpeechHelper");
+                println!("cargo:rustc-link-search=native={}", mac_dir.display());
+                println!("cargo:warning=Using symbol-less stub libSpeechHelper.a. Link may fail.");
+            } else {
+                let data = create_minimal_coff_lib();
+                std::fs::write(&lib_path, &data)
+                    .expect("Failed to create fallback stub libSpeechHelper.a");
+                println!("cargo:rustc-link-lib=static=SpeechHelper");
+                println!("cargo:rustc-link-search=native={}", mac_dir.display());
+            }
         }
     }
 
@@ -202,31 +262,92 @@ fn link_macos(prebuilt: &PathBuf) {
 
 #[cfg(target_os = "windows")]
 fn link_windows(prebuilt: &PathBuf) {
+    use std::path::Path;
+
     let win_dir = prebuilt.join("windows");
+    std::fs::create_dir_all(&win_dir).expect("Failed to create prebuilt/windows/ directory");
     let lib_path = win_dir.join("SpeechHelper.lib");
     let dll_path = win_dir.join("SpeechHelper.dll");
 
-    if lib_path.exists() {
+    // 本物のライブラリ（100KB以上想定）が存在すればそれを使う
+    if lib_path.exists() && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000 {
         println!("cargo:rustc-link-lib=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", win_dir.display());
     } else {
-        // スタブ .lib を自動生成（M6-1 で本物に差し替え）
-        std::fs::create_dir_all(&win_dir).expect("Failed to create prebuilt/windows/ directory");
+        // スタブ C ソースを生成しコンパイル（M6-1 で本物に差し替え）
+        let stub_c = win_dir.join("stub.c");
+        std::fs::write(
+            &stub_c,
+            r#"#include <stdint.h>
+
+// SpeechHelper FFI stubs — リンク解決のための最小実装。
+// M6-1 で本物の SpeechHelper.lib に差し替えること。
+
+int32_t __stdcall speech_helper_init(double speech_timeout_sec) { (void)speech_timeout_sec; return -1; }
+void __stdcall speech_helper_set_result_callback(void (*cb)(const char*, int32_t)) { (void)cb; }
+void __stdcall speech_helper_set_error_callback(void (*cb)(const char*)) { (void)cb; }
+void __stdcall speech_helper_set_ready_callback(void (*cb)(void)) { (void)cb; }
+void __stdcall speech_helper_set_audio_data_callback(void (*cb)(const float*, uint32_t, uint32_t)) { (void)cb; }
+int32_t __stdcall speech_helper_start_capture(void) { return -1; }
+void __stdcall speech_helper_stop_capture(void) {}
+int32_t __stdcall speech_helper_start(const char* locale) { (void)locale; return -1; }
+void __stdcall speech_helper_stop(void) {}
+void __stdcall speech_helper_cleanup(void) {}
+void __stdcall speech_helper_tick(void) {}
+void __stdcall speech_helper_disable_ime(void) {}
+void __stdcall speech_helper_restore_ime(void) {}
+int32_t __stdcall speech_helper_check_health(void) { return 0; }
+"#,
+        )
+        .expect("Failed to write Windows stub.c");
+
+        // cl.exe でコンパイルを試行
+        let cl_status = Command::new("cl.exe")
+            .args(["/nologo", "/c", &stub_c.to_string_lossy(),
+                   &format!("/Fo{}", win_dir.join("stub.obj").to_string_lossy())])
+            .status();
+
+        if let Ok(status) = cl_status {
+            if status.success() {
+                let lib_status = Command::new("lib.exe")
+                    .args(["/nologo",
+                           &format!("/OUT:{}", lib_path.to_string_lossy()),
+                           &win_dir.join("stub.obj").to_string_lossy()])
+                    .status();
+                if let Ok(ls) = lib_status {
+                    if ls.success() && lib_path.exists() {
+                        let _ = std::fs::remove_file(&stub_c);
+                        let _ = std::fs::remove_file(win_dir.join("stub.obj"));
+                        println!("cargo:rustc-link-lib=SpeechHelper");
+                        println!("cargo:rustc-link-search=native={}", win_dir.display());
+                        println!(
+                            "cargo:warning=Using stub speech_helper.lib ({}). \
+                                  Replace with real library at M6-1.",
+                            lib_path.display()
+                        );
+                        return;
+                    }
+                }
+            }
+        }
+
+        // cl.exe が使えない → lib.exe での空スタブ生成にフォールバック
         create_stub_windows_lib(&lib_path);
 
-        if !lib_path.exists() {
+        if lib_path.exists() {
+            println!("cargo:rustc-link-lib=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", win_dir.display());
+            println!(
+                "cargo:warning=Using stub speech_helper.lib (no symbols). \
+                      Link may fail. Replace with real library at M6-1."
+            );
+        } else {
             panic!(
                 "Failed to create stub library at {}. \
-                 Ensure MSVC lib.exe is available.",
+                 Ensure MSVC tools (cl.exe, lib.exe) are available.",
                 lib_path.display()
             );
         }
-        println!("cargo:rustc-link-lib=SpeechHelper");
-        println!("cargo:rustc-link-search=native={}", win_dir.display());
-        println!(
-            "cargo:warning=Using stub speech_helper.lib. \
-                  Replace with real library at M6-1."
-        );
     }
 
     if dll_path.exists() {

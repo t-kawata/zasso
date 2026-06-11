@@ -61,6 +61,10 @@ pub use pipeline::punctuation::PunctuationMachine;
 pub use pipeline::resampler::{InternalResampler, SincResampler};
 pub use pipeline::signal_filter::is_worthy_to_run_asr;
 pub use backends::openai::{OpenAIBackend, OpenAIRecognizer};
+#[cfg(target_os = "macos")]
+pub use backends::mac::MacSpeechBackend;
+#[cfg(target_os = "windows")]
+pub use backends::win::WinSpeechBackend;
 pub use pipeline::streamer::{
     AsrBackend, BackendWrapper, PseudoAsrStreamer, StreamerConfig, StreamerEvent, StreamerLocale,
 };

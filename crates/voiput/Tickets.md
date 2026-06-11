@@ -410,7 +410,7 @@ crates/voiput/
   1. `backends/openai.rs` に移植。
   2. test-run.rs `[OPENAI]`: OpenAiConfig が設定されていれば初期化→transcribe テスト可能。なければスキップ。
 
-##### チケット M4-3: MacSpeechBackend + test-run.rs [MACOS]
+##### ✅ チケット M4-3: MacSpeechBackend + test-run.rs [MACOS]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.12
 * **移植元:** ~/shyme/mycute/src/stt/mac.rs
@@ -420,7 +420,7 @@ crates/voiput/
   1. `backends/mac.rs` に移植。
   2. test-run.rs `[MACOS]`: `cfg(target_os="macos")` かつライブラリ存在時のみ実行。それ以外はスキップ。
 
-##### チケット M4-4: WinSpeechBackend + test-run.rs [WINDOWS]
+##### ✅ チケット M4-4: WinSpeechBackend + test-run.rs [WINDOWS]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.13
 * **移植元:** ~/shyme/mycute/src/stt/win.rs

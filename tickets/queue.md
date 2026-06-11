@@ -50,3 +50,5 @@
 - [x] #49 M3-1: PseudoAsrStreamer + test-run.rs [STREAMER] | /Users/kawata/shyme/zasso/tickets/specs/0049-m3-1-pseudoasrstreamer-test-runrs-streamer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #50 M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs） | /Users/kawata/shyme/zasso/tickets/specs/0050-m4-1-native-ffinativemac-ffirs-win-ffirs.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #51 M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI] | /Users/kawata/shyme/zasso/tickets/specs/0051-m4-2-openaibackend-openairecognizer-test-runrs-openai.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #52 M4-3: MacSpeechBackend + test-run.rs [MACOS] | /Users/kawata/shyme/zasso/tickets/specs/0052-m4-3-macspeechbackend-test-runrs-macos.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #53 M4-4: WinSpeechBackend + test-run.rs [WINDOWS] | /Users/kawata/shyme/zasso/tickets/specs/0053-m4-4-winspeechbackend-test-runrs-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
