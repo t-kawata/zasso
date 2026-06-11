@@ -32,3 +32,5 @@
 - [x] #31 Windows: sidecar テストが拡張子 .exe で失敗する問題の修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0031-windows-sidecar-exe.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #32 Windows: procreg 統合テストがフリーズする問題の調査と修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0032-windows-procreg.md | 2026-06-10 | 2026-06-10 | 2026-06-10
 - [x] #33 ログ基盤導入と sidecar 出力の統合パイプ | /Users/kawata/shyme/zasso/tickets/specs/0033-sidecar.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #34 procreg: 非同期起動モードと StartupMonitor イベント機構の追加 | /Users/kawata/shyme/zasso/tickets/specs/0034-procreg-startupmonitor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [ ] #35 M0-1: Crate 骨組み（Cargo.toml / build.rs / lib.rs / error.rs / constants.rs） | /Users/kawata/shyme/zasso/tickets/specs/0035-m0-1-crate-cargotoml-buildrs-librs-errorrs-constantsrs.md | 2026-06-11

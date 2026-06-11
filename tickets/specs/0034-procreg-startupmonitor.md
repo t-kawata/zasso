@@ -2,11 +2,12 @@
 ticket_id: 34
 title: procreg: 非同期起動モードと StartupMonitor イベント機構の追加
 slug: procreg-startupmonitor
-status: done
+status: reviewed
 created_at: 2026-06-11
 updated_at: 2026-06-11
 plan_path: /Users/kawata/shyme/zasso/tickets/context/0034-procreg-startupmonitor/plan.md
 implementation_path: /Users/kawata/shyme/zasso/tickets/context/0034-procreg-startupmonitor/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0034-procreg-startupmonitor/review.md
 ---
 # procreg: 非同期起動モードと StartupMonitor イベント機構の追加
 
