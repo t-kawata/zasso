@@ -20,6 +20,27 @@
 
 **「動くことが確認できているコードを、フォルダ分けしてビルドを通す」** が全作業の本質である。
 
+### Cargo.toml 依存関係のルール
+
+依存クレートの追加は **必ず `cargo add` コマンドを使用する** こと。Cargo.toml への直接手書きは禁止（CLAUDE.md プロジェクトルール準拠）。
+
+```bash
+cd crates/voiput && cargo add <crate-name>
+cd crates/voiput && cargo add <crate-name> --features <feature1>,<feature2>  # features 指定時
+```
+
+**対象チケット一覧（フェーズ進行に伴う依存追加）:**
+
+| フェーズ | 追加する依存 | cargo add コマンド |
+|---------|------------|------------------|
+| M0-1 | 初期依存9つ＋コメントアウト6つ | 以下の「M0-1 作業内容」参照 |
+| M2-1 | sherpa-rs, sherpa-rs-sys（コメントアウト解除） | `cargo add sherpa-rs && cargo add sherpa-rs-sys` |
+| M2-3 | lindera, lindera-ipadic（コメントアウト解除） | `cargo add lindera --features embed-ipadic && cargo add lindera-ipadic` |
+| M2-4 | rodio（コメントアウト解除） | `cargo add rodio` |
+| M3-1 | hound（新規追加） | `cargo add hound` |
+| M4-2 | async-openai（コメントアウト解除） | `cargo add async-openai --features audio` |
+| M6-1 | winapi（コメントアウト解除） | `cargo add winapi --features fileapi,winbase` |
+
 ---
 
 ## test-run.rs — 開発の中核
@@ -116,7 +137,7 @@ crates/voiput/
 
 #### M0: Crate 骨組み + 型定義 + test-run.rs 初版
 
-##### チケット M0-1: Crate 骨組み（Cargo.toml / build.rs / lib.rs / error.rs / constants.rs）
+##### ✅ チケット M0-1: Crate 骨組み（Cargo.toml / build.rs / lib.rs / error.rs / constants.rs）
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.2, §8, §4.5, §7.3
 * **移植元:**
@@ -125,7 +146,7 @@ crates/voiput/
   - ~/shyme/mycute/Cargo.toml（voiput 用に絞る）
   - ~/shyme/mycute/build.rs（Tauri 依存削除）
 * **作業内容:**
-  1. `Cargo.toml`: docs/rfc-stt-portable-crate.md §8 の依存定義。`[[bin]]` に test-run 追加。不要なものはコメントアウト。
+  1. `Cargo.toml`: `cargo add` で初期依存を追加。その後 `cargo add --dev tempfile` で dev 依存も追加。build.rs でリンクが必要なライブラリ（sherpa-rs-sys等）はコメントアウト行として残す（`cargo add` 後に version のみ手動修正でも可）。`[[bin]]` セクションは `cargo add` では生成されないため手動で追記する。
   2. `build.rs`: target_os 分岐のスケルトン。プリビルドライブラリ不在は warning（後で本実装）。
   3. `src/lib.rs`: 全モジュール宣言 + 公開 re-export（VoiceKit, VoiceKitConfig, VoiceKitError, types::*）。
   4. `src/error.rs`: VoiceKitError（thiserror）。docs/rfc-stt-portable-crate.md §4.5 の定義。
@@ -133,7 +154,7 @@ crates/voiput/
   6. `src/bin/test-run.rs`: 骨組み。Stage 表示 + ビルド成功確認の最小表示のみ。`test_config()` は M0-2 で追加、以降のセクションも各チケットで順次追加。
 * **test-run.rs 確認:** `cargo build` が通り、`cargo run --bin test-run` で Stage 1/6 表示とエラー型の基本確認が表示されること。
 
-##### チケット M0-2: 公開型定義（types.rs + config.rs）
+##### ✅ チケット M0-2: 公開型定義（types.rs + config.rs）
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §4.3, §4.4
 * **移植元:**

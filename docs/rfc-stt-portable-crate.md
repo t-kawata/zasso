@@ -137,7 +137,7 @@ MYCUTE プロジェクトには、以下の3バックエンドを統合した完
 利用者が実際に書くコードは以下のみ：
 
 ```rust
-use voice_kit::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
+use voiput::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -534,7 +534,7 @@ pub enum VoiceKitError {
 ### 4.5 VoiceKit 本体
 
 ```rust
-// src/voice_kit.rs
+// src/voiput.rs
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -948,7 +948,7 @@ voiput/
 │       └── build.ps1
 ├── src/
 │   ├── lib.rs
-│   ├── voice_kit.rs
+│   ├── voiput.rs
 │   ├── config.rs
 │   ├── types.rs
 │   ├── error.rs
@@ -988,7 +988,7 @@ voiput/
 //! ## 使用方法
 //!
 //! ```rust,no_run
-//! use voice_kit::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
+//! use voiput::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1022,13 +1022,13 @@ mod native;
 mod pipeline;
 mod recognizer;
 mod types;
-mod voice_kit;
+mod voiput;
 
 // 公開 API
 pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};
 pub use error::VoiceKitError;
 pub use types::*;
-pub use voice_kit::VoiceKit;
+pub use voiput::VoiceKit;
 
 // 内部トレイト（crate 内のみ可視）
 pub(crate) use pipeline::streamer::{AsrBackend, BackendWrapper, StreamerEvent, StreamerLocale};
@@ -1751,7 +1751,7 @@ MYCUTE `src/tools/lindera_util.rs` をそのまま移植する。
 | `src/error.rs` | 新規 | 新規 |
 | `src/constants.rs` | `src/constants.rs` (一部抽出) | 小（抽出のみ） |
 | `src/recognizer.rs` | `src/stt/recognizer.rs` | 中（インポート変更） |
-| `src/voice_kit.rs` | 新規 | 新規 |
+| `src/voiput.rs` | 新規 | 新規 |
 | `src/backends/openai.rs` | `src/stt/openai.rs` | 中（インポート変更 + LmgwClient除去） |
 | `src/backends/mac.rs` | `src/stt/mac.rs` | 中（インポート変更） |
 | `src/backends/win.rs` | `src/stt/win.rs` | 中（インポート変更） |
@@ -1842,7 +1842,7 @@ log = "0.4"
 winapi = { version = "0.3", features = ["fileapi", "winbase"] }
 
 [lib]
-name = "voice_kit"
+name = "voiput"
 crate-type = ["lib"]
 ```
 
@@ -2056,7 +2056,7 @@ mod tests {
 
 ```rust
 // tests/integration_test.rs (crate ルートの tests/ ディレクトリ)
-use voice_kit::*;
+use voiput::*;
 
 #[test]
 fn test_config_validation_openai_requires_api_key() {
@@ -2149,7 +2149,7 @@ src/tools/mod.rs                      → audio, lindera_util, pseudo_asr_stream
 use crate::stt::recognizer::SpeechRecognizer;
 
 // 移行後
-use voice_kit::VoiceKit;
+use voiput::VoiceKit;
 
 pub struct MycuteManager {
     // 移行前
@@ -2158,7 +2158,7 @@ pub struct MycuteManager {
     // lmgw_client: Arc<LmgwClient>,
 
     // 移行後
-    voice_kit: VoiceKit,
+    voiput: VoiceKit,
 }
 ```
 
@@ -2167,27 +2167,27 @@ pub struct MycuteManager {
 MYCUTE の `ConfigManager` が保持する `SttSettings` を voiput の `VoiceKitConfig` に変換するアダプタ関数を1つ書く：
 
 ```rust
-impl From<&SttSettings> for voice_kit::VoiceKitConfig {
+impl From<&SttSettings> for voiput::VoiceKitConfig {
     // または独立したヘルパー関数
 }
 
-fn stt_settings_to_voice_kit_config(
+fn stt_settings_to_voiput_config(
     settings: &SttSettings,
     engine: SttEngine,
     locale: LocaleCode,
     openai_config: Option<OpenAiConfig>,
-) -> voice_kit::VoiceKitConfig {
-    voice_kit::VoiceKitConfig::builder()
+) -> voiput::VoiceKitConfig {
+    voiput::VoiceKitConfig::builder()
         .engine(match engine {
-            SttEngine::OpenAI => voice_kit::SttEngine::OpenAi,
-            SttEngine::Os => voice_kit::SttEngine::Os,
+            SttEngine::OpenAI => voiput::SttEngine::OpenAi,
+            SttEngine::Os => voiput::SttEngine::Os,
         })
         .locale(match locale {
-            LocaleCode::Ja => voice_kit::LocaleCode::Ja,
-            LocaleCode::En => voice_kit::LocaleCode::En,
+            LocaleCode::Ja => voiput::LocaleCode::Ja,
+            LocaleCode::En => voiput::LocaleCode::En,
         })
         .openai_config(openai_config)
-        .vad(voice_kit::VadConfig {
+        .vad(voiput::VadConfig {
             vad_type: /* VadType 変換 */,
             threshold: settings.vad_threshold,
             min_silence_duration: settings.vad_min_silence_duration,
@@ -2197,7 +2197,7 @@ fn stt_settings_to_voice_kit_config(
             utterance_min_ms: settings.utterance_min_ms,
             num_threads: settings.num_threads,
         })
-        .vad_model_paths(voice_kit::VadModelPaths {
+        .vad_model_paths(voiput::VadModelPaths {
             silero: settings.resolve_path(settings.vad_type.filename()).unwrap_or_default(),
             ten: settings.resolve_path("ten_vad.onnx").unwrap_or_default(),
             gtcrn: settings.get_denoiser_path().unwrap_or_default(),
@@ -2277,7 +2277,7 @@ Linux など macOS/Windows 以外の OS では:
 6. **パイプライン統合**: `src/pipeline/streamer.rs` (`AsrBackend` トレイト, `PseudoAsrStreamer`)
 7. **バックエンド**: `src/backends/openai.rs`, `src/backends/mac.rs`, `src/backends/win.rs`
 8. **認識器統括**: `src/recognizer.rs`
-9. **公開 API**: `src/voice_kit.rs`, `src/audio.rs`, `src/lindera_util.rs`
+9. **公開 API**: `src/voiput.rs`, `src/audio.rs`, `src/lindera_util.rs`
 10. **テスト**: 各モジュール `#[cfg(test)]` + `tests/integration_test.rs`
 11. **ドキュメント**: `README.md`
 

@@ -1,0 +1,49 @@
+[package]
+name = "voiput"
+version = "0.1.0"
+edition = "2021"
+description = "Portable, cross-platform speech-to-text crate with OS-native and OpenAI backends"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "voiput"
+crate-type = ["lib"]
+
+[[bin]]
+name = "test-run"
+path = "src/bin/test-run.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+async-trait = "0.1.89"
+indexmap = { version = "2.14.0", features = ["serde"] }
+log = "0.4.32"
+parking_lot = "0.12.5"
+rubato = "0.16"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["full"] }
+
+# Phase 2 で有効化: cargo add sherpa-rs
+# sherpa-rs = "latest"
+# Phase 2 で有効化: cargo add sherpa-rs-sys
+# sherpa-rs-sys = "latest"
+# Phase 2 で有効化: cargo add lindera --features embed-ipadic
+# lindera = { version = "latest", features = ["embed-ipadic"] }
+# Phase 2 で有効化: cargo add lindera-ipadic
+# lindera-ipadic = "latest"
+# Phase 2 で有効化: cargo add rodio
+# rodio = "latest"
+# Phase 2 で有効化: cargo add lazy_static
+# lazy_static = "latest"
+# Phase 3 で有効化: cargo add hound
+# hound = "latest"
+# Phase 4 で有効化: cargo add async-openai --features audio
+# async-openai = { version = "latest", features = ["audio"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Phase 6 で有効化: cargo add winapi --features fileapi,winbase
+# winapi = { version = "latest", features = ["fileapi", "winbase"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
