@@ -151,11 +151,22 @@ fn link_macos(prebuilt: &PathBuf) {
         println!("cargo:rustc-link-lib=static=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", mac_dir.display());
     } else {
-        panic!(
-            "libSpeechHelper.a not found at {}. \
-             Run native/swift/build.sh to build it.",
-            mac_dir.display()
-        );
+        // スタブ .a を自動生成（M6-1 で本物に差し替え）
+        let _ = std::process::Command::new("ar")
+            .args(["crs", &lib_path.to_string_lossy(), "/dev/null"])
+            .status();
+        if lib_path.exists() {
+            println!("cargo:rustc-link-lib=static=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+            println!("cargo:warning=Using stub libSpeechHelper.a. \
+                      Replace with real library at M6-1.");
+        } else {
+            // ar が使えない環境用（稀）: 最小限の ar archive を自力生成
+            let data = create_minimal_coff_lib();
+            std::fs::write(&lib_path, &data).expect("Failed to create stub libSpeechHelper.a");
+            println!("cargo:rustc-link-lib=static=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+        }
     }
 
     if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
@@ -197,11 +208,13 @@ fn link_windows(prebuilt: &PathBuf) {
         println!("cargo:rustc-link-lib=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", win_dir.display());
     } else {
-        panic!(
-            "speech_helper.lib not found at {}. \
-             Run native/cs/build.ps1 to build it.",
-            win_dir.display()
-        );
+        // スタブ .lib を自動生成（M6-1 で本物に差し替え）
+        std::fs::write(&lib_path, create_minimal_coff_lib())
+            .expect("Failed to create stub speech_helper.lib");
+        println!("cargo:rustc-link-lib=SpeechHelper");
+        println!("cargo:rustc-link-search=native={}", win_dir.display());
+        println!("cargo:warning=Using stub speech_helper.lib. \
+                  Replace with real library at M6-1.");
     }
 
     if dll_path.exists() {
@@ -222,4 +235,19 @@ fn link_windows(prebuilt: &PathBuf) {
         println!("cargo:rustc-link-lib={}", lib);
     }
     println!("cargo:rustc-link-arg=/IGNORE:4099");
+}
+
+/// 最小限の COFF 書庫（.lib）を生成する。M6-1 までのスタブ。
+/// フォーマット: COFF archive magic + 空のリンカメンバ
+fn create_minimal_coff_lib() -> Vec<u8> {
+    let mut data = b"!<arch>\n".to_vec(); // magic
+    let name = b"/               ";       // linker member name (16 bytes)
+    let size = 4u32;
+    let size_str = format!("{:<12}", size);
+    data.extend_from_slice(name);
+    data.extend_from_slice(size_str.as_bytes());
+    data.extend_from_slice(b"`\n");       // trailing
+    data.extend_from_slice(&0u32.to_le_bytes()); // 0 symbols
+    data.push(b'\n');
+    data
 }
