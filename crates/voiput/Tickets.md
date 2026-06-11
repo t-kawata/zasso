@@ -174,7 +174,7 @@ crates/voiput/
 
 #### M1: 純粋関数の移植 + test-run.rs デモ
 
-##### チケット M1-1: SincResampler + test-run.rs [RESAMPLER]
+##### ✅ チケット M1-1: SincResampler + test-run.rs [RESAMPLER]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.7
 * **移植元:** ~/shyme/mycute/src/tools/resampler.rs — 完全移植（変更不要）
@@ -182,7 +182,7 @@ crates/voiput/
   1. `pipeline/resampler.rs` に SincResampler（rubato ラッパー）をコピー。テストもコピー。
   2. test-run.rs `[RESAMPLER]`: MYCUTE のテストコード（48kHz 正弦波→16kHz リサンプリング）をそのまま流用してデモ表示。
 
-##### チケット M1-2: PostCorrectionProcessor + test-run.rs [POST_CORRECT]
+##### ✅ チケット M1-2: PostCorrectionProcessor + test-run.rs [POST_CORRECT]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.8, §5.4
 * **移植元:** ~/shyme/mycute/src/tools/post_correction_processor.rs
@@ -192,7 +192,7 @@ crates/voiput/
   1. `pipeline/post_correct.rs` に PostCorrectionProcessor をコピー。内部の PostCorrectionConfig は `crate::types` のものを使うよう変更。
   2. test-run.rs `[POST_CORRECT]`: MockBackend で OfflineModel/OnlineModel の動作をデモ。MYCUTE の test_offline_model_appends / test_online_model_overwrites を流用。
 
-##### チケット M1-3: 信号品質フィルタ + test-run.rs [SIGNAL_FILTER]
+##### ✅ チケット M1-3: 信号品質フィルタ + test-run.rs [SIGNAL_FILTER]
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.10
 * **移植元:** ~/shyme/mycute/src/tools/pseudo_asr_streamer.rs の `is_worthy_to_run_asr()` メソッド

@@ -36,8 +36,8 @@ pub(crate) mod pipeline;
 // M2-4 で実装
 // mod audio;
 
-// M5-1 で実装（M1-4 で一部先行実装）
-// mod recognizer;
+// M1-4: 置換辞書（M5-1 でインターセプタースレッドに統合）
+mod recognizer;
 
 // M5-2 で実装
 // mod voice_kit;
@@ -51,4 +51,9 @@ pub use error::VoiceKitError;
 pub use types::*;
 
 // 内部パイプライン（test-run.rs からアクセス可能にするため pub で re-export）
+pub use pipeline::post_correct::{
+    PostCorrectionBackend, PostCorrectionProcessor, ProcessorOutput, SttModelType,
+};
 pub use pipeline::resampler::{InternalResampler, SincResampler};
+pub use pipeline::signal_filter::is_worthy_to_run_asr;
+pub use recognizer::apply_replaces;

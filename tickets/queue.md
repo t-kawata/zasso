@@ -36,3 +36,6 @@
 - [x] #35 M0-1: Crate 骨組み（Cargo.toml / build.rs / lib.rs / error.rs / constants.rs） | /Users/kawata/shyme/zasso/tickets/specs/0035-m0-1-crate-cargotoml-buildrs-librs-errorrs-constantsrs.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #36 M0-2: 公開型定義（types.rs + config.rs） | /Users/kawata/shyme/zasso/tickets/specs/0036-m0-2-typesrs-configrs.md | 2026-06-11 | 2026-06-11 | 2026-06-11
 - [x] #37 M1-1: SincResampler + test-run.rs [RESAMPLER] | /Users/kawata/shyme/zasso/tickets/specs/0037-m1-1-sincresampler-test-runrs-resampler.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #38 M1-2: PostCorrectionProcessor + test-run.rs [POST_CORRECT] | /Users/kawata/shyme/zasso/tickets/specs/0038-m1-2-postcorrectionprocessor-test-runrs-post-correct.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #39 M1-3: 信号品質フィルタ + test-run.rs [SIGNAL_FILTER] | /Users/kawata/shyme/zasso/tickets/specs/0039-m1-3-test-runrs-signal-filter.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #40 M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR] | /Users/kawata/shyme/zasso/tickets/specs/0040-m1-4-test-runrs-interceptor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
