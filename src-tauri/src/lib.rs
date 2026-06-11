@@ -7,10 +7,11 @@
 //! 1. `ensure_edition_data_dir()` — エディションデータディレクトリ作成
 //! 2. `init_edition_home()` → `edition_home()` — エディションホーム初期化
 //! 3. `ensure_bifrost_binary()` — Bifrost バイナリ展開
-//! 4. registry.start_all(sidecar_defs()) — 全サイドカー宣言的起動
-//! 5. registry.pipe_output_to("bifrost", ...) — サイドカー出力のログ統合
-//! 6. install_panic_hook() — パニック安全網
-//! 7. app.manage(registry) — ProcessRegistry を Tauri State に登録
+//! 4. `registry.start_all_async(sidecar_defs())` — 全サイドカー非同期起動（即座に戻る）
+//! 5. `monitor.wait_for_all()` をバックグラウンドで監視 — タイムアウト時は全子プロセス停止
+//! 6. registry.pipe_output_to("bifrost", ...) — サイドカー出力のログ統合
+//! 7. install_panic_hook() — パニック安全網
+//! 8. app.manage(registry) — ProcessRegistry を Tauri State に登録
 
 mod bifrost;
 mod consts;
@@ -37,7 +38,6 @@ impl FormatTime for MycuteTime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Write as FmtWrite;
 
     /// MycuteTime が `%y-%m-%d_%H:%M:%S` 形式（17文字）で時刻を出力することを確認する。
     /// 例: `25-06-11_10:52:39`
@@ -48,7 +48,11 @@ mod tests {
         let mut writer = Writer::new(&mut buf);
         let result = timer.format_time(&mut writer);
         assert!(result.is_ok(), "format_time should succeed");
-        assert_eq!(buf.len(), 17, "expected format %y-%m-%d_%H:%M:%S to produce 17 chars");
+        assert_eq!(
+            buf.len(),
+            17,
+            "expected format %y-%m-%d_%H:%M:%S to produce 17 chars"
+        );
     }
 
     /// MycuteTime の出力にアンダースコアが含まれることを確認する
@@ -59,7 +63,10 @@ mod tests {
         let mut buf = String::new();
         let mut writer = Writer::new(&mut buf);
         let _ = timer.format_time(&mut writer);
-        assert!(buf.contains('_'), "format should contain '_' between date and time");
+        assert!(
+            buf.contains('_'),
+            "format should contain '_' between date and time"
+        );
     }
 }
 
@@ -79,9 +86,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .with_timer(MycuteTime)
                 .with_target(true)
                 .with_level(true)
-                .with_env_filter(
-                    "info,wgpu_core=warn,wgpu_hal=warn,naga=warn"
-                )
+                .with_env_filter("info,wgpu_core=warn,wgpu_hal=warn,naga=warn")
                 .try_init();
 
             // ---- Step 1: エディションデータディレクトリを作成する ----
@@ -99,20 +104,39 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             bifrost::ensure_bifrost_binary(edition_home)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.as_str()))?;
 
-            // ---- Step 4: ProcessRegistry で全サイドカーを宣言的に起動する ----
+            // ---- Step 4: ProcessRegistry で全サイドカーを非同期的に起動する ----
+            // 従来の同期 start_all と異なり、この呼び出しは即座に戻る。
+            // 実際のプロセス起動はバックグラウンドで進行し、全プロセスの起動が
+            // 完了しないまま Tauri ウィンドウが表示される可能性がある。
+            // その代わり、起動完了を StartupMonitor で監視し、タイムアウト時は
+            // 全子プロセスを shutdown_all してアプリを終了する。
             let registry = ProcessRegistry::new();
             let defs = sidecar::sidecar_defs(edition_home);
-            tauri::async_runtime::block_on(registry.start_all(defs))
-                .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+            let monitor = tauri::async_runtime::block_on(registry.start_all_async(
+                defs,
+                std::time::Duration::from_secs(consts::SIDECAR_STARTUP_TIMEOUT_SECS),
+            ));
+            // 起動監視タスク: 全プロセスの起動完了またはタイムアウトを待機する
+            let reg_for_monitor = registry.clone();
+            tauri::async_runtime::spawn(async move {
+                match monitor.wait_for_all().await {
+                    Ok(_snapshot) => {
+                        tracing::info!("[sidecar] All sidecars started successfully");
+                    }
+                    Err(e) => {
+                        tracing::error!("[sidecar] Startup failed or timed out: {e}");
+                        reg_for_monitor.shutdown_all().await;
+                        std::process::exit(1);
+                    }
+                }
+            });
 
             // ---- Step 5: サイドカーの標準出力・エラー出力をログに統合する ----
             // pipe_output_to は出力行を sink クロージャに転送する。
             // プロセス名が存在しない場合は何もせず None が返る。
-            let _ = tauri::async_runtime::block_on(
-                registry.pipe_output_to("bifrost", |line| {
-                    tracing::info!("[bifrost] {}", line);
-                })
-            );
+            let _ = tauri::async_runtime::block_on(registry.pipe_output_to("bifrost", |line| {
+                tracing::info!("[bifrost] {}", line);
+            }));
             // handle の JoinHandle は registry と運命を共にする（registry 破棄時にタスク終了）
 
             // ---- Step 6: パニック安全網を設置する ----

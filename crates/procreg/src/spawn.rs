@@ -182,8 +182,18 @@ pub(crate) async fn spawn_one(
         }
     }
 
-    // ReadyCondition を待機
-    ready::wait_ready(&def.ready, &def.name, output_tx.clone()).await?;
+    // ReadyCondition を待機（cancel_token によるキャンセル対応）
+    // shutdown_all() 呼び出しにより wait_ready の完了前にキャンセルされた場合、
+    // SpawnCancelled エラーを返す。この時点で Watchdog と子プロセスは稼働中だが、
+    // Watchdog が親PIDを監視しているため、親が死ねば1秒以内に掃除される。
+    tokio::select! {
+        result = ready::wait_ready(&def.ready, &def.name, output_tx.clone()) => {
+            result?;
+        }
+        _ = cancel_token.cancelled() => {
+            return Err(RegistryError::SpawnCancelled { name: def.name.clone() });
+        }
+    }
 
     // ChildGuard でラップ（運命共同体の核心）
     let timeout_cfg = def.shutdown_timeout.clone().unwrap_or_default();

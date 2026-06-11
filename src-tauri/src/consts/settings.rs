@@ -16,7 +16,7 @@
 /// アプリケーションバージョン（セマンティックバージョニング）
 /// sync-version.mjs が読み取る SOT（Rust 未参照）
 #[allow(dead_code)]
-pub(crate) const APP_VERSION: &str = "v0.24.256";
+pub(crate) const APP_VERSION: &str = "v0.24.257";
 
 /// アプリケーション表示名
 /// sync-version.mjs が読み取る SOT（Rust 未参照）
@@ -65,3 +65,9 @@ pub(crate) const WINDOW_HEIGHT_EXPANDED: u16 = 760;
 
 /// Bifrost LLM Proxy がリッスンする TCP ポート
 pub(crate) const BIFROST_PORT: u16 = 3912;
+
+/// 全サイドカーの非同期起動完了を待機する全体タイムアウト（秒）
+///
+/// 個別の wait_ready タイムアウト（bifrost は 10秒）とは独立して設定される。
+/// 全プロセス起動完了をこの時間内に確認できない場合、アプリは終了する。
+pub(crate) const SIDECAR_STARTUP_TIMEOUT_SECS: u64 = 30;

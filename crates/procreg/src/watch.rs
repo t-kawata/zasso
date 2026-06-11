@@ -48,13 +48,8 @@ async fn watch_loop(
         // プロセス終了シグナル または キャンセル を待つ（イベント駆動）
         let exit_code = tokio::select! {
             result = &mut exit_rx => {
-                match result {
-                    Ok(code) => code,
-                    Err(_) => {
-                        // exit_tx が drop された = pid probe タスクが終了
-                        None
-                    }
-                }
+                // exit_tx が drop された場合は None（pid probe タスク終了）
+                result.unwrap_or(None)
             }
             _ = cancel_token.cancelled() => {
                 // shutdown_all() / stop() により明示的にキャンセルされた

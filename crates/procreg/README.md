@@ -15,6 +15,8 @@
 - **Graceful Shutdown** — Unix は SIGTERM → 待機 → SIGKILL、Windows は TerminateProcess
 - **ポート競合検出** — 起動前にポート使用中を確認し、ゾンビプロセスがいる場合は起動をブロック
 - **Watchdog ラッパー** — 全サイドカーは Watchdog プロセスを介して起動。親が死んだら子を自動終了
+- **非同期起動モード** — `start_all_async` + `StartupMonitor` で setup ブロッキングなしの起動が可能
+- **キャンセル対応** — `spawn_one` は `CancellationToken` による割り込みに対応。`wait_ready` 中のシャットダウン要求を検知可能
 - **運命共同体（Fate Sharing）** — リトライ上限到達時はアプリ全体が停止。子も親も孤児にならない
 - **パニック安全網** — パニック時に全子プロセスを自動停止
 - **クロスプラットフォーム** — macOS / Linux / Windows で同一 API
@@ -208,6 +210,7 @@ let states = vec![
 ### Step 5: プロセスを起動する（`start_all`）
 
 `start_all` に `ProcessDef` のリストを渡すと、`depends_on` を自動解決して順番に起動します。
+setup をブロックせずに非同期的に起動したい場合は **Step 6**（`start_all_async`）を参照してください。
 
 ```rust
 use process_registry::*;
@@ -250,7 +253,54 @@ let defs = vec![
 registry.start_all(defs).await.unwrap();
 ```
 
-### Step 6: プロセス状態を確認する（`snapshot`）
+### Step 6: プロセスを非同期的に起動する（`start_all_async`）
+
+`start_all_async` は setup をブロックせず即座に `StartupMonitor` を返します。
+実際のプロセス起動はバックグラウンドで進行し、`wait_for_all()` で完了を待機できます。
+
+```rust
+use process_registry::*;
+use std::time::Duration;
+
+let registry = ProcessRegistry::new();
+
+let defs = vec![
+    ProcessDef {
+        name: "my-service".to_string(),
+        program: "./sidecar/my-service".to_string(),
+        args: vec!["--port".to_string(), "8080".to_string()],
+        env: vec![],
+        depends_on: vec![],
+        restart: RestartPolicy::on_crash_default(),
+        ready: ReadyCondition::TcpPort {
+            host: "127.0.0.1".parse().unwrap(),
+            port: 8080,
+            timeout: Duration::from_secs(30),
+            poll_interval: Duration::from_millis(200),
+        },
+        shutdown_timeout: None,
+    },
+];
+
+// 非同期的に起動（即座に戻る）
+let monitor = registry.start_all_async(defs, Duration::from_secs(30)).await;
+
+// 起動完了を待機（バックグラウンドタスクで監視）
+tokio::spawn(async move {
+    match monitor.wait_for_all().await {
+        Ok(snapshot) => println!("全プロセス起動完了: {snapshot:?}"),
+        Err(e) => {
+            eprintln!("起動失敗: {e}");
+            registry.shutdown_all().await;
+            std::process::exit(1);
+        }
+    }
+});
+
+// setup はここで戻る → ウィンドウ表示等に進める
+```
+
+### Step 7: プロセス状態を確認する（`snapshot`）
 
 ```rust
 use std::collections::HashMap;
@@ -263,7 +313,7 @@ for (name, state) in &snapshot {
 }
 ```
 
-### Step 7: プロセス出力を購読する
+### Step 8: プロセス出力を購読する
 
 起動中のプロセスの stdout/stderr をリアルタイムで受け取れます。
 
@@ -290,7 +340,7 @@ registry.pipe_output_to("app", |line| {
 }).await;
 ```
 
-### Step 8: プロセスを停止する（`shutdown_all` / `stop`）
+### Step 9: プロセスを停止する（`shutdown_all` / `stop`）
 
 ```rust
 // 全プロセスを起動の逆順で Graceful Shutdown
@@ -309,7 +359,7 @@ registry.stop("app").await.unwrap();
    - **Unix**: SIGTERM → `unix_sigterm_timeout`(デフォルト5秒)待機 → SIGKILL
    - **Windows**: `start_kill()` → `windows_ctrl_break_timeout`(デフォルト8秒)待機
 
-### Step 9: 運命共同体（Fate Sharing）
+### Step 10: 運命共同体（Fate Sharing）
 
 process-registry は **Watchdog ラッパー** により全 OS で共通の運命共同体を実現します。
 
@@ -346,9 +396,10 @@ process_registry::install_panic_hook(registry.clone());
 | 親が Ctrl+C / SIGTERM | Watchdog または shutdown_all で子に SIGTERM |
 | 子がクラッシュ | OnCrash でリトライ×3 → 上限到達 → shutdown_all で親も停止 |
 | 子が自然終了 | 同上。exit code 0 でもリトライ上限に達すれば親も停止 |
+| 起動中に親がシャットダウン | cancel_token で spawn_one 割り込み → SpawnCancelled。Watchdog が子を掃除 |
 | RestartPolicy::Never | 子は終了するが親は動き続ける（設計上の意図） |
 
-### Step 10: コンパイル時の注意
+### Step 11: コンパイル時の注意
 
 `install_panic_hook` を正しく動作させるには、`Cargo.toml` で `panic = "unwind"` を設定する必要があります。
 
@@ -368,13 +419,22 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
                     │  HashMap<String, RegistryEntry>     │
                     │  ├── "bifrost" → Entry              │
                     │  └── "tensorzero" → Entry            │
+                    ├─────────────────────────────────────┤
+                    │  start_all()  ── 同期的（逐次起動）  │
+                    │  start_all_async() ── 非同期＋Monitor│
                     └─────────────────────────────────────┘
                                │
-                               ▼
-                    ┌─────────────────────┐
+                    ┌──────────▼──────────┐
+                    │   StartupMonitor     │ ← 非同期起動時のみ
+                    │  wait_for_all()      │
+                    │  is_complete()        │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
                     │  spawn_one()        │
                     │  ─ ポート競合チェック │
                     │  ─ Watchdog 展開     │
+                    │  ─ cancel_token 対応 │ ← NEW
                     └─────────────────────┘
                                │
                     ┌──────────▼──────────┐
@@ -400,25 +460,26 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
 
 | モジュール | 役割 |
 |-----------|------|
-| `registry` | `ProcessRegistry` — 公開 API（new, snapshot, subscribe, start_all, shutdown_all, stop）|
-| `graph` | `resolve_start_order` — DAG トポロジカルソート |
-| `spawn` | `spawn_one` — Watchdog ラッパー経由のプロセス起動・出力キャプチャ |
-| `child` | `ChildGuard` — Graceful Shutdown（SIGTERM → wait → SIGKILL）|
+| `registry` | `ProcessRegistry` — 公開 API（new, snapshot, subscribe, start_all, start_all_async, shutdown_all, stop）|
+| `graph` | `resolve_start_order`（逐次起順） / `resolve_start_levels`（レベル分割）|
+| `spawn` | `spawn_one` — Watchdog ラッパー経由のプロセス起動・出力キャプチャ・cancel_token 対応 |
+| `child` | `ChildGuard` — Graceful Shutdown（SIGTERM → wait → SIGKILL）、Clone 対応 |
 | `ready` | `wait_ready` — 起動完了条件の非同期待機 |
 | `watch` | `watch_loop` — イベント駆動監視・再起動ループ・Fate Sharing |
 | `platform` | `is_process_alive` — クロスプラットフォーム生存確認 |
 | `port` | `is_port_free` — ポート競合検出（`TcpListener::bind`）|
 | `watchdog`（build.rs）| `procreg-watchdog` — 親死検知ラッパーバイナリ（全OS統一）|
+| `startup_monitor` | `StartupMonitor` — 非同期起動の完了監視（wait_for_all, is_complete）|
 | `signal` | `install_sigterm_handler` — Unix SIGTERM ハンドラ |
 | `panic` | `install_panic_hook` — パニック安全網 |
-| `error` | `RegistryError` — エラー型（6バリアント）|
+| `error` | `RegistryError` — エラー型（8バリアント）|
 | `state` | `ProcessState` — プロセス状態（serde 対応）|
 
 ---
 
 ## エラーハンドリング
 
-`RegistryError` は 6 種類のエラーを統一的に扱います。
+`RegistryError` は 8 種類のエラーを統一的に扱います。
 
 | エラーバリアント | 発生タイミング | 意味 |
 |-----------------|--------------|------|
@@ -428,6 +489,8 @@ panic = "unwind"    # デフォルト値。abort に変更しないこと
 | `SpawnFailed { name, source }` | `start_all` / 再起動 | プロセスの起動に失敗した |
 | `ReadyTimeout { name, timeout }` | 起動時 | ReadyCondition がタイムアウトした |
 | `PortInUse { host, port }` | `start_all` | ポートが既に他のプロセスに占有されている |
+| `SpawnCancelled { name }` | `start_all_async` / キャンセル時 | shutdown_all により起動が中断された |
+| `StartupTimeout { ready, pending, timeout }` | `start_all_async` | 全体タイムアウト内に起動が完了しなかった |
 
 ```rust
 use process_registry::RegistryError;
@@ -453,7 +516,7 @@ match registry.start_all(defs).await {
 cargo test
 
 # 高速フィードバック（単体のみ）
-cargo test --lib          # 84 tests
+cargo test --lib          # 106 tests
 ```
 
 ---

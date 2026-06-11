@@ -9,11 +9,17 @@
 //! - `panic` 時の Drop ではベストエフォートで `start_kill()` を実行する。
 //!   （async 完了を Drop 内で待てない制約によるフォールバック）
 
+use std::sync::Arc;
+
 use crate::ShutdownTimeoutConfig;
 
 /// 子プロセスをラップし、GracefulShutdown を実行するガード。
 ///
 /// ProcessRegistry の運命共同体の核心となる型。
+/// 内部の子プロセスハンドルは `Arc<Mutex<Option<...>>>` でラップされており、
+/// `Clone` 可能。これにより spawn_one 内での早期登録と SpawnResult 経由の
+/// 返却が両立できる。
+///
 /// `tokio::process::Child` をラップし、明示的な `shutdown()` または
 /// Drop 時に GracefulShutdown を実行する。
 ///
@@ -24,12 +30,18 @@ use crate::ShutdownTimeoutConfig;
 ///
 /// フィールドおよびメソッドは後続チケット（M8-1: spawn_one、M9-1: shutdown_all）
 /// で使用される。現時点では型定義と内部ロジックのみ確定させる段階。
-#[derive(Debug)]
+/// 子プロセスハンドルの内部表現。
+/// `Arc<Mutex<Option<>>>` により複数の `ChildGuard` インスタンスで
+/// 同一プロセスを共有可能にする。
+type ChildHandle = Arc<std::sync::Mutex<Option<tokio::process::Child>>>;
+
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub(crate) struct ChildGuard {
     /// 子プロセスハンドル。`Some` の間はプロセスが稼働中。
     /// `take()` することで所有権を移動し、GracefulShutdown を実行する。
-    child: Option<tokio::process::Child>,
+    /// `Arc<Mutex<>>` により Clone 可能で、早期登録と SpawnResult の両立を可能にする。
+    child: Option<ChildHandle>,
 
     /// GracefulShutdown のタイムアウト設定。
     config: ShutdownTimeoutConfig,
@@ -43,7 +55,7 @@ impl ChildGuard {
     /// `config` はシャットダウン時のタイムアウト設定。
     pub fn new(child: tokio::process::Child, config: ShutdownTimeoutConfig) -> Self {
         Self {
-            child: Some(child),
+            child: Some(Arc::new(std::sync::Mutex::new(Some(child)))),
             config,
         }
     }
@@ -57,8 +69,13 @@ impl ChildGuard {
     /// 呼び出し側はこれを `await` することで、孤児プロセスが残留しないことを
     /// 確実にできる。
     pub async fn shutdown(mut self) {
-        if let Some(mut child) = self.child.take() {
-            Self::graceful_shutdown(&mut child, &self.config).await;
+        if let Some(arc_child) = self.child.take() {
+            // MutexGuard を await をまたがないよう、先に child を取り出してから
+            // graceful_shutdown を呼び出す（Send 制約のため）。
+            let child: Option<tokio::process::Child> = arc_child.lock().unwrap().take();
+            if let Some(mut child) = child {
+                Self::graceful_shutdown(&mut child, &self.config).await;
+            }
         }
     }
 
@@ -80,9 +97,8 @@ impl ChildGuard {
             // SIGTERM 後、タイムアウトまでポーリングで終了を待機する
             let deadline = tokio::time::Instant::now() + config.unix_sigterm_timeout;
             loop {
-                match child.try_wait() {
-                    Ok(Some(_)) => return, // プロセスが正常終了
-                    _ => {}
+                if let Ok(Some(_)) = child.try_wait() {
+                    return; // プロセスが正常終了
                 }
                 if tokio::time::Instant::now() >= deadline {
                     break;
@@ -114,8 +130,12 @@ impl Drop for ChildGuard {
     /// 確実な GracefulShutdown が必要な場合は、事前に `shutdown().await` を
     /// 呼ぶこと。
     fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            let _ = child.start_kill();
+        if let Some(arc_child) = self.child.take() {
+            // Drop 内では await できないため、start_kill() のみベストエフォートで呼ぶ。
+            let child: Option<tokio::process::Child> = arc_child.lock().unwrap().take();
+            if let Some(mut child) = child {
+                let _ = child.start_kill();
+            }
         }
     }
 }
@@ -169,6 +189,20 @@ mod tests {
         // child が None の場合、shutdown() は graceful_shutdown を
         // 呼ばずに即座に完了する
         guard.shutdown().await;
+    }
+
+    /// ChildGuard が Clone 可能であり、クローンが同一の内部ハンドルを共有することを確認する。
+    #[test]
+    fn child_guard_clone_shares_handle() {
+        let config = ShutdownTimeoutConfig::default();
+        let guard = ChildGuard {
+            child: Some(Arc::new(std::sync::Mutex::new(None))),
+            config,
+        };
+        let cloned = guard.clone();
+        // 両方の child が Some であることを確認（同一 Arc を指す）
+        assert!(guard.child.is_some());
+        assert!(cloned.child.is_some());
     }
 
     /// ChildGuard の所有権が移動することを確認する。

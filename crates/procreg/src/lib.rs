@@ -24,11 +24,13 @@ pub mod ready;
 pub mod registry;
 pub mod signal;
 pub mod spawn;
+pub mod startup_monitor;
 pub mod state;
 pub mod watch;
 pub(crate) mod watchdog;
 pub use crate::registry::ProcessRegistry;
 // ChildGuard, RegistryEntry の再公開は利用箇所が出た時点で追加する
+pub use crate::startup_monitor::StartupMonitor;
 pub use crate::state::ProcessState;
 
 /// 1 つのサイドカープロセスの完全な定義。

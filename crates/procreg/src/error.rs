@@ -3,8 +3,11 @@
 //! このモジュールはクレート全体で使用するエラー型 `RegistryError` を定義する。
 //! `thiserror` により `std::error::Error` が自動導出される。
 
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
+
+use crate::state::ProcessState;
 
 /// プロセスレジストリ操作で発生しうるすべてのエラーを表現する。
 ///
@@ -61,6 +64,31 @@ pub enum RegistryError {
         host: IpAddr,
         /// 競合が発生したポート番号。
         port: u16,
+    },
+
+    /// `spawn_one` が明示的にキャンセルされた（`shutdown_all` 等による）。
+    ///
+    /// 実装上の失敗ではなく、シャットダウン要求に応じて起動を中断したことを示す。
+    /// このエラーは watch_loop の再起動処理とは区別して扱わなければならない。
+    #[error("Spawn cancelled for '{name}'")]
+    SpawnCancelled {
+        /// キャンセルされたプロセス名。
+        name: String,
+    },
+
+    /// `start_all_async` の全体タイムアウトが発生した。
+    ///
+    /// 一部のプロセスは Running 状態に達したが、指定された `timeout` 内に
+    /// 全プロセスの起動が完了しなかったことを示す。
+    #[error("Startup timed out after {timeout:?}: {pending:?} still pending")]
+    StartupTimeout {
+        /// タイムアウト時点での各プロセスの状態。
+        /// Running 状態のプロセスは app.manage された後も動作し続ける。
+        ready: HashMap<String, ProcessState>,
+        /// タイムアウト時点で未だ Running に達していないプロセス名一覧。
+        pending: Vec<String>,
+        /// 設定されていたタイムアウト値。
+        timeout: Duration,
     },
 }
 
@@ -189,5 +217,74 @@ mod tests {
         let host = IpAddr::from([127, 0, 0, 1]);
         let err = RegistryError::PortInUse { host, port: 3912 };
         assert!(err.source().is_none());
+    }
+
+    // ================================================================
+    // SpawnCancelled / StartupTimeout のテスト
+    // ================================================================
+
+    /// SpawnCancelled の Display 出力にプロセス名が含まれることを確認する。
+    #[test]
+    fn spawn_cancelled_display() {
+        let err = RegistryError::SpawnCancelled {
+            name: "bifrost".to_string(),
+        };
+        let display = err.to_string();
+        assert!(display.contains("Spawn cancelled"));
+        assert!(display.contains("bifrost"));
+    }
+
+    /// SpawnCancelled が Error トレイトを実装していることを確認する。
+    #[test]
+    fn spawn_cancelled_error_trait() {
+        let err = RegistryError::SpawnCancelled {
+            name: "test".to_string(),
+        };
+        let source = (&err as &dyn std::error::Error).source();
+        // 内包エラーはないため None を返す
+        assert!(source.is_none());
+    }
+
+    /// StartupTimeout の Display 出力にタイムアウト値と pending 一覧が含まれることを確認する。
+    #[test]
+    fn startup_timeout_display() {
+        use std::collections::HashMap;
+        let mut ready = HashMap::new();
+        ready.insert("svc_a".to_string(), ProcessState::Running { pid: 100 });
+        let err = RegistryError::StartupTimeout {
+            ready,
+            pending: vec!["svc_b".to_string()],
+            timeout: Duration::from_secs(30),
+        };
+        let display = err.to_string();
+        assert!(display.contains("Startup timed out"));
+        assert!(display.contains("30s"));
+        assert!(display.contains("svc_b"));
+    }
+
+    /// StartupTimeout のフィールドが正しく読み出せることを確認する。
+    #[test]
+    fn startup_timeout_fields() {
+        use std::collections::HashMap;
+        let mut ready = HashMap::new();
+        ready.insert("svc_a".to_string(), ProcessState::Running { pid: 100 });
+        ready.insert("svc_b".to_string(), ProcessState::Starting);
+        let err = RegistryError::StartupTimeout {
+            ready: ready.clone(),
+            pending: vec!["svc_b".to_string()],
+            timeout: Duration::from_secs(15),
+        };
+        match &err {
+            RegistryError::StartupTimeout {
+                ready: r,
+                pending: p,
+                timeout: t,
+            } => {
+                assert_eq!(r.len(), 2);
+                assert_eq!(p.as_slice(), &["svc_b"]);
+                assert_eq!(*t, Duration::from_secs(15));
+            }
+            other => panic!("Expected StartupTimeout, got {other:?}"),
+        }
     }
 }

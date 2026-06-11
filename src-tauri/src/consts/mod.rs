@@ -18,3 +18,5 @@ pub(crate) use edition::{edition_home, init_edition_home};
 pub(crate) mod settings;
 /// settings.rs の BIFROST_PORT を consts 直下に再公開する
 pub(crate) use settings::BIFROST_PORT;
+/// settings.rs の SIDECAR_STARTUP_TIMEOUT_SECS を consts 直下に再公開する
+pub(crate) use settings::SIDECAR_STARTUP_TIMEOUT_SECS;

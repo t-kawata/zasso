@@ -5,10 +5,14 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
+
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+use crate::error::RegistryError;
+use crate::startup_monitor::StartupMonitor;
 use crate::state::ProcessState;
 use crate::ProcessDef;
 
@@ -34,6 +38,12 @@ impl Clone for ProcessRegistry {
         Self {
             inner: Arc::clone(&self.inner),
         }
+    }
+}
+
+impl Default for ProcessRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -154,8 +164,7 @@ impl ProcessRegistry {
                 tx.clone(),
                 cancel_token.clone(),
             )
-            .await
-            .map_err(|e| e)?;
+            .await?;
 
             // SpawnResult をレジストリに反映
             {
@@ -177,6 +186,203 @@ impl ProcessRegistry {
         }
 
         Ok(())
+    }
+
+    /// 全プロセス定義を非同期に起動し、`StartupMonitor` を返す。
+    ///
+    /// 従来の `start_all` と異なり、このメソッドは `setup()` をブロックせず
+    /// 即座に monitor を返す。実際のプロセス起動はバックグラウンドで進行し、
+    /// monitor::wait_for_all() で完了を待機できる。
+    ///
+    /// # 引数
+    ///
+    /// - `defs`: 起動するプロセスの定義リスト。
+    /// - `timeout`: 全プロセスの初回起動完了までの最大待機時間。
+    ///
+    /// # 戻り値
+    ///
+    /// `StartupMonitor` — 起動完了を待機するためのオブジェクト。
+    ///
+    /// # 運命共同体の維持
+    ///
+    /// 起動に失敗したプロセスがある場合、未起動のプロセスにキャンセルを伝播し、
+    /// 既に起動済みのプロセスも `shutdown_all` で停止する。
+    /// タイムアウト時は monitor に `StartupTimeout` エラーが通知される。
+    pub async fn start_all_async(
+        &self,
+        defs: Vec<ProcessDef>,
+        timeout: Duration,
+    ) -> StartupMonitor {
+        use crate::graph;
+
+        // 依存関係を解決する
+        let levels = match graph::resolve_start_levels(&defs) {
+            Ok(levels) => levels,
+            Err(e) => {
+                let monitor = StartupMonitor::new(defs.iter().map(|d| d.name.clone()).collect());
+                monitor.set_failed(e);
+                return monitor;
+            }
+        };
+
+        // 全プロセス名のリスト
+        let all_names: Vec<String> = levels.iter().flat_map(|l| l.iter()).cloned().collect();
+
+        // defs のマップ
+        let def_map: HashMap<String, ProcessDef> =
+            defs.into_iter().map(|d| (d.name.clone(), d)).collect();
+
+        // 起動順序（フラット）を保存（shutdown_all での逆順停止に使用）
+        {
+            let mut guard = self.inner.lock().await;
+            guard.start_order = all_names.clone();
+        }
+
+        // StartupMonitor を作成
+        let monitor = StartupMonitor::new(all_names.clone());
+
+        // バックグラウンド起動タスクを spawn
+        let reg_clone = self.clone();
+        let monitor_clone = monitor.clone();
+        tokio::spawn(async move {
+            let deadline = tokio::time::Instant::now() + timeout;
+
+            for level in &levels {
+                // レベル内のプロセスを並列に起動する
+                let mut handles = Vec::new();
+
+                for name in level {
+                    let def = match def_map.get(name) {
+                        Some(d) => d.clone(),
+                        None => continue,
+                    };
+
+                    let cancel_token = CancellationToken::new();
+                    let (tx, _) = broadcast::channel::<String>(2048);
+
+                    // RegistryEntry を事前登録
+                    {
+                        let mut guard = reg_clone.inner.lock().await;
+                        guard.entries.insert(
+                            name.clone(),
+                            RegistryEntry {
+                                def: def.clone(),
+                                state: ProcessState::Pending,
+                                child: None,
+                                output_tx: tx.clone(),
+                                cancel_token: cancel_token.clone(),
+                                restart_count: 0,
+                            },
+                        );
+                    }
+
+                    // 残り時間内に起動できない場合はタイムアウト
+                    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+                    if remaining.is_zero() {
+                        let mut ready = HashMap::new();
+                        {
+                            let guard = reg_clone.inner.lock().await;
+                            for n in &all_names {
+                                if let Some(e) = guard.entries.get(n) {
+                                    ready.insert(n.clone(), e.state.clone());
+                                }
+                            }
+                        }
+                        let pending: Vec<String> = {
+                            let guard = reg_clone.inner.lock().await;
+                            all_names
+                                .iter()
+                                .filter(|n| {
+                                    !matches!(
+                                        guard.entries.get(*n).map(|e| &e.state),
+                                        Some(ProcessState::Running { .. })
+                                    )
+                                })
+                                .cloned()
+                                .collect()
+                        };
+                        monitor_clone.set_failed(RegistryError::StartupTimeout {
+                            ready,
+                            pending,
+                            timeout,
+                        });
+                        reg_clone.shutdown_all().await;
+                        return;
+                    }
+
+                    // spawn_one を並列実行するため tokio::spawn する
+                    let inner_clone = Arc::clone(&reg_clone.inner);
+                    let def_clone = def.clone();
+                    let tx_clone = tx.clone();
+                    let cancel_clone = cancel_token.clone();
+                    let handle = tokio::spawn(async move {
+                        crate::spawn::spawn_one(inner_clone, def_clone, tx_clone, cancel_clone)
+                            .await
+                    });
+                    handles.push((name.clone(), def.clone(), cancel_token, handle));
+                }
+
+                // 全プロセスの完了を待つ（レベル間バリア）
+                for (name, def, _cancel_token, handle) in handles {
+                    match handle.await {
+                        Ok(Ok(result)) => {
+                            // 成功 → レジストリに反映 + watch_loop 起動
+                            {
+                                let mut guard = reg_clone.inner.lock().await;
+                                if let Some(entry) = guard.entries.get_mut(&name) {
+                                    entry.state = ProcessState::Running { pid: result.pid };
+                                    entry.child = Some(result.child_guard);
+                                }
+                            }
+                            crate::watch::start_watch_task(
+                                Arc::clone(&reg_clone.inner),
+                                def.clone(),
+                                result.exit_rx,
+                                _cancel_token,
+                                reg_clone.clone(),
+                            );
+                        }
+                        Ok(Err(e)) => {
+                            // spawn_one がエラーを返した（SpawnCancelled or SpawnFailed）
+                            // → 未起動プロセスにキャンセルを伝播
+                            let mut guard = reg_clone.inner.lock().await;
+                            for n in &all_names {
+                                if let Some(entry) = guard.entries.get_mut(n) {
+                                    entry.cancel_token.cancel();
+                                }
+                            }
+                            // エントリ状態を Failed に
+                            if let Some(entry) = guard.entries.get_mut(&name) {
+                                entry.state = ProcessState::Failed {
+                                    exit_code: None,
+                                    message: e.to_string(),
+                                };
+                            }
+                            drop(guard);
+                            // 全子プロセスを停止
+                            reg_clone.shutdown_all().await;
+                            monitor_clone.set_failed(e);
+                            return;
+                        }
+                        Err(_join_err) => {
+                            // tokio::spawn の join エラー（タスクパニック）
+                            monitor_clone.set_failed(RegistryError::SpawnFailed {
+                                name: name.clone(),
+                                source: anyhow::anyhow!("Spawn task panicked"),
+                            });
+                            reg_clone.shutdown_all().await;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 全レベル完了 = 全プロセス起動成功
+            let snapshot = reg_clone.snapshot().await;
+            monitor_clone.set_completed(snapshot);
+        });
+
+        monitor
     }
 
     /// 全プロセスを起動の逆順で停止する。
