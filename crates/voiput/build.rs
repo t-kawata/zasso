@@ -201,7 +201,7 @@ fn link_macos(prebuilt: &PathBuf) {
 #[cfg(target_os = "windows")]
 fn link_windows(prebuilt: &PathBuf) {
     let win_dir = prebuilt.join("windows");
-    let lib_path = win_dir.join("speech_helper.lib");
+    let lib_path = win_dir.join("SpeechHelper.lib");
     let dll_path = win_dir.join("SpeechHelper.dll");
 
     if lib_path.exists() {
@@ -209,8 +209,17 @@ fn link_windows(prebuilt: &PathBuf) {
         println!("cargo:rustc-link-search=native={}", win_dir.display());
     } else {
         // スタブ .lib を自動生成（M6-1 で本物に差し替え）
-        std::fs::write(&lib_path, create_minimal_coff_lib())
-            .expect("Failed to create stub speech_helper.lib");
+        std::fs::create_dir_all(&win_dir)
+            .expect("Failed to create prebuilt/windows/ directory");
+        create_stub_windows_lib(&lib_path);
+
+        if !lib_path.exists() {
+            panic!(
+                "Failed to create stub library at {}. \
+                 Ensure MSVC lib.exe is available.",
+                lib_path.display()
+            );
+        }
         println!("cargo:rustc-link-lib=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", win_dir.display());
         println!("cargo:warning=Using stub speech_helper.lib. \
@@ -237,8 +246,110 @@ fn link_windows(prebuilt: &PathBuf) {
     println!("cargo:rustc-link-arg=/IGNORE:4099");
 }
 
-/// 最小限の COFF 書庫（.lib）を生成する。M6-1 までのスタブ。
-/// フォーマット: COFF archive magic + 空のリンカメンバ
+/// MSVC lib.exe で空のスタブ .lib を生成する。
+/// 手書き COFF アーカイブは MSVC リンカが認識しないため、
+/// 正規のツールチェーン経由で作成する。
+#[cfg(target_os = "windows")]
+fn create_stub_windows_lib(lib_path: &std::path::Path) {
+    let lib_exe = find_msvc_lib_exe();
+
+    match lib_exe {
+        Some(exe) => {
+            let out_filename = lib_path.file_name().unwrap().to_str().unwrap();
+            let status = std::process::Command::new(&exe)
+                .args([
+                    "/NOLOGO",
+                    &format!("/OUT:{}", out_filename),
+                    "/MACHINE:X64",
+                    "/DEF:",
+                ])
+                .current_dir(lib_path.parent().unwrap())
+                .status()
+                .expect("Failed to execute MSVC lib.exe");
+
+            if !status.success() {
+                panic!("MSVC lib.exe failed (exit: {:?})", status.code());
+            }
+        }
+        None => {
+            // lib.exe が見つからない場合: 手書き COFF アーカイブで妥協
+            // （MSVC リンカが認識しない可能性があるが、ないよりはマシ）
+            println!("cargo:warning=MSVC lib.exe not found. Creating minimal COFF stub.");
+            let data = create_minimal_coff_lib();
+            std::fs::write(lib_path, &data)
+                .expect("Failed to create stub speech_helper.lib");
+        }
+    }
+}
+
+/// MSVC lib.exe を発見する。以下の順で探索:
+/// 1. 環境変数から派生したパス
+/// 2. link.exe と同じディレクトリ（rustc が使うリンカと同じ場所）
+/// 3. Program Files / Program Files (x86) 以下の既知の配置
+#[cfg(target_os = "windows")]
+fn find_msvc_lib_exe() -> Option<std::path::PathBuf> {
+    // 1. 環境変数から VC ルートを取得
+    if let (Ok(vc_dir), Ok(vc_ver)) =
+        (env::var("VCINSTALLDIR"), env::var("VCTOOLSVERSION"))
+    {
+        let candidate = std::path::PathBuf::from(&vc_dir)
+            .join("Tools")
+            .join("MSVC")
+            .join(&vc_ver)
+            .join("bin")
+            .join("Hostx64")
+            .join("x64")
+            .join("lib.exe");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    // 2. rustc が使っている link.exe と同じディレクトリを探す
+    //    （cargo の build script では LINKER 環境変数経由で取得可能）
+    if let Ok(linker) = env::var("LINKER") {
+        let linker_path = std::path::PathBuf::from(&linker);
+        if let Some(parent) = linker_path.parent() {
+            let candidate = parent.join("lib.exe");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    // 3. Program Files / Program Files (x86) から探索
+    let search_roots = [
+        // 標準的な MSVC 配置パターン
+        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC",
+        "C:/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/17/Community/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/17/BuildTools/VC/Tools/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC",
+    ];
+    for root in &search_roots {
+        let tools_dir = std::path::PathBuf::from(root);
+        if !tools_dir.exists() {
+            continue;
+        }
+        if let Ok(entries) = std::fs::read_dir(&tools_dir) {
+            for entry in entries.flatten() {
+                let candidate = entry.path().join("bin/Hostx64/x64/lib.exe");
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// 最小限の ar アーカイブ（.a / .lib）を生成する。
+/// macOS の ar フォールバック、および Windows の lib.exe 不在時の最終手段。
 fn create_minimal_coff_lib() -> Vec<u8> {
     let mut data = b"!<arch>\n".to_vec(); // magic
     let name = b"/               ";       // linker member name (16 bytes)
