@@ -37,6 +37,16 @@ pub(crate) const MODEL_FILENAME_TEN_VAD: &str = "ten_vad.onnx";
 pub(crate) const MODEL_FILENAME_TEN_VAD_INT8: &str = "ten-vad.int8.onnx";
 pub(crate) const MODEL_FILENAME_GTCRN: &str = "gtcrn.onnx";
 
+// ============================================================
+// ホットキー
+// ============================================================
+
+/// ダブルタップ判定の最小間隔（ミリ秒）— これより短いとチャタリングとして無視
+pub(crate) const HOTKEY_DOUBLE_TAP_MIN_MS: u64 = 10;
+
+/// ダブルタップ判定の最大間隔（ミリ秒）— この時間内の2回目押下でダブルタップ確定
+pub(crate) const HOTKEY_DOUBLE_TAP_MAX_MS: u64 = 500;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,5 +83,15 @@ mod tests {
         assert_eq!(MODEL_FILENAME_TEN_VAD, "ten_vad.onnx");
         assert_eq!(MODEL_FILENAME_TEN_VAD_INT8, "ten-vad.int8.onnx");
         assert_eq!(MODEL_FILENAME_GTCRN, "gtcrn.onnx");
+    }
+
+    #[test]
+    fn test_hotkey_double_tap_min_ms() {
+        assert_eq!(HOTKEY_DOUBLE_TAP_MIN_MS, 10);
+    }
+
+    #[test]
+    fn test_hotkey_double_tap_max_ms() {
+        assert_eq!(HOTKEY_DOUBLE_TAP_MAX_MS, 500);
     }
 }

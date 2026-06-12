@@ -221,10 +221,10 @@ impl Voiput {
     ///
     /// - 0: 正常
     /// - 非0: 回復が必要（主に Windows の WinRT SpeechRecognizer 初期化状態確認用）
+    /// - Windows: `native::win_ffi::health_check_result()` の値を返す
+    /// - macOS/非対応OS: 常に 0 を返す
     pub fn health_check(&self) -> u32 {
-        // SpeechRecognizer にヘルスチェック機構は統合されていないため、
-        // 現状は常に 0（正常）を返す。M6 以降で拡張予定。
-        0
+        self.recognizer.health_check()
     }
 }
 

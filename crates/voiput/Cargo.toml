@@ -60,9 +60,10 @@ tokio = { version = "1.52.3", features = ["full"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 
 [target."cfg(windows)".dependencies]
-winapi = { version = "0.3.9", features = ["fileapi", "winbase"] }
-# Phase 6 で有効化: cargo add winapi --features fileapi,winbase
-# winapi = { version = "latest", features = ["fileapi", "winbase"] }
+rdev = "0.5.3"
+winapi = { version = "0.3.9", features = ["fileapi", "winbase", "winuser", "libloaderapi", "processthreadsapi"] }
+# Phase 6 で有効化: cargo add winapi --features fileapi,winbase,winuser,libloaderapi,processthreadsapi
+# winapi = { version = "latest", features = ["fileapi", "winbase", "winuser", "libloaderapi", "processthreadsapi"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
