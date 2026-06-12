@@ -21,7 +21,6 @@ fi
 swiftc \
     -emit-library -static \
     -o "$OUT_DIR/libSpeechHelper.a" \
-    -Xlinker -force_load_swift_libs \
     -module-name SpeechHelper \
     -parse-as-library \
     "$SCRIPT_DIR/SpeechHelper.swift"

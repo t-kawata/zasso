@@ -77,6 +77,14 @@ fn main() {
     );
 
     // ============================================================
+    // ランタイムライブラリ収集（リンク前に実行し、can_use_real_library が参照できるようにする）
+    // ============================================================
+    #[cfg(target_os = "macos")]
+    collect_runtime_libs_macos(&manifest_dir);
+    #[cfg(target_os = "windows")]
+    collect_runtime_libs_windows(&manifest_dir);
+
+    // ============================================================
     // プリビルドネイティブライブラリのリンク
     // ============================================================
     let prebuilt = manifest_dir.join("prebuilt");
@@ -96,14 +104,6 @@ fn main() {
     println!("cargo:rerun-if-changed=prebuilt/");
     println!("cargo:rerun-if-changed=native/");
     println!("cargo:rerun-if-changed=libs/");
-
-    // ============================================================
-    // ランタイムライブラリ収集
-    // ============================================================
-    #[cfg(target_os = "macos")]
-    collect_runtime_libs_macos(&manifest_dir);
-    #[cfg(target_os = "windows")]
-    collect_runtime_libs_windows(&manifest_dir);
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -158,19 +158,27 @@ fn link_macos(prebuilt: &PathBuf) {
     std::fs::create_dir_all(&mac_dir).expect("Failed to create prebuilt/macos/ directory");
     let lib_path = mac_dir.join("libSpeechHelper.a");
 
-    // Swift Concurrency ランタイムの利用可否を判定する。
-    // 実ライブラリ（Swift）は Tahoe (macOS 26+) が使用する libswift_Concurrency.dylib を
-    // 実行時に必要とする。当該 dylib が /usr/lib/swift/ に存在しない環境では
-    // 実ライブラリをリンクすると実行時クラッシュするため、スタブを使用する。
-    // M6-1.5 でランタイム dylib を同梱するまでは、このチェックでフォールバックする。
-    fn can_use_real_library() -> bool {
-        std::path::Path::new("/usr/lib/swift/libswift_Concurrency.dylib").exists()
+    // 実ライブラリを使用可能か判定する。条件は以下:
+    //   1. 実ライブラリ（100KB以上）が prebuilt/macos/ に存在すること
+    //   2. libs/macos/ に全必須 dylib（libsherpa-onnx-c-api.dylib, libonnxruntime.dylib）が揃っていること
+    //   3. Swift Concurrency ランタイム（libswift_Concurrency.dylib）が利用可能であること
+    //      （macOS 16+ では dyld shared cache に含まれる。macOS 15 以前では不在のため
+    //        スタブを使用する。M6-1.5 のランタイム同梱では解決不可。）
+    fn can_use_real_library(libs_dir: &std::path::Path) -> bool {
+        let required = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"];
+        let dylibs_ok = required.iter().all(|name| libs_dir.join(name).exists());
+        let swift_concurrency_ok =
+            std::path::Path::new("/usr/lib/swift/libswift_Concurrency.dylib").exists();
+        dylibs_ok && swift_concurrency_ok
     }
 
-    // 本物のライブラリ（100KB以上想定）が存在し、Swift Concurrency が利用可能ならそれを使う
+    let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
+    let libs_dir = manifest_dir.join("libs").join("macos");
+
+    // 本物のライブラリ（100KB以上想定）が存在し、libs/macos/ の dylib が全て揃っていればそれを使う
     if lib_path.exists()
         && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
-        && can_use_real_library()
+        && can_use_real_library(&libs_dir)
     {
         println!("cargo:rustc-link-lib=static=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", mac_dir.display());
@@ -178,9 +186,8 @@ fn link_macos(prebuilt: &PathBuf) {
         return;
     }
 
-    // 本物のライブラリが存在しない（または Swift Concurrency 不足）場合、
+    // 本物のライブラリが存在しない（または libs/macos/ 不足）場合、
     // native/swift/build.sh による自動ビルドを試行する
-    let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
     let build_script = manifest_dir.join("native/swift/build.sh");
     if build_script.exists() {
         println!("cargo:warning=Auto-building libSpeechHelper.a from native/swift/...");
@@ -191,16 +198,15 @@ fn link_macos(prebuilt: &PathBuf) {
         if status.success() && lib_path.exists()
             && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
         {
-            if can_use_real_library() {
+            if can_use_real_library(&libs_dir) {
                 println!("cargo:rustc-link-lib=static=SpeechHelper");
                 println!("cargo:rustc-link-search=native={}", mac_dir.display());
                 println!("cargo:warning=Auto-built libSpeechHelper.a successfully.");
                 return;
             } else {
                 println!(
-                    "cargo:warning=Auto-built libSpeechHelper.a but Swift Concurrency runtime \
-                     not available on this OS version. Using stub for now. \
-                     M6-1.5 will bundle the runtime."
+                    "cargo:warning=Auto-built libSpeechHelper.a but libswift_Concurrency.dylib \
+                     not found (macOS 15). Real library requires macOS 16+. Falling back to stub."
                 );
             }
         } else {
@@ -674,7 +680,8 @@ fn create_minimal_coff_lib() -> Vec<u8> {
 
 /// macOS 用ランタイムライブラリを target/ から libs/macos/ に収集する。
 ///
-/// sherpa-onnx の共有ライブラリ（dylib）を OUT_DIR からコピーする。
+/// sherpa-onnx の共有ライブラリ（dylib）を target/debug/ からコピーする。
+/// libonnxruntime.dylib は @rpath 解決用の実ファイル（sherpa-onnx prebuilt に同梱）。
 /// 収集後、必須ファイルの存在を確認する（欠落時 panic!）。
 #[cfg(target_os = "macos")]
 fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
@@ -683,10 +690,13 @@ fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
     let libs_dir = manifest_dir.join("libs").join("macos");
     std::fs::create_dir_all(&libs_dir).expect("Failed to create libs/macos/ directory");
 
-    // sherpa-onnx dylib 一覧
-    let dylibs = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.1.24.4.dylib"];
-
-    for name in &dylibs {
+    // 収集対象（バージョンなし dylib は @rpath 解決用のフォールバック）
+    let to_copy = [
+        "libsherpa-onnx-c-api.dylib",
+        "libonnxruntime.1.24.4.dylib",
+        "libonnxruntime.dylib",
+    ];
+    for name in &to_copy {
         let src = target_dir.join(name);
         if src.exists() {
             let dest = libs_dir.join(name);
@@ -696,8 +706,11 @@ fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
     }
 
     // 必須ファイルの存在確認
+    // 注: libonnxruntime.1.24.4.dylib は libonnxruntime.dylib があれば
+    // 同一内容のため必須対象外とする。
+    let required = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"];
     let mut all_ok = true;
-    for name in &dylibs {
+    for name in &required {
         if !libs_dir.join(name).exists() {
             println!("cargo:warning=MISSING runtime library: {}/{}", libs_dir.display(), name);
             all_ok = false;

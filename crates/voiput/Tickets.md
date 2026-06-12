@@ -473,7 +473,7 @@ crates/voiput/
 
 #### M6: ビルド・ドキュメント
 
-##### チケット M6-1: プリビルドライブラリ自動ビルド
+##### ✅ チケット M6-1: プリビルドライブラリ自動ビルド
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §6, §9
 * **移植元:** ~/shyme/mycute/native/ の Swift / C# コード
