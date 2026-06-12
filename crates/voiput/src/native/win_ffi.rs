@@ -5,38 +5,38 @@
 use std::ffi::{c_char, c_int};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
-/// C# SpeechHelper ライブラリへの静的リンク指定
+// C# SpeechHelper ライブラリへの静的リンク指定
 #[link(name = "SpeechHelper", kind = "static")]
 extern "C" {
-    /// 音声認識エンジンを初期化する
+    // 音声認識エンジンを初期化する
     pub fn speech_helper_init(speech_timeout_sec: f64) -> c_int;
-    /// 認識結果を受け取るコールバックを設定する
+    // 認識結果を受け取るコールバックを設定する
     pub fn speech_helper_set_result_callback(callback: extern "C" fn(*const c_char, c_int));
-    /// エラーを受け取るコールバックを設定する
+    // エラーを受け取るコールバックを設定する
     pub fn speech_helper_set_error_callback(callback: extern "C" fn(*const c_char));
-    /// 準備完了通知のコールバックを設定する
+    // 準備完了通知のコールバックを設定する
     pub fn speech_helper_set_ready_callback(callback: extern "C" fn());
-    /// 音声データを受け取るコールバックを設定する（OpenAI モード用）
+    // 音声データを受け取るコールバックを設定する（OpenAI モード用）
     pub fn speech_helper_set_audio_data_callback(
         callback: Option<extern "C" fn(*const f32, u32, u32)>,
     );
-    /// 音声キャプチャを開始する（OpenAI モード用）
+    // 音声キャプチャを開始する（OpenAI モード用）
     pub fn speech_helper_start_capture() -> c_int;
-    /// 音声キャプチャを停止する
+    // 音声キャプチャを停止する
     pub fn speech_helper_stop_capture();
-    /// 音声認識セッションを開始する
+    // 音声認識セッションを開始する
     pub fn speech_helper_start(locale: *const c_char) -> c_int;
-    /// 音声認識セッションを停止する
+    // 音声認識セッションを停止する
     pub fn speech_helper_stop();
-    /// リソースをクリーンアップする
+    // リソースをクリーンアップする
     pub fn speech_helper_cleanup();
-    /// メッセージポンプを駆動する
+    // メッセージポンプを駆動する
     pub fn speech_helper_tick();
-    /// IME を無効化する（音声入力開始時）
+    // IME を無効化する（音声入力開始時）
     pub fn speech_helper_disable_ime();
-    /// IME を復元する（音声入力終了時）
+    // IME を復元する（音声入力終了時）
     pub fn speech_helper_restore_ime();
-    /// 音声入力設定のヘルスチェックを実行する（戻り値: ビットマスク）
+    // 音声入力設定のヘルスチェックを実行する（戻り値: ビットマスク）
     pub fn speech_helper_check_health() -> c_int;
 }
 
@@ -51,9 +51,11 @@ extern "C" {
 static WIN_HEALTH_CHECK: AtomicU32 = AtomicU32::new(0);
 
 /// ヘルスチェック結果の確認済みフラグ（ダイアログ閉じたら frontend から設定）
+#[allow(dead_code)]
 static WIN_HEALTH_CHECKED: AtomicBool = AtomicBool::new(false);
 
 /// ヘルスチェック結果を取得する
+#[allow(dead_code)]
 pub fn health_check_result() -> u32 {
     WIN_HEALTH_CHECK.load(Ordering::Relaxed)
 }
@@ -64,11 +66,13 @@ pub fn store_health_check_result(result: u32) {
 }
 
 /// ヘルスチェックの確認状態を取得する
+#[allow(dead_code)]
 pub fn is_health_check_acknowledged() -> bool {
     WIN_HEALTH_CHECKED.load(Ordering::Relaxed)
 }
 
 /// ヘルスチェック結果を確認済みとしてマークする
+#[allow(dead_code)]
 pub fn acknowledge_health_check() {
     WIN_HEALTH_CHECKED.store(true, Ordering::Relaxed);
 }
@@ -77,14 +81,22 @@ pub fn acknowledge_health_check() {
 mod tests {
     use super::*;
 
+    /// グローバル状態をテスト開始時にリセット（テスト間の並行実行対策）
+    fn reset_health_check_globals() {
+        WIN_HEALTH_CHECK.store(0, Ordering::Relaxed);
+        WIN_HEALTH_CHECKED.store(false, Ordering::Relaxed);
+    }
+
     #[test]
     fn test_health_check_default() {
+        reset_health_check_globals();
         assert_eq!(health_check_result(), 0);
         assert!(!is_health_check_acknowledged());
     }
 
     #[test]
     fn test_health_check_store_and_read() {
+        reset_health_check_globals();
         store_health_check_result(5); // bit 0 + bit 2
         assert_eq!(health_check_result(), 5);
         store_health_check_result(0); // reset
@@ -92,10 +104,11 @@ mod tests {
 
     #[test]
     fn test_health_check_acknowledge() {
+        reset_health_check_globals();
         assert!(!is_health_check_acknowledged());
         acknowledge_health_check();
         assert!(is_health_check_acknowledged());
-        // reset
-        std::sync::atomic::compiler_fence(Ordering::SeqCst);
+        // 後続テストのためにリセット
+        WIN_HEALTH_CHECKED.store(false, Ordering::Relaxed);
     }
 }

@@ -126,23 +126,23 @@ MYCUTE プロジェクトには、以下の3バックエンドを統合した完
 
 利用者が触る型は **5つだけ**：
 
-1. `VoiceKit` — 唯一のエントリポイント
-2. `VoiceKitConfig` — 設定（ビルダーパターン）
+1. `Voiput` — 唯一のエントリポイント
+2. `VoiputConfig` — 設定（ビルダーパターン）
 3. `SttEvent` — 認識イベント
 4. `SttEngine` — エンジン選択
 5. `LocaleCode` — 言語ロケール
 
-### 4.2 VoiceKit — エントリポイント
+### 4.2 Voiput — エントリポイント
 
 利用者が実際に書くコードは以下のみ：
 
 ```rust
-use voiput::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
+use voiput::{Voiput, VoiputConfig, SttEngine, LocaleCode, SttEvent};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. 設定を構築
-    let config = VoiceKitConfig::builder()
+    let config = VoiputConfig::builder()
         .engine(SttEngine::Os)                      // または SttEngine::OpenAi
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
@@ -159,7 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     // 2. 認識器を作成
-    let mut vk = VoiceKit::new(config)?;
+    let mut vk = Voiput::new(config)?;
 
     // 3. 権限リクエスト（OSネイティブ使用時）
     if let SttEngine::Os = vk.engine() {
@@ -188,12 +188,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### 4.3 VoiceKitConfig — 設定ビルダー
+### 4.3 VoiputConfig — 設定ビルダー
 
 ```rust
 /// 音声認識の全設定
 #[derive(Debug, Clone)]
-pub struct VoiceKitConfig {
+pub struct VoiputConfig {
     /// 使用するエンジン
     pub engine: SttEngine,
     /// 言語ロケール
@@ -225,12 +225,12 @@ pub struct VoiceKitConfig {
     pub vad_model_paths: VadModelPaths,
 }
 
-impl VoiceKitConfig {
-    pub fn builder() -> VoiceKitConfigBuilder { VoiceKitConfigBuilder::default() }
+impl VoiputConfig {
+    pub fn builder() -> VoiputConfigBuilder { VoiputConfigBuilder::default() }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct VoiceKitConfigBuilder {
+pub struct VoiputConfigBuilder {
     engine: Option<SttEngine>,
     locale: Option<LocaleCode>,
     openai_config: Option<OpenAiConfig>,
@@ -243,7 +243,7 @@ pub struct VoiceKitConfigBuilder {
     vad_model_paths: Option<VadModelPaths>,
 }
 
-impl VoiceKitConfigBuilder {
+impl VoiputConfigBuilder {
     pub fn engine(mut self, e: SttEngine) -> Self { self.engine = Some(e); self }
     pub fn locale(mut self, l: LocaleCode) -> Self { self.locale = Some(l); self }
     pub fn openai_config(mut self, c: OpenAiConfig) -> Self { self.openai_config = Some(c); self }
@@ -255,26 +255,26 @@ impl VoiceKitConfigBuilder {
     pub fn speech_timeout_sec(mut self, t: f64) -> Self { self.speech_timeout_sec = Some(t); self }
     pub fn vad_model_paths(mut self, p: VadModelPaths) -> Self { self.vad_model_paths = Some(p); self }
 
-    pub fn build(self) -> Result<VoiceKitConfig, VoiceKitError> {
+    pub fn build(self) -> Result<VoiputConfig, VoiputError> {
         // バリデーション:
         // - engine == OpenAI の場合 openai_config が必須
         // - vad_model_paths が必須
         // - locale が必須
         let engine = self.engine.unwrap_or_default();
         let locale = self.locale.ok_or_else(|| {
-            VoiceKitError::InvalidConfig("locale is required".into())
+            VoiputError::InvalidConfig("locale is required".into())
         })?;
         let vad_model_paths = self.vad_model_paths.ok_or_else(|| {
-            VoiceKitError::InvalidConfig("vad_model_paths is required".into())
+            VoiputError::InvalidConfig("vad_model_paths is required".into())
         })?;
 
         if engine == SttEngine::OpenAi && self.openai_config.is_none() {
-            return Err(VoiceKitError::InvalidConfig(
+            return Err(VoiputError::InvalidConfig(
                 "openai_config is required when engine is OpenAI".into()
             ));
         }
 
-        Ok(VoiceKitConfig {
+        Ok(VoiputConfig {
             engine,
             locale,
             openai_config: self.openai_config,
@@ -477,7 +477,7 @@ impl Default for SignalFilterConfig {
 
 /// エラー型
 #[derive(Debug, thiserror::Error)]
-pub enum VoiceKitError {
+pub enum VoiputError {
     #[error("設定が不正です: {0}")]
     InvalidConfig(String),
 
@@ -531,7 +531,7 @@ pub enum VoiceKitError {
 | `post_correction_interval_ms` | → `PostCorrectionConfig::interval_ms` |
 | （存在しない） | → `OpenAiConfig` (新規) |
 
-### 4.5 VoiceKit 本体
+### 4.5 Voiput 本体
 
 ```rust
 // src/voiput.rs
@@ -542,20 +542,20 @@ use tokio::sync::mpsc;
 use crate::backends::openai::OpenAIRecognizer;
 use crate::backends::mac::MacSpeechBackend;
 use crate::backends::win::WinSpeechBackend;
-use crate::config::VoiceKitConfig;
-use crate::error::VoiceKitError;
+use crate::config::VoiputConfig;
+use crate::error::VoiputError;
 use crate::recognizer::SpeechRecognizer;
 use crate::types::{SttEngine, SttEvent, LocaleCode};
 
-pub struct VoiceKit {
+pub struct Voiput {
     recognizer: SpeechRecognizer,
-    config: VoiceKitConfig,
+    config: VoiputConfig,
     event_rx: mpsc::Receiver<SttEvent>,
     event_tx: mpsc::Sender<SttEvent>,
 }
 
-impl VoiceKit {
-    /// 新しい VoiceKit インスタンスを作成する。
+impl Voiput {
+    /// 新しい Voiput インスタンスを作成する。
     ///
     /// この時点で以下の初期化が行われる：
     /// - macOS: Swift SpeechHelper ライブラリの初期化と Tahoe 検出
@@ -563,7 +563,7 @@ impl VoiceKit {
     /// - OpenAI: OpenAiClient の初期化と音声キャプチャの準備
     /// - 全バックエンドの VAD プロセッサ初期化
     /// - インターセプタータスク（置換辞書）の起動
-    pub fn new(config: VoiceKitConfig) -> Result<Self, VoiceKitError> {
+    pub fn new(config: VoiputConfig) -> Result<Self, VoiputError> {
         let (event_tx, event_rx) = mpsc::channel(256);
 
         // 置換辞書の初期化（空）
@@ -593,7 +593,7 @@ impl VoiceKit {
     /// Windows: AudioGraph 生成でマイク権限チェック。未許可時は guidance をログ出力。
     ///
     /// 戻り値: true = 権限あり, false = 権限なし
-    pub async fn request_permissions(&self) -> Result<bool, VoiceKitError> {
+    pub async fn request_permissions(&self) -> Result<bool, VoiputError> {
         #[cfg(target_os = "macos")]
         {
             let result = unsafe {
@@ -617,12 +617,12 @@ impl VoiceKit {
         { Ok(false) }
     }
 
-    pub async fn start(&mut self) -> Result<(), VoiceKitError> {
+    pub async fn start(&mut self) -> Result<(), VoiputError> {
         self.recognizer.start();
         Ok(())
     }
 
-    pub async fn stop(&mut self) -> Result<(), VoiceKitError> {
+    pub async fn stop(&mut self) -> Result<(), VoiputError> {
         self.recognizer.stop();
         Ok(())
     }
@@ -633,7 +633,7 @@ impl VoiceKit {
 
     /// 現在のバッファ内容を強制フラッシュする。
     /// 内部で stop → テキスト収集 → start を実行する。
-    pub async fn flush(&mut self) -> Result<String, VoiceKitError> {
+    pub async fn flush(&mut self) -> Result<String, VoiputError> {
         // MYCUTE の MycuteManager::request_flush のロジックを移植
         self.recognizer.stop();
 
@@ -653,7 +653,7 @@ impl VoiceKit {
         Ok(final_text)
     }
 
-    pub async fn set_engine(&mut self, engine: SttEngine) -> Result<(), VoiceKitError> {
+    pub async fn set_engine(&mut self, engine: SttEngine) -> Result<(), VoiputError> {
         let was_running = self.recognizer.is_running();
         if was_running { self.recognizer.stop(); }
         self.recognizer.set_engine(engine);
@@ -727,13 +727,13 @@ impl VoiceKit {
 └─────────────────────────────────────────────────────────┘
     │  SttEvent
     ▼
-利用者側イベントループ (VoiceKit::next_event())
+利用者側イベントループ (Voiput::next_event())
 ```
 
 ### 5.2 非同期タスク構造
 
 ```
-VoiceKit::start()
+Voiput::start()
     │
     ├── [macOS/Windows] ネイティブキャプチャ開始
     │     └── tokio::spawn(capture_task)
@@ -988,11 +988,11 @@ voiput/
 //! ## 使用方法
 //!
 //! ```rust,no_run
-//! use voiput::{VoiceKit, VoiceKitConfig, SttEngine, LocaleCode, SttEvent};
+//! use voiput::{Voiput, VoiputConfig, SttEngine, LocaleCode, SttEvent};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let config = VoiceKitConfig::builder()
+//!     let config = VoiputConfig::builder()
 //!         .engine(SttEngine::Os)
 //!         .locale(LocaleCode::Ja)
 //!         .vad_model_paths(VadModelPaths {
@@ -1002,7 +1002,7 @@ voiput/
 //!         })
 //!         .build()?;
 //!
-//!     let mut vk = VoiceKit::new(config)?;
+//!     let mut vk = Voiput::new(config)?;
 //!     vk.start().await?;
 //!
 //!     while let Some(event) = vk.next_event().await {
@@ -1025,10 +1025,10 @@ mod types;
 mod voiput;
 
 // 公開 API
-pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};
-pub use error::VoiceKitError;
+pub use config::{VoiputConfig, VoiputConfigBuilder};
+pub use error::VoiputError;
 pub use types::*;
-pub use voiput::VoiceKit;
+pub use voiput::Voiput;
 
 // 内部トレイト（crate 内のみ可視）
 pub(crate) use pipeline::streamer::{AsrBackend, BackendWrapper, StreamerEvent, StreamerLocale};
@@ -1064,7 +1064,7 @@ pub(crate) const MODEL_FILENAME_GTCRN: &str = "gtcrn.onnx";
 1. `crate::mycute_settings::*` → `crate::types::*` と `crate::config::*`
 2. `crate::llm::client::LmgwClient` → `OpenAiConfig` から内部構築した `async_openai::Client`
 3. `crate::constants::*` → `crate::constants::*`
-4. `SttSettings` → `VoiceKitConfig`
+4. `SttSettings` → `VoiputConfig`
 5. `tauri::async_runtime` → `tokio`
 
 **実装の要点**:
@@ -1081,8 +1081,8 @@ use crate::backends::openai::{OpenAIBackend, OpenAIRecognizer};
 use crate::backends::mac::MacSpeechBackend;
 #[cfg(target_os = "windows")]
 use crate::backends::win::WinSpeechBackend;
-use crate::config::VoiceKitConfig;
-use crate::error::VoiceKitError;
+use crate::config::VoiputConfig;
+use crate::error::VoiputError;
 use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig as PcConfig};
 use crate::pipeline::streamer::BackendWrapper;
 use crate::types::{SttEngine, SttEvent, LocaleCode};
@@ -1103,9 +1103,9 @@ pub(crate) struct SpeechRecognizer {
 impl SpeechRecognizer {
     pub(crate) fn new(
         tx: mpsc::Sender<SttEvent>,
-        config: &VoiceKitConfig,
+        config: &VoiputConfig,
         replaces_map: Arc<parking_lot::RwLock<indexmap::IndexMap<String, Vec<String>>>>,
-    ) -> Result<Self, VoiceKitError> {
+    ) -> Result<Self, VoiputError> {
         // ================================================================
         // インターセプター層の構築:
         // 各バックエンドには tx_internal を渡し、イベントを中継タスクで
@@ -1296,7 +1296,7 @@ impl Drop for SpeechRecognizer {
 
 /// 事後補正バックエンドをビルドするヘルパー（MYCUTE recognizer.rs のロジックを抽出）
 fn build_pc_backend(
-    config: &VoiceKitConfig,
+    config: &VoiputConfig,
     shared_locale: &Arc<parking_lot::Mutex<LocaleCode>>,
 ) -> (Option<Arc<dyn PostCorrectionBackend>>, Option<PcConfig>) {
     if let Some(ref oa_cfg) = config.openai_config {
@@ -1601,7 +1601,7 @@ pub(crate) struct MacSpeechBackend {
     tx_app: mpsc::Sender<SttEvent>,
     ticker_task: Option<tokio::task::JoinHandle<()>>,
     resampler: Arc<parking_lot::Mutex<Option<SincResampler>>>,
-    config: VoiceKitConfig,  // 設定全体への参照
+    config: VoiputConfig,  // 設定全体への参照
 }
 ```
 
@@ -1631,7 +1631,7 @@ pub(crate) struct WinSpeechBackend {
     tx_app: mpsc::Sender<SttEvent>,
     ticker_task: Option<tokio::task::JoinHandle<()>>,
     resampler: Arc<parking_lot::Mutex<Option<SincResampler>>>,
-    config: VoiceKitConfig,
+    config: VoiputConfig,
 }
 ```
 
@@ -2060,7 +2060,7 @@ use voiput::*;
 
 #[test]
 fn test_config_validation_openai_requires_api_key() {
-    let result = VoiceKitConfig::builder()
+    let result = VoiputConfig::builder()
         .engine(SttEngine::OpenAi)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
@@ -2074,7 +2074,7 @@ fn test_config_validation_openai_requires_api_key() {
 
 #[test]
 fn test_config_defaults() {
-    let config = VoiceKitConfig::builder()
+    let config = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
@@ -2149,7 +2149,7 @@ src/tools/mod.rs                      → audio, lindera_util, pseudo_asr_stream
 use crate::stt::recognizer::SpeechRecognizer;
 
 // 移行後
-use voiput::VoiceKit;
+use voiput::Voiput;
 
 pub struct MycuteManager {
     // 移行前
@@ -2158,16 +2158,16 @@ pub struct MycuteManager {
     // lmgw_client: Arc<LmgwClient>,
 
     // 移行後
-    voiput: VoiceKit,
+    voiput: Voiput,
 }
 ```
 
 ### 11.4 設定の変換
 
-MYCUTE の `ConfigManager` が保持する `SttSettings` を voiput の `VoiceKitConfig` に変換するアダプタ関数を1つ書く：
+MYCUTE の `ConfigManager` が保持する `SttSettings` を voiput の `VoiputConfig` に変換するアダプタ関数を1つ書く：
 
 ```rust
-impl From<&SttSettings> for voiput::VoiceKitConfig {
+impl From<&SttSettings> for voiput::VoiputConfig {
     // または独立したヘルパー関数
 }
 
@@ -2176,8 +2176,8 @@ fn stt_settings_to_voiput_config(
     engine: SttEngine,
     locale: LocaleCode,
     openai_config: Option<OpenAiConfig>,
-) -> voiput::VoiceKitConfig {
-    voiput::VoiceKitConfig::builder()
+) -> voiput::VoiputConfig {
+    voiput::VoiputConfig::builder()
         .engine(match engine {
             SttEngine::OpenAI => voiput::SttEngine::OpenAi,
             SttEngine::Os => voiput::SttEngine::Os,
@@ -2204,7 +2204,7 @@ fn stt_settings_to_voiput_config(
         })
         // ... その他のフィールド
         .build()
-        .expect("Failed to build VoiceKitConfig from SttSettings")
+        .expect("Failed to build VoiputConfig from SttSettings")
 }
 ```
 
@@ -2252,14 +2252,14 @@ fn stt_settings_to_voiput_config(
 
 ### Windows: 音声認識のセットアップ
 
-エンドユーザーは「Windows 設定」→「プライバシーとセキュリティ」→「音声認識」→「オンライン音声認識」を有効にする必要がある。`VoiceKit::health_check()` が未設定を検出し、bit 1 を返す。
+エンドユーザーは「Windows 設定」→「プライバシーとセキュリティ」→「音声認識」→「オンライン音声認識」を有効にする必要がある。`Voiput::health_check()` が未設定を検出し、bit 1 を返す。
 
 ---
 
 ## 付録 B: 非対応OSでの動作
 
 Linux など macOS/Windows 以外の OS では:
-- `SttEngine::Os` → `VoiceKitError::UnsupportedEngine` 
+- `SttEngine::Os` → `VoiputError::UnsupportedEngine` 
 - `SttEngine::OpenAi` → 動作する（HTTP API 経由のため）
 - マイク入力（OpenAIモード）→ 動作しない（OSネイティブキャプチャ非対応のため）
 

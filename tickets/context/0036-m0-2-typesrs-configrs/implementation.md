@@ -5,7 +5,7 @@
 | ファイル | 種別 | 内容 |
 |---------|------|------|
 | `src/types.rs` | 新規 | 12型定義（SttEvent, SttEngine, LocaleCode + 3メソッド, OpenAiConfig, VadModelPaths, VadConfig, VadType, PostCorrectionConfig, DenoiserConfig, SignalFilterConfig）＋ 18テスト |
-| `src/config.rs` | 新規 | VoiceKitConfig + VoiceKitConfigBuilder（ビルダーパターン、3バリデーションルール）＋ 10テスト |
+| `src/config.rs` | 新規 | VoiputConfig + VoiputConfigBuilder（ビルダーパターン、3バリデーションルール）＋ 10テスト |
 | `src/error.rs` | 変更 | インライン SttEngine 削除 → use crate::types::SttEngine、テスト1件削除 |
 | `src/lib.rs` | 変更 | mod types/config 有効化、pub use 追加、doc-test 復帰 |
 | `src/bin/test-run.rs` | 変更 | test_config() 追加（5ケース）、Stage 2/6 更新 |

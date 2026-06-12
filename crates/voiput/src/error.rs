@@ -12,7 +12,7 @@ use thiserror::Error;
 ///
 /// 全6 variant で構成される。アプリケーション層でのエラーハンドリングに使用する。
 #[derive(Debug, Error)]
-pub enum VoiceKitError {
+pub enum VoiputError {
     /// 設定が不正
     #[error("設定が不正です: {0}")]
     InvalidConfig(String),
@@ -45,13 +45,13 @@ mod tests {
 
     #[test]
     fn test_invalid_config_display() {
-        let err = VoiceKitError::InvalidConfig("locale is required".into());
+        let err = VoiputError::InvalidConfig("locale is required".into());
         assert_eq!(err.to_string(), "設定が不正です: locale is required");
     }
 
     #[test]
     fn test_unsupported_engine_display() {
-        let err = VoiceKitError::UnsupportedEngine {
+        let err = VoiputError::UnsupportedEngine {
             engine: SttEngine::Os,
             reason: "Linux では OS ネイティブ認識は利用できません".into(),
         };
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn test_permission_denied_display() {
-        let err = VoiceKitError::PermissionDenied("マイクへのアクセスが拒否されました".into());
+        let err = VoiputError::PermissionDenied("マイクへのアクセスが拒否されました".into());
         assert_eq!(
             err.to_string(),
             "権限がありません: マイクへのアクセスが拒否されました"
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn test_init_error_display() {
-        let err = VoiceKitError::InitError("VAD モデルの初期化に失敗しました".into());
+        let err = VoiputError::InitError("VAD モデルの初期化に失敗しました".into());
         assert_eq!(
             err.to_string(),
             "初期化エラー: VAD モデルの初期化に失敗しました"
@@ -80,14 +80,14 @@ mod tests {
 
     #[test]
     fn test_runtime_error_display() {
-        let err = VoiceKitError::RuntimeError("認識エンジンが応答しません".into());
+        let err = VoiputError::RuntimeError("認識エンジンが応答しません".into());
         assert_eq!(err.to_string(), "実行時エラー: 認識エンジンが応答しません");
     }
 
     #[test]
     fn test_io_error_transparent() {
         let io_err = io::Error::new(io::ErrorKind::NotFound, "ファイルが見つかりません");
-        let err = VoiceKitError::Io(io_err);
+        let err = VoiputError::Io(io_err);
         assert!(err.to_string().contains("ファイルが見つかりません"));
     }
 }

@@ -17,7 +17,7 @@ voiput crate の最小限の骨組みを作成する。以下の5ファイルを
 - `crates/voiput/Cargo.toml` — RFC 定義の依存関係＋ binary target (test-run) 宣言
 - `crates/voiput/build.rs` — プリビルドライブラリリンクのスケルトン
 - `crates/voiput/src/lib.rs` — 全モジュール宣言＋公開 API の re-export
-- `crates/voiput/src/error.rs` — VoiceKitError 列挙型（thiserror）
+- `crates/voiput/src/error.rs` — VoiputError 列挙型（thiserror）
 - `crates/voiput/src/constants.rs` — MYCUTE から抽出した STT 関連定数 10 個
 
 ## Background
@@ -25,7 +25,7 @@ voiput crate の最小限の骨組みを作成する。以下の5ファイルを
 このチケットは全マイルストーンの土台となる。他のすべてのチケットはこれらのファイルに依存する：
 - Cargo.toml がなければ依存解決ができない
 - lib.rs のモジュール宣言がなければ各 .rs ファイルがコンパイルされない
-- error.rs がなければ VoiceKitError を返す関数が書けない
+- error.rs がなければ VoiputError を返す関数が書けない
 - constants.rs がなければマジックナンバーが各所に散逸する
 
 MYCUTE ではこれらの設定が Tauri アプリケーションに密結合していた（`src/constants.rs` は MYCUTE 全体の定数500行+、build.rs は `tauri_build::build()` を含む、Cargo.toml は 170行のアプリ全体依存）。voiput では **STT 機能に必要な部分のみを抽出** し、独立した crate としてビルド可能にする。
@@ -37,7 +37,7 @@ MYCUTE ではこれらの設定が Tauri アプリケーションに密結合し
 ### 1. `crates/voiput/Cargo.toml`
 
 - package メタデータ: name = "voiput", version = "0.1.0", edition = "2021"
-- `[lib]`: name = "voice_kit", crate-type = ["lib"]
+- `[lib]`: name = "voiput", crate-type = ["lib"]
 - `[[bin]]`: name = "test-run", path = "src/bin/test-run.rs"
 - 依存関係は `cargo add` で追加する（Cargo.toml への直接手書き禁止）。**以下のコマンドを順次実行:**
   ```bash
@@ -68,14 +68,14 @@ MYCUTE ではこれらの設定が Tauri アプリケーションに密結合し
 
 ### 3. `crates/voiput/src/lib.rs`
 
-- 全モジュール宣言（16モジュール）: audio, backends, config, constants, error, lindera_util, native, pipeline, recognizer, types, voice_kit
-- 公開 re-export: VoiceKit, VoiceKitConfig, VoiceKitConfigBuilder, VoiceKitError, types::*
+- 全モジュール宣言（16モジュール）: audio, backends, config, constants, error, lindera_util, native, pipeline, recognizer, types, voiput
+- 公開 re-export: Voiput, VoiputConfig, VoiputConfigBuilder, VoiputError, types::*
 - 内部トレイト re-export: PostCorrectionBackend, InternalResampler, SincResampler
 - ドキュメント例示コード（RFC §4.2 の main() サンプル）
 
 ### 4. `crates/voiput/src/error.rs`
 
-- `VoiceKitError` 列挙型（thiserror 使用）、6 variant:
+- `VoiputError` 列挙型（thiserror 使用）、6 variant:
   - `InvalidConfig(String)` — 設定値のバリデーションエラー
   - `UnsupportedEngine { engine: SttEngine, reason: String }` — 非対応プラットフォーム
   - `PermissionDenied(String)` — マイク/音声認識権限不足
@@ -181,7 +181,7 @@ src/
 ├── constants.rs    ← 本チケット
 ├── config.rs       ← M0-2
 ├── types.rs        ← M0-2
-├── voice_kit.rs    ← M5-2
+├── voiput.rs    ← M5-2
 ├── recognizer.rs   ← M5-1 (+ M1-4)
 ├── audio.rs        ← M2-4
 ├── lindera_util.rs ← M2-3
@@ -198,7 +198,7 @@ lib.rs ですべての mod 宣言を行う。各 mod の実体が存在しなく
 
 このチケットでは以下のユニットテストを実装する：
 
-1. **error.rs**: VoiceKitError の Display 実装テスト
+1. **error.rs**: VoiputError の Display 実装テスト
    - 全6 variant のエラーメッセージが期待通りに表示されること
    - `UnsupportedEngine` のフォーマットに engine 名と理由が含まれること
    - `Io` が `std::io::Error` を透過すること
@@ -208,7 +208,7 @@ lib.rs ですべての mod 宣言を行う。各 mod の実体が存在しなく
    - 10個の定数値が MYCUTE の値と一致すること（回帰防止）
 
 3. **lib.rs**: コンパイル時検証
-   - 公開 re-export が正しく行われること（`use voice_kit::VoiceKit` 等が可能であること）
+   - 公開 re-export が正しく行われること（`use voiput::Voiput` 等が可能であること）
 
 ### ユニットテスト不可能な項目（例外）
 
