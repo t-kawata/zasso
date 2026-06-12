@@ -1,8 +1,5 @@
 # VAD/GTCRN モデルファイル（各ユーザーが配置）
 /models/
 
-# ネイティブライブラリビルド成果物（build.rs が自動生成）
-/prebuilt/
-
 # ランタイムライブラリ（sherpa-onnx dylib/dll 等）
 /libs/
