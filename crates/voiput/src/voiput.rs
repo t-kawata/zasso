@@ -11,7 +11,6 @@ use tokio::sync::mpsc;
 
 use crate::config::VoiputConfig;
 use crate::error::VoiputError;
-use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
 use crate::recognizer::SpeechRecognizer;
 use crate::types::*;
 
@@ -36,12 +35,10 @@ use crate::types::*;
 ///         .build().unwrap(),
 /// ).unwrap();
 ///
-/// voiput.start().unwrap();
+/// let rt = tokio::runtime::Runtime::new().unwrap();
+/// rt.block_on(voiput.start()).unwrap();
 /// // ... 認識中 ...
-/// let text = tokio::runtime::Runtime::new()
-///     .unwrap()
-///     .block_on(async { voiput.flush().await })
-///     .unwrap();
+/// let text = rt.block_on(async { voiput.flush().await }).unwrap();
 /// println!("認識結果: {}", text);
 /// ```
 pub struct Voiput {
@@ -62,24 +59,14 @@ impl Voiput {
     /// 設定から認識器を構築する。
     ///
     /// `VoiputConfig` のバリデーション（locale 必須、engine==OpenAI で openai_config 必須等）は
-    /// ビルダーの `build()` で実行済み。ここでは VAD 設定の変換と `SpeechRecognizer` の初期化を行う。
+    /// ビルダーの `build()` で実行済み。ここでは `SpeechRecognizer` の初期化を行う。
     pub fn new(config: VoiputConfig) -> Result<Self, VoiputError> {
         let (tx, rx) = mpsc::channel(100);
         let replaces_map = Arc::new(RwLock::new(IndexMap::new()));
 
-        let openai_config = config.openai_config.clone();
-        let vad_processor_cfg = build_vad_processor_config(
-            &config.vad,
-            &config.vad_model_paths,
-            &config.model_dir,
-        );
-
         let recognizer = SpeechRecognizer::new(
             tx.clone(),
-            config.engine,
-            config.locale,
-            openai_config,
-            Some(vad_processor_cfg),
+            &config,
             replaces_map.clone(),
         )
         .map_err(|e| VoiputError::InitError(e))?;
@@ -96,7 +83,8 @@ impl Voiput {
     /// 認識を開始する。
     ///
     /// 内部の `SpeechRecognizer::start()` を呼び出し、アクティブなバックエンドで音声認識が始まる。
-    pub fn start(&mut self) -> Result<(), VoiputError> {
+    /// RFC §4.2 準拠の async インターフェース。
+    pub async fn start(&mut self) -> Result<(), VoiputError> {
         self.recognizer.start();
         Ok(())
     }
@@ -105,9 +93,47 @@ impl Voiput {
     ///
     /// 内部の `SpeechRecognizer::stop()` を呼び出し、全バックエンドを停止する。
     /// `flush()` を使用すると、停止 → 残余イベント収集 → 再開 を1メソッドで実行できる。
-    pub fn stop(&mut self) -> Result<(), VoiputError> {
+    /// RFC §4.2 準拠の async インターフェース。
+    pub async fn stop(&mut self) -> Result<(), VoiputError> {
         self.recognizer.stop();
         Ok(())
+    }
+
+    /// OS バックエンドの権限が付与されているか確認する。
+    ///
+    /// # 戻り値
+    ///
+    /// - `Ok(true)`: 権限あり（または権限取得が成功）
+    /// - `Ok(false)`: 権限なし
+    /// - `Err`: 権限確認中にエラーが発生
+    ///
+    /// # プラットフォーム動作
+    ///
+    /// - macOS: `SFSpeechRecognizer.requestAuthorization()` を Swift FFI 経由で呼び出す
+    /// - Windows: `health_check()` の bit 2（マイク権限フラグ）を確認する
+    /// - 非対応OS: 常に `Ok(false)` を返す
+    pub async fn request_permissions(&self) -> Result<bool, VoiputError> {
+        #[cfg(target_os = "macos")]
+        {
+            // SAFETY: speech_helper_request_authorization() は C FFI 関数。
+            // 引数なし・戻り値 i32 の純粋関数で、内部で Swift の
+            // SFSpeechRecognizer.requestAuthorization() を同期的に呼ぶ。
+            // 静的リンクされた libSpeechHelper.a が初期化済みであることが前提。
+            let status =
+                unsafe { crate::native::mac_ffi::speech_helper_request_authorization() };
+            // 1 = SFSpeechRecognizerAuthorizationStatus.authorized
+            Ok(status == 1)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let health = crate::native::win_ffi::health_check_result();
+            // bit 2 (4) = マイク権限なし
+            Ok((health & 4) == 0)
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            Ok(false)
+        }
     }
 
     /// 次のイベントを非同期で待機する。
@@ -129,7 +155,7 @@ impl Voiput {
     ///
     /// Ctrl+Enter 等の「今のテキストを確定して次へ進む」操作に使用する。
     pub async fn flush(&mut self) -> Result<String, VoiputError> {
-        self.stop()?;
+        self.stop().await?;
 
         let mut final_text = String::new();
         loop {
@@ -145,7 +171,7 @@ impl Voiput {
             }
         }
 
-        self.start()?;
+        self.start().await?;
         Ok(final_text)
     }
 
@@ -157,15 +183,15 @@ impl Voiput {
     /// エンジン種別を設定する。
     ///
     /// 認識動作中の場合、一度停止してからエンジンを切り替え、再開する。
-    pub fn set_engine(&mut self, engine: SttEngine) -> Result<(), VoiputError> {
-        let was_running = self.recognizer.is_running();
-        if was_running {
-            self.stop()?;
+    pub async fn set_engine(&mut self, engine: SttEngine) -> Result<(), VoiputError> {
+        let was_engine_running = self.recognizer.is_running();
+        if was_engine_running {
+            self.stop().await?;
         }
         self.recognizer.set_engine(engine);
         self.engine = engine;
-        if was_running {
-            self.start()?;
+        if was_engine_running {
+            self.start().await?;
         }
         Ok(())
     }
@@ -205,59 +231,6 @@ impl Voiput {
 impl Drop for Voiput {
     fn drop(&mut self) {
         // SpeechRecognizer の Drop が自動的に stop() + cleanup() を呼ぶ
-    }
-}
-
-// ============================================================================
-// VAD 設定変換ヘルパー
-// ============================================================================
-
-/// `types::VadConfig` + `VadModelPaths` + `model_dir` → `pipeline::vad::VadConfig`
-///
-/// model_dir が設定されている場合、相対パスの VAD モデルファイルは
-/// model_dir を起点として解決される。絶対パス（/ 始まり）はそのまま使用される。
-fn build_vad_processor_config(
-    cfg: &VadConfig,
-    paths: &VadModelPaths,
-    model_dir: &Option<String>,
-) -> VadProcessorConfig {
-    let model_path = resolve_vad_model_path(
-        match cfg.vad_type {
-            VadType::Silero => &paths.silero,
-            VadType::Ten => &paths.ten,
-        },
-        model_dir,
-    );
-    let vad_type = match cfg.vad_type {
-        VadType::Silero => VadProcessorType::Silero,
-        VadType::Ten => VadProcessorType::Ten,
-    };
-    VadProcessorConfig {
-        vad_type,
-        model_path,
-        threshold: cfg.threshold,
-        min_silence_duration: cfg.min_silence_duration,
-        min_speech_duration: cfg.min_speech_duration,
-        max_speech_duration: cfg.max_speech_duration,
-        num_threads: cfg.num_threads,
-    }
-}
-
-/// VAD モデルファイルのパスを解決する。
-///
-/// - 絶対パス（/ 始まり）: そのまま返す
-/// - 相対パス + model_dir あり: `{model_dir}/{path}` として結合
-/// - 相対パス + model_dir なし: path をそのまま返す
-fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
-    if path.starts_with('/') {
-        return path.to_string();
-    }
-    match model_dir {
-        Some(dir) if !path.is_empty() => {
-            let trimmed = dir.trim_end_matches('/');
-            format!("{}/{}", trimmed, path)
-        }
-        _ => path.to_string(),
     }
 }
 
@@ -332,14 +305,26 @@ mod tests {
 
     #[test]
     fn test_voiput_start_stop() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let mut voiput = Voiput::new(minimal_config()).unwrap();
         // start()/stop() は常に Ok(()) を返す（SpeechRecognizer の内部エラーはログ出力のみ）。
         // バックエンド不在時（テスト環境）は is_running が false になるが、
         // これは start() メソッドの契約範囲外（正常系: API 呼び出しがパニックしないこと）。
-        assert!(voiput.start().is_ok());
-        assert!(voiput.stop().is_ok());
+        assert!(rt.block_on(voiput.start()).is_ok());
+        assert!(rt.block_on(voiput.stop()).is_ok());
         // stop → stop の冪等性
-        assert!(voiput.stop().is_ok());
+        assert!(rt.block_on(voiput.stop()).is_ok());
+    }
+
+    #[test]
+    fn test_voiput_request_permissions() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let voiput = Voiput::new(minimal_config()).unwrap();
+        // request_permissions() が Result<bool, VoiputError> を返すこと
+        let result = rt.block_on(voiput.request_permissions());
+        assert!(result.is_ok());
+        // テスト環境では false（権限なし）が返る可能性が高い
+        // （本機能の実質的な確認は実機E2Eテストで行う）
     }
 
     #[test]
@@ -362,11 +347,12 @@ mod tests {
 
     #[test]
     fn test_voiput_set_engine() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let mut voiput = Voiput::new(minimal_config()).unwrap();
         assert_eq!(voiput.engine(), SttEngine::Os);
-        assert!(voiput.set_engine(SttEngine::OpenAI).is_ok());
+        assert!(rt.block_on(voiput.set_engine(SttEngine::OpenAI)).is_ok());
         assert_eq!(voiput.engine(), SttEngine::OpenAI);
-        assert!(voiput.set_engine(SttEngine::Os).is_ok());
+        assert!(rt.block_on(voiput.set_engine(SttEngine::Os)).is_ok());
         assert_eq!(voiput.engine(), SttEngine::Os);
     }
 
@@ -397,67 +383,5 @@ mod tests {
     fn test_voiput_engine_getter() {
         let voiput = Voiput::new(minimal_config()).unwrap();
         assert_eq!(voiput.engine(), SttEngine::Os);
-    }
-
-    // ---- VAD 設定変換 ----
-
-    #[test]
-    fn test_build_vad_processor_config_silero() {
-        let cfg = VadConfig {
-            vad_type: VadType::Silero,
-            threshold: 0.5,
-            min_silence_duration: 0.2,
-            min_speech_duration: 0.25,
-            max_speech_duration: 25.0,
-            num_threads: 4,
-            ..Default::default()
-        };
-        let paths = VadModelPaths {
-            silero: "/models/silero.onnx".into(),
-            ten: "/models/ten.onnx".into(),
-            gtcrn: String::new(),
-        };
-        let result = build_vad_processor_config(&cfg, &paths, &None);
-        assert_eq!(result.model_path, "/models/silero.onnx");
-        assert_eq!(result.threshold, 0.5);
-    }
-
-    #[test]
-    fn test_build_vad_processor_config_ten() {
-        let cfg = VadConfig {
-            vad_type: VadType::Ten,
-            ..Default::default()
-        };
-        let paths = VadModelPaths {
-            silero: "/s.onnx".into(),
-            ten: "/t.onnx".into(),
-            gtcrn: String::new(),
-        };
-        let result = build_vad_processor_config(&cfg, &paths, &None);
-        assert_eq!(result.model_path, "/t.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_absolute() {
-        let result = resolve_vad_model_path("/abs/path.onnx", &None);
-        assert_eq!(result, "/abs/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_relative_with_dir() {
-        let result = resolve_vad_model_path("rel/path.onnx", &Some("/base/models".into()));
-        assert_eq!(result, "/base/models/rel/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_relative_without_dir() {
-        let result = resolve_vad_model_path("rel/path.onnx", &None);
-        assert_eq!(result, "rel/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_empty_with_dir() {
-        let result = resolve_vad_model_path("", &Some("/base".into()));
-        assert_eq!(result, "");
     }
 }

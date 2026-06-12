@@ -77,7 +77,7 @@ fn main() {
     );
 
     // ============================================================
-    // ランタイムライブラリ収集（リンク前に実行し、can_use_real_library が参照できるようにする）
+    // ランタイムライブラリ収集（リンク前に実行し、can_link_real_library が参照できるようにする）
     // ============================================================
     #[cfg(target_os = "macos")]
     collect_runtime_libs_macos(&manifest_dir);
@@ -158,147 +158,51 @@ fn link_macos(prebuilt: &PathBuf) {
     std::fs::create_dir_all(&mac_dir).expect("Failed to create prebuilt/macos/ directory");
     let lib_path = mac_dir.join("libSpeechHelper.a");
 
-    // 実ライブラリを使用可能か判定する。条件は以下:
-    //   1. 実ライブラリ（100KB以上）が prebuilt/macos/ に存在すること
-    //   2. libs/macos/ に全必須 dylib（libsherpa-onnx-c-api.dylib, libonnxruntime.dylib）が揃っていること
-    //   3. Swift Concurrency ランタイム（libswift_Concurrency.dylib）が利用可能であること
-    //      （macOS 16+ では dyld shared cache に含まれる。macOS 15 以前では不在のため
-    //        スタブを使用する。M6-1.5 のランタイム同梱では解決不可。）
-    fn can_use_real_library(libs_dir: &std::path::Path) -> bool {
-        let required = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"];
-        let dylibs_ok = required.iter().all(|name| libs_dir.join(name).exists());
-        let swift_concurrency_ok =
-            std::path::Path::new("/usr/lib/swift/libswift_Concurrency.dylib").exists();
-        dylibs_ok && swift_concurrency_ok
+    let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
+
+    // ================================================================
+    // 実ライブラリの選択: 優先順位 (1) 既存実ライブラリ (2) 自動ビルド (3) スタブ
+    // ================================================================
+    let use_real_lib = lib_path.exists()
+        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000;
+
+    if !use_real_lib {
+        // 自動ビルドを試行
+        let build_script = manifest_dir.join("native/swift/build.sh");
+        if build_script.exists() {
+            println!("cargo:note=Auto-building libSpeechHelper.a from native/swift/...");
+            let status = Command::new("bash")
+                .arg(&build_script)
+                .status()
+                .expect("Failed to execute native/swift/build.sh");
+            if !status.success() {
+                println!("cargo:note=Auto-build failed. Using stub.");
+            }
+        }
     }
 
-    let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
-    let libs_dir = manifest_dir.join("libs").join("macos");
+    let is_real = lib_path.exists()
+        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000;
 
-    // 本物のライブラリ（100KB以上想定）が存在し、libs/macos/ の dylib が全て揃っていればそれを使う
-    if lib_path.exists()
-        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
-        && can_use_real_library(&libs_dir)
-    {
+    if is_real {
         println!("cargo:rustc-link-lib=static=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", mac_dir.display());
-        println!("cargo:warning=Using real libSpeechHelper.a.");
-        return;
+        println!("cargo:note=Using real libSpeechHelper.a.");
+    } else {
+        // スタブ C ソースを生成してリンク（リンク解決のみ、init は -1 を返す）
+        println!("cargo:note=libSpeechHelper.a not found. Using stub (init returns -1).");
+        generate_stub_macos(&mac_dir, &lib_path);
     }
 
-    // 本物のライブラリが存在しない（または libs/macos/ 不足）場合、
-    // native/swift/build.sh による自動ビルドを試行する
-    let build_script = manifest_dir.join("native/swift/build.sh");
-    if build_script.exists() {
-        println!("cargo:warning=Auto-building libSpeechHelper.a from native/swift/...");
-        let status = Command::new("bash")
-            .arg(&build_script)
-            .status()
-            .expect("Failed to execute native/swift/build.sh");
-        if status.success() && lib_path.exists()
-            && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
-        {
-            if can_use_real_library(&libs_dir) {
-                println!("cargo:rustc-link-lib=static=SpeechHelper");
-                println!("cargo:rustc-link-search=native={}", mac_dir.display());
-                println!("cargo:warning=Auto-built libSpeechHelper.a successfully.");
-                return;
-            } else {
-                println!(
-                    "cargo:warning=Auto-built libSpeechHelper.a but libswift_Concurrency.dylib \
-                     not found (macOS 15). Real library requires macOS 16+. Falling back to stub."
-                );
-            }
-        } else {
-            println!("cargo:warning=Auto-build failed or produced invalid library. Falling back to stub.");
-        }
-    }
-
-    // スタブ C ソースを生成しコンパイル（最終手段、リンク解決のみ）
-    let stub_c = mac_dir.join("stub.c");
-    let stub_o = mac_dir.join("stub.o");
-        std::fs::write(
-            &stub_c,
-            r#"#include <stdint.h>
-
-// SpeechHelper FFI stubs — リンク解決のための最小実装。
-// M6-1 で本物の libSpeechHelper.a に差し替えること。
-
-int32_t speech_helper_init(double speech_timeout_sec) { return -1; }
-int32_t speech_helper_request_authorization(void) { return 0; }
-void speech_helper_set_result_callback(void (*cb)(const char*, int32_t)) { (void)cb; }
-void speech_helper_set_error_callback(void (*cb)(const char*)) { (void)cb; }
-void speech_helper_set_ready_callback(void (*cb)(void)) { (void)cb; }
-void speech_helper_set_audio_data_callback(void (*cb)(const float*, int32_t, int32_t)) { (void)cb; }
-int32_t speech_helper_start_capture(void) { return -1; }
-void speech_helper_stop_capture(void) {}
-int32_t speech_helper_start(const char* locale) { (void)locale; return -1; }
-void speech_helper_stop(void) {}
-void speech_helper_cleanup(void) {}
-void speech_helper_tick(void) {}
-int32_t tahoe_helper_init(const char* locale, double speech_timeout_sec) { (void)locale; (void)speech_timeout_sec; return -1; }
-int32_t tahoe_helper_start(const char* locale) { (void)locale; return -1; }
-void tahoe_helper_stop(void) {}
-"#,
-        )
-        .expect("Failed to write stub.c");
-
-        let cc = std::env::var("CC").unwrap_or_else(|_| "cc".to_string());
-        let cc_status = Command::new(&cc)
-            .args([
-                "-c",
-                "-o",
-                &stub_o.to_string_lossy(),
-                &stub_c.to_string_lossy(),
-            ])
-            .status()
-            .expect("Failed to execute C compiler for stub generation");
-
-        if cc_status.success() {
-            // 古いライブラリ（実ライブラリ）を削除してからスタブを作成する。
-            // ar crs は既存メンバを保持したまま追加するため、削除が必要。
-            let _ = std::fs::remove_file(&lib_path);
-            let ar_status = Command::new("ar")
-                .args(["crs", &lib_path.to_string_lossy(), &stub_o.to_string_lossy()])
-                .status()
-                .expect("Failed to execute ar for stub generation");
-
-            if ar_status.success() && lib_path.exists() {
-                println!("cargo:rustc-link-lib=static=SpeechHelper");
-                println!("cargo:rustc-link-search=native={}", mac_dir.display());
-                println!(
-                    "cargo:warning=Using stub libSpeechHelper.a ({}). \
-                          Auto-built library pending runtime resolution (M6-1.5).",
-                    lib_path.display()
-                );
-                let _ = std::fs::remove_file(&stub_c);
-                let _ = std::fs::remove_file(&stub_o);
-            } else {
-                panic!("Failed to create stub archive. Install Xcode Command Line Tools.");
-            }
-        } else {
-            // C コンパイラが使えない環境 → ar fallback (シンボルなし)
-            let _ = Command::new("ar")
-                .args(["crs", &lib_path.to_string_lossy(), "/dev/null"])
-                .status();
-            if lib_path.exists() {
-                println!("cargo:rustc-link-lib=static=SpeechHelper");
-                println!("cargo:rustc-link-search=native={}", mac_dir.display());
-                println!("cargo:warning=Using symbol-less stub libSpeechHelper.a. Link may fail.");
-            } else {
-                let data = create_minimal_coff_lib();
-                std::fs::write(&lib_path, &data)
-                    .expect("Failed to create fallback stub libSpeechHelper.a");
-                println!("cargo:rustc-link-lib=static=SpeechHelper");
-                println!("cargo:rustc-link-search=native={}", mac_dir.display());
-            }
-        }
-
-    // Swift ランタイムライブラリのパスを swiftc から取得してリンク検索パスに追加する。
-    // 出力 JSON の paths.runtimeLibraryPaths 配列をパースする。
+    // ================================================================
+    // Swift ランタイムパスの設定（実ライブラリ・スタブ共通）
+    // 実ライブラリは Swift ランタイム（libswift_Concurrency.dylib 等）が実行時に必要。
+    // macOS 16+ では dyld 共有キャッシュ内に存在するため /usr/lib/swift/ の
+    // ファイル有無にかかわらず利用可能。
+    // ================================================================
     if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
         if let Ok(stdout) = String::from_utf8(output.stdout) {
-            // "paths" オブジェクトを探す
+            // 出力 JSON の paths.runtimeLibraryPaths 配列をパースする
             if let Some(paths_obj) = stdout.find("\"paths\"") {
                 let after_paths = &stdout[paths_obj..];
                 if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
@@ -310,32 +214,9 @@ void tahoe_helper_stop(void) {}
                             for path in paths_str.split(',') {
                                 let path = path.trim().trim_matches('"').trim();
                                 if !path.is_empty() {
+                                    // リンク検索パス
                                     println!("cargo:rustc-link-search=native={}", path);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Swift ランタイムパスを rpath に追加する。
-    // 実ライブラリがリンクされると Swift ランタイム（libswift_Concurrency.dylib 等）が
-    // 実行時に必要になる。swiftc が報告する runtimeLibraryPaths を rpath に追加する。
-    if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
-        if let Ok(stdout) = String::from_utf8(output.stdout) {
-            if let Some(paths_obj) = stdout.find("\"paths\"") {
-                let after_paths = &stdout[paths_obj..];
-                if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
-                    let from_rlp = &after_paths[rlp_start..];
-                    if let Some(list_start) = from_rlp.find('[') {
-                        let from_list = &from_rlp[list_start..];
-                        if let Some(list_end) = from_list.find(']') {
-                            let paths_str = &from_list[1..list_end];
-                            for path in paths_str.split(',') {
-                                let path = path.trim().trim_matches('"').trim();
-                                if !path.is_empty() {
+                                    // 実行時サーチパス（rpath）
                                     println!("cargo:rustc-link-arg=-Wl,-rpath,{}", path);
                                 }
                             }
@@ -346,10 +227,12 @@ void tahoe_helper_stop(void) {}
         }
     }
 
+    // 追加 rpath（フォールバック）
     for rpath in &["/usr/lib/swift", "@executable_path/", "@loader_path/"] {
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", rpath);
     }
 
+    // macOS フレームワーク（実ライブラリ・スタブ共通で必要）
     for fw in &["Foundation", "AVFoundation", "Speech", "CoreFoundation"] {
         println!("cargo:rustc-link-lib=framework={}", fw);
     }
@@ -388,7 +271,7 @@ fn link_windows(prebuilt: &PathBuf) {
         }
     }
 
-    // C# ビルドが失敗／利用不可 → スタブ .lib を生成する（M6-1 で本物に差し替え）
+    // C# ビルドが失敗／利用不可 → スタブ .lib を生成する（Native AOT ビルド後に置き換わる）
     create_stub_windows_lib_warning(&win_dir, &lib_path);
     // DLL がないので OUT_DIR へのコピーは行わない（スタブ動作時はランタイムロード不可）
     emit_windows_system_libs();
@@ -397,6 +280,7 @@ fn link_windows(prebuilt: &PathBuf) {
 /// Windows のネイティブライブラリ（SpeechHelper.dll + .lib）を C# Native AOT でビルドする。
 /// build.ps1 の配置パス: native/cs/build.ps1
 /// 成功時: prebuilt/windows/SpeechHelper.dll + .lib が生成される。
+/// 本物の .lib は 5,000 bytes 以上（スタブ .lib は約 2,600 bytes）。
 #[cfg(target_os = "windows")]
 fn try_build_windows_native(win_dir: &std::path::Path) -> bool {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -421,15 +305,26 @@ fn try_build_windows_native(win_dir: &std::path::Path) -> bool {
             // ビルド成功確認
             let dll = win_dir.join("SpeechHelper.dll");
             let lib = win_dir.join("SpeechHelper.lib");
-            if dll.exists() && lib.exists() {
-                println!("cargo:warning=Native AOT build succeeded: {} ({} bytes), {} ({} bytes)",
-                    dll.display(), std::fs::metadata(&dll).map(|m| m.len()).unwrap_or(0),
-                    lib.display(), std::fs::metadata(&lib).map(|m| m.len()).unwrap_or(0));
-                true
-            } else {
-                println!("cargo:warning=Native AOT build reported success, but output files missing.");
-                false
+            if dll.exists() {
+                // Native AOT の .lib は win-x64/native/ サブディレクトリに出力される場合がある。
+                // build.ps1 がコピーしていない場合のフォールバック。
+                if !lib.exists() {
+                    let native_sub = win_dir.join("win-x64").join("native").join("SpeechHelper.lib");
+                    if native_sub.exists() {
+                        let _ = std::fs::copy(&native_sub, &lib);
+                        println!("cargo:warning=SpeechHelper.lib copied from subdirectory: {}",
+                            native_sub.display());
+                    }
+                }
+                if lib.exists() {
+                    println!("cargo:warning=Native AOT build succeeded: {} ({} bytes), {} ({} bytes)",
+                        dll.display(), std::fs::metadata(&dll).map(|m| m.len()).unwrap_or(0),
+                        lib.display(), std::fs::metadata(&lib).map(|m| m.len()).unwrap_or(0));
+                    return true;
+                }
             }
+            println!("cargo:warning=Native AOT build reported success, but output files missing.");
+            false
         }
         Ok(s) => {
             println!("cargo:warning=Native AOT build failed (exit: {:?}). Using stub library.", s.code());
@@ -451,7 +346,7 @@ fn create_stub_windows_lib_warning(win_dir: &std::path::Path, lib_path: &std::pa
     std::fs::write(
         &stub_c,
         r#"// SpeechHelper FFI stubs — リンク解決のための最小実装。
-// M6-1 で本物の SpeechHelper.lib に差し替えること。
+// 実ライブラリが prebuilt/windows/ に存在しない場合のフォールバック。
 // ヘッダー非依存（MSVC 環境変数未設定でもコンパイル可能）
 
 int __stdcall speech_helper_init(double speech_timeout_sec) { (void)speech_timeout_sec; return -1; }
@@ -500,7 +395,7 @@ let cl_exe = find_msvc_tool("cl.exe");
                             println!("cargo:rustc-link-search=native={}", win_dir.display());
                             println!(
                                 "cargo:warning=Using stub speech_helper.lib ({}). \
-                                      Auto-built library. Replace with real library via M6-1 build.",
+                                      Auto-built library. Run native/cs/build.ps1 for real library.",
                                 lib_path.display()
                             );
                             return;
@@ -678,6 +573,75 @@ fn create_minimal_coff_lib() -> Vec<u8> {
 // ランタイムライブラリ収集
 // ============================================================================
 
+/// macOS 用スタブライブラリを生成する。
+///
+/// C ソースからコンパイルしたスタブで libSpeechHelper.a を置き換える。
+/// スタブの全 FFI 関数は -1 または空を返す。
+#[cfg(target_os = "macos")]
+fn generate_stub_macos(mac_dir: &std::path::Path, lib_path: &std::path::Path) {
+    let stub_c = mac_dir.join("stub.c");
+    let stub_o = mac_dir.join("stub.o");
+
+    std::fs::write(
+        &stub_c,
+        r#"#include <stdint.h>
+int32_t speech_helper_init(double speech_timeout_sec) { (void)speech_timeout_sec; return -1; }
+int32_t speech_helper_request_authorization(void) { return 0; }
+void speech_helper_set_result_callback(void (*cb)(const char*, int32_t)) { (void)cb; }
+void speech_helper_set_error_callback(void (*cb)(const char*)) { (void)cb; }
+void speech_helper_set_ready_callback(void (*cb)(void)) { (void)cb; }
+void speech_helper_set_audio_data_callback(void (*cb)(const float*, int32_t, int32_t)) { (void)cb; }
+int32_t speech_helper_start_capture(void) { return -1; }
+void speech_helper_stop_capture(void) {}
+int32_t speech_helper_start(const char* locale) { (void)locale; return -1; }
+void speech_helper_stop(void) {}
+void speech_helper_cleanup(void) {}
+void speech_helper_tick(void) {}
+int32_t tahoe_helper_init(const char* locale, double speech_timeout_sec) { (void)locale; (void)speech_timeout_sec; return -1; }
+int32_t tahoe_helper_start(const char* locale) { (void)locale; return -1; }
+void tahoe_helper_stop(void) {}
+"#,
+    ).expect("Failed to write stub.c");
+
+    let cc = std::env::var("CC").unwrap_or_else(|_| "cc".to_string());
+    let cc_status = Command::new(&cc)
+        .args(["-c", "-o", &stub_o.to_string_lossy(), &stub_c.to_string_lossy()])
+        .status()
+        .expect("Failed to execute C compiler for stub generation");
+
+    if cc_status.success() {
+        let _ = std::fs::remove_file(lib_path);
+        let ar_status = Command::new("ar")
+            .args(["crs", &lib_path.to_string_lossy(), &stub_o.to_string_lossy()])
+            .status()
+            .expect("Failed to execute ar for stub generation");
+
+        if ar_status.success() && lib_path.exists() {
+            println!("cargo:rustc-link-lib=static=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+            let _ = std::fs::remove_file(&stub_c);
+            let _ = std::fs::remove_file(&stub_o);
+        } else {
+            panic!("Failed to create stub archive. Install Xcode Command Line Tools.");
+        }
+    } else {
+        // C コンパイラが使えない環境 → ar fallback (シンボルなし)
+        let _ = Command::new("ar")
+            .args(["crs", &lib_path.to_string_lossy(), "/dev/null"])
+            .status();
+        if lib_path.exists() {
+            println!("cargo:rustc-link-lib=static=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+        } else {
+            let data = create_minimal_coff_lib();
+            std::fs::write(lib_path, &data)
+                .expect("Failed to create fallback stub libSpeechHelper.a");
+            println!("cargo:rustc-link-lib=static=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", mac_dir.display());
+        }
+    }
+}
+
 /// macOS 用ランタイムライブラリを target/ から libs/macos/ に収集する。
 ///
 /// sherpa-onnx の共有ライブラリ（dylib）を target/debug/ からコピーする。
@@ -701,7 +665,7 @@ fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
         if src.exists() {
             let dest = libs_dir.join(name);
             let _ = std::fs::copy(&src, &dest);
-            println!("cargo:warning=Runtime lib collected: {}/{}", libs_dir.display(), name);
+            println!("cargo:note=Runtime lib collected: {}/{}", libs_dir.display(), name);
         }
     }
 

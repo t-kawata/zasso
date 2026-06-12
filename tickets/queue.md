@@ -1,4 +1,5 @@
 # Ticket Queue
+- [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #3 make build 後のインストーラー自動検証・dist配置 | /Users/kawata/shyme/zasso/tickets/specs/0003-make-build-dist.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -60,6 +61,11 @@
 - [x] #56 プリビルドライブラリ自動ビルド | /Users/kawata/shyme/zasso/tickets/specs/0056-untitled-2.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #57 macOS ランタイムライブラリ収集 | /Users/kawata/shyme/zasso/tickets/specs/0057-macos.md | 2026-06-12 | 2026-06-12
 - [x] #58 M6-1.6 Windows: libs/windows/ ランタイムライブラリ収集 | C:\Users\kawat\shyme\zasso\tickets\specs\0058-m6-16-windows-libswindows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #59 統合テスト | /Users/kawata/shyme/zasso/tickets/specs/0059-untitled-3.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #60 README（最終ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0060-readme.md | 2026-06-12 | 2026-06-12
+- [x] #62 Voiput API — async/await 完全対応 + request_permissions 実装 | /Users/kawata/shyme/zasso/tickets/specs/0062-voiput-api-asyncawait-request-permissions.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #63 Windows スタブライブラリ除去 — prebuilt/windows/ に実ライブラリを追加し M6-1.6 参照メッセージを削除 | C:\Users\kawat\shyme\zasso\tickets\specs\0063-windows-prebuiltwindows-m6-16.md | 2026-06-12 | 2026-06-12
+- [x] #64 内部設計整合 — SpeechRecognizer 引数整理 + VoiputError 型修正 + 非対応OSバリデーション | /Users/kawata/shyme/zasso/tickets/specs/0064-speechrecognizer-voiputerror-os.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #59 M1-2: AudioChunk / AudioChunkPair 定義 | /Users/shyme/shyme/zasso/tickets/specs/0059-m1-2-audiochunk-audiochunkpair.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #60 M1-3: TransportKind / TransportConfig 定義 | /Users/shyme/shyme/zasso/tickets/specs/0060-m1-3-transportkind-transportconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #61 M1-4: ICE/STUN/TURN 設定型定義 | /Users/shyme/shyme/zasso/tickets/specs/0061-m1-4-icestun-turn.md | 2026-06-12 | 2026-06-12 | 2026-06-12

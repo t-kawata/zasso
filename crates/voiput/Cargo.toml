@@ -4,6 +4,19 @@ version = "0.1.0"
 edition = "2021"
 description = "Portable, cross-platform speech-to-text crate with OS-native and OpenAI backends"
 license = "MIT OR Apache-2.0"
+include = [
+    "src/**/*.rs",
+    "prebuilt/**/*.a",
+    "prebuilt/**/*.lib",
+    "prebuilt/**/*.dll",
+    "native/**/*.swift",
+    "native/**/*.cs",
+    "native/**/*.csproj",
+    "native/**/*.sh",
+    "native/**/*.ps1",
+    "src/wav/*.wav",
+    "README.md",
+]
 
 [lib]
 name = "voiput"
