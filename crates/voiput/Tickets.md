@@ -549,7 +549,7 @@ crates/voiput/
   4. `cargo clean` 後も `libs/` が残ることを確認（設計動作）
   5. macOS 実機で過不足なくロードされることを確認（`DYLD_PRINT_LIBRARIES=1` で確認）
 
-##### チケット M6-1.6 Windows: `libs/windows/` ランタイムライブラリ収集
+##### ✅ チケット M6-1.6 Windows: `libs/windows/` ランタイムライブラリ収集
 
 * **参照ドキュメント:**
   - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
@@ -606,7 +606,7 @@ crates/voiput/
   6. `cargo clean` 後も `libs/` が残ることを確認（設計動作）
   7. Windows 実機での動作確認（プロセスモニタで不足なくロードされることを確認）
 
-##### チケット M6-2: 統合テスト
+##### ✅ チケット M6-2: 統合テスト
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §10
 * **作業内容:** `tests/integration_test.rs` — config バリデーションの結合テスト。
