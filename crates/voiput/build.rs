@@ -356,16 +356,95 @@ fn link_windows(prebuilt: &PathBuf) {
     let lib_path = win_dir.join("SpeechHelper.lib");
     let dll_path = win_dir.join("SpeechHelper.dll");
 
-    // 本物のライブラリ（100KB以上想定）が存在すればそれを使う
-    if lib_path.exists() && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000 {
+    // 本物のライブラリ（.lib + .dll の両方が存在）を使う
+    if dll_path.exists() && lib_path.exists() {
         println!("cargo:rustc-link-lib=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", win_dir.display());
-    } else {
-        // スタブ C ソースを生成しコンパイル（M6-1 で本物に差し替え）
-        let stub_c = win_dir.join("stub.c");
-        std::fs::write(
-            &stub_c,
-            r#"// SpeechHelper FFI stubs — リンク解決のための最小実装。
+        copy_windows_dll_to_out(&dll_path);
+        emit_windows_system_libs();
+        return;
+    }
+
+    // --- ここから先は本物のライブラリがない場合の処理 ---
+
+    // C# Native AOT ビルドを試行（.NET SDK が必要）
+    if try_build_windows_native(&win_dir) {
+        // ビルド成功 → リンク設定して終了
+        if dll_path.exists() && lib_path.exists() {
+            println!("cargo:rustc-link-lib=SpeechHelper");
+            println!("cargo:rustc-link-search=native={}", win_dir.display());
+            copy_windows_dll_to_out(&dll_path);
+            println!("cargo:warning=SpeechHelper Native AOT built: {} ({} bytes)",
+                dll_path.display(),
+                std::fs::metadata(&dll_path).map(|m| m.len()).unwrap_or(0));
+            emit_windows_system_libs();
+            return;
+        }
+    }
+
+    // C# ビルドが失敗／利用不可 → スタブ .lib を生成する（M6-1 で本物に差し替え）
+    create_stub_windows_lib_warning(&win_dir, &lib_path);
+    // DLL がないので OUT_DIR へのコピーは行わない（スタブ動作時はランタイムロード不可）
+    emit_windows_system_libs();
+}
+
+/// Windows のネイティブライブラリ（SpeechHelper.dll + .lib）を C# Native AOT でビルドする。
+/// build.ps1 の配置パス: native/cs/build.ps1
+/// 成功時: prebuilt/windows/SpeechHelper.dll + .lib が生成される。
+#[cfg(target_os = "windows")]
+fn try_build_windows_native(win_dir: &std::path::Path) -> bool {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let build_script = manifest_dir.join("native").join("cs").join("build.ps1");
+    if !build_script.exists() {
+        println!("cargo:warning=Native AOT build script not found: {}", build_script.display());
+        return false;
+    }
+
+    println!("cargo:warning=Building SpeechHelper via native/cs/build.ps1 ...");
+    let status = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File",
+            &build_script.to_string_lossy(),
+        ])
+        .status();
+
+    match status {
+        Ok(s) if s.success() => {
+            // ビルド成功確認
+            let dll = win_dir.join("SpeechHelper.dll");
+            let lib = win_dir.join("SpeechHelper.lib");
+            if dll.exists() && lib.exists() {
+                println!("cargo:warning=Native AOT build succeeded: {} ({} bytes), {} ({} bytes)",
+                    dll.display(), std::fs::metadata(&dll).map(|m| m.len()).unwrap_or(0),
+                    lib.display(), std::fs::metadata(&lib).map(|m| m.len()).unwrap_or(0));
+                true
+            } else {
+                println!("cargo:warning=Native AOT build reported success, but output files missing.");
+                false
+            }
+        }
+        Ok(s) => {
+            println!("cargo:warning=Native AOT build failed (exit: {:?}). Using stub library.", s.code());
+            false
+        }
+        Err(e) => {
+            println!("cargo:warning=Failed to launch PowerShell for Native AOT build: {}. Using stub.", e);
+            false
+        }
+    }
+}
+
+/// スタブ .lib を生成し、リンク設定を出力する。
+/// シンボルを持つ stub.c → cl.exe → lib.exe のパスを試行し、
+/// 失敗した場合は空の .lib を生成する。
+#[cfg(target_os = "windows")]
+fn create_stub_windows_lib_warning(win_dir: &std::path::Path, lib_path: &std::path::Path) {
+    let stub_c = win_dir.join("stub.c");
+    std::fs::write(
+        &stub_c,
+        r#"// SpeechHelper FFI stubs — リンク解決のための最小実装。
 // M6-1 で本物の SpeechHelper.lib に差し替えること。
 // ヘッダー非依存（MSVC 環境変数未設定でもコンパイル可能）
 
@@ -384,14 +463,12 @@ void __stdcall speech_helper_disable_ime(void) {}
 void __stdcall speech_helper_restore_ime(void) {}
 int __stdcall speech_helper_check_health(void) { return 0; }
 "#,
-        )
-        .expect("Failed to write Windows stub.c");
+    )
+    .expect("Failed to write Windows stub.c");
 
-    // cl.exe と同じディレクトリに lib.exe もあるので、両方同じ探索で取得
-    let cl_exe = find_msvc_tool("cl.exe");
+let cl_exe = find_msvc_tool("cl.exe");
 
     if let Some(ref cl) = cl_exe {
-        // cl.exe で .c → .obj コンパイルを試行
         let cl_output = Command::new(cl)
             .args(["/nologo", "/c", &stub_c.to_string_lossy(),
                    &format!("/Fo{}", win_dir.join("stub.obj").to_string_lossy())])
@@ -400,7 +477,7 @@ int __stdcall speech_helper_check_health(void) { return 0; }
         if let Ok(output) = cl_output {
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                println!("cargo:warning=cl.exe compilation failed: {}", stderr);
+                println!("cargo:warning=cl.exe stub compilation failed: {}", stderr);
             } else {
                 let lib_exe = find_msvc_tool("lib.exe");
                 if let Some(ref lib) = lib_exe {
@@ -417,7 +494,7 @@ int __stdcall speech_helper_check_health(void) { return 0; }
                             println!("cargo:rustc-link-search=native={}", win_dir.display());
                             println!(
                                 "cargo:warning=Using stub speech_helper.lib ({}). \
-                                      Auto-built library pending runtime resolution (M6-1.6).",
+                                      Auto-built library. Replace with real library via M6-1 build.",
                                 lib_path.display()
                             );
                             return;
@@ -428,37 +505,41 @@ int __stdcall speech_helper_check_health(void) { return 0; }
         }
     }
 
-    // cl.exe + lib.exe による stub.c コンパイルが使えなかった場合、
-    // lib.exe のみで空の .lib を生成する（シンボルなし → test-run のリンクは失敗する）
-    create_stub_windows_lib(&lib_path);
+    // cl.exe + lib.exe によるコンパイルが使えなかった → 空 .lib フォールバック
+    create_stub_windows_lib(lib_path);
 
-        if lib_path.exists() {
-            println!("cargo:rustc-link-lib=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", win_dir.display());
-            println!(
-                "cargo:warning=Using stub speech_helper.lib (no symbols). \
-                      Link may fail. Auto-built library pending runtime resolution (M6-1.6)."
-            );
-        } else {
-            panic!(
-                "Failed to create stub library at {}. \
-                 Ensure MSVC tools (cl.exe, lib.exe) are available.",
-                lib_path.display()
-            );
-        }
+    if lib_path.exists() {
+        println!("cargo:rustc-link-lib=SpeechHelper");
+        println!("cargo:rustc-link-search=native={}", win_dir.display());
+        println!(
+            "cargo:warning=Using stub speech_helper.lib (no symbols). \
+                  Link may fail. Build via `powershell native/cs/build.ps1` for full support."
+        );
+    } else {
+        panic!(
+            "Failed to create stub library at {}. \
+             Ensure MSVC tools (cl.exe, lib.exe) are available.",
+            lib_path.display()
+        );
     }
+}
 
-    if dll_path.exists() {
-        if let Some(out_dir) = env::var_os("OUT_DIR") {
-            let dest = PathBuf::from(&out_dir)
-                .join("..")
-                .join("..")
-                .join("..")
-                .join("SpeechHelper.dll");
-            let _ = std::fs::copy(&dll_path, &dest);
-        }
+/// SpeechHelper.dll を OUT_DIR の親にコピーする（テストバイナリからのランタイムロード用）。
+#[cfg(target_os = "windows")]
+fn copy_windows_dll_to_out(dll_path: &std::path::Path) {
+    if let Some(out_dir) = env::var_os("OUT_DIR") {
+        let dest = PathBuf::from(&out_dir)
+            .join("..")
+            .join("..")
+            .join("..")
+            .join("SpeechHelper.dll");
+        let _ = std::fs::copy(dll_path, &dest);
     }
+}
 
+/// Windows システムライブラリのリンク設定を出力する。
+#[cfg(target_os = "windows")]
+fn emit_windows_system_libs() {
     for lib in &[
         "ole32", "oleaut32", "advapi32", "bcrypt", "crypt32", "iphlpapi", "kernel32", "mswsock",
         "ntdll", "secur32", "user32", "ws2_32",
@@ -662,8 +743,15 @@ fn collect_runtime_libs_windows(manifest_dir: &std::path::Path) {
         }
     }
 
-    // 必須ファイルの存在確認
-    let required = ["sherpa-onnx-c-api.dll", "onnxruntime.dll", "SpeechHelper.dll"];
+    // 必須ファイルの存在確認（チケット M6-1.6 の収集対象表「必須✅」に準拠）
+    let required = [
+        "sherpa-onnx-c-api.dll",
+        "onnxruntime.dll",
+        "SpeechHelper.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "msvcp140.dll",
+    ];
     let mut all_ok = true;
     for name in &required {
         if !libs_dir.join(name).exists() {
@@ -675,11 +763,39 @@ fn collect_runtime_libs_windows(manifest_dir: &std::path::Path) {
 }
 
 /// Windows システム DLL のパスを探索する。
+/// 1. System32（64bit DLL の標準配置）
+/// 2. VS 再頒布可能ディレクトリ（vcruntime*.dll / msvcp*.dll）
 #[cfg(target_os = "windows")]
 fn find_system_dll(dll_name: &str) -> Option<std::path::PathBuf> {
-    // System32 または SysWOW64 から検索
+    // 1. System32 から検索
     let system32 = std::path::PathBuf::from(std::env::var_os("SystemRoot")?)
         .join("System32");
     let candidate = system32.join(dll_name);
-    if candidate.exists() { Some(candidate) } else { None }
+    if candidate.exists() {
+        return Some(candidate);
+    }
+
+    // 2. VS 再頒布可能ディレクトリから探索
+    let vs_redist_roots = [
+        "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Redist/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/17/BuildTools/VC/Redist/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC",
+        "C:/Program Files (x86)/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC",
+    ];
+    for root in &vs_redist_roots {
+        let root_path = std::path::PathBuf::from(root);
+        if !root_path.exists() {
+            continue;
+        }
+        if let Ok(entries) = std::fs::read_dir(&root_path) {
+            for entry in entries.flatten() {
+                let candidate = entry.path().join("x64").join(dll_name);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    None
 }
