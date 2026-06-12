@@ -14,7 +14,7 @@ use voiput::{
 use voiput::{
     DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, OpenAIBackend,
     PostCorrectionBackend, PostCorrectionConfig, ProcessorOutput, PunctuationMachine,
-    SignalFilterConfig, SincResampler, SttEngine, VadConfig, VadModelPaths, VoiceKitConfig,
+    SignalFilterConfig, SincResampler, SttEngine, VadConfig, VadModelPaths, VoiputConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
@@ -86,7 +86,7 @@ fn test_config() {
     show_section("CONFIG");
 
     println!("  [TEST] 正常系: 最小構成 (Engine=Os, locale=Ja)");
-    let config = VoiceKitConfig::builder()
+    let config = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
@@ -107,7 +107,7 @@ fn test_config() {
     }
 
     println!("  [TEST] 正常系: OpenAI 設定付き");
-    let config = VoiceKitConfig::builder()
+    let config = VoiputConfig::builder()
         .engine(SttEngine::OpenAI)
         .locale(LocaleCode::En)
         .openai_config(OpenAiConfig {
@@ -132,7 +132,7 @@ fn test_config() {
     }
 
     println!("  [TEST] 異常系: locale 未指定");
-    let result = VoiceKitConfig::builder()
+    let result = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .vad_model_paths(VadModelPaths {
             silero: "/tmp/silero.onnx".into(),
@@ -148,7 +148,7 @@ fn test_config() {
     }
 
     println!("  [TEST] 異常系: OpenAI config なし (engine=OpenAi)");
-    let result = VoiceKitConfig::builder()
+    let result = VoiputConfig::builder()
         .engine(SttEngine::OpenAI)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {

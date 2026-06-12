@@ -47,7 +47,7 @@ MYCUTE `~/shyme/mycute/src/stt/openai.rs` を移植。以下の変更点:
 | `crate::llm::client::LmgwClient` | 削除（async-openai::Client に置き換え） |
 | `LMGW (LLM Proxy)` → JWT認証経由 | `OpenAiConfig.base_url` に直接接続 |
 | `tauri::async_runtime` | `tokio` |
-| `SttSettings` | `VoiceKitConfig` |
+| `SttSettings` | `VoiputConfig` |
 | `crate::tools::*` | `crate::pipeline::*` |
 | `crate::stt::mac/win` の native capture | `crate::native::mac_ffi / win_ffi` |
 

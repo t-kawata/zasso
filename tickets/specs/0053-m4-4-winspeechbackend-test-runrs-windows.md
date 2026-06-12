@@ -57,7 +57,7 @@ M4-1 で FFI 宣言（`native/win_ffi.rs`）は既に分離済み。M4-3（MacSp
 **インポートマッピング:**
 | MYCUTE | voiput |
 |--------|--------|
-| `crate::mycute_settings::SttSettings` | `crate::VoiceKitConfig` / `VadConfig` |
+| `crate::mycute_settings::SttSettings` | `crate::VoiputConfig` / `VadConfig` |
 | `crate::mycute_settings::LocaleCode` | `crate::LocaleCode` |
 | `crate::tools::post_correction_processor::*` | `crate::pipeline::post_correct::*` |
 | `crate::tools::punctuation_machine::PunctuationMachine` | `crate::pipeline::punctuation::PunctuationMachine` |

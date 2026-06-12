@@ -22,10 +22,10 @@ MacSpeechBackend のライフサイクル（new/start/stop/tick/Drop）、およ
 
 M4-1 で FFI 宣言（`native/mac_ffi.rs`）は既に分離済み。本チケットでは実際のバックエンドロジックを移植する。
 MYCUTE との差分は以下：
-- `crate::mycute_settings::*` → `crate::types` / `crate::VoiceKitConfig`
+- `crate::mycute_settings::*` → `crate::types` / `crate::VoiputConfig`
 - `crate::tools::*` → `crate::pipeline::*`
 - `tauri::async_runtime` → `tokio`
-- `SttSettings` → `VoiceKitConfig`（VAD設定・モデルパスを Config 経由で取得）
+- `SttSettings` → `VoiputConfig`（VAD設定・モデルパスを Config 経由で取得）
 
 ## Scope
 
@@ -43,7 +43,7 @@ MYCUTE との差分は以下：
 | FFI コールバック（4関数） | `mac_audio_data_callback`, `result_callback`, `error_callback`, `mac_ready_callback` | 同一内容で移植 |
 | 公開関数（2つ） | `start_native_audio_capture()`, `stop_native_audio_capture()` | `pub(crate)` で移植 |
 | `MacSpeechBackend` struct | 18フィールド | 同構造で移植。`stt_settings: Option<SttSettings>` → `vad_config: Option<VadConfig>` に変更し、設定値だけ保持 |
-| `MacSpeechBackend::new()` | SttSettings → init + Tahoe検出 | VoiceKitConfig から VAD設定値を抽出。FFI呼び出しは native::mac_ffi の公開関数を使用 |
+| `MacSpeechBackend::new()` | SttSettings → init + Tahoe検出 | VoiputConfig から VAD設定値を抽出。FFI呼び出しは native::mac_ffi の公開関数を使用 |
 | `handle_error(code)` | エラーコードマッピング | 同一 |
 | `start()` | VAD初期化 + native capture起動 + ticker spawn | 同様。VAD設定は config から取得、`vad_model_paths` からパス解決 |
 | `stop()` | キャプチャ停止 + プロセッサリセット + ticker abort | 同一 |
@@ -54,7 +54,7 @@ MYCUTE との差分は以下：
 **インポートマッピング（全置換）:**
 | MYCUTE | voiput |
 |--------|--------|
-| `crate::mycute_settings::SttSettings` | `crate::VoiceKitConfig`（または設定値のみ抽出） |
+| `crate::mycute_settings::SttSettings` | `crate::VoiputConfig`（または設定値のみ抽出） |
 | `crate::mycute_settings::{LocaleCode, SttEngine}` | `crate::{LocaleCode, SttEngine}` |
 | `crate::tools::post_correction_processor::*` | `crate::pipeline::post_correct::*` |
 | `crate::tools::resampler::{InternalResampler, SincResampler}` | `crate::pipeline::resampler::{InternalResampler, SincResampler}` |
@@ -164,7 +164,7 @@ ticker task は tokio::spawn で起動され、50ms間隔で以下を実行:
 ### 証拠6: VAD 設定の取得パス
 
 MYCUTE では `settings.get_vad_path()` でモデルパスを取得している。
-voiput では `VoiceKitConfig` の `vad_model_paths` から取得する。
+voiput では `VoiputConfig` の `vad_model_paths` から取得する。
 
 ```rust
 // MYCUTE

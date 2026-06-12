@@ -15,23 +15,23 @@ review_report_path: /Users/kawata/shyme/zasso/tickets/context/0036-m0-2-typesrs-
 voiput crate の公開型をすべて定義する。以下の2ファイルを作成し、test-run.rs の `[CONFIG]` セクションを実装する：
 
 - `src/types.rs` — SttEvent, SttEngine, LocaleCode, OpenAiConfig, VadModelPaths, VadConfig, VadType, PostCorrectionConfig, DenoiserConfig, SignalFilterConfig
-- `src/config.rs` — VoiceKitConfig + VoiceKitConfigBuilder（ビルダーパターン、build() バリデーション）
+- `src/config.rs` — VoiputConfig + VoiputConfigBuilder（ビルダーパターン、build() バリデーション）
 - `src/bin/test-run.rs` — `[CONFIG]` セクションを追加（正常系・異常系の Config 構築デモ）
 - `src/error.rs` — インライン定義の SttEngine を削除し `crate::types::SttEngine` に差し替え
 - `src/lib.rs` — `mod types; mod config;` のコメントアウト解除＋公開 re-export 追加
 
 ## Background
 
-M0-1 では `error.rs` に `SttEngine` を仮置きしていた。本チケットで `types.rs` に正規の型定義を集約し、`error.rs` の仮定義を置き換える。また、`config.rs` に VoiceKitConfig（ビルダーパターン）を実装し、crate 利用者が最初に触れる設定APIを提供する。
+M0-1 では `error.rs` に `SttEngine` を仮置きしていた。本チケットで `types.rs` に正規の型定義を集約し、`error.rs` の仮定義を置き換える。また、`config.rs` に VoiputConfig（ビルダーパターン）を実装し、crate 利用者が最初に触れる設定APIを提供する。
 
 test-run.rs も本チケットで初めて意味のあるデモセクション `[CONFIG]` を持つようになる。
 
 **ファイル間依存関係:**
 - `types.rs` → どのファイルにも依存しない（独立した型定義のみ）
-- `config.rs` → `types.rs` の各種 Config 型 + `error.rs` の VoiceKitError
+- `config.rs` → `types.rs` の各種 Config 型 + `error.rs` の VoiputError
 - `error.rs` → `types.rs` の SttEngine（M0-1 ではインライン定義。本チケットで差し替え）
 - `lib.rs` → types / config モジュール宣言＋re-export
-- `test-run.rs` → `types.rs` の型＋`config.rs` の VoiceKitConfig
+- `test-run.rs` → `types.rs` の型＋`config.rs` の VoiputConfig
 
 ## Scope
 
@@ -65,8 +65,8 @@ MYCUTE `~/shyme/mycute/src/types.rs`（SttEvent, LocaleCode）と `~/shyme/mycut
 
 ### 2. `src/config.rs`
 
-- **VoiceKitConfig**: 全フィールド（engine, locale, openai_config, vad, post_correction, punctuation, denoiser, signal_filter, speech_timeout_sec, vad_model_paths）
-- **VoiceKitConfigBuilder**: ビルダーパターン。各 setter メソッド + `build()` でバリデーション：
+- **VoiputConfig**: 全フィールド（engine, locale, openai_config, vad, post_correction, punctuation, denoiser, signal_filter, speech_timeout_sec, vad_model_paths）
+- **VoiputConfigBuilder**: ビルダーパターン。各 setter メソッド + `build()` でバリデーション：
   - `locale` 必須
   - `vad_model_paths` 必須
   - `engine == SttEngine::OpenAi` なら `openai_config` 必須
@@ -74,7 +74,7 @@ MYCUTE `~/shyme/mycute/src/types.rs`（SttEvent, LocaleCode）と `~/shyme/mycut
 ### 3. `src/bin/test-run.rs` — `[CONFIG]` セクション追加
 
 - `test_config()` 関数を新規追加：
-  1. 正常系: Engine=Os, locale=Ja, vad_model_paths 指定で VoiceKitConfig を構築 → 内容表示
+  1. 正常系: Engine=Os, locale=Ja, vad_model_paths 指定で VoiputConfig を構築 → 内容表示
   2. 異常系: locale 未指定で build() → エラーメッセージ表示
   3. 異常系: openai_config 未指定で Engine=OpenAi → エラーメッセージ表示
   4. 各種 Config のデフォルト値を表示
@@ -92,7 +92,7 @@ MYCUTE `~/shyme/mycute/src/types.rs`（SttEvent, LocaleCode）と `~/shyme/mycut
 - `// mod types;` → `mod types;`（コメントアウト解除）
 - `// mod config;` → `mod config;`
 - `// pub use types::*;` → `pub use types::*;`
-- `// pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};` → `pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};`
+- `// pub use config::{VoiputConfig, VoiputConfigBuilder};` → `pub use config::{VoiputConfig, VoiputConfigBuilder};`
 - doc-test の例示コードを `rust,ignore` から `rust,no_run` に戻す
 
 ## Non-scope
@@ -185,7 +185,7 @@ RFC §4.4 に定義されたデフォルト値：
 | DenoiserConfig | enabled | true |
 | SignalFilterConfig | rms_threshold | 0.005 |
 | | occupancy_ratio | 0.15 |
-| VoiceKitConfig | punctuation | true |
+| VoiputConfig | punctuation | true |
 | | speech_timeout_sec | 30.0 |
 
 ### 証拠6: MYCUTE から削除する型

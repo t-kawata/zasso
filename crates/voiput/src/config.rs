@@ -1,9 +1,9 @@
-//! VoiceKitConfig — 音声認識の全設定を統括する設定構造体
+//! VoiputConfig — 音声認識の全設定を統括する設定構造体
 //!
 //! 移植元: docs/rfc-stt-portable-crate.md §4.3, §4.4
 //! MYCUTE SttSettings（src/mycute_settings.rs）を多段 Config に分解。
 
-use crate::error::VoiceKitError;
+use crate::error::VoiputError;
 use crate::types::{
     DenoiserConfig, LocaleCode, OpenAiConfig, PostCorrectionConfig, SignalFilterConfig, SttEngine,
     VadConfig, VadModelPaths,
@@ -11,7 +11,7 @@ use crate::types::{
 
 /// 音声認識の全設定
 #[derive(Debug, Clone)]
-pub struct VoiceKitConfig {
+pub struct VoiputConfig {
     /// 使用するエンジン
     pub engine: SttEngine,
     /// 言語ロケール
@@ -38,26 +38,26 @@ pub struct VoiceKitConfig {
     pub model_dir: Option<String>,
 }
 
-impl VoiceKitConfig {
+impl VoiputConfig {
     /// ビルダーを作成する
-    pub fn builder() -> VoiceKitConfigBuilder {
-        VoiceKitConfigBuilder::default()
+    pub fn builder() -> VoiputConfigBuilder {
+        VoiputConfigBuilder::default()
     }
 }
 
-/// VoiceKitConfig のビルダー
+/// VoiputConfig のビルダー
 ///
 /// # 使用例
 ///
 /// ```rust,ignore
-/// let config = VoiceKitConfig::builder()
+/// let config = VoiputConfig::builder()
 ///     .engine(SttEngine::Os)
 ///     .locale(LocaleCode::Ja)
 ///     .vad_model_paths(VadModelPaths { ... })
 ///     .build()?;
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct VoiceKitConfigBuilder {
+pub struct VoiputConfigBuilder {
     engine: Option<SttEngine>,
     locale: Option<LocaleCode>,
     openai_config: Option<OpenAiConfig>,
@@ -72,7 +72,7 @@ pub struct VoiceKitConfigBuilder {
 }
 
 #[allow(missing_docs)]
-impl VoiceKitConfigBuilder {
+impl VoiputConfigBuilder {
     pub fn engine(mut self, e: SttEngine) -> Self {
         self.engine = Some(e);
         self
@@ -122,28 +122,28 @@ impl VoiceKitConfigBuilder {
         self
     }
 
-    /// 設定を確定して VoiceKitConfig を生成する。
+    /// 設定を確定して VoiputConfig を生成する。
     ///
     /// # バリデーション
     /// - `locale` は必須
     /// - `vad_model_paths` は必須
     /// - `engine == SttEngine::OpenAi` の場合は `openai_config` が必須
-    pub fn build(self) -> Result<VoiceKitConfig, VoiceKitError> {
+    pub fn build(self) -> Result<VoiputConfig, VoiputError> {
         let engine = self.engine.unwrap_or_default();
         let locale = self
             .locale
-            .ok_or_else(|| VoiceKitError::InvalidConfig("locale is required".into()))?;
+            .ok_or_else(|| VoiputError::InvalidConfig("locale is required".into()))?;
         let vad_model_paths = self
             .vad_model_paths
-            .ok_or_else(|| VoiceKitError::InvalidConfig("vad_model_paths is required".into()))?;
+            .ok_or_else(|| VoiputError::InvalidConfig("vad_model_paths is required".into()))?;
 
         if engine == SttEngine::OpenAI && self.openai_config.is_none() {
-            return Err(VoiceKitError::InvalidConfig(
+            return Err(VoiputError::InvalidConfig(
                 "openai_config is required when engine is OpenAI".into(),
             ));
         }
 
-        Ok(VoiceKitConfig {
+        Ok(VoiputConfig {
             engine,
             locale,
             openai_config: self.openai_config,
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_build_minimal() {
-        let config = VoiceKitConfig::builder()
+        let config = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .vad_model_paths(minimal_paths())
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_build_with_openai() {
-        let config = VoiceKitConfig::builder()
+        let config = VoiputConfig::builder()
             .engine(SttEngine::OpenAI)
             .locale(LocaleCode::En)
             .openai_config(OpenAiConfig {
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_build_all_custom() {
-        let config = VoiceKitConfig::builder()
+        let config = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::En)
             .vad(VadConfig {
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_build_with_model_dir() {
-        let config = VoiceKitConfig::builder()
+        let config = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .model_dir("/opt/models")
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_build_rejects_missing_locale() {
-        let result = VoiceKitConfig::builder()
+        let result = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .vad_model_paths(minimal_paths())
             .build();
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_build_rejects_missing_vad_model_paths() {
-        let result = VoiceKitConfig::builder()
+        let result = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .build();
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_build_rejects_openai_without_config() {
-        let result = VoiceKitConfig::builder()
+        let result = VoiputConfig::builder()
             .engine(SttEngine::OpenAI)
             .locale(LocaleCode::Ja)
             .vad_model_paths(minimal_paths())
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_unset_fields_get_defaults() {
-        let config = VoiceKitConfig::builder()
+        let config = VoiputConfig::builder()
             .locale(LocaleCode::Ja)
             .vad_model_paths(minimal_paths())
             .build()
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_builder_chainability() {
-        let builder = VoiceKitConfig::builder()
+        let builder = VoiputConfig::builder()
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .vad_model_paths(minimal_paths());

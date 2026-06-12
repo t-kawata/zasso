@@ -3,7 +3,7 @@
 //! 移植元: ~/shyme/mycute/src/stt/openai.rs
 //! 変更点: LmgwClient → OpenAiConfig + async-openai::Client の直接構築
 //!         tauri::async_runtime → tokio
-//!         SttSettings → VoiceKitConfig
+//!         SttSettings → VoiputConfig
 
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -21,7 +21,7 @@ use tokio::task::block_in_place;
 use crate::pipeline::streamer::AsrBackend;
 use crate::pipeline::vad::VAD_SAMPLE_RATE;
 use crate::types::{LocaleCode, OpenAiConfig, SttEvent};
-use crate::VoiceKitConfig;
+use crate::VoiputConfig;
 
 // ============================================================================
 // OpenAIBackend: AsrBackend 実装
@@ -159,7 +159,7 @@ pub struct OpenAIRecognizer {
 impl OpenAIRecognizer {
     pub fn new(
         tx: mpsc::Sender<SttEvent>,
-        _config: &VoiceKitConfig,
+        _config: &VoiputConfig,
         shared_locale: Arc<Mutex<LocaleCode>>,
     ) -> Self {
         Self {

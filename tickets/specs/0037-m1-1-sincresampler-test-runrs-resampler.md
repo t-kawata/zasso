@@ -63,7 +63,7 @@ MYCUTE `~/shyme/mycute/src/tools/resampler.rs` から完全移植。以下の変
 
 ### 4. `src/bin/test-run.rs`
 
-- `use voice_kit::pipeline::resampler::{SincResampler, InternalResampler};` を追加
+- `use voiput::pipeline::resampler::{SincResampler, InternalResampler};` を追加
   - ※ `pipeline` モジュールは `pub(crate)` のため、test-run.rs（同一 crate の bin）からアクセス可能
 - `test_resampler()` 関数を新規追加：
   1. 48kHz 正弦波（4800 samples）を生成
@@ -108,7 +108,7 @@ M0-1 で `cargo add rubato` 済み（Cargo.toml に `rubato = "3.0.0"` として
 ### 証拠4: test-run.rs からの pipeline モジュール参照
 
 test-run.rs は同一 crate の binary target であるため、`pub(crate)` なモジュールにアクセス可能。
-`use voice_kit::pipeline::resampler::{SincResampler, InternalResampler};` でインポートできる。
+`use voiput::pipeline::resampler::{SincResampler, InternalResampler};` でインポートできる。
 
 ### 証拠5: MYCUTE のテストケース
 

@@ -7,7 +7,7 @@
 | `Cargo.toml` | 新規 | `cargo add` で9依存追加 + [[bin]] + [lib] + コメントアウト6依存 |
 | `build.rs` | 新規 | target_os 分岐スケルトン（プリビルド不在時は warning） |
 | `src/lib.rs` | 新規 | 必要なモジュール宣言のみ（他はコメントアウトで後続チケット待ち） |
-| `src/error.rs` | 新規 | VoiceKitError（6 variant, thiserror）+ インライン SttEngine（仮） |
+| `src/error.rs` | 新規 | VoiputError（6 variant, thiserror）+ インライン SttEngine（仮） |
 | `src/constants.rs` | 新規 | MYCUTE から抽出した STT 関連10定数 |
 | `src/bin/test-run.rs` | 新規 | Stage 1/6 表示＋後続チケット一覧 |
 

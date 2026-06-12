@@ -1,10 +1,26 @@
-//! 置換辞書インターセプター — 全バックエンド共通のテキスト置換
+//! 認識器統括 — 3バックエンドの一元管理 + テキスト置換インターセプター
 //!
-//! 移植元: ~/shyme/mycute/src/stt/recognizer.rs の apply_replaces_from_map()
+//! 移植元: ~/shyme/mycute/src/stt/recognizer.rs
+//! 変更点: LmgwClient → OpenAiConfig 直接構築、SttSettings → 個別Config
 
-use parking_lot::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use indexmap::IndexMap;
+use parking_lot::RwLock;
+use tokio::sync::mpsc;
+
+use crate::backends::openai::OpenAIRecognizer;
+use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig};
+use crate::pipeline::streamer::BackendWrapper;
+use crate::pipeline::vad::VadConfig;
+use crate::types::{LocaleCode, OpenAiConfig, SttEngine, SttEvent};
+use crate::OpenAIBackend;
+
+#[cfg(target_os = "macos")]
+use crate::MacSpeechBackend;
+#[cfg(target_os = "windows")]
+use crate::WinSpeechBackend;
 
 /// 置換辞書をテキストに適用する。
 ///
@@ -97,5 +113,454 @@ mod tests {
         let r1 = apply_replaces(&map, "a b c");
         let r2 = apply_replaces(&map, "a b c");
         assert_eq!(r1, r2);
+    }
+}
+
+// ============================================================================
+// SpeechRecognizer
+// ============================================================================
+
+/// 3バックエンドを統括する認識器。
+///
+/// 全バックエンドを常に初期化し、エンジン切り替えを即時可能にする。
+/// インターセプタータスク（std::thread）が全イベントを中継し、テキスト置換を適用する。
+pub struct SpeechRecognizer {
+    is_running: Arc<AtomicBool>,
+    engine: SttEngine,
+    /// OpenAI バックエンド
+    openai_recognizer: Option<OpenAIRecognizer>,
+    /// Windows バックエンド
+    #[cfg(target_os = "windows")]
+    win_backend: Option<WinSpeechBackend>,
+    /// macOS バックエンド
+    #[cfg(target_os = "macos")]
+    mac_backend: Option<MacSpeechBackend>,
+    /// PostCorrection 再構築用の OpenAI 設定
+    openai_config: Option<OpenAiConfig>,
+    /// バックエンド初期化用の VAD 設定
+    vad_config: Option<VadConfig>,
+    /// イベント送信側（インターセプター通過後、UI向け）
+    tx: mpsc::Sender<SttEvent>,
+    /// 全バックエンドで共有されるロケール
+    shared_locale: Arc<parking_lot::Mutex<LocaleCode>>,
+    /// 置換辞書（インターセプタータスクと共有、M5-2 で update_replaces に使用）
+    #[allow(dead_code)]
+    replaces_map: Arc<RwLock<IndexMap<String, Vec<String>>>>,
+    /// 直前の認識結果（重複除去用）
+    #[allow(dead_code)]
+    last_result: String,
+    /// ローカルシーケンスカウンタ
+    #[allow(dead_code)]
+    sequence_counter: u64,
+}
+
+impl SpeechRecognizer {
+    /// エンジンが現在の OS で利用可能かを検証する（常に Ok）。
+    pub fn validate_config(_engine: &SttEngine) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// 認識器を構築する。
+    ///
+    /// インターセプタータスクを起動し、全バックエンドを初期化する。
+    pub fn new(
+        tx: mpsc::Sender<SttEvent>,
+        engine: SttEngine,
+        locale: LocaleCode,
+        openai_config: Option<OpenAiConfig>,
+        vad_config: Option<VadConfig>,
+        replaces_map: Arc<RwLock<IndexMap<String, Vec<String>>>>,
+    ) -> Result<Self, String> {
+        // ================================================================
+        // インターセプター層: 各バックエンド → tx_internal → 置換適用 → tx
+        // ================================================================
+        let (tx_internal, mut rx_internal) = mpsc::channel::<SttEvent>(100);
+
+        let replaces_for_task = replaces_map.clone();
+        let tx_for_task = tx.clone();
+
+        std::thread::spawn(move || {
+            while let Some(event) = rx_internal.blocking_recv() {
+                let forwarded = match event {
+                    SttEvent::FinalResult(text, seq) => {
+                        let replaced = apply_replaces(&replaces_for_task, &text);
+                        SttEvent::FinalResult(replaced, seq)
+                    }
+                    SttEvent::PartialResult(text, seq) => {
+                        let replaced = apply_replaces(&replaces_for_task, &text);
+                        SttEvent::PartialResult(replaced, seq)
+                    }
+                    other => other,
+                };
+                if tx_for_task.blocking_send(forwarded).is_err() {
+                    break;
+                }
+            }
+        });
+
+        let shared_locale = Arc::new(parking_lot::Mutex::new(locale));
+
+        // OpenAI バックエンドの初期化
+        let openai_recognizer = if let Some(ref oa_config) = openai_config {
+            let mut recognizer = OpenAIRecognizer::new(
+                tx_internal.clone(),
+                &crate::VoiputConfig::builder()
+                    .engine(SttEngine::OpenAI)
+                    .locale(locale)
+                    .openai_config(oa_config.clone())
+                    .vad_model_paths(crate::VadModelPaths {
+                        silero: String::new(),
+                        ten: String::new(),
+                        gtcrn: String::new(),
+                    })
+                    .build()
+                    .map_err(|e| format!("Dummy config build failed: {}", e))?,
+                shared_locale.clone(),
+            );
+            let _ = recognizer.init_audio();
+            Some(recognizer)
+        } else {
+            None
+        };
+
+        // macOS バックエンドの初期化（常に）
+        #[cfg(target_os = "macos")]
+        let mac_backend = {
+            let (pc_backend, pc_config) = rebuild_pc_backend(
+                openai_config.as_ref(),
+                shared_locale.clone(),
+            );
+            match MacSpeechBackend::new(
+                tx_internal.clone(),
+                shared_locale.clone(),
+                pc_backend,
+                pc_config,
+                vad_config.clone(),
+            ) {
+                Ok(backend) => Some(backend),
+                Err(e) => {
+                    log::error!("[SpeechRecognizer] macOS backend init failed: {}", e);
+                    None
+                }
+            }
+        };
+
+        // Windows バックエンドの初期化（常に）
+        #[cfg(target_os = "windows")]
+        let win_backend = {
+            let (pc_backend, pc_config) = rebuild_pc_backend(
+                openai_config.as_ref(),
+                shared_locale.clone(),
+            );
+            match WinSpeechBackend::new(
+                tx_internal.clone(),
+                shared_locale.clone(),
+                pc_backend,
+                pc_config,
+                vad_config.clone(),
+            ) {
+                Ok(backend) => Some(backend),
+                Err(e) => {
+                    log::error!("[SpeechRecognizer] Windows backend init failed: {}", e);
+                    None
+                }
+            }
+        };
+
+        Ok(Self {
+            is_running: Arc::new(AtomicBool::new(false)),
+            engine,
+            openai_recognizer,
+            #[cfg(target_os = "windows")]
+            win_backend,
+            #[cfg(target_os = "macos")]
+            mac_backend,
+            openai_config,
+            vad_config,
+            tx,
+            shared_locale,
+            replaces_map,
+            last_result: String::new(),
+            sequence_counter: 0,
+        })
+    }
+
+    /// 認識を開始する。
+    pub fn start(&mut self) {
+        if self.is_running.load(Ordering::SeqCst) {
+            return;
+        }
+        self.is_running.store(true, Ordering::SeqCst);
+        let _ = self.tx.try_send(SttEvent::Started);
+
+        match self.engine {
+            SttEngine::OpenAI => {
+                if let Some(ref mut backend) = self.openai_recognizer {
+                    backend.start();
+                } else {
+                    log::error!("[SpeechRecognizer] OpenAI backend not initialized");
+                    self.is_running.store(false, Ordering::SeqCst);
+                }
+            }
+            SttEngine::Os => {
+                #[cfg(target_os = "windows")]
+                if let Some(ref mut backend) = self.win_backend {
+                    backend.start();
+                    return;
+                }
+                #[cfg(target_os = "macos")]
+                if let Some(ref mut backend) = self.mac_backend {
+                    backend.start();
+                    return;
+                }
+                log::error!("[SpeechRecognizer] No native backend for Os engine");
+                self.is_running.store(false, Ordering::SeqCst);
+            }
+        }
+    }
+
+    /// 認識を停止する。
+    pub fn stop(&mut self) {
+        if !self.is_running.load(Ordering::SeqCst) {
+            return;
+        }
+        self.is_running.store(false, Ordering::SeqCst);
+        self.last_result.clear();
+        self.sequence_counter = 0;
+
+        if let Some(ref mut backend) = self.openai_recognizer {
+            backend.stop();
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ref mut backend) = self.win_backend {
+            backend.stop();
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(ref mut backend) = self.mac_backend {
+            backend.stop();
+        }
+
+        let _ = self.tx.try_send(SttEvent::Stopped);
+    }
+
+    /// ロケールを更新する（全バックエンドに伝播）。
+    pub fn set_locale(&mut self, locale: LocaleCode) {
+        *self.shared_locale.lock() = locale;
+
+        if let Some(ref mut backend) = self.openai_recognizer {
+            backend.set_locale(locale);
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ref mut backend) = self.win_backend {
+            backend.set_locale(locale);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(ref mut backend) = self.mac_backend {
+            backend.set_locale(locale);
+        }
+    }
+
+    /// エンジンを設定する（次回 start() から有効）。
+    pub fn set_engine(&mut self, engine: SttEngine) {
+        self.engine = engine;
+    }
+
+    /// 設定を更新する（動作中は一時停止し再開）。
+    pub fn update_config(
+        &mut self,
+        engine: SttEngine,
+        locale: LocaleCode,
+        openai_config: Option<OpenAiConfig>,
+        vad_config: Option<VadConfig>,
+    ) {
+        let was_running = self.is_running.load(Ordering::SeqCst);
+        if was_running {
+            self.stop();
+        }
+
+        self.engine = engine;
+        self.openai_config = openai_config;
+        self.vad_config = vad_config;
+        *self.shared_locale.lock() = locale;
+
+        // アクティブなバックエンドにロケールを伝播
+        if let Some(ref mut backend) = self.openai_recognizer {
+            backend.set_locale(locale);
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ref mut backend) = self.win_backend {
+            backend.set_locale(locale);
+            let (pc_backend, pc_config) = rebuild_pc_backend(
+                self.openai_config.as_ref(),
+                self.shared_locale.clone(),
+            );
+            backend.update_pc_config(pc_backend, pc_config);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(ref mut backend) = self.mac_backend {
+            backend.set_locale(locale);
+            let (pc_backend, pc_config) = rebuild_pc_backend(
+                self.openai_config.as_ref(),
+                self.shared_locale.clone(),
+            );
+            backend.update_pc_config(pc_backend, pc_config);
+        }
+
+        if was_running {
+            self.start();
+        }
+    }
+
+    /// ネイティブリソースを解放する。
+    pub fn cleanup(&self) {
+        #[cfg(target_os = "macos")]
+        if let Some(ref backend) = self.mac_backend {
+            backend.cleanup();
+        }
+    }
+
+    /// アクティブなバックエンドの tick を駆動する。
+    pub fn tick(&mut self) {
+        if !self.is_running.load(Ordering::SeqCst) {
+            return;
+        }
+        match self.engine {
+            SttEngine::OpenAI => {
+                if let Some(ref mut backend) = self.openai_recognizer {
+                    backend.tick();
+                }
+            }
+            SttEngine::Os => {
+                #[cfg(target_os = "windows")]
+                if let Some(ref mut backend) = self.win_backend {
+                    backend.tick();
+                }
+                #[cfg(target_os = "macos")]
+                if let Some(ref mut backend) = self.mac_backend {
+                    backend.tick();
+                }
+            }
+        }
+    }
+}
+
+impl Drop for SpeechRecognizer {
+    fn drop(&mut self) {
+        self.stop();
+        self.cleanup();
+    }
+}
+
+/// PostCorrection バックエンドを OpenAiConfig から構築する。
+///
+/// macOS / Windows の update_pc_config 呼び出しで使用されるヘルパー。
+fn rebuild_pc_backend(
+    openai_config: Option<&OpenAiConfig>,
+    shared_locale: Arc<parking_lot::Mutex<LocaleCode>>,
+) -> (Option<Arc<dyn PostCorrectionBackend>>, Option<PostCorrectionConfig>) {
+    if let Some(oa_config) = openai_config {
+        let oa_backend = OpenAIBackend::new(oa_config, shared_locale);
+        let wrapper: Arc<dyn PostCorrectionBackend> =
+            Arc::new(BackendWrapper(Arc::new(std::sync::Mutex::new(oa_backend))));
+        (Some(wrapper), Some(PostCorrectionConfig::default()))
+    } else {
+        (None, None)
+    }
+}
+
+// ============================================================================
+// テスト
+// ============================================================================
+
+#[cfg(test)]
+mod speech_recognizer_tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_config_openai() {
+        assert!(SpeechRecognizer::validate_config(&SttEngine::OpenAI).is_ok());
+    }
+
+    #[test]
+    fn test_validate_config_os() {
+        assert!(SpeechRecognizer::validate_config(&SttEngine::Os).is_ok());
+    }
+
+    /// インターセプターの置換適用ロジックを直接テストする。
+    /// std::thread は起動せず、イベント変換のみを検証する。
+    #[test]
+    fn test_interceptor_applies_replaces() {
+        let map: Arc<RwLock<IndexMap<String, Vec<String>>>> =
+            Arc::new(RwLock::new(IndexMap::new()));
+        {
+            let mut m = map.write();
+            m.insert("world".to_string(), vec!["hello".to_string()]);
+        }
+
+        // インターセプターと同じ変換ロジックをシミュレート
+        let event = SttEvent::FinalResult("hello".to_string(), 1);
+        let transformed = match event {
+            SttEvent::FinalResult(text, seq) => {
+                SttEvent::FinalResult(apply_replaces(&map, &text), seq)
+            }
+            _ => event,
+        };
+        if let SttEvent::FinalResult(text, _) = transformed {
+            assert_eq!(text, "world");
+        } else {
+            panic!("Expected FinalResult");
+        }
+    }
+
+    #[test]
+    fn test_interceptor_passthrough_control_events() {
+        let map: Arc<RwLock<IndexMap<String, Vec<String>>>> =
+            Arc::new(RwLock::new(IndexMap::new()));
+
+        let control_events = vec![
+            SttEvent::Started,
+            SttEvent::Stopped,
+            SttEvent::Ready,
+            SttEvent::Error("test".into()),
+        ];
+
+        for event in control_events {
+            let transformed = match event {
+                SttEvent::FinalResult(text, seq) => {
+                    SttEvent::FinalResult(apply_replaces(&map, &text), seq)
+                }
+                SttEvent::PartialResult(text, seq) => {
+                    SttEvent::PartialResult(apply_replaces(&map, &text), seq)
+                }
+                other => other,
+            };
+            // 制御イベントはそのまま（置換されず、variant も変わらない）
+            match transformed {
+                SttEvent::Started => {}   // OK
+                SttEvent::Stopped => {}   // OK
+                SttEvent::Ready => {}     // OK
+                SttEvent::Error(_) => {}  // OK
+                _ => panic!("Unexpected transformation"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_interceptor_empty_replaces() {
+        let map: Arc<RwLock<IndexMap<String, Vec<String>>>> =
+            Arc::new(RwLock::new(IndexMap::new()));
+
+        let event = SttEvent::FinalResult("hello".to_string(), 1);
+        let transformed = match event {
+            SttEvent::FinalResult(text, seq) => {
+                SttEvent::FinalResult(apply_replaces(&map, &text), seq)
+            }
+            _ => event,
+        };
+        if let SttEvent::FinalResult(text, _) = transformed {
+            assert_eq!(text, "hello"); // 空マップ → パススルー
+        } else {
+            panic!("Expected FinalResult");
+        }
     }
 }

@@ -6,9 +6,9 @@
 //! ## 使用方法
 //!
 //! ```rust,no_run
-//! use voiput::{VoiceKitConfig, SttEngine, LocaleCode, SttEvent, VadModelPaths};
+//! use voiput::{VoiputConfig, SttEngine, LocaleCode, SttEvent, VadModelPaths};
 //!
-//! let config = VoiceKitConfig::builder()
+//! let config = VoiputConfig::builder()
 //!     .engine(SttEngine::Os)
 //!     .locale(LocaleCode::Ja)
 //!     .vad_model_paths(VadModelPaths {
@@ -40,18 +40,19 @@ mod audio;
 mod recognizer;
 
 // M5-2 で実装
-// mod voice_kit;
+// mod voiput;
 
 // Phase 4 で実装
 mod backends;
 mod native;
 
-pub use config::{VoiceKitConfig, VoiceKitConfigBuilder};
-pub use error::VoiceKitError;
+pub use config::{VoiputConfig, VoiputConfigBuilder};
+pub use error::VoiputError;
 pub use types::*;
 
 // 内部パイプライン（test-run.rs からアクセス可能にするため pub で re-export）
 pub use audio::{init, play_commit_sound, play_ready_sound};
+pub use recognizer::SpeechRecognizer;
 pub use lindera_util::get_tokenizer;
 pub use pipeline::denoiser::SpeechDenoiser;
 pub use pipeline::post_correct::{

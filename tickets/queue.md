@@ -52,3 +52,4 @@
 - [x] #51 M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI] | /Users/kawata/shyme/zasso/tickets/specs/0051-m4-2-openaibackend-openairecognizer-test-runrs-openai.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #52 M4-3: MacSpeechBackend + test-run.rs [MACOS] | /Users/kawata/shyme/zasso/tickets/specs/0052-m4-3-macspeechbackend-test-runrs-macos.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #53 M4-4: WinSpeechBackend + test-run.rs [WINDOWS] | /Users/kawata/shyme/zasso/tickets/specs/0053-m4-4-winspeechbackend-test-runrs-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #54 M5-1: SpeechRecognizer | /Users/kawata/shyme/zasso/tickets/specs/0054-m5-1-speechrecognizer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
