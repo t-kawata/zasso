@@ -503,7 +503,7 @@ crates/voiput/
        `concrt140.dll` / `vcomp140.dll` は onnxruntime がリンクしていないため不要（MYCUTE で実績あり）。
   7. Tauri バンドル用の設定サンプルを README に記載。
 
-##### チケット M6-1.5 macOS: `libs/macos/` ランタイムライブラリ収集
+##### ✅ チケット M6-1.5 macOS: `libs/macos/` ランタイムライブラリ収集
 
 * **参照ドキュメント:**
   - https://docs.rs/sherpa-onnx/1.13.2/sherpa_onnx/
