@@ -112,23 +112,28 @@ pub fn stop_monitoring() {
 // HotkeyDef — ホットキー定義
 // ============================================================================
 
+// M8-3 で設定ファイルからのパースに使う設計。テストのみで使うため dead_code を許容する。
+#[allow(dead_code)]
 pub(crate) struct HotkeyDef {
     pub(crate) key: String,
     pub(crate) modifiers: u8,
 }
 
+#[allow(dead_code)]
 impl HotkeyDef {
     pub(crate) fn matches(&self, key: &str, current_modifiers: u8) -> bool {
         self.key == key && self.modifiers == current_modifiers
     }
 }
 
-/// アクティブなホットキー設定
+// M8-3 で設定ファイルからのパースに使う設計。テストのみで使うため dead_code を許容する。
+#[allow(dead_code)]
 pub(crate) struct ActiveHotkeys {
     pub(crate) correct: HotkeyDef,
     pub(crate) summarize: HotkeyDef,
 }
 
+#[allow(dead_code)]
 impl ActiveHotkeys {
     pub(crate) fn from_keys(
         correct_keys: &[String],
@@ -523,7 +528,8 @@ fn current_time_millis() -> u64 {
         .as_millis() as u64
 }
 
-/// ホットキー文字列 ["Alt", "KeyF"] を HotkeyDef にパースする。
+// M8-3 で設定ファイルからのパースに使う設計。テストのみで使うため dead_code を許容する。
+#[allow(dead_code)]
 fn parse_hotkey(keys: &[String]) -> HotkeyDef {
     let mut modifiers = 0;
     let mut key = String::new();

@@ -611,7 +611,7 @@ fn current_time_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hotkey::win::{LAST_ALT_PRESS_TIME, ORCHESTRATOR_COMBO_ACTIVE};
+    use crate::hotkey::win::LAST_ALT_PRESS_TIME;
 
     #[test]
     fn test_hook_is_double_tap_detected() {
