@@ -43,6 +43,10 @@ fn main() {
         audio_verify();
         return;
     }
+    if args.len() > 1 && args[1] == "--hotkeys" {
+        test_hotkeys();
+        return;
+    }
 
     println!("========================================");
     println!("  voiput test-run");
@@ -603,6 +607,7 @@ fn test_audio() {
 use std::sync::Mutex;
 use tokio::sync::mpsc;
 use voiput::AsrBackend;
+use voiput::hotkey::HotkeyAction;
 use voiput::{PseudoAsrStreamer, StreamerConfig};
 
 struct MockStreamerBackend {
@@ -709,6 +714,92 @@ fn test_macos() {
         }
     }
     println!();
+}
+
+// ============================================================================
+// ホットキーテスト
+// ============================================================================
+
+/// `cargo run --bin test-run -- --hotkeys` で実行。
+///
+/// プラットフォームに応じた HotkeyMonitor を起動し、受信したアクションを
+/// 標準出力に表示する。Ctrl+C で終了。
+fn test_hotkeys() {
+    show_section("HOTKEYS");
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        println!("  [SKIP] ホットキーは macOS / Windows のみ対応しています");
+        println!();
+        return;
+    }
+
+    println!(
+        "  → HotkeyMonitor を起動します..."
+    );
+    #[cfg(target_os = "macos")]
+    println!("  → macOS: Option ダブルタップ / Ctrl+Option / Option+H / Option+M");
+    #[cfg(target_os = "windows")]
+    println!("  → Windows: Alt ダブルタップ / Ctrl+Alt を検出します");
+    println!("  → 終了するには Ctrl+C を押してください");
+    println!();
+
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            println!("  ✗ Tokio ランタイム作成失敗: {}", e);
+            println!();
+            return;
+        }
+    };
+
+    let receiver = start_hotkey_monitor();
+
+    rt.block_on(async {
+        run_hotkey_receiver_loop(receiver).await;
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn start_hotkey_monitor() -> mpsc::Receiver<HotkeyAction> {
+    use voiput::hotkey::mac::HotkeyMonitor;
+    HotkeyMonitor::new().start()
+}
+
+#[cfg(target_os = "windows")]
+fn start_hotkey_monitor() -> mpsc::Receiver<HotkeyAction> {
+    use voiput::hotkey::win::HotkeyMonitor;
+    HotkeyMonitor::new().start()
+}
+
+/// ホットキーアクションを受信して表示するループ。
+///
+/// 30秒間イベントがないとタイムアウトメッセージを表示するが、継続して待機する。
+async fn run_hotkey_receiver_loop(mut receiver: mpsc::Receiver<HotkeyAction>) {
+    use tokio::time::{timeout, Duration};
+
+    println!("  ホットキーを待機中...");
+    loop {
+        match timeout(Duration::from_secs(30), receiver.recv()).await {
+            Ok(Some(action)) => {
+                let label = match action {
+                    HotkeyAction::Start => "録音開始 (Start)",
+                    HotkeyAction::BufferFlush => "バッファフラッシュ (BufferFlush)",
+                    HotkeyAction::OrchestratorInput => "オーケストレーター入力 (OrchestratorInput)",
+                    HotkeyAction::Correct => "補正 (Correct)",
+                    HotkeyAction::Summarize => "要約 (Summarize)",
+                };
+                println!("  ▶ ホットキー受信: {}  [{:?}]", label, action);
+            }
+            Ok(None) => {
+                println!("  ⚠ チャネルが閉じられました");
+                break;
+            }
+            Err(_) => {
+                println!("  … 30秒間イベントなし（待機継続中、Ctrl+C で終了）");
+            }
+        }
+    }
 }
 
 fn decode_wav_to_f32(path: &std::path::Path) -> anyhow::Result<Vec<f32>> {

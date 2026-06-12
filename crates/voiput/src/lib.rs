@@ -45,6 +45,9 @@ mod voiput;
 mod backends;
 mod native;
 
+// M8-1: ホットキー監視
+pub mod hotkey;
+
 pub use config::{VoiputConfig, VoiputConfigBuilder};
 pub use error::VoiputError;
 pub use types::*;

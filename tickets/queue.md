@@ -79,3 +79,4 @@
 - [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #71 health_check 完全実装 — SpeechRecognizer 委譲 + Windows 実ヘルスチェック | /Users/kawata/shyme/zasso/tickets/specs/0071-health-check-speechrecognizer-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #72 hotkey/ モジュール — Option/Alt ダブルタップ検出 + 録音状態管理 | /Users/kawata/shyme/zasso/tickets/specs/0072-hotkey-optionalt.md | 2026-06-12 | 2026-06-12 | 2026-06-12
