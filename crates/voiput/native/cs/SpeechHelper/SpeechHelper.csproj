@@ -24,5 +24,7 @@
     <Message Text="Copying Native AOT libraries from $(IlcSdkPath) and framework..." Importance="High" />
     <Copy SourceFiles="@(_SdkLibs)" DestinationFolder="$(PublishDir)..\native" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(_FrameworkLibs)" DestinationFolder="$(PublishDir)..\native" SkipUnchangedFiles="true" />
+    <!-- プロジェクト自身の .lib（import library）も publish ディレクトリ直下にコピーする -->
+    <Copy SourceFiles="$(OutputPath)native\$(TargetName).lib" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

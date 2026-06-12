@@ -408,8 +408,16 @@ namespace Mycute.WindowsBackend
                     if (_session != null)
                     {
                         Console.WriteLine("[Win/SpeechHelper] Stopping session...");
-                        // StopAsync は即座に停止するわけではないため、CancelAsync を使うことも検討できます
-                        await _session.StopAsync();
+                        // Rust 側は音声キャプチャ停止（StopCaptureInternal）を先に呼ぶので、
+                        // セッションが自動完了済みの場合がある。_isCapturing で判断してスキップする。
+                        if (_isCapturing)
+                        {
+                            await _session.StopAsync();
+                        }
+                        else
+                        {
+                            Console.WriteLine("[Win/SpeechHelper] Session already completed (audio stopped first).");
+                        }
                     }
                 }
                 catch (Exception ex)

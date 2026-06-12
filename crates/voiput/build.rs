@@ -271,7 +271,7 @@ fn link_windows(prebuilt: &PathBuf) {
         }
     }
 
-    // C# ビルドが失敗／利用不可 → スタブ .lib を生成する（M6-1 で本物に差し替え）
+    // C# ビルドが失敗／利用不可 → スタブ .lib を生成する（Native AOT ビルド後に置き換わる）
     create_stub_windows_lib_warning(&win_dir, &lib_path);
     // DLL がないので OUT_DIR へのコピーは行わない（スタブ動作時はランタイムロード不可）
     emit_windows_system_libs();
@@ -280,6 +280,7 @@ fn link_windows(prebuilt: &PathBuf) {
 /// Windows のネイティブライブラリ（SpeechHelper.dll + .lib）を C# Native AOT でビルドする。
 /// build.ps1 の配置パス: native/cs/build.ps1
 /// 成功時: prebuilt/windows/SpeechHelper.dll + .lib が生成される。
+/// 本物の .lib は 5,000 bytes 以上（スタブ .lib は約 2,600 bytes）。
 #[cfg(target_os = "windows")]
 fn try_build_windows_native(win_dir: &std::path::Path) -> bool {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -304,15 +305,26 @@ fn try_build_windows_native(win_dir: &std::path::Path) -> bool {
             // ビルド成功確認
             let dll = win_dir.join("SpeechHelper.dll");
             let lib = win_dir.join("SpeechHelper.lib");
-            if dll.exists() && lib.exists() {
-                println!("cargo:warning=Native AOT build succeeded: {} ({} bytes), {} ({} bytes)",
-                    dll.display(), std::fs::metadata(&dll).map(|m| m.len()).unwrap_or(0),
-                    lib.display(), std::fs::metadata(&lib).map(|m| m.len()).unwrap_or(0));
-                true
-            } else {
-                println!("cargo:warning=Native AOT build reported success, but output files missing.");
-                false
+            if dll.exists() {
+                // Native AOT の .lib は win-x64/native/ サブディレクトリに出力される場合がある。
+                // build.ps1 がコピーしていない場合のフォールバック。
+                if !lib.exists() {
+                    let native_sub = win_dir.join("win-x64").join("native").join("SpeechHelper.lib");
+                    if native_sub.exists() {
+                        let _ = std::fs::copy(&native_sub, &lib);
+                        println!("cargo:warning=SpeechHelper.lib copied from subdirectory: {}",
+                            native_sub.display());
+                    }
+                }
+                if lib.exists() {
+                    println!("cargo:warning=Native AOT build succeeded: {} ({} bytes), {} ({} bytes)",
+                        dll.display(), std::fs::metadata(&dll).map(|m| m.len()).unwrap_or(0),
+                        lib.display(), std::fs::metadata(&lib).map(|m| m.len()).unwrap_or(0));
+                    return true;
+                }
             }
+            println!("cargo:warning=Native AOT build reported success, but output files missing.");
+            false
         }
         Ok(s) => {
             println!("cargo:warning=Native AOT build failed (exit: {:?}). Using stub library.", s.code());
@@ -334,7 +346,7 @@ fn create_stub_windows_lib_warning(win_dir: &std::path::Path, lib_path: &std::pa
     std::fs::write(
         &stub_c,
         r#"// SpeechHelper FFI stubs — リンク解決のための最小実装。
-// M6-1 で本物の SpeechHelper.lib に差し替えること。
+// 実ライブラリが prebuilt/windows/ に存在しない場合のフォールバック。
 // ヘッダー非依存（MSVC 環境変数未設定でもコンパイル可能）
 
 int __stdcall speech_helper_init(double speech_timeout_sec) { (void)speech_timeout_sec; return -1; }
@@ -383,7 +395,7 @@ let cl_exe = find_msvc_tool("cl.exe");
                             println!("cargo:rustc-link-search=native={}", win_dir.display());
                             println!(
                                 "cargo:warning=Using stub speech_helper.lib ({}). \
-                                      Auto-built library. Replace with real library via M6-1 build.",
+                                      Auto-built library. Run native/cs/build.ps1 for real library.",
                                 lib_path.display()
                             );
                             return;

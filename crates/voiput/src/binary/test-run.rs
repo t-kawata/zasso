@@ -679,7 +679,7 @@ fn test_windows() {
         Err(msg) => {
             println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
             println!("  [INFO] 自動ビルド用のスクリプトは native/cs/build.ps1 です。");
-            println!("  [INFO] M6-1.6 でランタイムライブラリが解決されると有効化されます。");
+            println!("  [INFO] 実ライブラリは prebuilt/windows/ に自動ビルド済みです。");
         }
     }
     println!();
