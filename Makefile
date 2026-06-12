@@ -210,7 +210,7 @@ commit-branch:
 		git commit -m "$$PREFIX"; \
 	fi
 
-push-branch:
+push-branch: commit-branch
 	@BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
 	if [ "$$BRANCH" = "master" ]; then \
 		echo ""; \
