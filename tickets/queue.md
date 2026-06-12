@@ -78,3 +78,7 @@
 - [x] #68 M4-2: ユーティリティ（PjOwnedStr の safe ラッパー骨格 / SecretString 検証） | /Users/shyme/shyme/zasso/tickets/specs/0068-m4-2-utility-pj-owned-str.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #71 M5-3: PairAligner — IN/OUT ペア整列アルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0071-m5-3-pair-aligner.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #72 M6-1: SipEventPayload enum 全バリアント + 関連 Info 構造体 | /Users/shyme/shyme/zasso/tickets/specs/0072-m6-1-sip-event-payload.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #73 M6-2: SipEvent / EventMeta / EventTimestamp 定義 | /Users/shyme/shyme/zasso/tickets/specs/0073-m6-2-sip-event-meta.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #74 M6-3: RawSipMessage / SipMessageDirection 定義 | /Users/shyme/shyme/zasso/tickets/specs/0074-m6-3-raw-sip-message.md | 2026-06-12 | 2026-06-12 | 2026-06-12

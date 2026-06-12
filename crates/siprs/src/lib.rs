@@ -10,9 +10,9 @@
 pub mod audio;
 pub mod config;
 pub mod error;
+pub mod event;
 pub mod transport;
 pub mod util;
 
 // Phase 2 以降で順次追加:
 // pub mod client; // M12: SipClient
-// pub mod event;  // M6: イベント型

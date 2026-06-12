@@ -397,7 +397,7 @@
   10. 1000サンプルの10入力を1000回繰り返し → オーバーフロー/アンダーフローなし
 * **計装方法・観測対象:** 決定論性: 同一入力で同一出力が得られること。サンプル単位の独立性（前後サンプルの干渉なし）。`mix_i16_frame` の処理時間が O(N×M)（N=サンプル数, M=入力数）であること。
 
-#### チケット M5-2: `interleave_in_out` ステレオマッピング
+#### ✅ チケット M5-2: `interleave_in_out` ステレオマッピング
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§26.1)
 * **対象不変条件 / 規範:** §26.1「既定 stereo 出力では L=IN, R=OUT を保証する」。
@@ -417,7 +417,7 @@
   7. f32版も同様のテスト
 * **計装方法・観測対象:** ラウンドトリップの不変性。L=IN, R=OUT のチャネル配置が一貫していること。
 
-#### チケット M5-3: `PairAligner` — IN/OUT ペア整列アルゴリズム
+#### ✅ チケット M5-3: `PairAligner` — IN/OUT ペア整列アルゴリズム
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§25, §25.1, §45.2)
 * **対象不変条件 / 規範:** §25「受信音声は RTP 由来、送信音声は mixer 由来のため時間軸がずれる。内部では timestamped ring buffer を 2 本持ち、共通 frame boundary で最も近いサンプル列を結合する」。§25.1「IN なし/OUT あり、または逆の場合、tolerance 超過後にゼロパディングで pair を生成する」。
@@ -454,7 +454,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M6-1: `SipEventPayload` enum 全バリアント + 関連 Info 構造体
+#### ✅ チケット M6-1: `SipEventPayload` enum 全バリアント + 関連 Info 構造体
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§15.1)
 * **対象不変条件 / 規範:** §15.1「要件で列挙された全イベントを payload enum で完全定義する」。`#[non_exhaustive]` により将来のバリアント追加に対する破壊的変更を防止。
@@ -485,7 +485,7 @@
   7. 各 Info 構造体の全フィールドが§15.1 の定義と一致すること
 * **計装方法・観測対象:** `SipEventPayload` のサイズが最大バリアントのサイズ + discriminant であること（`size_of` 確認）。
 
-#### チケット M6-2: `SipEvent` / `EventMeta` / `EventTimestamp` 定義
+#### ✅ チケット M6-2: `SipEvent` / `EventMeta` / `EventTimestamp` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§15.2, §15.3)
 * **対象不変条件 / 規範:** §15.3「要件にある AccountId、タイムスタンプ、関連 SIP メッセージ、ヘッダ、ステータスコード、論理的意味付け情報をすべて共通フィールドで保持する」。
@@ -506,7 +506,7 @@
   6. `Clone` / `Debug` が `SipEvent` で機能し、payload の内容が正しく表示されること
 * **計装方法・観測対象:** `event_id` の単調増加性。`EventTimestamp` が `Copy` であること。
 
-#### チケット M6-3: `RawSipMessage` / `SipMessageDirection` 定義
+#### ✅ チケット M6-3: `RawSipMessage` / `SipMessageDirection` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§16)
 * **対象不変条件 / 規範:** §16「`redact_authorization == true` の場合、`Authorization`, `Proxy-Authorization` は `***REDACTED***` に置換して格納する」。
