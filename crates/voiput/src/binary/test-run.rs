@@ -24,6 +24,12 @@ use voiput::{
 
 struct MockPostCorrectBackend;
 
+/// モデルファイルの絶対パスを返す（CARGO_MANIFEST_DIR からの相対パスを解決）
+fn model_path(name: &str) -> String {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    format!("{}/models/{}", manifest_dir, name)
+}
+
 #[async_trait::async_trait]
 impl PostCorrectionBackend for MockPostCorrectBackend {
     async fn post_correct(&self, text: &str) -> anyhow::Result<String> {
@@ -91,8 +97,8 @@ fn test_config() {
         .engine(SttEngine::Os)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -117,8 +123,8 @@ fn test_config() {
             model: "gpt-4o-mini-transcribe".into(),
         })
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -136,8 +142,8 @@ fn test_config() {
     let result = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -153,8 +159,8 @@ fn test_config() {
         .engine(SttEngine::OpenAI)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -699,7 +705,7 @@ fn test_macos() {
         Err(msg) => {
             println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
             println!("  [INFO] 実ライブラリは prebuilt/macos/ に自動ビルド済みです。");
-            println!("  [INFO] M6-1.5 でランタイムライブラリが解決されると有効化されます。");
+            println!("  [INFO] libs/macos/ にランタイム dylib が不足しているためスタブを使用しています。");
         }
     }
     println!();
@@ -817,8 +823,8 @@ fn test_voiput() {
         .engine(SttEngine::Os)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -841,8 +847,8 @@ fn test_voiput() {
             model: "gpt-4o-mini-transcribe".into(),
         })
         .vad_model_paths(VadModelPaths {
-            silero: "/tmp/silero.onnx".into(),
-            ten: "/tmp/ten.onnx".into(),
+            silero: model_path("silero_vad.onnx").into(),
+            ten: model_path("ten_vad.onnx").into(),
             gtcrn: String::new(),
         })
         .build();
@@ -861,63 +867,72 @@ fn test_voiput() {
             .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .vad_model_paths(VadModelPaths {
-                silero: "/tmp/silero.onnx".into(),
-                ten: "/tmp/ten.onnx".into(),
+                silero: model_path("silero_vad.onnx").into(),
+                ten: model_path("ten_vad.onnx").into(),
                 gtcrn: String::new(),
             })
             .build()
             .unwrap(),
     )
     .unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
 
-    match voiput.start() {
+    // start() の呼び出し（async → sync ブリッジ）
+    match rt.block_on(voiput.start()) {
         Ok(_) => println!("    ✓ start() 成功"),
         Err(e) => println!("    ✗ start() 失敗: {}", e),
     }
-    match voiput.stop() {
+    // stop() の呼び出し
+    match rt.block_on(voiput.stop()) {
         Ok(_) => println!("    ✓ stop() 成功"),
         Err(e) => println!("    ✗ stop() 失敗: {}", e),
     }
     println!("  [NOTE] start()/stop() は API 呼び出しの正常系確認です。");
     println!("         実際の音声認識には VAD モデルファイルとネイティブバックエンドが必要です。");
 
-    // 4. flush 呼び出し
+    // 4. request_permissions 呼び出し
+    println!("  [TEST] request_permissions()");
+    match rt.block_on(voiput.request_permissions()) {
+        Ok(authorized) => println!("    ✓ request_permissions() → authorized={}", authorized),
+        Err(e) => println!("    ✗ request_permissions() 失敗: {}", e),
+    }
+
+    // 5. flush 呼び出し
     println!("  [TEST] flush()");
-    let rt = tokio::runtime::Runtime::new().unwrap();
     let flush_result = rt.block_on(async { voiput.flush().await });
     match flush_result {
         Ok(text) => println!("    ✓ flush() 成功: \"{}\"", text),
         Err(e) => println!("    ✗ flush() 失敗: {}", e),
     }
 
-    // 5. エンジン切り替え
+    // 6. エンジン切り替え
     println!("  [TEST] set_engine()");
-    match voiput.set_engine(SttEngine::OpenAI) {
+    match rt.block_on(voiput.set_engine(SttEngine::OpenAI)) {
         Ok(_) => println!("    ✓ set_engine(OpenAI) → engine={:?}", voiput.engine()),
         Err(e) => println!("    ✗ set_engine(OpenAI) 失敗: {}", e),
     }
-    match voiput.set_engine(SttEngine::Os) {
+    match rt.block_on(voiput.set_engine(SttEngine::Os)) {
         Ok(_) => println!("    ✓ set_engine(Os) → engine={:?}", voiput.engine()),
         Err(e) => println!("    ✗ set_engine(Os) 失敗: {}", e),
     }
 
-    // 6. ロケール変更
+    // 7. ロケール変更
     println!("  [TEST] set_locale()");
     voiput.set_locale(LocaleCode::En);
     voiput.set_locale(LocaleCode::Ja);
     println!("    ✓ set_locale 成功");
 
-    // 7. 置換辞書更新
+    // 8. 置換辞書更新
     println!("  [TEST] update_replaces()");
     let mut replaces = IndexMap::new();
     replaces.insert("world".to_string(), vec!["hello".to_string()]);
     voiput.update_replaces(replaces);
     println!("    ✓ update_replaces 成功");
 
-    // 8. ヘルスチェック
+    // 9. ヘルスチェック
     println!("  [TEST] health_check()");
-    println!("    health_check() = {} (M6 まで常に 0: スタブ)", voiput.health_check());
-    println!("  [NOTE] 現在は常に 0 を返すスタブ実装です。M6-1.5/1.6 で本当のヘルスチェックに差し替わります。");
+    println!("    health_check() = {} (スタブ: M7-3 で実装予定)", voiput.health_check());
+    println!("  [NOTE] 現在は常に 0 を返すスタブ実装です。M7-3 で本当のヘルスチェックに差し替わります。");
 
     println!();
 }

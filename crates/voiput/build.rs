@@ -77,7 +77,7 @@ fn main() {
     );
 
     // ============================================================
-    // ランタイムライブラリ収集（リンク前に実行し、can_use_real_library が参照できるようにする）
+    // ランタイムライブラリ収集（リンク前に実行し、can_link_real_library が参照できるようにする）
     // ============================================================
     #[cfg(target_os = "macos")]
     collect_runtime_libs_macos(&manifest_dir);
@@ -158,69 +158,51 @@ fn link_macos(prebuilt: &PathBuf) {
     std::fs::create_dir_all(&mac_dir).expect("Failed to create prebuilt/macos/ directory");
     let lib_path = mac_dir.join("libSpeechHelper.a");
 
-    // 実ライブラリを使用可能か判定する。条件は以下:
-    //   1. 実ライブラリ（100KB以上）が prebuilt/macos/ に存在すること
-    //   2. libs/macos/ に全必須 dylib（libsherpa-onnx-c-api.dylib, libonnxruntime.dylib）が揃っていること
-    //   3. Swift Concurrency ランタイム（libswift_Concurrency.dylib）が利用可能であること
-    //      （macOS 16+ では dyld shared cache に含まれる。macOS 15 以前では不在のため
-    //        スタブを使用する。M6-1.5 のランタイム同梱では解決不可。）
-    fn can_use_real_library(libs_dir: &std::path::Path) -> bool {
-        let required = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.dylib"];
-        let dylibs_ok = required.iter().all(|name| libs_dir.join(name).exists());
-        let swift_concurrency_ok =
-            std::path::Path::new("/usr/lib/swift/libswift_Concurrency.dylib").exists();
-        dylibs_ok && swift_concurrency_ok
-    }
-
     let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
-    let libs_dir = manifest_dir.join("libs").join("macos");
 
-    // 本物のライブラリ（100KB以上想定）が存在する場合
-    if lib_path.exists() && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000 {
-        if can_use_real_library(&libs_dir) {
-            // 本物 + ランタイム dylib 完備 → 実ライブラリを使用
-            println!("cargo:rustc-link-lib=static=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", mac_dir.display());
-            println!("cargo:note=Using real libSpeechHelper.a.");
-            return;
+    // ================================================================
+    // 実ライブラリの選択: 優先順位 (1) 既存実ライブラリ (2) 自動ビルド (3) スタブ
+    // ================================================================
+    let use_real_lib = lib_path.exists()
+        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000;
+
+    if !use_real_lib {
+        // 自動ビルドを試行
+        let build_script = manifest_dir.join("native/swift/build.sh");
+        if build_script.exists() {
+            println!("cargo:note=Auto-building libSpeechHelper.a from native/swift/...");
+            let status = Command::new("bash")
+                .arg(&build_script)
+                .status()
+                .expect("Failed to execute native/swift/build.sh");
+            if !status.success() {
+                println!("cargo:note=Auto-build failed. Using stub.");
+            }
         }
-        // 本物は存在するが Swift Concurrency 不足→ 再ビルドせずスタブへ
-        println!("cargo:note=libSpeechHelper.a exists but Swift Concurrency not available (macOS 15). Using stub.");
+    }
+
+    let is_real = lib_path.exists()
+        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000;
+
+    if is_real {
+        println!("cargo:rustc-link-lib=static=SpeechHelper");
+        println!("cargo:rustc-link-search=native={}", mac_dir.display());
+        println!("cargo:note=Using real libSpeechHelper.a.");
+    } else {
+        // スタブ C ソースを生成してリンク（リンク解決のみ、init は -1 を返す）
+        println!("cargo:note=libSpeechHelper.a not found. Using stub (init returns -1).");
         generate_stub_macos(&mac_dir, &lib_path);
-        return;
     }
 
-    // 本物のライブラリが存在しない場合、native/swift/build.sh による自動ビルドを試行する
-    let build_script = manifest_dir.join("native/swift/build.sh");
-    if build_script.exists() {
-        println!("cargo:note=Auto-building libSpeechHelper.a from native/swift/...");
-        let status = Command::new("bash")
-            .arg(&build_script)
-            .status()
-            .expect("Failed to execute native/swift/build.sh");
-        if status.success() && lib_path.exists()
-            && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
-        {
-            if can_use_real_library(&libs_dir) {
-                println!("cargo:rustc-link-lib=static=SpeechHelper");
-                println!("cargo:rustc-link-search=native={}", mac_dir.display());
-                println!("cargo:note=Auto-built libSpeechHelper.a successfully.");
-                return;
-            }
-            println!("cargo:note=Auto-built but Swift Concurrency not available (macOS 15). Using stub.");
-        } else {
-            println!("cargo:note=Auto-build failed. Using stub.");
-        }
-    }
-
-    // スタブ C ソースを生成してリンク（最終手段、リンク解決のみ）
-    generate_stub_macos(&mac_dir, &lib_path);
-
-    // Swift ランタイムライブラリのパスを swiftc から取得してリンク検索パスに追加する。
-    // 出力 JSON の paths.runtimeLibraryPaths 配列をパースする。
+    // ================================================================
+    // Swift ランタイムパスの設定（実ライブラリ・スタブ共通）
+    // 実ライブラリは Swift ランタイム（libswift_Concurrency.dylib 等）が実行時に必要。
+    // macOS 16+ では dyld 共有キャッシュ内に存在するため /usr/lib/swift/ の
+    // ファイル有無にかかわらず利用可能。
+    // ================================================================
     if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
         if let Ok(stdout) = String::from_utf8(output.stdout) {
-            // "paths" オブジェクトを探す
+            // 出力 JSON の paths.runtimeLibraryPaths 配列をパースする
             if let Some(paths_obj) = stdout.find("\"paths\"") {
                 let after_paths = &stdout[paths_obj..];
                 if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
@@ -232,32 +214,9 @@ fn link_macos(prebuilt: &PathBuf) {
                             for path in paths_str.split(',') {
                                 let path = path.trim().trim_matches('"').trim();
                                 if !path.is_empty() {
+                                    // リンク検索パス
                                     println!("cargo:rustc-link-search=native={}", path);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Swift ランタイムパスを rpath に追加する。
-    // 実ライブラリがリンクされると Swift ランタイム（libswift_Concurrency.dylib 等）が
-    // 実行時に必要になる。swiftc が報告する runtimeLibraryPaths を rpath に追加する。
-    if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
-        if let Ok(stdout) = String::from_utf8(output.stdout) {
-            if let Some(paths_obj) = stdout.find("\"paths\"") {
-                let after_paths = &stdout[paths_obj..];
-                if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
-                    let from_rlp = &after_paths[rlp_start..];
-                    if let Some(list_start) = from_rlp.find('[') {
-                        let from_list = &from_rlp[list_start..];
-                        if let Some(list_end) = from_list.find(']') {
-                            let paths_str = &from_list[1..list_end];
-                            for path in paths_str.split(',') {
-                                let path = path.trim().trim_matches('"').trim();
-                                if !path.is_empty() {
+                                    // 実行時サーチパス（rpath）
                                     println!("cargo:rustc-link-arg=-Wl,-rpath,{}", path);
                                 }
                             }
@@ -268,10 +227,12 @@ fn link_macos(prebuilt: &PathBuf) {
         }
     }
 
+    // 追加 rpath（フォールバック）
     for rpath in &["/usr/lib/swift", "@executable_path/", "@loader_path/"] {
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", rpath);
     }
 
+    // macOS フレームワーク（実ライブラリ・スタブ共通で必要）
     for fw in &["Foundation", "AVFoundation", "Speech", "CoreFoundation"] {
         println!("cargo:rustc-link-lib=framework={}", fw);
     }

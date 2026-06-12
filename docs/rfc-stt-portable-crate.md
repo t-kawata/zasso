@@ -21,6 +21,15 @@
 10. [テスト戦略](#10-テスト戦略)
 11. [移行ガイド（MYCUTE 側）](#11-移行ガイドmycute-側)
 12. [ライセンスと配布](#12-ライセンスと配布)
+13. [Phase 6: RFC 準拠修正](#13-phase-6-rfc-準拠修正実装との矛盾未実装の解消)
+14. [Phase 7: ホットキー音声入力の完全 crate 内蔵](#14-phase-7-ホットキー音声入力の完全-crate-内蔵)
+    - [付録 A: 利用者アプリの OS 権限設定](#付録-a-利用者アプリの-os-権限設定)
+    - [付録 B: 非対応OSでの動作](#付録-b-非対応osでの動作)
+    - [付録 C: 実装順序](#付録-c-実装順序)
+    - [付録 D: SttSettings の全フィールドとデフォルト値](#付録-d-sttsettings-の全フィールドとデフォルト値mycute-からのリファレンス)
+    - [付録 E: Swift C FFI インターフェース仕様](#付録-e-swift-speechhelperswift-の-c-ffi-インターフェース仕様)
+    - [付録 F: C# C FFI インターフェース仕様](#付録-f-c-speechhelpercs-の-c-ffi-インターフェース仕様)
+    - [付録 G: 旧 RFC との乖離（監査結果）](#付録-g-旧-rfc-との乖離phase-5-完了時点の監査結果)
 
 ---
 
@@ -2383,3 +2392,337 @@ void speech_helper_tick();
 void speech_helper_disable_ime();
 void speech_helper_restore_ime();
 ```
+
+---
+
+## 13. Phase 6: RFC 準拠修正（実装との矛盾・未実装の解消）
+
+**背景**: 本 RFC と実装の比較検査により、🔴矛盾4件・🟡未実装3件の計7件の乖離が発見された。この Phase で全件を解消する。
+
+### 13.1 M7-1: Voiput API — async/await 完全対応 + `request_permissions()` 実装
+
+**修正する矛盾／未実装**:
+1. RFC §4.2 では `start()` / `stop()` が `async fn` だが、実装は同期関数 → `async fn` に修正
+2. RFC §4.2 で定義されている `request_permissions()` が未実装 → 新規追加
+
+**修正後の `Voiput` シグネチャ**:
+
+```rust
+impl Voiput {
+    pub async fn start(&mut self) -> Result<(), VoiputError>;
+    pub async fn stop(&mut self) -> Result<(), VoiputError>;
+    pub async fn request_permissions(&self) -> Result<bool, VoiputError>;
+
+    // request_permissions() の実装:
+    //   macOS: unsafe { native::mac_ffi::speech_helper_request_authorization() } == 0
+    //   Windows: health_check() & 4 != 0 → false
+    //   非対応OS: Ok(false)
+}
+```
+
+**変更ファイル**: `src/voiput.rs`, `src/binary/test-run.rs`, `tests/integration_test.rs`
+
+### 13.2 M7-2: 内部設計整合 — `SpeechRecognizer` 引数整理 + エラー型修正 + 非対応OSバリデーション
+
+**修正する矛盾／未実装**:
+
+1. `SpeechRecognizer::new()` の引数が RFC §7.4 の `fn new(tx, &VoiputConfig, replaces_map)` (3引数) と異なり、6個の個別引数に分解 → `&VoiputConfig` ベースに統一
+
+   ```rust
+   // 修正後
+   pub(crate) fn new(
+       tx: mpsc::Sender<SttEvent>,
+       config: &VoiputConfig,
+       replaces_map: Arc<RwLock<IndexMap<String, Vec<String>>>>,
+   ) -> Result<Self, VoiputError>;
+   ```
+
+2. `VoiputError::UnsupportedEngine` が RFC §4.4 の `{ engine: SttEngine, reason: String }` と異なり `(String)` → 名前付きフィールドに修正
+
+   ```rust
+   // 修正後
+   #[error("エンジン {engine:?} は現在のプラットフォームで利用できません: {reason}")]
+   UnsupportedEngine { engine: SttEngine, reason: String },
+   ```
+
+3. `validate_config()` に非対応OSチェック追加（RFC 付録B）:
+
+   ```rust
+   pub fn validate_config(engine: &SttEngine) -> Result<(), VoiputError> {
+       #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+       if *engine == SttEngine::Os {
+           return Err(VoiputError::UnsupportedEngine {
+               engine: *engine,
+               reason: "OS native engine requires macOS or Windows".into(),
+           });
+       }
+       Ok(())
+   }
+   ```
+
+**変更ファイル**: `src/voiput.rs`, `src/recognizer.rs`, `src/error.rs`
+
+### 13.3 M7-3: `health_check()` 完全実装 + Cargo.toml 配布設定
+
+**修正する矛盾／未実装**:
+
+1. `Voiput::health_check()` が `return 0` のハードコード → `SpeechRecognizer::health_check()` に委譲。Windows では `native::win_ffi::health_check_result()` 経由で WinRT SpeechRecognizer の実際の状態をビットマスク (bit0=モデル未DL, bit1=プライバシーOFF, bit2=マイク権限なし) で返す
+
+2. RFC §6.3 の `Cargo.toml` の `[package] include = [...]` 設定が未実装 → 追加
+
+   ```toml
+   include = [
+       "src/**/*.rs",
+       "prebuilt/**/*.a",
+       "prebuilt/**/*.lib",
+       "prebuilt/**/*.dll",
+       "native/**/*.swift",
+       "native/**/*.cs",
+       "native/**/*.csproj",
+       "native/**/*.sh",
+       "native/**/*.ps1",
+       "src/wav/*.wav",
+       "README.md",
+   ]
+   ```
+
+**変更ファイル**: `src/voiput.rs`, `src/recognizer.rs`, `Cargo.toml`
+
+---
+
+## 14. Phase 7: ホットキー音声入力の完全 crate 内蔵
+
+**背景**: MYCUTE で完全動作している Option/Alt ダブルタップによる音声入力バッファ＆フラッシュ機構を voiput crate に内蔵する。`test-run.rs` は crate の「呼び出し」と「イベントのリッスン」だけを行う薄い層に留める。
+
+### 14.1 アーキテクチャ概要
+
+```
+┌─────────────────────────────────────────────────────┐
+│  test-run.rs（薄い層）                               │
+│  Voiput::new() → enable_hotkeys() → next_event()    │
+├─────────────────────────────────────────────────────┤
+│  Voiput（crate 内蔵）                               │
+│  ├─ HotkeyMonitor 管理                              │
+│  ├─ 状態機械 (idle/recording/awaiting_flush)        │
+│  ├─ BufferFlush: テキスト蓄積→クリップボードペースト    │
+│  ├─ Orchestrator: テキスト蓄積→SttEvent::Flushed 送出│
+│  └─ PostCorrection 対応 4段階 flush_tx 発火           │
+├─────────────────────────────────────────────────────┤
+│  hotkey/ モジュール（CGEventTap / rdev）             │
+│  input/ モジュール（clipboard / keyboard injection）  │
+└─────────────────────────────────────────────────────┘
+```
+
+### 14.2 2つの音声入力モード
+
+| 動作 | トリガー | テキスト出力 | 用途 |
+|------|---------|-------------|------|
+| **BufferFlush** | Option/Alt ダブルタップ | クリップボード経由でカーソル位置にペースト | 任意のアプリへのテキスト入力 |
+| **Orchestrator** | Ctrl+Option/Ctrl+Alt | `SttEvent::Flushed(text)` としてイベント送出 | プログラムによるテキスト処理 |
+
+### 14.3 PostCorrection 対応 flush（flush_tx 4段階発火）
+
+MYCUTE `spawn_stt_event_bridge` の実装を移植。`request_flush()` で oneshot チャネルを設定後、以下の4タイミングで `build_flush_text()` 結果を送信する:
+
+```
+1. SttEvent::Stopped         → テキストあり → 送信。空なら flush_tx 温存
+2. PostCorrectionFinished    → is_post_correcting 解除 → flush_tx 送信
+3. PartialResult/FinalResult → 温存された flush_tx に対する後続テキスト到着時
+4. SttCompleted              → 最終手段としての flush_tx 送信
+```
+
+### 14.4 M8-1: `hotkey/` モジュール
+
+**移植元**: `~/shyme/mycute/src/hotkey_mac.rs` (405行), `hotkey_win.rs` (527行), `hotkey_win_hook.rs` (511行)
+
+**新規ファイル構成**:
+
+```
+src/hotkey/
+├── mod.rs          — HotkeyAction enum, HotkeyMonitor 構造体, enable()/disable()/set_recording_active()
+├── mac.rs          — CGEventTap (FLAGS_CHANGED + KEY_DOWN), ダブルタップ状態機械
+├── win.rs          — rdev + GetAsyncKeyState デュアルパス, KeyRelease 遅延発火
+└── win_hook.rs     — SetWindowsHookExW(WH_KEYBOARD_LL) 低レベルフック（Ctrl+Alt 用）
+```
+
+**キー設計**:
+
+- `HotkeyAction` enum: `Start`, `BufferFlush`, `OrchestratorInput`, `Correct`, `Summarize`
+- ダブルタップ判定: `HOTKEY_DOUBLE_TAP_MIN_MS = 10`, `HOTKEY_DOUBLE_TAP_MAX_MS = 500`
+- macOS: `FLAGS_CHANGED` ハンドラで Option 押下を検出。ダブルタップ成立またはCtrl+Optionコンボ時に `HOTKEY_SENDER` 経由でアクション送出。イベント消費は `return ptr::null_mut()`
+- Windows: rdev の `KeyPress(Alt)` で検出。`PENDING_ALT_START`/`PENDING_ALT_FLUSH` フラグを立て、`KeyRelease(Alt)` でアクション送出（Alt 押下中のキーコンポジション防止）
+- 自己生成イベントのフィルタリング: macOS では `CG_EVENT_SOURCE_USER_DATA` フィールド (ID 42, value 0x4D594355) で判定
+
+### 14.5 M8-2: `input/` モジュール
+
+**移植元**: `~/shyme/mycute/src/input/clipboard.rs` (145行), `keyboard_mac.rs` (325行), `keyboard_win.rs` (404行)
+
+**新規ファイル構成**:
+
+```
+src/input/
+├── mod.rs            — プラットフォーム分岐、公開API
+├── clipboard.rs      — arboard ラッパー、save_paste_and_restore(), get_selected_text(), replace_selected_text()
+├── keyboard_mac.rs   — #[cfg(macos)] CGEvent キーボード注入
+└── keyboard_win.rs   — #[cfg(windows)] SendInput キーボード注入
+```
+
+**keyboard_mac / keyboard_win 共通API**:
+
+| 関数 | 動作 |
+|------|------|
+| `KeyboardInjector::send_cmd_v()` | Cmd+V / Ctrl+V キーイベントをポスト |
+| `KeyboardInjector::send_cmd_c()` | Cmd+C / Ctrl+C キーイベントをポスト |
+| `KeyboardInjector::input_diff(old, new)` | common_prefix 計算 → Backspace × (old - prefix) → 新規 Unicode 文字タイピング |
+| `KeyboardInjector::type_text(text)` | テキストを1文字ずつ注入 |
+| `KeyboardInjector::send_backspaces(count)` | Backspace × count キーイベント注入 |
+| `KeyboardInjector::is_authorized()` | Accessibility 権限チェック（macOS） |
+
+**`save_paste_and_restore()` フロー**:
+
+```
+1. CLIPBOARD_LOCK 取得
+2. 現在のクリップボードを保存
+3. クリップボードに text を設定
+4. KeyboardInjector::send_cmd_v()
+5. PASTE_DELAY_MS (macOS 50ms / Windows 200ms) 待機
+6. クリップボードの内容を確認:
+   - current == text → 保存した元の内容を復元（正常系）
+   - current ≠ saved かつ current ≠ text → 外部変更、復元せず（安全策）
+7. CLIPBOARD_LOCK 解放
+```
+
+### 14.6 M8-3: Voiput 拡張（全責務隠蔽）
+
+**移植元**:
+- `~/shyme/mycute/src/mycute_manager.rs:59-106` — `request_flush()`, `build_flush_text()`, `start_recording()`
+- `~/shyme/mycute/src/mode/cl/main_of_cl.rs:605-1001` — `spawn_stt_event_bridge`（flush_tx 4段階発火）
+- `~/shyme/mycute/src/tauri_cmd/system.rs:207-422` — HotkeyAction ハンドラ
+
+**Voiput に追加する新規メソッド**:
+
+```rust
+impl Voiput {
+    // === ホットキー制御 ===
+    pub async fn enable_hotkeys(&mut self) -> Result<(), VoiputError>;
+    pub fn disable_hotkeys(&mut self);
+
+    // === テキスト操作 ===
+    pub fn paste_at_cursor(&self, text: &str) -> bool;
+    pub fn build_flush_text(&self) -> String;        // buffer + current_text（重複除去）
+    pub fn request_flush(&mut self) -> oneshot::Receiver<String>;
+
+    // === モード設定 ===
+    pub fn set_mode(&mut self, mode: InputMode);     // Buffered / RealTime
+}
+```
+
+**Voiput に追加する新規フィールド**:
+- `mode: InputMode` — Buffered（カーソルに出さず蓄積）/ RealTime（input_diff で逐次注入）
+- `buffer: String` — 確定テキストの蓄積（MYCUTE の `MycuteManager.buffer` 相当）
+- `current_text: String` — 最新の認識テキスト（MYCUTE の `MycuteManager.current_text` 相当）
+- `hotkey_monitor: Option<HotkeyMonitor>` — ホットキー監視インスタンス
+- `flush_tx: Option<oneshot::Sender<String>>` — oneshot チャネル送信側
+- `is_post_correcting: bool` — 事後補正中フラグ
+
+**`enable_hotkeys()` の内部動作**:
+
+```
+1. HotkeyMonitor::start() を呼び出し
+2. tokio タスクを起動し、ホットキーアクションをループで受信:
+   HotkeyAction::Start（idle時）:
+     → set_mode(Buffered)
+     → start().await
+     → SttEvent::Ready で play_ready_sound()
+   HotkeyAction::BufferFlush（recording時）:
+     → request_flush() で oneshot 受信
+     → paste_at_cursor(&flush_text)
+     → play_commit_sound()
+     → stop().await
+     → 状態を idle に
+   HotkeyAction::OrchestratorInput:
+     → モード切替（Buffered ↔ Orchestrator）
+     → Orchestrator フラッシュ時は SttEvent::Flushed(text) を送出
+```
+
+### 14.7 M8-4: test-run.rs 再構成
+
+**CLI インターフェース**:
+
+```bash
+cargo run --bin test-run -- [OPTIONS]
+
+OPTIONS:
+  --engine <ENGINE>    音声認識エンジン [default: os] [possible values: os, openai]
+  --openai-key <KEY>   OpenAI API キー（--engine openai 時に必須）
+  --base-url <URL>     OpenAI API ベース URL [default: https://api.openai.com/v1]
+  --locale <LOCALE>    言語ロケール [default: ja] [possible values: ja, en]
+```
+
+**main() の流れ**:
+
+```
+1. CLI引数解析
+2. 全テスト実行（失敗時 exit(1)）
+3. Voiput::new(config) 構築
+4. voiput.enable_hotkeys()
+5. イベントループ: while let Some(event) = voiput.next_event().await:
+     Ready → "🎤 録音準備完了"
+     Started → "🔴 録音中..."
+     PartialResult(t, _) → "\r📝 {t}"（リアルタイム表示）
+     FinalResult(t, _) → "\r✅ {t}"
+     Flushed(t) → "\n📋 Flushed: {t}"（Orchestratorモード）
+     Stopped → "⏹ 録音停止"
+     Error(e) → "❌ {e}"
+```
+
+### 14.8 依存関係と実装順序
+
+```
+M8-1 (hotkey/) ──┐
+                  ├──→ M8-3 (Voiput 拡張) ──→ M8-4 (test-run.rs)
+M8-2 (input/)  ──┘
+```
+
+M8-1 と M8-2 は並行実装可能。M8-3 は両者に依存。M8-4 は M8-3 に依存。
+
+---
+
+## 付録 G: 旧 RFC との乖離（Phase 5 完了時点の監査結果）
+
+本 RFC と voiput crate v0.24.279（M0〜M6-3 完了時点）の間で発見された乖離の完全な一覧。
+
+### G.1 矛盾（実装が RFC と異なる — M7 で修正済み）
+
+| # | RFC | 実装 | 修正 |
+|---|-----|------|------|
+| 1 | `start()`/`stop()` は `async fn` | 同期関数 | M7-1 |
+| 2 | `request_permissions()` 存在 | 未実装 | M7-1 |
+| 3 | `UnsupportedEngine { engine, reason }` | `UnsupportedEngine(String)` | M7-2 |
+| 4 | `SpeechRecognizer::new(tx, &config, map)` | 6個別引数 | M7-2 |
+
+### G.2 未実装（M7 で完了）
+
+| # | 項目 | 修正 |
+|---|------|------|
+| 5 | 非対応OSで `SttEngine::Os` → `UnsupportedEngine` | M7-2 |
+| 6 | `health_check()` が実装ではなくスタブ | M7-3 |
+| 7 | Cargo.toml `include = [...]` 未設定 | M7-3 |
+
+### G.3 RFC 未更新（Phase 5 完了時点で RFC ドキュメント自体が古い）
+
+| # | RFC の記述 | 実際の実装 | ステータス |
+|---|-----------|-----------|-----------|
+| 8 | build.rs は単純なプリビルド確認＋panic (50行) | 自動ビルド・スタブ生成・libs/収集 (816行) | M7-0 (§6-9 を本 PR で更新) |
+| 9 | denoiser は `sherpa_rs_sys` unsafe FFI | `sherpa_onnx` safe API | M7-0 |
+| 10 | `sherpa-rs = "0.6"` | `sherpa-onnx = "1.13.2"` | M7-0 |
+| 11 | macOS build.sh はユニバーサルバイナリ | arm64 のみ | M7-0 |
+| 12 | Windows build.ps1 は `PublishAot=true` | 簡略化引数 | M7-0 |
+
+### G.4 実装が RFC より改善（RFC 未記載の新機能）
+
+| # | 改善内容 |
+|---|---------|
+| 13 | `VoiputConfig.model_dir` の追加（相対パス解決） |
+| 14 | build.rs 自動ビルド（`native/swift/build.sh` 自動実行） |
+| 15 | `libs/macos/` ランタイム dylib 自動収集 |

@@ -114,21 +114,23 @@ fn test_voiput_new_minimal() {
 
 #[test]
 fn test_voiput_start_stop() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mut voiput = Voiput::new(minimal_config()).unwrap();
     // start()/stop() は API 呼び出しとして成功することだけ確認
-    assert!(voiput.start().is_ok());
-    assert!(voiput.stop().is_ok());
+    assert!(rt.block_on(voiput.start()).is_ok());
+    assert!(rt.block_on(voiput.stop()).is_ok());
     // 冪等性
-    assert!(voiput.stop().is_ok());
+    assert!(rt.block_on(voiput.stop()).is_ok());
 }
 
 #[test]
 fn test_voiput_set_engine() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
     let mut voiput = Voiput::new(minimal_config()).unwrap();
     assert_eq!(voiput.engine(), SttEngine::Os);
-    assert!(voiput.set_engine(SttEngine::OpenAI).is_ok());
+    assert!(rt.block_on(voiput.set_engine(SttEngine::OpenAI)).is_ok());
     assert_eq!(voiput.engine(), SttEngine::OpenAI);
-    assert!(voiput.set_engine(SttEngine::Os).is_ok());
+    assert!(rt.block_on(voiput.set_engine(SttEngine::Os)).is_ok());
     assert_eq!(voiput.engine(), SttEngine::Os);
 }
 

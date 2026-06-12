@@ -62,3 +62,5 @@
 - [x] #58 M6-1.6 Windows: libs/windows/ ランタイムライブラリ収集 | C:\Users\kawat\shyme\zasso\tickets\specs\0058-m6-16-windows-libswindows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #59 統合テスト | /Users/kawata/shyme/zasso/tickets/specs/0059-untitled-3.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [ ] #60 README（最終ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0060-readme.md | 2026-06-12 | 2026-06-12
+- [ ] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
+- [x] #62 Voiput API — async/await 完全対応 + request_permissions 実装 | /Users/kawata/shyme/zasso/tickets/specs/0062-voiput-api-asyncawait-request-permissions.md | 2026-06-12 | 2026-06-12 | 2026-06-12
