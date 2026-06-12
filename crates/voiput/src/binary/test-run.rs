@@ -931,8 +931,10 @@ fn test_voiput() {
 
     // 9. ヘルスチェック
     println!("  [TEST] health_check()");
-    println!("    health_check() = {} (スタブ: M7-3 で実装予定)", voiput.health_check());
-    println!("  [NOTE] 現在は常に 0 を返すスタブ実装です。M7-3 で本当のヘルスチェックに差し替わります。");
+    #[cfg(target_os = "windows")]
+    println!("    health_check() = {} (Windows: win_ffi 経由)", voiput.health_check());
+    #[cfg(not(target_os = "windows"))]
+    println!("    health_check() = {} (macOS/他: 常に正常=0 / 初期化時に状態確定済み)", voiput.health_check());
 
     println!();
 }

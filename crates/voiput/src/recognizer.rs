@@ -442,6 +442,21 @@ impl SpeechRecognizer {
         self.is_running.load(Ordering::SeqCst)
     }
 
+    /// OS バックエンドのヘルスチェック結果を返す。
+    ///
+    /// - Windows: `native::win_ffi::health_check_result()` の値をそのまま返す
+    /// - macOS/非対応OS: 常に 0（正常）を返す
+    pub(crate) fn health_check(&self) -> u32 {
+        #[cfg(target_os = "windows")]
+        {
+            crate::native::win_ffi::health_check_result()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            0
+        }
+    }
+
     /// 設定を更新する（動作中は一時停止し再開）。
     pub fn update_config(
         &mut self,

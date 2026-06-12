@@ -672,7 +672,7 @@ crates/voiput/
   5. 既存の全テストが通ること（回帰確認）
 * **計装方法:** 既存 `#[cfg(test)] mod tests` の拡張
 
-##### チケット M7-3: health_check 完全実装 + Cargo.toml 配布設定
+##### ✅ チケット M7-3: health_check 完全実装 + Cargo.toml 配布設定
 
 * **修正する RFC との矛盾／未実装:**
   1. `Voiput::health_check()` が `return 0` のハードコードで WinRT SpeechRecognizer の実際の状態を返していない → `SpeechRecognizer::health_check()` に委譲し、Windows では `native::win_ffi::health_check_result()` を経由

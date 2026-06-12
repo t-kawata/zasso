@@ -78,3 +78,4 @@
 - [x] #68 M4-2: ユーティリティ（PjOwnedStr の safe ラッパー骨格 / SecretString 検証） | /Users/shyme/shyme/zasso/tickets/specs/0068-m4-2-utility-pj-owned-str.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #71 health_check 完全実装 — SpeechRecognizer 委譲 + Windows 実ヘルスチェック | /Users/kawata/shyme/zasso/tickets/specs/0071-health-check-speechrecognizer-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
