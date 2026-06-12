@@ -2,4 +2,7 @@
 //!
 //! フォーマット型・ミキシング・ソース管理・FFI メディアブリッジを提供する。
 
+pub mod bridge;
+pub mod chunk;
 pub mod format;
+pub mod mixer;

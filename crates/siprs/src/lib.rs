@@ -8,8 +8,11 @@
 //! このモジュール階層は実装進行に伴い拡張される。
 
 pub mod audio;
+pub mod config;
 pub mod error;
+pub mod transport;
 pub mod util;
 
-// Phase 1 で順次追加:
-// pub mod config; // M1-3: TransportConfig, ClientConfig 等
+// Phase 2 以降で順次追加:
+// pub mod client; // M12: SipClient
+// pub mod event;  // M6: イベント型

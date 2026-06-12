@@ -98,7 +98,7 @@
   6. `SampleRate::as_hz()` の全バリアント網羅
 * **計装方法・観測対象:** `AudioFormat` が `Copy` であることのコンパイル時検証。全 `SampleRate` バリアントの `as_hz()` 戻り値テーブルテスト。
 
-#### チケット M1-2: `AudioChunk` / `AudioChunkPair` 定義
+#### ✅ チケット M1-2 [`#59`]: `AudioChunk` / `AudioChunkPair` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§21.1)
 * **対象不変条件 / 規範:** §21.1「IN/OUT は同一タイムスタンプで対にされ、ズレは内部で吸収される」。§2「録音については AudioChunkPair の提供に留め、ファイルコンテナ化は利用側責務」。
@@ -122,7 +122,7 @@
   7. `Clone` / `Debug` が正しく機能すること
 * **計装方法・観測対象:** 全テストがヒープ確保なしで実行可能なこと（`Vec::new()` を除く）。`AudioChunk` のサイズがポインタ2個分以下であること（enum オーバーヘッド最小化）。
 
-#### チケット M1-3: `TransportKind` / `TransportConfig` 定義
+#### ✅ チケット M1-3 [`#60`]: `TransportKind` / `TransportConfig` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§12)
 * **対象不変条件 / 規範:** §12「TLS は feature flag で完全に API から消える設計とし、無効時に TLS variant が型レベルで出現しない」。機能要求 §5「UDP/TCP/TLS トランスポート」。
@@ -144,7 +144,7 @@
   5. `udp(5060)` が `0.0.0.0:5060` を bind_addr に持つこと
 * **計装方法・観測対象:** `cfg` 属性による conditional compilation の正しさを `cargo check --features tls` / `cargo check` の両方で検証。
 
-#### チケット M1-4: ICE/STUN/TURN 設定型定義
+#### ✅ チケット M1-4 [`#61`]: ICE/STUN/TURN 設定型定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§13)
 * **対象不変条件 / 規範:** §13 ICE/STUN/TURN 完全仕様。「PJSIP 実装事情により trickle ICE は内部で非対応なら validation error で拒否するのではなく、ClientInitialized イベントに capability matrix を載せて明示する」。§13 Default impl。
@@ -167,7 +167,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M2-1: `ClientConfig` / `ClientAudioConfig` / `TimeoutConfig` / `RawSipEventConfig` 定義と `Default` 実装
+#### ✅ チケット M2-1 [`#62`]: `ClientConfig` / `ClientAudioConfig` / `TimeoutConfig` / `RawSipEventConfig` 定義と `Default` 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§10, §10.1)
 * **対象不変条件 / 規範:** §10 ClientConfig 完全仕様。§10.1 既定値「既定 delivery format は要件に合わせて 16kHz / i16 / stereo(L=IN,R=OUT)」。§42「event bus capacity は 16 以上必須」「raw SIP event capacity は event bus capacity 以上必須」「pair buffer は frame_ms の整数倍必須」（バリデーションは M3-1 で実装）。
@@ -189,7 +189,7 @@
   6. `Clone` + `Debug` が `ClientConfig` で機能し、かつ `SecretString` が露出しないこと
 * **計装方法・観測対象:** `ClientConfig` の `Default::default()` 呼び出しがスタック上で完結すること（ヒープ確保なし）。
 
-#### チケット M2-2: `AccountConfig` / `AccountCodecPolicy` / `OpusConfig` / `AccountMediaConfig` / `DtmfPolicy` 定義
+#### ✅ チケット M2-2 [`#63`]: `AccountConfig` / `AccountCodecPolicy` / `OpusConfig` / `AccountMediaConfig` / `DtmfPolicy` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§11, §11.1)
 * **対象不変条件 / 規範:** §11 AccountConfig 完全仕様。§11.1 validation rules（`username`, `domain`, `password` は空禁止、codec policy は `enable_pcmu || enable_opus` 必須、DTMF policy は送信・受信ともに 1 つ以上 required）。§30「SRTP は feature flag でオン・オフ可能、デフォルトオフ」。
@@ -218,7 +218,7 @@
   7. `OpusConfig` の各フィールドの型が§11 と一致すること
 * **計装方法・観測対象:** `AccountConfig` のサイズ見積もり（`size_of`）。`DtmfMethod` の `Copy` 成立確認。
 
-#### チケット M2-3: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
+#### ✅ チケット M2-3 [`#64`]: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.5, §12, §29.2, §31)
 * **対象不変条件 / 規範:** §29.2 NegotiatedCodec と CodecSelectionPolicy。§31 トランスポート再接続方針。§8.5 OutgoingCallRequest「`preferred_codecs` は最終的に PCMU, Opus のみ受理」。
@@ -251,7 +251,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M3-1: `ClientConfig` バリデーション
+#### ✅ チケット M3-1: `ClientConfig` バリデーション
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§42)
 * **対象不変条件 / 規範:** §42 validation フェーズ。以下のルールを強制:
@@ -281,7 +281,7 @@
   8. すべてのエラーメッセージに違反フィールド名が含まれること
 * **計装方法・観測対象:** 全バリデーションルールの網羅率 100%。各ルールの「許可」と「拒否」の両ケースをテスト。
 
-#### チケット M3-2: `AccountConfig` バリデーション
+#### ✅ チケット M3-2: `AccountConfig` バリデーション
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§11.1)
 * **対象不変条件 / 規範:** §11.1 validation rules:
@@ -317,7 +317,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M4-1: `BiMap<RuntimeId, NativeId>` 実装
+#### ✅ チケット M4-1: `BiMap<RuntimeId, NativeId>` 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§9, §45.4)
 * **対象不変条件 / 規範:** §9「PJSUA の `pjsua_acc_id` や `pjsua_call_id` は再利用されうるため、そのまま公開しない。内部では `BiMap<RuntimeId, NativeId>` で変換する」。§45.4「public id を別採番し bi-map 変換」。
@@ -346,7 +346,7 @@
   8. 異なる型パラメータの BiMap が混在しないこと（コンパイル時検証）
 * **計装方法・観測対象:** 全操作が O(1) で完了すること。`insert` のオーバーヘッドが `HashMap` 2回分であること。
 
-#### チケット M4-2: ユーティリティ（`PjOwnedStr` の safe ラッパー骨格 / `SecretString` 検証）
+#### ✅ チケット M4-2: ユーティリティ（`PjOwnedStr` の safe ラッパー骨格 / `SecretString` 検証）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27.2, §35)
 * **対象不変条件 / 規範:** §27.2「PJSIP は `pj_str_t` を使うため、`CString` の lifetime 問題を避ける wrapper を定義する」。§35「SecretString により password の accidental debug print を防止」。
@@ -371,7 +371,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M5-1: `mix_i16_frame` ミキシングアルゴリズム
+#### ✅ チケット M5-1: `mix_i16_frame` ミキシングアルゴリズム
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§24.2)
 * **対象不変条件 / 規範:** §24.2「内部ミキシングは i32 accumulation でオーバーフローを避け、最後に saturating i16 に落とす」。§24.2 gain and normalization「既定では soft normalization は行わない」。

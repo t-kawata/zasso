@@ -1,5 +1,5 @@
 # Ticket Queue
-- [] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
+- [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #3 make build 後のインストーラー自動検証・dist配置 | /Users/kawata/shyme/zasso/tickets/specs/0003-make-build-dist.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -66,3 +66,15 @@
 - [x] #62 Voiput API — async/await 完全対応 + request_permissions 実装 | /Users/kawata/shyme/zasso/tickets/specs/0062-voiput-api-asyncawait-request-permissions.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #63 Windows スタブライブラリ除去 — prebuilt/windows/ に実ライブラリを追加し M6-1.6 参照メッセージを削除 | C:\Users\kawat\shyme\zasso\tickets\specs\0063-windows-prebuiltwindows-m6-16.md | 2026-06-12 | 2026-06-12
 - [x] #64 内部設計整合 — SpeechRecognizer 引数整理 + VoiputError 型修正 + 非対応OSバリデーション | /Users/kawata/shyme/zasso/tickets/specs/0064-speechrecognizer-voiputerror-os.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #59 M1-2: AudioChunk / AudioChunkPair 定義 | /Users/shyme/shyme/zasso/tickets/specs/0059-m1-2-audiochunk-audiochunkpair.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #60 M1-3: TransportKind / TransportConfig 定義 | /Users/shyme/shyme/zasso/tickets/specs/0060-m1-3-transportkind-transportconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #61 M1-4: ICE/STUN/TURN 設定型定義 | /Users/shyme/shyme/zasso/tickets/specs/0061-m1-4-icestun-turn.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #62 M2-1: ClientConfig / ClientAudioConfig / TimeoutConfig / RawSipEventConfig 定義と Default 実装 | /Users/shyme/shyme/zasso/tickets/specs/0062-m2-1-clientconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #63 M2-2: AccountConfig / AccountCodecPolicy / OpusConfig / AccountMediaConfig / DtmfPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0063-m2-2-accountconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #64 M2-3: TlsConfig / ReconnectPolicy / CallMediaPreferences / OutgoingCallRequest / NegotiatedCodec / CodecSelectionPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0064-m2-3-config-remaining.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #65 M3-1: ClientConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0065-m3-1-clientconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #66 M3-2: AccountConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0066-m3-2-accountconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #67 M4-1: BiMap<RuntimeId, NativeId> 実装 | /Users/shyme/shyme/zasso/tickets/specs/0067-m4-1-bimap.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #68 M4-2: ユーティリティ（PjOwnedStr の safe ラッパー骨格 / SecretString 検証） | /Users/shyme/shyme/zasso/tickets/specs/0068-m4-2-utility-pj-owned-str.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12
