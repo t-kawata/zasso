@@ -433,7 +433,7 @@ crates/voiput/
 
 #### M5: 認識器統括 + Voiput 公開API
 
-##### チケット M5-1: SpeechRecognizer
+##### ✅ チケット M5-1: SpeechRecognizer
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §7.4
 * **移植元:** ~/shyme/mycute/src/stt/recognizer.rs
@@ -442,7 +442,7 @@ crates/voiput/
   - インターセプタータスクはそのまま
 * **作業内容:** `recognizer.rs` に移植。すでに M1-4 で一部作成済みの場合は統合。
 
-##### チケット M5-2: Voiput 公開API + test-run.rs [Voiput]（バッファ＆フラッシュ）
+##### ✅ チケット M5-2: Voiput 公開API + test-run.rs [Voiput]（バッファ＆フラッシュ）
 
 * **参照設計書:** docs/rfc-stt-portable-crate.md §4.2, §4.5
 * **移植元:**

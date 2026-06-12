@@ -365,6 +365,11 @@ impl SpeechRecognizer {
         self.engine = engine;
     }
 
+    /// 現在の動作状態を返す。
+    pub fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::SeqCst)
+    }
+
     /// 設定を更新する（動作中は一時停止し再開）。
     pub fn update_config(
         &mut self,

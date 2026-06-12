@@ -53,3 +53,5 @@
 - [x] #52 M4-3: MacSpeechBackend + test-run.rs [MACOS] | /Users/kawata/shyme/zasso/tickets/specs/0052-m4-3-macspeechbackend-test-runrs-macos.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #53 M4-4: WinSpeechBackend + test-run.rs [WINDOWS] | /Users/kawata/shyme/zasso/tickets/specs/0053-m4-4-winspeechbackend-test-runrs-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #54 M5-1: SpeechRecognizer | /Users/kawata/shyme/zasso/tickets/specs/0054-m5-1-speechrecognizer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #55 Voiput 公開API + test-run.rs [Voiput]（バッファ＆フラッシュ） | /Users/kawata/shyme/zasso/tickets/specs/0055-voiput-api-test-runrs-voiput.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #56 プリビルドライブラリ自動ビルド | /Users/kawata/shyme/zasso/tickets/specs/0056-untitled-2.md | 2026-06-12 | 2026-06-12 | 2026-06-12

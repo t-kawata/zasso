@@ -3,7 +3,7 @@
 //! `cargo run --bin test-run` で実行。
 //! 各チケット完了時に関数が追加されていく。
 //!
-//! M3-1 時点: Stage 6/6 — Phase 3 （PseudoAsrStreamer 統合）
+//! M5-2 時点: Stage 7/7 — Phase 4 （Voiput 公開API）
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use voiput::{
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
     VadProcessor, VadProcessorConfig, VadProcessorType, SILERO_VAD_WINDOW_SIZE,
-    TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE,
+    TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE, Voiput,
 };
 
 struct MockPostCorrectBackend;
@@ -40,7 +40,7 @@ fn main() {
 
     println!("========================================");
     println!("  voiput test-run");
-    println!("  Stage 6/6 —  Phase 3 パイプライン統合");
+    println!("  Stage 7/7 —  Phase 4 公開API");
     println!("========================================");
     println!();
 
@@ -58,6 +58,7 @@ fn main() {
     test_macos();
     #[cfg(target_os = "windows")]
     test_windows();
+    test_voiput();
 }
 
 fn audio_verify() {
@@ -671,7 +672,8 @@ fn test_windows() {
         }
         Err(msg) => {
             println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
-            println!("  [INFO] M6-1 で本物の SpeechHelper.lib に差し替えてください");
+            println!("  [INFO] 自動ビルド用のスクリプトは native/cs/build.ps1 です。");
+            println!("  [INFO] M6-1.6 でランタイムライブラリが解決されると有効化されます。");
         }
     }
     println!();
@@ -696,7 +698,8 @@ fn test_macos() {
         }
         Err(msg) => {
             println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
-            println!("  [INFO] M6-1 で本物の libSpeechHelper.a に差し替えてください");
+            println!("  [INFO] 実ライブラリは prebuilt/macos/ に自動ビルド済みです。");
+            println!("  [INFO] M6-1.5 でランタイムライブラリが解決されると有効化されます。");
         }
     }
     println!();
@@ -799,6 +802,122 @@ fn test_openai() {
             println!("  ✗ 認識失敗: {}", e);
         }
     }
+
+    println!();
+}
+
+fn test_voiput() {
+    use indexmap::IndexMap;
+
+    show_section("VOIPUT");
+
+    // 1. 最小構成
+    println!("  [TEST] 最小構成 (Os+Ja)");
+    let minimal_config = VoiputConfig::builder()
+        .engine(SttEngine::Os)
+        .locale(LocaleCode::Ja)
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match minimal_config {
+        Ok(cfg) => match Voiput::new(cfg) {
+            Ok(_) => println!("    ✓ Voiput::new() 成功"),
+            Err(e) => println!("    ✗ Voiput::new() 失敗: {}", e),
+        },
+        Err(e) => println!("    ✗ config.build() 失敗: {}", e),
+    }
+
+    // 2. OpenAI 構成
+    println!("  [TEST] OpenAI 構成");
+    let openai_config = VoiputConfig::builder()
+        .engine(SttEngine::OpenAI)
+        .locale(LocaleCode::En)
+        .openai_config(OpenAiConfig {
+            base_url: "https://api.openai.com/v1".into(),
+            api_key: "sk-test".into(),
+            model: "gpt-4o-mini-transcribe".into(),
+        })
+        .vad_model_paths(VadModelPaths {
+            silero: "/tmp/silero.onnx".into(),
+            ten: "/tmp/ten.onnx".into(),
+            gtcrn: String::new(),
+        })
+        .build();
+    match openai_config {
+        Ok(cfg) => match Voiput::new(cfg) {
+            Ok(_) => println!("    ✓ Voiput::new() 成功"),
+            Err(e) => println!("    ✗ Voiput::new() 失敗: {}", e),
+        },
+        Err(e) => println!("    ✗ config.build() 失敗: {}", e),
+    }
+
+    // 3. start/stop ライフサイクル
+    println!("  [TEST] start/stop ライフサイクル");
+    let mut voiput = Voiput::new(
+        VoiputConfig::builder()
+            .engine(SttEngine::Os)
+            .locale(LocaleCode::Ja)
+            .vad_model_paths(VadModelPaths {
+                silero: "/tmp/silero.onnx".into(),
+                ten: "/tmp/ten.onnx".into(),
+                gtcrn: String::new(),
+            })
+            .build()
+            .unwrap(),
+    )
+    .unwrap();
+
+    match voiput.start() {
+        Ok(_) => println!("    ✓ start() 成功"),
+        Err(e) => println!("    ✗ start() 失敗: {}", e),
+    }
+    match voiput.stop() {
+        Ok(_) => println!("    ✓ stop() 成功"),
+        Err(e) => println!("    ✗ stop() 失敗: {}", e),
+    }
+    println!("  [NOTE] start()/stop() は API 呼び出しの正常系確認です。");
+    println!("         実際の音声認識には VAD モデルファイルとネイティブバックエンドが必要です。");
+
+    // 4. flush 呼び出し
+    println!("  [TEST] flush()");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let flush_result = rt.block_on(async { voiput.flush().await });
+    match flush_result {
+        Ok(text) => println!("    ✓ flush() 成功: \"{}\"", text),
+        Err(e) => println!("    ✗ flush() 失敗: {}", e),
+    }
+
+    // 5. エンジン切り替え
+    println!("  [TEST] set_engine()");
+    match voiput.set_engine(SttEngine::OpenAI) {
+        Ok(_) => println!("    ✓ set_engine(OpenAI) → engine={:?}", voiput.engine()),
+        Err(e) => println!("    ✗ set_engine(OpenAI) 失敗: {}", e),
+    }
+    match voiput.set_engine(SttEngine::Os) {
+        Ok(_) => println!("    ✓ set_engine(Os) → engine={:?}", voiput.engine()),
+        Err(e) => println!("    ✗ set_engine(Os) 失敗: {}", e),
+    }
+
+    // 6. ロケール変更
+    println!("  [TEST] set_locale()");
+    voiput.set_locale(LocaleCode::En);
+    voiput.set_locale(LocaleCode::Ja);
+    println!("    ✓ set_locale 成功");
+
+    // 7. 置換辞書更新
+    println!("  [TEST] update_replaces()");
+    let mut replaces = IndexMap::new();
+    replaces.insert("world".to_string(), vec!["hello".to_string()]);
+    voiput.update_replaces(replaces);
+    println!("    ✓ update_replaces 成功");
+
+    // 8. ヘルスチェック
+    println!("  [TEST] health_check()");
+    println!("    health_check() = {} (M6 まで常に 0: スタブ)", voiput.health_check());
+    println!("  [NOTE] 現在は常に 0 を返すスタブ実装です。M6-1.5/1.6 で本当のヘルスチェックに差し替わります。");
 
     println!();
 }

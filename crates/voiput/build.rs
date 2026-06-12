@@ -94,6 +94,16 @@ fn main() {
     }
 
     println!("cargo:rerun-if-changed=prebuilt/");
+    println!("cargo:rerun-if-changed=native/");
+    println!("cargo:rerun-if-changed=libs/");
+
+    // ============================================================
+    // ランタイムライブラリ収集
+    // ============================================================
+    #[cfg(target_os = "macos")]
+    collect_runtime_libs_macos(&manifest_dir);
+    #[cfg(target_os = "windows")]
+    collect_runtime_libs_windows(&manifest_dir);
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -148,14 +158,59 @@ fn link_macos(prebuilt: &PathBuf) {
     std::fs::create_dir_all(&mac_dir).expect("Failed to create prebuilt/macos/ directory");
     let lib_path = mac_dir.join("libSpeechHelper.a");
 
-    // 本物のライブラリ（100KB以上想定）が存在すればそれを使う
-    if lib_path.exists() && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000 {
+    // Swift Concurrency ランタイムの利用可否を判定する。
+    // 実ライブラリ（Swift）は Tahoe (macOS 26+) が使用する libswift_Concurrency.dylib を
+    // 実行時に必要とする。当該 dylib が /usr/lib/swift/ に存在しない環境では
+    // 実ライブラリをリンクすると実行時クラッシュするため、スタブを使用する。
+    // M6-1.5 でランタイム dylib を同梱するまでは、このチェックでフォールバックする。
+    fn can_use_real_library() -> bool {
+        std::path::Path::new("/usr/lib/swift/libswift_Concurrency.dylib").exists()
+    }
+
+    // 本物のライブラリ（100KB以上想定）が存在し、Swift Concurrency が利用可能ならそれを使う
+    if lib_path.exists()
+        && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
+        && can_use_real_library()
+    {
         println!("cargo:rustc-link-lib=static=SpeechHelper");
         println!("cargo:rustc-link-search=native={}", mac_dir.display());
-    } else {
-        // スタブ C ソースを生成しコンパイル（M6-1 で本物に差し替え）
-        let stub_c = mac_dir.join("stub.c");
-        let stub_o = mac_dir.join("stub.o");
+        println!("cargo:warning=Using real libSpeechHelper.a.");
+        return;
+    }
+
+    // 本物のライブラリが存在しない（または Swift Concurrency 不足）場合、
+    // native/swift/build.sh による自動ビルドを試行する
+    let manifest_dir = prebuilt.parent().unwrap(); // prebuilt/ の親 = CARGO_MANIFEST_DIR
+    let build_script = manifest_dir.join("native/swift/build.sh");
+    if build_script.exists() {
+        println!("cargo:warning=Auto-building libSpeechHelper.a from native/swift/...");
+        let status = Command::new("bash")
+            .arg(&build_script)
+            .status()
+            .expect("Failed to execute native/swift/build.sh");
+        if status.success() && lib_path.exists()
+            && std::fs::metadata(&lib_path).map(|m| m.len()).unwrap_or(0) > 100_000
+        {
+            if can_use_real_library() {
+                println!("cargo:rustc-link-lib=static=SpeechHelper");
+                println!("cargo:rustc-link-search=native={}", mac_dir.display());
+                println!("cargo:warning=Auto-built libSpeechHelper.a successfully.");
+                return;
+            } else {
+                println!(
+                    "cargo:warning=Auto-built libSpeechHelper.a but Swift Concurrency runtime \
+                     not available on this OS version. Using stub for now. \
+                     M6-1.5 will bundle the runtime."
+                );
+            }
+        } else {
+            println!("cargo:warning=Auto-build failed or produced invalid library. Falling back to stub.");
+        }
+    }
+
+    // スタブ C ソースを生成しコンパイル（最終手段、リンク解決のみ）
+    let stub_c = mac_dir.join("stub.c");
+    let stub_o = mac_dir.join("stub.o");
         std::fs::write(
             &stub_c,
             r#"#include <stdint.h>
@@ -194,6 +249,9 @@ void tahoe_helper_stop(void) {}
             .expect("Failed to execute C compiler for stub generation");
 
         if cc_status.success() {
+            // 古いライブラリ（実ライブラリ）を削除してからスタブを作成する。
+            // ar crs は既存メンバを保持したまま追加するため、削除が必要。
+            let _ = std::fs::remove_file(&lib_path);
             let ar_status = Command::new("ar")
                 .args(["crs", &lib_path.to_string_lossy(), &stub_o.to_string_lossy()])
                 .status()
@@ -204,7 +262,7 @@ void tahoe_helper_stop(void) {}
                 println!("cargo:rustc-link-search=native={}", mac_dir.display());
                 println!(
                     "cargo:warning=Using stub libSpeechHelper.a ({}). \
-                          Replace with real library at M6-1.",
+                          Auto-built library pending runtime resolution (M6-1.5).",
                     lib_path.display()
                 );
                 let _ = std::fs::remove_file(&stub_c);
@@ -229,20 +287,51 @@ void tahoe_helper_stop(void) {}
                 println!("cargo:rustc-link-search=native={}", mac_dir.display());
             }
         }
-    }
 
+    // Swift ランタイムライブラリのパスを swiftc から取得してリンク検索パスに追加する。
+    // 出力 JSON の paths.runtimeLibraryPaths 配列をパースする。
     if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
         if let Ok(stdout) = String::from_utf8(output.stdout) {
-            if let Some(paths_start) = stdout.find("\"runtimeLibraryPaths\"") {
-                if let Some(list_start) = stdout[paths_start..].find('[') {
-                    let list_start = paths_start + list_start;
-                    if let Some(list_end) = stdout[list_start..].find(']') {
-                        let list_end = list_start + list_end;
-                        let paths_str = &stdout[list_start + 1..list_end];
-                        for path in paths_str.split(',') {
-                            let path = path.trim().trim_matches('"').trim();
-                            if !path.is_empty() {
-                                println!("cargo:rustc-link-search=native={}", path);
+            // "paths" オブジェクトを探す
+            if let Some(paths_obj) = stdout.find("\"paths\"") {
+                let after_paths = &stdout[paths_obj..];
+                if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
+                    let from_rlp = &after_paths[rlp_start..];
+                    if let Some(list_start) = from_rlp.find('[') {
+                        let from_list = &from_rlp[list_start..];
+                        if let Some(list_end) = from_list.find(']') {
+                            let paths_str = &from_list[1..list_end];
+                            for path in paths_str.split(',') {
+                                let path = path.trim().trim_matches('"').trim();
+                                if !path.is_empty() {
+                                    println!("cargo:rustc-link-search=native={}", path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Swift ランタイムパスを rpath に追加する。
+    // 実ライブラリがリンクされると Swift ランタイム（libswift_Concurrency.dylib 等）が
+    // 実行時に必要になる。swiftc が報告する runtimeLibraryPaths を rpath に追加する。
+    if let Ok(output) = Command::new("swiftc").args(["-print-target-info"]).output() {
+        if let Ok(stdout) = String::from_utf8(output.stdout) {
+            if let Some(paths_obj) = stdout.find("\"paths\"") {
+                let after_paths = &stdout[paths_obj..];
+                if let Some(rlp_start) = after_paths.find("\"runtimeLibraryPaths\"") {
+                    let from_rlp = &after_paths[rlp_start..];
+                    if let Some(list_start) = from_rlp.find('[') {
+                        let from_list = &from_rlp[list_start..];
+                        if let Some(list_end) = from_list.find(']') {
+                            let paths_str = &from_list[1..list_end];
+                            for path in paths_str.split(',') {
+                                let path = path.trim().trim_matches('"').trim();
+                                if !path.is_empty() {
+                                    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", path);
+                                }
                             }
                         }
                     }
@@ -328,7 +417,7 @@ int __stdcall speech_helper_check_health(void) { return 0; }
                             println!("cargo:rustc-link-search=native={}", win_dir.display());
                             println!(
                                 "cargo:warning=Using stub speech_helper.lib ({}). \
-                                      Replace with real library at M6-1.",
+                                      Auto-built library pending runtime resolution (M6-1.6).",
                                 lib_path.display()
                             );
                             return;
@@ -348,7 +437,7 @@ int __stdcall speech_helper_check_health(void) { return 0; }
             println!("cargo:rustc-link-search=native={}", win_dir.display());
             println!(
                 "cargo:warning=Using stub speech_helper.lib (no symbols). \
-                      Link may fail. Replace with real library at M6-1."
+                      Link may fail. Auto-built library pending runtime resolution (M6-1.6)."
             );
         } else {
             panic!(
@@ -496,4 +585,101 @@ fn create_minimal_coff_lib() -> Vec<u8> {
     data.extend_from_slice(&0u32.to_le_bytes()); // 0 symbols
     data.push(b'\n');
     data
+}
+
+// ============================================================================
+// ランタイムライブラリ収集
+// ============================================================================
+
+/// macOS 用ランタイムライブラリを target/ から libs/macos/ に収集する。
+///
+/// sherpa-onnx の共有ライブラリ（dylib）を OUT_DIR からコピーする。
+/// 収集後、必須ファイルの存在を確認する（欠落時 panic!）。
+#[cfg(target_os = "macos")]
+fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
+    let target_dir = std::path::PathBuf::from(env::var("OUT_DIR").unwrap())
+        .join("../../.."); // target/debug/ または target/release/ の先
+    let libs_dir = manifest_dir.join("libs").join("macos");
+    std::fs::create_dir_all(&libs_dir).expect("Failed to create libs/macos/ directory");
+
+    // sherpa-onnx dylib 一覧
+    let dylibs = ["libsherpa-onnx-c-api.dylib", "libonnxruntime.1.24.4.dylib"];
+
+    for name in &dylibs {
+        let src = target_dir.join(name);
+        if src.exists() {
+            let dest = libs_dir.join(name);
+            let _ = std::fs::copy(&src, &dest);
+            println!("cargo:warning=Runtime lib collected: {}/{}", libs_dir.display(), name);
+        }
+    }
+
+    // 必須ファイルの存在確認
+    let mut all_ok = true;
+    for name in &dylibs {
+        if !libs_dir.join(name).exists() {
+            println!("cargo:warning=MISSING runtime library: {}/{}", libs_dir.display(), name);
+            all_ok = false;
+        }
+    }
+    assert!(all_ok, "Required macOS runtime libraries are missing in libs/macos/");
+}
+
+/// Windows 用ランタイムライブラリを target/ から libs/windows/ に収集する。
+///
+/// sherpa-onnx の DLL + SpeechHelper.dll + VC++ 再頒布可能 DLL をコピーする。
+#[cfg(target_os = "windows")]
+fn collect_runtime_libs_windows(manifest_dir: &std::path::Path) {
+    let target_dir = std::path::PathBuf::from(env::var("OUT_DIR").unwrap())
+        .join("../../..");
+    let prebuilt_dir = manifest_dir.join("prebuilt").join("windows");
+    let libs_dir = manifest_dir.join("libs").join("windows");
+    std::fs::create_dir_all(&libs_dir).expect("Failed to create libs/windows/ directory");
+
+    // sherpa-onnx DLL をコピー
+    let dlls = ["sherpa-onnx-c-api.dll", "onnxruntime.dll"];
+    for name in &dlls {
+        let src = target_dir.join(name);
+        if src.exists() {
+            let _ = std::fs::copy(&src, libs_dir.join(name));
+        }
+    }
+
+    // SpeechHelper.dll を prebuilt/ からコピー
+    let speech_helper_dll = prebuilt_dir.join("SpeechHelper.dll");
+    if speech_helper_dll.exists() {
+        let _ = std::fs::copy(&speech_helper_dll, libs_dir.join("SpeechHelper.dll"));
+    }
+
+    // VC++ 再頒布可能 DLL をシステムからコピー
+    for dll in &["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"] {
+        let dest = libs_dir.join(dll);
+        if !dest.exists() {
+            if let Some(system_path) = find_system_dll(dll) {
+                let _ = std::fs::copy(&system_path, &dest);
+                println!("cargo:warning=VC++ redist copied: {} from {}", dll, system_path.display());
+            }
+        }
+    }
+
+    // 必須ファイルの存在確認
+    let required = ["sherpa-onnx-c-api.dll", "onnxruntime.dll", "SpeechHelper.dll"];
+    let mut all_ok = true;
+    for name in &required {
+        if !libs_dir.join(name).exists() {
+            println!("cargo:warning=MISSING runtime library: {}/{}", libs_dir.display(), name);
+            all_ok = false;
+        }
+    }
+    assert!(all_ok, "Required Windows runtime libraries are missing in libs/windows/");
+}
+
+/// Windows システム DLL のパスを探索する。
+#[cfg(target_os = "windows")]
+fn find_system_dll(dll_name: &str) -> Option<std::path::PathBuf> {
+    // System32 または SysWOW64 から検索
+    let system32 = std::path::PathBuf::from(std::env::var_os("SystemRoot")?)
+        .join("System32");
+    let candidate = system32.join(dll_name);
+    if candidate.exists() { Some(candidate) } else { None }
 }

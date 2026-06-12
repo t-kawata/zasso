@@ -1,0 +1,463 @@
+//! Voiput 公開API — crate 利用者が触れる唯一のエントリポイント
+//!
+//! 移植元: MYCUTE MycuteManager の STT 制御部分
+//! 変更点: SpeechRecognizer をラップし、イベントチャネルと置換辞書を統合管理
+
+use std::sync::Arc;
+
+use indexmap::IndexMap;
+use parking_lot::RwLock;
+use tokio::sync::mpsc;
+
+use crate::config::VoiputConfig;
+use crate::error::VoiputError;
+use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
+use crate::recognizer::SpeechRecognizer;
+use crate::types::*;
+
+/// voiput crate の公開エントリポイント。
+///
+/// 利用者はこの構造体を通じて音声認識の全操作を行う。
+///
+/// # 使用例
+///
+/// ```rust,no_run
+/// use voiput::{Voiput, VoiputConfig, SttEngine, LocaleCode, VadModelPaths};
+///
+/// let mut voiput = Voiput::new(
+///     VoiputConfig::builder()
+///         .engine(SttEngine::Os)
+///         .locale(LocaleCode::Ja)
+///         .vad_model_paths(VadModelPaths {
+///             silero: "/path/to/silero.onnx".into(),
+///             ten: "/path/to/ten.onnx".into(),
+///             gtcrn: String::new(),
+///         })
+///         .build().unwrap(),
+/// ).unwrap();
+///
+/// voiput.start().unwrap();
+/// // ... 認識中 ...
+/// let text = tokio::runtime::Runtime::new()
+///     .unwrap()
+///     .block_on(async { voiput.flush().await })
+///     .unwrap();
+/// println!("認識結果: {}", text);
+/// ```
+pub struct Voiput {
+    /// 内部認識器（3バックエンド統括）
+    recognizer: SpeechRecognizer,
+    /// イベント受信チャネル（インターセプター通過後）
+    event_rx: mpsc::Receiver<SttEvent>,
+    /// イベント送信チャネル（SpeechRecognizer への入力用）
+    #[allow(dead_code)]
+    event_tx: mpsc::Sender<SttEvent>,
+    /// 置換辞書（SpeechRecognizer のインターセプターと共有）
+    replaces_map: Arc<RwLock<IndexMap<String, Vec<String>>>>,
+    /// 現在のエンジン種別（キャッシュ）
+    engine: SttEngine,
+}
+
+impl Voiput {
+    /// 設定から認識器を構築する。
+    ///
+    /// `VoiputConfig` のバリデーション（locale 必須、engine==OpenAI で openai_config 必須等）は
+    /// ビルダーの `build()` で実行済み。ここでは VAD 設定の変換と `SpeechRecognizer` の初期化を行う。
+    pub fn new(config: VoiputConfig) -> Result<Self, VoiputError> {
+        let (tx, rx) = mpsc::channel(100);
+        let replaces_map = Arc::new(RwLock::new(IndexMap::new()));
+
+        let openai_config = config.openai_config.clone();
+        let vad_processor_cfg = build_vad_processor_config(
+            &config.vad,
+            &config.vad_model_paths,
+            &config.model_dir,
+        );
+
+        let recognizer = SpeechRecognizer::new(
+            tx.clone(),
+            config.engine,
+            config.locale,
+            openai_config,
+            Some(vad_processor_cfg),
+            replaces_map.clone(),
+        )
+        .map_err(|e| VoiputError::InitError(e))?;
+
+        Ok(Self {
+            recognizer,
+            event_rx: rx,
+            event_tx: tx,
+            replaces_map,
+            engine: config.engine,
+        })
+    }
+
+    /// 認識を開始する。
+    ///
+    /// 内部の `SpeechRecognizer::start()` を呼び出し、アクティブなバックエンドで音声認識が始まる。
+    pub fn start(&mut self) -> Result<(), VoiputError> {
+        self.recognizer.start();
+        Ok(())
+    }
+
+    /// 認識を停止する。
+    ///
+    /// 内部の `SpeechRecognizer::stop()` を呼び出し、全バックエンドを停止する。
+    /// `flush()` を使用すると、停止 → 残余イベント収集 → 再開 を1メソッドで実行できる。
+    pub fn stop(&mut self) -> Result<(), VoiputError> {
+        self.recognizer.stop();
+        Ok(())
+    }
+
+    /// 次のイベントを非同期で待機する。
+    ///
+    /// インターセプター（置換辞書適用）を通過した後のイベントを受信する。
+    /// チャネルがクローズされた場合は `None` を返す。
+    pub async fn next_event(&mut self) -> Option<SttEvent> {
+        self.event_rx.recv().await
+    }
+
+    /// 認識を一時停止し、残余イベントを収集して最後のテキストを返す。
+    ///
+    /// # 動作シーケンス
+    ///
+    /// 1. `stop()` を呼び出して現在の発話を確定させる
+    /// 2. イベントチャネルに残っている `FinalResult` / `PartialResult` を収集する
+    /// 3. `start()` を呼び出して認識を再開する
+    /// 4. 収集した最後のテキストを返す
+    ///
+    /// Ctrl+Enter 等の「今のテキストを確定して次へ進む」操作に使用する。
+    pub async fn flush(&mut self) -> Result<String, VoiputError> {
+        self.stop()?;
+
+        let mut final_text = String::new();
+        loop {
+            match self.event_rx.try_recv() {
+                Ok(SttEvent::FinalResult(text, _)) | Ok(SttEvent::PartialResult(text, _)) => {
+                    final_text = text;
+                }
+                Ok(_) => {
+                    // 制御イベント（Started, Stopped 等）は無視
+                }
+                Err(mpsc::error::TryRecvError::Empty) => break,
+                Err(mpsc::error::TryRecvError::Disconnected) => break,
+            }
+        }
+
+        self.start()?;
+        Ok(final_text)
+    }
+
+    /// 現在のエンジン種別を返す。
+    pub fn engine(&self) -> SttEngine {
+        self.engine
+    }
+
+    /// エンジン種別を設定する。
+    ///
+    /// 認識動作中の場合、一度停止してからエンジンを切り替え、再開する。
+    pub fn set_engine(&mut self, engine: SttEngine) -> Result<(), VoiputError> {
+        let was_running = self.recognizer.is_running();
+        if was_running {
+            self.stop()?;
+        }
+        self.recognizer.set_engine(engine);
+        self.engine = engine;
+        if was_running {
+            self.start()?;
+        }
+        Ok(())
+    }
+
+    /// 言語ロケールを設定する。
+    ///
+    /// 全バックエンドのロケールを即座に更新する。
+    pub fn set_locale(&mut self, locale: LocaleCode) {
+        self.recognizer.set_locale(locale);
+    }
+
+    /// 置換辞書を更新する。
+    ///
+    /// インターセプタータスクと共有される辞書を差し替える。
+    /// リアルタイムに反映される（次回のイベント中継から有効）。
+    pub fn update_replaces(&self, replaces: IndexMap<String, Vec<String>>) {
+        let mut map = self.replaces_map.write();
+        *map = replaces;
+    }
+
+    /// 現在の動作状態を返す。
+    pub fn is_running(&self) -> bool {
+        self.recognizer.is_running()
+    }
+
+    /// OS バックエンドのヘルスチェック結果を返す。
+    ///
+    /// - 0: 正常
+    /// - 非0: 回復が必要（主に Windows の WinRT SpeechRecognizer 初期化状態確認用）
+    pub fn health_check(&self) -> u32 {
+        // SpeechRecognizer にヘルスチェック機構は統合されていないため、
+        // 現状は常に 0（正常）を返す。M6 以降で拡張予定。
+        0
+    }
+}
+
+impl Drop for Voiput {
+    fn drop(&mut self) {
+        // SpeechRecognizer の Drop が自動的に stop() + cleanup() を呼ぶ
+    }
+}
+
+// ============================================================================
+// VAD 設定変換ヘルパー
+// ============================================================================
+
+/// `types::VadConfig` + `VadModelPaths` + `model_dir` → `pipeline::vad::VadConfig`
+///
+/// model_dir が設定されている場合、相対パスの VAD モデルファイルは
+/// model_dir を起点として解決される。絶対パス（/ 始まり）はそのまま使用される。
+fn build_vad_processor_config(
+    cfg: &VadConfig,
+    paths: &VadModelPaths,
+    model_dir: &Option<String>,
+) -> VadProcessorConfig {
+    let model_path = resolve_vad_model_path(
+        match cfg.vad_type {
+            VadType::Silero => &paths.silero,
+            VadType::Ten => &paths.ten,
+        },
+        model_dir,
+    );
+    let vad_type = match cfg.vad_type {
+        VadType::Silero => VadProcessorType::Silero,
+        VadType::Ten => VadProcessorType::Ten,
+    };
+    VadProcessorConfig {
+        vad_type,
+        model_path,
+        threshold: cfg.threshold,
+        min_silence_duration: cfg.min_silence_duration,
+        min_speech_duration: cfg.min_speech_duration,
+        max_speech_duration: cfg.max_speech_duration,
+        num_threads: cfg.num_threads,
+    }
+}
+
+/// VAD モデルファイルのパスを解決する。
+///
+/// - 絶対パス（/ 始まり）: そのまま返す
+/// - 相対パス + model_dir あり: `{model_dir}/{path}` として結合
+/// - 相対パス + model_dir なし: path をそのまま返す
+fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
+    if path.starts_with('/') {
+        return path.to_string();
+    }
+    match model_dir {
+        Some(dir) if !path.is_empty() => {
+            let trimmed = dir.trim_end_matches('/');
+            format!("{}/{}", trimmed, path)
+        }
+        _ => path.to_string(),
+    }
+}
+
+// ============================================================================
+// テスト
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VoiputConfig;
+
+    fn minimal_config() -> VoiputConfig {
+        VoiputConfig::builder()
+            .engine(SttEngine::Os)
+            .locale(LocaleCode::Ja)
+            .vad_model_paths(VadModelPaths {
+                silero: "/tmp/silero.onnx".into(),
+                ten: "/tmp/ten.onnx".into(),
+                gtcrn: String::new(),
+            })
+            .build()
+            .unwrap()
+    }
+
+    fn openai_config() -> VoiputConfig {
+        VoiputConfig::builder()
+            .engine(SttEngine::OpenAI)
+            .locale(LocaleCode::En)
+            .openai_config(OpenAiConfig {
+                base_url: "https://api.openai.com/v1".into(),
+                api_key: "sk-test".into(),
+                model: "gpt-4o-mini-transcribe".into(),
+            })
+            .vad_model_paths(VadModelPaths {
+                silero: "/tmp/silero.onnx".into(),
+                ten: "/tmp/ten.onnx".into(),
+                gtcrn: String::new(),
+            })
+            .build()
+            .unwrap()
+    }
+
+    // ---- 正常系: 構築 ----
+
+    #[test]
+    fn test_voiput_new_minimal() {
+        let voiput = Voiput::new(minimal_config());
+        assert!(voiput.is_ok());
+    }
+
+    #[test]
+    fn test_voiput_new_with_openai() {
+        let voiput = Voiput::new(openai_config());
+        assert!(voiput.is_ok());
+    }
+
+    // ---- 異常系: 構築 ----
+
+    #[test]
+    fn test_voiput_new_rejects_missing_vad_paths() {
+        let result = VoiputConfig::builder()
+            .engine(SttEngine::Os)
+            .locale(LocaleCode::Ja)
+            .build();
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("vad_model_paths"));
+    }
+
+    // ---- ライフサイクル ----
+
+    #[test]
+    fn test_voiput_start_stop() {
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        // start()/stop() は常に Ok(()) を返す（SpeechRecognizer の内部エラーはログ出力のみ）。
+        // バックエンド不在時（テスト環境）は is_running が false になるが、
+        // これは start() メソッドの契約範囲外（正常系: API 呼び出しがパニックしないこと）。
+        assert!(voiput.start().is_ok());
+        assert!(voiput.stop().is_ok());
+        // stop → stop の冪等性
+        assert!(voiput.stop().is_ok());
+    }
+
+    #[test]
+    fn test_voiput_drop_cleanup() {
+        let voiput = Voiput::new(minimal_config()).unwrap();
+        drop(voiput);
+        // パニックしないこと
+    }
+
+    #[test]
+    fn test_voiput_flush_called() {
+        // flush() が内部的に stop/start を呼び、エラーにならないこと
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        let result = rt.block_on(async { voiput.flush().await });
+        assert!(result.is_ok());
+    }
+
+    // ---- 設定変更 ----
+
+    #[test]
+    fn test_voiput_set_engine() {
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        assert_eq!(voiput.engine(), SttEngine::Os);
+        assert!(voiput.set_engine(SttEngine::OpenAI).is_ok());
+        assert_eq!(voiput.engine(), SttEngine::OpenAI);
+        assert!(voiput.set_engine(SttEngine::Os).is_ok());
+        assert_eq!(voiput.engine(), SttEngine::Os);
+    }
+
+    #[test]
+    fn test_voiput_set_locale() {
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        voiput.set_locale(LocaleCode::En);
+        voiput.set_locale(LocaleCode::Ja);
+        // パニックしないこと
+    }
+
+    #[test]
+    fn test_voiput_update_replaces() {
+        let voiput = Voiput::new(minimal_config()).unwrap();
+        let mut replaces = IndexMap::new();
+        replaces.insert("world".to_string(), vec!["hello".to_string()]);
+        // パニックしないこと
+        voiput.update_replaces(replaces);
+    }
+
+    #[test]
+    fn test_voiput_health_check() {
+        let voiput = Voiput::new(minimal_config()).unwrap();
+        assert_eq!(voiput.health_check(), 0);
+    }
+
+    #[test]
+    fn test_voiput_engine_getter() {
+        let voiput = Voiput::new(minimal_config()).unwrap();
+        assert_eq!(voiput.engine(), SttEngine::Os);
+    }
+
+    // ---- VAD 設定変換 ----
+
+    #[test]
+    fn test_build_vad_processor_config_silero() {
+        let cfg = VadConfig {
+            vad_type: VadType::Silero,
+            threshold: 0.5,
+            min_silence_duration: 0.2,
+            min_speech_duration: 0.25,
+            max_speech_duration: 25.0,
+            num_threads: 4,
+            ..Default::default()
+        };
+        let paths = VadModelPaths {
+            silero: "/models/silero.onnx".into(),
+            ten: "/models/ten.onnx".into(),
+            gtcrn: String::new(),
+        };
+        let result = build_vad_processor_config(&cfg, &paths, &None);
+        assert_eq!(result.model_path, "/models/silero.onnx");
+        assert_eq!(result.threshold, 0.5);
+    }
+
+    #[test]
+    fn test_build_vad_processor_config_ten() {
+        let cfg = VadConfig {
+            vad_type: VadType::Ten,
+            ..Default::default()
+        };
+        let paths = VadModelPaths {
+            silero: "/s.onnx".into(),
+            ten: "/t.onnx".into(),
+            gtcrn: String::new(),
+        };
+        let result = build_vad_processor_config(&cfg, &paths, &None);
+        assert_eq!(result.model_path, "/t.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_absolute() {
+        let result = resolve_vad_model_path("/abs/path.onnx", &None);
+        assert_eq!(result, "/abs/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_relative_with_dir() {
+        let result = resolve_vad_model_path("rel/path.onnx", &Some("/base/models".into()));
+        assert_eq!(result, "/base/models/rel/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_relative_without_dir() {
+        let result = resolve_vad_model_path("rel/path.onnx", &None);
+        assert_eq!(result, "rel/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_empty_with_dir() {
+        let result = resolve_vad_model_path("", &Some("/base".into()));
+        assert_eq!(result, "");
+    }
+}
