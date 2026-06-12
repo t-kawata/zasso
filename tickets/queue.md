@@ -63,3 +63,6 @@
 - [x] #59 M1-2: AudioChunk / AudioChunkPair 定義 | /Users/shyme/shyme/zasso/tickets/specs/0059-m1-2-audiochunk-audiochunkpair.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #60 M1-3: TransportKind / TransportConfig 定義 | /Users/shyme/shyme/zasso/tickets/specs/0060-m1-3-transportkind-transportconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #61 M1-4: ICE/STUN/TURN 設定型定義 | /Users/shyme/shyme/zasso/tickets/specs/0061-m1-4-icestun-turn.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #62 M2-1: ClientConfig / ClientAudioConfig / TimeoutConfig / RawSipEventConfig 定義と Default 実装 | /Users/shyme/shyme/zasso/tickets/specs/0062-m2-1-clientconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #63 M2-2: AccountConfig / AccountCodecPolicy / OpusConfig / AccountMediaConfig / DtmfPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0063-m2-2-accountconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #64 M2-3: TlsConfig / ReconnectPolicy / CallMediaPreferences / OutgoingCallRequest / NegotiatedCodec / CodecSelectionPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0064-m2-3-config-remaining.md | 2026-06-12 | 2026-06-12 | 2026-06-12

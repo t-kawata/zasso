@@ -144,7 +144,7 @@
   5. `udp(5060)` が `0.0.0.0:5060` を bind_addr に持つこと
 * **計装方法・観測対象:** `cfg` 属性による conditional compilation の正しさを `cargo check --features tls` / `cargo check` の両方で検証。
 
-#### 📋 チケット M1-4 [`#61`]: ICE/STUN/TURN 設定型定義
+#### ✅ チケット M1-4 [`#61`]: ICE/STUN/TURN 設定型定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§13)
 * **対象不変条件 / 規範:** §13 ICE/STUN/TURN 完全仕様。「PJSIP 実装事情により trickle ICE は内部で非対応なら validation error で拒否するのではなく、ClientInitialized イベントに capability matrix を載せて明示する」。§13 Default impl。
@@ -167,7 +167,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M2-1: `ClientConfig` / `ClientAudioConfig` / `TimeoutConfig` / `RawSipEventConfig` 定義と `Default` 実装
+#### ✅ チケット M2-1 [`#62`]: `ClientConfig` / `ClientAudioConfig` / `TimeoutConfig` / `RawSipEventConfig` 定義と `Default` 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§10, §10.1)
 * **対象不変条件 / 規範:** §10 ClientConfig 完全仕様。§10.1 既定値「既定 delivery format は要件に合わせて 16kHz / i16 / stereo(L=IN,R=OUT)」。§42「event bus capacity は 16 以上必須」「raw SIP event capacity は event bus capacity 以上必須」「pair buffer は frame_ms の整数倍必須」（バリデーションは M3-1 で実装）。
@@ -189,7 +189,7 @@
   6. `Clone` + `Debug` が `ClientConfig` で機能し、かつ `SecretString` が露出しないこと
 * **計装方法・観測対象:** `ClientConfig` の `Default::default()` 呼び出しがスタック上で完結すること（ヒープ確保なし）。
 
-#### チケット M2-2: `AccountConfig` / `AccountCodecPolicy` / `OpusConfig` / `AccountMediaConfig` / `DtmfPolicy` 定義
+#### ✅ チケット M2-2 [`#63`]: `AccountConfig` / `AccountCodecPolicy` / `OpusConfig` / `AccountMediaConfig` / `DtmfPolicy` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§11, §11.1)
 * **対象不変条件 / 規範:** §11 AccountConfig 完全仕様。§11.1 validation rules（`username`, `domain`, `password` は空禁止、codec policy は `enable_pcmu || enable_opus` 必須、DTMF policy は送信・受信ともに 1 つ以上 required）。§30「SRTP は feature flag でオン・オフ可能、デフォルトオフ」。
@@ -218,7 +218,7 @@
   7. `OpusConfig` の各フィールドの型が§11 と一致すること
 * **計装方法・観測対象:** `AccountConfig` のサイズ見積もり（`size_of`）。`DtmfMethod` の `Copy` 成立確認。
 
-#### チケット M2-3: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
+#### 📋 チケット M2-3 [`#64`]: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.5, §12, §29.2, §31)
 * **対象不変条件 / 規範:** §29.2 NegotiatedCodec と CodecSelectionPolicy。§31 トランスポート再接続方針。§8.5 OutgoingCallRequest「`preferred_codecs` は最終的に PCMU, Opus のみ受理」。
