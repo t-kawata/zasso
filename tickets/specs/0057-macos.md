@@ -1,11 +1,12 @@
 ---
 id: 57
 title: "macOS ランタイムライブラリ収集"
-status: done
+status: reviewed
 ticket_ref: M6-1.5
 created_at: "2026-06-12"
 updated_at: 2026-06-12
 implementation_path: /Users/kawata/shyme/zasso/tickets/context/0057-macos/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0057-macos/review.md
 ---
 
 ## 背景 (Background)
