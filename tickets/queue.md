@@ -58,4 +58,5 @@
 - [x] #54 M5-1: SpeechRecognizer | /Users/kawata/shyme/zasso/tickets/specs/0054-m5-1-speechrecognizer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #55 Voiput 公開API + test-run.rs [Voiput]（バッファ＆フラッシュ） | /Users/kawata/shyme/zasso/tickets/specs/0055-voiput-api-test-runrs-voiput.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #56 プリビルドライブラリ自動ビルド | /Users/kawata/shyme/zasso/tickets/specs/0056-untitled-2.md | 2026-06-12 | 2026-06-12 | 2026-06-12
-- [x] #57 macOS ランタイムライブラリ収集 | /Users/kawata/shyme/zasso/tickets/specs/0057-macos.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #57 macOS ランタイムライブラリ収集 | /Users/kawata/shyme/zasso/tickets/specs/0057-macos.md | 2026-06-12 | 2026-06-12
+- [x] #58 M6-1.6 Windows: libs/windows/ ランタイムライブラリ収集 | C:\Users\kawat\shyme\zasso\tickets\specs\0058-m6-16-windows-libswindows.md | 2026-06-12 | 2026-06-12 | 2026-06-12

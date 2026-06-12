@@ -724,6 +724,7 @@ fn collect_runtime_libs_macos(manifest_dir: &std::path::Path) {
 /// sherpa-onnx の DLL + SpeechHelper.dll + VC++ 再頒布可能 DLL をコピーする。
 #[cfg(target_os = "windows")]
 fn collect_runtime_libs_windows(manifest_dir: &std::path::Path) {
+    // OUT_DIR/../../.. → target/debug/ または target/release/（cargo が DLL を配置する場所）
     let target_dir = std::path::PathBuf::from(env::var("OUT_DIR").unwrap())
         .join("../../..");
     let prebuilt_dir = manifest_dir.join("prebuilt").join("windows");
@@ -783,12 +784,13 @@ fn find_system_dll(dll_name: &str) -> Option<std::path::PathBuf> {
     // 1. System32 から検索
     let system32 = std::path::PathBuf::from(std::env::var_os("SystemRoot")?)
         .join("System32");
-    let candidate = system32.join(dll_name);
-    if candidate.exists() {
-        return Some(candidate);
+    let system32_path = system32.join(dll_name);
+    if system32_path.exists() {
+        return Some(system32_path);
     }
 
     // 2. VS 再頒布可能ディレクトリから探索
+    //    VC/Redist/MSVC/<version>/x64/<CRT-dir>/ の構造を想定
     let vs_redist_roots = [
         "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Redist/MSVC",
         "C:/Program Files (x86)/Microsoft Visual Studio/17/BuildTools/VC/Redist/MSVC",
@@ -802,9 +804,18 @@ fn find_system_dll(dll_name: &str) -> Option<std::path::PathBuf> {
         }
         if let Ok(entries) = std::fs::read_dir(&root_path) {
             for entry in entries.flatten() {
-                let candidate = entry.path().join("x64").join(dll_name);
-                if candidate.exists() {
-                    return Some(candidate);
+                // x64/<任意のCRTディレクトリ>/<dll_name> を探索
+                let x64_dir = entry.path().join("x64");
+                if !x64_dir.exists() {
+                    continue;
+                }
+                if let Ok(subdirs) = std::fs::read_dir(&x64_dir) {
+                    for sub in subdirs.flatten() {
+                        let redist_path = sub.path().join(dll_name);
+                        if redist_path.exists() {
+                            return Some(redist_path);
+                        }
+                    }
                 }
             }
         }
