@@ -715,7 +715,7 @@ crates/voiput/
 
 > **参照:** RFC §4.2 — Voiput エントリポイント（enable_hotkeys の延長として）
 
-##### チケット M8-1: `hotkey/` モジュール — Option/Alt ダブルタップ検出 + 録音状態管理
+##### ✅ チケット M8-1: `hotkey/` モジュール — Option/Alt ダブルタップ検出 + 録音状態管理
 
 * **移植元（MYCUTE 正常動作確認済み）:**
   - macOS: `~/shyme/mycute/src/hotkey_mac.rs` 全405行
