@@ -212,7 +212,7 @@ powershell -File crates/voiput/native/cs/build.ps1
 
 ## ライセンス
 
-MIT License
+MIT OR Apache-2.0 License
 
 Copyright (c) 2026 Toshimi Kawata
 

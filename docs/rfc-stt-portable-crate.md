@@ -108,9 +108,9 @@ MYCUTE プロジェクトには、以下の3バックエンドを統合した完
 
 | 資産 | 隠蔽形態 |
 |---|---|
-| macOS Swift (`SpeechHelper.swift`) | プリビルド `libspeech_helper.a` を同封、`build.rs` で自動リンク |
+| macOS Swift (`SpeechHelper.swift`) | プリビルド `libSpeechHelper.a` を同封、`build.rs` で自動リンク |
 | Windows C# (`SpeechHelper.cs`) | プリビルド `speech_helper.lib` + `SpeechHelper.dll` を同封 |
-| Sherpa-ONNX (VAD + Denoiser) | `sherpa-rs` / `sherpa-rs-sys` 依存を内部化 |
+| Sherpa-ONNX (VAD + Denoiser) | `sherpa-onnx` 依存を crate 内で完結 |
 | async-openai (Whisper API) | クレート内依存 |
 | rubato (リサンプリング) | 同上 |
 | lindera (句読点挿入) | 同上 |
@@ -152,7 +152,7 @@ use voiput::{Voiput, VoiputConfig, SttEngine, LocaleCode, SttEvent};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. 設定を構築
     let config = VoiputConfig::builder()
-        .engine(SttEngine::Os)                      // または SttEngine::OpenAi
+        .engine(SttEngine::Os)                      // または SttEngine::OpenAI
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
             silero: "/path/to/silero_vad.onnx".into(),
@@ -230,8 +230,13 @@ pub struct VoiputConfig {
     /// 発話タイムアウト（秒）デフォルト: 30.0
     pub speech_timeout_sec: f64,
 
-    /// VAD モデルファイルパス群
+    /// VAD モデルファイルパス群（model_dir が設定されていれば、相対パスはそちらからの結合で解決される）
     pub vad_model_paths: VadModelPaths,
+
+    /// モデルファイルのベースディレクトリ（省略可）
+    /// 設定された場合、VadModelPaths の相対パスはこのディレクトリとの結合で解決される。
+    /// 絶対パス（/ 始まり）のファイルはそのまま使用される。
+    pub model_dir: Option<String>,
 }
 
 impl VoiputConfig {
@@ -250,6 +255,7 @@ pub struct VoiputConfigBuilder {
     signal_filter: Option<SignalFilterConfig>,
     speech_timeout_sec: Option<f64>,
     vad_model_paths: Option<VadModelPaths>,
+    model_dir: Option<String>,
 }
 
 impl VoiputConfigBuilder {
@@ -263,6 +269,8 @@ impl VoiputConfigBuilder {
     pub fn signal_filter(mut self, s: SignalFilterConfig) -> Self { self.signal_filter = Some(s); self }
     pub fn speech_timeout_sec(mut self, t: f64) -> Self { self.speech_timeout_sec = Some(t); self }
     pub fn vad_model_paths(mut self, p: VadModelPaths) -> Self { self.vad_model_paths = Some(p); self }
+    /// VAD モデルファイルのベースディレクトリを設定する。
+    pub fn model_dir(mut self, dir: impl Into<String>) -> Self { self.model_dir = Some(dir.into()); self }
 
     pub fn build(self) -> Result<VoiputConfig, VoiputError> {
         // バリデーション:
@@ -277,7 +285,7 @@ impl VoiputConfigBuilder {
             VoiputError::InvalidConfig("vad_model_paths is required".into())
         })?;
 
-        if engine == SttEngine::OpenAi && self.openai_config.is_none() {
+        if engine == SttEngine::OpenAI && self.openai_config.is_none() {
             return Err(VoiputError::InvalidConfig(
                 "openai_config is required when engine is OpenAI".into()
             ));
@@ -515,7 +523,7 @@ pub enum VoiputError {
 | `src/types.rs` の `LocaleCode` | 同一（`src/types.rs`） | `sherpa01_language_token()` メソッド削除（MYCUTE Sherpa01依存） |
 | `src/types.rs` の `TargetPlatform` | 削除 | 利用側に不要 |
 | `src/types.rs` の `HotkeyAction` | 削除 | MYCUTE ホットキー機能のため |
-| `src/mycute_settings.rs` の `SttEngine` | 同一（`src/types.rs`） | variant 名: `OpenAI` → `OpenAi` |
+| `src/mycute_settings.rs` の `SttEngine` | 同一（`src/types.rs`） | 変更なし（variant 名: `OpenAI` のまま） |
 | `src/mycute_settings.rs` の `VadType` | 同一（`src/types.rs`） | 変更なし |
 | `src/mycute_settings.rs` の `SttSettings` | 複数 Config に分解 | 1対1対応ではない。後述のマッピング表参照 |
 
@@ -573,7 +581,7 @@ impl Voiput {
     /// - 全バックエンドの VAD プロセッサ初期化
     /// - インターセプタータスク（置換辞書）の起動
     pub fn new(config: VoiputConfig) -> Result<Self, VoiputError> {
-        let (event_tx, event_rx) = mpsc::channel(256);
+        let (event_tx, event_rx) = mpsc::channel(100);
 
         // 置換辞書の初期化（空）
         let replaces_map = Arc::new(parking_lot::RwLock::new(
@@ -678,8 +686,9 @@ impl Voiput {
 
     /// 置換辞書を更新する。
     /// IndexMap<String, Vec<String>>: キー = 置換後テキスト, 値 = 置換前テキスト候補リスト
-    pub fn update_replaces(&mut self, replaces: indexmap::IndexMap<String, Vec<String>>) {
-        self.recognizer.update_replaces(replaces);
+    pub fn update_replaces(&self, replaces: indexmap::IndexMap<String, Vec<String>>) {
+        let mut map = self.replaces_map.write();
+        *map = replaces;
     }
 
     /// Windows: 音声入力設定のヘルスチェック結果をビットマスクで取得
@@ -832,69 +841,70 @@ pub(crate) enum SttModelType {
 
 ## 6. ネイティブライブラリのプリビルドと同封
 
-### 6.1 macOS: libspeech_helper.a
+### 6.1 macOS: libSpeechHelper.a
 
-**ソース**: MYCUTE `native/swift/SpeechHelper.swift` をそのまま使用。
+**ソース**: `native/swift/SpeechHelper.swift`（MYCUTE `native/swift/SpeechHelper.swift` をそのまま使用）。
 
-**ビルド手順** (リポジトリ root に `native/swift/build.sh` として配置):
+**ビルド手順** (`native/swift/build.sh`):
 
 ```bash
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# ターゲット: macOS 15.0 (Swift SDK 26.0 相当)
-SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+OUT_DIR="$(cd "$SCRIPT_DIR/../../prebuilt/macos" && pwd)"
 
-# arm64
+mkdir -p "$OUT_DIR"
+
+if ! command -v swiftc &>/dev/null; then
+    echo "[build.sh] ERROR: swiftc not found. Install Xcode Command Line Tools." >&2
+    exit 1
+fi
+
 swiftc \
-    -target arm64-apple-macos15.0 \
-    -O -whole-module-optimization \
-    -sdk "$SDK_PATH" \
     -emit-library -static \
-    -o libspeech_helper_arm64.a \
-    SpeechHelper.swift
+    -o "$OUT_DIR/libSpeechHelper.a" \
+    -module-name SpeechHelper \
+    -parse-as-library \
+    "$SCRIPT_DIR/SpeechHelper.swift"
 
-# x86_64
-swiftc \
-    -target x86_64-apple-macos15.0 \
-    -O -whole-module-optimization \
-    -sdk "$SDK_PATH" \
-    -emit-library -static \
-    -o libspeech_helper_x86_64.a \
-    SpeechHelper.swift
-
-# ユニバーサルバイナリ
-lipo -create libspeech_helper_arm64.a libspeech_helper_x86_64.a \
-    -output ../../prebuilt/macos/libspeech_helper.a
-
-rm libspeech_helper_arm64.a libspeech_helper_x86_64.a
-echo "Done: ../../prebuilt/macos/libspeech_helper.a"
+echo "[build.sh] Built: $OUT_DIR/libSpeechHelper.a ($(wc -c < "$OUT_DIR/libSpeechHelper.a") bytes)"
 ```
 
-**同封場所**: `prebuilt/macos/libspeech_helper.a`
+**同封場所**: `prebuilt/macos/libSpeechHelper.a`
 
 ### 6.2 Windows: speech_helper.lib + SpeechHelper.dll
 
-**ソース**: MYCUTE `native/cs/SpeechHelper/` をそのまま使用。
+**ソース**: `native/cs/SpeechHelper/`（MYCUTE `native/cs/SpeechHelper/` をそのまま使用）。
 
-**ビルド手順** (リポジトリ root に `native/cs/build.ps1` として配置):
+**ビルド手順** (`native/cs/build.ps1`):
 
 ```powershell
-$ErrorActionPreference = "Stop"
+param()
 
-dotnet publish SpeechHelper/SpeechHelper.csproj `
+$ProjectDir = "$PSScriptRoot\SpeechHelper"
+$OutDir = "$PSScriptRoot\..\..\prebuilt\windows"
+if (-not (Test-Path $OutDir)) { $null = New-Item -ItemType Directory -Path $OutDir -Force }
+$OutDir = (Resolve-Path $OutDir).Path
+
+if (-not (Test-Path $ProjectDir)) {
+    Write-Error "[build.ps1] Project not found: $ProjectDir"
+    exit 1
+}
+
+Write-Output "[build.ps1] Publishing SpeechHelper to $OutDir ..."
+dotnet publish "$ProjectDir/SpeechHelper.csproj" `
     -c Release `
     -r win-x64 `
-    -p:PublishAot=true `
-    -p:NativeLib=Shared `
-    -p:StripSymbols=false
+    --self-contained true `
+    -o "$OutDir"
 
-$base = "SpeechHelper/bin/Release/net10.0-windows10.0.26100.0/win-x64"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "[build.ps1] dotnet publish failed (exit: $LASTEXITCODE)"
+    exit $LASTEXITCODE
+}
 
-Copy-Item "$base/native/speech_helper.lib" "../../prebuilt/windows/speech_helper.lib"
-Copy-Item "$base/publish/SpeechHelper.dll" "../../prebuilt/windows/SpeechHelper.dll"
-
-Write-Host "Done: prebuilt/windows/"
+Write-Output "[build.ps1] Built: $OutDir/SpeechHelper.dll"
 ```
 
 **同封場所**:
@@ -943,7 +953,7 @@ voiput/
 ├── Cargo.toml
 ├── build.rs
 ├── prebuilt/
-│   ├── macos/libspeech_helper.a
+│   ├── macos/libSpeechHelper.a
 │   └── windows/{speech_helper.lib, SpeechHelper.dll}
 ├── native/                           # ソースコード（参照用・再ビルド用）
 │   ├── swift/
@@ -1222,7 +1232,7 @@ impl SpeechRecognizer {
         self.is_running.store(true, Ordering::SeqCst);
         let _ = self.tx.try_send(SttEvent::Started);
 
-        if self.engine == SttEngine::OpenAi {
+        if self.engine == SttEngine::OpenAI {
             if let Some(ref mut be) = self.openai_backend { be.start(); }
             return;
         }
@@ -1266,10 +1276,6 @@ impl SpeechRecognizer {
     pub(crate) fn set_engine(&mut self, engine: SttEngine) { self.engine = engine; }
     pub(crate) fn is_running(&self) -> bool { self.is_running.load(Ordering::SeqCst) }
 
-    pub(crate) fn update_replaces(&mut self, replaces: indexmap::IndexMap<String, Vec<String>>) {
-        *self.replaces_map.write() = replaces;
-    }
-
     pub(crate) fn health_check(&self) -> u32 {
         #[cfg(target_os = "windows")]
         { crate::native::win_ffi::health_check_result() }
@@ -1282,7 +1288,7 @@ impl SpeechRecognizer {
         // engine に応じて対応するバックエンドの tick() を呼ぶ
         if !self.is_running.load(Ordering::SeqCst) { return; }
         match self.engine {
-            SttEngine::OpenAi => {
+            SttEngine::OpenAI => {
                 if let Some(ref mut be) = self.openai_backend { be.tick(); }
             }
             SttEngine::Os => {
@@ -1375,57 +1381,48 @@ fn apply_replaces(
 // - SpeechDenoiser → 独立ファイル denoiser.rs へ抽出
 ```
 
-**SpeechDenoiser は独立ファイルに抽出する**（`src/pipeline/denoiser.rs`）:
+**SpeechDenoiser は独立ファイルに抽出する**（`src/pipeline/denoiser.rs`、sherpa_onnx safe API 版）:
 
 ```rust
 // src/pipeline/denoiser.rs
 use anyhow::{anyhow, Result};
-use sherpa_rs_sys as sys;
-use std::ffi::CString;
+use sherpa_onnx::{
+    DenoisedAudio, OfflineSpeechDenoiser, OfflineSpeechDenoiserConfig,
+    OfflineSpeechDenoiserGtcrnModelConfig, OfflineSpeechDenoiserModelConfig,
+};
 
-pub(crate) struct SpeechDenoiser {
-    inner: *const sys::SherpaOnnxOfflineSpeechDenoiser,
+pub struct SpeechDenoiser {
+    inner: Option<OfflineSpeechDenoiser>,
 }
 
-unsafe impl Send for SpeechDenoiser {}
-unsafe impl Sync for SpeechDenoiser {}
-
 impl SpeechDenoiser {
-    pub(crate) fn new(model_path: &str, num_threads: i32) -> Result<Self> {
-        let c_model = CString::new(model_path)?;
-        let gtcrn_config = sys::SherpaOnnxOfflineSpeechDenoiserGtcrnModelConfig {
-            model: c_model.as_ptr(),
+    pub fn new(model_path: &str, num_threads: i32) -> Result<Self> {
+        let gtcrn = OfflineSpeechDenoiserGtcrnModelConfig {
+            model: Some(model_path.to_string()),
         };
-        let model_config = sys::SherpaOnnxOfflineSpeechDenoiserModelConfig {
-            gtcrn: gtcrn_config,
+        let model_config = OfflineSpeechDenoiserModelConfig {
+            gtcrn,
             num_threads,
-            debug: 0,
-            provider: std::ptr::null(),
+            ..Default::default()
         };
-        let config = sys::SherpaOnnxOfflineSpeechDenoiserConfig { model: model_config };
-        let denoiser = unsafe { sys::SherpaOnnxCreateOfflineSpeechDenoiser(&config) };
-        if denoiser.is_null() {
-            return Err(anyhow!("Failed to create SherpaOnnxOfflineSpeechDenoiser."));
-        }
-        Ok(Self { inner: denoiser })
+        let config = OfflineSpeechDenoiserConfig {
+            model: model_config,
+        };
+        let denoiser = OfflineSpeechDenoiser::create(&config)
+            .ok_or_else(|| anyhow!("Failed to create OfflineSpeechDenoiser"))?;
+        Ok(Self { inner: Some(denoiser) })
     }
 
-    pub(crate) fn run(&self, samples: &[f32], sample_rate: i32) -> Result<Vec<f32>> {
-        let result_ptr = unsafe {
-            sys::SherpaOnnxOfflineSpeechDenoiserRun(
-                self.inner, samples.as_ptr(), samples.len() as i32, sample_rate,
-            )
-        };
-        if result_ptr.is_null() {
-            return Err(anyhow!("Denoiser returned null result."));
-        }
-        let result = unsafe { &*result_ptr };
-        let output = if result.n > 0 && !result.samples.is_null() {
-            unsafe { std::slice::from_raw_parts(result.samples, result.n as usize).to_vec() }
-        } else { Vec::new() };
-        unsafe { sys::SherpaOnnxDestroyDenoisedAudio(result_ptr) };
-        Ok(output)
+    pub fn run(&self, samples: &[f32], sample_rate: i32) -> Result<Vec<f32>> {
+        let denoiser = self.inner.as_ref()
+            .ok_or_else(|| anyhow!("SpeechDenoiser not initialized"))?;
+        let audio: DenoisedAudio = denoiser.run(samples, sample_rate);
+        Ok(audio.samples)
     }
+}
+```
+
+**変更点**: `sherpa_rs_sys`（低レベル unsafe FFI）→ `sherpa_onnx`（safe Rust API）。RAII により明示的な Drop が不要になった。
 }
 
 impl Drop for SpeechDenoiser {
@@ -1804,7 +1801,7 @@ include = [
 
 [dependencies]
 # 非同期ランタイム
-tokio = { version = "1.49", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 
 # シリアライズ
 serde = { version = "1.0", features = ["derive"] }
@@ -1812,15 +1809,14 @@ serde_json = "1.0"
 
 # 同期プリミティブ
 parking_lot = "0.12"
-lazy_static = "1.4"
+lazy_static = "1.5"
 
 # エラーハンドリング
 anyhow = "1.0"
 thiserror = "2.0"
 
-# Sherpa-ONNX (VAD + Denoiser)
-sherpa-rs = "0.6"
-sherpa-rs-sys = "0.6"
+# Sherpa-ONNX (VAD + Denoiser) — k2-fsa 公式、shared=動的リンク
+sherpa-onnx = { version = "1.13.2", default-features = false, features = ["shared"] }
 
 # 音声エンコーディング (WAV生成)
 hound = "3.5"
@@ -1829,14 +1825,14 @@ hound = "3.5"
 rubato = "0.16"
 
 # 形態素解析（日本語句読点挿入）
-lindera = { version = "2.0", features = ["embed-ipadic"] }
-lindera-ipadic = "2.0"
+lindera = { version = "3.0", features = ["embed-ipadic"] }
+lindera-ipadic = "3.0"
 
 # OpenAI API クライアント
-async-openai = { version = "0.36", features = ["audio", "chat-completion"] }
+async-openai = { version = "0.41", features = ["audio", "chat-completion"] }
 
 # コレクション
-indexmap = { version = "2.13", features = ["serde"] }
+indexmap = { version = "2.14", features = ["serde"] }
 
 # 効果音再生
 rodio = "0.21"
@@ -1859,123 +1855,27 @@ crate-type = ["lib"]
 
 ## 9. build.rs 設計
 
-```rust
-// build.rs
-use std::env;
-use std::path::PathBuf;
+build.rs は ~789 行に成長し、以下の主要機能を持つ：
 
-fn main() {
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let prebuilt = manifest_dir.join("prebuilt");
+1. **プラットフォーム分岐**: macOS (`link_macos()`) / Windows (`link_windows()`) / 非対応OS（警告のみ）
+2. **プリビルドライブラリ選択とリンク**:
+   - macOS: `prebuilt/macos/libSpeechHelper.a` が存在すれば静的リンク。存在しなければ `native/swift/build.sh` を自動実行してビルドを試行し、それでも失敗すればスタブライブラリを生成
+   - Windows: `prebuilt/windows/SpeechHelper.lib + .dll` が存在すればリンク。存在しなければ `native/cs/build.ps1` を自動実行。失敗時はスタブ生成
+3. **ランタイムライブラリ収集** (`collect_macos_runtimes()` / `collect_windows_runtimes()`):
+   - macOS: sherpa-onnx と onnxruntime の dylib を `libs/macos/` に自動収集
+   - Windows: 同様の dll を `libs/windows/` に収集
+4. **Swift ランタイムパス設定**: macOS では `swiftc -print-target-info` から Swift ランタイムライブラリ検索パスを抽出し、`cargo:rustc-link-search` で設定 + RPATH 設定
+5. **システムフレームワーク**: macOS では `Foundation`, `AVFoundation`, `Speech`, `CoreFoundation` をリンク
+6. **Windows システムライブラリ**: ole32, kernel32 等の標準 Windows ライブラリをリンク + DLL コピー
+7. **変更検知**: `cargo:rerun-if-changed=prebuilt/` および `cargo:rerun-if-changed=libs/`
 
-    if target_os == "windows" {
-        // ---- Windows: C# Native AOT Shared Link ----
-        let win_dir = prebuilt.join("windows");
-        let lib_path = win_dir.join("speech_helper.lib");
-        let dll_path = win_dir.join("SpeechHelper.dll");
-
-        if lib_path.exists() {
-            println!("cargo:rustc-link-lib=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", win_dir.display());
-        } else {
-            panic!(
-                "speech_helper.lib not found at {}. \
-                 Run native/cs/build.ps1 to build it.",
-                win_dir.display()
-            );
-        }
-
-        // DLL を OUT_DIR にコピー
-        if dll_path.exists() {
-            let out_dir = env::var("OUT_DIR").unwrap();
-            let dest = PathBuf::from(&out_dir)
-                .join("..").join("..").join("..")
-                .join("SpeechHelper.dll");
-            std::fs::copy(&dll_path, &dest)
-                .expect("Failed to copy SpeechHelper.dll to target directory");
-        }
-
-        // Windows システムライブラリ
-        for lib in &[
-            "ole32", "oleaut32", "advapi32", "bcrypt", "crypt32",
-            "iphlpapi", "kernel32", "mswsock", "ntdll", "secur32",
-            "user32", "ws2_32",
-        ] {
-            println!("cargo:rustc-link-lib={}", lib);
-        }
-        println!("cargo:rustc-link-arg=/IGNORE:4099");
-
-    } else if target_os == "macos" {
-        // ---- macOS: Swift Static Link ----
-        let mac_dir = prebuilt.join("macos");
-        let lib_path = mac_dir.join("libspeech_helper.a");
-
-        if lib_path.exists() {
-            println!("cargo:rustc-link-lib=static=SpeechHelper");
-            println!("cargo:rustc-link-search=native={}", mac_dir.display());
-        } else {
-            panic!(
-                "libspeech_helper.a not found at {}. \
-                 Run native/swift/build.sh to build it.",
-                mac_dir.display()
-            );
-        }
-
-        // Swift ランタイムライブラリパス
-        if let Ok(output) = std::process::Command::new("swiftc")
-            .args(&["-print-target-info"]).output()
-        {
-            if let Ok(stdout) = String::from_utf8(output.stdout) {
-                if let Some(paths_start) = stdout.find("\"runtimeLibraryPaths\"") {
-                    if let Some(list_start) = stdout[paths_start..].find('[') {
-                        let list_start = paths_start + list_start;
-                        if let Some(list_end) = stdout[list_start..].find(']') {
-                            let list_end = list_start + list_end;
-                            let paths_str = &stdout[list_start + 1..list_end];
-                            for path in paths_str.split(',') {
-                                let path = path.trim().trim_matches('"').trim();
-                                if !path.is_empty() {
-                                    println!("cargo:rustc-link-search=native={}", path);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // RPATH
-        for rpath in &[
-            "/usr/lib/swift",
-            "@executable_path/",
-            "@loader_path/",
-        ] {
-            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", rpath);
-        }
-
-        // System Frameworks
-        for fw in &["Foundation", "AVFoundation", "Speech", "CoreFoundation"] {
-            println!("cargo:rustc-link-lib=framework={}", fw);
-        }
-
-    } else {
-        println!(
-            "cargo:warning=voiput: unsupported target OS '{}'. \
-             Only OpenAI engine will be available.",
-            target_os
-        );
-    }
-
-    println!("cargo:rerun-if-changed=prebuilt/");
-}
-```
+**スタブフォールバック**: 実ライブラリが存在しない環境ではダミーのスタブ関数を C ソースから生成してリンクするため、`cargo build` は常に成功する。ランタイムで「スタブがリンクされたこと」を検出し、ログで警告を出力する。
 
 **MYCUTE の build.rs との差分**:
 - `tauri_build::build()` 呼び出しを**削除**（Tauri 非依存）
 - `SPEECH_HELPER_LIB_DIR` 環境変数サポートは**削除**（プリビルドライブラリが同封されているため不要）
 - macOS Tauri バンドル固有の RPATH (`../Resources`, `../Frameworks`) を**削除**。利用側のアプリが必要に応じて追加する
-- プリビルドライブラリ不在時は `panic!` で明示的にエラー終了
+- 実ライブラリ不在時の自動ビルド・スタブ生成機構を**追加**
 
 ---
 
@@ -2070,7 +1970,7 @@ use voiput::*;
 #[test]
 fn test_config_validation_openai_requires_api_key() {
     let result = VoiputConfig::builder()
-        .engine(SttEngine::OpenAi)
+        .engine(SttEngine::OpenAI)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
             silero: "/tmp/model.onnx".into(),
@@ -2188,7 +2088,7 @@ fn stt_settings_to_voiput_config(
 ) -> voiput::VoiputConfig {
     voiput::VoiputConfig::builder()
         .engine(match engine {
-            SttEngine::OpenAI => voiput::SttEngine::OpenAi,
+            SttEngine::OpenAI => voiput::SttEngine::OpenAI,
             SttEngine::Os => voiput::SttEngine::Os,
         })
         .locale(match locale {
@@ -2236,7 +2136,7 @@ fn stt_settings_to_voiput_config(
 
 ### 12.4 crates.io 公開時の注意
 
-プリビルドライブラリ（`libspeech_helper.a` 約 2MB, `SpeechHelper.dll` 約 5MB）を含むため、`cargo publish` 時のサイズ制限（10MB）に注意。超える場合は GitHub Releases 経由の配布 + `build.rs` での自動ダウンロード方式に切り替える。
+プリビルドライブラリ（`libSpeechHelper.a` 約 2MB, `SpeechHelper.dll` 約 5MB）を含むため、`cargo publish` 時のサイズ制限（10MB）に注意。超える場合は GitHub Releases 経由の配布 + `build.rs` での自動ダウンロード方式に切り替える。
 
 ---
 
@@ -2269,7 +2169,7 @@ fn stt_settings_to_voiput_config(
 
 Linux など macOS/Windows 以外の OS では:
 - `SttEngine::Os` → `VoiputError::UnsupportedEngine` 
-- `SttEngine::OpenAi` → 動作する（HTTP API 経由のため）
+- `SttEngine::OpenAI` → 動作する（HTTP API 経由のため）
 - マイク入力（OpenAIモード）→ 動作しない（OSネイティブキャプチャ非対応のため）
 
 将来的な Linux 対応（cpal/PulseAudio 経由のマイク入力）は、`AsrBackend` トレイトを実装する新バックエンド追加で対応可能。

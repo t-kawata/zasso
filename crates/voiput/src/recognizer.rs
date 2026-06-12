@@ -11,10 +11,13 @@ use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
 use crate::backends::openai::OpenAIRecognizer;
+use crate::config::VoiputConfig;
 use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig};
 use crate::pipeline::streamer::BackendWrapper;
-use crate::pipeline::vad::VadConfig;
-use crate::types::{LocaleCode, OpenAiConfig, SttEngine, SttEvent};
+use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
+use crate::types::{
+    LocaleCode, OpenAiConfig, SttEngine, SttEvent, VadConfig, VadModelPaths, VadType,
+};
 use crate::OpenAIBackend;
 
 #[cfg(target_os = "macos")]
@@ -137,8 +140,8 @@ pub struct SpeechRecognizer {
     mac_backend: Option<MacSpeechBackend>,
     /// PostCorrection 再構築用の OpenAI 設定
     openai_config: Option<OpenAiConfig>,
-    /// バックエンド初期化用の VAD 設定
-    vad_config: Option<VadConfig>,
+    /// バックエンド初期化用の VAD 設定（pipeline 内部形式）
+    vad_config: Option<VadProcessorConfig>,
     /// イベント送信側（インターセプター通過後、UI向け）
     tx: mpsc::Sender<SttEvent>,
     /// 全バックエンドで共有されるロケール
@@ -154,23 +157,92 @@ pub struct SpeechRecognizer {
     sequence_counter: u64,
 }
 
+/// `types::VadConfig` + `VadModelPaths` + `model_dir` → `pipeline::vad::VadConfig`
+///
+/// model_dir が設定されている場合、相対パスの VAD モデルファイルは
+/// model_dir を起点として解決される。絶対パス（/ 始まり）はそのまま使用される。
+fn build_vad_processor_config(
+    cfg: &VadConfig,
+    paths: &VadModelPaths,
+    model_dir: &Option<String>,
+) -> VadProcessorConfig {
+    let model_path = resolve_vad_model_path(
+        match cfg.vad_type {
+            VadType::Silero => &paths.silero,
+            VadType::Ten => &paths.ten,
+        },
+        model_dir,
+    );
+    let vad_type = match cfg.vad_type {
+        VadType::Silero => VadProcessorType::Silero,
+        VadType::Ten => VadProcessorType::Ten,
+    };
+    VadProcessorConfig {
+        vad_type,
+        model_path,
+        threshold: cfg.threshold,
+        min_silence_duration: cfg.min_silence_duration,
+        min_speech_duration: cfg.min_speech_duration,
+        max_speech_duration: cfg.max_speech_duration,
+        num_threads: cfg.num_threads,
+    }
+}
+
+/// VAD モデルファイルのパスを解決する。
+///
+/// - 絶対パス（/ 始まり）: そのまま返す
+/// - 相対パス + model_dir あり: `{model_dir}/{path}` として結合
+/// - 相対パス + model_dir なし: path をそのまま返す
+fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
+    if path.starts_with('/') {
+        return path.to_string();
+    }
+    match model_dir {
+        Some(dir) if !path.is_empty() => {
+            let trimmed = dir.trim_end_matches('/');
+            format!("{}/{}", trimmed, path)
+        }
+        _ => path.to_string(),
+    }
+}
+
 impl SpeechRecognizer {
-    /// エンジンが現在の OS で利用可能かを検証する（常に Ok）。
-    pub fn validate_config(_engine: &SttEngine) -> Result<(), String> {
-        Ok(())
+    /// エンジンが現在の OS で利用可能かを検証する。
+    ///
+    /// - `SttEngine::OpenAI`: 全プラットフォームで利用可能
+    /// - `SttEngine::Os`: macOS / Windows でのみ利用可能。非対応OS では UnsupportedEngine エラー
+    pub fn validate_config(engine: &SttEngine) -> Result<(), String> {
+        match engine {
+            SttEngine::Os => {
+                if cfg!(not(any(target_os = "macos", target_os = "windows"))) {
+                    Err("SttEngine::Os は現在のプラットフォームでは利用できません".into())
+                } else {
+                    Ok(())
+                }
+            }
+            SttEngine::OpenAI => Ok(()),
+        }
     }
 
     /// 認識器を構築する。
     ///
-    /// インターセプタータスクを起動し、全バックエンドを初期化する。
+    /// `config` から必要なパラメータを内部で抽出し、インターセプタータスクを起動して全バックエンドを初期化する。
     pub fn new(
         tx: mpsc::Sender<SttEvent>,
-        engine: SttEngine,
-        locale: LocaleCode,
-        openai_config: Option<OpenAiConfig>,
-        vad_config: Option<VadConfig>,
+        config: &VoiputConfig,
         replaces_map: Arc<RwLock<IndexMap<String, Vec<String>>>>,
     ) -> Result<Self, String> {
+        let engine = config.engine;
+        let locale = config.locale;
+        let openai_config = config.openai_config.clone();
+
+        // types::VadConfig → pipeline::vad::VadConfig に変換
+        let vad_config = Some(build_vad_processor_config(
+            &config.vad,
+            &config.vad_model_paths,
+            &config.model_dir,
+        ));
+
         // ================================================================
         // インターセプター層: 各バックエンド → tx_internal → 置換適用 → tx
         // ================================================================
@@ -376,7 +448,7 @@ impl SpeechRecognizer {
         engine: SttEngine,
         locale: LocaleCode,
         openai_config: Option<OpenAiConfig>,
-        vad_config: Option<VadConfig>,
+        vad_config: Option<VadProcessorConfig>,
     ) {
         let was_running = self.is_running.load(Ordering::SeqCst);
         if was_running {
@@ -483,12 +555,22 @@ mod speech_recognizer_tests {
 
     #[test]
     fn test_validate_config_openai() {
+        // OpenAI は全プラットフォームで利用可能
         assert!(SpeechRecognizer::validate_config(&SttEngine::OpenAI).is_ok());
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
-    fn test_validate_config_os() {
+    fn test_validate_config_os_supported() {
+        // macOS / Windows では Os エンジンが利用可能
         assert!(SpeechRecognizer::validate_config(&SttEngine::Os).is_ok());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[test]
+    fn test_validate_config_os_unsupported() {
+        // その他の OS では Os エンジンが利用不可
+        assert!(SpeechRecognizer::validate_config(&SttEngine::Os).is_err());
     }
 
     /// インターセプターの置換適用ロジックを直接テストする。
@@ -567,5 +649,73 @@ mod speech_recognizer_tests {
         } else {
             panic!("Expected FinalResult");
         }
+    }
+
+    // ---- VAD 設定変換（build_vad_processor_config / resolve_vad_model_path）----
+
+    fn sample_vad_config() -> VadConfig {
+        VadConfig {
+            vad_type: VadType::Silero,
+            threshold: 0.5,
+            min_silence_duration: 0.2,
+            min_speech_duration: 0.25,
+            max_speech_duration: 25.0,
+            num_threads: 4,
+            ..Default::default()
+        }
+    }
+
+    fn sample_paths() -> VadModelPaths {
+        VadModelPaths {
+            silero: "/models/silero.onnx".into(),
+            ten: "/models/ten.onnx".into(),
+            gtcrn: String::new(),
+        }
+    }
+
+    #[test]
+    fn test_build_vad_processor_config_silero() {
+        let result = build_vad_processor_config(&sample_vad_config(), &sample_paths(), &None);
+        assert_eq!(result.model_path, "/models/silero.onnx");
+        assert_eq!(result.threshold, 0.5);
+    }
+
+    #[test]
+    fn test_build_vad_processor_config_ten() {
+        let cfg = VadConfig {
+            vad_type: VadType::Ten,
+            ..Default::default()
+        };
+        let paths = VadModelPaths {
+            silero: "/s.onnx".into(),
+            ten: "/t.onnx".into(),
+            gtcrn: String::new(),
+        };
+        let result = build_vad_processor_config(&cfg, &paths, &None);
+        assert_eq!(result.model_path, "/t.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_absolute() {
+        let result = resolve_vad_model_path("/abs/path.onnx", &None);
+        assert_eq!(result, "/abs/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_relative_with_dir() {
+        let result = resolve_vad_model_path("rel/path.onnx", &Some("/base/models".into()));
+        assert_eq!(result, "/base/models/rel/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_relative_without_dir() {
+        let result = resolve_vad_model_path("rel/path.onnx", &None);
+        assert_eq!(result, "rel/path.onnx");
+    }
+
+    #[test]
+    fn test_resolve_vad_model_path_empty_with_dir() {
+        let result = resolve_vad_model_path("", &Some("/base".into()));
+        assert_eq!(result, "");
     }
 }

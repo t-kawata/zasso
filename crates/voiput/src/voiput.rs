@@ -11,7 +11,6 @@ use tokio::sync::mpsc;
 
 use crate::config::VoiputConfig;
 use crate::error::VoiputError;
-use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
 use crate::recognizer::SpeechRecognizer;
 use crate::types::*;
 
@@ -60,24 +59,14 @@ impl Voiput {
     /// 設定から認識器を構築する。
     ///
     /// `VoiputConfig` のバリデーション（locale 必須、engine==OpenAI で openai_config 必須等）は
-    /// ビルダーの `build()` で実行済み。ここでは VAD 設定の変換と `SpeechRecognizer` の初期化を行う。
+    /// ビルダーの `build()` で実行済み。ここでは `SpeechRecognizer` の初期化を行う。
     pub fn new(config: VoiputConfig) -> Result<Self, VoiputError> {
         let (tx, rx) = mpsc::channel(100);
         let replaces_map = Arc::new(RwLock::new(IndexMap::new()));
 
-        let openai_config = config.openai_config.clone();
-        let vad_processor_cfg = build_vad_processor_config(
-            &config.vad,
-            &config.vad_model_paths,
-            &config.model_dir,
-        );
-
         let recognizer = SpeechRecognizer::new(
             tx.clone(),
-            config.engine,
-            config.locale,
-            openai_config,
-            Some(vad_processor_cfg),
+            &config,
             replaces_map.clone(),
         )
         .map_err(|e| VoiputError::InitError(e))?;
@@ -246,59 +235,6 @@ impl Drop for Voiput {
 }
 
 // ============================================================================
-// VAD 設定変換ヘルパー
-// ============================================================================
-
-/// `types::VadConfig` + `VadModelPaths` + `model_dir` → `pipeline::vad::VadConfig`
-///
-/// model_dir が設定されている場合、相対パスの VAD モデルファイルは
-/// model_dir を起点として解決される。絶対パス（/ 始まり）はそのまま使用される。
-fn build_vad_processor_config(
-    cfg: &VadConfig,
-    paths: &VadModelPaths,
-    model_dir: &Option<String>,
-) -> VadProcessorConfig {
-    let model_path = resolve_vad_model_path(
-        match cfg.vad_type {
-            VadType::Silero => &paths.silero,
-            VadType::Ten => &paths.ten,
-        },
-        model_dir,
-    );
-    let vad_type = match cfg.vad_type {
-        VadType::Silero => VadProcessorType::Silero,
-        VadType::Ten => VadProcessorType::Ten,
-    };
-    VadProcessorConfig {
-        vad_type,
-        model_path,
-        threshold: cfg.threshold,
-        min_silence_duration: cfg.min_silence_duration,
-        min_speech_duration: cfg.min_speech_duration,
-        max_speech_duration: cfg.max_speech_duration,
-        num_threads: cfg.num_threads,
-    }
-}
-
-/// VAD モデルファイルのパスを解決する。
-///
-/// - 絶対パス（/ 始まり）: そのまま返す
-/// - 相対パス + model_dir あり: `{model_dir}/{path}` として結合
-/// - 相対パス + model_dir なし: path をそのまま返す
-fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
-    if path.starts_with('/') {
-        return path.to_string();
-    }
-    match model_dir {
-        Some(dir) if !path.is_empty() => {
-            let trimmed = dir.trim_end_matches('/');
-            format!("{}/{}", trimmed, path)
-        }
-        _ => path.to_string(),
-    }
-}
-
-// ============================================================================
 // テスト
 // ============================================================================
 
@@ -447,67 +383,5 @@ mod tests {
     fn test_voiput_engine_getter() {
         let voiput = Voiput::new(minimal_config()).unwrap();
         assert_eq!(voiput.engine(), SttEngine::Os);
-    }
-
-    // ---- VAD 設定変換 ----
-
-    #[test]
-    fn test_build_vad_processor_config_silero() {
-        let cfg = VadConfig {
-            vad_type: VadType::Silero,
-            threshold: 0.5,
-            min_silence_duration: 0.2,
-            min_speech_duration: 0.25,
-            max_speech_duration: 25.0,
-            num_threads: 4,
-            ..Default::default()
-        };
-        let paths = VadModelPaths {
-            silero: "/models/silero.onnx".into(),
-            ten: "/models/ten.onnx".into(),
-            gtcrn: String::new(),
-        };
-        let result = build_vad_processor_config(&cfg, &paths, &None);
-        assert_eq!(result.model_path, "/models/silero.onnx");
-        assert_eq!(result.threshold, 0.5);
-    }
-
-    #[test]
-    fn test_build_vad_processor_config_ten() {
-        let cfg = VadConfig {
-            vad_type: VadType::Ten,
-            ..Default::default()
-        };
-        let paths = VadModelPaths {
-            silero: "/s.onnx".into(),
-            ten: "/t.onnx".into(),
-            gtcrn: String::new(),
-        };
-        let result = build_vad_processor_config(&cfg, &paths, &None);
-        assert_eq!(result.model_path, "/t.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_absolute() {
-        let result = resolve_vad_model_path("/abs/path.onnx", &None);
-        assert_eq!(result, "/abs/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_relative_with_dir() {
-        let result = resolve_vad_model_path("rel/path.onnx", &Some("/base/models".into()));
-        assert_eq!(result, "/base/models/rel/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_relative_without_dir() {
-        let result = resolve_vad_model_path("rel/path.onnx", &None);
-        assert_eq!(result, "rel/path.onnx");
-    }
-
-    #[test]
-    fn test_resolve_vad_model_path_empty_with_dir() {
-        let result = resolve_vad_model_path("", &Some("/base".into()));
-        assert_eq!(result, "");
     }
 }

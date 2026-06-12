@@ -647,7 +647,7 @@ crates/voiput/
   5. 非同期コンテキスト外で start/stop を呼ぶとコンパイルエラーになること（型チェック）
 * **計装方法:** `#[tokio::test]` の導入（`dev-dependencies` に `tokio = { features = ["rt", "macros"] }` があれば使用可能）
 
-##### チケット M7-2: 内部設計整合 — SpeechRecognizer 引数整理 + VoiputError 型修正 + 非対応OSバリデーション
+##### ✅ チケット M7-2: 内部設計整合 — SpeechRecognizer 引数整理 + VoiputError 型修正 + 非対応OSバリデーション
 
 * **修正する RFC との矛盾／未実装:**
   1. `SpeechRecognizer::new()` の引数が RFC §7.4 の設計（`&VoiputConfig` を受け取る）と異なり、6個の個別引数に分解されている → `&VoiputConfig` ベースに統一
