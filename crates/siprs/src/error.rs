@@ -128,7 +128,7 @@ impl Display for SipErrorKind {
 /// * `account_id` — 関連アカウントの識別子（該当する場合のみ）
 /// * `call_id` — 関連通話の識別子（該当する場合のみ）
 /// * `retryable` — リトライ可能かどうか
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 #[error("{kind}: {message}")]
 pub struct SipError {
     /// エラー種別（プログラム的判別用）。
