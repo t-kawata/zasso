@@ -66,3 +66,6 @@
 - [x] #62 M2-1: ClientConfig / ClientAudioConfig / TimeoutConfig / RawSipEventConfig 定義と Default 実装 | /Users/shyme/shyme/zasso/tickets/specs/0062-m2-1-clientconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #63 M2-2: AccountConfig / AccountCodecPolicy / OpusConfig / AccountMediaConfig / DtmfPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0063-m2-2-accountconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #64 M2-3: TlsConfig / ReconnectPolicy / CallMediaPreferences / OutgoingCallRequest / NegotiatedCodec / CodecSelectionPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0064-m2-3-config-remaining.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #65 M3-1: ClientConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0065-m3-1-clientconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #66 M3-2: AccountConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0066-m3-2-accountconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #67 M4-1: BiMap<RuntimeId, NativeId> 実装 | /Users/shyme/shyme/zasso/tickets/specs/0067-m4-1-bimap.md | 2026-06-12 | 2026-06-12 | 2026-06-12

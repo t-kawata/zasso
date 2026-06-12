@@ -218,7 +218,7 @@
   7. `OpusConfig` の各フィールドの型が§11 と一致すること
 * **計装方法・観測対象:** `AccountConfig` のサイズ見積もり（`size_of`）。`DtmfMethod` の `Copy` 成立確認。
 
-#### 📋 チケット M2-3 [`#64`]: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
+#### ✅ チケット M2-3 [`#64`]: `TlsConfig` / `ReconnectPolicy` / `CallMediaPreferences` / `OutgoingCallRequest` / `NegotiatedCodec` / `CodecSelectionPolicy` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.5, §12, §29.2, §31)
 * **対象不変条件 / 規範:** §29.2 NegotiatedCodec と CodecSelectionPolicy。§31 トランスポート再接続方針。§8.5 OutgoingCallRequest「`preferred_codecs` は最終的に PCMU, Opus のみ受理」。
@@ -251,7 +251,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M3-1: `ClientConfig` バリデーション
+#### ✅ チケット M3-1: `ClientConfig` バリデーション
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§42)
 * **対象不変条件 / 規範:** §42 validation フェーズ。以下のルールを強制:
@@ -281,7 +281,7 @@
   8. すべてのエラーメッセージに違反フィールド名が含まれること
 * **計装方法・観測対象:** 全バリデーションルールの網羅率 100%。各ルールの「許可」と「拒否」の両ケースをテスト。
 
-#### チケット M3-2: `AccountConfig` バリデーション
+#### ✅ チケット M3-2: `AccountConfig` バリデーション
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§11.1)
 * **対象不変条件 / 規範:** §11.1 validation rules:
@@ -317,7 +317,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M4-1: `BiMap<RuntimeId, NativeId>` 実装
+#### ✅ チケット M4-1: `BiMap<RuntimeId, NativeId>` 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§9, §45.4)
 * **対象不変条件 / 規範:** §9「PJSUA の `pjsua_acc_id` や `pjsua_call_id` は再利用されうるため、そのまま公開しない。内部では `BiMap<RuntimeId, NativeId>` で変換する」。§45.4「public id を別採番し bi-map 変換」。

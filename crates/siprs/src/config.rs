@@ -6,9 +6,11 @@
 
 use std::time::Duration;
 
+use secrecy::ExposeSecret;
 use secrecy::SecretString;
 
 use crate::audio::format::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
+use crate::error::SipError;
 pub use crate::transport::{
     IceConfig, StunServerConfig, TransportConfig, TransportKind, TurnServerConfig, TurnTransport,
 };
@@ -545,6 +547,205 @@ pub struct ReconnectPolicy {
 }
 
 // ---------------------------------------------------------------------------
+// ClientConfig validation
+// ---------------------------------------------------------------------------
+
+/// SIP クライアント全体設定を検証する。
+///
+/// fail-fast の原則に従い、不正な設定は `SipError::InvalidConfig` として
+/// PJSUA の初期化前に即座に拒否する。
+/// RFC §42（validation フェーズ）に準拠する。
+// M12-2（SipClient::new()）で使用されるまでは未使用警告を許容する。
+#[allow(dead_code)]
+pub(crate) fn validate_client_config(cfg: &ClientConfig) -> Result<(), SipError> {
+    validate_event_bus_capacity(cfg.event_bus_capacity)?;
+    validate_raw_sip_event_capacity(
+        cfg.raw_sip_events.enabled,
+        cfg.raw_sip_event_capacity,
+        cfg.event_bus_capacity,
+    )?;
+    validate_audio_format(&cfg.audio.default_delivery_format)?;
+    validate_pair_buffer(cfg.audio.pair_buffer_ms, cfg.audio.mixer_frame_ms)?;
+    Ok(())
+}
+
+/// イベントバス容量が 16 以上であることを検証する。
+fn validate_event_bus_capacity(capacity: usize) -> Result<(), SipError> {
+    if capacity < 16 {
+        return Err(SipError::invalid_config(format!(
+            "event_bus_capacity must be >= 16, got {capacity}"
+        )));
+    }
+    Ok(())
+}
+
+/// Raw SIP イベント容量が有効時、イベントバス容量以上であることを検証する。
+fn validate_raw_sip_event_capacity(
+    enabled: bool,
+    event_capacity: usize,
+    bus_capacity: usize,
+) -> Result<(), SipError> {
+    if enabled && event_capacity < bus_capacity {
+        return Err(SipError::invalid_config(format!(
+            "raw_sip_event_capacity ({event_capacity}) must be >= event_bus_capacity ({bus_capacity})"
+        )));
+    }
+    Ok(())
+}
+
+/// 音声デリバリフォーマットを検証する。
+///
+/// - サンプルレートは 8/16/24/48kHz のいずれかであること
+///   （型レベルで保証されるが、将来の拡張に備えて belt-and-suspenders として明示的に検証）
+/// - フレーム長は 0 でないこと
+fn validate_audio_format(fmt: &AudioFormat) -> Result<(), SipError> {
+    if !matches!(
+        fmt.sample_rate,
+        SampleRate::Hz8000 | SampleRate::Hz16000 | SampleRate::Hz24000 | SampleRate::Hz48000
+    ) {
+        return Err(SipError::invalid_config(format!(
+            "unsupported sample_rate in default_delivery_format: {:?}",
+            fmt.sample_rate
+        )));
+    }
+    if fmt.frame_ms == 0 {
+        return Err(SipError::invalid_config(
+            "frame_ms must be > 0 in default_delivery_format",
+        ));
+    }
+    Ok(())
+}
+
+/// ペアバッファ時間長がミキサーフレーム長の整数倍であることを検証する。
+fn validate_pair_buffer(pair_buffer_ms: u32, mixer_frame_ms: u32) -> Result<(), SipError> {
+    if pair_buffer_ms == 0 {
+        return Err(SipError::invalid_config(
+            "pair_buffer_ms must be > 0",
+        ));
+    }
+    if mixer_frame_ms == 0 {
+        return Err(SipError::invalid_config(
+            "mixer_frame_ms must be > 0",
+        ));
+    }
+    if pair_buffer_ms % mixer_frame_ms != 0 {
+        return Err(SipError::invalid_config(format!(
+            "pair_buffer_ms ({pair_buffer_ms}) must be a multiple of mixer_frame_ms ({mixer_frame_ms})"
+        )));
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// AccountConfig validation
+// ---------------------------------------------------------------------------
+
+/// SIP アカウント設定を検証する。
+///
+/// RFC §11.1（validation rules）に準拠する。
+/// M12-4（add_account()）で使用されるまでは未使用警告を許容する。
+#[allow(dead_code)]
+pub(crate) fn validate_account_config(cfg: &AccountConfig) -> Result<(), SipError> {
+    validate_username(&cfg.username)?;
+    validate_domain(&cfg.domain)?;
+    validate_password(&cfg.password)?;
+    validate_codec_policy(&cfg.codecs)?;
+    validate_dtmf_policy(&cfg.dtmf)?;
+    #[cfg(not(feature = "srtp"))]
+    validate_media_config_no_srtp(&cfg.media)?;
+    Ok(())
+}
+
+/// ユーザー名が空文字列でないことを検証する。
+fn validate_username(username: &str) -> Result<(), SipError> {
+    if username.is_empty() {
+        return Err(SipError::invalid_config("username must not be empty"));
+    }
+    Ok(())
+}
+
+/// ドメインが空文字列でないことを検証する。
+fn validate_domain(domain: &str) -> Result<(), SipError> {
+    if domain.is_empty() {
+        return Err(SipError::invalid_config("domain must not be empty"));
+    }
+    Ok(())
+}
+
+/// パスワードが空文字列でないことを検証する。
+fn validate_password(password: &SecretString) -> Result<(), SipError> {
+    if password.expose_secret().is_empty() {
+        return Err(SipError::invalid_config("password must not be empty"));
+    }
+    Ok(())
+}
+
+/// レジストラ URI を導出する。
+///
+/// `registrar_uri` が指定されていればそれを返し、
+/// 未指定の場合は `sip:{domain}` を自動生成する。
+/// M12-4（add_account()）で使用されるまでは未使用警告を許容する。
+#[allow(dead_code)]
+pub(crate) fn derive_registrar_uri(domain: &str, registrar_uri: &Option<String>) -> String {
+    registrar_uri
+        .clone()
+        .unwrap_or_else(|| format!("sip:{domain}"))
+}
+
+/// コーデック選択ポリシーが少なくとも 1 つのコーデックを有効にしていることを検証する。
+fn validate_codec_policy(policy: &AccountCodecPolicy) -> Result<(), SipError> {
+    if !policy.enable_pcmu && !policy.enable_opus {
+        return Err(SipError::invalid_config(
+            "codec policy must enable at least one codec (enable_pcmu or enable_opus)",
+        ));
+    }
+    Ok(())
+}
+
+/// DTMF ポリシーの送受信方式が空でないことを検証する。
+fn validate_dtmf_policy(policy: &DtmfPolicy) -> Result<(), SipError> {
+    if policy.send_methods.is_empty() {
+        return Err(SipError::invalid_config(
+            "dtmf send_methods must not be empty",
+        ));
+    }
+    if policy.receive_methods.is_empty() {
+        return Err(SipError::invalid_config(
+            "dtmf receive_methods must not be empty",
+        ));
+    }
+    Ok(())
+}
+
+/// 優先コーデック一覧に PCMU/Opus 以外が含まれていないことを検証する。
+///
+/// 現時点では Codec enum が Pcmu/Opus のみのため空の一覧は許可する。
+/// 将来の拡張時に不正な variant を拒否するための準備として実装する。
+/// M12-4 で使用されるまでは未使用警告を許容する。
+#[allow(dead_code)]
+fn validate_preferred_codecs(codecs: &[Codec]) -> Result<(), SipError> {
+    for codec in codecs {
+        if !matches!(codec, Codec::Pcmu | Codec::Opus) {
+            return Err(SipError::invalid_config(format!(
+                "unsupported codec in preferred_codecs: {codec:?}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// SRTP feature 無効時にメディア設定が SRTP を使用していないことを検証する。
+#[cfg(not(feature = "srtp"))]
+fn validate_media_config_no_srtp(media: &AccountMediaConfig) -> Result<(), SipError> {
+    if matches!(media.srtp, SrtpPolicy::Mandatory | SrtpPolicy::Optional) {
+        return Err(SipError::invalid_config(
+            "SRTP policy requires 'srtp' feature to be enabled",
+        ));
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Unit tests
 // ---------------------------------------------------------------------------
 
@@ -1023,5 +1224,283 @@ mod tests {
         fn assert_sync<T: Sync>() {}
         assert_send::<ReconnectPolicy>();
         assert_sync::<ReconnectPolicy>();
+    }
+
+    // -----------------------------------------------------------------------
+    // ClientConfig validation tests (M3-1)
+    // -----------------------------------------------------------------------
+
+    /// 有効な ClientConfig（Default）が validate を通過することを確認する。
+    #[test]
+    fn test_validate_client_config_default_passes() -> Result<(), SipError> {
+        let cfg = ClientConfig::default();
+        validate_client_config(&cfg)
+    }
+
+    /// event_bus_capacity が最小値 16 で OK となることを確認する。
+    #[test]
+    fn test_validate_event_bus_capacity_minimum() {
+        assert!(validate_event_bus_capacity(16).is_ok());
+    }
+
+    /// event_bus_capacity が 15 で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_event_bus_capacity_too_small() {
+        let err = validate_event_bus_capacity(15).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("event_bus_capacity"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// raw_sip_events 有効時、capacity >= bus_capacity で OK となることを確認する。
+    #[test]
+    fn test_validate_raw_sip_event_sufficient() {
+        assert!(validate_raw_sip_event_capacity(true, 100, 50).is_ok());
+    }
+
+    /// raw_sip_events 有効時、capacity < bus_capacity で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_raw_sip_event_insufficient() {
+        let err = validate_raw_sip_event_capacity(true, 50, 100).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("raw_sip_event_capacity"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// raw_sip_events 無効時、capacity が bus_capacity 未満でも OK となることを確認する。
+    #[test]
+    fn test_validate_raw_sip_event_disabled() {
+        assert!(validate_raw_sip_event_capacity(false, 1, 100).is_ok());
+    }
+
+    /// pair_buffer_ms が mixer_frame_ms の整数倍で OK となることを確認する。
+    #[test]
+    fn test_validate_pair_buffer_multiple() {
+        assert!(validate_pair_buffer(120, 20).is_ok());
+    }
+
+    /// pair_buffer_ms が mixer_frame_ms の整数倍でない場合に InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_pair_buffer_not_multiple() {
+        let err = validate_pair_buffer(125, 20).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("pair_buffer_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// pair_buffer_ms が 0 で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_pair_buffer_zero() {
+        let err = validate_pair_buffer(0, 20).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("pair_buffer_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// mixer_frame_ms が 0 で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_mixer_frame_ms_zero() {
+        let err = validate_pair_buffer(120, 0).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("mixer_frame_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// default_delivery_format.frame_ms が 0 で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_audio_format_zero_frame() {
+        let fmt = AudioFormat {
+            sample_rate: SampleRate::Hz16000,
+            bit_depth: BitDepth::I16,
+            channel_layout: ChannelLayout::Mono,
+            frame_ms: 0,
+        };
+        let err = validate_audio_format(&fmt).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("frame_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+    }
+
+    /// validate_client_config の全エラーメッセージに違反フィールド名が含まれることを確認する。
+    #[test]
+    fn test_validate_client_config_all_errors_have_field_name() {
+        // event_bus_capacity 不足
+        let mut cfg = ClientConfig::default();
+        cfg.event_bus_capacity = 8;
+        let err = validate_client_config(&cfg).unwrap_err();
+        assert!(err.to_string().contains("event_bus_capacity"));
+
+        // raw_sip_event_capacity 不足
+        let mut cfg2 = ClientConfig::default();
+        cfg2.raw_sip_events.enabled = true;
+        cfg2.raw_sip_event_capacity = 1;
+        let err2 = validate_client_config(&cfg2).unwrap_err();
+        assert!(err2.to_string().contains("raw_sip_event_capacity"));
+
+        // pair_buffer 非整数倍
+        let mut cfg3 = ClientConfig::default();
+        cfg3.audio.pair_buffer_ms = 125;
+        cfg3.audio.mixer_frame_ms = 20;
+        let err3 = validate_client_config(&cfg3).unwrap_err();
+        assert!(err3.to_string().contains("pair_buffer_ms"));
+    }
+
+    // -----------------------------------------------------------------------
+    // AccountConfig validation tests (M3-2)
+    // -----------------------------------------------------------------------
+
+    /// テスト用の有効な AccountConfig を構築する。
+    fn account_config_valid() -> AccountConfig {
+        AccountConfig {
+            display_name: Some("Test User".into()),
+            username: "testuser".into(),
+            auth_username: None,
+            password: SecretString::new(Box::from("secret")),
+            domain: "example.com".into(),
+            registrar_uri: None,
+            outbound_proxy: vec![],
+            contact_params: vec![],
+            transport: AccountTransportPolicy::Default,
+            register_on_start: true,
+            allow_outbound_without_register: false,
+            registration_expires: Duration::from_secs(300),
+            codecs: AccountCodecPolicy::default_voice(),
+            dtmf: DtmfPolicy::all_methods(),
+            media: AccountMediaConfig::default(),
+            headers: vec![],
+        }
+    }
+
+    /// 有効な AccountConfig が validate を通過することを確認する。
+    #[test]
+    fn test_validate_account_config_ok() -> Result<(), SipError> {
+        let cfg = account_config_valid();
+        validate_account_config(&cfg)
+    }
+
+    /// username が空文字列で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_username_empty() {
+        let err = validate_username("").unwrap_err();
+        assert!(err.to_string().contains("username"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// domain が空文字列で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_domain_empty() {
+        let err = validate_domain("").unwrap_err();
+        assert!(err.to_string().contains("domain"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// password が空文字列で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_password_empty() {
+        let password = SecretString::new(Box::from(""));
+        let err = validate_password(&password).unwrap_err();
+        assert!(err.to_string().contains("password"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// registrar_uri 未指定時に sip:{domain} が自動導出されることを確認する。
+    #[test]
+    fn test_derive_registrar_uri_none() {
+        let uri = derive_registrar_uri("pbx.example.com", &None);
+        assert_eq!(uri, "sip:pbx.example.com");
+    }
+
+    /// registrar_uri 指定時にその値がそのまま返されることを確認する。
+    #[test]
+    fn test_derive_registrar_uri_override() {
+        let uri = derive_registrar_uri("pbx.example.com", &Some("sips:pbx.example.com".into()));
+        assert_eq!(uri, "sips:pbx.example.com");
+    }
+
+    /// 全コーデック無効で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_codec_policy_both_disabled() {
+        let policy = AccountCodecPolicy {
+            enable_pcmu: false,
+            enable_opus: false,
+            ..AccountCodecPolicy::default_voice()
+        };
+        let err = validate_codec_policy(&policy).unwrap_err();
+        assert!(err.to_string().contains("codec"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// Opus のみ有効で OK となることを確認する。
+    #[test]
+    fn test_validate_codec_policy_opus_only() {
+        let policy = AccountCodecPolicy {
+            enable_pcmu: false,
+            enable_opus: true,
+            ..AccountCodecPolicy::default_voice()
+        };
+        assert!(validate_codec_policy(&policy).is_ok());
+    }
+
+    /// DTMF send_methods が空で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_dtmf_policy_send_empty() {
+        let policy = DtmfPolicy {
+            send_methods: vec![],
+            receive_methods: vec![DtmfMethod::Rfc4733],
+            default_send_method: DtmfMethod::Rfc4733,
+        };
+        let err = validate_dtmf_policy(&policy).unwrap_err();
+        assert!(err.to_string().contains("send_methods"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// DTMF receive_methods が空で InvalidConfig となることを確認する。
+    #[test]
+    fn test_validate_dtmf_policy_receive_empty() {
+        let policy = DtmfPolicy {
+            send_methods: vec![DtmfMethod::Rfc4733],
+            receive_methods: vec![],
+            default_send_method: DtmfMethod::Rfc4733,
+        };
+        let err = validate_dtmf_policy(&policy).unwrap_err();
+        assert!(err.to_string().contains("receive_methods"), "エラーメッセージに違反フィールド名が含まれること");
+    }
+
+    /// 有効な優先コーデック一覧で OK となることを確認する。
+    #[test]
+    fn test_validate_preferred_codecs_ok() {
+        let codecs = vec![Codec::Pcmu, Codec::Opus];
+        assert!(validate_preferred_codecs(&codecs).is_ok());
+    }
+
+    /// 空の優先コーデック一覧で OK となることを確認する。
+    #[test]
+    fn test_validate_preferred_codecs_empty_ok() {
+        let codecs: Vec<Codec> = vec![];
+        assert!(validate_preferred_codecs(&codecs).is_ok());
+    }
+
+    /// validate_account_config の全エラーメッセージに違反フィールド名が含まれることを確認する。
+    #[test]
+    fn test_validate_account_config_error_messages() {
+        // username 空
+        let mut cfg1 = account_config_valid();
+        cfg1.username = "".into();
+        let err1 = validate_account_config(&cfg1).unwrap_err();
+        assert!(err1.to_string().contains("username"), "username: {}", err1);
+
+        // domain 空
+        let mut cfg2 = account_config_valid();
+        cfg2.domain = "".into();
+        let err2 = validate_account_config(&cfg2).unwrap_err();
+        assert!(err2.to_string().contains("domain"), "domain: {}", err2);
+
+        // password 空
+        let mut cfg3 = account_config_valid();
+        cfg3.password = SecretString::new(Box::from(""));
+        let err3 = validate_account_config(&cfg3).unwrap_err();
+        assert!(err3.to_string().contains("password"), "password: {}", err3);
+
+        // codec policy 全無効
+        let mut cfg4 = account_config_valid();
+        cfg4.codecs.enable_pcmu = false;
+        cfg4.codecs.enable_opus = false;
+        let err4 = validate_account_config(&cfg4).unwrap_err();
+        assert!(err4.to_string().contains("codec"), "codec: {}", err4);
+
+        // dtmf send empty
+        let mut cfg5 = account_config_valid();
+        cfg5.dtmf.send_methods = vec![];
+        let err5 = validate_account_config(&cfg5).unwrap_err();
+        assert!(err5.to_string().contains("send_methods"), "send_methods: {}", err5);
     }
 }
