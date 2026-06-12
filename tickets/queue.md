@@ -69,3 +69,6 @@
 - [x] #65 M3-1: ClientConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0065-m3-1-clientconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #66 M3-2: AccountConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0066-m3-2-accountconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #67 M4-1: BiMap<RuntimeId, NativeId> 実装 | /Users/shyme/shyme/zasso/tickets/specs/0067-m4-1-bimap.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #68 M4-2: ユーティリティ（PjOwnedStr の safe ラッパー骨格 / SecretString 検証） | /Users/shyme/shyme/zasso/tickets/specs/0068-m4-2-utility-pj-owned-str.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12

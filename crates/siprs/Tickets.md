@@ -346,7 +346,7 @@
   8. 異なる型パラメータの BiMap が混在しないこと（コンパイル時検証）
 * **計装方法・観測対象:** 全操作が O(1) で完了すること。`insert` のオーバーヘッドが `HashMap` 2回分であること。
 
-#### チケット M4-2: ユーティリティ（`PjOwnedStr` の safe ラッパー骨格 / `SecretString` 検証）
+#### ✅ チケット M4-2: ユーティリティ（`PjOwnedStr` の safe ラッパー骨格 / `SecretString` 検証）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27.2, §35)
 * **対象不変条件 / 規範:** §27.2「PJSIP は `pj_str_t` を使うため、`CString` の lifetime 問題を避ける wrapper を定義する」。§35「SecretString により password の accidental debug print を防止」。
@@ -371,7 +371,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M5-1: `mix_i16_frame` ミキシングアルゴリズム
+#### ✅ チケット M5-1: `mix_i16_frame` ミキシングアルゴリズム
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§24.2)
 * **対象不変条件 / 規範:** §24.2「内部ミキシングは i32 accumulation でオーバーフローを避け、最後に saturating i16 に落とす」。§24.2 gain and normalization「既定では soft normalization は行わない」。
