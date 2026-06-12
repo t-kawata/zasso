@@ -1,0 +1,7 @@
+# ルート .gitignore で *.lib が無視されているが、
+# 以下の .lib は git 管理対象とする（プリビルドライブラリ）
+!windows/SpeechHelper.lib
+
+# ネイティブビルドの中間生成物は追跡しない
+*.exp
+*.pdb
