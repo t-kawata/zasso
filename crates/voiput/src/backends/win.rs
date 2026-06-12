@@ -527,12 +527,15 @@ impl WinSpeechBackend {
                             extract_unconfirmed_slice(&raw_text, watermark_len);
 
                         // 句読点挿入（Windows 固有: PunctuationMachine）
-                        let insert_punctuation = |text: String| -> String {
-                            let mut punch_guard = WIN_GLOBAL_PUNCH.lock();
+                    let insert_punctuation = |text: String| -> String {
+                            let mut punch_guard = match WIN_GLOBAL_PUNCH.lock() {
+                                Ok(g) => g,
+                                Err(_) => return text,
+                            };
                             if let Some(ref mut pm) = *punch_guard {
-                                let locale = {
-                                    let loc_guard = WIN_CURRENT_LOCALE.lock();
-                                    *loc_guard
+                                let locale = match WIN_CURRENT_LOCALE.lock() {
+                                    Ok(g) => *g,
+                                    Err(_) => return text,
                                 };
                                 pm.insert_with_context(
                                     &text, "", &locale, is_final,

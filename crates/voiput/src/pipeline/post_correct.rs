@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 
-use crate::types::PostCorrectionConfig;
+pub use crate::types::PostCorrectionConfig;
 
 /// 補正バックエンドの抽象インターフェース
 #[async_trait]
