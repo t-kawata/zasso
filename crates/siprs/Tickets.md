@@ -98,7 +98,7 @@
   6. `SampleRate::as_hz()` の全バリアント網羅
 * **計装方法・観測対象:** `AudioFormat` が `Copy` であることのコンパイル時検証。全 `SampleRate` バリアントの `as_hz()` 戻り値テーブルテスト。
 
-#### チケット M1-2: `AudioChunk` / `AudioChunkPair` 定義
+#### ✅ チケット M1-2 [`#59`]: `AudioChunk` / `AudioChunkPair` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§21.1)
 * **対象不変条件 / 規範:** §21.1「IN/OUT は同一タイムスタンプで対にされ、ズレは内部で吸収される」。§2「録音については AudioChunkPair の提供に留め、ファイルコンテナ化は利用側責務」。
@@ -122,7 +122,7 @@
   7. `Clone` / `Debug` が正しく機能すること
 * **計装方法・観測対象:** 全テストがヒープ確保なしで実行可能なこと（`Vec::new()` を除く）。`AudioChunk` のサイズがポインタ2個分以下であること（enum オーバーヘッド最小化）。
 
-#### チケット M1-3: `TransportKind` / `TransportConfig` 定義
+#### ✅ チケット M1-3 [`#60`]: `TransportKind` / `TransportConfig` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§12)
 * **対象不変条件 / 規範:** §12「TLS は feature flag で完全に API から消える設計とし、無効時に TLS variant が型レベルで出現しない」。機能要求 §5「UDP/TCP/TLS トランスポート」。
@@ -144,7 +144,7 @@
   5. `udp(5060)` が `0.0.0.0:5060` を bind_addr に持つこと
 * **計装方法・観測対象:** `cfg` 属性による conditional compilation の正しさを `cargo check --features tls` / `cargo check` の両方で検証。
 
-#### チケット M1-4: ICE/STUN/TURN 設定型定義
+#### 📋 チケット M1-4 [`#61`]: ICE/STUN/TURN 設定型定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§13)
 * **対象不変条件 / 規範:** §13 ICE/STUN/TURN 完全仕様。「PJSIP 実装事情により trickle ICE は内部で非対応なら validation error で拒否するのではなく、ClientInitialized イベントに capability matrix を載せて明示する」。§13 Default impl。

@@ -60,3 +60,6 @@
 - [x] #56 プリビルドライブラリ自動ビルド | /Users/kawata/shyme/zasso/tickets/specs/0056-untitled-2.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #57 macOS ランタイムライブラリ収集 | /Users/kawata/shyme/zasso/tickets/specs/0057-macos.md | 2026-06-12 | 2026-06-12
 - [x] #58 M6-1.6 Windows: libs/windows/ ランタイムライブラリ収集 | C:\Users\kawat\shyme\zasso\tickets\specs\0058-m6-16-windows-libswindows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #59 M1-2: AudioChunk / AudioChunkPair 定義 | /Users/shyme/shyme/zasso/tickets/specs/0059-m1-2-audiochunk-audiochunkpair.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #60 M1-3: TransportKind / TransportConfig 定義 | /Users/shyme/shyme/zasso/tickets/specs/0060-m1-3-transportkind-transportconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #61 M1-4: ICE/STUN/TURN 設定型定義 | /Users/shyme/shyme/zasso/tickets/specs/0061-m1-4-icestun-turn.md | 2026-06-12 | 2026-06-12 | 2026-06-12

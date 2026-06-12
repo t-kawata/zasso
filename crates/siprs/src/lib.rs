@@ -9,6 +9,7 @@
 
 pub mod audio;
 pub mod error;
+pub mod transport;
 pub mod util;
 
 // Phase 1 で順次追加:
