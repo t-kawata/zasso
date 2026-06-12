@@ -50,3 +50,6 @@
 - [x] #49 M3-1: PseudoAsrStreamer + test-run.rs [STREAMER] | /Users/kawata/shyme/zasso/tickets/specs/0049-m3-1-pseudoasrstreamer-test-runrs-streamer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #50 M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs） | /Users/kawata/shyme/zasso/tickets/specs/0050-m4-1-native-ffinativemac-ffirs-win-ffirs.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #51 M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI] | /Users/kawata/shyme/zasso/tickets/specs/0051-m4-2-openaibackend-openairecognizer-test-runrs-openai.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #52 M0-1: SipError / SipErrorKind 定義（siprs crate 骨組み） | /Users/shyme/shyme/zasso/tickets/specs/0052-m0-1-siperror-siperrorkind.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #53 M0-2: AccountId / CallId / AudioSourceId newtype 定義 | /Users/shyme/shyme/zasso/tickets/specs/0053-m0-2-accountid-callid-audiosourceid.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #54 M1-1: SampleRate / BitDepth / ChannelLayout / AudioFormat 定義 | /Users/shyme/shyme/zasso/tickets/specs/0054-m1-1-samplerate-bitdepth-channellayout-audioformat.md | 2026-06-12 | 2026-06-12 | 2026-06-12
