@@ -30,6 +30,7 @@ endif
 .PHONY: run-zasso run-mycute run-neco-asovi
 .PHONY: build-zasso build-mycute build-neco-asovi
 .PHONY: commit push pull master branch commit-branch push-branch
+.PHONY: check-be check-fe check-all
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -73,6 +74,21 @@ check:
 
 test:
 	EDITION_SLUG=$(EDITION) cargo test --manifest-path src-tauri/Cargo.toml
+
+# ═══════════════════════════════════════════════
+#  check-*（CLAUDE.md との整合性）
+# ═══════════════════════════════════════════════
+check-be:
+	EDITION_SLUG=$(EDITION) cargo check --manifest-path src-tauri/Cargo.toml
+
+# vue-tsc 導入時は pnpm tsc を pnpm vue-tsc --noEmit に置き換えると
+# .vue テンプレート式の型チェックも可能
+check-fe:
+	@echo "Checking frontend with tsc..."
+	cd fe && pnpm tsc --noEmit
+
+check-all: check-be check-fe
+	@echo "All checks passed."
 
 # ═══════════════════════════════════════════════
 #  開発
