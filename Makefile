@@ -31,6 +31,7 @@ endif
 .PHONY: build-zasso build-mycute build-neco-asovi
 .PHONY: commit push pull master branch commit-branch push-branch
 .PHONY: check-be check-fe check-all
+.PHONY: next-version gen-migration gen-entities migrate-up migrate-refresh
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -73,7 +74,7 @@ check:
 	EDITION_SLUG=$(EDITION) cargo check --manifest-path src-tauri/Cargo.toml
 
 test:
-	EDITION_SLUG=$(EDITION) cargo test --manifest-path src-tauri/Cargo.toml
+	EDITION_SLUG=$(EDITION) cargo test --manifest-path src-tauri/Cargo.toml $(TEST_ARGS)
 
 # ═══════════════════════════════════════════════
 #  check-*（CLAUDE.md との整合性）
@@ -89,6 +90,44 @@ check-fe:
 
 check-all: check-be check-fe
 	@echo "All checks passed."
+
+# ═══════════════════════════════════════════════
+#  バージョン
+# ═══════════════════════════════════════════════
+
+# 次のバージョン番号を表示（v0.24.289 → v0.24.290）
+# リリースノート生成など、push 前に次のバージョンを知りたい場合に使用する。
+next-version:
+	@OLD_VERSION=$$(grep 'APP_VERSION' src-tauri/src/consts/settings.rs | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'); \
+	V1=$$(echo $$OLD_VERSION | cut -d. -f1); \
+	V2=$$(echo $$OLD_VERSION | cut -d. -f2); \
+	V3=$$(echo $$OLD_VERSION | cut -d. -f3); \
+	V3=$$((V3 + 1)); \
+	if [ $$V3 -gt 999 ]; then V3=0; V2=$$((V2 + 1)); fi; \
+	if [ $$V2 -gt 999 ]; then V2=0; V1=$$((V1 + 1)); fi; \
+	echo "v$$V1.$$V2.$$V3"
+
+# ═══════════════════════════════════════════════
+#  SeaORM（RT 移植準備）
+# ═══════════════════════════════════════════════
+
+# マイグレーションファイル生成（make gen-migration NAME=create_users_table）
+gen-migration:
+	@if [ -z "$(NAME)" ]; then echo "\033[1;31mError: NAME is required (e.g. make gen-migration NAME=create_users_table)\033[0m"; exit 1; fi
+	sea-orm-cli migrate generate $(NAME)
+
+# エンティティ自動生成（make gen-entities DRIVER=sqlite）
+gen-entities:
+	sea-orm-cli generate entity --with-serde both -o ./src-tauri/src/entities
+
+# マイグレーション実行（make migrate-up DRIVER=sqlite）
+# DRIVER で sqlite / mysql / postgres を選択（デフォルト: sqlite）
+migrate-up:
+	EDITION_SLUG=$(EDITION) cargo run --manifest-path src-tauri/Cargo.toml -- am
+
+# マイグレーションリフレッシュ（全テーブル再作成）
+migrate-refresh:
+	EDITION_SLUG=$(EDITION) cargo run --manifest-path src-tauri/Cargo.toml -- am --refresh
 
 # ═══════════════════════════════════════════════
 #  開発

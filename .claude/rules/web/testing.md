@@ -57,7 +57,7 @@ test('landing hero loads', async ({ page }) => {
 ### zasso / Quasar 注記
 
 - 現在 zasso フロントエンドにテストフレームワークは導入されていない
-- フロントエンド変更後の動作確認は `cd web && pnpm quasar build` でビルド検証
-- 開発時は `make run-web`（= `cd web && pnpm quasar dev`）でホットリロード開発サーバー起動
-- フロントエンド変更後は `make check-fe`（`make sync-frontend && make build-sdk-ts`）で変更を反映
+- フロントエンド変更後の動作確認は `cd fe && pnpm quasar build` でビルド検証
+- 開発時は `cd fe && pnpm quasar dev` でホットリロード開発サーバー起動
+- フロントエンド変更後は `make check-fe` で型チェックと変更の反映
 - テスト導入時は Quasar 推奨の Vitest + `@quasar/app-vite` のテストユーティリティを使用すること

@@ -7,7 +7,7 @@ Focus: Understanding before acting
 This project is zasso — an "OS on OS" for decentralized application ecosystem.
 Key research areas:
 - **Rust + Tauri v2**: Desktop application framework
-- **Axum 0.8 + utoipa**: REST API with OpenAPI documentation
+- **Axum 0.8.9 + utoipa 5.4**: REST API with OpenAPI documentation
 - **SeaORM 1.1**: Async ORM (SQLite / PostgreSQL / MySQL), schema-first migrations
 - **Ed448-Goldilocks**: High-security elliptic curve cryptography
 - **EasyTier**: P2P networking with NAT traversal

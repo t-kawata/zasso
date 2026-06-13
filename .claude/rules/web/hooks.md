@@ -16,8 +16,8 @@ Quasar プロジェクトではビルドによる検証が最も確実：
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "glob": "web/**",
-        "command": "cd web && pnpm quasar build",
+        "glob": "fe/**",
+        "command": "cd fe && pnpm quasar build",
         "description": "Verify Quasar build after frontend edits"
       }
     ]
@@ -33,8 +33,8 @@ Quasar プロジェクトではビルドによる検証が最も確実：
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "glob": "web/src/**/*.{ts,vue}",
-        "command": "cd web && pnpm vue-tsc --noEmit",
+        "glob": "fe/src/**/*.{ts,vue}",
+        "command": "cd fe && pnpm vue-tsc --noEmit",
         "description": "Type-check Vue/TS files"
       }
     ]
@@ -71,7 +71,7 @@ Block oversized writes from tool input content, not from a file that may not exi
   "hooks": {
     "Stop": [
       {
-        "command": "cd web && pnpm quasar build",
+        "command": "cd fe && pnpm quasar build",
         "description": "Verify the Quasar production build at session end"
       }
     ]

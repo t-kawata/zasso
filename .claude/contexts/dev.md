@@ -1,18 +1,16 @@
-# Development Context — MYCUTE
+# Development Context — zasso
 
 Mode: Active development
 Focus: Implementation, coding, building features
 
 ## Technology Stack
-- **Backend**: Rust (edition 2021), multi-binary (mycute / mycute-server-core / mycute-server)
+- **Backend**: Rust (edition 2021), mono-crate (Tauri v2)
 - **Desktop**: Tauri v2
-- **API Server**: Axum 0.8 + utoipa (OpenAPI)
+- **API Server**: Axum 0.8.9 + utoipa 5.4 (OpenAPI) — RT 移植予定
 - **Database**: SeaORM (SQLite / PostgreSQL / MySQL)
 - **Frontend**: Quasar (Vue.js 3, Composition API, `<script setup>`)
-- **SDK**: TypeScript SDK (`sdk-ts/`)
 - **Cryptography**: Ed448-Goldilocks (`utils::crypto::Ed448Signature`)
 - **P2P**: EasyTier
-- **Secondary**: Go (mycute-go, sample only — not for editing)
 
 ## Port Layout
 - 3910: REST API (Axum), 3911: Static content/proxy, 3912: LLM Proxy
@@ -31,7 +29,6 @@ Focus: Implementation, coding, building features
 - `make check-all`: 両方チェック
 - `make test`: テスト実行（`make test TEST_ARGS="..."` でフィルタ）
 - `make build`: リリースビルド
-- `make build-dev`: デバッグビルド
 
 ## Priorities
 1. Get it right (correctness first)

@@ -42,7 +42,7 @@ const CHECKS = {
     severity: 'major',
     run: (content, filePath) => {
       const results = [];
-      const myCutePorts = [3910, 3911, 3912];
+      const zassoPorts = [3910, 3911, 3912];
       const portRe = /\b(391[0-2])\b/g;
       // Only flag if appearing outside config/comments
       const lines = content.split('\n');

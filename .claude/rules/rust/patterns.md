@@ -169,20 +169,7 @@ See skill: `rust-patterns` for comprehensive patterns including ownership, trait
 
 ---
 
-## MYCUTE-Specific Patterns
-
-### Multi-Binary Architecture
-
-MYCUTE は 3 つのバイナリを持つマルチバイナリ構成。`Cargo.toml` の `[[bin]]` 定義に従う：
-
-| Binary | Path | Purpose |
-|--------|------|---------|
-| `mycute` | `src/main.rs` | GUI モード（Tauri）、サーバーモード（ヘッドless）、マイグレーション |
-| `mycute-server-core` | `src/server.rs` | スタンドアロンサーバー本体。GUI 非依存 |
-| `mycute-server` | `src/launcher.rs` | 配布用サーバーバイナリ。core とネイティブライブラリを内包 |
-
-- 共通ロジックは `src/` 直下のモジュールツリーに配置し、各バイナリから参照する
-- `mycute-server`（launcher）は `include_bytes!` で `target/release` の core バイナリを埋め込む。ビルド順序に注意
+## zasso 固有パターン（MYCUTE 由来・移植予定）
 
 ### Tauri v2 Commands
 
@@ -203,19 +190,19 @@ pub async fn get_setting(key: String) -> Result<String, String> {
 ```
 
 - `#[tauri::command]` は async 関数とし、戻り値は `Result<T, String>` またはシリアライズ可能な型
-- フロントエンドからは `invoke('plugin:mycute|command_name')` で呼び出し
+- フロントエンドからは `invoke('plugin:zasso|command_name')` で呼び出し
 - AppHandle が必要な場合は関数の引数に `app: tauri::AppHandle` を追加
 
 ### Axum + utoipa Routing
 
-MYCUTE は utoipa を用いた OpenAPI ドキュメント自動生成と統合したルーティングを行う：
+zasso は utoipa を用いた OpenAPI ドキュメント自動生成と統合したルーティングを行う（RT 移植予定）：
 
 ```rust
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 #[derive(OpenApi)]
-#[openapi(info(title = "MYCUTE API", version = "1.0.0"))]
+#[openapi(info(title = "zasso API", version = "0.0.0"))]
 struct ApiDoc;
 
 // utoipa-axum の OpenApiRouter でルートを定義
