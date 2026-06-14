@@ -214,6 +214,9 @@ impl Voiput {
             }
             SttEvent::FinalResult(text, _) => {
                 self.buffer.push_str(text);
+                // buffer と current_text を同期し、build_flush_text の starts_with
+                // 判定が正しく動作するようにする（二重出力防止）
+                self.current_text = self.buffer.clone();
                 if !self.is_post_correcting && self.flush_tx.is_some() {
                     self.try_send_flush_text();
                 }
@@ -380,14 +383,22 @@ impl Voiput {
 
     /// buffer と current_text を連結してフラッシュ用の全文を構築する。
     ///
-    /// current_text が既に buffer の内容を先頭に含む場合は連結せず
-    /// current_text のみを返す（STT が全文送信方式の場合の重複防止）。
+    /// 優先順位:
+    /// 1. current_text が空 → buffer をそのまま返す
+    /// 2. current_text が buffer で始まる → current_text のみ返す（全文送信方式）
+    /// 3. buffer が current_text で終わる → buffer のみ返す（インクリメンタル方式）
+    /// 4. 上記いずれでもない → buffer + current_text を連結
     pub fn build_flush_text(&self) -> String {
         if self.current_text.is_empty() {
             self.buffer.clone()
         } else if self.current_text.starts_with(&self.buffer) {
+            // 全文送信方式: current_text が buffer 全体を含むので current_text のみ返す
             self.current_text.clone()
+        } else if self.buffer.ends_with(&self.current_text) {
+            // インクリメンタル方式: buffer が既に current_text を末尾に含むので buffer のみ返す
+            self.buffer.clone()
         } else {
+            // 上記いずれでもない場合のみ連結（二重出力の最終防衛線）
             format!("{}{}", self.buffer, self.current_text)
         }
     }
@@ -758,5 +769,38 @@ mod tests {
         assert_eq!(voiput.input_mode(), InputMode::RealTime);
         voiput.process_hotkey_action(super::super::hotkey::HotkeyAction::OrchestratorInput);
         assert_eq!(voiput.input_mode(), InputMode::Buffered);
+    }
+
+    // ---- #80: 二重出力防止 ----
+
+    #[test]
+    fn test_build_flush_text_ends_with() {
+        // buffer が current_text で終わる場合 → buffer のみ返す（インクリメンタル方式）
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        voiput.buffer = "A。B".into();
+        voiput.current_text = "B".into();
+        assert_eq!(voiput.build_flush_text(), "A。B");
+    }
+
+    #[test]
+    fn test_build_flush_text_final_sync() {
+        // FinalResult 同期後の状態をシミュレート:
+        // buffer = "A。B", current_text = "A。B"（同期済み）
+        // → current_text starts_with buffer → true → current_text を返す
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        voiput.buffer = "A。B".into();
+        voiput.current_text = "A。B".into();
+        assert_eq!(voiput.build_flush_text(), "A。B");
+    }
+
+    #[test]
+    fn test_build_flush_text_partial_after_final() {
+        // FinalResult 同期後、PartialResult で current_text が上書きされた状態:
+        // buffer = "A。B", current_text = "C"（新規発話）
+        // → ends_with も starts_with も false → 連結
+        let mut voiput = Voiput::new(minimal_config()).unwrap();
+        voiput.buffer = "A。B".into();
+        voiput.current_text = "C".into();
+        assert_eq!(voiput.build_flush_text(), "A。BC");
     }
 }
