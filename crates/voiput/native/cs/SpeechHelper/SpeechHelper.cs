@@ -50,23 +50,25 @@ namespace Mycute.WindowsBackend
         public delegate void ReadyCallback();
 
         // GC によって回収されないように静的フィールドで保持
-        private static SpeechResultCallback? _resultCallback;
-        private static SpeechErrorCallback? _errorCallback;
-        private static AudioDataCallback? _audioDataCallback;
-        private static ReadyCallback? _readyCallback;
-        private static bool _hasNotifiedReady = false;
+        // volatile: C# ThreadPool 上のコールバックと Rust FFI スレッドの2スレッド間で
+        // 読み書きされるため、メモリバリアを確保して stale 値の読み取りを防止する。
+        private static volatile SpeechResultCallback? _resultCallback;
+        private static volatile SpeechErrorCallback? _errorCallback;
+        private static volatile AudioDataCallback? _audioDataCallback;
+        private static volatile ReadyCallback? _readyCallback;
+        private static volatile bool _hasNotifiedReady = false;
         private static double _speechTimeoutSec = 30.0; // Default fallback
 
         // 音声認識のセッション状態
         private static SpeechRecognizer? _recognizer;
         private static SpeechContinuousRecognitionSession? _session;
-        private static bool _isRunning = false;
+        private static volatile bool _isRunning = false;
 
         // AudioGraph 状態
         private static AudioGraph? _audioGraph;
         private static AudioDeviceInputNode? _deviceInputNode;
         private static AudioFrameOutputNode? _frameOutputNode;
-        private static bool _isCapturing = false;
+        private static volatile bool _isCapturing = false;
         private static object _audioLock = new object();
 
         // 累積テキスト管理 (Swift: TahoeSession.accumulatedText L26)
@@ -397,39 +399,46 @@ namespace Mycute.WindowsBackend
             StopInternal();
         }
 
+        /// <summary>
+        /// 音声認識を同期的に停止する。Rust FFI の呼出元は停止完了を期待するため、
+        /// fire-and-forget（従来の Task.Run）はダングリングコールバックの原因となる。
+        /// CheckHealth() と同じ .GetAwaiter().GetResult() パターンで同期待機する。
+        /// ThreadPool 上で呼ばれるため同期コンテキストが null であり deadlock は発生しない。
+        /// </summary>
         private static void StopInternal()
         {
             if (!_isRunning) return;
+            StopInternalAsync().GetAwaiter().GetResult();
+        }
 
-            Task.Run(async () =>
+        private static async Task StopInternalAsync()
+        {
+            try
             {
-                try
+                if (_session != null)
                 {
-                    if (_session != null)
+                    Console.WriteLine("[Win/SpeechHelper] Stopping session...");
+                    // Rust 側は音声キャプチャ停止（StopCaptureInternal）を先に呼ぶので、
+                    // セッションが自動完了済みの場合がある。_isCapturing で判断してスキップする。
+                    if (_isCapturing)
                     {
-                        Console.WriteLine("[Win/SpeechHelper] Stopping session...");
-                        // Rust 側は音声キャプチャ停止（StopCaptureInternal）を先に呼ぶので、
-                        // セッションが自動完了済みの場合がある。_isCapturing で判断してスキップする。
-                        if (_isCapturing)
-                        {
-                            await _session.StopAsync();
-                        }
-                        else
-                        {
-                            Console.WriteLine("[Win/SpeechHelper] Session already completed (audio stopped first).");
-                        }
+                        await _session.StopAsync();
+                    }
+                    else
+                    {
+                        Console.WriteLine("[Win/SpeechHelper] Session already completed (audio stopped first).");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Win/SpeechHelper] Stop Warning: {ex.Message}");
-                }
-                finally
-                {
-                    CleanupResources();
-                    Console.WriteLine("[Win/SpeechHelper] Session stopped.");
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Win/SpeechHelper] Stop Warning: {ex.Message}");
+            }
+            finally
+            {
+                CleanupResources();
+                Console.WriteLine("[Win/SpeechHelper] Session stopped.");
+            }
         }
 
         /// <summary>
@@ -583,6 +592,11 @@ namespace Mycute.WindowsBackend
                 var frame = _frameOutputNode?.GetFrame();
                 if (frame == null) return;
 
+                // 二重チェック: 1回目の _isCapturing ガード（L574）と GetFrame() の間に
+                // stop が走った場合、frame は取得できたがバッファ読み取り先が危険な状態。
+                // ここで abort することで解放済み COM オブジェクトへのアクセスを防止する。
+                if (!_isCapturing) return;
+
                 using (AudioBuffer buffer = frame.LockBuffer(AudioBufferAccessMode.Read))
                 using (IMemoryBufferReference reference = buffer.CreateReference())
                 {
@@ -644,17 +658,28 @@ namespace Mycute.WindowsBackend
                                 sampleCount = validLength / 4;
                             }
 
-                            if (sampleCount > 0 && _audioDataCallback != null)
+                            if (sampleCount > 0)
                             {
-                                // Call the delegate.
-                                // Argument 1: IntPtr samples (ptr to float array)
-                                // Argument 2: uint count
-                                // Argument 3: uint sampleRate (16000)
-                                _audioDataCallback((IntPtr)dataInBytes, (uint)sampleCount, 16000);
-                                if (!_hasNotifiedReady && _readyCallback != null)
+                                // local copy: 他スレッドが null 化しても安全に呼び出せる。
+                                // volatile により最新の値が読まれるが、チェックと呼び出しの間に
+                                // null 化される可能性があるため、local にコピーしてから null 検査＋呼出を行う。
+                                var audioCallback = _audioDataCallback;
+                                if (audioCallback != null)
                                 {
-                                    _hasNotifiedReady = true;
-                                    _readyCallback();
+                                    // Call the delegate.
+                                    // Argument 1: IntPtr samples (ptr to float array)
+                                    // Argument 2: uint count
+                                    // Argument 3: uint sampleRate (16000)
+                                    audioCallback((IntPtr)dataInBytes, (uint)sampleCount, 16000);
+                                    if (!_hasNotifiedReady)
+                                    {
+                                        var readyCallback = _readyCallback;
+                                        if (readyCallback != null)
+                                        {
+                                            _hasNotifiedReady = true;
+                                            readyCallback();
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -955,6 +980,10 @@ namespace Mycute.WindowsBackend
                 }
                 _accumulatedText.Clear();
             }
+            // defense in depth: コールバック呼出中にリソースを解放しないよう、
+            // 全リソース解放後にコールバックを null 化する。
+            _audioDataCallback = null;
+            _readyCallback = null;
         }
     }
 }

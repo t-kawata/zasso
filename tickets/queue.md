@@ -89,3 +89,4 @@
 - [x] #77 test-run.rs 再構成 — 薄い呼び出し層 + CLI エンジン選択 | /Users/kawata/shyme/zasso/tickets/specs/0077-test-runrs-cli.md | 2026-06-14 | 2026-06-14 | 2026-06-14
 - [x] #78 ホットキー制御の完全修正 — RECORDING_ACTIVE連携と重複開始防止 | /Users/kawata/shyme/zasso/tickets/specs/0078-recording-active.md | 2026-06-14 | 2026-06-14 | 2026-06-14
 - [ ] #79 request_permissions 権限ガイド実装 — 設定画面誘導までを crate 責務に | /Users/kawata/shyme/zasso/tickets/specs/0079-request-permissions-crate.md | 2026-06-14 | 2026-06-14
+- [x] #80 [win/SpeechHelper] Fix STATUS_ACCESS_VIOLATION in speech session teardown due to missing thread synchronization in C# FFI callbacks | C:\Users\kawat\shyme\zasso\tickets\specs\0080-winspeechhelper-fix-status-access-violation-in-speech-session-teardown-due-to-missing-thread-synchronization-in-c-ffi-callbacks.md | 2026-06-14 | 2026-06-14 | 2026-06-14
