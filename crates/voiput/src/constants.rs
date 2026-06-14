@@ -47,6 +47,28 @@ pub(crate) const HOTKEY_DOUBLE_TAP_MIN_MS: u64 = 10;
 /// ダブルタップ判定の最大間隔（ミリ秒）— この時間内の2回目押下でダブルタップ確定
 pub(crate) const HOTKEY_DOUBLE_TAP_MAX_MS: u64 = 500;
 
+// ============================================================
+// キーボード注入
+// ============================================================
+
+/// キーイベント間の待機時間（ミリ秒）— macOS
+pub(crate) const KEY_DELAY_MS_MAC: u64 = 1;
+
+/// キーイベント間の待機時間（ミリ秒）— Windows
+pub(crate) const KEY_DELAY_MS_WIN: u64 = 5;
+
+/// 削除後のベースクールダウン（ミリ秒）— macOS
+pub(crate) const DELETION_COOLDOWN_MS_MAC: u64 = 30;
+
+/// 削除後のベースクールダウン（ミリ秒）— Windows
+pub(crate) const DELETION_COOLDOWN_MS_WIN: u64 = 30;
+
+/// 削除1文字あたりの追加待機時間（ミリ秒）— macOS
+pub(crate) const DELETION_WEIGHT_MS_MAC: u64 = 5;
+
+/// 削除1文字あたりの追加待機時間（ミリ秒）— Windows
+pub(crate) const DELETION_WEIGHT_MS_WIN: u64 = 5;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,5 +115,15 @@ mod tests {
     #[test]
     fn test_hotkey_double_tap_max_ms() {
         assert_eq!(HOTKEY_DOUBLE_TAP_MAX_MS, 500);
+    }
+
+    #[test]
+    fn test_keyboard_delay_constants() {
+        assert_eq!(KEY_DELAY_MS_MAC, 1);
+        assert_eq!(KEY_DELAY_MS_WIN, 5);
+        assert_eq!(DELETION_COOLDOWN_MS_MAC, 30);
+        assert_eq!(DELETION_COOLDOWN_MS_WIN, 30);
+        assert_eq!(DELETION_WEIGHT_MS_MAC, 5);
+        assert_eq!(DELETION_WEIGHT_MS_WIN, 5);
     }
 }

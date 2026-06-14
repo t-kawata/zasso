@@ -48,6 +48,9 @@ mod native;
 // M8-1: ホットキー監視
 pub mod hotkey;
 
+// M8-2: クリップボード操作 + キーボード注入
+pub mod input;
+
 pub use config::{VoiputConfig, VoiputConfigBuilder};
 pub use error::VoiputError;
 pub use types::*;

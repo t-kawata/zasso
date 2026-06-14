@@ -28,6 +28,7 @@ path = "src/binary/test-run.rs"
 
 [dependencies]
 anyhow = "1.0.102"
+arboard = "3.6.1"
 async-openai = { version = "0.41.0", features = ["audio", "chat-completion"] }
 async-trait = "0.1.89"
 hound = "3.5.1"
