@@ -32,6 +32,7 @@ endif
 .PHONY: commit push pull master branch commit-branch push-branch
 .PHONY: check-be check-fe check-all
 .PHONY: next-version gen-migration gen-entities migrate-up migrate-refresh
+.PHONY: install-context-mode update-context-mode
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -276,3 +277,29 @@ push-branch: commit-branch
 	fi; \
 	echo "=== push-branch: Pushing $$BRANCH to origin ==="; \
 	git push origin "$$BRANCH"
+
+# ═══════════════════════════════════════════════
+#  Claude Code プラグイン管理
+# ═══════════════════════════════════════════════
+
+install-context-mode:
+ifeq ($(OS),Windows_NT)
+		npx @anthropic-ai/claude-code plugin marketplace list 2>&1 | findstr "context-mode" >nul || \
+			npx @anthropic-ai/claude-code plugin marketplace add mksglu/context-mode
+		npx @anthropic-ai/claude-code plugin install context-mode@context-mode
+else
+		@if ! claude plugin marketplace list 2>&1 | grep -q "context-mode"; then \
+			echo "Adding context-mode marketplace..."; \
+			claude plugin marketplace add mksglu/context-mode; \
+		fi
+		claude plugin install context-mode@context-mode
+		@# .claude/settings.json に context-mode が有効として登録されていることを確認
+		@node scripts/ensure-plugin-config.mjs context-mode@context-mode context-mode mksglu/context-mode
+endif
+
+update-context-mode:
+ifeq ($(OS),Windows_NT)
+		npx @anthropic-ai/claude-code plugin marketplace update context-mode
+else
+		claude plugin marketplace update context-mode
+endif

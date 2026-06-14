@@ -1,6 +1,15 @@
 {
   "enabledPlugins": {
     "darvium@darvium-marketplace": false,
-    "ecc-mycute@ecc-mycute-marketplace": false
+    "ecc-mycute@ecc-mycute-marketplace": false,
+    "context-mode@context-mode": true
+  },
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": {
+        "source": "github",
+        "repo": "mksglu/context-mode"
+      }
+    }
   }
 }
