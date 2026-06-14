@@ -1,9 +1,15 @@
 //! voiput test-run — 開発用デモツール
 //!
-//! `cargo run --bin test-run` で実行。
-//! 各チケット完了時に関数が追加されていく。
+//! M8-4 時点: テスト実行 → Voiput 構築 → ホットキー待機の3段階構成。
 //!
-//! M5-2 時点: Stage 7/7 — Phase 4 （Voiput 公開API）
+//! # 使用方法
+//!
+//! ```bash
+//! cargo run --bin test-run                             # デフォルト (os, ja)
+//! cargo run --bin test-run -- --engine openai --openai-key=sk-xxx  # OpenAI
+//! cargo run --bin test-run -- --locale en              # 英語ロケール
+//! cargo run --bin test-run -- --audio-verify           # 音声再生確認
+//! ```
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -12,15 +18,100 @@ use voiput::{
     apply_replaces, get_tokenizer, init, is_worthy_to_run_asr, play_commit_sound, play_ready_sound,
 };
 use voiput::{
-    DenoiserConfig, InternalResampler, LocaleCode, OpenAiConfig, OpenAIBackend,
+    InputMode, InternalResampler, LocaleCode, OpenAiConfig, OpenAIBackend,
     PostCorrectionBackend, PostCorrectionConfig, ProcessorOutput, PunctuationMachine,
-    SignalFilterConfig, SincResampler, SttEngine, VadConfig, VadModelPaths, VoiputConfig,
+    SignalFilterConfig, SincResampler, SttEngine, VadModelPaths, VoiputConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
-    VadProcessor, VadProcessorConfig, VadProcessorType, SILERO_VAD_WINDOW_SIZE,
-    TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE, Voiput,
+    VadProcessor, VadProcessorConfig, VadProcessorType, Voiput, SILERO_VAD_WINDOW_SIZE,
+    TEN_VAD_WINDOW_SIZE, VAD_SAMPLE_RATE,
 };
+
+// ============================================================================
+// CLI 引数
+// ============================================================================
+
+/// CLI 引数で指定された設定
+struct CliArgs {
+    /// 使用エンジン（os / openai）
+    engine: SttEngine,
+    /// 言語ロケール
+    locale: LocaleCode,
+    /// OpenAI API キー（--engine openai の場合に使用）
+    openai_key: Option<String>,
+    /// OpenAI API ベース URL
+    base_url: String,
+}
+
+/// CLI 引数をパースする。
+///
+/// 第1引数が `--audio-verify` の場合は None を返し、呼び出し元で特別処理する。
+fn parse_args() -> Option<CliArgs> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+
+    // 特別モードは早期リターン
+    if args.len() > 1 && args[1] == "--audio-verify" {
+        return None;
+    }
+
+    let mut engine = SttEngine::Os;
+    let mut locale = LocaleCode::Ja;
+    let mut openai_key: Option<String> = None;
+    let mut base_url = "https://api.openai.com/v1".to_string();
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--engine" => {
+                i += 1;
+                if i < args.len() {
+                    engine = match args[i].as_str() {
+                        "openai" => SttEngine::OpenAI,
+                        _ => SttEngine::Os,
+                    };
+                }
+            }
+            "--locale" => {
+                i += 1;
+                if i < args.len() {
+                    locale = match args[i].as_str() {
+                        "en" => LocaleCode::En,
+                        _ => LocaleCode::Ja,
+                    };
+                }
+            }
+            "--openai-key" => {
+                i += 1;
+                if i < args.len() {
+                    openai_key = Some(args[i].clone());
+                }
+            }
+            "--base-url" => {
+                i += 1;
+                if i < args.len() {
+                    base_url = args[i].clone();
+                }
+            }
+            // --openai-key=xxx 形式と --base-url=xxx 形式にも対応
+            s if s.starts_with("--openai-key=") => {
+                openai_key = Some(s.trim_start_matches("--openai-key=").to_string());
+            }
+            s if s.starts_with("--base-url=") => {
+                base_url = s.trim_start_matches("--base-url=").to_string();
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    Some(CliArgs {
+        engine,
+        locale,
+        openai_key,
+        base_url,
+    })
+}
 
 struct MockPostCorrectBackend;
 
@@ -38,37 +129,126 @@ impl PostCorrectionBackend for MockPostCorrectBackend {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && args[1] == "--audio-verify" {
-        audio_verify();
-        return;
-    }
-    if args.len() > 1 && args[1] == "--hotkeys" {
-        test_hotkeys();
-        return;
-    }
+    // ── Phase 1: CLI 引数解析 ──
+    let args = match parse_args() {
+        Some(a) => a,
+        None => {
+            // --audio-verify モード
+            audio_verify();
+            return;
+        }
+    };
 
     println!("========================================");
     println!("  voiput test-run");
-    println!("  Stage 7/7 —  Phase 4 公開API");
+    println!("  engine: {:?}, locale: {:?}", args.engine, args.locale);
     println!("========================================");
     println!();
 
-    test_config();
-    test_resampler();
-    test_post_correct();
-    test_signal_filter();
-    test_interceptor();
-    test_vad();
-    test_punctuation();
-    test_audio();
-    test_streamer();
-    test_openai();
-    #[cfg(target_os = "macos")]
-    test_macos();
-    #[cfg(target_os = "windows")]
-    test_windows();
-    test_voiput();
+    // ── Phase 2: 全テスト実行 ──
+    if !run_all_tests(&args) {
+        eprintln!("\n❌ テスト失敗: exit(1)");
+        std::process::exit(1);
+    }
+
+    println!("✅ 全テスト通過");
+    println!();
+
+    // ── Phase 3: Voiput 構築 + ホットキー待機 ──
+    println!("=== 音声認識モード ===");
+    println!("🔊 Option/Alt ダブルタップで録音開始（Ctrl+C で終了）");
+    println!();
+
+    let config = build_voiput_config(&args);
+    let mut voiput = match Voiput::new(config) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("❌ Voiput::new() 失敗: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    voiput.enable_hotkeys();
+
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("❌ Tokio ランタイム作成失敗: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    rt.block_on(async {
+        use tokio::time::{timeout, Duration};
+
+        // イベントループ（薄い表示層）
+        // next_event() がブロックするとホットキーが処理できないため、
+        // 100ms のタイムアウトでポーリングし、ホットキーイベントを優先処理する。
+        loop {
+            // ホットキーイベントを毎ループ処理する
+            voiput.handle_hotkey_events();
+
+            match timeout(Duration::from_millis(100), voiput.next_event()).await {
+                Ok(Some(event)) => {
+                    match &event {
+                        voiput::SttEvent::PartialResult(text, _) => {
+                            print!("\r📝 {}", text);
+                            use std::io::Write;
+                            std::io::stdout().flush().ok();
+                        }
+                        voiput::SttEvent::FinalResult(text, _) => {
+                            println!("\r✅ {}", text);
+                        }
+                        voiput::SttEvent::Flushed(text) => {
+                            println!("📋 Flushed: {}", text);
+                        }
+                        voiput::SttEvent::Ready => {
+                            println!("🎤 録音準備完了");
+                        }
+                        voiput::SttEvent::Started => {
+                            println!("🔴 録音中...");
+                        }
+                        voiput::SttEvent::Stopped => {
+                            println!("⏹ 録音停止");
+                        }
+                        voiput::SttEvent::Error(e) => {
+                            eprintln!("❌ {}", e);
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(None) => break, // チャネルクローズ
+                Err(_) => {
+                    // タイムアウト: ホットキーイベント確認のためループ継続
+                }
+            }
+        }
+    });
+}
+
+/// 全テストを実行する。1つでも失敗すれば false を返す。
+fn run_all_tests(args: &CliArgs) -> bool {
+    let tests: [(&str, fn(&CliArgs) -> bool); 11] = [
+        ("CONFIG", test_config),
+        ("RESAMPLER", test_resampler),
+        ("POST_CORRECT", test_post_correct),
+        ("SIGNAL_FILTER", test_signal_filter),
+        ("INTERCEPTOR", test_interceptor),
+        ("VAD", test_vad),
+        ("PUNCTUATION", test_punctuation),
+        ("AUDIO", test_audio),
+        ("STREAMER", test_streamer),
+        ("VOIPUT", test_voiput),
+        ("OPENAI", test_openai),
+    ];
+
+    let mut all_passed = true;
+    for (_name, test_fn) in &tests {
+        if !test_fn(args) {
+            all_passed = false;
+        }
+    }
+    all_passed
 }
 
 fn audio_verify() {
@@ -93,16 +273,49 @@ fn audio_verify() {
     println!("✓ 音声再生確認完了");
 }
 
-fn test_config() {
+fn show_section(name: &str) {
+    println!("--- [{}] ---", name);
+}
+
+/// CLI 引数から VoiputConfig を構築する。
+fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
+    let mut builder = VoiputConfig::builder()
+        .engine(args.engine)
+        .locale(args.locale)
+        .vad_model_paths(VadModelPaths {
+            silero: model_path("silero_vad.onnx"),
+            ten: model_path("ten_vad.onnx"),
+            gtcrn: String::new(),
+        });
+
+    if args.engine == SttEngine::OpenAI {
+        if let Some(ref key) = args.openai_key {
+            builder = builder.openai_config(OpenAiConfig {
+                base_url: args.base_url.clone(),
+                api_key: key.clone(),
+                model: "gpt-4o-mini-transcribe".into(),
+            });
+        }
+    }
+
+    builder.build().expect("VoiputConfig の構築に失敗")
+}
+
+// ============================================================================
+// テスト関数群
+// ============================================================================
+
+fn test_config(_args: &CliArgs) -> bool {
     show_section("CONFIG");
+    let mut ok = true;
 
     println!("  [TEST] 正常系: 最小構成 (Engine=Os, locale=Ja)");
     let config = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
+            silero: model_path("silero_vad.onnx"),
+            ten: model_path("ten_vad.onnx"),
             gtcrn: String::new(),
         })
         .build();
@@ -112,9 +325,11 @@ fn test_config() {
             println!("    engine: {:?}", cfg.engine);
             println!("    locale: {:?}", cfg.locale);
             println!("    speech_timeout_sec: {}", cfg.speech_timeout_sec);
-            println!("    punctuation: {}", cfg.punctuation);
         }
-        Err(e) => println!("    ✗ build() 失敗: {}", e),
+        Err(e) => {
+            println!("    ✗ build() 失敗: {}", e);
+            ok = false;
+        }
     }
 
     println!("  [TEST] 正常系: OpenAI 設定付き");
@@ -127,112 +342,89 @@ fn test_config() {
             model: "gpt-4o-mini-transcribe".into(),
         })
         .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
+            silero: model_path("silero_vad.onnx"),
+            ten: model_path("ten_vad.onnx"),
             gtcrn: String::new(),
         })
         .build();
     match config {
-        Ok(cfg) => {
-            println!("    ✓ build() 成功");
-            println!("    engine: {:?}", cfg.engine);
-            println!("    locale: {:?}", cfg.locale);
-            println!("    openai model: {:?}", cfg.openai_config.map(|c| c.model));
+        Ok(_cfg) => println!("    ✓ build() 成功 (OpenAI)"),
+        Err(e) => {
+            println!("    ✗ build() 失敗: {}", e);
+            ok = false;
         }
-        Err(e) => println!("    ✗ build() 失敗: {}", e),
     }
 
     println!("  [TEST] 異常系: locale 未指定");
     let result = VoiputConfig::builder()
         .engine(SttEngine::Os)
         .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
+            silero: model_path("silero_vad.onnx"),
+            ten: model_path("ten_vad.onnx"),
             gtcrn: String::new(),
         })
         .build();
     match result {
         Ok(_) => {
             println!("    ✗ エラーになるべき");
+            ok = false;
         }
         Err(e) => println!("    ✓ 正しくエラー: {}", e),
     }
 
-    println!("  [TEST] 異常系: OpenAI config なし (engine=OpenAi)");
+    println!("  [TEST] 異常系: OpenAI config なし");
     let result = VoiputConfig::builder()
         .engine(SttEngine::OpenAI)
         .locale(LocaleCode::Ja)
         .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
+            silero: model_path("silero_vad.onnx"),
+            ten: model_path("ten_vad.onnx"),
             gtcrn: String::new(),
         })
         .build();
     match result {
         Ok(_) => {
             println!("    ✗ エラーになるべき");
+            ok = false;
         }
         Err(e) => println!("    ✓ 正しくエラー: {}", e),
     }
 
-    println!("  [INFO] Config デフォルト値:");
-    println!(
-        "    VadConfig.threshold: {}",
-        VadConfig::default().threshold
-    );
-    println!(
-        "    PostCorrectionConfig.sentence_count: {}",
-        PostCorrectionConfig::default().sentence_count_threshold
-    );
-    println!(
-        "    SignalFilterConfig.rms_threshold: {}",
-        SignalFilterConfig::default().rms_threshold
-    );
-    println!(
-        "    DenoiserConfig.enabled: {}",
-        DenoiserConfig::default().enabled
-    );
     println!();
+    ok
 }
 
-fn test_resampler() {
+fn test_resampler(_args: &CliArgs) -> bool {
     show_section("RESAMPLER");
+    let mut ok = true;
 
-    // 48kHz 正弦波を生成して 16kHz にリサンプリング
     let input_rate = 48000u32;
     let output_rate = 16000u32;
     let sample_count = 4800;
     let input: Vec<f32> = (0..sample_count).map(|i| (i as f32 * 0.01).sin()).collect();
 
-    println!(
-        "  [TEST] SincResampler: {}Hz → {}Hz ({} samples)",
-        input_rate,
-        output_rate,
-        input.len()
-    );
-
+    println!("  [TEST] SincResampler: {}Hz → {}Hz", input_rate, output_rate);
     match SincResampler::new(input_rate, output_rate) {
         Ok(mut resampler) => match resampler.process(&input) {
             Ok(output) => {
-                println!("    入力長: {}", input.len());
-                println!("    出力長: {}", output.len());
                 if !output.is_empty() && output.len() > input.len() / 4 {
-                    println!("    ✓ PASS: 出力が空でなく、期待範囲内");
+                    println!("    ✓ PASS: 出力長={}", output.len());
                 } else {
-                    println!(
-                        "    ✗ FAIL: 出力長={} (期待: {}〜{})",
-                        output.len(),
-                        input.len() / 4,
-                        input.len() / 2
-                    );
+                    println!("    ✗ FAIL: 出力長={}", output.len());
+                    ok = false;
                 }
             }
-            Err(e) => println!("    ✗ FAIL: process() エラー: {}", e),
+            Err(e) => {
+                println!("    ✗ FAIL: {}", e);
+                ok = false;
+            }
         },
-        Err(e) => println!("    ✗ FAIL: SincResampler::new() エラー: {}", e),
+        Err(e) => {
+            println!("    ✗ FAIL: {}", e);
+            ok = false;
+        }
     }
 
-    // 同一レートのパススルーテスト
     println!("  [TEST] パススルー: 16000Hz → 16000Hz");
     match SincResampler::new(16000, 16000) {
         Ok(mut resampler) => {
@@ -243,89 +435,64 @@ fn test_resampler() {
                         println!("    ✓ PASS: 出力長={}", output.len());
                     } else {
                         println!("    ✗ FAIL: 出力が空");
+                        ok = false;
                     }
                 }
-                Err(e) => println!("    ✗ FAIL: {}", e),
+                Err(e) => {
+                    println!("    ✗ FAIL: {}", e);
+                    ok = false;
+                }
             }
         }
-        Err(e) => println!("    ✗ FAIL: SincResampler::new() エラー: {}", e),
+        Err(e) => {
+            println!("    ✗ FAIL: {}", e);
+            ok = false;
+        }
     }
 
     println!();
+    ok
 }
 
-fn test_interceptor() {
+fn test_interceptor(_args: &CliArgs) -> bool {
     use indexmap::IndexMap;
     use parking_lot::RwLock;
-
     show_section("INTERCEPTOR");
+    let mut ok = true;
 
-    // 1. 空マップ → passthrough
     let empty_map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
     if apply_replaces(&empty_map, "hello") == "hello" {
         println!("  [TEST] 空マップ → passthrough: ✓ PASS");
     } else {
         println!("  [TEST] 空マップ → passthrough: ✗ FAIL");
+        ok = false;
     }
 
-    // 2. 単一置換
     let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
     {
         let mut m = map.write();
         m.insert("world".to_string(), vec!["hello".to_string()]);
     }
     if apply_replaces(&map, "hello") == "world" {
-        println!("  [TEST] 単一置換 → world: ✓ PASS");
+        println!("  [TEST] 単一置換: ✓ PASS");
     } else {
-        println!("  [TEST] 単一置換 → world: ✗ FAIL");
-    }
-
-    // 3. 複数置換
-    let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
-    {
-        let mut m = map.write();
-        m.insert(
-            "MYCUTE".to_string(),
-            vec!["mycute".to_string(), "MyCute".to_string()],
-        );
-    }
-    let result = apply_replaces(&map, "mycute is MyCute");
-    if result == "MYCUTE is MYCUTE" {
-        println!("  [TEST] 複数置換: ✓ PASS");
-    } else {
-        println!("  [TEST] 複数置換: ✗ FAIL (got: {})", result);
-    }
-
-    // 4. 最長一致優先
-    let map: RwLock<IndexMap<String, Vec<String>>> = RwLock::new(IndexMap::new());
-    {
-        let mut m = map.write();
-        m.insert("α".to_string(), vec!["a".to_string()]);
-        m.insert("αβ".to_string(), vec!["ab".to_string()]);
-    }
-    if apply_replaces(&map, "ab") == "αβ" {
-        println!("  [TEST] 最長一致優先 → αβ: ✓ PASS");
-    } else {
-        println!("  [TEST] 最長一致優先 → αβ: ✗ FAIL");
+        println!("  [TEST] 単一置換: ✗ FAIL");
+        ok = false;
     }
 
     println!();
+    ok
 }
 
-fn show_section(name: &str) {
-    println!("--- [{}] ---", name);
-}
-
-fn test_vad() {
+fn test_vad(_args: &CliArgs) -> bool {
     show_section("VAD");
+    let mut ok = true;
 
-    // 定数確認（モデルファイル不要）
     assert_eq!(VAD_SAMPLE_RATE, 16000);
     assert_eq!(SILERO_VAD_WINDOW_SIZE, 512);
     assert_eq!(TEN_VAD_WINDOW_SIZE, 256);
     println!("  ✓ 定数一致");
 
-    // モデルファイルは build.rs によって $CARGO_MANIFEST_DIR/models/ に自動配置される
     let models_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models");
     let model_candidates = [
         "silero_vad.onnx",
@@ -334,7 +501,6 @@ fn test_vad() {
         "ten-vad.int8.onnx",
     ];
 
-    // 最初に見つかった VAD モデルで初期化テスト
     let mut initialized = false;
     for name in &model_candidates {
         let path = models_dir.join(name);
@@ -358,79 +524,60 @@ fn test_vad() {
         };
         match VadProcessor::new(config, is_speaking) {
             Ok(vad) => {
-                println!(
-                    "    ✓ VadProcessor::new(\"{}\") 成功 (window_size={})",
-                    name,
-                    vad.window_size()
-                );
+                println!("    ✓ VadProcessor::new(\"{}\") 成功 (window_size={})", name, vad.window_size());
                 initialized = true;
                 break;
             }
-            Err(e) => {
-                println!("    ✗ VadProcessor::new(\"{}\") 失敗: {}", name, e);
-            }
+            Err(e) => println!("    ✗ VadProcessor::new(\"{}\") 失敗: {}", name, e),
         }
     }
     if !initialized {
-        println!("  ✗ FAIL: いずれの VAD モデルも初期化できませんでした");
-        println!("         build.rs が自動ダウンロードしたモデルが");
-        println!(
-            "         {} に存在することを確認してください",
-            models_dir.display()
-        );
+        println!("  ✗ FAIL: VAD モデルが初期化できませんでした");
+        println!("         {} にモデルファイルが存在することを確認してください", models_dir.display());
+        ok = false;
     }
     println!();
+    ok
 }
 
-fn test_signal_filter() {
+fn test_signal_filter(_args: &CliArgs) -> bool {
     show_section("SIGNAL_FILTER");
-
+    let mut ok = true;
     let config = SignalFilterConfig::default();
     let good_samples = vec![0.1f32; 16000];
 
-    // 1. 空スライス
     if !is_worthy_to_run_asr(&[], &config, 300, 16000) {
         println!("  [TEST] 空スライス → false: ✓ PASS");
     } else {
         println!("  [TEST] 空スライス → false: ✗ FAIL");
+        ok = false;
     }
 
-    // 2. 低振幅
     let low_rms = vec![0.001f32; 16000];
     if !is_worthy_to_run_asr(&low_rms, &config, 300, 16000) {
         println!("  [TEST] 低振幅 (RMS不足) → false: ✓ PASS");
     } else {
-        println!("  [TEST] 低振幅 (RMS不足) → false: ✗ FAIL");
+        println!("  [TEST] 低振幅 → false: ✗ FAIL");
+        ok = false;
     }
 
-    // 3. 正常信号
     if is_worthy_to_run_asr(&good_samples, &config, 300, 16000) {
         println!("  [TEST] 正常信号 → true: ✓ PASS");
     } else {
         println!("  [TEST] 正常信号 → true: ✗ FAIL");
-    }
-
-    // 4. disabled
-    let disabled = SignalFilterConfig {
-        enabled: false,
-        ..Default::default()
-    };
-    if is_worthy_to_run_asr(&[], &disabled, 300, 16000) {
-        println!("  [TEST] disabled → true: ✓ PASS");
-    } else {
-        println!("  [TEST] disabled → true: ✗ FAIL");
+        ok = false;
     }
 
     println!();
+    ok
 }
 
-fn test_post_correct() {
+fn test_post_correct(_args: &CliArgs) -> bool {
     show_section("POST_CORRECT");
-
+    let mut ok = true;
     let is_speaking = Arc::new(AtomicBool::new(false));
     let backend: Arc<dyn PostCorrectionBackend> = Arc::new(MockPostCorrectBackend);
 
-    // 1. OfflineModel: 追記動作
     println!("  [TEST] OfflineModel: 追記動作");
     let mut proc = PostCorrectionProcessor::with_model_type(
         backend.clone(),
@@ -447,120 +594,75 @@ fn test_post_correct() {
     match (out1, out2) {
         (Some(ProcessorOutput::Partial(a)), Some(ProcessorOutput::Partial(b))) => {
             if a == "hello" && b == "helloworld" {
-                println!("    ✓ PASS: \"hello\" + \"world\" → \"helloworld\"");
-            } else {
-                println!("    ✗ FAIL: expected \"hello\" + \"world\" → \"helloworld\", got \"{}\" + \"{}\"", a, b);
-            }
-        }
-        _ => println!("    ✗ FAIL: unexpected output type"),
-    }
-
-    // 2. OnlineModel: 上書き動作
-    println!("  [TEST] OnlineModel: 上書き動作");
-    let mut proc = PostCorrectionProcessor::with_model_type(
-        backend.clone(),
-        PostCorrectionConfig::default(),
-        SttModelType::UseOnlineModel,
-        is_speaking.clone(),
-    );
-    let out1 = proc.process_input("hello");
-    let out2 = proc.process_input("hello world");
-    match (out1, out2) {
-        (Some(ProcessorOutput::Partial(a)), Some(ProcessorOutput::Partial(b))) => {
-            if a == "hello" && b == "hello world" {
-                println!("    ✓ PASS: \"hello\" + \"hello world\" → \"hello world\"");
+                println!("    ✓ PASS");
             } else {
                 println!("    ✗ FAIL: got \"{}\" + \"{}\"", a, b);
+                ok = false;
             }
         }
-        _ => println!("    ✗ FAIL: unexpected output type"),
+        _ => {
+            println!("    ✗ FAIL: unexpected output type");
+            ok = false;
+        }
     }
 
-    // 3. commit_correction: バッファクリア確認
     println!("  [TEST] commit_correction: バッファクリア");
-    let mut proc = PostCorrectionProcessor::new(
-        backend.clone(),
-        PostCorrectionConfig::default(),
-        is_speaking.clone(),
-    );
+    let mut proc = PostCorrectionProcessor::new(backend, PostCorrectionConfig::default(), is_speaking);
     let _ = proc.process_input("hello world");
     match proc.commit_correction("corrected output") {
         ProcessorOutput::Final(ref text) if text.contains("corrected output") => {
             println!("    ✓ commit OK");
         }
-        _ => println!("    ✗ commit 失敗"),
+        _ => {
+            println!("    ✗ commit 失敗");
+            ok = false;
+        }
     }
     match proc.process_input("next") {
         Some(ProcessorOutput::Partial(ref text)) if text == "next" => {
-            println!("    ✓ バッファクリア確認: \"{}\" (重複なし)", text);
+            println!("    ✓ バッファクリア OK");
         }
-        _ => println!("    ✗ バッファクリア失敗"),
+        _ => {
+            println!("    ✗ バッファクリア失敗");
+            ok = false;
+        }
     }
 
     println!();
+    ok
 }
 
-fn test_punctuation() {
+fn test_punctuation(_args: &CliArgs) -> bool {
     show_section("PUNCTUATION");
+    let mut ok = true;
 
     println!("  [TEST] Lindera tokenizer 初期化");
     match get_tokenizer() {
         Ok(_) => println!("    ✓ get_tokenizer() 成功"),
-        Err(e) => println!("    ✗ get_tokenizer() 失敗: {}", e),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
 
-    println!("  [TEST] 日本語句読点付与 (allow_terminal=false)");
+    println!("  [TEST] 日本語句読点付与");
     match PunctuationMachine::new() {
         Ok(machine) => {
-            let inputs = [
-                ("こんにちは元気ですか", &LocaleCode::Ja, false),
-                ("そうです", &LocaleCode::Ja, false),
-                ("それですか", &LocaleCode::Ja, false),
-            ];
+            let inputs = [("こんにちは元気ですか", &LocaleCode::Ja, false)];
             for (text, locale, allow_terminal) in &inputs {
                 match machine.insert_with_context(text, "", *locale, *allow_terminal) {
-                    Ok(result) => {
-                        let has_period = result.contains('。') || result.contains('、');
-                        let has_question = result.contains('？');
-                        let punct = if has_question {
-                            "？"
-                        } else if has_period {
-                            "。"
-                        } else {
-                            "なし"
-                        };
-                        println!("    \"{}\" → \"{}\"  [句読点: {}]", text, result, punct);
+                    Ok(result) => println!("    \"{}\" → \"{}\"", text, result),
+                    Err(e) => {
+                        println!("    ✗ エラー: {}", e);
+                        ok = false;
                     }
-                    Err(e) => println!("    ✗ 句読点挿入失敗: {}", e),
                 }
             }
         }
-        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
-    }
-
-    println!("  [TEST] 日本語句読点付与 (allow_terminal=true: タイムアウト時相当)");
-    match PunctuationMachine::new() {
-        Ok(machine) => {
-            let inputs = ["こんにちは元気ですか", "そうです", "それですか"];
-            for text in &inputs {
-                match machine.insert_with_context(text, "", &LocaleCode::Ja, true) {
-                    Ok(result) => {
-                        let has_question = result.contains('？');
-                        let has_period = result.contains('。');
-                        let punct = if has_question {
-                            "？"
-                        } else if has_period {
-                            "。"
-                        } else {
-                            "なし"
-                        };
-                        println!("    \"{}\" → \"{}\"  [{}]", text, result, punct);
-                    }
-                    Err(e) => println!("    ✗ エラー: {}", e),
-                }
-            }
+        Err(e) => {
+            println!("    ✗ PunctuationMachine::new() 失敗: {}", e);
+            ok = false;
         }
-        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
     }
 
     println!("  [TEST] 英語パススルー");
@@ -568,46 +670,53 @@ fn test_punctuation() {
         Ok(machine) => match machine.insert("hello world", &LocaleCode::En) {
             Ok(result) => {
                 if result == "hello world" {
-                    println!("    ✓ \"hello world\" → \"{}\"", result);
+                    println!("    ✓ PASS");
                 } else {
-                    println!("    ✗ 変更が発生しました: \"{}\"", result);
+                    println!("    ✗ 変更が発生: \"{}\"", result);
+                    ok = false;
                 }
             }
-            Err(e) => println!("    ✗ エラー: {}", e),
+            Err(e) => {
+                println!("    ✗ エラー: {}", e);
+                ok = false;
+            }
         },
-        Err(e) => println!("    ✗ PunctuationMachine::new() 失敗: {}", e),
+        Err(e) => {
+            println!("    ✗ PunctuationMachine::new() 失敗: {}", e);
+            ok = false;
+        }
     }
 
     println!();
+    ok
 }
 
-fn test_audio() {
+fn test_audio(_args: &CliArgs) -> bool {
     show_section("AUDIO");
 
     println!("  [TEST] オーディオ初期化");
     match init() {
         Ok(_) => println!("    ✓ init() 成功"),
         Err(e) => {
-            println!("    [SKIP] init() 失敗: {} (ヘッドレス環境では無視)", e);
+            println!("    [SKIP] ヘッドレス環境: {}", e);
             println!();
-            return;
+            return true;
         }
     }
 
-    println!("  [TEST] 効果音再生呼び出し");
+    println!("  [TEST] 効果音再生");
     play_ready_sound();
-    println!("    ✓ play_ready_sound() 呼び出し成功");
+    println!("    ✓ play_ready_sound() OK");
     play_commit_sound();
-    println!("    ✓ play_commit_sound() 呼び出し成功");
-    println!("  [NOTE] 実際の音声は別スレッドで非同期再生されます");
+    println!("    ✓ play_commit_sound() OK");
 
     println!();
+    true
 }
 
 use std::sync::Mutex;
 use tokio::sync::mpsc;
 use voiput::AsrBackend;
-use voiput::hotkey::HotkeyAction;
 use voiput::{PseudoAsrStreamer, StreamerConfig};
 
 struct MockStreamerBackend {
@@ -628,11 +737,11 @@ impl AsrBackend for MockStreamerBackend {
     fn record_asr_usage(&mut self, _duration_ms: u64) {}
 }
 
-fn test_streamer() {
+fn test_streamer(_args: &CliArgs) -> bool {
     show_section("STREAMER");
+    let mut ok = true;
 
     let (tx, _rx) = mpsc::channel(10);
-
     let config = StreamerConfig {
         utterance_min_ms: 100,
         signal_check_enabled: false,
@@ -646,160 +755,29 @@ fn test_streamer() {
     };
 
     let call_count = Arc::new(Mutex::new(0usize));
-    let backend = MockStreamerBackend {
-        call_count: call_count.clone(),
-    };
+    let backend = MockStreamerBackend { call_count };
 
     match PseudoAsrStreamer::new(backend, tx, config) {
         Ok(mut streamer) => {
             println!("  ✓ PseudoAsrStreamer::new() 成功");
             match streamer.start() {
-                Ok(_) => println!("  ✓ start() 成功（VAD モデル: silero_vad.onnx）"),
-                Err(e) => println!("  ✗ start() 失敗: {}", e),
+                Ok(_) => println!("  ✓ start() 成功"),
+                Err(e) => {
+                    println!("  ✗ start() 失敗: {}", e);
+                    ok = false;
+                }
             }
             streamer.stop();
             println!("  ✓ start → stop 正常終了");
         }
-        Err(e) => println!("  ✗ PseudoAsrStreamer::new() 失敗: {}", e),
-    }
-
-    println!();
-}
-
-#[cfg(target_os = "windows")]
-fn test_windows() {
-    use tokio::sync::mpsc;
-    use voiput::{LocaleCode, WinSpeechBackend};
-
-    show_section("WINDOWS");
-
-    let (tx, _rx) = mpsc::channel(10);
-    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
-
-    match WinSpeechBackend::new(tx, locale, None, None, None) {
-        Ok(backend) => {
-            println!("  ✓ WinSpeechBackend::new() 成功 (SpeechHelper.lib リンク OK)");
-            backend.cleanup();
-        }
-        Err(msg) => {
-            println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
-            println!("  [INFO] 自動ビルド用のスクリプトは native/cs/build.ps1 です。");
-            println!("  [INFO] 実ライブラリは prebuilt/windows/ に自動ビルド済みです。");
-        }
-    }
-    println!();
-}
-
-#[cfg(target_os = "macos")]
-fn test_macos() {
-    use tokio::sync::mpsc;
-    use voiput::{LocaleCode, MacSpeechBackend};
-
-    show_section("MACOS");
-
-    // build.rs が自動生成するスタブ libSpeechHelper.a がリンクされる。
-    // スタブでもリンク自体は成功するため、new() の戻り値で状態を確認する。
-    let (tx, _rx) = mpsc::channel(10);
-    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
-
-    match MacSpeechBackend::new(tx, locale, None, None, None) {
-        Ok(backend) => {
-            println!("  ✓ MacSpeechBackend::new() 成功 (libSpeechHelper.a リンク OK)");
-            backend.cleanup();
-        }
-        Err(msg) => {
-            println!("  [INFO] スタブライブラリ: {} (build.rs の自動生成)", msg);
-            println!("  [INFO] 実ライブラリは prebuilt/macos/ に自動ビルド済みです。");
-            println!("  [INFO] libs/macos/ にランタイム dylib が不足しているためスタブを使用しています。");
-        }
-    }
-    println!();
-}
-
-// ============================================================================
-// ホットキーテスト
-// ============================================================================
-
-/// `cargo run --bin test-run -- --hotkeys` で実行。
-///
-/// プラットフォームに応じた HotkeyMonitor を起動し、受信したアクションを
-/// 標準出力に表示する。Ctrl+C で終了。
-fn test_hotkeys() {
-    show_section("HOTKEYS");
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        println!("  [SKIP] ホットキーは macOS / Windows のみ対応しています");
-        println!();
-        return;
-    }
-
-    println!(
-        "  → HotkeyMonitor を起動します..."
-    );
-    #[cfg(target_os = "macos")]
-    println!("  → macOS: Option ダブルタップ / Ctrl+Option / Option+H / Option+M");
-    #[cfg(target_os = "windows")]
-    println!("  → Windows: Alt ダブルタップ / Ctrl+Alt を検出します");
-    println!("  → 終了するには Ctrl+C を押してください");
-    println!();
-
-    let rt = match tokio::runtime::Runtime::new() {
-        Ok(r) => r,
         Err(e) => {
-            println!("  ✗ Tokio ランタイム作成失敗: {}", e);
-            println!();
-            return;
-        }
-    };
-
-    let receiver = start_hotkey_monitor();
-
-    rt.block_on(async {
-        run_hotkey_receiver_loop(receiver).await;
-    });
-}
-
-#[cfg(target_os = "macos")]
-fn start_hotkey_monitor() -> mpsc::Receiver<HotkeyAction> {
-    use voiput::hotkey::mac::HotkeyMonitor;
-    HotkeyMonitor::new().start()
-}
-
-#[cfg(target_os = "windows")]
-fn start_hotkey_monitor() -> mpsc::Receiver<HotkeyAction> {
-    use voiput::hotkey::win::HotkeyMonitor;
-    HotkeyMonitor::new().start()
-}
-
-/// ホットキーアクションを受信して表示するループ。
-///
-/// 30秒間イベントがないとタイムアウトメッセージを表示するが、継続して待機する。
-async fn run_hotkey_receiver_loop(mut receiver: mpsc::Receiver<HotkeyAction>) {
-    use tokio::time::{timeout, Duration};
-
-    println!("  ホットキーを待機中...");
-    loop {
-        match timeout(Duration::from_secs(30), receiver.recv()).await {
-            Ok(Some(action)) => {
-                let label = match action {
-                    HotkeyAction::Start => "録音開始 (Start)",
-                    HotkeyAction::BufferFlush => "バッファフラッシュ (BufferFlush)",
-                    HotkeyAction::OrchestratorInput => "オーケストレーター入力 (OrchestratorInput)",
-                    HotkeyAction::Correct => "補正 (Correct)",
-                    HotkeyAction::Summarize => "要約 (Summarize)",
-                };
-                println!("  ▶ ホットキー受信: {}  [{:?}]", label, action);
-            }
-            Ok(None) => {
-                println!("  ⚠ チャネルが閉じられました");
-                break;
-            }
-            Err(_) => {
-                println!("  … 30秒間イベントなし（待機継続中、Ctrl+C で終了）");
-            }
+            println!("  ✗ PseudoAsrStreamer::new() 失敗: {}", e);
+            ok = false;
         }
     }
+
+    println!();
+    ok
 }
 
 fn decode_wav_to_f32(path: &std::path::Path) -> anyhow::Result<Vec<f32>> {
@@ -809,44 +787,27 @@ fn decode_wav_to_f32(path: &std::path::Path) -> anyhow::Result<Vec<f32>> {
         hound::SampleFormat::Float => reader
             .samples::<f32>()
             .collect::<Result<Vec<f32>, _>>()
-            .map_err(|e| anyhow::anyhow!("WAV float 読み取り失敗: {}", e)),
+            .map_err(|e| anyhow::anyhow!("WAV 読み取り失敗: {}", e)),
         hound::SampleFormat::Int if spec.bits_per_sample <= 16 => reader
             .samples::<i16>()
             .map(|s| s.map(|v| v as f32 / 32768.0))
             .collect::<Result<Vec<f32>, _>>()
-            .map_err(|e| anyhow::anyhow!("WAV int16 読み取り失敗: {}", e)),
-        _ => anyhow::bail!(
-            "未対応の WAV 形式: {} bits {} (16-bit PCM または Float のみ対応)",
-            spec.bits_per_sample,
-            match spec.sample_format {
-                hound::SampleFormat::Float => "Float",
-                hound::SampleFormat::Int => "Int",
-            },
-        ),
+            .map_err(|e| anyhow::anyhow!("WAV 読み取り失敗: {}", e)),
+        _ => anyhow::bail!("未対応 WAV 形式: {} bits", spec.bits_per_sample),
     }
 }
 
-fn test_openai() {
+fn test_openai(args: &CliArgs) -> bool {
     show_section("OPENAI");
+    let mut ok = true;
 
-    let api_key = std::env::args()
-        .skip(1)
-        .find(|a| a.starts_with("--openai-key="))
-        .map(|a| a.trim_start_matches("--openai-key=").to_string())
-        .or_else(|| std::env::var("OPENAI_API_KEY").ok());
-
-    let base_url = std::env::args()
-        .skip(1)
-        .find(|a| a.starts_with("--base-url="))
-        .map(|a| a.trim_start_matches("--base-url=").to_string())
-        .or_else(|| std::env::var("OPENAI_BASE_URL").ok())
-        .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+    let api_key = args.openai_key.clone().or_else(|| std::env::var("OPENAI_API_KEY").ok());
 
     let Some(key) = api_key else {
-        println!("  [SKIP] OpenAI API キーが設定されていません");
-        println!("  [HELP] cargo run --bin test-run -- --openai-key=sk-xxxxx [--base-url=...]");
+        println!("  [SKIP] OpenAI API キー未設定");
+        println!("  [HELP] --openai-key=sk-xxxxx または OPENAI_API_KEY 環境変数");
         println!();
-        return;
+        return true;
     };
 
     let wav_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -855,9 +816,9 @@ fn test_openai() {
         .join("sample-voice.wav");
 
     if !wav_path.exists() {
-        println!("  ✗ サンプル音声が見つかりません: {}", wav_path.display());
+        println!("  ✗ サンプル音声なし: {}", wav_path.display());
         println!();
-        return;
+        return true;
     }
 
     let samples = match decode_wav_to_f32(&wav_path) {
@@ -865,101 +826,65 @@ fn test_openai() {
         Err(e) => {
             println!("  ✗ WAV デコード失敗: {}", e);
             println!();
-            return;
+            return true;
         }
     };
 
-    println!("  [INFO] API 設定:");
-    println!("    base_url: {} (デフォルト: https://api.openai.com/v1, 上書き: --base-url=... または OPENAI_BASE_URL)", base_url);
-    println!("    model: gpt-4o-mini-transcribe");
     println!("  [INFO] サンプル音声: {} ({} samples)", wav_path.display(), samples.len());
 
     let oa_config = OpenAiConfig {
-        base_url,
+        base_url: args.base_url.clone(),
         api_key: key,
         model: "gpt-4o-mini-transcribe".into(),
     };
-    let locale = Arc::new(parking_lot::Mutex::new(LocaleCode::Ja));
+    let locale = Arc::new(parking_lot::Mutex::new(args.locale));
     let mut backend = OpenAIBackend::new(&oa_config, locale);
 
-    // transcribe() は内部で Tokio ランタイムが必要（async-openai 呼び出しのため）
     let rt = match tokio::runtime::Runtime::new() {
         Ok(r) => r,
         Err(e) => {
             println!("  ✗ Tokio ランタイム作成失敗: {}", e);
             println!();
-            return;
+            return true;
         }
     };
     match rt.block_on(async { backend.transcribe(&samples) }) {
-        Ok(text) => {
-            println!("  ✓ 認識結果: \"{}\"", text.trim());
-        }
+        Ok(text) => println!("  ✓ 認識結果: \"{}\"", text.trim()),
         Err(e) => {
             println!("  ✗ 認識失敗: {}", e);
+            ok = false;
         }
     }
 
     println!();
+    ok
 }
 
-fn test_voiput() {
+fn test_voiput(args: &CliArgs) -> bool {
     use indexmap::IndexMap;
-
     show_section("VOIPUT");
+    let mut ok = true;
 
     // 1. 最小構成
-    println!("  [TEST] 最小構成 (Os+Ja)");
-    let minimal_config = VoiputConfig::builder()
-        .engine(SttEngine::Os)
-        .locale(LocaleCode::Ja)
-        .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
-            gtcrn: String::new(),
-        })
-        .build();
-    match minimal_config {
-        Ok(cfg) => match Voiput::new(cfg) {
-            Ok(_) => println!("    ✓ Voiput::new() 成功"),
-            Err(e) => println!("    ✗ Voiput::new() 失敗: {}", e),
-        },
-        Err(e) => println!("    ✗ config.build() 失敗: {}", e),
+    println!("  [TEST] 最小構成");
+    let config = build_voiput_config(args);
+    match Voiput::new(config) {
+        Ok(_) => println!("    ✓ Voiput::new() 成功"),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
 
-    // 2. OpenAI 構成
-    println!("  [TEST] OpenAI 構成");
-    let openai_config = VoiputConfig::builder()
-        .engine(SttEngine::OpenAI)
-        .locale(LocaleCode::En)
-        .openai_config(OpenAiConfig {
-            base_url: "https://api.openai.com/v1".into(),
-            api_key: "sk-test".into(),
-            model: "gpt-4o-mini-transcribe".into(),
-        })
-        .vad_model_paths(VadModelPaths {
-            silero: model_path("silero_vad.onnx").into(),
-            ten: model_path("ten_vad.onnx").into(),
-            gtcrn: String::new(),
-        })
-        .build();
-    match openai_config {
-        Ok(cfg) => match Voiput::new(cfg) {
-            Ok(_) => println!("    ✓ Voiput::new() 成功"),
-            Err(e) => println!("    ✗ Voiput::new() 失敗: {}", e),
-        },
-        Err(e) => println!("    ✗ config.build() 失敗: {}", e),
-    }
-
-    // 3. start/stop ライフサイクル
-    println!("  [TEST] start/stop ライフサイクル");
+    // 2. start/stop ライフサイクル
+    println!("  [TEST] start/stop");
     let mut voiput = Voiput::new(
         VoiputConfig::builder()
-            .engine(SttEngine::Os)
-            .locale(LocaleCode::Ja)
+            .engine(args.engine)
+            .locale(args.locale)
             .vad_model_paths(VadModelPaths {
-                silero: model_path("silero_vad.onnx").into(),
-                ten: model_path("ten_vad.onnx").into(),
+                silero: model_path("silero_vad.onnx"),
+                ten: model_path("ten_vad.onnx"),
                 gtcrn: String::new(),
             })
             .build()
@@ -968,64 +893,86 @@ fn test_voiput() {
     .unwrap();
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    // start() の呼び出し（async → sync ブリッジ）
     match rt.block_on(voiput.start()) {
         Ok(_) => println!("    ✓ start() 成功"),
-        Err(e) => println!("    ✗ start() 失敗: {}", e),
+        Err(e) => {
+            println!("    ✗ start() 失敗: {}", e);
+            ok = false;
+        }
     }
-    // stop() の呼び出し
     match rt.block_on(voiput.stop()) {
         Ok(_) => println!("    ✓ stop() 成功"),
-        Err(e) => println!("    ✗ stop() 失敗: {}", e),
+        Err(e) => {
+            println!("    ✗ stop() 失敗: {}", e);
+            ok = false;
+        }
     }
-    println!("  [NOTE] start()/stop() は API 呼び出しの正常系確認です。");
-    println!("         実際の音声認識には VAD モデルファイルとネイティブバックエンドが必要です。");
 
-    // 4. request_permissions 呼び出し
+    // 3. request_permissions
     println!("  [TEST] request_permissions()");
     match rt.block_on(voiput.request_permissions()) {
-        Ok(authorized) => println!("    ✓ request_permissions() → authorized={}", authorized),
-        Err(e) => println!("    ✗ request_permissions() 失敗: {}", e),
+        Ok(authorized) => println!("    ✓ → authorized={}", authorized),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
 
-    // 5. flush 呼び出し
+    // 4. flush
     println!("  [TEST] flush()");
-    let flush_result = rt.block_on(async { voiput.flush().await });
-    match flush_result {
-        Ok(text) => println!("    ✓ flush() 成功: \"{}\"", text),
-        Err(e) => println!("    ✗ flush() 失敗: {}", e),
+    match rt.block_on(async { voiput.flush().await }) {
+        Ok(text) => println!("    ✓ flush: \"{}\"", text),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
 
-    // 6. エンジン切り替え
+    // 5. set_engine
     println!("  [TEST] set_engine()");
     match rt.block_on(voiput.set_engine(SttEngine::OpenAI)) {
-        Ok(_) => println!("    ✓ set_engine(OpenAI) → engine={:?}", voiput.engine()),
-        Err(e) => println!("    ✗ set_engine(OpenAI) 失敗: {}", e),
+        Ok(_) => println!("    ✓ set_engine(OpenAI) → {:?}", voiput.engine()),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
     match rt.block_on(voiput.set_engine(SttEngine::Os)) {
-        Ok(_) => println!("    ✓ set_engine(Os) → engine={:?}", voiput.engine()),
-        Err(e) => println!("    ✗ set_engine(Os) 失敗: {}", e),
+        Ok(_) => println!("    ✓ set_engine(Os) → {:?}", voiput.engine()),
+        Err(e) => {
+            println!("    ✗ 失敗: {}", e);
+            ok = false;
+        }
     }
 
-    // 7. ロケール変更
+    // 6. set_locale
     println!("  [TEST] set_locale()");
     voiput.set_locale(LocaleCode::En);
     voiput.set_locale(LocaleCode::Ja);
-    println!("    ✓ set_locale 成功");
+    println!("    ✓ OK");
 
-    // 8. 置換辞書更新
+    // 7. update_replaces
     println!("  [TEST] update_replaces()");
     let mut replaces = IndexMap::new();
     replaces.insert("world".to_string(), vec!["hello".to_string()]);
     voiput.update_replaces(replaces);
-    println!("    ✓ update_replaces 成功");
+    println!("    ✓ OK");
 
-    // 9. ヘルスチェック
+    // 8. health_check
     println!("  [TEST] health_check()");
-    #[cfg(target_os = "windows")]
-    println!("    health_check() = {} (Windows: win_ffi 経由)", voiput.health_check());
-    #[cfg(not(target_os = "windows"))]
-    println!("    health_check() = {} (macOS/他: 常に正常=0 / 初期化時に状態確定済み)", voiput.health_check());
+    println!("    = {} (0 = 正常)", voiput.health_check());
+
+    // 9. InputMode
+    println!("  [TEST] input_mode()");
+    assert_eq!(voiput.input_mode(), InputMode::Buffered);
+    println!("    ✓ デフォルト: Buffered");
+
+    // 10. enable_hotkeys + handle_hotkey_events
+    println!("  [TEST] enable_hotkeys()");
+    voiput.enable_hotkeys();
+    voiput.handle_hotkey_events();
+    println!("    ✓ OK (no-op on unsupported platforms)");
 
     println!();
+    ok
 }

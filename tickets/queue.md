@@ -85,3 +85,7 @@
 - [x] #73 M6-2: SipEvent / EventMeta / EventTimestamp 定義 | /Users/shyme/shyme/zasso/tickets/specs/0073-m6-2-sip-event-meta.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #74 M6-3: RawSipMessage / SipMessageDirection 定義 | /Users/shyme/shyme/zasso/tickets/specs/0074-m6-3-raw-sip-message.md | 2026-06-12 | 2026-06-12 | 2026-06-12
 - [x] #75 input/ モジュール — クリップボード操作 + キーボード注入 | /Users/kawata/shyme/zasso/tickets/specs/0075-input.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #76 Voiput 拡張 — ホットキー駆動音声入力の crate 内蔵（全責務隠蔽） | /Users/kawata/shyme/zasso/tickets/specs/0076-voiput-crate.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #77 test-run.rs 再構成 — 薄い呼び出し層 + CLI エンジン選択 | /Users/kawata/shyme/zasso/tickets/specs/0077-test-runrs-cli.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #78 ホットキー制御の完全修正 — RECORDING_ACTIVE連携と重複開始防止 | /Users/kawata/shyme/zasso/tickets/specs/0078-recording-active.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [ ] #79 request_permissions 権限ガイド実装 — 設定画面誘導までを crate 責務に | /Users/kawata/shyme/zasso/tickets/specs/0079-request-permissions-crate.md | 2026-06-14 | 2026-06-14

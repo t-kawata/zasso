@@ -18,6 +18,26 @@ pub enum SttEngine {
 }
 
 // ============================================================================
+// 入力モード
+// ============================================================================
+
+/// 音声認識の入力動作モード
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InputMode {
+    /// 認識結果を逐次カーソルに注入（input_diff）するリアルタイムモード
+    ///
+    /// 認識中は PartialResult/FinalResult が届くたびにカーソル位置のテキストを
+    /// 差分更新する。確定後のフラッシュは行わない。
+    RealTime,
+    /// フラッシュ時のみテキストを確定・ペーストするバッファモード
+    ///
+    /// 認識結果は内部バッファに蓄積され、BufferFlush または request_flush()
+    /// が呼ばれた時点で確定テキストがペーストされる。通常の音声入力はこのモード。
+    #[default]
+    Buffered,
+}
+
+// ============================================================================
 // 言語ロケール
 // ============================================================================
 
@@ -90,6 +110,8 @@ pub enum SttEvent {
     ForceClearDecoration,
     /// 装飾フレーム（表示用アニメーション）
     DecorationPartial(String),
+    /// オーケストレーターモードのフラッシュ完了（テキストを直接利用者に送出）
+    Flushed(String),
 }
 
 // ============================================================================
@@ -283,6 +305,28 @@ mod tests {
         let _ = SttEvent::SttCompleted;
         let _ = SttEvent::ForceClearDecoration;
         let _ = SttEvent::DecorationPartial("…".into());
+        let _ = SttEvent::Flushed("test".into());
+    }
+
+    // ---- InputMode ----
+
+    #[test]
+    fn test_input_mode_debug_clone_copy() {
+        let modes = [InputMode::RealTime, InputMode::Buffered];
+        for mode in &modes {
+            let _debug = format!("{:?}", mode);
+            let _cloned = *mode;
+        }
+    }
+
+    #[test]
+    fn test_input_mode_default_is_buffered() {
+        assert_eq!(InputMode::default(), InputMode::Buffered);
+    }
+
+    #[test]
+    fn test_input_mode_variants_distinct() {
+        assert_ne!(InputMode::RealTime, InputMode::Buffered);
     }
 
     // ---- OpenAiConfig ----

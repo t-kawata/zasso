@@ -17,6 +17,21 @@ pub mod win;
 #[cfg(target_os = "windows")]
 pub mod win_hook;
 
+/// プラットフォームに応じた HotkeyMonitor を起動し、イベント受信用チャネルを返す。
+///
+/// Voiput::enable_hotkeys() から呼ばれる。
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn start_hotkey_monitor() -> tokio::sync::mpsc::Receiver<HotkeyAction> {
+    #[cfg(target_os = "macos")]
+    {
+        mac::HotkeyMonitor::new().start()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win::HotkeyMonitor::new().start()
+    }
+}
+
 /// ホットキーアクション — ダブルタップやキーコンボによって送出されるイベント種別
 ///
 /// `HotkeyMonitor::start()` から返される mpsc チャネル経由でアプリケーション層に通知される。

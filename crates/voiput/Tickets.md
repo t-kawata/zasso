@@ -750,7 +750,7 @@ crates/voiput/
   - OS のアクセシビリティ許可状態（環境依存）
 * **計装方法:** `#[cfg(test)] mod tests` — 純粋ロジックの単体テスト + `#[cfg(target_os = "macos")]` で macOS 固有テスト
 
-##### チケット M8-2: `input/` モジュール — クリップボード操作 + キーボード注入
+##### ✅ チケット M8-2: `input/` モジュール — クリップボード操作 + キーボード注入
 
 * **移植元（MYCUTE 正常動作確認済み）:**
   - クリップボード: `~/shyme/mycute/src/input/clipboard.rs` 全145行
@@ -791,7 +791,7 @@ crates/voiput/
   - クリップボードの外部アプリとの競合（実機依存）
 * **計装方法:** `#[cfg(test)] mod tests` — クリップボード read/write 往復テスト + `#[cfg(target_os = "macos")]` で macOS 固有テスト
 
-##### チケット M8-3: Voiput 拡張 — ホットキー駆動音声入力の crate 内蔵（全責務隠蔽）
+##### ✅ チケット M8-3: Voiput 拡張 — ホットキー駆動音声入力の crate 内蔵（全責務隠蔽）
 
 * **移植元（MYCUTE 正常動作確認済み）:**
   - `~/shyme/mycute/src/mycute_manager.rs:59-106` — `request_flush()`, `build_flush_text()`, `start_recording()`, `stop_recording()`

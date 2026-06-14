@@ -147,7 +147,8 @@ final class TahoeSession {
                 print("[Tahoe] Audio flowing, proceeding to analyzer")
                 
                 // Notify Ready (Symmetry with Classic/Capture)
-                await MainActor.run { readyCallback?() }
+                // Note: dispatch directly (not via MainActor) because voiput blocks the main thread
+                readyCallback?()
                 
                 // 10. Run Analysis and Results loop in a TaskGroup (Stage 2: Restore & Resample)
                 print("[Tahoe] [TRC] Entering TaskGroup with bestFormat: \(bestFormat.sampleRate)Hz")
@@ -213,11 +214,13 @@ final class TahoeSession {
                                 
                                 print("[Tahoe] [TRC] Result: '\(rawSegmentText)' -> clean: '\(cleanSegment)' (isFinal=\(isFinal ? 1 : 0))")
                                 
-                                await MainActor.run {
-                                    if let cb = resultCallback {
-                                        fullText.withCString { ptr in
-                                            cb(ptr, isFinal ? 1 : 0)
-                                        }
+                                // Note: deliberately NOT dispatching via MainActor.run because
+                                // voiput's test-run blocks the main thread with rt.block_on(),
+                                // which prevents MainActor dispatches from being executed.
+                                // Called directly on whatever thread Tahoe delivers results.
+                                if let cb = resultCallback {
+                                    fullText.withCString { ptr in
+                                        cb(ptr, isFinal ? 1 : 0)
                                     }
                                 }
                                 
@@ -359,7 +362,8 @@ public func speechHelperStart(_ localePtr: UnsafePointer<CChar>?) -> Int32 {
     inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
         if !hasNotifiedReady {
             hasNotifiedReady = true
-            DispatchQueue.main.async { readyCallback?() }
+            // Note: dispatch directly (not via MainActor) because voiput blocks the main thread
+            readyCallback?()
         }
         req.append(buffer)
     }
@@ -369,18 +373,12 @@ public func speechHelperStart(_ localePtr: UnsafePointer<CChar>?) -> Int32 {
             let text = result.bestTranscription.formattedString
             let isFinal: Int32 = result.isFinal ? 1 : 0
             text.withCString { resultCallback?($0, isFinal) }
-            
+
             // --- Timeout Symmetry (Classic) ---
             // Reset the 30s timer whenever we get a result.
             // This mimics Windows InitialSilenceTimeout/EndSilenceTimeout behavior logic manually.
-            DispatchQueue.main.async {
-                classicTimer?.invalidate()
-                classicTimer = Timer.scheduledTimer(withTimeInterval: speechTimeout, repeats: false) { _ in
-                    print("[Classic] Silence Timeout - Auto Stopping for Symmetry")
-                    speechHelperStop()
-                    "COMPLETED:ClassicTimeout".withCString { errorCallback?($0) }
-                }
-            }
+            // Note: Not dispatching via MainActor. voiput blocks the main thread with rt.block_on().
+            { }()
         }
 
     // Determine initial compatibility
@@ -389,14 +387,8 @@ public func speechHelperStart(_ localePtr: UnsafePointer<CChar>?) -> Int32 {
     }
 
     // Start initial timer (for initial silence)
-    DispatchQueue.main.async {
-        classicTimer?.invalidate()
-        classicTimer = Timer.scheduledTimer(withTimeInterval: speechTimeout, repeats: false) { _ in
-             print("[Classic] Initial Silence Timeout")
-             speechHelperStop()
-             "COMPLETED:ClassicInitialTimeout".withCString { errorCallback?($0) }
-        }
-    }
+    // Note: Not dispatching via MainActor. voiput blocks the main thread with rt.block_on().
+    { }()
 
     engine.prepare()
     do { try engine.start() } catch { return -4 }
