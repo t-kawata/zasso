@@ -96,6 +96,21 @@ node "$_R/scripts/tickets/search-tickets.js" "<キーワード>"
 node "$_R/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
 ```
 
+### スタブの点検
+
+`[::STUB::]` マーカーの有無とスタブの状態を点検する：
+
+1. 関連ソースツリーを `grep -rn '\[::STUB::\]'` または `find-all-stubs.js` でスキャンする
+2. このチケットが解決可能なスタブがあれば spec に明記する
+3. `[::STUB::]` 未付与だが明らかにスタブと判断されるコードを発見したら、その場でマーカーを追記する（解決先不明な場合は `[::STUB::] 要解決: <情報>`）
+4. スタブを解決する場合は実装スコープに含め、解決しない場合は spec にその理由と将来の解決計画を記述する
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# スタブの検索
+node "$_R/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+```
+
 ### 深掘り
 
 ```bash

@@ -36,12 +36,13 @@ node "$_R/scripts/tickets/<script-name>.js" "<args>"
 | 9 | `validate-structure.js` | `/review-ticket` | 構造整合性検証 |
 | 10 | `review/run-quality-checks.js` | 各コマンド | 静的品質分析 |
 | 11 | `review/generate-report.js` | 各コマンド | 品質レポート生成 |
+| 12 | `review/find-all-stubs.js` | `/review-ticket`, 各コマンド | `[::STUB::]` マーカー一覧取得 |
 
 ### ユーティリティ（必要時に AI が判断して使用）
 
 | # | スクリプト | 用途 |
 |---|-----------|------|
-| 12 | `search-tickets.js` | キーワード検索 |
+| 13 | `search-tickets.js` | キーワード検索 |
 | 13 | `find-by-slug.js` | スラッグ検索 |
 | 14 | `delete-ticket.js` | チケット削除（復元不可） |
 | 15 | `backup-ticket.js` | チケットバックアップ |
@@ -361,6 +362,38 @@ node "$_R/scripts/tickets/review/run-quality-checks.js" src/main.rs | node "$_R/
 ```
 
 **いつ使うか**: `run-quality-checks.js` の出力をユーザーに提示する前に、常にこのスクリプトに通す。可読性が大幅に向上する。
+
+---
+
+### 12. `review/find-all-stubs.js`
+
+**用途**: 指定ディレクトリ以下を再帰的に走査し、`[::STUB::]` マーカーを含むソース行を一覧する。スタブの塩漬け防止と解決状況の把握に使用する。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | ディレクトリパス | 必須 | 走査対象のディレクトリ |
+
+**スキップ**: `.` で始まるディレクトリ、`node_modules/`、`target/`、`.claude/`
+
+**対象拡張子**: `.rs`, `.js`, `.ts`, `.tsx`, `.jsx`, `.vue`, `.go`（`CFG.review.targetExtensions` に準拠）
+
+**使用例**:
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/review/find-all-stubs.js" "$(git rev-parse --show-toplevel)/src"
+```
+
+**出力**:
+```json
+{ "success": true, "count": 2, "stubs": [
+  { "file": "/path/to/src/main.rs", "line": 42, "content": "// [::STUB::] M3-1 で置き換え" },
+  { "file": "/path/to/src/lib.rs", "line": 15, "content": "// [::STUB::] 要解決: レジストリ実装未完了" }
+] }
+```
+
+**いつ使うか**: `/review-ticket` での品質チェックで全スタブの把握と評価に使用する。`/make-ticket`、`/plan-ticket`、`/start-ticket` でもスタブ解決機会の特定に使用する。
 
 ---
 

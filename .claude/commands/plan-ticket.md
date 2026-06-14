@@ -128,6 +128,22 @@ node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存
 # 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
 ```
 
+### スタブの検証
+
+`[::STUB::]` マーカーが計画に影響するか検証する：
+
+1. `find-all-stubs.js` でスタブを一覧する
+2. このチケットで解決可能なスタブがあるか評価する
+3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加する
+4. 解決可能なスタブは計画の実装スコープに含める
+5. 解決不可能なスタブは注記として計画に残し、将来のチケットとの関係を明記する
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# スタブの検索
+node "$_R/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+```
+
 ### Step 6: 計画策定
 
 spec 内容をもとに以下の構造で提示する：
