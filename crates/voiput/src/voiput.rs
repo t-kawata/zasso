@@ -157,6 +157,7 @@ impl Voiput {
     }
 
     /// macOS 向け権限ガイドを表示し、設定画面を開く。
+    #[cfg(target_os = "macos")]
     fn show_permission_guide_macos() {
         log::warn!("==================================================");
         log::warn!("音声認識の権限が許可されていません。");
