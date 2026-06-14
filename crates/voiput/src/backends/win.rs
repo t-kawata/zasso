@@ -570,19 +570,16 @@ impl WinSpeechBackend {
                                 }
                             }
                         } else {
-                            let has_processor = processor.lock().is_some();
-                            if !has_processor {
-                                if is_final {
-                                    watermark_len = raw_char_count;
-                                    let _ = tx_app.try_send(
-                                        SttEvent::FinalResult(punctuated, seq),
-                                    );
-                                } else {
-                                    let _ = tx_app.try_send(
-                                        SttEvent::PartialResult(punctuated, seq),
-                                    );
-                                }
+                            // プロセッサが条件未達で補正を出力しなかった場合でも
+                            // 未補正テキストをパススルー（BufferFlush 消失防止）
+                            if is_final {
+                                watermark_len = raw_char_count;
                             }
+                            let _ = tx_app.try_send(if is_final {
+                                SttEvent::FinalResult(punctuated, seq)
+                            } else {
+                                SttEvent::PartialResult(punctuated, seq)
+                            });
                         }
                         current_raw_char_count = raw_char_count;
                         current_seq = seq;

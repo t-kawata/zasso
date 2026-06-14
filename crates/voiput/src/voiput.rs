@@ -333,21 +333,20 @@ impl Voiput {
                     log::debug!("[Hotkey] BufferFlush ignored: not recording");
                     return;
                 }
-                log::info!("[Hotkey] BufferFlush: フラッシュ要求");
-                if self.is_post_correcting {
-                    log::debug!("[Hotkey] BufferFlush: 事後補正中のため保留");
-                } else {
-                    let text = self.build_flush_text();
-                    if !text.is_empty() {
-                        crate::input::clipboard::save_paste_and_restore(&text);
-                        play_commit_sound();
-                    }
-                    self.recognizer.stop();
-                    // ② ホットキーフラグ更新
-                    Self::update_recording_state(false);
-                    self.buffer.clear();
-                    self.current_text.clear();
+                log::info!("[Hotkey] BufferFlush: フラッシュ要求 (is_post_correcting={})", self.is_post_correcting);
+                // 事後補正中でも現在のテキストでフラッシュを実行する。
+                // 補正結果を待つとデッドロックになる（補正完了イベントが届かなくなる）。
+                let text = self.build_flush_text();
+                if !text.is_empty() {
+                    crate::input::clipboard::save_paste_and_restore(&text);
+                    play_commit_sound();
                 }
+                self.recognizer.stop();
+                // ② ホットキーフラグ更新
+                Self::update_recording_state(false);
+                self.is_post_correcting = false;
+                self.buffer.clear();
+                self.current_text.clear();
             }
             HotkeyAction::OrchestratorInput => {
                 log::info!("[Hotkey] OrchestratorInput: モード切替");

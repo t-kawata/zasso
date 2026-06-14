@@ -18,6 +18,8 @@ pub struct VoiputConfig {
     pub locale: LocaleCode,
     /// OpenAI 設定（engine == OpenAI の場合のみ必要）
     pub openai_config: Option<OpenAiConfig>,
+    /// PostCorrection 用 OpenAI 設定（エンジン非依存、OS エンジンでも LLM 補正を有効にする）
+    pub post_correction_openai_config: Option<OpenAiConfig>,
     /// VAD 設定
     pub vad: VadConfig,
     /// 事後補正設定
@@ -61,6 +63,7 @@ pub struct VoiputConfigBuilder {
     engine: Option<SttEngine>,
     locale: Option<LocaleCode>,
     openai_config: Option<OpenAiConfig>,
+    post_correction_openai_config: Option<OpenAiConfig>,
     vad: Option<VadConfig>,
     post_correction: Option<PostCorrectionConfig>,
     punctuation: Option<bool>,
@@ -83,6 +86,13 @@ impl VoiputConfigBuilder {
     }
     pub fn openai_config(mut self, c: OpenAiConfig) -> Self {
         self.openai_config = Some(c);
+        self
+    }
+    /// PostCorrection（LLM 事後補正）用の OpenAI 設定を指定する。
+    ///
+    /// エンジンが `Os` の場合でも、この設定があれば LLM 補正が有効になる。
+    pub fn post_correction_openai_config(mut self, c: OpenAiConfig) -> Self {
+        self.post_correction_openai_config = Some(c);
         self
     }
     pub fn vad(mut self, v: VadConfig) -> Self {
@@ -147,6 +157,7 @@ impl VoiputConfigBuilder {
             engine,
             locale,
             openai_config: self.openai_config,
+            post_correction_openai_config: self.post_correction_openai_config,
             vad: self.vad.unwrap_or_default(),
             post_correction: self.post_correction.unwrap_or_default(),
             punctuation: self.punctuation.unwrap_or(true),

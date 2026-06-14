@@ -138,8 +138,10 @@ pub struct SpeechRecognizer {
     /// macOS バックエンド
     #[cfg(target_os = "macos")]
     mac_backend: Option<MacSpeechBackend>,
-    /// PostCorrection 再構築用の OpenAI 設定
+    /// PostCorrection 再構築用の OpenAI 設定（認識エンジン用）
     openai_config: Option<OpenAiConfig>,
+    /// PostCorrection 再構築用の OpenAI 設定（事後補正専用、エンジン非依存）
+    pc_openai_config: Option<OpenAiConfig>,
     /// バックエンド初期化用の VAD 設定（pipeline 内部形式）
     vad_config: Option<VadProcessorConfig>,
     /// イベント送信側（インターセプター通過後、UI向け）
@@ -235,6 +237,8 @@ impl SpeechRecognizer {
         let engine = config.engine;
         let locale = config.locale;
         let openai_config = config.openai_config.clone();
+        // PostCorrection 用の OpenAI 設定（エンジン非依存）
+        let pc_openai_config = config.post_correction_openai_config.clone();
 
         // types::VadConfig → pipeline::vad::VadConfig に変換
         let vad_config = Some(build_vad_processor_config(
@@ -299,7 +303,7 @@ impl SpeechRecognizer {
         #[cfg(target_os = "macos")]
         let mac_backend = {
             let (pc_backend, pc_config) = rebuild_pc_backend(
-                openai_config.as_ref(),
+                pc_openai_config.as_ref(),
                 shared_locale.clone(),
             );
             match MacSpeechBackend::new(
@@ -321,7 +325,7 @@ impl SpeechRecognizer {
         #[cfg(target_os = "windows")]
         let win_backend = {
             let (pc_backend, pc_config) = rebuild_pc_backend(
-                openai_config.as_ref(),
+                pc_openai_config.as_ref(),
                 shared_locale.clone(),
             );
             match WinSpeechBackend::new(
@@ -348,6 +352,7 @@ impl SpeechRecognizer {
             #[cfg(target_os = "macos")]
             mac_backend,
             openai_config,
+            pc_openai_config,
             vad_config,
             tx,
             shared_locale,
@@ -483,7 +488,7 @@ impl SpeechRecognizer {
         if let Some(ref mut backend) = self.win_backend {
             backend.set_locale(locale);
             let (pc_backend, pc_config) = rebuild_pc_backend(
-                self.openai_config.as_ref(),
+                self.pc_openai_config.as_ref(),
                 self.shared_locale.clone(),
             );
             backend.update_pc_config(pc_backend, pc_config);
@@ -492,7 +497,7 @@ impl SpeechRecognizer {
         if let Some(ref mut backend) = self.mac_backend {
             backend.set_locale(locale);
             let (pc_backend, pc_config) = rebuild_pc_backend(
-                self.openai_config.as_ref(),
+                self.pc_openai_config.as_ref(),
                 self.shared_locale.clone(),
             );
             backend.update_pc_config(pc_backend, pc_config);
@@ -547,15 +552,17 @@ impl Drop for SpeechRecognizer {
 ///
 /// macOS / Windows の update_pc_config 呼び出しで使用されるヘルパー。
 fn rebuild_pc_backend(
-    openai_config: Option<&OpenAiConfig>,
+    pc_openai_config: Option<&OpenAiConfig>,
     shared_locale: Arc<parking_lot::Mutex<LocaleCode>>,
 ) -> (Option<Arc<dyn PostCorrectionBackend>>, Option<PostCorrectionConfig>) {
-    if let Some(oa_config) = openai_config {
+    if let Some(oa_config) = pc_openai_config {
+        log::info!("[PostCorrection] LLM 事後補正バックエンド初期化: model={}", oa_config.model);
         let oa_backend = OpenAIBackend::new(oa_config, shared_locale);
         let wrapper: Arc<dyn PostCorrectionBackend> =
             Arc::new(BackendWrapper(Arc::new(std::sync::Mutex::new(oa_backend))));
         (Some(wrapper), Some(PostCorrectionConfig::default()))
     } else {
+        log::warn!("[PostCorrection] LLM 事後補正: 無効（OpenAI API キー未設定）");
         (None, None)
     }
 }

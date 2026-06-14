@@ -72,8 +72,8 @@ pub struct PostCorrectionProcessor {
     buffer: ProcessorBuffer,
     last_correction_time: Instant,
     model_type: SttModelType,
-    is_speaking: Arc<AtomicBool>,
-    is_pending_correction: bool,
+    pub(crate) is_speaking: Arc<AtomicBool>,
+    pub(crate) is_pending_correction: bool,
     last_silence_start: Option<Instant>,
 }
 
@@ -130,10 +130,10 @@ impl PostCorrectionProcessor {
             if !self.is_pending_correction {
                 self.is_pending_correction = true;
             }
-        } else if self.is_pending_correction {
-            self.is_pending_correction = false;
-            self.last_silence_start = None;
         }
+        // NOTE: is_pending_correction は一度セットされたら commit_correction までリセットしない。
+        // FinalResult 直後に Tahoe が送信する "." イベントで target_text が上書きされ、
+        // 文数条件が一時的に未達になって pending が打ち消される問題を防ぐ。
 
         Some(ProcessorOutput::Partial(self.buffer.org_text.clone()))
     }

@@ -227,6 +227,7 @@ pub(crate) fn coalesce_stt_events(
 ///
 /// raw_text の先頭 watermark_len 文字は既にアプリに確定送信済み。
 /// この関数は残りの未確定部分のみを返す。
+#[allow(dead_code)]
 pub(crate) fn extract_unconfirmed_slice(raw_text: &str, watermark_len: usize) -> String {
     raw_text.chars().skip(watermark_len).collect()
 }
@@ -493,12 +494,14 @@ impl MacSpeechBackend {
                             raw_char_count, watermark_len
                         );
                     } else {
-                        let unconfirmed = extract_unconfirmed_slice(&raw_text, watermark_len);
+                        let unconfirmed_slice: String = raw_text.chars().skip(watermark_len).collect();
                         let output = {
                             let mut proc_guard = processor.lock();
-                            proc_guard
-                                .as_mut()
-                                .and_then(|proc| proc.process_input(&unconfirmed))
+                            if let Some(ref mut proc) = *proc_guard {
+                                proc.process_input(&unconfirmed_slice)
+                            } else {
+                                None
+                            }
                         };
 
                         if let Some(output) = output {
@@ -512,15 +515,17 @@ impl MacSpeechBackend {
                                 }
                             }
                         } else {
-                            // プロセッサなしのパススルー
                             let has_processor = processor.lock().is_some();
+                            // PostCorrection 未設定時のみパススルー（設定時は process_input の戻り値で処理）
                             if !has_processor {
                                 if is_final {
                                     watermark_len = raw_char_count;
-                                    let _ = tx_app.try_send(SttEvent::FinalResult(unconfirmed, seq));
-                                } else {
-                                    let _ = tx_app.try_send(SttEvent::PartialResult(unconfirmed, seq));
                                 }
+                                let _ = tx_app.try_send(if is_final {
+                                    SttEvent::FinalResult(unconfirmed_slice, seq)
+                                } else {
+                                    SttEvent::PartialResult(unconfirmed_slice, seq)
+                                });
                             }
                         }
                         current_raw_char_count = raw_char_count;
@@ -538,6 +543,7 @@ impl MacSpeechBackend {
                             (false, String::new())
                         }
                     } else {
+                        log::info!("[PostCorrection] silence_timer: processor=None");
                         (false, String::new())
                     }
                 };

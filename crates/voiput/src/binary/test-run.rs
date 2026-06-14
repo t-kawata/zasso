@@ -129,6 +129,12 @@ impl PostCorrectionBackend for MockPostCorrectBackend {
 }
 
 fn main() {
+    // ロガー初期化（RUST_LOG 環境変数で制御、例: RUST_LOG=info）
+    let _ = env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("warn"),
+    )
+    .try_init();
+
     // ── Phase 1: CLI 引数解析 ──
     let args = match parse_args() {
         Some(a) => a,
@@ -138,6 +144,14 @@ fn main() {
             return;
         }
     };
+
+    // --openai-key は必須（エンジン非依存で PostCorrection に使用）
+    if args.openai_key.is_none() {
+        eprintln!("❌ --openai-key は必須です（事後補正 (PostCorrection) に使用）");
+        eprintln!("  使用例: cargo run --bin test-run -- --engine os --openai-key=sk-xxxxx");
+        eprintln!("  または: cargo run --bin test-run -- --engine openai --openai-key=sk-xxxxx");
+        std::process::exit(1);
+    }
 
     println!("========================================");
     println!("  voiput test-run");
@@ -184,6 +198,7 @@ fn main() {
         // イベントループ（薄い表示層）
         // next_event() がブロックするとホットキーが処理できないため、
         // 100ms のタイムアウトでポーリングし、ホットキーイベントを優先処理する。
+        let mut post_correction_active = false;
         loop {
             // ホットキーイベントを毎ループ処理する
             voiput.handle_hotkey_events();
@@ -192,12 +207,22 @@ fn main() {
                 Ok(Some(event)) => {
                     match &event {
                         voiput::SttEvent::PartialResult(text, _) => {
-                            print!("\r📝 {}", text);
+                            let label = if post_correction_active { "🔧 補正中" } else { "📝" };
+                            print!("\r{} {}", label, text);
                             use std::io::Write;
                             std::io::stdout().flush().ok();
                         }
                         voiput::SttEvent::FinalResult(text, _) => {
-                            println!("\r✅ {}", text);
+                            let label = if post_correction_active { "✅ 事後補正完了" } else { "✅" };
+                            println!("\r{} {}", label, text);
+                            post_correction_active = false;
+                        }
+                        voiput::SttEvent::PostCorrectionStarted => {
+                            println!("\n🔄 LLM 事後補正開始...");
+                            post_correction_active = true;
+                        }
+                        voiput::SttEvent::PostCorrectionFinished => {
+                            // 補正結果は FinalResult として届くので、ここでは非表示
                         }
                         voiput::SttEvent::Flushed(text) => {
                             println!("📋 Flushed: {}", text);
@@ -288,6 +313,7 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
             gtcrn: String::new(),
         });
 
+    // 認識エンジン用の OpenAI 設定（--engine openai の場合のみ）
     if args.engine == SttEngine::OpenAI {
         if let Some(ref key) = args.openai_key {
             builder = builder.openai_config(OpenAiConfig {
@@ -296,6 +322,15 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
                 model: "gpt-4o-mini-transcribe".into(),
             });
         }
+    }
+
+    // PostCorrection（LLM 事後補正）用の OpenAI 設定（エンジン非依存）
+    if let Some(ref key) = args.openai_key {
+        builder = builder.post_correction_openai_config(OpenAiConfig {
+            base_url: args.base_url.clone(),
+            api_key: key.clone(),
+            model: "gpt-4o-mini-transcribe".into(),
+        });
     }
 
     builder.build().expect("VoiputConfig の構築に失敗")
@@ -878,19 +913,8 @@ fn test_voiput(args: &CliArgs) -> bool {
 
     // 2. start/stop ライフサイクル
     println!("  [TEST] start/stop");
-    let mut voiput = Voiput::new(
-        VoiputConfig::builder()
-            .engine(args.engine)
-            .locale(args.locale)
-            .vad_model_paths(VadModelPaths {
-                silero: model_path("silero_vad.onnx"),
-                ten: model_path("ten_vad.onnx"),
-                gtcrn: String::new(),
-            })
-            .build()
-            .unwrap(),
-    )
-    .unwrap();
+    let mut voiput = Voiput::new(build_voiput_config(args))
+            .unwrap();
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     match rt.block_on(voiput.start()) {
