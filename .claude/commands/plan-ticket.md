@@ -110,6 +110,24 @@ spec 作成時から時間が経過している場合、当時記録された In
 
 **計画は常に現在のコードベースの状態に基づいて策定しなければならない。**
 
+### 依存・関連チケットID の検証
+
+spec に記述された「依存・関連チケットID」を点検する：
+
+1. `read-artifact.js` で spec 全文を読み取り、「依存・関連チケットID」の記述を確認する
+2. 参照先チケットID が実在することを `resolve-ticket.js` で確認する
+3. 循環依存がないか確認する（AがBに先行実装必須、かつBがAに先行実装必須 → 矛盾）
+4. 依存関係が Step 3（依存グラフ）の分析結果と整合しているか検証する
+5. 不足がある場合は補完する
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# spec から依存・関連チケットID の記述を抽出
+node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+
+# 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
+```
+
 ### Step 6: 計画策定
 
 spec 内容をもとに以下の構造で提示する：

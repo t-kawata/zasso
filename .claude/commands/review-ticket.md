@@ -85,6 +85,26 @@ node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
 
 spec の Acceptance Criteria と実装サマリを確認する。spec の Test Plan に記載されたユニットテストが全て実装されているか確認する。
 
+### 依存・関連チケットID の整合性検証
+
+spec に記述された「依存・関連チケットID」が実装を通じて正しく維持されたか検証する：
+
+1. spec から「依存・関連チケットID」の記述を読み取る
+2. 各参照先チケットの spec を `read-artifact.js` で読み、相互の依存関係記述に矛盾がないかクロスチェックする（Aの spec が B に依存と書いているのに、Bの spec が A に依存と書いていない、など）
+3. 実際の実装順序が依存関係と整合しているか確認する
+4. 不足や矛盾があればレビュー報告書に記録する
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# spec から依存・関連チケットID を抽出
+node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+
+# 各参照先チケットの spec も読み取り、相互参照の矛盾を確認
+for ref_id in <抽出した参照ID一覧>; do
+  node "$_R/scripts/tickets/read-artifact.js" "$ref_id" spec | grep -A5 "依存・関連チケットID"
+done
+```
+
 ### Step 3: ユニットテスト検証
 
 plan のテスト計画および spec の Test Plan で定義されたユニットテストが全て実装されていることを確認する。

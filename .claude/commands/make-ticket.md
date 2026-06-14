@@ -79,6 +79,23 @@ node "$_R/scripts/tickets/create-ticket.js" "" "タイトル"
 
 調査結果の書き込みと仕様の具体化が完了したら、ユーザーに内容を提示して確認を求める。
 
+### 依存・関連チケットID の点検
+
+spec を確定する前に、「依存・関連チケットID」の記述を点検する：
+
+1. 新規作成時は、関連する既存チケットを `search-tickets.js` で検索し、依存関係がある場合はそのIDと関係の種類（先行実装必須/後続/並列可能/リソース共有等）を spec に記述する
+2. 各参照先チケットが実在することを `resolve-ticket.js` で確認する
+3. 循環依存（A→B かつ B→A が相互に先行実装必須）がないか確認する
+4. 深掘り時は既存の「依存・関連チケットID」を読み取り、上記の観点で不足・矛盾がないか検証する
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# 関連チケットの検索（必要に応じて keyword を指定）
+node "$_R/scripts/tickets/search-tickets.js" "<キーワード>"
+# 参照先チケットの存在確認
+node "$_R/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
+```
+
 ### 深掘り
 
 ```bash

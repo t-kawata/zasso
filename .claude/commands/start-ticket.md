@@ -89,6 +89,25 @@ _R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
 ```
 
+### 依存・関連チケットID の充足確認
+
+実装を開始する前に、「依存・関連チケットID」の依存関係が充足されていることを確認する：
+
+1. spec から「依存・関連チケットID」の記述を読み取る
+2. 「先行実装必須」と記載されたチケットがすべて `done` ステータスであることを `check-status.js` で確認する
+3. 未完了の先行依存がある場合はユーザーに報告し、実装順序の調整または依存チケットの完了を待つ
+
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+# spec から依存・関連チケットID を抽出
+node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+
+# 各参照先チケットのステータス確認
+node "$_R/scripts/tickets/check-status.js" "<参照チケットID>" "done"
+```
+
+依存関係に問題がないことを確認した上で実装に進む。
+
 ### Step 4: 実装
 
 `/plan-ticket` の計画に従って実装する。乖離が生じたらユーザーに相談する。
