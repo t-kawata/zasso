@@ -2,9 +2,12 @@
 ticket_id: 84
 title: OpenAI モードのデコレーション誤作動修正とVADパラメータ調整
 slug: openai-vad
-status: open
+status: reviewed
 created_at: 2026-06-15
 updated_at: 2026-06-15
+plan_path: /Users/kawata/shyme/zasso/tickets/context/0084-openai-vad/plan.md
+implementation_path: /Users/kawata/shyme/zasso/tickets/context/0084-openai-vad/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0084-openai-vad/review.md
 ---
 # OpenAI モードのデコレーション誤作動修正とVADパラメータ調整
 

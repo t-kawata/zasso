@@ -178,9 +178,9 @@ impl Default for VadConfig {
             vad_type: VadType::default(),
             threshold: 0.5,
             min_silence_duration: 0.2,
-            min_speech_duration: 0.25,
+            min_speech_duration: 0.05,
             max_speech_duration: 25.0,
-            pre_padding_ms: 100,
+            pre_padding_ms: 200,
             utterance_min_ms: 300,
             num_threads: 4,
         }
@@ -372,9 +372,9 @@ mod tests {
         assert_eq!(cfg.vad_type, VadType::Silero);
         assert_eq!(cfg.threshold, 0.5);
         assert_eq!(cfg.min_silence_duration, 0.2);
-        assert_eq!(cfg.min_speech_duration, 0.25);
+        assert_eq!(cfg.min_speech_duration, 0.05);
         assert_eq!(cfg.max_speech_duration, 25.0);
-        assert_eq!(cfg.pre_padding_ms, 100);
+        assert_eq!(cfg.pre_padding_ms, 200);
         assert_eq!(cfg.utterance_min_ms, 300);
         assert_eq!(cfg.num_threads, 4);
     }

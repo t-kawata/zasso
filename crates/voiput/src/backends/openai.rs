@@ -301,7 +301,10 @@ impl OpenAIRecognizer {
                         listener_is_decorating.store(true, Ordering::SeqCst);
                         listener_session_counter.fetch_add(1, Ordering::SeqCst);
 
-                        // 前回のデコレーションタスクがあったら破棄する
+                        // 前発話の終了時刻をリセットする（新発話のアノマリー誤検出防止）
+                        *listener_speech_end_time.lock() = None;
+
+                        // 前回のバッファをクリアする
                         {
                             let mut guard = listener_partial_buffer.lock();
                             *guard = None;
@@ -316,12 +319,14 @@ impl OpenAIRecognizer {
                         let dec_task_handle = listener_decoration_task.clone();
                         let current_session = dec_session_counter.load(Ordering::SeqCst);
 
-                        // 既存のデコレーションタスクを中止する
-                        {
+                        // 既存のデコレーションタスクを完全に停止してから新しいタスクを開始する
+                        let old_task = {
                             let mut guard = dec_task_handle.lock();
-                            if let Some(task) = guard.take() {
-                                task.abort();
-                            }
+                            guard.take()
+                        };
+                        if let Some(task) = old_task {
+                            task.abort();
+                            let _ = task.await;
                         }
 
                         let timeout_secs = listener_timeout_secs;
