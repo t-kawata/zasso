@@ -208,17 +208,28 @@ fn main() {
                     match &event {
                         voiput::SttEvent::PartialResult(text, _) => {
                             let label = if post_correction_active { "🔧 補正中" } else { "📝" };
-                            print!("\r{} {}", label, text);
-                            use std::io::Write;
-                            std::io::stdout().flush().ok();
+                            println!("{} {}", label, text);
                         }
                         voiput::SttEvent::FinalResult(text, _) => {
                             let label = if post_correction_active { "✅ 事後補正完了" } else { "✅" };
-                            println!("\r{} {}", label, text);
+                            println!("{} {}", label, text);
                             post_correction_active = false;
                         }
+                        voiput::SttEvent::SttPending => {
+                            println!("⏳ 認識中...");
+                        }
+                        voiput::SttEvent::SttCompleted => {
+                            // SttCompleted は通知のみ、次の表示で上書きされない
+                        }
+                        voiput::SttEvent::DecorationPartial(text) => {
+                            // デコレーションアニメーション（current_text は更新しない）
+                            println!("💬 {}", text);
+                        }
+                        voiput::SttEvent::ForceClearDecoration => {
+                            println!("⚠ デコレーション強制クリア");
+                        }
                         voiput::SttEvent::PostCorrectionStarted => {
-                            println!("\n🔄 LLM 事後補正開始...");
+                            println!("🔄 LLM 事後補正開始...");
                             post_correction_active = true;
                         }
                         voiput::SttEvent::PostCorrectionFinished => {
@@ -239,7 +250,6 @@ fn main() {
                         voiput::SttEvent::Error(e) => {
                             eprintln!("❌ {}", e);
                         }
-                        _ => {}
                     }
                 }
                 Ok(None) => break, // チャネルクローズ

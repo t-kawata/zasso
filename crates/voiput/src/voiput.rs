@@ -73,6 +73,13 @@ pub struct Voiput {
     current_text: String,
     /// LLM 事後補正中フラグ
     is_post_correcting: bool,
+    /// ASR 処理中（デコレーション表示中）フラグ
+    is_stt_pending: bool,
+    /// デコレーション中に BufferFlush が来た場合の延期フラグ
+    pending_flush: bool,
+    /// 最後に処理したシーケンス番号（古いイベント棄却用、消費者任意）
+    #[allow(dead_code)]
+    last_stt_seq: u64,
     /// 非同期フラッシュ要求の送信チャネル（request_flush 用）
     flush_tx: Option<oneshot::Sender<String>>,
     /// ホットキーアクション受信チャネル
@@ -100,6 +107,9 @@ impl Voiput {
             buffer: String::new(),
             current_text: String::new(),
             is_post_correcting: false,
+            is_stt_pending: false,
+            pending_flush: false,
+            last_stt_seq: 0,
             flush_tx: None,
             hotkey_rx: None,
         })
@@ -196,16 +206,25 @@ impl Voiput {
     /// 次のイベントを非同期で待機する。
     ///
     /// インターセプター（置換辞書適用）を通過した後のイベントを受信する。
-    /// 受信後、flush_tx 発火条件をチェックする。
+    /// 受信後、flush_tx 発火条件および pending_flush 実行条件をチェックする。
     pub async fn next_event(&mut self) -> Option<SttEvent> {
         let event = self.event_rx.recv().await?;
 
-        // イベント種別に応じて flush_tx 発火条件をチェックする
+        // イベント種別に応じて状態更新・発火条件をチェックする
         match &event {
-            SttEvent::Stopped
-            | SttEvent::PostCorrectionFinished
-            | SttEvent::SttCompleted => {
+            SttEvent::Stopped => {
                 self.try_send_flush_text();
+            }
+            SttEvent::SttCompleted => {
+                self.is_stt_pending = false;
+                // pending_flush が true なら遅延フラッシュを実行する
+                // （execute_pending_flush が buffer/current_text をクリアするため、
+                //  その後 try_send_flush_text は実行しない）
+                if self.pending_flush {
+                    self.execute_pending_flush();
+                } else {
+                    self.try_send_flush_text();
+                }
             }
             SttEvent::PartialResult(text, _) => {
                 self.current_text = text.clone();
@@ -222,13 +241,68 @@ impl Voiput {
                     self.try_send_flush_text();
                 }
             }
+            SttEvent::SttPending => {
+                // デコレーション開始: 前回の未消費 pending_flush をリセットする
+                self.is_stt_pending = true;
+                self.pending_flush = false;
+            }
+            SttEvent::ForceClearDecoration => {
+                // 異常時緊急復帰
+                self.is_stt_pending = false;
+            }
             SttEvent::PostCorrectionStarted => {
                 self.is_post_correcting = true;
             }
-            _ => {}
+            SttEvent::PostCorrectionFinished => {
+                self.is_post_correcting = false;
+                // 補正完了: pending_flush が true なら遅延フラッシュを実行する
+                if self.pending_flush {
+                    self.execute_pending_flush();
+                }
+                self.try_send_flush_text();
+            }
+            _ => {
+                // 以下の variant は current_text や buffer を更新せず素通しする:
+                // - DecorationPartial(String) — オーバーレイ表示専用
+                // - Flushed(String) — フラッシュ通知（voiput 独自）
+                // - Started / Ready / Error(String) — 呼び出し元に委ねる
+            }
         }
 
         Some(event)
+    }
+
+    /// pending_flush による遅延フラッシュを実行する。
+    ///
+    /// SttCompleted または PostCorrectionFinished 到着時に pending_flush が
+    /// true の場合に呼ばれる。build_flush_text → ペースト → 停止 → 状態クリア
+    /// の一連の処理を行い、Flushed イベントを発行する。
+    fn execute_pending_flush(&mut self) {
+        self.pending_flush = false;
+        let text = self.build_flush_text();
+        if !text.is_empty() {
+            crate::input::clipboard::save_paste_and_restore(&text);
+            play_commit_sound();
+        }
+        self.recognizer.stop();
+        Self::update_recording_state(false);
+        self.is_post_correcting = false;
+        self.is_stt_pending = false;
+        self.buffer.clear();
+        self.current_text.clear();
+        // Flushed イベントはイベントチャネルに送信し、呼び出し元が受信できるようにする
+        self.emit_flushed(text);
+    }
+
+    /// Flushed イベントをイベントチャネルに送信する。
+    ///
+    /// フラッシュテキストを SttEvent として明示的に通知する（voiput 独自拡張）。
+    /// 空テキストの場合は送信しない。
+    fn emit_flushed(&mut self, text: String) {
+        if text.is_empty() {
+            return;
+        }
+        let _ = self.event_tx.try_send(SttEvent::Flushed(text));
     }
 
     /// 認識を一時停止し、残余イベントを収集して最後のテキストを返す。
@@ -320,6 +394,9 @@ impl Voiput {
                 self.buffer.clear();
                 self.current_text.clear();
                 self.is_post_correcting = false;
+                self.is_stt_pending = false;
+                self.pending_flush = false;
+                self.flush_tx = None;
                 self.recognizer.start();
                 // ② ホットキーフラグ更新
                 Self::update_recording_state(true);
@@ -333,9 +410,14 @@ impl Voiput {
                     log::debug!("[Hotkey] BufferFlush ignored: not recording");
                     return;
                 }
-                log::info!("[Hotkey] BufferFlush: フラッシュ要求 (is_post_correcting={})", self.is_post_correcting);
-                // 事後補正中でも現在のテキストでフラッシュを実行する。
-                // 補正結果を待つとデッドロックになる（補正完了イベントが届かなくなる）。
+                // デコレーション中または補正中は即時実行せず pending_flush で延期する
+                if self.is_stt_pending || self.is_post_correcting {
+                    log::info!("[Hotkey] BufferFlush: 延期 (is_stt_pending={}, is_post_correcting={})",
+                        self.is_stt_pending, self.is_post_correcting);
+                    self.pending_flush = true;
+                    return;
+                }
+                log::info!("[Hotkey] BufferFlush: フラッシュ要求");
                 let text = self.build_flush_text();
                 if !text.is_empty() {
                     crate::input::clipboard::save_paste_and_restore(&text);
@@ -345,8 +427,12 @@ impl Voiput {
                 // ② ホットキーフラグ更新
                 Self::update_recording_state(false);
                 self.is_post_correcting = false;
+                self.is_stt_pending = false;
+                self.pending_flush = false;
+                self.flush_tx = None;
                 self.buffer.clear();
                 self.current_text.clear();
+                self.last_stt_seq = 0;
             }
             HotkeyAction::OrchestratorInput => {
                 log::info!("[Hotkey] OrchestratorInput: モード切替");

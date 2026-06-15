@@ -31,6 +31,10 @@ test:
 
 # ── バイナリ実行 ───────────────────────────────────────
 
-# OpenAI エンジン（KEY 必須）
+# OS標準モードで起動
 run:
 	cargo run --bin test-run -- --openai-key=$(KEY) $(ARGS)
+
+# OpenAIモードで起動
+run-openai:
+	cargo run --bin test-run -- --engine openai --openai-key=$(KEY) $(ARGS)

@@ -277,20 +277,10 @@ impl SpeechRecognizer {
         let shared_locale = Arc::new(parking_lot::Mutex::new(locale));
 
         // OpenAI バックエンドの初期化
-        let openai_recognizer = if let Some(ref oa_config) = openai_config {
+        let openai_recognizer = if let Some(ref _oa_config) = openai_config {
             let mut recognizer = OpenAIRecognizer::new(
                 tx_internal.clone(),
-                &crate::VoiputConfig::builder()
-                    .engine(SttEngine::OpenAI)
-                    .locale(locale)
-                    .openai_config(oa_config.clone())
-                    .vad_model_paths(crate::VadModelPaths {
-                        silero: String::new(),
-                        ten: String::new(),
-                        gtcrn: String::new(),
-                    })
-                    .build()
-                    .map_err(|e| format!("Dummy config build failed: {}", e))?,
+                config,  // 実 config を渡す（ダミーではない）
                 shared_locale.clone(),
             );
             let _ = recognizer.init_audio();
@@ -397,6 +387,8 @@ impl SpeechRecognizer {
     }
 
     /// 認識を停止する。
+    ///
+    /// アクティブなエンジンのみを停止する（全バックエンド一律停止は行わない）。
     pub fn stop(&mut self) {
         if !self.is_running.load(Ordering::SeqCst) {
             return;
@@ -405,16 +397,22 @@ impl SpeechRecognizer {
         self.last_result.clear();
         self.sequence_counter = 0;
 
-        if let Some(ref mut backend) = self.openai_recognizer {
-            backend.stop();
-        }
-        #[cfg(target_os = "windows")]
-        if let Some(ref mut backend) = self.win_backend {
-            backend.stop();
-        }
-        #[cfg(target_os = "macos")]
-        if let Some(ref mut backend) = self.mac_backend {
-            backend.stop();
+        match self.engine {
+            SttEngine::OpenAI => {
+                if let Some(ref mut backend) = self.openai_recognizer {
+                    backend.stop();
+                }
+            }
+            SttEngine::Os => {
+                #[cfg(target_os = "windows")]
+                if let Some(ref mut backend) = self.win_backend {
+                    backend.stop();
+                }
+                #[cfg(target_os = "macos")]
+                if let Some(ref mut backend) = self.mac_backend {
+                    backend.stop();
+                }
+            }
         }
 
         let _ = self.tx.try_send(SttEvent::Stopped);

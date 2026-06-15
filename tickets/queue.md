@@ -91,3 +91,5 @@
 - [ ] #79 request_permissions 権限ガイド実装 — 設定画面誘導までを crate 責務に | /Users/kawata/shyme/zasso/tickets/specs/0079-request-permissions-crate.md | 2026-06-14 | 2026-06-14
 - [x] #80 [win/SpeechHelper] Fix STATUS_ACCESS_VIOLATION in speech session teardown due to missing thread synchronization in C# FFI callbacks | C:\Users\kawat\shyme\zasso\tickets\specs\0080-winspeechhelper-fix-status-access-violation-in-speech-session-teardown-due-to-missing-thread-synchronization-in-c-ffi-callbacks.md | 2026-06-14 | 2026-06-14 | 2026-06-14
 - [x] #81 PostCorrection 必須化 — エンジン非依存の OpenAI 補正パス | /Users/kawata/shyme/zasso/tickets/specs/0081-postcorrection-openai.md | 2026-06-14 | 2026-06-14
+- [x] #83 OpenAI モードの音声認識パイプライン実装と二重イベント修正 | /Users/kawata/shyme/zasso/tickets/specs/0083-openai.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [ ] #84 OpenAI モードのデコレーション誤作動修正とVADパラメータ調整 | /Users/kawata/shyme/zasso/tickets/specs/0084-openai-vad.md | 2026-06-15
