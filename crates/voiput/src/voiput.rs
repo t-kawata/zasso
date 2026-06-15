@@ -294,6 +294,29 @@ impl Voiput {
         self.emit_flushed(text);
     }
 
+    /// フラッシュを実行し後処理を行う（BufferFlush / OrchestratorInput の共通処理）。
+    ///
+    /// paste_to_clipboard が true の場合はクリップボード経由でカーソル位置にペーストし、
+    /// false の場合は Flushed イベントを発行する（呼び出し元（zasso 等）に委ねる）。
+    fn flush_and_cleanup(&mut self, paste_to_clipboard: bool) {
+        let text = self.build_flush_text();
+        if paste_to_clipboard && !text.is_empty() {
+            crate::input::clipboard::save_paste_and_restore(&text);
+            play_commit_sound();
+        } else if !paste_to_clipboard {
+            self.emit_flushed(text);
+        }
+        self.recognizer.stop();
+        Self::update_recording_state(false);
+        self.is_post_correcting = false;
+        self.is_stt_pending = false;
+        self.pending_flush = false;
+        self.flush_tx = None;
+        self.buffer.clear();
+        self.current_text.clear();
+        self.last_stt_seq = 0;
+    }
+
     /// Flushed イベントをイベントチャネルに送信する。
     ///
     /// フラッシュテキストを SttEvent として明示的に通知する（voiput 独自拡張）。
@@ -405,7 +428,7 @@ impl Voiput {
                 play_ready_sound();
             }
             HotkeyAction::BufferFlush => {
-                // ① 開始処理: 非録音中は無視
+                // 非録音中は無視
                 if !self.recognizer.is_running() {
                     log::debug!("[Hotkey] BufferFlush ignored: not recording");
                     return;
@@ -418,34 +441,23 @@ impl Voiput {
                     return;
                 }
                 log::info!("[Hotkey] BufferFlush: フラッシュ要求");
-                let text = self.build_flush_text();
-                if !text.is_empty() {
-                    crate::input::clipboard::save_paste_and_restore(&text);
-                    play_commit_sound();
-                }
-                self.recognizer.stop();
-                // ② ホットキーフラグ更新
-                Self::update_recording_state(false);
-                self.is_post_correcting = false;
-                self.is_stt_pending = false;
-                self.pending_flush = false;
-                self.flush_tx = None;
-                self.buffer.clear();
-                self.current_text.clear();
-                self.last_stt_seq = 0;
+                self.flush_and_cleanup(true);
             }
             HotkeyAction::OrchestratorInput => {
-                log::info!("[Hotkey] OrchestratorInput: モード切替");
-                if self.recognizer.is_running() {
-                    self.recognizer.stop();
+                // 非録音中は無視
+                if !self.recognizer.is_running() {
+                    log::debug!("[Hotkey] OrchestratorInput ignored: not recording");
+                    return;
                 }
-                // ② ホットキーフラグ更新
-                Self::update_recording_state(false);
-                // ① モード切替
-                self.mode = match self.mode {
-                    InputMode::Buffered => InputMode::RealTime,
-                    InputMode::RealTime => InputMode::Buffered,
-                };
+                // デコレーション中または補正中は即時実行せず pending_flush で延期する
+                if self.is_stt_pending || self.is_post_correcting {
+                    log::info!("[Hotkey] OrchestratorInput: 延期 (is_stt_pending={}, is_post_correcting={})",
+                        self.is_stt_pending, self.is_post_correcting);
+                    self.pending_flush = true;
+                    return;
+                }
+                log::info!("[Hotkey] OrchestratorInput: フラッシュ要求 (Flushed イベント)");
+                self.flush_and_cleanup(false);
             }
             action => {
                 log::debug!("[Hotkey] 未処理アクション: {:?}", action);
@@ -846,15 +858,12 @@ mod tests {
     }
 
     #[test]
-    fn test_process_hotkey_orchestrator_input() {
-        // OrchestratorInput → モード切替 + update_recording_state が呼ばれる
+    fn test_process_hotkey_orchestrator_input_idle() {
+        // 非録音状態で OrchestratorInput → 無視される（is_running チェック）
         let mut voiput = Voiput::new(minimal_config()).unwrap();
-        assert_eq!(voiput.input_mode(), InputMode::Buffered);
-        // 非録音状態でもモード切替は行われる
+        // recognizer は停止中なので OrchestratorInput は何もしない
         voiput.process_hotkey_action(super::super::hotkey::HotkeyAction::OrchestratorInput);
-        assert_eq!(voiput.input_mode(), InputMode::RealTime);
-        voiput.process_hotkey_action(super::super::hotkey::HotkeyAction::OrchestratorInput);
-        assert_eq!(voiput.input_mode(), InputMode::Buffered);
+        // パニックしないこと
     }
 
     // ---- #80: 二重出力防止 ----
