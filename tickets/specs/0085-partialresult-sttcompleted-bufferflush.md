@@ -2,9 +2,12 @@
 ticket_id: 85
 title: PartialResult 後の SttCompleted 復活 — BufferFlush が効かなくなる問題の修正
 slug: partialresult-sttcompleted-bufferflush
-status: open
+status: reviewed
 created_at: 2026-06-15
 updated_at: 2026-06-15
+plan_path: /Users/kawata/shyme/zasso/tickets/context/0085-partialresult-sttcompleted-bufferflush/plan.md
+implementation_path: /Users/kawata/shyme/zasso/tickets/context/0085-partialresult-sttcompleted-bufferflush/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tickets/context/0085-partialresult-sttcompleted-bufferflush/review.md
 ---
 # PartialResult 後の SttCompleted 復活 — BufferFlush が効かなくなる問題の修正
 

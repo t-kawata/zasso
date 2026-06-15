@@ -164,6 +164,8 @@ pub struct VadConfig {
     pub min_speech_duration: f32,
     /// 最大発話時間（秒, デフォルト 25.0）
     pub max_speech_duration: f32,
+    /// ASR 結果が停滞したと判断する時間（秒, デフォルト 3.0）
+    pub asr_stagnation_threshold_secs: f32,
     /// 発話開始前に遡って保持する時間（ミリ秒, デフォルト 100）
     pub pre_padding_ms: u64,
     /// 認識対象とする最小発話長（ミリ秒, デフォルト 300）
@@ -180,6 +182,7 @@ impl Default for VadConfig {
             min_silence_duration: 0.2,
             min_speech_duration: 0.05,
             max_speech_duration: 25.0,
+            asr_stagnation_threshold_secs: 3.0,
             pre_padding_ms: 200,
             utterance_min_ms: 300,
             num_threads: 4,
@@ -374,6 +377,7 @@ mod tests {
         assert_eq!(cfg.min_silence_duration, 0.2);
         assert_eq!(cfg.min_speech_duration, 0.05);
         assert_eq!(cfg.max_speech_duration, 25.0);
+        assert_eq!(cfg.asr_stagnation_threshold_secs, 3.0);
         assert_eq!(cfg.pre_padding_ms, 200);
         assert_eq!(cfg.utterance_min_ms, 300);
         assert_eq!(cfg.num_threads, 4);

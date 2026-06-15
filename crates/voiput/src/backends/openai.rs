@@ -408,6 +408,8 @@ impl OpenAIRecognizer {
                         if let Some(text) = buffered_text {
                             let seq = listener_seq.fetch_add(1, Ordering::SeqCst);
                             let _ = listener_tx.try_send(SttEvent::PartialResult(text, seq));
+                            // SpeechEnd 時も is_stt_pending を解放するため SttCompleted を送信
+                            let _ = listener_tx.try_send(SttEvent::SttCompleted);
                         }
 
                         // デコレーションタスクを破棄する
@@ -421,7 +423,6 @@ impl OpenAIRecognizer {
 
                     StreamerEvent::PartialResult(text) => {
                         // 発話中はバッファリング、それ以外は直接送信する
-                        // SttCompleted は FinalResult の後にのみ送信する
                         if listener_is_decorating.load(Ordering::SeqCst) {
                             let mut guard = listener_partial_buffer.lock();
                             *guard = Some(text);
@@ -429,6 +430,11 @@ impl OpenAIRecognizer {
                             let seq = listener_seq.fetch_add(1, Ordering::SeqCst);
                             let _ = listener_tx
                                 .try_send(SttEvent::PartialResult(text, seq));
+                            // mycute 準拠: 各発話単位で is_stt_pending を解放するため
+                            // SttCompleted を送信する（これがないと BufferFlush が常に
+                            // deferred 状態になり、PostCorrection 前にフラッシュできない）
+                            let _ = listener_tx
+                                .try_send(SttEvent::SttCompleted);
                         }
                     }
 
@@ -815,6 +821,7 @@ fn build_streamer_config(config: &VoiputConfig) -> StreamerConfig {
         vad_min_silence_duration: config.vad.min_silence_duration,
         vad_min_speech_duration: config.vad.min_speech_duration,
         vad_max_speech_duration: config.vad.max_speech_duration,
+        asr_stagnation_threshold_secs: config.vad.asr_stagnation_threshold_secs,
         vad_pre_padding_ms: config.vad.pre_padding_ms as u32,
         utterance_min_ms: config.vad.utterance_min_ms as u32,
         num_threads: config.vad.num_threads,

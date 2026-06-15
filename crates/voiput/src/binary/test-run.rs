@@ -42,6 +42,8 @@ struct CliArgs {
     openai_key: Option<String>,
     /// OpenAI API ベース URL
     base_url: String,
+    /// Denoiser を無効化（--no-denoiser）
+    no_denoiser: bool,
 }
 
 /// CLI 引数をパースする。
@@ -60,9 +62,13 @@ fn parse_args() -> Option<CliArgs> {
     let mut locale = LocaleCode::Ja;
     let mut openai_key: Option<String> = None;
     let mut base_url = "https://api.openai.com/v1".to_string();
+    let mut no_denoiser = false;
 
     while i < args.len() {
         match args[i].as_str() {
+            "--no-denoiser" => {
+                no_denoiser = true;
+            }
             "--engine" => {
                 i += 1;
                 if i < args.len() {
@@ -110,6 +116,7 @@ fn parse_args() -> Option<CliArgs> {
         locale,
         openai_key,
         base_url,
+        no_denoiser,
     })
 }
 
@@ -146,16 +153,19 @@ fn main() {
     };
 
     // --openai-key は必須（エンジン非依存で PostCorrection に使用）
+    eprintln!("  オプション: --no-denoiser でノイズ除去を無効化");
     if args.openai_key.is_none() {
         eprintln!("❌ --openai-key は必須です（事後補正 (PostCorrection) に使用）");
         eprintln!("  使用例: cargo run --bin test-run -- --engine os --openai-key=sk-xxxxx");
         eprintln!("  または: cargo run --bin test-run -- --engine openai --openai-key=sk-xxxxx");
+        eprintln!("  または: --no-denoiser を追加して GTCRN 無効化");
         std::process::exit(1);
     }
 
     println!("========================================");
     println!("  voiput test-run");
     println!("  engine: {:?}, locale: {:?}", args.engine, args.locale);
+    println!("  denoiser: {}", if args.no_denoiser { "OFF (--no-denoiser)" } else { "ON (default)" });
     println!("========================================");
     println!();
 
@@ -320,7 +330,7 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
         .vad_model_paths(VadModelPaths {
             silero: model_path("silero_vad.onnx"),
             ten: model_path("ten_vad.onnx"),
-            gtcrn: String::new(),
+            gtcrn: model_path("gtcrn.onnx"),
         });
 
     // 認識エンジン用の OpenAI 設定（--engine openai の場合のみ）
@@ -332,6 +342,11 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
                 model: "gpt-4o-mini-transcribe".into(),
             });
         }
+    }
+
+    // Denoiser の無効化（--no-denoiser）
+    if args.no_denoiser {
+        builder = builder.denoiser(voiput::DenoiserConfig { enabled: false });
     }
 
     // PostCorrection（LLM 事後補正）用の OpenAI 設定（エンジン非依存）
@@ -361,7 +376,7 @@ fn test_config(_args: &CliArgs) -> bool {
         .vad_model_paths(VadModelPaths {
             silero: model_path("silero_vad.onnx"),
             ten: model_path("ten_vad.onnx"),
-            gtcrn: String::new(),
+            gtcrn: model_path("gtcrn.onnx"),
         })
         .build();
     match config {
@@ -389,7 +404,7 @@ fn test_config(_args: &CliArgs) -> bool {
         .vad_model_paths(VadModelPaths {
             silero: model_path("silero_vad.onnx"),
             ten: model_path("ten_vad.onnx"),
-            gtcrn: String::new(),
+            gtcrn: model_path("gtcrn.onnx"),
         })
         .build();
     match config {
@@ -406,7 +421,7 @@ fn test_config(_args: &CliArgs) -> bool {
         .vad_model_paths(VadModelPaths {
             silero: model_path("silero_vad.onnx"),
             ten: model_path("ten_vad.onnx"),
-            gtcrn: String::new(),
+            gtcrn: model_path("gtcrn.onnx"),
         })
         .build();
     match result {
@@ -424,7 +439,7 @@ fn test_config(_args: &CliArgs) -> bool {
         .vad_model_paths(VadModelPaths {
             silero: model_path("silero_vad.onnx"),
             ten: model_path("ten_vad.onnx"),
-            gtcrn: String::new(),
+            gtcrn: model_path("gtcrn.onnx"),
         })
         .build();
     match result {

@@ -93,4 +93,6 @@
 - [x] #81 PostCorrection 必須化 — エンジン非依存の OpenAI 補正パス | /Users/kawata/shyme/zasso/tickets/specs/0081-postcorrection-openai.md | 2026-06-14 | 2026-06-14
 - [x] #83 OpenAI モードの音声認識パイプライン実装と二重イベント修正 | /Users/kawata/shyme/zasso/tickets/specs/0083-openai.md | 2026-06-15 | 2026-06-15 | 2026-06-15
 - [x] #84 OpenAI モードのデコレーション誤作動修正とVADパラメータ調整 | /Users/kawata/shyme/zasso/tickets/specs/0084-openai-vad.md | 2026-06-15 | 2026-06-15 | 2026-06-15
-- [ ] #85 PartialResult 後の SttCompleted 復活 — BufferFlush が効かなくなる問題の修正 | /Users/kawata/shyme/zasso/tickets/specs/0085-partialresult-sttcompleted-bufferflush.md | 2026-06-15
+- [x] #85 PartialResult 後の SttCompleted 復活 — BufferFlush が効かなくなる問題の修正 | /Users/kawata/shyme/zasso/tickets/specs/0085-partialresult-sttcompleted-bufferflush.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #86 SpeechEnd の SttCompleted 追加と GTCRN デノイザーパス修正 | /Users/kawata/shyme/zasso/tickets/specs/0086-speechend-sttcompleted-gtcrn.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #87 VAD 発話 stuck 復帰 — インテリジェントタイムアウトの 25秒条件撤廃と 3秒 ASR 停滞閾値 | /Users/kawata/shyme/zasso/tickets/specs/0087-vad-stuck-25-3-asr.md | 2026-06-15 | 2026-06-15 | 2026-06-15

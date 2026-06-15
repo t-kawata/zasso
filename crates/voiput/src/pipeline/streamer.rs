@@ -112,6 +112,7 @@ pub struct StreamerConfig {
     pub vad_min_silence_duration: f32,
     pub vad_min_speech_duration: f32,
     pub vad_max_speech_duration: f32,
+    pub asr_stagnation_threshold_secs: f32,
     pub vad_pre_padding_ms: u32,
     pub utterance_min_ms: u32,
     pub num_threads: i32,
@@ -135,6 +136,7 @@ impl Default for StreamerConfig {
             vad_min_silence_duration: 0.2,
             vad_min_speech_duration: 0.25,
             vad_max_speech_duration: 25.0,
+            asr_stagnation_threshold_secs: 3.0,
             vad_pre_padding_ms: 100,
             utterance_min_ms: 300,
             num_threads: 4,
@@ -440,15 +442,14 @@ impl<B: AsrBackend + Send + Sync + 'static> PseudoAsrStreamer<B> {
         };
         vad_processor.accept_waveform(vad_window);
         let is_speech_vad = self.is_speaking.load(Ordering::SeqCst);
-        let is_intelligent_timeout = if let Some(start_time) = self.current_speech_start {
-            let elapsed_since_start = start_time.elapsed().as_secs_f32();
+        let is_intelligent_timeout = if let Some(_start_time) = self.current_speech_start {
             let elapsed_since_text_change = self.last_asr_text_change.elapsed().as_secs_f32();
-            let time_exceeded = elapsed_since_start >= self.config.vad_max_speech_duration;
-            const ASR_STAGNATION_THRESHOLD_SECS: f32 = 5.0;
-            let asr_stagnant = elapsed_since_text_change >= ASR_STAGNATION_THRESHOLD_SECS;
+            let asr_stagnant = elapsed_since_text_change >= self.config.asr_stagnation_threshold_secs;
             let rms = self.calculate_rms(vad_window);
             let is_low_signal = rms < self.config.signal_rms_threshold;
-            time_exceeded && asr_stagnant && is_low_signal
+            // VAD がノイズで stuck した場合に備え、ASR 停滞 + 低信号で
+            // 発話を強制終了する（time_exceeded の 25秒待ちは不要）
+            asr_stagnant && is_low_signal
         } else {
             false
         };

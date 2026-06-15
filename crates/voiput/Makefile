@@ -38,3 +38,7 @@ run:
 # OpenAIモードで起動
 run-openai:
 	cargo run --bin test-run -- --engine openai --openai-key=$(KEY) $(ARGS)
+
+# OpenAIモードで起動（Denoiseをオフ）
+run-openai-no-denoiser:
+	cargo run --bin test-run -- --engine openai --no-denoiser --openai-key=$(KEY) $(ARGS)
