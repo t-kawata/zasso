@@ -77,6 +77,8 @@ pub struct Voiput {
     is_stt_pending: bool,
     /// デコレーション中に BufferFlush が来た場合の延期フラグ
     pending_flush: bool,
+    /// 遅延フラッシュが OrchestratorInput 由来かを示すフラグ
+    pending_flush_is_orchestrator: bool,
     /// 最後に処理したシーケンス番号（古いイベント棄却用、消費者任意）
     #[allow(dead_code)]
     last_stt_seq: u64,
@@ -109,6 +111,7 @@ impl Voiput {
             is_post_correcting: false,
             is_stt_pending: false,
             pending_flush: false,
+            pending_flush_is_orchestrator: false,
             last_stt_seq: 0,
             flush_tx: None,
             hotkey_rx: None,
@@ -275,14 +278,18 @@ impl Voiput {
     /// pending_flush による遅延フラッシュを実行する。
     ///
     /// SttCompleted または PostCorrectionFinished 到着時に pending_flush が
-    /// true の場合に呼ばれる。build_flush_text → ペースト → 停止 → 状態クリア
-    /// の一連の処理を行い、Flushed イベントを発行する。
+    /// true の場合に呼ばれる。pending_flush_is_orchestrator に応じて
+    /// ペースト先（clipboard / Flushed イベント）を切り替える。
     fn execute_pending_flush(&mut self) {
+        let is_orchestrator = self.pending_flush_is_orchestrator;
         self.pending_flush = false;
+        self.pending_flush_is_orchestrator = false;
         let text = self.build_flush_text();
-        if !text.is_empty() {
+        if !text.is_empty() && !is_orchestrator {
             crate::input::clipboard::save_paste_and_restore(&text);
             play_commit_sound();
+        } else if is_orchestrator {
+            self.emit_flushed(text);
         }
         self.recognizer.stop();
         Self::update_recording_state(false);
@@ -290,22 +297,21 @@ impl Voiput {
         self.is_stt_pending = false;
         self.buffer.clear();
         self.current_text.clear();
-        // Flushed イベントはイベントチャネルに送信し、呼び出し元が受信できるようにする
-        self.emit_flushed(text);
     }
 
     /// フラッシュを実行し後処理を行う（BufferFlush / OrchestratorInput の共通処理）。
     ///
     /// paste_to_clipboard が true の場合はクリップボード経由でカーソル位置にペーストし、
     /// false の場合は Flushed イベントを発行する（呼び出し元（zasso 等）に委ねる）。
+    /// テキストの有無・出力先によらず確定音（commit_sound）を常に鳴らす。
     fn flush_and_cleanup(&mut self, paste_to_clipboard: bool) {
         let text = self.build_flush_text();
         if paste_to_clipboard && !text.is_empty() {
             crate::input::clipboard::save_paste_and_restore(&text);
-            play_commit_sound();
         } else if !paste_to_clipboard {
             self.emit_flushed(text);
         }
+        play_commit_sound();
         self.recognizer.stop();
         Self::update_recording_state(false);
         self.is_post_correcting = false;
@@ -419,6 +425,7 @@ impl Voiput {
                 self.is_post_correcting = false;
                 self.is_stt_pending = false;
                 self.pending_flush = false;
+                self.pending_flush_is_orchestrator = false;
                 self.flush_tx = None;
                 self.recognizer.start();
                 // ② ホットキーフラグ更新
@@ -438,15 +445,27 @@ impl Voiput {
                     log::info!("[Hotkey] BufferFlush: 延期 (is_stt_pending={}, is_post_correcting={})",
                         self.is_stt_pending, self.is_post_correcting);
                     self.pending_flush = true;
+                    self.pending_flush_is_orchestrator = false;
                     return;
                 }
                 log::info!("[Hotkey] BufferFlush: フラッシュ要求");
                 self.flush_and_cleanup(true);
             }
             HotkeyAction::OrchestratorInput => {
-                // 非録音中は無視
+                // 非録音時は録音を開始する
                 if !self.recognizer.is_running() {
-                    log::debug!("[Hotkey] OrchestratorInput ignored: not recording");
+                    log::info!("[Hotkey] OrchestratorInput: 録音開始");
+                    self.mode = InputMode::Buffered;
+                    self.buffer.clear();
+                    self.current_text.clear();
+                    self.is_post_correcting = false;
+                    self.is_stt_pending = false;
+                    self.pending_flush = false;
+                    self.pending_flush_is_orchestrator = false;
+                    self.flush_tx = None;
+                    self.recognizer.start();
+                    Self::update_recording_state(true);
+                    play_ready_sound();
                     return;
                 }
                 // デコレーション中または補正中は即時実行せず pending_flush で延期する
@@ -454,6 +473,7 @@ impl Voiput {
                     log::info!("[Hotkey] OrchestratorInput: 延期 (is_stt_pending={}, is_post_correcting={})",
                         self.is_stt_pending, self.is_post_correcting);
                     self.pending_flush = true;
+                    self.pending_flush_is_orchestrator = true;
                     return;
                 }
                 log::info!("[Hotkey] OrchestratorInput: フラッシュ要求 (Flushed イベント)");
@@ -857,13 +877,12 @@ mod tests {
         // パニックしないこと
     }
 
-    #[test]
-    fn test_process_hotkey_orchestrator_input_idle() {
-        // 非録音状態で OrchestratorInput → 無視される（is_running チェック）
+    #[tokio::test]
+    async fn test_process_hotkey_orchestrator_input_starts_recording() {
+        // 非録音状態で OrchestratorInput → 自動的に録音開始される
         let mut voiput = Voiput::new(minimal_config()).unwrap();
-        // recognizer は停止中なので OrchestratorInput は何もしない
         voiput.process_hotkey_action(super::super::hotkey::HotkeyAction::OrchestratorInput);
-        // パニックしないこと
+        // パニックしないこと（MacSpeechBackend の tokio タスク起動にランタイムが必要）
     }
 
     // ---- #80: 二重出力防止 ----

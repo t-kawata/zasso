@@ -18,9 +18,9 @@ use voiput::{
     apply_replaces, get_tokenizer, init, is_worthy_to_run_asr, play_commit_sound, play_ready_sound,
 };
 use voiput::{
-    InputMode, InternalResampler, LocaleCode, OpenAiConfig, OpenAIBackend,
-    PostCorrectionBackend, PostCorrectionConfig, ProcessorOutput, PunctuationMachine,
-    SignalFilterConfig, SincResampler, SttEngine, VadModelPaths, VoiputConfig,
+    InputMode, InternalResampler, LocaleCode, OpenAIBackend, OpenAiConfig, PostCorrectionBackend,
+    PostCorrectionConfig, ProcessorOutput, PunctuationMachine, SignalFilterConfig, SincResampler,
+    SttEngine, VadModelPaths, VoiputConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
@@ -137,10 +137,8 @@ impl PostCorrectionBackend for MockPostCorrectBackend {
 
 fn main() {
     // ロガー初期化（RUST_LOG 環境変数で制御、例: RUST_LOG=info）
-    let _ = env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("warn"),
-    )
-    .try_init();
+    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
+        .try_init();
 
     // ── Phase 1: CLI 引数解析 ──
     let args = match parse_args() {
@@ -153,19 +151,16 @@ fn main() {
     };
 
     // --openai-key は必須（エンジン非依存で PostCorrection に使用）
-    eprintln!("  オプション: --no-denoiser でノイズ除去を無効化");
     if args.openai_key.is_none() {
         eprintln!("❌ --openai-key は必須です（事後補正 (PostCorrection) に使用）");
         eprintln!("  使用例: cargo run --bin test-run -- --engine os --openai-key=sk-xxxxx");
         eprintln!("  または: cargo run --bin test-run -- --engine openai --openai-key=sk-xxxxx");
-        eprintln!("  または: --no-denoiser を追加して GTCRN 無効化");
         std::process::exit(1);
     }
 
     println!("========================================");
     println!("  voiput test-run");
     println!("  engine: {:?}, locale: {:?}", args.engine, args.locale);
-    println!("  denoiser: {}", if args.no_denoiser { "OFF (--no-denoiser)" } else { "ON (default)" });
     println!("========================================");
     println!();
 
@@ -217,11 +212,19 @@ fn main() {
                 Ok(Some(event)) => {
                     match &event {
                         voiput::SttEvent::PartialResult(text, _) => {
-                            let label = if post_correction_active { "🔧 補正中" } else { "📝" };
+                            let label = if post_correction_active {
+                                "🔧 補正中"
+                            } else {
+                                "📝"
+                            };
                             println!("{} {}", label, text);
                         }
                         voiput::SttEvent::FinalResult(text, _) => {
-                            let label = if post_correction_active { "✅ 事後補正完了" } else { "✅" };
+                            let label = if post_correction_active {
+                                "✅ 事後補正完了"
+                            } else {
+                                "✅"
+                            };
                             println!("{} {}", label, text);
                             post_correction_active = false;
                         }
@@ -463,7 +466,10 @@ fn test_resampler(_args: &CliArgs) -> bool {
     let sample_count = 4800;
     let input: Vec<f32> = (0..sample_count).map(|i| (i as f32 * 0.01).sin()).collect();
 
-    println!("  [TEST] SincResampler: {}Hz → {}Hz", input_rate, output_rate);
+    println!(
+        "  [TEST] SincResampler: {}Hz → {}Hz",
+        input_rate, output_rate
+    );
     match SincResampler::new(input_rate, output_rate) {
         Ok(mut resampler) => match resampler.process(&input) {
             Ok(output) => {
@@ -584,7 +590,11 @@ fn test_vad(_args: &CliArgs) -> bool {
         };
         match VadProcessor::new(config, is_speaking) {
             Ok(vad) => {
-                println!("    ✓ VadProcessor::new(\"{}\") 成功 (window_size={})", name, vad.window_size());
+                println!(
+                    "    ✓ VadProcessor::new(\"{}\") 成功 (window_size={})",
+                    name,
+                    vad.window_size()
+                );
                 initialized = true;
                 break;
             }
@@ -593,7 +603,10 @@ fn test_vad(_args: &CliArgs) -> bool {
     }
     if !initialized {
         println!("  ✗ FAIL: VAD モデルが初期化できませんでした");
-        println!("         {} にモデルファイルが存在することを確認してください", models_dir.display());
+        println!(
+            "         {} にモデルファイルが存在することを確認してください",
+            models_dir.display()
+        );
         ok = false;
     }
     println!();
@@ -667,7 +680,8 @@ fn test_post_correct(_args: &CliArgs) -> bool {
     }
 
     println!("  [TEST] commit_correction: バッファクリア");
-    let mut proc = PostCorrectionProcessor::new(backend, PostCorrectionConfig::default(), is_speaking);
+    let mut proc =
+        PostCorrectionProcessor::new(backend, PostCorrectionConfig::default(), is_speaking);
     let _ = proc.process_input("hello world");
     match proc.commit_correction("corrected output") {
         ProcessorOutput::Final(ref text) if text.contains("corrected output") => {
@@ -861,7 +875,10 @@ fn test_openai(args: &CliArgs) -> bool {
     show_section("OPENAI");
     let mut ok = true;
 
-    let api_key = args.openai_key.clone().or_else(|| std::env::var("OPENAI_API_KEY").ok());
+    let api_key = args
+        .openai_key
+        .clone()
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok());
 
     let Some(key) = api_key else {
         println!("  [SKIP] OpenAI API キー未設定");
@@ -890,7 +907,11 @@ fn test_openai(args: &CliArgs) -> bool {
         }
     };
 
-    println!("  [INFO] サンプル音声: {} ({} samples)", wav_path.display(), samples.len());
+    println!(
+        "  [INFO] サンプル音声: {} ({} samples)",
+        wav_path.display(),
+        samples.len()
+    );
 
     let oa_config = OpenAiConfig {
         base_url: args.base_url.clone(),
@@ -938,8 +959,7 @@ fn test_voiput(args: &CliArgs) -> bool {
 
     // 2. start/stop ライフサイクル
     println!("  [TEST] start/stop");
-    let mut voiput = Voiput::new(build_voiput_config(args))
-            .unwrap();
+    let mut voiput = Voiput::new(build_voiput_config(args)).unwrap();
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     match rt.block_on(voiput.start()) {

@@ -97,3 +97,4 @@
 - [x] #86 SpeechEnd の SttCompleted 追加と GTCRN デノイザーパス修正 | /Users/kawata/shyme/zasso/tickets/specs/0086-speechend-sttcompleted-gtcrn.md | 2026-06-15 | 2026-06-15 | 2026-06-15
 - [x] #87 VAD 発話 stuck 復帰 — インテリジェントタイムアウトの 25秒条件撤廃と 3秒 ASR 停滞閾値 | /Users/kawata/shyme/zasso/tickets/specs/0087-vad-stuck-25-3-asr.md | 2026-06-15 | 2026-06-15 | 2026-06-15
 - [ ] #88 OrchestratorInput (Ctrl+Option) を BufferFlush と共通化 — モード切替スタブの修正 | /Users/kawata/shyme/zasso/tickets/specs/0088-orchestratorinput-ctrloption-bufferflush.md | 2026-06-15 | 2026-06-15
+- [ ] #89 OrchestratorInput 非録音時自動開始 + 遅延フラッシュ種別追跡 | /Users/kawata/shyme/zasso/tickets/specs/0089-orchestratorinput.md | 2026-06-15 | 2026-06-15
