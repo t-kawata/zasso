@@ -34,6 +34,26 @@ const MODEL_FILES: &[(&str, &str)] = &[
     ),
 ];
 
+/// Qwen3-ASR モデルファイル（VAD モデルとは別のサブディレクトリに配置）
+const QWEN3_MODEL_FILES: &[(&str, &str)] = &[
+    (
+        "qwen3-asr/encoder.int8.onnx",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/encoder.int8.onnx",
+    ),
+    (
+        "qwen3-asr/decoder.int8.onnx",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/decoder.int8.onnx",
+    ),
+    (
+        "qwen3-asr/joiner.int8.onnx",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/joiner.int8.onnx",
+    ),
+    (
+        "qwen3-asr/tokens.txt",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/tokens.txt",
+    ),
+];
+
 fn main() {
     // ============================================================
     // ONNX モデルファイルの自動ダウンロード
@@ -44,11 +64,15 @@ fn main() {
     // モデルディレクトリがなければ作成
     std::fs::create_dir_all(&models_dir).expect("Failed to create models/ directory");
 
+    // Qwen3-ASR モデル用サブディレクトリを作成（VAD の tokens.txt と衝突回避）
+    let qwen3_dir = models_dir.join("qwen3-asr");
+    std::fs::create_dir_all(&qwen3_dir).expect("Failed to create models/qwen3-asr/ directory");
+
     // cargo:rerun-if-changed で models/ 下の変更を検出
     println!("cargo:rerun-if-changed={}", models_dir.display());
 
-    // 各モデルファイルを確認し、なければダウンロード
-    for (filename, url) in MODEL_FILES {
+    // 全モデルファイル（VAD + Qwen3-ASR）を確認し、なければダウンロード
+    for (filename, url) in MODEL_FILES.iter().chain(QWEN3_MODEL_FILES.iter()) {
         let file_path = models_dir.join(filename);
         if !file_path.exists() {
             println!("cargo:warning=Downloading model: {}...", filename);
@@ -58,7 +82,7 @@ fn main() {
 
     // 全ファイルの存在を最終確認（1つでも欠けていれば panic! でビルド停止）
     let mut all_ok = true;
-    for (filename, _) in MODEL_FILES {
+    for (filename, _) in MODEL_FILES.iter().chain(QWEN3_MODEL_FILES.iter()) {
         let file_path = models_dir.join(filename);
         if !file_path.exists() {
             println!(

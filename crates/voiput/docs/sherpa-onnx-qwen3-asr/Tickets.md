@@ -338,7 +338,7 @@
   2. `cargo tree` で trate が依存ツリーに現れること
 * **計装方法・観測対象:** cargo check の exit code。依存ツリーの表示。
 
-#### チケット M3-2: pipeline/streamer.rs AsrBackend トレイトの削除と trate 参照への変更 + lib.rs 再公開更新
+#### ✅ チケット M3-2: pipeline/streamer.rs AsrBackend トレイトの削除と trate 参照への変更 + lib.rs 再公開更新
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§2.2 — 既存 AsrBackend トレイトからの移行、Appendix B — PseudoAsrStreamer の型パラメータ制約)
 * **依存・関連チケットID:** 先行実装必須: M3-1。後続: M3-3。**M2-2 (SttEngine::Local) とは独立しているため並行可能。**
@@ -365,7 +365,7 @@
   4. `voiput::AsrBackend` のパスが trate のトレイトを解決すること（コンパイル時検証）
 * **計装方法・観測対象:** `cargo check` で streamer.rs 関連のエラーがゼロであること（OpenAIBackend + MockBackend のエラーは許容）。
 
-#### チケット M3-3: OpenAIBackend の AsrBackend 実装修正
+#### ✅ チケット M3-3: OpenAIBackend の AsrBackend 実装修正
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Appendix A — 既存コードの AsrBackend → trate 移行パターン、M1-1「設計上の変更点」)
 * **依存・関連チケットID:** 先行実装必須: M3-2。後続: M3-4。**M2-2 (SttEngine::Local) とは独立しているため並行可能。**
@@ -403,7 +403,7 @@
   4. `post_correct()` / `record_asr_usage()` の動作が移行前後で不変であること
 * **計装方法・観測対象:** コンパイル成功。各メソッドの戻り値検証。
 
-#### チケット M3-4: テストコードのトレイト変更対応（streamer.rs + binary/test-run.rs）
+#### ✅ チケット M3-4: テストコードのトレイト変更対応（streamer.rs + binary/test-run.rs）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Appendix A — 移行パターン)
 * **依存・関連チケットID:** 先行実装必須: M3-3 (OpenAIBackend 側の対応完了)。後続: M3-5（最終検証）。
@@ -434,7 +434,7 @@
   3. `binary/test-run.rs` のテストコードがコンパイル可能であること
 * **計装方法・観測対象:** `cargo test` の成功。
 
-#### チケット M3-5: voiput 移行完了確認（make check-be + テスト全件パス）
+#### ✅ チケット M3-5: voiput 移行完了確認（make check-be + テスト全件パス）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 2 — 6. make check-be でコンパイルを確認)
 * **依存・関連チケットID:** 先行実装必須: M3-4。後続: 第3段階全体。
@@ -464,7 +464,7 @@
 > **DB:** 使用しない
 > **注意:** sherpa-onnx の `OfflineRecognizer` は内部状態を持つため、`Qwen3AsrBackend` は `Mutex<OfflineRecognizer>` で保護する。この Mutex は認識精度には影響せず、複数スレッドからの `transcribe()` 呼び出しをシリアライズするための排他制御である。
 
-#### チケット M4-1: local モジュール宣言 + lib.rs 公開
+#### ✅ チケット M4-1: local モジュール宣言 + lib.rs 公開
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§1 — crates/voiput/src/local/ ディレクトリ構成)
 * **依存・関連チケットID:** 先行実装必須: なし（モジュール宣言のみ）。後続: M4-2 (qwen3.rs 実装の前提)、M5-1 (recognizer.rs の前提)。
@@ -486,7 +486,7 @@
   2. `voiput::local::qwen3::Qwen3AsrBackend`（将来型）のパスが解決可能であること（コンパイル時に未定義ならエラー — コンパイルで確認）
 * **計装方法・観測対象:** コンパイル成功。
 
-#### チケット M4-2: Qwen3AsrBackend の new() と transcribe() 実装
+#### ✅ チケット M4-2: Qwen3AsrBackend の new() と transcribe() 実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§5 — Qwen3AsrBackend 実装)
 * **依存・関連チケットID:** 先行実装必須: M2-3 (Qwen3AsrConfig)、M4-1 (local モジュール)。後続: M4-3 (LocalAsrBackend impl)。
@@ -518,7 +518,7 @@
   3. `backend_name()` が `"qwen3-asr"` を返すこと
 * **計装方法・観測対象:** エラーケースの検証は存在しないパスを渡すことで実現。正常系の結合テストは M8-2 で行う。
 
-#### チケット M4-3: Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files
+#### ✅ チケット M4-3: Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§5 — LocalAsrBackend for Qwen3AsrBackend、§8.2 — 実行時のモデル検出とエラーハンドリング)
 * **依存・関連チケットID:** 先行実装必須: M4-2。後続: M5-1 (LocalRecognizer が LocalAsrBackend を Box で保持)。
@@ -555,7 +555,7 @@
 > **DB:** 使用しない
 > **設計判断:** `LocalRecognizer` は Facade パターンにより、複数の Local ASR バックエンドを `Box<dyn LocalAsrBackend>` として統一的に扱う。`LocalRecognizerAdapter` は OpenAIRecognizer と同様の 3タスク構成（ticker + capture + streamer）を持ち、PseudoAsrStreamer との統合を担当する。
 
-#### チケット M5-1: LocalRecognizer Facade の実装
+#### ✅ チケット M5-1: LocalRecognizer Facade の実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§6 — LocalRecognizer 統合)
 * **依存・関連チケットID:** 先行実装必須: M4-3 (Qwen3AsrBackend impl LocalAsrBackend)、M2-1 (LocalAsrKind)。後続: M5-2 (LocalRecognizerAdapter)。
@@ -579,7 +579,7 @@
   3. `backend_name()` が `"qwen3-asr"` を返すこと
 * **計装方法・観測対象:** コンパイル時検証 + エラーケースの単体テスト。
 
-#### チケット M5-2: LocalRecognizerAdapter の実装
+#### ✅ チケット M5-2: LocalRecognizerAdapter の実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§7 — SpeechRecognizer ディスパッチ — LocalRecognizerAdapter)
 * **依存・関連チケットID:** 先行実装必須: M5-1 (LocalRecognizer)。後続: M6-1 (SpeechRecognizer が adapter を使用)。
@@ -616,7 +616,7 @@
 > **DB:** 使用しない
 > **注意:** このマイルストーンで既存の match 非網羅エラーがすべて解消される。M6-3 で `make check-be` の完全成功を確認する。
 
-#### チケット M6-1: SpeechRecognizer の start/stop/tick/set_locale/update_config Local 分岐
+#### ✅ チケット M6-1: SpeechRecognizer の start/stop/tick/set_locale/update_config Local 分岐
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§7 — SpeechRecognizer ディスパッチ、各メソッドの動作表)
 * **依存・関連チケットID:** 先行実装必須: M2-2 (SttEngine::Local), M5-2 (LocalRecognizerAdapter)。依存されるチケット: なし（このチケット完了で match 非網羅エラーが解消される）。
@@ -651,7 +651,7 @@
   5. `update_config()` が古いインスタンスを解放し新しいインスタンスで再開すること
 * **計装方法・観測対象:** 各メソッドの呼び出し結果（戻り値 + パニックの有無）。内部状態の変化（is_running フラグ等）。
 
-#### チケット M6-2: VoiputConfigBuilder.validate() の Local 検証
+#### ✅ チケット M6-2: VoiputConfigBuilder.validate() の Local 検証
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§10 — VoiputConfigBuilder バリデーション)
 * **依存・関連チケットID:** 先行実装必須: M2-2 (SttEngine::Local), M2-3 (Qwen3AsrConfig)。後続: なし。
@@ -678,7 +678,7 @@
   5. エラーメッセージが日本語であること
 * **計装方法・観測対象:** validate() の戻り値（Ok / Err とエラー内容）。エラーメッセージの言語確認。
 
-#### チケット M6-3: コンパイル完了確認（make check-be 全警告ゼロ）
+#### ✅ チケット M6-3: コンパイル完了確認（make check-be 全警告ゼロ）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 5 — 4. make check-be でコンパイルを確認)
 * **依存・関連チケットID:** 先行実装必須: M6-1, M6-2。依存されるチケット: 第4段階全体。
@@ -707,7 +707,7 @@
 
 > **DB:** 使用しない（ファイルシステムへのダウンロード）
 
-#### チケット M7-1: build.rs への Qwen3-ASR モデルファイルダウンロード追加
+#### ✅ チケット M7-1: build.rs への Qwen3-ASR モデルファイルダウンロード追加
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§8.1 — build.rs によるダウンロード)
 * **依存・関連チケットID:** 先行実装必須: M2-4 (モデルファイル名定数)。後続: M7-2。

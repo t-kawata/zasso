@@ -163,6 +163,14 @@ impl VoiputConfigBuilder {
             ));
         }
 
+        if matches!(engine, SttEngine::Local { .. }) && self.qwen3_asr_config.is_none() {
+            return Err(VoiputError::InvalidConfig(
+                "SttEngine::Local(Qwen3Asr) を選択する場合、\
+                 qwen3_asr_config の設定が必須です。\
+                 モデルファイルのパスと推論パラメータを設定してください。".into(),
+            ));
+        }
+
         Ok(VoiputConfig {
             engine,
             locale,

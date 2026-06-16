@@ -4,7 +4,10 @@ use crate::AsrBackend;
 ///
 /// `AsrBackend` に加えて、ローカルモデルに固有の情報（モデルパス等）を提供する。
 /// 将来のモデル追加（Whisper / SenseVoice 等）はこのトレイトを実装する。
-pub trait LocalAsrBackend: AsrBackend {
+///
+/// `Sync` は PseudoAsrStreamer の型制約（`B: AsrBackend + Send + Sync + 'static`）を
+/// 満たすために必要。Qwen3AsrBackend は Mutex で内部状態を保護しており、Sync を満たす。
+pub trait LocalAsrBackend: AsrBackend + Sync {
     /// 使用中のモデルファイルへのパスを返す（エラーメッセージ等で使用）。
     fn model_path(&self) -> &str;
 

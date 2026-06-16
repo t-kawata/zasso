@@ -795,16 +795,6 @@ impl AsrBackend for OpenAIBackend {
     }
 }
 
-// [::STUB::] M3-3: OpenAIBackend の impl 修正で削除する。
-// trate 移行前の model_name() 互換性維持のため一時的に保持。
-#[allow(dead_code)]
-impl OpenAIBackend {
-    /// 設定されたモデル名を返す（将来削除予定）。
-    fn model_name(&self) -> String {
-        self.openai_config.model.clone()
-    }
-}
-
 // ============================================================================
 // StreamerConfig 構築ヘルパー
 // ============================================================================

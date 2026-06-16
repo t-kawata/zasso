@@ -45,6 +45,9 @@ mod voiput;
 mod backends;
 mod native;
 
+// M4: Qwen3-ASR ローカル認識
+pub mod local;
+
 // M8-1: ホットキー監視
 pub mod hotkey;
 
