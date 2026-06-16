@@ -805,8 +805,8 @@ impl AsrBackend for MockStreamerBackend {
     fn post_correct(&mut self, text: &str) -> anyhow::Result<String> {
         Ok(format!("[corrected] {}", text))
     }
-    fn model_name(&self) -> String {
-        "mock".to_string()
+    fn backend_name(&self) -> &'static str {
+        "mock"
     }
     fn record_asr_usage(&mut self, _duration_ms: u64) {}
 }

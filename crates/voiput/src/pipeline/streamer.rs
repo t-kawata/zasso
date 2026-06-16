@@ -46,6 +46,16 @@ pub enum StreamerLocale {
     En,
 }
 
+impl StreamerLocale {
+    /// ロケールコードを &str として返す（trate::AsrBackend::insert_punctuation 互換）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ja => "ja",
+            Self::En => "en",
+        }
+    }
+}
+
 /// ストリーマーから出力されるイベント
 #[derive(Debug, Clone)]
 pub enum StreamerEvent {
@@ -549,7 +559,7 @@ impl<B: AsrBackend + Send + Sync + 'static> PseudoAsrStreamer<B> {
 
             let punctuated_text = {
                 let mut guard = self.backend.lock().unwrap();
-                match guard.insert_punctuation(&window_text, &self.config.locale) {
+                match guard.insert_punctuation(&window_text, self.config.locale.as_str()) {
                     Ok(text) => text,
                     Err(e) => {
                         log::error!("Punctuation failed: {}", e);
@@ -608,8 +618,8 @@ mod tests {
         fn post_correct(&mut self, text: &str) -> Result<String> {
             Ok(format!("[corrected] {}", text))
         }
-        fn model_name(&self) -> String {
-            "mock".to_string()
+        fn backend_name(&self) -> &'static str {
+            "mock"
         }
         fn record_asr_usage(&mut self, _duration_ms: u64) {}
     }
