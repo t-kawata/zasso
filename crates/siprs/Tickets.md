@@ -531,7 +531,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M7-1: `EventBus` 構造体と基本操作
+#### ✅ チケット M7-1: `EventBus` 構造体と基本操作
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§15.4, §15.6, §15.7)
 * **対象不変条件 / 規範:** §15.4「制御系イベントと RawSIP メッセージを別バスで配信する。これにより RawSIP 有効時の制御系イベント取りこぼしを防止する」。§15.6「制御系イベントは control バスで配送される。順序は単一プロデューサ内で preserve される」。§15.7「両バスとも確実配送は保証されない」。
@@ -555,7 +555,7 @@
   8. `Lagged(n)` の挙動確認: 購読者が遅延時に `RecvError::Lagged` が返ること
 * **計装方法・観測対象:** `publish()` の呼び出しが非ブロッキングであること（`try_send` 的な振る舞い）。`EventBus` の `Clone` コストが `Arc::clone` 相当であること。
 
-#### チケット M7-2: `AccountEventReceiver` — アカウントフィルタリング
+#### ✅ チケット M7-2: `AccountEventReceiver` — アカウントフィルタリング
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§15.5)
 * **対象不変条件 / 規範:** §15.5「AccountEventReceiver は `account_id` に基づいて制御系イベントをフィルタリングする」。§15.7「イベントバスは観測用途であり確実配送を保証しない。ソースオブ真理は SipClient の query API」。

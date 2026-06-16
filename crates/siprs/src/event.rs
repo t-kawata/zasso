@@ -14,6 +14,8 @@ use std::time::SystemTime;
 
 use std::net::SocketAddr;
 
+use tokio::sync::broadcast;
+
 use crate::error::SipError;
 use crate::transport::TransportKind;
 use crate::util::id::{AccountId, CallId};
@@ -463,6 +465,138 @@ impl RawSipMessage {
 }
 
 // ---------------------------------------------------------------------------
+// EventBus — イベント配送バス（RFC §15.4）
+// ---------------------------------------------------------------------------
+
+/// イベント配送バス。
+///
+/// 制御系イベント（`control`）と RawSIP メッセージ（`raw_sip`）の
+/// 2 チャネル構成で、大量の RawSIP メッセージが制御系イベントの
+/// 配送に影響しないことを保証する。
+#[derive(Clone)]
+pub struct EventBus {
+    /// 制御系イベントのプライマリバス。
+    control: broadcast::Sender<SipEvent>,
+    /// RawSIP メッセージ専用バス（有効時のみ）。
+    raw_sip: Option<broadcast::Sender<RawSipMessage>>,
+}
+
+impl EventBus {
+    /// `EventBus` を生成する。
+    ///
+    /// `raw_sip_capacity` が `None` の場合、RawSIP バスは作成されない。
+    pub fn new(control_capacity: usize, raw_sip_capacity: Option<usize>) -> Self {
+        let (control_tx, _) = broadcast::channel(control_capacity);
+        let raw_sip = raw_sip_capacity.map(|cap| {
+            let (tx, _) = broadcast::channel(cap);
+            tx
+        });
+        Self {
+            control: control_tx,
+            raw_sip,
+        }
+    }
+
+    /// 制御系イベントを購読する。
+    pub fn subscribe_control(&self) -> broadcast::Receiver<SipEvent> {
+        self.control.subscribe()
+    }
+
+    /// RawSIP メッセージを購読する。
+    ///
+    /// RawSIP バスが無効な場合は `None` を返す。
+    pub fn subscribe_raw_sip(&self) -> Option<broadcast::Receiver<RawSipMessage>> {
+        self.raw_sip.as_ref().map(|tx| tx.subscribe())
+    }
+
+    /// 制御系イベントを発行する。
+    ///
+    /// 購読者不在時はエラーを無視する。
+    pub fn publish(&self, event: SipEvent) {
+        let _ = self.control.send(event);
+    }
+
+    /// RawSIP メッセージを発行する（専用バスが有効な場合のみ）。
+    ///
+    /// 無効時は何も行わない。
+    pub fn publish_raw_sip(&self, msg: RawSipMessage) {
+        if let Some(ref tx) = self.raw_sip {
+            let _ = tx.send(msg);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AccountEventReceiver — アカウントフィルタリング（RFC §15.5）
+// ---------------------------------------------------------------------------
+
+/// アカウント単位のイベントフィルタリングラッパー。
+///
+/// `broadcast::Receiver<SipEvent>` をラップし、指定された `account_id` に
+/// 一致するイベントのみを透過的に抽出する。
+pub struct AccountEventReceiver {
+    /// フィルタリング対象のアカウント ID。
+    account_id: AccountId,
+    /// 内部の broadcast receiver。
+    inner: tokio::sync::broadcast::Receiver<SipEvent>,
+}
+
+impl AccountEventReceiver {
+    /// `AccountEventReceiver` を生成する。
+    pub fn new(
+        account_id: AccountId,
+        inner: tokio::sync::broadcast::Receiver<SipEvent>,
+    ) -> Self {
+        Self { account_id, inner }
+    }
+
+    /// フィルタリング対象のアカウント ID を返す。
+    pub fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    /// アカウントに一致するイベントを待機する。
+    ///
+    /// 一致しないイベントは透過的にスキップされる。
+    /// `account_id == None` のイベント（`ClientInitialized` 等）もスキップされる。
+    pub async fn recv(
+        &mut self,
+    ) -> Result<SipEvent, tokio::sync::broadcast::error::RecvError> {
+        loop {
+            let event = self.inner.recv().await?;
+            if event.meta.account_id == Some(self.account_id) {
+                return Ok(event);
+            }
+        }
+    }
+
+    /// 非ブロッキング版の受信。
+    ///
+    /// 一致するイベントがない場合は `Ok(None)` を返す。
+    /// 購読遅延による欠落は `Err(TryRecvError::Lagged(n))` として伝播される。
+    pub fn try_recv(
+        &mut self,
+    ) -> Result<Option<SipEvent>, tokio::sync::broadcast::error::TryRecvError> {
+        loop {
+            match self.inner.try_recv() {
+                Ok(event) => {
+                    if event.meta.account_id == Some(self.account_id) {
+                        return Ok(Some(event));
+                    }
+                    // 一致しない場合はループを継続。
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => {
+                    return Ok(None);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Unit tests
 // ---------------------------------------------------------------------------
 
@@ -813,5 +947,253 @@ mod tests {
         let debug = format!("{:?}", redacted);
         assert!(!debug.contains("should-be-hidden"));
         assert!(debug.contains("***REDACTED***"));
+    }
+
+    // -----------------------------------------------------------------------
+    // EventBus tests
+    // -----------------------------------------------------------------------
+
+    /// publish → subscribe_control でイベントが受信できることを確認する。
+    #[test]
+    fn test_event_bus_publish_subscribe() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+
+        let payload = SipEventPayload::CallHeld(());
+        let event = SipEvent::new(payload);
+        bus.publish(event);
+
+        let received = rx.try_recv();
+        assert!(received.is_ok());
+        if let Ok(received) = received {
+            assert!(matches!(received.payload, SipEventPayload::CallHeld(_)));
+        }
+    }
+
+    /// 複数購読者が同時にイベントを受信できることを確認する。
+    #[test]
+    fn test_event_bus_multiple_subscribers() {
+        let bus = EventBus::new(16, None);
+        let mut rx1 = bus.subscribe_control();
+        let mut rx2 = bus.subscribe_control();
+
+        let event = SipEvent::new(SipEventPayload::CallHeld(()));
+        bus.publish(event);
+
+        assert!(rx1.try_recv().is_ok());
+        assert!(rx2.try_recv().is_ok());
+    }
+
+    /// raw_sip_capacity = None → subscribe_raw_sip が None を返すことを確認する。
+    #[test]
+    fn test_event_bus_raw_sip_disabled() {
+        let bus = EventBus::new(16, None);
+        assert!(bus.subscribe_raw_sip().is_none());
+    }
+
+    /// raw_sip_capacity = Some(64) → subscribe_raw_sip が Some を返すことを確認する。
+    #[test]
+    fn test_event_bus_raw_sip_enabled() {
+        let bus = EventBus::new(16, Some(64));
+        assert!(bus.subscribe_raw_sip().is_some());
+    }
+
+    /// raw_sip 無効時に publish_raw_sip が no-op であることを確認する。
+    #[test]
+    fn test_event_bus_publish_raw_sip_disabled_noop() {
+        let bus = EventBus::new(16, None);
+        // パニックしないこと。
+        let msg = RawSipMessage::from_raw_parts(
+            SipMessageDirection::Sent,
+            TransportKind::Udp,
+            "", vec![], None, "", 0, None, None,
+        );
+        bus.publish_raw_sip(msg);
+    }
+
+    /// 購読者不在時の publish がパニックしないことを確認する。
+    #[test]
+    fn test_event_bus_publish_no_listener() {
+        let bus = EventBus::new(16, None);
+        let event = SipEvent::new(SipEventPayload::CallHeld(()));
+        // 購読者がいない状態で publish してもパニックしない。
+        bus.publish(event);
+    }
+
+    /// control と raw_sip のイベントが互いに干渉しないことを確認する。
+    #[test]
+    fn test_event_bus_separate_channels() {
+        let bus = EventBus::new(16, Some(16));
+        let mut control_rx = bus.subscribe_control();
+        let Some(mut raw_sip_rx) = bus.subscribe_raw_sip() else {
+            panic!("raw_sip バスは有効なはず");
+        };
+
+        // control に publish → raw_sip では受信されない。
+        bus.publish(SipEvent::new(SipEventPayload::CallHeld(())));
+        assert!(control_rx.try_recv().is_ok());
+        assert!(raw_sip_rx.try_recv().is_err());
+
+        // raw_sip に publish → control では受信されない。
+        let msg = RawSipMessage::from_raw_parts(
+            SipMessageDirection::Received, TransportKind::Udp,
+            "", vec![], None, "", 0, None, None,
+        );
+        bus.publish_raw_sip(msg);
+        assert!(raw_sip_rx.try_recv().is_ok());
+        assert!(control_rx.try_recv().is_err());
+    }
+
+    /// Clone 後も同一の EventBus を共有することを確認する。
+    #[test]
+    fn test_event_bus_clone() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+
+        let cloned = bus.clone();
+        cloned.publish(SipEvent::new(SipEventPayload::CallHeld(())));
+
+        // 元の bus の購読者にも配信される。
+        assert!(rx.try_recv().is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // AccountEventReceiver tests
+    // -----------------------------------------------------------------------
+
+    /// 一致する account_id のイベントが受信できることを確認する。
+    #[test]
+    fn test_account_event_recv_match() {
+        let bus = EventBus::new(16, None);
+        let acc_id = AccountId::generate();
+        let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
+
+        // 一致する account_id のイベントを publish。
+        let mut event = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
+        event.meta.account_id = Some(acc_id);
+        bus.publish(event);
+
+        // try_recv で取得できる。
+        let result = receiver.try_recv();
+        assert!(result.is_ok());
+        if let Ok(Some(received)) = result {
+            assert_eq!(received.meta.account_id, Some(acc_id));
+        }
+    }
+
+    /// 一致しない account_id のイベントがスキップされることを確認する。
+    #[test]
+    fn test_account_event_recv_skip_mismatch() {
+        let bus = EventBus::new(16, None);
+        let acc_id = AccountId::generate();
+        let other_id = AccountId::generate();
+        let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
+
+        // 異なる account_id のイベントを publish。
+        let mut event = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {}));
+        event.meta.account_id = Some(other_id);
+        bus.publish(event);
+
+        // スキップされて Empty になる。
+        let result = receiver.try_recv();
+        assert!(result.is_ok());
+        if let Ok(maybe) = result {
+            assert!(maybe.is_none());
+        }
+    }
+
+    /// account_id = None のイベントがスキップされることを確認する。
+    #[test]
+    fn test_account_event_recv_skip_none() {
+        let bus = EventBus::new(16, None);
+        let acc_id = AccountId::generate();
+        let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
+
+        // account_id = None のイベントを publish。
+        let event = SipEvent::new(SipEventPayload::ClientInitialized(ClientCapabilities {}));
+        bus.publish(event);
+
+        // スキップされて Empty になる。
+        assert!(receiver.try_recv().is_ok());
+        if let Ok(maybe) = receiver.try_recv() {
+            assert!(maybe.is_none());
+        }
+    }
+
+    /// try_recv で一致イベントが即時取得できることを確認する。
+    #[test]
+    fn test_account_event_try_recv_match() {
+        let bus = EventBus::new(16, None);
+        let acc_id = AccountId::generate();
+        let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
+
+        let mut event = SipEvent::new(SipEventPayload::CallHeld(()));
+        event.meta.account_id = Some(acc_id);
+        bus.publish(event);
+
+        if let Ok(Some(received)) = receiver.try_recv() {
+            assert_eq!(received.meta.account_id, Some(acc_id));
+        } else {
+            panic!("try_recv が None または Err を返しました");
+        }
+    }
+
+    /// 空時に try_recv が Err ではなく Ok(None) を返すことを確認する。
+    #[test]
+    fn test_account_event_try_recv_empty() {
+        let bus = EventBus::new(16, None);
+        let acc_id = AccountId::generate();
+        let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
+
+        let result = receiver.try_recv();
+        match result {
+            Ok(None) => {} // 期待通り。
+            _ => panic!("空時は Ok(None) が期待されます: {:?}", result),
+        }
+    }
+
+    /// 複数の AccountEventReceiver が異なる account_id で独立動作することを確認する。
+    #[test]
+    fn test_multiple_receivers_independent() {
+        let bus = EventBus::new(16, None);
+        let alice = AccountId::generate();
+        let bob = AccountId::generate();
+
+        let mut alice_rx = AccountEventReceiver::new(alice, bus.subscribe_control());
+        let mut bob_rx = AccountEventReceiver::new(bob, bus.subscribe_control());
+
+        // Alice 向けイベント。
+        let mut event_a = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
+        event_a.meta.account_id = Some(alice);
+        bus.publish(event_a);
+
+        // Bob 向けイベント。
+        let mut event_b = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {}));
+        event_b.meta.account_id = Some(bob);
+        bus.publish(event_b);
+
+        // Alice のレシーバが Alice のイベントを受信。
+        if let Ok(Some(received)) = alice_rx.try_recv() {
+            assert!(matches!(received.payload, SipEventPayload::RegistrationSucceeded(_)));
+        } else {
+            panic!("Alice のレシーバがイベントを受信できません");
+        }
+
+        // Bob のレシーバが Bob のイベントを受信。
+        if let Ok(Some(received)) = bob_rx.try_recv() {
+            assert!(matches!(received.payload, SipEventPayload::CallConnected(_)));
+        } else {
+            panic!("Bob のレシーバがイベントを受信できません");
+        }
+
+        // 両方のレシーバが空。
+        assert!(alice_rx.try_recv().is_ok());
+        assert!(bob_rx.try_recv().is_ok());
+        if let Ok(maybe_a) = alice_rx.try_recv() {
+            assert!(maybe_a.is_none());
+        }
+        if let Ok(maybe_b) = bob_rx.try_recv() {
+            assert!(maybe_b.is_none());
+        }
     }
 }
