@@ -63,7 +63,7 @@
 
 > **DB:** 使用しない（メモリ内完結）
 
-#### チケット M1-1: AsrBackend トレイトの定義
+#### ✅ チケット M1-1: AsrBackend トレイトの定義
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§2 — trate crate のトレイト設計、§2.1 — 将来のローカルASRモデル追加、§2.2 — 既存トレイトからの移行)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-2 (LocalAsrBackend は AsrBackend を継承)、M3-2 (voiput 移行)。並列可能: M2 群（voiput 型定義）。
@@ -103,7 +103,7 @@
   4. `post_correct()`, `insert_punctuation()`, `record_asr_usage()` のデフォルト実装が動作すること
 * **計装方法・観測対象:** コンパイル成功。MockBackend による各メソッドの戻り値検証。
 
-#### チケット M1-2: LocalAsrBackend トレイトの定義
+#### ✅ チケット M1-2: LocalAsrBackend トレイトの定義
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§2.1 — 将来のローカルASRモデル追加に備えた LocalAsrBackend)
 * **依存・関連チケットID:** 先行実装必須: M1-1 (AsrBackend を継承するため)。後続: M4-3 (Qwen3AsrBackend が LocalAsrBackend を impl)。
