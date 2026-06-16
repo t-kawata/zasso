@@ -132,3 +132,8 @@
 - [x] #111 local モジュール宣言 + lib.rs 公開 | /Users/kawata/shyme/zasso/tickets/specs/0111-local-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #112 Qwen3AsrBackend の new() と transcribe() 実装 | /Users/kawata/shyme/zasso/tickets/specs/0112-qwen3asrbackend-new-transcribe.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #113 Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files | /Users/kawata/shyme/zasso/tickets/specs/0113-qwen3asrbackend-localasrbackend-validate-qwen3-model-files.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #114 LocalRecognizer Facade の実装 | /Users/kawata/shyme/zasso/tickets/specs/0114-localrecognizer-facade.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #115 LocalRecognizerAdapter の実装 | /Users/kawata/shyme/zasso/tickets/specs/0115-localrecognizeradapter.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #116 SpeechRecognizer の Local ディスパッチ追加 | /Users/kawata/shyme/zasso/tickets/specs/0116-speechrecognizer-local.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #117 VoiputConfigBuilder の Local 検証 | /Users/kawata/shyme/zasso/tickets/specs/0117-voiputconfigbuilder-local.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16

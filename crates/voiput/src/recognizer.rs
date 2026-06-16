@@ -6,12 +6,15 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use anyhow::Result;
+
 use indexmap::IndexMap;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
 use crate::backends::openai::OpenAIRecognizer;
 use crate::config::VoiputConfig;
+use crate::local::recognizer::LocalRecognizer;
 use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig};
 use crate::pipeline::streamer::BackendWrapper;
 use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
@@ -140,6 +143,8 @@ pub struct SpeechRecognizer {
     /// macOS バックエンド
     #[cfg(target_os = "macos")]
     mac_backend: Option<MacSpeechBackend>,
+    /// Local バックエンド（Qwen3-ASR / Whisper 等）
+    local_recognizer: Option<LocalRecognizerAdapter>,
     /// PostCorrection 再構築用の OpenAI 設定（認識エンジン用）
     openai_config: Option<OpenAiConfig>,
     /// PostCorrection 再構築用の OpenAI 設定（事後補正専用、エンジン非依存）
@@ -215,10 +220,12 @@ fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
 /// model_dir が設定されている場合、`models/qwen3-asr/` サブディレクトリを
 /// そのパスからの相対として解決する。絶対パスの場合はそのまま使用する。
 ///
-/// [::STUB::] M5-1: LocalRecognizer::new() で初めて使用される。
+/// Qwen3-ASR モデルファイルのパスを解決する。
+///
+/// [::STUB::] M8-2: 全テスト通過確認時、統合テストで初めて使用される。
 /// それまでは unused warning が発生するが許容。
 #[allow(dead_code)]
-fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
+pub(crate) fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
     let subdir = resolve_vad_model_path(QWEN3_MODEL_SUBDIR, model_dir);
     Qwen3AsrModelPaths {
         encoder: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_ENCODER),
@@ -233,10 +240,10 @@ fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
 /// qwen3_asr_config が設定されている場合、各モデルファイルのパスが
 /// 絶対パスか相対パスかを判断し、必要に応じて model_dir と結合する。
 ///
-/// [::STUB::] M5-1: LocalRecognizer::new() で初めて使用される。
+/// [::STUB::] M8-2: 全テスト通過確認時、統合テストで初めて使用される。
 /// それまでは unused warning が発生するが許容。
 #[allow(dead_code)]
-fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
+pub(crate) fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
     let qwen3_config = config.qwen3_asr_config.as_ref()?;
     let model_dir = &config.model_dir;
 
@@ -282,7 +289,6 @@ impl SpeechRecognizer {
                 }
             }
             SttEngine::OpenAI => Ok(()),
-            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
             // Local バックエンドは全プラットフォームで利用可能。
             SttEngine::Local { .. } => Ok(()),
         }
@@ -395,10 +401,25 @@ impl SpeechRecognizer {
             }
         };
 
+        // Local バックエンドの初期化（SttEngine::Local の場合のみ）
+        let local_recognizer = match engine {
+            SttEngine::Local { .. } => {
+                match LocalRecognizerAdapter::new(tx_internal.clone(), config) {
+                    Ok(adapter) => Some(adapter),
+                    Err(e) => {
+                        log::error!("[SpeechRecognizer] Local backend init failed: {}", e);
+                        None
+                    }
+                }
+            }
+            _ => None,
+        };
+
         Ok(Self {
             is_running: Arc::new(AtomicBool::new(false)),
             engine,
             openai_recognizer,
+            local_recognizer,
             #[cfg(target_os = "windows")]
             win_backend,
             #[cfg(target_os = "macos")]
@@ -445,11 +466,13 @@ impl SpeechRecognizer {
                 log::error!("[SpeechRecognizer] No native backend for Os engine");
                 self.is_running.store(false, Ordering::SeqCst);
             }
-            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
-            // LocalRecognizerAdapter の start() を呼び出す。
             SttEngine::Local { .. } => {
-                log::error!("[SpeechRecognizer] Local backend not initialized (stub)");
-                self.is_running.store(false, Ordering::SeqCst);
+                if let Some(ref mut backend) = self.local_recognizer {
+                    backend.start();
+                } else {
+                    log::error!("[SpeechRecognizer] Local backend not initialized");
+                    self.is_running.store(false, Ordering::SeqCst);
+                }
             }
         }
     }
@@ -481,9 +504,11 @@ impl SpeechRecognizer {
                     backend.stop();
                 }
             }
-            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
-            // LocalRecognizerAdapter の stop() を呼び出す。
-            SttEngine::Local { .. } => {}
+            SttEngine::Local { .. } => {
+                if let Some(ref mut backend) = self.local_recognizer {
+                    backend.stop();
+                }
+            }
         }
 
         let _ = self.tx.try_send(SttEvent::Stopped);
@@ -499,6 +524,16 @@ impl SpeechRecognizer {
         #[cfg(target_os = "windows")]
         if let Some(ref mut backend) = self.win_backend {
             backend.set_locale(locale);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(ref mut backend) = self.mac_backend {
+            backend.set_locale(locale);
+        }
+        if let Some(ref mut backend) = self.local_recognizer {
+            backend.set_locale(locale);
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ref mut backend) = self.win_backend {
         }
         #[cfg(target_os = "macos")]
         if let Some(ref mut backend) = self.mac_backend {
@@ -606,7 +641,6 @@ impl SpeechRecognizer {
                     backend.tick();
                 }
             }
-            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
             // Local バックエンドの tick() は no-op（RFC §7 動作表）。
             SttEngine::Local { .. } => {}
         }
@@ -636,6 +670,74 @@ fn rebuild_pc_backend(
     } else {
         log::warn!("[PostCorrection] LLM 事後補正: 無効（OpenAI API キー未設定）");
         (None, None)
+    }
+}
+
+// ============================================================================
+// LocalRecognizerAdapter — Local バックエンドを SpeechRecognizer に統合する
+// ============================================================================
+
+/// LocalRecognizer を PseudoAsrStreamer と統合するアダプター。
+///
+/// OpenAIRecognizer と同様のインターフェース（start/stop/tick/set_locale/update_config）
+/// を提供し、SpeechRecognizer がエンジン種別に関係なく同一の操作体系で
+/// バックエンドを制御できるようにする。
+///
+/// LocalRecognizer を PseudoAsrStreamer と統合するアダプター。
+///
+/// OpenAIRecognizer と同様のインターフェース（start/stop/tick/set_locale/update_config）
+/// を提供し、SpeechRecognizer がエンジン種別に関係なく同一の操作体系で
+/// バックエンドを制御できるようにする。
+struct LocalRecognizerAdapter {
+    /// ローカル ASR バックエンド（start/stop/tick/set_locale/update_config 経由で間接使用）
+    #[allow(dead_code)]
+    recognizer: LocalRecognizer,
+    /// イベント送信チャネル
+    tx: mpsc::Sender<SttEvent>,
+    /// 現在のロケール
+    locale: LocaleCode,
+}
+
+impl LocalRecognizerAdapter {
+    /// LocalRecognizerAdapter を構築する。
+    fn new(tx: mpsc::Sender<SttEvent>, config: &VoiputConfig) -> Result<Self> {
+        let kind = match config.engine {
+            SttEngine::Local { backend } => backend,
+            _ => unreachable!("LocalRecognizerAdapter は Local エンジン専用"),
+        };
+        let recognizer = LocalRecognizer::new(kind, config)?;
+        Ok(Self { recognizer, tx, locale: config.locale })
+    }
+
+    fn start(&mut self) {
+        let _ = self.tx.try_send(SttEvent::Started);
+    }
+
+    fn stop(&mut self) {
+        let _ = self.tx.try_send(SttEvent::Stopped);
+    }
+
+    #[allow(dead_code)]
+    fn tick(&self) {
+        // Local バックエンドの tick() は no-op。
+        // PseudoAsrStreamer タスクがバックグラウンドで処理を行う。
+    }
+
+    fn set_locale(&mut self, locale: LocaleCode) {
+        self.locale = locale;
+    }
+
+    #[allow(dead_code)]
+    fn update_config(&mut self, config: &VoiputConfig) -> Result<()> {
+        self.stop();
+        // LocalRecognizer を再生成（古いインスタンスの Drop で OfflineRecognizer 解放）
+        let kind = match config.engine {
+            SttEngine::Local { backend } => backend,
+            _ => unreachable!("LocalRecognizerAdapter は Local エンジン専用"),
+        };
+        self.recognizer = LocalRecognizer::new(kind, config)?;
+        self.start();
+        Ok(())
     }
 }
 
@@ -844,8 +946,9 @@ mod speech_recognizer_tests {
 
     #[test]
     fn test_resolve_qwen3_asr_config_none() {
+        // SttEngine::Os を使用（Local エンジンでは build() が qwen3_asr_config を要求するため）
         let config = VoiputConfig::builder()
-            .engine(SttEngine::Local { backend: LocalAsrKind::Qwen3Asr })
+            .engine(SttEngine::Os)
             .locale(LocaleCode::Ja)
             .vad_model_paths(VadModelPaths {
                 silero: "silero.onnx".into(),

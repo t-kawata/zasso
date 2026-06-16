@@ -112,9 +112,6 @@ impl LocalAsrBackend for Qwen3AsrBackend {
 /// SHA256 チェックサム検証等の追加検証は行わない
 /// （OfflineRecognizer::create() 自体がモデルファイルの整合性を検証するため）。
 ///
-/// [::STUB::] M5-1: LocalRecognizer::new() で初めて使用される。
-/// それまでは unused warning が発生するが許容。
-#[allow(dead_code)]
 pub(crate) fn validate_qwen3_model_files(config: &Qwen3AsrConfig) -> Result<()> {
     let paths = [
         (&config.model_paths.encoder, "encoder.onnx"),

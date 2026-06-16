@@ -555,7 +555,7 @@
 > **DB:** 使用しない
 > **設計判断:** `LocalRecognizer` は Facade パターンにより、複数の Local ASR バックエンドを `Box<dyn LocalAsrBackend>` として統一的に扱う。`LocalRecognizerAdapter` は OpenAIRecognizer と同様の 3タスク構成（ticker + capture + streamer）を持ち、PseudoAsrStreamer との統合を担当する。
 
-#### チケット M5-1: LocalRecognizer Facade の実装
+#### ✅ チケット M5-1: LocalRecognizer Facade の実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§6 — LocalRecognizer 統合)
 * **依存・関連チケットID:** 先行実装必須: M4-3 (Qwen3AsrBackend impl LocalAsrBackend)、M2-1 (LocalAsrKind)。後続: M5-2 (LocalRecognizerAdapter)。
@@ -579,7 +579,7 @@
   3. `backend_name()` が `"qwen3-asr"` を返すこと
 * **計装方法・観測対象:** コンパイル時検証 + エラーケースの単体テスト。
 
-#### チケット M5-2: LocalRecognizerAdapter の実装
+#### ✅ チケット M5-2: LocalRecognizerAdapter の実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§7 — SpeechRecognizer ディスパッチ — LocalRecognizerAdapter)
 * **依存・関連チケットID:** 先行実装必須: M5-1 (LocalRecognizer)。後続: M6-1 (SpeechRecognizer が adapter を使用)。
@@ -616,7 +616,7 @@
 > **DB:** 使用しない
 > **注意:** このマイルストーンで既存の match 非網羅エラーがすべて解消される。M6-3 で `make check-be` の完全成功を確認する。
 
-#### チケット M6-1: SpeechRecognizer の start/stop/tick/set_locale/update_config Local 分岐
+#### ✅ チケット M6-1: SpeechRecognizer の start/stop/tick/set_locale/update_config Local 分岐
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§7 — SpeechRecognizer ディスパッチ、各メソッドの動作表)
 * **依存・関連チケットID:** 先行実装必須: M2-2 (SttEngine::Local), M5-2 (LocalRecognizerAdapter)。依存されるチケット: なし（このチケット完了で match 非網羅エラーが解消される）。
@@ -651,7 +651,7 @@
   5. `update_config()` が古いインスタンスを解放し新しいインスタンスで再開すること
 * **計装方法・観測対象:** 各メソッドの呼び出し結果（戻り値 + パニックの有無）。内部状態の変化（is_running フラグ等）。
 
-#### チケット M6-2: VoiputConfigBuilder.validate() の Local 検証
+#### ✅ チケット M6-2: VoiputConfigBuilder.validate() の Local 検証
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§10 — VoiputConfigBuilder バリデーション)
 * **依存・関連チケットID:** 先行実装必須: M2-2 (SttEngine::Local), M2-3 (Qwen3AsrConfig)。後続: なし。
@@ -678,7 +678,7 @@
   5. エラーメッセージが日本語であること
 * **計装方法・観測対象:** validate() の戻り値（Ok / Err とエラー内容）。エラーメッセージの言語確認。
 
-#### チケット M6-3: コンパイル完了確認（make check-be 全警告ゼロ）
+#### ✅ チケット M6-3: コンパイル完了確認（make check-be 全警告ゼロ）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 5 — 4. make check-be でコンパイルを確認)
 * **依存・関連チケットID:** 先行実装必須: M6-1, M6-2。依存されるチケット: 第4段階全体。
