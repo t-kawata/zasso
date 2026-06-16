@@ -111,3 +111,6 @@
 - [x] #98 AsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0098-asrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #99 LocalAsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0099-localasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #100 trate クレートのモックベース単体テスト | /Users/kawata/shyme/zasso/tickets/specs/0100-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #101 LocalAsrKind 列挙型の定義 | /Users/kawata/shyme/zasso/tickets/specs/0101-localasrkind.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #102 SttEngine::Local バリアントの追加 | /Users/kawata/shyme/zasso/tickets/specs/0102-sttenginelocal.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #103 Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義 | /Users/kawata/shyme/zasso/tickets/specs/0103-qwen3asrmodelpaths-qwen3asrconfig.md | 2026-06-16 | 2026-06-16 | 2026-06-16

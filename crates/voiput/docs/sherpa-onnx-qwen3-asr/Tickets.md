@@ -129,7 +129,7 @@
   3. `model_path()`, `is_healthy()` が期待通り動作すること
 * **計装方法・観測対象:** コンパイル成功。MockLocalBackend による各メソッドの戻り値検証。
 
-#### チケット M1-3: trate クレートのモックベース単体テスト
+#### ✅ チケット M1-3: trate クレートのモックベース単体テスト
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§11.1 — trate クレートのテスト)
 * **依存・関連チケットID:** 先行実装必須: M1-1, M1-2。後続チケットのブロッカーではない（trate 単体テストは trate 内部で完結）。
@@ -162,7 +162,7 @@
 > **DB:** 使用しない（メモリ内完結）
 > **警告:** `SttEngine::Local` バリアントを追加した瞬間、既存の全 `match SttEngine` 式が非網羅になりコンパイルエラーが発生する。これは許容される中間状態だが、次のマイルストーン M3（SpeechRecognizer 移行）までに解消すること。この期間中は `make check-be` が失敗することをチームに周知する。
 
-#### チケット M2-1: LocalAsrKind 列挙型の定義
+#### ✅ チケット M2-1: LocalAsrKind 列挙型の定義
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§3 — SttEngine::Local バリアント)
 * **依存・関連チケットID:** 先行実装必須: なし（純粋な型定義）。後続: M2-4 (SttEngine::Local)、M4-1 (local/mod.rs で使用)。
@@ -184,7 +184,7 @@
   3. `LocalAsrKind::Qwen3Asr == LocalAsrKind::Qwen3Asr` が成立すること（PartialEq + Eq）
 * **計装方法・観測対象:** コンパイル成功。derive マクロによる自動実装の確認。
 
-#### チケット M2-2: SttEngine::Local バリアントの追加
+#### ✅ チケット M2-2: SttEngine::Local バリアントの追加
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§3 — SttEngine::Local バリアント)
 * **依存・関連チケットID:** 先行実装必須: M2-1 (LocalAsrKind)。後続: M3-2 (SpeechRecognizer 分岐追加)、M5-1 (LocalRecognizer::new の kind 引数)。**このチケット実施後、既存の全 match SttEngine 式が非網羅になる。**
@@ -204,7 +204,7 @@
   3. `SttEngine::Local { backend: LocalAsrKind::Qwen3Asr }.debug` がフォーマット可能であること
 * **計装方法・観測対象:** コンパイルが通ること（ただし既存 match の非網羅エラーは後続チケットで解消）。型の構築可能性。
 
-#### チケット M2-3: Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義
+#### ✅ チケット M2-3: Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§4 — Qwen3-ASR 設定構造体)
 * **依存・関連チケットID:** 先行実装必須: なし。後続: M4-2 (Qwen3AsrBackend::new で config を使用)、M6-2 (VoiputConfigBuilder.validate で qwen3_asr_config を検証)。
@@ -625,6 +625,12 @@
   - `validate_config()` は SttEngine::Local の場合常に `Ok(())`（詳細検証は VoiputConfigBuilder.validate に委譲）
   - **`unimplemented!()` / `todo!()` の使用禁止**
 * **実装の背景と目的:** SpeechRecognizer に SttEngine::Local の分岐を追加する。各メソッドの動作は RFC §7 の動作表に従い、OpenAI バックエンドと同等の振る舞いを提供する。これにより M2-2 で発生した match 非網羅エラーがすべて解消される。
+* **⚠️ スタブ解決の義務: M2-2 で追加した 4 箇所の `[::STUB::]` マーカーを全て除去すること。** 除去漏れがある場合、`find-all-stubs.js` で検出される。
+* **スタブ一覧（M2-2 で追加、本チケットで解決）:**
+  1. `recognizer.rs:226` — `validate_config()`: `SttEngine::Local { .. } => Ok(())`（暫定）
+  2. `recognizer.rs:389` — `start()`: `SttEngine::Local { .. } => { log::error!("..."); ... }`（暫定）
+  3. `recognizer.rs:425` — `stop()`: `SttEngine::Local { .. } => {}`（暫定）
+  4. `recognizer.rs:550` — `tick()`: `SttEngine::Local { .. } => {}`（暫定）
 * **実装スコープ:**
   - `crates/voiput/src/recognizer.rs` の各メソッドに `SttEngine::Local` の分岐を追加:
     - `SpeechRecognizer` 構造体に `local_recognizer: Option<LocalRecognizerAdapter>` フィールド追加
@@ -634,6 +640,7 @@
     - `set_locale()`: `LocalRecognizerAdapter` の `set_locale()` を呼ぶ
     - `update_config()`: stop → 再生成(start) の順序で実行
     - `validate_config()`: `SttEngine::Local` の場合 → `Ok(())`
+  - **上記 4 箇所の `[::STUB::]` を除去し、本実装に置き換える**
 * **テストコードによる検証:**
   1. `SttEngine::Local` 時の全メソッドがパニックしないこと（エラー時は log::error で出力）
   2. `tick()` が no-op であること（内部状態不変）
