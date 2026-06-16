@@ -129,3 +129,6 @@
 - [x] #108 OpenAIBackend の trate::AsrBackend 実装スタブ除去 | /Users/kawata/shyme/zasso/tickets/specs/0108-openaibackend-trateasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #109 テストコードのトレイト変更対応（MockBackend, MockStreamerBackend） | /Users/kawata/shyme/zasso/tickets/specs/0109-mockbackend-mockstreamerbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #110 voiput 移行完了確認（make check-be + テスト全件パス） | /Users/kawata/shyme/zasso/tickets/specs/0110-voiput-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #111 local モジュール宣言 + lib.rs 公開 | /Users/kawata/shyme/zasso/tickets/specs/0111-local-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #112 Qwen3AsrBackend の new() と transcribe() 実装 | /Users/kawata/shyme/zasso/tickets/specs/0112-qwen3asrbackend-new-transcribe.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #113 Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files | /Users/kawata/shyme/zasso/tickets/specs/0113-qwen3asrbackend-localasrbackend-validate-qwen3-model-files.md | 2026-06-16 | 2026-06-16 | 2026-06-16

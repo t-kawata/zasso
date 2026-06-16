@@ -464,7 +464,7 @@
 > **DB:** 使用しない
 > **注意:** sherpa-onnx の `OfflineRecognizer` は内部状態を持つため、`Qwen3AsrBackend` は `Mutex<OfflineRecognizer>` で保護する。この Mutex は認識精度には影響せず、複数スレッドからの `transcribe()` 呼び出しをシリアライズするための排他制御である。
 
-#### チケット M4-1: local モジュール宣言 + lib.rs 公開
+#### ✅ チケット M4-1: local モジュール宣言 + lib.rs 公開
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§1 — crates/voiput/src/local/ ディレクトリ構成)
 * **依存・関連チケットID:** 先行実装必須: なし（モジュール宣言のみ）。後続: M4-2 (qwen3.rs 実装の前提)、M5-1 (recognizer.rs の前提)。
@@ -486,7 +486,7 @@
   2. `voiput::local::qwen3::Qwen3AsrBackend`（将来型）のパスが解決可能であること（コンパイル時に未定義ならエラー — コンパイルで確認）
 * **計装方法・観測対象:** コンパイル成功。
 
-#### チケット M4-2: Qwen3AsrBackend の new() と transcribe() 実装
+#### ✅ チケット M4-2: Qwen3AsrBackend の new() と transcribe() 実装
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§5 — Qwen3AsrBackend 実装)
 * **依存・関連チケットID:** 先行実装必須: M2-3 (Qwen3AsrConfig)、M4-1 (local モジュール)。後続: M4-3 (LocalAsrBackend impl)。
@@ -518,7 +518,7 @@
   3. `backend_name()` が `"qwen3-asr"` を返すこと
 * **計装方法・観測対象:** エラーケースの検証は存在しないパスを渡すことで実現。正常系の結合テストは M8-2 で行う。
 
-#### チケット M4-3: Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files
+#### ✅ チケット M4-3: Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§5 — LocalAsrBackend for Qwen3AsrBackend、§8.2 — 実行時のモデル検出とエラーハンドリング)
 * **依存・関連チケットID:** 先行実装必須: M4-2。後続: M5-1 (LocalRecognizer が LocalAsrBackend を Box で保持)。

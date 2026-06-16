@@ -215,7 +215,7 @@ fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
 /// model_dir が設定されている場合、`models/qwen3-asr/` サブディレクトリを
 /// そのパスからの相対として解決する。絶対パスの場合はそのまま使用する。
 ///
-/// [::STUB::] M4-2: Qwen3AsrBackend::new() で初めて使用される。
+/// [::STUB::] M5-1: LocalRecognizer::new() で初めて使用される。
 /// それまでは unused warning が発生するが許容。
 #[allow(dead_code)]
 fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
@@ -233,7 +233,7 @@ fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
 /// qwen3_asr_config が設定されている場合、各モデルファイルのパスが
 /// 絶対パスか相対パスかを判断し、必要に応じて model_dir と結合する。
 ///
-/// [::STUB::] M4-2: Qwen3AsrBackend::new() で初めて使用される。
+/// [::STUB::] M5-1: LocalRecognizer::new() で初めて使用される。
 /// それまでは unused warning が発生するが許容。
 #[allow(dead_code)]
 fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
