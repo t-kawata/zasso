@@ -108,6 +108,11 @@
 - [x] #95 M9-1: RegistrationState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0095-m9-1-registration-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #96 M9-2: CallState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0096-m9-2-call-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #97 M9-3: ClientState 管理 — 同時通話制約・shutdown 状態 | /Users/shyme/shyme/zasso/tickets/specs/0097-m9-3-client-state-management.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #98 M10-1: SipBackend trait 定義 | /Users/shyme/shyme/zasso/tickets/specs/0098-m10-1-sip-backend-trait.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #99 M10-2: MockBackend 実装 | /Users/shyme/shyme/zasso/tickets/specs/0099-m10-2-mock-backend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #100 M11-1: RuntimeCommand enum 定義 | /Users/shyme/shyme/zasso/tickets/specs/0100-m11-1-runtime-command.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #101 M11-2: RuntimeHandle — MPSC + oneshot 送受信 | /Users/shyme/shyme/zasso/tickets/specs/0101-m11-2-runtime-handle.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #102 M11-3: Reactor loop — 単一スレッドでのコマンド処理 | /Users/shyme/shyme/zasso/tickets/specs/0102-m11-3-reactor-loop.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #98 AsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0098-asrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #99 LocalAsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0099-localasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #100 trate クレートのモックベース単体テスト | /Users/kawata/shyme/zasso/tickets/specs/0100-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
