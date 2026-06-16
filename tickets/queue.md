@@ -119,3 +119,5 @@
 - [x] #101 LocalAsrKind 列挙型の定義 | /Users/kawata/shyme/zasso/tickets/specs/0101-localasrkind.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #102 SttEngine::Local バリアントの追加 | /Users/kawata/shyme/zasso/tickets/specs/0102-sttenginelocal.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #103 Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義 | /Users/kawata/shyme/zasso/tickets/specs/0103-qwen3asrmodelpaths-qwen3asrconfig.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #104 Qwen3 モデルファイル名定数の追加 | /Users/kawata/shyme/zasso/tickets/specs/0104-qwen3.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #105 パス解決の純粋関数群 | /Users/kawata/shyme/zasso/tickets/specs/0105-untitled-4.md | 2026-06-16 | 2026-06-16 | 2026-06-16

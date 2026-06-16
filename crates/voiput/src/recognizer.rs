@@ -15,8 +15,10 @@ use crate::config::VoiputConfig;
 use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig};
 use crate::pipeline::streamer::BackendWrapper;
 use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
+use crate::constants::*;
 use crate::types::{
-    LocaleCode, OpenAiConfig, SttEngine, SttEvent, VadConfig, VadModelPaths, VadType,
+    LocaleCode, OpenAiConfig, Qwen3AsrConfig, Qwen3AsrModelPaths, SttEngine, SttEvent, VadConfig,
+    VadModelPaths, VadType,
 };
 use crate::OpenAIBackend;
 
@@ -206,6 +208,63 @@ fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
         }
         _ => path.to_string(),
     }
+}
+
+/// Qwen3-ASR モデルファイルのパスを解決する。
+///
+/// model_dir が設定されている場合、`models/qwen3-asr/` サブディレクトリを
+/// そのパスからの相対として解決する。絶対パスの場合はそのまま使用する。
+///
+/// [::STUB::] M4-2: Qwen3AsrBackend::new() で初めて使用される。
+/// それまでは unused warning が発生するが許容。
+#[allow(dead_code)]
+fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
+    let subdir = resolve_vad_model_path(QWEN3_MODEL_SUBDIR, model_dir);
+    Qwen3AsrModelPaths {
+        encoder: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_ENCODER),
+        decoder: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_DECODER),
+        joiner: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_JOINER),
+        tokens: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_TOKENS),
+    }
+}
+
+/// VoiputConfig から Qwen3AsrConfig を解決する。
+///
+/// qwen3_asr_config が設定されている場合、各モデルファイルのパスが
+/// 絶対パスか相対パスかを判断し、必要に応じて model_dir と結合する。
+///
+/// [::STUB::] M4-2: Qwen3AsrBackend::new() で初めて使用される。
+/// それまでは unused warning が発生するが許容。
+#[allow(dead_code)]
+fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
+    let qwen3_config = config.qwen3_asr_config.as_ref()?;
+    let model_dir = &config.model_dir;
+
+    let resolve = |path: &str| -> String {
+        if path.starts_with('/') {
+            path.to_string()
+        } else {
+            match model_dir {
+                Some(dir) => {
+                    let trimmed = dir.trim_end_matches('/');
+                    format!("{}/{}", trimmed, path)
+                }
+                None => path.to_string(),
+            }
+        }
+    };
+
+    Some(Qwen3AsrConfig {
+        model_paths: Qwen3AsrModelPaths {
+            encoder: resolve(&qwen3_config.model_paths.encoder),
+            decoder: resolve(&qwen3_config.model_paths.decoder),
+            joiner: resolve(&qwen3_config.model_paths.joiner),
+            tokens: resolve(&qwen3_config.model_paths.tokens),
+        },
+        provider: qwen3_config.provider.clone(),
+        num_threads: qwen3_config.num_threads,
+        debug: qwen3_config.debug,
+    })
 }
 
 impl SpeechRecognizer {
@@ -587,6 +646,7 @@ fn rebuild_pc_backend(
 #[cfg(test)]
 mod speech_recognizer_tests {
     use super::*;
+    use crate::types::LocalAsrKind;
 
     #[test]
     fn test_validate_config_openai() {
@@ -752,5 +812,83 @@ mod speech_recognizer_tests {
     fn test_resolve_vad_model_path_empty_with_dir() {
         let result = resolve_vad_model_path("", &Some("/base".into()));
         assert_eq!(result, "");
+    }
+
+    // --- Qwen3-ASR パス解決 (M2-5) ---
+
+    #[test]
+    fn test_resolve_qwen3_model_paths_with_dir() {
+        let model_dir = Some("/opt/models".into());
+        let paths = resolve_qwen3_model_paths(&model_dir);
+        assert_eq!(paths.encoder, "/opt/models/qwen3-asr/encoder.int8.onnx");
+        assert_eq!(paths.decoder, "/opt/models/qwen3-asr/decoder.int8.onnx");
+        assert_eq!(paths.joiner, "/opt/models/qwen3-asr/joiner.int8.onnx");
+        assert_eq!(paths.tokens, "/opt/models/qwen3-asr/tokens.txt");
+    }
+
+    #[test]
+    fn test_resolve_qwen3_model_paths_without_dir() {
+        let paths = resolve_qwen3_model_paths(&None);
+        assert_eq!(paths.encoder, "qwen3-asr/encoder.int8.onnx");
+        assert_eq!(paths.tokens, "qwen3-asr/tokens.txt");
+    }
+
+    #[test]
+    fn test_resolve_qwen3_model_paths_absolute_subdir() {
+        let model_dir = Some("/".into());
+        let paths = resolve_qwen3_model_paths(&model_dir);
+        // model_dir="/" → trim_end_matches('/') → "" → ""/qwen3-asr/...
+        assert_eq!(paths.encoder, "/qwen3-asr/encoder.int8.onnx");
+        assert_eq!(paths.decoder, "/qwen3-asr/decoder.int8.onnx");
+    }
+
+    #[test]
+    fn test_resolve_qwen3_asr_config_none() {
+        let config = VoiputConfig::builder()
+            .engine(SttEngine::Local { backend: LocalAsrKind::Qwen3Asr })
+            .locale(LocaleCode::Ja)
+            .vad_model_paths(VadModelPaths {
+                silero: "silero.onnx".into(),
+                ten: "ten.onnx".into(),
+                gtcrn: "gtcrn.onnx".into(),
+            })
+            .build()
+            .unwrap();
+        // qwen3_asr_config 未設定 → None
+        assert!(resolve_qwen3_asr_config(&config).is_none());
+    }
+
+    #[test]
+    fn test_resolve_qwen3_asr_config_with_relative_paths() {
+        let qwen3_config = Qwen3AsrConfig {
+            model_paths: Qwen3AsrModelPaths {
+                encoder: "encoder.int8.onnx".into(),
+                decoder: "decoder.int8.onnx".into(),
+                joiner: "joiner.int8.onnx".into(),
+                tokens: "tokens.txt".into(),
+            },
+            provider: "cpu".into(),
+            num_threads: 2,
+            debug: false,
+        };
+        let config = VoiputConfig::builder()
+            .engine(SttEngine::Local { backend: LocalAsrKind::Qwen3Asr })
+            .locale(LocaleCode::Ja)
+            .qwen3_asr_config(qwen3_config)
+            .vad_model_paths(VadModelPaths {
+                silero: "silero.onnx".into(),
+                ten: "ten.onnx".into(),
+                gtcrn: "gtcrn.onnx".into(),
+            })
+            .model_dir("/opt/models")
+            .build()
+            .unwrap();
+        let resolved = resolve_qwen3_asr_config(&config).expect("should resolve");
+        assert_eq!(resolved.model_paths.encoder, "/opt/models/encoder.int8.onnx");
+        assert_eq!(resolved.model_paths.decoder, "/opt/models/decoder.int8.onnx");
+        assert_eq!(resolved.model_paths.joiner, "/opt/models/joiner.int8.onnx");
+        assert_eq!(resolved.model_paths.tokens, "/opt/models/tokens.txt");
+        assert_eq!(resolved.provider, "cpu");
+        assert_eq!(resolved.num_threads, 2);
     }
 }
