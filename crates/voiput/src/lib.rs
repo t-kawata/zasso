@@ -73,8 +73,9 @@ pub use backends::mac::MacSpeechBackend;
 #[cfg(target_os = "windows")]
 pub use backends::win::WinSpeechBackend;
 pub use pipeline::streamer::{
-    AsrBackend, BackendWrapper, PseudoAsrStreamer, StreamerConfig, StreamerEvent, StreamerLocale,
+    BackendWrapper, PseudoAsrStreamer, StreamerConfig, StreamerEvent, StreamerLocale,
 };
+pub use trate::AsrBackend;
 pub use pipeline::vad::VadConfig as VadProcessorConfig;
 pub use pipeline::vad::VadProcessor;
 pub use pipeline::vad::VadType as VadProcessorType;

@@ -320,7 +320,7 @@
 
 > **DB:** 使用しない
 
-#### チケット M3-1: voiput Cargo.toml への trate 依存追加
+#### ✅ チケット M3-1: voiput Cargo.toml への trate 依存追加
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 2 — voiput の trate 依存)
 * **依存・関連チケットID:** 先行実装必須: M0-1 (trate crate が存在すること)、M1-1 (AsrBackend trait が定義されていること)。後続: M3-2, M3-3。

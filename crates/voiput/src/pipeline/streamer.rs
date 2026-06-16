@@ -57,19 +57,9 @@ pub enum StreamerEvent {
     PostCorrectionFinished,
 }
 
-// ============================================================================
-// AsrBackend: バックエンドが実装すべきトレイト
-// ============================================================================
-
-pub trait AsrBackend: Send {
-    fn transcribe(&mut self, samples: &[f32]) -> Result<String>;
-    fn post_correct(&mut self, text: &str) -> Result<String>;
-    fn model_name(&self) -> String;
-    fn record_asr_usage(&mut self, duration_ms: u64);
-    fn insert_punctuation(&mut self, text: &str, _locale: &StreamerLocale) -> Result<String> {
-        Ok(text.to_string())
-    }
-}
+// AsrBackend トレイトは trate crate に移行済み。
+// 互換性のため streamer.rs から再公開する（M3-3 で openai.rs の import を trate 直参照に変更）。
+pub use trate::AsrBackend;
 
 /// バックエンドを PostCorrectionProcessor から呼び出せるようにするためのラッパー
 pub struct BackendWrapper<B>(pub Arc<Mutex<B>>);
