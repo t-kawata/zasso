@@ -123,6 +123,9 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
         RuntimeCommand::SetRegistration { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
         }
+        RuntimeCommand::UpdateAccountConfig { reply, .. } => {
+            let _ = reply.send(Err(SipError::invalid_state(message)));
+        }
         RuntimeCommand::MakeCall { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
         }

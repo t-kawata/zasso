@@ -6,13 +6,13 @@
 //! M11-2 (RuntimeHandle) 以降で使用。現在は未使用のため dead_code を許容。
 #![allow(dead_code)]
 
-use crate::config::{AccountConfig, ClientConfig, DtmfMethod, OutgoingCallRequest};
+use crate::config::{AccountConfig, AccountConfigPatch, ClientConfig, DtmfMethod, OutgoingCallRequest};
 use crate::error::SipError;
 use crate::util::id::{AccountId, AudioSourceId, CallId};
 
 /// 切断理由。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum HangupReason {
+pub enum HangupReason {
     /// BYE による正常切断。
     Bye,
     /// CANCEL による切断。
@@ -49,6 +49,12 @@ pub(crate) enum RuntimeCommand {
     SetRegistration {
         account_id: AccountId,
         enabled: bool,
+        reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
+    },
+    /// アカウント設定更新。
+    UpdateAccountConfig {
+        account_id: AccountId,
+        patch: AccountConfigPatch,
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
     /// 発信。

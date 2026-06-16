@@ -6,3 +6,4 @@ pub mod bridge;
 pub mod chunk;
 pub mod format;
 pub mod mixer;
+pub mod source;

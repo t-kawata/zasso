@@ -943,7 +943,7 @@
   4. 複数 `subscribe()` 呼び出しが独立した receiver を返すこと
 * **計装方法・観測対象:** 全 subscribe メソッドが非同期呼び出し不要（同期的）であること。
 
-#### チケット M12-4: `add_account()` / `remove_account()` / `account()` / `accounts()`
+#### ✅ チケット M12-4: `add_account()` / `remove_account()` / `account()` / `accounts()`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.3, §8.4)
 * **対象不変条件 / 規範:** §8.3 SipClient API。§8.4 SipAccountHandle API。§11.1 validation rules。
@@ -963,7 +963,7 @@
   7. `account()` が存在するIDで `Ok`、存在しないIDで `Err` を返すこと
 * **計装方法・観測対象:** `add_account` の処理時間が PJSUA 呼び出し + 1 RTT（oneshot）であること。
 
-#### チケット M12-5: `SipClient::shutdown()` — idempotent・cancel safety
+#### ✅ チケット M12-5: `SipClient::shutdown()` — idempotent・cancel safety
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§32, §32.1)
 * **対象不変条件 / 規範:** §32「shutdown() は idempotent である。進行中 command をこれ以上受け付けず、全 call を BYE/CANCEL、全 account を unregister、audio pipeline を drain し、最後に pjsua_destroy を実行」。§32.1 cancellation safety。
@@ -984,7 +984,7 @@
   6. `shutdown_timeout` 超過時 → `Timeout` エラー
 * **計装方法・観測対象:** shutdown シーケンスの各ステップのトレーシングスパン。`watch::Sender::send(true)` が1回のみ呼ばれること（idempotent の実装確認）。
 
-#### チケット M12-6: 全公開API・PJSIP callback への `#[tracing::instrument]` 計装
+#### ✅ チケット M12-6: 全公開API・PJSIP callback への `#[tracing::instrument]` 計装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§34.1)
 * **対象不変条件 / 規範:** §34.1「全 public operation と native callback を tracing span で囲む」。例: `#[tracing::instrument(skip(self, request), fields(account_id = %self.id()))]`。
@@ -1012,7 +1012,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M13-1: `SipAccountHandle` — アカウント単位操作
+#### ✅ チケット M13-1: `SipAccountHandle` — アカウント単位操作
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.4)
 * **対象不変条件 / 規範:** §8.4「利用者は SipAccountHandle を通じてアカウント単位操作を行う」。`register`, `unregister`, `set_registration_enabled`, `registration_state`, `make_call`, `update_config`。
@@ -1035,7 +1035,7 @@
   6. shutdown 後の操作 → `ShutdownInProgress`
 * **計装方法・観測対象:** 全操作が oneshot RTT + reactor 処理時間で完了すること。`registration_state()` がロック取得のみ（RTT 不要）であること。
 
-#### チケット M13-2: 発着信API — `make_call` / `answer` / `hangup` / `hold` / `unhold` / `transfer` / `send_dtmf` / `call_state`
+#### ✅ チケット M13-2: 発着信API — `make_call` / `answer` / `hangup` / `hold` / `unhold` / `transfer` / `send_dtmf` / `call_state`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.5, §19, §19.1, §20, §38)
 * **対象不変条件 / 規範:** §19 発着信 API 詳細。§19.1 answer semantics（`180`/`183`/`200`/`486`/`603`）。§38 blind transfer mandatory。
@@ -1073,7 +1073,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M14-1: `AsyncAudioSource` trait（RPITIT）+ `ErasedAudioSource` blanket impl
+#### ✅ チケット M14-1: `AsyncAudioSource` trait（RPITIT）+ `ErasedAudioSource` blanket impl
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§23, §23.1)
 * **対象不変条件 / 規範:** §23「本crateは MSRV 1.95 を前提とし、RPITIT を採用する」。§23.1「内部の AudioMixer は Box<dyn AsyncAudioSource> でソースを保持するため、object-safe な wrapper trait を自動導出する。利用者が意識する必要は一切ない」。
@@ -1093,7 +1093,7 @@
   7. 1000フレームの連続 pull でメモリリークがないこと
 * **計装方法・観測対象:** blanket impl のコード生成サイズ（`Box::pin` 1回/フレーム）。`next_chunk` の戻り値（`usize`）が `buf.len()` 以下であることのランタイム検証。
 
-#### チケット M14-2: `SyncAudioSource` + `SyncSourceAdapter`
+#### ✅ チケット M14-2: `SyncAudioSource` + `SyncSourceAdapter`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§23.2)
 * **対象不変条件 / 規範:** §23.2「同期的な音声ソースを非同期traitに適合させるアダプタを提供する」。
@@ -1112,7 +1112,7 @@
   5. `into_inner()` が元の実装を返すこと
 * **計装方法・観測対象:** `SyncSourceAdapter` の変換オーバーヘッドがゼロであること（コンパイラが async fn を最適化することを期待）。
 
-#### チケット M14-3: 音声ソース管理 API — `add_audio_source` / `remove_audio_source` / `set_gain` / `mute`
+#### ✅ チケット M14-3: 音声ソース管理 API — `add_audio_source` / `remove_audio_source` / `set_gain` / `mute`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§24.4)
 * **対象不変条件 / 規範:** §24.4「通話中の追加・削除・切替は reactor command 経由で同期化し、次 frame 境界で反映する」。
