@@ -885,7 +885,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M12-1: `SipClient` 構造体（Arc + ClientInner）
+#### ✅ チケット M12-1: `SipClient` 構造体（Arc + ClientInner）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.2)
 * **対象不変条件 / 規範:** §8.2「SipClient は参照カウント化された薄いハンドルであり、内部に reactor handle、イベントバス、アカウント/通話インデックス、shutdown state を持つ」。§5「SipClient: Send + Sync の成立」。
@@ -903,7 +903,7 @@
   4. 100 clone の生成が `Arc::clone` のコストのみであること
 * **計装方法・観測対象:** `SipClient` のサイズが `Arc` 1個分（8バイト）であること。
 
-#### チケット M12-2: `SipClient::new()` — 初期化・バリデーション・Reactor起動
+#### ✅ チケット M12-2: `SipClient::new()` — 初期化・バリデーション・Reactor起動
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.3, §41.1)
 * **対象不変条件 / 規範:** §8.3「SipClient::new(config: ClientConfig) -> Result<Self, SipError>」。§42 fail-fast validation。§34.3 ClientCapabilities を ClientInitialized イベントで通知。
@@ -927,7 +927,7 @@
   5. 二重初期化 → `AlreadyInitialized` エラー（2回目の `new()` 呼び出し時。または単一 SipClient で `new()` は1回のみのため、2回目の `new()` は独立した別インスタンスになるが、PJSUA のプロセス単位制約による制限あり — MVP では単一インスタンスを推奨）
 * **計装方法・観測対象:** 初期化シーケンスの各ステップのトレーシングスパン。初期化失敗時のエラーメッセージに失敗ステップが明示されること。
 
-#### チケット M12-3: `subscribe()` / `subscribe_raw_sip()` / `subscribe_account()`
+#### ✅ チケット M12-3: `subscribe()` / `subscribe_raw_sip()` / `subscribe_account()`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.3, §15.4, §15.5)
 * **対象不変条件 / 規範:** §8.3「subscribe() は制御系イベントの broadcast receiver を購読する。subscribe_raw_sip() は RawSIP メッセージ専用の receiver を購読し、無効時は None」。§15.5 AccountEventReceiver。
