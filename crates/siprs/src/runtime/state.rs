@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 
 use crate::account::RegistrationState;
+use crate::call::CallState;
 use crate::config::AccountConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
@@ -13,16 +14,15 @@ use crate::event::ClientCapabilities;
 use crate::util::id::{AccountId, CallId};
 
 // ---------------------------------------------------------------------------
-// スケルトン型（M8-2 で正式定義に差し替え）
+// MediaRuntime — メディアランタイム情報
 // ---------------------------------------------------------------------------
 
+/// メディアランタイム情報。
+///
+/// M14-M16 で実際のフィールド（mixer, bridge, tap_handles 等）が追加される。
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) struct CallStateSkeleton;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct MediaRuntimeSkeleton;
+pub(crate) struct MediaRuntime;
 
 // ---------------------------------------------------------------------------
 // AccountEntry
@@ -36,6 +36,8 @@ pub(crate) struct MediaRuntimeSkeleton;
 pub(crate) struct AccountEntry {
     /// ランタイムアカウント ID。
     pub id: AccountId,
+    /// PJSUA ネイティブアカウント ID（M17-1 で ffi::pjsua_acc_id に差し替え）。
+    pub native_id: Option<i32>,
     /// アカウント設定。
     pub config: AccountConfig,
     /// 現在の登録状態。
@@ -54,12 +56,14 @@ pub(crate) struct AccountEntry {
 pub(crate) struct CallEntry {
     /// 通話 ID。
     pub id: CallId,
+    /// PJSUA ネイティブ通話 ID（M17-1 で ffi::pjsua_call_id に差し替え）。
+    pub native_id: Option<i32>,
     /// この通話が属するアカウント。
     pub account_id: AccountId,
-    /// 現在の通話状態（M8-2 で正式型に差し替え）。
-    pub state: CallStateSkeleton,
-    /// メディアランタイム情報（M8-2 で正式型に差し替え）。
-    pub media: Option<MediaRuntimeSkeleton>,
+    /// 現在の通話状態。
+    pub state: CallState,
+    /// メディアランタイム情報。
+    pub media: Option<MediaRuntime>,
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +79,8 @@ pub(crate) struct CallEntry {
 pub(crate) struct ClientState {
     /// 初期化済みフラグ。
     pub initialized: bool,
+    /// シャットダウン中フラグ（設定後は新規操作を拒否）。
+    pub shutting_down: bool,
     /// 管理下の全アカウント（AccountId → AccountEntry）。
     pub accounts: BTreeMap<AccountId, AccountEntry>,
     /// 管理下の全通話（CallId → CallEntry）。
@@ -89,6 +95,7 @@ impl ClientState {
     pub fn new(capabilities: ClientCapabilities) -> Self {
         Self {
             initialized: false,
+            shutting_down: false,
             accounts: BTreeMap::new(),
             calls: BTreeMap::new(),
             capabilities,
@@ -100,7 +107,11 @@ impl ClientState {
     /// アカウントエントリを追加する。
     ///
     /// 既存の `account_id` が存在する場合は `Err` を返す。
+    /// シャットダウン中は `InvalidState` を返す。
     pub fn add_account(&mut self, entry: AccountEntry) -> Result<(), SipError> {
+        if self.shutting_down {
+            return Err(SipError::invalid_state("client is shutting down"));
+        }
         let id = entry.id;
         if self.accounts.contains_key(&id) {
             return Err(SipError::invalid_config(format!(
@@ -131,7 +142,11 @@ impl ClientState {
     /// 通話エントリを追加する。
     ///
     /// 既存の `call_id` が存在する場合は `Err` を返す。
+    /// シャットダウン中は `InvalidState` を返す。
     pub fn add_call(&mut self, entry: CallEntry) -> Result<(), SipError> {
+        if self.shutting_down {
+            return Err(SipError::invalid_state("client is shutting down"));
+        }
         let id = entry.id;
         if self.calls.contains_key(&id) {
             return Err(SipError::invalid_config(format!(
@@ -160,6 +175,40 @@ impl ClientState {
     /// 現在の通話数を返す（`max_calls` 制限チェック用）。
     pub fn call_count(&self) -> usize {
         self.calls.len()
+    }
+
+    // ── Management operations ──
+
+    /// 同時通話数が上限未満かどうかを返す。
+    ///
+    /// `max_calls == 0` の場合は常に `false`（通話不可）。
+    pub fn can_add_call(&self, max_calls: u32) -> bool {
+        if max_calls == 0 {
+            return false;
+        }
+        self.calls.len() < max_calls as usize
+    }
+
+    /// シャットダウン状態に設定する。
+    ///
+    /// 設定後は `add_account` / `add_call` が `InvalidState` を返す。
+    pub fn set_shutting_down(&mut self) {
+        self.shutting_down = true;
+    }
+
+    /// シャットダウン中かどうかを返す。
+    pub fn is_shutting_down(&self) -> bool {
+        self.shutting_down
+    }
+
+    /// ネイティブアカウント ID からアカウントエントリを逆引きする。
+    pub fn get_account_by_native_id(&self, native_id: i32) -> Option<&AccountEntry> {
+        self.accounts.values().find(|e| e.native_id == Some(native_id))
+    }
+
+    /// ネイティブ通話 ID から通話エントリを逆引きする。
+    pub fn get_call_by_native_id(&self, native_id: i32) -> Option<&CallEntry> {
+        self.calls.values().find(|e| e.native_id == Some(native_id))
     }
 }
 
@@ -225,8 +274,9 @@ mod tests {
     /// `ClientState::new()` が空の状態を返すことを確認する。
     #[test]
     fn test_client_state_new() {
-        let state = ClientState::new(ClientCapabilities {});
+        let state = ClientState::new(ClientCapabilities::default_disabled());
         assert!(!state.initialized);
+        assert!(!state.shutting_down);
         assert!(state.accounts.is_empty());
         assert!(state.calls.is_empty());
         assert_eq!(state.call_count(), 0);
@@ -235,10 +285,11 @@ mod tests {
     /// `add_account` → `get_account` が正しいエントリを返すことを確認する。
     #[test]
     fn test_add_get_account() {
-        let mut state = ClientState::new(ClientCapabilities {});
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
         let acc_id = AccountId::generate();
         let entry = AccountEntry {
             id: acc_id,
+            native_id: None,
             config: test_account_config(),
             registration: RegistrationState::Idle,
         };
@@ -254,10 +305,11 @@ mod tests {
     /// 重複 `add_account` が `Err` を返すことを確認する。
     #[test]
     fn test_add_account_duplicate() {
-        let mut state = ClientState::new(ClientCapabilities {});
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
         let acc_id = AccountId::generate();
         let entry = AccountEntry {
             id: acc_id,
+            native_id: None,
             config: test_account_config(),
             registration: RegistrationState::Idle,
         };
@@ -265,6 +317,7 @@ mod tests {
 
         let duplicate = AccountEntry {
             id: acc_id,
+            native_id: None,
             config: test_account_config(),
             registration: RegistrationState::Idle,
         };
@@ -275,10 +328,11 @@ mod tests {
     /// `remove_account` 後 `get_account` が `AccountNotFound` を返すことを確認する。
     #[test]
     fn test_remove_account() {
-        let mut state = ClientState::new(ClientCapabilities {});
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
         let acc_id = AccountId::generate();
         let entry = AccountEntry {
             id: acc_id,
+            native_id: None,
             config: test_account_config(),
             registration: RegistrationState::Idle,
         };
@@ -298,13 +352,14 @@ mod tests {
     /// `add_call` 時 `call_count` が増加することを確認する。
     #[test]
     fn test_add_call_count() {
-        let mut state = ClientState::new(ClientCapabilities {});
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
         assert_eq!(state.call_count(), 0);
 
         let entry = CallEntry {
             id: CallId::generate(),
+            native_id: None,
             account_id: AccountId::generate(),
-            state: CallStateSkeleton,
+            state: CallState::New,
             media: None,
         };
         assert!(state.add_call(entry).is_ok());
@@ -314,12 +369,13 @@ mod tests {
     /// `remove_call` 後 `get_call` が `CallNotFound` を返すことを確認する。
     #[test]
     fn test_remove_call() {
-        let mut state = ClientState::new(ClientCapabilities {});
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
         let call_id = CallId::generate();
         let entry = CallEntry {
             id: call_id,
+            native_id: None,
             account_id: AccountId::generate(),
-            state: CallStateSkeleton,
+            state: CallState::New,
             media: None,
         };
         assert!(state.add_call(entry).is_ok());
@@ -338,7 +394,7 @@ mod tests {
     /// 存在しない account_id で `AccountNotFound` が返ることを確認する。
     #[test]
     fn test_account_not_found() {
-        let state = ClientState::new(ClientCapabilities {});
+        let state = ClientState::new(ClientCapabilities::default_disabled());
         let result = state.get_account(AccountId::generate());
         assert!(result.is_err());
         assert!(matches!(
@@ -350,12 +406,125 @@ mod tests {
     /// 存在しない call_id で `CallNotFound` が返ることを確認する。
     #[test]
     fn test_call_not_found() {
-        let state = ClientState::new(ClientCapabilities {});
+        let state = ClientState::new(ClientCapabilities::default_disabled());
         let result = state.get_call(CallId::generate());
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err().kind,
             SipErrorKind::CallNotFound
         ));
+    }
+
+    // -----------------------------------------------------------------------
+    // ClientState management tests
+    // -----------------------------------------------------------------------
+
+    /// max_calls=3 で 3 通話目まで true、4 通話目で false。
+    #[test]
+    fn test_can_add_call_under_limit() {
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
+        assert_eq!(state.call_count(), 0);
+        assert!(state.can_add_call(3));
+
+        // 3 通話追加
+        for _ in 0..3 {
+            assert!(state.can_add_call(3));
+            let entry = CallEntry {
+                id: CallId::generate(),
+                native_id: None,
+                account_id: AccountId::generate(),
+                state: CallState::New,
+                media: None,
+            };
+            assert!(state.add_call(entry).is_ok());
+        }
+
+        // 4 通話目は false
+        assert!(!state.can_add_call(3));
+    }
+
+    /// max_calls=0 で常に false。
+    #[test]
+    fn test_can_add_call_zero_limit() {
+        let state = ClientState::new(ClientCapabilities::default_disabled());
+        assert!(!state.can_add_call(0));
+    }
+
+    /// set_shutting_down() 後 is_shutting_down() == true。
+    #[test]
+    fn test_shutting_down_flag() {
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
+        assert!(!state.is_shutting_down());
+        state.set_shutting_down();
+        assert!(state.is_shutting_down());
+    }
+
+    /// shutdown 中 add_call が InvalidState を返す。
+    #[test]
+    fn test_shutdown_rejects_add_call() {
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
+        state.set_shutting_down();
+
+        let result = state.add_call(CallEntry {
+            id: CallId::generate(),
+            native_id: None,
+            account_id: AccountId::generate(),
+            state: CallState::New,
+            media: None,
+        });
+        assert!(result.is_err());
+    }
+
+    /// shutdown 中 add_account が InvalidState を返す。
+    #[test]
+    fn test_shutdown_rejects_add_account() {
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
+        state.set_shutting_down();
+
+        let result = state.add_account(AccountEntry {
+            id: AccountId::generate(),
+            native_id: None,
+            config: test_account_config(),
+            registration: RegistrationState::Idle,
+        });
+        assert!(result.is_err());
+    }
+
+    /// get_account_by_native_id / get_call_by_native_id の正引きを確認する。
+    #[test]
+    fn test_native_id_reverse_lookup() {
+        let mut state = ClientState::new(ClientCapabilities::default_disabled());
+
+        let acc_id = AccountId::generate();
+        let call_id = CallId::generate();
+        assert!(state.add_account(AccountEntry {
+            id: acc_id,
+            native_id: Some(42),
+            config: test_account_config(),
+            registration: RegistrationState::Registered,
+        }).is_ok());
+        assert!(state.add_call(CallEntry {
+            id: call_id,
+            native_id: Some(100),
+            account_id: acc_id,
+            state: CallState::Active,
+            media: None,
+        }).is_ok());
+
+        if let Some(acc) = state.get_account_by_native_id(42) {
+            assert_eq!(acc.id, acc_id);
+        } else {
+            panic!("get_account_by_native_id が None を返しました");
+        }
+
+        if let Some(call) = state.get_call_by_native_id(100) {
+            assert_eq!(call.id, call_id);
+        } else {
+            panic!("get_call_by_native_id が None を返しました");
+        }
+
+        // 存在しない native_id
+        assert!(state.get_account_by_native_id(999).is_none());
+        assert!(state.get_call_by_native_id(999).is_none());
     }
 }

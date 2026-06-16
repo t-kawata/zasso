@@ -586,7 +586,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M8-1: `RegistrationState` enum / `ClientState` / `AccountEntry` / `CallEntry` 定義
+#### ✅ チケット M8-1: `RegistrationState` enum / `ClientState` / `AccountEntry` / `CallEntry` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§17, §33)
 * **対象不変条件 / 規範:** §17 登録状態モデル（`Disabled`, `Idle`, `Registering`, `Registered`, `Unregistering`, `Failed`, `Expired`）。§17.1 遷移規則。§33「状態の唯一正本は reactor thread が所有し、公開 query API は snapshot clone を返す」。§33 AccountEntry / CallEntry 定義。
@@ -617,7 +617,7 @@
   8. `RegistrationState` の全バリアントの `Display` が期待通りであること
 * **計装方法・観測対象:** `BTreeMap` のキー順序が `AccountId` / `CallId` の `Ord` に従うこと。
 
-#### チケット M8-2: `CallState` enum / `MediaRuntime` 定義
+#### ✅ チケット M8-2: `CallState` enum / `MediaRuntime` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§18, §18.1)
 * **対象不変条件 / 規範:** §18 通話状態モデル（`New`, `Calling`, `Trying`, `Ringing`, `EarlyMedia`, `Incoming`, `Connecting`, `Active`, `Held`, `Transferring`, `Disconnecting`, `Disconnected`, `Failed`）。§18.1 遷移規則。
@@ -635,7 +635,7 @@
   4. 全13バリアントの `Debug` / `Clone` / `Copy` / `PartialEq` / `Eq` が正しく機能すること
 * **計装方法・観測対象:** `CallState` の discriminant サイズ（`u8` に収まることの確認）。状態遷移検証の決定論性。
 
-#### チケット M8-3: `ClientCapabilities` / `SrtpImplementation` / `AudioDeviceCaps` 定義
+#### ✅ チケット M8-3: `ClientCapabilities` / `SrtpImplementation` / `AudioDeviceCaps` 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§34.3)
 * **対象不変条件 / 規範:** §34.3「ClientCapabilities は初期化完了時に ClientInitialized イベントに載せて通知される。PJSIP のビルド時 feature とランタイム検出結果を反映し、利用者が実行可能な機能を判断するために用いる」。
@@ -658,7 +658,7 @@
 
 > **DB:** メモリ内完結。MockBackend（M10-2）を使用して全遷移を決定論的に検証する。
 
-#### チケット M9-1: `RegistrationState` 遷移ロジック
+#### ✅ チケット M9-1: `RegistrationState` 遷移ロジック
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§17, §17.1)
 * **対象不変条件 / 規範:** §17.1 遷移規則（全8遷移パス）。「未登録でも make_call() は常に可能であるため、RegistrationState は発信可否に影響しない」。
@@ -682,7 +682,7 @@
   9. `make_call()` が全 RegistrationState で呼び出し可能であること（発信可否に影響しない不変条件）
 * **計装方法・観測対象:** 全状態×全イベントの組み合わせ（8状態×6イベント=48通り）の遷移結果をテーブルテスト。不正遷移でのエラーメッセージに現在状態と要求イベントが含まれること。
 
-#### チケット M9-2: `CallState` 遷移ロジック
+#### ✅ チケット M9-2: `CallState` 遷移ロジック
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§18, §18.1)
 * **対象不変条件 / 規範:** §18.1 遷移規則（発信パス、着信パス、Hold/Unhold/Transfer、切断パス）。「max_calls を上限とする」。
@@ -707,7 +707,7 @@
   12. 全状態×全イベントの遷移テーブルテスト（13状態×12イベント=156通り）
 * **計装方法・観測対象:** 全遷移の決定論性。不正遷移時のエラーメッセージに現在状態と要求イベントが含まれること。
 
-#### チケット M9-3: `ClientState` 管理 — 同時通話制約・shutdown 状態
+#### ✅　チケット M9-3: `ClientState` 管理 — 同時通話制約・shutdown 状態
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§18.2, §33)
 * **対象不変条件 / 規範:** §18.2「ClientConfig::max_calls を上限とする。アカウントごとの上限は未設定なら無制限だが、client 上限だけは強制する」。§33「状態の唯一正本は reactor thread が所有」。

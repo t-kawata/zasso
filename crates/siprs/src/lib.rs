@@ -9,6 +9,7 @@
 
 pub mod account;
 pub mod audio;
+pub mod call;
 pub mod config;
 pub mod error;
 pub mod event;

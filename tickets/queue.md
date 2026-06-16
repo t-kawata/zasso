@@ -101,3 +101,8 @@
 - [x] #90 M7-1: EventBus 構造体と基本操作 | /Users/shyme/shyme/zasso/tickets/specs/0090-m7-1-event-bus.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #91 M7-2: AccountEventReceiver — アカウントフィルタリング | /Users/shyme/shyme/zasso/tickets/specs/0091-m7-2-account-event-receiver.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #92 M8-1: RegistrationState / ClientState / AccountEntry / CallEntry 定義 | /Users/shyme/shyme/zasso/tickets/specs/0092-m8-1-state-types.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #93 M8-2: CallState / MediaRuntime 定義 | /Users/shyme/shyme/zasso/tickets/specs/0093-m8-2-call-state-media-runtime.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #94 M8-3: ClientCapabilities / SrtpImplementation / AudioDeviceCaps 定義 | /Users/shyme/shyme/zasso/tickets/specs/0094-m8-3-client-capabilities.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #95 M9-1: RegistrationState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0095-m9-1-registration-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #96 M9-2: CallState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0096-m9-2-call-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #97 M9-3: ClientState 管理 — 同時通話制約・shutdown 状態 | /Users/shyme/shyme/zasso/tickets/specs/0097-m9-3-client-state-management.md | 2026-06-16 | 2026-06-16 | 2026-06-16
