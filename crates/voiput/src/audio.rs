@@ -190,6 +190,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "実際に開始音・終了音が再生されるため"]
     fn test_play_before_init_does_not_panic() {
         // init 前の再生呼び出しは無視されるだけでパニックしない
         play_ready_sound();
