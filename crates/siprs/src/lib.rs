@@ -10,12 +10,10 @@
 pub mod account;
 pub mod audio;
 pub mod call;
+pub mod client;
 pub mod config;
 pub mod error;
 pub mod event;
 pub mod runtime;
 pub mod transport;
 pub mod util;
-
-// Phase 2 以降で順次追加:
-// pub mod client; // M12: SipClient

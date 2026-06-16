@@ -588,7 +588,7 @@ impl RawSipMessage {
 /// 制御系イベント（`control`）と RawSIP メッセージ（`raw_sip`）の
 /// 2 チャネル構成で、大量の RawSIP メッセージが制御系イベントの
 /// 配送に影響しないことを保証する。
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EventBus {
     /// 制御系イベントのプライマリバス。
     control: broadcast::Sender<SipEvent>,
