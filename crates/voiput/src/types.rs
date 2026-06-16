@@ -15,6 +15,41 @@ pub enum SttEngine {
     /// OS ネイティブ認識（macOS: SFSpeechRecognizer / Windows: WinRT）
     #[default]
     Os,
+    /// ローカル ASR モデル（sherpa-onnx 経由）
+    Local { backend: LocalAsrKind },
+}
+
+/// ローカル ASR バックエンドの種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalAsrKind {
+    /// Qwen3-ASR（sherpa-onnx OfflineRecognizer）
+    Qwen3Asr,
+}
+
+/// Qwen3-ASR モデルファイルへのパス群
+#[derive(Debug, Clone)]
+pub struct Qwen3AsrModelPaths {
+    /// encoder.onnx のパス
+    pub encoder: String,
+    /// decoder.onnx のパス
+    pub decoder: String,
+    /// joiner.onnx のパス
+    pub joiner: String,
+    /// tokens.txt のパス
+    pub tokens: String,
+}
+
+/// Qwen3-ASR 推論パラメータ
+#[derive(Debug, Clone)]
+pub struct Qwen3AsrConfig {
+    /// モデルファイルへのパス
+    pub model_paths: Qwen3AsrModelPaths,
+    /// ONNX Runtime のプロバイダ（"cpu", "cuda" 等）
+    pub provider: String,
+    /// Sherpa-ONNX の推論スレッド数
+    pub num_threads: i32,
+    /// デバッグモード
+    pub debug: bool,
 }
 
 // ============================================================================

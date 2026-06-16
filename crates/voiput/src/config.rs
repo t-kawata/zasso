@@ -5,8 +5,8 @@
 
 use crate::error::VoiputError;
 use crate::types::{
-    DenoiserConfig, LocaleCode, OpenAiConfig, PostCorrectionConfig, SignalFilterConfig, SttEngine,
-    VadConfig, VadModelPaths,
+    DenoiserConfig, LocaleCode, OpenAiConfig, PostCorrectionConfig, Qwen3AsrConfig,
+    SignalFilterConfig, SttEngine, VadConfig, VadModelPaths,
 };
 
 /// 音声認識の全設定
@@ -18,6 +18,8 @@ pub struct VoiputConfig {
     pub locale: LocaleCode,
     /// OpenAI 設定（engine == OpenAI の場合のみ必要）
     pub openai_config: Option<OpenAiConfig>,
+    /// Qwen3-ASR 設定（engine == Local(Qwen3Asr) の場合のみ必要）
+    pub qwen3_asr_config: Option<Qwen3AsrConfig>,
     /// PostCorrection 用 OpenAI 設定（エンジン非依存、OS エンジンでも LLM 補正を有効にする）
     pub post_correction_openai_config: Option<OpenAiConfig>,
     /// VAD 設定
@@ -63,6 +65,7 @@ pub struct VoiputConfigBuilder {
     engine: Option<SttEngine>,
     locale: Option<LocaleCode>,
     openai_config: Option<OpenAiConfig>,
+    qwen3_asr_config: Option<Qwen3AsrConfig>,
     post_correction_openai_config: Option<OpenAiConfig>,
     vad: Option<VadConfig>,
     post_correction: Option<PostCorrectionConfig>,
@@ -86,6 +89,13 @@ impl VoiputConfigBuilder {
     }
     pub fn openai_config(mut self, c: OpenAiConfig) -> Self {
         self.openai_config = Some(c);
+        self
+    }
+    /// Qwen3-ASR 設定を指定する。
+    ///
+    /// engine が `Local(Qwen3Asr)` の場合、この設定は必須。
+    pub fn qwen3_asr_config(mut self, c: Qwen3AsrConfig) -> Self {
+        self.qwen3_asr_config = Some(c);
         self
     }
     /// PostCorrection（LLM 事後補正）用の OpenAI 設定を指定する。
@@ -157,6 +167,7 @@ impl VoiputConfigBuilder {
             engine,
             locale,
             openai_config: self.openai_config,
+            qwen3_asr_config: self.qwen3_asr_config,
             post_correction_openai_config: self.post_correction_openai_config,
             vad: self.vad.unwrap_or_default(),
             post_correction: self.post_correction.unwrap_or_default(),

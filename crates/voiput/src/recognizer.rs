@@ -223,6 +223,9 @@ impl SpeechRecognizer {
                 }
             }
             SttEngine::OpenAI => Ok(()),
+            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
+            // Local バックエンドは全プラットフォームで利用可能。
+            SttEngine::Local { .. } => Ok(()),
         }
     }
 
@@ -383,6 +386,12 @@ impl SpeechRecognizer {
                 log::error!("[SpeechRecognizer] No native backend for Os engine");
                 self.is_running.store(false, Ordering::SeqCst);
             }
+            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
+            // LocalRecognizerAdapter の start() を呼び出す。
+            SttEngine::Local { .. } => {
+                log::error!("[SpeechRecognizer] Local backend not initialized (stub)");
+                self.is_running.store(false, Ordering::SeqCst);
+            }
         }
     }
 
@@ -413,6 +422,9 @@ impl SpeechRecognizer {
                     backend.stop();
                 }
             }
+            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
+            // LocalRecognizerAdapter の stop() を呼び出す。
+            SttEngine::Local { .. } => {}
         }
 
         let _ = self.tx.try_send(SttEvent::Stopped);
@@ -535,6 +547,9 @@ impl SpeechRecognizer {
                     backend.tick();
                 }
             }
+            // [::STUB::] M6-1: SpeechRecognizer dispatch で本実装に置き換える。
+            // Local バックエンドの tick() は no-op（RFC §7 動作表）。
+            SttEngine::Local { .. } => {}
         }
     }
 }

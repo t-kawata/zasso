@@ -113,3 +113,9 @@
 - [x] #100 M11-1: RuntimeCommand enum 定義 | /Users/shyme/shyme/zasso/tickets/specs/0100-m11-1-runtime-command.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #101 M11-2: RuntimeHandle — MPSC + oneshot 送受信 | /Users/shyme/shyme/zasso/tickets/specs/0101-m11-2-runtime-handle.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #102 M11-3: Reactor loop — 単一スレッドでのコマンド処理 | /Users/shyme/shyme/zasso/tickets/specs/0102-m11-3-reactor-loop.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #98 AsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0098-asrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #99 LocalAsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0099-localasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #100 trate クレートのモックベース単体テスト | /Users/kawata/shyme/zasso/tickets/specs/0100-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #101 LocalAsrKind 列挙型の定義 | /Users/kawata/shyme/zasso/tickets/specs/0101-localasrkind.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #102 SttEngine::Local バリアントの追加 | /Users/kawata/shyme/zasso/tickets/specs/0102-sttenginelocal.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #103 Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義 | /Users/kawata/shyme/zasso/tickets/specs/0103-qwen3asrmodelpaths-qwen3asrconfig.md | 2026-06-16 | 2026-06-16 | 2026-06-16
