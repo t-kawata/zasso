@@ -738,7 +738,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M10-1: `SipBackend` trait 定義
+#### ✅ チケット M10-1: `SipBackend` trait 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27a)
 * **対象不変条件 / 規範:** §27a「Runtime はこの trait を通じてのみ PJSUA を操作し、直接的な FFI 依存を runtime 層に漏らさない」。`pub(crate)` であり外部に公開されない。
@@ -765,7 +765,7 @@
   3. 全メソッドシグネチャが§27a と一致すること
 * **計装方法・観測対象:** trait のメソッド数が§27a の定義と一致すること（コンパイル時の const assert）。将来のバックエンド追加に備えたドキュメントコメントの完備。
 
-#### チケット M10-2: `MockBackend` 実装
+#### ✅ チケット M10-2: `MockBackend` 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §43.2)
 * **対象不変条件 / 規範:** §43.2「MockBackend を注入した Runtime を使用し、PJSIP の初期化なしに状態機械の全遷移を検証する」。§27a「内部テスト用として定義するに留める」。
@@ -793,7 +793,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M11-1: `RuntimeCommand` enum 定義
+#### ✅ チケット M11-1: `RuntimeCommand` enum 定義
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§7.2, §19, §22, §24.4)
 * **対象不変条件 / 規範:** §7.2 command serialization「公開 API は RuntimeCommand を unbounded MPSC で reactor へ送る。reactor は単一スレッドで順序実行し、結果を oneshot で返す」。§19 発着信API（Answer/Transfer）、§22 音声購読API（SubscribeAudio）、§24.4 音声ソース管理API（AddAudioSource/RemoveAudioSource/SetSourceGain/MuteSource）。RFC §7.2 の11バリアントに不足する6バリアントをこれらのセクションから補完している。
@@ -826,7 +826,7 @@
   4. `HangupReason` の全バリアントが定義されていること
 * **計装方法・観測対象:** `RuntimeCommand` のサイズが最大バリアントのサイズ + discriminant であること。
 
-#### チケット M11-2: `RuntimeHandle` — MPSC + oneshot 送受信
+#### ✅ チケット M11-2: `RuntimeHandle` — MPSC + oneshot 送受信
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§7.2)
 * **対象不変条件 / 規範:** §7.2「公開 API は RuntimeCommand を unbounded MPSC で reactor へ送る」。
@@ -847,7 +847,7 @@
   6. cancel safety: `send_and_wait` の `.await` 中に caller task が cancel されても reactor 側の処理は継続すること（§32.1）
 * **計装方法・観測対象:** `send` が非ブロッキングであること（unbounded channel の特性）。`oneshot` のメモリ確保が1コマンドあたり1回であること。
 
-#### チケット M11-3: Reactor loop — 単一スレッドでのコマンド処理
+#### ✅ チケット M11-3: Reactor loop — 単一スレッドでのコマンド処理
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§7.1)
 * **対象不変条件 / 規範:** §7.1 実行コンテキスト「Core reactor は std::thread::JoinHandle<()> 上で動作する専用スレッド。すべての PJSUA 制御 API をここで実行」。§46 panic policy「公開 API は panic-free を目標とする」。
