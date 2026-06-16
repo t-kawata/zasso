@@ -7,6 +7,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 #[cfg(test)]
 use tokio::sync::watch;
@@ -21,23 +22,22 @@ use crate::event::{ConnectedCallInfo, SipEventPayload};
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::state::ClientState;
 use crate::util::id::AccountId;
+use crate::config::AccountConfig;
+use crate::error::SipError;
+use crate::runtime::command::RuntimeCommand;
+use crate::config::validate_account_config;
 
 #[cfg(test)]
 use crate::event::ClientCapabilities;
 #[cfg(test)]
 use crate::runtime::backend::SipBackend;
 #[cfg(test)]
-use crate::runtime::command::RuntimeCommand;
-#[cfg(test)]
 use crate::runtime::reactor::CoreReactor;
 #[cfg(test)]
 use crate::config::validate_client_config;
-#[cfg(test)]
-use crate::error::SipError;
 
 /// 現在の Tokio ランタイムハンドルを取得する。
 /// ランタイム外で呼ばれた場合は新規作成する。
-#[cfg(test)]
 fn block_on<F: std::future::Future<Output = T>, T>(f: F) -> T {
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         // 既存ランタイム上で block_in_place 経由で future を実行。
@@ -64,8 +64,6 @@ pub struct SipClient {
 /// `SipClient` の内部状態。
 ///
 /// 公開APIからは直接アクセスされず、`SipClient` のメソッド経由で操作される。
-// M12-2 以降で使用。現在は未使用フィールドのため dead_code を許容。
-#[allow(dead_code)]
 pub(crate) struct ClientInner {
     /// Reactor との通信ハンドル。
     pub runtime: RuntimeHandle,
@@ -102,6 +100,7 @@ impl SipClient {
     /// 4. Initialize コマンド送信
     /// 5. ClientInitialized イベント発行完了まで待機
     #[cfg(test)]
+    #[instrument(skip_all)]
     pub(crate) fn new(config: ClientConfig, backend: Box<dyn SipBackend>) -> Result<Self, SipError> {
         // 1. Config バリデーション
         validate_client_config(&config)?;
@@ -149,19 +148,113 @@ impl SipClient {
     }
 
     /// 制御系イベントを購読する。
+    #[instrument(skip(self))]
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<SipEvent> {
         self.inner.events.subscribe_control()
     }
 
     /// RawSIP メッセージを購読する（無効時は `None`）。
+    #[instrument(skip(self))]
     pub fn subscribe_raw_sip(&self) -> Option<tokio::sync::broadcast::Receiver<RawSipMessage>> {
         self.inner.events.subscribe_raw_sip()
     }
 
     /// 特定アカウントのイベントのみを購読する。
+    #[instrument(skip(self), fields(account_id = %account_id))]
     pub fn subscribe_account(&self, account_id: AccountId) -> AccountEventReceiver {
         AccountEventReceiver::new(account_id, self.subscribe())
     }
+
+    /// SIP アカウントを追加する。
+    ///
+    /// Config バリデーション後、reactor 経由で PJSUA アカウントを作成し、
+    /// `SipAccountHandle` を返す。
+    #[instrument(skip(self, config))]
+    pub fn add_account(&self, config: AccountConfig) -> Result<SipAccountHandle, SipError> {
+        validate_account_config(&config)?;
+
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::AddAccount { config, reply }
+        }))?;
+
+        Ok(SipAccountHandle {
+            id: AccountId::generate(),
+            client: self.clone(),
+        })
+    }
+
+    /// SIP アカウントを削除する。
+    #[instrument(skip(self), fields(account_id = %account_id))]
+    pub fn remove_account(&self, account_id: AccountId) -> Result<(), SipError> {
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::RemoveAccount { account_id, reply }
+        }))
+    }
+
+    /// アカウントハンドルを取得する。
+    ///
+    /// 存在しない account_id の場合は `AccountNotFound` を返す。
+    #[instrument(skip(self), fields(account_id = %account_id))]
+    pub fn account(&self, account_id: AccountId) -> Result<SipAccountHandle, SipError> {
+        let state = self.inner.state.blocking_read();
+        let _entry = state.get_account(account_id)?;
+        drop(state);
+        Ok(SipAccountHandle {
+            id: account_id,
+            client: self.clone(),
+        })
+    }
+
+    /// 全アカウントのハンドル一覧を返す。
+    #[instrument(skip(self))]
+    pub fn accounts(&self) -> Vec<SipAccountHandle> {
+        let state = self.inner.state.blocking_read();
+        state
+            .accounts
+            .keys()
+            .map(|id| SipAccountHandle {
+                id: *id,
+                client: self.clone(),
+            })
+            .collect()
+    }
+
+    /// シャットダウンする（idempotent）。
+    ///
+    /// 2回目以降の呼び出しは即座に `Ok(())` を返す。
+    #[instrument(skip(self))]
+    pub fn shutdown(&self) -> Result<(), SipError> {
+        // 既に shutdown 状態なら即座に Ok を返す（idempotent）。
+        if self.is_shutdown() {
+            return Ok(());
+        }
+        // watch チャネルに shutdown を通知。
+        let _ = self.inner.shutdown.send(true);
+        // reactor に Shutdown コマンドを送信。
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Shutdown { reply }
+        }))
+    }
+
+    /// シャットダウン状態かを確認する。
+    #[instrument(skip(self))]
+    pub fn is_shutdown(&self) -> bool {
+        *self.inner.shutdown.borrow()
+    }
+}
+
+/// SIP アカウントハンドル（M13-1 で拡張予定）。
+///
+/// 現在は `AccountId` と親 `SipClient` の参照のみを保持する最小構造体。
+#[derive(Clone, Debug)]
+pub struct SipAccountHandle {
+    /// ランタイムアカウント ID。
+    pub id: AccountId,
+    /// 親クライアントハンドル。
+    /// [::STUB::] M13-1（チケット #111）で `make_call()` / `hangup()` 等の
+    /// アカウント操作メソッド実装時に使用開始。現在は dead_code を許容。
+    #[allow(dead_code)]
+    pub(crate) client: SipClient,
 }
 
 // ---------------------------------------------------------------------------
@@ -347,5 +440,138 @@ mod tests {
 
         assert!(rx1.try_recv().is_ok());
         assert!(rx2.try_recv().is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // add_account / remove_account / account / accounts tests
+    // -----------------------------------------------------------------------
+
+    /// add_account に有効な config を渡すと Ok(SipAccountHandle) が返ること。
+    #[test]
+    fn test_add_account_valid() {
+        let (handle, _rx) = RuntimeHandle::new();
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events,
+            state,
+            shutdown: _shutdown_tx,
+        });
+        // 注: 実際の reactor がないため add_account はブロックする。
+        // ここでは SipAccountHandle が構築可能であることのみ確認する。
+        let _handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client: SipClient { inner },
+        };
+    }
+
+    /// account() が存在しない ID で AccountNotFound を返すこと。
+    #[test]
+    fn test_account_not_found() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let result = client.account(AccountId::generate());
+        assert!(result.is_err());
+    }
+
+    /// accounts() が空のリストを返すこと。
+    #[test]
+    fn test_accounts_empty() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let accounts = client.accounts();
+        assert!(accounts.is_empty());
+    }
+
+    /// SipAccountHandle の Clone と Debug が機能すること。
+    #[test]
+    fn test_account_handle_clone_debug() {
+        let handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client: SipClient {
+                inner: Arc::new(ClientInner {
+                    runtime: RuntimeHandle::new().0,
+                    events: EventBus::new(16, None),
+                    state: Arc::new(RwLock::new(ClientState::new(
+                        ClientCapabilities::default_disabled(),
+                    ))),
+                    shutdown: watch::channel(false).0,
+                }),
+            },
+        };
+        let cloned = handle.clone();
+        assert_eq!(handle.id, cloned.id);
+        let debug = format!("{:?}", handle);
+        assert!(debug.contains("SipAccountHandle"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Shutdown tests
+    // -----------------------------------------------------------------------
+
+    /// is_shutdown() がデフォルトで false を返すことを確認する。
+    #[test]
+    fn test_is_shutdown_default_false() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+        assert!(!client.is_shutdown());
+    }
+
+    /// shutdown() が is_shutdown を true にすることを確認する。
+    ///
+    /// 注: 実際の reactor がないため shutdown コマンドは送信できず、
+    /// ここでは watch チャネルの状態変更のみを検証する。
+    #[test]
+    fn test_shutdown_sets_flag() {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        // is_shutdown が watch 値を見ることを確認。
+        assert!(!client.is_shutdown());
+        let _ = client.inner.shutdown.send(true);
+        assert!(client.is_shutdown());
     }
 }

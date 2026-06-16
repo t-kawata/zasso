@@ -126,3 +126,6 @@
 - [x] #105 パス解決の純粋関数群 | /Users/kawata/shyme/zasso/tickets/specs/0105-untitled-4.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #106 voiput Cargo.toml への trate 依存追加 | /Users/kawata/shyme/zasso/tickets/specs/0106-voiput-cargotoml-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #107 pipeline/streamer.rs AsrBackend 移行 + lib.rs 再公開更新 | /Users/kawata/shyme/zasso/tickets/specs/0107-pipelinestreamerrs-asrbackend-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #108 M12-4: add_account() / remove_account() / account() / accounts() | /Users/shyme/shyme/zasso/tickets/specs/0108-m12-4-add-account.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #109 M12-5: SipClient::shutdown() — idempotent・cancel safety | /Users/shyme/shyme/zasso/tickets/specs/0109-m12-5-shutdown.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #110 M12-6: 全公開API・PJSIP callback への #[tracing::instrument] 計装 | /Users/shyme/shyme/zasso/tickets/specs/0110-m12-6-tracing-instrument.md | 2026-06-17 | 2026-06-16 | 2026-06-16

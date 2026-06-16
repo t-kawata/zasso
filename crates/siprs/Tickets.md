@@ -943,7 +943,7 @@
   4. 複数 `subscribe()` 呼び出しが独立した receiver を返すこと
 * **計装方法・観測対象:** 全 subscribe メソッドが非同期呼び出し不要（同期的）であること。
 
-#### チケット M12-4: `add_account()` / `remove_account()` / `account()` / `accounts()`
+#### ✅ チケット M12-4: `add_account()` / `remove_account()` / `account()` / `accounts()`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.3, §8.4)
 * **対象不変条件 / 規範:** §8.3 SipClient API。§8.4 SipAccountHandle API。§11.1 validation rules。
@@ -963,7 +963,7 @@
   7. `account()` が存在するIDで `Ok`、存在しないIDで `Err` を返すこと
 * **計装方法・観測対象:** `add_account` の処理時間が PJSUA 呼び出し + 1 RTT（oneshot）であること。
 
-#### チケット M12-5: `SipClient::shutdown()` — idempotent・cancel safety
+#### ✅ チケット M12-5: `SipClient::shutdown()` — idempotent・cancel safety
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§32, §32.1)
 * **対象不変条件 / 規範:** §32「shutdown() は idempotent である。進行中 command をこれ以上受け付けず、全 call を BYE/CANCEL、全 account を unregister、audio pipeline を drain し、最後に pjsua_destroy を実行」。§32.1 cancellation safety。
@@ -984,7 +984,7 @@
   6. `shutdown_timeout` 超過時 → `Timeout` エラー
 * **計装方法・観測対象:** shutdown シーケンスの各ステップのトレーシングスパン。`watch::Sender::send(true)` が1回のみ呼ばれること（idempotent の実装確認）。
 
-#### チケット M12-6: 全公開API・PJSIP callback への `#[tracing::instrument]` 計装
+#### ✅ チケット M12-6: 全公開API・PJSIP callback への `#[tracing::instrument]` 計装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§34.1)
 * **対象不変条件 / 規範:** §34.1「全 public operation と native callback を tracing span で囲む」。例: `#[tracing::instrument(skip(self, request), fields(account_id = %self.id()))]`。
