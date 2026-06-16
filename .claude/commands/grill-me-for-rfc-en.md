@@ -97,12 +97,44 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"..."
 
 ## ★ First-Class Rules (MUST be followed without exception)
 
-1. **Every question MUST be phrased as an AI proposal answerable by Yes/No or an A/B/C choice.**
-   - Good: "Should we take approach A?  A) Yes  B) No  C) Alternative"
-   - Bad: "What approach would you like to take?" (open-ended questions are forbidden)
-2. **Multiple questions may be asked in one turn. Avoid excessive volume; consolidate related questions.**
+1. **Every question MUST include the AI's reasoning, background analysis, and trade-offs as a concrete proposal, while remaining answerable by Yes/No or an A/B/C choice.**
+
+   - Good (background → line-broken choices → recommendation with reasoning):
+     ```
+     On authentication: I propose JWT.
+     Rationale: high compatibility with existing systems, rich library ecosystem,
+     and stateless design suitable for horizontal scaling. Session-based auth is
+     simpler to manage server-side but requires additional design for scaling.
+     
+       A) JWT
+       B) Session-based
+       C) Both
+     
+     I recommend A (JWT). The ecosystem maturity and extensibility significantly
+     outperform the alternatives. What do you think?
+     ```
+   - Bad (no reasoning, no line breaks between choices): "Should we use JWT? A) Yes  B) No"
+
+2. **Bundle questions at a coarse granularity. Do NOT treat each design decision as a single question — each question should cover 3–5 nodes, and each turn should present 5–10 questions.**
+
+   - One question covers a sub-domain (e.g., "choice of authentication method") bundling 3–5 related decisions together
+   - One turn covers a larger design domain (e.g., the entire auth system) composed of 5–10 questions
+   - Use a two-pass approach: decide the big-picture architecture first, then drill into details
+   - At the end of each turn, summarize what was decided before moving to the next turn
 3. **Do not write any RFC content during the grill session. Focus solely on questions and answers.**
 4. **After receiving a user's answer, immediately update the corresponding DesignTree nodes.**
+
+### Question Format Validation Gate (MANDATORY)
+
+**Before presenting any question to the user, you MUST pass it through `validate-question-format.js`. Presenting an unvalidated question is forbidden.**
+
+```bash
+node .claude/scripts/grill-me-for-rfc/validate-question-format.js "question text here"
+```
+
+- Do NOT present a question until validation returns `valid: true`
+- If validation returns `valid: false`, reformulate the question according to the error message and re-validate
+- Skipping this validation is a first-class rule violation and is not permitted
 
 ## DesignTree Updates (run after every user answer)
 
