@@ -243,7 +243,19 @@ branch:
 		echo "[ABORT] 'name' is required. Usage: make branch name=\"<branch-name>\""; \
 		echo "============================================================"; \
 		exit 1; \
-	fi
+	fi; \
+	EXISTS_LOCAL=$$(git branch --list "$(name)"); \
+	EXISTS_REMOTE=$$(git ls-remote --heads origin "$(name)" 2>/dev/null | grep -q . && echo 1 || echo 0); \
+	if [ -n "$$EXISTS_LOCAL" ] || [ "$$EXISTS_REMOTE" = "1" ]; then \
+		echo "=== branch: Branch '$(name)' already exists, deleting... ==="; \
+		if [ -n "$$EXISTS_LOCAL" ]; then \
+			git branch -D "$(name)"; \
+		fi; \
+		if [ "$$EXISTS_REMOTE" = "1" ]; then \
+			git push --delete origin "$(name)"; \
+		fi; \
+		echo "=== branch: Deleted existing '$(name)' ==="; \
+	fi; \
 	git checkout -b "$(name)"
 
 commit-branch:
