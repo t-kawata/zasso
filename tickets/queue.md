@@ -137,3 +137,5 @@
 - [x] #116 SpeechRecognizer の Local ディスパッチ追加 | /Users/kawata/shyme/zasso/tickets/specs/0116-speechrecognizer-local.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #117 VoiputConfigBuilder の Local 検証 | /Users/kawata/shyme/zasso/tickets/specs/0117-voiputconfigbuilder-local.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #119 build.rs Qwen3-ASR モデルダウンロード追加 | /Users/kawata/shyme/zasso/tickets/specs/0119-buildrs-qwen3-asr.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #120 テスト用サンプル音声ファイルの配置 | /Users/kawata/shyme/zasso/tickets/specs/0120-untitled-5.md | 2026-06-16 | 2026-06-16 | 2026-06-16

@@ -53,3 +53,4 @@ ECC_zasso_PLUGIN_ROOT.md
 
 # Windows reserved device names (git cannot add these)
 nul
+.DS_Store
