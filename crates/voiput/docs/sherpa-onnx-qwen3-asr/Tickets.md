@@ -16,7 +16,7 @@
 > **注意:** 本プロジェクトには `[workspace]` セクションを持つ Cargo.toml は存在しない（確認済み: 2026-06-16）。trate は独立した crate として作成し、voiput から path 依存で参照する。workspace 化は将来課題とする。
 > **DB:** 使用しない（メモリ内完結）
 
-#### チケット M0-1: trate Cargo.toml + lib.rs の作成
+#### ✅ チケット M0-1: trate Cargo.toml + lib.rs の作成
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§1 — crates/trate/ ディレクトリ構成、§12 — 依存関係)
 * **依存・関連チケットID:** 後続: M1-1 (AsrBackend trait 定義)、M1-2 (LocalAsrBackend trait 定義)。先行実装必須のチケットはなし。
@@ -45,7 +45,7 @@
   3. trate が `anyhow` のみに依存していること（`cargo tree --manifest-path crates/trate/Cargo.toml` で確認）
 * **計装方法・観測対象:** `cargo check` の成功。Cargo.toml の依存関係ツリー。
 
-#### チケット M0-2: trate クレートの empty lib.rs コンパイル確認
+#### チケット ✅ M0-2: trate クレートの empty lib.rs コンパイル確認
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§1 — crates/trate/src/lib.rs)
 * **依存・関連チケットID:** M0-1 が完了していること。後続: M1-1, M1-2。

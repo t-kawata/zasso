@@ -1,0 +1,8 @@
+[package]
+name = "trate"
+version = "0.1.0"
+edition = "2021"
+description = "Abstract AsrBackend trait for pluggable speech recognition backends"
+
+[dependencies]
+anyhow = "1"
