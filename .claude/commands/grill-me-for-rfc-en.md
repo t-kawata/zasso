@@ -97,23 +97,14 @@ node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '{"id":"..."
 
 ## ★ First-Class Rules (MUST be followed without exception)
 
-1. **Every question MUST include the AI's reasoning, background analysis, and trade-offs as a concrete proposal, while remaining answerable by Yes/No or an A/B/C choice.**
+1. **Every question MUST contain the following parts in order. The length of each part should be proportional to the complexity of the design decision — do not try to be concise.**
 
-   - Good (background → line-broken choices → recommendation with reasoning):
-     ```
-     On authentication: I propose JWT.
-     Rationale: high compatibility with existing systems, rich library ecosystem,
-     and stateless design suitable for horizontal scaling. Session-based auth is
-     simpler to manage server-side but requires additional design for scaling.
-     
-       A) JWT
-       B) Session-based
-       C) Both
-     
-     I recommend A (JWT). The ecosystem maturity and extensibility significantly
-     outperform the alternatives. What do you think?
-     ```
-   - Bad (no reasoning, no line breaks between choices): "Should we use JWT? A) Yes  B) No"
+   0. **Question ID**: Prefix the question with `Q<number>` (e.g., `Q1`, `Q2`...). IDs must be unique within a turn.
+   1. **Background and rationale**: Explain why this design decision is needed, what options exist, and their trade-offs. Provide enough detail for the user to make an informed choice.
+   2. **Choices as a line-broken list**: Each choice on its own line in markdown list format. Never put two or more choices on the same line.
+   3. **AI's recommendation with rationale**: State which one choice you recommend and explain specifically why over the alternatives. Recommending without reasoning is forbidden.
+
+**The user answers ONLY with Yes/No or an A/B/C choice. The AI must NEVER ask for free-form answers (if the user voluntarily provides one, the AI may accept it).**
 
 2. **Bundle questions at a coarse granularity. Do NOT treat each design decision as a single question — each question should cover 3–5 nodes, and each turn should present 5–10 questions.**
 

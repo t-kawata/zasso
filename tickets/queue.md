@@ -98,6 +98,8 @@
 - [x] #87 VAD 発話 stuck 復帰 — インテリジェントタイムアウトの 25秒条件撤廃と 3秒 ASR 停滞閾値 | /Users/kawata/shyme/zasso/tickets/specs/0087-vad-stuck-25-3-asr.md | 2026-06-15 | 2026-06-15 | 2026-06-15
 - [x] #88 OrchestratorInput (Ctrl+Option) を BufferFlush と共通化 — モード切替スタブの修正 | /Users/kawata/shyme/zasso/tickets/specs/0088-orchestratorinput-ctrloption-bufferflush.md | 2026-06-15 | 2026-06-15
 - [x] #89 OrchestratorInput 非録音時自動開始 + 遅延フラッシュ種別追跡 | /Users/kawata/shyme/zasso/tickets/specs/0089-orchestratorinput.md | 2026-06-15 | 2026-06-15
+- [x] #90 trate Cargo.toml + lib.rs の作成 | /Users/kawata/shyme/zasso/tickets/specs/0090-trate-cargotoml-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #91 trate クレートの empty lib.rs コンパイル確認 | /Users/kawata/shyme/zasso/tickets/specs/0091-trate-empty-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #90 M7-1: EventBus 構造体と基本操作 | /Users/shyme/shyme/zasso/tickets/specs/0090-m7-1-event-bus.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #91 M7-2: AccountEventReceiver — アカウントフィルタリング | /Users/shyme/shyme/zasso/tickets/specs/0091-m7-2-account-event-receiver.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #92 M8-1: RegistrationState / ClientState / AccountEntry / CallEntry 定義 | /Users/shyme/shyme/zasso/tickets/specs/0092-m8-1-state-types.md | 2026-06-16 | 2026-06-16 | 2026-06-16

@@ -692,6 +692,7 @@ mod tests {
     // ---- ライフサイクル ----
 
     #[test]
+    #[ignore = "マイク・音声認識の許可ダイアログが表示されるため"]
     fn test_voiput_start_stop() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let mut voiput = Voiput::new(minimal_config()).unwrap();
@@ -701,6 +702,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "macOS 音声認識の許可ダイアログが表示されるため"]
     fn test_voiput_request_permissions() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let voiput = Voiput::new(minimal_config()).unwrap();
@@ -815,6 +817,7 @@ mod tests {
     // ---- M8-3: paste_at_cursor ----
 
     #[test]
+    #[ignore = "クリップボード経由でカーソル位置に文字列入力が行われリスクがあるため"]
     fn test_voiput_paste_at_cursor() {
         // paste_at_cursor() がパニックしないこと（実際のペーストはテストしない）
         let voiput = Voiput::new(minimal_config()).unwrap();
@@ -878,6 +881,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "マイク許可ダイアログ・開始音再生が発生するため"]
     async fn test_process_hotkey_orchestrator_input_starts_recording() {
         // 非録音状態で OrchestratorInput → 自動的に録音開始される
         let mut voiput = Voiput::new(minimal_config()).unwrap();
