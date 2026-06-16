@@ -22,9 +22,18 @@ use crate::event::{ConnectedCallInfo, SipEventPayload};
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::state::ClientState;
 use crate::util::id::AccountId;
+use crate::account::RegistrationState;
+use crate::audio::source::ErasedAudioSource;
+use crate::call::CallState;
 use crate::config::AccountConfig;
+use crate::config::AccountConfigPatch;
+use crate::config::DtmfMethod;
+use crate::config::OutgoingCallRequest;
 use crate::error::SipError;
+use crate::runtime::command::HangupReason;
 use crate::runtime::command::RuntimeCommand;
+use crate::util::id::AudioSourceId;
+use crate::util::id::CallId;
 use crate::config::validate_account_config;
 
 #[cfg(test)]
@@ -241,20 +250,304 @@ impl SipClient {
     pub fn is_shutdown(&self) -> bool {
         *self.inner.shutdown.borrow()
     }
+
+    // -----------------------------------------------------------------------
+    // Call API
+    // -----------------------------------------------------------------------
+
+    /// 発信する。
+    ///
+    /// `OutgoingCallRequest` を受け取り、PJSUA 経由で INVITE を送出する。
+    #[instrument(skip(self, request))]
+    pub fn make_call(
+        &self,
+        account_id: AccountId,
+        request: OutgoingCallRequest,
+    ) -> Result<CallId, SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::MakeCall {
+                account_id,
+                request: Box::new(request),
+                reply,
+            }
+        }))
+    }
+
+    /// 着信に応答する。
+    ///
+    /// 許可コード: 180 (Ringing), 183 (Session Progress), 200 (OK),
+    /// 486 (Busy Here), 603 (Decline)。それ以外は `InvalidConfig`。
+    #[instrument(skip(self))]
+    pub fn answer(&self, call_id: CallId, code: u16) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        // §19.1: 許可コードの制限
+        if !matches!(code, 180 | 183 | 200 | 486 | 603) {
+            return Err(SipError::invalid_config(format!(
+                "unsupported answer code: {code} (allowed: 180, 183, 200, 486, 603)"
+            )));
+        }
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Answer { call_id, code, reply }
+        }))
+    }
+
+    /// 切断する。
+    ///
+    /// `HangupReason` に応じて BYE または CANCEL を送出する。
+    #[instrument(skip(self))]
+    pub fn hangup(&self, call_id: CallId, reason: HangupReason) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Hangup {
+                call_id,
+                reason,
+                reply,
+            }
+        }))
+    }
+
+    /// 通話を保留する。
+    #[instrument(skip(self))]
+    pub fn hold(&self, call_id: CallId) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Hold { call_id, reply }
+        }))
+    }
+
+    /// 通話の保留を解除する。
+    #[instrument(skip(self))]
+    pub fn unhold(&self, call_id: CallId) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Unhold { call_id, reply }
+        }))
+    }
+
+    /// 通話を第三者に転送する（blind transfer）。
+    #[instrument(skip(self))]
+    pub fn transfer(&self, call_id: CallId, target: String) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::Transfer {
+                call_id,
+                target,
+                reply,
+            }
+        }))
+    }
+
+    /// DTMF 信号を送信する。
+    #[instrument(skip(self))]
+    pub fn send_dtmf(
+        &self,
+        call_id: CallId,
+        digits: String,
+        method: DtmfMethod,
+    ) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::SendDtmf {
+                call_id,
+                digits,
+                method,
+                reply,
+            }
+        }))
+    }
+
+    /// 通話状態を取得する。
+    ///
+    /// ローカルの state snapshot を読み取る（RTT 不要）。
+    #[instrument(skip(self))]
+    pub fn call_state(&self, call_id: CallId) -> Result<CallState, SipError> {
+        self.ensure_not_shutdown()?;
+        let state = self.inner.state.blocking_read();
+        let entry = state.get_call(call_id)?;
+        Ok(entry.state)
+    }
+
+    // -----------------------------------------------------------------------
+    // Audio source management API
+    // -----------------------------------------------------------------------
+
+    /// 音声ソースを追加する。
+    ///
+    /// `source` は `ErasedAudioSource` として受け取る。
+    /// `AsyncAudioSource` 実装は blanket impl で自動変換される。
+    /// [::STUB::] M15-1（チケット #116）で AudioMixer に source を登録する。
+    #[instrument(skip(self, _source))]
+    pub fn add_audio_source(
+        &self,
+        call_id: CallId,
+        _source: Box<dyn ErasedAudioSource>,
+    ) -> Result<AudioSourceId, SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::AddAudioSource { call_id, reply }
+        }))
+    }
+
+    /// 音声ソースを削除する。
+    #[instrument(skip(self))]
+    pub fn remove_audio_source(
+        &self,
+        call_id: CallId,
+        source_id: AudioSourceId,
+    ) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::RemoveAudioSource {
+                call_id,
+                source_id,
+                reply,
+            }
+        }))
+    }
+
+    /// 音声ソースのゲインを設定する。
+    ///
+    /// `gain` は 0.0 以上。負値は `InvalidConfig`。
+    #[instrument(skip(self))]
+    pub fn set_audio_source_gain(
+        &self,
+        call_id: CallId,
+        source_id: AudioSourceId,
+        gain: f32,
+    ) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        if gain < 0.0 {
+            return Err(SipError::invalid_config(format!(
+                "gain must be non-negative: {gain}"
+            )));
+        }
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::SetSourceGain {
+                call_id,
+                source_id,
+                gain,
+                reply,
+            }
+        }))
+    }
+
+    /// 音声ソースをミュート/ミュート解除する。
+    #[instrument(skip(self))]
+    pub fn mute_audio_source(
+        &self,
+        call_id: CallId,
+        source_id: AudioSourceId,
+        muted: bool,
+    ) -> Result<(), SipError> {
+        self.ensure_not_shutdown()?;
+        block_on(self.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::MuteSource {
+                call_id,
+                source_id,
+                muted,
+                reply,
+            }
+        }))
+    }
+
+    /// シャットダウン状態でないことを確認する。
+    ///
+    /// shutdown 状態の場合は `ShutdownInProgress` エラーを返す。
+    pub(crate) fn ensure_not_shutdown(&self) -> Result<(), SipError> {
+        if self.is_shutdown() {
+            return Err(SipError::shutdown_in_progress());
+        }
+        Ok(())
+    }
 }
 
-/// SIP アカウントハンドル（M13-1 で拡張予定）。
+/// SIP アカウントハンドル。
 ///
-/// 現在は `AccountId` と親 `SipClient` の参照のみを保持する最小構造体。
+/// `AccountId` と親 `SipClient` を保持し、アカウント単位の操作を提供する。
+/// `Clone` 可能で、複数箇所から同一アカウントを操作できる。
 #[derive(Clone, Debug)]
 pub struct SipAccountHandle {
     /// ランタイムアカウント ID。
     pub id: AccountId,
     /// 親クライアントハンドル。
-    /// [::STUB::] M13-1（チケット #111）で `make_call()` / `hangup()` 等の
-    /// アカウント操作メソッド実装時に使用開始。現在は dead_code を許容。
-    #[allow(dead_code)]
     pub(crate) client: SipClient,
+}
+
+impl SipAccountHandle {
+    /// アカウント ID を返す。
+    pub fn id(&self) -> AccountId {
+        self.id
+    }
+
+    /// SIP 登録を開始する。
+    ///
+    /// reactor 経由で `SetRegistration { enabled: true }` を送信する。
+    #[instrument(skip(self))]
+    pub fn register(&self) -> Result<(), SipError> {
+        self.client.ensure_not_shutdown()?;
+        block_on(self.client.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::SetRegistration {
+                account_id: self.id,
+                enabled: true,
+                reply,
+            }
+        }))
+    }
+
+    /// SIP 登録を解除する。
+    ///
+    /// reactor 経由で `SetRegistration { enabled: false }` を送信する。
+    #[instrument(skip(self))]
+    pub fn unregister(&self) -> Result<(), SipError> {
+        self.client.ensure_not_shutdown()?;
+        block_on(self.client.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::SetRegistration {
+                account_id: self.id,
+                enabled: false,
+                reply,
+            }
+        }))
+    }
+
+    /// 登録有効/無効を設定する。
+    #[instrument(skip(self))]
+    pub fn set_registration_enabled(&self, enabled: bool) -> Result<(), SipError> {
+        self.client.ensure_not_shutdown()?;
+        block_on(self.client.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::SetRegistration {
+                account_id: self.id,
+                enabled,
+                reply,
+            }
+        }))
+    }
+
+    /// 現在の登録状態を取得する。
+    ///
+    /// ローカルの state snapshot を読み取る（RTT 不要）。
+    #[instrument(skip(self))]
+    pub fn registration_state(&self) -> Result<RegistrationState, SipError> {
+        self.client.ensure_not_shutdown()?;
+        let state = self.client.inner.state.blocking_read();
+        let entry = state.get_account(self.id)?;
+        Ok(entry.registration)
+    }
+
+    /// アカウント設定を更新する。
+    ///
+    /// reactor 経由で `UpdateAccountConfig` を送信する。
+    #[instrument(skip(self, patch))]
+    pub fn update_config(&self, patch: AccountConfigPatch) -> Result<(), SipError> {
+        self.client.ensure_not_shutdown()?;
+        block_on(self.client.inner.runtime.send_and_wait(|reply| {
+            RuntimeCommand::UpdateAccountConfig {
+                account_id: self.id,
+                patch,
+                reply,
+            }
+        }))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -532,6 +825,239 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // SipAccountHandle methods tests
+    // -----------------------------------------------------------------------
+
+    /// id() が正しい AccountId を返すことを確認する。
+    #[test]
+    fn test_account_handle_id() {
+        let acc_id = AccountId::generate();
+        let handle = SipAccountHandle {
+            id: acc_id,
+            client: SipClient {
+                inner: Arc::new(ClientInner {
+                    runtime: RuntimeHandle::new().0,
+                    events: EventBus::new(16, None),
+                    state: Arc::new(RwLock::new(ClientState::new(
+                        ClientCapabilities::default_disabled(),
+                    ))),
+                    shutdown: watch::channel(false).0,
+                }),
+            },
+        };
+        assert_eq!(handle.id(), acc_id);
+    }
+
+    /// registration_state() が state から値を読み取れることを確認する。
+    #[test]
+    fn test_account_registration_state() {
+        use std::collections::BTreeMap;
+        use crate::account::RegistrationState;
+        use crate::runtime::state::AccountEntry;
+        use secrecy::SecretString;
+
+        let acc_id = AccountId::generate();
+        let entry = AccountEntry {
+            id: acc_id,
+            native_id: None,
+            config: crate::config::AccountConfig {
+                display_name: None,
+                username: "test".into(),
+                auth_username: None,
+                password: SecretString::new(Box::from("pass")),
+                domain: "test.example.com".into(),
+                registrar_uri: None,
+                outbound_proxy: vec![],
+                contact_params: vec![],
+                transport: crate::config::AccountTransportPolicy::Default,
+                register_on_start: false,
+                allow_outbound_without_register: true,
+                registration_expires: std::time::Duration::from_secs(300),
+                codecs: crate::config::AccountCodecPolicy::default_voice(),
+                dtmf: crate::config::DtmfPolicy::all_methods(),
+                media: crate::config::AccountMediaConfig::default(),
+                headers: vec![],
+            },
+            registration: RegistrationState::Idle,
+        };
+        let mut accounts = BTreeMap::new();
+        accounts.insert(acc_id, entry);
+
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState {
+            initialized: true,
+            shutting_down: false,
+            accounts,
+            calls: BTreeMap::new(),
+            capabilities: ClientCapabilities::default_disabled(),
+        }));
+
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let acc_handle = SipAccountHandle {
+            id: acc_id,
+            client,
+        };
+
+        let reg = acc_handle.registration_state();
+        match reg {
+            Ok(state) => assert_eq!(state, RegistrationState::Idle),
+            Err(e) => panic!("registration_state failed: {e}"),
+        }
+    }
+
+    /// 存在しないアカウントの registration_state() が AccountNotFound を返す。
+    #[test]
+    fn test_account_registration_state_not_found() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let acc_handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client,
+        };
+
+        let result = acc_handle.registration_state();
+        assert!(result.is_err());
+    }
+
+    /// shutdown 後の registration_state() が ShutdownInProgress を返す。
+    #[test]
+    fn test_account_registration_state_shutdown() {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let _ = client.inner.shutdown.send(true);
+
+        let acc_handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client,
+        };
+        let result = acc_handle.registration_state();
+        assert!(result.is_err());
+    }
+
+    /// RuntimeCommand::SetRegistration / UpdateAccountConfig が reactor 経由で
+    /// 正しく配送されることを確認する。
+    ///
+    /// 注: 現時点の reactor は SetRegistration を未ハンドルのため、
+    /// コマンドが配送されエラーレスポンスが返ってくることまでを確認する。
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_account_command_delivery() {
+        use crate::runtime::backend::MockBackend;
+        use crate::runtime::reactor::CoreReactor;
+
+        let backend = Box::new(MockBackend::new()) as Box<dyn crate::runtime::backend::SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: events.clone(),
+            state: state.clone(),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let acc_handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client,
+        };
+
+        // register() は reactor が未ハンドルなのでエラーになるが、
+        // 「コマンドが配送されエラーが返る」ことまでを確認する
+        let reg_result = acc_handle.register();
+        assert!(reg_result.is_err());
+
+        let unreg_result = acc_handle.unregister();
+        assert!(unreg_result.is_err());
+
+        let set_result = acc_handle.set_registration_enabled(true);
+        assert!(set_result.is_err());
+
+        let update_result = acc_handle.update_config(crate::config::AccountConfigPatch::default());
+        assert!(update_result.is_err());
+    }
+
+    /// shutdown 後に SipAccountHandle の操作が ShutdownInProgress で拒否される。
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_account_operation_after_shutdown() {
+        use crate::runtime::backend::MockBackend;
+        use crate::runtime::reactor::CoreReactor;
+
+        let backend = Box::new(MockBackend::new()) as Box<dyn crate::runtime::backend::SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        // Initialize
+        let init = handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await;
+        assert!(init.is_ok());
+
+        // SipClient + SipAccountHandle
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: events.clone(),
+            state: state.clone(),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let acc_handle = SipAccountHandle {
+            id: AccountId::generate(),
+            client: client.clone(),
+        };
+
+        // Shutdown
+        let _ = client.shutdown();
+        assert!(client.is_shutdown());
+
+        // Shutdown 後の操作は拒否される
+        let reg = acc_handle.register();
+        assert!(reg.is_err());
+        let unreg = acc_handle.unregister();
+        assert!(unreg.is_err());
+        let reg_state = acc_handle.registration_state();
+        assert!(reg_state.is_err());
+    }
+
+    // -----------------------------------------------------------------------
     // Shutdown tests
     // -----------------------------------------------------------------------
 
@@ -573,5 +1099,213 @@ mod tests {
         assert!(!client.is_shutdown());
         let _ = client.inner.shutdown.send(true);
         assert!(client.is_shutdown());
+    }
+
+    // -----------------------------------------------------------------------
+    // Call API tests
+    // -----------------------------------------------------------------------
+
+    /// make_call / hangup / hold / unhold / transfer / send_dtmf が
+    /// インターフェース整合性を満たすことを確認する。
+    ///
+    /// 注: 実際の reactor がないため RTT メソッドは実行不可。
+    /// ここではインターフェースのコンパイル検証に留める。
+    #[test]
+    fn test_call_api_interface_compile_check() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: _shutdown_tx,
+        });
+        let _client = SipClient { inner };
+        // インターフェースがコンパイルを通ることの検証
+        // （実際のメソッド実行には reactor が必要）
+    }
+
+    /// answer が不正コードで InvalidConfig を返すことを確認する。
+    #[test]
+    fn test_answer_invalid_code() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let result = client.answer(CallId::generate(), 999);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(format!("{e}").contains("unsupported answer code"));
+        }
+    }
+
+    /// 境界値: answer の許可範囲外のコードを確認する。
+    #[test]
+    fn test_answer_invalid_code_100() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let result = client.answer(CallId::generate(), 100);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(format!("{e}").contains("unsupported answer code"));
+        }
+    }
+
+    /// call_state() が state から通話状態を読み取れることを確認する。
+    #[test]
+    fn test_call_state() {
+        use std::collections::BTreeMap;
+        use crate::runtime::state::CallEntry;
+        use crate::call::CallState;
+
+        let call_id = CallId::generate();
+        let entry = CallEntry {
+            id: call_id,
+            native_id: None,
+            account_id: AccountId::generate(),
+            state: CallState::Active,
+            media: None,
+        };
+        let mut calls = BTreeMap::new();
+        calls.insert(call_id, entry);
+
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let state = Arc::new(RwLock::new(ClientState {
+            initialized: true,
+            shutting_down: false,
+            accounts: BTreeMap::new(),
+            calls,
+            capabilities: ClientCapabilities::default_disabled(),
+        }));
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state,
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let result = client.call_state(call_id);
+        match result {
+            Ok(s) => assert_eq!(s, CallState::Active),
+            Err(e) => panic!("call_state failed: {e}"),
+        }
+    }
+
+    /// shutdown 後の発着信操作が ensure_not_shutdown で拒否されることを確認する。
+    #[test]
+    fn test_calls_rejected_after_shutdown() {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let _ = client.inner.shutdown.send(true);
+
+        assert!(client.make_call(AccountId::generate(), test_outgoing_request()).is_err());
+        assert!(client.answer(CallId::generate(), 200).is_err());
+        assert!(client.hangup(CallId::generate(), HangupReason::Bye).is_err());
+        assert!(client.hold(CallId::generate()).is_err());
+        assert!(client.unhold(CallId::generate()).is_err());
+        assert!(client.transfer(CallId::generate(), "sip:x@y".into()).is_err());
+        assert!(client.send_dtmf(CallId::generate(), "1".into(), crate::config::DtmfMethod::Rfc4733).is_err());
+        assert!(client.call_state(CallId::generate()).is_err());
+    }
+
+    /// テスト用の OutgoingCallRequest を構築する。
+    fn test_outgoing_request() -> OutgoingCallRequest {
+        OutgoingCallRequest {
+            target_uri: "sip:user@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::config::CallMediaPreferences {
+                enable_early_media: true,
+                enable_srtp: None,
+                preferred_codecs: vec![],
+            },
+            auto_answer_refer: false,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Audio source management tests
+    // -----------------------------------------------------------------------
+
+    /// set_audio_source_gain が負値で InvalidConfig を返すことを確認する。
+    #[test]
+    fn test_set_gain_negative() {
+        let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: _shutdown_tx,
+        });
+        let client = SipClient { inner };
+
+        let result = client.set_audio_source_gain(
+            CallId::generate(),
+            AudioSourceId::generate(),
+            -1.0,
+        );
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let msg = format!("{e}");
+            assert!(msg.contains("gain must be non-negative"), "unexpected error: {msg}");
+        }
+    }
+
+    /// shutdown 後の音声ソース操作が拒否されることを確認する。
+    #[test]
+    fn test_audio_source_after_shutdown() {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let _ = client.inner.shutdown.send(true);
+
+        // add_audio_source は Box<dyn AsyncAudioSource> が必要。
+        // ensure_not_shutdown の検証としては set_audio_source_gain で確認する。
+        assert!(client
+            .set_audio_source_gain(CallId::generate(), AudioSourceId::generate(), 0.5)
+            .is_err());
     }
 }

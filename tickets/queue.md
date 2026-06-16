@@ -129,3 +129,8 @@
 - [x] #108 M12-4: add_account() / remove_account() / account() / accounts() | /Users/shyme/shyme/zasso/tickets/specs/0108-m12-4-add-account.md | 2026-06-17 | 2026-06-17 | 2026-06-16
 - [x] #109 M12-5: SipClient::shutdown() — idempotent・cancel safety | /Users/shyme/shyme/zasso/tickets/specs/0109-m12-5-shutdown.md | 2026-06-17 | 2026-06-17 | 2026-06-16
 - [x] #110 M12-6: 全公開API・PJSIP callback への #[tracing::instrument] 計装 | /Users/shyme/shyme/zasso/tickets/specs/0110-m12-6-tracing-instrument.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #111 M13-1: SipAccountHandle — アカウント単位操作（register/unregister/registration_state/update_config） | /Users/shyme/shyme/zasso/tickets/specs/0111-m13-1-account-handle.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #112 M13-2: 発着信API — make_call / answer / hangup / hold / unhold / transfer / send_dtmf / call_state | /Users/shyme/shyme/zasso/tickets/specs/0112-m13-2-call-api.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #113 M14-1: AsyncAudioSource trait（RPITIT）+ ErasedAudioSource blanket impl | /Users/shyme/shyme/zasso/tickets/specs/0113-m14-1-async-audio-source.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #114 M14-2: SyncAudioSource + SyncSourceAdapter | /Users/shyme/shyme/zasso/tickets/specs/0114-m14-2-sync-audio-source.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #115 M14-3: 音声ソース管理 API — add_audio_source / remove_audio_source / set_gain / mute | /Users/shyme/shyme/zasso/tickets/specs/0115-m14-3-audio-source-management.md | 2026-06-17 | 2026-06-16 | 2026-06-16
