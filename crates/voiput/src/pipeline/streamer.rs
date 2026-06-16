@@ -46,6 +46,16 @@ pub enum StreamerLocale {
     En,
 }
 
+impl StreamerLocale {
+    /// ロケールコードを &str として返す（trate::AsrBackend::insert_punctuation 互換）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ja => "ja",
+            Self::En => "en",
+        }
+    }
+}
+
 /// ストリーマーから出力されるイベント
 #[derive(Debug, Clone)]
 pub enum StreamerEvent {
@@ -57,19 +67,9 @@ pub enum StreamerEvent {
     PostCorrectionFinished,
 }
 
-// ============================================================================
-// AsrBackend: バックエンドが実装すべきトレイト
-// ============================================================================
-
-pub trait AsrBackend: Send {
-    fn transcribe(&mut self, samples: &[f32]) -> Result<String>;
-    fn post_correct(&mut self, text: &str) -> Result<String>;
-    fn model_name(&self) -> String;
-    fn record_asr_usage(&mut self, duration_ms: u64);
-    fn insert_punctuation(&mut self, text: &str, _locale: &StreamerLocale) -> Result<String> {
-        Ok(text.to_string())
-    }
-}
+// AsrBackend トレイトは trate crate に移行済み。
+// 互換性のため streamer.rs から再公開する（M3-3 で openai.rs の import を trate 直参照に変更）。
+pub use trate::AsrBackend;
 
 /// バックエンドを PostCorrectionProcessor から呼び出せるようにするためのラッパー
 pub struct BackendWrapper<B>(pub Arc<Mutex<B>>);
@@ -559,7 +559,7 @@ impl<B: AsrBackend + Send + Sync + 'static> PseudoAsrStreamer<B> {
 
             let punctuated_text = {
                 let mut guard = self.backend.lock().unwrap();
-                match guard.insert_punctuation(&window_text, &self.config.locale) {
+                match guard.insert_punctuation(&window_text, self.config.locale.as_str()) {
                     Ok(text) => text,
                     Err(e) => {
                         log::error!("Punctuation failed: {}", e);
@@ -618,8 +618,8 @@ mod tests {
         fn post_correct(&mut self, text: &str) -> Result<String> {
             Ok(format!("[corrected] {}", text))
         }
-        fn model_name(&self) -> String {
-            "mock".to_string()
+        fn backend_name(&self) -> &'static str {
+            "mock"
         }
         fn record_asr_usage(&mut self, _duration_ms: u64) {}
     }

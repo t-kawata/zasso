@@ -38,6 +38,23 @@ pub(crate) const MODEL_FILENAME_TEN_VAD_INT8: &str = "ten-vad.int8.onnx";
 pub(crate) const MODEL_FILENAME_GTCRN: &str = "gtcrn.onnx";
 
 // ============================================================
+// Qwen3-ASR モデル
+//   - build.rs のダウンロード処理と実行時のパス解決で使用
+//   - VAD モデルとの tokens.txt 衝突回避のため qwen3-asr/ サブディレクトリに配置
+// ============================================================
+
+/// Qwen3-ASR encoder.onnx（int8 量子化）
+pub(crate) const MODEL_FILENAME_QWEN3_ENCODER: &str = "encoder.int8.onnx";
+/// Qwen3-ASR decoder.onnx（int8 量子化）
+pub(crate) const MODEL_FILENAME_QWEN3_DECODER: &str = "decoder.int8.onnx";
+/// Qwen3-ASR joiner.onnx（int8 量子化）
+pub(crate) const MODEL_FILENAME_QWEN3_JOINER: &str = "joiner.int8.onnx";
+/// Qwen3-ASR tokens.txt
+pub(crate) const MODEL_FILENAME_QWEN3_TOKENS: &str = "tokens.txt";
+/// Qwen3-ASR モデルファイルが配置されるサブディレクトリ（models/ からの相対）
+pub(crate) const QWEN3_MODEL_SUBDIR: &str = "qwen3-asr";
+
+// ============================================================
 // ホットキー
 // ============================================================
 

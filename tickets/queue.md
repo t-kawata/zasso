@@ -122,3 +122,7 @@
 - [x] #104 M12-1: SipClient 構造体（Arc + ClientInner） | /Users/shyme/shyme/zasso/tickets/specs/0104-m12-1-sip-client.md | 2026-06-17 | 2026-06-17 | 2026-06-16
 - [x] #105 M12-2: SipClient::new() — 初期化・バリデーション・Reactor起動 | /Users/shyme/shyme/zasso/tickets/specs/0105-m12-2-sip-client-new.md | 2026-06-17 | 2026-06-17 | 2026-06-16
 - [x] #106 M12-3: subscribe() / subscribe_raw_sip() / subscribe_account() | /Users/shyme/shyme/zasso/tickets/specs/0106-m12-3-subscribe.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #104 Qwen3 モデルファイル名定数の追加 | /Users/kawata/shyme/zasso/tickets/specs/0104-qwen3.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #105 パス解決の純粋関数群 | /Users/kawata/shyme/zasso/tickets/specs/0105-untitled-4.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #106 voiput Cargo.toml への trate 依存追加 | /Users/kawata/shyme/zasso/tickets/specs/0106-voiput-cargotoml-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #107 pipeline/streamer.rs AsrBackend 移行 + lib.rs 再公開更新 | /Users/kawata/shyme/zasso/tickets/specs/0107-pipelinestreamerrs-asrbackend-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16

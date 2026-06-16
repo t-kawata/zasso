@@ -255,7 +255,7 @@
   3. フィールドアクセスが期待通り動作すること
 * **計装方法・観測対象:** コンパイル成功。構造体のインスタンス化とフィールドアクセス。
 
-#### チケット M2-4: Qwen3 モデルファイル名定数の追加
+#### ✅ チケット M2-4: Qwen3 モデルファイル名定数の追加
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§4 — constants.rs モデルファイル名定数)
 * **依存・関連チケットID:** 先行実装必須: なし（定数なので純粋）。後続: M2-5 (パス解決関数で使用)、M7-1 (build.rs で使用)。
@@ -279,7 +279,7 @@
   3. VAD モデルの `tokens.txt` と Qwen3-ASR の `tokens.txt` が同一名だが別ディレクトリで管理される設計であること（コードレビューで確認）
 * **計装方法・観測対象:** コンパイル成功。定数値のリテラル一致確認。
 
-#### チケット M2-5: パス解決の純粋関数群
+#### ✅ チケット M2-5: パス解決の純粋関数群
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§4 — resolve_qwen3_model_paths コードブロック、Implementation Step 3 + Appendix C — resolve_qwen3_asr_config)
 * **依存・関連チケットID:** 先行実装必須: M2-3 (Qwen3AsrConfig), M2-4 (定数)。後続: M4-2 (Qwen3AsrBackend::new が config を要求)。
@@ -320,7 +320,7 @@
 
 > **DB:** 使用しない
 
-#### チケット M3-1: voiput Cargo.toml への trate 依存追加
+#### ✅ チケット M3-1: voiput Cargo.toml への trate 依存追加
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 2 — voiput の trate 依存)
 * **依存・関連チケットID:** 先行実装必須: M0-1 (trate crate が存在すること)、M1-1 (AsrBackend trait が定義されていること)。後続: M3-2, M3-3。
@@ -496,11 +496,13 @@
   - `Mutex` で `OfflineRecognizer` を保護する（`create_stream()` が `&self` を取るため複数スレッドからの同時呼び出しを排他する必要がある）
   - `transcribe()` は `mut self` ではなく `&mut self` を取るが、内部の `Mutex` により排他制御は二重となる（安全側への倒れ込み）
 * **実装の背景と目的:** sherpa-onnx の `OfflineRecognizer` をラップする `Qwen3AsrBackend` 構造体を実装する。このチケットでは `new()`（モデルロード）と `transcribe()`（認識実行＋結果取得）の 2 メソッドを実装する。RFC §5 のコードブロックをそのまま実装する。
+* **⚠️ スタブ解決の義務: M2-5 で追加した 2 箇所の `[::STUB::]`（`resolve_qwen3_model_paths` / `resolve_qwen3_asr_config`）を本チケットで解決すること。** これらの関数は `Qwen3AsrBackend::new()` で初めて使用され、unused warning が解消される。
 * **実装スコープ:**
   - `crates/voiput/src/local/qwen3.rs` に以下の実装（RFC §5 のコードブロック通り）:
     - `const QWEN3_SAMPLE_RATE: i32 = 16000`
     - `Qwen3AsrBackend` 構造体定義（`recognizer: Mutex<OfflineRecognizer>`, `config: Qwen3AsrConfig`）
     - `impl Qwen3AsrBackend { pub fn new(config: &Qwen3AsrConfig) -> Result<Self> }`
+      - 引数の `config` は `resolve_qwen3_asr_config()` で解決済みの値を渡すことを前提とする
       - `OfflineRecognizerConfig::default()` から設定構築
       - `qwen3_asr` モデル設定（encoder/decoder/joiner）のセット
       - `tokens`, `provider`, `num_threads`, `debug` のセット
