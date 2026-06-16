@@ -1,5 +1,201 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-16T02:28:30.506Z",
-  "nodes": []
+  "updatedAt": "2026-06-16T03:58:46.477Z",
+  "nodes": [
+    {
+      "id": "trate-crate-design",
+      "title": "trate crate 設計 — トレイト定義・クレート構成・既存OpenAIBackendの切り出し",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T02:39:41.829Z",
+          "answer": "Q1: crates/trate/ にトレイト定義を分離。Q2: 2層構造（コアAsrBackendCore + 拡張AsrBackendExt）。Q3: SttEngine::Local { backend: LocalAsrKind } に決定。"
+        }
+      ],
+      "children": [
+        {
+          "id": "trate-trait-design-v2",
+          "title": "trate トレイト設計（再grill後） — 単一 AsrBackend トレイト + デフォルト実装、transcribe は sample_rate なし",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-16T03:58:46.475Z",
+              "answer": "Q1: transcribe は sample_rate なしで維持。Qwen3AsrBackend 内部で固定16000を使用。Q2: トレイト分割せず単一 AsrBackend トレイトを trate に移設、デフォルト実装追加。VAD/補正/共通化維持。Q3: OfflineRecognizer::create() の Option は ok_or_else で Result 変換。Q4: tick=no-op, set_locale=store locale(将来用), update_config=stop→rebuild→start。unimplemented!禁止。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "asr-backend-migration",
+      "title": "AsrBackend トレイトの trate 移行 — 既存トレイトの分割・統合戦略",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T02:39:41.830Z",
+          "answer": "Q1: crates/trate/ にトレイト定義を分離。Q2: 2層構造（コアAsrBackendCore + 拡張AsrBackendExt）。Q3: SttEngine::Local { backend: LocalAsrKind } に決定。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "stt-engine-local",
+      "title": "SttEngine::Local 追加 — バリアント定義・ディスパッチ分岐",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T02:39:41.830Z",
+          "answer": "Q1: crates/trate/ にトレイト定義を分離。Q2: 2層構造（コアAsrBackendCore + 拡張AsrBackendExt）。Q3: SttEngine::Local { backend: LocalAsrKind } に決定。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "qwen3-config-struct",
+      "title": "Qwen3-ASR 設定構造体 — ONNXファイルパス・スレッド数・プロバイダ設定",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:36:40.373Z",
+          "answer": "Q1-a: models/qwen3-asr/ サブディレクトリに配置（tokens.txt重複回避）。Q1-b: VADパターンに準拠し、Qwen3AsrModelPaths + Qwen3AsrConfig を分離。Q4: LocalAsrBackend トレイト + LocalRecognizer（Box<dyn LocalAsrBackend>）+ Qwen3AsrRecognizer が実装。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "qwen3-backend-impl",
+      "title": "Qwen3AsrBackend 実装 — AsrBackend トレイトの OfflineRecognizer による実現",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": [
+        {
+          "id": "qwen3-create-option",
+          "title": "OfflineRecognizer::create() の Option 対応 — ok_or_else で Result 変換",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-16T03:58:46.477Z",
+              "answer": "Q1: transcribe は sample_rate なしで維持。Qwen3AsrBackend 内部で固定16000を使用。Q2: トレイト分割せず単一 AsrBackend トレイトを trate に移設、デフォルト実装追加。VAD/補正/共通化維持。Q3: OfflineRecognizer::create() の Option は ok_or_else で Result 変換。Q4: tick=no-op, set_locale=store locale(将来用), update_config=stop→rebuild→start。unimplemented!禁止。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "local-recognizer",
+      "title": "LocalRecognizer 統合 — PseudoAsrStreamer<Qwen3AsrBackend> の管理",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:36:40.374Z",
+          "answer": "Q1-a: models/qwen3-asr/ サブディレクトリに配置（tokens.txt重複回避）。Q1-b: VADパターンに準拠し、Qwen3AsrModelPaths + Qwen3AsrConfig を分離。Q4: LocalAsrBackend トレイト + LocalRecognizer（Box<dyn LocalAsrBackend>）+ Qwen3AsrRecognizer が実装。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "speech-recognizer-dispatch",
+      "title": "SpeechRecognizer エンジンディスパッチ — SttEngine::Local の分岐追加",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": [
+        {
+          "id": "local-tick-locale",
+          "title": "Local バックエンドの tick/set_locale/update_config 方針",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-16T03:58:46.477Z",
+              "answer": "Q1: transcribe は sample_rate なしで維持。Qwen3AsrBackend 内部で固定16000を使用。Q2: トレイト分割せず単一 AsrBackend トレイトを trate に移設、デフォルト実装追加。VAD/補正/共通化維持。Q3: OfflineRecognizer::create() の Option は ok_or_else で Result 変換。Q4: tick=no-op, set_locale=store locale(将来用), update_config=stop→rebuild→start。unimplemented!禁止。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "build-model-download",
+      "title": "build.rs モデル自動ダウンロード — Qwen3-ASR ONNX モデル取得",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "post-correction-local",
+      "title": "ローカルASR時の事後補正戦略 — PostCorrection と trate の関係",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "model-lifecycle",
+      "title": "モデルファイルライフサイクル — 実行時モデル検出・ダウンロード・エラーハンドリング",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "config-validation-local",
+      "title": "VoiputConfigBuilder バリデーション更新 — SttEngine::Local 時の必須項目",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "testing-strategy",
+      "title": "テスト戦略 — Qwen3AsrBackend の単体テスト・結合テスト方針",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.342Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "sherpa-onnx-dependency",
+      "title": "sherpa-onnx クレート依存 — Cargo.toml 追加・ビルド設定",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-16T03:29:35.341Z",
+          "answer": "Q2: sherpa-onnxは既存依存関係を使用。Q3: Mutex<OfflineRecognizer>。Q5: 音声認識エンドポイントへのリクエストのみ抽象化。Q6: build.rsダウンロード＋自動フォールバック、VADのモデル管理パターンに準拠。Q7: ファイル存在チェックのみ。Q8: PostCorrection含めパイプラインは原則共通、認識エンジンのみ分岐。Q9: validate()にSttEngine::Local分岐追加。Q10: 実モデル+実音声ファイルでテスト。"
+        }
+      ],
+      "children": []
+    }
+  ]
 }
