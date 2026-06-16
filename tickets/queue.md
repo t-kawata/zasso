@@ -126,3 +126,6 @@
 - [x] #105 パス解決の純粋関数群 | /Users/kawata/shyme/zasso/tickets/specs/0105-untitled-4.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #106 voiput Cargo.toml への trate 依存追加 | /Users/kawata/shyme/zasso/tickets/specs/0106-voiput-cargotoml-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #107 pipeline/streamer.rs AsrBackend 移行 + lib.rs 再公開更新 | /Users/kawata/shyme/zasso/tickets/specs/0107-pipelinestreamerrs-asrbackend-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #108 OpenAIBackend の trate::AsrBackend 実装スタブ除去 | /Users/kawata/shyme/zasso/tickets/specs/0108-openaibackend-trateasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #109 テストコードのトレイト変更対応（MockBackend, MockStreamerBackend） | /Users/kawata/shyme/zasso/tickets/specs/0109-mockbackend-mockstreamerbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #110 voiput 移行完了確認（make check-be + テスト全件パス） | /Users/kawata/shyme/zasso/tickets/specs/0110-voiput-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16

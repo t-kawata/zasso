@@ -338,7 +338,7 @@
   2. `cargo tree` で trate が依存ツリーに現れること
 * **計装方法・観測対象:** cargo check の exit code。依存ツリーの表示。
 
-#### チケット M3-2: pipeline/streamer.rs AsrBackend トレイトの削除と trate 参照への変更 + lib.rs 再公開更新
+#### ✅ チケット M3-2: pipeline/streamer.rs AsrBackend トレイトの削除と trate 参照への変更 + lib.rs 再公開更新
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (§2.2 — 既存 AsrBackend トレイトからの移行、Appendix B — PseudoAsrStreamer の型パラメータ制約)
 * **依存・関連チケットID:** 先行実装必須: M3-1。後続: M3-3。**M2-2 (SttEngine::Local) とは独立しているため並行可能。**
@@ -365,7 +365,7 @@
   4. `voiput::AsrBackend` のパスが trate のトレイトを解決すること（コンパイル時検証）
 * **計装方法・観測対象:** `cargo check` で streamer.rs 関連のエラーがゼロであること（OpenAIBackend + MockBackend のエラーは許容）。
 
-#### チケット M3-3: OpenAIBackend の AsrBackend 実装修正
+#### ✅ チケット M3-3: OpenAIBackend の AsrBackend 実装修正
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Appendix A — 既存コードの AsrBackend → trate 移行パターン、M1-1「設計上の変更点」)
 * **依存・関連チケットID:** 先行実装必須: M3-2。後続: M3-4。**M2-2 (SttEngine::Local) とは独立しているため並行可能。**
@@ -403,7 +403,7 @@
   4. `post_correct()` / `record_asr_usage()` の動作が移行前後で不変であること
 * **計装方法・観測対象:** コンパイル成功。各メソッドの戻り値検証。
 
-#### チケット M3-4: テストコードのトレイト変更対応（streamer.rs + binary/test-run.rs）
+#### ✅ チケット M3-4: テストコードのトレイト変更対応（streamer.rs + binary/test-run.rs）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Appendix A — 移行パターン)
 * **依存・関連チケットID:** 先行実装必須: M3-3 (OpenAIBackend 側の対応完了)。後続: M3-5（最終検証）。
@@ -434,7 +434,7 @@
   3. `binary/test-run.rs` のテストコードがコンパイル可能であること
 * **計装方法・観測対象:** `cargo test` の成功。
 
-#### チケット M3-5: voiput 移行完了確認（make check-be + テスト全件パス）
+#### ✅ チケット M3-5: voiput 移行完了確認（make check-be + テスト全件パス）
 
 * **参照設計書:** `crates/voiput/docs/sherpa-onnx-qwen3-asr/RFC.md` (Implementation Step 2 — 6. make check-be でコンパイルを確認)
 * **依存・関連チケットID:** 先行実装必須: M3-4。後続: 第3段階全体。
