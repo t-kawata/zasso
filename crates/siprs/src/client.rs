@@ -376,7 +376,7 @@ impl SipClient {
     ///
     /// `source` は `ErasedAudioSource` として受け取る。
     /// `AsyncAudioSource` 実装は blanket impl で自動変換される。
-    /// [::STUB::] M15-1（チケット #116）で AudioMixer に source を登録する。
+    /// [::STUB::] M16-1（チケット #118）で AudioWorkerTask が source を AudioMixer に登録する。
     #[instrument(skip(self, _source))]
     pub fn add_audio_source(
         &self,

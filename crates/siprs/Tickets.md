@@ -1139,7 +1139,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M15-1: `AudioMixer` 構造体
+#### ✅ チケット M15-1: `AudioMixer` 構造体
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§24.1, §24.2)
 * **対象不変条件 / 規範:** §24.1「1 通話ごとに AudioMixer を 1 つ持つ。複数 source を frame ごとに pull、sum、clamp、gain 適用し、ミキシング済みフレームを lock-free queue へ書き込む」。§24.0「PJSIP オーディオコールバック内でのロック・非同期待機・メモリ確保は厳禁」。
@@ -1176,7 +1176,7 @@
   10. `DashMap` への並行アクセス（複数タスクからの read/write）でデータ競合がないこと
 * **計装方法・観測対象:** `out_queue` / `in_queue` の capacity が設定通りであること。`DashMap` の shard 数が十分であること（CPU コア数に応じて調整可能）。
 
-#### チケット M15-2: `AudioWorkerTask` — Tokio blocking pool 駆動
+#### ✅ チケット M15-2: `AudioWorkerTask` — Tokio blocking pool 駆動
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§7.1, §24.3)
 * **対象不変条件 / 規範:** §24.3「AudioWorkerTask は AudioMixer ごとに 1 つ、Tokio の blocking pool 上で動作する」。§7.1 Audio worker tasks の説明。§24.0 リアルタイム境界「PJSIP RT callback とは lock-free queue を介してのみ通信する」。

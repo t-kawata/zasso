@@ -47,8 +47,6 @@ pub trait AsyncAudioSource: Send {
 /// `AudioMixer` 内部での動的ディスパッチ用。
 /// `AsyncAudioSource` 実装から blanket impl で自動導出される。
 /// 通常の利用者が直接実装することは想定していない。
-/// [::STUB::] M15-1（チケット #116）で AudioMixer が使用開始。
-#[allow(dead_code)]
 pub trait ErasedAudioSource: Send {
     /// 次のオーディオチャンクを `buf` に書き込む（boxed future 版）。
     fn next_chunk<'a>(

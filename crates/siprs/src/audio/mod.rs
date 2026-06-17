@@ -7,3 +7,4 @@ pub mod chunk;
 pub mod format;
 pub mod mixer;
 pub mod source;
+pub mod worker;
