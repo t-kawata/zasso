@@ -77,7 +77,11 @@ fn load_sample_wav() -> Vec<f32> {
 }
 
 /// Qwen3AsrBackend が実モデルで正しく構築できることを確認する。
+///
+/// 通常はスキップ（`cargo test -- --ignored` で実行）。
+/// 実際の ONNX モデルファイルと音声ファイルが必要。
 #[test]
+#[ignore = "実際の ONNX モデルが必要。cargo test -- --ignored で実行"]
 fn test_qwen3_asr_backend_new() {
     let config = qwen3_config_or_fail();
     let backend = Qwen3AsrBackend::new(&config);
@@ -91,7 +95,9 @@ fn test_qwen3_asr_backend_new() {
 /// 実際の日本語音声を認識し、期待するキーワードが含まれていることを確認する。
 ///
 /// 認識結果は一字一句の完全一致ではなく、キーワードベースの部分一致で検証する。
+/// 通常はスキップ（`cargo test -- --ignored` で実行）。
 #[test]
+#[ignore = "実際の ONNX モデル + 音声ファイルが必要。cargo test -- --ignored で実行"]
 fn test_qwen3_asr_transcribe_sample() {
     let config = qwen3_config_or_fail();
     let mut backend = Qwen3AsrBackend::new(&config)

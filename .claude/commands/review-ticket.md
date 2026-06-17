@@ -33,7 +33,7 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 
 ## 使用スクリプト一覧
 
-`$_R/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
 
 | スクリプト | 引数 |
 |---|---|
@@ -49,24 +49,16 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 
 ## ワークフロー
 
-### Step 0: 初期化
-
-```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-```
-
 ### Step 1: 存在確認 + done 確認
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 ```
 
 `exists` が false なら終了。存在すれば status を確認：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" done
+node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" done
 ```
 
 `matches` が false なら「このチケットはまだ実装完了（done）していません。先に /start-ticket で実装を完了してください」と伝えて終了。
@@ -74,13 +66,11 @@ node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" done
 ### Step 2: spec + implementation 読み取り
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
 ```
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
 ```
 
 spec の Acceptance Criteria と実装サマリを確認する。spec の Test Plan に記載されたユニットテストが全て実装されているか確認する。
@@ -95,13 +85,12 @@ spec に記述された「依存・関連チケットID」が実装を通じて�
 4. 不足や矛盾があればレビュー報告書に記録する
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # spec から依存・関連チケットID を抽出
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
 
 # 各参照先チケットの spec も読み取り、相互参照の矛盾を確認
 for ref_id in <抽出した参照ID一覧>; do
-  node "$_R/scripts/tickets/read-artifact.js" "$ref_id" spec | grep -A5 "依存・関連チケットID"
+  node ".claude/scripts/tickets/read-artifact.js" "$ref_id" spec | grep -A5 "依存・関連チケットID"
 done
 ```
 
@@ -110,9 +99,8 @@ done
 `find-all-stubs.js` で全スタブを抽出し、以下の3分類で評価する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # 全スタブの一覧取得
-node "$_R/scripts/tickets/review/find-all-stubs.js" "<プロジェクトルートまたは対象ディレクトリ>"
+node ".claude/scripts/tickets/review/find-all-stubs.js" "<プロジェクトルートまたは対象ディレクトリ>"
 ```
 
 **分類基準**:
@@ -165,15 +153,13 @@ node "$_R/scripts/tickets/review/find-all-stubs.js" "<プロジェクトルー�
 ### Step 4: 静的品質チェック
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node "$_R/scripts/tickets/review/generate-report.js"
+node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
 ### Step 4: 構造整合性チェック
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/validate-structure.js"
+node ".claude/scripts/tickets/validate-structure.js"
 ```
 
 出力の `valid` が false なら issues を修正してから続行。
@@ -187,8 +173,7 @@ node "$_R/scripts/tickets/validate-structure.js"
 全チェック通過後、レビュー結果を `save-artifact.js` にパイプして保存する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-cat <<'REVIEW_EOF' | node "$_R/scripts/tickets/save-artifact.js" "$ARGUMENTS" review
+cat <<'REVIEW_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" review
 # 各チェックの結果（静的品質チェック、構造整合性チェック、翻訳可能性チェックの結果と合否、見つかった問題と修正内容）
 REVIEW_EOF
 ```
@@ -200,8 +185,7 @@ REVIEW_EOF
 全チェック通過後：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
+node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
 ```
 
 ## 不通過時の判断
@@ -210,6 +194,5 @@ node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
 - **重大**: ユーザーに報告して修正方針を相談。差し戻しが必要な場合は implementing に戻す：
 
   ```bash
-  _R="$(git rev-parse --show-toplevel)/.claude"
-  node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
+  node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
   ```

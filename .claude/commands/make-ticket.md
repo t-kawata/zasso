@@ -28,7 +28,7 @@ description: チケットを作成する。引数なしなら詳細をヒアリ�
 
 ## 使用スクリプト一覧
 
-`$_R/scripts/tickets/` 配下。`$_R` は `.claude` に固定。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
 | スクリプト | 引数 |
 |---|---|
@@ -41,19 +41,12 @@ description: チケットを作成する。引数なしなら詳細をヒアリ�
 
 ## ワークフロー
 
-### 初期化
-
-```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-```
-
 ### 新規作成
 
 $ARGUMENTS が空なら、何を実装したいのか詳しくユーザーにヒアリングする（目的、背景、期待する動作など）。得られた情報をもとにAIが適切なタイトルを決めてから実行する。
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/create-ticket.js" "" "タイトル"
+node ".claude/scripts/tickets/create-ticket.js" "" "タイトル"
 ```
 
 出力の `ticketId`, `specPath` を保持する。その後、以下の手順でチケットを具体化する：
@@ -89,11 +82,10 @@ spec を確定する前に、「依存・関連チケットID」の記述を点�
 4. 深掘り時は既存の「依存・関連チケットID」を読み取り、上記の観点で不足・矛盾がないか検証する
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # 関連チケットの検索（必要に応じて keyword を指定）
-node "$_R/scripts/tickets/search-tickets.js" "<キーワード>"
+node ".claude/scripts/tickets/search-tickets.js" "<キーワード>"
 # 参照先チケットの存在確認
-node "$_R/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
+node ".claude/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
 ```
 
 ### スタブの点検
@@ -106,21 +98,18 @@ node "$_R/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
 4. スタブを解決する場合は実装スコープに含め、解決しない場合は spec にその理由と将来の解決計画を記述する
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # スタブの検索
-node "$_R/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+node ".claude/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
 ```
 
 ### 深掘り
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/resolve-ticket.js" "42"
+node ".claude/scripts/tickets/resolve-ticket.js" "42"
 ```
 
 `exists: false` なら終了。存在すれば `read-frontmatter.js` で内容を取得し、不足セクションを補完する。
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-frontmatter.js" "42"
+node ".claude/scripts/tickets/read-frontmatter.js" "42"
 ```

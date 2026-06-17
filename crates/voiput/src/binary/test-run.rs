@@ -288,7 +288,9 @@ fn main() {
 
 /// 全テストを実行する。1つでも失敗すれば false を返す。
 fn run_all_tests(args: &CliArgs) -> bool {
-    let tests: [(&str, fn(&CliArgs) -> bool); 11] = [
+    // OPENAI(test_openai) は実際の音声+APIキーが必要なため通常スキップ。
+    // 有効化するには配列に ("OPENAI", test_openai) を追加し、--openai-key を指定。
+    let tests: [(&str, fn(&CliArgs) -> bool); 10] = [
         ("CONFIG", test_config),
         ("RESAMPLER", test_resampler),
         ("POST_CORRECT", test_post_correct),
@@ -299,7 +301,6 @@ fn run_all_tests(args: &CliArgs) -> bool {
         ("AUDIO", test_audio),
         ("STREAMER", test_streamer),
         ("VOIPUT", test_voiput),
-        ("OPENAI", test_openai),
     ];
 
     let mut all_passed = true;
@@ -898,6 +899,11 @@ fn decode_wav_to_f32(path: &std::path::Path) -> anyhow::Result<Vec<f32>> {
     }
 }
 
+/// OpenAI 音声認識テスト — 実際の音声ファイルと API キーが必要
+///
+/// 通常は run_all_tests の配列から除外されており、未使用警告を抑制する。
+/// 有効化するには run_all_tests() の tests 配列に ("OPENAI", test_openai) を追加する。
+#[allow(dead_code)]
 fn test_openai(args: &CliArgs) -> bool {
     show_section("OPENAI");
     let mut ok = true;

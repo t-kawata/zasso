@@ -225,10 +225,9 @@ fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
 /// model_dir が設定されている場合、`models/qwen3-asr/` サブディレクトリを
 /// そのパスからの相対として解決する。絶対パスの場合はそのまま使用する。
 ///
-/// Qwen3-ASR モデルファイルのパスを解決する。
-///
-/// [::STUB::] ユーティリティ関数。統合テストは直接パス構築するため現状未使用。
-/// 将来 Qwen3-ASR 設定フローからの呼び出しが必要になった際に #[allow(dead_code)] を外す。
+/// 現在はプロダクションコードから直接参照されておらず、統合テストは
+/// パスを直構成している。将来 Qwen3-ASR 設定フローからの呼び出しが
+/// 必要になった際に `#[allow(dead_code)]` を外す。
 #[allow(dead_code)]
 pub(crate) fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
     let subdir = resolve_vad_model_path(QWEN3_MODEL_SUBDIR, model_dir);
@@ -245,8 +244,8 @@ pub(crate) fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrM
 /// qwen3_asr_config が設定されている場合、各モデルファイルのパスが
 /// 絶対パスか相対パスかを判断し、必要に応じて model_dir と結合する。
 ///
-/// [::STUB::] ユーティリティ関数。統合テストは直接 Qwen3AsrConfig 構築するため現状未使用。
-/// 将来 Qwen3-ASR 設定フローからの呼び出しが必要になった際に #[allow(dead_code)] を外す。
+/// 統合テストは直接 Qwen3AsrConfig を構築するため現状未使用。
+/// 将来 Qwen3-ASR 設定フローからの呼び出しが必要になった際に `#[allow(dead_code)]` を外す。
 #[allow(dead_code)]
 pub(crate) fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
     let qwen3_config = config.qwen3_asr_config.as_ref()?;

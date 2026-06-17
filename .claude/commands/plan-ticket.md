@@ -38,7 +38,7 @@ description: 承認済みチケットの実装計画を策定する。物理的�
 
 ## 使用スクリプト一覧
 
-`$_R/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
 
 | スクリプト | 引数 |
 |---|---|
@@ -53,17 +53,10 @@ description: 承認済みチケットの実装計画を策定する。物理的�
 
 ## ワークフロー
 
-### Step 0: 初期化
-
-```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-```
-
 ### Step 1: 存在確認
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 ```
 
 `exists: false` → 終了。
@@ -71,8 +64,7 @@ node "$_R/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 ### Step 2: approved 確認
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" approved
+node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
 ```
 
 `matches: false` → 現在のステータスを表示し「/make-ticket で先に承認を」と伝えて終了。
@@ -82,8 +74,7 @@ node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" approved
 以下のコマンドで spec 全文と frontmatter を読み取る：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
 ```
 
 `created_at` と `updated_at` を確認し、make からどの程度時間が経過しているかを把握する。
@@ -93,8 +84,7 @@ node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
 `read-artifact.js` で plan.md の有無を確認する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
 ```
 
 - 出力がある場合 → 既存の計画が存在する。内容を踏まえて更新または再策定する。
@@ -121,9 +111,8 @@ spec に記述された「依存・関連チケットID」を点検する：
 5. 不足がある場合は補完する
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # spec から依存・関連チケットID の記述を抽出
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
 
 # 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
 ```
@@ -139,9 +128,8 @@ node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存
 5. 解決不可能なスタブは注記として計画に残し、将来のチケットとの関係を明記する
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # スタブの検索
-node "$_R/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+node ".claude/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
 ```
 
 ### Step 6: 計画策定
@@ -169,8 +157,7 @@ spec 内容をもとに以下の構造で提示する：
 ユーザーの承認を得た後、計画内容を `save-artifact.js` にパイプして保存する。これによりファイル作成 + frontmatter 更新が一括処理される。
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-cat <<'PLAN_EOF' | node "$_R/scripts/tickets/save-artifact.js" "$ARGUMENTS" plan
+cat <<'PLAN_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" plan
 # 計画内容をここに記述（要件、変更ファイル一覧、実装手順、レビュー方法、リスク）
 PLAN_EOF
 ```

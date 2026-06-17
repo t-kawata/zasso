@@ -31,7 +31,7 @@ description: 承認済みチケットの実装を実行する。ステータス�
 
 ## 使用スクリプト一覧
 
-`$_R/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
 
 | スクリプト | 引数 |
 |---|---|
@@ -46,24 +46,16 @@ description: 承認済みチケットの実装を実行する。ステータス�
 
 ## ワークフロー
 
-### Step 0: 初期化
-
-```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-```
-
 ### Step 1: 存在確認 + approved 確認
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 ```
 
 `exists` が false なら終了。存在すれば status を確認：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" approved
+node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
 ```
 
 `matches` が false なら「このチケットは <currentStatus> です。/plan-ticket で先に計画を策定し承認を受けてください」と伝えて終了。
@@ -71,8 +63,7 @@ node "$_R/scripts/tickets/check-status.js" "$ARGUMENTS" approved
 ### Step 2: implementing に遷移
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
+node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
 ```
 
 ### Step 3: spec + plan 読み取り
@@ -80,13 +71,11 @@ node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
 `read-artifact.js` で spec 全文と plan.md を機械的に読み取る：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
 ```
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
 ```
 
 ### 依存・関連チケットID の充足確認
@@ -98,12 +87,11 @@ node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
 3. 未完了の先行依存がある場合はユーザーに報告し、実装順序の調整または依存チケットの完了を待つ
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # spec から依存・関連チケットID を抽出
-node "$_R/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
 
 # 各参照先チケットのステータス確認
-node "$_R/scripts/tickets/check-status.js" "<参照チケットID>" "done"
+node ".claude/scripts/tickets/check-status.js" "<参照チケットID>" "done"
 ```
 
 依存関係に問題がないことを確認した上で実装に進む。
@@ -119,9 +107,8 @@ node "$_R/scripts/tickets/check-status.js" "<参照チケットID>" "done"
 5. 解決不可能なスタブは実装サマリに記録して後続チケットに引き継ぐ
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
 # スタブの検索
-node "$_R/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+node ".claude/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
 ```
 
 ### Step 4: 実装
@@ -168,15 +155,13 @@ AI が状況に応じて判断すること：
 実装後、変更ファイルを列挙して実行する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs
+node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs
 ```
 
 パイプでレポートを生成：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$_R/scripts/tickets/review/generate-report.js"
+node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
 ### Step 7: 実装成果の保存
@@ -184,8 +169,7 @@ node "$_R/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node "$_R
 コンパイル検証・テスト・品質チェック通過後、実装内容のサマリーを `save-artifact.js` にパイプして保存する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-cat <<'IMPL_EOF' | node "$_R/scripts/tickets/save-artifact.js" "$ARGUMENTS" implementation
+cat <<'IMPL_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" implementation
 # 変更したファイル一覧と実装内容の概要
 IMPL_EOF
 ```
@@ -197,8 +181,7 @@ IMPL_EOF
 コンパイル検証・テスト・品質チェック通過後：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" done
+node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" done
 ```
 
 品質問題がある場合は修正してから `done` にする。やむを得ない中断時は `approved` に戻す。

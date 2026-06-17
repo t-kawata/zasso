@@ -32,7 +32,7 @@ endif
 .PHONY: commit push pull master branch commit-branch push-branch
 .PHONY: check-be check-fe check-all
 .PHONY: next-version gen-migration gen-entities migrate-up migrate-refresh
-.PHONY: install-context-mode update-context-mode
+.PHONY: install-context-mode update-context-mode stubs
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -293,6 +293,14 @@ push-branch: commit-branch
 # ═══════════════════════════════════════════════
 #  Claude Code プラグイン管理
 # ═══════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════
+#  スタブ検出
+# ═══════════════════════════════════════════════
+
+# [::STUB::] マーカーを含む全ファイルを検索してインデント付きで表示する
+stubs:
+	@node .claude/scripts/tickets/review/find-all-stubs.js "$(shell git rev-parse --show-toplevel)" | node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>console.log(JSON.stringify(JSON.parse(d),null,2)))"
 
 install-context-mode:
 ifeq ($(OS),Windows_NT)

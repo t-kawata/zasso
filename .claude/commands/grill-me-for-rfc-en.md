@@ -1,3 +1,7 @@
+---
+description: Interactive grill session for writing RFC design documents under strict constraints (complete coverage, no delegation, no stubs).
+---
+
 # /grill-me-for-rfc
 
 ## Overview

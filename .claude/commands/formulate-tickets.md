@@ -34,8 +34,6 @@ description: 設計書（RFC・要件定義・設計ドキュメント）から�
 ### Step 0: 初期化（引数パース）
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-
 # 第1引数: 設計書パス（必須）
 DOC_PATH="${ARGUMENTS%% *}"
 
