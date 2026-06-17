@@ -1,6 +1,6 @@
 # voiput — ポータブル音声認識
 
-**voiput** は macOS・Windows・OpenAI Whisper API の3バックエンドを統一的に扱うポータブル音声認識（STT）Rust クレートです。
+**voiput** は macOS・Windows・OpenAI Whisper API・Qwen3-ASR（ローカル）の4バックエンドを統一的に扱うポータブル音声認識（STT）Rust クレートです。
 zasso プロジェクト内で `crates/voiput/` として開発されており、Tauri v2 アプリケーションから依存クレートとして利用することを前提としています。
 
 ## アーキテクチャ
@@ -30,6 +30,7 @@ zasso プロジェクト内で `crates/voiput/` として開発されており�
 | macOS ネイティブ | macOS 15+ | SFSpeechRecognizer / Tahoe (macOS 26+) | マイク・音声認識権限、`libSpeechHelper.a` |
 | Windows ネイティブ | Windows 10+ | WinRT SpeechRecognizer (Native AOT DLL) | マイク権限、`SpeechHelper.dll + .lib` |
 | OpenAI Whisper | 全プラットフォーム | REST API (async-openai) | API キー |
+| Local（Qwen3-ASR） | 全プラットフォーム | sherpa-onnx OfflineRecognizer（ローカルONNX推論） | モデルファイル (`build.rs` 自動DL) |
 
 ## クイックスタート
 
@@ -80,6 +81,45 @@ let config = VoiputConfig::builder()
         gtcrn: "models/gtcrn.onnx".into(),
     })
     .build().unwrap();
+```
+
+### Local モード（Qwen3-ASR）
+
+```rust,no_run
+let config = VoiputConfig::builder()
+    .engine(SttEngine::Local { backend: LocalAsrKind::Qwen3Asr })
+    .locale(LocaleCode::Ja)
+    .qwen3_asr_config(Qwen3AsrConfig {
+        model_paths: Qwen3AsrModelPaths {
+            encoder: "models/qwen3-asr/encoder.int8.onnx".into(),
+            decoder: "models/qwen3-asr/decoder.int8.onnx".into(),
+            conv_frontend: "models/qwen3-asr/conv_frontend.onnx".into(),
+            tokenizer_dir: "models/qwen3-asr/tokenizer".into(),
+        },
+        provider: "cpu".into(),
+        // auto_num_threads(): システム論理コア数の半分（最小1）。例: 12→6, 8→4
+        num_threads: std::thread::available_parallelism()
+            .map(|n| (n.get() / 2).max(1) as i32)
+            .unwrap_or(1),
+        debug: false,
+    })
+    .vad_model_paths(VadModelPaths {
+        silero: "models/silero_vad.onnx".into(),
+        ten: "models/ten_vad.onnx".into(),
+        gtcrn: "models/gtcrn.onnx".into(),
+    })
+    .build().unwrap();
+```
+
+事後補正（PostCorrection）に OpenAI API を使用する場合、`post_correction_openai_config()` を追加します。
+この設定はエンジン非依存で、Local モードでも有効です。
+
+```rust,no_run
+.post_correction_openai_config(OpenAiConfig {
+    base_url: "https://api.openai.com/v1".into(),
+    api_key: std::env::var("OPENAI_API_KEY").unwrap(),
+    model: "gpt-4o-mini".into(),
+})
 ```
 
 ## SttEvent — イベント体系
@@ -189,9 +229,24 @@ SttCompleted または PostCorrectionFinished 到着時に自動実行されま�
 
 ```rust
 VoiputConfig::builder()
-    .engine(SttEngine::OpenAI)           // 認識エンジン
+    .engine(SttEngine::OpenAI)           // 認識エンジン（OpenAI / Os / Local）
     .locale(LocaleCode::Ja)              // 言語ロケール
     .openai_config(OpenAiConfig { ... }) // OpenAI API 設定（OpenAI 時必須）
+    .qwen3_asr_config(Qwen3AsrConfig {   // Qwen3-ASR 設定（Local 時必須）
+        model_paths: Qwen3AsrModelPaths { ... },
+        provider: "cpu".into(),
+        provider: "cpu".into(),
+        // auto_num_threads(): システム論理コア数の半分（最小1）
+        // 例: 12→6, 8→4, 4→2, 2→1
+        num_threads: std::thread::available_parallelism()
+            .map(|n| (n.get() / 2).max(1) as i32)
+            .unwrap_or(1),
+        debug: false,
+    })
+    .post_correction_openai_config(OpenAiConfig { // 事後補正 OpenAI API（エンジン非依存）
+        base_url: "...", api_key: "...",
+        model: "gpt-4o-mini".into(),
+    })
     .vad_model_paths(VadModelPaths {     // VAD モデルパス（必須）
         silero: "...", ten: "...", gtcrn: "...",
     })
@@ -372,13 +427,27 @@ macOS フレームワーク（システム標準、同封不要）:
 | `gtcrn.onnx` | GTCRN ノイズ除去 | ✅（OpenAI モード推奨） |
 | `tokens.txt` | Lindera IPADIC トークナイザー | ✅ |
 
-手動ダウンロード: [huggingface.co/t-kawata/mycute](https://huggingface.co/t-kawata/mycute)
+### Qwen3-ASR モデル（`models/qwen3-asr/`）
+
+| ファイル | 説明 | 必須 |
+|---------|------|------|
+| `encoder.int8.onnx` | Qwen3-ASR エンコーダ（約174MB） | ✅ |
+| `decoder.int8.onnx` | Qwen3-ASR デコーダ（約722MB） | ✅ |
+| `conv_frontend.onnx` | Qwen3-ASR フロントエンド（約42MB） | ✅ |
+| `tokenizer/vocab.json` | BPE トークナイザー語彙ファイル | ✅ |
+| `tokenizer/merges.txt` | BPE トークナイザーマージファイル | ✅ |
+| `tokenizer/tokenizer_config.json` | トークナイザー設定 | ✅ |
+
+モデルダウンロード元: [huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8](https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8)
+VAD・ノイズ除去モデル: [huggingface.co/t-kawata/mycute](https://huggingface.co/t-kawata/mycute)
 
 ## モデルファイルビルド時の自動ダウンロード
 
 `build.rs` が初回ビルド時に HuggingFace から `models/` へ自動ダウンロードします。
+VAD モデル・ノイズ除去モデルに加え、Qwen3-ASR モデル（encoder/decoder/conv_frontend/tokenizer）も
+自動ダウンロードされます。
 ダウンロードに失敗した場合でも、ビルドはスタブリンクで成功しますが
-VAD 処理は利用不可になります。
+VAD 処理および Qwen3-ASR 認識は利用不可になります。
 
 ## 開発用デモ（test-run）
 
@@ -389,6 +458,18 @@ cargo test --package voiput
 # 開発用デモ
 cargo run --bin test-run                                    # OS 標準モード（日本語）
 cargo run --bin test-run -- --engine openai --openai-key=sk-xxx  # OpenAI モード
+cargo run --bin test-run -- --engine local --openai-key=sk-xxx   # Local（Qwen3-ASR）+ 事後補正
+
+# Makefile ターゲット
+make run             # OS 標準モード
+make run-openai      # OpenAI モード（KEY=sk-xxx 必須）
+make run-local       # Local Qwen3-ASR モード（KEY=sk-xxx で事後補正有効）
+make run-local-no-denoiser  # Local + Denoiser オフ
+
+# auto_num_threads()
+# Qwen3-ASR 推論と VAD のスレッド数は auto_num_threads() により
+# システムの論理コア数の半分に自動調整されます（最小1）。
+# 例: 12コア→6, 8コア→4, 4コア→2, 2コア→1
 
 # オプション
 --audio-verify    # 音声再生テスト
