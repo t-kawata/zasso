@@ -91,7 +91,7 @@ impl fmt::Display for CallId {
 ///
 /// OUT 方向へ音声を供給する任意の入力源を識別する。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct AudioSourceId(NonZeroU64);
+pub struct AudioSourceId(pub(crate) NonZeroU64);
 
 impl AudioSourceId {
     /// 新しい一意な音声ソース ID を生成する。
