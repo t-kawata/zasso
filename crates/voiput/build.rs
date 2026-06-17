@@ -75,6 +75,9 @@ fn main() {
     // Qwen3-ASR モデル用サブディレクトリを作成（VAD の tokens.txt と衝突回避）
     let qwen3_dir = models_dir.join("qwen3-asr");
     std::fs::create_dir_all(&qwen3_dir).expect("Failed to create models/qwen3-asr/ directory");
+    // tokenizer/ サブディレクトリ（vocab.json / merges.txt / tokenizer_config.json の出力先）
+    std::fs::create_dir_all(&qwen3_dir.join("tokenizer"))
+        .expect("Failed to create models/qwen3-asr/tokenizer/ directory");
 
     // cargo:rerun-if-changed で models/ 下の変更を検出
     println!("cargo:rerun-if-changed={}", models_dir.display());

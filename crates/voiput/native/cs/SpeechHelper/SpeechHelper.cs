@@ -589,7 +589,7 @@ namespace Mycute.WindowsBackend
                     return;
                 }
 
-                var frame = _frameOutputNode?.GetFrame();
+                using var frame = _frameOutputNode?.GetFrame();
                 if (frame == null) return;
 
                 // 二重チェック: 1回目の _isCapturing ガード（L574）と GetFrame() の間に
@@ -970,7 +970,8 @@ namespace Mycute.WindowsBackend
                 _isRunning = false;
                 if (_session != null)
                 {
-                    // WinRT types do not implement IDisposable; just release the reference.
+                    // Session は _recognizer の子オブジェクト。_recognizer.Dispose()
+                    // が内部で COM リソースを解放するため、参照を切るだけでよい。
                     _session = null;
                 }
                 if (_recognizer != null)
