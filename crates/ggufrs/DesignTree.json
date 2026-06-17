@@ -1,25 +1,40 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-17T07:03:46.690Z",
+  "updatedAt": "2026-06-17T08:02:29.063Z",
   "nodes": [
     {
       "id": "arch",
       "title": "全体アーキテクチャとモジュール構成",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:25.765Z",
+          "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
+        }
+      ],
       "children": [
         {
           "id": "arch-struct",
           "title": "モジュール分割と公開API設計",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:25.766Z",
+              "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
+            }
+          ],
           "children": []
         },
         {
           "id": "arch-init",
           "title": "GgufEngine 構造体の初期化とライフサイクル",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:25.766Z",
+              "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
+            }
+          ],
           "children": []
         }
       ]
@@ -27,28 +42,48 @@
     {
       "id": "model-mgmt",
       "title": "モデル管理（ロード・共有・切替）",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:26.834Z",
+          "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+        }
+      ],
       "children": [
         {
           "id": "model-load",
           "title": "GGUFモデルのロード方式（GgufModelBuilder）",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:26.834Z",
+              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+            }
+          ],
           "children": []
         },
         {
           "id": "model-share",
           "title": "モデルのスレッドセーフな共有（Arc/State管理）",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:26.834Z",
+              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+            }
+          ],
           "children": []
         },
         {
           "id": "model-switch",
           "title": "推論単位でのモデル切替機構",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:26.834Z",
+              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+            }
+          ],
           "children": []
         }
       ]
@@ -56,28 +91,48 @@
     {
       "id": "server",
       "title": "サーバーモード（OpenAI/Anthropic互換）",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:27.762Z",
+          "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
+        }
+      ],
       "children": [
         {
           "id": "server-core",
           "title": "mistralrs-server-core の活用方式",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:27.763Z",
+              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
+            }
+          ],
           "children": []
         },
         {
           "id": "server-multi",
           "title": "複数モデルを扱う単一サーバーのルーティング",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:27.763Z",
+              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
+            }
+          ],
           "children": []
         },
         {
           "id": "server-async",
           "title": "Engineインスタンスからの非同期サーバー起動",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:27.763Z",
+              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
+            }
+          ],
           "children": []
         }
       ]
@@ -85,28 +140,48 @@
     {
       "id": "build-dl",
       "title": "モデル自動ダウンロード（build.rs）",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:28.528Z",
+          "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
+        }
+      ],
       "children": [
         {
           "id": "dl-source",
           "title": "ダウンロード元URLとモデルファイル構成",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:28.529Z",
+              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
+            }
+          ],
           "children": []
         },
         {
           "id": "dl-mechanism",
           "title": "curl/Platform ダウンロード実装",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:28.529Z",
+              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
+            }
+          ],
           "children": []
         },
         {
           "id": "dl-placement",
           "title": "crates/ggufrs/models への配置",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:28.529Z",
+              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
+            }
+          ],
           "children": []
         }
       ]
@@ -114,28 +189,48 @@
     {
       "id": "inference",
       "title": "推論実行インターフェイス",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:29.262Z",
+          "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+        }
+      ],
       "children": [
         {
           "id": "inf-structured",
           "title": "Structured Output（JSON Schema拘束）",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:29.262Z",
+              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+            }
+          ],
           "children": []
         },
         {
           "id": "inf-stream",
           "title": "ストリーミングと通常生成",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:29.262Z",
+              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+            }
+          ],
           "children": []
         },
         {
           "id": "inf-params",
           "title": "推論パラメータ（temperature, max_tokens等）",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:29.262Z",
+              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+            }
+          ],
           "children": []
         }
       ]
@@ -143,21 +238,36 @@
     {
       "id": "config",
       "title": "設定管理と定数",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:30.002Z",
+          "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+        }
+      ],
       "children": [
         {
           "id": "cfg-settings",
           "title": "consts/settings.rs での設定管理",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:30.003Z",
+              "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+            }
+          ],
           "children": []
         },
         {
           "id": "cfg-port",
           "title": "ポート割当とRuntimeConfig",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:30.003Z",
+              "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+            }
+          ],
           "children": []
         }
       ]
@@ -165,21 +275,36 @@
     {
       "id": "testing",
       "title": "テスト戦略",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:41:14.058Z",
+          "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
+        }
+      ],
       "children": [
         {
           "id": "test-unit",
           "title": "単体テストの構成",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:14.059Z",
+              "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
+            }
+          ],
           "children": []
         },
         {
           "id": "test-integ",
           "title": "結合テスト（実モデルを使った実行テスト）",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:14.059Z",
+              "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
+            }
+          ],
           "children": []
         }
       ]
@@ -187,31 +312,354 @@
     {
       "id": "errors",
       "title": "エラー型とエラーハンドリング",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:30.003Z",
+          "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+        }
+      ],
       "children": []
     },
     {
       "id": "deps",
       "title": "依存関係管理",
-      "status": "open",
-      "questions": [],
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:28:31.062Z",
+          "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
+        }
+      ],
       "children": [
         {
           "id": "dep-mistralrs",
           "title": "mistralrs バージョンとfeature flags",
-          "status": "open",
-          "questions": [],
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:31.062Z",
+              "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
+            }
+          ],
           "children": []
         },
         {
           "id": "dep-other",
           "title": "その他依存クレート",
-          "status": "open",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:28:31.062Z",
+              "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "model-info",
+      "title": "ModelInfo 構造体の設計（Registry内のモデル情報保持）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:41:11.768Z",
+          "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
+        }
+      ],
+      "children": [
+        {
+          "id": "mi-fields",
+          "title": "ModelInfo のフィールド設計（name, model_path, lazy_load, 状態等）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:11.769Z",
+              "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mi-registry",
+          "title": "ModelRegistry の API 設計",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:11.769Z",
+              "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "gpu-auto",
+      "title": "GPUプロバイダー自動検出機構",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:41:12.504Z",
+          "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
+        }
+      ],
+      "children": [
+        {
+          "id": "gpu-detect",
+          "title": "実行環境でのGPUプロバイダー検出方法",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:12.505Z",
+              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "gpu-fallback",
+          "title": "GPU非検出時のCPUフォールバック",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:12.505Z",
+              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "gpu-platform",
+          "title": "プラットフォーム別GPU対応（Metal, DirectML等）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:12.505Z",
+              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "trait-inference",
+      "title": "InferenceEngine トレイトの具体的設計（mistralrs API調査後確定）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:45:58.992Z",
+          "answer": "Q14:B(3メソッド+低レベル直アクセス)。高レベル: generate/generate_structured/generate_stream。低レベル: mistralrs生機能へのパススルーアクセスを提供。"
+        }
+      ],
+      "children": [
+        {
+          "id": "trait-methods",
+          "title": "高レベル3メソッドの具体的シグネチャ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:55:31.784Z",
+              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "trait-structured",
+          "title": "generate_structured のシグネチャと制約設計",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:55:31.785Z",
+              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "trait-default",
+          "title": "低レベルAPI（mistralrs生機能アクセス）の設計",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:55:31.785Z",
+              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "binary-test",
+      "title": "test-run バイナリ（cargo run --bin test-run）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:41:14.758Z",
+          "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
+        }
+      ],
+      "children": [
+        {
+          "id": "bt-purpose",
+          "title": "test-run の目的と実行内容",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:14.758Z",
+              "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "bt-output",
+          "title": "目視確認可能な出力形式",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:41:14.758Z",
+              "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "user-config",
+      "title": "crate利用者向けモデル設定インターフェース（JSONマルチソースマージ）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T07:55:33.631Z",
+          "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
+        }
+      ],
+      "children": [
+        {
+          "id": "uc-builtin",
+          "title": "ビルトインモデル設定（Qwen3.5系）の組み込み方",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:55:33.632Z",
+              "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "uc-custom",
+          "title": "ユーザー任意モデルの設定方法とGgufConfig",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-17T07:55:33.632Z",
+              "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "arch-start-server",
+      "title": "auto_start_server フラグの設計",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:21Z",
+          "answer": "Q18:A。ServerConfig.auto_start_server bool フィールド。trueならnew()時に自動起動。明示的start_server()呼び出しも可能。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "cfg-gitignore",
+      "title": ".gitignore models/ の設定",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:22Z",
+          "answer": "Q17:A。models/ は .gitignore に追加。voiput準拠。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "cfg-json-schema",
+      "title": "JSON config スキーマ構造（3セクション）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:25Z",
+          "answer": "Q19:A。{ models: [], server: {}, gpu: {} } の3トップレベルセクション。"
+        }
+      ],
+      "children": [
+        {
+          "id": "cjs-models",
+          "title": "models セクション（ModelConfig配列）",
+          "status": "resolved",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "cjs-server",
+          "title": "server セクション（ポート・auto_start_server等）",
+          "status": "resolved",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "cjs-gpu",
+          "title": "gpu セクション（プロバイダー設定）",
+          "status": "resolved",
           "questions": [],
           "children": []
         }
       ]
+    },
+    {
+      "id": "err-variants",
+      "title": "GgufError の6バリアント",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:26Z",
+          "answer": "Q19:A。ModelNotFound, ModelLoadFailed, InferenceFailed, ServerStartupFailed, InvalidConfig, MistralrsError(Box<dyn Error>)"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "cfg-roles",
+      "title": "settings.rs（静的定数）と JSON config（動的設定）の役割分担",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:27Z",
+          "answer": "Q17:A。settings.rs=ポート番号・デフォルトパス・タイムアウト等の静的定数。JSON config=モデルパス・context_size等のランタイム可変設定。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "reg-thread",
+      "title": "ModelRegistry のスレッドセーフ（RwLock）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-17T08:02:28Z",
+          "answer": "Q18:A。Registryは内部 RwLock<Vec<ModelInfo>> で保護。読み取り大半の操作に最適。"
+        }
+      ],
+      "children": []
     }
   ]
 }
