@@ -1,7 +1,7 @@
-// trate — Abstract AsrBackend trait for pluggable speech recognition backends.
-//
-// このクレートは voiput crate の音声認識バックエンド抽象化トレイトを外部から
-// 実装可能にするための軽量トレイト定義クレートです。
+//! 音声認識バックエンドが実装すべきトレイト群。
+//!
+//! 従来 crates/trate で定義していたトレイトを voiput 内部に取り込んだもの。
+//! 将来、他 crate からも実装可能にする必要が生じた場合は再び独立クレートに切り出す。
 
 use anyhow::Result;
 
@@ -35,13 +35,12 @@ pub trait AsrBackend: Send {
     }
 }
 
-// M1-2: LocalAsrBackend トレイト定義が追加される
 pub mod local;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::local::LocalAsrBackend;
+    use crate::traits::local::LocalAsrBackend;
 
     struct MockBackend;
 

@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-17T07:03:46.690Z",
+  "nodes": [
+    {
+      "id": "arch",
+      "title": "全体アーキテクチャとモジュール構成",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "arch-struct",
+          "title": "モジュール分割と公開API設計",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "arch-init",
+          "title": "GgufEngine 構造体の初期化とライフサイクル",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "model-mgmt",
+      "title": "モデル管理（ロード・共有・切替）",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "model-load",
+          "title": "GGUFモデルのロード方式（GgufModelBuilder）",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "model-share",
+          "title": "モデルのスレッドセーフな共有（Arc/State管理）",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "model-switch",
+          "title": "推論単位でのモデル切替機構",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "server",
+      "title": "サーバーモード（OpenAI/Anthropic互換）",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "server-core",
+          "title": "mistralrs-server-core の活用方式",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "server-multi",
+          "title": "複数モデルを扱う単一サーバーのルーティング",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "server-async",
+          "title": "Engineインスタンスからの非同期サーバー起動",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "build-dl",
+      "title": "モデル自動ダウンロード（build.rs）",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "dl-source",
+          "title": "ダウンロード元URLとモデルファイル構成",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "dl-mechanism",
+          "title": "curl/Platform ダウンロード実装",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "dl-placement",
+          "title": "crates/ggufrs/models への配置",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "inference",
+      "title": "推論実行インターフェイス",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "inf-structured",
+          "title": "Structured Output（JSON Schema拘束）",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "inf-stream",
+          "title": "ストリーミングと通常生成",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "inf-params",
+          "title": "推論パラメータ（temperature, max_tokens等）",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "title": "設定管理と定数",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "cfg-settings",
+          "title": "consts/settings.rs での設定管理",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "cfg-port",
+          "title": "ポート割当とRuntimeConfig",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "title": "テスト戦略",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "test-unit",
+          "title": "単体テストの構成",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "test-integ",
+          "title": "結合テスト（実モデルを使った実行テスト）",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "errors",
+      "title": "エラー型とエラーハンドリング",
+      "status": "open",
+      "questions": [],
+      "children": []
+    },
+    {
+      "id": "deps",
+      "title": "依存関係管理",
+      "status": "open",
+      "questions": [],
+      "children": [
+        {
+          "id": "dep-mistralrs",
+          "title": "mistralrs バージョンとfeature flags",
+          "status": "open",
+          "questions": [],
+          "children": []
+        },
+        {
+          "id": "dep-other",
+          "title": "その他依存クレート",
+          "status": "open",
+          "questions": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use anyhow::{anyhow, Result};
 use sherpa_onnx::{OfflineQwen3ASRModelConfig, OfflineRecognizer, OfflineRecognizerConfig};
-use trate::AsrBackend;
-use trate::local::LocalAsrBackend;
+use crate::traits::AsrBackend;
+use crate::traits::local::LocalAsrBackend;
 
 use crate::types::Qwen3AsrConfig;
 
@@ -22,6 +22,7 @@ pub struct Qwen3AsrBackend {
     /// OfflineRecognizer は Mutex で保護する（複数スレッドからの同時呼び出しを排他）
     recognizer: Mutex<OfflineRecognizer>,
     /// 設定（model_path/is_healthy で使用）
+    #[allow(dead_code)]
     config: Qwen3AsrConfig,
 }
 

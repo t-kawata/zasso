@@ -67,9 +67,9 @@ pub enum StreamerEvent {
     PostCorrectionFinished,
 }
 
-// AsrBackend トレイトは trate crate に移行済み。
-// 互換性のため streamer.rs から再公開する（M3-3 で openai.rs の import を trate 直参照に変更）。
-pub use trate::AsrBackend;
+// AsrBackend トレイトは traits モジュールに内部化済み。
+// 互換性のため streamer.rs から再公開する。
+pub use crate::traits::AsrBackend;
 
 /// バックエンドを PostCorrectionProcessor から呼び出せるようにするためのラッパー
 pub struct BackendWrapper<B>(pub Arc<Mutex<B>>);

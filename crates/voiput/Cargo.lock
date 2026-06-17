@@ -3193,13 +3193,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trate"
-version = "0.1.0"
-dependencies = [
- "anyhow",
-]
-
-[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3330,7 +3323,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "trate",
  "winapi",
 ]
 

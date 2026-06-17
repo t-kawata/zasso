@@ -54,6 +54,9 @@ pub mod hotkey;
 // M8-2: クリップボード操作 + キーボード注入
 pub mod input;
 
+// trate から内部化したトレイト定義（AsrBackend, LocalAsrBackend）
+mod traits;
+
 pub use config::{VoiputConfig, VoiputConfigBuilder};
 pub use error::VoiputError;
 pub use types::*;
@@ -78,7 +81,7 @@ pub use backends::win::WinSpeechBackend;
 pub use pipeline::streamer::{
     BackendWrapper, PseudoAsrStreamer, StreamerConfig, StreamerEvent, StreamerLocale,
 };
-pub use trate::AsrBackend;
+pub use traits::AsrBackend;
 pub use pipeline::vad::VadConfig as VadProcessorConfig;
 pub use pipeline::vad::VadProcessor;
 pub use pipeline::vad::VadType as VadProcessorType;

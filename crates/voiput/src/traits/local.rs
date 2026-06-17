@@ -1,4 +1,4 @@
-use crate::AsrBackend;
+use crate::traits::AsrBackend;
 
 /// ローカル ASR バックエンドが実装すべきトレイト。
 ///
@@ -7,6 +7,10 @@ use crate::AsrBackend;
 ///
 /// `Sync` は PseudoAsrStreamer の型制約（`B: AsrBackend + Send + Sync + 'static`）を
 /// 満たすために必要。Qwen3AsrBackend は Mutex で内部状態を保護しており、Sync を満たす。
+///
+/// model_path() / is_healthy() は現状 crate 内では呼び出されていないが、
+/// トレイトの契約として定義されている（将来の UI 表示等で利用予定）。
+#[allow(dead_code)]
 pub trait LocalAsrBackend: AsrBackend + Sync {
     /// 使用中のモデルファイルへのパスを返す（エラーメッセージ等で使用）。
     fn model_path(&self) -> &str;

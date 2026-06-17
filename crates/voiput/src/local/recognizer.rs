@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use trate::AsrBackend;
-use trate::local::LocalAsrBackend;
+use crate::traits::AsrBackend;
+use crate::traits::local::LocalAsrBackend;
 
 use crate::config::VoiputConfig;
 use crate::types::{LocaleCode, LocalAsrKind};
