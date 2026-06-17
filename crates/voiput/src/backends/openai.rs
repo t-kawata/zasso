@@ -800,7 +800,9 @@ impl AsrBackend for OpenAIBackend {
 // ============================================================================
 
 /// VoiputConfig から StreamerConfig を構築する。
-fn build_streamer_config(config: &VoiputConfig) -> StreamerConfig {
+///
+/// recognizer.rs（LocalRecognizerAdapter）からも共用するため pub(crate)。
+pub(crate) fn build_streamer_config(config: &VoiputConfig) -> StreamerConfig {
     let model_dir = &config.model_dir;
     let vad_path = resolve_model_path(
         match config.vad.vad_type {

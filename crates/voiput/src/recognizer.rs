@@ -5,23 +5,27 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
+use parking_lot::Mutex;
 
 use indexmap::IndexMap;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
-use crate::backends::openai::OpenAIRecognizer;
+use crate::backends::openai::{build_streamer_config, OpenAIRecognizer};
 use crate::config::VoiputConfig;
+use crate::constants::*;
 use crate::local::recognizer::LocalRecognizer;
 use crate::pipeline::post_correct::{PostCorrectionBackend, PostCorrectionConfig};
-use crate::pipeline::streamer::BackendWrapper;
+use crate::pipeline::streamer::{
+    BackendWrapper, PseudoAsrStreamer, StreamerEvent,
+};
 use crate::pipeline::vad::{VadConfig as VadProcessorConfig, VadType as VadProcessorType};
-use crate::constants::*;
 use crate::types::{
-    LocaleCode, OpenAiConfig, Qwen3AsrConfig, Qwen3AsrModelPaths, SttEngine, SttEvent, VadConfig,
-    VadModelPaths, VadType,
+    LocaleCode, OpenAiConfig, Qwen3AsrConfig, Qwen3AsrModelPaths, SttEngine,
+    SttEvent, VadConfig, VadModelPaths, VadType,
 };
 use crate::OpenAIBackend;
 
@@ -222,16 +226,16 @@ fn resolve_vad_model_path(path: &str, model_dir: &Option<String>) -> String {
 ///
 /// Qwen3-ASR モデルファイルのパスを解決する。
 ///
-/// [::STUB::] M8-2: 全テスト通過確認時、統合テストで初めて使用される。
-/// それまでは unused warning が発生するが許容。
+/// [::STUB::] ユーティリティ関数。統合テストは直接パス構築するため現状未使用。
+/// 将来 Qwen3-ASR 設定フローからの呼び出しが必要になった際に #[allow(dead_code)] を外す。
 #[allow(dead_code)]
 pub(crate) fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrModelPaths {
     let subdir = resolve_vad_model_path(QWEN3_MODEL_SUBDIR, model_dir);
     Qwen3AsrModelPaths {
         encoder: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_ENCODER),
         decoder: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_DECODER),
-        joiner: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_JOINER),
-        tokens: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_TOKENS),
+        conv_frontend: format!("{}/{}", subdir, MODEL_FILENAME_QWEN3_CONV_FRONTEND),
+        tokenizer_dir: format!("{}/{}", subdir, QWEN3_TOKENIZER_SUBDIR),
     }
 }
 
@@ -240,8 +244,8 @@ pub(crate) fn resolve_qwen3_model_paths(model_dir: &Option<String>) -> Qwen3AsrM
 /// qwen3_asr_config が設定されている場合、各モデルファイルのパスが
 /// 絶対パスか相対パスかを判断し、必要に応じて model_dir と結合する。
 ///
-/// [::STUB::] M8-2: 全テスト通過確認時、統合テストで初めて使用される。
-/// それまでは unused warning が発生するが許容。
+/// [::STUB::] ユーティリティ関数。統合テストは直接 Qwen3AsrConfig 構築するため現状未使用。
+/// 将来 Qwen3-ASR 設定フローからの呼び出しが必要になった際に #[allow(dead_code)] を外す。
 #[allow(dead_code)]
 pub(crate) fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3AsrConfig> {
     let qwen3_config = config.qwen3_asr_config.as_ref()?;
@@ -265,8 +269,8 @@ pub(crate) fn resolve_qwen3_asr_config(config: &VoiputConfig) -> Option<Qwen3Asr
         model_paths: Qwen3AsrModelPaths {
             encoder: resolve(&qwen3_config.model_paths.encoder),
             decoder: resolve(&qwen3_config.model_paths.decoder),
-            joiner: resolve(&qwen3_config.model_paths.joiner),
-            tokens: resolve(&qwen3_config.model_paths.tokens),
+            conv_frontend: resolve(&qwen3_config.model_paths.conv_frontend),
+            tokenizer_dir: resolve(&qwen3_config.model_paths.tokenizer_dir),
         },
         provider: qwen3_config.provider.clone(),
         num_threads: qwen3_config.num_threads,
@@ -641,7 +645,8 @@ impl SpeechRecognizer {
                     backend.tick();
                 }
             }
-            // Local バックエンドの tick() は no-op（RFC §7 動作表）。
+            // Local バックエンドの tick() は no-op。
+            // イベント中継はバックグラウンドスレッド内で行う。
             SttEngine::Local { .. } => {}
         }
     }
@@ -679,65 +684,237 @@ fn rebuild_pc_backend(
 
 /// LocalRecognizer を PseudoAsrStreamer と統合するアダプター。
 ///
-/// OpenAIRecognizer と同様のインターフェース（start/stop/tick/set_locale/update_config）
-/// を提供し、SpeechRecognizer がエンジン種別に関係なく同一の操作体系で
-/// バックエンドを制御できるようにする。
+/// OpenAIRecognizer と同様の方式で PseudoAsrStreamer を内蔵し、
+/// マイクキャプチャ → VAD → ASR（Qwen3-ASR）のパイプラインを駆動する。
 ///
-/// LocalRecognizer を PseudoAsrStreamer と統合するアダプター。
-///
-/// OpenAIRecognizer と同様のインターフェース（start/stop/tick/set_locale/update_config）
-/// を提供し、SpeechRecognizer がエンジン種別に関係なく同一の操作体系で
-/// バックエンドを制御できるようにする。
+/// 以下の機能は OpenAIRecognizer に対して簡略化している：
+/// - デコレーションアニメーション: 未実装（Local バックエンドでは不要）
+/// - PostCorrection: 未統合（trate の AsrBackend::post_correct() を使用可能）
 struct LocalRecognizerAdapter {
-    /// ローカル ASR バックエンド（start/stop/tick/set_locale/update_config 経由で間接使用）
-    #[allow(dead_code)]
-    recognizer: LocalRecognizer,
-    /// イベント送信チャネル
+    /// UI 向けイベント送信チャネル
     tx: mpsc::Sender<SttEvent>,
     /// 現在のロケール
     locale: LocaleCode,
+    /// PseudoAsrStreamer（start/stop/push_samples で使用、Arc<Mutex> でタスク間共有）
+    streamer: Arc<Mutex<Option<PseudoAsrStreamer<LocalRecognizer>>>>,
+    /// Streamer からのイベント受信チャネル。
+    /// Arc<Mutex> でラップすることで start/stop サイクルを超えて生存し、
+    /// スレッド終了後も再利用可能になる（rebuild_streamer 不要 → モデル再読み込み防止）。
+    streamer_rx: Arc<Mutex<Option<mpsc::Receiver<StreamerEvent>>>>,
+    /// ネイティブ音声キャプチャ受信チャネル（start 時にバックグラウンドタスクに移動）
+    capture_rx: Option<mpsc::UnboundedReceiver<(Vec<f32>, u32)>>,
+    /// 実行中フラグ（バックグラウンドタスクのループ制御用）
+    is_running: Arc<AtomicBool>,
 }
 
 impl LocalRecognizerAdapter {
     /// LocalRecognizerAdapter を構築する。
+    ///
+    /// 1. LocalRecognizer（Qwen3AsrBackend）を初期化
+    /// 2. PseudoAsrStreamer を構築して保持
+    /// 3. バックグラウンドタスクは start() まで起動しない
     fn new(tx: mpsc::Sender<SttEvent>, config: &VoiputConfig) -> Result<Self> {
         let kind = match config.engine {
             SttEngine::Local { backend } => backend,
             _ => unreachable!("LocalRecognizerAdapter は Local エンジン専用"),
         };
         let recognizer = LocalRecognizer::new(kind, config)?;
-        Ok(Self { recognizer, tx, locale: config.locale })
+
+        // PseudoAsrStreamer を構築する
+        let (tx_streamer, rx_streamer) = mpsc::channel::<StreamerEvent>(100);
+        let streamer_config = build_streamer_config(config);
+        let streamer = PseudoAsrStreamer::new(recognizer, tx_streamer, streamer_config)?;
+
+        Ok(Self {
+            tx,
+            locale: config.locale,
+            streamer: Arc::new(Mutex::new(Some(streamer))),
+            streamer_rx: Arc::new(Mutex::new(Some(rx_streamer))),
+            capture_rx: None,
+            is_running: Arc::new(AtomicBool::new(false)),
+        })
     }
 
+    /// 認識を開始する。
+    ///
+    /// SpeechRecognizer::start() からエンジン別ディスパッチ経由で呼ばれる。
+    ///
+    /// Streamer は new() で一度構築され、以降の start/stop サイクルで
+    /// 再利用される（モデル再読み込み防止）。
+    ///
+    /// イベント中継と音声データ転送はバックグラウンドスレッド内で行う。
+    /// streamer_rx は Arc<Mutex> でラップすることでスレッド終了後も生存し、
+    /// 次回 start で新スレッドが再利用可能。
+    ///
+    /// Started/Stopped イベントは送信しない（SpeechRecognizer 側で一元送信）。
     fn start(&mut self) {
-        let _ = self.tx.try_send(SttEvent::Started);
+        if self.is_running.load(Ordering::SeqCst) {
+            return;
+        }
+        self.is_running.store(true, Ordering::SeqCst);
+
+        // PseudoAsrStreamer を開始する（VAD モデルの初期化）
+        // Streamer 本体は new() で一度構築済み。モデル再読み込みは発生しない。
+        let streamer_started = {
+            let mut guard = self.streamer.lock();
+            if let Some(ref mut s) = *guard {
+                s.start().is_ok()
+            } else {
+                false
+            }
+        };
+        if !streamer_started {
+            log::error!("[LocalRecognizerAdapter] Streamer start failed");
+            let _ = self.tx.try_send(SttEvent::Error(
+                "Local streamer start failed".to_string(),
+            ));
+            self.is_running.store(false, Ordering::SeqCst);
+            return;
+        }
+
+        // ネイティブ音声キャプチャを開始する（プラットフォーム依存）
+        self.capture_rx = Self::platform_start_capture();
+
+        let is_running = self.is_running.clone();
+        let tx = self.tx.clone();
+        let streamer = self.streamer.clone();
+        let mut rx_audio = self.capture_rx.take();
+        let rx_for_thread = self.streamer_rx.clone();
+
+        // 250ms 遅延後に Ready イベントを送信する（ワイヤレスヘッドセット対策）
+        let tx_ready = tx.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(OPENAI_READY_DELAY_MS));
+            let _ = tx_ready.try_send(SttEvent::Ready);
+        });
+
+        // バックグラウンドスレッド: 音声転送 + イベント中継
+        //
+        // PseudoAsrStreamer::tick() 内部で Handle::current().block_on() により
+        // 事後補正の非同期呼び出しを行うため、スレッド内に Tokio ランタイムを
+        // 作成し enter しておく（std::thread::spawn では Tokio コンテキストがない）。
+        //
+        // streamer_rx は Arc<Mutex> で共有されているため、スレッド終了後も
+        // 生存し、次回 start で新スレッドが再利用できる。
+        std::thread::spawn(move || {
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(r) => r,
+                Err(e) => {
+                    log::error!("[LocalRecognizerAdapter] Failed to create Tokio runtime: {}", e);
+                    return;
+                }
+            };
+            let _guard = rt.enter();
+            let mut seq_counter = 0u64;
+
+            while is_running.load(Ordering::SeqCst) {
+                // 1. ストリーマーイベントを読み取り UI に転送する
+                {
+                    let mut guard = rx_for_thread.lock();
+                    if let Some(ref mut rx) = *guard {
+                        while let Ok(event) = rx.try_recv() {
+                            let stt_event = match event {
+                                StreamerEvent::SpeechStart(_) => None,
+                                StreamerEvent::SpeechEnd(_) => None,
+                                StreamerEvent::PartialResult(text) => {
+                                    seq_counter += 1;
+                                    Some(SttEvent::PartialResult(text, seq_counter))
+                                }
+                                StreamerEvent::FinalResult(text) => {
+                                    seq_counter += 1;
+                                    Some(SttEvent::FinalResult(text, seq_counter))
+                                }
+                                StreamerEvent::PostCorrectionStarted => {
+                                    Some(SttEvent::PostCorrectionStarted)
+                                }
+                                StreamerEvent::PostCorrectionFinished => {
+                                    Some(SttEvent::PostCorrectionFinished)
+                                }
+                            };
+                            if let Some(ev) = stt_event {
+                                let _ = tx.try_send(ev);
+                            }
+                        }
+                    }
+                }
+
+                // 2. 音声データをキャプチャからストリーマーに転送する
+                if let Some(ref mut rx) = rx_audio {
+                    while let Ok((samples, rate)) = rx.try_recv() {
+                        let mut guard = streamer.lock();
+                        if let Some(ref mut s) = *guard {
+                            s.push_samples(&samples, rate);
+                            s.tick();
+                        }
+                    }
+                }
+
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
     }
 
+    /// 認識を停止する。
+    ///
+    /// PseudoAsrStreamer の内部状態をリセットし、次回 start() で再初期化する。
+    /// モデル再読み込みは発生しない（rebuild_streamer を呼ばないため）。
+    ///
+    /// Started/Stopped イベントは送信しない（SpeechRecognizer 側で一元送信）。
     fn stop(&mut self) {
-        let _ = self.tx.try_send(SttEvent::Stopped);
+        if !self.is_running.load(Ordering::SeqCst) {
+            return;
+        }
+        self.is_running.store(false, Ordering::SeqCst);
+
+        // PseudoAsrStreamer の内部状態をリセットする（VAD バッファ・発話状態等）
+        // s.stop() は OfflineRecognizer の解放やモデル再読み込みを行わない。
+        {
+            let mut guard = self.streamer.lock();
+            if let Some(ref mut s) = *guard {
+                s.stop();
+            }
+        }
+
+        // ネイティブキャプチャを停止する
+        Self::platform_stop_capture();
     }
 
-    #[allow(dead_code)]
-    fn tick(&self) {
-        // Local バックエンドの tick() は no-op。
-        // PseudoAsrStreamer タスクがバックグラウンドで処理を行う。
-    }
-
+    /// ロケールを設定する。
     fn set_locale(&mut self, locale: LocaleCode) {
         self.locale = locale;
     }
 
-    #[allow(dead_code)]
-    fn update_config(&mut self, config: &VoiputConfig) -> Result<()> {
-        self.stop();
-        // LocalRecognizer を再生成（古いインスタンスの Drop で OfflineRecognizer 解放）
-        let kind = match config.engine {
-            SttEngine::Local { backend } => backend,
-            _ => unreachable!("LocalRecognizerAdapter は Local エンジン専用"),
-        };
-        self.recognizer = LocalRecognizer::new(kind, config)?;
-        self.start();
-        Ok(())
+    /// プラットフォームのネイティブ音声キャプチャを開始する。
+    #[cfg(target_os = "macos")]
+    fn platform_start_capture() -> Option<mpsc::UnboundedReceiver<(Vec<f32>, u32)>> {
+        crate::backends::mac::start_native_audio_capture()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn platform_start_capture() -> Option<mpsc::UnboundedReceiver<(Vec<f32>, u32)>> {
+        crate::backends::win::start_native_audio_capture()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    fn platform_start_capture() -> Option<mpsc::UnboundedReceiver<(Vec<f32>, u32)>> {
+        log::warn!("[LocalRecognizerAdapter] Native audio capture not supported on this platform");
+        None
+    }
+
+    /// プラットフォームのネイティブ音声キャプチャを停止する。
+    #[cfg(target_os = "macos")]
+    fn platform_stop_capture() {
+        crate::backends::mac::stop_native_audio_capture();
+    }
+
+    #[cfg(target_os = "windows")]
+    fn platform_stop_capture() {
+        crate::backends::win::stop_native_audio_capture();
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    fn platform_stop_capture() {
+        // no-op
     }
 }
 
@@ -924,15 +1101,15 @@ mod speech_recognizer_tests {
         let paths = resolve_qwen3_model_paths(&model_dir);
         assert_eq!(paths.encoder, "/opt/models/qwen3-asr/encoder.int8.onnx");
         assert_eq!(paths.decoder, "/opt/models/qwen3-asr/decoder.int8.onnx");
-        assert_eq!(paths.joiner, "/opt/models/qwen3-asr/joiner.int8.onnx");
-        assert_eq!(paths.tokens, "/opt/models/qwen3-asr/tokens.txt");
+        assert_eq!(paths.conv_frontend, "/opt/models/qwen3-asr/conv_frontend.onnx");
+        assert_eq!(paths.tokenizer_dir, "/opt/models/qwen3-asr/tokenizer");
     }
 
     #[test]
     fn test_resolve_qwen3_model_paths_without_dir() {
         let paths = resolve_qwen3_model_paths(&None);
         assert_eq!(paths.encoder, "qwen3-asr/encoder.int8.onnx");
-        assert_eq!(paths.tokens, "qwen3-asr/tokens.txt");
+        assert_eq!(paths.tokenizer_dir, "qwen3-asr/tokenizer");
     }
 
     #[test]
@@ -967,8 +1144,8 @@ mod speech_recognizer_tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: "encoder.int8.onnx".into(),
                 decoder: "decoder.int8.onnx".into(),
-                joiner: "joiner.int8.onnx".into(),
-                tokens: "tokens.txt".into(),
+                conv_frontend: "conv_frontend.onnx".into(),
+                tokenizer_dir: "tokenizer".into(),
             },
             provider: "cpu".into(),
             num_threads: 2,
@@ -989,8 +1166,8 @@ mod speech_recognizer_tests {
         let resolved = resolve_qwen3_asr_config(&config).expect("should resolve");
         assert_eq!(resolved.model_paths.encoder, "/opt/models/encoder.int8.onnx");
         assert_eq!(resolved.model_paths.decoder, "/opt/models/decoder.int8.onnx");
-        assert_eq!(resolved.model_paths.joiner, "/opt/models/joiner.int8.onnx");
-        assert_eq!(resolved.model_paths.tokens, "/opt/models/tokens.txt");
+        assert_eq!(resolved.model_paths.conv_frontend, "/opt/models/conv_frontend.onnx");
+        assert_eq!(resolved.model_paths.tokenizer_dir, "/opt/models/tokenizer");
         assert_eq!(resolved.provider, "cpu");
         assert_eq!(resolved.num_threads, 2);
     }

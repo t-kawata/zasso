@@ -33,10 +33,10 @@ pub struct Qwen3AsrModelPaths {
     pub encoder: String,
     /// decoder.onnx のパス
     pub decoder: String,
-    /// joiner.onnx のパス
-    pub joiner: String,
-    /// tokens.txt のパス
-    pub tokens: String,
+    /// conv_frontend.onnx のパス（オプション）
+    pub conv_frontend: String,
+    /// tokenizer ディレクトリのパス（vocab.json + merges.txt を含む）
+    pub tokenizer_dir: String,
 }
 
 /// Qwen3-ASR 推論パラメータ

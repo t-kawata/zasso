@@ -9,13 +9,15 @@
 #   make run            バイナリ実行（KEY 必須: make run KEY=sk-xxx）
 #   make run-os         バイナリ実行（OS エンジン + 日本語）
 #   make run-en         バイナリ実行（OS エンジン + 英語）
+#   make run-local      バイナリ実行（Local Qwen3-ASR エンジン）
+#   make run-local-no-denoiser  バイナリ実行（Local + Denoiser オフ）
 #
 # 共通変数:
 #   KEY=sk-xxx          OpenAI API キー（run で必須）
 #   ARGS=--locale en    追加の CLI 引数
 # ═══════════════════════════════════════════════════════════
 
-.PHONY: check test test-v run run-os run-en
+.PHONY: check test test-v run run-os run-en run-local run-local-no-denoiser
 
 # ── コンパイル検証 ──────────────────────────────────────
 
@@ -42,3 +44,11 @@ run-openai:
 # OpenAIモードで起動（Denoiseをオフ）
 run-openai-no-denoiser:
 	cargo run --bin test-run -- --engine openai --no-denoiser --openai-key=$(KEY) $(ARGS)
+
+# Local Qwen3-ASR モードで起動
+run-local:
+	cargo run --bin test-run -- --engine local --openai-key=$(KEY) $(ARGS)
+
+# Local Qwen3-ASR モードで起動（Denoiseをオフ）
+run-local-no-denoiser:
+	cargo run --bin test-run -- --engine local --no-denoiser --openai-key=$(KEY) $(ARGS)

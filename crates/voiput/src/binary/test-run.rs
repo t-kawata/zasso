@@ -18,9 +18,10 @@ use voiput::{
     apply_replaces, get_tokenizer, init, is_worthy_to_run_asr, play_commit_sound, play_ready_sound,
 };
 use voiput::{
-    InputMode, InternalResampler, LocaleCode, OpenAIBackend, OpenAiConfig, PostCorrectionBackend,
-    PostCorrectionConfig, ProcessorOutput, PunctuationMachine, SignalFilterConfig, SincResampler,
-    SttEngine, VadModelPaths, VoiputConfig,
+    InputMode, InternalResampler, LocaleCode, LocalAsrKind, OpenAIBackend, OpenAiConfig,
+    PostCorrectionBackend, PostCorrectionConfig, ProcessorOutput, PunctuationMachine,
+    Qwen3AsrConfig, Qwen3AsrModelPaths, SignalFilterConfig, SincResampler, SttEngine, VadModelPaths,
+    VoiputConfig,
 };
 use voiput::{PostCorrectionProcessor, SttModelType};
 use voiput::{
@@ -74,6 +75,7 @@ fn parse_args() -> Option<CliArgs> {
                 if i < args.len() {
                     engine = match args[i].as_str() {
                         "openai" => SttEngine::OpenAI,
+                        "local" => SttEngine::Local { backend: LocalAsrKind::Qwen3Asr },
                         _ => SttEngine::Os,
                     };
                 }
@@ -345,6 +347,21 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
                 model: "gpt-4o-mini-transcribe".into(),
             });
         }
+    }
+
+    // Local エンジン（Qwen3-ASR）用設定（--engine local の場合のみ）
+    if matches!(args.engine, SttEngine::Local { .. }) {
+        builder = builder.qwen3_asr_config(Qwen3AsrConfig {
+            model_paths: Qwen3AsrModelPaths {
+                encoder: model_path("qwen3-asr/encoder.int8.onnx"),
+                decoder: model_path("qwen3-asr/decoder.int8.onnx"),
+                conv_frontend: model_path("qwen3-asr/conv_frontend.onnx"),
+                tokenizer_dir: model_path("qwen3-asr/tokenizer"),
+            },
+            provider: "cpu".into(),
+            num_threads: 4,
+            debug: false,
+        });
     }
 
     // Denoiser の無効化（--no-denoiser）

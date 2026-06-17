@@ -47,10 +47,10 @@ pub(crate) const MODEL_FILENAME_GTCRN: &str = "gtcrn.onnx";
 pub(crate) const MODEL_FILENAME_QWEN3_ENCODER: &str = "encoder.int8.onnx";
 /// Qwen3-ASR decoder.onnx（int8 量子化）
 pub(crate) const MODEL_FILENAME_QWEN3_DECODER: &str = "decoder.int8.onnx";
-/// Qwen3-ASR joiner.onnx（int8 量子化）
-pub(crate) const MODEL_FILENAME_QWEN3_JOINER: &str = "joiner.int8.onnx";
-/// Qwen3-ASR tokens.txt
-pub(crate) const MODEL_FILENAME_QWEN3_TOKENS: &str = "tokens.txt";
+/// Qwen3-ASR conv_frontend.onnx（オプションのフロントエンド処理用）
+pub(crate) const MODEL_FILENAME_QWEN3_CONV_FRONTEND: &str = "conv_frontend.onnx";
+/// Qwen3-ASR tokenizer ディレクトリ名（vocab.json + merges.txt を含む）
+pub(crate) const QWEN3_TOKENIZER_SUBDIR: &str = "tokenizer";
 /// Qwen3-ASR モデルファイルが配置されるサブディレクトリ（models/ からの相対）
 pub(crate) const QWEN3_MODEL_SUBDIR: &str = "qwen3-asr";
 

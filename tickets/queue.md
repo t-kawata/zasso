@@ -147,3 +147,8 @@
 - [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #119 build.rs Qwen3-ASR モデルダウンロード追加 | /Users/kawata/shyme/zasso/tickets/specs/0119-buildrs-qwen3-asr.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #120 テスト用サンプル音声ファイルの配置 | /Users/kawata/shyme/zasso/tickets/specs/0120-untitled-5.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #121 Qwen3AsrBackend 結合テスト（実モデル + 実音声） | /Users/kawata/shyme/zasso/tickets/specs/0121-qwen3asrbackend.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #122 全テスト通過確認（make test 全件グリーン） | /Users/kawata/shyme/zasso/tickets/specs/0122-make-test.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #123 test-run に --engine local 対応を追加 | /Users/kawata/shyme/zasso/tickets/specs/0123-test-run-engine-local.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #124 LocalRecognizerAdapter の音声パイプライン未配線バグ修正 | /Users/kawata/shyme/zasso/tickets/specs/0124-localrecognizeradapter-2.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #125 LocalRecognizerAdapter イベント中継の regression 修正 | /Users/kawata/shyme/zasso/tickets/specs/0125-localrecognizeradapter-regression.md | 2026-06-17 | 2026-06-17 | 2026-06-17

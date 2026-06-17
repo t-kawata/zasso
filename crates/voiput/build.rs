@@ -45,12 +45,20 @@ const QWEN3_MODEL_FILES: &[(&str, &str)] = &[
         "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/decoder.int8.onnx",
     ),
     (
-        "qwen3-asr/joiner.int8.onnx",
-        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/joiner.int8.onnx",
+        "qwen3-asr/conv_frontend.onnx",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/conv_frontend.onnx",
     ),
     (
-        "qwen3-asr/tokens.txt",
-        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/tokens.txt",
+        "qwen3-asr/tokenizer/vocab.json",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/tokenizer/vocab.json",
+    ),
+    (
+        "qwen3-asr/tokenizer/merges.txt",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/tokenizer/merges.txt",
+    ),
+    (
+        "qwen3-asr/tokenizer/tokenizer_config.json",
+        "https://huggingface.co/pantinor/sherpa-onnx-qwen3-asr-0.6b-int8/resolve/main/tokenizer/tokenizer_config.json",
     ),
 ];
 

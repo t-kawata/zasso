@@ -40,26 +40,22 @@ impl Qwen3AsrBackend {
         recognizer_config.model_config.qwen3_asr = OfflineQwen3ASRModelConfig {
             encoder: Some(config.model_paths.encoder.clone()),
             decoder: Some(config.model_paths.decoder.clone()),
+            conv_frontend: Some(config.model_paths.conv_frontend.clone()),
+            // tokenizer ディレクトリ（vocab.json + merges.txt を含む）
+            tokenizer: Some(config.model_paths.tokenizer_dir.clone()),
             ..Default::default()
         };
 
-        recognizer_config.model_config.tokens = Some(config.model_paths.tokens.clone());
         recognizer_config.model_config.provider = Some(config.provider.clone());
         recognizer_config.model_config.num_threads = config.num_threads;
         recognizer_config.model_config.debug = config.debug;
 
-        // joiner は Qwen3-ASR v0.6b のモデルファイル構成には含まれない。
-        // 将来のモデルバージョンで必要な場合は OfflineQwen3ASRModelConfig に
-        // フィールドが追加される想定。
-
         let recognizer = OfflineRecognizer::create(&recognizer_config)
             .ok_or_else(|| anyhow!(
                 "Qwen3-ASR OfflineRecognizer の作成に失敗しました。\
-                 モデルファイルが存在するか確認してください:\n  encoder={}\n  decoder={}\n  joiner={}\n  tokens={}",
+                 モデルファイルが存在するか確認してください:\n  encoder={}\n  decoder={}",
                 config.model_paths.encoder,
                 config.model_paths.decoder,
-                config.model_paths.joiner,
-                config.model_paths.tokens,
             ))?;
 
         Ok(Self {
@@ -113,11 +109,10 @@ impl LocalAsrBackend for Qwen3AsrBackend {
 /// （OfflineRecognizer::create() 自体がモデルファイルの整合性を検証するため）。
 ///
 pub(crate) fn validate_qwen3_model_files(config: &Qwen3AsrConfig) -> Result<()> {
+    // conv_frontend はオプショナル、joiner は Qwen3-ASR v0.6b 未使用
     let paths = [
         (&config.model_paths.encoder, "encoder.onnx"),
         (&config.model_paths.decoder, "decoder.onnx"),
-        (&config.model_paths.joiner, "joiner.onnx"),
-        (&config.model_paths.tokens, "tokens.txt"),
     ];
 
     for (path, name) in &paths {
@@ -146,8 +141,9 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: "/nonexistent/encoder.onnx".into(),
                 decoder: "/nonexistent/decoder.onnx".into(),
-                joiner: "/nonexistent/joiner.onnx".into(),
-                tokens: "/nonexistent/tokens.txt".into(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
+                
             },
             provider: "cpu".into(),
             num_threads: 1,
@@ -167,8 +163,9 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: "/nonexistent/encoder.onnx".into(),
                 decoder: "/nonexistent/decoder.onnx".into(),
-                joiner: "/nonexistent/joiner.onnx".into(),
-                tokens: "/nonexistent/tokens.txt".into(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
+                
             },
             provider: "cpu".into(),
             num_threads: 1,
@@ -186,8 +183,9 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: "/models/encoder.onnx".into(),
                 decoder: "/models/decoder.onnx".into(),
-                joiner: "/models/joiner.onnx".into(),
-                tokens: "/models/tokens.txt".into(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
+                
             },
             provider: "cpu".into(),
             num_threads: 1,
@@ -207,8 +205,9 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: "/nonexistent/encoder.onnx".into(),
                 decoder: "/nonexistent/decoder.onnx".into(),
-                joiner: "/nonexistent/joiner.onnx".into(),
-                tokens: "/nonexistent/tokens.txt".into(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
+                
             },
             provider: "cpu".into(),
             num_threads: 1,
@@ -227,7 +226,7 @@ mod tests {
         let dir = std::env::temp_dir().join("qwen3_test_validate");
         let _ = std::fs::create_dir_all(&dir);
         // 4 ファイルを作成
-        for name in &["encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"] {
+        for name in &["encoder.int8.onnx", "decoder.int8.onnx"] {
             let p = dir.join(name);
             let _ = std::fs::write(&p, b"dummy content");
         }
@@ -236,8 +235,8 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: dir.join("encoder.int8.onnx").to_string_lossy().to_string(),
                 decoder: dir.join("decoder.int8.onnx").to_string_lossy().to_string(),
-                joiner: dir.join("joiner.int8.onnx").to_string_lossy().to_string(),
-                tokens: dir.join("tokens.txt").to_string_lossy().to_string(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
             },
             provider: "cpu".into(),
             num_threads: 1,
@@ -257,7 +256,7 @@ mod tests {
         let dir = std::env::temp_dir().join("qwen3_test_validate_missing");
         let _ = std::fs::create_dir_all(&dir);
         // encoder のみ作成せず欠落させる
-        for name in &["decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"] {
+        for name in &["decoder.int8.onnx"] {
             let p = dir.join(name);
             let _ = std::fs::write(&p, b"dummy content");
         }
@@ -266,8 +265,8 @@ mod tests {
             model_paths: Qwen3AsrModelPaths {
                 encoder: dir.join("encoder.int8.onnx").to_string_lossy().to_string(),
                 decoder: dir.join("decoder.int8.onnx").to_string_lossy().to_string(),
-                joiner: dir.join("joiner.int8.onnx").to_string_lossy().to_string(),
-                tokens: dir.join("tokens.txt").to_string_lossy().to_string(),
+                conv_frontend: String::new(),
+                tokenizer_dir: String::new(),
             },
             provider: "cpu".into(),
             num_threads: 1,
