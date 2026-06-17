@@ -3,9 +3,9 @@
 //! 移植元: ~/shyme/mycute/src/stt/recognizer.rs
 //! 変更点: LmgwClient → OpenAiConfig 直接構築、SttSettings → 個別Config
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use parking_lot::Mutex;
@@ -13,8 +13,9 @@ use parking_lot::Mutex;
 use indexmap::IndexMap;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
-use crate::backends::openai::{build_streamer_config, OpenAIRecognizer};
+use crate::backends::openai::{build_streamer_config, strip_decoration_artifacts, OpenAIRecognizer};
 use crate::config::VoiputConfig;
 use crate::constants::*;
 use crate::local::recognizer::LocalRecognizer;
@@ -705,6 +706,23 @@ struct LocalRecognizerAdapter {
     capture_rx: Option<mpsc::UnboundedReceiver<(Vec<f32>, u32)>>,
     /// 実行中フラグ（バックグラウンドタスクのループ制御用）
     is_running: Arc<AtomicBool>,
+
+    // ---- デコレーション機構（OpenAIRecognizer 互換） ----
+    /// シーケンスカウンタ（start/stop を超えて継続）
+    seq_counter: Arc<AtomicU64>,
+    /// デコレーション中フラグ
+    is_decorating: Arc<AtomicBool>,
+    /// 発話セッションカウンタ（デコレーションタスク終了判定用）
+    session_counter: Arc<AtomicU64>,
+    /// 発話中 PartialResult バッファ
+    partial_buf: Arc<Mutex<Option<String>>>,
+    /// デコレーションタスクのハンドル
+    decoration_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    /// 最終発話終了時刻（異常時デコレーション強制クリア用）
+    last_speech_end: Arc<Mutex<Option<Instant>>>,
+    /// VoiputConfig（デコレーションタイムアウト等の動的設定値取得用）
+    #[allow(dead_code)]
+    voiput_config: Option<VoiputConfig>,
 }
 
 impl LocalRecognizerAdapter {
@@ -720,10 +738,15 @@ impl LocalRecognizerAdapter {
         };
         let recognizer = LocalRecognizer::new(kind, config)?;
 
+        // 事後補正バックエンド（--openai-key があれば OpenAI API 経由の事後補正を有効化）
+        let shared_locale = Arc::new(parking_lot::Mutex::new(config.locale));
+        let (pc_backend, _) = rebuild_pc_backend(config.post_correction_openai_config.as_ref(), shared_locale);
+
         // PseudoAsrStreamer を構築する
+        // post_correct_backend に Some があれば事後補正を分離、None なら backend を兼用
         let (tx_streamer, rx_streamer) = mpsc::channel::<StreamerEvent>(100);
         let streamer_config = build_streamer_config(config);
-        let streamer = PseudoAsrStreamer::new(recognizer, tx_streamer, streamer_config)?;
+        let streamer = PseudoAsrStreamer::new(recognizer, tx_streamer, streamer_config, pc_backend)?;
 
         Ok(Self {
             tx,
@@ -732,6 +755,13 @@ impl LocalRecognizerAdapter {
             streamer_rx: Arc::new(Mutex::new(Some(rx_streamer))),
             capture_rx: None,
             is_running: Arc::new(AtomicBool::new(false)),
+            seq_counter: Arc::new(AtomicU64::new(0)),
+            is_decorating: Arc::new(AtomicBool::new(false)),
+            session_counter: Arc::new(AtomicU64::new(0)),
+            partial_buf: Arc::new(Mutex::new(None)),
+            decoration_task: Arc::new(Mutex::new(None)),
+            last_speech_end: Arc::new(Mutex::new(None)),
+            voiput_config: Some(config.clone()),
         })
     }
 
@@ -781,6 +811,19 @@ impl LocalRecognizerAdapter {
         let mut rx_audio = self.capture_rx.take();
         let rx_for_thread = self.streamer_rx.clone();
 
+        // デコレーション関連のフィールドをスレッドに渡す
+        let seq_counter = self.seq_counter.clone();
+        let is_decorating = self.is_decorating.clone();
+        let session_counter = self.session_counter.clone();
+        let partial_buf = self.partial_buf.clone();
+        let decoration_task = self.decoration_task.clone();
+        let last_speech_end = self.last_speech_end.clone();
+
+        // デコレーションタイムアウト: vad_max_speech_duration + 5s（OpenAIRecognizer 互換）
+        let timeout_secs = self.voiput_config.as_ref()
+            .map(|c| (c.vad.max_speech_duration + 5.0) as f64)
+            .unwrap_or(30.0);
+
         // 250ms 遅延後に Ready イベントを送信する（ワイヤレスヘッドセット対策）
         let tx_ready = tx.clone();
         std::thread::spawn(move || {
@@ -788,14 +831,14 @@ impl LocalRecognizerAdapter {
             let _ = tx_ready.try_send(SttEvent::Ready);
         });
 
-        // バックグラウンドスレッド: 音声転送 + イベント中継
+        // バックグラウンドスレッド: 音声転送 + イベント中継 + デコレーション制御
         //
         // PseudoAsrStreamer::tick() 内部で Handle::current().block_on() により
         // 事後補正の非同期呼び出しを行うため、スレッド内に Tokio ランタイムを
         // 作成し enter しておく（std::thread::spawn では Tokio コンテキストがない）。
         //
-        // streamer_rx は Arc<Mutex> で共有されているため、スレッド終了後も
-        // 生存し、次回 start で新スレッドが再利用できる。
+        // デコレーションタスクも同じ Tokio ランタイム上で起動する（tokio::spawn）。
+        // 参照実装: backends/openai.rs の listener task（290-465行）
         std::thread::spawn(move || {
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(r) => r,
@@ -805,7 +848,6 @@ impl LocalRecognizerAdapter {
                 }
             };
             let _guard = rt.enter();
-            let mut seq_counter = 0u64;
 
             while is_running.load(Ordering::SeqCst) {
                 // 1. ストリーマーイベントを読み取り UI に転送する
@@ -813,26 +855,144 @@ impl LocalRecognizerAdapter {
                     let mut guard = rx_for_thread.lock();
                     if let Some(ref mut rx) = *guard {
                         while let Ok(event) = rx.try_recv() {
-                            let stt_event = match event {
-                                StreamerEvent::SpeechStart(_) => None,
-                                StreamerEvent::SpeechEnd(_) => None,
+                            match event {
+                                StreamerEvent::SpeechStart(_) => {
+                                    // 発話開始: デコレーション開始 + SttPending
+                                    // 参照実装: backends/openai.rs:300-365
+                                    is_decorating.store(true, Ordering::SeqCst);
+                                    session_counter.fetch_add(1, Ordering::SeqCst);
+                                    *last_speech_end.lock() = None;
+                                    *partial_buf.lock() = None;
+
+                                    // 旧デコレーションタスクを完全に停止する
+                                    let old_task = {
+                                        let mut guard = decoration_task.lock();
+                                        guard.take()
+                                    };
+                                    if let Some(task) = old_task {
+                                        task.abort();
+                                    }
+
+                                    // デコレーションタイムアウト（vad_max_speech_duration + 5s）
+                                    // OpenAIRecognizer 互換: config.vad.max_speech_duration から動的に計算
+                                    let timeout_secs = timeout_secs;
+
+                                    // 新デコレーションタスク起動
+                                    let dec_tx = tx.clone();
+                                    let dec_is_decorating = is_decorating.clone();
+                                    let dec_session_counter = session_counter.clone();
+                                    let dec_partial_buf = partial_buf.clone();
+                                    let dec_speech_end = last_speech_end.clone();
+                                    let dec_task_handle = decoration_task.clone();
+                                    let current_session = dec_session_counter.load(Ordering::SeqCst);
+
+                                    let handle = tokio::spawn(async move {
+                                        let timeout = Duration::from_secs_f64(timeout_secs);
+                                        let start = Instant::now();
+                                        let mut pattern_idx = 0usize;
+                                        let patterns = [" ... ", "? "];
+                                        let interval = Duration::from_millis(STT_DECORATION_INTERVAL_MS);
+
+                                        loop {
+                                            // 4重終了チェック
+                                            if !dec_is_decorating.load(Ordering::SeqCst) { break; }
+                                            if dec_session_counter.load(Ordering::SeqCst) != current_session { break; }
+                                            if start.elapsed() > timeout { break; }
+                                            {
+                                                let end = dec_speech_end.lock();
+                                                if let Some(t) = *end {
+                                                    if t.elapsed() > Duration::from_millis(750) {
+                                                        dec_is_decorating.store(false, Ordering::SeqCst);
+                                                        let _ = dec_tx.try_send(SttEvent::ForceClearDecoration);
+                                                        let buffered = { dec_partial_buf.lock().take() };
+                                                        if let Some(text) = buffered {
+                                                            let seq = dec_session_counter.fetch_add(1, Ordering::SeqCst);
+                                                            let _ = dec_tx.try_send(SttEvent::PartialResult(text, seq));
+                                                        }
+                                                        let _ = dec_tx.try_send(SttEvent::SttCompleted);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            // デコレーションパターンを送信
+                                            let decor = patterns[pattern_idx % patterns.len()];
+                                            pattern_idx += 1;
+                                            let _ = dec_tx.try_send(SttEvent::DecorationPartial(decor.to_string()));
+                                            tokio::time::sleep(interval).await;
+                                        }
+                                    });
+
+                                    {
+                                        let mut guard = dec_task_handle.lock();
+                                        *guard = Some(handle);
+                                    }
+
+                                    let _ = tx.try_send(SttEvent::SttPending);
+                                }
+
+                                StreamerEvent::SpeechEnd(_) => {
+                                    // 発話終了: デコレーション停止 + バッファフラッシュ + SttCompleted
+                                    is_decorating.store(false, Ordering::SeqCst);
+                                    *last_speech_end.lock() = Some(Instant::now());
+                                    session_counter.fetch_add(1, Ordering::SeqCst);
+
+                                    // バッファリングされた PartialResult をフラッシュ
+                                    let buffered = { partial_buf.lock().take() };
+                                    if let Some(text) = buffered {
+                                        let seq = seq_counter.fetch_add(1, Ordering::SeqCst);
+                                        let _ = tx.try_send(SttEvent::PartialResult(text, seq));
+                                    }
+
+                                    // デコレーションタスクを破棄
+                                    {
+                                        let mut guard = decoration_task.lock();
+                                        if let Some(task) = guard.take() {
+                                            task.abort();
+                                        }
+                                    }
+
+                                    let _ = tx.try_send(SttEvent::SttCompleted);
+                                }
+
                                 StreamerEvent::PartialResult(text) => {
-                                    seq_counter += 1;
-                                    Some(SttEvent::PartialResult(text, seq_counter))
+                                    // 発話中はバッファリング、非デコレーション中は直接送信
+                                    if is_decorating.load(Ordering::SeqCst) {
+                                        let mut guard = partial_buf.lock();
+                                        *guard = Some(text);
+                                    } else {
+                                        let seq = seq_counter.fetch_add(1, Ordering::SeqCst);
+                                        let _ = tx.try_send(SttEvent::PartialResult(text, seq));
+                                    }
+                                    let _ = tx.try_send(SttEvent::SttCompleted);
                                 }
+
                                 StreamerEvent::FinalResult(text) => {
-                                    seq_counter += 1;
-                                    Some(SttEvent::FinalResult(text, seq_counter))
+                                    // 最終結果: デコレーション停止 + strip + 送信 + SttCompleted
+                                    is_decorating.store(false, Ordering::SeqCst);
+                                    session_counter.fetch_add(1, Ordering::SeqCst);
+                                    *partial_buf.lock() = None;
+
+                                    // デコレーションタスクを破棄
+                                    {
+                                        let mut guard = decoration_task.lock();
+                                        if let Some(task) = guard.take() {
+                                            task.abort();
+                                        }
+                                    }
+
+                                    let cleaned = strip_decoration_artifacts(&text);
+                                    let seq = seq_counter.fetch_add(1, Ordering::SeqCst);
+                                    let _ = tx.try_send(SttEvent::FinalResult(cleaned, seq));
+                                    let _ = tx.try_send(SttEvent::SttCompleted);
                                 }
+
                                 StreamerEvent::PostCorrectionStarted => {
-                                    Some(SttEvent::PostCorrectionStarted)
+                                    let _ = tx.try_send(SttEvent::PostCorrectionStarted);
                                 }
+
                                 StreamerEvent::PostCorrectionFinished => {
-                                    Some(SttEvent::PostCorrectionFinished)
+                                    let _ = tx.try_send(SttEvent::PostCorrectionFinished);
                                 }
-                            };
-                            if let Some(ev) = stt_event {
-                                let _ = tx.try_send(ev);
                             }
                         }
                     }
@@ -865,6 +1025,14 @@ impl LocalRecognizerAdapter {
             return;
         }
         self.is_running.store(false, Ordering::SeqCst);
+
+        // デコレーションタスクが動いていれば停止する
+        {
+            let mut guard = self.decoration_task.lock();
+            if let Some(task) = guard.take() {
+                task.abort();
+            }
+        }
 
         // PseudoAsrStreamer の内部状態をリセットする（VAD バッファ・発話状態等）
         // s.stop() は OfflineRecognizer の解放やモデル再読み込みを行わない。

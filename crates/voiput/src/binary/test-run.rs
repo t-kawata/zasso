@@ -125,6 +125,16 @@ fn parse_args() -> Option<CliArgs> {
 struct MockPostCorrectBackend;
 
 /// モデルファイルの絶対パスを返す（CARGO_MANIFEST_DIR からの相対パスを解決）
+/// システムの論理コア数の半分を推論スレッド数として返す。
+///
+/// 自動調整により過剰なスレッド生成を防ぎ、他プロセスとのリソース競合を避ける。
+/// 最小値は 1。
+fn auto_num_threads() -> i32 {
+    std::thread::available_parallelism()
+        .map(|n| (n.get() / 2).max(1) as i32)
+        .unwrap_or(1)
+}
+
 fn model_path(name: &str) -> String {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     format!("{}/models/{}", manifest_dir, name)
@@ -359,7 +369,7 @@ fn build_voiput_config(args: &CliArgs) -> VoiputConfig {
                 tokenizer_dir: model_path("qwen3-asr/tokenizer"),
             },
             provider: "cpu".into(),
-            num_threads: 4,
+            num_threads: auto_num_threads(),
             debug: false,
         });
     }
@@ -603,7 +613,7 @@ fn test_vad(_args: &CliArgs) -> bool {
             min_silence_duration: 0.2,
             min_speech_duration: 0.25,
             max_speech_duration: 25.0,
-            num_threads: 4,
+            num_threads: auto_num_threads(),
         };
         match VadProcessor::new(config, is_speaking) {
             Ok(vad) => {
@@ -848,7 +858,7 @@ fn test_streamer(_args: &CliArgs) -> bool {
     let call_count = Arc::new(Mutex::new(0usize));
     let backend = MockStreamerBackend { call_count };
 
-    match PseudoAsrStreamer::new(backend, tx, config) {
+    match PseudoAsrStreamer::new(backend, tx, config, None) {
         Ok(mut streamer) => {
             println!("  ✓ PseudoAsrStreamer::new() 成功");
             match streamer.start() {

@@ -152,3 +152,6 @@
 - [x] #123 test-run に --engine local 対応を追加 | /Users/kawata/shyme/zasso/tickets/specs/0123-test-run-engine-local.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #124 LocalRecognizerAdapter の音声パイプライン未配線バグ修正 | /Users/kawata/shyme/zasso/tickets/specs/0124-localrecognizeradapter-2.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #125 LocalRecognizerAdapter イベント中継の regression 修正 | /Users/kawata/shyme/zasso/tickets/specs/0125-localrecognizeradapter-regression.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #126 LocalRecognizerAdapter にデコレーション・SttCompleted 等の不足機能を追加 | /Users/kawata/shyme/zasso/tickets/specs/0126-localrecognizeradapter-sttcompleted.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #127 PseudoAsrStreamer に事後補正専用バックエンド注入を追加 | /Users/kawata/shyme/zasso/tickets/specs/0127-pseudoasrstreamer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #128 事後補正プロンプトを mycute と同一にし、ロケール切替に対応 | /Users/kawata/shyme/zasso/tickets/specs/0128-mycute.md | 2026-06-17 | 2026-06-17 | 2026-06-17

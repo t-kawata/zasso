@@ -182,7 +182,8 @@ impl PostCorrectionProcessor {
         self.buffer.target_text.clear();
         self.buffer.org_text = self.buffer.completed_text.clone();
 
-        let final_output = self.buffer.org_text.clone();
+        // 内部デリミタ（push(' ')）で追加された末尾スペースを除去する
+        let final_output = self.buffer.org_text.trim().to_string();
 
         // CRITICAL: 重複防止のためのバッファクリア
         self.buffer.clear();
@@ -318,7 +319,7 @@ mod tests {
         let mut proc = make_processor(SttModelType::UseOfflineModel);
         let _ = proc.process_input("hello world");
         let out = proc.commit_correction("corrected text");
-        assert!(matches!(out, ProcessorOutput::Final(ref s) if s == "corrected text "));
+        assert!(matches!(out, ProcessorOutput::Final(ref s) if s == "corrected text"));
         let next = proc.process_input("next").unwrap();
         assert!(matches!(next, ProcessorOutput::Partial(ref s) if s == "next"));
     }

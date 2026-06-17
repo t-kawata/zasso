@@ -224,10 +224,19 @@ pub struct PseudoAsrStreamer<B: AsrBackend + Send + Sync + 'static> {
 }
 
 impl<B: AsrBackend + Send + Sync + 'static> PseudoAsrStreamer<B> {
+    /// PseudoAsrStreamer を構築する。
+    ///
+    /// - `backend`: 音声認識（transcribe）用のバックエンド
+    /// - `tx`: Streamer からのイベント送信チャネル
+    /// - `config`: VAD・Denoiser・PostCorrection 等の設定
+    /// - `post_correct_backend`: 事後補正 (PostCorrection) 専用のバックエンド。
+    ///   `Some` の場合は transcribe と post_correct を分離できる。
+    ///   `None` の場合は従来通り `backend` を post_correct にも使用する。
     pub fn new(
         backend: B,
         tx: mpsc::Sender<StreamerEvent>,
         config: StreamerConfig,
+        post_correct_backend: Option<Arc<dyn PostCorrectionBackend>>,
     ) -> Result<Self> {
         let sample_rate = INTERNAL_TARGET_RATE as usize;
         let pre_padding_samples_cnt =
@@ -247,8 +256,12 @@ impl<B: AsrBackend + Send + Sync + 'static> PseudoAsrStreamer<B> {
             interval_ms: config.post_correction_interval_ms,
         };
 
+        // 事後補正バックエンド: 注入があればそちらを優先、なければ backend_wrapper を使用
+        let pc_backend: Arc<dyn PostCorrectionBackend> =
+            post_correct_backend.unwrap_or_else(|| backend_wrapper as Arc<dyn PostCorrectionBackend>);
+
         let post_correction_processor =
-            PostCorrectionProcessor::new(backend_wrapper, pc_config, is_speaking.clone());
+            PostCorrectionProcessor::new(pc_backend, pc_config, is_speaking.clone());
 
         Ok(Self {
             config,
@@ -641,7 +654,7 @@ mod tests {
         let backend = MockBackend {
             call_count: Arc::new(Mutex::new(0)),
         };
-        let mut streamer = PseudoAsrStreamer::new(backend, tx, make_config()).unwrap();
+        let mut streamer = PseudoAsrStreamer::new(backend, tx, make_config(), None).unwrap();
         // start/stop without any data should not panic
         let _ = streamer.start();
         streamer.stop();
@@ -653,7 +666,7 @@ mod tests {
         let backend = MockBackend {
             call_count: Arc::new(Mutex::new(0)),
         };
-        let mut streamer = PseudoAsrStreamer::new(backend, tx, make_config()).unwrap();
+        let mut streamer = PseudoAsrStreamer::new(backend, tx, make_config(), None).unwrap();
         let _ = streamer.start();
         streamer.stop();
         let _ = streamer.start();
