@@ -36,6 +36,7 @@ pub(crate) struct AudioWorker {
     _shutdown: watch::Receiver<bool>,
 }
 
+#[allow(dead_code)]
 impl AudioWorker {
     /// 新しい `AudioWorker` を生成する。
     pub(crate) fn new(

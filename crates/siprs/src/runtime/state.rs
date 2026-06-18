@@ -54,6 +54,16 @@ pub(crate) struct AccountEntry {
     pub registration: RegistrationState,
 }
 
+impl AccountEntry {
+    /// アカウント設定を部分的に更新する。
+    pub fn apply_patch(
+        &mut self,
+        patch: crate::config::AccountConfigPatch,
+    ) -> Result<(), SipError> {
+        self.config.apply_patch(patch)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // CallEntry
 // ---------------------------------------------------------------------------

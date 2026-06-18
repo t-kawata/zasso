@@ -170,16 +170,13 @@ impl CoreReactor {
                 }
                 RuntimeCommand::UpdateAccountConfig {
                     account_id,
-                    patch: _,
+                    patch,
                     reply,
                 } => {
                     let result = (|| -> Result<(), SipError> {
                         let mut state_guard = state.blocking_write();
-                        let _entry = state_guard.get_account_mut(account_id)?;
-                        // [::STUB::] 要解決: AccountConfigPatch の適用ロジック
-                        Err(SipError::invalid_state(
-                            "UpdateAccountConfig: patch application not yet implemented",
-                        ))
+                        let entry = state_guard.get_account_mut(account_id)?;
+                        entry.apply_patch(patch)
                     })();
                     let _ = reply.send(result);
                 }

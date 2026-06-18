@@ -100,6 +100,8 @@ struct MixerSourceEntry {
 ///
 /// 全ソースから音声を pull し、`mix_i16_frame` でミキシング、
 /// 結果を lock-free queue に書き込む。
+/// AudioWorker 統合まではフィールド・メソッドがテストのみで使用される。
+#[allow(dead_code)]
 pub(crate) struct AudioMixer {
     /// ソース管理（通話中の並行追加・削除に備え DashMap）。
     sources: DashMap<AudioSourceId, MixerSourceEntry>,
@@ -113,6 +115,7 @@ pub(crate) struct AudioMixer {
     in_queue: ArrayQueue<Vec<i16>>,
 }
 
+#[allow(dead_code)]
 impl AudioMixer {
     /// 新しい `AudioMixer` を生成する。
     pub(crate) fn new(out_capacity: usize, in_capacity: usize) -> Self {

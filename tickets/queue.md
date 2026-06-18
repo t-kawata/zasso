@@ -1,5 +1,6 @@
 # Ticket Queue
 - [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
+- [-] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
 - [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -180,4 +181,6 @@
 - [x] #143 build.rs: prebuilt auto-deploy after source build | /Users/shyme/shyme/zasso/tickets/specs/0143-buildrs-prebuilt-auto-deploy-after-source-build.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #144 M19-3: metrics カウンター配線実装 | /Users/shyme/shyme/zasso/tickets/specs/0144-m19-3-metrics.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #145 残余スタブ一括解決: M16-1/M15-2/M16-3/AudioBridge/M17-4 callback | /Users/shyme/shyme/zasso/tickets/specs/0145-m16-1m15-2m16-3audiobridgem17-4-callback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
-- [ ] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
+- [x] #146 M13-3: AccountConfigPatch — アカウント設定の runtime 更新 | /Users/shyme/shyme/zasso/tickets/specs/0146-m13-3-accountconfigpatch-runtime.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #147 M16-4: ResamplePipeline — rubato 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0147-m16-4-resamplepipeline-rubato.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #148 M18-3: RustMediaPort → pjmedia_port C ラッパー（conference 接続） | /Users/shyme/shyme/zasso/tickets/specs/0148-m18-3-rustmediaport-pjmedia-port-c-conference.md | 2026-06-18 | 2026-06-18 | 2026-06-18

@@ -1063,7 +1063,7 @@
   10. 切断済み通話への操作 → `InvalidState`
 * **計装方法・観測対象:** 全操作の tracing span。各操作の reactor コマンド処理時間。状態遷移エラー時の詳細メッセージ。
 
-#### チケット M13-3: `AccountConfigPatch` — アカウント設定の runtime 更新
+#### ✅ チケット M13-3: `AccountConfigPatch` — アカウント設定の runtime 更新
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§8.4 update_config)
 * **対象不変条件 / 規範:** §8.4「`update_config` は reactor 経由でアカウント設定を部分的に更新する」。reactor 内で state の config を差し替え、変更箇所を backend に反映する。
@@ -1290,7 +1290,7 @@
   5. 複数 Tap が異なる format で独立して変換されること
 * **計装方法・観測対象:** format 変換の有無によるフレーム処理時間の差（バイパス時と変換時の比較）。各 Tap のフォーマット変換パイプラインの独立性。
 
-#### チケット M16-4: `ResamplePipeline` — rubato 実装完了
+#### ✅ チケット M16-4: `ResamplePipeline` — rubato 実装完了
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§26)
 * **対象不変条件 / 規範:** M16-2（#129）の spec と同じ。同一レートのバイパスモードは実装済みだが、rubato を使用した異なるレート間の変換が未実装のままスタブとして残っている。本チケットで M16-2 の spec 通りの完全実装を完了する。
@@ -1489,7 +1489,7 @@
   - AudioTap から受信した `AudioChunkPair` の `in_chunk`（リモート音声）が通話相手の音声を含むことを確認する。無音ファイルやトーンの再生で検証可能。
   - `add_audio_source` で挿入した音声が `out_chunk` に反映されることを確認する。
 
-#### チケット M18-3: `RustMediaPort` → `pjmedia_port` C ラッパー（conference 接続）
+#### ✅ チケット M18-3: `RustMediaPort` → `pjmedia_port` C ラッパー（conference 接続）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27, §39.2, §39.3)
 * **対象不変条件 / 規範:** §39.2「custom media port は pjmedia_port 構造体を介して conference bridge に接続する」。pjsua_conf_add_port() に pjmedia_port* を渡す。§39.3「capture tap / playback inject の 2 ポートを管理」。

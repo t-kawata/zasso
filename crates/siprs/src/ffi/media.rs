@@ -201,6 +201,93 @@ pub(crate) struct AudioBridge {
     playback_port: RustMediaPort,
     /// conference bridge 接続済みフラグ。
     connected: bool,
+    /// capture port の conference port ID（pjsip feature 時のみ設定）。
+    capture_conf_id: Option<i32>,
+    /// playback port の conference port ID（pjsip feature 時のみ設定）。
+    playback_conf_id: Option<i32>,
+}
+
+// ---------------------------------------------------------------------------
+// PJSIP conference port 登録（cfg(feature = "pjsip")）
+// ---------------------------------------------------------------------------
+
+/// PJSIP conference bridge 用の get_frame callback。
+///
+/// pjmedia_port.port_data.pdata から RustMediaPort を取得し、read_frame を呼ぶ。
+#[cfg(feature = "pjsip")]
+unsafe extern "C" fn conf_port_get_frame(
+    port: *mut crate::ffi::bindings::pjmedia_port,
+    frame: *mut crate::ffi::bindings::pjmedia_frame,
+) -> i32 {
+    let media_port = &*((*port).port_data.pdata as *const RustMediaPort);
+    let samples = (*frame).size as usize / 2;
+    let output = std::slice::from_raw_parts_mut((*frame).buf as *mut i16, samples);
+    media_port.read_frame(output);
+    0 // PJ_SUCCESS
+}
+
+/// PJSIP conference bridge 用の put_frame callback。
+#[cfg(feature = "pjsip")]
+unsafe extern "C" fn conf_port_put_frame(
+    port: *mut crate::ffi::bindings::pjmedia_port,
+    frame: *mut crate::ffi::bindings::pjmedia_frame,
+) -> i32 {
+    let media_port = &*((*port).port_data.pdata as *const RustMediaPort);
+    let samples = (*frame).size as usize / 2;
+    let input = std::slice::from_raw_parts((*frame).buf as *const i16, samples);
+    media_port.write_frame(input);
+    0 // PJ_SUCCESS
+}
+
+/// RustMediaPort を PJSIP conference bridge に登録し、port ID を返す。
+#[cfg(feature = "pjsip")]
+unsafe fn register_conf_port(
+    pool: *mut crate::ffi::bindings::pj_pool_t,
+    port: &RustMediaPort,
+    name_bytes: &[u8],
+    dir: crate::ffi::bindings::pjmedia_dir,
+) -> Result<i32, crate::error::SipError> {
+    use crate::ffi::bindings;
+    use std::os::raw::c_long;
+
+    // pjmedia_port 構造体をヒープに確保
+    let mut media_port: Box<bindings::pjmedia_port> = Box::new(std::mem::zeroed());
+
+    // info 初期化（null 終端不要: pj_str_t は長さを持つ）
+    let name_buf = name_bytes.to_vec();
+    media_port.info.name = bindings::pj_str_t {
+        ptr: name_buf.as_ptr() as *mut i8,
+        slen: name_buf.len() as c_long,
+    };
+    media_port.info.signature = 0;
+    media_port.info.dir = dir;
+    media_port.info.fmt = std::mem::zeroed();
+
+    // port_data.pdata に RustMediaPort のポインタを格納
+    media_port.port_data.pdata = port as *const RustMediaPort as *mut std::ffi::c_void;
+    media_port.grp_lock = std::ptr::null_mut();
+
+    // get_frame / put_frame 関数ポインタを設定
+    media_port.get_frame = Some(conf_port_get_frame);
+    media_port.put_frame = Some(conf_port_put_frame);
+
+    // conference bridge に登録
+    let mut conf_port_id: i32 = 0;
+    let status = bindings::pjsua_conf_add_port(
+        pool,
+        &mut *media_port as *mut bindings::pjmedia_port,
+        &mut conf_port_id as *mut _,
+    );
+    if status != 0 {
+        return Err(crate::ffi::pjsua_backend::pj_status_to_sip_error(
+            status,
+            "pjsua_conf_add_port",
+        ));
+    }
+
+    // pjmedia_port のメモリは PJSIP が所有するためリーク
+    let _ = Box::into_raw(media_port);
+    Ok(conf_port_id)
 }
 
 #[allow(dead_code)]
@@ -217,20 +304,74 @@ impl AudioBridge {
                 queue_capacity,
             ),
             connected: false,
+            capture_conf_id: None,
+            playback_conf_id: None,
         }
     }
 
     /// conference bridge に capture/inject port を接続する。
     ///
-    /// PJSIP feature 有効時は実際の PJSIP conference API を呼び出す（TODO）。
-    /// 無効時は connected フラグのみ設定する。
+    /// PJSIP feature 有効時は `pjsua_conf_add_port()` + `pjsua_conf_connect()` で
+    /// conference bridge に custom media port を登録する。
     #[cfg(feature = "pjsip")]
     pub fn connect_to_conference(&mut self) -> Result<(), crate::error::SipError> {
+        use crate::ffi::bindings;
+
         if self.connected {
             return Ok(()); // idempotent
         }
-        // [::STUB::] 要解決: pjmedia_port 構造体に RustMediaPort をラップし、pjsua_conf_add_port()
-        // で conference port として登録した後、pjsua_conf_connect() で接続する。
+
+        unsafe {
+            let pool = bindings::pjsua_pool_create(
+                b"siprs-audio-bridge\0" as *const u8 as *const i8,
+                512,
+                512,
+            );
+            if pool.is_null() {
+                return Err(crate::error::SipError::native_error(
+                    "pjsua_pool_create failed",
+                    -1,
+                    None,
+                    None,
+                ));
+            }
+
+            // capture port を登録
+            let capture_id = register_conf_port(
+                pool,
+                &self.capture_port,
+                b"capture",
+                bindings::PJMEDIA_DIR_CAPTURE,
+            )?;
+            self.capture_conf_id = Some(capture_id);
+
+            // playback port を登録
+            let playback_id = register_conf_port(
+                pool,
+                &self.playback_port,
+                b"playback",
+                bindings::PJMEDIA_DIR_PLAYBACK,
+            )?;
+            self.playback_conf_id = Some(playback_id);
+
+            // capture → conference
+            let status = bindings::pjsua_conf_connect(capture_id, bindings::PJSUA_INVALID_ID);
+            if status != 0 {
+                return Err(crate::ffi::pjsua_backend::pj_status_to_sip_error(
+                    status,
+                    "pjsua_conf_connect capture",
+                ));
+            }
+            // conference → playback
+            let status = bindings::pjsua_conf_connect(bindings::PJSUA_INVALID_ID, playback_id);
+            if status != 0 {
+                return Err(crate::ffi::pjsua_backend::pj_status_to_sip_error(
+                    status,
+                    "pjsua_conf_connect playback",
+                ));
+            }
+        }
+
         self.connected = true;
         Ok(())
     }
@@ -251,10 +392,23 @@ impl AudioBridge {
     /// idempotent: 複数回呼び出しても安全。
     #[cfg(feature = "pjsip")]
     pub fn disconnect(&mut self) -> Result<(), crate::error::SipError> {
+        use crate::ffi::bindings;
+
         if !self.connected {
             return Ok(()); // 未接続なら何もしない
         }
-        // [::STUB::] 要解決: pjsua_conf_disconnect() を呼び出して conference port を切断する
+
+        unsafe {
+            if let Some(cid) = self.capture_conf_id.take() {
+                let _ = bindings::pjsua_conf_disconnect(cid, bindings::PJSUA_INVALID_ID);
+                let _ = bindings::pjsua_conf_remove_port(cid);
+            }
+            if let Some(pid) = self.playback_conf_id.take() {
+                let _ = bindings::pjsua_conf_disconnect(bindings::PJSUA_INVALID_ID, pid);
+                let _ = bindings::pjsua_conf_remove_port(pid);
+            }
+        }
+
         self.connected = false;
         Ok(())
     }

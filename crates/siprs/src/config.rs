@@ -464,6 +464,64 @@ pub struct AccountConfig {
     pub headers: Vec<(String, String)>,
 }
 
+impl AccountConfig {
+    /// `AccountConfigPatch` を適用する。
+    ///
+    /// `patch` の `Some` フィールドのみを現在の設定に反映する。
+    /// `None` のフィールドは変更しない。
+    pub fn apply_patch(&mut self, patch: AccountConfigPatch) -> Result<(), SipError> {
+        if let Some(val) = patch.display_name {
+            self.display_name = val;
+        }
+        if let Some(val) = patch.username {
+            self.username = val;
+        }
+        if let Some(val) = patch.auth_username {
+            self.auth_username = val;
+        }
+        if let Some(val) = patch.password {
+            self.password = val;
+        }
+        if let Some(val) = patch.domain {
+            self.domain = val;
+        }
+        if let Some(val) = patch.registrar_uri {
+            self.registrar_uri = val;
+        }
+        if let Some(val) = patch.outbound_proxy {
+            self.outbound_proxy = val;
+        }
+        if let Some(val) = patch.contact_params {
+            self.contact_params = val;
+        }
+        if let Some(val) = patch.transport {
+            self.transport = val;
+        }
+        if let Some(val) = patch.register_on_start {
+            self.register_on_start = val;
+        }
+        if let Some(val) = patch.allow_outbound_without_register {
+            self.allow_outbound_without_register = val;
+        }
+        if let Some(val) = patch.registration_expires {
+            self.registration_expires = val;
+        }
+        if let Some(val) = patch.codecs {
+            self.codecs = val;
+        }
+        if let Some(val) = patch.dtmf {
+            self.dtmf = val;
+        }
+        if let Some(val) = patch.media {
+            self.media = val;
+        }
+        if let Some(val) = patch.headers {
+            self.headers = val;
+        }
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // CallMediaPreferences
 // ---------------------------------------------------------------------------
