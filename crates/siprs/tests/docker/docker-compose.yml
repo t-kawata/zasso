@@ -3,12 +3,12 @@
 # 手動終了: docker compose -f tests/docker/docker-compose.yml down
 services:
   asterisk:
-    image: asterisk:22-slim
+    image: asterisk:22
     build:
       context: ./asterisk
       dockerfile_inline: |
-        FROM alpine:3.20
-        RUN apk add --no-cache asterisk asterisk-pjsip
+        FROM ubuntu:24.04
+        RUN apt-get update && apt-get install -y asterisk && rm -rf /var/lib/apt/lists/*
         COPY pjsip.conf /etc/asterisk/pjsip.conf
         COPY extensions.conf /etc/asterisk/extensions.conf
         COPY modules.conf /etc/asterisk/modules.conf
@@ -21,4 +21,4 @@ services:
       test: ["CMD", "asterisk", "-rx", "core ping"]
       interval: 5s
       retries: 10
-      start_period: 10s
+      start_period: 15s

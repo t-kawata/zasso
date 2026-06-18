@@ -88,6 +88,18 @@ impl CoreReactor {
                     let result = backend.initialize(&config);
                     match result {
                         Ok(capabilities) => {
+                            // トランスポート作成
+                            let transport_result: Result<(), SipError> = config
+                                .transports
+                                .iter()
+                                .try_for_each(|transport_cfg| {
+                                    backend.create_transport(transport_cfg)
+                                });
+                            if let Err(e) = transport_result {
+                                let _ = reply.send(Err(e));
+                                return;
+                            }
+
                             // state 更新
                             let mut state_guard = state.blocking_write();
                             state_guard.initialized = true;
@@ -112,13 +124,13 @@ impl CoreReactor {
                     is_shutting_down = true;
                     let _ = reply.send(Ok(()));
                 }
-                RuntimeCommand::AddAccount { config, reply } => {
+                RuntimeCommand::AddAccount { account_id, config, reply } => {
                     let result = backend.add_account(&config);
                     match result {
                         Ok((native_id, capabilities)) => {
                             let mut state_guard = state.blocking_write();
                             let entry = crate::runtime::state::AccountEntry {
-                                id: crate::util::id::AccountId::generate(),
+                                id: account_id,
                                 native_id: Some(native_id),
                                 config: config.clone(),
                                 registration: crate::account::RegistrationState::Idle,

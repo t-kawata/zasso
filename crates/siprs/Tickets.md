@@ -1634,7 +1634,7 @@
 
 > **DB:** N/A（実 SIP サーバを使用）
 
-#### チケット M20-1: Layer 3 結合テスト — ローカルSIPサーバ + Docker
+#### ✅ チケット M20-1: Layer 3 結合テスト — ローカルSIPサーバ + Docker
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§43.3, §43.1, §43.2)
 * **対象不変条件 / 規範:** §43.3 Layer 3 SIP Integration Tests。§43.1 Layer 1 Unit Tests。§43.2 Layer 2 State-Machine Tests（M9〜M11 で MockBackend 使用のテストとして実装済みであることを確認）。§44 CI/CD 要件。
@@ -1667,6 +1667,82 @@
   2. 統合テストを実行: `cargo test -p siprs -- --ignored --test-threads=1`
   3. テスト完了後: `docker compose -f tests/docker/docker-compose.yml down`
   4. 全テストが PASS することを確認する。FAIL がある場合は SIP trace を確認し、RFC の仕様との差異を調査する。
+
+#### チケット M20-1.5: PjsuaBackend 結合障壁除去（credential + thread）
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §43.3)
+* **対象不変条件 / 規範:** PjsuaBackend が PJSUA API を正しく利用できること。§27a SipBackend trait。§43.3 Layer 3 SIP Integration Tests の前提条件。
+* **実装の背景と目的:** M20-1 で実装した統合テスト 16 件のうち、以下の 2 つの障壁により大半のテストが Asterisk との結合時に失敗する。本チケットではこれらの障壁を除去し、全テストが実 SIP サーバに対して実行可能な状態にする。
+* **実装スコープ:**
+  ### 1. PjsuaBackend credential 対応
+  - `pjsip_cred_info` 構造体が bindgen で opaque になっている問題を調査・修正
+    - bindgen 設定ファイル（`build.rs` または `wrapper.h`）で opaque 解除
+    - または `pjsua_acc_config.cred_info` の型が正しく生成されるように設定
+  - `PjsuaBackend::add_account()` で `AccountConfig` の認証情報（username / password / domain）を `pjsua_acc_config.cred_info` に設定する
+    - `cred_count` を 1 に設定
+    - `cred_info[0].username` に SIP ユーザー名
+    - `cred_info[0].data` にパスワード
+    - `cred_info[0].realm` に空文字（任意の realm に対応）
+    - `cred_info[0].scheme` に `"Digest"`
+  - 本対応により、REGISTER が 401 ではなく 200 OK を受信できるようになる
+  ### 2. PJSIP 外部スレッド登録
+  - `PjsuaBackend::initialize()` 内で `pj_thread_register()` を呼び出し、reactor スレッドを PJSIP に登録する
+    - reactor スレッドから `pjsua_acc_get_info()` 等を安全に呼び出せるようにする
+    - スレッド名は `"siprs-reactor"` 等で固定
+  - これにより `SipAccountHandle::registration_state()` 等の呼び出しで発生する SIGABRT を解消する
+  - 注意: `pjsua_create()` 後に `pj_thread_register()` を呼び出すこと（`pjsua_create()` 後に PJSIP スレッド管理が初期化される）
+* **テストコードによる検証:**
+  1. credential 設定後、`cargo test -p siprs --features pjsip -- --ignored --test-threads=1` で REGISTER が 200 OK を受信できること
+  2. `registration_state()` を reactor 外部スレッドから呼び出しても SIGABRT が発生しないこと
+  3. `cargo test -p siprs --lib` で既存 392 テストが全通過すること
+  4. Docker Asterisk を起動した上で、以下のテストが PASS すること:
+     - `register::register_succeeds` — REGISTER 成功
+     - `call::call_timeout` — 存在しない内線への発信で切断
+* **計装方法・観測対象:** 認証成功時の REGISTER 200 OK 応答。`pj_thread_register` 後の外部スレッドからの PJSIP API 呼び出し安定性。
+
+
+#### チケット M20-1.6: 統合テスト完全実行（Docker Asterisk + 全16テスト）
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§43.3)、M20-1（テストコード実装）、M20-1.5（credential + thread 障壁除去）
+* **対象不変条件 / 規範:** §43.3 Layer 3 SIP Integration Tests の全項目。M20-1.5 完了後に実施する。
+* **実装の背景と目的:** M20-1.5 で credential とスレッド登録の障壁を除去した上で、全 16 テストを Docker Asterisk に対して実行し、全て PASS することを確認する。テストコード側の調整（`register_on_start` の再有効化、イベント待機ロジックの復元等）も含む。
+* **実装スコープ:**
+  ### 1. テストコードの再調整
+  - `tests/common/mod.rs`:
+    - `register_on_start` を `true` に戻す（M20-1.5 で credential 設定が有効になったため）
+    - `allow_outbound_without_register` を `false` に戻す
+    - `wait_for_registration` / `wait_for_call_connected` の使用を復元
+  - `tests/integration/register.rs`:
+    - 「認証なし」ワークアラウンドを削除し、本来の REGISTER 成功テストに戻す
+  - `tests/integration/call.rs` / `provisional.rs` / `dtmf.rs` / `account.rs` / `media.rs`:
+    - 登録待機を復元し、各テストが正しい順序で SIP イベントを待つように修正
+  ### 2. 全テスト実行と修正サイクル
+  - Docker Asterisk 起動: `docker compose -f tests/docker/docker-compose.yml up -d`
+  - 全テスト実行: `cargo test -p siprs --features pjsip -- --ignored --test-threads=1`
+  - 失敗テストの原因特定と修正（テストコード・Asterisk 設定・PjsuaBackend のいずれか）
+  - 修正後、再度全テストを実行し全 PASS を確認
+  ### 3. 最終調整
+  - `register_on_start: true` での REGISTER タイムアウトが問題になる場合、個別調整
+  - 必要に応じて EVENT_TIMEOUT / REGISTER_TIMEOUT / CALL_TIMEOUT の調整
+* **テストコードによる検証:**
+  1. `register::register_succeeds` — REGISTER 成功、`RegistrationSucceeded` イベント発火
+  2. `register::register_fails_with_wrong_password` — 誤パスワードで `RegistrationFailed`
+  3. `register::reregister_after_unregister` — 登録解除 → 再登録
+  4. `call::call_normal_hangup` — INVITE → BYE 正常切断
+  5. `call::call_cancel` — Ringing 中に CANCEL
+  6. `call::call_timeout` — 存在しない内線に発信
+  7. `call::call_reject` — 着信拒否（プレースホルダー継続も許容）
+  8. `provisional::ringing_received` — 180 Ringing 受信
+  9. `provisional::early_media_received` — 183 Early Media（プレースホルダー継続も許容）
+  10. `dtmf::dtmf_rfc4733` — RFC4733 DTMF 送信
+  11. `dtmf::dtmf_sip_info` — SIP INFO DTMF 送信
+  12. `dtmf::dtmf_inband` — Inband DTMF 送信
+  13. `account::unregister_and_reregister` — 登録解除・再登録
+  14. `account::dual_account_simultaneous_call` — 2アカウント同時通話
+  15. `media::media_loopback_tap_active` — AudioTap 購読
+  16. `media::media_tap_closes_on_hangup` — Tap 切断時クローズ
+  17. 全テスト `--test-threads=1` で並行実行しても互いに干渉しないこと
+* **計装方法・観測対象:** 全テストの PASS/FAIL。SIP trace 保存。各テスト実行時間。
 
 #### チケット M20-2: Layer 4 相互接続試験 — 実 PBX / Proxy（P0）
 

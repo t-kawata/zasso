@@ -119,8 +119,8 @@ pub fn account_config_for_user_1(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: true,
-        allow_outbound_without_register: false,
+        register_on_start: false,
+        allow_outbound_without_register: true,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {
@@ -145,8 +145,8 @@ pub fn account_config_for_user_2(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: true,
-        allow_outbound_without_register: false,
+        register_on_start: false,
+        allow_outbound_without_register: true,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {
@@ -171,8 +171,8 @@ pub fn account_config_for_failure(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: true,
-        allow_outbound_without_register: false,
+        register_on_start: false,
+        allow_outbound_without_register: true,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {

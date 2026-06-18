@@ -196,14 +196,16 @@ impl SipClient {
     pub fn add_account(&self, config: AccountConfig) -> Result<SipAccountHandle, SipError> {
         validate_account_config(&config)?;
 
+        let account_id = AccountId::generate();
+
         block_on(
             self.inner
                 .runtime
-                .send_and_wait(|reply| RuntimeCommand::AddAccount { config, reply }),
+                .send_and_wait(|reply| RuntimeCommand::AddAccount { account_id, config, reply }),
         )?;
 
         Ok(SipAccountHandle {
-            id: AccountId::generate(),
+            id: account_id,
             client: self.clone(),
         })
     }

@@ -39,6 +39,7 @@ pub(crate) enum RuntimeCommand {
     },
     /// SIP アカウント追加。
     AddAccount {
+        account_id: AccountId,
         config: AccountConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
