@@ -2,7 +2,7 @@
 
 export const EDITION_SLUG = "zasso";
 export const OS_TYPE = "macos";
-export const APP_VERSION = "v0.24.334";
+export const APP_VERSION = "v0.24.336";
 export const APP_DISPLAY_NAME = "zasso";
 
 // ウィンドウサイズ設定（src-tauri/src/consts/settings.rs から同期）

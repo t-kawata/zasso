@@ -18,16 +18,15 @@
 //!
 //! # [::STUB::] dead_code 抑制の理由
 //!
-//! 以下の定数群は後続チケット（M0-3: GpuProvider, M0-5: config.rs 構造体,
-//! M0-6: ModelInfo, M1-1〜M1-5: メソッド実装, M3-5: lib.rs 統合等）で
-//! 初めて参照される。現時点では未参照のため `#[allow(dead_code)]` で警告を抑制する。
-//! `#[allow(dead_code)]` は各定数の直前に付与せず、必要に応じて当該チケットが
-//! 実参照に切り替わるタイミングで除去する。
+//! 参照状況（M3-5 現在）:
+//! - `DEFAULT_RT_PORT`: M0-5（ServerConfig::default）で使用済み ✅
+//! - `DEFAULT_CONTEXT_SIZE` / `DEFAULT_MAX_TOKENS` / `DEFAULT_TEMPERATURE`: M2-1（GenerateParams::default）で使用済み ✅
+//! - `GPU_PROVIDER_ENV_VAR`: M1-2（GpuProvider::detect）で使用済み ✅
+//! - `DEFAULT_SW_PORT`: M4（静的コンテンツサーバー）以降で使用予定 ⏳
+//! - `DEFAULT_MODEL_DIR` / `CURL_TIMEOUT_SECS`: M5（build.rs モデル自動DL）で使用予定 ⏳
 //!
-//! マージ先の選択肢: 全定数に個別 `#[allow(dead_code)]` を付与する代わりに、
-//! このモジュールに crate-level の許可属性を付与する。
-//!
-//! 警告が後続チケットのノイズにならないよう、実参照開始をもって都度除去する運用とする。
+//! 未使用の定数が存在する間は `#![allow(dead_code)]` が必要。
+//! 各定数の実参照が開始されたタイミングで、当該チケットが本コメントの該当行を削除する。
 
 /// REST API / OpenAI 互換エンドポイントのデフォルトポート番号
 ///

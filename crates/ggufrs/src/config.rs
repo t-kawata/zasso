@@ -2,12 +2,15 @@
 //!
 //! GpuProvider / GpuConfig / GgufConfig / ModelConfig / ServerConfig / ConfigLayer を定義する。
 //!
-//! # [::STUB::] M1-1, M1-2, M1-4 でメソッド・マージロジックを実装
+
 
 use std::net::SocketAddr;
+use std::path::Path;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+
+use crate::error::GgufError;
 
 use crate::consts::DEFAULT_RT_PORT;
 
@@ -295,6 +298,132 @@ pub struct GgufConfig {
     pub gpu: GpuConfig,
 }
 
+impl GgufConfig {
+    /// コード内設定から GgufConfig を生成する（最下層）
+    ///
+    /// サーバー設定と GPU 設定はそれぞれの Default 値で初期化される。
+    /// このコンストラクタで生成された設定は、ConfigLayer::JsonStr や
+    /// ConfigLayer::File からマージされることで上書き可能となる。
+    pub fn from_code(models: Vec<ModelConfig>) -> Self {
+        Self {
+            models,
+            server: ServerConfig::default(),
+            gpu: GpuConfig::default(),
+        }
+    }
+
+    /// 上位優先度の設定を自身にマージする（内部ヘルパー）
+    ///
+    /// - models: `name` フィールドをキーにマージ。同名モデルは上書き、新規モデルは追加
+    /// - server: `bind.port() != 0` の場合のみ上書き（port=0 は「未指定」を意味する）
+    /// - gpu: `provider != GpuProvider::Auto` の場合のみ上書き（Auto は「未指定」）
+    ///
+    pub(crate) fn merge_overlay(&mut self, overlay: GgufConfig) {
+        // models: name ベースマージ
+        for overlay_model in overlay.models {
+            if let Some(existing) = self
+                .models
+                .iter_mut()
+                .find(|m| m.name == overlay_model.name)
+            {
+                *existing = overlay_model;
+            } else {
+                self.models.push(overlay_model);
+            }
+        }
+
+        // server: bind.port() != 0 の場合のみ上書き
+        if overlay.server.bind.port() != 0 {
+            self.server = overlay.server;
+        } else if !overlay.server.models.is_empty() {
+            // bind が未指定でも models リストが指定されていれば反映する
+            self.server.models = overlay.server.models;
+        }
+
+        // gpu: provider != Auto の場合のみ上書き
+        if overlay.gpu.provider != GpuProvider::Auto {
+            self.gpu = overlay.gpu;
+        }
+    }
+
+    /// JSON 文字列から設定をパースしてマージする（中間層）
+    ///
+    /// `serde_json::from_str` でパースし、`merge_overlay` でベース設定にマージする。
+    /// パース失敗時は `GgufError::InvalidConfig` を返す。
+    pub fn from_json_str(json: &str, mut base: Self) -> Result<Self, GgufError> {
+        let overlay: GgufConfig = serde_json::from_str(json)?;
+        base.merge_overlay(overlay);
+        Ok(base)
+    }
+
+    /// ファイルから設定を読み込んでマージする（最上位層）
+    ///
+    /// `std::fs::read_to_string` で読み取り、`serde_json::from_str` でパースし、
+    /// `merge_overlay` でベース設定にマージする。
+    /// ファイル不存在・読み取り失敗時は `GgufError::InvalidConfig` を返す。
+    pub fn from_file(path: &Path, base: Self) -> Result<Self, GgufError> {
+        let content = std::fs::read_to_string(path)?;
+        Self::from_json_str(&content, base)
+    }
+
+    /// 3層（コード設定 → 埋め込みJSON → ファイルJSON）を順次マージする
+    ///
+    /// 優先順位（低→高）:
+    /// 1. `code` — コード内設定（最下層）
+    /// 2. `json` — `Some` の場合、埋め込みJSON文字列（中間層）
+    /// 3. `file` — `Some` の場合、ファイルJSON（最上位層）
+    ///
+    /// 各層が `None` の場合はスキップされる。
+    /// ファイル不存在・JSON不正の場合はエラーを返す。
+    pub fn build(
+        code: Self,
+        json: Option<&str>,
+        file: Option<&Path>,
+    ) -> Result<Self, GgufError> {
+        let mut result = code;
+        if let Some(json_str) = json {
+            result = Self::from_json_str(json_str, result)?;
+        }
+        if let Some(file_path) = file {
+            result = Self::from_file(file_path, result)?;
+        }
+        Ok(result)
+    }
+
+    /// 任意の数の `ConfigLayer` を順次マージする
+    ///
+    /// 各レイヤーは以下のように処理される:
+    /// - `ConfigLayer::Code` → ベースとして直接使用（その時点での最下層）
+    /// - `ConfigLayer::JsonStr` → JSON パース後、現在のベースにマージ
+    /// - `ConfigLayer::File` → ファイル読み取り + JSON パース後、現在のベースにマージ
+    ///
+    /// 空のベクタが渡された場合は、デフォルト設定を返す。
+    /// 最初のレイヤーが Code でない場合、空のコード設定をベースとして使用する。
+    pub fn merge(layers: Vec<ConfigLayer>) -> Result<Self, GgufError> {
+        let mut result: Option<Self> = None;
+        for layer in layers {
+            match layer {
+                ConfigLayer::Code(cfg) => {
+                    result = Some(cfg);
+                }
+                ConfigLayer::JsonStr(json) => {
+                    let base = result
+                        .take()
+                        .unwrap_or(GgufConfig::from_code(vec![]));
+                    result = Some(Self::from_json_str(&json, base)?);
+                }
+                ConfigLayer::File(path) => {
+                    let base = result
+                        .take()
+                        .unwrap_or(GgufConfig::from_code(vec![]));
+                    result = Some(Self::from_file(&path, base)?);
+                }
+            }
+        }
+        Ok(result.unwrap_or(GgufConfig::from_code(vec![])))
+    }
+}
+
 /// 設定マージ層の種類
 ///
 /// `GgufConfig::merge()` メソッドの引数として使用する。
@@ -468,27 +597,23 @@ mod tests {
     }
 
     #[test]
-    fn detect_respects_env_var() {
+    fn detect_stress_env_var_and_os_fallback() {
+        // detect() はグローバルな環境変数を読むため、並列テストと競合する。
+        // この1テスト内で env var あり/なし の両方を直列に検証する。
         let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
-        // 環境変数を一時的に設定して detect() が正しく値を読み取ることを確認
+
+        // 1) 環境変数設定時 → その値が優先される
         std::env::set_var(env_var, "cuda");
         let detected = GpuProvider::detect();
         std::env::remove_var(env_var);
-        assert_eq!(detected, GpuProvider::Cuda);
-    }
+        assert_eq!(detected, GpuProvider::Cuda, "env var should override OS detection");
 
-    #[test]
-    fn detect_auto_on_unset_on_linux_or_other() {
-        // 並列実行される detect_respects_env_var が設定した環境変数の影響を
-        // 受けないよう、既知の無効値で上書きしてから detect() を呼び出す
-        let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
-        std::env::set_var(env_var, "__no_such_provider__");
+        // 2) 環境変数未設定時 → OS 自動検出
         let detected = GpuProvider::detect();
-        std::env::remove_var(env_var);
         #[cfg(target_os = "macos")]
-        assert_eq!(detected, GpuProvider::Metal);
+        assert_eq!(detected, GpuProvider::Metal, "macOS should default to Metal");
         #[cfg(not(target_os = "macos"))]
-        assert_eq!(detected, GpuProvider::Cpu);
+        assert_eq!(detected, GpuProvider::Cpu, "non-macOS should default to Cpu");
     }
 
     // ── ModelConfig tests (M0-5) ──
@@ -692,5 +817,365 @@ mod tests {
         let json = serde_json::to_string(&layer).unwrap();
         let deserialized: ConfigLayer = serde_json::from_str(&json).unwrap();
         assert_eq!(layer, deserialized);
+    }
+
+    // ── GgufConfig merge tests (M1-4) ──
+
+    fn sample_model(name: &str) -> ModelConfig {
+        ModelConfig {
+            name: name.into(),
+            model_path: PathBuf::from(format!("models/{name}.gguf")),
+            lazy_load: true,
+            context_size: None,
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    #[test]
+    fn from_code_uses_default_server_and_gpu() {
+        let config = GgufConfig::from_code(vec![]);
+        assert_eq!(config.server, ServerConfig::default());
+        assert_eq!(config.gpu, GpuConfig::default());
+    }
+
+    #[test]
+    fn from_code_contains_given_models() {
+        let model = sample_model("qwen3.5");
+        let config = GgufConfig::from_code(vec![model]);
+        assert_eq!(config.models.len(), 1);
+        assert_eq!(config.models[0].name, "qwen3.5");
+    }
+
+    #[test]
+    fn merge_overlay_same_name_model_overwrites() {
+        let mut config = GgufConfig::from_code(vec![sample_model("test")]);
+        let mut overlay = sample_model("test");
+        overlay.lazy_load = false;
+        config.merge_overlay(GgufConfig::from_code(vec![overlay]));
+        assert_eq!(config.models.len(), 1);
+        assert!(!config.models[0].lazy_load, "should be overwritten");
+    }
+
+    #[test]
+    fn merge_overlay_diff_name_model_appends() {
+        let mut config = GgufConfig::from_code(vec![sample_model("a")]);
+        config.merge_overlay(GgufConfig::from_code(vec![sample_model("b")]));
+        assert_eq!(config.models.len(), 2);
+    }
+
+    #[test]
+    fn merge_overlay_server_only_when_port_nonzero() {
+        let mut config = GgufConfig::from_code(vec![]);
+        let overlay = GgufConfig {
+            models: vec![],
+            server: ServerConfig {
+                bind: SocketAddr::from(([0, 0, 0, 0], 0)), // port 0 = 未指定
+                ..ServerConfig::default()
+            },
+            gpu: GpuConfig::default(),
+        };
+        config.merge_overlay(overlay);
+        // port=0 のサーバーは上書きされない → 127.0.0.1:DEFAULT_RT_PORT のまま
+        assert_eq!(
+            config.server.bind.port(),
+            DEFAULT_RT_PORT,
+            "server with port 0 should not overwrite"
+        );
+    }
+
+    #[test]
+    fn merge_overlay_gpu_only_when_provider_not_auto() {
+        let mut config = GgufConfig::from_code(vec![]);
+        let overlay = GgufConfig {
+            models: vec![],
+            server: ServerConfig::default(),
+            gpu: GpuConfig {
+                provider: GpuProvider::Auto, // Auto = 未指定
+                cpu_only: true,
+            },
+        };
+        config.merge_overlay(overlay);
+        // provider=Auto の GPU は上書きされない → cpu_only は false のまま
+        assert!(!config.gpu.cpu_only, "gpu with Auto provider should not overwrite");
+    }
+
+    #[test]
+    fn merge_overlay_empty_overlay_no_change() {
+        let model = sample_model("keep");
+        let mut config = GgufConfig::from_code(vec![model]);
+        let original = config.clone();
+        config.merge_overlay(GgufConfig::from_code(vec![]));
+        assert_eq!(config.models.len(), original.models.len());
+        assert_eq!(config.server, original.server);
+        assert_eq!(config.gpu, original.gpu);
+    }
+
+    #[test]
+    fn merge_overlay_partial_models_only() {
+        let model_a = sample_model("a");
+        let mut config = GgufConfig::from_code(vec![model_a]);
+        let model_b = sample_model("b");
+        config.merge_overlay(GgufConfig::from_code(vec![model_b]));
+        assert_eq!(config.models.len(), 2);
+        assert_eq!(config.models[0].name, "a");
+        assert_eq!(config.models[1].name, "b");
+    }
+
+    // ── GgufConfig::from_json_str tests (M3-1) ──
+
+    #[test]
+    fn from_json_str_overwrites_same_name_model() {
+        let base = GgufConfig::from_code(vec![sample_model("qwen3.5")]);
+        let json = r#"{"models":[{"name":"qwen3.5","model_path":"override.gguf","lazy_load":false}],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let result = GgufConfig::from_json_str(json, base).unwrap();
+        assert_eq!(result.models.len(), 1);
+        assert_eq!(result.models[0].model_path, PathBuf::from("override.gguf"));
+        assert!(!result.models[0].lazy_load, "should be overwritten by JSON");
+    }
+
+    #[test]
+    fn from_json_str_appends_new_model() {
+        let base = GgufConfig::from_code(vec![sample_model("existing")]);
+        let json = r#"{"models":[{"name":"new","model_path":"new.gguf","lazy_load":true}],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let result = GgufConfig::from_json_str(json, base).unwrap();
+        assert_eq!(result.models.len(), 2);
+        assert_eq!(result.models[1].name, "new");
+    }
+
+    #[test]
+    fn from_json_str_overwrites_server_and_gpu() {
+        let base = GgufConfig::from_code(vec![]);
+        let json = r#"{"models":[],"server":{"bind":"0.0.0.0:9999","models":[],"auto_start_server":true},"gpu":{"provider":"Cuda","cpu_only":true}}"#;
+        let result = GgufConfig::from_json_str(json, base).unwrap();
+        assert_eq!(result.server.bind.port(), 9999);
+        assert!(result.server.auto_start_server);
+        assert_eq!(result.gpu.provider, GpuProvider::Cuda);
+        assert!(result.gpu.cpu_only);
+    }
+
+    #[test]
+    fn from_json_str_empty_object_preserves_base() {
+        let base = GgufConfig::from_code(vec![sample_model("keep")]);
+        let json = r#"{"models":[],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let result = GgufConfig::from_json_str(json, base).unwrap();
+        assert_eq!(result.models.len(), 1);
+        assert_eq!(result.models[0].name, "keep");
+    }
+
+    #[test]
+    fn from_json_str_invalid_json_returns_error() {
+        let base = GgufConfig::from_code(vec![]);
+        let result = GgufConfig::from_json_str("not valid json", base);
+        assert!(result.is_err(), "invalid JSON should return error");
+        match result {
+            Err(GgufError::InvalidConfig(_)) => {} // expected
+            _ => panic!("expected InvalidConfig error"),
+        }
+    }
+
+    #[test]
+    fn from_json_str_type_mismatch_returns_error() {
+        let base = GgufConfig::from_code(vec![]);
+        let json = r#"{"models":"not_an_array"}"#;
+        let result = GgufConfig::from_json_str(json, base);
+        assert!(result.is_err(), "type mismatch should return error");
+        match result {
+            Err(GgufError::InvalidConfig(_)) => {} // expected
+            _ => panic!("expected InvalidConfig error"),
+        }
+    }
+
+    // ── GgufConfig::from_file tests (M3-1) ──
+
+    #[test]
+    fn from_file_reads_and_merges_valid_json() {
+        let base = GgufConfig::from_code(vec![sample_model("qwen3.5")]);
+        let json_content = r#"{"models":[],"server":{"bind":"0.0.0.0:8080","models":[],"auto_start_server":true},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_from_file_valid.json");
+        std::fs::write(&tmp_path, json_content).unwrap();
+        let result = GgufConfig::from_file(&tmp_path, base);
+        std::fs::remove_file(&tmp_path).unwrap();
+        let config = result.unwrap();
+        assert_eq!(config.server.bind.port(), 8080);
+    }
+
+    #[test]
+    fn from_file_not_found_returns_error() {
+        let base = GgufConfig::from_code(vec![]);
+        let path = Path::new("/tmp/ggufrs_nonexistent_config_xyz.json");
+        let result = GgufConfig::from_file(path, base);
+        assert!(result.is_err(), "non-existent file should return error");
+        match result {
+            Err(GgufError::InvalidConfig(_)) => {} // expected
+            _ => panic!("expected InvalidConfig error"),
+        }
+    }
+
+    #[test]
+    fn from_file_invalid_content_returns_error() {
+        let base = GgufConfig::from_code(vec![]);
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_from_file_invalid.json");
+        std::fs::write(&tmp_path, "not json content").unwrap();
+        let result = GgufConfig::from_file(&tmp_path, base);
+        std::fs::remove_file(&tmp_path).unwrap();
+        assert!(result.is_err(), "invalid content should return error");
+        match result {
+            Err(GgufError::InvalidConfig(_)) => {} // expected
+            _ => panic!("expected InvalidConfig error"),
+        }
+    }
+
+    // ── GgufConfig::build tests (M3-1) ──
+
+    #[test]
+    fn build_three_layer_merge() {
+        let code = GgufConfig::from_code(vec![sample_model("base")]);
+        let json = r#"{"models":[{"name":"base","model_path":"json.gguf"}],"server":{"bind":"127.0.0.1:8080","models":[],"auto_start_server":true},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let file_content = r#"{"models":[{"name":"base","model_path":"json.gguf"}],"server":{"bind":"127.0.0.1:8080","models":[],"auto_start_server":true},"gpu":{"provider":"Cuda","cpu_only":true}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_build_three_layer.json");
+        std::fs::write(&tmp_path, file_content).unwrap();
+        let config = GgufConfig::build(code, Some(json), Some(&tmp_path)).unwrap();
+        std::fs::remove_file(&tmp_path).unwrap();
+        // file 層で gpu が上書きされている
+        assert_eq!(config.gpu.provider, GpuProvider::Cuda);
+        assert!(config.gpu.cpu_only);
+        // json 層で server が設定されている（file 層でも同一値）
+        assert_eq!(config.server.bind.port(), 8080);
+        // json 層でモデルが設定されている（file 層でも同一値）
+        assert_eq!(config.models[0].model_path, PathBuf::from("json.gguf"));
+    }
+
+    #[test]
+    fn build_code_only_no_json_no_file() {
+        let code = GgufConfig::from_code(vec![sample_model("only")]);
+        let config = GgufConfig::build(code, None, None).unwrap();
+        assert_eq!(config.models.len(), 1);
+        assert_eq!(config.models[0].name, "only");
+    }
+
+    #[test]
+    fn build_code_and_json_only() {
+        let code = GgufConfig::from_code(vec![sample_model("base")]);
+        let json = r#"{"models":[],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Cuda","cpu_only":true}}"#;
+        let config = GgufConfig::build(code, Some(json), None).unwrap();
+        assert_eq!(config.gpu.provider, GpuProvider::Cuda);
+    }
+
+    #[test]
+    fn build_code_and_file_only() {
+        let code = GgufConfig::from_code(vec![sample_model("base")]);
+        let file_content = r#"{"models":[],"server":{"bind":"0.0.0.0:7070","models":[],"auto_start_server":true},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_build_code_file.json");
+        std::fs::write(&tmp_path, file_content).unwrap();
+        let config = GgufConfig::build(code, None, Some(&tmp_path)).unwrap();
+        std::fs::remove_file(&tmp_path).unwrap();
+        assert_eq!(config.server.bind.port(), 7070);
+    }
+
+    #[test]
+    fn build_file_not_found_returns_error() {
+        let code = GgufConfig::from_code(vec![]);
+        let result = GgufConfig::build(code, None, Some(Path::new("/tmp/ggufrs_nonexistent_build.json")));
+        assert!(result.is_err(), "non-existent file should return error");
+    }
+
+    // ── GgufConfig::merge tests (M3-1) ──
+
+    #[test]
+    fn merge_code_layer_only() {
+        let cfg = GgufConfig::from_code(vec![sample_model("m")]);
+        let layers = vec![ConfigLayer::Code(cfg)];
+        let result = GgufConfig::merge(layers).unwrap();
+        assert_eq!(result.models.len(), 1);
+        assert_eq!(result.models[0].name, "m");
+    }
+
+    #[test]
+    fn merge_json_str_layer_only() {
+        let json = r#"{"models":[{"name":"from_json","model_path":"j.gguf","lazy_load":true}],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let layers = vec![ConfigLayer::JsonStr(json.into())];
+        let result = GgufConfig::merge(layers).unwrap();
+        assert_eq!(result.models.len(), 1);
+        assert_eq!(result.models[0].name, "from_json");
+    }
+
+    #[test]
+    fn merge_file_layer_only() {
+        let file_content = r#"{"models":[{"name":"from_file","model_path":"f.gguf","lazy_load":true}],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_merge_file_only.json");
+        std::fs::write(&tmp_path, file_content).unwrap();
+        let layers = vec![ConfigLayer::File(tmp_path.clone())];
+        let result = GgufConfig::merge(layers).unwrap();
+        std::fs::remove_file(&tmp_path).unwrap();
+        assert_eq!(result.models.len(), 1);
+        assert_eq!(result.models[0].name, "from_file");
+    }
+
+    #[test]
+    fn merge_three_layers_with_priority() {
+        // Code → JsonStr → File の優先度検証
+        let code_cfg = GgufConfig::from_code(vec![sample_model("m")]);
+        let json = r#"{"models":[],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Cuda","cpu_only":true}}"#;
+        let file_content = r#"{"models":[],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Metal","cpu_only":false}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_merge_priority.json");
+        std::fs::write(&tmp_path, file_content).unwrap();
+        let layers = vec![
+            ConfigLayer::Code(code_cfg),
+            ConfigLayer::JsonStr(json.into()),
+            ConfigLayer::File(tmp_path.clone()),
+        ];
+        let result = GgufConfig::merge(layers).unwrap();
+        std::fs::remove_file(&tmp_path).unwrap();
+        // File 層が最優先 → Metal
+        assert_eq!(result.gpu.provider, GpuProvider::Metal);
+        assert!(!result.gpu.cpu_only, "file layer should overwrite json layer");
+        // モデルは code 層のまま
+        assert_eq!(result.models[0].name, "m");
+    }
+
+    #[test]
+    fn merge_empty_vector_returns_default() {
+        let result = GgufConfig::merge(vec![]).unwrap();
+        assert!(result.models.is_empty());
+        assert_eq!(result.server, ServerConfig::default());
+        assert_eq!(result.gpu, GpuConfig::default());
+    }
+
+    #[test]
+    fn merge_invalid_json_str_returns_error() {
+        let layers = vec![ConfigLayer::JsonStr("invalid json".into())];
+        let result = GgufConfig::merge(layers);
+        assert!(result.is_err(), "invalid JSON should return error");
+    }
+
+    #[test]
+    fn merge_file_not_found_returns_error() {
+        let path = Path::new("/tmp/ggufrs_nonexistent_merge.json");
+        let layers = vec![ConfigLayer::File(path.to_path_buf())];
+        let result = GgufConfig::merge(layers);
+        assert!(result.is_err(), "non-existent file should return error");
+    }
+
+    #[test]
+    fn merge_all_layer_types_combined() {
+        // Code → JsonStr(モデル追加) → File(サーバー設定) の組み合わせ
+        let code_cfg = GgufConfig::from_code(vec![sample_model("m1")]);
+        let json = r#"{"models":[{"name":"m2","model_path":"m2.gguf","lazy_load":true}],"server":{"bind":"127.0.0.1:3910","models":[],"auto_start_server":false},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let file_content = r#"{"models":[{"name":"m2","model_path":"m2.gguf","lazy_load":true}],"server":{"bind":"0.0.0.0:3000","models":[],"auto_start_server":true},"gpu":{"provider":"Auto","cpu_only":false}}"#;
+        let tmp_path = std::env::temp_dir().join("ggufrs_test_merge_all.json");
+        std::fs::write(&tmp_path, file_content).unwrap();
+        let layers = vec![
+            ConfigLayer::Code(code_cfg),
+            ConfigLayer::JsonStr(json.into()),
+            ConfigLayer::File(tmp_path.clone()),
+        ];
+        let result = GgufConfig::merge(layers).unwrap();
+        std::fs::remove_file(&tmp_path).unwrap();
+        assert_eq!(result.models.len(), 2);
+        assert_eq!(result.models[0].name, "m1");
+        assert_eq!(result.models[1].name, "m2");
+        assert_eq!(result.server.bind.port(), 3000);
     }
 }

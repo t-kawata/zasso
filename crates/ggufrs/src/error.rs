@@ -22,6 +22,26 @@
 /// - `MistralrsError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
 /// - 内部エラーを持つバリアントは `Box<dyn std::error::Error + Send + Sync>` でラップする
 /// - `Send + Sync` を満たすため、スレッド間でのエラー伝搬が可能
+/// `std::io::Error` → `GgufError::InvalidConfig` への変換
+///
+/// ファイル操作やネットワーク I/O で発生したエラーを設定エラーとしてラップする。
+/// 設定ファイルの読み込み等で使用される。
+impl From<std::io::Error> for GgufError {
+    fn from(err: std::io::Error) -> Self {
+        GgufError::InvalidConfig(err.to_string())
+    }
+}
+
+/// `serde_json::Error` → `GgufError::InvalidConfig` への変換
+///
+/// JSON 設定のパースに失敗した場合のエラーをラップする。
+/// `ConfigLayer::JsonStr` および `ConfigLayer::File` からの設定読み込みで使用される。
+impl From<serde_json::Error> for GgufError {
+    fn from(err: serde_json::Error) -> Self {
+        GgufError::InvalidConfig(err.to_string())
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum GgufError {
     /// モデルが見つからない
@@ -188,5 +208,54 @@ mod tests {
         // Debug 出力にはバリアント名とフィールド情報が含まれる
         assert!(debug.contains("ModelNotFound"), "Debug should contain variant name: {debug}");
         assert!(debug.contains("debug_test"), "Debug should contain field value: {debug}");
+    }
+
+    // ── From impl tests (M1-3) ──
+
+    #[test]
+    fn from_io_error_maps_to_invalid_config() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err: GgufError = io_err.into();
+        assert!(
+            matches!(err, GgufError::InvalidConfig(_)),
+            "io::Error should map to InvalidConfig"
+        );
+    }
+
+    #[test]
+    fn from_io_error_preserves_message() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let err: GgufError = io_err.into();
+        let msg = err.to_string();
+        assert!(msg.contains("access denied"), "message should be preserved: {msg}");
+    }
+
+    #[test]
+    fn from_serde_json_error_maps_to_invalid_config() {
+        // serde_json::Error を生成するため、既知の無効な JSON をパースする
+        let json_err = serde_json::from_str::<serde_json::Value>("invalid{").unwrap_err();
+        let err: GgufError = json_err.into();
+        assert!(
+            matches!(err, GgufError::InvalidConfig(_)),
+            "serde_json::Error should map to InvalidConfig"
+        );
+    }
+
+    #[test]
+    fn from_serde_json_error_preserves_message() {
+        let json_err = serde_json::from_str::<serde_json::Value>("not valid json").unwrap_err();
+        let err: GgufError = json_err.into();
+        let msg = err.to_string();
+        assert!(msg.contains("expected"), "message should be preserved: {msg}");
+    }
+
+    #[test]
+    fn from_mistralrs_error_works_via_from_attr() {
+        let mist_err = mistralrs::error::Error::RequestValidation("validation error".into());
+        let err: GgufError = mist_err.into();
+        assert!(
+            matches!(err, GgufError::MistralrsError(_)),
+            "mistralrs::error::Error should map to MistralrsError via #[from]"
+        );
     }
 }
