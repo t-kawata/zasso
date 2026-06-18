@@ -2,7 +2,7 @@
 //!
 //! GpuProvider / GpuConfig / GgufConfig / ModelConfig / ServerConfig / ConfigLayer を定義する。
 //!
-//! # [::STUB::] M1-1, M1-2, M1-4 でメソッド・マージロジックを実装
+//! # [::STUB::] M3-1 で GgufConfig::build + merge 完全実装（ファイルI/O）
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -295,6 +295,57 @@ pub struct GgufConfig {
     pub gpu: GpuConfig,
 }
 
+impl GgufConfig {
+    /// コード内設定から GgufConfig を生成する（最下層）
+    ///
+    /// サーバー設定と GPU 設定はそれぞれの Default 値で初期化される。
+    /// このコンストラクタで生成された設定は、ConfigLayer::JsonStr や
+    /// ConfigLayer::File からマージされることで上書き可能となる。
+    pub fn from_code(models: Vec<ModelConfig>) -> Self {
+        Self {
+            models,
+            server: ServerConfig::default(),
+            gpu: GpuConfig::default(),
+        }
+    }
+
+    /// 上位優先度の設定を自身にマージする（内部ヘルパー）
+    ///
+    /// - models: `name` フィールドをキーにマージ。同名モデルは上書き、新規モデルは追加
+    /// - server: `bind.port() != 0` の場合のみ上書き（port=0 は「未指定」を意味する）
+    /// - gpu: `provider != GpuProvider::Auto` の場合のみ上書き（Auto は「未指定」）
+    ///
+    /// [::STUB::] M3-1 で GgufConfig::build からの呼び出しが追加され、dead_code が解消される
+    #[allow(dead_code)]
+    pub(crate) fn merge_overlay(&mut self, overlay: GgufConfig) {
+        // models: name ベースマージ
+        for overlay_model in overlay.models {
+            if let Some(existing) = self
+                .models
+                .iter_mut()
+                .find(|m| m.name == overlay_model.name)
+            {
+                *existing = overlay_model;
+            } else {
+                self.models.push(overlay_model);
+            }
+        }
+
+        // server: bind.port() != 0 の場合のみ上書き
+        if overlay.server.bind.port() != 0 {
+            self.server = overlay.server;
+        } else if !overlay.server.models.is_empty() {
+            // bind が未指定でも models リストが指定されていれば反映する
+            self.server.models = overlay.server.models;
+        }
+
+        // gpu: provider != Auto の場合のみ上書き
+        if overlay.gpu.provider != GpuProvider::Auto {
+            self.gpu = overlay.gpu;
+        }
+    }
+}
+
 /// 設定マージ層の種類
 ///
 /// `GgufConfig::merge()` メソッドの引数として使用する。
@@ -468,27 +519,23 @@ mod tests {
     }
 
     #[test]
-    fn detect_respects_env_var() {
+    fn detect_stress_env_var_and_os_fallback() {
+        // detect() はグローバルな環境変数を読むため、並列テストと競合する。
+        // この1テスト内で env var あり/なし の両方を直列に検証する。
         let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
-        // 環境変数を一時的に設定して detect() が正しく値を読み取ることを確認
+
+        // 1) 環境変数設定時 → その値が優先される
         std::env::set_var(env_var, "cuda");
         let detected = GpuProvider::detect();
         std::env::remove_var(env_var);
-        assert_eq!(detected, GpuProvider::Cuda);
-    }
+        assert_eq!(detected, GpuProvider::Cuda, "env var should override OS detection");
 
-    #[test]
-    fn detect_auto_on_unset_on_linux_or_other() {
-        // 並列実行される detect_respects_env_var が設定した環境変数の影響を
-        // 受けないよう、既知の無効値で上書きしてから detect() を呼び出す
-        let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
-        std::env::set_var(env_var, "__no_such_provider__");
+        // 2) 環境変数未設定時 → OS 自動検出
         let detected = GpuProvider::detect();
-        std::env::remove_var(env_var);
         #[cfg(target_os = "macos")]
-        assert_eq!(detected, GpuProvider::Metal);
+        assert_eq!(detected, GpuProvider::Metal, "macOS should default to Metal");
         #[cfg(not(target_os = "macos"))]
-        assert_eq!(detected, GpuProvider::Cpu);
+        assert_eq!(detected, GpuProvider::Cpu, "non-macOS should default to Cpu");
     }
 
     // ── ModelConfig tests (M0-5) ──
@@ -692,5 +739,109 @@ mod tests {
         let json = serde_json::to_string(&layer).unwrap();
         let deserialized: ConfigLayer = serde_json::from_str(&json).unwrap();
         assert_eq!(layer, deserialized);
+    }
+
+    // ── GgufConfig merge tests (M1-4) ──
+
+    fn sample_model(name: &str) -> ModelConfig {
+        ModelConfig {
+            name: name.into(),
+            model_path: PathBuf::from(format!("models/{name}.gguf")),
+            lazy_load: true,
+            context_size: None,
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    #[test]
+    fn from_code_uses_default_server_and_gpu() {
+        let config = GgufConfig::from_code(vec![]);
+        assert_eq!(config.server, ServerConfig::default());
+        assert_eq!(config.gpu, GpuConfig::default());
+    }
+
+    #[test]
+    fn from_code_contains_given_models() {
+        let model = sample_model("qwen3.5");
+        let config = GgufConfig::from_code(vec![model]);
+        assert_eq!(config.models.len(), 1);
+        assert_eq!(config.models[0].name, "qwen3.5");
+    }
+
+    #[test]
+    fn merge_overlay_same_name_model_overwrites() {
+        let mut config = GgufConfig::from_code(vec![sample_model("test")]);
+        let mut overlay = sample_model("test");
+        overlay.lazy_load = false;
+        config.merge_overlay(GgufConfig::from_code(vec![overlay]));
+        assert_eq!(config.models.len(), 1);
+        assert!(!config.models[0].lazy_load, "should be overwritten");
+    }
+
+    #[test]
+    fn merge_overlay_diff_name_model_appends() {
+        let mut config = GgufConfig::from_code(vec![sample_model("a")]);
+        config.merge_overlay(GgufConfig::from_code(vec![sample_model("b")]));
+        assert_eq!(config.models.len(), 2);
+    }
+
+    #[test]
+    fn merge_overlay_server_only_when_port_nonzero() {
+        let mut config = GgufConfig::from_code(vec![]);
+        let overlay = GgufConfig {
+            models: vec![],
+            server: ServerConfig {
+                bind: SocketAddr::from(([0, 0, 0, 0], 0)), // port 0 = 未指定
+                ..ServerConfig::default()
+            },
+            gpu: GpuConfig::default(),
+        };
+        config.merge_overlay(overlay);
+        // port=0 のサーバーは上書きされない → 127.0.0.1:DEFAULT_RT_PORT のまま
+        assert_eq!(
+            config.server.bind.port(),
+            DEFAULT_RT_PORT,
+            "server with port 0 should not overwrite"
+        );
+    }
+
+    #[test]
+    fn merge_overlay_gpu_only_when_provider_not_auto() {
+        let mut config = GgufConfig::from_code(vec![]);
+        let overlay = GgufConfig {
+            models: vec![],
+            server: ServerConfig::default(),
+            gpu: GpuConfig {
+                provider: GpuProvider::Auto, // Auto = 未指定
+                cpu_only: true,
+            },
+        };
+        config.merge_overlay(overlay);
+        // provider=Auto の GPU は上書きされない → cpu_only は false のまま
+        assert!(!config.gpu.cpu_only, "gpu with Auto provider should not overwrite");
+    }
+
+    #[test]
+    fn merge_overlay_empty_overlay_no_change() {
+        let model = sample_model("keep");
+        let mut config = GgufConfig::from_code(vec![model]);
+        let original = config.clone();
+        config.merge_overlay(GgufConfig::from_code(vec![]));
+        assert_eq!(config.models.len(), original.models.len());
+        assert_eq!(config.server, original.server);
+        assert_eq!(config.gpu, original.gpu);
+    }
+
+    #[test]
+    fn merge_overlay_partial_models_only() {
+        let model_a = sample_model("a");
+        let mut config = GgufConfig::from_code(vec![model_a]);
+        let model_b = sample_model("b");
+        config.merge_overlay(GgufConfig::from_code(vec![model_b]));
+        assert_eq!(config.models.len(), 2);
+        assert_eq!(config.models[0].name, "a");
+        assert_eq!(config.models[1].name, "b");
     }
 }

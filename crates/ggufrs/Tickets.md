@@ -199,7 +199,7 @@
   3. `mistralrs_feature()` の戻り値が空文字列または有効な feature 名である
   4. `detect()` が macOS で Metal を返す（cfg テストはプラットフォーム依存のため注釈付き）
 
-#### チケット M1-3: GgufError From トレイト実装 (error.rs)
+#### ✅ チケット M1-3: GgufError From トレイト実装 (error.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型、各バリアントの From 実装)
 * **依存・関連チケットID:** 先行実装必須: M0-4。後続: 全実装チケットで `?` 演算子使用時に必要。
@@ -215,7 +215,7 @@
   2. `GgufError::from(serde_json::from_str::<GgufConfig>("invalid{") .unwrap_err())` が `InvalidConfig` バリアント
   3. 各 From 実装がエラーメッセージを保持している
 
-#### チケット M1-4: GgufConfig マージロジック (config.rs)
+#### ✅ チケット M1-4: GgufConfig マージロジック (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: M3-1（ファイルI/O を含む完全実装）。
@@ -240,7 +240,7 @@
   5. 空の overlay をマージしても何も変わらない
   6. 3層すべてをマージした最終結果が優先順位通りになる
 
-#### チケット M1-5: ModelRegistry 同期メソッド (registry.rs)
+#### ✅ チケット M1-5: ModelRegistry 同期メソッド (registry.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `new()`, `from_config()`, `add_model()`, `list_models()`)
 * **依存・関連チケットID:** 先行実装必須: M0-6（ModelInfo）。後続: M2-2（非同期メソッド追加）。
@@ -269,7 +269,7 @@
 
 ### マイルストーン M2: 非同期ランタイム
 
-#### チケット M2-1: InferenceEngine トレイト定義 (inference/mod.rs)
+#### ✅ チケット M2-1: InferenceEngine トレイト定義 (inference/mod.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `InferenceEngine` トレイト)
 * **依存・関連チケットID:** 先行実装必須: M0-2（`DEFAULT_TEMPERATURE` 等の `GenerateParams` デフォルト値）、M0-3, M0-4。先行実装必須: M1-5（ModelRegistry の型が必要）。後続: M2-4（モックテスト）、M3-2/M3-3/M3-4（実装）。
@@ -291,7 +291,7 @@
   2. トレイトがオブジェクトセーフである（`dyn InferenceEngine` として使用可能）
   3. 実際に `#[async_trait]` が正しく機能する（単一メソッドのみのダミー実装で確認）
 
-#### チケット M2-2: ModelRegistry 非同期メソッド (registry.rs)
+#### ✅ チケット M2-2: ModelRegistry 非同期メソッド (registry.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `get()`, `load_immediate()`, `load_all()`)
 * **依存・関連チケットID:** 先行実装必須: M1-5。後続: M2-3（GgufEngine::new()）、M3-2（実モデルロード）。
@@ -310,7 +310,7 @@
   3. `get()` が既ロードモデルに対しては再ロードしない
   4. 複数スレッドからの同時 `get()` がデータ競合を起こさない
 
-#### チケット M2-3: GgufEngine::new() 実装 (lib.rs)
+#### ✅ チケット M2-3: GgufEngine::new() 実装 (lib.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§1.2 GgufEngine のライフサイクル, `GgufEngine::new()`)
 * **依存・関連チケットID:** 先行実装必須: M2-2（ModelRegistry 非同期メソッド）、M0-5（GgufConfig）。後続: M3-1（GgufConfig::build 完全実装）、M4-2（サーバー起動）。
@@ -330,7 +330,7 @@
   2. `new()` 後の `list_models()` が設定通りのモデル一覧を返す
   3. 空の設定で `new()` した場合の動作（空 Registry）
 
-#### チケット M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests)
+#### ✅ チケット M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト)
 * **依存・関連チケットID:** 先行実装必須: M2-1（InferenceEngine トレイト）、M2-2（ModelRegistry）。

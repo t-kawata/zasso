@@ -42,6 +42,7 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 llm-bridge-core = "0.2"
 
 [dev-dependencies]
+mockall = "0.14.0"
 # モックベース単体テスト
 # [::STUB::] M2-4 で mockall を追加
 # mockall = "0.13"

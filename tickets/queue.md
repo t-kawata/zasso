@@ -172,3 +172,10 @@
 - [x] #135 M0-6: ModelInfo 構造体定義 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0135-m0-6-modelinfo-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #136 M1-1: ModelConfig ビルトインコンストラクタ (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0136-m1-1-modelconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #137 M1-2: GpuProvider メソッド実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0137-m1-2-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #138 M1-3: GgufError From トレイト実装 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0138-m1-3-gguferror-from-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #139 M1-4: GgufConfig マージロジック (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0139-m1-4-ggufconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #140 M1-5: ModelRegistry 同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0140-m1-5-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #141 M2-1: InferenceEngine トレイト定義 (inference/mod.rs) | /Users/kawata/shyme/zasso/tickets/specs/0141-m2-1-inferenceengine-inferencemodrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #142 M2-2: ModelRegistry 非同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0142-m2-2-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #143 M2-3: GgufEngine::new() 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0143-m2-3-ggufenginenew-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #144 M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests) | /Users/kawata/shyme/zasso/tickets/specs/0144-m2-4-mockall-librs-tests-inferencemodrs-tests.md | 2026-06-18 | 2026-06-18 | 2026-06-18
