@@ -1208,7 +1208,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M16-1: `AudioTapHandle` / `AudioTapMode` / `subscribe_audio`
+#### ✅ チケット M16-1: `AudioTapHandle` / `AudioTapMode` / `subscribe_audio`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§22, §22.1)
 * **対象不変条件 / 規範:** §22「音声タップは Realtime（oldest-drop）と Lossless（backpressure）の2モードを持つ」。§22.1 backpressure policy。§15.7「AudioTapHandle の oldest-drop 戦略と組み合わせて使用すること」。
@@ -1235,7 +1235,7 @@
   9. 既に終了した通話 → `InvalidState` エラー
 * **計装方法・観測対象:** Tap のドロップ回数（`Realtime` モードの `try_send` 失敗回数）。Tap の配送遅延（フレーム生成から購読者受信までの時間）。
 
-#### チケット M16-2: `ResamplePipeline` — rubato 統合
+#### ✅ チケット M16-2: `ResamplePipeline` — rubato 統合
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§26)
 * **対象不変条件 / 規範:** §26「要件に従い rubato を用いる。内部 native format は PJSIP/codec negotiation に応じた monaural i16 PCM とし、利用者要求フォーマットへ出力時変換する」。
@@ -1261,7 +1261,7 @@
   9. 未サポートの sample rate → `AudioFormatUnsupported` エラー
 * **計装方法・観測対象:** リサンプル処理のレイテンシ（rubato の内部バッファ遅延）。変換精度（THD+N 相当の簡易計測）。
 
-#### チケット M16-3: `subscribe_audio` のフォーマット変換統合
+#### ✅ チケット M16-3: `subscribe_audio` のフォーマット変換統合
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§22, §41.4)
 * **対象不変条件 / 規範:** §22 subscribe_audio API。§41.4 音声 tap と WAV 書き出しの使用例。
@@ -1289,7 +1289,7 @@
 
 > **DB:** メモリ内完結（FFI 経由で PJSUA ライブラリを動的リンク）
 
-#### チケット M17-1: bindgen 設定と生成
+#### ✅ チケット M17-1: bindgen 設定と生成
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27.1)
 * **対象不変条件 / 規範:** §27.1「build.rs は platform 別に include path と define を設定し、pjsua.h, pjsua-lib/pjsua.h, pjmedia-codec/opus.h など必要ヘッダのみを対象にする」。allowlist による関数・型・変数の選択的生成。
@@ -1315,7 +1315,7 @@
   - `cargo build -p siprs 2>&1 | head -50` を実行し、bindgen とリンクのエラーがないことを確認する。
   - macOS では `brew install pkg-config cmake`、Ubuntu では `sudo apt-get install -y build-essential cmake libasound2-dev libssl-dev libcrypto-dev libuuid-dev` が必須。
 
-#### チケット M17-2: `PjOwnedStr` — `pj_str_t` wrapper（実 FFI 型統合）
+#### ✅ チケット M17-2: `PjOwnedStr` — `pj_str_t` wrapper（実 FFI 型統合）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27.2)
 * **対象不変条件 / 規範:** §27.2「PJSIP は pj_str_t を使うため、CString の lifetime 問題を避ける wrapper を定義する」。§47「pj_str_t は常に Rust 側 owner を保持」。
@@ -1336,7 +1336,7 @@
   6. 1000回の move 操作でメモリ安全性が破れないこと（`miri` で検証）
 * **計装方法・観測対象:** `miri` による stacked borrows 検証。`PjOwnedStr` のメモリレイアウトが `Vec<u8>` + `pj_str_t` で最小限であること。
 
-#### チケット M17-3: Callback bridge — extern "C" callbacks → NativeEvent enqueue
+#### ✅ チケット M17-3: Callback bridge — extern "C" callbacks → NativeEvent enqueue
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27.3)
 * **対象不変条件 / 規範:** §27.3「callback 内では Rust object への直接 mutable access を避け、軽量イベントを enqueue する」。§45.1「解答は『callback では enqueue のみ、状態遷移は reactor』である」。§46.1 catch_unwind 発火時のクリーンアップ手順。

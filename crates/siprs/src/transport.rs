@@ -203,12 +203,18 @@ pub enum TransportConfig {
 impl TransportConfig {
     /// UDP トランスポートを指定されたポートで生成する（bind_addr = 0.0.0.0）。
     pub fn udp(port: u16) -> Self {
-        Self::Udp(UdpTransportConfig::new(SocketAddr::from(([0, 0, 0, 0], port))))
+        Self::Udp(UdpTransportConfig::new(SocketAddr::from((
+            [0, 0, 0, 0],
+            port,
+        ))))
     }
 
     /// TCP トランスポートを指定されたポートで生成する（bind_addr = 0.0.0.0）。
     pub fn tcp(port: u16) -> Self {
-        Self::Tcp(TcpTransportConfig::new(SocketAddr::from(([0, 0, 0, 0], port))))
+        Self::Tcp(TcpTransportConfig::new(SocketAddr::from((
+            [0, 0, 0, 0],
+            port,
+        ))))
     }
 
     /// TLS トランスポートを指定されたポートで生成する（bind_addr = 0.0.0.0）。
@@ -629,12 +635,7 @@ mod tests {
     /// TurnServerConfig の username / password に None を許容することを確認する。
     #[test]
     fn test_turn_server_config_username_password_none() {
-        let cfg = TurnServerConfig::new(
-            "turn:example.com",
-            None,
-            None,
-            TurnTransport::Udp,
-        );
+        let cfg = TurnServerConfig::new("turn:example.com", None, None, TurnTransport::Udp);
         assert!(cfg.username.is_none());
         assert!(cfg.password.is_none());
     }
@@ -649,8 +650,14 @@ mod tests {
             TurnTransport::Udp,
         );
         let debug_str = format!("{:#?}", cfg);
-        assert!(debug_str.contains("REDACTED"), "Debug output should mask password, got: {debug_str}");
-        assert!(!debug_str.contains("secret123"), "Debug output should not contain raw password");
+        assert!(
+            debug_str.contains("REDACTED"),
+            "Debug output should mask password, got: {debug_str}"
+        );
+        assert!(
+            !debug_str.contains("secret123"),
+            "Debug output should not contain raw password"
+        );
     }
 
     /// TurnServerConfig の Clone が正しく機能することを確認する。

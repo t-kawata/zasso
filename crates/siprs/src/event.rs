@@ -350,7 +350,6 @@ impl ClientCapabilities {
 
 // M8-3 以降で使用。現在は未使用のため dead_code を許容。
 #[allow(dead_code)]
-
 // ── 登録系 ──
 #[derive(Debug, Clone)]
 pub struct RegistrationInfo {}
@@ -658,10 +657,7 @@ pub struct AccountEventReceiver {
 
 impl AccountEventReceiver {
     /// `AccountEventReceiver` を生成する。
-    pub fn new(
-        account_id: AccountId,
-        inner: tokio::sync::broadcast::Receiver<SipEvent>,
-    ) -> Self {
+    pub fn new(account_id: AccountId, inner: tokio::sync::broadcast::Receiver<SipEvent>) -> Self {
         Self { account_id, inner }
     }
 
@@ -674,9 +670,7 @@ impl AccountEventReceiver {
     ///
     /// 一致しないイベントは透過的にスキップされる。
     /// `account_id == None` のイベント（`ClientInitialized` 等）もスキップされる。
-    pub async fn recv(
-        &mut self,
-    ) -> Result<SipEvent, tokio::sync::broadcast::error::RecvError> {
+    pub async fn recv(&mut self) -> Result<SipEvent, tokio::sync::broadcast::error::RecvError> {
         loop {
             let event = self.inner.recv().await?;
             if event.meta.account_id == Some(self.account_id) {
@@ -873,11 +867,7 @@ mod tests {
         assert_eq!(event.meta.status_code, Some(180));
         assert!(event.meta.headers.is_some());
         assert_eq!(
-            event
-                .meta
-                .logical_context
-                .get("source")
-                .map(|s| s.as_str()),
+            event.meta.logical_context.get("source").map(|s| s.as_str()),
             Some("pjsua")
         );
     }
@@ -1121,7 +1111,13 @@ mod tests {
         let msg = RawSipMessage::from_raw_parts(
             SipMessageDirection::Sent,
             TransportKind::Udp,
-            "", vec![], None, "", 0, None, None,
+            "",
+            vec![],
+            None,
+            "",
+            0,
+            None,
+            None,
         );
         bus.publish_raw_sip(msg);
     }
@@ -1151,8 +1147,15 @@ mod tests {
 
         // raw_sip に publish → control では受信されない。
         let msg = RawSipMessage::from_raw_parts(
-            SipMessageDirection::Received, TransportKind::Udp,
-            "", vec![], None, "", 0, None, None,
+            SipMessageDirection::Received,
+            TransportKind::Udp,
+            "",
+            vec![],
+            None,
+            "",
+            0,
+            None,
+            None,
         );
         bus.publish_raw_sip(msg);
         assert!(raw_sip_rx.try_recv().is_ok());
@@ -1225,7 +1228,9 @@ mod tests {
         let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
 
         // account_id = None のイベントを publish。
-        let event = SipEvent::new(SipEventPayload::ClientInitialized(ClientCapabilities::default_disabled()));
+        let event = SipEvent::new(SipEventPayload::ClientInitialized(
+            ClientCapabilities::default_disabled(),
+        ));
         bus.publish(event);
 
         // スキップされて Empty になる。
@@ -1278,7 +1283,8 @@ mod tests {
         let mut bob_rx = AccountEventReceiver::new(bob, bus.subscribe_control());
 
         // Alice 向けイベント。
-        let mut event_a = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
+        let mut event_a =
+            SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
         event_a.meta.account_id = Some(alice);
         bus.publish(event_a);
 
@@ -1289,14 +1295,20 @@ mod tests {
 
         // Alice のレシーバが Alice のイベントを受信。
         if let Ok(Some(received)) = alice_rx.try_recv() {
-            assert!(matches!(received.payload, SipEventPayload::RegistrationSucceeded(_)));
+            assert!(matches!(
+                received.payload,
+                SipEventPayload::RegistrationSucceeded(_)
+            ));
         } else {
             panic!("Alice のレシーバがイベントを受信できません");
         }
 
         // Bob のレシーバが Bob のイベントを受信。
         if let Ok(Some(received)) = bob_rx.try_recv() {
-            assert!(matches!(received.payload, SipEventPayload::CallConnected(_)));
+            assert!(matches!(
+                received.payload,
+                SipEventPayload::CallConnected(_)
+            ));
         } else {
             panic!("Bob のレシーバがイベントを受信できません");
         }

@@ -26,11 +26,7 @@ pub(crate) fn mix_i16_frame(inputs: &[&[i16]], output: &mut [i16]) {
 /// `gains` の長さが `inputs` より短い場合、残りのゲインは 1.0 とする。
 // M15-1 (AudioMixer) で使用。現在は未呼び出しのため dead_code を許容。
 #[allow(dead_code)]
-pub(crate) fn mix_i16_frame_with_gains(
-    inputs: &[&[i16]],
-    gains: &[f32],
-    output: &mut [i16],
-) {
+pub(crate) fn mix_i16_frame_with_gains(inputs: &[&[i16]], gains: &[f32], output: &mut [i16]) {
     for (sample_idx, out_sample) in output.iter_mut().enumerate() {
         let mut accumulated: i32 = 0;
         for (input_idx, input) in inputs.iter().enumerate() {
@@ -49,8 +45,8 @@ pub(crate) fn mix_i16_frame_with_gains(
 #[allow(dead_code)]
 pub(crate) fn apply_gain_to_frame(frame: &mut [i16], gain: f32) {
     for sample in frame.iter_mut() {
-        *sample = apply_gain_i32(*sample as i32, gain)
-            .clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+        *sample =
+            apply_gain_i32(*sample as i32, gain).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
     }
 }
 
@@ -166,18 +162,20 @@ impl AudioMixer {
     ///
     /// `gain` は 0.0 以上（負値は呼び出し側で検証済み）。
     pub(crate) fn set_gain(&self, id: AudioSourceId, gain: f32) -> Result<(), SipError> {
-        let entry = self.sources.get(&id).ok_or_else(|| {
-            SipError::invalid_state(format!("audio source not found: {id}"))
-        })?;
+        let entry = self
+            .sources
+            .get(&id)
+            .ok_or_else(|| SipError::invalid_state(format!("audio source not found: {id}")))?;
         entry.gain.store(f32::to_bits(gain), Ordering::Release);
         Ok(())
     }
 
     /// ソースをミュート/ミュート解除する。
     pub(crate) fn mute(&self, id: AudioSourceId, muted: bool) -> Result<(), SipError> {
-        let entry = self.sources.get(&id).ok_or_else(|| {
-            SipError::invalid_state(format!("audio source not found: {id}"))
-        })?;
+        let entry = self
+            .sources
+            .get(&id)
+            .ok_or_else(|| SipError::invalid_state(format!("audio source not found: {id}")))?;
         entry.muted.store(muted, Ordering::Release);
         Ok(())
     }

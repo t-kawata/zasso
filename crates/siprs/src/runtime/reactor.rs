@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, watch};
+use tokio::sync::{watch, RwLock};
 
 use crate::error::SipError;
 use crate::event::{ClientCapabilities, EventBus, SipEvent, SipEventPayload};
@@ -28,6 +28,12 @@ impl CoreReactor {
     ///
     /// `backend` を所有する reactor スレッドを spawn し、
     /// 通信のための `RuntimeHandle` とスレッドの `JoinHandle` を返す。
+    /// reactor スレッドを起動する。
+    ///
+    /// `backend` を所有する reactor スレッドを spawn し、
+    /// 通信のための `RuntimeHandle` とスレッドの `JoinHandle` を返す。
+    ///
+    /// 同時に callback bridge のグローバルランタイムを設定する。
     pub fn spawn(
         backend: Box<dyn SipBackend>,
         events: EventBus,
@@ -35,6 +41,11 @@ impl CoreReactor {
         shutdown_rx: watch::Receiver<bool>,
     ) -> (RuntimeHandle, std::thread::JoinHandle<()>) {
         let (handle, mut rx) = RuntimeHandle::new();
+
+        // M17-3: callback bridge 用のグローバルランタイムを設定。
+        // PJSIP callback からの NativeEvent enqueue に使用される。
+        // 二重設定はテスト時の並列実行で発生しうるため、Err は無視する。
+        let _ = crate::ffi::callbacks::set_global_runtime(handle.clone());
 
         let join_handle = std::thread::spawn(move || {
             let mut backend = backend;
@@ -82,9 +93,9 @@ impl CoreReactor {
                             state_guard.capabilities = capabilities;
 
                             // ClientInitialized イベント emit
-                            let event = SipEvent::new(
-                                SipEventPayload::ClientInitialized(ClientCapabilities::default_disabled()),
-                            );
+                            let event = SipEvent::new(SipEventPayload::ClientInitialized(
+                                ClientCapabilities::default_disabled(),
+                            ));
                             events.publish(event);
                             let _ = reply.send(Ok(()));
                         }
@@ -182,6 +193,8 @@ mod tests {
     /// Initialize コマンドで ClientInitialized イベントが emit されることを確認する。
     #[tokio::test]
     async fn test_reactor_initialize() {
+        // テスト間のグローバルランタイム干渉を防止
+        crate::ffi::callbacks::clear_global_runtime();
         let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
         let events = EventBus::new(16, None);
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -216,6 +229,8 @@ mod tests {
     /// Shutdown 後の後続コマンドがエラーになることを確認する。
     #[tokio::test]
     async fn test_reactor_shutdown() {
+        // テスト間のグローバルランタイム干渉を防止
+        crate::ffi::callbacks::clear_global_runtime();
         let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
         let events = EventBus::new(16, None);
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -250,6 +265,8 @@ mod tests {
     /// 10 並列 send_and_wait が逐次実行されることを確認する。
     #[tokio::test]
     async fn test_reactor_parallel_commands() {
+        // テスト間のグローバルランタイム干渉を防止
+        crate::ffi::callbacks::clear_global_runtime();
         let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
         let events = EventBus::new(16, None);
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -274,7 +291,8 @@ mod tests {
         for _ in 0..10 {
             let cloned_handle = handle_clone.clone();
             handles.push(tokio::spawn(async move {
-                cloned_handle.send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+                cloned_handle
+                    .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
                     .await
             }));
         }

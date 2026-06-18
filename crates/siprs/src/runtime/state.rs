@@ -124,7 +124,9 @@ impl ClientState {
 
     /// アカウントエントリを削除し、削除されたエントリを返す。
     pub fn remove_account(&mut self, id: AccountId) -> Result<AccountEntry, SipError> {
-        self.accounts.remove(&id).ok_or_else(|| account_not_found(id))
+        self.accounts
+            .remove(&id)
+            .ok_or_else(|| account_not_found(id))
     }
 
     /// アカウントエントリへの不変参照を返す。
@@ -134,7 +136,9 @@ impl ClientState {
 
     /// アカウントエントリへの可変参照を返す。
     pub fn get_account_mut(&mut self, id: AccountId) -> Result<&mut AccountEntry, SipError> {
-        self.accounts.get_mut(&id).ok_or_else(|| account_not_found(id))
+        self.accounts
+            .get_mut(&id)
+            .ok_or_else(|| account_not_found(id))
     }
 
     // ── Call operations ──
@@ -203,7 +207,9 @@ impl ClientState {
 
     /// ネイティブアカウント ID からアカウントエントリを逆引きする。
     pub fn get_account_by_native_id(&self, native_id: i32) -> Option<&AccountEntry> {
-        self.accounts.values().find(|e| e.native_id == Some(native_id))
+        self.accounts
+            .values()
+            .find(|e| e.native_id == Some(native_id))
     }
 
     /// ネイティブ通話 ID から通話エントリを逆引きする。
@@ -250,7 +256,9 @@ mod tests {
 
     /// テスト用の最小限の AccountConfig を生成する。
     fn test_account_config() -> AccountConfig {
-        use crate::config::{AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy, DtmfPolicy};
+        use crate::config::{
+            AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy, DtmfPolicy,
+        };
         AccountConfig {
             display_name: None,
             username: "testuser".into(),
@@ -497,19 +505,23 @@ mod tests {
 
         let acc_id = AccountId::generate();
         let call_id = CallId::generate();
-        assert!(state.add_account(AccountEntry {
-            id: acc_id,
-            native_id: Some(42),
-            config: test_account_config(),
-            registration: RegistrationState::Registered,
-        }).is_ok());
-        assert!(state.add_call(CallEntry {
-            id: call_id,
-            native_id: Some(100),
-            account_id: acc_id,
-            state: CallState::Active,
-            media: None,
-        }).is_ok());
+        assert!(state
+            .add_account(AccountEntry {
+                id: acc_id,
+                native_id: Some(42),
+                config: test_account_config(),
+                registration: RegistrationState::Registered,
+            })
+            .is_ok());
+        assert!(state
+            .add_call(CallEntry {
+                id: call_id,
+                native_id: Some(100),
+                account_id: acc_id,
+                state: CallState::Active,
+                media: None,
+            })
+            .is_ok());
 
         if let Some(acc) = state.get_account_by_native_id(42) {
             assert_eq!(acc.id, acc_id);

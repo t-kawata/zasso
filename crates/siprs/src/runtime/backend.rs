@@ -6,7 +6,9 @@
 //! M10-2 (MockBackend) 以降で使用。現在は未使用のため dead_code を許容。
 #![allow(dead_code)]
 
-use crate::config::{AccountConfig, ClientConfig, DtmfMethod, OutgoingCallRequest, TransportConfig};
+use crate::config::{
+    AccountConfig, ClientConfig, DtmfMethod, OutgoingCallRequest, TransportConfig,
+};
 use crate::error::SipError;
 use crate::event::ClientCapabilities;
 
@@ -45,16 +47,27 @@ pub(crate) trait SipBackend: Send {
     fn create_transport(&mut self, config: &TransportConfig) -> Result<(), SipError>;
 
     /// SIP アカウントを追加する。
-    fn add_account(&mut self, config: &AccountConfig) -> Result<(NativeAccId, ClientCapabilities), SipError>;
+    fn add_account(
+        &mut self,
+        config: &AccountConfig,
+    ) -> Result<(NativeAccId, ClientCapabilities), SipError>;
 
     /// SIP アカウントを削除する。
     fn remove_account(&mut self, native_acc_id: NativeAccId) -> Result<(), SipError>;
 
     /// アカウントの登録有効/無効を設定する。
-    fn set_registration(&mut self, native_acc_id: NativeAccId, enabled: bool) -> Result<(), SipError>;
+    fn set_registration(
+        &mut self,
+        native_acc_id: NativeAccId,
+        enabled: bool,
+    ) -> Result<(), SipError>;
 
     /// 発信する。
-    fn make_call(&mut self, native_acc_id: NativeAccId, request: &OutgoingCallRequest) -> Result<NativeCallId, SipError>;
+    fn make_call(
+        &mut self,
+        native_acc_id: NativeAccId,
+        request: &OutgoingCallRequest,
+    ) -> Result<NativeCallId, SipError>;
 
     /// 着信に応答する。
     fn answer_call(&mut self, native_call_id: NativeCallId, code: u16) -> Result<(), SipError>;
@@ -63,19 +76,33 @@ pub(crate) trait SipBackend: Send {
     fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError>;
 
     /// カンファレンスポートを接続する。
-    fn conf_connect(&mut self, source: NativeConfPortId, sink: NativeConfPortId) -> Result<(), SipError>;
+    fn conf_connect(
+        &mut self,
+        source: NativeConfPortId,
+        sink: NativeConfPortId,
+    ) -> Result<(), SipError>;
 
     /// カンファレンスポートの接続を解除する。
-    fn conf_disconnect(&mut self, source: NativeConfPortId, sink: NativeConfPortId) -> Result<(), SipError>;
+    fn conf_disconnect(
+        &mut self,
+        source: NativeConfPortId,
+        sink: NativeConfPortId,
+    ) -> Result<(), SipError>;
 
     /// コーデック設定を行う。
     fn configure_codecs(&mut self) -> Result<(), SipError>;
 
     /// DTMF 信号を送信する。
-    fn send_dtmf(&mut self, native_call_id: NativeCallId, method: &DtmfMethod, digits: &str) -> Result<(), SipError>;
+    fn send_dtmf(
+        &mut self,
+        native_call_id: NativeCallId,
+        method: &DtmfMethod,
+        digits: &str,
+    ) -> Result<(), SipError>;
 
     /// 通話を転送する。
-    fn transfer_call(&mut self, native_call_id: NativeCallId, target: &str) -> Result<(), SipError>;
+    fn transfer_call(&mut self, native_call_id: NativeCallId, target: &str)
+        -> Result<(), SipError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +231,10 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn add_account(&mut self, config: &AccountConfig) -> Result<(NativeAccId, ClientCapabilities), SipError> {
+    fn add_account(
+        &mut self,
+        config: &AccountConfig,
+    ) -> Result<(NativeAccId, ClientCapabilities), SipError> {
         self.ensure_initialized()?;
         if let Some(result) = self.add_account_result.take() {
             return result.map(|id| (id, ClientCapabilities::default_disabled()));
@@ -221,22 +251,37 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn set_registration(&mut self, _native_acc_id: NativeAccId, _enabled: bool) -> Result<(), SipError> {
+    fn set_registration(
+        &mut self,
+        _native_acc_id: NativeAccId,
+        _enabled: bool,
+    ) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
 
-    fn make_call(&mut self, native_acc_id: NativeAccId, _request: &OutgoingCallRequest) -> Result<NativeCallId, SipError> {
+    fn make_call(
+        &mut self,
+        native_acc_id: NativeAccId,
+        _request: &OutgoingCallRequest,
+    ) -> Result<NativeCallId, SipError> {
         self.ensure_initialized()?;
         if !self.accounts.contains_key(&native_acc_id) {
-            return Err(SipError::invalid_config("account not found in mock backend"));
+            return Err(SipError::invalid_config(
+                "account not found in mock backend",
+            ));
         }
         if let Some(result) = self.make_call_result.take() {
             return result;
         }
         let id = self.next_call_id;
         self.next_call_id += 1;
-        self.calls.insert(id, MockCall { account_id: native_acc_id });
+        self.calls.insert(
+            id,
+            MockCall {
+                account_id: native_acc_id,
+            },
+        );
         Ok(id)
     }
 
@@ -250,12 +295,20 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn conf_connect(&mut self, _source: NativeConfPortId, _sink: NativeConfPortId) -> Result<(), SipError> {
+    fn conf_connect(
+        &mut self,
+        _source: NativeConfPortId,
+        _sink: NativeConfPortId,
+    ) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
 
-    fn conf_disconnect(&mut self, _source: NativeConfPortId, _sink: NativeConfPortId) -> Result<(), SipError> {
+    fn conf_disconnect(
+        &mut self,
+        _source: NativeConfPortId,
+        _sink: NativeConfPortId,
+    ) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
@@ -265,12 +318,21 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn send_dtmf(&mut self, _native_call_id: NativeCallId, _method: &DtmfMethod, _digits: &str) -> Result<(), SipError> {
+    fn send_dtmf(
+        &mut self,
+        _native_call_id: NativeCallId,
+        _method: &DtmfMethod,
+        _digits: &str,
+    ) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
 
-    fn transfer_call(&mut self, _native_call_id: NativeCallId, _target: &str) -> Result<(), SipError> {
+    fn transfer_call(
+        &mut self,
+        _native_call_id: NativeCallId,
+        _target: &str,
+    ) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }

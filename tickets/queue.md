@@ -137,6 +137,8 @@
 - [x] #115 M14-3: 音声ソース管理 API — add_audio_source / remove_audio_source / set_gain / mute | /Users/shyme/shyme/zasso/tickets/specs/0115-m14-3-audio-source-management.md | 2026-06-17 | 2026-06-16 | 2026-06-16
 - [x] #116 M15-1: AudioMixer 構造体 | /Users/shyme/shyme/zasso/tickets/specs/0116-m15-1-audio-mixer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #117 M15-2: AudioWorkerTask — Tokio blocking pool 駆動 | /Users/shyme/shyme/zasso/tickets/specs/0117-m15-2-audio-worker.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #118 M16-1: AudioTapHandle / AudioTapMode / subscribe_audio | /Users/shyme/shyme/zasso/tickets/specs/0118-m16-1-audio-tap.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #129 M16-2: ResamplePipeline — rubato 統合 | /Users/shyme/shyme/zasso/tickets/specs/0129-m16-2-resample-pipeline.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #108 OpenAIBackend の trate::AsrBackend 実装スタブ除去 | /Users/kawata/shyme/zasso/tickets/specs/0108-openaibackend-trateasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #109 テストコードのトレイト変更対応（MockBackend, MockStreamerBackend） | /Users/kawata/shyme/zasso/tickets/specs/0109-mockbackend-mockstreamerbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #110 voiput 移行完了確認（make check-be + テスト全件パス） | /Users/kawata/shyme/zasso/tickets/specs/0110-voiput-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
@@ -147,7 +149,7 @@
 - [x] #115 LocalRecognizerAdapter の実装 | /Users/kawata/shyme/zasso/tickets/specs/0115-localrecognizeradapter.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #116 SpeechRecognizer の Local ディスパッチ追加 | /Users/kawata/shyme/zasso/tickets/specs/0116-speechrecognizer-local.md | 2026-06-16 | 2026-06-17 | 2026-06-17
 - [x] #117 VoiputConfigBuilder の Local 検証 | /Users/kawata/shyme/zasso/tickets/specs/0117-voiputconfigbuilder-local.md | 2026-06-16 | 2026-06-17 | 2026-06-17
-- [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-18 | 2026-06-18
 - [x] #119 build.rs Qwen3-ASR モデルダウンロード追加 | /Users/kawata/shyme/zasso/tickets/specs/0119-buildrs-qwen3-asr.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #120 テスト用サンプル音声ファイルの配置 | /Users/kawata/shyme/zasso/tickets/specs/0120-untitled-5.md | 2026-06-16 | 2026-06-16 | 2026-06-16
 - [x] #121 Qwen3AsrBackend 結合テスト（実モデル + 実音声） | /Users/kawata/shyme/zasso/tickets/specs/0121-qwen3asrbackend.md | 2026-06-17 | 2026-06-17 | 2026-06-17
@@ -158,6 +160,10 @@
 - [x] #126 LocalRecognizerAdapter にデコレーション・SttCompleted 等の不足機能を追加 | /Users/kawata/shyme/zasso/tickets/specs/0126-localrecognizeradapter-sttcompleted.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #127 PseudoAsrStreamer に事後補正専用バックエンド注入を追加 | /Users/kawata/shyme/zasso/tickets/specs/0127-pseudoasrstreamer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #128 事後補正プロンプトを mycute と同一にし、ロケール切替に対応 | /Users/kawata/shyme/zasso/tickets/specs/0128-mycute.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #130 M16-3: subscribe_audio のフォーマット変換統合 | /Users/shyme/shyme/zasso/tickets/specs/0130-m16-3-subscribe-audio.md | 2026-06-18
+- [x] #131 M17-1: bindgen 設定と生成 | /Users/shyme/shyme/zasso/tickets/specs/0131-m17-1-bindgen.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #132 M17-2: PjOwnedStr — pj_str_t wrapper（実 FFI 型統合） | /Users/shyme/shyme/zasso/tickets/specs/0132-m17-2-pjownedstr-pj-str-t-wrapper-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #133 M17-3: Callback bridge — extern C callbacks → NativeEvent enqueue | /Users/shyme/shyme/zasso/tickets/specs/0133-m17-3-callback-bridge-extern-c-callbacks-nativeevent-enqueue.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #130 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0130-m0-1-cargotoml-librs-2.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #131 M0-2: 静的定数定義 (consts/settings.rs) | /Users/kawata/shyme/zasso/tickets/specs/0131-m0-2-constssettingsrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #132 M0-3: GpuProvider 列挙型 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0132-m0-3-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
