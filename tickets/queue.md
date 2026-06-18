@@ -1,4 +1,5 @@
 # Ticket Queue
+- [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
 - [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -159,7 +160,15 @@
 - [x] #126 LocalRecognizerAdapter にデコレーション・SttCompleted 等の不足機能を追加 | /Users/kawata/shyme/zasso/tickets/specs/0126-localrecognizeradapter-sttcompleted.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #127 PseudoAsrStreamer に事後補正専用バックエンド注入を追加 | /Users/kawata/shyme/zasso/tickets/specs/0127-pseudoasrstreamer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #128 事後補正プロンプトを mycute と同一にし、ロケール切替に対応 | /Users/kawata/shyme/zasso/tickets/specs/0128-mycute.md | 2026-06-17 | 2026-06-17 | 2026-06-17
-- [ ] #130 M16-3: subscribe_audio のフォーマット変換統合 | /Users/shyme/shyme/zasso/tickets/specs/0130-m16-3-subscribe-audio.md | 2026-06-18
+- [x] #130 M16-3: subscribe_audio のフォーマット変換統合 | /Users/shyme/shyme/zasso/tickets/specs/0130-m16-3-subscribe-audio.md | 2026-06-18
 - [x] #131 M17-1: bindgen 設定と生成 | /Users/shyme/shyme/zasso/tickets/specs/0131-m17-1-bindgen.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #132 M17-2: PjOwnedStr — pj_str_t wrapper（実 FFI 型統合） | /Users/shyme/shyme/zasso/tickets/specs/0132-m17-2-pjownedstr-pj-str-t-wrapper-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #133 M17-3: Callback bridge — extern C callbacks → NativeEvent enqueue | /Users/shyme/shyme/zasso/tickets/specs/0133-m17-3-callback-bridge-extern-c-callbacks-nativeevent-enqueue.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #130 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0130-m0-1-cargotoml-librs-2.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #131 M0-2: 静的定数定義 (consts/settings.rs) | /Users/kawata/shyme/zasso/tickets/specs/0131-m0-2-constssettingsrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #132 M0-3: GpuProvider 列挙型 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0132-m0-3-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #133 M0-4: GgufError 列挙型 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0133-m0-4-gguferror-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #134 M0-5: 設定構造体定義 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0134-m0-5-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #135 M0-6: ModelInfo 構造体定義 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0135-m0-6-modelinfo-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #136 M1-1: ModelConfig ビルトインコンストラクタ (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0136-m1-1-modelconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #137 M1-2: GpuProvider メソッド実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0137-m1-2-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
