@@ -25,3 +25,4 @@ bindgen = { version = "0.71", default-features = false }
 serde = ["dep:serde"]
 tls = []
 srtp = []
+pjsip = []

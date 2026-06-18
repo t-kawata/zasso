@@ -28,5 +28,14 @@ pub mod bindings {
 /// `PjOwnedStr` — `pj_str_t` 安全ラッパー。
 pub mod strings;
 
+/// `RustMediaPort` — lock-free メディアポート。
+pub mod media;
+
 /// Callback bridge — PJSIP C callback → NativeEvent enqueue。
 pub mod callbacks;
+
+/// PjsuaBackend — SipBackend trait の PJSUA 実装。
+///
+/// テスト時も常にコンパイルし、スタブ実装で trait 境界の検証を行う。
+#[cfg(any(feature = "pjsip", test))]
+pub mod pjsua_backend;

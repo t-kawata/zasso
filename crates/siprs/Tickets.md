@@ -1377,7 +1377,7 @@
   - PJSIP の初期化が完了した状態で、各 callback が実際に発火することを SIP サーバとの結合テスト（M20-1）で確認する。
   - 特に `on_incoming_call` と `on_call_state` は発着信の基本フローを構成するため、最優先で検証すること。
 
-#### チケット M17-4: `PjsuaBackend` — `SipBackend` trait の PJSUA 実装
+#### ✅ チケット M17-4: `PjsuaBackend` — `SipBackend` trait の PJSUA 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §29, §29.1)
 * **対象不変条件 / 規範:** §27a「MVP 範囲では PJSUA (PjsuaBackend) が唯一の実装」。§29 codec policy 強制「PCMU と Opus 以外は無効化」。§29.1 コーデックフォールバックルール。
@@ -1409,7 +1409,7 @@
 
 > **DB:** メモリ内完結（FFI 経由で PJSUA メディアスタックを使用）
 
-#### チケット M18-1: `RustMediaPort` — `pjmedia_port` / `get_frame` / `put_frame`
+#### ✅ チケット M18-1: `RustMediaPort` — `pjmedia_port` / `get_frame` / `put_frame`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§39.2, §39.1)
 * **対象不変条件 / 規範:** §39.1「PJSIP callback は OS の最優先リアルタイムスレッドで駆動する。crossbeam_queue::ArrayQueue からの pop/push、memcpy、ゼロフィルのみが許容される」。§39.2 custom media port 設計。
@@ -1437,7 +1437,7 @@
   - `cargo test -p siprs -- --ignored` で統合テストを実行し、実際の通話中に AudioTap から受信した `AudioChunkPair` の IN/OUT チャネルが無音でないことを確認する。
   - 特に長時間通話（5分以上）でアンダーランが累積しないことを確認する。
 
-#### チケット M18-2: `AudioBridge` — lock-free queue 接続・Conference port 統合
+#### ✅ チケット M18-2: `AudioBridge` — lock-free queue 接続・Conference port 統合
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§39.2, §39.3)
 * **対象不変条件 / 規範:** §39.3 データフロー全体。§39「通話ごとに custom port を 2 つ持つ。Capture tap port（remote audio IN）と Playback inject port（mixer output OUT）」。
