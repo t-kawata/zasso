@@ -49,6 +49,63 @@ pub enum GpuProvider {
     Cpu,
 }
 
+impl GpuProvider {
+    /// 環境変数または OS から GPU プロバイダーを検出する
+    ///
+    /// 1. `GGUFRS_GPU_PROVIDER` 環境変数が設定されていれば、その値を使用する
+    /// 2. 環境変数が未設定なら、実行中の OS から自動検出する:
+    ///    - macOS → Metal
+    ///    - Windows → DirectML（将来拡張）
+    ///    - その他 → Cpu
+    pub fn detect() -> Self {
+        let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
+        if let Ok(val) = std::env::var(env_var) {
+            if let Some(provider) = Self::from_str(&val) {
+                return provider;
+            }
+        }
+        #[cfg(target_os = "macos")]
+        {
+            return Self::Metal;
+        }
+        #[cfg(target_os = "windows")]
+        {
+            return Self::DirectML;
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            Self::Cpu
+        }
+    }
+
+    /// 文字列から GPU プロバイダーをパースする
+    ///
+    /// 大文字小文字を区別しない。未知の値には `None` を返す。
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "auto" => Some(Self::Auto),
+            "metal" => Some(Self::Metal),
+            "directml" => Some(Self::DirectML),
+            "cuda" => Some(Self::Cuda),
+            "cpu" => Some(Self::Cpu),
+            _ => None,
+        }
+    }
+
+    /// mistralrs の feature flag 名を返す
+    ///
+    /// Cpu および Auto の場合は空文字列（CPU-only ビルドで対応）。
+    /// Metal / Cuda は対応する mistralrs feature 名を返す。
+    /// DirectML は mistralrs v0.8.1 で未対応のため空文字列。
+    pub fn mistralrs_feature(&self) -> &'static str {
+        match self {
+            Self::Metal => "metal",
+            Self::Cuda => "cuda",
+            Self::Auto | Self::Cpu | Self::DirectML => "",
+        }
+    }
+}
+
 /// GPU 設定
 ///
 /// GpuProvider の選択に加え、CPU 強制モードを指定する。
@@ -125,6 +182,58 @@ pub struct ModelConfig {
     /// このモデルに固有のチャットテンプレート。
     /// `None` の場合はモデルファイル内のテンプレートが使用される。
     pub chat_template: Option<String>,
+}
+
+impl ModelConfig {
+    /// Qwen3.5-0.8B モデルの設定を返す
+    ///
+    /// ビルトインモデルとして同梱される軽量 GGUF モデル。
+    /// メモリ使用量が少なく、ローカル開発や簡易検証に適する。
+    /// context_size は Qwen3.5 シリーズの最大値 32768 に設定。
+    pub fn qwen3_5_0_8b() -> Self {
+        Self {
+            name: "qwen3.5-0.8b".into(),
+            model_path: PathBuf::from("models/Qwen3.5-0.8B-Q4_K_M.gguf"),
+            lazy_load: true,
+            context_size: Some(32768),
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    /// Qwen3.5-2B モデルの設定を返す
+    ///
+    /// ビルトインモデルとして同梱される標準 GGUF モデル。
+    /// 0.8B より高品質な出力が期待できる。
+    /// context_size は Qwen3.5 シリーズの最大値 32768 に設定。
+    pub fn qwen3_5_2b() -> Self {
+        Self {
+            name: "qwen3.5-2b".into(),
+            model_path: PathBuf::from("models/Qwen3.5-2B-Q4_K_M.gguf"),
+            lazy_load: true,
+            context_size: Some(32768),
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    /// カスタムモデルの設定を返す
+    ///
+    /// crate 利用者が任意の mistralrs 対応 GGUF モデルを設定するための汎用コンストラクタ。
+    /// モデル名とファイルパスのみ必須で、その他のオプションフィールドは全て `None` に設定される。
+    pub fn custom(name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            name: name.into(),
+            model_path: path.into(),
+            lazy_load: true,
+            context_size: None,
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
 }
 
 /// サーバー設定
@@ -300,6 +409,88 @@ mod tests {
         assert!(json.contains("cpu_only"), "serialized JSON must contain 'cpu_only'");
     }
 
+    // ── GpuProvider method tests (M1-2) ──
+
+    #[test]
+    fn from_str_lowercase_metal() {
+        assert_eq!(GpuProvider::from_str("metal"), Some(GpuProvider::Metal));
+    }
+
+    #[test]
+    fn from_str_uppercase_metal() {
+        assert_eq!(GpuProvider::from_str("METAL"), Some(GpuProvider::Metal));
+    }
+
+    #[test]
+    fn from_str_mixed_case_cuda() {
+        assert_eq!(GpuProvider::from_str("CuDa"), Some(GpuProvider::Cuda));
+    }
+
+    #[test]
+    fn from_str_cpu() {
+        assert_eq!(GpuProvider::from_str("cpu"), Some(GpuProvider::Cpu));
+    }
+
+    #[test]
+    fn from_str_auto() {
+        assert_eq!(GpuProvider::from_str("auto"), Some(GpuProvider::Auto));
+    }
+
+    #[test]
+    fn from_str_unknown_returns_none() {
+        assert_eq!(GpuProvider::from_str("unknown"), None);
+    }
+
+    #[test]
+    fn from_str_empty_returns_none() {
+        assert_eq!(GpuProvider::from_str(""), None);
+    }
+
+    #[test]
+    fn mistralrs_feature_metal() {
+        assert_eq!(GpuProvider::Metal.mistralrs_feature(), "metal");
+    }
+
+    #[test]
+    fn mistralrs_feature_cuda() {
+        assert_eq!(GpuProvider::Cuda.mistralrs_feature(), "cuda");
+    }
+
+    #[test]
+    fn mistralrs_feature_cpu_auto_empty() {
+        assert_eq!(GpuProvider::Cpu.mistralrs_feature(), "");
+        assert_eq!(GpuProvider::Auto.mistralrs_feature(), "");
+    }
+
+    #[test]
+    fn mistralrs_feature_directml_empty() {
+        assert_eq!(GpuProvider::DirectML.mistralrs_feature(), "");
+    }
+
+    #[test]
+    fn detect_respects_env_var() {
+        let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
+        // 環境変数を一時的に設定して detect() が正しく値を読み取ることを確認
+        std::env::set_var(env_var, "cuda");
+        let detected = GpuProvider::detect();
+        std::env::remove_var(env_var);
+        assert_eq!(detected, GpuProvider::Cuda);
+    }
+
+    #[test]
+    fn detect_auto_on_unset_on_linux_or_other() {
+        // 並列実行される detect_respects_env_var が設定した環境変数の影響を
+        // 受けないよう、既知の無効値で上書きしてから detect() を呼び出す
+        let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
+        std::env::set_var(env_var, "__no_such_provider__");
+        let detected = GpuProvider::detect();
+        std::env::remove_var(env_var);
+        #[cfg(target_os = "macos")]
+        assert_eq!(detected, GpuProvider::Metal);
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(detected, GpuProvider::Cpu);
+    }
+
     // ── ModelConfig tests (M0-5) ──
 
     #[test]
@@ -331,6 +522,92 @@ mod tests {
         let json = r#"{"name":"test","model_path":"test.gguf"}"#;
         let config: ModelConfig = serde_json::from_str(json).unwrap();
         assert!(config.context_size.is_none(), "context_size should default to None");
+    }
+
+    // ── ModelConfig constructor tests (M1-1) ──
+
+    #[test]
+    fn qwen3_5_0_8b_has_correct_name() {
+        let config = ModelConfig::qwen3_5_0_8b();
+        assert_eq!(config.name, "qwen3.5-0.8b");
+    }
+
+    #[test]
+    fn qwen3_5_0_8b_has_correct_context_size() {
+        let config = ModelConfig::qwen3_5_0_8b();
+        assert_eq!(config.context_size, Some(32768));
+    }
+
+    #[test]
+    fn qwen3_5_0_8b_lazy_load_is_true() {
+        let config = ModelConfig::qwen3_5_0_8b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn qwen3_5_2b_has_correct_name() {
+        let config = ModelConfig::qwen3_5_2b();
+        assert_eq!(config.name, "qwen3.5-2b");
+    }
+
+    #[test]
+    fn qwen3_5_2b_has_correct_context_size() {
+        let config = ModelConfig::qwen3_5_2b();
+        assert_eq!(config.context_size, Some(32768));
+    }
+
+    #[test]
+    fn qwen3_5_2b_lazy_load_is_true() {
+        let config = ModelConfig::qwen3_5_2b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn custom_uses_given_name_and_path() {
+        let config = ModelConfig::custom("my-model", "my/path.gguf");
+        assert_eq!(config.name, "my-model");
+        assert_eq!(config.model_path, PathBuf::from("my/path.gguf"));
+    }
+
+    #[test]
+    fn custom_optional_fields_are_none() {
+        let config = ModelConfig::custom("test", "test.gguf");
+        assert!(config.context_size.is_none());
+        assert!(config.gpu_layers.is_none());
+        assert!(config.batch_size.is_none());
+        assert!(config.chat_template.is_none());
+    }
+
+    #[test]
+    fn custom_lazy_load_is_true() {
+        let config = ModelConfig::custom("test", "test.gguf");
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn qwen3_5_0_8b_is_idempotent() {
+        let first = ModelConfig::qwen3_5_0_8b();
+        let second = ModelConfig::qwen3_5_0_8b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
+        assert_eq!(first.chat_template, second.chat_template);
+    }
+
+    #[test]
+    fn qwen3_5_2b_is_idempotent() {
+        let first = ModelConfig::qwen3_5_2b();
+        let second = ModelConfig::qwen3_5_2b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
+        assert_eq!(first.chat_template, second.chat_template);
     }
 
     // ── ServerConfig tests (M0-5) ──

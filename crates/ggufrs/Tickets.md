@@ -163,7 +163,7 @@
 
 > **この段階では非同期I/Oを一切含まない。全関数が同期的かつ決定論的。**
 
-#### チケット M1-1: ModelConfig ビルトインコンストラクタ (config.rs)
+#### ✅ チケット M1-1: ModelConfig ビルトインコンストラクタ (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig, `qwen3_5_0_8b()`, `qwen3_5_2b()`, `custom()`)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: テストコードで直接使用。
@@ -182,7 +182,7 @@
   5. 全コンストラクタで `lazy_load == true`
   6. 呼び出しのべき等性: 同一コンストラクタを2回呼んで全フィールドが等しい
 
-#### チケット M1-2: GpuProvider メソッド実装 (config.rs)
+#### ✅ チケット M1-2: GpuProvider メソッド実装 (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構, `detect()`, `from_str()`, `mistralrs_feature()`)
 * **依存・関連チケットID:** 先行実装必須: M0-3。後続: M3-2（InferenceEngine 実装時に GPU feature を解決）。

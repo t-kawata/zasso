@@ -164,3 +164,5 @@
 - [x] #133 M0-4: GgufError 列挙型 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0133-m0-4-gguferror-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #134 M0-5: 設定構造体定義 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0134-m0-5-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #135 M0-6: ModelInfo 構造体定義 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0135-m0-6-modelinfo-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #136 M1-1: ModelConfig ビルトインコンストラクタ (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0136-m1-1-modelconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #137 M1-2: GpuProvider メソッド実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0137-m1-2-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
