@@ -4,8 +4,10 @@
 //! RFC §33 に準拠する。
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use crate::account::RegistrationState;
+use crate::audio::mixer::AudioMixer;
 use crate::call::CallState;
 use crate::config::AccountConfig;
 use crate::error::SipError;
@@ -19,10 +21,18 @@ use crate::util::id::{AccountId, CallId};
 
 /// メディアランタイム情報。
 ///
-/// M14-M16 で実際のフィールド（mixer, bridge, tap_handles 等）が追加される。
-#[allow(dead_code)]
-#[derive(Debug)]
-pub(crate) struct MediaRuntime;
+/// `mixer` は通話ごとの AudioMixer インスタンス。
+/// 音声ソースの追加・削除、Tap チャネルの登録に使用する。
+pub(crate) struct MediaRuntime {
+    /// 通話単位の音声ミキサー。
+    pub mixer: Arc<AudioMixer>,
+}
+
+impl std::fmt::Debug for MediaRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MediaRuntime").finish_non_exhaustive()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // AccountEntry
@@ -119,14 +129,21 @@ impl ClientState {
             )));
         }
         self.accounts.insert(id, entry);
+        #[cfg(feature = "metrics")]
+        crate::metrics::set_registered_accounts(self.accounts.len() as u64);
         Ok(())
     }
 
     /// アカウントエントリを削除し、削除されたエントリを返す。
     pub fn remove_account(&mut self, id: AccountId) -> Result<AccountEntry, SipError> {
-        self.accounts
-            .remove(&id)
-            .ok_or_else(|| account_not_found(id))
+        let removed = self.accounts.remove(&id);
+        if let Some(entry) = removed {
+            #[cfg(feature = "metrics")]
+            crate::metrics::set_registered_accounts(self.accounts.len() as u64);
+            Ok(entry)
+        } else {
+            Err(account_not_found(id))
+        }
     }
 
     /// アカウントエントリへの不変参照を返す。
@@ -158,12 +175,21 @@ impl ClientState {
             )));
         }
         self.calls.insert(id, entry);
+        #[cfg(feature = "metrics")]
+        crate::metrics::set_active_calls(self.calls.len() as u64);
         Ok(())
     }
 
     /// 通話エントリを削除し、削除されたエントリを返す。
     pub fn remove_call(&mut self, id: CallId) -> Result<CallEntry, SipError> {
-        self.calls.remove(&id).ok_or_else(|| call_not_found(id))
+        let removed = self.calls.remove(&id);
+        if let Some(entry) = removed {
+            #[cfg(feature = "metrics")]
+            crate::metrics::set_active_calls(self.calls.len() as u64);
+            Ok(entry)
+        } else {
+            Err(call_not_found(id))
+        }
     }
 
     /// 通話エントリへの不変参照を返す。

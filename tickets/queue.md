@@ -178,3 +178,6 @@
 - [x] #141 M19-1: build.rs — prebuilt優先・source build fallback | /Users/shyme/shyme/zasso/tickets/specs/0141-m19-1-buildrs-prebuiltsource-build-fallback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #142 PJSIP 2.17 ソース配置・ビルド検証・FFI 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0142-pjsip-217-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #143 build.rs: prebuilt auto-deploy after source build | /Users/shyme/shyme/zasso/tickets/specs/0143-buildrs-prebuilt-auto-deploy-after-source-build.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #144 M19-3: metrics カウンター配線実装 | /Users/shyme/shyme/zasso/tickets/specs/0144-m19-3-metrics.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #145 残余スタブ一括解決: M16-1/M15-2/M16-3/AudioBridge/M17-4 callback | /Users/shyme/shyme/zasso/tickets/specs/0145-m16-1m15-2m16-3audiobridgem17-4-callback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [ ] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18

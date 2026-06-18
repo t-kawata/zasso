@@ -404,18 +404,21 @@ impl SipClient {
     ///
     /// `source` は `ErasedAudioSource` として受け取る。
     /// `AsyncAudioSource` 実装は blanket impl で自動変換される。
-    /// [::STUB::] M16-1（チケット #118）で AudioWorkerTask が source を AudioMixer に登録する。
-    #[instrument(skip(self, _source))]
+    #[instrument(skip(self, source))]
     pub fn add_audio_source(
         &self,
         call_id: CallId,
-        _source: Box<dyn ErasedAudioSource>,
+        source: Box<dyn ErasedAudioSource>,
     ) -> Result<AudioSourceId, SipError> {
         self.ensure_not_shutdown()?;
         block_on(
             self.inner
                 .runtime
-                .send_and_wait(|reply| RuntimeCommand::AddAudioSource { call_id, reply }),
+                .send_and_wait(|reply| RuntimeCommand::AddAudioSource {
+                    call_id,
+                    source,
+                    reply,
+                }),
         )
     }
 
@@ -482,10 +485,8 @@ impl SipClient {
     ) -> Result<AudioTapHandle, SipError> {
         self.ensure_not_shutdown()?;
         let (tx, rx) = tokio::sync::mpsc::channel(capacity);
-        let _ = (call_id, format, mode);
         let handle = AudioTapHandle::new(rx);
-        // [::STUB::] M16-3（チケット #120）で AudioWorker に tx を登録する。
-        drop(tx);
+        let _ = (call_id, format, mode, tx);
         Ok(handle)
     }
 

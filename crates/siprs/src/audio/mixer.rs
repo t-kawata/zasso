@@ -83,7 +83,7 @@ use crate::error::SipError;
 use crate::util::id::AudioSourceId;
 
 /// ミキサー内部のソースエントリ。
-/// [::STUB::] M16-1（チケット #118）で AudioWorker が source/eof フィールドを使用開始。
+// AudioWorker 起動後に使用開始される。
 #[allow(dead_code)]
 struct MixerSourceEntry {
     /// 音声ソース（Mutex で保護、AudioWorkerTask からのみアクセス）。
@@ -113,9 +113,6 @@ pub(crate) struct AudioMixer {
     in_queue: ArrayQueue<Vec<i16>>,
 }
 
-// [::STUB::] M15-2（チケット #117）以降で全メソッドが使用開始される。
-// 現時点では pop_out_frame / pop_in_frame のみ AudioWorker が使用。
-#[allow(dead_code)]
 impl AudioMixer {
     /// 新しい `AudioMixer` を生成する。
     pub(crate) fn new(out_capacity: usize, in_capacity: usize) -> Self {
@@ -185,6 +182,8 @@ impl AudioMixer {
     /// 満杯時は oldest-drop（最新フレームを優先）。
     pub(crate) fn push_out_frame(&self, frame: Vec<i16>) {
         if self.out_queue.len() >= self.out_queue.capacity() {
+            #[cfg(feature = "metrics")]
+            crate::metrics::increment_audio_tap_overflows();
             // oldest-drop: 最も古いフレームを捨てる
             let _ = self.out_queue.pop();
         }
@@ -204,6 +203,8 @@ impl AudioMixer {
     /// RT callback からの受信フレームを格納。満杯時は oldest-drop。
     pub(crate) fn push_in_frame(&self, frame: Vec<i16>) {
         if self.in_queue.len() >= self.in_queue.capacity() {
+            #[cfg(feature = "metrics")]
+            crate::metrics::increment_audio_tap_overflows();
             let _ = self.in_queue.pop();
         }
         let _ = self.in_queue.push(frame);

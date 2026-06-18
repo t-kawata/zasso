@@ -634,6 +634,8 @@ impl EventBus {
     ///
     /// 無効時は何も行わない。
     pub fn publish_raw_sip(&self, msg: RawSipMessage) {
+        #[cfg(feature = "metrics")]
+        crate::metrics::increment_raw_sip_messages();
         if let Some(ref tx) = self.raw_sip {
             let _ = tx.send(msg);
         }

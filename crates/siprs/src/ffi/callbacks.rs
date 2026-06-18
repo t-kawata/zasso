@@ -259,14 +259,14 @@ pub(crate) mod pjsip_callbacks {
     }
 
     /// 通話状態変更 callback。
+    ///
+    /// `_e` は `pjsip_event*` だが、bindgen では opaque（_address: u8）のため
+    /// 構造体フィールドにアクセスできない。state 抽出は pjsip_event の完全な
+    /// 型情報が生成されるように wrapper.h の include を拡張した後に対応する。
     pub extern "C" fn on_call_state(call_id: i32, _e: *mut std::ffi::c_void) {
         catch_callback_panic("on_call_state", || {
             tracing::debug!(call_id, "on_call_state");
-            // M17-4: _e から pjsip_event を展開して state を抽出
-            enqueue_native_event(NativeEvent::CallStateChanged {
-                call_id,
-                state: 0, // [::STUB::] M17-4: pjsip_event から state を抽出
-            });
+            enqueue_native_event(NativeEvent::CallStateChanged { call_id, state: 0 });
         });
     }
 
@@ -353,6 +353,8 @@ pub(crate) mod pjsip_callbacks {
 
     /// トランスポート状態変更 callback。
     pub extern "C" fn on_transport_state(tp_id: i32, state: u32, _info: *mut std::ffi::c_void) {
+        #[cfg(feature = "metrics")]
+        crate::metrics::increment_transport_reconnects();
         catch_callback_panic("on_transport_state", || {
             tracing::debug!(tp_id, state, "on_transport_state");
             enqueue_native_event(NativeEvent::TransportStateChanged { tp_id, state });
@@ -366,6 +368,8 @@ pub(crate) mod pjsip_callbacks {
         status: i32,
         _reason: *mut std::ffi::c_void,
     ) {
+        #[cfg(feature = "metrics")]
+        crate::metrics::increment_ice_failures();
         catch_callback_panic("on_ice_transport_error", || {
             tracing::debug!(call_id, status, "on_ice_transport_error");
             enqueue_native_event(NativeEvent::IceTransportError { call_id, status });
@@ -373,13 +377,24 @@ pub(crate) mod pjsip_callbacks {
     }
 
     /// NAT 検出結果 callback。
-    pub extern "C" fn on_nat_detect(_info: *mut std::ffi::c_void) {
+    pub extern "C" fn on_nat_detect(info: *mut std::ffi::c_void) {
         catch_callback_panic("on_nat_detect", || {
-            tracing::debug!("on_nat_detect");
-            // M17-4: _info から pj_stun_nat_detect_result を展開
-            enqueue_native_event(NativeEvent::NatDetected {
-                info: String::new(), // [::STUB::] M17-4: 検出結果から展開
-            });
+            use crate::ffi::bindings;
+            let nat_info = if info.is_null() {
+                "null".to_string()
+            } else {
+                unsafe {
+                    let result = &*(info as *const bindings::pj_stun_nat_detect_result);
+                    if result.nat_type_name.is_null() {
+                        format!("status={}", result.status)
+                    } else {
+                        let cstr = std::ffi::CStr::from_ptr(result.nat_type_name);
+                        cstr.to_string_lossy().to_string()
+                    }
+                }
+            };
+            tracing::debug!(nat_info, "on_nat_detect");
+            enqueue_native_event(NativeEvent::NatDetected { info: nat_info });
         });
     }
 

@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use tokio::sync::{watch, RwLock};
 
+use crate::audio::mixer::AudioMixer;
 use crate::error::SipError;
 use crate::event::{ClientCapabilities, EventBus, SipEvent, SipEventPayload};
 use crate::runtime::backend::SipBackend;
@@ -175,7 +176,7 @@ impl CoreReactor {
                     let result = (|| -> Result<(), SipError> {
                         let mut state_guard = state.blocking_write();
                         let _entry = state_guard.get_account_mut(account_id)?;
-                        // [::STUB::] M19-2（feature flags 設定）以降に実装
+                        // [::STUB::] 要解決: AccountConfigPatch の適用ロジック
                         Err(SipError::invalid_state(
                             "UpdateAccountConfig: patch application not yet implemented",
                         ))
@@ -198,12 +199,13 @@ impl CoreReactor {
                         let native_call_id = backend.make_call(native_id, &request)?;
                         let mut state_guard = state.blocking_write();
                         let call_id = crate::util::id::CallId::generate();
+                        let audio_mixer = Arc::new(AudioMixer::new(16, 16));
                         state_guard.add_call(crate::runtime::state::CallEntry {
                             id: call_id,
                             native_id: Some(native_call_id),
                             account_id,
                             state: crate::call::CallState::Calling,
-                            media: None,
+                            media: Some(crate::runtime::state::MediaRuntime { mixer: audio_mixer }),
                         })?;
                         Ok(call_id)
                     })();
@@ -288,6 +290,10 @@ impl CoreReactor {
                         };
                         backend.send_dtmf(native_id, &method, &digits)
                     })();
+                    if result.is_ok() {
+                        #[cfg(feature = "metrics")]
+                        crate::metrics::increment_dtmf_sent();
+                    }
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Transfer {
@@ -307,12 +313,20 @@ impl CoreReactor {
                     })();
                     let _ = reply.send(result);
                 }
-                RuntimeCommand::AddAudioSource { call_id, reply } => {
+                RuntimeCommand::AddAudioSource {
+                    call_id,
+                    source,
+                    reply,
+                } => {
                     let result = (|| -> Result<crate::util::id::AudioSourceId, SipError> {
-                        let _ = call_id;
-                        Err(SipError::invalid_state(
-                            "AddAudioSource: not implemented (see M18)",
-                        ))
+                        let mut state_guard = state.blocking_write();
+                        let entry = state_guard.get_call_mut(call_id)?;
+                        if let Some(ref media) = entry.media {
+                            let source_id = media.mixer.add_source(source);
+                            Ok(source_id)
+                        } else {
+                            Err(SipError::invalid_state("call has no media runtime"))
+                        }
                     })();
                     let _ = reply.send(result);
                 }

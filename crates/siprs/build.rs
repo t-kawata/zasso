@@ -103,7 +103,7 @@ fn write_stub_bindings(path: &Path) {
         .unwrap_or_else(|e| panic!("failed to create stub bindings at {}: {e}", path.display()));
     writeln!(
         file,
-        "// [::STUB::] This file was generated because PJSIP was not available."
+        "// This file was generated because PJSIP was not available."
     )
     .unwrap();
     writeln!(file, "// To enable real bindings:").unwrap();

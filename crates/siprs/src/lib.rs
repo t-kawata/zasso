@@ -15,6 +15,8 @@ pub mod config;
 pub mod error;
 pub mod event;
 pub mod ffi;
+#[cfg(feature = "metrics")]
+pub mod metrics;
 pub mod runtime;
 pub mod transport;
 pub mod util;

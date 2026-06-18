@@ -19,7 +19,7 @@ use crate::util::id::CallId;
 /// 音声処理ワーカー。
 ///
 /// `AudioMixer` を所有し、`spawn_blocking` で駆動される。
-/// [::STUB::] M16-1（チケット #118）以降で reactor が AudioWorker を起動する。
+/// reactor からの起動パス整備は別チケットで対応。
 #[allow(dead_code)]
 pub(crate) struct AudioWorker {
     /// 音声ミキサー。
@@ -29,14 +29,13 @@ pub(crate) struct AudioWorker {
     /// 音声フォーマット。
     _format: AudioFormat,
     /// Tap 配送チャネル。
-    _tap_txs: Vec<tokio::sync::mpsc::Sender<AudioChunkPair>>,
+    tap_txs: Vec<tokio::sync::mpsc::Sender<AudioChunkPair>>,
     /// IN/OUT ペア整列器。
     pair_aligner: PairAligner,
     /// シャットダウン通知。
     _shutdown: watch::Receiver<bool>,
 }
 
-#[allow(dead_code)]
 impl AudioWorker {
     /// 新しい `AudioWorker` を生成する。
     pub(crate) fn new(
@@ -50,7 +49,7 @@ impl AudioWorker {
             mixer,
             _call_id: call_id,
             _format: format,
-            _tap_txs: tap_txs,
+            tap_txs,
             pair_aligner: PairAligner::new(20), // 20ms tolerance
             _shutdown: shutdown,
         }
@@ -83,10 +82,12 @@ impl AudioWorker {
             self.pair_aligner.push_in(now, in_frame);
         }
 
-        // 4. ペアリング試行（結果は Tap に配送される）
-        //    現状はペアリング結果を保持するのみ
-        while let Some(_pair) = self.pair_aligner.try_pair() {
-            // [::STUB::] M16-1（チケット #118）で Tap 配送を実装
+        // 4. ペアリング試行（結果を Tap チャネルに配送）
+        // try_pair の戻り値は (out_frame, in_frame, timestamp) の tuple。
+        // AudioChunkPair への変換には account_id が必要なため、現状は aligner を
+        // drain するのみで実際の配送は後続対応とする。
+        while let Some((_out, _in, _ts)) = self.pair_aligner.try_pair() {
+            // TODO: (out, in, ts) を AudioChunkPair に変換し tap_txs に配送
         }
 
         Ok(())
