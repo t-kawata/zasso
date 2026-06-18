@@ -1588,7 +1588,7 @@
   8. `serde` feature 有効時のみ `SipEventPayload` が `Serialize` を実装すること
 * **計装方法・観測対象:** 各 feature 組み合わせのビルド時間とバイナリサイズ。`cargo tree --features full` での依存ツリー確認。
 
-#### チケット M19-3: metrics カウンター配線実装
+#### ✅ チケット M19-3: metrics カウンター配線実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§34.2)
 * **対象不変条件 / 規範:** §34.2「以下の counters/gauges を optional feature `metrics` で提供する」: `active_calls`, `registered_accounts`, `audio_tap_overflows_total`, `dtmf_sent_total`, `dtmf_received_total`, `ice_failures_total`, `transport_reconnects_total`, `raw_sip_messages_total`。
@@ -1638,7 +1638,7 @@
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§43.3, §43.1, §43.2)
 * **対象不変条件 / 規範:** §43.3 Layer 3 SIP Integration Tests。§43.1 Layer 1 Unit Tests。§43.2 Layer 2 State-Machine Tests（M9〜M11 で MockBackend 使用のテストとして実装済みであることを確認）。§44 CI/CD 要件。
-* **実装の背景と目的:** 実際の PJSUA 経由で SIP プロトコルレベルの結合試験を実施する。Docker で起動した Asterisk / FreeSWITCH を相手に、REGISTER/INVITE/BYE/DTMF/ICE/TURN の基本フローを検証する。PJSIP の初期化が必要なため `#[ignore]` 属性を付与し、CI でのみ実行する。
+* **実装の背景と目的:** 実際の PJSUA 経由で SIP プロトコルレベルの結合試験を実施する。Docker で起動した Asterisk を相手に、REGISTER/INVITE/BYE/DTMF の基本フローを検証する。FreeSWITCH との結合（ICE/TURN/Opus）は M20-2 で対応する。PJSIP の初期化が必要なため `#[ignore]` 属性を付与し、CI でのみ実行する。
 * **実装スコープ:**
   - `tests/integration/` ディレクトリを作成し、以下のテストファイルを配置:
     - `tests/integration/register.rs` — REGISTER 認証成功・失敗・再登録タイマー
@@ -1646,11 +1646,11 @@
     - `tests/integration/provisional.rs` — 180 Ringing / 183 Early Media の provisional response handling
     - `tests/integration/dtmf.rs` — DTMF send/receive（Inband / SIP INFO / RFC4733）
     - `tests/integration/account.rs` — unregister/re-register、dual account simultaneous call
-    - `tests/integration/media.rs` — TURN/ICE negotiation、media loopback（audio tap の sign 確認）
+    - `tests/integration/media.rs` — media loopback（audio tap の sign 確認）（TURN/ICE は M20-2）
   - `tests/common/mod.rs` — SIP サーバのセットアップ・ティアダウン共通コード
-  - Docker Compose ファイル（`tests/docker/docker-compose.yml`）— Asterisk + FreeSWITCH の起動設定
+  - Docker Compose ファイル（`tests/docker/docker-compose.yml`）— Asterisk の起動設定
   - 各テストに `#[ignore]` 属性を付与（CI でのみ `--ignored` で実行）
-  - `tests/integration/main.rs` — 統合テストのエントリポイント
+  - `tests/integration_test.rs` — 統合テストのエントリポイント（単一バイナリ構成、`#[path]` で各サブモジュールを集約）
 * **テストコードによる検証:**
   1. REGISTER 成功 → `RegistrationState::Registered` に遷移、`RegistrationSucceeded` イベント発火
   2. REGISTER 認証失敗（誤パスワード）→ `RegistrationState::Failed`、`RegistrationFailed` イベント発火
@@ -1660,8 +1660,7 @@
   6. DTMF RFC4733 send → `DtmfSent` イベント発火、受信側で `DtmfReceived` 発火
   7. 2アカウント同時通話 → 両方独立して通話状態が遷移すること
   8. AudioTap → 受信した `AudioChunkPair` の `in_chunk` / `out_chunk` が非ゼロであること（メディアループバック）
-  9. TURN 経由の ICE negotiation 成功（FreeSWITCH + coturn 使用）
-  10. shutdown → 全 call 正常切断、全 account unregister
+  9. shutdown → 全 call 正常切断、全 account unregister
 * **計装方法・観測対象:** 各テストの実行時間。SIP メッセージの送受信ログ（`tracing::debug!` 出力）。テスト失敗時の SIP trace 保存。
 * **ユーザによる手動テスト手順:**
   1. Docker 環境を準備: `docker compose -f tests/docker/docker-compose.yml up -d`

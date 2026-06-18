@@ -196,3 +196,5 @@
 - [x] #147 M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs) | /Users/kawata/shyme/zasso/tickets/specs/0147-m3-3-inferenceengine-generate-stream-inferencestreamrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #148 M3-4: InferenceEngine send_raw 実装 (inference/raw.rs) | /Users/kawata/shyme/zasso/tickets/specs/0148-m3-4-inferenceengine-send-raw-inferencerawrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #149 M3-5: lib.rs 統合・re-export 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0149-m3-5-librs-re-export-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #150 Layer 3 結合テスト — ローカルSIPサーバ + Docker | /Users/shyme/shyme/zasso/tickets/specs/0150-layer-3-sip-docker.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #151 macOS prebuilt PJSIP の TLS バックエンドを Apple Security Framework に切り替え | /Users/shyme/shyme/zasso/tickets/specs/0151-macos-prebuilt-pjsip-tls-apple-security-framework.md | 2026-06-18 | 2026-06-18 | 2026-06-18
