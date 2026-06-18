@@ -30,7 +30,7 @@ endif
 .PHONY: run-zasso run-mycute run-neco-asovi
 .PHONY: build-zasso build-mycute build-neco-asovi
 .PHONY: commit push pull master branch commit-branch push-branch
-.PHONY: check-be check-fe check-all
+.PHONY: check-be check-ggufrs check-fe check-all
 .PHONY: next-version gen-migration gen-entities migrate-up migrate-refresh
 .PHONY: install-context-mode update-context-mode stubs
 
@@ -83,13 +83,17 @@ test:
 check-be:
 	EDITION_SLUG=$(EDITION) cargo check --manifest-path src-tauri/Cargo.toml
 
+# ggufrs crate 単体チェック（ビルド検証）
+check-ggufrs:
+	EDITION_SLUG=$(EDITION) cargo check --manifest-path crates/ggufrs/Cargo.toml
+
 # vue-tsc 導入時は pnpm tsc を pnpm vue-tsc --noEmit に置き換えると
 # .vue テンプレート式の型チェックも可能
 check-fe:
 	@echo "Checking frontend with tsc..."
 	cd fe && pnpm tsc --noEmit
 
-check-all: check-be check-fe
+check-all: check-be check-ggufrs check-fe
 	@echo "All checks passed."
 
 # ═══════════════════════════════════════════════

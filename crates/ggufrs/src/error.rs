@@ -1,0 +1,192 @@
+//! GgufError エラー型
+//!
+//! crate 全体で使用する統一エラー型。`thiserror` により `std::error::Error` を自動実装し、
+//! `?` 演算子による透過的なエラー伝搬を可能にする。
+//!
+//! 6バリアントで構成:
+//! - `ModelNotFound` / `ModelLoadFailed` — モデル操作関連
+//! - `InferenceFailed` — 推論実行関連
+//! - `ServerStartupFailed` — サーバー起動関連
+//! - `InvalidConfig` — 設定検証関連
+//! - `MistralrsError` — mistralrs バックエンドラップ（`#[from]` で自動変換）
+
+/// GGUF 推論エンジンの統一エラー型
+///
+/// crate 内の全エラーを単一の列挙型に集約する。
+/// `thiserror::Error` を derive し、`std::error::Error` トレイトを自動実装する。
+/// `source()` は `thiserror` の `#[error]` / `#[source]` 属性により自動的に実装される
+/// （内部エラーを持つフィールドが自動検出される）。
+///
+/// # エラー伝搬
+///
+/// - `MistralrsError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
+/// - 内部エラーを持つバリアントは `Box<dyn std::error::Error + Send + Sync>` でラップする
+/// - `Send + Sync` を満たすため、スレッド間でのエラー伝搬が可能
+#[derive(Debug, thiserror::Error)]
+pub enum GgufError {
+    /// モデルが見つからない
+    ///
+    /// 指定された名前のモデルがレジストリに存在しない場合に発生する。
+    /// フィールドには要求されたモデル名を格納する。
+    #[error("モデル '{0}' が見つかりません")]
+    ModelNotFound(String),
+
+    /// モデルのロードに失敗
+    ///
+    /// mistralrs バックエンドでのモデル読み込み処理が失敗した場合に発生する。
+    /// モデル名と元のエラーを保持する。
+    #[error("モデル '{name}' のロードに失敗しました: {source}")]
+    ModelLoadFailed {
+        /// ロードに失敗したモデル名
+        name: String,
+        /// 元のエラー
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// 推論実行中にエラーが発生
+    ///
+    /// generate / generate_stream 等の推論メソッド実行中に発生する。
+    #[error("推論実行中にエラーが発生しました: {0}")]
+    InferenceFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    /// サーバーの起動に失敗
+    ///
+    /// HTTP サーバーのバインドまたは起動処理が失敗した場合に発生する。
+    #[error("サーバーの起動に失敗しました: {0}")]
+    ServerStartupFailed(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    /// 設定が無効
+    ///
+    /// 設定値の検証に失敗した場合に発生する。
+    /// フィールドには検証エラーの詳細メッセージを格納する。
+    #[error("設定が無効です: {0}")]
+    InvalidConfig(String),
+
+    /// mistralrs バックエンドエラー
+    ///
+    /// mistralrs クレートから発生したエラーをラップする。
+    /// `#[from]` 属性により `?` 演算子で自動変換される。
+    #[error("mistralrs エラー: {0}")]
+    MistralrsError(#[from] mistralrs::error::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    /// GgufError が std::error::Error を実装していることを確認
+    #[test]
+    fn gguf_error_implements_std_error() {
+        fn assert_error<T: std::error::Error>() {}
+        assert_error::<GgufError>();
+    }
+
+    /// GgufError が Send + Sync を満たすことを確認（コンパイル時チェック）
+    #[test]
+    fn gguf_error_is_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<GgufError>();
+        assert_sync::<GgufError>();
+    }
+
+    #[test]
+    fn gguf_error_display_model_not_found() {
+        let err = GgufError::ModelNotFound("qwen3.5".into());
+        let msg = err.to_string();
+        assert!(msg.contains("qwen3.5"), "display should contain model name: {msg}");
+        assert!(msg.contains("見つかりません"), "display should be in Japanese: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_display_model_load_failed() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err = GgufError::ModelLoadFailed {
+            name: "qwen3.5".into(),
+            source: Box::new(io_err),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("qwen3.5"), "display should contain model name: {msg}");
+        assert!(msg.contains("ロード"), "display should be in Japanese: {msg}");
+        assert!(msg.contains("file not found"), "display should contain source: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_display_inference_failed() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "inference timeout");
+        let err = GgufError::InferenceFailed(Box::new(io_err));
+        let msg = err.to_string();
+        assert!(msg.contains("推論"), "display should be in Japanese: {msg}");
+        assert!(msg.contains("inference timeout"), "display should contain source: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_display_server_startup_failed() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::AddrInUse, "port in use");
+        let err = GgufError::ServerStartupFailed(Box::new(io_err));
+        let msg = err.to_string();
+        assert!(msg.contains("サーバー"), "display should be in Japanese: {msg}");
+        assert!(msg.contains("port in use"), "display should contain source: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_display_invalid_config() {
+        let err = GgufError::InvalidConfig("unknown provider: xxx".into());
+        let msg = err.to_string();
+        assert!(msg.contains("設定"), "display should be in Japanese: {msg}");
+        assert!(msg.contains("unknown provider"), "display should contain detail: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_display_mistralrs_error() {
+        // mistralrs::error::Error のインスタンスでラップする
+        let mist_err = mistralrs::error::Error::RequestValidation("test error".into());
+        let err = GgufError::MistralrsError(mist_err);
+        let msg = err.to_string();
+        assert!(msg.contains("mistralrs"), "display should contain prefix: {msg}");
+        assert!(msg.contains("test error"), "display should contain source info: {msg}");
+    }
+
+    #[test]
+    fn gguf_error_source_for_wrapped_error() {
+        // 内部エラーを持つバリアントで source() が Some を返すことを確認
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "some error");
+        let err = GgufError::ModelLoadFailed {
+            name: "test".into(),
+            source: Box::new(io_err),
+        };
+        assert!(err.source().is_some(), "ModelLoadFailed should have a source");
+
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "infer error");
+        let err = GgufError::InferenceFailed(Box::new(io_err));
+        assert!(err.source().is_some(), "InferenceFailed should have a source");
+
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "server error");
+        let err = GgufError::ServerStartupFailed(Box::new(io_err));
+        assert!(err.source().is_some(), "ServerStartupFailed should have a source");
+
+        let mist_err = mistralrs::error::Error::RequestValidation("validation failed".into());
+        let err = GgufError::MistralrsError(mist_err);
+        assert!(err.source().is_some(), "MistralrsError should have a source");
+    }
+
+    #[test]
+    fn gguf_error_source_for_string_error() {
+        // 文字列のみのバリアントで source() が None を返すことを確認
+        let err = GgufError::ModelNotFound("test".into());
+        assert!(err.source().is_none(), "ModelNotFound should not have a source");
+
+        let err = GgufError::InvalidConfig("bad config".into());
+        assert!(err.source().is_none(), "InvalidConfig should not have a source");
+    }
+
+    #[test]
+    fn gguf_error_debug_output() {
+        let err = GgufError::ModelNotFound("debug_test".into());
+        let debug = format!("{err:?}");
+        // Debug 出力にはバリアント名とフィールド情報が含まれる
+        assert!(debug.contains("ModelNotFound"), "Debug should contain variant name: {debug}");
+        assert!(debug.contains("debug_test"), "Debug should contain field value: {debug}");
+    }
+}

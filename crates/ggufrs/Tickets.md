@@ -16,7 +16,7 @@
 
 > **この段階では構造体・列挙型・トレイトの骨格のみを定義する。実装ロジックは M1 以降。**
 
-#### チケット M0-1: Cargo.toml / lib.rs プロジェクト骨格
+#### ✅ チケット M0-1: Cargo.toml / lib.rs プロジェクト骨格
 
 * **参照設計書:** crates/ggufrs/RFC.md (§8.1 Cargo.toml, §8.3 mistralrs 型の re-export)
 * **依存・関連チケットID:** 全チケットの先行実装必須
@@ -40,7 +40,7 @@
 
 * **計装方法・観測対象:** コンパイル成功/失敗
 
-#### チケット M0-2: 静的定数定義 (consts/settings.rs)
+#### ✅ チケット M0-2: 静的定数定義 (consts/settings.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.1 静的定数、Appendix C)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M0-4（GgufError は定数参照しないが同時期実装可能）、全チケットから参照。
@@ -66,7 +66,7 @@
 
 * **計装方法・観測対象:** コンパイル時定数評価
 
-#### チケット M0-3: GpuProvider 列挙型 (config.rs)
+#### ✅ チケット M0-3: GpuProvider 列挙型 (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-2（GpuProvider メソッド実装）。
@@ -85,7 +85,7 @@
   1. `GpuProvider` の全バリアントが JSON シリアライズ・デシリアライズ可能
   2. `GpuConfig::default()` が `GpuProvider::Auto`, `cpu_only: false` を返す
 
-#### チケット M0-4: GgufError 列挙型 (error.rs)
+#### ✅ チケット M0-4: GgufError 列挙型 (error.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-3（From impls）、全実装チケットのエラー伝搬基盤。
@@ -107,7 +107,7 @@
   2. 各バリアントが `Display` で適切なメッセージを出力する
   3. `GgufError` が `Send + Sync` を満たす
 
-#### チケット M0-5: 設定構造体定義 (config.rs)
+#### ✅ チケット M0-5: 設定構造体定義 (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo, §3.1 ServerConfig, §4.2 JSON マルチソースマージ)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2（`DEFAULT_RT_PORT` を `ServerConfig::default()` で使用）、M0-3（GpuProvider をフィールドに含む）。後続: M1-1（ModelConfig コンストラクタ）、M1-4（GgufConfig merge_overlay）。
@@ -140,7 +140,7 @@
   2. デフォルト値（RFC §4.3 の JSON スキーマに準拠）で正しくデシリアライズされる
   3. フィールド欠落時に適切なエラーになる
 
-#### チケット M0-6: ModelInfo 構造体定義 (registry.rs)
+#### ✅ チケット M0-6: ModelInfo 構造体定義 (registry.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo)
 * **依存・関連チケットID:** 先行実装必須: M0-5（ModelConfig からの変換）。後続: M1-5（ModelRegistry 同期メソッド）。
