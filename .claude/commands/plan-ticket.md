@@ -1,5 +1,5 @@
 ---
-description: 承認済みチケットの実装計画を策定する。物理的レビュー方法を計画に含め、ユーザーの承認を得る。引数なしならチケットIDを質問する。
+description: チケットの実装計画を策定する（実行をもって spec を承認済みとみなす）。物理的レビュー方法を計画に含め、計画の承認をユーザーに求める。引数なしならチケットIDを質問する。
 ---
 
 # /plan-ticket
@@ -61,13 +61,23 @@ node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
 
 `exists: false` → 終了。
 
-### Step 2: approved 確認
+### Step 2: spec の自動承認
+
+`/plan-ticket` の実行をもって、対象チケットの spec は承認されたものとみなす。
+現在のステータスが `approved` でない場合、自動的に `approved` に遷移させる：
 
 ```bash
 node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
 ```
 
-`matches: false` → 現在のステータスを表示し「/make-ticket で先に承認を」と伝えて終了。
+`matches: true` → そのまま進む。
+`matches: false` → 現在のステータスを表示し、自動的に `approved` に遷移する：
+
+```bash
+node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" approved
+```
+
+これにより、draft や reopened の状態から直接計画策定に入ることができる。
 
 ### Step 3: spec 読み取り
 
