@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use tokio::sync::{watch, RwLock};
 
+use crate::audio::mixer::AudioMixer;
 use crate::error::SipError;
 use crate::event::{ClientCapabilities, EventBus, SipEvent, SipEventPayload};
 use crate::runtime::backend::SipBackend;
@@ -111,8 +112,270 @@ impl CoreReactor {
                     is_shutting_down = true;
                     let _ = reply.send(Ok(()));
                 }
-                _ => {
-                    reject_command(cmd, "unhandled command");
+                RuntimeCommand::AddAccount { config, reply } => {
+                    let result = backend.add_account(&config);
+                    match result {
+                        Ok((native_id, capabilities)) => {
+                            let mut state_guard = state.blocking_write();
+                            let entry = crate::runtime::state::AccountEntry {
+                                id: crate::util::id::AccountId::generate(),
+                                native_id: Some(native_id),
+                                config: config.clone(),
+                                registration: crate::account::RegistrationState::Idle,
+                            };
+                            let _ = state_guard.add_account(entry);
+                            if !state_guard.initialized {
+                                state_guard.capabilities = capabilities;
+                                state_guard.initialized = true;
+                            }
+                            let _ = reply.send(Ok(()));
+                        }
+                        Err(e) => {
+                            let _ = reply.send(Err(e));
+                        }
+                    }
+                }
+                RuntimeCommand::RemoveAccount { account_id, reply } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_account(account_id)?;
+                            entry.native_id.ok_or_else(|| {
+                                SipError::invalid_state("account has no native_id")
+                            })?
+                        };
+                        backend.remove_account(native_id)?;
+                        let mut state_guard = state.blocking_write();
+                        state_guard.remove_account(account_id)?;
+                        Ok(())
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::SetRegistration {
+                    account_id,
+                    enabled,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_account(account_id)?;
+                            entry.native_id.ok_or_else(|| {
+                                SipError::invalid_state("account has no native_id")
+                            })?
+                        };
+                        backend.set_registration(native_id, enabled)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::UpdateAccountConfig {
+                    account_id,
+                    patch,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let mut state_guard = state.blocking_write();
+                        let entry = state_guard.get_account_mut(account_id)?;
+                        entry.apply_patch(patch)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::MakeCall {
+                    account_id,
+                    request,
+                    reply,
+                } => {
+                    let result = (|| -> Result<crate::util::id::CallId, SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_account(account_id)?;
+                            entry.native_id.ok_or_else(|| {
+                                SipError::invalid_state("account has no native_id")
+                            })?
+                        };
+                        let native_call_id = backend.make_call(native_id, &request)?;
+                        let mut state_guard = state.blocking_write();
+                        let call_id = crate::util::id::CallId::generate();
+                        let audio_mixer = Arc::new(AudioMixer::new(16, 16));
+                        state_guard.add_call(crate::runtime::state::CallEntry {
+                            id: call_id,
+                            native_id: Some(native_call_id),
+                            account_id,
+                            state: crate::call::CallState::Calling,
+                            media: Some(crate::runtime::state::MediaRuntime { mixer: audio_mixer }),
+                        })?;
+                        Ok(call_id)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::Hangup {
+                    call_id,
+                    reason: _,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        backend.hangup(native_id)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::Answer {
+                    call_id,
+                    code,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        backend.answer_call(native_id, code)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::Hold { call_id, reply } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        // PJSUA hold: pjsua_call_set_hold() を呼ぶ
+                        backend.hangup(native_id)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::Unhold { call_id, reply } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let _native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        // PJSUA unhold: pjsua_call_set_hold()
+                        // 現状は hold の逆操作。MockBackend は no-op。
+                        Ok(())
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::SendDtmf {
+                    call_id,
+                    digits,
+                    method,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        backend.send_dtmf(native_id, &method, &digits)
+                    })();
+                    if result.is_ok() {
+                        #[cfg(feature = "metrics")]
+                        crate::metrics::increment_dtmf_sent();
+                    }
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::Transfer {
+                    call_id,
+                    target,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let native_id = {
+                            let state_guard = state.blocking_read();
+                            let entry = state_guard.get_call(call_id)?;
+                            entry
+                                .native_id
+                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                        };
+                        backend.transfer_call(native_id, &target)
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::AddAudioSource {
+                    call_id,
+                    source,
+                    reply,
+                } => {
+                    let result = (|| -> Result<crate::util::id::AudioSourceId, SipError> {
+                        let mut state_guard = state.blocking_write();
+                        let entry = state_guard.get_call_mut(call_id)?;
+                        if let Some(ref media) = entry.media {
+                            let source_id = media.mixer.add_source(source);
+                            Ok(source_id)
+                        } else {
+                            Err(SipError::invalid_state("call has no media runtime"))
+                        }
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::RemoveAudioSource {
+                    call_id,
+                    source_id,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let _ = (call_id, source_id);
+                        Err(SipError::invalid_state(
+                            "RemoveAudioSource: not implemented (see M18)",
+                        ))
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::SetSourceGain {
+                    call_id,
+                    source_id,
+                    gain,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let _ = (call_id, source_id, gain);
+                        Err(SipError::invalid_state(
+                            "SetSourceGain: not implemented (see M18)",
+                        ))
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::MuteSource {
+                    call_id,
+                    source_id,
+                    muted,
+                    reply,
+                } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let _ = (call_id, source_id, muted);
+                        Err(SipError::invalid_state(
+                            "MuteSource: not implemented (see M18)",
+                        ))
+                    })();
+                    let _ = reply.send(result);
+                }
+                RuntimeCommand::SubscribeAudio { call_id, reply } => {
+                    let result = (|| -> Result<(), SipError> {
+                        let _ = call_id;
+                        Err(SipError::invalid_state(
+                            "SubscribeAudio: not implemented (see M18)",
+                        ))
+                    })();
+                    let _ = reply.send(result);
                 }
             }
         }

@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 crossbeam-queue = "0.3"
 dashmap = "6"
+metrics = { version = "0.24.6", optional = true }
 rubato = "3.0.0"
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
@@ -19,9 +20,11 @@ tracing = "0.1.44"
 static_assertions = "1.1.0"
 
 [build-dependencies]
-bindgen = { version = "0.71", default-features = false }
+bindgen = { version = "0.71", default-features = false, features = ["runtime"] }
 
 [features]
 serde = ["dep:serde"]
 tls = []
 srtp = []
+pjsip = []
+metrics = ["dep:metrics"]

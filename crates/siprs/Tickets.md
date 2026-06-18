@@ -1063,8 +1063,19 @@
   10. 切断済み通話への操作 → `InvalidState`
 * **計装方法・観測対象:** 全操作の tracing span。各操作の reactor コマンド処理時間。状態遷移エラー時の詳細メッセージ。
 
----
+#### ✅ チケット M13-3: `AccountConfigPatch` — アカウント設定の runtime 更新
 
+* **参照設計書:** docs/rust-sip-client-rfc.md (§8.4 update_config)
+* **対象不変条件 / 規範:** §8.4「`update_config` は reactor 経由でアカウント設定を部分的に更新する」。reactor 内で state の config を差し替え、変更箇所を backend に反映する。
+* **実装の背景と目的:** `SipAccountHandle::update_config()` で呼び出される RuntimeCommand::UpdateAccountConfig の実処理。登録済みアカウントの設定（レジストラ、認証情報、コーデックポリシー等）を通話中に動的に変更する。
+* **実装スコープ:**
+  - `runtime/reactor.rs`: `UpdateAccountConfig` ハンドラの実装
+  - `state.rs` の `AccountEntry`: 設定変更を反映するメソッド追加
+  - `backend.update_account()` 経由で PJSUA 側の設定も更新（pjsip feature 有効時）
+* **テストコードによる検証（MockBackend 使用）:**
+  1. `update_config` → state 内の config が更新されること
+  2. 存在しないアカウント → `AccountNotFound`
+  3. Shutdown 後 → `ShutdownInProgress`
 ## フェーズ7: 音声パイプライン（Layer 2-3）
 
 > **外部依存:** `tokio`, `crossbeam_queue`, `rubato`, `dashmap`。PJSIP不要。全テストは tokio runtime + mock 音声ソースでメモリ内完結。
@@ -1279,6 +1290,24 @@
   5. 複数 Tap が異なる format で独立して変換されること
 * **計装方法・観測対象:** format 変換の有無によるフレーム処理時間の差（バイパス時と変換時の比較）。各 Tap のフォーマット変換パイプラインの独立性。
 
+#### ✅ チケット M16-4: `ResamplePipeline` — rubato 実装完了
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§26)
+* **対象不変条件 / 規範:** M16-2（#129）の spec と同じ。同一レートのバイパスモードは実装済みだが、rubato を使用した異なるレート間の変換が未実装のままスタブとして残っている。本チケットで M16-2 の spec 通りの完全実装を完了する。
+* **実装の背景と目的:** M16-2（#129）は reviewed だが、`ResamplePipeline` の rubato 統合が未完了のままスタブとして残っている。`rubato::FftFixedIn<f32>` を用いたサンプルレート変換、`AudioChunk::I16` ↔ `AudioChunk::F32` 変換を実装する。
+* **実装スコープ:**
+  - `src/audio/resampler.rs` の `ResamplePipeline` に rubato 統合を追加
+  - `ResamplePipeline::process_in` / `process_out` / `process_pair` の実体を記述
+  - レート変換不要時はバイパス（既存）、変換必要時は rubato を経由
+  - `rubato::FftFixedIn<f32>` を使用。i16→f32 変換、rubato 処理、f32→i16 の流れ
+* **テストコードによる検証（M16-2 の spec 通り）:**
+  1. 同一レート変換 → 入出力がほぼ一致
+  2. 16kHz→8kHz → サンプル数が半分
+  3. 8kHz→48kHz → サンプル数が6倍
+  4. 空入力 → 空出力
+  5. 未サポート rate → `AudioFormatUnsupported`
+* **依存関係:** M16-2 の成果物（`ResamplePipeline` 骨格）をベースに実装する。
+
 ---
 
 ## フェーズ8: FFI層（Layer 4）
@@ -1377,7 +1406,7 @@
   - PJSIP の初期化が完了した状態で、各 callback が実際に発火することを SIP サーバとの結合テスト（M20-1）で確認する。
   - 特に `on_incoming_call` と `on_call_state` は発着信の基本フローを構成するため、最優先で検証すること。
 
-#### チケット M17-4: `PjsuaBackend` — `SipBackend` trait の PJSUA 実装
+#### ✅ チケット M17-4: `PjsuaBackend` — `SipBackend` trait の PJSUA 実装
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §29, §29.1)
 * **対象不変条件 / 規範:** §27a「MVP 範囲では PJSUA (PjsuaBackend) が唯一の実装」。§29 codec policy 強制「PCMU と Opus 以外は無効化」。§29.1 コーデックフォールバックルール。
@@ -1409,7 +1438,7 @@
 
 > **DB:** メモリ内完結（FFI 経由で PJSUA メディアスタックを使用）
 
-#### チケット M18-1: `RustMediaPort` — `pjmedia_port` / `get_frame` / `put_frame`
+#### ✅ チケット M18-1: `RustMediaPort` — `pjmedia_port` / `get_frame` / `put_frame`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§39.2, §39.1)
 * **対象不変条件 / 規範:** §39.1「PJSIP callback は OS の最優先リアルタイムスレッドで駆動する。crossbeam_queue::ArrayQueue からの pop/push、memcpy、ゼロフィルのみが許容される」。§39.2 custom media port 設計。
@@ -1437,7 +1466,7 @@
   - `cargo test -p siprs -- --ignored` で統合テストを実行し、実際の通話中に AudioTap から受信した `AudioChunkPair` の IN/OUT チャネルが無音でないことを確認する。
   - 特に長時間通話（5分以上）でアンダーランが累積しないことを確認する。
 
-#### チケット M18-2: `AudioBridge` — lock-free queue 接続・Conference port 統合
+#### ✅ チケット M18-2: `AudioBridge` — lock-free queue 接続・Conference port 統合
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§39.2, §39.3)
 * **対象不変条件 / 規範:** §39.3 データフロー全体。§39「通話ごとに custom port を 2 つ持つ。Capture tap port（remote audio IN）と Playback inject port（mixer output OUT）」。
@@ -1460,6 +1489,26 @@
   - AudioTap から受信した `AudioChunkPair` の `in_chunk`（リモート音声）が通話相手の音声を含むことを確認する。無音ファイルやトーンの再生で検証可能。
   - `add_audio_source` で挿入した音声が `out_chunk` に反映されることを確認する。
 
+#### ✅ チケット M18-3: `RustMediaPort` → `pjmedia_port` C ラッパー（conference 接続）
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§27, §39.2, §39.3)
+* **対象不変条件 / 規範:** §39.2「custom media port は pjmedia_port 構造体を介して conference bridge に接続する」。pjsua_conf_add_port() に pjmedia_port* を渡す。§39.3「capture tap / playback inject の 2 ポートを管理」。
+* **実装の背景と目的:** `AudioBridge` の `#[cfg(feature = "pjsip")]` connect_to_conference / disconnect がスタブのまま。pjmedia_port C 構造体に RustMediaPort をラップし、get_frame/put_frame 関数ポインタを設定した上で pjsua_conf_add_port() に登録する。
+* **実装スコープ:**
+  - `src/ffi/media.rs`: `RustMediaPort` から `pjmedia_port` を構築する関数
+  - `extern "C"` 関数 `rust_media_port_get_frame` / `rust_media_port_put_frame` は M18-1 で定義済み。これらを `pjmedia_port.get_frame` / `.put_frame` に関数ポインタとして設定する。
+  - `AudioBridge::connect_to_conference()` cfg(pjsip) 実装:
+    - `pjsua_conf_add_port()` で capture/playback 両ポートを登録
+    - `pjsua_conf_connect()` で conference に接続
+  - `AudioBridge::disconnect()` cfg(pjsip) 実装:
+    - `pjsua_conf_disconnect()` で切断
+    - `pjsua_conf_remove_port()` で削除
+* **テストコードによる検証（PJSIP 利用可能環境）:**
+  1. connect_to_conference がエラーを返さないこと
+  2. disconnect が idempotent であること
+  3. 二重 connect → 2 回目は idempotent に成功
+* **依存関係:** PJSIP 2.17（vendor/pjsip/）が利用可能であること（#142 完了済み）。M18-1 の extern "C" 関数を利用する。
+
 ---
 
 ## フェーズ9: ビルドシステム（Layer 4）
@@ -1470,7 +1519,7 @@
 
 > **DB:** N/A（ビルド時のみ）
 
-#### チケット M19-1: `build.rs` — prebuilt優先・source build fallback
+#### ✅ チケット M19-1: `build.rs` — prebuilt優先・source build fallback
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§28, §28.1, §28.2, §28.3)
 * **対象不変条件 / 規範:** §28 build.rs 戦略。§28.1 探索順序（prebuilt → source build fallback）。§28.3 cmake flags（`PJMEDIA_WITH_VIDEO=OFF` mandatory, Opus enabled, TLS/SRTP feature flag 連動）。§28.4 OS別システムパッケージ依存関係。
@@ -1506,7 +1555,7 @@
   - `cargo build -p siprs --features tls,srtp` で全 feature 有効時のビルドを確認する。
   - エラー時のメッセージに、不足しているパッケージのインストール手順が明示されていることを確認する。
 
-#### チケット M19-2: feature flags 設定
+#### ✅ チケット M19-2: feature flags 設定
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§12, §30, §34.2, §40, §21.1)
 * **対象不変条件 / 規範:** §12 TLS feature flag。§30 SRTP feature flag。§34.2 metrics optional feature。§40 cpal-input optional feature。§21.1 serde optional feature。

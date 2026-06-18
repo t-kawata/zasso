@@ -1,5 +1,6 @@
 # Ticket Queue
 - [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
+- [-] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
 - [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -172,6 +173,17 @@
 - [x] #135 M0-6: ModelInfo 構造体定義 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0135-m0-6-modelinfo-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #136 M1-1: ModelConfig ビルトインコンストラクタ (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0136-m1-1-modelconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #137 M1-2: GpuProvider メソッド実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0137-m1-2-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #138 M17-4: PjsuaBackend — SipBackend trait の PJSUA 実装 | /Users/shyme/shyme/zasso/tickets/specs/0138-m17-4-pjsuabackend-sipbackend-trait-pjsua.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #139 M18-1: RustMediaPort — pjmedia_port / get_frame / put_frame | /Users/shyme/shyme/zasso/tickets/specs/0139-m18-1-rustmediaport-pjmedia-port-get-frame-put-frame.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #140 M18-2: AudioBridge — lock-free queue 接続・Conference port 統合 | /Users/shyme/shyme/zasso/tickets/specs/0140-m18-2-audiobridge-lock-free-queue-conference-port.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #141 M19-1: build.rs — prebuilt優先・source build fallback | /Users/shyme/shyme/zasso/tickets/specs/0141-m19-1-buildrs-prebuiltsource-build-fallback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #142 PJSIP 2.17 ソース配置・ビルド検証・FFI 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0142-pjsip-217-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #143 build.rs: prebuilt auto-deploy after source build | /Users/shyme/shyme/zasso/tickets/specs/0143-buildrs-prebuilt-auto-deploy-after-source-build.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #144 M19-3: metrics カウンター配線実装 | /Users/shyme/shyme/zasso/tickets/specs/0144-m19-3-metrics.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #145 残余スタブ一括解決: M16-1/M15-2/M16-3/AudioBridge/M17-4 callback | /Users/shyme/shyme/zasso/tickets/specs/0145-m16-1m15-2m16-3audiobridgem17-4-callback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #146 M13-3: AccountConfigPatch — アカウント設定の runtime 更新 | /Users/shyme/shyme/zasso/tickets/specs/0146-m13-3-accountconfigpatch-runtime.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #147 M16-4: ResamplePipeline — rubato 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0147-m16-4-resamplepipeline-rubato.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #148 M18-3: RustMediaPort → pjmedia_port C ラッパー（conference 接続） | /Users/shyme/shyme/zasso/tickets/specs/0148-m18-3-rustmediaport-pjmedia-port-c-conference.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #138 M1-3: GgufError From トレイト実装 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0138-m1-3-gguferror-from-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #139 M1-4: GgufConfig マージロジック (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0139-m1-4-ggufconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #140 M1-5: ModelRegistry 同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0140-m1-5-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18

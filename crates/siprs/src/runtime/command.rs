@@ -103,6 +103,7 @@ pub(crate) enum RuntimeCommand {
     /// 音声ソース追加。
     AddAudioSource {
         call_id: CallId,
+        source: Box<dyn crate::audio::source::ErasedAudioSource>,
         reply: tokio::sync::oneshot::Sender<Result<AudioSourceId, SipError>>,
     },
     /// 音声ソース削除。
