@@ -165,7 +165,7 @@ pub trait InferenceEngine: Send + Sync {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// InferenceEngine トレイトが Send + Sync を満たすことを確認
@@ -178,16 +178,37 @@ mod tests {
         struct DummyEngine;
         #[async_trait]
         impl InferenceEngine for DummyEngine {
-            async fn generate(&self, _model_name: &str, _prompt: &str, _params: GenerateParams) -> Result<String, GgufError> {
+            async fn generate(
+                &self,
+                _model_name: &str,
+                _prompt: &str,
+                _params: GenerateParams,
+            ) -> Result<String, GgufError> {
                 Ok("dummy".into())
             }
-            async fn generate_structured(&self, _model_name: &str, _prompt: &str, _params: GenerateParams, _schema: Value) -> Result<Value, GgufError> {
+            async fn generate_structured(
+                &self,
+                _model_name: &str,
+                _prompt: &str,
+                _params: GenerateParams,
+                _schema: Value,
+            ) -> Result<Value, GgufError> {
                 Ok(Value::Null)
             }
-            async fn generate_stream(&self, _model_name: &str, _prompt: &str, _params: GenerateParams) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError> {
+            async fn generate_stream(
+                &self,
+                _model_name: &str,
+                _prompt: &str,
+                _params: GenerateParams,
+            ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>
+            {
                 todo!()
             }
-            async fn send_raw(&self, _model_name: &str, _request: RequestBuilder) -> Result<Response, GgufError> {
+            async fn send_raw(
+                &self,
+                _model_name: &str,
+                _request: RequestBuilder,
+            ) -> Result<Response, GgufError> {
                 todo!()
             }
         }
@@ -234,20 +255,29 @@ mod tests {
     async fn mock_generate_returns_expected_text() {
         let mut mock = MockEngine::new();
         mock.expect_generate()
-            .with(mockall::predicate::always(), mockall::predicate::always(), mockall::predicate::always())
+            .with(
+                mockall::predicate::always(),
+                mockall::predicate::always(),
+                mockall::predicate::always(),
+            )
             .times(1)
             .returning(|_, _, _| Ok("mock response".into()));
 
-        let result = mock.generate("test", "hello", GenerateParams::default()).await;
+        let result = mock
+            .generate("test", "hello", GenerateParams::default())
+            .await;
         assert_eq!(result.unwrap(), "mock response");
     }
 
     #[tokio::test]
     async fn mock_generate_returns_error() {
         let mut mock = MockEngine::new();
-        mock.expect_generate()
-            .times(1)
-            .returning(|_, _, _| Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "mock error")))));
+        mock.expect_generate().times(1).returning(|_, _, _| {
+            Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "mock error",
+            ))))
+        });
 
         let result = mock.generate("x", "y", GenerateParams::default()).await;
         assert!(matches!(result, Err(GgufError::InferenceFailed(_))));
@@ -260,7 +290,9 @@ mod tests {
             .times(1)
             .returning(|_, _, _, _| Ok(serde_json::json!({"result": "ok"})));
 
-        let result = mock.generate_structured("m", "p", GenerateParams::default(), serde_json::json!({})).await;
+        let result = mock
+            .generate_structured("m", "p", GenerateParams::default(), serde_json::json!({}))
+            .await;
         assert!(result.is_ok());
     }
 
@@ -271,32 +303,41 @@ mod tests {
             .times(1)
             .returning(|_, _, _, _| Err(GgufError::ModelNotFound("test".into())));
 
-        let result = mock.generate_structured("m", "p", GenerateParams::default(), serde_json::json!({})).await;
+        let result = mock
+            .generate_structured("m", "p", GenerateParams::default(), serde_json::json!({}))
+            .await;
         assert!(matches!(result, Err(GgufError::ModelNotFound(_))));
     }
 
     #[tokio::test]
     async fn mock_generate_stream_returns_ok() {
         let mut mock = MockEngine::new();
-        mock.expect_generate_stream()
-            .times(1)
-            .returning(|_, _, _| {
-                let stream = futures::stream::iter(vec![Ok("chunk".into())]);
-                Ok(Box::pin(stream) as Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>)
-            });
+        mock.expect_generate_stream().times(1).returning(|_, _, _| {
+            let stream = futures::stream::iter(vec![Ok("chunk".into())]);
+            Ok(Box::pin(stream)
+                as Pin<
+                    Box<dyn Stream<Item = Result<String, GgufError>> + Send>,
+                >)
+        });
 
-        let result = mock.generate_stream("m", "p", GenerateParams::default()).await;
+        let result = mock
+            .generate_stream("m", "p", GenerateParams::default())
+            .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn mock_generate_stream_returns_error() {
         let mut mock = MockEngine::new();
-        mock.expect_generate_stream()
-            .times(1)
-            .returning(|_, _, _| Err(GgufError::ServerStartupFailed(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "stream error")))));
+        mock.expect_generate_stream().times(1).returning(|_, _, _| {
+            Err(GgufError::ServerStartupFailed(Box::new(
+                std::io::Error::new(std::io::ErrorKind::Other, "stream error"),
+            )))
+        });
 
-        let result = mock.generate_stream("m", "p", GenerateParams::default()).await;
+        let result = mock
+            .generate_stream("m", "p", GenerateParams::default())
+            .await;
         assert!(matches!(result, Err(GgufError::ServerStartupFailed(_))));
     }
 

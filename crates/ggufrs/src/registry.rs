@@ -274,7 +274,10 @@ mod tests {
     fn model_info_model_field_is_none_after_from() {
         let config = create_sample_config();
         let info = ModelInfo::from(config);
-        assert!(info.model.is_none(), "model should be None after From conversion");
+        assert!(
+            info.model.is_none(),
+            "model should be None after From conversion"
+        );
     }
 
     #[test]
@@ -386,6 +389,10 @@ mod tests {
         registry.add_model(config);
         // lazy_load=true のモデルのみ → スキップされる → Ok(())
         let result = registry.load_immediate().await;
-        assert!(result.is_ok(), "load_immediate should skip lazy models: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "load_immediate should skip lazy models: {:?}",
+            result
+        );
     }
 }

@@ -43,9 +43,10 @@ llm-bridge-core = "0.2"
 
 [dev-dependencies]
 mockall = "0.14.0"
-# モックベース単体テスト
-# [::STUB::] M2-4 で mockall を追加
-# mockall = "0.13"
+# ルーター結合テストで tower::util::ServiceExt を使用する
+tower = "0.5"
+# 結合テスト（tests/）で HTTP クライアントとして使用する
+reqwest = { version = "0.12", features = ["json"] }
 
 [features]
 default = ["cpu"]

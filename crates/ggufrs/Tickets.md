@@ -468,7 +468,7 @@
 
 ### マイルストーン M4: サーバー起動・運用
 
-#### チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
+#### ✅ チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 全実装完了）。先行実装必須: M2-1（AppState 型定義に必要）。
@@ -497,7 +497,7 @@
   4. OpenAI 互換レスポンス形式に準拠している
   5. Anthropic 互換レスポンス形式に準拠している
 
-#### チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
+#### ✅ チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター実装）、M2-3（GgufEngine::new()）。後続: M5-2（test-run バイナリから呼び出し）。
@@ -522,7 +522,7 @@
   4. auto_start_server=false でサーバーが起動しない
   5. Drop 時にサーバーが graceful shutdown される
 
-#### チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
+#### ✅ チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト, §9.2 結合テスト)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター）、M4-2（サーバー起動）。並行可能: 他テスト。

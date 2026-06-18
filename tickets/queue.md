@@ -196,3 +196,6 @@
 - [x] #147 M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs) | /Users/kawata/shyme/zasso/tickets/specs/0147-m3-3-inferenceengine-generate-stream-inferencestreamrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #148 M3-4: InferenceEngine send_raw 実装 (inference/raw.rs) | /Users/kawata/shyme/zasso/tickets/specs/0148-m3-4-inferenceengine-send-raw-inferencerawrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #149 M3-5: lib.rs 統合・re-export 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0149-m3-5-librs-re-export-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #150 M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs) | /Users/kawata/shyme/zasso/tickets/specs/0150-m4-1-serverrouterrs-serveropenairs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #151 M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs) | /Users/kawata/shyme/zasso/tickets/specs/0151-m4-2-ggufengine-librs-servermodrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
