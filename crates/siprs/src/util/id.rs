@@ -261,7 +261,11 @@ mod tests {
 
         let mut map: HashMap<AccountId, &str> = HashMap::new();
         map.insert(a, "value");
-        assert_eq!(map.get(&b), Some(&"value"), "HashMap キーとして一貫性があること");
+        assert_eq!(
+            map.get(&b),
+            Some(&"value"),
+            "HashMap キーとして一貫性があること"
+        );
     }
 
     /// PartialOrd + Ord が値の自然順序に従うことを確認する。
@@ -323,7 +327,11 @@ mod tests {
         let mut unique = ids.clone();
         unique.sort();
         unique.dedup();
-        assert_eq!(ids.len(), unique.len(), "全ての AudioSourceId が一意であること");
+        assert_eq!(
+            ids.len(),
+            unique.len(),
+            "全ての AudioSourceId が一意であること"
+        );
     }
 
     /// Display 出力が "AudioSource(N)" 形式であることを確認する。
@@ -410,12 +418,21 @@ mod tests {
     #[test]
     fn test_serde_rejects_zero() {
         let result: Result<AccountId, _> = serde_json::from_str("0");
-        assert!(result.is_err(), "ゼロ値の AccountId はデシリアライズに失敗すること");
+        assert!(
+            result.is_err(),
+            "ゼロ値の AccountId はデシリアライズに失敗すること"
+        );
 
         let result: Result<CallId, _> = serde_json::from_str("0");
-        assert!(result.is_err(), "ゼロ値の CallId はデシリアライズに失敗すること");
+        assert!(
+            result.is_err(),
+            "ゼロ値の CallId はデシリアライズに失敗すること"
+        );
 
         let result: Result<AudioSourceId, _> = serde_json::from_str("0");
-        assert!(result.is_err(), "ゼロ値の AudioSourceId はデシリアライズに失敗すること");
+        assert!(
+            result.is_err(),
+            "ゼロ値の AudioSourceId はデシリアライズに失敗すること"
+        );
     }
 }

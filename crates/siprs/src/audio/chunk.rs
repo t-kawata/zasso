@@ -276,7 +276,7 @@ mod tests {
             CallId::generate(),
             AccountId::generate(),
             AudioChunk::I16(vec![1, 2, 3, 4]), // 4 samples
-            AudioChunk::I16(vec![10, 20]),      // 2 samples
+            AudioChunk::I16(vec![10, 20]),     // 2 samples
         );
         let stereo = pair.stereo_i16()?;
         // OUT が短いので 2 サンプル分に切り詰める
@@ -295,7 +295,10 @@ mod tests {
         );
         let result = pair.stereo_i16();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("IN chunk is not I16"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("IN chunk is not I16"));
     }
 
     /// OUT が F32 の場合、stereo_i16() が InvalidState エラーを返すことを確認する。
@@ -309,7 +312,10 @@ mod tests {
         );
         let result = pair.stereo_i16();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("OUT chunk is not I16"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("OUT chunk is not I16"));
     }
 
     // -----------------------------------------------------------------------
@@ -343,10 +349,7 @@ mod tests {
         let mut cloned = original.clone();
         //  clone の out_chunk を変更
         cloned.out_chunk = AudioChunk::I16(vec![99]);
-        assert_eq!(
-            original.out_chunk.as_i16(),
-            Some(&[2][..])
-        );
+        assert_eq!(original.out_chunk.as_i16(), Some(&[2][..]));
         assert_eq!(cloned.out_chunk.as_i16(), Some(&[99][..]));
     }
 

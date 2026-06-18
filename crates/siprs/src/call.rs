@@ -133,41 +133,110 @@ impl CallState {
 
         match (&self, event) {
             // ── 発信系 ──
-            (S::New, CallEvent::Dialed) => { *self = S::Calling; Ok(()) }
-            (S::Calling, CallEvent::Provisional(100)) => { *self = S::Trying; Ok(()) }
-            (S::Calling, CallEvent::Provisional(180)) => { *self = S::Ringing; Ok(()) }
-            (S::Calling, CallEvent::EarlyMedia) => { *self = S::EarlyMedia; Ok(()) }
-            (S::Trying, CallEvent::Provisional(180)) => { *self = S::Ringing; Ok(()) }
-            (S::Trying, CallEvent::EarlyMedia) => { *self = S::EarlyMedia; Ok(()) }
-            (S::Ringing, CallEvent::Connected(_)) => { *self = S::Connecting; Ok(()) }
-            (S::EarlyMedia, CallEvent::Connected(_)) => { *self = S::Connecting; Ok(()) }
-            (S::Connecting, CallEvent::Connected(_)) => { *self = S::Active; Ok(()) }
+            (S::New, CallEvent::Dialed) => {
+                *self = S::Calling;
+                Ok(())
+            }
+            (S::Calling, CallEvent::Provisional(100)) => {
+                *self = S::Trying;
+                Ok(())
+            }
+            (S::Calling, CallEvent::Provisional(180)) => {
+                *self = S::Ringing;
+                Ok(())
+            }
+            (S::Calling, CallEvent::EarlyMedia) => {
+                *self = S::EarlyMedia;
+                Ok(())
+            }
+            (S::Trying, CallEvent::Provisional(180)) => {
+                *self = S::Ringing;
+                Ok(())
+            }
+            (S::Trying, CallEvent::EarlyMedia) => {
+                *self = S::EarlyMedia;
+                Ok(())
+            }
+            (S::Ringing, CallEvent::Connected(_)) => {
+                *self = S::Connecting;
+                Ok(())
+            }
+            (S::EarlyMedia, CallEvent::Connected(_)) => {
+                *self = S::Connecting;
+                Ok(())
+            }
+            (S::Connecting, CallEvent::Connected(_)) => {
+                *self = S::Active;
+                Ok(())
+            }
 
             // ── 着信系 ──
-            (S::New, CallEvent::Incoming) => { *self = S::Incoming; Ok(()) }
-            (S::Incoming, CallEvent::Answered(_)) => { *self = S::Connecting; Ok(()) }
+            (S::New, CallEvent::Incoming) => {
+                *self = S::Incoming;
+                Ok(())
+            }
+            (S::Incoming, CallEvent::Answered(_)) => {
+                *self = S::Connecting;
+                Ok(())
+            }
 
             // ── 制御系 ──
-            (S::Active, CallEvent::Hold) => { *self = S::Held; Ok(()) }
-            (S::Held, CallEvent::Unhold) => { *self = S::Active; Ok(()) }
-            (S::Active, CallEvent::ReferSent) => { *self = S::Transferring; Ok(()) }
-            (S::Transferring, CallEvent::ReferSuccess) => { *self = S::Active; Ok(()) }
-            (S::Transferring, CallEvent::ReferFailed) => { *self = S::Disconnecting; Ok(()) }
+            (S::Active, CallEvent::Hold) => {
+                *self = S::Held;
+                Ok(())
+            }
+            (S::Held, CallEvent::Unhold) => {
+                *self = S::Active;
+                Ok(())
+            }
+            (S::Active, CallEvent::ReferSent) => {
+                *self = S::Transferring;
+                Ok(())
+            }
+            (S::Transferring, CallEvent::ReferSuccess) => {
+                *self = S::Active;
+                Ok(())
+            }
+            (S::Transferring, CallEvent::ReferFailed) => {
+                *self = S::Disconnecting;
+                Ok(())
+            }
 
             // ── 切断系 ──
-            (S::Calling, CallEvent::Cancel) => { *self = S::Disconnecting; Ok(()) }
-            (S::Active, CallEvent::Bye) | (S::Active, CallEvent::LocalHangup)
-                => { *self = S::Disconnecting; Ok(()) }
-            (S::Held, CallEvent::Bye) | (S::Held, CallEvent::LocalHangup)
-                => { *self = S::Disconnecting; Ok(()) }
-            (S::Disconnecting, CallEvent::Bye) | (S::Disconnecting, CallEvent::LocalHangup)
-                => { *self = S::Disconnected; Ok(()) }
+            (S::Calling, CallEvent::Cancel) => {
+                *self = S::Disconnecting;
+                Ok(())
+            }
+            (S::Active, CallEvent::Bye) | (S::Active, CallEvent::LocalHangup) => {
+                *self = S::Disconnecting;
+                Ok(())
+            }
+            (S::Held, CallEvent::Bye) | (S::Held, CallEvent::LocalHangup) => {
+                *self = S::Disconnecting;
+                Ok(())
+            }
+            (S::Disconnecting, CallEvent::Bye) | (S::Disconnecting, CallEvent::LocalHangup) => {
+                *self = S::Disconnected;
+                Ok(())
+            }
 
             // ── 失敗パス ──
-            (S::Ringing, CallEvent::Failure(_, _)) => { *self = S::Failed; Ok(()) }
-            (S::EarlyMedia, CallEvent::Failure(_, _)) => { *self = S::Failed; Ok(()) }
-            (S::Connecting, CallEvent::Failure(_, _)) => { *self = S::Failed; Ok(()) }
-            (S::Calling, CallEvent::Failure(_, _)) => { *self = S::Failed; Ok(()) }
+            (S::Ringing, CallEvent::Failure(_, _)) => {
+                *self = S::Failed;
+                Ok(())
+            }
+            (S::EarlyMedia, CallEvent::Failure(_, _)) => {
+                *self = S::Failed;
+                Ok(())
+            }
+            (S::Connecting, CallEvent::Failure(_, _)) => {
+                *self = S::Failed;
+                Ok(())
+            }
+            (S::Calling, CallEvent::Failure(_, _)) => {
+                *self = S::Failed;
+                Ok(())
+            }
 
             // 上記以外は不正遷移。
             (current, _) => Err(SipError::invalid_state(format!(
@@ -186,9 +255,7 @@ impl CallState {
         use CallState::*;
         match self {
             New | Disconnected | Failed => None,
-            Calling | Trying | Ringing | EarlyMedia | Connecting => {
-                Some(EventDirection::Outbound)
-            }
+            Calling | Trying | Ringing | EarlyMedia | Connecting => Some(EventDirection::Outbound),
             Incoming => Some(EventDirection::Inbound),
             Active | Held | Transferring | Disconnecting => {
                 // 発信/着信の区別は CallEntry の追跡が必要。
@@ -301,7 +368,9 @@ mod tests {
     }
 
     #[test]
-    fn test_outgoing_normal() { run_outgoing_normal(true); }
+    fn test_outgoing_normal() {
+        run_outgoing_normal(true);
+    }
 
     /// 発信 EarlyMedia 経由: New → Calling → Trying → EarlyMedia → Connecting → Active。
     #[test]
@@ -363,7 +432,9 @@ mod tests {
     #[test]
     fn test_call_rejected() {
         let mut state = CallState::Ringing;
-        assert!(state.apply_call_event(CallEvent::Failure(486, "Busy".into())).is_ok());
+        assert!(state
+            .apply_call_event(CallEvent::Failure(486, "Busy".into()))
+            .is_ok());
         assert_eq!(state, CallState::Failed);
     }
 
@@ -389,8 +460,14 @@ mod tests {
     #[test]
     fn test_direction() {
         assert_eq!(CallState::New.direction(), None);
-        assert_eq!(CallState::Calling.direction(), Some(EventDirection::Outbound));
-        assert_eq!(CallState::Incoming.direction(), Some(EventDirection::Inbound));
+        assert_eq!(
+            CallState::Calling.direction(),
+            Some(EventDirection::Outbound)
+        );
+        assert_eq!(
+            CallState::Incoming.direction(),
+            Some(EventDirection::Inbound)
+        );
         assert_eq!(CallState::Disconnected.direction(), None);
         assert_eq!(CallState::Failed.direction(), None);
     }

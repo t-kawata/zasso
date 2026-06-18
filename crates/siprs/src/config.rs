@@ -619,14 +619,10 @@ fn validate_audio_format(fmt: &AudioFormat) -> Result<(), SipError> {
 /// ペアバッファ時間長がミキサーフレーム長の整数倍であることを検証する。
 fn validate_pair_buffer(pair_buffer_ms: u32, mixer_frame_ms: u32) -> Result<(), SipError> {
     if pair_buffer_ms == 0 {
-        return Err(SipError::invalid_config(
-            "pair_buffer_ms must be > 0",
-        ));
+        return Err(SipError::invalid_config("pair_buffer_ms must be > 0"));
     }
     if mixer_frame_ms == 0 {
-        return Err(SipError::invalid_config(
-            "mixer_frame_ms must be > 0",
-        ));
+        return Err(SipError::invalid_config("mixer_frame_ms must be > 0"));
     }
     if pair_buffer_ms % mixer_frame_ms != 0 {
         return Err(SipError::invalid_config(format!(
@@ -797,7 +793,10 @@ mod tests {
     #[test]
     fn test_client_config_default_audio() {
         let cfg = ClientConfig::default();
-        assert_eq!(cfg.audio.default_delivery_format.sample_rate, SampleRate::Hz16000);
+        assert_eq!(
+            cfg.audio.default_delivery_format.sample_rate,
+            SampleRate::Hz16000
+        );
         assert_eq!(cfg.audio.pair_buffer_ms, 120);
     }
 
@@ -855,7 +854,10 @@ mod tests {
         let cfg = ClientAudioConfig::default();
         assert_eq!(cfg.default_delivery_format.sample_rate, SampleRate::Hz16000);
         assert_eq!(cfg.default_delivery_format.bit_depth, BitDepth::I16);
-        assert_eq!(cfg.default_delivery_format.channel_layout, ChannelLayout::StereoInOut);
+        assert_eq!(
+            cfg.default_delivery_format.channel_layout,
+            ChannelLayout::StereoInOut
+        );
         assert_eq!(cfg.default_delivery_format.frame_ms, 20);
     }
 
@@ -1080,8 +1082,14 @@ mod tests {
             headers: vec![],
         };
         let debug_str = format!("{:#?}", cfg);
-        assert!(debug_str.contains("REDACTED"), "Debug output should mask password");
-        assert!(!debug_str.contains("hunter2"), "Debug output should not contain raw password");
+        assert!(
+            debug_str.contains("REDACTED"),
+            "Debug output should mask password"
+        );
+        assert!(
+            !debug_str.contains("hunter2"),
+            "Debug output should not contain raw password"
+        );
     }
 
     /// AccountConfigPatch::default() の全フィールドが None であることを確認する。
@@ -1183,7 +1191,10 @@ mod tests {
     #[test]
     fn test_codec_selection_policy_default() {
         let policy = CodecSelectionPolicy::default();
-        assert!(matches!(policy, CodecSelectionPolicy::PreferOpusFallbackPcmu));
+        assert!(matches!(
+            policy,
+            CodecSelectionPolicy::PreferOpusFallbackPcmu
+        ));
     }
 
     /// ReconnectPolicy の全フィールドが正しくラウンドトリップすることを確認する。
@@ -1248,7 +1259,10 @@ mod tests {
     fn test_validate_event_bus_capacity_too_small() {
         let err = validate_event_bus_capacity(15).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("event_bus_capacity"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("event_bus_capacity"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// raw_sip_events 有効時、capacity >= bus_capacity で OK となることを確認する。
@@ -1262,7 +1276,10 @@ mod tests {
     fn test_validate_raw_sip_event_insufficient() {
         let err = validate_raw_sip_event_capacity(true, 50, 100).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("raw_sip_event_capacity"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("raw_sip_event_capacity"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// raw_sip_events 無効時、capacity が bus_capacity 未満でも OK となることを確認する。
@@ -1282,7 +1299,10 @@ mod tests {
     fn test_validate_pair_buffer_not_multiple() {
         let err = validate_pair_buffer(125, 20).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("pair_buffer_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("pair_buffer_ms"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// pair_buffer_ms が 0 で InvalidConfig となることを確認する。
@@ -1290,7 +1310,10 @@ mod tests {
     fn test_validate_pair_buffer_zero() {
         let err = validate_pair_buffer(0, 20).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("pair_buffer_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("pair_buffer_ms"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// mixer_frame_ms が 0 で InvalidConfig となることを確認する。
@@ -1298,7 +1321,10 @@ mod tests {
     fn test_validate_mixer_frame_ms_zero() {
         let err = validate_pair_buffer(120, 0).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("mixer_frame_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("mixer_frame_ms"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// default_delivery_format.frame_ms が 0 で InvalidConfig となることを確認する。
@@ -1312,7 +1338,10 @@ mod tests {
         };
         let err = validate_audio_format(&fmt).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("frame_ms"), "エラーメッセージに違反フィールド名が含まれること: {msg}");
+        assert!(
+            msg.contains("frame_ms"),
+            "エラーメッセージに違反フィールド名が含まれること: {msg}"
+        );
     }
 
     /// validate_client_config の全エラーメッセージに違反フィールド名が含まれることを確認する。
@@ -1376,14 +1405,20 @@ mod tests {
     #[test]
     fn test_validate_username_empty() {
         let err = validate_username("").unwrap_err();
-        assert!(err.to_string().contains("username"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("username"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// domain が空文字列で InvalidConfig となることを確認する。
     #[test]
     fn test_validate_domain_empty() {
         let err = validate_domain("").unwrap_err();
-        assert!(err.to_string().contains("domain"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("domain"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// password が空文字列で InvalidConfig となることを確認する。
@@ -1391,7 +1426,10 @@ mod tests {
     fn test_validate_password_empty() {
         let password = SecretString::new(Box::from(""));
         let err = validate_password(&password).unwrap_err();
-        assert!(err.to_string().contains("password"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("password"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// registrar_uri 未指定時に sip:{domain} が自動導出されることを確認する。
@@ -1417,7 +1455,10 @@ mod tests {
             ..AccountCodecPolicy::default_voice()
         };
         let err = validate_codec_policy(&policy).unwrap_err();
-        assert!(err.to_string().contains("codec"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("codec"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// Opus のみ有効で OK となることを確認する。
@@ -1440,7 +1481,10 @@ mod tests {
             default_send_method: DtmfMethod::Rfc4733,
         };
         let err = validate_dtmf_policy(&policy).unwrap_err();
-        assert!(err.to_string().contains("send_methods"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("send_methods"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// DTMF receive_methods が空で InvalidConfig となることを確認する。
@@ -1452,7 +1496,10 @@ mod tests {
             default_send_method: DtmfMethod::Rfc4733,
         };
         let err = validate_dtmf_policy(&policy).unwrap_err();
-        assert!(err.to_string().contains("receive_methods"), "エラーメッセージに違反フィールド名が含まれること");
+        assert!(
+            err.to_string().contains("receive_methods"),
+            "エラーメッセージに違反フィールド名が含まれること"
+        );
     }
 
     /// 有効な優先コーデック一覧で OK となることを確認する。
@@ -1501,6 +1548,10 @@ mod tests {
         let mut cfg5 = account_config_valid();
         cfg5.dtmf.send_methods = vec![];
         let err5 = validate_account_config(&cfg5).unwrap_err();
-        assert!(err5.to_string().contains("send_methods"), "send_methods: {}", err5);
+        assert!(
+            err5.to_string().contains("send_methods"),
+            "send_methods: {}",
+            err5
+        );
     }
 }

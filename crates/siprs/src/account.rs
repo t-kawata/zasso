@@ -133,9 +133,7 @@ impl RegistrationState {
                 *self = S::Registering;
                 Ok(())
             }
-            (state, RegistrationEvent::SetEnabled(false))
-                if !matches!(state, S::Disabled) =>
-            {
+            (state, RegistrationEvent::SetEnabled(false)) if !matches!(state, S::Disabled) => {
                 *self = S::Disabled;
                 Ok(())
             }
@@ -209,7 +207,10 @@ mod tests {
         assert_eq!(RegistrationState::Idle.to_string(), "idle");
         assert_eq!(RegistrationState::Registering.to_string(), "registering");
         assert_eq!(RegistrationState::Registered.to_string(), "registered");
-        assert_eq!(RegistrationState::Unregistering.to_string(), "unregistering");
+        assert_eq!(
+            RegistrationState::Unregistering.to_string(),
+            "unregistering"
+        );
         assert_eq!(RegistrationState::Failed.to_string(), "failed");
         assert_eq!(RegistrationState::Expired.to_string(), "expired");
     }
@@ -298,17 +299,23 @@ mod tests {
     fn test_set_enabled_false() {
         // Registering → Disabled
         let mut state = RegistrationState::Registering;
-        assert!(state.apply_event(RegistrationEvent::SetEnabled(false)).is_ok());
+        assert!(state
+            .apply_event(RegistrationEvent::SetEnabled(false))
+            .is_ok());
         assert_eq!(state, RegistrationState::Disabled);
 
         // Registered → Disabled
         let mut state = RegistrationState::Registered;
-        assert!(state.apply_event(RegistrationEvent::SetEnabled(false)).is_ok());
+        assert!(state
+            .apply_event(RegistrationEvent::SetEnabled(false))
+            .is_ok());
         assert_eq!(state, RegistrationState::Disabled);
 
         // Disabled → no-op
         let mut state = RegistrationState::Disabled;
-        assert!(state.apply_event(RegistrationEvent::SetEnabled(false)).is_ok());
+        assert!(state
+            .apply_event(RegistrationEvent::SetEnabled(false))
+            .is_ok());
         assert_eq!(state, RegistrationState::Disabled);
     }
 
@@ -393,7 +400,12 @@ mod tests {
         match (before, after) {
             // 正常遷移: イベント適用前後で状態が変化した場合。
             _ if before != after => {
-                assert!(result.is_ok(), "正常遷移が Err を返しました: {:?} → {:?}", before, after);
+                assert!(
+                    result.is_ok(),
+                    "正常遷移が Err を返しました: {:?} → {:?}",
+                    before,
+                    after
+                );
                 assert!(
                     before.can_transition_to(*after),
                     "can_transition_to が false を返しました: {:?} → {:?}",
@@ -403,15 +415,24 @@ mod tests {
             }
             // no-op: 状態が変化しなかった場合（Registered→Register 等）。
             _ if result.is_ok() => {
-                assert_eq!(before, after, "no-op で状態が変化しました: {:?} → {:?}", before, after);
+                assert_eq!(
+                    before, after,
+                    "no-op で状態が変化しました: {:?} → {:?}",
+                    before, after
+                );
             }
             // 不正遷移: Err が返った場合。
             _ => {
-                assert_eq!(before, after, "Err でも状態が変化しました: {:?} → {:?}", before, after);
+                assert_eq!(
+                    before, after,
+                    "Err でも状態が変化しました: {:?} → {:?}",
+                    before, after
+                );
                 if let Err(ref err) = result {
                     use crate::error::SipErrorKind;
                     assert_eq!(
-                        err.kind, SipErrorKind::InvalidState,
+                        err.kind,
+                        SipErrorKind::InvalidState,
                         "不正遷移のエラー種別が InvalidState ではありません: {:?}",
                         err
                     );

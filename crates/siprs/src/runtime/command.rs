@@ -6,7 +6,9 @@
 //! M11-2 (RuntimeHandle) 以降で使用。現在は未使用のため dead_code を許容。
 #![allow(dead_code)]
 
-use crate::config::{AccountConfig, AccountConfigPatch, ClientConfig, DtmfMethod, OutgoingCallRequest};
+use crate::config::{
+    AccountConfig, AccountConfigPatch, ClientConfig, DtmfMethod, OutgoingCallRequest,
+};
 use crate::error::SipError;
 use crate::util::id::{AccountId, AudioSourceId, CallId};
 

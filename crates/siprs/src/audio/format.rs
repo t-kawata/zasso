@@ -362,10 +362,7 @@ mod tests {
     #[test]
     fn test_audio_format_display() {
         let fmt = AudioFormat::default();
-        assert_eq!(
-            format!("{}", fmt),
-            "16000Hz/I16/Stereo(L=IN,R=OUT) 20ms"
-        );
+        assert_eq!(format!("{}", fmt), "16000Hz/I16/Stereo(L=IN,R=OUT) 20ms");
     }
 
     // -----------------------------------------------------------------------

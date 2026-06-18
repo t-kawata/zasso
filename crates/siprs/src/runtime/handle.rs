@@ -14,7 +14,7 @@ use crate::runtime::command::RuntimeCommand;
 ///
 /// `SipClient` および `SipAccountHandle` が reactor と通信するための
 /// MPSC 送信チャネル。`Clone` 可能。
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct RuntimeHandle {
     tx: tokio::sync::mpsc::UnboundedSender<RuntimeCommand>,
 }
@@ -30,9 +30,9 @@ impl RuntimeHandle {
     ///
     /// チャネルが閉じている場合は `SipError` を返す。
     pub fn send(&self, cmd: RuntimeCommand) -> Result<(), SipError> {
-        self.tx.send(cmd).map_err(|_| {
-            SipError::invalid_state("runtime channel closed")
-        })
+        self.tx
+            .send(cmd)
+            .map_err(|_| SipError::invalid_state("runtime channel closed"))
     }
 
     /// コマンドを送信し、結果を非同期待機する。
@@ -46,9 +46,9 @@ impl RuntimeHandle {
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
         let cmd = f(reply_tx);
         self.send(cmd)?;
-        reply_rx.await.map_err(|_| {
-            SipError::invalid_state("reply channel closed")
-        })?
+        reply_rx
+            .await
+            .map_err(|_| SipError::invalid_state("reply channel closed"))?
     }
 
     /// reactor 側の receiver が drop されたかを確認する。

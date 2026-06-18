@@ -159,3 +159,7 @@
 - [x] #126 LocalRecognizerAdapter にデコレーション・SttCompleted 等の不足機能を追加 | /Users/kawata/shyme/zasso/tickets/specs/0126-localrecognizeradapter-sttcompleted.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #127 PseudoAsrStreamer に事後補正専用バックエンド注入を追加 | /Users/kawata/shyme/zasso/tickets/specs/0127-pseudoasrstreamer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
 - [x] #128 事後補正プロンプトを mycute と同一にし、ロケール切替に対応 | /Users/kawata/shyme/zasso/tickets/specs/0128-mycute.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [ ] #130 M16-3: subscribe_audio のフォーマット変換統合 | /Users/shyme/shyme/zasso/tickets/specs/0130-m16-3-subscribe-audio.md | 2026-06-18
+- [x] #131 M17-1: bindgen 設定と生成 | /Users/shyme/shyme/zasso/tickets/specs/0131-m17-1-bindgen.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #132 M17-2: PjOwnedStr — pj_str_t wrapper（実 FFI 型統合） | /Users/shyme/shyme/zasso/tickets/specs/0132-m17-2-pjownedstr-pj-str-t-wrapper-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #133 M17-3: Callback bridge — extern C callbacks → NativeEvent enqueue | /Users/shyme/shyme/zasso/tickets/specs/0133-m17-3-callback-bridge-extern-c-callbacks-nativeevent-enqueue.md | 2026-06-18 | 2026-06-18 | 2026-06-18

@@ -155,19 +155,11 @@ impl PairAligner {
         let threshold = now - self.tolerance;
         let mut dropped = 0;
 
-        while self
-            .in_q
-            .front()
-            .is_some_and(|f| f.ts_mono < threshold)
-        {
+        while self.in_q.front().is_some_and(|f| f.ts_mono < threshold) {
             self.in_q.pop_front();
             dropped += 1;
         }
-        while self
-            .out_q
-            .front()
-            .is_some_and(|f| f.ts_mono < threshold)
-        {
+        while self.out_q.front().is_some_and(|f| f.ts_mono < threshold) {
             self.out_q.pop_front();
             dropped += 1;
         }
@@ -264,7 +256,7 @@ mod tests {
         assert_eq!(result.len(), 2000);
         // L=IN, R=OUT の配置をスポットチェック。
         for i in 0..1000 {
-            assert_eq!(result[i * 2], i as i16);       // L = IN
+            assert_eq!(result[i * 2], i as i16); // L = IN
             assert_eq!(result[i * 2 + 1], (i + 1000) as i16); // R = OUT
         }
     }
@@ -306,7 +298,7 @@ mod tests {
     fn test_pair_tolerance_exceeded_drop_old_in() {
         let mut aligner = PairAligner::new(10);
         let now = Instant::now();
-        aligner.push_in(now, vec![1]);           // 古い IN
+        aligner.push_in(now, vec![1]); // 古い IN
         aligner.push_out(now + Duration::from_millis(20), vec![2]); // 新しい OUT
 
         // tolerance (10ms) 超過 → IN がドロップされ、None。
@@ -320,7 +312,7 @@ mod tests {
     fn test_pair_tolerance_exceeded_drop_old_out() {
         let mut aligner = PairAligner::new(10);
         let now = Instant::now();
-        aligner.push_out(now, vec![1]);          // 古い OUT
+        aligner.push_out(now, vec![1]); // 古い OUT
         aligner.push_in(now + Duration::from_millis(20), vec![2]); // 新しい IN
 
         assert!(aligner.try_pair().is_none());
@@ -409,8 +401,8 @@ mod tests {
         let mut aligner = PairAligner::new(10);
         let now = Instant::now();
 
-        aligner.push_in(now, vec![1]);             // 古い
-        aligner.push_out(now, vec![2]);            // 古い
+        aligner.push_in(now, vec![1]); // 古い
+        aligner.push_out(now, vec![2]); // 古い
         aligner.push_in(now + Duration::from_millis(20), vec![3]); // 新しい
         aligner.push_out(now + Duration::from_millis(20), vec![4]); // 新しい
 
