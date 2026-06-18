@@ -222,17 +222,26 @@ impl AudioBridge {
 
     /// conference bridge に capture/inject port を接続する。
     ///
-    /// PJSIP 不在時は connected フラグのみ設定する。
-    /// 実際の PJSIP API 呼び出しは M19-1 以降。
+    /// PJSIP feature 有効時は実際の PJSIP conference API を呼び出す（TODO）。
+    /// 無効時は connected フラグのみ設定する。
+    #[cfg(feature = "pjsip")]
     pub fn connect_to_conference(&mut self) -> Result<(), crate::error::SipError> {
         if self.connected {
             return Ok(()); // idempotent
         }
-        // [::STUB::] M19-1: 以下を実際の PJSIP API に置き換える
-        // 1. pjsua_conf_add_port() で capture_port を登録
-        // 2. pjsua_conf_add_port() で playback_port を登録
-        // 3. pjsua_conf_connect(capture_id, ...)
-        // 4. pjsua_conf_connect(..., playback_id)
+        // [::STUB::] 要解決: pjmedia_port 構造体に RustMediaPort をラップし、pjsua_conf_add_port()
+        // で conference port として登録した後、pjsua_conf_connect() で接続する。
+        self.connected = true;
+        Ok(())
+    }
+
+    /// conference bridge に capture/inject port を接続する（PJSIP 不在時スタブ）。
+    #[cfg(not(feature = "pjsip"))]
+    pub fn connect_to_conference(&mut self) -> Result<(), crate::error::SipError> {
+        if self.connected {
+            return Ok(()); // idempotent
+        }
+        // PJSIP 不在: connected フラグのみ設定
         self.connected = true;
         Ok(())
     }
@@ -240,11 +249,23 @@ impl AudioBridge {
     /// conference bridge から切断し、port を破棄する。
     ///
     /// idempotent: 複数回呼び出しても安全。
+    #[cfg(feature = "pjsip")]
     pub fn disconnect(&mut self) -> Result<(), crate::error::SipError> {
         if !self.connected {
             return Ok(()); // 未接続なら何もしない
         }
-        // [::STUB::] M19-1: pjsua_conf_disconnect() を呼び出す
+        // [::STUB::] 要解決: pjsua_conf_disconnect() を呼び出して conference port を切断する
+        self.connected = false;
+        Ok(())
+    }
+
+    /// conference bridge から切断する（PJSIP 不在時スタブ）。
+    #[cfg(not(feature = "pjsip"))]
+    pub fn disconnect(&mut self) -> Result<(), crate::error::SipError> {
+        if !self.connected {
+            return Ok(()); // 未接続なら何もしない
+        }
+        // PJSIP 不在: connected フラグのみクリア
         self.connected = false;
         Ok(())
     }

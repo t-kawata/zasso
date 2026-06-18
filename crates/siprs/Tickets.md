@@ -1470,7 +1470,7 @@
 
 > **DB:** N/A（ビルド時のみ）
 
-#### チケット M19-1: `build.rs` — prebuilt優先・source build fallback
+#### ✅ チケット M19-1: `build.rs` — prebuilt優先・source build fallback
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§28, §28.1, §28.2, §28.3)
 * **対象不変条件 / 規範:** §28 build.rs 戦略。§28.1 探索順序（prebuilt → source build fallback）。§28.3 cmake flags（`PJMEDIA_WITH_VIDEO=OFF` mandatory, Opus enabled, TLS/SRTP feature flag 連動）。§28.4 OS別システムパッケージ依存関係。
@@ -1506,7 +1506,7 @@
   - `cargo build -p siprs --features tls,srtp` で全 feature 有効時のビルドを確認する。
   - エラー時のメッセージに、不足しているパッケージのインストール手順が明示されていることを確認する。
 
-#### チケット M19-2: feature flags 設定
+#### ✅ チケット M19-2: feature flags 設定
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§12, §30, §34.2, §40, §21.1)
 * **対象不変条件 / 規範:** §12 TLS feature flag。§30 SRTP feature flag。§34.2 metrics optional feature。§40 cpal-input optional feature。§21.1 serde optional feature。

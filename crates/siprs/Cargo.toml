@@ -19,7 +19,7 @@ tracing = "0.1.44"
 static_assertions = "1.1.0"
 
 [build-dependencies]
-bindgen = { version = "0.71", default-features = false }
+bindgen = { version = "0.71", default-features = false, features = ["runtime"] }
 
 [features]
 serde = ["dep:serde"]

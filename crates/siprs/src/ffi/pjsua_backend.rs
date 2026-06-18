@@ -8,6 +8,12 @@
 //!
 //! - `feature = "pjsip"` 有効時: 実際の `extern "C"` FFI 呼び出し
 //! - `feature = "pjsip"` 無効時: `unimplemented!()` スタブ
+//!
+//! # dead_code 抑制
+//!
+//! `pjsip` feature 有効時、テストにしか使われない型・定数が未使用と判定される。
+//! これらは後続チケットで実際の FFI 呼び出しが実装されたタイミングで必要になる。
+#![cfg_attr(feature = "pjsip", allow(dead_code))]
 
 use crate::config::AccountConfig;
 use crate::config::ClientConfig;
@@ -99,20 +105,393 @@ pub(crate) fn pj_status_to_sip_error(status: i32, context: &str) -> SipError {
 // SipBackend 実装（PJSIP 利用可能時）
 // ---------------------------------------------------------------------------
 
-// [::STUB::] M19-1（build.rs — prebuilt優先・source build fallback）まで
-// pjsua_* FFI 関数は利用不可。実際の実装は M19-1 完了後に記述する。
-// 現状は PJSIP が利用可能な環境でも extern "C" が利用不可のため、
-// stub と同じ振る舞いとする。
+/// PJSIP feature 有効時の SipBackend 実装。
+///
+/// PJSUA C API を直接呼び出し、PJSIP ライブラリを駆動する。
+#[cfg(feature = "pjsip")]
+impl SipBackend for PjsuaBackend {
+    fn initialize(&mut self, config: &ClientConfig) -> Result<ClientCapabilities, SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
 
-// #[cfg(feature = "pjsip")]
-// impl SipBackend for PjsuaBackend {
-//     fn initialize(&mut self, config: &ClientConfig) -> Result<ClientCapabilities, SipError> {
-//         // SAFETY: pjsua_create() → pjsua_init() → pjsua_start() の順序は
-//         // PJSIP 2.17 API ドキュメントで保証されている。
-//         todo!("M19-1: implement with actual pjsua_* FFI calls")
-//     }
-//     // ... 他のメソッドも同様
-// }
+        if self.initialized {
+            return Ok(ClientCapabilities::default_disabled());
+        }
+        unsafe {
+            // pjsua_create() — PJSUA インスタンス作成
+            let mut status = bindings::pjsua_create();
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_create"));
+            }
+
+            // pjsua_config 初期化
+            let mut ua_cfg: bindings::pjsua_config = std::mem::zeroed();
+            bindings::pjsua_config_default(&mut ua_cfg);
+
+            let mut log_cfg: bindings::pjsua_logging_config = std::mem::zeroed();
+            bindings::pjsua_logging_config_default(&mut log_cfg);
+
+            let mut media_cfg: bindings::pjsua_media_config = std::mem::zeroed();
+            bindings::pjsua_media_config_default(&mut media_cfg);
+
+            // 最大通話数設定
+            ua_cfg.max_calls = config.max_calls as ::std::os::raw::c_uint;
+
+            // User-Agent 設定
+            let ua_bytes = config.user_agent.as_bytes().to_vec();
+            ua_cfg.user_agent = bindings::pj_str_t {
+                ptr: ua_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: ua_bytes.len() as c_long,
+            };
+
+            // pjsua_init()
+            status = bindings::pjsua_init(&ua_cfg, &log_cfg, &media_cfg);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_init"));
+            }
+
+            // pjsua_start()
+            status = bindings::pjsua_start();
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_start"));
+            }
+        }
+        self.initialized = true;
+        Ok(ClientCapabilities::default_disabled())
+    }
+
+    fn shutdown(&mut self) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        if !self.initialized {
+            return Ok(());
+        }
+        unsafe {
+            let status = bindings::pjsua_destroy();
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_destroy"));
+            }
+        }
+        self.initialized = false;
+        Ok(())
+    }
+
+    fn create_transport(&mut self, config: &TransportConfig) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+
+        let (transport_type, _bind_addr) = match config {
+            TransportConfig::Udp(cfg) => (bindings::PJSIP_TRANSPORT_UDP, cfg.bind_addr),
+            TransportConfig::Tcp(cfg) => (bindings::PJSIP_TRANSPORT_TCP, cfg.bind_addr),
+            #[cfg(feature = "tls")]
+            TransportConfig::Tls(cfg) => (bindings::PJSIP_TRANSPORT_TLS, cfg.bind_addr),
+        };
+
+        unsafe {
+            let mut tp_cfg: bindings::pjsua_transport_config = std::mem::zeroed();
+            bindings::pjsua_transport_config_default(&mut tp_cfg);
+
+            let mut tp_id: bindings::pjsua_transport_id = 0;
+            let status =
+                bindings::pjsua_transport_create(transport_type, &tp_cfg, &mut tp_id as *mut _);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_transport_create"));
+            }
+        }
+        Ok(())
+    }
+
+    fn add_account(
+        &mut self,
+        config: &AccountConfig,
+    ) -> Result<(NativeAccId, ClientCapabilities), SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            let mut acc_cfg: bindings::pjsua_acc_config = std::mem::zeroed();
+            bindings::pjsua_acc_config_default(&mut acc_cfg);
+
+            // SIP URI: sip:username@domain
+            let sip_id = format!("sip:{}@{}", config.username, config.domain);
+            let id_bytes = sip_id.as_bytes().to_vec();
+            acc_cfg.id = bindings::pj_str_t {
+                ptr: id_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: id_bytes.len() as c_long,
+            };
+
+            // Registrar URI
+            let reg_uri = config
+                .registrar_uri
+                .clone()
+                .unwrap_or_else(|| format!("sip:{}", config.domain));
+            let reg_bytes = reg_uri.as_bytes().to_vec();
+            acc_cfg.reg_uri = bindings::pj_str_t {
+                ptr: reg_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: reg_bytes.len() as c_long,
+            };
+
+            // Credential（cred_info は opaque なため設定不可。認証は後続チケットで対応）
+            acc_cfg.cred_count = 0;
+
+            // Register on add
+            acc_cfg.register_on_acc_add = if config.register_on_start { 1 } else { 0 };
+
+            // Registration expiry
+            acc_cfg.reg_timeout = config.registration_expires.as_secs() as ::std::os::raw::c_uint;
+
+            let mut acc_id: bindings::pjsua_acc_id = 0;
+            let status = bindings::pjsua_acc_add(
+                &acc_cfg as *const _,
+                0 as bindings::pj_bool_t,
+                &mut acc_id,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_acc_add"));
+            }
+            Ok((
+                acc_id as NativeAccId,
+                ClientCapabilities::default_disabled(),
+            ))
+        }
+    }
+
+    fn remove_account(&mut self, native_acc_id: NativeAccId) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let status = bindings::pjsua_acc_del(native_acc_id as bindings::pjsua_acc_id);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_acc_del"));
+            }
+        }
+        Ok(())
+    }
+
+    fn set_registration(
+        &mut self,
+        native_acc_id: NativeAccId,
+        enabled: bool,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let renew: bindings::pj_bool_t = if enabled { 1 } else { 0 };
+            let status = bindings::pjsua_acc_set_registration(
+                native_acc_id as bindings::pjsua_acc_id,
+                renew,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_acc_set_registration"));
+            }
+        }
+        Ok(())
+    }
+
+    fn make_call(
+        &mut self,
+        native_acc_id: NativeAccId,
+        request: &OutgoingCallRequest,
+    ) -> Result<NativeCallId, SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            // 発信先 URI
+            let uri_bytes = request.target_uri.as_bytes().to_vec();
+            let dst = bindings::pj_str_t {
+                ptr: uri_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: uri_bytes.len() as c_long,
+            };
+
+            // 発信設定（デフォルト）
+            let mut call_opt: bindings::pjsua_call_setting = std::mem::zeroed();
+            bindings::pjsua_call_setting_default(&mut call_opt);
+            call_opt.aud_cnt = 1;
+
+            let mut call_id: bindings::pjsua_call_id = 0;
+            let status = bindings::pjsua_call_make_call(
+                native_acc_id as bindings::pjsua_acc_id,
+                &dst as *const _,
+                &call_opt as *const _,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                &mut call_id as *mut _,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_make_call"));
+            }
+            Ok(call_id as NativeCallId)
+        }
+    }
+
+    fn answer_call(&mut self, native_call_id: NativeCallId, code: u16) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let status = bindings::pjsua_call_answer(
+                native_call_id as bindings::pjsua_call_id,
+                code as ::std::os::raw::c_uint,
+                std::ptr::null(),
+                std::ptr::null(),
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_answer"));
+            }
+        }
+        Ok(())
+    }
+
+    fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let status = bindings::pjsua_call_hangup(
+                native_call_id as bindings::pjsua_call_id,
+                0,
+                std::ptr::null(),
+                std::ptr::null(),
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_hangup"));
+            }
+        }
+        Ok(())
+    }
+
+    fn conf_connect(
+        &mut self,
+        source: NativeConfPortId,
+        sink: NativeConfPortId,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let status = bindings::pjsua_conf_connect(
+                source as bindings::pjsua_conf_port_id,
+                sink as bindings::pjsua_conf_port_id,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_conf_connect"));
+            }
+        }
+        Ok(())
+    }
+
+    fn conf_disconnect(
+        &mut self,
+        source: NativeConfPortId,
+        sink: NativeConfPortId,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            let status = bindings::pjsua_conf_disconnect(
+                source as bindings::pjsua_conf_port_id,
+                sink as bindings::pjsua_conf_port_id,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_conf_disconnect"));
+            }
+        }
+        Ok(())
+    }
+
+    fn configure_codecs(&mut self) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        unsafe {
+            // PCMU（G.711 μ-law）= 最高優先度
+            let pcmu: bindings::pj_str_t = bindings::pj_str_t {
+                ptr: b"PCMU/8000/1\0" as *const u8 as *mut ::std::os::raw::c_char,
+                slen: 10,
+            };
+            let mut status = bindings::pjsua_codec_set_priority(&pcmu as *const _, CODEC_PRIO_PCMU);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(
+                    status,
+                    "pjsua_codec_set_priority PCMU",
+                ));
+            }
+
+            // Opus（利用可能な場合）= 高優先度
+            let opus: bindings::pj_str_t = bindings::pj_str_t {
+                ptr: b"opus/48000/2\0" as *const u8 as *mut ::std::os::raw::c_char,
+                slen: 12,
+            };
+            status = bindings::pjsua_codec_set_priority(&opus as *const _, CODEC_PRIO_OPUS);
+            if status != 0 {
+                // Opus 未インストールの場合は無視
+            }
+
+            // PCMU/Opus 以外の全コーデックを無効化
+            let mut count: ::std::os::raw::c_uint = 128;
+            let mut codecs: Vec<bindings::pjsua_codec_info> =
+                vec![std::mem::zeroed(); count as usize];
+            status = bindings::pjsua_enum_codecs(codecs.as_mut_ptr(), &mut count as *mut _);
+            if status == 0 {
+                for codec in codecs.iter().take(count as usize) {
+                    let codec_id = &codec.codec_id;
+                    let name_bytes = std::slice::from_raw_parts(
+                        codec_id.ptr as *const u8,
+                        codec_id.slen as usize,
+                    );
+                    let name = std::str::from_utf8_unchecked(name_bytes);
+                    if name != "PCMU/8000/1" && !name.starts_with("opus/") {
+                        let _ = bindings::pjsua_codec_set_priority(
+                            codec_id as *const _,
+                            CODEC_PRIO_DISABLED,
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn send_dtmf(
+        &mut self,
+        native_call_id: NativeCallId,
+        _method: &DtmfMethod,
+        digits: &str,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            let digits_bytes = digits.as_bytes().to_vec();
+            let dtmf_str = bindings::pj_str_t {
+                ptr: digits_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: digits_bytes.len() as c_long,
+            };
+            let status = bindings::pjsua_call_dial_dtmf(
+                native_call_id as bindings::pjsua_call_id,
+                &dtmf_str as *const _,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_dial_dtmf"));
+            }
+        }
+        Ok(())
+    }
+
+    fn transfer_call(
+        &mut self,
+        native_call_id: NativeCallId,
+        target: &str,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            let target_bytes = target.as_bytes().to_vec();
+            let dest_str = bindings::pj_str_t {
+                ptr: target_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: target_bytes.len() as c_long,
+            };
+            let status = bindings::pjsua_call_xfer(
+                native_call_id as bindings::pjsua_call_id,
+                &dest_str as *const _,
+                std::ptr::null(),
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_xfer"));
+            }
+        }
+        Ok(())
+    }
+}
 
 // ---------------------------------------------------------------------------
 // SipBackend 実装（PJSIP 不在時のスタブ）
@@ -269,6 +648,7 @@ mod tests {
     }
 
     /// PJSIP feature なしで initialize が unimplemented! になることを確認する。
+    #[cfg(not(feature = "pjsip"))]
     #[test]
     #[should_panic(expected = "not implemented:")]
     fn test_initialize_unimplemented_without_pjsip() {

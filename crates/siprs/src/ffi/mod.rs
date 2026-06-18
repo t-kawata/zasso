@@ -14,12 +14,14 @@
 /// - `non_camel_case_types`: C の型名 (`pjsua_*`) は snake_case
 /// - `non_snake_case`: C の関数名 (`pjsua_*`) は snake_case
 /// - `unused`: 生成コード全体に対する部分利用前提の lint 抑制
+/// - `unnecessary_transmutes`: bindgen 生成のビットフィールドアクセスが古い transmute パターンを生成する
 pub mod bindings {
     #![allow(
         non_upper_case_globals,
         non_camel_case_types,
         non_snake_case,
         unused,
+        unnecessary_transmutes,
         clippy::all
     )]
     include!(concat!(env!("OUT_DIR"), "/pjsip_bindings.rs"));

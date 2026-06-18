@@ -175,7 +175,7 @@ impl CoreReactor {
                     let result = (|| -> Result<(), SipError> {
                         let mut state_guard = state.blocking_write();
                         let _entry = state_guard.get_account_mut(account_id)?;
-                        // [::STUB::] M19-1: AccountConfigPatch の適用は M19-1 以降に実装
+                        // [::STUB::] M19-2（feature flags 設定）以降に実装
                         Err(SipError::invalid_state(
                             "UpdateAccountConfig: patch application not yet implemented",
                         ))

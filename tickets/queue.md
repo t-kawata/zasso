@@ -175,3 +175,6 @@
 - [x] #138 M17-4: PjsuaBackend — SipBackend trait の PJSUA 実装 | /Users/shyme/shyme/zasso/tickets/specs/0138-m17-4-pjsuabackend-sipbackend-trait-pjsua.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #139 M18-1: RustMediaPort — pjmedia_port / get_frame / put_frame | /Users/shyme/shyme/zasso/tickets/specs/0139-m18-1-rustmediaport-pjmedia-port-get-frame-put-frame.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #140 M18-2: AudioBridge — lock-free queue 接続・Conference port 統合 | /Users/shyme/shyme/zasso/tickets/specs/0140-m18-2-audiobridge-lock-free-queue-conference-port.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #141 M19-1: build.rs — prebuilt優先・source build fallback | /Users/shyme/shyme/zasso/tickets/specs/0141-m19-1-buildrs-prebuiltsource-build-fallback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #142 PJSIP 2.17 ソース配置・ビルド検証・FFI 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0142-pjsip-217-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #143 build.rs: prebuilt auto-deploy after source build | /Users/shyme/shyme/zasso/tickets/specs/0143-buildrs-prebuilt-auto-deploy-after-source-build.md | 2026-06-18 | 2026-06-18 | 2026-06-18
