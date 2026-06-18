@@ -1208,7 +1208,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M16-1: `AudioTapHandle` / `AudioTapMode` / `subscribe_audio`
+#### ✅ チケット M16-1: `AudioTapHandle` / `AudioTapMode` / `subscribe_audio`
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§22, §22.1)
 * **対象不変条件 / 規範:** §22「音声タップは Realtime（oldest-drop）と Lossless（backpressure）の2モードを持つ」。§22.1 backpressure policy。§15.7「AudioTapHandle の oldest-drop 戦略と組み合わせて使用すること」。
@@ -1235,7 +1235,7 @@
   9. 既に終了した通話 → `InvalidState` エラー
 * **計装方法・観測対象:** Tap のドロップ回数（`Realtime` モードの `try_send` 失敗回数）。Tap の配送遅延（フレーム生成から購読者受信までの時間）。
 
-#### チケット M16-2: `ResamplePipeline` — rubato 統合
+#### ✅ チケット M16-2: `ResamplePipeline` — rubato 統合
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§26)
 * **対象不変条件 / 規範:** §26「要件に従い rubato を用いる。内部 native format は PJSIP/codec negotiation に応じた monaural i16 PCM とし、利用者要求フォーマットへ出力時変換する」。

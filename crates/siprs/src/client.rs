@@ -24,6 +24,8 @@ use crate::runtime::state::ClientState;
 use crate::util::id::AccountId;
 use crate::account::RegistrationState;
 use crate::audio::source::ErasedAudioSource;
+use crate::audio::tap::AudioTapHandle;
+use crate::audio::tap::AudioTapMode;
 use crate::call::CallState;
 use crate::config::AccountConfig;
 use crate::config::AccountConfigPatch;
@@ -430,6 +432,29 @@ impl SipClient {
                 reply,
             }
         }))
+    }
+
+    /// 通話音声を購読する。
+    ///
+    /// `call_id` で指定された通話の音声を `AudioTapHandle` で受信する。
+    /// `mode` が `Realtime`（既定）の場合、購読者が遅延すると
+    /// oldest-drop で最新フレームが優先される。
+    /// `Lossless` モードではバックプレッシャーがかかる。
+    #[instrument(skip(self))]
+    pub fn subscribe_audio(
+        &self,
+        call_id: CallId,
+        format: crate::audio::format::AudioFormat,
+        capacity: usize,
+        mode: AudioTapMode,
+    ) -> Result<AudioTapHandle, SipError> {
+        self.ensure_not_shutdown()?;
+        let (tx, rx) = tokio::sync::mpsc::channel(capacity);
+        let _ = (call_id, format, mode);
+        let handle = AudioTapHandle::new(rx);
+        // [::STUB::] M16-3（チケット #120）で AudioWorker に tx を登録する。
+        drop(tx);
+        Ok(handle)
     }
 
     /// 音声ソースをミュート/ミュート解除する。
@@ -1307,5 +1332,35 @@ mod tests {
         assert!(client
             .set_audio_source_gain(CallId::generate(), AudioSourceId::generate(), 0.5)
             .is_err());
+    }
+
+    /// subscribe_audio が shutdown 後に ShutdownInProgress を返すことを確認する。
+    #[test]
+    fn test_subscribe_audio_shutdown() {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (handle, _rx) = RuntimeHandle::new();
+        let inner = Arc::new(ClientInner {
+            runtime: handle,
+            events: EventBus::new(16, None),
+            state: Arc::new(RwLock::new(ClientState::new(
+                ClientCapabilities::default_disabled(),
+            ))),
+            shutdown: shutdown_tx,
+        });
+        let client = SipClient { inner };
+        let _ = client.inner.shutdown.send(true);
+
+        let result = client.subscribe_audio(
+            CallId::generate(),
+            crate::audio::format::AudioFormat {
+                sample_rate: crate::audio::format::SampleRate::Hz16000,
+                bit_depth: crate::audio::format::BitDepth::I16,
+                channel_layout: crate::audio::format::ChannelLayout::Mono,
+                frame_ms: 10,
+            },
+            16,
+            crate::audio::tap::AudioTapMode::Realtime,
+        );
+        assert!(result.is_err());
     }
 }

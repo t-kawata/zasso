@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 crossbeam-queue = "0.3"
 dashmap = "6"
+rubato = "3.0.0"
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
 thiserror = "2.0.18"
