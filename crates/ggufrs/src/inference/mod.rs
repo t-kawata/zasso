@@ -2,7 +2,8 @@
 //!
 //! InferenceEngine トレイトを定義し、mistralrs バックエンドへの統一的インターフェースを提供する。
 //!
-//! # [::STUB::] M3-2, M3-3, M3-4 で各メソッドの実装を追加
+//! 実装は以下のサブモジュールに分割する:
+//! - `generate` — `generate()` / `generate_structured()`
 
 use std::pin::Pin;
 
@@ -14,6 +15,10 @@ use mistralrs::{RequestBuilder, Response};
 
 use crate::consts::{DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE};
 use crate::error::GgufError;
+
+// サブモジュール宣言
+pub mod generate;
+pub mod stream;
 
 /// 推論パラメータ
 ///

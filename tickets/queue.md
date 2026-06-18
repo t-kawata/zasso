@@ -179,3 +179,8 @@
 - [x] #142 M2-2: ModelRegistry 非同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0142-m2-2-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #143 M2-3: GgufEngine::new() 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0143-m2-3-ggufenginenew-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #144 M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests) | /Users/kawata/shyme/zasso/tickets/specs/0144-m2-4-mockall-librs-tests-inferencemodrs-tests.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #145 M3-1: GgufConfig::build 完全実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0145-m3-1-ggufconfigbuild-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #146 M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs) | /Users/kawata/shyme/zasso/tickets/specs/0146-m3-2-inferenceengine-generate-generate-structured-inferencegeneraters.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #147 M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs) | /Users/kawata/shyme/zasso/tickets/specs/0147-m3-3-inferenceengine-generate-stream-inferencestreamrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #148 M3-4: InferenceEngine send_raw 実装 (inference/raw.rs) | /Users/kawata/shyme/zasso/tickets/specs/0148-m3-4-inferenceengine-send-raw-inferencerawrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #149 M3-5: lib.rs 統合・re-export 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0149-m3-5-librs-re-export-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18

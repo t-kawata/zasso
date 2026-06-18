@@ -364,7 +364,7 @@
 
 ### マイルストーン M3: 本実装
 
-#### チケット M3-1: GgufConfig::build 完全実装 (config.rs)
+#### ✅ チケット M3-1: GgufConfig::build 完全実装 (config.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M1-4（merge_overlay）。先行実装必須: M0-5（構造体定義）。後続: 全エントリポイント。
@@ -388,7 +388,7 @@
   4. コード設定のみ（ファイル・埋め込みなし）で意図通り動作
   5. ファイルJSONがコード設定を上書きすることを確認
 
-#### チケット M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs)
+#### ✅ チケット M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `generate()`, `generate_structured()`, §5.1 Structured Output)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。後続: M3-3/M3-4（同じ impl ブロック内だが並行可能）、M4-1（サーバーからの呼び出し）。
@@ -409,7 +409,7 @@
   4. GenerateParams の各フィールドが mistralrs パラメータに正しくマッピングされる
   5. モデル切り替え（0.8B → 2B）が正しく動作する
 
-#### チケット M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs)
+#### ✅ チケット M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.3 `generate_stream()`, §5.2 ストリーミングと通常生成)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2（依存関係は同一だがファイル分割されている）。
@@ -427,7 +427,7 @@
   3. エラー時にストリームが適切に終了する
   4. 空メッセージ時の動作
 
-#### チケット M3-4: InferenceEngine send_raw 実装 (inference/raw.rs)
+#### ✅ チケット M3-4: InferenceEngine send_raw 実装 (inference/raw.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.3 `send_raw()`, 低レベルAPI設計)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2/M3-3。
@@ -443,7 +443,7 @@
   2. モデル名の解決が正しく行われる
   3. RequestBuilder の内容が改変されずに mistralrs に渡される
 
-#### チケット M3-5: lib.rs 統合・re-export 実装 (lib.rs)
+#### ✅ チケット M3-5: lib.rs 統合・re-export 実装 (lib.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§8.3 mistralrs 型の re-export, モジュール構成)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 実装完了）、M2-3（GgufEngine::new()）。後続: M4-2、M5-2。

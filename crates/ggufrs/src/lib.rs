@@ -22,21 +22,24 @@ pub mod config;
 pub mod consts;
 pub mod error;
 
-// [::STUB::] M2-1 で InferenceEngine トレイトを実装
 pub mod inference;
-
-// [::STUB::] M2-2 で ModelRegistry を実装
 pub mod registry;
 
 // [::STUB::] M4-1 で server モジュールを実装
 pub mod server;
 
-// [::STUB::] M3-5 で以下の pub use を実際の型に差し替える
-// pub use mistralrs::{
-//     Model, RequestBuilder, TextMessages, TextMessageRole,
-//     Constraint, ChatCompletionResponse,
-//     IsqBits,
-// };
+// mistralrs の主要型を crate 利用者に公開する
+// ggufrs のみを依存関係に追加すれば mistralrs の型も利用可能
+pub use mistralrs::{
+    ChatCompletionResponse, Constraint, Model, RequestBuilder, Response, SamplingParams,
+    TextMessages, TextMessageRole,
+};
+
+// ggufrs の公開型（crate ルートから利用可能）
+pub use config::{ConfigLayer, GgufConfig, GpuConfig, GpuProvider, ModelConfig, ServerConfig};
+pub use error::GgufError;
+pub use inference::{GenerateParams, InferenceEngine};
+pub use registry::{ModelInfo, ModelRegistry};
 
 /// GGUF 推論エンジン
 ///
