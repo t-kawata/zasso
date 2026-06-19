@@ -10,7 +10,20 @@ thiserror = "2"
 http = "1"
 tokio = { version = "1", features = ["sync"] }
 clap = { version = "4", features = ["derive"] }
+axum = { version = "0.8.9", optional = true }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "stream"], optional = true }
+uuid = { version = "1.23.3", features = ["v4"], optional = true }
+serde_json = "1"
+futures = "0.3.32"
+tokio-util = { version = "0.7.18", features = ["io"] }
+tokio-stream = "0.1.18"
+llm-bridge-core = { version = "0.2.6", optional = true }
 
 [dev-dependencies]
+axum-test = "20.1.0"
 serde_json = "1"
 tokio = { version = "1", features = ["rt", "macros", "time"] }
+
+[features]
+default = ["server"]
+server = ["dep:axum", "dep:reqwest", "dep:uuid", "dep:llm-bridge-core", "tokio/full"]

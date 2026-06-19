@@ -1,6 +1,8 @@
 //! # ユーティリティ関数
 //!
-//! HTTP ヘッダ処理など、ルーティングに付随する純粋ロジック関数群。
+//! HTTP ヘッダ処理、リクエスト ID 生成など、ルーティングに付随する純粋ロジック関数群。
+
+pub mod ids;
 
 use http::header::{self, HeaderValue};
 use http::HeaderMap;
@@ -9,7 +11,7 @@ use http::HeaderMap;
 ///
 /// これらのヘッダはプロキシを越えて転送されるべきではなく、
 /// `build_upstream_headers` で除去される。
-const HOP_BY_HOP_HEADERS: &[&str] = &[
+pub(crate) const HOP_BY_HOP_HEADERS: &[&str] = &[
     "connection",
     "keep-alive",
     "proxy-authenticate",

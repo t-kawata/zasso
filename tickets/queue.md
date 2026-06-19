@@ -211,3 +211,8 @@
 - [x] #159 M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理 | /Users/shyme01/shyme/zasso/tickets/specs/0159-m2-1-keyscheduler-round-robin-key.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #160 M2-2: ConcurrencyLimiter — Semaphore-based backpressure | /Users/shyme01/shyme/zasso/tickets/specs/0160-m2-2-concurrencylimiter-semaphore-based-backpressure.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #161 M2-3: ConfigLoader — TOML 読込 + CLI | /Users/shyme01/shyme/zasso/tickets/specs/0161-m2-3-configloader-toml-cli.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #162 M3-1: AppState + Router + ProxyError::into_response | /Users/shyme01/shyme/zasso/tickets/specs/0162-m3-1-appstate-router-proxyerrorinto-response.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #163 M3-2: 認証 Tower middleware | /Users/shyme01/shyme/zasso/tickets/specs/0163-m3-2-tower-middleware.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #164 M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton | /Users/shyme01/shyme/zasso/tickets/specs/0164-m3-3-endpoint-handlers-healthz-metrics-v1models-v1messages-skeleton.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [ ] #165 M3-4: Transparent provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0165-m3-4-transparent-provider-mode.md | 2026-06-19 | 2026-06-19
+- [x] #166 M3-5: Translate provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0166-m3-5-translate-provider-mode.md | 2026-06-19 | 2026-06-19 | 2026-06-19

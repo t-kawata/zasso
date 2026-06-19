@@ -265,7 +265,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M3-1: AppState + Router + ProxyError::into_response
+#### ✅ チケット M3-1: AppState + Router + ProxyError::into_response
 
 * **参照設計書:** crates/anthropx/RFC.md (§3.1 AppState, §3.3 Router, §11 ProxyError IntoResponse)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2, M2-1, M2-2
@@ -296,7 +296,7 @@
   4. エラーレスポンスの Content-Type が `application/json`
 * **計装方法・観測対象:** エラーレスポンスの JSON バリデーション、ステータスコードとエラー型の一致率
 
-#### チケット M3-2: 認証 Tower middleware
+#### ✅ チケット M3-2: 認証 Tower middleware
 
 * **参照設計書:** crates/anthropx/RFC.md (§3.2 クライアント認証 + upstream 認証)
 * **依存・関連チケットID:** 先行実装必須: M3-1（Router が必要）
@@ -323,7 +323,7 @@
   6. upstream Layer がクライアント認証 header を正しく除去する
 * **計装方法・観測対象:** 認証成功/失敗のカウント、認証ヘッダの種類分布
 
-#### チケット M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton
+#### ✅ チケット M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton
 
 * **参照設計書:** crates/anthropx/RFC.md (§3.3 エンドポイント一覧, §10 可観測性)
 * **依存・関連チケットID:** 先行実装必須: M3-1, M3-2。後続: M3-4, M3-5（具体的な provider 処理を実装）
@@ -357,7 +357,7 @@
   6. メトリクスカウンタが正しく増加する
 * **計装方法・観測対象:** 各 endpoint の応答ステータス分布、レスポンスタイム、list_models の model 数
 
-#### チケット M3-4: Transparent provider mode
+#### ✅ チケット M3-4: Transparent provider mode
 
 * **参照設計書:** crates/anthropx/RFC.md (§5.1 Transparent mode, §8 Streaming SSE proxy)
 * **依存・関連チケットID:** 先行実装必須: M3-3（handle_messages の routing 解決が必要）。後続: M3-5（Translate は Transparent と同じインターフェースを共有）
@@ -400,7 +400,7 @@
   7. **Failover禁止 (stream)**: 503 → 即時エラー終端
 * **計装方法・観測対象:** ストリーム中継のレイテンシ、転送バイト数、failover 発火率、client disconnect の検出レイテンシ
 
-#### チケット M3-5: Translate provider mode
+#### ✅ チケット M3-5: Translate provider mode
 
 * **参照設計書:** crates/anthropx/RFC.md (§5.2 Translate mode, §1.3 bridge interface, §6 Lossy Translation)
 * **依存・関連チケットID:** 先行実装必須: M3-4（transparent と同じインターフェースパターン）。外部依存: `llm-bridge-core` crate
