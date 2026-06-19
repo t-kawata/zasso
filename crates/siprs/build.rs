@@ -63,9 +63,12 @@ fn emit_platform_link_directives() {
         "macos" => {
             println!("cargo:rustc-link-lib=framework=CoreAudio");
             println!("cargo:rustc-link-lib=framework=CoreFoundation");
-            if cfg_enabled("tls") {
-                println!("cargo:rustc-link-lib=framework=Security");
-            }
+            println!("cargo:rustc-link-lib=framework=CoreServices");
+            println!("cargo:rustc-link-lib=framework=AudioToolbox");
+            // Apple Security Framework は pjlib の SSL ソケット実装
+            // （ssl_sock_apple.m, ssl_sock_darwin.c）から常に参照されるため、
+            // tls feature の有無に関わらずリンクする。
+            println!("cargo:rustc-link-lib=framework=Security");
         }
         "linux" => {
             println!("cargo:rustc-link-lib=asound");

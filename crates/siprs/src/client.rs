@@ -17,7 +17,7 @@ use crate::call::CallState;
 use crate::config::validate_account_config;
 use crate::config::AccountConfig;
 use crate::config::AccountConfigPatch;
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use crate::config::ClientConfig;
 use crate::config::DtmfMethod;
 use crate::config::OutgoingCallRequest;
@@ -35,16 +35,16 @@ use crate::runtime::state::ClientState;
 use crate::util::id::AccountId;
 use crate::util::id::AudioSourceId;
 use crate::util::id::CallId;
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use tokio::sync::watch;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use crate::config::validate_client_config;
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use crate::event::ClientCapabilities;
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use crate::runtime::backend::SipBackend;
-#[cfg(test)]
+#[cfg(any(test, feature = "pjsip"))]
 use crate::runtime::reactor::CoreReactor;
 
 /// 現在の Tokio ランタイムハンドルを取得する。
@@ -110,7 +110,7 @@ impl SipClient {
     /// 3. CoreReactor 起動（SipBackend 経由）
     /// 4. Initialize コマンド送信
     /// 5. ClientInitialized イベント発行完了まで待機
-    #[cfg(test)]
+    #[cfg(any(test, feature = "pjsip"))]
     #[instrument(skip_all)]
     pub(crate) fn new(
         config: ClientConfig,
@@ -160,6 +160,16 @@ impl SipClient {
         Ok(Self { inner })
     }
 
+    /// PjsuaBackend を使用して SipClient を生成する（結合テスト用）。
+    ///
+    /// `feature = "pjsip"` 有効時のみ利用可能。
+    #[cfg(feature = "pjsip")]
+    #[instrument(skip_all)]
+    pub fn new_with_pjsip(config: ClientConfig) -> Result<Self, SipError> {
+        let backend = Box::new(crate::ffi::pjsua_backend::PjsuaBackend::new());
+        Self::new(config, backend)
+    }
+
     /// 制御系イベントを購読する。
     #[instrument(skip(self))]
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<SipEvent> {
@@ -186,14 +196,16 @@ impl SipClient {
     pub fn add_account(&self, config: AccountConfig) -> Result<SipAccountHandle, SipError> {
         validate_account_config(&config)?;
 
+        let account_id = AccountId::generate();
+
         block_on(
             self.inner
                 .runtime
-                .send_and_wait(|reply| RuntimeCommand::AddAccount { config, reply }),
+                .send_and_wait(|reply| RuntimeCommand::AddAccount { account_id, config, reply }),
         )?;
 
         Ok(SipAccountHandle {
-            id: AccountId::generate(),
+            id: account_id,
             client: self.clone(),
         })
     }

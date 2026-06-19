@@ -69,14 +69,21 @@ add_library(pjlib
   src/pj/ssl_sock_common.c
   src/pj/ssl_sock_darwin.c
   src/pj/ssl_sock_dump.c
-  src/pj/ssl_sock_gtls.c
-  src/pj/ssl_sock_mbedtls.c
-  src/pj/ssl_sock_ossl.c
   src/pj/string.c
   src/pj/timer.c
   src/pj/types.c
   src/pj/unittest.c
 )
+
+# Non-Apple SSL backends (excluded on macOS to avoid OpenSSL dependency).
+# Apple Security Framework (`ssl_sock_apple.m`) is added separately below.
+if(NOT APPLE)
+  target_sources(pjlib PRIVATE
+    src/pj/ssl_sock_gtls.c
+    src/pj/ssl_sock_mbedtls.c
+    src/pj/ssl_sock_ossl.c
+  )
+endif()
 
 # Ensure generated headers are found before source headers
 target_include_directories(pjlib
