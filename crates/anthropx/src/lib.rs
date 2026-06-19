@@ -9,7 +9,9 @@
 //! - `routing`: ルーティング純粋関数（parse_provider_model, resolve_model, resolve_api_format）
 //! - `util`: ユーティリティ関数（build_upstream_headers）
 
+pub mod cli;
 pub mod config;
+pub mod provider;
 pub mod routing;
 pub mod util;
 

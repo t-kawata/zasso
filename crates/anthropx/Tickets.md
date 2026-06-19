@@ -175,7 +175,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理
+#### ✅ チケット M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理
 
 * **参照設計書:** crates/anthropx/RFC.md (§4.2 API key スケジューラ)
 * **依存・関連チケットID:** 先行実装必須: M0-1
@@ -203,7 +203,7 @@
   4. `key_count()` が key 配列長と一致する
 * **計装方法・観測対象:** 選択分布の一様性（カイ二乗検定）、failover 試行回数のカウント
 
-#### チケット M2-2: ConcurrencyLimiter — Semaphore-based backpressure
+#### ✅ チケット M2-2: ConcurrencyLimiter — Semaphore-based backpressure
 
 * **参照設計書:** crates/anthropx/RFC.md (§7 並行性制御)
 * **依存・関連チケットID:** 先行実装必須: M0-1 (GlobalLimitConfig)
@@ -231,7 +231,7 @@
   5. 1000回の acquire/release サイクルでカウンタのリークがない
 * **計装方法・観測対象:** acquire のレイテンシ分布、queue depth の時間推移、permit の自動解放検証（ドロップカウンタ）
 
-#### チケット M2-3: ConfigLoader — TOML 読込 + CLI
+#### ✅ チケット M2-3: ConfigLoader — TOML 読込 + CLI
 
 * **参照設計書:** crates/anthropx/RFC.md (§2 設定システム, Appendix A)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M1-2。後続: 全チケット

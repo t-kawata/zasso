@@ -3,6 +3,8 @@
 //! model 文字列解析・エイリアス解決・API 形式解決の純粋ロジック関数群。
 //! 一切の I/O・非同期実行を含まず、単体テストで完全に検証可能。
 
+pub mod scheduler;
+
 use std::collections::BTreeMap;
 
 use crate::config::{OpenAiWireApi, ProviderConfig, ResolvedModel};

@@ -208,3 +208,6 @@
 - [x] #156 M0-2: LossyLevel / ProxyError / ResolvedModel / ConfigError | /Users/shyme01/shyme/zasso/tickets/specs/0156-m0-2-lossylevel-proxyerror-resolvedmodel-configerror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #157 M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject | /Users/shyme01/shyme/zasso/tickets/specs/0157-m1-1-parse-provider-model-resolve-model-resolve-api-format-build-upstream-headers-lossylevelshould-reject.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #158 M1-2: AppConfig::validate — 集約型設定検証 | /Users/shyme01/shyme/zasso/tickets/specs/0158-m1-2-appconfigvalidate.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #159 M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理 | /Users/shyme01/shyme/zasso/tickets/specs/0159-m2-1-keyscheduler-round-robin-key.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #160 M2-2: ConcurrencyLimiter — Semaphore-based backpressure | /Users/shyme01/shyme/zasso/tickets/specs/0160-m2-2-concurrencylimiter-semaphore-based-backpressure.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #161 M2-3: ConfigLoader — TOML 読込 + CLI | /Users/shyme01/shyme/zasso/tickets/specs/0161-m2-3-configloader-toml-cli.md | 2026-06-19 | 2026-06-19 | 2026-06-19
