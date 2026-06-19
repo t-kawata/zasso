@@ -204,3 +204,7 @@
 - [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #153 M5-1: build.rs モデル自動ダウンロード | /Users/kawata/shyme/zasso/tickets/specs/0153-m5-1-buildrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #154 M5-2: test-run バイナリ (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0154-m5-2-test-run-srcbintest-runrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #155 M0-1: AppConfig / GlobalConfig / ProviderConfig / ModelConfig / TimeoutConfig / GlobalLimitConfig | /Users/shyme01/shyme/zasso/tickets/specs/0155-m0-1-appconfig-globalconfig-providerconfig-modelconfig-timeoutconfig-globallimitconfig.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 M0-2: LossyLevel / ProxyError / ResolvedModel / ConfigError | /Users/shyme01/shyme/zasso/tickets/specs/0156-m0-2-lossylevel-proxyerror-resolvedmodel-configerror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject | /Users/shyme01/shyme/zasso/tickets/specs/0157-m1-1-parse-provider-model-resolve-model-resolve-api-format-build-upstream-headers-lossylevelshould-reject.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 M1-2: AppConfig::validate — 集約型設定検証 | /Users/shyme01/shyme/zasso/tickets/specs/0158-m1-2-appconfigvalidate.md | 2026-06-19 | 2026-06-19 | 2026-06-19

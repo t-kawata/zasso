@@ -17,7 +17,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M0-1: AppConfig / GlobalConfig / ProviderConfig / ModelConfig / TimeoutConfig / GlobalLimitConfig
+#### ✅ チケット M0-1: AppConfig / GlobalConfig / ProviderConfig / ModelConfig / TimeoutConfig / GlobalLimitConfig
 
 * **参照設計書:** crates/anthropx/RFC.md (§2 設定システム, §5 Provider モード)
 * **依存・関連チケットID:** なし（全チケット中最先行）
@@ -49,7 +49,7 @@
   5. `ModelConfig` の `enabled` がデフォルト `true`
 * **計装方法・観測対象:** 構造体サイズ（メモリフットプリント）、シリアライズ/デシリアライズのラウンドトリップ一貫性
 
-#### チケット M0-2: OpenAiWireApi / LogFormat / LossyLevel / ProxyError / ResolvedModel / ConfigError
+#### ✅ チケット M0-2: OpenAiWireApi / LogFormat / LossyLevel / ProxyError / ResolvedModel / ConfigError
 
 * **参照設計書:** crates/anthropx/RFC.md (§2 設定システム, §6 Lossy Translation, §11 エラー型)
 * **依存・関連チケットID:** M0-1 に依存（ConfigError は AppConfig::validate の戻り値型の一部）
@@ -79,7 +79,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject
+#### ✅ チケット M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject
 
 * **参照設計書:** crates/anthropx/RFC.md (§4.1 model 解析・alias 解決, §1.3 システム境界, §3.2 header policy, §6 Lossy Translation)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2
@@ -129,7 +129,7 @@
   17. `resolve_api_format(Auto, "http://host/v1/responses")` → `OpenaiResponses`
 * **計装方法・観測対象:** 関数カバレッジ（全分岐パス網羅）、文字列処理のメモリアロケーション回数
 
-#### チケット M1-2: AppConfig::validate — 集約型設定検証
+#### ✅ チケット M1-2: AppConfig::validate — 集約型設定検証
 
 * **参照設計書:** crates/anthropx/RFC.md (§2.1 設定検証ルール)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2
