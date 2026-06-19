@@ -216,3 +216,21 @@
 - [x] #160 M6-1: server/types.rs 新規作成 — OpenAI 互換型自前定義 | /Users/kawata/shyme/zasso/tickets/specs/0160-m6-1-servertypesrs-openai.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #161 M6-2: error.rs 修正 — MistralrsError → LlamaCppError | /Users/kawata/shyme/zasso/tickets/specs/0161-m6-2-errorrs-mistralrserror-llamacpperror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #162 M6-3: config.rs + settings.rs 修正 — mistralrs 特化フィールド除去 | /Users/kawata/shyme/zasso/tickets/specs/0162-m6-3-configrs-settingsrs-mistralrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #155 M0-1: AppConfig / GlobalConfig / ProviderConfig / ModelConfig / TimeoutConfig / GlobalLimitConfig | /Users/shyme01/shyme/zasso/tickets/specs/0155-m0-1-appconfig-globalconfig-providerconfig-modelconfig-timeoutconfig-globallimitconfig.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 M0-2: LossyLevel / ProxyError / ResolvedModel / ConfigError | /Users/shyme01/shyme/zasso/tickets/specs/0156-m0-2-lossylevel-proxyerror-resolvedmodel-configerror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject | /Users/shyme01/shyme/zasso/tickets/specs/0157-m1-1-parse-provider-model-resolve-model-resolve-api-format-build-upstream-headers-lossylevelshould-reject.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 M1-2: AppConfig::validate — 集約型設定検証 | /Users/shyme01/shyme/zasso/tickets/specs/0158-m1-2-appconfigvalidate.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #159 M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理 | /Users/shyme01/shyme/zasso/tickets/specs/0159-m2-1-keyscheduler-round-robin-key.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #160 M2-2: ConcurrencyLimiter — Semaphore-based backpressure | /Users/shyme01/shyme/zasso/tickets/specs/0160-m2-2-concurrencylimiter-semaphore-based-backpressure.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #161 M2-3: ConfigLoader — TOML 読込 + CLI | /Users/shyme01/shyme/zasso/tickets/specs/0161-m2-3-configloader-toml-cli.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #162 M3-1: AppState + Router + ProxyError::into_response | /Users/shyme01/shyme/zasso/tickets/specs/0162-m3-1-appstate-router-proxyerrorinto-response.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #163 M3-2: 認証 Tower middleware | /Users/shyme01/shyme/zasso/tickets/specs/0163-m3-2-tower-middleware.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #164 M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton | /Users/shyme01/shyme/zasso/tickets/specs/0164-m3-3-endpoint-handlers-healthz-metrics-v1models-v1messages-skeleton.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #165 M3-4: Transparent provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0165-m3-4-transparent-provider-mode.md | 2026-06-19 | 2026-06-19
+- [x] #166 M3-5: Translate provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0166-m3-5-translate-provider-mode.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #167 M4-1: ProxyServer::start — 起動シーケンス + ServerHandle | /Users/shyme01/shyme/zasso/tickets/specs/0167-m4-1-proxyserverstart-serverhandle.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #168 M4-2: Binary entrypoint (main.rs) | /Users/shyme01/shyme/zasso/tickets/specs/0168-m4-2-binary-entrypoint-mainrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #169 M4-3: Mock server integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0169-m4-3-mock-server-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #170 M4-4: Real provider integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0170-m4-4-real-provider-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #171 Translate mode 本実装 — llm-bridge-core 変換 | /Users/shyme01/shyme/zasso/tickets/specs/0171-translate-mode-llm-bridge-core.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #172 ProviderClient 導入 + ConcurrencyLimiter 接続 | /Users/shyme01/shyme/zasso/tickets/specs/0172-providerclient-concurrencylimiter.md | 2026-06-19 | 2026-06-19 | 2026-06-19
