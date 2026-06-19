@@ -1,3 +1,5 @@
+**これは、mistralrs を使用することを前提とした古いRFCです。**
+
 # RFC: ggufrs — Rust による GGUF モデル推論エンジンクレート
 
 ## Abstract

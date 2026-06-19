@@ -22,7 +22,7 @@
 /// - `MistralrsError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
 /// - 内部エラーを持つバリアントは `Box<dyn std::error::Error + Send + Sync>` でラップする
 /// - `Send + Sync` を満たすため、スレッド間でのエラー伝搬が可能
-/// `std::io::Error` → `GgufError::InvalidConfig` への変換
+///   `std::io::Error` → `GgufError::InvalidConfig` への変換
 ///
 /// ファイル操作やネットワーク I/O で発生したエラーを設定エラーとしてラップする。
 /// 設定ファイルの読み込み等で使用される。

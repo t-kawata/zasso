@@ -1,3 +1,5 @@
+**これは、mistralrs を使用することを前提とした古いTickets.mdです。**
+
 # ggufrs 実装チケット分解設計書
 
 > **生成元:** crates/ggufrs/RFC.md
@@ -602,7 +604,7 @@
 >
 > 関連: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md`
 
-#### チケット M5-2.1: Gemma4 モデル情報調査と ModelConfig 追加 (config.rs)
+#### ✅ チケット M5-2.1: Gemma4 モデル情報調査と ModelConfig 追加 (config.rs)
 
 * **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
 * **依存・関連チケットID:** 先行実装必須: M0-5（設定構造体定義）、M1-1（ModelConfig コンストラクタ）。
@@ -623,7 +625,7 @@
   3. Qwen3.5 の既存テストが変更なしで通過する
   4. `cargo test` 全通過
 
-#### チケット M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs)
+#### ✅ チケット M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs)
 
 * **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§7.1 ダウンロード方式)
 * **依存・関連チケットID:** 先行実装必須: M5-2.1（Gemma4 ModelConfig 追加）。先行実装必須: M5-1（build.rs 骨格）。
@@ -639,7 +641,7 @@
   2. `cargo build` でモデルがダウンロードされる
   3. 既存テスト全通過（`cargo test`）
 
-#### チケット M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント）
+#### ✅ チケット M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント）
 
 * **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§9.3)
 * **依存・関連チケットID:** 先行実装必須: M5-2.2（UQFF 読み込み対応）。
@@ -663,7 +665,7 @@
   2. test-run の全パターンが Gemma4 E2B で正常動作する（目視確認）
   3. Structured Output が 128 トークン以内で完了すること（確認）
 
-#### チケット M5-2.4: test-run + 実動作確認
+#### ✅ チケット M5-2.4: test-run + 実動作確認
 
 * **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
 * **依存・関連チケットID:** 先行実装必須: M5-2.3（test-run 設定切替）。
@@ -679,6 +681,26 @@
   2. Structured Output が正しい JSON フォーマットであること（目視確認）
   3. ストリーミング出力が逐次表示されること（確認）
   4. エラー時もバイナリが panic せずサマリーを表示すること
+
+---
+
+#### チケット M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs)
+
+* **参照設計書:** `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO02.md`
+* **依存・関連チケットID:** 先行実装必須: M5-2.2（UQFF 読み込み対応）。後続: M5-2.4（test-run 再実施）。
+* **対象不変条件 / 規範:** `GgufModelBuilder` の動作に影響を与えない。`build_model_with_uqff()` のみ修正する。既存の175テストが変更なしで通過する。
+* **実装の背景と目的:** mistralrs v0.8.1 の `auto_device_map.rs` に二重pushバグがあり、macOS ARM 環境では `sysinfo` のバグと複合して `cpu (avail: 0MB)` となりモデルがロードできない。`DeviceMapSetting::dummy()` で Auto device map をバイパスすることで回避する。
+* **高速化の設計判断:**
+  - **`DeviceMapSetting::dummy()` を採用**: Auto map のメモリフィット計算を完全スキップする。モデルファイルは1GB、実メモリは24GBあるため、フィット計算なしでも問題ない。
+  - **`with_force_cpu()` を併用**: CPU デバイスを明示固定する。
+  - 参照: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO02.md`（Q1・Q2 の回答）
+* **実装スコープ:**
+  - `registry.rs`: `build_model_with_uqff()` に `.with_device_mapping(DeviceMapSetting::dummy())` と `.with_force_cpu()` を追加
+  - `cargo run --bin test-run` で 3/3 PASS を確認（M5-2.4 を再実施）
+* **テストコードによる検証:**
+  1. `cargo check` が通過する
+  2. `cargo test` 全175件が通過する
+  3. `cargo run --bin test-run` で全パターン PASS する
 
 ---
 
@@ -750,7 +772,8 @@ M0-1: Cargo.toml プロジェクト骨格
   │                   │       │       └── M5-2.2: UQFF 読み込み ← M5-2.1, M5-1
   │                   │       │           └── M5-2.3: test-run 切替 ← M5-2.2
   │                   │       │               └── M5-2.4: 実動作確認 ← M5-2.3
-  │                   │       └── M5-3: 結合テスト ← M5-2.3
+	  │                   │       │                   └── M5-2.5: DeviceMap 修正 ← M5-2.4
+  │                   │       └── M5-3: 結合テスト ← M5-2.5
   │                   └── M4-1: サーバールーター ← M3-2,M3-3,M3-4, M2-1
   │                       └── M4-2: GgufEngine サーバー統合 ← M4-1, M2-3
   │                           └── M4-3: サーバー結合テスト ← M4-1, M4-2
@@ -786,6 +809,6 @@ Phase D (サーバー):
 
 Phase E (ビルド・ツーリング):
   Step 6: M5-1 (build.rs) → M5-2 (test-run)
-  Step 7: M5-2.1 (Gemma4 ModelConfig) → M5-2.2 (UQFF 読み込み) → M5-2.3 (test-run 切替) → M5-2.4 (実動作確認)
-  Step 8: M5-3 (結合テスト) → M5-4 (最終調整)
+  Step 7: M5-2.1 (Gemma4 ModelConfig) → M5-2.2 (UQFF 読み込み) → M5-2.3 (test-run 切替) → M5-2.4 (実動作確認) → M5-2.5 (DeviceMap 修正)
+  Step 8: M5-2.5 (test-run 再実施) → M5-3 (結合テスト) → M5-4 (最終調整)
 ```

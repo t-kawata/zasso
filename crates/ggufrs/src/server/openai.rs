@@ -49,14 +49,12 @@ fn parse_messages(body: &Value) -> TextMessages {
 fn extract_chat_response(response: Response) -> Result<ChatCompletionResponse, AppError> {
     match response {
         Response::Done(chat_response) => Ok(chat_response),
-        Response::ModelError(msg, _) => Err(GgufError::InferenceFailed(Box::new(
-            std::io::Error::new(std::io::ErrorKind::Other, msg),
-        ))
-        .into()),
+        Response::ModelError(msg, _) => {
+            Err(GgufError::InferenceFailed(Box::new(std::io::Error::other(msg))).into())
+        }
         Response::InternalError(e) => Err(GgufError::InferenceFailed(e).into()),
         Response::ValidationError(e) => Err(GgufError::InvalidConfig(e.to_string()).into()),
-        _ => Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        _ => Err(GgufError::InferenceFailed(Box::new(std::io::Error::other(
             "unexpected response type from mistralrs",
         )))
         .into()),
@@ -71,7 +69,7 @@ pub async fn openai_chat_handler(
     State(engine): State<AppState>,
     Json(body): Json<Value>,
 ) -> Result<Json<ChatCompletionResponse>, AppError> {
-    let model_name = body["model"].as_str().unwrap_or("qwen3.5-0.8b");
+    let model_name = body["model"].as_str().unwrap_or("gemma4-e2b");
 
     let text_messages = parse_messages(&body);
     let request_builder = RequestBuilder::from(text_messages);
@@ -89,6 +87,8 @@ pub async fn list_models_handler(State(_engine): State<AppState>) -> Json<Value>
     Json(serde_json::json!({
         "object": "list",
         "data": [
+            {"id": "gemma4-e2b", "object": "model"},
+            {"id": "gemma4-e4b", "object": "model"},
             {"id": "qwen3.5-0.8b", "object": "model"},
             {"id": "qwen3.5-2b", "object": "model"},
         ],
@@ -130,7 +130,7 @@ pub async fn anthropic_messages_handler(
     let openai_body: Value = serde_json::from_slice(&openai_req.body)
         .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
 
-    let model_name = openai_body["model"].as_str().unwrap_or("qwen3.5-0.8b");
+    let model_name = openai_body["model"].as_str().unwrap_or("gemma4-e2b");
 
     let text_messages = parse_messages(&openai_body);
     let request_builder = RequestBuilder::from(text_messages);

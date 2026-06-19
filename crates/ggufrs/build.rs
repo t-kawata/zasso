@@ -1,19 +1,22 @@
-//! build.rs — GGUF モデルファイル自動ダウンロード
+//! build.rs — GGUF / UQFF モデルファイル自動ダウンロード
 //!
 //! 移植元: crates/voiput/build.rs（同一方式）
 //!
-//! ビルド時に2つのビルトインモデル（Qwen3.5-0.8B-Q4_K_M, Qwen3.5-2B-Q4_K_M）を
-//! Hugging Face から自動ダウンロードする。ダウンロードは curl（Unix）または
-//! powershell（Windows）で行い、新規依存クレートを追加しない。
+//! ビルド時にビルトインモデル（Qwen3.5-0.8B-Q4_K_M, Qwen3.5-2B-Q4_K_M、
+//! Gemma4 E2B, Gemma4 E4B）を Hugging Face から自動ダウンロードする。
+//! ダウンロードは curl（Unix）または powershell（Windows）で行い、
+//! 新規依存クレートを追加しない。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// ダウンロードするモデルファイル一覧（ファイル名, URL）
 ///
-/// Hugging Face unsloth リポジトリから2つのビルトインモデルをダウンロードする。
-/// ファイル名は ModelConfig のビルトインコンストラクタ（model_path）と一致させる。
+/// Hugging Face unsloth リポジトリから2つのビルトイン GGUF モデル、
+/// mistralrs-community リポジトリから2つの Gemma4 UQFF モデルをダウンロードする。
+/// ファイル名（相対パス）は ModelConfig のビルトインコンストラクタ（model_path）と一致させる。
 const MODEL_FILES: &[(&str, &str)] = &[
+    // Qwen3.5 GGUF モデル（維持: 将来 mistralrs 対応時の再利用に備える）
     (
         "Qwen3.5-0.8B-Q4_K_M.gguf",
         "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
@@ -21,6 +24,16 @@ const MODEL_FILES: &[(&str, &str)] = &[
     (
         "Qwen3.5-2B-Q4_K_M.gguf",
         "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+    ),
+    // Gemma4 E2B UQFF モデル（≈3.1GB, Q4K 量子化）
+    (
+        "gemma4-e2b-uqff/q4k-0.uqff",
+        "https://huggingface.co/mistralrs-community/gemma-4-E2B-it-UQFF/resolve/main/q4k-0.uqff",
+    ),
+    // Gemma4 E4B UQFF モデル（≈5.0GB, Q4K 量子化）
+    (
+        "gemma4-e4b-uqff/q4k-0.uqff",
+        "https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF/resolve/main/q4k-0.uqff",
     ),
 ];
 
@@ -36,22 +49,31 @@ fn main() {
     std::fs::create_dir_all(&model_dir).expect("failed to create models/ directory");
 
     // 存在しないモデルファイルのみダウンロードする
+    // ダウンロード失敗時は警告を出力するが、ビルド自体は継続する
+    // （モデルファイルが存在しない場合、test-run 等の実行時にエラーとなる）
     for (filename, url) in MODEL_FILES {
         let file_path = model_dir.join(filename);
         if !file_path.exists() {
+            // サブディレクトリ（gemma4-e2b-uqff/ 等）の親ディレクトリを作成する
+            if let Some(parent) = file_path.parent() {
+                std::fs::create_dir_all(parent).expect("failed to create model subdirectory");
+            }
             println!("cargo:warning=Downloading {}...", filename);
-            download_file(url, &file_path);
+            if !download_file(url, &file_path) {
+                println!("cargo:warning=Failed to download {filename}. Run `cargo build` again to retry.");
+            }
         }
     }
 
-    // 全モデルファイルの存在を確認する
+    // 全モデルファイルの存在確認（不足時は警告のみ）
     for (filename, _) in MODEL_FILES {
         let file_path = model_dir.join(filename);
-        assert!(
-            file_path.exists(),
-            "Model file not found: {}. Try running `cargo build` again.",
-            file_path.display()
-        );
+        if !file_path.exists() {
+            println!(
+                "cargo:warning=Model file not found: {}. Run `cargo build` again to retry.",
+                file_path.display()
+            );
+        }
     }
 
     // モデルディレクトリの内容が変更された場合のみ再ビルドする
@@ -68,9 +90,11 @@ fn model_directory() -> PathBuf {
 }
 
 /// Unix 環境で curl を使用してファイルをダウンロードする
+///
+/// 成功時に `true`、失敗時に `false` を返す（ビルドは継続する）。
 #[cfg(not(target_os = "windows"))]
-fn download_file(url: &str, dest: &PathBuf) {
-    let status = Command::new("curl")
+fn download_file(url: &str, dest: &Path) -> bool {
+    let status = match Command::new("curl")
         .args([
             "-sS",
             "-L",
@@ -81,14 +105,22 @@ fn download_file(url: &str, dest: &PathBuf) {
             url,
         ])
         .status()
-        .expect("Failed to execute curl. Is curl installed?");
-    assert!(status.success(), "Failed to download: {url}");
+    {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("cargo:warning=Failed to execute curl: {e}");
+            return false;
+        }
+    };
+    status.success()
 }
 
 /// Windows 環境で PowerShell を使用してファイルをダウンロードする
+///
+/// 成功時に `true`、失敗時に `false` を返す（ビルドは継続する）。
 #[cfg(target_os = "windows")]
-fn download_file(url: &str, dest: &PathBuf) {
-    let status = Command::new("powershell")
+fn download_file(url: &str, dest: &Path) -> bool {
+    let status = match Command::new("powershell")
         .args([
             "-NoProfile",
             "-Command",
@@ -99,6 +131,12 @@ fn download_file(url: &str, dest: &PathBuf) {
             ),
         ])
         .status()
-        .expect("Failed to execute PowerShell.");
-    assert!(status.success(), "Failed to download: {url}");
+    {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("cargo:warning=Failed to execute PowerShell: {e}");
+            return false;
+        }
+    };
+    status.success()
 }

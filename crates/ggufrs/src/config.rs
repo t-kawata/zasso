@@ -68,11 +68,11 @@ impl GpuProvider {
         }
         #[cfg(target_os = "macos")]
         {
-            return Self::Metal;
+            Self::Metal
         }
         #[cfg(target_os = "windows")]
         {
-            return Self::DirectML;
+            Self::DirectML
         }
         #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
@@ -83,6 +83,7 @@ impl GpuProvider {
     /// 文字列から GPU プロバイダーをパースする
     ///
     /// 大文字小文字を区別しない。未知の値には `None` を返す。
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "auto" => Some(Self::Auto),
@@ -215,6 +216,45 @@ impl ModelConfig {
             model_path: PathBuf::from("models/Qwen3.5-2B-Q4_K_M.gguf"),
             lazy_load: true,
             context_size: Some(32768),
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    /// Gemma4 E2B モデルの設定を返す
+    ///
+    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E2B（≈3.1GB）UQFF モデル。
+    /// Qwen3.5 非互換問題の代替として使用する。
+    /// context_size は ASR 補正タスクに最適化した 2048 に固定。
+    ///
+    /// ## 高速化の設計判断
+    /// - `context_size: Some(2048)`: ASR 補正タスク（入出力 60-90 トークン）では
+    ///   128k フルコンテキストは不要。2k に制限することで prefill コストを削減する。
+    ///   参照: `docs/mistralrs-gemma4-e2b-e4b/INFO.md`
+    pub fn gemma4_e2b() -> Self {
+        Self {
+            name: "gemma4-e2b".into(),
+            model_path: PathBuf::from("models/gemma4-e2b-uqff/q4k-0.uqff"),
+            lazy_load: true,
+            context_size: Some(2048),
+            gpu_layers: None,
+            batch_size: None,
+            chat_template: None,
+        }
+    }
+
+    /// Gemma4 E4B モデルの設定を返す
+    ///
+    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E4B（≈5.0GB）UQFF モデル。
+    /// E2B より高精度だが、より多くのメモリと推論時間を要する。
+    /// context_size は E2B 同様 2048 に固定。
+    pub fn gemma4_e4b() -> Self {
+        Self {
+            name: "gemma4-e4b".into(),
+            model_path: PathBuf::from("models/gemma4-e4b-uqff/q4k-0.uqff"),
+            lazy_load: true,
+            context_size: Some(2048),
             gpu_layers: None,
             batch_size: None,
             chat_template: None,
@@ -722,6 +762,86 @@ mod tests {
     fn custom_lazy_load_is_true() {
         let config = ModelConfig::custom("test", "test.gguf");
         assert!(config.lazy_load);
+    }
+
+    // ── Gemma4 ModelConfig tests (M5-2.1) ──
+
+    #[test]
+    fn gemma4_e2b_has_correct_name() {
+        let config = ModelConfig::gemma4_e2b();
+        assert_eq!(config.name, "gemma4-e2b");
+    }
+
+    #[test]
+    fn gemma4_e2b_has_correct_context_size() {
+        let config = ModelConfig::gemma4_e2b();
+        assert_eq!(config.context_size, Some(2048));
+    }
+
+    #[test]
+    fn gemma4_e2b_lazy_load_is_true() {
+        let config = ModelConfig::gemma4_e2b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn gemma4_e2b_optional_fields_are_none() {
+        let config = ModelConfig::gemma4_e2b();
+        assert!(config.gpu_layers.is_none());
+        assert!(config.batch_size.is_none());
+        assert!(config.chat_template.is_none());
+    }
+
+    #[test]
+    fn gemma4_e2b_is_idempotent() {
+        let first = ModelConfig::gemma4_e2b();
+        let second = ModelConfig::gemma4_e2b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
+        assert_eq!(first.chat_template, second.chat_template);
+    }
+
+    #[test]
+    fn gemma4_e4b_has_correct_name() {
+        let config = ModelConfig::gemma4_e4b();
+        assert_eq!(config.name, "gemma4-e4b");
+    }
+
+    #[test]
+    fn gemma4_e4b_has_correct_context_size() {
+        let config = ModelConfig::gemma4_e4b();
+        assert_eq!(config.context_size, Some(2048));
+    }
+
+    #[test]
+    fn gemma4_e4b_lazy_load_is_true() {
+        let config = ModelConfig::gemma4_e4b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn gemma4_e4b_optional_fields_are_none() {
+        let config = ModelConfig::gemma4_e4b();
+        assert!(config.gpu_layers.is_none());
+        assert!(config.batch_size.is_none());
+        assert!(config.chat_template.is_none());
+    }
+
+    #[test]
+    fn gemma4_e4b_is_idempotent() {
+        let first = ModelConfig::gemma4_e4b();
+        let second = ModelConfig::gemma4_e4b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
+        assert_eq!(first.chat_template, second.chat_template);
     }
 
     #[test]

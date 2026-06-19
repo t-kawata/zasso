@@ -204,3 +204,8 @@
 - [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #153 M5-1: build.rs モデル自動ダウンロード | /Users/kawata/shyme/zasso/tickets/specs/0153-m5-1-buildrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #154 M5-2: test-run バイナリ (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0154-m5-2-test-run-srcbintest-runrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #155 M5-2.1: Gemma4 モデル情報調査と ModelConfig 追加 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0155-m5-21-gemma4-modelconfig-configrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0156-m5-22-uqff-buildrs-registryrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0157-m5-23-gemma4-test-runrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 M5-2.4: test-run + 実動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0158-m5-24-test-run.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [-] #159 M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0159-m5-25-uqff-devicemap-registryrs.md | 2026-06-19 | 2026-06-19
