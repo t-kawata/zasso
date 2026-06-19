@@ -56,6 +56,13 @@ pub struct GenerateParams {
     /// 出現頻度の高いトークンに対してペナルティを課す。
     /// 正の値で多様性が向上する。`None` の場合はモデルデフォルト。
     pub frequency_penalty: Option<f32>,
+
+    /// 拡張思考（chain-of-thought）の有効化
+    ///
+    /// `Some(true)` で有効化、`Some(false)` で無効化。
+    /// `None` の場合は mistralrs のデフォルト動作に委譲する。
+    /// ASR 補正タスクでは `Some(false)` を推奨（高速化の設計判断）。
+    pub enable_thinking: Option<bool>,
 }
 
 impl Default for GenerateParams {
@@ -66,6 +73,7 @@ impl Default for GenerateParams {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         }
     }
 }
@@ -234,6 +242,16 @@ pub(crate) mod tests {
         assert!(params.top_p.is_none());
         assert!(params.presence_penalty.is_none());
         assert!(params.frequency_penalty.is_none());
+        assert!(params.enable_thinking.is_none());
+    }
+
+    #[test]
+    fn generate_params_enable_thinking_true() {
+        let params = GenerateParams {
+            enable_thinking: Some(true),
+            ..GenerateParams::default()
+        };
+        assert_eq!(params.enable_thinking, Some(true));
     }
 
     // ── Mock-based tests (M2-4) ──

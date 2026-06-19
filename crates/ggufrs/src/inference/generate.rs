@@ -82,14 +82,22 @@ impl InferenceEngine for GgufEngine {
     ) -> Result<String, GgufError> {
         let model = self.registry.get(model_name).await?;
 
-        let request = RequestBuilder::new()
-            .add_message(TextMessageRole::User, prompt)
-            .set_sampling(params.into());
+        let enable_thinking = params.enable_thinking;
+        let request = {
+            let base = RequestBuilder::new()
+                .add_message(TextMessageRole::User, prompt)
+                .set_sampling(params.into());
+            match enable_thinking {
+                Some(val) => base.enable_thinking(val),
+                None => base,
+            }
+        };
 
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         response
             .choices
@@ -116,15 +124,23 @@ impl InferenceEngine for GgufEngine {
     ) -> Result<Value, GgufError> {
         let model = self.registry.get(model_name).await?;
 
-        let request = RequestBuilder::new()
-            .add_message(TextMessageRole::User, prompt)
-            .set_sampling(params.into())
-            .set_constraint(Constraint::JsonSchema(schema));
+        let enable_thinking = params.enable_thinking;
+        let request = {
+            let base = RequestBuilder::new()
+                .add_message(TextMessageRole::User, prompt)
+                .set_sampling(params.into())
+                .set_constraint(Constraint::JsonSchema(schema));
+            match enable_thinking {
+                Some(val) => base.enable_thinking(val),
+                None => base,
+            }
+        };
 
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         let content = response
             .choices
@@ -147,9 +163,16 @@ impl InferenceEngine for GgufEngine {
         params: GenerateParams,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError> {
         let model = self.registry.get(model_name).await?;
-        let request = RequestBuilder::new()
-            .add_message(TextMessageRole::User, prompt)
-            .set_sampling(params.into());
+        let enable_thinking = params.enable_thinking;
+        let request = {
+            let base = RequestBuilder::new()
+                .add_message(TextMessageRole::User, prompt)
+                .set_sampling(params.into());
+            match enable_thinking {
+                Some(val) => base.enable_thinking(val),
+                None => base,
+            }
+        };
 
         // mistralrs::Stream<'_> が &Model を借用するため、そのまま spawn できない。
         // 解決策: 生ポインタで borrow checker の制約を回避する。
@@ -159,7 +182,8 @@ impl InferenceEngine for GgufEngine {
         let mut mistral_stream = model_ref
             .stream_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<String, GgufError>>(16);
 
@@ -203,7 +227,8 @@ impl InferenceEngine for GgufEngine {
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
         Ok(Response::Done(response))
     }
 }
@@ -223,6 +248,7 @@ mod tests {
             top_p: Some(0.9),
             presence_penalty: Some(0.1),
             frequency_penalty: Some(0.2),
+            enable_thinking: None,
         };
         let sp = SamplingParams::from(gp);
 
@@ -250,6 +276,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let sp = SamplingParams::from(gp);
 

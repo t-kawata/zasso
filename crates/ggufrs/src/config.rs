@@ -30,19 +30,14 @@ pub enum GpuProvider {
     /// Apple Metal（macOS）
     ///
     /// Apple Silicon / AMD GPU を Metal Performance Shaders 経由で利用する。
-    /// mistralrs の metal feature と対応する。
+    /// llama-cpp-2 の metal feature と対応する。
     Metal,
 
-    /// DirectML（Windows）
-    ///
-    /// Windows の DirectML バックエンド。
-    /// 現在の mistralrs v0.8.1 では未対応だが、将来の拡張性のために定義する。
-    DirectML,
 
     /// NVIDIA CUDA（Linux / Windows）
     ///
     /// NVIDIA GPU を CUDA 経由で利用する。
-    /// mistralrs の cuda feature と対応する。
+    /// llama-cpp-2 の cuda feature と対応する。
     Cuda,
 
     /// CPU のみ（全環境）
@@ -57,7 +52,7 @@ impl GpuProvider {
     /// 1. `GGUFRS_GPU_PROVIDER` 環境変数が設定されていれば、その値を使用する
     /// 2. 環境変数が未設定なら、実行中の OS から自動検出する:
     ///    - macOS → Metal
-    ///    - Windows → DirectML（将来拡張）
+    ///    - Windows → Cpu
     ///    - その他 → Cpu
     pub fn detect() -> Self {
         let env_var = crate::consts::GPU_PROVIDER_ENV_VAR;
@@ -68,11 +63,11 @@ impl GpuProvider {
         }
         #[cfg(target_os = "macos")]
         {
-            return Self::Metal;
+            Self::Metal
         }
         #[cfg(target_os = "windows")]
         {
-            return Self::DirectML;
+            Self::Cpu
         }
         #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
@@ -83,27 +78,37 @@ impl GpuProvider {
     /// 文字列から GPU プロバイダーをパースする
     ///
     /// 大文字小文字を区別しない。未知の値には `None` を返す。
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "auto" => Some(Self::Auto),
             "metal" => Some(Self::Metal),
-            "directml" => Some(Self::DirectML),
             "cuda" => Some(Self::Cuda),
             "cpu" => Some(Self::Cpu),
             _ => None,
         }
     }
 
-    /// mistralrs の feature flag 名を返す
+    /// 対応する cargo feature 名を返す
     ///
-    /// Cpu および Auto の場合は空文字列（CPU-only ビルドで対応）。
-    /// Metal / Cuda は対応する mistralrs feature 名を返す。
-    /// DirectML は mistralrs v0.8.1 で未対応のため空文字列。
-    pub fn mistralrs_feature(&self) -> &'static str {
+    /// build.rs はこの値をもとに cmake フラグを設定する。
+    pub fn feature_name(&self) -> &'static str {
         match self {
             Self::Metal => "metal",
             Self::Cuda => "cuda",
-            Self::Auto | Self::Cpu | Self::DirectML => "",
+            Self::Cpu | Self::Auto => "cpu",
+        }
+    }
+
+    /// 対応する cmake フラグ名と値を返す
+    ///
+    /// build.rs で LLAMA_METAL=ON / LLAMA_CUDA=ON の設定に使用する。
+    /// CPU および Auto の場合は空のベクタを返す（cmake フラグ不要）。
+    pub fn cmake_flags(&self) -> Vec<(&'static str, &'static str)> {
+        match self {
+            Self::Metal => vec![("LLAMA_METAL", "ON")],
+            Self::Cuda => vec![("LLAMA_CUDA", "ON")],
+            Self::Cpu | Self::Auto => vec![],
         }
     }
 }
@@ -179,11 +184,6 @@ pub struct ModelConfig {
     /// `None` の場合はモデルデフォルトが使用される。
     pub batch_size: Option<u32>,
 
-    /// チャットテンプレート（省略可）
-    ///
-    /// このモデルに固有のチャットテンプレート。
-    /// `None` の場合はモデルファイル内のテンプレートが使用される。
-    pub chat_template: Option<String>,
 }
 
 impl ModelConfig {
@@ -200,7 +200,6 @@ impl ModelConfig {
             context_size: Some(32768),
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }
     }
 
@@ -217,7 +216,43 @@ impl ModelConfig {
             context_size: Some(32768),
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
+        }
+    }
+
+    /// Gemma4 E2B モデルの設定を返す
+    ///
+    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E2B（≈3.1GB）UQFF モデル。
+    /// Qwen3.5 非互換問題の代替として使用する。
+    /// context_size は ASR 補正タスクに最適化した 2048 に固定。
+    ///
+    /// ## 高速化の設計判断
+    /// - `context_size: Some(2048)`: ASR 補正タスク（入出力 60-90 トークン）では
+    ///   128k フルコンテキストは不要。2k に制限することで prefill コストを削減する。
+    ///   参照: `docs/mistralrs-gemma4-e2b-e4b/INFO.md`
+    pub fn gemma4_e2b() -> Self {
+        Self {
+            name: "gemma4-e2b".into(),
+            model_path: PathBuf::from("models/gemma4-e2b-uqff/q4k-0.uqff"),
+            lazy_load: true,
+            context_size: Some(2048),
+            gpu_layers: None,
+            batch_size: None,
+        }
+    }
+
+    /// Gemma4 E4B モデルの設定を返す
+    ///
+    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E4B（≈5.0GB）UQFF モデル。
+    /// E2B より高精度だが、より多くのメモリと推論時間を要する。
+    /// context_size は E2B 同様 2048 に固定。
+    pub fn gemma4_e4b() -> Self {
+        Self {
+            name: "gemma4-e4b".into(),
+            model_path: PathBuf::from("models/gemma4-e4b-uqff/q4k-0.uqff"),
+            lazy_load: true,
+            context_size: Some(2048),
+            gpu_layers: None,
+            batch_size: None,
         }
     }
 
@@ -233,7 +268,6 @@ impl ModelConfig {
             context_size: None,
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }
     }
 }
@@ -456,7 +490,6 @@ mod tests {
         let variants = [
             GpuProvider::Auto,
             GpuProvider::Metal,
-            GpuProvider::DirectML,
             GpuProvider::Cuda,
             GpuProvider::Cpu,
         ];
@@ -479,11 +512,6 @@ mod tests {
         assert_eq!(json, "\"Metal\"");
     }
 
-    #[test]
-    fn gpu_provider_directml_serializes_to_directml() {
-        let json = serde_json::to_string(&GpuProvider::DirectML).unwrap();
-        assert_eq!(json, "\"DirectML\"");
-    }
 
     #[test]
     fn gpu_provider_cuda_serializes_to_cuda() {
@@ -576,24 +604,41 @@ mod tests {
     }
 
     #[test]
-    fn mistralrs_feature_metal() {
-        assert_eq!(GpuProvider::Metal.mistralrs_feature(), "metal");
+    fn feature_name_metal() {
+        assert_eq!(GpuProvider::Metal.feature_name(), "metal");
     }
 
     #[test]
-    fn mistralrs_feature_cuda() {
-        assert_eq!(GpuProvider::Cuda.mistralrs_feature(), "cuda");
+    fn feature_name_cuda() {
+        assert_eq!(GpuProvider::Cuda.feature_name(), "cuda");
     }
 
     #[test]
-    fn mistralrs_feature_cpu_auto_empty() {
-        assert_eq!(GpuProvider::Cpu.mistralrs_feature(), "");
-        assert_eq!(GpuProvider::Auto.mistralrs_feature(), "");
+    fn feature_name_cpu_auto() {
+        assert_eq!(GpuProvider::Cpu.feature_name(), "cpu");
+        assert_eq!(GpuProvider::Auto.feature_name(), "cpu");
     }
 
     #[test]
-    fn mistralrs_feature_directml_empty() {
-        assert_eq!(GpuProvider::DirectML.mistralrs_feature(), "");
+    fn cmake_flags_metal() {
+        assert_eq!(
+            GpuProvider::Metal.cmake_flags(),
+            vec![("LLAMA_METAL", "ON")]
+        );
+    }
+
+    #[test]
+    fn cmake_flags_cuda() {
+        assert_eq!(
+            GpuProvider::Cuda.cmake_flags(),
+            vec![("LLAMA_CUDA", "ON")]
+        );
+    }
+
+    #[test]
+    fn cmake_flags_cpu_auto() {
+        assert!(GpuProvider::Cpu.cmake_flags().is_empty());
+        assert!(GpuProvider::Auto.cmake_flags().is_empty());
     }
 
     #[test]
@@ -639,7 +684,6 @@ mod tests {
             context_size: Some(16384),
             gpu_layers: Some(24),
             batch_size: Some(8),
-            chat_template: Some("custom_template".into()),
         };
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: ModelConfig = serde_json::from_str(&json).unwrap();
@@ -715,13 +759,88 @@ mod tests {
         assert!(config.context_size.is_none());
         assert!(config.gpu_layers.is_none());
         assert!(config.batch_size.is_none());
-        assert!(config.chat_template.is_none());
     }
 
     #[test]
     fn custom_lazy_load_is_true() {
         let config = ModelConfig::custom("test", "test.gguf");
         assert!(config.lazy_load);
+    }
+
+    // ── Gemma4 ModelConfig tests (M5-2.1) ──
+
+    #[test]
+    fn gemma4_e2b_has_correct_name() {
+        let config = ModelConfig::gemma4_e2b();
+        assert_eq!(config.name, "gemma4-e2b");
+    }
+
+    #[test]
+    fn gemma4_e2b_has_correct_context_size() {
+        let config = ModelConfig::gemma4_e2b();
+        assert_eq!(config.context_size, Some(2048));
+    }
+
+    #[test]
+    fn gemma4_e2b_lazy_load_is_true() {
+        let config = ModelConfig::gemma4_e2b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn gemma4_e2b_optional_fields_are_none() {
+        let config = ModelConfig::gemma4_e2b();
+        assert!(config.gpu_layers.is_none());
+        assert!(config.batch_size.is_none());
+    }
+
+    #[test]
+    fn gemma4_e2b_is_idempotent() {
+        let first = ModelConfig::gemma4_e2b();
+        let second = ModelConfig::gemma4_e2b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
+    }
+
+    #[test]
+    fn gemma4_e4b_has_correct_name() {
+        let config = ModelConfig::gemma4_e4b();
+        assert_eq!(config.name, "gemma4-e4b");
+    }
+
+    #[test]
+    fn gemma4_e4b_has_correct_context_size() {
+        let config = ModelConfig::gemma4_e4b();
+        assert_eq!(config.context_size, Some(2048));
+    }
+
+    #[test]
+    fn gemma4_e4b_lazy_load_is_true() {
+        let config = ModelConfig::gemma4_e4b();
+        assert!(config.lazy_load);
+    }
+
+    #[test]
+    fn gemma4_e4b_optional_fields_are_none() {
+        let config = ModelConfig::gemma4_e4b();
+        assert!(config.gpu_layers.is_none());
+        assert!(config.batch_size.is_none());
+    }
+
+    #[test]
+    fn gemma4_e4b_is_idempotent() {
+        let first = ModelConfig::gemma4_e4b();
+        let second = ModelConfig::gemma4_e4b();
+        assert_eq!(first.name, second.name);
+        assert_eq!(first.model_path, second.model_path);
+        assert_eq!(first.lazy_load, second.lazy_load);
+        assert_eq!(first.context_size, second.context_size);
+        assert_eq!(first.gpu_layers, second.gpu_layers);
+        assert_eq!(first.batch_size, second.batch_size);
     }
 
     #[test]
@@ -734,7 +853,6 @@ mod tests {
         assert_eq!(first.context_size, second.context_size);
         assert_eq!(first.gpu_layers, second.gpu_layers);
         assert_eq!(first.batch_size, second.batch_size);
-        assert_eq!(first.chat_template, second.chat_template);
     }
 
     #[test]
@@ -747,7 +865,6 @@ mod tests {
         assert_eq!(first.context_size, second.context_size);
         assert_eq!(first.gpu_layers, second.gpu_layers);
         assert_eq!(first.batch_size, second.batch_size);
-        assert_eq!(first.chat_template, second.chat_template);
     }
 
     // ── ServerConfig tests (M0-5) ──
@@ -796,7 +913,6 @@ mod tests {
                 context_size: None,
                 gpu_layers: None,
                 batch_size: None,
-                chat_template: None,
             }],
             server: ServerConfig::default(),
             gpu: GpuConfig::default(),
@@ -847,7 +963,6 @@ mod tests {
             context_size: None,
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }
     }
 

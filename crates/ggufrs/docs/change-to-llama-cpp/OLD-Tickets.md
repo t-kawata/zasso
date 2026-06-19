@@ -1,6 +1,8 @@
+**これは、mistralrs を使用することを前提とした古いTickets.mdです。**
+
 # ggufrs 実装チケット分解設計書
 
-> **生成元:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md
+> **生成元:** crates/ggufrs/RFC.md
 > **生成日:** 2026-06-17
 > **分析済みセクション:** §1(全体アーキテクチャ), §2(モデル管理), §3(サーバーモード), §4(モデル自動ダウンロード), §5(推論実行IF), §6(設定管理), §7(テスト), §8(エラー型), §9(依存関係管理), Appendix(A-E)
 
@@ -18,7 +20,7 @@
 
 #### ✅ チケット M0-1: Cargo.toml / lib.rs プロジェクト骨格
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§8.1 Cargo.toml, §8.3 mistralrs 型の re-export)
+* **参照設計書:** crates/ggufrs/RFC.md (§8.1 Cargo.toml, §8.3 mistralrs 型の re-export)
 * **依存・関連チケットID:** 全チケットの先行実装必須
 * **対象不変条件 / 規範:** Cargo.toml に依存関係を直接手書きせず `cargo add` を使用する。`[::STUB::]` 未マークのスタブ禁止。`default-features = false` + `features = ["gguf"]` を基本とする。
 * **実装の背景と目的:** 全チケットのビルド基盤。最初に crate の骨格を確立し、以降のチケットが段階的に機能を追加できるようにする。mistralrs のバージョンは固定せず `cargo update` で追従可能な状態とし、`Cargo.lock` はバージョン管理対象とする。
@@ -42,7 +44,7 @@
 
 #### ✅ チケット M0-2: 静的定数定義 (consts/settings.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§4.1 静的定数、Appendix C)
+* **参照設計書:** crates/ggufrs/RFC.md (§4.1 静的定数、Appendix C)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M0-4（GgufError は定数参照しないが同時期実装可能）、全チケットから参照。
 * **対象不変条件 / 規範:** マジックナンバーの直書き禁止。設定値は `consts/settings.rs` で一元管理し、`consts/mod.rs` 経由で参照する。テストコード内も含めてポート番号等を直書きしない。
 * **実装の背景と目的:** zasso CLAUDE.md の「設定値は consts/settings.rs で一元管理」ルールを遵守する。GGUFRS_GPU_PROVIDER 環境変数名のような文字列定数もここで定義する。
@@ -68,7 +70,7 @@
 
 #### ✅ チケット M0-3: GpuProvider 列挙型 (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§5 GPU自動検出機構)
+* **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-2（GpuProvider メソッド実装）。
 * **対象不変条件 / 規範:** `GpuProvider` は5バリアントで固定。`serde::Deserialize` / `Serialize` を derive し JSON config で使用可能にする。
 * **実装の背景と目的:** GPUプロバイダー選択は設定の一部であり、`config.rs` で宣言する。この段階では列挙型の定義のみ。
@@ -87,7 +89,7 @@
 
 #### ✅ チケット M0-4: GgufError 列挙型 (error.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§6 エラー型)
+* **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-3（From impls）、全実装チケットのエラー伝搬基盤。
 * **対象不変条件 / 規範:** `GgufError` は6バリアントで固定（ModelNotFound, ModelLoadFailed, InferenceFailed, ServerStartupFailed, InvalidConfig, MistralrsError）。`thiserror` で `#[derive(Error)]` を使用。各バリアントに `#[error("...")]` 属性で日本語エラーメッセージを記述。`std::error::Error` トレイトを実装。
 * **実装の背景と目的:** crate 内の全エラーを単一の列挙型に集約し、`?` 演算子による透過的なエラー伝搬を可能にする。`thiserror` の `#[from]` 属性により `mistralrs::Error` からの自動変換が可能。
@@ -109,7 +111,7 @@
 
 #### ✅ チケット M0-5: 設定構造体定義 (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.2 ModelConfig と ModelInfo, §3.1 ServerConfig, §4.2 JSON マルチソースマージ)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo, §3.1 ServerConfig, §4.2 JSON マルチソースマージ)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2（`DEFAULT_RT_PORT` を `ServerConfig::default()` で使用）、M0-3（GpuProvider をフィールドに含む）。後続: M1-1（ModelConfig コンストラクタ）、M1-4（GgufConfig merge_overlay）。
 * **対象不変条件 / 規範:** `ModelConfig` / `ServerConfig` / `GgufConfig` は全て `serde::Deserialize` + `Serialize` を derive し、JSON config との相互変換を保証する。さらに `Clone`, `Debug`, `PartialEq` も derive する（テスト・clone 操作・デバッグ出力で必要）。`ServerConfig` と `GpuConfig` は `Default` の手動実装が必要（`SocketAddr` が Default 非対応のため）。フィールドは全て `pub` または getter を持つ。設定値のデフォルトは `consts/settings.rs` の定数を参照する。
 * **実装の背景と目的:** この段階では各構造体のフィールド定義と JSON 入出力のみ。実際のマージロジックやビルダーメソッドは M1 で実装する。構造体定義を先行させることで、以降のチケットが型に依存できるようになる。
@@ -142,7 +144,7 @@
 
 #### ✅ チケット M0-6: ModelInfo 構造体定義 (registry.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.2 ModelConfig と ModelInfo)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo)
 * **依存・関連チケットID:** 先行実装必須: M0-5（ModelConfig からの変換）。後続: M1-5（ModelRegistry 同期メソッド）。
 * **対象不変条件 / 規範:** `ModelInfo` は `ModelConfig` の全フィールドを内包し、加えて `model: Option<Arc<Model>>` を保持する。`From<ModelConfig>` を実装し、`ModelConfig` から一意に変換可能。`model` フィールドのみ `pub(crate)` で外部からの直接操作を制限。
 * **実装の背景と目的:** 「設定（ModelConfig）」と「実行時状態（ModelInfo）」の2層分離を実現する。`ModelInfo` は ModelRegistry 内部でのみ生成・保持され、外部には `Arc<Model>` のみが公開される。
@@ -165,7 +167,7 @@
 
 #### ✅ チケット M1-1: ModelConfig ビルトインコンストラクタ (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.2 ModelConfig, `qwen3_5_0_8b()`, `qwen3_5_2b()`, `custom()`)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig, `qwen3_5_0_8b()`, `qwen3_5_2b()`, `custom()`)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: テストコードで直接使用。
 * **対象不変条件 / 規範:** `qwen3_5_0_8b()` は name="qwen3.5-0.8b", path="models/Qwen3.5-0.8B-Q4_K_M.gguf", lazy_load=true, context_size=32768 で固定。`qwen3_5_2b()` も同様に固定。`custom()` は引数以外の全オプションフィールドを `None` にする。これらの関数は純粋コンストラクタであり、副作用を持たない。
 * **実装の背景と目的:** ビルトインモデル設定の提供は ggufrs の価値提案の核。`custom()` は crate 利用者が任意の mistralrs 対応モデルを登録するための汎用インターフェース。Qwen3.5 シリーズ以外を利用する場合も全く同じ型システム内で設定可能であることを保証する。
@@ -184,7 +186,7 @@
 
 #### ✅ チケット M1-2: GpuProvider メソッド実装 (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§5 GPU自動検出機構, `detect()`, `from_str()`, `mistralrs_feature()`)
+* **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構, `detect()`, `from_str()`, `mistralrs_feature()`)
 * **依存・関連チケットID:** 先行実装必須: M0-3。後続: M3-2（InferenceEngine 実装時に GPU feature を解決）。
 * **対象不変条件 / 規範:** `detect()` は macOS → Metal、Windows → DirectML、その他 → Cpu を返す。`GGUFRS_GPU_PROVIDER` 環境変数が設定されていればそれを優先する。`from_str()` は大文字小文字を区別せず、未知の値には `None` を返す。`mistralrs_feature()` は Cpu/Auto に対して空文字列を返す。
 * **実装の背景と目的:** 環境変数によるランタイム上書きとコンパイル時デフォルトのハイブリッド方式。これによりユーザーはビルドオプションと実行時設定の両方で GPU プロバイダーを制御できる。
@@ -201,7 +203,7 @@
 
 #### ✅ チケット M1-3: GgufError From トレイト実装 (error.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§6 エラー型、各バリアントの From 実装)
+* **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型、各バリアントの From 実装)
 * **依存・関連チケットID:** 先行実装必須: M0-4。後続: 全実装チケットで `?` 演算子使用時に必要。
 * **対象不変条件 / 規範:** `From<mistralrs::Error>` は `#[from]` 属性で自動導出。`From<std::io::Error>` と `From<serde_json::Error>` は手動実装し、それぞれ `InvalidConfig` にマッピング。`From<anyhow::Error>` は実装せず、anyhow は上位層でのみ使用する。
 * **実装の背景と目的:** `?` 演算子による透過的なエラー伝搬を crate 全体で可能にする。mistralrs のエラー型変更に追随しやすいよう `#[from]` 属性で自動導出する部分と、意味的に適切なバリアントにマッピングする手動実装部分を明確に分離する。
@@ -217,7 +219,7 @@
 
 #### ✅ チケット M1-4: GgufConfig マージロジック (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
+* **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: M3-1（ファイルI/O を含む完全実装）。
 * **対象不変条件 / 規範:** `merge_overlay()` は上位優先度の設定を `self` に上書きマージする。models は `name` フィールドをキーにマージし、同名モデルは上書き、新規モデルは追加。server と gpu は上書き（`bind.port() != 0` かつ `provider != Auto` の場合のみ）。この関数は純粋で、外部I/O・エラーを発生させない。
 * **実装の背景と目的:** 3層マージの核となるロジック。この段階では同期的なマージのみを実装し、ファイル読み取りや JSON パースは M3-1 で追加する。これによりマージロジックを早期に単独テストできる。
@@ -242,7 +244,7 @@
 
 #### ✅ チケット M1-5: ModelRegistry 同期メソッド (registry.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.1 ModelRegistry, `new()`, `from_config()`, `add_model()`, `list_models()`)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `new()`, `from_config()`, `add_model()`, `list_models()`)
 * **依存・関連チケットID:** 先行実装必須: M0-6（ModelInfo）。後続: M2-2（非同期メソッド追加）。
 * **対象不変条件 / 規範:** `new()` は空の Registry を生成。`from_config()` は各 ModelConfig を ModelInfo に変換して保持。`add_model()` はスレッドセーフにモデルを追加（RwLock 使用）。`list_models()` は登録済みモデル名の一覧を返す。この段階では全て同期的。
 * **実装の背景と目的:** ModelRegistry の同期 API を先行実装し、非同期メソッド（モデルロード等）は M2-2 で追加する。分割により同期部分の単体テストを早期に行える。
@@ -271,7 +273,7 @@
 
 #### ✅ チケット M2-1: InferenceEngine トレイト定義 (inference/mod.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.3 推論単位でのモデル切替, `InferenceEngine` トレイト)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `InferenceEngine` トレイト)
 * **依存・関連チケットID:** 先行実装必須: M0-2（`DEFAULT_TEMPERATURE` 等の `GenerateParams` デフォルト値）、M0-3, M0-4。先行実装必須: M1-5（ModelRegistry の型が必要）。後続: M2-4（モックテスト）、M3-2/M3-3/M3-4（実装）。
 * **対象不変条件 / 規範:** トレイトは4メソッドを規定。全てのメソッドは `model_name: &str` を第一引数に取る。`Send + Sync` をスーパートレイトとして要求する。`#[async_trait]` マクロを使用。トレイト自体の変更なく mistralrs の新機能に対応できるよう、`send_raw()` で低レベルアクセス経路を確保する。
 * **実装の背景と目的:** ggufrs の最も重要な抽象化。このトレイトが crate の公開APIの中核となる。4メソッドのうち3つが高レベルAPI、1つが低レベルAPIという設計により、使いやすさと拡張性を両立する。`Send + Sync` 要求により `Arc<dyn InferenceEngine>` としてスレッドセーフに共有可能。
@@ -293,7 +295,7 @@
 
 #### ✅ チケット M2-2: ModelRegistry 非同期メソッド (registry.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.1 ModelRegistry, `get()`, `load_immediate()`, `load_all()`)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `get()`, `load_immediate()`, `load_all()`)
 * **依存・関連チケットID:** 先行実装必須: M1-5。後続: M2-3（GgufEngine::new()）、M3-2（実モデルロード）。
 * **対象不変条件 / 規範:** `get()` は lazy_load=true かつ未ロードの場合のみロードを試みる。`load_immediate()` は lazy_load=false のモデルのみロード。`load_all()` は全モデルを強制ロード。ロード中は書き込みロックを取得し、それ以外は読み取りロックで動作。この段階ではモデルロードは `[::STUB::]` として `todo!()` または `Err(ModelLoadFailed)` を返す（M3-2 で実装）。
 * **実装の背景と目的:** モデルの遅延ロード機構の非同期ラッパーを先に実装し、実際の GgufModelBuilder 呼び出しは M3-2 で実装する。これにより ModelRegistry のロック戦略と async インターフェースを早期に確定できる。
@@ -312,7 +314,7 @@
 
 #### ✅ チケット M2-3: GgufEngine::new() 実装 (lib.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§1.2 GgufEngine のライフサイクル, `GgufEngine::new()`)
+* **参照設計書:** crates/ggufrs/RFC.md (§1.2 GgufEngine のライフサイクル, `GgufEngine::new()`)
 * **依存・関連チケットID:** 先行実装必須: M2-2（ModelRegistry 非同期メソッド）、M0-5（GgufConfig）。後続: M3-1（GgufConfig::build 完全実装）、M4-2（サーバー起動）。
 * **対象不変条件 / 規範:** `new()` は設定から ModelRegistry を構築し、lazy_load=false のモデルをプリロードする。`server_handle` は初期状態で `None`。`GgufEngine` は `registry` と `server_handle` の2フィールドのみを持つ。
 * **実装の背景と目的:** ggufrs crate のエントリポイント。`GgufEngine::new()` が crate 利用者の最初の接触点となる。この段階ではサーバー関連機能は含めず、モデル管理と推論の基盤を提供する。
@@ -332,7 +334,7 @@
 
 #### ✅ チケット M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§9.1 単体テスト)
+* **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト)
 * **依存・関連チケットID:** 先行実装必須: M2-1（InferenceEngine トレイト）、M2-2（ModelRegistry）。
 * **対象不変条件 / 規範:** mockall の `mock!` マクロで InferenceEngine のモックを生成。各テストは Arrange-Act-Assert パターンに従う。実モデルは一切使用しない。全テストはメモリ内完結・決定論的。
 * **実装の背景と目的:** InferenceEngine トレイトの単体テストにより、トレイトの契約が正しいことを早期に検証する。ModelRegistry の各メソッドの境界値テストもここで実施する。実モデルが必要な結合テストは Phase E で行う。
@@ -366,7 +368,7 @@
 
 #### ✅ チケット M3-1: GgufConfig::build 完全実装 (config.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
+* **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M1-4（merge_overlay）。先行実装必須: M0-5（構造体定義）。後続: 全エントリポイント。
 * **対象不変条件 / 規範:** `build()` は3層を順次マージする。ファイル読み取りに失敗した場合は `GgufError::InvalidConfig` を返す。include_str! の JSON が不正な場合も `InvalidConfig`。マージ順序（低→高: コード → 埋め込みJSON → ファイルJSON）は不変。
 * **実装の背景と目的:** RFC の3層マージの中核実装。このチケットで初めてファイル I/O が導入される。include_str! はコンパイル時に埋め込まれるため、ファイル不存在のエラーは `build()` では発生せず、`from_file()` のみで発生する。この設計により、組み込み用途（voiput crate 等）ではファイル不在のリスクなく設定可能。
@@ -390,7 +392,7 @@
 
 #### ✅ チケット M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.3 推論単位でのモデル切替, `generate()`, `generate_structured()`, §5.1 Structured Output)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `generate()`, `generate_structured()`, §5.1 Structured Output)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。後続: M3-3/M3-4（同じ impl ブロック内だが並行可能）、M4-1（サーバーからの呼び出し）。
 * **対象不変条件 / 規範:** `generate()` は `ModelRegistry::get(model_name)` でモデルを解決し、mistralrs の同期的推論 API を呼び出す。`generate_structured()` は mistralrs の Constraint::Grammar / Json を使用して JSON Schema 拘束を適用。どちらも model_name でモデルを切り替え可能。GenerateParams の値は mistralrs のパラメータに適切にマッピングされる。
 * **実装の背景と目的:** ggufrs の最も基本的な推論機能。このチケットで初めて mistralrs の実際の推論 API が呼ばれる。GgufModelBuilder の設定（context_size, gpu_layers 等）が ModelInfo のフィールドから正しく渡されることを保証する。
@@ -411,7 +413,7 @@
 
 #### ✅ チケット M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.3 `generate_stream()`, §5.2 ストリーミングと通常生成)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.3 `generate_stream()`, §5.2 ストリーミングと通常生成)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2（依存関係は同一だがファイル分割されている）。
 * **対象不変条件 / 規範:** 戻り値は `Pin<Box<dyn Stream<Item = Result<String>> + Send>>`。ストリームは各チャンクを逐次的に生成し、エラー時は `Err` 項目を出力してストリームが終了する。チャンクの順序は保証される。
 * **実装の背景と目的:** ストリーミング生成はユーザー体験の要。最初のトークンが生成されるまでのレイテンシを最小化するため、逐次生成を採用する。
@@ -429,7 +431,7 @@
 
 #### ✅ チケット M3-4: InferenceEngine send_raw 実装 (inference/raw.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§2.3 `send_raw()`, 低レベルAPI設計)
+* **参照設計書:** crates/ggufrs/RFC.md (§2.3 `send_raw()`, 低レベルAPI設計)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2/M3-3。
 * **対象不変条件 / 規範:** `send_raw()` は mistralrs の `RequestBuilder` をそのまま受け取り、モデル名でモデルを解決して mistralrs に委譲する。戻り値は `ChatCompletionResponse`。このメソッドは mistralrs の全機能を透過的に提供するためのパススルーであり、ggufrs が引数や戻り値を解釈・加工しない。
 * **実装の背景と目的:** 高レベル3メソッドの限界を超えた mistralrs の全機能（tools, web search, code execution 等）にアクセスするためのパス。mistralrs が新機能を追加した場合も、`RequestBuilder` の拡張のみで対応でき、ggufrs のトレイト自体の変更は不要。
@@ -445,7 +447,7 @@
 
 #### ✅ チケット M3-5: lib.rs 統合・re-export 実装 (lib.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§8.3 mistralrs 型の re-export, モジュール構成)
+* **参照設計書:** crates/ggufrs/RFC.md (§8.3 mistralrs 型の re-export, モジュール構成)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 実装完了）、M2-3（GgufEngine::new()）。後続: M4-2、M5-2。
 * **対象不変条件 / 規範:** 全ての公開型・トレイトが `pub use` で lib.rs から再エクスポートされる。crate 利用者は `use ggufrs::*` で全機能にアクセス可能。mistralrs の主要型（Model, RequestBuilder, TextMessages 等）も同様に re-export。
 * **実装の背景と目的:** crate の公開APIを統一的に提供する。crate 利用者が ggufrs だけを依存関係に追加すればよく、mistralrs を直接依存に追加する必要をなくす。
@@ -470,7 +472,7 @@
 
 #### ✅ チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
+* **参照設計書:** crates/ggufrs/RFC.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 全実装完了）。先行実装必須: M2-1（AppState 型定義に必要）。
 * **対象不変条件 / 規範:** `AppState = Arc<dyn InferenceEngine + Send + Sync>`。`AppError` は `GgufError` から自動変換。ハンドラはリクエストボディから model フィールドを抽出し、InferenceEngine のメソッドを呼び出す。3つのエンドポイントを実装：OpenAI /v1/chat/completions、/v1/models、Anthropic /anthropic/v1/messages。
 * **実装の背景と目的:** サーバーモードのコア実装。Axum のルーター層でモデル名を解決し、実際の LLM 推論は InferenceEngine に委譲する。OpenAI 互換と Anthropic 互換の2系統のエンドポイントを同一サーバーで提供する。
@@ -499,7 +501,7 @@
 
 #### ✅ チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
+* **参照設計書:** crates/ggufrs/RFC.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター実装）、M2-3（GgufEngine::new()）。後続: M5-2（test-run バイナリから呼び出し）。
 * **対象不変条件 / 規範:** `start_server()` は `self: Arc<Self>` を要求し、JoinHandle を内部に保存して返す。`new_with_auto_start()` は `auto_start_server=true` の場合のみサーバーを自動起動。`Drop` 実装は `server_handle.abort()` を呼ぶ。`shutdown_signal()` は Ctrl+C と SIGTERM を補足。
 * **実装の背景と目的:** サーバーのライフサイクル管理。`start_server()` はいつでも呼び出し可能で、呼び出し元は戻り値の JoinHandle で死活監視・abort・終了待機ができる。Drop 時の graceful shutdown によりリソースリークを防止する。
@@ -524,7 +526,7 @@
 
 #### ✅ チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§9.1 単体テスト, §9.2 結合テスト)
+* **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト, §9.2 結合テスト)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター）、M4-2（サーバー起動）。並行可能: 他テスト。
 * **対象不変条件 / 規範:** mockall のモックエンジンを使用。実モデルは不要。サーバーはポート 0 で起動し OS が自動割当。各テストは独立したサーバーインスタンスで実行。
 * **実装の背景と目的:** サーバーの結合テストにより、ルーター・ハンドラ・モデル解決の一連の流れが正しく動作することを確認する。モックエンジンを使用するため、実モデルがなくても高速に実行可能。
@@ -553,7 +555,7 @@
 
 #### ✅ チケット M5-1: build.rs モデル自動ダウンロード
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§7.1 ダウンロード方式, §7.2 ファイル構成, Appendix A)
+* **参照設計書:** crates/ggufrs/RFC.md (§7.1 ダウンロード方式, §7.2 ファイル構成, Appendix A)
 * **依存・関連チケットID:** 先行実装必須: M0-1（Cargo.toml）。独立して実装可能（他のクレートコードに依存しない）。
 * **対象不変条件 / 規範:** ダウンロードは curl（Unix）または powershell（Windows）で行う。タイムアウトは60秒。ダウンロード失敗時は不完全ファイルを削除して panic。モデルファイルが既に存在する場合はスキップする。`cargo:rerun-if-changed=models/` で再ビルド条件を指定。
 * **実装の背景と目的:** 「clone & build」だけで推論実行を可能にするための最重要機能。voiput crate と同一方式を採用し、プロジェクト全体の一貫性を保つ。2つのビルトインモデル（Qwen3.5-0.8B, Qwen3.5-2B）を自動ダウンロードする。
@@ -574,7 +576,7 @@
 
 #### ✅ チケット M5-2: test-run バイナリ (src/bin/test-run.rs)
 
-* **参照設計書:** crates/ggufrs/docs/change-to-llama-cpp/OLD-RFC.md (§9.3 test-run バイナリ)
+* **参照設計書:** crates/ggufrs/RFC.md (§9.3 test-run バイナリ)
 * **依存・関連チケットID:** 先行実装必須: M3-5（lib.rs 統合）。先行推奨: M4-2（サーバー起動、必須ではない）。
 * **対象不変条件 / 規範:** 3パターンの推論を順次実行：Structured Output → 通常生成 → ストリーミング生成。各パターンはセパレーターとラベル付きで表示。最終サマリーで全パターンの PASS/FAIL を一覧表示。`cargo run --bin test-run` で実行可能。
 * **実装の背景と目的:** 人間が目視確認できる全パターン推論実行バイナリ。開発中のクイックチェックと、エンドツーエンドの動作検証を目的とする。実モデルを使用するため、build.rs でモデルがダウンロード済みであることが前提。
@@ -625,7 +627,7 @@
 
 #### ✅ チケット M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs)
 
-* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, OLD-RFC.md (§7.1 ダウンロード方式)
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§7.1 ダウンロード方式)
 * **依存・関連チケットID:** 先行実装必須: M5-2.1（Gemma4 ModelConfig 追加）。先行実装必須: M5-1（build.rs 骨格）。
 * **対象不変条件 / 規範:** UQFF モデルのダウンロード先は build.rs の `MODEL_FILES` に追加。`GgufModelBuilder` で UQFF が読めない場合は `UqffModelBuilder` または同等の builder に分岐する。Qwen3.5 の MODEL_FILES エントリは維持する。
 * **実装の背景と目的:** Gemma4 モデルは UQFF 形式のため、GGUF 用の `GgufModelBuilder` で読み込めるか確認する。読めない場合は mistralrs の UQFF 対応ビルダーに切り替える。
@@ -641,7 +643,7 @@
 
 #### ✅ チケット M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント）
 
-* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, OLD-RFC.md (§9.3)
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§9.3)
 * **依存・関連チケットID:** 先行実装必須: M5-2.2（UQFF 読み込み対応）。
 * **対象不変条件 / 規範:** test-run.rs のデフォルトモデルを Gemma4 E2B に変更。Qwen3.5 の設定はコメントアウトまたは公式コメントで「将来対応」と明記。
 * **実装の背景と目的:** test-run バイナリが Gemma4 を使用して正常動作するようにする。
@@ -682,221 +684,131 @@
 
 ---
 
-## フェーズ F: llama-cpp-2 バックエンド移行 (Layer 0-3 置き換え)
+#### チケット M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs)
 
-> **外部依存:** llama-cpp-2, gbnf（新規追加）／ mistralrs, llm-bridge-core（削除）
-> **非同期I/O:** tokio（既存）、cmake ビルド（build.rs）
-> **テスト:** モックテスト継続利用、結合テストは実モデル必要
-
-### マイルストーン M6-1: 型定義置き換え — Layer 0
-
-> **この段階ではコンパイルが通る状態を維持する。サーバーレスポンス型の新規追加のみ。**
-
-#### ✅ チケット M6-1: server/types.rs 新規作成 — OpenAI 互換型自前定義
-
-* **参照設計書:** crates/ggufrs/RFC.md (§6.2 OpenAI 互換型の自前定義, §6.3 ルーター)
-* **依存・関連チケットID:** 先行実装必須: なし（孤立した型定義ファイル）。後続: M6-9（server/openai.rs で使用）。
-* **対象不変条件 / 規範:** ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk の3構造体をすべて OpenAI API 仕様に準拠した全標準フィールドで定義する。`#[derive(Serialize, Deserialize)]` で JSON 入出力をサポート。server/types.rs は新規ファイルとして作成する。
-* **実装の背景と目的:** mistralrs が提供していた ChatCompletionRequest / ChatCompletionResponse 型を、llama-cpp-2 移行後に自前で定義する。Q11/Q20 の決定に基づき全標準フィールドを実装する。この段階では型定義のみで、実際のハンドラでの使用は M6-9 で行う。
+* **参照設計書:** `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO02.md`
+* **依存・関連チケットID:** 先行実装必須: M5-2.2（UQFF 読み込み対応）。後続: M5-2.4（test-run 再実施）。
+* **対象不変条件 / 規範:** `GgufModelBuilder` の動作に影響を与えない。`build_model_with_uqff()` のみ修正する。既存の175テストが変更なしで通過する。
+* **実装の背景と目的:** mistralrs v0.8.1 の `auto_device_map.rs` に二重pushバグがあり、macOS ARM 環境では `sysinfo` のバグと複合して `cpu (avail: 0MB)` となりモデルがロードできない。`DeviceMapSetting::dummy()` で Auto device map をバイパスすることで回避する。
+* **高速化の設計判断:**
+  - **`DeviceMapSetting::dummy()` を採用**: Auto map のメモリフィット計算を完全スキップする。モデルファイルは1GB、実メモリは24GBあるため、フィット計算なしでも問題ない。
+  - **`with_force_cpu()` を併用**: CPU デバイスを明示固定する。
+  - 参照: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO02.md`（Q1・Q2 の回答）
 * **実装スコープ:**
-  - server/types.rs 新規作成
-  - ChatCompletionRequest / ChatMessage / ChatCompletionResponse / ChatResponseMessage
-  - Choice / Usage / ChatCompletionChunk / Delta / ChunkChoice
-  - server/mod.rs で pub mod types; を宣言
+  - `registry.rs`: `build_model_with_uqff()` に `.with_device_mapping(DeviceMapSetting::dummy())` と `.with_force_cpu()` を追加
+  - `cargo run --bin test-run` で 3/3 PASS を確認（M5-2.4 を再実施）
 * **テストコードによる検証:**
-  1. 各構造体が JSON シリアライズ・デシリアライズ可能であること
-  2. OpenAI のサンプルリクエスト/レスポンス JSON と互換性があること
-
-#### ✅ チケット M6-2: error.rs 修正 — MistralrsError → LlamaCppError
-
-* **参照設計書:** crates/ggufrs/RFC.md (§5 エラー型)
-* **依存・関連チケットID:** 先行実装必須: なし（型のみの置き換え）。後続: M6-4（registry.rs で LlamaCppError を送出）。
-* **対象不変条件 / 規範:** GgufError の6バリアント構成を維持。MistralrsError バリアントを LlamaCppError に名称変更。#[from] mistralrs::Error → #[from] llama_cpp_2::Error。From<std::io::Error> / From<serde_json::Error> は変更なし。
-* **実装の背景と目的:** mistralrs のエラー型を llama-cpp-2 のエラー型に置き換える最小の変更。バリアント数・構造は維持する。llama-cpp-2 v0.1.150 の正確なエラー型名は実装開始前に docs.rs で確認すること。
-* **実装スコープ:**
-  - error.rs: MistralrsError(#[from] mistralrs::Error) → LlamaCppError(#[from] llama_cpp_2::Error)
-  - #[error("mistralrs error: {0}")] → #[error("llama-cpp error: {0}")]
-* **テストコードによる検証:**
-  1. 既存テスト全件が変更なしで通過する
-  2. GgufError の Display 出力が "llama-cpp error:" になる
-
-#### ✅ チケット M6-3: config.rs + settings.rs 修正 — mistralrs 特化フィールド除去
-
-* **参照設計書:** crates/ggufrs/RFC.md (§5 エラー型の GpuProvider, §7.1 静的定数, §3.2 ModelConfig)
-* **依存・関連チケットID:** 先行実装必須: なし（型定義のみの変更）。後続: M6-4（registry.rs で更新後の型を使用）。
-* **対象不変条件 / 規範:** ModelConfig から chat_template フィールドを削除。GpuProvider から DirectML バリアントを削除。GpuProvider::mistralrs_feature() → feature_name() + cmake_flags()。DEFAULT_CONTEXT_SIZE を 32768 → 2048 に変更。GpuProvider::detect() の macOS 以外のデフォルトを DirectML → Cpu に変更。
-* **実装の背景と目的:** mistralrs 特化フィールドを削除し、llama-cpp-2 の cmake ベースビルドに対応した GpuProvider に変更する。
-* **実装スコープ:**
-  - config.rs: chat_template 削除, DirectML 削除, mistralrs_feature() → feature_name() + cmake_flags()
-  - settings.rs: DEFAULT_CONTEXT_SIZE: 32768 → 2048
-* **テストコードによる検証:**
-  1. GpuProvider が4バリアント（Auto/Metal/Cuda/Cpu）で動作
-  2. from_str("directml") が None を返す
-  3. feature_name() / cmake_flags() が正しい値を返す
-  4. DEFAULT_CONTEXT_SIZE が 2048 であること
+  1. `cargo check` が通過する
+  2. `cargo test` 全175件が通過する
+  3. `cargo run --bin test-run` で全パターン PASS する
 
 ---
 
-### マイルストーン M6-2: モデルロード置き換え — Layer 1-2
+### マイルストーン M5-3: 結合テスト（調整版）
 
-> **この時点からコンパイルが一時的に通らなくなる。Cargo.toml の依存差し替えは M6-11 で行う。**
+> **注記**: 以下の M5-3 の内容は Qwen3.5 前提で設計されていた。Gemma4 移行後は
+> モデル名とパスを Gemma4 に読み替えて実施する。M5-2.x 完了後に着手すること。
 
-#### チケット M6-4: registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking
+#### チケット M5-3: 結合テスト (tests/integration_test.rs) — Gemma4 版
 
-* **参照設計書:** crates/ggufrs/RFC.md (§3.1 ModelRegistry, §3.2 ModelConfig と ModelInfo)
-* **依存・関連チケットID:** 先行実装必須: M6-2（LlamaCppError）。先行実装必須: M6-3（ModelConfig 変更）。後続: M6-5（InferenceEngine からの呼び出し）。
-* **対象不変条件 / 規範:** ModelInfo.model: Option<Arc<Model>> → Option<Arc<LlamaModel>>。GgufModelBuilder → LlamaModel::load_from_file() + spawn_blocking。DeviceMapSetting / UqffModelBuilder 関連の処理を全削除。RwLock のロック戦略は変更しない。
-* **実装の背景と目的:** llama-cpp-2 の核となるモデルロード処理。同期 API を spawn_blocking でラップして既存の async インターフェースと統合する。
+* **参照設計書:** crates/ggufrs/RFC.md (§9.2 結合テスト), crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
+* **依存・関連チケットID:** 先行実装必須: M5-2.3（デフォルトモデル Gemma4 切替）。先行実装必須: M3-5（全推論機能実装完了）。
+* **対象不変条件 / 規範:** 実モデル（Gemma4 E2B）を使用。モデルが存在しない場合はテストが失敗する（フォールバックなし）。`GpuProvider::Cpu` + `cpu_only: true` で GPU 非依存。`#[ignore]` 属性で CI ではスキップ可能。
+* **実装の背景と目的:** 実際の UQFF モデル（Gemma4 E2B）を使ったエンドツーエンドの結合テスト。build.rs がダウンロードしたモデルを使用するため、手動配置は不要。開発環境でのみ実行し、CI では `#[ignore]` で明示的にスキップする。
+  - **モデルパス解決**: `env!("CARGO_MANIFEST_DIR")` を使用してコンパイル時に `crates/ggufrs/models/` を解決すること（`std::env::current_dir()` は cargo test のワーキングディレクトリに依存し不安定なため使用禁止）。
 * **実装スコープ:**
-  - registry.rs: use mistralrs::Model → use llama_cpp_2::LlamaModel
-  - ModelInfo.model の型変更
-  - ModelRegistry::get(): GgufModelBuilder → LlamaModel::load_from_file() + spawn_blocking
-  - load_model(): 新規プライベートメソッド
-  - build_model_with_uqff() / DeviceMapSetting / force_cpu: 削除
+  - `tests/integration_test.rs` 作成
+  - `test_real_model_structured_output()` — 実際のモデル（Gemma4 E2B）で Structured Output 推論
+  - `test_real_model_generate()` — 実際のモデル（Gemma4 E2B）で通常生成
+  - `test_model_not_found_error()` — ModelRegistry のエラーパス
+  - `test_server_with_mock_engine()` — モック + Axum サーバー結合（実モデル不要）
+  - `#[ignore]` 属性の適切な付与
+
 * **テストコードによる検証:**
-  1. ModelRegistry::get() が Arc<LlamaModel> を返す
-  2. 未登録モデル名で ModelNotFound エラー
-  3. ロード失敗時（ファイル不在等）に ModelLoadFailed エラー
-  4. llama_cpp_2::Error → GgufError::LlamaCppError 変換
+  1. `cargo test` で全テストが通過（モデルが存在する環境）
+  2. 実モデルテストが正しい推論結果を返す
+  3. エラーパスで適切なエラー型が返る
+  4. `#[ignore]` テストが `cargo test` でスキップされる
 
-#### チケット M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化
+#### チケット M5-4: Cargo.toml feature flags 最終調整 + GPU 自動検証
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.1 InferenceEngine トレイト)
-* **依存・関連チケットID:** 先行実装必須: M6-4（LlamaModel 型）。後続: M6-6（generate.rs 実装）、M6-7（stream.rs 実装）。
-* **対象不変条件 / 規範:** トレイトのメソッドを4→3に削減（send_raw 削除）。全メソッドの第2引数を TextMessages → &str に変更。Send + Sync は維持。#[async_trait] 使用。pub mod raw はコメントアウト。
-* **実装の背景と目的:** mistralrs の RequestBuilder に依存していた send_raw() を削除。TextMessages は llama-cpp-2 に相当型が存在しないため単純な &str に置き換える。
+* **参照設計書:** crates/ggufrs/RFC.md (§8.1 Cargo.toml, §8.2 GPU feature の分離)
+* **依存・関連チケットID:** 先行実装必須: M0-1（Cargo.toml 骨格）。後続処理なし（最終調整）。
+* **対象不変条件 / 規範:** `default = ["cpu"]`。cpu feature は空。metal/cuda/directml は mistralrs の対応 feature を有効化。`make check-be` が成功すること。GPU feature がコンパイル時に正しく分離されていること。
+* **実装の背景と目的:** 開発の最終段階で feature flags を再確認・調整する。実際の mistralrs の feature 構造と ggufrs の feature 設計が一致していることを検証し、必要に応じて調整する。
 * **実装スコープ:**
-  - inference/mod.rs: send_raw() 削除、TextMessages → &str、pub mod raw → // pub mod raw
-  - GenerateParams: enable_thinking フィールド削除
+  - Cargo.toml feature 定義の最終確認
+  - `make check-be` 全 feature 組み合わせでのビルド検証
+  - ドキュメンテーションコメントの補完
+  - 全ファイルの最終コードレビュー
+
 * **テストコードによる検証:**
-  1. トレイトが3メソッドのみであること（コンパイル時検証）
-  2. Send + Sync / オブジェクトセーフ維持確認
-
-#### チケット M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf
-
-* **参照設計書:** crates/ggufrs/RFC.md (§4.3 generate() 実装, §4.4 generate_structured() 実装)
-* **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。後続: M6-9（サーバーからの呼び出し）。
-* **対象不変条件 / 規範:** generate() は spawn_blocking 内で LlamaModel::new_context() → LlamaContext::infer() を呼ぶ。generate_structured() は gbnf クレートで JSON Schema → GBNF 変換し、InferenceParams::grammar にセットする。From<GenerateParams> for InferenceParams を実装。gbnf 依存は内部実装として隠蔽。
-* **実装の背景と目的:** mistralrs の推論API（Model::send_chat_request()）を llama-cpp-2 の同期 API（LlamaModel + LlamaContext）に置き換える。JSON Schema 拘束は旧 Constraint::JsonSchema から gbnf クレート経由の GBNF 文法に変更。
-* **実装スコープ:**
-  - inference/generate.rs 全書き換え
-  - From<GenerateParams> for llama_cpp_2::InferenceParams 実装
-  - generate() 実装: spawn_blocking + LlamaContext + infer
-  - generate_structured() 実装: gbnf::convert() + grammar 制約
-  - エラーはすべて GgufError::InferenceFailed にマッピング
-* **テストコードによる検証:**
-  1. From<GenerateParams> が正しく InferenceParams に変換される（全フィールド）
-  2. gbnf 変換が有効な JSON Schema に対して成功する
-  3. 無効な JSON Schema に対して適切なエラーを返す
-
-#### チケット M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream
-
-* **参照設計書:** crates/ggufrs/RFC.md (§4.5 generate_stream() 実装)
-* **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。並行可能: M6-6（同じ依存関係）。
-* **対象不変条件 / 規範:** 戻り値は Pin<Box<dyn Stream<Item = Result<String>> + Send>>。tokio::sync::mpsc チャネル（容量64）で TokenCallback からのトークンを受信し、ReceiverStream で Stream に変換。
-* **実装スコープ:**
-  - inference/stream.rs 全書き換え: mpsc チャネル作成 → spawn_blocking + TokenCallback → ReceiverStream
-* **テストコードによる検証:**
-  1. ストリームから全チャンクが正しい順序で収集できる
-  2. エラー時にストリームが適切に終了する
-
-#### チケット M6-8: inference/raw.rs 削除
-
-* **参照設計書:** crates/ggufrs/RFC.md (§4.1 モジュール分割, §Implementation ファイル別変更要約)
-* **依存・関連チケットID:** 先行実装必須: M6-5（pub mod raw コメントアウト済み）。
-* **対象不変条件 / 規範:** raw.rs を物理削除。inference/mod.rs の pub mod raw 宣言も削除。
-* **実装スコープ:** rm src/inference/raw.rs + mod.rs から pub mod raw 削除
-* **テストコードによる検証:** cargo check 成功、raw.rs 参照なし確認
+  1. `cargo build --features metal` が成功する（macOS）
+  2. `cargo build --features cuda` が成功する（CUDA 環境）
+  3. `cargo build`（CPU モード）が成功する
+  4. `cargo test` 全テスト通過
+  5. `cargo clippy` が warnings 0 で通過
 
 ---
 
-### マイルストーン M6-3: サーバー層置き換え — Layer 3
+## チケット依存関係サマリー
 
-#### チケット M6-9: server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除
+```
+M0-1: Cargo.toml プロジェクト骨格
+  ├── M0-2: consts/settings.rs
+  ├── M0-3: GpuProvider 列挙型
+  ├── M0-4: GgufError 列挙型
+  ├── M0-5: 設定構造体定義 ← M0-2(Default定数), M0-3
+  │   └── M0-6: ModelInfo 構造体 ← M0-5
+  │       └── M1-5: ModelRegistry 同期メソッド ← M0-6
+  │           └── M2-2: ModelRegistry 非同期メソッド ← M1-5
+  │               ├── M2-3: GgufEngine::new() ← M2-2
+  │               └── M3-2: InferenceEngine generate/structured ← M2-2, M2-1
+  │                   ├── M3-3: InferenceEngine stream ← M2-2, M2-1
+  │                   ├── M3-4: InferenceEngine send_raw ← M2-2, M2-1
+  │                   │   └── M3-5: lib.rs 統合 ← M3-2,M3-3,M3-4
+  │                   │       ├── M5-2: test-run バイナリ ← M3-5
+  │                   │       │   └── M5-2.1: Gemma4 ModelConfig ← M0-5, M1-1
+  │                   │       │       └── M5-2.2: UQFF 読み込み ← M5-2.1, M5-1
+  │                   │       │           └── M5-2.3: test-run 切替 ← M5-2.2
+  │                   │       │               └── M5-2.4: 実動作確認 ← M5-2.3
+	  │                   │       │                   └── M5-2.5: DeviceMap 修正 ← M5-2.4
+  │                   │       └── M5-3: 結合テスト ← M5-2.5
+  │                   └── M4-1: サーバールーター ← M3-2,M3-3,M3-4, M2-1
+  │                       └── M4-2: GgufEngine サーバー統合 ← M4-1, M2-3
+  │                           └── M4-3: サーバー結合テスト ← M4-1, M4-2
+  ├── M1-1: ModelConfig コンストラクタ ← M0-5
+  ├── M1-2: GpuProvider メソッド ← M0-3
+  ├── M1-3: GgufError From impls ← M0-4
+  ├── M1-4: GgufConfig マージロジック ← M0-5
+  │   └── M3-1: GgufConfig::build + merge 完全実装 ← M1-4, M0-5(ConfigLayer)
+  └── M5-1: build.rs ← M0-1 (独立)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§6.1 アーキテクチャ, §6.3 ルーター)
-* **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）。先行実装必須: M6-5（InferenceEngine トレイト）。
-* **対象不変条件 / 規範:** openai_chat_handler + openai_stream_handler → 単一 chat_completions_handler（stream フィールド分岐）に統合。anthropic_messages_handler 削除。AppError の MistralrsError → LlamaCppError。list_models_handler を4モデル対応に更新。
-* **実装スコープ:**
-  - server/openai.rs: 自前型使用、chat_completions_handler に統合、Anthropic 全削除
-  - server/router.rs: AppError 修正、Anthropic ルート削除
-* **テストコードによる検証:**
-  1. モックエンジンで非ストリーミングリクエストが正常に処理される
-  2. stream=true のリクエストが SSE 形式で返る
-  3. Anthropic エンドポイントが存在しない（404）
+M2-1: InferenceEngine トレイト定義 + GenerateParams ← M0-2(定数), M0-3, M0-4
+  ├── M2-4: mockall 単体テスト ← M2-1, M2-2
+  └── (上記 M3-2,M3-3,M3-4 へ)
 
-#### チケット M6-10: lib.rs 修正 — mistralrs re-export 削除 + server::types 追加
+M5-4: feature flags 最終調整 ← M5-3
+```
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9 公開API)
-* **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）、M6-8（raw.rs 削除済み）。
-* **対象不変条件 / 規範:** pub use mistralrs::{...} を全削除。server::types を追加。llama-cpp-2 の型は一切 re-export しない。gbnf の型も一切 re-export しない。
-* **実装スコープ:** lib.rs: mistralrs re-export 削除、server::types の pub use 追加
-* **テストコードによる検証:**
-  1. use ggufrs::ChatCompletionRequest が有効
-  2. use ggufrs::LlamaModel がコンパイルエラーになる（非公開確認）
+## 実装順序の推奨
 
----
+```
+Phase A (純粋ロジック):
+  Step 1: M0-1 (Cargo.toml) → M0-2 (定数) → M0-3 (GpuProvider) → M0-4 (GgufError) → M0-5 (設定構造体) → M0-6 (ModelInfo)
+  Step 2: M1-1 (ModelConfig コンストラクタ) → M1-2 (GpuProvider メソッド) → M1-3 (From impls) → M1-4 (マージロジック) → M1-5 (Registry 同期)
 
-### マイルストーン M6-4: ビルド・テスト修正 — Layer 4
+Phase B (非同期基盤):
+  Step 3: M2-1 (トレイト定義) → M2-2 (Registry 非同期) → M2-3 (GgufEngine::new) → M2-4 (単体テスト)
 
-> **このマイルストーンでコンパイルが再び通る状態になる。**
+Phase C (実実装):
+  Step 4: M3-1 (GgufConfig::build) — 並行可: M3-2 (generate) + M3-3 (stream) + M3-4 (raw) → M3-5 (lib.rs 統合)
 
-#### チケット M6-11: Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL
+Phase D (サーバー):
+  Step 5: M4-1 (ルーター) → M4-2 (サーバー統合) → M4-3 (サーバー結合テスト)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §8.1 build.rs cmake, §8.2 build.rs モデルDL)
-* **依存・関連チケットID:** 先行実装必須: M6-10（lib.rs 修正済み）。先行推奨: M6-3（settings.rs 同時編集の競合回避のため）。後続: M6-12（テストコード）、M6-13（test-run）。
-* **対象不変条件 / 規範:** mistralrs + llm-bridge-core 削除。llama-cpp-2 = "0.1.150" + gbnf = "0.2.7" 追加。features: directml 削除、metal/cuda 維持。build.rs: cargo feature → cmake 環境変数設定 + 4モデルダウンロード。
-* **実装の背景と目的:** llama-cpp-2 への依存切り替えを Cargo.toml と build.rs で行う。このチケットでコンパイルが復旧する。
-* **実装スコープ:**
-  - Cargo.toml: mistralrs / llm-bridge-core 削除、llama-cpp-2 / gbnf 追加、features 再編
-  - build.rs: LLAMA_METAL / LLAMA_CUDA 環境変数設定、MODEL_FILES 4モデル
-  - settings.rs: DEFAULT_SW_PORT 削除（未使用）
-* **テストコードによる検証:**
-  1. cargo check が成功する（コンパイル復旧）
-  2. cargo tree で mistralrs / llm-bridge-core が不在確認
-
-#### チケット M6-12: テストコード修正 — MockEngine + 結合テスト
-
-* **参照設計書:** crates/ggufrs/RFC.md (§10.1 単体テスト（mockall）, §10.2 結合テスト）
-* **依存・関連チケットID:** 先行実装必須: M6-11（コンパイル復旧）。
-* **対象不変条件 / 規範:** MockEngine の mock! 定義を4→3メソッドに変更。send_raw() 削除。全メソッドの引数型を TextMessages → &str に変更。mistralrs 依存テスト（test_error_from_mistralrs）は削除。結合テストのモデル名を更新。
-* **実装スコープ:**
-  - mock! 定義: send_raw 削除、各メソッド引数 TextMessages → &str
-  - 削除: test_error_from_mistralrs, send_raw 関連テスト
-  - 追加: test_error_from_llamacpp
-  - 結合テスト: モデル名・ハンドラ名更新
-* **テストコードによる検証:** cargo test が全テスト通過（実モデル不要のテストのみ）
-
-#### チケット M6-13: test-run + 実動作確認 (src/bin/test-run.rs)
-
-* **参照設計書:** crates/ggufrs/RFC.md (§10.3 test-run バイナリ)
-* **依存・関連チケットID:** 先行実装必須: M6-12（テスト全通過）。
-* **対象不変条件 / 規範:** 3パターン（Structured Output → Text Generation → Streaming Generation）が順次実行される。最終サマリーで全パターンの PASS/FAIL を一覧表示。CPU-Only モード。モデル不在時はエラーメッセージを表示して panic しない。
-* **実装スコープ:**
-  - test-run.rs を llama-cpp-2 API に合わせて修正
-  - cargo run --bin test-run で 3/3 PASS 確認（目視）
-* **テストコードによる検証:**
-  1. cargo check --bin test-run 成功
-  2. cargo run --bin test-run で全パターン PASS（目視確認）
-  3. モデル不在時にエラーメッセージ表示
-
----
-
-### マイルストーン M6-5: 最終調整
-
-#### チケット M6-14: Cargo.toml feature flags 最終調整 + clippy + ドキュメント
-
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §2.3 GPU 自動検出)
-* **依存・関連チケットID:** 先行実装必須: M6-13（test-run 完了）。後続処理なし（最終マイルストーン）。
-* **対象不変条件 / 規範:** default = ["cpu"]。make check-be が全 feature 組み合わせで成功。cargo clippy warnings 0。cargo test 全通過。cargo doc --no-deps 成功。
-* **実装の背景と目的:** llama-cpp-2 移行の最終工程。コード品質チェック（clippy）と全テスト通過をもって移行完了とする。
-* **実装スコープ:**
-  - Cargo.toml feature 定義最終確認
-  - make check-be 全 feature 組み合わせビルド検証
-  - cargo clippy / cargo test / cargo doc 確認
-* **テストコードによる検証:**
-  1. cargo build（CPU モード）成功
-  2. cargo build --features metal 成功（macOS）
-  3. cargo test 全通過
-  4. cargo clippy warnings 0
-  5. make check-be 成功
+Phase E (ビルド・ツーリング):
+  Step 6: M5-1 (build.rs) → M5-2 (test-run)
+  Step 7: M5-2.1 (Gemma4 ModelConfig) → M5-2.2 (UQFF 読み込み) → M5-2.3 (test-run 切替) → M5-2.4 (実動作確認) → M5-2.5 (DeviceMap 修正)
+  Step 8: M5-2.5 (test-run 再実施) → M5-3 (結合テスト) → M5-4 (最終調整)
+```

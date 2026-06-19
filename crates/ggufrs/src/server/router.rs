@@ -47,7 +47,7 @@ impl From<GgufError> for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
             }
             GgufError::InvalidConfig(_) => (StatusCode::BAD_REQUEST, err.to_string()),
-            GgufError::MistralrsError(_) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+            GgufError::LlamaCppError(_) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
         };
         (status, Json(serde_json::json!({"error": message})))
     }
@@ -126,9 +126,10 @@ mod tests {
     }
 
     #[test]
-    fn mistralrs_error_returns_500() {
-        let err = GgufError::MistralrsError(mistralrs::error::Error::ModelLoad(Box::new(
-            std::io::Error::new(std::io::ErrorKind::Other, "mistralrs error"),
+    fn llama_cpp_error_returns_500() {
+        // [::STUB::] M6-11 で `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
+        let err = GgufError::LlamaCppError(mistralrs::error::Error::ModelLoad(Box::new(
+            std::io::Error::new(std::io::ErrorKind::Other, "llama-cpp error"),
         )));
         let (status, _) = AppError::from(err);
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
