@@ -445,7 +445,7 @@
 
 > **DB:** メモリ内完結（またはテスト用 SQLite :memory:）
 
-#### チケット M4-1: ProxyServer::start — 起動シーケンス + ServerHandle
+#### ✅ チケット M4-1: ProxyServer::start — 起動シーケンス + ServerHandle
 
 * **参照設計書:** crates/anthropx/RFC.md (§9 ライフサイクル管理, §1.1 デュアルモード)
 * **依存・関連チケットID:** 先行実装必須: M3-1, M3-2, M3-3, M3-4, M3-5
@@ -476,7 +476,7 @@
   4. `start()` 内で `validate()` が呼ばれる（mock で検証）
 * **計装方法・観測対象:** 起動時間、shutdown 完了時間、provider 数と client pool 生成時間の相関
 
-#### チケット M4-2: Binary entrypoint (main.rs)
+#### ✅ チケット M4-2: Binary entrypoint (main.rs)
 
 * **参照設計書:** crates/anthropx/RFC.md (§9 lifecycle.rs の binary entrypoint)
 * **依存・関連チケットID:** 先行実装必須: M4-1, M2-3（CLI）
@@ -500,7 +500,7 @@
   3. `cargo run -- -t <config>` で起動・終了（integration test）
 * **計装方法・観測対象:** バイナリサイズ、起動時間、依存クレート数
 
-#### チケット M4-3: Mock server integration tests
+#### ✅ チケット M4-3: Mock server integration tests
 
 * **参照設計書:** crates/anthropx/RFC.md (§12 テスト戦略, 「受け入れ基準と対応テスト」)
 * **依存・関連チケットID:** 先行実装必須: M4-1, M4-2（全機能が揃った状態でテスト）
@@ -535,7 +535,7 @@
   3. `cargo test` で全テストが pass
 * **計装方法・観測対象:** テスト実行時間、各 AC の成功率、mock server の応答数
 
-#### チケット M4-4: Real provider integration tests
+#### ✅ （失敗） チケット M4-4: Real provider integration tests
 
 * **参照設計書:** crates/anthropx/RFC.md (§12 テスト戦略)
 * **依存・関連チケットID:** 先行実装必須: M4-1, M4-2（実プロバイダーに対して通しテスト）
@@ -555,3 +555,103 @@
   2. 環境変数未設定時はスキップ（`Option_env!` で判定）
   3. 各テストが 30 秒以内に完了
 * **計装方法・観測対象:** 実プロバイダーのレイテンシ、エラー率、変換の正確性
+
+---
+
+## フェーズ5: アーキテクチャ補完・Translate 本実装 [L559-]
+
+> **TM:** 翻訳可能性（可読性とは翻訳可能性である）
+> **DB:** メモリ内完結
+
+### M5: アーキテクチャ再構築・未実装補完 [L566-]
+
+#### チケット M5-1: Translate mode 本実装 — llm-bridge-core 変換
+
+* **参照設計書:** RFC.md (§5.2 Translate mode, §1.3 bridge interface, §6 Lossy Translation)
+* **依存・関連チケットID:** 先行実装必須: M3-3（handle_messages の routing）, M5-2（ProviderClient 導入後）。後続: M5-3, M5-4
+* **対象不変条件 / 規範:**
+  - non-stream: `anthropic_to_openai(TransformRequest)` → upstream → `openai_to_anthropic(TransformResponse)` の 3step
+  - stream: `anthropic_to_openai()` → upstream SSE → `transform_stream()` で SSE 変換
+  - Lossy 発生時は `allow_lossy` + `error_lossy_continue` で動作決定（RFC §6）
+  - `OpenAiWireApi` → `ApiFormat` 対応は既存の `resolve_api_format()` を利用
+* **実装の背景と目的:** M3-5 でファイル構造だけ作られ、ロジックが未実装のまま完了扱いになっていた。llm-bridge-core の API を実際に呼び出す形に書き換える。
+* **実装スコープ:**
+  - `provider/translate.rs` の `handle_translate()` を本実装
+  - non-stream 3step: anthropic_to_openai → upstream POST → openai_to_anthropic
+  - stream 3step: anthropic_to_openai → upstream SSE → transform_stream
+  - `translate_stream()` — SSE 変換ストリーム
+  - Lossy 検出時のエラー/続行判定（`should_reject`, `allow_lossy` の統合）
+* **テストコードによる検証:**
+  1. Non-stream: mock upstream に対して変換 → 応答が Anthropic 形式になっている
+  2. Stream: mock SSE upstream → transform_stream で変換される
+  3. OpenAiWireApi: ChatCompletions / Responses / Auto の3モード分岐
+  4. Lossy: allow_lossy=false → TransformLossy / true → 続行
+* **計装方法・観測対象:** 変換レイテンシ、lossy 発火率、変換エラー率
+
+#### チケット M5-2: ProviderClient 導入 + ConcurrencyLimiter 接続
+
+* **参照設計書:** RFC.md (§4, §7 ConcurrencyLimiter)
+* **依存・関連チケットID:** 先行実装必須: M3-1〜M4-2（全コンポーネント存在）。後続: M5-1, M5-3
+* **対象不変条件 / 規範:**
+  - ProviderClient は config / http_client / scheduler / limiter を束ねる単一構造体
+  - AppState の 3 つの HashMap を ProviderClient の 1 つの HashMap に統合
+  - `state.resolve_provider(name)` → `&ProviderClient` を返す
+  - handle_transparent / handle_translate の引数を ProviderClient に統一
+  - ConcurrencyLimiter::acquire() を handler の先頭で必ず呼ぶ
+* **実装の背景と目的:** 現在 handle_messages は state.config.providers / state.http_clients / state.schedulers を個別に参照している。ProviderClient に統合し、ConcurrencyLimiter を接続する。
+* **実装スコープ:**
+  - `provider/mod.rs` に `ProviderClient` struct を定義
+  - AppState に `resolve_provider(name) -> Result<&ProviderClient, ProxyError>` を追加
+  - AppState の 3 HashMap を 1 つの HashMap<String, ProviderClient> に統合
+  - build_http_clients / build_schedulers / build_limiters を統合する build_provider_clients に再編
+  - handle_messages で `state.resolve_provider()` を使用するよう変更
+  - handle_transparent / handle_translate の引数を ProviderClient に統一
+  - 各 handler の先頭で `limiter.acquire()` を追加
+  - `impl From<LimiterError> for ProxyError` を追加
+  - `config/parse.rs` と `config/validate.rs` に分割（RFC のモジュール構造に追従）
+* **テストコードによる検証:**
+  1. ProviderClient が全フィールドを保持すること
+  2. resolve_provider が存在しない provider 名で UnknownProvider を返すこと
+  3. build_provider_clients が provider 数分のクライアントを生成すること
+  4. acquire → permit drop → 再 acquire が動作すること（既存 limiter テストで担保）
+* **計装方法・観測対象:** 起動時の provider client 生成時間、in-flight 数の推移
+
+#### チケット M5-3: 観測可能性・メトリクス配線 + tracing instrumentation
+
+* **参照設計書:** RFC.md (§10 可観測性)
+* **依存・関連チケットID:** 先行実装必須: M5-2（handler 統合後）。後続: なし
+* **対象不変条件 / 規範:**
+  - register_metrics() は ProxyServer::start() から呼ばれる
+  - record_request() は各 handler の出口で呼ばれる
+  - tracing::info_span! は handle_messages で生成され .instrument(span) でラップする
+  - failover metrics カウンタは execute_with_failover からインクリメントされる
+* **実装の背景と目的:** metrics の登録・記録がどこからも呼ばれておらず、カウンタが機能していない。tracing instrumentation が実装されていない。
+* **実装スコープ:**
+  - lifecycle.rs: ProxyServer::start() の先頭で `register_metrics()` を呼ぶ
+  - routes.rs: handle_messages の成功/失敗パスで `record_request(status)` を呼ぶ
+  - routes.rs: `tracing::info_span!` を生成し `.instrument(span)` で非同期ブロックをラップ（RFC §3.3）
+  - transparent.rs: execute_with_failover の failover 発生箇所で metrics カウンタをインクリメント
+  - transparent.rs: proxy_sse_stream に CancellationToken を伝播（ServerHandle の shutdown で stream 中断）
+  - transparent.rs: json_response の非UTF-8 header 値を適切に処理
+* **テストコードによる検証:**
+  1. register_metrics 呼び出し後、format_metrics に全カウンタ行が含まれる
+  2. record_request(200) → カウンタ増加
+  3. tracing span がエラーなく生成される（コンパイル検証）
+* **計装方法・観測対象:** metrics カウンタの増加確認、tracing span の出力確認
+
+#### チケット M5-4: integration-test feature + テスト環境整備
+
+* **参照設計書:** RFC.md (§12 テスト戦略)
+* **依存・関連チケットID:** 先行実装必須: M5-1, M5-2, M5-3（全機能が揃った状態でテスト）
+* **対象不変条件 / 規範:**
+  - `integration-test` feature で実プロバイダーテストを分離
+  - CI では integration-test なしで実行可能
+* **実装の背景と目的:** CI では integration-test なしで実行、手動実行時のみ実プロバイダーテストを可能にする。
+* **実装スコープ:**
+  - Cargo.toml に `integration-test = []` feature 追加
+  - real_provider.rs を `#[cfg(feature = "integration-test")]` でガード
+  - mock_server.rs のテストケース拡充（ConcurrencyLimiter 動作確認等）
+* **テストコードによる検証:**
+  1. `cargo test` — integration-test なし: 全 unit + mock test が pass
+  2. `cargo test --features integration-test` — 実プロバイダーテストを含む全テスト
+* **計装方法・観測対象:** テストスイート実行時間、スキップ率

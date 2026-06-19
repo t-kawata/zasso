@@ -43,10 +43,12 @@ pub async fn handle_transparent(
         .get(provider_name)
         .ok_or_else(|| ProxyError::UnknownProvider(provider_name.to_string()))?;
 
-    let upstream_url = format!(
-        "{}/v1/messages",
-        provider_config.base_url.trim_end_matches('/')
-    );
+    // base_url が既に /v1 で終わっている場合、重複を避ける
+    let base = provider_config
+        .base_url
+        .trim_end_matches('/')
+        .trim_end_matches("/v1");
+    let upstream_url = format!("{base}/v1/messages");
 
     // body の model 名を upstream 名に書き換え
     let mut upstream_body = body;

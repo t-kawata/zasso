@@ -57,8 +57,8 @@ impl IntoResponse for ProxyError {
             ProxyError::Upstream(_) => {
                 (StatusCode::BAD_GATEWAY, "upstream_error", self.to_string())
             }
-            ProxyError::UpstreamError(_) => {
-                (StatusCode::BAD_GATEWAY, "upstream_error", "upstream provider error".to_string())
+            ProxyError::UpstreamError(ref msg) => {
+                (StatusCode::BAD_GATEWAY, "upstream_error", msg.clone())
             }
 
             // 504 Gateway Timeout — 上流プロバイダーがタイムアウト

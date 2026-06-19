@@ -21,6 +21,8 @@ pub mod app_state;
 #[cfg(feature = "server")]
 pub mod http;
 #[cfg(feature = "server")]
+pub mod lifecycle;
+#[cfg(feature = "server")]
 pub mod observability;
 
 // クレート内の全モジュールから共通参照される型を再公開

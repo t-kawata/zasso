@@ -216,3 +216,7 @@
 - [x] #164 M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton | /Users/shyme01/shyme/zasso/tickets/specs/0164-m3-3-endpoint-handlers-healthz-metrics-v1models-v1messages-skeleton.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [ ] #165 M3-4: Transparent provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0165-m3-4-transparent-provider-mode.md | 2026-06-19 | 2026-06-19
 - [x] #166 M3-5: Translate provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0166-m3-5-translate-provider-mode.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #167 M4-1: ProxyServer::start — 起動シーケンス + ServerHandle | /Users/shyme01/shyme/zasso/tickets/specs/0167-m4-1-proxyserverstart-serverhandle.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #168 M4-2: Binary entrypoint (main.rs) | /Users/shyme01/shyme/zasso/tickets/specs/0168-m4-2-binary-entrypoint-mainrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #169 M4-3: Mock server integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0169-m4-3-mock-server-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #170 M4-4: Real provider integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0170-m4-4-real-provider-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
