@@ -10,20 +10,34 @@ use std::collections::BTreeMap;
 use crate::config::{OpenAiWireApi, ProviderConfig, ResolvedModel};
 use crate::ProxyError;
 
+/// llm-bridge-core の ApiFormat への変換をこのモジュールで提供する。
+use llm_bridge_core::model::ApiFormat as LlmApiFormat;
+
 // ---------------------------------------------------------------------------
 // ApiFormat
 // ---------------------------------------------------------------------------
 
 /// OpenAI 互換 API のワイヤー形式。
 ///
-/// M3-5 (Translate) で `llm-bridge-core::ApiFormat` と統合予定。
-/// 現状は `resolve_api_format` の戻り値としてローカル定義する。
+/// `resolve_api_format` の戻り値としてローカル定義する。
+/// `to_llm_api_format()` で `llm_bridge_core::model::ApiFormat` に変換する。
+/// [::STUB::] M5-2 で llm_bridge_core::model::ApiFormat に完全置き換え予定。
 #[derive(Debug, Clone, PartialEq)]
 pub enum ApiFormat {
     /// /v1/chat/completions 形式
     OpenaiChat,
     /// /v1/responses 形式
     OpenaiResponses,
+}
+
+/// ローカル ApiFormat を llm-bridge-core の ApiFormat に変換する。
+///
+/// translate mode で upstream への変換形式を決定するために使用する。
+pub fn to_llm_api_format(api_format: &ApiFormat) -> LlmApiFormat {
+    match api_format {
+        ApiFormat::OpenaiChat => LlmApiFormat::OpenaiChat,
+        ApiFormat::OpenaiResponses => LlmApiFormat::OpenaiResponses,
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -73,8 +73,6 @@ async fn build_test_server(config: AppConfig) -> axum_test::TestServer {
     let state = std::sync::Arc::new(anthropx::app_state::AppState::new(
         config,
         HashMap::new(),
-        HashMap::new(),
-        HashMap::new(),
     ));
     let router = anthropx::http::router::build_router(state);
     axum_test::TestServer::new(router)

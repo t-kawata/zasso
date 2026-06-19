@@ -86,6 +86,21 @@ pub enum LimiterError {
     Closed,
 }
 
+/// LimiterError を ProxyError に変換する。
+///
+/// QueueFull → QueueFull（429 Too Many Requests）
+/// Closed → Internal（プログラミングエラーまたは予期しないセマフォ解放）
+impl From<LimiterError> for crate::ProxyError {
+    fn from(e: LimiterError) -> Self {
+        match e {
+            LimiterError::QueueFull => crate::ProxyError::QueueFull,
+            LimiterError::Closed => {
+                crate::ProxyError::Internal("semaphore closed".to_string())
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // テスト
 // ---------------------------------------------------------------------------

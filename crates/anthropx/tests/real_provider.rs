@@ -19,7 +19,7 @@
 //! - `DEEPSEEK_API_KEY` — DeepSeek API key（必須）
 //! - `DEEPSEEK_BASE_URL` — DeepSeek API URL（省略時: https://api.deepseek.com）
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 use anthropx::app_state::AppState;
@@ -75,31 +75,9 @@ fn build_proxy_state(api_key: &str) -> AppState {
         },
     );
 
-    let http_clients = {
-        let mut m = HashMap::new();
-        m.insert(
-            "deepseek".to_string(),
-            reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("reqwest::Client should build"),
-        );
-        m
-    };
-    let schedulers = {
-        let mut m = HashMap::new();
-        m.insert(
-            "deepseek".to_string(),
-            anthropx::routing::scheduler::KeyScheduler::new(
-                vec![api_key.to_string()],
-                "deepseek".to_string(),
-            ),
-        );
-        m
-    };
-    let limiters = HashMap::new();
+    let providers = anthropx::lifecycle::build_provider_clients(&config);
 
-    AppState::new(config, http_clients, schedulers, limiters)
+    AppState::new(config, providers)
 }
 
 /// anthropx を中継して DeepSeek にリクエストを送信し、結果を詳細に表示する。

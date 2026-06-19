@@ -27,24 +27,14 @@ pub async fn handle_transparent(
     body: serde_json::Value,
     is_stream: bool,
 ) -> Result<Response, ProxyError> {
-    let client = state
-        .http_clients
-        .get(provider_name)
-        .ok_or_else(|| ProxyError::Internal(format!("http_client not found for {provider_name}")))?;
+    let provider = state.resolve_provider(provider_name)?;
 
-    let scheduler = state
-        .schedulers
-        .get(provider_name)
-        .ok_or_else(|| ProxyError::Internal(format!("scheduler not found for {provider_name}")))?;
-
-    let provider_config = state
-        .config
-        .providers
-        .get(provider_name)
-        .ok_or_else(|| ProxyError::UnknownProvider(provider_name.to_string()))?;
+    // 並行性制限を適用（permit はスコープ終了時に自動解放）
+    let _permit = provider.limiter.acquire().await?;
 
     // base_url が既に /v1 で終わっている場合、重複を避ける
-    let base = provider_config
+    let base = provider
+        .config
         .base_url
         .trim_end_matches('/')
         .trim_end_matches("/v1");
@@ -54,14 +44,14 @@ pub async fn handle_transparent(
     let mut upstream_body = body;
     upstream_body["model"] = serde_json::json!(resolved.upstream);
 
-    let req_builder = client.post(&upstream_url).json(&upstream_body);
+    let req_builder = provider.http_client.post(&upstream_url).json(&upstream_body);
 
     if is_stream {
         let req_builder = req_builder.header("Accept", "text/event-stream");
-        let upstream_resp = execute_stream(scheduler, req_builder).await?;
+        let upstream_resp = execute_stream(&provider.scheduler, req_builder).await?;
         Ok(stream_response(upstream_resp).await)
     } else {
-        let upstream_resp = execute_with_failover(scheduler, req_builder).await?;
+        let upstream_resp = execute_with_failover(&provider.scheduler, req_builder).await?;
         Ok(json_response(upstream_resp).await)
     }
 }

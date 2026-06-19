@@ -565,7 +565,7 @@
 
 ### M5: アーキテクチャ再構築・未実装補完 [L566-]
 
-#### チケット M5-1: Translate mode 本実装 — llm-bridge-core 変換
+#### ✅ チケット M5-1: Translate mode 本実装 — llm-bridge-core 変換
 
 * **参照設計書:** RFC.md (§5.2 Translate mode, §1.3 bridge interface, §6 Lossy Translation)
 * **依存・関連チケットID:** 先行実装必須: M3-3（handle_messages の routing）, M5-2（ProviderClient 導入後）。後続: M5-3, M5-4
@@ -588,7 +588,7 @@
   4. Lossy: allow_lossy=false → TransformLossy / true → 続行
 * **計装方法・観測対象:** 変換レイテンシ、lossy 発火率、変換エラー率
 
-#### チケット M5-2: ProviderClient 導入 + ConcurrencyLimiter 接続
+#### ✅ チケット M5-2: ProviderClient 導入 + ConcurrencyLimiter 接続
 
 * **参照設計書:** RFC.md (§4, §7 ConcurrencyLimiter)
 * **依存・関連チケットID:** 先行実装必須: M3-1〜M4-2（全コンポーネント存在）。後続: M5-1, M5-3

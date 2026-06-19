@@ -17,6 +17,7 @@ use crate::app_state::AppState;
 use crate::config::AppConfig;
 use crate::http::router::build_router;
 use crate::provider::limiter::ConcurrencyLimiter;
+use crate::provider::ProviderClient;
 use crate::routing::scheduler::KeyScheduler;
 
 /// プロキシサーバーのエントリポイント。
@@ -28,11 +29,13 @@ impl ProxyServer {
     /// 起動シーケンス:
     /// 1. `config.validate()` — 設定検証
     /// 2. `CancellationToken` 生成
-    /// 3. `build_http_clients()` / `build_schedulers()` / `build_limiters()`
+    /// 3. `build_provider_clients()` — provider リソース一括生成
     /// 4. `AppState::new()` — 実行時状態構築
     /// 5. `build_router()` → `axum::serve()` — HTTP サーバー起動
     /// 6. `ServerHandle` を返す
-    pub async fn start(config: AppConfig) -> Result<ServerHandle, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn start(
+        config: AppConfig,
+    ) -> Result<ServerHandle, Box<dyn std::error::Error + Send + Sync>> {
         // 1. 設定検証
         if let Err(errors) = config.validate() {
             for err in &errors {
@@ -44,14 +47,12 @@ impl ProxyServer {
         // 2. キャンセルトークン生成
         let cancel = CancellationToken::new();
 
-        // 3. コンポーネント生成
-        let http_clients = build_http_clients(&config);
-        let schedulers = build_schedulers(&config);
-        let limiters = build_limiters(&config);
+        // 3. Provider リソース一括生成
+        let providers = build_provider_clients(&config);
 
         // 4. AppState 構築
         let port = config.global.port;
-        let state = Arc::new(AppState::new(config, http_clients, schedulers, limiters));
+        let state = Arc::new(AppState::new(config, providers));
 
         // 5. Router 構築
         let router = build_router(state);
@@ -106,44 +107,37 @@ impl ServerHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Builder 関数
+// ProviderClient builder
 // ---------------------------------------------------------------------------
 
-/// Provider ごとに `reqwest::Client` を生成する。
-fn build_http_clients(config: &AppConfig) -> HashMap<String, reqwest::Client> {
-    config
-        .providers
-        .keys()
-        .map(|name| (name.clone(), reqwest::Client::new()))
-        .collect()
-}
-
-/// Provider ごとに `KeyScheduler` を生成する。
-fn build_schedulers(config: &AppConfig) -> HashMap<String, KeyScheduler> {
+/// Provider ごとに `ProviderClient` を一括生成する。
+///
+/// 各 ProviderClient には以下のリソースが含まれる:
+/// - `ProviderConfig`（AppConfig から clone）
+/// - `reqwest::Client`
+/// - `KeyScheduler`
+/// - `ConcurrencyLimiter`
+pub fn build_provider_clients(config: &AppConfig) -> HashMap<String, ProviderClient> {
     config
         .providers
         .iter()
-        .map(|(name, provider)| {
-            let scheduler = KeyScheduler::new(provider.api_keys.clone(), name.clone());
-            (name.clone(), scheduler)
-        })
-        .collect()
-}
-
-/// Provider ごとに `ConcurrencyLimiter` を生成する。
-fn build_limiters(config: &AppConfig) -> HashMap<String, ConcurrencyLimiter> {
-    config
-        .providers
-        .iter()
-        .map(|(name, provider)| {
-            let max_in_flight = provider
+        .map(|(name, provider_config)| {
+            let http_client = reqwest::Client::new();
+            let scheduler = KeyScheduler::new(provider_config.api_keys.clone(), name.clone());
+            let max_in_flight = provider_config
                 .max_in_flight
                 .unwrap_or(config.global.limits.default_max_in_flight);
-            let max_queue = provider
+            let max_queue = provider_config
                 .max_queue
                 .unwrap_or(config.global.limits.default_max_queue);
             let limiter = ConcurrencyLimiter::new(max_in_flight, max_queue);
-            (name.clone(), limiter)
+            let client = ProviderClient {
+                config: provider_config.clone(),
+                http_client,
+                scheduler,
+                limiter,
+            };
+            (name.clone(), client)
         })
         .collect()
 }
@@ -158,9 +152,9 @@ mod tests {
     use std::collections::BTreeMap;
     use crate::config::AppConfig;
 
-    /// build_http_clients が provider 数と一致する HashMap を生成すること。
+    /// build_provider_clients が全 provider を生成すること。
     #[test]
-    fn build_http_clients_matches_provider_count() {
+    fn build_provider_clients_matches_provider_count() {
         let mut config = AppConfig::default();
         config.providers.insert(
             "a".to_string(),
@@ -193,15 +187,15 @@ mod tests {
             },
         );
 
-        let clients = build_http_clients(&config);
+        let clients = build_provider_clients(&config);
         assert_eq!(clients.len(), 2);
         assert!(clients.contains_key("a"));
         assert!(clients.contains_key("b"));
     }
 
-    /// build_schedulers が provider ごとに正しく生成されること。
+    /// 生成された ProviderClient が各フィールドにアクセスできること。
     #[test]
-    fn build_schedulers_matches_provider_count() {
+    fn provider_client_fields_accessible() {
         let mut config = AppConfig::default();
         config.providers.insert(
             "test".to_string(),
@@ -212,32 +206,6 @@ mod tests {
                 allow_lossy: None,
                 error_lossy_continue: None,
                 openai_wire_api: None,
-                max_in_flight: None,
-                max_queue: None,
-                model_aliases: BTreeMap::new(),
-                models: vec![],
-            },
-        );
-
-        let schedulers = build_schedulers(&config);
-        assert_eq!(schedulers.len(), 1);
-        let scheduler = schedulers.get("test").unwrap();
-        assert_eq!(scheduler.key_count(), 2);
-    }
-
-    /// build_limiters が provider ごとの max_in_flight / max_queue を継承すること。
-    #[test]
-    fn build_limiters_uses_provider_overrides() {
-        let mut config = AppConfig::default();
-        config.providers.insert(
-            "custom".to_string(),
-            crate::config::ProviderConfig {
-                transparent: false,
-                base_url: "https://custom.example.com".to_string(),
-                api_keys: vec!["key".to_string()],
-                allow_lossy: None,
-                error_lossy_continue: None,
-                openai_wire_api: None,
                 max_in_flight: Some(16),
                 max_queue: Some(32),
                 model_aliases: BTreeMap::new(),
@@ -245,9 +213,13 @@ mod tests {
             },
         );
 
-        let limiters = build_limiters(&config);
-        assert_eq!(limiters.len(), 1);
-        assert!(limiters.contains_key("custom"));
+        let clients = build_provider_clients(&config);
+        let pc = clients.get("test").expect("provider client exists");
+        assert_eq!(pc.config.api_keys.len(), 2);
+        assert_eq!(pc.scheduler.key_count(), 2);
+        // フィールドアクセスだけで型検証が目的
+        let _ = &pc.http_client;
+        let _ = &pc.limiter;
     }
 
     /// ProxyServer と ServerHandle の型が期待通りであること。

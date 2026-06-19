@@ -97,7 +97,7 @@ pub async fn handle_messages(
     State(state): State<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, ProxyError> {
-    let request_id = generate_request_id();
+    let _request_id = generate_request_id();
 
     // 1. model フィールドを抽出（文字列の所有権を取る）
     let model_spec = body
@@ -139,23 +139,10 @@ pub async fn handle_messages(
     if is_transparent {
         handle_transparent(state, &provider_name, &resolved, body, is_stream).await
     } else {
-        crate::provider::translate::handle_translate(state, &provider_name, body, is_stream).await
-            .or_else(|_| {
-                let stub_response = Json(serde_json::json!({
-                    "id": format!("msg_{request_id}"),
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [],
-                    "model": model_spec,
-                    "stop_reason": "end_turn",
-                    "stop_sequence": null,
-                    "usage": {
-                        "input_tokens": 0,
-                        "output_tokens": 0
-                    }
-                }));
-                Ok(stub_response.into_response())
-            })
+        crate::provider::translate::handle_translate(
+            state, &provider_name, &resolved, body, is_stream,
+        )
+        .await
     }
 }
 
@@ -170,7 +157,7 @@ mod tests {
 
     use crate::config::{AppConfig, ModelConfig, ProviderConfig};
 
-    /// テスト用の AppState を構築する。
+    /// テスト用の最小 AppState を構築する。http_clients / schedulers は空。
     fn make_state_with_providers(providers: Vec<(&str, Vec<(&str, &str, bool)>)>) -> Arc<AppState> {
         let mut config = AppConfig::default();
         for (name, models) in providers {
@@ -198,7 +185,69 @@ mod tests {
             };
             config.providers.insert(name.to_string(), provider);
         }
-        Arc::new(AppState::new(config, HashMap::new(), HashMap::new(), HashMap::new()))
+        Arc::new(AppState::new(config, HashMap::new()))
+    }
+
+    /// テスト用の AppState を構築する（transparent mode、mock upstream 付き）。
+    ///
+    /// provider は transparent モードで起動し、ローカルの mock upstream サーバーに
+    /// リクエストを中継する。mock upstream は任意の POST に対して 200 を返す。
+    async fn make_state_with_mock_upstream(
+        providers: Vec<(&str, Vec<(&str, &str, bool)>)>,
+    ) -> Arc<AppState> {
+        // 動的ポートで mock upstream を起動
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock upstream");
+        let addr = listener.local_addr().expect("get local addr");
+        let mock_app = axum::Router::new()
+            .route("/{*path}", axum::routing::post(|| async {
+                (StatusCode::OK, axum::Json(serde_json::json!({
+                    "id": "mock_msg",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "mock response"}],
+                    "model": "mock",
+                    "stop_reason": "end_turn",
+                    "stop_sequence": null,
+                    "usage": {"input_tokens": 1, "output_tokens": 1}
+                })))
+            }));
+        tokio::spawn(async move {
+            axum::serve(listener, mock_app).await.ok();
+        });
+
+        let base_url = format!("http://{addr}");
+        let mut config = AppConfig::default();
+        for (name, models) in providers {
+            let provider = ProviderConfig {
+                transparent: true,
+                base_url: base_url.clone(),
+                api_keys: vec!["test-key".to_string()],
+                allow_lossy: None,
+                error_lossy_continue: None,
+                openai_wire_api: None,
+                max_in_flight: None,
+                max_queue: None,
+                model_aliases: BTreeMap::new(),
+                models: models
+                    .into_iter()
+                    .map(|(public, upstream, enabled)| ModelConfig {
+                        public: public.to_string(),
+                        upstream: upstream.to_string(),
+                        enabled,
+                        tags: vec![],
+                        max_tokens_cap: None,
+                        aliases: vec![],
+                    })
+                    .collect(),
+            };
+            config.providers.insert(name.to_string(), provider);
+        }
+
+        let providers = crate::lifecycle::build_provider_clients(&config);
+
+        Arc::new(AppState::new(config, providers))
     }
 
     // ---- healthz ----
@@ -301,7 +350,9 @@ mod tests {
 
     #[tokio::test]
     async fn handle_messages_valid_request() {
-        let state = make_state_with_empty_allow_list();
+        let state = make_state_with_mock_upstream(vec![
+            ("test", vec![]),
+        ]).await;
         let body = serde_json::json!({"model": "test/gpt-4"});
         let response = handle_messages(State(state), Json(body)).await;
         assert!(response.is_ok(), "valid request should succeed");
@@ -343,7 +394,9 @@ mod tests {
 
     #[tokio::test]
     async fn handle_messages_has_request_id() {
-        let state = make_state_with_empty_allow_list();
+        let state = make_state_with_mock_upstream(vec![
+            ("test", vec![]),
+        ]).await;
         let body = serde_json::json!({"model": "test/gpt-4"});
         let response = handle_messages(State(state), Json(body)).await;
         assert!(response.is_ok(), "valid request should succeed");

@@ -220,3 +220,5 @@
 - [x] #168 M4-2: Binary entrypoint (main.rs) | /Users/shyme01/shyme/zasso/tickets/specs/0168-m4-2-binary-entrypoint-mainrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #169 M4-3: Mock server integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0169-m4-3-mock-server-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #170 M4-4: Real provider integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0170-m4-4-real-provider-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #171 Translate mode 本実装 — llm-bridge-core 変換 | /Users/shyme01/shyme/zasso/tickets/specs/0171-translate-mode-llm-bridge-core.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #172 ProviderClient 導入 + ConcurrencyLimiter 接続 | /Users/shyme01/shyme/zasso/tickets/specs/0172-providerclient-concurrencylimiter.md | 2026-06-19 | 2026-06-19 | 2026-06-19

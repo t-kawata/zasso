@@ -74,19 +74,39 @@ mod tests {
         Arc::new(AppState::new(
             crate::config::AppConfig::default(),
             HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
         ))
     }
 
-    /// /v1/messages のテスト用に provider 付きの AppState を構築する。
-    fn make_state_with_providers() -> Arc<AppState> {
+    /// /v1/messages のテスト用に provider 付きの AppState を構築する（transparent mode, mock upstream 付き）。
+    async fn make_state_with_mock_upstream() -> Arc<AppState> {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock upstream");
+        let addr = listener.local_addr().expect("get local addr");
+        let mock_app = axum::Router::new()
+            .route("/{*path}", axum::routing::post(|| async {
+                (StatusCode::OK, axum::Json(serde_json::json!({
+                    "id": "mock_msg",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "mock"}],
+                    "model": "mock",
+                    "stop_reason": "end_turn",
+                    "stop_sequence": null,
+                    "usage": {"input_tokens": 1, "output_tokens": 1}
+                })))
+            }));
+        tokio::spawn(async move {
+            axum::serve(listener, mock_app).await.ok();
+        });
+
+        let base_url = format!("http://{addr}");
         let mut config = crate::config::AppConfig::default();
         config.providers.insert(
             "test".to_string(),
             ProviderConfig {
-                transparent: false,
-                base_url: "https://test.example.com".to_string(),
+                transparent: true,
+                base_url,
                 api_keys: vec!["key".to_string()],
                 allow_lossy: None,
                 error_lossy_continue: None,
@@ -97,13 +117,15 @@ mod tests {
                 models: vec![],
             },
         );
-        Arc::new(AppState::new(config, HashMap::new(), HashMap::new(), HashMap::new()))
+
+        let providers = crate::lifecycle::build_provider_clients(&config);
+        Arc::new(AppState::new(config, providers))
     }
 
     /// build_router が 4 エンドポイントすべてを登録すること。
     #[tokio::test]
     async fn router_has_four_endpoints() {
-        let state = make_state_with_providers();
+        let state = make_state_with_mock_upstream().await;
         let app = build_router(state);
 
         use axum_test::TestServer;
@@ -145,8 +167,6 @@ mod tests {
 
         let state = Arc::new(AppState::new(
             config,
-            HashMap::new(),
-            HashMap::new(),
             HashMap::new(),
         ));
         let app = build_router(state);

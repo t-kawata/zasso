@@ -116,8 +116,6 @@ mod tests {
         let state = Arc::new(AppState::new(
             config,
             HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
         ));
         let mut router = Router::new()
             .route("/test", axum::routing::get(|| async { "ok" }))
