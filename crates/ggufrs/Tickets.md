@@ -468,7 +468,7 @@
 
 ### マイルストーン M4: サーバー起動・運用
 
-#### チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
+#### ✅ チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 全実装完了）。先行実装必須: M2-1（AppState 型定義に必要）。
@@ -497,7 +497,7 @@
   4. OpenAI 互換レスポンス形式に準拠している
   5. Anthropic 互換レスポンス形式に準拠している
 
-#### チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
+#### ✅ チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター実装）、M2-3（GgufEngine::new()）。後続: M5-2（test-run バイナリから呼び出し）。
@@ -522,7 +522,7 @@
   4. auto_start_server=false でサーバーが起動しない
   5. Drop 時にサーバーが graceful shutdown される
 
-#### チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
+#### ✅ チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト, §9.2 結合テスト)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター）、M4-2（サーバー起動）。並行可能: 他テスト。
@@ -551,7 +551,7 @@
 
 ### マイルストーン M5: プラットフォーム統合
 
-#### チケット M5-1: build.rs モデル自動ダウンロード
+#### ✅ チケット M5-1: build.rs モデル自動ダウンロード
 
 * **参照設計書:** crates/ggufrs/RFC.md (§7.1 ダウンロード方式, §7.2 ファイル構成, Appendix A)
 * **依存・関連チケットID:** 先行実装必須: M0-1（Cargo.toml）。独立して実装可能（他のクレートコードに依存しない）。
@@ -572,7 +572,7 @@
   4. 全ダウンロード完了後にモデルファイルの存在を確認する assert が通る
   5. `.gitignore` に `/models/` が含まれている（ファイル読み取りで確認）
 
-#### チケット M5-2: test-run バイナリ (src/bin/test-run.rs)
+#### ✅ チケット M5-2: test-run バイナリ (src/bin/test-run.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§9.3 test-run バイナリ)
 * **依存・関連チケットID:** 先行実装必須: M3-5（lib.rs 統合）。先行推奨: M4-2（サーバー起動、必須ではない）。
@@ -592,17 +592,112 @@
   2. 全パターンが順次実行される（実行結果は目視確認）
   3. モデル不在時に明確なエラーメッセージを表示する
 
-#### チケット M5-3: 結合テスト (tests/integration_test.rs)
+---
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9.2 結合テスト)
-* **依存・関連チケットID:** 先行実装必須: M5-1（build.rs: モデルがダウンロード済み）。先行実装必須: M3-5（全推論機能実装完了）。
-* **対象不変条件 / 規範:** 実モデル（Qwen3.5-0.8B）を使用。モデルが存在しない場合はテストが失敗する（フォールバックなし）。`GpuProvider::Cpu` + `cpu_only: true` で GPU 非依存。`#[ignore]` 属性で CI ではスキップ可能。
-* **実装の背景と目的:** 実際の GGUF モデルを使ったエンドツーエンドの結合テスト。build.rs がダウンロードしたモデルを使用するため、手動配置は不要。開発環境でのみ実行し、CI では `#[ignore]` で明示的にスキップする。
+### マイルストーン M5-2.x: Gemma4 モデル対応（Qwen3.5 非互換に伴う差し替え）
+
+> **背景**: mistralrs v0.8.1 が Qwen3.5 の GGUF アーキテクチャ（`qwen35`）を未サポートのため、
+> 当面のデフォルトモデルを Gemma4 E2B / E4B（UQFF 形式）に差し替える。
+> Qwen3.5 系の設定は将来 mistralrs が対応した際に再有効化するために残す。
+>
+> 関連: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md`
+
+#### チケット M5-2.1: Gemma4 モデル情報調査と ModelConfig 追加 (config.rs)
+
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
+* **依存・関連チケットID:** 先行実装必須: M0-5（設定構造体定義）、M1-1（ModelConfig コンストラクタ）。
+* **対象不変条件 / 規範:** Qwen3.5 系の ModelConfig（`qwen3_5_0_8b()` / `qwen3_5_2b()`）は削除せず維持する。Gemma4 の設定は新規メソッド `gemma4_e2b()` / `gemma4_e4b()` として追加する。ファイルパスは build.rs の MODEL_FILES と整合させる。
+* **実装の背景と目的:** mistralrs v0.8.1 が Qwen3.5 アーキテクチャを認識しないため、サポートが確認できた Gemma4 E2B/E4B に差し替える。Qwen3.5 の設定は将来のアップデートに備えて残す。
+* **高速化の設計判断:**
+  - **`context_size` は 2048 に設定する**: Gemma4 は 128k までサポートするが、ASR 補正タスクでは入力 60-90 トークン + 出力 60-90 トークンで十分。`32768` に設定すると prefill に不要なコストがかかる。文書 `INFO.md` の推奨に基づき **2k で固定**する。
+  - **Qwen3.5 の `context_size: 32768` は変更しない**: Qwen3.5 系は将来 mistralrs 対応時の設定としてそのまま残す。
+  - 参照: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO.md`（コンテキスト長とレイテンシの関係）
+* **実装スコープ:**
+  - mistralrs の Gemma4 UQFF サポート状況の確認
+  - `ModelConfig::gemma4_e2b()` 追加（`context_size: Some(2048)` で固定）
+  - `ModelConfig::gemma4_e4b()` 追加（同上）
+  - テスト: 新規 ModelConfig のフィールド検証テスト追加
+* **テストコードによる検証:**
+  1. `gemma4_e2b()` が期待通りのフィールド値を持つ（テスト）
+  2. `gemma4_e4b()` が期待通りのフィールド値を持つ（テスト）
+  3. Qwen3.5 の既存テストが変更なしで通過する
+  4. `cargo test` 全通過
+
+#### チケット M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs)
+
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§7.1 ダウンロード方式)
+* **依存・関連チケットID:** 先行実装必須: M5-2.1（Gemma4 ModelConfig 追加）。先行実装必須: M5-1（build.rs 骨格）。
+* **対象不変条件 / 規範:** UQFF モデルのダウンロード先は build.rs の `MODEL_FILES` に追加。`GgufModelBuilder` で UQFF が読めない場合は `UqffModelBuilder` または同等の builder に分岐する。Qwen3.5 の MODEL_FILES エントリは維持する。
+* **実装の背景と目的:** Gemma4 モデルは UQFF 形式のため、GGUF 用の `GgufModelBuilder` で読み込めるか確認する。読めない場合は mistralrs の UQFF 対応ビルダーに切り替える。
+* **実装スコープ:**
+  - build.rs: 2つの Gemma4 UQFF ファイルの URL を `MODEL_FILES` に追加
+  - registry.rs: `GgufModelBuilder` で UQFF が読める場合 → 既存のままでOK
+  - registry.rs: 読めない場合 → `UqffModelBuilder` への分岐ロジック追加
+  - ダウンロード → モデルロード → `cargo run --bin test-run` の動作確認
+* **テストコードによる検証:**
+  1. `cargo check` が通過する
+  2. `cargo build` でモデルがダウンロードされる
+  3. 既存テスト全通過（`cargo test`）
+
+#### チケット M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント）
+
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md, RFC.md (§9.3)
+* **依存・関連チケットID:** 先行実装必須: M5-2.2（UQFF 読み込み対応）。
+* **対象不変条件 / 規範:** test-run.rs のデフォルトモデルを Gemma4 E2B に変更。Qwen3.5 の設定はコメントアウトまたは公式コメントで「将来対応」と明記。
+* **実装の背景と目的:** test-run バイナリが Gemma4 を使用して正常動作するようにする。
+* **実装スコープ:**
+  - test-run.rs: `GgufConfig` の models を Qwen3.5 → Gemma4 E2B + E4B に変更
+  - test-run.rs: `GenerateParams` を Gemma4 向けに最適化（下記「高速化の設計判断」参照）
+  - **`inference/mod.rs`: `GenerateParams` に `enable_thinking: Option<bool>` フィールド追加**
+  - **`inference/generate.rs`: 3メソッド（generate / generate_structured / generate_stream）すべてで `enable_thinking` を `RequestBuilder` に反映**
+  - RFC.md: Qwen3.5 前提の記述に「⚠️ 現在は Gemma4 を使用」注記を追加
+  - Tickets.md: 本チケット完了後、M5-2 の ✅ が確定
+* **高速化の設計判断（test-run の GenerateParams）:**
+  - **thinking を無効化**: chain-of-thought は ASR 補正に不要。`GenerateParams.enable_thinking = Some(false)` で全メソッドに適用する（このチケットで GenerateParams にフィールドを追加し、test-run で `send_raw()` に頼らず高レベル API から制御できるようにする）。
+  - **max_tokens を抑制**: Structured Output / Streaming は 128、Text Generation は 256（INFO.md の推定出力トークン数 60-90 に余裕を持たせた値）。
+  - **temperature は低め**: Structured Output は 0.1（決定論的）、Text は 0.3、Streaming は 0.5。
+  - **top_p / presence_penalty / frequency_penalty**: ASR 補正ではいずれも None（デフォルト）で十分。
+  - 参照: `crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/INFO.md`（E2B: ~300ms, E4B: ~800ms の推定値）
+* **テストコードによる検証:**
+  1. `cargo check --bin test-run` 通過
+  2. test-run の全パターンが Gemma4 E2B で正常動作する（目視確認）
+  3. Structured Output が 128 トークン以内で完了すること（確認）
+
+#### チケット M5-2.4: test-run + 実動作確認
+
+* **参照設計書:** crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
+* **依存・関連チケットID:** 先行実装必須: M5-2.3（test-run 設定切替）。
+* **対象不変条件 / 規範:** 3パターンすべてが PASS することをエビデンス付きで確認。Structured Output の JSON フォーマット、通常生成のテキスト品質、ストリーミングの逐次出力が期待通りであることを人間が確認。
+* **実装の背景と目的:** test-run バイナリの最終動作確認。Gemma4 移行の完了を宣言する。
+* **実装スコープ:**
+  - `cargo run --bin test-run` の実行と結果記録
+  - 各パターンの出力を Markdown またはテキストで保存
+  - サマリーで 3/3 PASS を確認
+  - 問題があれば修正して再実行
+* **テストコードによる検証:**
+  1. 全パターン PASS（サマリー確認）
+  2. Structured Output が正しい JSON フォーマットであること（目視確認）
+  3. ストリーミング出力が逐次表示されること（確認）
+  4. エラー時もバイナリが panic せずサマリーを表示すること
+
+---
+
+### マイルストーン M5-3: 結合テスト（調整版）
+
+> **注記**: 以下の M5-3 の内容は Qwen3.5 前提で設計されていた。Gemma4 移行後は
+> モデル名とパスを Gemma4 に読み替えて実施する。M5-2.x 完了後に着手すること。
+
+#### チケット M5-3: 結合テスト (tests/integration_test.rs) — Gemma4 版
+
+* **参照設計書:** crates/ggufrs/RFC.md (§9.2 結合テスト), crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
+* **依存・関連チケットID:** 先行実装必須: M5-2.3（デフォルトモデル Gemma4 切替）。先行実装必須: M3-5（全推論機能実装完了）。
+* **対象不変条件 / 規範:** 実モデル（Gemma4 E2B）を使用。モデルが存在しない場合はテストが失敗する（フォールバックなし）。`GpuProvider::Cpu` + `cpu_only: true` で GPU 非依存。`#[ignore]` 属性で CI ではスキップ可能。
+* **実装の背景と目的:** 実際の UQFF モデル（Gemma4 E2B）を使ったエンドツーエンドの結合テスト。build.rs がダウンロードしたモデルを使用するため、手動配置は不要。開発環境でのみ実行し、CI では `#[ignore]` で明示的にスキップする。
   - **モデルパス解決**: `env!("CARGO_MANIFEST_DIR")` を使用してコンパイル時に `crates/ggufrs/models/` を解決すること（`std::env::current_dir()` は cargo test のワーキングディレクトリに依存し不安定なため使用禁止）。
 * **実装スコープ:**
   - `tests/integration_test.rs` 作成
-  - `test_real_model_structured_output()` — 実際のモデルで Structured Output 推論
-  - `test_real_model_generate()` — 実際のモデルで通常生成
+  - `test_real_model_structured_output()` — 実際のモデル（Gemma4 E2B）で Structured Output 推論
+  - `test_real_model_generate()` — 実際のモデル（Gemma4 E2B）で通常生成
   - `test_model_not_found_error()` — ModelRegistry のエラーパス
   - `test_server_with_mock_engine()` — モック + Axum サーバー結合（実モデル不要）
   - `#[ignore]` 属性の適切な付与
@@ -651,7 +746,11 @@ M0-1: Cargo.toml プロジェクト骨格
   │                   ├── M3-4: InferenceEngine send_raw ← M2-2, M2-1
   │                   │   └── M3-5: lib.rs 統合 ← M3-2,M3-3,M3-4
   │                   │       ├── M5-2: test-run バイナリ ← M3-5
-  │                   │       └── M5-3: 結合テスト ← M3-5
+  │                   │       │   └── M5-2.1: Gemma4 ModelConfig ← M0-5, M1-1
+  │                   │       │       └── M5-2.2: UQFF 読み込み ← M5-2.1, M5-1
+  │                   │       │           └── M5-2.3: test-run 切替 ← M5-2.2
+  │                   │       │               └── M5-2.4: 実動作確認 ← M5-2.3
+  │                   │       └── M5-3: 結合テスト ← M5-2.3
   │                   └── M4-1: サーバールーター ← M3-2,M3-3,M3-4, M2-1
   │                       └── M4-2: GgufEngine サーバー統合 ← M4-1, M2-3
   │                           └── M4-3: サーバー結合テスト ← M4-1, M4-2
@@ -666,7 +765,7 @@ M2-1: InferenceEngine トレイト定義 + GenerateParams ← M0-2(定数), M0-3
   ├── M2-4: mockall 単体テスト ← M2-1, M2-2
   └── (上記 M3-2,M3-3,M3-4 へ)
 
-M5-4: feature flags 最終調整 ← 全チケット完了後
+M5-4: feature flags 最終調整 ← M5-3
 ```
 
 ## 実装順序の推奨
@@ -686,5 +785,7 @@ Phase D (サーバー):
   Step 5: M4-1 (ルーター) → M4-2 (サーバー統合) → M4-3 (サーバー結合テスト)
 
 Phase E (ビルド・ツーリング):
-  Step 6: M5-1 (build.rs) — M5-2 (test-run) — M5-3 (結合テスト) — M5-4 (最終調整)
+  Step 6: M5-1 (build.rs) → M5-2 (test-run)
+  Step 7: M5-2.1 (Gemma4 ModelConfig) → M5-2.2 (UQFF 読み込み) → M5-2.3 (test-run 切替) → M5-2.4 (実動作確認)
+  Step 8: M5-3 (結合テスト) → M5-4 (最終調整)
 ```

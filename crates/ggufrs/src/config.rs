@@ -3,7 +3,6 @@
 //! GpuProvider / GpuConfig / GgufConfig / ModelConfig / ServerConfig / ConfigLayer を定義する。
 //!
 
-
 use std::net::SocketAddr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -375,11 +374,7 @@ impl GgufConfig {
     ///
     /// 各層が `None` の場合はスキップされる。
     /// ファイル不存在・JSON不正の場合はエラーを返す。
-    pub fn build(
-        code: Self,
-        json: Option<&str>,
-        file: Option<&Path>,
-    ) -> Result<Self, GgufError> {
+    pub fn build(code: Self, json: Option<&str>, file: Option<&Path>) -> Result<Self, GgufError> {
         let mut result = code;
         if let Some(json_str) = json {
             result = Self::from_json_str(json_str, result)?;
@@ -407,15 +402,11 @@ impl GgufConfig {
                     result = Some(cfg);
                 }
                 ConfigLayer::JsonStr(json) => {
-                    let base = result
-                        .take()
-                        .unwrap_or(GgufConfig::from_code(vec![]));
+                    let base = result.take().unwrap_or(GgufConfig::from_code(vec![]));
                     result = Some(Self::from_json_str(&json, base)?);
                 }
                 ConfigLayer::File(path) => {
-                    let base = result
-                        .take()
-                        .unwrap_or(GgufConfig::from_code(vec![]));
+                    let base = result.take().unwrap_or(GgufConfig::from_code(vec![]));
                     result = Some(Self::from_file(&path, base)?);
                 }
             }
@@ -509,7 +500,10 @@ mod tests {
     #[test]
     fn gpu_provider_deserialize_invalid_variant() {
         let result: Result<GpuProvider, _> = serde_json::from_str("\"InvalidGPU\"");
-        assert!(result.is_err(), "deserialization of invalid variant should fail");
+        assert!(
+            result.is_err(),
+            "deserialization of invalid variant should fail"
+        );
     }
 
     #[test]
@@ -534,8 +528,14 @@ mod tests {
     fn gpu_config_all_fields_serialize() {
         let config = GpuConfig::default();
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains("provider"), "serialized JSON must contain 'provider'");
-        assert!(json.contains("cpu_only"), "serialized JSON must contain 'cpu_only'");
+        assert!(
+            json.contains("provider"),
+            "serialized JSON must contain 'provider'"
+        );
+        assert!(
+            json.contains("cpu_only"),
+            "serialized JSON must contain 'cpu_only'"
+        );
     }
 
     // ── GpuProvider method tests (M1-2) ──
@@ -606,14 +606,26 @@ mod tests {
         std::env::set_var(env_var, "cuda");
         let detected = GpuProvider::detect();
         std::env::remove_var(env_var);
-        assert_eq!(detected, GpuProvider::Cuda, "env var should override OS detection");
+        assert_eq!(
+            detected,
+            GpuProvider::Cuda,
+            "env var should override OS detection"
+        );
 
         // 2) 環境変数未設定時 → OS 自動検出
         let detected = GpuProvider::detect();
         #[cfg(target_os = "macos")]
-        assert_eq!(detected, GpuProvider::Metal, "macOS should default to Metal");
+        assert_eq!(
+            detected,
+            GpuProvider::Metal,
+            "macOS should default to Metal"
+        );
         #[cfg(not(target_os = "macos"))]
-        assert_eq!(detected, GpuProvider::Cpu, "non-macOS should default to Cpu");
+        assert_eq!(
+            detected,
+            GpuProvider::Cpu,
+            "non-macOS should default to Cpu"
+        );
     }
 
     // ── ModelConfig tests (M0-5) ──
@@ -646,7 +658,10 @@ mod tests {
     fn model_config_default_context_size_is_none() {
         let json = r#"{"name":"test","model_path":"test.gguf"}"#;
         let config: ModelConfig = serde_json::from_str(json).unwrap();
-        assert!(config.context_size.is_none(), "context_size should default to None");
+        assert!(
+            config.context_size.is_none(),
+            "context_size should default to None"
+        );
     }
 
     // ── ModelConfig constructor tests (M1-1) ──
@@ -751,7 +766,10 @@ mod tests {
     #[test]
     fn server_config_default_auto_start_is_false() {
         let config = ServerConfig::default();
-        assert!(!config.auto_start_server, "auto_start_server should default to false");
+        assert!(
+            !config.auto_start_server,
+            "auto_start_server should default to false"
+        );
     }
 
     #[test]
@@ -898,7 +916,10 @@ mod tests {
         };
         config.merge_overlay(overlay);
         // provider=Auto の GPU は上書きされない → cpu_only は false のまま
-        assert!(!config.gpu.cpu_only, "gpu with Auto provider should not overwrite");
+        assert!(
+            !config.gpu.cpu_only,
+            "gpu with Auto provider should not overwrite"
+        );
     }
 
     #[test]
@@ -1077,7 +1098,11 @@ mod tests {
     #[test]
     fn build_file_not_found_returns_error() {
         let code = GgufConfig::from_code(vec![]);
-        let result = GgufConfig::build(code, None, Some(Path::new("/tmp/ggufrs_nonexistent_build.json")));
+        let result = GgufConfig::build(
+            code,
+            None,
+            Some(Path::new("/tmp/ggufrs_nonexistent_build.json")),
+        );
         assert!(result.is_err(), "non-existent file should return error");
     }
 
@@ -1130,7 +1155,10 @@ mod tests {
         std::fs::remove_file(&tmp_path).unwrap();
         // File 層が最優先 → Metal
         assert_eq!(result.gpu.provider, GpuProvider::Metal);
-        assert!(!result.gpu.cpu_only, "file layer should overwrite json layer");
+        assert!(
+            !result.gpu.cpu_only,
+            "file layer should overwrite json layer"
+        );
         // モデルは code 層のまま
         assert_eq!(result.models[0].name, "m");
     }

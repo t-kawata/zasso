@@ -236,7 +236,10 @@ mod tests {
 
         // 温度は f32 → f64 変換で近似値になることを許容
         let temp = sp.temperature.unwrap();
-        assert!((temp - 0.7_f64).abs() < 0.001, "temperature should be approx 0.7, got {temp}");
+        assert!(
+            (temp - 0.7_f64).abs() < 0.001,
+            "temperature should be approx 0.7, got {temp}"
+        );
     }
 
     #[test]

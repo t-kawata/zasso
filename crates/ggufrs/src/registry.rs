@@ -182,7 +182,18 @@ impl ModelRegistry {
         }; // 書き込みロック解放（await 前に解放することで Send 制約を満たす）
 
         // 3) GgufModelBuilder で非同期ロード（ロックなし）
-        let mut builder = GgufModelBuilder::new(model_path_str, vec!["**"]);
+        // model_path はファイルパスのため、親ディレクトリを抽出して渡す
+        // ファイル名をグロブパターンとして使用し、該当ファイルのみを対象にする
+        let model_path = PathBuf::from(&model_path_str);
+        let model_dir = model_path
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| model_path_str.clone());
+        let file_pattern = model_path
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_else(|| "**".to_string());
+        let mut builder = GgufModelBuilder::new(model_dir, vec![file_pattern]);
         if let Some(ref template) = chat_template {
             builder = builder.with_chat_template(template);
         }
@@ -247,7 +258,7 @@ mod tests {
     fn create_sample_config() -> ModelConfig {
         ModelConfig {
             name: "qwen3.5".into(),
-            model_path: PathBuf::from("models/qwen3.5.gguf"),
+            model_path: PathBuf::from("models/nonexistent/qwen3.5.gguf"),
             lazy_load: true,
             context_size: Some(16384),
             gpu_layers: Some(24),
@@ -262,7 +273,7 @@ mod tests {
         let info = ModelInfo::from(config);
 
         assert_eq!(info.name, "qwen3.5");
-        assert_eq!(info.model_path, PathBuf::from("models/qwen3.5.gguf"));
+        assert_eq!(info.model_path, PathBuf::from("models/nonexistent/qwen3.5.gguf"));
         assert!(info.lazy_load);
         assert_eq!(info.context_size, Some(16384));
         assert_eq!(info.gpu_layers, Some(24));
@@ -274,7 +285,10 @@ mod tests {
     fn model_info_model_field_is_none_after_from() {
         let config = create_sample_config();
         let info = ModelInfo::from(config);
-        assert!(info.model.is_none(), "model should be None after From conversion");
+        assert!(
+            info.model.is_none(),
+            "model should be None after From conversion"
+        );
     }
 
     #[test]
@@ -386,6 +400,10 @@ mod tests {
         registry.add_model(config);
         // lazy_load=true のモデルのみ → スキップされる → Ok(())
         let result = registry.load_immediate().await;
-        assert!(result.is_ok(), "load_immediate should skip lazy models: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "load_immediate should skip lazy models: {:?}",
+            result
+        );
     }
 }

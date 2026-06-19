@@ -115,8 +115,14 @@ mod tests {
     fn gguf_error_display_model_not_found() {
         let err = GgufError::ModelNotFound("qwen3.5".into());
         let msg = err.to_string();
-        assert!(msg.contains("qwen3.5"), "display should contain model name: {msg}");
-        assert!(msg.contains("見つかりません"), "display should be in Japanese: {msg}");
+        assert!(
+            msg.contains("qwen3.5"),
+            "display should contain model name: {msg}"
+        );
+        assert!(
+            msg.contains("見つかりません"),
+            "display should be in Japanese: {msg}"
+        );
     }
 
     #[test]
@@ -127,9 +133,18 @@ mod tests {
             source: Box::new(io_err),
         };
         let msg = err.to_string();
-        assert!(msg.contains("qwen3.5"), "display should contain model name: {msg}");
-        assert!(msg.contains("ロード"), "display should be in Japanese: {msg}");
-        assert!(msg.contains("file not found"), "display should contain source: {msg}");
+        assert!(
+            msg.contains("qwen3.5"),
+            "display should contain model name: {msg}"
+        );
+        assert!(
+            msg.contains("ロード"),
+            "display should be in Japanese: {msg}"
+        );
+        assert!(
+            msg.contains("file not found"),
+            "display should contain source: {msg}"
+        );
     }
 
     #[test]
@@ -138,7 +153,10 @@ mod tests {
         let err = GgufError::InferenceFailed(Box::new(io_err));
         let msg = err.to_string();
         assert!(msg.contains("推論"), "display should be in Japanese: {msg}");
-        assert!(msg.contains("inference timeout"), "display should contain source: {msg}");
+        assert!(
+            msg.contains("inference timeout"),
+            "display should contain source: {msg}"
+        );
     }
 
     #[test]
@@ -146,8 +164,14 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::AddrInUse, "port in use");
         let err = GgufError::ServerStartupFailed(Box::new(io_err));
         let msg = err.to_string();
-        assert!(msg.contains("サーバー"), "display should be in Japanese: {msg}");
-        assert!(msg.contains("port in use"), "display should contain source: {msg}");
+        assert!(
+            msg.contains("サーバー"),
+            "display should be in Japanese: {msg}"
+        );
+        assert!(
+            msg.contains("port in use"),
+            "display should contain source: {msg}"
+        );
     }
 
     #[test]
@@ -155,7 +179,10 @@ mod tests {
         let err = GgufError::InvalidConfig("unknown provider: xxx".into());
         let msg = err.to_string();
         assert!(msg.contains("設定"), "display should be in Japanese: {msg}");
-        assert!(msg.contains("unknown provider"), "display should contain detail: {msg}");
+        assert!(
+            msg.contains("unknown provider"),
+            "display should contain detail: {msg}"
+        );
     }
 
     #[test]
@@ -164,8 +191,14 @@ mod tests {
         let mist_err = mistralrs::error::Error::RequestValidation("test error".into());
         let err = GgufError::MistralrsError(mist_err);
         let msg = err.to_string();
-        assert!(msg.contains("mistralrs"), "display should contain prefix: {msg}");
-        assert!(msg.contains("test error"), "display should contain source info: {msg}");
+        assert!(
+            msg.contains("mistralrs"),
+            "display should contain prefix: {msg}"
+        );
+        assert!(
+            msg.contains("test error"),
+            "display should contain source info: {msg}"
+        );
     }
 
     #[test]
@@ -176,29 +209,47 @@ mod tests {
             name: "test".into(),
             source: Box::new(io_err),
         };
-        assert!(err.source().is_some(), "ModelLoadFailed should have a source");
+        assert!(
+            err.source().is_some(),
+            "ModelLoadFailed should have a source"
+        );
 
         let io_err = std::io::Error::new(std::io::ErrorKind::Other, "infer error");
         let err = GgufError::InferenceFailed(Box::new(io_err));
-        assert!(err.source().is_some(), "InferenceFailed should have a source");
+        assert!(
+            err.source().is_some(),
+            "InferenceFailed should have a source"
+        );
 
         let io_err = std::io::Error::new(std::io::ErrorKind::Other, "server error");
         let err = GgufError::ServerStartupFailed(Box::new(io_err));
-        assert!(err.source().is_some(), "ServerStartupFailed should have a source");
+        assert!(
+            err.source().is_some(),
+            "ServerStartupFailed should have a source"
+        );
 
         let mist_err = mistralrs::error::Error::RequestValidation("validation failed".into());
         let err = GgufError::MistralrsError(mist_err);
-        assert!(err.source().is_some(), "MistralrsError should have a source");
+        assert!(
+            err.source().is_some(),
+            "MistralrsError should have a source"
+        );
     }
 
     #[test]
     fn gguf_error_source_for_string_error() {
         // 文字列のみのバリアントで source() が None を返すことを確認
         let err = GgufError::ModelNotFound("test".into());
-        assert!(err.source().is_none(), "ModelNotFound should not have a source");
+        assert!(
+            err.source().is_none(),
+            "ModelNotFound should not have a source"
+        );
 
         let err = GgufError::InvalidConfig("bad config".into());
-        assert!(err.source().is_none(), "InvalidConfig should not have a source");
+        assert!(
+            err.source().is_none(),
+            "InvalidConfig should not have a source"
+        );
     }
 
     #[test]
@@ -206,8 +257,14 @@ mod tests {
         let err = GgufError::ModelNotFound("debug_test".into());
         let debug = format!("{err:?}");
         // Debug 出力にはバリアント名とフィールド情報が含まれる
-        assert!(debug.contains("ModelNotFound"), "Debug should contain variant name: {debug}");
-        assert!(debug.contains("debug_test"), "Debug should contain field value: {debug}");
+        assert!(
+            debug.contains("ModelNotFound"),
+            "Debug should contain variant name: {debug}"
+        );
+        assert!(
+            debug.contains("debug_test"),
+            "Debug should contain field value: {debug}"
+        );
     }
 
     // ── From impl tests (M1-3) ──
@@ -227,7 +284,10 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
         let err: GgufError = io_err.into();
         let msg = err.to_string();
-        assert!(msg.contains("access denied"), "message should be preserved: {msg}");
+        assert!(
+            msg.contains("access denied"),
+            "message should be preserved: {msg}"
+        );
     }
 
     #[test]
@@ -246,7 +306,10 @@ mod tests {
         let json_err = serde_json::from_str::<serde_json::Value>("not valid json").unwrap_err();
         let err: GgufError = json_err.into();
         let msg = err.to_string();
-        assert!(msg.contains("expected"), "message should be preserved: {msg}");
+        assert!(
+            msg.contains("expected"),
+            "message should be preserved: {msg}"
+        );
     }
 
     #[test]

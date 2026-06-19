@@ -198,4 +198,9 @@
 - [x] #149 M3-5: lib.rs 統合・re-export 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0149-m3-5-librs-re-export-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #150 Layer 3 結合テスト — ローカルSIPサーバ + Docker | /Users/shyme/shyme/zasso/tickets/specs/0150-layer-3-sip-docker.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #151 macOS prebuilt PJSIP の TLS バックエンドを Apple Security Framework に切り替え | /Users/shyme/shyme/zasso/tickets/specs/0151-macos-prebuilt-pjsip-tls-apple-security-framework.md | 2026-06-18 | 2026-06-18 | 2026-06-18
-- [ ] #152 Layer 3 結合テスト — Asterisk 結合試験の実証と修正 | /Users/shyme/shyme/zasso/tickets/specs/0152-layer-3-asterisk.md | 2026-06-18 | 2026-06-18
+- [x] #152 Layer 3 結合テスト — Asterisk 結合試験の実証と修正 | /Users/shyme/shyme/zasso/tickets/specs/0152-layer-3-asterisk.md | 2026-06-18 | 2026-06-18
+- [x] #150 M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs) | /Users/kawata/shyme/zasso/tickets/specs/0150-m4-1-serverrouterrs-serveropenairs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #151 M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs) | /Users/kawata/shyme/zasso/tickets/specs/0151-m4-2-ggufengine-librs-servermodrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #153 M5-1: build.rs モデル自動ダウンロード | /Users/kawata/shyme/zasso/tickets/specs/0153-m5-1-buildrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #154 M5-2: test-run バイナリ (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0154-m5-2-test-run-srcbintest-runrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18

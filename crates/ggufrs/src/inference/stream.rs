@@ -40,11 +40,9 @@ pub(crate) fn convert_response(response: mistralrs::Response) -> ResponseItem {
             ResponseItem::Processing(Ok(content))
         }
         mistralrs::Response::Done(_) => ResponseItem::Done,
-        mistralrs::Response::ModelError(msg, _) => {
-            ResponseItem::Processing(Err(GgufError::InferenceFailed(Box::new(
-                std::io::Error::other(msg),
-            ))))
-        }
+        mistralrs::Response::ModelError(msg, _) => ResponseItem::Processing(Err(
+            GgufError::InferenceFailed(Box::new(std::io::Error::other(msg))),
+        )),
         mistralrs::Response::InternalError(e) => {
             ResponseItem::Processing(Err(GgufError::InferenceFailed(e)))
         }
@@ -123,9 +121,12 @@ mod tests {
 
     #[test]
     fn internal_error_returns_inference_failed() {
-        let item = convert_response(mistralrs::Response::InternalError(
-            Box::new(std::io::Error::other("oops")),
+        let item = convert_response(mistralrs::Response::InternalError(Box::new(
+            std::io::Error::other("oops"),
+        )));
+        assert!(matches!(
+            item,
+            ResponseItem::Processing(Err(GgufError::InferenceFailed(_)))
         ));
-        assert!(matches!(item, ResponseItem::Processing(Err(GgufError::InferenceFailed(_)))));
     }
 }
