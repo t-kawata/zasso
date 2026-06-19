@@ -1,9 +1,6 @@
 //! DTMF 結合テスト（Asterisk）
 //!
-//! RFC4733 / SIP INFO / Inband の各 DTMF 送受信を検証する。
-//! 通話確立後に DTMF を送信し、イベント発火を確認する。
-//!
-//! 注: PjsuaBackend の credential 設定が未実装のため登録なしでテストを行う。
+//! RFC4733 / SIP INFO / Inband の各 DTMF 送信を検証する。
 
 use crate::common::*;
 use siprs::config::{CallMediaPreferences, Codec, DtmfMethod, OutgoingCallRequest};
@@ -15,8 +12,11 @@ use siprs::runtime::command::HangupReason;
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_rfc4733() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-    let mut events = ctx.events.resubscribe();
+    let mut ctx = setup_test_context()?;
+    
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
 
     let call_id = ctx.client.make_call(
         ctx.account_1,
@@ -34,31 +34,15 @@ async fn dtmf_rfc4733() -> Result<(), SipError> {
         },
     )?;
 
-    // CallConnected を待機
-    let connected = wait_for_event_with_timeout(&mut events, CALL_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::CallConnected { .. })
-    }).await;
+    wait_for_call_connected(&mut ctx.events).await?;
+    ctx.client.send_dtmf(call_id, "1".to_string(), DtmfMethod::Rfc4733)?;
 
-    match connected {
-        Ok(_) => {
-            // DTMF '1' を RFC4733 で送信
-            ctx.client.send_dtmf(call_id, "1".to_string(), DtmfMethod::Rfc4733)?;
+    let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::DtmfSent { .. })
+    }).await?;
+    assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
-            // DtmfSent を待機
-            let result = wait_for_event_with_timeout(&mut events, EVENT_TIMEOUT, |payload| {
-                matches!(payload, SipEventPayload::DtmfSent { .. })
-            })
-            .await;
-
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            let _ = result?;
-        }
-        Err(e) => {
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            eprintln!("dtmf_rfc4733: call not connected: {e}");
-        }
-    }
-
+    ctx.client.hangup(call_id, HangupReason::Bye)?;
     teardown(ctx);
     Ok(())
 }
@@ -67,8 +51,11 @@ async fn dtmf_rfc4733() -> Result<(), SipError> {
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_sip_info() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-    let mut events = ctx.events.resubscribe();
+    let mut ctx = setup_test_context()?;
+    
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
 
     let call_id = ctx.client.make_call(
         ctx.account_1,
@@ -86,28 +73,15 @@ async fn dtmf_sip_info() -> Result<(), SipError> {
         },
     )?;
 
-    let connected = wait_for_event_with_timeout(&mut events, CALL_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::CallConnected { .. })
-    }).await;
+    wait_for_call_connected(&mut ctx.events).await?;
+    ctx.client.send_dtmf(call_id, "5".to_string(), DtmfMethod::SipInfo)?;
 
-    match connected {
-        Ok(_) => {
-            ctx.client.send_dtmf(call_id, "5".to_string(), DtmfMethod::SipInfo)?;
+    let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::DtmfSent { .. })
+    }).await?;
+    assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
-            let result = wait_for_event_with_timeout(&mut events, EVENT_TIMEOUT, |payload| {
-                matches!(payload, SipEventPayload::DtmfSent { .. })
-            })
-            .await;
-
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            let _ = result?;
-        }
-        Err(e) => {
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            eprintln!("dtmf_sip_info: call not connected: {e}");
-        }
-    }
-
+    ctx.client.hangup(call_id, HangupReason::Bye)?;
     teardown(ctx);
     Ok(())
 }
@@ -116,8 +90,11 @@ async fn dtmf_sip_info() -> Result<(), SipError> {
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_inband() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-    let mut events = ctx.events.resubscribe();
+    let mut ctx = setup_test_context()?;
+    
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
 
     let call_id = ctx.client.make_call(
         ctx.account_1,
@@ -135,28 +112,15 @@ async fn dtmf_inband() -> Result<(), SipError> {
         },
     )?;
 
-    let connected = wait_for_event_with_timeout(&mut events, CALL_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::CallConnected { .. })
-    }).await;
+    wait_for_call_connected(&mut ctx.events).await?;
+    ctx.client.send_dtmf(call_id, "0".to_string(), DtmfMethod::Inband)?;
 
-    match connected {
-        Ok(_) => {
-            ctx.client.send_dtmf(call_id, "0".to_string(), DtmfMethod::Inband)?;
+    let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::DtmfSent { .. })
+    }).await?;
+    assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
-            let result = wait_for_event_with_timeout(&mut events, EVENT_TIMEOUT, |payload| {
-                matches!(payload, SipEventPayload::DtmfSent { .. })
-            })
-            .await;
-
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            let _ = result?;
-        }
-        Err(e) => {
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            eprintln!("dtmf_inband: call not connected: {e}");
-        }
-    }
-
+    ctx.client.hangup(call_id, HangupReason::Bye)?;
     teardown(ctx);
     Ok(())
 }

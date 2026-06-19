@@ -163,10 +163,12 @@ impl SipClient {
     /// PjsuaBackend を使用して SipClient を生成する（結合テスト用）。
     ///
     /// `feature = "pjsip"` 有効時のみ利用可能。
+    /// PjsuaBackend はプロセス単位で singleton 化されており、複数回呼び出しても
+    /// 同一インスタンスが再利用される。
     #[cfg(feature = "pjsip")]
     #[instrument(skip_all)]
     pub fn new_with_pjsip(config: ClientConfig) -> Result<Self, SipError> {
-        let backend = Box::new(crate::ffi::pjsua_backend::PjsuaBackend::new());
+        let backend = Box::new(crate::ffi::pjsua_backend::PjsuaBackendRef);
         Self::new(config, backend)
     }
 

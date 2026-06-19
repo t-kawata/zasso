@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use secrecy::SecretString;
-use siprs::client::SipClient;
+use siprs::client::{SipAccountHandle, SipClient};
 use siprs::config::{
     AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, ClientConfig,
     DtmfMethod, DtmfPolicy, TimeoutConfig,
@@ -31,6 +31,10 @@ pub struct TestContext {
     pub account_1: AccountId,
     /// テスト用アカウント2のハンドル（dual account テスト用）。
     pub account_2: AccountId,
+    /// テスト用アカウント1の SipAccountHandle（blocking_read 回避のため）。
+    pub handle_1: SipAccountHandle,
+    /// テスト用アカウント2の SipAccountHandle（同上）。
+    pub handle_2: SipAccountHandle,
 }
 
 // ---------------------------------------------------------------------------
@@ -86,19 +90,21 @@ pub fn setup_test_context() -> Result<TestContext, SipError> {
 
     // アカウント1: test_user_1（認証成功 / 単一アカウント通話 / DTMF）
     let account_config_1 = account_config_for_user_1(&host);
-    let account_handle_1 = client.add_account(account_config_1)?;
-    let account_1 = account_handle_1.id();
+    let handle_1 = client.add_account(account_config_1)?;
+    let account_1 = handle_1.id();
 
     // アカウント2: test_user_2（dual account テスト用）
     let account_config_2 = account_config_for_user_2(&host);
-    let account_handle_2 = client.add_account(account_config_2)?;
-    let account_2 = account_handle_2.id();
+    let handle_2 = client.add_account(account_config_2)?;
+    let account_2 = handle_2.id();
 
     Ok(TestContext {
         client,
         events,
         account_1,
         account_2,
+        handle_1,
+        handle_2,
     })
 }
 
@@ -107,7 +113,7 @@ pub fn teardown(ctx: TestContext) {
     let _ = ctx.client.shutdown();
 }
 
-/// 指定したアカウントの `AccountConfig` を生成する（Asterisk test_user_1 用）。
+/// 指定したアカウントの `AccountConfig` を生成する（Asterisk 1001 用）。
 pub fn account_config_for_user_1(host: &str) -> AccountConfig {
     AccountConfig {
         display_name: Some("Test User 1".into()),
@@ -119,8 +125,8 @@ pub fn account_config_for_user_1(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: false,
-        allow_outbound_without_register: true,
+        register_on_start: true,
+        allow_outbound_without_register: false,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {
@@ -145,8 +151,8 @@ pub fn account_config_for_user_2(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: false,
-        allow_outbound_without_register: true,
+        register_on_start: true,
+        allow_outbound_without_register: false,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {
@@ -171,8 +177,8 @@ pub fn account_config_for_failure(host: &str) -> AccountConfig {
         outbound_proxy: vec![],
         contact_params: vec![],
         transport: AccountTransportPolicy::Default,
-        register_on_start: false,
-        allow_outbound_without_register: true,
+        register_on_start: true,
+        allow_outbound_without_register: false,
         registration_expires: Duration::from_secs(60),
         codecs: AccountCodecPolicy::default_voice(),
         dtmf: DtmfPolicy {
@@ -236,13 +242,36 @@ where
 }
 
 /// アカウントが `RegistrationSucceeded` を発火するまで待機する。
+///
+/// Docker NAT 環境では IP アドレス書き換えにより先に 404 が返されることがある。
+/// その後の再 REGISTER 成功（200 OK）でも発火する。
 pub async fn wait_for_registration(
     events: &mut broadcast::Receiver<SipEvent>,
 ) -> Result<SipEvent, SipError> {
-    wait_for_event_with_timeout(events, REGISTER_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::RegistrationSucceeded { .. })
-    })
-    .await
+    let deadline = tokio::time::Instant::now() + REGISTER_TIMEOUT;
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(SipError::timeout("registration wait timeout"));
+        }
+
+        match tokio::time::timeout(remaining, events.recv()).await {
+            Ok(Ok(event)) => {
+                if matches!(&event.payload, SipEventPayload::RegistrationSucceeded { .. }) {
+                    return Ok(event);
+                }
+                // RegistrationFailed は IP 書き換え起因の可能性があるためスキップして継続待機
+                if matches!(&event.payload, SipEventPayload::RegistrationFailed { .. }) {
+                    continue;
+                }
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                return Err(SipError::channel_closed("event stream closed"));
+            }
+            Ok(Err(broadcast::error::RecvError::Lagged(_))) => continue,
+            Err(_) => return Err(SipError::timeout("registration wait timeout")),
+        }
+    }
 }
 
 /// 通話が確立されるまで待機する。

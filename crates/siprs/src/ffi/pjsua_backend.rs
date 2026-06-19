@@ -15,6 +15,11 @@
 //! これらは後続チケットで実際の FFI 呼び出しが実装されたタイミングで必要になる。
 #![cfg_attr(feature = "pjsip", allow(dead_code))]
 
+use std::sync::{Mutex, OnceLock};
+
+#[cfg(feature = "pjsip")]
+use secrecy::ExposeSecret;
+
 use crate::config::AccountConfig;
 use crate::config::ClientConfig;
 use crate::config::DtmfMethod;
@@ -49,14 +54,84 @@ pub(crate) const CODEC_PRIO_DISABLED: u8 = 0;
 pub(crate) struct PjsuaBackend {
     /// pjsua が初期化済みかどうか。
     initialized: bool,
+    /// pj_thread_register() のスレッド記述子（リークして永続化）。
+    /// PJSIP はこの記述子のポインタを内部で保持し続けるため、プロセス生存期間中有効。
+    #[allow(dead_code)]
+    thread_desc: Option<Box<[::std::os::raw::c_long; 64]>>,
 }
 
 impl PjsuaBackend {
     /// 新しい `PjsuaBackend` を生成する。
     pub fn new() -> Self {
-        Self { initialized: false }
+        Self {
+            initialized: false,
+            thread_desc: None,
+        }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Global singleton
+// ---------------------------------------------------------------------------
+
+/// PjsuaBackend のグローバルシングルトン（プロセス単位で1インスタンス）。
+static PJSIP_BACKEND: OnceLock<Mutex<PjsuaBackend>> = OnceLock::new();
+
+/// グローバルシングルトンの PjsuaBackend インスタンスを取得する。
+pub(crate) fn global() -> &'static Mutex<PjsuaBackend> {
+    PJSIP_BACKEND.get_or_init(|| Mutex::new(PjsuaBackend::new()))
+}
+
+/// SipBackend trait 実装の薄いラッパー。
+/// 全メソッド呼び出しをグローバルシングルトンの PjsuaBackend に委譲する。
+pub(crate) struct PjsuaBackendRef;
+
+#[cfg(feature = "pjsip")]
+impl SipBackend for PjsuaBackendRef {
+    fn initialize(&mut self, config: &ClientConfig) -> Result<ClientCapabilities, SipError> {
+        global().lock().unwrap().initialize(config)
+    }
+    fn shutdown(&mut self) -> Result<(), SipError> {
+        global().lock().unwrap().shutdown()
+    }
+    fn create_transport(&mut self, config: &TransportConfig) -> Result<(), SipError> {
+        global().lock().unwrap().create_transport(config)
+    }
+    fn add_account(&mut self, config: &AccountConfig) -> Result<(NativeAccId, ClientCapabilities), SipError> {
+        global().lock().unwrap().add_account(config)
+    }
+    fn remove_account(&mut self, native_acc_id: NativeAccId) -> Result<(), SipError> {
+        global().lock().unwrap().remove_account(native_acc_id)
+    }
+    fn set_registration(&mut self, native_acc_id: NativeAccId, enabled: bool) -> Result<(), SipError> {
+        global().lock().unwrap().set_registration(native_acc_id, enabled)
+    }
+    fn make_call(&mut self, native_acc_id: NativeAccId, request: &OutgoingCallRequest) -> Result<NativeCallId, SipError> {
+        global().lock().unwrap().make_call(native_acc_id, request)
+    }
+    fn answer_call(&mut self, native_call_id: NativeCallId, code: u16) -> Result<(), SipError> {
+        global().lock().unwrap().answer_call(native_call_id, code)
+    }
+    fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError> {
+        global().lock().unwrap().hangup(native_call_id)
+    }
+    fn conf_connect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
+        global().lock().unwrap().conf_connect(src, dst)
+    }
+    fn conf_disconnect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
+        global().lock().unwrap().conf_disconnect(src, dst)
+    }
+    fn configure_codecs(&mut self) -> Result<(), SipError> {
+        global().lock().unwrap().configure_codecs()
+    }
+    fn send_dtmf(&mut self, native_call_id: NativeCallId, method: &DtmfMethod, digits: &str) -> Result<(), SipError> {
+        global().lock().unwrap().send_dtmf(native_call_id, method, digits)
+    }
+    fn transfer_call(&mut self, native_call_id: NativeCallId, target: &str) -> Result<(), SipError> {
+        global().lock().unwrap().transfer_call(native_call_id, target)
+    }
+}
+
 
 // ---------------------------------------------------------------------------
 // pj_status_t → SipError 変換
@@ -118,11 +193,32 @@ impl SipBackend for PjsuaBackend {
             return Ok(ClientCapabilities::default_disabled());
         }
         unsafe {
-            // pjsua_create() — PJSUA インスタンス作成
+            // SAFETY: pjsua_create は初期化されていない状態からのみ呼び出す。
+            // self.initialized が false であることを直前に確認している。
             let mut status = bindings::pjsua_create();
             if status != 0 {
                 return Err(pj_status_to_sip_error(status, "pjsua_create"));
             }
+
+            // SAFETY: pj_thread_register は pjsua_create 成功後にのみ呼び出せる。
+            // 渡す desc は Box でヒープ確保し、self.thread_desc に保持することで
+            // PjsuaBackend 生存期間中の有効性を保証する。
+            let mut desc: bindings::pj_thread_desc = std::mem::zeroed();
+            let mut thread_ptr: *mut bindings::pj_thread_t = std::ptr::null_mut();
+            let thread_name = std::ffi::CString::new("siprs-reactor")
+                .expect("thread name must not contain null bytes");
+            let reg_status = bindings::pj_thread_register(
+                thread_name.as_ptr(),
+                desc.as_mut_ptr(),
+                &mut thread_ptr,
+            );
+            if reg_status != 0 {
+                return Err(pj_status_to_sip_error(
+                    reg_status,
+                    "pj_thread_register",
+                ));
+            }
+            self.thread_desc = Some(Box::new(desc));
 
             // pjsua_config 初期化
             let mut ua_cfg: bindings::pjsua_config = std::mem::zeroed();
@@ -229,8 +325,43 @@ impl SipBackend for PjsuaBackend {
                 slen: reg_bytes.len() as c_long,
             };
 
-            // Credential（cred_info は opaque なため設定不可。認証は後続チケットで対応）
-            acc_cfg.cred_count = 0;
+            // SAFETY: pjsip_cred_info のフィールドは C の pj_str_t と同じメモリレイアウト。
+            // ptr が指す CString はこの unsafe ブロック内で生存し、pjsua_acc_add が
+            // 内部で cred_info をコピーするまで有効である。
+            //（PJSIP の仕様: pjsua_acc_add は acc_cfg の内容を内部で複製する）
+            let cred_realm = std::ffi::CString::new("")
+                .map_err(|_| SipError::invalid_config("credential realm contains null byte"))?;
+            let cred_scheme = std::ffi::CString::new("Digest")
+                .map_err(|_| SipError::invalid_config("credential scheme contains null byte"))?;
+            let cred_username = std::ffi::CString::new(config.username.clone())
+                .map_err(|_| SipError::invalid_config("credential username contains null byte"))?;
+            let password_exposed = config.password.expose_secret();
+            let cred_data = std::ffi::CString::new(password_exposed.as_bytes())
+                .map_err(|_| SipError::invalid_config("credential password contains null byte"))?;
+
+            // pjsua_acc_config.cred_info は [pjsip_cred_info; 8] のインライン配列。
+            // 先頭要素に認証情報を設定し、cred_count で有効要素数を指定する。
+            acc_cfg.cred_info[0].realm = bindings::pj_str_t {
+                ptr: cred_realm.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: cred_realm.as_bytes().len() as c_long,
+            };
+            acc_cfg.cred_info[0].scheme = bindings::pj_str_t {
+                ptr: cred_scheme.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: cred_scheme.as_bytes().len() as c_long,
+            };
+            acc_cfg.cred_info[0].username = bindings::pj_str_t {
+                ptr: cred_username.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: cred_username.as_bytes().len() as c_long,
+            };
+            // PJSIP_CRED_DATA_PLAIN_PASSWD = 0（平文パスワード）
+            acc_cfg.cred_info[0].data_type = 0;
+            acc_cfg.cred_info[0].data = bindings::pj_str_t {
+                ptr: cred_data.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: cred_data.as_bytes().len() as c_long,
+            };
+            // algorithm_type は NOT_SET（0）に設定し、サーバのチャレンジから自動選択させる
+            acc_cfg.cred_info[0].algorithm_type = bindings::PJSIP_AUTH_ALGORITHM_NOT_SET;
+            acc_cfg.cred_count = 1;
 
             // Register on add
             acc_cfg.register_on_acc_add = if config.register_on_start { 1 } else { 0 };

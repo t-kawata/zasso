@@ -1668,7 +1668,7 @@
   3. テスト完了後: `docker compose -f tests/docker/docker-compose.yml down`
   4. 全テストが PASS することを確認する。FAIL がある場合は SIP trace を確認し、RFC の仕様との差異を調査する。
 
-#### チケット M20-1.5: PjsuaBackend 結合障壁除去（credential + thread）
+#### ✅ チケット M20-1.5: PjsuaBackend 結合障壁除去（credential + thread）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §43.3)
 * **対象不変条件 / 規範:** PjsuaBackend が PJSUA API を正しく利用できること。§27a SipBackend trait。§43.3 Layer 3 SIP Integration Tests の前提条件。
@@ -1701,7 +1701,7 @@
 * **計装方法・観測対象:** 認証成功時の REGISTER 200 OK 応答。`pj_thread_register` 後の外部スレッドからの PJSIP API 呼び出し安定性。
 
 
-#### チケット M20-1.6: 統合テスト完全実行（Docker Asterisk + 全16テスト）
+#### ✅ チケット M20-1.6: 統合テスト完全実行（Docker Asterisk + 全16テスト）
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§43.3)、M20-1（テストコード実装）、M20-1.5（credential + thread 障壁除去）
 * **対象不変条件 / 規範:** §43.3 Layer 3 SIP Integration Tests の全項目。M20-1.5 完了後に実施する。
@@ -1743,6 +1743,66 @@
   16. `media::media_tap_closes_on_hangup` — Tap 切断時クローズ
   17. 全テスト `--test-threads=1` で並行実行しても互いに干渉しないこと
 * **計装方法・観測対象:** 全テストの PASS/FAIL。SIP trace 保存。各テスト実行時間。
+
+#### ✅ チケット M20-1.7: PjsuaBackend EventBus 結合と統合テスト安定化
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §43.3, §43.1)
+* **対象不変条件 / 規範:** PjsuaBackend の callback が正しく SipEventPayload に変換され EventBus に publish されること。複数の統合テストが同一プロセス内で連続実行可能であること。
+* **実装の背景と目的:** M20-1.6 までの実証で以下の 2 つの残課題が明らかになった。本チケットではこれらを解決し、全 16 テストが Docker Asterisk に対して PASS する状態を完成させる。
+* **実装スコープ:**
+  ### 1. EventBus への registration callback 結合
+  - PJSIP の `on_reg_state2` callback で emit される NativeEvent を Reactor が適切に処理し、`SipEventPayload::RegistrationSucceeded` または `RegistrationFailed` として EventBus に publish することを確認・修正する
+  - 具体的な調査項目:
+    - `ffi/callbacks.rs` → `on_reg_state2` → `NativeEvent::RegStateChanged` の enqueue 確認
+    - Reactor の NativeEvent 処理ループで `RegStateChanged` を `SipEventPayload::RegistrationSucceeded/Failed` に変換するパスが存在するか確認
+    - 存在しない場合は Reactor の event handler にマッチングアームを追加
+    - EventBus への publish 確認
+  - `CallDisconnected`、`CallConnected`、`DtmfSent` 等他の callback の EventBus 結合も同様に確認する
+  ### 2. 複数テスト連続実行（PJSIP singleton 問題）
+  - 現在、1 テストごとに SipClient を生成→破棄するが、PJSIP はプロセス単位で singleton のため 2 テスト目以降で異常が発生する
+  - 対策として `PjsuaBackend` を `OnceCell` またはグローバルシングルトン化し、複数テスト間で再利用可能にする
+  - `pj_thread_desc` のリーク（Box::leak）はこの対応で不要になる可能性が高い
+  ### 3. 全 16 テストの最終実行確認
+  - M20-1.6 で修正したテストコード（register_on_start=true、&mut ctx.events パターン、wait_for_registration 改善）を活用
+  - Docker Asterisk 起動後、`cargo test -p siprs --features pjsip -- --ignored --test-threads=1` で全 16 テストが PASS することを確認
+* **テストコードによる検証:**
+  1. `register::register_succeeds` — RegistrationSucceeded イベント受信確認
+  2. `register::register_fails_with_wrong_password` — RegistrationFailed イベント受信確認
+  3. `register::reregister_after_unregister` — 登録解除→再登録
+  4. `call::call_normal_hangup` — INVITE → BYE → CallDisconnected
+  5. `call::call_cancel` — Ringing → CANCEL
+  6. `provisional::ringing_received` — 180 Ringing 受信
+  7. `dtmf::*` — 3 種の DTMF 送信
+  8. `account::dual_account_simultaneous_call` — 2 アカウント + SIGABRT なし
+  9. `media::*` — AudioTap 購読・切断
+  10. 全テスト `--test-threads=1` で連続実行しても互いに干渉しないこと
+* **計装方法・観測対象:** 全 16 テストの PASS/FAIL。callback bridge の EventBus publish 確認（tracing::debug）。PJSIP singleton の再初期化有無。
+
+#### ✅ チケット M20-1.8: PjsuaBackend シングルトン化と統合テスト完遂
+
+* **参照設計書:** docs/rust-sip-client-rfc.md (§27a, §43.3)
+* **対象不変条件 / 規範:** 複数の統合テストが同一プロセス内で連続実行可能であること。PJSIP の初期化はプロセス単位で 1 回のみ。
+* **実装の背景と目的:** M20-1.7（#157）の EventBus callback 結合に続き、残る 2 つの課題を解決し、全 16 テストを Docker Asterisk に対して PASS させる。
+* **実装スコープ:**
+  ### 1. PjsuaBackend シングルトン化
+  - `PjsuaBackend` を `OnceLock<PjsuaBackend>` または `OnceCell` でプロセス単位で単一インスタンス化する
+  - `PjsuaBackend::new()` は常に同一インスタンスを返す
+  - `SipClient::new_with_pjsip()` でバックエンドが既に初期化済みなら再初期化しない
+  - `thread_desc` はシングルトン内で保持するため `Box::leak` は不要になる
+  - `unsafe impl Send/Sync` の要否を再評価する
+  ### 2. RegistrationStateChanged の完全対応
+  - Reactor の NativeEvent ハンドラで `RegistrationStateChanged { acc_id }` を受信した際に、PJSIP API（`pjsua_acc_get_info()`）を呼び出して実際の登録状態を取得する
+  - 状態に応じて `RegistrationSucceeded` または `RegistrationFailed` を EventBus に publish する
+  - 注意: `pjsua_acc_get_info()` は reactor スレッドからのみ呼び出すこと（PJSIP thread-safety）
+  ### 3. 全 16 テスト最終実行
+  - Docker Asterisk 起動後、`cargo test -p siprs --features pjsip -- --ignored --test-threads=1` で全テストが PASS することを確認
+* **テストコードによる検証:**
+  1. `register::register_succeeds` — RegistrationSucceeded イベント受信
+  2. `register::register_fails_with_wrong_password` — RegistrationFailed イベント受信
+  3. `call::call_normal_hangup` — CallConnected → CallDisconnected
+  4. `account::dual_account_simultaneous_call` — SIGABRT なし
+  5. 全 16 テスト `--test-threads=1` で連続実行しても互いに干渉しないこと
+* **計装方法・観測対象:** 全 16 テストの PASS/FAIL。PJSIP singleton の 2 回目以降の初期化が正しくスキップされることの確認（tracing::warn）。
 
 #### チケット M20-2: Layer 4 相互接続試験 — 実 PBX / Proxy（P0）
 
