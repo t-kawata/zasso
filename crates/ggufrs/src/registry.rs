@@ -57,11 +57,6 @@ pub struct ModelInfo {
     /// バッチサイズ（省略可）
     pub batch_size: Option<u32>,
 
-    /// チャットテンプレート（省略可）
-    ///
-    /// このモデルに固有のチャットテンプレート。
-    pub chat_template: Option<String>,
-
     /// モデルインスタンス（未ロード時は None）
     ///
     /// `ModelRegistry` のみがこのフィールドを操作できる。
@@ -78,7 +73,6 @@ impl std::fmt::Debug for ModelInfo {
             .field("context_size", &self.context_size)
             .field("gpu_layers", &self.gpu_layers)
             .field("batch_size", &self.batch_size)
-            .field("chat_template", &self.chat_template)
             .field("model", &self.model.as_ref().map(|_| "Some(Arc<Model>)"))
             .finish()
     }
@@ -93,7 +87,6 @@ impl From<ModelConfig> for ModelInfo {
             context_size: config.context_size,
             gpu_layers: config.gpu_layers,
             batch_size: config.batch_size,
-            chat_template: config.chat_template,
             model: None,
         }
     }
@@ -174,7 +167,7 @@ impl ModelRegistry {
         }
         // 2) 書き込みロックで未ロード確認 → ビルダー準備 → ロック解放
         //    std::sync::RwLockWriteGuard は Send でないため、await を挟まずに事前準備する
-        let (model_path_str, chat_template) = {
+        let model_path_str = {
             let mut models = self.models.write().expect("RwLock poisoned");
             if let Some(info) = models.iter_mut().find(|m| m.name == name) {
                 // ダブルチェック: 他のスレッドが先にロードしている可能性
@@ -182,8 +175,7 @@ impl ModelRegistry {
                     return Ok(Arc::clone(model));
                 }
                 let path = info.model_path.to_string_lossy().to_string();
-                let template = info.chat_template.clone();
-                (path, template)
+                path
             } else {
                 return Err(GgufError::ModelNotFound(name.to_string()));
             }
@@ -196,7 +188,7 @@ impl ModelRegistry {
             .map(|e| e.to_string_lossy().to_lowercase());
         let model = match extension.as_deref() {
             Some("gguf") => {
-                build_model_with_gguf(&model_path_str, &model_path, chat_template.as_deref()).await
+                build_model_with_gguf(&model_path_str, &model_path).await
             }
             Some("uqff") => build_model_with_uqff(name, &model_path).await,
             _ => Err(anyhow::anyhow!("unsupported model format: {:?}", extension)),
@@ -254,11 +246,10 @@ impl ModelRegistry {
 /// GGUF モデルファイルを GgufModelBuilder で構築する
 ///
 /// model_path_str から親ディレクトリとファイル名グロブパターンを抽出し、
-/// GgufModelBuilder を設定する。chat_template が指定されていれば適用する。
+/// GgufModelBuilder を設定する。
 async fn build_model_with_gguf(
     model_path_str: &str,
     model_path: &std::path::Path,
-    chat_template: Option<&str>,
 ) -> anyhow::Result<Model> {
     let model_dir = model_path
         .parent()
@@ -268,10 +259,7 @@ async fn build_model_with_gguf(
         .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_else(|| "**".to_string());
-    let mut builder = GgufModelBuilder::new(model_dir, vec![file_pattern]);
-    if let Some(template) = chat_template {
-        builder = builder.with_chat_template(template);
-    }
+    let builder = GgufModelBuilder::new(model_dir, vec![file_pattern]);
     builder.build().await
 }
 
@@ -327,7 +315,6 @@ mod tests {
             context_size: Some(16384),
             gpu_layers: Some(24),
             batch_size: Some(8),
-            chat_template: Some("custom".into()),
         }
     }
 
@@ -345,7 +332,6 @@ mod tests {
         assert_eq!(info.context_size, Some(16384));
         assert_eq!(info.gpu_layers, Some(24));
         assert_eq!(info.batch_size, Some(8));
-        assert_eq!(info.chat_template, Some("custom".into()));
     }
 
     #[test]
@@ -486,7 +472,6 @@ mod tests {
             context_size: Some(2048),
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }
     }
 
@@ -498,7 +483,6 @@ mod tests {
             context_size: None,
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }
     }
 

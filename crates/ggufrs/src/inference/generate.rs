@@ -96,7 +96,8 @@ impl InferenceEngine for GgufEngine {
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         response
             .choices
@@ -138,7 +139,8 @@ impl InferenceEngine for GgufEngine {
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         let content = response
             .choices
@@ -180,7 +182,8 @@ impl InferenceEngine for GgufEngine {
         let mut mistral_stream = model_ref
             .stream_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
 
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<String, GgufError>>(16);
 
@@ -224,7 +227,8 @@ impl InferenceEngine for GgufEngine {
         let response = model
             .send_chat_request(request)
             .await
-            .map_err(GgufError::MistralrsError)?;
+            // [::STUB::] M6-6 で全削除（このファイルごと llama-cpp-2 実装に書き換え）
+            .map_err(GgufError::LlamaCppError)?;
         Ok(Response::Done(response))
     }
 }

@@ -1,6 +1,7 @@
 # Ticket Queue
 - [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
 - [-] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
+- [-] #159 M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0159-m5-25-uqff-devicemap-registryrs.md | 2026-06-19 | 2026-06-19
 - [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
 - [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -208,4 +209,6 @@
 - [x] #156 M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0156-m5-22-uqff-buildrs-registryrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #157 M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0157-m5-23-gemma4-test-runrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #158 M5-2.4: test-run + 実動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0158-m5-24-test-run.md | 2026-06-19 | 2026-06-19 | 2026-06-19
-- [-] #159 M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0159-m5-25-uqff-devicemap-registryrs.md | 2026-06-19 | 2026-06-19
+- [x] #160 M6-1: server/types.rs 新規作成 — OpenAI 互換型自前定義 | /Users/kawata/shyme/zasso/tickets/specs/0160-m6-1-servertypesrs-openai.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #161 M6-2: error.rs 修正 — MistralrsError → LlamaCppError | /Users/kawata/shyme/zasso/tickets/specs/0161-m6-2-errorrs-mistralrserror-llamacpperror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #162 M6-3: config.rs + settings.rs 修正 — mistralrs 特化フィールド除去 | /Users/kawata/shyme/zasso/tickets/specs/0162-m6-3-configrs-settingsrs-mistralrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
