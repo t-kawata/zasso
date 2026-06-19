@@ -23,6 +23,11 @@ static_assertions = "1.1.0"
 [build-dependencies]
 bindgen = { version = "0.71", default-features = false, features = ["runtime"] }
 
+[[test]]
+name = "integration_test"
+path = "tests/integration_test.rs"
+required-features = ["pjsip"]
+
 [features]
 serde = ["dep:serde"]
 tls = []

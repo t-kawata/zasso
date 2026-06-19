@@ -204,3 +204,7 @@
 - [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #153 M5-1: build.rs モデル自動ダウンロード | /Users/kawata/shyme/zasso/tickets/specs/0153-m5-1-buildrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
 - [x] #154 M5-2: test-run バイナリ (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0154-m5-2-test-run-srcbintest-runrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #155 PjsuaBackend 結合障壁除去（credential + thread） | /Users/shyme/shyme/zasso/tickets/specs/0155-pjsuabackend-credential-thread.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 統合テスト完全実行（Docker Asterisk + 全16テスト） | /Users/shyme/shyme/zasso/tickets/specs/0156-docker-asterisk-16.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 PjsuaBackend EventBus 結合と統合テスト安定化 | /Users/shyme/shyme/zasso/tickets/specs/0157-pjsuabackend-eventbus.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 PjsuaBackend シングルトン化と統合テスト完遂 | /Users/shyme/shyme/zasso/tickets/specs/0158-pjsuabackend.md | 2026-06-19 | 2026-06-19 | 2026-06-19

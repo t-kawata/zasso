@@ -389,6 +389,34 @@ impl CoreReactor {
                     })();
                     let _ = reply.send(result);
                 }
+                RuntimeCommand::NativeEvent { event } => {
+                    use crate::event::SipEventPayload;
+                    use crate::ffi::callbacks::NativeEvent;
+                    let payload = match event {
+                        NativeEvent::RegistrationStateChanged { .. } => None,
+                        NativeEvent::RegistrationStarted { .. } => {
+                            Some(SipEventPayload::RegistrationStarted(crate::event::RegistrationInfo {}))
+                        }
+                        NativeEvent::CallStateChanged { call_id: _, state } => {
+                            match state {
+                                1 => Some(SipEventPayload::CallDisconnected(
+                                    crate::event::DisconnectInfo {},
+                                )),
+                                3 => Some(SipEventPayload::CallConnected(
+                                    crate::event::ConnectedCallInfo {},
+                                )),
+                                _ => None,
+                            }
+                        }
+                        NativeEvent::DtmfDigit { call_id: _, digit: _ } => {
+                            Some(SipEventPayload::DtmfReceived(crate::event::DtmfReceivedInfo {}))
+                        }
+                        _ => None,
+                    };
+                    if let Some(payload) = payload {
+                        events.publish(crate::event::SipEvent::new(payload));
+                    }
+                }
             }
         }
     }
@@ -447,6 +475,9 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
         }
         RuntimeCommand::SubscribeAudio { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
+        }
+        RuntimeCommand::NativeEvent { .. } => {
+            // fire-and-forget: シャットダウン中は単に無視
         }
         RuntimeCommand::Shutdown { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
