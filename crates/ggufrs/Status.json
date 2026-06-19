@@ -1,9 +1,9 @@
 {
   "state": "DONE",
-  "researchPath": "/Users/kawata/shyme/zasso/crates/ggufrs/docs/mistralrs-qwen3.5-small/INFO.md",
+  "researchPath": "/Users/kawata/shyme/zasso/crates/ggufrs/docs/change-to-llama-cpp",
   "rfcPath": "/Users/kawata/shyme/zasso/crates/ggufrs/RFC.md",
   "rfcDir": "/Users/kawata/shyme/zasso/crates/ggufrs",
-  "reviewLoopCount": 1,
-  "createdAt": "2026-06-17T07:00:48.715Z",
-  "updatedAt": "2026-06-17T08:07:23.169Z"
+  "reviewLoopCount": 2,
+  "createdAt": "2026-06-19T06:20:43.230Z",
+  "updatedAt": "2026-06-19T08:10:14.300Z"
 }

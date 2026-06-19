@@ -10,6 +10,7 @@ use crate::config::{
     AccountConfig, AccountConfigPatch, ClientConfig, DtmfMethod, OutgoingCallRequest,
 };
 use crate::error::SipError;
+use crate::ffi::callbacks::NativeEvent;
 use crate::util::id::{AccountId, AudioSourceId, CallId};
 
 /// 切断理由。
@@ -135,6 +136,10 @@ pub(crate) enum RuntimeCommand {
     /// シャットダウン。
     Shutdown {
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
+    },
+    /// PJSIP callback からの内部イベント（fire-and-forget、reply なし）。
+    NativeEvent {
+        event: NativeEvent,
     },
 }
 

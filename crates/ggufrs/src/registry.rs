@@ -2,14 +2,15 @@
 //!
 //! RwLock<Vec<ModelInfo>> を用いたスレッドセーフなモデル管理を提供する。
 //!
-//! モデルロードには mistralrs の GgufModelBuilder を使用する。
+//! モデルロードには mistralrs の GgufModelBuilder（GGUF）または
+//! UqffMultimodalModelBuilder（UQFF）をファイル拡張子に応じて使い分ける。
 //! ロード済みモデルは Arc<Model> としてキャッシュされ、複数の推論スレッドから
 //! 安全に共有される。
 
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use mistralrs::{GgufModelBuilder, Model};
+use mistralrs::{DeviceMapSetting, GgufModelBuilder, Model, UqffMultimodalModelBuilder};
 
 use crate::config::ModelConfig;
 use crate::error::GgufError;
@@ -56,11 +57,6 @@ pub struct ModelInfo {
     /// バッチサイズ（省略可）
     pub batch_size: Option<u32>,
 
-    /// チャットテンプレート（省略可）
-    ///
-    /// このモデルに固有のチャットテンプレート。
-    pub chat_template: Option<String>,
-
     /// モデルインスタンス（未ロード時は None）
     ///
     /// `ModelRegistry` のみがこのフィールドを操作できる。
@@ -77,7 +73,6 @@ impl std::fmt::Debug for ModelInfo {
             .field("context_size", &self.context_size)
             .field("gpu_layers", &self.gpu_layers)
             .field("batch_size", &self.batch_size)
-            .field("chat_template", &self.chat_template)
             .field("model", &self.model.as_ref().map(|_| "Some(Arc<Model>)"))
             .finish()
     }
@@ -92,7 +87,6 @@ impl From<ModelConfig> for ModelInfo {
             context_size: config.context_size,
             gpu_layers: config.gpu_layers,
             batch_size: config.batch_size,
-            chat_template: config.chat_template,
             model: None,
         }
     }
@@ -105,6 +99,12 @@ impl From<ModelConfig> for ModelInfo {
 /// 実際のモデルロード（非同期処理）は M2-2 で追加する。
 pub struct ModelRegistry {
     models: RwLock<Vec<ModelInfo>>,
+}
+
+impl Default for ModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModelRegistry {
@@ -146,7 +146,8 @@ impl ModelRegistry {
     /// モデルインスタンスを取得する（遅延ロード対応）
     ///
     /// 指定された名前のモデルがレジストリに存在する場合、その `Arc<Model>` を返す。
-    /// `model` フィールドが `None`（未ロード）の場合は GgufModelBuilder でロードする。
+    /// `model` フィールドが `None`（未ロード）の場合はファイル拡張子に応じて
+    /// GgufModelBuilder（GGUF）または UqffMultimodalModelBuilder（UQFF）でロードする。
     /// ロード成功後、モデルはキャッシュされ、次回以降はキャッシュから返される。
     ///
     /// # エラー
@@ -166,7 +167,7 @@ impl ModelRegistry {
         }
         // 2) 書き込みロックで未ロード確認 → ビルダー準備 → ロック解放
         //    std::sync::RwLockWriteGuard は Send でないため、await を挟まずに事前準備する
-        let (model_path_str, chat_template) = {
+        let model_path_str = {
             let mut models = self.models.write().expect("RwLock poisoned");
             if let Some(info) = models.iter_mut().find(|m| m.name == name) {
                 // ダブルチェック: 他のスレッドが先にロードしている可能性
@@ -174,35 +175,27 @@ impl ModelRegistry {
                     return Ok(Arc::clone(model));
                 }
                 let path = info.model_path.to_string_lossy().to_string();
-                let template = info.chat_template.clone();
-                (path, template)
+                path
             } else {
                 return Err(GgufError::ModelNotFound(name.to_string()));
             }
         }; // 書き込みロック解放（await 前に解放することで Send 制約を満たす）
 
-        // 3) GgufModelBuilder で非同期ロード（ロックなし）
-        // model_path はファイルパスのため、親ディレクトリを抽出して渡す
-        // ファイル名をグロブパターンとして使用し、該当ファイルのみを対象にする
+        // 3) ファイル拡張子に応じて適切なビルダーで非同期ロード（ロックなし）
         let model_path = PathBuf::from(&model_path_str);
-        let model_dir = model_path
-            .parent()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| model_path_str.clone());
-        let file_pattern = model_path
-            .file_name()
-            .map(|f| f.to_string_lossy().to_string())
-            .unwrap_or_else(|| "**".to_string());
-        let mut builder = GgufModelBuilder::new(model_dir, vec![file_pattern]);
-        if let Some(ref template) = chat_template {
-            builder = builder.with_chat_template(template);
-        }
-        let model = builder.build().await.map_err(|e| {
-            let err_msg = format!("{e:#}");
-            GgufError::ModelLoadFailed {
-                name: name.to_string(),
-                source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, err_msg)),
+        let extension = model_path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase());
+        let model = match extension.as_deref() {
+            Some("gguf") => {
+                build_model_with_gguf(&model_path_str, &model_path).await
             }
+            Some("uqff") => build_model_with_uqff(name, &model_path).await,
+            _ => Err(anyhow::anyhow!("unsupported model format: {:?}", extension)),
+        }
+        .map_err(|e| GgufError::ModelLoadFailed {
+            name: name.to_string(),
+            source: Box::new(std::io::Error::other(format!("{e:#}"))),
         })?;
         let arc_model = Arc::new(model);
 
@@ -250,6 +243,65 @@ impl ModelRegistry {
     }
 }
 
+/// GGUF モデルファイルを GgufModelBuilder で構築する
+///
+/// model_path_str から親ディレクトリとファイル名グロブパターンを抽出し、
+/// GgufModelBuilder を設定する。
+async fn build_model_with_gguf(
+    model_path_str: &str,
+    model_path: &std::path::Path,
+) -> anyhow::Result<Model> {
+    let model_dir = model_path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| model_path_str.to_string());
+    let file_pattern = model_path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "**".to_string());
+    let builder = GgufModelBuilder::new(model_dir, vec![file_pattern]);
+    builder.build().await
+}
+
+/// UQFF モデルファイルを UqffMultimodalModelBuilder で構築する
+///
+/// model_name から HuggingFace リポジトリ名を解決し、ローカル UQFF ファイルを
+/// ベクタで指定する。Gemma4 E2B/E4B は Multimodal（Vision）モデルのため、
+/// UqffMultimodalModelBuilder を使用する。
+///
+/// ## DeviceMap 設定の理由
+///
+/// mistralrs v0.8.1 の Auto device map には macOS ARM でメモリ検出が故障する
+/// バグがある（`auto_device_map.rs` の二重push + `sysinfo` の `available_memory=0`）。
+/// `DeviceMapSetting::dummy()` でメモリフィット計算を完全バイパスし、
+/// `with_force_cpu()` で CPU デバイスを明示固定することでこれを回避する。
+///
+/// 参照: `docs/mistralrs-gemma4-e2b-e4b/INFO02.md`
+async fn build_model_with_uqff(
+    model_name: &str,
+    model_path: &std::path::Path,
+) -> anyhow::Result<Model> {
+    let repo = model_name_to_uqff_repo(model_name);
+    UqffMultimodalModelBuilder::new(repo, vec![model_path.to_path_buf()])
+        .into_inner()
+        .with_device_mapping(DeviceMapSetting::dummy())
+        .with_force_cpu()
+        .build()
+        .await
+}
+
+/// モデル名から UQFF HuggingFace リポジトリ名を解決する
+///
+/// 未知のモデル名はそのまま model_id として使用する（fallback）。
+/// 返り値は既知のリポジトリ名（'static）または呼び出し元の文字列参照。
+fn model_name_to_uqff_repo(name: &str) -> &str {
+    match name {
+        "gemma4-e2b" => "mistralrs-community/gemma-4-E2B-it-UQFF",
+        "gemma4-e4b" => "mistralrs-community/gemma-4-E4B-it-UQFF",
+        other => other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,7 +315,6 @@ mod tests {
             context_size: Some(16384),
             gpu_layers: Some(24),
             batch_size: Some(8),
-            chat_template: Some("custom".into()),
         }
     }
 
@@ -273,12 +324,14 @@ mod tests {
         let info = ModelInfo::from(config);
 
         assert_eq!(info.name, "qwen3.5");
-        assert_eq!(info.model_path, PathBuf::from("models/nonexistent/qwen3.5.gguf"));
+        assert_eq!(
+            info.model_path,
+            PathBuf::from("models/nonexistent/qwen3.5.gguf")
+        );
         assert!(info.lazy_load);
         assert_eq!(info.context_size, Some(16384));
         assert_eq!(info.gpu_layers, Some(24));
         assert_eq!(info.batch_size, Some(8));
-        assert_eq!(info.chat_template, Some("custom".into()));
     }
 
     #[test]
@@ -405,5 +458,95 @@ mod tests {
             "load_immediate should skip lazy models: {:?}",
             result
         );
+    }
+
+    // ── Builder dispatch tests (M5-2.2) ──
+
+    fn create_uqff_config() -> ModelConfig {
+        // 存在しないパスを使用することで、UqffMultimodalModelBuilder が
+        // ダウンロードを試みずにエラーを返すことを確認する
+        ModelConfig {
+            name: "gemma4-e2b".into(),
+            model_path: PathBuf::from("models/nonexistent/gemma4-e2b.q4k.uqff"),
+            lazy_load: true,
+            context_size: Some(2048),
+            gpu_layers: None,
+            batch_size: None,
+        }
+    }
+
+    fn create_unknown_config() -> ModelConfig {
+        ModelConfig {
+            name: "unknown".into(),
+            model_path: PathBuf::from("models/unknown.safetensors"),
+            lazy_load: true,
+            context_size: None,
+            gpu_layers: None,
+            batch_size: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn uqff_model_path_returns_model_load_failed() {
+        let registry = ModelRegistry::new();
+        let config = create_uqff_config();
+        registry.add_model(config);
+        let result = registry.get("gemma4-e2b").await;
+        match result {
+            Err(GgufError::ModelLoadFailed { name, .. }) => assert_eq!(name, "gemma4-e2b"),
+            _ => panic!("expected ModelLoadFailed (UQFF path)"),
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_extension_returns_model_load_failed() {
+        let registry = ModelRegistry::new();
+        let config = create_unknown_config();
+        registry.add_model(config);
+        let result = registry.get("unknown").await;
+        match result {
+            Err(GgufError::ModelLoadFailed { source, .. }) => {
+                let msg = format!("{source}");
+                assert!(
+                    msg.contains("unsupported model format"),
+                    "expected 'unsupported model format', got: {msg}"
+                );
+            }
+            _ => panic!("expected ModelLoadFailed (unknown extension)"),
+        }
+    }
+
+    #[tokio::test]
+    async fn gguf_model_path_uses_gguf_model_builder() {
+        let registry = ModelRegistry::new();
+        let config = create_sample_config();
+        registry.add_model(config);
+        let result = registry.get("qwen3.5").await;
+        match result {
+            Err(GgufError::ModelLoadFailed { name, .. }) => assert_eq!(name, "qwen3.5"),
+            _ => panic!("expected ModelLoadFailed (GGUF path)"),
+        }
+    }
+
+    #[test]
+    fn model_name_to_uqff_repo_maps_gemma4_e2b() {
+        assert_eq!(
+            super::model_name_to_uqff_repo("gemma4-e2b"),
+            "mistralrs-community/gemma-4-E2B-it-UQFF"
+        );
+    }
+
+    #[test]
+    fn model_name_to_uqff_repo_maps_gemma4_e4b() {
+        assert_eq!(
+            super::model_name_to_uqff_repo("gemma4-e4b"),
+            "mistralrs-community/gemma-4-E4B-it-UQFF"
+        );
+    }
+
+    #[test]
+    fn model_name_to_uqff_repo_unknown_returns_name() {
+        let name = "unknown-model";
+        assert_eq!(super::model_name_to_uqff_repo(name), name);
     }
 }

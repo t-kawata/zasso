@@ -214,7 +214,6 @@ mod tests {
             context_size: None,
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }]);
         let engine = GgufEngine::new(config).await;
         assert!(
@@ -232,7 +231,6 @@ mod tests {
             context_size: None,
             gpu_layers: None,
             batch_size: None,
-            chat_template: None,
         }]);
         let engine = GgufEngine::new(config).await.unwrap();
         let models = engine.registry.list_models();

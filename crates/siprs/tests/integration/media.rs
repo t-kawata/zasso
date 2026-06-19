@@ -1,9 +1,6 @@
 //! メディア結合テスト（Asterisk）
 //!
-//! AudioTap の API が正常に動作することを確認する。
-//! ICE/TURN のテストは M20-2（Layer 4 相互接続試験）でカバーする。
-//!
-//! 注: PjsuaBackend の credential 設定が未実装のため登録なしでテストを行う。
+//! AudioTap の購読と切断時クローズを検証する。
 
 use crate::common::*;
 use siprs::audio::tap::{AudioTapHandle, AudioTapMode};
@@ -12,13 +9,15 @@ use siprs::error::SipError;
 use siprs::event::SipEventPayload;
 use siprs::runtime::command::HangupReason;
 
-/// AudioTap の購読 API が正常に動作することを確認する。
-/// 通話確立後に subscribe_audio が AudioTapHandle を返すことを確認する。
+/// 通話確立後に AudioTap を購読する。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn media_loopback_tap_active() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-    let mut events = ctx.events.resubscribe();
+    let mut ctx = setup_test_context()?;
+    
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
 
     let call_id = ctx.client.make_call(
         ctx.account_1,
@@ -36,49 +35,30 @@ async fn media_loopback_tap_active() -> Result<(), SipError> {
         },
     )?;
 
-    let connected = wait_for_event_with_timeout(&mut events, CALL_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::CallConnected { .. })
-    }).await;
+    wait_for_call_connected(&mut ctx.events).await?;
 
-    match connected {
-        Ok(_) => {
-            // AudioTap を購読
-            let tap_result: Result<AudioTapHandle, SipError> = ctx.client.subscribe_audio(
-                call_id,
-                Default::default(),
-                5,
-                AudioTapMode::Realtime,
-            );
-            match tap_result {
-                Ok(_handle) => {
-                    eprintln!("media_loopback_tap_active: AudioTapHandle obtained successfully");
-                }
-                Err(e) => {
-                    eprintln!("media_loopback_tap_active: subscribe_audio returned error: {e}");
-                }
-            }
+    let _handle: AudioTapHandle = ctx.client.subscribe_audio(
+        call_id, Default::default(), 5, AudioTapMode::Realtime,
+    )?;
 
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            wait_for_event_with_timeout(&mut events, EVENT_TIMEOUT, |payload| {
-                matches!(payload, SipEventPayload::CallDisconnected { .. })
-            }).await?;
-        }
-        Err(e) => {
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            eprintln!("media_loopback_tap_active: call not connected: {e}");
-        }
-    }
+    ctx.client.hangup(call_id, HangupReason::Bye)?;
+    wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::CallDisconnected { .. })
+    }).await?;
 
     teardown(ctx);
     Ok(())
 }
 
-/// 通話終了後に AudioTap が正しくクローズされることを確認する。
+/// 通話終了後に AudioTap がクローズされることを確認する。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn media_tap_closes_on_hangup() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-    let mut events = ctx.events.resubscribe();
+    let mut ctx = setup_test_context()?;
+    
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
 
     let call_id = ctx.client.make_call(
         ctx.account_1,
@@ -96,29 +76,15 @@ async fn media_tap_closes_on_hangup() -> Result<(), SipError> {
         },
     )?;
 
-    let connected = wait_for_event_with_timeout(&mut events, CALL_TIMEOUT, |payload| {
-        matches!(payload, SipEventPayload::CallConnected { .. })
-    }).await;
+    wait_for_call_connected(&mut ctx.events).await?;
+    let _handle = ctx.client.subscribe_audio(
+        call_id, Default::default(), 5, AudioTapMode::Realtime,
+    )?;
 
-    match connected {
-        Ok(_) => {
-            let _tap_handle = ctx.client.subscribe_audio(
-                call_id,
-                Default::default(),
-                5,
-                AudioTapMode::Realtime,
-            );
-
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            wait_for_event_with_timeout(&mut events, EVENT_TIMEOUT, |payload| {
-                matches!(payload, SipEventPayload::CallDisconnected { .. })
-            }).await?;
-        }
-        Err(e) => {
-            ctx.client.hangup(call_id, HangupReason::Bye)?;
-            eprintln!("media_tap_closes_on_hangup: call not connected: {e}");
-        }
-    }
+    ctx.client.hangup(call_id, HangupReason::Bye)?;
+    wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::CallDisconnected { .. })
+    }).await?;
 
     teardown(ctx);
     Ok(())

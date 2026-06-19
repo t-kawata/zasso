@@ -56,10 +56,11 @@ pub(crate) const CURL_TIMEOUT_SECS: u64 = 60;
 
 /// デフォルトのコンテキストサイズ（トークン数）
 ///
-/// 32768: Qwen3.5 シリーズの最大コンテキスト長。
-/// Qwen3.5-0.8B および Qwen3.5-2B は共に 32768 トークンのコンテキストを
-/// サポートする。システムプロンプトと応答領域を考慮した safe default。
-pub(crate) const DEFAULT_CONTEXT_SIZE: u32 = 32768;
+/// 2048: llama-cpp-2 デフォルト推奨値。
+/// ASR 補正タスク（入出力 60-90 トークン）では 128k フルコンテキストは不要。
+/// 2048 に制限することで prefill コストを削減する。
+/// ユーザーは ModelConfig で自由に変更可能。
+pub(crate) const DEFAULT_CONTEXT_SIZE: u32 = 2048;
 
 /// デフォルトの最大生成トークン数
 ///

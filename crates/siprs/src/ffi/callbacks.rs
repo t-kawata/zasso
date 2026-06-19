@@ -232,10 +232,9 @@ where
 /// 現状は `tracing::trace` による計装のみ。
 /// M17-4 で `RuntimeHandle` 経由の実際の送信を実装する。
 fn enqueue_native_event(event: NativeEvent) {
-    if let Some(_handle) = global_runtime() {
+    if let Some(handle) = global_runtime() {
         tracing::trace!(?event, "NativeEvent enqueued to reactor");
-        // M17-4: RuntimeHandle 経由で reactor に送信
-        // _handle.send(RuntimeCommand::NativeEvent { event, reply });
+        let _ = handle.send(crate::runtime::command::RuntimeCommand::NativeEvent { event });
     }
 }
 

@@ -8,7 +8,8 @@
 //! - `InferenceFailed` — 推論実行関連
 //! - `ServerStartupFailed` — サーバー起動関連
 //! - `InvalidConfig` — 設定検証関連
-//! - `MistralrsError` — mistralrs バックエンドラップ（`#[from]` で自動変換）
+//! - `LlamaCppError` — llama-cpp バックエンドラップ（`#[from]` で自動変換）
+//!   [::STUB::] M6-11 で `#[from]` ターゲットを `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
 
 /// GGUF 推論エンジンの統一エラー型
 ///
@@ -19,10 +20,11 @@
 ///
 /// # エラー伝搬
 ///
-/// - `MistralrsError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
+/// - `LlamaCppError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
+///   [::STUB::] M6-11 で `#[from]` ターゲットを `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
 /// - 内部エラーを持つバリアントは `Box<dyn std::error::Error + Send + Sync>` でラップする
 /// - `Send + Sync` を満たすため、スレッド間でのエラー伝搬が可能
-/// `std::io::Error` → `GgufError::InvalidConfig` への変換
+///   `std::io::Error` → `GgufError::InvalidConfig` への変換
 ///
 /// ファイル操作やネットワーク I/O で発生したエラーを設定エラーとしてラップする。
 /// 設定ファイルの読み込み等で使用される。
@@ -53,7 +55,7 @@ pub enum GgufError {
 
     /// モデルのロードに失敗
     ///
-    /// mistralrs バックエンドでのモデル読み込み処理が失敗した場合に発生する。
+    /// llama-cpp バックエンドでのモデル読み込み処理が失敗した場合に発生する。
     /// モデル名と元のエラーを保持する。
     #[error("モデル '{name}' のロードに失敗しました: {source}")]
     ModelLoadFailed {
@@ -82,12 +84,13 @@ pub enum GgufError {
     #[error("設定が無効です: {0}")]
     InvalidConfig(String),
 
-    /// mistralrs バックエンドエラー
+    /// llama-cpp バックエンドエラー
     ///
-    /// mistralrs クレートから発生したエラーをラップする。
+    /// llama-cpp バックエンドから発生したエラーをラップする。
     /// `#[from]` 属性により `?` 演算子で自動変換される。
-    #[error("mistralrs エラー: {0}")]
-    MistralrsError(#[from] mistralrs::error::Error),
+    /// [::STUB::] M6-11 で `#[from] mistralrs::error::Error` → `#[from] llama_cpp_2::LlamaCppError` に差し替える
+    #[error("llama-cpp エラー: {0}")]
+    LlamaCppError(#[from] mistralrs::error::Error),
 }
 
 #[cfg(test)]
@@ -186,13 +189,14 @@ mod tests {
     }
 
     #[test]
-    fn gguf_error_display_mistralrs_error() {
-        // mistralrs::error::Error のインスタンスでラップする
+    fn gguf_error_display_llama_cpp_error() {
+        // llama_cpp_2::LlamaCppError のインスタンスでラップする（この段階では mistralrs を再利用）
+        // [::STUB::] M6-11 で `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
         let mist_err = mistralrs::error::Error::RequestValidation("test error".into());
-        let err = GgufError::MistralrsError(mist_err);
+        let err = GgufError::LlamaCppError(mist_err);
         let msg = err.to_string();
         assert!(
-            msg.contains("mistralrs"),
+            msg.contains("llama-cpp"),
             "display should contain prefix: {msg}"
         );
         assert!(
@@ -229,10 +233,10 @@ mod tests {
         );
 
         let mist_err = mistralrs::error::Error::RequestValidation("validation failed".into());
-        let err = GgufError::MistralrsError(mist_err);
+        let err = GgufError::LlamaCppError(mist_err);
         assert!(
             err.source().is_some(),
-            "MistralrsError should have a source"
+            "LlamaCppError should have a source"
         );
     }
 
@@ -314,11 +318,12 @@ mod tests {
 
     #[test]
     fn from_mistralrs_error_works_via_from_attr() {
+        // [::STUB::] M6-11 で `llama_cpp_2::LlamaCppError` に差し替え
         let mist_err = mistralrs::error::Error::RequestValidation("validation error".into());
         let err: GgufError = mist_err.into();
         assert!(
-            matches!(err, GgufError::MistralrsError(_)),
-            "mistralrs::error::Error should map to MistralrsError via #[from]"
+            matches!(err, GgufError::LlamaCppError(_)),
+            "mistralrs::error::Error should map to LlamaCppError via #[from]"
         );
     }
 }

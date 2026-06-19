@@ -1,185 +1,62 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-17T08:02:29.063Z",
+  "updatedAt": "2026-06-19T07:39:24.031Z",
   "nodes": [
     {
       "id": "arch",
-      "title": "全体アーキテクチャとモジュール構成",
+      "title": "アーキテクチャ全体 — mistralrs→llama-cpp-2 転換設計",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T07:28:25.765Z",
-          "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
+          "resolvedAt": "2026-06-19T07:15:33.335Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
         }
       ],
       "children": [
         {
-          "id": "arch-struct",
-          "title": "モジュール分割と公開API設計",
+          "id": "arch-deps",
+          "title": "依存関係: mistralrs削除 + llama-cpp-2追加",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:25.766Z",
-              "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
+              "resolvedAt": "2026-06-19T06:43:42.457Z",
+              "answer": "Q1: llama-cpp-2 バージョンは 0.1.150 で固定、URL参照情報をRFCに記載。Q2: ModelInfo.model を Option<Arc<LlamaModel>> に直書き換え。Q3: send_raw() を完全削除、InferenceEngine は3メソッドに。Q5: Anthropic互換エンドポイント削除、llm-bridge-core依存削除。"
             }
           ],
           "children": []
         },
         {
-          "id": "arch-init",
-          "title": "GgufEngine 構造体の初期化とライフサイクル",
+          "id": "arch-model",
+          "title": "モデルロード: GgufModelBuilder → LlamaModel::load_from_file",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:25.766Z",
-              "answer": "Q1: A(統合型)。GgufEngine 単一構造体、サーバー起動はフラグ制御。GgufEngine::new() → .start_server() の操作系列。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "model-mgmt",
-      "title": "モデル管理（ロード・共有・切替）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:28:26.834Z",
-          "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
-        }
-      ],
-      "children": [
-        {
-          "id": "model-load",
-          "title": "GGUFモデルのロード方式（GgufModelBuilder）",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:26.834Z",
-              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+              "resolvedAt": "2026-06-19T06:43:42.458Z",
+              "answer": "Q1: llama-cpp-2 バージョンは 0.1.150 で固定、URL参照情報をRFCに記載。Q2: ModelInfo.model を Option<Arc<LlamaModel>> に直書き換え。Q3: send_raw() を完全削除、InferenceEngine は3メソッドに。Q5: Anthropic互換エンドポイント削除、llm-bridge-core依存削除。"
             }
           ],
           "children": []
         },
         {
-          "id": "model-share",
-          "title": "モデルのスレッドセーフな共有（Arc/State管理）",
+          "id": "arch-ffi",
+          "title": "llama-cpp-2 の C++ FFI 管理 (build.rs + cmake)",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:26.834Z",
-              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
+              "resolvedAt": "2026-06-19T06:59:15.702Z",
+              "answer": "Q6: cargo feature 経由で cmake オプション制御。デフォルトCPU、feature選択でGPU有効ビルド。Q7: cargo feature 維持、build.rs で cmake フラグ変換。Q8: async 維持 + spawn_blocking。Q9: tokio::sync::mpsc + ReceiverStream。Q10: GenerateParams 維持 + From<GenerateParams> for InferenceParams。"
             }
           ],
           "children": []
         },
         {
-          "id": "model-switch",
-          "title": "推論単位でのモデル切替機構",
+          "id": "arch-features",
+          "title": "Feature flags: mistralrs GPU features → llama-cpp-2 build features",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:26.834Z",
-              "answer": "Q2: B(Registry)。遅延ロード可、モデル単位で bool 指定。格納は Vec<ModelInfo> 構造体。モデル情報は HashMap 不十分。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "server",
-      "title": "サーバーモード（OpenAI/Anthropic互換）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:28:27.762Z",
-          "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
-        }
-      ],
-      "children": [
-        {
-          "id": "server-core",
-          "title": "mistralrs-server-core の活用方式",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:27.763Z",
-              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "server-multi",
-          "title": "複数モデルを扱う単一サーバーのルーティング",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:27.763Z",
-              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "server-async",
-          "title": "Engineインスタンスからの非同期サーバー起動",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:27.763Z",
-              "answer": "Q3:C(ハイブリッド) Q4:B(JoinHandle返却)。自前Axum層+server-core部分利用、ServerConfig構造体で起動。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "build-dl",
-      "title": "モデル自動ダウンロード（build.rs）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:28:28.528Z",
-          "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
-        }
-      ],
-      "children": [
-        {
-          "id": "dl-source",
-          "title": "ダウンロード元URLとモデルファイル構成",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:28.529Z",
-              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "dl-mechanism",
-          "title": "curl/Platform ダウンロード実装",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:28.529Z",
-              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "dl-placement",
-          "title": "crates/ggufrs/models への配置",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:28.529Z",
-              "answer": "Q5:A(curl方式)。voiput同様、build.rs内curlでHuggingFace raw URLからダウンロード。"
+              "resolvedAt": "2026-06-19T06:59:15.703Z",
+              "answer": "Q6: cargo feature 経由で cmake オプション制御。デフォルトCPU、feature選択でGPU有効ビルド。Q7: cargo feature 維持、build.rs で cmake フラグ変換。Q8: async 維持 + spawn_blocking。Q9: tokio::sync::mpsc + ReceiverStream。Q10: GenerateParams 維持 + From<GenerateParams> for InferenceParams。"
             }
           ],
           "children": []
@@ -188,47 +65,71 @@
     },
     {
       "id": "inference",
-      "title": "推論実行インターフェイス",
+      "title": "推論API: InferenceEngine トレイトの llama-cpp-2 対応",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T07:28:29.262Z",
-          "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+          "resolvedAt": "2026-06-19T07:15:33.336Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
         }
       ],
       "children": [
         {
-          "id": "inf-structured",
-          "title": "Structured Output（JSON Schema拘束）",
+          "id": "inf-generate",
+          "title": "generate(): LlamaModel::infer() へのマッピング",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:29.262Z",
-              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+              "resolvedAt": "2026-06-19T06:59:15.703Z",
+              "answer": "Q6: cargo feature 経由で cmake オプション制御。デフォルトCPU、feature選択でGPU有効ビルド。Q7: cargo feature 維持、build.rs で cmake フラグ変換。Q8: async 維持 + spawn_blocking。Q9: tokio::sync::mpsc + ReceiverStream。Q10: GenerateParams 維持 + From<GenerateParams> for InferenceParams。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "inf-structured",
+          "title": "generate_structured(): GBNF 文法による JSON 制約生成",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T06:51:20.351Z",
+              "answer": "Q4: richardanaya/gbnf v0.2.7 で JSON Schema → GBNF 変換。リンク情報をRFCに記載。"
             }
           ],
           "children": []
         },
         {
           "id": "inf-stream",
-          "title": "ストリーミングと通常生成",
+          "title": "generate_stream(): ffi::TokenCallback → futures::Stream",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:29.262Z",
-              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+              "resolvedAt": "2026-06-19T06:59:15.703Z",
+              "answer": "Q6: cargo feature 経由で cmake オプション制御。デフォルトCPU、feature選択でGPU有効ビルド。Q7: cargo feature 維持、build.rs で cmake フラグ変換。Q8: async 維持 + spawn_blocking。Q9: tokio::sync::mpsc + ReceiverStream。Q10: GenerateParams 維持 + From<GenerateParams> for InferenceParams。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "inf-send-raw",
+          "title": "send_raw(): mistralrs RequestBuilder パススルーの扱い (削除/代替)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T06:43:42.458Z",
+              "answer": "Q1: llama-cpp-2 バージョンは 0.1.150 で固定、URL参照情報をRFCに記載。Q2: ModelInfo.model を Option<Arc<LlamaModel>> に直書き換え。Q3: send_raw() を完全削除、InferenceEngine は3メソッドに。Q5: Anthropic互換エンドポイント削除、llm-bridge-core依存削除。"
             }
           ],
           "children": []
         },
         {
           "id": "inf-params",
-          "title": "推論パラメータ（temperature, max_tokens等）",
+          "title": "GenerateParams → InferenceParams マッピング",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:29.262Z",
-              "answer": "Q6:C(トレイト抽象化)。InferenceEngine トレイトが必須メソッドを規定。実装者はトレイト準拠。"
+              "resolvedAt": "2026-06-19T06:59:15.703Z",
+              "answer": "Q6: cargo feature 経由で cmake オプション制御。デフォルトCPU、feature選択でGPU有効ビルド。Q7: cargo feature 維持、build.rs で cmake フラグ変換。Q8: async 維持 + spawn_blocking。Q9: tokio::sync::mpsc + ReceiverStream。Q10: GenerateParams 維持 + From<GenerateParams> for InferenceParams。"
             }
           ],
           "children": []
@@ -236,73 +137,48 @@
       ]
     },
     {
-      "id": "config",
-      "title": "設定管理と定数",
+      "id": "server",
+      "title": "サーバー: OpenAI 互換レスポンスの自前実装",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T07:28:30.002Z",
-          "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+          "resolvedAt": "2026-06-19T07:15:33.336Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
         }
       ],
       "children": [
         {
-          "id": "cfg-settings",
-          "title": "consts/settings.rs での設定管理",
+          "id": "srv-types",
+          "title": "ChatCompletionRequest / ChatCompletionResponse 自前定義",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:30.003Z",
-              "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+              "resolvedAt": "2026-06-19T07:06:24.282Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
             }
           ],
           "children": []
         },
         {
-          "id": "cfg-port",
-          "title": "ポート割当とRuntimeConfig",
+          "id": "srv-route",
+          "title": "ルーター: mistralrs-server-core 依存の排除",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:28:30.003Z",
-              "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "testing",
-      "title": "テスト戦略",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:41:14.058Z",
-          "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
-        }
-      ],
-      "children": [
-        {
-          "id": "test-unit",
-          "title": "単体テストの構成",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:14.059Z",
-              "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
             }
           ],
           "children": []
         },
         {
-          "id": "test-integ",
-          "title": "結合テスト（実モデルを使った実行テスト）",
+          "id": "srv-anthropic",
+          "title": "Anthropic 互換エンドポイント削除 (llm-bridge-core 依存削除)",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-17T07:41:14.059Z",
-              "answer": "Q12:A(トレイトモック+実モデル結合)。単体=InferenceEngineモック、結合=tests/に実モデル。"
+              "resolvedAt": "2026-06-19T06:43:42.458Z",
+              "answer": "Q1: llama-cpp-2 バージョンは 0.1.150 で固定、URL参照情報をRFCに記載。Q2: ModelInfo.model を Option<Arc<LlamaModel>> に直書き換え。Q3: send_raw() を完全削除、InferenceEngine は3メソッドに。Q5: Anthropic互換エンドポイント削除、llm-bridge-core依存削除。"
             }
           ],
           "children": []
@@ -310,353 +186,208 @@
       ]
     },
     {
-      "id": "errors",
-      "title": "エラー型とエラーハンドリング",
+      "id": "error",
+      "title": "エラー型: MistralrsError → LlamaCppError 置き換え",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T07:28:30.003Z",
-          "answer": "Q7:A+X。crate内consts/settings.rs完結。GgufError列挙型でmistralrs::Error等をラップ。"
+          "resolvedAt": "2026-06-19T07:15:33.336Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
+        }
+      ],
+      "children": [
+        {
+          "id": "err-variants",
+          "title": "GgufError バリアント再設計 (mistralrs特化バリアント削除)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "err-from",
+          "title": "From トレイト実装: llama-cpp-2 エラー型からの変換",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "title": "対象4モデルの ModelConfig 定義と build.rs ダウンロード",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-19T07:15:33.336Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
+        }
+      ],
+      "children": [
+        {
+          "id": "mdl-qwen35",
+          "title": "Qwen3.5 0.8B / 2B の ModelConfig (GGUF形式に復帰)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mdl-gemma4",
+          "title": "Gemma4 E2B / E4B の ModelConfig (UQFF→GGUF形式切替)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mdl-download",
+          "title": "build.rs: 4モデルのダウンロードURL (HuggingFace GGUF)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mdl-settings",
+          "title": "context_size 等の設定値調整 (モデル別最適値)",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:06:24.283Z",
+              "answer": "Q11: OpenAI全フィールド実装。Q12: ModelRegistry方式維持。Q13: MistralrsError→LlamaCppError名称変更、6バリアント維持。Q14: context_size=2048 初期値、自由設定可能。Q15: unsloth 公式GGUFリポジトリを入手先として確定。E2B: unsloth/gemma-4-E2B-it-GGUF, E4B: unsloth/gemma-4-E4B-it-GGUF。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "migration",
+      "title": "マイグレーション計画: 既存コードの差分修正",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-19T07:15:33.336Z",
+          "answer": "全子ノード解決に伴い親ノードも解決。"
+        }
+      ],
+      "children": [
+        {
+          "id": "mig-registry",
+          "title": "registry.rs: Model 型の差し替えとローダー変更",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:15:29.302Z",
+              "answer": "Q16: registry.rs で直接 LlamaModel::load_from_file() を呼ぶ。Q17: ggufrs独自型のみ公開、llama-cpp-2型は非公開。Q18: 既存テストを新しいトレイトシグネチャに合わせて修正（モック・実モデルとも）。Q19: cargo feature → build.rs cmake フラグ変換、GpuProvider::detect() は維持。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mig-lib",
+          "title": "lib.rs: mistralrs re-export 削除、llama-cpp-2 型は非公開（ggufrs独自型のみ）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:15:29.303Z",
+              "answer": "Q16: registry.rs で直接 LlamaModel::load_from_file() を呼ぶ。Q17: ggufrs独自型のみ公開、llama-cpp-2型は非公開。Q18: 既存テストを新しいトレイトシグネチャに合わせて修正（モック・実モデルとも）。Q19: cargo feature → build.rs cmake フラグ変換、GpuProvider::detect() は維持。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mig-test",
+          "title": "テストコード修正: mistralrs依存テストの書き換え",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:15:29.303Z",
+              "answer": "Q16: registry.rs で直接 LlamaModel::load_from_file() を呼ぶ。Q17: ggufrs独自型のみ公開、llama-cpp-2型は非公開。Q18: 既存テストを新しいトレイトシグネチャに合わせて修正（モック・実モデルとも）。Q19: cargo feature → build.rs cmake フラグ変換、GpuProvider::detect() は維持。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "mig-gpu",
+          "title": "GPU 自動検出: GpuProvider::mistralrs_feature() → llama-cpp-2 build feature",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-19T07:15:29.303Z",
+              "answer": "Q16: registry.rs で直接 LlamaModel::load_from_file() を呼ぶ。Q17: ggufrs独自型のみ公開、llama-cpp-2型は非公開。Q18: 既存テストを新しいトレイトシグネチャに合わせて修正（モック・実モデルとも）。Q19: cargo feature → build.rs cmake フラグ変換、GpuProvider::detect() は維持。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "srv-request",
+      "title": "ChatCompletionRequest も mistralrs 型依存から自前定義に変更",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-19T07:20:58.974Z",
+          "answer": "Q20: ChatCompletionRequest も OpenAI 全標準フィールド実装。Q21: docs.rs で v0.1.150 の features を確認し、RFC に具体的な feature 一覧を記載。"
         }
       ],
       "children": []
     },
     {
-      "id": "deps",
-      "title": "依存関係管理",
+      "id": "arch-features-detail",
+      "title": "llama-cpp-2 v0.1.150 の cargo features 確認と対応方針",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T07:28:31.062Z",
-          "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
-        }
-      ],
-      "children": [
-        {
-          "id": "dep-mistralrs",
-          "title": "mistralrs バージョンとfeature flags",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:31.062Z",
-              "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "dep-other",
-          "title": "その他依存クレート",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:28:31.062Z",
-              "answer": "Q8:A(最小features+re-export)+GPU自動検出。CPU-Only必須。GPUプロバイダー自動検出。CUDAはサイズ次第で除外可。Mac/Win標準GPUは自動利用。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "model-info",
-      "title": "ModelInfo 構造体の設計（Registry内のモデル情報保持）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:41:11.768Z",
-          "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
-        }
-      ],
-      "children": [
-        {
-          "id": "mi-fields",
-          "title": "ModelInfo のフィールド設計（name, model_path, lazy_load, 状態等）",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:11.769Z",
-              "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "mi-registry",
-          "title": "ModelRegistry の API 設計",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:11.769Z",
-              "answer": "Q9:C(拡張型)。ModelInfoはcontext_size,gpu_layers等の全mistralrs設定を保持。Qwen3.5はビルトイン初期値。crate利用者は自由なモデル・設定で初期化可能。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "gpu-auto",
-      "title": "GPUプロバイダー自動検出機構",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:41:12.504Z",
-          "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
-        }
-      ],
-      "children": [
-        {
-          "id": "gpu-detect",
-          "title": "実行環境でのGPUプロバイダー検出方法",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:12.505Z",
-              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "gpu-fallback",
-          "title": "GPU非検出時のCPUフォールバック",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:12.505Z",
-              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "gpu-platform",
-          "title": "プラットフォーム別GPU対応（Metal, DirectML等）",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:12.505Z",
-              "answer": "Q10:C(ハイブリッド)。デフォルトコンパイル時検出、環境変数GGUFRS_GPU_PROVIDERで上書き可能。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "trait-inference",
-      "title": "InferenceEngine トレイトの具体的設計（mistralrs API調査後確定）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:45:58.992Z",
-          "answer": "Q14:B(3メソッド+低レベル直アクセス)。高レベル: generate/generate_structured/generate_stream。低レベル: mistralrs生機能へのパススルーアクセスを提供。"
-        }
-      ],
-      "children": [
-        {
-          "id": "trait-methods",
-          "title": "高レベル3メソッドの具体的シグネチャ",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:55:31.784Z",
-              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "trait-structured",
-          "title": "generate_structured のシグネチャと制約設計",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:55:31.785Z",
-              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "trait-default",
-          "title": "低レベルAPI（mistralrs生機能アクセス）の設計",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:55:31.785Z",
-              "answer": "Q15:B(委譲メソッド)。高レベル3メソッド+send_raw(model,RequestBuilder)で低レベル全機能アクセス。RequestBuilderがmistralrs全機能をカバー。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "binary-test",
-      "title": "test-run バイナリ（cargo run --bin test-run）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:41:14.758Z",
-          "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
-        }
-      ],
-      "children": [
-        {
-          "id": "bt-purpose",
-          "title": "test-run の目的と実行内容",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:14.758Z",
-              "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "bt-output",
-          "title": "目視確認可能な出力形式",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:41:14.758Z",
-              "answer": "Q13:A(全パターン順次実行)。Structured Output→通常生成→ストリーミング。サマリー表示。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "user-config",
-      "title": "crate利用者向けモデル設定インターフェース（JSONマルチソースマージ）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T07:55:33.631Z",
-          "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
-        }
-      ],
-      "children": [
-        {
-          "id": "uc-builtin",
-          "title": "ビルトインモデル設定（Qwen3.5系）の組み込み方",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:55:33.632Z",
-              "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "uc-custom",
-          "title": "ユーザー任意モデルの設定方法とGgufConfig",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-17T07:55:33.632Z",
-              "answer": "Q16:C(JSONマルチソース)。設定形式はJSON。優先順位: JSONファイルパス > 埋め込みincludeデータ > コードベタ書き。3層マージ。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "arch-start-server",
-      "title": "auto_start_server フラグの設計",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T08:02:21Z",
-          "answer": "Q18:A。ServerConfig.auto_start_server bool フィールド。trueならnew()時に自動起動。明示的start_server()呼び出しも可能。"
+          "resolvedAt": "2026-06-19T07:20:58.975Z",
+          "answer": "Q20: ChatCompletionRequest も OpenAI 全標準フィールド実装。Q21: docs.rs で v0.1.150 の features を確認し、RFC に具体的な feature 一覧を記載。"
         }
       ],
       "children": []
     },
     {
-      "id": "cfg-gitignore",
-      "title": ".gitignore models/ の設定",
+      "id": "inf-gbnf-api",
+      "title": "gbnf クレートの型の公開範囲 (内部隠蔽 vs 公開API化)",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T08:02:22Z",
-          "answer": "Q17:A。models/ は .gitignore に追加。voiput準拠。"
+          "resolvedAt": "2026-06-19T07:31:05.322Z",
+          "answer": "Q22: gbnf 型は内部隠蔽、generate_structured は schema: Value のまま。Q23: SSE チャンク型 ChatCompletionChunk を自前定義。"
         }
       ],
       "children": []
     },
     {
-      "id": "cfg-json-schema",
-      "title": "JSON config スキーマ構造（3セクション）",
+      "id": "srv-stream-chunk",
+      "title": "ストリーミング SSE チャンク型の定義要否",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-17T08:02:25Z",
-          "answer": "Q19:A。{ models: [], server: {}, gpu: {} } の3トップレベルセクション。"
-        }
-      ],
-      "children": [
-        {
-          "id": "cjs-models",
-          "title": "models セクション（ModelConfig配列）",
-          "status": "resolved",
-          "questions": [],
-          "children": []
-        },
-        {
-          "id": "cjs-server",
-          "title": "server セクション（ポート・auto_start_server等）",
-          "status": "resolved",
-          "questions": [],
-          "children": []
-        },
-        {
-          "id": "cjs-gpu",
-          "title": "gpu セクション（プロバイダー設定）",
-          "status": "resolved",
-          "questions": [],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "err-variants",
-      "title": "GgufError の6バリアント",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T08:02:26Z",
-          "answer": "Q19:A。ModelNotFound, ModelLoadFailed, InferenceFailed, ServerStartupFailed, InvalidConfig, MistralrsError(Box<dyn Error>)"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "cfg-roles",
-      "title": "settings.rs（静的定数）と JSON config（動的設定）の役割分担",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T08:02:27Z",
-          "answer": "Q17:A。settings.rs=ポート番号・デフォルトパス・タイムアウト等の静的定数。JSON config=モデルパス・context_size等のランタイム可変設定。"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "reg-thread",
-      "title": "ModelRegistry のスレッドセーフ（RwLock）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-17T08:02:28Z",
-          "answer": "Q18:A。Registryは内部 RwLock<Vec<ModelInfo>> で保護。読み取り大半の操作に最適。"
+          "resolvedAt": "2026-06-19T07:31:05.323Z",
+          "answer": "Q22: gbnf 型は内部隠蔽、generate_structured は schema: Value のまま。Q23: SSE チャンク型 ChatCompletionChunk を自前定義。"
         }
       ],
       "children": []

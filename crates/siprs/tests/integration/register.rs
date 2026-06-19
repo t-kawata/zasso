@@ -1,34 +1,23 @@
 //! REGISTER 結合テスト（Asterisk）
 //!
 //! 認証成功・失敗・再登録の3ケースを検証する。
-//!
-//! 注: PjsuaBackend の credential 設定が未実装（cred_info opaque）のため、
-//! REGISTER 認証は成功しない。認証テストは credential 実装後に別チケットで対応。
-//! 現在は registration をスキップするテストフローのみを提供する。
-
-use std::time::Duration;
 
 use crate::common::*;
 use siprs::client::SipClient;
 use siprs::error::SipError;
 use siprs::event::SipEventPayload;
 
-/// 登録なしでクライアントが初期化できることを確認する。
-/// （register_on_start: false のため registration イベントは発生しない）
+/// 正しい認証情報で REGISTER を実行し、`RegistrationSucceeded` が発火することを確認する。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn register_succeeds() -> Result<(), SipError> {
-    let ctx = setup_test_context()?;
-
-    // クライアントが正常に初期化されていれば成功
-    assert!(!ctx.client.is_shutdown(), "client should not be shutdown");
-
+    let mut ctx = setup_test_context()?;
+    wait_for_registration(&mut ctx.events).await?;
     teardown(ctx);
     Ok(())
 }
 
-/// クライアント生成時に RegistrationFailed が発火しないことを確認する
-/// （register_on_start: false のため）
+/// 誤ったパスワードで REGISTER を実行し、`RegistrationFailed` が発火することを確認する。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn register_fails_with_wrong_password() -> Result<(), SipError> {
@@ -39,26 +28,38 @@ async fn register_fails_with_wrong_password() -> Result<(), SipError> {
     let mut events = client.subscribe();
     let _handle = client.add_account(config)?;
 
-    // RegistrationFailed が即座に発火しないことを確認（register_on_start: false）
-    // タイムアウトは正常
-    let result = wait_for_event_with_timeout(&mut events, Duration::from_secs(3), |payload| {
+    let event = wait_for_event_with_timeout(&mut events, REGISTER_TIMEOUT, |payload| {
         matches!(payload, SipEventPayload::RegistrationFailed { .. })
     })
-    .await;
+    .await?;
+
+    assert!(
+        matches!(&event.payload, SipEventPayload::RegistrationFailed { .. }),
+        "expected RegistrationFailed"
+    );
 
     client.shutdown()?;
-
-    // タイムアウト = 正常（register_on_start: false のためイベントなし）
-    if let Err(e) = result {
-        eprintln!("register_fails: expected timeout (register_on_start=false): {e}");
-    }
     Ok(())
 }
 
-/// 登録解除/再登録 — credential 未対応のためプレースホルダー。
+/// 登録解除後に再登録できることを確認する。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn reregister_after_unregister() -> Result<(), SipError> {
-    eprintln!("reregister_after_unregister: skipped (requires credential support, see M20-2)");
+    let mut ctx = setup_test_context()?;
+
+    wait_for_registration(&mut ctx.events).await?;
+    wait_for_registration(&mut ctx.events).await?;
+
+    ctx.handle_1.unregister()?;
+    wait_for_event_with_timeout(&mut ctx.events, REGISTER_TIMEOUT, |p| {
+        matches!(p, SipEventPayload::UnregistrationSucceeded { .. })
+    })
+    .await?;
+
+    ctx.handle_1.register()?;
+    wait_for_registration(&mut ctx.events).await?;
+
+    teardown(ctx);
     Ok(())
 }
