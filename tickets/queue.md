@@ -234,3 +234,6 @@
 - [x] #170 M4-4: Real provider integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0170-m4-4-real-provider-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #171 Translate mode 本実装 — llm-bridge-core 変換 | /Users/shyme01/shyme/zasso/tickets/specs/0171-translate-mode-llm-bridge-core.md | 2026-06-19 | 2026-06-19 | 2026-06-19
 - [x] #172 ProviderClient 導入 + ConcurrencyLimiter 接続 | /Users/shyme01/shyme/zasso/tickets/specs/0172-providerclient-concurrencylimiter.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #173 M0-1: common.sh — 色付き出力ヘルパー関数 | /Users/kawata/shyme/zasso/tickets/specs/0173-m0-1-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #174 common.sh — 環境チェック関数群 | /Users/kawata/shyme/zasso/tickets/specs/0174-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #175 M1-1: doctor.sh — 環境診断スクリプト | /Users/kawata/shyme/zasso/tickets/specs/0175-m1-1-doctorsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
