@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-21T03:32:51.659Z",
+  "nodes": [
+    {
+      "id": "architecture",
+      "title": "アーキテクチャ全体像とプロジェクト構成",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.090Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": [
+        {
+          "id": "arch-structure",
+          "title": "mycc/ のディレクトリ構成（.gitignore で models/ 除外）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.547Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "arch-env",
+          "title": "環境変数設計（MTPLX_PORT, PROXY_PORT, MODEL_VARIANT 等）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "doctor",
+      "title": "doctor.sh — 環境チェック・自動インストール",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.091Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": [
+        {
+          "id": "doctor-prereqs",
+          "title": "チェック項目一覧（brew, python3.12, git, uv, node, claude, huggingface-cli）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "doctor-model",
+          "title": "モデル不在チェックと自動ダウンロード",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "doctor-autofix",
+          "title": "Q12=B: 不足ツールの自動インストールは行わず、一覧表示と手順提示のみ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "doctor-common-sh",
+          "title": "Q13=C: common.sh に関数切り出し、doctor.sh と setup.sh 両方から source",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "doctor-claude",
+          "title": "Q14=B: Claude Code 不在時は手動インストール手順表示のみ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "doctor-silicon",
+          "title": "Q15=A: Apple Silicon チェック（uname -m）で arm64 以外はエラー終了",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "setup",
+      "title": "setup.sh — 環境構築・モデル配置",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.091Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": [
+        {
+          "id": "setup-uv",
+          "title": "uv init / uv add / uv sync の自動実行",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "setup-proxy",
+          "title": "claude-code-proxy の clone, uv sync, .env 自動生成",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "setup-prereq-gate",
+          "title": "Q13=C: setup.sh 冒頭で common.sh を source しチェック実行、不全時はエラー終了＋明確なメッセージ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "run",
+      "title": "run.sh — サーバー・プロキシ起動",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.091Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "test",
+      "title": "test.js — 両エンドポイント検証（Node.js 実装）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.091Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": [
+        {
+          "id": "test-stages",
+          "title": "テスト段階定義（ヘルスチェック→OpenAI→Proxy→Anthropic の4段階以上）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "test-node-impl",
+          "title": "Q16=A: Node.js ビルトイン http モジュールのみで test.js 実装（.sh ではなく .js）",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:30:36.849Z",
+              "answer": "\nQ12=B (不足ツール一覧表示＋手順提示、自動インストールなし)\nQ13=C (common.sh にチェック関数を切り出し、doctor.sh と setup.sh 両方から source。setup.sh はチェック不全時にエラー終了＋明確なメッセージ)\nQ14=B (Claude Code 不在時は手動インストール手順表示)\nQ15=A (uname -m で arm64 確認、非対応時はエラー終了)\nQ16=A (Node.js ビルトイン http モジュールのみで test.sh 実装)\n"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "error-handling",
+      "title": "エラーハンドリング・ログ・セーフガード",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-21T03:19:14.091Z",
+          "answer": "\nQ1=A (mycc/ をプロジェクトルート、モデルは setup.sh でダウンロード、git管理外)\nQ2=C (デフォルト Quality、MODEL_VARIANT=speed で Speed 追加可能)\nQ3=B (MTPLX_PORT/PROXY_PORT 環境変数で指定、占有時はエラー表示)\nQ4=A (Homebrew 不在時はエラー終了＋手順表示)\nQ5=A (バックグラウンドジョブ＋trap で一括終了)\nQ6=C (4段階以上の高解像度テスト、--fail-fast オプション)\nQ7=B (ルート.env一元管理、proxyの.envは自動生成)\n"
+        }
+      ],
+      "children": [
+        {
+          "id": "error-common",
+          "title": "既知の障害モードと診断メッセージ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-21T03:24:04.548Z",
+              "answer": "\nQ8=A (ルート直置き構造)\nQ9=C (6段階＋モデル名検証)\nQ10=C (test.sh のみ Node.js、他は shell)\nQ11=全て標準出力のみ、ログファイル不要\n"
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  ]
+}
