@@ -44,6 +44,16 @@ if [[ "$ARGUMENTS" == *" "* ]]; then
 fi
 ```
 
+### Step 0.5: Malfeasance.json の初期化（犯罪記録台帳）
+
+Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。CLAUDE.md 生成より前に必ず初期化しておく。
+
+```bash
+# 犯罪記録台帳が存在しなければ空の状態で作成する
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/ensure-malfeasance.js"
+```
+
 ### Step 1: 設計書の検証と情報抽出
 
 ```bash

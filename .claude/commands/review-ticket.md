@@ -4,6 +4,8 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 
 # /review-ticket
 
+**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+
 **役割**: `done` チケットの品質検証。`/plan-ticket` のレビュー方法を全て再実行する。
 
 ## ワークフローにおける位置づけ
@@ -75,7 +77,7 @@ node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
 
 spec の Acceptance Criteria と実装サマリを確認する。spec の Test Plan に記載されたユニットテストが全て実装されているか確認する。
 
-### 依存・関連チケットID の整合性検証
+### Step 3: 依存・関連チケットID の整合性検証
 
 spec に記述された「依存・関連チケットID」が実装を通じて正しく維持されたか検証する：
 
@@ -94,13 +96,29 @@ for ref_id in <抽出した参照ID一覧>; do
 done
 ```
 
-### [::STUB::] の一覧と評価
+### Step 4: 犯罪の緊急解決（最優先 — 第一級規則）
+
+Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する場合、**レビュー処理より優先して**解決する。これは最優先タスクであり、スキップを禁止する。
+
+```bash
+# 犯罪スキャンを実行（初回時は自動初期化）
+.claude/scripts/tickets/scan-crimes.sh
+```
+
+犯罪解決の手順は start-ticket.md の「犯罪の緊急解決」に従う。全犯罪を解決するまでレビューを進行してはならない。
+
+また、本チケットの実装コードに新たな犯罪（`[::STUB::]` 未付与の不完全実装）がないことを確認する。発見した場合は：
+1. その場で `[::STUB::]` マーカーを追加する
+2. `malfeasance-create.js` で犯罪として記録する
+3. 犯罪を解決する（実装完了 or マーカー追加）
+
+### Step 5: [::STUB::] の一覧と評価
 
 `find-all-stubs.js` で全スタブを抽出し、以下の3分類で評価する：
 
 ```bash
 # 全スタブの一覧取得
-node ".claude/scripts/tickets/review/find-all-stubs.js" "<プロジェクトルートまたは対象ディレクトリ>"
+node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
 **分類基準**:
@@ -114,11 +132,47 @@ node ".claude/scripts/tickets/review/find-all-stubs.js" "<プロジェクトル�
 3. **保留妥当なスタブ** — 将来的なチケットで解決予定であり、現在はスタブのままが正しいもの
    → **理由を明確にし、解決予定チケットIDを確認してユーザーに報告する**
 
-**未マークスタブの発見時**: コードの内容から明らかにスタブと判断されるにも関わらず `[::STUB::]` が付与されていない場合、**その場でマーカーを追加する**。その後、上記の分類に従って評価する。
+**未マークスタブの発見時**: コードの内容から明らかにスタブと判断されるにも関わらず `[::STUB::]` が付与されていない場合、**その場でマーカーを追加し、`malfeasance-create.js` で犯罪として記録する**。その後、上記の分類に従って評価する。
 
 スタブ評価の結果はレビュー報告書に必記録すること。
 
-### Step 3: コンパイル検証とユニットテスト検証
+### Step 6: 不完全実装の能動的探索（必須）
+
+コンパイル検証に入る前に、レビュー対象の**変更コード全体を精査し**、CLAUDE.md の「対象となるコード」に定義された 7 パターンの不完全実装が混入していないか確認する。これは**自動スクリプトでは検出できない漏れを発見するための能動的ステップ**であり、スキップを禁止する。
+
+```bash
+# 変更ファイル一覧を確認
+git diff --name-only "$(git merge-base HEAD origin/master)"
+
+# 各ファイルの変更行を確認
+git diff "$(git merge-base HEAD origin/master)"
+```
+
+**確認基準（7パターン）**:
+1. `todo!()`, `unimplemented!()`, `panic!()` — `[::STUB::]` は付いているか
+2. 空の関数本体 — 仮置きのままではないか
+3. `return Ok(())` / `return None` — エラー処理が未完了ではないか
+4. コメントアウトされたコード — 残骸を残していないか
+5. `TODO` / `FIXME` / `HACK` / `XXX` — `[::STUB::]` と併記されているか
+6. Mock / Fake オブジェクト — `[::STUB::]` は付いているか
+7. `#[allow(...)]` — 抑制理由に `[::STUB::]` があるか
+
+不完全実装を発見した場合：
+1. `[::STUB::]` 未付与 → その場でマーカーを追加する
+2. `malfeasance-create.js` で犯罪として記録する
+3. 直ちに解決する。解決不可能な場合は `false_positive` に変更し理由を `note` に記録する
+
+```bash
+node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
+```
+
+記録後、必ず `scan-crimes.sh` を再実行し、犯罪が正しく Malfeasance.json に反映されたことを確認する：
+
+```bash
+.claude/scripts/tickets/scan-crimes.sh
+```
+
+### Step 7: コンパイル検証とユニットテスト検証
 
 まずコンパイル検証を実行する。実行方法は以下の指針に従い、AI が状況に応じて判断すること：
 
@@ -156,13 +210,13 @@ node ".claude/scripts/tickets/review/find-all-stubs.js" "<プロジェクトル�
 - **`[::STUB::]` のみで抑制が欠如** → コンパイル検証でエラーが出ているか確認する。エラーがあれば `#[allow(...)]` を追加し、エラーがなければ抑制不要（設計上の意図的スタブ）と判断して良い
 - 整合性確認後、**再度コンパイル検証を実行する**
 
-### Step 4: 静的品質チェック
+### Step 8: 静的品質チェック
 
 ```bash
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
-### Step 4: 構造整合性チェック
+### Step 9: 構造整合性チェック
 
 ```bash
 node ".claude/scripts/tickets/validate-structure.js"
@@ -170,11 +224,11 @@ node ".claude/scripts/tickets/validate-structure.js"
 
 出力の `valid` が false なら issues を修正してから続行。
 
-### Step 5: 翻訳可能性チェック
+### Step 10: 翻訳可能性チェック
 
 `/plan-ticket` で定義された grep コマンドを全て再実行する。
 
-### Step 6: レビュー報告書の保存
+### Step 11: レビュー報告書の保存
 
 全チェック通過後、レビュー結果を `save-artifact.js` にパイプして保存する：
 
@@ -186,7 +240,7 @@ REVIEW_EOF
 
 これにより、後でチケットを確認したときに「どのようにレビューされ、品質が担保されているか」を追跡できる。
 
-### Step 7: reviewed に遷移
+### Step 12: reviewed に遷移
 
 全チェック通過後：
 

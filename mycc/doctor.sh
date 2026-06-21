@@ -49,7 +49,7 @@ check_claude || exit 1
 echo ""
 
 # Step 8: モデルファイル確認（任意：ダウンロードは setup.sh の責務）
-MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/models/Qwen3.6-27B-MTPLX-Optimized-Quality}"
+MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/models/Qwen3.6-27B-MTPLX-Optimized-Speed}"
 check_model "$MODEL_DIR" || echo "  → setup.sh を実行してモデルをダウンロードしてください"
 echo ""
 

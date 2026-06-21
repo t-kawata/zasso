@@ -38,19 +38,39 @@ node "$_R/scripts/tickets/<script-name>.js" "<args>"
 | 11 | `review/generate-report.js` | 各コマンド | 品質レポート生成 |
 | 12 | `review/find-all-stubs.js` | `/review-ticket`, 各コマンド | `[::STUB::]` マーカー一覧取得 |
 
+### Malfeasance（犯罪記録 — /plan-ticket, /start-ticket, /review-ticket, /make-ticket）
+
+| # | スクリプト | 用途 |
+|---|-----------|------|
+| 13 | `ensure-malfeasance.js` | Malfeasance.json 初期化（不在時のみ作成） |
+| 14 | `scan-crimes.sh` | 犯罪スキャン共通ラッパー（不在時初期化→スキャン） |
+| 15 | `malfeasance-schema.json` | Malfeasance.json の JSON Schema (draft-07) 定義ファイル |
+| 15 | `malfeasance-create.js` | 新規犯罪レコード作成 |
+| 16 | `malfeasance-get.js` | ID 指定でレコード取得 |
+| 17 | `malfeasance-search.js` | 条件（フィールド指定/全フィールド）検索 |
+| 18 | `malfeasance-all.js` | 全件取得（status フィルタ付き） |
+| 19 | `malfeasance-update.js` | レコード更新（ホワイトリスト + 自動 resolved_at） |
+| 14 | `malfeasance-schema.json` | Malfeasance.json の JSON Schema (draft-07) 定義ファイル |
+| 15 | `malfeasance-create.js` | 新規犯罪レコード作成 |
+| 16 | `malfeasance-get.js` | ID 指定でレコード取得 |
+| 17 | `malfeasance-search.js` | 条件（フィールド指定/全フィールド）検索 |
+| 18 | `malfeasance-all.js` | 全件取得（status フィルタ付き） |
+| 19 | `malfeasance-update.js` | レコード更新（ホワイトリスト + 自動 resolved_at） |
+| 20 | `malfeasance-delete.js` | レコード削除（確認プロンプト必須） |
+
 ### ユーティリティ（必要時に AI が判断して使用）
 
 | # | スクリプト | 用途 |
 |---|-----------|------|
-| 13 | `search-tickets.js` | キーワード検索 |
-| 13 | `find-by-slug.js` | スラッグ検索 |
-| 14 | `delete-ticket.js` | チケット削除（復元不可） |
-| 15 | `backup-ticket.js` | チケットバックアップ |
-| 16 | `restore-ticket.js` | チケット復元 |
-| 17 | `create-draft.js` | 下書き作成 |
-| 18 | `promote-draft.js` | 下書き → spec 昇格 |
-| 19 | `ensure-ticket-structure.js` | ディレクトリ構造初期化 |
-| 20 | `resync-queue.js` | キュー再同期 |
+| 21 | `search-tickets.js` | キーワード検索 |
+| 21 | `find-by-slug.js` | スラッグ検索 |
+| 22 | `delete-ticket.js` | チケット削除（復元不可） |
+| 23 | `backup-ticket.js` | チケットバックアップ |
+| 24 | `restore-ticket.js` | チケット復元 |
+| 25 | `create-draft.js` | 下書き作成 |
+| 26 | `promote-draft.js` | 下書き → spec 昇格 |
+| 27 | `ensure-ticket-structure.js` | ディレクトリ構造初期化 |
+| 28 | `resync-queue.js` | キュー再同期 |
 
 ---
 
@@ -394,6 +414,242 @@ node "$_R/scripts/tickets/review/find-all-stubs.js" "$(git rev-parse --show-topl
 ```
 
 **いつ使うか**: `/review-ticket` での品質チェックで全スタブの把握と評価に使用する。`/make-ticket`、`/plan-ticket`、`/start-ticket` でもスタブ解決機会の特定に使用する。
+
+---
+
+## Malfeasance 操作スクリプト
+
+### 13. `ensure-malfeasance.js`
+
+**用途**: Malfeasance.json が存在しなければ空のレコード配列を持つ初期 JSON を作成する。既に存在する場合は何も変更しない。formulate-tickets.md から自動的に呼び出される。
+
+**引数**: なし
+
+**使用例**:
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/ensure-malfeasance.js"
+```
+
+**出力**:
+```json
+{ "success": true, "action": "created", "path": "/path/to/.claude/commands/Malfeasance.json" }
+```
+
+または（既存時スキップ）:
+```json
+{ "success": true, "action": "skipped", "path": "/path/to/.claude/commands/Malfeasance.json" }
+```
+
+**いつ使うか**: プロジェクトの初期化時や formulate-tickets.md の実行時。通常は手動で実行する必要はない。
+
+---
+
+### 14. `scan-crimes.sh`
+
+**用途**: Malfeasance.json が存在しない場合に `ensure-malfeasance.js` で自動初期化し、未解決の犯罪一覧を表示する共通ラッパー。全 make/plan/start/review コマンドから犯罪点検・犯罪解決の最初のステップとして呼び出される。
+
+**引数**: なし
+
+**使用例**:
+```bash
+# 犯罪スキャンを実行（初回時は自動初期化）
+"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh"
+```
+
+**出力**:
+```json
+{ "success": true, "count": 0, "records": [] }
+```
+
+**いつ使うか**: 各コマンドファイル（make-ticket.md, plan-ticket.md, start-ticket.md, review-ticket.md）の犯罪点検・犯罪解決セクションで使用する。直接手動で実行することも可能。
+
+---
+
+### 15. `malfeasance-schema.json`
+
+**用途**: Malfeasance.json の JSON Schema (draft-07) 定義ファイル。各操作スクリプトがスキーマ検証に使用する。
+
+**位置**: `$_R/scripts/tickets/malfeasance-schema.json`
+
+**内容**: ルートオブジェクト（`version` + `records` 配列）、各レコードの必須フィールド（`id`, `file`, `line`, `description`, `detected_at`, `status`）と型制約、`status` の enum 値（`open` / `resolved` / `false_positive`）、`resolved_at` の条件付き必須を定義する。
+
+---
+
+### 15. `malfeasance-create.js`
+
+**用途**: Malfeasance.json に新規犯罪レコードを作成する。同一ファイル＋同一行の open レコードが存在する場合は重複エラー。`id` は自動採番、`detected_at` は現在日時自動設定。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | ファイルパス | 必須 | 犯罪コードが存在するファイルの相対パス |
+| 3 | 行番号 | 必須 | 犯罪コードの開始行番号（正の整数） |
+| 4 | 説明 | 必須 | 犯罪の内容説明 |
+| 5 | 備考 | 任意 | 任意の備考 |
+
+**使用例**:
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-create.js" "src/main.rs" "42" "未マーカーの不完全実装" "要調査"
+```
+
+**出力**:
+```json
+{ "success": true, "ticketId": 1, "record": { "id": 1, "file": "src/main.rs", "line": 42, "description": "未マーカーの不完全実装", "detected_at": "2026-06-21T12:00:00.000Z", "status": "open", "note": "要調査" } }
+```
+
+**いつ使うか**: 不完全実装に `[::STUB::]` マーカーが未付与であることを発見したとき。他チケットの実装中やレビュー中に犯罪を発見したら、マーカー追加とともに本スクリプトで記録する。
+
+---
+
+### 16. `malfeasance-get.js`
+
+**用途**: 指定された ID の犯罪レコードを取得する。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | ID | 必須 | 取得するレコードの数値 ID |
+
+**使用例**:
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-get.js" "1"
+```
+
+**出力**:
+```json
+{ "success": true, "record": { "id": 1, "file": "src/main.rs", "line": 42, "description": "未マーカーの不完全実装", "detected_at": "2026-06-21T12:00:00.000Z", "status": "open" } }
+```
+
+**いつ使うか**: 特定の犯罪レコードの詳細を確認したいとき。`malfeasance-search.js` や `malfeasance-all.js` で ID を特定した後の詳細取得に使用する。
+
+---
+
+### 17. `malfeasance-search.js`
+
+**用途**: 条件を指定して犯罪レコードを検索する。フィールド指定検索（`status`, `file`, `id`, `description`）と全フィールド部分一致検索に対応。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | キー | 任意 | `status` / `file` / `id` / `description`。省略時は全フィールド検索 |
+| 3 | 値 | キー指定時必須 | 検索値（`id` は数値、`status` は完全一致、他は部分一致・大文字小文字区別なし） |
+
+**使用例**:
+```bash
+# status=open の犯罪を検索
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-search.js" "status" "open"
+
+# ファイル名で部分一致検索
+node "$_R/scripts/tickets/malfeasance-search.js" "file" "src/main"
+
+# 全フィールドからキーワード検索
+node "$_R/scripts/tickets/malfeasance-search.js" "" "TODO"
+```
+
+**出力**:
+```json
+{ "success": true, "count": 2, "records": [{ "id": 1, "file": "src/main.rs", ... }, { "id": 3, ... }] }
+```
+
+**いつ使うか**: 特定のファイル、ステータス、またはキーワードに関連する犯罪を検索したいとき。
+
+---
+
+### 18. `malfeasance-all.js`
+
+**用途**: Malfeasance.json の全レコードを取得する。`status` フィルタによる絞り込みが可能。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | フィルタ | 任意 | `open` / `resolved` / `false_positive`。省略時は全件 |
+
+**使用例**:
+```bash
+# 全レコード取得
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-all.js"
+
+# 未解決の犯罪のみ取得
+node "$_R/scripts/tickets/malfeasance-all.js" "open"
+```
+
+**出力**:
+```json
+{ "success": true, "count": 5, "records": [{ ... }, ...] }
+```
+
+**いつ使うか**: 全犯罪レコードの俯瞰や、特定ステータスの犯罪一覧を取得するとき。`/plan-ticket`、`/start-ticket`、`/review-ticket` での犯罪点検の最初のステップとして使用する。
+
+---
+
+### 19. `malfeasance-update.js`
+
+**用途**: 犯罪レコードの特定フィールドを更新する。書き込み前にスキーマ検証を実施する。`status` を `resolved` に変更すると `resolved_at` が自動設定される。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | ID | 必須 | 更新対象のレコード ID |
+| 3 | フィールド | 必須 | `status` / `resolved_by_ticket` / `note`（`resolved_at` の単独設定は不可） |
+| 4 | 値 | 必須 | 設定する値（`status` は `open` / `resolved` / `false_positive`） |
+
+**制約**:
+- 更新可能フィールドは `status`, `resolved_by_ticket`, `note` のみ
+- `id`, `file`, `line`, `description`, `detected_at` は変更禁止
+- `resolved_at` の単独設定は禁止（`status` を `resolved` に変更すると自動設定される）
+
+**使用例**:
+```bash
+# 犯罪を解決済みに変更
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-update.js" "1" "status" "resolved"
+
+# 備考を更新
+node "$_R/scripts/tickets/malfeasance-update.js" "1" "note" "M3-1 の実装とともに解決"
+```
+
+**出力**:
+```json
+{ "success": true, "record": { "id": 1, "status": "resolved", "resolved_at": "2026-06-21T14:00:00.000Z", ... } }
+```
+
+**いつ使うか**: 犯罪が解決されたとき（`status` を `resolved` に）、誤検出と判明したとき（`false_positive` に）、または備考を更新したいとき。
+
+---
+
+### 20. `malfeasance-delete.js`
+
+**用途**: 犯罪レコードを完全に削除する。削除前に確認プロンプトが必要（`y/N`）。削除は復元不可能。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| 2 | ID | 必須 | 削除するレコードの数値 ID |
+
+**使用例**:
+```bash
+_R="$(git rev-parse --show-toplevel)/.claude"
+node "$_R/scripts/tickets/malfeasance-delete.js" "1"
+# Delete record #1 (file: src/main.rs, line: 42)? [y/N] y
+```
+
+**出力**:
+```json
+{ "success": true, "deleted": { "id": 1, "file": "src/main.rs", "line": 42 } }
+```
+
+**いつ使うか**: 誤って記録した犯罪レコードを完全に消去するとき。**削除前にユーザーの明示的な確認を取ること。**
 
 ---
 

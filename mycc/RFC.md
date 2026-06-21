@@ -2,7 +2,7 @@
 
 **Status**: Draft  
 **Date**: 2026-06-21  
-**Target**: Apple Silicon Mac (M2 以降, 32GB RAM 推奨)
+**Target**: Apple Silicon Mac (M2 以降, 32GB RAM 推奨, Speed 版デフォルト)
 
 ---
 
@@ -95,7 +95,7 @@ node_modules/
 | ID | 決定 | 内容 |
 |----|------|------|
 | Q1 | A | mycc/ をプロジェクトルート、models/ は setup.sh がダウンロードし git 管理外 |
-| Q2 | C | Quality 版デフォルト、`MODEL_VARIANT=speed` で Speed 版に切替 |
+| Q2 | C | Speed 版デフォルト。`MODEL_VARIANT=quality` で Quality 版に切替（要 64GB+ RAM） |
 | Q3 | B | `MTPLX_PORT` / `PROXY_PORT` 環境変数で指定、占有時はエラー表示 |
 | Q4 | A | Homebrew 不在 → エラー終了＋手順表示 |
 | Q5 | A | バックグラウンドジョブ + `trap` で一括終了 |
@@ -372,7 +372,7 @@ info "依存パッケージ: OK ($(uv run python -c 'import mtplx; print("mtplx"
 # --------------------------------------------------
 echo "[Phase 4/6] モデルダウンロード"
 
-MODEL_VARIANT="${MODEL_VARIANT:-quality}"
+MODEL_VARIANT="${MODEL_VARIANT:-speed}"
 case "$MODEL_VARIANT" in
   quality)
     MODEL_REPO="Youssofal/Qwen3.6-27B-MTPLX-Optimized-Quality"
@@ -445,7 +445,7 @@ cat > .env <<ENVEOF
 
 MTPLX_PORT=${MTPLX_PORT}
 PROXY_PORT=${PROXY_PORT}
-MODEL_VARIANT=${MODEL_VARIANT:-quality}
+MODEL_VARIANT=${MODEL_VARIANT:-speed}
 MODEL_DIR=./models/${MODEL_DIR_NAME}
 MODEL_NAME=${MODEL_NAME}
 OPENAI_BASE_URL=http://127.0.0.1:${MTPLX_PORT}/v1
@@ -909,7 +909,7 @@ main().catch((e) => {
 |--------|------------|------|
 | `MTPLX_PORT` | `8080` | MTPLX 推論サーバーのポート番号 |
 | `PROXY_PORT` | `8082` | Claude Code Proxy のポート番号 |
-| `MODEL_VARIANT` | `quality` | モデルバリアント（`quality` / `speed`） |
+| `MODEL_VARIANT` | `speed` | モデルバリアント（`quality` / `speed`） |
 | `MODEL_DIR` | `./models/Qwen3.6-27B-MTPLX-Optimized-Quality` | モデルディレクトリ（派生値） |
 | `MODEL_NAME` | `Qwen3.6-27B-MTPLX-Optimized-Quality` | モデル識別名（派生値） |
 | `OPENAI_BASE_URL` | `http://127.0.0.1:8080/v1` | MTPLX の API エンドポイント（派生値） |
@@ -949,7 +949,7 @@ claude
 | 7 | `test.js` Stage 2 失敗 | MTPLX が応答しない | `curl http://127.0.0.1:8080/v1/models` | run.sh の起動順序と readiness を確認 |
 | 8 | `test.js` Stage 6 失敗 | Proxy 経由の変換が動作しない | `curl http://127.0.0.1:8082/v1/messages ...` | proxy/.env のモデル名と OPENAI_BASE_URL を確認 |
 | 9 | `mtplx serve` コマンドが見つからない | 配布形態変更 | `uv run mtplx --help` | `lightning-mlx serve` を試行、または upstream の README を確認 |
-| 10 | 期待した速度が出ない | M2 32GB では M5 Max より低速 | 同一プロンプトで mlx-optiq と比較 | Quality 版で安定性優先、必要なら Speed 版に変更 |
+| 10 | 期待した速度が出ない | M2 32GB では M5 Max より低速 | 同一プロンプトで mlx-optiq と比較 | Speed 版で安定動作（推奨）。Quality 版は 64GB+ RAM 環境向け |
 
 #### 全スクリプト共通ルール
 

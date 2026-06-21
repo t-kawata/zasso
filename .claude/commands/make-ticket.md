@@ -4,6 +4,8 @@ description: チケットを作成する。引数なしなら詳細をヒアリ�
 
 # /make-ticket
 
+**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+
 **役割**: チケットの作成と詳細化。
 
 ## ワークフローにおける位置づけ
@@ -70,37 +72,28 @@ node ".claude/scripts/tickets/create-ticket.js" "" "タイトル"
 
    **例外ルール**: ユニットテストではどうしてもテスト不可能な部分だけを「ユニットテスト不可能な項目」として理由付きで列挙する。それ以外の全ての検証はユニットテストでカバーする。極限の網羅性でユニットテストを設計しておくことで、実装段階でほぼすべての不具合が発見・修正され、結果として E2E テストはほぼ成功すると考えられる状態を目指す。
 
+4. **依存・関連チケットID の点検**: 関連する既存チケットを検索し、依存関係を spec に記述する。各参照先チケットの存在確認および循環依存の有無を確認する。
+
+   ```bash
+   node ".claude/scripts/tickets/search-tickets.js" "<キーワード>"
+   node ".claude/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
+   ```
+
+5. **犯罪の点検（必須 — 第一級規則）**: Malfeasance.json を読み取り、未解決の犯罪（`[::STUB::]` 未付与の不完全実装）がないか確認する。これは**絶対的法規に基づく必須ステップ**であり、スキップを禁止する。
+
+   未解決の犯罪が存在する場合、本チケットの spec 内にそれらを解消する具体的計画を**必ず**盛り込む。解消計画には各犯罪の ID・内容・解決方法・本チケットのスコープ内か否かの判断を含めること。犯罪を単に「既知の状態」として放置するだけの記述は許可されない。
+
+   ```bash
+   .claude/scripts/tickets/scan-crimes.sh
+   ```
+
+   併せて、`[::STUB::]` マーカーの状態も点検し、未マーカーのスタブを発見したらその場で `[::STUB::]` を追加し、`malfeasance-create.js` で犯罪として記録する。
+
+   ```bash
+   node .claude/scripts/tickets/review/find-all-stubs.js .
+   ```
+
 調査結果の書き込みと仕様の具体化が完了したら、ユーザーに内容を提示して確認を求める。
-
-### 依存・関連チケットID の点検
-
-spec を確定する前に、「依存・関連チケットID」の記述を点検する：
-
-1. 新規作成時は、関連する既存チケットを `search-tickets.js` で検索し、依存関係がある場合はそのIDと関係の種類（先行実装必須/後続/並列可能/リソース共有等）を spec に記述する
-2. 各参照先チケットが実在することを `resolve-ticket.js` で確認する
-3. 循環依存（A→B かつ B→A が相互に先行実装必須）がないか確認する
-4. 深掘り時は既存の「依存・関連チケットID」を読み取り、上記の観点で不足・矛盾がないか検証する
-
-```bash
-# 関連チケットの検索（必要に応じて keyword を指定）
-node ".claude/scripts/tickets/search-tickets.js" "<キーワード>"
-# 参照先チケットの存在確認
-node ".claude/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
-```
-
-### スタブの点検
-
-`[::STUB::]` マーカーの有無とスタブの状態を点検する：
-
-1. 関連ソースツリーを `grep -rn '\[::STUB::\]'` または `find-all-stubs.js` でスキャンする
-2. このチケットが解決可能なスタブがあれば spec に明記する
-3. `[::STUB::]` 未付与だが明らかにスタブと判断されるコードを発見したら、その場でマーカーを追記する（解決先不明な場合は `[::STUB::] 要解決: <情報>`）
-4. スタブを解決する場合は実装スコープに含め、解決しない場合は spec にその理由と将来の解決計画を記述する
-
-```bash
-# スタブの検索
-node ".claude/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
-```
 
 ### 深掘り
 
@@ -113,3 +106,19 @@ node ".claude/scripts/tickets/resolve-ticket.js" "42"
 ```bash
 node ".claude/scripts/tickets/read-frontmatter.js" "42"
 ```
+
+補完後、以下の点検を実施する：
+
+1. **依存・関連チケットID の点検**: 既存の依存関係記述に不足・矛盾がないか検証する。必要に応じて `search-tickets.js` で関連チケットを検索し、依存関係を補完する。
+
+   ```bash
+   node ".claude/scripts/tickets/search-tickets.js" "<キーワード>"
+   node ".claude/scripts/tickets/resolve-ticket.js" "<参照チケットID>"
+   ```
+
+2. **犯罪の点検（必須 — 第一級規則）**: Malfeasance.json を読み取り、未解決の犯罪がないか確認する。これは**絶対的法規に基づく必須ステップ**であり、スキップを禁止する。未解決の犯罪が存在する場合、本チケットの spec 内に解消計画を必ず盛り込む。
+
+   ```bash
+   .claude/scripts/tickets/scan-crimes.sh
+   node .claude/scripts/tickets/review/find-all-stubs.js .
+   ```

@@ -1,6 +1,9 @@
 # Ticket Queue
 - [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
 - [-] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
+- [-] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21
+- [-] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21
+- [-] #177 M2-1: run.sh — サーバー・プロキシ起動スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0177-m2-1-runsh.md | 2026-06-21
 - [-] #159 M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0159-m5-25-uqff-devicemap-registryrs.md | 2026-06-19 | 2026-06-19
 - [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
 - [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
@@ -237,3 +240,11 @@
 - [x] #173 M0-1: common.sh — 色付き出力ヘルパー関数 | /Users/kawata/shyme/zasso/tickets/specs/0173-m0-1-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #174 common.sh — 環境チェック関数群 | /Users/kawata/shyme/zasso/tickets/specs/0174-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #175 M1-1: doctor.sh — 環境診断スクリプト | /Users/kawata/shyme/zasso/tickets/specs/0175-m1-1-doctorsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #176 M1-2: setup.sh — 環境構築スクリプト（冪等） | /Users/shyme/shyme/zasso/tickets/specs/0176-m1-2-setupsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #177 M2-1: run.sh — サーバー・プロキシ起動スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0177-m2-1-runsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #178 M0: Malfeasance.json スキーマ定義と操作スクリプト群の作成 | /Users/shyme/shyme/zasso/tickets/specs/0178-m0-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #179 M1: formulate-tickets.md への Malfeasance.json 作成処理の追加 | /Users/shyme/shyme/zasso/tickets/specs/0179-m1-formulate-ticketsmd-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #180 M2: 第一級規則（スタブマーカー絶対義務）の明記と甘い記述の修正 | /Users/shyme/shyme/zasso/tickets/specs/0180-m2.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #181 M3: make/plan/start/review への Malfeasance.json 統合 | /Users/shyme/shyme/zasso/tickets/specs/0181-m3-makeplanstartreview-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21

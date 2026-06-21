@@ -4,6 +4,8 @@ description: チケットの実装計画を策定する（実行をもって spe
 
 # /plan-ticket
 
+**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+
 **役割**: `approved` チケットの実装計画と物理的レビュー方法の定義。
 
 ## ワークフローにおける位置づけ
@@ -110,7 +112,7 @@ spec 作成時から時間が経過している場合、当時記録された In
 
 **計画は常に現在のコードベースの状態に基づいて策定しなければならない。**
 
-### 依存・関連チケットID の検証
+### Step 6: 依存・関連チケットID の検証
 
 spec に記述された「依存・関連チケットID」を点検する：
 
@@ -127,22 +129,43 @@ node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "�
 # 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
 ```
 
-### スタブの検証
+### Step 7: 犯罪・スタブの点検（必須 — 第一級規則）
 
-`[::STUB::]` マーカーが計画に影響するか検証する：
+Malfeasance.json を読み取り、未解決の犯罪がないか確認する。**計画承認の条件**として、以下のいずれかを満たさなければならない：
+
+- **条件 A**: Malfeasance.json に `open` レコードが存在しない
+- **条件 B**: `open` レコードが存在する場合、本チケットの実装計画内にそれらを解消する具体的ステップが含まれている
+
+```bash
+# 犯罪スキャンを実行（初回時は自動初期化）
+.claude/scripts/tickets/scan-crimes.sh
+```
+
+条件 B の場合、計画内に各犯罪の解消ステップを明記すること。
+
+併せて、`[::STUB::]` マーカーが計画に影響するか検証する：
 
 1. `find-all-stubs.js` でスタブを一覧する
 2. このチケットで解決可能なスタブがあるか評価する
-3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加する
+3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加し、`malfeasance-create.js` で犯罪として記録する
 4. 解決可能なスタブは計画の実装スコープに含める
 5. 解決不可能なスタブは注記として計画に残し、将来のチケットとの関係を明記する
 
 ```bash
 # スタブの検索
-node ".claude/scripts/tickets/review/find-all-stubs.js" "<対象ディレクトリ>"
+node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-### Step 6: 計画策定
+**能動的コード探索**: 計画対象のソースツリーにおいて、CLAUDE.md の「対象となるコード」に定義された 7 パターンの不完全実装が既存コードに存在しないか grep で確認する。発見した場合は `[::STUB::]` マーカーを追加し、`malfeasance-create.js` で犯罪として記録する。この探索結果は計画の「リスク」または「Boy Scout 改善」セクションに反映すること。
+
+```bash
+# 不完全実装パターンの grep
+grep -rE "todo!\(\)|unimplemented!\(\)|panic!\(" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+```
+
+### Step 8: 計画策定
 
 spec 内容をもとに以下の構造で提示する：
 
@@ -158,11 +181,11 @@ spec 内容をもとに以下の構造で提示する：
 - 物理的レビュー方法（`run-quality-checks.js` + 翻訳可能性 grep、**テストが全て通ることの確認を含む**）
 - リスク
 
-### Step 7: ユーザー承認待ち
+### Step 9: ユーザー承認待ち
 
 **明示的な承認を得るまで実装に入らない。**
 
-### Step 8: 計画の保存
+### Step 10: 計画の保存
 
 ユーザーの承認を得た後、計画内容を `save-artifact.js` にパイプして保存する。これによりファイル作成 + frontmatter 更新が一括処理される。
 

@@ -41,7 +41,7 @@ mycc/ (プロジェクトルート)
 | ID | 決定 | 内容 |
 |----|------|------|
 | Q1 | ルート | mycc/ をプロジェクトルート、models/ は git 管理外 |
-| Q2 | モデル | Quality 版デフォルト、`MODEL_VARIANT=speed` で切替 |
+| Q2 | モデル | Speed 版デフォルト。`MODEL_VARIANT=quality` で Quality 版に切替（要 64GB+ RAM） |
 | Q3 | ポート | `MTPLX_PORT` / `PROXY_PORT` 環境変数、占有時エラー表示 |
 | Q4 | エラー | 不足ツールは一覧表示＋手順提示（自動インストールしない） |
 | Q5 | プロセス管理 | バックグラウンドジョブ + `trap` で一括終了 |
