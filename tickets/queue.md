@@ -2,4 +2,14 @@
 - [x] #1 Metrics crate導入 + 次元拡張（M#2/M#5） | /Users/shyme01/shyme/zasso/tickets/specs/0001-metrics-crate-m2m5.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #2 M8-1: Translate streaming リアルタイム化 | /Users/shyme01/shyme/zasso/tickets/specs/0002-m8-1-translate-streaming.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #3 不足テストの追加（m#9/m#10） | /Users/shyme01/shyme/zasso/tickets/specs/0003-m9m10.md | 2026-06-22 | 2026-06-22 | 2026-06-22
-- [ ] #4 EXT-1: Lossy handling 完全対応（M#4/m#12） | /Users/shyme01/shyme/zasso/tickets/specs/0004-ext-1-lossy-handling-m4m12.md | 2026-06-22 | 2026-06-22
+- [x] #4 EXT-1: Lossy handling 完全対応（M#4/m#12） | /Users/shyme01/shyme/zasso/tickets/specs/0004-ext-1-lossy-handling-m4m12.md | 2026-06-22 | 2026-06-22
+- [x] #1 test-run + 実動作確認 (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0001-test-run-srcbintest-runrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #2 Cargo.toml feature flags 最終調整 + clippy + ドキュメント | /Users/kawata/shyme/zasso/tickets/specs/0002-cargotoml-feature-flags-clippy.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #3 test-chat バイナリ — マルチターンチャット会話/ワンショット推論 | /Users/kawata/shyme/zasso/tickets/specs/0003-test-chat.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #5 CI/CD — Docker Integration Job + Prebuilt Refresh Pipeline（P3） | /Users/shyme/shyme/zasso/tickets/specs/0005-cicd-docker-integration-job-prebuilt-refresh-pipelinep3.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #1 EventBus 分割 + account_id routing — Dual Client 基盤（P2） | /Users/shyme/shyme/zasso/tickets/specs/0001-eventbus-account-id-routing-dual-client-p2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #2 Shutdown ポリシー拡張 — GetAccountInfo 許可（P2） | /Users/shyme/shyme/zasso/tickets/specs/0002-shutdown-getaccountinfo-p2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #3 Transport/ICE NativeEvent 変換 + 低優先度イベント none 変換（P2） | /Users/shyme/shyme/zasso/tickets/specs/0003-transportice-nativeevent-none-p2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #4 Dual Client TestContext utility（P2） | /Users/shyme/shyme/zasso/tickets/specs/0004-dual-client-testcontext-utilityp2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #6 Layer 4 相互接続試験 + 新機能テスト層マッピング（P0） | /Users/shyme/shyme/zasso/tickets/specs/0006-layer-4-p0.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #7 M20-13: 受け入れ基準検証・リリース判定（RFC02 対応版） | /Users/shyme/shyme/zasso/tickets/specs/0007-m20-13-rfc02.md | 2026-06-22 | 2026-06-22 | 2026-06-22

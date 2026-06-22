@@ -7,10 +7,11 @@
 //! M12 (SipClient) 以降で使用。未使用警告は M12 結合時に解除予定。
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::{watch, RwLock};
+use tokio::sync::{broadcast, watch, RwLock};
 
 use crate::audio::chunk::AudioChunkPair;
 use crate::audio::mixer::AudioMixer;
@@ -19,15 +20,121 @@ use crate::config::DtmfMethod;
 use crate::error::SipError;
 use crate::event::{
     ClientCapabilities, ConnectedCallInfo, DisconnectInfo, DtmfReceivedInfo, DtmfSentInfo,
-    EventBus, MediaActiveInfo, MediaErrorInfo, OutgoingCallInfo, ProvisionalInfo,
-    RegistrationFailure, RegistrationInfo, SipEvent, SipEventPayload, TransportConnectedInfo,
-    TransportDisconnectedInfo, TransportErrorInfo,
+    EventBus, IncomingCallInfo, MediaActiveInfo, MediaErrorInfo, OutgoingCallInfo,
+    ProvisionalInfo, RegistrationFailure, RegistrationInfo, SipEvent, SipEventPayload,
+    TransportConnectedInfo, TransportDisconnectedInfo, TransportErrorInfo,
 };
 use crate::runtime::backend::SipBackend;
 use crate::runtime::command::{MediaDirection, RuntimeCommand};
 use crate::runtime::handle::RuntimeHandle;
-use crate::runtime::state::ClientState;
-use crate::util::id::CallId;
+use crate::call::CallState;
+use crate::runtime::state::{CallEntry, ClientState};
+use crate::util::id::TransportId;
+use crate::util::id::{AccountId, CallId};
+
+// ---------------------------------------------------------------------------
+// ClientId — Reactor 内部で EventBus を識別するための一意 ID
+// ---------------------------------------------------------------------------
+
+/// Reactor に登録された EventBus を一意に識別する ID。
+///
+/// Dual Client 構成で、どの EventBus がどの client に属するかを区別するために
+/// Reactor 内部で採番される。外部に公開されることはない。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct ClientId(pub(crate) u64);
+
+// ---------------------------------------------------------------------------
+// ReactorEventRouter — EventBus 分割と account_id ベース振り分け
+// ---------------------------------------------------------------------------
+
+/// EventBus ルーター。
+///
+/// `default_bus`（最初の SipClient の EventBus）と、各 AccountId に対応する
+/// client EventBus のマッピングを保持し、`dispatch()` で account_id ベースの
+/// 振り分けを行う。RFC02 §8.2 に準拠。
+struct ReactorEventRouter {
+    /// デフォルトの EventBus（最初の SipClient のもの）。
+    default_bus: broadcast::Sender<SipEvent>,
+    /// AccountId → ClientId マッピング。
+    account_to_client: HashMap<AccountId, ClientId>,
+    /// ClientId → EventBus Sender マッピング。
+    client_buses: HashMap<ClientId, broadcast::Sender<SipEvent>>,
+    /// 次に採番する ClientId。
+    next_client_id: u64,
+}
+
+impl ReactorEventRouter {
+    /// デフォルト EventBus からルーターを生成する。
+    fn new(default_bus: &EventBus) -> Self {
+        let default_sender = default_bus.control_sender();
+        let mut client_buses = HashMap::new();
+        // 最初の Client に ClientId(0) を割り当てる
+        let first_id = ClientId(0);
+        client_buses.insert(first_id, default_sender.clone());
+        Self {
+            default_bus: default_sender,
+            account_to_client: HashMap::new(),
+            client_buses,
+            next_client_id: 1,
+        }
+    }
+
+    /// 新規 Client の EventBus を登録し、ClientId を返す。
+    fn register(&mut self, client_bus: broadcast::Sender<SipEvent>) -> ClientId {
+        let id = ClientId(self.next_client_id);
+        self.next_client_id += 1;
+        self.client_buses.insert(id, client_bus);
+        id
+    }
+
+    /// アカウントと Client を紐付ける。
+    fn map_account(&mut self, account_id: AccountId, client_id: ClientId) {
+        self.account_to_client.insert(account_id, client_id);
+    }
+
+    /// アカウントの紐付けを解除する。
+    fn unmap_account(&mut self, account_id: AccountId) {
+        self.account_to_client.remove(&account_id);
+    }
+
+    /// 指定されたアカウントに対応する EventBus Sender を解決する。
+    ///
+    /// 該当 client が見つからない場合は default bus を返す。
+    fn sender_for(&self, account_id: AccountId) -> broadcast::Sender<SipEvent> {
+        self.account_to_client
+            .get(&account_id)
+            .and_then(|cid| self.client_buses.get(cid))
+            .cloned()
+            .unwrap_or_else(|| self.default_bus.clone())
+    }
+
+    /// イベントを適切な EventBus に振り分ける。
+    ///
+    /// - `account_id = Some(aid)` → 該当 client の EventBus、なければ default
+    /// - `account_id = None` → default + 全 client bus に broadcast
+    fn dispatch(&self, event: SipEvent) {
+        match event.meta.account_id {
+            Some(aid) => {
+                // account_id から Client を特定し、該当 client の EventBus に送信
+                if let Some(client_id) = self.account_to_client.get(&aid) {
+                    if let Some(bus) = self.client_buses.get(client_id) {
+                        let _ = bus.send(event);
+                        return;
+                    }
+                }
+                // 該当 client が見つからなければ default bus に送信
+                let _ = self.default_bus.send(event);
+            }
+            None => {
+                // account_id なし（ClientInitialized 等）→ 全 client に broadcast
+                let _ = self.default_bus.send(event.clone());
+                for bus in self.client_buses.values() {
+                    let _ = bus.send(event.clone());
+                }
+            }
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // PJSIP 内部定数（M20-4: マジックナンバー撲滅のための名前付き定数）
@@ -68,10 +175,9 @@ impl CoreReactor {
     ///
     /// `backend` を所有する reactor スレッドを spawn し、
     /// 通信のための `RuntimeHandle` とスレッドの `JoinHandle` を返す。
-    /// reactor スレッドを起動する。
     ///
-    /// `backend` を所有する reactor スレッドを spawn し、
-    /// 通信のための `RuntimeHandle` とスレッドの `JoinHandle` を返す。
+    /// `events` は最初の SipClient の EventBus（default bus）として使用される。
+    /// 2 つめ以降の SipClient は RegisterEventBus コマンドで追加登録する。
     ///
     /// 同時に callback bridge のグローバルランタイムを設定する。
     pub fn spawn(
@@ -87,8 +193,11 @@ impl CoreReactor {
         // 二重設定はテスト時の並列実行で発生しうるため、Err は無視する。
         let _ = crate::ffi::callbacks::set_global_runtime(handle.clone());
 
+        // EventBus ルーターを初期化（events が default bus になる）
+        let mut router = ReactorEventRouter::new(&events);
+
         let join_handle = tokio::spawn(async move {
-            Self::run_loop_async(&mut *backend, &mut rx, &events, &state, shutdown_rx).await;
+            Self::run_loop_async(&mut *backend, &mut rx, &mut router, &state, shutdown_rx).await;
         });
 
         (handle, join_handle)
@@ -97,10 +206,11 @@ impl CoreReactor {
     /// メインループ（非同期版）。
     ///
     /// `rx` からコマンドを逐次受信し、`SipBackend` で処理する。
+    /// イベントの publish は `router` 経由で account_id ベースに振り分けられる。
     async fn run_loop_async(
         backend: &mut dyn SipBackend,
         rx: &mut tokio::sync::mpsc::UnboundedReceiver<RuntimeCommand>,
-        events: &EventBus,
+        router: &mut ReactorEventRouter,
         state: &Arc<RwLock<ClientState>>,
         mut _shutdown_rx: watch::Receiver<bool>,
     ) {
@@ -122,7 +232,10 @@ impl CoreReactor {
                     reply_tx,
                 } = cmd
                 {
-                    let result = backend.get_account_info(native_acc_id);
+                    let mut result = backend.get_account_info(native_acc_id);
+                    if let Ok(ref mut snapshot) = result {
+                        snapshot.is_shutting_down = true;
+                    }
                     let _ = reply_tx.send(result);
                     continue;
                 }
@@ -161,7 +274,7 @@ impl CoreReactor {
                             let event = SipEvent::new(SipEventPayload::ClientInitialized(
                                 ClientCapabilities::default_disabled(),
                             ));
-                            events.publish(event);
+                            router.dispatch(event);
                             let _ = reply.send(Ok(()));
                         }
                         Err(e) => {
@@ -179,6 +292,7 @@ impl CoreReactor {
                 RuntimeCommand::AddAccount {
                     account_id,
                     config,
+                    client_id,
                     reply,
                 } => {
                     let result = backend.add_account(&config);
@@ -195,6 +309,10 @@ impl CoreReactor {
                             if !state_guard.initialized {
                                 state_guard.capabilities = capabilities;
                                 state_guard.initialized = true;
+                            }
+                            // Dual Client: アカウントと EventBus を紐付ける
+                            if let Some(cid) = client_id {
+                                router.map_account(account_id, cid);
                             }
                             let _ = reply.send(Ok(()));
                         }
@@ -215,8 +333,11 @@ impl CoreReactor {
                         backend.remove_account(native_id)?;
                         let mut state_guard = state.write().await;
                         state_guard.remove_account(account_id)?;
+                        // Dual Client: アカウントと EventBus の紐付けを解除
+                        router.unmap_account(account_id);
                         Ok(())
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::SetRegistration {
@@ -233,7 +354,8 @@ impl CoreReactor {
                             })?
                         };
                         backend.set_registration(native_id, enabled)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::UpdateAccountConfig {
@@ -245,7 +367,8 @@ impl CoreReactor {
                         let mut state_guard = state.write().await;
                         let entry = state_guard.get_account_mut(account_id)?;
                         entry.apply_patch(patch)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::MakeCall {
@@ -277,7 +400,8 @@ impl CoreReactor {
                             }),
                         })?;
                         Ok(call_id)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Hangup {
@@ -294,7 +418,8 @@ impl CoreReactor {
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.hangup(native_id)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Answer {
@@ -311,7 +436,8 @@ impl CoreReactor {
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.answer_call(native_id, code)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Hold { call_id, reply } => {
@@ -325,7 +451,8 @@ impl CoreReactor {
                         };
                         // PJSUA hold: pjsua_call_set_hold() を呼ぶ
                         backend.hangup(native_id)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Unhold { call_id, reply } => {
@@ -340,7 +467,8 @@ impl CoreReactor {
                         // PJSUA unhold: pjsua_call_set_hold()
                         // 現状は hold の逆操作。MockBackend は no-op。
                         Ok(())
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::SendDtmf {
@@ -368,18 +496,22 @@ impl CoreReactor {
                         drop(state_guard);
                         let result = backend.send_dtmf(native_id, &method, &digits);
                         (result, Some(entry_acc_id))
-                    }.await;
+                    }
+                    .await;
                     if result.is_ok() {
                         #[cfg(feature = "metrics")]
                         crate::metrics::increment_dtmf_sent();
                         // DtmfSent タイマー発火: PJSIP callback 経由の発火がないため
                         // タイムアウト後に DtmfSent イベントを publish する。
                         if let Some(acc_id) = acc_id {
-                            let events_clone = events.clone();
+                            let bus_for_event = router.sender_for(acc_id);
                             let digits_clone = digits.clone();
                             let method_clone = method;
                             tokio::spawn(async move {
-                                tokio::time::sleep(Duration::from_millis(DTMF_SENT_DEFAULT_TIMEOUT_MS)).await;
+                                tokio::time::sleep(Duration::from_millis(
+                                    DTMF_SENT_DEFAULT_TIMEOUT_MS,
+                                ))
+                                .await;
                                 let info = DtmfSentInfo {
                                     acc_id,
                                     call_id,
@@ -391,7 +523,7 @@ impl CoreReactor {
                                     .account_id(acc_id)
                                     .call_id(call_id)
                                     .build();
-                                events_clone.publish(event);
+                                let _ = bus_for_event.send(event);
                             });
                         }
                     }
@@ -411,7 +543,8 @@ impl CoreReactor {
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.transfer_call(native_id, &target)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::AddAudioSource {
@@ -428,7 +561,8 @@ impl CoreReactor {
                         } else {
                             Err(SipError::invalid_state("call has no media runtime"))
                         }
-                    }.await;
+                    }
+                    .await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::RemoveAudioSource {
@@ -509,7 +643,8 @@ impl CoreReactor {
                         // 5. AudioTapHandle を構築して返却
                         let handle = AudioTapHandle::new(tap_rx);
                         Ok(handle)
-                    }.await;
+                    }
+                    .await;
                     let _ = reply_tx.send(result);
                 }
                 RuntimeCommand::GetAccountInfo {
@@ -524,7 +659,8 @@ impl CoreReactor {
                     media_direction,
                     reply_tx,
                 } => {
-                    let result = handle_conf_connect(backend, state, call_id, media_direction).await;
+                    let result =
+                        handle_conf_connect(backend, state, call_id, media_direction).await;
                     let _ = reply_tx.send(result);
                 }
                 RuntimeCommand::ConfDisconnect {
@@ -532,11 +668,16 @@ impl CoreReactor {
                     media_direction,
                     reply_tx,
                 } => {
-                    let result = handle_conf_disconnect(backend, state, call_id, media_direction).await;
+                    let result =
+                        handle_conf_disconnect(backend, state, call_id, media_direction).await;
                     let _ = reply_tx.send(result);
                 }
+                RuntimeCommand::RegisterEventBus { client_bus, reply } => {
+                    let client_id = router.register(client_bus);
+                    let _ = reply.send(Ok(client_id));
+                }
                 RuntimeCommand::NativeEvent { event } => {
-                    handle_native_event(event, backend, events, state).await;
+                    handle_native_event(event, backend, router, state).await;
                 }
             }
         }
@@ -612,6 +753,9 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
         RuntimeCommand::ConfDisconnect { reply_tx, .. } => {
             let _ = reply_tx.send(Err(SipError::invalid_state(message)));
         }
+        RuntimeCommand::RegisterEventBus { reply, .. } => {
+            let _ = reply.send(Err(SipError::invalid_state(message)));
+        }
     }
 }
 
@@ -679,7 +823,7 @@ async fn resolve_native_call_id(
 async fn handle_native_event(
     event: crate::ffi::callbacks::NativeEvent,
     backend: &mut dyn SipBackend,
-    events: &EventBus,
+    router: &ReactorEventRouter,
     state: &Arc<RwLock<ClientState>>,
 ) {
     use crate::ffi::callbacks::NativeEvent;
@@ -687,7 +831,7 @@ async fn handle_native_event(
         NativeEvent::RegistrationStateChanged { acc_id } => {
             // GetAccountInfo を発行し、結果に応じて RegistrationSucceeded または
             // RegistrationFailed を publish する（RFC02 §3 フロー）。
-            handle_registration_state_changed(backend, events, state, acc_id).await;
+            handle_registration_state_changed(backend, router, state, acc_id).await;
         }
         NativeEvent::RegistrationStarted { acc_id, renew } => {
             let account_id = resolve_runtime_account_id(state, acc_id).await;
@@ -701,20 +845,20 @@ async fn handle_native_event(
                 let event = SipEvent::with_meta(SipEventPayload::RegistrationStarted(info))
                     .account_id(aid)
                     .build();
-                events.publish(event);
+                router.dispatch(event);
             }
         }
         NativeEvent::CallStateChanged {
             call_id,
             state: inv_state,
         } => {
-            handle_call_state_changed(events, state, call_id, inv_state).await;
+            handle_call_state_changed(router, state, call_id, inv_state).await;
         }
         NativeEvent::CallMediaStateChanged {
             call_id,
             media_status,
         } => {
-            handle_call_media_state_changed(events, state, call_id, media_status).await;
+            handle_call_media_state_changed(router, state, call_id, media_status).await;
         }
         NativeEvent::DtmfDigit { call_id, digit } => {
             // DtmfDigit は method 情報がないため RFC4733 として扱う。
@@ -736,7 +880,7 @@ async fn handle_native_event(
                     .call_id(entry.id)
                     .build();
                 drop(state_guard);
-                events.publish(event);
+                router.dispatch(event);
             }
         }
         NativeEvent::DtmfDigit2 {
@@ -767,34 +911,83 @@ async fn handle_native_event(
                     .call_id(entry.id)
                     .build();
                 drop(state_guard);
-                events.publish(event);
+                router.dispatch(event);
             }
         }
         NativeEvent::TransportStateChanged {
             tp_id,
             state: tp_state,
         } => {
-            let transport_event = convert_transport_state(tp_id, tp_state);
-            if let Some(payload) = transport_event {
-                events.publish(SipEvent::new(payload));
+            if let Some(tp_id) = TransportId::from_raw(tp_id) {
+                let transport_event = convert_transport_state(tp_id, tp_state);
+                if let Some(payload) = transport_event {
+                    router.dispatch(SipEvent::new(payload));
+                }
             }
         }
-        NativeEvent::IceTransportError { call_id: _, status } => {
+        NativeEvent::IceTransportError { call_id, status } => {
+            let call_id_resolved = {
+                let state_guard = state.read().await;
+                state_guard
+                    .get_call_by_native_id(call_id)
+                    .map(|entry| entry.id)
+            };
             let payload = SipEventPayload::IceNegotiationFailed(crate::event::IceFailureInfo {
-                call_id: None,
+                call_id: call_id_resolved,
                 status_code: Some(status),
                 error_msg: format!("ICE transport error: status={status}"),
             });
-            events.publish(SipEvent::new(payload));
+            router.dispatch(SipEvent::new(payload));
         }
-        NativeEvent::NatDetected { .. }
-        | NativeEvent::CallTsxStateChanged { .. }
-        | NativeEvent::CallRedirected { .. }
-        | NativeEvent::CallTransferStatus { .. }
-        | NativeEvent::CallReplaced { .. }
-        | NativeEvent::IncomingCall { .. } => {
-            // P2 対象外イベント: RawSIP バス経由での代替取得を推奨。
-            // 現時点では発行なし（None）。
+        NativeEvent::IncomingCall {
+            acc_id: native_acc_id,
+            call_id: native_call_id,
+            remote_uri,
+        } => {
+            let acc_id = resolve_runtime_account_id(state, native_acc_id).await;
+            let Some(acc_id) = acc_id else {
+                return;
+            };
+            let call_id = CallId::generate();
+
+            // 通話エントリを登録
+            let mut state_guard = state.write().await;
+            let _ = state_guard.add_call(CallEntry {
+                id: call_id,
+                native_id: Some(native_call_id),
+                account_id: acc_id,
+                state: CallState::Incoming,
+                previous_state: None,
+                media: None,
+            });
+            drop(state_guard);
+
+            let payload = SipEventPayload::IncomingCall(IncomingCallInfo {
+                acc_id,
+                call_id,
+                remote_uri,
+            });
+            let event = SipEvent::with_meta(payload)
+                .account_id(acc_id)
+                .call_id(call_id)
+                .build();
+            router.dispatch(event);
+        }
+        // P2 対象外イベント: いずれも発行なし。代替取得手段を各 arm のコメントに示す。
+        NativeEvent::CallTsxStateChanged { .. } => {
+            // PJSIP 内部トランザクション詳細。RawSIP バス経由で取得可能。
+        }
+        NativeEvent::CallRedirected { .. } => {
+            // リダイレクト追跡は対象外。RawSIP バス経由で取得可能。
+        }
+        NativeEvent::CallTransferStatus { .. } => {
+            // 転送ステータス詳細は対象外。CallState の Transferring/Active 遷移で代替可能。
+        }
+        NativeEvent::CallReplaced { .. } => {
+            // 通話置換は対象外。RawSIP バス経由で取得可能。
+        }
+        NativeEvent::NatDetected { .. } => {
+            // NAT 検出結果は対象外。ClientInitialized の capability で代替。
         }
     }
 }
@@ -805,7 +998,7 @@ async fn handle_native_event(
 /// RegistrationFailed を EventBus に publish する。
 async fn handle_registration_state_changed(
     backend: &mut dyn SipBackend,
-    events: &EventBus,
+    router: &ReactorEventRouter,
     state: &Arc<RwLock<ClientState>>,
     native_acc_id: i32,
 ) {
@@ -829,7 +1022,7 @@ async fn handle_registration_state_changed(
                 })
             };
             let event = SipEvent::with_meta(payload).account_id(account_id).build();
-            events.publish(event);
+            router.dispatch(event);
         }
         Err(err) => {
             // GetAccountInfo が失敗した場合も RegistrationFailed を発行する。
@@ -842,7 +1035,7 @@ async fn handle_registration_state_changed(
                     is_expired: false,
                 });
                 let event = SipEvent::with_meta(payload).account_id(aid).build();
-                events.publish(event);
+                router.dispatch(event);
             }
         }
     }
@@ -853,7 +1046,7 @@ async fn handle_registration_state_changed(
 /// PJSIP の呼状態（PJSIP_INV_STATE_*）を SipEventPayload に変換し、
 /// 前回状態（previous_state）による分岐を考慮する。
 async fn handle_call_state_changed(
-    events: &EventBus,
+    router: &ReactorEventRouter,
     state: &Arc<RwLock<ClientState>>,
     native_call_id: i32,
     inv_state: u32,
@@ -926,7 +1119,7 @@ async fn handle_call_state_changed(
             .account_id(entry.account_id)
             .call_id(entry.id)
             .build();
-        events.publish(event);
+        router.dispatch(event);
     }
 }
 
@@ -934,7 +1127,7 @@ async fn handle_call_state_changed(
 ///
 /// PJSUA_CALL_MEDIA_* 定数に基づきメディア状態を SipEventPayload に変換する。
 async fn handle_call_media_state_changed(
-    events: &EventBus,
+    router: &ReactorEventRouter,
     state: &Arc<RwLock<ClientState>>,
     native_call_id: i32,
     media_status: u32,
@@ -967,17 +1160,18 @@ async fn handle_call_media_state_changed(
             .account_id(entry.account_id)
             .call_id(entry.id)
             .build();
-        events.publish(event);
+        router.dispatch(event);
     }
 }
 
 /// TransportStateChanged を SipEventPayload に変換する。
 ///
 /// トランスポート状態（接続/切断/エラー）に応じて適切なバリアントを返す。
-fn convert_transport_state(tp_id: i32, _tp_state: u32) -> Option<SipEventPayload> {
-    // _tp_state は PJSIP トランスポート状態（PJSUA_TP_STATE_*）。
+/// CONNECTING（state=1）および未知の state は None を返す（安全側フォールバック）。
+fn convert_transport_state(tp_id: TransportId, tp_state: u32) -> Option<SipEventPayload> {
+    // tp_state は PJSIP トランスポート状態（PJSUA_TP_STATE_*）。
     // 0=DISCONNECTED, 1=CONNECTING, 2=CONNECTED, 3=DISCONNECTING
-    match _tp_state {
+    match tp_state {
         2 => Some(SipEventPayload::TransportConnected(
             TransportConnectedInfo {
                 tp_id,
@@ -991,11 +1185,13 @@ fn convert_transport_state(tp_id: i32, _tp_state: u32) -> Option<SipEventPayload
                 kind: crate::transport::TransportKind::Udp,
             },
         )),
-        _ => Some(SipEventPayload::TransportError(TransportErrorInfo {
+        3 => Some(SipEventPayload::TransportError(TransportErrorInfo {
             tp_id,
             kind: crate::transport::TransportKind::Udp,
-            error: format!("transport state changed: {_tp_state}"),
+            error: "transport state: DISCONNECTING".into(),
         })),
+        // CONNECTING（1）および未知の state → None（安全側フォールバック）
+        _ => None,
     }
 }
 
@@ -1386,6 +1582,107 @@ mod tests {
         );
     }
 
+    /// Shutdown 中 GetAccountInfo が reject_command されず、
+    /// 正しく backend にルーティングされることを確認する。
+    ///
+    /// MockBackend は shutdown 後に initialized=false となるため backend が
+    /// NotInitialized を返す。そのため `AccountInfoSnapshot.is_shutting_down`
+    /// が true になる Ok パスは MockBackend ではテストできない。
+    /// 重要なのは reject_command の InvalidState が返らないこと（Shutdown に
+    /// よるブロックを回避できていること）であり、それを確認する。
+    #[tokio::test]
+    async fn test_shutdown_get_account_info_passes_gate() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // Shutdown
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        // Shutdown 後 GetAccountInfo → backend ルーティング確認
+        // MockBackend は shutdown 後 initialized=false のため NotInitialized
+        // が返る。InvalidState（reject_command 由来）でないことを確認する。
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::GetAccountInfo {
+                native_acc_id: 1,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_ne!(
+            err.kind,
+            crate::error::SipErrorKind::InvalidState,
+            "GetAccountInfo should not be rejected by shutdown policy"
+        );
+        assert_eq!(err.kind, crate::error::SipErrorKind::NotInitialized);
+    }
+
+    /// 非 Shutdown 時の GetAccountInfo 応答に `is_shutting_down: false` が含まれることを確認する。
+    #[tokio::test]
+    async fn test_normal_get_account_info_no_flag() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // AddAccount
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                client_id: None,
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // 非 Shutdown 時の GetAccountInfo → is_shutting_down == false
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::GetAccountInfo {
+                native_acc_id: 1,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_ok());
+        let snapshot = result.unwrap();
+        assert!(
+            !snapshot.is_shutting_down,
+            "GetAccountInfo during normal operation should have is_shutting_down=false"
+        );
+    }
+
     /// RegistrationStateChanged → get_account_info(200) → RegistrationSucceeded が publish される。
     #[tokio::test]
     async fn test_native_registration_succeeded() {
@@ -1413,6 +1710,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1460,6 +1758,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: AccountId::generate(),
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1546,6 +1845,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1596,6 +1896,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1691,6 +1992,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1754,6 +2056,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1825,6 +2128,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1883,6 +2187,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -1947,6 +2252,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2005,6 +2311,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2062,6 +2369,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2119,6 +2427,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2181,6 +2490,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2243,6 +2553,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2277,6 +2588,56 @@ mod tests {
         } else {
             panic!("Expected DtmfReceived");
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // convert_transport_state ユニットテスト
+    // -----------------------------------------------------------------------
+
+    /// CONNECTED（state=2）→ TransportConnected を返す。
+    #[test]
+    fn test_convert_transport_state_connected() {
+        let tp_id = TransportId::from_raw(1).unwrap();
+        let result = convert_transport_state(tp_id, 2);
+        assert!(matches!(
+            result,
+            Some(SipEventPayload::TransportConnected(_))
+        ));
+    }
+
+    /// DISCONNECTED（state=0）→ TransportDisconnected を返す。
+    #[test]
+    fn test_convert_transport_state_disconnected() {
+        let tp_id = TransportId::from_raw(1).unwrap();
+        let result = convert_transport_state(tp_id, 0);
+        assert!(matches!(
+            result,
+            Some(SipEventPayload::TransportDisconnected(_))
+        ));
+    }
+
+    /// ERROR/DISCONNECTING（state=3）→ TransportError を返す。
+    #[test]
+    fn test_convert_transport_state_error() {
+        let tp_id = TransportId::from_raw(1).unwrap();
+        let result = convert_transport_state(tp_id, 3);
+        assert!(matches!(result, Some(SipEventPayload::TransportError(_))));
+    }
+
+    /// CONNECTING（state=1）→ None を返す。
+    #[test]
+    fn test_convert_transport_state_connecting_returns_none() {
+        let tp_id = TransportId::from_raw(1).unwrap();
+        let result = convert_transport_state(tp_id, 1);
+        assert!(result.is_none(), "CONNECTING state should return None");
+    }
+
+    /// 未知の state（99）→ None を返す（安全側フォールバック）。
+    #[test]
+    fn test_convert_transport_state_unknown_state_returns_none() {
+        let tp_id = TransportId::from_raw(1).unwrap();
+        let result = convert_transport_state(tp_id, 99);
+        assert!(result.is_none(), "unknown state should return None");
     }
 
     /// P2 対象外イベント → すべてイベント発行なし。
@@ -2408,6 +2769,163 @@ mod tests {
         ));
     }
 
+    /// TransportStateChanged state=0 (DISCONNECTED) → TransportDisconnected が publish される。
+    #[tokio::test]
+    async fn test_transport_state_disconnected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::TransportStateChanged {
+                    tp_id: 1,
+                    state: 0,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::TransportDisconnected(_)
+        ));
+    }
+
+    /// TransportStateChanged state=3 (ERROR/DISCONNECTING) → TransportError が publish される。
+    #[tokio::test]
+    async fn test_transport_state_error() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::TransportStateChanged {
+                    tp_id: 1,
+                    state: 3,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event.payload, SipEventPayload::TransportError(_)));
+    }
+
+    /// TransportStateChanged state=1 (CONNECTING) → イベント発行なし。
+    #[tokio::test]
+    async fn test_transport_state_connecting_no_publish() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::TransportStateChanged {
+                    tp_id: 1,
+                    state: 1,
+                },
+            })
+            .is_ok());
+
+        // CONNECTING は発行されないこと
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let result = rx.try_recv();
+        assert!(
+            result.is_err(),
+            "CONNECTING should produce no output events"
+        );
+    }
+
+    /// TransportStateChanged 未知の state（99）→ イベント発行なし（安全側フォールバック）。
+    #[tokio::test]
+    async fn test_transport_state_unknown_no_publish() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::TransportStateChanged {
+                    tp_id: 1,
+                    state: 99,
+                },
+            })
+            .is_ok());
+
+        // 未知の state は発行されないこと
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let result = rx.try_recv();
+        assert!(
+            result.is_err(),
+            "unknown state should produce no output events"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // DtmfSent タイマーテスト
     // -----------------------------------------------------------------------
@@ -2439,6 +2957,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2560,6 +3079,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2645,6 +3165,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2718,6 +3239,7 @@ mod tests {
             .send_and_wait(|reply| RuntimeCommand::AddAccount {
                 account_id: acc_id,
                 config: test_account_config(),
+                client_id: None,
                 reply,
             })
             .await
@@ -2742,7 +3264,10 @@ mod tests {
             })
             .await;
 
-        assert!(result.is_ok(), "SubscribeAudio with Lossless should succeed");
+        assert!(
+            result.is_ok(),
+            "SubscribeAudio with Lossless should succeed"
+        );
     }
 
     /// 存在しない call_id → CallNotFound エラー。
@@ -2778,10 +3303,7 @@ mod tests {
 
         assert!(result.is_err());
         if let Err(ref err) = result {
-            assert_eq!(
-                err.kind,
-                crate::error::SipErrorKind::CallNotFound
-            );
+            assert_eq!(err.kind, crate::error::SipErrorKind::CallNotFound);
         }
     }
 
@@ -2824,10 +3346,227 @@ mod tests {
 
         assert!(result.is_err());
         if let Err(ref err) = result {
-            assert_eq!(
-                err.kind,
-                crate::error::SipErrorKind::InvalidState
-            );
+            assert_eq!(err.kind, crate::error::SipErrorKind::InvalidState);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Dual Client / EventBus 分割テスト（M20-7）
+    // -----------------------------------------------------------------------
+
+    /// 単一 Client の後方互換性: ReactorEventRouter 経由でも
+    /// 従来通りのイベント配送が動作することを確認する。
+    #[tokio::test]
+    async fn test_router_single_client_backward_compatibility() {
+        let events = EventBus::new(16, None);
+        let router = ReactorEventRouter::new(&events);
+        let mut rx = events.subscribe_control();
+
+        // default_bus にイベントを dispatch → subscribe_control で受信可能
+        let event = SipEvent::new(SipEventPayload::CallHeld(()));
+        router.dispatch(event);
+
+        let received = rx.try_recv();
+        assert!(
+            received.is_ok(),
+            "dispatch → subscribe でイベントを受信できる"
+        );
+    }
+
+    /// Dual Client のイベント分離: 各 Client の EventBus に
+    /// 正しく account_id ベースで振り分けられることを確認する。
+    #[tokio::test]
+    async fn test_router_dual_client_event_isolation() {
+        let events_a = EventBus::new(16, None);
+        let events_b = EventBus::new(16, None);
+        let mut router = ReactorEventRouter::new(&events_a);
+
+        // Client B の EventBus を登録
+        let cid_b = router.register(events_b.control_sender());
+
+        let acc_a = AccountId::generate();
+        let acc_b = AccountId::generate();
+
+        // Account A → default bus (Client A)
+        // Account B → Client B's bus
+        router.map_account(acc_a, ClientId(0));
+        router.map_account(acc_b, cid_b);
+
+        let mut rx_a = events_a.subscribe_control();
+        let mut rx_b = events_b.subscribe_control();
+
+        // Account A のイベントを dispatch → events_a のみ受信
+        let event_a = SipEvent::with_meta(SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id: acc_a,
+            call_id: CallId::generate(),
+            media_format: None,
+        }))
+        .account_id(acc_a)
+        .build();
+        router.dispatch(event_a);
+
+        // events_a で受信できる
+        let received_a = rx_a.try_recv();
+        assert!(
+            received_a.is_ok(),
+            "Client A のイベントが Client A の bus に届く"
+        );
+
+        // events_b で受信できない
+        let received_b = rx_b.try_recv();
+        assert!(
+            received_b.is_err(),
+            "Client A のイベントが Client B の bus に漏れていない"
+        );
+
+        // Account B のイベントを dispatch → events_b のみ受信
+        let event_b = SipEvent::with_meta(SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id: acc_b,
+            call_id: CallId::generate(),
+            media_format: None,
+        }))
+        .account_id(acc_b)
+        .build();
+        router.dispatch(event_b);
+
+        let received_b2 = rx_b.try_recv();
+        assert!(
+            received_b2.is_ok(),
+            "Client B のイベントが Client B の bus に届く"
+        );
+    }
+
+    /// account_id = None のイベントが全 Client に broadcast される。
+    #[tokio::test]
+    async fn test_router_broadcast_to_all_clients() {
+        let events_a = EventBus::new(16, None);
+        let events_b = EventBus::new(16, None);
+        let mut router = ReactorEventRouter::new(&events_a);
+
+        // 2 つめの Client EventBus を登録
+        let _cid_b = router.register(events_b.control_sender());
+
+        let mut rx_a = events_a.subscribe_control();
+        let mut rx_b = events_b.subscribe_control();
+
+        // account_id = None のイベント（ClientInitialized 相当）
+        let broadcast_event = SipEvent::new(SipEventPayload::ClientInitialized(
+            ClientCapabilities::default_disabled(),
+        ));
+        router.dispatch(broadcast_event);
+
+        // 両方の bus で受信できる
+        let received_a = rx_a.try_recv();
+        assert!(
+            received_a.is_ok(),
+            "default bus で broadcast イベントを受信"
+        );
+        let received_b = rx_b.try_recv();
+        assert!(received_b.is_ok(), "client bus で broadcast イベントを受信");
+    }
+
+    /// 未登録の account_id が default bus に fallback することを確認する。
+    #[tokio::test]
+    async fn test_router_unknown_account_falls_back_to_default() {
+        let events = EventBus::new(16, None);
+        let router = ReactorEventRouter::new(&events);
+        let mut rx = events.subscribe_control();
+
+        // 未登録の account_id
+        let unknown_acc = AccountId::generate();
+        let event = SipEvent::with_meta(SipEventPayload::RegistrationStarted(RegistrationInfo {
+            acc_id: unknown_acc,
+            renew: false,
+            status_code: None,
+            reason: None,
+        }))
+        .account_id(unknown_acc)
+        .build();
+        router.dispatch(event);
+
+        // default bus で受信できる
+        let received = rx.try_recv();
+        assert!(
+            received.is_ok(),
+            "未登録 account_id → default bus に fallback"
+        );
+    }
+
+    /// 3 つ以上の Client が独立して動作することを確認する。
+    #[tokio::test]
+    async fn test_router_three_or_more_clients() {
+        let events_a = EventBus::new(16, None);
+        let events_b = EventBus::new(16, None);
+        let events_c = EventBus::new(16, None);
+        let mut router = ReactorEventRouter::new(&events_a);
+
+        let cid_b = router.register(events_b.control_sender());
+        let cid_c = router.register(events_c.control_sender());
+
+        let acc_a = AccountId::generate();
+        let acc_b = AccountId::generate();
+        let acc_c = AccountId::generate();
+
+        router.map_account(acc_a, ClientId(0));
+        router.map_account(acc_b, cid_b);
+        router.map_account(acc_c, cid_c);
+
+        let mut rx_a = events_a.subscribe_control();
+        let mut rx_b = events_b.subscribe_control();
+        let mut rx_c = events_c.subscribe_control();
+
+        // 各 Client のイベントを dispatch
+        for (acc, rx) in [(acc_a, &mut rx_a), (acc_b, &mut rx_b), (acc_c, &mut rx_c)] {
+            let ev = SipEvent::with_meta(SipEventPayload::OutgoingCallStarted(OutgoingCallInfo {
+                acc_id: acc,
+                call_id: CallId::generate(),
+                remote_uri: None,
+                target_uri: None,
+            }))
+            .account_id(acc)
+            .build();
+            router.dispatch(ev);
+
+            let received = rx.try_recv();
+            assert!(received.is_ok(), "3 Client すべてが独立してイベントを受信");
+        }
+    }
+
+    /// Shutdown 中でも RegisterEventBus が安全にエラーを返すことを確認する。
+    #[tokio::test]
+    async fn test_register_event_bus_during_shutdown() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // Shutdown
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        // Shutdown 後の RegisterEventBus → エラーになる（reject_command）
+        let new_bus = EventBus::new(16, None);
+        let result = handle.register_event_bus(new_bus.control_sender()).await;
+
+        assert!(
+            result.is_err(),
+            "Shutdown 後の RegisterEventBus は拒否される"
+        );
     }
 }

@@ -7,8 +7,12 @@
 //! M11-3 (Reactor loop) 以降で使用。現在は未使用のため dead_code を許容。
 #![allow(dead_code)]
 
+use tokio::sync::broadcast;
+
 use crate::error::SipError;
+use crate::event::SipEvent;
 use crate::runtime::command::RuntimeCommand;
+use crate::runtime::reactor::ClientId;
 
 /// Reactor との通信ハンドル。
 ///
@@ -54,6 +58,18 @@ impl RuntimeHandle {
     /// reactor 側の receiver が drop されたかを確認する。
     pub fn is_closed(&self) -> bool {
         self.tx.is_closed()
+    }
+
+    /// Dual Client 用: 既存 Reactor に新規 EventBus を登録する。
+    ///
+    /// `client_bus` は新規 SipClient の EventBus の `control_sender()`。
+    /// Reactor は採番した `ClientId` を返す。
+    pub(crate) async fn register_event_bus(
+        &self,
+        client_bus: broadcast::Sender<SipEvent>,
+    ) -> Result<ClientId, SipError> {
+        self.send_and_wait(|reply| RuntimeCommand::RegisterEventBus { client_bus, reply })
+            .await
     }
 }
 

@@ -6,11 +6,15 @@
 //! M11-2 (RuntimeHandle) 以降で使用。現在は未使用のため dead_code を許容。
 #![allow(dead_code)]
 
+use tokio::sync::broadcast;
+
 use crate::config::{
     AccountConfig, AccountConfigPatch, ClientConfig, DtmfMethod, OutgoingCallRequest,
 };
 use crate::error::SipError;
+use crate::event::SipEvent;
 use crate::ffi::callbacks::NativeEvent;
+use crate::runtime::reactor::ClientId;
 use crate::util::id::{AccountId, AudioSourceId, CallId};
 
 /// メディアフローの方向。
@@ -43,6 +47,11 @@ pub(crate) struct AccountInfoSnapshot {
     pub online_status: bool,
     /// アカウント URI。
     pub uri: String,
+    /// Shutdown 進行中かどうか。
+    ///
+    /// Shutdown 中に GetAccountInfo が呼ばれた場合に `true` に設定される。
+    /// Shutdown 完了後の RegistrationState 最終確認に使用される（RFC02 §9）。
+    pub is_shutting_down: bool,
 }
 
 /// 切断理由。
@@ -71,9 +80,13 @@ pub(crate) enum RuntimeCommand {
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
     /// SIP アカウント追加。
+    ///
+    /// `client_id` は Dual Client 構成でこのアカウントが属する
+    /// EventBus を特定するために使用される。単一 Client の場合は `None`。
     AddAccount {
         account_id: AccountId,
         config: AccountConfig,
+        client_id: Option<ClientId>,
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
     /// SIP アカウント削除。
@@ -172,9 +185,7 @@ pub(crate) enum RuntimeCommand {
         format: crate::audio::format::AudioFormat,
         capacity: usize,
         mode: crate::audio::tap::AudioTapMode,
-        reply_tx: tokio::sync::oneshot::Sender<
-            Result<crate::audio::tap::AudioTapHandle, SipError>,
-        >,
+        reply_tx: tokio::sync::oneshot::Sender<Result<crate::audio::tap::AudioTapHandle, SipError>>,
     },
     /// シャットダウン。
     Shutdown {
@@ -199,6 +210,15 @@ pub(crate) enum RuntimeCommand {
     },
     /// PJSIP callback からの内部イベント（fire-and-forget、reply なし）。
     NativeEvent { event: NativeEvent },
+    /// Dual Client 用: Reactor に新規 EventBus を登録する。
+    ///
+    /// 2 つめ以降の SipClient 作成時に、既存 Reactor にその Client の
+    /// EventBus を認識させるために使用する。Reactor は `ClientId` を
+    /// 採番して返す。
+    RegisterEventBus {
+        client_bus: broadcast::Sender<SipEvent>,
+        reply: tokio::sync::oneshot::Sender<Result<ClientId, SipError>>,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +271,7 @@ mod tests {
             registration_expires: Some(3600),
             online_status: true,
             uri: "sip:user@example.com".into(),
+            is_shutting_down: false,
         };
         assert_eq!(snapshot.registration_status, 200);
         assert_eq!(snapshot.uri, "sip:user@example.com");

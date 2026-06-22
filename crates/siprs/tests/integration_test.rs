@@ -41,5 +41,17 @@ mod account;
 #[path = "integration/media.rs"]
 mod media;
 
+#[path = "integration/dual_client.rs"]
+mod dual_client;
+
 /// 全テストに共通する共通モジュール。
 mod common;
+
+// ── 相互接続試験 ──
+// 実 PBX（Asterisk / FreeSWITCH）との相互接続性を検証する。
+// 全テストに `#[ignore]` を付与 — 試験実行時のみ有効化。
+#[path = "interop/asterisk.rs"]
+mod asterisk;
+
+#[path = "interop/freeswitch.rs"]
+mod freeswitch;

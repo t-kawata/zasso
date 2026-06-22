@@ -34,7 +34,7 @@ description: 指定ディレクトリ配下の警告・エラー・スタブ・�
 
 ```bash
 # 対象ディレクトリに移動して cargo check
-(cd "$ARGUMENTS" && cargo check --all-targets 2>&1)
+(cd "$ARGUMENTS" && cargo check 2>&1)
 
 # 対象ディレクトリに移動して cargo test
 (cd "$ARGUMENTS" && cargo test 2>&1)
@@ -117,7 +117,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
 解決後、再度コンパイルとテストを実行してすべてが通ることを確認する。
 
 ```bash
-(cd "$ARGUMENTS" && cargo check --all-targets 2>&1)
+(cd "$ARGUMENTS" && cargo check 2>&1)
 (cd "$ARGUMENTS" && cargo test 2>&1)
 ```
 

@@ -337,6 +337,7 @@ impl SipBackend for MockBackend {
             registration_expires: Some(3600),
             online_status: true,
             uri: format!("sip:user{}@mock.example.com", native_acc_id),
+            is_shutting_down: false,
         })
     }
 

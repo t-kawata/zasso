@@ -41,8 +41,9 @@ const MODEL_FILES: &[(&str, &str)] = &[
 
 /// curl ダウンロードのタイムアウト（秒）
 ///
-/// consts/settings.rs の CURL_TIMEOUT_SECS（60）と整合させる。
-const CURL_TIMEOUT_SECS: &str = "60";
+/// consts/settings.rs の CURL_TIMEOUT_SECS（600）と整合させる。
+/// 3.1GB（Gemma4 E2B）のダウンロードには十分な余裕を持たせる。
+const CURL_TIMEOUT_SECS: &str = "600";
 
 fn main() {
     // cargo feature に応じて cmake 環境変数を設定する

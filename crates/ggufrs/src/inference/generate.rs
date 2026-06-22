@@ -137,6 +137,10 @@ fn run_inference_blocking(
         .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
 
     // ── 4. LlamaSampler チェーン構築 ──
+    //
+    // llama-cpp-2 v0.1.150 の chain は以下のルールに従う必要がある:
+    //   - チェーンは最後に選択用サンプラー（greedy / dist / mirostat 等）で終了する
+    //   - 温度サンプリング → Top-P → 文法制約 → Greedy 選択 の順が標準
     let mut sampler_chain: Vec<LlamaSampler> = Vec::new();
 
     // 温度サンプリング（常に必要）
@@ -154,6 +158,9 @@ fn run_inference_blocking(
                 .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
         sampler_chain.push(grammar_sampler);
     }
+
+    // 選択サンプラー（チェーン末尾必須: 最も確率の高いトークンを選択する）
+    sampler_chain.push(LlamaSampler::greedy());
 
     let mut sampler = LlamaSampler::chain_simple(sampler_chain);
 

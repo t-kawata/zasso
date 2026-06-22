@@ -1,0 +1,64 @@
+# PJSIP 統合テスト — Docker Asterisk を使用した CI job
+#
+# この workflow は PJSIP native ライブラリに依存する siprs クレートの
+# 統合テストを、Docker Asterisk コンテナをサービスとして起動して実行する。
+#
+# トリガー条件:
+#   - main/master ブランチへの push
+#   - 全 pull request
+#   - workflow_dispatch（手動起動）
+#
+# 注: Ubuntu 向け prebuilt ライブラリが未整備の場合、build.rs が
+# source build fallback に依存し初回ビルドが 5〜10 分かかる可能性がある。
+# その場合は vendor/prebuilt/x86_64-unknown-linux-gnu/ に事前ビルド済み
+# ライブラリを配置することで短縮できる。
+
+name: SIP Integration Test
+
+env:
+  SIP_SERVER: localhost
+  SIP_PORT: 5060
+  CARGO_TERM_COLOR: always
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-22.04
+
+    services:
+      asterisk:
+        image: asterisk:20.6.0
+        ports:
+          - 5060:5060/udp
+          - 5061:5061/tcp
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache PJSIP build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/prebuilt/x86_64-unknown-linux-gnu/
+            vendor/pjsip/build/
+          key: pjsip-build-${{ runner.os }}-${{ hashFiles('vendor/pjsip/**') }}
+          restore-keys: |
+            pjsip-build-${{ runner.os }}-
+
+      - name: Build with PJSIP feature
+        run: cargo build --features pjsip
+
+      - name: Run integration tests
+        run: cargo test --features pjsip --test integration_test -- --ignored --test-threads=1
+        env:
+          SIP_SERVER: localhost
+          SIP_PORT: 5060
