@@ -870,7 +870,7 @@
   - 結合テスト: モデル名・ハンドラ名更新
 * **テストコードによる検証:** cargo test が全テスト通過（実モデル不要のテストのみ）
 
-#### チケット M6-13: test-run + 実動作確認 (src/bin/test-run.rs)
+#### ✅ チケット M6-13: test-run + 実動作確認 (src/bin/test-run.rs)
 
 * **参照設計書:** crates/ggufrs/RFC.md (§10.3 test-run バイナリ)
 * **依存・関連チケットID:** 先行実装必須: M6-12（テスト全通過）。
@@ -887,7 +887,7 @@
 
 ### マイルストーン M6-5: 最終調整
 
-#### チケット M6-14: Cargo.toml feature flags 最終調整 + clippy + ドキュメント
+#### ✅ チケット M6-14: Cargo.toml feature flags 最終調整 + clippy + ドキュメント
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §2.3 GPU 自動検出)
 * **依存・関連チケットID:** 先行実装必須: M6-13（test-run 完了）。後続処理なし（最終マイルストーン）。

@@ -62,3 +62,7 @@ crate-type = ["lib"]
 [[bin]]
 name = "test-run"
 path = "src/bin/test-run.rs"
+
+[[bin]]
+name = "test-chat"
+path = "src/bin/test-chat.rs"
