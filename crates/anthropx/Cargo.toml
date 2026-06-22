@@ -25,6 +25,8 @@ tokio-stream = { version = "0.1.18", optional = true }
 llm-bridge-core = { version = "0.2.6", optional = true }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json"], optional = true }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", optional = true }
 
 [dev-dependencies]
 axum-test = "20.1.0"
@@ -33,7 +35,7 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time"] 
 
 [features]
 default = ["server"]
-server = ["dep:axum", "dep:reqwest", "dep:uuid", "dep:llm-bridge-core", "tokio/full", "dep:clap", "dep:futures", "dep:http", "dep:tokio-util", "dep:tokio-stream", "dep:tracing-subscriber"]
+server = ["dep:axum", "dep:reqwest", "dep:uuid", "dep:llm-bridge-core", "tokio/full", "dep:clap", "dep:futures", "dep:http", "dep:tokio-util", "dep:tokio-stream", "dep:tracing-subscriber", "dep:metrics-exporter-prometheus"]
 
 # 実プロバイダーテスト (real_provider.rs) を有効化する feature。
 # CI ではこの feature なしで全テストが成功し、手動実行時のみ有効化する。

@@ -125,6 +125,7 @@ fn default_log_format() -> LogFormat {
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct AppConfig {
     /// サーバー全体設定（ポート、タイムアウト、制限値など）
+    #[serde(default)]
     pub global: GlobalConfig,
     /// Provider 名 → 設定 のマップ。BTreeMap によりキーがアルファベット昇順に整列する。
     #[serde(default)]
@@ -463,6 +464,8 @@ pub enum ConfigError {
     DuplicateModel(String),
     /// エイリアスが既存の公開名と衝突している
     DuplicateAlias(String, String),
+    /// 設定値が無効（ポート番号、タイムアウト値など）
+    InvalidValue(String),
     /// 集約型バリデーションの全エラー（M1-2）
     ValidationFailed(Vec<ConfigError>),
 }
@@ -480,6 +483,7 @@ impl std::fmt::Display for ConfigError {
                     "alias \"{alias}\" conflicts with existing model \"{existing}\""
                 )
             }
+            Self::InvalidValue(msg) => write!(f, "invalid value: {msg}"),
             Self::ValidationFailed(errors) => {
                 write!(f, "validation failed with {} error(s)", errors.len())
             }

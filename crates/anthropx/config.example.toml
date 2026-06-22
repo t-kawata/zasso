@@ -1,0 +1,143 @@
+# anthropx 設定ファイル例
+#
+# 使用: ./anthropx -t config.example.toml
+#
+# ─── 基本構造 ───
+#
+# [global]           # サーバー全体の設定（省略可、全フィールドにデフォルト値あり）
+# [providers.XXX]    # プロバイダー設定（XXX は任意の名前）
+# [[providers.XXX.models]]  # モデル定義
+
+# ===========================================================================
+# サーバー全体設定（省略可能）
+# ===========================================================================
+[global]
+# リッスンポート（デフォルト: 3910）
+port = 3910
+
+# URL プレフィックス（例: "/anthropx" で全エンドポイントが /anthropx/ 配下に）
+url_prefix = ""
+
+# クライアント認証を要求（デフォルト: false）
+# true にすると全リクエストに Authorization: Bearer <token> または x-api-key が必要
+require_client_auth = false
+
+# ログ形式（"text" または "json", デフォルト: "text"）
+log_format = "text"
+
+# Lossy 変換（Anthropic ↔ OpenAI 変換時の情報欠落）の挙動
+# allow_lossy = false → 情報欠落が発生するリクエストは 400 エラーで拒否
+# allow_lossy = true  → 情報欠落を許容して続行（デフォルト）
+allow_lossy = true
+
+# error_lossy_continue = true  → Error 級 lossy でも続行
+# error_lossy_continue = false → Error 級 lossy は拒否（上記 allow_lossy と組み合わせて使用）
+error_lossy_continue = false
+
+# タイムアウト設定（ミリ秒）
+[global.timeouts]
+connect_ms = 3000
+read_ms = 600000
+total_ms = 600000
+
+# 並行性制限のデフォルト値（provider 個別指定が優先）
+[global.limits]
+default_max_in_flight = 64
+default_max_queue = 256
+
+# グローバルエイリアス（provider/model 形式で別名を定義）
+# [global.aliases]
+# my-model = "deepseek/deepseek-chat"
+
+# ===========================================================================
+# プロバイダー設定例
+# ===========================================================================
+
+# ─── Transparent モード（OpenAI 互換 API → Anthropic 互換として透過中継） ───
+#
+# upstream が Anthropic 互換 API を提供している場合に使用。
+# リクエスト/レスポンスの変換は行わず、HTTP 的に透過中継する。
+
+[providers.deepseek]
+transparent = true
+base_url = "https://api.deepseek.com"
+api_keys = ["sk-your-deepseek-api-key"]
+
+# allow_lossy / error_lossy_continue は provider 単位で global を上書き可能
+# allow_lossy = true
+# error_lossy_continue = false
+
+# OpenAI ワイヤー形式（Auto / ChatCompletions / Responses、省略時は Auto）
+# openai_wire_api = "Auto"
+
+# 最大同時実行数・最大待機数（省略時は global.limits のデフォルト値）
+# max_in_flight = 64
+# max_queue = 256
+
+# モデルエイリアス（provider 内での短縮名）
+# [providers.deepseek.model_aliases]
+# dc = "deepseek-chat"
+
+[[providers.deepseek.models]]
+public = "deepseek-chat"       # クライアントから見えるモデル名
+upstream = "deepseek-chat"     # upstream に送信する実際のモデル名
+enabled = true                 # false にすると /v1/models に表示されない
+tags = ["chat", "fast"]        # タグ（自由文字列、/v1/models に含まれる）
+# max_tokens_cap = 8192        # 最大トークン数制限
+# aliases = ["dc", "ds"]       # モデル単位のエイリアス
+
+[[providers.deepseek.models]]
+public = "deepseek-reasoner"
+upstream = "deepseek-reasoner"
+enabled = true
+tags = ["reasoning"]
+
+# ─── Translate モード（OpenAI 互換 API → Anthropic 形式に翻訳） ───
+#
+# upstream が OpenAI Chat Completions API のみを提供している場合に使用。
+# anthropx がリクエスト/レスポンスを llm-bridge-core で変換する。
+
+[providers.groq]
+transparent = false
+base_url = "https://api.groq.com/openai/v1"
+api_keys = ["sk-your-groq-api-key"]
+openai_wire_api = "ChatCompletions"
+
+[[providers.groq.models]]
+public = "groq-llama"
+upstream = "llama-3.3-70b-versatile"
+enabled = true
+tags = ["chat"]
+
+# ─── 単一 API キーが使える場合 ───
+#
+# [providers.openai]
+# transparent = false
+# base_url = "https://api.openai.com/v1"
+# api_keys = ["sk-your-openai-api-key"]
+# openai_wire_api = "ChatCompletions"
+#
+# [[providers.openai.models]]
+# public = "gpt-4o"
+# upstream = "gpt-4o"
+# enabled = true
+#
+# [[providers.openai.models]]
+# public = "gpt-4o-mini"
+# upstream = "gpt-4o-mini"
+# enabled = true
+
+# ─── 複数 API キーによる failover ───
+#
+# 複数の API キーを指定すると、non-stream リクエストの 5xx エラー時に
+# 自動的に次のキーで再試行（failover）する。
+#
+# [providers.failover-example]
+# transparent = true
+# base_url = "https://api.example.com"
+# api_keys = ["sk-primary", "sk-backup-1", "sk-backup-2"]
+#
+# [[providers.failover-example.models]]
+# public = "example-model"
+# upstream = "example-model"
+# enabled = true

@@ -32,9 +32,11 @@ pub async fn healthz() -> Json<serde_json::Value> {
 
 /// メトリクスエンドポイント（GET /metrics）。
 ///
-/// Prometheus 互換のテキスト形式で内部カウンタを出力する。
+/// Prometheus 互換のテキスト形式でメトリクスカウンタを出力する。
+/// `METRICS_HANDLE.render()` で metrics crate のレコーダーから
+/// Prometheus text exposition format を取得する。
 pub async fn metrics_handler() -> (StatusCode, [(&'static str, &'static str); 1], String) {
-    let body = metrics::format_metrics();
+    let body = metrics::METRICS_HANDLE.render();
     (
         StatusCode::OK,
         [("content-type", "text/plain; charset=utf-8")],
@@ -108,6 +110,25 @@ pub async fn handle_messages(
     Json(body): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, ProxyError> {
     let request_id = generate_request_id();
+    // メトリクス用: レイテンシ計測の開始時刻
+    let start_time = std::time::Instant::now();
+
+    // メトリクス用: body / state が async block に move される前に次元情報を抽出する
+    let extracted_model = body
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("")
+        .to_string();
+    let metrics_provider: Option<String> =
+        parse_provider_model(&extracted_model).ok().map(|(p, _)| p.to_string());
+    let metrics_stream: bool = body
+        .get("stream")
+        .and_then(|s| s.as_bool())
+        .unwrap_or(false);
+    let metrics_mode: Option<&str> = metrics_provider
+        .as_deref()
+        .and_then(|p| state.config.providers.get(p))
+        .map(|p| if p.transparent { "transparent" } else { "translate" });
 
     // tracing span を構築（フィールドは後続で確定）
     let span = tracing::info_span!(
@@ -180,11 +201,18 @@ pub async fn handle_messages(
     // record_request() は handle_messages の後処理で 1 度だけ呼ばれる。
     // provider ハンドラ内では metrics 出力を行わないこと。
     // 二重計上を防ぐため、この 1 箇所に呼び出しを限定する。
+    let latency_ms = start_time.elapsed().as_millis() as u64;
     match &result {
-        Ok(_) => metrics::record_request(200),
+        Ok(_) => {
+            if let (Some(provider), Some(mode)) = (&metrics_provider, &metrics_mode) {
+                metrics::record_request(provider, mode, metrics_stream, 200, latency_ms);
+            }
+        }
         Err(e) => {
             let status = e.status_code();
-            metrics::record_request(status);
+            if let (Some(provider), Some(mode)) = (&metrics_provider, &metrics_mode) {
+                metrics::record_request(provider, mode, metrics_stream, status, latency_ms);
+            }
             tracing::warn!(error = %e, status = status, "request failed");
         }
     }
@@ -206,7 +234,8 @@ mod tests {
     use crate::config::{AppConfig, ModelConfig, ProviderConfig};
 
     /// テスト用の最小 AppState を構築する。http_clients / schedulers は空。
-    // [::STUB::] テストヘルパーの引数型。本番コード移行時に型エイリアス化を検討
+    // NOTE: テスト専用ヘルパーのため型の複雑性は許容する。
+    //       型エイリアス化は本番コード移行時の検討課題。
     #[allow(clippy::type_complexity)]
     fn make_state_with_providers(providers: Vec<(&str, Vec<(&str, &str, bool)>)>) -> Arc<AppState> {
         let mut config = AppConfig::default();
@@ -246,7 +275,8 @@ mod tests {
     ///
     /// provider は transparent モードで起動し、ローカルの mock upstream サーバーに
     /// リクエストを中継する。mock upstream は任意の POST に対して 200 を返す。
-    // [::STUB::] テストヘルパーの引数型。本番コード移行時に型エイリアス化を検討
+    // NOTE: テスト専用ヘルパーのため型の複雑性は許容する。
+    //       型エイリアス化は本番コード移行時の検討課題。
     #[allow(clippy::type_complexity)]
     async fn make_state_with_mock_upstream(
         providers: Vec<(&str, Vec<(&str, &str, bool)>)>,
