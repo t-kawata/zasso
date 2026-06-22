@@ -552,15 +552,12 @@ impl SipBackend for PjsuaBackend {
             let uri = String::from_utf8_lossy(uri_bytes).into_owned();
 
             Ok(AccountInfoSnapshot {
-                acc_id: AccountId::from(native_acc_id as u64),
+                acc_id: AccountId::from_raw(native_acc_id as u64),
                 registration_status: acc_info.status as u16,
-                registration_expires: if acc_info.expires >= 0 {
-                    Some(acc_info.expires as u32)
-                } else {
-                    None
-                },
+                registration_expires: Some(acc_info.expires),
                 online_status: acc_info.online_status != 0,
                 uri,
+                is_shutting_down: false,
             })
         }
     }
@@ -614,6 +611,65 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
+    fn send_dtmf(
+        &mut self,
+        native_call_id: NativeCallId,
+        _method: &DtmfMethod,
+        digits: &str,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            let digits_bytes = digits.as_bytes().to_vec();
+            let dtmf_str = bindings::pj_str_t {
+                ptr: digits_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: digits_bytes.len() as c_long,
+            };
+            let status = bindings::pjsua_call_dial_dtmf(
+                native_call_id as bindings::pjsua_call_id,
+                &dtmf_str as *const _,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_dial_dtmf"));
+            }
+        }
+        Ok(())
+    }
+
+    fn transfer_call(
+        &mut self,
+        native_call_id: NativeCallId,
+        target: &str,
+    ) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        use std::os::raw::c_long;
+
+        unsafe {
+            let target_bytes = target.as_bytes().to_vec();
+            let dest_str = bindings::pj_str_t {
+                ptr: target_bytes.as_ptr() as *mut ::std::os::raw::c_char,
+                slen: target_bytes.len() as c_long,
+            };
+            let status = bindings::pjsua_call_xfer(
+                native_call_id as bindings::pjsua_call_id,
+                &dest_str as *const _,
+                std::ptr::null(),
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_call_xfer"));
+            }
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PjsuaBackend 内部ヘルパー（PJSIP feature 有効時のみ）
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "pjsip")]
+impl PjsuaBackend {
     /// PCMU/8000/1 をフォールバック優先度（CODEC_PRIO_PCMU = 254）に設定する。
     fn set_pcmu_priority(&self) -> Result<(), SipError> {
         use crate::ffi::bindings;
@@ -734,64 +790,12 @@ impl SipBackend for PjsuaBackend {
     /// PJSIP が返す codec_id は有効な UTF-8 として扱う（`pj_str_t` は C の文字列）。
     /// 不正な UTF-8 の場合は代替文字列を返す。
     // SAFETY: pj_str_t.ptr は有効なメモリ領域を指し、slen はその長さを表す。
-    fn codec_id_to_str(codec_id: &bindings::pj_str_t) -> &str {
+    fn codec_id_to_str(codec_id: &crate::ffi::bindings::pj_str_t) -> &str {
         unsafe {
             let bytes =
                 std::slice::from_raw_parts(codec_id.ptr as *const u8, codec_id.slen as usize);
             std::str::from_utf8_unchecked(bytes)
         }
-    }
-
-    fn send_dtmf(
-        &mut self,
-        native_call_id: NativeCallId,
-        _method: &DtmfMethod,
-        digits: &str,
-    ) -> Result<(), SipError> {
-        use crate::ffi::bindings;
-        use std::os::raw::c_long;
-
-        unsafe {
-            let digits_bytes = digits.as_bytes().to_vec();
-            let dtmf_str = bindings::pj_str_t {
-                ptr: digits_bytes.as_ptr() as *mut ::std::os::raw::c_char,
-                slen: digits_bytes.len() as c_long,
-            };
-            let status = bindings::pjsua_call_dial_dtmf(
-                native_call_id as bindings::pjsua_call_id,
-                &dtmf_str as *const _,
-            );
-            if status != 0 {
-                return Err(pj_status_to_sip_error(status, "pjsua_call_dial_dtmf"));
-            }
-        }
-        Ok(())
-    }
-
-    fn transfer_call(
-        &mut self,
-        native_call_id: NativeCallId,
-        target: &str,
-    ) -> Result<(), SipError> {
-        use crate::ffi::bindings;
-        use std::os::raw::c_long;
-
-        unsafe {
-            let target_bytes = target.as_bytes().to_vec();
-            let dest_str = bindings::pj_str_t {
-                ptr: target_bytes.as_ptr() as *mut ::std::os::raw::c_char,
-                slen: target_bytes.len() as c_long,
-            };
-            let status = bindings::pjsua_call_xfer(
-                native_call_id as bindings::pjsua_call_id,
-                &dest_str as *const _,
-                std::ptr::null(),
-            );
-            if status != 0 {
-                return Err(pj_status_to_sip_error(status, "pjsua_call_xfer"));
-            }
-        }
-        Ok(())
     }
 }
 

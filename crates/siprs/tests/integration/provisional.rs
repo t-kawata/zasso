@@ -46,10 +46,19 @@ async fn ringing_received() -> Result<(), SipError> {
     Ok(())
 }
 
-/// 183 Early Media — スキップ（Asterisk Echo が 183 を送信しないため）。
+/// 183 Early Media — スキップ。
+///
+/// Asterisk Echo アプリケーションは 183 Session Progress を送信しない。
+///
+/// 解決には以下の対応が必要:
+/// - SIPp スクリプトで 183 Session Progress を送出する
+/// - または Asterisk の extensions.conf を拡張し、media 提供を伴う
+///   183 を送出する専用エクステンションを追加する
+///
+/// リリース判定に影響しないため、現時点ではスキップ継続とする。
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn early_media_received() -> Result<(), SipError> {
-    eprintln!("early_media_received: skipped (Asterisk Echo does not send 183)");
+    eprintln!("early_media_received: skipped (Asterisk Echo does not send 183; SIPp or Asterisk conf extension required)");
     Ok(())
 }

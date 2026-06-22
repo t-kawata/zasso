@@ -20,7 +20,7 @@ use crate::audio::format::AudioFormat;
 use crate::config::{Codec, DtmfMethod};
 use crate::error::SipError;
 use crate::transport::TransportKind;
-use crate::util::id::{AccountId, CallId};
+use crate::util::id::{AccountId, CallId, TransportId};
 
 // ---------------------------------------------------------------------------
 // EventDirection — イベントの方向
@@ -516,8 +516,8 @@ pub struct IceFailureInfo {
 // ── トランスポート系 ──
 #[derive(Debug, Clone)]
 pub struct TransportConnectedInfo {
-    /// PJSIP トランスポート ID。
-    pub tp_id: i32,
+    /// トランスポート識別子（ランタイム一意）。
+    pub tp_id: TransportId,
     /// トランスポート種別。
     pub kind: TransportKind,
     /// ローカルアドレス。
@@ -525,15 +525,15 @@ pub struct TransportConnectedInfo {
 }
 #[derive(Debug, Clone)]
 pub struct TransportDisconnectedInfo {
-    /// PJSIP トランスポート ID。
-    pub tp_id: i32,
+    /// トランスポート識別子（ランタイム一意）。
+    pub tp_id: TransportId,
     /// トランスポート種別。
     pub kind: TransportKind,
 }
 #[derive(Debug, Clone)]
 pub struct TransportErrorInfo {
-    /// PJSIP トランスポート ID。
-    pub tp_id: i32,
+    /// トランスポート識別子（ランタイム一意）。
+    pub tp_id: TransportId,
     /// トランスポート種別。
     pub kind: TransportKind,
     /// エラー詳細。
@@ -766,6 +766,14 @@ impl EventBus {
         let _ = self.control.send(event);
     }
 
+    /// control broadcast sender の Clone を返す（Dual Client の Reactor 登録用）。
+    ///
+    /// 内部の `broadcast::Sender` を直接 Reactor に渡すことで、Reactor が
+    /// 複数の EventBus に対してイベントを振り分けられるようにする。
+    pub(crate) fn control_sender(&self) -> broadcast::Sender<SipEvent> {
+        self.control.clone()
+    }
+
     /// RawSIP メッセージを発行する（専用バスが有効な場合のみ）。
     ///
     /// 無効時は何も行わない。
@@ -966,16 +974,16 @@ mod tests {
                 error_msg: "ice failed".into(),
             }),
             SipEventPayload::TransportConnected(TransportConnectedInfo {
-                tp_id: 1,
+                tp_id: TransportId::from_test(1),
                 kind: TransportKind::Udp,
                 local_addr: None,
             }),
             SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {
-                tp_id: 1,
+                tp_id: TransportId::from_test(1),
                 kind: TransportKind::Udp,
             }),
             SipEventPayload::TransportError(TransportErrorInfo {
-                tp_id: 1,
+                tp_id: TransportId::from_test(1),
                 kind: TransportKind::Udp,
                 error: "transport error".into(),
             }),

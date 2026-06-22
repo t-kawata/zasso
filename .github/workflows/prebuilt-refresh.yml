@@ -1,0 +1,124 @@
+# PJSIP Prebuilt 自動ビルド pipeline
+#
+# macOS 上で PJSIP 2.17 の static library をビルドし、
+# vendor/prebuilt/aarch64-apple-darwin/ に配置してアーティファクトとして保存する。
+#
+# この pipeline で生成された prebuilt ライブラリは siprs クレートの
+# build.rs によって優先的に使用され、source build（5〜10分）をスキップする。
+#
+# トリガー条件:
+#   - workflow_dispatch（手動起動）: PJSIP バージョン更新時
+#   - 月次スケジュール（cron）: 定期的な prebuilt 更新
+#
+# 手動ビルド手順の詳細は vendor/prebuilt/BUILD.md を参照。
+
+name: PJSIP Prebuilt Refresh
+
+env:
+  PJSIP_DIR: vendor/pjsip
+  PREBUILT_DIR: vendor/prebuilt/aarch64-apple-darwin
+  CMAKE_BUILD_TYPE: Release
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 毎月1日 06:00 UTC に実行
+    - cron: '0 6 1 * *'
+
+jobs:
+  prebuilt-refresh:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install CMake (if missing)
+        run: |
+          if ! command -v cmake &> /dev/null; then
+            brew install cmake
+          else
+            echo "CMake already installed: $(cmake --version | head -1)"
+          fi
+
+      - name: Configure PJSIP build
+        run: |
+          cd "$PJSIP_DIR"
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE" \
+            -DSRTP_WITH_OPENSSL=OFF \
+            -DPJ_BUILD_SHARED_LIBS=OFF \
+            -DCMAKE_INSTALL_PREFIX=./install
+
+      - name: Build PJSIP libraries
+        run: |
+          cd "$PJSIP_DIR/build"
+          make -j"$(sysctl -n hw.ncpu)"
+
+      - name: Install PJSIP libraries
+        run: |
+          cd "$PJSIP_DIR/build"
+          make install
+
+      - name: Copy prebuilt libraries to vendor directory
+        run: |
+          mkdir -p "$PREBUILT_DIR/lib"
+          cd "$PJSIP_DIR/build"
+          # 各モジュールのライブラリを prebuilt ディレクトリにコピー
+          for lib in \
+            pjlib/libpjlib.a \
+            pjlib-util/libpjlib-util.a \
+            pjnath/libpjnath.a \
+            pjmedia/libpjmedia.a \
+            pjmedia/libpjmedia-audiodev.a \
+            pjmedia/libpjmedia-codec.a \
+            pjmedia/libpjmedia-videodev.a \
+            pjsip/libpjsip.a \
+            pjsip/libpjsip-simple.a \
+            pjsip/libpjsip-ua.a \
+            pjsip/libpjsua-lib.a \
+            pjsip/libpjsua2.a \
+            third_party/lib/libresample.a \
+            third_party/lib/libgsm.a \
+            third_party/lib/libilbc.a \
+            third_party/lib/libg7221.a \
+            third_party/lib/libsrtp.a \
+            third_party/lib/libspeex.a \
+            third_party/lib/libspeexdsp.a; do
+            if [ -f "$lib" ]; then
+              cp "$lib" "$PREBUILT_DIR/lib/"
+              echo "  ✓ $(basename $lib)"
+            else
+              echo "  ⚠ Missing: $lib"
+            fi
+          done
+          echo "---"
+          echo "Copied libraries to $PREBUILT_DIR/lib/"
+          ls -la "$PREBUILT_DIR/lib/"
+
+      - name: Verify no OpenSSL symbols in prebuilt libraries
+        run: |
+          echo "Verifying OpenSSL symbol absence..."
+          has_openssl=false
+          for lib in "$PREBUILT_DIR/lib/"*.a; do
+            symbols=$(nm -u "$lib" 2>/dev/null | grep -cE 'SSL_|X509_|EVP_|BIO_|PEM_' || true)
+            if [ "$symbols" -gt 0 ]; then
+              echo "  ⚠ OpenSSL symbols in $(basename "$lib"): $symbols"
+              has_openssl=true
+            fi
+          done
+          if [ "$has_openssl" = true ]; then
+            echo "WARNING: OpenSSL symbols detected in prebuilt libraries."
+            echo "This may cause linker conflicts. Check pjlib/CMakeLists.txt for APPLE exclusion."
+          else
+            echo "  ✓ No OpenSSL symbols detected."
+          fi
+
+      - name: Upload prebuilt artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pjsip-prebuilt-macos
+          path: vendor/prebuilt/aarch64-apple-darwin/
+          retention-days: 90

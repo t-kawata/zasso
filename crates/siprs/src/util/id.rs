@@ -1,6 +1,6 @@
 //! # ID 型 — ランタイム一意識別子
 //!
-//! AccountId / CallId / AudioSourceId の 3 種類の ID 型を提供する。
+//! AccountId / CallId / AudioSourceId / TransportId の 4 種類の ID 型を提供する。
 //! 全 ID 型は `NonZeroU64` を内部表現とし、ゼロ値による未初期化誤用を型レベルで排除する。
 //!
 //! 各 ID 型は互いに異なる型であり、コンパイル時に混用を防止する。
@@ -40,6 +40,15 @@ impl AccountId {
     /// 通常のアプリケーションコードでは使用しないこと。
     pub fn into_raw(self) -> u64 {
         self.0.get()
+    }
+
+    /// 生の u64 値から AccountId を構築する。
+    ///
+    /// PJSUA の `pjsua_acc_id` からの変換に使用する。
+    /// `raw` が 0 の場合、この関数はパニックする。
+    /// ゼロ値を取りうる場合は呼び出し側で事前にチェックすること。
+    pub fn from_raw(raw: u64) -> Self {
+        Self(NonZeroU64::new(raw).expect("AccountId::from_raw: raw value must be non-zero"))
     }
 }
 
@@ -114,6 +123,43 @@ impl fmt::Display for AudioSourceId {
 }
 
 // ---------------------------------------------------------------------------
+// TransportId
+// ---------------------------------------------------------------------------
+
+/// トランスポート識別子（PJSUA トランスポート ID のラッパー）。
+///
+/// 内部表現は `NonZeroU64` であり、ゼロ値による未初期化誤用を型レベルで排除する。
+/// PJSUA の `pjsua_transport_id`（`i32`）からの変換を `from_raw()` で行う。
+/// `AccountId` / `CallId` と異なり `generate()` は提供せず、PJSUA callback から
+/// 受け取った値を変換する用途に限定する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TransportId(NonZeroU64);
+
+impl TransportId {
+    /// PJSUA の `pjsua_transport_id`（`i32`）から `TransportId` を生成する。
+    ///
+    /// PJSUA は無効なトランスポートを負数で表すことがあるため、`i32` が 0 以下の場合は
+    /// `None` を返す。
+    pub fn from_raw(raw: i32) -> Option<Self> {
+        if raw <= 0 {
+            return None;
+        }
+        Some(Self(NonZeroU64::new(raw as u64)?))
+    }
+
+    /// 内部の生の u64 値を取得する。
+    pub fn into_raw(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl fmt::Display for TransportId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Transport({})", self.0)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // serde サポート（optional feature）
 // ---------------------------------------------------------------------------
 
@@ -171,6 +217,23 @@ impl<'de> serde::Deserialize<'de> for AudioSourceId {
     }
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for TransportId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.get().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for TransportId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = u64::deserialize(deserializer)?;
+        let inner = NonZeroU64::new(raw)
+            .ok_or_else(|| serde::de::Error::custom("TransportId must be non-zero"))?;
+        Ok(Self(inner))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // テスト用補助コンストラクタ
 // ---------------------------------------------------------------------------
@@ -211,6 +274,19 @@ impl AudioSourceId {
     #[doc(hidden)]
     pub fn from_test(id: u64) -> Self {
         Self(NonZeroU64::new(id).expect("AudioSourceId::from_test: id must be non-zero"))
+    }
+}
+
+#[cfg(test)]
+impl TransportId {
+    /// テスト用: 特定の u64 値から ID を生成する（テスト専用）。
+    ///
+    /// # Panics
+    ///
+    /// `id` が 0 の場合にパニックする。
+    #[doc(hidden)]
+    pub fn from_test(id: u64) -> Self {
+        Self(NonZeroU64::new(id).expect("TransportId::from_test: id must be non-zero"))
     }
 }
 
@@ -342,6 +418,47 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // TransportId 基本テスト
+    // -----------------------------------------------------------------------
+
+    /// `from_raw` が正の値で `Some(TransportId)` を返すことを確認する。
+    #[test]
+    fn test_transport_id_from_raw_positive() {
+        let id = TransportId::from_raw(42);
+        assert!(id.is_some(), "TransportId::from_raw(42) should be Some");
+        assert_eq!(id.unwrap().into_raw(), 42);
+    }
+
+    /// `from_raw` が 0 で `None` を返すことを確認する。
+    #[test]
+    fn test_transport_id_from_raw_zero() {
+        let id = TransportId::from_raw(0);
+        assert!(id.is_none(), "TransportId::from_raw(0) should be None");
+    }
+
+    /// `from_raw` が負数で `None` を返すことを確認する。
+    #[test]
+    fn test_transport_id_from_raw_negative() {
+        let id = TransportId::from_raw(-1);
+        assert!(id.is_none(), "TransportId::from_raw(-1) should be None");
+    }
+
+    /// `from_raw` + `into_raw` のラウンドトリップを確認する。
+    #[test]
+    fn test_transport_id_roundtrip() {
+        let original = 42i32;
+        let id = TransportId::from_raw(original).expect("from_raw should succeed");
+        assert_eq!(id.into_raw(), 42);
+    }
+
+    /// Display 出力が "Transport(N)" 形式であることを確認する。
+    #[test]
+    fn test_transport_id_display() {
+        let id = TransportId::from_test(7);
+        assert_eq!(format!("{}", id), "Transport(7)");
+    }
+
+    // -----------------------------------------------------------------------
     // 型安全性のコンパイル時検証
     // -----------------------------------------------------------------------
 
@@ -353,20 +470,24 @@ mod tests {
         let account = AccountId::from_test(1);
         let call = CallId::from_test(2);
         let audio = AudioSourceId::from_test(3);
+        let transport = TransportId::from_test(4);
 
         // 各型のサイズとトレイト実装が同一であることを確認（型の構造的互換性）。
         assert_eq!(std::mem::size_of::<AccountId>(), 8);
         assert_eq!(std::mem::size_of::<CallId>(), 8);
         assert_eq!(std::mem::size_of::<AudioSourceId>(), 8);
+        assert_eq!(std::mem::size_of::<TransportId>(), 8);
 
         // 暗黙の型変換がないことをランタイムで確認（コンパイル時にも確認済み）。
         let _: AccountId = account;
         let _: CallId = call;
         let _: AudioSourceId = audio;
+        let _: TransportId = transport;
 
         // 以下のコードはコンパイルエラーになることをコメントで示す:
         // let _: AccountId = call;  // ❌ コンパイルエラー: 型の不一致
         // let _: CallId = audio;    // ❌ コンパイルエラー: 型の不一致
+        // let _: AccountId = transport; // ❌ コンパイルエラー: 型の不一致
     }
 
     /// 全 ID 型が Send + Sync + Copy を満たすことを確認する。
@@ -387,6 +508,10 @@ mod tests {
         assert_send::<AudioSourceId>();
         assert_sync::<AudioSourceId>();
         assert_copy::<AudioSourceId>();
+
+        assert_send::<TransportId>();
+        assert_sync::<TransportId>();
+        assert_copy::<TransportId>();
     }
 
     // -----------------------------------------------------------------------
@@ -411,6 +536,11 @@ mod tests {
         let json = serde_json::to_string(&original).expect("serialize");
         let deserialized: AudioSourceId = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(original, deserialized, "AudioSourceId JSON roundtrip");
+
+        let original = TransportId::from_test(100);
+        let json = serde_json::to_string(&original).expect("serialize");
+        let deserialized: TransportId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(original, deserialized, "TransportId JSON roundtrip");
     }
 
     /// serde でゼロ値のデシリアライズがエラーになることを確認する。
@@ -433,6 +563,12 @@ mod tests {
         assert!(
             result.is_err(),
             "ゼロ値の AudioSourceId はデシリアライズに失敗すること"
+        );
+
+        let result: Result<TransportId, _> = serde_json::from_str("0");
+        assert!(
+            result.is_err(),
+            "ゼロ値の TransportId はデシリアライズに失敗すること"
         );
     }
 }
