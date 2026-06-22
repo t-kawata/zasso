@@ -249,3 +249,4 @@
 - [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #184 RuntimeCommand 新設 — GetAccountInfo / ConfConnect / ConfDisconnect（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0184-runtimecommand-getaccountinfo-confconnect-confdisconnectp0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1） | /Users/shyme/shyme/zasso/tickets/specs/0185-pjsuabackend-configure-codecs-auto-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22

@@ -1847,7 +1847,7 @@
 
 ---
 
-#### チケット M20-3: PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1）
+#### ✅ チケット M20-3: PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1）
 
 * **参照設計書:** crates/siprs/RFC02.md (§6.4, §6.5)
 * **依存・関連チケットID:** M17-4（PjsuaBackend 骨格実装完了）

@@ -7,7 +7,7 @@
 #![allow(dead_code)]
 
 use crate::config::{
-    AccountConfig, ClientConfig, DtmfMethod, OutgoingCallRequest, TransportConfig,
+    AccountConfig, ClientConfig, Codec, DtmfMethod, OutgoingCallRequest, TransportConfig,
 };
 use crate::error::SipError;
 use crate::event::ClientCapabilities;
@@ -97,7 +97,10 @@ pub(crate) trait SipBackend: Send {
     ) -> Result<(), SipError>;
 
     /// コーデック設定を行う。
-    fn configure_codecs(&mut self) -> Result<(), SipError>;
+    ///
+    /// `preferred` が空の場合は auto モード（Opus=255, PCMU=254, その他無効）。
+    /// 非空の場合は明示指定モード（指定順に優先度設定、指定外無効）。
+    fn configure_codecs(&mut self, preferred: &[Codec]) -> Result<(), SipError>;
 
     /// DTMF 信号を送信する。
     fn send_dtmf(
@@ -344,7 +347,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn configure_codecs(&mut self) -> Result<(), SipError> {
+    fn configure_codecs(&mut self, _preferred: &[Codec]) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
@@ -561,6 +564,36 @@ mod tests {
     fn test_mock_get_account_info_not_initialized() {
         let backend = MockBackend::new();
         let result = backend.get_account_info(1);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::NotInitialized
+        );
+    }
+
+    /// MockBackend::configure_codecs が auto モード（空スライス）で Ok を返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_auto_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.configure_codecs(&[]);
+        assert!(result.is_ok());
+    }
+
+    /// MockBackend::configure_codecs が明示指定モード（非空スライス）で Ok を返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_explicit_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.configure_codecs(&[Codec::Opus, Codec::Pcmu]);
+        assert!(result.is_ok());
+    }
+
+    /// MockBackend::configure_codecs が初期化前の NotInitialized エラーを返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_not_initialized() {
+        let mut backend = MockBackend::new();
+        let result = backend.configure_codecs(&[]);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().kind,

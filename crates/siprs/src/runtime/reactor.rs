@@ -111,6 +111,12 @@ impl CoreReactor {
                                 return;
                             }
 
+                            // コーデック設定（auto モード: Opus=255, PCMU=254, その他=0）
+                            if let Err(e) = backend.configure_codecs(&[]) {
+                                let _ = reply.send(Err(e));
+                                return;
+                            }
+
                             // state 更新
                             let mut state_guard = state.blocking_write();
                             state_guard.initialized = true;
