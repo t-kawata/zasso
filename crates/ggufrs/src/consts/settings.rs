@@ -16,7 +16,7 @@
 //! - 推論パラメータは Qwen3.5 シリーズの推奨値に基づく
 //! - タイムアウト値は voiput crate の設定に準拠する
 //!
-//! # [::STUB::] dead_code 抑制の理由
+//! # dead_code 抑制の理由
 //!
 //! 参照状況（M3-5 現在）:
 //! - `DEFAULT_RT_PORT`: M0-5（ServerConfig::default）で使用済み ✅
@@ -46,7 +46,9 @@ pub(crate) const DEFAULT_MODEL_DIR: &str = "models";
 /// 60: voiput crate のダウンロードタイムアウト設定に準拠。
 /// モデルファイル（Qwen3.5-0.8B-Q4_K_M: 約600MB）のダウンロードに
 /// 十分な時間を確保しつつ、ネットワーク障害時の早期切り替えを可能にする。
-pub(crate) const CURL_TIMEOUT_SECS: u64 = 60;
+/// 3.1GB（Gemma4 E2B）のダウンロードに十分な時間。日本からの HuggingFace 接続では
+/// 安定して完了するまでに 3〜5分程度要する。
+pub(crate) const CURL_TIMEOUT_SECS: u64 = 600;
 
 /// デフォルトのコンテキストサイズ（トークン数）
 ///

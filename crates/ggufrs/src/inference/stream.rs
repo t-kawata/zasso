@@ -95,11 +95,14 @@ pub(crate) fn run_inference_stream_blocking(
     }
 
     // ── 4. LlamaSampler チェーン構築 ──
+    //
+    // チェーン末尾には選択用サンプラー（greedy）が必須。
     let mut sampler_chain: Vec<LlamaSampler> = Vec::new();
     sampler_chain.push(LlamaSampler::temp(params.temperature));
     if let Some(p) = params.top_p {
         sampler_chain.push(LlamaSampler::top_p(p, 1));
     }
+    sampler_chain.push(LlamaSampler::greedy());
     let mut sampler = LlamaSampler::chain_simple(sampler_chain);
 
     // ── 5. トークン生成ループ（サンプル → デコード → mpsc送信 → 次のバッチデコード） ──
