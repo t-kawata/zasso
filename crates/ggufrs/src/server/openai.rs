@@ -1,92 +1,179 @@
-//! OpenAI / Anthropic 互換エンドポイントハンドラ
+//! OpenAI 互換エンドポイントハンドラ
 //!
-//! 3つのハンドラ関数を提供する：
+//! 2つのハンドラ関数を提供する：
 //!
-//! - `openai_chat_handler` — `POST /v1/chat/completions`
+//! - `chat_completions_handler` — `POST /v1/chat/completions`
 //! - `list_models_handler` — `GET /v1/models`
-//! - `anthropic_messages_handler` — `POST /anthropic/v1/messages`
 //!
 //! 全ハンドラは `AppState`（`Arc<dyn InferenceEngine>`）を共有状態として受け取り、
 //! 実際の推論は `InferenceEngine` トレイトのメソッドに委譲する。
 
 use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
+use futures::StreamExt;
 use serde_json::Value;
 
-// [::STUB::] M6-9/M6-11: 全 mistralrs 依存が仮置きにより未使用。M6-9 で自前型に置き換え、M6-11 で削除。
-#[allow(unused_imports)]
-use mistralrs::{ChatCompletionResponse, RequestBuilder, Response, TextMessageRole, TextMessages};
-
 use super::router::{AppError, AppState};
-use crate::error::GgufError;
-
-/// レスポンス本文から messages 配列をパースして TextMessages を構築する
-///
-/// OpenAI 互換形式のリクエストボディから `messages` 配列を抽出し、
-/// mistralrs の TextMessages に変換する。role/content の組を順次追加する。
-/// [::STUB::] M6-9: ハンドラ仮置きにより未使用。M6-9 で削除または自前型版に改修。
-#[allow(dead_code)]
-fn parse_messages(body: &Value) -> TextMessages {
-    let mut text_messages = TextMessages::new();
-    if let Some(messages) = body["messages"].as_array() {
-        for msg in messages {
-            let role = match msg["role"].as_str() {
-                Some("user") => TextMessageRole::User,
-                Some("assistant") => TextMessageRole::Assistant,
-                Some("system") => TextMessageRole::System,
-                Some("tool") => TextMessageRole::Tool,
-                _ => continue,
-            };
-            let content = msg["content"].as_str().unwrap_or("");
-            text_messages = text_messages.add_message(role, content);
-        }
-    }
-    text_messages
-}
-
-/// mistralrs の Response から ChatCompletionResponse を抽出する
-///
-/// Response 列挙型のバリアントに応じて、成功時は ChatCompletionResponse を、
-/// エラー時は AppError を返す。
-/// [::STUB::] M6-9: ハンドラ仮置きにより未使用。M6-9 で削除または自前型版に改修。
-#[allow(dead_code)]
-fn extract_chat_response(response: Response) -> Result<ChatCompletionResponse, AppError> {
-    match response {
-        Response::Done(chat_response) => Ok(chat_response),
-        Response::ModelError(msg, _) => {
-            Err(GgufError::InferenceFailed(Box::new(std::io::Error::other(msg))).into())
-        }
-        Response::InternalError(e) => Err(GgufError::InferenceFailed(e).into()),
-        Response::ValidationError(e) => Err(GgufError::InvalidConfig(e.to_string()).into()),
-        _ => Err(GgufError::InferenceFailed(Box::new(std::io::Error::other(
-            "unexpected response type from mistralrs",
-        )))
-        .into()),
-    }
-}
+use super::types::{
+    ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse, ChatResponseMessage,
+    ChunkChoice, Choice, Delta,
+};
+use crate::inference::GenerateParams;
 
 /// POST /v1/chat/completions — OpenAI 互換チャット補完
 ///
-/// リクエストボディから model 名と messages 配列を抽出し、
-/// llama-cpp-2 の推論エンジンに委譲する。
+/// リクエストボディの `stream` フィールドにより、非ストリーミング（一括 JSON レスポンス）
+/// とストリーミング（SSE 形式）を分岐する。
 ///
-/// [::STUB::] M6-9: send_raw が InferenceEngine トレイトから削除されたため仮置き。
-/// M6-9 で generate/generate_stream を使用した実装に置き換える。
-pub async fn openai_chat_handler(
-    State(_engine): State<AppState>,
-    Json(_body): Json<Value>,
-) -> Result<Json<ChatCompletionResponse>, AppError> {
-    Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "openai_chat_handler pending M6-9",
-    )))
-    .into())
+/// # 引数
+/// - `engine`: InferenceEngine トレイトの共有状態
+/// - `req`: 自前定義の ChatCompletionRequest（JSON デシリアライズ）
+pub async fn chat_completions_handler(
+    State(engine): State<AppState>,
+    Json(req): Json<ChatCompletionRequest>,
+) -> Result<Response, AppError> {
+    if req.stream.unwrap_or(false) {
+        stream_chat_completions(engine, req).await
+    } else {
+        let response = chat_completions_sync(engine, req).await?;
+        Ok(Json(response).into_response())
+    }
+}
+
+/// 非ストリーミングチャット補完 — 一括 JSON レスポンスを返す
+///
+/// ChatCompletionRequest を受け取り、InferenceEngine::generate() を呼び出して
+/// 生成テキストを ChatCompletionResponse にラップして返す。
+async fn chat_completions_sync(
+    engine: AppState,
+    req: ChatCompletionRequest,
+) -> Result<ChatCompletionResponse, AppError> {
+    let model_name = req.model.as_deref().unwrap_or("default");
+    let prompt = build_prompt_from_messages(&req.messages);
+    let params = params_from_request(&req);
+
+    let text = engine.generate(model_name, &prompt, params).await?;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    Ok(ChatCompletionResponse {
+        id: format!("chatcmpl-{now}"),
+        object: "chat.completion".into(),
+        created: now,
+        model: model_name.to_string(),
+        choices: vec![Choice {
+            index: 0,
+            message: ChatResponseMessage {
+                role: "assistant".into(),
+                content: text,
+            },
+            finish_reason: "stop".into(),
+        }],
+        usage: None,
+    })
+}
+
+/// ストリーミングチャット補完 — SSE 形式で逐次出力する
+///
+/// InferenceEngine::generate_stream() から取得したストリームを
+/// SSE（Server-Sent Events）形式で Axum の Response<Body> に変換する。
+/// 各トークンは ChatCompletionChunk としてエンコードされる。
+async fn stream_chat_completions(
+    engine: AppState,
+    req: ChatCompletionRequest,
+) -> Result<Response, AppError> {
+    let model_name = req.model.as_deref().unwrap_or("default");
+    let prompt = build_prompt_from_messages(&req.messages);
+    let params = params_from_request(&req);
+
+    let stream = engine.generate_stream(model_name, &prompt, params).await?;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let chat_id = format!("chatcmpl-{now}");
+    let model = model_name.to_string();
+
+    // 各トークンを SSE チャンクに変換する
+    let sse_stream = stream.map({
+        let chat_id = chat_id.clone();
+        let model = model.clone();
+        move |token_result| -> Result<String, std::convert::Infallible> {
+            match token_result {
+                Ok(token) => {
+                    let chunk = ChatCompletionChunk {
+                        id: chat_id.clone(),
+                        object: "chat.completion.chunk".into(),
+                        created: now,
+                        model: model.clone(),
+                        choices: vec![ChunkChoice {
+                            index: 0,
+                            delta: Delta {
+                                role: None,
+                                content: Some(token),
+                            },
+                            finish_reason: None,
+                        }],
+                    };
+                    Ok(serde_json::to_string(&chunk).unwrap_or_default())
+                }
+                Err(_e) => {
+                    // エラーの場合も SSE 経由でエラーチャンクを送信する
+                    let error_chunk = serde_json::json!({
+                        "error": "inference error"
+                    });
+                    Ok(serde_json::to_string(&error_chunk).unwrap_or_default())
+                }
+            }
+        }
+    });
+
+    let body = axum::body::Body::from_stream(sse_stream);
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/event-stream")
+        .header("Cache-Control", "no-cache")
+        .body(body)
+        .unwrap();
+
+    Ok(response)
+}
+
+/// ChatMessage の配列から推論用のプレーンテキストプロンプトを構築する
+///
+/// OpenAI 互換の messages 形式を、llama-cpp-2 のテキスト生成に適した
+/// 単一文字列に変換する。role と content を交互に並べる。
+fn build_prompt_from_messages(messages: &[super::types::ChatMessage]) -> String {
+    messages
+        .iter()
+        .map(|msg| format!("{}: {}", msg.role, msg.content))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// ChatCompletionRequest から GenerateParams を構築する
+///
+/// リクエストの各オプションフィールドをそのまま GenerateParams にマッピングする。
+fn params_from_request(req: &ChatCompletionRequest) -> GenerateParams {
+    GenerateParams {
+        temperature: req.temperature,
+        max_tokens: req.max_tokens,
+        top_p: req.top_p,
+        presence_penalty: req.presence_penalty,
+        frequency_penalty: req.frequency_penalty,
+    }
 }
 
 /// GET /v1/models — OpenAI 互換モデル一覧
 ///
-/// 現時点ではビルトインモデルの固定一覧を返す。
-/// M4-2 以降で InferenceEngine から動的に取得する形に拡張可能。
+/// ビルトインモデルの固定一覧を返す。
+/// 将来 InferenceEngine から動的に取得する形に拡張可能。
 pub async fn list_models_handler(State(_engine): State<AppState>) -> Json<Value> {
     Json(serde_json::json!({
         "object": "list",
@@ -99,21 +186,43 @@ pub async fn list_models_handler(State(_engine): State<AppState>) -> Json<Value>
     }))
 }
 
-/// POST /anthropic/v1/messages — Anthropic 互換 Messages API
-///
-/// mistralrs は Anthropic 互換型を提供しないため、
-/// llm-bridge-core の transform 関数を用いてリクエスト・レスポンスを
-/// 双方向変換する。
-///
-/// [::STUB::] M6-9: send_raw が InferenceEngine トレイトから削除されたため仮置き。
-/// M6-9 で Anthropic ハンドラ自体を削除予定。
-pub async fn anthropic_messages_handler(
-    State(_engine): State<AppState>,
-    Json(_body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
-    Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "anthropic_messages_handler pending M6-9 (to be deleted)",
-    )))
-    .into())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// build_prompt_from_messages が単一メッセージを正しく変換する
+    #[test]
+    fn build_prompt_joins_single_message() {
+        let messages = vec![super::super::types::ChatMessage {
+            role: "user".into(),
+            content: "Hello".into(),
+        }];
+        let prompt = build_prompt_from_messages(&messages);
+        assert_eq!(prompt, "user: Hello");
+    }
+
+    /// build_prompt_from_messages が複数メッセージを \n 結合する
+    #[test]
+    fn build_prompt_joins_multiple_messages() {
+        let messages = vec![
+            super::super::types::ChatMessage {
+                role: "system".into(),
+                content: "Be helpful.".into(),
+            },
+            super::super::types::ChatMessage {
+                role: "user".into(),
+                content: "Tell me a story.".into(),
+            },
+        ];
+        let prompt = build_prompt_from_messages(&messages);
+        assert_eq!(prompt, "system: Be helpful.\nuser: Tell me a story.");
+    }
+
+    /// build_prompt_from_messages が空配列で空文字列を返す
+    #[test]
+    fn build_prompt_handles_empty_messages() {
+        let messages = vec![];
+        let prompt = build_prompt_from_messages(&messages);
+        assert_eq!(prompt, "");
+    }
 }

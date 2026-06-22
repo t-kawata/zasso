@@ -1,6 +1,6 @@
 //! Axum ルーター
 //!
-//! サーバーエントリポイント。`AppState` を共有状態とし、3つのエンドポイントを
+//! サーバーエントリポイント。`AppState` を共有状態とし、2つのエンドポイントを
 //! Axum Router に登録する。全推論操作は `InferenceEngine` トレイトに委譲する。
 //!
 //! # 型定義
@@ -55,15 +55,11 @@ impl From<GgufError> for AppError {
 
 /// Axum ルーターを構築する
 ///
-/// OpenAI 互換・Anthropic 互換・モデル一覧の3エンドポイントを登録する。
+/// OpenAI 互換チャット補完・モデル一覧の2エンドポイントを登録する。
 pub fn build_router(engine: AppState) -> Router {
     Router::new()
-        .route("/v1/chat/completions", post(openai::openai_chat_handler))
+        .route("/v1/chat/completions", post(openai::chat_completions_handler))
         .route("/v1/models", get(list_models_handler))
-        .route(
-            "/anthropic/v1/messages",
-            post(openai::anthropic_messages_handler),
-        )
         .with_state(engine)
 }
 
@@ -73,13 +69,55 @@ mod tests {
     use crate::inference::tests::MockEngine;
     use axum::body::Body;
     use axum::http::{Method, Request, StatusCode};
+    use futures::stream;
+    use std::pin::Pin;
     use std::sync::Arc;
     use tower::util::ServiceExt;
 
-    // mistralrs の型は tests モジュール内で直接インポートする
-    // [::STUB::] M6-9/M6-11: 全 mistralrs 依存が仮置きにより未使用。M6-9 で削除。
-    #[allow(unused_imports)]
-    use mistralrs::{ChatCompletionResponse, Choice, Response, ResponseMessage, Usage};
+    // ── MockEngine ヘルパー ──
+
+    /// 正常系テスト用の AppState を構築する
+    ///
+    /// generate() が常に指定されたテキストを返すモックエンジンを作成する。
+    fn mock_state_with_success(response_text: &str) -> AppState {
+        let mut mock = MockEngine::new();
+        let text = response_text.to_string();
+        mock.expect_generate()
+            .returning(move |_, _, _| Ok(text.clone()));
+        Arc::new(mock)
+    }
+
+    /// ストリーミング正常系テスト用の AppState を構築する
+    ///
+    /// generate_stream() が常に指定されたチャンクを返すモックエンジンを作成する。
+    fn mock_state_with_success_stream(chunks: Vec<&str>) -> AppState {
+        let mut mock = MockEngine::new();
+        let chunk_strings: Vec<String> = chunks.iter().map(|s| s.to_string()).collect();
+        mock.expect_generate_stream().returning(move |_, _, _| {
+            let iter: Vec<Result<String, GgufError>> = chunk_strings
+                .iter()
+                .map(|s| Ok(s.clone()))
+                .collect();
+            let s: Pin<Box<dyn futures::Stream<Item = Result<String, GgufError>> + Send>> =
+                Box::pin(stream::iter(iter));
+            Ok(s)
+        });
+        Arc::new(mock)
+    }
+
+    /// エラー系テスト用の AppState を構築する
+    ///
+    /// generate() が常に InferenceFailed を返すモックエンジンを作成する。
+    fn mock_state_with_error() -> AppState {
+        let mut mock = MockEngine::new();
+        mock.expect_generate().returning(|_, _, _| {
+            Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "mock inference error",
+            ))))
+        });
+        Arc::new(mock)
+    }
 
     // ── AppError 変換テスト ──
 
@@ -128,16 +166,6 @@ mod tests {
     }
 
     #[test]
-    fn llama_cpp_error_returns_500() {
-        // [::STUB::] M6-11 で `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
-        let err = GgufError::LlamaCppError(mistralrs::error::Error::ModelLoad(Box::new(
-            std::io::Error::new(std::io::ErrorKind::Other, "llama-cpp error"),
-        )));
-        let (status, _) = AppError::from(err);
-        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    #[test]
     fn app_error_contains_error_field() {
         let err = GgufError::InvalidConfig("bad".into());
         let (_, Json(body)) = AppError::from(err);
@@ -149,41 +177,28 @@ mod tests {
 
     // ── ルーティングテスト ──
 
-    fn mock_app_state() -> AppState {
-        let mut mock = MockEngine::new();
-
-        // [::STUB::] M6-9: send_raw → generate に差し替え。M6-9 で完全除去。
-        mock.expect_generate().returning(|_, _, _| {
-            Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "not called in routing test",
-            ))))
-        });
-
-        Arc::new(mock)
-    }
-
     #[tokio::test]
-    async fn post_chat_completions_returns_200_or_400() {
-        let app = build_router(mock_app_state());
+    async fn chat_completions_non_stream_returns_200() {
+        let app = build_router(mock_state_with_success("Hello!"));
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/v1/chat/completions")
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"model":"test","messages":[]}"#))
+                    .body(Body::from(
+                        r#"{"model":"test","messages":[{"role":"user","content":"Hi"}]}"#,
+                    ))
                     .unwrap(),
             )
             .await
             .unwrap();
-        // send_raw が Err を返すので 500。正常系は openai.rs の結合テストで確認
-        assert!(response.status() == StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
     async fn get_models_returns_200() {
-        let app = build_router(mock_app_state());
+        let app = build_router(mock_state_with_error());
         let response = app
             .oneshot(
                 Request::builder()
@@ -198,26 +213,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn post_anthropic_messages_returns_200_or_400() {
-        let app = build_router(mock_app_state());
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method(Method::POST)
-                    .uri("/anthropic/v1/messages")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"model":"test","messages":[]}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        // send_raw が Err → 500
-        assert!(response.status() == StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    #[tokio::test]
     async fn unknown_path_returns_404() {
-        let app = build_router(mock_app_state());
+        let app = build_router(mock_state_with_error());
         let response = app
             .oneshot(
                 Request::builder()
@@ -233,7 +230,7 @@ mod tests {
 
     #[tokio::test]
     async fn wrong_method_returns_405() {
-        let app = build_router(mock_app_state());
+        let app = build_router(mock_state_with_error());
         let response = app
             .oneshot(
                 Request::builder()
@@ -247,12 +244,12 @@ mod tests {
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
-    // ── openai_chat_handler 結合テスト（MockEngine 使用） ──
+    // ── chat_completions_handler 結合テスト（MockEngine 使用） ──
 
-    // [::STUB::] M6-9: send_raw → generate に差し替え。M6-9 でアサーションも再設計。
+    /// 正常系: 非ストリーミングリクエストが ChatCompletionResponse JSON を返す
     #[tokio::test]
     async fn openai_handler_returns_chat_completion() {
-        let app = build_router(mock_app_state());
+        let app = build_router(mock_state_with_success("Hello from model!"));
         let response = app
             .oneshot(
                 Request::builder()
@@ -267,14 +264,25 @@ mod tests {
             .await
             .unwrap();
 
-        // [::STUB::] M6-9: ハンドラが仮置きのため 500 が返る。M6-9 で正常系テストを再実装する。
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // レスポンスボディが適切な ChatCompletionResponse 形式であることを確認
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&body_bytes).unwrap();
+        assert_eq!(body["object"], "chat.completion");
+        assert_eq!(body["choices"][0]["message"]["content"], "Hello from model!");
+        assert_eq!(body["choices"][0]["finish_reason"], "stop");
+        assert!(body.get("id").is_some());
+        assert!(body.get("created").is_some());
+        assert!(body.get("model").is_some());
     }
 
-    // [::STUB::] M6-9: send_raw → generate に差し替え。M6-9 で再設計。
+    /// 異常系: generate() がエラーを返した場合に 500 が返る
     #[tokio::test]
-    async fn openai_handler_returns_error_on_send_raw_failure() {
-        let app = build_router(mock_app_state());
+    async fn openai_handler_returns_error_on_generate_failure() {
+        let app = build_router(mock_state_with_error());
         let response = app
             .oneshot(
                 Request::builder()
@@ -292,11 +300,59 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
+    /// ストリーミング: stream=true で SSE レスポンスが返る
+    #[tokio::test]
+    async fn openai_handler_stream_returns_sse() {
+        let app = build_router(mock_state_with_success_stream(vec!["Hello", " world"]));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/chat/completions")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"model":"test","messages":[{"role":"user","content":"Hi"}],"stream":true}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("content-type").map(|v| v.as_bytes()),
+            Some(&b"text/event-stream"[..])
+        );
+    }
+
+    // ── Anthropic エンドポイント不在確認 ──
+
+    /// Anthropic エンドポイントが存在しない（404）
+    #[tokio::test]
+    async fn anthropic_endpoint_returns_404() {
+        let app = build_router(mock_state_with_error());
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/anthropic/v1/messages")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"model":"test","messages":[{"role":"user","content":"Hi"}]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
     // ── list_models_handler 結合テスト ──
 
     #[tokio::test]
     async fn list_models_returns_valid_json() {
-        let app = build_router(mock_app_state());
+        let app = build_router(mock_state_with_error());
         let response = app
             .oneshot(
                 Request::builder()
@@ -316,54 +372,5 @@ mod tests {
         let body: Value = serde_json::from_slice(&body_bytes).unwrap();
         assert!(body.get("object").is_some());
         assert!(body.get("data").is_some());
-    }
-
-    // ── anthropic_messages_handler 結合テスト ──
-
-    // [::STUB::] M6-9: send_raw → generate に差し替え。M6-9 で Anthropic ハンドラ自体を削除予定。
-    #[tokio::test]
-    async fn anthropic_handler_returns_anthropic_format() {
-        let app = build_router(mock_app_state());
-        let anthropic_body = serde_json::json!({
-            "model": "claude-3",
-            "messages": [
-                {"role": "user", "content": "Hello"}
-            ],
-            "max_tokens": 256
-        });
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method(Method::POST)
-                    .uri("/anthropic/v1/messages")
-                    .header("content-type", "application/json")
-                    .body(Body::from(anthropic_body.to_string()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        // [::STUB::] M6-9: ハンドラが仮置きのため 500。M6-9 で Anthropic ハンドラ削除と共にテスト削除。
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    // [::STUB::] M6-9: ハンドラが仮置きのため常に 500。M6-9 でハンドラ削除と共にテスト削除。
-    #[tokio::test]
-    async fn anthropic_handler_empty_body_returns_400() {
-        let app = build_router(mock_app_state());
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method(Method::POST)
-                    .uri("/anthropic/v1/messages")
-                    .header("content-type", "application/json")
-                    .body(Body::from("{}"))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }

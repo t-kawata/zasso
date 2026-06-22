@@ -812,7 +812,7 @@
 
 ### マイルストーン M6-3: サーバー層置き換え — Layer 3
 
-#### チケット M6-9: server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除
+#### ✅ チケット M6-9: server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除
 
 * **参照設計書:** crates/ggufrs/RFC.md (§6.1 アーキテクチャ, §6.3 ルーター)
 * **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）。先行実装必須: M6-5（InferenceEngine トレイト）。
