@@ -6,4 +6,3 @@
 - [x] #4 Dual Client TestContext utility（P2） | /Users/shyme/shyme/zasso/tickets/specs/0004-dual-client-testcontext-utilityp2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #6 Layer 4 相互接続試験 + 新機能テスト層マッピング（P0） | /Users/shyme/shyme/zasso/tickets/specs/0006-layer-4-p0.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #7 M20-13: 受け入れ基準検証・リリース判定（RFC02 対応版） | /Users/shyme/shyme/zasso/tickets/specs/0007-m20-13-rfc02.md | 2026-06-22 | 2026-06-22 | 2026-06-22
-- [ ] #8 AudioWorker Tap 配送実装 — PairAligner の AudioChunkPair 変換と account_id 解決 | /Users/shyme/shyme/zasso/tickets/specs/0008-audioworker-tap-pairaligner-audiochunkpair-account-id.md | 2026-06-22
