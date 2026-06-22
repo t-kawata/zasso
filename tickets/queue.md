@@ -248,6 +248,8 @@
 - [x] #181 M3: make/plan/start/review への Malfeasance.json 統合 | /Users/shyme/shyme/zasso/tickets/specs/0181-m3-makeplanstartreview-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #184 RuntimeCommand 新設 — GetAccountInfo / ConfConnect / ConfDisconnect（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0184-runtimecommand-getaccountinfo-confconnect-confdisconnectp0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1） | /Users/shyme/shyme/zasso/tickets/specs/0185-pjsuabackend-configure-codecs-auto-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #184 観測可能性・メトリクス配線 + tracing instrumentation | /Users/shyme01/shyme/zasso/tickets/specs/0184-tracing-instrumentation.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #185 integration-test feature + テスト環境整備 | /Users/shyme01/shyme/zasso/tickets/specs/0185-integration-test-feature.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #186 Crateレベル属性 + ProxyServer再公開（M#1） | /Users/shyme01/shyme/zasso/tickets/specs/0186-crate-proxyserverm1.md | 2026-06-22

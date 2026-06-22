@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-22T01:41:33.107Z",
+  "nodes": [
+    {
+      "id": "event-completeness",
+      "title": "NativeEvent → SipEventPayload 変換の完全網羅設計",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.455Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": [
+        {
+          "id": "registration-state-query",
+          "title": "RegistrationStateChanged は RuntimeCommand(GetAccountInfo) 経由で状態取得",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:23:19.354Z",
+              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "api-sync",
+      "title": "公開APIの同期設計（blocking_read 問題の解決）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "dtmf-event",
+      "title": "DTMF 送信結果のイベント設計（戻り値 vs DtmfSent 二重管理）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": [
+        {
+          "id": "dtmf-sent-fallback",
+          "title": "DtmfSent: PJSIP callback不在時はタイムアウト(500ms)ベースで発火",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:41:33.106Z",
+              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "state-sync",
+      "title": "Reactor スレッド間状態同期の設計（RwLock 問題）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "audio-subscribe",
+      "title": "SubscribeAudio リアクターハンドラの実装設計",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "backend-completeness",
+      "title": "PjsuaBackend メソッド完全化（conf_connect/codecs）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": [
+        {
+          "id": "conf-connect-args",
+          "title": "conf_connect RuntimeCommand 引数は CallId + CallMediaDirection で抽象化",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:23:19.353Z",
+              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+            }
+          ],
+          "children": [
+            {
+              "id": "conf-port-mgmt",
+              "title": "conf_port_id管理: PjsuaBackend内部で解決(RuntimeはCallIdのみ意識)",
+              "status": "resolved",
+              "questions": [
+                {
+                  "resolvedAt": "2026-06-22T01:41:33.106Z",
+                  "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "codec-policy-default",
+          "title": "configure_codecs: 明示指定を基本とし、auto時のみ Opus優先=255/PCMU=254",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:23:19.354Z",
+              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "error-kind-new-cmds",
+          "title": "新RuntimeCommandのSipErrorKindは既存バリアント(InvalidState/NotFound/InternalError)で兼用",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:41:33.106Z",
+              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "shutdown-cmd-policy",
+          "title": "Shutdown中: GetAccountInfoは許可、conf_connect/disconnectは拒否",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:41:33.106Z",
+              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "test-strategy",
+      "title": "統合テスト補強戦略（プレースホルダー解決）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": [
+        {
+          "id": "dual-client-arch",
+          "title": "Dual Client: 同一PjsuaBackend singleton を複数Clientで共有",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:23:19.354Z",
+              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+            }
+          ],
+          "children": [
+            {
+              "id": "pjsip-callback-routing",
+              "title": "Dual Client routing: 単一Reactor + EventBus分割 (global_runtime維持)",
+              "status": "resolved",
+              "questions": [
+                {
+                  "resolvedAt": "2026-06-22T01:41:33.106Z",
+                  "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "test-layer-mapping",
+          "title": "新機能のテスト層マッピングは既存Section43に追記",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T01:41:33.106Z",
+              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "env-ci",
+      "title": "Docker/CI 環境整備とビルド自動化",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T01:06:40.456Z",
+          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+        }
+      ],
+      "children": []
+    }
+  ]
+}

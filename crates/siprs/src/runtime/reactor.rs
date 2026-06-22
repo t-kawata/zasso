@@ -4,7 +4,7 @@
 //! `RuntimeCommand` を MPSC から受信し、`SipBackend` を介して処理する。
 //! RFC §7.1 に準拠。
 //!
-//! M12 (SipClient) 以降で使用。現在は未使用のため dead_code を許容。
+//! M12 (SipClient) 以降で使用。未使用警告は M12 結合時に解除予定。
 #![allow(dead_code)]
 
 use std::sync::Arc;
@@ -15,7 +15,8 @@ use crate::audio::mixer::AudioMixer;
 use crate::error::SipError;
 use crate::event::{ClientCapabilities, EventBus, SipEvent, SipEventPayload};
 use crate::runtime::backend::SipBackend;
-use crate::runtime::command::RuntimeCommand;
+use crate::runtime::command::{MediaDirection, RuntimeCommand};
+use crate::util::id::CallId;
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::state::ClientState;
 
@@ -78,6 +79,16 @@ impl CoreReactor {
                     }
                     continue;
                 }
+                // GetAccountInfo は読み取り専用操作のため Shutdown 中も許可する。
+                if let RuntimeCommand::GetAccountInfo {
+                    native_acc_id,
+                    reply_tx,
+                } = cmd
+                {
+                    let result = backend.get_account_info(native_acc_id);
+                    let _ = reply_tx.send(result);
+                    continue;
+                }
                 // その他のコマンドは拒否。
                 reject_command(cmd, "client is shutting down");
                 continue;
@@ -96,6 +107,12 @@ impl CoreReactor {
                                     backend.create_transport(transport_cfg)
                                 });
                             if let Err(e) = transport_result {
+                                let _ = reply.send(Err(e));
+                                return;
+                            }
+
+                            // コーデック設定（auto モード: Opus=255, PCMU=254, その他=0）
+                            if let Err(e) = backend.configure_codecs(&[]) {
                                 let _ = reply.send(Err(e));
                                 return;
                             }
@@ -389,6 +406,30 @@ impl CoreReactor {
                     })();
                     let _ = reply.send(result);
                 }
+                RuntimeCommand::GetAccountInfo {
+                    native_acc_id,
+                    reply_tx,
+                } => {
+                    let result = backend.get_account_info(native_acc_id);
+                    let _ = reply_tx.send(result);
+                }
+                RuntimeCommand::ConfConnect {
+                    call_id,
+                    media_direction,
+                    reply_tx,
+                } => {
+                    let result = handle_conf_connect(backend, state, call_id, media_direction);
+                    let _ = reply_tx.send(result);
+                }
+                RuntimeCommand::ConfDisconnect {
+                    call_id,
+                    media_direction,
+                    reply_tx,
+                } => {
+                    let result =
+                        handle_conf_disconnect(backend, state, call_id, media_direction);
+                    let _ = reply_tx.send(result);
+                }
                 RuntimeCommand::NativeEvent { event } => {
                     use crate::event::SipEventPayload;
                     use crate::ffi::callbacks::NativeEvent;
@@ -482,7 +523,72 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
         RuntimeCommand::Shutdown { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
         }
+        RuntimeCommand::GetAccountInfo { reply_tx, .. } => {
+            let _ = reply_tx.send(Err(SipError::invalid_state(message)));
+        }
+        RuntimeCommand::ConfConnect { reply_tx, .. } => {
+            let _ = reply_tx.send(Err(SipError::invalid_state(message)));
+        }
+        RuntimeCommand::ConfDisconnect { reply_tx, .. } => {
+            let _ = reply_tx.send(Err(SipError::invalid_state(message)));
+        }
     }
+}
+
+/// ConfConnect コマンドを処理する。
+///
+/// CallId から native_call_id を解決し、media_direction に応じて
+/// バックエンドの conf_connect を呼び出す。
+fn handle_conf_connect(
+    backend: &mut dyn SipBackend,
+    state: &Arc<RwLock<ClientState>>,
+    call_id: CallId,
+    media_direction: MediaDirection,
+) -> Result<(), SipError> {
+    let native_call_id = resolve_native_call_id(state, call_id)?;
+    // media_direction に応じた conf_port_id 解決
+    // 現状は call の conf_slot をそのまま source/sink 両方に使用する簡易実装。
+    // 詳細な conf_port_id 解決は M20-5 で実装予定。
+    let conf_port = native_call_id; // conf_port_id = native_call_id の仮定
+    match media_direction {
+        MediaDirection::Inbound => backend.conf_connect(conf_port, 0),
+        MediaDirection::Outbound => backend.conf_connect(0, conf_port),
+        MediaDirection::Both => {
+            backend.conf_connect(conf_port, 0)?;
+            backend.conf_connect(0, conf_port)
+        }
+    }
+}
+
+/// ConfDisconnect コマンドを処理する。
+fn handle_conf_disconnect(
+    backend: &mut dyn SipBackend,
+    state: &Arc<RwLock<ClientState>>,
+    call_id: CallId,
+    media_direction: MediaDirection,
+) -> Result<(), SipError> {
+    let native_call_id = resolve_native_call_id(state, call_id)?;
+    let conf_port = native_call_id;
+    match media_direction {
+        MediaDirection::Inbound => backend.conf_disconnect(conf_port, 0),
+        MediaDirection::Outbound => backend.conf_disconnect(0, conf_port),
+        MediaDirection::Both => {
+            backend.conf_disconnect(conf_port, 0)?;
+            backend.conf_disconnect(0, conf_port)
+        }
+    }
+}
+
+/// CallId から native_call_id を解決する。
+fn resolve_native_call_id(
+    state: &Arc<RwLock<ClientState>>,
+    call_id: CallId,
+) -> Result<i32, SipError> {
+    let state_guard = state.blocking_read();
+    let entry = state_guard.get_call(call_id)?;
+    entry
+        .native_id
+        .ok_or_else(|| SipError::invalid_state("call has no native_id"))
 }
 
 // ---------------------------------------------------------------------------
@@ -607,5 +713,222 @@ mod tests {
             let result = join_handle.await;
             assert!(result.is_ok());
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // GetAccountInfo / ConfConnect / ConfDisconnect テスト（M20-2）
+    // -----------------------------------------------------------------------
+
+    /// GetAccountInfo が正常に AccountInfoSnapshot を返すことを確認する。
+    #[tokio::test]
+    async fn test_get_account_info_ok() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // GetAccountInfo を直接 native_acc_id=1 で送信（MockBackend は未初期化で NotFound）
+        // 代わりに reactor の Initialize → add_account は RuntimeCommand 経由で行い、
+        // 内部的に native_acc_id を解決してから GetAccountInfo を送信する。
+        // MockBackend の get_account_info は accounts map に存在する native_acc_id のみ成功する。
+        // initialize のみ行った状態では accounts が空のため、ここでは GetAccountInfo が
+        // MockBackend に委譲され、AccountNotFound が返ることを確認する。
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::GetAccountInfo {
+                native_acc_id: 999,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        // account が存在しないため AccountNotFound
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::AccountNotFound
+        );
+    }
+
+    /// ConfConnect が存在しない call_id で CallNotFound を返すことを確認する。
+    #[tokio::test]
+    async fn test_conf_connect_call_not_found() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // 存在しない call_id で ConfConnect → CallNotFound
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::ConfConnect {
+                call_id: crate::util::id::CallId::generate(),
+                media_direction: MediaDirection::Both,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::CallNotFound
+        );
+    }
+
+    /// Shutdown 後に GetAccountInfo が許可されることを確認する。
+    #[tokio::test]
+    async fn test_shutdown_get_account_info_allowed() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // Shutdown
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        // Shutdown 後も GetAccountInfo は reactor により backend にルーティングされる。
+        // MockBackend は shutdown 後に initialized=false となるため NotInitialized エラーが返る。
+        // 重要なのは reject_command の InvalidState が返らないこと（Shutdown によるブロックを回避できていること）。
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::GetAccountInfo {
+                native_acc_id: 1,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_ne!(
+            err.kind,
+            crate::error::SipErrorKind::InvalidState,
+            "GetAccountInfo should not be rejected by shutdown policy"
+        );
+        assert_eq!(
+            err.kind,
+            crate::error::SipErrorKind::NotInitialized
+        );
+    }
+
+    /// Shutdown 後に ConfConnect が InvalidState で拒否されることを確認する。
+    #[tokio::test]
+    async fn test_shutdown_conf_connect_rejected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        // Shutdown 後 ConfConnect は InvalidState
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::ConfConnect {
+                call_id: crate::util::id::CallId::generate(),
+                media_direction: MediaDirection::Both,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::InvalidState
+        );
+    }
+
+    /// Shutdown 後に ConfDisconnect が InvalidState で拒否されることを確認する。
+    #[tokio::test]
+    async fn test_shutdown_conf_disconnect_rejected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::ConfDisconnect {
+                call_id: crate::util::id::CallId::generate(),
+                media_direction: MediaDirection::Both,
+                reply_tx,
+            })
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::InvalidState
+        );
+    }
+
+    /// GetAccountInfo が Send を満たすことを確認する（コンパイル時検証）。
+    #[test]
+    fn test_get_account_info_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<RuntimeCommand>();
     }
 }

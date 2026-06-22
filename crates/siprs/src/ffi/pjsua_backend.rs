@@ -12,8 +12,10 @@
 //! # dead_code 抑制
 //!
 //! `pjsip` feature 有効時、テストにしか使われない型・定数が未使用と判定される。
-//! これらは後続チケットで実際の FFI 呼び出しが実装されたタイミングで必要になる。
-#![cfg_attr(feature = "pjsip", allow(dead_code))]
+//! `pjsip` feature 無効時もシングルトン基盤が未使用と判定される。
+//! いずれも後続チケット（M17-4 以降）で実際の FFI 呼び出しが実装されるタイミングで必要になる。
+//! M20-2 の get_account_info 追加により一部使用されたが、シングルトン基盤自体はまだ全結合されていない。
+#![allow(dead_code)]
 
 use std::sync::{Mutex, OnceLock};
 
@@ -22,6 +24,7 @@ use secrecy::ExposeSecret;
 
 use crate::config::AccountConfig;
 use crate::config::ClientConfig;
+use crate::config::Codec;
 use crate::config::DtmfMethod;
 use crate::config::OutgoingCallRequest;
 use crate::config::TransportConfig;
@@ -31,15 +34,16 @@ use crate::runtime::backend::NativeAccId;
 use crate::runtime::backend::NativeCallId;
 use crate::runtime::backend::NativeConfPortId;
 use crate::runtime::backend::SipBackend;
+use crate::runtime::command::AccountInfoSnapshot;
 
 // ---------------------------------------------------------------------------
 // コーデック優先度定数
 // ---------------------------------------------------------------------------
 
-/// PCMU/8000 の優先度（最高）。
-pub(crate) const CODEC_PRIO_PCMU: u8 = 255;
-/// Opus 系コーデックの優先度。
-pub(crate) const CODEC_PRIO_OPUS: u8 = 254;
+/// PCMU/8000 の優先度（Opus 非対応環境向けフォールバック）。
+pub(crate) const CODEC_PRIO_PCMU: u8 = 254;
+/// Opus 系コーデックの最優先度。
+pub(crate) const CODEC_PRIO_OPUS: u8 = 255;
 /// 無効化するコーデックの優先度。
 pub(crate) const CODEC_PRIO_DISABLED: u8 = 0;
 
@@ -115,14 +119,20 @@ impl SipBackend for PjsuaBackendRef {
     fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError> {
         global().lock().unwrap().hangup(native_call_id)
     }
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        global().lock().unwrap().get_account_info(native_acc_id)
+    }
     fn conf_connect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
         global().lock().unwrap().conf_connect(src, dst)
     }
     fn conf_disconnect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
         global().lock().unwrap().conf_disconnect(src, dst)
     }
-    fn configure_codecs(&mut self) -> Result<(), SipError> {
-        global().lock().unwrap().configure_codecs()
+    fn configure_codecs(&mut self, preferred: &[Codec]) -> Result<(), SipError> {
+        global().lock().unwrap().configure_codecs(preferred)
     }
     fn send_dtmf(&mut self, native_call_id: NativeCallId, method: &DtmfMethod, digits: &str) -> Result<(), SipError> {
         global().lock().unwrap().send_dtmf(native_call_id, method, digits)
@@ -484,6 +494,44 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        use crate::ffi::bindings;
+        use crate::util::id::AccountId;
+
+        unsafe {
+            let mut acc_info: bindings::pjsua_acc_info = std::mem::zeroed();
+            let status = bindings::pjsua_acc_get_info(
+                native_acc_id as bindings::pjsua_acc_id,
+                &mut acc_info as *mut _,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_acc_get_info"));
+            }
+
+            // pjsua_acc_info から URI 文字列を抽出
+            let uri_bytes = std::slice::from_raw_parts(
+                acc_info.acc_uri.ptr as *const u8,
+                acc_info.acc_uri.slen as usize,
+            );
+            let uri = String::from_utf8_lossy(uri_bytes).into_owned();
+
+            Ok(AccountInfoSnapshot {
+                acc_id: AccountId::from(native_acc_id as u64),
+                registration_status: acc_info.status as u16,
+                registration_expires: if acc_info.expires >= 0 {
+                    Some(acc_info.expires as u32)
+                } else {
+                    None
+                },
+                online_status: acc_info.online_status != 0,
+                uri,
+            })
+        }
+    }
+
     fn conf_connect(
         &mut self,
         source: NativeConfPortId,
@@ -520,55 +568,142 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
-    fn configure_codecs(&mut self) -> Result<(), SipError> {
+    fn configure_codecs(&mut self, preferred: &[Codec]) -> Result<(), SipError> {
+        if preferred.is_empty() {
+            // Auto モード: Opus=255, PCMU=254, その他=0
+            self.set_opus_priority()?;
+            self.set_pcmu_priority()?;
+            self.disable_other_codecs()?;
+        } else {
+            // 明示指定モード: 指定順に優先度設定、指定外は無効化
+            self.apply_preferred_codecs(preferred)?;
+        }
+        Ok(())
+    }
+
+    /// PCMU/8000/1 をフォールバック優先度（CODEC_PRIO_PCMU = 254）に設定する。
+    fn set_pcmu_priority(&self) -> Result<(), SipError> {
         use crate::ffi::bindings;
+        // SAFETY: pj_str_t は静的なバイト列で初期化され、この呼び出し中のみ有効。
+        // pjsua_codec_set_priority は内部で文字列をコピーする。
         unsafe {
-            // PCMU（G.711 μ-law）= 最高優先度
-            let pcmu: bindings::pj_str_t = bindings::pj_str_t {
+            let codec_id: bindings::pj_str_t = bindings::pj_str_t {
                 ptr: b"PCMU/8000/1\0" as *const u8 as *mut ::std::os::raw::c_char,
                 slen: 10,
             };
-            let mut status = bindings::pjsua_codec_set_priority(&pcmu as *const _, CODEC_PRIO_PCMU);
+            let status = bindings::pjsua_codec_set_priority(&codec_id as *const _, CODEC_PRIO_PCMU);
             if status != 0 {
-                return Err(pj_status_to_sip_error(
-                    status,
-                    "pjsua_codec_set_priority PCMU",
-                ));
+                return Err(pj_status_to_sip_error(status, "pjsua_codec_set_priority PCMU"));
             }
+        }
+        Ok(())
+    }
 
-            // Opus（利用可能な場合）= 高優先度
-            let opus: bindings::pj_str_t = bindings::pj_str_t {
+    /// Opus/48000/2 を最優先度（CODEC_PRIO_OPUS = 255）に設定する。
+    ///
+    /// Opus がシステムにインストールされていない場合の失敗は無視する。
+    fn set_opus_priority(&self) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        // SAFETY: PCMU と同様に静的文字列で初期化し、API 内でコピーされる。
+        unsafe {
+            let codec_id: bindings::pj_str_t = bindings::pj_str_t {
                 ptr: b"opus/48000/2\0" as *const u8 as *mut ::std::os::raw::c_char,
                 slen: 12,
             };
-            status = bindings::pjsua_codec_set_priority(&opus as *const _, CODEC_PRIO_OPUS);
+            let status = bindings::pjsua_codec_set_priority(&codec_id as *const _, CODEC_PRIO_OPUS);
             if status != 0 {
-                // Opus 未インストールの場合は無視
+                tracing::debug!("Opus codec not available (status={status}), skipping");
             }
+        }
+        Ok(())
+    }
 
-            // PCMU/Opus 以外の全コーデックを無効化
+    /// PCMU/Opus 以外の全コーデックを無効化する（priority = 0）。
+    fn disable_other_codecs(&self) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        // SAFETY: pjsua_enum_codecs は事前に確保したバッファに結果を書き込む。
+        // count は呼び出し後に実際に書き込まれた要素数で上書きされる。
+        unsafe {
             let mut count: ::std::os::raw::c_uint = 128;
             let mut codecs: Vec<bindings::pjsua_codec_info> =
                 vec![std::mem::zeroed(); count as usize];
-            status = bindings::pjsua_enum_codecs(codecs.as_mut_ptr(), &mut count as *mut _);
-            if status == 0 {
-                for codec in codecs.iter().take(count as usize) {
-                    let codec_id = &codec.codec_id;
-                    let name_bytes = std::slice::from_raw_parts(
-                        codec_id.ptr as *const u8,
-                        codec_id.slen as usize,
+            let status = bindings::pjsua_enum_codecs(codecs.as_mut_ptr(), &mut count as *mut _);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_enum_codecs"));
+            }
+            for codec in codecs.iter().take(count as usize) {
+                let codec_id_str = Self::codec_id_to_str(&codec.codec_id);
+                if codec_id_str != "PCMU/8000/1" && !codec_id_str.starts_with("opus/") {
+                    let _ = bindings::pjsua_codec_set_priority(
+                        &codec.codec_id as *const _,
+                        CODEC_PRIO_DISABLED,
                     );
-                    let name = std::str::from_utf8_unchecked(name_bytes);
-                    if name != "PCMU/8000/1" && !name.starts_with("opus/") {
-                        let _ = bindings::pjsua_codec_set_priority(
-                            codec_id as *const _,
-                            CODEC_PRIO_DISABLED,
-                        );
-                    }
                 }
             }
         }
         Ok(())
+    }
+
+    /// 明示指定モード: `preferred` の順序に従い、指定されたコーデックを有効化し、
+    /// それ以外を無効化する。
+    fn apply_preferred_codecs(&self, preferred: &[Codec]) -> Result<(), SipError> {
+        use crate::ffi::bindings;
+        // 先に全コーデックを無効化する
+        // SAFETY: pjsua_enum_codecs バッファの事前確保。呼び出し後に count が更新される。
+        unsafe {
+            let mut count: ::std::os::raw::c_uint = 128;
+            let mut codecs: Vec<bindings::pjsua_codec_info> =
+                vec![std::mem::zeroed(); count as usize];
+            let status = bindings::pjsua_enum_codecs(codecs.as_mut_ptr(), &mut count as *mut _);
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_enum_codecs"));
+            }
+            for codec in codecs.iter().take(count as usize) {
+                let _ = bindings::pjsua_codec_set_priority(
+                    &codec.codec_id as *const _,
+                    CODEC_PRIO_DISABLED,
+                );
+            }
+        }
+
+        // 指定順に優先度を設定（先頭 = 最高 priority 255, 以降 1 ずつ減少）
+        for (i, codec) in preferred.iter().enumerate() {
+            let priority = (255u8).saturating_sub(i as u8);
+            let codec_id_bytes = match codec {
+                Codec::Pcmu => b"PCMU/8000/1\0" as &[u8],
+                Codec::Opus => b"opus/48000/2\0" as &[u8],
+            };
+            // SAFETY: 静的文字列を pj_str_t に変換し pjsua_codec_set_priority を呼ぶ。
+            // API 内で文字列はコピーされる。
+            unsafe {
+                let pj_codec_id: bindings::pj_str_t = bindings::pj_str_t {
+                    ptr: codec_id_bytes.as_ptr() as *const u8 as *mut ::std::os::raw::c_char,
+                    slen: codec_id_bytes.len() as ::std::os::raw::c_long - 1, // null 終端除く
+                };
+                let status =
+                    bindings::pjsua_codec_set_priority(&pj_codec_id as *const _, priority);
+                if status != 0 {
+                    let codec_name = match codec {
+                        Codec::Pcmu => "PCMU",
+                        Codec::Opus => "Opus",
+                    };
+                    tracing::debug!("{codec_name} codec not available (status={status}), skipping");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// `pj_str_t` のバイト列を `&str` として解釈する。
+    ///
+    /// PJSIP が返す codec_id は有効な UTF-8 として扱う（`pj_str_t` は C の文字列）。
+    /// 不正な UTF-8 の場合は代替文字列を返す。
+    // SAFETY: pj_str_t.ptr は有効なメモリ領域を指し、slen はその長さを表す。
+    fn codec_id_to_str(codec_id: &bindings::pj_str_t) -> &str {
+        unsafe {
+            let bytes = std::slice::from_raw_parts(codec_id.ptr as *const u8, codec_id.slen as usize);
+            std::str::from_utf8_unchecked(bytes)
+        }
     }
 
     fn send_dtmf(
@@ -679,6 +814,13 @@ impl SipBackend for PjsuaBackend {
         unimplemented!("PjsuaBackend::hangup requires PJSIP headers")
     }
 
+    fn get_account_info(
+        &self,
+        _native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        unimplemented!("PjsuaBackend::get_account_info requires PJSIP headers (enable 'pjsip' feature, see M19-1)")
+    }
+
     fn conf_connect(
         &mut self,
         _source: NativeConfPortId,
@@ -695,7 +837,7 @@ impl SipBackend for PjsuaBackend {
         unimplemented!("PjsuaBackend::conf_disconnect requires PJSIP headers")
     }
 
-    fn configure_codecs(&mut self) -> Result<(), SipError> {
+    fn configure_codecs(&mut self, _preferred: &[Codec]) -> Result<(), SipError> {
         unimplemented!("PjsuaBackend::configure_codecs requires PJSIP headers")
     }
 
@@ -789,10 +931,18 @@ mod tests {
     }
 
     /// configure_codecs の優先度定数が期待値と一致することを確認する。
+    ///
+    /// RFC02 §6.4 に従い Opus=255（最優先）、PCMU=254（フォールバック）。
     #[test]
     fn test_codec_priority_constants() {
-        assert_eq!(CODEC_PRIO_PCMU, 255);
-        assert_eq!(CODEC_PRIO_OPUS, 254);
-        assert_eq!(CODEC_PRIO_DISABLED, 0);
+        assert_eq!(
+            CODEC_PRIO_OPUS, 255,
+            "Opus は最高優先度 (255) — RFC02 §6.4"
+        );
+        assert_eq!(
+            CODEC_PRIO_PCMU, 254,
+            "PCMU は Opus 非対応環境用フォールバック (254) — RFC02 §6.4"
+        );
+        assert_eq!(CODEC_PRIO_DISABLED, 0, "無効化コーデックは priority 0");
     }
 }

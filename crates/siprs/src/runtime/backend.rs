@@ -7,10 +7,11 @@
 #![allow(dead_code)]
 
 use crate::config::{
-    AccountConfig, ClientConfig, DtmfMethod, OutgoingCallRequest, TransportConfig,
+    AccountConfig, ClientConfig, Codec, DtmfMethod, OutgoingCallRequest, TransportConfig,
 };
 use crate::error::SipError;
 use crate::event::ClientCapabilities;
+use crate::runtime::command::AccountInfoSnapshot;
 
 // ---------------------------------------------------------------------------
 // ネイティブ ID 型エイリアス
@@ -75,6 +76,12 @@ pub(crate) trait SipBackend: Send {
     /// 通話を切断する。
     fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError>;
 
+    /// アカウント情報を取得する（読み取り専用）。
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError>;
+
     /// カンファレンスポートを接続する。
     fn conf_connect(
         &mut self,
@@ -90,7 +97,10 @@ pub(crate) trait SipBackend: Send {
     ) -> Result<(), SipError>;
 
     /// コーデック設定を行う。
-    fn configure_codecs(&mut self) -> Result<(), SipError>;
+    ///
+    /// `preferred` が空の場合は auto モード（Opus=255, PCMU=254, その他無効）。
+    /// 非空の場合は明示指定モード（指定順に優先度設定、指定外無効）。
+    fn configure_codecs(&mut self, preferred: &[Codec]) -> Result<(), SipError>;
 
     /// DTMF 信号を送信する。
     fn send_dtmf(
@@ -295,6 +305,30 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        self.ensure_initialized()?;
+        if !self.accounts.contains_key(&native_acc_id) {
+            return Err(SipError {
+                kind: crate::error::SipErrorKind::AccountNotFound,
+                message: format!("account {} not found in mock backend", native_acc_id),
+                native_status: None,
+                account_id: None,
+                call_id: None,
+                retryable: false,
+            });
+        }
+        Ok(AccountInfoSnapshot {
+            acc_id: crate::util::id::AccountId::from_test(native_acc_id as u64),
+            registration_status: 200,
+            registration_expires: Some(3600),
+            online_status: true,
+            uri: format!("sip:user{}@mock.example.com", native_acc_id),
+        })
+    }
+
     fn conf_connect(
         &mut self,
         _source: NativeConfPortId,
@@ -313,7 +347,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    fn configure_codecs(&mut self) -> Result<(), SipError> {
+    fn configure_codecs(&mut self, _preferred: &[Codec]) -> Result<(), SipError> {
         self.ensure_initialized()?;
         Ok(())
     }
@@ -449,5 +483,121 @@ mod tests {
 
         // reset 後は再初期化可能
         assert!(backend.initialize(&config).is_ok());
+    }
+
+    /// get_account_info が既存アカウントの情報を返すことを確認する。
+    ///
+    /// MockBackend は initialize + add_account 後に get_account_info を
+    /// 呼び出すと、仮の AccountInfoSnapshot を返す。
+    /// AccountConfig は Default 未実装のため、最小限のフィールドで構築する。
+    #[test]
+    fn test_mock_get_account_info_ok() {
+        use std::time::Duration;
+        use secrecy::SecretString;
+        use crate::config::{
+            AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy,
+            DtmfPolicy,
+        };
+
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let config = AccountConfig {
+            display_name: None,
+            username: "dummy".into(),
+            auth_username: None,
+            password: SecretString::new("dummy".into()),
+            domain: "example.com".into(),
+            registrar_uri: None,
+            outbound_proxy: vec![],
+            contact_params: vec![],
+            transport: AccountTransportPolicy::Default,
+            register_on_start: false,
+            allow_outbound_without_register: true,
+            registration_expires: Duration::from_secs(300),
+            codecs: AccountCodecPolicy::default_voice(),
+            dtmf: DtmfPolicy::all_methods(),
+            media: AccountMediaConfig::default(),
+            headers: vec![],
+        };
+        let (native_id, _caps) = backend.add_account(&config).unwrap();
+        let info = backend.get_account_info(native_id).unwrap();
+        assert_eq!(info.registration_status, 200);
+        assert!(info.online_status);
+        assert_eq!(info.registration_expires, Some(3600));
+        assert!(info.uri.contains("mock.example.com"));
+    }
+
+    /// get_account_info が存在しないアカウントで AccountNotFound を返すことを確認する。
+    #[test]
+    fn test_mock_get_account_info_not_found() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        // アカウント未追加の状態で get_account_info → AccountNotFound
+        let result = backend.get_account_info(999);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::AccountNotFound
+        );
+    }
+
+    /// MockBackend の conf_connect が正常動作することを確認する。
+    #[test]
+    fn test_mock_conf_connect_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.conf_connect(1, 2);
+        assert!(result.is_ok());
+    }
+
+    /// MockBackend の conf_disconnect が正常動作することを確認する。
+    #[test]
+    fn test_mock_conf_disconnect_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.conf_disconnect(1, 2);
+        assert!(result.is_ok());
+    }
+
+    /// get_account_info で初期化前の NotInitialized エラーが AccountNotFound より優先されることを確認する。
+    #[test]
+    fn test_mock_get_account_info_not_initialized() {
+        let backend = MockBackend::new();
+        let result = backend.get_account_info(1);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::NotInitialized
+        );
+    }
+
+    /// MockBackend::configure_codecs が auto モード（空スライス）で Ok を返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_auto_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.configure_codecs(&[]);
+        assert!(result.is_ok());
+    }
+
+    /// MockBackend::configure_codecs が明示指定モード（非空スライス）で Ok を返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_explicit_ok() {
+        let mut backend = MockBackend::new();
+        assert!(backend.initialize(&ClientConfig::default()).is_ok());
+        let result = backend.configure_codecs(&[Codec::Opus, Codec::Pcmu]);
+        assert!(result.is_ok());
+    }
+
+    /// MockBackend::configure_codecs が初期化前の NotInitialized エラーを返すことを確認する。
+    #[test]
+    fn test_mock_configure_codecs_not_initialized() {
+        let mut backend = MockBackend::new();
+        let result = backend.configure_codecs(&[]);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind,
+            crate::error::SipErrorKind::NotInitialized
+        );
     }
 }
