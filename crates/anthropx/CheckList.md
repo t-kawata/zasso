@@ -3,7 +3,7 @@
 > **⚠️ このファイルはスクリプトにより自動生成された雛形です。**
 > AIが目視チェックし、補足事項・プロジェクト固有の制約を追記してから使用すること。
 
-生成日時: 2026-06-19T02:24:30.364Z
+生成日時: 2026-06-22T02:08:33.566Z
 DesignTree バージョン: 1
 
 ---
@@ -16,7 +16,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §1 アーキテクチャ: ライブラリ + バイナリのデュアルモード構成 ✅
+## §1 セキュリティ属性とcrate設定（M#1） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -24,99 +24,29 @@ DesignTree バージョン: 1
 
 ---
 
-## §2 HTTPサーバーフレームワーク選択とルーティング設計 ✅
+## §2 メトリクス再設計 — metrics crate導入と次元拡張（M#2/M#5） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
 - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-### §2.1 クライアント認証の実装: Bearer / x-api-key 両対応 ✅
+### §2.1 メトリクス命名規則と record_request シグネチャ ✅
 
-- [ ] **クライアント認証の実装: Bearer / x-api-key 両対応** が設計として完全に記述されている
+- [ ] **メトリクス命名規則と record_request シグネチャ** が設計として完全に記述されている
 - [ ] コードスニペットが含まれている
 - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
-### §2.2 upstream認証注入とtransparent header policy ✅
+### §2.2 レイテンシヒストグラムのバケット設定 ✅
 
-- [ ] **upstream認証注入とtransparent header policy** が設計として完全に記述されている
+- [ ] **レイテンシヒストグラムのバケット設定** が設計として完全に記述されている
 - [ ] コードスニペットが含まれている
 - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
 ---
 
-## §3 設定システム: TOML読込 + プログラム的APIの二刀流 ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-### §3.1 設定検証ルールの実装: 起動時バリデーション ✅
-
-- [ ] **設定検証ルールの実装: 起動時バリデーション** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
----
-
-## §4 Providerルーティング・解決・スケジューラの中核設計 ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-### §4.1 llm-bridge-core との結合インターフェース設計 ✅
-
-- [ ] **llm-bridge-core との結合インターフェース設計** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §4.2 Lossy translation 制御: allow_lossy 伝搬と可視化 ✅
-
-- [ ] **Lossy translation 制御: allow_lossy 伝搬と可視化** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-#### §4.2.1 Error級 lossy 続行フラグの設計: allow_lossy の値拡張または別フラグ ✅
-
-- [ ] **Error級 lossy 続行フラグの設計: allow_lossy の値拡張または別フラグ** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §4.3 GET /v1/models のレスポンススキーマ設計 ✅
-
-- [ ] **GET /v1/models のレスポンススキーマ設計** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §4.4 Streaming SSE 転送方式と translate mode のSSE変換 ✅
-
-- [ ] **Streaming SSE 転送方式と translate mode のSSE変換** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §4.5 HTTP client pool: provider ごとの reqwest::Client 管理 ✅
-
-- [ ] **HTTP client pool: provider ごとの reqwest::Client 管理** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §4.6 OpenAiWireApi (auto/chat_completions/responses) の使い方と選択ロジック ✅
-
-- [ ] **OpenAiWireApi (auto/chat_completions/responses) の使い方と選択ロジック** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
----
-
-## §5 並行性制御: in-flight制限とbounded queue ✅
+## §3 Translate streaming リアルタイム化（M#3） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -124,7 +54,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §6 ライフサイクル管理と可観測性の埋め込みAPI ✅
+## §4 Lossy handling 契約達成（M#4/m#12） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -132,7 +62,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §7 エラー型設計とAnthropic互換エラー応答 ✅
+## §5 Feature gate 整備とデュアルモード構成（m#6） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -140,7 +70,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §8 テスト戦略: 結合テストとCI ✅
+## §6 設定検証補完（m#7/m#11） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -148,44 +78,76 @@ DesignTree バージョン: 1
 
 ---
 
-<!-- ============================================================ -->
-<!-- AI補足: プロジェクト固有の制約・注意事項 -->
-<!-- ============================================================ -->
+## §7 モジュール分割 — config/util 単一責務化（m#8） ✅
 
-### プロジェクト全体制約
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-- [ ] **`#![forbid(unsafe_code)]`**: llm-bridge-core と同様に crate ルートで unsafe を禁止すること
-- [ ] **`#![warn(missing_docs)]`**: 公開 API にはドキュメントコメントを必須とすること
-- [ ] **zasso ポート競合回避**: デフォルトポートは 8088 だが、zasso 既存ポート(3910/3911/3912)と競合しないこと。`GlobalConfig.port` で変更可能であること
-- [ ] **設定値は `consts/settings.rs` で一元管理**: ポート番号・デフォルト timeout 値・queue 上限等のマジックナンバーは `settings.rs` に定義し、`consts/mod.rs` 経由で参照すること（テストコード内も含めて直書き禁止）
-- [ ] **Makefile 抽象化**: `make check-be` / `make test` 経由でビルド・テストを実行できるよう、workspace Cargo.toml と Makefile に対応を追加すること
-- [ ] **crate 独立ビルド確認**: workspace 外の空ディレクトリで `cargo add anthropx --path ../zasso/crates/anthropx` が成功し、`cargo build` が通ること
-- [ ] **コメントは日本語**: Rust コード内のコメントは日本語で記述すること（`// これは日本語`）。ログメッセージ (`log::info!`, `tracing::info!`) は英語
-- [ ] **ライブラリ + バイナリのデュアルモード**: `[lib]` と `[[bin]]` を Cargo.toml に両方定義し、`cargo add` と `cargo install` の両方をサポートすること。RFC 内に Cargo.toml の `[lib]` / `[[bin]]` / `[features]` 3セクションのコード例を含めること
-- [ ] **feature flag 制御**: `features = ["server"]` で Axum 依存 + バイナリモード有効化。server 無効時は HTTP 依存ゼロで `AppConfig` 型のみ利用可能
-- [ ] **`error_lossy_continue` デフォルト値**: `false`（未設定時は Error 級 lossy で拒否）。RFC 内でデフォルトと動作を明記すること
+---
 
-### テスト固有制約
+## §8 テスト拡充 — AC#4/#5/#6 と応答検証（m#9/m#10） ✅
 
-- [ ] **axum::test mock server**: CI で実行可能な mock upstream テストを全 acceptance criteria に対して用意すること
-- [ ] **実 provider 結合テスト**: `#[cfg(feature = "integration-test")]` または環境変数で API key を注入し、実際の upstream provider に対する通しテストを実行可能にすること
-- [ ] **実 provider テストは CI ではスキップ**: `#[ignore]` または feature gate で分離し、定期実行・手動実行のみで動作させること
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-### 受け入れ基準（draft 10項目）— RFC完成後、個別に照合すること
+---
 
-- [ ] **AC#1**: transparent provider に対する non-stream `/v1/messages` が成功する
-- [ ] **AC#2**: transparent provider に対する stream `/v1/messages` が成功する
-- [ ] **AC#3**: translate provider に対する non-stream `/v1/messages` が成功する
-- [ ] **AC#4**: translate provider に対する stream `/v1/messages` が成功する
-- [ ] **AC#5**: non-stream request で API key failover が機能する
-- [ ] **AC#6**: stream request では failover せずエラー終端する
-- [ ] **AC#7**: `/v1/models` が provider/model 一覧をソートして返す
-- [ ] **AC#8**: `provider/model` の最初の `/` のみで split される
-- [ ] **AC#9**: queue overflow 時に 429 を返す
-- [ ] **AC#10**: `/metrics` と `/healthz` が利用可能である
+## §9 コード品質改善 — n#13〜n#16 ✅
 
-### RFC 記述時の強制事項
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-- [ ] **TBD / TODO / スタブ / 委譲 ゼロ**: これらの表現を一切含まず、18ノードすべてを完全記述すること
-- [ ] **全決定にコード例**: 各設計判断に対応する Rust コードスニペットを必ず含めること（型定義、関数シグネチャ、handler 実装の一部など）
-- [ ] **IETF スタイル準拠**: Abstract / Motivation / Design / Implementation / Appendix のセクション構成を守ること
+---
+
+## AI補足: プロジェクト固有の制約と注意事項
+
+### 全体共通
+- [ ] CLAUDE.md の Everything as Code 方針に従い、コメントは日本語で「なぜ」を説明し、コード自体が「何を」を語るように記述すること
+- [ ] 可読性とは翻訳可能性である: 関数呼び出しの並びが処理手順の日本語訳になるように構成すること
+- [ ] `[::STUB::]` マーカーの絶対義務: 不完全な実装には必ずマーカーを付与すること
+- [ ] 設定値は `consts/settings.rs` で一元管理（ポート番号・パス・閾値等）。マジックナンバーの直書き禁止
+- [ ] Makefile 経由の検証: `make check-be` でビルド検証、`make test` でテスト実行
+
+### §1 セキュリティ属性
+- [ ] `#![warn(missing_docs)]` は全公開アイテムに doc コメントが完了するまで有効化しない（段階的導入）
+- [ ] `rust_2024_compatibility` は将来のエディション移行に備えた警告。EDITION 2024 対応後に削除検討
+
+### §2 メトリクス再設計
+- [ ] `Cargo.toml` への依存追加は `cargo add` を使用し直接手書き禁止
+- [ ] 既存の `AtomicU64` グローバル変数は削除し、metrics crate の `counter!` / `histogram!` に完全移行すること
+- [ ] `record_request()` の呼び出し箇所（`routes.rs` + `transparent.rs`）すべてに次元情報の伝搬が必要
+- [ ] `register_metrics()` は `ProxyServer::start()` の先頭で呼ばれることを確認
+
+### §3 Translate streaming リアルタイム化
+- [ ] `transform_stream()` がチャンク単位の逐次投入に対応しているか、llm-bridge-core の API シグネチャを事前確認すること
+- [ ] `CancellationToken` の伝搬パス（ServerHandle → proxy_sse_stream）を透明モードと統一すること
+- [ ] `proxy_sse_stream()` の実装パターン（`tokio::select!` + `Body::new_channel()`）は `provider/transparent.rs` の実装を参考にすること
+
+### §4 Lossy handling
+- [ ] **本セクションは設計のみ**: 実装は llm-bridge-core 側の lossy-tolerant API 追加後に実施する。このRFCでは設計とインターフェース定義に留める
+- [ ] 現状の `allow_lossy=false` の抑制ロジック（`should_reject()`）は正しく動作しているため、本実装までの間は現状維持とする
+- [ ] llm-bridge-core の crate バージョン更新に伴う `Cargo.toml` バージョン更新を忘れないこと
+
+### §5 Feature gate
+- [ ] `#[cfg(feature = "server")]` の網羅性確認: 各モジュールで conditional compilation が必要な箇所をすべて洗い出すこと
+- [ ] `cargo build --no-default-features` が通ることを CI または手動で確認すること
+- [ ] `tracing-subscriber` も server feature 配下にする（library 用途では未使用）
+
+### §6 設定検証補完
+- [ ] `url_prefix` 正規化の互換性テスト: 既存の設定ファイル（prefix なし、空文字、`/` あり/なし）がすべて正しく動作することを確認
+- [ ] alias key 衝突チェック修正後、既存のテストがすべて通過することを確認
+
+### §7 モジュール分割
+- [ ] 分割後の `config/mod.rs` は `pub mod parse;` `pub mod validate;` の再公開を忘れないこと
+- [ ] `util/headers.rs` の `HOP_BY_HOP_HEADERS` 定数は pub(crate) で十分（外部公開不要）
+
+### §8 テスト拡充
+- [ ] AC#4（translate stream）のテストは M#3 の実装完了後でないと作成不可。設計書では期待動作を定義する
+- [ ] AC#5/#6 のテストは `additional_api_keys` を設定した provider config を使用すること
+- [ ] AC#3 の応答形式検証は Anthropic 互換スキーマ（`type: "message"`, `content[].type: "text"`）のバリデーションを含める
+
+### §9 コード品質改善
+- [ ] n#14 （ApiFormat 中間型）は llm-bridge-core の対応後に解消される。現時点では既存 stub コメントの維持で良い

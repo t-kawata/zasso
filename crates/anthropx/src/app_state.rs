@@ -7,6 +7,8 @@
 
 use std::collections::HashMap;
 
+use tokio_util::sync::CancellationToken;
+
 use crate::config::{AppConfig, ProxyError};
 use crate::provider::ProviderClient;
 
@@ -21,6 +23,8 @@ pub struct AppState {
     pub config: AppConfig,
     /// Provider 名 → 実行時リソース束縛（不変）
     pub providers: HashMap<String, ProviderClient>,
+    /// サーバー全体のキャンセルトークン（shutdown 時に発火）
+    pub cancel: CancellationToken,
 }
 
 #[cfg(feature = "server")]
@@ -31,8 +35,13 @@ impl AppState {
     ///
     /// * `config` - サーバー設定
     /// * `providers` - provider 名 → ProviderClient（起動時一括生成）
-    pub fn new(config: AppConfig, providers: HashMap<String, ProviderClient>) -> Self {
-        Self { config, providers }
+    /// * `cancel` - サーバー全体のキャンセルトークン（shutdown 時に発火）
+    pub fn new(
+        config: AppConfig,
+        providers: HashMap<String, ProviderClient>,
+        cancel: CancellationToken,
+    ) -> Self {
+        Self { config, providers, cancel }
     }
 
     /// provider 名から実行時リソースを解決する。

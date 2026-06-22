@@ -22,6 +22,8 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
+use tokio_util::sync::CancellationToken;
+
 use anthropx::app_state::AppState;
 use anthropx::config::{AppConfig, ModelConfig, ProviderConfig};
 use anthropx::http::router::build_router;
@@ -77,7 +79,7 @@ fn build_proxy_state(api_key: &str) -> AppState {
 
     let providers = anthropx::lifecycle::build_provider_clients(&config);
 
-    AppState::new(config, providers)
+    AppState::new(config, providers, CancellationToken::new())
 }
 
 /// anthropx を中継して DeepSeek にリクエストを送信し、結果を詳細に表示する。
@@ -114,7 +116,12 @@ async fn run_transparent_test(provider: &str, model: &str, body: serde_json::Val
 // DeepSeek: transparent non-stream
 // ---------------------------------------------------------------------------
 
+/// DeepSeek（Anthropic 互換）に対して transparent non-stream の E2E テストを実行する。
+///
+/// このテストは integration-test feature が有効な場合のみ実行される。
+/// CI ではこの feature を有効化しないため、実 API key が必要なテストはスキップされる。
 #[tokio::test]
+#[cfg_attr(not(feature = "integration-test"), ignore)]
 async fn deepseek_transparent_non_stream() {
     run_transparent_test(
         "deepseek",

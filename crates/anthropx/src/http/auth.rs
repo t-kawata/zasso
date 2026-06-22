@@ -3,9 +3,9 @@
 //! クライアント認証と upstream 認証の 2 つの middleware 関数を提供する。
 //!
 //! - `authorize_client`: `require_client_auth=true` の場合に有効化。
-//!    Bearer Token / x-api-key の存在と非空を検証し、不備なら 401 を返す
+//!   Bearer Token / x-api-key の存在と非空を検証し、不備なら 401 を返す
 //! - `filter_upstream_headers`: 常時適用。クライアント由来の認証 header および
-//!    hop-by-hop header をリクエストから除去する
+//!   hop-by-hop header をリクエストから除去する
 //!
 //! server feature 有効時のみコンパイルされる。
 //!
@@ -105,6 +105,8 @@ mod tests {
     use axum::Router;
     use std::sync::Arc;
 
+    use tokio_util::sync::CancellationToken;
+
     use crate::app_state::AppState;
     use crate::config::AppConfig;
     use std::collections::HashMap;
@@ -116,6 +118,7 @@ mod tests {
         let state = Arc::new(AppState::new(
             config,
             HashMap::new(),
+            CancellationToken::new(),
         ));
         let mut router = Router::new()
             .route("/test", axum::routing::get(|| async { "ok" }))

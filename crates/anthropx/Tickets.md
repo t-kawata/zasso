@@ -616,7 +616,7 @@
   4. acquire → permit drop → 再 acquire が動作すること（既存 limiter テストで担保）
 * **計装方法・観測対象:** 起動時の provider client 生成時間、in-flight 数の推移
 
-#### チケット M5-3: 観測可能性・メトリクス配線 + tracing instrumentation
+#### ✅ チケット M5-3: 観測可能性・メトリクス配線 + tracing instrumentation
 
 * **参照設計書:** RFC.md (§10 可観測性)
 * **依存・関連チケットID:** 先行実装必須: M5-2（handler 統合後）。後続: なし
@@ -639,7 +639,7 @@
   3. tracing span がエラーなく生成される（コンパイル検証）
 * **計装方法・観測対象:** metrics カウンタの増加確認、tracing span の出力確認
 
-#### チケット M5-4: integration-test feature + テスト環境整備
+#### ✅ チケット M5-4: integration-test feature + テスト環境整備
 
 * **参照設計書:** RFC.md (§12 テスト戦略)
 * **依存・関連チケットID:** 先行実装必須: M5-1, M5-2, M5-3（全機能が揃った状態でテスト）
@@ -655,3 +655,331 @@
   1. `cargo test` — integration-test なし: 全 unit + mock test が pass
   2. `cargo test --features integration-test` — 実プロバイダーテストを含む全テスト
 * **計装方法・観測対象:** テストスイート実行時間、スキップ率
+
+---
+
+## フェーズ6: コード基盤修正
+
+> **外部依存:** なし（既存のもののみ）
+> **特徴:** Layer 0/1 に相当。純粋ロジック・型定義・ファイル分割のみで、新規外部依存なし
+
+### M6: ライブラリ属性・モジュール再編・設定検証
+
+> **DB:** メモリ内完結
+
+#### ✅ チケット M6-1: Crateレベル属性 + ProxyServer再公開（M#1）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§1 セキュリティ属性とCrate設定)
+* **依存・関連チケットID:** なし（全チケット中最先行）。後続: 全フェーズ6チケット
+* **対象不変条件 / 規範:**
+  - `#![forbid(unsafe_code)]` により unsafe コードの混入をコンパイル時禁止（RFC02 §1.1）
+  - `#![warn(rust_2024_compatibility)]` で Edition 移行準備
+  - `#![warn(missing_debug_implementations)]` で Debug 実装欠落を警告
+  - `missing_docs` は段階的導入のため今回有効化しない
+  - `pub use lifecycle::ProxyServer` でライブラリ利用者が直接アクセス可能に（RFC02 §1.2）
+* **実装の背景と目的:** REMAININGS.md M#1 の指摘対応。Appendix C で明示された crate 属性がすべて欠落しており、unsafe コードの混入を検出できない。また Appendix B のライブラリ利用例が成立していない。
+* **実装スコープ:**
+  - `src/lib.rs` 冒頭に以下を追加:
+    ```rust
+    #![forbid(unsafe_code)]
+    #![warn(rust_2024_compatibility)]
+    #![warn(missing_debug_implementations)]
+    ```
+  - `src/lib.rs` に `pub use lifecycle::ProxyServer;` を追加
+  - `#![warn(missing_docs)]` は有効化しない（段階的導入）
+* **テストコードによる検証:**
+  1. `cargo build` が成功すること
+  2. `cargo clippy` が新たな警告を出さないこと
+  3. ライブラリ利用者が `use anthropx::ProxyServer` でアクセスできること（コンパイル検証）
+* **計装方法・観測対象:** コンパイル成功確認、clippy 警告数
+
+#### チケット M6-2: モジュール分割 — config/util 単一責務化（m#8）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§7 モジュール分割)
+* **依存・関連チケットID:** 先行実装必須: なし（既存コードのファイル分割のみ）。後続: M6-3（設定検証補完は分割後の validate.rs に記述）
+* **対象不変条件 / 規範:**
+  - `config/mod.rs` の1517行を型定義・TOML読込・設定検証の3責務に分離（RFC02 §7.1）
+  - 各ファイルの責務: mod.rs(型定義のみ) / parse.rs(TOML読込) / validate.rs(設定検証)
+  - `util/mod.rs` から `build_upstream_headers` + `HOP_BY_HOP_HEADERS` を headers.rs に抽出（RFC02 §7.2）
+  - すべての既存テストが変更なく通過すること（振る舞い不変）
+  - 公開APIは変更しない（`pub use` 経由で同一インターフェース）
+* **実装の背景と目的:** config/mod.rs が 1517行と肥大化し、CLAUDE.md のファイル上限（800行）を超過。RFC の設計では config/parse.rs と config/validate.rs への分割が規定されていたが、1ファイルに統合されていた。
+* **実装スコープ:**
+  - `src/config/` ディレクトリの再編:
+    - `mod.rs`: struct 定義（AppConfig, GlobalConfig, ProviderConfig, ModelConfig, TimeoutConfig, GlobalLimitConfig）+ enum 定義（OpenAiWireApi, LogFormat, LossyLevel, ProxyError, ResolvedModel, ConfigError）+ `mod parse; mod validate;` + `pub use`
+    - `parse.rs`: `AppConfig::from_toml()` + `cli::parse_args()` を移動
+    - `validate.rs`: `AppConfig::validate()` + `normalize_url_prefix()` + alias チェック + 内部ヘルパーを移動
+  - `src/util/` ディレクトリの再編:
+    - `mod.rs`: モジュール宣言 + `pub use headers::*;`
+    - `headers.rs`: `build_upstream_headers()` + `HOP_BY_HOP_HEADERS` 定数を移動
+  - `util/headers.rs` では `reqwest::http::HeaderMap` を使用（RFC02 §5.4）
+  - 各ファイルの `pub use` 経路を維持し、既存の import パスが変更なく動作すること
+* **テストコードによる検証:**
+  1. 分割前の全テストが変更なく通過すること
+  2. `use anthropx::config::AppConfig` / `use anthropx::config::ConfigError` の import が動作すること
+  3. `cargo build` が成功すること
+  4. 各ファイルの行数が 800 行を超えないこと
+* **計装方法・観測対象:** ファイル行数、コンパイル時間、テスト実行時間
+
+#### チケット M6-3: 設定検証補完（m#7/m#11）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§6 設定検証補完)
+* **依存・関連チケットID:** 先行実装必須: M6-2（モジュール分割後、validate.rs に記述）。後続: なし
+* **対象不変条件 / 規範:**
+  - `url_prefix` 正規化: 先頭 `/` 付与、末尾 `/` 除去（RFC02 §6.1, RFC §2.1 #7）
+  - `url_prefix` の `/` のみの入力は空文字に正規化（RFC02 §6.1）
+  - alias key が public model 名と衝突した場合にエラー（RFC02 §6.2）
+  - global alias と provider alias の競合は許容、ログ出力のみ（RFC02 §6.3）
+  - 全エラーを収集してから一度に報告（集約型）（RFC §2.1）
+* **実装の背景と目的:** REMAININGS.md m#7 の3項目（url_prefix 正規化未実装、alias key 衝突チェックのロジック誤り、alias 競合ログ欠落）および m#11（alias 検証ロジックが RFC の不変条件と異なる）を一括解決する。
+* **実装スコープ:**
+  - `src/config/validate.rs` に以下を追加・修正:
+    1. `fn normalize_url_prefix(prefix: &str) -> String` — url_prefix 正規化
+    2. `AppConfig::validate()` 内で `self.global.url_prefix = normalize_url_prefix(...)` を実行
+    3. alias key 衝突チェックの修正（value vs public から key vs public に変更）
+    4. alias key 同士の重複チェック追加
+    5. `fn log_alias_conflicts()` — global alias と provider alias の競合ログ出力
+* **テストコードによる検証:**
+  1. `normalize_url_prefix("")` → `""`
+  2. `normalize_url_prefix("proxy")` → `"/proxy"`
+  3. `normalize_url_prefix("/prefix/")` → `"/prefix"`
+  4. `normalize_url_prefix("/")` → `""`
+  5. alias key が public model 名と衝突 → `Err(vec![ConfigError::DuplicateAlias])`
+  6. alias 値が public model 名と衝突 → 許容（エラーなし）
+  7. global alias と provider alias の競合 → `Ok(())`、ログ出力確認
+  8. 既存の正常設定のテストが変更なく通過すること
+* **計装方法・観測対象:** 検証エラー数の集約確認、ログ出力の有無
+
+#### チケット M6-4: コード品質改善（n#13〜n#16）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§9 コード品質改善)
+* **依存・関連チケットID:** 先行実装必須: なし（独立して実施可能）。M6-1 と並行可能
+* **対象不変条件 / 規範:**
+  - `IntoResponse` が `status_code()` を呼び出す単一定義場所（RFC02 §9.1, n#13）
+  - ApiFormat 中間型は既存 stub コメント維持（RFC02 §9.2, n#14）
+  - `try_acquire` 高速パスは意図的な改善として維持、コメント追記（RFC02 §9.3, n#15）
+  - `record_request` 呼び出しは handle_messages 後処理の1箇所に限定する契約をコメント化（RFC02 §9.4, n#16）
+* **実装の背景と目的:** 4件の Nit 項目を一括対応。いずれも機能的動作は現状維持したまま、保守性と可読性を向上させる。
+* **実装スコープ:**
+  - `src/http/errors.rs`:
+    - `ProxyError::status_code()` メソッドは既存（確認のみ）
+    - `IntoResponse` 実装が `status_code()` を呼び出すようリファクタリング
+    - エラータイプ文字列を返す `fn error_type()` を追加
+  - `src/provider/limiter.rs`:
+    - `acquire()` メソッドに try_acquire 高速パスの意図を説明するコメントを追記
+  - `src/http/routes.rs`:
+    - `handle_messages` の `record_request()` 呼び出し箇所に「この1箇所に限定」のコメントを追記
+  - n#14（ApiFormat 中間型）は既存 stub コメントを維持、本チケットでは変更しない
+* **テストコードによる検証:**
+  1. `ProxyError` 全バリアントの `status_code()` と `IntoResponse` のステータスコードが一致する
+  2. 既存の全テストが変更なく通過すること
+* **計装方法・観測対象:** コードカバレッジ、保守性指標（status_code 定義箇所の単一化）
+
+#### チケット M6-5: Feature gate 整備（m#6）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§5 Feature gate 整備とデュアルモード構成)
+* **依存・関連チケットID:** 先行実装必須: なし。後続: M7-1（metrics-exporter-prometheus が server feature 配下になるため本チケットで feature 構造を先に定義する）・M8-1（translate streaming の Conditional Compilation）
+* **対象不変条件 / 規範:**
+  - clap / futures / http / tokio-util / tokio-stream / tracing-subscriber / metrics-exporter-prometheus は server feature 配下（RFC02 §5.1）
+  - `main.rs` は `#[cfg(feature = "server")]` でガード（RFC02 §5.2）
+  - library 用途では `cargo build --no-default-features` が成功（RFC02 §5.3）
+  - `util/headers.rs` は `reqwest::http::HeaderMap` を使用（RFC02 §5.4）
+* **実装の背景と目的:** REMAININGS.md m#6 の指摘対応。RFC のデュアルモード設計が実装で無視されており、server feature が機能していない。このチケットで feature 構造を RFC 設計通りに確立する。
+* **実装スコープ:**
+  - `Cargo.toml`:
+    - clap, futures, http, tokio-util, tokio-stream, tracing-subscriber, metrics-exporter-prometheus を `optional = true` に変更
+    - `server = [...]` feature に上記の `dep:*` を列挙
+    - `default = ["server"]` を設定
+  - `src/main.rs`:
+    - ファイル先頭に `#![cfg(feature = "server")]` を追加
+  - 各モジュールの feature 適合性確認（RFC02 §5.4 のテーブルに従う）
+  - `http/` モジュールと `lifecycle.rs` は server feature 依存であることを `#[cfg(feature = "server")]` で明示（必要に応じて）
+  - `observability/metrics.rs` の `METRICS_HANDLE` は `#[cfg(feature = "server")]` でガード（RFC02 §2.3）
+* **テストコードによる検証:**
+  1. `cargo build --no-default-features` が成功すること
+  2. `cargo build`（デフォルト: server feature）が成功すること
+  3. `cargo test` が全テスト通過すること
+  4. library モードで `use anthropx::AppConfig` が動作すること
+* **計装方法・観測対象:** コンパイル成功確認、依存クレート数（library モードの最小性）、バイナリサイズ
+
+---
+
+## フェーズ7: 可観測性 + ストリーミング改善
+
+> **外部依存:** metrics = "0.24", metrics-exporter-prometheus = "0.16"
+> **特徴:** Layer 2/3 に相当。非同期ランタイムを導入し、実際の I/O を伴う改修を含む
+
+### M7: Metrics 再設計
+
+> **DB:** メモリ内完結
+
+#### チケット M7-1: Metrics crate導入 + 次元拡張（M#2/M#5）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§2 メトリクス再設計)
+* **依存・関連チケットID:** 先行実装必須: M6-5（metrics-exporter-prometheus が server feature 配下）。後続: なし（translate streaming とは独立）
+* **対象不変条件 / 規範:**
+  - メトリクスプレフィックスは `anthropx_`（RFC02 §2.2, Decision D03）
+  - `record_request()` は provider/mode/stream/status/latency_ms の5引数（RFC02 §2.4）
+  - レイテンシヒストグラムは metrics crate デフォルトバケット（RFC02 §2.5, Decision D05）
+  - `register_metrics()` は `ProxyServer::start()` の先頭で呼ばれる（RFC02 §2.9）
+  - `METRICS_HANDLE` は `#[cfg(feature = "server")]` でガード（RFC02 §2.3）
+  - 既存の AtomicU64 グローバル変数は全削除（RFC02 §2.10）
+  - `/metrics` エンドポイントは `METRICS_HANDLE.render()` で Prometheus 形式出力（RFC02 §2.6）
+* **実装の背景と目的:** REMAININGS.md M#2/M#5 の指摘対応。AtomicU64 の代替実装を metrics crate によるラベル付きカウンタ・ヒストグラムに置き換え、provider/mode/stream/status 別のリクエスト統計とレイテンシ p50/p95/p99 を計測可能にする。
+* **実装スコープ:**
+  - `Cargo.toml` に追加（M6-5 の server feature 配下に含む）:
+    ```toml
+    metrics = "0.24"
+    metrics-exporter-prometheus = { version = "0.16", optional = true }
+    ```
+  - `src/observability/metrics.rs` を全面改修:
+    - `register_metrics()` — 全カウンタ・ヒストグラムの `describe_*!` を定義
+    - `record_request(provider, mode, stream, status, latency_ms)` — カウンタ + ヒストグラム記録
+    - `record_failover(provider)` — failover カウンタ
+    - `record_lossy(level)` — lossy カウンタ
+    - `METRICS_HANDLE` — `#[cfg(feature = "server")]` でガードされた Prometheus ハンドラ
+    - 既存の `static TOTAL_REQUESTS: AtomicU64` 他を全削除
+  - 呼び出し箇所の配線:
+    - `register_metrics()` を `lifecycle.rs` の `ProxyServer::start()` 先頭で呼び出し
+    - `routes.rs` の `handle_messages` 後処理で `record_request(provider, mode, stream, status, latency_ms)` を呼び出し（次元情報を伝搬するため handle_messages のスコープで provider/mode/stream/latency_ms を収集）
+    - `transparent.rs` の `execute_with_failover` 内で `record_failover(provider)` を呼び出し
+  - `/metrics` エンドポイント:
+    - `METRICS_HANDLE.render()` で Prometheus 形式を返す
+* **テストコードによる検証:**
+  1. `register_metrics()` 呼び出し後、`METRICS_HANDLE.render()` に全カウンタ行（anthropx_requests_total, anthropx_failover_total, anthropx_lossy_total）が含まれる
+  2. `record_request("deepseek", "transparent", false, 200, 150)` → 該当カウンタが増加
+  3. `record_failover("deepseek")` → failover カウンタが増加
+  4. `record_lossy("Error")` → lossy カウンタが増加
+  5. server feature なしでコンパイル可能（metrics マクロは no-op）
+* **計装方法・観測対象:** メトリクスカウンタの増加確認（unit test）、Prometheus 形式のパース検証
+
+---
+
+## フェーズ8: ストリーミング改善 + 検証拡充
+
+> **外部依存:** 既存のもののみ（tokio, futures, axum）
+> **特徴:** Layer 2-4 に相当。非同期処理の改修とその検証
+
+### M8: Translate streaming リアルタイム化
+
+> **DB:** メモリ内完結
+
+#### チケット M8-1: Translate streaming リアルタイム化（M#3）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§3 Translate Streaming リアルタイム化)
+* **依存・関連チケットID:** 先行実装必須: M6-5（feature gate, tokio-util の feature 依存が確定）。後続: M9-1（テスト拡充は本実装完了後）
+* **対象不変条件 / 規範:**
+  - SSE チャンクは受信ごとに即時変換し、クライアントに即時送信（RFC02 §3.2）
+  - `tokio::select!` で upstream 受信と CancellationToken の両方を監視（RFC02 §3.3）
+  - `CancellationToken` は ServerHandle から translate_stream まで伝搬（RFC02 §3.5）
+  - `transform_chunk()` がチャンク単位の逐次投入に対応していることを前提とする（RFC02 §3.4）
+  - クライアント切断時は `tx.send()` の Err で検出し break（RFC02 §3.3）
+* **実装の背景と目的:** REMAININGS.md M#3 の指摘対応。現在の translate stream は全チャンクを Vec<u8> に蓄積後一括変換しており、TTFU（Time To First Token）が full response 完了時まで遅延している。transparent.rs の `proxy_sse_stream()` パターンを translate stream に適用し、チャンク単位の逐次変換 + 即時送信を実現する。
+* **実装スコープ:**
+  - `src/provider/translate.rs` の全面改修:
+    - `translate_stream()` 関数を新規実装:
+      - `upstream_response.bytes_stream()` を `tokio::select!` で受信
+      - `transform_chunk()` で各チャンクを逐次変換
+      - 変換結果を `mpsc::channel` の tx 側に即時送信
+      - `CancellationToken` で中断可能
+      - クライアント切断検出（`tx.send().await.is_err()`）
+    - `handle_translate()` に `CancellationToken` 引数を追加:
+      - ServerHandle から渡される cancel を translate_stream に伝搬
+    - `collect_and_transform_stream()` 関数を削除（全面置き換え）
+    - `transform_chunk(chunk, state) → Result<Option<Bytes>>` 関数を追加
+      - llm-bridge-core の `transform_stream()` をチャンク単位で呼び出し
+      - 変換不要チャンク（keepalive 等）は `Ok(None)` を返す
+      - SSE event 形式にラップして返す
+  - `src/provider/transparent.rs` の `proxy_sse_stream()` パターンを参考にする
+* **テストコードによる検証:**
+  1. Mock SSE upstream からの複数チャンクを translate stream で受信 → 各チャンクが即時変換される（タイミング検証）
+  2. 変換後の SSE event が Anthropic 互換形式（`type: "content_block_delta"`）であること
+  3. `CancellationToken` キャンセル → stream が中断されること
+  4. keepalive チャンクが正しくスキップされること
+  5. lossy 発生時（後日 llm-bridge-core 対応後）の動作が正しいこと
+* **計装方法・観測対象:** TTFU 短縮の確認、チャンク変換レイテンシ、スループット、CancellationToken 応答時間
+
+---
+
+## フェーズ9: 検証拡充
+
+> **外部依存:** 既存のもののみ（axum::test, mock upstream）
+> **特徴:** Layer 4 に相当。統合テストの追加
+
+### M9: 不足テスト追加
+
+> **DB:** メモリ内完結（テスト用 SQLite :memory:）
+
+#### チケット M9-1: 不足テストの追加（m#9/m#10）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§8 テスト拡充)
+* **依存・関連チケットID:** 先行実装必須: M8-1（AC#4 translate stream テストは M8-1 の実装完了後でないと作成不可）。M7-1（metrics テストは M7-1 完了後）。M6-5（feature gate の動作確認）
+* **対象不変条件 / 規範:**
+  - AC#3: translate non-stream 応答が Anthropic 互換スキーマであること（RFC02 §8.1）
+  - AC#4: translate stream が SSE ストリームとして正しく動作すること（RFC02 §8.2）
+  - AC#5: non-stream key failover が 503 → 別 key で成功すること（RFC02 §8.3）
+  - AC#6: stream no-failover が 503 → エラー終端すること（RFC02 §8.4）
+  - 各テストは独立した mock upstream を持つ（RFC02 §8, Decision D11）
+* **実装の背景と目的:** REMAININGS.md m#9/m#10 の指摘対応。AC#4（translate stream）が未実装、AC#5/AC#6（failover）が mock 503 を使ったテストになっていない。AC#3 は応答形式の検証が不足。
+* **実装スコープ:**
+  - `tests/mock_server.rs` に以下4テストを追加:
+    1. `translate_non_stream_response_format` — AC#3 応答形式検証:
+       - body["type"] == "message"
+       - body["content"][0]["type"] == "text"
+       - body["id"].starts_with("msg_")
+       - body["role"] == "assistant"
+    2. `translate_stream_proxies_via_openai_wire` — AC#4:
+       - Mock SSE upstream から複数チャンクを返す
+       - Content-Type: text/event-stream を確認
+       - ストリーム内容に content_block_delta が含まれることを確認
+    3. `non_stream_key_failover_recovers_from_503` — AC#5:
+       - `attempt: AtomicUsize` で1回目503、2回目成功を制御
+       - 2つの api_keys を設定
+       - 最終的に 200 OK を確認
+       - failover が発生したことを attempt カウントで確認
+    4. `stream_no_failover_returns_error` — AC#6:
+       - Mock upstream が常に 503 を返す
+       - 2つの api_keys を設定しても failover しない
+       - サーバーエラーステータス（5xx）を確認
+* **テストコードによる検証:**
+  1. 全4テストが独立して実行可能（互いに影響しない）
+  2. `cargo test` で全テストが pass
+  3. AC#5 は failover 発火を attempt カウントで確認
+  4. AC#6 は failover 非発火を確認
+* **計装方法・観測対象:** テスト実行時間、各 AC の成功率、mock upstream の応答数
+
+---
+
+## 別トラック: 外部依存解決後に実施
+
+> **依存先:** llm-bridge-core crate
+> **状況:** 設計完了（RFC02 §4）、実装は外部 crate の API 追加を待つ
+
+#### チケット EXT-1: Lossy handling 完全対応（M#4/m#12）
+
+* **参照設計書:** crates/anthropx/RFC02.md (§4 Lossy Handling 契約達成)
+* **依存・関連チケットID:** 外部依存: llm-bridge-core に lossy-tolerant 変換API（`anthropic_to_openai_lossy` / `TransformResult`）が追加されること。内部依存: M7-1（lossy カウンタ枠組みは metrics crate 側で準備済みであること）
+* **対象不変条件 / 規範:**
+  - `allow_lossy=true + error_lossy_continue=true` 時、Error 級 lossy でも続行し metrics を記録（RFC02 §4.3, RFC §6）
+  - 損失フィールドは `tracing::warn!` に出力（RFC02 §4.3）
+  - `anthropx_lossy_total` カウンタに lossy level ラベル付きで記録（RFC02 §2.8）
+  - `Span::current().record("lossy_applied", true)` で span に記録（RFC02 §4.3）
+* **実装の背景と目的:** REMAININGS.md M#4 および m#12 の指摘対応。`llm_bridge_core::anthropic_to_openai()` が部分的な変換結果を返せない API 制約により、RFC 契約の完全達成には llm-bridge-core 側の API 拡張が必要。本チケットはその API が利用可能になった時点で実施する。
+* **実装スコープ:**
+  - llm-bridge-core 側（別 crate）:
+    - `TransformResult<T>` struct の追加（data: T, lossy_fields: Vec<LossyField>）
+    - `LossyField` struct の追加（name, level, detail）
+    - `anthropic_to_openai_lossy(TransformRequest) -> Result<TransformResult<TransformedRequest>, TransformError>` の追加
+  - anthropx 側:
+    - `src/provider/translate.rs` の lossy 処理を全面改修:
+      - non-stream path: `anthropic_to_openai_lossy()` を呼び出し、lossy_fields があれば続行
+      - stream path: 各チャンクの変換結果に lossy_fields が含まれる場合、続行＋メトリクス記録
+    - `record_lossy(level)` を lossy 検出箇所で呼び出し（カウンタ枠組みは M7-1 で準備済み）
+    - lossy 発生時に `Span::current().record("lossy_applied", true)` を実行
+    - `src/config/mod.rs` の `allow_lossy` フィールドドキュメントから制約文言を削除
+* **テストコードによる検証:**
+  1. `allow_lossy=true, error_lossy_continue=true` で Error 級 lossy 発生 → 続行、`anthropx_lossy_total` 増加
+  2. `allow_lossy=false` で Error 級 lossy 発生 → 400 エラー（既存動作維持）
+  3. `record_lossy("Error")` → カウンタ増加 + span 記録
+  4. lossy フィールド情報が `tracing::warn!` に出力されること
+* **計装方法・観測対象:** lossy 発火率（`anthropx_lossy_total`）、lossy 続行率、lossy フィールド種類分布

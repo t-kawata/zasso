@@ -1,0 +1,9 @@
+[profile.default]
+# テスト実行の並列度（デフォルト: CPU コア数）
+# slow-timeout = 60s
+
+[profile.ci]
+# CI 環境向け設定
+fail-fast = false
+# テスト実行のタイムアウト
+slow-timeout = { period = "60s" }

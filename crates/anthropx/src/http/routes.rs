@@ -13,6 +13,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use tracing::Instrument;
 
 use crate::app_state::AppState;
 use crate::observability::metrics;
@@ -92,58 +93,92 @@ pub async fn list_models(
 /// 2. `model` フィールド抽出 → `parse_provider_model` で分割
 /// 3. Provider 解決（設定から取得）
 /// 4. Model 名解決（alias 解決含む）
-/// 5. provider モードで分岐: transparent → handle_transparent / translate → M3-5
+/// 5. provider モードで分岐: transparent → handle_transparent / translate → handle_translate
+///
+/// 成功/失敗にかかわらず `metrics::record_request()` でリクエスト数を記録し、
+/// tracing span でリクエストコンテキスト（request_id / provider / model / stream）を
+/// トレースに出力する。
 pub async fn handle_messages(
     State(state): State<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, ProxyError> {
-    let _request_id = generate_request_id();
+    let request_id = generate_request_id();
 
-    // 1. model フィールドを抽出（文字列の所有権を取る）
-    let model_spec = body
-        .get("model")
-        .and_then(|m| m.as_str())
-        .ok_or(ProxyError::MissingField("model"))?
-        .to_string();
+    // tracing span を構築（フィールドは後続で確定）
+    let span = tracing::info_span!(
+        "handle_messages",
+        request_id = %request_id,
+        provider = tracing::field::Empty,
+        model = tracing::field::Empty,
+        stream = tracing::field::Empty,
+    );
 
-    // 2. "provider/model" 形式を解析
-    let (provider_name, model_name) = parse_provider_model(&model_spec)?;
-    let provider_name = provider_name.to_string();
-    let model_name = model_name.to_string();
+    // メイン処理: 全ステップを1つの async ブロックにまとめ .instrument(span) で計装
+    // span のクローンは async ブロック内での record 用（ブロック外の span は instrument に move される）
+    let span_clone = span.clone();
+    let result = async move {
+        // 1. model フィールドを抽出（文字列の所有権を取る）
+        let model_spec = body
+            .get("model")
+            .and_then(|m| m.as_str())
+            .ok_or(ProxyError::MissingField("model"))?
+            .to_string();
+        span_clone.record("model", &model_spec);
 
-    // 3. Provider 設定を解決
-    let is_stream = body
-        .get("stream")
-        .and_then(|s| s.as_bool())
-        .unwrap_or(false);
+        // 2. "provider/model" 形式を解析
+        let (provider_name, model_name) = parse_provider_model(&model_spec)?;
+        let provider_name_str = provider_name.to_string();
+        let model_name = model_name.to_string();
+        span_clone.record("provider", &provider_name_str);
 
-    // provider_config の参照はここでクローズする（後で state を move するため）
-    let is_transparent = state
-        .config
-        .providers
-        .get(provider_name.as_str())
-        .map(|p| p.transparent)
-        .ok_or_else(|| ProxyError::UnknownProvider(provider_name.clone()))?;
+        // 3. Provider 設定を解決
+        let is_stream = body
+            .get("stream")
+            .and_then(|s| s.as_bool())
+            .unwrap_or(false);
 
-    // 4. Model 名を解決（alias 解決含む）
-    let resolved = {
-        let provider_config = state
+        // provider_config の参照はここでクローズする（後で state を move するため）
+        let is_transparent = state
             .config
             .providers
-            .get(provider_name.as_str())
-            .ok_or_else(|| ProxyError::UnknownProvider(provider_name.clone()))?;
-        resolve_model(&model_name, provider_config, &state.config.global.aliases)?
-    };
+            .get(provider_name_str.as_str())
+            .map(|p| p.transparent)
+            .ok_or_else(|| ProxyError::UnknownProvider(provider_name_str.clone()))?;
 
-    // 5. provider モードで分岐
-    if is_transparent {
-        handle_transparent(state, &provider_name, &resolved, body, is_stream).await
-    } else {
-        crate::provider::translate::handle_translate(
-            state, &provider_name, &resolved, body, is_stream,
-        )
-        .await
+        // 4. Model 名を解決（alias 解決含む）
+        let resolved = {
+            let provider_config = state
+                .config
+                .providers
+                .get(provider_name_str.as_str())
+                .ok_or_else(|| ProxyError::UnknownProvider(provider_name_str.clone()))?;
+            resolve_model(&model_name, provider_config, &state.config.global.aliases)?
+        };
+
+        // 5. provider モードで分岐
+        if is_transparent {
+            handle_transparent(state, &provider_name_str, &resolved, body, is_stream).await
+        } else {
+            crate::provider::translate::handle_translate(
+                state, &provider_name_str, &resolved, body, is_stream,
+            )
+            .await
+        }
     }
+    .instrument(span)
+    .await;
+
+    // メトリクス記録（成功/失敗にかかわらず 1 リクエストとして計上）
+    match &result {
+        Ok(_) => metrics::record_request(200),
+        Err(e) => {
+            let status = e.status_code();
+            metrics::record_request(status);
+            tracing::warn!(error = %e, status = status, "request failed");
+        }
+    }
+
+    result
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +189,8 @@ pub async fn handle_messages(
 mod tests {
     use super::*;
     use std::collections::{BTreeMap, HashMap};
+
+    use tokio_util::sync::CancellationToken;
 
     use crate::config::{AppConfig, ModelConfig, ProviderConfig};
 
@@ -185,7 +222,7 @@ mod tests {
             };
             config.providers.insert(name.to_string(), provider);
         }
-        Arc::new(AppState::new(config, HashMap::new()))
+        Arc::new(AppState::new(config, HashMap::new(), CancellationToken::new()))
     }
 
     /// テスト用の AppState を構築する（transparent mode、mock upstream 付き）。
@@ -247,7 +284,7 @@ mod tests {
 
         let providers = crate::lifecycle::build_provider_clients(&config);
 
-        Arc::new(AppState::new(config, providers))
+        Arc::new(AppState::new(config, providers, CancellationToken::new()))
     }
 
     // ---- healthz ----
