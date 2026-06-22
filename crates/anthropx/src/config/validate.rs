@@ -101,26 +101,20 @@ impl AppConfig {
         // 4. ポート番号が 1〜65535 の範囲内
         // （u16 のため 65535 以上はコンパイル時保証される。0 のみチェック）
         if self.global.port == 0 {
-            errors.push(ConfigError::ValidationFailed(vec![
-                ConfigError::DuplicateModel("port must be between 1 and 65535".to_string()),
-            ]));
+            errors.push(ConfigError::InvalidValue(
+                "port must be between 1 and 65535".to_string(),
+            ));
         }
 
         // 5. timeout 値が 0 でないこと
         if self.global.timeouts.connect_ms == 0 {
-            errors.push(ConfigError::ValidationFailed(vec![
-                ConfigError::DuplicateModel("connect_ms must not be 0".to_string()),
-            ]));
+            errors.push(ConfigError::InvalidValue("connect_ms must not be 0".to_string()));
         }
         if self.global.timeouts.read_ms == 0 {
-            errors.push(ConfigError::ValidationFailed(vec![
-                ConfigError::DuplicateModel("read_ms must not be 0".to_string()),
-            ]));
+            errors.push(ConfigError::InvalidValue("read_ms must not be 0".to_string()));
         }
         if self.global.timeouts.total_ms == 0 {
-            errors.push(ConfigError::ValidationFailed(vec![
-                ConfigError::DuplicateModel("total_ms must not be 0".to_string()),
-            ]));
+            errors.push(ConfigError::InvalidValue("total_ms must not be 0".to_string()));
         }
 
         // 6. global alias と provider alias の競合ログ出力（RFC02 §6.3）

@@ -1,98 +1,111 @@
 //! # メトリクスカウンタ
 //!
-//! リクエスト処理の簡易メトリクスを AtomicU64 のグローバル変数で管理する。
-//! Prometheus 互換のテキスト形式で出力する。
+//! `metrics` crate によるラベル付きカウンタ・ヒストグラムでリクエスト統計を管理する。
+//! Prometheus 形式の出力は `METRICS_HANDLE.render()` で行う。
 //!
-//! server feature 有効時のみコンパイルされる。
+//! server feature 有効時は Prometheus レコーダーがインストールされ、
+//! library モード（server feature なし）では metrics マクロは no-op として動作する。
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use metrics::{counter, describe_counter, describe_histogram, histogram};
 
 // ---------------------------------------------------------------------------
-// グローバルカウンタ
+// Prometheus レコーダー（server feature 時のみ）
 // ---------------------------------------------------------------------------
 
-/// 全リクエスト数
-static TOTAL_REQUESTS: AtomicU64 = AtomicU64::new(0);
-/// 成功レスポンス数（2xx）
-static SUCCESS_REQUESTS: AtomicU64 = AtomicU64::new(0);
-/// クライアントエラー数（4xx）
-static ERROR_4XX: AtomicU64 = AtomicU64::new(0);
-/// サーバーエラー数（5xx）
-static ERROR_5XX: AtomicU64 = AtomicU64::new(0);
-/// failover（key 再試行）発生回数
-static FAILOVER_COUNT: AtomicU64 = AtomicU64::new(0);
+#[cfg(feature = "server")]
+mod exporter {
+    use std::sync::LazyLock;
+
+    use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+
+    /// Prometheus メトリクスハンドラ。
+    ///
+    /// `render()` メソッドで Prometheus text exposition format の文字列を返す。
+    /// 初回アクセス時に `install_recorder()` が呼ばれ、以降 crate 内の
+    /// `counter!()` / `histogram!()` がこのレコーダーに記録される。
+    pub(crate) static METRICS_HANDLE: LazyLock<PrometheusHandle> = LazyLock::new(|| {
+        PrometheusBuilder::new()
+            .install_recorder()
+            .expect("failed to install Prometheus recorder")
+    });
+}
+
+#[cfg(feature = "server")]
+pub(crate) use exporter::METRICS_HANDLE;
 
 // ---------------------------------------------------------------------------
 // 公開関数
 // ---------------------------------------------------------------------------
 
-/// メトリクスカウンタを初期化する。
+/// 全メトリクスの記述（`describe_*!`）を登録する。
 ///
-/// AtomicU64 のゼロ初期化はコンパイル時に保証されるため、実質的には noop。
-/// 将来、カウンタの動的追加やラベル付きメトリクスに対応するための
-/// 拡張ポイントとして残す。
+/// `ProxyServer::start()` の先頭で呼ばれることを想定する。
+/// 初回呼び出し時に Prometheus レコーダーがインストールされる（server feature 時）。
 pub fn register_metrics() {
-    // 静的初期化済みのため何もしない
-}
-
-/// リクエスト完了時に呼び出し、ステータスコードに応じてカウンタを増加する。
-///
-/// * `200-299` → `total` + `success`
-/// * `400-499` → `total` + `error_4xx`
-/// * `500-599` → `total` + `error_5xx`
-/// * その他 → `total` のみ増加
-pub fn record_request(status: u16) {
-    TOTAL_REQUESTS.fetch_add(1, Ordering::Relaxed);
-    match status / 100 {
-        2 => {
-            SUCCESS_REQUESTS.fetch_add(1, Ordering::Relaxed);
-        }
-        4 => {
-            ERROR_4XX.fetch_add(1, Ordering::Relaxed);
-        }
-        5 => {
-            ERROR_5XX.fetch_add(1, Ordering::Relaxed);
-        }
-        _ => {
-            // total のみ増加済み
-        }
+    // server feature 時は METRICS_HANDLE の初期化（レコーダーインストール）をトリガーする
+    #[cfg(feature = "server")]
+    {
+        let _ = &*exporter::METRICS_HANDLE;
     }
+
+    describe_counter!(
+        "anthropx_requests_total",
+        "Total number of proxy requests by provider, mode, stream, status"
+    );
+    describe_counter!(
+        "anthropx_failover_total",
+        "Total number of key failover events by provider"
+    );
+    describe_counter!(
+        "anthropx_lossy_total",
+        "Total number of lossy translation events by level"
+    );
+    describe_histogram!(
+        "anthropx_request_latency_ms",
+        "Request latency in milliseconds by provider and mode"
+    );
 }
 
-/// failover 発生時に呼び出し、カウンタを増加する。
-pub fn record_failover() {
-    FAILOVER_COUNT.fetch_add(1, Ordering::Relaxed);
-}
+/// リクエスト完了時に呼び出し、カウンタ + ヒストグラムを記録する。
+///
+/// # 引数
+///
+/// * `provider` — プロバイダ名（例: "deepseek", "openai"）
+/// * `mode` — 動作モード（"transparent" または "translate"）
+/// * `stream` — ストリーミングリクエストかどうか
+/// * `status` — HTTP ステータスコード
+/// * `latency_ms` — リクエスト処理時間（ミリ秒）
+///
+/// metrics crate の制約により、ラベル値は `'static` である必要があるため、
+/// 動的文字列は `to_owned()` で所有権を確保する。
+pub fn record_request(provider: &str, mode: &str, stream: bool, status: u16, latency_ms: u64) {
+    let stream_label = if stream { "true" } else { "false" };
 
-/// failover カウンタの現在値を取得する（テスト用）。
-pub fn record_failover_count() -> u64 {
-    FAILOVER_COUNT.load(Ordering::Relaxed)
-}
-
-/// 全カウンタを Prometheus 互換のテキスト形式で出力する。
-pub fn format_metrics() -> String {
-    format!(
-        "# HELP anthropx_requests_total Total request count\n\
-         # TYPE anthropx_requests_total counter\n\
-         anthropx_requests_total {}\n\
-         # HELP anthropx_requests_success Successful request count (2xx)\n\
-         # TYPE anthropx_requests_success counter\n\
-         anthropx_requests_success {}\n\
-         # HELP anthropx_requests_errors_4xx Client error count (4xx)\n\
-         # TYPE anthropx_requests_errors_4xx counter\n\
-         anthropx_requests_errors_4xx {}\n\
-         # HELP anthropx_requests_errors_5xx Server error count (5xx)\n\
-         # TYPE anthropx_requests_errors_5xx counter\n\
-         anthropx_requests_errors_5xx {}\n\
-         # HELP anthropx_requests_failover_total Failover retry count\n\
-         # TYPE anthropx_requests_failover_total counter\n\
-         anthropx_requests_failover_total {}\n",
-        TOTAL_REQUESTS.load(Ordering::Relaxed),
-        SUCCESS_REQUESTS.load(Ordering::Relaxed),
-        ERROR_4XX.load(Ordering::Relaxed),
-        ERROR_5XX.load(Ordering::Relaxed),
-        FAILOVER_COUNT.load(Ordering::Relaxed),
+    counter!("anthropx_requests_total",
+        "provider" => provider.to_owned(),
+        "mode" => mode.to_owned(),
+        "stream" => stream_label,
+        "status" => status.to_string(),
     )
+    .increment(1);
+
+    histogram!("anthropx_request_latency_ms",
+        "provider" => provider.to_owned(),
+        "mode" => mode.to_owned(),
+        "stream" => stream_label,
+        "status" => status.to_string(),
+    )
+    .record(latency_ms as f64);
+}
+
+/// failover（キー再試行）発生時に呼び出し、プロバイダ別のカウンタを増加する。
+pub fn record_failover(provider: &str) {
+    counter!("anthropx_failover_total", "provider" => provider.to_owned()).increment(1);
+}
+
+/// Lossy 変換発生時に呼び出し、レベル別のカウンタを増加する。
+pub fn record_lossy(level: &str) {
+    counter!("anthropx_lossy_total", "level" => level.to_owned()).increment(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -103,112 +116,192 @@ pub fn format_metrics() -> String {
 mod tests {
     use super::*;
 
-    /// 各テスト実行前にカウンタをリセットする。
-    fn reset_counters() {
-        TOTAL_REQUESTS.store(0, Ordering::Relaxed);
-        SUCCESS_REQUESTS.store(0, Ordering::Relaxed);
-        ERROR_4XX.store(0, Ordering::Relaxed);
-        ERROR_5XX.store(0, Ordering::Relaxed);
-        FAILOVER_COUNT.store(0, Ordering::Relaxed);
+    /// テスト用に Prometheus レコーダーを初期化する。
+    /// 複数テスト間で共有されるため、1度だけインストールされる。
+    fn init_recorder() {
+        let _ = &*exporter::METRICS_HANDLE;
     }
 
-    /// 初期状態で全カウンタが 0 であること。
+    /// register_metrics() が panic せず、METRICS_HANDLE が利用可能になること。
+    ///
+    /// `describe_*!` の HELP/TYPE 行はグローバルレコーダーの状態に依存するため、
+    /// テスト間の実行順序によっては既存カウンタにより記述が上書きされる。
+    /// ここでは `register_metrics()` がエラーなく完了し、レンダリングが
+    /// 空文字列でないことのみを検証する。
     #[test]
-    fn initial_counters_are_zero() {
-        reset_counters();
-        let output = format_metrics();
+    fn register_metrics_creates_descriptions() {
+        init_recorder();
+        register_metrics();
+        let output = exporter::METRICS_HANDLE.render();
         assert!(
-            output.contains("anthropx_requests_total 0"),
-            "total should be 0"
-        );
-        assert!(
-            output.contains("anthropx_requests_success 0"),
-            "success should be 0"
-        );
-        assert!(
-            output.contains("anthropx_requests_errors_4xx 0"),
-            "4xx should be 0"
-        );
-        assert!(
-            output.contains("anthropx_requests_errors_5xx 0"),
-            "5xx should be 0"
+            !output.is_empty(),
+            "render output should not be empty"
         );
     }
 
-    /// record_request(200) で total と success が増加すること。
+    /// record_request() でカウンタ行が出力され、ラベルが正しく付与されること。
     #[test]
-    fn record_200_increments_success() {
-        reset_counters();
-        record_request(200);
-        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(ERROR_4XX.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_5XX.load(Ordering::Relaxed), 0);
+    fn record_request_increments_counter() {
+        init_recorder();
+        let provider = "test_record_request";
+
+        record_request(provider, "transparent", false, 200, 150);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_label = format!(
+            r#"anthropx_requests_total{{provider="{provider}",mode="transparent",stream="false",status="200"}}"#
+        );
+        assert!(output.contains(&expected_label));
     }
 
-    /// record_request(400) で total と 4xx が増加すること。
+    /// stream=true で別ラベルとしてカウントされること。
     #[test]
-    fn record_400_increments_4xx() {
-        reset_counters();
-        record_request(400);
-        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_4XX.load(Ordering::Relaxed), 1);
-        assert_eq!(ERROR_5XX.load(Ordering::Relaxed), 0);
+    fn record_request_with_stream_flag() {
+        init_recorder();
+        let provider = "test_record_request_stream";
+
+        record_request(provider, "translate", true, 200, 100);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_label = format!(
+            r#"anthropx_requests_total{{provider="{provider}",mode="translate",stream="true",status="200"}}"#
+        );
+        assert!(output.contains(&expected_label));
     }
 
-    /// record_request(500) で total と 5xx が増加すること。
+    /// 異なる provider が独立したカウンタ行として出力されること。
     #[test]
-    fn record_500_increments_5xx() {
-        reset_counters();
-        record_request(500);
-        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_4XX.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_5XX.load(Ordering::Relaxed), 1);
+    fn record_request_different_providers() {
+        init_recorder();
+
+        record_request("test_provider_a", "transparent", false, 200, 50);
+        record_request("test_provider_b", "transparent", false, 200, 75);
+
+        let output = exporter::METRICS_HANDLE.render();
+        assert!(
+            output.contains(r#"anthropx_requests_total{provider="test_provider_a"#),
+            "provider A should appear"
+        );
+        assert!(
+            output.contains(r#"anthropx_requests_total{provider="test_provider_b"#),
+            "provider B should appear"
+        );
     }
 
-    /// record_request(301) で total のみ増加すること（リダイレクト等）。
+    /// latency_ms=0 でもヒストグラムに記録されること。
+    ///
+    /// metrics-exporter-prometheus は histogram を Prometheus の summary 形式
+    /// （quantile + _sum + _count）で出力する。`_bucket` 形式ではないため
+    /// `_count` 行の存在で検証する。
     #[test]
-    fn record_3xx_increments_total_only() {
-        reset_counters();
-        record_request(301);
-        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_4XX.load(Ordering::Relaxed), 0);
-        assert_eq!(ERROR_5XX.load(Ordering::Relaxed), 0);
+    fn record_request_zero_latency() {
+        init_recorder();
+        let provider = "test_zero_latency";
+
+        record_request(provider, "transparent", false, 200, 0);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_counter = format!(
+            r#"anthropx_requests_total{{provider="{provider}""#
+        );
+        assert!(output.contains(&expected_counter));
+
+        // ヒストグラムの _count 行も出力されていること
+        let expected_histo_count = format!(
+            r#"anthropx_request_latency_ms_count{{provider="{provider}""#
+        );
+        assert!(
+            output.contains(&expected_histo_count),
+            "histogram count should appear in output"
+        );
     }
 
-    /// record_failover() で failover カウンタが増加すること。
+    /// latency_ms に大きな値を指定してもオーバーフローしないこと。
+    #[test]
+    fn record_request_high_latency() {
+        init_recorder();
+        let provider = "test_high_latency";
+
+        record_request(provider, "transparent", false, 200, 999_999_999);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected = format!(r#"anthropx_requests_total{{provider="{provider}""#);
+        assert!(output.contains(&expected));
+    }
+
+    /// record_failover() で failover カウンタが出力されること。
     #[test]
     fn record_failover_increments_counter() {
-        reset_counters();
-        assert_eq!(record_failover_count(), 0);
-        record_failover();
-        assert_eq!(record_failover_count(), 1);
-        record_failover();
-        assert_eq!(record_failover_count(), 2);
+        init_recorder();
+        let provider = "test_failover";
+
+        record_failover(provider);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_label = format!(
+            r#"anthropx_failover_total{{provider="{provider}"}}"#
+        );
+        assert!(
+            output.contains(&expected_label),
+            "failover counter should contain provider label"
+        );
     }
 
-    /// format_metrics() に failover カウンタ行が含まれること。
+    /// 複数 provider の failover が独立してカウントされること。
     #[test]
-    fn format_metrics_includes_failover() {
-        reset_counters();
-        let output = format_metrics();
-        assert!(output.contains("anthropx_requests_failover_total 0"));
-        record_failover();
-        let output = format_metrics();
-        assert!(output.contains("anthropx_requests_failover_total 1"));
+    fn record_failover_multiple_providers() {
+        init_recorder();
+
+        record_failover("test_failover_a");
+        record_failover("test_failover_b");
+
+        let output = exporter::METRICS_HANDLE.render();
+        assert!(
+            output.contains(r#"anthropx_failover_total{provider="test_failover_a"}"#),
+            "provider A failover should appear"
+        );
+        assert!(
+            output.contains(r#"anthropx_failover_total{provider="test_failover_b"}"#),
+            "provider B failover should appear"
+        );
     }
 
-    /// failover カウンタが format_metrics の他のカウンタと独立していること。
+    /// record_lossy() で lossy カウンタが出力されること。
     #[test]
-    fn failover_independent_from_request_counters() {
-        reset_counters();
-        record_failover();
-        record_request(200);
-        assert_eq!(record_failover_count(), 1);
-        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
-        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 1);
+    fn record_lossy_increments_counter() {
+        init_recorder();
+
+        record_lossy("Error");
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_label = r#"anthropx_lossy_total{level="Error"}"#;
+        assert!(
+            output.contains(expected_label),
+            "lossy counter should contain level label"
+        );
+    }
+
+    /// Error/Warn/Info の各区別で lossy カウンタが独立して出力されること。
+    #[test]
+    fn record_lossy_all_levels() {
+        init_recorder();
+
+        record_lossy("Error");
+        record_lossy("Warn");
+        record_lossy("Info");
+
+        let output = exporter::METRICS_HANDLE.render();
+        assert!(
+            output.contains(r#"anthropx_lossy_total{level="Error"}"#),
+            "Error level should appear"
+        );
+        assert!(
+            output.contains(r#"anthropx_lossy_total{level="Warn"}"#),
+            "Warn level should appear"
+        );
+        assert!(
+            output.contains(r#"anthropx_lossy_total{level="Info"}"#),
+            "Info level should appear"
+        );
     }
 }

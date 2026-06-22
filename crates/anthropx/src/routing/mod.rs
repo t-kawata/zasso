@@ -23,7 +23,10 @@ use llm_bridge_core::model::ApiFormat as LlmApiFormat;
 ///
 /// `resolve_api_format` の戻り値としてローカル定義する。
 /// `to_llm_api_format()` で `llm_bridge_core::model::ApiFormat` に変換する。
-/// [::STUB::] M5-2 で llm_bridge_core::model::ApiFormat に完全置き換え予定。
+///
+/// 本ローカル型は library ビルド（server feature なし）でも利用可能な portable 型として
+/// 意図的に維持する。llm_bridge_core::model::ApiFormat は server feature 配下にあるため、
+/// `resolve_api_format()` の戻り値型として直接用いると library ビルドが成立しない。
 #[derive(Debug, Clone, PartialEq)]
 pub enum ApiFormat {
     /// /v1/chat/completions 形式

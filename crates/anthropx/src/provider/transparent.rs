@@ -55,7 +55,7 @@ pub async fn handle_transparent(
         let upstream_resp = execute_stream(&provider.scheduler, req_builder).await?;
         Ok(stream_response(upstream_resp, state.cancel.clone()).await)
     } else {
-        let upstream_resp = execute_with_failover(&provider.scheduler, req_builder).await?;
+        let upstream_resp = execute_with_failover(provider_name, &provider.scheduler, req_builder).await?;
         Ok(json_response(upstream_resp).await)
     }
 }
@@ -66,6 +66,7 @@ pub async fn handle_transparent(
 /// - 5xx → 別 key で再試行（最大3回）
 /// - 4xx → failover せず即座に返す
 async fn execute_with_failover(
+    provider_name: &str,
     scheduler: &KeyScheduler,
     request: RequestBuilder,
 ) -> Result<reqwest::Response, ProxyError> {
@@ -82,12 +83,12 @@ async fn execute_with_failover(
         match response {
             Ok(resp) if resp.status().is_success() => return Ok(resp),
             Ok(resp) if resp.status().is_server_error() => {
-                metrics::record_failover();
+                metrics::record_failover(provider_name);
                 last_error = Some(ProxyError::Upstream(resp.status().as_u16()));
             }
             Ok(resp) => return Ok(resp), // 4xx → 即座
             Err(e) => {
-                metrics::record_failover();
+                metrics::record_failover(provider_name);
                 last_error = Some(ProxyError::UpstreamError(e.to_string()));
             }
         }

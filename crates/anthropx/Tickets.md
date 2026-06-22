@@ -813,7 +813,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M7-1: Metrics crate導入 + 次元拡張（M#2/M#5）
+#### ✅ チケット M7-1: Metrics crate導入 + 次元拡張（M#2/M#5）
 
 * **参照設計書:** crates/anthropx/RFC02.md (§2 メトリクス再設計)
 * **依存・関連チケットID:** 先行実装必須: M6-5（metrics-exporter-prometheus が server feature 配下）。後続: なし（translate streaming とは独立）
@@ -864,7 +864,7 @@
 
 > **DB:** メモリ内完結
 
-#### チケット M8-1: Translate streaming リアルタイム化（M#3）
+#### ✅ チケット M8-1: Translate streaming リアルタイム化（M#3）
 
 * **参照設計書:** crates/anthropx/RFC02.md (§3 Translate Streaming リアルタイム化)
 * **依存・関連チケットID:** 先行実装必須: M6-5（feature gate, tokio-util の feature 依存が確定）。後続: M9-1（テスト拡充は本実装完了後）
@@ -910,7 +910,7 @@
 
 > **DB:** メモリ内完結（テスト用 SQLite :memory:）
 
-#### チケット M9-1: 不足テストの追加（m#9/m#10）
+#### ✅ チケット M9-1: 不足テストの追加（m#9/m#10）
 
 * **参照設計書:** crates/anthropx/RFC02.md (§8 テスト拡充)
 * **依存・関連チケットID:** 先行実装必須: M8-1（AC#4 translate stream テストは M8-1 の実装完了後でないと作成不可）。M7-1（metrics テストは M7-1 完了後）。M6-5（feature gate の動作確認）
@@ -955,7 +955,7 @@
 > **依存先:** llm-bridge-core crate
 > **状況:** 設計完了（RFC02 §4）、実装は外部 crate の API 追加を待つ
 
-#### チケット EXT-1: Lossy handling 完全対応（M#4/m#12）
+#### ✅ チケット EXT-1: Lossy handling 完全対応（M#4/m#12）
 
 * **参照設計書:** crates/anthropx/RFC02.md (§4 Lossy Handling 契約達成)
 * **依存・関連チケットID:** 外部依存: llm-bridge-core に lossy-tolerant 変換API（`anthropic_to_openai_lossy` / `TransformResult`）が追加されること。内部依存: M7-1（lossy カウンタ枠組みは metrics crate 側で準備済みであること）
