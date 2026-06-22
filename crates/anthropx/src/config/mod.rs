@@ -1398,7 +1398,7 @@ api_keys = ["key1"]
         let mut config = AppConfig::default();
         config.global.port = 0;
         let err = config.validate().unwrap_err();
-        assert!(err.len() >= 1, "port 0 should produce at least 1 error");
+        assert!(!err.is_empty(), "port 0 should produce at least 1 error");
     }
 
     /// 複数の設定ミスが集約されること。
@@ -1451,7 +1451,7 @@ api_keys = ["key1"]
         let mut config = AppConfig::default();
         config.global.timeouts.connect_ms = 0;
         let err = config.validate().unwrap_err();
-        assert!(err.len() >= 1, "connect_ms=0 should produce error");
+        assert!(!err.is_empty(), "connect_ms=0 should produce error");
     }
 
     /// max_queue=0 は許容されること（エラーにならない）。

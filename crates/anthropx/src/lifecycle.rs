@@ -22,6 +22,7 @@ use crate::provider::ProviderClient;
 use crate::routing::scheduler::KeyScheduler;
 
 /// プロキシサーバーのエントリポイント。
+#[derive(Debug)]
 pub struct ProxyServer;
 
 impl ProxyServer {
@@ -83,6 +84,7 @@ impl ProxyServer {
 /// サーバー制御ハンドル。
 ///
 /// `shutdown()` で graceful shutdown、`join()` でサーバー終了を待機する。
+#[derive(Debug)]
 pub struct ServerHandle {
     cancel: CancellationToken,
     join_handle: JoinHandle<()>,

@@ -195,6 +195,8 @@ mod tests {
     use crate::config::{AppConfig, ModelConfig, ProviderConfig};
 
     /// テスト用の最小 AppState を構築する。http_clients / schedulers は空。
+    // [::STUB::] テストヘルパーの引数型。本番コード移行時に型エイリアス化を検討
+    #[allow(clippy::type_complexity)]
     fn make_state_with_providers(providers: Vec<(&str, Vec<(&str, &str, bool)>)>) -> Arc<AppState> {
         let mut config = AppConfig::default();
         for (name, models) in providers {
@@ -229,6 +231,8 @@ mod tests {
     ///
     /// provider は transparent モードで起動し、ローカルの mock upstream サーバーに
     /// リクエストを中継する。mock upstream は任意の POST に対して 200 を返す。
+    // [::STUB::] テストヘルパーの引数型。本番コード移行時に型エイリアス化を検討
+    #[allow(clippy::type_complexity)]
     async fn make_state_with_mock_upstream(
         providers: Vec<(&str, Vec<(&str, &str, bool)>)>,
     ) -> Arc<AppState> {

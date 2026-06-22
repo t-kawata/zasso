@@ -18,6 +18,7 @@ use crate::provider::ProviderClient;
 /// provider ごとの実行時リソースは `ProviderClient` に集約し、
 /// `resolve_provider()` 経由で1回の lookup でアクセスする。
 #[cfg(feature = "server")]
+#[derive(Debug)]
 pub struct AppState {
     /// サーバー設定（不変）
     pub config: AppConfig,

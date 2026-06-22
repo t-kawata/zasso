@@ -25,6 +25,7 @@ use crate::routing::scheduler::KeyScheduler;
 /// 設定値は `AppConfig` から clone されるが、起動後に変更されないため
 /// コストは無視できる。
 #[cfg(feature = "server")]
+#[derive(Debug)]
 pub struct ProviderClient {
     /// Provider 設定（AppConfig.providers から clone）
     pub config: ProviderConfig,

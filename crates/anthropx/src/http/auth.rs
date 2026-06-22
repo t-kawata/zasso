@@ -85,8 +85,13 @@ pub async fn filter_upstream_headers(
 
     // hop-by-hop header を除去
     for header_name in HOP_BY_HOP_HEADERS {
-        if let Ok(name) = header::HeaderName::from_bytes(header_name.as_bytes()) {
-            headers.remove(name);
+        // HeaderName::from_bytes 内部の一時変数と headers.remove の戻り値の
+        // ドロップ順が Edition 2025 で変更されるため、両方を名前付き変数に
+        // 束縛して一時変数のドロップ時期を確定させる
+        let name_bytes = header_name.as_bytes();
+        let header_name_result = header::HeaderName::from_bytes(name_bytes);
+        if let Ok(name) = header_name_result {
+            let _ = headers.remove(name);
         }
     }
 
