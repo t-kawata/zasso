@@ -23,9 +23,15 @@ use crate::util::id::{AccountId, CallId};
 ///
 /// `mixer` は通話ごとの AudioMixer インスタンス。
 /// 音声ソースの追加・削除、Tap チャネルの登録に使用する。
+/// `tap_txs` は SubscribeAudio で生成された tap チャネルの送信側を保持し、
+/// AudioWorkerTask の PairAligner → tap_txs 配送で使用される。
 pub(crate) struct MediaRuntime {
     /// 通話単位の音声ミキサー。
     pub mixer: Arc<AudioMixer>,
+    /// SubscribeAudio で生成された tap チャネルの送信側。
+    /// AudioWorkerTask が PairAligner のペアを配送する先。
+    /// 空 = 購読者なし。
+    pub tap_txs: Vec<tokio::sync::mpsc::Sender<crate::audio::chunk::AudioChunkPair>>,
 }
 
 impl std::fmt::Debug for MediaRuntime {
@@ -82,6 +88,8 @@ pub(crate) struct CallEntry {
     pub account_id: AccountId,
     /// 現在の通話状態。
     pub state: CallState,
+    /// 直前の通話状態（CONNECTING の分岐判定に使用）。
+    pub previous_state: Option<CallState>,
     /// メディアランタイム情報。
     pub media: Option<MediaRuntime>,
 }
@@ -252,6 +260,15 @@ impl ClientState {
     pub fn get_call_by_native_id(&self, native_id: i32) -> Option<&CallEntry> {
         self.calls.values().find(|e| e.native_id == Some(native_id))
     }
+
+    /// ネイティブ通話 ID から通話エントリへの可変参照を逆引きする。
+    ///
+    /// `handle_call_state_changed` での previous_state 更新に使用する。
+    pub fn get_call_by_native_id_mut(&mut self, native_id: i32) -> Option<&mut CallEntry> {
+        self.calls
+            .values_mut()
+            .find(|e| e.native_id == Some(native_id))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +421,7 @@ mod tests {
             native_id: None,
             account_id: AccountId::generate(),
             state: CallState::New,
+            previous_state: None,
             media: None,
         };
         assert!(state.add_call(entry).is_ok());
@@ -420,6 +438,7 @@ mod tests {
             native_id: None,
             account_id: AccountId::generate(),
             state: CallState::New,
+            previous_state: None,
             media: None,
         };
         assert!(state.add_call(entry).is_ok());
@@ -478,6 +497,7 @@ mod tests {
                 native_id: None,
                 account_id: AccountId::generate(),
                 state: CallState::New,
+                previous_state: None,
                 media: None,
             };
             assert!(state.add_call(entry).is_ok());
@@ -514,6 +534,7 @@ mod tests {
             native_id: None,
             account_id: AccountId::generate(),
             state: CallState::New,
+            previous_state: None,
             media: None,
         });
         assert!(result.is_err());
@@ -555,6 +576,7 @@ mod tests {
                 native_id: Some(100),
                 account_id: acc_id,
                 state: CallState::Active,
+                previous_state: None,
                 media: None,
             })
             .is_ok());

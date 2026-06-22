@@ -101,16 +101,30 @@ impl SipBackend for PjsuaBackendRef {
     fn create_transport(&mut self, config: &TransportConfig) -> Result<(), SipError> {
         global().lock().unwrap().create_transport(config)
     }
-    fn add_account(&mut self, config: &AccountConfig) -> Result<(NativeAccId, ClientCapabilities), SipError> {
+    fn add_account(
+        &mut self,
+        config: &AccountConfig,
+    ) -> Result<(NativeAccId, ClientCapabilities), SipError> {
         global().lock().unwrap().add_account(config)
     }
     fn remove_account(&mut self, native_acc_id: NativeAccId) -> Result<(), SipError> {
         global().lock().unwrap().remove_account(native_acc_id)
     }
-    fn set_registration(&mut self, native_acc_id: NativeAccId, enabled: bool) -> Result<(), SipError> {
-        global().lock().unwrap().set_registration(native_acc_id, enabled)
+    fn set_registration(
+        &mut self,
+        native_acc_id: NativeAccId,
+        enabled: bool,
+    ) -> Result<(), SipError> {
+        global()
+            .lock()
+            .unwrap()
+            .set_registration(native_acc_id, enabled)
     }
-    fn make_call(&mut self, native_acc_id: NativeAccId, request: &OutgoingCallRequest) -> Result<NativeCallId, SipError> {
+    fn make_call(
+        &mut self,
+        native_acc_id: NativeAccId,
+        request: &OutgoingCallRequest,
+    ) -> Result<NativeCallId, SipError> {
         global().lock().unwrap().make_call(native_acc_id, request)
     }
     fn answer_call(&mut self, native_call_id: NativeCallId, code: u16) -> Result<(), SipError> {
@@ -125,23 +139,45 @@ impl SipBackend for PjsuaBackendRef {
     ) -> Result<AccountInfoSnapshot, SipError> {
         global().lock().unwrap().get_account_info(native_acc_id)
     }
-    fn conf_connect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
+    fn conf_connect(
+        &mut self,
+        src: NativeConfPortId,
+        dst: NativeConfPortId,
+    ) -> Result<(), SipError> {
         global().lock().unwrap().conf_connect(src, dst)
     }
-    fn conf_disconnect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
+    fn conf_disconnect(
+        &mut self,
+        src: NativeConfPortId,
+        dst: NativeConfPortId,
+    ) -> Result<(), SipError> {
         global().lock().unwrap().conf_disconnect(src, dst)
     }
     fn configure_codecs(&mut self, preferred: &[Codec]) -> Result<(), SipError> {
         global().lock().unwrap().configure_codecs(preferred)
     }
-    fn send_dtmf(&mut self, native_call_id: NativeCallId, method: &DtmfMethod, digits: &str) -> Result<(), SipError> {
-        global().lock().unwrap().send_dtmf(native_call_id, method, digits)
+    fn send_dtmf(
+        &mut self,
+        native_call_id: NativeCallId,
+        method: &DtmfMethod,
+        digits: &str,
+    ) -> Result<(), SipError> {
+        global()
+            .lock()
+            .unwrap()
+            .send_dtmf(native_call_id, method, digits)
     }
-    fn transfer_call(&mut self, native_call_id: NativeCallId, target: &str) -> Result<(), SipError> {
-        global().lock().unwrap().transfer_call(native_call_id, target)
+    fn transfer_call(
+        &mut self,
+        native_call_id: NativeCallId,
+        target: &str,
+    ) -> Result<(), SipError> {
+        global()
+            .lock()
+            .unwrap()
+            .transfer_call(native_call_id, target)
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // pj_status_t → SipError 変換
@@ -223,10 +259,7 @@ impl SipBackend for PjsuaBackend {
                 &mut thread_ptr,
             );
             if reg_status != 0 {
-                return Err(pj_status_to_sip_error(
-                    reg_status,
-                    "pj_thread_register",
-                ));
+                return Err(pj_status_to_sip_error(reg_status, "pj_thread_register"));
             }
             self.thread_desc = Some(Box::new(desc));
 
@@ -593,7 +626,10 @@ impl SipBackend for PjsuaBackend {
             };
             let status = bindings::pjsua_codec_set_priority(&codec_id as *const _, CODEC_PRIO_PCMU);
             if status != 0 {
-                return Err(pj_status_to_sip_error(status, "pjsua_codec_set_priority PCMU"));
+                return Err(pj_status_to_sip_error(
+                    status,
+                    "pjsua_codec_set_priority PCMU",
+                ));
             }
         }
         Ok(())
@@ -680,8 +716,7 @@ impl SipBackend for PjsuaBackend {
                     ptr: codec_id_bytes.as_ptr() as *const u8 as *mut ::std::os::raw::c_char,
                     slen: codec_id_bytes.len() as ::std::os::raw::c_long - 1, // null 終端除く
                 };
-                let status =
-                    bindings::pjsua_codec_set_priority(&pj_codec_id as *const _, priority);
+                let status = bindings::pjsua_codec_set_priority(&pj_codec_id as *const _, priority);
                 if status != 0 {
                     let codec_name = match codec {
                         Codec::Pcmu => "PCMU",
@@ -701,7 +736,8 @@ impl SipBackend for PjsuaBackend {
     // SAFETY: pj_str_t.ptr は有効なメモリ領域を指し、slen はその長さを表す。
     fn codec_id_to_str(codec_id: &bindings::pj_str_t) -> &str {
         unsafe {
-            let bytes = std::slice::from_raw_parts(codec_id.ptr as *const u8, codec_id.slen as usize);
+            let bytes =
+                std::slice::from_raw_parts(codec_id.ptr as *const u8, codec_id.slen as usize);
             std::str::from_utf8_unchecked(bytes)
         }
     }
@@ -935,10 +971,7 @@ mod tests {
     /// RFC02 §6.4 に従い Opus=255（最優先）、PCMU=254（フォールバック）。
     #[test]
     fn test_codec_priority_constants() {
-        assert_eq!(
-            CODEC_PRIO_OPUS, 255,
-            "Opus は最高優先度 (255) — RFC02 §6.4"
-        );
+        assert_eq!(CODEC_PRIO_OPUS, 255, "Opus は最高優先度 (255) — RFC02 §6.4");
         assert_eq!(
             CODEC_PRIO_PCMU, 254,
             "PCMU は Opus 非対応環境用フォールバック (254) — RFC02 §6.4"

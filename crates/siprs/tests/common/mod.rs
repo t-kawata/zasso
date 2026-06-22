@@ -257,7 +257,10 @@ pub async fn wait_for_registration(
 
         match tokio::time::timeout(remaining, events.recv()).await {
             Ok(Ok(event)) => {
-                if matches!(&event.payload, SipEventPayload::RegistrationSucceeded { .. }) {
+                if matches!(
+                    &event.payload,
+                    SipEventPayload::RegistrationSucceeded { .. }
+                ) {
                     return Ok(event);
                 }
                 // RegistrationFailed は IP 書き換え起因の可能性があるためスキップして継続待機

@@ -16,6 +16,7 @@ use std::net::SocketAddr;
 
 use tokio::sync::broadcast;
 
+use crate::audio::format::AudioFormat;
 use crate::config::{Codec, DtmfMethod};
 use crate::error::SipError;
 use crate::transport::TransportKind;
@@ -352,23 +353,91 @@ impl ClientCapabilities {
 #[allow(dead_code)]
 // ── 登録系 ──
 #[derive(Debug, Clone)]
-pub struct RegistrationInfo {}
+pub struct RegistrationInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// 再登録かどうか。
+    pub renew: bool,
+    /// SIP ステータスコード（成功時 200 等）。
+    pub status_code: Option<u16>,
+    /// 理由句。
+    pub reason: Option<String>,
+}
 #[derive(Debug, Clone)]
-pub struct RegistrationFailure {}
+pub struct RegistrationFailure {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// SIP ステータスコード。
+    pub status_code: u16,
+    /// 失敗理由。
+    pub reason: String,
+    /// 期限切れかどうか。
+    pub is_expired: bool,
+}
 
 // ── 発着信系 ──
 #[derive(Debug, Clone)]
-pub struct OutgoingCallInfo {}
+pub struct OutgoingCallInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// リモート URI（example: "sip:user@domain"）。
+    pub remote_uri: Option<String>,
+    /// 発信先 URI。
+    pub target_uri: Option<String>,
+}
 #[derive(Debug, Clone)]
-pub struct ProvisionalInfo {}
+pub struct ProvisionalInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// SIP 暫定応答ステータスコード（100, 180, 183 等）。
+    pub status_code: u16,
+    /// 理由句。
+    pub reason: Option<String>,
+}
 #[derive(Debug, Clone)]
-pub struct EarlyMediaInfo {}
+pub struct EarlyMediaInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// メディアフォーマット。
+    pub media_format: Option<AudioFormat>,
+}
 #[derive(Debug, Clone)]
-pub struct ConnectedCallInfo {}
+pub struct ConnectedCallInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// メディアフォーマット。
+    pub media_format: Option<AudioFormat>,
+}
 #[derive(Debug, Clone)]
-pub struct IncomingCallInfo {}
+pub struct IncomingCallInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// 発信元 URI。
+    pub remote_uri: String,
+}
 #[derive(Debug, Clone)]
-pub struct DisconnectInfo {}
+pub struct DisconnectInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// 切断理由。
+    pub reason: Option<String>,
+    /// SIP ステータスコード。
+    pub status_code: Option<u16>,
+    /// リモート側からの切断かどうか。
+    pub by_remote: bool,
+}
 #[derive(Debug, Clone)]
 pub struct CancelInfo {}
 #[derive(Debug, Clone)]
@@ -378,31 +447,98 @@ pub struct TransferInfo {}
 
 // ── メディア系 ──
 #[derive(Debug, Clone)]
-pub struct MediaActiveInfo {}
+pub struct MediaActiveInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+}
 #[derive(Debug, Clone)]
 pub struct MediaStoppedInfo {}
 #[derive(Debug, Clone)]
-pub struct MediaErrorInfo {}
+pub struct MediaErrorInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// エラーメッセージ。
+    pub error_msg: String,
+}
 
 // ── DTMF系 ──
+/// DTMF 送出結果（エラー種別）。
 #[derive(Debug, Clone)]
-pub struct DtmfSentInfo {}
+pub enum SentDtmfError {
+    /// PJSIP 内部エラー。
+    PjsipError(i32),
+    /// タイムアウト。
+    Timeout,
+}
+
 #[derive(Debug, Clone)]
-pub struct DtmfReceivedInfo {}
+pub struct DtmfSentInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// 送出方式。
+    pub method: DtmfMethod,
+    /// 送出した DTMF 数字列。
+    pub digits: String,
+    /// 送出結果（Ok またはエラー）。
+    pub status: Result<(), SentDtmfError>,
+}
+#[derive(Debug, Clone)]
+pub struct DtmfReceivedInfo {
+    /// ランタイムアカウント ID。
+    pub acc_id: AccountId,
+    /// ランタイム通話 ID。
+    pub call_id: CallId,
+    /// 受信した DTMF 数字。
+    pub digit: char,
+    /// 受信方式。
+    pub method: DtmfMethod,
+}
 
 // ── ICE系 ──
 #[derive(Debug, Clone)]
 pub struct IceSuccessInfo {}
 #[derive(Debug, Clone)]
-pub struct IceFailureInfo {}
+pub struct IceFailureInfo {
+    /// 関連通話 ID。
+    pub call_id: Option<CallId>,
+    /// PJSIP ステータスコード。
+    pub status_code: Option<i32>,
+    /// エラーメッセージ。
+    pub error_msg: String,
+}
 
 // ── トランスポート系 ──
 #[derive(Debug, Clone)]
-pub struct TransportConnectedInfo {}
+pub struct TransportConnectedInfo {
+    /// PJSIP トランスポート ID。
+    pub tp_id: i32,
+    /// トランスポート種別。
+    pub kind: TransportKind,
+    /// ローカルアドレス。
+    pub local_addr: Option<SocketAddr>,
+}
 #[derive(Debug, Clone)]
-pub struct TransportDisconnectedInfo {}
+pub struct TransportDisconnectedInfo {
+    /// PJSIP トランスポート ID。
+    pub tp_id: i32,
+    /// トランスポート種別。
+    pub kind: TransportKind,
+}
 #[derive(Debug, Clone)]
-pub struct TransportErrorInfo {}
+pub struct TransportErrorInfo {
+    /// PJSIP トランスポート ID。
+    pub tp_id: i32,
+    /// トランスポート種別。
+    pub kind: TransportKind,
+    /// エラー詳細。
+    pub error: String,
+}
 
 // ── アカウント系 ──
 #[derive(Debug, Clone)]
@@ -714,36 +850,135 @@ impl AccountEventReceiver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::id::AccountId;
+
+    /// テスト用のダミー AccountId を生成する。
+    fn test_acc_id() -> AccountId {
+        AccountId::from_test(1)
+    }
+
+    /// テスト用のダミー CallId を生成する。
+    fn test_call_id() -> crate::util::id::CallId {
+        crate::util::id::CallId::generate()
+    }
 
     /// データありバリアントが Info 構造体を保持して構築できることを確認する。
     #[test]
     fn test_data_variants_constructible() {
+        let aid = test_acc_id();
+        let cid = test_call_id();
         let variants = vec![
-            SipEventPayload::RegistrationStarted(RegistrationInfo {}),
-            SipEventPayload::RegistrationSucceeded(RegistrationInfo {}),
-            SipEventPayload::RegistrationFailed(RegistrationFailure {}),
-            SipEventPayload::UnregistrationFailed(RegistrationFailure {}),
-            SipEventPayload::OutgoingCallStarted(OutgoingCallInfo {}),
-            SipEventPayload::OutgoingCallTrying(ProvisionalInfo {}),
-            SipEventPayload::OutgoingCallRinging(ProvisionalInfo {}),
-            SipEventPayload::EarlyMediaReceived(EarlyMediaInfo {}),
-            SipEventPayload::CallConnected(ConnectedCallInfo {}),
-            SipEventPayload::IncomingCall(IncomingCallInfo {}),
-            SipEventPayload::CallDisconnected(DisconnectInfo {}),
+            SipEventPayload::RegistrationStarted(RegistrationInfo {
+                acc_id: aid,
+                renew: false,
+                status_code: None,
+                reason: None,
+            }),
+            SipEventPayload::RegistrationSucceeded(RegistrationInfo {
+                acc_id: aid,
+                renew: false,
+                status_code: Some(200),
+                reason: Some("OK".into()),
+            }),
+            SipEventPayload::RegistrationFailed(RegistrationFailure {
+                acc_id: aid,
+                status_code: 401,
+                reason: "Unauthorized".into(),
+                is_expired: false,
+            }),
+            SipEventPayload::UnregistrationFailed(RegistrationFailure {
+                acc_id: aid,
+                status_code: 401,
+                reason: "Unauthorized".into(),
+                is_expired: false,
+            }),
+            SipEventPayload::OutgoingCallStarted(OutgoingCallInfo {
+                acc_id: aid,
+                call_id: cid,
+                remote_uri: None,
+                target_uri: None,
+            }),
+            SipEventPayload::OutgoingCallTrying(ProvisionalInfo {
+                acc_id: aid,
+                call_id: cid,
+                status_code: 100,
+                reason: Some("Trying".into()),
+            }),
+            SipEventPayload::OutgoingCallRinging(ProvisionalInfo {
+                acc_id: aid,
+                call_id: cid,
+                status_code: 180,
+                reason: Some("Ringing".into()),
+            }),
+            SipEventPayload::EarlyMediaReceived(EarlyMediaInfo {
+                acc_id: aid,
+                call_id: cid,
+                media_format: None,
+            }),
+            SipEventPayload::CallConnected(ConnectedCallInfo {
+                acc_id: aid,
+                call_id: cid,
+                media_format: None,
+            }),
+            SipEventPayload::IncomingCall(IncomingCallInfo {
+                acc_id: aid,
+                call_id: cid,
+                remote_uri: "sip:alice@example.com".into(),
+            }),
+            SipEventPayload::CallDisconnected(DisconnectInfo {
+                acc_id: aid,
+                call_id: cid,
+                reason: Some("Normal".into()),
+                status_code: Some(200),
+                by_remote: false,
+            }),
             SipEventPayload::CallCancelled(CancelInfo {}),
             SipEventPayload::CallRejected(RejectInfo {}),
             SipEventPayload::ReferReceived(ReferRequest {}),
             SipEventPayload::TransferCompleted(TransferInfo {}),
-            SipEventPayload::MediaActive(MediaActiveInfo {}),
+            SipEventPayload::MediaActive(MediaActiveInfo {
+                acc_id: aid,
+                call_id: cid,
+            }),
             SipEventPayload::MediaStopped(MediaStoppedInfo {}),
-            SipEventPayload::MediaError(MediaErrorInfo {}),
-            SipEventPayload::DtmfSent(DtmfSentInfo {}),
-            SipEventPayload::DtmfReceived(DtmfReceivedInfo {}),
+            SipEventPayload::MediaError(MediaErrorInfo {
+                acc_id: aid,
+                call_id: cid,
+                error_msg: "media error".into(),
+            }),
+            SipEventPayload::DtmfSent(DtmfSentInfo {
+                acc_id: aid,
+                call_id: cid,
+                method: DtmfMethod::Rfc4733,
+                digits: "123".into(),
+                status: Ok(()),
+            }),
+            SipEventPayload::DtmfReceived(DtmfReceivedInfo {
+                acc_id: aid,
+                call_id: cid,
+                digit: '5',
+                method: DtmfMethod::Rfc4733,
+            }),
             SipEventPayload::IceNegotiationSucceeded(IceSuccessInfo {}),
-            SipEventPayload::IceNegotiationFailed(IceFailureInfo {}),
-            SipEventPayload::TransportConnected(TransportConnectedInfo {}),
-            SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {}),
-            SipEventPayload::TransportError(TransportErrorInfo {}),
+            SipEventPayload::IceNegotiationFailed(IceFailureInfo {
+                call_id: Some(cid),
+                status_code: Some(500),
+                error_msg: "ice failed".into(),
+            }),
+            SipEventPayload::TransportConnected(TransportConnectedInfo {
+                tp_id: 1,
+                kind: TransportKind::Udp,
+                local_addr: None,
+            }),
+            SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {
+                tp_id: 1,
+                kind: TransportKind::Udp,
+            }),
+            SipEventPayload::TransportError(TransportErrorInfo {
+                tp_id: 1,
+                kind: TransportKind::Udp,
+                error: "transport error".into(),
+            }),
             SipEventPayload::AccountAdded(AccountSnapshot {}),
             SipEventPayload::AccountRemoved(AccountSnapshot {}),
             SipEventPayload::AccountConfigChanged(AccountSnapshot {}),
@@ -781,7 +1016,13 @@ mod tests {
     /// 全バリアントの Clone が正しく機能することを確認する。
     #[test]
     fn test_clone_all_variants() {
-        let original = SipEventPayload::CallConnected(ConnectedCallInfo {});
+        let aid = test_acc_id();
+        let cid = test_call_id();
+        let original = SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id: aid,
+            call_id: cid,
+            media_format: None,
+        });
         let cloned = original.clone();
         assert!(matches!(cloned, SipEventPayload::CallConnected(_)));
     }
@@ -1189,7 +1430,12 @@ mod tests {
         let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
 
         // 一致する account_id のイベントを publish。
-        let mut event = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
+        let mut event = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {
+            acc_id,
+            renew: false,
+            status_code: Some(200),
+            reason: Some("OK".into()),
+        }));
         event.meta.account_id = Some(acc_id);
         bus.publish(event);
 
@@ -1210,7 +1456,11 @@ mod tests {
         let mut receiver = AccountEventReceiver::new(acc_id, bus.subscribe_control());
 
         // 異なる account_id のイベントを publish。
-        let mut event = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {}));
+        let mut event = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id: other_id,
+            call_id: crate::util::id::CallId::generate(),
+            media_format: None,
+        }));
         event.meta.account_id = Some(other_id);
         bus.publish(event);
 
@@ -1285,13 +1535,21 @@ mod tests {
         let mut bob_rx = AccountEventReceiver::new(bob, bus.subscribe_control());
 
         // Alice 向けイベント。
-        let mut event_a =
-            SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {}));
+        let mut event_a = SipEvent::new(SipEventPayload::RegistrationSucceeded(RegistrationInfo {
+            acc_id: alice,
+            renew: false,
+            status_code: Some(200),
+            reason: Some("OK".into()),
+        }));
         event_a.meta.account_id = Some(alice);
         bus.publish(event_a);
 
         // Bob 向けイベント。
-        let mut event_b = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {}));
+        let mut event_b = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id: bob,
+            call_id: crate::util::id::CallId::generate(),
+            media_format: None,
+        }));
         event_b.meta.account_id = Some(bob);
         bus.publish(event_b);
 
