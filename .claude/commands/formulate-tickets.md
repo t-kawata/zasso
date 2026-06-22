@@ -31,7 +31,7 @@ description: 設計書（RFC・要件定義・設計ドキュメント）から�
 
 ## 分析手順
 
-### Step 0: 初期化（引数パース）
+### Step 0: 初期化（引数パース + Malfeasance.json 初期化）
 
 ```bash
 # 第1引数: 設計書パス（必須）
@@ -42,16 +42,18 @@ OUTPUT_PATH=""
 if [[ "$ARGUMENTS" == *" "* ]]; then
   OUTPUT_PATH="${ARGUMENTS#* }"
 fi
+
+# 設計書ディレクトリ（CLAUDE.md と Malfeasance.json の出力先）
+DOC_DIR="$(dirname "$DOC_PATH")"
 ```
 
-### Step 0.5: Malfeasance.json の初期化（犯罪記録台帳）
-
-Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。CLAUDE.md 生成より前に必ず初期化しておく。
+Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。
+CLAUDE.md と同じ階層に存在しなければならないため、`DOC_DIR` 内で初期化する。
 
 ```bash
-# 犯罪記録台帳が存在しなければ空の状態で作成する
+# 犯罪記録台帳が存在しなければ空の状態で作成する（CLAUDE.md と同じ階層に）
 _R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/ensure-malfeasance.js"
+node "$_R/scripts/tickets/ensure-malfeasance.js" "$DOC_DIR"
 ```
 
 ### Step 1: 設計書の検証と情報抽出
@@ -78,8 +80,7 @@ fi
 俯瞰するためのマップとして機能する。
 
 ```bash
-# CLAUDE.md の出力先を決定（設計書と同階層）
-DOC_DIR="$(dirname "$DOC_PATH")"
+# CLAUDE.md の出力先（DOC_DIR は Step 0 で設定済み）
 CLAUDE_MD="$DOC_DIR/CLAUDE.md"
 
 # 既存ファイルの上書き確認

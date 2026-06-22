@@ -254,3 +254,4 @@
 - [x] #187 M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream | /Users/kawata/shyme/zasso/tickets/specs/0187-m6-7-inferencestreamrs-tokencallback-mpsc-receiverstream.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [ ] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22

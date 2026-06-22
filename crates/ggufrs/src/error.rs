@@ -88,9 +88,8 @@ pub enum GgufError {
     ///
     /// llama-cpp バックエンドから発生したエラーをラップする。
     /// `#[from]` 属性により `?` 演算子で自動変換される。
-    /// [::STUB::] M6-11 で `#[from] mistralrs::error::Error` → `#[from] llama_cpp_2::LlamaCppError` に差し替える
     #[error("llama-cpp エラー: {0}")]
-    LlamaCppError(#[from] mistralrs::error::Error),
+    LlamaCppError(#[from] llama_cpp_2::LlamaCppError),
 }
 
 #[cfg(test)]
