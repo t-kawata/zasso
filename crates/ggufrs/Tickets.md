@@ -741,7 +741,7 @@
 
 > **この時点からコンパイルが一時的に通らなくなる。Cargo.toml の依存差し替えは M6-11 で行う。**
 
-#### チケット M6-4: registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking
+#### ✅ チケット M6-4: registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking
 
 * **参照設計書:** crates/ggufrs/RFC.md (§3.1 ModelRegistry, §3.2 ModelConfig と ModelInfo)
 * **依存・関連チケットID:** 先行実装必須: M6-2（LlamaCppError）。先行実装必須: M6-3（ModelConfig 変更）。後続: M6-5（InferenceEngine からの呼び出し）。
@@ -759,7 +759,7 @@
   3. ロード失敗時（ファイル不在等）に ModelLoadFailed エラー
   4. llama_cpp_2::Error → GgufError::LlamaCppError 変換
 
-#### チケット M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化
+#### ✅ チケット M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.1 InferenceEngine トレイト)
 * **依存・関連チケットID:** 先行実装必須: M6-4（LlamaModel 型）。後続: M6-6（generate.rs 実装）、M6-7（stream.rs 実装）。
@@ -772,7 +772,7 @@
   1. トレイトが3メソッドのみであること（コンパイル時検証）
   2. Send + Sync / オブジェクトセーフ維持確認
 
-#### チケット M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf
+#### ✅ チケット M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.3 generate() 実装, §4.4 generate_structured() 実装)
 * **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。後続: M6-9（サーバーからの呼び出し）。
@@ -789,7 +789,7 @@
   2. gbnf 変換が有効な JSON Schema に対して成功する
   3. 無効な JSON Schema に対して適切なエラーを返す
 
-#### チケット M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream
+#### ✅ チケット M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.5 generate_stream() 実装)
 * **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。並行可能: M6-6（同じ依存関係）。
@@ -800,7 +800,7 @@
   1. ストリームから全チャンクが正しい順序で収集できる
   2. エラー時にストリームが適切に終了する
 
-#### チケット M6-8: inference/raw.rs 削除
+#### ✅ チケット M6-8: inference/raw.rs 削除
 
 * **参照設計書:** crates/ggufrs/RFC.md (§4.1 モジュール分割, §Implementation ファイル別変更要約)
 * **依存・関連チケットID:** 先行実装必須: M6-5（pub mod raw コメントアウト済み）。
@@ -817,13 +817,15 @@
 * **参照設計書:** crates/ggufrs/RFC.md (§6.1 アーキテクチャ, §6.3 ルーター)
 * **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）。先行実装必須: M6-5（InferenceEngine トレイト）。
 * **対象不変条件 / 規範:** openai_chat_handler + openai_stream_handler → 単一 chat_completions_handler（stream フィールド分岐）に統合。anthropic_messages_handler 削除。AppError の MistralrsError → LlamaCppError。list_models_handler を4モデル対応に更新。
+* **本チケットの終了条件（絶対）:** `server/` ディレクトリ配下（openai.rs + router.rs）から `send_raw` 参照を完全に除去し、これらのファイル起因のコンパイルエラーをゼロにする。MockEngine の `expect_send_raw()` を含むテストコードも本チケットで修正し、**一切の `send_raw` エラーを M6-12 以降に先送りしない。**
 * **実装スコープ:**
-  - server/openai.rs: 自前型使用、chat_completions_handler に統合、Anthropic 全削除
-  - server/router.rs: AppError 修正、Anthropic ルート削除
+  - server/openai.rs: 自前型使用、chat_completions_handler に統合、Anthropic 全削除、`send_raw` → `generate`/`generate_stream` に置き換え
+  - server/router.rs: AppError 修正、Anthropic ルート削除、`expect_send_raw()` → `expect_generate()`/`expect_generate_stream()` に置き換え
 * **テストコードによる検証:**
   1. モックエンジンで非ストリーミングリクエストが正常に処理される
   2. stream=true のリクエストが SSE 形式で返る
   3. Anthropic エンドポイントが存在しない（404）
+  4. `grep -rn 'send_raw' src/server/` が空であること（send_raw 完全抹消の確認）
 
 #### チケット M6-10: lib.rs 修正 — mistralrs re-export 削除 + server::types 追加
 
@@ -846,7 +848,8 @@
 * **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §8.1 build.rs cmake, §8.2 build.rs モデルDL)
 * **依存・関連チケットID:** 先行実装必須: M6-10（lib.rs 修正済み）。先行推奨: M6-3（settings.rs 同時編集の競合回避のため）。後続: M6-12（テストコード）、M6-13（test-run）。
 * **対象不変条件 / 規範:** mistralrs + llm-bridge-core 削除。llama-cpp-2 = "0.1.150" + gbnf = "0.2.7" 追加。features: directml 削除、metal/cuda 維持。build.rs: cargo feature → cmake 環境変数設定 + 4モデルダウンロード。
-* **実装の背景と目的:** llama-cpp-2 への依存切り替えを Cargo.toml と build.rs で行う。このチケットでコンパイルが復旧する。
+* **実装の背景と目的:** llama-cpp-2 への依存切り替えを Cargo.toml と build.rs で行う。
+* **本チケットの終了条件（絶対）:** `cargo check --all-targets` が完全に成功すること。これより後にコンパイルが通らない状態を一切許さない。特に `gbnf::convert` の未解決参照エラーは本チケットで `gbnf = "0.2.7"` を Cargo.toml に追加して解消し、**M6-14（feature flags 最終調整）以降に先送りしない。** コンパイルが通った状態を後続チケット（M6-12, M6-13, M6-14）に引き継ぐ。
 * **実装スコープ:**
   - Cargo.toml: mistralrs / llm-bridge-core 削除、llama-cpp-2 / gbnf 追加、features 再編
   - build.rs: LLAMA_METAL / LLAMA_CUDA 環境変数設定、MODEL_FILES 4モデル
@@ -859,10 +862,10 @@
 
 * **参照設計書:** crates/ggufrs/RFC.md (§10.1 単体テスト（mockall）, §10.2 結合テスト）
 * **依存・関連チケットID:** 先行実装必須: M6-11（コンパイル復旧）。
-* **対象不変条件 / 規範:** MockEngine の mock! 定義を4→3メソッドに変更。send_raw() 削除。全メソッドの引数型を TextMessages → &str に変更。mistralrs 依存テスト（test_error_from_mistralrs）は削除。結合テストのモデル名を更新。
+* **対象不変条件 / 規範:** 全メソッドの引数型を TextMessages → &str に変更。mistralrs 依存テスト（test_error_from_mistralrs）は削除。結合テストのモデル名を更新。
 * **実装スコープ:**
-  - mock! 定義: send_raw 削除、各メソッド引数 TextMessages → &str
-  - 削除: test_error_from_mistralrs, send_raw 関連テスト
+  - mock! 定義: 各メソッド引数 TextMessages → &str（send_raw 削除は M6-9 で完了済み）
+  - 削除: test_error_from_mistralrs, send_raw 関連テスト（残余あれば）
   - 追加: test_error_from_llamacpp
   - 結合テスト: モデル名・ハンドラ名更新
 * **テストコードによる検証:** cargo test が全テスト通過（実モデル不要のテストのみ）

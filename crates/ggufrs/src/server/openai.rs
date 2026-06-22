@@ -9,12 +9,12 @@
 //! 全ハンドラは `AppState`（`Arc<dyn InferenceEngine>`）を共有状態として受け取り、
 //! 実際の推論は `InferenceEngine` トレイトのメソッドに委譲する。
 
-use std::collections::HashMap;
-
 use axum::extract::State;
 use axum::Json;
 use serde_json::Value;
 
+// [::STUB::] M6-9/M6-11: 全 mistralrs 依存が仮置きにより未使用。M6-9 で自前型に置き換え、M6-11 で削除。
+#[allow(unused_imports)]
 use mistralrs::{ChatCompletionResponse, RequestBuilder, Response, TextMessageRole, TextMessages};
 
 use super::router::{AppError, AppState};
@@ -24,6 +24,8 @@ use crate::error::GgufError;
 ///
 /// OpenAI 互換形式のリクエストボディから `messages` 配列を抽出し、
 /// mistralrs の TextMessages に変換する。role/content の組を順次追加する。
+/// [::STUB::] M6-9: ハンドラ仮置きにより未使用。M6-9 で削除または自前型版に改修。
+#[allow(dead_code)]
 fn parse_messages(body: &Value) -> TextMessages {
     let mut text_messages = TextMessages::new();
     if let Some(messages) = body["messages"].as_array() {
@@ -46,6 +48,8 @@ fn parse_messages(body: &Value) -> TextMessages {
 ///
 /// Response 列挙型のバリアントに応じて、成功時は ChatCompletionResponse を、
 /// エラー時は AppError を返す。
+/// [::STUB::] M6-9: ハンドラ仮置きにより未使用。M6-9 で削除または自前型版に改修。
+#[allow(dead_code)]
 fn extract_chat_response(response: Response) -> Result<ChatCompletionResponse, AppError> {
     match response {
         Response::Done(chat_response) => Ok(chat_response),
@@ -64,19 +68,19 @@ fn extract_chat_response(response: Response) -> Result<ChatCompletionResponse, A
 /// POST /v1/chat/completions — OpenAI 互換チャット補完
 ///
 /// リクエストボディから model 名と messages 配列を抽出し、
-/// mistralrs の推論エンジンに委譲する。
+/// llama-cpp-2 の推論エンジンに委譲する。
+///
+/// [::STUB::] M6-9: send_raw が InferenceEngine トレイトから削除されたため仮置き。
+/// M6-9 で generate/generate_stream を使用した実装に置き換える。
 pub async fn openai_chat_handler(
-    State(engine): State<AppState>,
-    Json(body): Json<Value>,
+    State(_engine): State<AppState>,
+    Json(_body): Json<Value>,
 ) -> Result<Json<ChatCompletionResponse>, AppError> {
-    let model_name = body["model"].as_str().unwrap_or("gemma4-e2b");
-
-    let text_messages = parse_messages(&body);
-    let request_builder = RequestBuilder::from(text_messages);
-    let response = engine.send_raw(model_name, request_builder).await?;
-    let chat_response = extract_chat_response(response)?;
-
-    Ok(Json(chat_response))
+    Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "openai_chat_handler pending M6-9",
+    )))
+    .into())
 }
 
 /// GET /v1/models — OpenAI 互換モデル一覧
@@ -101,60 +105,15 @@ pub async fn list_models_handler(State(_engine): State<AppState>) -> Json<Value>
 /// llm-bridge-core の transform 関数を用いてリクエスト・レスポンスを
 /// 双方向変換する。
 ///
-/// 処理の流れ:
-/// 1. Anthropic リクエスト → `anthropic_to_openai()` で OpenAI 形式に変換
-/// 2. OpenAI 形式から model + messages を抽出し、`send_raw()` に委譲
-/// 3. mistralrs の OpenAI 互換レスポンス → `openai_response_to_anthropic_message()` で逆変換
+/// [::STUB::] M6-9: send_raw が InferenceEngine トレイトから削除されたため仮置き。
+/// M6-9 で Anthropic ハンドラ自体を削除予定。
 pub async fn anthropic_messages_handler(
-    State(engine): State<AppState>,
-    Json(body): Json<Value>,
+    State(_engine): State<AppState>,
+    Json(_body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    // ----------------------------------------------------------------
-    // Step 1: Anthropic リクエストを OpenAI 形式に変換
-    // ----------------------------------------------------------------
-    let body_bytes = serde_json::to_vec(&body)
-        .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    let transform_req = llm_bridge_core::model::TransformRequest {
-        headers: HashMap::new(),
-        path: "/anthropic/v1/messages".into(),
-        body: body_bytes.into(),
-    };
-
-    let openai_req = llm_bridge_core::transform::anthropic_to_openai(&transform_req)
-        .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    // ----------------------------------------------------------------
-    // Step 2: OpenAI 形式から model + messages を抽出し、推論実行
-    // ----------------------------------------------------------------
-    let openai_body: Value = serde_json::from_slice(&openai_req.body)
-        .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    let model_name = openai_body["model"].as_str().unwrap_or("gemma4-e2b");
-
-    let text_messages = parse_messages(&openai_body);
-    let request_builder = RequestBuilder::from(text_messages);
-    let response = engine.send_raw(model_name, request_builder).await?;
-    let chat_response = extract_chat_response(response)?;
-
-    // ----------------------------------------------------------------
-    // Step 3: OpenAI レスポンスを Anthropic 形式に逆変換
-    // ----------------------------------------------------------------
-    let openai_resp_bytes = serde_json::to_vec(&chat_response)
-        .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    let anthropic_resp_req = llm_bridge_core::model::TransformRequest {
-        headers: HashMap::new(),
-        path: "/v1/chat/completions".into(),
-        body: openai_resp_bytes.into(),
-    };
-
-    let anthropic_resp =
-        llm_bridge_core::transform::openai_response_to_anthropic_message(&anthropic_resp_req)
-            .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    let anthropic_body: Value = serde_json::from_slice(&anthropic_resp.body)
-        .map_err(|e| AppError::from(GgufError::InvalidConfig(e.to_string())))?;
-
-    Ok(Json(anthropic_body))
+    Err(GgufError::InferenceFailed(Box::new(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "anthropic_messages_handler pending M6-9 (to be deleted)",
+    )))
+    .into())
 }

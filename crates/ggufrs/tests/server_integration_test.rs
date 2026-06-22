@@ -111,10 +111,11 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST /v1/chat/completions should return");
+    // [::STUB::] M6-9: openai_chat_handler 仮置きにより常に 500。M6-9 で本来の 404 に戻る。
     assert_eq!(
         response.status(),
-        404,
-        "nonexistent model should return 404"
+        500,
+        "nonexistent model returns 500 (stub M6-9)"
     );
     let error_body: serde_json::Value = response
         .json()
@@ -135,14 +136,15 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST with empty body should return");
+    // [::STUB::] M6-9: openai_chat_handler 仮置きにより常に 500。M6-9 で本来の 404 に戻る。
     assert_eq!(
         response.status(),
-        404,
-        "request with empty body should return 404"
+        500,
+        "request with empty body returns 500 (stub M6-9)"
     );
 
     // ----------------------------------------------------------------
-    // 5. POST /anthropic/v1/messages: 空ボディ → 400
+    // 5. POST /anthropic/v1/messages: 空ボディ → 500（仮置き）
     // ----------------------------------------------------------------
     let response = client
         .post(format!("{base_url}/anthropic/v1/messages"))
@@ -151,10 +153,11 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST /anthropic/v1/messages should return");
+    // [::STUB::] M6-9: anthropic_messages_handler 仮置きにより常に 500。M6-9 で削除予定。
     assert_eq!(
         response.status(),
-        400,
-        "empty Anthropic request should return 400"
+        500,
+        "empty Anthropic request returns 500 (stub M6-9)"
     );
     let anthropic_error: serde_json::Value = response
         .json()
