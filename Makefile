@@ -32,7 +32,7 @@ endif
 .PHONY: commit push pull master branch commit-branch push-branch
 .PHONY: check-be check-ggufrs check-fe check-all
 .PHONY: next-version gen-migration gen-entities migrate-up migrate-refresh
-.PHONY: install-context-mode update-context-mode stubs crimes
+.PHONY: install-context-mode update-context-mode stubs crimes archive-tickets
 
 # ═══════════════════════════════════════════════
 #  内部ターゲット（直接呼び出し想定しない）
@@ -308,6 +308,14 @@ stubs:
 
 crimes:
 	@find . -name "Malfeasance.json" -not -path './.claude/*' -not -path './target/*' | sort | node -e "const fs=require('fs');let i='';process.stdin.on('data',c=>i+=c);process.stdin.on('end',()=>{const d=[];i.trim().split('\n').filter(Boolean).forEach(f=>{try{const c=JSON.parse(fs.readFileSync(f,'utf8'));if(c.records)d.push(...c.records.map(r=>({_file:r._file||f,...r})))}catch(e){console.error('Warning:',f,e.message)}});console.log(JSON.stringify({success:true,count:d.length,records:d},null,2))})"
+
+# ═══════════════════════════════════════════════
+#  チケットアーカイブ
+# ═══════════════════════════════════════════════
+
+# キュー・specs・context を tickets/archive/ に退避して空にする
+archive-tickets:
+	@bash .claude/scripts/tickets/archive-tickets.sh
 
 install-context-mode:
 ifeq ($(OS),Windows_NT)

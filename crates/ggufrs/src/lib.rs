@@ -1,7 +1,8 @@
 //! # ggufrs — Rust による GGUF モデル推論エンジン
 //!
-//! mistralrs をバックエンドとして GGUF 形式の量子化言語モデルを推論実行するクレート。
-//! 同一プロセス内でライブラリ API（直接推論）と OpenAI/Anthropic 互換 HTTP サーバーの両方を提供し、
+//! GGUF 形式の量子化言語モデルを推論実行するクレート。
+//! 内部バックエンド（llama-cpp-2 / その他）を切り替え可能なアーキテクチャを持ち、
+//! 同一プロセス内でライブラリ API（直接推論）と OpenAI 互換 HTTP サーバーの両方を提供する。
 //! ロードされたモデルインスタンスはスレッドセーフに共有される。
 //!
 //! ## モジュール構成
@@ -11,7 +12,7 @@
 //! - `config` — GgufConfig / ModelConfig / ServerConfig / GpuConfig 設定構造体
 //! - `registry` — ModelRegistry モデル一元管理
 //! - `inference` — InferenceEngine トレイト定義と実装
-//! - `server` — Axum ルーター + OpenAI/Anthropic 互換エンドポイント
+//! - `server` — Axum ルーター + OpenAI 互換エンドポイント
 
 use std::sync::{Arc, Mutex};
 
@@ -27,11 +28,10 @@ pub mod registry;
 
 pub mod server;
 
-// mistralrs の主要型を crate 利用者に公開する
-// ggufrs のみを依存関係に追加すれば mistralrs の型も利用可能
-pub use mistralrs::{
-    ChatCompletionResponse, Constraint, Model, RequestBuilder, Response, SamplingParams,
-    TextMessageRole, TextMessages,
+// server::types の公開型を crate ルートから利用可能にする
+pub use crate::server::types::{
+    ChatCompletionRequest, ChatCompletionResponse, ChatMessage, ChatResponseMessage, Choice,
+    Usage, ChatCompletionChunk, ChunkChoice, Delta,
 };
 
 // ggufrs の公開型（crate ルートから利用可能）

@@ -22,7 +22,7 @@
 //! - `DEFAULT_RT_PORT`: M0-5（ServerConfig::default）で使用済み ✅
 //! - `DEFAULT_CONTEXT_SIZE` / `DEFAULT_MAX_TOKENS` / `DEFAULT_TEMPERATURE`: M2-1（GenerateParams::default）で使用済み ✅
 //! - `GPU_PROVIDER_ENV_VAR`: M1-2（GpuProvider::detect）で使用済み ✅
-//! - `DEFAULT_SW_PORT`: M4（静的コンテンツサーバー）以降で使用予定 ⏳
+//! - （DEFAULT_SW_PORT は M6-11 で削除済み）
 //! - `DEFAULT_MODEL_DIR` / `CURL_TIMEOUT_SECS`: M5（build.rs モデル自動DL）で使用予定 ⏳
 //!
 //! 未使用の定数が存在する間は `#![allow(dead_code)]` が必要。
@@ -33,12 +33,6 @@
 /// 3910: zasso の RT_PORT との整合性を保つため。
 /// 0-1023 はシステム予約ポート、1024-49151 はユーザーポート範囲。
 pub(crate) const DEFAULT_RT_PORT: u16 = 3910;
-
-/// 静的コンテンツ提供のデフォルトポート番号
-///
-/// 3911: zasso の SW_PORT との整合性を保つため。
-/// 未使用時はサーバーをバインドしない（ポート 0 相当の制御はサーバー側で行う）。
-pub(crate) const DEFAULT_SW_PORT: u16 = 3911;
 
 /// モデルファイルを格納するデフォルトディレクトリ名
 ///
@@ -96,20 +90,9 @@ mod tests {
     }
 
     #[test]
-    fn default_sw_port_is_in_user_range() {
-        assert!(
-            (1024..=49151).contains(&DEFAULT_SW_PORT),
-            "DEFAULT_SW_PORT ({}) must be in user port range 1024-49151",
-            DEFAULT_SW_PORT
-        );
-    }
-
-    #[test]
     fn ports_are_distinct() {
-        assert_ne!(
-            DEFAULT_RT_PORT, DEFAULT_SW_PORT,
-            "RT and SW ports must be distinct"
-        );
+        // DEFAULT_SW_PORT は M6-11 で削除済みのため、単一ポートの確認のみ
+        assert!(DEFAULT_RT_PORT > 0, "RT port must be positive");
     }
 
     #[test]

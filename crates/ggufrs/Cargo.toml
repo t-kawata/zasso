@@ -2,15 +2,17 @@
 name = "ggufrs"
 version = "0.1.0"
 edition = "2021"
-description = "Rust GGUF model inference engine built on mistralrs — library API and HTTP server (OpenAI/Anthropic compatible)"
+description = "Rust GGUF model inference engine built on llama-cpp-2 — library API and HTTP server (OpenAI compatible)"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-# mistralrs — GGUF 推論バックエンド
-# CPU-Only を基本とし、GPU feature は cargo feature で分離
-# GGUF はデフォルトでサポートされるため、feature 指定不要
-# [::STUB::] M0-1: cargo update で適宜バージョン追従
-mistralrs = { version = "0.8.1", default-features = false }
+# llama-cpp-2 — GGUF 推論バックエンド（C++ FFI 経由）
+# GPU バックエンドは cargo feature（metal/cuda）で選択し、
+# build.rs で cmake 環境変数（LLAMA_METAL / LLAMA_CUDA）を設定する
+llama-cpp-2 = "0.1.150"
+
+# GBNF — JSON Schema → GBNF 文法変換（generate_structured 用）
+gbnf = "0.2.7"
 
 # 非同期ランタイム
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
@@ -36,11 +38,6 @@ async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 
-# Anthropic ↔ OpenAI プロトコル変換（/anthropic/v1/messages 用）
-# ドキュメント: https://docs.rs/llm-bridge-core/latest/llm_bridge_core/
-# GitHub: https://github.com/TokenFleet-AI/llm-bridge-rust/tree/master
-llm-bridge-core = "0.2"
-llama-cpp-2 = "0.1.150"
 tokio-stream = "0.1.18"
 
 [dev-dependencies]
@@ -53,13 +50,10 @@ reqwest = { version = "0.12", features = ["json"] }
 [features]
 default = ["cpu"]
 cpu = []
-# GPU feature flags — 必要な環境でのみ有効化する
+# GPU feature flags — 選択に応じて build.rs で cmake フラグを設定する
 # metal / cuda
-# 注: mistralrs v0.8.1 は directml feature を提供しない
-metal = ["mistralrs/metal"]
-cuda = ["mistralrs/cuda"]
-# [::STUB::] M6-11: gbnf クレートが Cargo.toml に追加されたら gbnf の feature 依存を追加する
-gbnf_integration = []
+metal = []
+cuda = []
 
 [lib]
 name = "ggufrs"
