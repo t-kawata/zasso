@@ -88,7 +88,11 @@ pub(crate) enum NativeEvent {
     /// 通話状態変更。
     CallStateChanged { call_id: i32, state: u32 },
     /// 通話メディア状態変更。
-    CallMediaStateChanged { call_id: i32 },
+    CallMediaStateChanged {
+        call_id: i32,
+        /// PJSUA_CALL_MEDIA_* 定数（0=None, 1=Active, 2=LocalHold, 3=RemoteHold, 4=Error）。
+        media_status: u32,
+    },
     /// トランザクション状態変更。
     CallTsxStateChanged { call_id: i32 },
     /// 通話リダイレクト。
@@ -273,7 +277,11 @@ pub(crate) mod pjsip_callbacks {
     pub extern "C" fn on_call_media_state(call_id: i32) {
         catch_callback_panic("on_call_media_state", || {
             tracing::debug!(call_id, "on_call_media_state");
-            enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id });
+            // TODO: PjsuaBackend 結合時に media_status を pjsua_call_get_info() から取得する。
+            enqueue_native_event(NativeEvent::CallMediaStateChanged {
+                call_id,
+                media_status: 0,
+            });
         });
     }
 
@@ -458,7 +466,10 @@ mod tests {
             call_id: 10,
             state: 2,
         };
-        let e3 = NativeEvent::CallMediaStateChanged { call_id: 10 };
+        let e3 = NativeEvent::CallMediaStateChanged {
+            call_id: 10,
+            media_status: 1,
+        };
         let e4 = NativeEvent::CallTsxStateChanged { call_id: 10 };
         let e5 = NativeEvent::CallRedirected { call_id: 10 };
         let e6 = NativeEvent::CallTransferStatus {

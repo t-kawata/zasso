@@ -161,9 +161,20 @@ pub(crate) enum RuntimeCommand {
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
     /// 音声購読。
+    ///
+    /// 拡張シグネチャ（M20-5）: format/capacity/mode/reply_tx を追加。
+    /// format: 音声フォーマット（将来 AudioWorker との連携に使用）。
+    /// capacity: 内部 mpsc チャネルのバッファサイズ。
+    /// mode: Realtime（oldest-drop）または Lossless（backpressure）。
+    /// reply_tx: AudioTapHandle を返却する oneshot。
     SubscribeAudio {
         call_id: CallId,
-        reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
+        format: crate::audio::format::AudioFormat,
+        capacity: usize,
+        mode: crate::audio::tap::AudioTapMode,
+        reply_tx: tokio::sync::oneshot::Sender<
+            Result<crate::audio::tap::AudioTapHandle, SipError>,
+        >,
     },
     /// シャットダウン。
     Shutdown {
@@ -187,9 +198,7 @@ pub(crate) enum RuntimeCommand {
         reply_tx: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
     /// PJSIP callback からの内部イベント（fire-and-forget、reply なし）。
-    NativeEvent {
-        event: NativeEvent,
-    },
+    NativeEvent { event: NativeEvent },
 }
 
 // ---------------------------------------------------------------------------

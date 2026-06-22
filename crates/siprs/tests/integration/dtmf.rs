@@ -13,7 +13,6 @@ use siprs::runtime::command::HangupReason;
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_rfc4733() -> Result<(), SipError> {
     let mut ctx = setup_test_context()?;
-    
 
     wait_for_registration(&mut ctx.events).await?;
     wait_for_registration(&mut ctx.events).await?;
@@ -35,11 +34,13 @@ async fn dtmf_rfc4733() -> Result<(), SipError> {
     )?;
 
     wait_for_call_connected(&mut ctx.events).await?;
-    ctx.client.send_dtmf(call_id, "1".to_string(), DtmfMethod::Rfc4733)?;
+    ctx.client
+        .send_dtmf(call_id, "1".to_string(), DtmfMethod::Rfc4733)?;
 
     let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
         matches!(p, SipEventPayload::DtmfSent { .. })
-    }).await?;
+    })
+    .await?;
     assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
     ctx.client.hangup(call_id, HangupReason::Bye)?;
@@ -52,7 +53,6 @@ async fn dtmf_rfc4733() -> Result<(), SipError> {
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_sip_info() -> Result<(), SipError> {
     let mut ctx = setup_test_context()?;
-    
 
     wait_for_registration(&mut ctx.events).await?;
     wait_for_registration(&mut ctx.events).await?;
@@ -74,11 +74,13 @@ async fn dtmf_sip_info() -> Result<(), SipError> {
     )?;
 
     wait_for_call_connected(&mut ctx.events).await?;
-    ctx.client.send_dtmf(call_id, "5".to_string(), DtmfMethod::SipInfo)?;
+    ctx.client
+        .send_dtmf(call_id, "5".to_string(), DtmfMethod::SipInfo)?;
 
     let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
         matches!(p, SipEventPayload::DtmfSent { .. })
-    }).await?;
+    })
+    .await?;
     assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
     ctx.client.hangup(call_id, HangupReason::Bye)?;
@@ -91,7 +93,6 @@ async fn dtmf_sip_info() -> Result<(), SipError> {
 #[tokio::test(flavor = "multi_thread")]
 async fn dtmf_inband() -> Result<(), SipError> {
     let mut ctx = setup_test_context()?;
-    
 
     wait_for_registration(&mut ctx.events).await?;
     wait_for_registration(&mut ctx.events).await?;
@@ -113,11 +114,13 @@ async fn dtmf_inband() -> Result<(), SipError> {
     )?;
 
     wait_for_call_connected(&mut ctx.events).await?;
-    ctx.client.send_dtmf(call_id, "0".to_string(), DtmfMethod::Inband)?;
+    ctx.client
+        .send_dtmf(call_id, "0".to_string(), DtmfMethod::Inband)?;
 
     let sent = wait_for_event_with_timeout(&mut ctx.events, EVENT_TIMEOUT, |p| {
         matches!(p, SipEventPayload::DtmfSent { .. })
-    }).await?;
+    })
+    .await?;
     assert!(matches!(&sent.payload, SipEventPayload::DtmfSent { .. }));
 
     ctx.client.hangup(call_id, HangupReason::Bye)?;

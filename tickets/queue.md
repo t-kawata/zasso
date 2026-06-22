@@ -264,3 +264,11 @@
 - [x] #192 M6-3: 設定検証補完（m#7/m#11） | /Users/shyme01/shyme/zasso/tickets/specs/0192-m6-3-m7m11.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #193 コード品質改善（n#13〜n#16） | /Users/shyme01/shyme/zasso/tickets/specs/0193-n13n16.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #194 Feature gate 整備（m#6） | /Users/shyme01/shyme/zasso/tickets/specs/0194-feature-gate-m6.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #191 NativeEvent → SipEventPayload 変換完全化（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0191-nativeevent-sipeventpayload-p0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1） | /Users/shyme/shyme/zasso/tickets/specs/0192-m20-5-subscribeaudio-reactor-conf-connect-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 blocking_read → read().await 全面修正（P0） | /Users/shyme/shyme/zasso/tickets/specs/0193-blocking-read-readawait-p0.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #191 lib.rs 修正 — mistralrs re-export 削除 + server::types 追加 | /Users/kawata/shyme/zasso/tickets/specs/0191-librs-mistralrs-re-export-servertypes.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL | /Users/kawata/shyme/zasso/tickets/specs/0192-cargotoml-buildrs-cmake-4dl.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 テストコード修正 — MockEngine + 結合テスト | /Users/kawata/shyme/zasso/tickets/specs/0193-mockengine.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #194 Makefileにarchive-ticketsコマンドを追加する | /Users/kawata/shyme/zasso/tickets/specs/0194-makefilearchive-tickets.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #195 M6-13: test-run + 実動作確認 (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0195-m6-13-test-run-srcbintest-runrs.md | 2026-06-22 | 2026-06-22

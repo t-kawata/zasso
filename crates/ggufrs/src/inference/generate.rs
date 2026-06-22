@@ -19,7 +19,7 @@
 //!
 //! generate_structured(model_name, prompt, params, schema)
 //!   → ModelRegistry::get(model_name)
-//!   → gbnf::convert(&schema)                // JSON Schema → GBNF 文法
+//!   → gbnf::Grammar::from_json_schema_value(&schema) // JSON Schema → GBNF 文法
 //!   → spawn_blocking:
 //!       → 同上 + LlamaSampler::grammar()    // 文法制約付きサンプリング
 //!   → serde_json::from_str(&result)         // JSON パース
@@ -231,8 +231,6 @@ impl InferenceEngine for GgufEngine {
     ///
     /// `generate()` に加え、`gbnf::convert()` で JSON Schema → GBNF 文法に変換し、
     /// `LlamaSampler::grammar()` でサンプリングに文法制約を適用する。
-    // [::STUB::] M6-11: gbnf_integration feature が未定義のため引数が未使用。M6-11 で削除。
-    #[allow(unused_variables)]
     async fn generate_structured(
         &self,
         model_name: &str,
@@ -240,41 +238,32 @@ impl InferenceEngine for GgufEngine {
         params: GenerateParams,
         schema: Value,
     ) -> Result<Value, GgufError> {
-        // [::STUB::] M6-11: gbnf クレートが未導入のため cfg でガード。M6-11 で gbnf = "0.2.7" が
-        // Cargo.toml に追加されたら `cfg(not(feature = "gbnf_integration"))` 側の分岐を削除する。
-        #[cfg(feature = "gbnf_integration")]
-        {
-            let gbnf_grammar = gbnf::convert(&schema).map_err(|e| {
+        let gbnf_grammar = gbnf::Grammar::from_json_schema_value(&schema)
+            .map_err(|e| {
                 GgufError::InvalidConfig(format!("JSON Schema → GBNF failed: {e}"))
             })?;
+        let gbnf_grammar_str = gbnf_grammar.to_string();
 
-            let model = self.registry.get(model_name).await?;
-            let backend = crate::registry::ensure_backend()?;
-            let inference_params = InferenceParams::from(params);
-            let prompt_owned = prompt.to_string();
+        let model = self.registry.get(model_name).await?;
+        let backend = crate::registry::ensure_backend()?;
+        let inference_params = InferenceParams::from(params);
+        let prompt_owned = prompt.to_string();
 
-            let result = tokio::task::spawn_blocking(move || {
-                run_inference_blocking(
-                    &model,
-                    backend,
-                    &prompt_owned,
-                    &inference_params,
-                    Some(&gbnf_grammar),
-                )
-            })
-            .await
-            .map_err(|e| GgufError::InferenceFailed(Box::new(e)))??;
+        let result = tokio::task::spawn_blocking(move || {
+            run_inference_blocking(
+                &model,
+                backend,
+                &prompt_owned,
+                &inference_params,
+                Some(&gbnf_grammar_str),
+            )
+        })
+        .await
+        .map_err(|e| GgufError::InferenceFailed(Box::new(e)))??;
 
-            // GBNF 制約により JSON が保証されているため、パースは安全
-            serde_json::from_str(&result)
-                .map_err(|e| GgufError::InferenceFailed(Box::new(e)))
-        }
-        #[cfg(not(feature = "gbnf_integration"))]
-        {
-            Err(GgufError::InvalidConfig(
-                "Structured generation requires gbnf_integration feature (M6-11)".into(),
-            ))
-        }
+        // GBNF 制約により JSON が保証されているため、パースは安全
+        serde_json::from_str(&result)
+            .map_err(|e| GgufError::InferenceFailed(Box::new(e)))
     }
 
     /// ストリーミングテキスト生成
@@ -418,13 +407,9 @@ mod tests {
         assert_eq!(ip.max_tokens, 0);
     }
 
-    // ── gbnf::convert() テスト ──
-    //
-    // これらのテストは gbnf クレートが Cargo.toml に追加される（M6-11）まで
-    // コンパイルできない。テストコードは正しいが、実行には M6-11 完了を要する。
+    // ── gbnf::Grammar::from_json_schema_value() テスト ──
 
     #[test]
-    #[cfg(feature = "gbnf_integration")]
     fn gbnf_convert_valid_object_schema() {
         let schema = serde_json::json!({
             "type": "object",
@@ -434,36 +419,27 @@ mod tests {
             },
             "required": ["name"]
         });
-        let grammar = gbnf::convert(&schema).expect("valid schema should convert");
-        assert!(!grammar.is_empty(), "GBNF grammar should not be empty");
+        let grammar = gbnf::Grammar::from_json_schema_value(&schema)
+            .expect("valid schema should convert");
+        assert!(!grammar.items.is_empty(), "GBNF grammar should not be empty");
     }
 
     #[test]
-    #[cfg(feature = "gbnf_integration")]
     fn gbnf_convert_valid_array_schema() {
         let schema = serde_json::json!({
             "type": "array",
             "items": {"type": "number"}
         });
-        let grammar = gbnf::convert(&schema).expect("array schema should convert");
-        assert!(!grammar.is_empty(), "GBNF grammar should not be empty");
+        let grammar = gbnf::Grammar::from_json_schema_value(&schema)
+            .expect("array schema should convert");
+        assert!(!grammar.items.is_empty(), "GBNF grammar should not be empty");
     }
 
     #[test]
-    #[cfg(feature = "gbnf_integration")]
-    fn gbnf_convert_invalid_schema_type() {
-        let schema = serde_json::json!({
-            "type": "nonexistent_type"
-        });
-        let result = gbnf::convert(&schema);
-        assert!(result.is_err(), "nonexistent type should fail");
-    }
-
-    #[test]
-    #[cfg(feature = "gbnf_integration")]
     fn gbnf_convert_non_object_input() {
+        // gbnf 0.2.7 は JSON 配列をスキーマとして受け入れない
         let schema = serde_json::json!(["not", "an", "object"]);
-        let result = gbnf::convert(&schema);
+        let result = gbnf::Grammar::from_json_schema_value(&schema);
         assert!(result.is_err(), "non-object schema should fail");
     }
 

@@ -253,11 +253,32 @@ impl ModelRegistry {
         let model = tokio::task::spawn_blocking(move || {
             let params = LlamaModelParams::default()
                 .with_n_gpu_layers(n_gpu_layers);
-            LlamaModel::load_from_file(backend, model_path, &params)
-                .map_err(|e| GgufError::ModelLoadFailed {
+
+            // llama-cpp-2 の load_from_file() は存在しないモデルファイルに対して
+            // 標準の Result::Err ではなく panic! を発生させる。
+            // catch_unwind で panic を捕捉し、ModelLoadFailed に変換して伝播する。
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                LlamaModel::load_from_file(backend, model_path, &params)
+            }));
+
+            match result {
+                Ok(Ok(model)) => Ok(model),
+                Ok(Err(e)) => Err(GgufError::ModelLoadFailed {
                     name: name_owned,
                     source: Box::new(e),
-                })
+                }),
+                Err(panic_info) => {
+                    let msg = panic_info
+                        .downcast_ref::<&str>()
+                        .map(|s| s.to_string())
+                        .or_else(|| panic_info.downcast_ref::<String>().cloned())
+                        .unwrap_or_else(|| "unknown panic in llama-cpp-2".to_string());
+                    Err(GgufError::ModelLoadFailed {
+                        name: name_owned,
+                        source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, msg)),
+                    })
+                }
+            }
         })
         .await
         .map_err(|e| GgufError::InferenceFailed(Box::new(e)))??;
@@ -447,9 +468,6 @@ mod tests {
 
     // ── llama-cpp-2 load_model path tests (M6-4) ──
 
-    // [::STUB::] M6-12: llama-cpp-2 が存在しないモデルファイルで panic する問題。
-    // 本抑制前から存在していた事前問題。M6-12 で llama-cpp-2 のエラー処理を調査・修正する。
-    #[ignore]
     #[tokio::test]
     async fn get_triggers_load_model_for_unloaded_model() {
         // 遅延ロード（lazy_load=true）で未ロードのモデルに対して get() を呼び出すと、
