@@ -84,7 +84,12 @@ pub(crate) fn clear_global_runtime() {
 pub(crate) enum NativeEvent {
     // --- Call events ---
     /// 着信。
-    IncomingCall { acc_id: i32, call_id: i32 },
+    IncomingCall {
+        acc_id: i32,
+        call_id: i32,
+        /// PJSIP feature 有効時は実 URI、無効時は空文字。
+        remote_uri: String,
+    },
     /// 通話状態変更。
     CallStateChanged { call_id: i32, state: u32 },
     /// 通話メディア状態変更。
@@ -253,11 +258,65 @@ fn enqueue_native_event(event: NativeEvent) {
 pub(crate) mod pjsip_callbacks {
     use super::*;
 
+    /// PJSIP feature 有効時、`pjsua_call_get_info()` で media_status を解決する。
+    ///
+    /// PJSIP callback のコンテキスト（PJSIP worker thread）で呼ばれるため安全。
+    /// `#[cfg(not(feature = "pjsip"))]` 時は常に 0（PJSUA_CALL_MEDIA_NONE）を返す。
+    #[allow(unused_variables)]
+    fn resolve_media_status(call_id: i32) -> u32 {
+        #[cfg(feature = "pjsip")]
+        {
+            use crate::ffi::bindings;
+            unsafe {
+                let mut info: bindings::pjsua_call_info = std::mem::zeroed();
+                let status = bindings::pjsua_call_get_info(
+                    call_id as bindings::pjsua_call_id,
+                    &mut info as *mut _,
+                );
+                if status == 0 {
+                    return info.media_status as u32;
+                }
+            }
+        }
+        0
+    }
+
+    /// PJSIP feature 有効時、`pjsua_call_get_info()` でリモート URI を解決する。
+    ///
+    /// 無効時は空文字を返す。
+    #[allow(unused_variables)]
+    fn resolve_remote_uri(call_id: i32) -> String {
+        #[cfg(feature = "pjsip")]
+        {
+            use crate::ffi::bindings;
+            unsafe {
+                let mut info: bindings::pjsua_call_info = std::mem::zeroed();
+                let status = bindings::pjsua_call_get_info(
+                    call_id as bindings::pjsua_call_id,
+                    &mut info as *mut _,
+                );
+                if status == 0 && !info.remote_info.ptr.is_null() {
+                    let bytes = std::slice::from_raw_parts(
+                        info.remote_info.ptr as *const u8,
+                        info.remote_info.slen as usize,
+                    );
+                    return String::from_utf8_lossy(bytes).into_owned();
+                }
+            }
+        }
+        String::new()
+    }
+
     /// 着信 callback。
     pub extern "C" fn on_incoming_call(acc_id: i32, call_id: i32, _rdata: *mut std::ffi::c_void) {
         catch_callback_panic("on_incoming_call", || {
             tracing::debug!(acc_id, call_id, "on_incoming_call");
-            enqueue_native_event(NativeEvent::IncomingCall { acc_id, call_id });
+            let remote_uri = resolve_remote_uri(call_id);
+            enqueue_native_event(NativeEvent::IncomingCall {
+                acc_id,
+                call_id,
+                remote_uri,
+            });
         });
     }
 
@@ -274,13 +333,16 @@ pub(crate) mod pjsip_callbacks {
     }
 
     /// 通話メディア状態変更 callback。
+    ///
+    /// PJSIP feature 有効時は `pjsua_call_get_info()` で実際の media_status を取得する。
+    /// 無効時は `media_status: 0`（None）を返す。
     pub extern "C" fn on_call_media_state(call_id: i32) {
         catch_callback_panic("on_call_media_state", || {
             tracing::debug!(call_id, "on_call_media_state");
-            // TODO: PjsuaBackend 結合時に media_status を pjsua_call_get_info() から取得する。
+            let media_status = resolve_media_status(call_id);
             enqueue_native_event(NativeEvent::CallMediaStateChanged {
                 call_id,
-                media_status: 0,
+                media_status,
             });
         });
     }
@@ -461,6 +523,7 @@ mod tests {
         let e1 = NativeEvent::IncomingCall {
             acc_id: 1,
             call_id: 10,
+            remote_uri: String::new(),
         };
         let e2 = NativeEvent::CallStateChanged {
             call_id: 10,

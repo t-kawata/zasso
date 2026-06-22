@@ -88,7 +88,7 @@ impl AudioWorker {
         // AudioChunkPair への変換には account_id が必要なため、現状は aligner を
         // drain するのみで実際の配送は後続対応とする。
         while let Some((_out, _in, _ts)) = self.pair_aligner.try_pair() {
-            // TODO: (out, in, ts) を AudioChunkPair に変換し tap_txs に配送
+            // [::STUB::] M18: (out, in, ts) を AudioChunkPair に変換し tap_txs に配送
         }
 
         Ok(())

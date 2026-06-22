@@ -31,6 +31,7 @@ use crate::event::{ConnectedCallInfo, SipEventPayload};
 use crate::runtime::command::HangupReason;
 use crate::runtime::command::RuntimeCommand;
 use crate::runtime::handle::RuntimeHandle;
+use crate::runtime::reactor::ClientId;
 use crate::runtime::state::ClientState;
 use crate::util::id::AccountId;
 use crate::util::id::AudioSourceId;
@@ -84,6 +85,8 @@ pub(crate) struct ClientInner {
     pub state: Arc<RwLock<ClientState>>,
     /// シャットダウン通知送信側。
     pub shutdown: tokio::sync::watch::Sender<bool>,
+    /// Dual Client 構成での ClientId（単一 Client の場合は None）。
+    pub(crate) client_id: Option<ClientId>,
 }
 
 impl fmt::Debug for SipClient {
@@ -149,15 +152,67 @@ impl SipClient {
             return Err(e);
         }
 
-        // 7. SipClient を返す
+        // 7. SipClient を返す（単一 Client: client_id = None）
         let inner = Arc::new(ClientInner {
             runtime: handle,
             events,
             state,
             shutdown: shutdown_tx,
+            client_id: None,
         });
 
         Ok(Self { inner })
+    }
+
+    /// 既存 Reactor にアタッチする形で新しい SipClient を生成する（Dual Client 用）。
+    ///
+    /// 2 つめ以降の SipClient で使用する。既存 Reactor に新規 EventBus を登録し、
+    /// Initialize はスキップする（Backend は既に初期化済みのため）。
+    ///
+    /// `existing_handle` は最初の SipClient の `runtime` をクローンして渡す。
+    /// M20-10 (Dual Client TestContext) で結合されるまで未使用。
+    #[cfg(any(test, feature = "pjsip"))]
+    #[allow(dead_code)]
+    #[instrument(skip_all)]
+    pub(crate) fn new_attached(
+        config: ClientConfig,
+        existing_handle: RuntimeHandle,
+    ) -> Result<Self, SipError> {
+        // 1. Config バリデーション
+        validate_client_config(&config)?;
+
+        // 2. EventBus 生成
+        let raw_sip_capacity = if config.raw_sip_events.enabled {
+            Some(config.raw_sip_event_capacity)
+        } else {
+            None
+        };
+        let events = EventBus::new(config.event_bus_capacity, raw_sip_capacity);
+
+        // 3. ClientState + RwLock
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+
+        // 4. shutdown watch（Dual Client でも client ごとに独立）
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+
+        // 5. 既存 Reactor に新規 EventBus を登録
+        let cid = block_on(existing_handle.register_event_bus(events.control_sender()))?;
+
+        // 6. Initialize はスキップ（Backend は既に initialized 済み）
+        //    AddAccount 時に state.initialized が設定される。
+
+        // 7. SipClient を返す
+        let inner = Arc::new(ClientInner {
+            runtime: existing_handle,
+            events,
+            state,
+            shutdown: shutdown_tx,
+            client_id: Some(cid),
+        });
+
+        Ok(SipClient { inner })
     }
 
     /// PjsuaBackend を使用して SipClient を生成する（結合テスト用）。
@@ -200,12 +255,14 @@ impl SipClient {
 
         let account_id = AccountId::generate();
 
+        let client_id = self.inner.client_id;
         block_on(
             self.inner
                 .runtime
                 .send_and_wait(|reply| RuntimeCommand::AddAccount {
                     account_id,
                     config,
+                    client_id,
                     reply,
                 }),
         )?;
@@ -675,6 +732,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -695,6 +753,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -758,6 +817,7 @@ mod tests {
             runtime: handle,
             events: events.clone(),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -786,6 +846,7 @@ mod tests {
             runtime: handle,
             events: events.clone(),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -822,6 +883,7 @@ mod tests {
             runtime: handle,
             events: events.clone(),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -853,6 +915,7 @@ mod tests {
             runtime: handle,
             events,
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         // 注: 実際の reactor がないため add_account はブロックする。
@@ -875,6 +938,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -895,6 +959,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -915,6 +980,7 @@ mod tests {
                     state: Arc::new(RwLock::new(ClientState::new(
                         ClientCapabilities::default_disabled(),
                     ))),
+                    client_id: None,
                     shutdown: watch::channel(false).0,
                 }),
             },
@@ -942,6 +1008,7 @@ mod tests {
                     state: Arc::new(RwLock::new(ClientState::new(
                         ClientCapabilities::default_disabled(),
                     ))),
+                    client_id: None,
                     shutdown: watch::channel(false).0,
                 }),
             },
@@ -998,6 +1065,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1022,6 +1090,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1046,6 +1115,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1083,6 +1153,7 @@ mod tests {
             runtime: handle,
             events: events.clone(),
             state: state.clone(),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1137,6 +1208,7 @@ mod tests {
             runtime: handle,
             events: events.clone(),
             state: state.clone(),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1173,6 +1245,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1193,6 +1266,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1221,6 +1295,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let _client = SipClient { inner };
@@ -1239,6 +1314,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1261,6 +1337,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1304,6 +1381,7 @@ mod tests {
             runtime: handle,
             events: EventBus::new(16, None),
             state,
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1326,6 +1404,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1384,6 +1463,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: _shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1411,6 +1491,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };
@@ -1434,6 +1515,7 @@ mod tests {
             state: Arc::new(RwLock::new(ClientState::new(
                 ClientCapabilities::default_disabled(),
             ))),
+            client_id: None,
             shutdown: shutdown_tx,
         });
         let client = SipClient { inner };

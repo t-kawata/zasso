@@ -21,6 +21,7 @@
 | 8: FFI層 | bindgen・PjsuaBackend・callback bridge | PJSIP 2.17 | M17–M18 |
 | 9: ビルドシステム | build.rs・feature flags・OS別リンク | CMake, PJSIP | M19 |
 | 10: 統合・受け入れ | 結合テスト・相互接続・受け入れ基準検証 | Docker, SIPサーバ | M20 |
+| 11: Tap配送完了 | AudioWorker駆動・Tap配送E2E | tokio | M21 |
 
 ---
 
@@ -1985,7 +1986,7 @@
 
 ---
 
-#### チケット M20-7: EventBus 分割 + account_id routing — Dual Client 基盤（P2）
+#### ✅ チケット M20-7: EventBus 分割 + account_id routing — Dual Client 基盤（P2）
 
 * **参照設計書:** crates/siprs/RFC02.md (§8, §8.1, §8.2, §8.3, §8.4)
 * **依存・関連チケットID:** M7-1（EventBus 構造体）、M12-1（SipClient + ClientInner）
@@ -2014,7 +2015,7 @@
 
 ---
 
-#### チケット M20-8: Shutdown ポリシー拡張 — GetAccountInfo 許可（P2）
+#### ✅ チケット M20-8: Shutdown ポリシー拡張 — GetAccountInfo 許可（P2）
 
 * **参照設計書:** crates/siprs/RFC02.md (§9)
 * **依存・関連チケットID:** M12-5（SipClient::shutdown()）、M20-2（GetAccountInfo RuntimeCommand）
@@ -2039,7 +2040,7 @@
 
 ---
 
-#### チケット M20-9: Transport/ICE NativeEvent 変換 + 低優先度イベント none 変換（P2）
+#### ✅ チケット M20-9: Transport/ICE NativeEvent 変換 + 低優先度イベント none 変換（P2）
 
 * **参照設計書:** crates/siprs/RFC02.md (§2.2 — P1/P2 重要度イベント)
 * **依存・関連チケットID:** M17-3（Callback bridge — TransportStateChanged / IceTransportError 等の NativeEvent 定義済み）、M20-4（P0 変換実装完了必須）
@@ -2069,7 +2070,7 @@
 
 ---
 
-#### チケット M20-10: Dual Client TestContext utility（P2）
+#### ✅ チケット M20-10: Dual Client TestContext utility（P2）
 
 * **参照設計書:** crates/siprs/RFC02.md (§10.3)
 * **依存・関連チケットID:** M20-1.8（PjsuaBackend シングルトン化完了）、M20-7（EventBus 分割 + Dual Client 基盤完了）
@@ -2101,7 +2102,7 @@
 
 ---
 
-#### チケット M20-11: CI/CD — Docker Integration Job + Prebuilt Refresh Pipeline（P3）
+#### ✅ チケット M20-11: CI/CD — Docker Integration Job + Prebuilt Refresh Pipeline（P3）
 
 * **参照設計書:** crates/siprs/RFC02.md (§11, §11.1, §11.2)
 * **依存・関連チケットID:** M19-1（build.rs — prebuilt 優先・source build fallback）、M20-1.x（統合テスト全般）
@@ -2128,7 +2129,7 @@
 
 ---
 
-#### チケット M20-12: Layer 4 相互接続試験 + 新機能テスト層マッピング（P0）
+#### ✅ チケット M20-12: Layer 4 相互接続試験 + 新機能テスト層マッピング（P0）
 
 * **参照設計書:** crates/siprs/RFC02.md (§10, §10.1, §10.2)、RFC01 (§43.4)
 * **依存・関連チケットID:** M20-4（NativeEvent 変換完了）、M20-5（SubscribeAudio 完了）、M20-10（Dual Client TestContext 完了）、M20-11（CI/CD 完了）
@@ -2176,7 +2177,7 @@
 
 ---
 
-#### チケット M20-13: 受け入れ基準検証・リリース判定（RFC02 対応版）
+#### ✅ チケット M20-13: 受け入れ基準検証・リリース判定（RFC02 対応版）
 
 * **参照設計書:** crates/siprs/RFC02.md (§10, §11, 付録A, 付録B)、RFC01 (§50, §43.5, §44)
 * **依存・関連チケットID:** M20-1.x（統合テスト基本完了）、M20-2〜M20-11（RFC02 全実装項目完了）、M20-12（相互接続試験完了）
@@ -2210,3 +2211,115 @@
   3. 全18項目 PASS をもってリリース判定とする。
   4. リリース前最終確認: `make test-all`（全テスト + 全 feature 組み合わせ）。
   5. 付録B の修正箇所がソースコードに反映されていることを目視確認する。
+
+---
+
+## フェーズ11: AudioWorker Tap 配送完了（Layer 2-3）
+
+AudioWorker と MediaRuntime の統合、および subscribe_audio() で取得した AudioTapHandle に
+音声データが実際に配送されるまでの実装を完了する。
+
+### マイルストーン M21: Tap 配送パイプライン完成
+
+#### チケット M21-1: AudioWorker account_id 追加 + tap_txs 配送ループ実装
+
+* **参照設計書:** RFC01 §24.3（音声処理ループ）、§22（音声購読API）、RFC02 §5（SubscribeAudio）
+* **依存・関連チケットID:** M21-2（MediaRuntime 統合）
+* **対象不変条件 / 規範:** AudioWorker は process_frame() 内で PairAligner.try_pair() の戻り値を AudioChunkPair に変換し tap_txs に配送しなければならない。配送失敗（チャネル満杯）はエラーにせずドロップする（Realtime モード）。
+* **実装の背景と目的:** 現在 AudioWorker.process_frame() は PairAligner のペアリング結果を捨てている（worker.rs:91 STUB）。配送には account_id が必要だが AudioWorker が保持していない。まず account_id を追加し、配送ループを実装する。
+* **実装スコープ（チェックリスト）:**
+  1. `AudioWorker` に `account_id: AccountId` フィールドを追加し、`new()` の引数に追加
+  2. `_call_id` を `call_id` にリネーム（使用するため）
+  3. `process_frame()` 内の `while let Some((out, in, ts))` ループで `AudioChunkPair::new()` を呼び出し `tap_txs` の全 Sender に `try_send()`
+  4. `try_send()` 失敗（チャネル満杯）は無視（Realtime モード）
+  5. 配送ループを `deliver_to_taps()` 関数に抽出して可読性確保
+  6. 既存 3 テスト + 新規 5 テスト（正常系・異常系・境界値）を実装
+  7. `worker.rs:91` の `[::STUB::]` マーカーを除去
+* **計装方法・観測対象:** 単体テストによる配送確認（458 + 5 = 463 テスト PASS）
+* **ユーザによる手動テスト手順:** 単体テストでカバー。E2E は M21-6 で検証。
+
+#### チケット M21-2: AudioWorker tap_txs の MediaRuntime 統合（二重管理解消）
+
+* **参照設計書:** RFC01 §33（Runtime internal state）、RFC02 §5.2（conf_connect 処理フロー）
+* **依存・関連チケットID:** M21-1（前提）、M21-5（後続）
+* **対象不変条件 / 規範:** tap_tx Sender の唯一の情報源（Source of Truth）は MediaRuntime.tap_txs とし、AudioWorker は独自コピーを持たない。SubscribeAudio で追加された Sender が AudioWorker の配送先に動的に反映されなければならない。
+* **実装の背景と目的:** 現在、SubscribeAudio が生成した tap_tx Sender は MediaRuntime.tap_txs に保存されるが、AudioWorker は自身の tap_txs フィールドを参照するため、購読者が追加されても AudioWorker に反映されない。
+* **実装スコープ（チェックリスト）:**
+  1. `MediaRuntime.tap_txs` の型を `Vec<Sender<...>>` から `Arc<Mutex<Vec<Sender<...>>>>` に変更
+  2. SubscribeAudio ハンドラでの保存処理を `Arc::clone` + `lock().push()` に変更
+  3. AudioWorker が `Arc<Mutex<Vec<Sender<...>>>>` を保持し、配送時にロックして参照
+  4. AudioWorker から `tap_txs: Vec<Sender<...>>` フィールドを削除
+  5. 既存テストが通過すること
+* **計装方法・観測対象:** 単体テスト（mpsc channel 経由の配送確認）。SubscribeAudio → tap_tx 追加 → AudioWorker 配送の結合テスト。
+* **ユーザによる手動テスト手順:** 単体テストでカバー。
+
+#### チケット M21-3: RustMediaPort を PJSIP conference bridge に登録
+
+* **参照設計書:** RFC01 §39.3（メディアポートデータフロー）、M18-3（RustMediaPort → pjmedia_port C ラッパー）
+* **依存・関連チケットID:** なし（M18 チケットの成果物を結合）
+* **対象不変条件 / 規範:** 通話ごとに capture_port / playback_port の 2 つの RustMediaPort を PJSIP conference bridge に登録し、conf_port_get_frame / conf_port_put_frame callback 経由で PJSIP と Rust 間の音声データを受け渡しできなければならない。
+* **実装の背景と目的:** `ffi/media.rs` に `conf_port_get_frame()` / `conf_port_put_frame()` / `register_conf_port()` の実装は存在するが、これらが PJSIP の conference bridge に登録されていない。そのため PJSIP が受信した RTP 音声が Rust 側に一切届かない。
+* **実装スコープ（チェックリスト）:**
+  1. PjsuaBackend（または Reactor）が CallMediaStateChanged(Active) を受信したタイミングで `AudioBridge`（ffi/media.rs）を生成
+  2. `AudioBridge` の capture_port / playback_port を `register_conf_port()` で PJSIP conference bridge に登録
+  3. 登録した conf_port_id を `pjsua_conf_connect()` で通話の conf_slot に接続
+  4. 現在の `handle_conf_connect()` の簡易実装（`conf_port = native_call_id`）を正しい conf_port_id 解決に置き換え
+  5. 通話切断時に conf_port の登録解除と `AudioBridge` の破棄
+  6. `ffi/media.rs::AudioBridge` の `#[allow(dead_code)]` を除去
+* **計装方法・観測対象:** PJSIP 結合テストで capture_port へのデータ到達を確認。
+* **ユーザによる手動テスト手順:** 結合テストでカバー。`cargo test --features pjsip --test integration_test -- media --ignored --test-threads=1`
+
+#### チケット M21-4: AudioWorker データフロー拡張 — RustMediaPort 読み書き統合
+
+* **参照設計書:** RFC01 §24.3（音声処理ループ）、§39.3（メディアポートデータフロー）
+* **依存・関連チケットID:** M21-3（前提：RustMediaPort が PJSIP と接続されていること）
+* **対象不変条件 / 規範:** AudioWorker は capture_port から受信音声を読み取り AudioMixer.in_queue に投入し、AudioMixer.out_queue のミキシング結果を playback_port に書き込まなければならない。これにより PJSIP conf bridge ↔ RustMediaPort ↔ AudioMixer ↔ PairAligner ↔ tap_txs のループが形成される。
+* **実装の背景と目的:** 現在 AudioWorker は AudioMixer のキューからのみデータを読み書きするが、RustMediaPort（capture_port / playback_port）との接続が存在しない。そのため PJSIP conf bridge からの音声データが AudioWorker に届かない。
+* **実装スコープ（チェックリスト）:**
+  1. AudioWorker の `new()` に `capture_port: Arc<RustMediaPort>` と `playback_port: Arc<RustMediaPort>` を追加
+  2. **`AudioMixer` に `mix_and_push_frame()` メソッドを追加**: 全ソースからフレームを pull し、`mix_i16_frame_with_gains` でミキシング、master_gain を適用し、`push_out_frame()` で out_queue に格納する
+  3. `process_frame()` の冒頭で `mixer.mix_and_push_frame()` を呼び出し、ミキシングを実行（現在この呼び出しが欠落しており、out_queue は常に空）
+  4. `process_frame()` 内で capture_port からフレームを読み取り `mixer.push_in_frame()` に投入
+  5. `process_frame()` 内で `mixer.pop_out_frame()` の結果を `playback_port.push_rx()` に書き込み
+  6. 既存の mixer → pair_aligner → tap_txs のパスは維持
+  7. 単体テストで capture_port → mixer → playback_port のループバックを確認
+* **計装方法・観測対象:** AudioWorker 単体テスト（Mock RustMediaPort 使用）。capture_port → mixer → playback_port → capture_port のループバック確認。
+* **ユーザによる手動テスト手順:** 単体テストでカバー。
+
+#### チケット M21-5: AudioWorkerTask — Reactor 駆動の定期実行ループ
+
+* **参照設計書:** RFC01 §24.3（AudioWorkerTask）、RFC02 §5.3（SubscribeAudio 処理フロー）
+* **依存・関連チケットID:** M21-1, M21-2, M21-4（全て完了必須。M21-3 は必須ではないが望ましい）
+* **対象不変条件 / 規範:** AudioWorker は Reactor の管理下で生成・駆動されなければならない。通話確立（CallMediaStateChanged ACTIVE）時に AudioWorkerTask が生成され、通話切断時に停止される。process_frame() は 10ms または 20ms 間隔で定期的に呼び出される。
+* **実装の背景と目的:** 現在 AudioWorker はテストコードでしか生成されておらず、プロダクションコードではインスタンス化されていない。process_frame() を定期駆動する機構も存在しない。
+* **実装スコープ（チェックリスト）:**
+  1. `AudioWorkerTask` 構造体を新規作成（AudioWorker を所有し、ループで process_frame を駆動）
+  2. `AudioWorkerTask::spawn()` → `JoinHandle` を返す（引数: mixer, call_id, account_id, format, capture_port, playback_port, tap_txs, shutdown）
+  3. ループ間隔は `AudioFormat.frame_ms` から計算
+  4. Reactor が `CallMediaStateChanged(ACTIVE)` を受信したタイミングで `AudioWorkerTask::spawn()` を呼び出す
+  5. 生成した `JoinHandle` を `MediaRuntime` または `CallEntry` に保存
+  6. 通話切断時に shutdown watch で停止、`JoinHandle` を `.await` で完了確認
+  7. `AudioWorker` と `AudioWorkerTask` の `#[allow(dead_code)]` を除去
+  8. Reactor 結合テスト（MockBackend）で起動・定期実行・停止を確認
+* **計装方法・観測対象:** Reactor 結合テスト（MockBackend + Mock RustMediaPort）。通話確立後の process_frame 定期呼び出し確認。
+* **ユーザによる手動テスト手順:** 単体テストでカバー。E2E は M21-6 で検証。
+
+#### チケット M21-6: AudioTap E2E 結合テスト（PJSIP + Docker Asterisk）
+
+* **参照設計書:** RFC01 §43（テスト戦略）、§44（CI/CD）
+* **依存・関連チケットID:** M21-5（完了必須）
+* **対象不変条件 / 規範:** subscribe_audio() → AudioTapHandle.recv() で実際の音声データ（AudioChunkPair）が取得できることを、Docker Asterisk との結合テストで確認する。
+* **実装の背景と目的:** M21-1〜M21-5 の実装が正しく結合されていることを、実際の PJSIP + Asterisk 環境で確認する。subscribe_audio() の E2E 動作保証のための最終検証。
+* **実装スコープ（チェックリスト）:**
+  1. Docker Asterisk 環境で subscribe_audio → AudioTapHandle.recv() の結合テストを作成
+  2. 発信 → CallConnected → AudioChunkPair 受信確認（timeout 付き）
+  3. 通話切断 → AudioTapHandle のクローズ確認
+  4. 複数 SubscribeAudio の同時配送確認
+  5. 既存の結合テスト（media::*）と統合
+  6. 全テスト `#[ignore]` + `--test-threads=1`
+* **計装方法・観測対象:** `cargo test --features pjsip --test integration_test -- media --ignored --test-threads=1`
+* **ユーザによる手動テスト手順:**
+  1. `docker compose -f tests/docker/docker-compose.yml up -d`
+  2. `cargo test --features pjsip --test integration_test -- media --ignored --test-threads=1`
+  3. 全テスト PASS 確認後、`docker compose down`
+  4. PR 作成後、CI 上の Integration Job でも PASS 確認

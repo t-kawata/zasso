@@ -19,6 +19,9 @@ use siprs::event::{SipEvent, SipEventPayload};
 use siprs::util::id::AccountId;
 use tokio::sync::broadcast;
 
+pub mod dual_client;
+pub use dual_client::DualClientContext;
+
 /// テストコンテキスト。
 ///
 /// `setup_test_context()` で生成し、テスト終了時に `teardown()` で解放する。
@@ -30,10 +33,12 @@ pub struct TestContext {
     /// テスト用アカウント1のハンドル。
     pub account_1: AccountId,
     /// テスト用アカウント2のハンドル（dual account テスト用）。
+    #[allow(dead_code)]
     pub account_2: AccountId,
     /// テスト用アカウント1の SipAccountHandle（blocking_read 回避のため）。
     pub handle_1: SipAccountHandle,
     /// テスト用アカウント2の SipAccountHandle（同上）。
+    #[allow(dead_code)]
     pub handle_2: SipAccountHandle,
 }
 
