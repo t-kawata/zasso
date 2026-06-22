@@ -1,6 +1,6 @@
 //! ModelRegistry — モデル一元管理
 //!
-//! RwLock<Vec<ModelInfo>> を用いたスレッドセーフなモデル管理を提供する。
+//! `RwLock<Vec<ModelInfo>>` を用いたスレッドセーフなモデル管理を提供する。
 //!
 //! モデルロードには llama-cpp-2 の `LlamaModel::load_from_file()` を使用する。
 //! 同期 API であるため `tokio::task::spawn_blocking` でラップし、非同期コンテキスト
@@ -44,7 +44,7 @@ pub(crate) fn ensure_backend() -> Result<&'static LlamaBackend, GgufError> {
 
 /// モデル実行時情報
 ///
-/// 「設定（ModelConfig）」と「実行時状態（Arc<LlamaModel>）」を組み合わせた構造体。
+/// 「設定（ModelConfig）」と「実行時状態（`Arc<LlamaModel>`）」を組み合わせた構造体。
 /// `ModelRegistry` 内部でのみ生成・保持される。外部からは `ModelInfo` のモデル名や
 /// 設定値のみが公開され、`model` インスタンスは直接操作できない。
 ///
@@ -275,7 +275,7 @@ impl ModelRegistry {
                         .unwrap_or_else(|| "unknown panic in llama-cpp-2".to_string());
                     Err(GgufError::ModelLoadFailed {
                         name: name_owned,
-                        source: Box::new(std::io::Error::new(std::io::ErrorKind::Other, msg)),
+                        source: Box::new(std::io::Error::other(msg)),
                     })
                 }
             }

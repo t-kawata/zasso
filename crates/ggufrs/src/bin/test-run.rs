@@ -43,6 +43,21 @@ fn print_elapsed(label: &str, start: Instant) {
         elapsed.subsec_millis());
 }
 
+/// 経過時間と出力文字数から TPS（Tokens Per Second）を表示する
+///
+/// 日本語テキストは平均 1.5〜2.5 chars/token 程度。
+/// ここでは保守的に 4 chars = 1 token として推定する。
+fn print_tps(start: Instant, char_count: usize) {
+    let secs = start.elapsed().as_secs_f64();
+    if secs <= 0.0 || char_count == 0 {
+        println!("  📊 推定 TPS: — (出力なし)");
+        return;
+    }
+    let est_tokens = (char_count as f64 / 4.0).ceil();
+    let tps = est_tokens / secs;
+    println!("  📊 出力文字数: {char_count} / 推定トークン: {est_tokens:.0} / TPS: {tps:.1}");
+}
+
 /// 実行するパターンをコマンドライン引数から読み取る
 ///
 /// 引数なし → 全パターン実行
@@ -62,8 +77,8 @@ fn parse_patterns() -> Vec<u32> {
 /// パターン1: Structured Output（JSON Schema 拘束付き生成）
 async fn run_pattern1(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration) {
     print_separator("Pattern 1: Structured Output (JSON Schema)");
-    let start = Instant::now();
 
+    let prompt = "きのうのごうどうをていしゅつしました";
     let schema = serde_json::json!({
         "type": "object",
         "properties": {
@@ -74,10 +89,14 @@ async fn run_pattern1(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
         "required": ["corrected_text", "was_modified", "correction_notes"]
     });
 
+    println!("  Prompt: {prompt}");
+    println!("  Schema: {schema}");
+
+    let start = Instant::now();
     let ok = match engine
         .generate_structured(
             "gemma4-e2b",
-            "きのうのごうどうをていしゅつしました",
+            prompt,
             GenerateParams {
                 temperature: Some(0.1),
                 max_tokens: Some(128),
@@ -88,7 +107,10 @@ async fn run_pattern1(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
         .await
     {
         Ok(value) => {
+            let value_str = serde_json::to_string_pretty(&value).unwrap_or_default();
+            let char_count = value_str.chars().count();
             println!("  Result: {value:#}");
+            print_tps(start, char_count);
             true
         }
         Err(e) => {
@@ -104,12 +126,15 @@ async fn run_pattern1(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
 /// パターン2: 通常テキスト生成
 async fn run_pattern2(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration) {
     print_separator("Pattern 2: Text Generation");
-    let start = Instant::now();
 
+    let prompt = "Rustの所有権システムについて簡単に説明してください。";
+    println!("  Prompt: {prompt}");
+
+    let start = Instant::now();
     let ok = match engine
         .generate(
             "gemma4-e2b",
-            "Rustの所有権システムについて簡単に説明してください。",
+            prompt,
             GenerateParams {
                 temperature: Some(0.3),
                 max_tokens: Some(256),
@@ -119,7 +144,12 @@ async fn run_pattern2(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
         .await
     {
         Ok(text) => {
-            println!("  {text}");
+            let char_count = text.chars().count();
+            println!("  Result:");
+            for line in text.lines() {
+                println!("    {line}");
+            }
+            print_tps(start, char_count);
             true
         }
         Err(e) => {
@@ -135,12 +165,15 @@ async fn run_pattern2(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
 /// パターン3: ストリーミング生成
 async fn run_pattern3(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration) {
     print_separator("Pattern 3: Streaming Generation");
-    let start = Instant::now();
 
+    let prompt = "あなたの名前を教えてください。短く自己紹介してください。";
+    println!("  Prompt: {prompt}");
+
+    let start = Instant::now();
     let ok = match engine
         .generate_stream(
             "gemma4-e2b",
-            "あなたの名前を教えてください。短く自己紹介してください。",
+            prompt,
             GenerateParams {
                 temperature: Some(0.5),
                 max_tokens: Some(128),
@@ -150,10 +183,12 @@ async fn run_pattern3(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
         .await
     {
         Ok(mut stream) => {
-            print!("  ");
+            print!("  Result: ");
+            let mut char_count = 0usize;
             while let Some(chunk) = stream.next().await {
                 match chunk {
                     Ok(text) => {
+                        char_count += text.chars().count();
                         print!("{text}");
                         let _ = std::io::stdout().flush();
                     }
@@ -164,6 +199,7 @@ async fn run_pattern3(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
                 }
             }
             println!();
+            print_tps(start, char_count);
             true
         }
         Err(e) => {
@@ -225,6 +261,8 @@ async fn main() -> Result<()> {
     // サマリー表示
     // ----------------------------------------------------------------
     print_separator("Summary");
+    println!("  {:<40} Status", "Pattern");
+    println!("  {}", "-".repeat(55));
     for (pattern, ok, elapsed) in &results {
         let label = match pattern {
             1 => "Pattern 1 (Structured Output)",
@@ -233,7 +271,7 @@ async fn main() -> Result<()> {
             _ => unreachable!(),
         };
         println!(
-            "  {:<35} {}  ({}ms)",
+            "  {:<40} {:4}  ({}ms)",
             label,
             if *ok { "PASS" } else { "FAIL" },
             elapsed.as_millis(),

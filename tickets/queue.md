@@ -1,4 +1,7 @@
 # Ticket Queue
+- [x] #1 test-run + 実動作確認 (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0001-test-run-srcbintest-runrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #2 Cargo.toml feature flags 最終調整 + clippy + ドキュメント | /Users/kawata/shyme/zasso/tickets/specs/0002-cargotoml-feature-flags-clippy.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #3 test-chat バイナリ — マルチターンチャット会話/ワンショット推論 | /Users/kawata/shyme/zasso/tickets/specs/0003-test-chat.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #5 CI/CD — Docker Integration Job + Prebuilt Refresh Pipeline（P3） | /Users/shyme/shyme/zasso/tickets/specs/0005-cicd-docker-integration-job-prebuilt-refresh-pipelinep3.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #1 EventBus 分割 + account_id routing — Dual Client 基盤（P2） | /Users/shyme/shyme/zasso/tickets/specs/0001-eventbus-account-id-routing-dual-client-p2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #2 Shutdown ポリシー拡張 — GetAccountInfo 許可（P2） | /Users/shyme/shyme/zasso/tickets/specs/0002-shutdown-getaccountinfo-p2.md | 2026-06-22 | 2026-06-22 | 2026-06-22
