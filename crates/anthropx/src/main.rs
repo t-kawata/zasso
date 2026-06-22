@@ -2,7 +2,7 @@
 //!
 //! 起動シーケンス: CLI parse → Config load → Server start → Graceful shutdown
 
-#![cfg_attr(not(feature = "server"), allow(dead_code))]
+#![cfg(feature = "server")]
 
 use anthropx::cli;
 use anthropx::config::AppConfig;

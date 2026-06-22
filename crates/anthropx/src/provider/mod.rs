@@ -6,12 +6,15 @@
 pub mod limiter;
 
 #[cfg(feature = "server")]
-pub mod transparent;
-#[cfg(feature = "server")]
 pub mod translate;
+#[cfg(feature = "server")]
+pub mod transparent;
 
+#[cfg(feature = "server")]
 use crate::config::ProviderConfig;
+#[cfg(feature = "server")]
 use crate::provider::limiter::ConcurrencyLimiter;
+#[cfg(feature = "server")]
 use crate::routing::scheduler::KeyScheduler;
 
 /// Provider ごとの実行時リソースを束ねる単一構造体（RFC §4）。

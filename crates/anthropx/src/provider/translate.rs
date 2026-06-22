@@ -19,20 +19,19 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::body::Bytes;
 use axum::body::Body;
+use axum::body::Bytes;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use futures::StreamExt;
-use tokio_util::sync::CancellationToken;
 use llm_bridge_core::model::{
     ApiFormat as LlmApiFormat, StreamState, TransformError, TransformRequest,
 };
 use llm_bridge_core::transform::{
-    anthropic_to_openai, anthropic_to_openai_responses,
-    openai_response_to_anthropic_message, responses_to_anthropic,
-    transform_stream,
+    anthropic_to_openai, anthropic_to_openai_responses, openai_response_to_anthropic_message,
+    responses_to_anthropic, transform_stream,
 };
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
 use crate::app_state::AppState;
@@ -105,11 +104,27 @@ pub async fn handle_translate(
         .unwrap_or(state.config.global.error_lossy_continue);
 
     if is_stream {
-        translate_stream(provider, resolved, body, llm_format, allow_lossy, error_lossy_continue, state.cancel.clone())
-            .await
+        translate_stream(
+            provider,
+            resolved,
+            body,
+            llm_format,
+            allow_lossy,
+            error_lossy_continue,
+            state.cancel.clone(),
+        )
+        .await
     } else {
-        translate_non_stream(provider, resolved, body, llm_format, &api_format, allow_lossy, error_lossy_continue)
-            .await
+        translate_non_stream(
+            provider,
+            resolved,
+            body,
+            llm_format,
+            &api_format,
+            allow_lossy,
+            error_lossy_continue,
+        )
+        .await
     }
 }
 
@@ -136,9 +151,7 @@ async fn translate_non_stream(
         .map_err(|e| ProxyError::Internal(format!("failed to serialize request body: {e}")))?;
 
     let transform_req = TransformRequest {
-        headers: HashMap::from([
-            ("content-type".to_string(), "application/json".to_string()),
-        ]),
+        headers: HashMap::from([("content-type".to_string(), "application/json".to_string())]),
         path: "/v1/messages".to_string(),
         body: Bytes::from(request_bytes),
     };
@@ -186,13 +199,13 @@ async fn translate_non_stream(
     let upstream_url = format!("{}{}", base, openai_req.path);
 
     // body の model 名を upstream 名に書き換え
-    let mut upstream_body: serde_json::Value =
-        serde_json::from_slice(&openai_req.body)
-            .map_err(|e| ProxyError::Internal(format!("failed to parse transformed body: {e}")))?;
+    let mut upstream_body: serde_json::Value = serde_json::from_slice(&openai_req.body)
+        .map_err(|e| ProxyError::Internal(format!("failed to parse transformed body: {e}")))?;
     upstream_body["model"] = serde_json::json!(resolved.upstream);
 
     let key = provider.scheduler.select_key();
-    let upstream_resp = provider.http_client
+    let upstream_resp = provider
+        .http_client
         .post(&upstream_url)
         .bearer_auth(key)
         .json(&upstream_body)
@@ -221,9 +234,7 @@ async fn translate_non_stream(
     // TransformRequest（「変換対象のリクエスト」）を受け取る。
     // upstream の応答 body を TransformRequest にラップして変換する。
     let response_req = TransformRequest {
-        headers: HashMap::from([
-            ("content-type".to_string(), "application/json".to_string()),
-        ]),
+        headers: HashMap::from([("content-type".to_string(), "application/json".to_string())]),
         path: openai_req.path.clone(),
         body: upstream_bytes,
     };
@@ -282,9 +293,7 @@ async fn translate_stream(
         .map_err(|e| ProxyError::Internal(format!("failed to serialize request body: {e}")))?;
 
     let transform_req = TransformRequest {
-        headers: HashMap::from([
-            ("content-type".to_string(), "application/json".to_string()),
-        ]),
+        headers: HashMap::from([("content-type".to_string(), "application/json".to_string())]),
         path: "/v1/messages".to_string(),
         body: Bytes::from(request_bytes),
     };
@@ -327,14 +336,14 @@ async fn translate_stream(
         .trim_end_matches("/v1");
     let upstream_url = format!("{}{}", base, openai_req.path);
 
-    let mut upstream_body: serde_json::Value =
-        serde_json::from_slice(&openai_req.body)
-            .map_err(|e| ProxyError::Internal(format!("failed to parse transformed body: {e}")))?;
+    let mut upstream_body: serde_json::Value = serde_json::from_slice(&openai_req.body)
+        .map_err(|e| ProxyError::Internal(format!("failed to parse transformed body: {e}")))?;
     upstream_body["model"] = serde_json::json!(resolved.upstream);
     upstream_body["stream"] = serde_json::json!(true);
 
     let key = provider.scheduler.select_key();
-    let upstream_resp = provider.http_client
+    let upstream_resp = provider
+        .http_client
         .post(&upstream_url)
         .bearer_auth(key)
         .json(&upstream_body)
@@ -417,8 +426,8 @@ async fn collect_and_transform_stream(
             )));
         }
     };
-    let events: Vec<u8> = transform_stream(&buffer, sse_format, &mut state)
-        .map_err(ProxyError::from)?;
+    let events: Vec<u8> =
+        transform_stream(&buffer, sse_format, &mut state).map_err(ProxyError::from)?;
 
     Ok(Bytes::from(events))
 }
@@ -533,18 +542,14 @@ mod tests {
     /// OpenAiWireApi::ChatCompletions → ApiFormat::OpenaiChat。
     #[test]
     fn resolve_api_format_chat() {
-        let result = resolve_api_format(
-            &OpenAiWireApi::ChatCompletions,
-            "https://api.example.com",
-        );
+        let result = resolve_api_format(&OpenAiWireApi::ChatCompletions, "https://api.example.com");
         assert_eq!(result, ApiFormat::OpenaiChat);
     }
 
     /// OpenAiWireApi::Responses → ApiFormat::OpenaiResponses。
     #[test]
     fn resolve_api_format_responses() {
-        let result =
-            resolve_api_format(&OpenAiWireApi::Responses, "https://api.example.com");
+        let result = resolve_api_format(&OpenAiWireApi::Responses, "https://api.example.com");
         assert_eq!(result, ApiFormat::OpenaiResponses);
     }
 

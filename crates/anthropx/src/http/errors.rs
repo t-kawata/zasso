@@ -28,61 +28,32 @@ impl IntoResponse for ProxyError {
     ///   }
     /// }
     /// ```
+    ///
+    /// ## 委譲設計
+    ///
+    /// ステータスコードとエラータイプ文字列は `ProxyError::status_code()` と
+    /// `ProxyError::error_type()` に委譲する。これらのメソッドが単一の定義場所
+    /// となり、`IntoResponse` との重複保守を防ぐ。メッセージは `self.to_string()`
+    /// （thiserror Display）に統一する。
     fn into_response(self) -> Response {
-        let (status, error_type, message) = match &self {
-            // 400 Bad Request — リクエスト内容に問題がある
-            ProxyError::UnknownProvider(_)
-            | ProxyError::InvalidModel(_)
-            | ProxyError::MissingField(_)
-            | ProxyError::TransformLossy(_) => {
-                (StatusCode::BAD_REQUEST, "invalid_request_error", self.to_string())
-            }
+        let status_code_val = self.status_code();
+        let error_type_val = self.error_type();
+        let message = self.to_string();
 
-            // 401 Unauthorized — 認証情報がない、または無効
-            ProxyError::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "authentication_error", self.to_string())
-            }
-
-            // 403 Forbidden — 認証済みだが権限不足
-            ProxyError::Forbidden => {
-                (StatusCode::FORBIDDEN, "permission_error", self.to_string())
-            }
-
-            // 429 Too Many Requests — レート制限超過
-            ProxyError::QueueFull => {
-                (StatusCode::TOO_MANY_REQUESTS, "rate_limit_error", "queue is full".to_string())
-            }
-
-            // 502 Bad Gateway — 上流プロバイダーがエラーを返した、または到達不能
-            ProxyError::Upstream(_) => {
-                (StatusCode::BAD_GATEWAY, "upstream_error", self.to_string())
-            }
-            ProxyError::UpstreamError(msg) => {
-                (StatusCode::BAD_GATEWAY, "upstream_error", msg.clone())
-            }
-
-            // 504 Gateway Timeout — 上流プロバイダーがタイムアウト
-            ProxyError::Timeout => {
-                (StatusCode::GATEWAY_TIMEOUT, "timeout_error", "request timed out".to_string())
-            }
-
-            // 500 Internal Server Error — 予期しない内部エラー
-            ProxyError::Internal(_) | ProxyError::Config(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "internal server error".to_string())
-            }
-        };
+        // StatusCode::from_u16 は status_code() が常に有効な HTTP ステータスコード
+        // （400, 401, 403, 429, 502, 504, 500）を返すことから、ここで失敗しない。
+        let status = StatusCode::from_u16(status_code_val)
+            .expect("ProxyError::status_code returned valid HTTP status code");
 
         let body = serde_json::json!({
             "type": "error",
             "error": {
-                "type": error_type,
+                "type": error_type_val,
                 "message": message,
             }
         });
 
-        // unwrap: serde_json::to_vec は String / Number / Object / Array に対して
-        // 決して失敗しない。json! マクロで生成された値はシリアライズ可能が保証される。
-        #[allow(clippy::unwrap_used)]
+        // serde_json::to_vec は json! マクロで生成された値に対して決して失敗しない。
         (status, [("content-type", "application/json")], Json(body)).into_response()
     }
 }
@@ -127,8 +98,8 @@ mod tests {
         let body_bytes = body::to_bytes(response.into_body(), 1024)
             .await
             .expect("body collection should succeed");
-        let json: Value = serde_json::from_slice(&body_bytes)
-            .expect("response body should be valid JSON");
+        let json: Value =
+            serde_json::from_slice(&body_bytes).expect("response body should be valid JSON");
 
         // Anthropic 互換エラースキーマの検証
         assert_eq!(json["type"], "error", "top-level type should be 'error'");
@@ -141,10 +112,7 @@ mod tests {
             "error.message should be a string"
         );
         assert!(
-            !json["error"]["message"]
-                .as_str()
-                .unwrap_or("")
-                .is_empty(),
+            !json["error"]["message"].as_str().unwrap_or("").is_empty(),
             "error.message should not be empty"
         );
     }
@@ -157,7 +125,8 @@ mod tests {
             ProxyError::UnknownProvider("deepseek".to_string()),
             StatusCode::BAD_REQUEST,
             "invalid_request_error",
-        ).await;
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -166,7 +135,8 @@ mod tests {
             ProxyError::InvalidModel("gpt-4".to_string()),
             StatusCode::BAD_REQUEST,
             "invalid_request_error",
-        ).await;
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -175,7 +145,8 @@ mod tests {
             ProxyError::MissingField("model"),
             StatusCode::BAD_REQUEST,
             "invalid_request_error",
-        ).await;
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -184,7 +155,8 @@ mod tests {
             ProxyError::TransformLossy("unsupported field 'thinking'".to_string()),
             StatusCode::BAD_REQUEST,
             "invalid_request_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 401 Unauthorized ----
@@ -195,7 +167,8 @@ mod tests {
             ProxyError::Unauthorized,
             StatusCode::UNAUTHORIZED,
             "authentication_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 403 Forbidden ----
@@ -206,7 +179,8 @@ mod tests {
             ProxyError::Forbidden,
             StatusCode::FORBIDDEN,
             "permission_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 429 Too Many Requests ----
@@ -217,7 +191,8 @@ mod tests {
             ProxyError::QueueFull,
             StatusCode::TOO_MANY_REQUESTS,
             "rate_limit_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 502 Bad Gateway ----
@@ -225,10 +200,11 @@ mod tests {
     #[tokio::test]
     async fn upstream_status_returns_502() {
         verify_error_response(
-            ProxyError::Upstream(http::StatusCode::BAD_GATEWAY),
+            ProxyError::Upstream(502),
             StatusCode::BAD_GATEWAY,
             "upstream_error",
-        ).await;
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -237,7 +213,8 @@ mod tests {
             ProxyError::UpstreamError("connection refused".to_string()),
             StatusCode::BAD_GATEWAY,
             "upstream_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 504 Gateway Timeout ----
@@ -248,7 +225,8 @@ mod tests {
             ProxyError::Timeout,
             StatusCode::GATEWAY_TIMEOUT,
             "timeout_error",
-        ).await;
+        )
+        .await;
     }
 
     // ---- 500 Internal Server Error ----
@@ -259,7 +237,8 @@ mod tests {
             ProxyError::Internal("unexpected state".to_string()),
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal_error",
-        ).await;
+        )
+        .await;
     }
 
     #[tokio::test]
@@ -268,7 +247,8 @@ mod tests {
             ProxyError::Config("bad config value".to_string()),
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal_error",
-        ).await;
+        )
+        .await;
     }
 
     /// 全 variant がパニックなく IntoResponse を生成できること。
@@ -281,7 +261,7 @@ mod tests {
             ProxyError::Unauthorized,
             ProxyError::Forbidden,
             ProxyError::QueueFull,
-            ProxyError::Upstream(http::StatusCode::BAD_GATEWAY),
+            ProxyError::Upstream(502),
             ProxyError::UpstreamError("e".into()),
             ProxyError::TransformLossy("t".into()),
             ProxyError::Timeout,

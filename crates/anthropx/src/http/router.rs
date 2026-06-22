@@ -86,19 +86,24 @@ mod tests {
             .await
             .expect("bind mock upstream");
         let addr = listener.local_addr().expect("get local addr");
-        let mock_app = axum::Router::new()
-            .route("/{*path}", axum::routing::post(|| async {
-                (StatusCode::OK, axum::Json(serde_json::json!({
-                    "id": "mock_msg",
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{"type": "text", "text": "mock"}],
-                    "model": "mock",
-                    "stop_reason": "end_turn",
-                    "stop_sequence": null,
-                    "usage": {"input_tokens": 1, "output_tokens": 1}
-                })))
-            }));
+        let mock_app = axum::Router::new().route(
+            "/{*path}",
+            axum::routing::post(|| async {
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({
+                        "id": "mock_msg",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "mock"}],
+                        "model": "mock",
+                        "stop_reason": "end_turn",
+                        "stop_sequence": null,
+                        "usage": {"input_tokens": 1, "output_tokens": 1}
+                    })),
+                )
+            }),
+        );
         tokio::spawn(async move {
             axum::serve(listener, mock_app).await.ok();
         });
@@ -143,7 +148,8 @@ mod tests {
         let resp = server.get("/v1/models").await;
         assert_eq!(resp.status_code(), StatusCode::OK);
 
-        let resp = server.post("/v1/messages")
+        let resp = server
+            .post("/v1/messages")
             .json(&serde_json::json!({"model": "test/gpt-4"}))
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);

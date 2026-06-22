@@ -117,10 +117,22 @@ mod tests {
     fn initial_counters_are_zero() {
         reset_counters();
         let output = format_metrics();
-        assert!(output.contains("anthropx_requests_total 0"), "total should be 0");
-        assert!(output.contains("anthropx_requests_success 0"), "success should be 0");
-        assert!(output.contains("anthropx_requests_errors_4xx 0"), "4xx should be 0");
-        assert!(output.contains("anthropx_requests_errors_5xx 0"), "5xx should be 0");
+        assert!(
+            output.contains("anthropx_requests_total 0"),
+            "total should be 0"
+        );
+        assert!(
+            output.contains("anthropx_requests_success 0"),
+            "success should be 0"
+        );
+        assert!(
+            output.contains("anthropx_requests_errors_4xx 0"),
+            "4xx should be 0"
+        );
+        assert!(
+            output.contains("anthropx_requests_errors_5xx 0"),
+            "5xx should be 0"
+        );
     }
 
     /// record_request(200) で total と success が増加すること。

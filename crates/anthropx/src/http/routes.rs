@@ -47,9 +47,7 @@ pub async fn metrics_handler() -> (StatusCode, [(&'static str, &'static str); 1]
 /// 全 provider の enabled な model を収集し、Anthropic 互換の JSON 形式で返す。
 /// 標準フィールドに加えて拡張フィールド（display_name, upstream, enabled,
 /// tags, aliases, max_tokens_cap）を含む。
-pub async fn list_models(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+pub async fn list_models(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let mut models = Vec::new();
 
     for (provider_name, provider) in &state.config.providers {
@@ -98,6 +96,13 @@ pub async fn list_models(
 /// 成功/失敗にかかわらず `metrics::record_request()` でリクエスト数を記録し、
 /// tracing span でリクエストコンテキスト（request_id / provider / model / stream）を
 /// トレースに出力する。
+///
+/// ## record_request 単一呼び出し契約
+///
+/// `metrics::record_request()` はこの `handle_messages` の後処理で 1 度だけ
+/// 呼ばれる。provider ハンドラ（`handle_transparent`, `handle_translate`）の
+/// 内部では metrics 出力を行わないこと。二重計上を防ぐため、`record_request()`
+/// の呼び出しはこの 1 箇所に限定する。
 pub async fn handle_messages(
     State(state): State<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
@@ -160,7 +165,11 @@ pub async fn handle_messages(
             handle_transparent(state, &provider_name_str, &resolved, body, is_stream).await
         } else {
             crate::provider::translate::handle_translate(
-                state, &provider_name_str, &resolved, body, is_stream,
+                state,
+                &provider_name_str,
+                &resolved,
+                body,
+                is_stream,
             )
             .await
         }
@@ -168,7 +177,9 @@ pub async fn handle_messages(
     .instrument(span)
     .await;
 
-    // メトリクス記録（成功/失敗にかかわらず 1 リクエストとして計上）
+    // record_request() は handle_messages の後処理で 1 度だけ呼ばれる。
+    // provider ハンドラ内では metrics 出力を行わないこと。
+    // 二重計上を防ぐため、この 1 箇所に呼び出しを限定する。
     match &result {
         Ok(_) => metrics::record_request(200),
         Err(e) => {
@@ -224,7 +235,11 @@ mod tests {
             };
             config.providers.insert(name.to_string(), provider);
         }
-        Arc::new(AppState::new(config, HashMap::new(), CancellationToken::new()))
+        Arc::new(AppState::new(
+            config,
+            HashMap::new(),
+            CancellationToken::new(),
+        ))
     }
 
     /// テスト用の AppState を構築する（transparent mode、mock upstream 付き）。
@@ -241,19 +256,24 @@ mod tests {
             .await
             .expect("bind mock upstream");
         let addr = listener.local_addr().expect("get local addr");
-        let mock_app = axum::Router::new()
-            .route("/{*path}", axum::routing::post(|| async {
-                (StatusCode::OK, axum::Json(serde_json::json!({
-                    "id": "mock_msg",
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{"type": "text", "text": "mock response"}],
-                    "model": "mock",
-                    "stop_reason": "end_turn",
-                    "stop_sequence": null,
-                    "usage": {"input_tokens": 1, "output_tokens": 1}
-                })))
-            }));
+        let mock_app = axum::Router::new().route(
+            "/{*path}",
+            axum::routing::post(|| async {
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({
+                        "id": "mock_msg",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "mock response"}],
+                        "model": "mock",
+                        "stop_reason": "end_turn",
+                        "stop_sequence": null,
+                        "usage": {"input_tokens": 1, "output_tokens": 1}
+                    })),
+                )
+            }),
+        );
         tokio::spawn(async move {
             axum::serve(listener, mock_app).await.ok();
         });
@@ -312,9 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_models_single_model() {
-        let state = make_state_with_providers(vec![
-            ("test", vec![("gpt-4", "up-gpt-4", true)]),
-        ]);
+        let state = make_state_with_providers(vec![("test", vec![("gpt-4", "up-gpt-4", true)])]);
         let response = list_models(State(state)).await;
         let data = response.0["data"].as_array().unwrap();
         assert_eq!(data.len(), 1);
@@ -341,12 +359,13 @@ mod tests {
 
     #[tokio::test]
     async fn list_models_excludes_disabled() {
-        let state = make_state_with_providers(vec![
-            ("test", vec![
+        let state = make_state_with_providers(vec![(
+            "test",
+            vec![
                 ("enabled-model", "up-enabled", true),
                 ("disabled-model", "up-disabled", false),
-            ]),
-        ]);
+            ],
+        )]);
         let response = list_models(State(state)).await;
         let data = response.0["data"].as_array().unwrap();
         assert_eq!(data.len(), 1);
@@ -355,9 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_models_includes_extended_fields() {
-        let state = make_state_with_providers(vec![
-            ("test", vec![("gpt-4", "up-gpt-4", true)]),
-        ]);
+        let state = make_state_with_providers(vec![("test", vec![("gpt-4", "up-gpt-4", true)])]);
         let response = list_models(State(state)).await;
         let model = &response.0["data"].as_array().unwrap()[0];
         // 標準フィールド
@@ -384,16 +401,12 @@ mod tests {
 
     /// 有限の allow-list を持つ AppState を構築する。
     fn make_state_with_models() -> Arc<AppState> {
-        make_state_with_providers(vec![
-            ("test-provider", vec![("gpt-4", "up-gpt-4", true)]),
-        ])
+        make_state_with_providers(vec![("test-provider", vec![("gpt-4", "up-gpt-4", true)])])
     }
 
     #[tokio::test]
     async fn handle_messages_valid_request() {
-        let state = make_state_with_mock_upstream(vec![
-            ("test", vec![]),
-        ]).await;
+        let state = make_state_with_mock_upstream(vec![("test", vec![])]).await;
         let body = serde_json::json!({"model": "test/gpt-4"});
         let response = handle_messages(State(state), Json(body)).await;
         assert!(response.is_ok(), "valid request should succeed");
@@ -408,7 +421,10 @@ mod tests {
         // ProxyError は Debug を実装しているため形式を確認
         let err = response.err().unwrap();
         let err_string = err.to_string();
-        assert!(err_string.contains("missing required field"), "expected MissingField error, got: {err_string}");
+        assert!(
+            err_string.contains("missing required field"),
+            "expected MissingField error, got: {err_string}"
+        );
     }
 
     #[tokio::test]
@@ -419,7 +435,10 @@ mod tests {
         assert!(response.is_err(), "unknown provider should fail");
         let err = response.err().unwrap();
         let err_string = err.to_string();
-        assert!(err_string.contains("invalid provider"), "expected UnknownProvider error, got: {err_string}");
+        assert!(
+            err_string.contains("invalid provider"),
+            "expected UnknownProvider error, got: {err_string}"
+        );
     }
 
     #[tokio::test]
@@ -430,14 +449,15 @@ mod tests {
         assert!(response.is_err(), "invalid model should fail");
         let err = response.err().unwrap();
         let err_string = err.to_string();
-        assert!(err_string.contains("invalid model"), "expected InvalidModel error, got: {err_string}");
+        assert!(
+            err_string.contains("invalid model"),
+            "expected InvalidModel error, got: {err_string}"
+        );
     }
 
     #[tokio::test]
     async fn handle_messages_has_request_id() {
-        let state = make_state_with_mock_upstream(vec![
-            ("test", vec![]),
-        ]).await;
+        let state = make_state_with_mock_upstream(vec![("test", vec![])]).await;
         let body = serde_json::json!({"model": "test/gpt-4"});
         let response = handle_messages(State(state), Json(body)).await;
         assert!(response.is_ok(), "valid request should succeed");

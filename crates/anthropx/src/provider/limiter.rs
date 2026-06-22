@@ -12,11 +12,14 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 ///
 /// ## 動作
 ///
-/// 1. `acquire()` 呼び出し時に queue 残容量を楽観的にチェック
-/// 2. 満杯なら即座に `Err(LimiterError::QueueFull)`
-/// 3. `current_queue` をインクリメントし、`Semaphore::acquire_owned()` で非同期待機
-/// 4. permit 取得後、`current_queue` をデクリメントして permit を返却
-/// 5. permit は drop 時に自動解放（クライアント切断による Future drop も同様）
+/// 1. `acquire()` はまず非ブロッキング `try_acquire_owned()` を試行（高速パス）
+/// 2. 成功時は Semaphore permits のみで in-flight 管理が完結するため、
+///    `current_queue` を操作せずに permit を返す
+/// 3. 高速パス失敗時は queue 残容量を楽観的にチェック
+/// 4. 満杯なら即座に `Err(LimiterError::QueueFull)`
+/// 5. `current_queue` をインクリメントし、`Semaphore::acquire_owned()` で非同期待機
+/// 6. permit 取得後、`current_queue` をデクリメントして permit を返却
+/// 7. permit は drop 時に自動解放（クライアント切断による Future drop も同様）
 #[derive(Debug)]
 pub struct ConcurrencyLimiter {
     semaphore: Arc<Semaphore>,
@@ -42,6 +45,16 @@ impl ConcurrencyLimiter {
     /// queue 満杯時は `Err(LimiterError::QueueFull)` を返す。
     /// 取得した permit は drop 時に自動的にセマフォに返却される。
     ///
+    /// ## 高速パス: try_acquire_owned
+    ///
+    /// RFC 01 の設計にはない最適化として、ブロッキング acquire の前に非ブロッキング
+    /// `try_acquire_owned()` を試行する。Semaphore に空きがある場合、queue 管理の
+    /// オーバーヘッド（アトミック操作 + コンテキストスイッチ）を回避できる。
+    ///
+    /// try_acquire 成功時は `current_queue` を増加させないが、これは Semaphore の
+    /// permits のみで in-flight 数が正確に管理されるため問題ない。queue 待機を
+    /// 経ていないリクエストは current_queue に計上する必要がない。
+    ///
     /// ## Queue チェックの楽観的性質
     ///
     /// `current_queue` のロードとインクリメントはアトミックだが、チェックと
@@ -49,11 +62,13 @@ impl ConcurrencyLimiter {
     /// `max_queue` をわずかに超過することがあるが、これは過剰な拒否（false
     /// rejection）よりは許容可能な設計判断である。
     pub async fn acquire(&self) -> Result<OwnedSemaphorePermit, LimiterError> {
-        // まず非ブロッキング acquire を試行（セマフォに空きがある場合の高速パス）
+        // 高速パス: Semaphore に空きがあれば非ブロッキングで取得
+        // try_acquire 成功時は current_queue を増加させない。Semaphore の permits
+        // のみで in-flight 数が管理されるため問題ない（queue 未経由のため計上不要）。
         match self.semaphore.clone().try_acquire_owned() {
             Ok(permit) => return Ok(permit),
             Err(_) => {
-                // セマフォが満杯。queue 残容量をチェック
+                // 低速パス: queue 残容量をチェック
                 let queued = self.current_queue.load(Ordering::Acquire);
                 if queued >= self.max_queue {
                     return Err(LimiterError::QueueFull);
@@ -95,9 +110,7 @@ impl From<LimiterError> for crate::ProxyError {
     fn from(e: LimiterError) -> Self {
         match e {
             LimiterError::QueueFull => crate::ProxyError::QueueFull,
-            LimiterError::Closed => {
-                crate::ProxyError::Internal("semaphore closed".to_string())
-            }
+            LimiterError::Closed => crate::ProxyError::Internal("semaphore closed".to_string()),
         }
     }
 }

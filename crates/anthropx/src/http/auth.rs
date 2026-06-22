@@ -33,10 +33,7 @@ use crate::util::HOP_BY_HOP_HEADERS;
 /// 2. または `x-api-key: <key>` が存在し、キーが空でない
 ///
 /// 条件を満たさない場合は `ProxyError::Unauthorized`（401）を返す。
-pub async fn authorize_client(
-    request: Request,
-    next: Next,
-) -> Result<Response, ProxyError> {
+pub async fn authorize_client(request: Request, next: Next) -> Result<Response, ProxyError> {
     let headers = request.headers();
 
     // 1. Authorization: Bearer <token> をチェック
@@ -152,7 +149,8 @@ mod tests {
         let app = build_test_router(true);
         use axum_test::TestServer;
         let server = TestServer::new(app);
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("authorization", "Bearer valid-token")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);
@@ -163,7 +161,8 @@ mod tests {
         let app = build_test_router(true);
         use axum_test::TestServer;
         let server = TestServer::new(app);
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("authorization", "Bearer ")
             .await;
         assert_eq!(resp.status_code(), StatusCode::UNAUTHORIZED);
@@ -176,7 +175,8 @@ mod tests {
         let app = build_test_router(true);
         use axum_test::TestServer;
         let server = TestServer::new(app);
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("x-api-key", "valid-key")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);
@@ -197,7 +197,8 @@ mod tests {
         use axum_test::TestServer;
         let server = TestServer::new(app);
         // Basic auth は Bearer ではないので却下
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("authorization", "Basic dXNlcjpwYXNz")
             .await;
         assert_eq!(resp.status_code(), StatusCode::UNAUTHORIZED);
@@ -208,9 +209,7 @@ mod tests {
         let app = build_test_router(true);
         use axum_test::TestServer;
         let server = TestServer::new(app);
-        let resp = server.get("/test")
-            .add_header("x-api-key", "")
-            .await;
+        let resp = server.get("/test").add_header("x-api-key", "").await;
         assert_eq!(resp.status_code(), StatusCode::UNAUTHORIZED);
     }
 
@@ -232,25 +231,29 @@ mod tests {
         let server = TestServer::new(app);
 
         // Authorization 付きでも 200（除去されるため auth=off で問題なく通過）
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("authorization", "Bearer client-token")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);
 
         // x-api-key 付きでも 200
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("x-api-key", "client-key")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);
 
         // Content-Type 付きでも 200（通常 header は維持）
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("content-type", "application/json")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);
 
         // hop-by-hop header（Connection）を除去しても 200
-        let resp = server.get("/test")
+        let resp = server
+            .get("/test")
             .add_header("connection", "keep-alive")
             .await;
         assert_eq!(resp.status_code(), StatusCode::OK);

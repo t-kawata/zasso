@@ -36,7 +36,9 @@ fn load_api_key() -> Option<String> {
             eprintln!("------------------------------------------------------------------------");
             eprintln!("  M4-4: Real provider tests SKIPPED");
             eprintln!("  Required env vars:");
-            eprintln!("    DEEPSEEK_API_KEY=sk-...             DeepSeek API key (anthropic-compatible)");
+            eprintln!(
+                "    DEEPSEEK_API_KEY=sk-...             DeepSeek API key (anthropic-compatible)"
+            );
             eprintln!("    DEEPSEEK_BASE_URL=https://...       (optional, default: https://api.deepseek.com)");
             eprintln!("  Run:");
             eprintln!("    DEEPSEEK_API_KEY=sk-... cargo test --test real_provider -- --nocapture");
@@ -64,16 +66,14 @@ fn build_proxy_state(api_key: &str) -> AppState {
             max_in_flight: Some(1),
             max_queue: Some(1),
             model_aliases: BTreeMap::new(),
-            models: vec![
-                ModelConfig {
-                    public: "deepseek-chat".to_string(),
-                    upstream: "deepseek-chat".to_string(),
-                    enabled: true,
-                    tags: vec![],
-                    max_tokens_cap: Some(256),
-                    aliases: vec![],
-                },
-            ],
+            models: vec![ModelConfig {
+                public: "deepseek-chat".to_string(),
+                upstream: "deepseek-chat".to_string(),
+                enabled: true,
+                tags: vec![],
+                max_tokens_cap: Some(256),
+                aliases: vec![],
+            }],
         },
     );
 
@@ -84,7 +84,9 @@ fn build_proxy_state(api_key: &str) -> AppState {
 
 /// anthropx を中継して DeepSeek にリクエストを送信し、結果を詳細に表示する。
 async fn run_transparent_test(provider: &str, model: &str, body: serde_json::Value) {
-    let Some(api_key) = load_api_key() else { return };
+    let Some(api_key) = load_api_key() else {
+        return;
+    };
 
     let state = std::sync::Arc::new(build_proxy_state(&api_key));
     let router = build_router(state);
@@ -106,10 +108,7 @@ async fn run_transparent_test(provider: &str, model: &str, body: serde_json::Val
     }
     println!("========================================");
 
-    assert_eq!(
-        code, 200,
-        "expected 200, got {code}\n  body: {body_str}"
-    );
+    assert_eq!(code, 200, "expected 200, got {code}\n  body: {body_str}");
 }
 
 // ---------------------------------------------------------------------------
