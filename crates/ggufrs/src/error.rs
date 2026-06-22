@@ -9,7 +9,7 @@
 //! - `ServerStartupFailed` — サーバー起動関連
 //! - `InvalidConfig` — 設定検証関連
 //! - `LlamaCppError` — llama-cpp バックエンドラップ（`#[from]` で自動変換）
-//!   [::STUB::] M6-11 で `#[from]` ターゲットを `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
+//!   `#[from]` で自動変換
 
 /// GGUF 推論エンジンの統一エラー型
 ///
@@ -21,7 +21,7 @@
 /// # エラー伝搬
 ///
 /// - `LlamaCppError` は `#[from]` 属性により `mistralrs::error::Error` から自動変換される
-///   [::STUB::] M6-11 で `#[from]` ターゲットを `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
+///   `#[from]` で自動変換
 /// - 内部エラーを持つバリアントは `Box<dyn std::error::Error + Send + Sync>` でラップする
 /// - `Send + Sync` を満たすため、スレッド間でのエラー伝搬が可能
 ///   `std::io::Error` → `GgufError::InvalidConfig` への変換
@@ -189,17 +189,15 @@ mod tests {
 
     #[test]
     fn gguf_error_display_llama_cpp_error() {
-        // llama_cpp_2::LlamaCppError のインスタンスでラップする（この段階では mistralrs を再利用）
-        // [::STUB::] M6-11 で `mistralrs::error::Error` → `llama_cpp_2::LlamaCppError` に差し替える
-        let mist_err = mistralrs::error::Error::RequestValidation("test error".into());
-        let err = GgufError::LlamaCppError(mist_err);
+        let llama_err = llama_cpp_2::LlamaCppError::BackendAlreadyInitialized;
+        let err = GgufError::LlamaCppError(llama_err);
         let msg = err.to_string();
         assert!(
             msg.contains("llama-cpp"),
             "display should contain prefix: {msg}"
         );
         assert!(
-            msg.contains("test error"),
+            msg.contains("BackendAlreadyInitialized"),
             "display should contain source info: {msg}"
         );
     }
@@ -231,11 +229,12 @@ mod tests {
             "ServerStartupFailed should have a source"
         );
 
-        let mist_err = mistralrs::error::Error::RequestValidation("validation failed".into());
-        let err = GgufError::LlamaCppError(mist_err);
+        // llama_cpp_2::LlamaCppError は `#[from]` により source として自動公開される
+        let llama_err = llama_cpp_2::LlamaCppError::BackendAlreadyInitialized;
+        let err = GgufError::LlamaCppError(llama_err);
         assert!(
             err.source().is_some(),
-            "LlamaCppError should have a source"
+            "LlamaCppError should have a source (inner error via #[from])"
         );
     }
 
@@ -316,13 +315,12 @@ mod tests {
     }
 
     #[test]
-    fn from_mistralrs_error_works_via_from_attr() {
-        // [::STUB::] M6-11 で `llama_cpp_2::LlamaCppError` に差し替え
-        let mist_err = mistralrs::error::Error::RequestValidation("validation error".into());
-        let err: GgufError = mist_err.into();
+    fn from_llama_cpp_error_works_via_from_attr() {
+        let llama_err = llama_cpp_2::LlamaCppError::BackendAlreadyInitialized;
+        let err: GgufError = llama_err.into();
         assert!(
             matches!(err, GgufError::LlamaCppError(_)),
-            "mistralrs::error::Error should map to LlamaCppError via #[from]"
+            "llama_cpp_2::LlamaCppError should map to LlamaCppError via #[from]"
         );
     }
 }
