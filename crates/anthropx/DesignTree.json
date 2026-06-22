@@ -1,50 +1,50 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-19T02:22:07.164Z",
+  "updatedAt": "2026-06-22T02:08:05.269Z",
   "nodes": [
     {
-      "id": "arch-dual-mode",
-      "title": "アーキテクチャ: ライブラリ + バイナリのデュアルモード構成",
+      "id": "security",
+      "title": "セキュリティ属性とcrate設定（M#1）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T01:58:58.911Z",
-          "answer": "確定: B（単一 lib crate + [[bin]] 同梱）。公開APIは A（最小公開: ProxyServer::start + AppConfig）を採用。 でライブラリ利用、 でサーバーバイナリ入手可能。AppConfig::from_toml(path) の関連関数も提供。"
+          "resolvedAt": "2026-06-22T02:03:07.778Z",
+          "answer": "lib.rs に #![forbid(unsafe_code)], #![warn(rust_2024_compatibility)], #![warn(missing_debug_implementations)] を追加。missing_docs は段階的導入のため保留。"
         }
       ],
       "children": []
     },
     {
-      "id": "http-framework",
-      "title": "HTTPサーバーフレームワーク選択とルーティング設計",
+      "id": "metrics",
+      "title": "メトリクス再設計 — metrics crate導入と次元拡張（M#2/M#5）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T01:59:02.057Z",
-          "answer": "確定: B（Axum をデフォルト + feature flag 分離）。features = [\"server\"] の下で Axum 依存、server 無効時は Axum 依存なし。zasso 内一貫性と crate 独立性を両立。"
+          "resolvedAt": "2026-06-22T02:02:51.979Z",
+          "answer": "metrics 0.24 crate を導入する。counter! / histgram! マクロ + metrics-exporter-prometheus で実装。レイテンシヒストグラムと provider/mode/stream/status のラベル次元を追加。 naming は RFC 設計の llm_bridge_* を維持。"
         }
       ],
       "children": [
         {
-          "id": "client-auth",
-          "title": "クライアント認証の実装: Bearer / x-api-key 両対応",
+          "id": "metrics-naming",
+          "title": "メトリクス命名規則と record_request シグネチャ",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-19T02:20:32.025Z",
-              "answer": "確定: A（Tower middleware）。クライアント認証 Layer と upstream 認証 Layer を別々に実装しルーターに積む。require_client_auth=false ならクライアント認証 Layer をスキップ。"
+              "resolvedAt": "2026-06-22T02:08:04.663Z",
+              "answer": "anthropx_ プレフィックスを採用。record_request は provider, mode, stream, status, latency_ms の5引数で実装。構造化ログは主要フィールド（request_id, provider, model, stream, status_code, latency_ms）のみ。"
             }
           ],
           "children": []
         },
         {
-          "id": "upstream-auth-header",
-          "title": "upstream認証注入とtransparent header policy",
+          "id": "metrics-histogram",
+          "title": "レイテンシヒストグラムのバケット設定",
           "status": "resolved",
           "questions": [
             {
-              "resolvedAt": "2026-06-19T02:20:35.349Z",
-              "answer": "確定: Aと連動。upstream 認証は reqwest::Client の default header として api_keys を注入。transparent mode では Tower Layer で hop-by-hop header 除去とクライアント由来 Authorization のブロックを実施。"
+              "resolvedAt": "2026-06-22T02:08:05.268Z",
+              "answer": "metrics crate のデフォルトバケットを使用する。カスタム設定は行わない。"
             }
           ],
           "children": []
@@ -52,172 +52,85 @@
       ]
     },
     {
-      "id": "config-system",
-      "title": "設定システム: TOML読込 + プログラム的APIの二刀流",
+      "id": "translate-stream",
+      "title": "Translate streaming リアルタイム化（M#3）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T02:08:09.142Z",
-          "answer": "確定: A（AppConfig::from_toml(path) + pub フィールド）。全フィールド pub、構造体リテラルまたは ..Default::default() でプログラム的構築。TOML 読み込みは AppConfig::from_toml(path) -> Result<AppConfig> の関連関数。二系統で同じ型に到達。"
-        }
-      ],
-      "children": [
-        {
-          "id": "config-validation",
-          "title": "設定検証ルールの実装: 起動時バリデーション",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:21:01.159Z",
-              "answer": "確定: A（集約型 — 全検証エラーを収集し一度に報告）。起動シーケンス内で TOML 読込後、draft 9項目(provider名一意, api_keys>=1, models.public一意, aliases衝突, global alias競合許容, max_queue=0許容, url_prefix正規化 他)を検証。エラーは Vec<String> として集約し、1件以上あれば Err で報告。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "provider-routing",
-      "title": "Providerルーティング・解決・スケジューラの中核設計",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-19T01:59:04.856Z",
-          "answer": "確定: C（ハイブリッド）。読み取り専用（alias解決、model定義）は Arc<RwLock<>> で共有、書き込みホットパス（key scheduler index, in-flight counter）は AtomicUsize や個別 Mutex で分離。"
-        }
-      ],
-      "children": [
-        {
-          "id": "bridge-interface",
-          "title": "llm-bridge-core との結合インターフェース設計",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:28.732Z",
-              "answer": "確定: Q12の調査結果に基づき、Bridge interface は llm-bridge-core の関数を直接呼び出す薄いアダプタ層とする。OpenAiWireApi = Auto 時は upstream base_url のパス接尾辞(/v1/chat/completions or /v1/responses)から ApiFormat を決定。core crate の anthropic_to_openai() / openai_to_anthropic() / transform_stream() を translate handler から直接利用。apapter 層は core の型(TranformRequest/Response, ApiFormat, TransformError)をそのまま公開する薄いラッパー。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "lossy-translation",
-          "title": "Lossy translation 制御: allow_lossy 伝搬と可視化",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:40.553Z",
-              "answer": "確定: A（3段階分類: Error/Warn/Info）に加え、Error 級のlossyでも続行するための追加フラグが必要（例: allow_lossy を拡張し allow_lossy=true で Error も続行、allow_lossy=strict で Error で拒否、allow_lossy=permissive ですべて続行 の3値化、または allow_lossy_error_continue のような別フラグ）。未解決: フラグ名と値の設計はRFC内で Code Example として確定する。"
-            }
-          ],
-          "children": [
-            {
-              "id": "lossy-error-flag",
-              "title": "Error級 lossy 続行フラグの設計: allow_lossy の値拡張または別フラグ",
-              "status": "resolved",
-              "questions": [
-                {
-                  "resolvedAt": "2026-06-19T02:22:07.163Z",
-                  "answer": "確定: B（別フラグ error_lossy_continue: bool）。allow_lossy 二値との互換性維持。allow_lossy=false(デフォルト) → Error級を400拒否。allow_lossy=true & error_lossy_continue未設定(false) → Warn/Info続行、Error拒否。allow_lossy=true & error_lossy_continue=true → 全lossy続行。"
-                }
-              ],
-              "children": []
-            }
-          ]
-        },
-        {
-          "id": "models-response",
-          "title": "GET /v1/models のレスポンススキーマ設計",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:47.282Z",
-              "answer": "確定: B（Anthropic 互換 + 拡張フィールド）。id=provider/public, created, owned_by の標準フィールドに加え、tags/aliases/upstream/max_tokens_cap/enabled を追加フィールドとして含める。ソート順は provider 名 → public model 名の昇順。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "streaming-sse",
-          "title": "Streaming SSE 転送方式と translate mode のSSE変換",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:50.753Z",
-              "answer": "確定: A（axum::body::Stream + tokio::select!）。SSE ストリームを axum Body の Stream として扱い、tokio::select! で disconnect と upstream stream を多重待機。disconnect 時は Future drop で暗黙的に upstream をキャンセル。translate mode の SSE event 変換は core crate の transform_stream() を Stream::map() 内で呼び出す。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "http-client-pool",
-          "title": "HTTP client pool: provider ごとの reqwest::Client 管理",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:53.913Z",
-              "answer": "確定: A（起動時に全 provider の reqwest::Client を事前生成し Arc で共有）。provider ごとに timeout(connect/read/total) と keep-alive 設定を個別に保持。Client は AppConfig 読み込み時に一括生成し AppState に保持。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "openai-wire-api",
-          "title": "OpenAiWireApi (auto/chat_completions/responses) の使い方と選択ロジック",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-19T02:20:57.437Z",
-              "answer": "確定: 12の調査結果に基づき、OpenAiWireApi は core crate の ApiFormat に対応させる。auto → upstream base_url のパスから自動判定(/v1/chat/completions → OpenaiChat, /v1/responses → OpenaiResponses)。chat_completions → ApiFormat::OpenaiChat。responses → ApiFormat::OpenaiResponses。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "concurrency-queue",
-      "title": "並行性制御: in-flight制限とbounded queue",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-19T01:59:07.711Z",
-          "answer": "確定: A（tokio::sync::Semaphore による backpressure）。Future drop による自動 permit 返却でリソースリーク防止。queue も Semaphore の acquire 待機で実現。max_queue 超過時は 429。"
+          "resolvedAt": "2026-06-22T02:02:52.981Z",
+          "answer": "transform_stream() がチャンク単位処理対応の前提で全面改修する。transparent.rs の proxy_sse_stream パターン（tokio::select! + Body::new_channel）を translate.rs に適用する。"
         }
       ],
       "children": []
     },
     {
-      "id": "lifecycle-observability",
-      "title": "ライフサイクル管理と可観測性の埋め込みAPI",
+      "id": "lossy-handling",
+      "title": "Lossy handling 契約達成（M#4/m#12）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T02:08:13.210Z",
-          "answer": "確定: ライフサイクル = C（ServerHandle型: start() が handle を返し handle.shutdown()/join() で制御、内部で CancellationToken 保持）。可観測性 = A（lib crate は tracing::info!/metrics::counter! を出力するのみ。subscriber/exporter 設定は main.rs の責務。バイナリモードのみ初期化実行。）"
+          "resolvedAt": "2026-06-22T02:02:54.308Z",
+          "answer": "暫定対応は行わない。llm-bridge-core 側に lossy-tolerant 変換API（Ok with warnings 型）の追加を行い、対応後に RFC 契約通りの lossy 続行を本実装する。現状の allow_lossy 抑制ロジックは正しく動作しており文書化のみ行う。"
         }
       ],
       "children": []
     },
     {
-      "id": "error-types",
-      "title": "エラー型設計とAnthropic互換エラー応答",
+      "id": "feature-gate",
+      "title": "Feature gate 整備とデュアルモード構成（m#6）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T02:08:16.496Z",
-          "answer": "確定: A（単一 ProxyError enum + IntoResponse）。thiserror で全エラーを1つの enum、各バリアントに HTTP ステータス注釈。From<T> + IntoResponse で Axum handler は Result<T, ProxyError> を返すだけで自動変換。Anthropic互換エラースキーマへ正規化。"
+          "resolvedAt": "2026-06-22T02:02:55.540Z",
+          "answer": "RFC 設計通り server feature 配下に clap / futures / http / tokio-util / tokio-stream を隔離する。main.rs に #[cfg(feature = \"server\")] を追加。library 用途では設定型＋メモリ内完結ロジックのみの最小ビルドを可能にする。"
         }
       ],
       "children": []
     },
     {
-      "id": "testing-strategy",
-      "title": "テスト戦略: 結合テストとCI",
+      "id": "config-validation",
+      "title": "設定検証補完（m#7/m#11）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-19T02:08:21.735Z",
-          "answer": "確定: 二層テスト戦略。(1) axum::test による mock HTTP server で全機能試験（CI用）: transparent/translate/key failover/concurrency/queue の10項目。(2) 実プロバイダー結合テスト: cfg(test) または feature=integration-test の下で環境変数から API key を読み込み、実際の upstream provider に対して通しテストを実行可能にする。両方のモードを crate 内で完結させ、CI では mock テスト、定期実行や手動実行で実プロバイダーテストを選択できる。"
+          "resolvedAt": "2026-06-22T02:02:57.888Z",
+          "answer": "url_prefix 正規化（先頭/付与、末尾/除去）、alias key 衝突チェックのロジック修正、alias 競合ログ出力の3項目すべてを RFC 設計通り完全実装する。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "module-split",
+      "title": "モジュール分割 — config/util 単一責務化（m#8）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:56.745Z",
+          "answer": "RFC 設計通り config を 3ファイル（mod.rs / parse.rs / validate.rs）に厳密分割し、util/headers.rs も抽出する。config/mod.rs は型定義のみ、parse.rs は TOML 読込、validate.rs は設定検証を責務とする。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "test-expansion",
+      "title": "テスト拡充 — AC#4/#5/#6 と応答検証（m#9/m#10）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:59.221Z",
+          "answer": "各ACを独立した axum::test 関数として追加。AC#3 は応答形式検証を追加、AC#4（translate stream）新規、AC#5（mock 503+failover）新規、AC#6（stream no-failover）新規。各テストは完全に独立した mock upstream を持つ。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "code-quality",
+      "title": "コード品質改善 — n#13〜n#16",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:03:09.388Z",
+          "answer": "n#13: IntoResponse から status_code() を呼び出すようリファクタリング。 n#14: ApiFormat 中間型は llm-bridge-core 対応時に解消（既存 stub コメントあり）。 n#15: try_acquire 高速パスは意図的な改善として現状維持。 n#16: record_request 二重計上リスクはドキュメント化のみ。 Plus: lib.rs に pub use lifecycle::ProxyServer を追加。"
         }
       ],
       "children": []

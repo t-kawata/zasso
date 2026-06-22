@@ -19,6 +19,8 @@ static SUCCESS_REQUESTS: AtomicU64 = AtomicU64::new(0);
 static ERROR_4XX: AtomicU64 = AtomicU64::new(0);
 /// サーバーエラー数（5xx）
 static ERROR_5XX: AtomicU64 = AtomicU64::new(0);
+/// failover（key 再試行）発生回数
+static FAILOVER_COUNT: AtomicU64 = AtomicU64::new(0);
 
 // ---------------------------------------------------------------------------
 // 公開関数
@@ -57,6 +59,16 @@ pub fn record_request(status: u16) {
     }
 }
 
+/// failover 発生時に呼び出し、カウンタを増加する。
+pub fn record_failover() {
+    FAILOVER_COUNT.fetch_add(1, Ordering::Relaxed);
+}
+
+/// failover カウンタの現在値を取得する（テスト用）。
+pub fn record_failover_count() -> u64 {
+    FAILOVER_COUNT.load(Ordering::Relaxed)
+}
+
 /// 全カウンタを Prometheus 互換のテキスト形式で出力する。
 pub fn format_metrics() -> String {
     format!(
@@ -71,11 +83,15 @@ pub fn format_metrics() -> String {
          anthropx_requests_errors_4xx {}\n\
          # HELP anthropx_requests_errors_5xx Server error count (5xx)\n\
          # TYPE anthropx_requests_errors_5xx counter\n\
-         anthropx_requests_errors_5xx {}\n",
+         anthropx_requests_errors_5xx {}\n\
+         # HELP anthropx_requests_failover_total Failover retry count\n\
+         # TYPE anthropx_requests_failover_total counter\n\
+         anthropx_requests_failover_total {}\n",
         TOTAL_REQUESTS.load(Ordering::Relaxed),
         SUCCESS_REQUESTS.load(Ordering::Relaxed),
         ERROR_4XX.load(Ordering::Relaxed),
         ERROR_5XX.load(Ordering::Relaxed),
+        FAILOVER_COUNT.load(Ordering::Relaxed),
     )
 }
 
@@ -93,6 +109,7 @@ mod tests {
         SUCCESS_REQUESTS.store(0, Ordering::Relaxed);
         ERROR_4XX.store(0, Ordering::Relaxed);
         ERROR_5XX.store(0, Ordering::Relaxed);
+        FAILOVER_COUNT.store(0, Ordering::Relaxed);
     }
 
     /// 初期状態で全カウンタが 0 であること。
@@ -148,5 +165,38 @@ mod tests {
         assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 0);
         assert_eq!(ERROR_4XX.load(Ordering::Relaxed), 0);
         assert_eq!(ERROR_5XX.load(Ordering::Relaxed), 0);
+    }
+
+    /// record_failover() で failover カウンタが増加すること。
+    #[test]
+    fn record_failover_increments_counter() {
+        reset_counters();
+        assert_eq!(record_failover_count(), 0);
+        record_failover();
+        assert_eq!(record_failover_count(), 1);
+        record_failover();
+        assert_eq!(record_failover_count(), 2);
+    }
+
+    /// format_metrics() に failover カウンタ行が含まれること。
+    #[test]
+    fn format_metrics_includes_failover() {
+        reset_counters();
+        let output = format_metrics();
+        assert!(output.contains("anthropx_requests_failover_total 0"));
+        record_failover();
+        let output = format_metrics();
+        assert!(output.contains("anthropx_requests_failover_total 1"));
+    }
+
+    /// failover カウンタが format_metrics の他のカウンタと独立していること。
+    #[test]
+    fn failover_independent_from_request_counters() {
+        reset_counters();
+        record_failover();
+        record_request(200);
+        assert_eq!(record_failover_count(), 1);
+        assert_eq!(TOTAL_REQUESTS.load(Ordering::Relaxed), 1);
+        assert_eq!(SUCCESS_REQUESTS.load(Ordering::Relaxed), 1);
     }
 }

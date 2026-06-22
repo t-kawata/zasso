@@ -493,6 +493,26 @@ pub enum ProxyError {
     Config(String),
 }
 
+impl ProxyError {
+    /// このエラーに対応する HTTP ステータスコードを返す。
+    ///
+    /// `IntoResponse`（`http/errors.rs`）と同じマッピングルールに従う。
+    pub fn status_code(&self) -> u16 {
+        match self {
+            ProxyError::UnknownProvider(_)
+            | ProxyError::InvalidModel(_)
+            | ProxyError::MissingField(_)
+            | ProxyError::TransformLossy(_) => 400,
+            ProxyError::Unauthorized => 401,
+            ProxyError::Forbidden => 403,
+            ProxyError::QueueFull => 429,
+            ProxyError::Upstream(_) | ProxyError::UpstreamError(_) => 502,
+            ProxyError::Timeout => 504,
+            ProxyError::Internal(_) | ProxyError::Config(_) => 500,
+        }
+    }
+}
+
 /// 設定読み込み・検証のエラー型（RFC §2）。
 ///
 /// Io と Parse は個別のファイルパス情報を持ち、ValidationFailed は
@@ -564,6 +584,87 @@ mod tests {
     fn app_config_default_providers_empty() {
         let config = AppConfig::default();
         assert!(config.providers.is_empty());
+    }
+
+    // ---- ProxyError::status_code ----
+
+    /// ProxyError::status_code() が400を返すこと。
+    #[test]
+    fn status_code_unknown_provider() {
+        let err = ProxyError::UnknownProvider("p".to_string());
+        assert_eq!(err.status_code(), 400);
+    }
+
+    #[test]
+    fn status_code_invalid_model() {
+        let err = ProxyError::InvalidModel("m".to_string());
+        assert_eq!(err.status_code(), 400);
+    }
+
+    #[test]
+    fn status_code_missing_field() {
+        let err = ProxyError::MissingField("f");
+        assert_eq!(err.status_code(), 400);
+    }
+
+    #[test]
+    fn status_code_transform_lossy() {
+        let err = ProxyError::TransformLossy("t".to_string());
+        assert_eq!(err.status_code(), 400);
+    }
+
+    /// ProxyError::status_code() が401を返すこと。
+    #[test]
+    fn status_code_unauthorized() {
+        let err = ProxyError::Unauthorized;
+        assert_eq!(err.status_code(), 401);
+    }
+
+    /// ProxyError::status_code() が403を返すこと。
+    #[test]
+    fn status_code_forbidden() {
+        let err = ProxyError::Forbidden;
+        assert_eq!(err.status_code(), 403);
+    }
+
+    /// ProxyError::status_code() が429を返すこと。
+    #[test]
+    fn status_code_queue_full() {
+        let err = ProxyError::QueueFull;
+        assert_eq!(err.status_code(), 429);
+    }
+
+    /// ProxyError::status_code() が502を返すこと。
+    #[test]
+    fn status_code_upstream() {
+        let err = ProxyError::Upstream(http::StatusCode::BAD_GATEWAY);
+        assert_eq!(err.status_code(), 502);
+    }
+
+    #[test]
+    fn status_code_upstream_error() {
+        let err = ProxyError::UpstreamError("e".to_string());
+        assert_eq!(err.status_code(), 502);
+    }
+
+    /// ProxyError::status_code() が504を返すこと。
+    #[test]
+    fn status_code_timeout() {
+        let err = ProxyError::Timeout;
+        assert_eq!(err.status_code(), 504);
+    }
+
+    /// ProxyError::status_code() が500を返すこと。
+    #[test]
+    fn status_code_internal() {
+        let err = ProxyError::Internal("i".to_string());
+        assert_eq!(err.status_code(), 500);
+    }
+
+    #[test]
+    fn status_code_config() {
+        let err = ProxyError::Config("c".to_string());
+        assert_eq!(err.status_code(), 500);
     }
 
     /// 複数 provider を持つ AppConfig の構築とフィールドアクセス。
@@ -1297,7 +1398,7 @@ api_keys = ["key1"]
         let mut config = AppConfig::default();
         config.global.port = 0;
         let err = config.validate().unwrap_err();
-        assert!(err.len() >= 1, "port 0 should produce at least 1 error");
+        assert!(!err.is_empty(), "port 0 should produce at least 1 error");
     }
 
     /// 複数の設定ミスが集約されること。
@@ -1350,7 +1451,7 @@ api_keys = ["key1"]
         let mut config = AppConfig::default();
         config.global.timeouts.connect_ms = 0;
         let err = config.validate().unwrap_err();
-        assert!(err.len() >= 1, "connect_ms=0 should produce error");
+        assert!(!err.is_empty(), "connect_ms=0 should produce error");
     }
 
     /// max_queue=0 は許容されること（エラーにならない）。

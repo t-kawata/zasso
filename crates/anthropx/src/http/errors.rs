@@ -57,7 +57,7 @@ impl IntoResponse for ProxyError {
             ProxyError::Upstream(_) => {
                 (StatusCode::BAD_GATEWAY, "upstream_error", self.to_string())
             }
-            ProxyError::UpstreamError(ref msg) => {
+            ProxyError::UpstreamError(msg) => {
                 (StatusCode::BAD_GATEWAY, "upstream_error", msg.clone())
             }
 
