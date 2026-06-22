@@ -248,3 +248,4 @@
 - [x] #181 M3: make/plan/start/review への Malfeasance.json 統合 | /Users/shyme/shyme/zasso/tickets/specs/0181-m3-makeplanstartreview-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #184 RuntimeCommand 新設 — GetAccountInfo / ConfConnect / ConfDisconnect（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0184-runtimecommand-getaccountinfo-confconnect-confdisconnectp0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22

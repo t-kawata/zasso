@@ -13,6 +13,38 @@ use crate::error::SipError;
 use crate::ffi::callbacks::NativeEvent;
 use crate::util::id::{AccountId, AudioSourceId, CallId};
 
+/// メディアフローの方向。
+///
+/// カンファレンス接続（ConfConnect / ConfDisconnect）において、
+/// どの方向のメディアストリームを操作するかを指定する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MediaDirection {
+    /// 着信方向（相手→自分）のメディア。
+    Inbound,
+    /// 発信方向（自分→相手）のメディア。
+    Outbound,
+    /// 双方向メディア。
+    Both,
+}
+
+/// アカウント情報のスナップショット。
+///
+/// PJSIP の `pjsua_acc_info` 構造体の safe Rust 版。
+/// RegistrationStateChanged 変換（M20-4）で使用される。
+#[derive(Debug, Clone)]
+pub(crate) struct AccountInfoSnapshot {
+    /// アカウント ID。
+    pub acc_id: AccountId,
+    /// SIP 登録ステータスコード。
+    pub registration_status: u16,
+    /// 登録有効期限（秒）。未登録時は None。
+    pub registration_expires: Option<u32>,
+    /// オンラインステータス。
+    pub online_status: bool,
+    /// アカウント URI。
+    pub uri: String,
+}
+
 /// 切断理由。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HangupReason {
@@ -137,6 +169,23 @@ pub(crate) enum RuntimeCommand {
     Shutdown {
         reply: tokio::sync::oneshot::Sender<Result<(), SipError>>,
     },
+    /// アカウント情報取得（読み取り専用、Shutdown 中も許可）。
+    GetAccountInfo {
+        native_acc_id: i32,
+        reply_tx: tokio::sync::oneshot::Sender<Result<AccountInfoSnapshot, SipError>>,
+    },
+    /// カンファレンス接続。
+    ConfConnect {
+        call_id: CallId,
+        media_direction: MediaDirection,
+        reply_tx: tokio::sync::oneshot::Sender<Result<(), SipError>>,
+    },
+    /// カンファレンス切断。
+    ConfDisconnect {
+        call_id: CallId,
+        media_direction: MediaDirection,
+        reply_tx: tokio::sync::oneshot::Sender<Result<(), SipError>>,
+    },
     /// PJSIP callback からの内部イベント（fire-and-forget、reply なし）。
     NativeEvent {
         event: NativeEvent,
@@ -150,6 +199,7 @@ pub(crate) enum RuntimeCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::id::AccountId;
 
     /// RuntimeCommand が Send を満たすことを確認する。
     #[test]
@@ -166,5 +216,42 @@ mod tests {
         let _busy = HangupReason::Busy;
         let _decline = HangupReason::Decline;
         let _internal = HangupReason::InternalError;
+    }
+
+    /// MediaDirection の全バリアントが構築可能であることを確認する。
+    #[test]
+    fn test_media_direction_variants() {
+        let _inbound = MediaDirection::Inbound;
+        let _outbound = MediaDirection::Outbound;
+        let _both = MediaDirection::Both;
+    }
+
+    /// MediaDirection が Send を満たすことを確認する。
+    #[test]
+    fn test_media_direction_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<MediaDirection>();
+    }
+
+    /// AccountInfoSnapshot の全フィールドが構築可能であることを確認する。
+    #[test]
+    fn test_account_info_snapshot_fields() {
+        let snapshot = AccountInfoSnapshot {
+            acc_id: AccountId::from_test(1),
+            registration_status: 200,
+            registration_expires: Some(3600),
+            online_status: true,
+            uri: "sip:user@example.com".into(),
+        };
+        assert_eq!(snapshot.registration_status, 200);
+        assert_eq!(snapshot.uri, "sip:user@example.com");
+        assert!(snapshot.online_status);
+    }
+
+    /// AccountInfoSnapshot が Send を満たすことを確認する。
+    #[test]
+    fn test_account_info_snapshot_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<AccountInfoSnapshot>();
     }
 }

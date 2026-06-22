@@ -12,8 +12,10 @@
 //! # dead_code 抑制
 //!
 //! `pjsip` feature 有効時、テストにしか使われない型・定数が未使用と判定される。
-//! これらは後続チケットで実際の FFI 呼び出しが実装されたタイミングで必要になる。
-#![cfg_attr(feature = "pjsip", allow(dead_code))]
+//! `pjsip` feature 無効時もシングルトン基盤が未使用と判定される。
+//! いずれも後続チケット（M17-4 以降）で実際の FFI 呼び出しが実装されるタイミングで必要になる。
+//! M20-2 の get_account_info 追加により一部使用されたが、シングルトン基盤自体はまだ全結合されていない。
+#![allow(dead_code)]
 
 use std::sync::{Mutex, OnceLock};
 
@@ -31,6 +33,7 @@ use crate::runtime::backend::NativeAccId;
 use crate::runtime::backend::NativeCallId;
 use crate::runtime::backend::NativeConfPortId;
 use crate::runtime::backend::SipBackend;
+use crate::runtime::command::AccountInfoSnapshot;
 
 // ---------------------------------------------------------------------------
 // コーデック優先度定数
@@ -114,6 +117,12 @@ impl SipBackend for PjsuaBackendRef {
     }
     fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError> {
         global().lock().unwrap().hangup(native_call_id)
+    }
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        global().lock().unwrap().get_account_info(native_acc_id)
     }
     fn conf_connect(&mut self, src: NativeConfPortId, dst: NativeConfPortId) -> Result<(), SipError> {
         global().lock().unwrap().conf_connect(src, dst)
@@ -484,6 +493,44 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
+    fn get_account_info(
+        &self,
+        native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        use crate::ffi::bindings;
+        use crate::util::id::AccountId;
+
+        unsafe {
+            let mut acc_info: bindings::pjsua_acc_info = std::mem::zeroed();
+            let status = bindings::pjsua_acc_get_info(
+                native_acc_id as bindings::pjsua_acc_id,
+                &mut acc_info as *mut _,
+            );
+            if status != 0 {
+                return Err(pj_status_to_sip_error(status, "pjsua_acc_get_info"));
+            }
+
+            // pjsua_acc_info から URI 文字列を抽出
+            let uri_bytes = std::slice::from_raw_parts(
+                acc_info.acc_uri.ptr as *const u8,
+                acc_info.acc_uri.slen as usize,
+            );
+            let uri = String::from_utf8_lossy(uri_bytes).into_owned();
+
+            Ok(AccountInfoSnapshot {
+                acc_id: AccountId::from(native_acc_id as u64),
+                registration_status: acc_info.status as u16,
+                registration_expires: if acc_info.expires >= 0 {
+                    Some(acc_info.expires as u32)
+                } else {
+                    None
+                },
+                online_status: acc_info.online_status != 0,
+                uri,
+            })
+        }
+    }
+
     fn conf_connect(
         &mut self,
         source: NativeConfPortId,
@@ -677,6 +724,13 @@ impl SipBackend for PjsuaBackend {
 
     fn hangup(&mut self, _native_call_id: NativeCallId) -> Result<(), SipError> {
         unimplemented!("PjsuaBackend::hangup requires PJSIP headers")
+    }
+
+    fn get_account_info(
+        &self,
+        _native_acc_id: NativeAccId,
+    ) -> Result<AccountInfoSnapshot, SipError> {
+        unimplemented!("PjsuaBackend::get_account_info requires PJSIP headers (enable 'pjsip' feature, see M19-1)")
     }
 
     fn conf_connect(

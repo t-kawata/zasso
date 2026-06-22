@@ -1638,7 +1638,7 @@
 
 * **参照設計書:** docs/rust-sip-client-rfc.md (§43.3, §43.1, §43.2)
 * **対象不変条件 / 規範:** §43.3 Layer 3 SIP Integration Tests。§43.1 Layer 1 Unit Tests。§43.2 Layer 2 State-Machine Tests（M9〜M11 で MockBackend 使用のテストとして実装済みであることを確認）。§44 CI/CD 要件。
-* **実装の背景と目的:** 実際の PJSUA 経由で SIP プロトコルレベルの結合試験を実施する。Docker で起動した Asterisk を相手に、REGISTER/INVITE/BYE/DTMF の基本フローを検証する。FreeSWITCH との結合（ICE/TURN/Opus）は M20-2 で対応する。PJSIP の初期化が必要なため `#[ignore]` 属性を付与し、CI でのみ実行する。
+* **実装の背景と目的:** 実際の PJSUA 経由で SIP プロトコルレベルの結合試験を実施する。Docker で起動した Asterisk を相手に、REGISTER/INVITE/BYE/DTMF の基本フローを検証する。FreeSWITCH との結合（ICE/TURN/Opus）は M20-12 で対応する。PJSIP の初期化が必要なため `#[ignore]` 属性を付与し、CI でのみ実行する。
 * **実装スコープ:**
   - `tests/integration/` ディレクトリを作成し、以下のテストファイルを配置:
     - `tests/integration/register.rs` — REGISTER 認証成功・失敗・再登録タイマー
@@ -1804,40 +1804,384 @@
   5. 全 16 テスト `--test-threads=1` で連続実行しても互いに干渉しないこと
 * **計装方法・観測対象:** 全 16 テストの PASS/FAIL。PJSIP singleton の 2 回目以降の初期化が正しくスキップされることの確認（tracing::warn）。
 
-#### チケット M20-2: Layer 4 相互接続試験 — 実 PBX / Proxy（P0）
+---
 
-* **参照設計書:** docs/rust-sip-client-rfc.md (§43.4)
-* **対象不変条件 / 規範:** §43.4 相互接続試験。P0 は 1.0 リリース前に完了必須。Asterisk (LTS) と FreeSWITCH の P0 項目。
-* **実装の背景と目的:** 実運用で使用される主要 SIP PBX との相互接続性を保証する。P0 項目（Asterisk LTS、FreeSWITCH）は本 crate の 1.0 リリース前に完了が必須。
-* **実装スコア（テストケース定義）:**
-  - `tests/interop/asterisk.rs` — Asterisk (LTS) との相互接続試験
-    - REGISTER（認証成功）
-    - INVITE / BYE（正常切断）
-    - DTMF (RFC4733) send/receive
-    - Opus / PCMU codec negotiation
-    - Hold / Unhold
-    - Blind Transfer
-    - SRTP (SDES)
-  - `tests/interop/freeswitch.rs` — FreeSWITCH との相互接続試験
-    - REGISTER（認証成功）
-    - INVITE / BYE（正常切断）
-    - DTMF (SIP INFO) send/receive
-    - Opus / PCMU codec negotiation
-    - ICE / TURN negotiation
-  - P1 項目（OpenSIPS, Kamailio, 3CX）はテストケース定義のみ行い、実装は 1.0 以降に延期することを明記
-* **計装方法・観測対象:** 各 PBX との相互接続試験結果マトリクス。SIP トレースの保存。ICE candidate 交換の成功/失敗統計。
+> **以下のチケット (M20-2〜M20-10) は RFC02（M20 Augmentation 実装設計書）に基づく新規実装項目である。**
+> **外部依存:** PJSIP 2.17（既存）、tokio（既存）。全テストは MockBackend または統合テスト環境で検証する。
+> **設計判断一覧:** RFC02 付録A（Q1:A〜Q14:A）の全18決定を反映する。
+
+---
+
+#### ✅ チケット M20-2: RuntimeCommand 新設 — GetAccountInfo / ConfConnect / ConfDisconnect（P0-P1）
+
+* **参照設計書:** crates/siprs/RFC02.md (§3, §6.1)
+* **依存・関連チケットID:** M11-1（RuntimeCommand enum 拡張）、M20-1.5（PjsuaBackend credential 対応完了）、M20-1.8（PjsuaBackend シングルトン化完了）
+* **対象不変条件 / 規範:** §3.2 GetAccountInfo 定義。§6.1 ConfConnect / ConfDisconnect 定義。Q8:B（RuntimeCommand 経由）、Q5:B（CallId + MediaDirection 抽象化）、Q11:B（既存 error variant 兼用）、Q10:B（conf_port_id は PjsuaBackend 内部管理）。
+* **実装の背景と目的:** PJSIP の `pjsua_acc_get_info()` と `pjsua_conf_connect()/disconnect()` を RuntimeCommand 経由で安全に呼び出すための3コマンドを RuntimeCommand enum に追加する。RegistrationStateChanged の変換（RFC02 §3）には GetAccountInfo が必須、SubscribeAudio の conf_connect 経路（RFC02 §5）には ConfConnect/ConfDisconnect が必須である。M20-1.5 の credential 対応と M20-1.8 のシングルトン化により、PJSIP API が reactor スレッドから安全に呼び出せる状態が整っている。
+* **実装スコープ:**
+  - `RuntimeCommand` enum に以下3バリアントを追加:
+    - `GetAccountInfo { native_acc_id: pjsua_acc_id, reply_tx: oneshot::Sender<Result<AccountInfoSnapshot, SipError>> }`
+    - `ConfConnect { call_id: CallId, media_direction: MediaDirection, reply_tx: oneshot::Sender<Result<(), SipError>> }`
+    - `ConfDisconnect { call_id: CallId, media_direction: MediaDirection, reply_tx: oneshot::Sender<Result<(), SipError>> }`
+  - `AccountInfoSnapshot` 構造体（RFC02 §3.3）: `acc_id: AccountId`, `registration_status: pjsip_status_code`, `registration_expires: Option<u32>`, `online_status: bool`, `uri: String`
+  - `MediaDirection` enum（RFC02 §5.1）: `Inbound`, `Outbound`, `Both`
+  - Reactor ハンドラ実装:
+    - `handle_get_account_info()`: `PjsuaBackend::get_account_info(native_acc_id)` → `pjsua_acc_get_info()` 呼び出し → AccountInfoSnapshot 生成 → reply_tx 送信
+    - `handle_conf_connect()`: CallId → native_call_id 解決 → `PjsuaBackend::resolve_conf_port()`（pjsua_call_get_info）+ `pjsua_conf_connect()` → reply_tx 送信
+    - `handle_conf_disconnect()`: 同上、`pjsua_conf_disconnect()` 呼び出し
+  - conf_port_id 解決は PjsuaBackend 内部で完結（Runtime は CallId のみ意識）— §7.3 責務分離
+  - エラー設計（既存バリアント兼用、Q11:B）:
+    - ConfConnect で conf_port 未解決（`PJ_EINVALIDOP`）→ `InvalidState`
+    - ConfConnect/Disconnect で PJSIP API エラー → `InternalError`
+    - GetAccountInfo で AccountId 不在 → `NotFound`
+    - GetAccountInfo で PJSIP API エラー → `InternalError`
+* **テストコードによる検証（MockBackend 拡張）:**
+  1. `GetAccountInfo` → MockBackend が仮の registration_status を返し、AccountInfoSnapshot が正しく構築されること
+  2. `ConfConnect` → MockBackend が conf_connect 成功を返すこと
+  3. `ConfDisconnect` → MockBackend が conf_disconnect 成功を返すこと
+  4. 存在しない AccountId → `NotFound`
+  5. conf_port 未解決 → `InvalidState`
+  6. 3コマンドすべてが `Send` を満たすこと（コンパイル時検証）
+  7. Shutdown 中（§9）: GetAccountInfo 許可、ConfConnect/Disconnect → `InvalidState`
+* **計装方法・観測対象:** 各コマンドの tracing span。PJSIP API 呼び出しの pj_status_t 変換正しさ。conf_port 解決の成否。
+
+---
+
+#### チケット M20-3: PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1）
+
+* **参照設計書:** crates/siprs/RFC02.md (§6.4, §6.5)
+* **依存・関連チケットID:** M17-4（PjsuaBackend 骨格実装完了）
+* **対象不変条件 / 規範:** §6.4 configure_codecs auto モード実装（Opus=255, PCMU=254, その他=0）。§6.5 2層コーデックポリシー — 利用者の明示指定（CallMediaPreferences::preferred_codecs）が優先、auto モードは preferred_codecs が空の場合のみ発動。Q7（codec: 明示指定が基本。auto 時のみ Opus=255, PCMU=254）。
+* **実装の背景と目的:** M17-4 で骨格実装した `PjsuaBackend::configure_codecs()` に auto モードを実装する。現在の実装では PCMU=255, Opus=254 の逆優先になっている可能性がある（RFC01 §29 の記述が M20 Augmentation により修正された — RFC02 付録B 参照）。正しい優先順位（Opus=255, PCMU=254）に修正し、auto モードと明示指定モードの2層ポリシーを実装する。
+* **実装スコープ:**
+  - `PjsuaBackend::configure_codecs(&mut self)` の修正:
+    1. `pjsua_enum_codecs()` で全コーデックを列挙
+    2. Opus 系（`opus/` で始まる）→ priority 255（最優先）
+    3. PCMU/8000/1 → priority 254（Opus 非対応環境用フォールバック）
+    4. それ以外 → priority 0（無効化）
+  - `CallMediaPreferences` との連携:
+    - `preferred_codecs` が空 → auto モード（Opus=255, PCMU=254）
+    - `preferred_codecs` に1件以上 → 明示指定モード（指定順に優先度設定）
+    - 全滅時 → `MediaNegotiationFailed`
+  - 既存の `configure_codecs` 呼び出し箇所（`PjsuaBackend::initialize()` 内）の確認と調整
+  - RFC01 §29 のコードブロックとの整合性確認（RFC02 付録B により PCMU=254, Opus=255 が正）
+* **テストコードによる検証（MockBackend + 結合テスト）:**
+  1. auto モードで Opus 系コーデックが priority 255 に設定されること
+  2. auto モードで PCMU が priority 254 に設定されること
+  3. auto モードで Opus でも PCMU でもないコーデックが priority 0 になること
+  4. 明示指定モード（preferred_codecs = [Codec::Pcmu]）で PCMU のみ有効、Opus 無効
+  5. 空の列挙結果 → panic しない（0件のループ）
+  6. `pjsua_codec_set_priority` 失敗 → `InternalError`
+  7. 統合テスト（Docker Asterisk）で Opus → PCMU のフォールバックが正常に動作すること
+* **計装方法・観測対象:** コーデック優先度の設定ログ（tracing::debug）。交渉結果の SDP 確認。Opus 非対応 PBX との接続で PCMU フォールバックが発動することの確認。
+
+---
+
+#### チケット M20-4: NativeEvent → SipEventPayload 変換完全化（P0-P1）
+
+* **参照設計書:** crates/siprs/RFC02.md (§2, §2.1, §2.2, §2.3, §2.4, §4)
+* **依存・関連チケットID:** M17-3（Callback bridge — NativeEvent enum 定義済み）、M6-1（SipEventPayload 定義済み）、M20-2（GetAccountInfo RuntimeCommand 完了必須）
+* **対象不変条件 / 規範:** §2 全マッピングテーブル。§2.3 CallStateChanged の pjsip_inv_state 対応（0〜4）。§2.4 CallMediaStateChanged の media_status 判定。§4 DtmfSent 二段構え（戻り値=コマンド受理、DtmfSent=送出完了）。Q1:A（全イベント完全実装、P0/P1/P2 優先度付き）、Q2:A（DTMF 二段構え）、Q14:A（DtmfSent 500ms タイムアウト）。
+* **実装の背景と目的:** M17-3 で定義した NativeEvent enum を `SipEventPayload` に変換する `process_native_event()` の中核ロジックを実装する。RFC02 §2.2 のマッピングテーブルに従い、P0 優先度（Registration/Call/DTMF 系）を最優先で実装し、P1（Transport/ICE 系）を続ける。P2（CallTsx/CallRedirected/CallTransferStatus/CallReplaced/NatDetected）は対象外とし、RawSIP バスでの代替取得を案内する。DtmfSent は戻り値とイベントの二段構え（RFC02 §4.2）で実装する。
+* **実装スコープ:**
+  - `runtime/reactor.rs` の `process_native_event()` 完全実装:
+    - **P0 — Registration 系:**
+      - `RegistrationStateChanged { acc_id }` → `RuntimeCommand::GetAccountInfo` 発行 → 結果に応じて `RegistrationSucceeded` または `RegistrationFailed` を EventBus publish（RFC02 §3 フロー）
+      - `RegistrationStarted { acc_id, renew }` → `RegistrationStarted(RegistrationInfo)` に変換
+    - **P0 — Call 系:**
+      - `CallStateChanged { call_id, state }` → `convert_call_state()`（RFC02 §2.3）
+        - `PJSIP_INV_STATE_NULL` (0) → None（発行なし）
+        - `PJSIP_INV_STATE_CALLING` (1) → `OutgoingCallStarted`
+        - `PJSIP_INV_STATE_CONNECTING` (2) → 前状態が CALLING → `Trying`、前状態が INCOMING → `Ringing`
+        - `PJSIP_INV_STATE_CONFIRMED` (3) → `CallConnected`
+        - `PJSIP_INV_STATE_DISCONNECTED` (4) → `CallDisconnected`
+      - `CallMediaStateChanged { call_id }` → `convert_call_media_state()`（RFC02 §2.4）
+        - `PJSUA_CALL_MEDIA_ACTIVE` → `MediaActive(MediaActiveInfo)`
+        - `PJSUA_CALL_MEDIA_LOCAL_HOLD / REMOTE_HOLD` → `CallHeld`
+        - `PJSUA_CALL_MEDIA_ERROR` → `MediaError(MediaErrorInfo)`
+    - **P0 — DTMF 系:**
+      - `DtmfDigit { call_id, digit }` → `DtmfReceived(DtmfReceivedInfo)`（RFC02 §2.2 即時変換）
+      - `DtmfSentInfo` 構造体（RFC02 §4.1）: `method: DtmfMethod`, `digit: char`, `status: Result<(), SentDtmfError>`, `pjsip_status: Option<pj_status_t>`
+      - `SentDtmfError` enum（RFC02 §4.1）: `PjsipError(pj_status_t)`, `Timeout`
+      - `DtmfSent` 発火: `RuntimeCommand::SendDtmf` のハンドラ内でタイマー起動（RFC02 §4.3）
+        - タイムアウト値: `DtmfConfig::sent_timeout_ms`（未設定時 500ms）
+        - タイマー発火時に `DtmfSent(DtmfSentInfo { status: Ok(()), .. })` を publish
+        - PJSIP callback 経由の DtmfSent が先に発火した場合はタイマーキャンセル
+    - **P1 — Transport/ICE 系:**
+      - `TransportStateChanged { transport_id, state }` → `TransportConnected` / `TransportDisconnected` / `TransportError`
+      - `IceTransportError` → `IceNegotiationFailed`
+    - **P2 — 対象外イベント:** （RFC02 §2.2 対象外セクション参照）
+      - `CallTsxStateChanged`, `CallRedirected`, `CallTransferStatus`, `CallReplaced`, `NatDetected` → いずれも None（RawSIP バス経由での代替取得をコメントで案内）
+  - `SendDtmf` ハンドラにタイマー管理を追加（RFC02 §4.3 の `handle_send_dtmf` 疑似実装に従う）
+  - `CallState` 変換に `previous_state` 追跡機構を追加（CONNECTING の分岐判定用）
+* **テストコードによる検証（MockBackend 使用）:**
+  1. RegistrationStateChanged → GetAccountInfo 発行 → RegistrationSucceeded が EventBus に publish されること
+  2. RegistrationStateChanged → GetAccountInfo で status != 200 → RegistrationFailed が publish されること
+  3. CallStateChanged 全5状態（NULL/CALLING/CONNECTING/CONFIRMED/DISCONNECTED）の各変換結果
+  4. CallMediaStateChanged 全5状態（NONE/ACTIVE/LOCAL_HOLD/REMOTE_HOLD/ERROR）の各変換結果
+  5. DtmfDigit → DtmfReceived 変換（digit, method の正しい伝播）
+  6. DtmfSent タイムアウト発火（500ms 以内に発火すること）
+  7. P2 対象外イベント → すべて None が返ること
+  8. TransportStateChanged → TransportConnected/Disconnected/Error 変換
+* **計装方法・観測対象:** 各 NativeEvent → SipEventPayload 変換の tracing::debug スパン。変換成功率（全 NativeEvent が適切な SipEventPayload に変換された割合）。DtmfSent タイムアウト発火率。
+
+---
+
+#### チケット M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1）
+
+* **参照設計書:** crates/siprs/RFC02.md (§5, §5.2, §5.3, §5.4)
+* **依存・関連チケットID:** M20-2（ConfConnect RuntimeCommand 完了必須）、M16-1（AudioTapHandle/subscribe_audio API 定義済み）
+* **対象不変条件 / 規範:** §5.2 処理フロー（RuntimeCommand::SubscribeAudio → ConfConnect → AudioTapHandle）。§5.3 ハンドラ疑似実装。§5.4 AudioTapMode と conf_connect の連携。Q5:B（conf_connect RuntimeCommand 引数は CallId + MediaDirection で抽象化）。
+* **実装の背景と目的:** M16-1 で定義した `subscribe_audio` API の Reactor 側実装（ハンドラ）を完了する。PJSIP の conference bridge に通話の conf_port を接続し、AudioChunkPair の stream を生成して AudioTapHandle として返す。Reactor 内で CallId → native_call_id の解決、ConfConnect 発行、AudioWorkerTask 起動までを一貫して処理する。
+* **実装スコープ:**
+  - `Reactor::handle_subscribe_audio()` の実装（RFC02 §5.3 疑似実装に従う）:
+    1. CallId → native_call_id 解決（`self.state.calls` の BTreeMap 検索）
+    2. 存在しない CallId → `reply_tx.send(Err(SipError::not_found("call not found")))` で即時 return
+    3. conf_port 解決: `RuntimeCommand::ConfConnect { call_id, media_direction: Both }` を内部的に発行
+    4. `(tx, rx) = mpsc::channel::<AudioChunkPair>(capacity)` 生成
+    5. `AudioTapHandle { rx }` を構築
+    6. `spawn_audio_tap_task(native_call_id, tx, format, mode)` — AudioWorkerTask 起動（RFC02 §5.4 の AudioTapMode 連携）
+    7. `reply_tx.send(Ok(handle))` で呼び出し元に返却
+  - AudioTapMode 連携（RFC02 §5.4）:
+    - `Realtime`（既定）: `mpsc::Sender::try_send` + oldest-drop
+    - `Lossless`（明示指定）: `mpsc::Sender::send` + backpressure
+  - AudioWorkerTask の conf_connect 統合:
+    - `AudioWorker::new()` で conf_connect 済みの mixer と連携
+    - 通話切断時に conf_disconnect で自動クリーンアップ
+* **テストコードによる検証（MockBackend + 統合テスト）:**
+  1. `subscribe_audio(call_id, format, capacity, Realtime)` → `Ok(AudioTapHandle)`、内部で ConfConnect が発行されること
+  2. 存在しない call_id → `CallNotFound` エラー
+  3. Realtime モード: 購読者遅延時、oldest-drop で最新フレーム優先
+  4. Lossless モード: 購読者遅延時、送信側ブロック
+  5. 通話切断後に subscribe_audio → `InvalidState`
+  6. 統合テスト（Docker Asterisk）: AudioTap から受信した AudioChunkPair の in_chunk/out_chunk が非ゼロであること
+* **計装方法・観測対象:** Tap ドロップ回数（Realtime モードの oldest-drop 発生回数）。conf_connect 成功/失敗率。AudioTapHandle の配送遅延。
+
+---
+
+#### チケット M20-6: blocking_read → read().await 全面修正（P0）
+
+* **参照設計書:** crates/siprs/RFC02.md (§7, §7.1)
+* **依存・関連チケットID:** M12-1（SipClient 構造体 — Arc + ClientInner）、M8-1（ClientState / RwLock）
+* **対象不変条件 / 規範:** §7.1「Client 側: `read().await` 絶対義務」。Q3:A（tokio RwLock 維持 + `read().await` 徹底 + blocking_read 禁止）。コードベースから `blocking_read()` の使用を完全に排除する。
+* **実装の背景と目的:** M12-1 で定義した `ClientState` へのアクセスに `blocking_read()` を使用している箇所を全て `read().await`（非ブロッキング）に修正する。`blocking_read()` は現在の Tokio ランタイムスレッドをブロックする可能性があり、デッドロックやパフォーマンス劣化の原因となる。全 query API は非ブロッキングの `read().await` を使用し、Tokio の協調的マルチタスクを維持する。
+* **実装スコープ:**
+  - コードベース全体から `blocking_read()` / `blocking_write()` の使用箇所を grep で洗い出す
+  - 影響を受ける既存コードの修正:
+    - `SipClient::account()` — ClientState 読み取り → `read().await`
+    - `SipAccountHandle::registration_state()` — RegistrationState 読み取り → `read().await`
+    - `SipClient::accounts()` — 全アカウント一覧 → `read().await`
+    - `SipClient::call_state()` — CallState 読み取り → `read().await`
+    - その他全 `blocking_read()` / `blocking_write()` 使用箇所
+  - 各修正箇所の `async fn` 化が必要な場合はシグネチャ変更も含む
+  - コンパイル確認: `cargo build` で `blocking_read` / `blocking_write` に関する警告やエラーがゼロであること
+* **テストコードによる検証:**
+  1. 全修正箇所で `blocking_read()` / `blocking_write()` が使用されていないこと（grep で確認）
+  2. `SipClient::account()` が非ブロッキングで正しい AccountEntry を返すこと
+  3. `SipAccountHandle::registration_state()` が非ブロッキングで RegistrationState を返すこと
+  4. 既存の全 392 テスト（`cargo test -p siprs --lib`）が通過すること
+  5. 並行クエリ（10並列の `registration_state()`）でデッドロックが発生しないこと
+* **計装方法・観測対象:** 修正前後の `read().await` レイテンシ比較。`blocking_read` の完全除去確認（CI で grep チェックを自動化）。
+
+---
+
+#### チケット M20-7: EventBus 分割 + account_id routing — Dual Client 基盤（P2）
+
+* **参照設計書:** crates/siprs/RFC02.md (§8, §8.1, §8.2, §8.3, §8.4)
+* **依存・関連チケットID:** M7-1（EventBus 構造体）、M12-1（SipClient + ClientInner）
+* **対象不変条件 / 規範:** §8.2 EventBus 振り分けロジック。§8.3 設計原則（単一 Reactor 維持、EventBus は SipClient ごとに個別インスタンス、account_id ベース振り分け）。§8.4 Dual Client 初期化パターン。Q9:A（単一 Reactor + EventBus 分割、global_runtime 維持）。
+* **実装の背景と目的:** 2つ以上の SipClient インスタンスが同一の PjsuaBackend singleton を共有しながら、それぞれ独立したイベントストリームを受信できるようにする。Reactor は単一のまま維持し（global_runtime は変更しない）、EventBus を SipClient ごとに分割して account_id ベースで振り分ける。既存の単一 Client 利用には影響を与えない。
+* **実装スコープ:**
+  - `EventBus` 構造体の拡張:
+    - `default_event_bus: broadcast::Sender<SipEvent>`（既存の control フィールドを名称変更）
+    - `client_event_buses: HashMap<AccountId, broadcast::Sender<SipEvent>>` を Reactor 側に追加
+    - `subscribe_client(client_id: AccountId) -> broadcast::Receiver<SipEvent>` — Client 固有の EventBus を購読
+  - `Reactor` の `dispatch_event()` 実装（RFC02 §8.2 疑似実装に従う）:
+    - `event.meta.account_id` が `Some(aid)` → `client_event_buses.get(&aid)` があればそこに publish、なければ `default_event_bus` に publish
+    - `account_id` が `None` → `default_event_bus` + 全 client_event_buses に broadcast
+  - `SipClient::new()` の拡張:
+    - 2つ目の SipClient 作成時、既存 Reactor を再利用
+    - 新規 EventBus を Reactor に登録
+    - 既存 Client の EventBus は変更しない
+  - Dual Client 初期化パターン（RFC02 §8.4）が正しく動作することの確認
+* **テストコードによる検証（MockBackend 使用）:**
+  1. 単一 Client: 既存の EventBus 動作が変更されないこと（後方互換性）
+  2. Dual Client: client_a のイベントが client_b に漏れないこと
+  3. `account_id = None` のイベント（ClientInitialized 等）が全 Client に broadcast されること
+  4. 各 Client の subscribe が独立した receiver を返すこと
+  5. 3つ以上の Client 作成 → すべて独立して動作すること
+* **計装方法・観測対象:** EventBus 分割による publish レイテンシへの影響（分割前後で有意差がないこと）。`account_id` ベース routing の正しさ（誤配送ゼロ）。
+
+---
+
+#### チケット M20-8: Shutdown ポリシー拡張 — GetAccountInfo 許可（P2）
+
+* **参照設計書:** crates/siprs/RFC02.md (§9)
+* **依存・関連チケットID:** M12-5（SipClient::shutdown()）、M20-2（GetAccountInfo RuntimeCommand）
+* **対象不変条件 / 規範:** §9 Shutdown 中 command 振り分け。Q12:C（GetAccountInfo 許可、ConfConnect/Disconnect 拒否）。Shutdown 中の GetAccountInfo 応答には shutdown 進行中フラグを含める。
+* **実装の背景と目的:** Shutdown 中でも RegistrationState の最終確認を可能にするため、GetAccountInfo は許可する。ConfConnect/Disconnect は media リソース変更を伴うため拒否する。RFC02 §9 のテーブルに従い、dispatch_command() の Shutdown 時分岐を実装する。
+* **実装スコープ:**
+  - `Reactor::dispatch_command()` の Shutdown 分岐修正（RFC02 §9 疑似実装に従う）:
+    - `is_shutting_down == true` の場合:
+      - `RuntimeCommand::GetAccountInfo { .. }` → 実行許可（`execute_get_account_info()` を呼び出す）
+      - `RuntimeCommand::ConfConnect { .. }` / `ConfDisconnect { .. }` → `reject_command(cmd, SipError::invalid_state("shutting down"))`
+      - その他全コマンド → `reject_command(cmd, SipError::invalid_state("shutting down"))`
+  - GetAccountInfo の応答に shutdown 進行中フラグを含める（`AccountInfoSnapshot` に `is_shutting_down: bool` フィールド追加）
+  - 既存の shutdown フロー（M12-5）との整合性確認
+  - Shutdown 中の GetAccountInfo が registration_state の最終確認に使用可能であることの確認
+* **テストコードによる検証（MockBackend 使用）:**
+  1. Shutdown 中 → GetAccountInfo が正常に実行され、`is_shutting_down: true` を含む AccountInfoSnapshot が返ること
+  2. Shutdown 中 → ConfConnect → `InvalidState("shutting down")`
+  3. Shutdown 中 → ConfDisconnect → `InvalidState("shutting down")`
+  4. Shutdown 中 → その他コマンド（MakeCall 等）→ `InvalidState("shutting down")`
+  5. 非 Shutdown 時 → 全コマンドが通常通り動作すること（リグレッションなし）
+* **計装方法・観測対象:** Shutdown 中に GetAccountInfo が許可されることの tracing::debug 確認。Shutdown 中拒否コマンドのエラーログ。
+
+---
+
+#### チケット M20-9: Transport/ICE NativeEvent 変換 + 低優先度イベント none 変換（P2）
+
+* **参照設計書:** crates/siprs/RFC02.md (§2.2 — P1/P2 重要度イベント)
+* **依存・関連チケットID:** M17-3（Callback bridge — TransportStateChanged / IceTransportError 等の NativeEvent 定義済み）、M20-4（P0 変換実装完了必須）
+* **対象不変条件 / 規範:** §2.1 重要度定義（TransportStateChanged= P1、IceTransportError= P1、CallTsxStateChanged/CallRedirected/CallTransferStatus/CallReplaced/NatDetected= P2 対象外）。§2.2 マッピングテーブル（P1/P2 の変換ロジック）。
+* **実装の背景と目的:** P0（Registration/Call/DTMF 系）に続き、P1 優先度の Transport/ICE 系 NativeEvent → SipEventPayload 変換を実装する。P2 対象外イベントは None を返す変換（RawSIP バス経由の代替取得を案内）を実装する。運用観測・障害検知に必要な TransportStateChanged / IceTransportError の正確な変換を提供する。
+* **実装スコープ:**
+  - **P1 — Transport 系変換:**
+    - `TransportStateChanged { transport_id, state }` の変換:
+      - state が `PJSIP_TP_STATE_CONNECTED` → `TransportConnected(TransportConnectedInfo { transport_id: TransportId::from(transport_id) })`
+      - state が `PJSIP_TP_STATE_DISCONNECTED` → `TransportDisconnected(TransportDisconnectedInfo { .. })`
+      - state が `PJSIP_TP_STATE_ERROR` → `TransportError(TransportErrorInfo { .. })`
+      - それ以外 → None
+    - `IceTransportError { .. }` → `IceNegotiationFailed(IceFailureInfo { .. })`
+  - **P2 — 対象外イベントの none 変換:**
+    - `CallTsxStateChanged { .. }` → None（コメント: 「PJSIP 内部トランザクション詳細。RawSIP バス経由で取得可能」）
+    - `CallRedirected { .. }` → None（コメント: 「リダイレクト追跡は対象外。RawSIP バス経由で取得可能」）
+    - `CallTransferStatus { .. }` → None（コメント: 「転送ステータス詳細は対象外。CallState の Transferring/Active 遷移で代替可能」）
+    - `CallReplaced { .. }` → None（コメント: 「通話置換は対象外。RawSIP バス経由で取得可能」）
+    - `NatDetected { .. }` → None（コメント: 「NAT 検出結果は対象外。ClientInitialized の capability で代替」）
+  - TransportId の newtype 定義（`AccountId` / `CallId` と同様の NonZeroU64 ベース）
+* **テストコードによる検証（MockBackend 使用）:**
+  1. TransportStateChanged の全 state → 正しい SipEventPayload 変換
+  2. IceTransportError → IceNegotiationFailed 変換
+  3. P2 対象外イベント全5種 → すべて None が返り、panic しないこと
+  4. 未知の state 値 → None（安全側へのフォールバック）
+* **計装方法・観測対象:** Transport/ICE イベントの変換率。P2 対象外イベントの到達回数（将来の重要度見直し判断材料として metrics に記録）。
+
+---
+
+#### チケット M20-10: Dual Client TestContext utility（P2）
+
+* **参照設計書:** crates/siprs/RFC02.md (§10.3)
+* **依存・関連チケットID:** M20-1.8（PjsuaBackend シングルトン化完了）、M20-7（EventBus 分割 + Dual Client 基盤完了）
+* **対象不変条件 / 規範:** §10.3 Dual Client TestContext 定義。DualClientContext の new() / call_a_to_b() 等のユーティリティ。
+* **実装の背景と目的:** Dual Client アーキテクチャ（RFC02 §8）のテストを効率的に記述するための TestContext ユーティリティを提供する。2つの SipClient インスタンスとそのアカウントを管理し、client_a → client_b の通話確立を1メソッドで行えるようにする。これにより dual account simultaneous call や双方向メディアテストの記述コストを削減する。
+* **実装スコープ:**
+  - `tests/common/dual_client.rs`（または `tests/common/mod.rs` に追加）:
+    - `DualClientContext` struct（RFC02 §10.3）:
+      - `client_a: SipClient`, `client_b: SipClient`
+      - `account_a: SipAccountHandle`, `account_b: SipAccountHandle`
+      - `events_a: broadcast::Receiver<SipEvent>`, `events_b: broadcast::Receiver<SipEvent>`
+    - `DualClientContext::new(config_a, config_b, account_a, account_b) -> Result<Self, SipError>`
+    - `DualClientContext::call_a_to_b(&self) -> CallId` — client_a から client_b のアカウントに発信
+    - `DualClientContext::answer_b(&self, call_id: CallId, code: u16)` — client_b が着信応答
+    - `DualClientContext::hangup_a(&self, call_id: CallId)` / `hangup_b(&self, call_id: CallId)`
+    - `DualClientContext::wait_for_event_a(timeout)` / `wait_for_event_b(timeout)` — イベント待機ヘルパー
+    - `DualClientContext::shutdown_all()` — 両 Client のシャットダウン
+  - テストフィクスチャの共通パターンを提供:
+    - `register_both_and_call()` 等の高レベルヘルパー
+* **テストコードによる検証:**
+  1. `DualClientContext::new()` が両 Client を正しく初期化すること
+  2. `call_a_to_b()` → client_b で `IncomingCall` イベントが受信されること
+  3. `answer_b(200)` → client_a で `CallConnected` イベントが受信されること
+  4. `hangup_a()` → client_b で `CallDisconnected` イベントが受信されること
+  5. `wait_for_event_a()` がタイムアウト時にエラーを返すこと
+  6. `shutdown_all()` が両 Client を安全にシャットダウンすること
+  7. 既存の単一 Client テストに影響を与えないこと（後方互換性）
+* **計装方法・観測対象:** DualClientContext の初期化時間。通話確立レイテンシ。全テストでの再利用性。
+
+---
+
+#### チケット M20-11: CI/CD — Docker Integration Job + Prebuilt Refresh Pipeline（P3）
+
+* **参照設計書:** crates/siprs/RFC02.md (§11, §11.1, §11.2)
+* **依存・関連チケットID:** M19-1（build.rs — prebuilt 優先・source build fallback）、M20-1.x（統合テスト全般）
+* **対象不変条件 / 規範:** §11.1 Docker Integration Test Job（GitHub Actions）。§11.2 Prebuilt Refresh Pipeline（macOS）。Q4:A（Docker/CI/prebuilt 自動化の設計を RFC に追記）。
+* **実装の背景と目的:** GitHub Actions 上で PJSIP 依存の統合テスト（M20-1.x）を実行する CI job と、PJSIP prebuilt バイナリを自動生成・アップロードする pipeline を構築する。prebuilt は CI pipeline として自動化し、手動ビルド手順（`vendor/prebuilt/BUILD.md`）は補助的ドキュメントとする。
+* **実装スコープ:**
+  - `.github/workflows/integration-test.yml`（RFC02 §11.1 の YAML に従う）:
+    - `runs-on: ubuntu-22.04`
+    - Service container: `asterisk:20.6.0`（ports 5060/udp, 5061/tcp）
+    - Steps: checkout → Rust toolchain → `cargo build --features pjsip` → `cargo test --features pjsip -- --ignored --test-threads=1`
+    - Env: `SIP_SERVER=localhost`, `SIP_PORT=5060`
+  - `.github/workflows/prebuilt-refresh.yml`（RFC02 §11.2 の YAML に従う）:
+    - `runs-on: macos-14`
+    - Steps: checkout → CMake build → `vendor/prebuilt/BUILD.md` の手順を CI で自動化
+    - `actions/upload-artifact@v4` で prebuilt 成果物をアップロード
+  - source build fallback: prebuilt が利用できない環境では `build.rs` が自動的に source build へフォールバックする（既存設計維持）
+  - prebuilt 更新のトリガー: PJSIP バージョン更新時、または手動 dispatch
+* **テストコードによる検証（CI で自動化）:**
+  1. `integration-test` workflow が Docker Asterisk に対して全統合テストを PASS すること
+  2. `prebuilt-refresh` workflow が macOS 上で PJSIP prebuilt を正常にビルドできること
+  3. prebuilt アーティファクトが正常にアップロードされること
+  4. source build fallback が正しく発動すること（prebuilt 不在時の動作確認）
+* **計装方法・観測対象:** CI job の実行時間（統合テスト含む）。prebuilt ビルド時間。prebuilt キャッシュヒット率。
+
+---
+
+#### チケット M20-12: Layer 4 相互接続試験 + 新機能テスト層マッピング（P0）
+
+* **参照設計書:** crates/siprs/RFC02.md (§10, §10.1, §10.2)、RFC01 (§43.4)
+* **依存・関連チケットID:** M20-4（NativeEvent 変換完了）、M20-5（SubscribeAudio 完了）、M20-10（Dual Client TestContext 完了）、M20-11（CI/CD 完了）
+* **対象不変条件 / 規範:** §10.1 新機能テスト層マッピング（全10項目）。§10.2 プレースホルダーテスト解決条件（3項目）。Q13:B（新機能テスト層マッピングは既存 §43 に追記）。Q4:A（テストプレースホルダー解決条件を RFC に明記）。
+* **実装の背景と目的:** RFC02 で追加された全新機能のテスト層マッピングに従い、相互接続試験を実装する。実 PBX（Asterisk LTS / FreeSWITCH）との相互接続性を検証する P0 項目に加え、RFC02 §10.2 で定義されたプレースホルダーテスト（`call_reject` / `early_media_received` / `reregister_after_unregister`）の解決条件を満たす。Dual Client TestContext（M20-10）を活用して双方向テストを効率的に記述する。
+* **実装スコープ:**
+  - **新機能テスト（RFC02 §10.1 マッピング）:**
+    - NativeEvent → SipEventPayload 変換テスト（Layer 2, MockBackend）: 全 P0/P1 NativeEvent の正しい変換
+    - RegistrationStateChanged テスト（Layer 2 + 3）: GetAccountInfo → RegistrationSucceeded/Failed
+    - CallStateChanged 全 state テスト（Layer 2, MockBackend）: pjsip_inv_state 0-4 全対応
+    - CallMediaStateChanged テスト（Layer 2, MockBackend）: media_status → MediaActive/Held/Error
+    - DtmfSent 二段構えテスト（Layer 2 + 3）: 戻り値 vs イベント分離
+    - SubscribeAudio conf_connect テスト（Layer 3, Docker Asterisk）: メディアループバック
+    - conf_connect/disconnect テスト（Layer 3）: media loopback
+    - configure_codecs auto テスト（Layer 2, MockBackend）: priority 設定確認
+    - Dual Client テスト（Layer 3, Docker Asterisk）: 発着信双方向（DualClientContext 使用）
+    - low-priority NativeEvent テスト（Layer 2, MockBackend）: None 返却確認
+  - **プレースホルダーテスト解決（RFC02 §10.2）:**
+    - `call::call_reject` — Dual Client TestContext で client_b が answer(486) を返し、client_a で CallRejected イベントを受信
+    - `provisional::early_media_received` — SIPp スクリプトで 183 Session Progress を送信（SIPp 用意が必要な場合はテストケース定義のみ）
+    - `register::reregister_after_unregister` — M20-6（blocking_read → read().await 修正）完了後、正しく動作することを確認
+  - **相互接続試験（実 PBX）:**
+    - `tests/interop/asterisk.rs` — Asterisk (LTS) との相互接続:
+      - REGISTER（認証成功）、INVITE / BYE（正常切断）
+      - DTMF (RFC4733) send/receive、Opus / PCMU codec negotiation
+      - Hold / Unhold、Blind Transfer、SRTP (SDES)
+    - `tests/interop/freeswitch.rs` — FreeSWITCH との相互接続:
+      - REGISTER（認証成功）、INVITE / BYE（正常切断）
+      - DTMF (SIP INFO) send/receive、Opus / PCMU codec negotiation
+      - ICE / TURN negotiation
+    - P1 項目（OpenSIPS, Kamailio, 3CX）: テストケース定義のみ、実装は 1.0 以降に延期
+* **テストコードによる検証:**
+  1. 全10新機能テスト項目が PASS すること
+  2. `call_reject` が DualClientContext で正しく検証されること
+  3. `reregister_after_unregister` が blocking_read 修正後 PASS すること
+  4. Asterisk 相互接続テスト全項目が PASS すること
+  5. FreeSWITCH 相互接続テスト全 P0 項目が PASS すること
+  6. `tests/interop/` のテスト結果が `docs/interop-matrix.md` に記録されること
+* **計装方法・観測対象:** 各相互接続試験の PASS/FAIL マトリクス。SIP トレース保存。ICE candidate 交換成功率。codec negotiation 結果。
 * **ユーザによる手動テスト手順:**
-  1. 対象 PBX を起動（またはクラウドインスタンスを準備）
-  2. `tests/interop/` 下の各テストを実行: `cargo test -p siprs -- --ignored --test asterisk`
-  3. 全 P0 項目が PASS することを確認する。
-  4. PASS/FAIL の結果を `docs/interop-matrix.md` に記録する。
-  5. FAIL 項目がある場合は RFC 設計を見直し、PJSUA の制約か siprs の実装バグかを切り分ける。
+  1. Docker Asterisk 起動: `docker compose -f tests/docker/docker-compose.yml up -d`
+  2. 新機能テスト実行: `cargo test -p siprs --features pjsip -- --ignored --test-threads=1`
+  3. 実 PBX 相互接続試験: `cargo test -p siprs -- --ignored --test asterisk`
+  4. 結果を `docs/interop-matrix.md` に記録する。
 
-#### チケット M20-3: 受け入れ基準検証・リリース判定
+---
 
-* **参照設計書:** docs/rust-sip-client-rfc.md (§50, §43.5, §44)
-* **対象不変条件 / 規範:** §50 受け入れ基準（全10項目）。§43.5 プラットフォームテスト。§44 CI/CD 要件。§46 panic policy。
-* **実装の背景と目的:** RFC §50 で定義された全受け入れ基準の充足を確認し、crate のリリース可否を判定する。全テスト（Layer 1〜4）の通過、3 OS でのビルド成功、全 feature flag 組み合わせのコンパイルチェックを最終確認する。
+#### チケット M20-13: 受け入れ基準検証・リリース判定（RFC02 対応版）
+
+* **参照設計書:** crates/siprs/RFC02.md (§10, §11, 付録A, 付録B)、RFC01 (§50, §43.5, §44)
+* **依存・関連チケットID:** M20-1.x（統合テスト基本完了）、M20-2〜M20-11（RFC02 全実装項目完了）、M20-12（相互接続試験完了）
+* **対象不変条件 / 規範:** RFC01 §50 受け入れ基準（全10項目）。RFC02 §10 テスト戦略補強。RFC02 §11 CI/CD 環境整備。RFC02 付録A（全18設計判断の充足確認）。RFC02 付録B（既存RFC修正箇所の反映確認）。
+* **実装の背景と目的:** RFC01 §50 の全受け入れ基準に加え、RFC02 の全設計判断（付録A 18決定）の充足を確認し、crate のリリース可否を判定する。全テスト（Layer 1〜4、相互接続試験含む）の通過、3 OS でのビルド成功、全 feature flag 組み合わせのコンパイルチェックに加え、付録B の既存修正箇所が正しく反映されていることを確認する。
 * **実装スコープ（チェックリスト）:**
   1. **3 OS ビルド成功**（macOS arm64, Ubuntu x86_64, Windows x86_64）
   2. **PJSUA バインディング自動生成**（bindgen 生成の再現性確認）
@@ -1845,20 +2189,24 @@
   4. **複数 account の独立 register/unregister** が動作すること
   5. **未登録アカウントで発信可能** であること（`allow_outbound_without_register = true`）
   6. **UDP/TCP/TLS, SRTP, ICE/STUN/TURN** が設定通り動作すること
-  7. **PCMU/Opus のみ交渉** されること（他 codec が無効化されていること）
-  8. **DTMF 3方式の送受信イベント** が得られること（Inband / SIP INFO / RFC4733）
-  9. **全列挙イベント** が発火すること（`SipEventPayload` の全バリアントの到達性確認）
+  7. **PCMU/Opus のみ交渉** されること（他 codec が無効化、RFC02 §6.4 auto モード反映確認）
+  8. **DTMF 3方式の送受信イベント** が得られること（Inband / SIP INFO / RFC4733、DtmfSent 二段構え含む）
+  9. **全列挙イベント** が発火すること（`SipEventPayload` 全バリアント + RFC02 追加イベントの到達性確認）
   10. **`AudioChunkPair` が format guarantee 付きで取得** できること
   11. **複数 audio source の同時注入・切替** が通話中に行えること
   12. **全 API が `Result<T, SipError>` で統一** されること（コンパイル時検証）
   13. **`SipClient: Send + Sync`** が成立すること（コンパイル時検証）
-  - CI マトリクス（§44）:
-    - `windows-latest`, `macos-14`, `ubuntu-22.04`
-    - features: `default`, `tls`, `srtp`, `tls+srtp`
-    - job: `cargo test`, `cargo check --all-features`, integration smoke test
-* **計装方法・観測対象:** 全受け入れ基準の PASS/FAIL マトリクス。カバレッジレポート（`cargo tarpaulin` 等）。`cargo deny` による依存クレートのライセンス・セキュリティ監査。
+  - **RFC02 追加確認項目:**
+  14. **`blocking_read` ゼロ** — コードベースに `blocking_read()` / `blocking_write()` が1箇所も存在しないこと（M20-6 完了確認）
+  15. **Dual Client 動作確認** — 2 Client 同時使用でイベント分離が正しいこと（M20-7 完了確認）
+  16. **Shutdown 中 GetAccountInfo 許可** — Shutdown 状態でも registration 最終確認が可能であること（M20-8 完了確認）
+  17. **Docker Integration Job 動作** — CI 上で全統合テストが PASS すること（M20-11 完了確認）
+  18. **付録B 修正箇所反映確認** — RFC01 §29 の `configure_codecs` コードブロックが Opus=255, PCMU=254 に修正されていること
+  - CI マトリクス（§44）: `windows-latest`, `macos-14`, `ubuntu-22.04` / features: `default`, `tls`, `srtp`, `tls+srtp` / job: `cargo test`, `cargo check --all-features`, integration smoke test
+* **計装方法・観測対象:** 全受け入れ基準の PASS/FAIL マトリクス（RFC01 + RFC02 合計18項目）。カバレッジレポート（`cargo tarpaulin`）。`cargo deny` による依存クレートのライセンス・セキュリティ監査。相互接続試験結果マトリクス（M20-12 出力）。
 * **ユーザによる手動テスト手順:**
   1. CI で全受け入れ基準の自動チェックを実行する。
-  2. 手動で確認が必要な項目（実 PBX との相互接続等）は M20-2 の結果を参照する。
-  3. 全項目 PASS をもってリリース判定とする。
-  4. リリース前の最終確認として `make test-all`（全テスト + 全 feature 組み合わせ）を実行する。
+  2. 手動確認が必要な項目（実 PBX 相互接続等）は M20-12 の結果を参照する。
+  3. 全18項目 PASS をもってリリース判定とする。
+  4. リリース前最終確認: `make test-all`（全テスト + 全 feature 組み合わせ）。
+  5. 付録B の修正箇所がソースコードに反映されていることを目視確認する。

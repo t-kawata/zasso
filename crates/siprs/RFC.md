@@ -598,6 +598,39 @@ pub enum SipErrorKind {
 - 4xx/5xx/6xx は SIP 応答コードを `InviteFailed`/`RegistrationFailed` の message と supplemental field に格納。
 - callback 内 panic は `catch_unwind` で握り潰さず `InternalInvariantBroken` を emit し、その call/account を安全停止する。
 
+### M20 追補: 新 RuntimeCommand のエラー設計
+
+`ConfConnect`, `ConfDisconnect`, `GetAccountInfo` の3つの RuntimeCommand が RFC M20 で追加される。これらのエラーは既存の `SipErrorKind` バリアントで表現し、新規バリアントは追加しない。
+
+| RuntimeCommand | 失敗条件 | SipErrorKind | 補足 |
+|---------------|---------|-------------|------|
+| `ConfConnect` | conf_port 未解決（指定 CallId に conf_port が存在しない） | `InvalidState` | media が active でない通話に対して接続を試みた |
+| `ConfConnect` | PJSIP conf_connect API エラー（既接続、無効ポート等） | `InternalError` | pj_status_t を message に格納 |
+| `ConfDisconnect` | conf_port 未解決 | `InvalidState` | ConfConnect 未実行の通話に対して切断を試みた |
+| `ConfDisconnect` | PJSIP conf_disconnect API エラー | `InternalError` | pj_status_t を message に格納 |
+| `GetAccountInfo` | 指定 AccountId が存在しない | `NotFound` | account 削除後の query |
+| `GetAccountInfo` | PJSIP API エラー | `InternalError` | pj_status_t を message に格納 |
+
+新規バリアントを追加しない理由: RuntimeCommand ごとにエラーバリアントを増やすと `SipErrorKind` が肥大化し、エラー処理の網羅性チェックが実質的に機能しなくなる。既存の `InvalidState` / `NotFound` / `InternalError` の組み合わせで全ての失敗条件を表現可能である。
+
+```rust
+// ConfConnect のエラー変換例
+fn convert_conf_connect_error(pj_status: pj_status_t, call_id: CallId) -> SipError {
+    if pj_status == PJ_SUCCESS {
+        return Ok(());
+    }
+    // conf_port 未解決は PJSIP エラーコード PJ_EINVALIDOP で検出
+    if pj_status == PJ_EINVALIDOP {
+        return Err(SipError::invalid_state(
+            format!("ConfConnect: conf_port not resolved for call {call_id}")
+        ));
+    }
+    Err(SipError::internal_error(
+        format!("ConfConnect failed: pjsua_conf_connect returned {pj_status}")
+    ))
+}
+```
+
 ## 15. イベントモデル
 
 要件で列挙された全イベントを payload enum で完全定義する。イベントは `SipEvent`（メタデータ + payload）にラップされ、チャネル種別により loss-tolerant な制御系と大量発生するメディア系を分離する。
@@ -784,6 +817,178 @@ impl AccountEventReceiver {
 - 極端な高負荷環境（数百通話同時等）では必要に応じて capacity を拡大すること。
 - 購読者が慢性的に遅延する場合は `Lagged` が頻発する。これは capacity 不足ではなく、購読者の処理能力不足を示すシグナルである。対策として購読者の処理を別タスクに分離するか、`AudioTapHandle` の oldest-drop 戦略と組み合わせて使用すること。
 
+### M20 追補: NativeEvent → SipEventPayload 変換マッピング
+
+Reactor の `process_native_event()` は PJSIP callback から受信した `NativeEvent` を対応する `SipEventPayload` に変換し、EventBus に publish する。以下が全 NativeEvent の完全なマッピング定義である。
+
+#### 基本方針
+
+- **重要度 P0**: 統合テストの成立に必須。RegistrationStateChanged, CallStateChanged, CallMediaStateChanged, DtmfDigit
+- **重要度 P1**: 運用観測・障害検知に有用。TransportStateChanged, IceTransportError
+- **重要度 P2**: 補完的情報。CallTsxStateChanged, CallRedirected, CallTransferStatus, CallReplaced, NatDetected
+
+全 NativeEvent の実装を完了するまで M20 で完了する。P1/P2 のイベントは P0 実装完了後に順次対応する。
+
+#### 完全マッピングテーブル
+
+```rust
+fn convert_native_event_to_payload(event: NativeEvent, backend: &dyn SipBackend) -> Option<SipEventPayload> {
+    match event {
+        // === P0: Registration系 ===
+        NativeEvent::RegistrationStateChanged { acc_id } => {
+            // RuntimeCommand::GetAccountInfo を発行し、PjsuaBackend 経由で
+            // pjsua_acc_get_info() の結果を取得する（詳細は後述）
+            None // 実際の変換は GetAccountInfo 完了後に行う
+        }
+        NativeEvent::RegistrationStarted { acc_id, renew } => {
+            Some(SipEventPayload::RegistrationStarted(
+                RegistrationInfo { account_id: AccountId::from(acc_id), renew, .. }
+            ))
+        }
+
+        // === P0: Call系 ===
+        NativeEvent::CallStateChanged { call_id, state } => {
+            convert_call_state(call_id, state)
+        }
+        NativeEvent::CallMediaStateChanged { call_id } => {
+            convert_call_media_state(call_id)
+        }
+
+        // === P0: DTMF系 ===
+        NativeEvent::DtmfDigit { call_id, digit } => {
+            Some(SipEventPayload::DtmfReceived(
+                DtmfReceivedInfo { digit, method: DtmfMethod::Rfc4733, duration_ms: None, volume_dbm0: None }
+            ))
+        }
+
+        // === P1: Transport/ICE系 ===
+        NativeEvent::TransportStateChanged { transport_id, state } => {
+            // P0完了後に実装: transport state を SipEventPayload::TransportConnected/Disconnected/Error に変換
+            None
+        }
+        NativeEvent::IceTransportError { .. } => {
+            // P0完了後に実装: ICE failure 情報を IceNegotiationFailed に変換
+            None
+        }
+
+        // === P2: 補完的情報系 ===
+        NativeEvent::CallTsxStateChanged { .. }
+        | NativeEvent::CallRedirected { .. }
+        | NativeEvent::CallTransferStatus { .. }
+        | NativeEvent::CallReplaced { .. }
+        | NativeEvent::NatDetected { .. } => {
+            // 対象外: これらのイベントは PJSIP 内部のトランザクション詳細や
+            // NAT 検出結果を通知するものであり、siprs crate の公開 API として
+            // 提供する SipEventPayload の粒度より詳細すぎる。
+            // 必要な場合は EventBus の RawSIP バス経由で取得可能。
+            None
+        }
+    }
+}
+```
+
+**マッピング対象外の根拠**: CallTsxStateChanged 等の低優先度イベントは PJSIP 内部の SIP トランザクション状態遷移を通知するものであり、siprs crate の公開 API として提供する call state モデル（CallState enum、Section 18 参照）とは抽象度が異なる。これらが必要なユースケースは RawSIP メッセージ購読（`subscribe_raw_sip()`）でカバーする。
+
+#### CallStateChanged の pjsip_inv_state マッピング
+
+PJSIP の `pjsip_inv_state` enum 値と `CallState`（Section 18）の対応は以下の通り:
+
+| pjsip_inv_state | 値 | 変換先 CallState | 備考 |
+|----------------|-----|-----------------|------|
+| `PJSIP_INV_STATE_NULL` | 0 | None（イベント発行なし） | 初期状態。CREATE 前の空ハンドル |
+| `PJSIP_INV_STATE_CALLING` | 1 | `Calling` | 発信側: INVITE 送信後。受信側では発生しない |
+| `PJSIP_INV_STATE_CONNECTING` | 2 | `Trying` / `Ringing` | 遷移元が CALLING なら Trying、INCOMING なら Ringing |
+| `PJSIP_INV_STATE_CONFIRMED` | 3 | `Active` | メディアネゴシエーション完了（= CallConnected） |
+| `PJSIP_INV_STATE_DISCONNECTED` | 4 | `Disconnecting` → `Disconnected` | 切断開始。後続の切断理由解決後に Disconnected を発行 |
+
+```rust
+fn convert_call_state(call_id: CallId, state: pjsip_inv_state) -> Option<SipEventPayload> {
+    match state {
+        PJSIP_INV_STATE_NULL => None,
+        PJSIP_INV_STATE_CALLING => Some(SipEventPayload::OutgoingCallStarted(/* ... */)),
+        PJSIP_INV_STATE_CONNECTING => {
+            // 遷移元が CALLING なら Trying、INCOMING なら Ringing
+            // 実際の判定は Reactor の通話状態機械が保持する previous_state を用いる
+            None // 実際は CallState 機械との連携が必要
+        }
+        PJSIP_INV_STATE_CONFIRMED => Some(SipEventPayload::CallConnected(/* ... */)),
+        PJSIP_INV_STATE_DISCONNECTED => Some(SipEventPayload::CallDisconnected(/* ... */)),
+    }
+}
+```
+
+CONNECTING 状態（pjsip_inv_state=2）は Trying と Ringing の両方に対応しうる。Reactor は CallEntry の直前の state を参照して判別する:
+- `Calling → Connecting` の遷移 → `Trying` を publish（発信側）
+- `Incoming → Connecting` の遷移 → `Ringing` を publish（着信側）
+
+#### CallMediaStateChanged の media_status 判定
+
+`CallMediaStateChanged` は PJSIP の `on_call_media_state()` callback から発火される。`pjsua_call_get_info().media_status` の値に基づいて以下の変換を行う:
+
+| pjsua_call_media_status | 意味 | 変換先 SipEventPayload |
+|------------------------|------|----------------------|
+| `PJSUA_CALL_MEDIA_NONE` | メディア未確立 | （イベント発行なし） |
+| `PJSUA_CALL_MEDIA_ACTIVE` | メディア送受信中 | `MediaActive(MediaActiveInfo)` |
+| `PJSUA_CALL_MEDIA_LOCAL_HOLD` | ローカルホールド中 | `CallHeld` |
+| `PJSUA_CALL_MEDIA_REMOTE_HOLD` | リモートホールド中 | `CallHeld` |
+| `PJSUA_CALL_MEDIA_ERROR` | メディアエラー | `MediaError(MediaErrorInfo)` |
+
+```rust
+fn convert_call_media_state(call_id: CallId) -> Option<SipEventPayload> {
+    let info = pjsua_call_get_info(call_id);
+    match info.media_status {
+        PJSUA_CALL_MEDIA_ACTIVE => Some(SipEventPayload::MediaActive(MediaActiveInfo { call_id })),
+        PJSUA_CALL_MEDIA_LOCAL_HOLD | PJSUA_CALL_MEDIA_REMOTE_HOLD => {
+            Some(SipEventPayload::CallHeld)
+        }
+        PJSUA_CALL_MEDIA_ERROR => Some(SipEventPayload::MediaError(MediaErrorInfo { call_id })),
+        _ => None,
+    }
+}
+```
+
+#### RegistrationStateChanged の RuntimeCommand パターン
+
+RegistrationStateChanged は他の NativeEvent と異なり、PJSIP API（`pjsua_acc_get_info()`）の能動的呼び出しを必要とする。以下のフローで処理する:
+
+```
+PJSIP callback: on_reg_state2()
+  → NativeEvent::RegistrationStateChanged { acc_id }
+  → Reactor::process_native_event()
+  → RuntimeCommand::GetAccountInfo { native_acc_id, reply_tx }
+  → Reactor が GetAccountInfo を command queue にエンキュー
+  → Reactor::process_command_queue() が GetAccountInfo を処理
+  → PjsuaBackend::get_account_info(native_acc_id) を呼び出し
+  → pjsua_acc_get_info() で registration status を取得
+  → 結果を reply_tx で Reactor に返却
+  → Reactor が RegistrationSucceeded / RegistrationFailed を EventBus に publish
+  → RegistrationSucceeded: status code=200 の場合
+  → RegistrationFailed: status code=4xx/5xx/6xx または timeout の場合
+```
+
+このパターンを採用する理由:
+- PJSIP API（`pjsua_acc_get_info`）は PJSIP worker thread コンテキストから安全に呼び出せるが、callback bridge から Reactor への経路（process_native_event）は PJSIP thread 上で動作する。そのため直接 `PjsuaBackend` を呼ぶことはスレッドコンテキスト的に可能だが、責務分離の観点から RuntimeCommand 経由を選ぶ。
+- RuntimeCommand 経由にすることで、MockBackend を使ったテストで RegistrationStateChanged の処理を検証可能になる。
+
+```rust
+// RuntimeCommand::GetAccountInfo の定義（RuntimeCommand enum に追加）
+RuntimeCommand::GetAccountInfo {
+    native_acc_id: pjsua_acc_id,
+    reply_tx: oneshot::Sender<Result<AccountInfoSnapshot, SipError>>,
+}
+
+/// pjsua_acc_get_info() の結果を格納する snapshot 構造体。
+/// 登録状態の確認に必要な最小限の情報を含む。
+#[derive(Debug, Clone)]
+pub struct AccountInfoSnapshot {
+    pub acc_id: AccountId,
+    pub registration_status: pjsip_status_code,
+    pub registration_expires: Option<u32>,  // 秒。0=期限切れ
+    pub online_status: bool,
+    pub uri: String,
+}
+```
+
 ## 16. raw SIP メッセージ仕様
 
 ```rust
@@ -967,6 +1172,95 @@ pub struct DtmfReceivedInfo {
 }
 ```
 
+### M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計
+
+#### DtmfSentInfo 構造体
+
+```rust
+/// DTMF 送出試行の結果を表す。DtmfReceivedInfo（相手受信時の情報）とは異なり、
+/// 送出側の試行結果（成功/失敗とエラー詳細）を伝える。
+#[derive(Debug, Clone)]
+pub struct DtmfSentInfo {
+    pub method: DtmfMethod,
+    pub digit: char,
+    /// 送出試行の成否
+    pub status: Result<(), SentDtmfError>,
+    /// PJSIP 内部エラーコード（status=Err の場合のみ有効）
+    pub pjsip_status: Option<pj_status_t>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SentDtmfError {
+    /// PJSIP 内部エラー（pj_status_t 変換後）
+    PjsipError(pj_status_t),
+    /// タイムアウト（PJSIP callback 応答なし）
+    Timeout,
+}
+```
+
+#### DtmfSent 発火タイミング
+
+`SipClient::send_dtmf()` の戻り値と `DtmfSent` イベントは以下の意味論で分離される:
+
+| シグナル | 意味 | 保証 |
+|---------|------|------|
+| `send_dtmf()` の戻り値 `Ok(())` | RuntimeCommand::SendDtmf が Reactor の command queue に受理された。PJSIP の `pjsua_call_dial_dtmf()` が呼び出された | 同期的に確認可能 |
+| `DtmfSent` イベント | PJSIP が DTMF データを実際に送出した（callback 経由）、またはタイムアウトにより送出試行完了とみなした | 非同期で通知 |
+
+```rust
+// SipBackend::send_dtmf — 戻り値は「PJSIP コマンド受理」を意味する
+fn send_dtmf(&mut self, native_call_id: pjsua_call_id, method: &DtmfMethod, digits: &str) -> Result<(), SipError> {
+    let pj_status = unsafe { ffi::pjsua_call_dial_dtmf(native_call_id, c_str) };
+    if pj_status != ffi::PJ_SUCCESS {
+        return Err(/* pj_status → SipError 変換 */);
+    }
+    // ここで DtmfSent を発火するわけではない。
+    // 実際の DTMF 送出完了は PJSIP callback またはタイマーで検出する
+    Ok(())
+}
+```
+
+#### DtmfSent の発火条件（優先順位）
+
+1. **PJSIP callback 経由（最優先）**: PJSIP の `on_dtmf_digit` callback は着信 DTMF の受信に加え、送信完了時にも呼ばれる可能性がある。まずこの挙動を確認し、送信完了時に呼ばれる場合はその callback から DtmfSent を発火する。
+2. **タイムアウトベース（PJSIP callback 不在時の fallback）**: PJSIP callback による送信完了通知が確認できない場合、RuntimeCommand::SendDtmf の実行から 500ms 経過後に DtmfSent を自動発行する。このタイムアウト値は `DtmfConfig::sent_timeout_ms` として ClientConfig から設定可能とし、既定値を 500ms とする。
+
+```rust
+// DtmfSent 発火の fallback タイマー
+// Reactor の SendDtmf ハンドラ内でタイマーを設定する
+fn handle_send_dtmf(&mut self, cmd: RuntimeCommand::SendDtmf) {
+    let call_id = cmd.call_id;
+    let native_call_id = self.resolve_native_call_id(call_id);
+
+    // PJSIP API 呼び出し
+    let result = self.backend.send_dtmf(native_call_id, &cmd.method, &cmd.digits);
+
+    // 戻り値で即時応答（コマンド受理）
+    let _ = cmd.reply_tx.send(result.map_err(|e| e.into()));
+
+    // 非同期 DtmfSent 発火のためのタイマー設定
+    let timeout = self.config.dtmf.sent_timeout_ms.unwrap_or(500);
+    let event_bus = self.events.clone();
+    let call_id_for_event = call_id;
+    self.spawn_timer(timeout, move || {
+        event_bus.publish(SipEvent {
+            meta: EventMeta { call_id: Some(call_id_for_event), .. },
+            payload: SipEventPayload::DtmfSent(DtmfSentInfo {
+                method: cmd.method,
+                digit: cmd.digits.chars().next().unwrap_or('\0'),
+                status: Ok(()),
+                pjsip_status: None,
+            }),
+        });
+    });
+}
+```
+
+この二段構え設計により、`send_dtmf()` の呼び出し元は:
+- 同期的に戻り値でコマンド受理を確認できる
+- 非同期的に DtmfSent イベントで送出完了（またはタイムアウト）を確認できる
+- 相手が実際に受信したことは DtmfReceived イベントで確認できる（エンドツーエンドの確認）
+
 ## 21. 音声フォーマットモデル
 
 ```rust
@@ -1063,6 +1357,105 @@ impl AudioTapHandle {
 - **`Lossless`**: 送信側（AudioWorkerTask）でバックプレッシャーをかけ、フレームのドロップを避ける。ただし、持続的なバックプレッシャーは `AudioWorkerTask::process_frame()` ループをブロックし、同一通話の音声ミキシング全体にジッタやアンダーランを誘発する可能性がある。そのため、このモードは「ベストエフォート型の完全性保証」であり、真の lossless 保証ではない。録音用途では `capacity` を十分大きく（標準 frame 数換算で 5 秒以上相当）指定し、`recv()` を速やかに消費すること。
 
 既定値は `Realtime` とする。
+
+### M20 追補: SubscribeAudio Reactor ハンドラ実装設計
+
+`RuntimeCommand::SubscribeAudio` の Reactor ハンドラは以下の経路で実装する:
+
+```rust
+/// メディアストリームの方向。ConfConnect で接続するポートを指定する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaDirection {
+    /// 着信音声（相手→自分）の conf_port に接続
+    Inbound,
+    /// 発信音声（自分→相手）の conf_port に接続
+    Outbound,
+    /// 双方向（IN/OUT 両方）に接続。AudioTap の標準的な設定
+    Both,
+}
+```
+
+```text
+SipClient::subscribe_audio(call_id, format, capacity, mode)
+  → RuntimeCommand::SubscribeAudio { call_id, format, capacity, mode, reply_tx }
+  → Reactor::process_command_queue()
+  → Reactor が CallId → native_call_id を解決
+  → RuntimeCommand::ConfConnect {
+        call_id,
+        media_direction: MediaDirection::Both,  // IN/OUT 両方
+        reply_tx: inner_tx,
+    } を発行（SubscribeAudio ハンドラ内部で）
+  → PjsuaBackend::conf_connect(source, sink) で conference port 接続
+  → AudioChunkPair の stream を作成
+  → AudioTapHandle { rx: mpsc::Receiver<AudioChunkPair> } を生成
+  → reply_tx で AudioTapHandle を SipClient に返却
+```
+
+#### SubscribeAudio ハンドラ擬似実装
+
+```rust
+// Reactor の SubscribeAudio ハンドラ
+fn handle_subscribe_audio(&mut self, cmd: RuntimeCommand::SubscribeAudio) {
+    // 1. CallId → native_call_id の解決
+    let native_call_id = match self.state.calls.get(&cmd.call_id) {
+        Some(entry) => entry.native_id,
+        None => {
+            let _ = cmd.reply_tx.send(Err(SipError::not_found("call not found")));
+            return;
+        }
+    };
+
+    // 2. conf_port の解決と接続（PjsuaBackend が conf_port_id を解決）
+    let conf_result = self.backend.conf_connect_media(
+        native_call_id,
+        MediaDirection::Both,
+    );
+
+    // 3. AudioChunkPair stream と AudioTapHandle の生成
+    let (tx, rx) = tokio::sync::mpsc::channel::<AudioChunkPair>(cmd.capacity);
+    let handle = AudioTapHandle { rx };
+
+    // 4. conf_port から AudioChunkPair への変換ループ起動
+    //    このループは通話切断時に自動停止される
+    self.spawn_audio_tap_task(native_call_id, tx, cmd.format, cmd.mode);
+
+    // 5. 呼び出し元に AudioTapHandle を返却
+    let _ = cmd.reply_tx.send(Ok(handle));
+}
+```
+
+#### AudioTapMode と conf_connect の連携
+
+`AudioTapMode` は conf_connect のチャネル設定に以下のように反映される:
+
+| AudioTapMode | conf_connect 動作 | AudioTapHandle のチャネル挙動 |
+|-------------|-------------------|------------------------------|
+| `Realtime`（既定） | 通常の conf_connect。AudioWorkerTask の process_frame とは独立 | oldest-drop。満杯時は最新ペアを優先し `MediaError(AudioTapOverflow)` を報告 |
+| `Lossless` | conf_connect + AudioWorkerTask の送信キューでバックプレッシャーを受ける | 満杯時は送信側ブロック。capacity を十分大きく設定すること |
+
+`ConfConnect` RuntimeCommand の引数は `(CallId, MediaDirection)` で抽象化し、conf_port_id の解決は PjsuaBackend 内部で行う（PJSIP 固有の conf_port_id 型を Runtime に露出させない）。
+
+```rust
+// RuntimeCommand::ConfConnect の定義
+RuntimeCommand::ConfConnect {
+    call_id: CallId,
+    /// 接続するメディア方向。Inbound / Outbound / Both
+    media_direction: MediaDirection,
+    reply_tx: oneshot::Sender<Result<(), SipError>>,
+}
+
+// PjsuaBackend 内部での conf_port_id 解決
+impl PjsuaBackend {
+    fn resolve_conf_port(&self, native_call_id: pjsua_call_id) -> Result<pjsua_conf_port_id, SipError> {
+        let mut info = unsafe { std::mem::zeroed::<ffi::pjsua_call_info>() };
+        let status = unsafe { ffi::pjsua_call_get_info(native_call_id, &mut info) };
+        if status != ffi::PJ_SUCCESS {
+            return Err(SipError::invalid_state("failed to get call info"));
+        }
+        Ok(info.conf_slot)
+    }
+}
+```
 
 ## 23. AsyncAudioSource 仕様
 
@@ -1463,6 +1856,71 @@ pub(crate) struct MockBackend { /* ... */ }
 
 **現在の設計判断**: 本 RFC の MVP 範囲では PJSUA (`PjsuaBackend`) が唯一の実装である。`SipBackend` trait は内部テスト用として定義するに留め、backend 差し替えを目的とした public API の変更は 1.0 以降の検討事項とする。
 
+### M20 追補: Dual Client 時の PJSIP callback routing
+
+複数の `SipClient` インスタンスが同一の `PjsuaBackend` singleton を共有する場合（テスト時等）、PJSIP callback から正しい Reactor（正しい EventBus）にイベントを配送する必要がある。
+
+**アーキテクチャ**: 単一 Reactor + EventBus 分割
+
+```text
+PJSIP callback (on_incoming_call, etc.)
+  → runtime::global_runtime() で単一の Reactor を取得（既存設計維持）
+  → Reactor::enqueue_native_event(NativeEvent) でイベントキューイング（既存設計維持）
+  → Reactor::process_native_event() で NativeEvent → SipEventPayload 変換
+  → EventBus::publish() の前に account_id ベースの EventBus 振り分け
+```
+
+```rust
+// EventBus 振り分けロジック（Reactor 内）
+fn dispatch_event(&self, event: SipEvent) {
+    let account_id = event.meta.account_id;
+    match account_id {
+        // account_id が特定の Client に属する場合、その Client の EventBus に publish
+        Some(aid) => {
+            if let Some(client_bus) = self.client_event_buses.get(&aid) {
+                client_bus.publish(event);
+            } else {
+                // 該当 Client なし → フォールバックとしてデフォルト EventBus に publish
+                self.default_event_bus.publish(event);
+            }
+        }
+        // account_id なし（Client ライフサイクルイベント等）は全 Client の EventBus に publish
+        None => {
+            self.default_event_bus.publish(event);
+            for bus in self.client_event_buses.values() {
+                bus.publish(event.clone());
+            }
+        }
+    }
+}
+```
+
+**設計原則**:
+- `global_runtime()` は変更せず、単一 Reactor を維持する
+- EventBus は SipClient ごとに個別インスタンスを持ち、Reactor が `account_id` ベースで振り分ける
+- デフォルト EventBus は最初に生成された SipClient のものを使用する
+- 全 EventBus に同一イベントが配送されることはない（account_id で一意に振り分け）
+
+**テスト時の Dual Client 初期化パターン**:
+
+```rust
+// TestContext での Dual Client 初期化
+let client_a = SipClient::new(config_a).await?;
+// client_a の初期化時に Reactor とデフォルト EventBus が生成される
+// PjsuaBackend singleton は最初の initialize で OnceLock に格納される
+
+let client_b = SipClient::new(config_b).await?;
+// client_b は既存の PjsuaBackend singleton を共有
+// Reactor に client_b 用の EventBus が追加登録される
+// client_b のアカウントは異なる account_id で追加される
+
+// client_a.add_account() と client_b.add_account() で別々のアカウントを追加
+let handle_a = client_a.add_account(account_a).await?;
+let handle_b = client_b.add_account(account_b).await?;
+```
+
+この設計では PjsuaBackend の singleton 制約（`pjsua_init()` の1回制限）に従いつつ、複数 SipClient のイベント分離を実現する。
+
 ## 28. build.rs 戦略
 
 要件どおり、`build.rs` はプレビルド優先、欠損時ソースビルドを行う。
@@ -1542,8 +2000,8 @@ brew install pkg-config cmake
 fn configure_codecs() -> Result<(), SipError> {
     for codec in enumerate_native_codecs()? {
         match codec.name.as_str() {
-            "PCMU/8000/1" => set_codec_priority(&codec, 255)?,
-            name if name.starts_with("opus/") => set_codec_priority(&codec, 254)?,
+            "PCMU/8000/1" => set_codec_priority(&codec, 254)?,
+            name if name.starts_with("opus/") => set_codec_priority(&codec, 255)?,
             _ => set_codec_priority(&codec, 0)?,
         }
     }
@@ -1594,6 +2052,64 @@ impl Default for CodecSelectionPolicy {
 
 `NegotiatedCodec` は `CallConnected` イベントの `ConnectedCallInfo` に含めて通知される。利用者は `MediaActiveInfo` を通じて negotiation 結果を確認できる。
 
+### M20 追補: 明示的コーデック指定と auto モードの2層ポリシー
+
+コーデック選択には「利用者の明示指定」と「システム自動選択（auto モード）」の2層がある。
+
+#### 優先順位
+
+```text
+利用者の明示指定（CallMediaPreferences::preferred_codecs に1件以上指定）
+  → preferred_codecs の先頭から順に SDP offer/answer で試行
+  → 合意した最初のコーデックを採用
+  → 全滅時は MediaNegotiationFailed
+
+auto モード（preferred_codecs が空、または未指定）
+  → 設定値: Opus=255, PCMU=254, その他全コーデック=0（無効）
+  → Opus を最優先で試行、Opus 非対応相手には PCMU にフォールバック
+  → 同一 priority 帯内では既定フォールバックルール（29.1 参照）に従う
+```
+
+#### 実装: configure_codecs auto モード
+
+```rust
+fn configure_codecs(&mut self) -> Result<(), SipError> {
+    let codec_info = self.enumerate_codecs()?;
+    for info in &codec_info {
+        let priority: u8 = match info.codec_id.as_str() {
+            "PCMU/8000/1" => 254,   // Opus 非対応環境用フォールバック
+            id if id.starts_with("opus/") => 255,  // 最優先
+            _ => 0,  // 無効化
+        };
+        let pj_status = unsafe {
+            ffi::pjsua_codec_set_priority(
+                info.as_raw_ptr(),
+                priority as ffi::pj_uint8_t,
+            )
+        };
+        if pj_status != ffi::PJ_SUCCESS {
+            return Err(SipError::internal_error(
+                format!("failed to set codec priority for {}", info.codec_id)
+            ));
+        }
+    }
+    Ok(())
+}
+```
+
+#### 利用者が明示指定する場合の動作
+
+`CallMediaPreferences::preferred_codecs` に1件以上のコーデックが指定された場合、`configure_codecs()` の auto 設定は bypass される。PJSIP の SDP offer/answer では利用者が指定したコーデックのみが提示され、auto 設定の priority 値は使用されない。
+
+```rust
+pub struct CallMediaPreferences {
+    /// 空の場合は auto モード（Opus→PCMU の既定フォールバック）
+    /// 1件以上指定された場合は明示指定モード
+    pub preferred_codecs: Vec<Codec>,
+    // ...
+}
+```
+
 ## 30. SRTP 仕様
 
 SRTP は feature flag でオン・オフ可能、デフォルトオフとする。
@@ -1642,6 +2158,40 @@ impl SipClient {
 
 各 async API は oneshot reply 待ち中に caller task が cancel されても reactor 処理は継続する。これにより native state と caller cancellation を分離する。
 
+### M20 追補: Shutdown 中の RuntimeCommand 振り分け
+
+M20 で追加される3つの RuntimeCommand は shutdown 中の挙動が異なる:
+
+| RuntimeCommand | Shutdown 中の挙動 | 理由 |
+|---------------|------------------|------|
+| `GetAccountInfo` | **許可**（応答する） | 状態確認（読み取り専用）。shutdown 前の最終状態確認に有用。応答データに shutdown 進行中フラグを含める |
+| `ConfConnect` | **拒否**（`Err(InvalidState("shutting down"))`） | メディアリソースの変更操作。shutdown 中に新規接続は無意味 |
+| `ConfDisconnect` | **拒否**（`Err(InvalidState("shutting down"))`） | ConfConnect と同様。shutdown 中の切断処理は既存の media drain に委ねる |
+
+```rust
+// shutdown 中の RuntimeCommand 振り分け（Reactor 内）
+fn dispatch_command(&mut self, cmd: RuntimeCommand) {
+    if self.is_shutting_down {
+        match &cmd {
+            RuntimeCommand::GetAccountInfo { .. } => {
+                // 読み取り専用コマンドは許可
+                self.execute_get_account_info(cmd);
+            }
+            RuntimeCommand::ConfConnect { .. } | RuntimeCommand::ConfDisconnect { .. } => {
+                // メディア変更コマンドは拒否
+                Self::reject_command(cmd, SipError::invalid_state("shutting down"));
+            }
+            _ => {
+                // 既存の shutdown 拒否ロジック（32.1）
+                Self::reject_command(cmd, SipError::invalid_state("shutting down"));
+            }
+        }
+        return;
+    }
+    // 通常の command dispatching
+}
+```
+
 ## 33. ランタイム内部 state
 
 ```rust
@@ -1670,6 +2220,55 @@ struct CallEntry {
 ```
 
 状態の唯一正本は reactor thread が所有し、公開 query API は snapshot clone を返す。tokio `RwLock` は snapshot 共有用であり native source of truth ではない。
+
+### M20 追補: ロック獲得ルールと conf_port_id 管理方針
+
+#### Client 側: `read().await` 絶対義務
+
+`SipClient::account()` および `SipAccountHandle::registration_state()` を含む全 query API は `tokio::sync::RwLock` に対して `read().await`（非ブロッキング）を使用しなければならない。**`blocking_read()` の使用は禁止する。**
+
+```rust
+// ✅ 正しい: read().await（非ブロッキング）
+impl SipClient {
+    pub async fn account(&self, account_id: AccountId) -> Result<SipAccountHandle, SipError> {
+        let state = self.inner.state.read().await;  // read().await, NOT blocking_read()
+        // ...
+    }
+}
+```
+
+`blocking_read()` は `#[tokio::test]` コンテキストを含む全ての tokio ランタイム上でパニックする（"Cannot block the current thread from within a runtime"）。async API として宣言されたメソッドは常に非ブロッキングロックを使用しなければならない。
+
+#### Reactor 側: `write().await` による安全な更新
+
+Reactor は ClientState の更新を `write().await` で行う。Reactor の command processing は単一タスクで逐次実行されるため、同一 Reactor 内での write-after-write の競合は発生しない。複数 Client が同一の PjsuaBackend singleton を共有する場合も、Reactor は単一であるため ClientState の排他制御は一貫している。
+
+#### conf_port_id: PjsuaBackend 内部管理
+
+conf_port_id（PJSIP の `pjsua_conf_port_id`）の管理は PjsuaBackend 内部で行い、Runtime（ClientState の CallEntry）には露出しない。
+
+```rust
+// PjsuaBackend 内部での conf_port_id 解決
+// CallId → native_call_id の解決は Runtime の責務
+// native_call_id → conf_port_id の解決は PjsuaBackend の責務
+impl PjsuaBackend {
+    fn resolve_conf_port(&self, native_call_id: pjsua_call_id) -> Result<pjsua_conf_port_id, SipError> {
+        let mut info = unsafe { std::mem::zeroed::<ffi::pjsua_call_info>() };
+        let status = unsafe { ffi::pjsua_call_get_info(native_call_id, &mut info) };
+        if status != ffi::PJ_SUCCESS {
+            return Err(SipError::invalid_state(
+                format!("failed to get call info for native_call_id={}", native_call_id)
+            ));
+        }
+        Ok(info.conf_slot)
+    }
+}
+```
+
+この設計により:
+- Runtime（Reactor, ClientState）は PJSIP の conf_port_id 型に依存しない
+- SipBackend の差し替え時に conf_port_id の概念を新しい backend に合わせて変更できる
+- CallEntry に conf_port_id フィールドが不要になり、通話切断時のクリーンアップ漏れリスクが減る
 
 ## 34. 観測性
 
@@ -2133,12 +2732,124 @@ P0 は 1.0 リリース前に完了必須。P1 は 1.0 リリース後に順次�
 
 各 target OS で prebuilt link、source build fallback の双方を CI で検証する。
 
+### M20 追補: 新機能のテスト層マッピング
+
+M20 で追加される新機能のテスト層対応:
+
+| M20 新機能 | テスト層 | 検証内容 | 備考 |
+|-----------|---------|---------|------|
+| NativeEvent → SipEventPayload 変換 | Layer 2 (MockBackend) | 各 NativeEvent が正しい SipEventPayload に変換されること | `MockBackend` で NativeEvent 注入 |
+| RegistrationStateChanged | Layer 2 (MockBackend) | GetAccountInfo RuntimeCommand → RegistrationSucceeded/Failed 発火 | Layer 3 (Asterisk) で実登録状態遷移確認 |
+| CallStateChanged pjsip_inv_state 全対応 | Layer 2 (MockBackend) | 全 state 値 (0-4) に対する CallState 変換 | state=2 CONNECTING→Trying/Ringing の判定ロジック |
+| CallMediaStateChanged | Layer 2 (MockBackend) | media_status 値ごとの MediaActive/Held/Error 変換 | |
+| DtmfSent 二段構え（戻り値 vs イベント） | Layer 2 (MockBackend) | send_dtmf 戻り値=DtmfSent 発火の分離 | Layer 3 (Asterisk) で実 DTMF 送出確認 |
+| DtmfSent タイムアウトフォールバック | Layer 2 (MockBackend) | 500ms 経過後の DtmfSent 自動発行 | タイマー動作の検証 |
+| SubscribeAudio conf_connect | Layer 3 (SIP Integration) | subscribe_audio → conf_connect → AudioTapHandle 生成 | Docker Asterisk 環境必須 |
+| conf_connect/disconnect RuntimeCommand | Layer 3 (SIP Integration) | conf_port 接続/切断の動作確認 | media loopback テスト統合 |
+| configure_codecs auto モード | Layer 2 (MockBackend) | pjsua_codec_set_priority 呼び出し確認 | Opus=255, PCMU=254 の設定 |
+| Dual Client (call_reject 対応) | Layer 3 (SIP Integration) | 同一 PjsuaBackend singleton 共有 + EventBus 分離 | 双方向 Client の初期化・発着信 |
+| low-priority NativeEvent (P1/P2) | Layer 2 (MockBackend) | None 返却（意図的無視）の確認 | |
+
+#### プレースホルダーテストの解決条件
+
+| テスト | 現状 | 解決条件 | 前提チケット/設計判断 |
+|-------|------|---------|-------------------|
+| `call::call_reject` | eprintln! でスキップ | Dual Client utility（同一 PjsuaBackend singleton + EventBus 分割）を使用して着信応答を検証 | Q6:A, Q9:A |
+| `provisional::early_media_received` | eprintln! でスキップ | 183 Session Progress を送信する SIPp スクリプトを代替手段として用意。Asterisk Echo は 183 を送信しないため、SIPp で uac シナリオを定義する | SIPp スクリプトの作成 |
+| `register::reregister_after_unregister` | 一部未検証 | `account()` の `blocking_read` → `read().await` 修正完了後に有効化 | Q3:A（Q1:A ではない） |
+
+#### Dual Client テスト utility 設計
+
+```rust
+/// 双方向テスト用の TestContext（2 Client 版）
+struct DualClientContext {
+    client_a: SipClient,
+    client_b: SipClient,
+    // client_a → account_a で発信 → client_b → account_b で着信
+    account_a: SipAccountHandle,
+    account_b: SipAccountHandle,
+}
+
+impl DualClientContext {
+    async fn new(config_a: ClientConfig, config_b: ClientConfig) -> Result<Self, SipError> {
+        // client_a が最初に初期化される → Reactor + PjsuaBackend singleton 生成
+        let client_a = SipClient::new(config_a).await?;
+        // client_b は既存の PjsuaBackend singleton を共有
+        let client_b = SipClient::new(config_b).await?;
+        // 各 Client に別々のアカウントを追加
+        let account_a = client_a.add_account(account_config_a).await?;
+        let account_b = client_b.add_account(account_config_b).await?;
+        Ok(Self { client_a, client_b, account_a, account_b })
+    }
+
+    async fn call_a_to_b(&self) -> CallId {
+        self.account_a.make_call(OutgoingCallRequest {
+            target_uri: self.account_b.config().sip_uri(),
+            // ...
+        }).await.unwrap()
+    }
+}
+```
+
 ## 44. CI/CD 要件
 
 - matrix: `windows-latest`, `macos-14`, `ubuntu-22.04`
 - features: default, `tls`, `srtp`, `tls+srtp`
 - job: `cargo test`, `cargo check --all-features`, sample integration smoke
 - binary artifact と prebuilt refresh pipeline を分離
+
+### M20 追補: Docker テスト job と prebuilt CI pipeline
+
+#### Docker Integration Test Job（GitHub Actions）
+
+```yaml
+integration-test:
+  runs-on: ubuntu-22.04
+  services:
+    asterisk:
+      image: asterisk:20.6.0
+      ports:
+        - 5060:5060/udp
+        - 5061:5061/tcp
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Build with pjsip
+      run: cargo build --features pjsip
+    - name: Run integration tests
+      run: cargo test --features pjsip --test integration_test
+      env:
+        SIP_SERVER: localhost
+        SIP_PORT: 5060
+```
+
+#### Prebuilt Refresh Pipeline
+
+macOS prebuilt バイナリの自動再ビルド pipeline:
+
+```yaml
+prebuilt-refresh:
+  runs-on: macos-14
+  steps:
+    - uses: actions/checkout@v4
+    - name: Build PJSIP prebuilt
+      run: |
+        cd vendor/pjsip
+        mkdir -p build && cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DSRTP_WITH_OPENSSL=OFF \
+          -DPJ_BUILD_SHARED_LIBS=OFF
+        make -j$(sysctl -n hw.ncpu)
+        make install
+    - name: Upload prebuilt artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: pjsip-prebuilt-macos
+        path: vendor/prebuilt/macos/
+```
+
+**source build fallback への昇格**: prebuilt バイナリが利用できない環境では `build.rs` が自動的に source build へフォールバックする（既存設計維持）。prebuilt 提供は CI の pipeline として自動化し、手動ビルド手順（`vendor/prebuilt/BUILD.md`）は補助的ドキュメントとする。
 
 ## 45. 既知の実装上の難所と設計上の解答
 
