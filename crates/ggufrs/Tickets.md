@@ -827,7 +827,7 @@
   3. Anthropic エンドポイントが存在しない（404）
   4. `grep -rn 'send_raw' src/server/` が空であること（send_raw 完全抹消の確認）
 
-#### チケット M6-10: lib.rs 修正 — mistralrs re-export 削除 + server::types 追加
+#### ✅ チケット M6-10: lib.rs 修正 — mistralrs re-export 削除 + server::types 追加
 
 * **参照設計書:** crates/ggufrs/RFC.md (§9 公開API)
 * **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）、M6-8（raw.rs 削除済み）。
@@ -843,7 +843,7 @@
 
 > **このマイルストーンでコンパイルが再び通る状態になる。**
 
-#### チケット M6-11: Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL
+#### ✅ チケット M6-11: Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL
 
 * **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §8.1 build.rs cmake, §8.2 build.rs モデルDL)
 * **依存・関連チケットID:** 先行実装必須: M6-10（lib.rs 修正済み）。先行推奨: M6-3（settings.rs 同時編集の競合回避のため）。後続: M6-12（テストコード）、M6-13（test-run）。
@@ -858,7 +858,7 @@
   1. cargo check が成功する（コンパイル復旧）
   2. cargo tree で mistralrs / llm-bridge-core が不在確認
 
-#### チケット M6-12: テストコード修正 — MockEngine + 結合テスト
+#### ✅ チケット M6-12: テストコード修正 — MockEngine + 結合テスト
 
 * **参照設計書:** crates/ggufrs/RFC.md (§10.1 単体テスト（mockall）, §10.2 結合テスト）
 * **依存・関連チケットID:** 先行実装必須: M6-11（コンパイル復旧）。

@@ -260,4 +260,8 @@
 - [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
-
+- [x] #191 lib.rs 修正 — mistralrs re-export 削除 + server::types 追加 | /Users/kawata/shyme/zasso/tickets/specs/0191-librs-mistralrs-re-export-servertypes.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL | /Users/kawata/shyme/zasso/tickets/specs/0192-cargotoml-buildrs-cmake-4dl.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 テストコード修正 — MockEngine + 結合テスト | /Users/kawata/shyme/zasso/tickets/specs/0193-mockengine.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #194 Makefileにarchive-ticketsコマンドを追加する | /Users/kawata/shyme/zasso/tickets/specs/0194-makefilearchive-tickets.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #195 M6-13: test-run + 実動作確認 (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0195-m6-13-test-run-srcbintest-runrs.md | 2026-06-22 | 2026-06-22

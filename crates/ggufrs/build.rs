@@ -1,9 +1,11 @@
-//! build.rs — GGUF / UQFF モデルファイル自動ダウンロード
+//! build.rs — GGUF モデルファイル自動ダウンロード
 //!
 //! 移植元: crates/voiput/build.rs（同一方式）
 //!
 //! ビルド時にビルトインモデル（Qwen3.5-0.8B-Q4_K_M, Qwen3.5-2B-Q4_K_M、
-//! Gemma4 E2B, Gemma4 E4B）を Hugging Face から自動ダウンロードする。
+//! Gemma4 E2B, Gemma4 E4B）4つの GGUF モデルを Hugging Face から自動ダウンロードする。
+//! また、cargo feature（metal / cuda）に応じて cmake 環境変数を設定し、
+//! llama-cpp-2 の GPU バックエンドビルドを制御する。
 //! ダウンロードは curl（Unix）または powershell（Windows）で行い、
 //! 新規依存クレートを追加しない。
 
@@ -12,8 +14,8 @@ use std::process::Command;
 
 /// ダウンロードするモデルファイル一覧（ファイル名, URL）
 ///
-/// Hugging Face unsloth リポジトリから2つのビルトイン GGUF モデル、
-/// mistralrs-community リポジトリから2つの Gemma4 UQFF モデルをダウンロードする。
+/// Hugging Face unsloth リポジトリから2つのビルトイン GGUF モデル（Qwen3.5 シリーズ）、
+/// および2つの Gemma4 GGUF モデルをダウンロードする。
 /// ファイル名（相対パス）は ModelConfig のビルトインコンストラクタ（model_path）と一致させる。
 const MODEL_FILES: &[(&str, &str)] = &[
     // Qwen3.5 GGUF モデル（維持: 将来 mistralrs 対応時の再利用に備える）
@@ -25,15 +27,15 @@ const MODEL_FILES: &[(&str, &str)] = &[
         "Qwen3.5-2B-Q4_K_M.gguf",
         "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
     ),
-    // Gemma4 E2B UQFF モデル（≈3.1GB, Q4K 量子化）
+    // Gemma4 E2B GGUF モデル（≈3.1GB, Q4_K_M 量子化）
     (
-        "gemma4-e2b-uqff/q4k-0.uqff",
-        "https://huggingface.co/mistralrs-community/gemma-4-E2B-it-UQFF/resolve/main/q4k-0.uqff",
+        "gemma-4-E2B-it-Q4_K_M.gguf",
+        "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
     ),
-    // Gemma4 E4B UQFF モデル（≈5.0GB, Q4K 量子化）
+    // Gemma4 E4B GGUF モデル（≈5.0GB, Q4_K_M 量子化）
     (
-        "gemma4-e4b-uqff/q4k-0.uqff",
-        "https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF/resolve/main/q4k-0.uqff",
+        "gemma-4-E4B-it-Q4_K_M.gguf",
+        "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
     ),
 ];
 
@@ -43,6 +45,20 @@ const MODEL_FILES: &[(&str, &str)] = &[
 const CURL_TIMEOUT_SECS: &str = "60";
 
 fn main() {
+    // cargo feature に応じて cmake 環境変数を設定する
+    // llama-cpp-2 の build.rs がこれらの環境変数を読み取り、
+    // llama.cpp の C++ ソースを対応する GPU バックエンド付きでコンパイルする
+    #[cfg(feature = "metal")]
+    {
+        println!("cargo:rustc-cfg=feature=\"metal\"");
+        std::env::set_var("LLAMA_METAL", "ON");
+    }
+
+    #[cfg(feature = "cuda")]
+    {
+        std::env::set_var("LLAMA_CUDA", "ON");
+    }
+
     let model_dir = model_directory();
 
     // モデル格納ディレクトリを作成する
@@ -54,7 +70,7 @@ fn main() {
     for (filename, url) in MODEL_FILES {
         let file_path = model_dir.join(filename);
         if !file_path.exists() {
-            // サブディレクトリ（gemma4-e2b-uqff/ 等）の親ディレクトリを作成する
+            // 全モデルは models/ 直下に配置するため parent は常に models/ 以下になる
             if let Some(parent) = file_path.parent() {
                 std::fs::create_dir_all(parent).expect("failed to create model subdirectory");
             }

@@ -221,18 +221,17 @@ impl ModelConfig {
 
     /// Gemma4 E2B モデルの設定を返す
     ///
-    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E2B（≈3.1GB）UQFF モデル。
+    /// unsloth 提供の Gemma4 E2B（≈3.1GB）GGUF モデル（Q4_K_M 量子化）。
     /// Qwen3.5 非互換問題の代替として使用する。
     /// context_size は ASR 補正タスクに最適化した 2048 に固定。
     ///
     /// ## 高速化の設計判断
     /// - `context_size: Some(2048)`: ASR 補正タスク（入出力 60-90 トークン）では
     ///   128k フルコンテキストは不要。2k に制限することで prefill コストを削減する。
-    ///   参照: `docs/mistralrs-gemma4-e2b-e4b/INFO.md`
     pub fn gemma4_e2b() -> Self {
         Self {
             name: "gemma4-e2b".into(),
-            model_path: PathBuf::from("models/gemma4-e2b-uqff/q4k-0.uqff"),
+            model_path: PathBuf::from("models/gemma-4-E2B-it-Q4_K_M.gguf"),
             lazy_load: true,
             context_size: Some(2048),
             gpu_layers: None,
@@ -242,13 +241,13 @@ impl ModelConfig {
 
     /// Gemma4 E4B モデルの設定を返す
     ///
-    /// mistralrs v0.8.1 でサポートが確認された Gemma4 E4B（≈5.0GB）UQFF モデル。
+    /// unsloth 提供の Gemma4 E4B（≈5.0GB）GGUF モデル（Q4_K_M 量子化）。
     /// E2B より高精度だが、より多くのメモリと推論時間を要する。
     /// context_size は E2B 同様 2048 に固定。
     pub fn gemma4_e4b() -> Self {
         Self {
             name: "gemma4-e4b".into(),
-            model_path: PathBuf::from("models/gemma4-e4b-uqff/q4k-0.uqff"),
+            model_path: PathBuf::from("models/gemma-4-E4B-it-Q4_K_M.gguf"),
             lazy_load: true,
             context_size: Some(2048),
             gpu_layers: None,
@@ -258,7 +257,7 @@ impl ModelConfig {
 
     /// カスタムモデルの設定を返す
     ///
-    /// crate 利用者が任意の mistralrs 対応 GGUF モデルを設定するための汎用コンストラクタ。
+    /// crate 利用者が任意の GGUF モデルを設定するための汎用コンストラクタ。
     /// モデル名とファイルパスのみ必須で、その他のオプションフィールドは全て `None` に設定される。
     pub fn custom(name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
         Self {

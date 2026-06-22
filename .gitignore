@@ -6,6 +6,9 @@ wavs/
 **/node_modules
 **/.DS_Store
 
+# tickets/archive/ — チケットアーカイブ（make archive-tickets で作成）
+tickets/archive/
+
 # Build artifacts
 **/bin/
 **/obj/
