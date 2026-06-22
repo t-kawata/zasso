@@ -19,8 +19,6 @@ pub(crate) use settings::DEFAULT_MODEL_DIR;
 #[allow(unused_imports)]
 pub(crate) use settings::DEFAULT_RT_PORT;
 #[allow(unused_imports)]
-pub(crate) use settings::DEFAULT_SW_PORT;
-#[allow(unused_imports)]
 pub(crate) use settings::DEFAULT_TEMPERATURE;
 #[allow(unused_imports)]
 pub(crate) use settings::GPU_PROVIDER_ENV_VAR;

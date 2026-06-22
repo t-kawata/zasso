@@ -55,7 +55,7 @@ fn parse_patterns() -> Vec<u32> {
     args[1..]
         .iter()
         .filter_map(|a| a.parse::<u32>().ok())
-        .filter(|&n| n >= 1 && n <= 3)
+        .filter(|&n| (1..=3).contains(&n))
         .collect()
 }
 
@@ -81,7 +81,6 @@ async fn run_pattern1(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
             GenerateParams {
                 temperature: Some(0.1),
                 max_tokens: Some(128),
-                // [::STUB::] M6-5: enable_thinking 削除。M6-13 の本改修時に復元判断。
                 ..GenerateParams::default()
             },
             schema,
@@ -114,7 +113,6 @@ async fn run_pattern2(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
             GenerateParams {
                 temperature: Some(0.3),
                 max_tokens: Some(256),
-                // [::STUB::] M6-5: enable_thinking 削除。M6-13 の本改修時に復元判断。
                 ..GenerateParams::default()
             },
         )
@@ -146,7 +144,6 @@ async fn run_pattern3(engine: &ggufrs::GgufEngine) -> (bool, std::time::Duration
             GenerateParams {
                 temperature: Some(0.5),
                 max_tokens: Some(128),
-                // [::STUB::] M6-5: enable_thinking 削除。M6-13 の本改修時に復元判断。
                 ..GenerateParams::default()
             },
         )
