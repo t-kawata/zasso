@@ -203,7 +203,11 @@ impl SipClient {
         block_on(
             self.inner
                 .runtime
-                .send_and_wait(|reply| RuntimeCommand::AddAccount { account_id, config, reply }),
+                .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                    account_id,
+                    config,
+                    reply,
+                }),
         )?;
 
         Ok(SipAccountHandle {
@@ -226,10 +230,9 @@ impl SipClient {
     ///
     /// 存在しない account_id の場合は `AccountNotFound` を返す。
     #[instrument(skip(self), fields(account_id = %account_id))]
-    pub fn account(&self, account_id: AccountId) -> Result<SipAccountHandle, SipError> {
-        let state = self.inner.state.blocking_read();
+    pub async fn account(&self, account_id: AccountId) -> Result<SipAccountHandle, SipError> {
+        let state = self.inner.state.read().await;
         let _entry = state.get_account(account_id)?;
-        drop(state);
         Ok(SipAccountHandle {
             id: account_id,
             client: self.clone(),
@@ -238,8 +241,8 @@ impl SipClient {
 
     /// 全アカウントのハンドル一覧を返す。
     #[instrument(skip(self))]
-    pub fn accounts(&self) -> Vec<SipAccountHandle> {
-        let state = self.inner.state.blocking_read();
+    pub async fn accounts(&self) -> Vec<SipAccountHandle> {
+        let state = self.inner.state.read().await;
         state
             .accounts
             .keys()
@@ -403,9 +406,9 @@ impl SipClient {
     ///
     /// ローカルの state snapshot を読み取る（RTT 不要）。
     #[instrument(skip(self))]
-    pub fn call_state(&self, call_id: CallId) -> Result<CallState, SipError> {
+    pub async fn call_state(&self, call_id: CallId) -> Result<CallState, SipError> {
         self.ensure_not_shutdown()?;
-        let state = self.inner.state.blocking_read();
+        let state = self.inner.state.read().await;
         let entry = state.get_call(call_id)?;
         Ok(entry.state)
     }
@@ -486,6 +489,7 @@ impl SipClient {
     /// 通話音声を購読する。
     ///
     /// `call_id` で指定された通話の音声を `AudioTapHandle` で受信する。
+    /// reactor 経由で conf_connect を発行し、Conference port に接続する。
     /// `mode` が `Realtime`（既定）の場合、購読者が遅延すると
     /// oldest-drop で最新フレームが優先される。
     /// `Lossless` モードではバックプレッシャーがかかる。
@@ -498,10 +502,17 @@ impl SipClient {
         mode: AudioTapMode,
     ) -> Result<AudioTapHandle, SipError> {
         self.ensure_not_shutdown()?;
-        let (tx, rx) = tokio::sync::mpsc::channel(capacity);
-        let handle = AudioTapHandle::new(rx);
-        let _ = (call_id, format, mode, tx);
-        Ok(handle)
+        block_on(
+            self.inner
+                .runtime
+                .send_and_wait(|reply_tx| RuntimeCommand::SubscribeAudio {
+                    call_id,
+                    format,
+                    capacity,
+                    mode,
+                    reply_tx,
+                }),
+        )
     }
 
     /// 音声ソースをミュート/ミュート解除する。
@@ -610,9 +621,9 @@ impl SipAccountHandle {
     ///
     /// ローカルの state snapshot を読み取る（RTT 不要）。
     #[instrument(skip(self))]
-    pub fn registration_state(&self) -> Result<RegistrationState, SipError> {
+    pub async fn registration_state(&self) -> Result<RegistrationState, SipError> {
         self.client.ensure_not_shutdown()?;
-        let state = self.client.inner.state.blocking_read();
+        let state = self.client.inner.state.read().await;
         let entry = state.get_account(self.id)?;
         Ok(entry.registration)
     }
@@ -699,8 +710,8 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// 正常初期化 → SipClient が返り、ClientInitialized イベントが購読可能。
-    #[test]
-    fn test_new_success() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_new_success() {
         crate::ffi::callbacks::clear_global_runtime();
         let backend = Box::new(crate::runtime::backend::MockBackend::new());
         let config = ClientConfig::default();
@@ -709,8 +720,8 @@ mod tests {
     }
 
     /// event_bus_capacity < 16 で InvalidConfig エラー。
-    #[test]
-    fn test_new_invalid_config() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_new_invalid_config() {
         crate::ffi::callbacks::clear_global_runtime();
         let backend = Box::new(crate::runtime::backend::MockBackend::new());
         let mut config = ClientConfig::default();
@@ -720,8 +731,8 @@ mod tests {
     }
 
     /// MockBackend initialize 失敗 → エラーが伝播すること。
-    #[test]
-    fn test_new_initialize_failure() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_new_initialize_failure() {
         crate::ffi::callbacks::clear_global_runtime();
         let mut backend = Box::new(crate::runtime::backend::MockBackend::new());
         backend.set_initialize_result(Err(SipError::invalid_config("init failed")));
@@ -783,7 +794,11 @@ mod tests {
         let mut acc_rx = client.subscribe_account(acc_id);
 
         // 一致する account_id のイベントを publish。
-        let mut event = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {}));
+        let mut event = SipEvent::new(SipEventPayload::CallConnected(ConnectedCallInfo {
+            acc_id,
+            call_id: CallId::generate(),
+            media_format: None,
+        }));
         event.meta.account_id = Some(acc_id);
         events.publish(event);
 
@@ -849,8 +864,8 @@ mod tests {
     }
 
     /// account() が存在しない ID で AccountNotFound を返すこと。
-    #[test]
-    fn test_account_not_found() {
+    #[tokio::test]
+    async fn test_account_not_found() {
         let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (handle, _rx) = RuntimeHandle::new();
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -864,13 +879,13 @@ mod tests {
         });
         let client = SipClient { inner };
 
-        let result = client.account(AccountId::generate());
+        let result = client.account(AccountId::generate()).await;
         assert!(result.is_err());
     }
 
     /// accounts() が空のリストを返すこと。
-    #[test]
-    fn test_accounts_empty() {
+    #[tokio::test]
+    async fn test_accounts_empty() {
         let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (handle, _rx) = RuntimeHandle::new();
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -884,7 +899,7 @@ mod tests {
         });
         let client = SipClient { inner };
 
-        let accounts = client.accounts();
+        let accounts = client.accounts().await;
         assert!(accounts.is_empty());
     }
 
@@ -935,8 +950,8 @@ mod tests {
     }
 
     /// registration_state() が state から値を読み取れることを確認する。
-    #[test]
-    fn test_account_registration_state() {
+    #[tokio::test]
+    async fn test_account_registration_state() {
         use crate::account::RegistrationState;
         use crate::runtime::state::AccountEntry;
         use secrecy::SecretString;
@@ -988,7 +1003,7 @@ mod tests {
         let client = SipClient { inner };
         let acc_handle = SipAccountHandle { id: acc_id, client };
 
-        let reg = acc_handle.registration_state();
+        let reg = acc_handle.registration_state().await;
         match reg {
             Ok(state) => assert_eq!(state, RegistrationState::Idle),
             Err(e) => panic!("registration_state failed: {e}"),
@@ -996,8 +1011,8 @@ mod tests {
     }
 
     /// 存在しないアカウントの registration_state() が AccountNotFound を返す。
-    #[test]
-    fn test_account_registration_state_not_found() {
+    #[tokio::test]
+    async fn test_account_registration_state_not_found() {
         let (_shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (handle, _rx) = RuntimeHandle::new();
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -1015,13 +1030,13 @@ mod tests {
             client,
         };
 
-        let result = acc_handle.registration_state();
+        let result = acc_handle.registration_state().await;
         assert!(result.is_err());
     }
 
     /// shutdown 後の registration_state() が ShutdownInProgress を返す。
-    #[test]
-    fn test_account_registration_state_shutdown() {
+    #[tokio::test]
+    async fn test_account_registration_state_shutdown() {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (handle, _rx) = RuntimeHandle::new();
         let state = Arc::new(RwLock::new(ClientState::new(
@@ -1040,7 +1055,7 @@ mod tests {
             id: AccountId::generate(),
             client,
         };
-        let result = acc_handle.registration_state();
+        let result = acc_handle.registration_state().await;
         assert!(result.is_err());
     }
 
@@ -1139,7 +1154,7 @@ mod tests {
         assert!(reg.is_err());
         let unreg = acc_handle.unregister();
         assert!(unreg.is_err());
-        let reg_state = acc_handle.registration_state();
+        let reg_state = acc_handle.registration_state().await;
         assert!(reg_state.is_err());
     }
 
@@ -1258,8 +1273,8 @@ mod tests {
     }
 
     /// call_state() が state から通話状態を読み取れることを確認する。
-    #[test]
-    fn test_call_state() {
+    #[tokio::test]
+    async fn test_call_state() {
         use crate::call::CallState;
         use crate::runtime::state::CallEntry;
         use std::collections::BTreeMap;
@@ -1270,6 +1285,7 @@ mod tests {
             native_id: None,
             account_id: AccountId::generate(),
             state: CallState::Active,
+            previous_state: None,
             media: None,
         };
         let mut calls = BTreeMap::new();
@@ -1292,7 +1308,7 @@ mod tests {
         });
         let client = SipClient { inner };
 
-        let result = client.call_state(call_id);
+        let result = client.call_state(call_id).await;
         match result {
             Ok(s) => assert_eq!(s, CallState::Active),
             Err(e) => panic!("call_state failed: {e}"),
@@ -1300,8 +1316,8 @@ mod tests {
     }
 
     /// shutdown 後の発着信操作が ensure_not_shutdown で拒否されることを確認する。
-    #[test]
-    fn test_calls_rejected_after_shutdown() {
+    #[tokio::test]
+    async fn test_calls_rejected_after_shutdown() {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (handle, _rx) = RuntimeHandle::new();
         let inner = Arc::new(ClientInner {
@@ -1334,7 +1350,7 @@ mod tests {
                 crate::config::DtmfMethod::Rfc4733
             )
             .is_err());
-        assert!(client.call_state(CallId::generate()).is_err());
+        assert!(client.call_state(CallId::generate()).await.is_err());
     }
 
     /// テスト用の OutgoingCallRequest を構築する。

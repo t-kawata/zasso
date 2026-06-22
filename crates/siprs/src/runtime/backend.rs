@@ -77,10 +77,8 @@ pub(crate) trait SipBackend: Send {
     fn hangup(&mut self, native_call_id: NativeCallId) -> Result<(), SipError>;
 
     /// アカウント情報を取得する（読み取り専用）。
-    fn get_account_info(
-        &self,
-        native_acc_id: NativeAccId,
-    ) -> Result<AccountInfoSnapshot, SipError>;
+    fn get_account_info(&self, native_acc_id: NativeAccId)
+        -> Result<AccountInfoSnapshot, SipError>;
 
     /// カンファレンスポートを接続する。
     fn conf_connect(
@@ -139,6 +137,9 @@ pub(crate) struct MockBackend {
     add_account_result: Option<Result<i32, SipError>>,
     /// 注入された make_call 結果（Some なら優先返却）。
     make_call_result: Option<Result<i32, SipError>>,
+    /// get_account_info が返す registration_status の上書き値。
+    /// None の場合は 200 固定。
+    registration_status_override: Option<u16>,
 }
 
 /// モック通話エントリ（M11 以降で拡張）。
@@ -160,6 +161,7 @@ impl MockBackend {
             initialize_result: None,
             add_account_result: None,
             make_call_result: None,
+            registration_status_override: None,
         }
     }
 
@@ -178,6 +180,13 @@ impl MockBackend {
         self.make_call_result = Some(result);
     }
 
+    /// get_account_info が返す registration_status を設定する。
+    ///
+    /// 設定しない場合は 200 固定。
+    pub fn set_registration_status(&mut self, status: u16) {
+        self.registration_status_override = Some(status);
+    }
+
     /// 全状態・注入結果をクリアする。
     pub fn reset(&mut self) {
         self.initialized = false;
@@ -188,6 +197,7 @@ impl MockBackend {
         self.initialize_result = None;
         self.add_account_result = None;
         self.make_call_result = None;
+        self.registration_status_override = None;
     }
 
     /// 初期化済みでない場合に NotInitialized エラーを返すヘルパー。
@@ -320,9 +330,10 @@ impl SipBackend for MockBackend {
                 retryable: false,
             });
         }
+        let registration_status = self.registration_status_override.unwrap_or(200);
         Ok(AccountInfoSnapshot {
             acc_id: crate::util::id::AccountId::from_test(native_acc_id as u64),
-            registration_status: 200,
+            registration_status,
             registration_expires: Some(3600),
             online_status: true,
             uri: format!("sip:user{}@mock.example.com", native_acc_id),
@@ -492,12 +503,11 @@ mod tests {
     /// AccountConfig は Default 未実装のため、最小限のフィールドで構築する。
     #[test]
     fn test_mock_get_account_info_ok() {
-        use std::time::Duration;
-        use secrecy::SecretString;
         use crate::config::{
-            AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy,
-            DtmfPolicy,
+            AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy, DtmfPolicy,
         };
+        use secrecy::SecretString;
+        use std::time::Duration;
 
         let mut backend = MockBackend::new();
         assert!(backend.initialize(&ClientConfig::default()).is_ok());

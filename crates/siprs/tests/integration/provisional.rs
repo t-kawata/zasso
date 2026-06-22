@@ -12,7 +12,6 @@ use siprs::event::SipEventPayload;
 #[tokio::test(flavor = "multi_thread")]
 async fn ringing_received() -> Result<(), SipError> {
     let mut ctx = setup_test_context()?;
-    
 
     wait_for_registration(&mut ctx.events).await?;
     wait_for_registration(&mut ctx.events).await?;
@@ -35,7 +34,8 @@ async fn ringing_received() -> Result<(), SipError> {
 
     let event = wait_for_event_with_timeout(&mut ctx.events, CALL_TIMEOUT, |p| {
         matches!(p, SipEventPayload::OutgoingCallRinging { .. })
-    }).await?;
+    })
+    .await?;
 
     assert!(
         matches!(&event.payload, SipEventPayload::OutgoingCallRinging { .. }),

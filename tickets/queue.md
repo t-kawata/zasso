@@ -260,4 +260,6 @@
 - [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
-
+- [x] #191 NativeEvent → SipEventPayload 変換完全化（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0191-nativeevent-sipeventpayload-p0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1） | /Users/shyme/shyme/zasso/tickets/specs/0192-m20-5-subscribeaudio-reactor-conf-connect-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 blocking_read → read().await 全面修正（P0） | /Users/shyme/shyme/zasso/tickets/specs/0193-blocking-read-readawait-p0.md | 2026-06-22 | 2026-06-22 | 2026-06-22

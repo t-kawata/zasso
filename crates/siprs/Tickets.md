@@ -1877,7 +1877,7 @@
 
 ---
 
-#### チケット M20-4: NativeEvent → SipEventPayload 変換完全化（P0-P1）
+#### ✅ チケット M20-4: NativeEvent → SipEventPayload 変換完全化（P0-P1）
 
 * **参照設計書:** crates/siprs/RFC02.md (§2, §2.1, §2.2, §2.3, §2.4, §4)
 * **依存・関連チケットID:** M17-3（Callback bridge — NativeEvent enum 定義済み）、M6-1（SipEventPayload 定義済み）、M20-2（GetAccountInfo RuntimeCommand 完了必須）
@@ -1927,7 +1927,7 @@
 
 ---
 
-#### チケット M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1）
+#### ✅ チケット M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1）
 
 * **参照設計書:** crates/siprs/RFC02.md (§5, §5.2, §5.3, §5.4)
 * **依存・関連チケットID:** M20-2（ConfConnect RuntimeCommand 完了必須）、M16-1（AudioTapHandle/subscribe_audio API 定義済み）
@@ -1959,7 +1959,7 @@
 
 ---
 
-#### チケット M20-6: blocking_read → read().await 全面修正（P0）
+#### ✅ チケット M20-6: blocking_read → read().await 全面修正（P0）
 
 * **参照設計書:** crates/siprs/RFC02.md (§7, §7.1)
 * **依存・関連チケットID:** M12-1（SipClient 構造体 — Arc + ClientInner）、M8-1（ClientState / RwLock）

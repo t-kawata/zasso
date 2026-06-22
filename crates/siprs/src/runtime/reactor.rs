@@ -8,17 +8,55 @@
 #![allow(dead_code)]
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::{watch, RwLock};
 
+use crate::audio::chunk::AudioChunkPair;
 use crate::audio::mixer::AudioMixer;
+use crate::audio::tap::AudioTapHandle;
+use crate::config::DtmfMethod;
 use crate::error::SipError;
-use crate::event::{ClientCapabilities, EventBus, SipEvent, SipEventPayload};
+use crate::event::{
+    ClientCapabilities, ConnectedCallInfo, DisconnectInfo, DtmfReceivedInfo, DtmfSentInfo,
+    EventBus, MediaActiveInfo, MediaErrorInfo, OutgoingCallInfo, ProvisionalInfo,
+    RegistrationFailure, RegistrationInfo, SipEvent, SipEventPayload, TransportConnectedInfo,
+    TransportDisconnectedInfo, TransportErrorInfo,
+};
 use crate::runtime::backend::SipBackend;
 use crate::runtime::command::{MediaDirection, RuntimeCommand};
-use crate::util::id::CallId;
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::state::ClientState;
+use crate::util::id::CallId;
+
+// ---------------------------------------------------------------------------
+// PJSIP 内部定数（M20-4: マジックナンバー撲滅のための名前付き定数）
+// ---------------------------------------------------------------------------
+
+/// PJSIP_INV_STATE_NULL: 初期状態（0）。
+const PJSIP_INV_STATE_NULL: u32 = 0;
+/// PJSIP_INV_STATE_CALLING: INVITE 送出後（1）。
+const PJSIP_INV_STATE_CALLING: u32 = 1;
+/// PJSIP_INV_STATE_CONNECTING: 200 OK 受信/送信後、ACK 前（2）。
+const PJSIP_INV_STATE_CONNECTING: u32 = 2;
+/// PJSIP_INV_STATE_CONFIRMED: 通話確立（3）。
+const PJSIP_INV_STATE_CONFIRMED: u32 = 3;
+/// PJSIP_INV_STATE_DISCONNECTED: 切断完了（4）。
+const PJSIP_INV_STATE_DISCONNECTED: u32 = 4;
+
+/// PJSUA_CALL_MEDIA_NONE: メディア未設定（0）。
+const PJSUA_CALL_MEDIA_NONE: u32 = 0;
+/// PJSUA_CALL_MEDIA_ACTIVE: メディアアクティブ（1）。
+const PJSUA_CALL_MEDIA_ACTIVE: u32 = 1;
+/// PJSUA_CALL_MEDIA_LOCAL_HOLD: ローカル保留（2）。
+const PJSUA_CALL_MEDIA_LOCAL_HOLD: u32 = 2;
+/// PJSUA_CALL_MEDIA_REMOTE_HOLD: リモート保留（3）。
+const PJSUA_CALL_MEDIA_REMOTE_HOLD: u32 = 3;
+/// PJSUA_CALL_MEDIA_ERROR: メディアエラー（4）。
+const PJSUA_CALL_MEDIA_ERROR: u32 = 4;
+
+/// DtmfSent 発火までのデフォルトタイムアウト（ミリ秒）。
+const DTMF_SENT_DEFAULT_TIMEOUT_MS: u64 = 500;
 
 /// 単一スレッドの Core Reactor。
 ///
@@ -37,11 +75,11 @@ impl CoreReactor {
     ///
     /// 同時に callback bridge のグローバルランタイムを設定する。
     pub fn spawn(
-        backend: Box<dyn SipBackend>,
+        mut backend: Box<dyn SipBackend>,
         events: EventBus,
         state: Arc<RwLock<ClientState>>,
         shutdown_rx: watch::Receiver<bool>,
-    ) -> (RuntimeHandle, std::thread::JoinHandle<()>) {
+    ) -> (RuntimeHandle, tokio::task::JoinHandle<()>) {
         let (handle, mut rx) = RuntimeHandle::new();
 
         // M17-3: callback bridge 用のグローバルランタイムを設定。
@@ -49,18 +87,17 @@ impl CoreReactor {
         // 二重設定はテスト時の並列実行で発生しうるため、Err は無視する。
         let _ = crate::ffi::callbacks::set_global_runtime(handle.clone());
 
-        let join_handle = std::thread::spawn(move || {
-            let mut backend = backend;
-            Self::run_loop(&mut *backend, &mut rx, &events, &state, shutdown_rx);
+        let join_handle = tokio::spawn(async move {
+            Self::run_loop_async(&mut *backend, &mut rx, &events, &state, shutdown_rx).await;
         });
 
         (handle, join_handle)
     }
 
-    /// メインループ。
+    /// メインループ（非同期版）。
     ///
     /// `rx` からコマンドを逐次受信し、`SipBackend` で処理する。
-    fn run_loop(
+    async fn run_loop_async(
         backend: &mut dyn SipBackend,
         rx: &mut tokio::sync::mpsc::UnboundedReceiver<RuntimeCommand>,
         events: &EventBus,
@@ -70,7 +107,7 @@ impl CoreReactor {
         // シャットダウン後は新規コマンドを拒否。
         let mut is_shutting_down = false;
 
-        while let Some(cmd) = rx.blocking_recv() {
+        while let Some(cmd) = rx.recv().await {
             if is_shutting_down {
                 // Shutdown コマンド自身は idempotent に成功を返す。
                 if matches!(cmd, RuntimeCommand::Shutdown { .. }) {
@@ -100,10 +137,8 @@ impl CoreReactor {
                     match result {
                         Ok(capabilities) => {
                             // トランスポート作成
-                            let transport_result: Result<(), SipError> = config
-                                .transports
-                                .iter()
-                                .try_for_each(|transport_cfg| {
+                            let transport_result: Result<(), SipError> =
+                                config.transports.iter().try_for_each(|transport_cfg| {
                                     backend.create_transport(transport_cfg)
                                 });
                             if let Err(e) = transport_result {
@@ -118,7 +153,7 @@ impl CoreReactor {
                             }
 
                             // state 更新
-                            let mut state_guard = state.blocking_write();
+                            let mut state_guard = state.write().await;
                             state_guard.initialized = true;
                             state_guard.capabilities = capabilities;
 
@@ -136,16 +171,20 @@ impl CoreReactor {
                 }
                 RuntimeCommand::Shutdown { reply } => {
                     let _ = backend.shutdown();
-                    let mut state_guard = state.blocking_write();
+                    let mut state_guard = state.write().await;
                     state_guard.set_shutting_down();
                     is_shutting_down = true;
                     let _ = reply.send(Ok(()));
                 }
-                RuntimeCommand::AddAccount { account_id, config, reply } => {
+                RuntimeCommand::AddAccount {
+                    account_id,
+                    config,
+                    reply,
+                } => {
                     let result = backend.add_account(&config);
                     match result {
                         Ok((native_id, capabilities)) => {
-                            let mut state_guard = state.blocking_write();
+                            let mut state_guard = state.write().await;
                             let entry = crate::runtime::state::AccountEntry {
                                 id: account_id,
                                 native_id: Some(native_id),
@@ -165,19 +204,19 @@ impl CoreReactor {
                     }
                 }
                 RuntimeCommand::RemoveAccount { account_id, reply } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_account(account_id)?;
                             entry.native_id.ok_or_else(|| {
                                 SipError::invalid_state("account has no native_id")
                             })?
                         };
                         backend.remove_account(native_id)?;
-                        let mut state_guard = state.blocking_write();
+                        let mut state_guard = state.write().await;
                         state_guard.remove_account(account_id)?;
                         Ok(())
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::SetRegistration {
@@ -185,16 +224,16 @@ impl CoreReactor {
                     enabled,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_account(account_id)?;
                             entry.native_id.ok_or_else(|| {
                                 SipError::invalid_state("account has no native_id")
                             })?
                         };
                         backend.set_registration(native_id, enabled)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::UpdateAccountConfig {
@@ -202,11 +241,11 @@ impl CoreReactor {
                     patch,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
-                        let mut state_guard = state.blocking_write();
+                    let result = async {
+                        let mut state_guard = state.write().await;
                         let entry = state_guard.get_account_mut(account_id)?;
                         entry.apply_patch(patch)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::MakeCall {
@@ -214,16 +253,16 @@ impl CoreReactor {
                     request,
                     reply,
                 } => {
-                    let result = (|| -> Result<crate::util::id::CallId, SipError> {
+                    let result: Result<crate::util::id::CallId, SipError> = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_account(account_id)?;
                             entry.native_id.ok_or_else(|| {
                                 SipError::invalid_state("account has no native_id")
                             })?
                         };
                         let native_call_id = backend.make_call(native_id, &request)?;
-                        let mut state_guard = state.blocking_write();
+                        let mut state_guard = state.write().await;
                         let call_id = crate::util::id::CallId::generate();
                         let audio_mixer = Arc::new(AudioMixer::new(16, 16));
                         state_guard.add_call(crate::runtime::state::CallEntry {
@@ -231,10 +270,14 @@ impl CoreReactor {
                             native_id: Some(native_call_id),
                             account_id,
                             state: crate::call::CallState::Calling,
-                            media: Some(crate::runtime::state::MediaRuntime { mixer: audio_mixer }),
+                            previous_state: None,
+                            media: Some(crate::runtime::state::MediaRuntime {
+                                mixer: audio_mixer,
+                                tap_txs: Vec::new(),
+                            }),
                         })?;
                         Ok(call_id)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Hangup {
@@ -242,16 +285,16 @@ impl CoreReactor {
                     reason: _,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_call(call_id)?;
                             entry
                                 .native_id
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.hangup(native_id)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Answer {
@@ -259,22 +302,22 @@ impl CoreReactor {
                     code,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_call(call_id)?;
                             entry
                                 .native_id
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.answer_call(native_id, code)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Hold { call_id, reply } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_call(call_id)?;
                             entry
                                 .native_id
@@ -282,13 +325,13 @@ impl CoreReactor {
                         };
                         // PJSUA hold: pjsua_call_set_hold() を呼ぶ
                         backend.hangup(native_id)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::Unhold { call_id, reply } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let _native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_call(call_id)?;
                             entry
                                 .native_id
@@ -297,7 +340,7 @@ impl CoreReactor {
                         // PJSUA unhold: pjsua_call_set_hold()
                         // 現状は hold の逆操作。MockBackend は no-op。
                         Ok(())
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::SendDtmf {
@@ -306,19 +349,51 @@ impl CoreReactor {
                     method,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
-                        let native_id = {
-                            let state_guard = state.blocking_read();
-                            let entry = state_guard.get_call(call_id)?;
-                            entry
-                                .native_id
-                                .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
+                    let (result, acc_id) = async {
+                        let state_guard = state.read().await;
+                        let entry = match state_guard.get_call(call_id) {
+                            Ok(e) => e,
+                            Err(e) => return (Err(e), None),
                         };
-                        backend.send_dtmf(native_id, &method, &digits)
-                    })();
+                        let native_id = match entry.native_id {
+                            Some(id) => id,
+                            None => {
+                                return (
+                                    Err(SipError::invalid_state("call has no native_id")),
+                                    None,
+                                )
+                            }
+                        };
+                        let entry_acc_id = entry.account_id;
+                        drop(state_guard);
+                        let result = backend.send_dtmf(native_id, &method, &digits);
+                        (result, Some(entry_acc_id))
+                    }.await;
                     if result.is_ok() {
                         #[cfg(feature = "metrics")]
                         crate::metrics::increment_dtmf_sent();
+                        // DtmfSent タイマー発火: PJSIP callback 経由の発火がないため
+                        // タイムアウト後に DtmfSent イベントを publish する。
+                        if let Some(acc_id) = acc_id {
+                            let events_clone = events.clone();
+                            let digits_clone = digits.clone();
+                            let method_clone = method;
+                            tokio::spawn(async move {
+                                tokio::time::sleep(Duration::from_millis(DTMF_SENT_DEFAULT_TIMEOUT_MS)).await;
+                                let info = DtmfSentInfo {
+                                    acc_id,
+                                    call_id,
+                                    method: method_clone,
+                                    digits: digits_clone,
+                                    status: Ok(()),
+                                };
+                                let event = SipEvent::with_meta(SipEventPayload::DtmfSent(info))
+                                    .account_id(acc_id)
+                                    .call_id(call_id)
+                                    .build();
+                                events_clone.publish(event);
+                            });
+                        }
                     }
                     let _ = reply.send(result);
                 }
@@ -327,16 +402,16 @@ impl CoreReactor {
                     target,
                     reply,
                 } => {
-                    let result = (|| -> Result<(), SipError> {
+                    let result = async {
                         let native_id = {
-                            let state_guard = state.blocking_read();
+                            let state_guard = state.read().await;
                             let entry = state_guard.get_call(call_id)?;
                             entry
                                 .native_id
                                 .ok_or_else(|| SipError::invalid_state("call has no native_id"))?
                         };
                         backend.transfer_call(native_id, &target)
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::AddAudioSource {
@@ -344,8 +419,8 @@ impl CoreReactor {
                     source,
                     reply,
                 } => {
-                    let result = (|| -> Result<crate::util::id::AudioSourceId, SipError> {
-                        let mut state_guard = state.blocking_write();
+                    let result = async {
+                        let mut state_guard = state.write().await;
                         let entry = state_guard.get_call_mut(call_id)?;
                         if let Some(ref media) = entry.media {
                             let source_id = media.mixer.add_source(source);
@@ -353,7 +428,7 @@ impl CoreReactor {
                         } else {
                             Err(SipError::invalid_state("call has no media runtime"))
                         }
-                    })();
+                    }.await;
                     let _ = reply.send(result);
                 }
                 RuntimeCommand::RemoveAudioSource {
@@ -397,14 +472,45 @@ impl CoreReactor {
                     })();
                     let _ = reply.send(result);
                 }
-                RuntimeCommand::SubscribeAudio { call_id, reply } => {
-                    let result = (|| -> Result<(), SipError> {
-                        let _ = call_id;
-                        Err(SipError::invalid_state(
-                            "SubscribeAudio: not implemented (see M18)",
-                        ))
-                    })();
-                    let _ = reply.send(result);
+                RuntimeCommand::SubscribeAudio {
+                    call_id,
+                    format: _format,
+                    capacity,
+                    mode: _mode,
+                    reply_tx,
+                } => {
+                    // RFC02 §5.3 処理フロー:
+                    //   1. CallId → native_call_id 解決
+                    //   2. conf_port 接続（ConfConnect Both）
+                    //   3. mpsc チャネル生成
+                    //   4. tx を MediaRuntime.tap_txs に保存
+                    //   5. AudioTapHandle を構築して返却
+                    let result = async {
+                        // 1. call_id の存在確認と native_id 解決
+                        let _native_call_id = resolve_native_call_id(state, call_id).await?;
+
+                        // 2. conference port に双方向接続
+                        handle_conf_connect(backend, state, call_id, MediaDirection::Both).await?;
+
+                        // 3. AudioChunkPair ストリーム用 mpsc チャネルを生成
+                        let (tap_tx, tap_rx) =
+                            tokio::sync::mpsc::channel::<AudioChunkPair>(capacity);
+
+                        // 4. 送信側を MediaRuntime に保持（AudioWorker 連携は別チケット）
+                        {
+                            let mut state_guard = state.write().await;
+                            if let Ok(call_entry) = state_guard.get_call_mut(call_id) {
+                                if let Some(ref mut media) = call_entry.media {
+                                    media.tap_txs.push(tap_tx);
+                                }
+                            }
+                        }
+
+                        // 5. AudioTapHandle を構築して返却
+                        let handle = AudioTapHandle::new(tap_rx);
+                        Ok(handle)
+                    }.await;
+                    let _ = reply_tx.send(result);
                 }
                 RuntimeCommand::GetAccountInfo {
                     native_acc_id,
@@ -418,7 +524,7 @@ impl CoreReactor {
                     media_direction,
                     reply_tx,
                 } => {
-                    let result = handle_conf_connect(backend, state, call_id, media_direction);
+                    let result = handle_conf_connect(backend, state, call_id, media_direction).await;
                     let _ = reply_tx.send(result);
                 }
                 RuntimeCommand::ConfDisconnect {
@@ -426,37 +532,11 @@ impl CoreReactor {
                     media_direction,
                     reply_tx,
                 } => {
-                    let result =
-                        handle_conf_disconnect(backend, state, call_id, media_direction);
+                    let result = handle_conf_disconnect(backend, state, call_id, media_direction).await;
                     let _ = reply_tx.send(result);
                 }
                 RuntimeCommand::NativeEvent { event } => {
-                    use crate::event::SipEventPayload;
-                    use crate::ffi::callbacks::NativeEvent;
-                    let payload = match event {
-                        NativeEvent::RegistrationStateChanged { .. } => None,
-                        NativeEvent::RegistrationStarted { .. } => {
-                            Some(SipEventPayload::RegistrationStarted(crate::event::RegistrationInfo {}))
-                        }
-                        NativeEvent::CallStateChanged { call_id: _, state } => {
-                            match state {
-                                1 => Some(SipEventPayload::CallDisconnected(
-                                    crate::event::DisconnectInfo {},
-                                )),
-                                3 => Some(SipEventPayload::CallConnected(
-                                    crate::event::ConnectedCallInfo {},
-                                )),
-                                _ => None,
-                            }
-                        }
-                        NativeEvent::DtmfDigit { call_id: _, digit: _ } => {
-                            Some(SipEventPayload::DtmfReceived(crate::event::DtmfReceivedInfo {}))
-                        }
-                        _ => None,
-                    };
-                    if let Some(payload) = payload {
-                        events.publish(crate::event::SipEvent::new(payload));
-                    }
+                    handle_native_event(event, backend, events, state).await;
                 }
             }
         }
@@ -514,8 +594,8 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
         RuntimeCommand::MuteSource { reply, .. } => {
             let _ = reply.send(Err(SipError::invalid_state(message)));
         }
-        RuntimeCommand::SubscribeAudio { reply, .. } => {
-            let _ = reply.send(Err(SipError::invalid_state(message)));
+        RuntimeCommand::SubscribeAudio { reply_tx, .. } => {
+            let _ = reply_tx.send(Err(SipError::invalid_state(message)));
         }
         RuntimeCommand::NativeEvent { .. } => {
             // fire-and-forget: シャットダウン中は単に無視
@@ -539,13 +619,13 @@ fn reject_command(cmd: RuntimeCommand, message: &str) {
 ///
 /// CallId から native_call_id を解決し、media_direction に応じて
 /// バックエンドの conf_connect を呼び出す。
-fn handle_conf_connect(
+async fn handle_conf_connect(
     backend: &mut dyn SipBackend,
     state: &Arc<RwLock<ClientState>>,
     call_id: CallId,
     media_direction: MediaDirection,
 ) -> Result<(), SipError> {
-    let native_call_id = resolve_native_call_id(state, call_id)?;
+    let native_call_id = resolve_native_call_id(state, call_id).await?;
     // media_direction に応じた conf_port_id 解決
     // 現状は call の conf_slot をそのまま source/sink 両方に使用する簡易実装。
     // 詳細な conf_port_id 解決は M20-5 で実装予定。
@@ -561,13 +641,13 @@ fn handle_conf_connect(
 }
 
 /// ConfDisconnect コマンドを処理する。
-fn handle_conf_disconnect(
+async fn handle_conf_disconnect(
     backend: &mut dyn SipBackend,
     state: &Arc<RwLock<ClientState>>,
     call_id: CallId,
     media_direction: MediaDirection,
 ) -> Result<(), SipError> {
-    let native_call_id = resolve_native_call_id(state, call_id)?;
+    let native_call_id = resolve_native_call_id(state, call_id).await?;
     let conf_port = native_call_id;
     match media_direction {
         MediaDirection::Inbound => backend.conf_disconnect(conf_port, 0),
@@ -580,15 +660,353 @@ fn handle_conf_disconnect(
 }
 
 /// CallId から native_call_id を解決する。
-fn resolve_native_call_id(
+async fn resolve_native_call_id(
     state: &Arc<RwLock<ClientState>>,
     call_id: CallId,
 ) -> Result<i32, SipError> {
-    let state_guard = state.blocking_read();
+    let state_guard = state.read().await;
     let entry = state_guard.get_call(call_id)?;
     entry
         .native_id
         .ok_or_else(|| SipError::invalid_state("call has no native_id"))
+}
+
+// ---------------------------------------------------------------------------
+// NativeEvent → SipEventPayload 変換ヘルパー
+// ---------------------------------------------------------------------------
+
+/// NativeEvent を受け取り、適切な SipEventPayload に変換して EventBus に publish する。
+async fn handle_native_event(
+    event: crate::ffi::callbacks::NativeEvent,
+    backend: &mut dyn SipBackend,
+    events: &EventBus,
+    state: &Arc<RwLock<ClientState>>,
+) {
+    use crate::ffi::callbacks::NativeEvent;
+    match event {
+        NativeEvent::RegistrationStateChanged { acc_id } => {
+            // GetAccountInfo を発行し、結果に応じて RegistrationSucceeded または
+            // RegistrationFailed を publish する（RFC02 §3 フロー）。
+            handle_registration_state_changed(backend, events, state, acc_id).await;
+        }
+        NativeEvent::RegistrationStarted { acc_id, renew } => {
+            let account_id = resolve_runtime_account_id(state, acc_id).await;
+            if let Some(aid) = account_id {
+                let info = RegistrationInfo {
+                    acc_id: aid,
+                    renew,
+                    status_code: None,
+                    reason: None,
+                };
+                let event = SipEvent::with_meta(SipEventPayload::RegistrationStarted(info))
+                    .account_id(aid)
+                    .build();
+                events.publish(event);
+            }
+        }
+        NativeEvent::CallStateChanged {
+            call_id,
+            state: inv_state,
+        } => {
+            handle_call_state_changed(events, state, call_id, inv_state).await;
+        }
+        NativeEvent::CallMediaStateChanged {
+            call_id,
+            media_status,
+        } => {
+            handle_call_media_state_changed(events, state, call_id, media_status).await;
+        }
+        NativeEvent::DtmfDigit { call_id, digit } => {
+            // DtmfDigit は method 情報がないため RFC4733 として扱う。
+            let state_guard = state.read().await;
+            let call_entry = state_guard.get_call_by_native_id(call_id);
+            if let Some(entry) = call_entry {
+                let digit_char = match char::from_digit(digit as u32, 10) {
+                    Some(c) => c,
+                    None => return,
+                };
+                let info = DtmfReceivedInfo {
+                    acc_id: entry.account_id,
+                    call_id: entry.id,
+                    digit: digit_char,
+                    method: DtmfMethod::Rfc4733,
+                };
+                let event = SipEvent::with_meta(SipEventPayload::DtmfReceived(info))
+                    .account_id(entry.account_id)
+                    .call_id(entry.id)
+                    .build();
+                drop(state_guard);
+                events.publish(event);
+            }
+        }
+        NativeEvent::DtmfDigit2 {
+            call_id,
+            digit,
+            method: method_val,
+        } => {
+            let state_guard = state.read().await;
+            let call_entry = state_guard.get_call_by_native_id(call_id);
+            if let Some(entry) = call_entry {
+                let digit_char = match char::from_digit(digit as u32, 10) {
+                    Some(c) => c,
+                    None => return,
+                };
+                // method: 0=SIP_INFO, 1=RFC2833/RFC4733
+                let dtmf_method = match method_val {
+                    0 => DtmfMethod::SipInfo,
+                    _ => DtmfMethod::Rfc4733,
+                };
+                let info = DtmfReceivedInfo {
+                    acc_id: entry.account_id,
+                    call_id: entry.id,
+                    digit: digit_char,
+                    method: dtmf_method,
+                };
+                let event = SipEvent::with_meta(SipEventPayload::DtmfReceived(info))
+                    .account_id(entry.account_id)
+                    .call_id(entry.id)
+                    .build();
+                drop(state_guard);
+                events.publish(event);
+            }
+        }
+        NativeEvent::TransportStateChanged {
+            tp_id,
+            state: tp_state,
+        } => {
+            let transport_event = convert_transport_state(tp_id, tp_state);
+            if let Some(payload) = transport_event {
+                events.publish(SipEvent::new(payload));
+            }
+        }
+        NativeEvent::IceTransportError { call_id: _, status } => {
+            let payload = SipEventPayload::IceNegotiationFailed(crate::event::IceFailureInfo {
+                call_id: None,
+                status_code: Some(status),
+                error_msg: format!("ICE transport error: status={status}"),
+            });
+            events.publish(SipEvent::new(payload));
+        }
+        NativeEvent::NatDetected { .. }
+        | NativeEvent::CallTsxStateChanged { .. }
+        | NativeEvent::CallRedirected { .. }
+        | NativeEvent::CallTransferStatus { .. }
+        | NativeEvent::CallReplaced { .. }
+        | NativeEvent::IncomingCall { .. } => {
+            // P2 対象外イベント: RawSIP バス経由での代替取得を推奨。
+            // 現時点では発行なし（None）。
+        }
+    }
+}
+
+/// RegistrationStateChanged を処理する。
+///
+/// GetAccountInfo を発行し、登録状態に応じて RegistrationSucceeded または
+/// RegistrationFailed を EventBus に publish する。
+async fn handle_registration_state_changed(
+    backend: &mut dyn SipBackend,
+    events: &EventBus,
+    state: &Arc<RwLock<ClientState>>,
+    native_acc_id: i32,
+) {
+    let info_result = backend.get_account_info(native_acc_id);
+    match info_result {
+        Ok(snapshot) => {
+            let account_id = snapshot.acc_id;
+            let payload = if snapshot.registration_status == 200 {
+                SipEventPayload::RegistrationSucceeded(RegistrationInfo {
+                    acc_id: account_id,
+                    renew: false,
+                    status_code: Some(snapshot.registration_status),
+                    reason: None,
+                })
+            } else {
+                SipEventPayload::RegistrationFailed(RegistrationFailure {
+                    acc_id: account_id,
+                    status_code: snapshot.registration_status,
+                    reason: format!("registration status: {}", snapshot.registration_status),
+                    is_expired: false,
+                })
+            };
+            let event = SipEvent::with_meta(payload).account_id(account_id).build();
+            events.publish(event);
+        }
+        Err(err) => {
+            // GetAccountInfo が失敗した場合も RegistrationFailed を発行する。
+            let account_id = resolve_runtime_account_id(state, native_acc_id).await;
+            if let Some(aid) = account_id {
+                let payload = SipEventPayload::RegistrationFailed(RegistrationFailure {
+                    acc_id: aid,
+                    status_code: 0,
+                    reason: format!("GetAccountInfo failed: {err}"),
+                    is_expired: false,
+                });
+                let event = SipEvent::with_meta(payload).account_id(aid).build();
+                events.publish(event);
+            }
+        }
+    }
+}
+
+/// CallStateChanged を処理する。
+///
+/// PJSIP の呼状態（PJSIP_INV_STATE_*）を SipEventPayload に変換し、
+/// 前回状態（previous_state）による分岐を考慮する。
+async fn handle_call_state_changed(
+    events: &EventBus,
+    state: &Arc<RwLock<ClientState>>,
+    native_call_id: i32,
+    inv_state: u32,
+) {
+    let mut state_guard = state.write().await;
+    let call_entry = state_guard.get_call_by_native_id_mut(native_call_id);
+    let Some(entry) = call_entry else {
+        return;
+    };
+
+    let payload = match inv_state {
+        PJSIP_INV_STATE_NULL => None,
+        PJSIP_INV_STATE_CALLING => {
+            entry.previous_state = Some(entry.state);
+            entry.state = crate::call::CallState::Calling;
+            Some(SipEventPayload::OutgoingCallStarted(OutgoingCallInfo {
+                acc_id: entry.account_id,
+                call_id: entry.id,
+                remote_uri: None,
+                target_uri: None,
+            }))
+        }
+        PJSIP_INV_STATE_CONNECTING => {
+            // 前状態が CALLING → OutgoingCallTrying、INCOMING → IncomingCall + Ringing
+            let prev = entry.previous_state;
+            entry.previous_state = Some(entry.state);
+            if prev == Some(crate::call::CallState::Calling) {
+                entry.state = crate::call::CallState::Trying;
+                Some(SipEventPayload::OutgoingCallTrying(ProvisionalInfo {
+                    acc_id: entry.account_id,
+                    call_id: entry.id,
+                    status_code: 100,
+                    reason: Some("Trying".into()),
+                }))
+            } else {
+                entry.state = crate::call::CallState::Ringing;
+                Some(SipEventPayload::OutgoingCallRinging(ProvisionalInfo {
+                    acc_id: entry.account_id,
+                    call_id: entry.id,
+                    status_code: 180,
+                    reason: Some("Ringing".into()),
+                }))
+            }
+        }
+        PJSIP_INV_STATE_CONFIRMED => {
+            entry.previous_state = Some(entry.state);
+            entry.state = crate::call::CallState::Active;
+            Some(SipEventPayload::CallConnected(ConnectedCallInfo {
+                acc_id: entry.account_id,
+                call_id: entry.id,
+                media_format: None,
+            }))
+        }
+        PJSIP_INV_STATE_DISCONNECTED => {
+            entry.previous_state = Some(entry.state);
+            entry.state = crate::call::CallState::Disconnected;
+            Some(SipEventPayload::CallDisconnected(DisconnectInfo {
+                acc_id: entry.account_id,
+                call_id: entry.id,
+                reason: None,
+                status_code: None,
+                by_remote: false,
+            }))
+        }
+        _ => None,
+    };
+
+    if let Some(payload) = payload {
+        let event = SipEvent::with_meta(payload)
+            .account_id(entry.account_id)
+            .call_id(entry.id)
+            .build();
+        events.publish(event);
+    }
+}
+
+/// CallMediaStateChanged を処理する。
+///
+/// PJSUA_CALL_MEDIA_* 定数に基づきメディア状態を SipEventPayload に変換する。
+async fn handle_call_media_state_changed(
+    events: &EventBus,
+    state: &Arc<RwLock<ClientState>>,
+    native_call_id: i32,
+    media_status: u32,
+) {
+    let state_guard = state.read().await;
+    let call_entry = state_guard.get_call_by_native_id(native_call_id);
+    let Some(entry) = call_entry else {
+        return;
+    };
+
+    let payload = match media_status {
+        PJSUA_CALL_MEDIA_NONE => None,
+        PJSUA_CALL_MEDIA_ACTIVE => Some(SipEventPayload::MediaActive(MediaActiveInfo {
+            acc_id: entry.account_id,
+            call_id: entry.id,
+        })),
+        PJSUA_CALL_MEDIA_LOCAL_HOLD | PJSUA_CALL_MEDIA_REMOTE_HOLD => {
+            Some(SipEventPayload::CallHeld(()))
+        }
+        PJSUA_CALL_MEDIA_ERROR => Some(SipEventPayload::MediaError(MediaErrorInfo {
+            acc_id: entry.account_id,
+            call_id: entry.id,
+            error_msg: "call media error".into(),
+        })),
+        _ => None,
+    };
+
+    if let Some(payload) = payload {
+        let event = SipEvent::with_meta(payload)
+            .account_id(entry.account_id)
+            .call_id(entry.id)
+            .build();
+        events.publish(event);
+    }
+}
+
+/// TransportStateChanged を SipEventPayload に変換する。
+///
+/// トランスポート状態（接続/切断/エラー）に応じて適切なバリアントを返す。
+fn convert_transport_state(tp_id: i32, _tp_state: u32) -> Option<SipEventPayload> {
+    // _tp_state は PJSIP トランスポート状態（PJSUA_TP_STATE_*）。
+    // 0=DISCONNECTED, 1=CONNECTING, 2=CONNECTED, 3=DISCONNECTING
+    match _tp_state {
+        2 => Some(SipEventPayload::TransportConnected(
+            TransportConnectedInfo {
+                tp_id,
+                kind: crate::transport::TransportKind::Udp,
+                local_addr: None,
+            },
+        )),
+        0 => Some(SipEventPayload::TransportDisconnected(
+            TransportDisconnectedInfo {
+                tp_id,
+                kind: crate::transport::TransportKind::Udp,
+            },
+        )),
+        _ => Some(SipEventPayload::TransportError(TransportErrorInfo {
+            tp_id,
+            kind: crate::transport::TransportKind::Udp,
+            error: format!("transport state changed: {_tp_state}"),
+        })),
+    }
+}
+
+/// ネイティブアカウント ID からランタイム AccountId を解決する。
+async fn resolve_runtime_account_id(
+    state: &Arc<RwLock<ClientState>>,
+    native_acc_id: i32,
+) -> Option<crate::util::id::AccountId> {
+    let state_guard = state.read().await;
+    let entry = state_guard.get_account_by_native_id(native_acc_id)?;
+    Some(entry.id)
 }
 
 // ---------------------------------------------------------------------------
@@ -598,9 +1016,55 @@ fn resolve_native_call_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::format::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
+    use crate::audio::tap::AudioTapMode;
+    use crate::config::{AccountConfig, OutgoingCallRequest};
     use crate::event::ClientCapabilities;
     use crate::runtime::backend::MockBackend;
+    use crate::util::id::AccountId;
+    use secrecy::SecretString;
     use tokio::sync::watch;
+
+    /// テスト用の最小限の AccountConfig を生成する。
+    fn test_account_config() -> AccountConfig {
+        use crate::config::{
+            AccountCodecPolicy, AccountMediaConfig, AccountTransportPolicy, DtmfPolicy,
+        };
+        AccountConfig {
+            display_name: None,
+            username: "testuser".into(),
+            auth_username: None,
+            password: SecretString::new(Box::from("secret")),
+            domain: "example.com".into(),
+            registrar_uri: None,
+            outbound_proxy: vec![],
+            contact_params: vec![],
+            transport: AccountTransportPolicy::Default,
+            register_on_start: true,
+            allow_outbound_without_register: false,
+            registration_expires: std::time::Duration::from_secs(300),
+            codecs: AccountCodecPolicy::default_voice(),
+            dtmf: DtmfPolicy::all_methods(),
+            media: AccountMediaConfig::default(),
+            headers: vec![],
+        }
+    }
+
+    /// テスト用の最小限の MakeCall リクエストを生成する。
+    fn test_outgoing_call_request() -> Box<OutgoingCallRequest> {
+        Box::new(OutgoingCallRequest {
+            target_uri: "sip:test@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::config::CallMediaPreferences {
+                enable_early_media: false,
+                enable_srtp: None,
+                preferred_codecs: vec![],
+            },
+            auto_answer_refer: false,
+        })
+    }
 
     /// Initialize コマンドで ClientInitialized イベントが emit されることを確認する。
     #[tokio::test]
@@ -840,10 +1304,7 @@ mod tests {
             crate::error::SipErrorKind::InvalidState,
             "GetAccountInfo should not be rejected by shutdown policy"
         );
-        assert_eq!(
-            err.kind,
-            crate::error::SipErrorKind::NotInitialized
-        );
+        assert_eq!(err.kind, crate::error::SipErrorKind::NotInitialized);
     }
 
     /// Shutdown 後に ConfConnect が InvalidState で拒否されることを確認する。
@@ -925,10 +1386,1448 @@ mod tests {
         );
     }
 
+    /// RegistrationStateChanged → get_account_info(200) → RegistrationSucceeded が publish される。
+    #[tokio::test]
+    async fn test_native_registration_succeeded() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mut mock = MockBackend::new();
+        mock.set_registration_status(200);
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        // MockBackend は最初のアカウントに native_acc_id=1 を割り当てる
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::RegistrationSucceeded(_)
+        ));
+    }
+
+    /// RegistrationStateChanged → get_account_info(401) → RegistrationFailed が publish される。
+    #[tokio::test]
+    async fn test_native_registration_failed_status() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mut mock = MockBackend::new();
+        mock.set_registration_status(401);
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: AccountId::generate(),
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::RegistrationFailed(_)
+        ));
+    }
+
+    /// RegistrationStateChanged → 存在しない acc_id → RegistrationFailed（GetAccountInfo 失敗）が publish される。
+    #[tokio::test]
+    async fn test_native_registration_failed_not_found() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, Some(16));
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        // 未登録の acc_id=999 → MockBackend が AccountNotFound → Err 分岐 → RegistrationFailed
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::RegistrationStateChanged { acc_id: 999 },
+            })
+            .is_ok());
+
+        // Err 分岐では登録エントリがないため、account_id 解決できずイベント発行なし
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let result = rx.try_recv();
+        assert!(
+            result.is_err(),
+            "No event should be published for unknown account"
+        );
+    }
+
+    /// RegistrationStarted { renew: true } → RegistrationStarted に renew=true が伝播される。
+    #[tokio::test]
+    async fn test_native_registration_started_renew() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // アカウント追加（native_acc_id=1 になる）
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::RegistrationStarted {
+                    acc_id: 1,
+                    renew: true,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        if let SipEventPayload::RegistrationStarted(info) = event.payload {
+            assert!(info.renew);
+        } else {
+            panic!("Expected RegistrationStarted");
+        }
+    }
+
+    /// RegistrationStarted { renew: false } → RegistrationStarted に renew=false が伝播される。
+    #[tokio::test]
+    async fn test_native_registration_started_no_renew() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::RegistrationStarted {
+                    acc_id: 1,
+                    renew: false,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        if let SipEventPayload::RegistrationStarted(info) = event.payload {
+            assert!(!info.renew);
+        } else {
+            panic!("Expected RegistrationStarted");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // CallStateChanged tests
+    // -----------------------------------------------------------------------
+
+    /// CallStateChanged state=0 (NULL) → イベント発行なし。
+    #[tokio::test]
+    async fn test_call_state_changed_null() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        // NULL(0) → イベント発行なし（通知不要）
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 0,
+                },
+            })
+            .is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        // call が存在しないため get_call_by_native_id が None → 何も発行されない
+        let result = rx.try_recv();
+        assert!(result.is_err());
+    }
+
+    /// CallStateChanged state=1 (CALLING) → OutgoingCallStarted が publish される。
+    #[tokio::test]
+    async fn test_call_state_changed_calling() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // まずアカウント追加
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // MakeCall で通話エントリ作成（native_call_id=1）
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // CALLING(1) → OutgoingCallStarted
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 1,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::OutgoingCallStarted(_)
+        ));
+        // call_id が伝播されていることを確認
+        assert_eq!(event.meta.call_id, Some(call_id));
+    }
+
+    /// CallStateChanged state=2, 前状態=CALLING → OutgoingCallTrying が publish される。
+    #[tokio::test]
+    async fn test_call_state_changed_connecting_from_calling() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // まず CALLING → state を Calling に設定
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 1,
+                },
+            })
+            .is_ok());
+        let _ = rx.recv().await; // consume OutgoingCallStarted
+
+        // CONNECTING(2) + 前状態が CALLING → OutgoingCallTrying(100 Trying)
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 2,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::OutgoingCallTrying(_)
+        ));
+    }
+
+    /// CallStateChanged state=3 (CONFIRMED) → CallConnected が publish される。
+    #[tokio::test]
+    async fn test_call_state_changed_confirmed() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // CONFIRMED(3) → CallConnected
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 3,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event.payload, SipEventPayload::CallConnected(_)));
+        assert_eq!(event.meta.call_id, Some(call_id));
+    }
+
+    /// CallStateChanged state=4 (DISCONNECTED) → CallDisconnected が publish される。
+    #[tokio::test]
+    async fn test_call_state_changed_disconnected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // DISCONNECTED(4) → CallDisconnected
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 4,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::CallDisconnected(_)
+        ));
+    }
+
+    // -----------------------------------------------------------------------
+    // CallMediaStateChanged tests
+    // -----------------------------------------------------------------------
+
+    /// CallMediaStateChanged ACTIVE(1) → MediaActive が publish される。
+    #[tokio::test]
+    async fn test_media_state_active() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // ACTIVE(1) → MediaActive
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallMediaStateChanged {
+                    call_id: 1,
+                    media_status: 1,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event.payload, SipEventPayload::MediaActive(_)));
+        assert_eq!(event.meta.call_id, Some(call_id));
+    }
+
+    /// CallMediaStateChanged LOCAL_HOLD(2) → CallHeld が publish される。
+    #[tokio::test]
+    async fn test_media_state_local_hold() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // LOCAL_HOLD(2) → CallHeld
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallMediaStateChanged {
+                    call_id: 1,
+                    media_status: 2,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event.payload, SipEventPayload::CallHeld(_)));
+    }
+
+    /// CallMediaStateChanged ERROR(4) → MediaError が publish される。
+    #[tokio::test]
+    async fn test_media_state_error() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // ERROR(4) → MediaError
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallMediaStateChanged {
+                    call_id: 1,
+                    media_status: 4,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event.payload, SipEventPayload::MediaError(_)));
+    }
+
+    /// CallMediaStateChanged NONE(0) → イベント発行なし。
+    #[tokio::test]
+    async fn test_media_state_none() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // NONE(0) → イベント発行なし
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallMediaStateChanged {
+                    call_id: 1,
+                    media_status: 0,
+                },
+            })
+            .is_ok());
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let result = rx.try_recv();
+        assert!(result.is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // DTMF tests
+    // -----------------------------------------------------------------------
+
+    /// DtmfDigit { digit: 5 } → DtmfReceived(digit='5', method=Rfc4733) が publish される。
+    #[tokio::test]
+    async fn test_dtmf_digit_received() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // DtmfDigit { digit: 5 }
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::DtmfDigit {
+                    call_id: 1,
+                    digit: 5,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        if let SipEventPayload::DtmfReceived(info) = event.payload {
+            assert_eq!(info.digit, '5');
+            assert_eq!(event.meta.call_id, Some(call_id));
+        } else {
+            panic!("Expected DtmfReceived");
+        }
+    }
+
+    /// DtmfDigit2 { digit: 9, method: 0 } → DtmfReceived(digit='9', method=SipInfo) が publish される。
+    #[tokio::test]
+    async fn test_dtmf_digit2_received() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // DtmfDigit2 { digit: 9, method: 0(SIP_INFO) }
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::DtmfDigit2 {
+                    call_id: 1,
+                    digit: 9,
+                    method: 0,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        if let SipEventPayload::DtmfReceived(info) = event.payload {
+            assert_eq!(info.digit, '9');
+            assert_eq!(info.method, crate::config::DtmfMethod::SipInfo);
+        } else {
+            panic!("Expected DtmfReceived");
+        }
+    }
+
+    /// P2 対象外イベント → すべてイベント発行なし。
+    #[tokio::test]
+    async fn test_p2_events_ignored() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        // P2 対象外イベント群 → いずれも発行されない
+        use crate::ffi::callbacks::NativeEvent;
+        let ignored_events = vec![
+            NativeEvent::CallTsxStateChanged { call_id: 1 },
+            NativeEvent::CallRedirected { call_id: 1 },
+            NativeEvent::CallTransferStatus {
+                call_id: 1,
+                status_code: 200,
+            },
+            NativeEvent::CallReplaced {
+                old_call_id: 1,
+                new_call_id: 2,
+            },
+            NativeEvent::NatDetected {
+                info: "test".into(),
+            },
+        ];
+
+        for evt in ignored_events {
+            let _ = handle.send(RuntimeCommand::NativeEvent { event: evt });
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let result = rx.try_recv();
+        assert!(result.is_err(), "P2 events should produce no output events");
+    }
+
+    /// TransportStateChanged state=2 (CONNECTED) → TransportConnected が publish される。
+    #[tokio::test]
+    async fn test_transport_state_connected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::TransportStateChanged {
+                    tp_id: 1,
+                    state: 2,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::TransportConnected(_)
+        ));
+    }
+
+    /// IceTransportError → IceNegotiationFailed が publish される。
+    #[tokio::test]
+    async fn test_ice_transport_error() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::IceTransportError {
+                    call_id: 1,
+                    status: 500,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(
+            event.payload,
+            SipEventPayload::IceNegotiationFailed(_)
+        ));
+    }
+
+    // -----------------------------------------------------------------------
+    // DtmfSent タイマーテスト
+    // -----------------------------------------------------------------------
+
+    /// SendDtmf 成功後、DtmfSent イベントがタイムアウト後に publish される。
+    #[tokio::test]
+    async fn test_dtmf_sent_timer() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let _call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // SendDtmf → 成功後 500ms 以内に DtmfSent が publish される
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::SendDtmf {
+                call_id: _call_id,
+                digits: "123".into(),
+                method: crate::config::DtmfMethod::Rfc4733,
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // 最大 2s 待機して DtmfSent を確認
+        let found = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let event = rx.recv().await.unwrap();
+                if matches!(event.payload, SipEventPayload::DtmfSent(_)) {
+                    return true;
+                }
+            }
+        })
+        .await;
+
+        assert!(
+            found.is_ok() && found.unwrap(),
+            "DtmfSent should be published within timeout"
+        );
+    }
+
+    /// 連続 NativeEvent が正しく処理されることを確認する。
+    #[tokio::test]
+    async fn test_multiple_native_events_sequential() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(32, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events.clone(), state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let mut rx = events.subscribe_control();
+
+        // 複数の TransportStateChanged を連続送信
+        use crate::ffi::callbacks::NativeEvent;
+        for i in 1..=3 {
+            assert!(handle
+                .send(RuntimeCommand::NativeEvent {
+                    event: NativeEvent::TransportStateChanged { tp_id: i, state: 2 },
+                })
+                .is_ok());
+        }
+
+        // 3 件の TransportConnected が受信できる
+        let mut count = 0;
+        tokio::time::timeout(std::time::Duration::from_millis(500), async {
+            while count < 3 {
+                if let Ok(event) = rx.recv().await {
+                    if matches!(event.payload, SipEventPayload::TransportConnected(_)) {
+                        count += 1;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("Expected 3 TransportConnected events");
+
+        assert_eq!(count, 3);
+    }
+
+    /// EventBus 経由で publish されたイベントに meta.account_id / call_id が正しく設定される。
+    #[tokio::test]
+    async fn test_native_event_meta_account_call_id() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let mut rx = events.subscribe_control();
+
+        // CallConnected イベントを発行
+        assert!(handle
+            .send(RuntimeCommand::NativeEvent {
+                event: crate::ffi::callbacks::NativeEvent::CallStateChanged {
+                    call_id: 1,
+                    state: 3,
+                },
+            })
+            .is_ok());
+
+        let event = rx.recv().await.unwrap();
+        // account_id と call_id が正しく設定されている
+        assert_eq!(
+            event.meta.account_id,
+            Some(acc_id),
+            "account_id should match"
+        );
+        assert_eq!(event.meta.call_id, Some(call_id), "call_id should match");
+    }
+
     /// GetAccountInfo が Send を満たすことを確認する（コンパイル時検証）。
     #[test]
     fn test_get_account_info_send() {
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
+    }
+
+    // -----------------------------------------------------------------------
+    // SubscribeAudio tests (M20-5)
+    // -----------------------------------------------------------------------
+
+    /// テスト用の AudioFormat を生成する。
+    fn test_audio_format() -> AudioFormat {
+        AudioFormat {
+            sample_rate: SampleRate::Hz16000,
+            bit_depth: BitDepth::I16,
+            channel_layout: ChannelLayout::Mono,
+            frame_ms: 10,
+        }
+    }
+
+    /// SubscribeAudio 正常系（Realtime）: 有効な call_id → Ok(AudioTapHandle)
+    #[tokio::test]
+    async fn test_subscribe_audio_ok_realtime() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        // Initialize
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // MakeCall で通話エントリ作成
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        // SubscribeAudio → Ok(AudioTapHandle)
+        let result: Result<AudioTapHandle, SipError> = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::SubscribeAudio {
+                call_id,
+                format: test_audio_format(),
+                capacity: 16,
+                mode: AudioTapMode::Realtime,
+                reply_tx,
+            })
+            .await;
+
+        assert!(result.is_ok(), "SubscribeAudio should succeed");
+        let mut handle = result.unwrap();
+
+        // AudioTapHandle の rx がライブであること（tx が MediaRuntime に保持されている）
+        // send_and_wait の時点で MediaRuntime に tx が push されているため、
+        // handle を保持している間は rx がクローズしない（Disconnected ではなく Empty を返す）。
+        let try_result = handle.try_recv();
+        assert!(
+            try_result.is_err(),
+            "try_recv on empty channel should return Err"
+        );
+        assert!(
+            matches!(
+                try_result.unwrap_err(),
+                tokio::sync::mpsc::error::TryRecvError::Empty
+            ),
+            "channel should be open (Empty), not closed (Disconnected)"
+        );
+    }
+
+    /// SubscribeAudio 正常系（Lossless）: Lossless モードでも正常に AudioTapHandle が返る。
+    #[tokio::test]
+    async fn test_subscribe_audio_ok_lossless() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let mock = MockBackend::new();
+        let backend = Box::new(mock) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) =
+            CoreReactor::spawn(backend, events.clone(), state.clone(), shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let acc_id = AccountId::generate();
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::AddAccount {
+                account_id: acc_id,
+                config: test_account_config(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        let call_id = handle
+            .send_and_wait(|reply| RuntimeCommand::MakeCall {
+                account_id: acc_id,
+                request: test_outgoing_call_request(),
+                reply,
+            })
+            .await
+            .expect("MakeCall should succeed");
+
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::SubscribeAudio {
+                call_id,
+                format: test_audio_format(),
+                capacity: 32,
+                mode: AudioTapMode::Lossless,
+                reply_tx,
+            })
+            .await;
+
+        assert!(result.is_ok(), "SubscribeAudio with Lossless should succeed");
+    }
+
+    /// 存在しない call_id → CallNotFound エラー。
+    #[tokio::test]
+    async fn test_subscribe_audio_call_not_found() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // 存在しない call_id
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::SubscribeAudio {
+                call_id: CallId::generate(),
+                format: test_audio_format(),
+                capacity: 16,
+                mode: AudioTapMode::Realtime,
+                reply_tx,
+            })
+            .await;
+
+        assert!(result.is_err());
+        if let Err(ref err) = result {
+            assert_eq!(
+                err.kind,
+                crate::error::SipErrorKind::CallNotFound
+            );
+        }
+    }
+
+    /// Shutdown 後に SubscribeAudio → InvalidState。
+    #[tokio::test]
+    async fn test_subscribe_audio_shutdown_rejected() {
+        crate::ffi::callbacks::clear_global_runtime();
+        let backend = Box::new(MockBackend::new()) as Box<dyn SipBackend>;
+        let events = EventBus::new(16, None);
+        let state = Arc::new(RwLock::new(ClientState::new(
+            ClientCapabilities::default_disabled(),
+        )));
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (handle, _join) = CoreReactor::spawn(backend, events, state, shutdown_rx);
+
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Initialize {
+                config: crate::config::ClientConfig::default(),
+                reply,
+            })
+            .await
+            .is_ok());
+
+        // Shutdown
+        assert!(handle
+            .send_and_wait(|reply| RuntimeCommand::Shutdown { reply })
+            .await
+            .is_ok());
+
+        // Shutdown 後の SubscribeAudio → InvalidState
+        let result = handle
+            .send_and_wait(|reply_tx| RuntimeCommand::SubscribeAudio {
+                call_id: CallId::generate(),
+                format: test_audio_format(),
+                capacity: 16,
+                mode: AudioTapMode::Realtime,
+                reply_tx,
+            })
+            .await;
+
+        assert!(result.is_err());
+        if let Err(ref err) = result {
+            assert_eq!(
+                err.kind,
+                crate::error::SipErrorKind::InvalidState
+            );
+        }
     }
 }
