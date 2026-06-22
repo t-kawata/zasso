@@ -3,9 +3,9 @@
 //! クライアント認証と upstream 認証の 2 つの middleware 関数を提供する。
 //!
 //! - `authorize_client`: `require_client_auth=true` の場合に有効化。
-//!    Bearer Token / x-api-key の存在と非空を検証し、不備なら 401 を返す
+//!   Bearer Token / x-api-key の存在と非空を検証し、不備なら 401 を返す
 //! - `filter_upstream_headers`: 常時適用。クライアント由来の認証 header および
-//!    hop-by-hop header をリクエストから除去する
+//!   hop-by-hop header をリクエストから除去する
 //!
 //! server feature 有効時のみコンパイルされる。
 //!
@@ -85,8 +85,13 @@ pub async fn filter_upstream_headers(
 
     // hop-by-hop header を除去
     for header_name in HOP_BY_HOP_HEADERS {
-        if let Ok(name) = header::HeaderName::from_bytes(header_name.as_bytes()) {
-            headers.remove(name);
+        // HeaderName::from_bytes 内部の一時変数と headers.remove の戻り値の
+        // ドロップ順が Edition 2025 で変更されるため、両方を名前付き変数に
+        // 束縛して一時変数のドロップ時期を確定させる
+        let name_bytes = header_name.as_bytes();
+        let header_name_result = header::HeaderName::from_bytes(name_bytes);
+        if let Ok(name) = header_name_result {
+            let _ = headers.remove(name);
         }
     }
 
@@ -105,6 +110,8 @@ mod tests {
     use axum::Router;
     use std::sync::Arc;
 
+    use tokio_util::sync::CancellationToken;
+
     use crate::app_state::AppState;
     use crate::config::AppConfig;
     use std::collections::HashMap;
@@ -116,6 +123,7 @@ mod tests {
         let state = Arc::new(AppState::new(
             config,
             HashMap::new(),
+            CancellationToken::new(),
         ));
         let mut router = Router::new()
             .route("/test", axum::routing::get(|| async { "ok" }))

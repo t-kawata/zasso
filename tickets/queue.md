@@ -248,10 +248,14 @@
 - [x] #181 M3: make/plan/start/review への Malfeasance.json 統合 | /Users/shyme/shyme/zasso/tickets/specs/0181-m3-makeplanstartreview-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
 - [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #184 観測可能性・メトリクス配線 + tracing instrumentation | /Users/shyme01/shyme/zasso/tickets/specs/0184-tracing-instrumentation.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 integration-test feature + テスト環境整備 | /Users/shyme01/shyme/zasso/tickets/specs/0185-integration-test-feature.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #186 Crateレベル属性 + ProxyServer再公開（M#1） | /Users/shyme01/shyme/zasso/tickets/specs/0186-crate-proxyserverm1.md | 2026-06-22
 - [x] #184 registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking | /Users/kawata/shyme/zasso/tickets/specs/0184-registryrs-llamamodel-load-from-file-spawn-blocking.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #185 M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化 | /Users/kawata/shyme/zasso/tickets/specs/0185-m6-5-inferencemodrs-inferenceengine-3.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #186 M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf | /Users/kawata/shyme/zasso/tickets/specs/0186-m6-6-inferencegeneraters-llama-cpp-2-gbnf.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #187 M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream | /Users/kawata/shyme/zasso/tickets/specs/0187-m6-7-inferencestreamrs-tokencallback-mpsc-receiverstream.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
-- [ ] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
+- [x] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
+

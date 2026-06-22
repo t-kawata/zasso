@@ -67,6 +67,8 @@ mod tests {
     use axum::http::StatusCode;
     use std::collections::{BTreeMap, HashMap};
 
+    use tokio_util::sync::CancellationToken;
+
     use crate::config::ProviderConfig;
 
     /// テスト用の最小 AppState を構築する。
@@ -74,6 +76,7 @@ mod tests {
         Arc::new(AppState::new(
             crate::config::AppConfig::default(),
             HashMap::new(),
+            CancellationToken::new(),
         ))
     }
 
@@ -119,7 +122,7 @@ mod tests {
         );
 
         let providers = crate::lifecycle::build_provider_clients(&config);
-        Arc::new(AppState::new(config, providers))
+        Arc::new(AppState::new(config, providers, CancellationToken::new()))
     }
 
     /// build_router が 4 エンドポイントすべてを登録すること。
@@ -168,6 +171,7 @@ mod tests {
         let state = Arc::new(AppState::new(
             config,
             HashMap::new(),
+            CancellationToken::new(),
         ));
         let app = build_router(state);
 

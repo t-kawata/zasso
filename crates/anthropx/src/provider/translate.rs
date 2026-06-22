@@ -24,6 +24,7 @@ use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use futures::StreamExt;
+use tokio_util::sync::CancellationToken;
 use llm_bridge_core::model::{
     ApiFormat as LlmApiFormat, StreamState, TransformError, TransformRequest,
 };
@@ -104,7 +105,7 @@ pub async fn handle_translate(
         .unwrap_or(state.config.global.error_lossy_continue);
 
     if is_stream {
-        translate_stream(provider, resolved, body, llm_format, &api_format, allow_lossy, error_lossy_continue)
+        translate_stream(provider, resolved, body, llm_format, allow_lossy, error_lossy_continue, state.cancel.clone())
             .await
     } else {
         translate_non_stream(provider, resolved, body, llm_format, &api_format, allow_lossy, error_lossy_continue)
@@ -213,8 +214,7 @@ async fn translate_non_stream(
     let upstream_bytes: Bytes = upstream_resp
         .bytes()
         .await
-        .map_err(|e| ProxyError::UpstreamError(format!("failed to read upstream response: {e}")))?
-        .into();
+        .map_err(|e| ProxyError::UpstreamError(format!("failed to read upstream response: {e}")))?;
 
     // 3. OpenAI → Anthropic
     // openai_response_to_anthropic_message / responses_to_anthropic は
@@ -266,14 +266,16 @@ async fn translate_non_stream(
 /// 2. 変換後のリクエストを upstream に SSE ストリームとして送信
 /// 3. 応答をチャンク単位で受信し、全チャンク受信後に
 ///    `transform_stream()` で Anthropic SSE に変換してクライアントに中継
+///
+/// `cancel` が発火された場合、upstream からのチャンク読み出しを中断する。
 async fn translate_stream(
     provider: &ProviderClient,
     resolved: &ResolvedModel,
     body: serde_json::Value,
     llm_format: LlmApiFormat,
-    _api_format: &ApiFormat,
     allow_lossy: bool,
     error_lossy_continue: bool,
+    cancel: CancellationToken,
 ) -> Result<Response, ProxyError> {
     // 1. Anthropic → OpenAI（non-stream と同じ変換でリクエストを構築）
     let request_bytes = serde_json::to_vec(&body)
@@ -352,9 +354,9 @@ async fn translate_stream(
         )));
     }
 
-    // 3. SSE ストリームを変換して中継
+    // 3. SSE ストリームを変換して中継（キャンセル監視付き）
     let anthropic_events: Bytes =
-        collect_and_transform_stream(upstream_resp, llm_format).await?;
+        collect_and_transform_stream(upstream_resp, llm_format, cancel).await?;
 
     Ok((
         StatusCode::OK,
@@ -369,22 +371,37 @@ async fn translate_stream(
 
 /// upstream SSE ストリームを全チャンク受信し、
 /// `transform_stream()` で Anthropic SSE に変換する。
+///
+/// `cancel` が発火された場合、チャンク読み出しを中断して
+/// `UpstreamError` を返す。
 async fn collect_and_transform_stream(
     upstream_resp: reqwest::Response,
     llm_format: LlmApiFormat,
+    cancel: CancellationToken,
 ) -> Result<Bytes, ProxyError> {
     let mut buffer = Vec::new();
     let mut stream = upstream_resp.bytes_stream();
 
-    while let Some(chunk) = stream.next().await {
-        match chunk {
-            Ok(bytes) => {
-                buffer.extend_from_slice(&bytes);
+    loop {
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(ProxyError::UpstreamError(
+                    "stream cancelled by shutdown".to_string(),
+                ));
             }
-            Err(e) => {
-                return Err(ProxyError::UpstreamError(format!(
-                    "stream read error: {e}"
-                )));
+            chunk = stream.next() => {
+                match chunk {
+                    Some(Ok(bytes)) => {
+                        buffer.extend_from_slice(&bytes);
+                    }
+                    Some(Err(e)) => {
+                        return Err(ProxyError::UpstreamError(format!(
+                            "stream read error: {e}"
+                        )));
+                    }
+                    None => break,
+                }
             }
         }
     }

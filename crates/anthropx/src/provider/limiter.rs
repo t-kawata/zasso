@@ -17,6 +17,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 /// 3. `current_queue` をインクリメントし、`Semaphore::acquire_owned()` で非同期待機
 /// 4. permit 取得後、`current_queue` をデクリメントして permit を返却
 /// 5. permit は drop 時に自動解放（クライアント切断による Future drop も同様）
+#[derive(Debug)]
 pub struct ConcurrencyLimiter {
     semaphore: Arc<Semaphore>,
     max_queue: usize,

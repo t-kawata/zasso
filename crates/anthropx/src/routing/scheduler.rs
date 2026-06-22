@@ -22,6 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// `Relaxed` を使用する（RFC §4.2）。正確な選択順序の保証よりもパフォーマンスを
 /// 優先する設計判断による。AtomicUsize の atomic 性により、値の重複や消失は
 /// 発生しない。
+#[derive(Debug)]
 pub struct KeyScheduler {
     keys: Vec<String>,
     current: AtomicUsize,
@@ -156,7 +157,7 @@ mod tests {
                 .filter(|r| **r == format!("k{i}"))
                 .count();
             assert!(
-                count >= 5 && count <= 15,
+                (5..=15).contains(&count),
                 "key k{i} appeared {count} times, expected ~10"
             );
         }
