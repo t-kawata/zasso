@@ -1,7 +1,7 @@
 /**
  * Malfeasance 操作スクリプト統合テスト
  *
- * テスト用の一時データを本番パス（.claude/commands/Malfeasance.json）に配置し、
+ * テスト用の一時データを CWD の Malfeasance.json に配置し、
  * 各操作スクリプトを子プロセスとして実行して出力 JSON を検証する。
  * テスト終了後は元の状態に復元する。
  *
@@ -19,7 +19,7 @@ const { spawnSync } = require('child_process');
 
 const SCRIPTS_DIR = path.resolve(__dirname, '../..');
 const LIB_DIR = path.resolve(__dirname, '../../../lib');
-const MALFEASANCE_PATH = path.resolve(SCRIPTS_DIR, '../../commands', 'Malfeasance.json');
+const MALFEASANCE_PATH = path.resolve(process.cwd(), 'Malfeasance.json');
 
 // バックアップとテストデータ
 const BACKUP_PATH = MALFEASANCE_PATH + '.bak';

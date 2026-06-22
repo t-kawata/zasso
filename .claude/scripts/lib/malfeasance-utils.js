@@ -12,15 +12,16 @@ const { validateRecords, validateSchema } = require('./validate-malfeasance');
 
 // .claude/ ディレクトリはこのファイルの場所（.claude/scripts/lib/）から 2 階層上
 const CLAUDE_DIR = path.resolve(__dirname, '..', '..');
-const MALFEASANCE_PATH = path.join(CLAUDE_DIR, 'commands', 'Malfeasance.json');
 const SCHEMA_PATH = path.join(CLAUDE_DIR, 'scripts', 'tickets', 'malfeasance-schema.json');
 
 /**
  * Malfeasance.json のパスを取得する。
+ * 引数でディレクトリが指定された場合はそのディレクトリ内、なければ CWD 内。
+ * @param {string} [dir] - 基準ディレクトリ（省略時は process.cwd()）
  * @returns {string}
  */
-function getMalfeasancePath() {
-  return MALFEASANCE_PATH;
+function getMalfeasancePath(dir) {
+  return path.resolve(dir || process.cwd(), 'Malfeasance.json');
 }
 
 /**
@@ -35,16 +36,18 @@ function getSchemaPath() {
  * Malfeasance.json を読み込み、パースして返す。
  * 読み取り後にスキーマ検証を実施する。
  *
+ * @param {string} [dir] - Malfeasance.json があるディレクトリ（省略時は process.cwd()）
  * @returns {{ success: boolean, data?: object, error?: string, warning?: string }}
  */
-function loadRecords() {
-  if (!fs.existsSync(MALFEASANCE_PATH)) {
-    return { success: false, error: `Malfeasance.json not found at ${MALFEASANCE_PATH}` };
+function loadRecords(dir) {
+  const malfPath = getMalfeasancePath(dir);
+  if (!fs.existsSync(malfPath)) {
+    return { success: false, error: `Malfeasance.json not found at ${malfPath}` };
   }
 
   let data;
   try {
-    const raw = fs.readFileSync(MALFEASANCE_PATH, 'utf8');
+    const raw = fs.readFileSync(malfPath, 'utf8');
     data = JSON.parse(raw);
   } catch (e) {
     return { success: false, error: `Failed to parse Malfeasance.json: ${e.message}` };
@@ -67,10 +70,12 @@ function loadRecords() {
  * 書き込み前にスキーマ検証を実施する。
  *
  * @param {object[]} records - 書き込むレコード配列
+ * @param {string} [dir] - Malfeasance.json を置くディレクトリ（省略時は process.cwd()）
  * @returns {{ success: boolean, error?: string }}
  */
-function saveRecords(records) {
+function saveRecords(records, dir) {
   const fullData = { version: 1, records };
+  const malfPath = getMalfeasancePath(dir);
 
   // スキーマ検証
   const validation = validateRecords(fullData);
@@ -79,7 +84,11 @@ function saveRecords(records) {
   }
 
   try {
-    fs.writeFileSync(MALFEASANCE_PATH, JSON.stringify(fullData, null, 2) + '\n', 'utf8');
+    const malfDir = path.dirname(malfPath);
+    if (!fs.existsSync(malfDir)) {
+      fs.mkdirSync(malfDir, { recursive: true });
+    }
+    fs.writeFileSync(malfPath, JSON.stringify(fullData, null, 2) + '\n', 'utf8');
   } catch (e) {
     return { success: false, error: `Failed to write Malfeasance.json: ${e.message}` };
   }

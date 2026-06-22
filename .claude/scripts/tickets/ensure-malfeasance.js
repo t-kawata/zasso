@@ -5,7 +5,8 @@
  * 既に存在する場合は何も変更しない。
  *
  * 使用法:
- *   node ensure-malfeasance.js
+ *   node ensure-malfeasance.js               # CWD に作成
+ *   node ensure-malfeasance.js <directory>    # 指定ディレクトリに作成
  *
  * 出力:
  *   作成時: { "success": true, "action": "created", "path": "..." }
@@ -19,8 +20,16 @@ const path = require('path');
 const { validateRecords } = require('../lib/validate-malfeasance');
 
 const CLAUDE_DIR = path.resolve(__dirname, '..', '..');
-const MALFEASANCE_PATH = path.join(CLAUDE_DIR, 'commands', 'Malfeasance.json');
 const SCHEMA_PATH = path.join(CLAUDE_DIR, 'scripts', 'tickets', 'malfeasance-schema.json');
+
+/**
+ * Malfeasance.json のパスを返す。
+ * @param {string} [dir] - 基準ディレクトリ
+ * @returns {string}
+ */
+function getMalfeasancePath(dir) {
+  return path.resolve(dir || process.cwd(), 'Malfeasance.json');
+}
 
 /**
  * JSON を stdout に出力する。
@@ -32,8 +41,11 @@ function output(result) {
 
 /**
  * Malfeasance.json の初期化を実行する。
+ * @param {string} [targetDir] - 作成先ディレクトリ
  */
-function main() {
+function main(targetDir) {
+  const MALFEASANCE_PATH = getMalfeasancePath(targetDir);
+
   // スキーマファイルの存在確認
   if (!fs.existsSync(SCHEMA_PATH)) {
     output({ success: false, error: `Schema file not found at ${SCHEMA_PATH}` });
@@ -65,10 +77,10 @@ function main() {
     return;
   }
 
-  // commands/ ディレクトリの存在確認
-  const commandsDir = path.dirname(MALFEASANCE_PATH);
-  if (!fs.existsSync(commandsDir)) {
-    fs.mkdirSync(commandsDir, { recursive: true });
+  // ディレクトリの存在確認
+  const malfDir = path.dirname(MALFEASANCE_PATH);
+  if (!fs.existsSync(malfDir)) {
+    fs.mkdirSync(malfDir, { recursive: true });
   }
 
   // ファイル書き出し
@@ -82,4 +94,7 @@ function main() {
   output({ success: true, action: 'created', path: MALFEASANCE_PATH });
 }
 
-if (require.main === module) main();
+if (require.main === module) {
+  const targetDir = process.argv[2] || undefined;
+  main(targetDir);
+}

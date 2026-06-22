@@ -1,6 +1,6 @@
 //! 推論エンジン抽象化
 //!
-//! InferenceEngine トレイトを定義し、mistralrs バックエンドへの統一的インターフェースを提供する。
+//! InferenceEngine トレイトを定義し、llama-cpp-2 バックエンドへの統一的インターフェースを提供する。
 //!
 //! 実装は以下のサブモジュールに分割する:
 //! - `generate` — `generate()` / `generate_structured()`
@@ -10,8 +10,6 @@ use std::pin::Pin;
 use async_trait::async_trait;
 use futures::Stream;
 use serde_json::Value;
-
-use mistralrs::{RequestBuilder, Response};
 
 use crate::consts::{DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE};
 use crate::error::GgufError;
@@ -57,12 +55,6 @@ pub struct GenerateParams {
     /// 正の値で多様性が向上する。`None` の場合はモデルデフォルト。
     pub frequency_penalty: Option<f32>,
 
-    /// 拡張思考（chain-of-thought）の有効化
-    ///
-    /// `Some(true)` で有効化、`Some(false)` で無効化。
-    /// `None` の場合は mistralrs のデフォルト動作に委譲する。
-    /// ASR 補正タスクでは `Some(false)` を推奨（高速化の設計判断）。
-    pub enable_thinking: Option<bool>,
 }
 
 impl Default for GenerateParams {
@@ -73,7 +65,6 @@ impl Default for GenerateParams {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
-            enable_thinking: None,
         }
     }
 }
@@ -84,7 +75,7 @@ impl Default for GenerateParams {
 /// `Send + Sync` をスーパートレイトとして要求するため、
 /// `Arc<dyn InferenceEngine>` としてスレッドセーフに共有可能。
 ///
-/// 4メソッドのうち3つが高レベルAPI、1つ（`send_raw`）が低レベルAPIとして設計され、
+/// 3メソッド全てが高レベルAPIとして設計され、
 /// 使いやすさと拡張性を両立する。
 ///
 /// # オブジェクトセーフ性
@@ -152,74 +143,52 @@ pub trait InferenceEngine: Send + Sync {
         params: GenerateParams,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>;
 
-    /// mistralrs RequestBuilder への低レベルアクセス
-    ///
-    /// mistralrs の全機能（ツール呼び出し、埋め込み等）にアクセスするための
-    /// パススルーメソッド。トレイト自体の変更なく mistralrs の新機能に対応できるよう、
-    /// 低レベルアクセス経路を確保する。
-    ///
-    /// # 引数
-    /// - `model_name`: 対象モデルの名前
-    /// - `request`: mistralrs のリクエストビルダー
-    ///
-    /// # 戻り値
-    /// - `Ok(Response)`: mistralrs のレスポンス
-    /// - `Err(GgufError)`: 推論エラー
-    async fn send_raw(
-        &self,
-        model_name: &str,
-        request: RequestBuilder,
-    ) -> Result<Response, GgufError>;
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
 
+    /// DummyEngine — テスト用のダミー推論エンジン
+    ///
+    /// モジュールレベルで定義され、複数のテストから再利用される。
+    struct DummyEngine;
+    #[async_trait]
+    impl InferenceEngine for DummyEngine {
+        async fn generate(
+            &self,
+            _model_name: &str,
+            _prompt: &str,
+            _params: GenerateParams,
+        ) -> Result<String, GgufError> {
+            Ok("dummy".into())
+        }
+        async fn generate_structured(
+            &self,
+            _model_name: &str,
+            _prompt: &str,
+            _params: GenerateParams,
+            _schema: Value,
+        ) -> Result<Value, GgufError> {
+            Ok(Value::Null)
+        }
+        async fn generate_stream(
+            &self,
+            _model_name: &str,
+            _prompt: &str,
+            _params: GenerateParams,
+        ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>
+        {
+            let stream = futures::stream::iter(vec![Ok("dummy chunk".into())]);
+            Ok(Box::pin(stream))
+        }
+    }
+
     /// InferenceEngine トレイトが Send + Sync を満たすことを確認
     #[test]
     fn inference_engine_is_send_sync() {
         fn assert_send<T: Send>() {}
         fn assert_sync<T: Sync>() {}
-
-        // ダミー実装で Send + Sync をチェック
-        struct DummyEngine;
-        #[async_trait]
-        impl InferenceEngine for DummyEngine {
-            async fn generate(
-                &self,
-                _model_name: &str,
-                _prompt: &str,
-                _params: GenerateParams,
-            ) -> Result<String, GgufError> {
-                Ok("dummy".into())
-            }
-            async fn generate_structured(
-                &self,
-                _model_name: &str,
-                _prompt: &str,
-                _params: GenerateParams,
-                _schema: Value,
-            ) -> Result<Value, GgufError> {
-                Ok(Value::Null)
-            }
-            async fn generate_stream(
-                &self,
-                _model_name: &str,
-                _prompt: &str,
-                _params: GenerateParams,
-            ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>
-            {
-                todo!()
-            }
-            async fn send_raw(
-                &self,
-                _model_name: &str,
-                _request: RequestBuilder,
-            ) -> Result<Response, GgufError> {
-                todo!()
-            }
-        }
 
         assert_send::<DummyEngine>();
         assert_sync::<DummyEngine>();
@@ -242,16 +211,6 @@ pub(crate) mod tests {
         assert!(params.top_p.is_none());
         assert!(params.presence_penalty.is_none());
         assert!(params.frequency_penalty.is_none());
-        assert!(params.enable_thinking.is_none());
-    }
-
-    #[test]
-    fn generate_params_enable_thinking_true() {
-        let params = GenerateParams {
-            enable_thinking: Some(true),
-            ..GenerateParams::default()
-        };
-        assert_eq!(params.enable_thinking, Some(true));
     }
 
     // ── Mock-based tests (M2-4) ──
@@ -265,7 +224,6 @@ pub(crate) mod tests {
             async fn generate(&self, model_name: &str, prompt: &str, params: GenerateParams) -> Result<String, GgufError>;
             async fn generate_structured(&self, model_name: &str, prompt: &str, params: GenerateParams, schema: Value) -> Result<Value, GgufError>;
             async fn generate_stream(&self, model_name: &str, prompt: &str, params: GenerateParams) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>;
-            async fn send_raw(&self, model_name: &str, request: RequestBuilder) -> Result<Response, GgufError>;
         }
     }
 
@@ -359,15 +317,34 @@ pub(crate) mod tests {
         assert!(matches!(result, Err(GgufError::ServerStartupFailed(_))));
     }
 
-    #[tokio::test]
-    async fn mock_send_raw_exists() {
-        // send_raw メソッドのモックが定義可能であることを確認
-        let mut mock = MockEngine::new();
-        mock.expect_send_raw()
-            .returning(|_, _| Err(GgufError::ModelNotFound("not implemented".into())));
+    // ── DummyEngine generate_stream テスト ──
 
-        // RequestBuilder は mistralrs 型のため、直接の呼び出しテストは行わない
-        // モック定義がコンパイル可能であること自体が検証
-        let _ = mock;
+    #[tokio::test]
+    async fn dummy_generate_stream_returns_ok() {
+        let engine = DummyEngine;
+        let result = engine
+            .generate_stream("m", "p", GenerateParams::default())
+            .await;
+        assert!(result.is_ok(), "DummyEngine generate_stream should succeed");
     }
+
+    #[tokio::test]
+    async fn dummy_generate_stream_collects_chunk() -> Result<(), GgufError> {
+        let engine = DummyEngine;
+        let mut stream = engine
+            .generate_stream("m", "p", GenerateParams::default())
+            .await?;
+
+        use futures::StreamExt;
+        let chunk = stream.next().await;
+        assert_eq!(
+            chunk.map(|r| r.ok()),
+            Some(Some("dummy chunk".to_string()))
+        );
+
+        let end = stream.next().await;
+        assert!(end.is_none(), "stream should have exactly one chunk");
+        Ok(())
+    }
+
 }
