@@ -40,6 +40,8 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 # ドキュメント: https://docs.rs/llm-bridge-core/latest/llm_bridge_core/
 # GitHub: https://github.com/TokenFleet-AI/llm-bridge-rust/tree/master
 llm-bridge-core = "0.2"
+llama-cpp-2 = "0.1.150"
+tokio-stream = "0.1.18"
 
 [dev-dependencies]
 mockall = "0.14.0"
@@ -56,6 +58,8 @@ cpu = []
 # 注: mistralrs v0.8.1 は directml feature を提供しない
 metal = ["mistralrs/metal"]
 cuda = ["mistralrs/cuda"]
+# [::STUB::] M6-11: gbnf クレートが Cargo.toml に追加されたら gbnf の feature 依存を追加する
+gbnf_integration = []
 
 [lib]
 name = "ggufrs"

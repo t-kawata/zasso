@@ -111,10 +111,11 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST /v1/chat/completions should return");
+    // ModelNotFound → GgufError::ModelNotFound → AppError: 404
     assert_eq!(
         response.status(),
         404,
-        "nonexistent model should return 404"
+        "nonexistent model returns 404 (ModelNotFound)"
     );
     let error_body: serde_json::Value = response
         .json()
@@ -126,7 +127,7 @@ async fn test_server_integration() {
     );
 
     // ----------------------------------------------------------------
-    // 4. POST /v1/chat/completions: 空ボディ → 404
+    // 4. POST /v1/chat/completions: 空ボディ → 422（デシリアライズ失敗）
     // ----------------------------------------------------------------
     let response = client
         .post(format!("{base_url}/v1/chat/completions"))
@@ -135,14 +136,15 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST with empty body should return");
+    // empty body lacks required 'messages' field → Axum deserialization error → 422
     assert_eq!(
         response.status(),
-        404,
-        "request with empty body should return 404"
+        422,
+        "request with empty body returns 422 (missing required messages field)"
     );
 
     // ----------------------------------------------------------------
-    // 5. POST /anthropic/v1/messages: 空ボディ → 400
+    // 5. POST /anthropic/v1/messages: ルート不在 → 404
     // ----------------------------------------------------------------
     let response = client
         .post(format!("{base_url}/anthropic/v1/messages"))
@@ -151,18 +153,11 @@ async fn test_server_integration() {
         .send()
         .await
         .expect("POST /anthropic/v1/messages should return");
+    // Anthropic エンドポイントは削除済みのため 404
     assert_eq!(
         response.status(),
-        400,
-        "empty Anthropic request should return 400"
-    );
-    let anthropic_error: serde_json::Value = response
-        .json()
-        .await
-        .expect("error response should be valid JSON");
-    assert!(
-        anthropic_error.get("error").is_some(),
-        "Anthropic error response should contain 'error' field"
+        404,
+        "Anthropic endpoint returns 404 (route removed)"
     );
 
     // ----------------------------------------------------------------

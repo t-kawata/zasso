@@ -33,7 +33,7 @@ mod tests {
     /// `-t <path>` が正しくパースされること。
     #[test]
     fn parse_args_with_config() {
-        let cli = Cli::try_parse_from(&["anthropx", "-t", "/etc/anthropx/config.toml"])
+        let cli = Cli::try_parse_from(["anthropx", "-t", "/etc/anthropx/config.toml"])
             .expect("should parse with -t");
         assert_eq!(cli.config.to_str().unwrap(), "/etc/anthropx/config.toml");
     }
@@ -41,7 +41,7 @@ mod tests {
     /// `-t` なしではエラーになること。
     #[test]
     fn parse_args_missing_config() {
-        let result = Cli::try_parse_from(&["anthropx"]);
+        let result = Cli::try_parse_from(["anthropx"]);
         assert!(result.is_err());
     }
 }

@@ -16,11 +16,13 @@ use tokio_util::sync::CancellationToken;
 use crate::app_state::AppState;
 use crate::config::AppConfig;
 use crate::http::router::build_router;
+use crate::observability::metrics;
 use crate::provider::limiter::ConcurrencyLimiter;
 use crate::provider::ProviderClient;
 use crate::routing::scheduler::KeyScheduler;
 
 /// プロキシサーバーのエントリポイント。
+#[derive(Debug)]
 pub struct ProxyServer;
 
 impl ProxyServer {
@@ -36,6 +38,9 @@ impl ProxyServer {
     pub async fn start(
         config: AppConfig,
     ) -> Result<ServerHandle, Box<dyn std::error::Error + Send + Sync>> {
+        // 0. メトリクスカウンタ初期化
+        metrics::register_metrics();
+
         // 1. 設定検証
         if let Err(errors) = config.validate() {
             for err in &errors {
@@ -52,7 +57,7 @@ impl ProxyServer {
 
         // 4. AppState 構築
         let port = config.global.port;
-        let state = Arc::new(AppState::new(config, providers));
+        let state = Arc::new(AppState::new(config, providers, cancel.clone()));
 
         // 5. Router 構築
         let router = build_router(state);
@@ -79,6 +84,7 @@ impl ProxyServer {
 /// サーバー制御ハンドル。
 ///
 /// `shutdown()` で graceful shutdown、`join()` でサーバー終了を待機する。
+#[derive(Debug)]
 pub struct ServerHandle {
     cancel: CancellationToken,
     join_handle: JoinHandle<()>,

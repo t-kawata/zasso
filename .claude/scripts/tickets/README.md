@@ -423,22 +423,25 @@ node "$_R/scripts/tickets/review/find-all-stubs.js" "$(git rev-parse --show-topl
 
 **用途**: Malfeasance.json が存在しなければ空のレコード配列を持つ初期 JSON を作成する。既に存在する場合は何も変更しない。formulate-tickets.md から自動的に呼び出される。
 
-**引数**: なし
+**引数**: `[directory]`（省略時は CWD）
 
 **使用例**:
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/ensure-malfeasance.js"
+# CWD に作成
+node .claude/scripts/tickets/ensure-malfeasance.js
+
+# 指定ディレクトリに作成（CLAUDE.md と同じ階層を想定）
+node .claude/scripts/tickets/ensure-malfeasance.js "crates/ggufrs"
 ```
 
 **出力**:
 ```json
-{ "success": true, "action": "created", "path": "/path/to/.claude/commands/Malfeasance.json" }
+{ "success": true, "action": "created", "path": "/path/to/project/Malfeasance.json" }
 ```
 
 または（既存時スキップ）:
 ```json
-{ "success": true, "action": "skipped", "path": "/path/to/.claude/commands/Malfeasance.json" }
+{ "success": true, "action": "skipped", "path": "/path/to/project/Malfeasance.json" }
 ```
 
 **いつ使うか**: プロジェクトの初期化時や formulate-tickets.md の実行時。通常は手動で実行する必要はない。

@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::app_state::AppState;
 use crate::config::{ProxyError, ResolvedModel};
+use crate::observability::metrics;
 use crate::routing::scheduler::KeyScheduler;
 
 /// 透過中継のエントリポイント。
@@ -49,7 +50,7 @@ pub async fn handle_transparent(
     if is_stream {
         let req_builder = req_builder.header("Accept", "text/event-stream");
         let upstream_resp = execute_stream(&provider.scheduler, req_builder).await?;
-        Ok(stream_response(upstream_resp).await)
+        Ok(stream_response(upstream_resp, state.cancel.clone()).await)
     } else {
         let upstream_resp = execute_with_failover(&provider.scheduler, req_builder).await?;
         Ok(json_response(upstream_resp).await)
@@ -81,10 +82,12 @@ async fn execute_with_failover(
         match response {
             Ok(resp) if resp.status().is_success() => return Ok(resp),
             Ok(resp) if resp.status().is_server_error() => {
+                metrics::record_failover();
                 last_error = Some(ProxyError::Upstream(resp.status()));
             }
             Ok(resp) => return Ok(resp), // 4xx → 即座
             Err(e) => {
+                metrics::record_failover();
                 last_error = Some(ProxyError::UpstreamError(e.to_string()));
             }
         }
@@ -114,22 +117,31 @@ async fn execute_stream(
 }
 
 /// SSE ストリームを中継する。
+///
+/// `cancel` が発火された場合、chunk 読み出しを中断してストリームを終了する。
+/// これにより graceful shutdown 時に SSE ストリームが適切にクローズされる。
 async fn proxy_sse_stream(
     upstream_resp: reqwest::Response,
-    _cancel: CancellationToken,
+    cancel: CancellationToken,
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<axum::body::Bytes, axum::Error>>(64);
     let mut stream = upstream_resp.bytes_stream();
 
     tokio::spawn(async move {
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(bytes) => {
-                    if tx.send(Ok(bytes)).await.is_err() {
-                        break;
+        loop {
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => break,
+                chunk = stream.next() => {
+                    match chunk {
+                        Some(Ok(bytes)) => {
+                            if tx.send(Ok(bytes)).await.is_err() {
+                                break;
+                            }
+                        }
+                        _ => break,
                     }
                 }
-                Err(_) => break,
             }
         }
     });
@@ -148,8 +160,13 @@ async fn proxy_sse_stream(
 }
 
 /// stream 応答を構築する。
-async fn stream_response(upstream_resp: reqwest::Response) -> Response {
-    let cancel = CancellationToken::new();
+///
+/// `cancel` は ServerHandle の CancellationToken であり、shutdown 時に
+/// SSE ストリームを中断するために `proxy_sse_stream` に伝播される。
+async fn stream_response(
+    upstream_resp: reqwest::Response,
+    cancel: CancellationToken,
+) -> Response {
     proxy_sse_stream(upstream_resp, cancel).await
 }
 
@@ -190,10 +207,20 @@ fn filter_response_headers(headers: &HeaderMap) -> Vec<(String, String)> {
             !HOP_BY_HOP.contains(&lower.as_str())
         })
         .filter_map(|(name, value)| {
-            value
-                .to_str()
-                .ok()
-                .map(|v| (name.as_str().to_string(), v.to_string()))
+            match value.to_str() {
+                Ok(v) => Some((name.as_str().to_string(), v.to_string())),
+                Err(_) => {
+                    // axum/http の HeaderValue は UTF-8/ASCII のみをサポートするため、
+                    // 非UTF-8 バイト列は Response builder に設定できない。
+                    // 警告を出力した上でドロップする。
+                    tracing::warn!(
+                        "non-UTF-8 header value dropped: {} (bytes: {:?})",
+                        name.as_str(),
+                        value.as_bytes(),
+                    );
+                    None
+                }
+            }
         })
         .collect()
 }
@@ -231,6 +258,23 @@ mod tests {
         assert!(names.contains(&"content-type"));
         assert!(names.contains(&"x-custom"));
         assert!(!names.contains(&"connection"));
+    }
+
+    /// filter_response_headers が非UTF-8 header 値を警告付きでドロップすること。
+    #[test]
+    fn filter_response_drops_non_utf8_with_warning() {
+        let mut headers = HeaderMap::new();
+        // UTF-8 値 — 通過
+        headers.insert("x-valid", "hello".parse().unwrap());
+        // 非UTF-8 値（bytes 0x80 以降は UTF-8 では不正）
+        let non_utf8 = http::HeaderValue::from_bytes(&[0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x80]).unwrap();
+        headers.insert("x-binary", non_utf8);
+
+        let filtered = filter_response_headers(&headers);
+        let names: Vec<&str> = filtered.iter().map(|(n, _)| n.as_str()).collect();
+
+        assert!(names.contains(&"x-valid"), "UTF-8 header should be present");
+        assert!(!names.contains(&"x-binary"), "non-UTF-8 header should be dropped");
     }
 
     /// json_response の型シグネチャが Send を満たすこと。
