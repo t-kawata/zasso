@@ -36,7 +36,7 @@ impl ProxyServer {
     /// 5. `build_router()` → `axum::serve()` — HTTP サーバー起動
     /// 6. `ServerHandle` を返す
     pub async fn start(
-        config: AppConfig,
+        mut config: AppConfig,
     ) -> Result<ServerHandle, Box<dyn std::error::Error + Send + Sync>> {
         // 0. メトリクスカウンタ初期化
         metrics::register_metrics();
@@ -155,8 +155,8 @@ pub fn build_provider_clients(config: &AppConfig) -> HashMap<String, ProviderCli
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
     use crate::config::AppConfig;
+    use std::collections::BTreeMap;
 
     /// build_provider_clients が全 provider を生成すること。
     #[test]

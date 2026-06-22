@@ -136,8 +136,22 @@ async fn models_sorted_by_provider_public() {
     let config = make_config(
         test_port(),
         vec![
-            make_provider("z_provider", true, vec!["key"], None, None, vec![("z-model", "up-z")]),
-            make_provider("a_provider", true, vec!["key"], None, None, vec![("a-model", "up-a")]),
+            make_provider(
+                "z_provider",
+                true,
+                vec!["key"],
+                None,
+                None,
+                vec![("z-model", "up-z")],
+            ),
+            make_provider(
+                "a_provider",
+                true,
+                vec!["key"],
+                None,
+                None,
+                vec![("a-model", "up-a")],
+            ),
         ],
     );
     let server = build_test_server(config).await;
@@ -159,16 +173,22 @@ async fn models_sorted_by_provider_public() {
 async fn model_without_slash_returns_400() {
     let config = make_config(
         test_port(),
-        vec![make_provider("test", true, vec!["key"], None, None, vec![("gpt-4", "up-gpt-4")])],
+        vec![make_provider(
+            "test",
+            true,
+            vec!["key"],
+            None,
+            None,
+            vec![("gpt-4", "up-gpt-4")],
+        )],
     );
     let server = build_test_server(config).await;
-        let resp = server
-            .post("/v1/messages")
-            .json(&serde_json::json!({"model": "noslash"}))
-            .await;
-        assert_eq!(resp.status_code(), 400);
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({"model": "noslash"}))
+        .await;
+    assert_eq!(resp.status_code(), 400);
 }
-
 
 // ---------------------------------------------------------------------------
 // AC#9: queue overflow → 429
@@ -182,8 +202,8 @@ async fn request_to_proxy_returns_response() {
             "test",
             true,
             vec!["key"],
-            Some(0),  // max_in_flight=0
-            Some(0),  // max_queue=0
+            Some(0), // max_in_flight=0
+            Some(0), // max_queue=0
             vec![],
         )],
     );
@@ -199,7 +219,6 @@ async fn request_to_proxy_returns_response() {
         "expected valid HTTP status, got {code}"
     );
 }
-
 
 // ---------------------------------------------------------------------------
 // AC#1: transparent non-stream → 200（サーバーが起動し、リクエストを受け付ける）
@@ -219,19 +238,18 @@ async fn transparent_non_stream_accepts_request() {
         )],
     );
     let server = build_test_server(config).await;
-        let resp = server
-            .post("/v1/messages")
-            .json(&serde_json::json!({"model": "test/gpt-4"}))
-            .await;
-        // transparent mode は upstream に到達しようとするが mock がないため
-        // エラーになる。リクエストが受け付けられたことを確認（200 以外でも OK）
-        let status = resp.status_code();
-        assert!(
-            status.as_u16() >= 400,
-            "expected error status (upstream unavailable), got {status}"
-        );
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({"model": "test/gpt-4"}))
+        .await;
+    // transparent mode は upstream に到達しようとするが mock がないため
+    // エラーになる。リクエストが受け付けられたことを確認（200 以外でも OK）
+    let status = resp.status_code();
+    assert!(
+        status.as_u16() >= 400,
+        "expected error status (upstream unavailable), got {status}"
+    );
 }
-
 
 // ---------------------------------------------------------------------------
 // AC#5: non-stream key failover（エラーハンドリングの確認）
@@ -251,18 +269,17 @@ async fn non_stream_key_failover_handles_error() {
         )],
     );
     let server = build_test_server(config).await;
-        let resp = server
-            .post("/v1/messages")
-            .json(&serde_json::json!({"model": "test/gpt-4"}))
-            .await;
-        // upstream 不在 → failover 試行後エラーになる
-        let status = resp.status_code();
-        assert!(
-            status.as_u16() >= 400,
-            "expected error status, got {status}"
-        );
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({"model": "test/gpt-4"}))
+        .await;
+    // upstream 不在 → failover 試行後エラーになる
+    let status = resp.status_code();
+    assert!(
+        status.as_u16() >= 400,
+        "expected error status, got {status}"
+    );
 }
-
 
 // ---------------------------------------------------------------------------
 // AC#6: stream no-failover → エラー（stream は failover しない）
@@ -272,26 +289,19 @@ async fn non_stream_key_failover_handles_error() {
 async fn stream_no_failover_returns_error() {
     let config = make_config(
         test_port(),
-        vec![make_provider(
-            "test",
-            true,
-            vec!["key"],
-            None,
-            None,
-            vec![],
-        )],
+        vec![make_provider("test", true, vec!["key"], None, None, vec![])],
     );
     let server = build_test_server(config).await;
-        let resp = server
-            .post("/v1/messages")
-            .json(&serde_json::json!({"model": "test/gpt-4", "stream": true}))
-            .await;
-        // stream かつ upstream 不在 → failover せずエラー
-        let status = resp.status_code();
-        assert!(
-            status.as_u16() >= 400,
-            "expected error status, got {status}"
-        );
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({"model": "test/gpt-4", "stream": true}))
+        .await;
+    // stream かつ upstream 不在 → failover せずエラー
+    let status = resp.status_code();
+    assert!(
+        status.as_u16() >= 400,
+        "expected error status, got {status}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -379,9 +389,7 @@ async fn make_mock_config(
 async fn transparent_non_stream_proxies_to_upstream() {
     let upstream_app = axum::Router::new().route(
         "/{*path}",
-        axum::routing::post(|| async {
-            (StatusCode::OK, axum::Json(mock_anthropic_response()))
-        }),
+        axum::routing::post(|| async { (StatusCode::OK, axum::Json(mock_anthropic_response())) }),
     );
     let config = make_mock_config(upstream_app, true, vec![("model", "model")], None, None).await;
     let server = build_proxy_test_server(config).await;
@@ -509,7 +517,11 @@ async fn concurrency_limiter_blocks_in_flight() {
 
     // Request 1 の完了を確認
     let resp1 = req1.await.expect("req1 join failed");
-    assert_eq!(resp1.status_code(), 200, "expected first request to succeed");
+    assert_eq!(
+        resp1.status_code(),
+        200,
+        "expected first request to succeed"
+    );
 }
 
 /// translate モードのルーティングが正常に機能することを確認する。
@@ -602,7 +614,11 @@ async fn authentication_rejects_missing_credentials() {
         .await;
 
     // 認証情報なし → 401
-    assert_eq!(resp.status_code(), 401, "expected 401 for unauthenticated request");
+    assert_eq!(
+        resp.status_code(),
+        401,
+        "expected 401 for unauthenticated request"
+    );
 }
 
 /// /v1/models が provider 設定と整合したソート済みリストを返すこと。
@@ -611,8 +627,22 @@ async fn models_endpoint_returns_models_from_all_providers() {
     let config = make_config(
         test_port(),
         vec![
-            make_provider("z_provider", true, vec!["key"], None, None, vec![("z-model", "up-z")]),
-            make_provider("a_provider", true, vec!["key"], None, None, vec![("a-model", "up-a")]),
+            make_provider(
+                "z_provider",
+                true,
+                vec!["key"],
+                None,
+                None,
+                vec![("z-model", "up-z")],
+            ),
+            make_provider(
+                "a_provider",
+                true,
+                vec!["key"],
+                None,
+                None,
+                vec![("a-model", "up-a")],
+            ),
         ],
     );
     let server = build_test_server(config).await;
@@ -626,4 +656,3 @@ async fn models_endpoint_returns_models_from_all_providers() {
     assert_eq!(data[0]["id"], "a_provider/a-model", "expected sorted order");
     assert_eq!(data[1]["id"], "z_provider/z-model", "expected sorted order");
 }
-

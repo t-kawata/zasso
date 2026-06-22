@@ -45,7 +45,10 @@ pub async fn handle_transparent(
     let mut upstream_body = body;
     upstream_body["model"] = serde_json::json!(resolved.upstream);
 
-    let req_builder = provider.http_client.post(&upstream_url).json(&upstream_body);
+    let req_builder = provider
+        .http_client
+        .post(&upstream_url)
+        .json(&upstream_body);
 
     if is_stream {
         let req_builder = req_builder.header("Accept", "text/event-stream");
@@ -74,16 +77,13 @@ async fn execute_with_failover(
         let cloned = request
             .try_clone()
             .ok_or_else(|| ProxyError::Internal("request body not cloneable".to_string()))?;
-        let response = cloned
-            .bearer_auth(key)
-            .send()
-            .await;
+        let response = cloned.bearer_auth(key).send().await;
 
         match response {
             Ok(resp) if resp.status().is_success() => return Ok(resp),
             Ok(resp) if resp.status().is_server_error() => {
                 metrics::record_failover();
-                last_error = Some(ProxyError::Upstream(resp.status()));
+                last_error = Some(ProxyError::Upstream(resp.status().as_u16()));
             }
             Ok(resp) => return Ok(resp), // 4xx → 即座
             Err(e) => {
@@ -93,9 +93,7 @@ async fn execute_with_failover(
         }
     }
 
-    Err(last_error.unwrap_or(ProxyError::UpstreamError(
-        "all keys failed".to_string(),
-    )))
+    Err(last_error.unwrap_or(ProxyError::UpstreamError("all keys failed".to_string())))
 }
 
 /// stream リクエストを実行する（failover 禁止）。
@@ -111,7 +109,7 @@ async fn execute_stream(
         .map_err(|e| ProxyError::UpstreamError(e.to_string()))?;
 
     if !response.status().is_success() {
-        return Err(ProxyError::Upstream(response.status()));
+        return Err(ProxyError::Upstream(response.status().as_u16()));
     }
     Ok(response)
 }
@@ -120,10 +118,7 @@ async fn execute_stream(
 ///
 /// `cancel` が発火された場合、chunk 読み出しを中断してストリームを終了する。
 /// これにより graceful shutdown 時に SSE ストリームが適切にクローズされる。
-async fn proxy_sse_stream(
-    upstream_resp: reqwest::Response,
-    cancel: CancellationToken,
-) -> Response {
+async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: CancellationToken) -> Response {
     let (tx, rx) = mpsc::channel::<Result<axum::body::Bytes, axum::Error>>(64);
     let mut stream = upstream_resp.bytes_stream();
 
@@ -163,10 +158,7 @@ async fn proxy_sse_stream(
 ///
 /// `cancel` は ServerHandle の CancellationToken であり、shutdown 時に
 /// SSE ストリームを中断するために `proxy_sse_stream` に伝播される。
-async fn stream_response(
-    upstream_resp: reqwest::Response,
-    cancel: CancellationToken,
-) -> Response {
+async fn stream_response(upstream_resp: reqwest::Response, cancel: CancellationToken) -> Response {
     proxy_sse_stream(upstream_resp, cancel).await
 }
 
@@ -195,9 +187,14 @@ async fn json_response(upstream_resp: reqwest::Response) -> Response {
 /// レスポンス header から hop-by-hop header を除去する。
 fn filter_response_headers(headers: &HeaderMap) -> Vec<(String, String)> {
     const HOP_BY_HOP: &[&str] = &[
-        "connection", "keep-alive", "proxy-authenticate",
-        "proxy-authorization", "te", "trailers",
-        "transfer-encoding", "upgrade",
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
     ];
 
     headers
@@ -238,7 +235,10 @@ mod tests {
     fn execute_with_failover_is_send() {
         fn assert_send<T: Send>() {}
         assert_send::<
-            fn(&KeyScheduler, RequestBuilder) -> std::pin::Pin<
+            fn(
+                &KeyScheduler,
+                RequestBuilder,
+            ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<reqwest::Response, ProxyError>> + Send>,
             >,
         >();
@@ -267,14 +267,18 @@ mod tests {
         // UTF-8 値 — 通過
         headers.insert("x-valid", "hello".parse().unwrap());
         // 非UTF-8 値（bytes 0x80 以降は UTF-8 では不正）
-        let non_utf8 = http::HeaderValue::from_bytes(&[0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x80]).unwrap();
+        let non_utf8 =
+            http::HeaderValue::from_bytes(&[0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x80]).unwrap();
         headers.insert("x-binary", non_utf8);
 
         let filtered = filter_response_headers(&headers);
         let names: Vec<&str> = filtered.iter().map(|(n, _)| n.as_str()).collect();
 
         assert!(names.contains(&"x-valid"), "UTF-8 header should be present");
-        assert!(!names.contains(&"x-binary"), "non-UTF-8 header should be dropped");
+        assert!(
+            !names.contains(&"x-binary"),
+            "non-UTF-8 header should be dropped"
+        );
     }
 
     /// json_response の型シグネチャが Send を満たすこと。
@@ -282,9 +286,10 @@ mod tests {
     fn json_response_is_send() {
         fn assert_send<T: Send>() {}
         assert_send::<
-            fn(reqwest::Response) -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = Response> + Send>,
-            >,
+            fn(
+                reqwest::Response,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>>,
         >();
     }
 }

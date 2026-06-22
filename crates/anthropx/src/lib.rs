@@ -14,6 +14,9 @@
 //! - `util`: ユーティリティ関数（build_upstream_headers）
 //! - `lifecycle`: サーバー起動・停止（ProxyServer, ServerHandle）
 
+/// CLI 引数解析は server feature 有効時のみコンパイルされる。
+/// `clap` に依存するため、library モードでは利用不可。
+#[cfg(feature = "server")]
 pub mod cli;
 pub mod config;
 pub mod provider;

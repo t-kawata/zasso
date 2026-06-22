@@ -260,4 +260,7 @@
 - [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
 - [x] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
-
+- [x] #191 モジュール分割 — config/util 単一責務化（m#8） | /Users/shyme01/shyme/zasso/tickets/specs/0191-configutil-m8.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 M6-3: 設定検証補完（m#7/m#11） | /Users/shyme01/shyme/zasso/tickets/specs/0192-m6-3-m7m11.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 コード品質改善（n#13〜n#16） | /Users/shyme01/shyme/zasso/tickets/specs/0193-n13n16.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #194 Feature gate 整備（m#6） | /Users/shyme01/shyme/zasso/tickets/specs/0194-feature-gate-m6.md | 2026-06-22 | 2026-06-22 | 2026-06-22

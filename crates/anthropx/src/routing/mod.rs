@@ -11,6 +11,8 @@ use crate::config::{OpenAiWireApi, ProviderConfig, ResolvedModel};
 use crate::ProxyError;
 
 /// llm-bridge-core の ApiFormat への変換をこのモジュールで提供する。
+/// server feature 有効時のみコンパイルされる（translate mode 専用）。
+#[cfg(feature = "server")]
 use llm_bridge_core::model::ApiFormat as LlmApiFormat;
 
 // ---------------------------------------------------------------------------
@@ -33,6 +35,8 @@ pub enum ApiFormat {
 /// ローカル ApiFormat を llm-bridge-core の ApiFormat に変換する。
 ///
 /// translate mode で upstream への変換形式を決定するために使用する。
+/// server feature 有効時のみ利用可能。
+#[cfg(feature = "server")]
 pub fn to_llm_api_format(api_format: &ApiFormat) -> LlmApiFormat {
     match api_format {
         ApiFormat::OpenaiChat => LlmApiFormat::OpenaiChat,

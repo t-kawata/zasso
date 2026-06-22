@@ -42,7 +42,11 @@ impl AppState {
         providers: HashMap<String, ProviderClient>,
         cancel: CancellationToken,
     ) -> Self {
-        Self { config, providers, cancel }
+        Self {
+            config,
+            providers,
+            cancel,
+        }
     }
 
     /// provider 名から実行時リソースを解決する。
