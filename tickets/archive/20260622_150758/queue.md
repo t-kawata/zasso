@@ -1,0 +1,274 @@
+# Ticket Queue
+- [-] #129 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0129-m0-1-cargotoml-librs.md | 2026-06-18
+- [-] #146 RustMediaPort → pjmedia_port C ラッパー実装（AudioBridge conference 統合） | /Users/shyme/shyme/zasso/tickets/specs/0146-rustmediaport-pjmedia-port-c-audiobridge-conference.md | 2026-06-18
+- [-] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21
+- [-] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21
+- [-] #177 M2-1: run.sh — サーバー・プロキシ起動スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0177-m2-1-runsh.md | 2026-06-21
+- [-] #159 M5-2.5: UQFF モデルビルダーの DeviceMap 修正 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0159-m5-25-uqff-devicemap-registryrs.md | 2026-06-19 | 2026-06-19
+- [x] #61 RFC整合性修正 — ドキュメント更新＋軽微な実装修正 | /Users/kawata/shyme/zasso/tickets/specs/0061-rfc.md | 2026-06-12
+- [x] #1 ビルド時のエディション/OS情報を Rust 定数と TypeScript 設定に同時注入する | /Users/kawata/shyme/zasso/tickets/specs/0001-os-rust-typescript.md | 2026-06-09 | 2026-06-09 | 2026-06-09
+- [x] #2 run/build 時のエディション別アイコン自動生成 | /Users/kawata/shyme/zasso/tickets/specs/0002-runbuild.md | 2026-06-09 | 2026-06-09 | 2026-06-09
+- [x] #3 make build 後のインストーラー自動検証・dist配置 | /Users/kawata/shyme/zasso/tickets/specs/0003-make-build-dist.md | 2026-06-09 | 2026-06-09 | 2026-06-09
+- [x] #4 エディション別アプリ名・識別子の自動切替 | /Users/kawata/shyme/zasso/tickets/specs/0004-untitled.md | 2026-06-09 | 2026-06-09 | 2026-06-09
+- [x] #5 タイトルバーを App.vue に移動し、全レイアウトで表示可能にする | /Users/kawata/shyme/zasso/tickets/specs/0005-appvue.md | 2026-06-09 | 2026-06-09
+- [x] #6 円形コンテナを IndexPage.vue に移動し、クラス名を再命名する | /Users/kawata/shyme/zasso/tickets/specs/0006-indexpagevue.md | 2026-06-09 | 2026-06-09
+- [x] #7 DummyAppPage とルーティングを追加し、ウィンドウ開閉とページ遷移を連携させる | /Users/kawata/shyme/zasso/tickets/specs/0007-dummyapppage.md | 2026-06-09 | 2026-06-09
+- [x] #8 M0-1: 純粋データ型の定義（ProcessDef, RestartPolicy, ReadyCondition, ShutdownTimeoutConfig） | /Users/kawata/shyme/zasso/tickets/specs/0008-m0-1-processdef-restartpolicy-readycondition-shutdowntimeoutconfig.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #9 M0-2: エラー型の定義（RegistryError with thiserror + anyhow） | /Users/kawata/shyme/zasso/tickets/specs/0009-m0-2-registryerror-with-thiserror-anyhow.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #10 M0-3: プロセス状態とレジストリ型の定義（ProcessState, RegistryEntry, RegistryInner, ProcessRegistry） | /Users/kawata/shyme/zasso/tickets/specs/0010-m0-3-processstate-registryentry-registryinner-processregistry.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #11 M1-1: RestartPolicy::on_crash_default と next_delay の実装 | /Users/kawata/shyme/zasso/tickets/specs/0011-m1-1-restartpolicyon-crash-default-next-delay.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #12 M2-1: resolve_start_order の実装（DAG トポロジカルソート） | /Users/kawata/shyme/zasso/tickets/specs/0012-m2-1-resolve-start-order-dag.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #13 M3-1: ChildGuard 構造体と shutdown メソッドの実装 | /Users/kawata/shyme/zasso/tickets/specs/0013-m3-1-childguard-shutdown.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #14 M4-1: is_process_alive の実装（プロセス生存確認） | /Users/kawata/shyme/zasso/tickets/specs/0014-m4-1-is-process-alive.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #15 M5-1: wait_ready の実装（ReadyCondition 待機） | /Users/kawata/shyme/zasso/tickets/specs/0015-m5-1-wait-ready-readycondition.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #16 M6-1: ProcessRegistry::new, snapshot, subscribe_output, pipe_output_to | /Users/kawata/shyme/zasso/tickets/specs/0016-m6-1-processregistrynew-snapshot-subscribe-output-pipe-output-to.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #17 M7-1: start_watch_task と watch_loop の実装（監視・再起動ループ） | /Users/kawata/shyme/zasso/tickets/specs/0017-m7-1-start-watch-task-watch-loop.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #18 M8-1: spawn_one（Fake プロセス版）と start_all の実装 | /Users/kawata/shyme/zasso/tickets/specs/0018-m8-1-spawn-onefake-start-all.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #19 M9-1: shutdown_all と stop の実装 | /Users/kawata/shyme/zasso/tickets/specs/0019-m9-1-shutdown-all-stop.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #20 M10-1: Unix 実装（libc）+ SIGTERM ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0020-m10-1-unix-libc-sigterm.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #21 M10-2: Windows 実装（win32） | /Users/kawata/shyme/zasso/tickets/specs/0021-m10-2-windows-win32.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #22 M11-1: install_panic_hook（パニック安全網） | /Users/kawata/shyme/zasso/tickets/specs/0022-m11-1-install-panic-hook.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #23 M12-1: Tauri コマンド + RunEvent::Exit ハンドラ | /Users/kawata/shyme/zasso/tickets/specs/0023-m12-1-tauri-runeventexit.md | 2026-06-10
+- [x] #24 M13-1: 統合テストスイート | /Users/kawata/shyme/zasso/tickets/specs/0024-m13-1.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #25 EDITION_HOME導入とbifrostバイナリの自動展開 | /Users/kawata/shyme/zasso/tickets/specs/0025-edition-homebifrost.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #26 process-registry による宣言的サイドカー管理基盤（Fate Sharing） | /Users/kawata/shyme/zasso/tickets/specs/0026-process-registry-fate-sharing.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #27 process-registry: ポート競合検出による起動時安全機構 | /Users/kawata/shyme/zasso/tickets/specs/0027-process-registry.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #28 process-registry: 親プロセス生死監視とサイドカー自殺機構 | /Users/kawata/shyme/zasso/tickets/specs/0028-process-registry-2.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #29 process-registry: Watchdogラッパーによる全OS統一の親死検知機構 | /Users/kawata/shyme/zasso/tickets/specs/0029-process-registry-watchdogos.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #30 process-registry: 子プロセス永久死検知と親プロセス連鎖停止 | /Users/kawata/shyme/zasso/tickets/specs/0030-process-registry-3.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #31 Windows: sidecar テストが拡張子 .exe で失敗する問題の修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0031-windows-sidecar-exe.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #32 Windows: procreg 統合テストがフリーズする問題の調査と修正 | C:\Users\kawat\shyme\zasso\tickets\specs\0032-windows-procreg.md | 2026-06-10 | 2026-06-10 | 2026-06-10
+- [x] #33 ログ基盤導入と sidecar 出力の統合パイプ | /Users/kawata/shyme/zasso/tickets/specs/0033-sidecar.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #34 procreg: 非同期起動モードと StartupMonitor イベント機構の追加 | /Users/kawata/shyme/zasso/tickets/specs/0034-procreg-startupmonitor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #35 M0-1: Crate 骨組み（Cargo.toml / build.rs / lib.rs / error.rs / constants.rs） | /Users/kawata/shyme/zasso/tickets/specs/0035-m0-1-crate-cargotoml-buildrs-librs-errorrs-constantsrs.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #36 M0-2: 公開型定義（types.rs + config.rs） | /Users/kawata/shyme/zasso/tickets/specs/0036-m0-2-typesrs-configrs.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #37 M1-1: SincResampler + test-run.rs [RESAMPLER] | /Users/kawata/shyme/zasso/tickets/specs/0037-m1-1-sincresampler-test-runrs-resampler.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #38 M1-2: PostCorrectionProcessor + test-run.rs [POST_CORRECT] | /Users/kawata/shyme/zasso/tickets/specs/0038-m1-2-postcorrectionprocessor-test-runrs-post-correct.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #39 M1-3: 信号品質フィルタ + test-run.rs [SIGNAL_FILTER] | /Users/kawata/shyme/zasso/tickets/specs/0039-m1-3-test-runrs-signal-filter.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #40 M1-4: 置換辞書インターセプター + test-run.rs [INTERCEPTOR] | /Users/kawata/shyme/zasso/tickets/specs/0040-m1-4-test-runrs-interceptor.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #41 M2-1: VadProcessor + test-run.rs [VAD] | /Users/kawata/shyme/zasso/tickets/specs/0041-m2-1-vadprocessor-test-runrs-vad.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #42 M2-2: SpeechDenoiser | /Users/kawata/shyme/zasso/tickets/specs/0042-m2-2-speechdenoiser.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #43 M2-3: PunctuationMachine + test-run.rs [PUNCTUATION] | /Users/kawata/shyme/zasso/tickets/specs/0043-m2-3-punctuationmachine-test-runrs-punctuation.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #44 M2-4: 効果音再生 + test-run.rs [AUDIO] | /Users/kawata/shyme/zasso/tickets/specs/0044-m2-4-test-runrs-audio.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #45 M2.5-1: Cargo.toml 依存置き換え | /Users/kawata/shyme/zasso/tickets/specs/0045-m25-1-cargotoml.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #46 M2.5-2: VadProcessor の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0046-m25-2-vadprocessor-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #47 M2.5-3: SpeechDenoiser の safe API 書き換え | /Users/kawata/shyme/zasso/tickets/specs/0047-m25-3-speechdenoiser-safe-api.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #48 M2.5-4: 移行後の動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0048-m25-4.md | 2026-06-11 | 2026-06-11 | 2026-06-11
+- [x] #49 M3-1: PseudoAsrStreamer + test-run.rs [STREAMER] | /Users/kawata/shyme/zasso/tickets/specs/0049-m3-1-pseudoasrstreamer-test-runrs-streamer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #50 M4-1: Native FFI（native/mac_ffi.rs / win_ffi.rs） | /Users/kawata/shyme/zasso/tickets/specs/0050-m4-1-native-ffinativemac-ffirs-win-ffirs.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #51 M4-2: OpenAIBackend + OpenAIRecognizer + test-run.rs [OPENAI] | /Users/kawata/shyme/zasso/tickets/specs/0051-m4-2-openaibackend-openairecognizer-test-runrs-openai.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #52 M0-1: SipError / SipErrorKind 定義（siprs crate 骨組み） | /Users/shyme/shyme/zasso/tickets/specs/0052-m0-1-siperror-siperrorkind.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #53 M0-2: AccountId / CallId / AudioSourceId newtype 定義 | /Users/shyme/shyme/zasso/tickets/specs/0053-m0-2-accountid-callid-audiosourceid.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #54 M1-1: SampleRate / BitDepth / ChannelLayout / AudioFormat 定義 | /Users/shyme/shyme/zasso/tickets/specs/0054-m1-1-samplerate-bitdepth-channellayout-audioformat.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #52 M4-3: MacSpeechBackend + test-run.rs [MACOS] | /Users/kawata/shyme/zasso/tickets/specs/0052-m4-3-macspeechbackend-test-runrs-macos.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #53 M4-4: WinSpeechBackend + test-run.rs [WINDOWS] | /Users/kawata/shyme/zasso/tickets/specs/0053-m4-4-winspeechbackend-test-runrs-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #54 M5-1: SpeechRecognizer | /Users/kawata/shyme/zasso/tickets/specs/0054-m5-1-speechrecognizer.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #55 Voiput 公開API + test-run.rs [Voiput]（バッファ＆フラッシュ） | /Users/kawata/shyme/zasso/tickets/specs/0055-voiput-api-test-runrs-voiput.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #56 プリビルドライブラリ自動ビルド | /Users/kawata/shyme/zasso/tickets/specs/0056-untitled-2.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #57 macOS ランタイムライブラリ収集 | /Users/kawata/shyme/zasso/tickets/specs/0057-macos.md | 2026-06-12 | 2026-06-12
+- [x] #58 M6-1.6 Windows: libs/windows/ ランタイムライブラリ収集 | C:\Users\kawat\shyme\zasso\tickets\specs\0058-m6-16-windows-libswindows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #59 統合テスト | /Users/kawata/shyme/zasso/tickets/specs/0059-untitled-3.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #60 README（最終ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0060-readme.md | 2026-06-12 | 2026-06-12
+- [x] #62 Voiput API — async/await 完全対応 + request_permissions 実装 | /Users/kawata/shyme/zasso/tickets/specs/0062-voiput-api-asyncawait-request-permissions.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #63 Windows スタブライブラリ除去 — prebuilt/windows/ に実ライブラリを追加し M6-1.6 参照メッセージを削除 | C:\Users\kawat\shyme\zasso\tickets\specs\0063-windows-prebuiltwindows-m6-16.md | 2026-06-12 | 2026-06-12
+- [x] #64 内部設計整合 — SpeechRecognizer 引数整理 + VoiputError 型修正 + 非対応OSバリデーション | /Users/kawata/shyme/zasso/tickets/specs/0064-speechrecognizer-voiputerror-os.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #59 M1-2: AudioChunk / AudioChunkPair 定義 | /Users/shyme/shyme/zasso/tickets/specs/0059-m1-2-audiochunk-audiochunkpair.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #60 M1-3: TransportKind / TransportConfig 定義 | /Users/shyme/shyme/zasso/tickets/specs/0060-m1-3-transportkind-transportconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #61 M1-4: ICE/STUN/TURN 設定型定義 | /Users/shyme/shyme/zasso/tickets/specs/0061-m1-4-icestun-turn.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #62 M2-1: ClientConfig / ClientAudioConfig / TimeoutConfig / RawSipEventConfig 定義と Default 実装 | /Users/shyme/shyme/zasso/tickets/specs/0062-m2-1-clientconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #63 M2-2: AccountConfig / AccountCodecPolicy / OpusConfig / AccountMediaConfig / DtmfPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0063-m2-2-accountconfig.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #64 M2-3: TlsConfig / ReconnectPolicy / CallMediaPreferences / OutgoingCallRequest / NegotiatedCodec / CodecSelectionPolicy 定義 | /Users/shyme/shyme/zasso/tickets/specs/0064-m2-3-config-remaining.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #65 M3-1: ClientConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0065-m3-1-clientconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #66 M3-2: AccountConfig バリデーション | /Users/shyme/shyme/zasso/tickets/specs/0066-m3-2-accountconfig-validation.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #67 M4-1: BiMap<RuntimeId, NativeId> 実装 | /Users/shyme/shyme/zasso/tickets/specs/0067-m4-1-bimap.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #68 M4-2: ユーティリティ（PjOwnedStr の safe ラッパー骨格 / SecretString 検証） | /Users/shyme/shyme/zasso/tickets/specs/0068-m4-2-utility-pj-owned-str.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #69 M5-1: mix_i16_frame ミキシングアルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0069-m5-1-mix-i16-frame.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #70 M5-2: interleave_in_out ステレオマッピング | /Users/shyme/shyme/zasso/tickets/specs/0070-m5-2-interleave-in-out.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #71 health_check 完全実装 — SpeechRecognizer 委譲 + Windows 実ヘルスチェック | /Users/kawata/shyme/zasso/tickets/specs/0071-health-check-speechrecognizer-windows.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #72 hotkey/ モジュール — Option/Alt ダブルタップ検出 + 録音状態管理 | /Users/kawata/shyme/zasso/tickets/specs/0072-hotkey-optionalt.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #71 M5-3: PairAligner — IN/OUT ペア整列アルゴリズム | /Users/shyme/shyme/zasso/tickets/specs/0071-m5-3-pair-aligner.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #72 M6-1: SipEventPayload enum 全バリアント + 関連 Info 構造体 | /Users/shyme/shyme/zasso/tickets/specs/0072-m6-1-sip-event-payload.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #73 M6-2: SipEvent / EventMeta / EventTimestamp 定義 | /Users/shyme/shyme/zasso/tickets/specs/0073-m6-2-sip-event-meta.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #74 M6-3: RawSipMessage / SipMessageDirection 定義 | /Users/shyme/shyme/zasso/tickets/specs/0074-m6-3-raw-sip-message.md | 2026-06-12 | 2026-06-12 | 2026-06-12
+- [x] #75 input/ モジュール — クリップボード操作 + キーボード注入 | /Users/kawata/shyme/zasso/tickets/specs/0075-input.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #76 Voiput 拡張 — ホットキー駆動音声入力の crate 内蔵（全責務隠蔽） | /Users/kawata/shyme/zasso/tickets/specs/0076-voiput-crate.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #77 test-run.rs 再構成 — 薄い呼び出し層 + CLI エンジン選択 | /Users/kawata/shyme/zasso/tickets/specs/0077-test-runrs-cli.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #78 ホットキー制御の完全修正 — RECORDING_ACTIVE連携と重複開始防止 | /Users/kawata/shyme/zasso/tickets/specs/0078-recording-active.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [ ] #79 request_permissions 権限ガイド実装 — 設定画面誘導までを crate 責務に | /Users/kawata/shyme/zasso/tickets/specs/0079-request-permissions-crate.md | 2026-06-14 | 2026-06-14
+- [x] #80 [win/SpeechHelper] Fix STATUS_ACCESS_VIOLATION in speech session teardown due to missing thread synchronization in C# FFI callbacks | C:\Users\kawat\shyme\zasso\tickets\specs\0080-winspeechhelper-fix-status-access-violation-in-speech-session-teardown-due-to-missing-thread-synchronization-in-c-ffi-callbacks.md | 2026-06-14 | 2026-06-14 | 2026-06-14
+- [x] #81 PostCorrection 必須化 — エンジン非依存の OpenAI 補正パス | /Users/kawata/shyme/zasso/tickets/specs/0081-postcorrection-openai.md | 2026-06-14 | 2026-06-14
+- [x] #83 OpenAI モードの音声認識パイプライン実装と二重イベント修正 | /Users/kawata/shyme/zasso/tickets/specs/0083-openai.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #84 OpenAI モードのデコレーション誤作動修正とVADパラメータ調整 | /Users/kawata/shyme/zasso/tickets/specs/0084-openai-vad.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #85 PartialResult 後の SttCompleted 復活 — BufferFlush が効かなくなる問題の修正 | /Users/kawata/shyme/zasso/tickets/specs/0085-partialresult-sttcompleted-bufferflush.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #86 SpeechEnd の SttCompleted 追加と GTCRN デノイザーパス修正 | /Users/kawata/shyme/zasso/tickets/specs/0086-speechend-sttcompleted-gtcrn.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #87 VAD 発話 stuck 復帰 — インテリジェントタイムアウトの 25秒条件撤廃と 3秒 ASR 停滞閾値 | /Users/kawata/shyme/zasso/tickets/specs/0087-vad-stuck-25-3-asr.md | 2026-06-15 | 2026-06-15 | 2026-06-15
+- [x] #88 OrchestratorInput (Ctrl+Option) を BufferFlush と共通化 — モード切替スタブの修正 | /Users/kawata/shyme/zasso/tickets/specs/0088-orchestratorinput-ctrloption-bufferflush.md | 2026-06-15 | 2026-06-15
+- [x] #89 OrchestratorInput 非録音時自動開始 + 遅延フラッシュ種別追跡 | /Users/kawata/shyme/zasso/tickets/specs/0089-orchestratorinput.md | 2026-06-15 | 2026-06-15
+- [x] #90 trate Cargo.toml + lib.rs の作成 | /Users/kawata/shyme/zasso/tickets/specs/0090-trate-cargotoml-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #91 trate クレートの empty lib.rs コンパイル確認 | /Users/kawata/shyme/zasso/tickets/specs/0091-trate-empty-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #90 M7-1: EventBus 構造体と基本操作 | /Users/shyme/shyme/zasso/tickets/specs/0090-m7-1-event-bus.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #91 M7-2: AccountEventReceiver — アカウントフィルタリング | /Users/shyme/shyme/zasso/tickets/specs/0091-m7-2-account-event-receiver.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #92 M8-1: RegistrationState / ClientState / AccountEntry / CallEntry 定義 | /Users/shyme/shyme/zasso/tickets/specs/0092-m8-1-state-types.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #93 M8-2: CallState / MediaRuntime 定義 | /Users/shyme/shyme/zasso/tickets/specs/0093-m8-2-call-state-media-runtime.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #94 M8-3: ClientCapabilities / SrtpImplementation / AudioDeviceCaps 定義 | /Users/shyme/shyme/zasso/tickets/specs/0094-m8-3-client-capabilities.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #95 M9-1: RegistrationState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0095-m9-1-registration-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #96 M9-2: CallState 遷移ロジック | /Users/shyme/shyme/zasso/tickets/specs/0096-m9-2-call-state-transitions.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #97 M9-3: ClientState 管理 — 同時通話制約・shutdown 状態 | /Users/shyme/shyme/zasso/tickets/specs/0097-m9-3-client-state-management.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #98 M10-1: SipBackend trait 定義 | /Users/shyme/shyme/zasso/tickets/specs/0098-m10-1-sip-backend-trait.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #99 M10-2: MockBackend 実装 | /Users/shyme/shyme/zasso/tickets/specs/0099-m10-2-mock-backend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #100 M11-1: RuntimeCommand enum 定義 | /Users/shyme/shyme/zasso/tickets/specs/0100-m11-1-runtime-command.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #101 M11-2: RuntimeHandle — MPSC + oneshot 送受信 | /Users/shyme/shyme/zasso/tickets/specs/0101-m11-2-runtime-handle.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #102 M11-3: Reactor loop — 単一スレッドでのコマンド処理 | /Users/shyme/shyme/zasso/tickets/specs/0102-m11-3-reactor-loop.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #98 AsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0098-asrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #99 LocalAsrBackend トレイトの定義 | /Users/kawata/shyme/zasso/tickets/specs/0099-localasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #100 trate クレートのモックベース単体テスト | /Users/kawata/shyme/zasso/tickets/specs/0100-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #101 LocalAsrKind 列挙型の定義 | /Users/kawata/shyme/zasso/tickets/specs/0101-localasrkind.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #102 SttEngine::Local バリアントの追加 | /Users/kawata/shyme/zasso/tickets/specs/0102-sttenginelocal.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #103 Qwen3AsrModelPaths + Qwen3AsrConfig 構造体の定義 | /Users/kawata/shyme/zasso/tickets/specs/0103-qwen3asrmodelpaths-qwen3asrconfig.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #104 M12-1: SipClient 構造体（Arc + ClientInner） | /Users/shyme/shyme/zasso/tickets/specs/0104-m12-1-sip-client.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #105 M12-2: SipClient::new() — 初期化・バリデーション・Reactor起動 | /Users/shyme/shyme/zasso/tickets/specs/0105-m12-2-sip-client-new.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #106 M12-3: subscribe() / subscribe_raw_sip() / subscribe_account() | /Users/shyme/shyme/zasso/tickets/specs/0106-m12-3-subscribe.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #104 Qwen3 モデルファイル名定数の追加 | /Users/kawata/shyme/zasso/tickets/specs/0104-qwen3.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #105 パス解決の純粋関数群 | /Users/kawata/shyme/zasso/tickets/specs/0105-untitled-4.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #106 voiput Cargo.toml への trate 依存追加 | /Users/kawata/shyme/zasso/tickets/specs/0106-voiput-cargotoml-trate.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #107 pipeline/streamer.rs AsrBackend 移行 + lib.rs 再公開更新 | /Users/kawata/shyme/zasso/tickets/specs/0107-pipelinestreamerrs-asrbackend-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #108 M12-4: add_account() / remove_account() / account() / accounts() | /Users/shyme/shyme/zasso/tickets/specs/0108-m12-4-add-account.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #109 M12-5: SipClient::shutdown() — idempotent・cancel safety | /Users/shyme/shyme/zasso/tickets/specs/0109-m12-5-shutdown.md | 2026-06-17 | 2026-06-17 | 2026-06-16
+- [x] #110 M12-6: 全公開API・PJSIP callback への #[tracing::instrument] 計装 | /Users/shyme/shyme/zasso/tickets/specs/0110-m12-6-tracing-instrument.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #111 M13-1: SipAccountHandle — アカウント単位操作（register/unregister/registration_state/update_config） | /Users/shyme/shyme/zasso/tickets/specs/0111-m13-1-account-handle.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #112 M13-2: 発着信API — make_call / answer / hangup / hold / unhold / transfer / send_dtmf / call_state | /Users/shyme/shyme/zasso/tickets/specs/0112-m13-2-call-api.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #113 M14-1: AsyncAudioSource trait（RPITIT）+ ErasedAudioSource blanket impl | /Users/shyme/shyme/zasso/tickets/specs/0113-m14-1-async-audio-source.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #114 M14-2: SyncAudioSource + SyncSourceAdapter | /Users/shyme/shyme/zasso/tickets/specs/0114-m14-2-sync-audio-source.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #115 M14-3: 音声ソース管理 API — add_audio_source / remove_audio_source / set_gain / mute | /Users/shyme/shyme/zasso/tickets/specs/0115-m14-3-audio-source-management.md | 2026-06-17 | 2026-06-16 | 2026-06-16
+- [x] #116 M15-1: AudioMixer 構造体 | /Users/shyme/shyme/zasso/tickets/specs/0116-m15-1-audio-mixer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #117 M15-2: AudioWorkerTask — Tokio blocking pool 駆動 | /Users/shyme/shyme/zasso/tickets/specs/0117-m15-2-audio-worker.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #118 M16-1: AudioTapHandle / AudioTapMode / subscribe_audio | /Users/shyme/shyme/zasso/tickets/specs/0118-m16-1-audio-tap.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #129 M16-2: ResamplePipeline — rubato 統合 | /Users/shyme/shyme/zasso/tickets/specs/0129-m16-2-resample-pipeline.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #108 OpenAIBackend の trate::AsrBackend 実装スタブ除去 | /Users/kawata/shyme/zasso/tickets/specs/0108-openaibackend-trateasrbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #109 テストコードのトレイト変更対応（MockBackend, MockStreamerBackend） | /Users/kawata/shyme/zasso/tickets/specs/0109-mockbackend-mockstreamerbackend.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #110 voiput 移行完了確認（make check-be + テスト全件パス） | /Users/kawata/shyme/zasso/tickets/specs/0110-voiput-make-check-be.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #111 local モジュール宣言 + lib.rs 公開 | /Users/kawata/shyme/zasso/tickets/specs/0111-local-librs.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #112 Qwen3AsrBackend の new() と transcribe() 実装 | /Users/kawata/shyme/zasso/tickets/specs/0112-qwen3asrbackend-new-transcribe.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #113 Qwen3AsrBackend の LocalAsrBackend 実装 + validate_qwen3_model_files | /Users/kawata/shyme/zasso/tickets/specs/0113-qwen3asrbackend-localasrbackend-validate-qwen3-model-files.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #114 LocalRecognizer Facade の実装 | /Users/kawata/shyme/zasso/tickets/specs/0114-localrecognizer-facade.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #115 LocalRecognizerAdapter の実装 | /Users/kawata/shyme/zasso/tickets/specs/0115-localrecognizeradapter.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #116 SpeechRecognizer の Local ディスパッチ追加 | /Users/kawata/shyme/zasso/tickets/specs/0116-speechrecognizer-local.md | 2026-06-16 | 2026-06-17 | 2026-06-17
+- [x] #117 VoiputConfigBuilder の Local 検証 | /Users/kawata/shyme/zasso/tickets/specs/0117-voiputconfigbuilder-local.md | 2026-06-16 | 2026-06-17 | 2026-06-17
+- [x] #118 M6 コンパイル完了確認（make check-be 全警告ゼロ） | /Users/kawata/shyme/zasso/tickets/specs/0118-m6-make-check-be.md | 2026-06-16 | 2026-06-18 | 2026-06-18
+- [x] #119 build.rs Qwen3-ASR モデルダウンロード追加 | /Users/kawata/shyme/zasso/tickets/specs/0119-buildrs-qwen3-asr.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #120 テスト用サンプル音声ファイルの配置 | /Users/kawata/shyme/zasso/tickets/specs/0120-untitled-5.md | 2026-06-16 | 2026-06-16 | 2026-06-16
+- [x] #121 Qwen3AsrBackend 結合テスト（実モデル + 実音声） | /Users/kawata/shyme/zasso/tickets/specs/0121-qwen3asrbackend.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #122 全テスト通過確認（make test 全件グリーン） | /Users/kawata/shyme/zasso/tickets/specs/0122-make-test.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #123 test-run に --engine local 対応を追加 | /Users/kawata/shyme/zasso/tickets/specs/0123-test-run-engine-local.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #124 LocalRecognizerAdapter の音声パイプライン未配線バグ修正 | /Users/kawata/shyme/zasso/tickets/specs/0124-localrecognizeradapter-2.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #125 LocalRecognizerAdapter イベント中継の regression 修正 | /Users/kawata/shyme/zasso/tickets/specs/0125-localrecognizeradapter-regression.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #126 LocalRecognizerAdapter にデコレーション・SttCompleted 等の不足機能を追加 | /Users/kawata/shyme/zasso/tickets/specs/0126-localrecognizeradapter-sttcompleted.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #127 PseudoAsrStreamer に事後補正専用バックエンド注入を追加 | /Users/kawata/shyme/zasso/tickets/specs/0127-pseudoasrstreamer.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #128 事後補正プロンプトを mycute と同一にし、ロケール切替に対応 | /Users/kawata/shyme/zasso/tickets/specs/0128-mycute.md | 2026-06-17 | 2026-06-17 | 2026-06-17
+- [x] #130 M16-3: subscribe_audio のフォーマット変換統合 | /Users/shyme/shyme/zasso/tickets/specs/0130-m16-3-subscribe-audio.md | 2026-06-18
+- [x] #131 M17-1: bindgen 設定と生成 | /Users/shyme/shyme/zasso/tickets/specs/0131-m17-1-bindgen.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #132 M17-2: PjOwnedStr — pj_str_t wrapper（実 FFI 型統合） | /Users/shyme/shyme/zasso/tickets/specs/0132-m17-2-pjownedstr-pj-str-t-wrapper-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #133 M17-3: Callback bridge — extern C callbacks → NativeEvent enqueue | /Users/shyme/shyme/zasso/tickets/specs/0133-m17-3-callback-bridge-extern-c-callbacks-nativeevent-enqueue.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #130 M0-1: Cargo.toml / lib.rs プロジェクト骨格 | /Users/kawata/shyme/zasso/tickets/specs/0130-m0-1-cargotoml-librs-2.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #131 M0-2: 静的定数定義 (consts/settings.rs) | /Users/kawata/shyme/zasso/tickets/specs/0131-m0-2-constssettingsrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #132 M0-3: GpuProvider 列挙型 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0132-m0-3-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #133 M0-4: GgufError 列挙型 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0133-m0-4-gguferror-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #134 M0-5: 設定構造体定義 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0134-m0-5-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #135 M0-6: ModelInfo 構造体定義 (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0135-m0-6-modelinfo-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #136 M1-1: ModelConfig ビルトインコンストラクタ (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0136-m1-1-modelconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #137 M1-2: GpuProvider メソッド実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0137-m1-2-gpuprovider-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #138 M17-4: PjsuaBackend — SipBackend trait の PJSUA 実装 | /Users/shyme/shyme/zasso/tickets/specs/0138-m17-4-pjsuabackend-sipbackend-trait-pjsua.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #139 M18-1: RustMediaPort — pjmedia_port / get_frame / put_frame | /Users/shyme/shyme/zasso/tickets/specs/0139-m18-1-rustmediaport-pjmedia-port-get-frame-put-frame.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #140 M18-2: AudioBridge — lock-free queue 接続・Conference port 統合 | /Users/shyme/shyme/zasso/tickets/specs/0140-m18-2-audiobridge-lock-free-queue-conference-port.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #141 M19-1: build.rs — prebuilt優先・source build fallback | /Users/shyme/shyme/zasso/tickets/specs/0141-m19-1-buildrs-prebuiltsource-build-fallback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #142 PJSIP 2.17 ソース配置・ビルド検証・FFI 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0142-pjsip-217-ffi.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #143 build.rs: prebuilt auto-deploy after source build | /Users/shyme/shyme/zasso/tickets/specs/0143-buildrs-prebuilt-auto-deploy-after-source-build.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #144 M19-3: metrics カウンター配線実装 | /Users/shyme/shyme/zasso/tickets/specs/0144-m19-3-metrics.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #145 残余スタブ一括解決: M16-1/M15-2/M16-3/AudioBridge/M17-4 callback | /Users/shyme/shyme/zasso/tickets/specs/0145-m16-1m15-2m16-3audiobridgem17-4-callback.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #146 M13-3: AccountConfigPatch — アカウント設定の runtime 更新 | /Users/shyme/shyme/zasso/tickets/specs/0146-m13-3-accountconfigpatch-runtime.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #147 M16-4: ResamplePipeline — rubato 実装完了 | /Users/shyme/shyme/zasso/tickets/specs/0147-m16-4-resamplepipeline-rubato.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #148 M18-3: RustMediaPort → pjmedia_port C ラッパー（conference 接続） | /Users/shyme/shyme/zasso/tickets/specs/0148-m18-3-rustmediaport-pjmedia-port-c-conference.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #138 M1-3: GgufError From トレイト実装 (error.rs) | /Users/kawata/shyme/zasso/tickets/specs/0138-m1-3-gguferror-from-errorrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #139 M1-4: GgufConfig マージロジック (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0139-m1-4-ggufconfig-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #140 M1-5: ModelRegistry 同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0140-m1-5-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #141 M2-1: InferenceEngine トレイト定義 (inference/mod.rs) | /Users/kawata/shyme/zasso/tickets/specs/0141-m2-1-inferenceengine-inferencemodrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #142 M2-2: ModelRegistry 非同期メソッド (registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0142-m2-2-modelregistry-registryrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #143 M2-3: GgufEngine::new() 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0143-m2-3-ggufenginenew-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #144 M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests) | /Users/kawata/shyme/zasso/tickets/specs/0144-m2-4-mockall-librs-tests-inferencemodrs-tests.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #145 M3-1: GgufConfig::build 完全実装 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0145-m3-1-ggufconfigbuild-configrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #146 M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs) | /Users/kawata/shyme/zasso/tickets/specs/0146-m3-2-inferenceengine-generate-generate-structured-inferencegeneraters.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #147 M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs) | /Users/kawata/shyme/zasso/tickets/specs/0147-m3-3-inferenceengine-generate-stream-inferencestreamrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #148 M3-4: InferenceEngine send_raw 実装 (inference/raw.rs) | /Users/kawata/shyme/zasso/tickets/specs/0148-m3-4-inferenceengine-send-raw-inferencerawrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #149 M3-5: lib.rs 統合・re-export 実装 (lib.rs) | /Users/kawata/shyme/zasso/tickets/specs/0149-m3-5-librs-re-export-librs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #150 Layer 3 結合テスト — ローカルSIPサーバ + Docker | /Users/shyme/shyme/zasso/tickets/specs/0150-layer-3-sip-docker.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #151 macOS prebuilt PJSIP の TLS バックエンドを Apple Security Framework に切り替え | /Users/shyme/shyme/zasso/tickets/specs/0151-macos-prebuilt-pjsip-tls-apple-security-framework.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #152 Layer 3 結合テスト — Asterisk 結合試験の実証と修正 | /Users/shyme/shyme/zasso/tickets/specs/0152-layer-3-asterisk.md | 2026-06-18 | 2026-06-18
+- [x] #150 M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs) | /Users/kawata/shyme/zasso/tickets/specs/0150-m4-1-serverrouterrs-serveropenairs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #151 M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs) | /Users/kawata/shyme/zasso/tickets/specs/0151-m4-2-ggufengine-librs-servermodrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #152 M4-3: サーバー結合テスト (tests/server_integration_test.rs) | /Users/kawata/shyme/zasso/tickets/specs/0152-m4-3-testsserver-integration-testrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #153 M5-1: build.rs モデル自動ダウンロード | /Users/kawata/shyme/zasso/tickets/specs/0153-m5-1-buildrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #154 M5-2: test-run バイナリ (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0154-m5-2-test-run-srcbintest-runrs.md | 2026-06-18 | 2026-06-18 | 2026-06-18
+- [x] #155 PjsuaBackend 結合障壁除去（credential + thread） | /Users/shyme/shyme/zasso/tickets/specs/0155-pjsuabackend-credential-thread.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 統合テスト完全実行（Docker Asterisk + 全16テスト） | /Users/shyme/shyme/zasso/tickets/specs/0156-docker-asterisk-16.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 PjsuaBackend EventBus 結合と統合テスト安定化 | /Users/shyme/shyme/zasso/tickets/specs/0157-pjsuabackend-eventbus.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 PjsuaBackend シングルトン化と統合テスト完遂 | /Users/shyme/shyme/zasso/tickets/specs/0158-pjsuabackend.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #155 M5-2.1: Gemma4 モデル情報調査と ModelConfig 追加 (config.rs) | /Users/kawata/shyme/zasso/tickets/specs/0155-m5-21-gemma4-modelconfig-configrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 M5-2.2: UQFF モデル読み込み対応 (build.rs + registry.rs) | /Users/kawata/shyme/zasso/tickets/specs/0156-m5-22-uqff-buildrs-registryrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 M5-2.3: デフォルトモデルの Gemma4 への切り替え（test-run.rs / ドキュメント） | /Users/kawata/shyme/zasso/tickets/specs/0157-m5-23-gemma4-test-runrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 M5-2.4: test-run + 実動作確認 | /Users/kawata/shyme/zasso/tickets/specs/0158-m5-24-test-run.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #160 M6-1: server/types.rs 新規作成 — OpenAI 互換型自前定義 | /Users/kawata/shyme/zasso/tickets/specs/0160-m6-1-servertypesrs-openai.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #161 M6-2: error.rs 修正 — MistralrsError → LlamaCppError | /Users/kawata/shyme/zasso/tickets/specs/0161-m6-2-errorrs-mistralrserror-llamacpperror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #162 M6-3: config.rs + settings.rs 修正 — mistralrs 特化フィールド除去 | /Users/kawata/shyme/zasso/tickets/specs/0162-m6-3-configrs-settingsrs-mistralrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #155 M0-1: AppConfig / GlobalConfig / ProviderConfig / ModelConfig / TimeoutConfig / GlobalLimitConfig | /Users/shyme01/shyme/zasso/tickets/specs/0155-m0-1-appconfig-globalconfig-providerconfig-modelconfig-timeoutconfig-globallimitconfig.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #156 M0-2: LossyLevel / ProxyError / ResolvedModel / ConfigError | /Users/shyme01/shyme/zasso/tickets/specs/0156-m0-2-lossylevel-proxyerror-resolvedmodel-configerror.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #157 M1-1: ルーティング純粋関数 — parse_provider_model / resolve_model / resolve_api_format / build_upstream_headers / LossyLevel::should_reject | /Users/shyme01/shyme/zasso/tickets/specs/0157-m1-1-parse-provider-model-resolve-model-resolve-api-format-build-upstream-headers-lossylevelshould-reject.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #158 M1-2: AppConfig::validate — 集約型設定検証 | /Users/shyme01/shyme/zasso/tickets/specs/0158-m1-2-appconfigvalidate.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #159 M2-1: KeyScheduler — 起動時乱択 + round-robin key 管理 | /Users/shyme01/shyme/zasso/tickets/specs/0159-m2-1-keyscheduler-round-robin-key.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #160 M2-2: ConcurrencyLimiter — Semaphore-based backpressure | /Users/shyme01/shyme/zasso/tickets/specs/0160-m2-2-concurrencylimiter-semaphore-based-backpressure.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #161 M2-3: ConfigLoader — TOML 読込 + CLI | /Users/shyme01/shyme/zasso/tickets/specs/0161-m2-3-configloader-toml-cli.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #162 M3-1: AppState + Router + ProxyError::into_response | /Users/shyme01/shyme/zasso/tickets/specs/0162-m3-1-appstate-router-proxyerrorinto-response.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #163 M3-2: 認証 Tower middleware | /Users/shyme01/shyme/zasso/tickets/specs/0163-m3-2-tower-middleware.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #164 M3-3: Endpoint handlers — healthz / metrics / v1/models / v1/messages skeleton | /Users/shyme01/shyme/zasso/tickets/specs/0164-m3-3-endpoint-handlers-healthz-metrics-v1models-v1messages-skeleton.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #165 M3-4: Transparent provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0165-m3-4-transparent-provider-mode.md | 2026-06-19 | 2026-06-19
+- [x] #166 M3-5: Translate provider mode | /Users/shyme01/shyme/zasso/tickets/specs/0166-m3-5-translate-provider-mode.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #167 M4-1: ProxyServer::start — 起動シーケンス + ServerHandle | /Users/shyme01/shyme/zasso/tickets/specs/0167-m4-1-proxyserverstart-serverhandle.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #168 M4-2: Binary entrypoint (main.rs) | /Users/shyme01/shyme/zasso/tickets/specs/0168-m4-2-binary-entrypoint-mainrs.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #169 M4-3: Mock server integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0169-m4-3-mock-server-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #170 M4-4: Real provider integration tests | /Users/shyme01/shyme/zasso/tickets/specs/0170-m4-4-real-provider-integration-tests.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #171 Translate mode 本実装 — llm-bridge-core 変換 | /Users/shyme01/shyme/zasso/tickets/specs/0171-translate-mode-llm-bridge-core.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #172 ProviderClient 導入 + ConcurrencyLimiter 接続 | /Users/shyme01/shyme/zasso/tickets/specs/0172-providerclient-concurrencylimiter.md | 2026-06-19 | 2026-06-19 | 2026-06-19
+- [x] #173 M0-1: common.sh — 色付き出力ヘルパー関数 | /Users/kawata/shyme/zasso/tickets/specs/0173-m0-1-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #174 common.sh — 環境チェック関数群 | /Users/kawata/shyme/zasso/tickets/specs/0174-commonsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #175 M1-1: doctor.sh — 環境診断スクリプト | /Users/kawata/shyme/zasso/tickets/specs/0175-m1-1-doctorsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #176 M1-2: setup.sh — 環境構築スクリプト（冪等） | /Users/shyme/shyme/zasso/tickets/specs/0176-m1-2-setupsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #177 M2-1: run.sh — サーバー・プロキシ起動スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0177-m2-1-runsh.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #178 M0: Malfeasance.json スキーマ定義と操作スクリプト群の作成 | /Users/shyme/shyme/zasso/tickets/specs/0178-m0-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #179 M1: formulate-tickets.md への Malfeasance.json 作成処理の追加 | /Users/shyme/shyme/zasso/tickets/specs/0179-m1-formulate-ticketsmd-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #180 M2: 第一級規則（スタブマーカー絶対義務）の明記と甘い記述の修正 | /Users/shyme/shyme/zasso/tickets/specs/0180-m2.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #181 M3: make/plan/start/review への Malfeasance.json 統合 | /Users/shyme/shyme/zasso/tickets/specs/0181-m3-makeplanstartreview-malfeasancejson.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #182 M3-1: test.js — 6段階検証スクリプト | /Users/shyme/shyme/zasso/tickets/specs/0182-m3-1-testjs-6.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #183 M4-1: 全スクリプト連携テストと障害モード検証 | /Users/shyme/shyme/zasso/tickets/specs/0183-m4-1.md | 2026-06-21 | 2026-06-21 | 2026-06-21
+- [x] #184 RuntimeCommand 新設 — GetAccountInfo / ConfConnect / ConfDisconnect（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0184-runtimecommand-getaccountinfo-confconnect-confdisconnectp0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 PjsuaBackend メソッド完全化 — configure_codecs auto モード（P1） | /Users/shyme/shyme/zasso/tickets/specs/0185-pjsuabackend-configure-codecs-auto-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #184 観測可能性・メトリクス配線 + tracing instrumentation | /Users/shyme01/shyme/zasso/tickets/specs/0184-tracing-instrumentation.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 integration-test feature + テスト環境整備 | /Users/shyme01/shyme/zasso/tickets/specs/0185-integration-test-feature.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #186 Crateレベル属性 + ProxyServer再公開（M#1） | /Users/shyme01/shyme/zasso/tickets/specs/0186-crate-proxyserverm1.md | 2026-06-22
+- [x] #184 registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking | /Users/kawata/shyme/zasso/tickets/specs/0184-registryrs-llamamodel-load-from-file-spawn-blocking.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #185 M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化 | /Users/kawata/shyme/zasso/tickets/specs/0185-m6-5-inferencemodrs-inferenceengine-3.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #186 M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf | /Users/kawata/shyme/zasso/tickets/specs/0186-m6-6-inferencegeneraters-llama-cpp-2-gbnf.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #187 M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream | /Users/kawata/shyme/zasso/tickets/specs/0187-m6-7-inferencestreamrs-tokencallback-mpsc-receiverstream.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #188 M6-8: inference/raw.rs 削除 | /Users/kawata/shyme/zasso/tickets/specs/0188-m6-8-inferencerawrs.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #189 server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除 | /Users/kawata/shyme/zasso/tickets/specs/0189-serveropenairs-routerrs-anthropic.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #190 M6-12: テストコード修正 — llama-cpp-2 パニック問題調査・修正 | /Users/kawata/shyme/zasso/tickets/specs/0190-m6-12-llama-cpp-2.md | 2026-06-22
+- [x] #191 モジュール分割 — config/util 単一責務化（m#8） | /Users/shyme01/shyme/zasso/tickets/specs/0191-configutil-m8.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 M6-3: 設定検証補完（m#7/m#11） | /Users/shyme01/shyme/zasso/tickets/specs/0192-m6-3-m7m11.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 コード品質改善（n#13〜n#16） | /Users/shyme01/shyme/zasso/tickets/specs/0193-n13n16.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #194 Feature gate 整備（m#6） | /Users/shyme01/shyme/zasso/tickets/specs/0194-feature-gate-m6.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #191 NativeEvent → SipEventPayload 変換完全化（P0-P1） | /Users/shyme/shyme/zasso/tickets/specs/0191-nativeevent-sipeventpayload-p0-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 M20-5: SubscribeAudio Reactor ハンドラ — conf_connect 統合（P1） | /Users/shyme/shyme/zasso/tickets/specs/0192-m20-5-subscribeaudio-reactor-conf-connect-p1.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 blocking_read → read().await 全面修正（P0） | /Users/shyme/shyme/zasso/tickets/specs/0193-blocking-read-readawait-p0.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #191 lib.rs 修正 — mistralrs re-export 削除 + server::types 追加 | /Users/kawata/shyme/zasso/tickets/specs/0191-librs-mistralrs-re-export-servertypes.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #192 Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL | /Users/kawata/shyme/zasso/tickets/specs/0192-cargotoml-buildrs-cmake-4dl.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #193 テストコード修正 — MockEngine + 結合テスト | /Users/kawata/shyme/zasso/tickets/specs/0193-mockengine.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #194 Makefileにarchive-ticketsコマンドを追加する | /Users/kawata/shyme/zasso/tickets/specs/0194-makefilearchive-tickets.md | 2026-06-22 | 2026-06-22 | 2026-06-22
+- [x] #195 M6-13: test-run + 実動作確認 (src/bin/test-run.rs) | /Users/kawata/shyme/zasso/tickets/specs/0195-m6-13-test-run-srcbintest-runrs.md | 2026-06-22 | 2026-06-22
