@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-23T06:28:27.074Z",
+  "updatedAt": "2026-06-23T11:08:27.863Z",
   "nodes": [
     {
       "id": "system-architecture",
@@ -964,6 +964,334 @@
         {
           "resolvedAt": "2026-06-23T06:28:27.074Z",
           "answer": "Q26-A: conver statusでテキストレポート＋RFCノード別充足度バー（解像度2%＝50マス）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-command",
+      "title": "conver loop コマンド（CLIインターフェース）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:17:33.775Z",
+          "answer": "Q27-A: conver loop --rfc <path> --docs <path>。grill Phaseでは標準入力を開放しユーザーが改行入力可能。Ctrl+Cで中断→最後のチェックポイントからresume。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-controller",
+      "title": "LoopController（オーケストレーションループ実行エンジン）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:17:33.843Z",
+          "answer": "Q28-A: 二層ループ構造。第一層（convergence_loop_limit=3）、第二層（ticket_retry_limit=3）。両方settings.json設定可能。上限超過時はClaude Codeが状況説明＋提案。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-phase-exec",
+      "title": "各Phaseの自動実行順序とフェーズ間遷移条件",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:17:33.913Z",
+          "answer": "Q28-A: Phase1→2→3→4(第二層ループ含む)→6→7→Δ>0で種類別フィードバック→Δ=0で完了。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-error",
+      "title": "ループ実行中のエラーハンドリングとリカバリ",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:23:19.210Z",
+          "answer": "Q29-B: 種別分岐エラー処理。Claude Code呼出しエラー→3回自動リトライ。チケット不合格→Blocked→Retrying（上限3）。DAG検証エラー→即停止。上限超過→Claude Code分析＋提案表示。停止時はプロセス終了→シェル解放。再開は同一コマンド再実行でチェックポイントからresume（resumeサブコマンドなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-checkpoint",
+      "title": "ループの途中再開（checkpoint/resume）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:23:19.278Z",
+          "answer": "Q27-A/Q29-B: Ctrl+Cで中断→checkpoint保持→同一コマンド再実行でresume。resumeサブコマンドは実装しない。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-progress",
+      "title": "ループ実行中の進捗表示",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:17:45.551Z",
+          "answer": "Q30-C: 各Phase開始＋チケット完了時に1行ログ。conver loop status でいつでもon-demand確認可能。リアルタイム更新は実装しない。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-limit-exceeded",
+      "title": "ループ上限超過時のClaude Code説明＋提案フロー",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:23:19.344Z",
+          "answer": "Q28/Q29: 上限超過時はStatus.json・OMISSIONS・round_logをClaude Codeに渡し「なぜ収束しないか」の分析と「次に何をすべきか」の提案を表示。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "loop-settings",
+      "title": "ループ関連settings.json設定値（ticket_retry_limit等）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T09:24:11.804Z",
+          "answer": "Q31-A: convergence_loop_limit=3（既存reportセクション）、ticket_retry_limit=3（retryセクション新規追加）。loop専用セクションは作らない。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "multiline-input",
+      "title": "複数行入力の終了シグナル（Ctrl+D/EOF）と標準入力制御",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23",
+          "answer": "Ctrl+S（0x13）を複数行入力の終了シグナルとする。プログラム側でraw mode設定によりフロー制御を無効化し、Ctrl+Sを捕捉する。grillの標準的な選択肢回答は1行で完結する。"
+        },
+        {
+          "resolvedAt": "2026-06-23T09:28:35.122Z",
+          "answer": "複数行入力の終了はCtrl+D（EOF）。標準POSIX動作で追加設定不要。grillの選択肢回答（Q1=A形式）は1行で完結するが、自由記述が必要な場合はCtrl+Dで複数行を送信する。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-adoption",
+      "title": "ACP採用方針（RuntimeBackend統合or並存）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.441Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-client-design",
+      "title": "AcpClient構造体（JSON-RPC over stdio）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.441Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-session-prompt",
+      "title": "session/promptによる対話型grill制御",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.442Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-session-load",
+      "title": "session/loadによるcheckpoint/resume連携",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.442Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-loop-execute",
+      "title": "LoopControllerのexecute_*()実装方針",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.442Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "acp-fallback",
+      "title": "claude-code-acp不在時のフォールバック",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:31:02.442Z",
+          "answer": "ACP採用で全解決。AcpClientのみ（conver-acp crate）。session/promptでスラッシュコマンド送信。LoopController直接制御。不在時はエラー終了（フォールバックなし）。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-workflowcontroller",
+      "title": "WorkflowController/WorkflowRequestの要否",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.503Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-cli",
+      "title": "CLIコマンド体系の適正スコープ",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-runtime",
+      "title": "RuntimeBackend→AcpClientへの置換範囲",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-state",
+      "title": "状態機械・DesignTree・チケット管理のRust範囲",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-validation",
+      "title": "検証ゲートの要否選別",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-settings",
+      "title": "Settings構造体の最小フィールド",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "trim-malfeasance",
+      "title": "Malfeasance/STUB管理のRust範囲",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T10:30:47.504Z",
+          "answer": "Q37-A: WorkflowController+WorkflowRequest完全削除。LoopControllerが直接acp.prompt()を呼ぶ。    Q38-A+可視化: CLIはconver loop --rfc --docsが主。ただしΔ計算・乖離関数・収束レポート(50マス充足度バー)の可視化機構はRustで実装。    Q39-C: conver-runtime→conver-acpに改名。AcpClientのみの超軽量crate。    Q40-B: RustでLoopPhase管理+DAG検証+Δ計算+DesignTree I/O+トポロジカルソート（可視化に必要）    Q41: 検証スクリプトはnodejs/shのまま。Rust移植不要。conver initで展開。    Q42-A: Settings最小5セクション7フィールド。    Q43: malfeasance/STUB管理も既存スクリプトのまま。conver initで展開。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "new-cmd-tree-split",
+      "title": "/grill-me-to-split-rfc-as-tree 新規定義",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T11:08:27.862Z",
+          "answer": "Q44-A: Claude Codeが論理分解→RFC_TREE.json生成→Rust petgraph検証→再生成ループ。    Q45-A: Claude CodeがM/C/U検出→RustがX機械検出→RustがΔ計算。OMISSIONS-<round>.jsonに統合。    Q46-C: /formulate-ticketsと/start-ticketにDAG合否、/review-ticketに合否を構造化出力。Status.json更新はRust。    Q47-A: 新規スクリプト不要。ただしRust機械的処理はconver cmdから呼び出し可能にし、スラッシュコマンドMarkdown内でconver cmdを呼ぶ形にする。    Q48-B: 既存スクリプトは新データ形式対応のみ。直接Claude Code実行を壊す改修禁止。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "new-cmd-omissions",
+      "title": "/find-omissions-for-next-rfc 新規定義",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T11:08:27.863Z",
+          "answer": "Q44-A: Claude Codeが論理分解→RFC_TREE.json生成→Rust petgraph検証→再生成ループ。    Q45-A: Claude CodeがM/C/U検出→RustがX機械検出→RustがΔ計算。OMISSIONS-<round>.jsonに統合。    Q46-C: /formulate-ticketsと/start-ticketにDAG合否、/review-ticketに合否を構造化出力。Status.json更新はRust。    Q47-A: 新規スクリプト不要。ただしRust機械的処理はconver cmdから呼び出し可能にし、スラッシュコマンドMarkdown内でconver cmdを呼ぶ形にする。    Q48-B: 既存スクリプトは新データ形式対応のみ。直接Claude Code実行を壊す改修禁止。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "adjust-existing-cmds",
+      "title": "既存スラッシュコマンドのループ対応調整",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T11:08:27.863Z",
+          "answer": "Q44-A: Claude Codeが論理分解→RFC_TREE.json生成→Rust petgraph検証→再生成ループ。    Q45-A: Claude CodeがM/C/U検出→RustがX機械検出→RustがΔ計算。OMISSIONS-<round>.jsonに統合。    Q46-C: /formulate-ticketsと/start-ticketにDAG合否、/review-ticketに合否を構造化出力。Status.json更新はRust。    Q47-A: 新規スクリプト不要。ただしRust機械的処理はconver cmdから呼び出し可能にし、スラッシュコマンドMarkdown内でconver cmdを呼ぶ形にする。    Q48-B: 既存スクリプトは新データ形式対応のみ。直接Claude Code実行を壊す改修禁止。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "new-scripts",
+      "title": "新規スクリプトの要否（deviation/loop-status）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T11:08:27.863Z",
+          "answer": "Q44-A: Claude Codeが論理分解→RFC_TREE.json生成→Rust petgraph検証→再生成ループ。    Q45-A: Claude CodeがM/C/U検出→RustがX機械検出→RustがΔ計算。OMISSIONS-<round>.jsonに統合。    Q46-C: /formulate-ticketsと/start-ticketにDAG合否、/review-ticketに合否を構造化出力。Status.json更新はRust。    Q47-A: 新規スクリプト不要。ただしRust機械的処理はconver cmdから呼び出し可能にし、スラッシュコマンドMarkdown内でconver cmdを呼ぶ形にする。    Q48-B: 既存スクリプトは新データ形式対応のみ。直接Claude Code実行を壊す改修禁止。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "adjust-existing-scripts",
+      "title": "既存スクリプトのループ対応調整",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-23T11:08:27.863Z",
+          "answer": "Q44-A: Claude Codeが論理分解→RFC_TREE.json生成→Rust petgraph検証→再生成ループ。    Q45-A: Claude CodeがM/C/U検出→RustがX機械検出→RustがΔ計算。OMISSIONS-<round>.jsonに統合。    Q46-C: /formulate-ticketsと/start-ticketにDAG合否、/review-ticketに合否を構造化出力。Status.json更新はRust。    Q47-A: 新規スクリプト不要。ただしRust機械的処理はconver cmdから呼び出し可能にし、スラッシュコマンドMarkdown内でconver cmdを呼ぶ形にする。    Q48-B: 既存スクリプトは新データ形式対応のみ。直接Claude Code実行を壊す改修禁止。"
         }
       ],
       "children": []
