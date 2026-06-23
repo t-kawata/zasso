@@ -1,4 +1,32 @@
 {
   "version": 1,
-  "records": []
+  "records": [
+    {
+      "id": 1,
+      "file": "crates/conver/rfc-005-validation/conver-validation/src/quality.rs",
+      "line": 1,
+      "description": "QualityGate条件2（CheckList全項目マーク済み）が validate_completion の引数に含まれておらず未実装。CheckListのマーク状態を引数として受け取る拡張が必要。",
+      "detected_at": "2026-06-23T08:25:14.272Z",
+      "status": "open",
+      "note": "[::STUB::] RFC_005 §2.5 条件2: 解決先チケット未定（UI/CLI層の機能に依存）"
+    },
+    {
+      "id": 2,
+      "file": "crates/conver/rfc-005-validation/conver-validation/src/quality.rs",
+      "line": 2,
+      "description": "QualityGate条件5（全ファイルSHA-256ハッシュ一致）が未実装。TamperDetector（Appendix A）として別途設計・実装が必要。",
+      "detected_at": "2026-06-23T08:25:17.645Z",
+      "status": "open",
+      "note": "[::STUB::] RFC_005 §2.5 条件5 + Appendix A: 解決先チケット未定（TamperDetectorはRFC_005スコープ外）"
+    },
+    {
+      "id": 3,
+      "file": "crates/conver/rfc-006-convergence/convergence.rs",
+      "line": 1,
+      "description": "CompletionVerifier::verify() 条件6（凍結・停止フラグ管理）は未実装。M6-1 で [::STUB::] マーカーを付与し、M8-1 で解決予定。",
+      "detected_at": "2026-06-23T08:30:48.731Z",
+      "status": "open",
+      "note": "実装時に正確な行番号に修正要。現在は設計段階の仮置き。"
+    }
+  ]
 }
