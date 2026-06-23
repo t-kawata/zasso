@@ -1,0 +1,198 @@
+---
+description: チケットの実装計画を策定する（実行をもって spec を承認済みとみなす）。物理的レビュー方法を計画に含め、計画の承認をユーザーに求める。引数なしならチケットIDを質問する。
+---
+
+# /plan-ticket
+
+**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+
+**役割**: `approved` チケットの実装計画と物理的レビュー方法の定義。
+
+## ワークフローにおける位置づけ
+
+このプロジェクトの作業の流れは `make → plan → start → review` である。ただし、各コマンドは必ずしも連続して実行されず、ユーザーの作業スタイルに応じて非連続的に使用される：
+
+- **`/make-ticket`**: 複数のチケットをまとめて作成することが多い。作成後、すぐに計画・実装されるとは限らない。
+- **`/plan-ticket` + `/start-ticket`**: ひとつのチケットに対して連続実行されることが多い（計画承認→即実装）。
+- **`/review-ticket`**: 完了したチケットをまとめてレビューすることが多い。
+
+**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案してもよい（例：「実装を開始する場合は /start-ticket を実行してください」）。ただし、決定はユーザーに委ね、押し付けない。
+
+## 引数の解釈
+
+- 引数なし → ユーザーに「どのチケットの計画を策定しますか？」と質問する
+- 数字 → チケットID
+
+## 必須条件
+
+チケットが `approved` ステータスであること。
+
+## Boy Scout Rule
+
+**翻訳可能性を損なっている既存コードを、スコープ内外問わず改善することを計画に含める。** 変更ファイル一覧とは別に「Boy Scout 改善（スコープ外の翻訳可能性修正）」セクションを設け、どのファイルの何を直すかを明記する。
+
+### 翻訳可能性チェック（全言語共通、grep パターンは言語に応じて選択）
+
+- 関数定義を grep し、名詞始まりの関数がないか
+- 変数宣言を grep し、1文字変数や汎用名（`data`, `info`, `tmp`）がないか
+- 4桁以上の数値リテラルが直接書かれていないか
+- デバッグ出力が残っていないか
+
+## 使用スクリプト一覧
+
+`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+
+| スクリプト | 引数 |
+|---|---|
+| `resolve-ticket.js` | `<id>` |
+| `check-status.js` | `<id> <status>` |
+| `read-frontmatter.js` | `<id>` |
+| `review/run-quality-checks.js` | `<files...>` |
+| `review/generate-report.js` | （stdin経由） |
+| `update-frontmatter.js` | `<id> <key> <val>` |
+| `read-artifact.js` | `<id> <type>` |
+| `save-artifact.js` | `<id> <type>`（stdin） |
+
+## ワークフロー
+
+### Step 1: 存在確認
+
+```bash
+node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+```
+
+`exists: false` → 終了。
+
+### Step 2: spec の自動承認
+
+`/plan-ticket` の実行をもって、対象チケットの spec は承認されたものとみなす。
+現在のステータスが `approved` でない場合、自動的に `approved` に遷移させる：
+
+```bash
+node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
+```
+
+`matches: true` → そのまま進む。
+`matches: false` → 現在のステータスを表示し、自動的に `approved` に遷移する：
+
+```bash
+node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" approved
+```
+
+これにより、draft や reopened の状態から直接計画策定に入ることができる。
+
+### Step 3: spec 読み取り
+
+以下のコマンドで spec 全文と frontmatter を読み取る：
+
+```bash
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
+```
+
+`created_at` と `updated_at` を確認し、make からどの程度時間が経過しているかを把握する。
+
+### Step 4: 既存計画の確認
+
+`read-artifact.js` で plan.md の有無を確認する：
+
+```bash
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
+```
+
+- 出力がある場合 → 既存の計画が存在する。内容を踏まえて更新または再策定する。
+- エラー終了（JSON エラーが出力される） → 新規に計画を策定する。
+
+### Step 5: Investigation の再検証
+
+spec 作成時から時間が経過している場合、当時記録された Investigation セクションの物理的証拠が現在のコードベースと一致しているとは限らない。以下の観点で再検証する：
+
+- Investigation に記載されたファイルの該当行が現在も同じ内容か確認する
+- 既に修正・改善されていたり、逆に新たな問題が発生していないか grep やテスト実行で確認する
+- 検証結果に基づき、Investigation の情報を最新の状態に更新する
+
+**計画は常に現在のコードベースの状態に基づいて策定しなければならない。**
+
+### Step 6: 依存・関連チケットID の検証
+
+spec に記述された「依存・関連チケットID」を点検する：
+
+1. `read-artifact.js` で spec 全文を読み取り、「依存・関連チケットID」の記述を確認する
+2. 参照先チケットID が実在することを `resolve-ticket.js` で確認する
+3. 循環依存がないか確認する（AがBに先行実装必須、かつBがAに先行実装必須 → 矛盾）
+4. 依存関係が Step 3（依存グラフ）の分析結果と整合しているか検証する
+5. 不足がある場合は補完する
+
+```bash
+# spec から依存・関連チケットID の記述を抽出
+node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+
+# 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
+```
+
+### Step 7: 犯罪・スタブの点検（必須 — 第一級規則）
+
+Malfeasance.json を読み取り、未解決の犯罪がないか確認する。**計画承認の条件**として、以下のいずれかを満たさなければならない：
+
+- **条件 A**: Malfeasance.json に `open` レコードが存在しない
+- **条件 B**: `open` レコードが存在する場合、本チケットの実装計画内にそれらを解消する具体的ステップが含まれている
+
+```bash
+# 犯罪スキャンを実行（初回時は自動初期化）
+.claude/scripts/tickets/scan-crimes.sh
+```
+
+条件 B の場合、計画内に各犯罪の解消ステップを明記すること。
+
+併せて、`[::STUB::]` マーカーが計画に影響するか検証する：
+
+1. `find-all-stubs.js` でスタブを一覧する
+2. このチケットで解決可能なスタブがあるか評価する
+3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加し、`malfeasance-create.js` で犯罪として記録する
+4. 解決可能なスタブは計画の実装スコープに含める
+5. 解決不可能なスタブは注記として計画に残し、将来のチケットとの関係を明記する
+
+```bash
+# スタブの検索
+node .claude/scripts/tickets/review/find-all-stubs.js .
+```
+
+**能動的コード探索**: 計画対象のソースツリーにおいて、CLAUDE.md の「対象となるコード」に定義された 7 パターンの不完全実装が既存コードに存在しないか grep で確認する。発見した場合は `[::STUB::]` マーカーを追加し、`malfeasance-create.js` で犯罪として記録する。この探索結果は計画の「リスク」または「Boy Scout 改善」セクションに反映すること。
+
+```bash
+# 不完全実装パターンの grep
+grep -rE "todo!\(\)|unimplemented!\(\)|panic!\(" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+```
+
+### Step 8: 計画策定
+
+spec 内容をもとに以下の構造で提示する：
+
+- 要件の再確認
+- 変更ファイル一覧（| ファイル | 種別 | 内容 |）
+- Boy Scout 改善（スコープ外の翻訳可能性修正）
+- テスト計画
+  - **基本方針**: ユニットテストの網羅性を最優先する。ユニットテストでカバーできる範囲は全てユニットテストで検証し、どうしてもテスト不可能な部分だけを「ユニットテスト不可能な項目」として理由付きで例外扱いする
+  - **ユニットテスト計画**: 正常系・異常系・境界値の各ケース、モック/スタブの要否、カバレッジ目標
+  - **ユニットテスト不可能な項目（例外）**: 各項目の理由を明示
+  - spec の Test Plan を確認し、不足があれば補完する
+- 実装手順
+- 物理的レビュー方法（`run-quality-checks.js` + 翻訳可能性 grep、**テストが全て通ることの確認を含む**）
+- リスク
+
+### Step 9: ユーザー承認待ち
+
+**明示的な承認を得るまで実装に入らない。**
+
+### Step 10: 計画の保存
+
+ユーザーの承認を得た後、計画内容を `save-artifact.js` にパイプして保存する。これによりファイル作成 + frontmatter 更新が一括処理される。
+
+```bash
+cat <<'PLAN_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" plan
+# 計画内容をここに記述（要件、変更ファイル一覧、実装手順、レビュー方法、リスク）
+PLAN_EOF
+```
+
+これにより、後でチケットを確認したときに「どのような計画で実装されたか」を追跡できる。

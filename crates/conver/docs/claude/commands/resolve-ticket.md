@@ -1,0 +1,124 @@
+---
+description: 指定ディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。cargo check / cargo test を実行し、警告・エラー・スタブ・犯罪の全てを解決する。引数には対象ディレクトリのパスを指定する。
+---
+
+# /resolve-ticket
+
+**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+
+**役割**: 指定ディレクトリ配下の警告・エラー・スタブ・犯罪の一括解決。機械的に行える部分は可能な限りスクリプトで行い、トークンを節約する。
+
+## 引数の解釈
+
+- 引数なし → ユーザーに「どのディレクトリを解決しますか？」と質問する
+- ディレクトリパス → そのディレクトリをカレントディレクトリとして `cargo check`/`cargo test` を実行し、配下のスタブ・犯罪を解決する
+
+## 使用スクリプト一覧
+
+`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+
+| スクリプト | 引数 |
+|---|---|
+| `review/find-all-stubs.js` | `<directory>` |
+| `scan-crimes.sh` | `[directory]`（指定時は配下の犯罪のみ表示） |
+| `malfeasance-create.js` | `<file> <line> <description> [note]` |
+| `malfeasance-update.js` | `<id> <key> <val>` |
+| `review/run-quality-checks.js` | `<files...>` |
+| `review/generate-report.js` | （stdin経由） |
+
+## ワークフロー
+
+### Step 1: cargo check / cargo test の実行と警告・エラー取得
+
+引数で指定されたディレクトリをカレントディレクトリとして `cargo check` と `cargo test` を実行し、すべての警告とエラーを取得する。
+
+```bash
+# 対象ディレクトリに移動して cargo check
+(cd "$ARGUMENTS" && cargo check 2>&1)
+
+# 対象ディレクトリに移動して cargo test
+(cd "$ARGUMENTS" && cargo test 2>&1)
+```
+
+**注意**: 対象ディレクトリに Makefile が存在し適切なターゲットがある場合は `make` 経由でもよいが、生の出力が必要な場合は直接 `cargo` を使用する。
+
+### Step 2: 警告とエラーの解決
+
+取得した警告とエラーをすべて解決する。解決方法は以下：
+
+1. **即時解決可能なもの**: コードを修正して警告・エラーを消す
+2. **後続のチケットで解決されるべきもの**: 該当箇所に `[::STUB::]` マーカーと解決予定のチケットIDを明記し、`#[allow(...)]` 等の適切な機構で警告・エラーを抑制する
+3. **抑制とマーカーの整合性**: 抑制のみで `[::STUB::]` が欠如していないか、`[::STUB::]` のみで抑制が欠如していないかを検証する
+
+**すべての警告・エラーを解決するまで次ステップに進まない。**
+
+### Step 3: スタブ一覧の取得（ディレクトリ指定）
+
+`find-all-stubs.js` に引数で指定されたディレクトリを渡し、配下のスタブのみを一覧する。
+
+```bash
+node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
+```
+
+出力を解析し、各スタブの `[::STUB::]` マーカーにチケットIDが明記されているかを確認する。
+
+### Step 4: 未解決スタブの犯罪登録
+
+引数で指定したディレクトリ配下において、過去のチケットで解決されているべきだったにも関わらず解決されていないスタブを発見したら、全て `malfeasance-create.js` で犯罪として登録する。犯罪は対象ディレクトリの `Malfeasance.json` に記録するため、`cd` してから実行する。
+
+```bash
+(cd "$ARGUMENTS" && node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>")
+```
+
+**判断基準**:
+- マーカーに解決予定チケットIDが明記されている → そのチケットが `done` なら解決されているべき → 未解決は犯罪
+- マーカーにチケットIDがない → 後続ステップで評価
+
+### Step 5: 解決不能スタブの後続チケット割り当て
+
+後続のチケットでの解決が明記されていないスタブについて、以下の対応を行う：
+
+1. **解決を試みる**: 現在のコードベースの状態で実際の実装に置き換えられるものは、その場で解決する
+2. **解決不可能なもの**: 以下の理由に該当する場合、解決されるタイミングのチケットIDを `[::STUB::]` マーカーに明記する
+   - 後続のチケットが実装されないと解決不可能
+   - 現在着手するべきではない（スコープ外、リスク大等）
+
+**解決したスタブは `[::STUB::]` マーカーを除去する。**
+
+### Step 6: 犯罪一覧の取得（ディレクトリ指定）
+
+`scan-crimes.sh` に引数で指定されたディレクトリを渡し、配下の犯罪のみを一覧する。
+
+```bash
+.claude/scripts/tickets/scan-crimes.sh "$ARGUMENTS"
+```
+
+### Step 7: 全犯罪の解決
+
+犯罪が存在すれば全て解決する。**この時点で犯罪が解決されずに放置・保留されることは絶対に許されない。**
+
+解決方法：
+1. 該当コードが既に実装済みなら `[::STUB::]` マーカーを削除し、`malfeasance-update.js` で `status` を `resolved` に変更する
+2. `[::STUB::]` 未付与ならマーカーを追加し、`malfeasance-update.js` で `status` を `resolved` に変更する
+3. 技術的に解決不可能な場合のみ `false_positive` に変更し、理由を `note` に記録する。ただしこれは真に解決不可能な場合に限る
+
+```bash
+# 犯罪の解決（対象ディレクトリの Malfeasance.json に対して）
+(cd "$ARGUMENTS" && node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved")
+
+# 再確認（ディレクトリ指定）
+.claude/scripts/tickets/scan-crimes.sh "$ARGUMENTS"
+```
+
+**全犯罪を解決したことを確認するまで、このコマンドの完了を宣言してはならない。**
+
+### Step 8: 最終検証
+
+解決後、再度コンパイルとテストを実行してすべてが通ることを確認する。
+
+```bash
+(cd "$ARGUMENTS" && cargo check 2>&1)
+(cd "$ARGUMENTS" && cargo test 2>&1)
+```
+
+確認が取れたら、解決した内容のサマリーを提示してユーザーに報告する。
