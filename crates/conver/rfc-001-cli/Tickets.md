@@ -43,7 +43,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M0-1: Crate 構成 + lib.rs（モジュール宣言 + EmbeddedAsset + AssetKind）
 
-* **参照設計書:** RFC_001.md (§1 システム構造, §9 埋め込みアセット)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§1 システム構造, §9 埋め込みアセット)
 * **依存・関連チケット:** M0-1 → M0-2（先行）、M0-1 → M5（後続：routerで使用）
 * **対象不変条件 / 規範:** §1 システム構造（lib.rs のモジュール宣言）、§9 EmbeddedAsset 構造体、§9 AssetKind 列挙型
 * **実装の背景と目的:** 全モジュールの親となる crate 構成と共通型を定義する。`EmbeddedAsset` は `include_bytes!` で埋め込まれた資産を表現し、`InitRunner` でアセット展開に使用される。`AssetKind` はアセット種別を区別するための enum で、現時点では SlashCommand と ConfigTemplate の2バリアント。後方互換性のため新しいバリアントの追加は常に可能とする。
@@ -67,7 +67,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M0-2: エラー型定義（ConfigError, RoutingError, InitError, CompatError）
 
-* **参照設計書:** RFC_001.md (§7 エラー型)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§7 エラー型)
 * **依存・関連チケット:** M0-1 → M0-2（先行：lib.rs のモジュール構造が必要）、M0-2 → M2（後続：Merge 実装に ConfigError が必要）、M0-2 → M5（後続：RoutingError が router で使用）、M0-2 → M7（後続：InitError が init で使用）、M0-2 → M3（後続：CompatError が compat で使用）
 * **対象不変条件 / 規範:** §7 エラー型の完全な定義
 * **実装の背景と目的:** 4種類のエラー型を定義し、各モジュールのエラー処理基盤を確立する。`thiserror` の `#[derive(Error)]` で統一的なエラー表現を提供し、エラーメッセージは日本語（利用者向け）とする。`ConfigError` は `std::io::Error` と `serde_json::Error` を source としてラップする。
@@ -103,7 +103,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M1-1: Settings 構造体（10サブ設定）
 
-* **参照設計書:** RFC_001.md (§A Settings.json 完全スキーマ)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§A Settings.json 完全スキーマ)
 * **依存・関連チケット:** M0-1（先行：crate 構成）、M1-1 → M2（後続：Merge 実装に Settings が必要）、M1-1 → M5（後続：router が settings を受け取る）、M1-1 → M6（後続：ConfigResolver が Settings を扱う）
 * **対象不変条件 / 規範:** §A Settings 構造体の全フィールドとデフォルト値
 * **実装の背景と目的:** 5層設定解決の最終出力型として機能する `Settings` 構造体を定義する。全フィールドは `#[serde(default)]` でオプショナルとし、JSONからの deserialize と CLI引数からの上書きの両方をサポートする。`config_file` フィールドのみ `#[serde(skip)]` とし、-f フラグで指定された設定ファイルパスを保持する（シリアライズ対象外）。
@@ -141,7 +141,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M1-2: Merge トレイト定義
 
-* **参照設計書:** RFC_001.md (§3 設定解決 — Merge trait)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§3 設定解決 — Merge trait)
 * **依存・関連チケット:** M1-1（先行：Settings 構造体）、M1-2 → M2（後続：Merge 実装）
 * **対象不変条件 / 規範:** Merge トレイトのシグネチャと契約
 * **実装の背景と目的:** `Merge` トレイトは設定の階層的マージを抽象化する。`Some(T)` のフィールドのみ上書きし、`None` は無視するセマンティクスを持つ。このトレイトにより、ConfigResolver は任意の設定レイヤを順次マージできる。トレイトを導入することで、テスト時にモック設定とのマージも可能になる。
@@ -175,7 +175,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M2-1: Merge for Settings 実装（全サブ設定のフィールド上書きロジック）
 
-* **参照設計書:** RFC_001.md (§3 設定解決 — impl Merge for Settings)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§3 設定解決 — impl Merge for Settings)
 * **依存・関連チケット:** M1-1（先行：Settings 構造体）、M1-2（先行：Merge トレイト定義）、M2-1 → M6（後続：ConfigResolver が merge を使用）
 * **対象不変条件 / 規範:** §3：Some(T) のフィールドのみ上書き、None は無視
 * **実装の背景と目的:** Settings の全サブ設定フィールドに対してマージロジックを実装する。各サブ設定の全フィールドについて、「`other` 側がデフォルト値と異なる場合のみ上書き」または「`Option<T>` で `Some` の場合のみ上書き」のパターンを適用する。これにより5層の優先順位（defaults < global < project < -f < flags）を実現する。マージ失敗は原則として起こらないが、`UnknownKey` エラーの検出機構は残す（将来のスキーマ拡張に対応するため）。
@@ -227,7 +227,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M3-1: CompatCommand 列挙型定義（9種のレガシーコマンド）
 
-* **参照設計書:** RFC_001.md (§5 互換レイヤ — CompatCommand enum)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§5 互換レイヤ — CompatCommand enum)
 * **依存・関連チケット:** M0-1（先行：lib.rs モジュール宣言）、M3-1 → M3-2（先行：Translate 関数が CompatCommand を使用）
 * **対象不変条件 / 規範:** §5 CompatCommand の9バリアント完全性
 * **実装の背景と目的:** 既存の Node.js スクリプト（`node .claude/scripts/...`）の引数形式をそのまま受け入れる互換コマンドを定義する。`conver cmd <legacy-command> [args...]` の形で呼び出されることを想定し、各レガシーコマンドの引数を型付けられた構造体として定義する。互換レイヤにより、既存のワークフローを中断することなく Rust 版への移行が可能になる。
@@ -257,7 +257,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M3-2: translate() 関数 — CompatCommand → WorkflowRequest 変換
 
-* **参照設計書:** RFC_001.md (§5 互換レイヤ — translate 関数)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§5 互換レイヤ — translate 関数)
 * **依存・関連チケット:** M3-1（先行：CompatCommand 定義）、M0-2（先行：CompatError 定義）、M3-2 → M5（後続：router が translate を呼ぶ際の経路）
 * **対象不変条件 / 規範:** §5 translate() の全バリアント完全マッチ
 * **実装の背景と目的:** 9種の CompatCommand をそれぞれ対応する WorkflowRequest に変換する純粋関数。`CompatCommand::GrillMeForRfc(args)` → `WorkflowRequest::GrillRfc(GrillRfcRequest{...})` のように、レガシーコマンドの引数構造を canonical なリクエストにマッピングする。変換不能な場合は `CompatError` を返す。この関数は I/O を行わない純粋変換であり、単体テストで完全に検証可能。
@@ -279,7 +279,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M4-1: Cli + Command トップレベルパーサー
 
-* **参照設計書:** RFC_001.md (§2.1 トップレベル)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§2.1 トップレベル)
 * **依存・関連チケット:** M0-1（先行：lib.rs モジュール宣言）、M4-1 → M4-2（先行：RfcCommand 等のサブコマンドが必要）、M4-1 → M5（後続：router が Command を使用）
 * **対象不変条件 / 規範:** §2.1 Cli 構造体 + Command 列挙型の完全性（7バリアント）
 * **実装の背景と目的:** CLI エントリポイントのパーサー層。clap の `#[derive(Parser)]` と `#[derive(Subcommand)]` でコマンドライン引数を型付けられた Rust の値に変換する。`Cli` 構造体はトップレベルの `#[command]` 属性を持ち、`Command` 列挙型は7種のサブコマンドを保持する。すべてのサブコマンドは `--help` で完全に文書化される。
@@ -312,7 +312,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M4-2: RfcCommand サブコマンド定義（5種）
 
-* **参照設計書:** RFC_001.md (§2.2 RFC サブコマンド)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§2.2 RFC サブコマンド)
 * **依存・関連チケット:** M4-1（先行：Command が RfcCommand をフィールドに持つ）、M4-2 → M5（後続：router が RfcCommand をマッチ）
 * **対象不変条件 / 規範:** §2.2 RfcCommand の5バリアント完全性
 * **実装スコープ:**
@@ -332,7 +332,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M4-3: TicketCommand サブコマンド定義（7種）
 
-* **参照設計書:** RFC_001.md (§2.3 チケットサブコマンド)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§2.3 チケットサブコマンド)
 * **依存・関連チケット:** M4-1（先行：Command が TicketCommand をフィールドに持つ）
 * **対象不変条件 / 規範:** §2.3 TicketCommand の7バリアント完全性
 * **実装スコープ:**
@@ -354,7 +354,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M4-4: MalfeasanceCommand サブコマンド定義（4種）
 
-* **参照設計書:** RFC_001.md (§2.4 Malfeasance サブコマンド)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§2.4 Malfeasance サブコマンド)
 * **依存・関連チケット:** M4-1（先行：Command が MalfeasanceCommand をフィールドに持つ）
 * **対象不変条件 / 規範:** §2.4 MalfeasanceCommand の4バリアント完全性
 * **実装スコープ:**
@@ -373,7 +373,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M4-5: QualityCommand + RuntimeCommand サブコマンド定義
 
-* **参照設計書:** RFC_001.md (§2.5 その他のサブコマンド)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§2.5 その他のサブコマンド)
 * **依存・関連チケット:** M4-1（先行：Command が両コマンドをフィールドに持つ）
 * **対象不変条件 / 規範:** §2.5 QualityCommand（1バリアント）+ RuntimeCommand（3バリアント）の完全性
 * **実装スコープ:**
@@ -397,7 +397,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M5-1: route() 関数 — Command → WorkflowRequest 変換 + 実行
 
-* **参照設計書:** RFC_001.md (§4 ルーティング)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§4 ルーティング)
 * **依存・関連チケット:** M4-1（先行：Command 定義）、M0-2（先行：RoutingError）、M3-2（先行：compat::translate）、M5-1 → 結合テスト M10（後続）
 * **対象不変条件 / 規範:** §4：全 Command バリアントが WorkflowRequest に変換可能
 * **実装の背景と目的:** パース済みの `Command` を `WorkflowRequest` に変換し、`conver-core` の `WorkflowController` に渡す。この関数は Command → WorkflowRequest のマッピングテーブルとして機能し、新たなコマンドが追加された際はここにマッピングを追加する。`Command::Cmd`（互換コマンド）は `crate::compat::translate()` を呼び出してから実行する。`Command::Init` は main.rs で特別処理されるため、ここではマッチしない（到達不能の場合はパニックでなくエラーを返す設計としておく）。
@@ -426,7 +426,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M6-1: ConfigResolver::load_file() — 単一設定ファイル読み込み
 
-* **参照設計書:** RFC_001.md (§3 設定解決 — ConfigResolver::load_file)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§3 設定解決 — ConfigResolver::load_file)
 * **依存・関連チケット:** M1-1（先行：Settings + serde）、M0-2（先行：ConfigError）、M6-1 → M6-2（後続：load_global/load_project が load_file を呼ぶ）
 * **対象不変条件 / 規範:** §3 load_file: ファイル読み込み + JSONパース
 * **実装の背景と目的:** 任意のパスから JSON 設定ファイルを読み込み、`Settings` 構造体に deserialize する。ファイルが存在しない場合、JSON フォーマットが不正な場合、および不明なキーが含まれる場合のエラー処理を定義する。この関数は5層マージの層2〜4（global, project, -f）で使用される共通基盤である。
@@ -446,7 +446,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M6-2: ConfigResolver::load_global() + load_project() — 設定ファイル探索
 
-* **参照設計書:** RFC_001.md (§3 設定解決 — load_global, load_project)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§3 設定解決 — load_global, load_project)
 * **依存・関連チケット:** M6-1（先行：load_file）、M6-2 → M6-3（後続：resolve が両者を呼ぶ）
 * **対象不変条件 / 規範:** §3：load_global (dirs::config_dir 使用), load_project (ancestors 遡上)
 * **実装の背景と目的:** 2つの設定ファイル探索戦略を実装する。`load_global()` は OS 標準の設定ディレクトリ（Linux: `~/.config/conver/settings.json`, macOS: `~/Library/Application Support/conver/settings.json`）を `dirs::config_dir()` 経由で解決する。`load_project()` はカレントディレクトリからルートまで遡り、`.conver/settings.json` を探索する。両方ともファイルが存在しない場合はエラーにせず `Settings::defaults()` を返す（寛容なフォールバック）。
@@ -469,7 +469,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M6-3: ConfigResolver::resolve() — 5層マージ統合
 
-* **参照設計書:** RFC_001.md (§3 設定解決 — ConfigResolver::resolve)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§3 設定解決 — ConfigResolver::resolve)
 * **依存・関連チケット:** M6-1（先行：load_file）、M6-2（先行：load_global/load_project）、M2-1（先行：Merge::merge）、M6-3 → M8（後続：main.rs が resolve を呼ぶ）
 * **対象不変条件 / 規範:** §3：defaults < global < project < -f < flags の優先順位
 * **実装の背景と目的:** 5層の設定マージを統合する公開API。1→5の順にマージを重ね、最終的な `Settings` を返す。CLIフラグ（層5）が最優先で、ビルトインデフォルト（層1）が最低優先。この関数が設定解決層のエントリポイントであり、main.rs から呼び出される。
@@ -507,7 +507,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M7-1: InitRunner::run() — アセット展開 + マニフェスト生成
 
-* **参照設計書:** RFC_001.md (§6 Init コマンド)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§6 Init コマンド)
 * **依存・関連チケット:** M0-1（先行：EmbeddedAsset, AssetKind）、M0-2（先行：InitError）、M7-1 → M8（後続：main.rs で Init コマンド時に呼び出し）
 * **対象不変条件 / 規範:** §6：ConflictPolicy に従ったファイル展開、マニフェスト書き出し
 * **実装の背景と目的:** ビルド時にバイナリに埋め込まれたスラッシュコマンド定義（9種類のMarkdownファイル）を対象プロジェクトの `.claude/commands/` に展開する。競合が発生した場合のポリシー（3種）を実装し、展開後は `.claude/manifest.json` にマニフェストを書き出す。アセットの SHA-256 ハッシュも埋め込み、改ざん検出を可能にする。
@@ -553,7 +553,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M8-1: main() — エントリポイント + Init 特別処理 + Controller初期化
 
-* **参照設計書:** RFC_001.md (§8 エントリポイント)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (§8 エントリポイント)
 * **依存・関連チケット:** M4-1（先行：Cli パース）、M6-3（先行：ConfigResolver::resolve）、M7-1（先行：InitRunner）、M5-1（先行：route）、M8-1 → M9（後続：受入テスト）、M8-1 → M10（後続：結合テスト）
 * **対象不変条件 / 規範:** §8：main 関数の全5ステップの順序
 * **実装の背景と目的:** CLI バイナリのエントリポイント。以下の5ステップを順次実行する：
@@ -614,7 +614,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M9-1: test-run.rs — RFC_001 完了条件確認バイナリ
 
-* **参照設計書:** RFC_001.md (Appendix D 受入テスト)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (Appendix D 受入テスト)
 * **依存・関連チケット:** M8-1（先行：main.rs 統合完了）、M9-1 → 完了条件 §C の全項目確認
 * **対象不変条件 / 規範:** §C（完了条件1-7）、Appendix D（受入テスト仕様）
 * **実装の背景と目的:** `cargo run --bin test-run -p conver-cli` で実行する独立した受入テストバイナリ。ユニットテストとは独立して RFC_001 の完了条件を人間可読な形式で出力する。このバイナリは CI パイプラインやリリースゲートで使用し、本RFCの実装完了を宣言するための客観的根拠を提供する。
@@ -663,7 +663,7 @@ Layer 4 (統合):          M9 ─── M10
 
 #### チケット M10-1: cli_integration.rs — 結合テストスイート
 
-* **参照設計書:** RFC_001.md (結合テスト — tests/cli_integration.rs)
+* **参照設計書:** crates/conver/rfc-001-cli/RFC_001.md (結合テスト — tests/cli_integration.rs)
 * **依存・関連チケット:** M8-1（先行：main.rs 統合完了）、M9-1（先行：受入テスト完了の確認後）
 * **対象不変条件 / 規範:** 結合テスト仕様（§テスト > 結合テスト）
 * **実装の背景と目的:** 実際のバイナリを実行してCLIの動作をエンドツーエンドで検証する。`assert_cmd` crate で `conver` バイナリを起動し、終了コードと標準出力/エラー出力を確認する。ユニットテストでカバーできない「実際のプロセスとしての挙動」（シグナルハンドリング、終了コード、標準エラー出力）を検証する。

@@ -18,7 +18,7 @@
 
 #### チケット M1-1: OmissionKind 4分類列挙型
 
-* **参照設計書:** RFC_006.md (§8 Omissions Ledger)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§8 Omissions Ledger)
 * **依存・関連チケットID:**
   - 先行実装必須: なし（本チケットが最基底）
   - 後続: M1-2（OmissionEntryがOmissionKindに依存）
@@ -42,7 +42,7 @@
 
 #### チケット M1-2: OmissionEntry 個別エントリ構造体
 
-* **参照設計書:** RFC_006.md (§8 Omissions Ledger)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§8 Omissions Ledger)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-1（OmissionKindに依存）
   - 後続: M1-3（OmissionsLedgerがVec<OmissionEntry>を保持）
@@ -73,7 +73,7 @@
 
 #### チケット M1-3: OmissionsLedger コレクション
 
-* **参照設計書:** RFC_006.md (§3.4, §8)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§3.4, §8)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-1, M1-2（OmissionKind / OmissionEntryに依存）
   - 後続: M1-7（DeviationCalculatorがOmissionsLedgerを受け取る）、M1-12（ConvergenceControllerが参照）、M1-14（CompletionVerifierが参照）
@@ -111,7 +111,7 @@
 
 #### チケット M2-1: DeviationComponents + DeviationScore 型定義
 
-* **参照設計書:** RFC_006.md (§3.1 - 3.3)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§3.1 - 3.3)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-3（OmissionsLedgerを使用するが、本チケットは型定義のみのため、OmissionKind/M1-1が先行すれば十分）
   - 後続: M2-2（DeviationCalculatorがDrivationScoreを返す）、M1-8（ObservationVectorがDrivationScoreから展開）
@@ -141,7 +141,7 @@
 
 #### チケット M2-2: DeviationCalculator 乖離関数計算機
 
-* **参照設計書:** RFC_006.md (§3.3 - 3.4)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§3.3 - 3.4)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-3（OmissionsLedger）、M2-1（DeviationScore）
   - 後続: M1-12（ConvergenceControllerがDeviationCalculatorを内包）、M1-14（CompletionVerifierがΔを受け取る）
@@ -179,7 +179,7 @@
 
 #### チケット M3-1: InterventionKind 9種の介入種別
 
-* **参照設計書:** RFC_006.md (§6.1)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§6.1)
 * **依存・関連チケットID:**
   - 先行実装必須: なし
   - 後続: M3-2（InterventionがInterventionKindに依存）
@@ -209,7 +209,7 @@
 
 #### チケット M3-2: Intervention 介入記録 + summary()
 
-* **参照設計書:** RFC_006.md (§6.1)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§6.1)
 * **依存・関連チケットID:**
   - 先行実装必須: M3-1（InterventionKindに依存）
   - 後続: M1-8（ObservationVectorがinterventions: Vec<String>を保持 — 介入要約はObservationVector構築時に生成）
@@ -242,7 +242,7 @@
 
 #### チケット M4-1: ObservationVector 11フィールド観測ベクトル
 
-* **参照設計書:** RFC_006.md (§4.1)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§4.1)
 * **依存・関連チケットID:**
   - 先行実装必須: M2-1（DeviationScoreからフィールド展開）、M3-2（Intervention::summary()をVec<String>として保持）
   - 後続: M2-2（ObservationRecorderがObservationVectorを永続化）
@@ -280,7 +280,7 @@
 
 #### チケット M5-1: RoundManager ラウンドカウンター + ConvergenceError
 
-* **参照設計書:** RFC_006.md (§5.4)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§5.4)
 * **依存・関連チケットID:**
   - 先行実装必須: なし（u32カウンターのみ）
   - 後続: M5-3（ConvergenceControllerがRoundManagerを内包）
@@ -310,7 +310,7 @@
 
 #### チケット M5-2: ConvergenceResult 収束ループ結果型
 
-* **参照設計書:** RFC_006.md (§5.2)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§5.2)
 * **依存・関連チケットID:**
   - 先行実装必須: M2-1（DeviationScore）、M5-1（ConvergenceError）
   - 後続: M5-3（ConvergenceControllerが戻り値として使用）
@@ -334,7 +334,7 @@
 
 #### チケット M5-3: ConvergenceController 収束ループ制御
 
-* **参照設計書:** RFC_006.md (§5.1 - 5.2)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§5.1 - 5.2)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-3（OmissionsLedger）、M2-2（DeviationCalculator）、M5-1（RoundManager）、M5-2（ConvergenceResult）
   - リソース共有: `WorkflowState`（RFC_002）への依存
@@ -379,7 +379,7 @@
 
 #### チケット M6-1: CompletionReport + CompletionError + CompletionVerifier
 
-* **参照設計書:** RFC_006.md (§7)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§7)
 * **依存・関連チケットID:**
   - 先行実装必須: M1-3（OmissionsLedgerを引数で受け取る）
   - リソース共有: `TicketDag`, `TicketRecord`, `TicketStatus`（RFC_002）
@@ -425,7 +425,7 @@
 
 #### チケット M7-1: ObservationRecorder 観測記録器
 
-* **参照設計書:** RFC_006.md (§4.2)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§4.2)
 * **依存・関連チケットID:**
   - 先行実装必須: M4-1（ObservationVectorに依存）
   - リソース共有: `StorageBackend` trait（RFC_004）— ファイルI/Oの抽象化
@@ -471,7 +471,7 @@
 
 #### チケット M8-1: 条件6（凍結・停止フラグ）の完全実装
 
-* **参照設計書:** RFC_006.md (§7, 条件6)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§7, 条件6)
 * **依存・関連チケットID:**
   - 先行実装必須: M6-1（CompletionVerifier の [::STUB::] 解決）
 * **対象不変条件 / 規範:**
@@ -491,7 +491,7 @@
 
 #### チケット M8-2: 収束ループ結合シナリオテスト
 
-* **参照設計書:** RFC_006.md (§5, §7)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§5, §7)
 * **依存・関連チケットID:**
   - 先行実装必須: M5-3（ConvergenceController）、M6-1（CompletionVerifier）、M7-1（ObservationRecorder）、M8-1（条件6解決）
 * **対象不変条件 / 規範:**
@@ -531,7 +531,7 @@
 
 #### チケット M9-1: test-run.rs 受入テストバイナリ
 
-* **参照設計書:** RFC_006.md (§D 受入テスト)
+* **参照設計書:** crates/conver/rfc-006-convergence/RFC_006.md (§D 受入テスト)
 * **依存・関連チケットID:**
   - 先行実装必須: 全 Phase I〜III チケット
 * **対象不変条件 / 規範:**

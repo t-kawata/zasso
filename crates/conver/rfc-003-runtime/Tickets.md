@@ -17,7 +17,7 @@
 
 #### チケット M0-1: RuntimeError enum + ExtractError struct
 
-* **参照設計書:** RFC_003.md (§9, §5.1)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§9, §5.1)
 * **依存・関連チケット:** 先行実装不要。M1-4, M2-1, M3-1 から依存される。
 * **対象不変条件 / 規範:**
   - §9 RuntimeError の 7 variant がすべて定義されること
@@ -58,7 +58,7 @@
 
 #### チケット M0-2: RuntimeEvent enum
 
-* **参照設計書:** RFC_003.md (§4)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§4)
 * **依存・関連チケット:** 先行実装不要。M1-1, M2-1, M3-1, M3-3 から依存される。
 * **対象不変条件 / 規範:**
   - §4: 5 variant がすべて定義されること
@@ -88,7 +88,7 @@
 
 #### チケット M0-3: SessionState enum + RuntimeResult struct
 
-* **参照設計書:** RFC_003.md (§3)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§3)
 * **依存・関連チケット:** 先行実装不要。M1-3, M2-1, M3-1 から依存される。
 * **対象不変条件 / 規範:**
   - §3 SessionState: 4 variant の状態遷移（Running → Cancelling → Completed/Failed）
@@ -132,7 +132,7 @@
 
 #### チケット M0-4: RuntimeRequest struct
 
-* **参照設計書:** RFC_003.md (§2)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§2)
 * **依存・関連チケット:** 先行実装不要。M1-2, M2-2, M3-1 から依存される。
 * **対象不変条件 / 規範:**
   - §2 RuntimeRequest: 4フィールド + builder パターン
@@ -176,7 +176,7 @@
 
 #### チケット M1-1: RuntimeEvent メソッド群（is_terminal + summary）
 
-* **参照設計書:** RFC_003.md (§4)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§4)
 * **依存・関連チケット:** 先行実装必須: M0-2（RuntimeEvent enum）。M3-1, M3-3 から依存される。
 * **対象不変条件 / 規範:**
   - §4: `Completed` のみ `is_terminal() == true`
@@ -206,7 +206,7 @@
 
 #### チケット M1-2: RuntimeRequest builder + to_env_map + Display
 
-* **参照設計書:** RFC_003.md (§2)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§2)
 * **依存・関連チケット:** 先行実装必須: M0-4（RuntimeRequest struct）。M3-1 から依存される。
 * **対象不変条件 / 規範:**
   - §2: builder パターンが全フィールド immutable 更新できること
@@ -236,7 +236,7 @@
 
 #### チケット M1-3: RuntimeResult::empty メソッド
 
-* **参照設計書:** RFC_003.md (§3)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§3)
 * **依存・関連チケット:** 先行実装必須: M0-3（RuntimeResult struct）。
 * **対象不変条件 / 規範:**
   - §3: `empty()` が全フィールドにデフォルト値をセットすること
@@ -257,7 +257,7 @@
 
 #### チケット M1-4: StructuredPayloadExtractor trait + ExtractError 完全版
 
-* **参照設計書:** RFC_003.md (§5.1)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§5.1)
 * **依存・関連チケット:** 先行実装必須: M0-1（ExtractError の完全版）。M1-5, M1-7, M1-8 から依存される。
 * **対象不変条件 / 規範:**
   - §5.1: `extract_structured<T: DeserializeOwned>()` の型境界
@@ -284,7 +284,7 @@
 
 #### チケット M1-5: JsonExtractor（3形式抽出）
 
-* **参照設計書:** RFC_003.md (§5.2)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§5.2)
 * **依存・関連チケット:** 先行実装必須: M1-4（StructuredPayloadExtractor trait）。M1-7（CompositeExtractor）から依存される。
 * **対象不変条件 / 規範:**
   - §5.2: 3形式の抽出優先順位（フェンスドブロック > ブレース > 行JSON）
@@ -334,7 +334,7 @@
 
 #### チケット M1-6: MarkdownExtractor
 
-* **参照設計書:** RFC_003.md (§5.3)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§5.3)
 * **依存・関連チケット:** 先行実装不要（StructuredPayloadExtractor を実装しない独立ユーティリティ）。事実上の依存なし。
 * **対象不変条件 / 規範:**
   - §5.3: `extract_code_blocks()` が指定言語のコードブロックのみ抽出すること
@@ -366,7 +366,7 @@
 
 #### チケット M1-7: CompositeExtractor（フォールバック連鎖）
 
-* **参照設計書:** RFC_003.md (§5.4)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§5.4)
 * **依存・関連チケット:** 先行実装必須: M1-4（StructuredPayloadExtractor trait）, M1-5（JsonExtractor）。M3-1（ClaudeCodeBackend）から依存される（間接的）。
 * **対象不変条件 / 規範:**
   - §5.4: 先頭から順に抽出器を試行し、最初の成功を返す
@@ -397,7 +397,7 @@
 
 #### チケット M1-8: RetryExtractor + RetryFeedback
 
-* **参照設計書:** RFC_003.md (§5.5)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§5.5)
 * **依存・関連チケット:** 先行実装必須: M1-4（StructuredPayloadExtractor trait）, M0-1（RuntimeError: `UnsupportedBackend` / `StreamError`）
 * **対象不変条件 / 規範:**
   - §5.5: 通常リトライと reformat-only の動作分岐
@@ -452,7 +452,7 @@
 
 #### チケット M1-9: EventLogger
 
-* **参照設計書:** RFC_003.md (§8)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§8)
 * **依存・関連チケット:** 先行実装必須: M0-2（RuntimeEvent）
 * **対象不変条件 / 規範:**
   - §8: 各 variant に応じた正しいログレベル
@@ -492,7 +492,7 @@
 
 #### チケット M2-1: RuntimeSession trait
 
-* **参照設計書:** RFC_003.md (§3)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§3)
 * **依存・関連チケット:** 先行実装必須: M0-2（RuntimeEvent）, M0-1（RuntimeError）, M0-3（SessionState + RuntimeResult）, M1-3（RuntimeResult::empty）。M2-2 から依存される。
 * **対象不変条件 / 規範:**
   - §3: 5メソッド（state, is_done, stream_events, cancel, await_result）のシグネチャ
@@ -525,7 +525,7 @@
 
 #### チケット M2-2: RuntimeBackend trait
 
-* **参照設計書:** RFC_003.md (§2)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§2)
 * **依存・関連チケット:** 先行実装必須: M2-1（RuntimeSession trait）, M0-1（RuntimeError）, M0-4（RuntimeRequest）。M3-1（ClaudeCodeBackend）から依存される。
 * **対象不変条件 / 規範:**
   - §2: 関連型 `type Session: RuntimeSession`
@@ -558,7 +558,7 @@
 
 #### チケット M3-1: ClaudeCodeBackend + ClaudeSession
 
-* **参照設計書:** RFC_003.md (§6)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§6)
 * **依存・関連チケット:**
   - 先行実装必須: M2-1（RuntimeSession trait）, M2-2（RuntimeBackend trait）, M0-1（RuntimeError）, M0-2（RuntimeEvent）, M0-4（RuntimeRequest）, M1-1（event methods）, M1-2（builder + to_env_map）, M0-3（SessionState + RuntimeResult）
   - M3-2（TimeoutMonitor）と連携可能
@@ -631,7 +631,7 @@
 
 #### チケット M3-2: TimeoutMonitor + NotifyingTimeoutMonitor
 
-* **参照設計書:** RFC_003.md (§7)
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md (§7)
 * **依存・関連チケット:** 先行実装不要（独立モジュール）。M3-1 と連携（タイムアウトフラグ提供）。
 * **対象不変条件 / 規範:**
   - §7: `TimeoutMonitor::start(timeout_secs, cancel_flag)` が指定秒数後にフラグをセット
@@ -675,7 +675,7 @@
 
 #### チケット M4-1: Cargo.toml 設定 + lib.rs（全モジュール宣言・公開API再公開）
 
-* **参照設計書:** RFC_003.md（Implementation §Cargo.toml, §lib.rs）
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md（Implementation §Cargo.toml, §lib.rs）
 * **依存・関連チケット:** 先行実装必須: 全 Phase 0〜3 の全チケット。M4-2 から依存される。
 * **対象不変条件 / 規範:**
   - Implementation: 依存クレートの過不足・バージョン一致
@@ -728,7 +728,7 @@
 
 #### チケット M4-2: 結合テスト + 単体テスト全件実施 + ビルド検証
 
-* **参照設計書:** RFC_003.md（テスト §tests, Appendix C）
+* **参照設計書:** crates/conver/rfc-003-runtime/RFC_003.md（テスト §tests, Appendix C）
 * **依存・関連チケット:** 先行実装必須: M4-1（Cargo.toml + lib.rs）, 全 Phase 0〜3 の全チケット
 * **対象不変条件 / 規範:**
   - Appendix C: 16項目の完了条件をすべて満たすこと
