@@ -1,32 +1,42 @@
 ---
-description: 設計書（RFC・要件定義・設計ドキュメント）から実装チケットのきめ細やかなフェーズ分けと詳細定義を生成する。設計書へのパスを指定すると、同階層に Tickets.json を自動生成する。
+description: 次世代RFC（NEXT_RFC.md）から既存の Tickets.json にフェーズ・チケットを追加する。既存のチケットやフェーズは変更しない。
 ---
 
-# /formulate-tickets
+# /formulate-tickets-for-next
 
-**役割**: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは「1チケット・1不変条件」を徹底し、外部I/Oを排除したメモリ内完結の検証可能な単位に区切る。
+**役割**: 次世代RFC（NEXT_RFC.md）を分析し、依存関係に基づいたフェーズ・個別チケットに分解して既存の `Tickets.json` に追加する。各チケットは「1チケット・1不変条件」を徹底し、外部I/Oを排除したメモリ内完結の検証可能な単位に区切る。既存の Tickets.json の内容は一切変更せず、追加のみ行う。
 
-生成結果は `Tickets.json` として保存され、後続のコマンド（`/plan-ticket`、`/start-ticket`、`/review-ticket` 等）から CRUD スクリプト群を介して参照・更新される。
+生成結果は既存の `Tickets.json` に追記され、後続のコマンド（`/plan-ticket`、`/start-ticket`、`/review-ticket` 等）から CRUD スクリプト群を介して参照・更新される。
 
 ## このコマンドの目的
 
-設計書の記述をそのまま実装しようとすると、依存関係の誤った順序や未検証の結合が発生し、後戻りが膨大になる。このコマンドは設計書を以下の観点で分析・分解する：
+`/grill-me-for-next-rfc-ja` で策定された次世代RFCの設計を、依存関係の順序で実装可能な単位に分解する。このコマンドは次世代RFCを以下の観点で分析・分解する：
 
 1. **依存関係の抽出**: 型定義 → トレイト境界 → 純粋関数 → 非同期ランタイム → 統合の5層の依存グラフを構築する
-2. **フェーズ分割**: 外部依存（I/O、LLM、DB、乱数）を段階的に導入する順序でフェーズを設計する
+2. **フェーズ分割**: 外部依存（I/O、LLM、DB、乱数）を段階的に導入する順序でフェーズを設計し、既存のフェーズと統合する
 3. **チケット詳細化**: 各チケットに対し「不変条件＋実装スコープ＋テスト検証＋計装方法」を精密フォーマットで記述する
+4. **トレーサビリティの確保**: 各追加チケットに親OMISSIONSとの関連を記述し、どの漏れを解決するためのチケットかを追跡可能にする
+
+## `/formulate-tickets` との違い
+
+| 観点 | formulate-tickets | formulate-tickets-for-next |
+|------|-------------------|---------------------------|
+| 入力 | RFC設計書（初回） | 次世代RFC（NEXT_RFC.md）+ OMISSIONS（任意） |
+| 出力 | Tickets.json（新規作成） | Tickets.json（既存を拡張） |
+| Tickets.json | 存在しなければ新規作成 | **存在必須**、上書き禁止 |
+| CLAUDE.md | 新規生成 | 既存に追記 |
+| 親参照 | なし | 各チケットが omission を参照可能（`notes` に記述） |
 
 ## 引数の解釈
 
-- **第1引数（必須）**: 設計書のファイルパス（プロジェクトルートからの相対パス、または絶対パス）
-  - 例: `conver/RFC-001-process-registry.md`
-  - 例: `/absolute/path/to/design-doc.md`
+- **第1引数（必須）**: 次世代RFCファイルのパス（`/grill-me-for-next-rfc-ja` の出力）
+  - 例: `conver/RFC-002-next-phase.md`
+- **第2引数（任意）**: `OMISSIONS-XXX.json` のパス（省略可能。指定時はチケットの背景補完に使用）
 
 ## 出力先
 
-- 設計書と同じ階層に `Tickets.json` を自動生成する
-- 例: `docs/RFC-001-process-registry.md` → `docs/Tickets.json`
-- 既に存在する場合は上書き前に確認すること
+- カレントディレクトリの `Tickets.json` に追記する（既存の内容は一切変更しない）
+- Tickets.json が存在しない場合はエラーとする
 
 ## 使用スクリプト一覧
 
@@ -34,18 +44,15 @@ description: 設計書（RFC・要件定義・設計ドキュメント）から�
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
-| `write-tickets-json-template.js` | `<PATH of Tickets.json> '<metadata-json>'` | Tickets.json スケルトン生成（phases: []） |
+| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全一覧。status フィルタ可能 |
+| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
 | `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。phaseID は 0 から自動採番 |
 | `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加（単一）。ticketID はフェーズ内で自動インクリメント |
 | `bulk-add-tickets.js` | `<PATH of Tickets.json>`（stdin: 一括JSON） | チケット追加（一括）。phaseId/phaseName でフェーズ指定 |
 | `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一取得。複合キーで検索 |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索（title/background/scope/referenceSection） |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全一覧。status フィルタ可能 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | 更新。phaseId/ticketID は変更不可 |
-| `bulk-update-tickets.js` | `<PATH of Tickets.json>`（stdin: 一括更新JSON） | 複数一括更新 |
-| `delete-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一削除 |
-| `bulk-delete-tickets.js` | `<PATH of Tickets.json>`（stdin: 削除キー一覧） | 複数一括削除 |
-| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
+| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索 |
+| `validate-omissions.js` | `<OMISSIONS_FILE_PATH>` | OMISSIONS スキーマ検証（指定時のみ） |
+| `list-omissions.js` | `<OMISSIONS_FILE_PATH>` | OMISSIONS 一覧表示（指定時のみ） |
 
 全スクリプトは書き込み前にスキーマ検証（`validate-tickets.js`）を実行し、失敗時は保存しない。
 
@@ -54,77 +61,91 @@ description: 設計書（RFC・要件定義・設計ドキュメント）から�
 ### Step 0: 初期化（引数パース + Malfeasance.json 初期化 + 出力先決定）
 
 ```bash
-# 設計書パス
-DOC_PATH="${ARGUMENTS%% *}"
+# 第1引数: 次世代RFCのパス（必須）
+NEXT_RFC_PATH="${ARGUMENTS%% *}"
+NEXT_RFC_DIR="$(dirname "$NEXT_RFC_PATH")"
 
-# 設計書ディレクトリ（CLAUDE.md、Malfeasance.json、Tickets.json の出力先）
-DOC_DIR="$(dirname "$DOC_PATH")"
-TICKETS_PATH="$DOC_DIR/Tickets.json"
+# 第2引数（任意）: OMISSIONSファイルのパス（残りの引数）
+REMAINING="${ARGUMENTS#* }"
+OMISSIONS_PATH=""
+if [ -n "$REMAINING" ] && [ "$REMAINING" != "$NEXT_RFC_PATH" ]; then
+  OMISSIONS_PATH="$REMAINING"
+fi
 
-# ファイルが既に存在する場合は上書き確認
-if [ -f "$TICKETS_PATH" ]; then
-  echo "注意: $TICKETS_PATH は既に存在します。/formulate-tickets により上書きされます。"
+# Tickets.json のパス
+TICKETS_PATH="Tickets.json"
+
+# 次世代RFCの存在確認
+if [ ! -f "$NEXT_RFC_PATH" ]; then
+  echo "エラー: 次世代RFCファイルが見つかりません: $NEXT_RFC_PATH"
+  exit 1
+fi
+
+# Tickets.json の存在確認
+if [ ! -f "$TICKETS_PATH" ]; then
+  echo "エラー: Tickets.json が見つかりません。先に /formulate-tickets を実行してください。"
+  exit 1
+fi
+
+# OMISSIONS が指定されていればスキーマ検証
+if [ -n "$OMISSIONS_PATH" ]; then
+  if [ ! -f "$OMISSIONS_PATH" ]; then
+    echo "エラー: OMISSIONSファイルが見つかりません: $OMISSIONS_PATH"
+    exit 1
+  fi
+  node .claude/scripts/lib/validate-omissions.js "$OMISSIONS_PATH"
 fi
 ```
 
 Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。
-CLAUDE.md と同じ階層に存在しなければならないため、`DOC_DIR` 内で初期化する。
+本コマンドは既存の Tickets.json を拡張するのみだが、作業中に不完全実装を発見した場合に備えて初期化する。
 
 ```bash
-# 犯罪記録台帳が存在しなければ空の状態で作成する（CLAUDE.md と同じ階層に）
-node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
+# 犯罪記録台帳が存在しなければ空の状態で作成する
+node .claude/scripts/tickets/ensure-malfeasance.js "$NEXT_RFC_DIR"
 ```
 
-### Step 1: 設計書の検証と情報抽出
+### Step 1: 次世代RFCの検証と情報抽出
 
 ```bash
-# ファイル存在確認
-if [ ! -f "$DOC_PATH" ]; then
-  echo "エラー: 指定された設計書が見つかりません: $DOC_PATH"
-  exit 1
-fi
+# ファイル存在確認（Step 0 で実施済み）
 ```
 
-設計書を読み取り、以下の情報を抽出する：
-1. **タイトルと概要**: 設計書の目的、スコープ、技術スタック
+次世代RFCを読み取り、以下の情報を抽出する：
+1. **タイトルと概要**: RFCの目的、スコープ、技術スタック
 2. **型定義**: 構造体、列挙型、トレイト、型エイリアス — すべてのデータ型をリストアップする
 3. **関数シグネチャ**: 公開API、非公開関数、メソッド — 引数・戻り値・asyncの有無
 4. **依存関係グラフ**: 型Aが型Bに依存 → チケットB→Aの順序で実装
 5. **外部依存**: ネットワークI/O、ファイルI/O、LLM、DB、乱数生成 — 後段フェーズに回す
 6. **内部依存**: 関数Aが関数Bを呼ぶ、型Xが型Yをフィールドに持つ — 先行実装が必要
 
-### Step 2: CLAUDE.md の自動生成 — 設計全体マップの作成
+OMISSIONS ファイルが指定されている場合は、親RFCの設計コンテキストとして参照する。
 
-設計書と同階層に `CLAUDE.md` を生成する。このファイルは個別チケットの作業中に設計全体を
-俯瞰するためのマップとして機能する。
+### Step 2: CLAUDE.md の更新 — 設計全体マップへの追記
+
+既存の `CLAUDE.md` が存在する場合は読み込み、次世代RFCの情報を追記する。
+CLAUDE.md が存在しない場合は新規生成する。
 
 ```bash
-# CLAUDE.md の出力先（DOC_DIR は Step 0 で設定済み）
-CLAUDE_MD="$DOC_DIR/CLAUDE.md"
-
-# 既存ファイルの上書き確認
-if [ -f "$CLAUDE_MD" ]; then
-  echo "注意: $CLAUDE_MD は既に存在します。/formulate-tickets により上書きされます。"
-fi
+CLAUDE_MD="$NEXT_RFC_DIR/CLAUDE.md"
 ```
 
-Step 1 で抽出した情報をもとに、以下の内容で `CLAUDE.md` を生成する：
+CLAUDE.md が存在する場合：
+- 既存の内容の末尾に、次世代RFCの概要・主要な型・依存関係を追記する
+- 「スタブ一覧と解決計画」セクションに、新たに発生するスタブの情報を追加する
 
+CLAUDE.md が存在しない場合：
 ```bash
 cat <<'CLAUDE_EOF' > "$CLAUDE_MD"
-# <設計書タイトル> — 設計全体マップ
+# <次世代RFCタイトル> — 設計全体マップ（拡張）
 
-> このファイルは `/formulate-tickets` によって自動生成されました。
-> **生成元:** <設計書パス>
+> このファイルは `/formulate-tickets-for-next` によって自動生成されました。
+> **生成元:** <NEXT_RFCパス>
 > **生成日:** <現在日付>
 
 ## 目的とスコープ
 
-<設計書の目的・スコープの要約>
-
-## アーキテクチャ概要
-
-<主要コンポーネントとその責務の一覧>
+<次世代RFCの目的・スコープの要約>
 
 ## 主要な型とデータ構造
 
@@ -132,24 +153,23 @@ cat <<'CLAUDE_EOF' > "$CLAUDE_MD"
 
 ## モジュール／コンポーネント間の関係
 
-<設計書に記述された各コンポーネント・モジュール間の依存関係と結合の一覧>
+<RFCに記述された各コンポーネント・モジュール間の依存関係と結合の一覧>
 
 ## スタブ一覧と解決計画
 
-<本設計書に基づく実装で発生するスタブ（[::STUB::]）の一覧と、各スタブをどのチケットがどのように解決するかの対応関係>
+<本RFCに基づく実装で発生するスタブの一覧と、各スタブをどのチケットがどのように解決するかの対応関係>
 CLAUDE_EOF
 echo "設計全体マップを $CLAUDE_MD に生成しました"
 ```
 
 生成された `CLAUDE_MD` はチケット作業中の任意のタイミングで Claude Code が自動的に読み込み、
-設計全体のコンテキストとして利用される。これにより「木（個別チケット）」の作業中も
-「森（設計全体）」を常に念頭に置くことができる。
+設計全体のコンテキストとして利用される。
 
 ---
 
 ### Step 3: 依存グラフの構築（5層モデル）
 
-抽出した全要素を以下の5層に分類する。**例の部分は設計書から実際に抽出した要素で置き換えること**：
+抽出した全要素を以下の5層に分類する。**例の部分はRFCから実際に抽出した要素で置き換えること**：
 
 | 層 | 内容 | 外部依存 |
 |---|---|---|
@@ -160,8 +180,9 @@ echo "設計全体マップを $CLAUDE_MD に生成しました"
 | Layer 4（統合・プラットフォーム） | 外部システム結合、UI | プラットフォームAPI |
 
 この層構造に従い、Layer 0 → Layer 1 → ... → Layer 4 の順にフェーズを設定する。
+既存の Tickets.json に同名・同趣旨のフェーズが存在する場合は、新規作成せず既存フェーズを再利用する。
 
-### Step 4: フェーズ・フェーズ設計
+### Step 4: フェーズ設計
 
 依存グラフに基づき、段階的に外部依存を導入する順序でフェーズを設計する：
 
@@ -190,26 +211,21 @@ echo "設計全体マップを $CLAUDE_MD に生成しました"
 
 各フェーズ内で、依存関係のある単位をフェーズとして区切る。フェーズはアルファベットと数字の組み合わせでIDを付与する（例: `P0`, `P1`, ..., `P4`）。
 
-### Step 5: Tickets.json スケルトン生成
+既存フェーズと同名のフェーズは作成せず、既存フェーズにチケットを追加する。新規に必要なフェーズのみ追加する。
 
-メタデータを渡してスケルトンを生成する。phases は空配列。
+### Step 5: 既存 Tickets.json の確認
 
-書き出しとスキーマ検証を自動実行する。エラー時は exit 1。
+既存の Tickets.json のフェーズ構造を確認する：
 
 ```bash
-node .claude/scripts/tickets/write-tickets-json-template.js "$TICKETS_PATH" '{
-  "title": "<設計書タイトル> 実装チケット分解設計書",
-  "source": "<DOC_PATH>",
-  "generatedAt": "<YYYY-MM-DD>",
-  "analyzedSections": "<セクション一覧>"
-}'
+node ".claude/scripts/tickets/list-phases-and-tickets.js" "$TICKETS_PATH"
 ```
 
-書き出しとスキーマ検証を自動実行する。エラー時は exit 1。
+出力をもとに、既存のフェーズにチケットを追加するか、新規フェーズが必要かを判断する。
 
 ### Step 6: フェーズの追加
 
-Step 3-4 で設計したフェーズを add-phase.js で追加する。ID は 0 から自動採番。
+Step 3-4 で設計した新規フェーズのみを `add-phase.js` で追加する。既存のフェーズは追加しない。ID は 0 から自動採番。
 
 ```bash
 echo '{"name":"純粋ロジック・状態機械の完全隔離検証","externalDependencies":"なし"}' | node .claude/scripts/tickets/add-phase.js "$TICKETS_PATH"
@@ -234,18 +250,21 @@ id と status はスクリプトが自動設定する。省略可能な全フィ
 ```json
 {
   "title": "<チケットタイトル>",
-  "referenceSection": "<参照設計書パス> (§<該当セクション番号>)",
+  "referenceSection": "<次世代RFCパス> (§<該当セクション番号>)",
   "background": "<実装の背景と目的>",
   "scope": ["<実装する型・関数の一覧>"],
   "testVerification": ["正常系", "異常系", "境界値", "決定論性"],
-  "instrumentation": "<計装方法>"
+  "instrumentation": "<計装方法>",
+  "notes": "parentOmissionId: O-001（対応するomissionがある場合のみ）"
 }
 ```
+
+`notes` に `parentOmissionId` を記述することで、どの omission を解決するためのチケットかを追跡可能にする。これは任意であり、対応する omission がないチケットには省略してよい。
 
 #### 単一追加（add-ticket.js）
 
 ```bash
-echo '{"title":"純粋データ型の定義","scope":[...],"testVerification":[...]}' \
+echo '{"title":"純粋データ型の定義","scope":[...],"testVerification":[...],"notes":"parentOmissionId: O-001"}' \
   | node .claude/scripts/tickets/add-ticket.js "$TICKETS_PATH" "P0"
 ```
 
@@ -253,7 +272,7 @@ echo '{"title":"純粋データ型の定義","scope":[...],"testVerification":[.
 
 ```bash
 echo '[
-  {"phaseId":0,"tickets":[{"title":"..."},{"title":"..."}]},
+  {"phaseId":0,"tickets":[{"title":"...","notes":"parentOmissionId: O-001"},{"title":"..."}]},
   {"phaseId":1,"tickets":[{"title":"..."}]}
 ]' | node .claude/scripts/tickets/bulk-add-tickets.js "$TICKETS_PATH"
 ```
@@ -294,6 +313,8 @@ node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 
 ## 注意事項
 
-- 本コマンドは設計書の解析結果をチケットとして生成するに過ぎない。生成されたチケットの内容は必要に応じて調整・修正すること。
-- 出力先 Tickets.json が既に存在する場合は上書き前にユーザーに確認を取ること。
+- **既存の Tickets.json を上書きしない**: 追記のみ。既存のフェーズ・チケットは一切変更しない。
+- 既存の Tickets.json が存在しない場合はエラーとする（事前に `/formulate-tickets` を実行しておくこと）。
+- 各チケットの `notes` に `parentOmissionId` を記述することで、どのomissionを解決するためのチケットかが追跡可能になる。これは任意項目。
+- 本コマンドは次世代RFCをチケットとして追加するに過ぎない。生成されたチケットの内容は必要に応じて調整・修正すること。
 - Tickets.json の内容は CRUD スクリプト群を介して後から修正可能。各操作はスキーマ検証を通ることを保証する。

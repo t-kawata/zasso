@@ -20,16 +20,27 @@ function main() {
   }
   const rp = path.resolve(jp);
   const data = JSON.parse(fs.readFileSync(rp, "utf8"));
-  let found = false;
+  let updates;
+  try {
+    updates = JSON.parse(fs.readFileSync("/dev/stdin", "utf8"));
+  } catch (e) {
+    console.log(JSON.stringify({ success: false, error: "stdin fail" }));
+    process.exit(1);
+  }
+  let found = null;
   for (const p of data.phases || []) {
-    const idx = (p.tickets || []).findIndex(function (t) {
-      return t.phaseId === k.phaseId && t.id === k.ticketId;
-    });
-    if (idx !== -1) {
-      p.tickets.splice(idx, 1);
-      found = true;
-      break;
+    for (let i = 0; i < (p.tickets || []).length; i++) {
+      if (
+        p.tickets[i].phaseId === k.phaseId &&
+        p.tickets[i].id === k.ticketId
+      ) {
+        const { id, phaseId, ...safe } = updates;
+        p.tickets[i] = { ...p.tickets[i], ...safe };
+        found = p.tickets[i];
+        break;
+      }
     }
+    if (found) break;
   }
   if (!found) {
     console.log(JSON.stringify({ success: false, error: "Not found: " + key }));
@@ -47,7 +58,9 @@ function main() {
     process.exit(1);
   }
   fs.writeFileSync(rp, JSON.stringify(data, null, 2) + "\n", "utf8");
-  console.log(JSON.stringify({ success: true, ticketKey: key, deleted: true }));
+  console.log(
+    JSON.stringify({ success: true, ticketKey: key, updated: found }),
+  );
 }
 if (require.main === module) main();
 module.exports = { main };

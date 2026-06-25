@@ -15,16 +15,16 @@ description: 指定ディレクトリ配下の警告・エラー・スタブ・�
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
-| スクリプト | 引数 |
-|---|---|
-| `review/find-all-stubs.js` | `<directory>` |
-| `scan-crimes.sh` | `[directory]`（指定時は配下の犯罪のみ表示） |
-| `malfeasance-create.js` | `<file> <line> <description> [note]` |
-| `malfeasance-update.js` | `<id> <key> <val>` |
-| `review/run-quality-checks.js` | `<files...>` |
-| `review/generate-report.js` | （stdin経由） |
+| スクリプト | 引数 | 説明 |
+|---|---|---|
+| `review/find-all-stubs.js` | `<directory>` | スタブの一覧取得 |
+| `scan-crimes.sh` | `[directory]`（指定時は配下の犯罪のみ表示） | 犯罪スキャン実行 |
+| `malfeasance-create.js` | `<file> <line> <description> [note]` | 犯罪を新規記録 |
+| `malfeasance-update.js` | `<id> <key> <val>` | 犯罪レコードの更新（解決等） |
+| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
+| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
 
 ## ワークフロー
 

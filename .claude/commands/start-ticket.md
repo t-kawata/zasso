@@ -1,12 +1,12 @@
 ---
-description: 承認済みチケットの実装を実行する。ステータスを implementing に遷移させ、品質チェック通過後に done へ進める。引数なしならチケットIDを質問する。
+description: チケットの実装を実行する。実装完了後にチケットのステータスを done に遷移させる。引数なしならチケットIDを質問する。
 ---
 
 # /start-ticket
 
 **第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
 
-**役割**: `approved` チケットの実装。
+**役割**: チケットの実装。
 
 ## ワークフローにおける位置づけ
 
@@ -21,11 +21,12 @@ description: 承認済みチケットの実装を実行する。ステータス�
 ## 引数の解釈
 
 - 引数なし → ユーザーに「どのチケットを実装しますか？」と質問する
-- 数字 → チケットID
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`） → チケットID
+- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）で指定してください」
 
 ## 必須条件
 
-チケットが `approved` ステータスであること。
+チケットが存在すること（ステータスは任意）。`todo` 以外のステータスの場合はユーザーに注意を促すが、実装自体はブロックしない。
 
 ## Boy Scout Rule
 
@@ -33,67 +34,60 @@ description: 承認済みチケットの実装を実行する。ステータス�
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
-| スクリプト | 引数 |
-|---|---|
-| `resolve-ticket.js` | `<id>` |
-| `check-status.js` | `<id> <status>` |
-| `update-ticket-status.js` | `<id> <status>` |
-| `review/run-quality-checks.js` | `<files...>` |
-| `review/generate-report.js` | （stdin経由） |
-| `update-frontmatter.js` | `<id> <key> <val>` |
-| `read-artifact.js` | `<id> <type>` |
-| `save-artifact.js` | `<id> <type>`（stdin） |
+| スクリプト | 引数 | 説明 |
+|---|---|---|
+| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報の取得 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新・status 変更 |
+| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全チケット一覧 |
+| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
+| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
 
 ## ワークフロー
 
-### Step 1: 存在確認 + approved 確認
+### Step 1: 存在確認
+
+Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。
 
 ```bash
-node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-`exists` が false なら終了。存在すれば status を確認：
+`success` が `false` なら終了。存在すれば status を確認する。`todo` 以外の場合はユーザーに注意を促す。
+
+### Step 2: 実装開始日の記録
+
+実装開始日を `startedAt` フィールドに記録する：
 
 ```bash
-node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
+echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-`matches` が false なら「このチケットは <currentStatus> です。/plan-ticket で先に計画を策定し承認を受けてください」と伝えて終了。
+### Step 3: チケットフィールド読み取り
 
-### Step 2: implementing に遷移
+`get-ticket.js` でチケットの全フィールドを読み取り、計画内容を把握する：
 
 ```bash
-node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 3: spec + plan 読み取り
-
-`read-artifact.js` で spec 全文と plan.md を機械的に読み取る：
-
-```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
-```
-
-```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
-```
+出力の `ticket` オブジェクトから `background`, `scope`, `testVerification`, `notes` 等を確認する。
 
 ### Step 4: 依存・関連チケットID の充足確認
 
-実装を開始する前に、「依存・関連チケットID」の依存関係が充足されていることを確認する：
+実装を開始する前に、`relatedTicketIds` で記述された依存関係が充足されていることを確認する：
 
-1. spec から「依存・関連チケットID」の記述を読み取る
-2. 「先行実装必須」と記載されたチケットがすべて `done` ステータスであることを `check-status.js` で確認する
+1. `get-ticket.js` でチケットの `relatedTicketIds` フィールドを読み取る
+2. 「先行実装必須」と記載されたチケットがすべて `done` ステータスであることを確認する
 3. 未完了の先行依存がある場合はユーザーに報告し、実装順序の調整または依存チケットの完了を待つ
 
 ```bash
-# spec から依存・関連チケットID を抽出
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+# チケットを取得して関連チケットID を確認
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 
 # 各参照先チケットのステータス確認
-node ".claude/scripts/tickets/check-status.js" "<参照チケットID>" "done"
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
 ```
 
 依存関係に問題がないことを確認した上で実装に進む。
@@ -228,12 +222,13 @@ node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node 
 
 ### Step 11: 実装成果の保存
 
-コンパイル検証・テスト・品質チェック通過後、実装内容のサマリーを `save-artifact.js` にパイプして保存する：
+コンパイル検証・テスト・品質チェック通過後、実装内容のサマリーを `update-ticket.js` でチケットの JSON フィールドに保存する：
 
 ```bash
-cat <<'IMPL_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" implementation
-# 変更したファイル一覧と実装内容の概要
-IMPL_EOF
+echo '{
+  "changes": [{"before":"旧状態","after":"新状態","description":"変更内容"}],
+  "notes": "実装サマリー:\n- 変更ファイル: a.rs, b.rs\n- 主要な変更点: ...\n- テスト結果: 全xx件成功"
+}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 これにより、後でチケットを確認したときに「どのように実装されたか」を追跡できる。
@@ -243,7 +238,7 @@ IMPL_EOF
 コンパイル検証・テスト・品質チェック通過後：
 
 ```bash
-node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" done
+echo '{"status":"done"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-品質問題がある場合は修正してから `done` にする。やむを得ない中断時は `approved` に戻す。
+品質問題がある場合は修正してから `done` にする。やむを得ない中断時は `todo` のまま（または `notes` に中断理由を記録）。

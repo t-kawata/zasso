@@ -576,10 +576,6 @@ function today() {
  * @returns {string}
  */
 function generateSpecBody(ticketId, title, slug) {
-  const prefix = formatTicketId(ticketId);
-  const slugPart = slug || 'untitled';
-  const contextDir = `context/${prefix}-${slugPart}`;
-
   return `# ${title}
 
 ## Summary
@@ -657,20 +653,22 @@ function generateSpecBody(ticketId, title, slug) {
 ## Notes
 
 <!--
-注: このコメントは人間向けの説明である。AI は以下の手順に従うこと。
+注: このコメントは人間向けの説明である。
 
-- plan_path: /plan-ticket が plan.md を作成後に frontmatter に更新する
-- implementation_path: /start-ticket が implementation.md を作成後に frontmatter に更新する
-- review_report_path: /review-ticket が review.md を作成後に frontmatter に更新する
+- plan: /plan-ticket が計画を策定し、チケットの JSON フィールド（scope, testVerification, notes）に保存する
+- implementation: /start-ticket が実装サマリーをチケットの JSON フィールド（changes, notes）に保存する
+- review: /review-ticket がレビュー報告をチケットの JSON フィールド（instrumentation, notes）に保存する
 
-各コマンドのワークフロー手順が frontmatter 更新の正しい手順である。
+詳細は Tickets.json の該当チケットフィールドを参照すること。
 -->
 
-### 成果物
+### 成果物の保存先
 
-- 計画: ${contextDir}/plan.md（未作成、/plan-ticket 承認後に作成）
-- 実装サマリ: ${contextDir}/implementation.md（未作成、/start-ticket 実装完了後に作成）
-- レビュー報告書: ${contextDir}/review.md（未作成、/review-ticket 全チェック通過後に作成）
+各成果物は Tickets.json のチケットフィールドに JSON として保存される。
+
+- **計画**: \`scope[]\`, \`testVerification[]\`, \`testExceptions[]\`, \`notes\` フィールド
+- **実装サマリ**: \`changes[]\`, \`notes\` フィールド
+- **レビュー報告書**: \`instrumentation\`, \`notes\`, \`rfcDiscrepancies[]\` フィールド
 `;
 }
 

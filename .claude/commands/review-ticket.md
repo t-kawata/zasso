@@ -21,7 +21,8 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 ## 引数の解釈
 
 - 引数なし → ユーザーに「どのチケットをレビューしますか？」と質問する
-- 数字 → チケットID
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`） → チケットID
+- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）で指定してください」
 
 ## Boy Scout Rule — レビュー観点
 
@@ -35,64 +36,53 @@ description: 実装済みチケットの品質レビュー。/plan-ticket で定
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
-| スクリプト | 引数 |
-|---|---|
-| `resolve-ticket.js` | `<id>` |
-| `check-status.js` | `<id> <status>` |
-| `update-ticket-status.js` | `<id> <status>` |
-| `review/run-quality-checks.js` | `<files...>` |
-| `review/generate-report.js` | （stdin経由） |
-| `validate-structure.js` | （なし） |
-| `update-frontmatter.js` | `<id> <key> <val>` |
-| `read-artifact.js` | `<id> <type>` |
-| `save-artifact.js` | `<id> <type>`（stdin） |
+| スクリプト | 引数 | 説明 |
+|---|---|---|
+| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報の取得 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新・status 変更 |
+| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
+| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
 
 ## ワークフロー
 
 ### Step 1: 存在確認 + done 確認
 
-```bash
-node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
-```
-
-`exists` が false なら終了。存在すれば status を確認：
+Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。
 
 ```bash
-node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" done
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-`matches` が false なら「このチケットはまだ実装完了（done）していません。先に /start-ticket で実装を完了してください」と伝えて終了。
+`success` が false なら終了。存在すれば `.ticket.status` を確認：
+- `done` → レビューを続行
+- それ以外 → 「このチケットはまだ実装完了（done）していません。先に /start-ticket で実装を完了してください」と伝えて終了
 
-### Step 2: spec + implementation 読み取り
+### Step 2: チケットフィールド読み取り
 
 ```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" implementation
-```
-
-spec の Acceptance Criteria と実装サマリを確認する。spec の Test Plan に記載されたユニットテストが全て実装されているか確認する。
+出力の `ticket` オブジェクトから `scope`, `testVerification`, `testExceptions`, `changes`, `notes` 等を読み取り、Acceptance Criteria と実装内容を確認する。`testVerification` に記載されたユニットテストが全て実装されているか確認する。
 
 ### Step 3: 依存・関連チケットID の整合性検証
 
-spec に記述された「依存・関連チケットID」が実装を通じて正しく維持されたか検証する：
+`relatedTicketIds` フィールドで記述された依存関係が実装を通じて正しく維持されたか検証する：
 
-1. spec から「依存・関連チケットID」の記述を読み取る
-2. 各参照先チケットの spec を `read-artifact.js` で読み、相互の依存関係記述に矛盾がないかクロスチェックする（Aの spec が B に依存と書いているのに、Bの spec が A に依存と書いていない、など）
+1. `get-ticket.js` でチケットの `relatedTicketIds` を読み取る
+2. 各参照先チケットを `get-ticket.js` で読み、相互の依存関係記述に矛盾がないかクロスチェックする（A が B に依存と書いているのに、B が A に依存と書いていない、など）
 3. 実際の実装順序が依存関係と整合しているか確認する
 4. 不足や矛盾があればレビュー報告書に記録する
 
 ```bash
-# spec から依存・関連チケットID を抽出
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+# チケットから relatedTicketIds を抽出
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 
-# 各参照先チケットの spec も読み取り、相互参照の矛盾を確認
+# 各参照先チケットも読み取り、相互参照の矛盾を確認
 for ref_id in <抽出した参照ID一覧>; do
-  node ".claude/scripts/tickets/read-artifact.js" "$ref_id" spec | grep -A5 "依存・関連チケットID"
+  node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ref_id"
 done
 ```
 
@@ -216,43 +206,37 @@ node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
-### Step 9: 構造整合性チェック
-
-```bash
-node ".claude/scripts/tickets/validate-structure.js"
-```
-
-出力の `valid` が false なら issues を修正してから続行。
-
-### Step 10: 翻訳可能性チェック
+### Step 9: 翻訳可能性チェック
 
 `/plan-ticket` で定義された grep コマンドを全て再実行する。
 
-### Step 11: レビュー報告書の保存
+### Step 10: レビュー報告書の保存
 
-全チェック通過後、レビュー結果を `save-artifact.js` にパイプして保存する：
+全チェック通過後、レビュー結果を `update-ticket.js` でチケットの JSON フィールドに保存する：
 
 ```bash
-cat <<'REVIEW_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" review
-# 各チェックの結果（静的品質チェック、構造整合性チェック、翻訳可能性チェックの結果と合否、見つかった問題と修正内容）
-REVIEW_EOF
+echo '{
+  "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 全xx件成功",
+  "rfcDiscrepancies": [],
+  "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済\n- 見つかった問題と修正内容: ..."
+}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 これにより、後でチケットを確認したときに「どのようにレビューされ、品質が担保されているか」を追跡できる。
 
-### Step 12: reviewed に遷移
+### Step 11: reviewed に遷移
 
-全チェック通過後：
+全チェック通過後、レビュー完了日と共に status を更新する：
 
 ```bash
-node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" reviewed
+echo "{\"status\":\"reviewed\",\"completedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 ## 不通過時の判断
 
 - **軽微**: AI がその場で修正し再チェック
-- **重大**: ユーザーに報告して修正方針を相談。差し戻しが必要な場合は implementing に戻す：
+- **重大**: ユーザーに報告して修正方針を相談。差し戻しが必要な場合は `todo` に戻す：
 
   ```bash
-  node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" implementing
+  echo '{"status":"todo"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
   ```

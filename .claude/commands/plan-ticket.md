@@ -1,12 +1,12 @@
 ---
-description: チケットの実装計画を策定する（実行をもって spec を承認済みとみなす）。物理的レビュー方法を計画に含め、計画の承認をユーザーに求める。引数なしならチケットIDを質問する。
+description: チケットの実装計画を策定する。物理的レビュー方法を計画に含め、計画の承認をユーザーに求める。引数なしならチケットIDを質問する。
 ---
 
 # /plan-ticket
 
 **第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
 
-**役割**: `approved` チケットの実装計画と物理的レビュー方法の定義。
+**役割**: チケットの実装計画と物理的レビュー方法の定義。
 
 ## ワークフローにおける位置づけ
 
@@ -21,11 +21,12 @@ description: チケットの実装計画を策定する（実行をもって spe
 ## 引数の解釈
 
 - 引数なし → ユーザーに「どのチケットの計画を策定しますか？」と質問する
-- 数字 → チケットID
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`） → チケットID
+- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）で指定してください」
 
 ## 必須条件
 
-チケットが `approved` ステータスであること。
+チケットのステータスは任意（`todo` / `done` / `reviewed` のいずれでも可）。計画策定はステータスに関わらず実行できる。
 
 ## Boy Scout Rule
 
@@ -40,69 +41,36 @@ description: チケットの実装計画を策定する（実行をもって spe
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下（詳細は `.claude/scripts/tickets/README.md` を参照）：
+`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
-| スクリプト | 引数 |
-|---|---|
-| `resolve-ticket.js` | `<id>` |
-| `check-status.js` | `<id> <status>` |
-| `read-frontmatter.js` | `<id>` |
-| `review/run-quality-checks.js` | `<files...>` |
-| `review/generate-report.js` | （stdin経由） |
-| `update-frontmatter.js` | `<id> <key> <val>` |
-| `read-artifact.js` | `<id> <type>` |
-| `save-artifact.js` | `<id> <type>`（stdin） |
+| スクリプト | 引数 | 説明 |
+|---|---|---|
+| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報の取得 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新 |
+| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全チケット一覧 |
+| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索 |
+| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
+| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
 
 ## ワークフロー
 
-### Step 1: 存在確認
+### Step 1: 存在確認 + チケット情報取得
+
+Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。
 
 ```bash
-node ".claude/scripts/tickets/resolve-ticket.js" "$ARGUMENTS"
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-`exists: false` → 終了。
+`success` が `false` → 終了。以下のステップでは、この出力の `ticket` オブジェクトを参照する。
 
-### Step 2: spec の自動承認
+出力された `ticket` オブジェクトの全フィールド（`title`, `status`, `background`, `scope`, `referenceSection`, `testVerification`, `testExceptions`, `notes`, `relatedTicketIds` 等）を読み取り、以下の観点で情報を把握する：
 
-`/plan-ticket` の実行をもって、対象チケットの spec は承認されたものとみなす。
-現在のステータスが `approved` でない場合、自動的に `approved` に遷移させる：
+- **チケットの基本情報**: `title`, `status`, `background`
+- **フィールドの充足度**: 各フィールドが空か埋まっているか
+- **既存計画の有無**: `testVerification` や `notes` に計画らしき内容が含まれていれば既存の計画が存在する。空または未設定なら新規に計画を策定する。
 
-```bash
-node ".claude/scripts/tickets/check-status.js" "$ARGUMENTS" approved
-```
-
-`matches: true` → そのまま進む。
-`matches: false` → 現在のステータスを表示し、自動的に `approved` に遷移する：
-
-```bash
-node ".claude/scripts/tickets/update-ticket-status.js" "$ARGUMENTS" approved
-```
-
-これにより、draft や reopened の状態から直接計画策定に入ることができる。
-
-### Step 3: spec 読み取り
-
-以下のコマンドで spec 全文と frontmatter を読み取る：
-
-```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec
-```
-
-`created_at` と `updated_at` を確認し、make からどの程度時間が経過しているかを把握する。
-
-### Step 4: 既存計画の確認
-
-`read-artifact.js` で plan.md の有無を確認する：
-
-```bash
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" plan
-```
-
-- 出力がある場合 → 既存の計画が存在する。内容を踏まえて更新または再策定する。
-- エラー終了（JSON エラーが出力される） → 新規に計画を策定する。
-
-### Step 5: Investigation の再検証
+### Step 2: Investigation の再検証
 
 spec 作成時から時間が経過している場合、当時記録された Investigation セクションの物理的証拠が現在のコードベースと一致しているとは限らない。以下の観点で再検証する：
 
@@ -112,24 +80,24 @@ spec 作成時から時間が経過している場合、当時記録された In
 
 **計画は常に現在のコードベースの状態に基づいて策定しなければならない。**
 
-### Step 6: 依存・関連チケットID の検証
+### Step 3: 依存・関連チケットID の検証
 
-spec に記述された「依存・関連チケットID」を点検する：
+チケットの `relatedTicketIds` フィールドで記述された依存関係を点検する：
 
-1. `read-artifact.js` で spec 全文を読み取り、「依存・関連チケットID」の記述を確認する
-2. 参照先チケットID が実在することを `resolve-ticket.js` で確認する
+1. `get-ticket.js` でチケット全フィールドを読み取り、`relatedTicketIds` の記述を確認する
+2. 参照先チケットID が実在することを `get-ticket.js` で確認する
 3. 循環依存がないか確認する（AがBに先行実装必須、かつBがAに先行実装必須 → 矛盾）
-4. 依存関係が Step 3（依存グラフ）の分析結果と整合しているか検証する
-5. 不足がある場合は補完する
+4. 不足がある場合は補完する
 
 ```bash
-# spec から依存・関連チケットID の記述を抽出
-node ".claude/scripts/tickets/read-artifact.js" "$ARGUMENTS" spec | grep -A5 "依存・関連チケットID"
+# チケットから依存・関連チケットID の記述を抽出
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 
-# 各参照先チケットの存在確認（grep 結果の ID を resolve-ticket.js に渡す）
+# 各参照先チケットの存在確認
+node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
 ```
 
-### Step 7: 犯罪・スタブの点検（必須 — 第一級規則）
+### Step 4: 犯罪・スタブの点検（必須 — 第一級規則）
 
 Malfeasance.json を読み取り、未解決の犯罪がないか確認する。**計画承認の条件**として、以下のいずれかを満たさなければならない：
 
@@ -165,9 +133,9 @@ grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.
 grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 ```
 
-### Step 8: 計画策定
+### Step 5: 計画策定
 
-spec 内容をもとに以下の構造で提示する：
+チケットフィールド（`background`, `scope`, `referenceSection`, `relatedTicketIds`）をもとに以下の構造で提示する：
 
 - 要件の再確認
 - 変更ファイル一覧（| ファイル | 種別 | 内容 |）
@@ -181,18 +149,21 @@ spec 内容をもとに以下の構造で提示する：
 - 物理的レビュー方法（`run-quality-checks.js` + 翻訳可能性 grep、**テストが全て通ることの確認を含む**）
 - リスク
 
-### Step 9: ユーザー承認待ち
+### Step 6: ユーザー承認待ち
 
 **明示的な承認を得るまで実装に入らない。**
 
-### Step 10: 計画の保存
+### Step 7: 計画の保存
 
-ユーザーの承認を得た後、計画内容を `save-artifact.js` にパイプして保存する。これによりファイル作成 + frontmatter 更新が一括処理される。
+ユーザーの承認を得た後、計画内容を `update-ticket.js` でチケットの JSON フィールドに保存する。これにより計画内容が Tickets.json に記録される。
 
 ```bash
-cat <<'PLAN_EOF' | node ".claude/scripts/tickets/save-artifact.js" "$ARGUMENTS" plan
-# 計画内容をここに記述（要件、変更ファイル一覧、実装手順、レビュー方法、リスク）
-PLAN_EOF
+echo '{
+  "scope": ["変更ファイル一覧（ファイルパス・種別・内容）"],
+  "testVerification": ["UT: 正常系ケース...", "UT: 異常系ケース...", "UT: 境界値ケース..."],
+  "testExceptions": ["ユニットテスト不可能な項目とその理由"],
+  "notes": "実装手順:\n1. ...\n2. ...\n\nレビュー方法:\n- run-quality-checks\n- 翻訳可能性 grep\n\nリスク:\n- ..."
+}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 これにより、後でチケットを確認したときに「どのような計画で実装されたか」を追跡できる。
