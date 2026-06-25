@@ -1,5 +1,5 @@
 ---
-description: 次世代RFC（NEXT_RFC.md）から既存の Tickets.json にフェーズ・チケットを追加する。既存のチケットやフェーズは変更しない。
+description: 例: /formulate-tickets-for-next conver/RFC-002-next-phase.md conver/OMISSIONS-001.json。第1引数に次世代RFCのパス（必須）、第2引数にOMISSIONSファイルのパス（任意）を指定すると、既存の Tickets.json にフェーズ・チケットを追加する。既存のチケットやフェーズは変更しない。
 ---
 
 # /formulate-tickets-for-next

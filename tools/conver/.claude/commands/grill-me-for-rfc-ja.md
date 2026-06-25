@@ -1,5 +1,5 @@
 ---
-description: RFC設計書を「完全網羅・スコープ委譲禁止・スタブ禁止」の強い制約のもとで書き上げるための対話型grillセッション。
+description: 例: /grill-me-for-rfc research-data.md conver/RFC-001.md。第1引数に調査情報パス（必須）、第2引数にRFC出力ファイルのパス（必須）を指定。RFC設計書を「完全網羅・スコープ委譲禁止・スタブ禁止」の強い制約のもとで書き上げる対話型grillセッション。
 ---
 
 # /grill-me-for-rfc

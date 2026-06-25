@@ -1,5 +1,5 @@
 ---
-description: OMISSIONS をもとに、次世代RFC設計書を「完全網羅・スコープ委譲禁止・スタブ禁止」の強い制約のもとで書き上げるための対話型grillセッション。
+description: 例: /grill-me-for-next-rfc-ja conver/OMISSIONS-001.md conver/RFC-002-next-phase.md。第1引数にOMISSIONSファイルのパス（必須）、第2引数にRFC出力ファイルのパス（必須）を指定。OMISSIONS をもとに次世代RFC設計書を「完全網羅・スコープ委譲禁止・スタブ禁止」の強い制約のもとで書き上げる対話型grillセッション。
 ---
 
 # /grill-me-for-next-rfc-ja

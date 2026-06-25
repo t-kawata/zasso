@@ -1,5 +1,5 @@
 ---
-description: チケットの実装を実行する。実装完了後にチケットのステータスを done に遷移させる。引数なしならチケットIDを質問する。
+description: 例: /start-ticket P0-1。第1引数にチケットID（P{phaseID}-{ticketID}形式）を指定すると、そのチケットの実装を実行する。実装完了後にチケットのステータスを done に遷移させる。引数なしならチケットIDを質問する。
 ---
 
 # /start-ticket

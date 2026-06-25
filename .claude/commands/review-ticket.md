@@ -1,5 +1,5 @@
 ---
-description: 実装済みチケットの品質レビュー。/plan-ticket で定義された全レビュー方法を再実行し、品質通過後に reviewed へ遷移する。引数なしならチケットIDを質問する。
+description: 例: /review-ticket P0-1。第1引数にチケットID（P{phaseID}-{ticketID}形式）を指定すると、実装済みチケットの品質レビューを実行。/plan-ticket で定義された全レビュー方法を再実行し、品質通過後に reviewed へ遷移する。引数なしならチケットIDを質問する。
 ---
 
 # /review-ticket

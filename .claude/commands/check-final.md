@@ -1,5 +1,5 @@
 ---
-description: 最上位親RFCを対象に find-omissions と同一の分析を実行し、新たな漏れがないことを確認した上で開発完了条件をチェックする最終ゲート。
+description: 例: /check-final conver/RFC-ROOT.md。第1引数に最上位親RFCのパスを指定すると、find-omissions と同一の分析を実行し、新たな漏れがないことを確認した上で開発完了条件をチェックする最終ゲート。引数が空ならユーザーに質問する。
 ---
 
 # /check-final

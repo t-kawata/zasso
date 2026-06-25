@@ -1,5 +1,5 @@
 ---
-description: 指定ディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。cargo check / cargo test を実行し、警告・エラー・スタブ・犯罪の全てを解決する。引数には対象ディレクトリのパスを指定する。
+description: 例: /resolve-ticket src-tauri。第1引数に対象ディレクトリのパスを指定。そのディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。cargo check / cargo test を実行し、警告・エラー・スタブ・犯罪の全てを解決する。引数なしならユーザーに質問する。
 ---
 
 # /resolve-ticket

@@ -1,5 +1,5 @@
 ---
-description: 設計書（RFC・要件定義・設計ドキュメント）から実装チケットのきめ細やかなフェーズ分けと詳細定義を生成する。設計書へのパスを指定すると、同階層に Tickets.json を自動生成する。
+description: 例: /formulate-tickets conver/RFC-001-process-registry.md。第1引数に設計書のパス（必須）を指定すると、実装チケットのきめ細やかなフェーズ分けと詳細定義を生成し、同階層に Tickets.json を自動生成する。
 ---
 
 # /formulate-tickets

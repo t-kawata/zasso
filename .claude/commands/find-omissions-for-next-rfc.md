@@ -1,5 +1,5 @@
 ---
-description: RFCの設計内容と実装コードを比較し、漏れ・矛盾・不足を発見して OMISSIONS-XXX.json に出力する。
+description: 例: /find-omissions-for-next-rfc conver/RFC-ROOT.md。第1引数に最上位親RFCのパスを指定すると、RFCの設計内容と実装コードを比較し、漏れ・矛盾・不足を発見して OMISSIONS-XXX.json に出力する。引数が空ならユーザーに質問する。
 ---
 
 # /find-omissions-for-next-rfc
