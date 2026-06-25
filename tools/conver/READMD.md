@@ -9,19 +9,59 @@ conver は、**二層ループ構造**にもとづく開発パイプラインを
 
 ```
                        外側ループ（RFC世代サイクル）
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │                                                                      ▼
-  grill → formulate ──→ [内側ループ] ──→ find ───→ formulate-for-next → grill(次)
-   ▲                        │              │       ▲                     │
-   │                        │ 内側ループ    │       │                     │
-   │                        │ (自動実行:ACP)│ check-final                 │
-   │                        ▼              ├── PASS: 完了                │
-   │                   make → plan → start → review → resolve            │
-   │                              ↑  FAIL ─┘                             │
-   └──────────────────────────────┴── formulate-for-next へ継続 ──────────┘
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │                                                                          ▼
+  grill → formulate ──→ [内側ループ] ──→ find ──→ formulate-for-next → grill(次)
+   ▲                        │                      │                       │
+   │                        │ 内側ループ            │                       │
+   │                        │ (自動実行: ACP)       │                       │
+   │                        ▼                      │                       │
+   │                   make → plan → start → review → resolve                │
+   │                                                                         │
+   │                     ┌── check-final ──→ PASS: 🎉 完了                   │
+   │                     │       │                                           │
+   │                     │       └── FAIL: ループ継続                         │
+   │                     │         ↓                                         │
+   │                     │    formulate-for-next (or find)                    │
+   └─────────────────────┴──────── 次世代へ継続 ──────────────────────────────┘
 ```
 
-![](conver.png)
+## 本質 — ベクトル空間上の収束計算
+
+conver の二層ループは、**RFCが定義する設計ベクトル空間と実装コードが織りなす実装ベクトル空間の差をゼロに収束させる反復計算**です。
+
+### 空間の定義
+
+- **rfcUnderstanding**（14フィールド）が空間の座標軸を定義する
+- **フェーズ・チケット**が作業単位の次元を区切る
+- **実装コード**（型・関数・テスト・設定）が実装ベクトルを構成する
+
+### OMISSIONS ベクトル
+
+各 omission はある次元における「設計ベクトルと実装ベクトルの差」です：
+
+| omission の属性 | 数学的な対応 |
+|----------------|-------------|
+| `type` | 差の方向（欠落/不一致/バグ/スタブ残存…） |
+| `severity` | 差の大きさ（critical/high/medium/low） |
+| `rfcSection` | 設計ベクトルの該当座標 |
+| `affectedFiles` | 実装ベクトルの該当座標 |
+| `suggestedResolution` | 収束させるための操作 |
+
+### 収束計算
+
+1. **rfcUnderstanding** で座標系を固定する（設計空間は移動しない）
+2. **内側ループ**（make→plan→start→review→resolve）が実装ベクトルを設計に近づける
+3. **find** が残差ベクトル（OMISSIONS）を計測する
+4. **grill(next)** が残差を解消する新たな設計ベクトル（NEXT_RFC）を定義する
+5. **check-final** が同一座標系で残差の最終計測を行い、全次元で許容範囲（low のみ）に収まっていることを確認する
+6. ノルムがゼロになるまで反復する
+
+### 完了条件の数学的定義
+
+`check-final` が独立した二重計測により `||OMISSIONS|| = 0` を確認したとき、開発は完了です。
+
+---
 
 ## 自動化の境界
 
@@ -70,31 +110,24 @@ conver は、**二層ループ構造**にもとづく開発パイプラインを
 3. 各フェーズにチケットを追加（1チケット・1不変条件）
 4. 全チケットは status `todo` で初期化
 
-**既に `Tickets.json` が存在する場合は上書き確認を行います。**
+#### `/formulate-tickets-for-next <NEXT_RFCパス> [OMISSIONSパス]`
 
-#### `/formulate-tickets-for-next <OMISSIONSパス>`
+`/grill-me-for-next-rfc-ja` が出力した次世代RFC（NEXT_RFC.md）を分析し、既存の `Tickets.json` にフェーズ・チケットを追加・拡張します。
 
-`OMISSIONS-XXX.json` の内容を埋めるために、既存の `Tickets.json` にフェーズ・チケットを追加・拡張します。
-
-**入力**: `OMISSIONS-XXX.json` のパス  
+**入力**: 次世代RFCのパス（必須）+ OMISSIONS-XXX.json のパス（任意）  
 **出力**: 既存 `Tickets.json` にチケット追加（上書きなし）
 
 **`/formulate-tickets` との違い**:
 - 既存の `Tickets.json` を読み取り、不足チケットを追加するのみ
 - 既存のチケットやフェーズは一切変更しない
-- 各追加チケットは対応する omission ID を参照する
+- 各追加チケットは対応する omission ID を参照可能
 
-#### `/grill-me-for-next-rfc-ja <OMISSIONSパス> <NEXT_RFC出力パス>`
+#### `/grill-me-for-next-rfc-ja <OMISSIONS.mdパス> <NEXT_RFC出力パス>`
 
-`OMISSIONS-XXX.json` を入力として、次の世代の RFC を grill セッションで書き上げます。
+`/find-omissions-for-next-rfc` が出力した `OMISSIONS-XXX.md` を入力として、次の世代の RFC を grill セッションで書き上げます。
 
-**入力**: `OMISSIONS-XXX.json` のパス + 次RFCの出力パス  
-**出力**: 次世代 RFC 設計書（.md）
-
-**既存の `/grill-me-for-rfc` との違い**:
-- OMISSIONS を（調査情報の代わりに）入力として受け取る
-- 出力される RFC には親RFCのパスと OMISSIONS ファイルのパスがメタデータとして記述される
-- grill 質問は OMISSIONS の内容に基づいて生成される
+**入力**: `OMISSIONS-XXX.md` のパス + 次RFCの出力パス  
+**出力**: 次世代 RFC 設計書（.md）。親RFCパスと OMISSIONS パスをメタデータとして含む
 
 **次RFCのメタデータ**:
 ```markdown
@@ -106,96 +139,62 @@ parent-omissions: <OMISSIONSファイルのパス>
 
 #### `/check-final <最上位親RFCパス>`
 
-開発完了条件をチェックするゲートです。以下の3条件がすべて満たされた場合のみ PASS を返します。
+`/find-omissions-for-next-rfc` と全く同一の分析を実行し、新たな漏れ・矛盾・不足が存在しないことを確認した上で、全チケットの完了状態を検証して開発完了を宣言する最終ゲート。
 
-**入力**: 最上位の親RFCファイルのパス（parent-rfc を持たない最初のRFC）
+**自己分析**: find-omissions と同じ Step 1-6 を実行し、`OMISSIONS-XXX.json` を生成
+- 新たな omission が1件も発見されなければ → 通過
+- 発見された場合 → severity を評価し、high があれば FAIL、low/medium は理由を添えて許容
 
-**チェック条件**:
-1. **全チケット `reviewed`**: `Tickets.json` の全チケットの status が `reviewed` である
-2. **OMISSIONS 軽微**: 最新の `OMISSIONS-XXX.json` の内容が次RFCを書くほどではない
-3. **最終走査 PASS**: 最上位親RFCのディレクトリ配下の全RFC・全OMISSIONS を走査し、矛盾や漏れがない
-
-**結果**:
-- **PASS** 🎉 → 開発完了。すべての条件を満たしています。
-- **FAIL** → 未達条件を具体的に報告し、次のアクションを提案します。
+**追加検証**:
+1. 全チケット reviewed 確認
+2. 全9ステップの完了確認
 
 ---
 
 ### 内側ループ（ACP 自動実行）
 
-以下のコマンドは ACP クライアントによって自動実行されます。各コマンドの詳細は `.claude/commands/` 配下の定義ファイルを参照してください。
-
 #### `/make-ticket [チケットID | タイトル]`
 
 実装仕様書（spec）を作成・詳細化します。
-
-- 引数なし → ヒアリングからタイトル決定
-- `P{phaseID}-{ticketID}` → 既存チケットの深掘り
-- 文字列 → 新規 spec のタイトルとして作成
-
-**出力**: `spec/*.md` + `Tickets.json` へのチケット登録
 
 #### `/plan-ticket <チケットID>`
 
 チケットの実装計画を策定し、承認を得ます。
 
-- 変更ファイル一覧
-- Boy Scout 改善（翻訳可能性）
-- テスト計画（ユニットテスト最優先）
-- 実装手順
-- 物理的レビュー方法
-- リスク
-
-計画は `Tickets.json` のチケットフィールドに保存されます。
-
 #### `/start-ticket <チケットID>`
 
 計画に従い実装を実行します。完了後 status を `done` に遷移します。
-
-**必須ステップ**:
-- Malfeasance 犯罪の緊急解決
-- スタブの解決
-- 不完全実装の能動的探索（7パターン）
-- コンパイル検証 + テスト
-- 品質チェック（`run-quality-checks.js`）
 
 #### `/review-ticket <チケットID>`
 
 `done` チケットの品質検証を行います。通過後 status を `reviewed` に遷移します。
 
-**検証項目**:
-- 依存関係の整合性検証
-- Malfeasance 犯罪の解決確認
-- スタブ評価
-- コンパイル検証 + ユニットテスト
-- 静的品質チェック
-- 翻訳可能性チェック
-
 #### `/resolve-ticket <ディレクトリパス>`
 
 指定ディレクトリ配下の警告・エラー・スタブ・犯罪を一括解決します。
-
-- `cargo check` / `cargo test` の警告・エラー解決
-- 未解決スタブの犯罪登録
-- 全犯罪の解決
-- 最終検証
 
 #### `/find-omissions-for-next-rfc <RFCファイルパス>`
 
 RFC の設計内容と実際の実装コードを比較し、漏れ・矛盾・不足を発見して `OMISSIONS-XXX.json` に出力します。
 
-**出力**: `{RFC_DIR}/OMISSIONS-XXX.json`
+**ワークフロー**（直列・直線的、全ステップを steps で追跡）:
+1. スケルトン生成（create-omissions.js）
+2. RFC理解（14フィールドの rfcUnderstanding を分析。前回の OMISSIONS があれば再利用）
+3. ソースコード比較分析（4観点 + 発見即記録）
+4. 発見漏れ確認
+5. 最終検証
+6. 完了報告（Markdown にも変換）
 
 **発見する omission の種類**:
 | 種別 | 説明 |
 |------|------|
-| `missing_implementation` | RFC で定義されているが未実装 |
-| `incomplete_implementation` | 部分的にしか実装されていない |
-| `design_deviation` | RFC の設計と異なる実装 |
-| `bug` | 明らかなバグ |
-| `stub_remaining` | `[::STUB::]` が残ったまま |
-| `test_missing` | RFC で要求されているがテストがない |
-| `inconsistency` | 設計全体で矛盾している状態 |
+| missing_implementation | RFC で定義されているが未実装 |
+| incomplete_implementation | 部分的にしか実装されていない |
+| design_deviation | RFC の設計と異なる実装 |
+| bug | 明らかなバグ |
+| stub_remaining | `[::STUB::]` が残ったまま |
+| test_missing | RFC で要求されているがテストがない |
+| inconsistency | 設計全体で矛盾している状態 |
 
 ---
 
@@ -203,41 +202,18 @@ RFC の設計内容と実際の実装コードを比較し、漏れ・矛盾・�
 
 ```text
    todo ──────→ done ──────→ reviewed
-  (初期状態)   (start完了)  (review完了)
 ```
 
 - `list-phases-and-tickets.js` の表示: `todo` → `[ ]`, `done` → `[/]`, `reviewed` → `[x]`
+- フェーズのチェックボックスは配下の全チケットが `reviewed` の場合のみ `[x]` になる（動的評価）
 
 ---
 
 ## データモデル
 
-### Tickets.json
-
-`Tickets.json` は RFC の実装を管理する中心的なデータストアです。
-
-```
-Tickets.json
-├── title: string
-├── metadata: { source, generatedAt, ... }
-├── phases[]
-│   ├── id: integer
-│   ├── name: string
-│   ├── externalDependencies: string
-│   └── tickets[]
-│       ├── id: integer (フェーズ内連番)
-│       ├── phaseId: integer
-│       ├── title: string
-│       ├── status: "todo" | "done" | "reviewed"
-│       ├── background, scope[], testVerification[]
-│       ├── notes, changes[], instrumentation
-│       ├── startedAt, completedAt
-│       └── relatedTicketIds, referenceSection
-```
-
 ### OMISSIONS-XXX.json
 
-`find` コマンドが出力する、RFC設計と実装のギャップを記録したファイルです。
+`find` コマンド（および `check-final`）が出力する、設計と実装のギャップを記録したファイルです。`rfcUnderstanding` で設計空間の座標系を定義し、`omissions` で残差ベクトルを記録し、`steps` で収束計算の経路を追跡します。
 
 ```
 OMISSIONS-XXX.json
@@ -245,8 +221,17 @@ OMISSIONS-XXX.json
 ├── parentRfcTitle: string
 ├── generatedAt: string (YYYY-MM-DD)
 ├── summary: string
-└── omissions[]
-    ├── id: string (O-001形式)
+├── rfcUnderstanding: object (設計空間の座標軸、14フィールド)
+│   ├── purpose, goals, successCriteria, nonScope          (2a. 目的とゴール)
+│   ├── architecture, componentRelations, designDecisions  (2b. アーキテクチャ)
+│   ├── typeDefinitions, apiSignatures, dependencyGraph,   (2c. 実装定義)
+│   │   externalDependencies, testRequirements,
+│   │   errorHandling, configuration
+├── steps[] (収束計算の経路)
+│   ├── id, label, status ("todo"|"in_progress"|"done")
+│   └── children[] (階層構造)
+└── omissions[] (残差ベクトル)
+    ├── id: string (O-XXX形式)
     ├── type: enum (7種)
     ├── severity: enum (critical/high/medium/low)
     ├── rfcSection: string
@@ -257,111 +242,82 @@ OMISSIONS-XXX.json
     └── resolvedInNextRfc: boolean
 ```
 
+### Tickets.json
+
+```
+Tickets.json
+├── title: string
+├── metadata: { source, generatedAt, ... }
+├── phases[]
+│   ├── id: integer (-1 は PX: 独立フェーズ)
+│   ├── name: string
+│   └── tickets[]
+│       ├── id: integer (フェーズ内連番)
+│       ├── title: string
+│       ├── status: "todo" | "done" | "reviewed"
+│       ├── scope[], testVerification[], notes
+│       ├── startedAt, completedAt
+│       └── changes[], instrumentation
+```
+
 ### チケットID命名規則
 
 - フェーズID: `P0`, `P1`, ... / `PX`（独立フェーズ）
 - チケットID: `P{phaseID}-{ticketID}`（例: `P0-1`）
-- 全コマンドの引数でこの形式を使用
 
 ---
 
-## スクリプト群
-
-`.claude/scripts/tickets/` 配下に CRUD 操作を提供するスクリプト群があります。
+## スクリプトリファレンス
 
 ### チケットCRUD
 
-| スクリプト | 説明 |
-|---|---|
-| `add-ticket.js` | チケット追加（単一） |
-| `get-ticket.js` | チケット取得（複合キー） |
-| `update-ticket.js` | チケット更新 |
-| `delete-ticket.js` | チケット削除 |
-| `bulk-add-tickets.js` | チケット一括追加 |
-| `bulk-update-tickets.js` | チケット一括更新 |
-| `bulk-delete-tickets.js` | チケット一括削除 |
+`add-ticket.js` | `get-ticket.js` | `update-ticket.js` | `delete-ticket.js` | `bulk-add-tickets.js` | `bulk-update-tickets.js` | `bulk-delete-tickets.js`
 
 ### 表示・検索
 
-| スクリプト | 説明 |
-|---|---|
-| `list-phases-and-tickets.js` | チェックリスト形式表示 |
-| `all-tickets.js` | 全一覧（フィルタ可能） |
-| `search-tickets.js` | 全文検索 |
-| `get-ticket-as-markdown.js` | Markdown 形式で取得 |
+`list-phases-and-tickets.js`（フェーズチェックは動的評価）| `all-tickets.js` | `search-tickets.js` | `get-ticket-as-markdown.js`
 
-### OMISSIONS
+### OMISSIONS — スケルトン・追記・変換
 
-| スクリプト | 説明 |
-|---|---|
-| `next-omissions-number.js` | 次番号採番 |
-| `list-omissions.js` | OMISSIONS 一覧表示 |
+`create-omissions.js`（`--check-final` で9ステップ版）| `add-omission.js`（発見即記録・ID自動採番）| `list-omissions.js` | `next-omissions-number.js` | `convert-omissions-to-markdown.js`
+
+### OMISSIONS — RFC理解書き込み
+
+`add-omissions-meta.js` | `add-omissions-rfc-goal.js` | `add-omissions-rfc-architecture.js` | `add-omissions-rfc-detail-1.js` | `add-omissions-rfc-detail-2.js`
+
+### OMISSIONS — 表示・進捗管理
+
+`show-omissions-rfc-understanding.js` | `show-omissions-steps.js` | `update-omissions-step.js`
+
+### OMISSIONS — 前回データ再利用
+
+`get-before-rfc-understanding.js` | `get-before-rfc-understanding.sh`
 
 ### フェーズ管理
 
-| スクリプト | 説明 |
-|---|---|
-| `add-phase.js` | フェーズ追加 |
-| `add-px-phase.js` | PX（独立）フェーズ追加 |
-| `write-tickets-json-template.js` | Tickets.json スケルトン生成 |
+`add-phase.js` | `add-px-phase.js` | `write-tickets-json-template.js`
 
-### spec
+### spec / 品質 / 犯罪 / スタブ
 
-| スクリプト | 説明 |
-|---|---|
-| `create-spec.js` | spec ファイルスケルトン生成 |
-
-### 品質・犯罪・スタブ
-
-| スクリプト | 説明 |
-|---|---|
-| `review/run-quality-checks.js` | 静的品質チェック |
-| `review/generate-report.js` | 品質レポート生成 |
-| `review/find-all-stubs.js` | スタブ検出 |
-| `scan-crimes.sh` | 犯罪スキャン |
-| `malfeasance-create.js` | 犯罪レコード作成 |
-| `malfeasance-update.js` | 犯罪レコード更新 |
-| `malfeasance-all.js` | 犯罪一覧 |
+`create-spec.js` | `review/run-quality-checks.js` | `review/find-all-stubs.js` | `scan-crimes.sh` | `malfeasance-create.js` | `malfeasance-update.js`
 
 ### grill
 
-| スクリプト | 説明 |
-|---|---|
-| `.claude/scripts/grill-me-for-rfc/init.js` | grill セッション初期化 |
-| `.claude/scripts/grill-me-for-rfc/update-tree.js` | DesignTree CRUD |
-| `.claude/scripts/grill-me-for-rfc/tree-query.js` | DesignTree 検索・表示 |
-| `.claude/scripts/grill-me-for-rfc/update-status.js` | ステータス更新 |
-| `.claude/scripts/grill-me-for-rfc/session-status.js` | セッション状況表示 |
-| `.claude/scripts/grill-me-for-rfc/check-all-schema.js` | スキーマ検証 |
-| `.claude/scripts/grill-me-for-rfc/generate-checklist.js` | CheckList.md 生成 |
-| `.claude/scripts/grill-me-for-rfc/list-files.js` | 調査ファイル一覧 |
-| `.claude/scripts/grill-me-for-rfc/validate-question-format.js` | 質問形式検証 |
+`grill-me-for-rfc/init.js` | `grill-me-for-rfc/update-tree.js` | `grill-me-for-rfc/tree-query.js` | `grill-me-for-rfc/update-status.js` | `grill-me-for-rfc/session-status.js` | `grill-me-for-rfc/check-all-schema.js` | `grill-me-for-rfc/generate-checklist.js` | `grill-me-for-rfc/list-files.js` | `grill-me-for-rfc/validate-question-format.js`
 
 ### 共通ライブラリ
 
-| ファイル | 説明 |
-|---|---|
-| `lib/tickets.js` | チケット共通ユーティリティ |
-| `lib/ticket-config.js` | 設定管理 |
-| `lib/validate-tickets.js` | Tickets.json スキーマ検証 |
-| `lib/validate-omissions.js` | OMISSIONS スキーマ検証 |
-| `lib/malfeasance-utils.js` | 犯罪レコード操作 |
-| `lib/validate-malfeasance.js` | Malfeasance.json スキーマ検証 |
+`lib/omissions-update.js` | `lib/tickets.js` | `lib/ticket-config.js` | `lib/validate-tickets.js` | `lib/validate-omissions.js` | `lib/malfeasance-utils.js` | `lib/validate-malfeasance.js`
 
 ---
 
 ## 第一級規則 — `[::STUB::]` マーカー絶対義務
 
-不完全な実装（スタブ・モック・仮実装・プレースホルダー等）にはすべて `[::STUB::]` マーカーを付与しなければなりません。これを「犯罪」として Malfeasance.json に記録し、解決するまで次ステップに進めません。
+不完全な実装（スタブ・モック・仮実装・プレースホルダー等）にはすべて `[::STUB::]` マーカーを付与しなければなりません。Malfeasance.json に記録し、解決するまで次ステップに進めません。
 
-対象となるパターン:
-1. `todo!()`, `unimplemented!()`, `panic!()`
-2. 空の関数本体（`fn foo() {}`）
-3. 未実装の `return Ok(())` / `return None`
-4. コメントアウトされた実装コード
-5. `TODO` / `FIXME` / `HACK` / `XXX`
-6. Mock / Fake オブジェクト
-7. `#[allow(...)]` による警告抑制
+`[::STUB::]` は OMISSIONS の一種であり、`find` コマンドはこれを omission として記録します。
+
+対象パターン: `todo!()` / `unimplemented!()` / `panic!()` / 空の関数本体 / `return Ok(())` / コメントアウトコード / `TODO` / `FIXME` / `HACK` / `XXX` / Mock / `#[allow(...)]`
 
 ---
 
@@ -371,6 +327,6 @@ OMISSIONS-XXX.json
 2. `/formulate-tickets` で RFC から `Tickets.json` を生成する
 3. ACP クライアントが内側ループ（make→plan→start→review→resolve→find）を自動実行する
 4. `find` が出力した `OMISSIONS-XXX.json` を確認する
+   - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
    - 軽微なら `/check-final` で完了確認
-   - 次の設計が必要なら `/formulate-tickets-for-next` → `/grill-me-for-next-rfc-ja` で次世代へ
 5. `/check-final` が PASS を返したら 🎉 開発完了

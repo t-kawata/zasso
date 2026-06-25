@@ -7,7 +7,8 @@ function main() {
   const lines = [];
   for (const p of (data.phases || [])) {
     const phaseLabel = p.id === -1 ? 'PX' : 'P' + p.id;
-    lines.push('- ' + CB.todo + ' ' + phaseLabel + ': ' + (p.name || ''));
+    const allReviewed = (p.tickets || []).length > 0 && (p.tickets || []).every(function(t) { return t.status === 'reviewed'; });
+    lines.push('- ' + (allReviewed ? CB.reviewed : CB.todo) + ' ' + phaseLabel + ': ' + (p.name || ''));
     for (const t of (p.tickets || [])) {
       lines.push('    - ' + (CB[t.status] || CB.todo) + ' ' + phaseLabel + '-' + t.id + ': ' + (t.title || ''));
     }

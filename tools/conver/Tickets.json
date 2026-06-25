@@ -1,0 +1,128 @@
+{
+  "title": "開発パイプライン拡張",
+  "metadata": {
+    "source": "/make-ticket",
+    "generatedAt": "2026-06-25",
+    "analyzedSections": ""
+  },
+  "phases": [
+    {
+      "id": -1,
+      "name": "[X] 独立フェーズ（P0 に先行／独立）",
+      "characteristics": "P0より前、またはP0以降のどのフェーズにも属さない独立したチケットを格納する特別なフェーズ。",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "開発パイプライン拡張 — find/formulate-for-next/grill-next/check-final 追加",
+          "referenceSection": "tickets/specs/0001-findformulate-for-nextgrill-nextcheck-final.md",
+          "background": "二層ループ開発パイプラインの外側ループを循環させるために必要な4つのスラッシュコマンドとOMISSIONS JSON基盤を実装する。現状は内側ループ（make→plan→start→review→resolve）のみ完備しており、find→formulate-for-next→grill-next→check-final が未実装。",
+          "scope": [
+            "omissions-schema.json: OMISSIONS JSON Schema",
+            "validate-omissions.js: スキーマ検証",
+            "next-omissions-number.js: 次番号採番",
+            "list-omissions.js: OMISSIONS一覧表示",
+            "find-omissions-for-next-rfc.md: findコマンド定義",
+            "formulate-tickets-for-next.md: formulate-for-nextコマンド定義",
+            "grill-me-for-next-rfc-ja.md: grill-nextコマンド定義",
+            "check-final.md: check-finalコマンド定義",
+            "test.sh: 新規スクリプトのテスト追加"
+          ],
+          "testVerification": [
+            "next-omissions-number: 空ディレクトリ→1, 既存ファイル→次番号",
+            "validate-omissions: 正常JSON→valid, 異常JSON→エラー",
+            "list-omissions: チェックリスト形式表示",
+            "test.sh全体がPASSすること"
+          ],
+          "testExceptions": [
+            "コマンドファイル(.md)の自動テストは不可能。Claude Code上での手動実行で検証"
+          ],
+          "notes": "レビュー報告書:\n- 犯罪: 0件\n- スタブ: 0件\n- 翻訳可能性: 問題なし\n- テスト: test.sh 全37テスト PASS\n- 不完全実装: なし",
+          "startedAt": "2026-06-25",
+          "changes": [
+            {
+              "before": "(不存在)",
+              "after": "新規作成",
+              "description": "8ファイル作成"
+            }
+          ],
+          "instrumentation": "test.sh 全37テスト PASS (CRUD 28 + OMISSIONS 9)",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-25"
+        },
+        {
+          "id": 2,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "find-omissions リファクタリング — スキーマ拡張・ワークフロー細分化・steps追跡",
+          "referenceSection": "tickets/specs/0002-find-omissions-steps.md",
+          "background": "PX-1で実装したfind-omissionsのOMISSIONS JSONスキーマを拡張し、RFC理解情報（rfcUnderstanding 14フィールド）とワークフロー進捗追跡（steps）を追加する。あわせて、RFC理解・比較分析・記録の各工程を独立したスクリプトで段階的に実行するワークフローに再構成する。これにより発見即記録の原則と直列で漏れのないステップ実行を保証する。",
+          "scope": [
+            "omissions-schema.json: rfcUnderstanding+steps追加",
+            "validate-omissions.js: rfcUnderstanding+steps検証",
+            "create-omissions.js: スケルトン生成(新規)",
+            "add-omissions-meta.js: summary書き込み(新規)",
+            "add-omissions-rfc-goal.js: 2a書き込み(新規)",
+            "add-omissions-rfc-architecture.js: 2b書き込み(新規)",
+            "add-omissions-rfc-detail-1.js: 2c前半書き込み(新規)",
+            "add-omissions-rfc-detail-2.js: 2c後半書き込み(新規)",
+            "show-omissions-rfc-understanding.js: RFC理解表示(新規)",
+            "show-omissions-steps.js: 進捗表示(新規)",
+            "update-omissions-step.js: ステータス更新(新規)",
+            "add-omission.js: 即時omission追加(新規)",
+            "find-omissions-for-next-rfc.md: 6段階WF再構成",
+            "test.sh: 新スクリプトテスト追加"
+          ],
+          "testVerification": [
+            "create-omissions: 正常生成+検証",
+            "add-omissions-*: 各担当フィールドのみ更新",
+            "show-*: 整形表示",
+            "update-omissions-step: status更新",
+            "add-omission: 自動ID採番",
+            "test.sh全PASS"
+          ],
+          "testExceptions": [
+            "コマンドファイル(.md)の自動テストは不可"
+          ],
+          "notes": "レビュー報告書:\n- 犯罪: 0件\n- スタブ: 0件\n- 翻訳可能性: 問題なし（関数名は全て動詞句、TODO/FIXME混入なし）\n- テスト: test.sh 全62テスト PASS\n- 依存関係: PX-1 reviewed済み 問題なし\n- 不完全実装: なし",
+          "startedAt": "2026-06-25",
+          "completedAt": "2026-06-25",
+          "changes": [
+            {
+              "before": "(旧)",
+              "after": "(新)",
+              "description": "schema拡張+10新規スクリプト+findコマンドWF更新+test.sh"
+            }
+          ],
+          "instrumentation": "test.sh 全62テスト PASS (CRUD 28 + OMISSIONS 9 + PX-2新規 25)",
+          "rfcDiscrepancies": []
+        },
+        {
+          "id": 3,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "check-final 強化 — find-omissions 同等分析の組み込みと create-omissions 拡張",
+          "referenceSection": "tickets/specs/0003-check-final-find-omissions-create-omissions.md",
+          "background": "check-final.md を find-omissions-for-next-rfc.md と同一の分析を行う実質的な完了ゲートに強化する。あわせて create-omissions.js に --check-final オプションを追加し9ステップスケルトンを選択可能にする。",
+          "scope": [
+            "check-final.md: find-omissions完全コピー+Step7-9追加",
+            "create-omissions.js: --check-final オプション追加"
+          ],
+          "notes": "レビュー報告書:\n- 犯罪: 0件\n- スタブ: 0件\n- 修正: Step 7 のFAIL条件を severity 評価方式に変更（1件即FAIL→low/mediumは許容、highのみFAIL）\n- テスト: test.sh 全66テスト PASS",
+          "startedAt": "2026-06-25",
+          "completedAt": "2026-06-25",
+          "changes": [
+            {
+              "before": "(旧)",
+              "after": "(新)",
+              "description": "create-omissions.jsに--check-final追加+check-final.md全面書き換え(Step1-6=find-omissionsコピー, Step7-9追加)"
+            }
+          ],
+          "instrumentation": "test.sh 全66テスト PASS",
+          "rfcDiscrepancies": []
+        }
+      ]
+    }
+  ]
+}

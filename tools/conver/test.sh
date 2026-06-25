@@ -152,6 +152,154 @@ echo '{"title":"T","metadata":{"source":"r","generatedAt":"2026-01-01"},"phases"
 R="$(node "$V" "$TMPDIR/bad.json" 2>&1 || true)"
 echo "$R" | grep -q "phaseId.*does not match" && pass "phaseId mismatch detected" || fail "phaseId mismatch not detected"
 
+echo ""; echo "======== OMISSIONS スクリプトテスト ========"; echo ""
+
+OMD="$TMPDIR/om"
+mkdir -p "$OMD"
+OS=".claude/scripts/tickets"; OVL=".claude/scripts/lib/validate-omissions.js"
+
+echo "[O1] next-omissions-number (empty dir)"
+R="$(node "$OS/next-omissions-number.js" "$OMD" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.nextNumber" "1"
+
+echo "[O2] next-omissions-number (with existing)"
+echo '{}' > "$OMD/OMISSIONS-001.json"
+echo '{}' > "$OMD/OMISSIONS-003.json"
+R="$(node "$OS/next-omissions-number.js" "$OMD" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.nextNumber" "4"
+
+echo "[O3] next-omissions-number (nonexistent dir)"
+R="$(node "$OS/next-omissions-number.js" "$OMD/nope" 2>&1 || true)"
+assert_json_field "$R" "d.success" "false"
+
+echo "[O4] validate-omissions (valid file)"
+echo '{"parentRfcPath":"rfc.md","generatedAt":"2026-06-25","omissions":[{"id":"O-001","type":"bug","description":"test"}]}' > "$OMD/valid.json"
+R="$(node "$OVL" "$OMD/valid.json" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[O5] validate-omissions (stdin valid)"
+R="$(echo '{"parentRfcPath":"rfc.md","generatedAt":"2026-06-25","omissions":[{"id":"O-001","type":"bug","description":"test"}]}' | node "$OVL" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[O6] validate-omissions (missing parentRfcPath)"
+R="$(echo '{"generatedAt":"2026-06-25","omissions":[]}' | node "$OVL" 2>&1 || true)"
+assert_json_field "$R" "d.success" "false"
+
+echo "[O7] validate-omissions (invalid type)"
+R="$(echo '{"parentRfcPath":"rfc.md","generatedAt":"2026-06-25","omissions":[{"id":"O-001","type":"invalid","description":"test"}]}' | node "$OVL" 2>&1 || true)"
+assert_json_field "$R" "d.success" "false"
+
+echo "[O8] validate-omissions (invalid ID format)"
+R="$(echo '{"parentRfcPath":"rfc.md","generatedAt":"2026-06-25","omissions":[{"id":"O-01","type":"bug","description":"test"}]}' | node "$OVL" 2>&1 || true)"
+assert_json_field "$R" "d.success" "false"
+
+echo "[O9] list-omissions (display)"
+R="$(node "$OS/list-omissions.js" "$OMD/valid.json" 2>&1)" || true
+echo "$R" | grep -q "O-001" && pass "O-001 displayed" || fail "O-001 not displayed"
+echo "$R" | grep -q "bug" && pass "type 'bug' displayed" || fail "type 'bug' not displayed"
+
+echo ""; echo "======== PX-2 新スクリプトテスト ========"; echo ""
+
+NMD="$TMPDIR/om2"
+mkdir -p "$NMD"
+echo "# Test RFC Title" > "$NMD/rfc.md"
+
+echo "[N1] create-omissions (skeleton)"
+R="$(node "$OS/create-omissions.js" "$NMD/rfc.md" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.nextNumber" "1"
+OMPATH=$(echo "$R" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).omissionsFilePath))")
+
+echo "[N2] validate-omissions with rfcUnderstanding+steps"
+R="$(node "$OVL" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[N3] add-omissions-meta"
+R="$(echo '{"summary":"Test summary"}' | node "$OS/add-omissions-meta.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.written.length" "1"
+
+echo "[N4] add-omissions-rfc-goal"
+R="$(echo '{"purpose":"Test purpose","goals":"Test goals","successCriteria":"done","nonScope":"none"}' | node "$OS/add-omissions-rfc-goal.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.written.length" "4"
+
+echo "[N5] add-omissions-rfc-architecture"
+R="$(echo '{"architecture":"test arch","componentRelations":"rel","designDecisions":"dec"}' | node "$OS/add-omissions-rfc-architecture.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[N6] add-omissions-rfc-detail-1"
+R="$(echo '{"typeDefinitions":"types","apiSignatures":"apis","dependencyGraph":"deps","externalDependencies":"ext"}' | node "$OS/add-omissions-rfc-detail-1.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[N7] add-omissions-rfc-detail-2"
+R="$(echo '{"testRequirements":"tests","errorHandling":"errors","configuration":"config"}' | node "$OS/add-omissions-rfc-detail-2.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[N8] show-omissions-rfc-understanding"
+R="$(node "$OS/show-omissions-rfc-understanding.js" "$OMPATH" 2>&1)" || true
+echo "$R" | grep -q "目的" && pass "purpose label shown" || fail "purpose label missing"
+echo "$R" | grep -q "Test purpose" && pass "purpose content shown" || fail "purpose content missing"
+
+echo "[N9] show-omissions-steps"
+R="$(node "$OS/show-omissions-steps.js" "$OMPATH" 2>&1)" || true
+echo "$R" | grep -q "2a-1" && pass "step 2a-1 shown" || fail "step 2a-1 missing"
+echo "$R" | grep -q '\[x\]' && pass "done step shown" || fail "done step missing"
+
+echo "[N10] update-omissions-step"
+R="$(node "$OS/update-omissions-step.js" "$OMPATH" "2a-1" "done" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.status" "done"
+R="$(node "$OS/update-omissions-step.js" "$OMPATH" "nonexistent" "done" 2>&1 || true)"
+assert_json_field "$R" "d.success" "false"
+
+echo "[N11] add-omission"
+R="$(echo '{"type":"bug","description":"found a bug","severity":"high","rfcSection":"§3","affectedFiles":["src/lib.rs"]}' | node "$OS/add-omission.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.omissionId" "O-001"
+R="$(echo '{"type":"missing_implementation","description":"missing trait","affectedFiles":["src/main.rs"]}' | node "$OS/add-omission.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.omissionId" "O-002"
+
+echo "[N12] validate-omissions (after all updates)"
+R="$(node "$OVL" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[N13] convert-omissions-to-markdown"
+R="$(node "$OS/convert-omissions-to-markdown.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+MDPATH=$(echo "$R" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).mdFilePath))")
+[ -f "$MDPATH" ] && pass ".md file created" || fail ".md file not created"
+head -1 "$MDPATH" | grep -q "OMISSIONS" && pass "md header OK" || fail "md header missing"
+
+BMD="$TMPDIR/om3"
+mkdir -p "$BMD"
+
+echo "[N14] get-before-rfc-understanding (empty dir)"
+R="$(node "$OS/get-before-rfc-understanding.js" "$BMD" "purpose" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.hasPrevious" "false"
+
+echo "[N15] get-before-rfc-understanding (only one file → no prev)"
+echo '{"parentRfcPath":"r.md","generatedAt":"2026-06-25","rfcUnderstanding":{"purpose":"test","goals":"g"},"omissions":[]}' > "$BMD/OMISSIONS-001.json"
+R="$(node "$OS/get-before-rfc-understanding.js" "$BMD" "purpose" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.hasPrevious" "false"
+
+echo "[N16] get-before-rfc-understanding (two files → has prev)"
+# OMISSIONS-002 が最新（空スケルトン相当）。prev = OMISSIONS-001（purpose="test"）を返すべき
+echo '{}' > "$BMD/OMISSIONS-002.json"
+R="$(node "$OS/get-before-rfc-understanding.js" "$BMD" "purpose" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.hasPrevious" "true"
+echo "$R" | node -e "process.stdin.on('data',d=>{const r=JSON.parse(d);if(r.fields.purpose==='test')process.exit(0);process.exit(1)})" && pass "got prev purpose='test'" || fail "wrong prev value"
+R="$(node "$OS/convert-omissions-to-markdown.js" "$OMPATH" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+MDPATH=$(echo "$R" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d).mdFilePath))")
+[ -f "$MDPATH" ] && pass ".md file created" || fail ".md file not created"
+head -1 "$MDPATH" | grep -q "OMISSIONS" && pass "md header OK" || fail "md header missing"
+
 echo ""; echo "=========="
 [ "$FAILED" = "1" ] && echo "❌ FAILED" || echo "✅ ALL PASS"
 echo "=========="; echo ""
