@@ -121,6 +121,55 @@
           ],
           "instrumentation": "test.sh 全66テスト PASS",
           "rfcDiscrepancies": []
+        },
+        {
+          "id": 4,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "install.js による .claude ディレクトリのインストーラ",
+          "referenceSection": "specs/0004-installjs-claude.md",
+          "background": "conver プロジェクトの .claude ディレクトリには開発パイプラインを駆動するコマンド群・スクリプト群（合計68ファイル）が格納されている。別プロジェクトへの導入時、手動コピーによる漏れ・上書き判断の煩雑さ・依存関係の見落としを解決するため、構造を保ったまま任意ターゲットにインストールする専用スクリプト install.js が必要。",
+          "scope": [
+            "install.js の作成（CommonJS / Node.js 18+）",
+            "__dirname ベースの .claude 検出（CWD非依存）",
+            "-t / --target でターゲット指定",
+            "同名ファイルの1件ごと y/n プロンプト",
+            "-y フラグで全上書き自動承認",
+            ".DS_Store の自動スキップ",
+            "インストール完了サマリー表示",
+            "test.sh へのテスト追加"
+          ],
+          "testVerification": [
+            "新規インストール: 全68ファイル正しい構造でコピー",
+            "ファイル重複時プロンプト: y->上書き / n->スキップ",
+            "-y フラグ: プロンプトなし全上書き",
+            "存在しないターゲット: mkdir-p相当の自動生成",
+            ".claude 不在: エラーメッセージ",
+            "-t なし: usage表示",
+            "空の.claude: コピーなし正常終了",
+            "CWD非依存: 別ディレクトリから実行しても正しく動作"
+          ],
+          "testExceptions": [
+            "なし（全ロジックがfs+readlineで構成され、テンポラリディレクトリでテスト可能）"
+          ],
+          "relatedTicketIds": "PX-1（インストール対象コマンド群）, PX-2（インストール対象スクリプト群）, PX-3（インストール対象スクリプト群）",
+          "notes": "レビュー報告書: - 静的品質: 16 issues（全てfalse positive） - 翻訳可能性: 問題なし（動詞句+1文字変数なし+マジックナンバーなし） - テスト: 全88 PASS - 依存関係: PX-1/2/3 reviewed - 犯罪: 0/スタブ: 0/不完全実装: 0 - Blocker/Major: なし",
+          "startedAt": "2026-06-25",
+          "changes": [
+            {
+              "before": "(不存在)",
+              "after": "新規作成",
+              "description": "install.js: CLI インストーラスクリプト（6関数構成）"
+            },
+            {
+              "before": "test.sh (306行)",
+              "after": "test.sh (+34行)",
+              "description": "install.js 用9テスト追加"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 16 issues（全てCLI console.log = false positive） - 翻訳可能性: 問題なし - テスト: 全88 PASS - 犯罪: 0 - スタブ: 0 - 不完全実装: 0",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-25"
         }
       ]
     }

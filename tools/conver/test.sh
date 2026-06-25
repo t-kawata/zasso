@@ -300,6 +300,95 @@ MDPATH=$(echo "$R" | node -e "process.stdin.on('data',d=>console.log(JSON.parse(
 [ -f "$MDPATH" ] && pass ".md file created" || fail ".md file not created"
 head -1 "$MDPATH" | grep -q "OMISSIONS" && pass "md header OK" || fail "md header missing"
 
+echo ""; echo "======== install.js テスト ========"; echo ""
+
+IJ_ABS="$(pwd)/install.js"
+TMP_IJS="$TMPDIR/ijs-test"
+TMP_IJ_TARGET="$TMPDIR/ij-target"
+
+# helper: 一時ディレクトリに install.js とダミー .claude をセットアップ
+setup_ijs_env() {
+  rm -rf "$TMP_IJS" "$TMP_IJ_TARGET"
+  mkdir -p "$TMP_IJS"
+  cp "$IJ_ABS" "$TMP_IJS/install.js"
+  mkdir -p "$TMP_IJS/.claude/commands"
+  mkdir -p "$TMP_IJS/.claude/scripts/lib"
+  mkdir -p "$TMP_IJS/.claude/scripts/tickets"
+  echo "dummy command" > "$TMP_IJS/.claude/commands/make-ticket.md"
+  echo "dummy lib" > "$TMP_IJS/.claude/scripts/lib/helper.js"
+  echo "dummy ticket script" > "$TMP_IJS/.claude/scripts/tickets/add-ticket.js"
+}
+run_ijs() { (cd "$TMP_IJS" && node install.js "$@"); }
+
+echo "[I1] 新規インストール — 全ファイルが正しくコピーされる"
+setup_ijs_env
+R="$(run_ijs -t "$TMP_IJ_TARGET" <<< "" 2>&1)" || true
+[ -f "$TMP_IJ_TARGET/commands/make-ticket.md" ] && pass "commands/make-ticket.md 存在" || fail "存在しない"
+[ -f "$TMP_IJ_TARGET/scripts/lib/helper.js" ] && pass "scripts/lib/helper.js 存在" || fail "存在しない"
+[ -f "$TMP_IJ_TARGET/scripts/tickets/add-ticket.js" ] && pass "scripts/tickets/add-ticket.js 存在" || fail "存在しない"
+diff "$TMP_IJS/.claude/commands/make-ticket.md" "$TMP_IJ_TARGET/commands/make-ticket.md" \
+  && pass "ファイル内容一致" || fail "ファイル内容が異なる"
+
+echo "[I2] 上書きプロンプト — y で上書きされる"
+setup_ijs_env
+mkdir -p "$TMP_IJ_TARGET/commands"
+echo "old content" > "$TMP_IJ_TARGET/commands/make-ticket.md"
+R="$(echo "y" | run_ijs -t "$TMP_IJ_TARGET" 2>&1)" || true
+CONTENT=$(cat "$TMP_IJ_TARGET/commands/make-ticket.md")
+[ "$CONTENT" = "dummy command" ] && pass "上書きされた" || fail "上書きされなかった（内容: $CONTENT）"
+
+echo "[I3] 上書きプロンプト — n でスキップされる"
+setup_ijs_env
+mkdir -p "$TMP_IJ_TARGET/commands"
+echo "old content" > "$TMP_IJ_TARGET/commands/make-ticket.md"
+R="$(echo "n" | run_ijs -t "$TMP_IJ_TARGET" 2>&1)" || true
+CONTENT=$(cat "$TMP_IJ_TARGET/commands/make-ticket.md")
+[ "$CONTENT" = "old content" ] && pass "スキップされた" || fail "上書きされてしまった"
+
+echo "[I4] -y フラグ — プロンプトなしで全て上書き"
+setup_ijs_env
+mkdir -p "$TMP_IJ_TARGET/commands"
+echo "old content" > "$TMP_IJ_TARGET/commands/make-ticket.md"
+R="$(run_ijs -y -t "$TMP_IJ_TARGET" 2>&1)" || true
+CONTENT=$(cat "$TMP_IJ_TARGET/commands/make-ticket.md")
+[ "$CONTENT" = "dummy command" ] && pass "-y で上書きされた" || fail "上書きされなかった"
+echo "$R" | grep -q "上書き:" && pass "サマリーに上書き数表示" || fail "サマリーに上書き数なし"
+
+echo "[I5] 存在しないターゲット — 自動生成される"
+setup_ijs_env
+R="$(run_ijs -t "$TMPDIR/ij-nonexistent/sub/.claude" <<< "" 2>&1)" || true
+[ -f "$TMPDIR/ij-nonexistent/sub/.claude/commands/make-ticket.md" ] \
+  && pass "ディレクトリ自動生成された" || fail "ディレクトリが作成されなかった"
+
+echo "[I6] -t なし — usage 表示して終了"
+R="$(run_ijs 2>&1)" && fail "エラーにならなかった" || pass "エラーで終了した"
+echo "$R" | grep -q "使用法" && pass "usage 表示あり" || fail "usage 表示なし"
+
+echo "[I7] 空の .claude — メッセージ表示"
+rm -rf "$TMP_IJS"
+mkdir -p "$TMP_IJS"
+cp "$IJ_ABS" "$TMP_IJS/install.js"
+mkdir -p "$TMP_IJS/.claude"
+R="$(cd "$TMP_IJS" && node install.js -t "$TMPDIR/ij-empty-target" 2>&1)" || true
+echo "$R" | grep -q "コピーするファイルがありません" && pass "空ディレクトリメッセージ" || fail "メッセージなし"
+
+echo "[I8] CWD 非依存 — 別ディレクトリからでも正しく動作"
+TMP_CWD="$TMPDIR/ij-cwd"
+rm -rf "$TMP_CWD"
+mkdir -p "$TMP_CWD"
+cp "$IJ_ABS" "$TMP_CWD/install.js"
+mkdir -p "$TMP_CWD/.claude/sub"
+echo "cwd test" > "$TMP_CWD/.claude/sub/data.txt"
+R="$(cd /tmp && node "$TMP_CWD/install.js" -t "$TMPDIR/ij-cwd-target" 2>&1)" || true
+[ -f "$TMPDIR/ij-cwd-target/sub/data.txt" ] && pass "CWD非依存で動作" || fail "CWD非依存で動作しなかった"
+
+echo "[I9] .DS_Store がスキップされる"
+setup_ijs_env
+echo "skip me" > "$TMP_IJS/.claude/.DS_Store"
+R="$(run_ijs -t "$TMPDIR/ij-ds-target" <<< "" 2>&1)" || true
+[ ! -f "$TMPDIR/ij-ds-target/.DS_Store" ] && pass ".DS_Store スキップ" || fail ".DS_Store がコピーされた"
+[ -f "$TMPDIR/ij-ds-target/commands/make-ticket.md" ] && pass "通常ファイルはコピー" || fail "通常ファイルがコピーされなかった"
+
 echo ""; echo "=========="
 [ "$FAILED" = "1" ] && echo "❌ FAILED" || echo "✅ ALL PASS"
 echo "=========="; echo ""
