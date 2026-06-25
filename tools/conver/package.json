@@ -1,0 +1,16 @@
+{
+  "name": "conver",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "typescript": "^5.4.0"
+  }
+}

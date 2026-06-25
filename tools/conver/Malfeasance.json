@@ -1,4 +1,15 @@
 {
   "version": 1,
-  "records": []
+  "records": [
+    {
+      "id": 1,
+      "file": "src/error.ts",
+      "line": 1,
+      "description": "エラー型の本実装が完了",
+      "detected_at": "2026-06-25T08:59:50.209Z",
+      "status": "resolved",
+      "note": "[resolved] P0-2 の深掘りに伴いスタブマーカーを通常コメントに置き換え",
+      "resolved_at": "2026-06-25T09:00:08.497Z"
+    }
+  ]
 }
