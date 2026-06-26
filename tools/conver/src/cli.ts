@@ -1,6 +1,7 @@
 // cli.ts — CLI引数パース（副作用ゼロの純粋関数 + 必須検証を伴うエントリ関数）
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { VERSION } from "./settings.js";
 
 export interface CliOptions {
   apiKey: string;
@@ -15,7 +16,7 @@ export interface CliOptions {
 }
 
 function showUsage(): void {
-  console.log(`conver.js — ACP-based ticket processing pipeline (DeepSeek V4)
+  console.log(`conver.js ${VERSION} — ACP-based ticket processing pipeline (DeepSeek V4)
 
 Usage:
   node dist/conver.js -k <api_key> -s <webhook_url> [options]
@@ -30,7 +31,8 @@ Options:
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 0)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
-  -h, --help                 Show this message`);
+  -h, --help                 Show this message
+  --version                  Show version number`);
 }
 
 export function parseCliOptions(argv: string[]): CliOptions {
@@ -47,9 +49,15 @@ export function parseCliOptions(argv: string[]): CliOptions {
       verbose: { type: "string", short: "v", default: "0" },
       timeout: { type: "string", default: "1800" },
       help: { type: "boolean", short: "h", default: false },
+      version: { type: "boolean", default: false },
     },
     allowPositionals: false,
   });
+
+  if (parsed.values.version) {
+    console.log(`conver.js ${VERSION}`);
+    process.exit(0);
+  }
 
   if (parsed.values.help) {
     showUsage();

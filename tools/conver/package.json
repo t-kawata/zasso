@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/conver.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm",
+    "build": "esbuild src/conver.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm --minify",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },

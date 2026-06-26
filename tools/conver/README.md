@@ -18,7 +18,7 @@ npm install
 npm run build
 ```
 
-esbuild が `src/conver.ts` をエントリポイントとしてバンドルし、`dist/conver.js` 1ファイル（約643KB）を生成します。`@agentclientprotocol/sdk` はバンドルに内包されるため、**`node_modules` なしで任意の Node.js 環境にコピーして実行できます。**
+esbuild が `src/conver.ts` をエントリポイントとしてバンドル・minify し、`dist/conver.js` 1ファイル（約373KB）を生成します。`@agentclientprotocol/sdk` はバンドルに内包されるため、**`node_modules` なしで任意の Node.js 環境にコピーして実行できます。**
 
 ```bash
 # 別マシンへのデプロイ
