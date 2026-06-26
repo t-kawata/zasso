@@ -4,6 +4,37 @@
 
 conver の `.claude` ディレクトリ（スラッシュコマンド群・チケット管理スクリプト群）を別プロジェクトに導入するには、同梱の `install.js` を使用します。
 
+### 依存関係
+
+```bash
+npm install
+```
+
+ランタイム依存は `@agentclientprotocol/sdk ^1.0.0` のみです。
+
+### ビルド（単一ファイルバンドル）
+
+```bash
+npm run build
+```
+
+esbuild が `src/conver.ts` をエントリポイントとしてバンドルし、`dist/conver.js` 1ファイル（約643KB）を生成します。`@agentclientprotocol/sdk` はバンドルに内包されるため、**`node_modules` なしで任意の Node.js 環境にコピーして実行できます。**
+
+```bash
+# 別マシンへのデプロイ
+cp dist/conver.js /target/
+node /target/conver.js -k <api_key> -s <slack_url>
+```
+
+| コマンド | 説明 |
+|---------|------|
+| `npm run build` | esbuild で単一ファイルにバンドル |
+| `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
+| `make build-conver` | `npm run build` と同じ |
+| `make typecheck` | `npm run typecheck` と同じ |
+| `make test-conver` | テストコンパイル（tsc）→ 全テスト実行 |
+| `make run-conver` | `ARGS` を指定して conver.js を実行 |
+
 ```bash
 # カレントディレクトリに関わらず正しく動作します
 install.js -t /path/to/target/.claude
@@ -42,6 +73,52 @@ conver は、**二層ループ構造**にもとづく開発パイプラインを
    │                     │    formulate-for-next (or find)                    │
    └─────────────────────┴──────── 次世代へ継続 ──────────────────────────────┘
 ```
+
+## conver.js — ACP-based チケット処理パイプライン
+
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、Tickets.json に定義されたチケットに対して make → plan → start → review → resolve → find の一連の工程を自動実行します。
+
+### 使用方法
+
+```bash
+node dist/conver.js -k <DeepSeek_API_Key> -s <Slack_Webhook_URL> [options]
+```
+
+### CLI オプション
+
+| フラグ | 説明 | デフォルト |
+|--------|------|-----------|
+| `-k`, `--api-key` | DeepSeek API Key（必須） | — |
+| `-s`, `--slack-url` | Slack Incoming Webhook URL（必須） | — |
+| `-t`, `--tickets` | Tickets.json のパス | `./Tickets.json` |
+| `-c`, `--count` | 最大処理チケット数 | `999999` |
+| `-r`, `--resolve-every` | Nチケット完了ごとに resolve | `3` |
+| `-p`, `--push` | resolve 毎に jpush-branch 実行 | `1` |
+| `-m`, `--model` | 使用モデル | `deepseek-v4-flash` |
+| `-v`, `--verbose` | 詳細表示 | `0` |
+| `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
+
+### 4セッション完全分離アーキテクチャ
+
+```
+チケット P0-1 の処理フロー:
+
+   [Session A]  make-ticket → plan-ticket → start-ticket
+        │
+        ▼ dispose
+   [Session B]  review-ticket
+        │
+        ▼ dispose
+   [Session C]  resolve-ticket（resolveEvery 間隔で実行）
+        │
+        ▼ dispose
+   [Session D]  find-omissions-for-next-rfc（全チケット reviewed 時のみ）
+        │
+        ▼ dispose
+   次のチケット P0-2 へ（再び Session A から）
+```
+
+各セッションは独立した ACP セッションで実行され、コンテキスト漏洩を防止します。
 
 ## 本質 — ベクトル空間上の収束計算
 
@@ -84,10 +161,10 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
-| **内側** | ACP クライアント（自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行 |
+| **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。各工程は4つの独立したACPセッションで直列実行される |
 | **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
-内側ループは ACP クライアントが自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
+内側ループは `conver.js`（`dist/conver.js`、単一ファイル、`node_modules` 不要）が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
 ---
 
@@ -340,10 +417,22 @@ Tickets.json
 
 ## はじめかた
 
+### スラッシュコマンド経由（Claude Code 内）
+
 1. `/grill-me-for-rfc` で設計判断を確定し、RFC を書く
 2. `/formulate-tickets` で RFC から `Tickets.json` を生成する
-3. ACP クライアントが内側ループ（make→plan→start→review→resolve→find）を自動実行する
+3. ACP クライアント（後述の `conver.js`）が内側ループを自動実行する
 4. `find` が出力した `OMISSIONS-XXX.json` を確認する
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
    - 軽微なら `/check-final` で完了確認
 5. `/check-final` が PASS を返したら 🎉 開発完了
+
+### CLI 直接実行
+
+```bash
+# Tickets.json を用意した上で
+node dist/conver.js -k <api_key> -s <slack_url>
+
+# 最大5チケット処理、resolve 間隔2、push 有効
+node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
+```
