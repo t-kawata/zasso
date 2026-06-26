@@ -1,4 +1,5 @@
 // cli.ts — CLI引数パース（副作用ゼロの純粋関数 + 必須検証を伴うエントリ関数）
+import path from "node:path";
 import { parseArgs } from "node:util";
 
 export interface CliOptions {
@@ -69,7 +70,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
   return {
     apiKey: parsed.values["api-key"],
     model: parsed.values.model,
-    ticketsPath: parsed.values.tickets,
+    ticketsPath: path.resolve(parsed.values.tickets),
     maxCount: parseInt(parsed.values.count, 10),
     resolveEvery: parseInt(parsed.values["resolve-every"], 10),
     pushEnabled: parsed.values.push === "1",

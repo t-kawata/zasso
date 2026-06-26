@@ -8,7 +8,7 @@
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する。
 import { describe, it, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LoopOptions } from "./runner.js";
@@ -89,6 +89,22 @@ describe("runLoop", () => {
 
     mock.module("./tickets.js", {
       exports: {
+        loadPendingTickets: (ticketsPath: string) => {
+          const raw = readFileSync(ticketsPath, "utf-8");
+          const data = JSON.parse(raw);
+          return data.phases
+            .flatMap((phase: { id: number; tickets: Array<{ id: number; status: string }> }) =>
+              phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
+            )
+            .filter((t: { status: string }) => t.status !== "reviewed");
+        },
+        checkAllReviewed: (ticketsPath: string) => {
+          const raw = readFileSync(ticketsPath, "utf-8");
+          const data = JSON.parse(raw);
+          return data.phases
+            .flatMap((phase: { tickets: Array<{ status: string }> }) => phase.tickets)
+            .every((t: { status: string }) => t.status === "reviewed");
+        },
         getSourceFromTickets: async (path: string) => path,
       },
     });

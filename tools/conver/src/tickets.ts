@@ -48,23 +48,18 @@ export interface TicketsJson {
 /**
  * Tickets.json を読み込み、未処理（status ≠ "reviewed"）のチケット一覧を
  * 全 phase からフラットに抽出する。
+ * 各チケットには所属フェーズの phaseId を付与する（JSON の phaseId 値は上書き）。
  * @param ticketsPath Tickets.json のファイルパス
  * @returns 未処理チケットの配列（空の場合は空配列）
  */
 export function loadPendingTickets(ticketsPath: string): Ticket[] {
   const raw = readFileSync(ticketsPath, "utf-8");
   const data: TicketsJson = JSON.parse(raw);
-  const pending: Ticket[] = [];
-
-  for (const phase of data.phases) {
-    for (const ticket of phase.tickets) {
-      if (ticket.status !== "reviewed") {
-        pending.push(ticket);
-      }
-    }
-  }
-
-  return pending;
+  return data.phases
+    .flatMap((phase) =>
+      phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
+    )
+    .filter((t) => t.status !== "reviewed");
 }
 
 /**

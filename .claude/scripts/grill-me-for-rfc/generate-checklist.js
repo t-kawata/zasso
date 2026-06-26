@@ -23,6 +23,7 @@ import path from "path";
 import { validateAll } from "./check-all-schema.js";
 
 const rfcDir = path.resolve(process.argv[2] ?? ".");
+const noBackup = process.argv.includes("--no-backup");
 const treePath = path.join(rfcDir, "DesignTree.json");
 const checklistPath = path.join(rfcDir, "CheckList.md");
 
@@ -33,8 +34,8 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// 既存 CheckList.md をバックアップ
-if (fs.existsSync(checklistPath)) {
+// 既存 CheckList.md をバックアップ（--no-backup 指定時はスキップ）
+if (fs.existsSync(checklistPath) && !noBackup) {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const backup = checklistPath.replace(/\.md$/, `.${ts}.bak.md`);
   fs.copyFileSync(checklistPath, backup);

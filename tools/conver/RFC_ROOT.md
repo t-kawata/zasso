@@ -232,7 +232,7 @@ const ACP_BINARY = 'claude-agent-acp';
 
 export interface AcpSession {
   proc: ChildProcess;
-  stream: acp.NdJsonStream;
+  stream: acp.Stream;
   sessionId: string;
   ctx: acp.ClientContext;
   session: acp.ActiveSession;
@@ -241,7 +241,7 @@ export interface AcpSession {
 export function spawnAgent(
   apiKey: string,
   model: string,
-): { proc: ChildProcess; stream: acp.NdJsonStream } {
+): { proc: ChildProcess; stream: acp.Stream } {
   const proc = spawn(ACP_BINARY, [], {
     stdio: ['pipe', 'pipe', 'inherit'],
     env: {
@@ -999,13 +999,11 @@ TypeScript は devDependency としてインストールされる。ランタイ
 
 #### Makefile エントリ
 
-```makefile
-build-conver:
-	cd tools/conver && npm run build
-
-run-conver:
-	cd tools/conver && node dist/conver.js $(ARGS)
-```
+| ターゲット | 説明 | 使用例 |
+|-----------|------|--------|
+| build-conver | TypeScript ソースを dist/ にコンパイル | `make build-conver` |
+| run-conver | conver.js を実行（ARGS で引数指定） | `make run-conver ARGS="-k KEY -s URL"` |
+| test-conver | 全ユニットテストを実行 | `make test-conver` |
 
 #### ビルド・実行手順
 

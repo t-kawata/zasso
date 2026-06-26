@@ -493,6 +493,215 @@
           "completedAt": "2026-06-26"
         }
       ]
+    },
+    {
+      "id": 5,
+      "name": "修正フェーズ — RFC OMISSIONS-001 実装乖離修正",
+      "externalDependencies": "なし（既存モジュールへの修正）",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "phaseId情報の一貫性確保（O-003）",
+          "referenceSection": "tickets/specs/0009-phaseido-003.md",
+          "background": "tickets.ts の公開関数 loadPendingTickets() が phaseId を返していない。runner.ts に重複した非公開関数が存在する。tickets.ts の公開関数に phaseId 付与ロジックを追加し、runner.ts の重複を削除して公開関数に統一する。",
+          "scope": [
+            "tickets.ts: loadPendingTickets() に phaseId 付与ロジック追加（flatMap + スプレッド）",
+            "runner.ts: 非公開 loadPendingTickets() 削除 → tickets.ts から import",
+            "runner.ts: 非公開 checkAllReviewed() 削除 → tickets.ts から import",
+            "runner.ts: 非公開 TicketsJson インターフェース削除",
+            "tickets.test.ts: phaseId 検証テスト追加（複数 phase / phaseId 欠落 / 上書き）",
+            "runner.test.ts: ./tickets.js モックに loadPendingTickets / checkAllReviewed 追加"
+          ],
+          "testVerification": [
+            "tickets.test.ts で loadPendingTickets() の戻り値全件に phaseId が含まれ phase.id と一致することを確認",
+            "phaseId 欠落チケットでも自動補完されることを確認",
+            "誤った phaseId が親 phase の id で上書きされることを確認",
+            "runner.test.ts 既存10ケースがモック更新後もパスすること",
+            "make test が全テストパス"
+          ],
+          "instrumentation": "静的品質チェック: 合格（12件の console.log は全て意図的なCLI出力）\n翻訳可能性: 問題なし\nコンパイル: tsc --noEmit パス\nテスト: 全55件成功",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし（全関数動詞始まり/1文字変数なし/マジックナンバーなし）\n- 依存関係: 整合性確認済（他のP5チケットとの競合リスクなし）\n- 不完全実装スキャン: 7パターン全てクリーン\n- 変更ファイル: tickets.ts (phaseId 付与ロジック追加), runner.ts (重複コード削除+import統一), tickets.test.ts (phaseId 検証3テスト追加), runner.test.ts (ESMモック更新)\n- Boy Scout改善確認: tickets.ts の二重 for ループを flatMap チェーンに変更（翻訳可能性向上）",
+          "testExceptions": [],
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "loadPendingTickets(): phaseId 未付与",
+              "after": "flatMap + phaseId 付与",
+              "description": "tickets.ts の loadPendingTickets を phaseId 対応に書き換え"
+            },
+            {
+              "before": "runner.ts に重複コード存在",
+              "after": "tickets.ts の公開関数に統一",
+              "description": "runner.ts の非公開 loadPendingTickets/checkAllReviewed/TicketsJson 型を削除"
+            },
+            {
+              "before": "phaseId 検証テストなし",
+              "after": "3件の検証テスト追加",
+              "description": "tickets.test.ts に phaseId 正常系/欠落/上書きテスト追加"
+            },
+            {
+              "before": "mock が getSourceFromTickets のみ",
+              "after": "3関数すべてエクスポート",
+              "description": "runner.test.ts の ESM モック更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
+        },
+        {
+          "id": 2,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "ファイルパスの絶対パス変換（O-002）",
+          "referenceSection": "spec/0010-untitled.md",
+          "background": "cli.ts の parseCliOptions() で ticketsPath が相対パスのまま runner.ts に渡されている。runner.ts の cwd も明示的に絶対パス正規化されていない。cli.ts で path.resolve() による絶対パス変換を行い、runner.ts でも cwd を path.resolve() で正規化する。",
+          "scope": [
+            "cli.ts: parseCliOptions() の ticketsPath に path.resolve() 適用",
+            "runner.ts: runLoop() 冒頭の cwd に path.resolve() 適用"
+          ],
+          "testVerification": [
+            "cli.test.ts で相対パス指定時に絶対パスが返ることを確認",
+            "runner.test.ts で cwd が絶対パスであることを確認",
+            "既存テストが全てパスすること"
+          ],
+          "instrumentation": "静的品質チェック: 合格（13件の console.log は全て意図的CLI出力）\n翻訳可能性: 問題なし\nテスト: 全31件成功（cli:8 + tickets:15 + runner:8）\n--experimental-test-module-mocks フラグ確定",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 ✅\n- 翻訳可能性: 問題なし ✅\n  - 全関数動詞始まり（parseCliOptions / runLoop 等）\n  - 1文字変数: 追加なし\n  - マジックナンバー: 追加なし\n  - console.log: 全て意図的CLI出力\n- 依存関係: 整合性確認済（P5-1·P3-1 と競合なし）✅\n- 不完全実装スキャン: 7パターン全て該当なし ✅\n- スタブスキャン: 0件 ✅\n- 犯罪スキャン: 3件 open（crates/conver Rust）— 本チケット無関係\n- 変更ファイル: cli.ts (import path + path.resolve), runner.ts (import path + path.resolve), cli.test.ts (import path + assertion更新) — 3ファイル\n- runner.test.ts mock.module: --experimental-test-module-mocks フラグで解決\n- tsc --noEmit: 成功\n- make test-conver: 31/31 パス\n\n見つかった問題と修正内容:\n- runner.test.ts の mock.module が Node.js 26 で未使用 → 原因は --experimental-test-module-mocks フラグ不足。Makefile は既に対応済みで、直接実行時もフラグを指定することで解決",
+          "relatedTicketIds": "P5-1 (O-003 関連: 変更対象ファイルが異なり競合なし), P3-1 (session.ts: cwd 変更の影響なし)",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "cli.ts: ticketsPath が相対パスのまま (L73)",
+              "after": "import path + path.resolve() で絶対パス変換",
+              "description": "parseCliOptions() の戻り値 ticketsPath に path.resolve() 適用"
+            },
+            {
+              "before": "runner.ts: cwd = process.cwd() 未正規化 (L95)",
+              "after": "cwd = path.resolve(process.cwd()) で正規化",
+              "description": "runLoop() 内の cwd を path.resolve() で絶対パス正規化"
+            },
+            {
+              "before": "cli.test.ts: アサーションが相対パス期待 (L52)",
+              "after": "path.resolve(\"./Tickets.json\") で絶対パス期待に変更",
+              "description": "最小構成テストの ticketsPath アサーションを絶対パス対応に更新"
+            }
+          ],
+          "testExceptions": [
+            "runner.test.ts の mock.module は Node.js 26 で利用不可。P5-2 変更とは無関係の既存環境問題"
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
+        },
+        {
+          "id": 3,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "起動パラメータログの完全化（O-001）",
+          "referenceSection": "tools/conver/RFC_OMISSIONS-001.md (§1)",
+          "background": "main() の起動ログが model と ticketsPath の2項目のみ。全6項目（model, ticketsPath, maxCount, resolveEvery, pushEnabled, timeoutMs）を key=value 形式で表示するよう修正する。",
+          "scope": [
+            "conver.ts: main() の console.log を4行追加し全6項目を key=value 形式で表示"
+          ],
+          "testVerification": [
+            "conver.test.ts で main() の出力が6行の key=value 形式であることを検証",
+            "現行の「モデル:」形式のアサーションを更新",
+            "既存テストが全てパスすること"
+          ],
+          "instrumentation": "静的品質チェック: 合格（7件の console.log は全て意図的CLI起動ログ）\n翻訳可能性: 問題なし（関数名動詞始まり/1文字変数なし/マジックナンバーなし）\nコンパイル: tsc 成功\nテスト: 全56件成功\n不完全実装スキャン: 7パターン全て該当なし",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 ✅\n  - 7件 console.log → 全て意図的CLI起動ログ（instrumentation 済み）\n- 翻訳可能性: 問題なし ✅\n  - 全関数動詞始まり（main / baseOptions）\n  - 1文字変数: ラムダパラメータ l のみ（filter callback, 文脈明確）\n  - マジックナンバー: 追加なし（既存のテスト用値のみ）\n  - console.log: 全て意図的CLI起動ログ\n- 依存関係: 整合性確認済（P5-1/P5-2 と競合なし）✅\n- 不完全実装スキャン: 7パターン全て該当なし ✅\n- スタブスキャン: 0件 ✅\n- 犯罪スキャン: 0件 ✅\n- 変更ファイル: conver.ts (起動ログ2行→6行), conver.test.ts (key=value形式検証テスト追加) — 2ファイル\n- tsc: 成功\n- make test-conver: 56/56 パス",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "console.log 2行（モデル: / Tickets.json:）",
+              "after": "console.log 6行（全項目 key=value 形式）",
+              "description": "main() の起動ログを RFC OMISSIONS-001 §1 に合わせて拡張"
+            },
+            {
+              "before": "起動ログの検証テストなし",
+              "after": "console.log モックを用いた出力検証テスト追加",
+              "description": "conver.test.ts に key=value 形式6行の検証テストを追加"
+            }
+          ],
+          "testExceptions": [],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
+        },
+        {
+          "id": 4,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "ACP SDK型定義の整合性（O-004）",
+          "referenceSection": "tools/conver/RFC_OMISSIONS-001.md (§4)",
+          "background": "SDKバージョン更新に伴い型名が acp.NdJsonStream → acp.Stream、acp.MonadClient → acp.ClientApp に変更された。RFC_ROOT.md の型定義を実装に合わせて更新し、session.ts に SDK バージョンによる型名の差異を示す注釈を追記する。",
+          "scope": [
+            "RFC_ROOT.md: 2箇所の acp.NdJsonStream を acp.Stream に修正（lines 235, 244）",
+            "session.ts: SDK バージョンによる型名差異の注釈コメントを冒頭に追記"
+          ],
+          "testVerification": [
+            "npm run build で型エラーが出ないことを確認",
+            "既存テストが全てパスすること（make test-conver）",
+            "grep NdJsonStream で残存がないことを確認"
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（コメントのみの変更でロジック変更なし）\nコンパイル: tsc 成功\nテスト: 全56件成功\n不完全実装スキャン: 7パターン全て該当なし",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 ✅（0 issues）\n- 翻訳可能性: 問題なし ✅\n  - コメント追加のみで新規ロジックなし\n  - 追加コメントは「なぜSDKバージョンが重要なのか」を説明する why コメント\n- 依存関係: 整合性確認済（P5-3 reviewed済み、競合なし）✅\n- 不完全実装スキャン: 7パターン全て該当なし ✅\n- スタブスキャン: 0件 ✅\n- 犯罪スキャン: 0件 ✅\n- 変更ファイル: RFC_ROOT.md（型名修正2箇所）, src/session.ts（コメント追記）\n- tsc: 成功\n- make test-conver: 56/56 パス\n- grep NdJsonStream 残存: RFC_ROOT.md に残存なし（session.ts 注釈コメントのみ）",
+          "testExceptions": [
+            "なし（全てビルド・テスト・grepでカバー可能）"
+          ],
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "acp.NdJsonStream（RFC_ROOT.md lines 235, 244）",
+              "after": "acp.Stream（2箇所修正）",
+              "description": "RFC_ROOT.md の型定義を実装に合わせて更新"
+            },
+            {
+              "before": "SDK 型名のバージョン注釈なし",
+              "after": "冒頭コメントブロックに SDK 型名差異の注釈を追記",
+              "description": "session.ts に SDK 型名変更履歴をコメント追加"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
+        },
+        {
+          "id": 5,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "Makefileエントリの完全記述（O-005）",
+          "referenceSection": "spec/0014-makefile.md",
+          "background": "Makefile に説明コメントがなく、RFC_ROOT.md §7 に test-conver エントリが未記載。全4エントリ（list-tickets, build-conver, run-conver, test-conver）に日本語コメントを追加し、RFC_ROOT.md §7 を表形式にリファクタリングして test-conver を追記する。変更はコメント・文書のみでロジック不変。",
+          "scope": [
+            "Makefile: 全4エントリに日本語説明コメント追加",
+            "RFC_ROOT.md §7: 表形式リファクタリング + test-conver追記"
+          ],
+          "testVerification": [
+            "make build-conver が成功すること",
+            "make test-conver が成功すること",
+            "list-tickets が RFC_ROOT.md に含まれていないこと"
+          ],
+          "instrumentation": "静的品質チェック: 合格(0 issues) / 翻訳可能性: 問題なし / テスト: 全56件成功 / 不完全実装: 該当なし",
+          "notes": "レビュー報告書: 静的品質チェック合格(0 issues) / 翻訳可能性問題なし(コメントはwhyを説明) / 依存関係整合性確認済(P5-4 reviewed) / 不完全実装7パターン該当なし / スタブ0件 / 犯罪0件 / tsc成功 / テスト56/56 / list-tickets非記載確認PASS",
+          "testExceptions": [
+            "Makefile コメントの内容検証（プログラム不能）",
+            "RFC_ROOT.md 正確性検証（人手レビュー依存）"
+          ],
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "説明コメントなし",
+              "after": "全4エントリに日本語説明コメント追加",
+              "description": "Makefile: 4エントリにコメント追記"
+            },
+            {
+              "before": "コードブロック + test-conver未記載",
+              "after": "表形式 + test-conver追記",
+              "description": "RFC_ROOT.md §7: 表形式リファクタリング"
+            }
+          ],
+          "completedAt": "2026-06-26"
+        }
+      ]
     }
   ]
 }

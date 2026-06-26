@@ -7,6 +7,11 @@
 //
 // dispose エラーは握りつぶす — セッション破棄の失敗がプロセス全体の停止を
 // 引き起こしてはならない。
+//
+// 注: @agentclientprotocol/sdk ^1.0.0 の型名は以下に基づく。
+// 旧バージョンでは acp.NdJsonStream / acp.MonadClient という型名が
+// 使用されていたが、SDK 更新に伴い現在の型名（acp.Stream / acp.ClientApp）
+// に変更された。RFC-001（RFC_ROOT.md）も本実装に追従している。
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { Writable, Readable } from "node:stream";

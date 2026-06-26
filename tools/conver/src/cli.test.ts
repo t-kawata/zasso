@@ -4,6 +4,7 @@
 // process.exit(1) / exit(0) を含むテスト（--help 表示、必須フラグ欠如など）は
 // test.sh の統合テストで検証する。本ファイルでは全フラグ指定時の正常系と
 // デフォルト値・型変換の確認に集中する。
+import path from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseCliOptions } from "./cli.js";
@@ -48,7 +49,7 @@ describe("parseCliOptions", () => {
     const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test"];
     const options = parseCliOptions(argv);
     assert.strictEqual(options.model, "deepseek-v4-flash");
-    assert.strictEqual(options.ticketsPath, "./Tickets.json");
+    assert.strictEqual(options.ticketsPath, path.resolve("./Tickets.json"));
     assert.strictEqual(options.maxCount, 999999);
     assert.strictEqual(options.resolveEvery, 3);
     assert.strictEqual(options.pushEnabled, true);

@@ -85,3 +85,41 @@ conver.ts ── 依存: cli.ts, runner.ts
 conver.js の実装において、スタブは発生しない。
 すべての関数は TypeScript の完全な型定義を持ち、外部依存モジュール（ACP SDK の型等）は
 npm パッケージとしてインストールされる。
+
+---
+
+## 拡張: RFC OMISSIONS-001 — 実装乖離5件の修正設計
+
+> このセクションは `/formulate-tickets-for-next` によって自動生成されました。
+> **生成元:** tools/conver/RFC_OMISSIONS-001.md
+> **生成日:** 2026-06-26
+
+### 目的
+
+RFC-001（conver.js）の実装過程で発見された5件の実装乖離（omission）を修正する。各 omission は独立した修正単位であり、RFC-001 のアーキテクチャや外部インターフェースを変更することなく解決される。
+
+### 修正対象一覧
+
+| ID | 種別 | 重要度 | 概要 | 修正モジュール |
+|----|------|--------|------|--------------|
+| O-001 | 実装漏れ | medium | 起動パラメータログが6項目中2項目のみ | conver.ts |
+| O-002 | 実装漏れ | medium | ファイルパスの絶対パス変換が未実装 | cli.ts, runner.ts |
+| O-003 | 設計不一致 | low | tickets.ts 公開関数が phaseId を欠落 | tickets.ts, runner.ts |
+| O-004 | 不整合 | low | RFC型名と実装型名の乖離（SDK更新） | session.ts, RFC_ROOT.md |
+| O-005 | 不整合 | low | Makefile エントリの RFC 未反映 | Makefile, RFC_ROOT.md |
+
+### 修正後の依存関係
+
+O-003 により runner.ts の `loadPendingTickets()` / `checkAllReviewed()` が削除され、tickets.ts の公開関数に統合される。これにより runner.ts → tickets.ts の依存が強化される。
+
+```
+tickets.ts ── loadPendingTickets() に phaseId 付与ロジック追加
+    ↑ (統合)
+runner.ts ── 独自 loadPendingTickets 削除、tickets.ts の公開関数を import して使用
+
+cli.ts ── parseCliOptions() で ticketsPath を path.resolve() で絶対パス変換
+    ↑
+runner.ts ── cwd を path.resolve() で正規化
+
+conver.ts ── 起動パラメータログを6行 key=value 形式に拡張
+```

@@ -17,13 +17,13 @@
 // 参照: RFC_ROOT.md §3（内部ループ制御）
 // 依存: P3-1 (session.ts — withSession/runCommand),
 //       P2-1 (notifier.ts — sendSlackError),
-//       P1-1 (tickets.ts — getSourceFromTickets)
-import { readFileSync } from "node:fs";
+//       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getSourceFromTickets)
+import path from "node:path";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions } from "./session.js";
 import { sendSlackError } from "./notifier.js";
 import type { ErrorContext } from "./notifier.js";
-import { getSourceFromTickets } from "./tickets.js";
+import { loadPendingTickets, checkAllReviewed, getSourceFromTickets } from "./tickets.js";
 
 // --- インターフェース定義 ---
 
@@ -49,47 +49,7 @@ export interface Ticket {
   title: string;
 }
 
-/** Tickets.json のルート構造（runner 内で使用する最小限のフィールドのみ） */
-interface TicketsJson {
-  phases: Array<{
-    id: number;
-    name: string;
-    tickets: Ticket[];
-  }>;
-  metadata?: {
-    source?: string;
-  };
-}
-
 // --- 内部関数 ---
-
-/**
- * Tickets.json を読み込み、未処理（status !== "reviewed"）のチケットを
- * 全 phase からフラットに抽出し、id 昇順でソートして返す。
- * phaseId の情報を各チケットに付与する（tickets.ts の同名関数とはこの点が異なる）。
- */
-function loadPendingTickets(ticketsPath: string): Ticket[] {
-  const raw = readFileSync(ticketsPath, { encoding: "utf-8" });
-  const data: TicketsJson = JSON.parse(raw);
-  return data.phases
-    .flatMap((phase) =>
-      phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
-    )
-    .filter((t) => t.status !== "reviewed")
-    .sort((a, b) => a.id - b.id);
-}
-
-/**
- * 全チケットの status が "reviewed" か判定する。
- * チケットが1件も存在しない場合は true を返す。
- */
-function checkAllReviewed(ticketsPath: string): boolean {
-  const raw = readFileSync(ticketsPath, { encoding: "utf-8" });
-  const data: TicketsJson = JSON.parse(raw);
-  return data.phases
-    .flatMap((phase) => phase.tickets)
-    .every((t) => t.status === "reviewed");
-}
 
 /**
  * エラーメッセージから工程名を抽出する。
@@ -132,8 +92,8 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
  * 3. process.exit(1) でプロセス終了
  */
 export async function runLoop(options: LoopOptions): Promise<void> {
-  const cwd = process.cwd();
-  const pending = loadPendingTickets(options.ticketsPath);
+  const cwd = path.resolve(process.cwd());
+  const pending = loadPendingTickets(options.ticketsPath).sort((a, b) => a.id - b.id);
   const target = pending.slice(0, options.maxCount);
 
   let reviewedCount = 0;

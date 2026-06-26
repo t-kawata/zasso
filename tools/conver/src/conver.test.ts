@@ -113,6 +113,29 @@ describe("conver", () => {
     assert.strictEqual(mockState.parseCliOptionsCalled, true);
   });
 
+  it("main(): 起動時に全6項目のパラメータログが key=value 形式で出力される", async () => {
+    mockState.runLoopImpl = () => Promise.resolve();
+    mockState.parseCliOptionsCalled = false;
+
+    const logLines: string[] = [];
+    mock.method(console, "log", (...args: string[]) => {
+      logLines.push(args.join(" "));
+    });
+
+    const { main } = await import("./conver.js");
+    await main();
+
+    // "  " で始まる行 = パラメータ行, "model" から始まるが先頭空白のため
+    const paramLines = logLines.filter((l) => l.startsWith("  "));
+    assert.strictEqual(paramLines.length, 6);
+    assert.ok(paramLines[0].startsWith("  model="));
+    assert.ok(paramLines[1].startsWith("  ticketsPath="));
+    assert.ok(paramLines[2].startsWith("  maxCount="));
+    assert.ok(paramLines[3].startsWith("  resolveEvery="));
+    assert.ok(paramLines[4].startsWith("  pushEnabled="));
+    assert.ok(paramLines[5].startsWith("  timeoutMs="));
+  });
+
   it("main(): parseCliOptions → runLoop の呼出連鎖", async () => {
     mockState.runLoopImpl = () => Promise.resolve();
     mockState.parseCliOptionsCalled = false;

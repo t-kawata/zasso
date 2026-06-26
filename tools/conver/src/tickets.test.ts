@@ -86,6 +86,57 @@ describe("loadPendingTickets", () => {
     assert.deepStrictEqual(loadPendingTickets(path), []);
   });
 
+  it("複数 phase のチケットに正しい phaseId が付与される", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "A" }] },
+        { id: 5, name: "P5", tickets: [{ id: 2, phaseId: 5, status: "todo", title: "B" }] },
+        { id: 10, name: "P10", tickets: [{ id: 3, phaseId: 10, status: "todo", title: "C" }] },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.strictEqual(result.length, 3);
+    assert.strictEqual(result[0].phaseId, 0);
+    assert.strictEqual(result[1].phaseId, 5);
+    assert.strictEqual(result[2].phaseId, 10);
+  });
+
+  it("phaseId が欠落したチケットでも自動補完される", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 3, name: "P3",
+          tickets: [
+            { id: 1, status: "todo", title: "NoPhaseId" } as any,
+          ],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].phaseId, 3);
+  });
+
+  it("誤った phaseId が親 phase の id で上書きされる", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 2, name: "P2",
+          tickets: [{ id: 1, phaseId: 999, status: "todo", title: "WrongPhaseId" }],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].phaseId, 2);
+  });
+
   it("ファイル不在 → ENOENT を throw", () => {
     assert.throws(
       () => loadPendingTickets("/nonexistent/path/Tickets.json"),
