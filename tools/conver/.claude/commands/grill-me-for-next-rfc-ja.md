@@ -29,15 +29,15 @@ description: 例: /grill-me-for-next-rfc-ja conver/OMISSIONS-001.md conver/RFC-0
 | 変数 | 導出元 | 値 |
 |------|--------|-----|
 | `$OMISSIONS_MD_PATH` | 第1引数 | OMISSIONS-XXX.md のパス |
-| `$OMISSIONS_JSON_PATH` | `"${OMISSIONS_MD_PATH%.md}.json"` | 対応する OMISSIONS-XXX.json のパス（init.js の research-path として使用） |
+| `$OMISSIONS_JSON_PATH` | `"${OMISSIONS_MD_PATH%.md}.json"` | 対応する OMISSIONS-XXX.json のパス（init-for-grill-me-for-next-rfc.js の research-path として使用） |
 | `$NEXT_RFC_OUTPUT_PATH` | 第2引数 | 次世代RFC設計書の出力先ファイルパス（.md） |
 | `$RFC_DIR` | `dirname "$NEXT_RFC_OUTPUT_PATH"` から機械的に導出 | RFC関連ファイルを格納するディレクトリ |
 
-**`init.js` が実行された時点で `$OMISSIONS_JSON_PATH` と `$NEXT_RFC_OUTPUT_PATH` は `Status.json` に永続化されるため、以降の全ステップでは `$RFC_DIR` のみを意識すればよい。**
+**`init-for-grill-me-for-next-rfc.js` が実行された時点で `$OMISSIONS_JSON_PATH` と `$NEXT_RFC_OUTPUT_PATH` は `Status.json` に永続化されるため、以降の全ステップでは `$RFC_DIR` のみを意識すればよい。**
 
 ### スキーマ自動検証 (Schema Validation Gate)
 
-ファイル操作を行う全スクリプト（`init.js` / `update-tree.js` / `update-status.js` / `generate-checklist.js`）は、処理成功後に自動的に `check-all-schema.js` を内部呼び出しし、Status.json / DesignTree.json / CheckList.md のスキーマ整合性を検証する。
+ファイル操作を行う全スクリプト（`init-for-grill-me-for-next-rfc.js` / `init.js` / `update-tree.js` / `update-status.js` / `generate-checklist.js`）は、処理成功後に自動的に `check-all-schema.js` を内部呼び出しし、Status.json / DesignTree.json / CheckList.md のスキーマ整合性を検証する。
 
 - **検証に失敗した場合はスクリプトが `exit(1)` する**。その場合、AIはエラー内容を読み、該当ファイルを修正してからスクリプトを再実行しなければならない。
 - **検証が通るまで次のステップに進んではならない。** スキーマエラーを無視して先に進むことは禁止。
@@ -76,16 +76,15 @@ if [ ! -f "$OMISSIONS_JSON_PATH" ]; then
   exit 1
 fi
 
-# init.js に OMISSIONS JSON を research-path として渡す
-node .claude/scripts/grill-me-for-rfc/init.js "$OMISSIONS_JSON_PATH" "$NEXT_RFC_OUTPUT_PATH"
+# init-for-grill-me-for-next-rfc.js で旧セッション退避 + init.js 実行を一括処理
+node .claude/scripts/grill-me-for-rfc/init-for-grill-me-for-next-rfc.js "$OMISSIONS_JSON_PATH" "$NEXT_RFC_OUTPUT_PATH"
 ```
 
-- NEXT_RFC出力ファイルと同じディレクトリに以下の雛形を生成する:
-  - `CheckList.md` — RFC要件チェックリスト（後でSTEP 4で充填）
-  - `DesignTree.json` — 設計ツリー（空ノード）
+- 旧セッションのファイル（`Status.json` / `DesignTree.json` / `CheckList.md`）がカレントディレクトリに存在する場合、`grills/<RFC名>/` に自動退避される。
+- カレントディレクトリに以下の雛形が新規生成される:
   - `Status.json` — 進捗ステータス（初期state: GRILLING）
-- **再開モード**: `Status.json` が存在する場合、ユーザーに「前回の続きから再開しますか？」と確認する（RFC出力ファイルの有無は問わない。RFCはSTEP 5で初めて書かれるため）。
-- **上書き確認モード**: RFC出力ファイルは存在するが `Status.json` がない場合、ユーザーに上書き確認をする。承諾を得たら古いRFCファイルを削除してから `init.js` を再実行すること。
+  - `DesignTree.json` — 設計ツリー（空ノード）
+  - `CheckList.md` — RFC要件チェックリスト（後でSTEP 4で充填）
 
 ```bash
 node .claude/scripts/grill-me-for-rfc/list-files.js "$RFC_DIR"
@@ -209,7 +208,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHEC
 ユーザーが承認したら、スクリプトでCheckList.mdを機械生成した後、**AIが必ず目視チェックして補足事項を追記する**こと。CheckList.md には、親RFCとの関係性および OMISSIONS への対応漏れがないかの確認項目も含める。
 
 ```bash
-node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR"
+node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR" --no-backup
 ```
 
 生成されるチェックリストの構造（2段階）:

@@ -1,9 +1,9 @@
 {
   "state": "DONE",
-  "researchPath": "/Users/kawata/shyme/zasso/tools/conver/docs/CONVER-INFO.md",
-  "rfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md",
+  "researchPath": "/Users/kawata/shyme/zasso/tools/conver/OMISSIONS-001.json",
+  "rfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_OMISSIONS-001.md",
   "rfcDir": "/Users/kawata/shyme/zasso/tools/conver",
   "reviewLoopCount": 0,
-  "createdAt": "2026-06-25T07:24:26.273Z",
-  "updatedAt": "2026-06-25T08:12:31.188Z"
+  "createdAt": "2026-06-26T06:12:41.714Z",
+  "updatedAt": "2026-06-26T06:21:55.903Z"
 }

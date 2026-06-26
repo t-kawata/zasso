@@ -1,118 +1,63 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-25T08:32:27.774Z",
+  "updatedAt": "2026-06-26T06:18:01.155Z",
   "nodes": [
     {
-      "id": "arch-cli",
-      "title": "CLI インターフェース設計 — -k(必須)/-t(省略可)/-c(999999)/-r(3)/-p(0/1,default1)/-m(deepseek-v4-flash)/-s(必須)/-v(0/1,default0)/--timeout(1800)/--help(-h)",
+      "id": "startup-log",
+      "title": "起動パラメータログの完全化（O-001解決）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-25T07:35:22.218Z",
-          "answer": "Q1: -t省略可能(./Tickets.jsonデフォルト), Q2: ロング形式提供, Q3: -cデフォルト999999, Q4: -rデフォルト3 + -pフラグ(0/1, デフォルト1)追加(jpush-branch統合), Q5: --help + -h実装"
+          "resolvedAt": "2026-06-26T06:17:59.674Z",
+          "answer": "Q1=B: 起動パラメータログは key=value 形式の個別行表示、パス変換は cli.ts の parseCliOptions のみで行い runner.ts は変換済みパスを受け取る"
         }
       ],
       "children": []
     },
     {
-      "id": "arch-session",
-      "title": "ACP セッション管理 — 内部セッション/レビューセッション/ライフサイクル",
+      "id": "path-resolution",
+      "title": "ファイルパスの絶対パス変換方針（O-002解決）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-25T07:35:23.035Z",
-          "answer": "Q7: チケットごとにセッション完全分離。make/plan/start(Session A) → review(Session B) → resolve(Session C) → find(Session D) の4セッションが全て異なるsessionId。Q8: ESM採用"
+          "resolvedAt": "2026-06-26T06:17:59.674Z",
+          "answer": "Q1=B: 起動パラメータログは key=value 形式の個別行表示、パス変換は cli.ts の parseCliOptions のみで行い runner.ts は変換済みパスを受け取る"
         }
       ],
       "children": []
     },
     {
-      "id": "arch-loop",
-      "title": "内部ループ制御 — チケット実行順序・resolve/find 自動トリガー",
+      "id": "phaseid-consistency",
+      "title": "phaseId情報の一貫性確保（O-003解決）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-25T07:59:23.414Z",
-          "answer": "Q9: エラー時は停止＋Slack通知(-sフラグでWebhook URL指定)。Q12: jpush-branch失敗も同様にSlack通知。Q15: タイムアウト時も同様にSlack通知"
+          "resolvedAt": "2026-06-26T06:18:01.155Z",
+          "answer": "Q2=A（一部修正）: phaseIdはtickets.tsの公開関数に統合、SDK型名はRFCを実装に追従、Makefileエントリはtest-converのみRFC追記（list-ticketsは私用ヘルパーのため除外）"
         }
       ],
       "children": []
     },
     {
-      "id": "arch-permission",
-      "title": "権限ハンドリング — bypassPermissions / 自動承認戦略",
+      "id": "sdk-type-alignment",
+      "title": "ACP SDK型定義の整合性（O-004解決）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-25T07:59:23.929Z",
-          "answer": "Q11: 環境変数 ACP_PERMISSION_MODE=bypassPermissions で起動時に設定"
+          "resolvedAt": "2026-06-26T06:18:01.155Z",
+          "answer": "Q2=A（一部修正）: phaseIdはtickets.tsの公開関数に統合、SDK型名はRFCを実装に追従、Makefileエントリはtest-converのみRFC追記（list-ticketsは私用ヘルパーのため除外）"
         }
       ],
       "children": []
     },
     {
-      "id": "arch-error",
-      "title": "エラーハンドリング — セッション断・タイムアウト・リトライ戦略",
+      "id": "makefile-documentation",
+      "title": "Makefileエントリの完全記述（O-005解決）",
       "status": "resolved",
       "questions": [
         {
-          "resolvedAt": "2026-06-25T07:59:26.052Z",
-          "answer": "Q9: 停止+Slack通知。Q15: 初期値1800秒、実行時フラグで上書き可能。タイムアウト時もSlack通知"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "arch-tickets",
-      "title": "Tickets.json 管理 — 読み込み・ステータス同期・全reviewed検出",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-25T08:07:49.324Z",
-          "answer": "Q10: 各チケット処理前とresolve完了後の2箇所で個別にreadFileSyncで読み込む。書き込みはClaude Codeセッションが担当"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "arch-output",
-      "title": "ログ出力・進捗表示 — コンソールフォーマット・監視",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-25T07:59:24.673Z",
-          "answer": "Q14: 標準表示 + -v 0/1 フラグで詳細表示切替。 -v 1 でACP全メッセージ表示"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "arch-push",
-      "title": "jpush-branch 統合 — -p フラグによる push 自動実行",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-25T07:59:25.299Z",
-          "answer": "Q12: jpush-branch失敗時はQ9と同じSlack通知処理。カレントブランチにpush"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "arch-module",
-      "title": "モジュール分割構成 — cli/session/runner/tickets/notifier/error + conver entrypoint",
-      "status": "resolved",
-      "questions": [],
-      "children": []
-    },
-    {
-      "id": "arch-slack",
-      "title": "Slack通知統合 — -sフラグ/エラー通知フォーマット/Node.js送信",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-25T08:07:50.182Z",
-          "answer": "Q16: 標準httpsモジュール, Q17: 提案フォーマット, Q18: stopイベントresponse, Q19: 最大3回リトライ+全失敗時stderr出力, Q20: -s必須フラグ"
+          "resolvedAt": "2026-06-26T06:18:01.155Z",
+          "answer": "Q2=A（一部修正）: phaseIdはtickets.tsの公開関数に統合、SDK型名はRFCを実装に追従、Makefileエントリはtest-converのみRFC追記（list-ticketsは私用ヘルパーのため除外）"
         }
       ],
       "children": []

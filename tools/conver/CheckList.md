@@ -3,7 +3,7 @@
 > **⚠️ このファイルはスクリプトにより自動生成された雛形です。**
 > AIが目視チェックし、補足事項・プロジェクト固有の制約を追記してから使用すること。
 
-生成日時: 2026-06-25T08:09:33.405Z
+生成日時: 2026-06-26T06:18:22.355Z
 DesignTree バージョン: 1
 
 ---
@@ -16,7 +16,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §1 CLI インターフェース設計 — -k(必須)/-t(省略可)/-c(999999)/-r(3)/-p(0/1,default1)/-m(deepseek-v4-flash)/-s(必須)/-v(0/1,default0)/--timeout(1800)/--help(-h) ✅
+## §1 起動パラメータログの完全化（O-001解決） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -24,7 +24,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §2 ACP セッション管理 — 内部セッション/レビューセッション/ライフサイクル ✅
+## §2 ファイルパスの絶対パス変換方針（O-002解決） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -32,7 +32,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §3 内部ループ制御 — チケット実行順序・resolve/find 自動トリガー ✅
+## §3 phaseId情報の一貫性確保（O-003解決） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -40,7 +40,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §4 権限ハンドリング — bypassPermissions / 自動承認戦略 ✅
+## §4 ACP SDK型定義の整合性（O-004解決） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -48,7 +48,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §5 エラーハンドリング — セッション断・タイムアウト・リトライ戦略 ✅
+## §5 Makefileエントリの完全記述（O-005解決） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -56,102 +56,29 @@ DesignTree バージョン: 1
 
 ---
 
-## §6 Tickets.json 管理 — 読み込み・ステータス同期・全reviewed検出 ✅
+## プロジェクト固有の補足・制約
 
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+### 設計判断の確定内容（grill結果より）
 
----
+**Q1 決定（B）:**
+- 起動パラメータログは key=value 形式の個別行表示（`model=deepseek-v4-flash` 形式）。JSON ブロックではない
+- パス変換（path.resolve）は cli.ts の parseCliOptions でのみ行う。runner.ts は変換済みパスを受け取る前提とする
 
-## §7 ログ出力・進捗表示 — コンソールフォーマット・監視 ✅
+**Q2 決定（A、一部修正）:**
+- phaseId は tickets.ts の公開関数 loadPendingTickets に統合し、runner.ts の非公開重複は削除する
+- RFC の型定義（acp.NdJsonStream / acp.MonadClient）は実装（acp.Stream / acp.ClientApp）に合わせて更新する
+- Makefile エントリは **test-conver のみ** RFC §7 に追記する。**list-tickets はユーザーの私用ヘルパーのため RFC には含めない**
 
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+### プロジェクト制約
 
----
+- [ ] 次世代RFCのフロントマターに `parent-rfc: RFC_ROOT.md` と `parent-omissions: OMISSIONS-001.md` が正しく記述されていること
+- [ ] 各コードスニペットは TypeScript（ESM）で記述されていること
+- [ ] 全変更が `tsc` ビルドを通過することを確認すること
+- [ ] test-conver（node --test）の実行が正常に動作することを確認すること
+- [ ] list-tickets エントリは RFC に記載しないこと（私用ヘルパーのため）
 
-## §8 jpush-branch 統合 — -p フラグによる push 自動実行 ✅
+### 全体チェック（拡張）
 
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
----
-
-## §9 モジュール分割構成 — cli/session/runner/tickets/notifier/error + conver entrypoint ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
----
-
-## §10 Slack通知統合 — -sフラグ/エラー通知フォーマット/Node.js送信 ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
----
-
-## AI補足: プロジェクト固有の制約・確認事項
-
-### 実行環境依存
-
-- [ ] Node.js 18+ で動作すること（ESM + node:util parseArgs + node:https）
-- [ ] `claude-agent-acp` が PATH に存在すること
-- [ ] 事前に `claude login` が実行済みであること（ACP が認証情報を継承）
-- [ ] `@agentclientprotocol/sdk` が `npm install` 済みであること
-- [ ] `-s`（Slack Webhook URL）が有効な URL であること（起動時にバリデーション）
-
-### セッション管理の補足
-
-- [ ] 4セッション完全分離をコードで保証すること（Session A/B/C/D が同一IDにならない）
-- [ ] Session A（make/plan/start）は同一セッションIDで3コマンド連続実行すること
-- [ ] Review（Session B）、Resolve（Session C）、Find（Session D）はそれぞれ独立したセッションであること
-- [ ] 各セッションの dispose を finally または try/finally で保証すること（リソースリーク防止）
-
-### CLI フラグの相互依存
-
-- [ ] `-k`（DeepSeek API Key）が必須であることのエラーハンドリング（未指定時は usage 表示して exit 1）
-- [ ] `-s`（Slack Webhook URL）が必須であることのエラーハンドリング（未指定時は usage 表示して exit 1）
-- [ ] `-p 1` 時に resolve 完了後に `/jpush-branch` が実行されるシーケンスの正確性
-- [ ] `-v 1` 時に ACP の agent_message_chunk がすべてコンソール出力されること
-- [ ] `--timeout` の値（デフォルト1800秒）が各コマンドのタイムアウトとして正しく適用されること
-
-### Tickets.json 操作
-
-- [ ] Tickets.json の読み込みは readFileSync で同期的に行うこと（非同期によるレースコンディション防止）
-- [ ] 読み込んだ Tickets.json が有効な JSON であることをパース前にバリデーションしない（パースエラーはそのまま例外として Slack通知される設計でよいか確認）
-- [ ] 「各チケット処理前」と「resolve 完了後」の2箇所で独立して読み込むこと
-
-### Slack 通知
-
-- [ ] エラー通知フォーマットに以下の全情報が含まれていること：Tickets.json フルパス、whoami ユーザー名、チケットID＋タイトル、工程名、エラー種別、Claude Code 説明
-- [ ] Slack 送信失敗時は最大3回リトライし、全失敗時は stderr にエラー内容を出力すること
-- [ ] アイコン絵文字が `:x:`、ユーザー名が `conver` であること
-- [ ] curl の --data-urlencode と同等のエンコード（application/x-www-form-urlencoded）で payload パラメータを送信すること
-
-### ループ制御
-
-- [ ] エラー発生時は即座にループを停止すること（次のチケットに進まない）
-- [ ] 停止前に Slack 通知が完了すること（通知が終わる前にプロセス終了しない）
-- [ ] タイムアウト発生時もエラー時と同様に Slack 通知すること
-
-### モジュール分割
-
-- [ ] cli.ts: 引数パース + showUsage。副作用ゼロ。テスト容易であること
-- [ ] session.ts: ACP セッションの起動・管理。spawnAgent / buildClientApp / createSession / withSession / runCommand / disposeSession
-- [ ] tickets.ts: Tickets.json の読み込み・状態確認・ソースパス取得。書き込みは行わない
-- [ ] runner.ts: ループ制御・Slack通知・セッション orchestration
-- [ ] notifier.ts: Slack通知送信・リトライ
-- [ ] error.ts: CommandTimeoutError 型定義
-- [ ] src/conver.ts: エントリポイント。cli.ts でパース後 runner.ts に制御委譲
-- [ ] ESM（import/export）で統一されていること（CommonJS との混在禁止）
-
-### エラーハンドリングの集中管理
-
-- [ ] Slack 通知関数は2箇所以上で呼ばれない（エラー通知の一元化）
-- [ ] タイムアウト・コマンド失敗・セッションエラーの3種を区別して通知に含めること
+- [ ] 各 omission の解決方法が、対応するコードスニペットと共に具体的に記述されていること（「適宜修正」等の曖昧な表現の禁止）
+- [ ] 親RFC（RFC_ROOT.md）の設計判断を変更する内容ではないこと（今回のRFCは omission 解決に特化）
+- [ ] 型名の変更（acp.NdJsonStream → acp.Stream 等）は、SDK バージョンによる差異であることが注釈で明記されていること
