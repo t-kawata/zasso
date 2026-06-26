@@ -7,6 +7,63 @@
   },
   "phases": [
     {
+      "id": -1,
+      "name": "[X] 独立フェーズ（P0 に先行／独立）",
+      "characteristics": "P0より前、またはP0以降のどのフェーズにも属さない独立したチケットを格納する特別なフェーズ。",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js 単一ファイルバンドル構築",
+          "referenceSection": "tickets/specs/0015-converjs.md",
+          "background": "現在のビルドは tsc によるトランスパイルのみで、dist/ に分割ファイルを出力。実行には node_modules/@agentclientprotocol/sdk が必要（外部依存はこの1パッケージのみ）。別マシンへの単一ファイル配布を可能にするため、esbuild でバンドルする。",
+          "scope": [
+            "ビルドツールを tsc から esbuild に変更",
+            "@agentclientprotocol/sdk をバンドルに含める",
+            "node:* 系は external 指定",
+            "devDependencies に esbuild 追加",
+            "型チェックは tsc --noEmit として分離維持"
+          ],
+          "testVerification": [
+            "npm run build で dist/conver.js が単一ファイルとして生成される",
+            "npm test が全56テスト PASS",
+            "バンドル後の単一ファイルだけで node dist/conver.js が起動可能"
+          ],
+          "testExceptions": [
+            "プロセスの実起動テストは E2E/手動"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (issues 0件)\n- 翻訳可能性: 問題なし（関数定義なし、デバッグ出力なし、マジックナンバーなし）\n- 依存関係: 関連チケットなし（PX 独立フェーズ）\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 不完全実装: 検出されず\n- ビルド確認: make build-conver ✅（643.5KB 単一ファイル）\n- 型チェック: make typecheck ✅\n- テスト: make test-conver → 56/56 PASS ✅\n- 単体起動: node dist/conver.js --help（node_modules なし）✅\n- 問題点: なし。全ての Acceptance Criteria を満たしている。",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "build: tsc (コンパイルのみ、分割ファイル)",
+              "after": "build: esbuild --bundle (単一ファイル 643.5KB)",
+              "description": "ビルド方式を esbuild に変更、@agentclientprotocol/sdk を内包した単一ファイル dist/conver.js を生成"
+            },
+            {
+              "before": "devDeps: @types/node, typescript",
+              "after": "devDeps: @types/node, esbuild, typescript",
+              "description": "esbuild ^0.28.1 を devDependencies に追加"
+            },
+            {
+              "before": "typecheck コマンドなし",
+              "after": "typecheck: tsc --noEmit",
+              "description": "型チェックを build から分離、独立コマンド化"
+            },
+            {
+              "before": "Makefile build-conver: tsc",
+              "after": "Makefile: build-conver + typecheck + test-conver改善",
+              "description": "Makefile に typecheck 追加、test-conver は npx tsc でテストコンパイル後に実行"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし (関数名/変数名/デバッグ出力/マジックナンバー 全てクリア)\nテスト: 56/56 PASS\nビルド: esbuild 643.5KB 正常生成\n型チェック: tsc --noEmit 正常終了",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
+        }
+      ]
+    },
+    {
       "id": 0,
       "name": "純粋ロジック基盤 (Layer 0/1) — 型定義・純粋関数",
       "externalDependencies": "なし（stdlibのみ）",
