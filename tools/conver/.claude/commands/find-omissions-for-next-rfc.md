@@ -301,10 +301,12 @@ node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "5b" "do
 ```bash
 node .claude/scripts/tickets/list-omissions.js "$OMISSIONS_PATH"
 
+# Step 6 の「完了報告」を先に done にしてから Markdown に変換する
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6" "done"
+
 # OMISSIONS JSON を Markdown に変換（次段階 /grill-me-for-next-rfc-ja が読み取る）
 node .claude/scripts/tickets/convert-omissions-to-markdown.js "$OMISSIONS_PATH"
 
-node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6" "done"
 node .claude/scripts/tickets/show-omissions-steps.js "$OMISSIONS_PATH"
 ```
 

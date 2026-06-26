@@ -46,4 +46,24 @@ function mainGeneric(allowedFields, scriptName, parentKey) {
   });
 }
 
-module.exports = { updateOmissionsField, mainGeneric };
+/**
+ * ステップの実効的な status を計算する。
+ * 子を持つステップの場合、子の status から動的に導出する：
+ * - 全子が "done" → "done"
+ * - いずれかの子が "in_progress" → "in_progress"
+ * - 上記以外 → "todo"
+ * 葉（子なし）のステップは自身の status をそのまま返す。
+ * @param {{ status?: string, children?: Array }} step
+ * @returns {string} "done" | "in_progress" | "todo"
+ */
+function computeEffectiveStatus(step) {
+  if (!step.children || step.children.length === 0) {
+    return step.status || "todo";
+  }
+  const childStatuses = step.children.map(c => computeEffectiveStatus(c));
+  if (childStatuses.every(s => s === "done")) return "done";
+  if (childStatuses.some(s => s === "in_progress")) return "in_progress";
+  return "todo";
+}
+
+module.exports = { updateOmissionsField, mainGeneric, computeEffectiveStatus };

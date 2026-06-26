@@ -1,9 +1,11 @@
 const fs = require("fs"), path = require("path");
+const { computeEffectiveStatus } = require("../lib/omissions-update");
 const CB = { todo:"[ ]", in_progress:"[/]", done:"[x]" };
 function render(steps, indent) {
   const lines = [];
   for (const s of (steps||[])) {
-    lines.push(indent+(CB[s.status]||CB.todo)+" "+s.id+": "+(s.label||""));
+    const st = computeEffectiveStatus(s);
+    lines.push(indent+(CB[st]||CB.todo)+" "+s.id+": "+(s.label||""));
     if (s.children) lines.push(render(s.children, indent+"    "));
   }
   return lines.join("\n");

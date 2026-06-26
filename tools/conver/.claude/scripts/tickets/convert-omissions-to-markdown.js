@@ -1,5 +1,6 @@
 const fs = require("fs"),
   path = require("path");
+const { computeEffectiveStatus } = require("../lib/omissions-update");
 const TYPE_LABEL = {
   missing_implementation: "実装漏れ",
   incomplete_implementation: "実装不足",
@@ -88,8 +89,9 @@ function convert(omPath) {
     );
     (function walk(s, indent) {
       for (const x of s || []) {
+        const st = computeEffectiveStatus(x);
         const em =
-          x.status === "done" ? "✅" : x.status === "in_progress" ? "🔄" : "⬜";
+          st === "done" ? "✅" : st === "in_progress" ? "🔄" : "⬜";
         L.push(
           "| " +
             indent +
@@ -99,7 +101,7 @@ function convert(omPath) {
             " | " +
             em +
             " " +
-            x.status +
+            st +
             " |",
         );
         if (x.children) walk(x.children, indent + "  ");
