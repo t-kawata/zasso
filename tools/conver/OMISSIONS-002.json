@@ -1,0 +1,148 @@
+{
+  "parentRfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md",
+  "parentRfcTitle": "RFC-001: conver.js — ACP-based Ticket Processing Pipeline",
+  "generatedAt": "2026-06-26",
+  "summary": "RFC-001: conver.js は、二層構造の開発パイプラインにおける内部ループ（内側ループ）を完全自動化する ACP-based チケット処理パイプラインである。@agentclientprotocol/claude-agent-acp を通じて Claude Code セッションをプログラムから制御し、Tickets.json に定義されたチケットに対して make → plan → start → review → resolve → find の一連の工程を自動実行する。各工程は独立したACPセッション（4セッション完全分離）で実行され、DeepSeek V4（flash/pro）のモデル選択に対応する。TypeScript（ESM）で記述され、cli.ts（引数パース）、session.ts（ACP管理）、runner.ts（ループ制御）、tickets.ts（Tickets.json管理）、notifier.ts（Slack通知）、error.ts（エラー型）、conver.ts（エントリポイント）の7モジュールで構成される。エラー発生時は Slack への通知とプロセス停止を行う。",
+  "rfcUnderstanding": {
+    "purpose": "conver.js の目的は、二層構造の開発パイプラインにおける内部ループ（内側ループ）を完全自動化することである。@agentclientprotocol/claude-agent-acp を通じて Claude Code のセッションをプログラムから制御し、Tickets.json に定義されたチケットに対して make → plan → start → review → resolve → find の一連の工程を自動実行する。各工程は独立したACPセッションで実行され、DeepSeek V4（flash / pro）のモデル選択に対応し、エラー発生時には Slack への通知とプロセス停止を行う。",
+    "goals": "1. 外側ループの循環速度向上: 人間が介在するポイントを外側ループだけに限定する\n2. ヒューマンエラーの排除: 工程の順序誤り・飛ばしを防止する\n3. 実行履歴の一元管理: すべての処理結果が Tickets.json に集約される\n4. チケット処理のスケーリング: 複数チケットを連続処理可能にする\n5. 各工程を独立したACPセッションで実行し、コンテキスト漏洩を防止する\n6. DeepSeek V4（flash / pro）のモデル選択を可能にする\n7. エラー発生時に Slack へ通知しプロセスを停止する",
+    "successCriteria": "1. Tickets.json の全未処理チケットが自動的に make → plan → start → review → resolve → find の全工程を経由して処理される\n2. エラー発生時は Slack 通知が送信され、プロセスが exit 1 で停止する\n3. 各チケットは4つの独立したACPセッションで処理され、コンテキスト漏洩がない\n4. DeepSeek V4 の flash / pro 両モデルが Anthropic 互換エンドポイント経由で動作する\n5. resolve 完了後、push フラグが有効（-p 1）なら jpush-branch が実行される\n6. 全チケット reviewed 時、find-omissions が自動実行される\n7. タイムアウト設定（--timeout）が全セッションで有効に機能する",
+    "nonScope": "1. 外側ループ（人間/AI による全体設計・方針決定）は対象外\n2. チケットの並行処理（直列実行のみ）\n3. Tickets.json への直接書き込み（書き込みは Claude Code セッション内のスラッシュコマンドが行う）\n4. 既存の CommonJS スクリプト（install.js 等）の ESM 変換\n5. Windows の動作保証（未検証だが node:child_process の範囲では動作可能）",
+    "architecture": "conver.js は4セッション完全分離アーキテクチャを採用する。各チケットの処理は4つの独立したACPセッションで直列実行される：\n\nSession A: make-ticket → plan-ticket → start-ticket（3コマンド連続実行後、セッション破棄）\nSession B: review-ticket（1コマンド実行後、セッション破棄）\nSession C: resolve-ticket（resolveEvery 間隔で実行、pushEnabled=true なら jpush-branch も実行、後にセッション破棄）\nSession D: find-omissions-for-next-rfc（全チケット reviewed 時にのみ実行、後にセッション破棄）\n\n各セッションは spawnAgent() で claude-agent-acp プロセスを起動し、session/new で新しいセッションIDを発行する。すべてのセッションは異なる sessionId を持ち、前のチケットのコンテキストが次のチケットに影響を与えない。\n\nTypeScript（ES2022, NodeNext）で記述され、tsc で dist/conver.js にコンパイルされる。モジュールシステムは ESM。",
+    "componentRelations": "7モジュールで構成される階層構造：\n\nconver.ts（エントリポイント）\n  └─ cli.ts（引数パース）→ node:util\n  └─ runner.ts（ループ制御）\n       └─ session.ts（ACPセッション管理）→ @agentclientprotocol/sdk, node:child_process\n       └─ notifier.ts（Slack通知）→ node:https, node:child_process\n       └─ tickets.ts（Tickets.json管理）→ node:fs\n       └─ error.ts（エラー型定義）→ 依存なし\n\nconver.ts → runner.ts → {session.ts, notifier.ts, tickets.ts, error.ts} の一方向依存。session.ts は error.ts（CommandTimeoutError）に依存する。notifier.ts はエラー種別（CommandTimeoutError, PermissionDenied, FileNotFound）を判別する。",
+    "designDecisions": "1. ACPプロトコル採用: 標準I/Oパース方式ではなく @agentclientprotocol/sdk を使用。バージョン管理されたJSON-RPC 2.0、ネイティブのsession/new、標準化されたrequest_permission、ndjsonによる確実な区切りを提供。\n2. 4セッション完全分離: 1チケット処理ごとに4つの独立したACPセッションを使用。並行稼働はせず直列実行。\n3. DeepSeek V4統合: Anthropic互換エンドポイント（api.deepseek.com/anthropic）を使用。環境変数でモデル選択を制御（ANTHROPIC_BASE_URL, ANTHROPIC_MODEL等）。\n4. 権限バイパス: ACP_PERMISSION_MODE=bypassPermissions と .onRequest allow_always ハンドラの二重安全策。\n5. ESM採用: プロジェクト内の既存CommonJSスクリプト（install.js等）とはNode.jsのinteropで共存。\n6. 同期的Tickets.json読み込み: readFileSync を使用。書き込みはClaude Codeセッション内のスラッシュコマンドに委譲。\n7. Slack通知リトライ: 最大3回、1/2/3秒のexponential backoff。リトライ失敗がメインループのエラー原因にならない。\n8. TypeScript→JavaScriptビルド: tsc で dist/ に出力。ランタイム依存は @agentclientprotocol/sdk のみ。",
+    "typeDefinitions": "export interface CliOptions { apiKey: string; model: string; ticketsPath: string; maxCount: number; resolveEvery: number; pushEnabled: boolean; slackWebhookUrl: string; verbose: boolean; timeoutMs: number; }\n\nexport interface AcpSession { proc: ChildProcess; stream: acp.NdJsonStream; sessionId: string; ctx: acp.ClientContext; session: acp.ActiveSession; }\n\nexport interface LoopOptions { apiKey: string; model: string; ticketsPath: string; maxCount: number; resolveEvery: number; pushEnabled: boolean; slackWebhookUrl: string; verbose: boolean; timeoutMs: number; }\n\nexport interface Ticket { id: number; phaseId: number; status: string; title: string; }\n\nexport interface TicketsJson { phases: Array<{ id: number; name: string; tickets: Ticket[]; }>; metadata?: { source?: string; }; }\n\nexport interface ErrorContext { ticketId: string; phase: string; error: Error; ticketsPath: string; }\n\nexport class CommandTimeoutError extends Error { constructor(message: string); name = 'CommandTimeoutError'; }",
+    "apiSignatures": "// cli.ts\nexport function parseCliOptions(argv: string[]): CliOptions\n\n// session.ts\nexport function spawnAgent(apiKey: string, model: string): { proc: ChildProcess; stream: acp.NdJsonStream }\nexport function buildClientApp(): acp.MonadClient\nexport function createSession(cwd: string, apiKey: string, model: string): Promise<AcpSession>\nexport function withSession<T>(cwd: string, apiKey: string, model: string, fn: (session: AcpSession) => Promise<T>): Promise<T>\nexport function runCommand(acpSession: AcpSession, command: string, options: { timeoutMs: number; verbose: boolean }): Promise<string>\nexport function disposeSession(acpSession: AcpSession): void\n\n// runner.ts\nexport function runLoop(options: LoopOptions): Promise<void>\nfunction loadPendingTickets(ticketsPath: string): Ticket[]\nfunction checkAllReviewed(ticketsPath: string): boolean\nfunction getCurrentPhase(error: unknown): string\n\n// tickets.ts\nexport function loadPendingTickets(ticketsPath: string): Array<{ id: number; phaseId: number; status: string; title: string; }>\nexport function checkAllReviewed(ticketsPath: string): boolean\nexport function getSourceFromTickets(ticketsPath: string): string\n\n// notifier.ts\nexport function sendSlackError(webhookUrl: string, context: ErrorContext): Promise<void>\nfunction getUsername(): string\nfunction getAbsolutePath(relativePath: string): string\nfunction classifyError(error: Error): string\nfunction buildSlackMessage(context: ErrorContext): object\nasync function sendSlackOnce(webhookUrl: string, payload: object): Promise<void>\nasync function sendSlackWithRetry(webhookUrl: string, payload: object, maxRetries?: number): Promise<void>\n\n// error.ts\nexport class CommandTimeoutError extends Error\n\n// conver.ts\nasync function main(): Promise<void>",
+    "dependencyGraph": "conver.ts → cli.ts, runner.ts\nrunner.ts → session.ts, notifier.ts, tickets.ts (暗黙的に error.ts 経由)\nsession.ts → error.ts, @agentclientprotocol/sdk, node:child_process\ntickets.ts → node:fs\nnotifier.ts → node:https, node:child_process\ncli.ts → node:util\nerror.ts → 依存なし（extends Error）\n\n呼び出し階層:\nmain() → runLoop() → { withSession(), runCommand(), sendSlackError(), loadPendingTickets(), checkAllReviewed(), getSourceFromTickets() }\nwithSession() → createSession() → spawnAgent()\nrunCommand() → session.prompt(), session.nextUpdate()\nsendSlackError() → buildSlackMessage(), getUsername(), sendSlackWithRetry() → sendSlackOnce()",
+    "externalDependencies": "@agentclientprotocol/sdk ^1.0.0（ランタイム依存、ACPセッション管理の中核）\ntypescript ^5.4.0（devDependency）\nnode:util（parseArgsによる引数パース）\nnode:child_process（spawn, execSyncによる子プロセス管理）\nnode:fs（readFileSync, realpathSyncによるファイル読み込み）\nnode:path（resolveによる絶対パス変換をRFC§ファイルパス要件で言及）\nnode:https（Slack WebhookへのPOST送信）\nnode:stream（Writable, ReadableのWebストリーム変換）\n@agentclientprotocol/sdk 内部依存: acp.NdJsonStream, acp.ClientContext, acp.ActiveSession, acp.MonadClient, acp.methods.client.session.requestPermission, acp.methods.agent.initialize, acp.PROTOCOL_VERSION\n\n外部バイナリ依存: claude-agent-acp（PATHにインストール済み必須）\n外部サービス: DeepSeek API（api.deepseek.com/anthropic）, Slack Incoming Webhook",
+    "testRequirements": "RFC§Implementation（実装順序）に実装順序が定義されているが、具体的なテストフレームワークやテスト方法論については言及がない。各モジュールのテストは以下の観点が必要：\n1. cli.ts: 引数パースの正常系/異常系テスト（必須フラグ欠如、オプションフラグ、デフォルト値）\n2. tickets.ts: Tickets.json読み込みの正常系/ファイル不在時の異常系\n3. error.ts: CommandTimeoutError のインスタンス型確認\n4. notifier.ts: Slack通知送信（モック必須、実際のWebhook不要）\n5. session.ts: ACPセッション生成/コマンド実行（ACPバイナリ要、モック検討）\n6. runner.ts: ループ制御の結合テスト\n7. conver.ts: エントリポイントの結合テスト\nRFCでは実装順序として error.ts → tickets.ts → cli.ts → notifier.ts → session.ts → runner.ts → conver.ts を規定している。",
+    "errorHandling": "6種類のエラー種別を定義：\n1. CommandTimeoutError: CommandTimeout クラスとして error.ts に定義。runCommand 内のループで Date.now() と options.timeoutMs を比較して検出。全セッション共通のタイムアウト設定。\n2. SessionError（暗黙的）: createSession の reject として検出。ACP初期化失敗やセッション開始失敗。\n3. PermissionDenied: エラーメッセージに permission が含まれる場合に classifyError で分類。\n4. FileNotFound: エラーメッセージに ENOENT が含まれる場合に classifyError で分類。readFileSync の ENOENT 例外として現れる。\n5. PushFailed: /jpush-branch の runCommand 失敗。runner.ts 内で個別に catch し Slack通知後 throw。\n6. Unknown: 上記以外のエラー。classifyError のデフォルト戻り値。\n\n一元管理: 全エラーは runner.ts のループ制御内の単一 catch ブロックで捕捉される。sendSlackError → console.error → process.exit(1) の順で処理。",
+    "configuration": "CLIフラグによる設定（RFC§1.1 フラグ一覧）:\n- -k / --api-key: DeepSeek API Key（必須）\n- -s / --slack-url: Slack Incoming Webhook URL（必須）\n- -t / --tickets: Tickets.json パス（デフォルト: ./Tickets.json）\n- -c / --count: 最大処理チケット数（デフォルト: 999999）\n- -r / --resolve-every: Nチケット完了ごとに resolve（デフォルト: 3）\n- -p / --push: resolve 毎に jpush-branch 実行（デフォルト: 1）\n- -m / --model: 使用モデル（デフォルト: deepseek-v4-flash）\n- -v / --verbose: 詳細表示（デフォルト: 0）\n- --timeout: 各コマンドのタイムアウト秒数（デフォルト: 1800）\n\n環境変数による設定（RFC§2.4）:\n- ACP_PERMISSION_MODE: bypassPermissions（固定）\n- ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic（固定）\n- ANTHROPIC_AUTH_TOKEN: apiKey（動的）\n- ANTHROPIC_MODEL: model（動的）\n- ANTHROPIC_DEFAULT_OPUS_MODEL: deepseek-v4-pro（固定）\n- ANTHROPIC_DEFAULT_SONNET_MODEL: model（動的）\n- ANTHROPIC_DEFAULT_HAIKU_MODEL: model（動的）\n- CLAUDE_CODE_SUBAGENT_MODEL: model（動的）\n- CLAUDE_CODE_EFFORT_LEVEL: xhigh（固定）\n\nビルド設定（RFC§7）:\n- tsconfig.json: target ES2022, module NodeNext, strict: true\n- package.json: type: module, scripts: { build: tsc, clean: rm -rf dist }"
+  },
+  "omissions": [],
+  "steps": [
+    {
+      "id": "1",
+      "label": "スケルトン生成",
+      "status": "done",
+      "children": [
+        {
+          "id": "1a",
+          "label": "OMISSIONS番号採番",
+          "status": "done"
+        },
+        {
+          "id": "1b",
+          "label": "雛形JSON書き出し",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "label": "RFC理解",
+      "status": "todo",
+      "children": [
+        {
+          "id": "2a-1",
+          "label": "目的とゴールの把握",
+          "status": "done"
+        },
+        {
+          "id": "2a-2",
+          "label": "メタ情報の記録",
+          "status": "done"
+        },
+        {
+          "id": "2b",
+          "label": "アーキテクチャ把握",
+          "status": "done"
+        },
+        {
+          "id": "2c-1",
+          "label": "実装詳細（型・API・依存）",
+          "status": "done"
+        },
+        {
+          "id": "2c-2",
+          "label": "実装詳細（テスト・エラー処理・設定）",
+          "status": "done"
+        },
+        {
+          "id": "2-review",
+          "label": "RFC理解の全体確認",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "label": "ソースコード比較分析",
+      "status": "todo",
+      "children": [
+        {
+          "id": "3a",
+          "label": "目的とゴールの実装反映確認",
+          "status": "done"
+        },
+        {
+          "id": "3b",
+          "label": "アーキテクチャの実装一致確認",
+          "status": "done"
+        },
+        {
+          "id": "3c-1",
+          "label": "型・API・依存関係の確認",
+          "status": "done"
+        },
+        {
+          "id": "3c-2",
+          "label": "テスト・エラー処理・設定の確認",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "label": "発見漏れ確認",
+      "status": "done"
+    },
+    {
+      "id": "5",
+      "label": "最終検証",
+      "status": "todo",
+      "children": [
+        {
+          "id": "5a",
+          "label": "スキーマ検証",
+          "status": "done"
+        },
+        {
+          "id": "5b",
+          "label": "犯罪点検",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "label": "完了報告",
+      "status": "done"
+    },
+    {
+      "id": "7",
+      "label": "OMISSIONS照合",
+      "status": "done"
+    },
+    {
+      "id": "8",
+      "label": "全チケット確認",
+      "status": "done"
+    },
+    {
+      "id": "9",
+      "label": "最終結果報告",
+      "status": "done"
+    }
+  ]
+}
