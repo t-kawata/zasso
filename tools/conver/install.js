@@ -5,12 +5,16 @@
 //   install.js -t /path/to/target/.claude          # 上書きは1件ずつ確認
 //   install.js -y -t /path/to/target/.claude        # 全て上書きを自動承認
 //
-// このスクリプトは __dirname で自身の位置を特定するため、
+// このスクリプトは import.meta.url で自身の位置を特定するため、
 // どのカレントディレクトリから実行されても正しく動作する。
 
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+import fs from 'node:fs';
+import path from 'node:path';
+import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
 const EXCLUDE_PATTERNS = ['.DS_Store'];

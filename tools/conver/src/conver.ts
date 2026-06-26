@@ -1,9 +1,7 @@
-// [::STUB::] P4-2: エントリポイントの本実装は P4-2 で行う
-
 import { parseCliOptions } from "./cli.js";
 import { runLoop } from "./runner.js";
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const options = parseCliOptions(process.argv);
 
   console.log("conver.js — チケット処理を開始します");

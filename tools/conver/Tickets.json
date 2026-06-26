@@ -107,7 +107,7 @@
         {
           "id": 3,
           "phaseId": 0,
-          "status": "todo",
+          "status": "reviewed",
           "title": "CLI引数パース (src/cli.ts)",
           "referenceSection": "tools/conver/RFC_ROOT.md (§1.1-1.3)",
           "background": "node:util.parseArgs を使用した副作用ゼロのCLI引数パース。CliOptions インターフェースの定義、必須フラグ検証、--help 表示を実装する。",
@@ -127,7 +127,36 @@
             "-v 1 → verbose=true / -v 0 → verbose=false",
             "-p 0 → pushEnabled=false / -p 1 → pushEnabled=true"
           ],
-          "instrumentation": "test.sh に cli.ts テスト追加（child_process.execSync で node -e 実行）"
+          "instrumentation": "静的品質チェック: 合格（console.log 1件 = showUsage の意図的出力）\n翻訳可能性: 問題なし ✅\nテスト: 単体8件 + 統合4件 = 全12件成功",
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → reviewed に遷移\n- テスト検証: 単体テスト 8/8 ✅、統合テスト 4/4 ✅\n- 品質チェック: console.log 1件（showUsage の意図的出力、false positive）\n- 犯罪スキャン: 0件 ✅\n- 不完全実装探索（7パターン）: 全て該当なし ✅\n- [::STUB::] マーカー: src/cli.ts のスタブは本実装に置き換え済み ✅\n- 関数名: showUsage()（動詞句）✅ / parseCliOptions()（動詞句）✅\n- 変数名: 1文字変数・汎用名なし（usage文字列中のフラグ表記のみ）✅\n- マジックナンバー: なし（設定値・テスト期待値はRFC仕様由来）✅\n- デバッグ出力: なし（console.logはshowUsageの意図的出力、console.errorはエラー通知として適切）✅\n- コメント: 「なぜ」を説明（副作用ゼロ、exitテスト分離の意図）✅\n\n【依存関係検証】\n- P4-2（呼び出し元）: todo — P0-3 完了後、parseCliOptions の結合が可能\n- P0-2（エラー型）: reviewed — 問題なし\n- 循環依存: なし ✅\n\n【スタブ評価】\n- src/cli.ts: 本チケットで解決済み ✅\n- 残存10スタブ: 全て他チケットの  マーカー付き保留妥当なスタブ\n\n【軽微な指摘】\n- なし",
+          "relatedTicketIds": "P4-2 (呼び出し元), P0-2 (エラー型 — cli.ts からは現状未使用だが、将来的なバリデーション強化時に利用可能性)",
+          "testExceptions": [
+            "parseCliOptions は process.exit(1) を含むが、これは統合テスト（test.shの CLI単位テスト）で検証する。単体テストでは parseCliOptions の戻り値の検証に集中し、exit動作は test.sh に委ねる。"
+          ],
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "CliOptions: 6 fields",
+              "after": "CliOptions: 9 fields (apiKey/slackWebhookUrl/verbose added)",
+              "description": "Complete CliOptions interface"
+            },
+            {
+              "before": "parseCliOptions: hardcoded values",
+              "after": "parseCliOptions: parseArgs + validation + type conversion",
+              "description": "Full parseCliOptions implementation"
+            },
+            {
+              "before": "showUsage: not implemented",
+              "after": "showUsage(): formatted help text",
+              "description": "showUsage implementation"
+            },
+            {
+              "before": "no tests",
+              "after": "cli.test.ts 8 cases + test.sh 4 cases",
+              "description": "Unit + integration tests"
+            }
+          ],
+          "completedAt": "2026-06-26"
         }
       ]
     },
@@ -139,25 +168,67 @@
         {
           "id": 1,
           "phaseId": 1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "Tickets.json 読み込み・状態確認 (src/tickets.ts)",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§4.1-4.2)",
+          "referenceSection": "tickets/specs/0007-ticketsjson.md, Tickets.json (生データ), .claude/scripts/lib/validate-tickets.js (構造定義)",
           "background": "node:fs.readFileSync を使用した Tickets.json の読み込み関数群。未処理チケットの抽出、全件 reviewed 判定、ソースパス取得を行う。書き込みは行わない（Claude Code セッションが担当）。",
           "scope": [
-            "TicketsJson インターフェース: phases（id/name/tickets）, metadata?.source",
-            "loadPendingTickets(ticketsPath): 未処理(≠reviewed)チケット一覧を phaseId 付きで返却",
-            "checkAllReviewed(ticketsPath): 全チケットの status が reviewed か判定",
-            "getSourceFromTickets(ticketsPath): metadata.source を返す（なければ引数そのまま）"
+            "TicketsJson/Phase/Ticket 型定義: phases(id/name/externalDependencies?/tickets[]), metadata?.source, Ticket 全フィールド",
+            "loadPendingTickets(ticketsPath): readFileSync で読み込み、status!=reviewed のチケットを全 phase から抽出して返す",
+            "checkAllReviewed(ticketsPath): 全チケットの status が reviewed か判定（空配列なら true）",
+            "getSourceFromTickets(ticketsPath): metadata.source を返す（なければ引数そのまま）",
+            "src/tickets.test.ts 作成: node --test + node:assert/strict"
           ],
           "testVerification": [
-            "正常 JSON → 未処理チケット一覧（phaseId 付き）",
-            "全 reviewed → checkAllReviewed が true",
-            "一部未処理 → checkAllReviewed が false",
-            "存在しないファイル → ENOENT 例外",
-            "metadata.source 存在時 → getSourceFromTickets がその値を返す",
-            "metadata.source 不在時 → 引数そのまま返す"
+            "loadPendingTickets: 1phase に未処理2件+reviewed1件→未処理2件のみ",
+            "loadPendingTickets: 複数 phase に分散した未処理→全未処理を抽出",
+            "loadPendingTickets: 全 reviewed→空配列",
+            "loadPendingTickets: 空 phase→空配列",
+            "loadPendingTickets: ファイル不在→ENOENT throw",
+            "checkAllReviewed: 全 reviewed→true",
+            "checkAllReviewed: 一部未処理→false",
+            "checkAllReviewed: 空配列→true",
+            "getSourceFromTickets: metadata.source あり→その値を返す",
+            "getSourceFromTickets: metadata なし→引数そのまま返す",
+            "getSourceFromTickets: source なし→引数そのまま返す",
+            "既存テスト通過: node --test dist/"
           ],
-          "instrumentation": "test.sh に tickets.ts テスト追加（一時ファイル使用、排他制御）"
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし、マジックナンバーなし、console.logなし、コメントは「なぜ」のみ）\nテスト: 全26件成功（既存14 + 新規12）\n犯罪スキャン: 0件\n[::STUB::]: 本チケット対象の tickets.ts から除去完了。残存8スタブは別チケット保留。",
+          "testExceptions": [
+            "なし（全テストケースは一時ファイル作成でユニットテスト可能）"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → (レビュー中)\n- コンパイル検証: tsc 成功 ✅\n- ユニットテスト: 全26件成功（既存14 + 新規12）✅\n- 犯罪スキャン: 0件 ✅\n- 静的品質チェック: 0 issues ✅\n- [::STUB::] 解決: src/tickets.ts から除去完了 ✅\n- 不完全実装パターン: 全7パターン該当なし ✅\n\n【翻訳可能性】✅\n- 関数名: loadPendingTickets / checkAllReviewed / getSourceFromTickets — 全て動詞句\n- 変数名: raw, data, pending, ticketsPath, phase, ticket — ドメイン文脈適切\n- 1文字変数: なし\n- マジックナンバー: なし\n- console.log: なし\n- コメント: ファイル全体の責務説明 + 各関数の@param/@returns JSDoc（「なぜ」を説明）\n\n【依存関係検証】✅\n- P0-3 (先行完了): CLI引数パース — 相互参照矛盾なし\n- P4-1 (後続): runner.ts が使用 — 問題なし（P4-1 スタブのため相互参照未設定だが自然）\n\n【スタブ評価】\n- 本チケットで解決: src/tickets.ts ✅\n- 保留妥当（別チケット）: src/conver.ts (P4-2), src/notifier.ts (P2-1), src/runner.ts (P4-1), src/session.ts (P3-1) + 各dist/ — 8件\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: getSourceFromTickets のテストで型アサーション使用（metadata 型の制約上やむを得ない）",
+          "relatedTicketIds": "P4-1 (後続: runner.ts が使用), P0-3 (先行完了済み: CLI引数パース)",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "TicketsJson { tickets: Ticket[] }",
+              "after": "TicketsJson { phases: Phase[] }",
+              "description": "型定義を実際の JSON 構造に修正。Phase インターフェース追加。"
+            },
+            {
+              "before": "Ticket: id/phaseId/status/title のみ",
+              "after": "Ticket: 全オプショナルフィールド追加（referenceSection, background, scope, testVerification, notes 等）",
+              "description": "実際の Tickets.json が持つ全フィールドを型定義に追加"
+            },
+            {
+              "before": "loadPendingTickets: 常に空配列を返す",
+              "after": "readFileSync + JSON.parse でファイルを読み込み、status!=reviewed のチケットを全 phase から抽出",
+              "description": "本実装完了"
+            },
+            {
+              "before": "checkAllReviewed(tickets: Ticket[]): 常に true",
+              "after": "checkAllReviewed(ticketsPath: string): ファイルを読み込み全チケットの status を検証",
+              "description": "シグネチャ変更 + 本実装完了"
+            },
+            {
+              "before": "getSourceFromTickets(tickets: Ticket[]): 常に空文字",
+              "after": "getSourceFromTickets(ticketsPath: string): metadata.source 優先、なければ引数を返す",
+              "description": "シグネチャ変更 + 本実装完了"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
         }
       ]
     },
@@ -169,14 +240,14 @@
         {
           "id": 1,
           "phaseId": 2,
-          "status": "todo",
+          "status": "reviewed",
           "title": "Slack通知 (src/notifier.ts)",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§5.1-5.3)",
-          "background": "node:https を使用した Slack Incoming Webhook へのエラー通知。Markdown フォーマットのメッセージ構築、エラー種別分類、3回リトライ機構を持つ。",
+          "referenceSection": "tickets/specs/0008-slack-notifierts.md",
+          "background": "node:https を使用した Slack Incoming Webhook へのエラー通知モジュール。RFC定義に合わせて ErrorContext と7関数を本実装する。",
           "scope": [
-            "ErrorContext インターフェース: ticketId/phase/error/ticketsPath",
-            "getUsername(): execSync whoami でユーザー名取得",
-            "getAbsolutePath(relativePath): realpathSync で絶対パス変換",
+            "ErrorContext: ticketId/phase/error/ticketsPath",
+            "getUsername(): execSync whoami、エラー時 unknown",
+            "getAbsolutePath(relativePath): realpathSync、エラー時引数そのまま",
             "classifyError(error): CommandTimeout/PermissionDenied/FileNotFound/Unknown 分類",
             "buildSlackMessage(context): 規定フォーマットのオブジェクト生成",
             "sendSlackOnce(webhookUrl, payload): https.request で1回送信",
@@ -184,14 +255,28 @@
             "sendSlackError(webhookUrl, context): buildSlackMessage → sendSlackWithRetry"
           ],
           "testVerification": [
-            "buildSlackMessage: 正しい Markdown フォーマット",
-            "classifyError: CommandTimeoutError → CommandTimeout / permission→PermissionDenied / ENOENT→FileNotFound / その他→Unknown",
-            "sendSlackOnce: 成功時 resolve / エラー時 reject",
-            "sendSlackWithRetry: 3回失敗後 stderr にエラー出力（throw しない）",
-            "getUsername: 空でない文字列",
-            "getAbsolutePath: 絶対パスに変換"
+            "classifyError: CommandTimeoutError→CommandTimeout / permission→PermissionDenied / ENOENT→FileNotFound / その他→Unknown",
+            "classifyError: permission と ENOENT 両方→PermissionDenied（先勝ち）",
+            "getUsername: 空でない文字列を返す",
+            "getAbsolutePath: 存在するパスを絶対パスに変換",
+            "getAbsolutePath: 存在しないパス→引数そのまま",
+            "buildSlackMessage: username=conver, icon_emoji=:x:",
+            "buildSlackMessage: text に ticketId/phase/errorType が含まれる",
+            "sendSlackOnce: HTTP 200 で resolve",
+            "sendSlackOnce: HTTP 400 で reject(\"Slack API returned 400\")",
+            "sendSlackOnce: HTTP 500 で reject(\"Slack API returned 500\")",
+            "sendSlackWithRetry: 1回目成功→resolve",
+            "sendSlackWithRetry: 2回目成功（1回目失敗）→resolve",
+            "sendSlackWithRetry: 3回すべて失敗→throw しない（console.error）",
+            "sendSlackError(webhookUrl, context): buildSlackMessage→sendSlackWithRetry の連鎖"
           ],
-          "instrumentation": "test.sh に notifier.ts テスト追加（HTTP サーバーモック使用）"
+          "instrumentation": "レビュー結果: 全チェック通過 ✅ | コンパイル: tsc 成功 ✅ | テスト: 全32件成功 ✅ | 品質: 0 issues ✅ | 翻訳可能性: 全関数動詞句、1文字変数なし、console.logなし、コメント「なぜ」✅ | 不完全実装: 該当なし ✅ | 依存整合: OK ✅ | スタブ: 6残存（別チケット保留妥当）| Blocker/Major: なし | Minor: リトライテスト時間（指数バックオフ 1s+2s+3s、設計上許容）",
+          "testExceptions": [
+            "なし（全テストケースは HTTP サーバーモックでユニットテスト可能）"
+          ],
+          "notes": "依存 P0-2 CommandTimeoutError | 先行完了 P0-3 CLI引数パース | 後続 P4-1 runner.ts | 関連 P1-1 ticketsPath | 犯罪スキャン 0件 | スタブ全8箇所マーカー付与済み",
+          "startedAt": "2026-06-26",
+          "completedAt": "2026-06-26"
         }
       ]
     },
@@ -203,9 +288,9 @@
         {
           "id": 1,
           "phaseId": 3,
-          "status": "todo",
+          "status": "reviewed",
           "title": "ACPセッション管理 (src/session.ts)",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§2.1-2.4)",
+          "referenceSection": "tickets/specs/0009-acp.md, tools/conver/RFC_ROOT.md (§2.1-2.4)",
           "background": "@agentclientprotocol/sdk を使用した ACP セッションの完全管理。claude-agent-acp の spawn、initialize、session/new、prompt、dispose の全ライフサイクルをカバーする。DeepSeek V4 の環境変数注入を子プロセス単位で行う。",
           "scope": [
             "AcpSession インターフェース: proc/stream/sessionId/ctx/session",
@@ -224,7 +309,62 @@
             "disposeSession: proc.kill が呼ばれる",
             "createSession: 30秒初期化タイムアウト"
           ],
-          "instrumentation": "test.sh に session.ts テスト追加（ACP SDK のモック利用、実バイナリ結合は手動検証）"
+          "instrumentation": "静的品質チェック: 合格 (0 issues) ✅\n翻訳可能性: 問題なし ✅（1文字変数1件: o は .find コールバックの一時変数で許容範囲）\nテスト: 全41件成功（既存32 + 新規9） ✅\n犯罪スキャン: 0件 ✅\n不完全実装: 全7パターン該当なし ✅\n[::STUB::]: session.ts/dist/session.js 除去完了 ✅\n残存スタブ4件: P4-1/P4-2 の保留妥当なスタブ ✅",
+          "testExceptions": [
+            "実際のACPバイナリ(claude-agent-acp)の起動テストはtest.shで手動検証。ユニットテストではspawn/ndJsonStream/ClientAppをモック。",
+            "DeepSeek APIキーの検証は外部API依存のためユニットテスト不可。"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → (レビュー中)\n- コンパイル検証: tsc 成功 ✅\n- ユニットテスト: 全41件成功（既存32 + 新規9） ✅\n- 犯罪スキャン: 0件 ✅\n- 静的品質チェック: 0 issues ✅\n- [::STUB::] 解決: src/session.ts + dist/session.js 除去完了 ✅\n- 不完全実装パターン: 全7パターン該当なし ✅\n\n【翻訳可能性】✅\n- 関数名: spawnAgent / buildClientApp / createSession / withSession / runCommand / disposeSession — 全6関数が動詞句\n- 変数名: proc, stream, sessionId, ctx, session, apiKey, model, cwd, command — ドメイン概念を正確に表現\n- 1文字変数: o が1件（.find()コールバックの一時変数、許容範囲）\n- マジックナンバー: 30000のみ（30秒タイムアウト — const化は可だが spec 通り）\n- console.log: なし\n- コメント: ファイル全体の責務説明 + 二重安全策の理由 + disposeエラー握りつぶしの理由（「なぜ」に特化）\n\n【依存関係検証】✅\n- P0-2 (CommandTimeoutError): reviewed — 問題なし\n- P4-1 (runner.ts): todo — 後続依存（withSession/runCommand の呼び出し元）\n- P4-2 (conver.ts): todo — 関連（間接的に呼び出し）\n- 循環依存: なし\n\n【スタブ評価】\n- 本チケットで解決: src/session.ts ✅ + dist/session.js ✅\n- 保留妥当（別チケット）: src/conver.ts (P4-2), src/runner.ts (P4-1), dist/ 2件 — 4件\n\n【軽微な指摘】\n- Blocker: なし\n- Major: なし\n- Minor: 1文字変数 o が1件（.find()コールバック、許容範囲）",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "AcpSession: { sessionId: string } のみ、全6関数がPromise.resolve()空実装",
+              "after": "AcpSession: proc/stream/sessionId/ctx/session の5フィールド、全6関数を本実装",
+              "description": "RFC_ROOT.md §2 の完全実装に置き換え"
+            },
+            {
+              "before": "spawnAgent: Promise<void>",
+              "after": "spawnAgent: { proc, stream } を返す + DeepSeek V4 環境変数9種注入",
+              "description": "claude-agent-acp 子プロセス起動 + 環境変数注入"
+            },
+            {
+              "before": "buildClientApp: 未実装",
+              "after": "buildClientApp: ClientApp + permission 自動承認ハンドラ",
+              "description": "ClientApp 構築、allow_always 自動選択、session/update 空ハンドラ"
+            },
+            {
+              "before": "createSession: 0引数、常にスタブ返却",
+              "after": "createSession(cwd, apiKey, model): initialize → session/new → AcpSession",
+              "description": "spawnAgent→connectWith→initialize→buildSession→start、30秒タイムアウト"
+            },
+            {
+              "before": "withSession: 未実装",
+              "after": "withSession<T>: createSession → fn → finally disposeSession",
+              "description": "try/finally でセッションの確実な破棄を保証"
+            },
+            {
+              "before": "runCommand: 2引数、常に空文字返却",
+              "after": "runCommand: prompt + nextUpdate ループ + タイムアウト検出",
+              "description": "verboseモード対応、CommandTimeoutError throw"
+            },
+            {
+              "before": "disposeSession: Promise<void>、常に成功",
+              "after": "disposeSession: session.dispose() + proc.kill()、disposeエラー握りつぶし",
+              "description": "セッションとプロセスの確実な破棄"
+            },
+            {
+              "before": "src/session.test.ts: 存在しない",
+              "after": "src/session.test.ts: 9テストケース",
+              "description": "buildClientApp(2) + runCommand(4) + disposeSession(3)"
+            },
+            {
+              "before": "test-conver: 4ファイルのみ",
+              "after": "test-conver: + dist/session.test.js",
+              "description": "Makefile 更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
         }
       ]
     },
@@ -236,9 +376,9 @@
         {
           "id": 1,
           "phaseId": 4,
-          "status": "todo",
+          "status": "reviewed",
           "title": "メインループ制御 (src/runner.ts)",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§3.1-3.2)",
+          "referenceSection": "tickets/specs/0010-srcrunnerts.md, tools/conver/RFC_ROOT.md (§3.1-3.2)",
           "background": "全モジュールを統合し、チケットのループ処理を制御するメインロジック。Tickets.json から未処理チケットを順次取得し、make/plan/start → review → resolve → find の順に ACP セッションを切り替えて実行する。エラー時は Slack 通知 + プロセス停止。",
           "scope": [
             "LoopOptions インターフェース: apiKey/model/ticketsPath/maxCount/resolveEvery/pushEnabled/slackWebhookUrl/verbose/timeoutMs",
@@ -258,32 +398,75 @@
             "runLoop: pushEnabled=true → jpush-branch 実行",
             "runLoop: jpush-branch 失敗 → Slack通知 + exit 1"
           ],
-          "instrumentation": "test.sh に runner.ts テスト追加（session/notifier/tickets 全モック）"
+          "instrumentation": "静的品質チェック: 合格 (12件のconsole.log — CLI進捗報告として設計上正当) ✅\n翻訳可能性: 問題なし ✅\n  - 関数名: 全5関数が動詞句 ✅\n  - 1文字変数: なし ✅\n  - マジックナンバー: なし ✅\n  - コメント: 「なぜ」のみ ✅\nテスト: 全49件成功（既存41 + 新規8） ✅\n  - runLoop正常系: 4/4 PASS ✅\n  - runLoop異常系: 4/4 PASS ✅\n犯罪スキャン: 0件 ✅\n[::STUB::]: src/runner.ts + dist/runner.js 解決済み ✅\n残存2件: src/conver.ts + dist/conver.js（P4-2用、保留妥当）✅\n依存関係: P0-2/P1-1/P2-1/P3-1 — 全件 reviewed、整合性確認済 ✅",
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → (レビュー中)\n- コンパイル検証: tsc 成功 ✅\n- ユニットテスト: 全49件成功 ✅\n- 犯罪スキャン: 0件 ✅\n- 静的品質チェック: console.log 12件（CLI進捗報告として設計上正当）✅\n- [::STUB::] 解決: src/runner.ts + dist/runner.js 解決完了 ✅\n- 不完全実装パターン: 全7パターン該当なし ✅\n\n【翻訳可能性】✅\n- 関数名: loadPendingTickets / checkAllReviewed / getCurrentPhase / toRunCommandOptions / runLoop — 全5関数が動詞句\n- 変数名: cwd, pending, target, reviewedCount, ticketId, runOptions — ドメイン概念を正確に表現\n- 1文字変数: なし\n- マジックナンバー: なし\n- console.log: 12件（CLI進捗報告としてRFC_ROOT.md §3.2 に基づく設計上の正当な使用）\n- コメント: ファイル全体の責務説明 + ループフロー + 依存関係（「なぜ」に特化）\n\n【依存関係検証】✅\n- P0-2 (CommandTimeoutError): reviewed — 問題なし\n- P1-1 (getSourceFromTickets): reviewed — 問題なし\n- P2-1 (sendSlackError): reviewed — 問題なし\n- P3-1 (withSession/runCommand): reviewed — 問題なし\n- P4-2 (conver.ts): todo — 後続依存（runLoop の呼び出し元）\n- 循環依存: なし\n\n【スタブ評価】\n- 本チケットで解決: src/runner.ts ✅ + dist/runner.js ✅\n- 保留妥当（別チケット）: src/conver.ts (P4-2), dist/conver.js (P4-2) — 2件\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "スタブ7行",
+              "after": "4関数を本実装",
+              "description": "RFC_ROOT.md §3 完全実装"
+            },
+            {
+              "before": "テストなし",
+              "after": "8テストケース",
+              "description": "mock.module() 使用 runLoop 検証"
+            },
+            {
+              "before": "test-conver: 5ファイル",
+              "after": "+ runner.test.js + experimental flag",
+              "description": "Makefile 更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
         },
         {
           "id": 2,
           "phaseId": 4,
-          "status": "todo",
+          "status": "reviewed",
           "title": "エントリポイント (src/conver.ts)",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§7 - エントリポイント)",
-          "background": "CLIオプションのパースからループ開始への橋渡し。parseCliOptions でオプションを取得し runLoop に渡す。",
+          "referenceSection": "tools/conver/tickets/specs/0011-srcconverts.md",
+          "background": "conver.js のエントリポイント。parseCliOptions でCLI引数をパースし runLoop に渡すブリッジに徹する。コード自体は RFC_ROOT.md §7 の設計通りに既に実装済み。本チケットの主作業はスタブマーカー除去とテスト追加（src/conver.test.ts 新規作成）である。",
           "scope": [
-            "main(): Promise<void> — parseCliOptions(process.argv) → runLoop(options)",
-            "main().catch: 致命的エラー処理 + process.exit(1)"
+            "main(): Promise<void> — 既に実装済み。スタブマーカーを除去する。parseCliOptions(process.argv) → runLoop(options) の呼出連鎖。",
+            "main().catch: runLoop エラー時に process.exit(1) でプロセス終了。",
+            "src/conver.test.ts 新規作成: mock.module() で cli.ts/runner.ts をモック化し、正常系・異常系の3テストケースを実装。"
           ],
           "testVerification": [
-            "main: 正常起動 + runLoop 呼出確認（モック）",
-            "main: runLoop エラー時 process.exit(1)"
+            "正常系: main() が parseCliOptions → runLoop の順に正しく呼び出す（モック呼出確認）",
+            "異常系: runLoop が reject した時に process.exit(1) が呼ばれる",
+            "引数不足エラー伝播: cli.ts 内部の process.exit(1) が優先されることを確認"
           ],
-          "instrumentation": "test.sh に conver.ts テスト追加"
+          "instrumentation": "静的品質チェック: 合格（console.log 3件 = 起動ログ、設計上正当）\n翻訳可能性: 問題なし ✅\n  - 関数名: main() / baseOptions() — 両方動詞句 ✅\n  - 1文字変数: なし ✅\n  - マジックナンバー: なし ✅\n  - デバッグ出力: なし ✅\n  - コメント: 「なぜ」を説明 ✅\nテスト: 全52件成功（conver.test.ts 3件含む） ✅\n犯罪スキャン: 0件 ✅\n[::STUB::]: src/conver.ts + dist/conver.js 解決済み ✅\n依存関係: P0-3 reviewed / P4-1 reviewed — 整合性確認済 ✅\n不完全実装探索（7パターン）: 全て該当なし ✅",
+          "testExceptions": [
+            "process.exit(1) の実際のプロセス終了: mock.method で呼出確認のみ。実際の終了は E2E テスト",
+            "ACP バイナリの起動: P4-3 のE2Eテストで検証"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → reviewed に遷移\n- コンパイル検証: tsc 成功 ✅\n- ユニットテスト: 全52件成功 ✅\n  - conver.test.ts 3件: 正常系1 + 異常系1 + 引数確認1 — 全て PASS\n- 犯罪スキャン: 0件 ✅\n- [::STUB::] 解決: src/conver.ts + dist/conver.js 解決完了 ✅\n- 静的品質チェック: console.log 3件（起動ログ、RFC_ROOT.md 7 の設計上正当）✅\n- 不完全実装パターン: 全7パターン該当なし ✅\n\n【翻訳可能性】✅\n- 関数名: main（動詞句「メイン処理を実行する」）\n- 変数名: options, actualOptions — ドメイン概念を正確に表現\n- 1文字変数: なし\n- マジックナンバー: なし\n- console.log: 3件（起動ログ、CLIツールとしての設計上の正当な出力）\n- コメント: mock.module の制約、setImmediate の理由、型ガードの意図 — 「なぜ」に特化\n\n【依存関係検証】✅\n- P0-3 (parseCliOptions): reviewed — 問題なし\n- P4-1 (runLoop): reviewed — 問題なし\n- P4-3 (ビルド確認): todo — 後続チケット、本チケットに影響なし\n- 循環依存: なし\n\n【スタブ評価】\n- 本チケットで解決: src/conver.ts ✅ + dist/conver.js ✅\n- 残存: 0件\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "before": "main() 非公開、[::STUB::] マーカーあり",
+              "after": "main() を export に変更、マーカー除去",
+              "description": "エントリポイントの本実装完了"
+            },
+            {
+              "before": "テストファイルなし",
+              "after": "src/conver.test.ts 作成（3テストケース）",
+              "description": "正常系1 + 異常系1 + 引数確認1"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
         },
         {
           "id": 3,
           "phaseId": 4,
-          "status": "todo",
+          "status": "reviewed",
           "title": "ビルド確認・E2E動作検証",
-          "referenceSection": "tools/conver/RFC_ROOT.md (§実装詳細/ビルド・実行手順)",
-          "background": "全モジュール実装完了後の統合ビルド確認と E2E シナリオ検証。dist/conver.js が生成され、--help や必須フラグ欠如時の動作を確認する。",
+          "referenceSection": "tickets/specs/0012-e2e.md",
+          "background": "全モジュール実装完了後の統合ビルド確認と E2E シナリオ検証。dist/conver.js が生成され、--help や必須フラグ欠如時の動作を確認する。現状: tsc ビルド成功、全52テストパス、CLI動作確認済み。犯罪・スタブ0件。",
           "scope": [
             "npm run build で tsc コンパイル成功 + dist/conver.js 生成",
             "make build-conver 動作確認",
@@ -296,7 +479,18 @@
             "必須フラグ欠如でエラーメッセージ（error.ts の Notify 試験）",
             "make build-conver が成功"
           ],
-          "instrumentation": "make build-conver && node dist/conver.js --help"
+          "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 全52件成功\nビルド: 成功",
+          "relatedTicketIds": "P0-1 (tsc設定), P0-2 (error.ts), P0-3 (cli.ts), P1-1 (tickets.ts), P2-1 (notifier.ts), P3-1 (session.ts), P4-1 (runner.ts), P4-2 (conver.ts) — 全モジュール完了が前提",
+          "startedAt": "2026-06-26",
+          "changes": [
+            {
+              "file": "Makefile",
+              "description": "build-conver/run-conver ターゲットから cd tools/conver && を削除"
+            }
+          ],
+          "notes": "レビュー報告書 (P4-3):\n- 静的品質チェック: 合格 (0 issues)\n- 翻訳可能性: 問題なし（全関数動詞句、1文字変数なし、マジックナンバーなし）\n- 依存関係: 全8チケット reviewed で整合性確認済\n- 実装内容: Makefile の cd 重複バグ修正（Boy Scout改善）+ 全検証通過\n- ビルド: ✅ 成功\n- テスト: 全52件成功\n- CLI動作: --help / 引数なし / -k only 全て期待通り\n- 犯罪: 0件\n- スタブ: 0件\n\n判定: ✅ 合格",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-26"
         }
       ]
     }
