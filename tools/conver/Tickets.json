@@ -278,6 +278,44 @@
           "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nフラグ動作確認済み",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-28"
+        },
+        {
+          "id": 7,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "スラッシュコマンドのstatus更新信頼性改善",
+          "referenceSection": "tickets/specs/0021-status.md",
+          "background": "plan-ticket 完了後も status が made のままになる。原因は .md 内の status 更新が承認待ちより後にあるため。status更新を承認前に移動する。",
+          "scope": [
+            "make-ticket.md: Step 10（status→made）を Step 9 より前に移動",
+            "plan-ticket.md: ステータス更新（→planned）を承認待ちより前に移動。承認待ちを案内表示に変更",
+            "start/review は現状維持"
+          ],
+          "testVerification": [
+            "make-ticket → made が確定してから停止",
+            "plan-ticket → planned が確定してから停止",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [
+            "Claude Code の動作はテスト不可"
+          ],
+          "notes": "レビュー報告書:\n- 変更ファイル: .claude/commands/make-ticket.md, .claude/commands/plan-ticket.md（.ts コード変更なし）\n- make-ticket.md: Step 9（status=made）→ Step 10（案内）\n- plan-ticket.md: status=planned → Step 6（案内）→ Step 7（保存）\n- start-ticket.md / review-ticket.md: 変更なし（既にstatus更新が最後）\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- テスト: 56/56 PASS ✅\n- 問題点: なし",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "make-ticket.md: Step 9 ユーザー確認 → Step 10 status=made",
+              "after": "make-ticket.md: Step 9 status=made → Step 10 ユーザー確認（案内）",
+              "description": "status更新をユーザー確認より前に移動"
+            },
+            {
+              "before": "plan-ticket.md: Step 5 → Step 6 承認待ち → Step 7 保存 → status=planned",
+              "after": "plan-ticket.md: Step 5 → status=planned → Step 6 案内 → Step 7 保存",
+              "description": "status更新を承認待ちより前に移動。承認待ちを案内表示に変更"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（該当なし）\n翻訳可能性: 問題なし（.md ファイルのみ）\nテスト: 56/56 PASS\nstatus更新位置: 全4コマンドで確認済み",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
         }
       ]
     },

@@ -149,13 +149,21 @@ grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep
 - 物理的レビュー方法（`run-quality-checks.js` + 翻訳可能性 grep、**テストが全て通ることの確認を含む**）
 - リスク
 
-### Step 6: ユーザー承認待ち
+#### ステータス更新
 
-**明示的な承認を得るまで実装に入らない。**
+計画策定が完了しました。チケットの status を `planned` に更新する。
+
+```bash
+echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+### Step 6: 次に可能なアクション
+
+計画の策定が完了しました。以下のコマンドを実行して実装を開始できます: `/start-ticket $ARGUMENTS`
 
 ### Step 7: 計画の保存
 
-ユーザーの承認を得た後、計画内容を `update-ticket.js` でチケットの JSON フィールドに保存する。これにより計画内容が Tickets.json に記録される。
+計画内容を `update-ticket.js` でチケットの JSON フィールドに保存する。これにより計画内容が Tickets.json に記録される。
 
 ```bash
 echo '{
@@ -167,11 +175,3 @@ echo '{
 ```
 
 これにより、後でチケットを確認したときに「どのような計画で実装されたか」を追跡できる。
-
-#### ステータス更新
-
-計画策定完了後、チケットの status を `planned` に更新する。
-
-```bash
-echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
-```

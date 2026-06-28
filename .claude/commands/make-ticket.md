@@ -168,9 +168,17 @@ Malfeasance.json を読み取り、未解決の犯罪（`[::STUB::]` 未付与�
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-#### Step 9: ユーザー確認
+#### Step 9: ステータス更新
 
-調査結果の書き込みと仕様の具体化が完了したら、ユーザーに内容を提示して確認を求める。spec ファイルが詳細に定義され、対応する JSON フィールドが Tickets.json に反映された状態となる。
+全工程完了後、チケットの status を `made` に更新する。
+
+```bash
+echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+#### Step 10: ユーザー確認
+
+調査結果の書き込みと仕様の具体化が完了しました。以下のコマンドを実行して計画を策定できます: `/plan-ticket $ARGUMENTS`
 
 ### 深掘り
 
