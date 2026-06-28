@@ -6,6 +6,8 @@ description: "前回のコミット以降の変更を日本語でコミットメ
 
 前回のコミット以降の変更を `git diff` / `git status` で分析し、変更内容を日本語で説明するコミットメッセージを生成して `PUSH_MSG="..." make push-branch` を自動実行する。
 
+**禁止事項**: このコマンドは Tickets.json のチケットの status を絶対に変更してはならない。`update-ticket.js` を呼び出したり、`echo '{"status":...}'` を実行したりしてはならない。
+
 ## Process
 
 ### Step 1: 変更状態を確認

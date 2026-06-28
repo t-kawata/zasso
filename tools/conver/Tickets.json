@@ -316,6 +316,38 @@
           "instrumentation": "静的品質チェック: 合格（該当なし）\n翻訳可能性: 問題なし（.md ファイルのみ）\nテスト: 56/56 PASS\nstatus更新位置: 全4コマンドで確認済み",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-28"
+        },
+        {
+          "id": 8,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "runner.ts での確定的status更新",
+          "referenceSection": "tickets/specs/0022-runnerts-status.md",
+          "background": "Claude Code の自律動作により P2 全チケットの status が made に書き換えられた。runner.ts が各工程完了後、execSync で update-ticket.js を呼び出し status を確定的に設定し、.md や Claude Code の動作に依存しないようにする。",
+          "scope": [
+            "runner.ts に updateStatus() 関数追加（execSync + update-ticket.js）",
+            "各 runCommand 直後に status を強制更新：todo→made→planned→done→reviewed"
+          ],
+          "testVerification": [
+            "各工程完了後に確定的 status 更新",
+            ".md や Claude Code の動作に影響されない",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [
+            "execSync の実際の動作は E2E で確認"
+          ],
+          "notes": "レビュー報告書:\n- 変更ファイル: src/runner.ts のみ\n- updateStatus() 関数: execSync で update-ticket.js を確定的に呼び出し\n- 呼び出し位置: make→made, plan→planned, start→done, review→reviewed\n- 二重安全: .md 側と runner.ts 側の両方で status 更新が保証される\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- テスト: 56/56 PASS ✅\n- 問題点: なし",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "runner.ts: status 更新は .md 任せ",
+              "after": "runner.ts: updateStatus() 追加。各 runCommand 直後に確定的に update-ticket.js を呼び出す",
+              "description": "execSync で各工程完了直後に status を強制更新。.md や Claude Code の動作に依存しない"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\n確定的status更新: 実装確認済み",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
         }
       ]
     },
