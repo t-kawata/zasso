@@ -60,6 +60,56 @@
           "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし (関数名/変数名/デバッグ出力/マジックナンバー 全てクリア)\nテスト: 56/56 PASS\nビルド: esbuild 643.5KB 正常生成\n型チェック: tsc --noEmit 正常終了",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-26"
+        },
+        {
+          "id": 2,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js ACP接続の信頼性修正",
+          "referenceSection": "tickets/specs/0016-converjs-acp.md",
+          "background": "conver.js の ACP セッション確立に原因不明のバグがあり、claude-agent-acp との接続が「ACP connection closed」で失敗する。全く同じロジックのテストコード（acp-test.mjs）では接続は成功する。テスト実証済みのコードパターンに置き換えて問題を回避する。",
+          "scope": [
+            "session.ts の spawnAgent/createSession/withSession/runCommand/disposeSession をテスト実証済みパターンに書き換え",
+            "conver.ts のグローバルエラーハンドラを全削除",
+            "acp-test.mjs を回帰テストとして保存"
+          ],
+          "testVerification": [
+            "node ./conver.js -k <key> -s <url> -c 1 -v 1 が1チケット以上処理完了",
+            "make test-conver 全テスト PASS",
+            "acp-test.mjs <key> 全15テスト PASS"
+          ],
+          "testExceptions": [
+            "claude-agent-acp との実結合テストはモック不可",
+            "acp-test.mjs を E2E テストとして手動実行"
+          ],
+          "notes": "レビュー報告書: P-1-2 conver.js ACP接続の信頼性修正\n---\n【Step1】存在確認: ✅ P-1-2 存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ PX-1 (reviewed) への依存整合性確認済、相互参照矛盾なし\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ make typecheck OK, make test-conver 56/56 PASS\n【Step8】静的品質チェック: ✅ 0 issues\n【Step9】翻訳可能性: ✅ 問題なし\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な変更: connect() → connectWith() 置換、バイナリ探索関数追加、createSession 非公開化、proc.on(error) ハンドラ追加、disposeSession に connection.close() 追加。",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "createSession: app.connect() + 手動initialize/buildSession",
+              "after": "createSession: app.connectWith() + SDK管理のrunUntilループ",
+              "description": "ACP接続パターンを acp-test.mjs 実証済みの connectWith に変更"
+            },
+            {
+              "before": "createSession: 公開 (export)",
+              "after": "createSession: 非公開 (withSession 経由のみ)",
+              "description": "createSession を公開APIから削除（内部実装詳細に）"
+            },
+            {
+              "before": "connection: app.connect() 戻り値",
+              "after": "connection: { close: () => proc.stdin.end(); proc.kill() }",
+              "description": "connectWith では connection オブジェクトを手動生成"
+            },
+            {
+              "before": "AcpSession.connection JSDoc: app.connect()",
+              "after": "AcpSession.connection JSDoc: connectWith",
+              "description": "古くなったコメントを更新"
+            }
+          ],
+          "relatedTicketIds": "PX-1 (先行完了必須 — esbuild バンドル構築)",
+          "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし（関数名/変数名/デバッグ出力/マジックナンバー 全てクリア）\nテスト: 56/56 PASS\n型チェック: tsc --noEmit 正常終了",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
         }
       ]
     },

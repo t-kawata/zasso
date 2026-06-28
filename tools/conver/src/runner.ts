@@ -93,7 +93,9 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
  */
 export async function runLoop(options: LoopOptions): Promise<void> {
   const cwd = path.resolve(process.cwd());
-  const pending = loadPendingTickets(options.ticketsPath).sort((a, b) => a.id - b.id);
+  const pending = loadPendingTickets(options.ticketsPath).sort(
+    (a, b) => a.phaseId - b.phaseId || a.id - b.id,
+  );
   const target = pending.slice(0, options.maxCount);
 
   let reviewedCount = 0;
@@ -172,6 +174,14 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         ticketsPath: options.ticketsPath,
       });
       console.error(`\n❌ エラー発生: ${err.message}`);
+      if (err.message.includes("connect") || err.message.includes("initialize")) {
+        console.error("");
+        console.error("ACP セッションの初期化に失敗しました。考えられる原因:");
+        console.error("  - DeepSeek API キーが正しくない");
+        console.error("  - ネットワーク接続の問題");
+        console.error("  - claude-agent-acp のバージョン不一致");
+        console.error("環境変数 ANTHROPIC_BASE_URL が正しいか確認してください。");
+      }
       process.exit(1);
     }
   }

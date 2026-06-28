@@ -91,10 +91,9 @@ before(() => {
 // --- テスト ---
 
 describe("conver", () => {
-  // ★ 最初のテストで import が発生する。main() が自動実行される。
-  //   最初のテストでエラーモックを使うことで、catch ブロックの挙動を検証する。
+  // entry.ts（エントリポイント）と同等の main() 呼び出しをテストする。
 
-  it("import 時に runLoop エラー → process.exit(1) が呼ばれる", async () => {
+  it("runLoop エラー時に process.exit(1) が呼ばれる", async () => {
     mockState.runLoopImpl = () => Promise.reject(new Error("test error"));
     mockState.exitCalls = [];
     mockState.parseCliOptionsCalled = false;
@@ -103,10 +102,10 @@ describe("conver", () => {
       mockState.exitCalls.push(code ?? 0);
     });
 
-    await import("./conver.js");
+    const { main } = await import("./conver.js");
+    // entry.ts 相当: main() → catch → process.exit(1)
+    main().catch(() => process.exit(1));
 
-    // await import() の解決後、main() の .catch() がマイクロタスクで実行される。
-    // setImmediate でマイクロタスクキューをフラッシュする。
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     assert.strictEqual(mockState.exitCalls[0], 1);

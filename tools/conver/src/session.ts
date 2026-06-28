@@ -14,12 +14,33 @@
 // に変更された。RFC-001（RFC_ROOT.md）も本実装に追従している。
 
 import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
+import fs from "node:fs";
 import { Writable, Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import { CommandTimeoutError } from "./error.js";
 
-// claude-agent-acp バイナリ名 — PATH に存在することを前提とする
-const ACP_BINARY = "claude-agent-acp";
+// claude-agent-acp バイナリの検索
+//
+// 同一ディレクトリの node_modules/.bin/ を優先し、なければ PATH からの
+// 解決にフォールバックする。これにより npm install でローカルインス
+// トールされたバイナリが PATH に追加されていなくても動作する。
+const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveAcpBinary(): string {
+  // tsc 出力時は DIRNAME = dist/、バンドル時はプロジェクトルート
+  const candidates = [
+    path.join(DIRNAME, "node_modules", ".bin", "claude-agent-acp"),
+    path.join(DIRNAME, "..", "node_modules", ".bin", "claude-agent-acp"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return "claude-agent-acp";
+}
+
+const ACP_BINARY = resolveAcpBinary();
 
 // ACP セッションの状態を保持するインターフェース
 export interface AcpSession {
@@ -28,6 +49,8 @@ export interface AcpSession {
   sessionId: string;
   ctx: acp.ClientContext;
   session: acp.ActiveSession;
+  /** connectWith 経由で開いた接続（disposeSession で close する） */
+  connection: { close: (error?: unknown) => void };
 }
 
 // runCommand のオプション
@@ -65,6 +88,34 @@ export function spawnAgent(
     },
   });
 
+  // claude-agent-acp の起動失敗（ENOENT）のみ捕捉する。
+  // 起動後のエラー（EPIPE など）は createSession / runUntil が適切に処理
+  // するため、ここでは process.exit を呼ばない（セッション終了時のパイプ
+  // 切断エラーでプロセス全体が強制終了するのを防ぐ）。
+  proc.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") {
+      console.error("");
+      console.error("エラー: claude-agent-acp が見つかりません。");
+      console.error("conver.js は外部プロセスとして claude-agent-acp を起動する必要があります。");
+      console.error("");
+      console.error("インストール方法:");
+      console.error("  npm install -g @agentclientprotocol/claude-agent-acp");
+      console.error("");
+      console.error("またはカレントディレクトリにインストール:");
+      console.error("  npm install @agentclientprotocol/claude-agent-acp");
+      console.error("");
+      process.exit(1);
+    }
+    // 起動後のエラーは無視する（createSession / runUntil がハンドリングする）
+  });
+
+  // パイプのエラーをサイレントに抑止 — 子プロセス終了時の EPIPE などは
+  // 上位のエラー処理で既にカバーされている。
+  // 各パイプに対して2重にエラーハンドラを設定し、どのレベルでエラーが
+  // 発生しても確実に捕捉する。
+  proc.stdin?.on("error", () => {});
+  proc.stdout?.on("error", () => {});
+
   // Node.js Stream → Web Stream 変換 → ACP ndjson Stream
   // Writable.toWeb / Readable.toWeb は Node.js 26 の型では any を返すため、
   // ndJsonStream が期待する型にキャストする
@@ -91,75 +142,70 @@ export function buildClientApp(): acp.ClientApp {
       return {
         outcome: {
           outcome: "selected" as const,
-          optionId: option!.optionId,
+          optionId: option?.optionId ?? params.options[0]?.optionId ?? "",
         },
       };
     })
     .onNotification(acp.methods.client.session.update, () => {});
 }
 
-// ACP セッションを生成する
+// withSession — ACP セッションのライフサイクルを管理する
 //
-// 1. spawnAgent() で claude-agent-acp 子プロセス + stream 起動
-// 2. initialize でプロトコルバージョン合意
-// 3. buildSession(cwd).start() でセッション開始
-// 4. 30秒の初期化タイムアウト（超過時は proc.kill + reject）
-export async function createSession(
-  cwd: string,
-  apiKey: string,
-  model: string,
-): Promise<AcpSession> {
-  const { proc, stream } = spawnAgent(apiKey, model);
-  const app = buildClientApp();
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      proc.kill();
-      reject(new Error("ACPセッション初期化タイムアウト"));
-    }, 30000);
-
-    app.connectWith(stream, async (ctx) => {
-      try {
-        await ctx.request(acp.methods.agent.initialize, {
-          protocolVersion: acp.PROTOCOL_VERSION,
-          clientCapabilities: {} as never,
-        });
-
-        const session = await ctx.buildSession(cwd).start();
-        clearTimeout(timeout);
-
-        resolve({
-          proc,
-          stream,
-          sessionId: session.sessionId,
-          ctx,
-          session,
-        });
-      } catch (err) {
-        clearTimeout(timeout);
-        proc.kill();
-        reject(err);
-      }
-    });
-  });
-}
-
-// createSession → fn → finally disposeSession を保証するヘルパー
+// 1. spawnAgent() で claude-agent-acp 子プロセス + ndjson stream 起動
+// 2. connectWith() で接続を開き、initialize → buildSession を実行
+// 3. fn(session) を connectWith のコールバック内部で実行（接続が閉じる前）
+// 4. finally でセッションと子プロセスをクリーンアップ
 //
-// try/finally でセッションの確率な破棄を保証する。
-// fn が例外を throw した場合も disposeSession は実行される。
+// 注意: connectWith の runUntil はコールバック完了後に接続を閉じるため、
+// fn は必ずコールバック内部で実行しなければならない。
 export async function withSession<T>(
   cwd: string,
   apiKey: string,
   model: string,
   fn: (session: AcpSession) => Promise<T>,
 ): Promise<T> {
-  const session = await createSession(cwd, apiKey, model);
-  try {
-    return await fn(session);
-  } finally {
-    disposeSession(session);
-  }
+  const { proc, stream } = spawnAgent(apiKey, model);
+  const app = buildClientApp();
+
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      proc.kill();
+      reject(new Error("ACPセッション初期化タイムアウト"));
+    }, 30000);
+
+    // ★ acp-test.mjs と同じ connectWith パターン
+    //    fn をコールバック内部で実行し、接続が閉じられる前に完了させる
+    app.connectWith(stream, async (ctx) => {
+      let activeSession: acp.ActiveSession | null = null;
+      try {
+        await ctx.request(acp.methods.agent.initialize, {
+          protocolVersion: acp.PROTOCOL_VERSION,
+          clientCapabilities: {} as never,
+        });
+
+        const s = await ctx.buildSession(cwd).start();
+        activeSession = s;
+        clearTimeout(timeout);
+
+        const acpSession: AcpSession = {
+          proc,
+          stream,
+          sessionId: s.sessionId,
+          ctx,
+          session: s,
+          connection: { close: () => { proc.stdin?.end(); proc.kill(); } },
+        };
+
+        resolve(await fn(acpSession));
+      } catch (err) {
+        reject(err);
+      } finally {
+        try { activeSession?.dispose(); } catch { /* ignore */ }
+        proc.stdin?.end();
+        proc.kill();
+      }
+    });
+  });
 }
 
 // ACP セッションでコマンドを実行する
@@ -224,5 +270,11 @@ export function disposeSession(acpSession: AcpSession): void {
   } catch {
     // dispose エラーは無視する
   }
+  try {
+    acpSession.connection.close();
+  } catch {
+    // close エラーは無視する
+  }
+  acpSession.proc.stdin?.end();
   acpSession.proc.kill();
 }

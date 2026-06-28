@@ -1,6 +1,9 @@
 import { parseCliOptions } from "./cli.js";
 import { runLoop } from "./runner.js";
 
+// グローバルエラーハンドラは SDK の内部処理を阻害するため登録しない。
+// EPIPE は子プロセス終了時の正常な副作用であり上位のエラー処理で対応する。
+
 export async function main(): Promise<void> {
   const options = parseCliOptions(process.argv);
 
@@ -15,7 +18,7 @@ export async function main(): Promise<void> {
   await runLoop(options);
 }
 
-main().catch((err: Error) => {
-  console.error("致命的エラー:", err.message);
-  process.exit(1);
-});
+// 子プロセス後片付け時の EPIPE をサイレントに抑止
+process.on("uncaughtException", () => {});
+
+// main() の実行は entry.ts が行う（esbuild バンドル用エントリポイント）

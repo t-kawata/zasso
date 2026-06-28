@@ -3,7 +3,7 @@
 // テスト方針:
 //   runCommand / disposeSession はモック AcpSession で検証可能。
 //   buildClientApp はインストール済みの @agentclientprotocol/sdk を実際に使用。
-//   spawnAgent / createSession は claude-agent-acp バイナリ依存のため test.sh で検証。
+//   createSession（非公開）は claude-agent-acp バイナリ依存のため test.sh で検証。
 //   withSession は createSession 経由のため実際のセッションが必要 — エラーハンドリングのみ検証。
 //
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する。
@@ -18,7 +18,7 @@ import { CommandTimeoutError } from "./error.js";
 /** AcpSession モックを生成する */
 function mockSession(overrides?: Partial<AcpSession>): AcpSession {
   return {
-    proc: { kill: () => {} } as any,
+    proc: { kill: () => {}, stdin: { end: () => {} } } as any,
     stream: {} as any,
     sessionId: "mock-sid",
     ctx: {} as any,
@@ -28,6 +28,7 @@ function mockSession(overrides?: Partial<AcpSession>): AcpSession {
       nextUpdate: () => new Promise(() => {}),
       dispose: () => {},
     } as any,
+    connection: { close: () => {} },
     ...overrides,
   };
 }

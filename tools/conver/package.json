@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/conver.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm --minify",
+    "build": "esbuild src/entry.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm --minify",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "^0.52.0",
     "@agentclientprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
