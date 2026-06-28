@@ -234,6 +234,17 @@ const SEVERITY_EMOJI: Record<string, string> = {
   low: "🔵",
 };
 
+// omission type → 日本語ラベル（convert-omissions-to-markdown.js から移植）
+const TYPE_LABEL: Record<string, string> = {
+  missing_implementation: "実装漏れ",
+  incomplete_implementation: "実装不足",
+  design_deviation: "設計不一致",
+  bug: "バグ",
+  stub_remaining: "スタブ残存",
+  test_missing: "テスト欠落",
+  inconsistency: "不整合",
+};
+
 /** OMISSIONS 配列の各要素をコードブロック用の文字列に整形する */
 export function buildOmissionsBlocks(
   omissions: Array<{
@@ -242,6 +253,7 @@ export function buildOmissionsBlocks(
     severity?: string;
     rfcSection?: string;
     description?: string;
+    details?: string;
     affectedFiles?: string[];
     suggestedResolution?: string;
   }>,
@@ -253,14 +265,29 @@ export function buildOmissionsBlocks(
   const lines: string[] = [`🔍 ${omissions.length}件の設計との乖離が見つかりました。`];
   for (const o of omissions) {
     const emoji = SEVERITY_EMOJI[o.severity ?? ""] ?? "⚪";
-    const tag = `${emoji} ${o.id ?? "(no-id)"} [${o.type ?? "?"}] ${o.rfcSection ?? ""}: ${o.description ?? ""}`;
-    lines.push(tag);
-    if (o.affectedFiles?.length) {
-      lines.push(`      affectedFiles: ${o.affectedFiles.join(", ")}`);
+    const tl = TYPE_LABEL[o.type ?? ""] ?? o.type ?? "?";
+    const sec = o.rfcSection ? " §" + o.rfcSection : "";
+    lines.push("");
+    lines.push(`### ${o.id ?? "(no-id)"} ${emoji} [${tl}]${sec}`);
+    lines.push("");
+    lines.push(o.description ?? "");
+    if (o.details) {
+      lines.push("");
+      lines.push(`**詳細**: ${o.details}`);
+    }
+    if (o.affectedFiles && o.affectedFiles.length > 0) {
+      lines.push("");
+      lines.push("**該当ファイル**:");
+      for (const af of o.affectedFiles) {
+        lines.push("- `" + af + "`");
+      }
     }
     if (o.suggestedResolution) {
-      lines.push(`      suggestedResolution: ${o.suggestedResolution}`);
+      lines.push("");
+      lines.push(`**解決方法**: ${o.suggestedResolution}`);
     }
+    lines.push("");
+    lines.push("---");
   }
   return lines.join("\n") + "\n";
 }
@@ -274,6 +301,7 @@ export async function sendOmissionsNotification(
   cwd: string,
 ): Promise<void> {
   let text: string;
+  let summaryLine: string = "";
 
   try {
     const files = readdirSync(cwd).filter((f) => /^OMISSIONS-\d+\.json$/.test(f));
@@ -281,9 +309,20 @@ export async function sendOmissionsNotification(
       text = "OMISSIONS は生成されませんでした（ファイルが見つかりません）。";
     } else {
       const latest = files.sort().pop()!;
-      const raw = readFileSync(path.join(cwd, latest), "utf-8");
+      const latestPath = path.join(cwd, latest);
+      const raw = readFileSync(latestPath, "utf-8");
       const data = JSON.parse(raw);
-      text = buildOmissionsBlocks(data.omissions ?? []);
+      const count = (data.omissions ?? []).length;
+      summaryLine = `---\n漏れ・矛盾・不足が、${count}件見つかりました（ \`${latestPath}\` ）。`;
+      const header = [
+        `# ${path.basename(latest, ".json")}`,
+        `> 生成元: \`${latestPath}\``,
+        data.parentRfcTitle ? `- **タイトル**: ${data.parentRfcTitle}` : "",
+        data.summary ? `- **サマリ**: ${data.summary}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      text = header + "\n\n" + buildOmissionsBlocks(data.omissions ?? []);
     }
   } catch {
     text = "OMISSIONS の読み取り中にエラーが発生しました。";
@@ -292,7 +331,7 @@ export async function sendOmissionsNotification(
   const payload = {
     username: "conver",
     icon_emoji: ":mag:",
-    text: `\`\`\`\n${text}\`\`\``,
+    text: summaryLine ? `${summaryLine}\n\`\`\`\n${text}\`\`\`` : `\`\`\`\n${text}\`\`\``,
   };
 
   await sendSlackWithRetry(webhookUrl, payload);

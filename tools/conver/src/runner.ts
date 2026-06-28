@@ -332,7 +332,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
         // Step 4: 全チケット reviewed チェック → Session D: find-omissions
         if (checkAllReviewed(options.ticketsPath)) {
-          console.log("  🎯 全チケット reviewed → find-omissions...");
+          printCommandHeader("/find-omissions-for-next-rfc");
           const source = getSourceFromTickets(options.ticketsPath);
           await withSession(
             cwd,
