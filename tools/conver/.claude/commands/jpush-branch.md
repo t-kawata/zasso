@@ -1,10 +1,10 @@
 ---
-description: "前回のコミット以降の変更を日本語でコミットメッセージにまとめ、make push を実行"
+description: "前回のコミット以降の変更を日本語でコミットメッセージにまとめ、make push-branch を実行"
 ---
 
-# JPush — 日本語コミット＆プッシュ
+# JPush Branch — 日本語コミット＆ブランチプッシュ
 
-前回のコミット以降の変更を `git diff` / `git status` で分析し、変更内容を日本語で説明するコミットメッセージを生成して `PUSH_MSG="..." make push` を自動実行する。
+前回のコミット以降の変更を `git diff` / `git status` で分析し、変更内容を日本語で説明するコミットメッセージを生成して `PUSH_MSG="..." make push-branch` を自動実行する。
 
 ## Process
 
@@ -86,65 +86,18 @@ fix: ユーザー名に特殊文字を含む場合の認証エラーを修正
 - **影響範囲**: 認証モジュールのsanitize処理のみ。既存の正常なユーザー名には影響しない
 ```
 
-### Step 4: リリースノートを生成
-
-Step 2 の分析結果をもとに、プロジェクトのリリースノートを英語で生成する。
+### Step 4: 変更をコミット＆プッシュ
 
 ```bash
-# プロジェクトの次のバージョン番号を取得
-cd /path/to/project-root && make next-version
+PUSH_MSG="<Step 3 で生成したコミットメッセージ>" make push-branch
 ```
 
-手順:
-1. `cd /path/to/project-root && make next-version` を実行し、次のバージョン番号を取得する（例: `v0.24.42`）
-2. `/path/to/project-root/release-notes/` ディレクトリが存在しない場合は作成する
-3. `/path/to/project-root/release-notes/<バージョン>.md` にリリースノートを書き出す（例: `v0.24.42.md`）
-
-リリースノートのフォーマット:
-
-```markdown
-# Release v<version>
-
-## Summary
-<英語で変更の概要を1〜2文>
-
-## What's Changed
-<GitHub Releases に記載する形式で変更点を英語で箇条書き>
-- <新機能>
-- <バグ修正>
-- <リファクタリング／改善>
-```
-
-**内容生成のルール**:
-- 言語は **英語**（GitHub の国際的な公開リリースノートとして使用されるため）
-- 概要（Summary）は 1〜2 文で、今回のリリースの要点を伝える
-- What's Changed は Step 2 の分析結果を元に、変更の種類ごとに整理して箇条書き
-- ファイル名は `v` から始め、バージョン番号 + `.md`（例: `v0.24.41.md`）
-- 書き出す前に既に同名ファイルが存在する場合は上書きしてよい
-
-### Step 5: リリースノートをリポジトリにコミット＆プッシュ
-
-生成したリリースノートをプロジェクトのリポジトリにコミットし、プッシュする。
-
-```bash
-cd /path/to/project-root
-git add release-notes/
-git commit -m "docs: add release notes for <バージョン>"
-git push origin master
-```
-
-### Step 6: 変更をコミット＆プッシュ
-
-```bash
-PUSH_MSG="<Step 3 で生成したコミットメッセージ>" make push
-```
-
-### Step 7: 結果報告
+### Step 5: 結果報告
 
 実行結果を報告する。失敗した場合はエラー内容を表示して終了。
 
 ## Edge Cases
 
-- **`make push` が定義されていない**: Makefile が存在しない、または `push` ターゲットがない場合。「Makefile に push ターゲットが見つかりません」と報告して終了。
+- **`make push-branch` が定義されていない**: Makefile が存在しない、または `push` ターゲットがない場合。「Makefile に push ターゲットが見つかりません」と報告して終了。
 - **変更量が膨大**: diff の全出力が巨大な場合、`git diff --stat` を優先し、詳細は主要ファイルのみ確認する。
 - **コンフリクト残留**: `git status` に `UU` や `AA` などのコンフリクトマーカーがある場合、「コンフリクトが解消されていません」と報告して終了。

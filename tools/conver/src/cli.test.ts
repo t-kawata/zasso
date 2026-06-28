@@ -53,7 +53,7 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.maxCount, 999999);
     assert.strictEqual(options.resolveEvery, 3);
     assert.strictEqual(options.pushEnabled, true);
-    assert.strictEqual(options.verbose, false);
+    assert.strictEqual(options.verbose, true);
     assert.strictEqual(options.timeoutMs, 1800000);
   });
 

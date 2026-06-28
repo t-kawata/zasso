@@ -29,7 +29,7 @@ Options:
   -p, --push <0|1>           Auto jpush-branch after resolve (default: 1)
   -m, --model <name>         AI model (default: deepseek-v4-flash)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
-  -v, --verbose <0|1>        Verbose output (default: 0)
+  -v, --verbose <0|1>        Verbose output (default: 1)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
   -h, --help                 Show this message
   --version                  Show version number`);
@@ -46,7 +46,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       "resolve-every": { type: "string", short: "r", default: "3" },
       push: { type: "string", short: "p", default: "1" },
       "slack-url": { type: "string", short: "s" },
-      verbose: { type: "string", short: "v", default: "0" },
+      verbose: { type: "string", short: "v", default: "1" },
       timeout: { type: "string", default: "1800" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", default: false },

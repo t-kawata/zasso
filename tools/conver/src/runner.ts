@@ -19,6 +19,7 @@
 //       P2-1 (notifier.ts — sendSlackError),
 //       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getSourceFromTickets)
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
@@ -94,19 +95,59 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
  * 3. process.exit(1) でプロセス終了
  */
 /** コマンド実行前に視認性の高いヘッダーを出力する */
-function printCommandHeader(command: string, ticketId: string, title: string): void {
+function printCommandHeader(command: string, ticketId?: string, title?: string): void {
   const separator = "=".repeat(46);
   console.log(`\n${separator}`);
-  console.log(`🟢 ${command} ${ticketId}: ${title}`);
+  if (ticketId && title) {
+    console.log(`🟢 ${command} ${ticketId}: ${title}`);
+  } else {
+    console.log(`🟢 ${command}`);
+  }
   console.log(`${separator}\n`);
 }
 
-/** `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
+/** Tickets.json から処理済みチケットをフェーズ別に整形する */
+function buildProcessedText(
+  ticketsPath: string,
+  processed: Array<{ id: string; title: string; phaseId: number }>,
+): string[] {
+  try {
+    const raw = readFileSync(ticketsPath, "utf-8");
+    const data = JSON.parse(raw);
+    const phaseNames = new Map<number, string>();
+    for (const phase of data.phases || []) {
+      phaseNames.set(phase.id, phase.name);
+    }
+
+    // phaseId 順にグループ化
+    const byPhase = new Map<number, typeof processed>();
+    for (const t of processed) {
+      const list = byPhase.get(t.phaseId) ?? [];
+      list.push(t);
+      byPhase.set(t.phaseId, list);
+    }
+
+    const lines: string[] = [];
+    const sortedPhaseIds = [...byPhase.keys()].sort((a, b) => a - b);
+    for (const pid of sortedPhaseIds) {
+      const pname = phaseNames.get(pid) ?? "";
+      const phaseLabel = pid === -1 ? "PX" : `P${pid}`;
+      lines.push(`${phaseLabel}: ${pname}`);
+      for (const t of byPhase.get(pid)!) {
+        lines.push(`    * ${t.id}: ${t.title}`);
+      }
+    }
+    return lines;
+  } catch {
+    return ["(処理済みチケット一覧の生成に失敗しました)"];
+  }
+}
+
+/** カレントディレクトリの `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
 function buildProgressText(ticketsPath: string): string {
   try {
     const script = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
+      process.cwd(),
       ".claude",
       "scripts",
       "tickets",
@@ -128,11 +169,11 @@ export async function runLoop(options: LoopOptions): Promise<void> {
   const target = pending.slice(0, options.maxCount);
 
   let reviewedCount = 0;
-  const processedTickets: Array<{ id: string; title: string }> = [];
+  const processedTickets: Array<{ id: string; title: string; phaseId: number }> = [];
 
   for (const ticket of target) {
     const ticketId = `P${ticket.phaseId}-${ticket.id}`;
-    processedTickets.push({ id: ticketId, title: ticket.title });
+    processedTickets.push({ id: ticketId, title: ticket.title, phaseId: ticket.phaseId });
     const runOptions = toRunCommandOptions(options);
 
     try {
@@ -166,7 +207,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         // Step 3b: オプション — jpush-branch（pushEnabled が true の場合のみ）
         if (options.pushEnabled) {
           try {
-            printCommandHeader("/jpush-branch", ticketId, ticket.title);
+            printCommandHeader("/jpush-branch");
             await withSession(cwd, options.apiKey, options.model, async (session) => {
               await runCommand(session, "/jpush-branch", runOptions);
             });
@@ -184,8 +225,9 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
         // 全チケット完了時: Slack に完了通知を送信
         if (reviewedCount === target.length) {
-          const processed = processedTickets.map(
-            (t) => `    * ${t.id}: ${t.title}`,
+          const processed = buildProcessedText(
+            options.ticketsPath,
+            processedTickets,
           );
           const progress = buildProgressText(options.ticketsPath);
           const successCtx: SuccessContext = {

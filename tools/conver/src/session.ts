@@ -67,7 +67,7 @@ export interface RunCommandOptions {
 //   ANTHROPIC_AUTH_TOKEN — DeepSeek API キー
 //   ANTHROPIC_MODEL / ANTHROPIC_DEFAULT_* — 使用モデル指定
 //   CLAUDE_CODE_SUBAGENT_MODEL — サブエージェントモデル
-//   CLAUDE_CODE_EFFORT_LEVEL=xhigh — 推論努力レベル
+//   CLAUDE_CODE_EFFORT_LEVEL=high — 推論努力レベル
 export function spawnAgent(
   apiKey: string,
   model: string,
@@ -84,7 +84,7 @@ export function spawnAgent(
       ANTHROPIC_DEFAULT_SONNET_MODEL: model,
       ANTHROPIC_DEFAULT_HAIKU_MODEL: model,
       CLAUDE_CODE_SUBAGENT_MODEL: model,
-      CLAUDE_CODE_EFFORT_LEVEL: "xhigh",
+      CLAUDE_CODE_EFFORT_LEVEL: "high",
     },
   });
 
