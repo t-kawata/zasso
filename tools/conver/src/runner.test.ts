@@ -36,6 +36,7 @@ function baseOptions(overrides?: Partial<LoopOptions>): LoopOptions {
     slackWebhookUrl: "https://hooks.slack.com/test",
     verbose: false,
     timeoutMs: 5000,
+    bindReviewInOneSession: true,
     ...overrides,
   };
 }

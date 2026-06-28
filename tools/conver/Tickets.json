@@ -230,6 +230,54 @@
           "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nセッション構造: make/plan/start/review 統合確認済み",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-28"
+        },
+        {
+          "id": 6,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "reviewセッション統合/分離フラグの追加",
+          "referenceSection": "tickets/specs/0020-review.md",
+          "background": "PX-5 で固定された review 同セッション統合を、-b フラグで切り替え可能にする。デフォルトは統合（-b 1）。",
+          "scope": [
+            "-b / --bind-review-in-one-session フラグ追加（0/1、デフォルト1）",
+            "CliOptions/LoopOptions に bindReviewInOneSession 追加",
+            "runner.ts のセッション分岐をフラグでガード"
+          ],
+          "testVerification": [
+            "-b 0 → bindReviewInOneSession: false",
+            "-b 1／未指定 → bindReviewInOneSession: true",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [
+            "なし"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- テスト: 56/56 PASS ✅\n- -b フラグ: デフォルト1（統合）、0（分離）で正しく動作\n- ?? true ガード: 未設定時も安全に統合モード\n- list-phases-and-tickets.js 後退を修正済み\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 問題点: なし",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "cli.ts: bindReviewInOneSession なし",
+              "after": "cli.ts: -b フラグ追加（0/1、デフォルト1）",
+              "description": "CLI引数パースとCliOptionsインターフェースに追加"
+            },
+            {
+              "before": "runner.ts: review 常に同セッション固定",
+              "after": "runner.ts: -b フラグでreview統合/分離切替",
+              "description": "bindReviewInOneSession ?? true で安全なデフォルト"
+            },
+            {
+              "before": "cli.test.ts: デフォルト値テスト不足",
+              "after": "cli.test.ts: bindReviewInOneSession: true の検証追加",
+              "description": "最小構成テストにアサーション追加"
+            },
+            {
+              "before": "runner.test.ts: baseOptions に bindReviewInOneSession なし",
+              "after": "runner.test.ts: baseOptions に true を追加",
+              "description": "型エラー回避のため明示的に設定"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nフラグ動作確認済み",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
         }
       ]
     },

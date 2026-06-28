@@ -50,6 +50,7 @@ export interface LoopOptions {
   slackWebhookUrl: string;
   verbose: boolean;
   timeoutMs: number;
+  bindReviewInOneSession: boolean;
 }
 
 /** チケットの最小情報。Tickets.json から抽出した未処理チケットを表す。 */
@@ -200,9 +201,11 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
     try {
       const s = ticket.status;
+      const bindReview = options.bindReviewInOneSession ?? true;
 
-      // Session A: make/plan/start/review を1つの withSession に統合
-      //   各コマンド完了直後に完了メッセージを出力する
+      // Session A: make/plan/start/review（統合モード時は同セッション）
+      //   -b 1（デフォルト）: [make→plan→start→review]
+      //   -b 0:              [make→plan→start] → 別セッションで review
       if (s === "todo" || s === "made" || s === "planned") {
         await withSession(
           cwd,
@@ -222,13 +225,17 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             printCommandHeader("/start-ticket", ticketId, ticket.title);
             await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
             console.log("\n>>> ✅ start-ticket 完了");
-            printCommandHeader("/review-ticket", ticketId, ticket.title);
-            await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
-            console.log("\n>>> ✅ review 完了");
+            if (bindReview) {
+              printCommandHeader("/review-ticket", ticketId, ticket.title);
+              await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
+              console.log("\n>>> ✅ review 完了");
+            }
           },
         );
-      } else {
-        // done: review のみ
+      }
+
+      // review を別セッションで実行（分離モード または done）
+      if (!bindReview || s === "done") {
         printCommandHeader("/review-ticket", ticketId, ticket.title);
         await withSession(
           cwd,

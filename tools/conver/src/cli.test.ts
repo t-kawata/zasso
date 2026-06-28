@@ -55,6 +55,7 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.pushEnabled, true);
     assert.strictEqual(options.verbose, true);
     assert.strictEqual(options.timeoutMs, 1800000);
+    assert.strictEqual(options.bindReviewInOneSession, true);
   });
 
   it("-v 1 で verbose=true になる", () => {

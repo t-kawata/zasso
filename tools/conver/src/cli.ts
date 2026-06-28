@@ -13,6 +13,7 @@ export interface CliOptions {
   slackWebhookUrl: string;
   verbose: boolean;
   timeoutMs: number;
+  bindReviewInOneSession: boolean;
 }
 
 function showUsage(): void {
@@ -31,6 +32,8 @@ Options:
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 1)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
+  -b, --bind-review-in-one-session <0|1>
+                             Bind review in same session (default: 1)
   -h, --help                 Show this message
   --version                  Show version number`);
 }
@@ -48,6 +51,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       "slack-url": { type: "string", short: "s" },
       verbose: { type: "string", short: "v", default: "1" },
       timeout: { type: "string", default: "1800" },
+      "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", default: false },
     },
@@ -85,5 +89,6 @@ export function parseCliOptions(argv: string[]): CliOptions {
     slackWebhookUrl: parsed.values["slack-url"],
     verbose: parsed.values.verbose === "1",
     timeoutMs: parseInt(parsed.values.timeout, 10) * 1000,
+    bindReviewInOneSession: parsed.values["bind-review-in-one-session"] === "1",
   };
 }
