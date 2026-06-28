@@ -91,6 +91,14 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
  * 2. コンソールにエラー出力
  * 3. process.exit(1) でプロセス終了
  */
+/** コマンド実行前に視認性の高いヘッダーを出力する */
+function printCommandHeader(command: string, ticketId: string, title: string): void {
+  const separator = "=".repeat(46);
+  console.log(`\n${separator}`);
+  console.log(`🟢 ${command} ${ticketId}: ${title}`);
+  console.log(`${separator}\n`);
+}
+
 export async function runLoop(options: LoopOptions): Promise<void> {
   const cwd = path.resolve(process.cwd());
   const pending = loadPendingTickets(options.ticketsPath).sort(
@@ -104,20 +112,20 @@ export async function runLoop(options: LoopOptions): Promise<void> {
     const ticketId = `P${ticket.phaseId}-${ticket.id}`;
     const runOptions = toRunCommandOptions(options);
 
-    console.log(`\n▶ [${ticketId}] ${ticket.title}`);
-
     try {
       // Step 1: Session A — make / plan / start（1セッションで3コマンド連続実行）
-      console.log("  make/plan/start...");
+      printCommandHeader("/make-ticket", ticketId, ticket.title);
       await withSession(cwd, options.apiKey, options.model, async (session) => {
         await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
+        printCommandHeader("/plan-ticket", ticketId, ticket.title);
         await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
+        printCommandHeader("/start-ticket", ticketId, ticket.title);
         await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
       });
       console.log("  ✅ make/plan/start 完了");
 
       // Step 2: Session B — review
-      console.log("  review...");
+      printCommandHeader("/review-ticket", ticketId, ticket.title);
       await withSession(cwd, options.apiKey, options.model, async (session) => {
         await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
       });
@@ -126,7 +134,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
       // Step 3: Session C — resolve（resolveEvery の間隔で実行）
       if (reviewedCount % options.resolveEvery === 0) {
-        console.log(`  resolve (${reviewedCount}件完了)...`);
+        printCommandHeader("/resolve-ticket", ticketId, ticket.title);
         await withSession(cwd, options.apiKey, options.model, async (session) => {
           await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
         });
@@ -135,7 +143,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         // Step 3b: オプション — jpush-branch（pushEnabled が true の場合のみ）
         if (options.pushEnabled) {
           try {
-            console.log("  jpush-branch...");
+            printCommandHeader("/jpush-branch", ticketId, ticket.title);
             await withSession(cwd, options.apiKey, options.model, async (session) => {
               await runCommand(session, "/jpush-branch", runOptions);
             });

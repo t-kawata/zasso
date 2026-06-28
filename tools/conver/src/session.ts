@@ -243,14 +243,21 @@ export async function runCommand(
       break;
     }
 
-    // verbose モード: agent_message_chunk をリアルタイム出力
+    // verbose モード: agent_message_chunk を出力
+    // 1回のメッセージが完了した（句点等で終わる）タイミングで改行する
     if (
       options.verbose &&
       msg.kind === "session_update" &&
       msg.update?.sessionUpdate === "agent_message_chunk"
     ) {
       const text = (msg.update.content as { text?: string })?.text ?? "";
-      process.stdout.write(text);
+      if (text) {
+        process.stdout.write(text);
+        // 句点・改行・閉じ括弧などメッセージの区切りで改行する
+        if (/[。．\n！？）」】]/.test(text)) {
+          process.stdout.write("\n");
+        }
+      }
     }
   }
 
