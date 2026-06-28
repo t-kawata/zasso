@@ -311,6 +311,9 @@ node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "5b" "do
 ```bash
 node .claude/scripts/tickets/list-omissions.js "$OMISSIONS_PATH"
 
+# OMISSIONS JSON を Markdown に変換（次段階 /grill-me-for-next-rfc-ja が読み取る）
+node .claude/scripts/tickets/convert-omissions-to-markdown.js "$OMISSIONS_PATH"
+
 node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6" "done"
 node .claude/scripts/tickets/show-omissions-steps.js "$OMISSIONS_PATH"
 ```
@@ -399,13 +402,4 @@ node .claude/scripts/tickets/show-omissions-steps.js "$OMISSIONS_PATH"
 
 ```bash
 node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "9" "done"
-```
-
-全9ステップ完了後に Markdown を生成する（先行ステップの進捗が全て done になってから出力するため）：
-
-```bash
-# OMISSIONS JSON を Markdown に変換（次段階 /grill-me-for-next-rfc-ja が読み取る）
-# 注意: 全9ステップ完了後に実行すること。Step 6 時点で実行すると
-# Step 6〜9 が todo のまま Markdown に固定されてしまう。
-node .claude/scripts/tickets/convert-omissions-to-markdown.js "$OMISSIONS_PATH"
 ```

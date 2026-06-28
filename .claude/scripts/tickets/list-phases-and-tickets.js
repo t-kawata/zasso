@@ -1,5 +1,5 @@
 const fs = require('fs'), path = require('path');
-const CB = { todo: '[ ]', made: '[_]', planned: '[|]', done: '[/]', reviewed: '[x]' };
+const CB = { todo: '[ ]', done: '[/]', reviewed: '[x]' };
 function main() {
   const jp = process.argv[2];
   if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
