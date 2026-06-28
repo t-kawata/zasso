@@ -110,6 +110,126 @@
           "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし（関数名/変数名/デバッグ出力/マジックナンバー 全てクリア）\nテスト: 56/56 PASS\n型チェック: tsc --noEmit 正常終了",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-28"
+        },
+        {
+          "id": 3,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "完了通知の改善（find後のOMISSIONS通知追加）",
+          "referenceSection": "tickets/specs/0017-findomissions.md",
+          "background": "全チケット完了後の find-omissions-for-next-rfc 結果（OMISSIONS-XXX.json）がSlack通知されない。外側ループの循環速度を改善するため、severityを🔴/🟡/🔵で視覚化した結果をコードブロックでSlack通知する。",
+          "scope": [
+            "find-omissions 完了後に OMISSIONS-XXX.json を読み取り整形",
+            "severity を 🔴/🟡/🔵 の絵文字にマッピング",
+            "整形結果を Slack にコードブロック通知",
+            "ファイル不在/空配列のケースもハンドリング"
+          ],
+          "testVerification": [
+            "notifier.ts: buildOmissionsBlocks の整形テスト",
+            "runner.ts: find-omissions 後の通知フロー",
+            "make test-conver 全テスト PASS"
+          ],
+          "testExceptions": [
+            "Slack Webhook への実際の送信はモックで代替"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（検出15件は全て false positive: console.log はCLI出力、XXX はOMISSIONSファイル名パターン、単一文字変数 o/t は狭いスコープのループ変数）\n- 翻訳可能性: 問題なし（buildOmissionsBlocks/sendOmissionsNotification は動詞句）\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 依存関係: PX-2（ACP接続の信頼性修正）→ reviewed 済み\n- ビルド: make build-conver ✅\n- テスト: make test-conver → 56/56 PASS ✅\n- 問題点: なし。全ての Acceptance Criteria を満たしている。",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "notifier.ts: なし",
+              "after": "notifier.ts: buildOmissionsBlocks, sendOmissionsNotification, SEVERITY_EMOJI 追加",
+              "description": "OMISSIONS 配列を整形してSlack通知する関数を追加。severity→🔴/🟡/🔵マッピング"
+            },
+            {
+              "before": "runner.ts: find-omissions後、通知なし",
+              "after": "runner.ts: sendOmissionsNotification 呼び出し追加",
+              "description": "find-omissions 完了後に OMISSIONS ファイルを読み取り Slack通知"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（15件検出は全て意図的なCLI出力/命名パターン）\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nビルド: esbuild 正常生成",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
+        },
+        {
+          "id": 4,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "ステータス5値化と工程分岐の最適化",
+          "referenceSection": "tickets/specs/0018-untitled.md",
+          "background": "チケットの status を3値（todo/done/reviewed）から5値（todo/made/planned/done/reviewed）に拡張。各工程の完了を正確に追跡し、runLoop が status に応じて必要な工程のみスキップ実行する。",
+          "scope": [
+            "status 5値化: todo/made/planned/done/reviewed",
+            "runLoop: status に応じて工程スキップ",
+            "make-ticket.md: 完了時に status→made",
+            "plan-ticket.md: 完了時に status→planned",
+            "loadPendingTickets: reviewed のみ除外（変更不要）"
+          ],
+          "testVerification": [
+            "todo→make/plan/start/review",
+            "made→plan/start/review（make スキップ）",
+            "planned→start/review（make/plan スキップ）",
+            "done→review のみ",
+            "reviewed→スキップ",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [
+            "Slack Webhook 送信はモック代替"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- テスト: 56/56 PASS ✅\n- status整合性分析:\n  - 5値の遷移: todo→made→planned→done→reviewed\n  - runLoop分岐: 各statusに対応する工程のみ実行\n  - 更新ポイント: make/plan/start/review 全工程で正しく設定\n  - 問題点: plan-ticket.md の planned 更新が Edit ツールで未保存だった（cat >> で修正済み）\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 依存関係: 本チケットは独立（PX-3等に依存しない）",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "make-ticket.md: 完了後に status 更新なし",
+              "after": "make-ticket.md: status を made に更新",
+              "description": "新規作成/深掘り両方の完了時に status→made"
+            },
+            {
+              "before": "plan-ticket.md: 完了後に status 更新なし",
+              "after": "plan-ticket.md: status を planned に更新",
+              "description": "計画策定完了時に status→planned"
+            },
+            {
+              "before": "runner.ts: status を無視して一律全工程",
+              "after": "runner.ts: status に応じて工程スキップ",
+              "description": "todo→make/plan/start/review, made→plan/start/review, planned→start/review, done→reviewのみ"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nstatus整合性: 一貫性確認済み（1件不整合→修正済み）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
+        },
+        {
+          "id": 5,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "ACPセッションの統合（make/plan/start/review 同セッション化）",
+          "referenceSection": "tickets/specs/0019-acpmakeplanstartreview.md",
+          "background": "PX-4 で status 分岐導入時に make/plan/start が個別セッションに分割された。本来の設計（1セッション）に統合し、review も同セッション内で実行する。",
+          "scope": [
+            "make/plan/start/review → 1つの withSession に統合",
+            "status 分岐（todo→make, made→plan, planned→start, done→reviewのみ）は維持",
+            "resolve/jpush-branch/find-omissions のセッション構成は維持"
+          ],
+          "testVerification": [
+            "todo→withSession 2回（統合内+resolve）",
+            "done→withSession 2回（review+resolve）",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [
+            "ACP セッション数の実際の検証は E2E"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし（関数名は全て動詞句、変数名はドメイン概念）\n- テスト: 56/56 PASS ✅\n- セッション構造: 4つの独立セッション→1セッションに統合 ✅\n- status 分岐: todo/made/planned→統合セッション、done→reviewのみ、維持 ✅\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 問題点: なし",
+          "startedAt": "2026-06-28",
+          "changes": [
+            {
+              "before": "make/plan/start/review → 4つの独立 withSession（最大4ACPプロセス/チケット）",
+              "after": "make/plan/start/review → 1つの withSession に統合（最大2ACPプロセス/チケット）",
+              "description": "ACPセッションを統合し、チケット処理の効率を改善"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\nセッション構造: make/plan/start/review 統合確認済み",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-28"
         }
       ]
     },

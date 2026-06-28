@@ -543,14 +543,14 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         await runCommand(session, `/plan-ticket ${ticketId}`, options);
         await runCommand(session, `/start-ticket ${ticketId}`, options);
       });
-      console.log(`  ✅ make/plan/start 完了`);
+      console.log(`\n>>> ✅ make/plan/start 完了`);
 
       // Step 2: Session B — review
       console.log(`  review...`);
       await withSession(cwd, options.apiKey, options.model, async (session) => {
         await runCommand(session, `/review-ticket ${ticketId}`, options);
       });
-      console.log(`  ✅ review 完了`);
+      console.log(`\n>>> ✅ review 完了`);
       reviewedCount++;
 
       // Step 3: Session C — resolve (interval based)
@@ -559,7 +559,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         await withSession(cwd, options.apiKey, options.model, async (session) => {
           await runCommand(session, `/resolve-ticket ${cwd}`, options);
         });
-        console.log(`  ✅ resolve 完了`);
+        console.log(`\n>>> ✅ resolve 完了`);
 
         // Step 3b: jpush-branch
         if (options.pushEnabled) {
@@ -568,7 +568,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             await withSession(cwd, options.apiKey, options.model, async (session) => {
               await runCommand(session, `/jpush-branch`, options);
             });
-            console.log(`  ✅ jpush-branch 完了`);
+            console.log(`\n>>> ✅ jpush-branch 完了`);
           } catch (pushError) {
             await sendSlackError(options.slackWebhookUrl, {
               ticketId,
@@ -587,7 +587,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
           await withSession(cwd, options.apiKey, options.model, async (session) => {
             await runCommand(session, `/find-omissions-for-next-rfc ${source}`, options);
           });
-          console.log(`  ✅ find-omissions 完了`);
+          console.log(`\n>>> ✅ find-omissions 完了`);
         }
       }
     } catch (error) {

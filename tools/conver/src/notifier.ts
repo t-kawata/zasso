@@ -9,8 +9,9 @@
 // 依存: P0-2 (CommandTimeoutError — classifyError で error.name を参照)
 import http from "node:http";
 import https from "node:https";
+import path from "node:path";
 import { execSync } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
 
 /** エラー通知に必要なコンテキスト情報 */
 export interface ErrorContext {
@@ -221,6 +222,77 @@ export async function sendSlackSuccess(
     username: "conver",
     icon_emoji: ":tada:",
     text,
+  };
+
+  await sendSlackWithRetry(webhookUrl, payload);
+}
+
+// severity → 絵文字のマッピング
+const SEVERITY_EMOJI: Record<string, string> = {
+  high: "🔴",
+  medium: "🟡",
+  low: "🔵",
+};
+
+/** OMISSIONS 配列の各要素をコードブロック用の文字列に整形する */
+export function buildOmissionsBlocks(
+  omissions: Array<{
+    id?: string;
+    type?: string;
+    severity?: string;
+    rfcSection?: string;
+    description?: string;
+    affectedFiles?: string[];
+    suggestedResolution?: string;
+  }>,
+): string {
+  if (omissions.length === 0) {
+    return "🔍 設計との乖離は見つかりませんでした。\n";
+  }
+
+  const lines: string[] = [`🔍 ${omissions.length}件の設計との乖離が見つかりました。`];
+  for (const o of omissions) {
+    const emoji = SEVERITY_EMOJI[o.severity ?? ""] ?? "⚪";
+    const tag = `${emoji} ${o.id ?? "(no-id)"} [${o.type ?? "?"}] ${o.rfcSection ?? ""}: ${o.description ?? ""}`;
+    lines.push(tag);
+    if (o.affectedFiles?.length) {
+      lines.push(`      affectedFiles: ${o.affectedFiles.join(", ")}`);
+    }
+    if (o.suggestedResolution) {
+      lines.push(`      suggestedResolution: ${o.suggestedResolution}`);
+    }
+  }
+  return lines.join("\n") + "\n";
+}
+
+/**
+ * カレントディレクトリの OMISSIONS-XXX.json を検索し、
+ * その内容を Slack に通知する。
+ */
+export async function sendOmissionsNotification(
+  webhookUrl: string,
+  cwd: string,
+): Promise<void> {
+  let text: string;
+
+  try {
+    const files = readdirSync(cwd).filter((f) => /^OMISSIONS-\d+\.json$/.test(f));
+    if (files.length === 0) {
+      text = "OMISSIONS は生成されませんでした（ファイルが見つかりません）。";
+    } else {
+      const latest = files.sort().pop()!;
+      const raw = readFileSync(path.join(cwd, latest), "utf-8");
+      const data = JSON.parse(raw);
+      text = buildOmissionsBlocks(data.omissions ?? []);
+    }
+  } catch {
+    text = "OMISSIONS の読み取り中にエラーが発生しました。";
+  }
+
+  const payload = {
+    username: "conver",
+    icon_emoji: ":mag:",
+    text: `\`\`\`\n${text}\`\`\``,
   };
 
   await sendSlackWithRetry(webhookUrl, payload);

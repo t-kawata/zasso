@@ -167,3 +167,19 @@ echo '{
 ```
 
 これにより、後でチケットを確認したときに「どのような計画で実装されたか」を追跡できる。
+
+#### ステータス更新
+
+計画策定完了後、チケットの status を `planned` に更新する。
+
+```bash
+echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+#### ステータス更新
+
+計画策定完了後、チケットの status を `planned` に更新する。
+
+```bash
+echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```

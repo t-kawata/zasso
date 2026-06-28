@@ -209,3 +209,11 @@ Malfeasance.json を読み取り、未解決の犯罪がないか確認する。
 .claude/scripts/tickets/scan-crimes.sh
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
+
+#### Step 10: ステータス更新
+
+全工程完了後、チケットの status を `made` に更新する。
+
+```bash
+echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```

@@ -85,6 +85,7 @@ describe("runLoop", () => {
           mockState.slackCalls.push(ctx);
         },
         sendSlackSuccess: async () => {},
+        sendOmissionsNotification: async () => {},
       },
     });
 

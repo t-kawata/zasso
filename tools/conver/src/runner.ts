@@ -24,9 +24,17 @@ import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions } from "./session.js";
-import { sendSlackError, sendSlackSuccess } from "./notifier.js";
+import {
+  sendSlackError,
+  sendSlackSuccess,
+  sendOmissionsNotification,
+} from "./notifier.js";
 import type { ErrorContext, SuccessContext } from "./notifier.js";
-import { loadPendingTickets, checkAllReviewed, getSourceFromTickets } from "./tickets.js";
+import {
+  loadPendingTickets,
+  checkAllReviewed,
+  getSourceFromTickets,
+} from "./tickets.js";
 
 // --- インターフェース定義 ---
 
@@ -61,7 +69,9 @@ export interface Ticket {
  */
 function getCurrentPhase(error: unknown): string {
   const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
   if (message.includes("make-ticket")) return "make-ticket";
   if (message.includes("plan-ticket")) return "plan-ticket";
   if (message.includes("start-ticket")) return "start-ticket";
@@ -95,7 +105,11 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
  * 3. process.exit(1) でプロセス終了
  */
 /** コマンド実行前に視認性の高いヘッダーを出力する */
-function printCommandHeader(command: string, ticketId?: string, title?: string): void {
+function printCommandHeader(
+  command: string,
+  ticketId?: string,
+  title?: string,
+): void {
   const separator = "=".repeat(46);
   console.log(`\n${separator}`);
   if (ticketId && title) {
@@ -169,49 +183,94 @@ export async function runLoop(options: LoopOptions): Promise<void> {
   const target = pending.slice(0, options.maxCount);
 
   let reviewedCount = 0;
-  const processedTickets: Array<{ id: string; title: string; phaseId: number }> = [];
+  const processedTickets: Array<{
+    id: string;
+    title: string;
+    phaseId: number;
+  }> = [];
 
   for (const ticket of target) {
     const ticketId = `P${ticket.phaseId}-${ticket.id}`;
-    processedTickets.push({ id: ticketId, title: ticket.title, phaseId: ticket.phaseId });
+    processedTickets.push({
+      id: ticketId,
+      title: ticket.title,
+      phaseId: ticket.phaseId,
+    });
     const runOptions = toRunCommandOptions(options);
 
     try {
-      // Step 1: Session A — make / plan / start（1セッションで3コマンド連続実行）
-      printCommandHeader("/make-ticket", ticketId, ticket.title);
-      await withSession(cwd, options.apiKey, options.model, async (session) => {
-        await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
-        printCommandHeader("/plan-ticket", ticketId, ticket.title);
-        await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
-        printCommandHeader("/start-ticket", ticketId, ticket.title);
-        await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
-      });
-      console.log("  ✅ make/plan/start 完了");
+      const s = ticket.status;
 
-      // Step 2: Session B — review
-      printCommandHeader("/review-ticket", ticketId, ticket.title);
-      await withSession(cwd, options.apiKey, options.model, async (session) => {
-        await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
-      });
-      console.log("  ✅ review 完了");
+      // Session A: make/plan/start/review を1つの withSession に統合
+      //   各コマンド完了直後に完了メッセージを出力する
+      if (s === "todo" || s === "made" || s === "planned") {
+        await withSession(
+          cwd,
+          options.apiKey,
+          options.model,
+          async (session) => {
+            if (s === "todo") {
+              printCommandHeader("/make-ticket", ticketId, ticket.title);
+              await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
+              console.log("\n>>> ✅ make-ticket 完了");
+            }
+            if (s !== "planned") {
+              printCommandHeader("/plan-ticket", ticketId, ticket.title);
+              await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
+              console.log("\n>>> ✅ plan-ticket 完了");
+            }
+            printCommandHeader("/start-ticket", ticketId, ticket.title);
+            await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
+            console.log("\n>>> ✅ start-ticket 完了");
+            printCommandHeader("/review-ticket", ticketId, ticket.title);
+            await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
+            console.log("\n>>> ✅ review 完了");
+          },
+        );
+      } else {
+        // done: review のみ
+        printCommandHeader("/review-ticket", ticketId, ticket.title);
+        await withSession(
+          cwd,
+          options.apiKey,
+          options.model,
+          async (session) => {
+            await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
+          },
+        );
+        console.log("\n>>> ✅ review 完了");
+      }
       reviewedCount++;
 
       // Step 3: Session C — resolve（resolveEvery の間隔 OR 最終チケットで実行）
-      if (reviewedCount % options.resolveEvery === 0 || reviewedCount === target.length) {
+      if (
+        reviewedCount % options.resolveEvery === 0 ||
+        reviewedCount === target.length
+      ) {
         printCommandHeader("/resolve-ticket", ticketId, ticket.title);
-        await withSession(cwd, options.apiKey, options.model, async (session) => {
-          await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
-        });
-        console.log("  ✅ resolve 完了");
+        await withSession(
+          cwd,
+          options.apiKey,
+          options.model,
+          async (session) => {
+            await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
+          },
+        );
+        console.log("\n>>> ✅ resolve 完了");
 
         // Step 3b: オプション — jpush-branch（pushEnabled が true の場合のみ）
         if (options.pushEnabled) {
           try {
             printCommandHeader("/jpush-branch");
-            await withSession(cwd, options.apiKey, options.model, async (session) => {
-              await runCommand(session, "/jpush-branch", runOptions);
-            });
-            console.log("  ✅ jpush-branch 完了");
+            await withSession(
+              cwd,
+              options.apiKey,
+              options.model,
+              async (session) => {
+                await runCommand(session, "/jpush-branch", runOptions);
+              },
+            );
+            console.log("\n>>> ✅ jpush-branch 完了");
           } catch (pushError) {
             await sendSlackError(options.slackWebhookUrl, {
               ticketId,
@@ -243,14 +302,23 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         if (checkAllReviewed(options.ticketsPath)) {
           console.log("  🎯 全チケット reviewed → find-omissions...");
           const source = getSourceFromTickets(options.ticketsPath);
-          await withSession(cwd, options.apiKey, options.model, async (session) => {
-            await runCommand(
-              session,
-              `/find-omissions-for-next-rfc ${source}`,
-              runOptions,
-            );
-          });
-          console.log("  ✅ find-omissions 完了");
+          await withSession(
+            cwd,
+            options.apiKey,
+            options.model,
+            async (session) => {
+              await runCommand(
+                session,
+                `/find-omissions-for-next-rfc ${source}`,
+                runOptions,
+              );
+            },
+          );
+          console.log("\n>>> ✅ find-omissions 完了");
+          // find-omissions の結果を Slack 通知
+          sendOmissionsNotification(options.slackWebhookUrl, cwd).catch(
+            () => {},
+          );
         }
       }
     } catch (error) {
@@ -262,13 +330,18 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         ticketsPath: options.ticketsPath,
       });
       console.error(`\n❌ エラー発生: ${err.message}`);
-      if (err.message.includes("connect") || err.message.includes("initialize")) {
+      if (
+        err.message.includes("connect") ||
+        err.message.includes("initialize")
+      ) {
         console.error("");
         console.error("ACP セッションの初期化に失敗しました。考えられる原因:");
         console.error("  - DeepSeek API キーが正しくない");
         console.error("  - ネットワーク接続の問題");
         console.error("  - claude-agent-acp のバージョン不一致");
-        console.error("環境変数 ANTHROPIC_BASE_URL が正しいか確認してください。");
+        console.error(
+          "環境変数 ANTHROPIC_BASE_URL が正しいか確認してください。",
+        );
       }
       process.exit(1);
     }
