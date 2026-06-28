@@ -1,7 +1,7 @@
 const fs = require('fs'), path = require('path');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // CLI 引数用: P{phaseId}-{ticketId} または PX-{ticketId}
-const ALLOWED = ['todo', 'done', 'reviewed'];
+const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed'];
 
 function validateTickets(data) {
   const errors = [];

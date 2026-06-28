@@ -277,11 +277,25 @@ export function disposeSession(acpSession: AcpSession): void {
   } catch {
     // dispose エラーは無視する
   }
+  // stdin に EOF を送り、子プロセスの自然終了を促す
+  try {
+    acpSession.proc.stdin?.end();
+  } catch {
+    // end エラーは無視する
+  }
+  // ACP 接続を閉じる
   try {
     acpSession.connection.close();
   } catch {
     // close エラーは無視する
   }
-  acpSession.proc.stdin?.end();
-  acpSession.proc.kill();
+  // 子プロセスを強制終了する（即座に kill すると子が書き込み中の EPIPE が
+  // 発生するため、setImmediate で1イベントループ遅延させる）
+  setImmediate(() => {
+    try {
+      acpSession.proc.kill();
+    } catch {
+      // kill エラーは無視する
+    }
+  });
 }

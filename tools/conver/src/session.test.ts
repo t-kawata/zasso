@@ -140,7 +140,7 @@ describe("runCommand", () => {
 // --- disposeSession ---
 
 describe("disposeSession", () => {
-  it("session.dispose() と proc.kill() が呼ばれる", () => {
+  it("session.dispose() と proc.kill() が呼ばれる", async () => {
     let disposed = false;
     let killed = false;
     const session = mockSession({
@@ -149,20 +149,23 @@ describe("disposeSession", () => {
     });
     disposeSession(session);
     assert.strictEqual(disposed, true);
+    // proc.kill() は setImmediate で遅延実行されるため、1ティック待つ
+    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(killed, true);
   });
 
-  it("dispose() エラー時も proc.kill() が呼ばれる", () => {
+  it("dispose() エラー時も proc.kill() が呼ばれる", async () => {
     let killed = false;
     const session = mockSession({
       proc: { kill: () => { killed = true; } } as any,
       session: { sessionId: "s", prompt() {}, nextUpdate() { return new Promise(() => {}); }, dispose: () => { throw new Error("err"); } } as any,
     });
     disposeSession(session);
+    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(killed, true);
   });
 
-  it("複数回呼び出しでもエラーにならない", () => {
+  it("複数回呼び出しでもエラーにならない", async () => {
     let disp = 0, kill = 0;
     const session = mockSession({
       proc: { kill: () => { kill++; } } as any,
@@ -171,6 +174,7 @@ describe("disposeSession", () => {
     disposeSession(session);
     disposeSession(session);
     assert.strictEqual(disp, 2);
+    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(kill, 2);
   });
 });

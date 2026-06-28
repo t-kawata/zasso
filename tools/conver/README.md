@@ -10,30 +10,30 @@ conver の `.claude` ディレクトリ（スラッシュコマンド群・チ�
 npm install
 ```
 
-ランタイム依存は `@agentclientprotocol/sdk ^1.0.0` のみです。
+ランタイム依存は `@agentclientprotocol/sdk ^1.0.0` および `@agentclientprotocol/claude-agent-acp ^0.52.0` です。
 
-### ビルド（単一ファイルバンドル）
+### ビルド
 
 ```bash
 npm run build
 ```
 
-esbuild が `src/conver.ts` をエントリポイントとしてバンドル・minify し、`dist/conver.js` 1ファイル（約373KB）を生成します。`@agentclientprotocol/sdk` はバンドルに内包されるため、**`node_modules` なしで任意の Node.js 環境にコピーして実行できます。**
+`tsc` が TypeScript ソースを `dist/` にコンパイルします（単一ファイルバンドルは `make deploy` で利用可能）。
 
 ```bash
-# 別マシンへのデプロイ
-cp dist/conver.js /target/
-node /target/conver.js -k <api_key> -s <slack_url>
+# プロジェクトルート以外からの実行例
+node ~/shyme/zasso/tools/conver/dist/conver.js -k <api_key> -s <slack_url>
 ```
 
 | コマンド | 説明 |
 |---------|------|
-| `npm run build` | esbuild で単一ファイルにバンドル |
+| `npm run build` | tsc で TypeScript をコンパイル |
 | `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
 | `make build-conver` | `npm run build` と同じ |
 | `make typecheck` | `npm run typecheck` と同じ |
-| `make test-conver` | テストコンパイル（tsc）→ 全テスト実行 |
+| `make test-conver` | 全56テストを実行 |
 | `make run-conver` | `ARGS` を指定して conver.js を実行 |
+| `make deploy TARGET=path` | esbuild バンドルをビルドし配置 |
 
 ```bash
 # カレントディレクトリに関わらず正しく動作します
@@ -95,30 +95,38 @@ node dist/conver.js -k <DeepSeek_API_Key> -s <Slack_Webhook_URL> [options]
 | `-r`, `--resolve-every` | Nチケット完了ごとに resolve | `3` |
 | `-p`, `--push` | resolve 毎に jpush-branch 実行 | `1` |
 | `-m`, `--model` | 使用モデル | `deepseek-v4-flash` |
-| `-v`, `--verbose` | 詳細表示 | `0` |
+| `-v`, `--verbose` | 詳細表示 | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
+| `-b`, `--bind-review-in-one-session` | review を同一セッションに結合（0/1） | `1` |
+| `--version` | バージョン表示 | — |
 
-### 4セッション完全分離アーキテクチャ
+### セッションアーキテクチャ
 
 ```
-チケット P0-1 の処理フロー:
+チケット P0-1（todo）の処理フロー（-b 1 デフォルト）:
 
-   [Session A]  make-ticket → plan-ticket → start-ticket
+   [Session A]  make-ticket → plan-ticket → start-ticket → review-ticket
         │
         ▼ dispose
-   [Session B]  review-ticket
+   [Session B]  resolve-ticket（resolveEvery 間隔で実行）→ jpush-branch（任意）
         │
-        ▼ dispose
-   [Session C]  resolve-ticket（resolveEvery 間隔で実行）
+        ▼
+   全チケット reviewed → [Session C] find-omissions-for-next-rfc
         │
-        ▼ dispose
-   [Session D]  find-omissions-for-next-rfc（全チケット reviewed 時のみ）
-        │
-        ▼ dispose
-   次のチケット P0-2 へ（再び Session A から）
+        ▼
+   次のチケット P0-2 へ
 ```
 
-各セッションは独立した ACP セッションで実行され、コンテキスト漏洩を防止します。
+make/plan/start/review は1つの ACP セッションで実行されます（`-b 0` で review を分離可能）。
+各チケットの status は以下の5値で管理され、進行状況に応じて必要な工程のみ実行します：
+
+```
+todo ──(make)──→ made ──(plan)──→ planned ──(start)──→ done ──(review)──→ reviewed
+  ├─ make ✅    ├─ make ❌    ├─ make ❌     ├─ make ❌     └─ loadPendingTickets
+  ├─ plan ✅    ├─ plan ✅    ├─ plan ❌     ├─ plan ❌     で除外
+  ├─ start ✅   ├─ start ✅   ├─ start ✅    ├─ start ❌
+  └─ review ✅  └─ review ✅  └─ review ✅   └─ review ✅
+```
 
 ## 本質 — ベクトル空間上の収束計算
 
@@ -161,10 +169,10 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
-| **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。各工程は4つの独立したACPセッションで直列実行される |
+| **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
 | **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
-内側ループは `conver.js`（`dist/conver.js`、単一ファイル、`node_modules` 不要）が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
+内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
 ---
 
@@ -292,13 +300,22 @@ RFC の設計内容と実際の実装コードを比較し、漏れ・矛盾・�
 
 ---
 
-## チケットのステータス遷移
+## チケットのステータス遷移（5値）
 
 ```text
-   todo ──────→ done ──────→ reviewed
+todo ──(make)──→ made ──(plan)──→ planned ──(start)──→ done ──(review)──→ reviewed
 ```
 
-- `list-phases-and-tickets.js` の表示: `todo` → `[ ]`, `done` → `[/]`, `reviewed` → `[x]`
+- `list-phases-and-tickets.js` の表示:
+
+| status | 表示 | 意味 |
+|--------|------|------|
+| `todo` | `[ ]` | 未着手 |
+| `made` | `[_]` | spec作成完了 |
+| `planned` | `[|]` | 実装計画承認済み |
+| `done` | `[/]` | 実装完了（未レビュー） |
+| `reviewed` | `[x]` | レビュー完了 |
+
 - フェーズのチェックボックスは配下の全チケットが `reviewed` の場合のみ `[x]` になる（動的評価）
 
 ---
@@ -348,7 +365,7 @@ Tickets.json
 │   └── tickets[]
 │       ├── id: integer (フェーズ内連番)
 │       ├── title: string
-│       ├── status: "todo" | "done" | "reviewed"
+│       ├── status: "todo" | "made" | "planned" | "done" | "reviewed"
 │       ├── scope[], testVerification[], notes
 │       ├── startedAt, completedAt
 │       └── changes[], instrumentation
