@@ -185,3 +185,43 @@ export async function sendSlackError(
   const payload = buildSlackMessage(context);
   await sendSlackWithRetry(webhookUrl, payload);
 }
+
+/** 完了通知の引数 */
+export interface SuccessContext {
+  /** 今回処理したチケット数 */
+  count: number;
+  /** 今回処理したチケットの一覧（"P0-1: title" 形式） */
+  processed: string[];
+  /** 全チケットの進捗一覧（Markdown 形式） */
+  progress: string;
+}
+
+/**
+ * 完了通知を Slack に送信する。
+ * エラー通知と同様に sendSlackWithRetry を使用する。
+ * @param webhookUrl Slack Incoming Webhook URL
+ * @param context 完了通知の内容
+ */
+export async function sendSlackSuccess(
+  webhookUrl: string,
+  context: SuccessContext,
+): Promise<void> {
+  const text = [
+    `---\n${context.count}件のチケットの実装が完了しました。`,
+    "```",
+    context.processed.join("\n"),
+    "```",
+    "現在の進捗状況は以下のとおりです。",
+    "```",
+    context.progress,
+    "```",
+  ].join("\n");
+
+  const payload = {
+    username: "conver",
+    icon_emoji: ":tada:",
+    text,
+  };
+
+  await sendSlackWithRetry(webhookUrl, payload);
+}

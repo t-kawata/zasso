@@ -84,6 +84,7 @@ describe("runLoop", () => {
         ) => {
           mockState.slackCalls.push(ctx);
         },
+        sendSlackSuccess: async () => {},
       },
     });
 
@@ -150,7 +151,7 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
-  it("resolveEvery=3: resolve が呼ばれない", async () => {
+  it("resolveEvery=3 でも最終チケットで resolve が呼ばれる", async () => {
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -167,7 +168,7 @@ describe("runLoop", () => {
     await runLoop(baseOptions({ ticketsPath: ticketPath, resolveEvery: 3 }));
 
     assert.strictEqual(exitMock.calledWith.length, 0);
-    assert.ok(!commands.some((c) => c.startsWith("/resolve-ticket")));
+    assert.ok(commands.some((c) => c.startsWith("/resolve-ticket")));
     exitMock.restore();
   });
 

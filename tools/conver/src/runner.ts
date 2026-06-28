@@ -19,10 +19,12 @@
 //       P2-1 (notifier.ts — sendSlackError),
 //       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getSourceFromTickets)
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions } from "./session.js";
-import { sendSlackError } from "./notifier.js";
-import type { ErrorContext } from "./notifier.js";
+import { sendSlackError, sendSlackSuccess } from "./notifier.js";
+import type { ErrorContext, SuccessContext } from "./notifier.js";
 import { loadPendingTickets, checkAllReviewed, getSourceFromTickets } from "./tickets.js";
 
 // --- インターフェース定義 ---
@@ -99,6 +101,25 @@ function printCommandHeader(command: string, ticketId: string, title: string): v
   console.log(`${separator}\n`);
 }
 
+/** `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
+function buildProgressText(ticketsPath: string): string {
+  try {
+    const script = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      ".claude",
+      "scripts",
+      "tickets",
+      "list-phases-and-tickets.js",
+    );
+    return execSync(`node "${script}" "${ticketsPath}"`, {
+      encoding: "utf-8",
+    }).trim();
+  } catch {
+    return "(進捗一覧の生成に失敗しました)";
+  }
+}
+
 export async function runLoop(options: LoopOptions): Promise<void> {
   const cwd = path.resolve(process.cwd());
   const pending = loadPendingTickets(options.ticketsPath).sort(
@@ -107,9 +128,11 @@ export async function runLoop(options: LoopOptions): Promise<void> {
   const target = pending.slice(0, options.maxCount);
 
   let reviewedCount = 0;
+  const processedTickets: Array<{ id: string; title: string }> = [];
 
   for (const ticket of target) {
     const ticketId = `P${ticket.phaseId}-${ticket.id}`;
+    processedTickets.push({ id: ticketId, title: ticket.title });
     const runOptions = toRunCommandOptions(options);
 
     try {
@@ -132,8 +155,8 @@ export async function runLoop(options: LoopOptions): Promise<void> {
       console.log("  ✅ review 完了");
       reviewedCount++;
 
-      // Step 3: Session C — resolve（resolveEvery の間隔で実行）
-      if (reviewedCount % options.resolveEvery === 0) {
+      // Step 3: Session C — resolve（resolveEvery の間隔 OR 最終チケットで実行）
+      if (reviewedCount % options.resolveEvery === 0 || reviewedCount === target.length) {
         printCommandHeader("/resolve-ticket", ticketId, ticket.title);
         await withSession(cwd, options.apiKey, options.model, async (session) => {
           await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
@@ -157,6 +180,21 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             });
             throw pushError;
           }
+        }
+
+        // 全チケット完了時: Slack に完了通知を送信
+        if (reviewedCount === target.length) {
+          const processed = processedTickets.map(
+            (t) => `    * ${t.id}: ${t.title}`,
+          );
+          const progress = buildProgressText(options.ticketsPath);
+          const successCtx: SuccessContext = {
+            count: target.length,
+            processed,
+            progress,
+          };
+          // 失敗してもメインループは停止しない
+          sendSlackSuccess(options.slackWebhookUrl, successCtx).catch(() => {});
         }
 
         // Step 4: 全チケット reviewed チェック → Session D: find-omissions
