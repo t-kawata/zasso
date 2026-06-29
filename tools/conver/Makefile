@@ -16,7 +16,7 @@ run-conver:
 
 # test-conver: 全ユニットテストを実行する（テストファイルは tsc でコンパイル）
 test-conver:
-		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/runner.test.js dist/conver.test.js
+		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/runner.test.js dist/conver.test.js tests/merge-omissions-into-root-rfc.test.cjs
 
 # deploy: esbuild バンドルをビルドし、ターゲットディレクトリに配置する
 #   使い方: make deploy TARGET=~/shyme/star/

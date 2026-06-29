@@ -348,6 +348,57 @@
           "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 56/56 PASS\n確定的status更新: 実装確認済み",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-28"
+        },
+        {
+          "id": 9,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "merge-omissions-into-root-rfc スラッシュコマンドの実装",
+          "referenceSection": "spec/0023-merge-omissions-into-root-rfc.md",
+          "background": "find-omissions / formulate-tickets-for-next のサイクルで生成された RFC-OMISSIONS-XXX.md を正典 RFC-ROOT.md に溶け込みマージ（既存セクションのみ）する /merge-omissions-into-root-rfc スラッシュコマンドを新設する。helper script は機械的判断（validation/frontmatter操作/セクション抽出）のみ。マージの意味的判断（§N→既存セクションへのマッピング）は .md の指示に従い AI が行う。",
+          "scope": [
+            ".claude/commands/merge-omissions-into-root-rfc.md 新規作成（スラッシュコマンド定義、Step 0-5）",
+            ".claude/scripts/tickets/merge-omissions-into-root-rfc.js 新規作成（機械的処理のみ: validateArgs/readFrontmatter/addMergeHistory/extractSections）",
+            "README.md 更新（二層ループ図への新コマンド追加）"
+          ],
+          "testVerification": [
+            "UT: frontmatter新規追加（YAMLなし→追加される）",
+            "UT: frontmatter追記（既存frontmatter→merge-history追記）",
+            "UT: merge-history重複防止（同名ソース→スキップ）",
+            "UT: §Nセクション抽出（extractSectionsの正常系）",
+            "UT: ファイル不在（validateArgs→エラー）",
+            "UT: 引数不足（validateArgs→エラー）",
+            "UT: parent-rfc不整合（validateArgs→エラー）",
+            "E2E: 実RFC_ROOT.md + RFC_OMISSIONS-001.md で溶け込みマージ確認（新規セクション追加禁止を検証）",
+            "make test-conver 全PASS"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- ユニットテスト: 72/72 PASS ✅\n- 犯罪スキャン: 0件 ✅\n- [::STUB::] 検出: 0件 ✅\n- 静的品質チェック: 0 issues ✅\n- 不完全実装（7パターン）: 0件 ✅\n\n【翻訳可能性】✅\n- 関数名: validateArgs / readFrontmatter / writeFrontmatter / addMergeHistory / extractSections — 全5関数が動詞句\n- Design Contract コメント: helper script の責務境界を明記（機械的判断のみ）\n- 1文字変数: なし\n- マジックナンバー: なし\n- コメント: 「なぜ」を説明（Design Contract）\n\n【ユーザー修正確認】\n- .claude/commands/merge-omissions-into-root-rfc.md: ユーザー目視点検済み ✅\n  - 「第一級規則」セクション削除\n  - scan-crimes.sh ステップ削除\n  - Step 5 を「新しいセクションがないことの確認」に特化\n  - 文言調整（1100行→長大ファイル）\n- これらの修正は維持され、先祖返りしていないことを確認 ✅\n\n【依存関係】\n- PX-3（完了通知改善）: reviewed — 問題なし\n- P4-1（メインループ制御）: reviewed — 問題なし\n- 循環依存: なし\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-29",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "新規作成",
+              "description": ".claude/scripts/tickets/merge-omissions-into-root-rfc.js — 機械的補助スクリプト（validateArgs/readFrontmatter/writeFrontmatter/addMergeHistory/extractSections）"
+            },
+            {
+              "before": "なし",
+              "after": "新規作成",
+              "description": ".claude/commands/merge-omissions-into-root-rfc.md — スラッシュコマンド定義（Step0-6のワークフロー、AIによる溶け込みマージ）"
+            },
+            {
+              "before": "外側ループ図に merge なし",
+              "after": "merge が追加",
+              "description": "README.md — 二層ループ図に merge-omissions-into-root-rfc を追加"
+            },
+            {
+              "before": "test-conver: 56テスト",
+              "after": "test-conver: 72テスト(56既存+16新規)",
+              "description": "tests/merge-omissions-into-root-rfc.test.cjs + Makefile更新"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-29"
         }
       ]
     },
