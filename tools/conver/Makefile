@@ -4,7 +4,7 @@ list-tickets:
 
 # build-conver: TypeScript ソースを esbuild で単一ファイルにバンドルする
 build-conver:
-		npm run build
+		npm run build && mkdir -p .claude/scripts/conver && cp dist/conver.js .claude/scripts/conver/conver.js
 
 # typecheck: TypeScript の型チェックのみ
 typecheck:
