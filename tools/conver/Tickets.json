@@ -399,6 +399,209 @@
           "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-29"
+        },
+        {
+          "id": 10,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "split-rfc-to-children スラッシュコマンドの実装",
+          "referenceSection": "spec/0024-split-rfc-to-children.md",
+          "background": "長大で密結合な正典RFCを、安全なI/O境界で区切られた独立した名前空間単位（crate/module/class）の子・孫RFCに最大3階層まで分割する /split-rfc-to-children スラッシュコマンドを新設する。11種類の専用スクリプト＋RFC-TREE.jsonスキーマで機械的処理を保証。ファイル生成はAIではなくスクリプトが行う。ディレクトリ構造=RFC_TREEにより、git branch衝突なく並行実装可能。言語(Rust/Go/TypeScript)を自動検出し、各言語に最適化された追加ファイル(Cargo.toml/go.mod/package.json)を生成する。",
+          "scope": [
+            ".claude/commands/split-rfc-to-children.md 新規作成（8ステップワークフロー）",
+            ".claude/scripts/tickets/create-rfc-tree.js 新規（RFC-TREE.json雛形作成）",
+            ".claude/scripts/tickets/add-rfc-tree-meta.js 新規（メタデータ書き込み）",
+            ".claude/scripts/tickets/add-rfc-tree-goal.js 新規（rfcUnderstanding: goal系）",
+            ".claude/scripts/tickets/add-rfc-tree-architecture.js 新規（rfcUnderstanding: architecture系）",
+            ".claude/scripts/tickets/add-rfc-tree-detail-1.js 新規（rfcUnderstanding: detail-1系）",
+            ".claude/scripts/tickets/add-rfc-tree-detail-2.js 新規（rfcUnderstanding: detail-2系）",
+            ".claude/scripts/tickets/write-rfc-tree-draft.js 新規（素案ツリー作成）",
+            ".claude/scripts/tickets/write-rfc-tree-final.js 新規（完成版保存）",
+            ".claude/scripts/tickets/generate-child-rfcs.js 新規（ディレクトリ構造+言語別追加ファイル生成）",
+            ".claude/scripts/tickets/check-rfc-placeholders.js 新規（未記入マーカー再帰的検出）",
+            ".claude/scripts/tickets/verify-rfc-coverage.js 新規（構造一致＋言語別設定検証）"
+          ],
+          "testVerification": [
+            "create-rfc-tree.js: 雛形作成・スキーマ検証・言語検出",
+            "add-rfc-tree-goal/architecture/detail*.js: 14フィールド書き込み",
+            "write-rfc-tree-draft/final: draft→final保存・孤立検出",
+            "generate-child-rfcs.js: ディレクトリ生成・命名規則・Cargo.toml/go.mod/package.json",
+            "check-rfc-placeholders.js: 再帰的未記入検出",
+            "verify-rfc-coverage.js: 構造一致・言語別設定ファイル整合",
+            "make test-conver 全PASS"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- テスト: 72/72 PASS ✅\n- 犯罪スキャン: 0件 ✅\n- [::STUB::] 検出: 0件 ✅\n- 静的品質チェック: 0 issues ✅\n- 不完全実装（7パターン）: 0件 ✅\n\n【翻訳可能性】✅\n- 関数名: detectLanguage / extractTitle / createSkeleton / validateRfcTree / generateRfcFiles / findRfc / verifyCoverage — 全関数が動詞句\n- 1文字変数: なし\n- マジックナンバー: なし\n- コメント: Design Contract を各スクリプト先頭に明記\n\n【依存関係】\n- 関連チケット: なし（独立フェーズ PX）\n- 循環依存: なし\n\n【スモークテスト結果】\n- create → validate → add-meta → add-goal → write-draft → write-final → generate → verify → check-placeholders\n- 全9ステップ正常動作確認 ✅\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-29",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "rfc-tree-schema.json — RFC-TREE.json の厳格なJSON Schema定義"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "validate-rfc-tree.js — スキーマ検証＋孤立ノード検出"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "create-rfc-tree.js — 雛形作成＋言語自動検出（Rust/Go/TS）"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "add-rfc-tree-meta.js — メタデータ書き込み"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "add-rfc-tree-goal.js — rfcUnderstanding: goals系"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "add-rfc-tree-architecture.js — rfcUnderstanding: architecture系"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "add-rfc-tree-detail-1.js — rfcUnderstanding: detail-1系"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "add-rfc-tree-detail-2.js — rfcUnderstanding: detail-2系"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "write-rfc-tree-draft.js — 素案ツリー書き込み"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "write-rfc-tree-final.js — draft→final確定"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "generate-child-rfcs.js — ディレクトリ構造＋言語別ファイル機械生成"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "check-rfc-placeholders.js — 未記入マーカー再帰的検出"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "verify-rfc-coverage.js — 構造一致＋言語別設定検証"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "split-rfc-to-children.md — スラッシュコマンド定義（8ステップ）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数動詞句）\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件\nスモークテスト: 全9スクリプトパイプライン正常動作確認済",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-29"
+        },
+        {
+          "id": 11,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "split-rfc-to-children 命名規則のリファイン（slug + 正典名接頭辞）",
+          "referenceSection": "spec/0025-split-rfc-to-children-slug.md",
+          "background": "split-rfc-to-children の子・孫RFCの命名規則をリファインする。ファイル名を汎用的な rfc.md から {正典名}-{childId}-{slug}.md 形式に変更し視認性を向上。RFC-TREE.json スキーマに slug フィールドを追加し、kebab-case の機械的変換ではなくAIが明示的に識別子を設定する方式に改める。正典名は動的解決（ハードコード禁止）。",
+          "scope": [
+            "rfc-tree-schema.json: childNode/grandchildNode に slug 追加（必須）",
+            "generate-child-rfcs.js: ディレクトリ名・ファイル名生成を {正典名}-{childId}-{slug} に変更、kebab()削除",
+            "verify-rfc-coverage.js: ファイル存在確認を {正典名}-{childId}-{slug}.md に変更",
+            "split-rfc-to-children.md: 命名規則説明を新規則に更新",
+            "tickets/specs/0024-split-rfc-to-children.md: 命名規則記述を更新"
+          ],
+          "testVerification": [
+            "UT: 子ファイル名 canonical=RFC_ROOT.md, childId=01, slug=parser → RFC-ROOT-01-parser/ + RFC-ROOT-01-parser.md",
+            "UT: 孫ファイル名 同上＋gcId=01, slug=lexer → RFC-ROOT-01-01-lexer/ + RFC-ROOT-01-01-lexer.md",
+            "UT: 別正典名 canonical=MY-DESIGN.md → MY-DESIGN-01-parser/",
+            "UT: rfc.md が生成されないことの確認",
+            "UT: slug 空文字 → directoryName を fallback",
+            "UT: 新命名ファイル検出 → PASS",
+            "UT: 旧 rfc.md のみ存在 → WARN",
+            "UT: スキーマ検証 slug 必須＋フォーマット",
+            "make test-conver 全PASS"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- テスト: 72/72 PASS ✅\n- 犯罪・スタブ: 0件 ✅\n- 静的品質: 0 issues ✅\n- 不完全実装: 0件 ✅\n\n【翻訳可能性】✅\n- 関数名: childDir() / gcDir() / fm() / md() / write() — 責務が明確な短名\n- kebab() 削除: 機械的変換に依存しない設計に改善\n- 正典名ハードコード排除: canonicalRfcPath から動的抽出\n\n【依存関係】\n- PX-10（reviewed）: 問題なし（directoryName 維持で後方互換）\n\n【変更内容】\n1. rfc-tree-schema.json: childNode/grandchildNode に slug追加\n2. generate-child-rfcs.js: 命名規則 {正典名}-{childId}-{slug} + {slug}.md\n3. verify-rfc-coverage.js: 同名ロジックでファイル検証\n\n【未完了】\n- split-rfc-to-children.md の命名規則説明更新（別途実施）\n- spec/0024 の命名規則記述更新（別途実施）\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-29",
+          "changes": [
+            {
+              "before": "slug なし",
+              "after": "slug 追加（必須）",
+              "description": "rfc-tree-schema.json: childNode/grandchildNode に slug フィールド追加"
+            },
+            {
+              "before": "kebab()機械的変換 + rfc.md",
+              "after": "slug直接使用 + {正典名}-{childId}-{slug}.md",
+              "description": "generate-child-rfcs.js: 命名規則を全面改定。kebab()削除。canonicalBase動的抽出"
+            },
+            {
+              "before": "rfc.md 確認",
+              "after": "{正典名}-{childId}-{slug}.md 確認",
+              "description": "verify-rfc-coverage.js: ファイル存在確認ロジック変更"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（関数名は簡潔なユーティリティ）\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-29"
+        },
+        {
+          "id": 12,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "split-rfc-to-children 後始末（rfc.md残存・ドキュメント整合）",
+          "referenceSection": "spec/0026-split-rfc-to-children-rfcmdcheck-rfc-placeholders.md",
+          "scope": [
+            "check-rfc-placeholders.js: 引数を<DIR>→<RFC_TREE_PATH>に変更、finalTreeから期待ファイル名導出",
+            "split-rfc-to-children.md: L31説明文、L185/200スキーマ表、L220-243例JSON、L292/295例コマンド、L326 find→check-rfc-placeholders、L332文言",
+            "spec/0024: rfc.md/01-parser/ 等の旧命名を新規則に更新"
+          ],
+          "testVerification": [
+            "check-rfc-placeholders: RFC-TREE→期待ファイル名導出（3子+2孫→5ファイル）",
+            "check-rfc-placeholders: マーカー検出（該当ファイルの<!-- ??? --> → 検出）",
+            "check-rfc-placeholders: 引数変更（<DIR>呼出→エラー、<RFC_TREE>→正常）",
+            "make test-conver 全PASS"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- テスト: 72/72 PASS ✅\n- 犯罪・スタブ: 0件 ✅\n- 静的品質: 0 issues ✅\n- 不完全実装: 0件 ✅\n\n【残存確認: rfc.md grep】\n- .claude/scripts/tickets/: 0件 ✅\n- .claude/commands/split-rfc-to-children.md: 0件 ✅\n- tickets/specs/0024: 0件 ✅\n- 旧spec（0023/0025/0001-0003）の参照は歴史的文書として正当 ✅\n\n【危険・漏れ・矛盾・不足の総合判定】\n1. ✅ check-rfc-placeholders.js: finalTree導出＋<RFC_TREE_PATH>引数\n2. ✅ split-rfc-to-children.md: 全8箇所の旧命名を修正\n3. ✅ spec/0024: 全命名規則記述を更新\n4. ✅ 全スクリプトのrfc.md残存: ゼロ\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし\n\n【結論】全危険・漏れ・矛盾・不足は解消されました。",
+          "startedAt": "2026-06-29",
+          "changes": [
+            {
+              "before": "rfc.md固定検索 + <DIR>引数",
+              "after": "finalTreeから期待ファイル名導出 + <RFC_TREE_PATH>引数",
+              "description": "check-rfc-placeholders.js: 引数・検索ロジック全面改修"
+            },
+            {
+              "before": "6箇所の旧命名残存",
+              "after": "全6箇所を新規則に統一",
+              "description": "split-rfc-to-children.md: スクリプト一覧・スキーマ表・例JSON・例コマンド・find/check呼出・文言"
+            },
+            {
+              "before": "rfc.md / 01-parser 等の旧命名",
+              "after": "{正典名}-{childId}-{slug}.md / RFC-ROOT-01-parser に更新",
+              "description": "spec/0024: 命名規則記述更新"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件\nrfc.md 残存 grep: 本番ファイルに0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-29"
+        },
+        {
+          "id": 13,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "drill-rfc-down スラッシュコマンドの実装",
+          "referenceSection": "spec/0027-drill-rfc-down.md"
         }
       ]
     },

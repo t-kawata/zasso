@@ -31,7 +31,7 @@ node ~/shyme/zasso/tools/conver/dist/conver.js -k <api_key> -s <slack_url>
 | `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
 | `make build-conver` | `npm run build` と同じ |
 | `make typecheck` | `npm run typecheck` と同じ |
-| `make test-conver` | 全56テストを実行 |
+| `make test-conver` | 全72テストを実行 |
 | `make run-conver` | `ARGS` を指定して conver.js を実行 |
 | `make deploy TARGET=path` | esbuild バンドルをビルドし配置 |
 
@@ -170,7 +170,7 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
 | **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
-| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `check-final` | 設計判断・ループ継続判断は人間が行う |
+| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `split-rfc-to-children`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
 内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
@@ -250,6 +250,24 @@ parent-omissions: <OMISSIONSファイルのパス>
 **追加検証**:
 1. 全チケット reviewed 確認
 2. 全9ステップの完了確認
+
+
+
+#### `/merge-omissions-into-root-rfc <RFC-OMISSIONS-XXX.md> <RFC-ROOT.md>`
+
+`find-omissions` → `formulate-tickets-for-next` のサイクルで生成された `RFC-OMISSIONS-XXX.md` の内容を、正典である `RFC-ROOT.md` の**既存セクションのみに**溶け込みマージする。新しいセクションは絶対に追加しない。
+
+- `merge-history` を RFC-ROOT.md の frontmatter に追記
+- 該当する既存セクションがない場合はエラーで停止
+
+#### `/split-rfc-to-children <正典RFCパス>`
+
+長大で密結合な正典RFCを、安全なI/O境界で区切られた**独立した名前空間単位**（crate/module/package）の子・孫RFCに分割する。
+
+- `RFC-TREE.json` にツリー構造を記録
+- 子: `{正典名}-{childId}-{slug}/`、孫: `{正典名}-{childId}-{grandchildId}-{slug}/`
+- ディレクトリ構造が RFC_TREE と完全一致
+- 言語（Rust/Go/TypeScript）を自動検出し、言語別の追加ファイル（`Cargo.toml`/`go.mod`/`package.json`）も生成
 
 ---
 
@@ -353,6 +371,23 @@ OMISSIONS-XXX.json
     └── resolvedInNextRfc: boolean
 ```
 
+
+### RFC-TREE.json
+
+`/split-rfc-to-children` が生成・管理する、正典RFCのツリー構造を記録したファイル。正典RFCと同じディレクトリに作成される。
+
+```
+RFC-TREE.json
+├── canonicalRfcPath, canonicalRfcTitle (正典RFCのパスとタイトル)
+├── generatedAt, summary
+├── language (rust / go / typescript — 自動検出)
+├── rfcUnderstanding: object (14フィールド — find-omissions と同一スキーマ)
+├── draftTree: childNode[] (素案ツリー)
+│   └── childNode: { childId, slug, directoryName, namespaceUnit, ioSchema, decouplingMethod, rfcEvidence, dependencyOn, children[] }
+│       └── grandchildNode: { grandchildId, slug, directoryName, ... }
+└── finalTree: childNode[] (検証済み完成ツリー)
+```
+
 ### Tickets.json
 
 ```
@@ -412,6 +447,19 @@ Tickets.json
 
 `create-spec.js` | `review/run-quality-checks.js` | `review/find-all-stubs.js` | `scan-crimes.sh` | `malfeasance-create.js` | `malfeasance-update.js`
 
+
+### RFC-TREE — ツリー管理
+
+`create-rfc-tree.js` | `validate-rfc-tree.js` | `add-rfc-tree-meta.js` | `add-rfc-tree-goal.js` | `add-rfc-tree-architecture.js` | `add-rfc-tree-detail-1.js` | `add-rfc-tree-detail-2.js` | `write-rfc-tree-draft.js` | `write-rfc-tree-final.js` | `get-rfc-tree-draft.js` | `patch-rfc-tree-child.js` | `generate-child-rfcs.js` | `check-rfc-placeholders.js` | `verify-rfc-coverage.js`
+
+### マージ操作
+
+`merge-omissions-into-root-rfc.js`（helper: validateArgs / readFrontmatter / writeFrontmatter / addMergeHistory / extractSections / list-sections / list-omissions）
+
+### RFC-TREE — 前回データ再利用
+
+`get-before-rfc-tree-understanding.js`
+
 ### grill
 
 `grill-me-for-rfc/init.js` | `grill-me-for-rfc/update-tree.js` | `grill-me-for-rfc/tree-query.js` | `grill-me-for-rfc/update-status.js` | `grill-me-for-rfc/session-status.js` | `grill-me-for-rfc/check-all-schema.js` | `grill-me-for-rfc/generate-checklist.js` | `grill-me-for-rfc/list-files.js` | `grill-me-for-rfc/validate-question-format.js`
@@ -440,7 +488,9 @@ Tickets.json
 2. `/formulate-tickets` で RFC から `Tickets.json` を生成する
 3. ACP クライアント（後述の `conver.js`）が内側ループを自動実行する
 4. `find` が出力した `OMISSIONS-XXX.json` を確認する
+   - RFC-OMISSIONS を正典に統合するなら `/merge-omissions-into-root-rfc`
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
+   - 長大なRFCを分割するなら `/split-rfc-to-children`
    - 軽微なら `/check-final` で完了確認
 5. `/check-final` が PASS を返したら 🎉 開発完了
 
