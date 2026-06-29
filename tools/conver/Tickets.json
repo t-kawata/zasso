@@ -599,9 +599,39 @@
         {
           "id": 13,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "drill-rfc-down スラッシュコマンドの実装",
-          "referenceSection": "spec/0027-drill-rfc-down.md"
+          "referenceSection": "spec/0027-drill-rfc-down.md",
+          "background": "既存のRFCファイルに対して grill 方式の質問攻めで考慮不足・設計不足の穴を塞ぐ /drill-rfc-down スラッシュコマンドを新設する。grill-me-for-next-rfc-ja の質問機構を最大再利用しつつ、既存RFCへの追記（破壊的変更禁止）に特化する。既存の DesignTree/Status/CheckList があればそのまま再利用してセッション継続を可能にする。専用スクリプトは init-for-drill-rfc-down.js（既存ファイル有無チェック＋init.js呼出）のみ。",
+          "scope": [
+            ".claude/commands/drill-rfc-down.md 新規作成（6ステップワークフロー）",
+            ".claude/scripts/grill-me-for-rfc/init-for-drill-rfc-down.js 新規作成（専用初期化: 既存ファイル確認＋再利用＋init.js呼出）"
+          ],
+          "testVerification": [
+            "init-for-drill-rfc-down.js: 初回実行（3ファイルなし→init.js生成）",
+            "init-for-drill-rfc-down.js: セッション継続（3ファイル存在→そのまま使用）",
+            "init-for-drill-rfc-down.js: 一部欠落（欠落のみ生成）",
+            "init-for-drill-rfc-down.js: 対象RFCなし→エラー",
+            "init-for-drill-rfc-down.js: 既存上書き禁止",
+            "make test-conver 全PASS"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- テスト: 72/72 PASS ✅\n- 犯罪・スタブ: 0件 ✅\n- 静的品質: 0 issues ✅\n- 不完全実装: 0件 ✅\n\n【翻訳可能性】✅\n- init-for-drill-rfc-down.js: 関数名は動詞句、fileName/result は説明的\n- drill-rfc-down.md: 編集ポリシーを明記、STEP2は参照で重複回避\n\n【再利用確認】\n- update-tree.js: ✅ 未変更\n- session-status.js: ✅ 未変更\n- validate-question-format.js: ✅ 未変更\n- generate-checklist.js: ✅ 未変更\n- check-all-schema.js: ✅ 未変更\n- init-for-grill-me-for-next-rfc.js: ✅ 未変更（96行）\n\n【依存関係】\n- 関連チケット: なし（独立フェーズ PX）\n- 既存 grill スクリプト群: 未変更、影響なし\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "startedAt": "2026-06-29",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "init-for-drill-rfc-down.js — 既存DesignTree/Status/CheckList確認＋init.js呼出（セッション継続対応）"
+            },
+            {
+              "before": "なし",
+              "after": "新規",
+              "description": "drill-rfc-down.md — 6ステップワークフロー（grill-me-for-next-rfc-jaのSTEP2を参照）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（issues 修正済）\n翻訳可能性: 問題なし\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件\ninit-for-grill-me-for-next-rfc.js 未変更確認: 96行から変化なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-06-29"
         }
       ]
     },
