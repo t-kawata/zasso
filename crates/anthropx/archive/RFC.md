@@ -1,3 +1,19 @@
+---
+merge-history:
+  -
+    date: 2026-07-01
+    source: /Users/kawata/shyme/zasso/crates/anthropx/RFC02.md
+    resolved:
+      - M#1
+      - M#2/M#5
+      - M#3
+      - M#4/m#12
+      - m#6
+      - m#7/m#11
+      - m#8
+      - m#9/m#10
+      - コード品質改善
+---
 # LLM Bridge Proxy Server — RFC
 
 **Status:** Proposed  
@@ -60,32 +76,61 @@ path = "src/main.rs"
 
 [features]
 default = ["server"]
-server = ["dep:axum", "dep:reqwest", "dep:tokio/full", "dep:clap", "dep:futures"]
+server = [
+    "dep:clap",
+    "dep:futures",
+    "dep:http",
+    "dep:tokio-util",
+    "dep:tokio-stream",
+    "dep:tracing-subscriber",
+    "dep:metrics-exporter-prometheus",
+]
 integration-test = []
 
 [dependencies]
+# unconditional（library 用途でも必要）
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "2"
 toml = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
+tokio = { version = "1", features = ["sync", "macros"] }
 tracing = "0.1"
 metrics = "0.24"
-thiserror = "2"
-llm-bridge-core = "0.2"
+llm-bridge-core = "0.7"
+sea-orm = { workspace = true }
+proxmox-sortable-macro = "0.2"
 
-# server feature 以下は conditional
+# optional（server feature でのみ有効化）
 clap = { version = "4", features = ["derive"], optional = true }
 axum = { version = "0.8", optional = true }
-reqwest = { version = "0.12", optional = true, features = ["json", "stream"] }
-tokio = { version = "1", features = ["rt", "macros", "sync", "stream"], optional = true }
 futures = { version = "0.3", optional = true }
+http = { version = "1", optional = true }
+tokio-util = { version = "0.7", features = ["sync"], optional = true }
+tokio-stream = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"], optional = true }
+metrics-exporter-prometheus = { version = "0.16", optional = true }
 
 [dev-dependencies]
 axum-test = "16"
-
-# metrics exporter はホスト側で追加するため、本 crate は依存しない
 ```
 
-`features = ["server"]`（デフォルト有効）が Axum・reqwest・Tokio の依存を有効化する。server feature を無効化すると設定型のみの利用が可能となり、HTTP 依存ゼロの軽量ライブラリとして動作する。
+`features = ["server"]`（デフォルト有効）が Axum 以下の HTTP 依存を有効化する。server feature を無効化すると設定型とメモリ内完結ロジックのみの軽量ライブラリとして動作する。
+
+`reqwest` と `tokio` は unconditional 依存とした。`reqwest` は `util/headers.rs` の `HeaderMap` 利用のために、`tokio` は非同期ランタイムの基本機能として library モードでも必要である。
+
+各モジュールの feature 依存関係：
+
+| モジュール | 依存性 | feature 要件 |
+|-----------|--------|-------------|
+| `config/` | serde, toml | unconditional |
+| `routing/` | なし（純粋関数） | unconditional |
+| `util/` | reqwest::http (HeaderMap) | unconditional |
+| `provider/` | reqwest, tokio | unconditional |
+| `observability/` | metrics | unconditional |
+| `http/` | axum, tower | server feature |
+| `lifecycle.rs` | axum | server feature |
+| `main.rs` | clap, tokio(full), tracing-subscriber | server feature |
 
 #### 1.2 モジュール構成
 
@@ -120,7 +165,18 @@ src/
     ├── mod.rs
     ├── headers.rs      # hop-by-hop header フィルタ
     └── ids.rs          # request_id 生成
-```
+    ```
+
+`config/` モジュールの内部構成：
+
+- **`mod.rs`**: 型定義のみ（`AppConfig`, `GlobalConfig`, `ProviderConfig`, `ModelConfig`, `TimeoutConfig`, `GlobalLimitConfig`）を保持する。`mod parse; mod validate;` 宣言と `pub use parse::*; pub use validate::*;` による再公開を行う。
+- **`parse.rs`**: TOML 読込（`AppConfig::from_toml`）。ファイル読み込み → toml デシリアライズ → `validate()` 呼び出し を実行する。
+- **`validate.rs`**: 設定検証（`AppConfig::validate`, `url_prefix` 正規化, alias チェック）を集約する。
+
+`util/` モジュールの内部構成：
+
+- **`mod.rs`**: モジュール宣言 + 汎用ユーティリティの再公開。
+- **`headers.rs`**: `build_upstream_headers()` 関数と `HOP_BY_HOP_HEADERS` 定数を保持する。
 
 #### 1.3 システム境界
 
@@ -165,6 +221,22 @@ fn resolve_api_format(openai_wire_api: &OpenAiWireApi, base_url: &str) -> ApiFor
         }
     }
 }
+```
+
+`lib.rs` は以下の再公開を行い、ライブラリ利用者が `anthropx::ProxyServer` としてアクセスできるようにする：
+
+```rust
+// lib.rs の再公開
+pub use lifecycle::ProxyServer;
+```
+
+これにより以下の利用例が成立する：
+
+```rust
+use anthropx::{AppConfig, ProxyServer};
+
+let config = AppConfig::default();
+let handle = ProxyServer::start(config).await.unwrap();
 ```
 
 ### 2. 設定システム
@@ -357,10 +429,11 @@ impl AppConfig {
         }
 
         // 3. models.public の provider 内一意性
-        // 4. aliases の provider 内衝突チェック
-        // 5. global alias と provider alias の競合は許容（provider優先）
-        // 6. max_queue=0 は queue 無効として許容
-        // 7. url_prefix の正規化（先頭 / 付与、末尾 / 除去）
+        // 4. url_prefix の正規化
+        self.normalize_url_prefix();
+        // 5. alias key の衝突チェック（値ではなくキーが public model 名と重複しないこと）
+        // 6. global alias と provider alias の競合は許容（provider優先）
+        // 7. max_queue=0 は queue 無効として許容
         // 8. ポート番号範囲チェック
         // 9. timeout 値の整合性チェック
 
@@ -368,6 +441,67 @@ impl AppConfig {
     }
 }
 ```
+
+**url_prefix 正規化:**
+
+```rust
+/// url_prefix を正規化する。
+///
+/// - 空文字列 → 空文字列（変更なし）
+/// - 先頭に `/` がない → 先頭に `/` を付与
+/// - 末尾に `/` がある → 末尾の `/` を除去
+///
+/// # 例
+///
+/// | 入力 | 出力 |
+/// |------|------|
+/// | `""` | `""` |
+/// | `"proxy"` | `"/proxy"` |
+/// | `"/prefix/"` | `"/prefix"` |
+/// | `"/"` | `""` |
+/// | `"//"` | `""` |
+fn normalize_url_prefix(prefix: &str) -> String {
+    if prefix.is_empty() {
+        return String::new();
+    }
+    let trimmed_end = prefix.trim_end_matches('/');
+    if trimmed_end.is_empty() {
+        return String::new();
+    }
+    if trimmed_end.starts_with('/') {
+        trimmed_end.to_string()
+    } else {
+        format!("/{}", trimmed_end)
+    }
+}
+```
+
+**Alias Key 衝突チェック:**
+
+alias の値（value）と public model 名を比較するのではなく、alias のキー（key）が public model 名と重複しないことをチェックする：
+
+```rust
+// 修正前（誤り）: alias_value と public_names を比較
+for (alias_key, alias_value) in &provider.model_aliases {
+    if public_names.contains(alias_value.as_str()) && alias_key != alias_value {
+        errors.push(ConfigError::DuplicateAlias(...));
+    }
+}
+
+// 修正後（正しい）: alias_key と public_names を比較
+for alias_key in provider.model_aliases.keys() {
+    if public_names.contains(alias_key.as_str()) {
+        errors.push(ConfigError::DuplicateAlias(
+            alias_key.clone(),
+            format!("public model name '{}'", alias_key),
+        ));
+    }
+}
+```
+
+**Alias 競合ログ出力:**
+
+global alias と provider alias の競合は許容する（provider alias 優先）が、競合発生時は `tracing::info!` でのログ出力を行う。
 
 ### 3. HTTP サーバー
 
@@ -791,17 +925,21 @@ pub async fn handle_transparent(
 
 ```rust
 // provider/translate.rs
+use axum::body::Body;
+use tokio_util::sync::CancellationToken;
+
 pub async fn handle_translate(
-    state: Arc<AppState>,
-    provider: &ProviderClient,
+    state: &AppState,
+    provider: &ProviderConfig,
     resolved: &ResolvedModel,
     api_key: &str,
-    body: serde_json::Value,
+    body: Value,
     is_stream: bool,
-) -> Result<Response, ProxyError> {
+    cancel: CancellationToken,
+) -> Result<Response<Body>, ProxyError> {
     let api_format = resolve_api_format(
-        &provider.config.openai_wire_api.unwrap_or(OpenAiWireApi::Auto),
-        &provider.config.base_url,
+        &provider.openai_wire_api.unwrap_or(OpenAiWireApi::Auto),
+        &provider.base_url,
     );
 
     // Step 1: Anthropic request → OpenAI 互換 request に変換
@@ -822,29 +960,12 @@ pub async fn handle_translate(
     };
 
     // Step 2: 変換後の request を upstream に送信
-    let upstream_url = format!("{}{}", provider.config.base_url.trim_end_matches('/'), transformed.path);
-    let upstream_resp = provider.http_client
-        .post(&upstream_url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .body(transformed.body)
-        .send()
-        .await
-        .map_err(|e| ProxyError::UpstreamError(e.to_string()))?;
+    let upstream_url = format!("{}{}", provider.base_url.trim_end_matches('/'), transformed.path);
+    let upstream_resp = send_upstream_request(&provider.http_client, &upstream_url, transformed.body, is_stream).await?;
 
     if is_stream {
-        // Step 3 (stream): OpenAI SSE → Anthropic SSE に変換
-        let mut stream_state = StreamState::builder().build();
-        let event_stream = upstream_resp.bytes_stream()
-            .map(move |chunk_result| {
-                let chunk = chunk_result
-                    .map_err(|e| ProxyError::UpstreamError(e.to_string()))?;
-                let events = transform_stream(&chunk, &mut stream_state)
-                    .map_err(|e| ProxyError::TransformLossy(e.to_string()))?;
-                Ok(events)
-            });
-        // chunk ごとに SSE event を Axum Body として送出
-        Ok(axum_sse_response(event_stream))
+        // Step 3 (stream): OpenAI SSE → Anthropic SSE にチャンク単位で変換（§8 translate_stream 参照）
+        translate_stream(upstream_resp, &stream_state, cancel).await
     } else {
         // Step 3 (non-stream): OpenAI response → Anthropic response
         let upstream_body: serde_json::Value = upstream_resp.json().await?;
@@ -908,6 +1029,74 @@ impl LossyLevel {
 }
 ```
 
+#### 6.1 現状の制約: `allow_lossy=true + error_lossy_continue=true` の未達
+
+`allow_lossy` と `error_lossy_continue` の真理値表に基づく `LossyLevel::should_reject()` は正しく実装されている。問題は `allow_lossy=true + error_lossy_continue=true` の場合に Error 級 lossy が発生した際、`llm_bridge_core` の変換 API が部分的な変換結果を返せない設計にある。
+
+| allow_lossy | error_lossy_continue | LossyLevel | 現状の動作 | 正しい動作 |
+|-------------|---------------------|------------|-----------|-----------|
+| false       | false               | Error      | 400 拒否 ✅ | 400 拒否 |
+| false       | false               | Warn       | 続行 ✅ | 続行 |
+| true        | false               | Error      | 400 拒否 ✅ | 400 拒否 |
+| true        | true                | Error      | Err 返却 ❌ | 続行+metrics |
+
+`allow_lossy=true + error_lossy_continue=true` の場合のみ契約未達であり、このケースで Error 級 lossy を続行できない原因は llm-bridge-core の API 制約によるものである。
+
+#### 6.2 解決戦略: Lossy-Tolerant 変換 API（llm-bridge-core 側）
+
+llm-bridge-core 側に「損失許容型」変換 API を追加する：
+
+```rust
+// llm-bridge-core に追加する API（設計案）
+/// 変換結果。損失フィールドの情報を含む。
+pub struct TransformResult<T> {
+    /// 変換済みデータ（損失フィールドは省略または代替値で埋められる）
+    pub data: T,
+    /// 損失が発生したフィールドの一覧
+    pub lossy_fields: Vec<LossyField>,
+}
+
+/// 損失が発生した個別フィールド
+pub struct LossyField {
+    pub name: String,
+    pub level: LossyLevel,
+    pub detail: String,
+}
+
+/// 損失許容型変換 — 損失フィールドは省略されるが、変換自体は成功する
+pub fn anthropic_to_openai_lossy(
+    request: TransformRequest,
+) -> Result<TransformResult<TransformedRequest>, TransformError> {
+    let transformed = anthropic_to_openai(request.clone())?;
+    let lossy_fields = detect_lossy_fields(&request, &transformed);
+    Ok(TransformResult { data: transformed, lossy_fields })
+}
+```
+
+#### 6.3 anthropx 側の適応（将来対応）
+
+llm-bridge-core の lossy-tolerant API が利用可能になった後、anthropx 側の lossy 処理を以下の方針で修正する：
+
+- non-stream path: `anthropic_to_openai_lossy()` を呼び出し、損失フィールドをログとメトリクスに記録する
+- stream path: 各チャンクの変換結果に損失フィールドが含まれる場合、続行＋メトリクス記録を行う
+
+#### 6.4 移行期間中の動作
+
+llm-bridge-core の lossy-tolerant API が利用可能になるまでの間、`allow_lossy=true + error_lossy_continue=true` の組み合わせでは Error 級 lossy 発生時に 400 エラーを返す（現状維持）。この制約は `allow_lossy` フィールドのドキュメントコメントで明示する。
+
+```rust
+/// allow_lossy フィールド
+///
+/// # 現状の制約
+///
+/// `allow_lossy=true + error_lossy_continue=true` の場合でも Error 級 lossy が
+/// 発生した場合はエラーを返す。これは llm-bridge-core の変換 API が部分結果を
+/// 返せない設計による制約である。llm-bridge-core の lossy-tolerant API が
+/// 利用可能になり次第、本制約は解消される。
+#[serde(default)]
+pub allow_lossy: bool,
+```
+
 ### 7. 並行性制御
 
 provider ごとに `tokio::sync::Semaphore` を用いた backpressure 制御を行う。
@@ -932,22 +1121,25 @@ impl ConcurrencyLimiter {
         }
     }
 
-    /// 処理枠を取得する。queue 満杯時は 429 相当のエラーを返す。
+    /// セマフォを取得する（非ブロッキング優先、ブロッキングフォールバック）。
+    ///
+    /// 1. try_acquire_owned() で非ブロッキング取得を試みる
+    /// 2. 失敗時のみ queue 残容量チェック → fetch_add → acquire_owned().await
+    ///
+    /// try_acquire 成功時は current_queue を増加させないが、これは Semaphore
+    /// の permits のみで in-flight 数が正確に管理されるため問題ない。
     pub async fn acquire(&self) -> Result<OwnedSemaphorePermit, LimiterError> {
-        // queue 残容量チェック（楽観的）
-        let queued = self.current_queue.load(Ordering::Acquire);
-        if queued >= self.max_queue {
+        // 高速パス: 非ブロッキング
+        if let Ok(permit) = self.semaphore.clone().try_acquire_owned() {
+            return Ok(permit);
+        }
+        // 低速パス: queue 待機
+        if self.current_queue.load(Ordering::Acquire) >= self.max_queue {
             return Err(LimiterError::QueueFull);
         }
         self.current_queue.fetch_add(1, Ordering::Release);
-
-        // Semaphore::acquire_owned で非同期待機
-        let permit = self.semaphore
-            .clone()
-            .acquire_owned()
-            .await
+        let permit = self.semaphore.clone().acquire_owned().await
             .map_err(|_| LimiterError::Closed)?;
-
         self.current_queue.fetch_sub(1, Ordering::Release);
         Ok(permit)
     }
@@ -1011,50 +1203,101 @@ async fn proxy_sse_stream(
 }
 ```
 
-translate mode では SSE の各 chunk を `llm-bridge-core::transform::transform_stream()` で変換する：
+translate mode では SSE の各 chunk を `transform_chunk()` でチャンク単位で変換し、即時送信する。
 
 ```rust
 // provider/translate.rs — streaming 変換部分
-use llm_bridge_core::transform::transform_stream;
+use axum::body::Body;
+use futures::stream::StreamExt;
+use std::convert::Infallible;
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
-async fn translate_stream(
-    upstream: reqwest::Response,
-    mut stream_state: StreamState,
-) -> Response<Body> {
-    let upstream_stream = upstream.bytes_stream();
-    let (tx, rx) = Body::new_channel();
+/// SSE チャンクを Anthropic 形式に変換する。
+///
+/// - `Ok(Some(bytes))`: 変換完了、クライアントに送信すべきデータあり
+/// - `Ok(None)`: 変換不要（keepalive 等）、スキップ
+/// - `Err(e)`: 変換エラー
+fn transform_chunk(
+    chunk: Bytes,
+    state: &StreamState,
+) -> Result<Option<Bytes>, ProxyError> {
+    let transformed = state
+        .transform_fn
+        .as_ref()
+        .ok_or(ProxyError::Internal("transform not initialized".into()))?
+        .transform(chunk.as_ref())
+        .map_err(|e| ProxyError::TransformLossy(e.to_string()))?;
 
+    if transformed.is_empty() {
+        return Ok(None);
+    }
+
+    let sse_event = format!("data: {}\n\n", serde_json::to_string(&transformed)?);
+    Ok(Some(Bytes::from(sse_event)))
+}
+
+/// translate stream をチャンク単位で逐次変換する。
+///
+/// 従来の蓄積型（全チャンク受信後に一括変換）から、チャンク受信ごとに即時変換・送信する
+/// リアルタイムアーキテクチャに改修する。これにより TTFU（Time To First Token）が改善される。
+pub(crate) async fn translate_stream(
+    upstream_response: reqwest::Response,
+    stream_state: &StreamState,
+    cancel: CancellationToken,
+) -> Result<Response<Body>, ProxyError> {
+    let (tx, rx) = mpsc::channel::<Result<Bytes, Infallible>>(64);
+    let mut upstream_stream = upstream_response.bytes_stream();
+    let state = stream_state.clone();
+    let cancel = cancel.clone();
+
+    // 変換タスクを spawn
     tokio::spawn(async move {
-        let mut stream = upstream_stream;
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(chunk) => {
-                    match transform_stream(&chunk, &mut stream_state) {
-                        Ok(Some(events)) => {
-                            // events を Anthropic 互換 SSE 形式にシリアライズ
-                            for event in events {
-                                let sse_payload = serialize_sse_event(&event);
-                                if tx.send(Ok(sse_payload.into())).is_err() {
-                                    return;
+        loop {
+            tokio::select! {
+                // upstream からのチャンク受信
+                chunk = upstream_stream.next() => {
+                    match chunk {
+                        Some(Ok(bytes)) => {
+                            match transform_chunk(bytes, &state) {
+                                Ok(Some(anthropic_event)) => {
+                                    if tx.send(Ok(anthropic_event)).await.is_err() {
+                                        break; // クライアント切断
+                                    }
+                                }
+                                Ok(None) => continue, // 変換不要チャンク
+                                Err(e) => {
+                                    tracing::warn!("chunk transform error: {e}");
+                                    if state.should_continue_on_lossy() {
+                                        continue;
+                                    }
+                                    break;
                                 }
                             }
                         }
-                        Ok(None) => {}  // バッファリング中のため出力なし
-                        Err(e) => {
-                            tracing::warn!("transform_stream error: {}", e);
-                            return;
+                        Some(Err(e)) => {
+                            tracing::error!("upstream stream error: {e}");
+                            break;
                         }
+                        None => break, // ストリーム正常終了
                     }
                 }
-                Err(e) => {
-                    tracing::warn!("upstream stream error: {}", e);
-                    return;
+                // キャンセル通知
+                _ = cancel.cancelled() => {
+                    tracing::info!("translate stream cancelled");
+                    break;
                 }
             }
         }
     });
 
-    sse_response(rx)
+    // SSE 応答を返す
+    let body = Body::from_stream(tokio_stream::wrappers::ReceiverStream::new(rx));
+    Ok(Response::builder()
+        .header("Content-Type", "text/event-stream")
+        .header("Cache-Control", "no-cache")
+        .body(body)
+        .unwrap())
 }
 ```
 
@@ -1163,14 +1406,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 lib crate は `tracing::info!` と `metrics::counter!` / `metrics::histogram!` を出力するのみ。subscriber や exporter の設定はバイナリ側（main.rs）の責務である。
 
+#### 10.1 メトリクス命名規則
+
+| 規則 | 例 |
+|------|-----|
+| プレフィックス: `anthropx_` | `anthropx_requests_total` |
+| カウンタサフィックス: `_total` | `anthropx_requests_total` |
+| ヒストグラムサフィックス: `_ms` | `anthropx_request_latency_ms` |
+| ラベルは snake_case | `provider`, `mode`, `stream`, `status` |
+
+#### 10.2 メトリクス定義
+
 ```rust
 // observability/metrics.rs
+use metrics::{counter, histogram, describe_counter, describe_histogram};
+
+// server feature 時のみ Prometheus レコーダーをインストールする。
+// library モードでは metrics マクロは no-op として動作する。
+#[cfg(feature = "server")]
+mod exporter {
+    use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+    use once_cell::sync::Lazy;
+
+    pub(crate) static METRICS_HANDLE: Lazy<PrometheusHandle> = Lazy::new(|| {
+        PrometheusBuilder::new()
+            .install_recorder()
+            .expect("failed to install Prometheus recorder")
+    });
+}
+#[cfg(feature = "server")]
+pub(crate) use exporter::METRICS_HANDLE;
+
 pub fn register_metrics() {
-    // メトリクスは metrics crate のマクロで定義・更新する
-    // subscriber が設定されていなくても metrics マクロは安全に動作する
+    describe_counter!(
+        "anthropx_requests_total",
+        "Total number of proxy requests by provider, mode, stream, status"
+    );
+    describe_counter!(
+        "anthropx_failover_total",
+        "Total number of key failover events by provider"
+    );
+    describe_counter!(
+        "anthropx_lossy_total",
+        "Total number of lossy translation events by level"
+    );
+    describe_histogram!(
+        "anthropx_request_latency_ms",
+        "Request latency in milliseconds by provider and mode"
+    );
 }
 
-// 各リクエスト完了時に呼ばれるメトリクス更新
 pub fn record_request(
     provider: &str,
     mode: &str,
@@ -1178,17 +1463,53 @@ pub fn record_request(
     status: u16,
     latency_ms: u64,
 ) {
-    metrics::counter!("llm_bridge_requests_total",
-        "provider" => provider.to_string(),
-        "mode" => mode.to_string(),
-        "stream" => stream.to_string(),
-        "status" => status.to_string(),
-    ).increment(1);
+    let labels = [
+        ("provider", provider),
+        ("mode", mode),
+        ("stream", stream.to_string().as_str()),
+        ("status", status.to_string().as_str()),
+    ];
 
-    metrics::histogram!("llm_bridge_request_latency_ms",
-        "provider" => provider.to_string(),
-        "mode" => mode.to_string(),
-    ).record(latency_ms);
+    counter!("anthropx_requests_total", &labels).increment(1);
+    histogram!("anthropx_request_latency_ms", &labels).record(latency_ms as f64);
+}
+
+pub fn record_failover(provider: &str) {
+    counter!("anthropx_failover_total", "provider" => provider).increment(1);
+}
+
+pub fn record_lossy(level: &str) {
+    counter!("anthropx_lossy_total", "level" => level).increment(1);
+}
+```
+
+ヒストグラムは metrics crate のデフォルトバケット（`[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]` 秒）を使用する。カスタムバケット設定は行わない。
+
+#### 10.3 `register_metrics` の呼び出し場所
+
+`register_metrics()` は `ProxyServer::start` の先頭で呼び出す：
+
+```rust
+// lifecycle.rs — ProxyServer::start の先頭
+pub async fn start(config: AppConfig) -> Result<ServerHandle, Box<dyn Error>> {
+    register_metrics();  // メトリクス登録
+    config.validate()?;
+    // ...
+}
+```
+
+#### 10.4 メトリクス記録の単一責任
+
+`record_request()` は `handle_messages` の後処理で 1 度だけ呼ばれる。provider ハンドラ（`handle_transparent`, `handle_translate`）の内部では metrics 出力を行わないこと。二重計上を防ぐため、`record_request()` の呼び出しはこの 1 箇所に限定する。
+
+#### 10.5 `/metrics` エンドポイント
+
+```rust
+// http/routes.rs
+// server feature 時のみ /metrics エンドポイントで Prometheus 形式を出力
+#[cfg(feature = "server")]
+pub(crate) async fn metrics_handler() -> String {
+    crate::observability::metrics::METRICS_HANDLE.render()
 }
 ```
 
@@ -1260,44 +1581,50 @@ pub enum ProxyError {
     Config(String),
 }
 
+impl ProxyError {
+    /// HTTP ステータスコードを返す（単一の定義場所）
+    pub fn status_code(&self) -> u16 {
+        match self {
+            Self::UnknownProvider(_)
+            | Self::InvalidModel(_)
+            | Self::MissingField(_)
+            | Self::TransformLossy(_) => 400,
+            Self::Unauthorized(_) => 401,
+            Self::Forbidden(_) => 403,
+            Self::QueueFull(_) => 429,
+            Self::Upstream(_) | Self::UpstreamError(_) => 502,
+            Self::Timeout(_) => 504,
+            Self::Internal(_) | Self::Config(_) => 500,
+        }
+    }
+
+    /// Anthropic 互換エラータイプ文字列を返す
+    fn error_type(&self) -> &'static str {
+        match self {
+            Self::UnknownProvider(_) | Self::InvalidModel(_)
+            | Self::MissingField(_) | Self::TransformLossy(_) => "invalid_request_error",
+            Self::Unauthorized(_) => "authentication_error",
+            Self::Forbidden(_) => "permission_error",
+            Self::QueueFull(_) => "rate_limit_error",
+            Self::Upstream(_) | Self::UpstreamError(_) => "upstream_error",
+            Self::Timeout(_) => "timeout_error",
+            Self::Internal(_) | Self::Config(_) => "internal_error",
+        }
+    }
+}
+
 impl IntoResponse for ProxyError {
     fn into_response(self) -> Response {
-        let (status, error_type, message) = match &self {
-            ProxyError::UnknownProvider(_) | ProxyError::InvalidModel(_)
-                => (StatusCode::BAD_REQUEST, "invalid_request_error", self.to_string()),
-            ProxyError::MissingField(_)
-                => (StatusCode::BAD_REQUEST, "invalid_request_error", self.to_string()),
-            ProxyError::Unauthorized
-                => (StatusCode::UNAUTHORIZED, "authentication_error", self.to_string()),
-            ProxyError::Forbidden
-                => (StatusCode::FORBIDDEN, "permission_error", self.to_string()),
-            ProxyError::QueueFull
-                => (StatusCode::TOO_MANY_REQUESTS, "rate_limit_error", "queue is full".into()),
-            ProxyError::Upstream(_)
-                => (StatusCode::BAD_GATEWAY, "upstream_error", self.to_string()),
-            ProxyError::UpstreamError(_)
-                => (StatusCode::BAD_GATEWAY, "upstream_error", "upstream provider error".into()),
-            ProxyError::TransformLossy(_)
-                => (StatusCode::BAD_REQUEST, "invalid_request_error", self.to_string()),
-            ProxyError::Timeout
-                => (StatusCode::GATEWAY_TIMEOUT, "timeout_error", "request timed out".into()),
-            ProxyError::Internal(_) | ProxyError::Config(_)
-                => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "internal server error".into()),
-        };
-
-        let body = serde_json::json!({
-            "type": error_type,
+        let status = StatusCode::from_u16(self.status_code())
+            .expect("valid status code");
+        let body = json!({
+            "type": self.error_type(),
             "error": {
-                "type": error_type,
-                "message": message,
+                "type": self.error_type(),
+                "message": self.to_string(),
             }
         });
-
-        Response::builder()
-            .status(status)
-            .header("content-type", "application/json")
-            .body(axum::body::Body::from(serde_json::to_vec(&body).unwrap()))
-            .unwrap()
+        (status, Json(body)).into_response()
     }
 }
 ```
@@ -1342,6 +1669,162 @@ async fn test_with_real_provider() {
         .expect("ANTHROPX_TEST_DEEPSEEK_API_KEY must be set");
     // 実プロバイダーに対する結合テスト
     // ...
+}
+```
+
+#### 12.1 AC#3: Translate Non-Stream 応答形式検証
+
+既存の `translate_non_stream_proxies_via_openai_wire` テストに応答形式の検証を追加する：
+
+```rust
+#[tokio::test]
+async fn translate_non_stream_response_format() {
+    let (upstream_app, _) = make_mock_upstream(true, true);
+    let config = make_mock_config(upstream_app, true, vec![("m", "m")], None, None).await;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&json!({
+            "model": "translate/m",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), StatusCode::OK);
+    let body: Value = resp.json();
+    assert_eq!(body["type"], "message");
+    assert!(body["content"].is_array());
+    assert!(body["content"][0]["type"], "text");
+    assert!(body["id"].as_str().unwrap().starts_with("msg_"));
+    assert_eq!(body["model"], "translate/m");
+    assert_eq!(body["role"], "assistant");
+}
+```
+
+#### 12.2 AC#4: Translate Stream テスト
+
+```rust
+#[tokio::test]
+async fn translate_stream_proxies_via_openai_wire() {
+    let mock_sse_chunks = vec![
+        "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n\n",
+        "data: [DONE]\n\n",
+    ];
+
+    let upstream_app = axum::Router::new()
+        .route("/v1/chat/completions", axum::routing::post(move || {
+            let chunks = mock_sse_chunks.clone();
+            async move {
+                let stream = futures::stream::iter(
+                    chunks.into_iter().map(|c| Ok::<_, Infallible>(Bytes::from(c)))
+                );
+                Response::builder()
+                    .header("Content-Type", "text/event-stream")
+                    .body(Body::from_stream(stream))
+                    .unwrap()
+            }
+        }));
+
+    let config = make_mock_config(upstream_app, false, vec![("m", "m")], None, None).await;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&json!({
+            "model": "translate/m",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": true,
+            "max_tokens": 100,
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), StatusCode::OK);
+    let content_type = resp.headers().get("content-type").unwrap();
+    assert!(content_type.to_str().unwrap().contains("text/event-stream"));
+    let body = resp.text();
+    assert!(body.contains("content_block_delta"));
+}
+```
+
+#### 12.3 AC#5: Non-Stream Key Failover テスト
+
+```rust
+#[tokio::test]
+async fn non_stream_key_failover_recovers_from_503() {
+    let attempt = Arc::new(AtomicUsize::new(0));
+    let attempt_clone = attempt.clone();
+
+    let upstream_app = axum::Router::new()
+        .route("/v1/messages", axum::routing::post(move || {
+            let n = attempt_clone.fetch_add(1, Ordering::SeqCst);
+            async move {
+                if n == 0 {
+                    (StatusCode::SERVICE_UNAVAILABLE, Json(json!({
+                        "error": {"type": "overloaded", "message": "upstream busy"}
+                    })))
+                } else {
+                    (StatusCode::OK, Json(json!({
+                        "id": "msg_01", "type": "message", "role": "assistant",
+                        "content": [{"type": "text", "text": "Hello"}], "model": "m",
+                    })))
+                }
+            }
+        }));
+
+    let config = make_mock_config(
+        upstream_app, true, vec![("m", "m")],
+        Some(vec!["key1", "key2"]), None,
+    ).await;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&json!({
+            "model": "transparent/m",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), StatusCode::OK);
+    assert_eq!(attempt.load(Ordering::SeqCst), 2);
+}
+```
+
+#### 12.4 AC#6: Stream No-Failover テスト
+
+```rust
+#[tokio::test]
+async fn stream_no_failover_returns_error() {
+    let upstream_app = axum::Router::new()
+        .route("/v1/messages", axum::routing::post(move || {
+            async move {
+                (StatusCode::SERVICE_UNAVAILABLE, Json(json!({
+                    "error": {"type": "overloaded", "message": "upstream busy"}
+                })))
+            }
+        }));
+
+    let config = make_mock_config(
+        upstream_app, true, vec![("m", "m")],
+        Some(vec!["key1", "key2"]), None,
+    ).await;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&json!({
+            "model": "transparent/m",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": true,
+            "max_tokens": 100,
+        }))
+        .await;
+
+    assert!(resp.status_code().is_server_error());
 }
 ```
 
@@ -1452,16 +1935,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### C. `#![forbid(unsafe_code)]`
+### C. Crate レベル属性
 
-本 crate は `llm-bridge-core` と同様に `unsafe` コードを禁止する：
+`src/lib.rs` の冒頭に以下の 3 属性を設定する。これらは crate 全体に適用される不変条件である。
 
 ```rust
 // lib.rs
 #![forbid(unsafe_code)]
-#![warn(rust_2024_compatibility, missing_docs)]
+#![warn(rust_2024_compatibility)]
 #![warn(missing_debug_implementations)]
 ```
+
+| 属性 | 効果 | 根拠 |
+|------|------|------|
+| `forbid(unsafe_code)` | unsafe コードの混入をコンパイル時に禁止 | セキュリティ不変条件。例外なく全 crate で遵守 |
+| `warn(rust_2024_compatibility)` | Edition 2024 移行時の互換性問題を警告 | 将来のエディション移行準備 |
+| `warn(missing_debug_implementations)` | Debug 実装欠落を警告 | デバッグ容易性の確保 |
+
+`#![warn(missing_docs)]` は本フェーズでは有効化しない。全公開アイテムへの doc コメント追加は別チケットで段階的に実施する。
 
 ### D. `error_lossy_continue` フラグの追加
 

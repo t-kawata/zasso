@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-22T02:08:05.269Z",
+  "nodes": [
+    {
+      "id": "security",
+      "title": "セキュリティ属性とcrate設定（M#1）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:03:07.778Z",
+          "answer": "lib.rs に #![forbid(unsafe_code)], #![warn(rust_2024_compatibility)], #![warn(missing_debug_implementations)] を追加。missing_docs は段階的導入のため保留。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "metrics",
+      "title": "メトリクス再設計 — metrics crate導入と次元拡張（M#2/M#5）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:51.979Z",
+          "answer": "metrics 0.24 crate を導入する。counter! / histgram! マクロ + metrics-exporter-prometheus で実装。レイテンシヒストグラムと provider/mode/stream/status のラベル次元を追加。 naming は RFC 設計の llm_bridge_* を維持。"
+        }
+      ],
+      "children": [
+        {
+          "id": "metrics-naming",
+          "title": "メトリクス命名規則と record_request シグネチャ",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T02:08:04.663Z",
+              "answer": "anthropx_ プレフィックスを採用。record_request は provider, mode, stream, status, latency_ms の5引数で実装。構造化ログは主要フィールド（request_id, provider, model, stream, status_code, latency_ms）のみ。"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "metrics-histogram",
+          "title": "レイテンシヒストグラムのバケット設定",
+          "status": "resolved",
+          "questions": [
+            {
+              "resolvedAt": "2026-06-22T02:08:05.268Z",
+              "answer": "metrics crate のデフォルトバケットを使用する。カスタム設定は行わない。"
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "translate-stream",
+      "title": "Translate streaming リアルタイム化（M#3）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:52.981Z",
+          "answer": "transform_stream() がチャンク単位処理対応の前提で全面改修する。transparent.rs の proxy_sse_stream パターン（tokio::select! + Body::new_channel）を translate.rs に適用する。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "lossy-handling",
+      "title": "Lossy handling 契約達成（M#4/m#12）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:54.308Z",
+          "answer": "暫定対応は行わない。llm-bridge-core 側に lossy-tolerant 変換API（Ok with warnings 型）の追加を行い、対応後に RFC 契約通りの lossy 続行を本実装する。現状の allow_lossy 抑制ロジックは正しく動作しており文書化のみ行う。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "feature-gate",
+      "title": "Feature gate 整備とデュアルモード構成（m#6）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:55.540Z",
+          "answer": "RFC 設計通り server feature 配下に clap / futures / http / tokio-util / tokio-stream を隔離する。main.rs に #[cfg(feature = \"server\")] を追加。library 用途では設定型＋メモリ内完結ロジックのみの最小ビルドを可能にする。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "config-validation",
+      "title": "設定検証補完（m#7/m#11）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:57.888Z",
+          "answer": "url_prefix 正規化（先頭/付与、末尾/除去）、alias key 衝突チェックのロジック修正、alias 競合ログ出力の3項目すべてを RFC 設計通り完全実装する。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "module-split",
+      "title": "モジュール分割 — config/util 単一責務化（m#8）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:56.745Z",
+          "answer": "RFC 設計通り config を 3ファイル（mod.rs / parse.rs / validate.rs）に厳密分割し、util/headers.rs も抽出する。config/mod.rs は型定義のみ、parse.rs は TOML 読込、validate.rs は設定検証を責務とする。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "test-expansion",
+      "title": "テスト拡充 — AC#4/#5/#6 と応答検証（m#9/m#10）",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:02:59.221Z",
+          "answer": "各ACを独立した axum::test 関数として追加。AC#3 は応答形式検証を追加、AC#4（translate stream）新規、AC#5（mock 503+failover）新規、AC#6（stream no-failover）新規。各テストは完全に独立した mock upstream を持つ。"
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "code-quality",
+      "title": "コード品質改善 — n#13〜n#16",
+      "status": "resolved",
+      "questions": [
+        {
+          "resolvedAt": "2026-06-22T02:03:09.388Z",
+          "answer": "n#13: IntoResponse から status_code() を呼び出すようリファクタリング。 n#14: ApiFormat 中間型は llm-bridge-core 対応時に解消（既存 stub コメントあり）。 n#15: try_acquire 高速パスは意図的な改善として現状維持。 n#16: record_request 二重計上リスクはドキュメント化のみ。 Plus: lib.rs に pub use lifecycle::ProxyServer を追加。"
+        }
+      ],
+      "children": []
+    }
+  ]
+}
