@@ -59,7 +59,8 @@ pub async fn handle_transparent(
     } else {
         let total_ms = state.config.global.timeouts.total_ms;
         let upstream_resp =
-            execute_with_failover(provider_name, &provider.scheduler, req_builder, total_ms).await?;
+            execute_with_failover(provider_name, &provider.scheduler, req_builder, total_ms)
+                .await?;
         Ok(json_response(upstream_resp).await)
     }
 }
@@ -128,7 +129,11 @@ async fn execute_stream(
 ///
 /// `cancel` が発火された場合、chunk 読み出しを中断してストリームを終了する。
 /// これにより graceful shutdown 時に SSE ストリームが適切にクローズされる。
-async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: CancellationToken, read_ms: u64) -> Response {
+async fn proxy_sse_stream(
+    upstream_resp: reqwest::Response,
+    cancel: CancellationToken,
+    read_ms: u64,
+) -> Response {
     let (tx, rx) = mpsc::channel::<Result<axum::body::Bytes, axum::Error>>(64);
     let mut stream = upstream_resp.bytes_stream();
     let timeout_dur = Duration::from_millis(read_ms);
@@ -171,7 +176,11 @@ async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: Cancellation
 ///
 /// `cancel` は ServerHandle の CancellationToken であり、shutdown 時に
 /// SSE ストリームを中断するために `proxy_sse_stream` に伝播される。
-async fn stream_response(upstream_resp: reqwest::Response, cancel: CancellationToken, read_ms: u64) -> Response {
+async fn stream_response(
+    upstream_resp: reqwest::Response,
+    cancel: CancellationToken,
+    read_ms: u64,
+) -> Response {
     proxy_sse_stream(upstream_resp, cancel, read_ms).await
 }
 

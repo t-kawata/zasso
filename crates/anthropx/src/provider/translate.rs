@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::body::Body;
 use axum::body::Bytes;
@@ -254,6 +255,12 @@ pub async fn handle_translate(
         .error_lossy_continue
         .unwrap_or(state.config.global.error_lossy_continue);
 
+    // タイムアウト値を config から解決し、下位関数に注入する。
+    // ProviderConfig.timeouts は YAGNI により未定義のため、直接 global 値を使用する。
+    // （P1-1 設計判断: ProviderConfig.timeouts は現状不要）
+    let total_ms = state.config.global.timeouts.total_ms;
+    let read_ms = state.config.global.timeouts.read_ms;
+
     if is_stream {
         translate_stream(
             provider,
@@ -263,6 +270,7 @@ pub async fn handle_translate(
             allow_lossy,
             error_lossy_continue,
             state.cancel.clone(),
+            read_ms,
         )
         .await
     } else {
@@ -274,6 +282,7 @@ pub async fn handle_translate(
             &api_format,
             allow_lossy,
             error_lossy_continue,
+            total_ms,
         )
         .await
     }
@@ -288,6 +297,10 @@ pub async fn handle_translate(
 /// 1. Anthropic リクエスト → llm-bridge-core で OpenAI 形式に変換
 /// 2. 変換後のリクエストを upstream に送信
 /// 3. 応答を llm-bridge-core で Anthropic 形式に逆変換
+///
+/// 8引数は clippy 標準（7）を超えるが、責務ごとの引数構造は適切（provider, model, body, format,
+/// 2x lossy設定, timeout）であり、構造体への凝集は現時点では過剰な抽象化となるため許可する。
+#[allow(clippy::too_many_arguments)]
 async fn translate_non_stream(
     provider: &ProviderClient,
     resolved: &ResolvedModel,
@@ -296,6 +309,7 @@ async fn translate_non_stream(
     _api_format: &ApiFormat,
     allow_lossy: bool,
     error_lossy_continue: bool,
+    total_ms: u64,
 ) -> Result<Response, ProxyError> {
     // ルーティングが解決した upstream モデル名で body の model を上書きする。
     // body に渡される model は "provider/model" 形式であり、llm-bridge-core の
@@ -356,6 +370,7 @@ async fn translate_non_stream(
         .post(&upstream_url)
         .bearer_auth(key)
         .json(&upstream_body)
+        .timeout(Duration::from_millis(total_ms))
         .send()
         .await
         .map_err(|e| ProxyError::UpstreamError(e.to_string()))?;
@@ -474,7 +489,7 @@ fn transform_chunk(
 ///
 /// `tokio::select!` 内のテンポラリドロップ順序が Rust 2024 で変更されるが、
 /// Bytes の Drop には副作用がなく無害なため警告を抑制する。
-#[allow(tail_expr_drop_order)]
+#[allow(tail_expr_drop_order, clippy::too_many_arguments)]
 async fn translate_stream(
     provider: &ProviderClient,
     resolved: &ResolvedModel,
@@ -483,6 +498,7 @@ async fn translate_stream(
     allow_lossy: bool,
     error_lossy_continue: bool,
     cancel: CancellationToken,
+    read_ms: u64,
 ) -> Result<Response, ProxyError> {
     // ルーティングが解決した upstream モデル名で body の model を上書きする（non-stream と同様）。
     // llm-bridge-core の validate_model_name が '/' を含む model 名を拒否するため必須。
@@ -569,6 +585,10 @@ async fn translate_stream(
     let mut upstream_stream = upstream_resp.bytes_stream();
     let mut state = StreamState::default();
 
+    // idle timeout 用の Duration を事前計算（read_ms は Copy 型のため async move 内でも参照可能だが
+    // transparent.rs の proxy_sse_stream と同一パターンに従い spawn 前に変数化する）
+    let timeout_dur = Duration::from_millis(read_ms);
+
     // 変換＋送信タスクを spawn し、upstream からのチャンクを受信するたびに
     // transform_chunk で変換し、結果を mpsc 経由で即時クライアントに送信する
     tokio::spawn(async move {
@@ -579,9 +599,9 @@ async fn translate_stream(
                     // ServerHandle からの shutdown 通知により中断
                     break;
                 }
-                chunk = upstream_stream.next() => {
+                chunk = tokio::time::timeout(timeout_dur, upstream_stream.next()) => {
                     match chunk {
-                        Some(Ok(bytes)) => {
+                        Ok(Some(Ok(bytes))) => {
                             match transform_chunk(&bytes, sse_format, &mut state) {
                                 Ok(Some(anthropic_event)) => {
                                     // 変換結果を即時送信。is_err() = クライアント切断
@@ -599,12 +619,18 @@ async fn translate_stream(
                                 }
                             }
                         }
-                        Some(Err(e)) => {
+                        Ok(Some(Err(e))) => {
                             tracing::error!("upstream stream read error: {e}");
                             break;
                         }
-                        None => {
+                        Ok(None) => {
                             // upstream ストリーム正常終了
+                            break;
+                        }
+                        Err(_) => {
+                            // idle timeout — read_ms 以内に chunk が到着しなかった場合
+                            // transparent.rs の proxy_sse_stream と同一の warn 書式で通知する
+                            tracing::warn!("translate stream idle timeout ({}ms), closing", read_ms);
                             break;
                         }
                     }
@@ -1141,7 +1167,7 @@ mod tests {
         // enumer が有限であることを確認するためのプレースホルダ
     }
 
-    /// translate_stream の型シグネチャが Send を満たすこと。
+    /// translate_stream の型シグネチャが Send を満たすこと（read_ms 追加後も維持）。
     #[test]
     fn translate_stream_is_send() {
         fn assert_send<T: Send>() {}
@@ -1154,6 +1180,27 @@ mod tests {
                 bool,
                 bool,
                 CancellationToken,
+                u64,
+            ) -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<Response, ProxyError>> + Send>,
+            >,
+        >();
+    }
+
+    /// translate_non_stream の型シグネチャが Send を満たすこと。
+    #[test]
+    fn translate_non_stream_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<
+            fn(
+                &ProviderClient,
+                &ResolvedModel,
+                serde_json::Value,
+                LlmApiFormat,
+                &ApiFormat,
+                bool,
+                bool,
+                u64,
             ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<Response, ProxyError>> + Send>,
             >,

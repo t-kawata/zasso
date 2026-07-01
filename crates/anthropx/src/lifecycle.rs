@@ -134,12 +134,9 @@ pub fn build_provider_clients(config: &AppConfig) -> HashMap<String, ProviderCli
             let connect_timeout = Duration::from_millis(config.global.timeouts.connect_ms);
 
             // User-Agent ヘッダをコンパイル時バージョンから生成
-            let user_agent: HeaderValue = format!(
-                "anthropx/{}",
-                env!("CARGO_PKG_VERSION")
-            )
-            .parse()
-            .expect("static User-Agent value must be valid");
+            let user_agent: HeaderValue = format!("anthropx/{}", env!("CARGO_PKG_VERSION"))
+                .parse()
+                .expect("static User-Agent value must be valid");
 
             let mut default_headers = HeaderMap::new();
             default_headers.insert(http::header::USER_AGENT, user_agent);
@@ -284,7 +281,10 @@ mod tests {
         //     reqwest::Client の Debug 実装は内部に "reqwest" 文字列を含むため、
         //     Debug 出力が空でないことのみ確認（実際の設定値参照は不可能）。
         let debug_str = format!("{:?}", pc.http_client);
-        assert!(!debug_str.is_empty(), "Client Debug output should not be empty");
+        assert!(
+            !debug_str.is_empty(),
+            "Client Debug output should not be empty"
+        );
     }
 
     /// ProxyServer と ServerHandle の型が期待通りであること。

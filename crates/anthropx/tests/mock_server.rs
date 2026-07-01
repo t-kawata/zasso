@@ -1116,7 +1116,12 @@ async fn transparent_non_stream_succeeds_with_sufficient_timeout() {
         }))
         .await;
 
-    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    assert_eq!(
+        resp.status_code(),
+        200,
+        "expected 200, got {}",
+        resp.status_code()
+    );
     let body = resp.json::<serde_json::Value>();
     assert_eq!(body["content"][0]["text"], "mock upstream response");
 }
@@ -1139,15 +1144,11 @@ async fn transparent_stream_times_out_on_slow_chunks() {
             // 最初のチャンクは 50ms 後に送信、2番目のチャンクは 1000ms 後（read_ms=200 超え）
             let stream = futures::stream::once(async {
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                Ok::<_, std::convert::Infallible>(
-                    "data: {\"type\":\"ping\"}\n\n".to_string()
-                )
+                Ok::<_, std::convert::Infallible>("data: {\"type\":\"ping\"}\n\n".to_string())
             })
             .chain(futures::stream::once(async {
                 tokio::time::sleep(Duration::from_millis(1000)).await;
-                Ok::<_, std::convert::Infallible>(
-                    "data: [DONE]\n\n".to_string()
-                )
+                Ok::<_, std::convert::Infallible>("data: [DONE]\n\n".to_string())
             }));
             (
                 StatusCode::OK,
@@ -1178,7 +1179,12 @@ async fn transparent_stream_times_out_on_slow_chunks() {
         }))
         .await;
 
-    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    assert_eq!(
+        resp.status_code(),
+        200,
+        "expected 200, got {}",
+        resp.status_code()
+    );
     let body_text = resp.text();
 
     // 最初のチャンクが届いている
@@ -1208,14 +1214,13 @@ async fn transparent_stream_succeeds_when_chunks_fast_enough() {
             let stream = futures::stream::once(async {
                 tokio::time::sleep(Duration::from_millis(30)).await;
                 Ok::<_, std::convert::Infallible>(
-                    "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"Hello\"}}\n\n".to_string()
+                    "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"Hello\"}}\n\n"
+                        .to_string(),
                 )
             })
             .chain(futures::stream::once(async {
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                Ok::<_, std::convert::Infallible>(
-                    "data: [DONE]\n\n".to_string()
-                )
+                Ok::<_, std::convert::Infallible>("data: [DONE]\n\n".to_string())
             }));
             (
                 StatusCode::OK,
@@ -1245,7 +1250,12 @@ async fn transparent_stream_succeeds_when_chunks_fast_enough() {
         }))
         .await;
 
-    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    assert_eq!(
+        resp.status_code(),
+        200,
+        "expected 200, got {}",
+        resp.status_code()
+    );
     let body_text = resp.text();
 
     assert!(
