@@ -18,7 +18,7 @@ npm install
 npm run build
 ```
 
-`tsc` が TypeScript ソースを `dist/` にコンパイルします（単一ファイルバンドルは `make deploy` で利用可能）。
+`npm run build` は esbuild で単一ファイルにバンドルし、`.claude/scripts/conver/conver.js` にも配置します（`make build-conver` と同等）。
 
 ```bash
 # プロジェクトルート以外からの実行例
@@ -29,11 +29,13 @@ node ~/shyme/zasso/tools/conver/dist/conver.js -k <api_key> -s <slack_url>
 |---------|------|
 | `npm run build` | tsc で TypeScript をコンパイル |
 | `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
-| `make build-conver` | `npm run build` と同じ |
+| `make build-conver` | esbuild バンドル＋`.claude/scripts/conver/` に配置 |
 | `make typecheck` | `npm run typecheck` と同じ |
 | `make test-conver` | 全72テストを実行 |
 | `make run-conver` | `ARGS` を指定して conver.js を実行 |
 | `make deploy TARGET=path` | esbuild バンドルをビルドし配置 |
+
+`.claude/scripts/conver/` に `package.json`（`{"type": "module"}`）が配置されており、ESM として正しく実行されます。
 
 ```bash
 # カレントディレクトリに関わらず正しく動作します
@@ -59,7 +61,7 @@ conver は、**二層ループ構造**にもとづく開発パイプラインを
                        外側ループ（RFC世代サイクル）
   ┌──────────────────────────────────────────────────────────────────────────────┐
   │                                                                              ▼
-  grill → formulate ──→ [内側ループ] ──→ find ──→ formulate-for-next ──→ merge
+  grill → formulate ──→ [内側ループ] ──→ find ──→ formulate-for-next ──→ merge ──→ split ──→ drill
    ▲                        │                          │              │        │
    │                        │ 内側ループ                │              │        │
    │                        │ (自動実行: ACP)           │              │        │
@@ -82,6 +84,8 @@ conver は、**二層ループ構造**にもとづく開発パイプラインを
 
 ```bash
 node dist/conver.js -k <DeepSeek_API_Key> -s <Slack_Webhook_URL> [options]
+# .claude/scripts/conver/ に配置されたバンドルからも実行可能
+node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
 ```
 
 ### CLI オプション
@@ -170,7 +174,7 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
 | **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
-| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `split-rfc-to-children`, `check-final` | 設計判断・ループ継続判断は人間が行う |
+| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `split-rfc-to-children`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
 内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
@@ -307,7 +311,18 @@ RFC の設計内容と実際の実装コードを比較し、漏れ・矛盾・�
 
 **発見する omission の種類**:
 | 種別 | 説明 |
-|------|------|
+|
+
+#### `/drill-rfc-down <対象RFCパス>`
+
+既存RFCに対して grill 方式の質問攻めで考慮不足・設計不足の穴を塞ぐ。追記のみ、破壊的変更禁止。
+
+- `/grill-me-for-next-rfc-ja` と同一の質問機構（DesignTree/Status/CheckList）を再利用
+- 既存の DesignTree/Status/CheckList が存在すればセッション継続（なければ新規生成）
+- 編集は追記最優先。全文書き換え・セクション削除禁止
+- 質問→回答→追記→CheckList照合→再grill判定のサイクルで品質を高める
+
+------|------|
 | missing_implementation | RFC で定義されているが未実装 |
 | incomplete_implementation | 部分的にしか実装されていない |
 | design_deviation | RFC の設計と異なる実装 |
@@ -462,7 +477,7 @@ Tickets.json
 
 ### grill
 
-`grill-me-for-rfc/init.js` | `grill-me-for-rfc/update-tree.js` | `grill-me-for-rfc/tree-query.js` | `grill-me-for-rfc/update-status.js` | `grill-me-for-rfc/session-status.js` | `grill-me-for-rfc/check-all-schema.js` | `grill-me-for-rfc/generate-checklist.js` | `grill-me-for-rfc/list-files.js` | `grill-me-for-rfc/validate-question-format.js`
+`grill-me-for-rfc/init.js` | `grill-me-for-rfc/init-for-drill-rfc-down.js` | `grill-me-for-rfc/update-tree.js` | `grill-me-for-rfc/tree-query.js` | `grill-me-for-rfc/update-status.js` | `grill-me-for-rfc/session-status.js` | `grill-me-for-rfc/check-all-schema.js` | `grill-me-for-rfc/generate-checklist.js` | `grill-me-for-rfc/list-files.js` | `grill-me-for-rfc/validate-question-format.js`
 
 ### 共通ライブラリ
 
@@ -491,6 +506,7 @@ Tickets.json
    - RFC-OMISSIONS を正典に統合するなら `/merge-omissions-into-root-rfc`
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
    - 長大なRFCを分割するなら `/split-rfc-to-children`
+   - 既存RFCの穴を塞ぐなら `/drill-rfc-down`
    - 軽微なら `/check-final` で完了確認
 5. `/check-final` が PASS を返したら 🎉 開発完了
 
