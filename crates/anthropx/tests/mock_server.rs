@@ -5,18 +5,18 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::convert::Infallible;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use anthropx::config::{AppConfig, ModelConfig, OpenAiWireApi, ProviderConfig};
+use axum::Json;
 use axum::body::Body;
 use axum::body::Bytes;
 use axum::http::StatusCode;
 use axum::response::Response;
-use axum::Json;
-use futures::stream;
 use futures::StreamExt;
+use futures::stream;
 use tokio_util::sync::CancellationToken;
 
 // ---------------------------------------------------------------------------

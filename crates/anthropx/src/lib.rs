@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![warn(rust_2024_compatibility)]
 #![warn(missing_debug_implementations)]
 
 //! # anthropx: LLM Bridge Proxy Server

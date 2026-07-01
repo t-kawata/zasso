@@ -259,9 +259,10 @@ mod tests {
             },
         );
         let err = config.validate().unwrap_err();
-        assert!(err
-            .iter()
-            .any(|e| matches!(e, ConfigError::DuplicateModel(_))));
+        assert!(
+            err.iter()
+                .any(|e| matches!(e, ConfigError::DuplicateModel(_)))
+        );
     }
 
     /// provider 内の alias のキーが public model 名と衝突するとエラーになること。
@@ -292,9 +293,10 @@ mod tests {
             },
         );
         let err = config.validate().unwrap_err();
-        assert!(err
-            .iter()
-            .any(|e| matches!(e, ConfigError::DuplicateAlias(_, _))));
+        assert!(
+            err.iter()
+                .any(|e| matches!(e, ConfigError::DuplicateAlias(_, _)))
+        );
     }
 
     /// ポート番号 0 はエラーになること。
@@ -449,9 +451,10 @@ mod tests {
             },
         );
         let err = config.validate().unwrap_err();
-        assert!(err
-            .iter()
-            .any(|e| matches!(e, ConfigError::DuplicateAlias(_, _))));
+        assert!(
+            err.iter()
+                .any(|e| matches!(e, ConfigError::DuplicateAlias(_, _)))
+        );
     }
 
     /// alias の値（value）が public model 名と衝突しても許容されること（エラーにならない）。

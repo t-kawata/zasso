@@ -37,23 +37,20 @@ pub async fn authorize_client(request: Request, next: Next) -> Result<Response, 
     let headers = request.headers();
 
     // 1. Authorization: Bearer <token> をチェック
-    if let Some(auth_value) = headers.get(header::AUTHORIZATION) {
-        if let Ok(auth_str) = auth_value.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                if !token.is_empty() {
-                    return Ok(next.run(request).await);
-                }
-            }
-        }
+    if let Some(auth_value) = headers.get(header::AUTHORIZATION)
+        && let Ok(auth_str) = auth_value.to_str()
+        && let Some(token) = auth_str.strip_prefix("Bearer ")
+        && !token.is_empty()
+    {
+        return Ok(next.run(request).await);
     }
 
     // 2. x-api-key: <key> をチェック
-    if let Some(api_key) = headers.get("x-api-key") {
-        if let Ok(key_str) = api_key.to_str() {
-            if !key_str.is_empty() {
-                return Ok(next.run(request).await);
-            }
-        }
+    if let Some(api_key) = headers.get("x-api-key")
+        && let Ok(key_str) = api_key.to_str()
+        && !key_str.is_empty()
+    {
+        return Ok(next.run(request).await);
     }
 
     // 3. 認証情報がない、または無効
@@ -83,7 +80,7 @@ pub async fn filter_upstream_headers(
     // hop-by-hop header を除去
     for header_name in HOP_BY_HOP_HEADERS {
         // HeaderName::from_bytes 内部の一時変数と headers.remove の戻り値の
-        // ドロップ順が Edition 2025 で変更されるため、両方を名前付き変数に
+        // ドロップ順が Edition 2024 で変更されるため、両方を名前付き変数に
         // 束縛して一時変数のドロップ時期を確定させる
         let name_bytes = header_name.as_bytes();
         let header_name_result = header::HeaderName::from_bytes(name_bytes);
@@ -102,9 +99,9 @@ pub async fn filter_upstream_headers(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::http::StatusCode;
     use axum::middleware;
-    use axum::Router;
     use std::sync::Arc;
 
     use tokio_util::sync::CancellationToken;

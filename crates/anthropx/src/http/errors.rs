@@ -5,9 +5,9 @@
 //!
 //! server feature 有効時のみコンパイルされる。
 
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 
 use crate::config::ProxyError;
 

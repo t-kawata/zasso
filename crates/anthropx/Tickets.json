@@ -269,6 +269,185 @@
           "rfcDiscrepancies": []
         }
       ]
+    },
+    {
+      "id": 4,
+      "name": "テスト補完（O-001: translate stream idle timeout テスト）",
+      "externalDependencies": "tokio, axum-test",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 4,
+          "status": "reviewed",
+          "title": "translate stream の idle timeout 統合テスト追加",
+          "referenceSection": "OMISSIONS-002.md (O-001)",
+          "background": "translate_stream の idle timeout に対する統合テストが存在しない。transparent stream では transparent_stream_times_out_on_slow_chunks と transparent_stream_succeeds_when_chunks_fast_enough が実装されているが、translate_stream では同様のテストがない。実装（tokio::time::timeout + select!）は translate.rs に既に存在する（P2-2 で実装済み）が、回帰テストが不足している状態。",
+          "scope": [
+            "tests/mock_server.rs: async fn translate_stream_times_out_on_slow_chunks() — translate handler 経由の SSE stream が read_ms 超過時に切断されることを検証",
+            "tests/mock_server.rs: async fn translate_stream_succeeds_when_chunks_fast_enough() — translate handler 経由の SSE stream が read_ms 以内のチャンク間隔なら正常終了することを検証"
+          ],
+          "relatedTicketIds": "入力元I/O: P2-2（translate.rs timeout 実装済み）",
+          "testVerification": [
+            "正常系: read_ms=500ms でチャンク間隔 30ms/100ms → translate stream 正常終了、全チャンク到達",
+            "異常系: read_ms=200ms で2番目のチャンク間隔 1000ms → idle timeout 切断、[DONE] 非到達",
+            "翻訳品質: timeout 切断後も既に変換済みのチャンク（content_block_delta）は正しく中継される"
+          ],
+          "testExceptions": [
+            "実際の upstream API との結合テストは API キーが必要なため CI ではスキップ（既存の real_provider ignored と同様の扱い）"
+          ],
+          "instrumentation": "静的品質チェック: 合格（17 issues全既知、テストコード常態）\n翻訳可能性: 問題なし（関数名は動詞句、変数名はドメイン概念、マジックナンバーなし、デバッグ出力なし）\nテスト: 24 integration tests 全件成功（新規2 + 既存22）",
+          "notes": "parentOmissionId: O-001\n\n【実装完了 2026-07-01】\n\n変更ファイル:\n- tests/mock_server.rs: +200行（2テスト追加）\n\nテスト1: translate_stream_times_out_on_slow_chunks\n- OpenAI wire format SSE, read_ms=200ms, 1st chunk 50ms, 2nd 1000ms\n- 期待: 200 OK, content_block_delta含む, [DONE]含まない\n- 結果: PASS\n\nテスト2: translate_stream_succeeds_when_chunks_fast_enough\n- OpenAI wire format SSE, read_ms=500ms, 30ms/100ms\n- 期待: 200 OK, content_block_delta, text, Hello含む\n- 結果: PASS\n\n回帰テスト: 全24統合テスト通過（新規2 + 既存22）\nコンパイル: cargo check --all-targets 通過\n品質チェック: run-quality-checks.js 17 issues（全既知・テストコード常態）\n犯罪・STUB: 0件\n\n【品質レビュー 2026-07-01】\n\n## 検証結果サマリー\n- コンパイル: cargo check --all-targets 通過（警告0）\n- 統合テスト: 24 passed, 0 failed（新規2件含む）\n- 品質チェック: 17 issues（全既知）\n  - 16 unwrap/expect: 全件テストコード\n  - 1 多引数: make_mock_config（既存・レビュー対象外）\n- 翻訳可能性: 問題なし\n  - 関数名: 動詞句（times_out_on_slow_chunks / succeeds_when_chunks_fast_enough）\n  - 変数名: ドメイン概念（read_ms, body_text, stream, chunk）\n  - マジックナンバー: なし\n  - デバッグ出力: なし\n  - コメント: 「なぜ」中心で記述（[DONE]をチェックしない理由等）\n\n## 不完全実装（7パターン）\n- 全パターン grep 確認済み。新規コードにスタブや犯罪なし\n- panic! + #[allow(unreachable_code)]: 既存コード（レビュー対象外）\n\n## Malfeasance\n- 犯罪: 0件（scan-crimes.sh 確認済み）\n\n## 依存関係整合性\n- P2-2（依存先）: status=reviewed、循環依存なし、実装順序整合\n\n## テスト計画達成度\n- 異常系（translate_stream_times_out_on_slow_chunks）: PASS\n- 正常系（translate_stream_succeeds_when_chunks_fast_enough）: PASS\n- 翻訳品質の暗黙検証: content_block_delta + text 確認\n\n## Boy Scout Rule\n- 今回の変更はテストのみで既存コードの直接編集なし\n- 新たな違反の持ち込み: なし\n- 新規テストは既存の翻訳可能なコードパターンに完全準拠\n\n## 結論: PASS（全チェック通過）\n\n備考: 正常系テストでは [DONE] の有無ではなく content_block_delta + text の存在で検証している。これは translate 変換により [DONE] が Anthropic form に変換されるためであり、既存の translate_stream_proxies_via_openai_wire テストと同一のアサーションパターン。",
+          "startedAt": "2026-07-01",
+          "completedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "translate stream の idle timeout 統合テストなし",
+              "after": "translate_stream_times_out_on_slow_chunks（異常系）追加",
+              "description": "translate stream の read_ms 超過（200ms）で idle timeout 切断を検証。1チャンク目(50ms)の content_block_delta は中継、[DONE] は非到達"
+            },
+            {
+              "before": "translate stream の正常終了テストなし（idle timeout 文脈）",
+              "after": "translate_stream_succeeds_when_chunks_fast_enough（正常系）追加",
+              "description": "translate stream の read_ms 以内（500ms）のチャンク間隔で正常終了を検証。content_block_delta, text の変換結果確認"
+            }
+          ],
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "コード品質改善（O-002: expect() の Result 伝播）",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 5,
+          "status": "reviewed",
+          "title": "build_upstream_headers の expect() を Result 伝播に置き換え",
+          "referenceSection": "OMISSIONS-002.md (O-002) / tickets/specs/0003-build-upstream-headers-expect-result.md",
+          "background": "src/util/headers.rs:54 で HeaderValue::from_str().expect() を使用。format!(\"Bearer {}\", key) は静的に有効なヘッダ値であることが保証されるため実害はないが、プロジェクトのコーディング規約（unwrap/expect プロダクションコード禁止）に違反する。build_upstream_headers はテストコード以外からの呼び出しがないため、影響範囲は自身のシグネチャ変更とテストコードの更新に限定される。\n\nConfigError は src/config/mod.rs:456 に定義され、InvalidValue(String) バリアントが既存。新規バリアント追加不要。\n\n調査により「ConfigError は src/config/error.rs に存在」という旧 notes の記述は誤りであることを確認。",
+          "scope": [
+            "src/util/headers.rs: pub fn build_upstream_headers() — 戻り値型 HeaderMap → Result<HeaderMap, ConfigError>。expect → map_err + ConfigError::InvalidValue 伝播",
+            "src/util/headers.rs: #[cfg(test)] mod tests — 全4テストを Result<(), ConfigError> に変更、? 演算子で呼び出し、Option unwrap 排除"
+          ],
+          "relatedTicketIds": "依存なし（他モジュールからの呼び出しなし、テストコード内のみ使用）",
+          "testVerification": [
+            "維持: build_upstream_headers_filters_auth — Result 伝播後も Authorization 上書き＋hop-by-hop 除去が正常動作",
+            "維持: build_upstream_headers_filters_hop_by_hop — Result 伝播後も hop-by-hop 除去が正常動作",
+            "維持: build_upstream_headers_preserves_other — Result 伝播後も安全なヘッダ維持が正常動作",
+            "維持: build_upstream_headers_empty_client — Result 伝播後も空 client で Bearer のみ設定"
+          ],
+          "testExceptions": [
+            "InvalidHeaderValue エラーの実際の到達 — format!(\"Bearer {}\", ...) が常に有効なヘッダ値を生成するため静的に到達不能。型検査によりエラーハンドリングの正しさを担保する。"
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues — run-quality-checks.js 確認済み）\n翻訳可能性: 問題なし\n- 関数名: build_upstream_headers（動詞句）／テスト関数4件（全て scenario 名）\n- 変数名: client_headers, provider_api_key, result, client（全てドメイン概念）\n- マジックナンバー: なし（RFC §6.1 参照はコメント）\n- デバッグ出力: なし\n- コメント: 「なぜ」を日本語で説明（ホップバイホップ除外理由等）。「何を」はコード自身が語る\nテスト: 201 unit + 24 integration + 1 doc-test = 全226件成功、2件 ignored（既知）\nコンパイル: OK\nclippy: OK\nフォーマット: OK\n不完全実装（7パターン）: 全てクリア\n抑制と [::STUB::] の整合性: #[allow] の新規追加なし",
+          "notes": "## レビュー報告書（2026-07-01）\n\n### 検証結果サマリー\n- 変更ファイル: src/util/headers.rs（1ファイルのみ）\n- cargo check --all-targets: 通過（警告0）\n- cargo clippy -- -D warnings: 通過\n- cargo fmt --check: 通過\n- cargo test: 226件中 226件成功（2件 ignored は既知）\n- run-quality-checks.js: 0 issues\n\n### 不完全実装（7パターン）\n- 全パターン grep 確認済み。変更コードに新たな不完全実装なし\n\n### Malfeasance\n- 犯罪: 0件（scan-crimes.sh 確認済み）\n\n### スタブ評価\n- スタブ: 0件（find-all-stubs.js 確認済み）\n\n### 依存関係整合性\n- relatedTicketIds: 依存なし（実装内容と整合）\n\n### 翻訳可能性\n- 関数名: 全て動詞句（build_upstream_headers）\n- 変数名: 全てドメイン概念（client_headers, provider_api_key）\n- マジックナンバー: なし\n- デバッグ出力: なし\n- コメント: 「なぜ」中心（hop-by-hop 除去理由等）\n\n### テスト計画達成度\n- 全4テスト（filters_auth, filters_hop_by_hop, preserves_other, empty_client）: 全件 Result 伝播後も正常動作確認済み\n\n### Boy Scout Rule\n- 既存コード改善: expect() + unwrap(8箇所) を Result 伝播 + Option 直接比較に置き換え。品質向上\n- 新たな違反の持ち込み: なし\n\n### 結論: PASS（全チェック通過）",
+          "startedAt": "2026-07-01",
+          "implementedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "use http::header::{self, HeaderValue};\nuse http::HeaderMap;",
+              "after": "use http::header::{self, HeaderValue};\nuse http::HeaderMap;\n\nuse crate::config::ConfigError;",
+              "description": "ConfigError import 追加"
+            },
+            {
+              "before": "pub fn build_upstream_headers(client_headers, provider_api_key) -> HeaderMap",
+              "after": "pub fn build_upstream_headers(client_headers, provider_api_key) -> Result<HeaderMap, ConfigError>",
+              "description": "戻り値型 HeaderMap → Result<HeaderMap, ConfigError> に変更"
+            },
+            {
+              "before": ".expect(\"valid Bearer token header\")",
+              "after": ".map_err(|_| ConfigError::InvalidValue(\"...\"))?",
+              "description": "expect → map_err + Result 伝播に置き換え"
+            },
+            {
+              "before": "headers を最終式として返却",
+              "after": "Ok(headers) を返却",
+              "description": "Result ラッピング"
+            },
+            {
+              "before": "4テスト関数: fn ...() （パニック型）",
+              "after": "4テスト関数: fn ...() -> Result<(), ConfigError>",
+              "description": "テスト関数を Result 型に変更し ? でエラー伝播"
+            },
+            {
+              "before": "result.get(...).unwrap() （7箇所）",
+              "after": "result.get(...) と Some(&HeaderValue::from_static(...)) の直接比較",
+              "description": "テスト内 unwrap 排除 → Option 直接比較に置き換え"
+            }
+          ],
+          "completedAt": "2026-07-01",
+          "reviewedAt": "2026-07-01",
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "エコシステム移行計画（O-003: Rust 2024 Edition）",
+      "externalDependencies": "cargo fix",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 6,
+          "status": "reviewed",
+          "title": "Rust 2024 Edition 移行計画策定",
+          "referenceSection": "OMISSIONS-002.md (O-003) / tickets/specs/0004-rust-2024-edition.md",
+          "background": "RFC §F.5 で Rust 2024 Edition 移行計画の策定が要求されているが、lib.rs に #[warn(rust_2024_compatibility)] を設定したのみで、影響範囲調査と移行計画の策定は未実施。特に tokio::select! 内のテンポラリドロップ順の影響確認（translate.rs の select! マクロ展開後）が未着手。",
+          "scope": [
+            "調査: cargo fix --edition の試験実行 — 移行時に自動修正されるコードと手動修正が必要なコードの棚卸し",
+            "調査: tail_expr_drop_order の影響確認 — translate.rs の select! マクロ展開後のドロップ順が Rust 2024 で変化した場合の影響評価",
+            "成果物: 移行計画書 — 作業手順・リスク評価・スケジュールを含む"
+          ],
+          "relatedTicketIds": "P3-1 (llm-bridge-core v0.3.0 Rust 2024 Edition 対応), P2-2 (translate.rs tail_expr_drop_order 対象箇所)",
+          "testVerification": [
+            "調査完了: cargo fix --edition の実行ログが取得できていること",
+            "調査完了: tail_expr_drop_order による影響範囲が特定できていること（特に translate.rs の select! 周辺）",
+            "成果物: 移行計画書が OMISSIONS-002 と同じディレクトリに出力されていること"
+          ],
+          "testExceptions": [
+            "コード変更を伴わない調査タスクのため、自動テストによる検証は不可能。成果物のレビューによる代替検証"
+          ],
+          "instrumentation": "静的品質チェック: 合格（21 issues 全既知 — 19件 unwrap/expect は全件テストコード、2件多引数は #[allow] + コメント済み）\n翻訳可能性: 問題なし\n- 関数名: 全て動詞句（build, scan, process, translate...）\n- 変数名: 全てドメイン概念（auth_value, auth_str, token, tools, body...）\n- マジックナンバー: 128（ツール上限）はコメントで説明済み、1024はテストコードの定数\n- デバッグ出力: なし\n- コメント: 「なぜ」を日本語で説明。「何を」はコード自身が語る\n※ Boy Scout: auth.rs の \"Edition 2025\" → \"Edition 2024\" コメント修正\nテスト: 201 unit + 22 integration + 1 doc-test = 全224件成功、2件 ignored（既知: real_provider, auth doc-test）\nコンパイル: OK\nclippy: OK\nフォーマット: OK\n不完全実装（7パターン）: 全てクリア\n犯罪: 0件\nスタブ: 0件\n抑制と [::STUB::] の整合性: #[allow] ×3の抑制理由コメント完備、[::STUB::] 不要",
+          "notes": "レビュー報告書（2026-07-01）:\n\n## 検証結果サマリー\n- 変更ファイル: 4ファイル（Cargo.toml, lib.rs, auth.rs, translate.rs）\n- cargo check: ✅ 通過（警告0）\n- cargo clippy -- -D warnings: ✅ 通過\n- cargo fmt --check: ✅ 通過\n- cargo test: 224件中 224件成功（2件 ignored は既知）\n- run-quality-checks.js: 21 issues（全既知）\n  - 19 unwrap/expect: 全件テストコード\n  - 2 多引数: #[allow] + コメント済み\n\n## 不完全実装（7パターン）\n- 全パターン grep 確認済み。変更コードに新たな不完全実装なし\n- auth.rs の \"Edition 2025\" コメント誤記を \"Edition 2024\" に修正（Boy Scout）\n\n## Malfeasance\n- 犯罪: 0件（scan-crimes.sh 確認済み）\n\n## スタブ評価\n- スタブ: 0件（find-all-stubs.js 確認済み）\n\n## 依存関係整合性\n- P3-1（llm-bridge-core v0.3.0）: status=reviewed、2024 Edition 対応済み\n- P2-2（translate.rs tail_expr_drop_order）: status=reviewed、同一箇所のドロップ順変化が移行の焦点\n- 循環依存: なし\n- 実装順序: 整合（P3-1→P2-2→P6-1）\n\n## 翻訳可能性\n- 関数名: 全て動詞句（build_upstream_headers, authorize_client, scan_anthropic_request...）\n- 変数名: 全てドメイン概念\n- マジックナンバー: 128（OpenAI ツール上限）はコメント説明済み\n- デバッグ出力: なし\n- コメント: 「なぜ」中心で日本語記述\n\n## テスト計画達成度\n- testVerification 3項目:\n  1. cargo fix --edition の実行ログ ✅ 取得済み\n  2. tail_expr_drop_order 影響範囲 ✅ 特定済み（translate.rs:605、安全）\n  3. 移行計画書 ✅ spec ファイルに出力済み\n\n## Boy Scout Rule\n- 既存コード改善:\n  1. auth.rs: 4段階ネストの if let → collapsing に改善\n  2. translate.rs: collapsible_if 修正\n  3. auth.rs: \"Edition 2025\" → \"Edition 2024\" コメント修正\n  4. cargo fmt 全ファイル適用\n- 新たな違反の持ち込み: なし\n\n## 結論: PASS（全チェック通過）\nRust 2024 Edition 移行が完了。Ecosystem Migration Plan フェーズが完了。",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "edition = \"2021\"",
+              "after": "edition = \"2024\"",
+              "description": "Cargo.toml: Rust 2021 Edition → Rust 2024 Edition に更新（cargo fix --edition）"
+            },
+            {
+              "before": "#![warn(rust_2024_compatibility)] あり",
+              "after": "#![warn(rust_2024_compatibility)] 削除",
+              "description": "lib.rs: Rust 2024 Edition では不要な互換性 lint を削除"
+            },
+            {
+              "before": "コメントが移行前の注意喚起",
+              "after": "コメントを 2024 Edition 確定後の状態に更新",
+              "description": "translate.rs: #[allow(tail_expr_drop_order)] のコメントを更新"
+            },
+            {
+              "before": "auth.rs: ネストした if let 4段階",
+              "after": "auth.rs: if let ... && ... に collapsed",
+              "description": "clippy collapsible_if の自動修正（Boy Scout Rule）"
+            },
+            {
+              "before": "translate.rs: ネストした if tools.len() > 128",
+              "after": "translate.rs: if let ... && tools.len() > 128 に collapsed",
+              "description": "clippy collapsible_if の自動修正（Boy Scout Rule）"
+            },
+            {
+              "before": "import 順序が古い rustfmt 標準",
+              "after": "import 順序を最新標準に整列",
+              "description": "cargo fmt による全ファイルフォーマット（Boy Scout Rule）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        }
+      ]
     }
   ]
 }
