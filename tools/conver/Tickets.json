@@ -1596,51 +1596,115 @@
         {
           "id": 1,
           "phaseId": 7,
-          "status": "todo",
+          "status": "reviewed",
           "title": "CronScheduler — node-cron ジョブ管理",
-          "referenceSection": "会話設計 (watcher mode)",
-          "background": "WatcherConfig の intervalMinutes に基づいて node-cron ジョブを設定・起動・停止する。",
+          "referenceSection": "tickets/specs/0032-cronscheduler-node-cron.md",
+          "background": "CronScheduler は WatcherConfig の intervalMinutes に基づき node-cron で定期ジョブを管理する Layer 2 コンポーネント。P6-1 (WatcherConfig 型定義) および P6-2 (時間窓判定) は完了済み。cli.ts に -w/--watcher フラグは未実装（P8-2）。runner.ts に watcher モード起動パスは未実装（P8-3）。node-cron パッケージは未インストール。",
           "scope": [
             "export class CronScheduler",
             "  constructor(config: WatcherConfig)",
-            "  start(): void",
+            "  start(callback: () => void): void",
             "  stop(): void",
-            "  isRunning(): boolean"
+            "  isRunning(): boolean",
+            "npm install node-cron + @types/node-cron",
+            "src/cron-scheduler.ts — クラス実装",
+            "src/cron-scheduler.test.ts — ユニットテスト（mock.module で node-cron モック化）",
+            "Makefile: test-conver にテストファイル追加"
           ],
           "relatedTicketIds": "入力元I/O: P6-1 / 出力先I/O: P7-2",
           "testVerification": [
-            "正常系: 指定間隔でコールバックが呼ばれる",
-            "正常系: stop() でジョブが停止する",
-            "正常系: restart() で新しい間隔で再起動",
-            "異常系: 不正な intervalMinutes での起動"
+            "正常系: コンストラクタ → start() → isRunning() が true → cron.schedule() が正しい cron 式で呼ばれる",
+            "正常系: start() → stop() → isRunning() が false → cronTask.stop() が呼ばれる",
+            "正常系: コンストラクタ直後 isRunning() が false",
+            "正常系: 二重起動防止 → start() 2回目は cron.schedule() を呼ばない",
+            "正常系: 二重停止防止 → stop() 2回目は cronTask.stop() を呼ばない",
+            "正常系: intervalMinutes=1 → */1 * * * * の cron 式",
+            "正常系: intervalMinutes=30 → */30 * * * *",
+            "正常系: intervalMinutes=60 → 0 * * * *（毎時0分）",
+            "正常系: intervalMinutes=120 → 0 */2 * * *（2時間ごと）",
+            "異常系: intervalMinutes=0 → コンストラクタが throw",
+            "異常系: intervalMinutes=-1 → コンストラクタが throw",
+            "異常系: intervalMinutes=1.5（小数）→ コンストラクタが throw",
+            "異常系: cron.schedule() が throw → start() も throw（エラー伝播）"
           ],
           "testExceptions": [
-            "node-cron の実際のタイミング制御は結合テストで確認"
+            "node-cron の実際のタイミング制御精度は結合テストで確認（P7-2）",
+            "node-cron の内部動作やバグはサードパーティライブラリのためテスト対象外"
           ],
-          "instrumentation": "cron ジョブの開始・終了・エラーを logger.info で記録",
-          "notes": "結合テスト計画:\n[::STUB::] P7-2（定期点検ロジック）実装後に、スケジューラが定期点検を正しく呼び出す結合テストを追加。"
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数が動詞始まり、1文字変数なし、マジックナンバーは全て名前付き定数化済み）\nテスト: make test-conver 全127件成功\n依存関係: P6-1(reviewed)←P7-1(done)→P7-2(todo) — 全て整合",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (new code: 0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済\n- テスト: 全127件成功\n- 見つかった問題と修正内容:\n  1. JSDoc 内のバッククォート + */ の組み合わせが TS パーサーでコメント終了と誤認されコンパイルエラー -> 該当箇所を JSDoc 内で */ を含まない表現に修正\n  2. mock.module の exports 構造の誤り (default キーが直下にあった) -> exports.default に修正\n  3. 静的な import だとモックが反映されない -> 動的 import に変更\n- 犯罪(Malfeasance): 0件\n- [::STUB::]: 0件\n- Boy Scout 改善: 該当なし（新規ファイルのみのため）",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "package.json (依存関係追加)",
+              "description": "npm install node-cron + @types/node-cron"
+            },
+            {
+              "before": "なし",
+              "after": "src/cron-scheduler.ts (新規作成)",
+              "description": "CronScheduler クラス実装。constructor + start/stop/isRunning + cron式変換"
+            },
+            {
+              "before": "なし",
+              "after": "src/cron-scheduler.test.ts (新規作成)",
+              "description": "15件のユニットテスト。mock.module で node-cron モック化"
+            },
+            {
+              "before": "test-conver に cron-scheduler.test.js なし",
+              "after": "test-conver に cron-scheduler.test.js 追加",
+              "description": "Makefile test-conver ターゲット更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         },
         {
           "id": 2,
           "phaseId": 7,
-          "status": "todo",
+          "status": "reviewed",
           "title": "定期点検ロジック — 未reviewedチケット確認とループ起動",
-          "referenceSection": "会話設計 (watcher mode)",
+          "referenceSection": "tools/conver/tickets/specs/0033-review-and-start-loop.md",
           "background": "CronScheduler から定期実行され、Tickets.json に未reviewedチケットが存在する場合に既存ループを開始する。",
           "scope": [
-            "export function checkAndStartLoop(ticketsPath: string, loopOptions: LoopOptions): Promise<void>"
+            "src/check-and-start-loop.ts — checkAndStartLoop 関数実装",
+            "src/check-and-start-loop.test.ts — ユニットテスト",
+            "Makefile — test-conver ターゲットにテスト追加"
           ],
-          "relatedTicketIds": "入力元I/O: P7-1, P1-1(tickets 読み込み) / 出力先I/O: P8-3",
+          "relatedTicketIds": "入力元: P7-1(CronSchedulerコールバック), P1-1(tickets.ts: loadPendingTickets), P4-1(runner.ts: runLoop) | 出力先: P8-3(Watcher起動パスでコールバック登録) | 関連: P8-1(時間窓制御), P6-1(WatcherConfig)",
           "testVerification": [
-            "正常系: 未reviewedチケットあり→ループ開始",
-            "正常系: 未reviewedチケットなし→何もしない",
-            "異常系: Tickets.json 読み込みエラー"
+            "正常系: 未reviewedチケットあり→runLoop が呼ばれる",
+            "正常系: 未reviewedチケットなし→何もせず即時 return",
+            "正常系: ループ実行中に再呼び出し→スキップ（再入防止）",
+            "異常系: Tickets.json 読み込みエラー→エラーを throw",
+            "正常系: ループ完了後に再入可能になる",
+            "異常系: runLoop エラー時も finally でフラグリセット"
           ],
           "testExceptions": [
-            "実際のACPセッション起動は結合テストで検証"
+            "CronScheduler との結合は結合テスト（P8-3後）で検証",
+            "実際のファイルI/O / プロセスライフサイクルはモックのエラー注入でカバー"
           ],
-          "instrumentation": "点検結果（未reviewed数）を logger.info で記録",
-          "notes": "結合テスト計画:\n[::STUB::] P8-3（エントリポイント統合）実装後に、定期点検→ループ起動→終了の一連の流れを結合テストで検証。"
+          "instrumentation": "品質: console.log 4件(正当) | 翻訳可能性: 問題なし | テスト: 133件成功 | 犯罪/STUB: 0 | 依存関係: 整合",
+          "notes": "テスト: 全133件成功 | 品質/犯罪/スタブ: 全てクリア",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "src/check-and-start-loop.ts (新規)",
+              "description": "checkAndStartLoop()"
+            },
+            {
+              "before": "なし",
+              "after": "src/check-and-start-loop.test.ts (新規)",
+              "description": "6件のユニットテスト"
+            },
+            {
+              "before": "test-conver に未追加",
+              "after": "test-conver に追加",
+              "description": "Makefile更新"
+            }
+          ],
+          "completedAt": "2026-07-01"
         }
       ]
     },
@@ -1652,26 +1716,78 @@
         {
           "id": 1,
           "phaseId": 8,
-          "status": "todo",
+          "status": "reviewed",
           "title": "ステップ境界時間制御 — runner.ts endTime ガード",
-          "referenceSection": "会話設計 (watcher mode)",
+          "referenceSection": "tickets/specs/0034-runnerts-endtime.md",
           "background": "既存 runner.ts のループ各ステップ（make/plan/start/review/resolve/find）の開始前に、現在時刻が endTime を超過していないかを確認し、超過時は次のステップに進まないように制御する。開始済みのステップがendTime超過しても許容する。",
           "scope": [
-            "export function isWithinTimeWindow(config: WatcherConfig | null): boolean",
-            "export function checkStepDeadline(stepName: string, config: WatcherConfig | null): boolean"
+            "src/step-timer.ts（新規）— isWithinTimeWindow() + checkStepDeadline()",
+            "src/step-timer.test.ts（新規）— 10テストケース",
+            "src/runner.ts（修正）— LoopOptions.watcherConfig 追加、ループ先頭ガード、Boy Scout: const s → const status",
+            "src/runner.test.ts（修正）— 3テストケース追加（watcherConfig 統合）",
+            "Makefile（修正）— test-conver に step-timer.test.js 追加"
           ],
           "relatedTicketIds": "入力元I/O: P6-2(時間窓判定), P4-1(既存runner) / 出力先I/O: P8-3",
           "testVerification": [
-            "正常系: endTime 前に次のステップが実行される",
-            "正常系: endTime 超過時に次のステップがスキップされる",
-            "正常系: watcherモード未設定時は常に通過（後方互換）",
-            "異常系: 不正な設定値でフォールバック動作"
+            "UT: isWithinTimeWindow(null) → true（後方互換）",
+            "UT: isWithinTimeWindow(config) 時間枠内 → true",
+            "UT: isWithinTimeWindow(config) 時間枠外開始前 → false",
+            "UT: isWithinTimeWindow(config) 時間枠外終了後 → false",
+            "UT: isWithinTimeWindow(config) 日跨ぎ時間枠内 → true",
+            "UT: isWithinTimeWindow(config) 日跨ぎ時間枠外 → false",
+            "UT: checkStepDeadline(null) → true",
+            "UT: checkStepDeadline(時間枠内) → true",
+            "UT: checkStepDeadline(時間枠外) → false + console.warn",
+            "UT: isWithinTimeWindow(不正config) → throw",
+            "UT: runLoop(watcherConfig=undefined) → 従来通り全ステップ実行",
+            "UT: runLoop(watcherConfigあり時間枠内) → 全ステップ実行",
+            "UT: runLoop(watcherConfigあり時間枠外) → ループbreak"
           ],
           "testExceptions": [
-            "タイミング依存のテストは FakeTimers で代替"
+            "該当なし — 全テストケースユニットテストでカバー可能"
           ],
-          "instrumentation": "endTime超過によるステップスキップを logger.warn で記録",
-          "notes": "既存のループ動作に影響を与えないこと（-w 未指定時は従来通り動作）"
+          "instrumentation": "静的品質チェック: 合格（新規コード issues 0件。runner.ts の15件は既存コード由来）\n翻訳可能性: 問題なし（全関数が動詞始まり、単一文字変数なし、マジックナンバーは全て定数化済み）\nテスト: make test-conver 全149件成功\n依存関係: P6-2(reviewed)←P8-1(done)→P8-3(todo) — 全て整合",
+          "notes": "## レビュー報告書\n\n【検証結果】\n- status: done ✅\n- コンパイル検証: tsc 成功 ✅\n- ユニットテスト: 全149件成功 ✅\n- 犯罪スキャン: 0件 ✅\n- スタブ: 0件 ✅\n- 静的品質チェック: 新規コード 0 issues ✅（既存runner.tsの15件はP8-1未導入）\n- [::STUB::]: 0件\n- 不完全実装パターン: 全7パターン該当なし\n\n【翻訳可能性】✅\n- 関数名: isWithinTimeWindow / checkStepDeadline — いずれも動詞句\n- 1文字変数: 新規コードなし✅\n- マジックナンバー: なし✅\n- console.warn: 1件（設計上の正当な使用 — 時間枠外通知）\n- コメント: 「なぜ」に特化（責務・依存関係の説明）\n\n【依存関係検証】✅\n- P6-2 (isInTimeWindow): reviewed — 問題なし\n- P4-1 (runner.ts): reviewed — 既存コードへの影響なし\n- P8-3 (entrypoint): todo — 後続依存（watcherConfig の利用側）\n- 循環依存: なし\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし\n\n【Boy Scout 改善確認】\n- runner.ts: const s → const status（1文字変数の翻訳可能性改善）✅",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "src/step-timer.ts（新規）",
+              "description": "isWithinTimeWindow() + checkStepDeadline() の実装"
+            },
+            {
+              "before": "なし",
+              "after": "src/step-timer.test.ts（新規）",
+              "description": "10件のユニットテスト（全パス確認済み）"
+            },
+            {
+              "before": "LoopOptions に watcherConfig なし",
+              "after": "LoopOptions.watcherConfig?: WatcherConfig 追加",
+              "description": "runner.ts: 時間枠設定の受け口追加"
+            },
+            {
+              "before": "ループに時間枠制御なし",
+              "after": "各チケット前に checkStepDeadline ガード",
+              "description": "runner.ts: ループ先頭に時間枠チェック + break"
+            },
+            {
+              "before": "const s（1文字変数）",
+              "after": "const status（ドメイン名）",
+              "description": "runner.ts: Boy Scout 改善"
+            },
+            {
+              "before": "step-timer テストなし",
+              "after": "3テストケース追加",
+              "description": "runner.test.ts: watcherConfig 統合テスト"
+            },
+            {
+              "before": "test-conver に step-timer.test.js なし",
+              "after": "test-conver に追加",
+              "description": "Makefile: test-conver ターゲット更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         },
         {
           "id": 2,

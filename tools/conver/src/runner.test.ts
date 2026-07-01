@@ -22,6 +22,14 @@ const mockState = {
   slackCalls: [] as Array<{ ticketId: string; phase: string }>,
 };
 
+/** step-timer モックの制御状態 */
+const mockStepTimerState = {
+  /** checkStepDeadline が呼ばれたステップ名の記録 */
+  stepNames: [] as string[],
+  /** checkStepDeadline の戻り値。true=通過, false=スキップ */
+  deadlineResult: true,
+};
+
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト LoopOptions */
@@ -62,6 +70,7 @@ describe("runLoop", () => {
   before(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "runner-test-"));
     ticketPath = join(tmpDir, "Tickets.json");
+    mockStepTimerState.deadlineResult = true;
 
     // 全モックを1度だけ設定
     mock.module("./session.js", {
@@ -111,6 +120,15 @@ describe("runLoop", () => {
         getSourceFromTickets: async (path: string) => path,
       },
     });
+
+    mock.module("./step-timer.js", {
+      exports: {
+        checkStepDeadline: (stepName: string) => {
+          mockStepTimerState.stepNames.push(stepName);
+          return mockStepTimerState.deadlineResult;
+        },
+      },
+    });
   });
 
   after(() => {
@@ -129,6 +147,7 @@ describe("runLoop", () => {
   // --- 正常系 ---
 
   it("1チケット: make/plan/start → review → resolve が順に呼ばれる", async () => {
+    mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -153,7 +172,100 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
+  // --- watcherConfig 統合テスト ---
+
+  it("watcherConfig=undefined: 従来通り全ステップ実行", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+    mockStepTimerState.stepNames = [];
+    mockStepTimerState.deadlineResult = true;
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, watcherConfig: undefined }));
+
+    assert.strictEqual(exitMock.calledWith.length, 0);
+    assert.ok(commands.some((c) => c.startsWith("/make-ticket")));
+    assert.ok(commands.some((c) => c.startsWith("/review-ticket")));
+    exitMock.restore();
+  });
+
+  it("watcherConfig あり時間枠内: 全ステップ実行", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+    mockStepTimerState.stepNames = [];
+    mockStepTimerState.deadlineResult = true;
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({
+      ticketsPath: ticketPath,
+      watcherConfig: {
+        intervalMinutes: 60,
+        startTime: "09:00",
+        endTime: "17:00",
+        timezone: "UTC",
+      },
+    }));
+
+    assert.strictEqual(exitMock.calledWith.length, 0);
+    assert.ok(commands.some((c) => c.startsWith("/make-ticket")));
+    assert.ok(mockStepTimerState.stepNames.length >= 1);
+    exitMock.restore();
+  });
+
+  it("watcherConfig あり時間枠外: ループ break", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+    mockStepTimerState.stepNames = [];
+    mockStepTimerState.deadlineResult = false;
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({
+      ticketsPath: ticketPath,
+      watcherConfig: {
+        intervalMinutes: 60,
+        startTime: "09:00",
+        endTime: "17:00",
+        timezone: "UTC",
+      },
+    }));
+
+    assert.strictEqual(exitMock.calledWith.length, 0);
+    // 時間枠外 → コマンドは一切実行されない
+    assert.strictEqual(commands.length, 0);
+    // ただし checkStepDeadline は 1回呼ばれている
+    assert.ok(mockStepTimerState.stepNames.length >= 1);
+    exitMock.restore();
+  });
+
   it("resolveEvery=3 でも最終チケットで resolve が呼ばれる", async () => {
+    mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -175,6 +287,7 @@ describe("runLoop", () => {
   });
 
   it("pushEnabled=true: resolve 後に jpush-branch が呼ばれる", async () => {
+    mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -196,6 +309,7 @@ describe("runLoop", () => {
   });
 
   it("未処理0件: 早期終了", async () => {
+    mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([]);
 
@@ -221,6 +335,7 @@ describe("runLoop", () => {
     cmdImpl: (cmd: string) => Promise<string>,
     opts: Partial<LoopOptions>,
   ): Promise<{ slackPhase: string; exitCode: number | undefined }> {
+    mockStepTimerState.deadlineResult = true;
     // テストごとにチケットファイルを新規作成
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },

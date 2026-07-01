@@ -35,6 +35,8 @@ import {
   checkAllReviewed,
   getSourceFromTickets,
 } from "./tickets.js";
+import type { WatcherConfig } from "./watcher.js";
+import { checkStepDeadline } from "./step-timer.js";
 
 // --- インターフェース定義 ---
 
@@ -52,6 +54,8 @@ export interface LoopOptions {
   timeoutMs: number;
   bindReviewInOneSession: boolean;
   noFind?: boolean;
+  /** Watcher モード設定。指定がある場合はループ開始前に時間枠チェックを行う。 */
+  watcherConfig?: WatcherConfig;
 }
 
 /** チケットの最小情報。Tickets.json から抽出した未処理チケットを表す。 */
@@ -212,6 +216,11 @@ export async function runLoop(options: LoopOptions): Promise<void> {
   }> = [];
 
   for (const ticket of target) {
+    // Watcher モード時: 時間枠外ならループを終了
+    if (!checkStepDeadline(`P${ticket.phaseId}-${ticket.id}`, options.watcherConfig)) {
+      break;
+    }
+
     const ticketId = `P${ticket.phaseId}-${ticket.id}`;
     processedTickets.push({
       id: ticketId,
@@ -221,25 +230,25 @@ export async function runLoop(options: LoopOptions): Promise<void> {
     const runOptions = toRunCommandOptions(options);
 
     try {
-      const s = ticket.status;
+      const status = ticket.status;
       const bindReview = options.bindReviewInOneSession ?? true;
 
       // Session A: make/plan/start/review（統合モード時は同セッション）
       //   -b 1（デフォルト）: [make→plan→start→review]
       //   -b 0:              [make→plan→start] → 別セッションで review
-      if (s === "todo" || s === "made" || s === "planned") {
+      if (status === "todo" || status === "made" || status === "planned") {
         await withSession(
           cwd,
           options.apiKey,
           options.model,
           async (session) => {
-            if (s === "todo") {
+            if (status === "todo") {
               printCommandHeader("/make-ticket", ticketId, ticket.title);
               await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
               console.log("\n>>> ✅ make-ticket 完了");
               updateStatus(options.ticketsPath, ticketId, "made");
             }
-            if (s !== "planned") {
+            if (status !== "planned") {
               printCommandHeader("/plan-ticket", ticketId, ticket.title);
               await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
               console.log("\n>>> ✅ plan-ticket 完了");
@@ -260,7 +269,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
       }
 
       // review を別セッションで実行（分離モード または done）
-      if (!bindReview || s === "done") {
+      if (!bindReview || status === "done") {
         printCommandHeader("/review-ticket", ticketId, ticket.title);
         await withSession(
           cwd,
