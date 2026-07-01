@@ -1792,48 +1792,211 @@
         {
           "id": 2,
           "phaseId": 8,
-          "status": "todo",
+          "status": "reviewed",
           "title": "CLI引数統合 — cli.ts への -w/--watcher 追加",
-          "referenceSection": "会話設計 (watcher mode)",
-          "background": "cli.ts に -w/--watcher フラグを追加。値はJSON設定ファイルのパス。指定がない場合は通常モード（watcher無効）。help表示にも追記。",
+          "referenceSection": "tickets/specs/0035-cli-clits-w-watcher.md",
+          "background": "cli.ts に -w/--watcher フラグを追加。値はJSON設定ファイルのパス。指定がない場合は通常モード（watcher無効）。--help表示にも追記。\n\n【調査結果】\n- CliOptions インターフェース (cli.ts:5-16): 現状11フィールド。watcherConfig 未定義。\n- showUsage() (cli.ts:18-47): watcher オプションの表示なし。\n- parseCliOptions() (cli.ts:49-94): parseArgs に -w オプション未定義。\n- cli.test.ts: watcherConfig のテストケースなし。\n- conver.test.ts: パラメータログアサーション7項目（watcherConfig なし）。\n- 依存関係: P6-1(WatcherConfig型)=reviewed / P8-1(step-timer)=reviewed / P8-3(entrypoint)=todo\n- 犯罪: 0件 / スタブ: 0件",
           "scope": [
-            "export interface CliOptions { watcherConfig?: string; }",
-            "export function parseCliOptions(): CliOptions"
+            "src/cli.ts: CliOptions に watcherConfig?: string 追加",
+            "src/cli.ts: parseCliOptions に -w/--watcher オプション追加",
+            "src/cli.ts: showUsage に watcher オプション表示追加",
+            "src/cli.test.ts: 5ケース追加（-w指定/--watcher/未指定/全フラグ/最小構成+）",
+            "src/conver.test.ts: パラメータログ7→8項目に更新"
           ],
           "relatedTicketIds": "入力元I/O: P0-3(既存cli.ts) / 出力先I/O: P6-1, P8-3",
           "testVerification": [
-            "正常系: -w でパス指定→options.watcherConfig に格納",
-            "正常系: -w 未指定→undefined（通常モード）",
-            "正常系: --help に watcher オプションが表示される",
-            "異常系: 存在しないファイルパス"
+            "正常系: -w /path/to/config.json → watcherConfig に格納",
+            "正常系: --watcher /path/to/config.json → ロングオプション同等",
+            "正常系: -w 未指定 → undefined（通常モード）",
+            "正常系: 全フラグ + -w → 全項目が正しい",
+            "正常系: 最小構成 + -w → デフォルト値 + watcherConfig",
+            "正常系: conver.test.ts パラメータログ8項目 watcherConfig 含む"
           ],
-          "testExceptions": [],
-          "instrumentation": "logger.debug でオプション値を記録",
-          "notes": "既存の全CLIオプションとの互換性を維持すること"
+          "testExceptions": [
+            "showUsage 表示の完全一致検証は統合テスト（test.sh）でカバー（既存方針）",
+            "-w ファイル実在性バリデーションは P8-3（loadWatcherConfig の責務）"
+          ],
+          "instrumentation": "静的品質チェック: 合格（11件のconsole.logは全てもともと存在した意図的出力 — 本チケット導入のデバッグ出力なし、全て偽陽性）\n翻訳可能性: 問題なし（全関数が動詞始まり、1文字変数なし、マジックナンバーなし、console.logはCLI起動ログ+showUsageの意図的出力のみ）\nテスト: make test-conver 全153件成功",
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → reviewed に遷移\n- コンパイル検証: tsc 成功（警告0件）\n- 単体テスト: 153/153 成功（全テスト通過）\n- 犯罪スキャン: 0件\n- スタブスキャン: 0件\n- [::STUB::]: 0件\n- 不完全実装7パターン: 全て該当なし\n\n【翻訳可能性】✅\n- 関数名: parseCliOptions(動詞句) / showUsage(動詞句) / main(動詞句)\n- 1文字変数: 新規コード なし\n- マジックナンバー: なし\n- console.log: 全てCLIツールの意図的出力（起動パラメータログ / showUsage / バージョン表示）\n- コメント: 「なぜ」に特化（watcherConfigのoptional理由）\n\n【依存関係検証】✅\n- P6-1(WatcherConfig型): reviewed — P8-2を入力元として参照（矛盾なし）\n- P8-3(entrypoint): todo — P8-2を入力元として参照（矛盾なし）\n- 循環依存: なし\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし\n\n【Boy Scout改善確認】\n- 該当なし（既存コードの翻訳可能性に問題なく、新規改善箇所なし）\n\n【注意事項】\n- watcherConfig の型変換 (string → WatcherConfig) は P8-3 で実装予定。現状 conver.ts で destructuring により除外して runLoop に渡している。",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "CliOptions: 11 fields (watcherConfig なし)",
+              "after": "CliOptions: 12 fields (watcherConfig?: string 追加)",
+              "description": "CLI オプションインターフェースに watcherConfig フィールド追加"
+            },
+            {
+              "before": "parseCliOptions: -w/--watcher 未定義",
+              "after": "parseCliOptions: watcher: { type: \"string\", short: \"w\" } 追加",
+              "description": "parseArgs に watcher オプション追加、戻り値に watcherConfig 追加"
+            },
+            {
+              "before": "showUsage: watcher オプション表示なし",
+              "after": "showUsage: \"-w, --watcher <path>\" 行追加",
+              "description": "ヘルプ表示に watcher オプションの説明追加"
+            },
+            {
+              "before": "cli.test.ts: watcherConfig のテストなし（8ケース）",
+              "after": "cli.test.ts: watcherConfig テスト5ケース追加（13ケース）",
+              "description": "-w/--watcher/未指定/全フラグ+/最小構成+ の各テスト"
+            },
+            {
+              "before": "conver.test.ts: パラメータログアサーション 7項目",
+              "after": "conver.test.ts: パラメータログアサーション 8項目（watcherConfig 追加）",
+              "description": "ログ出力アサーションの更新"
+            },
+            {
+              "before": "conver.ts: パラメータログ 7行",
+              "after": "conver.ts: パラメータログ 8行（watcherConfig 追加）",
+              "description": "起動時パラメータログに watcherConfig 追加"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         },
         {
           "id": 3,
           "phaseId": 8,
-          "status": "todo",
+          "status": "reviewed",
           "title": "エントリポイント統合 — conver.ts watcher 起動パス",
-          "referenceSection": "会話設計 (watcher mode)",
+          "referenceSection": "tickets/specs/0036-converts-watcher.md",
           "background": "conver.ts のエントリポイントに watcher モード起動パスを追加。watcherConfig が指定されている場合は通常ループではなく CronScheduler を起動し、時間枠内のみ動作する。終了後・時間枠外ではクリーンアップする。",
           "scope": [
-            "export function runWatcherMode(cliOptions: CliOptions): Promise<void>",
-            "export function runNormalMode(cliOptions: CliOptions): Promise<void>"
+            "src/conver.ts: main() の分岐追加（watcherConfig有無でrunWatcherMode/runNormalMode）",
+            "src/conver.ts: runWatcherMode() 新規 — loadWatcherConfig→isWithinTimeWindow→CronScheduler.start→SIGINT/SIGTERM",
+            "src/conver.ts: runNormalMode() 新規 — runLoop(loopOptions) への委譲",
+            "src/conver.test.ts: watcherモード起動パステスト5ケース追加",
+            "src/conver.test.ts: MockLoopOptions に watcherConfig/noFind フィールド追加（Boy Scout）"
           ],
           "relatedTicketIds": "入力元I/O: P8-2(CLI), P8-1(時間制御), P7-2(点検), P4-2(既存conver.ts) / 出力先I/O: なし",
           "testVerification": [
-            "正常系: -w 指定時に CronScheduler が起動する",
-            "正常系: -w 未指定時に通常ループが起動する",
-            "正常系: endTime 超過時にクリーンアップして終了する",
-            "正常系: SIGINT/SIGTERM でグレースフルシャットダウン"
+            "UT1: watcherConfig未指定→runNormalMode→runLoop呼出（正常系）",
+            "UT2: watcherConfig指定+有効→loadWatcherConfig→runLoop呼出（正常系）",
+            "UT3: watcherConfig指定+時間枠外→即時終了（正常系: runLoop未呼出）",
+            "UT4: watcherConfig指定+設定ファイル不在→loadWatcherConfig throw→exit(1)（異常系）",
+            "UT5: watcherConfig空文字列→通常モード動作（境界値）"
           ],
           "testExceptions": [
-            "デーモン的挙動の完全検証はE2Eテスト"
+            "CronSchedulerによる定期実行完全動作はE2Eテスト",
+            "SIGINT/SIGTERMの実際のシグナルハンドリングは手動またはE2Eテスト"
           ],
-          "instrumentation": "起動モードを logger.info で記録",
-          "notes": "結合テスト計画:\n[::STUB::] 全P6/P7/P8チケット完了後、watcher モードのE2E動作検証を実施。"
+          "instrumentation": "静的品質チェック: 合格（11件のconsole.log/console.errorは全て設計上の意図的出力）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし、マジックナンバーなし）\nテスト: make test-conver 全157件成功",
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → reviewed に遷移\n- コンパイル検証: tsc 成功（警告0件）✅\n- ユニットテスト: 157/157 成功（全テスト通過）✅\n- 犯罪スキャン: 0件 ✅\n- スタブスキャン: 0件 ✅\n- [::STUB::]: 0件 ✅\n- 不完全実装7パターン: 全て該当なし ✅\n\n【翻訳可能性】✅\n- 関数名: buildLoopOptions(動詞句「ループオプションを構築」), runNormalMode(動詞句「通常モード実行」), runWatcherMode(動詞句「Watcherモード実行」)\n- 1文字変数: 新規コード なし\n- マジックナンバー: なし\n- console.log/error: 全て設計上の意図的出力（起動パラメータログ/エラー通知/Watcherモード起動通知）\n- コメント: 「なぜ」に特化（process.exit後のreturnは型安全ガード、CronScheduler mockのコールバック即時呼出理由）\n\n【依存関係検証】✅\n- P8-2(CLI): reviewed — 相互参照整合性確認済\n- P8-1(時間制御): reviewed — 相互参照整合性確認済\n- P7-2(定期点検): reviewed — 相互参照整合性確認済\n- P4-2(既存conver.ts): reviewed — 相互参照整合性確認済\n- 循環依存: なし\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor/Nit: なし\n\n【Boy Scout改善確認】\n- MockLoopOptions に watcherConfig + noFind フィールド追加済み\n- _ignored変数を自然な分岐コードに置き換え済み\n\n【品質チェック】\n- 11件のconsole.log/error検出 — 全て既存設計と同様の意図的出力",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "watcherConfig を _ignored として無視、常に runLoop を直接呼出",
+              "after": "watcherConfig 有無で runWatcherMode / runNormalMode に分岐",
+              "description": "main() の分岐構造化"
+            },
+            {
+              "before": "なし",
+              "after": "buildLoopOptions() 追加",
+              "description": "CliOptions → LoopOptions 変換関数（watcherConfig 除外）"
+            },
+            {
+              "before": "なし",
+              "after": "runNormalMode() 追加",
+              "description": "通常モード起動パス（runLoop へ委譲）"
+            },
+            {
+              "before": "なし",
+              "after": "runWatcherMode() 追加",
+              "description": "Watcherモード: loadWatcherConfig→時間枠チェック→CronScheduler.start→SIGINT/SIGTERM"
+            },
+            {
+              "before": "MockLoopOptions に watcherConfig/noFind なし",
+              "after": "MockLoopOptions に watcherConfig/noFind 追加",
+              "description": "テストモック型の拡充（Boy Scout）"
+            },
+            {
+              "before": "mock.module: cli.js + runner.js のみ",
+              "after": "mock.module: watcher.js + step-timer.js + cron-scheduler.js 追加",
+              "description": "テストモックカバレッジ拡張"
+            },
+            {
+              "before": "conver.test.ts: 4テストケース",
+              "after": "conver.test.ts: 8テストケース",
+              "description": "watcher モード起動パステスト4ケース追加（UT2-UT5）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "収束スクリプト群 — find の決定論的フィルタ (Layer 1)",
+      "externalDependencies": "node:fs（ファイル読み取りのみ）",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 9,
+          "status": "todo",
+          "title": "Step 3.5 機械的フィルタリングパイプライン（3スクリプト一括実装）",
+          "referenceSection": "RFC_ADDITION-002.md (Proposal B-1/B-2/B-3)",
+          "background": "find-omissions の Step 3.5 で動作する3つの決定論的スクリプトを一括実装する。dedup-omissions-by-history.js（過去OMISSIONSとの重複排除）、materiality-filter.js（Goal阻害度スコアリング）、diminishing-returns.js（発散/収束時系列分析）は直列パイプラインとして動作し、1つのI/O境界（raw OMISSIONS + 履歴OMISSIONS + RFC → フィルタリング済みOMISSIONS + 発散傾向レポート）を持つ。",
+          "scope": [
+            ".claude/scripts/tickets/dedup-omissions-by-history.js: 3つの決定論ルール（完全重複skip/stub_remaining格下げ/同一ファイル3回連続タグ）",
+            ".claude/scripts/tickets/materiality-filter.js: purpose(3点)/goals(2点)/successCriteria(1点)のGoal阻害度スコアリング",
+            ".claude/scripts/tickets/diminishing-returns.js: OMISSIONS時系列からのlow比率推移/発散傾向判定",
+            "パイプライン結合: dedup→materiality→diminishing の直列実行で1つのトップレベル関数から呼び出し可能"
+          ],
+          "testVerification": [
+            "各スクリプト個別の単体テスト（重複検出/スコアリング/時系列分析の全ケース）",
+            "パイプライン結合テスト（dedup出力をmateriality入力に渡せる）",
+            "すべての決定論ルールの適用順序と結果の一貫性"
+          ],
+          "testExceptions": [
+            "find-omissions 全体の実結合テスト（ACPセッション）はP10-1の結合テストでカバー"
+          ],
+          "notes": "I/O境界: raw OMISSIONS + 履歴 + RFC → フィルタリング済みOMISSIONS + 発散傾向。3スクリプトは単一の不変条件「機械的フィルタリングが正しくomissionを重複排除・スコアリング・傾向判定する」を満たすための内部実装詳細。"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "統合フェーズ — find-omissions への Goal Gate 統合",
+      "externalDependencies": "なし（既存スクリプト・ワークフローへの修正）",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 10,
+          "status": "todo",
+          "title": "find-omissions ワークフローへの Goal Gate 統合",
+          "referenceSection": "RFC_ADDITION-002.md (Implementation)",
+          "background": "P9-1 で実装した Step 3.5 パイプラインを既存の find-omissions ワークフローに統合する。create-omissions.js の steps 配列への 3.5 追加、find-omissions-for-next-rfc.md への Step 3.5 セクション追記、Goal Gate 連携の結合テストを一括で行う。",
+          "scope": [
+            "scripts/tickets/create-omissions.js: steps 配列に 3.5 を追加（3c-2 と 4 の間）",
+            ".claude/commands/find-omissions-for-next-rfc.md: Step 3.5 セクション追記 + Step 4 注記修正",
+            "tests/goal-gate-integration.test.cjs: パイプライン + find-omissions ワークフローの結合テスト",
+            "Makefile: test-conver ターゲットに結合テスト追加"
+          ],
+          "relatedTicketIds": "P9-1（前提: Step 3.5 パイプライン実装完了）",
+          "testVerification": [
+            "create-omissions.js 実行後 show-omissions-steps.js で 3.5 が表示される",
+            "find-omissions-for-next-rfc.md に Step 3.5 が存在し既存ステップ順序が維持される",
+            "Goal Gate 通過テスト（cosmetic のみ→通過、medium あり→ブロック）",
+            "make test-conver 全 PASS"
+          ],
+          "testExceptions": [],
+          "notes": "I/O境界: find-omissions ワークフロー + パイプライン → 統合された次の RFC 世代。P9-1 完了後に実施。"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "formulate-tickets 改良 — チケット統合チェック",
+      "externalDependencies": "なし（既存コマンド定義への追記）",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 11,
+          "status": "todo",
+          "title": "formulate-ticketsコマンド群へのチケット統合チェック追加（過剰分解防止）",
+          "referenceSection": "RFC_ADDITION-002.md (進行中の議論)",
+          "background": "formulate-tickets.md / formulate-tickets-for-next.md のStep構造に「発散(列挙)→収束(統合)」の2段階が欠けており、I/O境界で統合すべき候補がそのまま過剰分解されたチケットになる問題を修正する。Step 3(5層モデル)とStep 4(フェーズ設計)の間に「チケット統合チェック」を新設し、後続ステップ番号を整数リナンバリングする。同様に find-omissions-for-next-rfc.md の予定 Step 3.5 も整数リナンバリングする。"
         }
       ]
     }

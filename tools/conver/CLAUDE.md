@@ -123,3 +123,49 @@ runner.ts ── cwd を path.resolve() で正規化
 
 conver.ts ── 起動パラメータログを6行 key=value 形式に拡張
 ```
+
+---
+
+## 拡張: RFC ADDITION-002 — find の収束問題と Goal Gate の導入
+
+> このセクションは `/formulate-tickets-for-next` によって自動生成されました。
+> **生成元:** tools/conver/RFC_ADDITION-002.md
+> **生成日:** 2026-07-01
+
+### 目的
+
+find のループを重ねると omission が減らず発散する問題を解決する。目的（purpose）・目標（goals）・成功条件（successCriteria）にもとづく Goal Gate フィルタと、機械的な収束検知・重複排除スクリプトを導入する。
+
+### 追加スクリプト一覧
+
+| スクリプト | 種類 | 決定論度 | 配置先 |
+|-----------|------|---------|-------|
+| `dedup-omissions-by-history.js` | 新規 | 100%（決定論） | `.claude/scripts/tickets/` |
+| `materiality-filter.js` | 新規 | 80%（決定論）+ 20%（AI への情報提供） | `.claude/scripts/tickets/` |
+| `diminishing-returns.js` | 新規 | 100%（決定論） | `.claude/scripts/tickets/` |
+
+### find-omissions ワークフロー変更
+
+既存の Step 3 と Step 4 の間に **Step 3.5（機械的フィルタリング）** を新設する：
+
+```
+Step 3.5: 機械的フィルタリング（新設）
+  ├── dedup-omissions-by-history.js → 過去との重複排除
+  ├── materiality-filter.js → Goal 阻害度による severity 確定
+  └── diminishing-returns.js → 発散/収束の最終判定
+```
+
+### 決定論 vs 非決定論の設計原則
+
+```
+決定論で確定できること → スクリプトが確定判断（AI は受け入れるのみ）
+非決定論が不可欠なこと → AI が判断（ただし決定論の結果を制約として与える）
+```
+
+### 発散防止の3層防御
+
+| Layer | タイミング | 内容 |
+|-------|-----------|------|
+| Layer 1 | Step 3 各子ステップ終了時 | 即時 Goal Gate — materiality 評価・低スコアは cosmetic に格下げ |
+| Layer 2 | Step 3.5 | 機械的フィルタリング — 重複排除 + severity 確定 + 発散傾向検知 |
+| Layer 3 | check-final | 独立した二重計測 — cosmetic のみなら PASS |

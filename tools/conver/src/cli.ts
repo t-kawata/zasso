@@ -15,6 +15,8 @@ export interface CliOptions {
   timeoutMs: number;
   bindReviewInOneSession: boolean;
   noFind: boolean;
+  /** Watcher 設定ファイルへのパス。指定がない場合は未定義（通常モード） */
+  watcherConfig?: string;
 }
 
 function showUsage(): void {
@@ -35,6 +37,7 @@ Options:
   --timeout <seconds>        Command timeout in seconds (default: 1800)
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
+  -w, --watcher <path>       Watcher config JSON path
   -n, --no-find <0|1>        Skip find-omissions after all done (default: 0)
   -h, --help                 Show this message
   --version                  Show version number`);
@@ -55,6 +58,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       timeout: { type: "string", default: "1800" },
       "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
       "no-find": { type: "string", short: "n", default: "0" },
+      watcher: { type: "string", short: "w" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", default: false },
     },
@@ -94,5 +98,6 @@ export function parseCliOptions(argv: string[]): CliOptions {
     timeoutMs: parseInt(parsed.values.timeout, 10) * 1000,
     bindReviewInOneSession: parsed.values["bind-review-in-one-session"] === "1",
     noFind: parsed.values["no-find"] === "1",
+    watcherConfig: parsed.values.watcher,
   };
 }

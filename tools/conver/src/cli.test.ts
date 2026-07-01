@@ -56,6 +56,53 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.verbose, true);
     assert.strictEqual(options.timeoutMs, 1800000);
     assert.strictEqual(options.bindReviewInOneSession, true);
+    assert.strictEqual(options.watcherConfig, undefined);
+  });
+
+  it("-w /path/to/config.json で watcherConfig に格納される", () => {
+    const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test", "-w", "/path/to/watcher.json"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.watcherConfig, "/path/to/watcher.json");
+  });
+
+  it("--watcher /path/to/config.json でロングオプション同等", () => {
+    const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test", "--watcher", "/path/to/watcher.json"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.watcherConfig, "/path/to/watcher.json");
+  });
+
+  it("全フラグ指定時に -w が混在しても正しい", () => {
+    const argv = [
+      "node", "conver.js",
+      "-k", "sk-test-key",
+      "-s", "https://hooks.slack.com/test",
+      "-t", "/path/to/Tickets.json",
+      "-c", "5",
+      "-r", "1",
+      "-p", "0",
+      "-m", "deepseek-v4-pro",
+      "-v", "1",
+      "--timeout", "3600",
+      "-w", "/custom/watcher.json",
+    ];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.apiKey, "sk-test-key");
+    assert.strictEqual(options.slackWebhookUrl, "https://hooks.slack.com/test");
+    assert.strictEqual(options.ticketsPath, "/path/to/Tickets.json");
+    assert.strictEqual(options.maxCount, 5);
+    assert.strictEqual(options.resolveEvery, 1);
+    assert.strictEqual(options.pushEnabled, false);
+    assert.strictEqual(options.model, "deepseek-v4-pro");
+    assert.strictEqual(options.verbose, true);
+    assert.strictEqual(options.timeoutMs, 3600000);
+    assert.strictEqual(options.watcherConfig, "/custom/watcher.json");
+  });
+
+  it("最小構成 + -w 指定でデフォルト値 + watcherConfig が正しい", () => {
+    const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test", "-w", "/min/watcher.json"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.model, "deepseek-v4-flash");
+    assert.strictEqual(options.watcherConfig, "/min/watcher.json");
   });
 
   it("-v 1 で verbose=true になる", () => {
