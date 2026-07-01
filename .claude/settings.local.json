@@ -142,7 +142,20 @@
       "Bash(node tests/pipeline-merge.test.cjs)",
       "Bash(node .claude/scripts/tickets/review/run-quality-checks.js .claude/scripts/tickets/dedup-omissions-by-history.js .claude/scripts/tickets/materiality-filter.js .claude/scripts/tickets/diminishing-returns.js .claude/scripts/tickets/run-step-3.5.js)",
       "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" .claude/scripts/tickets/dedup-omissions-by-history.js .claude/scripts/tickets/materiality-filter.js .claude/scripts/tickets/diminishing-returns.js .claude/scripts/tickets/run-step-3.5.js)",
-      "Bash(rm -f /tmp/review-p9-1.json)"
+      "Bash(rm -f /tmp/review-p9-1.json)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(node \".claude/scripts/tickets/create-spec.js\" \"\" \"find-omissions ワークフローへの Goal Gate 統合\")",
+      "Bash(node \"/Users/kawata/shyme/zasso/tools/conver/.claude/scripts/tickets/search-tickets.js\" \"/Users/kawata/shyme/zasso/tools/conver/Tickets.json\" \"P10\")",
+      "Bash(node \"/Users/kawata/shyme/zasso/tools/conver/.claude/scripts/tickets/search-tickets.js\" \"/Users/kawata/shyme/zasso/tools/conver/Tickets.json\" \"Goal Gate\")",
+      "Bash(node \"/Users/kawata/shyme/zasso/tools/conver/.claude/scripts/tickets/update-ticket.js\" \"/Users/kawata/shyme/zasso/tools/conver/Tickets.json\" \"P10-1\")",
+      "Bash(node \"/Users/kawata/shyme/zasso/tools/conver/.claude/scripts/tickets/search-tickets.js\" \"/Users/kawata/shyme/zasso/tools/conver/Tickets.json\" \"統合\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P10-1\")",
+      "Bash(node --test tests/goal-gate-integration.test.cjs)",
+      "Bash(cat)",
+      "Bash(node --test tests/dedup-omissions-by-history.test.cjs tests/materiality-filter.test.cjs tests/diminishing-returns.test.cjs tests/pipeline-merge.test.cjs tests/goal-gate-integration.test.cjs)",
+      "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" tests/goal-gate-integration.test.cjs Makefile)",
+      "Bash(grep -nE \"^\\\\s*\\\\}\\\\s*$\" tests/goal-gate-integration.test.cjs)",
+      "Bash(PUSH_MSG='refactor: CLAUDE.md テンプレート生成を外部スクリプトに分離、P10-1 完了 *)"
     ]
   }
 }

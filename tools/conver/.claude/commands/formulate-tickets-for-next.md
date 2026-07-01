@@ -123,7 +123,7 @@ node .claude/scripts/tickets/ensure-malfeasance.js "$NEXT_RFC_DIR"
 
 OMISSIONS ファイルが指定されている場合は、親RFCの設計コンテキストとして参照する。
 
-### Step 2: CLAUDE.md の更新 — 設計全体マップへの追記
+### Step 2: CLAUDE.md の生成 — 設計全体マップへの追記
 
 既存の `CLAUDE.md` が存在する場合は読み込み、次世代RFCの情報を追記する。
 CLAUDE.md が存在しない場合は新規生成する。
@@ -138,7 +138,29 @@ CLAUDE.md が存在する場合：
 
 CLAUDE.md が存在しない場合：
 ```bash
-node .claude/scripts/tickets/write-claude-md-template.js "$CLAUDE_MD" "formulate-tickets-for-next"
+node .claude/scripts/tickets/write-claude-md.js \
+  "$CLAUDE_MD" \
+  "formulate-tickets-for-next" \
+  "<次世代RFCタイトル — Step 1 で抽出した実際のタイトルに置き換える>" \
+  "<NEXT_RFC_PATH — Step 0 で設定済みのRFCパス>" \
+  <<'BODY'
+
+## 目的とスコープ
+
+<次世代RFCの目的・スコープの要約 — Step 1 で抽出した内容>
+
+## 主要な型とデータ構造
+
+<主要な型・トレイト・構造体とそれらの関係性 — Step 1 で抽出した内容>
+
+## モジュール／コンポーネント間の関係
+
+<RFCに記述された各コンポーネント・モジュール間の依存関係と結合の一覧 — Step 1 で抽出した内容>
+
+## スタブ一覧と解決計画
+
+<本RFCに基づく実装で発生するスタブの一覧と、各スタブをどのチケットがどのように解決するかの対応関係 — Step 1 で抽出した内容>
+BODY
 ```
 
 生成された `CLAUDE_MD` はチケット作業中の任意のタイミングで Claude Code が自動的に読み込み、
