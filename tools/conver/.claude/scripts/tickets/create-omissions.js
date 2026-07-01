@@ -26,12 +26,13 @@ const SKELETON_STEPS = [
     {"id":"3c-1","label":"型・API・依存関係の確認","status":"todo"},
     {"id":"3c-2","label":"テスト・エラー処理・設定の確認","status":"todo"}
   ]},
-  {"id":"4","label":"発見漏れ確認","status":"todo"},
-  {"id":"5","label":"最終検証","status":"todo","children":[
-    {"id":"5a","label":"スキーマ検証","status":"todo"},
-    {"id":"5b","label":"犯罪点検","status":"todo"}
+  {"id":"4","label":"機械的フィルタリング","status":"todo"},
+  {"id":"5","label":"発見漏れ確認","status":"todo"},
+  {"id":"6","label":"最終検証","status":"todo","children":[
+    {"id":"6a","label":"スキーマ検証","status":"todo"},
+    {"id":"6b","label":"犯罪点検","status":"todo"}
   ]},
-  {"id":"6","label":"完了報告","status":"todo"}
+  {"id":"7","label":"完了報告","status":"todo"}
 ];
 
 const SKELETON_STEPS_CHECK_FINAL = [
@@ -53,15 +54,16 @@ const SKELETON_STEPS_CHECK_FINAL = [
     {"id":"3c-1","label":"型・API・依存関係の確認","status":"todo"},
     {"id":"3c-2","label":"テスト・エラー処理・設定の確認","status":"todo"}
   ]},
-  {"id":"4","label":"発見漏れ確認","status":"todo"},
-  {"id":"5","label":"最終検証","status":"todo","children":[
-    {"id":"5a","label":"スキーマ検証","status":"todo"},
-    {"id":"5b","label":"犯罪点検","status":"todo"}
+  {"id":"4","label":"機械的フィルタリング","status":"todo"},
+  {"id":"5","label":"発見漏れ確認","status":"todo"},
+  {"id":"6","label":"最終検証","status":"todo","children":[
+    {"id":"6a","label":"スキーマ検証","status":"todo"},
+    {"id":"6b","label":"犯罪点検","status":"todo"}
   ]},
-  {"id":"6","label":"完了報告","status":"todo"},
-  {"id":"7","label":"OMISSIONS照合","status":"todo"},
-  {"id":"8","label":"全チケット確認","status":"todo"},
-  {"id":"9","label":"最終結果報告","status":"todo"}
+  {"id":"7","label":"完了報告","status":"todo"},
+  {"id":"8","label":"OMISSIONS照合","status":"todo"},
+  {"id":"9","label":"全チケット確認","status":"todo"},
+  {"id":"10","label":"最終結果報告","status":"todo"}
 ];
 
 function extractTitle(rfcPath) {

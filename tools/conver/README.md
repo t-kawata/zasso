@@ -102,6 +102,8 @@ node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
 | `-v`, `--verbose` | 詳細表示 | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
 | `-b`, `--bind-review-in-one-session` | review を同一セッションに結合（0/1） | `1` |
+| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動） | — |
+| `-n`, `--no-find` | 全 reviewed 後の find-omissions をスキップ（0/1） | `0` |
 | `--version` | バージョン表示 | — |
 
 ### セッションアーキテクチャ
@@ -119,6 +121,76 @@ node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
         │
         ▼
    次のチケット P0-2 へ
+```
+
+## Watcher モード — 定期実行による半自律運用
+
+`-w <config.json>` を指定すると、通常の1回実行ではなく **Watcher モード** で起動します。
+Watcher モードは node-cron を用いて一定間隔で `runLoop` を自動再実行し、日中帯など決められた時間枠内でのみ動作します。
+
+### 設定ファイル
+
+```json
+{
+  "intervalMinutes": 60,
+  "startTime": "09:00",
+  "endTime": "19:00",
+  "timezone": "Asia/Tokyo"
+}
+```
+
+| フィールド | 説明 | 制約 |
+|-----------|------|------|
+| `intervalMinutes` | ループ実行間隔（分） | 1 以上、525,600（1年）以下、整数 |
+| `startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
+| `endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
+| `timezone` | IANA タイムゾーン名 | 例: `"Asia/Tokyo"`, `"America/New_York"` |
+
+### アーキテクチャ
+
+```
+[conver.js] -w config.json
+    │
+    ├── loadWatcherConfig()     watcher.ts — 設定読み込み・バリデーション
+    ├── isWithinTimeWindow()    step-timer.ts — 初回時間枠チェック（枠外なら即終了）
+    │
+    ├── CronScheduler           cron-scheduler.ts — node-cron 定期ジョブ
+    │   ├── intervalMinutes  →  cron 式変換（node-cron.validate で検証済み）
+    │   ├── start(callback)  →  runLoop を定期実行
+    │   └── stop()           →  SIGINT/SIGTERM でグレースフルシャットダウン
+    │
+    └── runLoop()                runner.ts — 時間枠内のみ実行
+        └── checkStepDeadline()  step-timer.ts — 各ステップ前に終了時刻超過をチェック
+```
+
+### レイヤー構造
+
+| Layer | モジュール | 責務 |
+|-------|-----------|------|
+| Layer 0/1 | `watcher.ts` | 型定義・バリデーション（純粋関数） |
+| Layer 0/1 | `time-window.ts` | IANA タイムゾーン対応の時間枠判定（純粋関数） |
+| Layer 0/1 | `step-timer.ts` | 時間枠チェックのラッパー（isWithinTimeWindow / checkStepDeadline） |
+| Layer 2 | `cron-scheduler.ts` | node-cron ジョブ管理（副作用あり） |
+| Layer 3/4 | `runner.ts` | ループ内で checkStepDeadline を呼び出し時間枠制御 |
+| Layer 3/4 | `conver.ts` | CLI引数分岐による起動パス（runWatcherMode / runNormalMode） |
+
+### 動作フロー
+
+1. `-w config.json` で起動すると `runWatcherMode` が呼ばれる
+2. 設定ファイルを読み込み、全フィールドをバリデーション（不正値はエラー終了）
+3. 現在時刻が時間枠外なら即時終了
+4. `CronScheduler` を起動 — `intervalMinutes` 間隔で `runLoop` を定期実行
+5. 各 `runLoop` 内で各チケット処理前に `checkStepDeadline` を実行 — 時間枠外ならそのチケットをスキップしループ終了
+6. SIGINT/SIGTERM でグレースフルシャットダウン（`scheduler.stop()`）
+
+### 使用例
+
+```bash
+# Watcher モード（60分間隔、9:00〜19:00、日本時間）
+node dist/conver.js -k <api_key> -s <slack_url> -w ./watcher-config.json
+
+# 通常モード（従来通り1回実行）
+node dist/conver.js -k <api_key> -s <slack_url>
 ```
 
 make/plan/start/review は1つの ACP セッションで実行されます（`-b 0` で review を分離可能）。

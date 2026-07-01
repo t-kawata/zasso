@@ -1933,25 +1933,78 @@
         {
           "id": 1,
           "phaseId": 9,
-          "status": "todo",
+          "status": "reviewed",
           "title": "Step 3.5 機械的フィルタリングパイプライン（3スクリプト一括実装）",
-          "referenceSection": "RFC_ADDITION-002.md (Proposal B-1/B-2/B-3)",
+          "referenceSection": "spec/0038-mechanical-filtering-pipeline.md",
           "background": "find-omissions の Step 3.5 で動作する3つの決定論的スクリプトを一括実装する。dedup-omissions-by-history.js（過去OMISSIONSとの重複排除）、materiality-filter.js（Goal阻害度スコアリング）、diminishing-returns.js（発散/収束時系列分析）は直列パイプラインとして動作し、1つのI/O境界（raw OMISSIONS + 履歴OMISSIONS + RFC → フィルタリング済みOMISSIONS + 発散傾向レポート）を持つ。",
           "scope": [
-            ".claude/scripts/tickets/dedup-omissions-by-history.js: 3つの決定論ルール（完全重複skip/stub_remaining格下げ/同一ファイル3回連続タグ）",
-            ".claude/scripts/tickets/materiality-filter.js: purpose(3点)/goals(2点)/successCriteria(1点)のGoal阻害度スコアリング",
-            ".claude/scripts/tickets/diminishing-returns.js: OMISSIONS時系列からのlow比率推移/発散傾向判定",
-            "パイプライン結合: dedup→materiality→diminishing の直列実行で1つのトップレベル関数から呼び出し可能"
+            ".claude/scripts/tickets/dedup-omissions-by-history.js: 新規 — 過去OMISSIONSとの重複排除（3つの決定論ルール）",
+            ".claude/scripts/tickets/materiality-filter.js: 新規 — Goal阻害度スコアリング（purpose:3/goals:2/successCriteria:1）",
+            ".claude/scripts/tickets/diminishing-returns.js: 新規 — 発散/収束の時系列分析",
+            "パイプライン結合: 3スクリプトを dedup→materiality→diminishing の直列実行",
+            "tests/dedup-omissions-by-history.test.cjs: 新規 — 6ケース",
+            "tests/materiality-filter.test.cjs: 新規 — 5ケース",
+            "tests/diminishing-returns.test.cjs: 新規 — 5ケース",
+            "tests/pipeline-merge.test.cjs: 新規 — 2ケース（パイプライン結合）"
           ],
           "testVerification": [
-            "各スクリプト個別の単体テスト（重複検出/スコアリング/時系列分析の全ケース）",
-            "パイプライン結合テスト（dedup出力をmateriality入力に渡せる）",
-            "すべての決定論ルールの適用順序と結果の一貫性"
+            "UT dedup (6): 完全重複skip / stub_remaining格下げ / repeated_areaタグ / 履歴空 / 2回連続 / 複合ルール適用順",
+            "UT materiality (5): 全阻害(score6→medium) / 無阻害(score0→cosmetic) / 部分阻害(score1→low) / goals空 / RFC不在",
+            "UT diminishing (5): low増加傾向(33→50→78%) / low減少傾向 / 総数増加 / 履歴1件 / low50%横ばい",
+            "UT pipeline (2): dedup→materiality データ一貫性 / 全3スクリプト直列実行",
+            "カバレッジ目標: 90%以上"
           ],
-          "testExceptions": [
-            "find-omissions 全体の実結合テスト（ACPセッション）はP10-1の結合テストでカバー"
+          "testExceptions": [],
+          "notes": "レビュー報告書（P9-1）:\n- ステップ1: チケット存在確認 → ✅ status=done\n- ステップ2: チケットフィールド読み取り → ✅ 全フィールド正常\n- ステップ3: 依存関係検証 → ✅ 自己完結型、相互依存なし\n- ステップ4: 犯罪スキャン → ✅ Malfeasance 0件\n- ステップ5: スタブ一覧 → ✅ スタブ0件\n- ステップ6: 能動的探索（7パターン） → ✅ todo!/FIXME/HACK/XXX/panic/空関数/コメントアウトなし\n- ステップ7: テスト32件 → ✅ 全PASS\n- ステップ8: 品質チェック → ✅ issues 0\n- ステップ9: 翻訳可能性 → ✅ 関数名は動詞句、変数名は適切、console.logはCLI専用\n- ★ 品質評価: 実装は spec 通り。純粋関数 + テストの TDD 準拠。決定論・非決定論の設計原則を正確に実装。コメントは日本語で「なぜ」を説明し、コードは「何を」を語る。問題なし。",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "file": ".claude/scripts/tickets/dedup-omissions-by-history.js",
+              "type": "new",
+              "description": "過去OMISSIONSとの重複排除（3決定論ルール: 完全重複skip/stub_remaining格下げ/repeated_areaタグ）"
+            },
+            {
+              "file": ".claude/scripts/tickets/materiality-filter.js",
+              "type": "new",
+              "description": "Goal阻害度スコアリング（purpose:3/goals:2/successCriteria:1）"
+            },
+            {
+              "file": ".claude/scripts/tickets/diminishing-returns.js",
+              "type": "new",
+              "description": "発散/収束の時系列分析（low比率推移/発散判定）"
+            },
+            {
+              "file": ".claude/scripts/tickets/run-step-3.5.js",
+              "type": "new",
+              "description": "パイプライン結合（dedup→materiality→diminishing直列実行）"
+            },
+            {
+              "file": "tests/dedup-omissions-by-history.test.cjs",
+              "type": "new",
+              "description": "dedup ユニットテスト（11ケース）"
+            },
+            {
+              "file": "tests/materiality-filter.test.cjs",
+              "type": "new",
+              "description": "materiality ユニットテスト（12ケース）"
+            },
+            {
+              "file": "tests/diminishing-returns.test.cjs",
+              "type": "new",
+              "description": "diminishing ユニットテスト（7ケース）"
+            },
+            {
+              "file": "tests/pipeline-merge.test.cjs",
+              "type": "new",
+              "description": "パイプライン結合テスト（2ケース）"
+            }
           ],
-          "notes": "I/O境界: raw OMISSIONS + 履歴 + RFC → フィルタリング済みOMISSIONS + 発散傾向。3スクリプトは単一の不変条件「機械的フィルタリングが正しくomissionを重複排除・スコアリング・傾向判定する」を満たすための内部実装詳細。"
+          "testResults": "全32テスト PASS (dedup: 11, materiality: 12, diminishing: 7, pipeline: 2)",
+          "qualityCheck": "run-quality-checks.js: issues 0",
+          "crimes": "Malfeasance 0件, スタブ 0件",
+          "instrumentation": "静的品質チェック: 合格（issues 0）\n翻訳可能性: 問題なし（関数名は全て動詞句、汎用変数名なし、console.logはCLI用のみ）\nテスト: 全32件成功（dedup: 11, materiality: 12, diminishing: 7, pipeline: 2）\n犯罪（Malfeasance）: 0件\nスタブ: 0件\n依存関係: 自己完結型、相互依存なし\n7パターン不完全実装チェック: 該当なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         }
       ]
     },
@@ -1966,22 +2019,22 @@
           "status": "todo",
           "title": "find-omissions ワークフローへの Goal Gate 統合",
           "referenceSection": "RFC_ADDITION-002.md (Implementation)",
-          "background": "P9-1 で実装した Step 3.5 パイプラインを既存の find-omissions ワークフローに統合する。create-omissions.js の steps 配列への 3.5 追加、find-omissions-for-next-rfc.md への Step 3.5 セクション追記、Goal Gate 連携の結合テストを一括で行う。",
+          "background": "P9-1 で実装した Step 4（機械的フィルタリング）パイプラインを既存の find-omissions ワークフローに統合する。create-omissions.js の steps 配列への 4 追加、find-omissions-for-next-rfc.md への Step 4 セクション追記、Goal Gate 連携の結合テストを一括で行う。",
           "scope": [
-            "scripts/tickets/create-omissions.js: steps 配列に 3.5 を追加（3c-2 と 4 の間）",
-            ".claude/commands/find-omissions-for-next-rfc.md: Step 3.5 セクション追記 + Step 4 注記修正",
+            "scripts/tickets/create-omissions.js: steps 配列に 4 を追加（3c-2 と 5 の間）",
+            ".claude/commands/find-omissions-for-next-rfc.md: Step 4（機械的フィルタリング）セクション追記 + Step 5 注記修正",
             "tests/goal-gate-integration.test.cjs: パイプライン + find-omissions ワークフローの結合テスト",
             "Makefile: test-conver ターゲットに結合テスト追加"
           ],
-          "relatedTicketIds": "P9-1（前提: Step 3.5 パイプライン実装完了）",
+          "relatedTicketIds": "P9-1（前提: Step 4 機械的フィルタリングパイプライン実装完了）",
           "testVerification": [
-            "create-omissions.js 実行後 show-omissions-steps.js で 3.5 が表示される",
-            "find-omissions-for-next-rfc.md に Step 3.5 が存在し既存ステップ順序が維持される",
+            "create-omissions.js 実行後 show-omissions-steps.js で 4 が表示される",
+            "find-omissions-for-next-rfc.md に Step 4（機械的フィルタリング）が存在し既存ステップ順序が維持される",
             "Goal Gate 通過テスト（cosmetic のみ→通過、medium あり→ブロック）",
             "make test-conver 全 PASS"
           ],
           "testExceptions": [],
-          "notes": "I/O境界: find-omissions ワークフロー + パイプライン → 統合された次の RFC 世代。P9-1 完了後に実施。"
+          "notes": "I/O境界: find-omissions ワークフロー + パイプライン → 統合された次の RFC 世代。P9-1 完了後に実施。Step 4（旧 Step 3.5）の定義は P11-1 で確定済み。"
         }
       ]
     },
@@ -1993,10 +2046,60 @@
         {
           "id": 1,
           "phaseId": 11,
-          "status": "todo",
+          "status": "reviewed",
           "title": "formulate-ticketsコマンド群へのチケット統合チェック追加（過剰分解防止）",
-          "referenceSection": "RFC_ADDITION-002.md (進行中の議論)",
-          "background": "formulate-tickets.md / formulate-tickets-for-next.md のStep構造に「発散(列挙)→収束(統合)」の2段階が欠けており、I/O境界で統合すべき候補がそのまま過剰分解されたチケットになる問題を修正する。Step 3(5層モデル)とStep 4(フェーズ設計)の間に「チケット統合チェック」を新設し、後続ステップ番号を整数リナンバリングする。同様に find-omissions-for-next-rfc.md の予定 Step 3.5 も整数リナンバリングする。"
+          "referenceSection": "tickets/specs/0037-formulate-tickets.md",
+          "background": "formulate-tickets.md / formulate-tickets-for-next.md のStep構造に「発散(列挙)→収束(統合)」の2段階が欠けており、I/O境界で統合すべき候補がそのまま過剰分解されたチケットになる問題を修正する。Step 3(5層モデル)とStep 4(フェーズ設計)の間に「チケット統合チェック」を新設し、後続ステップ番号を整数リナンバリングする。同様に find-omissions-for-next-rfc.md の予定 Step 3.5 も整数リナンバリングする。",
+          "scope": [
+            ".claude/commands/formulate-tickets.md: Step 3とStep 4(旧)の間にStep 4(新:チケット統合チェック)を追加、旧Step 4〜8をStep 5〜9にリナンバリング",
+            ".claude/commands/formulate-tickets-for-next.md: 同上のStep 4追加+リナンバリング",
+            ".claude/commands/find-omissions-for-next-rfc.md: Step 4(機械的フィルタリング)を新設、旧Step 4〜6をStep 5〜7にリナンバリング(P10-1のStep 3.5を先取りし整数化)",
+            "scripts/tickets/create-omissions.js: SKELETON_STEPS に step 4 を追加し旧4〜6を5〜7にリナンバリング",
+            "P10-1 の scope/notes更新: 参照しているStep 3.5をStep 4に修正"
+          ],
+          "testVerification": [
+            "formulate-tickets.md: Step 4(チケット統合チェック)が存在し後続Stepが5〜9の整数であること",
+            "formulate-tickets-for-next.md: 同上",
+            "find-omissions-for-next-rfc.md: Step 4(機械的フィルタリング)が存在し後続Stepが5〜7の整数であること",
+            "create-omissions.js: steps配列に4が含まれ3.5が含まれないこと",
+            "grep -rn 'Step 3.5' .claude/ で残存ゼロ確認"
+          ],
+          "testExceptions": [
+            "Markdown文書編集のみのためユニットテストなし。目視+grep確認で代替"
+          ],
+          "notes": "レビュー報告書:\n\n【検証結果】\n- status: done → レビュー中 ✅\n- 静的品質チェック: 0 issues ✅\n- 翻訳可能性: 問題なし ✅\n- 犯罪スキャン: 0件 ✅\n- スタブ: 0件 ✅\n- 不完全実装（7パターン）: 0件 ✅\n\n【Acceptance Criteria】\n- ✅ formulate-tickets.md: Step 4(チケット統合チェック)存在、後続Step 5〜9の整数\n- ✅ formulate-tickets-for-next.md: 同内容\n- ✅ find-omissions-for-next-rfc.md: Step 4(機械的フィルタリング)存在、後続Step 5〜7の整数\n- ✅ create-omissions.js: 3.5 残存なし、正しいSteps配列\n- ✅ grep 'Step 3.5': 全ファイルで残存ゼロ\n\n【依存関係】\n- P10-1 (todo): scope/notesがStep 3.5→4に更新済み ✅\n- P9-1 (planned): 問題なし\n\n【変更ファイル】\n1. create-omissions.js — SKELETON_STEPS リナンバリング\n2. find-omissions-for-next-rfc.md — Step 4新設＋リナンバリング\n3. formulate-tickets.md — Step 4新設＋リナンバリング\n4. formulate-tickets-for-next.md — Step 4新設＋リナンバリング\n5. Tickets.json P10-1 — Step 3.5参照→4に修正\n\n【指摘事項】\n- Blocker: なし\n- Major: なし\n- Minor: なし",
+          "relatedTicketIds": "P10-1 (競合注意: Step 3.5→4のリナンバリング), P9-1 (関連: 同様のStep 3.5問題)",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "SKELETON_STEPS: [1,2,3,4,5,6]",
+              "after": "[1,2,3,4,5,6,7] — Step 4(機械的フィルタリング)追加＋リナンバリング",
+              "description": "create-omissions.js: 両SKELETON_STEPS定数に Step 4 追加、旧4〜6→5〜7、check-final版は旧4〜9→5〜10"
+            },
+            {
+              "before": "Step 4: 発見漏れ確認 → Step 5: 最終検証 → Step 6: 完了報告",
+              "after": "Step 4: 機械的フィルタリング → Step 5: 発見漏れ確認 → Step 6: 最終検証 → Step 7: 完了報告",
+              "description": "find-omissions-for-next-rfc.md: Step 4 新設＋後続リナンバリング（P10-1のStep 3.5を整数化）"
+            },
+            {
+              "before": "Step 3 → Step 4(フェーズ設計) → ... → Step 8",
+              "after": "Step 3 → Step 4(チケット統合チェック) → Step 5(フェーズ設計) → ... → Step 9",
+              "description": "formulate-tickets.md: チケット統合チェックStep 4新設＋旧4〜8→5〜9リナンバリング"
+            },
+            {
+              "before": "Step 3 → Step 4(フェーズ設計) → ... → Step 8",
+              "after": "Step 3 → Step 4(チケット統合チェック) → Step 5(フェーズ設計) → ... → Step 9",
+              "description": "formulate-tickets-for-next.md: 同上"
+            },
+            {
+              "before": "P10-1 scope: Step 3.5参照",
+              "after": "Step 4参照に修正",
+              "description": "P10-1 のスコープ・背景・テスト計画を Step 4 に統一"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（1文字変数は全て短寿命スコープの既存パターン、console.logはCLI出力として設計上正当）\nテスト: create-omissions.js 正常系[1→2→3→4→5→6→7] / check-final[1→2→3→4→5→6→7→8→9→10] 共に正常動作確認\n犯罪スキャン: 0件\nスタブ: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         }
       ]
     }

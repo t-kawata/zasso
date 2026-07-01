@@ -57,14 +57,29 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
   const loopOptions = buildLoopOptions(cli);
   loopOptions.watcherConfig = config;
 
+  // 実行中フラグ — 前回の runLoop 完了前に次の発火が来た場合はスキップする
+  let isLoopRunning = false;
+
   const scheduler = new CronScheduler(config);
   scheduler.start(() => {
-    runLoop(loopOptions).catch((err) => {
-      console.error(
-        "Watcher runLoop error:",
-        err instanceof Error ? err.message : err,
+    if (isLoopRunning) {
+      console.warn(
+        "Watcher mode: 前回の runLoop が未完了のためスキップします",
       );
-    });
+      return;
+    }
+
+    isLoopRunning = true;
+    runLoop(loopOptions)
+      .catch((err) => {
+        console.error(
+          "Watcher runLoop error:",
+          err instanceof Error ? err.message : err,
+        );
+      })
+      .finally(() => {
+        isLoopRunning = false;
+      });
   });
 
   // Step 4: SIGINT/SIGTERM でグレースフルシャットダウン

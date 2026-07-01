@@ -263,24 +263,46 @@ node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "3c-2" "
 
 ---
 
-### Step 4: 発見漏れの確認
+### Step 4: 機械的フィルタリング
 
-全比較ステップ完了後、`list-omissions.js` で現在の omission 一覧を確認し、「この観点では発見漏れがないか」を最終確認する。発見漏れがあれば即座に `add-omission.js` で追加する。
+全比較ステップ完了後、発見・記録された全 omission に対して機械的フィルタリングを実行する。3つの決定論的スクリプトが直列パイプラインとして動作し、重複排除・Goal阻害度評価・発散傾向判定を自動処理する。
+
+```bash
+# B-1: 過去との重複排除
+node .claude/scripts/tickets/dedup-omissions-by-history.js "$OMISSIONS_PATH"
+# → autoSkipped は自動削除、downgraded は severity 変更
+
+# B-2: Goal 阻害度評価
+node .claude/scripts/tickets/materiality-filter.js "$OMISSIONS_PATH" "$RFC_PATH"
+# → 全 omission の severity が確定（決定論ルールにより最終決定）
+
+# B-3: 発散傾向判定
+node .claude/scripts/tickets/diminishing-returns.js "$OMISSIONS_PATH"
+# → 発散傾向が強ければ注意書きを表示
+
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "4" "done"
+```
+
+---
+
+### Step 5: 発見漏れの確認
+
+全比較・機械的フィルタリング完了後、`list-omissions.js` で現在の omission 一覧を確認し、「この観点では発見漏れがないか」を最終確認する。Step 4 の機械的フィルタリングによる出力（pendingForAI に分類された omission）を制約として受け入れ、AI はその中でのみ追加判断を行う。発見漏れがあれば即座に `add-omission.js` で追加する。
 
 ```bash
 node .claude/scripts/tickets/list-omissions.js "$OMISSIONS_PATH"
 ```
 
 ```bash
-node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "4" "done"
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "5" "done"
 ```
 
 ---
 
-### Step 5: 最終検証
+### Step 6: 最終検証
 
-5a: `validate-omissions.js` で OMISSIONS JSON のスキーマ整合性を確認する。
-5b: `scan-crimes.sh` で犯罪を点検する。
+6a: `validate-omissions.js` で OMISSIONS JSON のスキーマ整合性を確認する。
+6b: `scan-crimes.sh` で犯罪を点検する。
 
 ```bash
 node .claude/scripts/lib/validate-omissions.js "$OMISSIONS_PATH"
@@ -288,21 +310,21 @@ node .claude/scripts/lib/validate-omissions.js "$OMISSIONS_PATH"
 ```
 
 ```bash
-node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "5a" "done"
-node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "5b" "done"
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6a" "done"
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6b" "done"
 ```
 
 ---
 
-### Step 6: 完了報告
+### Step 7: 完了報告
 
 `list-omissions.js` で全 omission の一覧を表示し、全ステップを `done` にして完了を宣言する。
 
 ```bash
 node .claude/scripts/tickets/list-omissions.js "$OMISSIONS_PATH"
 
-# Step 6 の「完了報告」を先に done にしてから Markdown に変換する
-node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "6" "done"
+# Step 7 の「完了報告」を先に done にしてから Markdown に変換する
+node .claude/scripts/tickets/update-omissions-step.js "$OMISSIONS_PATH" "7" "done"
 
 # OMISSIONS JSON を Markdown に変換（次段階 /grill-me-for-next-rfc-ja が読み取る）
 node .claude/scripts/tickets/convert-omissions-to-markdown.js "$OMISSIONS_PATH"
