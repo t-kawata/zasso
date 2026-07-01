@@ -38,14 +38,15 @@ description: 例: /formulate-tickets-for-next conver/RFC-002-next-phase.md conve
 ## 出力先
 
 - カレントディレクトリの `Tickets.json` に追記する（既存の内容は一切変更しない）
-- Tickets.json が存在しない場合はエラーとする
+- Tickets.json が存在しない場合はスケルトンを新規生成する
 
 ## 使用スクリプト一覧
 
 `.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
 
 | スクリプト | 引数 | 説明 |
-|---|---|---|
+|---|---|---|---|
+| `init-tickets-json.js` | `<PATH of Tickets.json> <PATH to NEXT_RFC.md>` | Tickets.json スケルトン生成（RFC からセクション抽出） |
 | `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全一覧。status フィルタ可能 |
 | `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
 | `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。phaseID は 0 から自動採番 |
@@ -83,10 +84,14 @@ if [ ! -f "$NEXT_RFC_PATH" ]; then
   exit 1
 fi
 
-# Tickets.json の存在確認
+# Tickets.json の存在確認（なければスケルトン生成）
 if [ ! -f "$TICKETS_PATH" ]; then
-  echo "エラー: Tickets.json が見つかりません。先に /formulate-tickets を実行してください。"
-  exit 1
+  echo "注意: Tickets.json が見つかりません。スケルトンを新規生成します。"
+  node .claude/scripts/tickets/init-tickets-json.js "$TICKETS_PATH" "$NEXT_RFC_PATH"
+  if [ $? -ne 0 ]; then
+    echo "エラー: Tickets.json のスケルトン生成に失敗しました。"
+    exit 1
+  fi
 fi
 
 # OMISSIONS が指定されていればスキーマ検証
@@ -365,7 +370,7 @@ node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 ## 注意事項
 
 - **既存の Tickets.json を上書きしない**: 追記のみ。既存のフェーズ・チケットは一切変更しない。
-- 既存の Tickets.json が存在しない場合はエラーとする（事前に `/formulate-tickets` を実行しておくこと）。
+- 既存の Tickets.json が存在しない場合はスケルトンを新規生成する。
 - 各チケットの `notes` に `parentOmissionId` を記述することで、どのomissionを解決するためのチケットかが追跡可能になる。これは任意項目。
 - 本コマンドは次世代RFCをチケットとして追加するに過ぎない。生成されたチケットの内容は必要に応じて調整・修正すること。
 - Tickets.json の内容は CRUD スクリプト群を介して後から修正可能。各操作はスキーマ検証を通ることを保証する。

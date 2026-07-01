@@ -1,78 +1,66 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-01T07:38:21.401Z",
+  "updatedAt": "2026-07-01T07:59:54.601Z",
   "nodes": [
     {
-      "id": "Q1",
-      "title": "Timeout設定がreqwest::Clientに適用されていない — 設定値は定義済みだがHTTPクライアント作成時に利用されていない",
+      "id": "N1",
+      "title": "HTTP クライアント接続設定の追加（build_provider_clients）— timeout / pool / keepalive / User-Agent",
       "status": "resolved",
-      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+          "resolvedAt": "2026-07-01T07:59:54.601Z",
+          "answer": "Q1→B: 標準構成（connect_timeout + pool_max_idle_per_host(usize::MAX) + tcp_keepalive(30s) + User-Agent）を採用。Q2→A: ストリーミング idle timeout 時は即座に切断（標準APIと同一体感）。Q3→A: OnceLock<()> をモジュールレベルの static に設置。Q4→B: handle_messages の return 直前で record_request() を集約呼び出し。Q5→A: 今すぐ llm-bridge-core v0.3.0 に更新し breaking change 対応 + TransformResult 確認。"
         }
-      ]
+      ],
+      "children": []
     },
     {
-      "id": "Q2",
-      "title": "metrics::register_metrics() が ProxyServer::start() 呼び出しごとに実行される — metrics crate の describe_* マクロが重複登録時に警告/パニックする可能性",
+      "id": "N2",
+      "title": "リクエストレベル・ストリーミングタイムアウトの実装 — non-stream .timeout() と streaming idle timeout",
       "status": "resolved",
-      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+          "resolvedAt": "2026-07-01T07:59:54.601Z",
+          "answer": "Q1→B: 標準構成（connect_timeout + pool_max_idle_per_host(usize::MAX) + tcp_keepalive(30s) + User-Agent）を採用。Q2→A: ストリーミング idle timeout 時は即座に切断（標準APIと同一体感）。Q3→A: OnceLock<()> をモジュールレベルの static に設置。Q4→B: handle_messages の return 直前で record_request() を集約呼び出し。Q5→A: 今すぐ llm-bridge-core v0.3.0 に更新し breaking change 対応 + TransformResult 確認。"
         }
-      ]
+      ],
+      "children": []
     },
     {
-      "id": "Q3",
-      "title": "RFC §1.1 の依存関係表と実装 Cargo.toml に不一致（sea-orm, proxmox-sortable-macroが無い、reqwest/tokioがoptional）",
+      "id": "N3",
+      "title": "register_metrics() の冪等性ガード — OnceLock または Once で初回のみ実行",
       "status": "resolved",
-      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+          "resolvedAt": "2026-07-01T07:59:54.601Z",
+          "answer": "Q1→B: 標準構成（connect_timeout + pool_max_idle_per_host(usize::MAX) + tcp_keepalive(30s) + User-Agent）を採用。Q2→A: ストリーミング idle timeout 時は即座に切断（標準APIと同一体感）。Q3→A: OnceLock<()> をモジュールレベルの static に設置。Q4→B: handle_messages の return 直前で record_request() を集約呼び出し。Q5→A: 今すぐ llm-bridge-core v0.3.0 に更新し breaking change 対応 + TransformResult 確認。"
         }
-      ]
+      ],
+      "children": []
     },
     {
-      "id": "Q4",
-      "title": "util/headers.rs の build_upstream_headers() が provider/transparent.rs で使われていない — bearer_auth() が代用しているがRFC記述と不一致",
+      "id": "N4",
+      "title": "handle_messages 後処理で record_request() メトリクス記録の追加",
       "status": "resolved",
-      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+          "resolvedAt": "2026-07-01T07:59:54.601Z",
+          "answer": "Q1→B: 標準構成（connect_timeout + pool_max_idle_per_host(usize::MAX) + tcp_keepalive(30s) + User-Agent）を採用。Q2→A: ストリーミング idle timeout 時は即座に切断（標準APIと同一体感）。Q3→A: OnceLock<()> をモジュールレベルの static に設置。Q4→B: handle_messages の return 直前で record_request() を集約呼び出し。Q5→A: 今すぐ llm-bridge-core v0.3.0 に更新し breaking change 対応 + TransformResult 確認。"
         }
-      ]
+      ],
+      "children": []
     },
     {
-      "id": "Q5",
-      "title": "translate_stream に #[allow(tail_expr_drop_order)] が付与 — Rust 2024 移行時のドロップ順変更による影響が未調査",
+      "id": "N5",
+      "title": "llm-bridge-core v0.2.6 → v0.3.0 バージョン更新戦略 — breaking change 対応",
       "status": "resolved",
-      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+          "resolvedAt": "2026-07-01T07:59:54.601Z",
+          "answer": "Q1→B: 標準構成（connect_timeout + pool_max_idle_per_host(usize::MAX) + tcp_keepalive(30s) + User-Agent）を採用。Q2→A: ストリーミング idle timeout 時は即座に切断（標準APIと同一体感）。Q3→A: OnceLock<()> をモジュールレベルの static に設置。Q4→B: handle_messages の return 直前で record_request() を集約呼び出し。Q5→A: 今すぐ llm-bridge-core v0.3.0 に更新し breaking change 対応 + TransformResult 確認。"
         }
-      ]
-    },
-    {
-      "id": "Q6",
-      "title": "lifecycle.rs で reqwest::Client::new() を素で使っている — default headers, connect timeout, プール設定のカスタマイズ余地",
-      "status": "resolved",
-      "children": [],
-      "questions": [
-        {
-          "resolvedAt": "2026-07-01T07:38:21.401Z",
-          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
-        }
-      ]
+      ],
+      "children": []
     }
   ]
 }

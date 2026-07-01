@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-01T07:38:21.401Z",
+  "nodes": [
+    {
+      "id": "Q1",
+      "title": "Timeout設定がreqwest::Clientに適用されていない — 設定値は定義済みだがHTTPクライアント作成時に利用されていない",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "metrics::register_metrics() が ProxyServer::start() 呼び出しごとに実行される — metrics crate の describe_* マクロが重複登録時に警告/パニックする可能性",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    },
+    {
+      "id": "Q3",
+      "title": "RFC §1.1 の依存関係表と実装 Cargo.toml に不一致（sea-orm, proxmox-sortable-macroが無い、reqwest/tokioがoptional）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "title": "util/headers.rs の build_upstream_headers() が provider/transparent.rs で使われていない — bearer_auth() が代用しているがRFC記述と不一致",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    },
+    {
+      "id": "Q5",
+      "title": "translate_stream に #[allow(tail_expr_drop_order)] が付与 — Rust 2024 移行時のドロップ順変更による影響が未調査",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "title": "lifecycle.rs で reqwest::Client::new() を素で使っている — default headers, connect timeout, プール設定のカスタマイズ余地",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-01T07:38:21.401Z",
+          "answer": "\nQ1→B: timeout設定を実装に適用（connect_timeout + request.timeout + streaming idle timeout）\nQ2→A: OnceLock で register_metrics() を初回のみ実行\nQ3→A: RFC を実装に合わせて修正（sea-orm/proxmox-sortable-macro削除、reqwest/tokio optional化を反映）\nQ4→B: RFC の記述を実装に合わせる（bearer_auth() で十分、build_upstream_headersはutilに維持）\nQ5→A: Rust 2024移行計画を策定、tail_expr_drop_orderの影響範囲を調査\nQ6→B: reqwest::Client::builder() で pool設定 + default headers を追加\n"
+        }
+      ]
+    }
+  ]
+}

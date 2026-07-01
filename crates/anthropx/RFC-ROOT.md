@@ -1,3 +1,16 @@
+---
+merge-history:
+  -
+    date: 2026-07-01
+    source: /Users/kawata/shyme/zasso/crates/anthropx/RFC-OMISSIONS-001.md
+    resolved:
+      - O-001
+      - O-002
+      - O-003
+      - O-004
+      - O-005
+      - O-006
+---
 # LLM Bridge Proxy Server — RFC
 
 **Status:** Proposed  
@@ -81,7 +94,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 tokio = { version = "1", features = ["sync", "macros"] }
 tracing = "0.1"
 metrics = "0.24"
-llm-bridge-core = "0.7"
+llm-bridge-core = { version = "0.3.0", optional = true }
 sea-orm = { workspace = true }
 proxmox-sortable-macro = "0.2"
 
@@ -1057,6 +1070,8 @@ pub fn anthropic_to_openai_lossy(
 }
 ```
 
+**2026-07-01 追記:** llm-bridge-core v0.3.0（2026-06-26 リリース）で `TransformResult` または同等の lossy 検出 API が提供されているか確認すること。提供されている場合、本 §6.2 の設計案はライブラリ API に置き換え、§6.3 の独自実装（`scan_anthropic_request()` 方式）は削除する。
+
 #### 6.3 anthropx 側の適応（将来対応）
 
 llm-bridge-core の lossy-tolerant API が利用可能になった後、anthropx 側の lossy 処理を以下の方針で修正する：
@@ -1949,6 +1964,62 @@ Q17 の決定に基づき、`GlobalConfig` に `error_lossy_continue: bool` フ�
 - [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
 - [Design Draft](docs/llm-bridge-proxy-design-draft.md)
 
+### F. `/drill-rfc-down` 追記（2026-07-01）
+
+本セクションは `/drill-rfc-down` セッション（6 ノード）の設計判断を記録する。
+
+#### F.1 HTTP クライアントタイムアウト設定（Q1）
+
+- **決定**: 実装側で `TimeoutConfig` を `reqwest::Client` に適用する
+- **方法**:
+  - `reqwest::Client::builder()` で `.connect_timeout(Duration::from_millis(connect_ms))` を設定
+  - リクエストごとに `.timeout(Duration::from_millis(total_ms))` を設定（non-stream）
+  - ストリーミング時は `tokio::time::timeout(Duration::from_millis(read_ms), stream.next())` でチャンク間 idle timeout を設定
+  - `reqwest::Client::builder().default_headers()` に User-Agent `anthropx/{version}`（`env!("CARGO_PKG_VERSION")`）を設定
+- **具体値**:
+  - `pool_max_idle_per_host`: `usize::MAX`（`max_in_flight=64` が実効上限となるため過剰ではない）
+  - `tcp_keepalive`: `Some(Duration::from_secs(30))`（長時間ストリームの NAT/ファイアウォール切断防止）
+  - `connect_ms`: provider → global フォールバック（デフォルト 3000ms）
+  - `total_ms`: provider → global フォールバック（デフォルト 600000ms）
+  - `read_ms`: provider → global フォールバック（デフォルト 600000ms）
+- **ストリーム切断動作**: チャンク間 idle timeout 発生時はストリームを即座に切断する（Anthropic 標準 API と同一体感）。partial response の有効扱いは行わず、再試行もしない。
+- **影響**: `lifecycle.rs` の `build_provider_clients()` を修正、`provider/transparent.rs` および `provider/translate.rs` のリクエスト送信箇所に `.timeout()` を追加、`provider/transparent.rs::proxy_sse_stream()` および `provider/translate.rs::translate_stream()` の `select!` ループに `tokio::time::timeout` を追加
+
+#### F.2 metrics 登録の冪等性（Q2）
+
+- **決定**: `register_metrics()` を `OnceLock<()>` でガードし、初回のみ実行する
+- **方法**: `std::sync::OnceLock<()>` をモジュールレベルの `static` に設置。`register_metrics()` 先頭で `METRICS_REGISTERED.set(()).is_err()` により初回判定を行い、既登録時は即 return する
+- **根拠**: `std::sync::Once`（戻り値保持不可）より拡張性が高い。MetricsHandle 保持は YAGNI（不要）
+- **影響**: `observability/metrics.rs` に `register_metrics()` の呼び出しガードを追加、`lifecycle.rs` の変更は不要（呼び出し側は変更しない）
+
+#### F.3 RFC と Cargo.toml の整合性（Q3）
+
+- **決定**: RFC-ROOT.md §1.1 の Cargo.toml 記述を実装に合わせる
+- **修正点**:
+  - `sea-orm` 依存を削除（実装で未使用）
+  - `proxmox-sortable-macro` 依存を削除（実装で未使用）
+  - `reqwest` を unconditional → `server` feature の optional 依存に修正
+  - `tokio` を unconditional → `server` feature で `tokio/full` として有効化する形に修正
+  - `uuid` 依存を追加（実装で使用）
+
+#### F.4 `build_upstream_headers()` と RFC 記述の乖離（Q4）
+
+- **決定**: RFC-ROOT.md §5.1 の記述を実装に合わせる（`bearer_auth()` 方式を正とする）
+- **根拠**: transparent mode で `bearer_auth()` を使用する現在の実装が簡潔かつ安全であり、`build_upstream_headers()` は util モジュールのテスト可能な関数として維持する。RFC の記述のみを修正する。
+
+#### F.5 Rust 2024 Edition 対応（Q5）
+
+- **決定**: `#[allow(tail_expr_drop_order)]` の影響範囲を調査し、Edition 2024 移行計画を策定する
+- **注意点**: `tokio::select!` 内の一時変数ドロップ順に依存するコードがないか確認が必要。`translate_stream` の `select!` マクロ展開後のドロップ順は現状無害と判断されているが、Edition 2024 移行時に再検証する。
+
+#### F.6 reqwest::Client ビルダー設定（Q6）
+
+- **決定**: `reqwest::Client::builder()` で以下の設定を追加する
+  - `.pool_max_idle_per_host(usize::MAX)` — 接続プールの idle 最大数。`max_in_flight=64` が実効上の上限となるため過剰ではない
+  - `.tcp_keepalive(Some(Duration::from_secs(30)))` — TCP keepalive 間隔 30 秒
+  - `.default_headers()` — User-Agent に `anthropx/{version}`（`env!("CARGO_PKG_VERSION")` で動的生成）
+- **影響**: `lifecycle.rs` の `build_provider_clients()` を修正
+
 ---
 
-*この RFC は `/grill-me-for-rfc-ja` セッションによる 18 ノードの設計判断に基づいて生成されました。*
+*この RFC は `/grill-me-for-rfc-ja` セッションによる 18 ノード + `/drill-rfc-down` セッションによる 6 ノードの設計判断に基づいて生成されました。*
