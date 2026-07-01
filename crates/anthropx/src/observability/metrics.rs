@@ -6,6 +6,8 @@
 //! server feature 有効時は Prometheus レコーダーがインストールされ、
 //! library モード（server feature なし）では metrics マクロは no-op として動作する。
 
+use std::sync::OnceLock;
+
 use metrics::{counter, describe_counter, describe_histogram, histogram};
 
 // ---------------------------------------------------------------------------
@@ -37,33 +39,41 @@ pub(crate) use exporter::METRICS_HANDLE;
 // 公開関数
 // ---------------------------------------------------------------------------
 
+/// register_metrics() が初回のみ実行されることを保証するガード。
+static METRICS_REGISTERED: OnceLock<()> = OnceLock::new();
+
 /// 全メトリクスの記述（`describe_*!`）を登録する。
 ///
 /// `ProxyServer::start()` の先頭で呼ばれることを想定する。
 /// 初回呼び出し時に Prometheus レコーダーがインストールされる（server feature 時）。
+/// `OnceLock<()>` により、2回目以降の呼び出しでは何も実行されない。
 pub fn register_metrics() {
-    // server feature 時は METRICS_HANDLE の初期化（レコーダーインストール）をトリガーする
-    #[cfg(feature = "server")]
-    {
-        let _ = &*exporter::METRICS_HANDLE;
-    }
+    // 初回呼び出し時のみ describe_*! を実行する
+    // OnceLock::set() は初回のみ Ok(()) を返し、2回目以降は Err(()) を返す
+    if METRICS_REGISTERED.set(()).is_ok() {
+        // server feature 時は METRICS_HANDLE の初期化（レコーダーインストール）をトリガーする
+        #[cfg(feature = "server")]
+        {
+            let _ = &*exporter::METRICS_HANDLE;
+        }
 
-    describe_counter!(
-        "anthropx_requests_total",
-        "Total number of proxy requests by provider, mode, stream, status"
-    );
-    describe_counter!(
-        "anthropx_failover_total",
-        "Total number of key failover events by provider"
-    );
-    describe_counter!(
-        "anthropx_lossy_total",
-        "Total number of lossy translation events by level"
-    );
-    describe_histogram!(
-        "anthropx_request_latency_ms",
-        "Request latency in milliseconds by provider and mode"
-    );
+        describe_counter!(
+            "anthropx_requests_total",
+            "Total number of proxy requests by provider, mode, stream, status"
+        );
+        describe_counter!(
+            "anthropx_failover_total",
+            "Total number of key failover events by provider"
+        );
+        describe_counter!(
+            "anthropx_lossy_total",
+            "Total number of lossy translation events by level"
+        );
+        describe_histogram!(
+            "anthropx_request_latency_ms",
+            "Request latency in milliseconds by provider and mode"
+        );
+    }
 }
 
 /// リクエスト完了時に呼び出し、カウンタ + ヒストグラムを記録する。
@@ -133,10 +143,7 @@ mod tests {
         init_recorder();
         register_metrics();
         let output = exporter::METRICS_HANDLE.render();
-        assert!(
-            !output.is_empty(),
-            "render output should not be empty"
-        );
+        assert!(!output.is_empty(), "render output should not be empty");
     }
 
     /// record_request() でカウンタ行が出力され、ラベルが正しく付与されること。
@@ -201,15 +208,12 @@ mod tests {
         record_request(provider, "transparent", false, 200, 0);
 
         let output = exporter::METRICS_HANDLE.render();
-        let expected_counter = format!(
-            r#"anthropx_requests_total{{provider="{provider}""#
-        );
+        let expected_counter = format!(r#"anthropx_requests_total{{provider="{provider}""#);
         assert!(output.contains(&expected_counter));
 
         // ヒストグラムの _count 行も出力されていること
-        let expected_histo_count = format!(
-            r#"anthropx_request_latency_ms_count{{provider="{provider}""#
-        );
+        let expected_histo_count =
+            format!(r#"anthropx_request_latency_ms_count{{provider="{provider}""#);
         assert!(
             output.contains(&expected_histo_count),
             "histogram count should appear in output"
@@ -238,9 +242,7 @@ mod tests {
         record_failover(provider);
 
         let output = exporter::METRICS_HANDLE.render();
-        let expected_label = format!(
-            r#"anthropx_failover_total{{provider="{provider}"}}"#
-        );
+        let expected_label = format!(r#"anthropx_failover_total{{provider="{provider}"}}"#);
         assert!(
             output.contains(&expected_label),
             "failover counter should contain provider label"
@@ -303,5 +305,43 @@ mod tests {
             output.contains(r#"anthropx_lossy_total{level="Info"}"#),
             "Info level should appear"
         );
+    }
+
+    /// register_metrics() を2回呼び出してもパニックも警告も発生しないこと。
+    ///
+    /// OnceLock ガードにより、2回目の describe_*! 登録はスキップされる。
+    #[test]
+    fn register_metrics_idempotent_on_second_call() {
+        init_recorder();
+
+        // 1回目: 通常どおり実行
+        register_metrics();
+        // 2回目: OnceLock ガードにより何も実行されない（パニック・警告なし）
+        register_metrics();
+
+        // 2回呼び出してもレンダリングが空にならないこと
+        let output = exporter::METRICS_HANDLE.render();
+        assert!(
+            !output.is_empty(),
+            "render output should not be empty after two calls"
+        );
+    }
+
+    /// register_metrics() を2回呼び出した後でも record_request() が正常動作すること。
+    #[test]
+    fn register_metrics_twice_still_records_requests() {
+        init_recorder();
+        let provider = "test_twice_still_records";
+
+        register_metrics();
+        register_metrics();
+
+        record_request(provider, "transparent", false, 200, 150);
+
+        let output = exporter::METRICS_HANDLE.render();
+        let expected_label = format!(
+            r#"anthropx_requests_total{{provider="{provider}",mode="transparent",stream="false",status="200"}}"#
+        );
+        assert!(output.contains(&expected_label));
     }
 }

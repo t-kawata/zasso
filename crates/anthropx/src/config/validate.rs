@@ -108,13 +108,19 @@ impl AppConfig {
 
         // 5. timeout 値が 0 でないこと
         if self.global.timeouts.connect_ms == 0 {
-            errors.push(ConfigError::InvalidValue("connect_ms must not be 0".to_string()));
+            errors.push(ConfigError::InvalidValue(
+                "connect_ms must not be 0".to_string(),
+            ));
         }
         if self.global.timeouts.read_ms == 0 {
-            errors.push(ConfigError::InvalidValue("read_ms must not be 0".to_string()));
+            errors.push(ConfigError::InvalidValue(
+                "read_ms must not be 0".to_string(),
+            ));
         }
         if self.global.timeouts.total_ms == 0 {
-            errors.push(ConfigError::InvalidValue("total_ms must not be 0".to_string()));
+            errors.push(ConfigError::InvalidValue(
+                "total_ms must not be 0".to_string(),
+            ));
         }
 
         // 6. global alias と provider alias の競合ログ出力（RFC02 §6.3）
@@ -428,9 +434,10 @@ mod tests {
                 openai_wire_api: None,
                 max_in_flight: None,
                 max_queue: None,
-                model_aliases: BTreeMap::from([
-                    ("existing-model".to_string(), "alias-value".to_string()),
-                ]),
+                model_aliases: BTreeMap::from([(
+                    "existing-model".to_string(),
+                    "alias-value".to_string(),
+                )]),
                 models: vec![ModelConfig {
                     public: "existing-model".to_string(),
                     upstream: "up-existing".to_string(),
@@ -462,9 +469,10 @@ mod tests {
                 openai_wire_api: None,
                 max_in_flight: None,
                 max_queue: None,
-                model_aliases: BTreeMap::from([
-                    ("my-alias".to_string(), "existing-model".to_string()),
-                ]),
+                model_aliases: BTreeMap::from([(
+                    "my-alias".to_string(),
+                    "existing-model".to_string(),
+                )]),
                 models: vec![ModelConfig {
                     public: "existing-model".to_string(),
                     upstream: "up-existing".to_string(),
@@ -483,10 +491,10 @@ mod tests {
     #[test]
     fn validate_global_provider_alias_conflict() {
         let mut config = AppConfig::default();
-        config.global.aliases.insert(
-            "shared-alias".to_string(),
-            "global-value".to_string(),
-        );
+        config
+            .global
+            .aliases
+            .insert("shared-alias".to_string(), "global-value".to_string());
         config.providers.insert(
             "test".to_string(),
             ProviderConfig {
@@ -498,9 +506,10 @@ mod tests {
                 openai_wire_api: None,
                 max_in_flight: None,
                 max_queue: None,
-                model_aliases: BTreeMap::from([
-                    ("shared-alias".to_string(), "provider-value".to_string()),
-                ]),
+                model_aliases: BTreeMap::from([(
+                    "shared-alias".to_string(),
+                    "provider-value".to_string(),
+                )]),
                 models: vec![],
             },
         );

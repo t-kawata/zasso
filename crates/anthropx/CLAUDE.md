@@ -436,3 +436,42 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 # スタブの一覧取得
 node .claude/scripts/tickets/review/find-all-stubs.js src
 ```
+
+---
+
+## RFC-OMISSIONS-001: anthropx 実装漏れ・不足の是正 設計マップ
+
+### 目的
+
+親 RFC（RFC-ROOT.md）の実装レビューで発見された 6 件の実装漏れ（O-001〜O-006）を是正する。対象は HTTP クライアント接続設定、リクエストレベルタイムアウト、メトリクス登録の冪等性ガード、リクエストメトリクス記録、llm-bridge-core バージョン更新の 5 領域。
+
+### 変更ファイル一覧
+
+| ファイル | 変更種別 | 内容 |
+|----------|----------|------|
+| `src/lifecycle.rs` | 修正 | `build_provider_clients()` で builder 利用 + timeout 設定 |
+| `src/provider/transparent.rs` | 修正 | `execute_with_failover()` に `.timeout()` / `proxy_sse_stream()` に idle timeout |
+| `src/provider/translate.rs` | 修正 | `translate_non_stream()` に `.timeout()` / `translate_stream()` に idle timeout |
+| `src/observability/metrics.rs` | 修正 | `OnceLock<()>` ガード追加 |
+| `Cargo.toml` | 修正 | `llm-bridge-core` v0.2.6 → v0.3.0 |
+
+### 依存グラフ（5層モデル）
+
+| 層 | 該当チケット | 内容 | 外部依存 |
+|----|-------------|------|---------|
+| Layer 0（型定義） | — | 新規型なし | なし |
+| Layer 1（純粋関数） | P0 | `register_metrics()` OnceLock ガード | なし |
+| Layer 2（非同期ランタイム） | P1, P2 | HTTP Client builder / timeout 設定 | tokio, reqwest |
+| Layer 3（ライフサイクル管理） | — | 該当なし | — |
+| Layer 4（統合・プラットフォーム） | P3 | llm-bridge-core v0.3.0 更新 | crates.io |
+
+### 親RFCとのOMISSIONS対応
+
+| チケット | OMISSIONS | 親RFC § | 設計判断 |
+|----------|-----------|---------|---------|
+| P1-1 | O-001 | §F.1, §F.6 | N1-B: 標準構成（YAGNI） |
+| P2-1, P2-2 | O-002, O-003 | §F.1 | N2-A: 即時切断（Anthropic 標準） |
+| P0-1 | O-004 | §F.2 | N3-A: OnceLock<()> |
+| — | O-005 | §10.4 | 実装済みのため変更不要 |
+| P3-1 | O-006 | §1.1, §6.2 | N5-A: 今すぐ更新 |
+```

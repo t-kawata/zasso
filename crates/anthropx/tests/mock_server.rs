@@ -16,11 +16,16 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Json;
 use futures::stream;
+use futures::StreamExt;
 use tokio_util::sync::CancellationToken;
 
 // ---------------------------------------------------------------------------
 // 定数
 // ---------------------------------------------------------------------------
+
+/// テスト用の short total_ms（タイムアウトテスト用）。
+/// 設定バリデーション（0禁止）を回避するため 50ms 以上の値を取る。
+const SHORT_TIMEOUT_MS: u64 = 100;
 
 /// Mock upstream のベースポート。
 ///
@@ -375,7 +380,15 @@ async fn transparent_non_stream_proxies_to_upstream() {
         "/{*path}",
         axum::routing::post(|| async { (StatusCode::OK, axum::Json(mock_anthropic_response())) }),
     );
-    let config = make_mock_config(upstream_app, true, vec![("model", "model")], vec!["test-key"], None, None).await;
+    let config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
     let server = build_proxy_test_server(config).await;
 
     let resp = server
@@ -408,7 +421,15 @@ async fn transparent_stream_proxies_sse_from_upstream() {
             (StatusCode::OK, headers, body)
         }),
     );
-    let config = make_mock_config(upstream_app, true, vec![("model", "model")], vec!["test-key"], None, None).await;
+    let config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
     let server = build_proxy_test_server(config).await;
 
     let resp = server
@@ -656,19 +677,22 @@ async fn translate_non_stream_response_format() {
         "/{*path}",
         axum::routing::post(|| async {
             // OpenAI Chat Completions 形式の応答 ← translate がこれを Anthropic 形式に変換する
-            (StatusCode::OK, Json(serde_json::json!({
-                "id": "chatcmpl-mock",
-                "object": "chat.completion",
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "translated response"
-                    },
-                    "finish_reason": "stop"
-                }],
-                "usage": {"prompt_tokens": 1, "completion_tokens": 1}
-            })))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "id": "chatcmpl-mock",
+                    "object": "chat.completion",
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "translated response"
+                        },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1}
+                })),
+            )
         }),
     );
     let base_url = start_mock_upstream(upstream_app).await;
@@ -713,7 +737,10 @@ async fn translate_non_stream_response_format() {
     let body = resp.json::<serde_json::Value>();
     assert_eq!(body["type"], "message", "response type must be 'message'");
     assert!(body["content"].is_array(), "content must be an array");
-    assert_eq!(body["content"][0]["type"], "text", "first content block must be text");
+    assert_eq!(
+        body["content"][0]["type"], "text",
+        "first content block must be text"
+    );
     assert!(
         !body["content"][0]["text"].as_str().unwrap().is_empty(),
         "text content must not be empty"
@@ -744,7 +771,9 @@ async fn translate_stream_proxies_via_openai_wire() {
                 "data: [DONE]\n\n",
             ];
             let stream_body = stream::iter(
-                chunks.into_iter().map(|c| Ok::<_, Infallible>(Bytes::from(c))),
+                chunks
+                    .into_iter()
+                    .map(|c| Ok::<_, Infallible>(Bytes::from(c))),
             );
             Response::builder()
                 .header("Content-Type", "text/event-stream")
@@ -1002,8 +1031,7 @@ async fn translate_rejects_image_block_when_lossy_not_allowed() {
 
     let body = resp.json::<serde_json::Value>();
     assert_eq!(
-        body["error"]["type"],
-        "invalid_request_error",
+        body["error"]["type"], "invalid_request_error",
         "error type should be invalid_request_error"
     );
     assert!(
@@ -1013,5 +1041,219 @@ async fn translate_rejects_image_block_when_lossy_not_allowed() {
             .contains("image"),
         "error message should mention image, got: {:?}",
         body["error"]["message"]
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC (O-002): transparent non-stream が total_ms 超過時にタイムアウトエラーを返す
+// ---------------------------------------------------------------------------
+
+/// mock upstream が 5000ms 遅延する場合、total_ms=100ms でタイムアウトする。
+#[tokio::test]
+async fn transparent_non_stream_times_out_on_slow_upstream() {
+    let upstream_app = axum::Router::new().route(
+        "/{*path}",
+        axum::routing::post(|| async {
+            tokio::time::sleep(Duration::from_millis(5000)).await;
+            (StatusCode::OK, axum::Json(mock_anthropic_response()))
+        }),
+    );
+    let mut config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
+    // total_ms を短く設定 → reqwest がタイムアウト
+    config.global.timeouts.total_ms = SHORT_TIMEOUT_MS;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({
+            "model": "mock-provider/model",
+            "messages": [{"role": "user", "content": "hello"}]
+        }))
+        .await;
+
+    let status = resp.status_code().as_u16();
+    assert!(
+        status >= 400,
+        "expected error status (timeout), got {status}"
+    );
+}
+
+/// mock upstream が 5000ms 遅延する場合でも、total_ms=10000ms（十分大）なら成功する。
+#[tokio::test]
+async fn transparent_non_stream_succeeds_with_sufficient_timeout() {
+    let upstream_app = axum::Router::new().route(
+        "/{*path}",
+        axum::routing::post(|| async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            (StatusCode::OK, axum::Json(mock_anthropic_response()))
+        }),
+    );
+    let mut config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
+    config.global.timeouts.total_ms = 10_000; // 10秒 → 十分
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({
+            "model": "mock-provider/model",
+            "messages": [{"role": "user", "content": "hello"}]
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    let body = resp.json::<serde_json::Value>();
+    assert_eq!(body["content"][0]["text"], "mock upstream response");
+}
+
+// ---------------------------------------------------------------------------
+// AC (O-003): transparent SSE stream が read_ms 超過時に idle timeout で切断する
+// ---------------------------------------------------------------------------
+
+/// mock upstream のチャンク間隔が read_ms を超える場合、ストリームが切断される。
+#[tokio::test]
+async fn transparent_stream_times_out_on_slow_chunks() {
+    let upstream_app = axum::Router::new().route(
+        "/{*path}",
+        axum::routing::post(|| async {
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(
+                axum::http::header::CONTENT_TYPE,
+                "text/event-stream".parse().unwrap(),
+            );
+            // 最初のチャンクは 50ms 後に送信、2番目のチャンクは 1000ms 後（read_ms=200 超え）
+            let stream = futures::stream::once(async {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                Ok::<_, std::convert::Infallible>(
+                    "data: {\"type\":\"ping\"}\n\n".to_string()
+                )
+            })
+            .chain(futures::stream::once(async {
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+                Ok::<_, std::convert::Infallible>(
+                    "data: [DONE]\n\n".to_string()
+                )
+            }));
+            (
+                StatusCode::OK,
+                headers,
+                axum::body::Body::from_stream(stream),
+            )
+        }),
+    );
+    let mut config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
+    // read_ms を短く設定 → 2番目のチャンクの前に idle timeout
+    config.global.timeouts.read_ms = 200;
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({
+            "model": "mock-provider/model",
+            "stream": true,
+            "messages": [{"role": "user", "content": "hello"}]
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    let body_text = resp.text();
+
+    // 最初のチャンクが届いている
+    assert!(
+        body_text.contains("ping"),
+        "expected first chunk to be delivered"
+    );
+    // [DONE] はタイムアウト後に届くはず → 含まれていてはいけない
+    assert!(
+        !body_text.contains("[DONE]"),
+        "expected stream to be cut short before [DONE]"
+    );
+}
+
+/// mock upstream のチャンク間隔が read_ms 以内なら正常終了する。
+#[tokio::test]
+async fn transparent_stream_succeeds_when_chunks_fast_enough() {
+    let upstream_app = axum::Router::new().route(
+        "/{*path}",
+        axum::routing::post(|| async {
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(
+                axum::http::header::CONTENT_TYPE,
+                "text/event-stream".parse().unwrap(),
+            );
+            // 両方のチャンクが 50ms 以内に送信される（read_ms=500 未満）
+            let stream = futures::stream::once(async {
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                Ok::<_, std::convert::Infallible>(
+                    "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"Hello\"}}\n\n".to_string()
+                )
+            })
+            .chain(futures::stream::once(async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                Ok::<_, std::convert::Infallible>(
+                    "data: [DONE]\n\n".to_string()
+                )
+            }));
+            (
+                StatusCode::OK,
+                headers,
+                axum::body::Body::from_stream(stream),
+            )
+        }),
+    );
+    let mut config = make_mock_config(
+        upstream_app,
+        true,
+        vec![("model", "model")],
+        vec!["test-key"],
+        None,
+        None,
+    )
+    .await;
+    config.global.timeouts.read_ms = 500; // 500ms → 十分
+    let server = build_proxy_test_server(config).await;
+
+    let resp = server
+        .post("/v1/messages")
+        .json(&serde_json::json!({
+            "model": "mock-provider/model",
+            "stream": true,
+            "messages": [{"role": "user", "content": "hello"}]
+        }))
+        .await;
+
+    assert_eq!(resp.status_code(), 200, "expected 200, got {}", resp.status_code());
+    let body_text = resp.text();
+
+    assert!(
+        body_text.contains("[DONE]"),
+        "expected SSE end marker in body"
+    );
+    assert!(
+        body_text.contains("Hello"),
+        "expected content chunk in body"
     );
 }

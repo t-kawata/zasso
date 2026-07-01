@@ -119,8 +119,9 @@ pub async fn handle_messages(
         .and_then(|m| m.as_str())
         .unwrap_or("")
         .to_string();
-    let metrics_provider: Option<String> =
-        parse_provider_model(&extracted_model).ok().map(|(p, _)| p.to_string());
+    let metrics_provider: Option<String> = parse_provider_model(&extracted_model)
+        .ok()
+        .map(|(p, _)| p.to_string());
     let metrics_stream: bool = body
         .get("stream")
         .and_then(|s| s.as_bool())
@@ -128,7 +129,13 @@ pub async fn handle_messages(
     let metrics_mode: Option<&str> = metrics_provider
         .as_deref()
         .and_then(|p| state.config.providers.get(p))
-        .map(|p| if p.transparent { "transparent" } else { "translate" });
+        .map(|p| {
+            if p.transparent {
+                "transparent"
+            } else {
+                "translate"
+            }
+        });
 
     // tracing span を構築（フィールドは後続で確定）
     let span = tracing::info_span!(

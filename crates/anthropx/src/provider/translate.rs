@@ -70,10 +70,18 @@ pub(crate) struct LossyEvent {
 
 impl LossyEvent {
     fn error(field: impl Into<String>, detail: impl std::fmt::Display) -> Self {
-        Self { level: LossyLevel::Error, field: field.into(), detail: detail.to_string() }
+        Self {
+            level: LossyLevel::Error,
+            field: field.into(),
+            detail: detail.to_string(),
+        }
     }
     fn warn(field: impl Into<String>, detail: impl std::fmt::Display) -> Self {
-        Self { level: LossyLevel::Warn, field: field.into(), detail: detail.to_string() }
+        Self {
+            level: LossyLevel::Warn,
+            field: field.into(),
+            detail: detail.to_string(),
+        }
     }
 }
 
@@ -306,7 +314,10 @@ async fn translate_non_stream(
         .map_err(|e| ProxyError::Internal(format!("failed to serialize request body: {e}")))?;
 
     let transform_req = TransformRequest {
-        headers: HashMap::from([(HEADER_CONTENT_TYPE.to_string(), "application/json".to_string())]),
+        headers: HashMap::from([(
+            HEADER_CONTENT_TYPE.to_string(),
+            "application/json".to_string(),
+        )]),
         path: "/v1/messages".to_string(),
         body: Bytes::from(request_bytes),
     };
@@ -373,7 +384,10 @@ async fn translate_non_stream(
     // 注記: 逆変換パスで `TransformError::LossyDowngrade` が発生することはない
     // （発生しうる lossy イベントは pre-scan が先に検出する）。
     let response_req = TransformRequest {
-        headers: HashMap::from([(HEADER_CONTENT_TYPE.to_string(), "application/json".to_string())]),
+        headers: HashMap::from([(
+            HEADER_CONTENT_TYPE.to_string(),
+            "application/json".to_string(),
+        )]),
         path: openai_req.path.clone(),
         body: upstream_bytes,
     };
@@ -485,7 +499,10 @@ async fn translate_stream(
 
     // 1b. 変換
     let transform_req = TransformRequest {
-        headers: HashMap::from([(HEADER_CONTENT_TYPE.to_string(), "application/json".to_string())]),
+        headers: HashMap::from([(
+            HEADER_CONTENT_TYPE.to_string(),
+            "application/json".to_string(),
+        )]),
         path: "/v1/messages".to_string(),
         body: Bytes::from(request_bytes),
     };
@@ -688,7 +705,10 @@ mod tests {
             "max_tokens": 100
         });
         let events = scan_anthropic_request(&body);
-        assert!(events.is_empty(), "clean request should produce no lossy events");
+        assert!(
+            events.is_empty(),
+            "clean request should produce no lossy events"
+        );
     }
 
     /// image content block が LossyLevel::Error として検出されること。
@@ -708,7 +728,10 @@ mod tests {
         let events = scan_anthropic_request(&body);
         assert_eq!(events.len(), 1, "should detect image block");
         assert_eq!(events[0].level, LossyLevel::Error);
-        assert!(events[0].field.contains("image"), "field should mention image");
+        assert!(
+            events[0].field.contains("image"),
+            "field should mention image"
+        );
     }
 
     /// thinking config が LossyLevel::Warn として検出されること。
@@ -741,18 +764,23 @@ mod tests {
         let events = scan_anthropic_request(&body);
         assert_eq!(events.len(), 1, "should detect unknown block type");
         assert_eq!(events[0].level, LossyLevel::Warn);
-        assert!(events[0].detail.contains("video"), "detail should mention 'video' type");
+        assert!(
+            events[0].detail.contains("video"),
+            "detail should mention 'video' type"
+        );
     }
 
     /// tools 配列が 128 を超えると LossyLevel::Error として検出されること。
     #[test]
     fn scan_anthropic_request_detects_tool_overflow() {
         let tools: Vec<serde_json::Value> = (0..150)
-            .map(|i| serde_json::json!({
-                "name": format!("tool_{i}"),
-                "description": format!("Tool {i}"),
-                "input_schema": {"type": "object", "properties": {}}
-            }))
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("tool_{i}"),
+                    "description": format!("Tool {i}"),
+                    "input_schema": {"type": "object", "properties": {}}
+                })
+            })
             .collect();
         let body = serde_json::json!({
             "model": "claude-3-opus",
@@ -762,7 +790,10 @@ mod tests {
         let events = scan_anthropic_request(&body);
         assert_eq!(events.len(), 1, "should detect tool overflow");
         assert_eq!(events[0].level, LossyLevel::Error);
-        assert!(events[0].detail.contains("150"), "detail should mention count");
+        assert!(
+            events[0].detail.contains("150"),
+            "detail should mention count"
+        );
     }
 
     /// 複数の lossy 特徴が同時に検出されること。
@@ -800,7 +831,10 @@ mod tests {
         let result = process_lossy_events(&events, false, false);
         assert!(result.is_err(), "Error event + reject config should fail");
         let err = format!("{:?}", result.unwrap_err());
-        assert!(err.contains("TransformLossy"), "expected TransformLossy, got: {err}");
+        assert!(
+            err.contains("TransformLossy"),
+            "expected TransformLossy, got: {err}"
+        );
     }
 
     /// Error 級 lossy + allow_lossy=true → Ok（metrics は記録される）。
@@ -808,7 +842,10 @@ mod tests {
     fn process_lossy_events_error_allows_when_lossy_allowed() {
         let events = vec![LossyEvent::error("test_field", "test detail")];
         let result = process_lossy_events(&events, true, false);
-        assert!(result.is_ok(), "Error event + allow_lossy=true should succeed");
+        assert!(
+            result.is_ok(),
+            "Error event + allow_lossy=true should succeed"
+        );
     }
 
     /// Error 級 lossy + error_lossy_continue=true → Ok（metrics は記録される）。
@@ -816,7 +853,10 @@ mod tests {
     fn process_lossy_events_error_allows_when_continue_set() {
         let events = vec![LossyEvent::error("test_field", "test detail")];
         let result = process_lossy_events(&events, false, true);
-        assert!(result.is_ok(), "Error event + error_lossy_continue=true should succeed");
+        assert!(
+            result.is_ok(),
+            "Error event + error_lossy_continue=true should succeed"
+        );
     }
 
     /// Warn 級 lossy は最も厳しい設定でも決して拒否しないこと。
@@ -1001,15 +1041,13 @@ mod tests {
         ).unwrap();
 
         // 3. [DONE] — ここで finalize が走り停止イベントが生成される
-        let done = transform_chunk(
-            b"data: [DONE]\n\n",
-            LlmApiFormat::OpenaiChat,
-            &mut state,
-        ).unwrap();
+        let done =
+            transform_chunk(b"data: [DONE]\n\n", LlmApiFormat::OpenaiChat, &mut state).unwrap();
         let done_bytes = done.expect("[DONE] should produce stop events");
         let done_str = String::from_utf8_lossy(&done_bytes);
 
-        assert!(done_str.contains("content_block_stop"),
+        assert!(
+            done_str.contains("content_block_stop"),
             "expected content_block_stop, got: {done_str}"
         );
         assert!(
@@ -1050,11 +1088,8 @@ mod tests {
         );
 
         // 3. 後続の [DONE] は既に finished なので None
-        let done = transform_chunk(
-            b"data: [DONE]\n\n",
-            LlmApiFormat::OpenaiChat,
-            &mut state,
-        ).unwrap();
+        let done =
+            transform_chunk(b"data: [DONE]\n\n", LlmApiFormat::OpenaiChat, &mut state).unwrap();
         assert!(
             done.is_none(),
             "[DONE] after finish_reason should return None (state already finished)"

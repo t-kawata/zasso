@@ -1,0 +1,215 @@
+{
+  "title": "RFC-OMISSIONS-001 実装チケット分解設計書",
+  "metadata": {
+    "source": "/Users/kawata/shyme/zasso/crates/anthropx/RFC-OMISSIONS-001.md",
+    "generatedAt": "2026-07-01",
+    "analyzedSections": "RFC OMISSIONS-001: anthropx 実装漏れ・不足の是正, Abstract, Motivation, Design, §1 HTTP クライアント接続設定（O-001, N1）, §2 リクエストレベルタイムアウト（O-002, N2）, §3 ストリーミング idle timeout（O-003, N2）, §4 register_metrics() の冪等性ガード（O-004, N3）, §5 handle_messages の record_request() 呼び出し（O-005, N4）, §6 llm-bridge-core v0.3.0 更新戦略（O-006, N5）, Implementation, §7 実装手順, §8 テスト更新, §9 マイグレーション計画, Appendix, A. 親 RFC との対応関係, B. 実装確認で発見された既存実装, C. 設計判断のまとめ（grill セッション決定事項）, D. 検証手順, 1. コンパイル確認, 2. ライブラリモード（server feature なし）のコンパイル確認, 3. clippy 警告なし, 4. 全テスト実行, 5. llm-bridge-core v0.3.0 更新後も全テストパス, E. 変更ファイル一覧"
+  },
+  "phases": [
+    {
+      "id": 0,
+      "name": "純粋ロジック・内部機構",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 0,
+          "status": "reviewed",
+          "title": "register_metrics() への OnceLock 冪等性ガード追加",
+          "referenceSection": "RFC-OMISSIONS-001.md (§4)",
+          "background": "register_metrics() の複数回呼び出し時に metrics crate の describe_*! が重複警告を発する可能性がある。std::sync::OnceLock<()> をモジュールレベルの static に設置し、初回実行のみ describe_*! が呼ばれるようにガードする。",
+          "scope": [
+            "src/observability/metrics.rs: pub fn register_metrics() — シグネチャ不変、内部実装のみ変更"
+          ],
+          "relatedTicketIds": "",
+          "testVerification": [
+            "UT: 正常系 - register_metrics() を1回呼び出し、describe_*! が正常実行される（既存テスト維持）",
+            "UT: 異常系/冪等性 - register_metrics() を2回呼び出し、2回目は何も実行されずパニックも警告も発生しない",
+            "UT: 異常系/冪等性 - 2回目の呼び出し後も record_request() 等のカウンタが正常に動作する"
+          ],
+          "testExceptions": [],
+          "instrumentation": "静的品質チェック: 合格（1件の expect() は既存の LazyLock 初期化、正当）\n翻訳可能性: 問題なし\nテスト: 全218件成功（199 unit + 18 integration + 1 doc-test）\nコンパイル: OK\nclippy: OK\nフォーマット: OK",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（expect() 1件のみ — 既存コードの Prometheus レコーダー初期化、変更なし）\n- 翻訳可能性: 問題なし（関数名は動詞句、変数名はドメイン概念、マジックナンバーなし、デバッグ出力なし）\n- 依存関係: なし（relatedTicketIds 空）\n- 不完全実装（7パターン）: 全てクリア\n- 既存テスト改変: なし（全て維持）\n- 新規テスト: 2件追加、正常動作確認済\n- RFC 適合性: 設計通り OnceLock でガード。RFC コードスニペットの論理バグ（get().is_some() 使用）を set().is_ok() に修正して実装",
+          "startedAt": "2026-07-01",
+          "implementedAt": "2026-07-01",
+          "reviewedAt": "2026-07-01",
+          "completedAt": "2026-07-01"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "HTTP クライアント設定",
+      "externalDependencies": "reqwest",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 1,
+          "status": "reviewed",
+          "title": "build_provider_clients() での reqwest::Client builder 設定追加",
+          "referenceSection": "RFC-OMISSIONS-001.md (§1, §7.1)",
+          "background": "build_provider_clients() が reqwest::Client::new() を素で使用。connect_timeout / pool_max_idle_per_host / tcp_keepalive / User-Agent が未設定。reqwest::Client::builder() に変更して一括設定を適用する。",
+          "scope": [
+            "src/lifecycle.rs: pub fn build_provider_clients(config: &AppConfig) -> HashMap<String, ProviderClient> — 戻り値型不変（reqwest::Client::new() → reqwest::Client::builder() + connect_timeout / pool_max_idle_per_host / tcp_keepalive / User-Agent）"
+          ],
+          "relatedTicketIds": "出力先I/O: P0-1",
+          "testVerification": [
+            "維持: build_provider_clients_matches_provider_count — 全プロバイダ生成（変更の影響なし）",
+            "維持: provider_client_fields_accessible — フィールドアクセス（変更の影響なし）",
+            "新規: build_provider_clients_has_configured_client — connect_timeout 設定済み Client が builder 経由で生成される"
+          ],
+          "testExceptions": [
+            "reqwest::Client は timeout 設定値を公開 API で参照できないため、型と Debug 出力の間接確認に留める（既存通り）"
+          ],
+          "instrumentation": "静的品質チェック: 合格（expect() 4件 — 2件は静的アサーション/正当、2件はテストコード）\n翻訳可能性: 問題なし（関数名は動詞句、変数名はドメイン概念、マジックナンバーなし、デバッグ出力なし）\nテスト: 全219件成功（200 unit + 18 integration + 1 doc-test）\nコンパイル: OK\nclippy: OK\nフォーマット: OK",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（expect() 4件 — 2件は静的アサーション/正当、2件はテストコード）\n- 翻訳可能性: 問題なし\n- 依存関係: P0-1（reviewed）との整合性確認済、循環依存なし\n- 不完全実装（7パターン）: 全てクリア\n- 既存テスト改変: なし（全て維持）\n- 新規テスト: 1件追加、正常動作確認済\n- RFC 適合性: 設計通り reqwest::Client::builder() で4設定を適用。RFC コードスニペットのフォールバックチェーン（ProviderConfig.timeouts）は ProviderConfig に当該フィールドがないため config.global.timeouts で直接設定（設計判断: ProviderConfig.timeouts は現状不要、YAGNI により適用せず）\n  接続タイムアウト値: config.global.timeouts.connect_ms を直接使用",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "import なし",
+              "after": "use std::time::Duration",
+              "description": "Duration 型の import 追加"
+            },
+            {
+              "before": "import なし",
+              "after": "use reqwest::header::{HeaderMap, HeaderValue}",
+              "description": "HTTP ヘッダ関連型の import 追加"
+            },
+            {
+              "before": "reqwest::Client::new()",
+              "after": "reqwest::Client::builder() + 4設定 + build()",
+              "description": "connect_timeout, pool_max_idle_per_host, tcp_keepalive, User-Agent を設定"
+            }
+          ],
+          "implementedAt": "2026-07-01",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "リクエスト・ストリームタイムアウト",
+      "externalDependencies": "tokio, reqwest",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 2,
+          "status": "reviewed",
+          "title": "transparent.rs: execute_with_failover の non-stream timeout + proxy_sse_stream の idle timeout 追加",
+          "referenceSection": "RFC-OMISSIONS-001.md (§2, §3, §7.2, §7.3)",
+          "background": "transparent mode の non-stream 送信（execute_with_failover）に reqwest::RequestBuilder::timeout()、streaming 中継（proxy_sse_stream）に tokio::time::timeout() が未適用。timeout 値は config.global.timeouts.total_ms / config.global.timeouts.read_ms から解決。ProviderConfig.timeouts は P1-1 の YAGNI 判断により未定義につき、フォールバックチェーンは無し（直接 global 値を使用）。",
+          "scope": [
+            "src/provider/transparent.rs: async fn execute_with_failover(... total_ms: u64) — total_ms 引数追加、.timeout(Duration::from_millis(total_ms)) を cloned.bearer_auth(key) 後に適用",
+            "src/provider/transparent.rs: async fn proxy_sse_stream(... read_ms: u64) -> Response — read_ms 引数追加、select! 内の stream.next() を tokio::time::timeout(Duration::from_millis(read_ms), stream.next()) でラップ",
+            "src/provider/transparent.rs: async fn stream_response(... read_ms: u64) — read_ms を proxy_sse_stream に伝播",
+            "src/provider/transparent.rs: async fn handle_transparent(...) — state.config.global.timeouts を参照して total_ms/read_ms を解決し下流関数に渡す（ProviderConfig.timeouts は YAGNI で未定義のため直接 global 値を使用）"
+          ],
+          "relatedTicketIds": "入力元I/O: P1-1",
+          "testVerification": [
+            "正常系: total_ms=5000 のモックサーバーが 100ms 以内に応答 → execute_with_failover 成功",
+            "異常系: total_ms=100 でモックサーバーが 5000ms 遅延 → reqwest::Error::Timeout → ProxyError::UpstreamError",
+            "異常系: read_ms=100 でチャンク間隔 1000ms → tokio::time::timeout 発火 → stream idle timeout → ストリーム切断",
+            "正常系: チャンク間隔（200ms）が read_ms（500ms）未満 → ストリーム正常継続",
+            "境界値/前提: total_ms=0 / read_ms=0 は config.validate() で弾かれる（既存テストで網羅済み）"
+          ],
+          "testExceptions": [
+            "タイムアウトテストは axum-test mock server + tokio::time::pause の組み合わせで実現"
+          ],
+          "instrumentation": "静的品質チェック: 合格（5件の unwrap() は全てテストコード内、生産コードは 0 件）\n翻訳可能性: 問題なし（関数名は全て動詞句、汎用変数名なし、マジックナンバーはテスト値のみ、デバッグ出力なし、tracing::warn! は仕様通りの意図的実装）\nテスト: 全 223 件成功（200 unit + 22 integration + 1 ignored）\nコンパイル: OK\nclippy: OK\nフォーマット: OK\n不完全実装（7パターン）: 全てクリア\n抑制と [::STUB::] の整合性: #[allow(...)] 使用箇所なし、[::STUB::] 未付与の不完全実装なし",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（unwrap() 5件は全てテストコード、許容範囲）\n- 翻訳可能性: 問題なし\n- 依存関係: P1-1（reviewed）→ 結合テストで実際のタイムアウト動作を確認済み\n- 不完全実装（7パターン）: 全てクリア\n- 既存テスト改変: なし（execute_with_failover_is_send の型アサーションを u64 追加で更新のみ）\n- 新規テスト: 4件追加、すべて正常動作確認済\n- RFC 適合性: 設計通り §2 の reqwest::RequestBuilder::timeout() および §3 の tokio::time::timeout() を実装\n- ProviderConfig.timeouts は YAGNI 判断を遵守（直接 global.timeouts を使用）\n- stream_response の read_ms 伝播は本チケットで発見された設計上の暗黙的拡張、正しく実装済み\n- execute_stream の初期リクエストタイムアウトはスコープ外として記録済み",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "async fn execute_with_failover(provider_name, scheduler, request)",
+              "after": "async fn execute_with_failover(provider_name, scheduler, request, total_ms: u64)",
+              "description": "total_ms 引数追加、.timeout(Duration::from_millis(total_ms)) を cloned.bearer_auth(key) 後に適用"
+            },
+            {
+              "before": "async fn proxy_sse_stream(upstream_resp, cancel)",
+              "after": "async fn proxy_sse_stream(upstream_resp, cancel, read_ms: u64)",
+              "description": "read_ms 引数追加、tokio::time::timeout() で stream.next() をラップ"
+            },
+            {
+              "before": "async fn stream_response(upstream_resp, cancel)",
+              "after": "async fn stream_response(upstream_resp, cancel, read_ms: u64)",
+              "description": "read_ms 引数追加、proxy_sse_stream に伝播"
+            },
+            {
+              "before": "handle_transparent: total_ms/read_ms 未設定",
+              "after": "handle_transparent: state.config.global.timeouts から解決・伝播",
+              "description": "ProviderConfig.timeouts は YAGNI により直接 global 値を使用"
+            },
+            {
+              "before": "テスト: fn(&KeyScheduler, RequestBuilder) -> Send",
+              "after": "テスト: fn(&KeyScheduler, RequestBuilder, u64) -> Send",
+              "description": "型アサーションを total_ms 引数追加に追従"
+            },
+            {
+              "before": "なし",
+              "after": "4 件の新規統合テスト追加",
+              "description": "transparent_non_stream_times_out_on_slow_upstream, transparent_non_stream_succeeds_with_sufficient_timeout, transparent_stream_times_out_on_slow_chunks, transparent_stream_succeeds_when_chunks_fast_enough"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        },
+        {
+          "id": 2,
+          "phaseId": 2,
+          "status": "todo",
+          "title": "translate.rs: translate_non_stream の non-stream timeout + translate_stream の idle timeout 追加",
+          "referenceSection": "RFC-OMISSIONS-001.md (§2, §3, §7.4)",
+          "background": "translate mode の non-stream（translate_non_stream）および streaming（translate_stream）にタイムアウト未設定。transparent と同一パターンの timeout 実装と設定値解決チェーンを適用する。",
+          "scope": [
+            "src/provider/translate.rs: async fn translate_non_stream(...) — .timeout() 追加",
+            "src/provider/translate.rs: async fn translate_stream(...) — select! 内に tokio::time::timeout 追加"
+          ],
+          "relatedTicketIds": "入力元I/O: P1-1",
+          "testVerification": [
+            "正常系: モック upstream が total_ms 以内に応答 → 成功",
+            "異常系: total_ms=100 で応答なし → reqwest::Error::Timeout",
+            "異常系: read_ms=100 でチャンク間隔 1000ms → ストリーム切断",
+            "正常系: トークン間隔が read_ms 未満 → 正常継続",
+            "境界値: total_ms=0 の振る舞い確認"
+          ],
+          "testExceptions": [],
+          "instrumentation": "tracing::warn!(\"translate stream idle timeout ({}ms), closing\", read_ms)",
+          "notes": "parentOmissionId: O-002, O-003\n\n結合テスト計画:\n[::STUB::] handle_translate 統合テストで timeout→ProxyError 伝播を確認。"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "外部依存関係更新",
+      "externalDependencies": "crates.io (llm-bridge-core)",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 3,
+          "status": "todo",
+          "title": "llm-bridge-core v0.3.0 更新と互換性検証",
+          "referenceSection": "RFC-OMISSIONS-001.md (§6, §7.7)",
+          "background": "llm-bridge-core が v0.2.6 固定。v0.3.0（Rust 2024 Edition 対応版）に更新し breaking change の影響を確認。TransformResult API の有無調査を含む。",
+          "scope": [
+            "Cargo.toml: llm-bridge-core = { version = \"0.3.0\", optional = true }"
+          ],
+          "relatedTicketIds": "",
+          "testVerification": [
+            "正常系: cargo check --features server が通る",
+            "正常系: cargo check（server feature なし）が通る",
+            "正常系: cargo test --features server 全パス",
+            "正常系: cargo clippy -- -D warnings が通る",
+            "調査: TransformResult API が存在するか確認"
+          ],
+          "testExceptions": [
+            "breaking change の影響範囲は予測不可能。発見次第修正。",
+            "TransformResult 調査結果が RFC §6.3 設計に影響する可能性あり。"
+          ],
+          "instrumentation": "breaking change 発見時は影響範囲を tracing::warn! でログ",
+          "notes": "parentOmissionId: O-006\n\n結合テスト計画:\n[::STUB::] 更新後全テストパス確認。breaking change 修正は別チケットとして起票。"
+        }
+      ]
+    }
+  ]
+}

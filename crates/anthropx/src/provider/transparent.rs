@@ -6,6 +6,7 @@
 //! server feature 有効時のみコンパイルされる。
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
@@ -53,9 +54,12 @@ pub async fn handle_transparent(
     if is_stream {
         let req_builder = req_builder.header("Accept", "text/event-stream");
         let upstream_resp = execute_stream(&provider.scheduler, req_builder).await?;
-        Ok(stream_response(upstream_resp, state.cancel.clone()).await)
+        let read_ms = state.config.global.timeouts.read_ms;
+        Ok(stream_response(upstream_resp, state.cancel.clone(), read_ms).await)
     } else {
-        let upstream_resp = execute_with_failover(provider_name, &provider.scheduler, req_builder).await?;
+        let total_ms = state.config.global.timeouts.total_ms;
+        let upstream_resp =
+            execute_with_failover(provider_name, &provider.scheduler, req_builder, total_ms).await?;
         Ok(json_response(upstream_resp).await)
     }
 }
@@ -69,6 +73,7 @@ async fn execute_with_failover(
     provider_name: &str,
     scheduler: &KeyScheduler,
     request: RequestBuilder,
+    total_ms: u64,
 ) -> Result<reqwest::Response, ProxyError> {
     let max_attempts = scheduler.key_count().min(3);
     let mut last_error = None;
@@ -78,7 +83,11 @@ async fn execute_with_failover(
         let cloned = request
             .try_clone()
             .ok_or_else(|| ProxyError::Internal("request body not cloneable".to_string()))?;
-        let response = cloned.bearer_auth(key).send().await;
+        let response = cloned
+            .bearer_auth(key)
+            .timeout(Duration::from_millis(total_ms))
+            .send()
+            .await;
 
         match response {
             Ok(resp) if resp.status().is_success() => return Ok(resp),
@@ -119,23 +128,26 @@ async fn execute_stream(
 ///
 /// `cancel` が発火された場合、chunk 読み出しを中断してストリームを終了する。
 /// これにより graceful shutdown 時に SSE ストリームが適切にクローズされる。
-async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: CancellationToken) -> Response {
+async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: CancellationToken, read_ms: u64) -> Response {
     let (tx, rx) = mpsc::channel::<Result<axum::body::Bytes, axum::Error>>(64);
     let mut stream = upstream_resp.bytes_stream();
+    let timeout_dur = Duration::from_millis(read_ms);
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
                 biased;
                 _ = cancel.cancelled() => break,
-                chunk = stream.next() => {
+                chunk = tokio::time::timeout(timeout_dur, stream.next()) => {
                     match chunk {
-                        Some(Ok(bytes)) => {
-                            if tx.send(Ok(bytes)).await.is_err() {
-                                break;
-                            }
+                        Ok(Some(Ok(bytes))) => {
+                            if tx.send(Ok(bytes)).await.is_err() { break; }
                         }
-                        _ => break,
+                        Ok(Some(Err(_))) | Ok(None) => break,
+                        Err(_) => {
+                            tracing::warn!("stream idle timeout ({}ms), closing", read_ms);
+                            break;
+                        }
                     }
                 }
             }
@@ -159,8 +171,8 @@ async fn proxy_sse_stream(upstream_resp: reqwest::Response, cancel: Cancellation
 ///
 /// `cancel` は ServerHandle の CancellationToken であり、shutdown 時に
 /// SSE ストリームを中断するために `proxy_sse_stream` に伝播される。
-async fn stream_response(upstream_resp: reqwest::Response, cancel: CancellationToken) -> Response {
-    proxy_sse_stream(upstream_resp, cancel).await
+async fn stream_response(upstream_resp: reqwest::Response, cancel: CancellationToken, read_ms: u64) -> Response {
+    proxy_sse_stream(upstream_resp, cancel, read_ms).await
 }
 
 /// non-stream JSON 応答を構築する。
@@ -239,6 +251,7 @@ mod tests {
             fn(
                 &KeyScheduler,
                 RequestBuilder,
+                u64,
             ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<reqwest::Response, ProxyError>> + Send>,
             >,
