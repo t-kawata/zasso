@@ -51,6 +51,7 @@ export interface LoopOptions {
   verbose: boolean;
   timeoutMs: number;
   bindReviewInOneSession: boolean;
+  noFind: boolean;
 }
 
 /** チケットの最小情報。Tickets.json から抽出した未処理チケットを表す。 */
@@ -331,7 +332,8 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         }
 
         // Step 4: 全チケット reviewed チェック → Session D: find-omissions
-        if (checkAllReviewed(options.ticketsPath)) {
+        // noFind が true の場合はスキップする
+        if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
           printCommandHeader("/find-omissions-for-next-rfc");
           const source = getSourceFromTickets(options.ticketsPath);
           await withSession(

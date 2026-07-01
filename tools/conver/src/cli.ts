@@ -14,6 +14,7 @@ export interface CliOptions {
   verbose: boolean;
   timeoutMs: number;
   bindReviewInOneSession: boolean;
+  noFind: boolean;
 }
 
 function showUsage(): void {
@@ -34,6 +35,7 @@ Options:
   --timeout <seconds>        Command timeout in seconds (default: 1800)
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
+  -n, --no-find <0|1>        Skip find-omissions after all done (default: 0)
   -h, --help                 Show this message
   --version                  Show version number`);
 }
@@ -52,6 +54,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       verbose: { type: "string", short: "v", default: "1" },
       timeout: { type: "string", default: "1800" },
       "bind-review-in-one-session": { type: "string", short: "b", default: "1" },
+      "no-find": { type: "string", short: "n", default: "0" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", default: false },
     },
@@ -90,5 +93,6 @@ export function parseCliOptions(argv: string[]): CliOptions {
     verbose: parsed.values.verbose === "1",
     timeoutMs: parseInt(parsed.values.timeout, 10) * 1000,
     bindReviewInOneSession: parsed.values["bind-review-in-one-session"] === "1",
+    noFind: parsed.values["no-find"] === "1",
   };
 }

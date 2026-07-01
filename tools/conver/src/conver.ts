@@ -14,6 +14,7 @@ export async function main(): Promise<void> {
   console.log("  resolveEvery=%d", options.resolveEvery);
   console.log("  pushEnabled=%s", options.pushEnabled);
   console.log("  timeoutMs=%d", options.timeoutMs);
+  console.log("  noFind=%s", options.noFind);
 
   await runLoop(options);
 }

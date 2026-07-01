@@ -632,6 +632,56 @@
           "instrumentation": "静的品質チェック: 合格（issues 修正済）\n翻訳可能性: 問題なし\nテスト: 72/72 PASS\n犯罪スキャン: 0件\nスタブ: 0件\n不完全実装（7パターン）: 0件\ninit-for-grill-me-for-next-rfc.js 未変更確認: 96行から変化なし",
           "rfcDiscrepancies": [],
           "completedAt": "2026-06-29"
+        },
+        {
+          "id": 14,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js: --no-find フラグの追加",
+          "referenceSection": "tickets/specs/0028-converjs-no-find.md",
+          "background": "conver.js のループ最終段階で自動実行される find-omissions-for-next-rfc を抑制する -n / --no-find フラグの追加。find ブロック（runner.ts:333-354）は resolve ブロック内部の末端に位置し、結果に依存する後続処理が存在しないため、ifガードが安全に追加できる。",
+          "scope": [
+            "src/cli.ts: -n/--no-find オプション追加（CliOptions, parseCliOptions, showUsage）",
+            "src/runner.ts: LoopOptions に noFind 追加、find-omissions ブロックのガード条件変更",
+            "src/conver.ts: 起動パラメータログに noFind 表示行追加"
+          ],
+          "testVerification": [
+            "UT: parseCliOptions デフォルト → noFind === false",
+            "UT: parseCliOptions -n 1 → noFind === true",
+            "UT: parseCliOptions -n 0 → noFind === false",
+            "UT: parseCliOptions --no-find 1 → noFind === true"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（新規 issue ゼロ）\n- 翻訳可能性: 問題なし\n- 依存関係: なし（独立チケット）\n- 変更ファイル: cli.ts +4行, runner.ts +2行, conver.ts +1行 = 計+7行\n- 見つかった問題: なし\n- 犯罪・スタブ: 0件\n- 完了日: 2026-07-01",
+          "testExceptions": [
+            "runLoop 全体の動作検証（ACP セッションが必要）",
+            "find-omissions スキップの実際の挙動確認（ACP レスポンスが必要）"
+          ],
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "CliOptions に noFind フィールドなし",
+              "after": "CliOptions に noFind: boolean 追加",
+              "description": "cli.ts: -n/--no-find オプションの型定義・パース・ヘルプ表示"
+            },
+            {
+              "before": "LoopOptions に noFind フィールドなし",
+              "after": "LoopOptions に noFind: boolean 追加",
+              "description": "runner.ts: LoopOptions 型に noFind 追加"
+            },
+            {
+              "before": "if (checkAllReviewed(...))",
+              "after": "if (!options.noFind && checkAllReviewed(...))",
+              "description": "runner.ts: find-omissions ブロックのガード条件変更"
+            },
+            {
+              "before": "起動ログに noFind なし",
+              "after": "起動ログに noFind 表示行追加",
+              "description": "conver.ts: 起動パラメータログ拡張"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（26件の指摘はすべて既存コードの console.log / ループ変数）\n翻訳可能性: 問題なし（全関数動詞句、マジックナンバーなし、コメントは「なぜ」を説明）\nビルド: make build-conver PASS\n依存関係: 該当なし（relatedTicketIds 未設定）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         }
       ]
     },
