@@ -1,14 +1,34 @@
-# CLAUDE.md — zasso Project Instructions
+<!--
+================================================================================
+この CLAUDE.md は汎用雛形です。
 
-このファイルは zasso プロジェクトにおける Claude Code の最上位指示です。
+- プロジェクト固有の設定値・固有名詞は `<!-- PROJECT_SPECIFIC -->` で囲み、
+  各ブロック先頭のコメントに従って自プロジェクトの情報に置き換えてください。
+- コメント内には「何を書くべきか」と「zasso プロジェクトの記述例」を
+  併記しています。自プロジェクトに合わせて例を書き換えてから使用してください。
+- コメントで囲まれていないセクション（翻訳可能性、Everything as Code、
+  Boy Scout Rule、TDD、[::STUB::] 規則等）は言語非依存の原則です。
+  プロジェクトに合わせて取捨選択して構いません。
+================================================================================
+-->
+# CLAUDE.md — <!-- プロジェクト名（例: zasso） --> Project Instructions
+
+このファイルは <!-- プロジェクト名 --> プロジェクトにおける Claude Code の最上位指示です。
 以下のルールは、ユーザーが明示的にオプトアウトしない限りすべての作業に適用されます。
 
 ---
 
+<!-- PROJECT_SPECIFIC: Project Overview - プロジェクトの概要説明を1〜2行で記述してください。
+     例(zasso): zasso は既存OSの上で動作する「OS on OS」— 独自のアイデンティティ管理、アプリ実行環境（Sandbox）、P2P通信網を持つ自律分散型アプリケーションエコシステムです。
+-->
 ## Project Overview
 
 zasso は既存OS（macOS/Windows）の上で動作する「OS on OS」— 独自のアイデンティティ管理、アプリ実行環境（Sandbox）、P2P通信網を持つ自律分散型アプリケーションエコシステムです。
+<!-- /PROJECT_SPECIFIC -->
 
+<!-- PROJECT_SPECIFIC: Technology Stack - カテゴリと技術名の表を自プロジェクトの使用技術に書き換えてください。
+     例(zasso): Primary Language=Rust, Desktop Framework=Tauri v2, Web Framework=Axum, Database=SeaORM, Frontend=Quasar, ...
+-->
 ### Technology Stack
 
 | Category | Technology |
@@ -20,7 +40,12 @@ zasso は既存OS（macOS/Windows）の上で動作する「OS on OS」— 独�
 | Frontend | Quasar (Vue.js) |
 | Cryptography | Ed448-Goldilocks |
 | P2P Networking | EasyTier |
+<!-- /PROJECT_SPECIFIC -->
 
+<!-- PROJECT_SPECIFIC: Port Layout - 自プロジェクトで使用するポート番号一覧に書き換えてください。
+     使用するポートがなければテーブルごと削除して構いません。
+     例(zasso): 3910=REST API, 3911=Static content, 3912=LLM Proxy
+-->
 ### Port Layout
 
 | Port | Name | Service |
@@ -28,6 +53,7 @@ zasso は既存OS（macOS/Windows）の上で動作する「OS on OS」— 独�
 | 3910 | RT_PORT | REST API (Axum) |
 | 3911 | SW_PORT | Static content / proxy |
 | 3912 | BIFROST_PORT | LLM Proxy |
+<!-- /PROJECT_SPECIFIC -->
 
 ---
 
@@ -204,6 +230,10 @@ fn xor_with_key(buffer: &mut Vec<u8>, data: &[u8], key: &[u8]) {
 
 ---
 
+<!-- PROJECT_SPECIFIC: データベース変更手順 - 自プロジェクトのDBマイグレーション手順に書き換えてください。
+     DBを使用しないプロジェクトはこのセクションを削除して構いません。
+     例(zasso): マイグレーション → make migrate-refresh、エンティティ自動生成 → make gen-entities
+-->
 ## データベース変更時の絶対順序 (Database Independence)
 
 **厳守すべき逐次実行手順：**
@@ -214,24 +244,30 @@ fn xor_with_key(buffer: &mut Vec<u8>, data: &[u8], key: &[u8]) {
 ④ ビルドエラーがないことを確認してから、**初めて**ソースコード実装を開始
 
 **並行作業は禁忌。** 未確定のスキーマを先行してコードに書くとデッドロックに陥ります。
+<!-- /PROJECT_SPECIFIC -->
 
 ---
 
+<!-- PROJECT_SPECIFIC: データベース移植性 - 自プロジェクトで使用するORM/DBに合わせて書き換えてください。
+     DBを使用しないプロジェクトはこのセクションを削除して構いません。
+     例(zasso): SeaORM + SQLite/MySQL/PostgreSQL。ORM層でDB差異を吸収。
+-->
 ## データベース移植性 (Database Portability)
 
 zasso は SQLite をプライマリDBとしつつ、MySQL および PostgreSQL への差し替えを保証しなければならない。以下のルールを厳守する：
 
-1. **SeaORM メソッド優先**: すべてのDB操作は SeaORM のクエリビルダー（`Entity::find()`、`Column::eq()` 等）を使用する。ORMレイヤーでDB差異を吸収する。
+1. **ORM メソッド優先**: すべてのDB操作は ORM のクエリビルダーを使用する。ORMレイヤーでDB差異を吸収する。
 
-2. **Raw SQL の禁止（原則）**: `execute_unchecked()` 等の生SQL実行は、SeaORM で表現不可能な場合に限り `/plan` 承認を得た上で使用する。
+2. **Raw SQL の禁止（原則）**: 生SQL実行は、ORM で表現不可能な場合に限り plan 承認を得た上で使用する。
 
 3. **Raw SQL 必須時の条件**:
-   - SQLite/MySQL/PostgreSQL の3系統すべてで同一SQLが動作することを検証する
-   - DB固有関数（`datetime()`、`NOW()`、`strftime()` 等）は使用禁止。アプリケーション層での処理に置き換える
+   - 自プロジェクトがサポートする全DB系統で同一SQLが動作することを検証する
+   - DB固有関数は使用禁止。アプリケーション層での処理に置き換える
 
-4. **マイグレーションも SeaORM 準拠**: `sea_orm_migration::schema::*` ヘルパーのみ使用し、生SQLによるマイグレーションは禁止する。
+4. **マイグレーションも ORM 準拠**: 生SQLによるマイグレーションは禁止する。
 
-5. **テストは SQLite（:memory:）**: 単体テスト・結合テストは SQLite で実施し高速フィードバックを確保。MySQL/PostgreSQL 固有の挙動に依存する処理は CI で該当DBの動作確認を追加する。
+5. **テストはインメモリDB**: 単体テスト・結合テストは高速なインメモリDBで実施し高速フィードバックを確保。
+<!-- /PROJECT_SPECIFIC -->
 
 ---
 
@@ -268,26 +304,54 @@ zasso は SQLite をプライマリDBとしつつ、MySQL および PostgreSQL �
 - **検証なき完了報告禁止**: 最終編集の直後に必ずコンパイル・テストを実行
 - **検証リソースの放置禁止**: 起動したプロセスや一時ファイルは完了前に停止・削除
 - **憶測ハードコーディング禁止**: パス・マジックナンバーをハードコードしない
-- **設定値は `consts/settings.rs` で一元管理**: ポート番号・パス・閾値等の設定定数は `src-tauri/src/consts/settings.rs` に定義し、`consts/mod.rs` 経由で参照する。テストコード内も含めてマジックナンバーの直書きを禁止する。新しい設定値はまず `settings.rs` に追加する習慣を徹底する
-- **Makefile 抽象化の強制**: `cargo check`, `cargo run` 等を直接使用せず、`Makefile` に定義された `make` コマンド経由で呼び出す
-  - `make check-be`: Rust（バックエンド）のみ編集時
-  - `make check-fe`: フロントエンドのみ編集時
-  - `make check-all`: 両方編集時
+<!-- PROJECT_SPECIFIC: 設定値の一元管理 - 自プロジェクトの設定ファイルパスに書き換えてください。
+     例(zasso): src-tauri/src/consts/settings.rs
+-->
+- **設定値は専用ファイルで一元管理**: ポート番号・パス・閾値等の設定定数は専用の設定ファイルに定義し、モジュール経由で参照する。テストコード内も含めてマジックナンバーの直書きを禁止する。新しい設定値はまず設定ファイルに追加する習慣を徹底する
+<!-- /PROJECT_SPECIFIC -->
+<!-- PROJECT_SPECIFIC: ビルドコマンドの抽象化 - 自プロジェクトのビルドコマンドに書き換えてください。
+     Makefile 以外のビルドツール（package.json scripts, gradle, maven 等）を使用する場合は適宜読み替えてください。
+     例(zasso): make check-be / make check-fe / make check-all (Makefile)
+-->
+- **ビルドツールの抽象化**: `cargo check`, `npm run build` 等の生コマンドを直接使用せず、Makefile またはプロジェクトの統一ビルドスクリプト経由で呼び出す
+<!-- /PROJECT_SPECIFIC -->
 - **`cd` によるワーキングディレクトリ変更禁止**: Bash で直接 `cd dir && cmd` すると cwd が永続化され、後続コマンドに影響する。Makefile 経由か `(cd dir && cmd)` のサブシェルを使うこと。絶対パスが必要な場合は `$(git rev-parse --show-toplevel)` でプロジェクトルートを取得する。
-- **Cargo.toml への依存関係の直接手書き禁止**: 新しいクレート導入時は必ず `cargo add` を使用する
-- **ビルド生成物の不完全同期禁止**: フロントエンド資産配置は `cp` ではなく `rsync --delete` 相当のミラーリングを行う
+<!-- PROJECT_SPECIFIC: パッケージマネージャ操作 - 自プロジェクトの言語に合わせて書き換えてください。
+     例(zasso): Cargo.toml + cargo add (Rust)
+-->
+- **依存関係ファイルへの直接手書き禁止**: 新しいパッケージ導入時は必ずパッケージマネージャのCLI（`cargo add`, `npm install`, `go get` 等）を使用する
+<!-- /PROJECT_SPECIFIC -->
+<!-- PROJECT_SPECIFIC: ビルド生成物同期 - 自プロジェクトのデプロイ手順に合わせて書き換えてください。
+     例(zasso): フロントエンド資産配置は cp ではなく rsync --delete 相当のミラーリング
+-->
+- **ビルド生成物の不完全同期禁止**: ビルド生成物の配置はコピーではなくミラーリング（`rsync --delete` 相当）で行う
+<!-- /PROJECT_SPECIFIC -->
 
 ---
 
-## Rust コーディング規約
+<!-- PROJECT_SPECIFIC: 言語別コーディング規約 - 自プロジェクトで使用する言語のルールファイルパスに書き換えてください。
+     ルールファイルが存在しない場合や、このレベルの詳細ルールが不要な場合はセクションごと削除して構いません。
+     例(zasso):
+       - rules/rust/coding-style.md
+       - rules/rust/testing.md
+       - rules/rust/patterns.md
+       - rules/rust/security.md
+       - rules/rust/hooks.md
+-->
+## 言語別コーディング規約
 
-Rust 特化の詳細なガイドラインは以下のファイルを参照：
-- `rules/rust/coding-style.md`
-- `rules/rust/testing.md`
-- `rules/rust/patterns.md`
-- `rules/rust/security.md`
-- `rules/rust/hooks.md`
+<!-- 言語名 --> 特化の詳細なガイドラインは以下のファイルを参照：
+- `rules/<!-- 言語名 -->/coding-style.md`
+- `rules/<!-- 言語名 -->/testing.md`
+- `rules/<!-- 言語名 -->/patterns.md`
+- `rules/<!-- 言語名 -->/security.md`
+- `rules/<!-- 言語名 -->/hooks.md`
+<!-- /PROJECT_SPECIFIC -->
 
+<!-- PROJECT_SPECIFIC: 検証コマンド - 自プロジェクトのビルド・テストコマンドに書き換えてください。
+     例(zasso): Makefile + make check-be / make check-fe / make check-all / make test
+     Makefile がない場合は cargo test / npm test 等の生コマンドを直接記載してください。
+-->
 ## 検証コマンド (Build & Test)
 
 Makefile が存在するため、常に Makefile 経由でビルド検証・テストを実行する：
@@ -309,6 +373,7 @@ make test
 ```
 
 Makefile が参照できない特殊な状況でのみ、直接 `cargo test` を使用する。
+<!-- /PROJECT_SPECIFIC -->
 
 ---
 

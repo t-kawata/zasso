@@ -682,6 +682,97 @@
           "instrumentation": "静的品質チェック: 合格（26件の指摘はすべて既存コードの console.log / ループ変数）\n翻訳可能性: 問題なし（全関数動詞句、マジックナンバーなし、コメントは「なぜ」を説明）\nビルド: make build-conver PASS\n依存関係: 該当なし（relatedTicketIds 未設定）",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-01"
+        },
+        {
+          "id": 15,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "formulate-tickets コマンド群への I/O 境界・不変条件明確化",
+          "referenceSection": "tickets/specs/0029-formulate-tickets-io.md",
+          "background": ".claude/commands/formulate-tickets.md および formulate-tickets-for-next.md の「1チケット・1不変条件」の定義を、「I/O境界における契約の正しさ」として明確化する。Rust/Go/TypeScript の3言語に対する I/O 境界マッピング表を追記する。調査結果: 両ファイル7行目に同一の不変条件記述あり、5層モデルはStep3(Layer0-4)に記載、言語マッピングは現状不在、改修は追記のみで削除・再構成なし",
+          "scope": [
+            "formulate-tickets.md: 7行目 役割セクション — 不変条件=I/O境界の契約の定義を追記",
+            "formulate-tickets.md: Step 3 (162行目) — I/O境界マッピング表(Rust/Go/TS)を追記",
+            "formulate-tickets.md: Step 4 (189行目) — I/O境界によるチケット分解基準を追記",
+            "formulate-tickets.md: Step 7 — チケット雛形を全フィールド化(relatedTicketIds,testExceptions,notes含む)",
+            "formulate-tickets-for-next.md: 7行目 — 同上①",
+            "formulate-tickets-for-next.md: Step 3 (182行目) — 同上②",
+            "formulate-tickets-for-next.md: Step 4 (210行目) — 同上③",
+            "formulate-tickets-for-next.md: Step 7 — 同上④(notes:parentOmissionId統合)"
+          ],
+          "testVerification": [
+            "改修前後を diff 比較し既存内容の完全保存確認",
+            "追記内容の一貫性確認（不変条件=I/O境界契約の定義と矛盾しない）",
+            "言語マッピングの正確性確認",
+            "両ファイルの変更内容の一貫性確認",
+            "/formulate-tickets コマンド起動確認",
+            "/formulate-tickets-for-next コマンド起動確認"
+          ],
+          "notes": "レビュー報告書（作業先修正後の再確認: 2026-07-01）:\n- 作業先の正当性確認: tools/conver/.claude/commands/ が正しい編集対象 ✅\n- プロジェクトルート側 .claude/commands/ は変更なし（revert済み） ✅\n- 追記内容の完全性確認: 不変条件定義/言語マッピング/分解基準/雛形全フィールド → 全て存在 ✅\n- 品質チェック: 0 issues ✅\n- 犯罪スキャン: 3件 open（全件スコープ外）、新規発生なし ✅\n\n問題点: なし。全ての Acceptance Criteria を満たしている。",
+          "testExceptions": [
+            "文書改修のみのためユニットテストなし。検証は diff + コマンド起動確認で代替"
+          ],
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "不変条件の定義なし",
+              "after": "不変条件 = I/O境界の契約と明確化",
+              "description": "formulate-tickets.md / formulate-tickets-for-next.md 両ファイルの役割セクションに「不変条件とはI/O境界における契約の正しさ」の定義段落を追記"
+            },
+            {
+              "before": "言語マッピングなし",
+              "after": "Rust/Go/TypeScript I/O境界マッピング表追加",
+              "description": "両ファイルの5層モデル直後に各層のI/O境界と言語要素の対応表を追記"
+            },
+            {
+              "before": "チケット分解基準が曖昧",
+              "after": "I/O境界の単位で区切る基準を明確化",
+              "description": "両ファイルの第4段階直後に、チケットは pub fn/trait/struct/func/interface/export function 等のI/O境界単位で区切る基準を追記"
+            },
+            {
+              "before": "チケット雛形が6フィールドのみ",
+              "after": "全10フィールドに拡張(relatedTicketIds,testExceptions,notes含む)",
+              "description": "両ファイルのStep7チケット雛形を全フィールド化。I/O境界の前後関係(relatedTicketIds)、結合テスト計画([::STUB::])を含む"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし（Markdown文書、明確な日本語で記述）\n変更内容: 8箇所追記、既存内容の削除・改変なし\n依存関係: 関連チケットなし（独立した文書改修）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        },
+        {
+          "id": 16,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "formulate-tickets CLAUDE.md テンプレートへの設計原則追記",
+          "referenceSection": "tickets/specs/0030-formulate-tickets-claudemd.md",
+          "background": "PX-15 で formulate-tickets コマンド群に「不変条件=I/O境界の契約」「言語マッピング」「結合テスト計画」が追加されたが、これらのコマンドが生成する CLAUDE.md テンプレートに設計原則が反映されていない。CLAUDE.md は設計全体を俯瞰するマップであり、核心的な設計原則の欠落はリスクを生む。",
+          "relatedTicketIds": "PX-15 (先行完了必須: この改修の前提となる formulate-tickets コマンド群の改修)",
+          "scope": [
+            "formulate-tickets.md CLAUDE_EOF ブロック内: 「## スタブ一覧と解決計画」直後に設計原則セクションを追記",
+            "formulate-tickets-for-next.md CLAUDE_EOF ブロック内: 同位置に同一セクションを追記"
+          ],
+          "testVerification": [
+            "改修前後の diff で既存内容の完全保存確認",
+            "両ファイルの追記内容が同一であることを確認",
+            "追記内容が PX-15 の定義と矛盾しないことを確認",
+            "/formulate-tickets コマンド起動確認",
+            "/formulate-tickets-for-next コマンド起動確認"
+          ],
+          "testExceptions": [
+            "文書改修のみのためユニットテストなし"
+          ],
+          "notes": "レビュー報告書（作業先修正後の再確認: 2026-07-01）:\n- 作業先の正当性確認: tools/conver/.claude/commands/ が正しい編集対象 ✅\n- 追記内容の完全性確認: CLAUDE.md設計原則セクション/結合テスト計画 → 両ファイル存在 ✅\n- 品質チェック: 0 issues ✅\n- 依存関係: PX-15 (reviewed) との整合性確認済 ✅\n\n問題点: なし。全ての Acceptance Criteria を満たしている。",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "CLAUDE.md テンプレートに設計原則なし",
+              "after": "CLAUDE.md テンプレートに「チケット分解の設計原則」セクション追加",
+              "description": "formulate-tickets.md / formulate-tickets-for-next.md 両ファイルの CLAUDE_EOF ブロック内に、不変条件=I/O境界の契約・言語マッピング・結合テスト計画の3原則を追記"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし（Markdown文書、明確な日本語で記述）\n変更内容: 2ファイルの CLAUDE_EOF ブロック内に設計原則セクション追記\n依存関係: PX-15 (reviewed) との整合確認済",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
         }
       ]
     },
