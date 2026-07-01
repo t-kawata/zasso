@@ -51,7 +51,7 @@ export interface LoopOptions {
   verbose: boolean;
   timeoutMs: number;
   bindReviewInOneSession: boolean;
-  noFind: boolean;
+  noFind?: boolean;
 }
 
 /** チケットの最小情報。Tickets.json から抽出した未処理チケットを表す。 */

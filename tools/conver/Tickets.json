@@ -1472,6 +1472,254 @@
           "completedAt": "2026-06-26"
         }
       ]
+    },
+    {
+      "id": 6,
+      "name": "Watcher 設定型定義・時間計算 (Layer 0/1) — 純粋ロジック",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 6,
+          "status": "reviewed",
+          "title": "WatcherConfig 型定義と設定ファイル読み込み",
+          "referenceSection": "src/watcher.ts, src/watcher.test.ts",
+          "background": "Watcher モード（-w/--watcherフラグ）で指定されるJSON設定ファイルの型定義とバリデーション。intervalMinutes, startTime, endTime, timezone の4項目を持つ。既存のsrc/tickets.ts（readFileSync + JSON.parse）と同一パターンでファイル読み込みを行う。バリデーションエラーは独自エラー型ではなく ValidationResult.errors の文字列配列で表現。",
+          "scope": [
+            "export interface WatcherConfig { intervalMinutes: number; startTime: string; endTime: string; timezone: string; }",
+            "export interface ValidationResult { valid: boolean; errors: string[]; }",
+            "export function loadWatcherConfig(configPath: string): WatcherConfig",
+            "export function validateWatcherConfig(config: unknown): ValidationResult"
+          ],
+          "relatedTicketIds": "入力元I/O: P8-2 / 出力先I/O: P6-2, P7-1",
+          "testVerification": [
+            "正常系: 全フィールドが正しいWatcherConfig → valid: true",
+            "正常系: intervalMinutes=1 の最小値ケース",
+            "正常系: intervalMinutes=525600 の最大値ケース",
+            "正常系: startTime=00:00 境界値",
+            "正常系: endTime=23:59 境界値",
+            "異常系: null/undefined/{} 入力 → errors に欠落エラー",
+            "異常系: intervalMinutes が 0/負数/小数/非数値 → 範囲/型エラー",
+            "異常系: startTime/endTime 不正フォーマット",
+            "異常系: timezone 空文字/不正IANA名",
+            "異常系: 複数フィールド不正 → errors に複数エラー",
+            "異常系: 存在しないファイルパス → Error",
+            "異常系: 不正なJSONファイル → Error"
+          ],
+          "testExceptions": [
+            "loadWatcherConfig のファイルI/Oは一時ファイルを作成する結合テストでカバー（既存 src/tickets.ts のパターンに準拠、モック不要）"
+          ],
+          "instrumentation": "静的品質チェック: 合格（新規コード issues 0件。src/runner.ts の16件は既存コード由来）\n翻訳可能性: 問題なし（全関数が動詞始まり、単一文字変数なし、マジックナンバーは全て名前付き定数化済み）\nテスト: make test-conver 全95件成功\n依存関係: P8-2(入力, todo) / P6-2(出力, todo) / P7-1(出力, todo) — 全て整合",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (new code: 0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済\n- テスト: 全95件成功\n- 見つかった問題と修正内容: 既存 runner.ts に16件の品質 issue（単一文字変数3件、console.log 13件）があるが、P6-1が導入したものではなく、本チケットのスコープ外。新規コードの watcher.ts/watcher.test.ts はクリーン。\n- Boy Scout 修正: runner.ts LoopOptions.noFind を optional 化（コンパイルエラー修正）、conver.test.ts パラメータログアサーション修正",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "src/watcher.ts (新規作成)",
+              "description": "WatcherConfig/ValidationResult 型定義, validateWatcherConfig(), loadWatcherConfig()"
+            },
+            {
+              "before": "なし",
+              "after": "src/watcher.test.ts (新規作成)",
+              "description": "全公開関数のユニットテスト 23ケース"
+            },
+            {
+              "before": "test-conver に watcher.test.js なし",
+              "after": "test-conver に watcher.test.js 追加",
+              "description": "Makefile test-conver ターゲット更新"
+            },
+            {
+              "before": "noFind: boolean (必須)",
+              "after": "noFind?: boolean (optional)",
+              "description": "runner.ts LoopOptions.noFind を optional に修正 (Boy Scout)"
+            },
+            {
+              "before": "パラメータログ 6項目まで検査",
+              "after": "パラメータログ 7項目 (noFind 追加) に更新",
+              "description": "conver.test.ts アサーション修正 (Boy Scout)"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-01"
+        },
+        {
+          "id": 2,
+          "phaseId": 6,
+          "status": "reviewed",
+          "title": "時間窓判定関数（日跨ぎ対応）",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "現在時刻が設定された時間枠（startTime〜endTime）内にいるかを判定する純粋関数。startTime > endTime の日跨ぎケースを正しく処理する。",
+          "scope": [
+            "export function isInTimeWindow(now: Date, startTime: string, endTime: string, timezone: string): boolean"
+          ],
+          "relatedTicketIds": "入力元I/O: P6-1 / 出力先I/O: P7-1, P8-1",
+          "testVerification": [
+            "正常系: 同一日内（start < end）で範囲内",
+            "正常系: 同一日内（start < end）で範囲外",
+            "正常系: 日跨ぎ（start > end）で範囲内",
+            "正常系: 日跨ぎ（start > end）で範囲外",
+            "異常系: 不正な時刻文字列",
+            "境界値: 開始時刻ちょうど",
+            "境界値: 終了時刻ちょうど"
+          ],
+          "testExceptions": [],
+          "instrumentation": "静的品質チェック: 合格（新規コード issues 0件）\n翻訳可能性: 問題なし（全関数が動詞始まり、単一文字変数なし、マジックナンバーは全て定数化または自明な値のみ）\nテスト: make test-conver 全112件成功\n依存関係: P6-1(reviewed)←P6-2(done)→P7-1(todo)/P8-1(todo) — 全て整合",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (new code: 0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済\n- テスト: 全112件成功\n- 見つかった問題と修正内容: なし（全項目クリーン）\n- 犯罪(Malfeasance): 0件\n- [::STUB::]: 0件（既存 Notes 内 P7-1 は本スコープ外、保留妥当）",
+          "startedAt": "2026-07-01",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "src/time-window.ts (新規)",
+              "description": "isInTimeWindow() 純粋関数。Intl.DateTimeFormat + 分換算 + 日跨ぎ対応"
+            },
+            {
+              "before": "なし",
+              "after": "src/time-window.test.ts (新規)",
+              "description": "17件のテストケース（正常系/境界値/異常系/タイムゾーン/連続性）"
+            },
+            {
+              "before": "test-conver に time-window.test.js なし",
+              "after": "test-conver に time-window.test.js 追加",
+              "description": "Makefile test-conver 更新"
+            }
+          ],
+          "completedAt": "2026-07-01",
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Watcher Cron スケジューラ (Layer 2) — node-cron 統合",
+      "externalDependencies": "node-cron",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 7,
+          "status": "todo",
+          "title": "CronScheduler — node-cron ジョブ管理",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "WatcherConfig の intervalMinutes に基づいて node-cron ジョブを設定・起動・停止する。",
+          "scope": [
+            "export class CronScheduler",
+            "  constructor(config: WatcherConfig)",
+            "  start(): void",
+            "  stop(): void",
+            "  isRunning(): boolean"
+          ],
+          "relatedTicketIds": "入力元I/O: P6-1 / 出力先I/O: P7-2",
+          "testVerification": [
+            "正常系: 指定間隔でコールバックが呼ばれる",
+            "正常系: stop() でジョブが停止する",
+            "正常系: restart() で新しい間隔で再起動",
+            "異常系: 不正な intervalMinutes での起動"
+          ],
+          "testExceptions": [
+            "node-cron の実際のタイミング制御は結合テストで確認"
+          ],
+          "instrumentation": "cron ジョブの開始・終了・エラーを logger.info で記録",
+          "notes": "結合テスト計画:\n[::STUB::] P7-2（定期点検ロジック）実装後に、スケジューラが定期点検を正しく呼び出す結合テストを追加。"
+        },
+        {
+          "id": 2,
+          "phaseId": 7,
+          "status": "todo",
+          "title": "定期点検ロジック — 未reviewedチケット確認とループ起動",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "CronScheduler から定期実行され、Tickets.json に未reviewedチケットが存在する場合に既存ループを開始する。",
+          "scope": [
+            "export function checkAndStartLoop(ticketsPath: string, loopOptions: LoopOptions): Promise<void>"
+          ],
+          "relatedTicketIds": "入力元I/O: P7-1, P1-1(tickets 読み込み) / 出力先I/O: P8-3",
+          "testVerification": [
+            "正常系: 未reviewedチケットあり→ループ開始",
+            "正常系: 未reviewedチケットなし→何もしない",
+            "異常系: Tickets.json 読み込みエラー"
+          ],
+          "testExceptions": [
+            "実際のACPセッション起動は結合テストで検証"
+          ],
+          "instrumentation": "点検結果（未reviewed数）を logger.info で記録",
+          "notes": "結合テスト計画:\n[::STUB::] P8-3（エントリポイント統合）実装後に、定期点検→ループ起動→終了の一連の流れを結合テストで検証。"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Watcher ループ統合 (Layer 3/4) — 既存システム結合",
+      "externalDependencies": "node-cron",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 8,
+          "status": "todo",
+          "title": "ステップ境界時間制御 — runner.ts endTime ガード",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "既存 runner.ts のループ各ステップ（make/plan/start/review/resolve/find）の開始前に、現在時刻が endTime を超過していないかを確認し、超過時は次のステップに進まないように制御する。開始済みのステップがendTime超過しても許容する。",
+          "scope": [
+            "export function isWithinTimeWindow(config: WatcherConfig | null): boolean",
+            "export function checkStepDeadline(stepName: string, config: WatcherConfig | null): boolean"
+          ],
+          "relatedTicketIds": "入力元I/O: P6-2(時間窓判定), P4-1(既存runner) / 出力先I/O: P8-3",
+          "testVerification": [
+            "正常系: endTime 前に次のステップが実行される",
+            "正常系: endTime 超過時に次のステップがスキップされる",
+            "正常系: watcherモード未設定時は常に通過（後方互換）",
+            "異常系: 不正な設定値でフォールバック動作"
+          ],
+          "testExceptions": [
+            "タイミング依存のテストは FakeTimers で代替"
+          ],
+          "instrumentation": "endTime超過によるステップスキップを logger.warn で記録",
+          "notes": "既存のループ動作に影響を与えないこと（-w 未指定時は従来通り動作）"
+        },
+        {
+          "id": 2,
+          "phaseId": 8,
+          "status": "todo",
+          "title": "CLI引数統合 — cli.ts への -w/--watcher 追加",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "cli.ts に -w/--watcher フラグを追加。値はJSON設定ファイルのパス。指定がない場合は通常モード（watcher無効）。help表示にも追記。",
+          "scope": [
+            "export interface CliOptions { watcherConfig?: string; }",
+            "export function parseCliOptions(): CliOptions"
+          ],
+          "relatedTicketIds": "入力元I/O: P0-3(既存cli.ts) / 出力先I/O: P6-1, P8-3",
+          "testVerification": [
+            "正常系: -w でパス指定→options.watcherConfig に格納",
+            "正常系: -w 未指定→undefined（通常モード）",
+            "正常系: --help に watcher オプションが表示される",
+            "異常系: 存在しないファイルパス"
+          ],
+          "testExceptions": [],
+          "instrumentation": "logger.debug でオプション値を記録",
+          "notes": "既存の全CLIオプションとの互換性を維持すること"
+        },
+        {
+          "id": 3,
+          "phaseId": 8,
+          "status": "todo",
+          "title": "エントリポイント統合 — conver.ts watcher 起動パス",
+          "referenceSection": "会話設計 (watcher mode)",
+          "background": "conver.ts のエントリポイントに watcher モード起動パスを追加。watcherConfig が指定されている場合は通常ループではなく CronScheduler を起動し、時間枠内のみ動作する。終了後・時間枠外ではクリーンアップする。",
+          "scope": [
+            "export function runWatcherMode(cliOptions: CliOptions): Promise<void>",
+            "export function runNormalMode(cliOptions: CliOptions): Promise<void>"
+          ],
+          "relatedTicketIds": "入力元I/O: P8-2(CLI), P8-1(時間制御), P7-2(点検), P4-2(既存conver.ts) / 出力先I/O: なし",
+          "testVerification": [
+            "正常系: -w 指定時に CronScheduler が起動する",
+            "正常系: -w 未指定時に通常ループが起動する",
+            "正常系: endTime 超過時にクリーンアップして終了する",
+            "正常系: SIGINT/SIGTERM でグレースフルシャットダウン"
+          ],
+          "testExceptions": [
+            "デーモン的挙動の完全検証はE2Eテスト"
+          ],
+          "instrumentation": "起動モードを logger.info で記録",
+          "notes": "結合テスト計画:\n[::STUB::] 全P6/P7/P8チケット完了後、watcher モードのE2E動作検証を実施。"
+        }
+      ]
     }
   ]
 }

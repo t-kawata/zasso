@@ -1,0 +1,133 @@
+{
+  "parentRfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_ROOT.md",
+  "parentRfcTitle": "RFC-001: conver.js — ACP-based Ticket Processing Pipeline",
+  "generatedAt": "2026-07-01",
+  "summary": "",
+  "rfcUnderstanding": {
+    "purpose": "",
+    "goals": "",
+    "successCriteria": "",
+    "nonScope": "",
+    "architecture": "",
+    "componentRelations": "",
+    "designDecisions": "",
+    "typeDefinitions": "",
+    "apiSignatures": "",
+    "dependencyGraph": "",
+    "externalDependencies": "",
+    "testRequirements": "",
+    "errorHandling": "",
+    "configuration": ""
+  },
+  "omissions": [],
+  "steps": [
+    {
+      "id": "1",
+      "label": "スケルトン生成",
+      "status": "done",
+      "children": [
+        {
+          "id": "1a",
+          "label": "OMISSIONS番号採番",
+          "status": "done"
+        },
+        {
+          "id": "1b",
+          "label": "雛形JSON書き出し",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "label": "RFC理解",
+      "status": "todo",
+      "children": [
+        {
+          "id": "2a-1",
+          "label": "目的とゴールの把握",
+          "status": "todo"
+        },
+        {
+          "id": "2a-2",
+          "label": "メタ情報の記録",
+          "status": "todo"
+        },
+        {
+          "id": "2b",
+          "label": "アーキテクチャ把握",
+          "status": "todo"
+        },
+        {
+          "id": "2c-1",
+          "label": "実装詳細（型・API・依存）",
+          "status": "todo"
+        },
+        {
+          "id": "2c-2",
+          "label": "実装詳細（テスト・エラー処理・設定）",
+          "status": "todo"
+        },
+        {
+          "id": "2-review",
+          "label": "RFC理解の全体確認",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "label": "ソースコード比較分析",
+      "status": "todo",
+      "children": [
+        {
+          "id": "3a",
+          "label": "目的とゴールの実装反映確認",
+          "status": "todo"
+        },
+        {
+          "id": "3b",
+          "label": "アーキテクチャの実装一致確認",
+          "status": "todo"
+        },
+        {
+          "id": "3c-1",
+          "label": "型・API・依存関係の確認",
+          "status": "todo"
+        },
+        {
+          "id": "3c-2",
+          "label": "テスト・エラー処理・設定の確認",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "label": "発見漏れ確認",
+      "status": "todo"
+    },
+    {
+      "id": "5",
+      "label": "最終検証",
+      "status": "todo",
+      "children": [
+        {
+          "id": "5a",
+          "label": "スキーマ検証",
+          "status": "todo"
+        },
+        {
+          "id": "5b",
+          "label": "犯罪点検",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "label": "完了報告",
+      "status": "todo"
+    }
+  ]
+}
