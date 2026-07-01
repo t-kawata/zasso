@@ -19,8 +19,8 @@ use crate::app_state::AppState;
 use crate::config::AppConfig;
 use crate::http::router::build_router;
 use crate::observability::metrics;
-use crate::provider::limiter::ConcurrencyLimiter;
 use crate::provider::ProviderClient;
+use crate::provider::limiter::ConcurrencyLimiter;
 use crate::routing::scheduler::KeyScheduler;
 
 /// プロキシサーバーのエントリポイント。

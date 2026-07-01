@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
+use axum::Router;
 use axum::middleware;
 use axum::routing::{get, post};
-use axum::Router;
 
 use super::auth;
 use super::routes;

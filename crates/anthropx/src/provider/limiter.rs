@@ -4,8 +4,8 @@
 //! queue 長の楽観的カウンタを `AtomicUsize` で管理し、満杯時は即座に
 //! 429 相当のエラーを返す。
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 /// 並行性制御: Semaphore-based limiter + bounded wait queue（RFC §7）。

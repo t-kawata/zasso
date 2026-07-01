@@ -37,13 +37,13 @@ use llm_bridge_core::transform::{
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
-use tracing::{warn, Span};
+use tracing::{Span, warn};
 
 use crate::app_state::AppState;
 use crate::config::{LossyLevel, OpenAiWireApi, ProxyError, ResolvedModel};
 use crate::observability::metrics;
 use crate::provider::ProviderClient;
-use crate::routing::{resolve_api_format, to_llm_api_format, ApiFormat};
+use crate::routing::{ApiFormat, resolve_api_format, to_llm_api_format};
 
 // ---------------------------------------------------------------------------
 // 定数
@@ -132,17 +132,17 @@ fn scan_anthropic_request(body: &serde_json::Value) -> Vec<LossyEvent> {
     }
 
     // 3. tools 配列が OpenAI 上限（128）を超過
-    if let Some(tools) = body.get("tools").and_then(|t| t.as_array()) {
-        if tools.len() > 128 {
-            events.push(LossyEvent::error(
-                "tools",
-                format_args!(
-                    "tool count ({}) exceeds the upstream API limit of 128; \
-                     excess tools will be silently truncated",
-                    tools.len()
-                ),
-            ));
-        }
+    if let Some(tools) = body.get("tools").and_then(|t| t.as_array())
+        && tools.len() > 128
+    {
+        events.push(LossyEvent::error(
+            "tools",
+            format_args!(
+                "tool count ({}) exceeds the upstream API limit of 128; \
+                 excess tools will be silently truncated",
+                tools.len()
+            ),
+        ));
     }
 
     events
@@ -487,8 +487,8 @@ fn transform_chunk(
 /// `cancel` が発火された場合、upstream からのチャンク読み出しを中断する。
 /// クライアント切断は `tx.send().await.is_err()` で検出する。
 ///
-/// `tokio::select!` 内のテンポラリドロップ順序が Rust 2024 で変更されるが、
-/// Bytes の Drop には副作用がなく無害なため警告を抑制する。
+/// Rust 2024 Edition 移行後も `bytes::Bytes` の Drop（参照カウント解放）には
+/// 副作用がなく無害なため、`tail_expr_drop_order` の互換性警告を抑制する。
 #[allow(tail_expr_drop_order, clippy::too_many_arguments)]
 async fn translate_stream(
     provider: &ProviderClient,

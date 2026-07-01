@@ -39,7 +39,9 @@ fn load_api_key() -> Option<String> {
             eprintln!(
                 "    DEEPSEEK_API_KEY=sk-...             DeepSeek API key (anthropic-compatible)"
             );
-            eprintln!("    DEEPSEEK_BASE_URL=https://...       (optional, default: https://api.deepseek.com)");
+            eprintln!(
+                "    DEEPSEEK_BASE_URL=https://...       (optional, default: https://api.deepseek.com)"
+            );
             eprintln!("  Run:");
             eprintln!("    DEEPSEEK_API_KEY=sk-... cargo test --test real_provider -- --nocapture");
             eprintln!("------------------------------------------------------------------------");

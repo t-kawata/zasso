@@ -7,8 +7,8 @@ pub mod scheduler;
 
 use std::collections::BTreeMap;
 
-use crate::config::{OpenAiWireApi, ProviderConfig, ResolvedModel};
 use crate::ProxyError;
+use crate::config::{OpenAiWireApi, ProviderConfig, ResolvedModel};
 
 /// llm-bridge-core の ApiFormat への変換をこのモジュールで提供する。
 /// server feature 有効時のみコンパイルされる（translate mode 専用）。

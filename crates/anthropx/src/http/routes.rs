@@ -9,19 +9,19 @@
 
 use std::sync::Arc;
 
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::Json;
 use tracing::Instrument;
 
+use crate::ProxyError;
 use crate::app_state::AppState;
 use crate::observability::metrics;
 #[cfg(feature = "server")]
 use crate::provider::transparent::handle_transparent;
 use crate::routing::{parse_provider_model, resolve_model};
 use crate::util::ids::generate_request_id;
-use crate::ProxyError;
 
 /// ヘルスチェックエンドポイント（GET /healthz）。
 ///

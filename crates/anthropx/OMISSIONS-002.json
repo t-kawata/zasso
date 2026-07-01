@@ -1,0 +1,173 @@
+{
+  "parentRfcPath": "/Users/kawata/shyme/zasso/crates/anthropx/RFC-ROOT.md",
+  "parentRfcTitle": "LLM Bridge Proxy Server — RFC",
+  "generatedAt": "2026-07-01",
+  "summary": "anthropx は Rust で実装された Anthropic 互換 API プロキシサーバー。デュアルモード構成（サーバーバイナリ＋ライブラリ）を採用し、外向きに Anthropic Messages API (/v1/messages) を公開。内部では provider ごとに transparent（透過転送）と translate（Anthropic→OpenAI 互換翻訳）を切り替え、複数 LLM provider への同時接続を単一エンドポイントで実現する。llm-bridge-core によるプロトコル変換、起動時乱択＋round-robin の key スケジューラ、Semaphore ベースの並行性制御、metrics/tracing による可観測性を備える。設定は TOML ファイルとプログラム的構築の二刀流をサポート。単一プロセス・メモリ内状態のみで動作し、外部 DB やジョブキューに依存しない。",
+  "rfcUnderstanding": {
+    "purpose": "Anthropic 互換 API プロキシサーバーの設計を定義する。Rust で実装された anthropx crate は、単一バイナリとして独立稼働するだけでなく、他の Rust プロジェクトに crate として埋め込んで使用できるデュアルモード構成を採用する。外向きの API 面は Anthropic Messages API (/v1/messages) を公開し、内部では provider ごとに透過転送（transparent）または Anthropic→OpenAI 互換翻訳（translate）を切り替えて upstream LLM provider へ中継する。",
+    "goals": "1. Claude Code が単一のエンドポイントを指すだけで複数 provider を透過的に利用できるようにする\n2. provider ごとの API key を起動時乱択＋round-robin で分散し、failover を提供する\n3. Anthropic と OpenAI 互換 API のプロトコル差を llm-bridge-core で吸収する\n4. サーバーバイナリとしても、他の Rust プロジェクトに埋め込めるライブラリとしても動作するデュアルモード構成を実現する",
+    "successCriteria": "AC#1: transparent non-stream /v1/messages\nAC#2: transparent stream /v1/messages\nAC#3: translate non-stream /v1/messages\nAC#4: translate stream /v1/messages\nAC#5: non-stream key failover\nAC#6: stream no-failover\nAC#7: /v1/models sorted\nAC#8: provider/model split\nAC#9: queue overflow → 429\nAC#10: /metrics, /healthz 利用可能\n加えて: サーバーバイナリとしての独立起動、crate としての埋め込み利用、全 provider モードの正しい動作",
+    "nonScope": "- モデル推論そのものは行わない\n- 外部 DB・Redis・永続ジョブキューは使用しない\n- 単一プロセス・メモリ内状態のみで動作する",
+    "architecture": "デュアルモード構成: 同一 Cargo パッケージ内に [lib] と [[bin]] を両方定義。server feature（デフォルト有効）が Axum 以下の HTTP 依存を有効化する。server feature 無効時は設定型とメモリ内完結ロジックのみの軽量ライブラリとして動作する。\n\nモジュール構成:\n- config/（設定型定義・パース・検証）: AppConfig, GlobalConfig, ProviderConfig, TimeoutConfig, GlobalLimitConfig 等の型定義と TOML パース・集約型バリデーション\n- routing/（ProviderResolver による provider/model 解決・alias 解決・KeyScheduler による key スケジューラ）\n- provider/（transparent/translate 分岐・Semaphore ベース並行性制御）: provider/mod.rs が分岐、transparent.rs が透過転送、translate.rs が llm-bridge-core 経由のプロトコル変換\n- http/（Router 組立・認証ミドルウェア・エラー型）: server feature でのみ有効\n- lifecycle.rs（ServerHandle 起動停止）: server feature でのみ有効\n- observability/（tracing/metrics 出力）: metrics カウンタ定義と register_metrics\n- util/（ヘッダフィルタ・ID生成）: hop-by-hop header フィルタ、request_id 生成\n\nクロスカッティング関心事:\n- Lossy Translation 制御: allow_lossy / error_lossy_continue フラグによる段階的制御\n- Streaming SSE: tokio::sync::broadcast による subscriber 管理、CancellationToken による切断\n- エラー型: ProxyError（ConfigError, HttpError, UpstreamError, StreamError の4系統）",
+    "componentRelations": "lib.rs → lifecycle.rs::ProxyServer → config/, http/, routing/, provider/, observability/, util/\nmain.rs (server feature) → cli.rs → lifecycle.rs::ProxyServer\n\nデータフロー（リクエスト）:\nHTTP Request → http/routes.rs → http/auth.rs (client auth + upstream auth) → routing/mod.rs (provider resolver) → routing/scheduler.rs (key scheduler) → provider/mod.rs (mode dispatch) → { provider/transparent.rs | provider/translate.rs } → upstream LLM provider\n\nデータフロー（ストリーム応答）:\nupstream SSE stream → provider/transparent.rs::proxy_sse_stream() or provider/translate.rs::translate_stream() → tokio::sync::broadcast → http/routes.rs → HTTP Response (SSE)\n\nllm-bridge-core 連携:\ntranslate mode でのみ利用。provider/translate.rs が llm_bridge_core::transform::* 関数を呼び出し、Anthropic request → OpenAI request、OpenAI response → Anthropic response、SSE event 変換を実行する。",
+    "designDecisions": "1. Dual-mode構成: [lib] + [[bin]] の同一パッケージ。server feature gate で Axum 依存を分離。\n2. 集約型バリデーション: 全エラー収集後一括報告（early return せず検証を継続）\n3. reqwest::Client builder: .connect_timeout(), .pool_max_idle_per_host(usize::MAX), .tcp_keepalive(Some(Duration::from_secs(30))), .default_headers(User-Agent) を設定\n4. リクエストレベルタイムアウト: non-stream は .timeout(total_ms)、stream は tokio::time::timeout(read_ms) によるチャンク間 idle timeout、切断時は即時切断（partial response は無効扱い）\n5. register_metrics(): OnceLock<()> による冪等性ガード\n6. KeyScheduler: 起動時乱択 + round-robin、non-stream は failover あり、stream は failover なし\n7. Semaphore ベース並行性制御: max_in_flight + max_queue、queue overflow 時は 429\n8. Tower middleware による認証: クライアント認証 + upstream 認証\n9. Lossy Translation: allow_lossy=true + error_lossy_continue=true の完全実装は将来対応。現在は allow_lossy のみ有効\n10. tokio::sync::broadcast による SSE subscriber 管理、CancellationToken による切断シグナル",
+    "typeDefinitions": "主要構造体:\n- AppConfig { global: GlobalConfig, providers: BTreeMap<String, ProviderConfig> }\n- GlobalConfig { port: u16, url_prefix: String, require_client_auth: bool, log_format: LogFormat, allow_lossy: bool, error_lossy_continue: bool, timeouts: TimeoutConfig, limits: GlobalLimitConfig, aliases: BTreeMap<String, String> }\n- ProviderConfig { transparent: bool, base_url: String, api_keys: Vec<String>, allow_lossy: Option<bool>, error_lossy_continue: Option<bool>, openai_wire_api: Option<OpenAiWireApi>, max_in_flight: Option<usize>, max_queue: Option<usize>, model_aliases: BTreeMap<String, String>, models: Vec<ModelConfig> }\n- ModelConfig { public: String, upstream: String, enabled: bool, tags: Vec<String>, max_tokens_cap: Option<u32>, aliases: Vec<String> }\n- TimeoutConfig { connect_ms: u64, read_ms: u64, total_ms: u64 }\n- GlobalLimitConfig { default_max_in_flight: usize, default_max_queue: usize }\n\n列挙型:\n- OpenAiWireApi { Auto, ChatCompletions, Responses }\n- LogFormat { Text, Json }\n- ProxyError { ConfigError(種類別), HttpError(status, body), UpstreamError(status, body), StreamError(reason) }\n- CategorizedError { Transient, NonTransient }\n\nトレイト:\n- IntoResponse (for ProxyError) — Axum 統合\n- ProviderCommand (内部) — provider 分岐\n- BodyStream (内部利用) — SSE 変換\n\nライフサイクル型:\n- ServerHandle { shutdown_tx: tokio::sync::oneshot::Sender<()>, addr: SocketAddr }",
+    "apiSignatures": "ライブラリ公開API (lib.rs 再公開):\n- pub use lifecycle::ProxyServer;\n- pub AppConfig, ProxyConfig (各 config 型)\n\nProxyServer::start(config: AppConfig) -> Result<ServerHandle, ProxyError> — サーバー起動\nServerHandle::shutdown(self) -> Result<(), ProxyError> — グレースフルシャットダウン\n\nHTTP エンドポイント (server feature):\n- POST /v1/messages — メイン推論エンドポイント（non-stream / stream）\n- GET /v1/models — 利用可能モデル一覧（public名でソート済み）\n- GET /healthz — ヘルスチェック\n- GET /metrics — Prometheus metrics 公開\n\n内部関数:\n- AppConfig::from_toml(path) -> Result<Self, ConfigError> — TOML 読込\n- AppConfig::validate() -> Result<(), Vec<ConfigError>> — 集約型バリデーション\n- ProviderResolver::resolve(model_name, &providers) -> (&ProviderConfig, &str) — provider/model 解決\n- KeyScheduler::new(keys) -> Self — 起動時乱択\n- KeyScheduler::next() -> &str — round-robin\n- build_upstream_headers(base_headers, api_key, headers_to_add) -> HeaderMap — upstream ヘッダ構築\n- build_provider_clients(config) -> HashMap<String, Client> — provider 別 Client 生成\n- register_metrics() — metrics カウンタ登録（OnceLock ガード）\n- proxy_sse_stream() — transparent stream 中継\n- translate_non_stream() — 非ストリーム翻訳\n- translate_stream() — ストリーム翻訳",
+    "dependencyGraph": "lib.rs → { config, routing, provider, util, observability }\nlib.rs → lifecycle.rs (server feature)\nmain.rs → cli.rs → lifecycle.rs\nhttp/ → { routing, provider, auth, errors }\nprovider/ → { routing/scheduler, config, util, observability }\nrouting/mod.rs → { config, scheduler }\nobservability/ → metrics crate\n\nlib.rs はトップレベル再公開のみ。\napp_state.rs (server feature) → { config, routing, provider } の集約状態保持\n\nllm-bridge-core 連携:\nprovider/translate.rs → llm_bridge_core::transform::{anthropic_to_openai, openai_to_anthropic, transform_stream}",
+    "externalDependencies": "常時依存:\n- serde/serde_json (設定・API シリアライズ)\n- toml (設定ファイルパース)\n- thiserror (エラー型導出)\n- tracing (構造化ログ)\n- metrics (metrics カウンタ)\n- reqwest 0.12 + json,stream feat (HTTP クライアント)\n- tokio + sync,macros feat (非同期ランタイム)\n- uuid (request_id 生成)\n- llm-bridge-core 0.3 (プロトコル変換) — optional\n\nserver feature 依存:\n- clap 4 (CLI 引数パース)\n- axum 0.8 (HTTP サーバー)\n- futures 0.3 (Stream 拡張)\n- tokio-util 0.7 (CancellationToken)\n- tokio-stream 0.1 (Stream アダプタ)\n- tracing-subscriber + json,env-filter feat (ログ出力)\n- metrics-exporter-prometheus 0.16 (metrics 公開)\n- http 1.x (ヘッダ型)\n\n開発依存:\n- axum-test 16 (mock HTTP server)",
+    "testRequirements": "受け入れ基準 (AC#1〜AC#10) に対応するテストが必要:\n- AC#1: transparent non-stream /v1/messages — axum-test mock upstream\n- AC#2: transparent stream /v1/messages — axum-test mock upstream + SSE\n- AC#3: translate non-stream /v1/messages — axum-test + llm-bridge-core 変換検証\n- AC#4: translate stream /v1/messages — axum-test + llm-bridge-core SSE 変換検証\n- AC#5: non-stream key failover — axum-test + 503 returning mock\n- AC#6: stream no-failover — axum-test + 503 returning mock\n- AC#7: /v1/models sorted — axum-test 応答検証\n- AC#8: provider/model split — ユニットテスト\n- AC#9: queue overflow → 429 — axum-test + limit=0 config\n- AC#10: /metrics, /healthz 利用可能 — axum-test\n\nテストツール: axum-test 16 (integration tests)\nテスト場所: tests/ ディレクトリ（integration tests）\n\nテストスコープ:\n- HTTP 層: axum-test による mock upstream 結合テスト\n- provider 層: reqwest::Client を mock したユニットテスト\n- routing 層: 純粋関数としてのユニットテスト\n- config 層: パース・バリデーションのユニットテスト\n- scheduler: 動作検証のユニットテスト\n- util: ヘッダフィルタ・ID生成のユニットテスト",
+    "errorHandling": "ProxyError 型で一元管理:\n- ConfigError: Io(path, io_error), Parse(path, parse_error), Validation( Vec<ValidationError> )\n- HttpError: status_code, response_body\n- UpstreamError: provider_name, status_code, response_body\n- StreamError: reason 文字列\n\nエラーハンドリング方針:\n- 設定エラー: 起動時に全エラー収集後一括報告（集約型バリデーション）\n- upstream エラー: non-stream は failover 試行後、全滅時は最終エラーをクライアントに返す\n- stream エラー: failover なし、即座にストリーム切断（partial response は無効）\n- 認証エラー: 401 Unauthorized\n- queue overflow: 429 Too Many Requests\n- 内部エラー: 500 Internal Server Error（詳細はログのみ）\n- timeout: ストリーム切断（Anthropic 標準 API と同一体感）\n\nLossy Translation エラー:\n- allow_lossy=true: 変換不能フィールドを警告ログに記録してスキップ\n- allow_lossy=false: 変換不能時はエラーレスポンスを返す\n- error_lossy_continue=true: Error 級 lossy でも処理継続（将来対応）",
+    "configuration": "設定形式: TOML ファイル + プログラム的構築の二刀流\n設定ファイルパス: CLI 引数 -t/--config または環境変数 ANTHROPX_CONFIG\n\nグローバル設定:\n- port: u16 (default: 8088)\n- url_prefix: String (default: \"\")\n- require_client_auth: bool (default: false)\n- log_format: LogFormat (default: Text)\n- allow_lossy: bool (default: false)\n- error_lossy_continue: bool (default: false)\n- timeouts.connect_ms: u64 (default: 3000ms)\n- timeouts.read_ms: u64 (default: 600000ms)\n- timeouts.total_ms: u64 (default: 600000ms)\n- limits.default_max_in_flight: usize (default: 64)\n- limits.default_max_queue: usize (default: 256)\n- aliases: BTreeMap<String, String>\n\nprovider 設定:\n- transparent: bool\n- base_url: String\n- api_keys: Vec<String>\n- allow_lossy, error_lossy_continue: Option<bool> (global フォールバック)\n- openai_wire_api: Option<OpenAiWireApi> (translate mode のみ)\n- max_in_flight, max_queue: Option<usize> (global フォールバック)\n- model_aliases: BTreeMap<String, String>\n- models: Vec<ModelConfig> (public, upstream, enabled, tags, max_tokens_cap, aliases)\n\n完全な設定例が Appendix A に記載。\n\nクライアント認証: Authorization: Bearer <token> による API key 認証\nupstream 認証: provider 設定の api_keys から KeyScheduler が選択・設定"
+  },
+  "omissions": [
+    {
+      "id": "O-001",
+      "type": "test_missing",
+      "description": "translate stream の idle timeout に対する統合テストが存在しない。transparent stream では transparent_stream_times_out_on_slow_chunks と transparent_stream_succeeds_when_chunks_fast_enough が実装されているが、translate_stream では同様のテストがない。実装（tokio::time::timeout + select!）は存在するが、回帰テストがない状態。",
+      "severity": "medium",
+      "rfcSection": "§5.2 (O-003), §F.1",
+      "suggestedResolution": "translate_stream の idle timeout テストを追加する。transparent stream のテストパターン（slow_chunks / fast_chunks の2ケース）と同様の構成で、translate handler 経由の SSE stream が read_ms 超過時に切断されることを検証する。",
+      "affectedFiles": [
+        "tests/mock_server.rs"
+      ]
+    },
+    {
+      "id": "O-002",
+      "type": "inconsistency",
+      "description": "util/headers.rs:53-54 で HeaderValue::from_str().expect() を使用。format!(\"Bearer {}\", key) は静的に有効なヘッダ値であることが保証されるため実害はないが、プロジェクトのコーディング規約（unwrap/expect プロダクションコード禁止）に違反する。",
+      "severity": "low",
+      "rfcSection": "§5.1, §F.4",
+      "suggestedResolution": "expect() を ? 演算子によるエラー伝播に置き換える。build_upstream_headers の戻り値型を Result<HeaderMap, ConfigError> に変更するか、FromStr エラーが発生しないことをコメントで明記した上で expect を維持する判断を明示する。",
+      "affectedFiles": [
+        "src/util/headers.rs"
+      ]
+    },
+    {
+      "id": "O-003",
+      "type": "incomplete_implementation",
+      "description": "RFC §F.5 で Rust 2024 Edition 移行計画の策定が要求されているが、lib.rs に #[warn(rust_2024_compatibility)] を設定したのみで、影響範囲調査と移行計画の策定は未実施。tokio::select! 内のテンポラリドロップ順の影響確認も未実施。",
+      "severity": "low",
+      "rfcSection": "§F.5",
+      "suggestedResolution": "Rust 2024 Edition への移行計画を策定する。具体的には (1) cargo fix --edition の試験実行、(2) tail_expr_drop_order の影響確認（特に translate.rs の select! マクロ展開後のドロップ順）、(3) 移行可否の判断とスケジュール策定。",
+      "affectedFiles": [
+        "src/lib.rs",
+        "src/provider/translate.rs"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "label": "スケルトン生成",
+      "status": "done",
+      "children": [
+        {
+          "id": "1a",
+          "label": "OMISSIONS番号採番",
+          "status": "done"
+        },
+        {
+          "id": "1b",
+          "label": "雛形JSON書き出し",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "label": "RFC理解",
+      "status": "todo",
+      "children": [
+        {
+          "id": "2a-1",
+          "label": "目的とゴールの把握",
+          "status": "done"
+        },
+        {
+          "id": "2a-2",
+          "label": "メタ情報の記録",
+          "status": "done"
+        },
+        {
+          "id": "2b",
+          "label": "アーキテクチャ把握",
+          "status": "done"
+        },
+        {
+          "id": "2c-1",
+          "label": "実装詳細（型・API・依存）",
+          "status": "done"
+        },
+        {
+          "id": "2c-2",
+          "label": "実装詳細（テスト・エラー処理・設定）",
+          "status": "done"
+        },
+        {
+          "id": "2-review",
+          "label": "RFC理解の全体確認",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "label": "ソースコード比較分析",
+      "status": "todo",
+      "children": [
+        {
+          "id": "3a",
+          "label": "目的とゴールの実装反映確認",
+          "status": "done"
+        },
+        {
+          "id": "3b",
+          "label": "アーキテクチャの実装一致確認",
+          "status": "done"
+        },
+        {
+          "id": "3c-1",
+          "label": "型・API・依存関係の確認",
+          "status": "done"
+        },
+        {
+          "id": "3c-2",
+          "label": "テスト・エラー処理・設定の確認",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "label": "機械的フィルタリング",
+      "status": "done"
+    },
+    {
+      "id": "5",
+      "label": "発見漏れ確認",
+      "status": "done"
+    },
+    {
+      "id": "6",
+      "label": "最終検証",
+      "status": "todo",
+      "children": [
+        {
+          "id": "6a",
+          "label": "スキーマ検証",
+          "status": "done"
+        },
+        {
+          "id": "6b",
+          "label": "犯罪点検",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "label": "完了報告",
+      "status": "done"
+    }
+  ]
+}
