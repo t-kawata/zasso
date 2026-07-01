@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "zasso://schemas/rfc-tree.json",
+  "type": "object",
+  "required": [
+    "canonicalRfcPath", "canonicalRfcTitle", "generatedAt",
+    "rfcUnderstanding", "draftTree", "finalTree"
+  ],
+  "properties": {
+    "canonicalRfcPath": { "type": "string", "minLength": 1 },
+    "canonicalRfcTitle": { "type": "string" },
+    "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "summary": { "type": "string" },
+    "language": {
+      "type": "string",
+      "enum": ["rust", "go", "typescript"],
+      "description": "自動検出された実装言語"
+    },
+    "rfcUnderstanding": {
+      "type": "object",
+      "properties": {
+        "purpose": { "type": "string" },
+        "goals": { "type": "string" },
+        "successCriteria": { "type": "string" },
+        "nonScope": { "type": "string" },
+        "architecture": { "type": "string" },
+        "componentRelations": { "type": "string" },
+        "designDecisions": { "type": "string" },
+        "typeDefinitions": { "type": "string" },
+        "apiSignatures": { "type": "string" },
+        "dependencyGraph": { "type": "string" },
+        "externalDependencies": { "type": "string" },
+        "testRequirements": { "type": "string" },
+        "errorHandling": { "type": "string" },
+        "configuration": { "type": "string" }
+      }
+    },
+    "draftTree": { "$ref": "#/definitions/tree" },
+    "finalTree": { "$ref": "#/definitions/tree" }
+  },
+  "definitions": {
+    "tree": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/childNode" }
+    },
+    "childNode": {
+      "type": "object",
+      "required": [
+        "childId", "slug", "directoryName", "namespaceUnit",
+        "ioSchema", "decouplingMethod", "rfcEvidence"
+      ],
+      "properties": {
+        "childId": { "type": "string", "pattern": "^\\d{2}$" },
+        "slug": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$", "description": "URL-friendly identifier. Used for directory/file naming" },
+        "directoryName": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "namespaceUnit": { "type": "string" },
+        "summary": { "type": "string" },
+        "ioSchema": { "type": "string" },
+        "decouplingMethod": { "type": "string" },
+        "rfcEvidence": { "type": "string" },
+        "dependencyOn": { "type": "array", "items": { "type": "string", "pattern": "^\\d{2}$" } },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/grandchildNode" } }
+      }
+    },
+    "grandchildNode": {
+      "type": "object",
+      "required": [
+        "grandchildId", "slug", "directoryName", "namespaceUnit",
+        "ioSchema", "decouplingMethod", "rfcEvidence", "parentEvidence"
+      ],
+      "properties": {
+        "grandchildId": { "type": "string", "pattern": "^\\d{2}$" },
+        "slug": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "namespaceUnit": { "type": "string" },
+        "summary": { "type": "string" },
+        "ioSchema": { "type": "string" },
+        "decouplingMethod": { "type": "string" },
+        "rfcEvidence": { "type": "string" },
+        "parentEvidence": { "type": "string" },
+        "dependencyOn": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,1 +1,0 @@
-- [_R パス解決](hook-r-path-resolution.md) — `_R` 変数は `git rev-parse --show-toplevel` で絶対パス解決する
