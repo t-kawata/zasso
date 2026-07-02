@@ -73,8 +73,8 @@ pub(crate) fn run_inference_stream_blocking(
 
     // ── 2. 推論コンテキスト作成 ──
     let n_ctx = tokens.len() + params.max_tokens as usize;
-    let ctx_params = LlamaContextParams::default()
-        .with_n_ctx(NonZeroU32::new(n_ctx.max(512) as u32));
+    let ctx_params =
+        LlamaContextParams::default().with_n_ctx(NonZeroU32::new(n_ctx.max(512) as u32));
     let mut ctx = match model.new_context(backend, ctx_params) {
         Ok(ctx) => ctx,
         Err(e) => {
@@ -200,10 +200,7 @@ mod tests {
                 .iter()
                 .map(|c| Ok::<String, GgufError>(c.to_string())),
         );
-        let results: Vec<String> = stream
-            .filter_map(|r| async move { r.ok() })
-            .collect()
-            .await;
+        let results: Vec<String> = stream.filter_map(|r| async move { r.ok() }).collect().await;
         assert_eq!(results, vec!["Hello", " world", "!"]);
     }
 
@@ -232,5 +229,4 @@ mod tests {
         assert!(next.is_none(), "stream should end after sender drop");
         Ok(())
     }
-
 }

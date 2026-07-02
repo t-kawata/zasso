@@ -1,7 +1,7 @@
 # ggufrs — Rust による GGUF モデル推論エンジンクレート — 設計全体マップ
 
 > このファイルは `/formulate-tickets` によって自動生成されました。
-> **生成元:** crates/ggufrs/RFC.md
+> **生成元:** crates/ggufrs/RFC-ROOT.md
 > **生成日:** 2026-06-17
 
 ## 目的とスコープ

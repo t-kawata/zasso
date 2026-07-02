@@ -66,3 +66,7 @@ path = "src/bin/test-run.rs"
 [[bin]]
 name = "test-chat"
 path = "src/bin/test-chat.rs"
+
+[[bin]]
+name = "test-oneshot"
+path = "src/bin/test-oneshot.rs"

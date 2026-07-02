@@ -55,6 +55,14 @@ pub struct GenerateParams {
     /// 正の値で多様性が向上する。`None` の場合はモデルデフォルト。
     pub frequency_penalty: Option<f32>,
 
+    /// 思考モードの有効/無効
+    ///
+    /// Qwen3.5 系モデルにおける思考プロセス（`<think>` タグ）の
+    /// 出力を制御する。`Some(true)` で `/think` コマンドを、
+    /// `Some(false)` で `/no_think` コマンドを推論エンジンが
+    /// プロンプトに自動付与する。`None` の場合はモデルデフォルト
+    /// の動作に委ねる（llama-cpp-2 v0.1.150 では `/no_think` 相当）。
+    pub enable_thinking: Option<bool>,
 }
 
 impl Default for GenerateParams {
@@ -65,6 +73,7 @@ impl Default for GenerateParams {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         }
     }
 }
@@ -142,7 +151,6 @@ pub trait InferenceEngine: Send + Sync {
         prompt: &str,
         params: GenerateParams,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String, GgufError>> + Send>>, GgufError>;
-
 }
 
 #[cfg(test)]
@@ -211,6 +219,47 @@ pub(crate) mod tests {
         assert!(params.top_p.is_none());
         assert!(params.presence_penalty.is_none());
         assert!(params.frequency_penalty.is_none());
+        // enable_thinking のデフォルトは None（モデルデフォルトに委譲）
+        assert!(params.enable_thinking.is_none());
+    }
+
+    /// GenerateParams の enable_thinking が設定・保持されることを確認
+    #[test]
+    fn generate_params_enable_thinking_can_be_set() {
+        let params_true = GenerateParams {
+            enable_thinking: Some(true),
+            ..GenerateParams::default()
+        };
+        assert_eq!(params_true.enable_thinking, Some(true));
+
+        let params_false = GenerateParams {
+            enable_thinking: Some(false),
+            ..GenerateParams::default()
+        };
+        assert_eq!(params_false.enable_thinking, Some(false));
+    }
+
+    /// GenerateParams の enable_thinking が Clone で保持されることを確認
+    #[test]
+    fn generate_params_enable_thinking_is_cloned() {
+        let original = GenerateParams {
+            enable_thinking: Some(true),
+            ..GenerateParams::default()
+        };
+        let cloned = original.clone();
+        assert_eq!(cloned.enable_thinking, Some(true));
+    }
+
+    /// GenerateParams の Debug 出力に enable_thinking が含まれることを確認
+    #[test]
+    fn generate_params_enable_thinking_in_debug() {
+        let params = GenerateParams {
+            enable_thinking: Some(false),
+            ..GenerateParams::default()
+        };
+        let debug_str = format!("{params:?}");
+        assert!(debug_str.contains("enable_thinking"));
+        assert!(debug_str.contains("false"));
     }
 
     // ── Mock-based tests (M2-4) ──
@@ -337,14 +386,10 @@ pub(crate) mod tests {
 
         use futures::StreamExt;
         let chunk = stream.next().await;
-        assert_eq!(
-            chunk.map(|r| r.ok()),
-            Some(Some("dummy chunk".to_string()))
-        );
+        assert_eq!(chunk.map(|r| r.ok()), Some(Some("dummy chunk".to_string())));
 
         let end = stream.next().await;
         assert!(end.is_none(), "stream should have exactly one chunk");
         Ok(())
     }
-
 }

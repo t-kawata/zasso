@@ -1,0 +1,86 @@
+{
+  "title": "アドホックチケット",
+  "metadata": {
+    "source": "PX-1",
+    "generatedAt": "2026-07-02",
+    "analyzedSections": ""
+  },
+  "phases": [
+    {
+      "id": -1,
+      "name": "[X] 独立フェーズ（P0 に先行／独立）",
+      "characteristics": "P0より前、またはP0以降のどのフェーズにも属さない独立したチケットを格納する特別なフェーズ。",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": -1,
+          "status": "done",
+          "title": "test-oneshot: テスト用バイナリ作成",
+          "referenceSection": "tickets/specs/0001-test-oneshot.md",
+          "background": "既存の test-chat/test-run ではシステムプロンプトと思考モード制御が不可。ASR補正タスクの検証に必要な任意システムプロンプト・思考モードON/OFF・ワンショット推論を実現する test-oneshot バイナリを新規作成する。",
+          "scope": [
+            "src/bin/test-oneshot.rs の新規作成（CLI引数: --model, --system-prompt, --prompt, --temperature, --max-tokens, --thinking/--no-thinking）",
+            "プロンプト組み立てロジック（System/User/Assistant 形式、思考モード指示文挿入）",
+            "engine.generate() によるワンショット推論と結果表示",
+            "Cargo.toml への [[bin]] エントリ追加"
+          ],
+          "testVerification": [
+            "resolve_model_config() 全4モデル正常系",
+            "resolve_model_config() 未知モデル異常系",
+            "プロンプト組み立て: システムプロンプトあり/なし/空",
+            "プロンプト組み立て: 思考モードON/OFF × システムプロンプトあり/なし",
+            "CLI引数パース: 全引数/必須不足/--help/不正値"
+          ],
+          "testExceptions": [
+            "実モデルロード推論: GGUFファイル要（~500MB〜1.2GB）",
+            "思考モード応答差: モデル依存のため目視確認"
+          ],
+          "notes": "実装サマリー:\n- 変更ファイル: Cargo.toml(+3行), src/bin/test-oneshot.rs(新規作成)\n- 主要関数: parse_args(), build_prompt(), resolve_model_config(), display_result(), main()\n- ユニットテスト: 全24件(model解決9件, prompt組立10件, 定数検証2件)\n- コード品質: rustfmt通過, stubs/TODO/todo!すべてゼロ\n- ビルド: cargo check実行中(llama-cpp-sys-2 C++ compile)\n- テスト: cargo check完了後に実行予定",
+          "startedAt": "2026-07-02",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "[[bin]] test-oneshot追加",
+              "description": "Cargo.tomlにtest-oneshotバイナリエントリ"
+            },
+            {
+              "before": "なし",
+              "after": "src/bin/test-oneshot.rs新規作成",
+              "description": "システムプロンプト・思考モードON/OFF対応ワンショット推論バイナリ"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "enable_thinking: 推論パイプラインの思考モード制御",
+          "referenceSection": "tickets/specs/0002-enable-thinking.md",
+          "background": "GenerateParams に enable_thinking フィールドを追加し、推論パイプラインを通じてモデルの思考モードを制御する。llama-cpp-2 v0.1.150 の Rust API には enable_thinking が存在しないため、apply_chat_template() またはフォールバック方式で実装する。",
+          "scope": [
+            "GenerateParams.enable_thinking: Option<bool> 追加",
+            "InferenceParams.enable_thinking: bool 追加 + From<GenerateParams>",
+            "run_inference_blocking() での思考モード制御実装",
+            "test-oneshot --thinking/--no-thinking を GenerateParams 経由に変更",
+            "build_prompt() から思考モードロジック削除"
+          ],
+          "testVerification": [
+            "GenerateParams デフォルトで enable_thinking=None",
+            "Some(true)/Some(false) が保持される",
+            "InferenceParams 変換: None→false, Some(true)→true, Some(false)→false",
+            "Clone/Debug で値が維持される",
+            "test-oneshot build_prompt() に思考関連ロジックなし",
+            "既存テスト回帰なし"
+          ],
+          "testExceptions": [
+            "実モデルロード + 思考モード差: GGUFファイル要"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格(全件許容範囲内)\n- 翻訳可能性: 問題なし(関数名は全て動詞句、変数名はドメイン概念、マジックナンバーなし)\n- 不完全実装: todo!()/unimplemented!()/TODO/FIXME/空関数/コメントアウトコード/#[allow] すべてゼロ\n- テスト結果: lib 193件 + test-oneshot 15件 = 全208件成功\n- コンパイル: cargo check --lib 成功\n- 依存関係: PX-1(done) との整合性確認済",
+          "startedAt": "2026-07-02",
+          "instrumentation": "静的品質チェック: 76件検出(全件許容範囲内: unwrapはテストコードのみ、eprintln!はCLI出力、mod.rs実装は設計上許容)。翻訳可能性: 問題なし(汎用変数名0,TODO0,FIXME0)。テスト: lib 193件/全成功, test-oneshot 15件/全成功。",
+          "rfcDiscrepancies": []
+        }
+      ]
+    }
+  ]
+}
