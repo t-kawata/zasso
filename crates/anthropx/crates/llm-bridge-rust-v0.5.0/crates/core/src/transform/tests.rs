@@ -1961,3 +1961,309 @@ fn test_openai_body_rejects_unknown_fields() {
 // NOTE: test_responses_body_rejects_unknown_fields removed — OpenAiResponsesRequestBody
 // intentionally does NOT use deny_unknown_fields for compatibility with various
 // OpenAI SDK clients that may send additional fields.
+
+// ---------------------------------------------------------------------------
+// Responses API response → Anthropic response のテスト
+// ---------------------------------------------------------------------------
+
+/// reasoning + message(output_text) + usage を含む標準レスポンスが正しく変換されること。
+#[test]
+fn test_responses_response_to_anthropic_basic() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_abc123",
+                "status": "completed",
+                "model": "qwen3.6-plus",
+                "output": [
+                    {
+                        "type": "reasoning",
+                        "summary": [
+                            { "type": "output_text", "text": "Thinking step by step..." }
+                        ]
+                    },
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            { "type": "output_text", "text": "The answer is 42." }
+                        ]
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 30,
+                    "input_tokens_details": {
+                        "cached_tokens": 10
+                    }
+                }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    assert_eq!(result.headers["x-api-key"], "TEST_KEY");
+    assert_eq!(result.path, "/v1/messages");
+
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+    let content = out_body["content"].as_array().unwrap();
+
+    assert_eq!(content.len(), 2, "should have thinking + text blocks");
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "Thinking step by step...");
+    assert_eq!(content[1]["type"], "text");
+    assert_eq!(content[1]["text"], "The answer is 42.");
+    assert_eq!(out_body["stop_reason"], "end_turn");
+    assert_eq!(out_body["usage"]["input_tokens"], 50);
+    assert_eq!(out_body["usage"]["output_tokens"], 30);
+    assert_eq!(out_body["usage"]["cache_read_input_tokens"], 10);
+    assert_eq!(out_body["usage"]["cache_creation_input_tokens"], 0);
+}
+
+/// reasoning ブロックがない場合、thinking ブロックが生成されないこと。
+#[test]
+fn test_responses_response_to_anthropic_missing_reasoning() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_no_reasoning",
+                "status": "completed",
+                "model": "qwen3.6-plus",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            { "type": "output_text", "text": "No reasoning here." }
+                        ]
+                    }
+                ],
+                "usage": { "input_tokens": 10, "output_tokens": 5 }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+    let content = out_body["content"].as_array().unwrap();
+
+    assert_eq!(content.len(), 1, "should have only text block");
+    assert_eq!(content[0]["type"], "text");
+    assert!(
+        content[0].get("thinking").is_none(),
+        "no thinking block when reasoning is absent"
+    );
+}
+
+/// function_call を含むレスポンスが tool_use ブロックに変換されること。
+#[test]
+fn test_responses_response_to_anthropic_with_tool_use() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_tool",
+                "status": "completed",
+                "model": "qwen3.6-plus",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            { "type": "output_text", "text": "Let me check the weather." }
+                        ]
+                    },
+                    {
+                        "type": "function_call",
+                        "call_id": "call_weather_01",
+                        "name": "get_weather",
+                        "arguments": "{\"city\":\"Tokyo\"}"
+                    }
+                ],
+                "usage": { "input_tokens": 20, "output_tokens": 15 }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+    let content = out_body["content"].as_array().unwrap();
+
+    assert_eq!(content.len(), 2, "should have text + tool_use blocks");
+    assert_eq!(content[0]["type"], "text");
+    assert_eq!(content[0]["text"], "Let me check the weather.");
+    assert_eq!(content[1]["type"], "tool_use");
+    assert_eq!(content[1]["id"], "call_weather_01");
+    assert_eq!(content[1]["name"], "get_weather");
+    assert_eq!(content[1]["input"]["city"], "Tokyo");
+    assert_eq!(out_body["stop_reason"], "end_turn");
+}
+
+/// output が空配列の場合、content も空になること。
+#[test]
+fn test_responses_response_to_anthropic_empty_output() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_empty",
+                "status": "completed",
+                "model": "qwen3.6-plus",
+                "output": [],
+                "usage": { "input_tokens": 5, "output_tokens": 0 }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+    let content = out_body["content"].as_array().unwrap();
+
+    assert!(
+        content.is_empty(),
+        "empty output should produce empty content"
+    );
+    assert_eq!(out_body["stop_reason"], "end_turn");
+}
+
+/// status=failed のレスポンスは Err(TransformError::InvalidFormat) を返すこと。
+#[test]
+fn test_responses_response_to_anthropic_status_failed() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_failed",
+                "status": "failed",
+                "model": "qwen3.6-plus",
+                "output": [],
+                "usage": { "input_tokens": 5, "output_tokens": 0 }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input);
+    assert!(result.is_err(), "status=failed should return an error");
+    assert!(
+        matches!(result.unwrap_err(), TransformError::InvalidFormat(_)),
+        "expected InvalidFormat error"
+    );
+}
+
+/// status=incomplete + reason=max_output_tokens で stop_reason が max_tokens になること。
+#[test]
+fn test_responses_response_to_anthropic_incomplete_max_output_tokens() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_incomplete",
+                "status": "incomplete",
+                "model": "qwen3.6-plus",
+                "incomplete_details": { "reason": "max_output_tokens" },
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            { "type": "output_text", "text": "Partial output" }
+                        ]
+                    }
+                ],
+                "usage": { "input_tokens": 10, "output_tokens": 5 }
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+
+    assert_eq!(out_body["stop_reason"], "max_tokens");
+}
+
+/// 無効な JSON ボディは Err(TransformError::InvalidFormat) を返すこと。
+#[test]
+fn test_responses_response_to_anthropic_invalid_json() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from("not valid json"),
+    };
+
+    let result = responses_response_to_anthropic(&input);
+    assert!(result.is_err(), "invalid JSON should return an error");
+    assert!(
+        matches!(result.unwrap_err(), TransformError::InvalidFormat(_)),
+        "expected InvalidFormat error"
+    );
+}
+
+/// usage が欠落している場合、全 usage 値が 0 になること。
+#[test]
+fn test_responses_response_to_anthropic_missing_usage() {
+    let input = TransformRequest {
+        headers: HashMap::from([
+            ("authorization".to_string(), "Bearer TEST_KEY".to_string()),
+        ]),
+        path: "/v1/responses".to_string(),
+        body: Bytes::from(
+            serde_json::to_vec(&json!({
+                "id": "resp_no_usage",
+                "status": "completed",
+                "model": "qwen3.6-plus",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            { "type": "output_text", "text": "No usage data" }
+                        ]
+                    }
+                ]
+            }))
+            .unwrap(),
+        ),
+    };
+
+    let result = responses_response_to_anthropic(&input).unwrap();
+    let out_body: serde_json::Value =
+        serde_json::from_slice(&result.body).unwrap();
+
+    assert_eq!(out_body["usage"]["input_tokens"], 0);
+    assert_eq!(out_body["usage"]["output_tokens"], 0);
+    assert_eq!(out_body["usage"]["cache_read_input_tokens"], 0);
+    assert_eq!(out_body["usage"]["cache_creation_input_tokens"], 0);
+}

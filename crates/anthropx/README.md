@@ -200,13 +200,13 @@ cargo build --features server
 ```toml
 # config.toml
 [global]
-port = 8088
+port = 8888
 
 # --- Transparent: DeepSeek Anthropic互換エンドポイント ---
 [providers.deepseek]
 transparent = true
 base_url = "https://api.deepseek.com/anthropic"
-api_keys = ["sk-your-deepseek-api-key"]
+api_keys = ["sk-c?????"]
 
 [[providers.deepseek.models]]
 public = "deepseek-v4-flash"
@@ -219,15 +219,27 @@ upstream = "deepseek-v4-pro"
 enabled = true
 
 # --- Translate: 通常の OpenAI Chat Completions API ---
-[providers.my-openai]
+[providers.openai01]
 transparent = false
 base_url = "https://api.openai.com/v1"
-api_keys = ["sk-your-openai-api-key"]
+api_keys = ["sk-proj-?????"]
 openai_wire_api = "chat_completions" # auto | chat_completions | responses
 
-[[providers.my-openai.models]]
+[[providers.openai01.models]]
 public = "gpt-4o"
 upstream = "gpt-4o"
+enabled = true
+
+# --- Translate: OpenAI Responses API ---
+[providers.openai02]
+transparent = false
+base_url = "https://api.openai.com/v1"
+api_keys = ["sk-proj-?????"]
+openai_wire_api = "responses" # auto | chat_completions | responses
+
+[[providers.openai02.models]]
+public = "gpt-5.1-codex-mini"
+upstream = "gpt-5.1-codex-mini"
 enabled = true
 ```
 

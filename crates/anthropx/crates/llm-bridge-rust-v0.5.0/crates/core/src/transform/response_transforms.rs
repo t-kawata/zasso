@@ -5,7 +5,7 @@
 
 #![allow(clippy::too_many_lines)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bytes::Bytes;
 use serde::Deserialize;
@@ -113,25 +113,91 @@ pub(crate) fn parse_anthropic_response_body(
 // OpenAI Responses API response types
 // ---------------------------------------------------------------------------
 
+/// OpenAI Responses API の非ストリーミングレスポンスボディ。
+///
+/// OpenAI は頻繁に新フィールドを追加するため、`#[serde(deny_unknown_fields)]` は
+/// 使用せず、未知フィールドは `extra` にフラット収集する。
+/// 変換ロジックが必要とするフィールドのみを明示的に定義し、それ以外は `Option` で
+/// 安全に無視する。
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 struct ResponsesResponseBody {
-    #[serde(default)]
-    id: Option<String>,
-    #[serde(default)]
+    // --- 変換ロジックで使用する必須フィールド ---
+    // status が "failed" の場合の検出に使用
     status: Option<String>,
-    #[serde(default)]
-    model: Option<String>,
+    // status→stop_reason マッピングで使用
+    incomplete_details: Option<serde_json::Value>,
+    // 出力 content の構築に使用
     #[serde(default)]
     output: Vec<serde_json::Value>,
-    #[serde(default)]
+    // Anthropic レスポンスの model に設定
+    model: Option<String>,
+    // Anthropic レスポンスの id に設定
+    id: Option<String>,
+    // Anthropic レスポンスの usage に設定
     usage: Option<ResponsesResponseUsage>,
+
+    // --- 変換ロジックでは使用しないが、未知フィールドエラーを防ぐために列挙 ---
     #[serde(default)]
-    incomplete_details: Option<serde_json::Value>,
+    object: Option<String>,
+    #[serde(default)]
+    created_at: Option<i64>,
+    #[serde(default)]
+    completed_at: Option<i64>,
+    #[serde(default)]
+    error: Option<serde_json::Value>,
+    #[serde(default)]
+    instructions: Option<String>,
+    #[serde(default)]
+    max_output_tokens: Option<u32>,
+    #[serde(default)]
+    parallel_tool_calls: Option<bool>,
+    #[serde(default)]
+    previous_response_id: Option<String>,
+    #[serde(default)]
+    reasoning: Option<serde_json::Value>,
+    #[serde(default)]
+    store: Option<bool>,
+    #[serde(default)]
+    temperature: Option<f64>,
+    #[serde(default)]
+    text: Option<serde_json::Value>,
+    #[serde(default)]
+    tool_choice: Option<serde_json::Value>,
+    #[serde(default)]
+    tools: Option<Vec<serde_json::Value>>,
+    #[serde(default)]
+    top_p: Option<f64>,
+    #[serde(default)]
+    top_logprobs: Option<u32>,
+    #[serde(default)]
+    truncation: Option<String>,
+    #[serde(default)]
+    user: Option<String>,
+    #[serde(default)]
+    metadata: Option<serde_json::Value>,
+    #[serde(default)]
+    background: Option<bool>,
+    #[serde(default)]
+    billing: Option<serde_json::Value>,
+    #[serde(default)]
+    service_tier: Option<String>,
+    #[serde(default)]
+    prompt_cache_key: Option<String>,
+    #[serde(default)]
+    prompt_cache_retention: Option<String>,
+    #[serde(default)]
+    safety_identifier: Option<String>,
+
+    // 上記で列挙しきれなかった未知フィールドをここで捕捉
+    #[serde(flatten)]
+    extra: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 struct ResponsesResponseUsage {
     #[serde(default)]
     input_tokens: Option<u64>,
@@ -139,10 +205,15 @@ struct ResponsesResponseUsage {
     output_tokens: Option<u64>,
     #[serde(default)]
     input_tokens_details: Option<ResponsesInputTokensDetails>,
+    #[serde(default)]
+    output_tokens_details: Option<serde_json::Value>,
+    #[serde(default)]
+    total_tokens: Option<u64>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct ResponsesInputTokensDetails {
     #[serde(default)]
     cached_tokens: u64,

@@ -5,7 +5,7 @@ port = 8888
 [providers.deepseek]
 transparent = true
 base_url = "https://api.deepseek.com/anthropic"
-api_keys = ["sk-c14????????????"]
+api_keys = ["sk-c?????"]
 
 [[providers.deepseek.models]]
 public = "deepseek-v4-flash"
@@ -18,13 +18,25 @@ upstream = "deepseek-v4-pro"
 enabled = true
 
 # --- Translate: 通常の OpenAI Chat Completions API ---
-[providers.openai]
+[providers.openai01]
 transparent = false
 base_url = "https://api.openai.com/v1"
-api_keys = ["sk-proj-hMY???????"]
+api_keys = ["sk-proj-?????"]
 openai_wire_api = "chat_completions" # auto | chat_completions | responses
 
-[[providers.openai.models]]
+[[providers.openai01.models]]
+public = "gpt-4o"
+upstream = "gpt-4o"
+enabled = true
+
+# --- Translate: OpenAI Responses API ---
+[providers.openai02]
+transparent = false
+base_url = "https://api.openai.com/v1"
+api_keys = ["sk-proj-?????"]
+openai_wire_api = "responses" # auto | chat_completions | responses
+
+[[providers.openai02.models]]
 public = "gpt-5.1-codex-mini"
 upstream = "gpt-5.1-codex-mini"
 enabled = true
