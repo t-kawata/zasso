@@ -1,0 +1,30 @@
+[global]
+port = 8888
+
+# --- Transparent: DeepSeek Anthropic互換エンドポイント ---
+[providers.deepseek]
+transparent = true
+base_url = "https://api.deepseek.com/anthropic"
+api_keys = ["sk-c14????????????"]
+
+[[providers.deepseek.models]]
+public = "deepseek-v4-flash"
+upstream = "deepseek-v4-flash"
+enabled = true
+
+[[providers.deepseek.models]]
+public = "deepseek-v4-pro"
+upstream = "deepseek-v4-pro"
+enabled = true
+
+# --- Translate: 通常の OpenAI Chat Completions API ---
+[providers.openai]
+transparent = false
+base_url = "https://api.openai.com/v1"
+api_keys = ["sk-proj-hMY???????"]
+openai_wire_api = "chat_completions" # auto | chat_completions | responses
+
+[[providers.openai.models]]
+public = "gpt-4o"
+upstream = "gpt-4o"
+enabled = true

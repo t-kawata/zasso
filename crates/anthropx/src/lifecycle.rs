@@ -50,12 +50,14 @@ impl ProxyServer {
             }
             return Err(format!("config validation failed with {} error(s)", errors.len()).into());
         }
+        tracing::info!("config validation passed");
 
         // 2. キャンセルトークン生成
         let cancel = CancellationToken::new();
 
         // 3. Provider リソース一括生成
         let providers = build_provider_clients(&config);
+        tracing::info!("initialized {} provider client(s)", providers.len());
 
         // 4. AppState 構築
         let port = config.global.port;
@@ -64,6 +66,7 @@ impl ProxyServer {
         // 5. Router 構築
         let router = build_router(state);
         let addr = format!("0.0.0.0:{port}");
+        tracing::info!("binding TCP listener on {addr}");
         let listener = TcpListener::bind(&addr).await?;
 
         let cancel_clone = cancel.clone();

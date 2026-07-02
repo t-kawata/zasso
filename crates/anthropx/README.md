@@ -200,16 +200,34 @@ cargo build --features server
 ```toml
 # config.toml
 [global]
-port = 3910
+port = 8088
 
+# --- Transparent: DeepSeek Anthropic互換エンドポイント ---
 [providers.deepseek]
 transparent = true
-base_url = "https://api.deepseek.com"
+base_url = "https://api.deepseek.com/anthropic"
 api_keys = ["sk-your-deepseek-api-key"]
 
 [[providers.deepseek.models]]
-public = "deepseek-chat"
-upstream = "deepseek-chat"
+public = "deepseek-v4-flash"
+upstream = "deepseek-v4-flash"
+enabled = true
+
+[[providers.deepseek.models]]
+public = "deepseek-v4-pro"
+upstream = "deepseek-v4-pro"
+enabled = true
+
+# --- Translate: 通常の OpenAI Chat Completions API ---
+[providers.my-openai]
+transparent = false
+base_url = "https://api.openai.com/v1"
+api_keys = ["sk-your-openai-api-key"]
+openai_wire_api = "chat_completions" # auto | chat_completions | responses
+
+[[providers.my-openai.models]]
+public = "gpt-4o"
+upstream = "gpt-4o"
 enabled = true
 ```
 
@@ -222,13 +240,13 @@ enabled = true
 正常に起動すると以下のようなログが出力されます:
 
 ```
-2026-06-22T12:34:56.789Z  INFO anthropx: starting server on 0.0.0.0:3910
+2026-06-22T12:34:56.789Z  INFO anthropx: starting server on 0.0.0.0:8088
 ```
 
 **ステップ3: Anthropic SDK または HTTP クライアントからリクエストを送信します。**
 
 ```bash
-curl http://localhost:3910/v1/messages \
+curl http://localhost:8088/v1/messages \
   -H "Content-Type: application/json" \
   -d '{
     "model": "deepseek/deepseek-chat",
@@ -240,7 +258,7 @@ curl http://localhost:3910/v1/messages \
 または Claude Code から:
 
 ```bash
-claude --proxy http://localhost:3910
+claude --proxy http://localhost:8088
 ```
 
 ### 4.2 CLI 引数
@@ -320,7 +338,7 @@ use anthropx::{AppConfig, ConfigError, LossyLevel, ProxyError};
 let mut config = AppConfig::default();
 
 // サーバー全体設定
-config.global.port = 3910;
+config.global.port = 8088;
 config.global.allow_lossy = true;
 config.global.error_lossy_continue = false;
 
@@ -487,7 +505,7 @@ assert!(err.to_string().contains("image block"));
 - **設定例**:
 
 ```
-port = 3910
+port = 8088
 ```
 
 #### `url_prefix` — URL プレフィックス
@@ -959,7 +977,7 @@ anthropx は 4 つの HTTP エンドポイントを提供します。`url_prefix
 - **使用例**:
 
 ```bash
-curl http://localhost:3910/healthz
+curl http://localhost:8088/healthz
 # → {"status": "ok"}
 ```
 
@@ -978,7 +996,7 @@ curl http://localhost:3910/healthz
 - **使用例**:
 
 ```bash
-curl http://localhost:3910/metrics
+curl http://localhost:8088/metrics
 # 出力例:
 # HELP anthropx_requests_total Total number of proxy requests by provider, mode, stream, status
 # TYPE anthropx_requests_total counter
@@ -1024,7 +1042,7 @@ curl http://localhost:3910/metrics
 - **使用例**:
 
 ```bash
-curl http://localhost:3910/v1/models | jq .
+curl http://localhost:8088/v1/models | jq .
 ```
 
 応答例:
@@ -1069,7 +1087,7 @@ curl http://localhost:3910/v1/models | jq .
 - **リクエスト例（non-stream）**:
 
 ```bash
-curl http://localhost:3910/v1/messages \
+curl http://localhost:8088/v1/messages \
   -H "Content-Type: application/json" \
   -d '{
     "model": "deepseek/deepseek-chat",
@@ -1081,7 +1099,7 @@ curl http://localhost:3910/v1/messages \
 - **リクエスト例（stream）**: `stream: true` をボディに含めるか、`Accept: text/event-stream` ヘッダーを付与します:
 
 ```bash
-curl http://localhost:3910/v1/messages \
+curl http://localhost:8088/v1/messages \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{
