@@ -25,6 +25,6 @@ api_keys = ["sk-proj-hMY???????"]
 openai_wire_api = "chat_completions" # auto | chat_completions | responses
 
 [[providers.openai.models]]
-public = "gpt-4o"
-upstream = "gpt-4o"
+public = "gpt-5.1-codex-mini"
+upstream = "gpt-5.1-codex-mini"
 enabled = true
