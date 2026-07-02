@@ -694,7 +694,7 @@
 
 #### ✅ チケット M6-1: server/types.rs 新規作成 — OpenAI 互換型自前定義
 
-* **参照設計書:** crates/ggufrs/RFC.md (§6.2 OpenAI 互換型の自前定義, §6.3 ルーター)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§6.2 OpenAI 互換型の自前定義, §6.3 ルーター)
 * **依存・関連チケットID:** 先行実装必須: なし（孤立した型定義ファイル）。後続: M6-9（server/openai.rs で使用）。
 * **対象不変条件 / 規範:** ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk の3構造体をすべて OpenAI API 仕様に準拠した全標準フィールドで定義する。`#[derive(Serialize, Deserialize)]` で JSON 入出力をサポート。server/types.rs は新規ファイルとして作成する。
 * **実装の背景と目的:** mistralrs が提供していた ChatCompletionRequest / ChatCompletionResponse 型を、llama-cpp-2 移行後に自前で定義する。Q11/Q20 の決定に基づき全標準フィールドを実装する。この段階では型定義のみで、実際のハンドラでの使用は M6-9 で行う。
@@ -709,7 +709,7 @@
 
 #### ✅ チケット M6-2: error.rs 修正 — MistralrsError → LlamaCppError
 
-* **参照設計書:** crates/ggufrs/RFC.md (§5 エラー型)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§5 エラー型)
 * **依存・関連チケットID:** 先行実装必須: なし（型のみの置き換え）。後続: M6-4（registry.rs で LlamaCppError を送出）。
 * **対象不変条件 / 規範:** GgufError の6バリアント構成を維持。MistralrsError バリアントを LlamaCppError に名称変更。#[from] mistralrs::Error → #[from] llama_cpp_2::Error。From<std::io::Error> / From<serde_json::Error> は変更なし。
 * **実装の背景と目的:** mistralrs のエラー型を llama-cpp-2 のエラー型に置き換える最小の変更。バリアント数・構造は維持する。llama-cpp-2 v0.1.150 の正確なエラー型名は実装開始前に docs.rs で確認すること。
@@ -722,7 +722,7 @@
 
 #### ✅ チケット M6-3: config.rs + settings.rs 修正 — mistralrs 特化フィールド除去
 
-* **参照設計書:** crates/ggufrs/RFC.md (§5 エラー型の GpuProvider, §7.1 静的定数, §3.2 ModelConfig)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§5 エラー型の GpuProvider, §7.1 静的定数, §3.2 ModelConfig)
 * **依存・関連チケットID:** 先行実装必須: なし（型定義のみの変更）。後続: M6-4（registry.rs で更新後の型を使用）。
 * **対象不変条件 / 規範:** ModelConfig から chat_template フィールドを削除。GpuProvider から DirectML バリアントを削除。GpuProvider::mistralrs_feature() → feature_name() + cmake_flags()。DEFAULT_CONTEXT_SIZE を 32768 → 2048 に変更。GpuProvider::detect() の macOS 以外のデフォルトを DirectML → Cpu に変更。
 * **実装の背景と目的:** mistralrs 特化フィールドを削除し、llama-cpp-2 の cmake ベースビルドに対応した GpuProvider に変更する。
@@ -743,7 +743,7 @@
 
 #### ✅ チケット M6-4: registry.rs 修正 — LlamaModel + load_from_file + spawn_blocking
 
-* **参照設計書:** crates/ggufrs/RFC.md (§3.1 ModelRegistry, §3.2 ModelConfig と ModelInfo)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§3.1 ModelRegistry, §3.2 ModelConfig と ModelInfo)
 * **依存・関連チケットID:** 先行実装必須: M6-2（LlamaCppError）。先行実装必須: M6-3（ModelConfig 変更）。後続: M6-5（InferenceEngine からの呼び出し）。
 * **対象不変条件 / 規範:** ModelInfo.model: Option<Arc<Model>> → Option<Arc<LlamaModel>>。GgufModelBuilder → LlamaModel::load_from_file() + spawn_blocking。DeviceMapSetting / UqffModelBuilder 関連の処理を全削除。RwLock のロック戦略は変更しない。
 * **実装の背景と目的:** llama-cpp-2 の核となるモデルロード処理。同期 API を spawn_blocking でラップして既存の async インターフェースと統合する。
@@ -761,7 +761,7 @@
 
 #### ✅ チケット M6-5: inference/mod.rs 修正 — InferenceEngine トレイト3メソッド化
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.1 InferenceEngine トレイト)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.1 InferenceEngine トレイト)
 * **依存・関連チケットID:** 先行実装必須: M6-4（LlamaModel 型）。後続: M6-6（generate.rs 実装）、M6-7（stream.rs 実装）。
 * **対象不変条件 / 規範:** トレイトのメソッドを4→3に削減（send_raw 削除）。全メソッドの第2引数を TextMessages → &str に変更。Send + Sync は維持。#[async_trait] 使用。pub mod raw はコメントアウト。
 * **実装の背景と目的:** mistralrs の RequestBuilder に依存していた send_raw() を削除。TextMessages は llama-cpp-2 に相当型が存在しないため単純な &str に置き換える。
@@ -774,7 +774,7 @@
 
 #### ✅ チケット M6-6: inference/generate.rs 全書き換え — llama-cpp-2 推論統合 + gbnf
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.3 generate() 実装, §4.4 generate_structured() 実装)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.3 generate() 実装, §4.4 generate_structured() 実装)
 * **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。後続: M6-9（サーバーからの呼び出し）。
 * **対象不変条件 / 規範:** generate() は spawn_blocking 内で LlamaModel::new_context() → LlamaContext::infer() を呼ぶ。generate_structured() は gbnf クレートで JSON Schema → GBNF 変換し、InferenceParams::grammar にセットする。From<GenerateParams> for InferenceParams を実装。gbnf 依存は内部実装として隠蔽。
 * **実装の背景と目的:** mistralrs の推論API（Model::send_chat_request()）を llama-cpp-2 の同期 API（LlamaModel + LlamaContext）に置き換える。JSON Schema 拘束は旧 Constraint::JsonSchema から gbnf クレート経由の GBNF 文法に変更。
@@ -791,7 +791,7 @@
 
 #### ✅ チケット M6-7: inference/stream.rs 全書き換え — TokenCallback + mpsc + ReceiverStream
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.5 generate_stream() 実装)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.5 generate_stream() 実装)
 * **依存・関連チケットID:** 先行実装必須: M6-4（registry.rs）、M6-5（トレイト定義）。並行可能: M6-6（同じ依存関係）。
 * **対象不変条件 / 規範:** 戻り値は Pin<Box<dyn Stream<Item = Result<String>> + Send>>。tokio::sync::mpsc チャネル（容量64）で TokenCallback からのトークンを受信し、ReceiverStream で Stream に変換。
 * **実装スコープ:**
@@ -802,7 +802,7 @@
 
 #### ✅ チケット M6-8: inference/raw.rs 削除
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.1 モジュール分割, §Implementation ファイル別変更要約)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.1 モジュール分割, §Implementation ファイル別変更要約)
 * **依存・関連チケットID:** 先行実装必須: M6-5（pub mod raw コメントアウト済み）。
 * **対象不変条件 / 規範:** raw.rs を物理削除。inference/mod.rs の pub mod raw 宣言も削除。
 * **実装スコープ:** rm src/inference/raw.rs + mod.rs から pub mod raw 削除
@@ -814,7 +814,7 @@
 
 #### ✅ チケット M6-9: server/openai.rs + router.rs 修正 — 自前型 + Anthropic 削除
 
-* **参照設計書:** crates/ggufrs/RFC.md (§6.1 アーキテクチャ, §6.3 ルーター)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§6.1 アーキテクチャ, §6.3 ルーター)
 * **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）。先行実装必須: M6-5（InferenceEngine トレイト）。
 * **対象不変条件 / 規範:** openai_chat_handler + openai_stream_handler → 単一 chat_completions_handler（stream フィールド分岐）に統合。anthropic_messages_handler 削除。AppError の MistralrsError → LlamaCppError。list_models_handler を4モデル対応に更新。
 * **本チケットの終了条件（絶対）:** `server/` ディレクトリ配下（openai.rs + router.rs）から `send_raw` 参照を完全に除去し、これらのファイル起因のコンパイルエラーをゼロにする。MockEngine の `expect_send_raw()` を含むテストコードも本チケットで修正し、**一切の `send_raw` エラーを M6-12 以降に先送りしない。**
@@ -829,7 +829,7 @@
 
 #### ✅ チケット M6-10: lib.rs 修正 — mistralrs re-export 削除 + server::types 追加
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9 公開API)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§9 公開API)
 * **依存・関連チケットID:** 先行実装必須: M6-1（types.rs）、M6-8（raw.rs 削除済み）。
 * **対象不変条件 / 規範:** pub use mistralrs::{...} を全削除。server::types を追加。llama-cpp-2 の型は一切 re-export しない。gbnf の型も一切 re-export しない。
 * **実装スコープ:** lib.rs: mistralrs re-export 削除、server::types の pub use 追加
@@ -845,7 +845,7 @@
 
 #### ✅ チケット M6-11: Cargo.toml + build.rs 修正 — 依存差し替え + cmake + 4モデルDL
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §8.1 build.rs cmake, §8.2 build.rs モデルDL)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.1 Cargo.toml, §8.1 build.rs cmake, §8.2 build.rs モデルDL)
 * **依存・関連チケットID:** 先行実装必須: M6-10（lib.rs 修正済み）。先行推奨: M6-3（settings.rs 同時編集の競合回避のため）。後続: M6-12（テストコード）、M6-13（test-run）。
 * **対象不変条件 / 規範:** mistralrs + llm-bridge-core 削除。llama-cpp-2 = "0.1.150" + gbnf = "0.2.7" 追加。features: directml 削除、metal/cuda 維持。build.rs: cargo feature → cmake 環境変数設定 + 4モデルダウンロード。
 * **実装の背景と目的:** llama-cpp-2 への依存切り替えを Cargo.toml と build.rs で行う。
@@ -860,7 +860,7 @@
 
 #### ✅ チケット M6-12: テストコード修正 — MockEngine + 結合テスト
 
-* **参照設計書:** crates/ggufrs/RFC.md (§10.1 単体テスト（mockall）, §10.2 結合テスト）
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§10.1 単体テスト（mockall）, §10.2 結合テスト）
 * **依存・関連チケットID:** 先行実装必須: M6-11（コンパイル復旧）。
 * **対象不変条件 / 規範:** 全メソッドの引数型を TextMessages → &str に変更。mistralrs 依存テスト（test_error_from_mistralrs）は削除。結合テストのモデル名を更新。
 * **実装スコープ:**
@@ -872,7 +872,7 @@
 
 #### ✅ チケット M6-13: test-run + 実動作確認 (src/bin/test-run.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§10.3 test-run バイナリ)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§10.3 test-run バイナリ)
 * **依存・関連チケットID:** 先行実装必須: M6-12（テスト全通過）。
 * **対象不変条件 / 規範:** 3パターン（Structured Output → Text Generation → Streaming Generation）が順次実行される。最終サマリーで全パターンの PASS/FAIL を一覧表示。CPU-Only モード。モデル不在時はエラーメッセージを表示して panic しない。
 * **実装スコープ:**
@@ -889,7 +889,7 @@
 
 #### ✅ チケット M6-14: Cargo.toml feature flags 最終調整 + clippy + ドキュメント
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 Cargo.toml, §2.3 GPU 自動検出)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.1 Cargo.toml, §2.3 GPU 自動検出)
 * **依存・関連チケットID:** 先行実装必須: M6-13（test-run 完了）。後続処理なし（最終マイルストーン）。
 * **対象不変条件 / 規範:** default = ["cpu"]。make check-be が全 feature 組み合わせで成功。cargo clippy warnings 0。cargo test 全通過。cargo doc --no-deps 成功。
 * **実装の背景と目的:** llama-cpp-2 移行の最終工程。コード品質チェック（clippy）と全テスト通過をもって移行完了とする。

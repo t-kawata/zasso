@@ -167,6 +167,8 @@ fn params_from_request(req: &ChatCompletionRequest) -> GenerateParams {
         top_p: req.top_p,
         presence_penalty: req.presence_penalty,
         frequency_penalty: req.frequency_penalty,
+        // OpenAI 互換 API は enable_thinking を未サポート（None = モデルデフォルト）
+        enable_thinking: None,
     }
 }
 

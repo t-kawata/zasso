@@ -2,7 +2,7 @@
 
 # ggufrs 実装チケット分解設計書
 
-> **生成元:** crates/ggufrs/RFC.md
+> **生成元:** crates/ggufrs/RFC-ROOT.md
 > **生成日:** 2026-06-17
 > **分析済みセクション:** §1(全体アーキテクチャ), §2(モデル管理), §3(サーバーモード), §4(モデル自動ダウンロード), §5(推論実行IF), §6(設定管理), §7(テスト), §8(エラー型), §9(依存関係管理), Appendix(A-E)
 
@@ -20,7 +20,7 @@
 
 #### ✅ チケット M0-1: Cargo.toml / lib.rs プロジェクト骨格
 
-* **参照設計書:** crates/ggufrs/RFC.md (§8.1 Cargo.toml, §8.3 mistralrs 型の re-export)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§8.1 Cargo.toml, §8.3 mistralrs 型の re-export)
 * **依存・関連チケットID:** 全チケットの先行実装必須
 * **対象不変条件 / 規範:** Cargo.toml に依存関係を直接手書きせず `cargo add` を使用する。`[::STUB::]` 未マークのスタブ禁止。`default-features = false` + `features = ["gguf"]` を基本とする。
 * **実装の背景と目的:** 全チケットのビルド基盤。最初に crate の骨格を確立し、以降のチケットが段階的に機能を追加できるようにする。mistralrs のバージョンは固定せず `cargo update` で追従可能な状態とし、`Cargo.lock` はバージョン管理対象とする。
@@ -44,7 +44,7 @@
 
 #### ✅ チケット M0-2: 静的定数定義 (consts/settings.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.1 静的定数、Appendix C)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.1 静的定数、Appendix C)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M0-4（GgufError は定数参照しないが同時期実装可能）、全チケットから参照。
 * **対象不変条件 / 規範:** マジックナンバーの直書き禁止。設定値は `consts/settings.rs` で一元管理し、`consts/mod.rs` 経由で参照する。テストコード内も含めてポート番号等を直書きしない。
 * **実装の背景と目的:** zasso CLAUDE.md の「設定値は consts/settings.rs で一元管理」ルールを遵守する。GGUFRS_GPU_PROVIDER 環境変数名のような文字列定数もここで定義する。
@@ -70,7 +70,7 @@
 
 #### ✅ チケット M0-3: GpuProvider 列挙型 (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§5 GPU自動検出機構)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-2（GpuProvider メソッド実装）。
 * **対象不変条件 / 規範:** `GpuProvider` は5バリアントで固定。`serde::Deserialize` / `Serialize` を derive し JSON config で使用可能にする。
 * **実装の背景と目的:** GPUプロバイダー選択は設定の一部であり、`config.rs` で宣言する。この段階では列挙型の定義のみ。
@@ -89,7 +89,7 @@
 
 #### ✅ チケット M0-4: GgufError 列挙型 (error.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§6 エラー型)
 * **依存・関連チケットID:** 先行実装必須: M0-1。後続: M1-3（From impls）、全実装チケットのエラー伝搬基盤。
 * **対象不変条件 / 規範:** `GgufError` は6バリアントで固定（ModelNotFound, ModelLoadFailed, InferenceFailed, ServerStartupFailed, InvalidConfig, MistralrsError）。`thiserror` で `#[derive(Error)]` を使用。各バリアントに `#[error("...")]` 属性で日本語エラーメッセージを記述。`std::error::Error` トレイトを実装。
 * **実装の背景と目的:** crate 内の全エラーを単一の列挙型に集約し、`?` 演算子による透過的なエラー伝搬を可能にする。`thiserror` の `#[from]` 属性により `mistralrs::Error` からの自動変換が可能。
@@ -111,7 +111,7 @@
 
 #### ✅ チケット M0-5: 設定構造体定義 (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo, §3.1 ServerConfig, §4.2 JSON マルチソースマージ)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.2 ModelConfig と ModelInfo, §3.1 ServerConfig, §4.2 JSON マルチソースマージ)
 * **依存・関連チケットID:** 先行実装必須: M0-1, M0-2（`DEFAULT_RT_PORT` を `ServerConfig::default()` で使用）、M0-3（GpuProvider をフィールドに含む）。後続: M1-1（ModelConfig コンストラクタ）、M1-4（GgufConfig merge_overlay）。
 * **対象不変条件 / 規範:** `ModelConfig` / `ServerConfig` / `GgufConfig` は全て `serde::Deserialize` + `Serialize` を derive し、JSON config との相互変換を保証する。さらに `Clone`, `Debug`, `PartialEq` も derive する（テスト・clone 操作・デバッグ出力で必要）。`ServerConfig` と `GpuConfig` は `Default` の手動実装が必要（`SocketAddr` が Default 非対応のため）。フィールドは全て `pub` または getter を持つ。設定値のデフォルトは `consts/settings.rs` の定数を参照する。
 * **実装の背景と目的:** この段階では各構造体のフィールド定義と JSON 入出力のみ。実際のマージロジックやビルダーメソッドは M1 で実装する。構造体定義を先行させることで、以降のチケットが型に依存できるようになる。
@@ -144,7 +144,7 @@
 
 #### ✅ チケット M0-6: ModelInfo 構造体定義 (registry.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig と ModelInfo)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.2 ModelConfig と ModelInfo)
 * **依存・関連チケットID:** 先行実装必須: M0-5（ModelConfig からの変換）。後続: M1-5（ModelRegistry 同期メソッド）。
 * **対象不変条件 / 規範:** `ModelInfo` は `ModelConfig` の全フィールドを内包し、加えて `model: Option<Arc<Model>>` を保持する。`From<ModelConfig>` を実装し、`ModelConfig` から一意に変換可能。`model` フィールドのみ `pub(crate)` で外部からの直接操作を制限。
 * **実装の背景と目的:** 「設定（ModelConfig）」と「実行時状態（ModelInfo）」の2層分離を実現する。`ModelInfo` は ModelRegistry 内部でのみ生成・保持され、外部には `Arc<Model>` のみが公開される。
@@ -167,7 +167,7 @@
 
 #### ✅ チケット M1-1: ModelConfig ビルトインコンストラクタ (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.2 ModelConfig, `qwen3_5_0_8b()`, `qwen3_5_2b()`, `custom()`)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.2 ModelConfig, `qwen3_5_0_8b()`, `qwen3_5_2b()`, `custom()`)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: テストコードで直接使用。
 * **対象不変条件 / 規範:** `qwen3_5_0_8b()` は name="qwen3.5-0.8b", path="models/Qwen3.5-0.8B-Q4_K_M.gguf", lazy_load=true, context_size=32768 で固定。`qwen3_5_2b()` も同様に固定。`custom()` は引数以外の全オプションフィールドを `None` にする。これらの関数は純粋コンストラクタであり、副作用を持たない。
 * **実装の背景と目的:** ビルトインモデル設定の提供は ggufrs の価値提案の核。`custom()` は crate 利用者が任意の mistralrs 対応モデルを登録するための汎用インターフェース。Qwen3.5 シリーズ以外を利用する場合も全く同じ型システム内で設定可能であることを保証する。
@@ -186,7 +186,7 @@
 
 #### ✅ チケット M1-2: GpuProvider メソッド実装 (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§5 GPU自動検出機構, `detect()`, `from_str()`, `mistralrs_feature()`)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§5 GPU自動検出機構, `detect()`, `from_str()`, `mistralrs_feature()`)
 * **依存・関連チケットID:** 先行実装必須: M0-3。後続: M3-2（InferenceEngine 実装時に GPU feature を解決）。
 * **対象不変条件 / 規範:** `detect()` は macOS → Metal、Windows → DirectML、その他 → Cpu を返す。`GGUFRS_GPU_PROVIDER` 環境変数が設定されていればそれを優先する。`from_str()` は大文字小文字を区別せず、未知の値には `None` を返す。`mistralrs_feature()` は Cpu/Auto に対して空文字列を返す。
 * **実装の背景と目的:** 環境変数によるランタイム上書きとコンパイル時デフォルトのハイブリッド方式。これによりユーザーはビルドオプションと実行時設定の両方で GPU プロバイダーを制御できる。
@@ -203,7 +203,7 @@
 
 #### ✅ チケット M1-3: GgufError From トレイト実装 (error.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§6 エラー型、各バリアントの From 実装)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§6 エラー型、各バリアントの From 実装)
 * **依存・関連チケットID:** 先行実装必須: M0-4。後続: 全実装チケットで `?` 演算子使用時に必要。
 * **対象不変条件 / 規範:** `From<mistralrs::Error>` は `#[from]` 属性で自動導出。`From<std::io::Error>` と `From<serde_json::Error>` は手動実装し、それぞれ `InvalidConfig` にマッピング。`From<anyhow::Error>` は実装せず、anyhow は上位層でのみ使用する。
 * **実装の背景と目的:** `?` 演算子による透過的なエラー伝搬を crate 全体で可能にする。mistralrs のエラー型変更に追随しやすいよう `#[from]` 属性で自動導出する部分と、意味的に適切なバリアントにマッピングする手動実装部分を明確に分離する。
@@ -219,7 +219,7 @@
 
 #### ✅ チケット M1-4: GgufConfig マージロジック (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M0-5。後続: M3-1（ファイルI/O を含む完全実装）。
 * **対象不変条件 / 規範:** `merge_overlay()` は上位優先度の設定を `self` に上書きマージする。models は `name` フィールドをキーにマージし、同名モデルは上書き、新規モデルは追加。server と gpu は上書き（`bind.port() != 0` かつ `provider != Auto` の場合のみ）。この関数は純粋で、外部I/O・エラーを発生させない。
 * **実装の背景と目的:** 3層マージの核となるロジック。この段階では同期的なマージのみを実装し、ファイル読み取りや JSON パースは M3-1 で追加する。これによりマージロジックを早期に単独テストできる。
@@ -244,7 +244,7 @@
 
 #### ✅ チケット M1-5: ModelRegistry 同期メソッド (registry.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `new()`, `from_config()`, `add_model()`, `list_models()`)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.1 ModelRegistry, `new()`, `from_config()`, `add_model()`, `list_models()`)
 * **依存・関連チケットID:** 先行実装必須: M0-6（ModelInfo）。後続: M2-2（非同期メソッド追加）。
 * **対象不変条件 / 規範:** `new()` は空の Registry を生成。`from_config()` は各 ModelConfig を ModelInfo に変換して保持。`add_model()` はスレッドセーフにモデルを追加（RwLock 使用）。`list_models()` は登録済みモデル名の一覧を返す。この段階では全て同期的。
 * **実装の背景と目的:** ModelRegistry の同期 API を先行実装し、非同期メソッド（モデルロード等）は M2-2 で追加する。分割により同期部分の単体テストを早期に行える。
@@ -273,7 +273,7 @@
 
 #### ✅ チケット M2-1: InferenceEngine トレイト定義 (inference/mod.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `InferenceEngine` トレイト)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.3 推論単位でのモデル切替, `InferenceEngine` トレイト)
 * **依存・関連チケットID:** 先行実装必須: M0-2（`DEFAULT_TEMPERATURE` 等の `GenerateParams` デフォルト値）、M0-3, M0-4。先行実装必須: M1-5（ModelRegistry の型が必要）。後続: M2-4（モックテスト）、M3-2/M3-3/M3-4（実装）。
 * **対象不変条件 / 規範:** トレイトは4メソッドを規定。全てのメソッドは `model_name: &str` を第一引数に取る。`Send + Sync` をスーパートレイトとして要求する。`#[async_trait]` マクロを使用。トレイト自体の変更なく mistralrs の新機能に対応できるよう、`send_raw()` で低レベルアクセス経路を確保する。
 * **実装の背景と目的:** ggufrs の最も重要な抽象化。このトレイトが crate の公開APIの中核となる。4メソッドのうち3つが高レベルAPI、1つが低レベルAPIという設計により、使いやすさと拡張性を両立する。`Send + Sync` 要求により `Arc<dyn InferenceEngine>` としてスレッドセーフに共有可能。
@@ -295,7 +295,7 @@
 
 #### ✅ チケット M2-2: ModelRegistry 非同期メソッド (registry.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.1 ModelRegistry, `get()`, `load_immediate()`, `load_all()`)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.1 ModelRegistry, `get()`, `load_immediate()`, `load_all()`)
 * **依存・関連チケットID:** 先行実装必須: M1-5。後続: M2-3（GgufEngine::new()）、M3-2（実モデルロード）。
 * **対象不変条件 / 規範:** `get()` は lazy_load=true かつ未ロードの場合のみロードを試みる。`load_immediate()` は lazy_load=false のモデルのみロード。`load_all()` は全モデルを強制ロード。ロード中は書き込みロックを取得し、それ以外は読み取りロックで動作。この段階ではモデルロードは `[::STUB::]` として `todo!()` または `Err(ModelLoadFailed)` を返す（M3-2 で実装）。
 * **実装の背景と目的:** モデルの遅延ロード機構の非同期ラッパーを先に実装し、実際の GgufModelBuilder 呼び出しは M3-2 で実装する。これにより ModelRegistry のロック戦略と async インターフェースを早期に確定できる。
@@ -314,7 +314,7 @@
 
 #### ✅ チケット M2-3: GgufEngine::new() 実装 (lib.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§1.2 GgufEngine のライフサイクル, `GgufEngine::new()`)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§1.2 GgufEngine のライフサイクル, `GgufEngine::new()`)
 * **依存・関連チケットID:** 先行実装必須: M2-2（ModelRegistry 非同期メソッド）、M0-5（GgufConfig）。後続: M3-1（GgufConfig::build 完全実装）、M4-2（サーバー起動）。
 * **対象不変条件 / 規範:** `new()` は設定から ModelRegistry を構築し、lazy_load=false のモデルをプリロードする。`server_handle` は初期状態で `None`。`GgufEngine` は `registry` と `server_handle` の2フィールドのみを持つ。
 * **実装の背景と目的:** ggufrs crate のエントリポイント。`GgufEngine::new()` が crate 利用者の最初の接触点となる。この段階ではサーバー関連機能は含めず、モデル管理と推論の基盤を提供する。
@@ -334,7 +334,7 @@
 
 #### ✅ チケット M2-4: mockall ベース単体テスト (lib.rs tests + inference/mod.rs tests)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§9.1 単体テスト)
 * **依存・関連チケットID:** 先行実装必須: M2-1（InferenceEngine トレイト）、M2-2（ModelRegistry）。
 * **対象不変条件 / 規範:** mockall の `mock!` マクロで InferenceEngine のモックを生成。各テストは Arrange-Act-Assert パターンに従う。実モデルは一切使用しない。全テストはメモリ内完結・決定論的。
 * **実装の背景と目的:** InferenceEngine トレイトの単体テストにより、トレイトの契約が正しいことを早期に検証する。ModelRegistry の各メソッドの境界値テストもここで実施する。実モデルが必要な結合テストは Phase E で行う。
@@ -368,7 +368,7 @@
 
 #### ✅ チケット M3-1: GgufConfig::build 完全実装 (config.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§4.2 JSON マルチソースマージ, §Implementation 設定マージの実装詳細)
 * **依存・関連チケットID:** 先行実装必須: M1-4（merge_overlay）。先行実装必須: M0-5（構造体定義）。後続: 全エントリポイント。
 * **対象不変条件 / 規範:** `build()` は3層を順次マージする。ファイル読み取りに失敗した場合は `GgufError::InvalidConfig` を返す。include_str! の JSON が不正な場合も `InvalidConfig`。マージ順序（低→高: コード → 埋め込みJSON → ファイルJSON）は不変。
 * **実装の背景と目的:** RFC の3層マージの中核実装。このチケットで初めてファイル I/O が導入される。include_str! はコンパイル時に埋め込まれるため、ファイル不存在のエラーは `build()` では発生せず、`from_file()` のみで発生する。この設計により、組み込み用途（voiput crate 等）ではファイル不在のリスクなく設定可能。
@@ -392,7 +392,7 @@
 
 #### ✅ チケット M3-2: InferenceEngine generate / generate_structured 実装 (inference/generate.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.3 推論単位でのモデル切替, `generate()`, `generate_structured()`, §5.1 Structured Output)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.3 推論単位でのモデル切替, `generate()`, `generate_structured()`, §5.1 Structured Output)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。後続: M3-3/M3-4（同じ impl ブロック内だが並行可能）、M4-1（サーバーからの呼び出し）。
 * **対象不変条件 / 規範:** `generate()` は `ModelRegistry::get(model_name)` でモデルを解決し、mistralrs の同期的推論 API を呼び出す。`generate_structured()` は mistralrs の Constraint::Grammar / Json を使用して JSON Schema 拘束を適用。どちらも model_name でモデルを切り替え可能。GenerateParams の値は mistralrs のパラメータに適切にマッピングされる。
 * **実装の背景と目的:** ggufrs の最も基本的な推論機能。このチケットで初めて mistralrs の実際の推論 API が呼ばれる。GgufModelBuilder の設定（context_size, gpu_layers 等）が ModelInfo のフィールドから正しく渡されることを保証する。
@@ -413,7 +413,7 @@
 
 #### ✅ チケット M3-3: InferenceEngine generate_stream 実装 (inference/stream.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.3 `generate_stream()`, §5.2 ストリーミングと通常生成)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.3 `generate_stream()`, §5.2 ストリーミングと通常生成)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2（依存関係は同一だがファイル分割されている）。
 * **対象不変条件 / 規範:** 戻り値は `Pin<Box<dyn Stream<Item = Result<String>> + Send>>`。ストリームは各チャンクを逐次的に生成し、エラー時は `Err` 項目を出力してストリームが終了する。チャンクの順序は保証される。
 * **実装の背景と目的:** ストリーミング生成はユーザー体験の要。最初のトークンが生成されるまでのレイテンシを最小化するため、逐次生成を採用する。
@@ -431,7 +431,7 @@
 
 #### ✅ チケット M3-4: InferenceEngine send_raw 実装 (inference/raw.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§2.3 `send_raw()`, 低レベルAPI設計)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§2.3 `send_raw()`, 低レベルAPI設計)
 * **依存・関連チケットID:** 先行実装必須: M2-1（トレイト定義）、M2-2（ModelRegistry::get）。並行可能: M3-2/M3-3。
 * **対象不変条件 / 規範:** `send_raw()` は mistralrs の `RequestBuilder` をそのまま受け取り、モデル名でモデルを解決して mistralrs に委譲する。戻り値は `ChatCompletionResponse`。このメソッドは mistralrs の全機能を透過的に提供するためのパススルーであり、ggufrs が引数や戻り値を解釈・加工しない。
 * **実装の背景と目的:** 高レベル3メソッドの限界を超えた mistralrs の全機能（tools, web search, code execution 等）にアクセスするためのパス。mistralrs が新機能を追加した場合も、`RequestBuilder` の拡張のみで対応でき、ggufrs のトレイト自体の変更は不要。
@@ -447,7 +447,7 @@
 
 #### ✅ チケット M3-5: lib.rs 統合・re-export 実装 (lib.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§8.3 mistralrs 型の re-export, モジュール構成)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§8.3 mistralrs 型の re-export, モジュール構成)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 実装完了）、M2-3（GgufEngine::new()）。後続: M4-2、M5-2。
 * **対象不変条件 / 規範:** 全ての公開型・トレイトが `pub use` で lib.rs から再エクスポートされる。crate 利用者は `use ggufrs::*` で全機能にアクセス可能。mistralrs の主要型（Model, RequestBuilder, TextMessages 等）も同様に re-export。
 * **実装の背景と目的:** crate の公開APIを統一的に提供する。crate 利用者が ggufrs だけを依存関係に追加すればよく、mistralrs を直接依存に追加する必要をなくす。
@@ -472,7 +472,7 @@
 
 #### ✅ チケット M4-1: サーバールーター + ハンドラ実装 (server/router.rs, server/openai.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§3.1 ハイブリッドアーキテクチャ, §3.2 ルーティング設計, §3.3 複数モデルのルーティング)
 * **依存・関連チケットID:** 先行実装必須: M3-2/M3-3/M3-4（InferenceEngine 全実装完了）。先行実装必須: M2-1（AppState 型定義に必要）。
 * **対象不変条件 / 規範:** `AppState = Arc<dyn InferenceEngine + Send + Sync>`。`AppError` は `GgufError` から自動変換。ハンドラはリクエストボディから model フィールドを抽出し、InferenceEngine のメソッドを呼び出す。3つのエンドポイントを実装：OpenAI /v1/chat/completions、/v1/models、Anthropic /anthropic/v1/messages。
 * **実装の背景と目的:** サーバーモードのコア実装。Axum のルーター層でモデル名を解決し、実際の LLM 推論は InferenceEngine に委譲する。OpenAI 互換と Anthropic 互換の2系統のエンドポイントを同一サーバーで提供する。
@@ -501,7 +501,7 @@
 
 #### ✅ チケット M4-2: GgufEngine サーバー統合 (lib.rs, server/mod.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§3.4 非同期サーバー起動とシャットダウン, §Implementation サーバー起動のフラグ制御)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター実装）、M2-3（GgufEngine::new()）。後続: M5-2（test-run バイナリから呼び出し）。
 * **対象不変条件 / 規範:** `start_server()` は `self: Arc<Self>` を要求し、JoinHandle を内部に保存して返す。`new_with_auto_start()` は `auto_start_server=true` の場合のみサーバーを自動起動。`Drop` 実装は `server_handle.abort()` を呼ぶ。`shutdown_signal()` は Ctrl+C と SIGTERM を補足。
 * **実装の背景と目的:** サーバーのライフサイクル管理。`start_server()` はいつでも呼び出し可能で、呼び出し元は戻り値の JoinHandle で死活監視・abort・終了待機ができる。Drop 時の graceful shutdown によりリソースリークを防止する。
@@ -526,7 +526,7 @@
 
 #### ✅ チケット M4-3: サーバー結合テスト (tests/server_integration_test.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9.1 単体テスト, §9.2 結合テスト)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§9.1 単体テスト, §9.2 結合テスト)
 * **依存・関連チケットID:** 先行実装必須: M4-1（ルーター）、M4-2（サーバー起動）。並行可能: 他テスト。
 * **対象不変条件 / 規範:** mockall のモックエンジンを使用。実モデルは不要。サーバーはポート 0 で起動し OS が自動割当。各テストは独立したサーバーインスタンスで実行。
 * **実装の背景と目的:** サーバーの結合テストにより、ルーター・ハンドラ・モデル解決の一連の流れが正しく動作することを確認する。モックエンジンを使用するため、実モデルがなくても高速に実行可能。
@@ -555,7 +555,7 @@
 
 #### ✅ チケット M5-1: build.rs モデル自動ダウンロード
 
-* **参照設計書:** crates/ggufrs/RFC.md (§7.1 ダウンロード方式, §7.2 ファイル構成, Appendix A)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§7.1 ダウンロード方式, §7.2 ファイル構成, Appendix A)
 * **依存・関連チケットID:** 先行実装必須: M0-1（Cargo.toml）。独立して実装可能（他のクレートコードに依存しない）。
 * **対象不変条件 / 規範:** ダウンロードは curl（Unix）または powershell（Windows）で行う。タイムアウトは60秒。ダウンロード失敗時は不完全ファイルを削除して panic。モデルファイルが既に存在する場合はスキップする。`cargo:rerun-if-changed=models/` で再ビルド条件を指定。
 * **実装の背景と目的:** 「clone & build」だけで推論実行を可能にするための最重要機能。voiput crate と同一方式を採用し、プロジェクト全体の一貫性を保つ。2つのビルトインモデル（Qwen3.5-0.8B, Qwen3.5-2B）を自動ダウンロードする。
@@ -576,7 +576,7 @@
 
 #### ✅ チケット M5-2: test-run バイナリ (src/bin/test-run.rs)
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9.3 test-run バイナリ)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§9.3 test-run バイナリ)
 * **依存・関連チケットID:** 先行実装必須: M3-5（lib.rs 統合）。先行推奨: M4-2（サーバー起動、必須ではない）。
 * **対象不変条件 / 規範:** 3パターンの推論を順次実行：Structured Output → 通常生成 → ストリーミング生成。各パターンはセパレーターとラベル付きで表示。最終サマリーで全パターンの PASS/FAIL を一覧表示。`cargo run --bin test-run` で実行可能。
 * **実装の背景と目的:** 人間が目視確認できる全パターン推論実行バイナリ。開発中のクイックチェックと、エンドツーエンドの動作検証を目的とする。実モデルを使用するため、build.rs でモデルがダウンロード済みであることが前提。
@@ -711,7 +711,7 @@
 
 #### チケット M5-3: 結合テスト (tests/integration_test.rs) — Gemma4 版
 
-* **参照設計書:** crates/ggufrs/RFC.md (§9.2 結合テスト), crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§9.2 結合テスト), crates/ggufrs/docs/mistralrs-gemma4-e2b-e4b/mistralrs-gemma4-guide.md
 * **依存・関連チケットID:** 先行実装必須: M5-2.3（デフォルトモデル Gemma4 切替）。先行実装必須: M3-5（全推論機能実装完了）。
 * **対象不変条件 / 規範:** 実モデル（Gemma4 E2B）を使用。モデルが存在しない場合はテストが失敗する（フォールバックなし）。`GpuProvider::Cpu` + `cpu_only: true` で GPU 非依存。`#[ignore]` 属性で CI ではスキップ可能。
 * **実装の背景と目的:** 実際の UQFF モデル（Gemma4 E2B）を使ったエンドツーエンドの結合テスト。build.rs がダウンロードしたモデルを使用するため、手動配置は不要。開発環境でのみ実行し、CI では `#[ignore]` で明示的にスキップする。
@@ -732,7 +732,7 @@
 
 #### チケット M5-4: Cargo.toml feature flags 最終調整 + GPU 自動検証
 
-* **参照設計書:** crates/ggufrs/RFC.md (§8.1 Cargo.toml, §8.2 GPU feature の分離)
+* **参照設計書:** crates/ggufrs/RFC-ROOT.md (§8.1 Cargo.toml, §8.2 GPU feature の分離)
 * **依存・関連チケットID:** 先行実装必須: M0-1（Cargo.toml 骨格）。後続処理なし（最終調整）。
 * **対象不変条件 / 規範:** `default = ["cpu"]`。cpu feature は空。metal/cuda/directml は mistralrs の対応 feature を有効化。`make check-be` が成功すること。GPU feature がコンパイル時に正しく分離されていること。
 * **実装の背景と目的:** 開発の最終段階で feature flags を再確認・調整する。実際の mistralrs の feature 構造と ggufrs の feature 設計が一致していることを検証し、必要に応じて調整する。

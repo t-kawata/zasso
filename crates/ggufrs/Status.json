@@ -1,7 +1,7 @@
 {
   "state": "DONE",
   "researchPath": "/Users/kawata/shyme/zasso/crates/ggufrs/docs/change-to-llama-cpp",
-  "rfcPath": "/Users/kawata/shyme/zasso/crates/ggufrs/RFC.md",
+  "rfcPath": "/Users/kawata/shyme/zasso/crates/ggufrs/RFC-ROOT.md",
   "rfcDir": "/Users/kawata/shyme/zasso/crates/ggufrs",
   "reviewLoopCount": 2,
   "createdAt": "2026-06-19T06:20:43.230Z",

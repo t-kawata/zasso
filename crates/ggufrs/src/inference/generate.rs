@@ -25,6 +25,7 @@
 //!   → serde_json::from_str(&result)         // JSON パース
 //! ```
 
+use std::borrow::Cow;
 use std::num::NonZeroU32;
 use std::pin::Pin;
 
@@ -51,6 +52,13 @@ pub(crate) struct InferenceParams {
     pub(crate) temperature: f32,
     pub(crate) max_tokens: i32,
     pub(crate) top_p: Option<f32>,
+    /// 思考モード制御フラグ
+    ///
+    /// `true` で `/think`、`false` で `/no_think` を
+    /// `run_inference_blocking` がプロンプトに自動付与する。
+    /// `GenerateParams::enable_thinking` が `None` の場合は
+    /// `false`（安全側デフォルト）として扱う。
+    pub(crate) enable_thinking: bool,
 }
 
 impl From<GenerateParams> for InferenceParams {
@@ -59,6 +67,7 @@ impl From<GenerateParams> for InferenceParams {
             temperature: params.temperature.unwrap_or(0.1),
             max_tokens: params.max_tokens.unwrap_or(256) as i32,
             top_p: params.top_p,
+            enable_thinking: params.enable_thinking.unwrap_or(false),
         }
     }
 }
@@ -75,8 +84,8 @@ pub(crate) fn decode_token(model: &LlamaModel, token: LlamaToken) -> Result<Vec<
         Ok(bytes) => Ok(bytes),
         Err(llama_cpp_2::TokenToStringError::InsufficientBufferSpace(needed)) => {
             // 必要なサイズで再試行（needed は負数）
-            let size = usize::try_from(-needed)
-                .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
+            let size =
+                usize::try_from(-needed).map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
             model
                 .token_to_piece_bytes(token, size, false, None)
                 .map_err(|e| GgufError::InferenceFailed(Box::new(e)))
@@ -90,6 +99,7 @@ pub(crate) fn decode_token(model: &LlamaModel, token: LlamaToken) -> Result<Vec<
 /// `spawn_blocking` 内部のクロージャから呼び出されるヘルパー関数。
 /// 以下の処理を順次実行する:
 ///
+/// 0. 思考モード制御（`enable_thinking` に応じて `/think`/`/no_think` 付与）
 /// 1. プロンプトをトークン化
 /// 2. 推論コンテキスト作成
 /// 3. プロンプトバッチをデコード
@@ -111,9 +121,21 @@ fn run_inference_blocking(
     params: &InferenceParams,
     grammar: Option<&str>,
 ) -> Result<String, GgufError> {
+    // ── 0. 思考モード制御 ──
+    //
+    // Qwen3.5 系モデルは `/think` / `/no_think` コマンドで
+    // 思考プロセス（`<think>` タグ）の出力を制御する。
+    // llama-cpp-2 v0.1.150 の Rust API には enable_thinking が
+    // 存在しないため、プロンプトレベルで制御する。
+    let augmented_prompt = if params.enable_thinking {
+        Cow::Owned(format!("/think {}", prompt))
+    } else {
+        Cow::Borrowed(prompt)
+    };
+
     // ── 1. プロンプトをトークン化 ──
     let tokens = model
-        .str_to_token(prompt, AddBos::Always)
+        .str_to_token(&augmented_prompt, AddBos::Always)
         .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
 
     if tokens.is_empty() {
@@ -122,8 +144,8 @@ fn run_inference_blocking(
 
     // ── 2. 推論コンテキスト作成 ──
     let n_ctx = tokens.len() + params.max_tokens as usize;
-    let ctx_params = LlamaContextParams::default()
-        .with_n_ctx(NonZeroU32::new(n_ctx.max(512) as u32));
+    let ctx_params =
+        LlamaContextParams::default().with_n_ctx(NonZeroU32::new(n_ctx.max(512) as u32));
     let mut ctx = model
         .new_context(backend, ctx_params)
         .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
@@ -153,9 +175,8 @@ fn run_inference_blocking(
 
     // GBNF 文法制約（generate_structured 用）
     if let Some(grammar_str) = grammar {
-        let grammar_sampler =
-            LlamaSampler::grammar(model, grammar_str, "root")
-                .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
+        let grammar_sampler = LlamaSampler::grammar(model, grammar_str, "root")
+            .map_err(|e| GgufError::InferenceFailed(Box::new(e)))?;
         sampler_chain.push(grammar_sampler);
     }
 
@@ -246,9 +267,7 @@ impl InferenceEngine for GgufEngine {
         schema: Value,
     ) -> Result<Value, GgufError> {
         let gbnf_grammar = gbnf::Grammar::from_json_schema_value(&schema)
-            .map_err(|e| {
-                GgufError::InvalidConfig(format!("JSON Schema → GBNF failed: {e}"))
-            })?;
+            .map_err(|e| GgufError::InvalidConfig(format!("JSON Schema → GBNF failed: {e}")))?;
         let gbnf_grammar_str = gbnf_grammar.to_string();
 
         let model = self.registry.get(model_name).await?;
@@ -269,8 +288,7 @@ impl InferenceEngine for GgufEngine {
         .map_err(|e| GgufError::InferenceFailed(Box::new(e)))??;
 
         // GBNF 制約により JSON が保証されているため、パースは安全
-        serde_json::from_str(&result)
-            .map_err(|e| GgufError::InferenceFailed(Box::new(e)))
+        serde_json::from_str(&result).map_err(|e| GgufError::InferenceFailed(Box::new(e)))
     }
 
     /// ストリーミングテキスト生成
@@ -316,6 +334,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert!((ip.temperature - 0.7).abs() < f32::EPSILON);
@@ -329,6 +348,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert_eq!(ip.max_tokens, 512);
@@ -342,6 +362,7 @@ mod tests {
             top_p: Some(0.9),
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert!((ip.top_p.unwrap() - 0.9).abs() < f32::EPSILON);
@@ -355,6 +376,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert!((ip.temperature - 0.1).abs() < f32::EPSILON);
@@ -368,6 +390,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert_eq!(ip.max_tokens, 256);
@@ -381,6 +404,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert!(ip.top_p.is_none());
@@ -394,6 +418,7 @@ mod tests {
             top_p: Some(0.95),
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert!((ip.temperature - 0.3).abs() < f32::EPSILON);
@@ -409,6 +434,7 @@ mod tests {
             top_p: None,
             presence_penalty: None,
             frequency_penalty: None,
+            enable_thinking: None,
         };
         let ip = InferenceParams::from(gp);
         assert_eq!(ip.max_tokens, 0);
@@ -426,9 +452,12 @@ mod tests {
             },
             "required": ["name"]
         });
-        let grammar = gbnf::Grammar::from_json_schema_value(&schema)
-            .expect("valid schema should convert");
-        assert!(!grammar.items.is_empty(), "GBNF grammar should not be empty");
+        let grammar =
+            gbnf::Grammar::from_json_schema_value(&schema).expect("valid schema should convert");
+        assert!(
+            !grammar.items.is_empty(),
+            "GBNF grammar should not be empty"
+        );
     }
 
     #[test]
@@ -437,9 +466,12 @@ mod tests {
             "type": "array",
             "items": {"type": "number"}
         });
-        let grammar = gbnf::Grammar::from_json_schema_value(&schema)
-            .expect("array schema should convert");
-        assert!(!grammar.items.is_empty(), "GBNF grammar should not be empty");
+        let grammar =
+            gbnf::Grammar::from_json_schema_value(&schema).expect("array schema should convert");
+        assert!(
+            !grammar.items.is_empty(),
+            "GBNF grammar should not be empty"
+        );
     }
 
     #[test]
@@ -448,6 +480,38 @@ mod tests {
         let schema = serde_json::json!(["not", "an", "object"]);
         let result = gbnf::Grammar::from_json_schema_value(&schema);
         assert!(result.is_err(), "non-object schema should fail");
+    }
+
+    // ── InferenceParams 変換テスト ──
+
+    /// GenerateParams::enable_thiking=None は InferenceParams で false になる
+    #[test]
+    fn inference_params_enable_thinking_default_is_false() {
+        let gp = GenerateParams::default();
+        let ip = InferenceParams::from(gp);
+        assert!(!ip.enable_thinking, "None からのデフォルトは false");
+    }
+
+    /// GenerateParams::enable_thinking=true が InferenceParams に伝播する
+    #[test]
+    fn inference_params_enable_thinking_true_propagates() {
+        let gp = GenerateParams {
+            enable_thinking: Some(true),
+            ..GenerateParams::default()
+        };
+        let ip = InferenceParams::from(gp);
+        assert!(ip.enable_thinking);
+    }
+
+    /// GenerateParams::enable_thinking=false が InferenceParams に伝播する
+    #[test]
+    fn inference_params_enable_thinking_false_propagates() {
+        let gp = GenerateParams {
+            enable_thinking: Some(false),
+            ..GenerateParams::default()
+        };
+        let ip = InferenceParams::from(gp);
+        assert!(!ip.enable_thinking);
     }
 
     // ── ファイル構成テスト（コンパイル時） ──
