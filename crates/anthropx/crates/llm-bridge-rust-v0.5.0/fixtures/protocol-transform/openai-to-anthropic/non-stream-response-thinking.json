@@ -1,0 +1,78 @@
+{
+  "name": "openai_response_to_anthropic_non_stream_thinking",
+  "mode": "non_stream",
+  "notes": "Non-stream OpenAI reasoning_content and tool_calls should become Anthropic thinking, text, and tool_use blocks.",
+  "input": {
+    "headers": {
+      "authorization": "Bearer OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/chat/completions",
+    "body": {
+      "id": "chatcmpl-thinking",
+      "model": "qwen3.6-plus",
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "message": {
+            "role": "assistant",
+            "reasoning_content": "Inspecting the route table.",
+            "content": "I need to query the code graph.",
+            "tool_calls": [
+              {
+                "id": "call_abc123",
+                "type": "function",
+                "function": {
+                  "name": "codegraph_search",
+                  "arguments": "{\"query\":\"sso google login\"}"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 11
+      }
+    }
+  },
+  "expected": {
+    "headers": {
+      "x-api-key": "OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "id": "chatcmpl-thinking",
+      "type": "message",
+      "role": "assistant",
+      "model": "qwen3.6-plus",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "Inspecting the route table.",
+          "signature": "bGxtLWJyaWRnZS1zeW50aGV0aWMtdGhpbmtpbmctc2lnbmF0dXJl"
+        },
+        {
+          "type": "text",
+          "text": "I need to query the code graph."
+        },
+        {
+          "type": "tool_use",
+          "id": "call_abc123",
+          "name": "codegraph_search",
+          "input": {
+            "query": "sso google login"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 42,
+        "output_tokens": 11
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "input_web_search_options_high",
+  "description": "OpenAI Chat request with web_search_options set to high context size, which should map to Anthropic web_search_20250305 tool with max_uses: 10.",
+  "input": {
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What are the latest developments in quantum computing?"
+      }
+    ],
+    "web_search_options": {
+      "search_context_size": "high"
+    }
+  },
+  "expected": {
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What are the latest developments in quantum computing?"
+      }
+    ],
+    "web_search_options": {
+      "search_context_size": "high"
+    }
+  }
+}

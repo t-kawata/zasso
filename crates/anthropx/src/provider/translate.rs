@@ -32,7 +32,7 @@ use llm_bridge_core::model::{
 use llm_bridge_core::stream::{events_to_sse, transform_stream_events};
 use llm_bridge_core::transform::{
     anthropic_to_openai, anthropic_to_openai_responses, openai_response_to_anthropic_message,
-    responses_to_anthropic,
+    responses_response_to_anthropic,
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -411,7 +411,7 @@ async fn translate_non_stream(
         LlmApiFormat::OpenaiChat | LlmApiFormat::AnthropicMessages => {
             openai_response_to_anthropic_message(&response_req)
         }
-        LlmApiFormat::OpenaiResponses => responses_to_anthropic(&response_req),
+        LlmApiFormat::OpenaiResponses => responses_response_to_anthropic(&response_req),
         _ => {
             return Err(ProxyError::Internal(format!(
                 "unsupported API format: {llm_format:?}"

@@ -1,0 +1,50 @@
+{
+  "name": "openai_to_anthropic_stream_text",
+  "mode": "stream",
+  "notes": "OpenAI data-only SSE text stream normalized into Anthropic message events.",
+  "input": {
+    "events": [
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}"
+      },
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":2}}"
+      },
+      {
+        "raw_sse": "data: [DONE]"
+      }
+    ]
+  },
+  "expected": {
+    "events": [
+      { "type": "message_start" },
+      {
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": { "type": "text", "text": "" }
+      },
+      {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": { "type": "text_delta", "text": "Hel" }
+      },
+      {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": { "type": "text_delta", "text": "lo" }
+      },
+      { "type": "content_block_stop", "index": 0 },
+      {
+        "type": "message_delta",
+        "delta": { "stop_reason": "end_turn", "stop_sequence": null },
+        "usage": { "input_tokens": 12, "output_tokens": 2 }
+      },
+      { "type": "message_stop" }
+    ],
+    "terminal_state": {
+      "message_stop": true,
+      "error": null,
+      "stop_reason": "end_turn"
+    }
+  }
+}

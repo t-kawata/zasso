@@ -1,0 +1,60 @@
+{
+  "name": "anthropic_to_openai_non_stream_tool_use",
+  "mode": "non_stream",
+  "notes": "Anthropic assistant tool_use block should map to OpenAI assistant tool_calls instead of content array entries.",
+  "input": {
+    "headers": {
+      "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "messages": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Let me check the weather."
+            },
+            {
+              "type": "tool_use",
+              "id": "toolu_123",
+              "name": "get_weather",
+              "input": {
+                "city": "Paris"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expected": {
+    "headers": {
+      "authorization": "Bearer ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "Let me check the weather.",
+          "tool_calls": [
+            {
+              "id": "toolu_123",
+              "type": "function",
+              "function": {
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Paris\"}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "input_with_dangerous_fields",
+  "description": "OpenAI Chat request body containing dangerous/protocol-specific fields that should be stripped before forwarding to Anthropic.",
+  "input": {
+    "model": "gpt-4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather in Tokyo?"
+      }
+    ],
+    "service_tier": "priority",
+    "safety_identifier": "safety-v2-20240301",
+    "inference_geo": "EU",
+    "speed": "fast"
+  },
+  "expected": {
+    "model": "gpt-4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather in Tokyo?"
+      }
+    ]
+  }
+}

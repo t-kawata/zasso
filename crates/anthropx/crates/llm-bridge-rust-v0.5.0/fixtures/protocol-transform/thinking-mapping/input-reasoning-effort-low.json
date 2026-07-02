@@ -1,0 +1,26 @@
+{
+  "name": "input_reasoning_effort_low",
+  "description": "OpenAI Chat request with reasoning_effort set to 'low', which should map to Anthropic thinking config with budget_tokens: 1280.",
+  "input": {
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Solve this math problem step by step."
+      }
+    ],
+    "reasoning_effort": "low",
+    "max_tokens": 4000
+  },
+  "expected": {
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Solve this math problem step by step."
+      }
+    ],
+    "reasoning_effort": "low",
+    "max_tokens": 4000
+  }
+}

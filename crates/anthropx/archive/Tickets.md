@@ -237,13 +237,13 @@
 * **依存・関連チケットID:** 先行実装必須: M0-1, M1-2。後続: 全チケット
 * **対象不変条件 / 規範:**
   - TOML 読み込み後に `validate()` を自動呼び出し（RFC §2）
-  - CLI は `-t <path>` のみ（RFC §2）
+  - CLI は `-c <path>` のみ（RFC §2）
   - `from_toml` とプログラム的構築の二刀流（RFC §2）
 * **実装の背景と目的:** ファイル I/O を含む最初のチケット。`toom` クレートで TOML をパースし、`AppConfig::validate()` で検証する。CLI は `clap` で実装。
 * **実装スコープ:**
   - `impl AppConfig { pub fn from_toml(path: &Path) -> Result<Self, ConfigError> }`
     - `std::fs::read_to_string` → `toml::from_str` → `validate()`
-  - `cli::parse_args() -> PathBuf`（clap: `-t <path>` 必須引数）
+  - `cli::parse_args() -> PathBuf`（clap: `-c <path>` 必須引数）
   - Validate エラー発生時のエラーメッセージ整形（全エラーを表示）
 * **テストコードによる検証:**
   1. 正常な TOML → `Ok(AppConfig)` （全フィールド期待値一致）
@@ -251,7 +251,7 @@
   3. 不正な TOML 構文 → `Err(ConfigError::Parse)`
   4. 無効な値（port=0）→ `Err(ConfigError::ValidationFailed)`（中身に該当エラーを含む）
   5. 空の `api_keys` → 複数エラー集約
-  6. CLI: `-t` なし → clap がエラー終了（テストは `debug_assert` または `assert!(clap_result.is_err())`）
+  6. CLI: `-c` なし → clap がエラー終了（テストは `debug_assert` または `assert!(clap_result.is_err())`）
 * **計装方法・観測対象:** パースエラーの種類分布、ファイル読み込みのレイテンシ、検証エラー数の平均
 
 ---
@@ -497,7 +497,7 @@
 * **テストコードによる検証:**
   1. コンパイル: `cargo build --features server` が成功
   2. コンパイル: `cargo build --no-default-features` が成功（binary なし）
-  3. `cargo run -- -t <config>` で起動・終了（integration test）
+  3. `cargo run -- -c <config>` で起動・終了（integration test）
 * **計装方法・観測対象:** バイナリサイズ、起動時間、依存クレート数
 
 #### ✅ チケット M4-3: Mock server integration tests

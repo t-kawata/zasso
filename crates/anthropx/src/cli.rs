@@ -1,7 +1,7 @@
 //! # CLI 引数解析
 //!
 //! `clap` を使用したコマンドライン引数の解析。
-//! 現状は `-t <config.toml>` のみを受け付ける。
+//! 現状は `-c <config.toml>` のみを受け付ける。
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[command(name = "anthropx", version, about)]
 pub struct Cli {
     /// Path to TOML configuration file
-    #[arg(short = 't', long = "config", required = true)]
+    #[arg(short = 'c', long = "config", required = true)]
     pub config: PathBuf,
 }
 
@@ -30,15 +30,15 @@ pub fn parse_args() -> Cli {
 mod tests {
     use super::*;
 
-    /// `-t <path>` が正しくパースされること。
+    /// `-c <path>` が正しくパースされること。
     #[test]
     fn parse_args_with_config() {
-        let cli = Cli::try_parse_from(["anthropx", "-t", "/etc/anthropx/config.toml"])
-            .expect("should parse with -t");
+        let cli = Cli::try_parse_from(["anthropx", "-c", "/etc/anthropx/config.toml"])
+            .expect("should parse with -c");
         assert_eq!(cli.config.to_str().unwrap(), "/etc/anthropx/config.toml");
     }
 
-    /// `-t` なしではエラーになること。
+    /// `-c` なしではエラーになること。
     #[test]
     fn parse_args_missing_config() {
         let result = Cli::try_parse_from(["anthropx"]);

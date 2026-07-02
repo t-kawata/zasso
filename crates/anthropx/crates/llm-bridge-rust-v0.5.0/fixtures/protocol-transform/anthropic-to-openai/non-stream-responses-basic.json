@@ -1,0 +1,52 @@
+{
+  "name": "anthropic_to_openai_responses_non_stream_basic",
+  "mode": "non_stream",
+  "notes": "Anthropic Messages basic request should normalize into OpenAI Responses API with instructions, input array, and config fields.",
+  "input": {
+    "headers": {
+      "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "max_tokens": 256,
+      "system": "You are a concise assistant.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Say hello in one sentence."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expected": {
+    "headers": {
+      "authorization": "Bearer ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/responses",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "instructions": "You are a concise assistant.",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Say hello in one sentence."
+            }
+          ]
+        }
+      ],
+      "max_output_tokens": 256
+    }
+  }
+}

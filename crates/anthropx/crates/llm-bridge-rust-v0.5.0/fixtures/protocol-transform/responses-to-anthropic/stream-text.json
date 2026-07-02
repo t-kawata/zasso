@@ -1,0 +1,42 @@
+{
+  "name": "responses-to-anthropic/stream-text",
+  "mode": "stream",
+  "input": {
+    "events": [
+      {
+        "raw_sse": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_fixture_1\",\"model\":\"gpt-4o\"}}"
+      },
+      {
+        "raw_sse": "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"content_index\":0,\"item\":{\"type\":\"message\",\"role\":\"assistant\"}}"
+      },
+      {
+        "raw_sse": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\"}"
+      },
+      {
+        "raw_sse": "event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"output_index\":0,\"content_index\":0,\"text\":\"Hello\"}"
+      },
+      {
+        "raw_sse": "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"message\"}}"
+      },
+      {
+        "raw_sse": "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_fixture_1\",\"model\":\"gpt-4o\",\"usage\":{\"input_tokens\":10,\"output_tokens\":1}}}"
+      }
+    ]
+  },
+  "expected": {
+    "downstream_sse_contains": [
+      "event: message_start",
+      "\"type\":\"message_start\"",
+      "\"id\":\"resp_fixture_1\"",
+      "event: content_block_start",
+      "\"type\":\"text\"",
+      "event: content_block_delta",
+      "\"type\":\"text_delta\"",
+      "\"text\":\"Hello\"",
+      "event: content_block_stop",
+      "event: message_delta",
+      "\"stop_reason\":\"end_turn\"",
+      "event: message_stop"
+    ]
+  }
+}

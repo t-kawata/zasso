@@ -1,0 +1,117 @@
+{
+  "name": "anthropic_openai_non_stream_thinking_tool_use",
+  "mode": "non_stream",
+  "input": {
+    "anthropic_request": {
+      "headers": {
+        "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+        "content-type": "application/json"
+      },
+      "path": "/v1/messages",
+      "body": {
+        "model": "claude-sonnet-4-20250514",
+        "stream": false,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Check the SSO route."
+          }
+        ],
+        "thinking": {
+          "type": "enabled",
+          "budget_tokens": 2048
+        },
+        "tools": [
+          {
+            "name": "codegraph_search",
+            "description": "Search the code graph",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          }
+        ],
+        "tool_choice": {
+          "type": "any"
+        }
+      }
+    },
+    "upstream_response_body": {
+      "id": "chatcmpl-e2e",
+      "model": "qwen3.6-plus",
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "message": {
+            "role": "assistant",
+            "reasoning_content": "I should inspect the route declarations first.",
+            "content": "I'll query the code graph.",
+            "tool_calls": [
+              {
+                "id": "call_e2e_1",
+                "type": "function",
+                "function": {
+                  "name": "codegraph_search",
+                  "arguments": "{\"query\":\"sso google login\"}"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 40,
+        "completion_tokens": 12
+      }
+    }
+  },
+  "expected": {
+    "openai_request_path": "/v1/chat/completions",
+    "openai_request_body": {
+      "model": "claude-sonnet-4-20250514",
+      "stream": false,
+      "tool_choice": "required",
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "codegraph_search"
+          }
+        }
+      ]
+    },
+    "anthropic_response_body": {
+      "type": "message",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "I should inspect the route declarations first."
+        },
+        {
+          "type": "text",
+          "text": "I'll query the code graph."
+        },
+        {
+          "type": "tool_use",
+          "id": "call_e2e_1",
+          "name": "codegraph_search",
+          "input": {
+            "query": "sso google login"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 40,
+        "output_tokens": 12
+      }
+    }
+  }
+}

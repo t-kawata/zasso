@@ -1,6 +1,6 @@
 # anthropx 設定ファイル例
 #
-# 使用: ./anthropx -t config.example.toml
+# 使用: ./anthropx -c config.example.toml
 #
 # ─── 基本構造 ───
 #

@@ -1,0 +1,26 @@
+{
+  "name": "expected_stripped",
+  "description": "Expected result after stripping dangerous fields (service_tier, safety_identifier, inference_geo, speed) from an OpenAI Chat request body.",
+  "input": {
+    "model": "gpt-4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather in Tokyo?"
+      }
+    ],
+    "service_tier": "priority",
+    "safety_identifier": "safety-v2-20240301",
+    "inference_geo": "EU",
+    "speed": "fast"
+  },
+  "expected": {
+    "model": "gpt-4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather in Tokyo?"
+      }
+    ]
+  }
+}

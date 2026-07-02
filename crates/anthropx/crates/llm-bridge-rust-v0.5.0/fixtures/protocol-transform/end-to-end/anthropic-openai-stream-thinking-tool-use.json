@@ -1,0 +1,76 @@
+{
+  "name": "anthropic_openai_stream_thinking_tool_use",
+  "mode": "stream",
+  "input": {
+    "anthropic_request": {
+      "headers": {
+        "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+        "content-type": "application/json"
+      },
+      "path": "/v1/messages",
+      "body": {
+        "model": "claude-sonnet-4-20250514",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Check the SSO route."
+          }
+        ],
+        "thinking": {
+          "type": "enabled",
+          "budget_tokens": 2048
+        },
+        "tools": [
+          {
+            "name": "codegraph_search",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          }
+        ],
+        "tool_choice": {
+          "type": "any"
+        }
+      }
+    },
+    "upstream_events": [
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"I should inspect the route declarations first.\"}}]}"
+      },
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_e2e_1\",\"function\":{\"name\":\"codegraph_search\",\"arguments\":\"{\\\"query\\\":\\\"sso google login\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":40,\"completion_tokens\":12}}"
+      },
+      {
+        "raw_sse": "data: [DONE]"
+      }
+    ]
+  },
+  "expected": {
+    "openai_request_path": "/v1/chat/completions",
+    "openai_request_body": {
+      "stream": true,
+      "tool_choice": "required"
+    },
+    "downstream_sse_contains": [
+      "event: message_start",
+      "event: content_block_start",
+      "\"type\":\"thinking_delta\"",
+      "I should inspect the route declarations first.",
+      "\"type\":\"signature_delta\"",
+      "\"name\":\"codegraph_search\"",
+      "\"type\":\"input_json_delta\"",
+      "sso google login",
+      "\"stop_reason\":\"tool_use\"",
+      "event: message_stop"
+    ]
+  }
+}

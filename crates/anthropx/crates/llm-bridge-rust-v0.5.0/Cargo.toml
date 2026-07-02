@@ -1,0 +1,31 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+version = "0.5.0"
+authors = ["baoyx19870908@gmail.com"]
+edition = "2024"
+license = "Apache-2.0"
+documentation = "https://docs.rs/llm-bridge-core"
+repository = "https://github.com/TokenFleet-AI/llm-bridge-rust"
+homepage = "https://github.com/TokenFleet-AI/llm-bridge-rust"
+readme = "README.md"
+
+[workspace.dependencies]
+anyhow = "1.0.102"
+bytes = "1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.142"
+thiserror = "2.0.18"
+tokio = { version = "1.52", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
+tracing = "0.1"
+axum = "0.8"
+reqwest = { version = "0.12", features = ["stream", "json", "native-tls"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["limit"] }
+http = "1"
+http-body-util = "0.1"
+futures = "0.3"
+typed-builder = "0.20"
+subtle = "2.6"

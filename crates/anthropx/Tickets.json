@@ -448,6 +448,195 @@
           "completedAt": "2026-07-01"
         }
       ]
+    },
+    {
+      "id": 7,
+      "name": "llm-bridge-core: Responses レスポンス逆変換（純粋関数）",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 7,
+          "status": "reviewed",
+          "title": "responses_response_to_anthropic(): Responses レスポンス→Anthropic レスポンス変換の実装",
+          "referenceSection": "anthropx/RFC-X-001.md (§D-1)",
+          "background": "anthropx の translate mode で openai_wire_api = \"responses\" を指定した場合、OpenAI Responses API からの非ストリーミングレスポンスが正しく Anthropic Messages 形式に逆変換されない。原因は translate.rs L414 が誤って responses_to_anthropic()（リクエスト→リクエスト変換）をレスポンス逆変換に使用していることにある。ストリーミングパスは別実装で正しく動作。Chat Completions パスも正常動作。",
+          "scope": [
+            "pub fn responses_response_to_anthropic(req: &TransformRequest) -> Result<TransformResponse, TransformError>",
+            "fn map_responses_status_to_anthropic_stop_reason(status: &str, incomplete_details: Option<&Value>) -> Option<&str>",
+            "ResponsesResponseBody / ResponsesOutputItem 等のレスポンスパース用構造体追加",
+            "response_transforms.rs 内の実装（約140行）"
+          ],
+          "relatedTicketIds": "入力元: anthropic_to_openai_responses / 出力先: P8-1 translate.rs 呼出差替",
+          "testVerification": [
+            "正常系: 基本的な Responses レスポンス（reasoning + message + output_text）を正しい Anthropic レスポンスに変換できる",
+            "正常系: function_call を含むレスポンスを tool_use ブロックに変換できる",
+            "異常系: status=failed のレスポンスが正しくエラー扱いされる",
+            "境界値: output が空配列の場合の動作確認",
+            "境界値: status=incomplete + reason=max_output_tokens の stop_reason が max_tokens になる",
+            "境界値: reasoning ブロックがない場合（thinking ブロック生成抑制）",
+            "境界値: id/model/usage 欠落時のデフォルト値確認"
+          ],
+          "testExceptions": [],
+          "instrumentation": "静的品質チェック: 6件(全て偽陽性: 標準コメント/STUBマーカー/Step説明)\n翻訳可能性: 問題なし\nテスト: 117/117成功\nclippy pedantic: 警告0\nコンパイル: 成功",
+          "notes": "レビュー報告書 (2026-07-02):\n\n## 検証結果\n- cargo check --all-targets: ✅ 警告0\n- cargo clippy -- -D warnings -W clippy::pedantic: ✅ 警告0\n- cargo test --lib: ✅ 117/117 passed\n\n## 品質チェック\n- run-quality-checks: 6件検出（全て偽陽性）\n- 翻訳可能性: 問題なし（全関数が動詞句、unwrap/expect/println/dbg なし）\n\n## 依存関係\n- P7-1 → P7-2 (re-export) → P8-1 (translate.rs 差し替え): 線形依存 ✅\n- P7-1 → P9-1 (テスト追加): 正常 ✅\n- 循環依存: なし ✅\n\n## STUB 評価\n- 7件全て「保留妥当」— P8-1 完了時に自動解決\n- 全て同一チケット (P8-1) を参照、矛盾なし ✅\n\n## 犯罪スキャン\n- anthropx: 0件 ✅\n- 新規犯罪: なし ✅\n\n## 発見された問題\nなし。全ての受け入れ基準を満たしている。",
+          "startedAt": "2026-07-02",
+          "changes": [
+            {
+              "before": "imports: no responses_to_anthropic import",
+              "after": "imports: added use super::responses_to_anthropic::responses_content_to_text",
+              "description": "responses_content_to_text() を response_transforms.rs から再利用可能に"
+            },
+            {
+              "before": "No Responses API response types defined",
+              "after": "ResponsesResponseBody, ResponsesResponseUsage, ResponsesInputTokensDetails 追加 (#[serde(deny_unknown_fields)])",
+              "description": "Responses API 非ストリーミングレスポンスのパース用構造体"
+            },
+            {
+              "before": "No Responses body parser",
+              "after": "parse_responses_response_body() 追加",
+              "description": "Responses API レスポンスボディのパーサー"
+            },
+            {
+              "before": "No responses_response_to_anthropic function",
+              "after": "pub fn responses_response_to_anthropic() 追加 (~120行)",
+              "description": "OpenAI Responses API レスポンス → Anthropic Messages レスポンス変換"
+            },
+            {
+              "before": "No Responses output converter",
+              "after": "responses_output_to_content_blocks() 追加",
+              "description": "output[] → content[] ブロック変換ヘルパー"
+            },
+            {
+              "before": "No Responses status mapper",
+              "after": "map_responses_status_to_anthropic_stop_reason() 追加",
+              "description": "Responses status → Anthropic stop_reason マッピング"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-02"
+        },
+        {
+          "id": 2,
+          "phaseId": 7,
+          "status": "reviewed",
+          "title": "transform/mod.rs: responses_response_to_anthropic re-export 追加",
+          "referenceSection": "anthropx/RFC-X-001.md (§D-2) / tickets/specs/0012-transform-modrs-responses-response-to-anthropic-re-export.md",
+          "background": "新規追加した responses_response_to_anthropic() を crate の公開APIとして re-export する。既存の response_transforms ブロックに1行追加。",
+          "scope": [
+            "pub use response_transforms::responses_response_to_anthropic;"
+          ],
+          "relatedTicketIds": "出力元: P7-1 実装 / 出力先: P8-1 translate.rs",
+          "testVerification": [
+            "コンパイル確認: cargo check --all-targets が通過すること",
+            "翻訳確認: crate::transform::responses_response_to_anthropic として外部から呼び出せることを cargo doc または型検査で確認"
+          ],
+          "testExceptions": [
+            "re-export のみの変更であり、ロジック変更を伴わない。動作確認は P7-1 のテストで既に網羅済み"
+          ],
+          "instrumentation": "静的品質チェック: 合格（4 issues 全偽陽性: ドキュメントコメント）\n翻訳可能性: 問題なし（mod.rs はモジュール宣言+re-exportのみ、関数定義なし、デバッグ出力なし、unwrap/expectなし）\nテスト: 120/120成功（117 unit + 3 integration）\nコンパイル: OK\nclippy pedantic: OK\nフォーマット: OK",
+          "notes": "実装サマリー (2026-07-02):\n\n変更ファイル:\n- crates/llm-bridge-rust-v0.5.0/crates/core/src/transform/mod.rs (+1行)\n\n変更内容:\nre-export ブロックに responses_response_to_anthropic, を追加。\n\n検証結果:\n- cargo check --all-features: ✅\n- cargo clippy (pedantic): ✅\n- cargo test: 120/120 passed\n- run-quality-checks.js: 4 issues（全偽陽性）\n- 犯罪: 0件",
+          "startedAt": "2026-07-02",
+          "changes": [
+            {
+              "before": "openai_response_to_anthropic_message,",
+              "after": "openai_response_to_anthropic_message,\n    responses_response_to_anthropic,",
+              "description": "responses_response_to_anthropic の re-export を mod.rs に追加（1行）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-02"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "anthropx: translate.rs 呼び出し差し替え",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 8,
+          "status": "reviewed",
+          "title": "translate.rs: Responses 逆変換を responses_response_to_anthropic に差し替え",
+          "referenceSection": "spec/0013-translaters-responses-responses-response-to-anthropic.md",
+          "background": "translate_non_stream() 内の逆変換分岐で、LlmApiFormat::OpenaiResponses 時に誤って responses_to_anthropic()（Request→Request変換）を呼んでいたのを、responses_response_to_anthropic()（Response→Response変換）に差し替える。",
+          "scope": [
+            "import に responses_response_to_anthropic を追加",
+            "L414: LlmApiFormat::OpenaiResponses => responses_to_anthropic(&response_req) を responses_response_to_anthropic(&response_req) に変更"
+          ],
+          "relatedTicketIds": "入力元: P7-1, P7-2 実装完了が前提",
+          "testVerification": [
+            "cargo check --all-features が通ること",
+            "cargo test --lib で既存テストが全てパスすること",
+            "cargo clippy -- -D warnings で新たな警告が発生しないこと"
+          ],
+          "testExceptions": [
+            "実際の OpenAI Responses API との結合テストは本チケットのスコープ外（P9-1 で対応）"
+          ],
+          "instrumentation": "静的品質チェック: 21件(全て既存のテストコード内 unwrap/expect — 新規issueなし)\n翻訳可能性: 問題なし（関数名は全員動詞句、デバッグ出力なし、マジックナンバーなし）\nテスト: 201/201成功\nclippy pedantic: 警告0\nコンパイル: 成功\n抑制とSTUBの整合性: ✅ 解決（7箇所のSTUBは全て除去済み）",
+          "notes": "レビュー報告書 (2026-07-02):\n\n## 検証結果\n- cargo check --all-features: ✅ 警告0\n- cargo clippy -- -D warnings: ✅ 警告0\n- cargo test --lib: ✅ 201/201 passed\n\n## 品質チェック\n- run-quality-checks: 21件検出（全件 existing: テストコード内 unwrap/expect）\n- 翻訳可能性: 問題なし\n  * 全関数が動詞句で命名\n  * デバッグ出力（println!/dbg!）なし\n  * マジックナンバーの新規追加なし\n  * 変更範囲内に1文字変数や汎用変数名なし\n\n## 依存関係\n- P7-1 (reviewed) ✅ → P7-2 (reviewed) ✅ → P8-1 (done): 線形依存、問題なし\n- 循環依存: なし\n\n## STUB 評価\n- 7件の P8-1 参照 STUB（#[allow(dead_code)]）は全件除去済み ✅\n- 新規スタブの混入: なし\n- 残存スタブ: 0件\n\n## 抑制とSTUBの整合性\n- 変更箇所に #[allow(...)] の新規追加なし\n- 既存の #[allow(clippy::too_many_arguments)] (L304,493) は恒久的なclippy抑制（解決予定の不完全実装ではない）\n\n## 犯罪スキャン\n- anthropx: 0件 ✅\n- llm-bridge-core: 0件（全STUB除去済み）✅\n- 新規犯罪: なし ✅\n\n## 発見された問題\nなし。全ての受け入れ基準を満たしている。",
+          "startedAt": "2026-07-02",
+          "changes": [
+            {
+              "before": "imports: responses_to_anthropic without responses_response_to_anthropic",
+              "after": "imports: responses_response_to_anthropic added, responses_to_anthropic removed (unused)",
+              "description": "src/provider/translate.rs: import に responses_response_to_anthropic を追加、不要になった responses_to_anthropic を削除"
+            },
+            {
+              "before": "LlmApiFormat::OpenaiResponses => responses_to_anthropic(&response_req)",
+              "after": "LlmApiFormat::OpenaiResponses => responses_response_to_anthropic(&response_req)",
+              "description": "src/provider/translate.rs L415: 逆変換関数を Response→Response 変換に差し替え"
+            },
+            {
+              "before": "llm-bridge-core = { version = \"0.3.0\", optional = true }",
+              "after": "llm-bridge-core = { path = \"crates/llm-bridge-rust-v0.5.0/crates/core\", optional = true }",
+              "description": "Cargo.toml: llm-bridge-core 依存を crates.io v0.3.0 からローカルパス参照に変更（P7-1/P7-2 の変更を取り込むため）"
+            },
+            {
+              "before": "7箇所の #[allow(dead_code)] + [::STUB::] P8-1 マーカー",
+              "after": "全て除去（P8-1 完了により dead_code が自動解消）",
+              "description": "response_transforms.rs: P8-1 参照の全スタブマーカーと dead_code 抑制を除去"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-02"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "テスト追加（Responses レスポンス逆変換）",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 9,
+          "status": "todo",
+          "title": "transform/tests.rs: Responses レスポンス→Anthropic 変換テスト追加",
+          "referenceSection": "anthropx/RFC-X-001.md (§D-4)",
+          "background": "responses_response_to_anthropic() の品質を保証するため、実際の Responses API レスポンスボディを使用した包括的なテストを追加する。Chat Completions の openai_response_to_anthropic_message テストと同等の網羅率を目指す。",
+          "scope": [
+            "test_basic_responses_to_anthropic: 基本的な変換確認",
+            "test_responses_missing_reasoning: reasoning ブロック欠落時の動作確認",
+            "test_responses_with_tool_use: function_call ブロック変換確認",
+            "test_responses_empty_output: 空 output 配列の確認",
+            "test_responses_error_status: status=failed の確認",
+            "test_responses_incomplete_with_reason: incomplete + max_output_tokens の確認",
+            "test_responses_invalid_json: 無効 JSON のパースエラー確認",
+            "test_responses_missing_usage: usage 欠落時のデフォルト値確認"
+          ],
+          "relatedTicketIds": "出力元: P7-1, P7-2",
+          "testVerification": [
+            "正常系: 8テストケース全てがパスすること"
+          ],
+          "testExceptions": [
+            "E2E テスト（実際の upstream 疎通）は CI 環境に依存するため対象外"
+          ],
+          "instrumentation": "cargo test で実行。llm-bridge-core のテストのみ（anthropx 側の E2E は含まない）",
+          "notes": "parentOmissionId: RFC-X-001-TEST\n\nテスト用 JSON はユーザーの実際の curl 結果をベースにすること。各種バリエーション（tool_use を含む、失敗ケース等）は別途用意。"
+        }
+      ]
     }
   ]
 }

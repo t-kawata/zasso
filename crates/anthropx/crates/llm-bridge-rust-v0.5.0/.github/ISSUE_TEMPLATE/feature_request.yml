@@ -1,0 +1,59 @@
+name: Feature request
+description: Propose a new feature or meaningful enhancement for llm-bridge
+title: "feature: "
+labels:
+  - feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an improvement.
+
+        Please describe the user problem first, then the proposed solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem, workflow gap, or missing capability does this address?
+      placeholder: Describe the problem clearly.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should llm-bridge do?
+      placeholder: Describe the proposed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Describe alternatives, if any.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core transform
+        - Streaming
+        - Server app
+        - Fixtures / testing
+        - Docs / examples
+        - CI / release
+        - Security
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues first
+          required: true
+        - label: This is not just a local environment problem
+          required: false

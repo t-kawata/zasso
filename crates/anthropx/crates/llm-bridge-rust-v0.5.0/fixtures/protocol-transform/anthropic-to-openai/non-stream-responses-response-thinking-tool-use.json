@@ -1,0 +1,103 @@
+{
+  "name": "anthropic_response_to_openai_responses_non_stream_thinking_tool_use",
+  "mode": "non_stream",
+  "notes": "Anthropic message response thinking/text/tool_use should map to OpenAI Responses output items.",
+  "input": {
+    "headers": {
+      "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "id": "msg-thinking",
+      "type": "message",
+      "role": "assistant",
+      "model": "qwen-plus-anthropic",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "Inspecting the route table.",
+          "signature": "bGxtLWJyaWRnZS1zeW50aGV0aWMtdGhpbmtpbmctc2lnbmF0dXJl"
+        },
+        {
+          "type": "text",
+          "text": "I need to query the code graph."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_abc123",
+          "name": "codegraph_search",
+          "input": {
+            "query": "sso google login"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 42,
+        "output_tokens": 11
+      }
+    }
+  },
+  "expected": {
+    "headers": {
+      "authorization": "Bearer ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/responses",
+    "body": {
+      "id": "msg-thinking",
+      "object": "response",
+      "status": "completed",
+      "model": "qwen-plus-anthropic",
+      "output": [
+        {
+          "id": "msg-thinking_msg_0",
+          "type": "message",
+          "role": "assistant",
+          "status": "completed",
+          "content": [
+            {
+              "type": "reasoning_text",
+              "text": "Inspecting the route table."
+            }
+          ]
+        },
+        {
+          "id": "msg-thinking_msg_1",
+          "type": "message",
+          "role": "assistant",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "I need to query the code graph.",
+              "annotations": []
+            }
+          ]
+        },
+        {
+          "id": "fc_msg-thinking_2",
+          "type": "function_call",
+          "call_id": "toolu_abc123",
+          "name": "codegraph_search",
+          "arguments": "{\"query\":\"sso google login\"}",
+          "status": "completed"
+        }
+      ],
+      "output_text": "I need to query the code graph.",
+      "usage": {
+        "input_tokens": 42,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 11,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 53
+      }
+    }
+  }
+}

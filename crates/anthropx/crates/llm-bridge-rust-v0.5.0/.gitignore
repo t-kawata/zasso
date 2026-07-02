@@ -1,0 +1,13 @@
+/target
+.vscode
+.DS_Store
+.idea/
+
+# Local tooling
+.claude/
+.env
+.mcp.json
+identifier.sqlite
+ruvector.db
+logs/
+.claude/gh-issue/

@@ -135,7 +135,7 @@ axum-test = "16"
 src/
 ├── lib.rs              # 公開API: ProxyServer, AppConfig
 ├── main.rs             # [[bin]] エントリポイント（CLI + 起動）
-├── cli.rs              # clap 定義、-t 引数パース
+├── cli.rs              # clap 定義、-c 引数パース
 ├── config/
 │   ├── mod.rs          # AppConfig / GlobalConfig / ProviderConfig 型定義
 │   ├── parse.rs        # TOML 読み込み + Deserialize

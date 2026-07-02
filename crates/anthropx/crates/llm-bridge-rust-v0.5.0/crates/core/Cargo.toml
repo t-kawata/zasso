@@ -1,0 +1,33 @@
+[package]
+name = "llm-bridge-core"
+description = "Protocol transform library for LLM API translation between Anthropic and OpenAI."
+categories = ["development-tools"]
+keywords = ["llm", "protocol", "transform"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+documentation.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+typed-builder.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+reqwest.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+futures.workspace = true
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+subtle.workspace = true
+tokio.workspace = true

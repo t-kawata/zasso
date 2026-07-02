@@ -1,0 +1,42 @@
+{
+  "name": "anthropic_to_openai_stream_text",
+  "mode": "stream",
+  "notes": "Anthropic text stream should become OpenAI chat completion chunks.",
+  "input": {
+    "events": [
+      {
+        "raw_sse": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_abc\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"qwen-plus-anthropic\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}"
+      },
+      {
+        "raw_sse": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"你\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"好\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}"
+      },
+      {
+        "raw_sse": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":2}}"
+      },
+      {
+        "raw_sse": "event: message_stop\ndata: {\"type\":\"message_stop\"}"
+      }
+    ]
+  },
+  "expected": {
+    "downstream_sse_contains": [
+      "\"object\":\"chat.completion.chunk\"",
+      "\"role\":\"assistant\"",
+      "\"content\":\"你\"",
+      "\"content\":\"好\"",
+      "\"finish_reason\":\"stop\"",
+      "\"prompt_tokens\":12",
+      "\"completion_tokens\":2",
+      "data: [DONE]"
+    ]
+  }
+}

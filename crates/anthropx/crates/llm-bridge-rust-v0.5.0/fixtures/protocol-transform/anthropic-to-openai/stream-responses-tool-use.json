@@ -1,0 +1,48 @@
+{
+  "name": "anthropic_to_openai_responses_stream_tool_use",
+  "mode": "stream",
+  "notes": "Anthropic thinking/tool_use stream should become OpenAI Responses reasoning/function-call events.",
+  "input": {
+    "events": [
+      {
+        "raw_sse": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_tool\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"qwen-plus-anthropic\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":20,\"output_tokens\":0}}}"
+      },
+      {
+        "raw_sse": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"Let me think.\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}"
+      },
+      {
+        "raw_sse": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_123\",\"name\":\"get_weather\",\"input\":{}}}"
+      },
+      {
+        "raw_sse": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\\\"Paris\\\"}\"}}"
+      },
+      {
+        "raw_sse": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}"
+      },
+      {
+        "raw_sse": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":6}}"
+      },
+      {
+        "raw_sse": "event: message_stop\ndata: {\"type\":\"message_stop\"}"
+      }
+    ]
+  },
+  "expected": {
+    "downstream_sse_contains": [
+      "\"type\":\"response.created\"",
+      "\"type\":\"response.reasoning_text.delta\"",
+      "\"type\":\"response.function_call_arguments.delta\"",
+      "\"call_id\":\"123\"",
+      "\"name\":\"get_weather\"",
+      "\"arguments\":\"{\\\"city\\\":\\\"Paris\\\"}\"",
+      "\"type\":\"response.completed\"",
+      "data: [DONE]"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+# ── cargo-release configuration ─────────────────────────────────────────────
+# Usage: make release VERSION=patch|minor|major
+#
+# Prerequisites:
+#   cargo install cargo-release git-cliff
+#   cargo login (set CRATES_IO_TOKEN)
+#
+# Workflow: version → commit → changelog → tag → push → publish to crates.io
+
+consolidate-commits = true
+pre-release-commit-message = "chore: release {{version}}"
+tag-message = "{{version}}"
+tag-prefix = "v"
+enable-all-features = true
+publish = true

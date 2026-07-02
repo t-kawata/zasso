@@ -1,0 +1,6 @@
+[default.extend-words]
+# First chunk of "Hello" in streaming test fixtures
+Hel = "Hel"
+
+[files]
+extend-exclude = ["CHANGELOG.md", "vendors/"]

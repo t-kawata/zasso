@@ -1,0 +1,8 @@
+{
+  "name": "expected_thinking_config",
+  "description": "Expected Anthropic thinking config with budget_tokens matching the 'low' reasoning effort level (1280 tokens).",
+  "expected": {
+    "type": "enabled",
+    "budget_tokens": 1280
+  }
+}

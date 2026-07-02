@@ -1,0 +1,77 @@
+{
+  "name": "anthropic_to_openai_non_stream_tool_result",
+  "mode": "non_stream",
+  "notes": "Anthropic tool_result block should map to an OpenAI tool role message with tool_call_id.",
+  "input": {
+    "headers": {
+      "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "messages": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_123",
+              "name": "get_weather",
+              "input": {
+                "city": "Paris"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_123",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "{\"temperature\":21}"
+                }
+              ],
+              "is_error": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expected": {
+    "headers": {
+      "authorization": "Bearer ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "claude-sonnet-4-20250514",
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "toolu_123",
+              "type": "function",
+              "function": {
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Paris\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "toolu_123",
+          "content": "{\"temperature\":21}"
+        }
+      ]
+    }
+  }
+}

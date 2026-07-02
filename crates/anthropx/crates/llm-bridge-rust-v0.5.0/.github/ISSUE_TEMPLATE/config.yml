@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: README
+    url: https://github.com/TokenFleet-AI/llm-bridge-rust/blob/master/README.md
+    about: Read the project overview, architecture, and local development commands.
+  - name: Specs index
+    url: https://github.com/TokenFleet-AI/llm-bridge-rust/blob/master/specs/index.md
+    about: Review the design docs, roadmap, and implementation plan before opening a design issue.

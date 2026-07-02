@@ -1,0 +1,58 @@
+{
+  "name": "openai_to_anthropic_stream_tool_call",
+  "mode": "stream",
+  "notes": "OpenAI tool call fragments should become Anthropic tool_use content block deltas.",
+  "input": {
+    "events": [
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_123\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}"
+      },
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"city\\\":\\\"Par\"}}]}}]}"
+      },
+      {
+        "raw_sse": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"is\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":20,\"completion_tokens\":6}}"
+      },
+      {
+        "raw_sse": "data: [DONE]"
+      }
+    ]
+  },
+  "expected": {
+    "events": [
+      { "type": "message_start" },
+      {
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": {
+          "type": "tool_use",
+          "id": "toolu_call_123",
+          "name": "get_weather",
+          "input": {}
+        }
+      },
+      {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": { "type": "input_json_delta", "partial_json": "{\"city\":\"Par" }
+      },
+      {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": { "type": "input_json_delta", "partial_json": "is\"}" }
+      },
+      { "type": "content_block_stop", "index": 0 },
+      {
+        "type": "message_delta",
+        "delta": { "stop_reason": "tool_use", "stop_sequence": null },
+        "usage": { "input_tokens": 20, "output_tokens": 6 }
+      },
+      { "type": "message_stop" }
+    ],
+    "terminal_state": {
+      "message_stop": true,
+      "error": null,
+      "stop_reason": "tool_use"
+    }
+  }
+}

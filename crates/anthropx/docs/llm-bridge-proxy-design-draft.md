@@ -27,7 +27,7 @@
 ## 設計原則
 
 - 単一責務: protocol translation は `llm-bridge-core` に委譲し、HTTP gateway と policy は本サーバーが担う。[cite:17][cite:19]
-- ワンバイナリ: 実行に必要なのはバイナリと `-t` で指定する TOML のみとする。[cite:66]
+- ワンバイナリ: 実行に必要なのはバイナリと `-c` で指定する TOML のみとする。[cite:66]
 - 明示的ルーティング: model 指定は `provider/model` を基本とし、曖昧な default provider ルーティングは行わない。[cite:66]
 - provider 主導設定: upstream URL、認証、モデル公開名、エイリアス、timeout、queue、lossy 許容などを provider 単位で制御する。[cite:17][cite:19]
 - 可観測性内蔵: `/healthz`、`/metrics`、構造化ログを初版から含める。[cite:66]
@@ -172,7 +172,7 @@ allow-list が空であれば upstream への model 通過は自由とする。[
 
 ### CLI
 
-設定ファイルは `-t <path>` で指定された TOML から読み込む。[cite:66]
+設定ファイルは `-c <path>` で指定された TOML から読み込む。[cite:66]
 環境変数による上書きは行わない。[cite:66]
 
 ### TOML 全体像
@@ -464,7 +464,7 @@ src/
 
 ## 起動シーケンス
 
-1. CLI 引数から `-t` を取得する。[cite:66]
+1. CLI 引数から `-c` を取得する。[cite:66]
 2. TOML を読み込む。[cite:66]
 3. schema validation、重複 alias、重複 public model、空 API key 配列などを検証する。[cite:66]
 4. provider ごとの scheduler と queue limiter を初期化する。[cite:66]

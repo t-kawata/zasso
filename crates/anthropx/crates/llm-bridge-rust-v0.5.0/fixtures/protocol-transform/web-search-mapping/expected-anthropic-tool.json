@@ -1,0 +1,9 @@
+{
+  "name": "expected_anthropic_web_search_tool",
+  "description": "Expected Anthropic web_search_20250305 tool definition mapped from OpenAI web_search_options with search_context_size: high → max_uses: 10.",
+  "expected": {
+    "type": "web_search_20250305",
+    "name": "web_search",
+    "max_uses": 10
+  }
+}

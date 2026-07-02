@@ -1,0 +1,78 @@
+{
+  "name": "responses_to_anthropic_non_stream_basic",
+  "mode": "non_stream",
+  "notes": "OpenAI Responses basic request should normalize into Anthropic messages with system prompt, stream flag, tools and tool choice.",
+  "input": {
+    "headers": {
+      "authorization": "Bearer OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/responses",
+    "body": {
+      "model": "qwen3.6-plus",
+      "instructions": "You are concise.",
+      "input": "Hello from Responses",
+      "max_output_tokens": 128,
+      "stream": true,
+      "tools": [
+        {
+          "type": "function",
+          "name": "get_weather",
+          "description": "Get weather for a city",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": ["city"]
+          }
+        }
+      ],
+      "tool_choice": "required"
+    }
+  },
+  "expected": {
+    "headers": {
+      "x-api-key": "OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "model": "qwen3.6-plus",
+      "system": "You are concise.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello from Responses"
+            }
+          ]
+        }
+      ],
+      "max_tokens": 128,
+      "stream": true,
+      "tools": [
+        {
+          "name": "get_weather",
+          "description": "Get weather for a city",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": ["city"]
+          }
+        }
+      ],
+      "tool_choice": {
+        "type": "any"
+      }
+    }
+  }
+}

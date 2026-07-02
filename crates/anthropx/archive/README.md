@@ -216,7 +216,7 @@ enabled = true
 **ステップ2: サーバーを起動します。**
 
 ```bash
-./target/release/anthropx -t config.toml
+./target/release/anthropx -c config.toml
 ```
 
 正常に起動すると以下のようなログが出力されます:
@@ -248,21 +248,21 @@ claude --proxy http://localhost:3910
 ```
 anthropx — Anthropic compatible API proxy server
 
-Usage: anthropx -t <CONFIG>
+Usage: anthropx -c <CONFIG>
 
 Options:
-  -t, --config <CONFIG>  設定ファイルへのパス（TOML 形式）[必須]
+  -c, --config <CONFIG>  設定ファイルへのパス（TOML 形式）[必須]
   -h, --help             ヘルプを表示
   -V, --version          バージョンを表示
 ```
 
-`-t` は必須引数です。省略すると clap がヘルプを表示してエラー終了します。
+`-c` は必須引数です。省略すると clap がヘルプを表示してエラー終了します。
 
 ### 4.3 起動シーケンス
 
 `main.rs` の起動シーケンスは以下の 6 ステップで構成されます:
 
-1. **CLI 引数解析**: `cli::parse_args()` で `-t` で指定された設定ファイルのパスを取得します。
+1. **CLI 引数解析**: `cli::parse_args()` で `-c` で指定された設定ファイルのパスを取得します。
 
 2. **設定読み込み**: `AppConfig::from_toml(&cli.config)` を呼び出します。
    - `std::fs::read_to_string` でファイル内容を読み込みます。
@@ -1644,7 +1644,7 @@ integration-test = []
 # 設定ファイルをコピーして編集
 cp crates/anthropx/config.example.toml my-config.toml
 # 設定を編集したら起動
-./anthropx -t my-config.toml
+./anthropx -c my-config.toml
 ```
 
 同梱されている `config.example.toml` には、以下の設定例が含まれています:

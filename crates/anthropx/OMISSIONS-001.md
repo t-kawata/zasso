@@ -84,7 +84,7 @@ serde/serde_json（設定・API シリアライズ, unconditional）, toml（設
 
 ### 設定
 
-TOML ファイルによる設定（AppConfig::from_toml）とプログラム的構築（構造体リテラル + Default）の二刀流。全フィールド pub + serde Deserialize/Serialize。起動時バリデーション（集約型）: provider 名一意性, api_keys 1件以上, models.public の provider内一意性, url_prefix 正規化, alias key 衝突チェック, port 範囲, timeout 値整合性。設定ファイルパスは -t または --config 引数（clap）。デフォルト設定: port=8088, connect_ms=3000, read_ms=600000, total_ms=600000, default_max_in_flight=64, default_max_queue=256
+TOML ファイルによる設定（AppConfig::from_toml）とプログラム的構築（構造体リテラル + Default）の二刀流。全フィールド pub + serde Deserialize/Serialize。起動時バリデーション（集約型）: provider 名一意性, api_keys 1件以上, models.public の provider内一意性, url_prefix 正規化, alias key 衝突チェック, port 範囲, timeout 値整合性。設定ファイルパスは -c または --config 引数（clap）。デフォルト設定: port=8088, connect_ms=3000, read_ms=600000, total_ms=600000, default_max_in_flight=64, default_max_queue=256
 
 ## 漏れ・矛盾・不足 (6件)
 

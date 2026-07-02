@@ -1,0 +1,100 @@
+{
+  "name": "openai_to_anthropic_non_stream_tool_result",
+  "mode": "non_stream",
+  "notes": "Assistant tool_calls plus tool role result should become Anthropic tool_use followed by tool_result.",
+  "input": {
+    "headers": {
+      "authorization": "Bearer OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "gpt-4.1",
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_abc123",
+              "type": "function",
+              "function": {
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Paris\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_abc123",
+          "content": "{\"temperature\":21}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 24,
+        "completion_tokens": 9
+      },
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_abc123",
+                "type": "function",
+                "function": {
+                  "name": "get_weather",
+                  "arguments": "{\"city\":\"Paris\"}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "headers": {
+      "x-api-key": "OPENAI_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_call_abc123",
+              "name": "get_weather",
+              "input": {
+                "city": "Paris"
+              }
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_call_abc123",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "{\"temperature\":21}"
+                }
+              ],
+              "is_error": false
+            }
+          ]
+        }
+      ],
+      "model": "gpt-4.1"
+    }
+  }
+}

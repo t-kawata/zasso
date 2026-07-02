@@ -1,0 +1,81 @@
+{
+  "name": "anthropic_response_to_openai_non_stream_thinking_tool_use",
+  "mode": "non_stream",
+  "notes": "Anthropic message response thinking/text/tool_use should map to OpenAI reasoning_content/content/tool_calls.",
+  "input": {
+    "headers": {
+      "x-api-key": "ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/messages",
+    "body": {
+      "id": "msg-thinking",
+      "type": "message",
+      "role": "assistant",
+      "model": "qwen-plus-anthropic",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "Inspecting the route table.",
+          "signature": "bGxtLWJyaWRnZS1zeW50aGV0aWMtdGhpbmtpbmctc2lnbmF0dXJl"
+        },
+        {
+          "type": "text",
+          "text": "I need to query the code graph."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_abc123",
+          "name": "codegraph_search",
+          "input": {
+            "query": "sso google login"
+          }
+        }
+      ],
+      "stop_reason": "tool_use",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 42,
+        "output_tokens": 11
+      }
+    }
+  },
+  "expected": {
+    "headers": {
+      "authorization": "Bearer ANTHROPIC_API_KEY_PLACEHOLDER",
+      "content-type": "application/json"
+    },
+    "path": "/v1/chat/completions",
+    "body": {
+      "id": "msg-thinking",
+      "object": "chat.completion",
+      "model": "qwen-plus-anthropic",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "reasoning_content": "Inspecting the route table.",
+            "content": "I need to query the code graph.",
+            "tool_calls": [
+              {
+                "id": "toolu_abc123",
+                "type": "function",
+                "function": {
+                  "name": "codegraph_search",
+                  "arguments": "{\"query\":\"sso google login\"}"
+                }
+              }
+            ]
+          },
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 11,
+        "total_tokens": 53
+      }
+    }
+  }
+}

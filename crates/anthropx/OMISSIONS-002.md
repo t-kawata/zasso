@@ -229,7 +229,7 @@ Lossy Translation エラー:
 ### 設定
 
 設定形式: TOML ファイル + プログラム的構築の二刀流
-設定ファイルパス: CLI 引数 -t/--config または環境変数 ANTHROPX_CONFIG
+設定ファイルパス: CLI 引数 -c/--config または環境変数 ANTHROPX_CONFIG
 
 グローバル設定:
 - port: u16 (default: 8088)
