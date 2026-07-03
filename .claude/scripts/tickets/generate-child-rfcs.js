@@ -423,6 +423,7 @@ function buildFrontmatter(node, level, cPath, ev, pe) {
 function buildResponsibilitiesSection(transferredContent) {
   var section = "\n\n## 責務\n\n";
   section += "<!--\n" + GUIDANCE_RESPONSIBILITIES + "\n-->\n\n";
+  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。内容を変更する場合は正典RFCの該当マーカー範囲を編集した上で generate-child-rfcs.js を再実行してください。!!! -->\n";
   section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
@@ -438,6 +439,7 @@ function buildResponsibilitiesSection(transferredContent) {
 function buildIoBoundarySection(transferredContent) {
   var section = "\n\n## I/O境界\n\n";
   section += "<!--\n" + GUIDANCE_IO_BOUNDARY + "\n-->\n\n";
+  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
   section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
@@ -454,6 +456,7 @@ function buildParentRelationSection(ev, transferredContent) {
   var section = "\n\n## 親との関係\n\n";
   section += "<!--\n" + GUIDANCE_PARENT_RELATION + "\n-->\n\n";
   section += "根拠: " + (ev || "(TBD)") + "\n\n";
+  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
   section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
@@ -468,6 +471,7 @@ function buildParentRelationSection(ev, transferredContent) {
 function buildDependenciesSection(transferredContent) {
   var section = "\n\n## 依存関係\n\n";
   section += "<!--\n" + GUIDANCE_DEPENDENCIES + "\n-->\n\n";
+  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
   section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
@@ -643,14 +647,17 @@ function updateTransferBlockForSection(content, sectionHeader, newTransfer) {
  * @param {object} child - 子ノード
  * @param {string} cb - canonicalBase
  * @param {string} cd - 子ノードのディレクトリパス
+ * @param {object[]} tree - finalTree（依存先 slug 解決用）
  */
-function generateRustProject(child, cb, cd) {
+function generateRustProject(child, cb, cd, tree) {
   var dn = childDirName(cb, child);
   // Cargo.toml
   var cargoContent = '[package]\nname = "' + dn + '"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n';
   if (child.dependencyOn) {
     child.dependencyOn.forEach(function(depId) {
-      cargoContent += child.childId + '-dep-' + depId + ' = { path = "../' + cb + '-' + depId + '-<slug>" }\n';
+      var depChild = tree.find(function(n) { return n.childId === depId; });
+      var depSlug = depChild ? (depChild.slug || depChild.directoryName || depChild.childId) : depId;
+      cargoContent += dn + '-dep-' + depId + ' = { path = "../' + cb + '-' + depId + '-' + depSlug + '" }\n';
     });
   }
   writeFile(path.join(cd, "Cargo.toml"), cargoContent);
@@ -748,7 +755,7 @@ function main() {
     var cd = path.join(ctx.canonDir, dn);
 
     if (ctx.lang === "rust") {
-      generateRustProject(child, ctx.canonBase, cd);
+      generateRustProject(child, ctx.canonBase, cd, ctx.tree);
     } else if (ctx.lang === "go") {
       generateGoProject(cd, dn);
     } else if (ctx.lang === "typescript") {

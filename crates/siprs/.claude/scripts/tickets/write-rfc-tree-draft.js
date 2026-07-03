@@ -5,6 +5,12 @@ function main(){
   process.stdin.on("data",c=>buf+=c);process.stdin.on("end",()=>{
     const tree=JSON.parse(buf);
     if(!Array.isArray(tree)){console.log(JSON.stringify({success:false,error:"stdin must be a JSON array of childNode objects. Received: "+typeof tree}));process.exit(1);}
+    // 空の children 配列を自動除去
+    tree.forEach(function(n) {
+      if (n.children && Array.isArray(n.children) && n.children.length === 0) {
+        delete n.children;
+      }
+    });
     data.draftTree=tree;
     const vr=validateRfcTree(data);
     if(!vr.valid){console.log(JSON.stringify({success:false,error:"Validation of draftTree failed. See 'errors' array for details.",errors:vr.errors}));process.exit(1);}

@@ -27,7 +27,9 @@ description: >
 | `write-rfc-tree-final.js <RFC-TREE>` | draft→final確定 |
 | `get-rfc-tree-draft.js <RFC-TREE> [childId]` | 現在のdraftTreeを表示（確認用） |
 | `patch-rfc-tree-child.js <RFC-TREE> <childId>` | stdin: 子ノードを1件ずつ追加・更新・削除（set/delete） |
-| `generate-child-rfcs.js <RFC-TREE>` | ディレクトリ構造＋言語別ファイルを機械生成 |
+| `generate-child-rfcs.js <RFC-TREE>` | ディレクトリ構造＋言語別ファイルを機械生成。2フェーズ（--phase=insert: Anchor Marker自動挿入, --phase=transfer: 機械転記） |
+| `add-ref-pointer.js <RFC-TREE> <childId> <cmd>` | Anchor Marker の行範囲を登録（add/batch/remove/list） |
+| `validate-ref-pointer.js <RFC-TREE>` | Anchor Marker リンク整合性検証（孤児マーカー・未参照・ペア不整合・重複ID） |
 | `check-rfc-placeholders.js <RFC-TREE>` | 全RFCファイルの未記入マーカー検出 |
 | `verify-rfc-coverage.js <RFC-TREE>` | ディレクトリ構造一致検証 |
 
@@ -338,24 +340,98 @@ node "$SCRIPT_DIR/validate-rfc-tree.js" "$TREE_PATH"
 node "$SCRIPT_DIR/write-rfc-tree-final.js" "$TREE_PATH"
 ```
 
-### Step 6: 機械的ディレクトリ生成（AIではなくスクリプト）
+### Step 5a: Anchor Marker 登録（必須）
+<!-- この Step の前に完了しているべき Step: Step 5（finalTree確定） -->
+
+RFC-TREE.json の各 childNode に、正典RFCの該当セクションの行範囲を `add-ref-pointer.js` で記録する。
+この情報は後続のマーカー自動挿入と機械転記の位置特定に使用される。
 
 ```bash
+# 子01 の責務セクション行範囲を記録
+node "$SCRIPT_DIR/add-ref-pointer.js" "$TREE_PATH" "01" add --id "01-001" --lineStart 292 --lineEnd 306
+
+# 複数マーカーを一括登録
+node "$SCRIPT_DIR/add-ref-pointer.js" "$TREE_PATH" "01" batch \
+  '[{"id":"01-001","lineStart":292,"lineEnd":306},{"id":"01-002","lineStart":350,"lineEnd":370}]'
+```
+
+**完了ガード**: refPointers が1件以上登録されていること
+
+```bash
+node -e "const t=require('${TREE_PATH}'); const c=t.finalTree.flatMap(n=>(n.refPointers||[]).map(r=>r.id)); if(c.length===0){console.error('[ERROR] refPointers が空です。add-ref-pointer.js で行範囲を登録してください。');process.exit(1)}else{console.log('[OK] '+c.length+' refPointers registered')}"
+```
+
+> **注**: 旧 Step 6（`generate-child-rfcs.js` を単独実行する手順）は完全に廃止された。
+> 代わりに以下の Step 6（マーカー自動挿入＋機械転記）を実行すること。
+
+### Step 6: Anchor Marker 自動挿入 + 機械転記（必須）
+<!-- この Step の前に完了しているべき Step: Step 5a（Anchor Marker 登録） -->
+
+`generate-child-rfcs.js` が2フェーズで動作する。
+フェーズ1（insert）は lineStart/lineEnd から `[::REF-POINTER-BEGIN/END-*::]` マーカーを
+正典RFCに自動挿入する。挿入後はマーカーIDが恒久的なリンクとして機能する。
+フェーズ2（transfer）はマーカー範囲の内容を子RFCの該当セクションに機械転記する。
+
+```bash
+# 両フェーズ実行（デフォルト）
 node "$SCRIPT_DIR/generate-child-rfcs.js" "$TREE_PATH"
-node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
+
+# フェーズ1のみ（マーカー自動挿入）
+node "$SCRIPT_DIR/generate-child-rfcs.js" "$TREE_PATH" --phase=insert
+
+# フェーズ2のみ（機械転記）
+node "$SCRIPT_DIR/generate-child-rfcs.js" "$TREE_PATH" --phase=transfer
 ```
 
-### Step 7: 詳細記述
+**完了ガード**: 正典RFCにマーカーが挿入されたことを確認する
 
-未記入マーカーがゼロになるまで各RFCファイルを編集。
+```bash
+if ! grep -q 'REF-POINTER-BEGIN' "${CANONICAL_RFC}"; then
+  echo "[ERROR] 正典RFCに Anchor Marker が見つかりません。Step 6 のマーカー挿入が失敗しています。"
+  exit 1
+fi
+echo "[OK] ${CANONICAL_RFC} に Anchor Marker が確認されました"
+```
+
+続いてプレースホルダーと生成ファイルを確認する：
 
 ```bash
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 ```
 
-### Step 8: 完了報告
+### Step 7: リンク整合性検証（必須）
+<!-- この Step の前に完了しているべき Step: Step 6（generate-child-rfcs.js） -->
+
+正典RFCに埋め込まれたマーカーとRFC-TREE.jsonの参照に乖離がないか検証する。
+エラーがゼロになるまで修正を繰り返す。
+
+```bash
+node "$SCRIPT_DIR/validate-ref-pointer.js" "$TREE_PATH"
+```
+
+### Step 8: 詳細記述（必須）
+<!-- この Step の前に完了しているべき Step: Step 7（validate-ref-pointer.js） -->
+
+各子RFCの **AI記述部**（`<!-- AI記述部 -->` の下）に設計判断・補足説明を記述する。
+
+**編集禁止領域**:
+- `<!-- 機械転記ブロック -->` と `<!-- /機械転記ブロック -->` で囲まれた領域
+- frontmatter（`---` で囲まれた YAML）
+- Anchor Marker 注釈ブロック（`===== Anchor Marker System =====`）
+
+```bash
+node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
+```
+
+### Step 9: 完了報告（必須）
+<!-- この Step の前に完了しているべき Step: Step 8（詳細記述） -->
 
 ```bash
 node "$SCRIPT_DIR/verify-rfc-coverage.js" "$TREE_PATH"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 echo "=== /split-rfc-to-children 完了 ==="
+```
+
+**通過条件**: `verify-rfc-coverage.js` が `valid: true` を返すこと。
+`valid: false` の場合は該当 issue を修正し、必要な Step から再実行する。
+`valid: true` になるまで次の工程に進んではならない。

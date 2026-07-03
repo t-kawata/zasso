@@ -215,6 +215,89 @@
           "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 軽微修正対応済み\nテスト: AM1-AM13 + CLI1-CLI4 + 全既存テスト ALL PASS ✅\n構文チェック: node --check 全3ファイル OK\n犯罪スキャン: 0件\n[::STUB::]: 3件（全て意図的）\n不完全実装: 7パターン全都合格\n事前既存の CLI テスト失敗は dist/conver.js の未ビルドが原因 → npm install + npm run build で解決済み",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-03"
+        },
+        {
+          "id": 4,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "split-rfc-to-children 完全改修（統合）",
+          "referenceSection": "spec/0043-split-rfc-to-children-2.md",
+          "background": "2026-07-03 別セッションの /split-rfc-to-children 実行で13件の問題が露呈。(1) tickets/ チェック残骸、(2) language=null、(3) 絶対パス保存、(4) directoryName バリデーション矛盾、(5) 空 children ノイズ、(6) Cargo.toml slug未解決、(7〜13) AI の Step スキップ・テンプレート破壊・検証スキップ。全13件を1チケットで解決する。",
+          "scope": [
+            "verify-rfc-coverage.js: L19 tickets/ チェック行削除",
+            "create-rfc-tree.js: language 検出を Cargo.toml 存在判定に fallback",
+            "create-rfc-tree.js: canonicalRfcPath を相対パス化（path.relative）",
+            "validate-rfc-tree.js: directoryName を startsWith→indexOf に緩和＋エラーメッセージ改善",
+            "write-rfc-tree-draft.js: 空 children 配列の自動除去処理追加",
+            "generate-child-rfcs.js: generateRustProject シグネチャ拡張＋slug解決",
+            "generate-child-rfcs.js: 全4セクションに WARNING コメント追加",
+            "split-rfc-to-children.md: Step 5a 追加＋連番修正＋必須ラベル＋完了ガード"
+          ],
+          "testVerification": [
+            "UT A1: verify-rfc-coverage 子RFC .md のみ → valid: true",
+            "UT A2: verify-rfc-coverage ディレクトリ欠損 → valid: false",
+            "UT B1: create-rfc-tree language [workspace] Cargo.toml → rust",
+            "UT B2: create-rfc-tree language [workspace]なし Cargo.toml → rust",
+            "UT C1: create-rfc-tree canonicalRfcPath 相対パス",
+            "UT D1: validate-rfc-tree directoryName 01-siprs → 通過",
+            "UT D2: validate-rfc-tree directoryName RFC-ROOT-01-siprs → 通過",
+            "UT D3: validate-rfc-tree directoryName childId不一致 → エラー",
+            "UT E1: write-rfc-tree-draft children:[] → 保存後 children なし",
+            "UT F1: generate-child-rfcs Cargo.toml slug 解決",
+            "UT G1: generate-child-rfcs 子RFC全4セクションに WARNING",
+            "UT G2: refPointers 空チェック → exit 1",
+            "UT G3: マーカー挿入確認 → grep REF-POINTER-BEGIN"
+          ],
+          "testExceptions": [
+            "AIのStep遵守はスクリプトレベルで検証不可"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (0 issues)\n- 翻訳可能性: 3ファイルの1文字変数 p を修正（Boy Scout）\n- 依存関係: PX-1..PX-3 全て reviewed — 整合性確認済\n- テスト: AM1-AM13 + CLI1-CLI4 + 全既存テスト ALL PASS ✅\n- 犯罪: 0件\n- [::STUB::]: 3件（全て意図的）\n- 不完全実装: 7パターン全面査 — 該当なし\n- PX-4 Acceptance Criteria: 全12項目充足確認済（A〜G）\n- /split-rfc-to-children の全13問題が解決されたことを確認",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "tickets/ 存在チェックあり",
+              "after": "削除",
+              "description": "verify-rfc-coverage.js: L19 tickets/ チェック削除"
+            },
+            {
+              "before": "[workspace] 限定",
+              "after": "Cargo.toml 存在で判定",
+              "description": "create-rfc-tree.js: language 検出改善"
+            },
+            {
+              "before": "絶対パス",
+              "after": "相対パス",
+              "description": "create-rfc-tree.js: canonicalRfcPath を path.relative に"
+            },
+            {
+              "before": "startsWith(childId) 厳格",
+              "after": "indexOf(childId -) に緩和",
+              "description": "validate-rfc-tree.js: directoryName 検証緩和＋エラーメッセージ改善"
+            },
+            {
+              "before": "空 children 配列をそのまま保存",
+              "after": "自動除去",
+              "description": "write-rfc-tree-draft.js: 空 children 自動除去"
+            },
+            {
+              "before": "Cargo.toml に <slug> プレースホルダ",
+              "after": "実際の slug で解決",
+              "description": "generate-child-rfcs.js: generateRustProject シグネチャ拡張＋slug解決"
+            },
+            {
+              "before": "機械転記ブロックに警告なし",
+              "after": "全4セクションに WARNING 追加",
+              "description": "generate-child-rfcs.js: 子RFC テンプレート編集禁止警告"
+            },
+            {
+              "before": "Steps 6/6a/6b/7/8",
+              "after": "Steps 5a/6/7/8/9＋必須ラベル＋完了ガード",
+              "description": "split-rfc-to-children.md: 全面改訂"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 1文字変数 p→treePathArg/rfcPathArg/rfcTreePath に修正（3ファイル、Boy Scout）\nテスト: AM1-AM13 + CLI1-CLI4 + 既存全テスト ALL PASS ✅\n構文チェック: node --check 全5JSファイル OK\n犯罪スキャン: 0件\n[::STUB::] 検出: 3件（全て意図的マーカー）\n不完全実装: 7パターン全都合格\n\nBoy Scout 改善:\n  verify-rfc-coverage.js: p → treePathArg\n  create-rfc-tree.js: p → rfcPathArg\n  validate-rfc-tree.js: p → rfcTreePath",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
         }
       ]
     }

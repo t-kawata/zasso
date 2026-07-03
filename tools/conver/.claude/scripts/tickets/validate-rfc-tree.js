@@ -87,8 +87,8 @@ function validateRfcTree(data) {
       // directoryName: 必須
       if (!node.directoryName) {
         errors.push(`${label}.directoryName: required. Expected format: "{childId}-{kebab-name}"`);
-      } else if (node.childId && !node.directoryName.startsWith(node.childId)) {
-        errors.push(`${label}.directoryName: should start with childId "${node.childId}", got: "${node.directoryName}"`);
+      } else if (node.childId && node.directoryName.indexOf(node.childId + "-") === -1) {
+        errors.push(`${label}.directoryName: must contain childId "${node.childId}-" (e.g. "${node.childId}-slug" or "{canonicalBase}-${node.childId}-slug"), got: "${node.directoryName}"`);
       }
       // namespaceUnit: 必須
       if (!node.namespaceUnit) {
@@ -187,12 +187,12 @@ function validateRfcTree(data) {
 }
 
 function main() {
-  const p = process.argv[2];
-  if (!p) {
+  const rfcTreePath = process.argv[2];
+  if (!rfcTreePath) {
     console.log(JSON.stringify({ valid: false, errors: ["Usage: node validate-rfc-tree.js <RFC_TREE_PATH>"] }));
     process.exit(1);
   }
-  const resolved = path.resolve(p);
+  const resolved = path.resolve(rfcTreePath);
   if (!fs.existsSync(resolved)) {
     console.log(JSON.stringify({ valid: false, errors: [`File not found: ${resolved}`] }));
     process.exit(1);
