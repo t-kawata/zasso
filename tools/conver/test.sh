@@ -457,6 +457,75 @@ echo "$R" | grep -q "Skipping" && pass "double insertion prevented" || fail "exp
 
 rm -rf "$TMP_IO"
 
+echo ""; echo "======== Anchor Marker テスト ========"; echo ""
+
+S_AM=".claude/scripts/tickets"
+FIX_AM=".claude/scripts/tickets/tests/fixtures/ref-pointer"
+TMP_AM="$TMPDIR/am-test"
+mkdir -p "$TMP_AM"
+
+echo "[AM1] add-ref-pointer: add 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.id" "01-001"
+
+echo "[AM2] add-ref-pointer: add 重複ID拒否"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree.json" "01" add --id "01-001" --lineStart 3 --lineEnd 3 2>&1 || true)"
+echo "$R" | grep -q "ID 重複" && pass "add: duplicate ID rejected" || fail "add: expected duplicate ID error"
+
+echo "[AM3] add-ref-pointer: batch 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree2.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree2.json" "01" batch '[{"id":"01-001","lineStart":2,"lineEnd":2},{"id":"01-002","lineStart":5,"lineEnd":6}]' 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.count" "2"
+
+echo "[AM4] add-ref-pointer: remove 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree-rm.json"
+node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-rm.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 > /dev/null 2>&1
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-rm.json" "01" remove "01-001" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[AM5] add-ref-pointer: remove 存在しないID"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree2.json" "01" remove "99-999" 2>&1 || true)"
+echo "$R" | grep -q "削除対象なし" && pass "remove: nonexistent ID rejected" || fail "remove: expected error"
+
+echo "[AM6] add-ref-pointer: list 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree-ls.json"
+node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-ls.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 > /dev/null 2>&1
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-ls.json" "01" list 2>&1)" || true
+echo "$R" | grep -q '"count": 1' && pass "list: shows 1 refPointer" || fail "list: expected count 1"
+
+echo "[AM7] add-ref-pointer: 存在しないchildId"
+cp "$FIX_AM/fixture-1-tree.json" "$TMP_AM/tree3.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree3.json" "99" add --id "99-001" --lineStart 1 --lineEnd 1 2>&1 || true)"
+echo "$R" | grep -q "見つかりません" && pass "childId validation: nonexistent childId rejected" || fail "childId validation: expected error"
+
+echo "[AM8] validate-ref-pointer: 正常系(fixture-1)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-1-tree.json" 2>&1)" || true
+echo "$R" | grep -q "\[OK\]" && pass "validate: fixture-1 OK" || fail "validate: fixture-1 expected OK"
+
+echo "[AM9] validate-ref-pointer: 孤児マーカー(fixture-2)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-2-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "孤児マーカー" && pass "validate: fixture-2 orphan detected" || fail "validate: fixture-2 expected orphan detection"
+
+echo "[AM10] validate-ref-pointer: 未参照マーカー(fixture-3)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-3-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "未参照" && pass "validate: fixture-3 unreferenced detected" || fail "validate: fixture-3 expected warning"
+
+echo "[AM11] validate-ref-pointer: ペア不整合(fixture-4)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-4-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "対応する END" && pass "validate: fixture-4 pair mismatch detected" || fail "validate: fixture-4 expected pair mismatch"
+
+echo "[AM12] validate-ref-pointer: 重複ID(fixture-5)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-5-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "複数箇所" && pass "validate: fixture-5 duplicate detected" || fail "validate: fixture-5 expected duplicate detection"
+
+echo "[AM13] generate-child-rfcs: 既存機能 構文チェック"
+node --check "$S_AM/generate-child-rfcs.js" 2>&1 && pass "generate-child-rfcs: syntax OK" || fail "generate-child-rfcs: syntax error"
+
+rm -rf "$TMP_AM"
+
 echo ""; echo "=========="
 [ "$FAILED" = "1" ] && echo "❌ FAILED" || echo "✅ ALL PASS"
 echo "=========="; echo ""

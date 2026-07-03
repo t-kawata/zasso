@@ -1,0 +1,20 @@
+{
+  "canonicalRfcPath": "fixture-3-canon.md",
+  "canonicalRfcTitle": "Test",
+  "generatedAt": "2026-07-03",
+  "rfcUnderstanding": {},
+  "draftTree": [],
+  "finalTree": [
+    {
+      "childId": "01",
+      "slug": "test-child",
+      "directoryName": "01-test-child",
+      "name": "Test Child",
+      "namespaceUnit": "crate",
+      "ioSchema": "pub struct SipClient",
+      "decouplingMethod": "pub",
+      "rfcEvidence": "\u00a71",
+      "refPointers": []
+    }
+  ]
+}

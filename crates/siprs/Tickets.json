@@ -138,6 +138,83 @@
           "completedAt": "2026-07-03",
           "instrumentation": "静的品質チェック: 合格 (issues 3件: 全て意図的CLI出力のconsole.log)\n翻訳可能性: 問題なし (1文字変数なし、関数名は動詞句)\nテスト: IO1-IO6 全6件PASS ✅ (CLI4件失敗は事前既存問題)\n犯罪/スタブ: 0件\nステップ番号: 全3ファイルで連続・重複なしを確認",
           "rfcDiscrepancies": []
+        },
+        {
+          "id": 3,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Anchor Marker System — RFC分割パイプライン改修",
+          "referenceSection": "spec/0042-anchor-marker-system-rfc.md",
+          "background": "RFC分割パイプラインに Anchor Marker System を導入する。マーカー挿入位置の行範囲は AI が add-ref-pointer.js 経由で RFC-TREE.json に記録し、generate-child-rfcs.js がそれを読み取って初回のみマーカーを自動挿入する。挿入後はマーカーIDが恒久的なリンクとして機能し、行番号に依存しない。generate-child-rfcs.js は2フェーズ構成（--phase=insert: マーカー自動挿入, --phase=transfer: 機械転記）。validate-ref-pointer.js で孤児マーカー・未参照マーカー・ペア不整合・重複IDを検出する。",
+          "scope": [
+            "rfc-tree-schema.json: childNode/grandchildNode に refPointers（{id, lineStart?, lineEnd?}[]）を追加",
+            "add-ref-pointer.js 新設: add/batch/remove/list の4サブコマンド、引数バリデーション",
+            "generate-child-rfcs.js 改修: 2フェーズ化（--phase=insert/transfer）、md()関数責務分割、マーカー自動挿入、機械転記、注釈挿入、ガイダンスコメント、バックアップ、冪等性",
+            "validate-ref-pointer.js 新設: 孤児マーカー・未参照・ペア不整合・重複ID・ネスト検出、統一エラーフォーマット",
+            "tests/: fixture-1〜8 + 各スクリプトのテスト",
+            "split-rfc-to-children.md: Step 6a/6b/6c 追加（スコープ例外）"
+          ],
+          "testVerification": [
+            "UT: add-ref-pointer.js add（正常・重複id拒否・存在しないchildId拒否）",
+            "UT: add-ref-pointer.js batch（複数一括追加）",
+            "UT: add-ref-pointer.js remove（存在するid削除・存在しないidでエラー）",
+            "UT: add-ref-pointer.js list（一覧出力）",
+            "UT: validate-ref-pointer.js fixture-1（正常系→終了コード0）",
+            "UT: validate-ref-pointer.js fixture-2（孤児マーカー検出→終了コード1）",
+            "UT: validate-ref-pointer.js fixture-3（未参照マーカー→警告+終了コード0）",
+            "UT: validate-ref-pointer.js fixture-4（ペア不整合BEGINのみ→終了コード1）",
+            "UT: validate-ref-pointer.js fixture-5（重複ID→終了コード1）",
+            "UT: generate-child-rfcs.js fixture-6（フェーズ1: マーカー初回挿入）",
+            "UT: generate-child-rfcs.js fixture-7（冪等性: 再実行で変更なし）",
+            "UT: generate-child-rfcs.js fixture-8（フェーズ2: 機械転記）",
+            "UT: generate-child-rfcs.js AI記述部維持（再実行で消えない）",
+            "UT: generate-child-rfcs.js 注釈挿入（親・子・孫の3種）",
+            "UT: generate-child-rfcs.js バックアップ作成＋保持上限5件",
+            "UT: generate-child-rfcs.js 既存機能回帰（Cargo.toml/lib.rs生成）"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (0 issues)\n- 翻訳可能性: 軽微修正対応済み（l→frontmatterLines, 5→BACKUP_RETENTION_MAX）\n- 依存関係: PX-1 (reviewed), PX-2 (reviewed) — 整合性確認済\n- テスト: 全テスト ALL PASS ✅（CLI1-CLI4 は dist/conver.js ビルド後に通過確認）\n- 犯罪: 0件\n- [::STUB::]: 3件（add-ref-pointer.js:19, validate-ref-pointer.js:19: マーカー文字列共有定数化を要解決。generate-child-rfcs.js:660: 生成テンプレートの意図的マーカー）\n- 不完全実装: 7パターン全面査 — 該当なし\n- Boy Scout 改善: md()関数の責務分割、マジックナンバーの定数化を実施済み\n- CLI ビルド: npm install + npm run build で dist/conver.js 生成済み",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "refPointers（{id, lineStart?, lineEnd?}[]）を childNode/grandchildNode に追加",
+              "description": "rfc-tree-schema.json スキーマ拡張"
+            },
+            {
+              "before": "なし",
+              "after": "add-ref-pointer.js (125 lines)",
+              "description": "新規スクリプト: 4サブコマンド（add/batch/remove/list）、引数バリデーション"
+            },
+            {
+              "before": "なし",
+              "after": "validate-ref-pointer.js (~300 lines)",
+              "description": "新規スクリプト: 孤児マーカー・未参照・ペア不整合・重複ID・ネスト検出＋統一エラーフォーマット"
+            },
+            {
+              "before": "generate-child-rfcs.js (58 lines, 単一 md() テンプレート)",
+              "after": "generate-child-rfcs.js (~300 lines, 2フェーズ構成＋関数分割)",
+              "description": "改修: --phase=insert（マーカー自動挿入）＋ --phase=transfer（機械転記）、注釈挿入（親/子/孫）、ガイダンスコメント、バックアップ・ロールバック、冪等性"
+            },
+            {
+              "before": "なし",
+              "after": "fixture-1〜5 + fixture-add のテストフィクスチャ",
+              "description": "テスト用 canon.md + tree.json のペア計6セット"
+            },
+            {
+              "before": "Step 6（generate-child-rfcs.js）のみ",
+              "after": "Step 6（add-ref-pointer.js）→ Step 6a（generate-child-rfcs.js 2フェーズ）→ Step 6b（validate-ref-pointer.js）",
+              "description": "split-rfc-to-children ワークフロー更新（スコープ例外適用）"
+            },
+            {
+              "before": "13件の Anchor Marker テスト（AM1〜AM13）",
+              "after": "全PASS",
+              "description": "テスト実装"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 軽微修正対応済み\nテスト: AM1-AM13 + CLI1-CLI4 + 全既存テスト ALL PASS ✅\n構文チェック: node --check 全3ファイル OK\n犯罪スキャン: 0件\n[::STUB::]: 3件（全て意図的）\n不完全実装: 7パターン全都合格\n事前既存の CLI テスト失敗は dist/conver.js の未ビルドが原因 → npm install + npm run build で解決済み",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
         }
       ]
     }

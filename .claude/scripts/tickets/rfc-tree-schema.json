@@ -59,6 +59,7 @@
         "ioSchema": { "type": "string" },
         "decouplingMethod": { "type": "string" },
         "rfcEvidence": { "type": "string" },
+        "refPointers": { "type": "array", "items": { "$ref": "#/definitions/refPointer" }, "description": "Anchor marker references linking canon RFC sections to this child node" },
         "dependencyOn": { "type": "array", "items": { "type": "string", "pattern": "^\\d{2}$" } },
         "children": { "type": "array", "items": { "$ref": "#/definitions/grandchildNode" } }
       }
@@ -79,7 +80,17 @@
         "decouplingMethod": { "type": "string" },
         "rfcEvidence": { "type": "string" },
         "parentEvidence": { "type": "string" },
+        "refPointers": { "type": "array", "items": { "$ref": "#/definitions/refPointer" }, "description": "Anchor marker references linking canon RFC sections to this grandchild node" },
         "dependencyOn": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "refPointer": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^\\d{2}-\\d{3}$", "description": "Anchor marker ID in format {childId}-{seq} (e.g. 01-001)" },
+        "lineStart": { "type": "integer", "minimum": 1, "description": "Canon RFC line number (1-indexed) for BEGIN marker. Only used for initial marker insertion." },
+        "lineEnd": { "type": "integer", "minimum": 1, "description": "Canon RFC line number (1-indexed) for END marker. Only used for initial marker insertion." }
       }
     }
   }
