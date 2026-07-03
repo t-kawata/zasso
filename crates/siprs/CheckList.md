@@ -3,7 +3,7 @@
 > **⚠️ このファイルはスクリプトにより自動生成された雛形です。**
 > AIが目視チェックし、補足事項・プロジェクト固有の制約を追記してから使用すること。
 
-生成日時: 2026-06-22T01:24:48.268Z
+生成日時: 2026-07-03T02:54:00.356Z
 DesignTree バージョン: 1
 
 ---
@@ -16,30 +16,22 @@ DesignTree バージョン: 1
 
 ---
 
-## §1 NativeEvent → SipEventPayload 変換の完全網羅設計 ✅
+## §1 HTTP/WebSocket API 層の責務範囲と crate 分割 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
 - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-### §1.1 RegistrationStateChanged は RuntimeCommand(GetAccountInfo) 経由で状態取得 ✅
+### §1.1 PJSIP依存による非Pure Rustの影響範囲とライセンス管理 ✅
 
-- [ ] **RegistrationStateChanged は RuntimeCommand(GetAccountInfo) 経由で状態取得** が設計として完全に記述されている
+- [ ] **PJSIP依存による非Pure Rustの影響範囲とライセンス管理** が設計として完全に記述されている
 - [ ] コードスニペットが含まれている
 - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
 ---
 
-## §2 公開APIの同期設計（blocking_read 問題の解決） ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
----
-
-## §3 DTMF 送信結果のイベント設計（戻り値 vs DtmfSent 二重管理） ✅
+## §2 スタンドアロンサーバーモードの構成と起動管理 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -47,7 +39,59 @@ DesignTree バージョン: 1
 
 ---
 
-## §4 Reactor スレッド間状態同期の設計（RwLock 問題） ✅
+## §3 イベントのAPI直列化方式とWebSocket配信モデル ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §3.1 制御系イベントとAudioChunkPairの時間的相関を保証する設計 ✅
+
+- [ ] **制御系イベントとAudioChunkPairの時間的相関を保証する設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §4 SIPアカウント認証からのJWT発行 + Axum + SeaORM によるREST API認証基盤 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §4.1 SIPアカウント認証からのJWT発行REST API設計 ✅
+
+- [ ] **SIPアカウント認証からのJWT発行REST API設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+### §4.2 Axum + SeaORM によるREST API基盤設計 ✅
+
+- [ ] **Axum + SeaORM によるREST API基盤設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §5 rusqlite + SQLite による設定・アカウント永続化スキーマ設計 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §5.1 rusqliteテーブルスキーマ: アカウント・トランスポート・設定の永続化 ✅
+
+- [ ] **rusqliteテーブルスキーマ: アカウント・トランスポート・設定の永続化** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §6 RuntimeCommand のタイムアウト・リトライ・回復戦略 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -55,7 +99,22 @@ DesignTree バージョン: 1
 
 ---
 
-## §5 SubscribeAudio リアクターハンドラの実装設計 ✅
+## §7 音声パイプラインの監視・制御・QoS ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §7.1 WebSocket音声バイナリフレームと制御系JSONメタデータの対応付け設計 ✅
+
+- [ ] **WebSocket音声バイナリフレームと制御系JSONメタデータの対応付け設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §8 マルチインスタンス動作と テナント分離モデル ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -63,44 +122,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §6 PjsuaBackend メソッド完全化（conf_connect/codecs） ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-### §6.1 conf_connect RuntimeCommand 引数は CallId + CallMediaDirection で抽象化 ✅
-
-- [ ] **conf_connect RuntimeCommand 引数は CallId + CallMediaDirection で抽象化** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
-### §6.2 configure_codecs: 明示指定を基本とし、auto時のみ Opus優先=255/PCMU=254 ✅
-
-- [ ] **configure_codecs: 明示指定を基本とし、auto時のみ Opus優先=255/PCMU=254** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
----
-
-## §7 統合テスト補強戦略（プレースホルダー解決） ✅
-
-- [ ] セクション全体が完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-### §7.1 Dual Client: 同一PjsuaBackend singleton を複数Clientで共有 ✅
-
-- [ ] **Dual Client: 同一PjsuaBackend singleton を複数Clientで共有** が設計として完全に記述されている
-- [ ] コードスニペットが含まれている
-- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
-
-
----
-
-## §8 Docker/CI 環境整備とビルド自動化 ✅
+## §9 AudioChunkPair のAPI経由転送方式（WebSocket/Streaming） ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -108,57 +130,101 @@ DesignTree バージョン: 1
 
 ---
 
-## AI補足：プロジェクト固有の追加チェック項目
+## §10 HTTP/WebSocket API 層を含む結合テスト戦略 ✅
 
-### 既存RFCとの整合性
-
-- [ ] NativeEvent ↔ SipEventPayload 変換マッピングテーブル（全バリアントの対応表）が記述されていること
-- [ ] 低優先度 NativeEvent（CallTsxStateChanged, CallRedirected, CallTransferStatus, CallReplaced, TransportStateChanged, IceTransportError, NatDetected）のマッピング方針（実装対象 or 意図的除外とその理由）が明記されていること
-- [ ] `DtmfSentInfo` 構造体が定義されていること（Section 20 に追加。フィールド: method, digit, status(Result), pjsip_error_code 等を DtmfReceivedInfo と比較して設計すること）
-- [ ] DtmfSent の発火元 PJSIP callback の調査結果が RFC に反映されていること（`on_dtmf_digit` の送信完了時の挙動、または別 callback の特定）
-- [ ] `RuntimeCommand` enum に `ConfConnect` / `ConfDisconnect` / `GetAccountInfo` の3バリアントが追加されていること
-- [ ] Section 27.3（callback bridge）に Dual Client 時の PJSIP callback routing 方式が追記されていること（単一 Reactor + EventBus 分割構成、account_id ベースの EventBus 振り分け）
-- [ ] `RuntimeCommand` の `ConfConnect` / `ConfDisconnect` の引数が `(CallId, CallMediaDirection)` で抽象化され、conf_port_id の解決は PjsuaBackend 内部で行う設計が記述されていること
-- [ ] Section 33（ランタイム内部state）に以下の3点が明記されていること：(1) Client 側は `read().await` を使用し `blocking_read()` を禁止、(2) shutdown 中は GetAccountInfo のみ許可・conf_connect/disconnect は拒否、(3) conf_port_id は CallEntry ではなく PjsuaBackend 内部で管理
-- [ ] Section 29（codec policy）に明示指定と auto 時の Opus優先フォールバックの2層ポリシーが記述されていること
-- [ ] Section 14（エラー設計）に新 RuntimeCommand のエラーは既存バリアント（InvalidState / NotFound / InternalError）で兼用する方針が明記されていること
-- [ ] Section 22（音声購読API）に Reactor の `SubscribeAudio` ハンドラ実装経路（RuntimeCommand → conf_connect → RustMediaPort）が追記されていること。`AudioTapMode` が conf_connect のチャネル設定にどう反映されるかも含むこと
-- [ ] Section 20（DTMF仕様）に DtmfSent の発火条件（PJSIP callback 優先、不在時は 500ms タイムアウトベース）が記述されていること
-- [ ] Section 43（テスト戦略）に各新機能のテスト層マッピングが追記されていること。以下の対応が明記されていること：
-  - イベントマッピング（Layer 2: MockBackend）
-  - RegistrationStateChanged（Layer 2: MockBackend、Layer 3: Asterisk）
-  - conf_connect / SubscribeAudio（Layer 3: SIP Integration）
-  - configure_codecs（Layer 2: MockBackend）
-  - Dual Client（Layer 3: SIP Integration）
-- [ ] Section 43（テスト戦略）に call_reject / early_media / reregister の解決条件と Dual Client utility 設計が追記されていること
-- [ ] Section 44（CI/CD）に Docker テスト job と prebuilt CI pipeline の設計が追記されていること
-
-### コードスニペット要件
-
-- [ ] RegistrationStateChanged ハンドラ（NativeEvent → RuntimeCommand::GetAccountInfo 発行 → RegistrationSucceeded/Failed publish の流れ）のコードスニペット
-- [ ] CallStateChanged ハンドラの pjsip_inv_state マッピング（state値 → CallState 変換）のコードスニペット
-- [ ] CallMediaStateChanged ハンドラの pjsua_call_get_info().media_status 判定（MediaActive/MediaStopped/MediaError の分岐）のコードスニペット
-- [ ] 低優先度 NativeEvent（CallTsxStateChanged, CallRedirected, CallTransferStatus, CallReplaced, TransportStateChanged, IceTransportError, NatDetected）の全マッピング対応表のコードスニペット
-- [ ] DtmfSent 発火タイミング（戻り値=コマンド受理 vs DtmfSent=送出完了 の分離）のコードスニペット
-- [ ] SubscribeAudio ハンドラ（RuntimeCommand → conf_connect → AudioTapHandle 生成。AudioTapMode の conf_connect チャネル設定への反映を含む）のコードスニペット
-- [ ] Dual Client テスト utility（同一 PjsuaBackend singleton 共有 + EventBus 分割 routing）のコードスニペット
-- [ ] conf_port_id 解決（PjsuaBackend 内部で CallId → conf_port_id 変換）のコードスニペット
-- [ ] Shutdown 中 command 振り分け（GetAccountInfo 許可 / conf_connect/disconnect 拒否）のコードスニペット
-- [ ] DtmfSent タイムアウトフォールバック（500ms タイマー経由の発火）のコードスニペット
-- [ ] configure_codecs auto 時（pjsua_codec_set_priority 呼び出し）のコードスニペット
-
-### 言語プロトコル準拠（CLAUDE.md）
-
-- [ ] コードコメントは日本語であること
-- [ ] `log::info!` 等のランタイムログは英語であること
-- [ ] RFC の説明文は日本語で記述すること
-
-### ゼロトレランス項目
-
-- [ ] `[::STUB::]` 未付与の不完全実装がコードベースに存在しないこと（該当する場合は Malfeasance 犯罪として記録すること）
-- [ ] `todo!()` / `unimplemented!()` / `panic!()` の新規投入がないこと
-- [ ] 追記後に `make check-be` がパスすること（コードスニペットの構文が正しいこと）
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
-> **注記**: 上記はスクリプト生成後に AI が目視補足した項目です。DesignTree の全18ノードに対応する §1〜§8 の各チェック項目と合わせてご確認ください。
+## §11 セマンティックバージョニングとAPI安定性の実質的担保 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §12 TLS証明書管理と更新機構 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §13 SIP DNS SRV/NAPTR 解決戦略 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §14 マルチネットワークインターフェース・マルチホーミング対応 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+<!-- ============================================================ -->
+<!-- 以下、AI目視チェックによる補足追記（2026-07-03）           -->
+<!-- ============================================================ -->
+
+## AI 補足: プロジェクト固有の制約と特記事項
+
+### 共通制約
+- [ ] **PJSIP非Pure Rust**: siprs は vendor/pjsip/ の C ライブラリに依存する。unsafe FFI 境界の監査が必須。
+- [ ] **ライセンス未確定**: 1.0 リリース前に PJSIP GPL v2 の影響を再評価する。現フェーズは MIT/Apache 2.0 + GPL linking exception を目標に記述。
+- [ ] **0.x 柔軟性**: セマンティックバージョニングは 0.x では厳密に適用しない。破壊的変更は CHANGELOG 記載のみで可。
+- [ ] **split-rfc-to-children 連携**: 本RFCは将来 I/O 境界で分割される。各セクションは境界が明確になるように独立して記述する。テストスコープも分割可能な構造にすること。
+- [ ] **mycuteプロジェクト参照**: マイグレーション管理（gen-migration, migrate-refresh, migrate-fresh, migrate-up, gen-entities）は ~/shyme/mycute/Makefile を参考に設計する。
+
+### §1 補足: Crate 分割
+- [ ] siprs（library）と siprs-server（binary/library）の workspace 構成を Cargo.toml レベルで定義すること。
+- [ ] siprs の feature flag として "server" を定義し、siprs-server がこれを有効化する設計とする。
+- [ ] siprs のみの依存で Tauri アプリがビルドできることを CI で検証する。
+
+### §2 補足: スタンドアロンサーバーモード
+- [ ] siprs-server の binary target の起動引数（設定ファイルパス、バインドアドレス、ポート等）を定義すること。
+- [ ] サーバー起動時に ClientConfig + AccountConfig の一括読み込みをサポートするか決定する。
+
+### §3 補足: イベント直列化・WebSocket 配信
+- [ ] WebSocket テキストフレーム（JSON）+ バイナリフレーム（PCM）の多チャネル配送フレームプロトコルを定義すること。
+- [ ] グローバル sequence number の採番方式（EventBus 側で u64 単調増加）と AudioChunkPair 側での範囲指定を明確にする。
+- [ ] sequence number の欠落検出と再送要求の有無を決定する。
+
+### §4 補足: 認証基盤
+- [ ] SIP アカウント認証 → JWT 発行の REST API エンドポイント定義（POST /api/v1/auth/token 等）。
+- [ ] JWT の有効期限・リフレッシュ機構の設計。
+- [ ] Authorization: Bearer \<token\> の WebSocket 接続時検証方法（connect 時のクエリ/ヘッダ検証）。
+
+### §5 補足: 永続化スキーマ
+- [ ] SeaORM のマイグレーションファイルを siprs-server 内の `migration/` ディレクトリで管理する構成を定義。
+- [ ] 初回マイグレーションでの必須テーブル一覧（accounts, transport_configs, client_settings 等）を列挙する。
+- [ ] パスワードの暗号化保存方式（OS Keychain 連携 or SQLite 暗号化拡張）を決定する。
+
+### §6 補足: エラー戦略
+- [ ] RFC 既存の retryable: bool を RuntimeCommand エラーで正しく設定する変換ロジックを追記。
+- [ ] 利用者向けリトライ判断のガイドラインを API ドキュメントに含める。
+
+### §7 補足: 音声パイプライン
+- [ ] WebSocket バイナリフレームのヘッダ構造（sequence_number: u64, timestamp_ms: u64, frame_ms: u16, sample_rate: u16, channels: u8, bits_per_sample: u8）を定義する。
+- [ ] AudioChunkPair の sequence number 範囲が SipEvent の sequence number とどう対応するかの具体例を記述。
+
+### §8 補足: マルチインスタンス
+- [ ] PjsuaBackend singleton 共有のスレッド安全性を保証する設計（OnceLock, RwLock の使用箇所）を追記。
+- [ ] Dual Client 時の shutdown 順序（全 Client の shutdown 完了後に backend 終了）を定義する。
+
+### §10 補足: テスト戦略
+- [ ] Layer 5（API Integration Test）の具体的なテストフレームワークと構成ディレクトリを定義（tests/api/ 等）。
+- [ ] HTTP API テスト（Axum TestResponse）+ WebSocket 接続テスト + SIP シグナリング結合テストの3段階を 1 つの Layer でどう同居させるか記述。
+- [ ] split-rfc-to-children 時にテストスコープを分割するためのモジュール境界条件を明示。
+
+### §12-14 補足: ネットワーキング
+- [ ] TLS 証明書のフィンガープリント表示・更新検知を NativeEvent 経由で行うイベント定義。
+- [ ] DNS SRV 解決結果（優先度・重み・TTL）を NativeEvent に含めるかどうかの設計判断。
+- [ ] マルチホーミング時は PJSIP にバインドアドレス指定のみ行い、経路制御は OS に委ねる方針を明記。

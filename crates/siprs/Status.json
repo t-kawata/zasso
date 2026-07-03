@@ -1,9 +1,9 @@
 {
   "state": "DONE",
-  "researchPath": "/Users/shyme/shyme/zasso/crates/siprs/docs/REMAININGS.md",
-  "rfcPath": "/Users/shyme/shyme/zasso/crates/siprs/RFC.md",
+  "researchPath": "/Users/shyme/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "rfcPath": "/Users/shyme/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "rfcDir": "/Users/shyme/shyme/zasso/crates/siprs",
   "reviewLoopCount": 0,
-  "createdAt": "2026-06-22T00:48:58.413Z",
-  "updatedAt": "2026-06-22T01:49:01.662Z"
+  "createdAt": "2026-07-03T10:17:00.000Z",
+  "updatedAt": "2026-07-03T03:00:47.731Z"
 }

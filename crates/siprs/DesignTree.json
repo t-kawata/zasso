@@ -1,228 +1,251 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-22T01:41:33.107Z",
+  "updatedAt": "2026-07-03T02:51:50.381Z",
   "nodes": [
     {
-      "id": "event-completeness",
-      "title": "NativeEvent → SipEventPayload 変換の完全網羅設計",
+      "id": "Q1",
+      "title": "HTTP/WebSocket API 層の責務範囲と crate 分割",
       "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.455Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
       "children": [
         {
-          "id": "registration-state-query",
-          "title": "RegistrationStateChanged は RuntimeCommand(GetAccountInfo) 経由で状態取得",
+          "id": "Q1a",
+          "title": "PJSIP依存による非Pure Rustの影響範囲とライセンス管理",
           "status": "resolved",
+          "children": [],
           "questions": [
             {
-              "resolvedAt": "2026-06-22T01:23:19.354Z",
-              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+              "resolvedAt": "2026-07-03T02:51:50.120Z",
+              "answer": "Q8:C ライセンスは未確定のまま実装、1.0前に再評価。マルチインスタンスはsingle backend共有"
             }
-          ],
-          "children": []
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:21:35.212Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
         }
       ]
     },
     {
-      "id": "api-sync",
-      "title": "公開APIの同期設計（blocking_read 問題の解決）",
+      "id": "Q2",
+      "title": "スタンドアロンサーバーモードの構成と起動管理",
       "status": "resolved",
+      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "dtmf-event",
-      "title": "DTMF 送信結果のイベント設計（戻り値 vs DtmfSent 二重管理）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
-      "children": [
-        {
-          "id": "dtmf-sent-fallback",
-          "title": "DtmfSent: PJSIP callback不在時はタイムアウト(500ms)ベースで発火",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-22T01:41:33.106Z",
-              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-            }
-          ],
-          "children": []
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
         }
       ]
     },
     {
-      "id": "state-sync",
-      "title": "Reactor スレッド間状態同期の設計（RwLock 問題）",
+      "id": "Q3",
+      "title": "イベントのAPI直列化方式とWebSocket配信モデル",
       "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "audio-subscribe",
-      "title": "SubscribeAudio リアクターハンドラの実装設計",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "backend-completeness",
-      "title": "PjsuaBackend メソッド完全化（conf_connect/codecs）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
       "children": [
         {
-          "id": "conf-connect-args",
-          "title": "conf_connect RuntimeCommand 引数は CallId + CallMediaDirection で抽象化",
+          "id": "Q3a",
+          "title": "制御系イベントとAudioChunkPairの時間的相関を保証する設計",
           "status": "resolved",
+          "children": [],
           "questions": [
             {
-              "resolvedAt": "2026-06-22T01:23:19.353Z",
-              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
+              "resolvedAt": "2026-07-03T02:51:50.174Z",
+              "answer": "Q9:C sequence number優先+タイムスタンプ併用でイベント-音声相関保証"
             }
-          ],
-          "children": [
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "title": "SIPアカウント認証からのJWT発行 + Axum + SeaORM によるREST API認証基盤",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q4a",
+          "title": "SIPアカウント認証からのJWT発行REST API設計",
+          "status": "resolved",
+          "children": [],
+          "questions": [
             {
-              "id": "conf-port-mgmt",
-              "title": "conf_port_id管理: PjsuaBackend内部で解決(RuntimeはCallIdのみ意識)",
-              "status": "resolved",
-              "questions": [
-                {
-                  "resolvedAt": "2026-06-22T01:41:33.106Z",
-                  "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-                }
-              ],
-              "children": []
+              "resolvedAt": "2026-07-03T02:22:12.248Z",
+              "answer": "SIPアカウント認証→JWT発行REST API + Axum + SeaORM + SQLite"
             }
           ]
         },
         {
-          "id": "codec-policy-default",
-          "title": "configure_codecs: 明示指定を基本とし、auto時のみ Opus優先=255/PCMU=254",
+          "id": "Q4b",
+          "title": "Axum + SeaORM によるREST API基盤設計",
           "status": "resolved",
+          "children": [],
           "questions": [
             {
-              "resolvedAt": "2026-06-22T01:23:19.354Z",
-              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "error-kind-new-cmds",
-          "title": "新RuntimeCommandのSipErrorKindは既存バリアント(InvalidState/NotFound/InternalError)で兼用",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-22T01:41:33.106Z",
-              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-            }
-          ],
-          "children": []
-        },
-        {
-          "id": "shutdown-cmd-policy",
-          "title": "Shutdown中: GetAccountInfoは許可、conf_connect/disconnectは拒否",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-22T01:41:33.106Z",
-              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-            }
-          ],
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "test-strategy",
-      "title": "統合テスト補強戦略（プレースホルダー解決）",
-      "status": "resolved",
-      "questions": [
-        {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
-        }
-      ],
-      "children": [
-        {
-          "id": "dual-client-arch",
-          "title": "Dual Client: 同一PjsuaBackend singleton を複数Clientで共有",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-22T01:23:19.354Z",
-              "answer": "Q5[B]: conf_connect RuntimeCommand引数はCallId+CallMediaDirectionで抽象化。Q7[明示指定前提]: コードックは利用者の明示指定が最優先。auto時のみOpus優先(PCMU=254, Opus=255, 他=0)。Q6[A]: Dual Clientは同一PjsuaBackend singletonを複数Clientで共有。Q8[B]: RegistrationStateChangedはRuntimeCommand(GetAccountInfo)経由。"
-            }
-          ],
-          "children": [
-            {
-              "id": "pjsip-callback-routing",
-              "title": "Dual Client routing: 単一Reactor + EventBus分割 (global_runtime維持)",
-              "status": "resolved",
-              "questions": [
-                {
-                  "resolvedAt": "2026-06-22T01:41:33.106Z",
-                  "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-                }
-              ],
-              "children": []
+              "resolvedAt": "2026-07-03T02:22:12.276Z",
+              "answer": "AxumをHTTPフレームワーク、SeaORMでSQLite操作、REST+WebSocket構成"
             }
           ]
-        },
+        }
+      ],
+      "questions": [
         {
-          "id": "test-layer-mapping",
-          "title": "新機能のテスト層マッピングは既存Section43に追記",
-          "status": "resolved",
-          "questions": [
-            {
-              "resolvedAt": "2026-06-22T01:41:33.106Z",
-              "answer": "Q9[A]: Dual Client routing=単一Reactor+EventBus分割。Q10[B]: conf_port_id管理=PjsuaBackend内部。Q11[B]: SipErrorKind=既存バリアントで兼用。Q12[C]: Shutdown中、GetAccountInfoは許可、conf_connect/disconnect拒否。Q13[B]: テスト層マッピングは既存Section43に追記。Q14[A]: DtmfSent=PJSIP callback不在時タイムアウト(500ms)ベース。"
-            }
-          ],
-          "children": []
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
         }
       ]
     },
     {
-      "id": "env-ci",
-      "title": "Docker/CI 環境整備とビルド自動化",
+      "id": "Q5",
+      "title": "rusqlite + SQLite による設定・アカウント永続化スキーマ設計",
       "status": "resolved",
-      "questions": [
+      "children": [
         {
-          "resolvedAt": "2026-06-22T01:06:40.456Z",
-          "answer": "Q1[A]: 全NativeEvent→SipEventPayload変換を完全実装。Q2[A]: DTMF二段構え+SubscribeAudio conf_connect標準経路。Q3[A]: tokio RwLock維持+read().await徹底+Rationale明記。RuntimeCommand(conf_connect/disconnect)新設+configure_codecs詳細。Q4[A]: テスト解決条件・Docker/CI/prebuilt自動化をRFC追記。"
+          "id": "Q5a",
+          "title": "rusqliteテーブルスキーマ: アカウント・トランスポート・設定の永続化",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-07-03T02:51:50.228Z",
+              "answer": "Q10:C SeaORMマイグレーション機構 + mycute Makefile参考(gen-migration,migrate-refresh等)"
+            }
+          ]
         }
       ],
-      "children": []
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "title": "RuntimeCommand のタイムアウト・リトライ・回復戦略",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
+        }
+      ]
+    },
+    {
+      "id": "Q7",
+      "title": "音声パイプラインの監視・制御・QoS",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q7a",
+          "title": "WebSocket音声バイナリフレームと制御系JSONメタデータの対応付け設計",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-07-03T02:51:50.201Z",
+              "answer": "Q9:C sequence number をWebSocketバイナリフレーム拡張ヘッダに埋め込み"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:21:35.213Z",
+          "answer": "Q1:B 分離crate(siprs-core+siprs-server), Q2:C REST+WebSocket, Q3:D 制御系JSON+音声バイナリ別チャネル, Q4:B JWT認証(Axum+SQLite+SeaORM), Q5:D SQLite(rusqlite)永続化, Q6:A 即時エラー利用者リトライ, Q7:A WebSocketバイナリフレーム"
+        }
+      ]
+    },
+    {
+      "id": "Q8",
+      "title": "マルチインスタンス動作と テナント分離モデル",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.147Z",
+          "answer": "Q8:C ライセンス未確定で実装, single PjsuaBackend共有モデル"
+        }
+      ]
+    },
+    {
+      "id": "Q9",
+      "title": "AudioChunkPair のAPI経由転送方式（WebSocket/Streaming）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:22:03.361Z",
+          "answer": "Q7:A によりWebSocketバイナリフレームで解決済み"
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "title": "HTTP/WebSocket API 層を含む結合テスト戦略",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.255Z",
+          "answer": "Q11:B Layer5新設+全層網羅的テスト。将来のsplit-rfc-to-childrenでテストスコープ分割予定"
+        }
+      ]
+    },
+    {
+      "id": "Q11",
+      "title": "セマンティックバージョニングとAPI安定性の実質的担保",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.290Z",
+          "answer": "Q12:重要でない。初期開発は柔軟性優先、バージョニング規定にこだわらない"
+        }
+      ]
+    },
+    {
+      "id": "Q12",
+      "title": "TLS証明書管理と更新機構",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.322Z",
+          "answer": "Q13:B PJSIP処理委譲+Rust側NativeEvent観測"
+        }
+      ]
+    },
+    {
+      "id": "Q13",
+      "title": "SIP DNS SRV/NAPTR 解決戦略",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.352Z",
+          "answer": "Q13:B DNS/TLS/PJSIP委譲+Rust観測"
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "title": "マルチネットワークインターフェース・マルチホーミング対応",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-07-03T02:51:50.381Z",
+          "answer": "Q13:B マルチホーミングもPJSIP委譲+Rust観測"
+        }
+      ]
     }
   ]
 }
