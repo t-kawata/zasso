@@ -19,7 +19,7 @@ const path = require("path");
 // [::STUB::] 要解決: マーカー文字列は将来的に generate-child-rfcs.js と共有定数化する
 var MARKER_BEGIN = "REF-POINTER-BEGIN";
 var MARKER_END = "REF-POINTER-END";
-var MARKER_RE = /<!--\s*\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]\s*-->/g;
+var MARKER_RE = /\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]/g;
 
 /**
  * エラーを統一フォーマットで標準出力に出力する。
@@ -108,7 +108,7 @@ function scanMarkers(filePath) {
     }
   }
   // Fix: If the regex state is corrupted, rebuild it
-  MARKER_RE = /<!--\s*\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]\s*-->/g;
+  MARKER_RE = /\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]/g;
   return { markers: markers, lines: lines };
 }
 

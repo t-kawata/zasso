@@ -3,7 +3,7 @@
  * strip-rfc-comments.js — RFCファイルから HTML コメント（<!-- ... -->）を削除する。
  *
  * 以下のコメントは保護され、削除されない：
- * - Anchor Marker: <!-- [::REF-POINTER-BEGIN/END-*::] -->
+ * - Anchor Marker: [::REF-POINTER-BEGIN/END-*::]（コメントではないため保護不要）
  * - 機械転記ブロック開始: <!-- 機械転記ブロック（...） -->
  * - 機械転記ブロック終了: <!-- /機械転記ブロック -->
  *
@@ -25,7 +25,6 @@ var path = require("path");
 
 // 保護パターン（削除しないコメント）
 var PROTECTED_PATTERNS = [
-  /REF-POINTER-(BEGIN|END)-\d{2}-\d{3}/,  // Anchor Marker
   /^ 機械転記ブロック/,                       // 機械転記ブロック（先頭に空白あり）
   /^\/ 機械転記ブロック/                       // /機械転記ブロック終了
 ];

@@ -22,7 +22,7 @@ const path = require("path");
 // ============================================================
 var REF_POINTER_BEGIN = "REF-POINTER-BEGIN";
 var REF_POINTER_END = "REF-POINTER-END";
-var MARKER_RE = /<!--\s*\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]\s*-->/g;
+var MARKER_RE = /\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]/g;
 var BACKUP_SUFFIX = ".bak.";
 var BACKUP_RETENTION_MAX = 5;  // 保持するバックアップの最大数
 
@@ -253,8 +253,8 @@ function phaseInsertMarkers(ctx) {
       if (existingMarkers[ins.id]) { return; }
 
       // lineStart に BEGIN マーカーを挿入、その後に元の lineStart の内容を配置
-      var beginLine = "<!-- [::" + REF_POINTER_BEGIN + "-" + ins.id + "::] -->";
-      var endLine = "<!-- [::" + REF_POINTER_END + "-" + ins.id + "::] -->";
+      var beginLine = "[::" + REF_POINTER_BEGIN + "-" + ins.id + "::]";
+      var endLine = "[::" + REF_POINTER_END + "-" + ins.id + "::]";
       var originalContent = lines[ins.lineStart - 1];
 
       // lineStart 行を BEGIN マーカーで置換し、その後に元の行を挿入
@@ -322,7 +322,7 @@ function annotateCanonRfc(content) {
     "generate-child-rfcs.js を再実行して子RFCの転記内容を更新すること。",
     "",
     "マーカーID の解釈:",
-    "  <!-- [::REF-POINTER-BEGIN-{childId}-{seq}::] -->",
+    "  [::REF-POINTER-BEGIN-{childId}-{seq}::]",
     "  {childId} = 子RFCのID（01, 02, ...）",
     "  {seq}     = その子ID内での連番（001, 002, ...）",
     "===============================",
@@ -514,8 +514,8 @@ function buildChildRfcContent(node, level, cPath, ev, pe, transferred) {
  * @returns {string|null} 抽出された内容、見つからなければ null
  */
 function extractMarkerContent(canonContent, markerId) {
-  var beginTag = "<!-- [::" + REF_POINTER_BEGIN + "-" + markerId + "::] -->";
-  var endTag = "<!-- [::" + REF_POINTER_END + "-" + markerId + "::] -->";
+  var beginTag = "[::" + REF_POINTER_BEGIN + "-" + markerId + "::]";
+  var endTag = "[::" + REF_POINTER_END + "-" + markerId + "::]";
 
   var beginIdx = canonContent.indexOf(beginTag);
   if (beginIdx === -1) { return null; }

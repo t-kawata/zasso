@@ -622,9 +622,9 @@ test: true
 
 普通のテキスト
 
-<!-- [::REF-POINTER-BEGIN-01-001::] -->
+[::REF-POINTER-BEGIN-01-001::]
 pub struct SipClient;
-<!-- [::REF-POINTER-END-01-001::] -->
+[::REF-POINTER-END-01-001::]
 
 <!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->
 pub trait SipBackend;

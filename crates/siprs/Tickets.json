@@ -418,6 +418,56 @@
           "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（新規コードは動詞句関数名、説明的変数名）\nテスト: AM1-AM13 + CLI1-CLI4 + 全既存 ALL PASS ✅\n構文: node --check 全ファイル OK\n犯罪スキャン: 0件\n[::STUB::]: 0件（新規2ファイルにスタブなし）\n不完全実装: 7パターン全都合格\n\n5 scope items 全て完了確認:\n1. rfc-tree-schema.json split_status 型定義 ✅\n2. create-rfc-tree.js スケルトン埋め込み ✅\n3. show-split-rfc-status.js 新設 ✅\n4. update-split-rfc-status.js 新設 ✅\n5. split-rfc-to-children.md リナンバリング＋進捗管理組み込み ✅",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-03"
+        },
+        {
+          "id": 7,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Anchor Marker コメントアウトラップ除去",
+          "referenceSection": "spec/0046-anchor-marker.md",
+          "background": "Anchor Marker が HTML コメント（<!-- [::REF-POINTER::] -->）でラップされているため、strip-rfc-comments.js による誤削除リスクがある。<!-- --> は本質的でなく、マーカー自体が十分に特徴的なので除去する。",
+          "scope": [
+            "generate-child-rfcs.js: L256-257 beginLine/endLine, L325 注釈, L517-518 抽出タグ",
+            "validate-ref-pointer.js: L22+L111 MARKER_RE 正規表現",
+            "strip-rfc-comments.js: L28 REF-POINTER 保護パターン削除",
+            "fixture-1〜5-canon.md: 全マーカーから <!-- --> 除去"
+          ],
+          "testVerification": [
+            "UT: generate-child-rfcs.js phase1 マーカー書式確認",
+            "UT: generate-child-rfcs.js phase2 抽出タグ確認",
+            "UT: validate-ref-pointer.js 新書式検出確認",
+            "UT: validate-ref-pointer.js fixture-1 正常系",
+            "UT: strip-rfc-comments.js REF-POINTER 維持",
+            "UT: AM1-AM13 全テスト通過確認"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 静的品質: 合格 (0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: PX-1..PX-6 全て reviewed — 整合性確認済\n- テスト: ALL PASS ✅（AM1-AM13 + UT1-UT8）\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 不完全実装: 7パターン全面査 該当なし\n- 全9ファイルの修正確認済（3スクリプト + 5フィクスチャ + test.sh）\n- Anchor Marker が HTML コメントラップから解放され、削除事故リスク排除",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "<!-- [::REF-POINTER-BEGIN..::] -->",
+              "after": "[::REF-POINTER-BEGIN..::]",
+              "description": "generate-child-rfcs.js: phase1/phase2/注釈 のマーカー書式"
+            },
+            {
+              "before": "<!--.*--> ラップ",
+              "after": "裸の [::REF-POINTER..::]",
+              "description": "validate-ref-pointer.js: MARKER_RE 正規表現"
+            },
+            {
+              "before": "PROTECTED_PATTERNS に REF-POINTER",
+              "after": "削除",
+              "description": "strip-rfc-comments.js: 保護パターン整理"
+            },
+            {
+              "before": "<!-- [::REF-POINTER-*::] -->",
+              "after": "[::REF-POINTER-*::]",
+              "description": "fixture-1〜5 + test.sh UT8: 書式更新"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし\nテスト: AM1-AM13 + UT1-UT8 ALL PASS ✅\n構文: node --check 全3JSファイル OK\n犯罪スキャン: 0件\n不完全実装: 7パターン全都合格\n\nAnchor Marker 書式を <!-- [::REF-POINTER::] --> から [::REF-POINTER::] に変更完了。\nこれにより strip-rfc-comments.js による誤削除リスクが完全に排除された。",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
         }
       ]
     }
