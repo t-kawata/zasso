@@ -217,11 +217,12 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
   for (const ticket of target) {
     // Watcher モード時: 時間枠外ならループを終了
-    if (!checkStepDeadline(`P${ticket.phaseId}-${ticket.id}`, options.watcherConfig)) {
+    const ticketLabel = ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
+    if (!checkStepDeadline(ticketLabel, options.watcherConfig)) {
       break;
     }
 
-    const ticketId = `P${ticket.phaseId}-${ticket.id}`;
+    const ticketId = ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
     processedTickets.push({
       id: ticketId,
       title: ticket.title,
