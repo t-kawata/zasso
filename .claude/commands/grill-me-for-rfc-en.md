@@ -278,6 +278,31 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
 
 ---
 
+### STEP 7a: I/O Boundary Reference Information
+
+Add I/O boundary reference information to the RFC so that future `/split-rfc-to-children` can safely split the document along natural seams.
+
+```bash
+# Insert template
+node "$SCRIPT_DIR/insert-io-boundary-template.js" "$TARGET_RFC"
+
+# AI fills in content (reads [::IO-INFO-STUB::] markers, generates content from existing RFC descriptions)
+```
+
+**The AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker in the template, follows its instruction to generate appropriate content from the existing RFC, and replaces the marker. This process repeats until no markers remain.**
+
+Verify no markers remain:
+
+```bash
+node "$SCRIPT_DIR/check-io-stubs.js" "$TARGET_RFC"
+if [ $? -ne 0 ]; then
+  echo "ERROR: Remaining [::IO-INFO-STUB::] markers found. AI content completion is incomplete."
+  exit 1
+fi
+```
+
+---
+
 ### STEP 8: RFC Completion Declaration
 
 Declare completion only when ALL of the following conditions are met:

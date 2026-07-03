@@ -1,0 +1,145 @@
+{
+  "title": "I/O境界参考情報テンプレートスクリプト",
+  "metadata": {
+    "source": "/drill-rfc-down on siprs/RFC-ROOT.md",
+    "generatedAt": "2026-07-03",
+    "analyzedSections": ""
+  },
+  "phases": [
+    {
+      "id": -1,
+      "name": "[X] 独立フェーズ（P0 に先行／独立）",
+      "characteristics": "P0より前、またはP0以降のどのフェーズにも属さない独立したチケットを格納する特別なフェーズ。",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "I/O境界参考情報テンプレート挿入スクリプト",
+          "referenceSection": "tickets/specs/0040-io.md",
+          "background": "drill-rfc-down の完了ステップとして、RFCファイルに I/O 境界参考情報セクションを機械的に挿入するスクリプトが必要。テンプレート内の RFC 固有記述箇所は [::IO-INFO-STUB::] マーカーでプレースホルダーにし、AI 自身が内容を記入する方式。作業対象は conver/.claude/ 内のみ。",
+          "scope": [
+            "insert-io-boundary-template.js の作成",
+            "check-io-stubs.js の作成",
+            "4つのコマンド定義ファイルへのステップ追加"
+          ],
+          "testVerification": [
+            "テンプレート挿入スクリプトが正しくRFCに追記される",
+            "[::IO-INFO-STUB::] マーカーが適切な位置に配置される",
+            "check-io-stubs.js がマーカー0件でexit 0、残存時exit 1",
+            "4つのコマンド定義ファイルに新ステップが追加される"
+          ],
+          "testExceptions": [
+            "AIによる内容記入の品質は検証できない（マーカーの有無のみ確認）"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (3件のconsole.logはCLI出力機構として意図的)\n- 翻訳可能性: 問題なし (1文字変数i→lineIndexに修正済み)\n- 依存関係: 関連チケットなし (PX独立フェーズ)\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 不完全実装: 検出されず (7パターン全面査)\n- 構文チェック: node --check 両ファイルOK\n- 統合テスト: 全5ケースPASS\n- 問題点: なし。全Acceptance Criteriaを満たしている。",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "(new)",
+              "after": "insert-io-boundary-template.js (51 lines)",
+              "description": "RFCファイルに I/O 境界参考情報セクションのテンプレートを機械挿入するスクリプト。"
+            },
+            {
+              "before": "(new)",
+              "after": "check-io-stubs.js (50 lines)",
+              "description": "[::IO-INFO-STUB::] マーカーの残存を検証するスクリプト。"
+            },
+            {
+              "before": "STEP 7→STEP 8 が連続",
+              "after": "STEP 7a 追加（I/O境界参考情報追記）",
+              "description": "grill-me-for-rfc-ja.md: 完成宣言前に新ステップ追加"
+            },
+            {
+              "before": "STEP 7→STEP 8 が連続",
+              "after": "STEP 7a 追加",
+              "description": "grill-me-for-rfc-en.md: 完成宣言前に新ステップ追加"
+            },
+            {
+              "before": "STEP 7→STEP 8 が連続",
+              "after": "STEP 7a 追加",
+              "description": "grill-me-for-next-rfc-ja.md: 完成宣言前に新ステップ追加"
+            },
+            {
+              "before": "STEP 7→STEP 8 が連続",
+              "after": "STEP 7a 追加",
+              "description": "drill-rfc-down.md: 完成宣言前に新ステップ追加"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (issues 3件: 全て意図的CLI出力のconsole.log)\n翻訳可能性: 問題なし (1文字変数 i → lineIndex に修正済み)\nテスト: 全5テストPASS (挿入→stub検証→除去後検証→二重挿入防止→構文チェック)\n犯罪/スタブ: 0件\nBoy Scout改善: i→lineIndex へのリネームを実施",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
+        },
+        {
+          "id": 2,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "I/O境界情報抽出スクリプト＋3コマンド修正＋test.sh拡張",
+          "referenceSection": "tickets/specs/0041-io3testsh.md",
+          "background": "PX-1で作成したI/O境界テンプレートの目的文が/split-rfc-to-childrenのみを対象として狭い。抽出スクリプトがなく他コマンドが参照できない。3つのコマンド定義ファイルに参照ステップがない。test.shにテストがない。RFC-ROOT.md Sec61が未更新。",
+          "scope": [
+            "extract-io-boundary.js 作成",
+            "insert-io-boundary-template.js テンプレート冒頭修正",
+            "split-rfc-to-children.md 修正",
+            "formulate-tickets.md 修正",
+            "formulate-tickets-for-next.md 修正",
+            "test.sh に統合テスト追加",
+            "RFC-ROOT.md §61 修正"
+          ],
+          "testVerification": [
+            "extract-io-boundary.js がI/O境界セクションを正しく抽出する",
+            "insert-io-boundary-template.js のテンプレートに3つのコマンド名が明記されている",
+            "3つのコマンド定義ファイルに参照ステップが追加されている",
+            "test.sh で全テストがPASSする"
+          ],
+          "testExceptions": [
+            "コマンド定義ファイルの編集位置の正しさはレビューで確認"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (3件のconsole.logはCLI出力機構として意図的)\n- 翻訳可能性: 問題なし (1文字変数・マジックナンバー・デバッグ出力なし)\n- 依存関係: PX-1 (reviewed)との整合性確認済\n- ステップ番号: split-rfc-to-children(0-8), formulate-tickets(0-10), formulate-tickets-for-next(0-10) 全て連続整数\n- 犯罪スキャン: 0件\n- [::STUB::] 検出: 0件\n- 不完全実装: 検出されず (7パターン全面査)\n- 構文チェック: node --check OK\n- 統合テスト: IO1-IO6 全PASS\n- 問題点: なし。全Acceptance Criteriaを満たしている。",
+          "relatedTicketIds": "PX-1 (先行実装完了。本チケットは PX-1 の上に積み上げる)",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "(new)",
+              "after": "extract-io-boundary.js (67 lines)",
+              "description": "RFC から I/O 境界参考情報セクションを機械抽出するスクリプト"
+            },
+            {
+              "before": "/split-rfc-to-children のみ言及",
+              "after": "/formulate-tickets, /formulate-tickets-for-next も明記",
+              "description": "insert-io-boundary-template.js テンプレート冒頭を拡張"
+            },
+            {
+              "before": "Step 0→1→...→7",
+              "after": "Step 0→1(I/O境界)→2→...→8",
+              "description": "split-rfc-to-children.md: 新 Step 1 挿入 + リナンバリング"
+            },
+            {
+              "before": "Step 0→1→...→9",
+              "after": "Step 0→1(I/O境界)→2→...→10",
+              "description": "formulate-tickets.md: 新 Step 1 挿入 + リナンバリング"
+            },
+            {
+              "before": "Step 0→1→...→9",
+              "after": "Step 0→1(I/O境界)→2→...→10",
+              "description": "formulate-tickets-for-next.md: 新 Step 1 挿入 + リナンバリング"
+            },
+            {
+              "before": "I/O境界テストなし",
+              "after": "IO1-IO6 追加",
+              "description": "test.sh: 6 つの統合テストを追加"
+            },
+            {
+              "before": "/split-rfc-to-children のみ",
+              "after": "3 コマンドを明記",
+              "description": "RFC-ROOT.md §61 冒頭を修正"
+            }
+          ],
+          "completedAt": "2026-07-03",
+          "instrumentation": "静的品質チェック: 合格 (issues 3件: 全て意図的CLI出力のconsole.log)\n翻訳可能性: 問題なし (1文字変数なし、関数名は動詞句)\nテスト: IO1-IO6 全6件PASS ✅ (CLI4件失敗は事前既存問題)\n犯罪/スタブ: 0件\nステップ番号: 全3ファイルで連続・重複なしを確認",
+          "rfcDiscrepancies": []
+        }
+      ]
+    }
+  ]
+}

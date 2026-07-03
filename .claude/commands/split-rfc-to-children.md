@@ -42,7 +42,21 @@ SCRIPT_DIR=".claude/scripts/tickets"
 if [ ! -f "$CANONICAL_RFC" ]; then echo "エラー: ファイルなし: $CANONICAL_RFC"; exit 1; fi
 ```
 
-### Step 1: RFC-TREE.json 作成
+---
+
+### Step 1: RFC 内の I/O 境界参考情報を参照
+
+対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示する。この情報は後続の分割判断の参考として活用する。
+
+```bash
+echo "=== I/O 境界参考情報 ==="
+node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$CANONICAL_RFC" || echo "(I/O 境界参考情報なし)"
+echo "========================"
+```
+
+---
+
+### Step 2: RFC-TREE.json 作成
 
 ```bash
 TREE_RESULT=$(node "$SCRIPT_DIR/create-rfc-tree.js" "$CANONICAL_RFC")
@@ -50,7 +64,7 @@ echo "$TREE_RESULT"
 TREE_PATH="$RFC_DIR/RFC-TREE.json"
 ```
 
-### Step 2: RFC 理解（6 子ステップ）
+### Step 3: RFC 理解（6 子ステップ）
 
 RFCファイルを読み込み、**抽象度の高い層から順に**設計内容を完全に理解する。各サブステップの理解結果は独立したスクリプトで RFC-TREE.json に書き込む。AI は一度に多くのフィールドを書き込もうとせず、1スクリプトの担当範囲だけを丁寧に記述する。
 
@@ -160,7 +174,7 @@ node "$SCRIPT_DIR/validate-rfc-tree.js" "$TREE_PATH"
 
 **目的とゴール（2a）を最初に理解しなければ、機械的な実装定義（2c）の抽出だけでは「分割すべきI/O境界」の発見漏れが発生する。必ず上位層から理解すること。**
 
-### Step 3: 素案ツリー作成
+### Step 4: 素案ツリー作成
 
 正典RFCを読み、安全なI/O境界で区切られた独立した名前空間（crate/module/package）単位に分割する。
 
@@ -265,7 +279,7 @@ grep -n "^#" "$CANONICAL_RFC"
 echo '[<ツリーJSON>]' | node "$SCRIPT_DIR/write-rfc-tree-draft.js" "$TREE_PATH"
 ```
 
-### Step 4: 検証ループ（1子ずつ修正）
+### Step 5: 検証ループ（1子ずつ修正）
 
 draftTree と正典RFCを照合し、漏れ・矛盾・不足がなくなるまで**1子ずつ**修正する。
 
@@ -324,14 +338,14 @@ node "$SCRIPT_DIR/validate-rfc-tree.js" "$TREE_PATH"
 node "$SCRIPT_DIR/write-rfc-tree-final.js" "$TREE_PATH"
 ```
 
-### Step 5: 機械的ディレクトリ生成（AIではなくスクリプト）
+### Step 6: 機械的ディレクトリ生成（AIではなくスクリプト）
 
 ```bash
 node "$SCRIPT_DIR/generate-child-rfcs.js" "$TREE_PATH"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 ```
 
-### Step 6: 詳細記述
+### Step 7: 詳細記述
 
 未記入マーカーがゼロになるまで各RFCファイルを編集。
 
@@ -339,7 +353,7 @@ node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 ```
 
-### Step 7: 完了報告
+### Step 8: 完了報告
 
 ```bash
 node "$SCRIPT_DIR/verify-rfc-coverage.js" "$TREE_PATH"

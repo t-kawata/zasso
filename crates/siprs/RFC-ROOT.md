@@ -3669,7 +3669,87 @@ let config = ClientConfig {
 
 ## 60. 既存 RFC セクションとの対応関係
 
-本 grill で追加された設計判断と既存 RFC セクションの関連を以下に示す。
+## 61. split-rfc-to-children のための参考情報 — RFC設計書が示す I/O 境界の手がかり
+
+本セクションは、後日 `/split-rfc-to-children`（RFC分割）、`/formulate-tickets`（チケット策定）、`/formulate-tickets-for-next`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
+
+### 61.1 観測された自然な I/O 境界
+
+本 RFC の設計記述を俯瞰すると、以下のような「ここで切ってもよさそう」と思われる箇所が複数存在する。これらは設計上の責務分離が自然に境界を形成している場所であり、依存関係の方向が一貫している。
+
+| # | 境界の種類 | 切断面（左側/上流 → 右側/下流） | 該当セクション | 備考 |
+|---|-----------|-------------------------------|--------------|------|
+| B1 | **crate 境界** | `siprs`（コアライブラリ）→ `siprs-server`（API サーバー） | §52, §6 | siprs-server は siprs に依存するが逆はない。最も確実な切断面 |
+| B2 | **FFI 境界** | Rust `runtime/` ←→ C `vendor/pjsip/` | §27, §45.1 | unsafe 境界。callback bridge は `NativeEvent` という typed enum で抽象化済み |
+| B3 | **Async 境界** | `Reactor`（単一スレッド）←→ `AudioWorkerTask`（個別スレッド） | §7, §39 | lock-free queue（crossbeam::ArrayQueue）経由の一方向通信 |
+| B4 | **API 公開境界** | `SipClient`（Rust API）←→ HTTP/WebSocket API 利用者 | §8, §54 | ネットワーク境界。シリアライズ形式（JSON）が契約 |
+| B5 | **イベント配送境界** | EventBus（broadcast）←→ 購読者（tokio task） | §15.4, §54.5 | broadcast channel の切断。購読者がいなくても送信側は動作する |
+| B6 | **永続化境界** | `siprs-server` runtime ←→ SQLite（rusqlite） | §56 | データベースファイルが独立した状態を持つ。マイグレーションでスキーマ管理 |
+| B7 | **認証境界** | REST API Router ←→ JWT 検証 Middleware | §55 | Axum Layer として分離済み。認証方式の差し替えが Layer 交換で可能 |
+
+### 61.2 境界の属性
+
+各境界の特性を把握しておくと、分割後のテストや結合方法を決める際の参考になる。
+
+| 境界 | 同期/非同期 | データ形式 | 分割後の結合手段 | テスト独立性 |
+|------|-----------|-----------|----------------|------------|
+| B1 (crate) | 非同期（async fn） | Rust trait/pub struct | Cargo.toml dependency | 高い。MockBackend で siprs 単体テスト可能 |
+| B2 (FFI) | 同期的（C callback） | NativeEvent enum + oneshot | 再リンク + bindgen 再生成 | 低い。PJSIP 初期化が必要 |
+| B3 (audio) | lock-free queue | MediaFrame（固定長バイナリ） | crossbeam queue | 中程度。両側立てないとテスト困難 |
+| B4 (API) | 非同期（HTTP/WS） | JSON + バイナリフレーム | HTTP クライアント接続 | 高い。モックサーバーでテスト可能 |
+| B5 (event) | broadcast channel | SipEvent（Rust struct） | tokio::sync::broadcast | 高い。Receiver 単体で購読テスト可能 |
+| B6 (DB) | 同期的（rusqlite API） | SQL + BLOB | ファイルパス共有 | 高い。`:memory:` で分離テスト可能 |
+| B7 (auth) | 非同期（Axum middleware） | JWT（文字列） | HTTP Header 受け渡し | 高い。テスト用 secret で分離可能 |
+
+### 61.3 分割時に注意が必要な依存関係
+
+以下の依存関係は循環または暗黙的であり、分割時に追加の考慮が必要となる。
+
+- **NativeEvent の拡張**: B2 境界で新たな NativeEvent バリアントを追加する場合、Reactor での変換処理（NativeEvent → SipEventPayload）と EventBus 配送の両方に影響が及ぶ。分割後もこの変換テーブルの一貫性を保つ仕組み（共有クレート上の型定義、または protocol buffer スキーマ）が望ましい。
+- **RuntimeCommand の追加**: 新しい操作を追加する場合、公開 API（SipClient）→ RuntimeCommand enum → Reactor でのハンドラ追加 → SipBackend trait → PjsuaBackend 実装 の全層に影響が及ぶ。このパイプライン全体が 1 つの crate（siprs）にある現状は、むしろ整合性を保ちやすい期間と捉え、分割は 1.0 以降の安定化後が安全である。
+- **sequence number の一貫性**: EventBus の sequence number は AudioChunkPair と SipEvent の両方で共有される。§54.5 で設計したこの相関保証は、siprs と siprs-server の分割後も維持する必要がある。分割後の整合性を保証するためには、sequence number の採番を Reactor 内で一元的に行う設計が有効である。
+
+### 61.4 テスト分割への参考
+
+テストの分割は I/O 境界の切断と連動して行うと安全である。
+
+- **B1 で分割する場合**: `siprs/tests/` は Layer 1 + Layer 2（PJSIP不要）のテストのみを含め、`siprs-server/tests/` に Layer 5（HTTP/WS API）を配置する設計が自然。
+- **B4 で分割する場合**: `siprs-server/tests/api/` と `siprs-server/tests/ws/` は HTTP サーバーさえ立てれば独立して実行可能。Docker を必要とするテストは `siprs-server/tests/integration/` に隔離する。
+- **B6 で分割する場合**: 永続化層のテストは `:memory:` SQLite で完全分離可能。アカウント CRUD のテストは SIP シグナリングなしで実施できるため、最も高速なフィードバックが得られる層である。
+
+### 61.5 分割後のファイル構成（一案）
+
+```text
+# 案：B1（crate境界）とB4（API境界）で分割した場合の構成
+zasso/crates/
+├── siprs/                    # 変更なし（既存 §6 の構成を維持）
+│   ├── src/
+│   ├── build.rs
+│   ├── vendor/
+│   └── Cargo.toml
+├── siprs-server/             # 新設（§53, §54, §55, §56, §57）
+│   ├── src/
+│   ├── migrations/
+│   ├── tests/
+│   └── Cargo.toml
+└── siprs-core/               # 将来のさらなる分割例（siprs から runtime/ + ffi/ を抽出）
+    ├── src/
+    │   ├── runtime/
+    │   ├── ffi/
+    │   ├── event.rs
+    │   └── command.rs
+    └── Cargo.toml
+```
+
+ただし、これは 1.0 以降の実際の利用実績に基づいて判断するものであり、現在のフェーズでは siprs 単一 crate での開発を継続する。
+
+### 61.6 参考: 本セクションの目的と限界
+
+- 本セクションは RFC の設計記述から**事後的に観測された**境界を書き留めたものであり、境界を**事前に設計した**ものではない。
+- 実際の分割判断は、実装が進みコードとテストが蓄積された後、`/split-rfc-to-children` 実行時に行う。
+- ここに書かれた境界の候補は参考情報であり、分割時に新たな発見があればそちらを優先してよい。
+
+| grill 決定 | 関連既存セクション | 補足 |
 
 | grill 決定 | 関連既存セクション | 補足 |
 |-----------|------------------|------|

@@ -406,6 +406,57 @@ echo "[CLI4] -k のみ（--slack-url 不足）で exit 1 + エラーメッセー
 R="$(node dist/conver.js -k sk-test 2>&1 || true)"
 echo "$R" | grep -q "slack-url" && pass "エラーに --slack-url の言及あり" || fail "エラーに --slack-url の言及なし"
 
+echo ""; echo "======== I/O境界 テスト ========"; echo ""
+
+SCRIPT_IO=".claude/scripts/grill-me-for-rfc"
+TMP_IO="$TMPDIR/io-test"
+mkdir -p "$TMP_IO"
+
+echo "[IO1] insert-io-boundary-template で5つの [::IO-INFO-STUB::] が挿入される"
+cat > "$TMP_IO/rfc.md" << 'EOF'
+# Test RFC
+
+## 1. Introduction
+
+Test document.
+
+## 2. Architecture
+
+Test architecture.
+EOF
+node "$SCRIPT_IO/insert-io-boundary-template.js" "$TMP_IO/rfc.md" > /dev/null 2>&1
+STUB_COUNT=$(grep -c '\[::IO-INFO-STUB::\]' "$TMP_IO/rfc.md" || true)
+[ "$STUB_COUNT" -eq 5 ] && pass "5 stubs inserted (got $STUB_COUNT)" || fail "Expected 5 stubs, got $STUB_COUNT"
+
+echo "[IO2] check-io-stubs が stub 残存時に exit 1"
+R=0; node "$SCRIPT_IO/check-io-stubs.js" "$TMP_IO/rfc.md" > /dev/null 2>&1 && R=1 || R=0
+[ "$R" -eq 0 ] && pass "check fails with stubs (exit 1)" || fail "expected exit 1, got exit 0"
+
+echo "[IO3] check-io-stubs が stub 除去後に exit 0"
+sed -i '' 's/<!-- \[::IO-INFO-STUB::\] .*-->//g' "$TMP_IO/rfc.md"
+node "$SCRIPT_IO/check-io-stubs.js" "$TMP_IO/rfc.md" > /dev/null 2>&1 && pass "check passes after stub removal (exit 0)" || fail "expected exit 0"
+
+echo "[IO4] extract-io-boundary が I/O 境界セクションを抽出できる"
+EXTRACTED=$(node "$SCRIPT_IO/extract-io-boundary.js" "$TMP_IO/rfc.md")
+echo "$EXTRACTED" | grep -q "参考情報" && pass "I/O boundary section extracted" || fail "I/O boundary section not found in output"
+
+echo "[IO5] extract-io-boundary がセクションなし RFC で空出力"
+cat > "$TMP_IO/no-io-rfc.md" << 'EOF'
+# Plain RFC
+
+## 1. Intro
+
+No I/O boundary section here.
+EOF
+R="$(node "$SCRIPT_IO/extract-io-boundary.js" "$TMP_IO/no-io-rfc.md" 2>&1)"
+[ -z "$R" ] && pass "empty output for RFC without I/O section" || fail "expected empty output"
+
+echo "[IO6] 二重挿入防止"
+R="$(node "$SCRIPT_IO/insert-io-boundary-template.js" "$TMP_IO/rfc.md" 2>&1)"
+echo "$R" | grep -q "Skipping" && pass "double insertion prevented" || fail "expected 'Skipping' message"
+
+rm -rf "$TMP_IO"
+
 echo ""; echo "=========="
 [ "$FAILED" = "1" ] && echo "❌ FAILED" || echo "✅ ALL PASS"
 echo "=========="; echo ""
