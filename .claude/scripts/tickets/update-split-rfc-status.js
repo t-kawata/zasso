@@ -60,6 +60,17 @@ function updateStatus(treePath, stepId, newStatus) {
   }
 
   data.split_status.steps[stepId] = newStatus;
+
+  // Step 3 が done に変わった場合、6つの子ステップも強制的に done にする
+  if (stepId === "3" && newStatus === "done") {
+    var childSteps = ["3a-1", "3a-2", "3b", "3c-1", "3c-2", "3-review"];
+    childSteps.forEach(function(childId) {
+      if (data.split_status.steps[childId] !== undefined) {
+        data.split_status.steps[childId] = "done";
+      }
+    });
+  }
+
   fs.writeFileSync(resolved, JSON.stringify(data, null, 2) + "\n", "utf8");
 
   return { success: true, stepId: stepId, newStatus: newStatus };
