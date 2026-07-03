@@ -1,0 +1,283 @@
+{
+  "canonicalRfcPath": "RFC-ROOT.md",
+  "canonicalRfcTitle": "RFC: Rust SIP Client Crate 完全設計書",
+  "generatedAt": "2026-07-03",
+  "summary": "本 RFC は、Tauri アプリケーションに SIP ベースの音声通話機能を統合するための Rust 製 private workspace crate（siprs）の完全設計仕様である。単一の core reactor thread で全 PJSIP 操作をシリアライズし、RuntimeCommand + MPSC oneshot パターンでスレッド安全な非同期 API（SipClient, SipAccountHandle）を提供する。イベントは制御系と RawSIP 系に分離された EventBus で配送され、音声は AsyncAudioSource → AudioMixer → lock-free queue → PJSIP conference bridge のパイプラインで処理される。加えて siprs-server crate により、HTTP REST API + WebSocket + JWT 認証 + SQLite 永続化を備えたスタンドアロンサーバー機能を提供する。M20 追補により 14 項目の設計判断（Q1:A〜Q14:A）が追加され、NativeEvent 完全変換、DTMF 二段構え、Dual Client 対応、CI 自動化等の実装優先度マップが定義されている。§61 には split-rfc-to-children 用の I/O 境界参考情報（B1〜B7）が付録として記録されている。",
+  "language": null,
+  "split_status": {
+    "steps": {
+      "0": "done",
+      "1": "done",
+      "2": "done",
+      "3": "done",
+      "4": "done",
+      "5": "done",
+      "6": "done",
+      "7": "done",
+      "8": "done",
+      "9": "done",
+      "10": "done",
+      "11": "done",
+      "12": "done",
+      "3a-1": "done",
+      "3a-2": "done",
+      "3b": "done",
+      "3c-1": "done",
+      "3c-2": "done",
+      "3-review": "done"
+    }
+  },
+  "rfcUnderstanding": {
+    "purpose": "siprs crate の目的は、Rust から PJSUA（PJSIP 2.17）を安全かつ非同期的に利用し、複数 SIP アカウント管理、複数トランスポート（UDP/TCP/TLS）、発着信、音声処理（ミキシング・リサンプル・IN/OUT ペア整列）、DTMF 送受信、ICE/STUN/TURN、SRTP、およびアプリケーション統合向けイベント配信を、tokio ネイティブな Rust API として提供することである。加えて siprs-server crate により、HTTP REST API と WebSocket を通じた外部制御・イベント購読・音声ストリーミングを実現するスタンドアロンサーバー機能も提供する。映像機能は対象外であり、音声のみに責務を限定する。",
+    "goals": "①安全な FFI 境界: bindgen による PJSIP C API の自動バインディング生成、unsafe コードの ffi/ モジュールへの隔離、callback bridge を介した async 変換。②単一 Reactor スレッドによる PJSIP 操作のシリアライズ: RuntimeCommand enum + MPSC oneshot パターンで全 PJSIP API 呼び出しを直列化しスレッド安全を保証。③完全なイベントモデル: 登録・発着信・メディア・DTMF・ICE・トランスポート・アカウント・ライフサイクルの全カテゴリをカバーする SipEventPayload enum。制御系と RawSIP メッセージを別バスで分離。④リアルタイム音声パイプライン: AsyncAudioSource trait による動的音声注入、AudioMixer による多ソースミキシング、lock-free queue（crossbeam::ArrayQueue）経由の PJSIP media port 連携、PairAligner による IN/OUT ペア整列。⑤HTTP/WebSocket API（siprs-server）: REST API による全 SipClient 操作の外部公開、WebSocket によるイベントストリーミングと音声フレーム送受信、JWT 認証。⑥クロスプラットフォームビルド: macOS arm64, Windows x86_64, Ubuntu x86_64 で prebuilt 優先・欠損時 source build の二段階戦略。",
+    "successCriteria": "①3 対応 OS で build 成功し PJSUA バインディングが自動生成される。②prebuilt 優先・欠損時 source build の二段階戦略が機能する。③複数 account の独立 register/unregister が動作し未登録アカウントでも発信できる。④UDP/TCP/TLS, SRTP, ICE/STUN/TURN が設定通り動作する。⑤PCMU/Opus のみがコーデック交渉される。⑥DTMF 3方式の送受信イベントが得られる。⑦全列挙イベント（SipEventPayload の全バリアント）が発火する。⑧AudioChunkPair が format guarantee（16kHz/i16/stereo）付きで取得できる。⑨複数 audio source の同時注入・切替が通話中に行える。⑩全 API が Result<T, SipError> で統一され SipClient: Send + Sync が成立する。⑪テスト 5 層（Unit/State-Machine/SIP Integration/Interop/API Integration）が整備されている。",
+    "nonScope": "①SIP サーバ実装・PBX 実装・独自 RTP スタック: siprs は SIP クライアントでありサーバ機能は提供しない。②映像処理: 音声通話のみでビデオコーデック・映像 RTP は対象外。③録音ファイル書き出し: AudioChunkPair の提供に留め WAV/MP3 等のファイルコンテナ化は利用者責務。④GUI・フロントエンド: Tauri 非依存で Tauri IPC Channel や JS 通信機構は提供しない。⑤永続設定保存（siprs crate 単体では）: siprs はメモリ上の設定管理のみで永続化は siprs-server の責務。⑥通話課金・CDR 生成。⑦MSRV は Rust 1.95 以上、PJSIP 2.17 固定。",
+    "architecture": "本 RFC は 2-crate 構成を採用する。①siprs: 純粋な SIP クライアントライブラリ。PJSIP FFI 層（ffi/）、単一 Reactor スレッド（runtime/）、音声パイプライン（audio/）、公開 API（client/）、設定（config/）、イベント（event/）、エラー（error/）の 7 モジュールで構成。SipBackend trait により PJSIP 実装（PjsuaBackend）とテスト用 Mock を差し替え可能。②siprs-server: HTTP/WebSocket API サーバー。Axum ルーター（routes/）、JWT 認証（auth/）、WebSocket 管理（ws/）、SQLite 永続化（db/）の 4 モジュールで構成。siprs に依存し HTTP スタックは siprs に一切混入させない。並行性モデルは 4 つの実行コンテキストから成る: User async context（利用者の tokio task）、Core reactor（専用 std::thread、全 PJSIP API をシリアライズ実行）、PJSIP native callbacks（C callback から最小限の work enqueue）、Audio worker tasks（tokio blocking pool、音声 Pull→Mix→Resample→Align→lock-free queue write）。",
+    "componentRelations": "siprs 内の依存関係: 公開 API（SipClient）→ RuntimeHandle（MPSC command send）→ Reactor（単一スレッドで RuntimeCommand を逐次処理）→ SipBackend trait → PjsuaBackend（PJSIP FFI 呼び出し）。PJSIP callback → NativeEvent → Reactor（process_native_event）→ SipEventPayload → EventBus → 購読者。音声パイプライン: AsyncAudioSource（利用者実装）→ AudioWorkerTask（tokio blocking）→ AudioMixer（多ソースミキシング）→ Resampler（フォーマット変換）→ PairAligner（IN/OUT 整列）→ lock-free ArrayQueue → PJSIP custom media port callback。siprs-server の依存関係: Axum Router（routes/）→ siprs::SipClient（操作実行）→ siprs::EventBus（イベント購読）。auth/ → JWT 検証 → Axum Layer として注入。db/ → rusqlite → SQLite ファイル（設定永続化）。",
+    "designDecisions": "①単一 crate 選択（§6.1）: PJSIP の密結合性・通話とメディアの不可分性により siprs は単一 crate。将来の分割可能性はモジュール境界で担保。②分離 crate 方式（§52.1）: siprs と siprs-server は別 crate。Tauri 埋め込み時に HTTP 依存を回避しバンドルサイズ最小化。③単一 Reactor + MPSC oneshot（§7）: PJSIP のスレッド安全制約を隠蔽し SipClient: Send + Sync を実現。④EventBus 分割（§15.4）: 制御系と RawSIP を別バスにし高頻度 RawSIP 配送時の制御イベント取りこぼしを防止。⑤lock-free queue（§39）: PJSIP audio callback（リアルタイムスレッド）と AudioWorkerTask（tokio blocking）の境界に crossbeam::ArrayQueue を使用しブロッキングを回避。⑥prebuilt 優先・source build fallback（§28）: ビルド時間短縮のため platform 別 prebuilt を優先し欠損時のみ cmake ソースビルド。⑦JWT 認証（§55）: siprs-server の API 保護に Axum JWT middleware を使用。⑧Dual Client 正式サポート（§52.3）: PJSIP の単一 pjsua_init() 制約下で複数 SipClient を単一 PjsuaBackend singleton 共有 + account_id ベース EventBus 振り分けで実現。⑨コーデックポリシー（§29）: PCMU/Opus のみ許可。明示指定が基本で auto 時のみ Opus=255, PCMU=254。⑩マルチインスタンス方式（§52.3）: 単一 PjsuaBackend singleton を全 Client で共有し EventBus 分割で配送分離。",
+    "typeDefinitions": "主要型定義: ①SipClient（Arc<ClientInner>）: 公開ハンドル。Clone + Send + Sync。②SipAccountHandle: account_id に紐づく操作ハンドル。③ClientConfig: user_agent, log_level, max_calls, event_bus_capacity, transports, stun/turn/ice, timeouts, audio 設定を包含。④AccountConfig: username, password(SecretString), domain, auth_realm, transport, 登録間隔等。⑤TransportConfig: UDP/TCP/TLS の transport kind, port, TLS 証明書設定。⑥IceConfig: ICE enabled, regular/nomination mode。⑦SipEventPayload（#[non_exhaustive] enum）: 登録系(6), 発着信系(12), メディア系(3), DTMF系(2), ICE系(3), トランスポート系(3), アカウント系(3), ライフサイクル系(2), エラー系(1) の計35バリアント。⑧SipEvent: EventMeta + SipEventPayload。⑨EventBus: control bus(broadcast::Sender<SipEvent>) + raw_sip bus(Option<broadcast::Sender<RawSipMessage>>)。⑩SipError: kind(SipErrorKind), message, native_status, account_id, call_id, retryable。⑪SipErrorKind: 21バリアント（InvalidConfig〜InternalInvariantBroken）。⑫AudioChunkPair: in_audio(Vec<u8>), out_audio(Vec<u8>), timestamp, sequence, format 情報。⑬RuntimeCommand（pub(crate) enum）: Initialize, AddAccount, RemoveAccount, SetRegistration, MakeCall, Hangup, Hold, Unhold, SendDtmf, Shutdown, GetAccountInfo, ConfConnect, ConfDisconnect, SubscribeAudio, UnsubscribeAudio。⑭NativeEvent（pub(crate) enum）: PJSIP callback から変換される内部イベント（on_reg_state, on_call_state, on_call_media_state, on_incoming_call, on_dtmf_digit 等）。⑮SipBackend trait（pub(crate)）: PJSIP 実装（PjsuaBackend）とテスト用 Mock（MockBackend）を抽象化する内部 trait。⑯AsyncAudioSource trait: async fn next_frame() → Option<AudioFrame>。⑰AudioFormat: SampleRate(Hz8000/Hz16000/Hz48000), BitDepth(I16/F32), ChannelLayout(Mono/StereoInOut), frame_ms。⑱ID 型: AccountId(u64), CallId(u64), AudioSourceId(u64) — いずれも newtype + Copy。",
+    "apiSignatures": "公開 API（siprs crate）: ①SipClient::new(config: ClientConfig) -> Result<Self, SipError>（async）。②SipClient::subscribe() -> broadcast::Receiver<SipEvent>。③SipClient::subscribe_raw_sip() -> Option<broadcast::Receiver<RawSipMessage>>。④SipClient::subscribe_account(account_id) -> AccountEventReceiver。⑤SipClient::add_account(config) -> Result<SipAccountHandle, SipError>。⑥SipClient::remove_account(account_id) -> Result<(), SipError>。⑦SipClient::account(account_id) -> Result<SipAccountHandle, SipError>。⑧SipClient::accounts() -> Vec<SipAccountHandle>。⑨SipClient::shutdown() -> Result<(), SipError>。⑩SipAccountHandle::register() -> Result<(), SipError>。⑪SipAccountHandle::make_call(request) -> Result<CallId, SipError>。⑫SipAccountHandle::send_dtmf(digits, method) -> Result<(), SipError>。⑬SipAccountHandle::hangup(call_id, reason) -> Result<(), SipError>。⑭SipAccountHandle::hold/unhold(call_id) -> Result<(), SipError>。⑮SipAccountHandle::subscribe_audio(call_id, mode, format) -> Result<AudioTapHandle, SipError>。⑯SipAccountHandle::inject_audio_source(call_id, source) -> Result<AudioSourceId, SipError>。⑰EventBus::subscribe_control() -> broadcast::Receiver<SipEvent>。⑱AccountEventReceiver: Stream 実装（account_id でフィルタ済み）。siprs-server API: ①POST /api/v1/auth/login → JWT token。②POST/GET /api/v1/accounts → アカウント CRUD。③POST /api/v1/accounts/:id/register → 登録。④POST /api/v1/calls → 発信。⑤POST /api/v1/calls/:id/hangup → 切断。⑥POST /api/v1/calls/:id/dtmf → DTMF 送信。⑦GET /api/v1/ws → WebSocket upgrade（イベントストリーム + 音声フレーム）。⑧GET /api/v1/health → ヘルスチェック。",
+    "dependencyGraph": "外部依存（siprs）: pjsip-sys（bindgen 生成バインディング、vendor/pjsip/ の C ライブラリにリンク）、tokio（async runtime, sync primitives, net）、crossbeam（ArrayQueue: lock-free queue）、rubato（音声リサンプリング）、secrecy（SecretString）、thiserror（SipError derive）、tracing（構造化ログ）、serde（optional, Serialize/Deserialize）。siprs のモジュール間依存: client → runtime（RuntimeHandle 経由の MPSC command send）、runtime → backend（SipBackend trait 経由の PJSIP 操作）、runtime → event（EventBus へのイベント配送）、backend/pjsua → ffi（bindgen バインディング + callback bridge）、audio → runtime（AudioWorkerTask 管理）、audio → backend（PJSIP conference port 連携）。siprs-server の外部依存: siprs（path dep）、axum（HTTP framework）、tokio-tungstenite（WebSocket）、jsonwebtoken（JWT）、rusqlite（SQLite bundled）、sea-orm（ORM, sqlite-sqlx feature）、serde/serde_json、tracing。siprs-server のモジュール間依存: routes → siprs::SipClient（操作実行 + EventBus 購読）、auth → jsonwebtoken（JWT 発行/検証）、ws → siprs::EventBus + siprs::AudioTapHandle（イベント転送 + 音声転送）、db → rusqlite（設定永続化）。層間のデータフロー: 利用者（Tauri または HTTP client）→ SipClient API（async）→ MPSC channel → Reactor（単一スレッド）→ SipBackend trait → PjsuaBackend → PJSIP C API。PJSIP callback → NativeEvent（callback thread）→ Reactor（process_native_event）→ SipEventPayload → EventBus（broadcast）→ 購読者（SipClient::subscribe() または WebSocket client）。音声: AsyncAudioSource（利用者実装）→ AudioWorkerTask → AudioMixer → Resampler → PairAligner → ArrayQueue → PJSIP custom media port → RTP 送信。逆方向: PJSIP custom media port（受信 RTP）→ ArrayQueue → PairAligner → AudioChunkPair → EventBus or AudioTapHandle → 利用者。",
+    "externalDependencies": "I/O 境界: ①PJSIP C ライブラリ（vendor/pjsip/）: 最重要の外部依存。unsafe FFI 経由でリンク。ビルド時に prebuilt バイナリ優先、欠損時 cmake ソースビルド。②ファイルシステム（ビルド時）: build.rs が PJSIP ライブラリパス解決、bindgen ヘッダ生成、OS 別フレームワークリンク（macOS: CoreAudio/CoreFoundation/Security）を行う。③ネットワーク I/O（実行時）: PJSIP が UDP/TCP/TLS ソケットを直接管理。tokio のネットワーク層は使用しない（PJSIP が独自のトランスポート層を持つため）。④システムクロック: std::time::Instant（PairAligner のタイムスタンプ管理）、SystemTime（EventMeta の外部向けタイムスタンプ）。⑤乱数生成: 暗号用（rand crate、TLS/SRTP の鍵生成）。⑥データベース（siprs-server のみ）: SQLite（rusqlite bundled）、ファイルベースの設定永続化。⑦HTTP/WS I/O（siprs-server のみ）: tokio TCP listener → Axum → Hyper HTTP/1.1 + WebSocket upgrade。⑧JWT 暗号（siprs-server のみ）: jsonwebtoken crate（HMAC-SHA256 署名検証）。LLM 依存: なし（本 crate は LLM を使用しない）。",
+    "testRequirements": "テストは 5 層構造。Layer 1（Unit Tests, PJSIP不要）: config validation, id mapping（BiMap）, pair aligner（時間ズレ・欠損・ゼロパディング）, resampler format conversion, mixer clipping semantics, event filter（AccountEventReceiver）, SipError 一貫性。MockBackend 使用。Layer 2（State-Machine Tests, PJSIP不要）: MockBackend 注入 Runtime で RegistrationState（Disabled→Registering→Registered→Unregistering→Idle の正常系、再試行系、期限切れ系）、CallState（Outgoing: New→Calling→Trying→Ringing→Connecting→Active→Disconnecting→Disconnected、Incoming 対応、異常系 4xx/5xx/6xx/timeout/cancel/transfer/hold/unhold）、並行性（max_calls 超過、重複 register、shutdown 中操作拒否）。Layer 3（SIP Integration, PJSIP必要）: Docker Asterisk/FreeSWITCH に対して REGISTER（認証成否）、INVITE/BYE（正常切断・cancel）、provisional response（180/183）、DTMF 3方式、unregister/re-register、dual account simultaneous call、TURN/ICE negotiation、media loopback。Layer 4（Interop, 実 PBX/Proxy）: Asterisk(P0), FreeSWITCH(P0), OpenSIPS(P1), Kamailio(P1), 3CX(P1)。P0 は 1.0 リリース前完了必須。Layer 5（API Integration, siprs-server）: Axum TestResponse で REST API 単体テスト（auth, accounts CRUD, calls, health）、WebSocket 接続テスト（イベント受信、音声フレーム送受信、認証）、Docker Asterisk + HTTP API 結合テスト。M20 追補により NativeEvent 変換、SubscribeAudio conf_connect、configure_codecs auto モード、Dual Client、DtmfSent タイムアウトフォールバック等のテスト層マッピングが定義済み。テストディレクトリ構成: siprs/tests/（Layer 1-3）、siprs-server/tests/api/（auth_test, accounts_test, calls_test, health_test）、siprs-server/tests/ws/（event_stream_test, audio_frame_test, auth_test）、siprs-server/tests/integration/（sip_via_api_test）。プラットフォームテスト: 各 target OS で prebuilt link + source build fallback を CI 検証。",
+    "errorHandling": "全 API が Result<T, SipError> で統一。SipError は kind（SipErrorKind: 21バリアント）、message、native_status（Option<i32>、PJSIP pj_status_t）、account_id、call_id、retryable（bool）を保持。エラー変換方針: pj_status_t != PJ_SUCCESS は必ず NativeError または文脈特化エラー（RegistrationFailed, InviteFailed 等）へ変換。4xx/5xx/6xx SIP 応答コードは InviteFailed/RegistrationFailed の message と supplemental field に格納。callback 内 panic は catch_unwind で捕捉し InternalInvariantBroken を emit、該当 call/account を安全停止する（panic を握り潰さない）。エラー回復方針: retryable=true のエラーは呼び出し側が再試行可能。InvalidState/ShutdownInProgress は状態遷移の拒否を示す。ChannelClosed は reactor 停止後の操作を示す。M20 追補: 新 RuntimeCommand（ConfConnect/ConfDisconnect/SubscribeAudio）のエラーは既存 SipErrorKind バリアント（InvalidState/NotFound/InternalError）で兼用し新規バリアント追加を避ける（Q11:B）。",
+    "configuration": "設定は ClientConfig, AccountConfig, TransportConfig, IceConfig の 4 階層。ClientConfig（§10）: user_agent（default: tauri-siprs/0.1）, log_level（Info）, max_calls（32）, event_bus_capacity（2048）, raw_sip_event_capacity（4096）, audio（ClientAudioConfig: default_delivery_format=16kHz/i16/stereo/20ms, pair_buffer_ms=120, jitter_buffer_ms=60, mixer_frame_ms=20, max_sources_per_call=16, resampler_quality=High）, transports（UDP+TCP 5060）, stun/turn/ice, raw_sip_events（enabled, include_bodies=true, max_body_bytes=64KB, redact_authorization=true）, timeouts（command=10s, shutdown=15s, register=15s, invite=90s）。AccountConfig（§11）: username, password（SecretString, 長さ1-128）, domain, display_name, auth_realm, transport（UDP/TCP/TLS）, register_on_add（bool）, registration_interval_secs（default: 未設定→PJSIP default 55分）, 他。TransportConfig（§12）: kind（Udp/Tcp/Tls）, port, TLS 設定（cert_file, key_file, ca_file, verify_server, verify_client）。IceConfig（§13）: enabled, regular/nomination（Aggressive）, stun/turn servers。設定検証: ClientConfig::validate() で全フィールドの整合性チェック（max_calls>0, event_bus_capacity>0, pair_buffer_ms>=20, mixer_frame_ms in [10, 20, 40, 60] 等）。AccountConfig::validate() で username/password の非空・長さ制限、domain の形式チェック。siprs-server 設定（§53.2）: TOML ファイル（server.toml）で listen_addr, jwt_secret, db_path, log_level を指定。CLI 引数（clap）で上書き可能。環境変数 SIPRS_SERVER_CONFIG で設定ファイルパス指定。デフォルト: listen=127.0.0.1:3910, jwt_expiry=24h, db_path=./siprs.db。設定値の管理は consts/settings.rs で一元化せず、各 crate の config モジュールで Default trait 実装により管理する。"
+  },
+  "draftTree": [
+    {
+      "childId": "01",
+      "slug": "siprs-core",
+      "directoryName": "RFC-ROOT-01-siprs-core",
+      "name": "siprs — SIP Client Core Library",
+      "namespaceUnit": "crate",
+      "summary": "PJSUA を安全にラップし、tokio ネイティブな SIP クライアント API（SipClient, SipAccountHandle）、イベント配信（EventBus）、リアルタイム音声パイプライン（AudioMixer, AsyncAudioSource）を提供する Rust ライブラリ crate。単一 Reactor スレッドによる PJSIP 操作のシリアライズ、SipBackend trait による実装差し替え可能性、5 層テスト戦略のうち Layer 1〜4 を包含する。",
+      "ioSchema": "pub struct SipClient { /* Clone + Send + Sync の公開ハンドル */ }\npub struct SipAccountHandle { /* アカウント単位操作 */ }\npub struct EventBus { /* 制御系 + RawSIP の分離バス */ }\npub enum SipEventPayload { /* 35 バリアントの全イベント */ }\npub trait AsyncAudioSource { /* 動的音声注入 trait */ }\npub struct AudioChunkPair { /* IN/OUT 整列済み音声バッファ */ }\npub enum SipError { /* kind + message + native_status + retryable */ }\npub(crate) trait SipBackend { /* PJSIP/Mock 差し替え内部 trait */ }",
+      "decouplingMethod": "pub trait SipBackend（内部 abstraction）+ cargo test 時の MockBackend 注入。siprs-server からの依存は pub API（SipClient, EventBus, SipEventPayload）経由のみ。HTTP 依存は一切持たない。",
+      "rfcEvidence": "§1-§51（コア設計）, §58（バージョニング）, §59（ネットワーキング）, §60（既存セクション対応表）",
+      "dependencyOn": []
+    },
+    {
+      "childId": "02",
+      "slug": "siprs-server",
+      "directoryName": "RFC-ROOT-02-siprs-server",
+      "name": "siprs-server — HTTP/WebSocket API Server",
+      "namespaceUnit": "crate",
+      "summary": "siprs の公開 API を HTTP REST および WebSocket で外部公開するスタンドアロンサーバー crate。Axum フレームワークによるルーティング、JWT 認証ミドルウェア、WebSocket 経由のイベントストリーミングと音声フレーム転送、SQLite（rusqlite bundled）+ SeaORM による設定永続化を提供する。Tauri アプリ埋め込み用のライブラリエントリ（lib.rs）と CLI バイナリ（main.rs）の両方を備える。テスト戦略 Layer 5（API Integration）を包含する。",
+      "ioSchema": "POST /api/v1/auth/login → { token: JWT }\nGET/POST /api/v1/accounts → Account CRUD\nPOST /api/v1/accounts/:id/register → 登録制御\nPOST /api/v1/calls → make_call (OutgoingCallRequest)\nPOST /api/v1/calls/:id/hangup → 切断\nPOST /api/v1/calls/:id/dtmf → DTMF 送信\nGET /api/v1/ws → WebSocket upgrade (イベント stream + 音声バイナリフレーム)\nGET /api/v1/health → { status: \"ok\" }\npub fn build_router(client: SipClient, jwt_secret: &str) -> axum::Router",
+      "decouplingMethod": "Cargo.toml path dep → siprs = { path = \"../siprs\", features = [\"serde\"] }。siprs の pub API（SipClient, EventBus, SipEventPayload）のみ使用。HTTP 依存（axum, tokio-tungstenite）は siprs に一切混入させない。JWT secret は環境変数または設定ファイルから注入。",
+      "rfcEvidence": "§52（HTTP/WebSocket API 層・crate 分割方針）, §53（スタンドアロンサーバーモード）, §54（API プロトコル構成）, §55（JWT 認証・認可）, §56（SQLite 永続化）, §57（テスト戦略拡張 Layer 5）",
+      "dependencyOn": [
+        "01"
+      ]
+    }
+  ],
+  "finalTree": [
+    {
+      "childId": "01",
+      "slug": "siprs-core",
+      "directoryName": "RFC-ROOT-01-siprs-core",
+      "name": "siprs — SIP Client Core Library",
+      "namespaceUnit": "crate",
+      "summary": "PJSUA を安全にラップし、tokio ネイティブな SIP クライアント API（SipClient, SipAccountHandle）、イベント配信（EventBus）、リアルタイム音声パイプライン（AudioMixer, AsyncAudioSource）を提供する Rust ライブラリ crate。単一 Reactor スレッドによる PJSIP 操作のシリアライズ、SipBackend trait による実装差し替え可能性、5 層テスト戦略のうち Layer 1〜4 を包含する。",
+      "ioSchema": "pub struct SipClient { /* Clone + Send + Sync の公開ハンドル */ }\npub struct SipAccountHandle { /* アカウント単位操作 */ }\npub struct EventBus { /* 制御系 + RawSIP の分離バス */ }\npub enum SipEventPayload { /* 35 バリアントの全イベント */ }\npub trait AsyncAudioSource { /* 動的音声注入 trait */ }\npub struct AudioChunkPair { /* IN/OUT 整列済み音声バッファ */ }\npub enum SipError { /* kind + message + native_status + retryable */ }\npub(crate) trait SipBackend { /* PJSIP/Mock 差し替え内部 trait */ }",
+      "decouplingMethod": "pub trait SipBackend（内部 abstraction）+ cargo test 時の MockBackend 注入。siprs-server からの依存は pub API（SipClient, EventBus, SipEventPayload）経由のみ。HTTP 依存は一切持たない。",
+      "rfcEvidence": "§1-§51（コア設計）, §58（バージョニング）, §59（ネットワーキング）, §60（既存セクション対応表）",
+      "dependencyOn": [],
+      "refPointers": [
+        {
+          "id": "01-001"
+        },
+        {
+          "id": "01-002"
+        },
+        {
+          "id": "01-003"
+        },
+        {
+          "id": "01-004"
+        },
+        {
+          "id": "01-005"
+        },
+        {
+          "id": "01-006"
+        },
+        {
+          "id": "01-007"
+        },
+        {
+          "id": "01-008"
+        },
+        {
+          "id": "01-009"
+        },
+        {
+          "id": "01-010"
+        },
+        {
+          "id": "01-011"
+        },
+        {
+          "id": "01-012"
+        },
+        {
+          "id": "01-013"
+        },
+        {
+          "id": "01-014"
+        },
+        {
+          "id": "01-015"
+        },
+        {
+          "id": "01-016"
+        },
+        {
+          "id": "01-017"
+        },
+        {
+          "id": "01-018"
+        },
+        {
+          "id": "01-019"
+        },
+        {
+          "id": "01-020"
+        },
+        {
+          "id": "01-021"
+        },
+        {
+          "id": "01-022"
+        },
+        {
+          "id": "01-023"
+        },
+        {
+          "id": "01-024"
+        },
+        {
+          "id": "01-025"
+        },
+        {
+          "id": "01-026"
+        },
+        {
+          "id": "01-027"
+        },
+        {
+          "id": "01-028"
+        },
+        {
+          "id": "01-029"
+        },
+        {
+          "id": "01-030"
+        },
+        {
+          "id": "01-031"
+        },
+        {
+          "id": "01-032"
+        },
+        {
+          "id": "01-033"
+        },
+        {
+          "id": "01-034"
+        },
+        {
+          "id": "01-035"
+        },
+        {
+          "id": "01-036"
+        },
+        {
+          "id": "01-037"
+        },
+        {
+          "id": "01-038"
+        },
+        {
+          "id": "01-039"
+        },
+        {
+          "id": "01-040"
+        },
+        {
+          "id": "01-041"
+        },
+        {
+          "id": "01-042"
+        },
+        {
+          "id": "01-043"
+        },
+        {
+          "id": "01-044"
+        },
+        {
+          "id": "01-045"
+        },
+        {
+          "id": "01-046"
+        },
+        {
+          "id": "01-047"
+        },
+        {
+          "id": "01-048"
+        },
+        {
+          "id": "01-049"
+        },
+        {
+          "id": "01-050"
+        },
+        {
+          "id": "01-051"
+        },
+        {
+          "id": "01-052"
+        },
+        {
+          "id": "01-053"
+        }
+      ]
+    },
+    {
+      "childId": "02",
+      "slug": "siprs-server",
+      "directoryName": "RFC-ROOT-02-siprs-server",
+      "name": "siprs-server — HTTP/WebSocket API Server",
+      "namespaceUnit": "crate",
+      "summary": "siprs の公開 API を HTTP REST および WebSocket で外部公開するスタンドアロンサーバー crate。Axum フレームワークによるルーティング、JWT 認証ミドルウェア、WebSocket 経由のイベントストリーミングと音声フレーム転送、SQLite（rusqlite bundled）+ SeaORM による設定永続化を提供する。Tauri アプリ埋め込み用のライブラリエントリ（lib.rs）と CLI バイナリ（main.rs）の両方を備える。テスト戦略 Layer 5（API Integration）を包含する。",
+      "ioSchema": "POST /api/v1/auth/login → { token: JWT }\nGET/POST /api/v1/accounts → Account CRUD\nPOST /api/v1/accounts/:id/register → 登録制御\nPOST /api/v1/calls → make_call (OutgoingCallRequest)\nPOST /api/v1/calls/:id/hangup → 切断\nPOST /api/v1/calls/:id/dtmf → DTMF 送信\nGET /api/v1/ws → WebSocket upgrade (イベント stream + 音声バイナリフレーム)\nGET /api/v1/health → { status: \"ok\" }\npub fn build_router(client: SipClient, jwt_secret: &str) -> axum::Router",
+      "decouplingMethod": "Cargo.toml path dep → siprs = { path = \"../siprs\", features = [\"serde\"] }。siprs の pub API（SipClient, EventBus, SipEventPayload）のみ使用。HTTP 依存（axum, tokio-tungstenite）は siprs に一切混入させない。JWT secret は環境変数または設定ファイルから注入。",
+      "rfcEvidence": "§52（HTTP/WebSocket API 層・crate 分割方針）, §53（スタンドアロンサーバーモード）, §54（API プロトコル構成）, §55（JWT 認証・認可）, §56（SQLite 永続化）, §57（テスト戦略拡張 Layer 5）",
+      "dependencyOn": [
+        "01"
+      ],
+      "refPointers": [
+        {
+          "id": "02-001"
+        },
+        {
+          "id": "02-002"
+        },
+        {
+          "id": "02-003"
+        },
+        {
+          "id": "02-004"
+        },
+        {
+          "id": "02-005"
+        },
+        {
+          "id": "02-006"
+        }
+      ]
+    }
+  ]
+}
