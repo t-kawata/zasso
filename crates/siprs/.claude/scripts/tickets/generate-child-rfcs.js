@@ -35,7 +35,6 @@ function main(){
   for(const c of tree){
     const dn=childDir(cb,c);const cd=path.join(bd,dn);
     write(path.join(cd,dn+".md"),md(c,"child",rel,c.rfcEvidence||"",null));
-    const td=path.join(cd,"tickets");fs.mkdirSync(td,{recursive:true});fs.writeFileSync(path.join(td,".gitkeep"),"");
     if(lang==="rust"){
       let ct='[package]\nname = "'+dn+'"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n';
       if(c.dependencyOn) for(const d of c.dependencyOn) ct+='child-'+d+' = { path = "../'+cb+'-'+d+'-<slug>" }\n';
@@ -52,7 +51,6 @@ function main(){
     if(c.children) for(const gc of c.children){
       const dnGC=gcDir(cb,c.childId,gc);const gd=path.join(cd,dnGC);
       write(path.join(gd,dnGC+".md"),md(gc,"grandchild",rel,gc.rfcEvidence||"",gc.parentEvidence||""));
-      const gtd=path.join(gd,"tickets");fs.mkdirSync(gtd,{recursive:true});fs.writeFileSync(path.join(gtd,".gitkeep"),"");
     }
   }
   console.log(JSON.stringify({success:true,canonicalBase:cb}));
