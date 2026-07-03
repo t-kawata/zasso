@@ -31,6 +31,8 @@ description: >
 | `add-ref-pointer.js <RFC-TREE> <childId> <cmd>` | Anchor Marker の行範囲を登録（add/batch/remove/list） |
 | `validate-ref-pointer.js <RFC-TREE>` | Anchor Marker リンク整合性検証（孤児マーカー・未参照・ペア不整合・重複ID） |
 | `check-rfc-placeholders.js <RFC-TREE>` | 全RFCファイルの未記入マーカー検出 |
+| `show-split-rfc-status.js <RFC-TREE>` | 進捗表示＋次Step指示（全完了でexit 0） |
+| `update-split-rfc-status.js <RFC-TREE> <stepId> <status>` | 進捗ステータス更新（pending/in_progress/done） |
 | `verify-rfc-coverage.js <RFC-TREE>` | ディレクトリ構造一致検証 |
 
 ## ワークフロー
@@ -40,11 +42,10 @@ description: >
 ```bash
 CANONICAL_RFC="${ARGUMENTS%% *}"
 RFC_DIR="$(dirname "$CANONICAL_RFC")"
+TREE_PATH="$RFC_DIR/RFC-TREE.json"
 SCRIPT_DIR=".claude/scripts/tickets"
 if [ ! -f "$CANONICAL_RFC" ]; then echo "エラー: ファイルなし: $CANONICAL_RFC"; exit 1; fi
 ```
-
----
 
 ### Step 1: RFC 内の I/O 境界参考情報を参照
 
@@ -56,21 +57,35 @@ node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$CANONICAL_RFC" 
 echo "========================"
 ```
 
----
-
 ### Step 2: RFC-TREE.json 作成
 
 ```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 2 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "2" "in_progress"
+
 TREE_RESULT=$(node "$SCRIPT_DIR/create-rfc-tree.js" "$CANONICAL_RFC")
 echo "$TREE_RESULT"
-TREE_PATH="$RFC_DIR/RFC-TREE.json"
+```
+
+```bash
+# Step 2 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "2" "done"
 ```
 
 ### Step 3: RFC 理解（6 子ステップ）
 
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 3 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "3" "in_progress"
+```
+
 RFCファイルを読み込み、**抽象度の高い層から順に**設計内容を完全に理解する。各サブステップの理解結果は独立したスクリプトで RFC-TREE.json に書き込む。AI は一度に多くのフィールドを書き込もうとせず、1スクリプトの担当範囲だけを丁寧に記述する。
 
-#### 2a-1: 目的とゴールの把握（前回の再利用 + 検証）
+#### 3a-1: 目的とゴールの把握（前回の再利用 + 検証）
 
 前回の RFC-TREE.json に purpose/goals/successCriteria/nonScope が記録されていれば、その値を検証して正しければそのまま使用する。誤りがあれば修正する。前回データがなければ新規分析する。
 
@@ -91,7 +106,7 @@ RFCの目的・ゴール・成功条件・非スコープを把握する：
 echo '{"purpose":"...","goals":"...","successCriteria":"...","nonScope":"..."}' | node "$SCRIPT_DIR/add-rfc-tree-goal.js" "$TREE_PATH"
 ```
 
-#### 2a-2: メタ情報の記録（前回の再利用 + 検証）
+#### 3a-2: メタ情報の記録（前回の再利用 + 検証）
 
 前回の summary を取得し、検証して正しければそのまま使用する。
 
@@ -106,7 +121,14 @@ RFC_SUMMARY=$(node "$SCRIPT_DIR/get-before-rfc-tree-understanding.js" "$TREE_PAT
 echo '{"summary":"<RFC全体の要約>"}' | node "$SCRIPT_DIR/add-rfc-tree-meta.js" "$TREE_PATH"
 ```
 
-#### 2b: アーキテクチャ把握（前回の再利用 + 検証）
+#### 3b: アーキテクチャ把握（前回の再利用 + 検証）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 3 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "3" "in_progress"
+```
 
 前回の architecture/componentRelations/designDecisions を取得し、検証して正しければそのまま使用する。
 
@@ -127,7 +149,7 @@ RFCが描くシステム全体の姿を理解する：
 echo '{"architecture":"...","componentRelations":"...","designDecisions":"..."}' | node "$SCRIPT_DIR/add-rfc-tree-architecture.js" "$TREE_PATH"
 ```
 
-#### 2c-1: 実装詳細（型・API・依存）— 前回の再利用 + 検証
+#### 3c-1: 実装詳細（型・API・依存）— 前回の再利用 + 検証
 
 前回の typeDefinitions/apiSignatures/dependencyGraph/externalDependencies を取得し、検証して正しければそのまま使用する。
 
@@ -149,7 +171,7 @@ RFC_TYPEDEF=$(node "$SCRIPT_DIR/get-before-rfc-tree-understanding.js" "$TREE_PAT
 echo '{"typeDefinitions":"...","apiSignatures":"...","dependencyGraph":"...","externalDependencies":"..."}' | node "$SCRIPT_DIR/add-rfc-tree-detail-1.js" "$TREE_PATH"
 ```
 
-#### 2c-2: 実装詳細（テスト・エラー処理・設定）— 前回の再利用 + 検証
+#### 3c-2: 実装詳細（テスト・エラー処理・設定）— 前回の再利用 + 検証
 
 前回の testRequirements/errorHandling/configuration を取得し、検証して正しければそのまま使用する。
 
@@ -168,15 +190,34 @@ RFC_TEST=$(node "$SCRIPT_DIR/get-before-rfc-tree-understanding.js" "$TREE_PATH" 
 echo '{"testRequirements":"...","errorHandling":"...","configuration":"..."}' | node "$SCRIPT_DIR/add-rfc-tree-detail-2.js" "$TREE_PATH"
 ```
 
-#### 2-review: RFC理解の全体確認
+#### 3-review: RFC理解の全体確認
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 3 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "3" "in_progress"
+```
 
 ```bash
 node "$SCRIPT_DIR/validate-rfc-tree.js" "$TREE_PATH"
 ```
 
-**目的とゴール（2a）を最初に理解しなければ、機械的な実装定義（2c）の抽出だけでは「分割すべきI/O境界」の発見漏れが発生する。必ず上位層から理解すること。**
+**目的とゴール（3a）を最初に理解しなければ、機械的な実装定義（3c）の抽出だけでは「分割すべきI/O境界」の発見漏れが発生する。必ず上位層から理解すること。**
+
+```bash
+# Step 3 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "3" "done"
+```
 
 ### Step 4: 素案ツリー作成
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 4 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "4" "in_progress"
+```
 
 正典RFCを読み、安全なI/O境界で区切られた独立した名前空間（crate/module/package）単位に分割する。
 
@@ -189,7 +230,7 @@ grep -n "^#" "$CANONICAL_RFC"
 - [Go] 子=go.mod module, I/O境界=exported interface, 結合=go.work
 - [TS] 子=npm package, I/O境界=export, FE/BEは別package
 
-### ツリーJSONのスキーマ
+#### ツリーJSONのスキーマ
 
 各ノードは以下の必須フィールドを持つ。値のフォーマットを厳守すること。
 
@@ -281,7 +322,19 @@ grep -n "^#" "$CANONICAL_RFC"
 echo '[<ツリーJSON>]' | node "$SCRIPT_DIR/write-rfc-tree-draft.js" "$TREE_PATH"
 ```
 
+```bash
+# Step 4 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "4" "done"
+```
+
 ### Step 5: 検証ループ（1子ずつ修正）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 5 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "5" "in_progress"
+```
 
 draftTree と正典RFCを照合し、漏れ・矛盾・不足がなくなるまで**1子ずつ**修正する。
 
@@ -340,7 +393,20 @@ node "$SCRIPT_DIR/validate-rfc-tree.js" "$TREE_PATH"
 node "$SCRIPT_DIR/write-rfc-tree-final.js" "$TREE_PATH"
 ```
 
-### Step 5a: Anchor Marker 登録（必須）
+```bash
+# Step 5 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "5" "done"
+```
+
+### Step 6: Anchor Marker 登録（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 6 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "6" "in_progress"
+```
+
 <!-- この Step の前に完了しているべき Step: Step 5（finalTree確定） -->
 
 RFC-TREE.json の各 childNode に、正典RFCの該当セクションの行範囲を `add-ref-pointer.js` で記録する。
@@ -361,11 +427,24 @@ node "$SCRIPT_DIR/add-ref-pointer.js" "$TREE_PATH" "01" batch \
 node -e "const t=require('${TREE_PATH}'); const c=t.finalTree.flatMap(n=>(n.refPointers||[]).map(r=>r.id)); if(c.length===0){console.error('[ERROR] refPointers が空です。add-ref-pointer.js で行範囲を登録してください。');process.exit(1)}else{console.log('[OK] '+c.length+' refPointers registered')}"
 ```
 
-> **注**: 旧 Step 6（`generate-child-rfcs.js` を単独実行する手順）は完全に廃止された。
-> 代わりに以下の Step 6（マーカー自動挿入＋機械転記）を実行すること。
+> **注**: 旧 Step 7（`generate-child-rfcs.js` を単独実行する手順）は完全に廃止された。
+> 代わりに以下の Step 7（マーカー自動挿入＋機械転記）を実行すること。
 
-### Step 6: Anchor Marker 自動挿入 + 機械転記（必須）
-<!-- この Step の前に完了しているべき Step: Step 5a（Anchor Marker 登録） -->
+```bash
+# Step 6 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "6" "done"
+```
+
+### Step 7: Anchor Marker 自動挿入 + 機械転記（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 7 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "7" "in_progress"
+```
+
+<!-- この Step の前に完了しているべき Step: Step 6（Anchor Marker 登録） -->
 
 `generate-child-rfcs.js` が2フェーズで動作する。
 フェーズ1（insert）は lineStart/lineEnd から `[::REF-POINTER-BEGIN/END-*::]` マーカーを
@@ -399,8 +478,21 @@ echo "[OK] ${CANONICAL_RFC} に Anchor Marker が確認されました"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 ```
 
-### Step 7: リンク整合性検証（必須）
-<!-- この Step の前に完了しているべき Step: Step 6（generate-child-rfcs.js） -->
+```bash
+# Step 7 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "7" "done"
+```
+
+### Step 8: リンク整合性検証（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 8 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "8" "in_progress"
+```
+
+<!-- この Step の前に完了しているべき Step: Step 7（generate-child-rfcs.js） -->
 
 正典RFCに埋め込まれたマーカーとRFC-TREE.jsonの参照に乖離がないか検証する。
 エラーがゼロになるまで修正を繰り返す。
@@ -409,8 +501,21 @@ node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 node "$SCRIPT_DIR/validate-ref-pointer.js" "$TREE_PATH"
 ```
 
-### Step 8: 詳細記述（必須）
-<!-- この Step の前に完了しているべき Step: Step 7（validate-ref-pointer.js） -->
+```bash
+# Step 8 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "8" "done"
+```
+
+### Step 9: 詳細記述（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 9 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "9" "in_progress"
+```
+
+<!-- この Step の前に完了しているべき Step: Step 8（validate-ref-pointer.js） -->
 
 各子RFCの **AI記述部**（`<!-- AI記述部 -->` の下）に設計判断・補足説明を記述する。
 
@@ -423,12 +528,81 @@ node "$SCRIPT_DIR/validate-ref-pointer.js" "$TREE_PATH"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
 ```
 
-### Step 9: 完了報告（必須）
-<!-- この Step の前に完了しているべき Step: Step 8（詳細記述） -->
+```bash
+# Step 9 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "9" "done"
+```
+
+### Step 10: コメント削除（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 10 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "10" "in_progress"
+```
+
+<!-- この Step の前に完了しているべき Step: Step 9（詳細記述） -->
+
+各子RFC・孫RFCから、AI向けガイダンスコメント（`<!--【記述指針】-->`、`<!--【AI記述部】-->` 等）を
+削除する。Anchor Marker（`REF-POINTER-BEGIN/END`）、機械転記ブロックマーカー、frontmatter は維持される。
+
+```bash
+node -e "
+var walk = require('./.claude/scripts/tickets/check-all-rfcs-completeness');
+var strip = require('./.claude/scripts/tickets/strip-rfc-comments');
+var result = walk.walkAllRfcFiles('${TREE_PATH}');
+result.files.forEach(function(f) {
+  if (f.success) {
+    var r = strip.stripHtmlComments(f.path);
+    if (r.removed > 0) console.log('[STRIP] ' + r.path + ': ' + r.removed + ' comments');
+  }
+});
+console.log('[STRIP] done');
+"
+```
+
+```bash
+# Step 10 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "10" "done"
+```
+
+### Step 11: 完全性検証（必須）
+
+```bash
+# 進捗表示
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 11 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "11" "in_progress"
+```
+
+<!-- この Step の前に完了しているべき Step: Step 10（コメント削除） -->
+
+全子孫RFCの完全性を検証する。不完全なファイルがある場合は Step 9（詳細記述）に戻って修正する。
+
+```bash
+node "$SCRIPT_DIR/check-all-rfcs-completeness.js" "$TREE_PATH"
+```
+
+**通過条件**: `incomplete: 0` を返すこと。不完全ファイルが1件でもある場合は Step 9 に戻り、
+該当ファイルの記述を補完した上で Step 10 から再実行する。
+
+```bash
+# Step 11 を done に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "11" "done"
+```
+
+### Step 12: 完了報告（必須）
+<!-- この Step の前に完了しているべき Step: Step 11（完全性検証） -->
 
 ```bash
 node "$SCRIPT_DIR/verify-rfc-coverage.js" "$TREE_PATH"
 node "$SCRIPT_DIR/check-rfc-placeholders.js" "$TREE_PATH"
+# 全ステップ完了確認（先に Step 12 を done にしてから）
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "12" "done"
+node "$SCRIPT_DIR/show-split-rfc-status.js" "$TREE_PATH"
+# Step 11 を in_progress に更新
+node "$SCRIPT_DIR/update-split-rfc-status.js" "$TREE_PATH" "11" "in_progress"
 echo "=== /split-rfc-to-children 完了 ==="
 ```
 

@@ -52,6 +52,16 @@ function createSkeleton(rfcPath) {
     generatedAt: dateStr,
     summary: "",
     language: language,
+    split_status: {
+      steps: {
+        "0": "done", "1": "done", "2": "pending", "3": "pending",
+        "3a-1": "pending", "3a-2": "pending", "3b": "pending",
+        "3c-1": "pending", "3c-2": "pending", "3-review": "pending",
+        "4": "pending", "5": "pending", "6": "pending", "7": "pending",
+        "8": "pending", "9": "pending", "10": "pending", "11": "pending",
+        "12": "pending"
+      }
+    },
     rfcUnderstanding: {
       purpose: "", goals: "", successCriteria: "", nonScope: "",
       architecture: "", componentRelations: "", designDecisions: "",

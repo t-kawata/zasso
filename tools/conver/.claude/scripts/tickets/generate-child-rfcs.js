@@ -423,8 +423,7 @@ function buildFrontmatter(node, level, cPath, ev, pe) {
 function buildResponsibilitiesSection(transferredContent) {
   var section = "\n\n## 責務\n\n";
   section += "<!--\n" + GUIDANCE_RESPONSIBILITIES + "\n-->\n\n";
-  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。内容を変更する場合は正典RFCの該当マーカー範囲を編集した上で generate-child-rfcs.js を再実行してください。!!! -->\n";
-  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
+  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
   section += "\n<!--\n【AI記述部】\n上記の機械転記ブロックで不足する設計判断・補足説明をここに記述する。\n機械転記ブロックは自動更新されるが、この AI 記述部は維持される。\n-->\n";
@@ -439,8 +438,7 @@ function buildResponsibilitiesSection(transferredContent) {
 function buildIoBoundarySection(transferredContent) {
   var section = "\n\n## I/O境界\n\n";
   section += "<!--\n" + GUIDANCE_IO_BOUNDARY + "\n-->\n\n";
-  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
-  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
+  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
   return section;
@@ -456,8 +454,7 @@ function buildParentRelationSection(ev, transferredContent) {
   var section = "\n\n## 親との関係\n\n";
   section += "<!--\n" + GUIDANCE_PARENT_RELATION + "\n-->\n\n";
   section += "根拠: " + (ev || "(TBD)") + "\n\n";
-  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
-  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
+  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
   return section;
@@ -471,8 +468,7 @@ function buildParentRelationSection(ev, transferredContent) {
 function buildDependenciesSection(transferredContent) {
   var section = "\n\n## 依存関係\n\n";
   section += "<!--\n" + GUIDANCE_DEPENDENCIES + "\n-->\n\n";
-  section += "<!-- !!! WARNING: このブロックは generate-child-rfcs.js が自動管理します。手動で編集しないでください。!!! -->\n";
-  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新） -->\n";
+  section += "<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->\n";
   section += transferredContent || "";
   section += "\n<!-- /機械転記ブロック -->\n";
   return section;

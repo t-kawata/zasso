@@ -298,6 +298,126 @@
           "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 1文字変数 p→treePathArg/rfcPathArg/rfcTreePath に修正（3ファイル、Boy Scout）\nテスト: AM1-AM13 + CLI1-CLI4 + 既存全テスト ALL PASS ✅\n構文チェック: node --check 全5JSファイル OK\n犯罪スキャン: 0件\n[::STUB::] 検出: 3件（全て意図的マーカー）\n不完全実装: 7パターン全都合格\n\nBoy Scout 改善:\n  verify-rfc-coverage.js: p → treePathArg\n  create-rfc-tree.js: p → rfcPathArg\n  validate-rfc-tree.js: p → rfcTreePath",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-03"
+        },
+        {
+          "id": 5,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "RFC完全性検証＋コメントクリーンアップ",
+          "referenceSection": "spec/0044-rfc.md",
+          "background": "2026-07-03 の /split-rfc-to-children テスト実行で3問題確認: (1) 孫RFCスケルトン放置—不完全ファイル検出機構がない、(2) ガイダンスコメント残存—AIの編集を阻害、(3) WARNINGと機械転記ブロックの連続コメントによる入れ子誤解。3つの新規スクリプト＋1テンプレート修正で解決する。",
+          "scope": [
+            "check-rfc-completeness.js 新設: 単一RFC完全性判定（4基準）",
+            "check-all-rfcs-completeness.js 新設: RFC-TREE.json 再帰的走査",
+            "strip-rfc-comments.js 新設: HTMLコメント削除（Anchor Marker/frontmatter/機械転記ブロック維持）",
+            "generate-child-rfcs.js 修正: 全4セクションのWARNING＋機械転記ブロックコメント統合",
+            "split-rfc-to-children.md 修正: Step 8a/8b 追加"
+          ],
+          "testVerification": [
+            "UT A1: check-rfc-completeness 完全ファイル → complete:true",
+            "UT A2: check-rfc-completeness ??? あり → incomplete",
+            "UT A3: check-rfc-completeness 空転記ブロック → incomplete",
+            "UT A4: check-rfc-completeness ガイダンス残存 → incomplete",
+            "UT B1: check-all-rfcs-completeness 全完全 → incomplete:0",
+            "UT B2: check-all-rfcs-completeness 一部不完全 → 該当ファイル報告",
+            "UT C1: strip-rfc-comments 通常コメント削除",
+            "UT C2: strip-rfc-comments Anchor Marker維持",
+            "UT C3: strip-rfc-comments frontmatter維持",
+            "UT C4: strip-rfc-comments 機械転記ブロック維持",
+            "UT D1: generate-child-rfcs 連続コメント解消（全4セクション確認）",
+            "UT D2: generate-child-rfcs 既存AM1-AM13回帰テスト"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 静的品質: 合格 (0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: PX-1..PX-4 全て reviewed — 整合性確認済\n- テスト: ALL PASS ✅\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 不完全実装: 7パターン全面査 該当なし\n- PX-5 3問題全て解決確認:\n  問題1（スケルトン放置）→ check-rfc-completeness.js + check-all-rfcs-completeness.js\n  問題2（コメント残骸）→ strip-rfc-comments.js + Step 8a 組み込み\n  問題3（コメント入れ子）→ generate-child-rfcs.js WARNING統合",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "WARNING + 機械転記ブロックの連続コメント",
+              "after": "1コメントに統合（全4セクション）",
+              "description": "generate-child-rfcs.js: コメント入れ子解消"
+            },
+            {
+              "before": "(新規)",
+              "after": "check-rfc-completeness.js (98 lines)",
+              "description": "単一RFC完全性判定（4基準）"
+            },
+            {
+              "before": "(新規)",
+              "after": "check-all-rfcs-completeness.js (85 lines)",
+              "description": "RFC-TREE.json から再帰的走査"
+            },
+            {
+              "before": "(新規)",
+              "after": "strip-rfc-comments.js (130 lines)",
+              "description": "HTMLコメント削除（保護パターン維持）"
+            },
+            {
+              "before": "Step 8→9 のみ",
+              "after": "Step 8→8a→8b→9",
+              "description": "split-rfc-to-children.md: コメント削除＋完全性検証ステップ追加"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（新規コードは全て動詞句関数名、説明的変数名）\nテスト: AM1-AM13 + CLI1-CLI4 + 全既存テスト ALL PASS ✅\n構文: node --check 全4JSファイル OK\n犯罪スキャン: 0件\n[::STUB::]: 0件（新規3ファイルにスタブなし）\n不完全実装: 7パターン全都合格\n\n5 scope items 全て完了確認:\n1. generate-child-rfcs.js: WARNING統合（全4セクション）✅\n2. check-rfc-completeness.js 新設 ✅\n3. check-all-rfcs-completeness.js 新設 ✅\n4. strip-rfc-comments.js 新設 ✅\n5. split-rfc-to-children.md Step 8a/8b 追加 ✅",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
+        },
+        {
+          "id": 6,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "進捗ステータス管理＋Step番号リナンバリング",
+          "referenceSection": "spec/0045-step.md",
+          "background": "/split-rfc-to-children のステップ数が13に増加し、AIの記憶のみに依存した順次実行が困難に。RFC-TREE.jsonに split_status フィールドを追加し、各Stepの先頭で進捗表示・末尾でステータス更新を行う。あわせて Step 5a の番号を正規化（5a→6, 6→7...9→12）。",
+          "scope": [
+            "rfc-tree-schema.json: split_status 型定義（全19step列挙）",
+            "create-rfc-tree.js: スケルトン雛形に split_status.steps 静的に埋め込み",
+            "show-split-rfc-status.js 新設: 進捗表示＋次アクション指示",
+            "update-split-rfc-status.js 新設: step status更新＋バリデーション",
+            "split-rfc-to-children.md: Step 5a→6 リナンバリング＋全Step進捗管理組み込み"
+          ],
+          "testVerification": [
+            "UT A1: スキーマ検証 split_status あり → valid",
+            "UT B1: create-rfc-tree.js スケルトンに全19step pending",
+            "UT C1: show 全 done → exit 0 + 全ステップ完了メッセージ",
+            "UT C2: show 未完了あり → exit 1 + 次Step指示",
+            "UT D1: update 正常系 → status変更確認",
+            "UT D2: update 不正 status 文字列 → エラー",
+            "UT D3: update 存在しない stepId → エラー",
+            "UT E1: show + update 組み合わせ一貫性テスト"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 静的品質: 合格 (0 issues)\n- 翻訳可能性: 問題なし\n- 依存関係: PX-1..PX-5 全て reviewed — 整合性確認済\n- テスト: ALL PASS ✅\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 不完全実装: 7パターン全面査 該当なし\n- PX-6 完了確認: /split-rfc-to-children が13Step正規化＋全Stepに進捗管理＋完了条件にshow-split-rfc-statusの完了確認を追加\n- Step 一覧: 0→1→2→3(6sub)→4→5→6→7→8→9→10→11→12 連続確認",
+          "startedAt": "2026-07-03",
+          "changes": [
+            {
+              "before": "split_status なし",
+              "after": "全19step列挙＋型定義",
+              "description": "rfc-tree-schema.json: split_status 追加"
+            },
+            {
+              "before": "スケルトンに split_status なし",
+              "after": "全19step pending で埋め込み",
+              "description": "create-rfc-tree.js: split_status 静的に追加"
+            },
+            {
+              "before": "(新規)",
+              "after": "update-split-rfc-status.js",
+              "description": "進捗ステータス更新＋バリデーション"
+            },
+            {
+              "before": "(新規)",
+              "after": "show-split-rfc-status.js",
+              "description": "進捗表示＋次Step自然言語指示"
+            },
+            {
+              "before": "Step 5a→6→...→9",
+              "after": "Step 6→7→...→12 + 全Stepに進捗管理",
+              "description": "split-rfc-to-children.md: リナンバリング＋show/update組み込み"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（新規コードは動詞句関数名、説明的変数名）\nテスト: AM1-AM13 + CLI1-CLI4 + 全既存 ALL PASS ✅\n構文: node --check 全ファイル OK\n犯罪スキャン: 0件\n[::STUB::]: 0件（新規2ファイルにスタブなし）\n不完全実装: 7パターン全都合格\n\n5 scope items 全て完了確認:\n1. rfc-tree-schema.json split_status 型定義 ✅\n2. create-rfc-tree.js スケルトン埋め込み ✅\n3. show-split-rfc-status.js 新設 ✅\n4. update-split-rfc-status.js 新設 ✅\n5. split-rfc-to-children.md リナンバリング＋進捗管理組み込み ✅",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-03"
         }
       ]
     }
