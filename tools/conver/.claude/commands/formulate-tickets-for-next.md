@@ -112,7 +112,21 @@ Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪�
 node .claude/scripts/tickets/ensure-malfeasance.js "$NEXT_RFC_DIR"
 ```
 
-### Step 1: 次世代RFCの検証と情報抽出
+---
+
+### Step 1: RFC 内の I/O 境界参考情報を参照
+
+対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示する。この情報は後続の依存グラフ構築やチケット束ね直しの参考として活用する。
+
+```bash
+echo "=== I/O 境界参考情報 ==="
+node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$NEXT_RFC_DIR/$(basename "$NEXT_RFC")" || echo "(I/O 境界参考情報なし)"
+echo "========================"
+```
+
+---
+
+### Step 2: 次世代RFCの検証と情報抽出
 
 ```bash
 # ファイル存在確認（Step 0 で実施済み）
@@ -128,7 +142,7 @@ node .claude/scripts/tickets/ensure-malfeasance.js "$NEXT_RFC_DIR"
 
 OMISSIONS ファイルが指定されている場合は、親RFCの設計コンテキストとして参照する。
 
-### Step 2: CLAUDE.md の生成 — 設計全体マップへの追記
+### Step 3: CLAUDE.md の生成 — 設計全体マップへの追記
 
 既存の `CLAUDE.md` が存在する場合は読み込み、次世代RFCの情報を追記する。
 CLAUDE.md が存在しない場合は新規生成する。
@@ -173,7 +187,7 @@ BODY
 
 ---
 
-### Step 3: 依存グラフの構築（5層モデル）
+### Step 4: 依存グラフの構築（5層モデル）
 
 抽出した全要素を以下の5層に分類する。**例の部分はRFCから実際に抽出した要素で置き換えること**：
 
@@ -202,7 +216,7 @@ BODY
 | Layer 3（ライフサイクル管理） | プロセス生存・終了通知 | `JoinHandle`, `mpsc` | `sync.WaitGroup`, `context` | `AbortSignal`, `EventEmitter` |
 | Layer 4（統合・プラットフォーム） | 外部システムとの通信 | HTTP/TCP 経由の `pub fn` | `http.Handler`, `io.ReadWriter` | `fetch`, `WebSocket` |
 
-### Step 4: チケット統合チェック — I/O 境界による候補の束ね直し
+### Step 5: チケット統合チェック — I/O 境界による候補の束ね直し
 
 Step 3 で5層モデルに分類した全要素に対して、以下の質問で統合すべき候補を洗い出す：
 
@@ -217,7 +231,7 @@ Step 3 で5層モデルに分類した全要素に対して、以下の質問で
 - 統合前: 「型A」「関数B」「関数C」が3つの候補として存在
 - 統合後: 「ファイル読み込みから結果出力までのパイプライン」が1つのI/O境界
 
-### Step 5: フェーズ設計
+### Step 6: フェーズ設計
 
 このステップは Step 4（チケット統合チェック）を通過した後の候補に対して、依存グラフに基づいてフェーズを設計する。Step 4 で統合しきれなかった単位は個別チケットとして扱う。
 
@@ -263,7 +277,7 @@ Step 3 で5層モデルに分類した全要素に対して、以下の質問で
 
 既存フェーズと同名のフェーズは作成せず、既存フェーズにチケットを追加する。新規に必要なフェーズのみ追加する。
 
-### Step 6: 既存 Tickets.json の確認
+### Step 7: 既存 Tickets.json の確認
 
 既存の Tickets.json のフェーズ構造を確認する：
 
@@ -273,7 +287,7 @@ node ".claude/scripts/tickets/list-phases-and-tickets.js" "$TICKETS_PATH"
 
 出力をもとに、既存のフェーズにチケットを追加するか、新規フェーズが必要かを判断する。
 
-### Step 7: フェーズの追加
+### Step 8: フェーズの追加
 
 Step 4-5 で設計した新規フェーズのみを `add-phase.js` で追加する。既存のフェーズは追加しない。ID は 0 から自動採番。
 
@@ -288,7 +302,7 @@ echo '{"name":"非同期ランタイム","externalDependencies":"tokio"}' | node
 node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 ```
 
-### Step 8: チケットの追加
+### Step 9: チケットの追加
 
 各フェーズのチケットを依存関係の順序に従って追加する。チケット ID はフェーズ内で 1 から自動インクリメント。
 R/U/D 操作では P{フェーズID}-{チケットID} 形式（例: P0-1）で特定する。
@@ -344,7 +358,7 @@ echo '[
 
 必要に応じて抽象トレイトを定義するチケットを先行配置する（例: `M-2`, `M-1` のようにマイナス番号で事前準備フェーズを表現してもよい）。
 
-### Step 9: フェーズ・チケットチェックリストの出力
+### Step 10: フェーズ・チケットチェックリストの出力
 
 全てのチケットの追加が完了したら、list-phases-and-tickets.js でチェックリストを出力して報告する：
 

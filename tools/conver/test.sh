@@ -406,6 +406,244 @@ echo "[CLI4] -k のみ（--slack-url 不足）で exit 1 + エラーメッセー
 R="$(node dist/conver.js -k sk-test 2>&1 || true)"
 echo "$R" | grep -q "slack-url" && pass "エラーに --slack-url の言及あり" || fail "エラーに --slack-url の言及なし"
 
+echo ""; echo "======== I/O境界 テスト ========"; echo ""
+
+SCRIPT_IO=".claude/scripts/grill-me-for-rfc"
+TMP_IO="$TMPDIR/io-test"
+mkdir -p "$TMP_IO"
+
+echo "[IO1] insert-io-boundary-template で5つの [::IO-INFO-STUB::] が挿入される"
+cat > "$TMP_IO/rfc.md" << 'EOF'
+# Test RFC
+
+## 1. Introduction
+
+Test document.
+
+## 2. Architecture
+
+Test architecture.
+EOF
+node "$SCRIPT_IO/insert-io-boundary-template.js" "$TMP_IO/rfc.md" > /dev/null 2>&1
+STUB_COUNT=$(grep -c '\[::IO-INFO-STUB::\]' "$TMP_IO/rfc.md" || true)
+[ "$STUB_COUNT" -eq 5 ] && pass "5 stubs inserted (got $STUB_COUNT)" || fail "Expected 5 stubs, got $STUB_COUNT"
+
+echo "[IO2] check-io-stubs が stub 残存時に exit 1"
+R=0; node "$SCRIPT_IO/check-io-stubs.js" "$TMP_IO/rfc.md" > /dev/null 2>&1 && R=1 || R=0
+[ "$R" -eq 0 ] && pass "check fails with stubs (exit 1)" || fail "expected exit 1, got exit 0"
+
+echo "[IO3] check-io-stubs が stub 除去後に exit 0"
+sed -i '' 's/<!-- \[::IO-INFO-STUB::\] .*-->//g' "$TMP_IO/rfc.md"
+node "$SCRIPT_IO/check-io-stubs.js" "$TMP_IO/rfc.md" > /dev/null 2>&1 && pass "check passes after stub removal (exit 0)" || fail "expected exit 0"
+
+echo "[IO4] extract-io-boundary が I/O 境界セクションを抽出できる"
+EXTRACTED=$(node "$SCRIPT_IO/extract-io-boundary.js" "$TMP_IO/rfc.md")
+echo "$EXTRACTED" | grep -q "参考情報" && pass "I/O boundary section extracted" || fail "I/O boundary section not found in output"
+
+echo "[IO5] extract-io-boundary がセクションなし RFC で空出力"
+cat > "$TMP_IO/no-io-rfc.md" << 'EOF'
+# Plain RFC
+
+## 1. Intro
+
+No I/O boundary section here.
+EOF
+R="$(node "$SCRIPT_IO/extract-io-boundary.js" "$TMP_IO/no-io-rfc.md" 2>&1)"
+[ -z "$R" ] && pass "empty output for RFC without I/O section" || fail "expected empty output"
+
+echo "[IO6] 二重挿入防止"
+R="$(node "$SCRIPT_IO/insert-io-boundary-template.js" "$TMP_IO/rfc.md" 2>&1)"
+echo "$R" | grep -q "Skipping" && pass "double insertion prevented" || fail "expected 'Skipping' message"
+
+rm -rf "$TMP_IO"
+
+echo ""; echo "======== Anchor Marker テスト ========"; echo ""
+
+S_AM=".claude/scripts/tickets"
+FIX_AM=".claude/scripts/tickets/tests/fixtures/ref-pointer"
+TMP_AM="$TMPDIR/am-test"
+mkdir -p "$TMP_AM"
+
+echo "[AM1] add-ref-pointer: add 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.id" "01-001"
+
+echo "[AM2] add-ref-pointer: add 重複ID拒否"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree.json" "01" add --id "01-001" --lineStart 3 --lineEnd 3 2>&1 || true)"
+echo "$R" | grep -q "ID 重複" && pass "add: duplicate ID rejected" || fail "add: expected duplicate ID error"
+
+echo "[AM3] add-ref-pointer: batch 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree2.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree2.json" "01" batch '[{"id":"01-001","lineStart":2,"lineEnd":2},{"id":"01-002","lineStart":5,"lineEnd":6}]' 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+assert_json_field "$R" "d.count" "2"
+
+echo "[AM4] add-ref-pointer: remove 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree-rm.json"
+node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-rm.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 > /dev/null 2>&1
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-rm.json" "01" remove "01-001" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+
+echo "[AM5] add-ref-pointer: remove 存在しないID"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree2.json" "01" remove "99-999" 2>&1 || true)"
+echo "$R" | grep -q "削除対象なし" && pass "remove: nonexistent ID rejected" || fail "remove: expected error"
+
+echo "[AM6] add-ref-pointer: list 正常系"
+cp "$FIX_AM/fixture-add-tree.json" "$TMP_AM/tree-ls.json"
+node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-ls.json" "01" add --id "01-001" --lineStart 2 --lineEnd 2 > /dev/null 2>&1
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree-ls.json" "01" list 2>&1)" || true
+echo "$R" | grep -q '"count": 1' && pass "list: shows 1 refPointer" || fail "list: expected count 1"
+
+echo "[AM7] add-ref-pointer: 存在しないchildId"
+cp "$FIX_AM/fixture-1-tree.json" "$TMP_AM/tree3.json"
+R="$(node "$S_AM/add-ref-pointer.js" "$TMP_AM/tree3.json" "99" add --id "99-001" --lineStart 1 --lineEnd 1 2>&1 || true)"
+echo "$R" | grep -q "見つかりません" && pass "childId validation: nonexistent childId rejected" || fail "childId validation: expected error"
+
+echo "[AM8] validate-ref-pointer: 正常系(fixture-1)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-1-tree.json" 2>&1)" || true
+echo "$R" | grep -q "\[OK\]" && pass "validate: fixture-1 OK" || fail "validate: fixture-1 expected OK"
+
+echo "[AM9] validate-ref-pointer: 孤児マーカー(fixture-2)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-2-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "孤児マーカー" && pass "validate: fixture-2 orphan detected" || fail "validate: fixture-2 expected orphan detection"
+
+echo "[AM10] validate-ref-pointer: 未参照マーカー(fixture-3)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-3-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "未参照" && pass "validate: fixture-3 unreferenced detected" || fail "validate: fixture-3 expected warning"
+
+echo "[AM11] validate-ref-pointer: ペア不整合(fixture-4)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-4-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "対応する END" && pass "validate: fixture-4 pair mismatch detected" || fail "validate: fixture-4 expected pair mismatch"
+
+echo "[AM12] validate-ref-pointer: 重複ID(fixture-5)"
+R="$(node "$S_AM/validate-ref-pointer.js" "$FIX_AM/fixture-5-tree.json" 2>&1 || true)"
+echo "$R" | grep -q "複数箇所" && pass "validate: fixture-5 duplicate detected" || fail "validate: fixture-5 expected duplicate detection"
+
+echo "[AM13] generate-child-rfcs: 既存機能 構文チェック"
+node --check "$S_AM/generate-child-rfcs.js" 2>&1 && pass "generate-child-rfcs: syntax OK" || fail "generate-child-rfcs: syntax error"
+
+rm -rf "$TMP_AM"
+
+echo ""; echo "======== ユーティリティスクリプトテスト ========"; echo ""
+
+S_UT=".claude/scripts/tickets"
+TMP_UT="$TMPDIR/ut-test"
+mkdir -p "$TMP_UT"
+
+echo "[UT1] check-rfc-completeness: 完全なファイル"
+cat > "$TMP_UT/complete.md" << 'EOF'
+---
+test: true
+---
+# Test RFC
+
+## 責務
+
+<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->
+pub struct SipClient;
+<!-- /機械転記ブロック -->
+
+## I/O境界
+
+<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->
+pub trait SipBackend;
+<!-- /機械転記ブロック -->
+EOF
+R="$(node "$S_UT/check-rfc-completeness.js" "$TMP_UT/complete.md" 2>&1)" || true
+assert_json_field "$R" "d.complete" "true"
+
+echo "[UT2] check-rfc-completeness: 不完全なファイル（??? 残存）"
+cat > "$TMP_UT/incomplete.md" << 'EOF'
+---
+test: true
+---
+# Test RFC
+
+## 責務
+<!-- ??? -->
+EOF
+R="$(node "$S_UT/check-rfc-completeness.js" "$TMP_UT/incomplete.md" 2>&1 || true)"
+echo "$R" | grep -q "placeholder" && pass "UT2: placeholder detected" || fail "UT2: expected placeholder detection"
+
+echo "[UT3] check-rfc-completeness: 空の機械転記ブロック"
+cat > "$TMP_UT/empty-transfer.md" << 'EOF'
+---
+test: true
+---
+# Test RFC
+
+## 責務
+
+<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->
+
+<!-- /機械転記ブロック -->
+EOF
+R="$(node "$S_UT/check-rfc-completeness.js" "$TMP_UT/empty-transfer.md" 2>&1 || true)"
+echo "$R" | grep -q "empty transfer" && pass "UT3: empty transfer detected" || fail "UT3: expected empty transfer detection"
+
+echo "[UT4] check-all-rfcs-completeness: 存在しない tree path"
+R="$(node "$S_UT/check-all-rfcs-completeness.js" "$TMP_UT/nonexistent.json" 2>&1 || true)"
+echo "$R" | grep -q "not found" && pass "UT4: nonexistent path handled" || fail "UT4: expected error message"
+
+echo "[UT5] update-split-rfc-status: 正常系"
+cat > "$TMP_UT/tree-status.json" << 'EOF'
+{"canonicalRfcPath":"test.md","canonicalRfcTitle":"Test","generatedAt":"2026-07-03","rfcUnderstanding":{},"draftTree":[],"finalTree":[],"split_status":{"steps":{"0":"done","1":"done","2":"pending","3":"pending","3a-1":"pending","3a-2":"pending","3b":"pending","3c-1":"pending","3c-2":"pending","3-review":"pending","4":"pending","5":"pending","6":"pending","7":"pending","8":"pending","9":"pending","10":"pending","11":"pending","12":"pending"}}}
+EOF
+R="$(node "$S_UT/update-split-rfc-status.js" "$TMP_UT/tree-status.json" "6" "done" 2>&1)" || true
+assert_json_field "$R" "d.success" "true"
+R="$(node "$S_UT/update-split-rfc-status.js" "$TMP_UT/tree-status.json" "99" "done" 2>&1 || true)"
+echo "$R" | grep -q "Invalid stepId" && pass "UT5b: invalid stepId rejected" || fail "UT5b: expected error"
+R="$(node "$S_UT/update-split-rfc-status.js" "$TMP_UT/tree-status.json" "6" "invalid_status" 2>&1 || true)"
+echo "$R" | grep -q "Invalid status" && pass "UT5c: invalid status rejected" || fail "UT5c: expected error"
+
+echo "[UT6] show-split-rfc-status: 初期状態"
+R="$(node "$S_UT/show-split-rfc-status.js" "$TMP_UT/tree-status.json" 2>&1 || true)"
+echo "$R" | grep -q "進捗状況" && pass "UT6: progress shown" || fail "UT6: expected progress display"
+echo "$R" | grep -q "次に実行すべき Step" && pass "UT6b: next action shown" || fail "UT6b: expected next action"
+
+echo "[UT7] show-split-rfc-status: 全完了"
+cp "$TMP_UT/tree-status.json" "$TMP_UT/tree-all-done.json"
+for sid in 0 1 2 3 "3a-1" "3a-2" "3b" "3c-1" "3c-2" "3-review" 4 5 6 7 8 9 10 11 12; do
+  node "$S_UT/update-split-rfc-status.js" "$TMP_UT/tree-all-done.json" "$sid" "done" > /dev/null 2>&1
+done
+R="$(node "$S_UT/show-split-rfc-status.js" "$TMP_UT/tree-all-done.json" 2>&1)" || true
+echo "$R" | grep -q "全ステップ完了" && pass "UT7: all done detected" || fail "UT7: expected all done message"
+
+echo "[UT8] strip-rfc-comments: コメント削除"
+cat > "$TMP_UT/comments.md" << 'EOF'
+---
+test: true
+---
+# Test
+
+<!-- 削除対象コメント -->
+
+普通のテキスト
+
+[::REF-POINTER-BEGIN-01-001::]
+pub struct SipClient;
+[::REF-POINTER-END-01-001::]
+
+<!-- 機械転記ブロック（generate-child-rfcs.js が更新。自動管理のため直接編集禁止） -->
+pub trait SipBackend;
+<!-- /機械転記ブロック -->
+
+<!--【記述指針】記述内容-->
+EOF
+R="$(node "$S_UT/strip-rfc-comments.js" "$TMP_UT/comments.md" 2>&1)" || true
+echo "$R" | grep -q '"removed":' && pass "UT8: comments stripped" || fail "UT8: expected removed count"
+# Verify protected markers preserved
+grep -q "REF-POINTER-BEGIN" "$TMP_UT/comments.md" && pass "UT8b: REF-POINTER preserved" || fail "UT8b: REF-POINTER removed"
+grep -q "機械転記ブロック" "$TMP_UT/comments.md" && pass "UT8c: transfer marker preserved" || fail "UT8c: transfer marker removed"
+# Verify guidance comment removed
+grep -q "記述指針" "$TMP_UT/comments.md" && fail "UT8d: guidance comment NOT removed" || pass "UT8d: guidance comment removed"
+# Verify frontmatter preserved
+grep -q "test: true" "$TMP_UT/comments.md" && pass "UT8e: frontmatter preserved" || fail "UT8e: frontmatter removed"
+
+rm -rf "$TMP_UT"
+
 echo ""; echo "=========="
 [ "$FAILED" = "1" ] && echo "❌ FAILED" || echo "✅ ALL PASS"
 echo "=========="; echo ""
