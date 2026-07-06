@@ -15,8 +15,7 @@ merge-history:
 generate-child-rfcs.js を再実行して子RFCの転記内容を更新すること。
 
 マーカーID の解釈:
-  [::REF-POINTER-BEGIN-{childId}-{seq}::]
-  {childId} = 子RFCのID（01, 02, ...）
+    {childId} = 子RFCのID（01, 02, ...）
   {seq}     = その子ID内での連番（001, 002, ...）
 ===============================
 -->
@@ -25,13 +24,10 @@ generate-child-rfcs.js を再実行して子RFCの転記内容を更新するこ
 
 本書は、Tauri アプリケーションへ SIP ベースの音声通話機能を統合するための、Rust 製 private workspace crate の完全設計仕様である。本 RFC は要件定義を実装可能な精密設計へ落とし込み、公開 API、内部アーキテクチャ、状態遷移、FFI 境界、並行性モデル、ビルド戦略、エラー設計、イベントモデル、メディアパイプライン、設定仕様、テスト戦略、観測性、セキュリティ、性能要件、運用上の制約までを単一文書に包含する。
 
-[::REF-POINTER-BEGIN-01-001::]
 ## 1. 目的
 
 本 crate の目的は、Rust から PJSUA を安全かつ非同期的に利用し、複数 SIP アカウント、複数トランスポート、発着信、音声処理、DTMF、ICE/TURN/STUN、TLS、SRTP、およびアプリケーション統合向けイベント配信を、tokio ネイティブな API で提供することである。映像機能は対象外であり、音声のみに責務を限定する。
 
-[::REF-POINTER-END-01-001::]
-[::REF-POINTER-BEGIN-01-002::]
 ## 1a. M20 実装優先度マップ
 
 M20 追補の全実装項目を実装順序の優先度とともに整理する。
@@ -55,7 +51,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 | **P2** | Dual Client TestContext utility | Q6:A | `tests/` |
 | **P3** | Docker Integration Test Job (GitHub Actions) | Q4:A | `.github/workflows/` |
 | **P3** | Prebuilt Refresh Pipeline | Q4:A | `.github/workflows/` + `vendor/prebuilt/` |
-[::REF-POINTER-END-01-002::]
 
 #### 設計判断対応表
 
@@ -83,7 +78,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 | Q13:B | 新機能テスト層マッピングは既存 §43 に追記 | M20 追補: 新機能のテスト層 |
 | Q14:A | DtmfSent: PJSIP callback 不在時は 500ms タイムアウトベースで発火 | M20 追補: DtmfSentInfo |
 
-[::REF-POINTER-BEGIN-01-003::]
 ## 2. 非目的
 
 本 crate は SIP サーバ実装、PBX 実装、独自 RTP スタック、録音ファイル書き出し機構、GUI、永続設定保存、通話課金、映像処理を提供しない。録音については `AudioChunkPair` の提供に留め、ファイルコンテナ化は利用側責務とする。
@@ -103,7 +97,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 - `std::time::Instant`（`PairAligner` 内部使用）を外部に露出しないこと。タイムスタンプは `SystemTime` に変換してから DTO に格納する。
 - フロントエンドからの操作コマンド（発信ボタン、着信応答等）を本 crate の Rust API へ変換するアダプタ層。
 
-[::REF-POINTER-END-01-003::]
 この線引きにより、本 crate は Tauri 非依存を保ち、テスト容易性と再利用性を確保する。
 
 ## 3. 用語
@@ -116,7 +109,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 - **Chunk Pair**: 同一時刻で揃えられた IN/OUT ペア音声バッファ。
 - **Raw SIP Event**: 送受信 SIP メッセージ全文と解析済みメタデータを持つイベント。
 
-[::REF-POINTER-BEGIN-01-004::]
 ## 4. 準拠要件
 
 クレートは Rust 1.95 以上を MSRV とし、tokio を唯一の公開非同期ランタイム前提とする。PJSIP は **2.17** を正本バージョンとして固定する。patch version の更新は CI で互換性確認の上で追従するが、minor version の変更は別途評価判断とする。対象 OS は Windows x86_64、macOS arm64、Ubuntu x86_64 とし、ビルド時にプレビルド優先・欠損時ソースビルドという二段階戦略を採用する。
@@ -139,7 +131,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 **破壊的変更が許容される例外**:
 - セキュリティ脆弱性の修正に必要な場合（MAJOR を待たずに PATCH で対応し、CHANGELOG に明記）。
 - `SipClient::new()` のタイムアウトやリトライ動作の変更など、コンパイル時の型互換性に影響しない動作変更は PATCH 範囲とする。
-[::REF-POINTER-END-01-004::]
 
 ## 5. 機能要求の確定化
 
@@ -161,7 +152,6 @@ M20 追補の全実装項目を実装順序の優先度とともに整理する�
 14. `Result<T, SipError>` へ統一された API。
 15. `SipClient: Send + Sync` の成立。
 
-[::REF-POINTER-BEGIN-01-005::]
 ## 6. 全体構成
 
 crate は以下のモジュール分割を採用する。各モジュールは public/private 境界を固定し、利用者が FFI 詳細に触れないようにする。
@@ -225,8 +215,6 @@ siprs/
 - `siprs` のモジュール境界（`ffi/`, `runtime/`, `audio/`）は既に crate 分割を意識した疎結合に設計されている。
 - 将来的に SIP signalling のみを独立させたい場合は、`runtime/` + `ffi/` を `siprs-core` として切り出し、`audio/` は `siprs-media` とすることが可能である。この分割判断は 1.0 リリース後の実際の利用実績に基づいて行う。
 
-[::REF-POINTER-END-01-005::]
-[::REF-POINTER-BEGIN-01-006::]
 ## 7. 並行性モデル
 
 PJSIP は内部でネイティブスレッドを生成し callback を発火するため、公開 API を直接 callback thread 上で実行してはならない。本 crate は単一の **core reactor thread** を持ち、すべての pjsua_* 呼び出しをその reactor 上にシリアライズする。
@@ -299,8 +287,6 @@ pub(crate) enum RuntimeCommand {
 
 このシリアライズにより、PJSUA のスレッド安全制約を利用者へ露出させずに `Send + Sync` を成立させる。
 
-[::REF-POINTER-END-01-006::]
-[::REF-POINTER-BEGIN-01-007::]
 ## 8. 公開 API 設計
 
 ### 8.1 crate ルート
@@ -396,8 +382,6 @@ pub struct CallMediaPreferences {
 
 `preferred_codecs` は最終的に `PCMU`, `Opus` のみ受理する。その他が指定された場合は validation error とする。
 
-[::REF-POINTER-END-01-007::]
-[::REF-POINTER-BEGIN-01-008::]
 ## 9. ID 設計
 
 識別子はランタイム一意な非ゼロ整数とし、公開 API では newtype に隠蔽する。
@@ -415,8 +399,6 @@ pub struct AudioSourceId(std::num::NonZeroU64);
 
 PJSUA の `pjsua_acc_id` や `pjsua_call_id` は再利用されうるため、そのまま公開しない。内部では `BiMap<RuntimeId, NativeId>` で変換する。
 
-[::REF-POINTER-END-01-008::]
-[::REF-POINTER-BEGIN-01-009::]
 ## 10. ClientConfig 完全仕様
 
 ```rust
@@ -508,8 +490,6 @@ impl Default for ClientConfig {
 
 既定 delivery format は要件に合わせて 16kHz / i16 / stereo(L=IN,R=OUT) とする。
 
-[::REF-POINTER-END-01-009::]
-[::REF-POINTER-BEGIN-01-010::]
 ## 11. AccountConfig 完全仕様
 
 ```rust
@@ -570,9 +550,7 @@ pub struct AccountMediaConfig {
 - `registrar_uri` 未指定時は `sip:{domain}` を自動導出。
 - codec policy は `enable_pcmu || enable_opus` が必須。
 - DTMF policy は送信・受信ともに 1 つ以上 required。
-[::REF-POINTER-END-01-010::]
 
-[::REF-POINTER-BEGIN-01-011::]
 ## 12. TransportConfig 完全仕様
 
 ```rust
@@ -605,8 +583,6 @@ pub struct TlsConfig {
 
 TLS は feature flag で完全に API から消える設計とし、無効時に TLS variant が型レベルで出現しないようにする。
 
-[::REF-POINTER-END-01-011::]
-[::REF-POINTER-BEGIN-01-012::]
 ## 13. ICE/STUN/TURN 完全仕様
 
 ```rust
@@ -644,8 +620,6 @@ pub struct TurnServerConfig {
 
 PJSIP 実装事情により trickle ICE は内部で非対応なら validation error で拒否するのではなく、`ClientInitialized` イベントに capability matrix を載せて明示する。だが要件が「ICE に完全対応」であるため、本 RFC では full ICE を必須とし、trickle ICE は disabled default の optional optimization とする。
 
-[::REF-POINTER-END-01-012::]
-[::REF-POINTER-BEGIN-01-013::]
 ## 14. エラー設計
 
 すべての API は `Result<T, SipError>` を返す。`SipError` は stable な分類を持ち、native error code、文脈、recoverability を保持する。
@@ -729,8 +703,6 @@ fn convert_conf_connect_error(pj_status: pj_status_t, call_id: CallId) -> SipErr
 }
 ```
 
-[::REF-POINTER-END-01-013::]
-[::REF-POINTER-BEGIN-01-014::]
 ## 15. イベントモデル
 
 要件で列挙された全イベントを payload enum で完全定義する。イベントは `SipEvent`（メタデータ + payload）にラップされ、チャネル種別により loss-tolerant な制御系と大量発生するメディア系を分離する。
@@ -1089,8 +1061,6 @@ pub struct AccountInfoSnapshot {
 }
 ```
 
-[::REF-POINTER-END-01-014::]
-[::REF-POINTER-BEGIN-01-015::]
 ## 16. raw SIP メッセージ仕様
 
 ```rust
@@ -1110,8 +1080,6 @@ pub struct RawSipMessage {
 
 `redact_authorization == true` の場合、`Authorization`, `Proxy-Authorization` は `***REDACTED***` に置換して格納する。
 
-[::REF-POINTER-END-01-015::]
-[::REF-POINTER-BEGIN-01-016::]
 ## 17. 登録状態モデル
 
 ```rust
@@ -1156,8 +1124,6 @@ stateDiagram-v2
 
 未登録でも `make_call()` は常に可能であるため、`RegistrationState` は発信可否に影響しない。
 
-[::REF-POINTER-END-01-016::]
-[::REF-POINTER-BEGIN-01-017::]
 ## 18. 通話状態モデル
 
 ```rust
@@ -1232,8 +1198,6 @@ stateDiagram-v2
 
 `ClientConfig::max_calls` を上限とする。アカウントごとの上限は未設定なら無制限だが、後述の runtime validation で client 上限だけは強制する。
 
-[::REF-POINTER-END-01-017::]
-[::REF-POINTER-BEGIN-01-018::]
 ## 19. 発着信 API 詳細
 
 ```rust
@@ -1258,8 +1222,6 @@ impl SipClient {
 
 `answer()` は incoming call 以外に対して `InvalidState` を返す。
 
-[::REF-POINTER-END-01-018::]
-[::REF-POINTER-BEGIN-01-019::]
 ## 20. DTMF 仕様
 
 ```rust
@@ -1371,8 +1333,6 @@ fn handle_send_dtmf(&mut self, cmd: RuntimeCommand::SendDtmf) {
 - 非同期的に DtmfSent イベントで送出完了（またはタイムアウト）を確認できる
 - 相手が実際に受信したことは DtmfReceived イベントで確認できる（エンドツーエンドの確認）
 
-[::REF-POINTER-END-01-019::]
-[::REF-POINTER-BEGIN-01-020::]
 ## 21. 音声フォーマットモデル
 
 ```rust
@@ -1418,8 +1378,6 @@ pub enum AudioChunk {
 
 要件通り IN/OUT は同一タイムスタンプで対にされ、ズレは内部で吸収される。
 
-[::REF-POINTER-END-01-020::]
-[::REF-POINTER-BEGIN-01-021::]
 ## 22. 音声購読 API
 
 ```rust
@@ -1571,8 +1529,6 @@ impl PjsuaBackend {
 }
 ```
 
-[::REF-POINTER-END-01-021::]
-[::REF-POINTER-BEGIN-01-022::]
 ## 23. AsyncAudioSource 仕様
 
 本crateは MSRV 1.95 を前提とし、RPITIT（`async fn` in trait）が安定しているため、プライマリtraitに RPITIT を採用する。
@@ -1639,8 +1595,6 @@ impl<T: SyncAudioSource + Send> AsyncAudioSource for SyncSourceAdapter<T> {
 - 動的ディスパッチが不要な静的ディスパッチの場合は `Box::pin` が完全に回避されるため、ホットパス上のオーバーヘッドはゼロである。
 - 将来、`type_alias_impl_trait` (TAIT) などの機能が安定した場合、`ErasedAudioSource` をより効率的な実装に置き換える可能性があるが、現状の blanket impl で実用上十分な性能が得られる。
 
-[::REF-POINTER-END-01-022::]
-[::REF-POINTER-BEGIN-01-023::]
 ## 24. AudioMixer 設計
 
 ### 24.0 リアルタイム境界（最重要設計判断）
@@ -1795,8 +1749,6 @@ struct OptimizedMixer {
 
 `slab` は DashMap と異なりロックフリーのインデックスアクセスが可能だが、source の動的追加削除が頻繁なユースケースではフラグメンテーションに注意が必要である。移行判断はプロファイリングを根拠とし、現状の DashMap を初期実装として採用する。
 
-[::REF-POINTER-END-01-023::]
-[::REF-POINTER-BEGIN-01-024::]
 ## 25. IN/OUT ペア整列アルゴリズム
 
 受信音声は RTP 由来、送信音声は mixer 由来のため時間軸がずれる。内部では timestamped ring buffer を 2 本持ち、共通 frame boundary で最も近いサンプル列を結合する。
@@ -1854,8 +1806,6 @@ impl PairAligner {
 - `crossbeam_queue::ArrayQueue` と同様の固定長 pre-allocated キューを PairAligner の入出力に使用する。
 - 最初の最適化判断はプロファイリングを根拠とし、現状の実装で問題がなければ単純な `VecDeque<Vec<i16>>` を維持する。
 
-[::REF-POINTER-END-01-024::]
-[::REF-POINTER-BEGIN-01-025::]
 ## 26. リサンプラ設計
 
 要件に従い `rubato` を用いる。内部 native format は PJSIP/codec negotiation に応じた monaural i16 PCM とし、利用者要求フォーマットへ出力時変換する。
@@ -1886,8 +1836,6 @@ fn interleave_in_out(in_mono: &[i16], out_mono: &[i16]) -> Vec<i16> {
 }
 ```
 
-[::REF-POINTER-END-01-025::]
-[::REF-POINTER-BEGIN-01-026::]
 ## 27. PJSIP FFI 層
 
 FFI 層は `unsafe` を完全に隔離する。bindgen 生成コードは `ffi::bindings` のみに置き、上位モジュールへは safe wrapper しか露出しない。
@@ -2045,8 +1993,6 @@ let handle_b = client_b.add_account(account_b).await?;
 
 この設計では PjsuaBackend の singleton 制約（`pjsua_init()` の1回制限）に従いつつ、複数 SipClient のイベント分離を実現する。
 
-[::REF-POINTER-END-01-026::]
-[::REF-POINTER-BEGIN-01-027::]
 ## 28. build.rs 戦略
 
 要件どおり、`build.rs` はプレビルド優先、欠損時ソースビルドを行う。
@@ -2118,8 +2064,6 @@ brew install pkg-config cmake
 
 これらのパッケージが不足している場合、CMake の configure 段階でエラーとなり、`build.rs` はユーザフレンドリなエラーメッセージと共に失敗する。開発者が手元で `cargo build` した際の混乱を防ぐため、README に上記一覧を転載すること。
 
-[::REF-POINTER-END-01-027::]
-[::REF-POINTER-BEGIN-01-028::]
 ## 29. codec policy 強制
 
 要件に従い PCMU と Opus 以外は無効化する。初期化時に全 codec を enumerate し、PCMU/Opus 以外 priority 0 に落とす。
@@ -2240,8 +2184,6 @@ pub struct CallMediaPreferences {
 
 > **設計経緯**: M20 以前の設計では PCMU=255, Opus=254 としていたが、Opus を最優先とする本来の意図に合わせて Opus=255, PCMU=254 に修正した。フォールバックルール（Opus 非対応時は PCMU にフォールバック）自体に変更はない。
 
-[::REF-POINTER-END-01-028::]
-[::REF-POINTER-BEGIN-01-029::]
 ## 30. SRTP 仕様
 
 SRTP は feature flag でオン・オフ可能、デフォルトオフとする。
@@ -2258,8 +2200,6 @@ pub enum SrtpPolicy {
 feature 無効時 `Mandatory`/`Optional` は config validation で `InvalidConfig`。feature 有効時は SDP negotiation に `a=crypto` または DTLS-SRTP 相当の native support を反映する。PJSIP build variant が SDES SRTP のみなら capability にその旨明記する。
 
 ## 31. トランスポート再接続方針
-[::REF-POINTER-END-01-029::]
-[::REF-POINTER-BEGIN-01-030::]
 
 - UDP: 接続概念なし。listen socket failure 時は `TransportError` emit 後、可能なら bind retry。
 - TCP/TLS: connection-oriented state を追跡し、切断時 `TransportDisconnected` を emit。
@@ -2273,8 +2213,6 @@ pub struct ReconnectPolicy {
 }
 ```
 
-[::REF-POINTER-END-01-030::]
-[::REF-POINTER-BEGIN-01-031::]
 ## 32. Shutdown 仕様
 
 `shutdown()` は idempotent である。進行中 command をこれ以上受け付けず、全 call を BYE/CANCEL、全 account を unregister、audio pipeline を drain し、最後に pjsua_destroy を実行する。
@@ -2328,8 +2266,6 @@ fn dispatch_command(&mut self, cmd: RuntimeCommand) {
 }
 ```
 
-[::REF-POINTER-END-01-031::]
-[::REF-POINTER-BEGIN-01-032::]
 ## 33. ランタイム内部 state
 
 ```rust
@@ -2408,8 +2344,6 @@ impl PjsuaBackend {
 - SipBackend の差し替え時に conf_port_id の概念を新しい backend に合わせて変更できる
 - CallEntry に conf_port_id フィールドが不要になり、通話切断時のクリーンアップ漏れリスクが減る
 
-[::REF-POINTER-END-01-032::]
-[::REF-POINTER-BEGIN-01-033::]
 ## 34. 観測性
 
 ### 34.1 tracing
@@ -2499,8 +2433,6 @@ pub struct AudioDeviceCaps {
 
 `ClientCapabilities` は `SipClient::new()` 成功後に `ClientInitialized` イベントとして 1 度だけ発火される。利用者はこの情報をもとに、利用不可の機能を呼び出さないよう調整する。
 
-[::REF-POINTER-END-01-033::]
-[::REF-POINTER-BEGIN-01-034::]
 ## 35. セキュリティ
 
 - `SecretString` により password の accidental debug print を防止。
@@ -2509,16 +2441,12 @@ pub struct AudioDeviceCaps {
 - TURN password も secret とする。
 - メモリゼロ化が必要な secret は `secrecy` + optional `zeroize` を用いる。
 
-[::REF-POINTER-END-01-034::]
-[::REF-POINTER-BEGIN-01-035::]
 ## 36. プラットフォーム差異
 
 - Windows: MSVC ABI 前提で prebuilt を同梱。
 - macOS arm64: system frameworks 連携を build.rs で追加。
 - Linux x86_64: `libasound`, `libssl`, `libcrypto`, `libuuid` 等の link 要件を build.rs で通知。
 
-[::REF-POINTER-END-01-035::]
-[::REF-POINTER-BEGIN-01-036::]
 ## 37. 受信 call の扱い
 
 着信時は `IncomingCall` イベントを emit し、同時に state に `CallEntry` を作成する。
@@ -2536,8 +2464,6 @@ pub struct IncomingCall {
 
 利用者が一定時間応答しない場合、サーバ側タイムアウトに任せるのではなく optional auto reject timer を account config で設定可能とする。
 
-[::REF-POINTER-END-01-036::]
-[::REF-POINTER-BEGIN-01-037::]
 ## 38. REFER/転送仕様
 
 要件に転送要求受信と転送完了があるため、blind transfer を first-class support とし、attended transfer は native support に依存するが本 RFC では blind transfer を mandatory とする。
@@ -2552,8 +2478,6 @@ pub struct ReferRequest {
 
 転送完了は NOTIFY final state により判断し、成功/失敗詳細を `TransferInfo` に載せる。
 
-[::REF-POINTER-END-01-037::]
-[::REF-POINTER-BEGIN-01-038::]
 ## 39. Media bridge と PJSUA conference port
 
 PJSUA conference bridge を利用して call media と custom media port を接続する。通話ごとに custom port を 2 つ持つ。
@@ -2635,8 +2559,6 @@ AudioWorkerTask (Tokio async)
 
 すべての queue は `crossbeam_queue::ArrayQueue`（固定長、lock-free、pre-allocated）であり、RT callback 上での非決定的遅延を完全に排除する。
 
-[::REF-POINTER-END-01-038::]
-[::REF-POINTER-BEGIN-01-039::]
 ## 40. audio device policy
 
 要件はマイクデバイスを source の一種として含む。crate 自体は device abstraction を optional feature `cpal-input` で提供する。
@@ -2648,8 +2570,6 @@ pub async fn open_default_microphone_source(format: AudioFormat) -> Result<Box<d
 
 feature 無効時も trait さえ実装すれば任意 source を追加できるため、RFC 完結性を損なわない。
 
-[::REF-POINTER-END-01-039::]
-[::REF-POINTER-BEGIN-01-040::]
 ## 41. 具体的使用例
 
 ### 41.1 Client 初期化
@@ -2781,8 +2701,6 @@ let source_id = client.add_audio_source(call_id, Box::new(TtsStreamSource { rx }
 client.set_audio_source_gain(call_id, source_id, 0.6).await?;
 ```
 
-[::REF-POINTER-END-01-040::]
-[::REF-POINTER-BEGIN-01-041::]
 ## 42. validation フェーズ
 
 初期化時 validation は fail-fast とする。
@@ -2813,8 +2731,6 @@ fn validate_client_config(cfg: &ClientConfig) -> Result<(), SipError> {
 }
 ```
 
-[::REF-POINTER-END-01-041::]
-[::REF-POINTER-BEGIN-01-042::]
 ## 43. テスト戦略
 
 テストは以下 4 層で構成する。下層ほど高速にフィードバックを得られる。
@@ -2949,8 +2865,6 @@ impl DualClientContext {
 }
 ```
 
-[::REF-POINTER-END-01-042::]
-[::REF-POINTER-BEGIN-01-043::]
 ## 44. CI/CD 要件
 
 - matrix: `windows-latest`, `macos-14`, `ubuntu-22.04`
@@ -3011,8 +2925,6 @@ prebuilt-refresh:
 
 **source build fallback への昇格**: prebuilt バイナリが利用できない環境では `build.rs` が自動的に source build へフォールバックする（既存設計維持）。prebuilt 提供は CI の pipeline として自動化し、手動ビルド手順（`vendor/prebuilt/BUILD.md`）は補助的ドキュメントとする。
 
-[::REF-POINTER-END-01-043::]
-[::REF-POINTER-BEGIN-01-044::]
 ## 45. 既知の実装上の難所と設計上の解答
 
 ### 45.1 PJSIP callback から async への橋渡し
@@ -3031,8 +2943,6 @@ prebuilt-refresh:
 
 解答は「public id を別採番し bi-map 変換」である。
 
-[::REF-POINTER-END-01-044::]
-[::REF-POINTER-BEGIN-01-045::]
 ## 46. panic policy
 
 公開 API は panic-free を目標とする。内部 invariant 破壊時のみ `tracing::error!` と `SipEventPayload::Error` を emit し、該当 call/account を切り離す。FFI callback 境界では `catch_unwind` 必須。
@@ -3065,8 +2975,6 @@ FFI callback 内で `catch_unwind` がパニックを捕捉した場合、以下
 
 この設計により、`catch_unwind` 発火時も「該当エンティティの隔離と安全停止」を保証し、crate 全体のダウンを防止する。
 
-[::REF-POINTER-END-01-045::]
-[::REF-POINTER-BEGIN-01-046::]
 ## 47. メモリ所有権規則
 
 - native callback 由来 pointer は callback スコープ外へ保持禁止。
@@ -3074,8 +2982,6 @@ FFI callback 内で `catch_unwind` がパニックを捕捉した場合、以下
 - `pj_pool_t` 由来メモリは Rust struct の field に埋め込まない。
 - `pj_str_t` は常に Rust 側 owner を保持。
 
-[::REF-POINTER-END-01-046::]
-[::REF-POINTER-BEGIN-01-047::]
 ## 48. デフォルトポリシーの明文化
 
 - 既定 transport: UDP + TCP
@@ -3086,8 +2992,6 @@ FFI callback 内で `catch_unwind` がパニックを捕捉した場合、以下
 - 既定 SRTP: disabled
 - 既定 ICE: enabled
 
-[::REF-POINTER-END-01-047::]
-[::REF-POINTER-BEGIN-01-048::]
 ## 49. lib.rs 雛形
 
 ```rust
@@ -3113,8 +3017,6 @@ pub use error::*;
 pub use audio::*;
 ```
 
-[::REF-POINTER-END-01-048::]
-[::REF-POINTER-BEGIN-01-049::]
 ## 50. 受け入れ基準
 
 本 RFC に準拠した実装は、次を満たしたとき完了と見なす。
@@ -3133,14 +3035,10 @@ pub use audio::*;
 - 全 API が `Result<T, SipError>` で統一される
 - `SipClient: Send + Sync` が成立する
 
-[::REF-POINTER-END-01-049::]
-[::REF-POINTER-BEGIN-01-050::]
 ## 51. 結論
 
 本 RFC は、元要件定義で要求された SIP クライアント crate の責務をすべて単一文書に閉じた完全設計へ展開したものであり、公開 API、内部スレッドモデル、FFI 境界、音声ミキシング、イベント体系、ビルド戦略、検証方針までを実装可能な粒度で固定している。この設計に従う限り、実装フェーズで新たな責務分割や次版への先送りを行う必要はなく、残る作業は本 RFC のコード化である。
 
-[::REF-POINTER-END-01-050::]
-[::REF-POINTER-BEGIN-02-001::]
 ## 52. HTTP/WebSocket API 層 — 責務範囲と crate 分割
 
 本 crate は Rust 公開 API（SipClient, SipAccountHandle, EventBus）を提供する純粋なライブラリとしての側面と、HTTP/WebSocket 経由で外部から全操作・全イベント取得を可能にするスタンドアロンサーバーとしての側面を併せ持つ。
@@ -3264,8 +3162,6 @@ let handle_b = client_b.add_account(account_b).await?;
 - `ffi/callbacks.rs`: extern "C" 関数。catch_unwind 必須。最小限の work enqueue のみ。
 - `ffi/strings.rs`: `pj_str_t` <-> Rust &str 変換。常に Rust 側でメモリ所有。
 
-[::REF-POINTER-END-02-001::]
-[::REF-POINTER-BEGIN-02-002::]
 ## 53. スタンドアロンサーバーモード
 
 siprs-server crate は Axum ベースの HTTP/WS サーバーとして動作し、全ての SIP 操作とイベント取得を外部 API として公開する。
@@ -3328,8 +3224,6 @@ pub enum AuthMode {
 }
 ```
 
-[::REF-POINTER-END-02-002::]
-[::REF-POINTER-BEGIN-02-003::]
 ## 54. HTTP/WebSocket API プロトコル構成
 
 **決定: REST（操作系）+ WebSocket（イベント配信 + 音声バイナリ）の 2 層構成**
@@ -3468,8 +3362,6 @@ pub struct AudioChunkPair {
 2. 時刻 T から T+20ms の音声チャンクには `first_seq=1000, last_seq=1010` が載る
 3. 受信側は `seq=1000` の CallConnected と `first_seq=1000` の音声チャンクが同時刻の情報であると判断できる
 
-[::REF-POINTER-END-02-003::]
-[::REF-POINTER-BEGIN-02-004::]
 ## 55. 認証・認可モデル
 
 **決定: SIP アカウント認証による JWT 発行 + Bearer Token 検証（Axum middleware）**
@@ -3526,8 +3418,6 @@ impl<S> Layer<S> for AxumJWTAuthLayer {
 - デフォルトの認証モード: `LocalhostOnly`（認証不要）
 - 外部公開時は `AuthConfig` で認証モードを強制する
 
-[::REF-POINTER-END-02-004::]
-[::REF-POINTER-BEGIN-02-005::]
 ## 56. 設定永続化 — SQLite + SeaORM
 
 **決定: SQLite + SeaORM による設定・アカウント情報の永続化。SQLite ドライバには rusqlite（https://crates.io/crates/rusqlite, https://docs.rs/rusqlite/latest/rusqlite/）を使用し、bundled feature によりシステムライブラリに依存せずビルド可能とする。**
@@ -3606,8 +3496,6 @@ gen-entities:
 cd crates/siprs-server && make migrate-fresh
 ```
 
-[::REF-POINTER-END-02-005::]
-[::REF-POINTER-BEGIN-02-006::]
 ## 57. テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）
 
 **決定: 既存 4 層に加え Layer 5 を新設し、全層で可能な限り網羅的なテストコードを維持する。**
@@ -3722,8 +3610,6 @@ async fn test_ws_event_stream() {
 - `siprs-server/tests/ws/` 以下のテストはプロトコル層で分割する。
 - Layer 3（SIP Integration）と Layer 5 の結合テストは、Docker 依存の有無で分割基準とする。
 
-[::REF-POINTER-END-02-006::]
-[::REF-POINTER-BEGIN-01-051::]
 ## 58. セマンティックバージョニング運用方針
 
 **決定: 0.x フェーズは柔軟性を最優先とし、バージョニング規定に過度にこだわらない。**
@@ -3735,8 +3621,6 @@ async fn test_ws_event_stream() {
 - 1.0 以降は cargo semver-checks を CI に導入し、API 互換性を自動検証する。
 - 1.0 移行後は破壊的変更の前に最低 1 リリースの deprecation 予告を行う。
 
-[::REF-POINTER-END-01-051::]
-[::REF-POINTER-BEGIN-01-052::]
 ## 59. SIP ネットワーキング詳細
 
 ### 59.1 TLS 証明書管理
@@ -3797,11 +3681,8 @@ let config = ClientConfig {
 
 特定インターフェース障害時の自動フェイルオーバーは PJSIP のトランスポート管理機能に委ね、Rust 側ではトランスポート切断イベント（`NativeEvent::TransportDisconnected`）を監視する。
 
-[::REF-POINTER-END-01-052::]
-[::REF-POINTER-BEGIN-01-053::]
 ## 60. 既存 RFC セクションとの対応関係
 
-[::REF-POINTER-END-01-053::]
 ## 61. split-rfc-to-children のための参考情報 — RFC設計書が示す I/O 境界の手がかり
 
 本セクションは、後日 `/split-rfc-to-children`（RFC分割）、`/formulate-tickets`（チケット策定）、`/formulate-tickets-for-next`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
@@ -3812,7 +3693,7 @@ let config = ClientConfig {
 
 | # | 境界の種類 | 切断面（左側/上流 → 右側/下流） | 該当セクション | 備考 |
 |---|-----------|-------------------------------|--------------|------|
-| B1 | **crate 境界** | `siprs`（コアライブラリ）→ `siprs-server`（API サーバー） | §52, §6 | siprs-server は siprs に依存するが逆はない。最も確実な切断面 |
+| B1 | **crate 境界** | `siprs-core`（コアライブラリ）→ `siprs-server`（API サーバー） | §52, §6 | siprs-server は siprs に依存するが逆はない。最も確実な切断面 |
 | B2 | **FFI 境界** | Rust `runtime/` ←→ C `vendor/pjsip/` | §27, §45.1 | unsafe 境界。callback bridge は `NativeEvent` という typed enum で抽象化済み |
 | B3 | **Async 境界** | `Reactor`（単一スレッド）←→ `AudioWorkerTask`（個別スレッド） | §7, §39 | lock-free queue（crossbeam::ArrayQueue）経由の一方向通信 |
 | B4 | **API 公開境界** | `SipClient`（Rust API）←→ HTTP/WebSocket API 利用者 | §8, §54 | ネットワーク境界。シリアライズ形式（JSON）が契約 |
@@ -3881,8 +3762,6 @@ zasso/crates/
 - 本セクションは RFC の設計記述から**事後的に観測された**境界を書き留めたものであり、境界を**事前に設計した**ものではない。
 - 実際の分割判断は、実装が進みコードとテストが蓄積された後、`/split-rfc-to-children` 実行時に行う。
 - ここに書かれた境界の候補は参考情報であり、分割時に新たな発見があればそちらを優先してよい。
-
-| grill 決定 | 関連既存セクション | 補足 |
 
 | grill 決定 | 関連既存セクション | 補足 |
 |-----------|------------------|------|
