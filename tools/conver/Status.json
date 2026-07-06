@@ -1,9 +1,9 @@
 {
   "state": "DONE",
-  "researchPath": "/Users/kawata/shyme/zasso/tools/conver/OMISSIONS-001.json",
-  "rfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC_OMISSIONS-001.md",
+  "researchPath": "/Users/kawata/shyme/zasso/tools/conver/docs/ABOUT-GRAPHIFY-COMMAND.md",
+  "rfcPath": "/Users/kawata/shyme/zasso/tools/conver/RFC-GRAPHIFY.md",
   "rfcDir": "/Users/kawata/shyme/zasso/tools/conver",
   "reviewLoopCount": 0,
-  "createdAt": "2026-06-26T06:12:41.714Z",
-  "updatedAt": "2026-06-26T06:21:55.903Z"
+  "createdAt": "2026-07-06T08:25:02.255Z",
+  "updatedAt": "2026-07-06T09:29:55.972Z"
 }

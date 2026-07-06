@@ -2121,6 +2121,289 @@
           "completedAt": "2026-07-01"
         }
       ]
+    },
+    {
+      "id": 12,
+      "name": "基本データモデルとスキーマ定義 (Layer 0)",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 12,
+          "status": "reviewed",
+          "title": "JSON Schema定義とバリデーション基盤（node.schema.json / edge.schema.json / graph.schema.json + 検証ユーティリティ）",
+          "referenceSection": "RFC-GRAPHIFY.md (§3.2.1, §3.2.2, §3.2.3)",
+          "background": "グラフデータモデルを規定する3つのJSON Schemaと、crud.jsから呼び出す汎用スキーマ検証関数を一括実装する。node.schema.json（ノード構造＋kind10種）、edge.schema.json（エッジ構造＋type10種）、graph.schema.json（全体構造）、およびvalidateAgainstSchema()関数を含む。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/ 配下のみです。\n- .claude/scripts/rfc-graph/schema/ 配下の3つのJSON Schemaファイル\n- .claude/scripts/rfc-graph/schema/validate.js（スキーマ検証関数）\n- tests/rfc-graph/schema/validate.test.js（テストファイル）\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            "node.schema.json — Draft 2020-12, kind 10種列挙, IDパターン N0001〜, sourceRanges必須",
+            "edge.schema.json — Draft 2020-12, type 10種列挙, attributes(strength/bidirectional), from/toパターン",
+            "graph.schema.json — Draft 2020-12, ref でnode/edge参照, sourceFile/nodes/edges必須",
+            "validate.js — validateAgainstSchema(): Ajv Draft 2020-12 でスキーマ読込→検証→3段テンプレートエラー出力",
+            "tests/rfc-graph/schema/validate.test.cjs — 20+ケースのテスト"
+          ],
+          "relatedTicketIds": "出力先I/O: P13-2 (crud.jsが本チケットのスキーマ検証関数を呼び出す)",
+          "testVerification": [
+            "UT 正常系: 全10種のkindのノードが node.schema.json を通過する",
+            "UT 正常系: 全10種のtypeのエッジが edge.schema.json を通過する",
+            "UT 正常系: 有効なグラフJSONが graph.schema.json を通過する",
+            "UT 異常系: 必須フィールド欠落(12パターン)で検証失敗",
+            "UT 異常系: 未知のkind値 / 未知のtype値で検証失敗",
+            "UT 異常系: IDパターン違反(N001/X0001/N001a)で検証失敗",
+            "UT 異常系: strength/bidirectional の型違反で検証失敗",
+            "UT 異常系: additionalProperties違反(未知フィールド)で検証失敗",
+            "UT 境界値: title maxLength=120超過 / 空文字列",
+            "UT 境界値: sourceRanges空配列 / attributes.note maxLength=240超過",
+            "UT: validateAgainstSchema() 存在しないスキーマファイルでエラー返却",
+            "UT: validateAgainstSchema() 有効データで成功・無効データで3段テンプレート"
+          ],
+          "testExceptions": [],
+          "instrumentation": "【物理的レビュー方法の実行結果】\n1. テスト実行: node --test tests/rfc-graph/schema/validate.test.cjs → 57件成功, 0件失敗\n2. 静的品質チェック: run-quality-checks → 0 issues\n3. 翻訳可能性チェック: 全て合格（関数名は動詞句, マジックナンバー無し, デバッグ出力無し）\n4. 不完全実装7パターン探索: 全てクリーン（該当なし）\n5. スキーマ自己検証: Ajv 自己コンパイル通過確認済み",
+          "notes": "【レビュー報告書】\n\n=== 検証結果 ===\n- テスト: 57件成功（正常系22 / 異常系27 / 境界値5 / 関数テスト3）\n- 品質チェック: 0 issues\n- 不完全実装: 0件\n- TODO/FIXME/HACK/XXX: 0件\n- 犯罪: 0件\n- スタブ: 0件\n\n=== 翻訳可能性 ===\n- 全関数名が動詞句（validateAgainstSchema / getValueAtPath / registerDependentSchemas）\n- マジックナンバーの直接記述なし\n- console.log 等のデバッグ出力なし\n- コメントは「なぜ」を説明（allErrors理由、$ref解決の必要性等）\n\n=== 依存関係クロスチェック ===\n- P12-1 → P13-2: 正しい一方向依存（P12-1完了後にP13-2がvalidateAgainstSchema()を呼び出す）\n- ★ 軽微な問題: P13-2 側に P12-1 への逆参照が未設定。P13-2 実装時に relatedTicketIds に P12-1 を追記推奨\n\n=== 評価 ===\n- Blocker: なし\n- Major: なし\n- Minor: P13-2 への逆参照欠如（P13-2実装時にP12-1をrelatedTicketIdsに追加すること）\n\n=== 結論 ===\n全Acceptance Criteriaを充足。品質基準を満たす。",
+          "startedAt": "2026-07-06",
+          "changes": [
+            {
+              "before": "(新規作成)",
+              "after": "node.schema.json — Draft 2020-12, kind 10種列挙, IDパターン N0001〜, sourceRanges必須",
+              "description": "ノードスキーマ定義（RFC-GRAPHIFY.md §3.2.1 に完全準拠）"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "edge.schema.json — Draft 2020-12, type 10種列挙, attributes(strength/bidirectional), from/toパターン",
+              "description": "エッジスキーマ定義（RFC-GRAPHIFY.md §3.2.2 に完全準拠）"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "graph.schema.json — Draft 2020-12, $refでnode/edge参照, sourceFile/nodes/edges必須",
+              "description": "グラフ全体スキーマ定義（RFC-GRAPHIFY.md §3.2.3 に完全準拠）"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "validate.js — validateAgainstSchema() + registerDependentSchemas() + getValueAtPath()",
+              "description": "Ajv Draft 2020-12 を使用した汎用スキーマ検証関数。依存スキーマ事前登録により$ref解決対応。エラー時は3段テンプレート出力"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "validate.test.cjs — 57テストケース（正常系/異常系/境界値/エラー処理）",
+              "description": "包括的なテスト。全57件成功。各スキーマの全kind/type列挙値の網羅的テストを含む"
+            }
+          ],
+          "completedAt": "2026-07-06",
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "グラフ管理基盤 (Layer 1) — update-step-status.js + crud.js コア",
+      "externalDependencies": "なし",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 13,
+          "status": "reviewed",
+          "title": "update-step-status.js — GRAPHIFY-Status.json管理（5サブコマンド）",
+          "referenceSection": "RFC-GRAPHIFY.md (§3.5, §4.5)、specs/0047-update-step-statusjs-graphify-statusjson5.md",
+          "background": "GRAPHIFY-Status.jsonの読み書きを担当。start-step/end-step/fail-step/reset-to-step/statusの5サブコマンドとアトミックファイル書き込みを実装。各Stepの進行制御の中核。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            ".claude/scripts/rfc-graph/update-step-status.js — 新規: 5サブコマンド + atomicWrite + エラーハンドリング",
+            "tests/rfc-graph/update-step-status.test.cjs — 新規: テスト15ケース以上"
+          ],
+          "testVerification": [
+            "UT: start-step 1 で steps[1]=running、currentStep=1",
+            "UT: end-step 1 で steps[1]=done、currentStep=2",
+            "UT: fail-step 2 で steps[2]=error、currentStep 不変",
+            "UT: reset-to-step 2 で steps[3]〜steps[5]=pending、currentStep=2",
+            "UT: status サブコマンドで整形JSON出力",
+            "UT: start-step 5（最終Step）で steps[5]=running、currentStep=5",
+            "UT: end-step 5（全完了）で steps[5]=done、currentStep=6",
+            "UT: 未知のサブコマンドで3段テンプレートエラー終了",
+            "UT: Step 0（範囲未満）でエラー終了",
+            "UT: Step 6（範囲超過）でエラー終了",
+            "UT: 負のStep番号でエラー終了",
+            "UT: Step番号なし（argv不足）でエラー終了",
+            "UT: atomicWrite 正常書き込み（一時ファイル→rename）",
+            "UT: atomicWrite 中間ファイル削除確認（.tmp.pid 残存なし）",
+            "UT: 存在しないファイルパスからの読み込み時、デフォルト状態で初期化",
+            "Coverage目標: 90%以上"
+          ],
+          "testExceptions": [],
+          "instrumentation": "【物理的レビュー方法の実行結果（再検証）】\n1. テスト実行: node --test tests/rfc-graph/update-step-status.test.cjs → 41件成功, 0件失敗\n2. 静的品質チェック: run-quality-checks.js → 2 issues（意図的 console.log: status 出力と --help 表示、デバッグ出力ではない）\n3. 翻訳可能性 grep: 全クリア（関数名動詞句13/13, マジックナンバー0, 1文字変数0）\n4. find-all-stubs.js: 0件\n5. 不完全実装7パターン探索: 全て clean\n6. 犯罪スキャン: 0件",
+          "relatedTicketIds": "並行実装可能: P13-2 (crud.js, 相互依存なし) | 呼び出し元: P16-1 (graphify-rfc.md)",
+          "notes": "【レビュー報告書】\n\n=== 検証結果 ===\n- テスト: 41件成功（全パス）\n  - 定数: 4件\n  - validateStepNumber: 8件（正常系3 / 異常系5）\n  - サブコマンド: 11件（start 3 / end 3 / fail 2 / reset 2 / status 1）\n  - parseArguments: 8件（正常系2 / 異常系6）\n  - ファイルI/O: 8件（createDefaultStatus 1 / readStatus 4 / atomicWrite 3）\n  - 統合: 2件（read-modify-write / full flow）\n- 品質チェック: 2 issues（意図的 console.log — statusコマンド出力と--help表示）\n- 不完全実装: 0件\n- スタブ: 0件\n- 犯罪: 0件\n\n=== 翻訳可能性 ===\n- 全13関数が動詞句（parseArguments / readStatus / executeStartStep 等）\n- 変数名はドメイン概念（statusPath / stepNumber / targetPath）\n- マジックナンバーは MIN_STEP(1) / MAX_STEP(5) に定数化\n- console.log は status 出力（L257）と --help 表示（L301）のみ\n- コメントは「なぜ」を説明（atomicWrite 理由、currentStep ポリシー等）\n- 一関数一責務: main() はディスパッチのみ\n\n=== 依存関係クロスチェック ===\n- P13-1 → P13-2: 並行実装可能（相互依存なし）→ 問題なし\n- P13-1 → P16-1: update-step-status.js が graphify-rfc.md から呼び出される → 下流依存、問題なし\n- 循環依存: なし\n\n=== 評価 ===\n- Blocker: なし\n- Major: なし\n- Minor (品質チェッカー): run-quality-checks.js が console.log を2件報告\n  - L257: executeStatus() 内 — status サブコマンドとして整形JSONを標準出力。CLIにおいて標準出力は console.log が唯一の手段でありデバッグ出力ではない\n  - L301: printUsage() 内 — --help の使用方法表示。同上\n  → 技術的に修正不可能のためスルー（quality-gate ルールの例外適用）\n\n=== 結論 ===\n全Acceptance Criteriaを充足。品質基準を満たす。",
+          "startedAt": "2026-07-06",
+          "changes": [
+            {
+              "before": "(新規作成)",
+              "after": "update-step-status.js — parseArguments, readStatus, createDefaultStatus, validateStepNumber, executeStartStep/EndStep/FailStep/ResetToStep/Status, atomicWrite, printUsage, main — 計13関数 + 9定数",
+              "description": ".claude/scripts/rfc-graph/update-step-status.js: 5サブコマンド全実装。定数化 (MIN_STEP/MAX_STEP/ALLOWED_SUBCOMMANDS/STATUS_*)、一関数一責務、3段テンプレートエラー処理、atomicWrite アトミック書込"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "update-step-status.test.cjs — 41テストケース (定数4 + validateStepNumber 8 + 各サブコマンド11 + parseArguments 8 + ファイルI/O 8 + 統合 2)",
+              "description": "tests/rfc-graph/update-step-status.test.cjs: node:test + node:assert-strict。正常系/異常系/境界値/ファイルI/O/統合テストを含む41件全部パス"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-06"
+        },
+        {
+          "id": 2,
+          "phaseId": 13,
+          "status": "reviewed",
+          "title": "crud.js 全CRUD操作（ノード・エッジCRUD + スキーマ検証統合 + アトミック書込）",
+          "referenceSection": "RFC-GRAPHIFY.md (§3.7, §4.1)",
+          "background": "グラフファイルの唯一の書き込み経路となるcrud.jsの全操作を一括実装。create-nodes/list-nodes/get-node/update-node/delete-node/create-edgesの6サブコマンドを提供。全書き込み操作はスキーマ検証を通過後に一時ファイル+renameのアトミック書込を実行。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            "crud.js create-nodes — ノード一括追加＋スキーマ検証＋重複IDチェック",
+            "crud.js list-nodes — 全ノード一覧JSON出力",
+            "crud.js get-node — 単一ノード取得",
+            "crud.js update-node — ノード更新",
+            "crud.js delete-node — ノード削除",
+            "crud.js create-edges — エッジ一括追加＋from/to存在検証＋スキーマ検証",
+            "atomicWrite() — 一時ファイル+renameの共有アトミック書込関数（update-step-status.jsと共通化）"
+          ],
+          "testVerification": [
+            "正常系: create-nodesで有効なノードを追加しJSON出力",
+            "正常系: list-nodesで全ノード一覧を出力",
+            "正常系: get-nodeで特定ノードを出力",
+            "正常系: update-nodeでノード更新を反映",
+            "正常系: delete-nodeでノード削除を反映",
+            "正常系: create-edgesで有効なエッジを追加",
+            "異常系: 重複IDでエラー終了＋変更なし",
+            "異常系: from/toが存在しないノードIDを参照するエッジでエラー終了＋変更なし",
+            "異常系: スキーマ違反の入力でエラー終了＋変更なし",
+            "異常系: 存在しないノードIDのget-node/update-node/delete-nodeでエラー終了"
+          ],
+          "testExceptions": [],
+          "instrumentation": "【物理的レビュー方法の実行結果】\n1. テスト実行: node --test tests/rfc-graph/crud.test.cjs → 31件成功, 0件失敗\n2. 全rfc-graphテスト: crud 31 + validate 57 + update-step-status 41 = 129件成功, 0件失敗\n3. 静的品質チェック: run-quality-checks.js → 7 issues（意図的console.log: 6件がサブコマンド結果JSON出力、1件が--help表示、デバッグ出力ではない）\n4. 翻訳可能性チェック: 全て合格（関数名動詞句14/14, マジックナンバー0, 1文字変数1件: for文のi、console.log以外のデバッグ出力0）\n5. 不完全実装7パターン探索: 全てクリーン（該当なし）\n6. 犯罪スキャン: 0件\n7. スタブ検索: 0件",
+          "relatedTicketIds": "P12-1 (先行実装完了: スキーマ定義・validateAgainstSchema() を呼び出す), P13-1 (並行実装完了: atomicWrite パターンを共通化)",
+          "notes": "【レビュー報告書】\n\n=== 検証結果 ===\n- テスト: 31件成功（全パス）\n  - 定数: 1件\n  - parseArguments: 11件（正常系6 / 異常系5）\n  - readGraph: 2件\n  - atomicWrite: 2件\n  - executeCreateNodes: 4件（正常系2 / 異常系2）\n  - executeListNodeIds: 2件\n  - executeGetNode: 2件\n  - executeUpdateNode: 2件\n  - executeDeleteNode: 2件\n  - executeCreateEdges: 3件（正常系1 / 異常系2）\n- 品質チェック: 7 issues（意図的console.log、品質ゲート例外適用）\n- 不完全実装: 0件\n- スタブ: 0件\n- 犯罪: 0件\n\n=== 翻訳可能性 ===\n- 全14関数が動詞句（parseArguments / readGraph / executeCreateNodes 等）\n- 変数名はドメイン概念（graphPath / nodeId / nodesData / existingIds）\n- マジックナンバーは定数化（GRAPH_PATH_ARG_PREFIX / NODE_ID_ARG_PREFIX 等）\n- console.log は7箇所全て意図的CLI出力\n- コメントは「なぜ」を説明（atomicWriteのrename理由、スキーマ検証2段階の意図等）\n- 一関数一責務: main() はディスパッチ＋エラーハンドリングのみ\n\n=== 依存関係クロスチェック ===\n- P13-2 → P12-1: ✅ 正しい一方向依存（validateAgainstSchema() を呼び出し）\n- P13-2 → P13-1: ✅ atomicWrite パターンを共通化（実装パターン一致）\n- 循環依存: なし\n\n=== 評価 ===\n- Blocker: なし\n- Major: なし\n- Minor（品質チェッカー）: console.log 7件 — 全てCLIの意図的標準出力（サブコマンド結果JSON + --help）。品質ゲートルールの例外としてスルー（update-step-status.js と同様）\n\n=== 結論 ===\n全Acceptance Criteriaを充足。品質基準を満たす。",
+          "startedAt": "2026-07-06",
+          "changes": [
+            {
+              "before": "(新規作成)",
+              "after": "crud.js — parseArguments, readGraph, validateWithSchema, executeCreateNodes, executeListNodeIds, executeGetNode, executeUpdateNode, executeDeleteNode, executeCreateEdges, atomicWrite, exitWithError, printUsage, main — 計13関数 + 6サブコマンド",
+              "description": ".claude/scripts/rfc-graph/crud.js: 6サブコマンド全実装。スキーマ検証統合、atomicWrite アトミック書込、3段テンプレートエラー処理、require.main===module ガード"
+            },
+            {
+              "before": "(新規作成)",
+              "after": "crud.test.cjs — 31テストケース（定数1 + parseArguments 11 + readGraph 2 + atomicWrite 2 + createNodes 4 + listNodes 2 + getNode 2 + updateNode 2 + deleteNode 2 + createEdges 3）",
+              "description": "tests/rfc-graph/crud.test.cjs: node:test + node:assert-strict。正常系/異常系/ファイルI/Oを含む31件全部パス"
+            }
+          ],
+          "completedAt": "2026-07-06",
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "検証・マーカー機構 (Layer 1+2) — verify.js + embed-markers.js",
+      "externalDependencies": "Node.js fs",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 14,
+          "status": "todo",
+          "title": "検証・マーカー機構（verify.js カバレッジ検証 + embed-markers.js 冪等マーカー挿入）",
+          "referenceSection": "RFC-GRAPHIFY.md (§3.7, §4.2, §4.3)",
+          "background": "2つの小規模機械的スクリプトを一括実装。verify.jsは未カバー行（空行除く）と孤立ノードを検出。embed-markers.jsはREFマーカーを冪等かつアトミックに挿入。両スクリプトとも同一のCLIパターン（--graph + --source）を持ち、3段テンプレートのエラー出力を共有する。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            "verify.js — 未カバー行検出（空行のみ対象外）",
+            "verify.js — 孤立ノード検出（エッジ0本）",
+            "embed-markers.js — [::REF<N>-START::]/[::REF<N>-END::]冪等挿入",
+            "embed-markers.js — 同一refIdの重複回避＋異種refIdの範囲重複許容",
+            "embed-markers.js — 一時ファイル+renameのアトミックファイル書込"
+          ],
+          "relatedTicketIds": "入力元I/O: P13-3 (crud.jsのグラフを読み取る)。出力先I/O: P15-1 (query.jsがマーカーを行番号解決に使用)",
+          "testVerification": [
+            "正常系: verify.jsが全行カバー＋全ノード接続でok:trueを返す",
+            "異常系: verify.jsが未カバー行を検出しリスト出力＋ok:false",
+            "異常系: verify.jsが孤立ノードを検出しリスト出力＋ok:false",
+            "正常系: embed-markers.jsが初回実行で全REFマーカー挿入",
+            "正常系: embed-markers.jsの2回目実行で差分ゼロ（冪等性）",
+            "異常系: embed-markers.jsが不正なsourceRangesでエラー終了＋ファイル変更なし"
+          ],
+          "testExceptions": [],
+          "instrumentation": "JSON出力。エラー時は3段テンプレート"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "グラフ探索機構 (Layer 2) — query.js",
+      "externalDependencies": "Node.js fs",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 15,
+          "status": "todo",
+          "title": "query.js — BFSマルチホップ探索＋行番号動的解決＋Markdown整形",
+          "referenceSection": "RFC-GRAPHIFY.md (3.7, 4.4)",
+          "background": "ノードID起点のBFS幅優先探索。マーカーからの実行時行番号再計算、Markdown整形出力。マーカー欠損時はエラー通知+部分結果\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "testVerification": [
+            "正常系: --id=N --hops=1で起点+直接接続ノードを返す",
+            "正常系: --id=N --hops=2で2ホップ先まで探索",
+            "正常系: 行番号が動的に解決される",
+            "異常系: 存在しないノードIDでエラー終了",
+            "異常系: マーカー欠損時に部分結果+stderr通知"
+          ],
+          "instrumentation": "Markdown整形出力 + 3段テンプレートエラー"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "スラッシュコマンド統合とformulate連携 (Layer 3+4)",
+      "externalDependencies": "Node.js fs, Tickets.json",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "graphify-rfc.md スラッシュコマンド（5Step進行制御＋エラーハンドリング）",
+          "referenceSection": "RFC-GRAPHIFY.md (§4.6)",
+          "background": "スラッシュコマンド本体。5Stepの進行記述、導出パス（graphPath/statusPath）の計算、update-step-status.jsによる進行管理呼び出し、各Stepでのスクリプト起動、エラー時の復帰フローを含む。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            ".claude/commands/graphify-rfc.md — 5Step記述＋導出パス＋進行管理＋エラーハンドリング"
+          ],
+          "testVerification": [
+            "正常系: 各Stepの進行記述が完全であること",
+            "正常系: グラフパス・ステータスパスの導出が正しいこと",
+            "正常系: エラー時のreset-to-stepによる復帰フローが記述されていること"
+          ],
+          "testExceptions": [
+            "スラッシュコマンドは説明文のため、単体テストは不可能。結合テストで検証"
+          ],
+          "instrumentation": "graphify-rfc.md ファイル"
+        },
+        {
+          "id": 2,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "formulate連携スクリプト群＋既存コマンド改修＋Acceptance Criteriaテスト",
+          "referenceSection": "RFC-GRAPHIFY.md (§3.9, §4.7)",
+          "background": "formulate-tickets/for-nextがグラフを活用するためのスクリプト群と既存コマンド改修を一括実装。load-rfc-graph.js（グラフサマリー+CLI使用例）、dump-ticket-graph-commands.js（nodeIDs→spec機械補完）、formulate-ticketsへのStep追加、およびAcceptance Criteria 4項目のテストスクリプト。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/.claude/ 配下のみです。\n- .claude/scripts/rfc-graph/ 配下のスクリプト\n- .claude/scripts/tickets/ 配下のスクリプト（formulate連携）\n- .claude/commands/graphify-rfc.md（スラッシュコマンド）\n- tests/rfc-graph/ 配下のテスト\n- tools/conver/.gitignore の追記\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "scope": [
+            "load-rfc-graph.js — グラフサマリー＋CLI使用例の自然言語出力",
+            "dump-ticket-graph-commands.js — Tickets.json nodeIDs読み取り→spec機械補完",
+            "formulate-tickets.md — load-rfc-graph.js Step追加",
+            "formulate-tickets-for-next.md — load-rfc-graph.js Step追加（Step1とStep2の間）",
+            "specテンプレート — 「RFC設計グラフ構造探索コマンド」セクション追加",
+            "make/plan/start/review テンプレート — グラフ探索確認サブステップ追加",
+            "tests/rfc-graph/ — 4 Acceptance Criteria検証テスト"
+          ],
+          "relatedTicketIds": "入力元I/O: P12-1 (スキーマ定義されたグラフ)、P13-3 (crud.jsで生成されたグラフ), P16-1 (graphify-rfc.mdのコマンド)",
+          "testVerification": [
+            "AC1: verify.jsがカバレッジ100%で{\"ok\":true}を返す",
+            "AC2: embed-markers.jsを2回連続実行してもソース文書に差分なし（冪等性）",
+            "AC3: query.js --hops=1と--hops=2で返却ノード集合が異なる（マルチホップ動作確認）",
+            "AC4: ソース文書に1行挿入後、query.jsが正しい新行番号を返す（行挿入耐性）"
+          ],
+          "testExceptions": [],
+          "instrumentation": "bashテストスクリプト。Acceptance Criteriaの自動検証"
+        }
+      ]
     }
   ]
 }

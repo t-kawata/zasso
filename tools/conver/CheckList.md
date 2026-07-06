@@ -3,7 +3,7 @@
 > **⚠️ このファイルはスクリプトにより自動生成された雛形です。**
 > AIが目視チェックし、補足事項・プロジェクト固有の制約を追記してから使用すること。
 
-生成日時: 2026-06-26T06:18:22.355Z
+生成日時: 2026-07-06T09:25:58.587Z
 DesignTree バージョン: 1
 
 ---
@@ -16,7 +16,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §1 起動パラメータログの完全化（O-001解決） ✅
+## §1 グラフ出力ディレクトリの配置とディレクトリ構成 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -24,7 +24,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §2 ファイルパスの絶対パス変換方針（O-002解決） ✅
+## §2 スクリプト実装言語と実行環境 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -32,7 +32,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §3 phaseId情報の一貫性確保（O-003解決） ✅
+## §3 crud.js のAPI設計とアトミック性 ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -40,7 +40,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §4 ACP SDK型定義の整合性（O-004解決） ✅
+## §4 verify.js のカバレッジ検出アルゴリズム ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -48,7 +48,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §5 Makefileエントリの完全記述（O-005解決） ✅
+## §5 embed-markers.js の冪等挿入アルゴリズム ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている
@@ -56,29 +56,145 @@ DesignTree バージョン: 1
 
 ---
 
-## プロジェクト固有の補足・制約
+## §6 query.js のマルチホップ検索と行番号再計算 ✅
 
-### 設計判断の確定内容（grill結果より）
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-**Q1 決定（B）:**
-- 起動パラメータログは key=value 形式の個別行表示（`model=deepseek-v4-flash` 形式）。JSON ブロックではない
-- パス変換（path.resolve）は cli.ts の parseCliOptions でのみ行う。runner.ts は変換済みパスを受け取る前提とする
+---
 
-**Q2 決定（A、一部修正）:**
-- phaseId は tickets.ts の公開関数 loadPendingTickets に統合し、runner.ts の非公開重複は削除する
-- RFC の型定義（acp.NdJsonStream / acp.MonadClient）は実装（acp.Stream / acp.ClientApp）に合わせて更新する
-- Makefile エントリは **test-conver のみ** RFC §7 に追記する。**list-tickets はユーザーの私用ヘルパーのため RFC には含めない**
+## §7 Step方式5Step固定制御＋GRAPHIFY-Status管理＋Step1分割基準が最重要課題 ✅
 
-### プロジェクト制約
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-- [ ] 次世代RFCのフロントマターに `parent-rfc: RFC_ROOT.md` と `parent-omissions: OMISSIONS-001.md` が正しく記述されていること
-- [ ] 各コードスニペットは TypeScript（ESM）で記述されていること
-- [ ] 全変更が `tsc` ビルドを通過することを確認すること
-- [ ] test-conver（node --test）の実行が正常に動作することを確認すること
-- [ ] list-tickets エントリは RFC に記載しないこと（私用ヘルパーのため）
+### §7.1 GRAPHIFY-Status.json のスキーマと管理方法 ✅
 
-### 全体チェック（拡張）
+- [ ] **GRAPHIFY-Status.json のスキーマと管理方法** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-- [ ] 各 omission の解決方法が、対応するコードスニペットと共に具体的に記述されていること（「適宜修正」等の曖昧な表現の禁止）
-- [ ] 親RFC（RFC_ROOT.md）の設計判断を変更する内容ではないこと（今回のRFCは omission 解決に特化）
-- [ ] 型名の変更（acp.NdJsonStream → acp.Stream 等）は、SDK バージョンによる差異であることが注釈で明記されていること
+
+### §7.2 5 Step定義確定（Step1分割基準とformulate-tickets連携が未解決） ✅
+
+- [ ] **5 Step定義確定（Step1分割基準とformulate-tickets連携が未解決）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+#### §7.2.1 Step復帰時のGRAPHIFY-Status.jsonリセットプロトコル ✅
+
+- [ ] **Step復帰時のGRAPHIFY-Status.jsonリセットプロトコル** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+### §7.3 Step 1 ノード分割の具体基準（formulate-tickets連携を考慮） ✅
+
+- [ ] **Step 1 ノード分割の具体基準（formulate-tickets連携を考慮）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+### §7.4 formulate-tickets 連携: GRAPH.json読み込みスクリプトと統合Step ✅
+
+- [ ] **formulate-tickets 連携: GRAPH.json読み込みスクリプトと統合Step** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+#### §7.4.1 dump-ticket-graph-commands.js: --tickets=<path> --graph=<path> --source=<path> 明示。Tickets.jsonをin-place更新。graph無→「グラフファイルがありません」。nodeIDsスキーマ定義はgraphify RFCスコープ。既存add-ticket.js改修は別タスク。 ✅
+
+- [ ] **dump-ticket-graph-commands.js: --tickets=<path> --graph=<path> --source=<path> 明示。Tickets.jsonをin-place更新。graph無→「グラフファイルがありません」。nodeIDsスキーマ定義はgraphify RFCスコープ。既存add-ticket.js改修は別タスク。** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+#### §7.4.2 dump-ticket-graph-commands.jsがdescriptionに追記。フォーマット: ノードID+query.jsコマンド+ホップ数の3情報。グラフなし→「グラフファイルがありません」。make/plan/start/reviewに確認サブステップ。 ✅
+
+- [ ] **dump-ticket-graph-commands.jsがdescriptionに追記。フォーマット: ノードID+query.jsコマンド+ホップ数の3情報。グラフなし→「グラフファイルがありません」。make/plan/start/reviewに確認サブステップ。** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+### §7.5 全スクリプトの完全なCLI引数定義（--source／--graph／--id／--hops） ✅
+
+- [ ] **全スクリプトの完全なCLI引数定義（--source／--graph／--id／--hops）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+### §7.6 update-step-status.js の要否と設計 ✅
+
+- [ ] **update-step-status.js の要否と設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+#### §7.6.1 update-step-status.js のCLIインターフェースとパス導出 ✅
+
+- [ ] **update-step-status.js のCLIインターフェースとパス導出** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §8 スキーマファイル(node/edge/graph)の管理とバリデーション ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §9 テスト方針と受け入れ基準の具体化 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §10 全スクリプト統一エラー処理＋自然言語による丁寧なエラー説明 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §10.1 自然言語エラー出力のフォーマット仕様 ✅
+
+- [ ] **自然言語エラー出力のフォーマット仕様** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+<!-- ========== AI補足: プロジェクト固有の追記チェック項目 ========== -->
+
+## AI補足: プロジェクト横断チェック項目
+
+### 用語統一
+- [ ] "Phase" という語を使用していないこと（正: "Step"）
+- [ ] "GRAPHIFY-Status.json" の正式名称で統一されていること（"Status.json" という短縮形不使用）
+
+### .gitignore
+- [ ] tools/conver/.gitignore に `*GRAPH.json` と `*GRAPHIFY-Status.json` のパターンが追記されていること
+
+### formulate連携（2系統対応）
+- [ ] formulate-tickets と formulate-tickets-for-next の**両方**に load-rfc-graph.js Step が追加されていること
+- [ ] 両方に dump-ticket-graph-commands.js Step が追加されていること
+- [ ] 両方の spec テンプレートに「RFC設計グラフ構造探索コマンド」セクションが追加されていること
+- [ ] 両方の make/plan/start/review にグラフ探索確認サブステップが追加されていること
+
+### グラフ探索コマンドセクション（dump-ticket-graph-commands.js 出力）
+- [ ] 各チケットに統合された全ノードIDが機械的に列挙されていること
+- [ ] 各ノードIDに対して query.js のCLIコマンド（--graph= --source= --id= --hops=）が機械的に生成されていること
+- [ ] グラフファイルが存在しない場合、「グラフファイルがありません」とだけ記述されていること
+
+### 品質横断
+- [ ] 全スクリプトのエラー出力が「[ERROR] + 原因: + 対応:」の3段テンプレートに統一されていること
+- [ ] 全書き込み操作（crud.js, embed-markers.js）で一時ファイル→renameのアトミック戦略が採られていること
+- [ ] `[::STUB::]` マーカーと `[::REF<N>-(START|END)::]` マーカーが衝突しない prefix になっていること（STUB vs REF で明確に区別）
+- [ ] graphify-rfc の再実行ポリシーが定義されていること（既存 GRAPHIFY-Status.json が存在する場合の挙動）
+
+### formulate スコープ外（別タスクであることをRFC内で明記）
+- [ ] Tickets.json の nodeIDs スキーマ拡張は graphify-rfc RFC で定義するが、bulk-add-tickets.js/add-ticket.js の改修は別タスクと明記
+- [ ] make/plan/start/review のテンプレート改修は graphify-rfc RFC のスコープ外と明記

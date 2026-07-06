@@ -169,3 +169,39 @@ Step 3.5: 機械的フィルタリング（新設）
 | Layer 1 | Step 3 各子ステップ終了時 | 即時 Goal Gate — materiality 評価・低スコアは cosmetic に格下げ |
 | Layer 2 | Step 3.5 | 機械的フィルタリング — 重複排除 + severity 確定 + 発散傾向検知 |
 | Layer 3 | check-final | 独立した二重計測 — cosmetic のみなら PASS |
+
+---
+
+## 拡張: RFC GRAPHIFY-001 — `/graphify-rfc` スラッシュコマンド
+
+> このセクションは `/formulate-tickets-for-next` によって自動追記されました。
+> **生成元:** tools/conver/RFC-GRAPHIFY.md
+> **生成日:** 2026-07-06
+
+### 目的
+
+長大なMarkdown設計文書をI/O境界単位の細粒度ノードに分割し、属性付きエッジで結んだグラフ構造として永続化する `/graphify-rfc` スラッシュコマンドを定義する。graphify（発散）→ formulate（収束）のパイプラインにより、チケット分解の品質と再現性を向上させる。
+
+### 主要な型とデータ構造
+
+| スキーマ | 内容 |
+|----------|------|
+| `node.schema.json` | ノード: id(N0001〜), title, kind(10種), summary, sourceRanges(refId+行番号) |
+| `edge.schema.json` | エッジ: from, to, type(10種), attributes(strength/bidirectional) |
+| `graph.schema.json` | グラフ全体: sourceFile, nodes[], edges[] |
+
+### モジュール／コンポーネント間の関係
+
+```
+.claude/scripts/rfc-graph/
+  crud.js               ← グラフの唯一の書き込み経路（全スクリプトの前提）
+  verify.js             → crud.js で作成されたグラフを検証
+  embed-markers.js      → 検証済みグラフのマーカーを元文書に埋め込み
+  query.js              → 完成グラフのマルチホップ探索
+  update-step-status.js → 全スクリプトから子プロセス呼び出しでStep進行管理
+```
+
+### フェーズ・チケット一覧
+
+全7チケットが5フェーズ（P12〜P16）に分割され、Tickets.json に追加済み。
+既存フェーズ（P0〜P11）は一切変更していない。
