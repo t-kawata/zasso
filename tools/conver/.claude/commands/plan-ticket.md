@@ -133,6 +133,17 @@ grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.
 grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 ```
 
+### グラフ探索（RFC設計グラフ構造探索コマンド）
+
+spec 内の「RFC設計グラフ構造探索コマンド」セクションに記載された query.js コマンドを実行し、対象チケットのグラフ上の位置と依存関係を確認する。
+
+- 全ノード一覧: `crud.js list-nodes --graph=<graph-path>`
+- 起点ノードからの探索: `query.js --graph=<graph-path> --source=<rfc-path> --id=<nodeId> --hops=3`
+
+グラフが存在しない場合（dump-ticket-graph-commands.js が「グラフファイルがありません」と記載した場合）は、このサブステップをスキップする。
+
+---
+
 ### Step 5: 計画策定
 
 チケットフィールド（`background`, `scope`, `referenceSection`, `relatedTicketIds`）をもとに以下の構造で提示する：

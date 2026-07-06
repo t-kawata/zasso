@@ -124,6 +124,17 @@ Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
+### グラフ探索（RFC設計グラフ構造探索コマンド）
+
+spec 内の「RFC設計グラフ構造探索コマンド」セクションに記載された query.js コマンドを実行し、対象チケットのグラフ上の位置と依存関係を確認する。
+
+- 全ノード一覧: `crud.js list-nodes --graph=<graph-path>`
+- 起点ノードからの探索: `query.js --graph=<graph-path> --source=<rfc-path> --id=<nodeId> --hops=3`
+
+グラフが存在しない場合（dump-ticket-graph-commands.js が「グラフファイルがありません」と記載した場合）は、このサブステップをスキップする。
+
+---
+
 ### Step 7: 実装
 
 `/plan-ticket` の計画に従って実装する。乖離が生じたらユーザーに相談する。
