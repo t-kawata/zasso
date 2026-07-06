@@ -1,6 +1,4 @@
 ---
-argument-hint: <source-file-path>
-allowed-tools: Read, Write, Bash
 description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/rfc-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、6Step進行制御（ノード分割→エッジ付与→機械検証→マーカー埋め込み→自己検証→最終品質検証）でグラフ変換を実行。
 ---
 

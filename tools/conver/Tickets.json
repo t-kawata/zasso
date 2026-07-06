@@ -801,9 +801,23 @@
         {
           "id": 18,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "formulate-tickets系 — 発散→収束の2段階分解とグラフ参照統合",
-          "referenceSection": "spec/0053-formulate-tickets-2.md"
+          "referenceSection": "spec/0053-formulate-tickets-2.md",
+          "relatedTicketIds": "PX-17 (analyze-source-structure.js — 本チケットで参照する show-graph-summary-markdown.js の前提), PX-16 (graphify-rfc.md — グラフ生成元)",
+          "startedAt": "2026-07-06",
+          "changes": [
+            {
+              "description": "formulate-tickets.md: 発散→収束の2段階化（Step 6新設 + kind→Layerマッピング + グラフ分岐）"
+            },
+            {
+              "description": "formulate-tickets-for-next.md: 同上"
+            }
+          ],
+          "notes": "レビュー報告書:\n- テスト: 全307件成功（既存テスト維持）\n- 字句解析: kind→Layer(4+4), 発散Step(1+1), グラフなし分岐(2+2), depends_on(2+1), ノードID統合(1+1) 全項目確認\n- Step番号: 両ファイルともStep 0〜12の一貫性確認\n- 不完全実装: 0件\n- 犯罪: 0件\n- スタブ: 0件\n- 問題点: 見つからず",
+          "instrumentation": "テスト: 全307件成功\n翻訳可能性: Markdownファイルのみの変更で問題なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-06"
         }
       ]
     },
