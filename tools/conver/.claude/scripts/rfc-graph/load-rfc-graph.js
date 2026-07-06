@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * load-rfc-graph.js — グラフサマリー＋CLI使用例表示
+ * load-rfc-graph.js — グラフサマリー＋CLI使用例表示 [::STUB::] 廃止予定
  *
- * graphify-rfc で生成されたグラフファイルのサマリー（ノード数・エッジ数・
- * kind別分布・type別分布等）を自然言語で標準出力に出力する。
- * 同時に crud.js と query.js の具体的なCLI使用例も出力する。
- *
- * グラフファイルが存在しない場合は何も出力せず終了コード0で終了する。
- *
- * CLI: load-rfc-graph.js <source-path>
+ * このスクリプトは show-graph-summary-markdown.js --with-cli-examples に統合されました。
+ * 新規利用は show-graph-summary-markdown.js に移行し、本スクリプトは互換性のために
+ * 暫定維持します（削除時期未定）。
  */
 
 const fs = require('fs');

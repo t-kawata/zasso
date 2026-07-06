@@ -773,6 +773,37 @@
           "instrumentation": "静的品質チェック: 合格 (issues 0件)\n翻訳可能性: 問題なし（Markdown文書、明確な日本語で記述）\n変更内容: 2ファイルの CLAUDE_EOF ブロック内に設計原則セクション追記\n依存関係: PX-15 (reviewed) との整合確認済",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-01"
+        },
+        {
+          "id": 17,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "analyze-source-structure.js — 3軸分割支援の機械的情報提供スクリプト",
+          "referenceSection": "spec/0052-analyze-source-structurejs-3.md",
+          "relatedTicketIds": "PX-16 (graphify-rfc.md スラッシュコマンド — 本スクリプトの呼び出し元), P12-1 (JSON Schema定義 — kind列挙の参照先)",
+          "startedAt": "2026-07-06",
+          "changes": [
+            {
+              "description": "analyze-source-structure.js 新規作成 — 3軸分割支援スクリプト"
+            },
+            {
+              "description": "analyze-source-structure.test.cjs 新規作成 — 全28テスト"
+            },
+            {
+              "description": "graphify-rfc.md Step 1 に analyze-source-structure.js 呼び出し追加"
+            }
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: console.log は意図的出力(--help + レポート出力)のため問題なし。formatReportの7引数は許容範囲。\n- 翻訳可能性: 全関数が動詞句で命名、KIND_PATTERNS/DEP_PATTERNS は先頭定数として集約。\n- 100行しきい値をハードコードから定数 LONG_SECTION_THRESHOLD に修正。\n- テスト: 28/28成功。既存テストも280/280維持。\n- 依存関係: PX-16(呼び出し元)・P12-1(kind列挙参照先) ともに整合性確認済。\n- 問題点: 見つからず。",
+          "instrumentation": "静的品質チェック: 6件（console.log 5件は意図的出力、many params 1件は許容範囲）\n翻訳可能性: 問題なし（全関数が動詞句、定数は先頭集約）\nテスト: 全28件成功\n不完全実装: 0件\n犯罪: 0件\nスタブ: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-06"
+        },
+        {
+          "id": 18,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "formulate-tickets系 — 発散→収束の2段階分解とグラフ参照統合",
+          "referenceSection": "spec/0053-formulate-tickets-2.md"
         }
       ]
     },
@@ -2133,18 +2164,18 @@
           "status": "reviewed",
           "title": "JSON Schema定義とバリデーション基盤（node.schema.json / edge.schema.json / graph.schema.json + 検証ユーティリティ）",
           "referenceSection": "RFC-GRAPHIFY.md (§3.2.1, §3.2.2, §3.2.3)",
-          "background": "グラフデータモデルを規定する3つのJSON Schemaと、crud.jsから呼び出す汎用スキーマ検証関数を一括実装する。node.schema.json（ノード構造＋kind10種）、edge.schema.json（エッジ構造＋type10種）、graph.schema.json（全体構造）、およびvalidateAgainstSchema()関数を含む。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/ 配下のみです。\n- .claude/scripts/rfc-graph/schema/ 配下の3つのJSON Schemaファイル\n- .claude/scripts/rfc-graph/schema/validate.js（スキーマ検証関数）\n- tests/rfc-graph/schema/validate.test.js（テストファイル）\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
+          "background": "グラフデータモデルを規定する3つのJSON Schemaと、crud.jsから呼び出す汎用スキーマ検証関数を一括実装する。node.schema.json（ノード構造＋kind12種）、edge.schema.json（エッジ構造＋type12種）、graph.schema.json（全体構造）、およびvalidateAgainstSchema()関数を含む。\n\n【作業対象範囲】\nこのチケットで作成・編集するファイルは全て /Users/kawata/shyme/zasso/tools/conver/ 配下のみです。\n- .claude/scripts/rfc-graph/schema/ 配下の3つのJSON Schemaファイル\n- .claude/scripts/rfc-graph/schema/validate.js（スキーマ検証関数）\n- tests/rfc-graph/schema/validate.test.js（テストファイル）\n\nこの範囲外のファイル（既存のconver.jsソース・dist・node_modules等）は一切変更しません。",
           "scope": [
-            "node.schema.json — Draft 2020-12, kind 10種列挙, IDパターン N0001〜, sourceRanges必須",
-            "edge.schema.json — Draft 2020-12, type 10種列挙, attributes(strength/bidirectional), from/toパターン",
+            "node.schema.json — Draft 2020-12, kind 12種列挙, IDパターン N0001〜, sourceRanges必須",
+            "edge.schema.json — Draft 2020-12, type 12種列挙, attributes(strength/bidirectional), from/toパターン",
             "graph.schema.json — Draft 2020-12, ref でnode/edge参照, sourceFile/nodes/edges必須",
             "validate.js — validateAgainstSchema(): Ajv Draft 2020-12 でスキーマ読込→検証→3段テンプレートエラー出力",
             "tests/rfc-graph/schema/validate.test.cjs — 20+ケースのテスト"
           ],
           "relatedTicketIds": "出力先I/O: P13-2 (crud.jsが本チケットのスキーマ検証関数を呼び出す)",
           "testVerification": [
-            "UT 正常系: 全10種のkindのノードが node.schema.json を通過する",
-            "UT 正常系: 全10種のtypeのエッジが edge.schema.json を通過する",
+            "UT 正常系: 全12種のkindのノードが node.schema.json を通過する",
+            "UT 正常系: 全12種のtypeのエッジが edge.schema.json を通過する",
             "UT 正常系: 有効なグラフJSONが graph.schema.json を通過する",
             "UT 異常系: 必須フィールド欠落(12パターン)で検証失敗",
             "UT 異常系: 未知のkind値 / 未知のtype値で検証失敗",
@@ -2163,12 +2194,12 @@
           "changes": [
             {
               "before": "(新規作成)",
-              "after": "node.schema.json — Draft 2020-12, kind 10種列挙, IDパターン N0001〜, sourceRanges必須",
+              "after": "node.schema.json — Draft 2020-12, kind 12種列挙, IDパターン N0001〜, sourceRanges必須",
               "description": "ノードスキーマ定義（RFC-GRAPHIFY.md §3.2.1 に完全準拠）"
             },
             {
               "before": "(新規作成)",
-              "after": "edge.schema.json — Draft 2020-12, type 10種列挙, attributes(strength/bidirectional), from/toパターン",
+              "after": "edge.schema.json — Draft 2020-12, type 12種列挙, attributes(strength/bidirectional), from/toパターン",
               "description": "エッジスキーマ定義（RFC-GRAPHIFY.md §3.2.2 に完全準拠）"
             },
             {

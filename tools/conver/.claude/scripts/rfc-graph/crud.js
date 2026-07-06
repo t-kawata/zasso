@@ -40,6 +40,7 @@ const ALLOWED_SUBCOMMANDS = [
   'update-node',
   'delete-node',
   'create-edges',
+  'delete-edges',
 ];
 
 /** スキーマファイルが格納されたディレクトリへの絶対パス */
@@ -130,7 +131,7 @@ function parseArguments() {
   }
 
   // サブコマンドごとの必須引数チェック
-  const subcommandsRequiringFile = ['create-nodes', 'create-edges', 'update-node'];
+  const subcommandsRequiringFile = ['create-nodes', 'create-edges', 'update-node', 'delete-edges'];
   const subcommandsRequiringId = ['get-node', 'update-node', 'delete-node'];
 
   if (subcommandsRequiringFile.includes(subcommand) && !filePath) {
@@ -215,6 +216,8 @@ function validateWithSchema(data, schemaFileName, description) {
  *
  * 全ノードがスキーマ検証を通過し、かつ既存ノードとのID重複がない場合のみ追加する。
  * 1件でも違反があれば一切変更せずエラー終了する。
+ * sourceRanges の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
+ * ノードJSONに refId が書かれていても無視され、機械的に上書きされる。
  *
  * @param {Object} graph — グラフデータ
  * @param {Object[]} nodesData — 追加するノードの配列
@@ -222,7 +225,15 @@ function validateWithSchema(data, schemaFileName, description) {
  */
 function executeCreateNodes(graph, nodesData) {
   // ステップ1: 全ノードのスキーマ検証
+  // sourceRanges の refId は仮の値で一時的に検証通過させる
   for (const node of nodesData) {
+    if (Array.isArray(node.sourceRanges) && node.sourceRanges.length > 0) {
+      for (const range of node.sourceRanges) {
+        if (!range.refId || !/^REF\d{3,}$/.test(range.refId)) {
+          range.refId = 'REF000';
+        }
+      }
+    }
     validateWithSchema(node, NODE_SCHEMA_FILE, `ノード ${node.id || '(ID不明)'}`);
   }
 
@@ -239,9 +250,36 @@ function executeCreateNodes(graph, nodesData) {
     existingIds.add(node.id);
   }
 
-  // ステップ3: 追加実行
+  // ステップ3: refId 自動採番
+  // 既存グラフ + 新規ノードの全 sourceRanges から最大 refId 番号をスキャン
+  let maxRefNumber = 0;
+  const allNodes = [...graph.nodes, ...nodesData];
+  for (const node of allNodes) {
+    if (!Array.isArray(node.sourceRanges)) continue;
+    for (const range of node.sourceRanges) {
+      if (range.refId) {
+        const match = range.refId.match(/^REF(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxRefNumber) maxRefNumber = num;
+        }
+      }
+    }
+  }
+
+  // 新規ノードの sourceRanges に max+1 から順に refId を割り当てる
+  let nextRefNumber = maxRefNumber + 1;
+  for (const node of nodesData) {
+    if (!Array.isArray(node.sourceRanges)) continue;
+    for (const range of node.sourceRanges) {
+      range.refId = 'REF' + String(nextRefNumber).padStart(3, '0');
+      nextRefNumber++;
+    }
+  }
+
+  // ステップ4: 追加実行
   graph.nodes.push(...nodesData);
-  console.log(JSON.stringify({ ok: true, created: nodesData.length }, null, 2));
+  console.log(JSON.stringify({ ok: true, created: nodesData.length, refStart: maxRefNumber + 1, refEnd: nextRefNumber - 1 }, null, 2));
 }
 
 /**
@@ -361,6 +399,30 @@ function executeCreateEdges(graph, edgesData) {
   console.log(JSON.stringify({ ok: true, created: edgesData.length }, null, 2));
 }
 
+/**
+ * delete-edges: エッジを一括削除する
+ *
+ * from + to + type の組み合わせで識別し、一致するエッジを削除する。
+ * 指定されたエッジが存在しなくてもエラーにはならない（冪等）。
+ * 削除後は最低1本のエッジが残っているかの検証は行わない（孤立ノードは verify.js の責務）。
+ *
+ * @param {Object} graph — グラフデータ
+ * @param {Object[]} edgesData — 削除するエッジの指定（from, to, type を含む）
+ */
+function executeDeleteEdges(graph, edgesData) {
+  let removedCount = 0;
+  for (const target of edgesData) {
+    const index = graph.edges.findIndex(
+      (e) => e.from === target.from && e.to === target.to && e.type === target.type
+    );
+    if (index !== -1) {
+      graph.edges.splice(index, 1);
+      removedCount++;
+    }
+  }
+  console.log(JSON.stringify({ ok: true, removed: removedCount }, null, 2));
+}
+
 // ============================================================
 // ユーティリティ
 // ============================================================
@@ -475,6 +537,9 @@ function main() {
       case 'create-edges':
         executeCreateEdges(graph, inputData);
         break;
+      case 'delete-edges':
+        executeDeleteEdges(graph, inputData);
+        break;
     }
 
     // 変更後のグラフ全体としてのスキーマ検証
@@ -506,6 +571,7 @@ module.exports = {
   executeUpdateNode,
   executeDeleteNode,
   executeCreateEdges,
+  executeDeleteEdges,
   atomicWrite,
   exitWithError,
   GRAPH_PATH_ARG_PREFIX,

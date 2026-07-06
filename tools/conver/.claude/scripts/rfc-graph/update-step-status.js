@@ -26,7 +26,7 @@ const path = require('path');
 const MIN_STEP = 1;
 
 /** 最大のStep番号（graphify-rfc は5Step固定） */
-const MAX_STEP = 5;
+const MAX_STEP = 6;
 
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
@@ -203,6 +203,7 @@ function validateStepNumber(n) {
 function executeStartStep(status, n) {
   status.steps[String(n)] = STATUS_RUNNING;
   status.currentStep = n;
+  console.log(`Step ${n} を開始しました。状態: ${STATUS_RUNNING}。`);
 }
 
 /**
@@ -217,6 +218,11 @@ function executeStartStep(status, n) {
 function executeEndStep(status, n) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
+  if (n >= MAX_STEP) {
+    console.log(`Step ${n} が完了しました。全Stepが完了しました。`);
+  } else {
+    console.log(`Step ${n} が完了しました。状態: ${STATUS_DONE}。次に Step ${n + 1} を実行してください。`);
+  }
 }
 
 /**
@@ -230,6 +236,7 @@ function executeEndStep(status, n) {
 function executeFailStep(status, n) {
   status.steps[String(n)] = STATUS_ERROR;
   // currentStep は変更しない
+  console.log(`Step ${n} が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${n} で再実行してください。`);
 }
 
 /**
@@ -246,6 +253,7 @@ function executeResetToStep(status, n) {
     status.steps[String(i)] = STATUS_PENDING;
   }
   status.currentStep = n;
+  console.log(`Step ${n} に復帰しました。Step ${n} より後のStepを pending にリセットしました。Step ${n} のコマンドを最初から再実行してください。`);
 }
 
 /**
@@ -316,7 +324,7 @@ update-step-status.js — GRAPHIFY-Status.json 管理
   reset-to-step <N> Step N に復帰（N+1〜5 を pending に戻す）
   status            現在の状態を整形JSONで出力
 
-Step番号: ${MIN_STEP}〜${MAX_STEP}（graphify-rfc は5Step固定）
+Step番号: ${MIN_STEP}〜${MAX_STEP}
 `);
 }
 

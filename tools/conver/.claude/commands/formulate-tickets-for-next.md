@@ -126,17 +126,22 @@ echo "========================"
 
 ---
 
-### Step 2: グラフ構造の確認
+### Step 2: RFC の設計における関係グラフ構造の確認
 
-graphify-rfc で生成されたグラフが存在する場合、load-rfc-graph.js でグラフサマリーを表示する：
+graphify-rfc で生成されたグラフが存在する場合、show-graph-summary-markdown.js でグラフサマリーを表示する：
 
 ```bash
 echo "=== グラフ構造サマリー ==="
-node .claude/scripts/rfc-graph/load-rfc-graph.js "$NEXT_RFC_PATH" || echo "(グラフ構造サマリーなし)"
+GRAPH_PATH="$NEXT_RFC_DIR/$(basename "$NEXT_RFC_PATH" .md)-GRAPH.json"
+if [ -f "$GRAPH_PATH" ]; then
+  node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$GRAPH_PATH" --source="$NEXT_RFC_PATH" --with-cli-examples
+else
+  echo "(グラフ構造サマリーなし)"
+fi
 echo "========================"
 ```
 
-このStepはグラフが存在しない場合でも load-rfc-graph.js が何も出力せず終了コード0で終了するため、既存動作に影響を与えない。
+グラフファイルが存在しない場合はスキップする。グラフファイルのパスは graphify-rfc の導出ルール（`<source-dir>/<basename>-GRAPH.json`）に従って計算する。
 
 ---
 

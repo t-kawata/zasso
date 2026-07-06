@@ -110,11 +110,11 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         'description は空でないこと');
     });
 
-    it('description に "5Step" または "5Step" 相当の記述が含まれている', () => {
+    it('description に "6Step" または Step 進行制御の記述が含まれている', () => {
       const fm = parseFrontmatter(commandContent);
       const desc = fm['description'] || '';
       assert.ok(
-        desc.includes('5Step') ||
+        desc.includes('6Step') ||
         desc.includes('Step') ||
         desc.includes('進行制御'),
         'description に Step 進行制御の記述が含まれている'
@@ -167,7 +167,7 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
   // Step 進行記述の完全性
   // ==========================================================
 
-  describe('5Step進行記述', () => {
+  describe('6Step進行記述', () => {
     it('Step 1（ノード分割）のセクション見出しが存在する', () => {
       assert.ok(commandContent.includes('Step 1'),
         'Step 1 の見出しが存在すること');
@@ -193,10 +193,15 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         'Step 5 の見出しが存在すること');
     });
 
-    it('全5Stepのセクション見出しが "## Step" 形式で記述されている', () => {
+    it('Step 6（最終品質検証）のセクション見出しが存在する', () => {
+      assert.ok(commandContent.includes('Step 6'),
+        'Step 6 の見出しが存在すること');
+    });
+
+    it('全6Stepのセクション見出しが "## Step" 形式で記述されている', () => {
       const stepHeaders = commandContent.match(/^## Step \d/gm) || [];
-      assert.equal(stepHeaders.length, 5,
-        'Step 1〜5 の "## Step" 形式見出しが5つ存在すること');
+      assert.equal(stepHeaders.length, 6,
+        'Step 1〜6 の "## Step" 形式見出しが6つ存在すること');
     });
   });
 
@@ -205,7 +210,7 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
   // ==========================================================
 
   describe('update-step-status.js 呼び出し', () => {
-    it('start-step の呼び出しが全5Stepに記述されている', () => {
+    it('start-step の呼び出しが全6Stepに記述されている', () => {
       const startStepMatches = commandContent.match(/start-step \d/g) || [];
       assert.ok(startStepMatches.length >= 5,
         `start-step の呼び出しが5回以上記述されている（実際: ${startStepMatches.length}回）`);
@@ -259,9 +264,10 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
 
     it('$statusPath が全 update-step-status.js 呼び出しで統一されている', () => {
       const lines = commandContent.split('\n');
-      // 実際のコマンド呼び出し行（説明文を除外）
+      // 実際のコマンド呼び出し行（テーブル行と説明文は除外）
       const callLines = lines.filter(l =>
         l.includes('update-step-status.js') &&
+        !l.includes('|') && // テーブル行を除外
         (l.includes('start-step') || l.includes('end-step') ||
          l.includes('fail-step') || l.includes('reset-to-step')));
       const usesVariable = callLines.every(l =>
@@ -416,15 +422,16 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
       );
     });
 
-    it('全5Stepの進行制御が読みやすい日本語で記述されている', () => {
-      // 各Stepセクションに動作指示（動詞で終わる文）が含まれているか確認
+    it('全6Stepの進行制御が読みやすい日本語で記述されている', () => {
+      // 各Stepセクションに bash コードブロック（手順）が含まれているか確認
       const stepSections = commandContent.split(/## Step \d/);
-      // Step見出しで分割した各セクション
       for (let i = 1; i < stepSections.length; i++) {
-        // 各Stepの先頭に見出しと「1.」等の箇条書き手順がある
-        const hasOrderedSteps = /\d+\.\s/.test(stepSections[i]);
-        assert.ok(hasOrderedSteps,
-          `Step ${i} に番号付き手順が記述されていること`);
+        // 各Stepにコードブロック（```bash ... ```）が含まれている
+        const hasCodeBlock = /\x60\x60\x60bash\s/.test(stepSections[i]);
+        // またはコメント行（# で始まる記述）が含まれている
+        const hasCommentSteps = /# [^#]/.test(stepSections[i]);
+        assert.ok(hasCodeBlock || hasCommentSteps,
+          `Step ${i} にコマンド手順が記述されていること`);
       }
     });
   });

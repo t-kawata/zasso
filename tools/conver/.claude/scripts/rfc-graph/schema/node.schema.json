@@ -11,6 +11,7 @@
       "type": "string",
       "enum": [
         "requirement", "api_contract", "data_model", "state_machine",
+        "architecture", "security",
         "error_policy", "config", "test_policy", "build_ci",
         "rationale", "glossary"
       ]

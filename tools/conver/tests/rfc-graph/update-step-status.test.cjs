@@ -52,7 +52,7 @@ let testStatusPath;
  */
 function createTestStatus(currentStep = 1, overrides = {}) {
   const steps = {};
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= MAX_STEP; i++) {
     steps[String(i)] = STATUS_PENDING;
   }
   Object.assign(steps, overrides);
@@ -85,8 +85,8 @@ describe('定数', () => {
     assert.strictEqual(MIN_STEP, 1);
   });
 
-  it('MAX_STEP は 5 である', () => {
-    assert.strictEqual(MAX_STEP, 5);
+  it('MAX_STEP は 6 である', () => {
+    assert.strictEqual(MAX_STEP, 6);
   });
 
   it('ALLOWED_SUBCOMMANDS は5つのサブコマンド名を持つ', () => {
@@ -128,8 +128,12 @@ describe('validateStepNumber()', () => {
     assert.strictEqual(validateStepNumber(0), false);
   });
 
-  it('6 は無効なStep番号（範囲超過）', () => {
-    assert.strictEqual(validateStepNumber(6), false);
+  it('6 は有効なStep番号（範囲上限）', () => {
+    assert.strictEqual(validateStepNumber(6), true);
+  });
+
+  it('7 は無効なStep番号（範囲超過）', () => {
+    assert.strictEqual(validateStepNumber(7), false);
   });
 
   it('負の数は無効なStep番号', () => {
@@ -342,7 +346,7 @@ describe('ファイルI/O', () => {
       assert.strictEqual(status.currentStep, 1);
       assert.strictEqual(status.steps['1'], STATUS_PENDING);
       assert.strictEqual(status.steps['5'], STATUS_PENDING);
-      assert.strictEqual(Object.keys(status.steps).length, 5);
+      assert.strictEqual(Object.keys(status.steps).length, MAX_STEP);
     });
   });
 

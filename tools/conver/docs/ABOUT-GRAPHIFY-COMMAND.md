@@ -59,6 +59,7 @@ Draft — 実装対象: Claude Code カスタムスラッシュコマンド1個 
     "kind": {
       "enum": [
         "requirement", "api_contract", "data_model", "state_machine",
+        "architecture", "security",
         "error_policy", "config", "test_policy", "build_ci",
         "rationale", "glossary"
       ]
@@ -84,7 +85,7 @@ Draft — 実装対象: Claude Code カスタムスラッシュコマンド1個 
 
 `startLine`/`endLine`は**初回分割時点の記録値**であり、マーカー埋め込み後の唯一の真実ではない(4.4節参照)。
 
-### 4.2 エッジスキーマ(属性つき、種別は事前定義10種で固定)
+### 4.2 エッジスキーマ(属性つき、種別は事前定義12種で固定)
 
 ```json
 {
@@ -291,7 +292,7 @@ function resolveCurrentLines(sourceText, refId) {
 | フェーズ | AIが判断すること(非決定的) | スクリプトが行うこと(決定的、AI介在禁止) |
 |---|---|---|
 | 分割 | 意味的I/O境界の見極め、`kind`分類、`title`/`summary`作成 | JSON Schema検証、グラフファイルへの書き込み |
-| エッジ付与 | どのノード間にどの関係タイプが成立するかの判断 | 10種以外のタイプ拒否、`from`/`to`存在確認 |
+| エッジ付与 | どのノード間にどの関係タイプが成立するかの判断 | 12種以外のタイプ拒否、`from`/`to`存在確認 |
 | 検証 | 検証結果の解釈と、どう修正するかの判断 | 未カバー行検出、孤立ノード検出(アルゴリズム固定) |
 | マーカー埋込 | なし(判断不要) | 冪等挿入、重複回避、ファイル書き換え |
 | 検索 | どのノードを起点にするか、ホップ数の選定 | BFS探索、行番号再計算、Markdown整形 |
@@ -324,7 +325,7 @@ sourceRanges に含まれなければならない。
 で投入する。
 
 ## Phase 2: エッジ付与
-事前定義された10種のエッジタイプのみを用いて、
+事前定義された12種のエッジタイプのみを用いて、
 ノード間の関係を全て記述する。全ノードが最低1本のエッジを
 持つようにする。
 `node scripts/rfc-graph/crud.js create-edges --graph=<graph-path> --file=<tmp>`

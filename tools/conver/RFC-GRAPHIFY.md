@@ -71,6 +71,7 @@ tests/
       "type": "string",
       "enum": [
         "requirement", "api_contract", "data_model", "state_machine",
+        "architecture", "security",
         "error_policy", "config", "test_policy", "build_ci",
         "rationale", "glossary"
       ]
@@ -110,8 +111,9 @@ tests/
     "type": {
       "type": "string",
       "enum": [
-        "depends_on", "implements", "refines", "conflicts_with",
-        "triggers", "constrains", "supersedes", "references",
+        "depends_on", "implements", "refines", "extends",
+        "conflicts_with", "triggers", "constrains",
+        "supersedes", "references", "precedes",
         "part_of", "validates"
       ]
     },
@@ -134,11 +136,13 @@ tests/
 | depends_on | 前提仕様への依存 |
 | implements | 抽象要件の具体実装 |
 | refines | 詳細化・補足 |
+| extends | 汎化・型階層の継承関係 |
 | conflicts_with | 相互矛盾・排他 |
 | triggers | イベント/遷移の誘発 |
 | constrains | 制約を課す |
 | supersedes | 旧仕様の置換 |
 | references | 単純参照 |
+| precedes | 時系列的な先行関係 |
 | part_of | 包含・親子関係 |
 | validates | 検証・テスト関係 |
 
@@ -181,7 +185,7 @@ Step 1: ノード分割
   └─ AIが3軸基準で分割 → crud.js create-nodes でグラフに投入
 
 Step 2: エッジ付与
-  └─ AIが10種エッジタイプで関係定義 → crud.js create-edges でグラフに投入
+  └─ AIが12種エッジタイプで関係定義 → crud.js create-edges でグラフに投入
 
 Step 3: 機械検証
   └─ verify.js で未カバー行・孤立ノードをチェック
@@ -246,9 +250,10 @@ update-step-status.js --graphify-status=<path> status
 - 同一見出し内でも内容が複数の概念にまたがる場合は分割する
 - 見出しのない段落群は前後のセクションに統合せず、独立したノードとする
 
-**第2軸: kind（10種）の単一割り当て**
+**第2軸: kind（12種）の単一割り当て**
 - 各ノードは1つの kind のみを持つ
 - 一つのセクション内で複数の kind が混在する場合は強制分割する
+- kind は以下から選択する：requirement / api_contract / data_model / state_machine / architecture / security / error_policy / config / test_policy / build_ci / rationale / glossary
 - 例: 「要件」と「API契約」が同じセクションに混在 → 2ノードに分割
 
 **第3軸: 外部依存の有無**
@@ -654,7 +659,7 @@ graphify は formulate よりも常に細かい粒度で分割する（発散）
 3. update-step-status.js --graphify-status="$statusPath" end-step 1
 
 ## Step 2: エッジ付与
-10種のエッジタイプから適切な関係を選択し、全ノードが最低1本のエッジを
+12種のエッジタイプから適切な関係を選択し、全ノードが最低1本のエッジを
 持つようにする。孤立ノードが発生しないことを確認する。
 
 1. update-step-status.js --graphify-status="$statusPath" start-step 2

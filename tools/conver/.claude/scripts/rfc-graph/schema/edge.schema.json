@@ -10,8 +10,9 @@
     "type": {
       "type": "string",
       "enum": [
-        "depends_on", "implements", "refines", "conflicts_with",
-        "triggers", "constrains", "supersedes", "references",
+        "depends_on", "implements", "refines", "extends",
+        "conflicts_with", "triggers", "constrains",
+        "supersedes", "references", "precedes",
         "part_of", "validates"
       ]
     },

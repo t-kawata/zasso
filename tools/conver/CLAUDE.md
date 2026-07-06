@@ -186,8 +186,8 @@ Step 3.5: 機械的フィルタリング（新設）
 
 | スキーマ | 内容 |
 |----------|------|
-| `node.schema.json` | ノード: id(N0001〜), title, kind(10種), summary, sourceRanges(refId+行番号) |
-| `edge.schema.json` | エッジ: from, to, type(10種), attributes(strength/bidirectional) |
+| `node.schema.json` | ノード: id(N0001〜), title, kind(12種), summary, sourceRanges(refId+行番号) |
+| `edge.schema.json` | エッジ: from, to, type(12種), attributes(strength/bidirectional) |
 | `graph.schema.json` | グラフ全体: sourceFile, nodes[], edges[] |
 
 ### モジュール／コンポーネント間の関係

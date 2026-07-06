@@ -21,6 +21,7 @@ const {
   executeUpdateNode,
   executeDeleteNode,
   executeCreateEdges,
+  executeDeleteEdges,
   atomicWrite,
   ALLOWED_SUBCOMMANDS,
 } = require('../../.claude/scripts/rfc-graph/crud.js');
@@ -88,14 +89,15 @@ function createTestGraph(nodes = [], edges = []) {
 // ============================================================
 
 describe('crud.js — 定数', () => {
-  it('ALLOWED_SUBCOMMANDS は6つのサブコマンドを含む', () => {
-    assert.equal(ALLOWED_SUBCOMMANDS.length, 6);
+  it('ALLOWED_SUBCOMMANDS は7つのサブコマンドを含む', () => {
+    assert.equal(ALLOWED_SUBCOMMANDS.length, 7);
     assert.ok(ALLOWED_SUBCOMMANDS.includes('create-nodes'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('list-nodes'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('get-node'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('update-node'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('delete-node'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('create-edges'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('delete-edges'));
   });
 });
 
@@ -448,5 +450,32 @@ describe('crud.js — executeCreateEdges', () => {
       /存在しません/
     );
     assert.equal(graph.edges.length, 0);
+  });
+});
+
+describe('crud.js — executeDeleteEdges', () => {
+  it('既存のエッジを削除する', () => {
+    const graph = createTestGraph([
+      createTestNode('N0001', 'requirement'),
+      createTestNode('N0002', 'api_contract'),
+      createTestNode('N0003', 'data_model'),
+    ]);
+    graph.edges = [
+      createTestEdge('N0001', 'N0002', 'depends_on'),
+      createTestEdge('N0002', 'N0003', 'refines'),
+    ];
+    executeDeleteEdges(graph, [{ from: 'N0001', to: 'N0002', type: 'depends_on' }]);
+    assert.equal(graph.edges.length, 1);
+    assert.equal(graph.edges[0].from, 'N0002');
+  });
+
+  it('存在しないエッジを指定してもエラーにならない（冪等）', () => {
+    const graph = createTestGraph([
+      createTestNode('N0001', 'requirement'),
+      createTestNode('N0002', 'api_contract'),
+    ]);
+    graph.edges = [createTestEdge('N0001', 'N0002', 'depends_on')];
+    executeDeleteEdges(graph, [{ from: 'N0001', to: 'N0002', type: 'refines' }]);
+    assert.equal(graph.edges.length, 1);
   });
 });

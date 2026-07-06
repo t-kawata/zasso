@@ -1,9 +1,11 @@
 /**
- * load-rfc-graph.test.cjs — load-rfc-graph.js のテスト
+ * load-rfc-graph.test.cjs — load-rfc-graph.js のテスト [::STUB::] 廃止予定
+ *
+ * load-rfc-graph.js は show-graph-summary-markdown.js に統合されました。
+ * 本テストファイルは互換性のために維持していますが、新規機能のテストは
+ * show-graph-summary-markdown.test.cjs に追加してください。
  *
  * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象モジュールの全公開関数をカバーする。
- * 一時ディレクトリを使用した実際のファイル I/O テストを含む。
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
