@@ -162,6 +162,17 @@ node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
+### グラフ探索（RFC設計グラフ構造探索コマンド）
+
+spec 内の「RFC設計グラフ構造探索コマンド」セクションに記載された query.js コマンドを実行し、対象チケットのグラフ上の位置と依存関係を確認することで、設計からの逸脱をレビュー時に検出する。
+
+- 全ノード一覧: `crud.js list-nodes --graph=<graph-path>`
+- 起点ノードからの探索: `query.js --graph=<graph-path> --source=<rfc-path> --id=<nodeId> --hops=3`
+
+グラフが存在しない場合（dump-ticket-graph-commands.js が「グラフファイルがありません」と記載した場合）は、このサブステップをスキップする。
+
+---
+
 ### Step 7: コンパイル検証とユニットテスト検証
 
 まずコンパイル検証を実行する。実行方法は以下の指針に従い、AI が状況に応じて判断すること：

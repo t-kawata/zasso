@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "edge.schema.json",
+  "type": "object",
+  "required": ["from", "to", "type", "attributes"],
+  "additionalProperties": false,
+  "properties": {
+    "from": { "type": "string", "pattern": "^N[0-9]{4}$" },
+    "to": { "type": "string", "pattern": "^N[0-9]{4}$" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "depends_on", "implements", "refines", "extends",
+        "conflicts_with", "triggers", "constrains",
+        "supersedes", "references", "precedes",
+        "part_of", "validates"
+      ]
+    },
+    "attributes": {
+      "type": "object",
+      "required": ["strength", "bidirectional"],
+      "additionalProperties": false,
+      "properties": {
+        "strength": { "enum": ["hard", "soft"] },
+        "bidirectional": { "type": "boolean" },
+        "note": { "type": "string", "maxLength": 240 }
+      }
+    }
+  }
+}

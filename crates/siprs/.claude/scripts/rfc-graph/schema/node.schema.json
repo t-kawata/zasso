@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "node.schema.json",
+  "type": "object",
+  "required": ["id", "title", "kind", "summary", "sourceRanges"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^N[0-9]{4}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "requirement", "api_contract", "data_model", "state_machine",
+        "architecture", "security",
+        "error_policy", "config", "test_policy", "build_ci",
+        "rationale", "glossary"
+      ]
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "sourceRanges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["refId", "startLine", "endLine"],
+        "additionalProperties": false,
+        "properties": {
+          "refId": { "type": "string", "pattern": "^REF[0-9]{3,}$" },
+          "startLine": { "type": "integer", "minimum": 1 },
+          "endLine": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

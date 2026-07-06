@@ -118,6 +118,8 @@ echo '{"background":"調査結果の詳細...","referenceSection":"参照ファ�
 
 証拠に基づいて Background / Scope / Test Plan / Acceptance Criteria をユーザーと対話しながら具体化する。spec ファイルの各セクションに直接記述し、完了後に JSON フィールドにも反映する。
 
+**「RFC設計グラフ構造探索コマンド」セクションについて**: このセクションは dump-ticket-graph-commands.js によって後続の Step X で自動追記される。spec 作成時点では記述不要だが、グラフ探索クエリの起点となる nodeIDs がチケットに存在することを意識して spec を設計する。
+
 Test Plan は spec のテンプレート（以下の構造）に従い、**ユニットテストの網羅性を最優先して設計する**：
 
 ```markdown
@@ -138,7 +140,22 @@ Test Plan 具体化後、JSON フィールドに反映する:
 echo '{"scope":["範囲1","範囲2"],"testVerification":["正常系ケース...","異常系ケース..."],"testExceptions":["例外理由..."]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "P0-1"
 ```
 
-#### Step 7: 依存・関連チケットID の点検
+#### Step 7: dump-ticket-graph-commands.js の実行
+
+graphify-rfc で生成されたグラフが存在する場合、dump-ticket-graph-commands.js を実行して spec に「RFC設計グラフ構造探索コマンド」セクションを自動追記する：
+
+```bash
+node .claude/scripts/rfc-graph/dump-ticket-graph-commands.js \
+  --tickets=Tickets.json \
+  --graph=<設計書ディレクトリ>/<設計書名>-GRAPH.json \
+  --source=<設計書パス>
+```
+
+グラフが存在しない場合、dump-ticket-graph-commands.js は「グラフファイルがありません」メッセージを出力するが、処理自体は正常終了する。
+
+---
+
+#### Step 8: 依存・関連チケットID の点検
 
 関連する既存チケットを検索し、依存関係を spec の `## Notes` セクションに記述する。各参照先チケットの存在確認および循環依存の有無を確認する。
 
@@ -152,7 +169,7 @@ node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketI
 echo '{"relatedTicketIds":"P0-1 (先行実装必須), P1-2 (関連)"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "P0-1"
 ```
 
-#### Step 8: 犯罪の点検（必須 — 第一級規則）
+#### Step 9: 犯罪の点検（必須 — 第一級規則）
 
 Malfeasance.json を読み取り、未解決の犯罪（`[::STUB::]` 未付与の不完全実装）がないか確認する。これは**絶対的法規に基づく必須ステップ**であり、スキップを禁止する。
 
@@ -168,7 +185,7 @@ Malfeasance.json を読み取り、未解決の犯罪（`[::STUB::]` 未付与�
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-#### Step 9: ステータス更新
+#### Step 10: ステータス更新
 
 全工程完了後、チケットの status を `made` に更新する。
 
@@ -176,7 +193,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-#### Step 10: ユーザー確認
+#### Step 11: ユーザー確認
 
 調査結果の書き込みと仕様の具体化が完了しました。以下のコマンドを実行して計画を策定できます: `/plan-ticket $ARGUMENTS`
 

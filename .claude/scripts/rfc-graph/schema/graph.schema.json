@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "graph.schema.json",
+  "type": "object",
+  "required": ["sourceFile", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "sourceFile": { "type": "string" },
+    "nodes": { "type": "array", "items": { "$ref": "node.schema.json" } },
+    "edges": { "type": "array", "items": { "$ref": "edge.schema.json" } }
+  }
+}
