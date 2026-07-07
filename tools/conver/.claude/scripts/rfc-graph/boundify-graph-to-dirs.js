@@ -3,7 +3,7 @@
  * boundify-graph-to-dirs.js <graph-json-path> [--json] [--dry-run] [--force]
  *
  * graphify が生成したグラフJSONを解析し、安全な境界を持つディレクトリツリーを
- * 提案する。Dirs-Tree.json、*-BOUNDIFY-Status.json を出力する。
+ * 提案する。Dirs-Tree.json を出力する（*-BOUNDIFY-Status.json は update-step-status.js が管理）。
  *
  * 下位層モジュール（boundify-helpers.js、boundify-tree.js）を require で読み込み、
  * アダプター関数を介して関数シグネチャの差異を吸収する。
@@ -14,7 +14,7 @@
  *   --json なし → 標準出力に .en.md + Markdown分析 + ```json ブロック
  *   --json あり → 標準出力に JSON のみ
  *   --quiet     → 標準出力を抑制（ファイル出力のみ）
- *   常にグラフ同ディレクトリに Dirs-Tree.json / *-BOUNDIFY-Status.json を書き出す
+ *   常にグラフ同ディレクトリに Dirs-Tree.json を書き出す（*-BOUNDIFY-Status.json は update-step-status.js が管理）
  *
  * @module boundify-graph-to-dirs
  */
@@ -530,23 +530,7 @@ function main(testArgs) {
     process.exit(EXIT_FAILURE);
   }
 
-  // ---- Step 7: Status.json の書き出し ----
-  fs.writeFileSync(
-    outputPaths.statusPath,
-    JSON.stringify(
-      {
-        state: "STEP1_DONE",
-        sourceGraph: graphPath,
-        dirsTree: outputPaths.dirsTreePath,
-        updatedAt: new Date().toISOString(),
-      },
-      null,
-      2,
-    ),
-    "utf-8",
-  );
-
-  // ---- Step 8: 標準出力の3分岐 ----
+  // ---- Step 7: 標準出力の3分岐 ----
   if (flags.json) {
     // --json: JSON のみ stdout
     console.log(JSON.stringify(dirsTree, null, 2));

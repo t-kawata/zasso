@@ -168,14 +168,29 @@ function readStatus(statusPath) {
 /**
  * デフォルトのステータスデータを生成する
  *
- * @param {string} statusPath — ステータスファイルのパス（sourceFile と graphFile の導出に使用）
+ * ファイル名のサフィックスから basename を抽出し、sourceFile（.md）と graphFile（-GRAPH.json）を逆算する。
+ * 対応サフィックス:
+ *   - GRAPHIFY: *-GRAPHIFY-Status.json → basename から -GRAPHIFY は除去されない（正しく逆算するため）
+ *   - BOUNDIFY: *-BOUNDIFY-Status.json → basename から -BOUNDIFY は除去されない
+ *
+ * @param {string} statusPath — ステータスファイルのパス
  * @returns {StatusData} デフォルト状態
  */
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
-  const basename = path.basename(statusPath, '-GRAPHIFY-Status.json');
+  const filename = path.basename(statusPath);
 
-  // sourceFile: GRAPHIFY-Status.json の basename から元のソースファイルを逆算する
+  // ファイル名から既知のサフィックスを除去して basename を得る
+  const GRAPHIFY_SUFFIX = '-GRAPHIFY-Status.json';
+  const BOUNDIFY_SUFFIX = '-BOUNDIFY-Status.json';
+  let basename = filename;
+  if (filename.endsWith(GRAPHIFY_SUFFIX)) {
+    basename = filename.slice(0, -GRAPHIFY_SUFFIX.length);
+  } else if (filename.endsWith(BOUNDIFY_SUFFIX)) {
+    basename = filename.slice(0, -BOUNDIFY_SUFFIX.length);
+  }
+
+  // sourceFile: basename から元のソースファイルパスを逆算する
   const sourceFile = path.resolve(dir, basename + '.md');
   const graphFile = path.resolve(dir, basename + '-GRAPH.json');
 

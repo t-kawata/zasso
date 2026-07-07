@@ -60,7 +60,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 
 ```json
 {
-  "sourceFile": "rfc-doc.md",
+  "sourceFile": "RFC-ROOT.md",
   "mainLanguage": "rust",
   "nodes": [...],
   "edges": [...]
@@ -200,7 +200,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 #
 # ノードJSONの各エントリは以下の形式:
 # {"id":"N0001","title":"§1 目的","kind":"architecture","summary":"...","language":"rust","slug":"purpose","headingRefs":[{"refId":"REF001","heading":2,"texts":["§1 目的"]}]}
-node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json
+node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$1"
 
 # Step 1 正常終了（進行ステータスを done に更新し、currentStep を 2 に進める）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 1

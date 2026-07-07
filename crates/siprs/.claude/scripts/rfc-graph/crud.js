@@ -32,6 +32,9 @@ const NODE_ID_ARG_PREFIX = '--id=';
 /** 入力JSONファイルを指定するCLI引数のプレフィックス */
 const FILE_ARG_PREFIX = '--file=';
 
+/** 元Markdown文書のパスを指定するCLI引数のプレフィックス */
+const SOURCE_ARG_PREFIX = '--source=';
+
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
   'create-nodes',
@@ -112,6 +115,7 @@ function parseArguments() {
   // サブコマンド固有の追加引数のパース
   let nodeId = null;
   let filePath = null;
+  let sourcePath = null;
 
   for (let i = 2; i < args.length; i++) {
     const arg = args[i];
@@ -124,6 +128,11 @@ function parseArguments() {
       filePath = arg.slice(FILE_ARG_PREFIX.length);
       if (!filePath) {
         throw new Error('--file=<path> の <path> が空です。');
+      }
+    } else if (arg.startsWith(SOURCE_ARG_PREFIX)) {
+      sourcePath = arg.slice(SOURCE_ARG_PREFIX.length);
+      if (!sourcePath) {
+        throw new Error('--source=<path> の <path> が空です。');
       }
     } else {
       throw new Error(`未知の引数です: ${arg}`);
@@ -145,7 +154,7 @@ function parseArguments() {
     );
   }
 
-  return { graphPath, subcommand, nodeId, filePath };
+  return { graphPath, subcommand, nodeId, filePath, sourcePath };
 }
 
 // ============================================================
@@ -153,15 +162,24 @@ function parseArguments() {
 // ============================================================
 
 /**
- * グラフファイルを読み込む。ファイルが存在しない場合は空のグラフを返す。
+ * グラフファイルを読み込む。ファイルが存在しない場合は空のグラフを生成する。
+ *
+ * 初回作成時（グラフ不在）は sourcePath が必須。
+ * sourcePath はグラフルートの sourceFile フィールドにセットされる。
  *
  * @param {string} graphPath — グラフファイルのパス
+ * @param {string|null} sourcePath — 元Markdown文書のパス（初回作成時必須）
  * @returns {Object} グラフデータ
- * @throws {Error} ファイル読み込みエラー時
+ * @throws {Error} ファイル読み込みエラー時、または初回作成時に sourcePath 未指定
  */
-function readGraph(graphPath) {
+function readGraph(graphPath, sourcePath) {
   if (!fs.existsSync(graphPath)) {
-    return createEmptyGraph(graphPath);
+    if (!sourcePath) {
+      throw new Error(
+        '--source 未指定です。--source=</path/to/RFC-???.md> で元Markdown文書のパスを指定してください。'
+      );
+    }
+    return createEmptyGraph(sourcePath);
   }
 
   const content = fs.readFileSync(graphPath, 'utf-8');
@@ -492,7 +510,7 @@ function main() {
     );
   }
 
-  const { graphPath, subcommand, nodeId, filePath } = parsed;
+  const { graphPath, subcommand, nodeId, filePath, sourcePath } = parsed;
 
   try {
     // ファイル入力を必要とするサブコマンド: 入力JSONを読み込む
@@ -506,7 +524,7 @@ function main() {
     const readOnlySubcommands = ['list-nodes', 'get-node'];
 
     if (readOnlySubcommands.includes(subcommand)) {
-      const graph = readGraph(graphPath);
+      const graph = readGraph(graphPath, sourcePath);
       switch (subcommand) {
         case 'list-nodes':
           executeListNodeIds(graph);
@@ -519,7 +537,7 @@ function main() {
     }
 
     // 書き込みサブコマンド（グラフファイル変更あり）
-    const graph = readGraph(graphPath);
+    const graph = readGraph(graphPath, sourcePath);
 
     // グラフ全体としてのスキーマ検証（既存データの整合性確認）
     validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'グラフデータ全体');

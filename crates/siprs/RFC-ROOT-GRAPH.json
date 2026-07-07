@@ -1,5 +1,5 @@
 {
-  "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "mainLanguage": "rust",
   "nodes": [
     {
@@ -11,9 +11,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "1. 目的"
-          ],
+          "texts": ["1. 目的"],
           "refId": "REF001"
         }
       ],
@@ -28,9 +26,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "1a. M20 実装優先度マップ"
-          ],
+          "texts": ["1a. M20 実装優先度マップ"],
           "refId": "REF002"
         }
       ],
@@ -45,16 +41,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "1a. M20 実装優先度マップ"
-          ],
+          "texts": ["1a. M20 実装優先度マップ"],
           "refId": "REF003"
         },
         {
           "heading": 4,
-          "texts": [
-            "設計判断対応表"
-          ],
+          "texts": ["設計判断対応表"],
           "refId": "REF004"
         }
       ],
@@ -69,9 +61,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "2. 非目的"
-          ],
+          "texts": ["2. 非目的"],
           "refId": "REF005"
         }
       ],
@@ -86,16 +76,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "2. 非目的"
-          ],
+          "texts": ["2. 非目的"],
           "refId": "REF006"
         },
         {
           "heading": 3,
-          "texts": [
-            "2.1 Tauri（フロントエンド）統合との責務境界"
-          ],
+          "texts": ["2.1 Tauri（フロントエンド）統合との責務境界"],
           "refId": "REF007"
         }
       ],
@@ -110,9 +96,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "3. 用語"
-          ],
+          "texts": ["3. 用語"],
           "refId": "REF008"
         }
       ],
@@ -127,9 +111,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "4. 準拠要件"
-          ],
+          "texts": ["4. 準拠要件"],
           "refId": "REF009"
         }
       ],
@@ -144,16 +126,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "4. 準拠要件"
-          ],
+          "texts": ["4. 準拠要件"],
           "refId": "REF010"
         },
         {
           "heading": 3,
-          "texts": [
-            "4.1 バージョニングポリシー"
-          ],
+          "texts": ["4.1 バージョニングポリシー"],
           "refId": "REF011"
         }
       ],
@@ -168,9 +146,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "5. 機能要求の確定化"
-          ],
+          "texts": ["5. 機能要求の確定化"],
           "refId": "REF012"
         }
       ],
@@ -185,9 +161,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "6. 全体構成"
-          ],
+          "texts": ["6. 全体構成"],
           "refId": "REF013"
         }
       ],
@@ -202,16 +176,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "6. 全体構成"
-          ],
+          "texts": ["6. 全体構成"],
           "refId": "REF014"
         },
         {
           "heading": 3,
-          "texts": [
-            "6.1 Crate 責務分割方針（設計判断）"
-          ],
+          "texts": ["6.1 Crate 責務分割方針（設計判断）"],
           "refId": "REF015"
         }
       ],
@@ -226,9 +196,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "7. 並行性モデル"
-          ],
+          "texts": ["7. 並行性モデル"],
           "refId": "REF016"
         }
       ],
@@ -243,16 +211,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "7. 並行性モデル"
-          ],
+          "texts": ["7. 並行性モデル"],
           "refId": "REF017"
         },
         {
           "heading": 3,
-          "texts": [
-            "7.1 実行コンテキスト"
-          ],
+          "texts": ["7.1 実行コンテキスト"],
           "refId": "REF018"
         }
       ],
@@ -267,16 +231,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "7. 並行性モデル"
-          ],
+          "texts": ["7. 並行性モデル"],
           "refId": "REF019"
         },
         {
           "heading": 3,
-          "texts": [
-            "7.1a 単一Reactorのスケーラビリティ注記"
-          ],
+          "texts": ["7.1a 単一Reactorのスケーラビリティ注記"],
           "refId": "REF020"
         }
       ],
@@ -291,16 +251,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "7. 並行性モデル"
-          ],
+          "texts": ["7. 並行性モデル"],
           "refId": "REF021"
         },
         {
           "heading": 3,
-          "texts": [
-            "7.2 command serialization"
-          ],
+          "texts": ["7.2 command serialization"],
           "refId": "REF022"
         }
       ],
@@ -315,9 +271,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
+          "texts": ["8. 公開 API 設計"],
           "refId": "REF023"
         }
       ],
@@ -332,16 +286,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
+          "texts": ["8. 公開 API 設計"],
           "refId": "REF024"
         },
         {
           "heading": 3,
-          "texts": [
-            "8.2 SipClient"
-          ],
+          "texts": ["8.2 SipClient"],
           "refId": "REF025"
         }
       ],
@@ -356,16 +306,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
+          "texts": ["8. 公開 API 設計"],
           "refId": "REF026"
         },
         {
           "heading": 3,
-          "texts": [
-            "8.3 SipClient API"
-          ],
+          "texts": ["8.3 SipClient API"],
           "refId": "REF027"
         }
       ],
@@ -380,16 +326,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
+          "texts": ["8. 公開 API 設計"],
           "refId": "REF028"
         },
         {
           "heading": 3,
-          "texts": [
-            "8.4 SipAccountHandle API"
-          ],
+          "texts": ["8.4 SipAccountHandle API"],
           "refId": "REF029"
         }
       ],
@@ -404,16 +346,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
+          "texts": ["8. 公開 API 設計"],
           "refId": "REF030"
         },
         {
           "heading": 3,
-          "texts": [
-            "8.5 OutgoingCallRequest"
-          ],
+          "texts": ["8.5 OutgoingCallRequest"],
           "refId": "REF031"
         }
       ],
@@ -428,9 +366,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "9. ID 設計"
-          ],
+          "texts": ["9. ID 設計"],
           "refId": "REF032"
         }
       ],
@@ -445,9 +381,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "10. ClientConfig 完全仕様"
-          ],
+          "texts": ["10. ClientConfig 完全仕様"],
           "refId": "REF033"
         }
       ],
@@ -462,16 +396,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "10. ClientConfig 完全仕様"
-          ],
+          "texts": ["10. ClientConfig 完全仕様"],
           "refId": "REF034"
         },
         {
           "heading": 3,
-          "texts": [
-            "10.1 既定値"
-          ],
+          "texts": ["10.1 既定値"],
           "refId": "REF035"
         }
       ],
@@ -486,9 +416,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "11. AccountConfig 完全仕様"
-          ],
+          "texts": ["11. AccountConfig 完全仕様"],
           "refId": "REF036"
         }
       ],
@@ -503,16 +431,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "11. AccountConfig 完全仕様"
-          ],
+          "texts": ["11. AccountConfig 完全仕様"],
           "refId": "REF037"
         },
         {
           "heading": 3,
-          "texts": [
-            "11.1 validation rules"
-          ],
+          "texts": ["11.1 validation rules"],
           "refId": "REF038"
         }
       ],
@@ -527,9 +451,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "12. TransportConfig 完全仕様"
-          ],
+          "texts": ["12. TransportConfig 完全仕様"],
           "refId": "REF039"
         }
       ],
@@ -544,9 +466,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "13. ICE/STUN/TURN 完全仕様"
-          ],
+          "texts": ["13. ICE/STUN/TURN 完全仕様"],
           "refId": "REF040"
         }
       ],
@@ -561,9 +481,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "14. エラー設計"
-          ],
+          "texts": ["14. エラー設計"],
           "refId": "REF041"
         }
       ],
@@ -578,16 +496,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "14. エラー設計"
-          ],
+          "texts": ["14. エラー設計"],
           "refId": "REF042"
         },
         {
           "heading": 3,
-          "texts": [
-            "14.1 エラー変換方針"
-          ],
+          "texts": ["14.1 エラー変換方針"],
           "refId": "REF043"
         }
       ],
@@ -602,16 +516,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "14. エラー設計"
-          ],
+          "texts": ["14. エラー設計"],
           "refId": "REF044"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: 新 RuntimeCommand のエラー設計"
-          ],
+          "texts": ["M20 追補: 新 RuntimeCommand のエラー設計"],
           "refId": "REF045"
         }
       ],
@@ -626,9 +536,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF046"
         }
       ],
@@ -643,16 +551,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF047"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.1 SipEventPayload"
-          ],
+          "texts": ["15.1 SipEventPayload"],
           "refId": "REF048"
         }
       ],
@@ -667,16 +571,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF049"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.2 SipEvent"
-          ],
+          "texts": ["15.2 SipEvent"],
           "refId": "REF050"
         }
       ],
@@ -691,16 +591,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF051"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.3 EventMeta"
-          ],
+          "texts": ["15.3 EventMeta"],
           "refId": "REF052"
         }
       ],
@@ -715,16 +611,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF053"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.4 EventBus"
-          ],
+          "texts": ["15.4 EventBus"],
           "refId": "REF054"
         }
       ],
@@ -739,16 +631,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF055"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.5 AccountEventReceiver"
-          ],
+          "texts": ["15.5 AccountEventReceiver"],
           "refId": "REF056"
         }
       ],
@@ -763,16 +651,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF057"
         },
         {
           "heading": 3,
-          "texts": [
-            "15.6 イベントバス分割の設計判断"
-          ],
+          "texts": ["15.6 イベントバス分割の設計判断"],
           "refId": "REF058"
         }
       ],
@@ -787,9 +671,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF059"
         },
         {
@@ -811,16 +693,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF061"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
-          ],
+          "texts": ["M20 追補: NativeEvent → SipEventPayload 変換マッピング"],
           "refId": "REF062"
         }
       ],
@@ -835,23 +713,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF063"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
-          ],
+          "texts": ["M20 追補: NativeEvent → SipEventPayload 変換マッピング"],
           "refId": "REF064"
         },
         {
           "heading": 4,
-          "texts": [
-            "CallStateChanged の pjsip_inv_state マッピング"
-          ],
+          "texts": ["CallStateChanged の pjsip_inv_state マッピング"],
           "refId": "REF065"
         }
       ],
@@ -866,23 +738,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF066"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
-          ],
+          "texts": ["M20 追補: NativeEvent → SipEventPayload 変換マッピング"],
           "refId": "REF067"
         },
         {
           "heading": 4,
-          "texts": [
-            "CallMediaStateChanged の media_status 判定"
-          ],
+          "texts": ["CallMediaStateChanged の media_status 判定"],
           "refId": "REF068"
         }
       ],
@@ -897,23 +763,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "15. イベントモデル"
-          ],
+          "texts": ["15. イベントモデル"],
           "refId": "REF069"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
-          ],
+          "texts": ["M20 追補: NativeEvent → SipEventPayload 変換マッピング"],
           "refId": "REF070"
         },
         {
           "heading": 4,
-          "texts": [
-            "RegistrationStateChanged の RuntimeCommand パターン"
-          ],
+          "texts": ["RegistrationStateChanged の RuntimeCommand パターン"],
           "refId": "REF071"
         }
       ],
@@ -928,9 +788,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "16. raw SIP メッセージ仕様"
-          ],
+          "texts": ["16. raw SIP メッセージ仕様"],
           "refId": "REF072"
         }
       ],
@@ -945,9 +803,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "17. 登録状態モデル"
-          ],
+          "texts": ["17. 登録状態モデル"],
           "refId": "REF073"
         }
       ],
@@ -962,16 +818,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "17. 登録状態モデル"
-          ],
+          "texts": ["17. 登録状態モデル"],
           "refId": "REF074"
         },
         {
           "heading": 3,
-          "texts": [
-            "17.1 遷移規則"
-          ],
+          "texts": ["17.1 遷移規則"],
           "refId": "REF075"
         }
       ],
@@ -986,9 +838,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "18. 通話状態モデル"
-          ],
+          "texts": ["18. 通話状態モデル"],
           "refId": "REF076"
         }
       ],
@@ -1003,16 +853,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "18. 通話状態モデル"
-          ],
+          "texts": ["18. 通話状態モデル"],
           "refId": "REF077"
         },
         {
           "heading": 3,
-          "texts": [
-            "18.1 遷移規則"
-          ],
+          "texts": ["18.1 遷移規則"],
           "refId": "REF078"
         }
       ],
@@ -1027,16 +873,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "18. 通話状態モデル"
-          ],
+          "texts": ["18. 通話状態モデル"],
           "refId": "REF079"
         },
         {
           "heading": 3,
-          "texts": [
-            "18.2 同時通話制約"
-          ],
+          "texts": ["18.2 同時通話制約"],
           "refId": "REF080"
         }
       ],
@@ -1051,9 +893,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "19. 発着信 API 詳細"
-          ],
+          "texts": ["19. 発着信 API 詳細"],
           "refId": "REF081"
         }
       ],
@@ -1068,16 +908,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "19. 発着信 API 詳細"
-          ],
+          "texts": ["19. 発着信 API 詳細"],
           "refId": "REF082"
         },
         {
           "heading": 3,
-          "texts": [
-            "19.1 answer semantics"
-          ],
+          "texts": ["19.1 answer semantics"],
           "refId": "REF083"
         }
       ],
@@ -1092,9 +928,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "20. DTMF 仕様"
-          ],
+          "texts": ["20. DTMF 仕様"],
           "refId": "REF084"
         }
       ],
@@ -1109,23 +943,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "20. DTMF 仕様"
-          ],
+          "texts": ["20. DTMF 仕様"],
           "refId": "REF085"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"
-          ],
+          "texts": ["M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"],
           "refId": "REF086"
         },
         {
           "heading": 4,
-          "texts": [
-            "DtmfSentInfo 構造体"
-          ],
+          "texts": ["DtmfSentInfo 構造体"],
           "refId": "REF087"
         }
       ],
@@ -1140,23 +968,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "20. DTMF 仕様"
-          ],
+          "texts": ["20. DTMF 仕様"],
           "refId": "REF088"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"
-          ],
+          "texts": ["M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"],
           "refId": "REF089"
         },
         {
           "heading": 4,
-          "texts": [
-            "DtmfSent 発火タイミング"
-          ],
+          "texts": ["DtmfSent 発火タイミング"],
           "refId": "REF090"
         }
       ],
@@ -1171,23 +993,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "20. DTMF 仕様"
-          ],
+          "texts": ["20. DTMF 仕様"],
           "refId": "REF091"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"
-          ],
+          "texts": ["M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"],
           "refId": "REF092"
         },
         {
           "heading": 4,
-          "texts": [
-            "DtmfSent の発火条件（優先順位）"
-          ],
+          "texts": ["DtmfSent の発火条件（優先順位）"],
           "refId": "REF093"
         }
       ],
@@ -1202,9 +1018,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "21. 音声フォーマットモデル"
-          ],
+          "texts": ["21. 音声フォーマットモデル"],
           "refId": "REF094"
         }
       ],
@@ -1219,16 +1033,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "21. 音声フォーマットモデル"
-          ],
+          "texts": ["21. 音声フォーマットモデル"],
           "refId": "REF095"
         },
         {
           "heading": 3,
-          "texts": [
-            "21.1 AudioChunkPair"
-          ],
+          "texts": ["21.1 AudioChunkPair"],
           "refId": "REF096"
         }
       ],
@@ -1243,9 +1053,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "22. 音声購読 API"
-          ],
+          "texts": ["22. 音声購読 API"],
           "refId": "REF097"
         }
       ],
@@ -1260,16 +1068,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "22. 音声購読 API"
-          ],
+          "texts": ["22. 音声購読 API"],
           "refId": "REF098"
         },
         {
           "heading": 3,
-          "texts": [
-            "22.1 backpressure policy"
-          ],
+          "texts": ["22.1 backpressure policy"],
           "refId": "REF099"
         }
       ],
@@ -1284,16 +1088,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "22. 音声購読 API"
-          ],
+          "texts": ["22. 音声購読 API"],
           "refId": "REF100"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: SubscribeAudio Reactor ハンドラ実装設計"
-          ],
+          "texts": ["M20 追補: SubscribeAudio Reactor ハンドラ実装設計"],
           "refId": "REF101"
         }
       ],
@@ -1308,9 +1108,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "23. AsyncAudioSource 仕様"
-          ],
+          "texts": ["23. AsyncAudioSource 仕様"],
           "refId": "REF102"
         }
       ],
@@ -1325,16 +1123,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "23. AsyncAudioSource 仕様"
-          ],
+          "texts": ["23. AsyncAudioSource 仕様"],
           "refId": "REF103"
         },
         {
           "heading": 3,
-          "texts": [
-            "23.1 動的ディスパッチ用自動導出"
-          ],
+          "texts": ["23.1 動的ディスパッチ用自動導出"],
           "refId": "REF104"
         }
       ],
@@ -1349,16 +1143,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "23. AsyncAudioSource 仕様"
-          ],
+          "texts": ["23. AsyncAudioSource 仕様"],
           "refId": "REF105"
         },
         {
           "heading": 3,
-          "texts": [
-            "23.2 SyncSourceAdapter"
-          ],
+          "texts": ["23.2 SyncSourceAdapter"],
           "refId": "REF106"
         }
       ],
@@ -1373,16 +1163,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "23. AsyncAudioSource 仕様"
-          ],
+          "texts": ["23. AsyncAudioSource 仕様"],
           "refId": "REF107"
         },
         {
           "heading": 3,
-          "texts": [
-            "23.3 設計判断の注記"
-          ],
+          "texts": ["23.3 設計判断の注記"],
           "refId": "REF108"
         }
       ],
@@ -1397,9 +1183,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF109"
         }
       ],
@@ -1414,16 +1198,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF110"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.0 リアルタイム境界（最重要設計判断）"
-          ],
+          "texts": ["24.0 リアルタイム境界（最重要設計判断）"],
           "refId": "REF111"
         }
       ],
@@ -1438,16 +1218,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF112"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.1 AudioMixer（AudioWorkerTask 側）"
-          ],
+          "texts": ["24.1 AudioMixer（AudioWorkerTask 側）"],
           "refId": "REF113"
         }
       ],
@@ -1462,23 +1238,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF114"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.2 mixing algorithm"
-          ],
+          "texts": ["24.2 mixing algorithm"],
           "refId": "REF115"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.2 gain and normalization"
-          ],
+          "texts": ["24.2 gain and normalization"],
           "refId": "REF116"
         }
       ],
@@ -1493,16 +1263,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF117"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.3 AudioWorkerTask 駆動"
-          ],
+          "texts": ["24.3 AudioWorkerTask 駆動"],
           "refId": "REF118"
         }
       ],
@@ -1517,16 +1283,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF119"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.4 source lifecycle"
-          ],
+          "texts": ["24.4 source lifecycle"],
           "refId": "REF120"
         }
       ],
@@ -1541,16 +1303,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "24. AudioMixer 設計"
-          ],
+          "texts": ["24. AudioMixer 設計"],
           "refId": "REF121"
         },
         {
           "heading": 3,
-          "texts": [
-            "24.5 将来拡張：slab ベース source 管理（注記）"
-          ],
+          "texts": ["24.5 将来拡張：slab ベース source 管理（注記）"],
           "refId": "REF122"
         }
       ],
@@ -1565,9 +1323,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "25. IN/OUT ペア整列アルゴリズム"
-          ],
+          "texts": ["25. IN/OUT ペア整列アルゴリズム"],
           "refId": "REF123"
         }
       ],
@@ -1582,16 +1338,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "25. IN/OUT ペア整列アルゴリズム"
-          ],
+          "texts": ["25. IN/OUT ペア整列アルゴリズム"],
           "refId": "REF124"
         },
         {
           "heading": 3,
-          "texts": [
-            "25.1 欠損時の扱い"
-          ],
+          "texts": ["25.1 欠損時の扱い"],
           "refId": "REF125"
         }
       ],
@@ -1606,16 +1358,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "25. IN/OUT ペア整列アルゴリズム"
-          ],
+          "texts": ["25. IN/OUT ペア整列アルゴリズム"],
           "refId": "REF126"
         },
         {
           "heading": 3,
-          "texts": [
-            "25.2 メモリ最適化注記"
-          ],
+          "texts": ["25.2 メモリ最適化注記"],
           "refId": "REF127"
         }
       ],
@@ -1630,9 +1378,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "26. リサンプラ設計"
-          ],
+          "texts": ["26. リサンプラ設計"],
           "refId": "REF128"
         }
       ],
@@ -1647,16 +1393,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "26. リサンプラ設計"
-          ],
+          "texts": ["26. リサンプラ設計"],
           "refId": "REF129"
         },
         {
           "heading": 3,
-          "texts": [
-            "26.1 stereo in/out mapping"
-          ],
+          "texts": ["26.1 stereo in/out mapping"],
           "refId": "REF130"
         }
       ],
@@ -1671,9 +1413,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF131"
         }
       ],
@@ -1688,16 +1428,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF132"
         },
         {
           "heading": 3,
-          "texts": [
-            "27.1 bindgen 生成方針"
-          ],
+          "texts": ["27.1 bindgen 生成方針"],
           "refId": "REF133"
         }
       ],
@@ -1712,16 +1448,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF134"
         },
         {
           "heading": 3,
-          "texts": [
-            "27.2 C string 管理"
-          ],
+          "texts": ["27.2 C string 管理"],
           "refId": "REF135"
         }
       ],
@@ -1736,16 +1468,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF136"
         },
         {
           "heading": 3,
-          "texts": [
-            "27.3 callback bridge"
-          ],
+          "texts": ["27.3 callback bridge"],
           "refId": "REF137"
         }
       ],
@@ -1760,16 +1488,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF138"
         },
         {
           "heading": 3,
-          "texts": [
-            "27a. SipBackend 抽象化（内部 trait）"
-          ],
+          "texts": ["27a. SipBackend 抽象化（内部 trait）"],
           "refId": "REF139"
         }
       ],
@@ -1784,16 +1508,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "27. PJSIP FFI 層"
-          ],
+          "texts": ["27. PJSIP FFI 層"],
           "refId": "REF140"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: Dual Client 時の PJSIP callback routing"
-          ],
+          "texts": ["M20 追補: Dual Client 時の PJSIP callback routing"],
           "refId": "REF141"
         }
       ],
@@ -1808,9 +1528,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "28. build.rs 戦略"
-          ],
+          "texts": ["28. build.rs 戦略"],
           "refId": "REF142"
         }
       ],
@@ -1825,37 +1543,27 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "28. build.rs 戦略"
-          ],
+          "texts": ["28. build.rs 戦略"],
           "refId": "REF143"
         },
         {
           "heading": 3,
-          "texts": [
-            "28.1 探索順序"
-          ],
+          "texts": ["28.1 探索順序"],
           "refId": "REF144"
         },
         {
           "heading": 3,
-          "texts": [
-            "28.2 build script 擬似実装"
-          ],
+          "texts": ["28.2 build script 擬似実装"],
           "refId": "REF145"
         },
         {
           "heading": 3,
-          "texts": [
-            "28.3 cmake flags"
-          ],
+          "texts": ["28.3 cmake flags"],
           "refId": "REF146"
         },
         {
           "heading": 3,
-          "texts": [
-            "28.4 OS別システムパッケージ依存関係"
-          ],
+          "texts": ["28.4 OS別システムパッケージ依存関係"],
           "refId": "REF147"
         }
       ],
@@ -1870,9 +1578,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "29. codec policy 強制"
-          ],
+          "texts": ["29. codec policy 強制"],
           "refId": "REF148"
         }
       ],
@@ -1887,16 +1593,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "29. codec policy 強制"
-          ],
+          "texts": ["29. codec policy 強制"],
           "refId": "REF149"
         },
         {
           "heading": 3,
-          "texts": [
-            "29.1 コーデックフォールバックルール"
-          ],
+          "texts": ["29.1 コーデックフォールバックルール"],
           "refId": "REF150"
         }
       ],
@@ -1911,16 +1613,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "29. codec policy 強制"
-          ],
+          "texts": ["29. codec policy 強制"],
           "refId": "REF151"
         },
         {
           "heading": 3,
-          "texts": [
-            "29.2 NegotiatedCodec と CodecSelectionPolicy"
-          ],
+          "texts": ["29.2 NegotiatedCodec と CodecSelectionPolicy"],
           "refId": "REF152"
         }
       ],
@@ -1935,9 +1633,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "29. codec policy 強制"
-          ],
+          "texts": ["29. codec policy 強制"],
           "refId": "REF153"
         },
         {
@@ -1959,9 +1655,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "30. SRTP 仕様"
-          ],
+          "texts": ["30. SRTP 仕様"],
           "refId": "REF155"
         }
       ],
@@ -1976,9 +1670,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "31. トランスポート再接続方針"
-          ],
+          "texts": ["31. トランスポート再接続方針"],
           "refId": "REF156"
         }
       ],
@@ -1993,9 +1685,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "32. Shutdown 仕様"
-          ],
+          "texts": ["32. Shutdown 仕様"],
           "refId": "REF157"
         }
       ],
@@ -2010,16 +1700,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "32. Shutdown 仕様"
-          ],
+          "texts": ["32. Shutdown 仕様"],
           "refId": "REF158"
         },
         {
           "heading": 3,
-          "texts": [
-            "32.1 cancellation safety"
-          ],
+          "texts": ["32.1 cancellation safety"],
           "refId": "REF159"
         }
       ],
@@ -2034,16 +1720,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "32. Shutdown 仕様"
-          ],
+          "texts": ["32. Shutdown 仕様"],
           "refId": "REF160"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: Shutdown 中の RuntimeCommand 振り分け"
-          ],
+          "texts": ["M20 追補: Shutdown 中の RuntimeCommand 振り分け"],
           "refId": "REF161"
         }
       ],
@@ -2058,9 +1740,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "33. ランタイム内部 state"
-          ],
+          "texts": ["33. ランタイム内部 state"],
           "refId": "REF162"
         }
       ],
@@ -2075,16 +1755,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "33. ランタイム内部 state"
-          ],
+          "texts": ["33. ランタイム内部 state"],
           "refId": "REF163"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: ロック獲得ルールと conf_port_id 管理方針"
-          ],
+          "texts": ["M20 追補: ロック獲得ルールと conf_port_id 管理方針"],
           "refId": "REF164"
         }
       ],
@@ -2099,9 +1775,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "34. 観測性"
-          ],
+          "texts": ["34. 観測性"],
           "refId": "REF165"
         }
       ],
@@ -2116,9 +1790,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "35. セキュリティ"
-          ],
+          "texts": ["35. セキュリティ"],
           "refId": "REF166"
         }
       ],
@@ -2133,9 +1805,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "36. プラットフォーム差異"
-          ],
+          "texts": ["36. プラットフォーム差異"],
           "refId": "REF167"
         }
       ],
@@ -2150,9 +1820,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "37. 受信 call の扱い"
-          ],
+          "texts": ["37. 受信 call の扱い"],
           "refId": "REF168"
         }
       ],
@@ -2167,9 +1835,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "38. REFER/転送仕様"
-          ],
+          "texts": ["38. REFER/転送仕様"],
           "refId": "REF169"
         }
       ],
@@ -2184,9 +1850,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "39. Media bridge と PJSUA conference port"
-          ],
+          "texts": ["39. Media bridge と PJSUA conference port"],
           "refId": "REF170"
         }
       ],
@@ -2201,9 +1865,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "40. audio device policy"
-          ],
+          "texts": ["40. audio device policy"],
           "refId": "REF171"
         }
       ],
@@ -2218,9 +1880,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "41. 具体的使用例"
-          ],
+          "texts": ["41. 具体的使用例"],
           "refId": "REF172"
         }
       ],
@@ -2235,9 +1895,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "42. validation フェーズ"
-          ],
+          "texts": ["42. validation フェーズ"],
           "refId": "REF173"
         }
       ],
@@ -2252,9 +1910,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF174"
         }
       ],
@@ -2269,16 +1925,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF175"
         },
         {
           "heading": 3,
-          "texts": [
-            "43.1 Layer 1: Unit Tests（PJSIP不要）"
-          ],
+          "texts": ["43.1 Layer 1: Unit Tests（PJSIP不要）"],
           "refId": "REF176"
         }
       ],
@@ -2293,9 +1945,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF177"
         },
         {
@@ -2317,9 +1967,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF179"
         },
         {
@@ -2341,16 +1989,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF181"
         },
         {
           "heading": 3,
-          "texts": [
-            "43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"
-          ],
+          "texts": ["43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"],
           "refId": "REF182"
         }
       ],
@@ -2365,23 +2009,17 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "43. テスト戦略"
-          ],
+          "texts": ["43. テスト戦略"],
           "refId": "REF183"
         },
         {
           "heading": 3,
-          "texts": [
-            "43.5 プラットフォームテスト"
-          ],
+          "texts": ["43.5 プラットフォームテスト"],
           "refId": "REF184"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: 新機能のテスト層マッピング"
-          ],
+          "texts": ["M20 追補: 新機能のテスト層マッピング"],
           "refId": "REF185"
         }
       ],
@@ -2396,16 +2034,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "44. CI/CD 要件"
-          ],
+          "texts": ["44. CI/CD 要件"],
           "refId": "REF186"
         },
         {
           "heading": 3,
-          "texts": [
-            "M20 追補: Docker テスト job と prebuilt CI pipeline"
-          ],
+          "texts": ["M20 追補: Docker テスト job と prebuilt CI pipeline"],
           "refId": "REF187"
         }
       ],
@@ -2420,9 +2054,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "45. 既知の実装上の難所と設計上の解答"
-          ],
+          "texts": ["45. 既知の実装上の難所と設計上の解答"],
           "refId": "REF188"
         }
       ],
@@ -2437,9 +2069,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "46. panic policy"
-          ],
+          "texts": ["46. panic policy"],
           "refId": "REF189"
         }
       ],
@@ -2454,16 +2084,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "46. panic policy"
-          ],
+          "texts": ["46. panic policy"],
           "refId": "REF190"
         },
         {
           "heading": 3,
-          "texts": [
-            "46.1 catch_unwind 発火時のクリーンアップ手順"
-          ],
+          "texts": ["46.1 catch_unwind 発火時のクリーンアップ手順"],
           "refId": "REF191"
         }
       ],
@@ -2478,9 +2104,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "47. メモリ所有権規則"
-          ],
+          "texts": ["47. メモリ所有権規則"],
           "refId": "REF192"
         }
       ],
@@ -2495,9 +2119,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "48. デフォルトポリシーの明文化"
-          ],
+          "texts": ["48. デフォルトポリシーの明文化"],
           "refId": "REF193"
         }
       ],
@@ -2512,9 +2134,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "49. lib.rs 雛形"
-          ],
+          "texts": ["49. lib.rs 雛形"],
           "refId": "REF194"
         }
       ],
@@ -2529,9 +2149,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "50. 受け入れ基準"
-          ],
+          "texts": ["50. 受け入れ基準"],
           "refId": "REF195"
         }
       ],
@@ -2546,9 +2164,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "51. 結論"
-          ],
+          "texts": ["51. 結論"],
           "refId": "REF196"
         }
       ],
@@ -2563,9 +2179,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
+          "texts": ["52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"],
           "refId": "REF197"
         }
       ],
@@ -2580,16 +2194,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
+          "texts": ["52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"],
           "refId": "REF198"
         },
         {
           "heading": 3,
-          "texts": [
-            "52.1 Crate 分割方針（設計判断）"
-          ],
+          "texts": ["52.1 Crate 分割方針（設計判断）"],
           "refId": "REF199"
         }
       ],
@@ -2604,16 +2214,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
+          "texts": ["52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"],
           "refId": "REF200"
         },
         {
           "heading": 3,
-          "texts": [
-            "52.2 ライセンス方針"
-          ],
+          "texts": ["52.2 ライセンス方針"],
           "refId": "REF201"
         }
       ],
@@ -2628,16 +2234,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
+          "texts": ["52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"],
           "refId": "REF202"
         },
         {
           "heading": 3,
-          "texts": [
-            "52.3 マルチインスタンス方式（設計判断）"
-          ],
+          "texts": ["52.3 マルチインスタンス方式（設計判断）"],
           "refId": "REF203"
         }
       ],
@@ -2652,16 +2254,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
+          "texts": ["52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"],
           "refId": "REF204"
         },
         {
           "heading": 3,
-          "texts": [
-            "52.4 PJSIP 非 Pure Rust の補足"
-          ],
+          "texts": ["52.4 PJSIP 非 Pure Rust の補足"],
           "refId": "REF205"
         }
       ],
@@ -2676,9 +2274,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "53. スタンドアロンサーバーモード"
-          ],
+          "texts": ["53. スタンドアロンサーバーモード"],
           "refId": "REF206"
         }
       ],
@@ -2693,9 +2289,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "54. HTTP/WebSocket API プロトコル構成"
-          ],
+          "texts": ["54. HTTP/WebSocket API プロトコル構成"],
           "refId": "REF207"
         }
       ],
@@ -2710,16 +2304,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "54. HTTP/WebSocket API プロトコル構成"
-          ],
+          "texts": ["54. HTTP/WebSocket API プロトコル構成"],
           "refId": "REF208"
         },
         {
           "heading": 3,
-          "texts": [
-            "54.1 REST API エンドポイント一覧"
-          ],
+          "texts": ["54.1 REST API エンドポイント一覧"],
           "refId": "REF209"
         }
       ],
@@ -2734,30 +2324,22 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "54. HTTP/WebSocket API プロトコル構成"
-          ],
+          "texts": ["54. HTTP/WebSocket API プロトコル構成"],
           "refId": "REF210"
         },
         {
           "heading": 3,
-          "texts": [
-            "54.2 WebSocket エンドポイント"
-          ],
+          "texts": ["54.2 WebSocket エンドポイント"],
           "refId": "REF211"
         },
         {
           "heading": 3,
-          "texts": [
-            "54.3 Axum Router 構造"
-          ],
+          "texts": ["54.3 Axum Router 構造"],
           "refId": "REF212"
         },
         {
           "heading": 3,
-          "texts": [
-            "54.4 WebSocket メッセージプロトコル"
-          ],
+          "texts": ["54.4 WebSocket メッセージプロトコル"],
           "refId": "REF213"
         }
       ],
@@ -2772,16 +2354,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "54. HTTP/WebSocket API プロトコル構成"
-          ],
+          "texts": ["54. HTTP/WebSocket API プロトコル構成"],
           "refId": "REF214"
         },
         {
           "heading": 3,
-          "texts": [
-            "54.5 イベント-音声時間的相関保証（設計判断）"
-          ],
+          "texts": ["54.5 イベント-音声時間的相関保証（設計判断）"],
           "refId": "REF215"
         }
       ],
@@ -2796,9 +2374,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "55. 認証・認可モデル"
-          ],
+          "texts": ["55. 認証・認可モデル"],
           "refId": "REF216"
         }
       ],
@@ -2813,9 +2389,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "56. 設定永続化 — SQLite + SeaORM"
-          ],
+          "texts": ["56. 設定永続化 — SQLite + SeaORM"],
           "refId": "REF217"
         }
       ],
@@ -2830,16 +2404,12 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "56. 設定永続化 — SQLite + SeaORM"
-          ],
+          "texts": ["56. 設定永続化 — SQLite + SeaORM"],
           "refId": "REF218"
         },
         {
           "heading": 3,
-          "texts": [
-            "56.2 マイグレーション管理"
-          ],
+          "texts": ["56.2 マイグレーション管理"],
           "refId": "REF219"
         }
       ],
@@ -2871,9 +2441,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "58. セマンティックバージョニング運用方針"
-          ],
+          "texts": ["58. セマンティックバージョニング運用方針"],
           "refId": "REF221"
         }
       ],
@@ -2888,9 +2456,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "59. SIP ネットワーキング詳細"
-          ],
+          "texts": ["59. SIP ネットワーキング詳細"],
           "refId": "REF222"
         }
       ],
@@ -2905,9 +2471,7 @@
       "headingRefs": [
         {
           "heading": 2,
-          "texts": [
-            "60. 既存 RFC セクションとの対応関係"
-          ],
+          "texts": ["60. 既存 RFC セクションとの対応関係"],
           "refId": "REF223"
         }
       ],

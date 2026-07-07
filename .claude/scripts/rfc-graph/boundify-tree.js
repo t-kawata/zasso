@@ -268,7 +268,7 @@ function buildDirectoryTree(graph, lang, helpers) {
   const allTopNodes = mergeTopLevelNodes(topNodes, ruleDrivenNodes);
 
   const tree = allTopNodes.length > 0
-    ? { name: 'root', type: 'directory', kind: 'root', children: allTopNodes }
+    ? { name: 'src', type: 'directory', kind: 'root', children: allTopNodes }
     : null;
 
   // 全ファイル一覧を収集
