@@ -818,6 +818,15 @@
           "instrumentation": "テスト: 全307件成功\n翻訳可能性: Markdownファイルのみの変更で問題なし",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-06"
+        },
+        {
+          "id": 19,
+          "phaseId": -1,
+          "status": "made",
+          "title": "グラフ参照の見出しトークン化 — Line-Range廃止とHeading+Tokens方式への移行",
+          "referenceSection": "spec/0054-line-rangeheadingtrees.md",
+          "relatedTicketIds": "PX-17 (analyze-source-structure.js — headingRefs の抽出に必要), PX-16 (graphify-rfc.md — 改修対象), PX-18 (formulate-tickets改修 — 影響なしの確認済み)",
+          "startedAt": "2026-07-07"
         }
       ]
     },
