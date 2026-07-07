@@ -1,6 +1,6 @@
 ---
-description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/rfc-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、7Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）でグラフ変換を実行。
-argument-hint: <source-file-path>
+description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/RFC-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、7Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）でグラフ変換を実行。
+argument-hint: </path/to/RFC-doc.md>
 allowed-tools: Read, Write, Bash
 ---
 

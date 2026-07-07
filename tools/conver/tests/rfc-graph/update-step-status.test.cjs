@@ -309,7 +309,7 @@ describe('parseArguments()', () => {
 
   it('--graphify-status= がない（空 path）でエラーを投げる', () => {
     process.argv = ['node', 'script.js', '--graphify-status=', 'start-step', '1'];
-    assert.throws(() => parseArguments(), /path.*空/);
+    assert.throws(() => parseArguments(), /パスが空/);
   });
 
   it('--graphify-status フラグ自体がないでエラーを投げる', () => {
@@ -320,6 +320,45 @@ describe('parseArguments()', () => {
   it('Step番号が非数値でエラーを投げる', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/s.json', 'start-step', 'abc'];
     assert.throws(() => parseArguments(), /数値ではありません/);
+  });
+
+  // ============================================================
+  // --status= エイリアスフラグのテスト
+  // ============================================================
+
+  it('--status= で start-step をパースできる（エイリアス互換）', () => {
+    process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'start-step', '1'];
+    const result = parseArguments();
+    assert.strictEqual(result.statusPath, '/tmp/boundify.json');
+    assert.strictEqual(result.subcommand, 'start-step');
+    assert.strictEqual(result.stepNumber, 1);
+  });
+
+  it('--status= で status をパースできる（Step番号なし）', () => {
+    process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'status'];
+    const result = parseArguments();
+    assert.strictEqual(result.statusPath, '/tmp/boundify.json');
+    assert.strictEqual(result.subcommand, 'status');
+    assert.strictEqual(result.stepNumber, null);
+  });
+
+  it('--graphify-status= と --status= のフラグ定数が両方とも定義されている', () => {
+    // FLAG_ALIAS_STATUS の存在を確認（テスト用に module.exports から参照）
+    const mod = require('../../.claude/scripts/rfc-graph/update-step-status.js');
+    assert.ok(mod.FLAG_GRAPHIFY_STATUS);
+    assert.ok(mod.FLAG_ALIAS_STATUS);
+    assert.strictEqual(mod.FLAG_GRAPHIFY_STATUS, '--graphify-status=');
+    assert.strictEqual(mod.FLAG_ALIAS_STATUS, '--status=');
+  });
+
+  it('--status= の path が空でエラーを投げる', () => {
+    process.argv = ['node', 'script.js', '--status=', 'start-step', '1'];
+    assert.throws(() => parseArguments(), /パスが空/);
+  });
+
+  it('--stat=path の誤記（typo）でエラーを投げる', () => {
+    process.argv = ['node', 'script.js', '--stat=/tmp/s.json', 'start-step', '1'];
+    assert.throws(() => parseArguments(), /--graphify-status/);
   });
 });
 

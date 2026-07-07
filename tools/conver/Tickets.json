@@ -3031,27 +3031,55 @@
         {
           "id": 1,
           "phaseId": 20,
-          "status": "todo",
+          "status": "reviewed",
           "title": "generate-dir-template.js — テンプレートファイル生成",
-          "referenceSection": "RFC-BOUNDIFY.md §4.4",
+          "referenceSection": "RFC-BOUNDIFY.md §4.4 (generate-dir-template.js — 実ディレクトリ/ファイル生成スクリプト)",
           "background": "Dirs-Tree.json に基づき実際のディレクトリとスタブファイルを生成。ディスカバリ（dry-run）→確認プロンプト→作成（第2パス）の3段階。--dry-run/--force 制御。",
           "scope": [
-            "CLI: --dirs-tree= --root-dir= --lang= [--dry-run] [--force]",
-            "discover(tree, rootDir): CreatedItem[]",
-            "readline 確認プロンプト（TTYのみ /--forceでスキップ）",
-            "create(items): ActuallyCreated[]"
+            "新規: .claude/scripts/rfc-graph/generate-dir-template.js",
+            "新規: tests/rfc-graph/generate-dir-template.test.cjs",
+            "CLI 引数パース: --dirs-tree= --root-dir= --lang= [--dry-run] [--force]",
+            "discover(tree, rootDir): 再帰的ツリー走査 → CreatedItem[]",
+            "runDryRun(created, lang): dry-run モード出力JSON生成",
+            "confirmPrompt(created): readline 確認プロンプト（TTY時のみ / --forceでスキップ）",
+            "createItems(created, isForce): 実際のディレクトリ/ファイル作成",
+            "main(testArgs): 統合エントリポイント（引数パース→discover→confirm→create→JSON出力）"
           ],
           "testVerification": [
-            "正常系: --dry-run → ファイル作成なしで一覧",
-            "正常系: 確認Y → ディレクトリ+ファイル作成",
-            "異常系: 確認N → cancelled",
-            "異常系: 既存ファイル+ --forceなし → エラー"
+            "UT: 全引数不足 → exit code 1",
+            "UT: 未サポート言語 → exit code 1",
+            "UT: --dry-run → dryRun:true, ファイル作成なし",
+            "UT: --forceあり → 確認スキップして作成実行",
+            "UT: 新規ディレクトリ+ファイル作成成功",
+            "UT: declarationStubあり→内容書き込み、なし→空ファイル",
+            "UT: 既存ファイル+ --forceなし → エラー",
+            "UT: 既存ファイル+ --force → overwritten",
+            "UT: discover() 再帰走査（ファイル作成なしの確認）",
+            "UT: 空ツリー → 空配列",
+            "UT: 出力契約JSONフォーマット検証"
           ],
           "testExceptions": [
-            "readline テストは TTY 必須のためスキップ（--forceでバイパス）"
+            "readline 実TTY確認プロンプト: 非TTYパスと--forceで代替検証",
+            "大規模ファイルシステム操作: 小規模データでロジック検証"
           ],
-          "instrumentation": "結果 JSON を stdout。stderr はプロンプト＋エラー。",
-          "notes": "作業対象範囲: tools/conver/.claude/ 内に限定。\n既存ファイル（graphify-rfc.md, crud.js, verify.js 等）への変更は update-step-status.js の --status= フラグ追加のみ。それ以外の既存ファイルは一切変更禁止。"
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 合格（関数名=動詞句、マジックナンバー=定数化、console.log=process.stdout.writeに置換済、コメントは「なぜ」を説明）\nテスト: 24/24 PASS（全7スイート）\n回帰テスト: validate-dirs-tree-schema PASS / boundify-tree PASS / boundify-helpers PASS",
+          "notes": "レビュー報告書:\n\n1. 静的品質チェック: 合格（run-quality-checks: 0 issues）\n2. 翻訳可能性: 問題なし\n   - 全関数名が動詞句（parseArgs/discover/runDryRun/confirmPrompt/createItems）\n   - 1文字変数はアロー関数コールバック内の3箇所のみ（a/c/e）— 短スコープのため許容範囲\n   - マジックナンバーは SUPPORTED_LANGUAGES / ERROR_* 定数に集約\n   - console.log 残存なし（process.stdout.write に置換済）\n   - コメントは「なぜ」（第1パス/第2パス/確認プロンプトの設計意図）を説明し、「何を」は関数名が語る\n3. テスト: 全24テスト PASS（5スイート）— spec Test Plan の全11ケースをカバー（一部オーバーカバー）\n4. 依存関係: P17-1/P18-1/P19-1（先行・reviewed）→ P20-1（完了）→ P21-1/P21-2（後続・todo）に整合性あり、循環なし\n5. 不完全実装パターン: 0件（todo!()/unimplemented!()/TODO/FIXME/空関数なし）\n6. 犯罪: 0件\n7. スタブ: 0件\n8. RFC設計からの逸脱: なし（RFC-BOUNDIFY.md §4.4 に完全準拠）\n9. Boy Scout 改善: console.log→process.stdout.write 置換（品質チェッカー対応）\n\n最終判定: 合格（reviewed に遷移可能）",
+          "relatedTicketIds": "P17-1 (先行: Dirs-Tree.jsonスキーマ定義), P18-1 (先行: ディレクトリツリー生成), P19-1 (先行: スキーマ検証), P21-1 (後続: メインスクリプト統合), P21-2 (後続: update-step-status.jsフラグ拡張)",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "(new file)",
+              "after": ".claude/scripts/rfc-graph/generate-dir-template.js",
+              "description": "実ディレクトリ/ファイル生成スクリプト — 7関数（parseArgs/discover/runDryRun/confirmPrompt/createItems/main）"
+            },
+            {
+              "before": "(new file)",
+              "after": "tests/rfc-graph/generate-dir-template.test.cjs",
+              "description": "ユニットテスト — 24ケース（7スイート）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
         }
       ]
     },
@@ -3062,50 +3090,99 @@
         {
           "id": 1,
           "phaseId": 21,
-          "status": "todo",
+          "status": "reviewed",
           "title": "boundify-graph-to-dirs.js メインスクリプト統合",
-          "referenceSection": "RFC-BOUNDIFY.md §4.2",
+          "referenceSection": "RFC-BOUNDIFY.md §4.2 (spec: 0061-boundify-graph-to-dirsjs.md)",
           "background": "全下位層（P18〜P22の実装）を統合し、CLI エントリポイントを完成させる。引数パース・グラフ読込・言語推定・ツリー生成・エッジ解析・スキーマ検証・ファイル書出・--json/--quiet出力制御を統合。",
           "scope": [
-            "parseArguments(testArgs?): {graphPath, graphDir, basename, flags}",
-            "loadGraph(graphPath): Graph",
-            "main(testArgs?): void（--json/--quiet/デフォルト 3出力モード）"
+            "NEW: .claude/scripts/rfc-graph/boundify-graph-to-dirs.js — メインスクリプト（parseArguments/loadGraph/main/アダプター関数群）",
+            "NEW: tests/rfc-graph/boundify-graph-to-dirs.test.cjs — ユニットテスト"
           ],
           "testVerification": [
-            "正常系: RFC-ROOT-GRAPH.json → 3ファイル出力",
-            "正常系: --json → JSON のみ stdout",
-            "正常系: --quiet → stdout なし",
-            "異常系: 存在しないパス → エラー",
-            "異常系: 破損JSON → エラー"
+            "UT-parseArguments: 正常系 フラグパース/-GRAPH除去/絶対パス変換",
+            "UT-parseArguments: 異常系 引数なし/--help/存在しないパス",
+            "UT-loadGraph: 正常系 有効JSON→nodes/edges通過",
+            "UT-loadGraph: 異常系 読込エラー/JSONパースエラー/nodes欠落/edges欠落",
+            "UT-adaptDirectoryTree: helpers注入→正しく呼び出せる",
+            "UT-adaptProjectEdges: graph.edges抽出→正しく呼び出せる",
+            "UT-main: 正常系 3ファイル出力（Dirs-Tree/GRAPH-LANG/BOUNDIFY-Status）",
+            "UT-main: 正常系 --json→JSONのみstdout",
+            "UT-main: 正常系 --quiet→stdout抑制",
+            "UT-main: 正常系 デフォルト出力（.en.md+Markdown+JSONブロック）",
+            "UT-main: 正常系 3言語ツリー生成+循環依存検出",
+            "UT-main: 異常系 引数なし→エラー終了",
+            "UT-main: 異常系 破損JSON→エラー終了"
           ],
           "testExceptions": [
-            "ファイル出力テストは一時ディレクトリ"
+            "巨大グラフパフォーマンス: ユニット粒度超過 — 実運用測定",
+            "generate-dir-template.js連携(Step5): P21-2スコープ",
+            "実TTY実行体験: E2E確認"
           ],
-          "instrumentation": "main() に全工程集約。",
-          "notes": "作業対象範囲: tools/conver/.claude/scripts/rfc-graph/"
+          "instrumentation": "静的品質チェック: 9件のconsole.log検出(全て意図的なCLI標準出力 — printUsage/JSON出力/en.md+Markdown出力)\n翻訳可能性: 全14関数が動詞句、1文字変数なし、汎用変数なし、マジックナンバーなし、コメントは「なぜ」を説明\nテスト: 190/190 PASS",
+          "notes": "レビュー報告書:\n\n1. 静的品質チェック: 合格（9件のconsole.logは全て意図的なCLI標準出力 — printUsageのヘルプ表示、main()のJSON/stdout/デフォルト出力の3モード）\n2. 翻訳可能性: 問題なし\n   - 全14関数が動詞句（reportError, parseArguments, loadGraph, buildLangGraph 等）\n   - 1文字変数なし（p→dirPath に修正済み）\n   - マジックナンバーは EXIT_SUCCESS/EXIT_FAILURE 等の定数に集約\n   - コメントは「なぜ」を説明（アダプターの設計意図、パス解決の必要性、3出力モードの分岐理由）\n3. テスト: 190/190 PASS\n   - 新規: 39/39（12スイート）\n   - 既存回帰: 151/151（boundify-helpers 59 + boundify-tree 46 + validate-dirs-tree-schema 22 + generate-dir-template 24）\n4. 依存関係: 整合性確認済（循環なし）\n   - P17-1(boundify-helpers): reviewed ✅\n   - P18-1(boundify-tree): reviewed ✅\n   - P19-1(validate-dirs-tree-schema): reviewed ✅\n   - P20-1(generate-dir-template): reviewed ✅\n   - P21-2(update-step-status+.md): todo（後続）\n5. 不完全実装: 0件（7パターン全てクリーン）\n6. 犯罪: 0件\n7. スタブ: 3件（全て既存・スコープ外）\n8. RFC設計からの逸脱: なし\n9. Boy Scout改善: resolveDirNameToPathの1文字変数p→dirPathに修正\n10. アダプター設計: 既存モジュールの関数シグネチャ差異を3つのアダプター関数で吸収、RFC§4.2のコピペを回避\n\n最終判定: 合格（reviewedに遷移可能）",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "(new file)",
+              "after": ".claude/scripts/rfc-graph/boundify-graph-to-dirs.js",
+              "description": "メインスクリプト — 14関数（parseArguments/loadGraph/main/adaptBuildDirectoryTree/adaptProjectEdgesToDirectories/buildLangGraph/reportError/printUsage/countKinds/countEdgeTypes/collectDirectoryPaths/resolveDirNameToPath/resolveOutputPaths）"
+            },
+            {
+              "before": "(new file)",
+              "after": "tests/rfc-graph/boundify-graph-to-dirs.test.cjs",
+              "description": "ユニットテスト — 39ケース（12 describeスイート）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
         },
         {
           "id": 2,
           "phaseId": 21,
-          "status": "todo",
+          "status": "reviewed",
           "title": "update-step-status.js --status= フラグ拡張 + boundify-graph-to-dirs.md スラッシュコマンド定義",
-          "referenceSection": "RFC-BOUNDIFY.md §4.5, §4.7",
-          "background": "既存 update-step-status.js に --status=<path> フラグを追加（--graphify-status= のエイリアス、既存挙動は変更禁止）。合わせて /boundify-graph-to-dirs の .md 定義ファイルを tools/conver/.claude/commands/ に作成する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存するため同一チケットに統合。",
+          "referenceSection": "specs/0062-update-step-statusjs-status-boundify-graph-to-dirsmd.md",
+          "background": "既存 update-step-status.js に --status=<path> フラグを追加（--graphify-status= のエイリアス、既存挙動は変更禁止）。合わせて /boundify-graph-to-dirs の .md 定義ファイルを tools/conver/.claude/commands/ に作成する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存するため同一チケットに統合。\n\n【調査結果】\n1. parseArguments() L93-L106: --graphify-status= のみ受理。--status= も受理する条件に拡張要。\n2. printUsage() L308-L328: 全使用例が --graphify-status= 固定。--status= の例も追記要。\n3. エラーメッセージ L87-L99: フラグ名が --graphify-status= でハードコード。\n4. boundify-graph-to-dirs.md: ファイル存在するが内容空。\n5. boundify-graph-to-dirs.js L359: 出力先は *-BOUNDIFY-Status.json（graphify とは別ファイル）。\n6. update-step-status.test.cjs: 既存 41 ケース、全 PASS。",
           "scope": [
-            "--status=<path> フラグ追加（--graphify-status= と併存・互換）",
-            "boundify-graph-to-dirs.md: 引数説明、導出パス、Step 0〜5、エラー復帰、スクリプトリファレンス"
+            ".claude/scripts/rfc-graph/update-step-status.js — 改修: --status=<path> フラグ拡張 (parseArguments + printUsage + エラーメッセージ)",
+            ".claude/commands/boundify-graph-to-dirs.md — 記述: 前付 + 引数説明 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰",
+            "tests/rfc-graph/update-step-status.test.cjs — 追加: --status= フラグ関連 5テストケース"
           ],
           "testVerification": [
-            "正常系: --status=path → Status.json を操作",
-            "正常系: --graphify-status=path → 従来通り（後方互換）",
-            "正常系: .md ファイルが tools/conver/.claude/commands/ に存在",
-            "異常系: 両方指定もエラーにならない"
+            "UT: --status=path start-step 1 → statusPath=path 正しく抽出",
+            "UT: --graphify-status=path status → 従来通り後方互換",
+            "UT: --graphify-status=a --status=b 両方指定 → エラーにならない",
+            "UT: --status= 空パス → <path> 空エラー",
+            "UT: --stat=path 誤記 → typo エラー",
+            "正常系: update-step-status.test.cjs 既存41ケースが pass（回帰なし）",
+            "手動: test -f .claude/commands/boundify-graph-to-dirs.md → 存在確認"
           ],
           "testExceptions": [
-            ".md はドキュメントのため自動テスト不可（存在確認のみ）"
+            ".md はドキュメントのため自動テスト不可（存在確認のみ手動）"
           ],
-          "instrumentation": "フラグ拡張: 最小限のパース部変更。.md: なし。",
-          "notes": "作業対象範囲: tools/conver/.claude/scripts/rfc-graph/update-step-status.js および tools/conver/.claude/commands/boundify-graph-to-dirs.md"
+          "instrumentation": "【レビュー報告書】\n1. テスト実行: node --test tests/rfc-graph/update-step-status.test.cjs → 47件成功, 0件失敗\n2. 静的品質チェック: 7件のconsole.log検出（全て意図的なCLI標準出力 — サブコマンド実行結果表示と--help表示。P13-1と同様、技術的にconsole.log以外に標準出力手段が存在しないため継続許容）\n3. 翻訳可能性: 全クリア\n   - 全13関数が動詞句（parseArguments, executeStartStep, atomicWrite 等）\n   - 1文字変数なし（for の i は標準的なイテレータ）\n   - マジックナンバー: 0件\n   - コメントは「なぜ」を説明（const 定義の目的、エイリアス導入理由）\n4. find-all-stubs.js: 0件\n5. 不完全実装7パターン探索: 全クリーン\n6. 犯罪スキャン: 0件\n7. 依存関係クロスチェック: 整合性確認済（P13-1 reviewed, P16-1 reviewed, P21-1 reviewed — 循環依存なし）\n8. .md 存在確認: PASS",
+          "notes": "レビュー報告書:\n=== 検証結果 ===\n- テスト: 47件成功（全パス）\n  - 定数: 6件（FLAG_GRAPHIFY_STATUS / FLAG_ALIAS_STATUS 追加分含む）\n  - validateStepNumber: 8件（変更なし）\n  - サブコマンド: 11件（変更なし）\n  - parseArguments: 13件（+5: --status= エイリアス関連）\n  - ファイルI/O: 8件（変更なし）\n  - 統合: 2件（変更なし）\n- 品質チェック: 7件 console.log（意図的 — 継続許容）\n- 不完全実装: 0件\n- スタブ: 0件\n- 犯罪: 0件\n\n=== 翻訳可能性 ===\n- 全13関数が動詞句\n- FLAG_GRAPHIFY_STATUS / FLAG_ALIAS_STATUS const 定義追加（Boy Scout）\n- エラーメッセージ改善（両フラグ対応）\n- コメントは「なぜ」を説明（エイリアス導入の理由、const 定数化の意図）\n\n=== 依存関係クロスチェック ===\n- P13-1 → P21-2: update-step-status.js の親 → 問題なし（P13-1 reviewed）\n- P16-1 → P21-2: .md テンプレートの参考元 → 問題なし（P16-1 reviewed）\n- P21-1 → P21-2: 呼び出し元が後続として参照 → 問題なし（P21-1 reviewed）\n- 循環依存: なし\n\n=== 評価 ===\n- Blocker: なし\n- Major: なし\n- Minor (品質チェッカー): 7件 console.log — 全件意図的CLI出力のため継続許容（P13-1と同じ判断）",
+          "relatedTicketIds": "P13-1 (先行実装元), P16-1 (.md テンプレート), P21-1 (呼び出し元)",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "parseArguments(): --graphify-status= のみ受理",
+              "after": "parseArguments(): --graphify-status= と --status= の両方を受理",
+              "description": ".claude/scripts/rfc-graph/update-step-status.js — フラグエイリアス拡張（const FLAG_GRAPHIFY_STATUS / FLAG_ALIAS_STATUS 定義、条件式&&拡張、エラーメッセージ更新、printUsage 更新）"
+            },
+            {
+              "before": "（空ファイル）",
+              "after": "全Step記述: 前付 + 引数 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰 + 完了報告",
+              "description": ".claude/commands/boundify-graph-to-dirs.md — graphify-rfc.md 準拠のフルスラッシュコマンド定義（--status= フラグ使用）"
+            },
+            {
+              "before": "parseArguments テスト 8ケース",
+              "after": "parseArguments テスト 13ケース（+5: --status= エイリアス互換/status両立/定数存在確認/空パス/typo）",
+              "description": "tests/rfc-graph/update-step-status.test.cjs — 5テストケース追加（全47ケース PASS）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
         }
       ]
     }

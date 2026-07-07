@@ -37,6 +37,12 @@ const ALLOWED_SUBCOMMANDS = [
   'status',
 ];
 
+/** プライマリフラグ: GRAPHIFY-Status.json のパス指定 */
+const FLAG_GRAPHIFY_STATUS = '--graphify-status=';
+
+/** エイリアスフラグ: --graphify-status= のエイリアス、boundify でも汎用的に使用 */
+const FLAG_ALIAS_STATUS = '--status=';
+
 /** Stepの状態: 未着手 */
 const STATUS_PENDING = 'pending';
 
@@ -86,22 +92,22 @@ function parseArguments() {
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
-      '  Usage: update-step-status.js --graphify-status=<path> <subcommand> [N]'
+      '  Usage: update-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]'
     );
   }
 
-  // --graphify-status=<path> のパース
+  // --graphify-status=<path> または --status=<path> のパース
   const statusFlag = args[0];
-  if (!statusFlag.startsWith('--graphify-status=')) {
+  if (!statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) && !statusFlag.startsWith(FLAG_ALIAS_STATUS)) {
     throw new Error(
-      '最初の引数は --graphify-status=<path> である必要があります。\n' +
+      '最初の引数は --graphify-status=<path> または --status=<path> である必要があります。\n' +
       `  実際の値: ${statusFlag}`
     );
   }
   const statusPath = statusFlag.split('=', 2)[1];
   if (!statusPath) {
     throw new Error(
-      '--graphify-status=<path> の <path> が空です。'
+      'パスが空です。--graphify-status=<path> または --status=<path> の <path> に有効なパスを指定してください。'
     );
   }
 
@@ -307,15 +313,15 @@ function exitWithError(message, reason, action) {
  */
 function printUsage() {
   console.log(`
-update-step-status.js — GRAPHIFY-Status.json 管理
+update-step-status.js — GRAPHIFY-Status.json / BOUNDIFY-Status.json 管理
 
 使用方法:
-  node update-step-status.js --graphify-status=<path> start-step <N>
-  node update-step-status.js --graphify-status=<path> end-step <N>
-  node update-step-status.js --graphify-status=<path> fail-step <N>
-  node update-step-status.js --graphify-status=<path> reset-to-step <N>
-  node update-step-status.js --graphify-status=<path> status
+  node update-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]
   node update-step-status.js --help
+
+フラグ:
+  --graphify-status=<path>  GRAPHIFY-Status.json のパス（従来形式）
+  --status=<path>           上記のエイリアス（boundify 等でも汎用的に使用）
 
 サブコマンド:
   start-step <N>    Step N を開始（running, currentStep=N）
@@ -463,6 +469,8 @@ module.exports = {
   MIN_STEP,
   MAX_STEP,
   ALLOWED_SUBCOMMANDS,
+  FLAG_GRAPHIFY_STATUS,
+  FLAG_ALIAS_STATUS,
   STATUS_PENDING,
   STATUS_RUNNING,
   STATUS_DONE,
