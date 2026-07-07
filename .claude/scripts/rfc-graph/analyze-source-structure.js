@@ -290,14 +290,17 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     });
   }
 
-  // 各セクションの範囲を確定
+  // 各セクションの範囲を確定（次の同レベル以上の見出しの直前まで）
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
-    if (i < sections.length - 1) {
-      sec.endLine = sections[i + 1].startLine - 1;
-    } else {
-      sec.endLine = sourceLines.length;
+    let endLine = sourceLines.length;
+    for (let j = i + 1; j < sections.length; j++) {
+      if (sections[j].level <= sec.level) {
+        endLine = sections[j].startLine - 1;
+        break;
+      }
     }
+    sec.endLine = endLine;
 
     // セクション内の記述行数とコードブロック件数を計算
     let proseCount = 0;
@@ -355,6 +358,30 @@ function estimateKind(heading, bodyText) {
   }
 
   return matches;
+}
+
+/**
+ * 本文から正規表現パターンにマッチした文字列を収集する（重複除去・最大5件）
+ *
+ * @param {string} bodyText — 検索対象の本文テキスト
+ * @param {RegExp[]} patterns — 照合する正規表現の配列
+ * @returns {string[]} マッチした文字列の配列（部分一致を含む）
+ */
+function collectBodyMatches(bodyText, patterns) {
+  const matches = [];
+  for (const re of patterns) {
+    const results = bodyText.match(re);
+    if (results) {
+      for (const m of results.slice(0, 3)) {
+        if (m.length === 0) continue;
+        const truncated = m.length > 30 ? m.substring(0, 30) + '…' : m;
+        if (!matches.includes(truncated)) {
+          matches.push(truncated);
+        }
+      }
+    }
+  }
+  return matches.slice(0, 5);
 }
 
 // ============================================================
@@ -495,10 +522,12 @@ function generateReport(sourcePath, sourceLines) {
         if (!pattern) continue;
         const headingMatch = pattern.heading.some(re => re.test(sec.heading));
         if (headingMatch) {
-          const matched = pattern.heading.find(re => re.test(sec.heading));
-          reasons.push(`見出しに "${sec.heading.match(/[^ ]+$/) || sec.heading}"`);
+          reasons.push(`見出しに "${sec.heading}"`);
         } else {
-          reasons.push(`本文キーワード`);
+          const bodyMatches = collectBodyMatches(sec.bodyText, pattern.body);
+          reasons.push(bodyMatches.length > 0
+            ? `本文に "${bodyMatches.slice(0, 3).join('", "')}"`
+            : `本文キーワード`);
         }
       }
       kindHints.push({
@@ -564,6 +593,7 @@ module.exports = {
   extractCodeBlocks,
   extractHeadingTree,
   estimateKind,
+  collectBodyMatches,
   detectExternalDeps,
   formatReport,
   generateReport,

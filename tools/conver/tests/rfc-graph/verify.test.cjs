@@ -17,6 +17,8 @@ const {
   parseArguments,
   readGraph,
   readSourceFile,
+  extractHeadings,
+  isHeadingCovered,
   checkCoverage,
   checkIsolated,
   exitWithResult,
@@ -76,16 +78,28 @@ function writeSourceFile(fileName, lines) {
  * テスト用の有効なノードを作成する
  *
  * @param {string} id — ノードID
- * @param {Array} sourceRanges — sourceRanges 配列
+ * @param {Array} headingRefs — headingRefs 配列
  * @returns {Object} ノードデータ
  */
-function createTestNode(id, sourceRanges) {
+/** headingRefs形式のテストノード作成（カバレッジテスト用） */
+function createCoverageNode(id, headingRefs) {
+  return {
+    id,
+    title: "テストノード " + id,
+    kind: "requirement",
+    summary: "これはverify.jsのテスト用ノードです。",
+    headingRefs,
+  };
+}
+
+/** 見出し参照を含むテストノード作成 */
+function createTestNode(id, headingRefs) {
   return {
     id,
     title: 'テストノード ' + id,
     kind: 'requirement',
     summary: 'テスト用ノード',
-    sourceRanges,
+    headingRefs,
   };
 }
 
@@ -163,7 +177,7 @@ describe('verify.js — readGraph', () => {
   it('正常系: 有効なグラフJSONを読み込む', () => {
     const graphData = {
       sourceFile: '/test/source.md',
-      nodes: [createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 3 }])],
+      nodes: [createTestNode('N0001', [{ refId: 'REF001', heading:1, texts:["test"]}])],
       edges: [],
     };
     const graphPath = writeGraphFile('valid-graph.json', graphData);
@@ -225,67 +239,128 @@ describe('verify.js — readSourceFile', () => {
   });
 });
 
+describe('verify.js — extractHeadings', () => {
+  it('正常系: 大見出し（##）を抽出する', () => {
+    const sourceLines = [
+      '# タイトル',
+      '## 要件定義',
+      '本文',
+      '### サブ',
+      '## アーキテクチャ',
+    ];
+    const result = extractHeadings(sourceLines);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].text, '要件定義');
+    assert.equal(result[0].level, 2);
+    assert.equal(result[1].text, 'アーキテクチャ');
+  });
+
+  it('正常系: 見出しがない場合に空配列を返す', () => {
+    const result = extractHeadings(['本文のみ', 'さらに本文']);
+    assert.deepEqual(result, []);
+  });
+
+  it('正常系: 空行のみで空配列を返す', () => {
+    const result = extractHeadings(['', '  ']);
+    assert.deepEqual(result, []);
+  });
+
+  it('正常系: h1 や h3 は抽出対象外', () => {
+    const result = extractHeadings(['# h1', '## h2', '### h3']);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].text, 'h2');
+  });
+});
+
 describe('verify.js — checkCoverage', () => {
-  it('正常系: 全行カバーされている', () => {
-    const sourceLines = ['行1', '行2', '行3'];
+  it('正常系: 全見出しが headingRefs でカバーされている', () => {
+    const sourceLines = [
+      '## 要件定義',
+      '内容1',
+      '## アーキテクチャ',
+      '内容2',
+    ];
     const nodes = [
-      createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 3 }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
+      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
+    assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: 空行はカバレッジ対象外', () => {
-    const sourceLines = ['行1', '', '行3'];
-    const nodes = [
-      createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 1 }]),
-      createTestNode('N0002', [{ refId: 'REF002', startLine: 3, endLine: 3 }]),
+  it('異常系: 未カバー見出しを検出する', () => {
+    const sourceLines = [
+      '## 要件定義',
+      '内容1',
+      '## アーキテクチャ',
+      '内容2',
+      '## セキュリティ',
+      '内容3',
     ];
-    const result = checkCoverage(sourceLines, nodes);
-    assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
-  });
-
-  it('異常系: 未カバー行を検出する', () => {
-    const sourceLines = ['行1', '行2', '行3'];
     const nodes = [
-      createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 1 }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
+      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, false);
-    assert.deepEqual(result.uncoveredLines, [2, 3]);
+    assert.deepEqual(result.uncoveredHeadings, ['セキュリティ']);
   });
 
-  it('境界値: 空のソース', () => {
+  it('正常系: 空のソースはカバー済みとみなす', () => {
     const sourceLines = [];
     const nodes = [];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
+    assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: 複数ノード＋範囲重複', () => {
-    const sourceLines = ['行1', '行2', '行3', '行4', '行5'];
+  it('正常系: 見出しがないソースはカバー済みとみなす', () => {
+    const sourceLines = ['行1', '行2', '行3'];
+    const nodes = [];
+    const result = checkCoverage(sourceLines, nodes);
+    assert.equal(result.covered, true);
+    assert.deepEqual(result.uncoveredHeadings, []);
+  });
+
+  it('正常系: headingRefs がないノードは無視する', () => {
+    const sourceLines = ['## 要件定義', '内容'];
     const nodes = [
-      createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 3 }]),
-      createTestNode('N0002', [{ refId: 'REF002', startLine: 3, endLine: 5 }]),
+      { id: 'N0001', title: '空', kind: 'requirement', summary: '空', headingRefs: [] },
+    ];
+    const result = checkCoverage(sourceLines, nodes);
+    assert.equal(result.covered, false);
+    assert.deepEqual(result.uncoveredHeadings, ['要件定義']);
+  });
+
+  it('正常系: 部分的に heading テキストが一致する場合もカバー済み', () => {
+    const sourceLines = ['## 要件定義詳細', '内容'];
+    const nodes = [
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
+    assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: ソースRangesがないノードは無視する', () => {
-    const sourceLines = ['行1', '行2'];
+  it('正常系: texts に複数トークンがある場合も正しくマッチ', () => {
+    const sourceLines = ['## エラー処理方針', '内容'];
     const nodes = [
-      createTestNode('N0001', [{ refId: 'REF001', startLine: 1, endLine: 2 }]),
-      { id: 'N0002', title: '空', kind: 'requirement', summary: '空', sourceRanges: [] },
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['error_policy', 'エラー処理'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
-    // N0002 は sourceRanges が空 → カバレッジに影響なし
     assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
+    assert.deepEqual(result.uncoveredHeadings, []);
+  });
+
+  it('異常系: heading レベルが一致しない場合はカバーされない', () => {
+    const sourceLines = ['## 要件定義'];
+    const nodes = [
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 3, texts: ['要件定義'] }]),
+    ];
+    const result = checkCoverage(sourceLines, nodes);
+    assert.equal(result.covered, false);
+    assert.deepEqual(result.uncoveredHeadings, ['要件定義']);
   });
 });
 
@@ -375,7 +450,7 @@ describe('verify.js — exitWithResult', () => {
       console.log = () => {};
       process.stderr.write = (msg) => { stderrOutput += msg; };
 
-      exitWithResult(false, [2, 3], ['N0003']);
+      exitWithResult(false, ['要件定義', 'アーキテクチャ'], ['N0003']);
 
       process.exit = originalExit;
       console.log = originalStdout;
@@ -387,7 +462,7 @@ describe('verify.js — exitWithResult', () => {
     }
   });
 
-  it('異常系: 未カバー行のみのエラーメッセージ', () => {
+  it('異常系: 未カバー見出しのみのエラーメッセージ', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -396,7 +471,7 @@ describe('verify.js — exitWithResult', () => {
       console.log = () => {};
       process.stderr.write = (msg) => { stderrOutput += msg; };
 
-      exitWithResult(false, [2], []);
+      exitWithResult(false, ['セキュリティ'], []);
 
       process.exit = originalExit;
       console.log = originalStdout;

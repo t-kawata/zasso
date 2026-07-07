@@ -39,9 +39,9 @@ let graphFilePath;
 const MINIMAL_GRAPH = {
   sourceFile: '/tmp/test-rfc.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: 'ログイン機能', summary: 'ユーザーログイン', sourceRanges: [{ startLine: 1, endLine: 3 }] },
-    { id: 'N0002', kind: 'api_contract', title: 'POST /login', summary: 'ログインAPI', sourceRanges: [{ startLine: 5, endLine: 10 }] },
-    { id: 'N0003', kind: 'data_model', title: 'User型', summary: 'ユーザーデータ', sourceRanges: [{ startLine: 12, endLine: 15 }] },
+    { id: 'N0001', kind: 'requirement', title: 'ログイン機能', summary: 'ユーザーログイン', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'api_contract', title: 'POST /login', summary: 'ログインAPI', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'data_model', title: 'User型', summary: 'ユーザーデータ', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0002', type: 'refines', attributes: { strength: 0.8, bidirectional: false } },
@@ -53,8 +53,8 @@ const MINIMAL_GRAPH = {
 const GRAPH_WITH_ISOLATED = {
   sourceFile: '/tmp/test-isolated.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: '要件A', summary: '', sourceRanges: [{ startLine: 1, endLine: 2 }] },
-    { id: 'N0002', kind: 'requirement', title: '要件B（孤立）', summary: '', sourceRanges: [{ startLine: 4, endLine: 5 }] },
+    { id: 'N0001', kind: 'requirement', title: '要件A', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'requirement', title: '要件B（孤立）', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [],
 };
@@ -70,12 +70,12 @@ const EMPTY_GRAPH = {
 const DIVERSE_GRAPH = {
   sourceFile: '/tmp/diverse.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: 'R1', summary: '', sourceRanges: [{ startLine: 1, endLine: 1 }] },
-    { id: 'N0002', kind: 'requirement', title: 'R2', summary: '', sourceRanges: [{ startLine: 2, endLine: 2 }] },
-    { id: 'N0003', kind: 'api_contract', title: 'API1', summary: '', sourceRanges: [{ startLine: 3, endLine: 3 }] },
-    { id: 'N0004', kind: 'data_model', title: 'D1', summary: '', sourceRanges: [{ startLine: 4, endLine: 4 }] },
-    { id: 'N0005', kind: 'rationale', title: '理由', summary: '', sourceRanges: [{ startLine: 5, endLine: 5 }] },
-    { id: 'N0006', kind: 'glossary', title: '用語', summary: '', sourceRanges: [{ startLine: 6, endLine: 6 }] },
+    { id: 'N0001', kind: 'requirement', title: 'R1', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'requirement', title: 'R2', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'api_contract', title: 'API1', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0004', kind: 'data_model', title: 'D1', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0005', kind: 'rationale', title: '理由', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0006', kind: 'glossary', title: '用語', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0003', type: 'depends_on', attributes: {} },

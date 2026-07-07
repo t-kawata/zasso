@@ -52,7 +52,7 @@ function createTestNode(id, kind) {
     title: 'テストノード ' + id,
     kind,
     summary: 'これはテスト用ノードです。',
-    sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 5 }],
+    headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}],
   };
 }
 
@@ -292,7 +292,7 @@ describe('crud.js — executeCreateNodes', () => {
 
   it('スキーマ違反のノードでエラー終了する（未実装はタイトルは必須のため、空文字列でテスト）', () => {
     const graph = createTestGraph();
-    const invalidNode = { id: 'N0001', title: '', kind: 'requirement', summary: 'test', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 5 }] };
+    const invalidNode = { id: 'N0001', title: '', kind: 'requirement', summary: 'test', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]};
     assert.throws(
       () => executeCreateNodes(graph, [invalidNode]),
       /スキーマ検証に失敗しました/

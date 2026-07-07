@@ -30,7 +30,7 @@ function createValidNode(overrides) {
       title: "認証要件",
       kind: "requirement",
       summary: "ユーザー認証に関する要件定義",
-      sourceRanges: [{ refId: "REF001", startLine: 10, endLine: 25 }],
+      headingRefs: [{ refId: "REF001", heading: 2, texts: ["要件", "認証"] }],
     },
     overrides
   );
@@ -187,7 +187,7 @@ describe("graph.schema.json — 正常系", () => {
 // ============================================================
 
 describe("node.schema.json — 異常系（必須フィールド欠落）", () => {
-  const REQUIRED_FIELDS = ["id", "title", "kind", "summary", "sourceRanges"];
+  const REQUIRED_FIELDS = ["id", "title", "kind", "summary", "headingRefs"];
 
   for (const field of REQUIRED_FIELDS) {
     it(`必須フィールド "${field}" 欠落で検証失敗する`, () => {

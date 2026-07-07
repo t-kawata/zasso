@@ -22,10 +22,10 @@ const path = require('path');
 // 定数定義
 // ============================================================
 
-/** 最小のStep番号 */
-const MIN_STEP = 1;
+/** 最小のStep番号（Step 0: 見出し重複排除） */
+const MIN_STEP = 0;
 
-/** 最大のStep番号（graphify-rfc は5Step固定） */
+/** 最大のStep番号（graphify-rfc は6Step + Step 0 の7Step構成） */
 const MAX_STEP = 6;
 
 /** 認容されるサブコマンド名の配列 */
@@ -60,7 +60,7 @@ const STATUS_ERROR = 'error';
  * @property {string} sourceFile — グラフ化対象のソースファイルパス
  * @property {string} graphFile — 出力先グラフファイルパス
  * @property {number} currentStep — 現在の進行Step番号
- * @property {Object<string, string>} steps — Step1〜5の状態マップ（キーは文字列 "1"〜"5"）
+ * @property {Object<string, string>} steps — Step0〜6の状態マップ（キーは文字列 "0"〜"6"）
  */
 
 // ============================================================

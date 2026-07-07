@@ -48,7 +48,7 @@ function deduplicateHeadings(lines) {
     const text = match[2].trim();
     const key = `${level}:${text}`;
 
-    if (!seen[key]) {
+    if (seen[key] === undefined) {
       seen[key] = 0;
       return line;
     }

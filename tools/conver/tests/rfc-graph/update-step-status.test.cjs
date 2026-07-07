@@ -52,7 +52,7 @@ let testStatusPath;
  */
 function createTestStatus(currentStep = 1, overrides = {}) {
   const steps = {};
-  for (let i = 1; i <= MAX_STEP; i++) {
+  for (let i = MIN_STEP; i <= MAX_STEP; i++) {
     steps[String(i)] = STATUS_PENDING;
   }
   Object.assign(steps, overrides);
@@ -81,8 +81,8 @@ function writeTestStatusFile(data) {
 // ============================================================
 
 describe('定数', () => {
-  it('MIN_STEP は 1 である', () => {
-    assert.strictEqual(MIN_STEP, 1);
+  it('MIN_STEP は 0 である', () => {
+    assert.strictEqual(MIN_STEP, 0);
   });
 
   it('MAX_STEP は 6 である', () => {
@@ -124,8 +124,8 @@ describe('validateStepNumber()', () => {
     assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('0 は無効なStep番号（範囲未満）', () => {
-    assert.strictEqual(validateStepNumber(0), false);
+  it('0 は有効なStep番号（Step 0: 見出し重複排除）', () => {
+    assert.strictEqual(validateStepNumber(0), true);
   });
 
   it('6 は有効なStep番号（範囲上限）', () => {
@@ -343,10 +343,10 @@ describe('ファイルI/O', () => {
       const status = createDefaultStatus(nonExistentPath);
       assert.ok(status.sourceFile.endsWith('non-existent.md'));
       assert.ok(status.graphFile.endsWith('non-existent-GRAPH.json'));
-      assert.strictEqual(status.currentStep, 1);
-      assert.strictEqual(status.steps['1'], STATUS_PENDING);
+      assert.strictEqual(status.currentStep, MIN_STEP);
+      assert.strictEqual(status.steps['0'], STATUS_PENDING);
       assert.strictEqual(status.steps['5'], STATUS_PENDING);
-      assert.strictEqual(Object.keys(status.steps).length, MAX_STEP);
+      assert.strictEqual(Object.keys(status.steps).length, MAX_STEP - MIN_STEP + 1);
     });
   });
 
@@ -362,8 +362,8 @@ describe('ファイルI/O', () => {
     it('存在しないファイルはデフォルト状態を返す', () => {
       const nonExistentPath = path.join(tmpDir, 'no-such-file-GRAPHIFY-Status.json');
       const status = readStatus(nonExistentPath);
-      assert.strictEqual(status.currentStep, 1);
-      assert.strictEqual(status.steps['1'], STATUS_PENDING);
+      assert.strictEqual(status.currentStep, MIN_STEP);
+      assert.strictEqual(status.steps['0'], STATUS_PENDING);
     });
 
     it('不正なJSONファイルでエラーを投げる', () => {
@@ -454,12 +454,12 @@ describe('read-modify-write 統合', () => {
   it('存在しないファイルから始めて full flow（start→end→reset）', () => {
     const statusPath = path.join(tmpDir, 'full-flow-GRAPHIFY-Status.json');
 
-    // Step 1: ファイルなしからデフォルト読み込み
+    // Step 1: ファイルなしからデフォルト読み込み（MIN_STEP から開始）
     let status = readStatus(statusPath);
-    assert.strictEqual(status.currentStep, 1);
-    assert.strictEqual(status.steps['1'], STATUS_PENDING);
+    assert.strictEqual(status.currentStep, MIN_STEP);
+    assert.strictEqual(status.steps['0'], STATUS_PENDING);
 
-    // Step 2: start-step 1
+    // Step 2: start-step 1 に進む
     executeStartStep(status, 1);
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
     status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));

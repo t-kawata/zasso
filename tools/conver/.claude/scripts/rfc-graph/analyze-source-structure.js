@@ -290,14 +290,17 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     });
   }
 
-  // 各セクションの範囲を確定
+  // 各セクションの範囲を確定（次の同レベル以上の見出しの直前まで）
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
-    if (i < sections.length - 1) {
-      sec.endLine = sections[i + 1].startLine - 1;
-    } else {
-      sec.endLine = sourceLines.length;
+    let endLine = sourceLines.length;
+    for (let j = i + 1; j < sections.length; j++) {
+      if (sections[j].level <= sec.level) {
+        endLine = sections[j].startLine - 1;
+        break;
+      }
     }
+    sec.endLine = endLine;
 
     // セクション内の記述行数とコードブロック件数を計算
     let proseCount = 0;
@@ -357,6 +360,30 @@ function estimateKind(heading, bodyText) {
   return matches;
 }
 
+/**
+ * 本文から正規表現パターンにマッチした文字列を収集する（重複除去・最大5件）
+ *
+ * @param {string} bodyText — 検索対象の本文テキスト
+ * @param {RegExp[]} patterns — 照合する正規表現の配列
+ * @returns {string[]} マッチした文字列の配列（部分一致を含む）
+ */
+function collectBodyMatches(bodyText, patterns) {
+  const matches = [];
+  for (const re of patterns) {
+    const results = bodyText.match(re);
+    if (results) {
+      for (const m of results.slice(0, 3)) {
+        if (m.length === 0) continue;
+        const truncated = m.length > 30 ? m.substring(0, 30) + '…' : m;
+        if (!matches.includes(truncated)) {
+          matches.push(truncated);
+        }
+      }
+    }
+  }
+  return matches.slice(0, 5);
+}
+
 // ============================================================
 // 外部依存検出（第3軸支援）
 // ============================================================
@@ -382,9 +409,40 @@ function detectExternalDeps(bodyText) {
 // ============================================================
 
 /**
+ * 見出しテキストからトークン列を機械的に抽出する
+ *
+ * 日本語・英語の見出しテキストを空白と記号類で分割し、
+ * 意味のある単位の配列として返す。空文字列は除外する。
+ * スラッシュ（/）は分割しない（パスやURLを保持するため）。
+ *
+ * @param {string} headingText — 見出しテキスト
+ * @returns {string[]} トークン列
+ */
+function extractHeadingTokens(headingText) {
+  return headingText.split(/[\s、。，．・：；（）\[\]{}「」『』【】　\\]+/).filter(Boolean);
+}
+
+/**
+ * セクション情報から候補 headingRefs を生成する
+ *
+ * 機械的なトークン抽出結果であり、AI が判断を上書き可能。
+ *
+ * @param {Array} sections — セクション配列
+ * @returns {Array<{ lineRange: string, heading: number, texts: string[] }>}
+ */
+function generateCandidateHeadingRefs(sections) {
+  return sections.map(sec => ({
+    lineRange: `L${sec.startLine}-L${sec.endLine}`,
+    heading: sec.level,
+    texts: extractHeadingTokens(sec.heading),
+  }));
+}
+
+/**
  * 自然言語レポートとして整形する
  *
  * 第2軸・第3軸の出力には「機械的な候補でありAIが判断を上書き可能」の但し書きを含める。
+ * 第4軸（候補 headingRefs）も同様。
  *
  * @param {string} sourcePath — 解析対象ファイルパス
  * @param {number} totalLines — 総行数
@@ -393,9 +451,10 @@ function detectExternalDeps(bodyText) {
  * @param {Array} kindHints — { lineRange, kind, reason }[]
  * @param {Array} deps — { lineRange, labels }[]
  * @param {Array} longSections — { lineRange, label, proseLines }[]
+ * @param {Array} headingRefCandidates — { lineRange, heading, texts }[]
  * @returns {string}
  */
-function formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections) {
+function formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections, headingRefCandidates) {
   const proseLines = totalLines - codeLines;
   const lines = [];
 
@@ -415,7 +474,8 @@ function formatReport(sourcePath, totalLines, codeLines, sections, kindHints, de
     const proseStr = sec.proseLines > 0 ? `${sec.proseLines}行${codeInfo}` : '';
     const indent = sec.level > 0 ? '  '.repeat(sec.level - 1) : '';
     const sep = sec.proseLines > 0 ? '  ' : '';
-    lines.push(`${indent}${hTag}: L${sec.startLine}-L${sec.endLine}${sep}${proseStr}  ${sec.heading}`);
+    const textsStr = `[texts: ${extractHeadingTokens(sec.heading).join(' / ')}]`;
+    lines.push(`${indent}${hTag}: L${sec.startLine}-L${sec.endLine}${sep}${proseStr}  ${textsStr}  ${sec.heading}`);
   }
   lines.push('');
 
@@ -437,6 +497,18 @@ function formatReport(sourcePath, totalLines, codeLines, sections, kindHints, de
   } else {
     for (const dep of deps) {
       lines.push(`${dep.lineRange}  ${dep.labels.join('、')}`);
+    }
+  }
+  lines.push('');
+
+  // 候補 headingRefs（第4軸）
+  lines.push(`## 候補 headingRefs（機械的抽出。AI が判断を上書き可能）`);
+  if (!headingRefCandidates || headingRefCandidates.length === 0) {
+    lines.push('該当なし（セクションが存在しないため候補を生成できませんでした）');
+  } else {
+    for (const cand of headingRefCandidates) {
+      const headingLabel = cand.heading > 0 ? `h${cand.heading}` : 'title';
+      lines.push(`${cand.lineRange}  ${headingLabel}: [${cand.texts.join(', ')}]`);
     }
   }
   lines.push('');
@@ -495,10 +567,12 @@ function generateReport(sourcePath, sourceLines) {
         if (!pattern) continue;
         const headingMatch = pattern.heading.some(re => re.test(sec.heading));
         if (headingMatch) {
-          const matched = pattern.heading.find(re => re.test(sec.heading));
-          reasons.push(`見出しに "${sec.heading.match(/[^ ]+$/) || sec.heading}"`);
+          reasons.push(`見出しに "${sec.heading}"`);
         } else {
-          reasons.push(`本文キーワード`);
+          const bodyMatches = collectBodyMatches(sec.bodyText, pattern.body);
+          reasons.push(bodyMatches.length > 0
+            ? `本文に "${bodyMatches.slice(0, 3).join('", "')}"`
+            : `本文キーワード`);
         }
       }
       kindHints.push({
@@ -533,7 +607,10 @@ function generateReport(sourcePath, sourceLines) {
     }
   }
 
-  return formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections);
+  // 候補 headingRefs
+  const headingRefCandidates = generateCandidateHeadingRefs(sections);
+
+  return formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections, headingRefCandidates);
 }
 
 // ============================================================
@@ -564,7 +641,10 @@ module.exports = {
   extractCodeBlocks,
   extractHeadingTree,
   estimateKind,
+  collectBodyMatches,
   detectExternalDeps,
+  extractHeadingTokens,
+  generateCandidateHeadingRefs,
   formatReport,
   generateReport,
   KIND_PATTERNS,

@@ -17,7 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { resolveCurrentLines } = require('./query.js');
+const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
 // 定数
@@ -205,19 +205,22 @@ function generateSummary(graph, sourceText) {
     lines.push(`## ${kind} (${nodes.length})`);
 
     for (const node of nodes) {
-      // 行番号を動的解決
+      // 見出しで行位置を動的解決
       let lineRange = '';
-      if (Array.isArray(node.sourceRanges) && node.sourceRanges.length > 0) {
-        const firstRef = node.sourceRanges[0].refId;
-        if (firstRef) {
-          const resolved = resolveCurrentLines(sourceText, firstRef);
-          if (resolved && resolved.length > 0) {
-            lineRange = ` [L${resolved[0].startLine}-L${resolved[0].endLine}]`;
+      if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
+        const firstRef = node.headingRefs[0];
+        if (firstRef.refId) {
+          const sourceLines = (typeof sourceText === 'string') ? sourceText.split('\n') : sourceText;
+          const resolved = resolveByHeading(sourceLines, firstRef.heading, firstRef.texts);
+          if (resolved) {
+            const headingLabel = firstRef.heading > 0 ? `h${firstRef.heading}` : 'title';
+            const headingSummary = firstRef.texts.slice(0, 2).join(' ');
+            lineRange = ` [${headingLabel}: ${headingSummary}]`;
           }
         }
       }
 
-      // title + summary(要約) + 行番号
+      // title + summary(要約) + 見出し表示
       const summaryText = truncateSummary(node.summary);
       lines.push(`  ${formatTitle(node)}(${summaryText})${lineRange}`);
 
