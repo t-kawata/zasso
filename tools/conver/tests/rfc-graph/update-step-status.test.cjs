@@ -85,8 +85,8 @@ describe('定数', () => {
     assert.strictEqual(MIN_STEP, 0);
   });
 
-  it('MAX_STEP は 6 である', () => {
-    assert.strictEqual(MAX_STEP, 6);
+  it('MAX_STEP は 5 である', () => {
+    assert.strictEqual(MAX_STEP, 5);
   });
 
   it('ALLOWED_SUBCOMMANDS は5つのサブコマンド名を持つ', () => {
@@ -128,12 +128,12 @@ describe('validateStepNumber()', () => {
     assert.strictEqual(validateStepNumber(0), true);
   });
 
-  it('6 は有効なStep番号（範囲上限）', () => {
-    assert.strictEqual(validateStepNumber(6), true);
+  it('5 は有効なStep番号（範囲上限）', () => {
+    assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('7 は無効なStep番号（範囲超過）', () => {
-    assert.strictEqual(validateStepNumber(7), false);
+  it('6 は無効なStep番号（範囲超過）', () => {
+    assert.strictEqual(validateStepNumber(6), false);
   });
 
   it('負の数は無効なStep番号', () => {

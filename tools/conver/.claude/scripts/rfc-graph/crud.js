@@ -547,6 +547,11 @@ function main() {
 
     // アトミック書込
     atomicWrite(graphPath, JSON.stringify(graph, null, 2));
+
+    // 消費済みの入力ファイルを削除（使用後はゴミを残さない）
+    if (filePath) {
+      try { fs.unlinkSync(filePath); } catch { /* 削除できなくても処理自体は成功 */ }
+    }
   } catch (operationError) {
     exitWithError(
       `${subcommand} の実行中にエラーが発生しました。`,

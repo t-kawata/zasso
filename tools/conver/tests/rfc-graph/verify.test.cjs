@@ -21,6 +21,7 @@ const {
   isHeadingCovered,
   checkCoverage,
   checkIsolated,
+  checkResolvability,
   exitWithResult,
   printUsage,
 } = require('../../.claude/scripts/rfc-graph/verify.js');
@@ -421,6 +422,80 @@ describe('verify.js — checkIsolated', () => {
   });
 });
 
+describe('verify.js — checkResolvability', () => {
+  it('正常系: 全 headingRefs が解決可能', () => {
+    const sourceLines = [
+      '# タイトル',
+      '## 要件定義',
+      '内容1',
+      '## アーキテクチャ',
+      '内容2',
+    ];
+    const nodes = [
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }] },
+      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }] },
+    ];
+    const result = checkResolvability(sourceLines, nodes);
+    assert.equal(result.resolvable, true);
+    assert.deepEqual(result.unresolvableRefs, []);
+  });
+
+  it('異常系: 解決不能な headingRefs を検出する', () => {
+    const sourceLines = [
+      '## 要件定義',
+      '内容',
+      '## アーキテクチャ',
+      '内容',
+    ];
+    const nodes = [
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['存在しないセクション'] }] },
+    ];
+    const result = checkResolvability(sourceLines, nodes);
+    assert.equal(result.resolvable, false);
+    assert.equal(result.unresolvableRefs.length, 1);
+    assert.equal(result.unresolvableRefs[0].nodeId, 'N0001');
+    assert.equal(result.unresolvableRefs[0].refId, 'REF001');
+  });
+
+  it('異常系: heading レベルが一致しない場合は解決不能', () => {
+    const sourceLines = [
+      '## 要件定義',
+      '内容',
+    ];
+    const nodes = [
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 3, texts: ['要件定義'] }] },
+    ];
+    const result = checkResolvability(sourceLines, nodes);
+    assert.equal(result.resolvable, false);
+    assert.equal(result.unresolvableRefs.length, 1);
+  });
+
+  it('正常系: headingRefs がないノードは無視する', () => {
+    const sourceLines = ['## 要件定義'];
+    const nodes = [
+      { id: 'N0001', headingRefs: [] },
+      { id: 'N0002' },
+    ];
+    const result = checkResolvability(sourceLines, nodes);
+    assert.equal(result.resolvable, true);
+    assert.deepEqual(result.unresolvableRefs, []);
+  });
+
+  it('正常系: 複数ノードにまたがる解決不能をすべて報告する', () => {
+    const sourceLines = ['## 要件定義', '内容'];
+    const nodes = [
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }] },
+      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['幻のセクション'] }] },
+      { id: 'N0003', headingRefs: [{ refId: 'REF003', heading: 2, texts: ['消えたセクション'] }] },
+    ];
+    const result = checkResolvability(sourceLines, nodes);
+    assert.equal(result.resolvable, false);
+    assert.equal(result.unresolvableRefs.length, 2);
+    assert.equal(result.unresolvableRefs[0].nodeId, 'N0002');
+    assert.equal(result.unresolvableRefs[1].nodeId, 'N0003');
+  });
+});
+
 describe('verify.js — exitWithResult', () => {
   it('正常系: ok=true で stderr 出力なし', () => {
     try {
@@ -499,6 +574,32 @@ describe('verify.js — exitWithResult', () => {
       assert.ok(stderrOutput.includes('[ERROR]'));
       assert.ok(stderrOutput.includes('孤立ノード'));
       assert.ok(!stderrOutput.includes('未カバー'));
+    } finally {
+      // process.exit と console.log は try 内で明示的に復元
+    }
+  });
+
+  it('異常系: 解決不能 headingRefs のエラーメッセージ', () => {
+    try {
+      let stderrOutput = '';
+      const originalExit = process.exit;
+      process.exit = () => {};
+      const originalStdout = console.log;
+      console.log = () => {};
+      process.stderr.write = (msg) => { stderrOutput += msg; };
+
+      exitWithResult(false, [], [], [
+        { nodeId: 'N0001', refId: 'REF001', heading: 2, texts: ['存在しない'] },
+      ]);
+
+      process.exit = originalExit;
+      console.log = originalStdout;
+      assert.ok(stderrOutput.includes('[ERROR]'));
+      assert.ok(stderrOutput.includes('解決不能'));
+      assert.ok(stderrOutput.includes('N0001'));
+      assert.ok(stderrOutput.includes('REF001'));
+      assert.ok(!stderrOutput.includes('未カバー'));
+      assert.ok(!stderrOutput.includes('孤立'));
     } finally {
       // process.exit と console.log は try 内で明示的に復元
     }

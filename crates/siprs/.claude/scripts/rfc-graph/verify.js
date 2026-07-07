@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * verify.js — カバレッジ・孤立ノード検証
+ * verify.js — カバレッジ・孤立ノード検証 + headingRefs 解決可能性検証
  *
- * graphify-rfc Step 3 で使用する。グラフファイルのノードがソースファイルの全行を
- * カバーしているか（空行除く）、および全ノードが最低1本のエッジで接続されているかを検証する。
+ * graphify-rfc Step 3 で使用する。グラフファイルのノードがソースファイルの全見出し
+ * （`## `）を headingRefs 経由でカバーしているか、全ノードが最低1本のエッジで
+ * 接続されているか、および全 headingRefs が resolve-by-heading.js で一意に
+ * 解決可能かを検証する。
  *
  * CLI: verify.js --graph=<path> --source=<path>
  *
  * 出力契約:
  *   正常時 → {"ok":true}（終了コード0）
- *   異常時 → {"ok":false, "uncoveredLines":[...], "isolatedNodes":[...]}（終了コード1）
+ *   異常時 → {"ok":false, "uncoveredHeadings":[...], "isolatedNodes":[...], "unresolvableRefs":[...]}（終了コード1）
  *   異常時は stderr に3段テンプレートの自然言語エラーも出力する。
  */
 
 const fs = require('fs');
 const path = require('path');
+const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
 // 定数定義
@@ -173,40 +176,78 @@ function readSourceFile(sourcePath) {
 // ============================================================
 
 /**
- * 未カバー行を検出する（空行は対象外）
+ * ソースファイルから大見出し（`## `）を抽出する
  *
- * ソースファイルの全行のうち、空行以外の行が各ノードの sourceRanges に
- * 含まれているかを検証する。行番号は1-indexed。
+ * @param {string[]} sourceLines — ソースファイルの行配列
+ * @returns {Array<{ line: number, level: number, text: string, tokens: string[] }>}
+ *   大見出しのリスト（行番号1-indexed、見出しレベル、見出しテキスト、トークン列）
+ */
+function extractHeadings(sourceLines) {
+  const headings = [];
+  for (let i = 0; i < sourceLines.length; i++) {
+    const match = sourceLines[i].match(/^#{2,2}\s+(.+)/);
+    if (match) {
+      headings.push({
+        line: i + 1,
+        level: 2,
+        text: match[1].trim(),
+        tokens: match[1].trim().split(/[\s、。，．・：；（）\[\]{}「」『』【】　]+/).filter(Boolean),
+      });
+    }
+  }
+  return headings;
+}
+
+/**
+ * 1つの見出しがいずれかのノードの headingRefs でカバーされているかを判定する
+ *
+ * 見出しレベルが一致し、かつ headingRefs の texts のいずれかが見出しテキストと
+ * 部分一致する場合に「カバー済み」とみなす。
+ *
+ * @param {{ line: number, level: number, text: string, tokens: string[] }} heading
+ *   判定対象の見出し
+ * @param {Object[]} nodes — グラフのノード配列
+ * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
+ * @returns {boolean} カバーされているか
+ */
+function isHeadingCovered(heading, nodes) {
+  for (const node of nodes) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const ref of node.headingRefs) {
+      if (ref.heading !== heading.level) continue;
+      const anyMatch = ref.texts.some(text =>
+        heading.text.includes(text) || text.includes(heading.text)
+      );
+      if (anyMatch) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 未カバー見出しを検出する
+ *
+ * ソースファイルの大見出し（`## `）が各ノードの headingRefs に出現しているかを
+ * 検証する。空行や通常の本文行は検証対象外。
  *
  * @param {string[]} sourceLines — ソースファイルの行配列
  * @param {Object[]} nodes — グラフのノード配列
- * @param {Object[]} nodes[].sourceRanges — 各ノードの sourceRanges
- * @param {number} nodes[].sourceRanges[].startLine — 開始行（1-indexed）
- * @param {number} nodes[].sourceRanges[].endLine — 終了行（1-indexed）
- * @returns {{ covered: boolean, uncoveredLines: number[] }}
- *   covered: 全行カバーしているか
- *   uncoveredLines: 未カバー行の行番号リスト
+ * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
+ *   （{ refId, heading: 見出しレベル, texts: トークン列 }）
+ * @returns {{ covered: boolean, uncoveredHeadings: string[] }}
+ *   covered: 全見出しがカバーされているか
+ *   uncoveredHeadings: 未カバー見出しのテキストリスト
  */
 function checkCoverage(sourceLines, nodes) {
-  const covered = new Set();
+  const headings = extractHeadings(sourceLines);
 
-  for (const node of nodes) {
-    if (!Array.isArray(node.sourceRanges)) continue;
-    for (const range of node.sourceRanges) {
-      for (let i = range.startLine; i <= range.endLine; i++) {
-        covered.add(i);
-      }
-    }
-  }
-
-  const uncoveredLines = sourceLines
-    .map((text, idx) => ({ line: idx + 1, text }))
-    .filter(line => line.text.trim() !== '' && !covered.has(line.line))
-    .map(line => line.line);
+  const uncoveredHeadings = headings
+    .filter(h => !isHeadingCovered(h, nodes))
+    .map(h => h.text);
 
   return {
-    covered: uncoveredLines.length === 0,
-    uncoveredLines,
+    covered: uncoveredHeadings.length === 0,
+    uncoveredHeadings,
   };
 }
 
@@ -241,6 +282,39 @@ function checkIsolated(nodes, edges) {
   };
 }
 
+/**
+ * 全 headingRefs が resolve-by-heading.js で一意に解決可能かを検証する
+ *
+ * 各ノードの headingRefs エントリに対して resolveByHeading を実行し、
+ * 解決に失敗したものを unresolvableRefs として報告する。
+ *
+ * @param {string[]} sourceLines — ソースファイルの行配列
+ * @param {Object[]} nodes — グラフのノード配列
+ * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
+ * @returns {{ resolvable: boolean, unresolvableRefs: Array<{ nodeId: string, refId: string, heading: number, texts: string[] }> }}
+ */
+function checkResolvability(sourceLines, nodes) {
+  const failures = [];
+  for (const node of nodes) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const ref of node.headingRefs) {
+      const result = resolveByHeading(sourceLines, ref.heading, ref.texts);
+      if (!result) {
+        failures.push({
+          nodeId: node.id,
+          refId: ref.refId,
+          heading: ref.heading,
+          texts: ref.texts,
+        });
+      }
+    }
+  }
+  return {
+    resolvable: failures.length === 0,
+    unresolvableRefs: failures,
+  };
+}
+
 // ============================================================
 // 出力処理
 // ============================================================
@@ -249,18 +323,20 @@ function checkIsolated(nodes, edges) {
  * 検証結果を出力し、適切な終了コードでプロセスを終了する
  *
  * 正常時: {"ok":true} を stdout、終了コード0
- * 異常時: {"ok":false, "uncoveredLines":[], "isolatedNodes":[]} を stdout、
+ * 異常時: {"ok":false, ...} を stdout、
  *         終了コード1、加えて自然言語の3段テンプレートを stderr
  *
  * @param {boolean} ok — 検証が成功したか
- * @param {number[]} uncoveredLines — 未カバー行のリスト
+ * @param {string[]} uncoveredHeadings — 未カバー見出しのテキストリスト
  * @param {string[]} isolatedNodes — 孤立ノードのIDリスト
+ * @param {Array} unresolvableRefs — 解決不能な headingRefs のリスト
  */
-function exitWithResult(ok, uncoveredLines, isolatedNodes) {
+function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) {
   const result = {
     ok,
-    uncoveredLines,
+    uncoveredHeadings,
     isolatedNodes,
+    unresolvableRefs,
   };
 
   console.log(JSON.stringify(result));
@@ -268,11 +344,11 @@ function exitWithResult(ok, uncoveredLines, isolatedNodes) {
   if (!ok) {
     const messages = [];
 
-    if (uncoveredLines.length > 0) {
+    if (uncoveredHeadings.length > 0) {
       messages.push(
-        `[ERROR] ${uncoveredLines.length}行の未カバー行があります。`,
-        `原因: 以下の行番号が sourceRanges に含まれていません: ${uncoveredLines.join(', ')}`,
-        `対応: 該当行をカバーするノードを追加するか、既存ノードの sourceRanges を拡張してください。`
+        `[ERROR] ${uncoveredHeadings.length}件の未カバー見出しがあります。`,
+        `原因: 以下の見出しが全ノードの headingRefs に含まれていません: ${uncoveredHeadings.join(', ')}`,
+        `対応: 該当見出しのセクションをカバーするノードを追加するか、既存ノードの headingRefs を拡張してください。`
       );
     }
 
@@ -281,6 +357,17 @@ function exitWithResult(ok, uncoveredLines, isolatedNodes) {
         `[ERROR] ${isolatedNodes.length}件の孤立ノードがあります。`,
         `原因: 以下のノードが1本もエッジで接続されていません: ${isolatedNodes.join(', ')}`,
         `対応: crud.js create-edges で該当ノードを他のノードと接続してください。`
+      );
+    }
+
+    if (unresolvableRefs && unresolvableRefs.length > 0) {
+      const details = unresolvableRefs.map(
+        r => `${r.nodeId}(${r.refId}): heading=${r.heading}, texts=[${r.texts.join(', ')}]`
+      ).join('; ');
+      messages.push(
+        `[ERROR] ${unresolvableRefs.length}件の解決不能な headingRefs があります。`,
+        `原因: resolve-by-heading.js で一意に特定できませんでした: ${details}`,
+        `対応: 該当ノードの headingRefs の heading レベルまたは texts トークンを修正してください。`
       );
     }
 
@@ -300,7 +387,7 @@ function exitWithResult(ok, uncoveredLines, isolatedNodes) {
  */
 function printUsage() {
   console.log(
-    'verify.js — カバレッジ・孤立ノード検証\n' +
+    'verify.js — カバレッジ・孤立ノード検証（headingRefs 方式）\n' +
     '\n' +
     'Usage:\n' +
     '  verify.js --graph=<path> --source=<path>\n' +
@@ -311,8 +398,8 @@ function printUsage() {
     '  --help, -h       このヘルプを表示\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  全行カバー＋全ノード接続\n' +
-    '  1  未カバー行または孤立ノードが存在\n'
+    '  0  全見出しカバー＋全ノード接続\n' +
+    '  1  未カバー見出しまたは孤立ノードが存在\n'
   );
 }
 
@@ -374,11 +461,13 @@ function main() {
 
   const coverageResult = checkCoverage(sourceLines, graph.nodes);
   const isolatedResult = checkIsolated(graph.nodes, graph.edges);
+  const resolvabilityResult = checkResolvability(sourceLines, graph.nodes);
 
   exitWithResult(
-    coverageResult.covered && isolatedResult.connected,
-    coverageResult.uncoveredLines,
-    isolatedResult.isolatedNodes
+    coverageResult.covered && isolatedResult.connected && resolvabilityResult.resolvable,
+    coverageResult.uncoveredHeadings,
+    isolatedResult.isolatedNodes,
+    resolvabilityResult.unresolvableRefs,
   );
 }
 
@@ -391,8 +480,11 @@ module.exports = {
   parseArguments,
   readGraph,
   readSourceFile,
+  extractHeadings,
+  isHeadingCovered,
   checkCoverage,
   checkIsolated,
+  checkResolvability,
   exitWithResult,
   printUsage,
 };

@@ -202,50 +202,53 @@ function generateSummary(graph, sourceText) {
     if (!nodes || nodes.length === 0) continue;
     delete kindGroups[kind];
 
-    lines.push(`## ${kind} (${nodes.length})`);
+    lines.push(`## ${kind} (${nodes.length}件)`);
 
     for (const node of nodes) {
-      // 見出しで行位置を動的解決
-      let lineRange = '';
+      // 見出しで行位置を動的解決（レベル表示用）
+      let headingLevel = '';
       if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
         const firstRef = node.headingRefs[0];
         if (firstRef.refId) {
-          const resolved = resolveByHeading(sourceText, firstRef.heading, firstRef.texts);
-          if (!resolved.error) {
-            const headingLabel = firstRef.heading > 0 ? `h${firstRef.heading}` : 'title';
-            const headingSummary = firstRef.texts.slice(0, 2).join(' ');
-            lineRange = ` [${headingLabel}: ${headingSummary}]`;
+          const sourceLines = (typeof sourceText === 'string') ? sourceText.split('\n') : sourceText;
+          const resolved = resolveByHeading(sourceLines, firstRef.heading, firstRef.texts);
+          if (resolved) {
+            headingLevel = `h${firstRef.heading}`;
           }
         }
       }
 
-      // title + summary(要約) + 見出し表示
+      // ノード基本情報
       const summaryText = truncateSummary(node.summary);
-      lines.push(`  ${formatTitle(node)}(${summaryText})${lineRange}`);
+      lines.push(`    - ${node.id}: ${formatTitle(node)}`);
+      lines.push(`        * レベル: ${headingLevel || '?'}`);
+      lines.push(`        * 要約: ${summaryText}`);
 
       // エッジ一覧
-      const incomingEdges = [];
-      const outgoingEdges = [];
-
+      const edgeLines = [];
       for (const edge of graph.edges) {
         if (edge.from === node.id) {
           const target = nodeMap[edge.to];
           const targetTitle = target ? formatTitle(target) : edge.to;
-          const abbr = abbreviateEdgeType(edge.type);
-          const dir = (edge.attributes && edge.attributes.bidirectional) ? '↔' : '→';
-          outgoingEdges.push(`${dir}${targetTitle}${abbr}`);
-        }
-        if (edge.to === node.id && !(edge.attributes && edge.attributes.bidirectional)) {
+          const bidir = edge.attributes && edge.attributes.bidirectional;
+          const arrow = bidir ? '<->' : '->';
+          edgeLines.push(
+            `            - [${node.id}] ${arrow} ${edge.type} ${arrow} [${edge.to}: ${targetTitle}]`
+          );
+        } else if (edge.to === node.id) {
+          // bidirectional は from 側で出力済みのためスキップ
+          if (edge.attributes && edge.attributes.bidirectional) continue;
           const source = nodeMap[edge.from];
           const sourceTitle = source ? formatTitle(source) : edge.from;
-          const abbr = abbreviateEdgeType(edge.type);
-          incomingEdges.push(`←${sourceTitle}${abbr}`);
+          edgeLines.push(
+            `            - [${node.id}] <- ${edge.type} <- [${edge.from}: ${sourceTitle}]`
+          );
         }
       }
 
-      const edgeParts = [...incomingEdges, ...outgoingEdges];
-      if (edgeParts.length > 0) {
-        lines.push(`    ${edgeParts.join(', ')}`);
+      if (edgeLines.length > 0) {
+        lines.push(`        * エッジ一覧:`);
+        lines.push(...edgeLines);
       }
     }
     lines.push('');
@@ -255,9 +258,9 @@ function generateSummary(graph, sourceText) {
   const remainingKinds = Object.keys(kindGroups).filter(k => kindGroups[k].length > 0);
   for (const kind of remainingKinds) {
     const nodes = kindGroups[kind];
-    lines.push(`## ${kind} (${nodes.length})`);
+    lines.push(`## ${kind} (${nodes.length}件)`);
     for (const node of nodes) {
-      lines.push(`  ${formatTitle(node)}`);
+      lines.push(`    - ${node.id}: ${formatTitle(node)}`);
     }
     lines.push('');
   }

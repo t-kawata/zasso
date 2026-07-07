@@ -407,24 +407,14 @@ describe('formatReport', () => {
     assert.ok(report.includes('100行'));
     assert.ok(report.includes('70行')); // 100-30
 
-    // セクション一覧
+    // セクション一覧（kind／dep をインライン表示）
     assert.ok(report.includes('セクション一覧'));
-    assert.ok(report.includes('<h1>'));
+    assert.ok(report.includes('- h1'));
     assert.ok(report.includes('Title'));
-    assert.ok(report.includes('[texts:')); // トークン列表示
-
-    // kind 候補（第2軸）
-    assert.ok(report.includes('kind 候補'));
-    assert.ok(report.includes('上書き可能'));
+    assert.ok(report.includes('[kind:')); // kind をインライン付記
     assert.ok(report.includes('requirement'));
-
-    // 外部依存（第3軸）
-    assert.ok(report.includes('外部依存'));
+    assert.ok(report.includes('[dep:'));  // dep をインライン付記
     assert.ok(report.includes('ファイルI/O'));
-
-    // 候補 headingRefs（第4軸）
-    assert.ok(report.includes('候補 headingRefs'));
-    assert.ok(report.includes('h1: [Title]'));
 
     // 100行超セクション
     assert.ok(report.includes('100行超セクション'));
@@ -442,8 +432,6 @@ describe('formatReport', () => {
       [], // headingRefCandidates
     );
 
-    assert.ok(report.includes('該当なし'));
-    assert.ok(report.includes('検出なし'));
     assert.ok(report.includes('なし（全セクションが100行未満）'));
   });
 });
@@ -483,20 +471,14 @@ describe('統合: generateReport', () => {
     assert.ok(report.includes('test-rfc.md 構造分析レポート'));
     assert.ok(report.includes('基本情報'));
     assert.ok(report.includes('セクション一覧'));
-    assert.ok(report.includes('kind 候補'));
-    assert.ok(report.includes('外部依存'));
+    assert.ok(report.includes('[kind:')); // kind をインライン付記
+    assert.ok(report.includes('[dep:'));  // dep をインライン付記
     assert.ok(report.includes('100行超セクション'));
 
     // セクションが抽出されている
     assert.ok(report.includes('要件定義'));
     assert.ok(report.includes('API エンドポイント'));
     assert.ok(report.includes('セキュリティ'));
-
-    // 第2軸の但し書き
-    assert.ok(report.includes('上書き可能'));
-
-    // 第3軸の但し書き
-    assert.ok(report.includes('強度と影響範囲を判断'));
   });
 
   it('正常系: コードブロック内の # を見出しと誤認しない', () => {
@@ -513,7 +495,7 @@ describe('統合: generateReport', () => {
 
     const report = generateReport(filePath, sourceLines);
 
-    const sectionMatches = report.match(/<h\d>/g);
+    const sectionMatches = report.match(/- h\d/g);
     // h1 と h2 のみ（コードブロック内の h1 は除外）
     assert.equal(sectionMatches.length, 2);
   });

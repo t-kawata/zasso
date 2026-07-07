@@ -5,16 +5,17 @@
  *
  * graphify-rfc パイプラインの Layer 2（グラフ探索機構）の中核。
  * ノードID起点の BFS（幅優先探索）で最大Nホップ先までグラフを探索し、
- * 実行時に行番号を動的に再計算（マーカー方式）し、
+ * 実行時に行位置を headingRefs 経由で動的に解決し（マーカー不要）、
  * 結果を Markdown 形式で整形出力する。
  *
- * 読み取り専用で副作用ゼロ、マーカー欠損時は部分結果と stderr 通知を行う。
+ * 読み取り専用で副作用ゼロ、headingRefs 欠損時は部分結果と stderr 通知を行う。
  *
  * CLI: query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N>
  */
 
 const fs = require('fs');
 const path = require('path');
+const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
 // 定数定義
@@ -260,36 +261,32 @@ function multiHopBFS(graph, startNodeId, hops) {
 }
 
 // ============================================================
-// 行番号動的解決
+// 行位置動的解決（headingRefs 方式）
 // ============================================================
 
 /**
- * ソーステキストからマーカーをスキャンし、指定された refId の行範囲を動的に解決する
+ * headingRefs を元に resolveByHeading で行位置を動的に解決する
  *
- * マーカーが見つからない refId については undefined を返す。
- * 呼び出し元がマーカー欠損時の処理（stderr警告）を行う。
+ * マーカー方式（旧）の後継。行番号を一切使わず、見出しレベル+トークン列から
+ * ソースファイル内の該当行を特定する。
+ *
+ * headingRefs 配列から該当 refId の heading と texts を取得し、
+ * resolveByHeading に渡す。見つからない場合は undefined を返し、
+ * 呼び出し元が欠損時の警告を行う。
  *
  * @param {string} sourceText — ソースファイルの全文
+ * @param {Array<{refId: string, heading: number, texts: string[]}>} headingRefs — headingRefs 配列
  * @param {string} refId — 解決する参照ID（例: "REF001"）
- * @returns {Array<{startLine: number, endLine: number}>|undefined}
+ * @returns {{ line: number, confidence: string }|undefined}
  */
-function resolveCurrentLines(sourceText, refId) {
-  const lines = sourceText.split('\n');
-  const ranges = [];
-  let start = null;
+function resolveCurrentLines(sourceText, headingRefs, refId) {
+  const ref = headingRefs.find(r => r.refId === refId);
+  if (!ref) return undefined;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.includes(`::${refId}-START::`)) {
-      start = i + 1; // 1-based 行番号
-    }
-    if (line.includes(`::${refId}-END::`) && start !== null) {
-      ranges.push({ startLine: start, endLine: i + 1 });
-      start = null;
-    }
-  }
+  const result = resolveByHeading(sourceText, ref.heading, ref.texts);
+  if (!result) return undefined;
 
-  return ranges.length > 0 ? ranges : undefined;
+  return { line: result.line, confidence: result.confidence };
 }
 
 // ============================================================
@@ -312,22 +309,24 @@ function formatNodeMarkdown(node, edges, graph, sourceText) {
   lines.push(`## ${node.id}: ${node.title}`);
   lines.push('');
 
-  // 種別と参照情報
-  const sourceRange = node.sourceRanges && node.sourceRanges[0];
-  const refId = sourceRange ? sourceRange.refId : null;
+  // 種別と参照情報（headingRefs 方式 — 見出し表示）
+  const headingRef = node.headingRefs && node.headingRefs[0];
+  const refId = headingRef ? headingRef.refId : null;
   let refText = 'N/A';
 
-  if (refId) {
-    const currentLines = resolveCurrentLines(sourceText, refId);
-    if (currentLines) {
-      const range = currentLines[0];
-      refText = `現在 L${range.startLine}-L${range.endLine}`;
+  if (refId && Array.isArray(node.headingRefs)) {
+    const resolved = resolveCurrentLines(sourceText, node.headingRefs, refId);
+    if (resolved) {
+      const headingLevel = headingRef.heading;
+      const headingLabel = headingLevel > 0 ? `h${headingLevel}` : 'title';
+      const headingSummary = headingRef.texts.slice(0, 2).join(' ');
+      refText = `[${headingLabel}: ${headingSummary}] (L${resolved.line})`;
     } else {
       refText = 'N/A';
     }
   }
 
-  lines.push(`**種別**: ${node.kind} | **参照**: ${refId || 'N/A'} (${refText})`);
+  lines.push(`**種別**: ${node.kind} | **参照**: ${refId || 'N/A'} ${refText}`);
   lines.push('');
 
   // Summary
@@ -520,8 +519,8 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // マーカー欠損の追跡
-  let hasMarkerWarning = false;
+  // headingRefs 欠損の追跡
+  let hasHeadingRefWarning = false;
 
   // 各ノードIDに対して探索と出力を実行
   for (const nodeId of nodeIds) {
@@ -544,18 +543,18 @@ function main() {
       .map(id => resolveNodeById(graph, id))
       .filter(Boolean);
 
-    // 6. 行番号を動的に解決し、欠損時に警告を出力する
+    // 6. 行位置を動的に解決し、欠損時に警告を出力する
     for (const vNode of visitedNodes) {
-      if (!vNode.sourceRanges) continue;
-      for (const sr of vNode.sourceRanges) {
-        const resolved = resolveCurrentLines(sourceText, sr.refId);
+      if (!Array.isArray(vNode.headingRefs)) continue;
+      for (const hr of vNode.headingRefs) {
+        const resolved = resolveCurrentLines(sourceText, vNode.headingRefs, hr.refId);
         if (!resolved) {
           process.stderr.write(
-            `[WARN] ノード ${vNode.id} の refId ${sr.refId} のマーカーがソースファイル内に見つかりません。\n` +
-            `原因: マーカーが削除されたか、sourceRanges が更新されていない可能性があります。\n` +
-            `対応: embed-markers.js を再実行してマーカーを再挿入してください。\n`
+            `[WARN] ノード ${vNode.id} の refId ${hr.refId} の見出しがソースファイル内に見つかりません。\n` +
+            `原因: 見出しが書き換えられたか、headingRefs が更新されていない可能性があります。\n` +
+            `対応: clarify-rfc / graphify-rfc を再実行して headingRefs を更新してください。\n`
           );
-          hasMarkerWarning = true;
+          hasHeadingRefWarning = true;
         }
       }
     }
@@ -573,10 +572,10 @@ function main() {
     }
   }
 
-  // マーカー欠損があっても終了コード0（部分結果を返す）
-  if (hasMarkerWarning) {
+  // headingRefs 欠損があっても終了コード0（部分結果を返す）
+  if (hasHeadingRefWarning) {
     process.stderr.write(
-      `[WARN] 一部のノードでマーカーが見つかりませんでした。出力の行番号が正しくない可能性があります。\n`
+      `[WARN] 一部のノードで headingRefs に対応する見出しが見つかりませんでした。出力の行位置が正しくない可能性があります。\n`
     );
   }
 
@@ -602,4 +601,5 @@ module.exports = {
   getDirectionLabel,
   printError,
   printUsage,
+  resolveByHeading,
 };

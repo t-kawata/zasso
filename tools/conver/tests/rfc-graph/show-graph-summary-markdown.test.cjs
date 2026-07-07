@@ -190,24 +190,24 @@ describe('generateSummary', () => {
     assert.ok(lines[0].includes('6 nodes / 5 edges'));
 
     // kind 別グループ
-    assert.ok(output.includes('## requirement (3)'));
-    assert.ok(output.includes('## api_contract (1)'));
-    assert.ok(output.includes('## architecture (1)'));
-    assert.ok(output.includes('## glossary (1)'));
+    assert.ok(output.includes('## requirement (3件)'));
+    assert.ok(output.includes('## api_contract (1件)'));
+    assert.ok(output.includes('## architecture (1件)'));
+    assert.ok(output.includes('## glossary (1件)'));
 
-    // 各ノードのタイトル + summary要約 + 行番号
-    assert.ok(output.includes('認証API定義'));
-    assert.ok(output.includes('エラー型定義'));
-    assert.ok(output.includes('トークン検証'));
+    // 各ノードのID + タイトル
+    assert.ok(output.includes('N0001: 認証API定義'));
+    assert.ok(output.includes('N0002: エラー型定義'));
+    assert.ok(output.includes('N0003: トークン検証'));
+    assert.ok(output.includes('N0004: POST /api/v1/auth/login'));
+    assert.ok(output.includes('N0005: セッション管理'));
+
+    // 要約
     assert.ok(output.includes('ログインエンドポイント'));
-    assert.ok(output.includes('セッション管理'));
 
-    // 各ノードのタイトルが表示されている（headingRefsはソース不一致でもノードは表示）
-    assert.ok(output.includes('認証API定義'));
-
-    // エッジ関係
-    assert.ok(output.includes('→トークン検証dep'));
-    assert.ok(output.includes('←認証API定義dep'));
+    // エッジ関係（新しい形式）
+    assert.ok(output.includes('[N0001] -> depends_on -> [N0003: トークン検証]'));
+    assert.ok(output.includes('[N0003] <- depends_on <- [N0001: 認証API定義]'));
   });
 
   it('孤立ノードのみのグラフでも空のエッジ一覧になる', () => {
@@ -252,8 +252,8 @@ describe('generateSummary', () => {
     };
     const src = '[::REF001-START::] A\n[::REF001-END::]\n[::REF002-START::] B\n[::REF002-END::]';
     const output = generateSummary(graph, src);
-    // bidirectional は ↔ で表示（incoming には notin なので outgoing のみに ↔）
-    assert.ok(output.includes('↔'));
+    // bidirectional は <-> で表示
+    assert.ok(output.includes('<->'));
   });
 });
 

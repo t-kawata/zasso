@@ -1,22 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * verify.js — カバレッジ・孤立ノード検証
+ * verify.js — カバレッジ・孤立ノード検証 + headingRefs 解決可能性検証
  *
  * graphify-rfc Step 3 で使用する。グラフファイルのノードがソースファイルの全見出し
- * （`## `）を headingRefs 経由でカバーしているか、および全ノードが最低1本のエッジで
- * 接続されているかを検証する。
+ * （`## `）を headingRefs 経由でカバーしているか、全ノードが最低1本のエッジで
+ * 接続されているか、および全 headingRefs が resolve-by-heading.js で一意に
+ * 解決可能かを検証する。
  *
  * CLI: verify.js --graph=<path> --source=<path>
  *
  * 出力契約:
  *   正常時 → {"ok":true}（終了コード0）
- *   異常時 → {"ok":false, "uncoveredHeadings":[...], "isolatedNodes":[...]}（終了コード1）
+ *   異常時 → {"ok":false, "uncoveredHeadings":[...], "isolatedNodes":[...], "unresolvableRefs":[...]}（終了コード1）
  *   異常時は stderr に3段テンプレートの自然言語エラーも出力する。
  */
 
 const fs = require('fs');
 const path = require('path');
+const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
 // 定数定義
@@ -280,6 +282,39 @@ function checkIsolated(nodes, edges) {
   };
 }
 
+/**
+ * 全 headingRefs が resolve-by-heading.js で一意に解決可能かを検証する
+ *
+ * 各ノードの headingRefs エントリに対して resolveByHeading を実行し、
+ * 解決に失敗したものを unresolvableRefs として報告する。
+ *
+ * @param {string[]} sourceLines — ソースファイルの行配列
+ * @param {Object[]} nodes — グラフのノード配列
+ * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
+ * @returns {{ resolvable: boolean, unresolvableRefs: Array<{ nodeId: string, refId: string, heading: number, texts: string[] }> }}
+ */
+function checkResolvability(sourceLines, nodes) {
+  const failures = [];
+  for (const node of nodes) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const ref of node.headingRefs) {
+      const result = resolveByHeading(sourceLines, ref.heading, ref.texts);
+      if (!result) {
+        failures.push({
+          nodeId: node.id,
+          refId: ref.refId,
+          heading: ref.heading,
+          texts: ref.texts,
+        });
+      }
+    }
+  }
+  return {
+    resolvable: failures.length === 0,
+    unresolvableRefs: failures,
+  };
+}
+
 // ============================================================
 // 出力処理
 // ============================================================
@@ -288,18 +323,20 @@ function checkIsolated(nodes, edges) {
  * 検証結果を出力し、適切な終了コードでプロセスを終了する
  *
  * 正常時: {"ok":true} を stdout、終了コード0
- * 異常時: {"ok":false, "uncoveredHeadings":[], "isolatedNodes":[]} を stdout、
+ * 異常時: {"ok":false, ...} を stdout、
  *         終了コード1、加えて自然言語の3段テンプレートを stderr
  *
  * @param {boolean} ok — 検証が成功したか
  * @param {string[]} uncoveredHeadings — 未カバー見出しのテキストリスト
  * @param {string[]} isolatedNodes — 孤立ノードのIDリスト
+ * @param {Array} unresolvableRefs — 解決不能な headingRefs のリスト
  */
-function exitWithResult(ok, uncoveredHeadings, isolatedNodes) {
+function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) {
   const result = {
     ok,
     uncoveredHeadings,
     isolatedNodes,
+    unresolvableRefs,
   };
 
   console.log(JSON.stringify(result));
@@ -320,6 +357,17 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes) {
         `[ERROR] ${isolatedNodes.length}件の孤立ノードがあります。`,
         `原因: 以下のノードが1本もエッジで接続されていません: ${isolatedNodes.join(', ')}`,
         `対応: crud.js create-edges で該当ノードを他のノードと接続してください。`
+      );
+    }
+
+    if (unresolvableRefs && unresolvableRefs.length > 0) {
+      const details = unresolvableRefs.map(
+        r => `${r.nodeId}(${r.refId}): heading=${r.heading}, texts=[${r.texts.join(', ')}]`
+      ).join('; ');
+      messages.push(
+        `[ERROR] ${unresolvableRefs.length}件の解決不能な headingRefs があります。`,
+        `原因: resolve-by-heading.js で一意に特定できませんでした: ${details}`,
+        `対応: 該当ノードの headingRefs の heading レベルまたは texts トークンを修正してください。`
       );
     }
 
@@ -413,11 +461,13 @@ function main() {
 
   const coverageResult = checkCoverage(sourceLines, graph.nodes);
   const isolatedResult = checkIsolated(graph.nodes, graph.edges);
+  const resolvabilityResult = checkResolvability(sourceLines, graph.nodes);
 
   exitWithResult(
-    coverageResult.covered && isolatedResult.connected,
+    coverageResult.covered && isolatedResult.connected && resolvabilityResult.resolvable,
     coverageResult.uncoveredHeadings,
-    isolatedResult.isolatedNodes
+    isolatedResult.isolatedNodes,
+    resolvabilityResult.unresolvableRefs,
   );
 }
 
@@ -434,6 +484,7 @@ module.exports = {
   isHeadingCovered,
   checkCoverage,
   checkIsolated,
+  checkResolvability,
   exitWithResult,
   printUsage,
 };

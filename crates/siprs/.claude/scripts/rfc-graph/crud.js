@@ -216,7 +216,7 @@ function validateWithSchema(data, schemaFileName, description) {
  *
  * 全ノードがスキーマ検証を通過し、かつ既存ノードとのID重複がない場合のみ追加する。
  * 1件でも違反があれば一切変更せずエラー終了する。
- * sourceRanges の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
+ * headingRefs の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
  * ノードJSONに refId が書かれていても無視され、機械的に上書きされる。
  *
  * @param {Object} graph — グラフデータ
@@ -225,10 +225,10 @@ function validateWithSchema(data, schemaFileName, description) {
  */
 function executeCreateNodes(graph, nodesData) {
   // ステップ1: 全ノードのスキーマ検証
-  // sourceRanges の refId は仮の値で一時的に検証通過させる
+  // headingRefs の refId は仮の値で一時的に検証通過させる
   for (const node of nodesData) {
-    if (Array.isArray(node.sourceRanges) && node.sourceRanges.length > 0) {
-      for (const range of node.sourceRanges) {
+    if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
+      for (const range of node.headingRefs) {
         if (!range.refId || !/^REF\d{3,}$/.test(range.refId)) {
           range.refId = 'REF000';
         }
@@ -251,12 +251,12 @@ function executeCreateNodes(graph, nodesData) {
   }
 
   // ステップ3: refId 自動採番
-  // 既存グラフ + 新規ノードの全 sourceRanges から最大 refId 番号をスキャン
+  // 既存グラフ + 新規ノードの全 headingRefs から最大 refId 番号をスキャン
   let maxRefNumber = 0;
   const allNodes = [...graph.nodes, ...nodesData];
   for (const node of allNodes) {
-    if (!Array.isArray(node.sourceRanges)) continue;
-    for (const range of node.sourceRanges) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const range of node.headingRefs) {
       if (range.refId) {
         const match = range.refId.match(/^REF(\d+)$/);
         if (match) {
@@ -267,11 +267,11 @@ function executeCreateNodes(graph, nodesData) {
     }
   }
 
-  // 新規ノードの sourceRanges に max+1 から順に refId を割り当てる
+  // 新規ノードの headingRefs に max+1 から順に refId を割り当てる
   let nextRefNumber = maxRefNumber + 1;
   for (const node of nodesData) {
-    if (!Array.isArray(node.sourceRanges)) continue;
-    for (const range of node.sourceRanges) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const range of node.headingRefs) {
       range.refId = 'REF' + String(nextRefNumber).padStart(3, '0');
       nextRefNumber++;
     }
@@ -312,7 +312,7 @@ function executeGetNode(graph, nodeId) {
 /**
  * update-node: 指定されたIDのノードを更新する
  *
- * patch の各フィールドで上書き更新する。sourceRanges は配列全体の置換。
+ * patch の各フィールドで上書き更新する。headingRefs は配列全体の置換。
  * 更新後の完全なノードがスキーマ検証を通過することを確認する。
  *
  * @param {Object} graph — グラフデータ
@@ -547,6 +547,11 @@ function main() {
 
     // アトミック書込
     atomicWrite(graphPath, JSON.stringify(graph, null, 2));
+
+    // 消費済みの入力ファイルを削除（使用後はゴミを残さない）
+    if (filePath) {
+      try { fs.unlinkSync(filePath); } catch { /* 削除できなくても処理自体は成功 */ }
+    }
   } catch (operationError) {
     exitWithError(
       `${subcommand} の実行中にエラーが発生しました。`,

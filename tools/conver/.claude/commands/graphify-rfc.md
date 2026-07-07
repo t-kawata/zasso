@@ -102,9 +102,20 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 **粒度の目安**: コードスニペット（``` で囲まれたブロック）の行数を除いた実質的な記述内容で、1ノード概ね30〜50行程度を上限とする。100行を超えるセクション（コードスニペットを除く）は必ず複数ノードに分割する。/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドのチケット粒度よりも細かいことを常に意識する。
 
 ```bash
-# 事前に analyze-source-structure.js で機械的構造情報を取得し、3軸すべての判断材料とする
+# 事前に analyze-source-structure.js で機械的構造情報を取得し、3軸すべての参考としての判断材料とする
 node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
+```
 
+`## 100行超セクション` の項目を確認し、100行を超えるセクションがあれば、内容自体の変更や情報の欠損が絶対に起きないように細心の注意を払いながらRFCソースファイルを直接編集して `###` 小見出しを挿入し、30〜50行程度の適切な粒度に分割する。分割が完了したら、再度 `analyze-source-structure.js` を実行して100行超セクションが解消されたことを確認する：
+
+```bash
+# 再度構造分析を実行し、100行超セクションがなくなったことを確認する
+node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
+```
+
+`## 100行超セクション` が「なし（全セクションが100行未満）」と報告されるまで、RFCソースファイルの編集と再確認を繰り返す。
+
+```bash
 # Step 1 を開始（進行ステータスを running に更新）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 1
 
@@ -184,7 +195,7 @@ node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$1"
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
   ```
-- **`{"ok":true}` の場合** → Step 5へ進む
+- **`{"ok":true}` の場合** → Step 4へ進む
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 3
   ```
@@ -197,24 +208,13 @@ node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$1"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 3
 ```
 
-## Step 4: （廃止されました）
-
-embed-markers.js による REF マーカー埋め込みは **廃止** されました。
-headingRefs 方式ではマーカー埋め込みが不要になったためです。
-
-```bash
-# 何も実行せず、Step 3 から直接 Step 5 へ進む
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 4
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 4
-```
-
-## Step 5: 自己検証
+## Step 4: 自己検証
 
 全ノードに対して query.js のマルチホップ検索を実行し、グラフ構造が /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドおよび実装段階で参照可能な品質であることを確認する。
 
 ```bash
-# Step 5 を開始（進行ステータスを running に更新）
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 5
+# Step 4 を開始（進行ステータスを running に更新）
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 4
 
 # 全ノードIDを取得する
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" list-nodes
@@ -249,27 +249,27 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 「やり直す」のではなく「補強（洗練）」である点に注意。重複や粒度の粗いノードは delete-node で削除し、より適切なノードに再分割する。不足があれば add-node で追加する。update-node で既存ノードを微調整してもよい。グラフ全体の品質を高める方向であれば、変更の種類は問わない。
 
-不足がない場合 → Step 5 正常終了。
+不足がない場合 → Step 4 正常終了。
 
 ```bash
-# 成功時: Step 5 正常終了（進行ステータスを done に更新）
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 5
+# 成功時: Step 4 正常終了（進行ステータスを done に更新）
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 4
 ```
 
 ### エラー時の復帰
 query.js のエラーメッセージに従って原因を特定し、該当するStep（ノード欠損→Step 1、エッジ欠損→Step 2）の `reset-to-step N` でステータスを戻して修正する。
 ```bash
-# 例: Step 5 のエラーが原因不明の場合、Step 5 自体を再実行
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 5
+# 例: Step 4 のエラーが原因不明の場合、Step 4 自体を再実行
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
 ```
 
-## Step 6: 最終品質検証 — 全件サマリー点検
+## Step 5: 最終品質検証 — 全件サマリー点検
 
 show-graph-summary-markdown.js でグラフ全体のサマリーを機械的に出力し、AI が構造の十分性を最終判断する。
 
 ```bash
-# Step 6 を開始（進行ステータスを running に更新）
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 6
+# Step 5 を開始（進行ステータスを running に更新）
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 5
 
 # グラフ全体のサマリーをMarkdown形式で出力する
 node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPath" --source="$1"
@@ -307,17 +307,17 @@ node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPat
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 ```
 
-**十分と判断し、かつユーザーを納得させる説明を書けた場合** → Step 6 正常終了。
+**十分と判断し、かつユーザーを納得させる説明を書けた場合** → Step 5 正常終了。
 
 ```bash
-# 成功時: Step 6 正常終了（進行ステータスを done に更新）
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 6
+# 成功時: Step 5 正常終了（進行ステータスを done に更新）
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 5
 ```
 
 ### エラー時の復帰
-スクリプトのエラーメッセージに従って原因を修正した上で、`reset-to-step 6` でステータスを戻し、Step 6 のコマンドを最初から再実行する。
+スクリプトのエラーメッセージに従って原因を修正した上で、`reset-to-step 5` でステータスを戻し、Step 5 のコマンドを最初から再実行する。
 ```bash
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 6
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 5
 ```
 
 ## 完了報告

@@ -284,7 +284,7 @@ function resolveCurrentLines(sourceText, headingRefs, refId) {
   if (!ref) return undefined;
 
   const result = resolveByHeading(sourceText, ref.heading, ref.texts);
-  if (result.error) return undefined;
+  if (!result) return undefined;
 
   return { line: result.line, confidence: result.confidence };
 }

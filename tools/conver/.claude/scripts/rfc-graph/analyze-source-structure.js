@@ -18,8 +18,8 @@
  *   異常時 → 3段テンプレートを stderr に出力（終了コード1）
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 // ============================================================
 // kind 推定用キーワードテーブル（第2軸）
@@ -28,64 +28,366 @@ const path = require('path');
 // ============================================================
 const KIND_PATTERNS = [
   {
-    kind: 'requirement',
+    kind: "requirement",
     heading: [/要件/, /要求/, /必須/, /条件/, /必要/, /機能要件/, /非機能要件/],
-    body: [/must\b/, /\bshall\b/, /need to/, /必要がある/, /しなければならない/, /必須/, /〜する必要/, /〜できること/],
+    body: [
+      /must\b/,
+      /\bshall\b/,
+      /need to/,
+      /必要がある/,
+      /しなければならない/,
+      /必須/,
+      /〜する必要/,
+      /〜できること/,
+    ],
   },
   {
-    kind: 'api_contract',
-    heading: [/API/, /エンドポイント/, /インターフェース/, /I\/F/, /REST/, /Web API/, /インタフェース/],
-    body: [/POST\b/, /GET\b/, /PUT\b/, /DELETE\b/, /PATCH\b/, /HTTP/, /\brequest\b/, /\bresponse\b/, /endpoint/, /\broute\b/, /\bhandler\b/, /fetch/, /api\//, /\/v1\//, /ステータスコード/, /status code/, /リクエストボディ/],
+    kind: "api_contract",
+    heading: [
+      /API/,
+      /エンドポイント/,
+      /インターフェース/,
+      /I\/F/,
+      /REST/,
+      /Web API/,
+      /インタフェース/,
+    ],
+    body: [
+      /POST\b/,
+      /GET\b/,
+      /PUT\b/,
+      /DELETE\b/,
+      /PATCH\b/,
+      /HTTP/,
+      /\brequest\b/,
+      /\bresponse\b/,
+      /endpoint/,
+      /\broute\b/,
+      /\bhandler\b/,
+      /fetch/,
+      /api\//,
+      /\/v1\//,
+      /ステータスコード/,
+      /status code/,
+      /リクエストボディ/,
+    ],
   },
   {
-    kind: 'data_model',
-    heading: [/データモデル/, /スキーマ/, /型定義/, /エンティティ/, /\bDB\b/, /データベース/, /テーブル/, /ストレージ/, /データ構造/, /モデル定義/, /\bentity/, /カラム/, /フィールド定義/],
-    body: [/\bstruct\b/, /\btype\b/, /\bfield\b/, /\bcolumn\b/, /primary key/, /foreign key/, /\bindex\b/, /migration/, /CREATE TABLE/, /ALTER TABLE/, /\bSELECT\b/, /\bINSERT\b/, /\bWHERE\b/, /\bjoin\b/, /\bschema\b/],
+    kind: "data_model",
+    heading: [
+      /データモデル/,
+      /スキーマ/,
+      /型定義/,
+      /エンティティ/,
+      /\bDB\b/,
+      /データベース/,
+      /テーブル/,
+      /ストレージ/,
+      /データ構造/,
+      /モデル定義/,
+      /\bentity/,
+      /カラム/,
+      /フィールド定義/,
+    ],
+    body: [
+      /\bstruct\b/,
+      /\btype\b/,
+      /\bfield\b/,
+      /\bcolumn\b/,
+      /primary key/,
+      /foreign key/,
+      /\bindex\b/,
+      /migration/,
+      /CREATE TABLE/,
+      /ALTER TABLE/,
+      /\bSELECT\b/,
+      /\bINSERT\b/,
+      /\bWHERE\b/,
+      /\bjoin\b/,
+      /\bschema\b/,
+    ],
   },
   {
-    kind: 'state_machine',
-    heading: [/状態機械/, /状態遷移/, /ステート/, /ステートマシン/, /状態/, /遷移/, /\bworkflow\b/, /ワークフロー/, /フェーズ/, /ライフサイクル/, /状態図/],
-    body: [/\bstate\b/, /\btransition\b/, /\bevent\b/, /state_machine/, /\bstatus\b/, /\benum\b/, /\bmatch\b/, /遷移条件/, /ガード条件/, /\bguard\b/, /\btrigger\b/],
+    kind: "state_machine",
+    heading: [
+      /状態機械/,
+      /状態遷移/,
+      /ステート/,
+      /ステートマシン/,
+      /状態/,
+      /遷移/,
+      /\bworkflow\b/,
+      /ワークフロー/,
+      /フェーズ/,
+      /ライフサイクル/,
+      /状態図/,
+    ],
+    body: [
+      /\bstate\b/,
+      /\btransition\b/,
+      /\bevent\b/,
+      /state_machine/,
+      /\bstatus\b/,
+      /\benum\b/,
+      /\bmatch\b/,
+      /遷移条件/,
+      /ガード条件/,
+      /\bguard\b/,
+      /\btrigger\b/,
+    ],
   },
   {
-    kind: 'architecture',
-    heading: [/アーキテクチャ/, /構成/, /コンポーネント/, /モジュール構成/, /システム構成/, /レイヤ/, /階層/, /全体図/, /コンポーネント図/, /システム設計/, /モジュール/, /サブシステム/],
-    body: [/\bcomponent\b/, /\bmodule\b/, /\blayer\b/, /\barchitecture\b/, /\bdependency\b/, /依存関係/, /結合/, /\binterface\b/, /責務/, /\bresponsibility\b/],
+    kind: "architecture",
+    heading: [
+      /アーキテクチャ/,
+      /構成/,
+      /コンポーネント/,
+      /モジュール構成/,
+      /システム構成/,
+      /レイヤ/,
+      /階層/,
+      /全体図/,
+      /コンポーネント図/,
+      /システム設計/,
+      /モジュール/,
+      /サブシステム/,
+    ],
+    body: [
+      /\bcomponent\b/,
+      /\bmodule\b/,
+      /\blayer\b/,
+      /\barchitecture\b/,
+      /\bdependency\b/,
+      /依存関係/,
+      /結合/,
+      /\binterface\b/,
+      /責務/,
+      /\bresponsibility\b/,
+    ],
   },
   {
-    kind: 'security',
-    heading: [/セキュリティ/, /認証/, /認可/, /暗号/, /脅威/, /プライバシー/, /セキュリティ対策/, /セキュリティモデル/, /アクセス制御/, /監査/, /コンプライアンス/],
-    body: [/\bauth\b/, /\btoken\b/, /\bpassword\b/, /\bencrypt\b/, /\bdecrypt\b/, /\bhash\b/, /\bJWT\b/, /\bOAuth\b/, /\bSSL\b/, /\bTLS\b/, /\bcertificate\b/, /\bpermission\b/, /\brole\b/, /\bACL\b/, /\bCVE\b/, /\binjection\b/, /\bXSS\b/, /\bCSRF\b/, /攻撃/, /認証/, /認可/, /権限/, /\bsanitize\b/, /バリデーション/],
+    kind: "security",
+    heading: [
+      /セキュリティ/,
+      /認証/,
+      /認可/,
+      /暗号/,
+      /脅威/,
+      /プライバシー/,
+      /セキュリティ対策/,
+      /セキュリティモデル/,
+      /アクセス制御/,
+      /監査/,
+      /コンプライアンス/,
+    ],
+    body: [
+      /\bauth\b/,
+      /\btoken\b/,
+      /\bpassword\b/,
+      /\bencrypt\b/,
+      /\bdecrypt\b/,
+      /\bhash\b/,
+      /\bJWT\b/,
+      /\bOAuth\b/,
+      /\bSSL\b/,
+      /\bTLS\b/,
+      /\bcertificate\b/,
+      /\bpermission\b/,
+      /\brole\b/,
+      /\bACL\b/,
+      /\bCVE\b/,
+      /\binjection\b/,
+      /\bXSS\b/,
+      /\bCSRF\b/,
+      /攻撃/,
+      /認証/,
+      /認可/,
+      /権限/,
+      /\bsanitize\b/,
+      /バリデーション/,
+    ],
   },
   {
-    kind: 'error_policy',
-    heading: [/エラー/, /エラー処理/, /エラーハンドリング/, /例外/, /異常系/, /障害/, /リカバリ/, /回復/, /フォールバック/, /エラー戦略/, /障害対策/],
-    body: [/\berror\b/, /\bexception\b/, /\bpanic\b/, /\bfail\b/, /\bfallback\b/, /\bretry\b/, /\btimeout\b/, /circuit breaker/, /\bgraceful\b/, /\bshutdown\b/, /グレースフル/, /リトライ/, /タイムアウト/, /\bcatch\b/, /\bResult\b/, /\bOption\b/, /\bunwrap\b/],
+    kind: "error_policy",
+    heading: [
+      /エラー/,
+      /エラー処理/,
+      /エラーハンドリング/,
+      /例外/,
+      /異常系/,
+      /障害/,
+      /リカバリ/,
+      /回復/,
+      /フォールバック/,
+      /エラー戦略/,
+      /障害対策/,
+    ],
+    body: [
+      /\berror\b/,
+      /\bexception\b/,
+      /\bpanic\b/,
+      /\bfail\b/,
+      /\bfallback\b/,
+      /\bretry\b/,
+      /\btimeout\b/,
+      /circuit breaker/,
+      /\bgraceful\b/,
+      /\bshutdown\b/,
+      /グレースフル/,
+      /リトライ/,
+      /タイムアウト/,
+      /\bcatch\b/,
+      /\bResult\b/,
+      /\bOption\b/,
+      /\bunwrap\b/,
+    ],
   },
   {
-    kind: 'config',
-    heading: [/設定/, /コンフィグ/, /環境変数/, /設定値/, /構成管理/, /\bconfiguration\b/, /\bconfig\b/, /設定ファイル/, /パラメータ/],
-    body: [/\benv\b/, /\.env/, /\bconfig\b/, /environment variable/, /\bsetting\b/, /\bYAML\b/, /\bTOML\b/, /\bINI\b/, /設定ファイル/, /\bconf\b/, /\bcfg\b/, /\bvar\b/, /既定値/, /\bdefault\b/, /初期化/, /\binit\b/],
+    kind: "config",
+    heading: [
+      /設定/,
+      /コンフィグ/,
+      /環境変数/,
+      /設定値/,
+      /構成管理/,
+      /\bconfiguration\b/,
+      /\bconfig\b/,
+      /設定ファイル/,
+      /パラメータ/,
+    ],
+    body: [
+      /\benv\b/,
+      /\.env/,
+      /\bconfig\b/,
+      /environment variable/,
+      /\bsetting\b/,
+      /\bYAML\b/,
+      /\bTOML\b/,
+      /\bINI\b/,
+      /設定ファイル/,
+      /\bconf\b/,
+      /\bcfg\b/,
+      /\bvar\b/,
+      /既定値/,
+      /\bdefault\b/,
+      /初期化/,
+      /\binit\b/,
+    ],
   },
   {
-    kind: 'test_policy',
-    heading: [/テスト/, /テスト計画/, /テスト戦略/, /品質/, /単体テスト/, /結合テスト/, /\bE2E\b/, /テスト手法/, /品質保証/],
-    body: [/\btest\b/, /\bspec\b/, /\bassert\b/, /\bmock\b/, /\bcoverage\b/, /\bjest\b/, /\bvitest\b/, /\bplaywright\b/, /\bdescribe\b/, /\bit\b/, /\bshould\b/, /\bexpect\b/, /\bspy\b/, /\bstub\b/, /\bfixture\b/, /\bCI\b/],
+    kind: "test_policy",
+    heading: [
+      /テスト/,
+      /テスト計画/,
+      /テスト戦略/,
+      /品質/,
+      /単体テスト/,
+      /結合テスト/,
+      /\bE2E\b/,
+      /テスト手法/,
+      /品質保証/,
+    ],
+    body: [
+      /\btest\b/,
+      /\bspec\b/,
+      /\bassert\b/,
+      /\bmock\b/,
+      /\bcoverage\b/,
+      /\bjest\b/,
+      /\bvitest\b/,
+      /\bplaywright\b/,
+      /\bdescribe\b/,
+      /\bit\b/,
+      /\bshould\b/,
+      /\bexpect\b/,
+      /\bspy\b/,
+      /\bstub\b/,
+      /\bfixture\b/,
+      /\bCI\b/,
+    ],
   },
   {
-    kind: 'build_ci',
-    heading: [/ビルド/, /\bCI\b/, /\bCD\b/, /デプロイ/, /リリース/, /パッケージ/, /CI\/CD/, /デプロイ戦略/, /ビルド設定/, /継続的インテグレーション/],
-    body: [/\bMakefile\b/, /\bcargo\b/, /\bnpm\b/, /\byarn\b/, /\bpnpm\b/, /\bdocker\b/, /\bbuild\b/, /\bpublish\b/, /\brelease\b/, /\bpipeline\b/, /github actions/, /\bworkflow\b/, /\bartifact\b/, /\bdist\b/, /コンパイル/, /\bcompile\b/],
+    kind: "build_ci",
+    heading: [
+      /ビルド/,
+      /\bCI\b/,
+      /\bCD\b/,
+      /デプロイ/,
+      /リリース/,
+      /パッケージ/,
+      /CI\/CD/,
+      /デプロイ戦略/,
+      /ビルド設定/,
+      /継続的インテグレーション/,
+    ],
+    body: [
+      /\bMakefile\b/,
+      /\bcargo\b/,
+      /\bnpm\b/,
+      /\byarn\b/,
+      /\bpnpm\b/,
+      /\bdocker\b/,
+      /\bbuild\b/,
+      /\bpublish\b/,
+      /\brelease\b/,
+      /\bpipeline\b/,
+      /github actions/,
+      /\bworkflow\b/,
+      /\bartifact\b/,
+      /\bdist\b/,
+      /コンパイル/,
+      /\bcompile\b/,
+    ],
   },
   {
-    kind: 'rationale',
-    heading: [/根拠/, /設計判断/, /判断根拠/, /なぜ/, /意思決定/, /選択理由/, /代替案/, /トレードオフ/, /背景/, /設計選択/, /比較/],
-    body: [/\btherefore\b/, /\bbecause\b/, /\breason\b/, /trade-off/, /pros\/cons/, /理由/, /〜のため/, /なぜなら/, /したがって/, /一方/, /比較/, /検討/, /優位性/, /デメリット/],
+    kind: "rationale",
+    heading: [
+      /根拠/,
+      /設計判断/,
+      /判断根拠/,
+      /なぜ/,
+      /意思決定/,
+      /選択理由/,
+      /代替案/,
+      /トレードオフ/,
+      /背景/,
+      /設計選択/,
+      /比較/,
+    ],
+    body: [
+      /\btherefore\b/,
+      /\bbecause\b/,
+      /\breason\b/,
+      /trade-off/,
+      /pros\/cons/,
+      /理由/,
+      /〜のため/,
+      /なぜなら/,
+      /したがって/,
+      /一方/,
+      /比較/,
+      /検討/,
+      /優位性/,
+      /デメリット/,
+    ],
   },
   {
-    kind: 'glossary',
+    kind: "glossary",
     heading: [/用語/, /用語集/, /定義/, /用語定義/, /語彙/, /辞書/, /用語解説/],
-    body: [/用語/, /定義/, /略語/, /\bacronym\b/, /略称/, /正式名称/, /意味/, /説明/, /すなわち/, /\bi\.e\./, /\be\.g\./, /曖昧さ回避/],
+    body: [
+      /用語/,
+      /定義/,
+      /略語/,
+      /\bacronym\b/,
+      /略称/,
+      /正式名称/,
+      /意味/,
+      /説明/,
+      /すなわち/,
+      /\bi\.e\./,
+      /\be\.g\./,
+      /曖昧さ回避/,
+    ],
   },
 ];
 
@@ -93,17 +395,207 @@ const KIND_PATTERNS = [
 // 外部依存検出テーブル（第3軸）
 // ============================================================
 const DEP_PATTERNS = [
-  { label: 'ファイルI/O', patterns: [/fs\./, /readFile/, /writeFile/, /openFile/, /mkdir/, /rmdir/, /chmod/, /\baccess\b/, /\bstat\b/, /\bpath\b/, /\bFile\b/, /ファイル読み込み/, /ファイル書き込み/, /\bfsync\b/, /\brename\b/, /\bunlink\b/] },
-  { label: 'ネットワーク', patterns: [/http:\/\//, /https:\/\//, /\breqwest\b/, /\baxios\b/, /fetch\(/, /websocket/i, /\bWebSocket\b/, /\bTCP\b/, /\bUDP\b/, /\bsocket\b/, /\bconnect\b/, /\blisten\b/, /\bport\b/, /ネットワーク/, /\bcurl\b/, /通信/, /リモート/] },
-  { label: 'データベース', patterns: [/\bDB\b/, /\bdatabase\b/, /\bquery\b/, /\bSQL\b/, /\bSELECT\b/, /\bINSERT\b/, /\bUPDATE\b/, /\bDELETE\b/, /migration/, /connection pool/, /\borm\b/, /\bprisma\b/, /\bdiesel\b/, /\bseaorm\b/, /\bsqlx\b/, /コネクション/, /\bpostgresql\b/, /\bmysql\b/, /\bsqlite\b/, /\bredis\b/, /\bmongo\b/] },
-  { label: 'LLM/API', patterns: [/\bLLM\b/, /\bGPT\b/, /\bClaude\b/, /API key/, /\bopenai\b/, /\banthropic\b/, /\bcompletion\b/, /\bembedding\b/, /言語モデル/, /\btoken\b/, /\bprompt\b/, /推論/] },
-  { label: '非同期ランタイム', patterns: [/\btokio\b/, /\basync\b/, /\bawait\b/, /\bFuture\b/, /\bPromise\b/, /\bthread\b/, /\bspawn\b/, /\bjoin\b/, /async fn/, /非同期/, /async\/await/, /\bconcurrent\b/, /\bparallel\b/] },
-  { label: '乱数生成', patterns: [/\brandom\b/, /\brand\b/, /暗号論的乱数/, /crypto\.random/, /Math\.random/, /乱数/, /ランダム/, /\bUUID\b/, /\buuid\b/, /\bnonce\b/] },
-  { label: 'システム時間', patterns: [/\bclock\b/, /\btime\b/, /\bnow\b/, /\bSystemTime\b/, /\bchrono\b/, /\bduration\b/, /\btimestamp\b/, /\bdate\b/, /日時/, /時刻/, /タイマー/, /経過時間/] },
-  { label: 'プロセス管理', patterns: [/\bprocess\b/, /\bexit\b/, /\bsignal\b/, /child_process/, /\bexec\b/, /\bspawn\b/, /\bkill\b/, /プロセス/, /シグナル/, /デーモン/, /\bdaemon\b/] },
-  { label: '外部モジュール読込', patterns: [/require\(/, /\bimport\b/, /use `/, /extern crate/, /from '/, /from "/, /\bmod\b/, /依存関係/, /\bdependency\b/, /\bcrate\b/, /\bpackage\b/, /ライブラリ/] },
-  { label: '標準入出力', patterns: [/\bstdin\b/, /\bstdout\b/, /\bstderr\b/, /\bprint\b/, /\bprintln\b/, /console\.log/, /console\.error/, /\boutput\b/, /標準出力/, /標準エラー/, /入出力/] },
-  { label: '設定ファイル読込', patterns: [/\.env/, /\bconfig\b/, /\bYAML\b/, /\bTOML\b/, /\bJSON\b/, /設定ファイル/, /\bconf\b/, /\bini\b/, /読み込み/, /\bload\b/, /\bparse\b/] },
+  {
+    label: "ファイルI/O",
+    patterns: [
+      /fs\./,
+      /readFile/,
+      /writeFile/,
+      /openFile/,
+      /mkdir/,
+      /rmdir/,
+      /chmod/,
+      /\baccess\b/,
+      /\bstat\b/,
+      /\bpath\b/,
+      /\bFile\b/,
+      /ファイル読み込み/,
+      /ファイル書き込み/,
+      /\bfsync\b/,
+      /\brename\b/,
+      /\bunlink\b/,
+    ],
+  },
+  {
+    label: "ネットワーク",
+    patterns: [
+      /http:\/\//,
+      /https:\/\//,
+      /\breqwest\b/,
+      /\baxios\b/,
+      /fetch\(/,
+      /websocket/i,
+      /\bWebSocket\b/,
+      /\bTCP\b/,
+      /\bUDP\b/,
+      /\bsocket\b/,
+      /\bconnect\b/,
+      /\blisten\b/,
+      /\bport\b/,
+      /ネットワーク/,
+      /\bcurl\b/,
+      /通信/,
+      /リモート/,
+    ],
+  },
+  {
+    label: "データベース",
+    patterns: [
+      /\bDB\b/,
+      /\bdatabase\b/,
+      /\bquery\b/,
+      /\bSQL\b/,
+      /\bSELECT\b/,
+      /\bINSERT\b/,
+      /\bUPDATE\b/,
+      /\bDELETE\b/,
+      /migration/,
+      /connection pool/,
+      /\borm\b/,
+      /\bprisma\b/,
+      /\bdiesel\b/,
+      /\bseaorm\b/,
+      /\bsqlx\b/,
+      /コネクション/,
+      /\bpostgresql\b/,
+      /\bmysql\b/,
+      /\bsqlite\b/,
+      /\bredis\b/,
+      /\bmongo\b/,
+    ],
+  },
+  {
+    label: "LLM/API",
+    patterns: [
+      /\bLLM\b/,
+      /\bGPT\b/,
+      /\bClaude\b/,
+      /API key/,
+      /\bopenai\b/,
+      /\banthropic\b/,
+      /\bcompletion\b/,
+      /\bembedding\b/,
+      /言語モデル/,
+      /\btoken\b/,
+      /\bprompt\b/,
+      /推論/,
+    ],
+  },
+  {
+    label: "非同期ランタイム",
+    patterns: [
+      /\btokio\b/,
+      /\basync\b/,
+      /\bawait\b/,
+      /\bFuture\b/,
+      /\bPromise\b/,
+      /\bthread\b/,
+      /\bspawn\b/,
+      /\bjoin\b/,
+      /async fn/,
+      /非同期/,
+      /async\/await/,
+      /\bconcurrent\b/,
+      /\bparallel\b/,
+    ],
+  },
+  {
+    label: "乱数生成",
+    patterns: [
+      /\brandom\b/,
+      /\brand\b/,
+      /暗号論的乱数/,
+      /crypto\.random/,
+      /Math\.random/,
+      /乱数/,
+      /ランダム/,
+      /\bUUID\b/,
+      /\buuid\b/,
+      /\bnonce\b/,
+    ],
+  },
+  {
+    label: "システム時間",
+    patterns: [
+      /\bclock\b/,
+      /\btime\b/,
+      /\bnow\b/,
+      /\bSystemTime\b/,
+      /\bchrono\b/,
+      /\bduration\b/,
+      /\btimestamp\b/,
+      /\bdate\b/,
+      /日時/,
+      /時刻/,
+      /タイマー/,
+      /経過時間/,
+    ],
+  },
+  {
+    label: "プロセス管理",
+    patterns: [
+      /\bprocess\b/,
+      /\bexit\b/,
+      /\bsignal\b/,
+      /child_process/,
+      /\bexec\b/,
+      /\bspawn\b/,
+      /\bkill\b/,
+      /プロセス/,
+      /シグナル/,
+      /デーモン/,
+      /\bdaemon\b/,
+    ],
+  },
+  {
+    label: "外部モジュール読込",
+    patterns: [
+      /require\(/,
+      /\bimport\b/,
+      /use `/,
+      /extern crate/,
+      /from '/,
+      /from "/,
+      /\bmod\b/,
+      /依存関係/,
+      /\bdependency\b/,
+      /\bcrate\b/,
+      /\bpackage\b/,
+      /ライブラリ/,
+    ],
+  },
+  {
+    label: "標準入出力",
+    patterns: [
+      /\bstdin\b/,
+      /\bstdout\b/,
+      /\bstderr\b/,
+      /\bprint\b/,
+      /\bprintln\b/,
+      /console\.log/,
+      /console\.error/,
+      /\boutput\b/,
+      /標準出力/,
+      /標準エラー/,
+      /入出力/,
+    ],
+  },
+  {
+    label: "設定ファイル読込",
+    patterns: [
+      /\.env/,
+      /\bconfig\b/,
+      /\bYAML\b/,
+      /\bTOML\b/,
+      /\bJSON\b/,
+      /設定ファイル/,
+      /\bconf\b/,
+      /\bini\b/,
+      /読み込み/,
+      /\bload\b/,
+      /\bparse\b/,
+    ],
+  },
 ];
 
 // ============================================================
@@ -126,9 +618,7 @@ const LONG_SECTION_THRESHOLD = 100;
  */
 function exitWithError(summary, cause, action) {
   process.stderr.write(
-    `[ERROR] ${summary}\n` +
-    `原因: ${cause}\n` +
-    `対応: ${action}\n`
+    `[ERROR] ${summary}\n` + `原因: ${cause}\n` + `対応: ${action}\n`,
   );
   process.exit(1);
 }
@@ -146,17 +636,23 @@ function exitWithError(summary, cause, action) {
  */
 function parseArguments(argv) {
   if (argv.length < 3) {
-    throw new Error('ソースファイルのパスを指定してください。\n使用法: analyze-source-structure.js <source-path>');
+    throw new Error(
+      "ソースファイルのパスを指定してください。\n使用法: analyze-source-structure.js <source-path>",
+    );
   }
-  if (argv[2] === '--help' || argv[2] === '-h') {
-    console.log('使用法: analyze-source-structure.js <source-path>');
-    console.log('');
-    console.log('Markdownファイルの構造情報（セクションツリー、行数、kind候補、外部依存）を');
-    console.log('自然言語レポートとして標準出力に出力します。');
+  if (argv[2] === "--help" || argv[2] === "-h") {
+    console.log("使用法: analyze-source-structure.js <source-path>");
+    console.log("");
+    console.log(
+      "Markdownファイルの構造情報（セクションツリー、行数、kind候補、外部依存）を",
+    );
+    console.log("自然言語レポートとして標準出力に出力します。");
     process.exit(0);
   }
   if (argv.length > 3) {
-    throw new Error(`余剰な引数があります: ${argv.slice(3).join(' ')}\n使用法: analyze-source-structure.js <source-path>`);
+    throw new Error(
+      `余剰な引数があります: ${argv.slice(3).join(" ")}\n使用法: analyze-source-structure.js <source-path>`,
+    );
   }
   return { sourcePath: argv[2] };
 }
@@ -172,9 +668,9 @@ function parseArgumentsSafe(argv) {
     return parseArguments(argv);
   } catch (e) {
     exitWithError(
-      '引数のパースに失敗しました。',
+      "引数のパースに失敗しました。",
       e.message,
-      '正しい引数で再実行してください。'
+      "正しい引数で再実行してください。",
     );
     // unreachable
     process.exit(1);
@@ -191,8 +687,8 @@ function readSourceFile(filePath) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`ソースファイルが見つかりません: ${filePath}`);
   }
-  const content = fs.readFileSync(filePath, 'utf8');
-  return content.split('\n');
+  const content = fs.readFileSync(filePath, "utf8");
+  return content.split("\n");
 }
 
 // ============================================================
@@ -212,7 +708,7 @@ function extractCodeBlocks(sourceLines) {
 
   for (let i = 0; i < sourceLines.length; i++) {
     const trimmed = sourceLines[i].trim();
-    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+    if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
       if (!inBlock) {
         inBlock = true;
         blockStart = i;
@@ -271,7 +767,7 @@ function extractHeadingTree(sourceLines, codeBlocks) {
         endLine: sourceLines.length, // 暫定
         proseLines: 0,
         codeBlockCount: 0,
-        bodyText: '',
+        bodyText: "",
       };
       sections.push(currentSection);
     }
@@ -281,12 +777,12 @@ function extractHeadingTree(sourceLines, codeBlocks) {
   if (sections.length === 0) {
     sections.push({
       level: 0,
-      heading: '(全体)',
+      heading: "(全体)",
       startLine: 1,
       endLine: sourceLines.length,
       proseLines: 0,
       codeBlockCount: 0,
-      bodyText: '',
+      bodyText: "",
     });
   }
 
@@ -310,7 +806,7 @@ function extractHeadingTree(sourceLines, codeBlocks) {
       if (codeBlockSet.has(j)) continue;
       const text = sourceLines[j];
       // 空行はカウントしない
-      if (text.trim() !== '') {
+      if (text.trim() !== "") {
         proseCount++;
         // 見出し行自体は本文には含めない（タイトル行）
         const isHeading = /^#{1,6}\s+/.test(text);
@@ -321,9 +817,9 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     }
     sec.proseLines = proseCount;
     sec.codeBlockCount = codeBlocks.filter(
-      b => (b.start >= sec.startLine - 1 && b.end <= sec.endLine - 1)
+      (b) => b.start >= sec.startLine - 1 && b.end <= sec.endLine - 1,
     ).length;
-    sec.bodyText = bodyParts.join('\n');
+    sec.bodyText = bodyParts.join("\n");
   }
 
   return sections;
@@ -345,13 +841,13 @@ function estimateKind(heading, bodyText) {
 
   for (const pattern of KIND_PATTERNS) {
     // 見出しマッチ（優先）
-    const headingMatch = pattern.heading.some(re => re.test(heading));
+    const headingMatch = pattern.heading.some((re) => re.test(heading));
     if (headingMatch) {
       matches.push(pattern.kind);
       continue; // 見出しマッチしたら本文はチェックしない（重複防止）
     }
     // 本文キーワードマッチ（補助）
-    const bodyMatch = pattern.body.some(re => re.test(bodyText));
+    const bodyMatch = pattern.body.some((re) => re.test(bodyText));
     if (bodyMatch) {
       matches.push(pattern.kind);
     }
@@ -374,7 +870,7 @@ function collectBodyMatches(bodyText, patterns) {
     if (results) {
       for (const m of results.slice(0, 3)) {
         if (m.length === 0) continue;
-        const truncated = m.length > 30 ? m.substring(0, 30) + '…' : m;
+        const truncated = m.length > 30 ? m.substring(0, 30) + "…" : m;
         if (!matches.includes(truncated)) {
           matches.push(truncated);
         }
@@ -389,6 +885,22 @@ function collectBodyMatches(bodyText, patterns) {
 // ============================================================
 
 /**
+ * セクションに子見出し（より深いレベルの見出し）が存在するかを判定する
+ *
+ * 子見出しを持つセクションは既に適切に分割済みとみなし、
+ * 100行超セクションの警告対象から除外するために使用する。
+ *
+ * @param {Array} sections — 全セクションの配列
+ * @param {Object} sec — 判定対象のセクション
+ * @returns {boolean} 子見出しが存在すれば true
+ */
+function sectionHasChildren(sections, sec) {
+  return sections.some(
+    (s) => s.level > sec.level && s.startLine > sec.startLine && s.startLine <= sec.endLine,
+  );
+}
+
+/**
  * 本文テキストから外部依存パターンを検出する
  *
  * @param {string} bodyText
@@ -397,7 +909,7 @@ function collectBodyMatches(bodyText, patterns) {
 function detectExternalDeps(bodyText) {
   const found = [];
   for (const dep of DEP_PATTERNS) {
-    if (dep.patterns.some(re => re.test(bodyText))) {
+    if (dep.patterns.some((re) => re.test(bodyText))) {
       found.push(dep.label);
     }
   }
@@ -419,7 +931,9 @@ function detectExternalDeps(bodyText) {
  * @returns {string[]} トークン列
  */
 function extractHeadingTokens(headingText) {
-  return headingText.split(/[\s、。，．・：；（）\[\]{}「」『』【】　\\]+/).filter(Boolean);
+  return headingText
+    .split(/[\s、。，．・：；（）\[\]{}「」『』【】　\\]+/)
+    .filter(Boolean);
 }
 
 /**
@@ -431,7 +945,7 @@ function extractHeadingTokens(headingText) {
  * @returns {Array<{ lineRange: string, heading: number, texts: string[] }>}
  */
 function generateCandidateHeadingRefs(sections) {
-  return sections.map(sec => ({
+  return sections.map((sec) => ({
     lineRange: `L${sec.startLine}-L${sec.endLine}`,
     heading: sec.level,
     texts: extractHeadingTokens(sec.heading),
@@ -454,77 +968,112 @@ function generateCandidateHeadingRefs(sections) {
  * @param {Array} headingRefCandidates — { lineRange, heading, texts }[]
  * @returns {string}
  */
-function formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections, headingRefCandidates) {
+function formatReport(
+  sourcePath,
+  totalLines,
+  codeLines,
+  sections,
+  kindHints,
+  deps,
+  longSections,
+  headingRefCandidates,
+) {
   const proseLines = totalLines - codeLines;
   const lines = [];
 
   const basename = path.basename(sourcePath);
 
   lines.push(`# ${basename} 構造分析レポート`);
-  lines.push('');
+  lines.push("");
   lines.push(`## 基本情報`);
-  lines.push(`総行数: ${totalLines}行（うちコードブロック: ${codeLines}行、実質記述: ${proseLines}行）`);
-  lines.push('');
+  lines.push(
+    `総行数: ${totalLines}行（うちコードブロック: ${codeLines}行、実質記述: ${proseLines}行）`,
+  );
+  lines.push("");
+
+  // セクションの lineRange をキーにした kind / dep ルックアップ
+  const kindByRange = {};
+  for (const hint of kindHints) {
+    kindByRange[hint.lineRange] = hint.kind;
+  }
+  const depByRange = {};
+  for (const dep of deps) {
+    depByRange[dep.lineRange] = dep.labels.join(", ");
+  }
 
   // セクション一覧
-  lines.push(`## セクション一覧`);
+  lines.push(
+    `## セクション一覧（ノード候補。機械的な検出結果でありAIが判断を上書き可能。）`,
+  );
   for (const sec of sections) {
-    const hTag = `<h${sec.level}>`;
-    const codeInfo = sec.codeBlockCount > 0 ? `(${sec.codeBlockCount})` : '';
-    const proseStr = sec.proseLines > 0 ? `${sec.proseLines}行${codeInfo}` : '';
-    const indent = sec.level > 0 ? '  '.repeat(sec.level - 1) : '';
-    const sep = sec.proseLines > 0 ? '  ' : '';
-    const textsStr = `[texts: ${extractHeadingTokens(sec.heading).join(' / ')}]`;
-    lines.push(`${indent}${hTag}: L${sec.startLine}-L${sec.endLine}${sep}${proseStr}  ${textsStr}  ${sec.heading}`);
+    const hTag = `- h${sec.level}`;
+    const proseStr = sec.proseLines > 0 ? `${sec.proseLines}行` : "";
+    const indent = sec.level > 0 ? "  ".repeat(sec.level - 1) : "";
+    const range = `L${sec.startLine}-L${sec.endLine}`;
+    const kindInfo = kindByRange[range] ? ` [kind: ${kindByRange[range]}]` : "";
+    const depInfo = depByRange[range] ? ` [dep: ${depByRange[range]}]` : "";
+    lines.push(
+      `${indent}${hTag} ${range}: ${sec.heading.trim()} (${proseStr})${kindInfo}${depInfo}`,
+    );
   }
-  lines.push('');
+  lines.push("");
 
-  // kind 候補（第2軸）
-  lines.push(`## kind 候補（機械的推定。AI が判断を上書き可能）`);
-  if (kindHints.length === 0) {
-    lines.push('該当なし（キーワード未マッチのため kind を推定できませんでした）');
-  } else {
-    for (const hint of kindHints) {
-      lines.push(`${hint.lineRange}  ${hint.kind}  ← ${hint.reason}`);
-    }
-  }
-  lines.push('');
+  // // kind 候補（第2軸）— 各セクション行にインライン付記済み
+  // lines.push(`## kind 候補（機械的推定。AI が判断を上書き可能）`);
+  // if (kindHints.length === 0) {
+  //   lines.push(
+  //     "該当なし（キーワード未マッチのため kind を推定できませんでした）",
+  //   );
+  // } else {
+  //   for (const hint of kindHints) {
+  //     lines.push(`${hint.lineRange}  ${hint.kind}  ← ${hint.reason}`);
+  //   }
+  // }
+  // lines.push("");
+  //
+  // // 外部依存（第3軸）— 各セクション行にインライン付記済み
+  // lines.push(
+  //   `## 外部依存の可能性があるセクション（機械的検出。AIは参考にして自由に判断可。）`,
+  // );
+  // if (deps.length === 0) {
+  //   lines.push("検出なし");
+  // } else {
+  //   for (const dep of deps) {
+  //     lines.push(`${dep.lineRange}  ${dep.labels.join(", ")}`);
+  //   }
+  // }
+  // lines.push("");
 
-  // 外部依存（第3軸）
-  lines.push(`## 外部依存ありセクション（機械的検出。AI が強度と影響範囲を判断）`);
-  if (deps.length === 0) {
-    lines.push('検出なし');
-  } else {
-    for (const dep of deps) {
-      lines.push(`${dep.lineRange}  ${dep.labels.join('、')}`);
-    }
-  }
-  lines.push('');
-
-  // 候補 headingRefs（第4軸）
-  lines.push(`## 候補 headingRefs（機械的抽出。AI が判断を上書き可能）`);
-  if (!headingRefCandidates || headingRefCandidates.length === 0) {
-    lines.push('該当なし（セクションが存在しないため候補を生成できませんでした）');
-  } else {
-    for (const cand of headingRefCandidates) {
-      const headingLabel = cand.heading > 0 ? `h${cand.heading}` : 'title';
-      lines.push(`${cand.lineRange}  ${headingLabel}: [${cand.texts.join(', ')}]`);
-    }
-  }
-  lines.push('');
+  // // 候補 headingRefs（第4軸）
+  // lines.push(
+  //   `## ノード候補 headingRefs（機械的抽出。AI は参考にして独自に判断可。）`,
+  // );
+  // if (!headingRefCandidates || headingRefCandidates.length === 0) {
+  //   lines.push(
+  //     "該当なし（セクションが存在しないため候補を生成できませんでした）",
+  //   );
+  // } else {
+  //   for (const cand of headingRefCandidates) {
+  //     const headingLabel = cand.heading > 0 ? `h${cand.heading}` : "title";
+  //     lines.push(`${cand.lineRange}  ${headingLabel}: ${cand.texts.join(" ")}`);
+  //   }
+  // }
+  // lines.push("");
 
   // 100行超セクション
-  lines.push(`## 100行超セクション（コードブロック除く実質記述行数 — 強制分割候補）`);
+  lines.push(
+    `## 100行超セクション（コードブロック除く実質記述行数 — 強制分割候補）`,
+  );
   if (longSections.length === 0) {
-    lines.push('なし（全セクションが100行未満）');
+    lines.push("なし（全セクションが100行未満）");
   } else {
     for (const sec of longSections) {
       lines.push(`${sec.lineRange}  実質${sec.proseLines}行  ${sec.label}`);
     }
   }
-  lines.push('');
+  lines.push("");
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 // ============================================================
@@ -563,22 +1112,24 @@ function generateReport(sourcePath, sourceLines) {
       const reasons = [];
       // 理由を構築するため、マッチしたパターンを探す
       for (const kind of matches) {
-        const pattern = KIND_PATTERNS.find(p => p.kind === kind);
+        const pattern = KIND_PATTERNS.find((p) => p.kind === kind);
         if (!pattern) continue;
-        const headingMatch = pattern.heading.some(re => re.test(sec.heading));
+        const headingMatch = pattern.heading.some((re) => re.test(sec.heading));
         if (headingMatch) {
           reasons.push(`見出しに "${sec.heading}"`);
         } else {
           const bodyMatches = collectBodyMatches(sec.bodyText, pattern.body);
-          reasons.push(bodyMatches.length > 0
-            ? `本文に "${bodyMatches.slice(0, 3).join('", "')}"`
-            : `本文キーワード`);
+          reasons.push(
+            bodyMatches.length > 0
+              ? `本文に "${bodyMatches.slice(0, 3).join('", "')}"`
+              : `本文キーワード`,
+          );
         }
       }
       kindHints.push({
         lineRange: `L${sec.startLine}-L${sec.endLine}`,
-        kind: matches.join(', '),
-        reason: reasons.join('; '),
+        kind: matches.join(", "),
+        reason: reasons.join("; "),
       });
     }
   }
@@ -595,10 +1146,12 @@ function generateReport(sourcePath, sourceLines) {
     }
   }
 
-  // 100行超セクション
+  // 100行超セクション（h2以上のみ。h1は文書全体を包むため判定対象外）
+  // 子見出し（h3/h4）を持つセクションは、小見出しで適切に分割済みとみなし対象外
   const longSections = [];
   for (const sec of sections) {
-    if (sec.proseLines > LONG_SECTION_THRESHOLD) {
+    if (sec.level <= 1) continue;
+    if (sec.proseLines > LONG_SECTION_THRESHOLD && !sectionHasChildren(sections, sec)) {
       longSections.push({
         lineRange: `L${sec.startLine}-L${sec.endLine}`,
         proseLines: sec.proseLines,
@@ -610,7 +1163,16 @@ function generateReport(sourcePath, sourceLines) {
   // 候補 headingRefs
   const headingRefCandidates = generateCandidateHeadingRefs(sections);
 
-  return formatReport(sourcePath, totalLines, codeLines, sections, kindHints, deps, longSections, headingRefCandidates);
+  return formatReport(
+    sourcePath,
+    totalLines,
+    codeLines,
+    sections,
+    kindHints,
+    deps,
+    longSections,
+    headingRefCandidates,
+  );
 }
 
 // ============================================================
@@ -624,9 +1186,9 @@ function main() {
     sourceLines = readSourceFile(sourcePath);
   } catch (e) {
     exitWithError(
-      'ソースファイルが見つかりません。',
+      "ソースファイルが見つかりません。",
       e.message,
-      '正しいファイルパスを指定してください。'
+      "正しいファイルパスを指定してください。",
     );
   }
   const report = generateReport(sourcePath, sourceLines);
