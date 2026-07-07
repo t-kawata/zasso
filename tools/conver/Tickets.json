@@ -2856,6 +2856,258 @@
           "completedAt": "2026-07-06"
         }
       ]
+    },
+    {
+      "id": 17,
+      "name": "Boundify 純粋関数群 (Layer 0/1) — 4内部ヘルパー一括実装",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 17,
+          "status": "reviewed",
+          "title": "Dirs-Tree.json Schema + inferLanguage + tarjanSCC + titleToFileName — 4純粋関数一括",
+          "referenceSection": "tickets/specs/0059-p17-1-dirs-treejson-schema-inferlanguage-tarjanscc-titletofilename.md",
+          "background": "boundify-graph-to-dirs.js の内部ヘルパー4関数を一括実装する。いずれも純粋関数（外部I/Oなし）で、それぞれ10〜30行の小規模な実装単位。RFC-BOUNDIFY.md §3.3（スキーマ定義）・§3.4（言語推定）・§3.6（循環依存検出）・§4.6（ファイル命名規則）に設計詳細。",
+          "scope": [
+            "新規: .claude/scripts/rfc-graph/boundify-helpers.js — SCHEMA定数 / SAFE_BOUNDARIES_EN_TEXT定数 / inferLanguage() / graphToLangJson() / projectEdgesToDirectories() / tarjanSCC() / titleToFileName() / deduplicateFileNames()",
+            "新規: tests/rfc-graph/boundify-helpers.test.cjs — 全関数の node:test ユニットテスト"
+          ],
+          "testVerification": [
+            "UT-Schema: SCHEMA が有効なJSON Schema、requiredフィールド一致、DirNode/DependencyDirection 必須検証",
+            "UT-inferLanguage: Rust/Go/TS キーワード検出、kind補完、空titleフォールバック",
+            "UT-graphToLangJson: 3言語ノード languageMap、空グラフ、edges保持",
+            "UT-projectEdges: 異dir依存、同dirスキップ、未解決スキップ、非方向性スキップ、空配列",
+            "UT-tarjanSCC: 非巡回·循環·自己ループ·複数循環·空配列",
+            "UT-titleToFileName: §除去·言語別拡張子·barrel衝突回避·特殊文字·48文字切詰·空title",
+            "UT-deduplicateFileNames: 重複なし·同名2つ·同名3つ·空配列"
+          ],
+          "testExceptions": [],
+          "instrumentation": "静的品質チェック: 0 issues\n翻訳可能性: 全て動詞句の関数名、1文字変数なし、マジックナンバーなし、console.log なし\nテスト: 59/59 PASS\n依存関係: P18-P21 が本チケットの関数に依存（整合性確認済）",
+          "notes": "レビュー報告書:\n\n1. 静的品質チェック: 合格（run-quality-checks: 0 issues）\n2. 翻訳可能性: 問題なし\n   - 全関数名が動詞句（inferLanguage, projectEdgesToDirectories, tarjanSCC 等）\n   - single-letter 変数なし（Tarjan SCC は nodeId/neighbor に改善済）\n   - マジックナンバーは MAX_FILE_NAME_LENGTH 等の定数に集約\n   - console.log 残存なし\n   - コメントは「なぜ」（RFC §参照）を説明し、「何を」は関数名が語る\n3. テスト: 全59テスト PASS（8スイート）\n4. 依存関係: P17-1→P18/P19/P20/P21（被依存）の関係に整合性あり\n   - P18-P21 の relatedTicketIds は未設定（todo ステータスのため問題なし）\n5. 不完全実装パターン: 0件（todo!() / unimplemented!() / TODO なし）\n6. 犯罪: 0件\n7. スタブ: 0件\n8. Boy Scout 改善: Tarjan SCC 変数名の改善（v/w → nodeId/neighbor）\n\n最終判定: 合格（reviewed に遷移可能）",
+          "relatedTicketIds": "P18-1 (被依存: buildDirectoryTree が本チケットの関数を使用), P19-1 (被依存: validate-dirs-tree が SCHEMA を使用), P20-1 (被依存: generate-dir-template が titleToFileName を使用), P21-1 (被依存: メインスクリプトが全関数を使用)",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "(新規)",
+              "after": ".claude/scripts/rfc-graph/boundify-helpers.js",
+              "description": "8つの純粋関数/定数を一括実装"
+            },
+            {
+              "before": "(新規)",
+              "after": "tests/rfc-graph/boundify-helpers.test.cjs",
+              "description": "59のユニットテスト"
+            }
+          ],
+          "completedAt": "2026-07-07",
+          "rfcDiscrepancies": []
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Boundify ディレクトリツリー生成 (Layer 1) — 階層構築・宣言生成・レポート",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 18,
+          "status": "reviewed",
+          "title": "buildDomainHierarchy + buildDirectoryTree + generateDeclarationStub + generateReport",
+          "referenceSection": "RFC-BOUNDIFY.md §3.5",
+          "background": "part_of エッジからドメイン階層を構築し、kind + title に基づいてノードをドメイン指向のディレクトリ構造に配置する。さらに子ファイル宣言（Rust: pub mod, Go: package, TS: barrel）とMarkdownレポートを生成する。4関数は密結合（tree→stub→report の順で呼ばれる）。",
+          "scope": [
+            "buildDomainHierarchy(graph): {childOf, nodeMap}",
+            "resolveDirForNode(node, rules, hierarchy): string|null",
+            "buildDirectoryTree(graph, lang): {tree, nodeToDir}",
+            "KIND_FILE_RULES: config→config/, error_policy→error/, test_policy→tests/ 等",
+            "generateDeclarationStub(dirNode, lang): string|null",
+            "generateReport(graph, dirsTree, lang): string"
+          ],
+          "testVerification": [
+            "UT-buildDomainHierarchy: part_of エッジ→ドメイン階層構築",
+            "UT-buildDomainHierarchy: part_of なし→空 roots",
+            "UT-buildDomainHierarchy: 循環 part_of → エラー",
+            "UT-resolveDirForNode: config→config/",
+            "UT-resolveDirForNode: architecture→null（骨格）",
+            "UT-resolveDirForNode: 未定義 kind→kind 名フォールバック",
+            "UT-KIND_FILE_RULES: 12種全 kind が定義済み",
+            "UT-buildDirectoryTree: 単一ルート→単一ディレクトリ",
+            "UT-buildDirectoryTree: 複数ルート→複数ディレクトリ",
+            "UT-buildDirectoryTree: 階層→子ディレクトリ",
+            "UT-buildDirectoryTree: 重複タイトル→_1/_2 サフィックス",
+            "UT-buildDirectoryTree: 空グラフ→空 tree",
+            "UT-generateDeclarationStub: Rust → pub mod",
+            "UT-generateDeclarationStub: Go → package",
+            "UT-generateDeclarationStub: TS → export *",
+            "UT-generateDeclarationStub: 子なし → null",
+            "UT-generateDeclarationStub: mod.rs → self スキップ",
+            "UT-generateReport: 統計セクション",
+            "UT-generateReport: ツリーセクション",
+            "UT-generateReport: 依存方向マップ"
+          ],
+          "testExceptions": [
+            "該当なし — 全関数が純粋関数のため、ユニットテストで全範囲をカバー可能"
+          ],
+          "instrumentation": "静的品質チェック: 0 issues\n翻訳可能性: 全関数動詞句、1文字変数なし、console.log なし\nテスト: P18-1 46/46 PASS、P17-1 59/59 PASS（回帰なし）",
+          "notes": "レビュー報告書:\n\n1. 静的品質チェック: 合格（run-quality-checks: 0 issues）\n2. 翻訳可能性: 問題なし\n   - 全関数名が動詞句（buildDomainHierarchy, resolveDirForNode, generateDeclarationStub 等）\n   - 1文字変数なし\n   - マジックナンバーは定数（KIND_FILE_RULES）に集約\n   - console.log 残存なし\n   - コメントは「なぜ」（RFC §参照）を説明し、「何を」は関数名が語る\n3. テスト: 全46テスト PASS（10スイート）\n4. 既存P17-1回帰テスト: 全59テスト PASS（影響なし）\n5. 依存関係: P17-1↔P18-1 の相互参照整合性確認済（循環なし）\n6. スタブ: 2件（[::STUB::] マーカー付き）\n   - line 79: 循環 part_of 除外 — 保留妥当\n   - line 129: 親ノードパス構築未対応 — 保留妥当（第1パス機械的提案として許容範囲）\n7. 犯罪: 0件\n8. Boy Scout 改善: 特になし（新規ファイルのみのため）\n\n最終判定: 合格（reviewed に遷移可能）",
+          "relatedTicketIds": "P17-1 (依存: buildDirectoryTree が boundify-helpers.js の titleToFileName/deduplicateFileNames を使用), P19-1 (被依存: validate-dirs-tree-schema.js が本チケットの Dirs-Tree 構造を使用), P20-1 (被依存: generate-dir-template が本チケットのツリー構造を使用), P21-1 (被依存: メインスクリプトが本チケットの全4関数を使用)",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "(新規)",
+              "after": ".claude/scripts/rfc-graph/boundify-tree.js",
+              "description": "6関数+4定数/ヘルパーを実装（buildDomainHierarchy, resolveDirForNode, resolveNodeToDirMap, buildDirectoryTree, generateDeclarationStub, generateReport + collectFiles, mergeTopLevelNodes, renderTreeAscii, KIND_FILE_RULES）"
+            },
+            {
+              "before": "(新規)",
+              "after": "tests/rfc-graph/boundify-tree.test.cjs",
+              "description": "46のユニットテスト（10 describe スイート）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Boundify 検証スクリプト (Layer 1+2) — validate-dirs-tree-schema.js",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 19,
+          "status": "reviewed",
+          "title": "validate-dirs-tree-schema.js — Dirs-Tree.json スキーマ検証",
+          "referenceSection": "RFC-BOUNDIFY.md §4.3",
+          "background": "Dirs-Tree.json を検証するスタンドアロンスクリプト。5項目（JSON Schema準拠／mappedNodeIds存在確認／深さ制限4／言語別拡張子／dependencyDirectionsパス）をチェック。graphify の check-all-schema.js 相当。",
+          "scope": [
+            "(NEW) .claude/scripts/rfc-graph/validate-dirs-tree-schema.js — 6検証項目+CLIエントリポイント",
+            "(NEW) tests/rfc-graph/validate-dirs-tree-schema.test.cjs — node:test ユニットテスト"
+          ],
+          "testVerification": [
+            "UT-正常系: 正しいDirs-Tree.json → {ok: true}, exit 0",
+            "UT-引数: --dirs-tree= のみ → exit 1",
+            "UT-引数: 存在しないパス → exit 1",
+            "UT-Schema: schemaVersion 欠落 → errors",
+            "UT-Schema: trees 欠落 → errors",
+            "UT-Schema: dependencyDirections 欠落 → errors",
+            "UT-nodeIds: 存在しない mappedNodeId → errors",
+            "UT-深さ: 深さ5 → depth error",
+            "UT-深さ: 深さ4（境界値）→ error なし",
+            "UT-拡張子: Rust内.go → extension error",
+            "UT-拡張子: Go内.ts → extension error",
+            "UT-拡張子: TS内.rs → extension error",
+            "UT-depDirections: 存在しない from → path error",
+            "UT-depDirections: 存在しない to → path error",
+            "UT-結合: 複数エラー同時発生 → errors 配列",
+            "UT-JSON: 破損JSON → exit 1",
+            "UT-ファイル種別: directory は拡張子チェック対象外"
+          ],
+          "testExceptions": [],
+          "instrumentation": "静的品質チェック: 0 issues\n翻訳可能性: 全関数動詞句（check*）、1文字変数なし、定数化済み、console.log なし\nテスト: 22/22 PASS（10 describeスイート）\n不完全実装: 0件\n犯罪: 0件\nスタブ: 0件\n依存関係: 整合性確認済（循環なし）",
+          "notes": "レビュー報告書:\n\n1. 静的品質チェック: 合格（run-quality-checks: 0 issues）\n2. 翻訳可能性: 問題なし\n   - 全15関数が動詞句（checkSchemaVersion, checkNodeIds, checkDepth, checkNamingConventions 等）\n   - 1文字変数なし\n   - マジックナンバーは MAX_DEPTH=4, LANGUAGE_EXTENSIONS, SUPPORTED_LANGUAGES の定数に集約\n   - console.log 残存なし（process.stdout.write に置換済み）\n   - コメントは「なぜ」（RFC §参照）を説明し、「何を」は関数名が語る\n3. テスト: 全22テスト PASS（10 describeスイート）\n4. 既存回帰テスト影響: なし（新規ファイルのみ）\n5. 依存関係: P17-1/P18-1 との相互参照整合性確認済（循環なし）\n6. 不完全実装パターン: 0件\n7. 犯罪: 0件\n8. スタブ: 0件\n9. Boy Scout 改善: process.stdout.write による実出力とデバッグ出力の区別\n\n最終判定: 合格（reviewed に遷移可能）",
+          "relatedTicketIds": "P17-1 (先行依存: スキーマ定義), P18-1 (先行依存: ディレクトリツリー生成), P20-1 (後続: テンプレート生成), P21-1 (後続: メイン統合), P21-2 (後続: フラグ拡張)",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "(新規)",
+              "after": ".claude/scripts/rfc-graph/validate-dirs-tree-schema.js",
+              "description": "6検証項目+CLIエントリポイント — Dirs-Tree.json スキーマ検証スクリプト"
+            },
+            {
+              "before": "(新規)",
+              "after": "tests/rfc-graph/validate-dirs-tree-schema.test.cjs",
+              "description": "22のユニットテスト（node:test、10 describeスイート）"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Boundify テンプレート生成スクリプト (Layer 2) — generate-dir-template.js",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 20,
+          "status": "todo",
+          "title": "generate-dir-template.js — テンプレートファイル生成",
+          "referenceSection": "RFC-BOUNDIFY.md §4.4",
+          "background": "Dirs-Tree.json に基づき実際のディレクトリとスタブファイルを生成。ディスカバリ（dry-run）→確認プロンプト→作成（第2パス）の3段階。--dry-run/--force 制御。",
+          "scope": [
+            "CLI: --dirs-tree= --root-dir= --lang= [--dry-run] [--force]",
+            "discover(tree, rootDir): CreatedItem[]",
+            "readline 確認プロンプト（TTYのみ /--forceでスキップ）",
+            "create(items): ActuallyCreated[]"
+          ],
+          "testVerification": [
+            "正常系: --dry-run → ファイル作成なしで一覧",
+            "正常系: 確認Y → ディレクトリ+ファイル作成",
+            "異常系: 確認N → cancelled",
+            "異常系: 既存ファイル+ --forceなし → エラー"
+          ],
+          "testExceptions": [
+            "readline テストは TTY 必須のためスキップ（--forceでバイパス）"
+          ],
+          "instrumentation": "結果 JSON を stdout。stderr はプロンプト＋エラー。",
+          "notes": "作業対象範囲: tools/conver/.claude/ 内に限定。\n既存ファイル（graphify-rfc.md, crud.js, verify.js 等）への変更は update-step-status.js の --status= フラグ追加のみ。それ以外の既存ファイルは一切変更禁止。"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Boundify 統合 (Layer 3+4) — メインスクリプト・フラグ拡張・.md定義",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 21,
+          "status": "todo",
+          "title": "boundify-graph-to-dirs.js メインスクリプト統合",
+          "referenceSection": "RFC-BOUNDIFY.md §4.2",
+          "background": "全下位層（P18〜P22の実装）を統合し、CLI エントリポイントを完成させる。引数パース・グラフ読込・言語推定・ツリー生成・エッジ解析・スキーマ検証・ファイル書出・--json/--quiet出力制御を統合。",
+          "scope": [
+            "parseArguments(testArgs?): {graphPath, graphDir, basename, flags}",
+            "loadGraph(graphPath): Graph",
+            "main(testArgs?): void（--json/--quiet/デフォルト 3出力モード）"
+          ],
+          "testVerification": [
+            "正常系: RFC-ROOT-GRAPH.json → 3ファイル出力",
+            "正常系: --json → JSON のみ stdout",
+            "正常系: --quiet → stdout なし",
+            "異常系: 存在しないパス → エラー",
+            "異常系: 破損JSON → エラー"
+          ],
+          "testExceptions": [
+            "ファイル出力テストは一時ディレクトリ"
+          ],
+          "instrumentation": "main() に全工程集約。",
+          "notes": "作業対象範囲: tools/conver/.claude/scripts/rfc-graph/"
+        },
+        {
+          "id": 2,
+          "phaseId": 21,
+          "status": "todo",
+          "title": "update-step-status.js --status= フラグ拡張 + boundify-graph-to-dirs.md スラッシュコマンド定義",
+          "referenceSection": "RFC-BOUNDIFY.md §4.5, §4.7",
+          "background": "既存 update-step-status.js に --status=<path> フラグを追加（--graphify-status= のエイリアス、既存挙動は変更禁止）。合わせて /boundify-graph-to-dirs の .md 定義ファイルを tools/conver/.claude/commands/ に作成する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存するため同一チケットに統合。",
+          "scope": [
+            "--status=<path> フラグ追加（--graphify-status= と併存・互換）",
+            "boundify-graph-to-dirs.md: 引数説明、導出パス、Step 0〜5、エラー復帰、スクリプトリファレンス"
+          ],
+          "testVerification": [
+            "正常系: --status=path → Status.json を操作",
+            "正常系: --graphify-status=path → 従来通り（後方互換）",
+            "正常系: .md ファイルが tools/conver/.claude/commands/ に存在",
+            "異常系: 両方指定もエラーにならない"
+          ],
+          "testExceptions": [
+            ".md はドキュメントのため自動テスト不可（存在確認のみ）"
+          ],
+          "instrumentation": "フラグ拡張: 最小限のパース部変更。.md: なし。",
+          "notes": "作業対象範囲: tools/conver/.claude/scripts/rfc-graph/update-step-status.js および tools/conver/.claude/commands/boundify-graph-to-dirs.md"
+        }
+      ]
     }
   ]
 }

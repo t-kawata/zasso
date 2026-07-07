@@ -205,3 +205,42 @@ Step 3.5: 機械的フィルタリング（新設）
 
 全7チケットが5フェーズ（P12〜P16）に分割され、Tickets.json に追加済み。
 既存フェーズ（P0〜P11）は一切変更していない。
+
+---
+
+## 拡張: RFC BOUNDIFY-001 — `/boundify-graph-to-dirs` スラッシュコマンド
+
+> このセクションは `/formulate-tickets-for-next` によって自動追記されました。
+> **生成元:** tools/conver/RFC-BOUNDIFY.md
+> **生成日:** 2026-07-07
+
+### 目的
+
+`/graphify-rfc` が生成するグラフJSONを入力として受け取り、ディレクトリと名前空間で構築された安全な境界を持つ実装ディレクトリツリーを提案・洗練・生成する。graphify（論理グラフ）→ boundify（物理ディレクトリ）のパイプラインにより、設計から実装までのシームレスな接続を実現する。
+
+### 主要な型とデータ構造
+
+| スキーマ/構造体 | 内容 |
+|----------------|------|
+| `Dirs-Tree.json` | ツリー構造（名前・種別・kind・mappedNodeIds・子要素） |
+| `DirNode` | ディレクトリ/ファイルの単一ノード型（typeで区別） |
+| `languageRules` | ディレクトリノードの言語別可視性ルール |
+| `GRAPH-LANG.json` | 元グラフに language 注釈を追加した拡張版 |
+| `dependencyDirections` | ディレクトリ間依存方向のトップレベル配列 |
+
+### モジュール／コンポーネント間の関係
+
+```
+.claude/scripts/rfc-graph/
+  boundify-graph-to-dirs.js    ← メインスクリプト（新規）
+  validate-dirs-tree-schema.js ← Dirs-Tree.json スキーマ検証（新規）
+  generate-dir-template.js     ← 実ディレクトリ生成（新規）
+  update-step-status.js        ← --status= フラグ追加（既存改修）
+
+.claude/commands/
+  boundify-graph-to-dirs.md    ← スラッシュコマンド定義（新規）
+```
+
+### スタブ一覧と解決計画
+
+本RFCに基づく実装でスタブは発生しない。すべての関数は JavaScript の完全な実装としてスクリプト内に記述される。`.en.md` の英文はスクリプト内の const としてハードコードされる。
