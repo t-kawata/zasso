@@ -35,6 +35,8 @@ const ALLOWED_SUBCOMMANDS = [
   'fail-step',
   'reset-to-step',
   'status',
+  'cleanup',
+  'backup',
 ];
 
 /** プライマリフラグ: GRAPHIFY-Status.json のパス指定 */
@@ -120,9 +122,9 @@ function parseArguments() {
     );
   }
 
-  // step-number の読み取り（status 以外は必須）
+  // step-number の読み取り（status / cleanup / backup 以外は必須）
   let stepNumber = null;
-  if (subcommand !== 'status') {
+  if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup') {
     if (args.length < 3) {
       throw new Error(
         `サブコマンド "${subcommand}" には Step番号が必要です。`
@@ -271,6 +273,82 @@ function executeStatus(status) {
   console.log(JSON.stringify(status, null, 2));
 }
 
+/**
+ * cleanup: 既知の一時ファイルを全て削除する（冪等）
+ *
+ * 削除対象:
+ * - $graphFile.bak（graphFile と同じディレクトリ）
+ * - CWD 配下の _temp_nodes.json / _temp_edges.json / _patch.json
+ *   / _remove_edges.json / _add_edges.json
+ *
+ * 本関数は冪等である。何度実行しても安全で、ファイルが存在しない場合は
+ * 何も削除せず正常終了する。
+ *
+ * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ */
+function executeCleanup(status) {
+  const removed = [];
+
+  // .bak ファイル（グラフファイルと同じディレクトリ）
+  const bakPath = status.graphFile + '.bak';
+  try {
+    if (fs.existsSync(bakPath)) {
+      fs.unlinkSync(bakPath);
+      removed.push(bakPath);
+    }
+  } catch (_) { /* 削除競合など — 無視して続行 */ }
+
+  // CWD の一時ファイル
+  const cwd = process.cwd();
+  const tempFiles = [
+    '_temp_nodes.json',
+    '_temp_edges.json',
+    '_patch.json',
+    '_remove_edges.json',
+    '_add_edges.json',
+  ];
+  for (const f of tempFiles) {
+    const fp = path.join(cwd, f);
+    try {
+      if (fs.existsSync(fp)) {
+        fs.unlinkSync(fp);
+        removed.push(f);
+      }
+    } catch (_) { /* 同上 */ }
+  }
+
+  if (removed.length > 0) {
+    console.log(`cleanup: ${removed.join(', ')} を削除しました。`);
+  } else {
+    console.log('cleanup: 削除対象の一時ファイルはありませんでした。');
+  }
+}
+
+/**
+ * backup: graphFile のバックアップを作成する（冪等）
+ *
+ * 古い .bak ファイルがあれば削除した上で、graphFile を graphFile.bak にコピーする。
+ * 退行チェック（verify-graph-integrity.js）の --graph-before 引数で使用する。
+ *
+ * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ */
+function executeBackup(status) {
+  const bakPath = status.graphFile + '.bak';
+  try {
+    if (fs.existsSync(bakPath)) {
+      fs.unlinkSync(bakPath);
+    }
+    fs.copyFileSync(status.graphFile, bakPath);
+    console.log(`backup: ${status.graphFile} → ${bakPath}`);
+  } catch (err) {
+    exitWithError(
+      `バックアップ作成に失敗しました: ${err.message}`,
+      `graphFile=${status.graphFile}`,
+      'ディスク容量や書き込み権限を確認してください。'
+    );
+  }
+}
+
 // ============================================================
 // ファイル入出力
 // ============================================================
@@ -329,6 +407,8 @@ update-step-status.js — GRAPHIFY-Status.json / BOUNDIFY-Status.json 管理
   fail-step <N>     Step N を異常終了（error, currentStep 不変）
   reset-to-step <N> Step N に復帰（N+1〜5 を pending に戻す）
   status            現在の状態を整形JSONで出力
+  cleanup           既知の一時ファイルを全て削除（冪等）
+  backup            graphFile の .bak ファイルを作成（退行チェック用）
 
 Step番号: ${MIN_STEP}〜${MAX_STEP}
 `);
@@ -421,11 +501,21 @@ function main() {
         process.exit(0);
         // status はファイル書き込み不要で終了する
 
+      case 'backup':
+        executeBackup(status);
+        process.exit(0);
+        // backup はファイル書き込み不要で終了する
+
+      case 'cleanup':
+        executeCleanup(status);
+        process.exit(0);
+        // cleanup はファイル書き込み不要で終了する
+
       default:
         // parseArguments で検証済みなのでここには到達しない
         exitWithError(
           `未知のサブコマンドです: ${subcommand}`,
-          'start-step / end-step / fail-step / reset-to-step / status のいずれかを指定してください。',
+          'start-step / end-step / fail-step / reset-to-step / status / cleanup のいずれかを指定してください。',
           '正しいサブコマンド名で再実行してください。'
         );
     }
@@ -465,6 +555,8 @@ module.exports = {
   executeFailStep,
   executeResetToStep,
   executeStatus,
+  executeCleanup,
+  executeBackup,
   atomicWrite,
   MIN_STEP,
   MAX_STEP,

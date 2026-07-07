@@ -1043,6 +1043,150 @@
           "instrumentation": "静的品質チェック: 合格（9件中9件が既存原因 — console.logはCLI出力として正当、formatReport 8paramsは既存設計、ループ変数mはfor...of慣習）\n翻訳可能性: 問題なし（全関数動詞句、新規1文字変数なし、マジックナンバーなし）\n依存関係: 整合性確認済（PX-19 reviewedが前提、本チケットはその分割）\n犯罪: 0件\nスタブ: 0件\nテスト: verify 34/34 + analyze 34/34 = 68件全成功",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-07"
+        },
+        {
+          "id": 24,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "graphify-rfc 出力スキーマ拡張 — mainLanguage/language/slug",
+          "referenceSection": "tickets/specs/0063-graphify-rfc-mainlanguagelanguageslug.md",
+          "background": "boundify-graph-to-dirs.js の実動作検証で、inferLanguage() が全177ノードを全3言語判定、titleToFileName() が日本語タイトル15件で空ファイル名を生成する問題が判明。解決策として graphify 側で language（単一値）と slug（lower_snake_case）をグラフスキーマに追加し、boundify 側はこれらを直接参照するよう改修する。",
+          "scope": [
+            "graphify-rfc.md に mainLanguage/language/slug スキーマ定義を追記",
+            "graphify 関連スクリプトで新フィールドを出力するロジック追加",
+            "slug 生成ルールの定義（セクション番号＋英字キーワード抽出等、日本語フォールバック）"
+          ],
+          "testVerification": [
+            "新フィールド（mainLanguage/language/slug）を含むグラフJSONの生成確認",
+            "slug が lower_snake_case 命名規則に従っていることの確認",
+            "language が単一値（配列ではない）であることの確認"
+          ],
+          "testExceptions": [
+            "graphify-rfc.md（設計文書）の改修はテスト不能 — 手動確認"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "node.schema.json: language/slug なし",
+              "after": "node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）を properties に追加",
+              "description": "ノードスキーマに言語・スラグフィールドを追加"
+            },
+            {
+              "before": "graph.schema.json: mainLanguage なし",
+              "after": "graph.schema.json: mainLanguage（optional string）を properties に追加",
+              "description": "グラフスキーマに主要言語フィールドを追加"
+            },
+            {
+              "before": "graphify-rfc.md: スキーマ定義なし、3軸のみ",
+              "after": "graphify-rfc.md: 「グラフスキーマ定義」セクション新設、第4軸（言語割り当て）+ slug生成ルール追記、ノードJSONテンプレート更新",
+              "description": "コマンド定義にスキーマ定義と言語/スラグ生成ルールを追記"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 9 issues（全件 CLI 標準出力、問題なし）\n翻訳可能性: 全関数動詞句\nテスト: 全204件成功\n犯罪スキャン: 0件\nスタブ: 3件（既存、解決対象外）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
+        },
+        {
+          "id": 25,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "boundify 言語推論廃止とスキーマ直接参照への移行",
+          "referenceSection": "tickets/specs/0064-boundify.md",
+          "background": "boundify パイプラインの inferLanguage() / titleToFileName() は日本語RFCに対して機能せず、全ノード全3言語判定＋空ファイル名生成という二重の問題を引き起こす。PX-24 で拡張されたスキーマ（language/slug）を直接使用するよう boundify 側を改修する。",
+          "scope": [
+            "boundify-helpers.js: inferLanguage() / graphToLangJson() / titleToFileName() 削除",
+            "boundify-tree.js: ファイル名生成を slug ベースに変更",
+            "boundify-graph-to-dirs.js: buildLangGraph() 削除、SUPPORTED_LANGUAGES ループを動的収集に変更",
+            "validate-dirs-tree-schema.js: 新スキーマフィールドの検証ルール追加",
+            "全4テストファイルをスキーマ変更に追従"
+          ],
+          "testVerification": [
+            "削除後も tarjanSCC() / projectEdgesToDirectories() が正常動作",
+            "slug ベースのファイル名が正しく生成される",
+            "グラフ内実在言語のみでツリーが生成される",
+            "古いグラフ（slug/language 未設定）との互換性",
+            "日本語タイトルで空ファイル名が生成されない"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "boundify-helpers.js: inferLanguage() / graphToLangJson() / titleToFileName() が存在",
+              "after": "inferLanguage() / graphToLangJson() / titleToFileName() 削除。代わりに collectLanguagesFromGraph() を追加",
+              "description": "言語推論・ファイル名推論機構の全廃。グラフの language/slug フィールドを直接使用"
+            },
+            {
+              "before": "boundify-tree.js: ファイル名生成が titleToFileName(title, lang) 経由",
+              "after": "ファイル名生成が node.slug + LANGUAGE_EXTENSIONS[lang] に変更",
+              "description": "slug ベースのファイル名生成。slug 未設定時は node.id をフォールバック"
+            },
+            {
+              "before": "boundify-graph-to-dirs.js: buildLangGraph() + SUPPORTED_LANGUAGES 固定3言語ループ",
+              "after": "buildLangGraph() 削除。collectLanguagesFromGraph() + 動的言語ループ",
+              "description": "言語ループをグラフ内実在言語のみに動的化"
+            },
+            {
+              "before": "validate-dirs-tree-schema.js: slug 検証なし",
+              "after": "checkSlugConvention() 追加（lower_snake_case 検証）",
+              "description": "slug 命名規則の検証ルール追加"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 9 issues（全件 CLI 標準出力、問題なし）\n翻訳可能性: 全関数動詞句\nテスト: 全204件成功\n犯罪スキャン: 0件\nスタブ: 3件（既存、解決対象外）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
+        },
+        {
+          "id": 26,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "boundify 警告メッセージのAI指示化と自己修復ループの導入",
+          "referenceSection": "tickets/specs/0065-boundify-ai.md",
+          "scope": [
+            "Step構成の再編（検証・自己修復 → 生成 → 品質検証の4Step）",
+            "循環依存警告へのAI指示文（messageフィールド）追加",
+            "スキーマ検証エラーへの優先順位指示追加",
+            "verify-graph-integrity.js 新規作成（5軸チェック＋退行チェック）",
+            "boundify-graph-to-dirs.md 全面改修（Step順序変更、全エラー時復帰を自己修復ループ化）"
+          ],
+          "testVerification": [
+            "UT: 循環依存警告にAI指示文が含まれる",
+            "UT: verify-graph-integrity.js が5軸チェックを正しく行う",
+            "UT: 異常グラフで verify-graph-integrity.js がエラー＋remediesを返す",
+            "UT: スキーマ検証エラーに優先順位指示が含まれる"
+          ],
+          "testExceptions": [
+            "自己修復ループ全体の動作確認はE2E（AI修正→再実行→退行チェック）",
+            "boundify-graph-to-dirs.md ドキュメント修正はテスト不能"
+          ],
+          "startedAt": "2026-07-07",
+          "changes": [
+            {
+              "before": "なし",
+              "after": "verify-graph-integrity.js 新規作成",
+              "description": "5軸チェックスクリプト。verify.js の関数を子プロセス呼び出し、nodes/edges構成比較を直接実装"
+            },
+            {
+              "before": "循環依存警告が機械的JSONのみ",
+              "after": "message フィールドにAI指示文（手順6段階＋品質注意）を追加",
+              "description": "AIが自力でエッジ修正し退行チェックまで行える自己修復ループに対応"
+            },
+            {
+              "before": "validate-dirs-tree-schema.js: エラー一覧のみ",
+              "after": "エラー先頭に修正優先順位指示を追加",
+              "description": "AIが複数エラーを上から順に1件ずつ修正できる導線を提供"
+            },
+            {
+              "before": "boundify-graph-to-dirs.md: 旧5Step＋無意味なエラー復帰",
+              "after": "4Step構成（検証自己修復→生成→品質検証）＋全エラー時復帰を自己修復ループ化",
+              "description": "旧Step順序を再編、/graphify-rfc 回帰を排除、全Stepで AI修正→再実行→退行チェック を明記"
+            }
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (17 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし\n- テスト:\n  - verify-graph-integrity: 8/8 PASS（新規）\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済で本チケットスコープ外\n- 見つかった問題と修正内容:\n  1. 循環依存警告の message フィールドが品質を損なう破壊的指示だった → 「エッジの意味論を確認の上修正」「crud.js で直接修正」に改善\n- 新規作成ファイル: verify-graph-integrity.js（5軸チェック）\n- 改修ファイル: boundify-graph-to-dirs.js（warnings.message）, validate-dirs-tree-schema.js（優先順位指示）, boundify-graph-to-dirs.md（全面改修）",
+          "instrumentation": "静的品質チェック: 17 issues（全件 CLI 標準出力、問題なし）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数1件 $e$ → アロー関数の短縮形で許容範囲）\nテスト: 全72件成功（3スイート）\n犯罪スキャン: 0件\nスタブ: 3件（既存、解決対象外）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-07"
         }
       ]
     },

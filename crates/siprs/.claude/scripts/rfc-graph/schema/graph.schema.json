@@ -2,10 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "graph.schema.json",
   "type": "object",
-  "required": ["sourceFile", "nodes", "edges"],
+  "required": ["sourceFile", "mainLanguage", "nodes", "edges"],
   "additionalProperties": false,
   "properties": {
     "sourceFile": { "type": "string" },
+    "mainLanguage": {
+      "type": "string",
+      "description": "プロジェクト全体の主要プログラミング言語（例: \"rust\"）。graphify 側で静的に確定する。PX-25 以降の boundify パイプラインで使用。"
+    },
     "nodes": { "type": "array", "items": { "$ref": "node.schema.json" } },
     "edges": { "type": "array", "items": { "$ref": "edge.schema.json" } }
   }

@@ -246,7 +246,7 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
 | **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
-| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `split-rfc-to-children`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
+| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `graphify-rfc`, `boundify-graph-to-dirs`, `split-rfc-to-children`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
 内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
@@ -344,6 +344,20 @@ parent-omissions: <OMISSIONSファイルのパス>
 - 子: `{正典名}-{childId}-{slug}/`、孫: `{正典名}-{childId}-{grandchildId}-{slug}/`
 - ディレクトリ構造が RFC_TREE と完全一致
 - 言語（Rust/Go/TypeScript）を自動検出し、言語別の追加ファイル（`Cargo.toml`/`go.mod`/`package.json`）も生成
+
+#### `/graphify-rfc <source-file-path>`
+
+長大なMarkdown設計文書をI/O境界単位の細粒度ノードに分割し、属性付きエッジで結んだグラフ構造（`*-GRAPH.json`）として永続化する。 `/formulate-tickets` 及び `/formulate-tickets-for-next` から利用可能。
+
+- 6Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）
+- 生成されたグラフは `/boundify-graph-to-dirs` の入力となる
+
+#### `/boundify-graph-to-dirs <graph-file-path>`
+
+`/graphify-rfc` が生成したグラフJSONを入力として受け取り、検証・自己修復ループを経て安全な境界を持つ実装ディレクトリツリー（`Dirs-Tree.json`）とテンプレートファイルを生成する。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成する。
+
+- 4Step進行制御（グラフ読込→自己修復ループ→ツリー生成→ファイル生成→最終品質検証）
+- 循環依存の検出と警告
 
 ---
 
@@ -572,15 +586,16 @@ Tickets.json
 ### スラッシュコマンド経由（Claude Code 内）
 
 1. `/grill-me-for-rfc` で設計判断を確定し、RFC を書く
-2. `/formulate-tickets` で RFC から `Tickets.json` を生成する
-3. ACP クライアント（後述の `conver.js`）が内側ループを自動実行する
-4. `find` が出力した `OMISSIONS-XXX.json` を確認する
+2. （任意）長大なRFCは `/graphify-rfc` → `/boundify-graph-to-dirs` で論理グラフ化・ディレクトリ構造化する
+3. `/formulate-tickets` で RFC から `Tickets.json` を生成する
+4. ACP クライアント（後述の `conver.js`）が内側ループを自動実行する
+5. `find` が出力した `OMISSIONS-XXX.json` を確認する
    - RFC-OMISSIONS を正典に統合するなら `/merge-omissions-into-root-rfc`
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
    - 長大なRFCを分割するなら `/split-rfc-to-children`
    - 既存RFCの穴を塞ぐなら `/drill-rfc-down`
    - 軽微なら `/check-final` で完了確認
-5. `/check-final` が PASS を返したら 🎉 開発完了
+6. `/check-final` が PASS を返したら 🎉 開発完了
 
 ### CLI 直接実行
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "node.schema.json",
   "type": "object",
-  "required": ["id", "title", "kind", "summary", "headingRefs"],
+  "required": ["id", "title", "kind", "summary", "headingRefs", "slug"],
   "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "pattern": "^N[0-9]{4}$" },
@@ -17,6 +17,16 @@
       ]
     },
     "summary": { "type": "string", "minLength": 1 },
+    "language": {
+      "type": "string",
+      "description": "当該ノードが実装されるプログラミング言語（単一値）。graphify 側で静的に確定する。PX-25 以降の boundify パイプラインで使用。"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 64,
+      "description": "タイトルから生成された lower_snake_case の識別子。ファイル名・ディレクトリ名のベースとして使用。graphify 側で静的に確定する。"
+    },
     "headingRefs": {
       "type": "array",
       "minItems": 1,

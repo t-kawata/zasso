@@ -440,24 +440,24 @@ describe('main — 統合テスト', () => {
     }
   });
 
-  it('should exit 1 on missing language tree in dirs-tree', async () => {
+  it('should exit 0 on missing language tree in dirs-tree', async () => {
     const dirsTree = createValidDirsTree();
-    // trees.rust が存在しない Dirs-Tree
+    // trees.rust が存在しない Dirs-Tree → 何もせず正常終了
     delete dirsTree.trees.rust;
     const { tmpDir, dtPath } = writeDirsTreeFile(dirsTree);
-    let capturedStderr = '';
-    const origStderr = process.stderr.write;
-    process.stderr.write = (chunk) => { capturedStderr += chunk; return true; };
+    let capturedStdout = '';
+    const origStdout = process.stdout.write;
+    process.stdout.write = (chunk) => { capturedStdout += chunk; return true; };
     let exitCode = null;
     const origExit = process.exit;
     process.exit = (code) => { exitCode = code; };
 
     try {
       await main([`--dirs-tree=${dtPath}`, '--root-dir=/out', '--lang=rust']);
-      assert.strictEqual(exitCode, 1);
-      assert.ok(capturedStderr.includes('見つかりません'));
+      assert.strictEqual(exitCode, 0);
+      assert.ok(capturedStdout.includes('正常に終了'));
     } finally {
-      process.stderr.write = origStderr;
+      process.stdout.write = origStdout;
       process.exit = origExit;
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

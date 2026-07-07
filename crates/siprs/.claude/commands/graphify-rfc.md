@@ -1,6 +1,6 @@
 ---
-description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/rfc-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、7Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）でグラフ変換を実行。
-argument-hint: <source-file-path>
+description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/RFC-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、7Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）でグラフ変換を実行。
+argument-hint: </path/to/RFC-doc.md>
 allowed-tools: Read, Write, Bash
 ---
 
@@ -52,9 +52,57 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 
 全スクリプトはエラー時に3段テンプレート（`[ERROR]` / `原因:` / `対応:`）を stderr に出力し、終了コード1で終了する。書き込み前の JSON Schema 検証に違反した場合も同様のテンプレートでエラー内容を報告する。
 
+## グラフスキーマ定義
+
+`*-GRAPH.json` は以下の3層スキーマで構成される。
+
+### ルート (graph.schema.json)
+
+```json
+{
+  "sourceFile": "rfc-doc.md",
+  "mainLanguage": "rust",
+  "nodes": [...],
+  "edges": [...]
+}
+```
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `sourceFile` | string | required | 元Markdown文書のパス |
+| `mainLanguage` | string | required | プロジェクト全体の主要プログラミング言語（例: `"rust"`）。複数言語混在プロジェクトでは中心言語を指定する。全ノードの `language` 未設定時の唯一のフォールバック値として使用される。 |
+| `nodes` | array | required | ノード配列（node.schema.json） |
+| `edges` | array | required | エッジ配列（edge.schema.json） |
+
+### ノード (node.schema.json)
+
+```json
+{
+  "id": "N0001",
+  "title": "§1 目的 — 本crateの責務定義",
+  "kind": "architecture",
+  "summary": "本crateの目的を定義...",
+  "language": "rust",
+  "slug": "purpose_crate_responsibility",
+  "headingRefs": [
+    { "refId": "REF001", "heading": 2, "texts": ["§1 目的"] }
+  ]
+}
+```
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `id` | string | required | `^N[0-9]{4}$` 形式のノードID |
+| `title` | string | required | 1〜120文字のタイトル |
+| `kind` | string | required | 12種の enum から選択 |
+| `summary` | string | required | 1文字以上の要約 |
+| `language` | string | required（原則） | 当該ノードが実装されるプログラミング言語（単一値、配列ではない）。Step 1 の「言語割り当てルール」に従って原則必須で設定する。事故で空の場合のみ `mainLanguage` の値をフォールバックとして使用する。 |
+| `slug` | string | required | タイトルから生成された lower_snake_case の識別子（パターン: `^[a-z][a-z0-9_]*$`、最大64文字）。Step 1 の「slug 生成ルール」に従って必ず設定する。空を許容しない。ファイル名・ディレクトリ名のベースとして機械的に使用される。 |
+| `headingRefs` | array | required | 元文書の見出し参照（1件以上） |
+
 ## Step 0: 見出し重複排除（事前処理）
 
-headingRefs 方式では同一階層内で同一テキストの見出しが存在すると参照が一意に解決できない。事前に見出しを重複排除する。
+headingRefs 方式では同一階層内で同一テキストの見出しが存在すると参照が一意に解決できない。事前にスクリプトにより機械的に見出しの重複を排除する。
 
 ```bash
 # Step 0 を開始（進行ステータスを running に更新）
@@ -99,6 +147,33 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 - 外部依存（ファイルI/O・ネットワーク・DB・他モジュール呼び出し等）を含む記述は、依存内容を持つノードと依存を持たないノードに強制分割する
 - これにより /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドの「1チケット・1不変条件」に対応した分割が可能になる
 
+**第4軸: 言語割り当て**
+- 各ノードに `language` フィールド（単一値）を設定する。配列ではない。
+- 基本ルール: プロジェクトの主要言語（`mainLanguage`）をデフォルトとする。ほとんどのノードは `mainLanguage` と同じ値になる。
+- 例外ルール: ノードの内容が他言語に強く依存する場合のみ、異なる値を設定する（例: TypeScript の型定義を記述したセクション → `"typescript"`、Go のインターフェース設計 → `"go"`）。
+- 言語に依存しない内容（要件定義・用語集・設計判断根拠等）には `mainLanguage` を設定する。
+- 対応言語: `"rust"`, `"go"`, `"typescript"` の3種。これ以外の値は設定しない。
+
+**slug 生成ルール**
+
+各ノードに `slug` フィールド（lower_snake_case、最大64文字、パターン: `^[a-z][a-z0-9_]*$`）を設定する。以下の優先順位で決定論的に生成する:
+
+1. **英単語抽出**: タイトルから英単語・数字を取り出し、lower_snake_case に変換する。
+   - `§1 目的 — 本crateの責務定義` → `purpose_crate_responsibility`
+   - `§2.1 Tauri統合との責務境界` → `tauri_integration_boundary`
+   - `§4.1 バージョニングポリシー` → `versioning_policy`
+
+2. **セクション番号フォールバック**: 英単語がない（または少なすぎて識別性が低い）場合、セクション番号をベースにする。ドットはアンダースコアに置換する。
+   - `§3 用語 — ドメイン固有の定義` → `section_3_glossary`（kind名を接尾辞）
+   - `§17.1 登録状態遷移規則` → `section_17_1`
+   - `§18.1 通話状態遷移規則` → `section_18_1`
+
+3. **衝突回避**: 同一グラフ内で slug が衝突する場合、末尾に `_2`, `_3` ... を付与して一意にする。最初の出現にはサフィックス不要。
+
+4. **禁止文字**: 大文字、ハイフン、先頭数字を禁止。すべて lower_snake_case に変換すること。
+   - `API設計` → `api_design`（大文字→小文字）
+   - `3rd-party` → `third_party`（先頭数字回避、ハイフン→_）
+
 **粒度の目安**: コードスニペット（``` で囲まれたブロック）の行数を除いた実質的な記述内容で、1ノード概ね30〜50行程度を上限とする。100行を超えるセクション（コードスニペットを除く）は必ず複数ノードに分割する。/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドのチケット粒度よりも細かいことを常に意識する。
 
 ```bash
@@ -119,17 +194,31 @@ node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
 # Step 1 を開始（進行ステータスを running に更新）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 1
 
-# 3軸の判断基準（上記）に基づいてノードJSONを生成し、crud.js でグラフファイルに投入する
+# 4軸の判断基準 + slug 生成ルール（上記）に基づいてノードJSONを生成し、crud.js でグラフファイルに投入する
 # 生成したノードJSONは一時ファイル _temp_nodes.json に保存してから crud.js の --file で指定する
 # ※ sourceRanges の refId は crud.js が自動採番するため、AI は startLine/endLine のみ指定すればよい
+#
+# ノードJSONの各エントリは以下の形式:
+# {"id":"N0001","title":"§1 目的","kind":"architecture","summary":"...","language":"rust","slug":"purpose","headingRefs":[{"refId":"REF001","heading":2,"texts":["§1 目的"]}]}
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json
 
 # Step 1 正常終了（進行ステータスを done に更新し、currentStep を 2 に進める）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 1
+
+# 一時ファイルのクリーンアップ
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
 ### エラー時の復帰
-エラーメッセージに従って原因を修正した上で、`reset-to-step 1` でステータスを戻し、Step 1 のコマンドを最初から再実行する。微修正であれば個別操作も利用可能：
+エラーメッセージに従って原因を修正した上で、`reset-to-step 1` でステータスを戻し、Step 1 のコマンドを最初から再実行する。古い一時ファイルがあれば削除してから再実行すること：
+
+```bash
+# 古い一時ファイルを削除してから再実行
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
+```
+
+微修正であれば個別操作も利用可能：
 
 ```bash
 # 特定ノードの sourceRanges などを部分修正する
@@ -157,10 +246,20 @@ node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=
 
 # Step 2 正常終了（進行ステータスを done に更新し、currentStep を 3 に進める）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
+
+# 一時ファイルのクリーンアップ
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
 ### エラー時の復帰
-エラーメッセージに従って原因を修正した上で、`reset-to-step 2` でステータスを戻し、Step 2 のコマンドを最初から再実行する。個別のエッジを削除してから再追加することも可能。
+エラーメッセージに従って原因を修正した上で、`reset-to-step 2` でステータスを戻し、Step 2 のコマンドを最初から再実行する。古い一時ファイルがあれば削除してから再実行すること：
+
+```bash
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
+```
+
+個別のエッジを削除してから再追加することも可能。
 
 ```bash
 # 不要なエッジを削除する（from + to + type で識別）

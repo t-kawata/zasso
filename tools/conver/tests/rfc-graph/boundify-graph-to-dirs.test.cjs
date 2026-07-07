@@ -16,7 +16,7 @@ const {
   loadGraph,
   adaptBuildDirectoryTree,
   adaptProjectEdgesToDirectories,
-  buildLangGraph,
+  collectLanguagesFromGraph,
   reportError,
   printUsage,
   countKinds,
@@ -34,7 +34,7 @@ const {
 function createMinimalGraph() {
   return {
     nodes: [
-      { id: 'n1', title: 'Root Module', kind: 'architecture' },
+      { id: 'n1', title: 'Root Module', kind: 'architecture', language: 'rust', slug: 'root_module' },
     ],
     edges: [],
   };
@@ -44,11 +44,11 @@ function createMinimalGraph() {
 function createStandardGraph() {
   return {
     nodes: [
-      { id: 'n1', title: '§1 Root Architecture', kind: 'architecture', summary: 'system architecture' },
-      { id: 'n2', title: '§1.1 Config Module', kind: 'config', summary: 'configuration module' },
-      { id: 'n3', title: '§1.2 Error Types', kind: 'error_policy', summary: 'error handling types' },
-      { id: 'n4', title: '§1.3 Security Module', kind: 'security', summary: 'security utilities' },
-      { id: 'n5', title: '§1.4 Build Scripts', kind: 'build_ci', summary: 'CI pipeline config' },
+      { id: 'n1', title: '§1 Root Architecture', kind: 'architecture', summary: 'system architecture', language: 'rust', slug: 'root_architecture' },
+      { id: 'n2', title: '§1.1 Config Module', kind: 'config', summary: 'configuration module', language: 'rust', slug: 'config_module' },
+      { id: 'n3', title: '§1.2 Error Types', kind: 'error_policy', summary: 'error handling types', language: 'rust', slug: 'error_types' },
+      { id: 'n4', title: '§1.3 Security Module', kind: 'security', summary: 'security utilities', language: 'rust', slug: 'security_module' },
+      { id: 'n5', title: '§1.4 Build Scripts', kind: 'build_ci', summary: 'CI pipeline config', language: 'go', slug: 'build_scripts' },
     ],
     edges: [
       { from: 'n2', to: 'n1', type: 'part_of' },
@@ -64,9 +64,9 @@ function createStandardGraph() {
 function createCyclicGraph() {
   return {
     nodes: [
-      { id: 'a', title: 'Module A', kind: 'config' },
-      { id: 'b', title: 'Module B', kind: 'security' },
-      { id: 'c', title: 'Module C', kind: 'error_policy' },
+      { id: 'a', title: 'Module A', kind: 'config', language: 'rust', slug: 'module_a' },
+      { id: 'b', title: 'Module B', kind: 'security', language: 'rust', slug: 'module_b' },
+      { id: 'c', title: 'Module C', kind: 'error_policy', language: 'rust', slug: 'module_c' },
     ],
     edges: [
       { from: 'a', to: 'b', type: 'depends_on' },
@@ -152,6 +152,37 @@ describe('parseArguments', () => {
 
   it('should exit when graph path does not exist', () => {
     assert.throws(() => parseArguments(['/nonexistent/path.json']), /exit/);
+  });
+
+  // ---- --graph=<path> 形式のテスト（正規形式） ----
+
+  it('should parse --graph= flag with absolute path', () => {
+    const result = parseArguments([`--graph=${graphFilePath}`, '--json']);
+    assert.strictEqual(result.graphPath, path.resolve(graphFilePath));
+    assert.strictEqual(result.flags.json, true);
+  });
+
+  it('should parse --graph= flag with relative path', () => {
+    // 相対パスをシミュレートするため、graphFilePath の絶対パスから cwd との相対を求める
+    const relPath = path.relative(process.cwd(), graphFilePath);
+    const result = parseArguments([`--graph=${relPath}`]);
+    assert.strictEqual(result.graphPath, path.resolve(relPath));
+  });
+
+  it('should prefer --graph= over positional argument when both given', () => {
+    const otherPath = path.join(tempDir, 'other-GRAPH.json');
+    fs.writeFileSync(otherPath, '{"nodes":[],"edges":[]}', 'utf-8');
+    // 両方指定しても --graph= が優先される
+    const result = parseArguments([`--graph=${otherPath}`, graphFilePath]);
+    assert.strictEqual(result.graphPath, path.resolve(otherPath));
+  });
+
+  it('should exit when --graph= value is empty', () => {
+    assert.throws(() => parseArguments(['--graph=']), /exit/);
+  });
+
+  it('should exit when --graph= points to nonexistent file', () => {
+    assert.throws(() => parseArguments(['--graph=/nonexistent/path.json']), /exit/);
   });
 });
 
@@ -261,33 +292,9 @@ describe('adaptProjectEdgesToDirectories', () => {
 });
 
 // ============================================================
-// buildLangGraph のテスト
+// collectLanguagesFromGraph は既存の boundify-helpers テストで網羅済み
 // ============================================================
 
-describe('buildLangGraph', () => {
-  it('should add language field to all nodes', () => {
-    const graph = createStandardGraph();
-    const { langGraph, languageMap } = buildLangGraph(graph);
-
-    assert.strictEqual(langGraph.nodes.length, graph.nodes.length);
-    assert.strictEqual(langGraph.edges.length, graph.edges.length);
-
-    // 全ノードに language が設定されている
-    for (const node of langGraph.nodes) {
-      assert.ok(Array.isArray(node.language));
-      assert.ok(node.language.length > 0);
-    }
-
-    // languageMap が nodes の ID と一致している
-    assert.strictEqual(Object.keys(languageMap).length, graph.nodes.length);
-  });
-
-  it('should handle minimal graph without crashing', () => {
-    const graph = createMinimalGraph();
-    const { langGraph } = buildLangGraph(graph);
-    assert.strictEqual(langGraph.nodes.length, 1);
-  });
-});
 
 // ============================================================
 // countKinds / countEdgeTypes のテスト
@@ -327,17 +334,16 @@ describe('countEdgeTypes', () => {
 // ============================================================
 
 describe('resolveOutputPaths', () => {
-  it('should produce three output paths', () => {
+  it('should produce two output paths', () => {
     const paths = resolveOutputPaths('/some/dir', 'RFC-ROOT');
     assert.ok(paths.dirsTreePath.endsWith('/RFC-ROOT-Dirs-Tree.json'));
-    assert.ok(paths.langGraphPath.endsWith('/RFC-ROOT-GRAPH-LANG.json'));
     assert.ok(paths.statusPath.endsWith('/RFC-ROOT-BOUNDIFY-Status.json'));
+    assert.strictEqual(paths.langGraphPath, undefined);
   });
 
   it('should preserve the directory prefix', () => {
     const paths = resolveOutputPaths('/some/dir', 'RFC-ROOT');
     assert.ok(paths.dirsTreePath.startsWith('/some/dir'));
-    assert.ok(paths.langGraphPath.startsWith('/some/dir'));
     assert.ok(paths.statusPath.startsWith('/some/dir'));
   });
 });
@@ -410,13 +416,13 @@ describe('main', () => {
     fs.writeFileSync(graphFilePath, JSON.stringify(createStandardGraph()), 'utf-8');
   });
 
-  it('should produce three output files', () => {
+  it('should produce two output files', () => {
     main([graphFilePath, '--quiet']);
 
-    // 3ファイルが出力されている
+    // 2ファイル（Dirs-Tree.json + BOUNDIFY-Status.json）が出力されている
     const files = fs.readdirSync(tempDir).filter(f => f.endsWith('.json'));
-    const jsonFiles = files.filter(f => f.match(/Dirs-Tree\.json|GRAPH-LANG\.json|BOUNDIFY-Status\.json/));
-    assert.strictEqual(jsonFiles.length, 3);
+    const jsonFiles = files.filter(f => f.match(/Dirs-Tree\.json|BOUNDIFY-Status\.json/));
+    assert.strictEqual(jsonFiles.length, 2);
   });
 
   it('should output JSON only with --json flag', () => {

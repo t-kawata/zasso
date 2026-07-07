@@ -10,11 +10,9 @@ const assert = require('node:assert/strict');
 const {
   SCHEMA,
   SAFE_BOUNDARIES_EN_TEXT,
-  inferLanguage,
-  graphToLangJson,
+  collectLanguagesFromGraph,
   projectEdgesToDirectories,
   tarjanSCC,
-  titleToFileName,
   deduplicateFileNames,
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
@@ -95,78 +93,44 @@ describe('SAFE_BOUNDARIES_EN_TEXT', () => {
 // inferLanguage
 // ============================================================
 
-describe('inferLanguage', () => {
-  it('should detect Rust from crate keyword in title', () => {
-    const result = inferLanguage({ title: 'crate root', summary: 'Entry point' });
-    assert.ok(result.includes('rust'));
+
+// ============================================================
+// collectLanguagesFromGraph
+// ============================================================
+
+describe('collectLanguagesFromGraph', () => {
+  it('should collect unique languages from nodes', () => {
+    const graph = {
+      nodes: [
+        { id: "N001", title: "Module A", language: "rust" },
+        { id: "N002", title: "Module B", language: "rust" },
+        { id: "N003", title: "Module C", language: "typescript" },
+      ],
+      edges: [],
+    };
+    const { languages, languageMap } = collectLanguagesFromGraph(graph);
+    assert.deepStrictEqual(languages.sort(), ["rust", "typescript"]);
+    assert.strictEqual(languageMap["N001"], "rust");
+    assert.strictEqual(languageMap["N003"], "typescript");
   });
 
-  it('should detect Rust from unsafe keyword in summary', () => {
-    const result = inferLanguage({ title: 'FFI', summary: 'unsafe extern "C"' });
-    assert.ok(result.includes('rust'));
+  it('should return empty for nodes without language', () => {
+    const graph = {
+      nodes: [
+        { id: "N001", title: "Module A" },
+        { id: "N002", title: "Module B" },
+      ],
+      edges: [],
+    };
+    const { languages, languageMap } = collectLanguagesFromGraph(graph);
+    assert.strictEqual(languages.length, 0);
+    assert.strictEqual(Object.keys(languageMap).length, 0);
   });
 
-  it('should detect Go from package keyword', () => {
-    const result = inferLanguage({ title: 'package main', summary: 'func main()' });
-    assert.ok(result.includes('go'));
-  });
-
-  it('should detect Go from goroutine keyword', () => {
-    const result = inferLanguage({ title: 'Concurrent worker', summary: 'go func()' });
-    assert.ok(result.includes('go'));
-  });
-
-  it('should detect TypeScript from TypeScript keyword', () => {
-    const result = inferLanguage({ title: 'TypeScript barrel export', summary: '' });
-    assert.ok(result.includes('typescript'));
-  });
-
-  it('should detect TypeScript from interface keyword', () => {
-    const result = inferLanguage({ title: 'User interface', summary: 'interface Props' });
-    assert.ok(result.includes('typescript'));
-  });
-
-  it('should return all three languages for kind=build_ci', () => {
-    const result = inferLanguage({ title: 'CI config', summary: '', kind: 'build_ci' });
-    assert.strictEqual(result.length, 3);
-    assert.ok(result.includes('rust'));
-    assert.ok(result.includes('go'));
-    assert.ok(result.includes('typescript'));
-  });
-
-  it('should return all three languages for kind=security', () => {
-    const result = inferLanguage({ title: 'Auth', summary: '', kind: 'security' });
-    assert.strictEqual(result.length, 3);
-  });
-
-  it('should return all three languages for kind=architecture', () => {
-    const result = inferLanguage({ title: 'Design', summary: '', kind: 'architecture' });
-    assert.strictEqual(result.length, 3);
-    assert.ok(result.includes('rust'));
-    assert.ok(result.includes('go'));
-    assert.ok(result.includes('typescript'));
-  });
-
-  it('should return all three languages for kind=requirement', () => {
-    const result = inferLanguage({ title: 'Spec', summary: '', kind: 'requirement' });
-    assert.strictEqual(result.length, 3);
-  });
-
-  it('should return default fallback for unknown kind', () => {
-    const result = inferLanguage({ title: 'Misc', summary: '', kind: 'unknown' });
-    assert.strictEqual(result.length, 3);
-  });
-
-  it('should not throw on empty title and summary', () => {
-    const result = inferLanguage({});
-    assert.ok(Array.isArray(result));
-    assert.ok(result.length > 0);
-  });
-
-  it('should not throw on null/undefined node properties', () => {
-    const result = inferLanguage({ title: null, summary: undefined });
-    assert.ok(Array.isArray(result));
-    assert.ok(result.length > 0);
+  it('should handle empty nodes array', () => {
+    const { languages, languageMap } = collectLanguagesFromGraph({ nodes: [], edges: [] });
+    assert.strictEqual(languages.length, 0);
+    assert.strictEqual(Object.keys(languageMap).length, 0);
   });
 });
 
@@ -174,48 +138,6 @@ describe('inferLanguage', () => {
 // graphToLangJson
 // ============================================================
 
-describe('graphToLangJson', () => {
-  it('should add languageMap to all nodes', () => {
-    const graph = {
-      nodes: [
-        { id: 'N001', title: 'crate root', summary: '' },
-        { id: 'N002', title: 'package main', summary: 'func main()' },
-        { id: 'N003', title: 'TypeScript config', summary: '' }
-      ],
-      edges: [
-        { from: 'N001', to: 'N002', type: 'depends_on' }
-      ]
-    };
-    const result = graphToLangJson(graph);
-    assert.ok(result.languageMap);
-    assert.strictEqual(Object.keys(result.languageMap).length, 3);
-    assert.ok(result.languageMap.N001.includes('rust'));
-    assert.ok(result.languageMap.N002.includes('go'));
-    assert.ok(result.languageMap.N003.includes('typescript'));
-  });
-
-  it('should preserve edges', () => {
-    const graph = {
-      nodes: [{ id: 'N001', title: 'test', summary: '' }],
-      edges: [{ from: 'N001', to: 'N002', type: 'depends_on' }]
-    };
-    const result = graphToLangJson(graph);
-    assert.strictEqual(result.edges.length, 1);
-    assert.strictEqual(result.edges[0].type, 'depends_on');
-  });
-
-  it('should return empty languageMap for empty nodes', () => {
-    const graph = { nodes: [], edges: [] };
-    const result = graphToLangJson(graph);
-    assert.strictEqual(Object.keys(result.languageMap).length, 0);
-  });
-
-  it('should handle null/undefined nodes gracefully', () => {
-    const graph = {};
-    const result = graphToLangJson(graph);
-    assert.strictEqual(Object.keys(result.languageMap).length, 0);
-  });
-});
 
 // ============================================================
 // projectEdgesToDirectories
@@ -367,74 +289,6 @@ describe('tarjanSCC', () => {
 // titleToFileName
 // ============================================================
 
-describe('titleToFileName', () => {
-  it('should convert §15 Event Model to snake_case .rs', () => {
-    const result = titleToFileName('§15 Event Model', 'rust');
-    assert.strictEqual(result, 'event_model.rs');
-  });
-
-  it('should convert §15 Event Model to snake_case .go', () => {
-    const result = titleToFileName('§15 Event Model', 'go');
-    assert.strictEqual(result, 'event_model.go');
-  });
-
-  it('should convert §15 Event Model to kebab-case .ts', () => {
-    const result = titleToFileName('§15 Event Model', 'typescript');
-    assert.strictEqual(result, 'event-model.ts');
-  });
-
-  it('should convert complex title to kebab-case .ts', () => {
-    const result = titleToFileName('Media Session Controller', 'typescript');
-    assert.strictEqual(result, 'media-session-controller.ts');
-  });
-
-  it('should produce snake_case for Rust mixed with hyphens', () => {
-    const result = titleToFileName('media-session-controller', 'rust');
-    assert.strictEqual(result, 'media_session_controller.rs');
-  });
-
-  it('should prefix barrel name mod with underscore for Rust', () => {
-    const result = titleToFileName('mod', 'rust');
-    assert.strictEqual(result, '_mod.rs');
-  });
-
-  it('should prefix barrel name index with underscore for TypeScript', () => {
-    const result = titleToFileName('index', 'typescript');
-    assert.strictEqual(result, '_index.ts');
-  });
-
-  it('should replace special characters with underscores', () => {
-    const result = titleToFileName('A/B:C D', 'rust');
-    // A/B:C_D → 特殊文字が_に置換される
-    assert.ok(result.includes('_'));
-    assert.ok(result.endsWith('.rs'));
-  });
-
-  it('should truncate to 48 characters before extension', () => {
-    // 60 chars of clean text + ".rs" = 63 chars total if not truncated
-    const longTitle = 'a' + 'b'.repeat(59);
-    const result = titleToFileName(longTitle, 'rust');
-    // 48 chars (base) + ".rs" (3) = 51
-    assert.strictEqual(result.length, 51);
-    assert.strictEqual(result.slice(-3), '.rs');
-    assert.strictEqual(result.slice(0, 48).length, 48);
-  });
-
-  it('should return empty string + extension for empty title', () => {
-    const result = titleToFileName('', 'rust');
-    assert.strictEqual(result, '.rs');
-  });
-
-  it('should handle title with only non-alphanumeric characters', () => {
-    const result = titleToFileName('§§§', 'rust');
-    assert.strictEqual(result, '.rs');
-  });
-
-  it('should fallback to .rs for unknown language', () => {
-    const result = titleToFileName('test', 'python');
-    assert.strictEqual(result, 'test.rs');
-  });
-});
 
 // ============================================================
 // deduplicateFileNames
