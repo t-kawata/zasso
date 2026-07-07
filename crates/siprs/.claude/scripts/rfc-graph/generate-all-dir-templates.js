@@ -64,9 +64,12 @@ for (const lang of languages) {
   const actionLabel = isDelete ? '削除' : '生成';
   console.error(`[${lang}] ${actionLabel}を開始します...`);
 
+  // 生成先の基点は Dirs-Tree.json と同じディレクトリ
+  const rootDir = path.dirname(dirsTreePath);
+
   const cmdArgs = [
     `--dirs-tree="${dirsTreePath}"`,
-    '--root-dir="."',
+    `--root-dir="${rootDir}"`,
     `--lang="${lang}"`,
   ];
 
