@@ -52,7 +52,7 @@ let testStatusPath;
  */
 function createTestStatus(currentStep = 1, overrides = {}) {
   const steps = {};
-  for (let i = 1; i <= MAX_STEP; i++) {
+  for (let i = MIN_STEP; i <= MAX_STEP; i++) {
     steps[String(i)] = STATUS_PENDING;
   }
   Object.assign(steps, overrides);
@@ -81,12 +81,12 @@ function writeTestStatusFile(data) {
 // ============================================================
 
 describe('定数', () => {
-  it('MIN_STEP は 1 である', () => {
-    assert.strictEqual(MIN_STEP, 1);
+  it('MIN_STEP は 0 である', () => {
+    assert.strictEqual(MIN_STEP, 0);
   });
 
-  it('MAX_STEP は 6 である', () => {
-    assert.strictEqual(MAX_STEP, 6);
+  it('MAX_STEP は 5 である', () => {
+    assert.strictEqual(MAX_STEP, 5);
   });
 
   it('ALLOWED_SUBCOMMANDS は5つのサブコマンド名を持つ', () => {
@@ -124,16 +124,16 @@ describe('validateStepNumber()', () => {
     assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('0 は無効なStep番号（範囲未満）', () => {
-    assert.strictEqual(validateStepNumber(0), false);
+  it('0 は有効なStep番号（Step 0: 見出し重複排除）', () => {
+    assert.strictEqual(validateStepNumber(0), true);
   });
 
-  it('6 は有効なStep番号（範囲上限）', () => {
-    assert.strictEqual(validateStepNumber(6), true);
+  it('5 は有効なStep番号（範囲上限）', () => {
+    assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('7 は無効なStep番号（範囲超過）', () => {
-    assert.strictEqual(validateStepNumber(7), false);
+  it('6 は無効なStep番号（範囲超過）', () => {
+    assert.strictEqual(validateStepNumber(6), false);
   });
 
   it('負の数は無効なStep番号', () => {
@@ -309,7 +309,7 @@ describe('parseArguments()', () => {
 
   it('--graphify-status= がない（空 path）でエラーを投げる', () => {
     process.argv = ['node', 'script.js', '--graphify-status=', 'start-step', '1'];
-    assert.throws(() => parseArguments(), /path.*空/);
+    assert.throws(() => parseArguments(), /パスが空/);
   });
 
   it('--graphify-status フラグ自体がないでエラーを投げる', () => {
@@ -320,6 +320,45 @@ describe('parseArguments()', () => {
   it('Step番号が非数値でエラーを投げる', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/s.json', 'start-step', 'abc'];
     assert.throws(() => parseArguments(), /数値ではありません/);
+  });
+
+  // ============================================================
+  // --status= エイリアスフラグのテスト
+  // ============================================================
+
+  it('--status= で start-step をパースできる（エイリアス互換）', () => {
+    process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'start-step', '1'];
+    const result = parseArguments();
+    assert.strictEqual(result.statusPath, '/tmp/boundify.json');
+    assert.strictEqual(result.subcommand, 'start-step');
+    assert.strictEqual(result.stepNumber, 1);
+  });
+
+  it('--status= で status をパースできる（Step番号なし）', () => {
+    process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'status'];
+    const result = parseArguments();
+    assert.strictEqual(result.statusPath, '/tmp/boundify.json');
+    assert.strictEqual(result.subcommand, 'status');
+    assert.strictEqual(result.stepNumber, null);
+  });
+
+  it('--graphify-status= と --status= のフラグ定数が両方とも定義されている', () => {
+    // FLAG_ALIAS_STATUS の存在を確認（テスト用に module.exports から参照）
+    const mod = require('../../.claude/scripts/rfc-graph/update-step-status.js');
+    assert.ok(mod.FLAG_GRAPHIFY_STATUS);
+    assert.ok(mod.FLAG_ALIAS_STATUS);
+    assert.strictEqual(mod.FLAG_GRAPHIFY_STATUS, '--graphify-status=');
+    assert.strictEqual(mod.FLAG_ALIAS_STATUS, '--status=');
+  });
+
+  it('--status= の path が空でエラーを投げる', () => {
+    process.argv = ['node', 'script.js', '--status=', 'start-step', '1'];
+    assert.throws(() => parseArguments(), /パスが空/);
+  });
+
+  it('--stat=path の誤記（typo）でエラーを投げる', () => {
+    process.argv = ['node', 'script.js', '--stat=/tmp/s.json', 'start-step', '1'];
+    assert.throws(() => parseArguments(), /--graphify-status/);
   });
 });
 
@@ -343,10 +382,10 @@ describe('ファイルI/O', () => {
       const status = createDefaultStatus(nonExistentPath);
       assert.ok(status.sourceFile.endsWith('non-existent.md'));
       assert.ok(status.graphFile.endsWith('non-existent-GRAPH.json'));
-      assert.strictEqual(status.currentStep, 1);
-      assert.strictEqual(status.steps['1'], STATUS_PENDING);
+      assert.strictEqual(status.currentStep, MIN_STEP);
+      assert.strictEqual(status.steps['0'], STATUS_PENDING);
       assert.strictEqual(status.steps['5'], STATUS_PENDING);
-      assert.strictEqual(Object.keys(status.steps).length, MAX_STEP);
+      assert.strictEqual(Object.keys(status.steps).length, MAX_STEP - MIN_STEP + 1);
     });
   });
 
@@ -362,8 +401,8 @@ describe('ファイルI/O', () => {
     it('存在しないファイルはデフォルト状態を返す', () => {
       const nonExistentPath = path.join(tmpDir, 'no-such-file-GRAPHIFY-Status.json');
       const status = readStatus(nonExistentPath);
-      assert.strictEqual(status.currentStep, 1);
-      assert.strictEqual(status.steps['1'], STATUS_PENDING);
+      assert.strictEqual(status.currentStep, MIN_STEP);
+      assert.strictEqual(status.steps['0'], STATUS_PENDING);
     });
 
     it('不正なJSONファイルでエラーを投げる', () => {
@@ -454,12 +493,12 @@ describe('read-modify-write 統合', () => {
   it('存在しないファイルから始めて full flow（start→end→reset）', () => {
     const statusPath = path.join(tmpDir, 'full-flow-GRAPHIFY-Status.json');
 
-    // Step 1: ファイルなしからデフォルト読み込み
+    // Step 1: ファイルなしからデフォルト読み込み（MIN_STEP から開始）
     let status = readStatus(statusPath);
-    assert.strictEqual(status.currentStep, 1);
-    assert.strictEqual(status.steps['1'], STATUS_PENDING);
+    assert.strictEqual(status.currentStep, MIN_STEP);
+    assert.strictEqual(status.steps['0'], STATUS_PENDING);
 
-    // Step 2: start-step 1
+    // Step 2: start-step 1 に進む
     executeStartStep(status, 1);
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
     status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));

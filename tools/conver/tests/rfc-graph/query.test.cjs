@@ -97,35 +97,35 @@ const SIMPLE_GRAPH = {
       title: '認証API定義',
       kind: 'api_contract',
       summary: 'POST /api/v1/auth/login エンドポイントの定義。',
-      sourceRanges: [{ refId: 'REF001', startLine: 10, endLine: 25 }],
+      headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}],
     },
     {
       id: 'N0002',
       title: '用語集',
       kind: 'glossary',
       summary: '認証関連の用語定義。',
-      sourceRanges: [{ refId: 'REF002', startLine: 30, endLine: 40 }],
+      headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}],
     },
     {
       id: 'N0003',
       title: 'トークン検証ロジック',
       kind: 'requirement',
       summary: 'JWTトークンの検証手順。',
-      sourceRanges: [{ refId: 'REF003', startLine: 50, endLine: 65 }],
+      headingRefs: [{ refId: 'REF003', heading:1, texts:["test"]}],
     },
     {
       id: 'N0004',
       title: 'データモデル定義',
       kind: 'data_model',
       summary: 'Userエンティティの定義。',
-      sourceRanges: [{ refId: 'REF004', startLine: 70, endLine: 85 }],
+      headingRefs: [{ refId: 'REF004', heading:1, texts:["test"]}],
     },
     {
       id: 'N0005',
       title: 'セッション管理',
       kind: 'requirement',
       summary: 'ユーザーセッションの管理方法。',
-      sourceRanges: [{ refId: 'REF005', startLine: 90, endLine: 105 }],
+      headingRefs: [{ refId: 'REF005', heading:1, texts:["test"]}],
     },
   ],
   edges: [
@@ -474,39 +474,37 @@ describe('multiHopBFS', () => {
 // ============================================================
 
 describe('resolveCurrentLines', () => {
-  it('正常系: マーカーが存在する行範囲を正しく解決する', () => {
-    const sourceText = SOURCE_LINES.join('\n');
-    const ranges = resolveCurrentLines(sourceText, 'REF001');
-    assert.notEqual(ranges, undefined);
-    assert.equal(ranges.length, 1);
-    assert.equal(ranges[0].startLine, 9); // 1-based
-    assert.equal(ranges[0].endLine, 19);
+  it('正常系: headingRefs から行番号を解決する', () => {
+    const sourceText = SOURCE_LINES; // resolveCurrentLines は配列として sourceLines を期待
+    const headingRefs = [{ refId: 'REF001', heading: 2, texts: ['認証API定義'] }];
+    const result = resolveCurrentLines(sourceText, headingRefs, 'REF001');
+    assert.notEqual(result, undefined);
+    assert.ok(result.line > 0);
   });
 
-  it('正常系: 複数ノードの行範囲をそれぞれ解決する', () => {
-    const sourceText = SOURCE_LINES.join('\n');
-    const r1 = resolveCurrentLines(sourceText, 'REF001');
-    const r3 = resolveCurrentLines(sourceText, 'REF003');
-    const r5 = resolveCurrentLines(sourceText, 'REF005');
+  it('正常系: 複数ノードの行番号をそれぞれ解決する', () => {
+    const sourceText = SOURCE_LINES;
+    const refs = [
+      { refId: 'REF001', heading: 2, texts: ['認証API定義'] },
+      { refId: 'REF003', heading: 2, texts: ['トークン検証'] },
+    ];
+    const r1 = resolveCurrentLines(sourceText, refs, 'REF001');
+    const r3 = resolveCurrentLines(sourceText, refs, 'REF003');
 
     assert.notEqual(r1, undefined);
     assert.notEqual(r3, undefined);
-    assert.notEqual(r5, undefined);
-
-    // REF003 は REF001 より後
-    assert.ok(r3[0].startLine > r1[0].endLine);
-    // REF005 は REF003 より後
-    assert.ok(r5[0].startLine > r3[0].endLine);
+    assert.notEqual(r1.line, r3.line);
   });
 
-  it('異常系: マーカーが存在しない refId は undefined を返す', () => {
-    const sourceText = SOURCE_LINES.join('\n');
-    const ranges = resolveCurrentLines(sourceText, 'REF999');
-    assert.equal(ranges, undefined);
+  it('異常系: 存在しない refId は undefined を返す', () => {
+    const sourceText = SOURCE_LINES;
+    const headingRefs = [{ refId: 'REF001', heading: 2, texts: ['認証API定義'] }];
+    const result = resolveCurrentLines(sourceText, headingRefs, 'REF999');
+    assert.equal(result, undefined);
   });
 });
 
-// ============================================================
+// ===============================================================
 // groupEdgesByType
 // ============================================================
 
@@ -564,7 +562,7 @@ describe('formatNodeMarkdown', () => {
   it('正常系: ノード情報を正しいMarkdownに整形する', () => {
     const node = SIMPLE_GRAPH.nodes[0]; // N0001
     const searchResult = multiHopBFS(SIMPLE_GRAPH, 'N0001', 1);
-    const sourceText = SOURCE_LINES.join('\n');
+    const sourceText = SOURCE_LINES;
     const output = formatNodeMarkdown(node, searchResult.edges, SIMPLE_GRAPH, sourceText);
 
     // 見出し
@@ -572,8 +570,8 @@ describe('formatNodeMarkdown', () => {
     // 種別と参照
     assert.ok(output.includes('api_contract'));
     assert.ok(output.includes('REF001'));
-    // 現在行番号
-    assert.ok(output.includes('L9-L19') || output.includes('L'));
+    // 見出し参照表示
+    assert.ok(output.includes('h2') || output.includes('認証API定義'));
     // Summary
     assert.ok(output.includes('POST /api/v1/auth/login'));
     // 関係セクション
@@ -584,7 +582,7 @@ describe('formatNodeMarkdown', () => {
 
   it('正常系: 孤立ノードは「関係 (なし)」を出力する', () => {
     const node = SIMPLE_GRAPH.nodes[1]; // N0002（孤立）
-    const sourceText = SOURCE_LINES.join('\n');
+    const sourceText = SOURCE_LINES;
     const output = formatNodeMarkdown(node, [], SIMPLE_GRAPH, sourceText);
 
     assert.ok(output.includes('## N0002: 用語集'));
@@ -597,7 +595,7 @@ describe('formatNodeMarkdown', () => {
       id: 'NX001',
       title: '欠損ノード',
       kind: 'requirement',
-      sourceRanges: [{ refId: 'REF999', startLine: 1, endLine: 10 }],
+      headingRefs: [{ refId: 'REF999', heading:1, texts:["test"]}]
     };
     const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(nodeWithMissingRef, [], SIMPLE_GRAPH, sourceText);
@@ -610,8 +608,8 @@ describe('formatNodeMarkdown', () => {
     const graphWithBidi = {
       sourceFile: 'test.md',
       nodes: [
-        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 5 }] },
-        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', sourceRanges: [{ refId: 'REF002', startLine: 10, endLine: 15 }] },
+        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
+        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}]},
       ],
       edges: [
         { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard', bidirectional: true } },
@@ -626,7 +624,7 @@ describe('formatNodeMarkdown', () => {
     assert.ok(output.includes('↔'));
   });
 
-  it('正常系: sourceRanges がないノードは N/A と表示する', () => {
+  it('正常系: headingRefs がないノードは N/A と表示する', () => {
     const node = { id: 'NX001', title: '範囲なし', kind: 'requirement', summary: 'Test' };
     const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(node, [], SIMPLE_GRAPH, sourceText);

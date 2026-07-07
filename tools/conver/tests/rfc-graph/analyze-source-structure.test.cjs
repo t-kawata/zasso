@@ -20,6 +20,8 @@ const {
   extractHeadingTree,
   estimateKind,
   detectExternalDeps,
+  extractHeadingTokens,
+  generateCandidateHeadingRefs,
   formatReport,
   generateReport,
   KIND_PATTERNS,
@@ -217,8 +219,9 @@ describe('extractHeadingTree', () => {
       '内容2',
     ];
     const sections = extractHeadingTree(lines, []);
-    assert.equal(sections[0].proseLines, 2); // S1: "# S1" + "内容1"
-    assert.equal(sections[1].proseLines, 2); // S2: "## S2" + "内容2"
+    // S1(h1) は S2(h2) を含む（h2 は h1 より下位レベルのため）
+    assert.equal(sections[0].proseLines, 4); // "# S1" + "内容1" + "## S2" + "内容2"
+    assert.equal(sections[1].proseLines, 2); // "## S2" + "内容2"
   });
 
   it('正常系: コードブロック行を除外した行数を計算する', () => {
@@ -234,8 +237,9 @@ describe('extractHeadingTree', () => {
     ];
     const codeBlocks = [{ start: 2, end: 5 }];
     const sections = extractHeadingTree(lines, codeBlocks);
-    assert.equal(sections[0].proseLines, 2); // S1: "# S1" + "本文"
-    assert.equal(sections[1].proseLines, 2); // S2: "## S2" + "本文2"
+    // S1(h1) は S2(h2) を含む（h2 は h1 より下位レベルのため）
+    assert.equal(sections[0].proseLines, 4); // "# S1" + "本文" + "## S2" + "本文2"
+    assert.equal(sections[1].proseLines, 2); // "## S2" + "本文2"
   });
 });
 
@@ -332,6 +336,56 @@ describe('detectExternalDeps', () => {
 });
 
 // ============================================================
+// extractHeadingTokens テスト
+// ============================================================
+
+describe('extractHeadingTokens', () => {
+  it('正常系: 日本語見出しをトークン化する', () => {
+    const result = extractHeadingTokens('要件定義');
+    assert.deepEqual(result, ['要件定義']);
+  });
+
+  it('正常系: 複合見出しを分割する', () => {
+    const result = extractHeadingTokens('API エンドポイント一覧');
+    assert.deepEqual(result, ['API', 'エンドポイント一覧']);
+  });
+
+  it('正常系: 記号区切りの見出しを分割する', () => {
+    const result = extractHeadingTokens('セキュリティ・認証');
+    assert.deepEqual(result, ['セキュリティ', '認証']);
+  });
+
+  it('正常系: 英数字を含む見出し', () => {
+    const result = extractHeadingTokens('POST /api/v1/login');
+    assert.deepEqual(result, ['POST', '/api/v1/login']);
+  });
+});
+
+// ============================================================
+// generateCandidateHeadingRefs テスト
+// ============================================================
+
+describe('generateCandidateHeadingRefs', () => {
+  it('正常系: セクションから候補 headingRefs を生成する', () => {
+    const sections = [
+      { level: 1, heading: 'タイトル', startLine: 1, endLine: 10, proseLines: 5 },
+      { level: 2, heading: '要件定義', startLine: 2, endLine: 10, proseLines: 5 },
+    ];
+    const result = generateCandidateHeadingRefs(sections);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].heading, 1);
+    assert.equal(result[0].texts[0], 'タイトル');
+    assert.equal(result[1].heading, 2);
+    assert.equal(result[1].texts[0], '要件定義');
+  });
+
+  it('正常系: 空のセクション配列で空配列を返す', () => {
+    const result = generateCandidateHeadingRefs([]);
+    assert.deepEqual(result, []);
+  });
+});
+
+// ============================================================
 // formatReport テスト
 // ============================================================
 
@@ -345,6 +399,7 @@ describe('formatReport', () => {
       [{ lineRange: 'L1-L10', kind: 'requirement', reason: '見出しマッチ' }],
       [{ lineRange: 'L1-L10', labels: ['ファイルI/O'] }],
       [{ lineRange: 'L1-L10', proseLines: 150, label: 'Title' }],
+      [{ lineRange: 'L1-L10', heading: 1, texts: ['Title'] }],
     );
 
     // 基本情報
@@ -352,18 +407,13 @@ describe('formatReport', () => {
     assert.ok(report.includes('100行'));
     assert.ok(report.includes('70行')); // 100-30
 
-    // セクション一覧
+    // セクション一覧（kind／dep をインライン表示）
     assert.ok(report.includes('セクション一覧'));
-    assert.ok(report.includes('<h1>'));
+    assert.ok(report.includes('- h1'));
     assert.ok(report.includes('Title'));
-
-    // kind 候補（第2軸）
-    assert.ok(report.includes('kind 候補'));
-    assert.ok(report.includes('上書き可能'));
+    assert.ok(report.includes('[kind:')); // kind をインライン付記
     assert.ok(report.includes('requirement'));
-
-    // 外部依存（第3軸）
-    assert.ok(report.includes('外部依存'));
+    assert.ok(report.includes('[dep:'));  // dep をインライン付記
     assert.ok(report.includes('ファイルI/O'));
 
     // 100行超セクション
@@ -379,10 +429,9 @@ describe('formatReport', () => {
       [],
       [],
       [],
+      [], // headingRefCandidates
     );
 
-    assert.ok(report.includes('該当なし'));
-    assert.ok(report.includes('検出なし'));
     assert.ok(report.includes('なし（全セクションが100行未満）'));
   });
 });
@@ -422,20 +471,14 @@ describe('統合: generateReport', () => {
     assert.ok(report.includes('test-rfc.md 構造分析レポート'));
     assert.ok(report.includes('基本情報'));
     assert.ok(report.includes('セクション一覧'));
-    assert.ok(report.includes('kind 候補'));
-    assert.ok(report.includes('外部依存'));
+    assert.ok(report.includes('[kind:')); // kind をインライン付記
+    assert.ok(report.includes('[dep:'));  // dep をインライン付記
     assert.ok(report.includes('100行超セクション'));
 
     // セクションが抽出されている
     assert.ok(report.includes('要件定義'));
     assert.ok(report.includes('API エンドポイント'));
     assert.ok(report.includes('セキュリティ'));
-
-    // 第2軸の但し書き
-    assert.ok(report.includes('上書き可能'));
-
-    // 第3軸の但し書き
-    assert.ok(report.includes('強度と影響範囲を判断'));
   });
 
   it('正常系: コードブロック内の # を見出しと誤認しない', () => {
@@ -452,7 +495,7 @@ describe('統合: generateReport', () => {
 
     const report = generateReport(filePath, sourceLines);
 
-    const sectionMatches = report.match(/<h\d>/g);
+    const sectionMatches = report.match(/- h\d/g);
     // h1 と h2 のみ（コードブロック内の h1 は除外）
     assert.equal(sectionMatches.length, 2);
   });

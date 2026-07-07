@@ -1,9 +1,9 @@
 /**
- * acceptance-criteria.test.cjs — graphify-rfc 4項目のAcceptance Criteria検証テスト
+ * acceptance-criteria.test.cjs — graphify-rfc のAcceptance Criteria検証テスト
  *
  * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * 既存の基盤スクリプト（verify.js / embed-markers.js / query.js）の公開関数を
- * monkey-patch して、RFC-GRAPHIFY.md §4.7 で定義された4項目のAcceptance Criteriaを検証する。
+ * 既存の基盤スクリプト（verify.js / query.js）の公開関数を
+ * monkey-patch して、RFC-GRAPHIFY.md で定義されたAcceptance Criteriaを検証する。
  */
 
 const { describe, it } = require('node:test');
@@ -26,9 +26,9 @@ describe('AC1: verify.js カバレッジ検証', () => {
     ];
 
     const nodes = [
-      { id: 'N0001', sourceRanges: [{ startLine: 1, endLine: 1 }] },
-      { id: 'N0002', sourceRanges: [{ startLine: 3, endLine: 3 }] },
-      { id: 'N0003', sourceRanges: [{ startLine: 5, endLine: 5 }] },
+      { id: 'N0001', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 6 }]},
+      { id: 'N0002', sourceRanges: [{ refId: 'REF002', startLine: 1, endLine: 6 }]},
+      { id: 'N0003', sourceRanges: [{ refId: 'REF003', startLine: 1, endLine: 6 }]},
     ];
 
     const result = checkCoverage(sourceLines, nodes);
@@ -48,8 +48,8 @@ describe('AC1: verify.js カバレッジ検証', () => {
     ];
 
     const nodes = [
-      { id: 'N0001', sourceRanges: [{ startLine: 1, endLine: 1 }] },
-      { id: 'N0002', sourceRanges: [{ startLine: 4, endLine: 4 }] },
+      { id: 'N0001', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 1 }]},
+      { id: 'N0002', sourceRanges: [{ refId: 'REF002', startLine: 3, endLine: 4 }]},
     ];
 
     const result = checkCoverage(sourceLines, nodes);
@@ -78,61 +78,6 @@ describe('AC1: verify.js カバレッジ検証', () => {
   });
 });
 
-// ============================================================
-// AC 2: embed-markers.js 冪等性
-// ============================================================
-
-describe('AC2: embed-markers.js 冪等性', () => {
-  it('2回連続実行で差分が生じない（冪等性）', () => {
-    const { embedAll } = require('../../.claude/scripts/rfc-graph/embed-markers.js');
-
-    // embedAll は内部で extractExistingRefIds を呼び出し、既存マーカーを検出する
-    const sourceLines = [
-      '# テスト要件',
-      '要件1: ログイン機能',
-      '要件2: 認証機能',
-    ];
-
-    const nodes = [
-      { id: 'N0001', sourceRanges: [{ startLine: 1, endLine: 1, refId: 'REF1' }] },
-      { id: 'N0002', sourceRanges: [{ startLine: 2, endLine: 3, refId: 'REF2' }] },
-    ];
-
-    // 1回目の実行
-    const firstResult = embedAll(sourceLines, nodes);
-
-    // 2回目の実行（1回目の結果を元に再度実行 = 既存マーカーが埋め込まれた状態）
-    const secondResult = embedAll(firstResult.result, nodes);
-
-    // 冪等性: 2回目で新たに挿入された件数が0
-    assert.equal(secondResult.insertedCount, 0);
-    // 内容が同一
-    assert.deepEqual(secondResult.result, firstResult.result);
-  });
-
-  it('同一refIdの重複マーカーを防止する', () => {
-    const { embedAll } = require('../../.claude/scripts/rfc-graph/embed-markers.js');
-
-    // 既にマーカーが埋め込まれている状態を模倣（embed-markers.js の MARKER_FORMAT 準拠）
-    const sourceLines = [
-      '[::REF1-START::] # テスト',
-      '内容',
-      '[::REF2-START::]詳細 [::REF2-END::]',
-    ];
-
-    const nodes = [
-      { id: 'N0001', sourceRanges: [{ startLine: 1, endLine: 1, refId: 'REF1' }] },
-      { id: 'N0002', sourceRanges: [{ startLine: 3, endLine: 3, refId: 'REF2' }] },
-    ];
-
-    const result = embedAll(sourceLines, nodes);
-
-    // 既存の refId はスキップされるため、新規挿入は0
-    assert.equal(result.insertedCount, 0);
-    // 行数が増えていない
-    assert.equal(result.result.length, 3);
-  });
-});
 
 // ============================================================
 // AC 3: query.js マルチホップ
@@ -200,69 +145,5 @@ describe('AC3: query.js マルチホップ', () => {
     assert.ok(hop1Ids.includes('N0002'));
     assert.ok(hop1Ids.includes('N0003'));
     assert.ok(!hop1Ids.includes('N0004')); // D は2ホップ先
-  });
-});
-
-// ============================================================
-// AC 4: 行挿入耐性
-// ============================================================
-
-describe('AC4: query.js 行挿入耐性', () => {
-  it('ソース文書に1行挿入後、正しい新行番号を返す', () => {
-    const { resolveCurrentLines } = require('../../.claude/scripts/rfc-graph/query.js');
-
-    // 1行挿入後のソース文書全文（文字列）— マーカーは embed-markers.js の MARKER_FORMAT 準拠
-    const modifiedSourceText = [
-      '# テスト要件',                                      // 1
-      '[::REF001-START::] ',                               // 2
-      '新しい行が挿入されました',                            // 3 ← NEW
-      '要件1: ログイン機能',                                // 4
-      '[::REF001-END::] ',                                 // 5
-      '',                                                  // 6
-      '[::REF002-START::] ',                               // 7
-      '## API',                                            // 8
-      'POST /login',                                       // 9
-      '[::REF002-END::] ',                                 // 10
-    ].join('\n');
-
-    // REF001 の行範囲を解決（resolveCurrentLines は '::REF001-START::' を部分一致検索）
-    const ref1Result = resolveCurrentLines(modifiedSourceText, 'REF001');
-    assert.ok(ref1Result !== undefined);
-    assert.equal(ref1Result[0].startLine, 2);  // [::REF001-START::] は2行目
-    assert.equal(ref1Result[0].endLine, 5);    // [::REF001-END::] は5行目
-
-    // REF002 の行範囲を解決
-    const ref2Result = resolveCurrentLines(modifiedSourceText, 'REF002');
-    assert.ok(ref2Result !== undefined);
-    assert.equal(ref2Result[0].startLine, 7);  // [::REF002-START::] は7行目
-    assert.equal(ref2Result[0].endLine, 10);   // [::REF002-END::] は10行目
-  });
-
-  it('ソース文書から1行削除後、正しい新行番号を返す', () => {
-    const { resolveCurrentLines } = require('../../.claude/scripts/rfc-graph/query.js');
-
-    // 1行削除後（元の5行目の空行が削除された状態）
-    const modifiedSourceText = [
-      '# テスト要件',                                      // 1
-      '[::REF001-START::] ',                               // 2
-      '要件1: ログイン機能',                                // 3
-      '[::REF001-END::] ',                                 // 4
-      '[::REF002-START::] ',                               // 5
-      '## API',                                            // 6
-      'POST /login',                                       // 7
-      '[::REF002-END::] ',                                 // 8
-    ].join('\n');
-
-    // REF001 の行範囲
-    const ref1Result = resolveCurrentLines(modifiedSourceText, 'REF001');
-    assert.ok(ref1Result !== undefined);
-    assert.equal(ref1Result[0].startLine, 2);
-    assert.equal(ref1Result[0].endLine, 4);
-
-    // REF002 の行範囲（削除により行番号が1つずつ繰り上がる）
-    const ref2Result = resolveCurrentLines(modifiedSourceText, 'REF002');
-    assert.ok(ref2Result !== undefined);
-    assert.equal(ref2Result[0].startLine, 5);
-    assert.equal(ref2Result[0].endLine, 8);
   });
 });

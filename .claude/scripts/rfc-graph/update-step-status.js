@@ -22,11 +22,11 @@ const path = require('path');
 // 定数定義
 // ============================================================
 
-/** 最小のStep番号 */
-const MIN_STEP = 1;
+/** 最小のStep番号（Step 0: 見出し重複排除） */
+const MIN_STEP = 0;
 
-/** 最大のStep番号（graphify-rfc は5Step固定） */
-const MAX_STEP = 6;
+/** 最大のStep番号（graphify-rfc は5Step + Step 0 の6Step構成） */
+const MAX_STEP = 5;
 
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
@@ -35,7 +35,15 @@ const ALLOWED_SUBCOMMANDS = [
   'fail-step',
   'reset-to-step',
   'status',
+  'cleanup',
+  'backup',
 ];
+
+/** プライマリフラグ: GRAPHIFY-Status.json のパス指定 */
+const FLAG_GRAPHIFY_STATUS = '--graphify-status=';
+
+/** エイリアスフラグ: --graphify-status= のエイリアス、boundify でも汎用的に使用 */
+const FLAG_ALIAS_STATUS = '--status=';
 
 /** Stepの状態: 未着手 */
 const STATUS_PENDING = 'pending';
@@ -60,7 +68,7 @@ const STATUS_ERROR = 'error';
  * @property {string} sourceFile — グラフ化対象のソースファイルパス
  * @property {string} graphFile — 出力先グラフファイルパス
  * @property {number} currentStep — 現在の進行Step番号
- * @property {Object<string, string>} steps — Step1〜5の状態マップ（キーは文字列 "1"〜"5"）
+ * @property {Object<string, string>} steps — Step0〜5の状態マップ（キーは文字列 "0"〜"5"）
  */
 
 // ============================================================
@@ -86,22 +94,22 @@ function parseArguments() {
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
-      '  Usage: update-step-status.js --graphify-status=<path> <subcommand> [N]'
+      '  Usage: update-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]'
     );
   }
 
-  // --graphify-status=<path> のパース
+  // --graphify-status=<path> または --status=<path> のパース
   const statusFlag = args[0];
-  if (!statusFlag.startsWith('--graphify-status=')) {
+  if (!statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) && !statusFlag.startsWith(FLAG_ALIAS_STATUS)) {
     throw new Error(
-      '最初の引数は --graphify-status=<path> である必要があります。\n' +
+      '最初の引数は --graphify-status=<path> または --status=<path> である必要があります。\n' +
       `  実際の値: ${statusFlag}`
     );
   }
   const statusPath = statusFlag.split('=', 2)[1];
   if (!statusPath) {
     throw new Error(
-      '--graphify-status=<path> の <path> が空です。'
+      'パスが空です。--graphify-status=<path> または --status=<path> の <path> に有効なパスを指定してください。'
     );
   }
 
@@ -114,9 +122,9 @@ function parseArguments() {
     );
   }
 
-  // step-number の読み取り（status 以外は必須）
+  // step-number の読み取り（status / cleanup / backup 以外は必須）
   let stepNumber = null;
-  if (subcommand !== 'status') {
+  if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup') {
     if (args.length < 3) {
       throw new Error(
         `サブコマンド "${subcommand}" には Step番号が必要です。`
@@ -160,14 +168,29 @@ function readStatus(statusPath) {
 /**
  * デフォルトのステータスデータを生成する
  *
- * @param {string} statusPath — ステータスファイルのパス（sourceFile と graphFile の導出に使用）
+ * ファイル名のサフィックスから basename を抽出し、sourceFile（.md）と graphFile（-GRAPH.json）を逆算する。
+ * 対応サフィックス:
+ *   - GRAPHIFY: *-GRAPHIFY-Status.json → basename から -GRAPHIFY は除去されない（正しく逆算するため）
+ *   - BOUNDIFY: *-BOUNDIFY-Status.json → basename から -BOUNDIFY は除去されない
+ *
+ * @param {string} statusPath — ステータスファイルのパス
  * @returns {StatusData} デフォルト状態
  */
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
-  const basename = path.basename(statusPath, '-GRAPHIFY-Status.json');
+  const filename = path.basename(statusPath);
 
-  // sourceFile: GRAPHIFY-Status.json の basename から元のソースファイルを逆算する
+  // ファイル名から既知のサフィックスを除去して basename を得る
+  const GRAPHIFY_SUFFIX = '-GRAPHIFY-Status.json';
+  const BOUNDIFY_SUFFIX = '-BOUNDIFY-Status.json';
+  let basename = filename;
+  if (filename.endsWith(GRAPHIFY_SUFFIX)) {
+    basename = filename.slice(0, -GRAPHIFY_SUFFIX.length);
+  } else if (filename.endsWith(BOUNDIFY_SUFFIX)) {
+    basename = filename.slice(0, -BOUNDIFY_SUFFIX.length);
+  }
+
+  // sourceFile: basename から元のソースファイルパスを逆算する
   const sourceFile = path.resolve(dir, basename + '.md');
   const graphFile = path.resolve(dir, basename + '-GRAPH.json');
 
@@ -265,6 +288,82 @@ function executeStatus(status) {
   console.log(JSON.stringify(status, null, 2));
 }
 
+/**
+ * cleanup: 既知の一時ファイルを全て削除する（冪等）
+ *
+ * 削除対象:
+ * - $graphFile.bak（graphFile と同じディレクトリ）
+ * - CWD 配下の _temp_nodes.json / _temp_edges.json / _patch.json
+ *   / _remove_edges.json / _add_edges.json
+ *
+ * 本関数は冪等である。何度実行しても安全で、ファイルが存在しない場合は
+ * 何も削除せず正常終了する。
+ *
+ * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ */
+function executeCleanup(status) {
+  const removed = [];
+
+  // .bak ファイル（グラフファイルと同じディレクトリ）
+  const bakPath = status.graphFile + '.bak';
+  try {
+    if (fs.existsSync(bakPath)) {
+      fs.unlinkSync(bakPath);
+      removed.push(bakPath);
+    }
+  } catch (_) { /* 削除競合など — 無視して続行 */ }
+
+  // CWD の一時ファイル
+  const cwd = process.cwd();
+  const tempFiles = [
+    '_temp_nodes.json',
+    '_temp_edges.json',
+    '_patch.json',
+    '_remove_edges.json',
+    '_add_edges.json',
+  ];
+  for (const f of tempFiles) {
+    const fp = path.join(cwd, f);
+    try {
+      if (fs.existsSync(fp)) {
+        fs.unlinkSync(fp);
+        removed.push(f);
+      }
+    } catch (_) { /* 同上 */ }
+  }
+
+  if (removed.length > 0) {
+    console.log(`cleanup: ${removed.join(', ')} を削除しました。`);
+  } else {
+    console.log('cleanup: 削除対象の一時ファイルはありませんでした。');
+  }
+}
+
+/**
+ * backup: graphFile のバックアップを作成する（冪等）
+ *
+ * 古い .bak ファイルがあれば削除した上で、graphFile を graphFile.bak にコピーする。
+ * 退行チェック（verify-graph-integrity.js）の --graph-before 引数で使用する。
+ *
+ * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ */
+function executeBackup(status) {
+  const bakPath = status.graphFile + '.bak';
+  try {
+    if (fs.existsSync(bakPath)) {
+      fs.unlinkSync(bakPath);
+    }
+    fs.copyFileSync(status.graphFile, bakPath);
+    console.log(`backup: ${status.graphFile} → ${bakPath}`);
+  } catch (err) {
+    exitWithError(
+      `バックアップ作成に失敗しました: ${err.message}`,
+      `graphFile=${status.graphFile}`,
+      'ディスク容量や書き込み権限を確認してください。'
+    );
+  }
+}
+
 // ============================================================
 // ファイル入出力
 // ============================================================
@@ -307,15 +406,15 @@ function exitWithError(message, reason, action) {
  */
 function printUsage() {
   console.log(`
-update-step-status.js — GRAPHIFY-Status.json 管理
+update-step-status.js — GRAPHIFY-Status.json / BOUNDIFY-Status.json 管理
 
 使用方法:
-  node update-step-status.js --graphify-status=<path> start-step <N>
-  node update-step-status.js --graphify-status=<path> end-step <N>
-  node update-step-status.js --graphify-status=<path> fail-step <N>
-  node update-step-status.js --graphify-status=<path> reset-to-step <N>
-  node update-step-status.js --graphify-status=<path> status
+  node update-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]
   node update-step-status.js --help
+
+フラグ:
+  --graphify-status=<path>  GRAPHIFY-Status.json のパス（従来形式）
+  --status=<path>           上記のエイリアス（boundify 等でも汎用的に使用）
 
 サブコマンド:
   start-step <N>    Step N を開始（running, currentStep=N）
@@ -323,6 +422,8 @@ update-step-status.js — GRAPHIFY-Status.json 管理
   fail-step <N>     Step N を異常終了（error, currentStep 不変）
   reset-to-step <N> Step N に復帰（N+1〜5 を pending に戻す）
   status            現在の状態を整形JSONで出力
+  cleanup           既知の一時ファイルを全て削除（冪等）
+  backup            graphFile の .bak ファイルを作成（退行チェック用）
 
 Step番号: ${MIN_STEP}〜${MAX_STEP}
 `);
@@ -415,11 +516,21 @@ function main() {
         process.exit(0);
         // status はファイル書き込み不要で終了する
 
+      case 'backup':
+        executeBackup(status);
+        process.exit(0);
+        // backup はファイル書き込み不要で終了する
+
+      case 'cleanup':
+        executeCleanup(status);
+        process.exit(0);
+        // cleanup はファイル書き込み不要で終了する
+
       default:
         // parseArguments で検証済みなのでここには到達しない
         exitWithError(
           `未知のサブコマンドです: ${subcommand}`,
-          'start-step / end-step / fail-step / reset-to-step / status のいずれかを指定してください。',
+          'start-step / end-step / fail-step / reset-to-step / status / cleanup のいずれかを指定してください。',
           '正しいサブコマンド名で再実行してください。'
         );
     }
@@ -459,10 +570,14 @@ module.exports = {
   executeFailStep,
   executeResetToStep,
   executeStatus,
+  executeCleanup,
+  executeBackup,
   atomicWrite,
   MIN_STEP,
   MAX_STEP,
   ALLOWED_SUBCOMMANDS,
+  FLAG_GRAPHIFY_STATUS,
+  FLAG_ALIAS_STATUS,
   STATUS_PENDING,
   STATUS_RUNNING,
   STATUS_DONE,

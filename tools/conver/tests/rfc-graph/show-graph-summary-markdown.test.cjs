@@ -27,12 +27,12 @@ const {
 const SAMPLE_GRAPH = {
   sourceFile: '/path/to/RFC-GRAPHIFY.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: '認証API定義', summary: '認証の失敗時にリトライする回数と間隔を規定', sourceRanges: [{ refId: 'REF001', startLine: 10, endLine: 28 }] },
-    { id: 'N0002', kind: 'requirement', title: 'エラー型定義', summary: '本モジュールで使用するエラー型', sourceRanges: [{ refId: 'REF002', startLine: 30, endLine: 38 }] },
-    { id: 'N0003', kind: 'requirement', title: 'トークン検証', summary: 'JWTトークンの署名検証手順', sourceRanges: [{ refId: 'REF003', startLine: 50, endLine: 68 }] },
-    { id: 'N0004', kind: 'api_contract', title: 'POST /api/v1/auth/login', summary: 'ログインエンドポイントのリクエスト/レスポンス仕様', sourceRanges: [{ refId: 'REF004', startLine: 70, endLine: 88 }] },
-    { id: 'N0005', kind: 'architecture', title: 'セッション管理', summary: 'ユーザーセッションの作成と破棄のライフサイクル', sourceRanges: [{ refId: 'REF005', startLine: 90, endLine: 108 }] },
-    { id: 'N0006', kind: 'glossary', title: '用語定義', summary: '認証関連用語', sourceRanges: [{ refId: 'REF006', startLine: 125, endLine: 135 }] },
+    { id: 'N0001', kind: 'requirement', title: '認証API定義', summary: '認証の失敗時にリトライする回数と間隔を規定', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'requirement', title: 'エラー型定義', summary: '本モジュールで使用するエラー型', headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'requirement', title: 'トークン検証', summary: 'JWTトークンの署名検証手順', headingRefs: [{ refId: 'REF003', heading:1, texts:["test"]}]},
+    { id: 'N0004', kind: 'api_contract', title: 'POST /api/v1/auth/login', summary: 'ログインエンドポイントのリクエスト/レスポンス仕様', headingRefs: [{ refId: 'REF004', heading:1, texts:["test"]}]},
+    { id: 'N0005', kind: 'architecture', title: 'セッション管理', summary: 'ユーザーセッションの作成と破棄のライフサイクル', headingRefs: [{ refId: 'REF005', heading:1, texts:["test"]}]},
+    { id: 'N0006', kind: 'glossary', title: '用語定義', summary: '認証関連用語', headingRefs: [{ refId: 'REF006', heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0003', type: 'depends_on', attributes: { strength: 'hard', bidirectional: false } },
@@ -190,31 +190,31 @@ describe('generateSummary', () => {
     assert.ok(lines[0].includes('6 nodes / 5 edges'));
 
     // kind 別グループ
-    assert.ok(output.includes('## requirement (3)'));
-    assert.ok(output.includes('## api_contract (1)'));
-    assert.ok(output.includes('## architecture (1)'));
-    assert.ok(output.includes('## glossary (1)'));
+    assert.ok(output.includes('## requirement (3件)'));
+    assert.ok(output.includes('## api_contract (1件)'));
+    assert.ok(output.includes('## architecture (1件)'));
+    assert.ok(output.includes('## glossary (1件)'));
 
-    // 各ノードのタイトル + summary要約 + 行番号
-    assert.ok(output.includes('認証API定義'));
-    assert.ok(output.includes('エラー型定義'));
-    assert.ok(output.includes('トークン検証'));
+    // 各ノードのID + タイトル
+    assert.ok(output.includes('N0001: 認証API定義'));
+    assert.ok(output.includes('N0002: エラー型定義'));
+    assert.ok(output.includes('N0003: トークン検証'));
+    assert.ok(output.includes('N0004: POST /api/v1/auth/login'));
+    assert.ok(output.includes('N0005: セッション管理'));
+
+    // 要約
     assert.ok(output.includes('ログインエンドポイント'));
-    assert.ok(output.includes('セッション管理'));
 
-    // 行番号（動的解決された現在値）
-    assert.ok(output.includes('[L')); // 行番号表記あり
-
-    // エッジ関係
-    assert.ok(output.includes('→トークン検証dep'));
-    assert.ok(output.includes('←認証API定義dep'));
+    // エッジ関係（新しい形式）
+    assert.ok(output.includes('[N0001] -> depends_on -> [N0003: トークン検証]'));
+    assert.ok(output.includes('[N0003] <- depends_on <- [N0001: 認証API定義]'));
   });
 
   it('孤立ノードのみのグラフでも空のエッジ一覧になる', () => {
     const isolatedGraph = {
       sourceFile: '/test.md',
       nodes: [
-        { id: 'N0001', kind: 'requirement', title: '孤立', summary: '孤立ノード', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 5 }] },
+        { id: 'N0001', kind: 'requirement', title: '孤立', summary: '孤立ノード', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
       ],
       edges: [],
     };
@@ -226,7 +226,7 @@ describe('generateSummary', () => {
     assert.ok(!output.includes('←'));
   });
 
-  it('sourceRanges がないノードは行番号なしで表示される', () => {
+  it('headingRefs がないノードは行番号なしで表示される', () => {
     const noRangeGraph = {
       sourceFile: '/test.md',
       nodes: [
@@ -243,8 +243,8 @@ describe('generateSummary', () => {
     const graph = {
       sourceFile: '/test.md',
       nodes: [
-        { id: 'N0001', kind: 'requirement', title: 'A', summary: 'A', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 2 }] },
-        { id: 'N0002', kind: 'requirement', title: 'B', summary: 'B', sourceRanges: [{ refId: 'REF002', startLine: 3, endLine: 4 }] },
+        { id: 'N0001', kind: 'requirement', title: 'A', summary: 'A', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
+        { id: 'N0002', kind: 'requirement', title: 'B', summary: 'B', headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}]},
       ],
       edges: [
         { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard', bidirectional: true } },
@@ -252,8 +252,8 @@ describe('generateSummary', () => {
     };
     const src = '[::REF001-START::] A\n[::REF001-END::]\n[::REF002-START::] B\n[::REF002-END::]';
     const output = generateSummary(graph, src);
-    // bidirectional は ↔ で表示（incoming には notin なので outgoing のみに ↔）
-    assert.ok(output.includes('↔'));
+    // bidirectional は <-> で表示
+    assert.ok(output.includes('<->'));
   });
 });
 

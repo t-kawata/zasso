@@ -32,6 +32,9 @@ const NODE_ID_ARG_PREFIX = '--id=';
 /** 入力JSONファイルを指定するCLI引数のプレフィックス */
 const FILE_ARG_PREFIX = '--file=';
 
+/** 元Markdown文書のパスを指定するCLI引数のプレフィックス */
+const SOURCE_ARG_PREFIX = '--source=';
+
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
   'create-nodes',
@@ -112,6 +115,7 @@ function parseArguments() {
   // サブコマンド固有の追加引数のパース
   let nodeId = null;
   let filePath = null;
+  let sourcePath = null;
 
   for (let i = 2; i < args.length; i++) {
     const arg = args[i];
@@ -124,6 +128,11 @@ function parseArguments() {
       filePath = arg.slice(FILE_ARG_PREFIX.length);
       if (!filePath) {
         throw new Error('--file=<path> の <path> が空です。');
+      }
+    } else if (arg.startsWith(SOURCE_ARG_PREFIX)) {
+      sourcePath = arg.slice(SOURCE_ARG_PREFIX.length);
+      if (!sourcePath) {
+        throw new Error('--source=<path> の <path> が空です。');
       }
     } else {
       throw new Error(`未知の引数です: ${arg}`);
@@ -145,7 +154,7 @@ function parseArguments() {
     );
   }
 
-  return { graphPath, subcommand, nodeId, filePath };
+  return { graphPath, subcommand, nodeId, filePath, sourcePath };
 }
 
 // ============================================================
@@ -153,15 +162,24 @@ function parseArguments() {
 // ============================================================
 
 /**
- * グラフファイルを読み込む。ファイルが存在しない場合は空のグラフを返す。
+ * グラフファイルを読み込む。ファイルが存在しない場合は空のグラフを生成する。
+ *
+ * 初回作成時（グラフ不在）は sourcePath が必須。
+ * sourcePath はグラフルートの sourceFile フィールドにセットされる。
  *
  * @param {string} graphPath — グラフファイルのパス
+ * @param {string|null} sourcePath — 元Markdown文書のパス（初回作成時必須）
  * @returns {Object} グラフデータ
- * @throws {Error} ファイル読み込みエラー時
+ * @throws {Error} ファイル読み込みエラー時、または初回作成時に sourcePath 未指定
  */
-function readGraph(graphPath) {
+function readGraph(graphPath, sourcePath) {
   if (!fs.existsSync(graphPath)) {
-    return createEmptyGraph(graphPath);
+    if (!sourcePath) {
+      throw new Error(
+        '--source 未指定です。--source=</path/to/RFC-???.md> で元Markdown文書のパスを指定してください。'
+      );
+    }
+    return createEmptyGraph(sourcePath);
   }
 
   const content = fs.readFileSync(graphPath, 'utf-8');
@@ -216,7 +234,7 @@ function validateWithSchema(data, schemaFileName, description) {
  *
  * 全ノードがスキーマ検証を通過し、かつ既存ノードとのID重複がない場合のみ追加する。
  * 1件でも違反があれば一切変更せずエラー終了する。
- * sourceRanges の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
+ * headingRefs の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
  * ノードJSONに refId が書かれていても無視され、機械的に上書きされる。
  *
  * @param {Object} graph — グラフデータ
@@ -225,10 +243,10 @@ function validateWithSchema(data, schemaFileName, description) {
  */
 function executeCreateNodes(graph, nodesData) {
   // ステップ1: 全ノードのスキーマ検証
-  // sourceRanges の refId は仮の値で一時的に検証通過させる
+  // headingRefs の refId は仮の値で一時的に検証通過させる
   for (const node of nodesData) {
-    if (Array.isArray(node.sourceRanges) && node.sourceRanges.length > 0) {
-      for (const range of node.sourceRanges) {
+    if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
+      for (const range of node.headingRefs) {
         if (!range.refId || !/^REF\d{3,}$/.test(range.refId)) {
           range.refId = 'REF000';
         }
@@ -251,12 +269,12 @@ function executeCreateNodes(graph, nodesData) {
   }
 
   // ステップ3: refId 自動採番
-  // 既存グラフ + 新規ノードの全 sourceRanges から最大 refId 番号をスキャン
+  // 既存グラフ + 新規ノードの全 headingRefs から最大 refId 番号をスキャン
   let maxRefNumber = 0;
   const allNodes = [...graph.nodes, ...nodesData];
   for (const node of allNodes) {
-    if (!Array.isArray(node.sourceRanges)) continue;
-    for (const range of node.sourceRanges) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const range of node.headingRefs) {
       if (range.refId) {
         const match = range.refId.match(/^REF(\d+)$/);
         if (match) {
@@ -267,11 +285,11 @@ function executeCreateNodes(graph, nodesData) {
     }
   }
 
-  // 新規ノードの sourceRanges に max+1 から順に refId を割り当てる
+  // 新規ノードの headingRefs に max+1 から順に refId を割り当てる
   let nextRefNumber = maxRefNumber + 1;
   for (const node of nodesData) {
-    if (!Array.isArray(node.sourceRanges)) continue;
-    for (const range of node.sourceRanges) {
+    if (!Array.isArray(node.headingRefs)) continue;
+    for (const range of node.headingRefs) {
       range.refId = 'REF' + String(nextRefNumber).padStart(3, '0');
       nextRefNumber++;
     }
@@ -312,7 +330,7 @@ function executeGetNode(graph, nodeId) {
 /**
  * update-node: 指定されたIDのノードを更新する
  *
- * patch の各フィールドで上書き更新する。sourceRanges は配列全体の置換。
+ * patch の各フィールドで上書き更新する。headingRefs は配列全体の置換。
  * 更新後の完全なノードがスキーマ検証を通過することを確認する。
  *
  * @param {Object} graph — グラフデータ
@@ -492,7 +510,7 @@ function main() {
     );
   }
 
-  const { graphPath, subcommand, nodeId, filePath } = parsed;
+  const { graphPath, subcommand, nodeId, filePath, sourcePath } = parsed;
 
   try {
     // ファイル入力を必要とするサブコマンド: 入力JSONを読み込む
@@ -506,7 +524,7 @@ function main() {
     const readOnlySubcommands = ['list-nodes', 'get-node'];
 
     if (readOnlySubcommands.includes(subcommand)) {
-      const graph = readGraph(graphPath);
+      const graph = readGraph(graphPath, sourcePath);
       switch (subcommand) {
         case 'list-nodes':
           executeListNodeIds(graph);
@@ -519,7 +537,7 @@ function main() {
     }
 
     // 書き込みサブコマンド（グラフファイル変更あり）
-    const graph = readGraph(graphPath);
+    const graph = readGraph(graphPath, sourcePath);
 
     // グラフ全体としてのスキーマ検証（既存データの整合性確認）
     validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'グラフデータ全体');
@@ -547,6 +565,11 @@ function main() {
 
     // アトミック書込
     atomicWrite(graphPath, JSON.stringify(graph, null, 2));
+
+    // 消費済みの入力ファイルを削除（使用後はゴミを残さない）
+    if (filePath) {
+      try { fs.unlinkSync(filePath); } catch { /* 削除できなくても処理自体は成功 */ }
+    }
   } catch (operationError) {
     exitWithError(
       `${subcommand} の実行中にエラーが発生しました。`,

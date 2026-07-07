@@ -198,10 +198,10 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         'Step 6 の見出しが存在すること');
     });
 
-    it('全6Stepのセクション見出しが "## Step" 形式で記述されている', () => {
+    it('全7Step（Step 0〜6）のセクション見出しが "## Step" 形式で記述されている', () => {
       const stepHeaders = commandContent.match(/^## Step \d/gm) || [];
-      assert.equal(stepHeaders.length, 6,
-        'Step 1〜6 の "## Step" 形式見出しが6つ存在すること');
+      assert.equal(stepHeaders.length, 7,
+        'Step 0〜6 の "## Step" 形式見出しが7つ存在すること');
     });
   });
 
@@ -326,11 +326,11 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         `エラー時の復帰セクションが4箇所以上記述されている（実際: ${errorRecoverySections.length}箇所）`);
     });
 
-    it('Step 4（embed-markers.js）のエラー時に fail-step 4 で記録する記述がある', () => {
+    it('各Stepにエラー時の復帰手順と Step 4（廃止）の記述がある', () => {
       assert.ok(
         commandContent.includes('fail-step 4') ||
         (commandContent.includes('fail-step') && commandContent.includes('Step 4')),
-        'Step 4 のエラー時に fail-step で記録する記述があること'
+        'Step 4（廃止）に関する記述があること'
       );
     });
 
@@ -400,7 +400,6 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         l.includes('update-step-status.js') ||
         l.includes('crud.js') ||
         l.includes('verify.js') ||
-        l.includes('embed-markers.js') ||
         l.includes('query.js'));
       // スクリプト名が直接的（パスなし）で使われていることは許容する
       // （CLAUDE がカレントディレクトリから解決するため）

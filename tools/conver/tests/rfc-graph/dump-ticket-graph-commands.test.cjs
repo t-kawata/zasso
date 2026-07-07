@@ -99,10 +99,10 @@ const TICKETS_ALL_EMPTY = {
 const TEST_GRAPH = {
   sourceFile: '/tmp/test-rfc.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: '認証API定義', sourceRanges: [{ startLine: 1, endLine: 3 }] },
-    { id: 'N0002', kind: 'api_contract', title: 'ログインエンドポイント', sourceRanges: [{ startLine: 5, endLine: 10 }] },
-    { id: 'N0003', kind: 'data_model', title: 'トークン検証ロジック', sourceRanges: [{ startLine: 12, endLine: 15 }] },
-    { id: 'N0005', kind: 'rationale', title: 'セッション管理', sourceRanges: [{ startLine: 17, endLine: 20 }] },
+    { id: 'N0001', kind: 'requirement', title: '認証API定義', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'api_contract', title: 'ログインエンドポイント', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'data_model', title: 'トークン検証ロジック', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0005', kind: 'rationale', title: 'セッション管理', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [],
 };
