@@ -9,6 +9,13 @@
  * 確認プロンプト: 確認後（TTYのみ / --forceでスキップ）
  * 第2パス: 実際のファイル作成
  *
+ * 各ファイルの生成時には以下の処理が自動適用される:
+ *   - ヘッダーコメント: グラフ由来のメタデータ（生成元・マッピングノード・言語等）を
+ *     boundify-helpers.js の generateHeaderComment() で生成し、ファイル先頭に挿入（PX-30）
+ *   - 宣言スタブ: 実装がない空ファイルには kind と言語に応じた宣言スタブを挿入（PX-28）
+ *   - クロスリファレンス: prose 系ノードに接続されたファイルには、接続情報を
+ *     ヘッダーコメント内に埋め込み（PX-30）
+ *
  * 出力契約:
  *   正常時 → {"ok":true, "created":[...]}（終了コード0）
  *   異常時 → {"ok":false, "error":"..."}（終了コード1）
@@ -18,6 +25,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const helpers = require('./boundify-helpers.js');
 
 // ============================================================
 // 定数
@@ -109,10 +117,17 @@ function parseArgs(argv) {
  *
  * @param {object} node - 走査対象のツリーノード ({name, type, children?, declarationStub?})
  * @param {string} currentPath - 現在の親ディレクトリパス
+ * @param {object} [headerContext] - ヘッダーコメント生成用コンテキスト（省略時は従来通り宣言スタブのみ）
+ * @param {string} headerContext.graphDirAbs - グラフファイルのディレクトリ絶対パス
+ * @param {string} headerContext.graphBasename - graph.basename
+ * @param {string} headerContext.dirsTreeBasename - Dirs-Tree.json のベース名
+ * @param {string} headerContext.sourceBasename - 元RFCのベース名
+ * @param {Array} headerContext.crossReferences - クロスリファレンス配列
+ * @param {object} headerContext.nodeMetaMap - nodeId → {title, headingRef} のマップ
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   生成予定アイテムの配列（ファイル作成は行わない）
  */
-function discover(node, currentPath) {
+function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
 
@@ -120,12 +135,48 @@ function discover(node, currentPath) {
     created.push({ type: 'directory', path: fullPath });
     if (node.children) {
       for (const child of node.children) {
-        const childItems = discover(child, fullPath);
+        const childItems = discover(child, fullPath, headerContext);
         created.push(...childItems);
       }
     }
   } else if (node.type === 'file') {
     let content = '';
+
+    // PX-30: ヘッダーコメントを先頭に追加（headerContext が提供された場合のみ）
+    if (headerContext) {
+      const headerPaths = helpers.resolveHeaderPaths(
+        fullPath,
+        headerContext.graphDirAbs,
+        headerContext.graphBasename,
+        headerContext.dirsTreeBasename,
+        headerContext.sourceBasename
+      );
+
+      // mappedNodeIds に対応する nodeMeta のリストを構築
+      const nodeMetaList = (node.mappedNodeIds || []).map(function (nid) {
+        return (headerContext.nodeMetaMap || {})[nid] || { nodeId: nid };
+      });
+
+      // このファイルの mappedNodeIds に関連する prose ノードに絞り込む
+      const mappedNodeIdsSet = new Set(node.mappedNodeIds || []);
+      const fileCrossRefs = (headerContext.crossReferences || []).filter(function (cr) {
+        return cr.connections && cr.connections.some(function (conn) {
+          return mappedNodeIdsSet.has(conn.toNodeId);
+        });
+      });
+
+      const headerComment = helpers.generateHeaderComment(
+        headerPaths,
+        node.mappedNodeIds || [],
+        nodeMetaList,
+        fileCrossRefs,
+        headerContext.graphBasename,
+        headerContext.sourceBasename,
+        headerContext.lang
+      );
+      content += headerComment + '\n';
+    }
+
     if (node.declarationStub) {
       content += node.declarationStub + '\n\n';
     }
@@ -278,6 +329,50 @@ function deleteItems(created) {
 }
 
 // ============================================================
+// ヘッダーコメントコンテキスト構築 (buildHeaderContext)
+// PX-30: Dirs-Tree.json から discover に渡すコンテキストを構築する
+// ============================================================
+
+/**
+ * Dirs-Tree.json からヘッダーコメント生成に必要なコンテキストを構築する。
+ *
+ * @param {object} dirsTree - 読み込まれた Dirs-Tree.json のパース結果
+ * @param {string} dirsTreePath - Dirs-Tree.json ファイルの絶対パス
+ * @param {string} rootDir - ファイル生成先ルートディレクトリの絶対パス
+ * @param {string} lang - 対象言語
+ * @returns {object|null} ヘッダーコンテキスト、または null（構築不能時）
+ */
+function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
+  const sourceGraph = dirsTree.sourceGraph;
+  const sourceFile = dirsTree.sourceFile;
+  if (!sourceGraph) return null;
+
+  const graphDirAbs = path.dirname(sourceGraph);
+  const graphBasename = path.basename(sourceGraph);
+  const sourceBasename = sourceFile ? path.basename(sourceFile) : 'UNKNOWN_SOURCE.md';
+  const dirsTreeBasename = path.basename(dirsTreePath);
+
+  // nodeMetaMap の構築（graph.sourceFile に含まれる node.title, node.headingRef は
+  // Dirs-Tree.json には直接格納されていないため、crossReferences から収集）
+  const nodeMetaMap = {};
+  const crossReferences = (dirsTree.trees && dirsTree.trees[lang] && dirsTree.trees[lang].crossReferences) || [];
+  for (let i = 0; i < crossReferences.length; i++) {
+    const cr = crossReferences[i];
+    nodeMetaMap[cr.nodeId] = { title: cr.title || '', headingRef: cr.headingRef || '' };
+  }
+
+  return {
+    graphDirAbs: graphDirAbs,
+    graphBasename: graphBasename,
+    dirsTreeBasename: dirsTreeBasename,
+    sourceBasename: sourceBasename,
+    crossReferences: crossReferences,
+    nodeMetaMap: nodeMetaMap,
+    lang: lang,
+  };
+}
+
+// ============================================================
 // メインエントリポイント
 // ============================================================
 
@@ -320,8 +415,11 @@ async function main(testArgs) {
     return;
   }
 
+  // PX-30: ヘッダーコメント生成用コンテキストの構築
+  const headerContext = buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang);
+
   // 第1パス: 生成予定アイテムのディスカバリ
-  const created = discover(tree, rootDir);
+  const created = discover(tree, rootDir, headerContext);
 
   // --delete モード: 生成されたアイテムを完全削除
   if (isDelete) {
@@ -403,4 +501,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseArgs, discover, runDryRun, confirmPrompt, createItems, main };
+module.exports = { parseArgs, discover, runDryRun, confirmPrompt, createItems, buildHeaderContext, main };

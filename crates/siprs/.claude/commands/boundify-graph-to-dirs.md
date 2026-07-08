@@ -35,16 +35,20 @@ fi
 
 - `graphPath`: 入力グラフJSONファイル
 - `dirsTreePath`: 出力されるディレクトリツリーJSONファイル
-- `statusPath`: 進行管理ステータスJSONファイル（update-step-status.js が読書きする）
+- `statusPath`: 進行管理ステータスJSONファイル（update-boundify-step-status.js が読書きする）
 - `sourcePath`: 元Markdown文書のパス（グラフJSONの sourceFile フィールドから抽出）
 
 ## ガイドライン
 
 - **/boundify-graph-to-dirs は /graphify-rfc の出力を唯一の入力とする**。グラフが存在しない状態では実行できない。
 - 各Stepで使用するスクリプトは `.claude/scripts/rfc-graph/` 配下に配置されている。
-- update-step-status.js の呼び出しは `--status=<path>` フラグで行う。
+- update-boundify-step-status.js の呼び出しは `--status=<path>` フラグで行う。
 - boundify-graph-to-dirs.js は `--graph=<path>` の引数形式で呼び出す。
 - **自己修復ループ**: 各Stepでエラーや警告が発生した場合、スクリプトの出力するメッセージに従ってAIが自力でグラフデータを修正し、再実行する。`/graphify-rfc` に戻る必要はない。修正後は必ず `verify-graph-integrity.js` で退行チェックを実行する。
+- **prose 系 kind のファイル生成除外**: `rationale`/`glossary`/`requirement` の3 kind は実行時振る舞いを持たない設計情報ノードのため、ファイル生成対象から除外される。これらのノードの設計情報は、エッジで接続された先のファイルのヘッダーコメント内にクロスリファレンスとして埋め込まれる（PX-28/PX-30）。
+- **prune ルール**: ツリー生成時に最低2子ノードの要件を満たさないディレクトリは削除され、単一の子のみを持つディレクトリは親にフラット化される（PX-29）。
+- **宣言スタブ**: 実装のない空ファイルには、言語と kind に応じた宣言スタブ（関数シグネチャ＋実装TODOコメント）が自動生成される。これにより直ちに実装に着手できる（PX-28）。
+- **クロスリファレンス**: prose 系ノード（設計情報）に接続されたファイルのヘッダーコメントに、該当 prose ノードの設計意図への参照が埋め込まれる。これにより設計文書と実装ファイル間のトレーサビリティを確保する（PX-30）。
 
 ## 使用スクリプト一覧
 
@@ -59,9 +63,10 @@ fi
 | `generate-dir-template.js` | `--dirs-tree=<path> --root-dir=<path> --lang=<lang> [--dry-run] [--force] [--delete]` | ディレクトリツリーから実ディレクトリ/ファイルを生成/削除（単一言語） |
 | `boundify-helpers.js` | （ライブラリ） | 純粋関数群（projectEdgesToDirectories, tarjanSCC, deduplicateFileNames, collectLanguagesFromGraph 等） |
 | `boundify-tree.js` | （ライブラリ） | ディレクトリツリー生成（buildDomainHierarchy, buildDirectoryTree, generateReport 等） |
-| `update-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY-Status.json の進行管理（5サブコマンド） |
+| `update-boundify-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY-Status.json の進行管理（5サブコマンド） |
 | `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | グラフサマリーを kind 別Markdown形式で出力 |
 | `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | マルチホップグラフ検索（退行チェックの補助手段） |
+| `validate-slug.js` | `--graph=<path>` | 全ノードの slug フィールドを命名規則検証（lower_snake_case/25文字上限/先頭英小文字）。エラー時は remedy に crud.js の修正コマンド例を出力 |
 
 多くのスクリプトはエラー時に問題点と対応方法を出力する。出力された指示に従って修正し、再実行すること。
 
@@ -71,20 +76,20 @@ fi
 
 ```bash
 # Step 0 を開始（進行ステータスを running に更新）
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" start-step 0
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 0
 
 # メインスクリプトを dry-run モードで実行し、事前処理のみを確認する
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --dry-run
 
 # Step 0 正常終了（進行ステータスを done に更新し、currentStep を 1 に進める）
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" end-step 0
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 0
 ```
 
 ### エラー時の復帰
 スクリプトが出力するエラーメッセージに従ってグラフデータを修正した後、`reset-to-step 0` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
 
 ```bash
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 0
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 0
 ```
 
 修正後は退行チェックを必ず実行する。
@@ -105,58 +110,67 @@ graphify → boundify の接合部が壊れていないことを5軸で検証す
 
 ```bash
 # Step 1 を開始
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" start-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 1
 
 # 以前のバックアップを削除し、新たに取得する
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" backup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" backup
 
 # 5軸チェックを実行
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --graph-after="$graphPath" \
   --graph-before="$graphPath.bak" \
   --source="$sourcePath"
+
+# slug 検証を実行
+node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 ```
 
-`{"ok":true}` が返るまで以下の手順を繰り返す（最大5回）：
+5軸チェックと slug 検証の両方で `{"ok":true}` が返るまで以下の手順を繰り返す（最大5回）：
 
 ```bash
-# verify-graph-integrity.js を実行し、結果を確認する
+# verify-graph-integrity.js と validate-slug.js を実行する
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --graph-after="$graphPath" \
   --graph-before="$graphPath.bak" \
   --source="$sourcePath"
+node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 ```
 
 検証結果に応じて分岐する：
 
-- **`{"ok":true}` の場合** → 自己修復ループ終了。バックアップを削除し、Step 1 正常終了へ進む。
+- **`{"ok":true}`（両方）の場合** → 自己修復ループ終了。バックアップを削除し、Step 1 正常終了へ進む。
   ```bash
-  node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" cleanup
-  node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" end-step 1
+  node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
+  node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 1
   ```
 
-- **エラーが報告された場合** → スクリプトが出力する `remedies` フィールドの指示に従ってグラフデータを修正し、再度 verify-graph-integrity.js を実行する。この修正→実行のサイクルを最大5回まで繰り返す。
+- **エラーが報告された場合** → スクリプトが出力する `remedies` フィールドの指示に従ってグラフデータを修正し、再度 verify-graph-integrity.js と validate-slug.js を実行する。slug エラーは remedy の crud.js コマンドで slug を修正する。この修正→実行のサイクルを最大5回まで繰り返す。
 
 - **5回を超えても `{"ok":true}` にならない場合** → reset-to-step 1 で復帰する。
   ```bash
   echo "[ERROR] 自己修復ループが最大試行回数(5)に達しました。"
-  node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 1
+  node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
   ```
 
 ### エラー時の復帰
-`verify-graph-integrity.js` が出力する `remedies` フィールドの指示に従ってグラフデータを修正した後、同じく `verify-graph-integrity.js` を再実行してエラー消失を確認する。これを `{"ok":true}` が返るまで繰り返す。やむを得ず `reset-to-step 1` で最初からやり直す場合は以下のコマンドを実行する：
+`verify-graph-integrity.js` または `validate-slug.js` が出力する `remedies` フィールドの指示に従ってグラフデータを修正した後、両スクリプトを再実行してエラー消失を確認する。slug エラーは remedy の crud.js コマンドで slug を修正する。これらを `{"ok":true}` が返るまで繰り返す。やむを得ず `reset-to-step 1` で最初からやり直す場合は以下のコマンドを実行する：
 
 ```bash
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 1
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
 ```
 
 ## Step 2: Dirs-Tree.json 生成 + スキーマ検証
 
 Dirs-Tree.json を生成し、JSON Schema に準拠していることを検証する。旧 Step 1（ツリー生成）と旧 Step 3（スキーマ検証）を統合した。
 
+ツリー生成時には以下の処理が自動適用される：
+- **階層化**: ドメイン構造（domain hierarchy）に基づいてノードをディレクトリ階層に配置する
+- **prune**: 最低2子ノードの要件を満たさないディレクトリは削除、単一子ディレクトリは親にフラット化する
+- **prose 除外**: `rationale`/`glossary`/`requirement` の3 kind はファイル生成対象から自動除外される
+
 ```bash
 # Step 2 を開始
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" start-step 2
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 2
 
 # Dirs-Tree.json を生成（ついでに循環依存があれば warnings に記録される）
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath"
@@ -170,7 +184,7 @@ node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
   --graph="$graphPath"
 
 # Step 2 正常終了
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" end-step 2
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
 ```
 
 ### 循環依存が検出された場合
@@ -185,7 +199,7 @@ boundify-graph-to-dirs.js が出力する `warnings` に循環依存の詳細と
 ```bash
 # 生成済みファイルを削除してからリセット
 rm -f "$dirsTreePath"
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 2
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 2
 ```
 
 ### モード切替
@@ -204,7 +218,7 @@ Dirs-Tree.json に基づいて、実際のディレクトリとテンプレー�
 
 ```bash
 # Step 3 を開始
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" start-step 3
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 3
 
 # 全言語の生成内容を dry-run で確認
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --dry-run
@@ -213,8 +227,16 @@ node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsT
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
 
 # Step 3 正常終了
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" end-step 3
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 3
 ```
+
+### 生成されるファイルの構造
+
+`generate-all-dir-templates.js` が生成する各ファイルには、以下の要素が自動的に付与される：
+
+- **ヘッダーコメント**: 全ファイルの先頭に、グラフ由来のメタデータ（生成元グラフファイル・マッピングノード一覧・言語・タイムスタンプ）を含むコメントが言語別の文法で挿入される。これにより各ファイルの出自が明確になる（PX-30）。
+- **宣言スタブ**: 実装が存在しない空ファイルには、kind と言語に応じた宣言スタブ（構造体宣言・関数シグネチャ＋実装TODOコメント）が雛形として書き込まれる。これにより直ちに実装に着手できる（PX-28）。
+- **クロスリファレンス**: prose 系ノード（`rationale`/`glossary`/`requirement`）に接続されたファイルのヘッダーコメントには、該当 prose ノードの設計意図への参照が埋め込まれる。方向（`→`/`←`）と接続先ファイルパスが明示される（PX-30）。
 
 ### エラー時の復帰
 生成に失敗した場合、エラーメッセージに従って修正した後、`generate-all-dir-templates.js` を再実行する。必要に応じて `--delete` で既存の生成物を削除してから再実行する：
@@ -225,7 +247,7 @@ node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsT
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
 
 # やむを得ずリセット
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 3
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 3
 ```
 
 ## Step 4: 最終品質検証
@@ -234,10 +256,10 @@ node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" rese
 
 ```bash
 # Step 4 を開始
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" start-step 4
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 4
 
 # 退行チェック用にバックアップを取得
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" backup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" backup
 
 # 退行チェック（graphify 成果物が壊れていないか最終確認）
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
@@ -246,7 +268,7 @@ node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --source="$sourcePath"
 
 # バックアップを削除
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
 
 # グラフサマリーを確認
 node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPath" --source="$sourcePath"
@@ -266,7 +288,7 @@ node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPat
 **十分と判断した場合:**
 
 ```bash
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" end-step 4
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 4
 ```
 
 **不十分と判断した場合** — 問題に応じて該当Stepに戻り、自己修復ループで修正する：
@@ -288,7 +310,7 @@ node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsT
 
 ```bash
 # 退行チェック用にバックアップを取得
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" backup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" backup
 
 # 退行チェックを実行
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
@@ -297,10 +319,10 @@ node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --source="$sourcePath"
 
 # バックアップを削除
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
 
 # 必要ならリセット
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" reset-to-step 4
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 4
 ```
 
 ## 完了報告
@@ -309,7 +331,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" rese
 
 ```bash
 # バックアップファイルが残っていれば削除
-node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
 ```
 
 以下の情報を報告する：
@@ -323,5 +345,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --status="$statusPath" clea
 - **スキーマ検証**: validate-dirs-tree-schema.js の最終結果
 - **退行チェック**: verify-graph-integrity.js の最終結果
 - **生成ファイル数**: 各言語のファイル数合計
+- **クロスリファレンス**: 解決された prose 系ノード数・接続数（boundify-graph-to-dirs.js の出力から取得）
+- **prune 結果**: 削除された空ディレクトリ数・フラット化数（同上）
+- **宣言スタブ品質**: 自動生成された宣言スタブ数（同上）
 
 完了後、生成されたディレクトリツリーとファイルを起点に実装を開始できる。

@@ -6,6 +6,10 @@
  * 本モジュールは P17-1（4純粋関数一括）の実装である。
  * すべての関数は外部I/Oを持たない純粋関数として設計される。
  *
+ * PX-28 追加: getDeclarationStub（kind/言語に応じた宣言スタブ生成）
+ * PX-30 追加: resolveHeaderPaths, generateHeaderComment（ヘッダーコメント生成）
+ *            SCHEMA に declarationStub/crossReferences フィールド追加
+ *
  * @module boundify-helpers
  */
 
@@ -24,6 +28,7 @@ const SCHEMA = {
     schemaVersion: { type: 'string', pattern: '^\\d+\\.\\d+$' },
     generatedAt: { type: 'string', format: 'date-time' },
     sourceGraph: { type: 'string' },
+    sourceFile: { type: 'string' },
     analysis: {
       type: 'object',
       required: ['nodeCount', 'kindCounts', 'edgeTypeCounts'],
@@ -84,6 +89,11 @@ const SCHEMA = {
         mappedNodeIds: { type: 'array', items: { type: 'string' } },
         role: { type: 'string' },
         declarationStub: { type: 'string' },
+        crossReferences: {
+          type: 'array',
+          description: 'ルート DirNode のみ有効。prose 系ノード（rationale/glossary/requirement）のクロスリファレンス情報。',
+          items: { $ref: '#/definitions/CrossReference' }
+        },
         children: {
           type: 'array',
           items: { $ref: '#/definitions/DirNode' }
@@ -98,6 +108,29 @@ const SCHEMA = {
         to: { type: 'string' },
         rule: { type: 'string' },
         edgeEvidence: { type: 'array', items: { type: 'string' } }
+      }
+    },
+    CrossReference: {
+      type: 'object',
+      required: ['nodeId', 'kind', 'title'],
+      properties: {
+        nodeId: { type: 'string' },
+        kind: { type: 'string', enum: ['rationale', 'glossary', 'requirement'] },
+        title: { type: 'string' },
+        headingRef: { type: 'string' },
+        connections: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['toNodeId', 'toFile', 'edgeType', 'direction'],
+            properties: {
+              toNodeId: { type: 'string' },
+              toFile: { type: 'string' },
+              edgeType: { type: 'string' },
+              direction: { type: 'string', enum: ['→', '←'] }
+            }
+          }
+        }
       }
     }
   }
@@ -306,9 +339,10 @@ const LANGUAGE_SEPARATORS = {
 };
 
 /**
- * 最大ファイル名長（拡張子を除く）。
+ * 最大ファイル名長（拡張子を除く slug 部分）。
+ * validate-slug.js から参照され、slug 検証の上限値として使用される。
  */
-const MAX_FILE_NAME_LENGTH = 48;
+const MAX_FILE_NAME_LENGTH = 25;
 
 // ============================================================
 // 重複ファイル名の解決（フォールバック用）
@@ -347,8 +381,237 @@ function deduplicateFileNames(files, language) {
 }
 
 // ============================================================
-// モジュールエクスポート
+// 宣言スタブテーブル（8 kind × 3 言語）
+// PX-28: 全プログラムファイルに kind × 言語の雛形コードを提供する。
 // ============================================================
+
+/**
+ * ファイル種別（kind）と言語に応じた宣言スタブ（雛形コード）テーブル。
+ *
+ * { kind: { language: stubString, ... }, ... } の2段構え。
+ * 未知の kind や言語の場合は空文字列を返す。
+ */
+const DECLARATION_STUB_TABLE = Object.freeze({
+  config: Object.freeze({
+    rust: 'pub struct Config {}',
+    go: 'type Config struct {}',
+    typescript: 'interface Config {}',
+  }),
+  api_contract: Object.freeze({
+    rust: 'pub trait Service {}',
+    go: 'type Service interface {}',
+    typescript: 'interface Service {}',
+  }),
+  data_model: Object.freeze({
+    rust: 'pub struct Model {}',
+    go: 'type Model struct {}',
+    typescript: 'interface Model {}',
+  }),
+  state_machine: Object.freeze({
+    rust: 'pub enum State {}',
+    go: 'type State int\n\nconst (\n\t// TODO: define states\n)',
+    typescript: "type State = 'idle' | 'active' | 'done'",
+  }),
+  error_policy: Object.freeze({
+    rust: 'pub enum Error {}',
+    go: 'type Error struct {\n\t// TODO: define error fields\n}',
+    typescript: 'class Error extends Error {\n\tconstructor(message: string) {\n\t\tsuper(message);\n\t\tthis.name = "Error";\n\t}\n}',
+  }),
+  security: Object.freeze({
+    rust: 'pub fn authorize() {\n\t// TODO: implement authorization\n}',
+    go: 'func Authorize() {\n\t// TODO: implement authorization\n}',
+    typescript: 'function authorize(): void {\n\t// TODO: implement authorization\n}',
+  }),
+  test_policy: Object.freeze({
+    rust: '#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}',
+    go: 'func TestExample(t *testing.T) {\n\t// TODO: write test\n}',
+    typescript: "describe('Example', () => {\n\tit('should work', () => {\n\t\t// TODO: write test\n\t});\n});",
+  }),
+  build_ci: Object.freeze({
+    rust: 'fn main() {\n\t// TODO: implement build/CI entry point\n}',
+    go: 'func main() {\n\t// TODO: implement build/CI entry point\n}',
+    typescript: '// build/CI script entry point\n// TODO: implement',
+  }),
+});
+
+/**
+ * kind と言語に応じた宣言スタブを取得する。
+ *
+ * @param {string} kind — ファイル種別（'config' | 'api_contract' | 'data_model' | 'state_machine' | 'error_policy' | 'security' | 'test_policy' | 'build_ci'）
+ * @param {string} language — 言語名（'rust' | 'go' | 'typescript'）
+ * @returns {string} 宣言スタブ文字列。未知の kind や言語の場合は空文字列。
+ */
+function getDeclarationStub(kind, language) {
+  const langStubs = DECLARATION_STUB_TABLE[kind];
+  if (!langStubs) return '';
+  const stub = langStubs[language];
+  return stub !== undefined ? stub : '';
+}
+
+// ============================================================
+// 言語別コメント記法テーブル
+// PX-30: ヘッダーコメント生成時に言語に応じたコメント記法を使用する
+// ============================================================
+
+/** 言語別コメント記法（行頭/行末マーカー） */
+const COMMENT_SYNTAX = Object.freeze({
+  rust:       { line: '//', blockOpen: '/*', blockClose: '*/', hashLine: false },
+  go:         { line: '//', blockOpen: '/*', blockClose: '*/', hashLine: false },
+  typescript: { line: '//', blockOpen: '/*', blockClose: '*/', hashLine: false },
+});
+
+// ============================================================
+// ヘッダーコメントテンプレート定数
+// PX-30: 全生成ファイルの先頭に機械生成される設計情報コメント
+// ============================================================
+
+/** "Node" の定義説明（全ファイル共通） */
+const NODE_DEFINITION_EN_TEXT =
+  '"Node" refers to a design fragment bounded by safe I/O boundaries in the ' +
+  'Original RFC. Each node captures a distinct architectural concern that must ' +
+  'be carefully implemented with attention to its relationships.';
+
+/** ヘッダー区切り線（全ファイル共通） */
+const HEADER_SEPARATOR =
+  '============================================================================';
+
+// ============================================================
+// 相対パス計算 (resolveHeaderPaths)
+// PX-30: 絶対仕様に基づく相対パス計算
+// ============================================================
+
+/**
+ * 生成ファイルの絶対パスから、グラフ/ツリー/元文書への相対パスを計算する。
+ *
+ * 内部計算では絶対パスを使用し、戻り値のパスは全て「このファイルからの相対パス」で
+ * 表現される。cd コマンドは直接実行可能な形式で生成される。
+ *
+ * @param {string} generatedFilePath - 生成するファイルの絶対パス
+ * @param {string} graphDirAbs - graphPath の path.dirname()（絶対パス）
+ * @param {string} graphBasename - path.basename(graphPath) 例: "RFC-ROOT-GRAPH.json"
+ * @param {string} dirsTreeBasename - Dirs-Tree.json のベース名
+ * @param {string} sourceBasename - 元Markdownのベース名 例: "RFC-ROOT.md"
+ * @returns {object} HeaderPaths
+ *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix, graphFlagForCmd }
+ */
+function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsTreeBasename, sourceBasename) {
+  const path = require('path');
+  // Step 1: 生成ファイルの親ディレクトリを絶対パスで取得
+  const fileDir = path.dirname(generatedFilePath);
+
+  // Step 2: グラフディレクトリへの相対パスを計算
+  const rawRel = path.relative(fileDir, graphDirAbs);
+
+  // Step 3: 空文字列対策（同一ディレクトリの場合）
+  const relDir = rawRel === '' ? '.' : rawRel;
+
+  // Step 4: グラフファイルへの相対パス
+  const graphRelPath = relDir + '/' + graphBasename;
+
+  // Step 5: Dirs-Tree への相対パス
+  const dirsTreeRelPath = relDir + '/' + dirsTreeBasename;
+
+  // Step 6: 元文書への相対パス
+  const sourceRelPath = relDir + '/' + sourceBasename;
+
+  // Step 7: cd コマンドプレフィックス
+  const cdCommandPrefix = '(cd ' + relDir + ' &&';
+
+  // Step 8: --graph= フラグ（basename のみ、cd により既に移動済み）
+  const graphFlagForCmd = '--graph="' + graphBasename + '"';
+
+  return {
+    relDirToGraph: relDir,
+    graphRelPath: graphRelPath,
+    dirsTreeRelPath: dirsTreeRelPath,
+    sourceRelPath: sourceRelPath,
+    cdCommandPrefix: cdCommandPrefix,
+    graphFlagForCmd: graphFlagForCmd,
+  };
+}
+
+// ============================================================
+// ヘッダーコメント生成 (generateHeaderComment)
+// PX-30: 全生成ファイルの先頭コメントを機械生成する
+// ============================================================
+
+/**
+ * 全生成ファイルの先頭に配置するヘッダーコメントを生成する。
+ *
+ * @param {object} headerPaths - resolveHeaderPaths の戻り値
+ * @param {string[]} mappedNodeIds - このファイルにマッピングされたノードID配列
+ * @param {Array<{nodeId:string, kind:string, title:string, headingRef?:string}>} nodeMetaList - マッピングノードのメタ情報
+ * @param {Array} crossRefs - このファイルに関連するクロスリファレンス配列（ルートレベルの crossReferences からフィルタ済み）
+ * @param {string} graphBasename - グラフJSONのベース名
+ * @param {string} sourceBasename - 元Markdownのベース名
+ * @param {string} lang - 言語（'rust' | 'go' | 'typescript'）
+ * @returns {string} ヘッダーコメント文字列（改行含む）
+ */
+function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRefs, graphBasename, sourceBasename, lang) {
+  const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
+  const L = syntax.line;
+  const lines = [];
+
+  // 開き区切り線
+  lines.push(L + ' ' + HEADER_SEPARATOR);
+  lines.push(L + ' Initial Design Artifact — RFC-driven Implementation');
+  lines.push(L + ' ' + HEADER_SEPARATOR);
+
+  // Node 定義
+  lines.push(L + ' ' + NODE_DEFINITION_EN_TEXT);
+
+  // パス情報
+  lines.push(L + '');
+  lines.push(L + ' Graph:        ' + headerPaths.graphRelPath);
+  lines.push(L + ' Directory:    ' + headerPaths.dirsTreeRelPath);
+  lines.push(L + ' Original RFC: ' + headerPaths.sourceRelPath);
+
+  // マッピングノード
+  lines.push(L + '');
+  if (mappedNodeIds && mappedNodeIds.length > 0) {
+    lines.push(L + ' Mapped node(s):');
+    for (let i = 0; i < mappedNodeIds.length; i++) {
+      const nid = mappedNodeIds[i];
+      const meta = (nodeMetaList || []).find(function (m) { return m.nodeId === nid; });
+      const titleInfo = meta ? (' ' + meta.title) : '';
+      const headingInfo = meta && meta.headingRef ? (' § ' + meta.headingRef) : '';
+      lines.push(L + '   - ' + nid + titleInfo + headingInfo);
+      lines.push(L + '     → Details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=' + nid + ')');
+    }
+  } else {
+    lines.push(L + ' Mapped node(s):');
+    lines.push(L + '   - No direct node mapping');
+  }
+
+  // クロスリファレンス（prose 系ノードの情報）
+  if (crossRefs && crossRefs.length > 0) {
+    lines.push(L + '');
+    lines.push(L + ' Cross-referenced design context:');
+    for (let i = 0; i < crossRefs.length; i++) {
+      const cr = crossRefs[i];
+      const headingInfo = cr.headingRef ? (' § ' + cr.headingRef) : '';
+      lines.push(L + '   - ' + cr.kind + '/' + cr.title + ' [' + cr.nodeId + ']' + headingInfo);
+      if (cr.connections && cr.connections.length > 0) {
+        for (let j = 0; j < cr.connections.length; j++) {
+          const conn = cr.connections[j];
+          lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
+        }
+      }
+      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=' + cr.nodeId + ')');
+    }
+  }
+
+  // フルグラフ探索コマンド
+  lines.push(L + '');
+  lines.push(L + ' Full graph exploration:');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '")');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=<NODE_ID> --hops=3)');
+
+  // 閉じ区切り線
+  lines.push(L + ' ' + HEADER_SEPARATOR);
+
+  return lines.join('\n') + '\n';
+}
 
 module.exports = {
   SCHEMA,
@@ -357,7 +620,14 @@ module.exports = {
   projectEdgesToDirectories,
   tarjanSCC,
   deduplicateFileNames,
+  getDeclarationStub,
+  resolveHeaderPaths,
+  generateHeaderComment,
   // テスト用に定数を露出（変更不可の意図）
+  COMMENT_SYNTAX,
+  NODE_DEFINITION_EN_TEXT,
+  HEADER_SEPARATOR,
+  DECLARATION_STUB_TABLE,
   DIRECTIONAL_EDGE_TYPES,
   LANGUAGE_EXTENSIONS,
   LANGUAGE_SEPARATORS,

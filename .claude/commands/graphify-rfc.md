@@ -43,6 +43,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 | `deduplicate-headings.js` | `<source-path>` | 見出し重複排除（同一階層・同一テキストに A-Z 追記） |
 | `resolve-by-heading.js` | `<source-path> --target=<heading>` | headingRefs 解決（4段階フォールバック照合） |
 | `verify.js` | `--graph=<path> --source=<path>` | 未カバー行と孤立ノードの機械検証 |
+| `validate-slug.js` | `--graph=<path>` | 全ノードの slug 命名規則・長さ検証（Step 1 自己修復ループで使用） |
 | `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | マルチホップグラフ検索とMarkdown整形出力 |
 | `update-step-status.js` | `--graphify-status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | GRAPHIFY-Status.json の進行管理（5サブコマンド） |
 | ~~`load-rfc-graph.js`~~ | （廃止） | `show-graph-summary-markdown.js --with-cli-examples` に統合 |
@@ -202,6 +203,13 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 # {"id":"N0001","title":"§1 目的","kind":"architecture","summary":"...","language":"rust","slug":"purpose","headingRefs":[{"refId":"REF001","heading":2,"texts":["§1 目的"]}]}
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$1"
 
+# slug 検証（命名規則・長さ・単語数の事前チェック）
+node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
+
+# 検証エラーがある場合、crud.js で各ノードの slug を修正してから再実行する
+# 検証エラーは標準出力に {"ok":false, "errors":[...]} のJSON形式で出力される
+# 各 error.remedy に crud.js の修正コマンド例が含まれている
+
 # Step 1 正常終了（進行ステータスを done に更新し、currentStep を 2 に進める）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 1
 
@@ -210,6 +218,18 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 ```
 
 ### エラー時の復帰
+
+validate-slug.js で slug 検証エラーが報告された場合は、各エラーの remedy フィールドに記載された crud.js コマンドで slug を修正し、`reset-to-step 1` で再実行する：
+
+```bash
+# エラー例: {"nodeId":"N0005","slug":"CamelCaseName","reason":"大文字が含まれています","remedy":"node ... crud.js ... update-node --id=N0005 --field=slug --value=camelcasename"}
+# remedy のコマンドを実行して slug を修正
+node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" update-node --id=N0005 --field=slug --value=camelcasename
+
+# 修正後、Step 1 の先頭から再実行
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
+```
 エラーメッセージに従って原因を修正した上で、`reset-to-step 1` でステータスを戻し、Step 1 のコマンドを最初から再実行する。古い一時ファイルがあれば削除してから再実行すること：
 
 ```bash
