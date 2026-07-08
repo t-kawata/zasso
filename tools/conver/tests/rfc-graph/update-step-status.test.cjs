@@ -23,6 +23,7 @@ const {
   executeFailStep,
   executeResetToStep,
   executeStatus,
+  executeCleanup,
   atomicWrite,
   MIN_STEP,
   MAX_STEP,
@@ -529,6 +530,64 @@ describe('read-modify-write 統合', () => {
     assert.strictEqual(status.steps['1'], STATUS_DONE);   // 不変
     assert.strictEqual(status.steps['2'], STATUS_PENDING); // リセット
     assert.strictEqual(status.steps['3'], STATUS_PENDING);
+  });
+
+  // ============================================================
+  // cleanup サブコマンドテスト
+  // ============================================================
+
+  describe('cleanup', () => {
+    it('cleanup 実行後に _fix_graph_hints.json が削除されている', () => {
+      // Arrange: cleanup は CWD から temp ファイルを探す
+      const status = createTestStatus(2);
+      const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
+      status.graphFile = testGraphFile;
+      fs.writeFileSync(testGraphFile, JSON.stringify({ nodes: [], edges: [] }), 'utf8');
+      const hintsFile = path.join(process.cwd(), '_fix_graph_hints.json');
+      try {
+        fs.writeFileSync(hintsFile, JSON.stringify({ diagnosis: 'test' }), 'utf8');
+
+        // Act: cleanup 実行
+        executeCleanup(status);
+
+        // Assert: _fix_graph_hints.json が削除されている
+        assert.strictEqual(fs.existsSync(hintsFile), false);
+      } finally {
+        // 後片付け（テスト失敗時も確実に削除）
+        try { fs.unlinkSync(hintsFile); } catch { /* 無視 */ }
+      }
+    });
+
+    it('cleanup 実行後も必須ファイル（グラフJSON）は削除されない', () => {
+      // Arrange
+      const status = createTestStatus(2);
+      const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
+      status.graphFile = testGraphFile;
+      fs.writeFileSync(testGraphFile, JSON.stringify({ nodes: [], edges: [] }), 'utf8');
+      const hintsFile = path.join(process.cwd(), '_fix_graph_hints.json');
+      try {
+        fs.writeFileSync(hintsFile, JSON.stringify({ diagnosis: 'test' }), 'utf8');
+
+        // Act
+        executeCleanup(status);
+
+        // Assert: グラフJSONは残っている
+        assert.strictEqual(fs.existsSync(testGraphFile), true);
+      } finally {
+        try { fs.unlinkSync(hintsFile); } catch { /* 無視 */ }
+      }
+    });
+
+    it('_fix_graph_hints.json が存在しない状態でもエラーにならない（冪等性）', () => {
+      // Arrange: _fix_graph_hints.json を作成しない
+      const status = createTestStatus(2);
+      const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
+      status.graphFile = testGraphFile;
+      fs.writeFileSync(testGraphFile, JSON.stringify({ nodes: [], edges: [] }), 'utf8');
+
+      // Act & Assert: エラーが発生しない
+      assert.doesNotThrow(() => executeCleanup(status));
+    });
   });
 });
 

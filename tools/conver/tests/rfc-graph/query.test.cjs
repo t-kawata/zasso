@@ -467,6 +467,58 @@ describe('multiHopBFS', () => {
     );
     assert.equal(n0001ToN0003Edges2.length, 1);
   });
+
+  it('正常系: グラフに同一エッジが重複して定義されていても出力は1本', () => {
+    // 同一 from/to/type のエッジが2本定義されたグラフ
+    const graphWithDuplicateEdges = {
+      sourceFile: 'test.md',
+      nodes: [
+        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['test'] }] },
+        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', headingRefs: [{ refId: 'REF002', heading: 1, texts: ['test'] }] },
+      ],
+      edges: [
+        { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard' } },
+        { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard' } },
+      ],
+    };
+    const result = multiHopBFS(graphWithDuplicateEdges, 'N0001', 1);
+    assert.equal(result.edges.length, 1);
+  });
+
+  it('正常系: 異なる type のエッジは別エントリとして出力される', () => {
+    // 同一 from/to だが type が異なるエッジが2本
+    const graphWithDifferentTypes = {
+      sourceFile: 'test.md',
+      nodes: [
+        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['test'] }] },
+        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', headingRefs: [{ refId: 'REF002', heading: 1, texts: ['test'] }] },
+      ],
+      edges: [
+        { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard' } },
+        { from: 'N0001', to: 'N0002', type: 'refines', attributes: { strength: 'soft' } },
+      ],
+    };
+    const result = multiHopBFS(graphWithDifferentTypes, 'N0001', 1);
+    assert.equal(result.edges.length, 2);
+  });
+
+  it('正常系: from→to と to→from は別エッジとして扱われる（有向グラフ）', () => {
+    // 逆向きのエッジが別途定義されたグラフ
+    const graphWithReversedEdge = {
+      sourceFile: 'test.md',
+      nodes: [
+        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['test'] }] },
+        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', headingRefs: [{ refId: 'REF002', heading: 1, texts: ['test'] }] },
+      ],
+      edges: [
+        { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard' } },
+        { from: 'N0002', to: 'N0001', type: 'depends_on', attributes: { strength: 'hard' } },
+      ],
+    };
+    const result = multiHopBFS(graphWithReversedEdge, 'N0001', 1);
+    // 両方向のエッジが出力される
+    assert.equal(result.edges.length, 2);
+  });
 });
 
 // ============================================================
@@ -632,6 +684,52 @@ describe('formatNodeMarkdown', () => {
     assert.ok(output.includes('NX001'));
     assert.ok(output.includes('N/A'));
   });
+
+  it('正常系: グループ見出しに種別と強度が含まれる', () => {
+    const node = SIMPLE_GRAPH.nodes[0]; // N0001
+    const searchResult = multiHopBFS(SIMPLE_GRAPH, 'N0001', 1);
+    const sourceText = SOURCE_LINES;
+    const output = formatNodeMarkdown(node, searchResult.edges, SIMPLE_GRAPH, sourceText);
+
+    // グループ見出し「### 関係 (type / strength)」の形式を維持
+    assert.ok(output.includes('### 関係 ('));
+    assert.ok(output.includes('/'));
+  });
+
+  it('正常系: 各行に種別と強度が含まれない（方向ラベルのみ）', () => {
+    // 1ホップで単一エッジのグラフ
+    const singleEdgeGraph = {
+      sourceFile: 'test.md',
+      nodes: [
+        { id: 'N0001', title: 'Node A', kind: 'requirement', summary: 'A', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['test'] }] },
+        { id: 'N0002', title: 'Node B', kind: 'requirement', summary: 'B', headingRefs: [{ refId: 'REF002', heading: 1, texts: ['test'] }] },
+      ],
+      edges: [
+        { from: 'N0001', to: 'N0002', type: 'depends_on', attributes: { strength: 'hard' } },
+      ],
+    };
+    const sourceLines = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    const sourceText = sourceLines.join('\n');
+    const node = singleEdgeGraph.nodes[0];
+    const searchResult = multiHopBFS(singleEdgeGraph, 'N0001', 1);
+    const output = formatNodeMarkdown(node, searchResult.edges, singleEdgeGraph, sourceText);
+    const lines = output.split('\n');
+
+    // グループ見出し行を取得（種別と強度を含む）
+    const headerLine = lines.find(l => l.startsWith('### 関係'));
+    assert.ok(headerLine);
+    assert.ok(headerLine.includes('depends_on'));
+
+    // 各行（- で始まる行）には種別も強度も含まれない
+    const edgeLines = lines.filter(l => l.startsWith('- '));
+    for (const edgeLine of edgeLines) {
+      assert.ok(!edgeLine.includes('depends_on'), `行に種別が含まれていません: ${edgeLine}`);
+      assert.ok(!edgeLine.includes('[hard]'), `行に強度が含まれていません: ${edgeLine}`);
+    }
+
+    // 方向ラベルは維持されている
+    assert.ok(lines.some(l => l.includes('→') || l.includes('←') || l.includes('↔')), '方向ラベルが出力されていません');
+  });
 });
 
 // ============================================================
@@ -642,6 +740,23 @@ describe('printUsage', () => {
   it('正常系: 使用方法を出力する（エラーを吐かない）', () => {
     // console.log が呼ばれることを確認（例外が発生しないこと）
     printUsage();
+  });
+});
+
+// ============================================================
+// headingRefs 警告削除の確認
+// ============================================================
+
+describe('headingRefs 警告削除', () => {
+  it('正常系: hasHeadingRefWarning がコードから完全に除去されている', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../.claude/scripts/rfc-graph/query.js'), 'utf8');
+    assert.ok(!source.includes('hasHeadingRefWarning'), 'hasHeadingRefWarning がコードに残っています');
+  });
+
+  it('正常系: resolveCurrentLines() 関数は維持されている', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../../.claude/scripts/rfc-graph/query.js'), 'utf8');
+    assert.ok(source.includes('function resolveCurrentLines'), 'resolveCurrentLines 関数が削除されています');
+    assert.ok(source.includes('module.exports = {'), 'module.exports が存在すること');
   });
 });
 

@@ -294,7 +294,7 @@ function executeStatus(status) {
  * 削除対象:
  * - $graphFile.bak（graphFile と同じディレクトリ）
  * - CWD 配下の _temp_nodes.json / _temp_edges.json / _patch.json
- *   / _remove_edges.json / _add_edges.json
+ *   / _remove_edges.json / _add_edges.json / _fix_graph_hints.json
  *
  * 本関数は冪等である。何度実行しても安全で、ファイルが存在しない場合は
  * 何も削除せず正常終了する。
@@ -321,13 +321,14 @@ function executeCleanup(status) {
     '_patch.json',
     '_remove_edges.json',
     '_add_edges.json',
+    '_fix_graph_hints.json',
   ];
-  for (const f of tempFiles) {
-    const fp = path.join(cwd, f);
+  for (const fileName of tempFiles) {
+    const filePath = path.join(cwd, fileName);
     try {
-      if (fs.existsSync(fp)) {
-        fs.unlinkSync(fp);
-        removed.push(f);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        removed.push(fileName);
       }
     } catch (_) { /* 同上 */ }
   }

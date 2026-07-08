@@ -3273,6 +3273,192 @@
           "instrumentation": "静的品質チェック: 通過（31件中31件既存由来・新規0件）\n翻訳可能性: 問題なし\nJSDoc読み込み確認: 4/4通過\nテスト: ドキュメントのみの変更のため単体テスト不要",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-08"
+        },
+        {
+          "id": 32,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "test-query-all.js + query-fix-hints.js — 全headingRefs解決検証スクリプト新設",
+          "referenceSection": "tickets/specs/0071-test-query-alljs-query-fix-hintsjs-headingrefs.md",
+          "background": "graphify-rfc の Step 4 は AI が最低5ノードに対して query.js を実行し目視確認するのみで、全 headingRefs の解決可能性を保証していなかった。query.js は headingRefs 解決失敗を WARN（exit 0）として扱う設計であり、AI が不整合を軽視して次工程に進む原因となった。本チケットでは resolveByHeading() を直接利用して全 headingRefs を一括検証する test-query-all.js と、解決不能な参照の詳細を Markdown 整形表示する query-fix-hints.js を新設する。",
+          "scope": [
+            "test-query-all.js の作成（--graph / --source 入力、全 headingRefs 解決検証、exit code 0/1）",
+            "query-fix-hints.js の作成（--hints / --id / --diagnosis / --refId フィルタ、Markdown 整形出力）",
+            "_fix_graph_hints.json の出力設計（M0〜M10 診断、トークン別一致状況、修正コマンド例）",
+            "診断パス M0〜M10 の実装（スコアリング + メッセージ分岐）",
+            "test-query-all.js / query-fix-hints.js のユニットテスト"
+          ],
+          "testVerification": [
+            "test-query-all.js が全 headingRefs 解決時 exit 0、1件でも解決不能時 exit 1",
+            "解決不能一覧が重複排除され最大25件まで詳細表示 + 残り件数",
+            "診断 M0〜M10 が適切に分類されトークン別一致状況・示唆・修正コマンド例を含む",
+            "query-fix-hints.js が _fix_graph_hints.json からフィルタ検索し Markdown 整形表示できる"
+          ],
+          "testExceptions": [
+            "実巨大グラフファイルに対する E2E テストは手動（テスト用グラフJSONを手作りして単体テストで代用）"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（1件 minor — buildDiagnosisResult 8params は設計上許容）\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済（PX-20/22/23: 全て reviewed）\n- 犯罪: 0件\n- スタブ: 0件\n- 不完全実装: 検出なし\n- テスト: 58/58 pass\n- 既存テストへの回帰: なし\n- 確認された問題: なし（全 Acceptance Criteria 充足）",
+          "relatedTicketIds": "PX-20 (query.js headingRefs移行 — 既存実装), PX-22 (headingRefs移行テスト改修 — 既存実装), PX-23 (verify.js headingRefs対応 — 既存実装)",
+          "startedAt": "2026-07-08",
+          "changes": [
+            {
+              "action": "作成",
+              "file": ".claude/scripts/rfc-graph/test-query-all.js",
+              "description": "全 headingRefs 一括検証スクリプト。診断M0〜M10実装、_fix_graph_hints.json出力"
+            },
+            {
+              "action": "作成",
+              "file": ".claude/scripts/rfc-graph/query-fix-hints.js",
+              "description": "_fix_graph_hints.json フィルタ検索・Markdown整形表示スクリプト"
+            },
+            {
+              "action": "作成",
+              "file": "tests/rfc-graph/test-query-all.test.cjs",
+              "description": "test-query-all.js 単体テスト（37ケース）"
+            },
+            {
+              "action": "作成",
+              "file": "tests/rfc-graph/query-fix-hints.test.cjs",
+              "description": "query-fix-hints.js 単体テスト（21ケース）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（1件 minor — buildDiagnosisResult 8params は設計上許容）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数はJS慣習的callback内のみ、マジックナンバーは定数化済み）\nテスト: 58/58 pass（test-query-all 37件 + query-fix-hints 21件）\n犯罪: 0件\nスタブ: 0件\n不完全実装: 検出なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-08"
+        },
+        {
+          "id": 33,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "query.js 改修 — headingRefs警告削除・エッジ重複除去バグ修正・関係一覧フォーマット改善",
+          "referenceSection": "tickets/specs/0072-queryjs-headingrefs.md",
+          "background": "query.js は headingRefs 解決不能時に [WARN] を stderr に出力するが、PX-32 で test-query-all.js が全 headingRefs の解決可能性を exit code で保証するようになるため不要となる。また、multiHopBFS() の edgeSet がオブジェクト参照比較（new Set()）を行っているため、JSON パース後の同一内容エッジを重複除去できず、関係一覧に同一エッジが複数回出力されるバグがある。さらに、グループ見出しと各行で種別・強度が重複出力されるフォーマット上の無駄がある。",
+          "scope": [
+            "query.js — headingRefs警告コード削除（hasHeadingRefWarning削除、解決チェックループ削除、WARN出力削除、resolveCurrentLines維持）",
+            "query.js — エッジ重複除去バグ修正（edgeSetをedgeKeysに変更、文字列キー方式に修正）",
+            "query.js — 関係一覧フォーマット改善（各行から種別・強度の重複削除）",
+            "query.test.cjs — エッジ重複除去テスト追加",
+            "query.test.cjs — フォーマット改善テスト更新"
+          ],
+          "testVerification": [
+            "UT: 同一from/to/typeエッジが重複出力されないこと",
+            "UT: 異なるtypeは別エッジとして出力されること",
+            "UT: from→toとto→fromは別エッジとして扱われること",
+            "UT: グループ見出しに種別と強度が含まれること",
+            "UT: 各行に種別と強度が含まれない（方向ラベルのみ）こと",
+            "UT: hasHeadingRefWarningがコードから完全に除去されたこと",
+            "UT: headingRefs解決不能でもstderrに[WARN]が出力されないこと",
+            "UT: resolveCurrentLines()は維持されていること",
+            "UA: 既存テスト全件が改修後も通過すること"
+          ],
+          "testExceptions": [
+            "query.js全体のE2Eテスト（複数ノードのBFS+整形）は手動確認",
+            "graphify-rfc Step 4での動作確認はPX-34完了後"
+          ],
+          "notes": "実装サマリー:\n- 変更ファイル: query.js, query.test.cjs（2ファイル）\n- query.js の3改修:\n  1. エッジ重複除去バグ: edgeSet(参照Set)→edgeKeys(文字列キーSet)に修正\n  2. フォーマット改善: 各行の種別・強度重複を削除（方向ラベルのみ表示）\n  3. headingRefs警告: hasHeadingRefWarning＋解決チェックループ＋WARN出力削除\n- Boy Scout改善: 嘘のコメントを修正、formatNodeMarkdown出力行にコメント追加\n- テスト: 7新規ケース追加 + 既存51ケース維持 = 58/58 pass\n- 全テスト: 634/634 pass（query.test.cjs含む全テストスイート回帰なし）\n- 品質チェック: 5件のconsole.logは全CLIスクリプトの意図的出力\n- 犯罪: 0件\n- スタブ: 0件",
+          "relatedTicketIds": "PX-20 (query.js headingRefs移行 — 既存実装), PX-22 (headingRefs移行テスト改修 — 既存実装)",
+          "startedAt": "2026-07-08",
+          "changes": [
+            {
+              "file": ".claude/scripts/rfc-graph/query.js",
+              "description": "エッジ重複除去バグ修正: edgeSet(オブジェクト参照Set)→edgeKeys(from:to:type文字列キーSet)"
+            },
+            {
+              "file": ".claude/scripts/rfc-graph/query.js",
+              "description": "関係一覧フォーマット改善: 各行から種別・強度の重複削除（グループ見出しに集約）"
+            },
+            {
+              "file": ".claude/scripts/rfc-graph/query.js",
+              "description": "headingRefs警告コード削除: hasHeadingRefWarning変数・解決チェックループ・WARN出力の全削除、resolveCurrentLines維持"
+            },
+            {
+              "file": ".claude/scripts/rfc-graph/query.js",
+              "description": "ヘルプテキスト修正: 「マーカー欠損時も0、警告はstderr」→「正常終了」"
+            },
+            {
+              "file": ".claude/scripts/rfc-graph/query.js",
+              "description": "Boy Scout: multiHopBFSコメントを文字列キー方式に修正（嘘のコメントを修正）"
+            },
+            {
+              "file": "tests/rfc-graph/query.test.cjs",
+              "description": "エッジ重複除去テスト3ケース追加（重複定義・異種別・有向エッジ）"
+            },
+            {
+              "file": "tests/rfc-graph/query.test.cjs",
+              "description": "フォーマット改善テスト2ケース追加（グループ見出し確認・行の重複なし確認）"
+            },
+            {
+              "file": "tests/rfc-graph/query.test.cjs",
+              "description": "headingRefs警告削除テスト2ケース追加（hasHeadingRefWarning除去確認・resolveCurrentLines維持確認）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（console.log 5件は全CLIスクリプトの意図的出力 — printUsage・結果表示・複数ノード区切り）\n翻訳可能性: 問題なし（全関数動詞句、新規1文字変数なし、マジックナンバーなし）\nテスト: 58/58 pass（query.test.cjs単体）、634/634 pass（全rfc-graphテストスイート）\n犯罪: 0件\nスタブ: 0件\n不完全実装: 検出なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-08"
+        },
+        {
+          "id": 34,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "graphify-rfc.md — Step 4 全headingRefs解決確認ゲート導入と_fix_graph_hints.json cleanup対象化",
+          "referenceSection": "tickets/specs/0073-graphify-rfcmd-step-4-headingrefs-fix-graph-hintsjson-cleanup.md",
+          "background": "graphify-rfc.md Step 4 は AI の目視確認のみで全 headingRefs を検証する仕組みがなく、品質問題が放置された。PX-32 で test-query-all.js を新設し、PX-33 で query.js から headingRefs 警告を削除した上で、Step 4 に「test-query-all.js 通過必須ゲート」を導入する。また、test-query-all.js がエラー時に出力する _fix_graph_hints.json を update-step-status.js cleanup の削除対象に追加する。",
+          "scope": [
+            ".claude/scripts/rfc-graph/update-step-status.js — cleanup の tempFiles 配列に _fix_graph_hints.json を追加",
+            "tests/rfc-graph/update-step-status.test.cjs — cleanup の _fix_graph_hints.json 削除テスト3ケース追加",
+            ".claude/commands/graphify-rfc.md — Step 4 全面書き換え（test-query-all.js ゲート導入 + 任意クエリ化 + 品質点検6観点目追加）",
+            ".claude/commands/graphify-rfc.md — Step 5 完了条件に headingRefs 解決率を追加",
+            ".claude/commands/graphify-rfc.md — エラー時復帰手順に test-query-all.js 失敗時の具体的手順を追加"
+          ],
+          "testVerification": [
+            "UT: cleanup 実行後に _fix_graph_hints.json が削除されること",
+            "UT: cleanup 実行後も必須ファイル（グラフJSON・ステータスJSON）は削除されないこと",
+            "UT: _fix_graph_hints.json が存在しない状態で cleanup を実行してもエラーにならないこと（冪等性）",
+            "graphify-rfc.md Step 4 で test-query-all.js → exit 分岐 → 任意クエリ の流れが一意に理解できること",
+            "エラー時の復帰手順が具体的で、AI が即座に行動に移せること",
+            "Boy Scout: sourceRanges → headingRefs 修正（品質点観点4）"
+          ],
+          "testExceptions": [
+            "AI が test-query-all.js 出力を正しく解釈して修正できるかの動作確認は E2E（/graphify-rfc の実実行が必要）",
+            "cleanup 統合後の /graphify-rfc 全体の動作確認は手動 E2E"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（console.log 10件は全CLIスクリプトの意図的出力）\n- 翻訳可能性: 問題なし（全関数動詞句、新規1文字変数なし）\n- 依存関係: 整合性確認済（PX-32/33: reviewed, PX-16/21: reviewed）\n- 犯罪: 0件\n- スタブ: 0件（changed files内）\n- 不完全実装: 検出なし（7パターンgrep確認）\n- テスト: update-step-status 50/50 pass + 全rfc-graphテスト20ファイル全件pass\n- 確認された問題:\n  1. update-step-status.js console.log 10件: 全CLIスクリプトの意図的出力のため修正不可能\n- Acceptance Criteria:\n  - [x] Step 4 先頭で test-query-all.js 実行\n  - [x] exit 1 時の修正手順 + 再実行ループ\n  - [x] exit 0 時のみ任意クエリに進む\n  - [x] 品質点検6観点（headingRefs解決確認追加）\n  - [x] Step 5 完了条件に headingRefs 解決率追加\n  - [x] cleanupが_fix_graph_hints.jsonを削除\n  - [x] cleanupの冪等性維持\n  - [x] 全テスト通過\n- Boy Scout改善:\n  - graphify-rfc.md: sourceRanges → headingRefs（2箇所）\n  - update-step-status.js: 1文字変数f→fileName\n  - 使用スクリプト一覧にtest-query-all.js/query-fix-hints.js追加",
+          "relatedTicketIds": "PX-32 (test-query-all.js 新設 — 先行必須), PX-33 (query.js 改修 — 先行必須), PX-16 (graphify-rfc.md スラッシュコマンド統合 — 既存実装), PX-21 (embed-markers.js廃止とgraphify-rfc.md改修 — 既存実装)",
+          "boyScoutImprovements": "graphify-rfc.md #L358: 品質点検の観点4 `sourceRanges` → `headingRefs` に修正（headingRefs移行 PX-19~23 の更新漏れ）",
+          "startedAt": "2026-07-08",
+          "changes": [
+            {
+              "file": ".claude/scripts/rfc-graph/update-step-status.js",
+              "description": "cleanup の tempFiles 配列に _fix_graph_hints.json を追加 + Boy Scout: 1文字変数f→fileName"
+            },
+            {
+              "file": "tests/rfc-graph/update-step-status.test.cjs",
+              "description": "cleanup テスト3ケース追加（_fix_graph_hints.json削除・必須ファイル維持・冪等性）"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "description": "Step 4 全面書き換え（test-query-all.js ゲート + 任意クエリ化 + 品質点検6観点）"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "description": "Step 5 完了条件に headingRefs 解決率を追加"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "description": "エラー時復帰手順に test-query-all.js 失敗時の具体的手順を追加"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "description": "使用スクリプト一覧に test-query-all.js / query-fix-hints.js を追加"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "description": "Boy Scout: sourceRanges → headingRefs 修正（2箇所）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（console.log 10件はCLI意図的出力 — 修正不可能）\n翻訳可能性: 問題なし（全関数動詞句、新規1文字変数なし）\nテスト: update-step-status 50/50 + 全rfc-graphテスト20ファイル全件pass\n犯罪: 0件\nスタブ: 0件\n不完全実装: 検出なし",
+          "completedAt": "2026-07-08",
+          "rfcDiscrepancies": []
         }
       ]
     },

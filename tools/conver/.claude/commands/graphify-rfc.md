@@ -45,6 +45,8 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 | `verify.js` | `--graph=<path> --source=<path>` | 未カバー行と孤立ノードの機械検証 |
 | `validate-slug.js` | `--graph=<path>` | 全ノードの slug 命名規則・長さ検証（Step 1 自己修復ループで使用） |
 | `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | マルチホップグラフ検索とMarkdown整形出力 |
+| `test-query-all.js` | `--graph=<path> --source=<path>` | 全 headingRefs 一括検証（exit 0/1 + _fix_graph_hints.json 出力） |
+| `query-fix-hints.js` | `--hints=<path> [--id=<nodeId>] [--diagnosis=<M0-M10>] [--refId=<refId>]` | _fix_graph_hints.json 検索・Markdown整形表示 |
 | `update-step-status.js` | `--graphify-status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | GRAPHIFY-Status.json の進行管理（5サブコマンド） |
 | ~~`load-rfc-graph.js`~~ | （廃止） | `show-graph-summary-markdown.js --with-cli-examples` に統合 |
 | `dump-ticket-graph-commands.js` | `--tickets=<path> --graph=<path> --source=<path>` | formulate連携: チケットの spec に query.js コマンドを追記 |
@@ -98,7 +100,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 | `kind` | string | required | 12種の enum から選択 |
 | `summary` | string | required | 1文字以上の要約 |
 | `language` | string | required（原則） | 当該ノードが実装されるプログラミング言語（単一値、配列ではない）。Step 1 の「言語割り当てルール」に従って原則必須で設定する。事故で空の場合のみ `mainLanguage` の値をフォールバックとして使用する。 |
-| `slug` | string | required | タイトルから生成された lower_snake_case の識別子（パターン: `^[a-z][a-z0-9_]*$`、最大64文字）。Step 1 の「slug 生成ルール」に従って必ず設定する。空を許容しない。ファイル名・ディレクトリ名のベースとして機械的に使用される。 |
+| `slug` | string | required | タイトルから生成された lower_snake_case の識別子（パターン: `^[a-z][a-z0-9_]*$`、最大25文字）。Step 1 の「slug 生成ルール」に従って必ず設定する。空を許容しない。ファイル名・ディレクトリ名のベースとして機械的に使用される。 |
 | `headingRefs` | array | required | 元文書の見出し参照（1件以上） |
 
 ## Step 0: 見出し重複排除（事前処理）
@@ -329,24 +331,40 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 ## Step 4: 自己検証
 
-全ノードに対して query.js のマルチホップ検索を実行し、グラフ構造が /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドおよび実装段階で参照可能な品質であることを確認する。
+全 headingRefs の解決可能性を test-query-all.js で機械検証し、通過後に必要に応じて query.js で構造クエリを実行する。グラフ構造が /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドおよび実装段階で参照可能な品質であることを確認する。
 
 ```bash
 # Step 4 を開始（進行ステータスを running に更新）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 4
 
-# 全ノードIDを取得する
-node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" list-nodes
+# 全 headingRefs の解決可能性を検証する（通過必須ゲート）
+node .claude/scripts/rfc-graph/test-query-all.js --graph="$graphPath" --source="$1"
 ```
 
-全ノードそれぞれに対して `--hops=2` のマルチホップ検索を実行する。ノード数が多くとも、最低5ノード以上は実行すること。
+test-query-all.js の終了コードで分岐する：
+
+- **exit 0（全 headingRefs 解決確認済み）** → 後続の任意クエリに進む
+- **exit 1（解決不能な headingRefs が存在）** → 以下の手順で修正する：
+  1. stderr に出力された解決不能 headingRefs の一覧を確認する
+  2. 必要に応じて `query-fix-hints.js` で詳細診断情報を取得する：
+     ```bash
+     node .claude/scripts/rfc-graph/query-fix-hints.js --hints=_fix_graph_hints.json
+     ```
+  3. `_fix_graph_hints.json` の remedyHint に従い、`crud.js update-node` で headingRefs を修正する
+  4. 一時ファイルを削除してから再実行する：
+     ```bash
+     node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+     node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
+     ```
+
+test-query-all.js が exit 0 の場合、全 headingRefs の解決が保証されている。以降は必要に応じて任意のノードに対して構造クエリを実行する：
 
 ```bash
-# 例: 各ノードID（N0001, N0002, ...）に対して検索を実行
+# 例: 特定ノードのマルチホップ検索（必要に応じて --hops=2）
 node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=N0001 --hops=2
-node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=N0002 --hops=2
-node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=N0003 --hops=2
 ```
+
+ノード数が多い場合も、AI が必要と判断したノードのみクエリすればよい（全 headingRefs 解決済みのため、グラフ全体の到達可能性は保証されている）。
 
 ### AI による品質点検
 
@@ -355,8 +373,9 @@ node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=
 1. **各ノードに最低1本のエッジが存在するか**（孤立ノードがないか）
 2. **依存関係が設計文書の記述を正しく反映しているか**（必須の依存が欠落していないか）
 3. **kind の分類が設計文書の内容と整合しているか**
-4. **各ノードの sourceRanges が設計文書の該当箇所を過不足なくカバーしているか**
+4. **各ノードの headingRefs が設計文書の該当箇所を過不足なくカバーしているか**
 5. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか**
+6. **headingRefs が全ノードでソースファイルに対して解決可能であるか（test-query-all.js が exit 0 であること）**
 
 不足がある場合 → 新規ノードの追加・既存ノードの修正・必要に応じて削除しての再作成を組み合わせ、**グラフを洗練（補強）する**ために Step 1 に戻る。
 
@@ -373,12 +392,25 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 ```bash
 # 成功時: Step 4 正常終了（進行ステータスを done に更新）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 4
+# 一時ファイルのクリーンアップ
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
 ### エラー時の復帰
+
 query.js のエラーメッセージに従って原因を特定し、該当するStep（ノード欠損→Step 1、エッジ欠損→Step 2）の `reset-to-step N` でステータスを戻して修正する。
+
+#### test-query-all.js 失敗時の復帰
+stderr に出力された解決不能 headingRefs の一覧を確認し、`_fix_graph_hints.json` の remedyHint に従って `crud.js` で修正する。修正後、cleanup → reset-to-step 4 で再実行する：
+
 ```bash
-# 例: Step 4 のエラーが原因不明の場合、Step 4 自体を再実行
+# 一時ファイルを削除してから再実行
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
+```
+
+#### 原因不明のエラー時の復帰
+```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
 ```
 
@@ -413,7 +445,7 @@ node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPat
 - requirement 4件・api_contract 3件・architecture 2件の kind 分類はいずれも設計文書の記述と整合
 - 依存関係は「認証API→トークン検証→セッション管理→ACL」のチェーンが fully connected
 - 孤立ノードは0件
-- 各エッジは設計文書内の該当箇所に sourceRanges で紐付いている
+- 各エッジは設計文書内の該当箇所に headingRefs で紐付いている
 - 補足情報: ?????
 ```
 
@@ -447,6 +479,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 - **進行ステータスファイル**: `$statusPath`
 - **ノード数**: crud.js list-nodes で取得
 - **エッジ数**: グラフJSONの edges 配列長から取得
+- **headingRefs 解決率**: test-query-all.js が全 N 件解決確認済み
 - **検証結果**: verify.js の最終出力（カバレッジ率、孤立ノード有無）
 - **最終品質検証**: show-graph-summary-markdown.js による十分性判断の結果（十分/補強履歴）
 - **グラフ構造の要約**: show-graph-summary-markdown.js の出力（kind 別ノード一覧＋エッジ関係）

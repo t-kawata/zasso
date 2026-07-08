@@ -219,7 +219,7 @@ function resolveNodeById(graph, nodeId) {
  *
  * 無向グラフとして扱い、edge.from / edge.to 両方向を探索する。
  * visited は Map<nodeId, depth> で管理し、循環参照を防止する。
- * 同一エッジが重複しないように、エッジの参照による Set で管理する。
+ * 同一エッジが重複しないように、from:to:type の文字列キーで管理する。
  *
  * @param {Object} graph — グラフオブジェクト
  * @param {string} startNodeId — 探索起点ノードID
@@ -230,7 +230,7 @@ function multiHopBFS(graph, startNodeId, hops) {
   const visited = new Map([[startNodeId, 0]]);
   const queue = [startNodeId];
   const resultEdges = [];
-  const edgeSet = new Set();
+  const edgeKeys = new Set();
 
   while (queue.length) {
     const current = queue.shift();
@@ -244,9 +244,10 @@ function multiHopBFS(graph, startNodeId, hops) {
         : null;
       if (!neighbor) continue;
 
-      // エッジの重複を防止（エッジオブジェクトの参照によるSet管理）
-      if (!edgeSet.has(edge)) {
-        edgeSet.add(edge);
+      // エッジの重複を防止（from:to:type の文字列キーによるSet管理）
+      const key = `${edge.from}:${edge.to}:${edge.type}`;
+      if (!edgeKeys.has(key)) {
+        edgeKeys.add(key);
         resultEdges.push(edge);
       }
 
@@ -359,7 +360,8 @@ function formatNodeMarkdown(node, edges, graph, sourceText) {
       const direction = getDirectionLabel(node.id, edge);
       const strength = edge.attributes ? edge.attributes.strength || 'hard' : 'hard';
 
-      lines.push(`- ${type} ${direction} ${targetNode ? targetNode.id : 'N/A'} (${targetTitle}) [${strength}]`);
+      // グループ見出しに種別と強度が含まれるため、各行では省略する（方向ラベルのみ表示）
+      lines.push(`- ${direction} ${targetNode ? targetNode.id : 'N/A'} (${targetTitle})`);
     }
     lines.push('');
   }
@@ -445,7 +447,7 @@ function printUsage() {
     '  --help, -h       このヘルプを表示\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  正常終了（マーカー欠損時も0、警告はstderr）\n' +
+    '  0  正常終了\n' +
     '  1  エラー終了（引数不正・ファイル不在等）\n' +
     '\n' +
     'Examples:\n' +
@@ -519,9 +521,6 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // headingRefs 欠損の追跡
-  let hasHeadingRefWarning = false;
-
   // 各ノードIDに対して探索と出力を実行
   for (const nodeId of nodeIds) {
     // 4. ノードを解決する
@@ -543,23 +542,7 @@ function main() {
       .map(id => resolveNodeById(graph, id))
       .filter(Boolean);
 
-    // 6. 行位置を動的に解決し、欠損時に警告を出力する
-    for (const vNode of visitedNodes) {
-      if (!Array.isArray(vNode.headingRefs)) continue;
-      for (const hr of vNode.headingRefs) {
-        const resolved = resolveCurrentLines(sourceText, vNode.headingRefs, hr.refId);
-        if (!resolved) {
-          process.stderr.write(
-            `[WARN] ノード ${vNode.id} の refId ${hr.refId} の見出しがソースファイル内に見つかりません。\n` +
-            `原因: 見出しが書き換えられたか、headingRefs が更新されていない可能性があります。\n` +
-            `対応: clarify-rfc / graphify-rfc を再実行して headingRefs を更新してください。\n`
-          );
-          hasHeadingRefWarning = true;
-        }
-      }
-    }
-
-    // 7. 結果をMarkdown形式で整形する
+    // 6. 結果をMarkdown形式で整形する
     const allEdges = searchResult.edges;
     const markdown = formatNodeMarkdown(startNode, allEdges, graph, sourceText);
     console.log(markdown);
@@ -570,13 +553,6 @@ function main() {
       console.log('---');
       console.log('');
     }
-  }
-
-  // headingRefs 欠損があっても終了コード0（部分結果を返す）
-  if (hasHeadingRefWarning) {
-    process.stderr.write(
-      `[WARN] 一部のノードで headingRefs に対応する見出しが見つかりませんでした。出力の行位置が正しくない可能性があります。\n`
-    );
   }
 
   process.exit(EXIT_SUCCESS);
