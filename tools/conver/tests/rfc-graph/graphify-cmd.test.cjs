@@ -92,8 +92,8 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
   describe('frontmatter', () => {
     it('argument-hint が正しく設定されている', () => {
       const fm = parseFrontmatter(commandContent);
-      assert.equal(fm['argument-hint'], '<source-file-path>',
-        'argument-hint は <source-file-path> であること');
+      assert.equal(fm['argument-hint'], '</path/to/RFC-doc.md>',
+        'argument-hint は </path/to/RFC-doc.md> であること');
     });
 
     it('allowed-tools に Read / Write / Bash が含まれている', () => {
@@ -193,15 +193,15 @@ describe('graphify-rfc.md スラッシュコマンド結合テスト', () => {
         'Step 5 の見出しが存在すること');
     });
 
-    it('Step 6（最終品質検証）のセクション見出しが存在する', () => {
-      assert.ok(commandContent.includes('Step 6'),
-        'Step 6 の見出しが存在すること');
+    it('Step 5（最終品質検証）のセクション見出しが存在する', () => {
+      assert.ok(commandContent.includes('Step 5'),
+        'Step 5 の見出しが存在すること');
     });
 
-    it('全7Step（Step 0〜6）のセクション見出しが "## Step" 形式で記述されている', () => {
+    it('全6Step（Step 0〜5）のセクション見出しが "## Step" 形式で記述されている', () => {
       const stepHeaders = commandContent.match(/^## Step \d/gm) || [];
-      assert.equal(stepHeaders.length, 7,
-        'Step 0〜6 の "## Step" 形式見出しが7つ存在すること');
+      assert.equal(stepHeaders.length, 6,
+        'Step 0〜5 の "## Step" 形式見出しが6つ存在すること');
     });
   });
 

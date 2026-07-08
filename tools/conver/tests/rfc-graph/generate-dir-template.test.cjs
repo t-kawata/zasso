@@ -17,6 +17,7 @@ const {
   discover,
   runDryRun,
   createItems,
+  buildHeaderContext,
   main,
 } = require('../../.claude/scripts/rfc-graph/generate-dir-template.js');
 
@@ -461,5 +462,147 @@ describe('main — 統合テスト', () => {
       process.exit = origExit;
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+
+// ============================================================
+// PX-30: discover with headerContext
+// ============================================================
+
+describe('discover with headerContext', () => {
+  const headerContext = {
+    graphDirAbs: '/tmp/test-project',
+    graphBasename: 'RFC-TEST-GRAPH.json',
+    dirsTreeBasename: 'RFC-TEST-Dirs-Tree.json',
+    sourceBasename: 'RFC-TEST.md',
+    crossReferences: [],
+    nodeMetaMap: { N0005: { title: 'Test Node', headingRef: 's 1.0' } },
+    lang: 'rust',
+  };
+
+  it('should add header before declarationStub when headerContext provided', () => {
+    const fileNode = {
+      name: 'settings.rs',
+      type: 'file',
+      declarationStub: 'pub struct Config {}',
+      mappedNodeIds: ['N0005'],
+    };
+    const result = discover(fileNode, '/tmp/test-project/src', headerContext);
+    assert.strictEqual(result.length, 1);
+    assert.ok(result[0].content.startsWith('//'), 'Should start with comment syntax');
+    assert.ok(result[0].content.includes('Initial Design Artifact'), 'Should include header title');
+    assert.ok(result[0].content.includes('pub struct Config {}'), 'Should include declaration stub');
+    const headerEnd = result[0].content.indexOf('============');
+    const stubStart = result[0].content.indexOf('pub struct Config');
+    assert.ok(headerEnd < stubStart, 'Header should precede declaration stub');
+  });
+
+  it('should add header even without declarationStub', () => {
+    const fileNode = { name: 'empty.rs', type: 'file', mappedNodeIds: [] };
+    const result = discover(fileNode, '/tmp/test-project/src', headerContext);
+    assert.strictEqual(result.length, 1);
+    assert.ok(result[0].content.includes('Initial Design Artifact'));
+  });
+
+  it('should not add header when headerContext is null (backward compat)', () => {
+    const fileNode = {
+      name: 'settings.rs',
+      type: 'file',
+      declarationStub: 'pub struct Config {}',
+    };
+    const result = discover(fileNode, '/tmp/test-project/src', null);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].content, 'pub struct Config {}\n\n');
+  });
+
+  it('should not add header when headerContext is undefined (backward compat)', () => {
+    const fileNode = {
+      name: 'settings.rs',
+      type: 'file',
+      declarationStub: 'pub struct Config {}',
+    };
+    const result = discover(fileNode, '/tmp/test-project/src');
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].content, 'pub struct Config {}\n\n');
+  });
+
+  it('should propagate headerContext to nested child files', () => {
+    const dirNode = {
+      name: 'src',
+      type: 'directory',
+      children: [
+        { name: 'lib.rs', type: 'file', mappedNodeIds: ['N001'] },
+        {
+          name: 'config',
+          type: 'directory',
+          children: [
+            { name: 'settings.rs', type: 'file', mappedNodeIds: ['N002'] },
+          ],
+        },
+      ],
+    };
+    const result = discover(dirNode, '/tmp/test-project', headerContext);
+    const files = result.filter(function (r) { return r.type === 'file'; });
+    assert.strictEqual(files.length, 2);
+    for (const f of files) {
+      assert.ok(f.content.includes('Initial Design Artifact'));
+    }
+  });
+});
+
+// ============================================================
+// PX-30: buildHeaderContext
+// ============================================================
+
+describe('buildHeaderContext', () => {
+  it('should build context from valid Dirs-Tree', () => {
+    const dirsTree = {
+      sourceGraph: '/tmp/test-project/RFC-TEST-GRAPH.json',
+      sourceFile: '/tmp/test-project/RFC-TEST.md',
+      trees: {
+        rust: {
+          name: 'src',
+          type: 'directory',
+          crossReferences: [
+            { nodeId: 'N003', kind: 'rationale', title: 'Why', connections: [] },
+          ],
+        },
+      },
+    };
+    const ctx = buildHeaderContext(dirsTree, '/tmp/test-project/RFC-TEST-Dirs-Tree.json', '/tmp', 'rust');
+    assert.ok(ctx);
+    assert.strictEqual(ctx.graphBasename, 'RFC-TEST-GRAPH.json');
+    assert.strictEqual(ctx.dirsTreeBasename, 'RFC-TEST-Dirs-Tree.json');
+    assert.strictEqual(ctx.sourceBasename, 'RFC-TEST.md');
+    assert.strictEqual(ctx.crossReferences.length, 1);
+    assert.strictEqual(ctx.nodeMetaMap.N003.title, 'Why');
+  });
+
+  it('should return null when sourceGraph is missing', () => {
+    const dirsTree = { trees: { rust: { name: 'src', type: 'directory' } } };
+    const ctx = buildHeaderContext(dirsTree, '/tmp/x.json', '/tmp', 'rust');
+    assert.strictEqual(ctx, null);
+  });
+
+  it('should use UNKNOWN_SOURCE.md when sourceFile is missing', () => {
+    const dirsTree = {
+      sourceGraph: '/tmp/test-project/RFC-TEST-GRAPH.json',
+      trees: { rust: { name: 'src', type: 'directory' } },
+    };
+    const ctx = buildHeaderContext(dirsTree, '/tmp/test-project/RFC-TEST-Dirs-Tree.json', '/tmp', 'rust');
+    assert.ok(ctx);
+    assert.strictEqual(ctx.sourceBasename, 'UNKNOWN_SOURCE.md');
+  });
+
+  it('should handle missing crossReferences gracefully', () => {
+    const dirsTree = {
+      sourceGraph: '/tmp/test-project/RFC-TEST-GRAPH.json',
+      sourceFile: '/tmp/test-project/RFC-TEST.md',
+      trees: { rust: { name: 'src', type: 'directory' } },
+    };
+    const ctx = buildHeaderContext(dirsTree, '/tmp/test-project/RFC-TEST-Dirs-Tree.json', '/tmp', 'rust');
+    assert.ok(ctx);
+    assert.strictEqual(ctx.crossReferences.length, 0);
   });
 });

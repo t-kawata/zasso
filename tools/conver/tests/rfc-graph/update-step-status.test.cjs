@@ -89,13 +89,15 @@ describe('定数', () => {
     assert.strictEqual(MAX_STEP, 5);
   });
 
-  it('ALLOWED_SUBCOMMANDS は5つのサブコマンド名を持つ', () => {
+  it('ALLOWED_SUBCOMMANDS は7つのサブコマンド名を持つ', () => {
     assert.deepStrictEqual(ALLOWED_SUBCOMMANDS, [
       'start-step',
       'end-step',
       'fail-step',
       'reset-to-step',
       'status',
+      'cleanup',
+      'backup',
     ]);
   });
 

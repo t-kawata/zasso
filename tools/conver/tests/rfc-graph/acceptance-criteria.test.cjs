@@ -17,29 +17,28 @@ describe('AC1: verify.js カバレッジ検証', () => {
   it('カバレッジ100%で {"ok":true} を返す', () => {
     const { checkCoverage } = require('../../.claude/scripts/rfc-graph/verify.js');
 
+    // ## 見出しがなく、headingRefs も空 → 全見出しがカバー済み
     const sourceLines = [
       '# テスト要件',
       '',
       '要件1: ログイン機能',
-      '',
-      '## API',
     ];
 
     const nodes = [
-      { id: 'N0001', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 6 }]},
-      { id: 'N0002', sourceRanges: [{ refId: 'REF002', startLine: 1, endLine: 6 }]},
-      { id: 'N0003', sourceRanges: [{ refId: 'REF003', startLine: 1, endLine: 6 }]},
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['テスト要件'] }]},
+      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 1, texts: ['要件1'] }]},
     ];
 
     const result = checkCoverage(sourceLines, nodes);
 
     assert.equal(result.covered, true);
-    assert.deepEqual(result.uncoveredLines, []);
+    assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('未カバー行がある場合に ok:false を返す', () => {
+  it('未カバー見出しがある場合に ok:false を返す', () => {
     const { checkCoverage } = require('../../.claude/scripts/rfc-graph/verify.js');
 
+    // ## API は見出しだが、どのノードの headingRefs も "API" を含まない
     const sourceLines = [
       '# テスト要件',
       '要件1: ログイン機能',
@@ -48,14 +47,13 @@ describe('AC1: verify.js カバレッジ検証', () => {
     ];
 
     const nodes = [
-      { id: 'N0001', sourceRanges: [{ refId: 'REF001', startLine: 1, endLine: 1 }]},
-      { id: 'N0002', sourceRanges: [{ refId: 'REF002', startLine: 3, endLine: 4 }]},
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['要件'] }]},
     ];
 
     const result = checkCoverage(sourceLines, nodes);
 
     assert.equal(result.covered, false);
-    assert.deepEqual(result.uncoveredLines, [2]);
+    assert.deepEqual(result.uncoveredHeadings, ['API']);
   });
 
   it('孤立ノードがある場合に ok:false を返す', () => {

@@ -14,6 +14,12 @@ const {
   projectEdgesToDirectories,
   tarjanSCC,
   deduplicateFileNames,
+  getDeclarationStub,
+  resolveHeaderPaths,
+  generateHeaderComment,
+  DECLARATION_STUB_TABLE,
+  COMMENT_SYNTAX,
+  HEADER_SEPARATOR,
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
 // ============================================================
@@ -352,5 +358,320 @@ describe('deduplicateFileNames', () => {
     const names = result.map(function(f) { return f.name; });
     assert.ok(names.includes('a.rs'));
     assert.ok(names.includes('a_1.rs')); // a.go のベース名 a → 重複とみなす
+  });
+});
+
+// ============================================================
+// DECLARATION_STUB_TABLE / getDeclarationStub
+// ============================================================
+
+describe('DECLARATION_STUB_TABLE', () => {
+  it('should have 8 kinds defined', () => {
+    const expectedKinds = [
+      'config', 'api_contract', 'data_model', 'state_machine',
+      'error_policy', 'security', 'test_policy', 'build_ci',
+    ];
+    for (const kind of expectedKinds) {
+      assert.ok(typeof DECLARATION_STUB_TABLE[kind] === 'object',
+        `kind "${kind}" が DECLARATION_STUB_TABLE に定義されていません`);
+    }
+    assert.strictEqual(Object.keys(DECLARATION_STUB_TABLE).length, 8);
+  });
+
+  it('should have all 3 languages for each kind', () => {
+    const expectedLangs = ['rust', 'go', 'typescript'];
+    for (const kind of Object.keys(DECLARATION_STUB_TABLE)) {
+      for (const lang of expectedLangs) {
+        assert.ok(typeof DECLARATION_STUB_TABLE[kind][lang] === 'string',
+          `kind "${kind}" に言語 "${lang}" のスタブがありません`);
+      }
+    }
+  });
+
+  it('should be deeply frozen', () => {
+    assert.ok(Object.isFrozen(DECLARATION_STUB_TABLE));
+    for (const kind of Object.keys(DECLARATION_STUB_TABLE)) {
+      assert.ok(Object.isFrozen(DECLARATION_STUB_TABLE[kind]));
+    }
+  });
+});
+
+describe('getDeclarationStub', () => {
+  it('should return config stub for rust', () => {
+    const stub = getDeclarationStub('config', 'rust');
+    assert.ok(stub.includes('pub struct Config'));
+  });
+
+  it('should return config stub for go', () => {
+    const stub = getDeclarationStub('config', 'go');
+    assert.ok(stub.includes('type Config struct'));
+  });
+
+  it('should return config stub for typescript', () => {
+    const stub = getDeclarationStub('config', 'typescript');
+    assert.ok(stub.includes('interface Config'));
+  });
+
+  it('should return api_contract stub for rust', () => {
+    const stub = getDeclarationStub('api_contract', 'rust');
+    assert.ok(stub.includes('pub trait Service'));
+  });
+
+  it('should return state_machine stub for go with const block', () => {
+    const stub = getDeclarationStub('state_machine', 'go');
+    assert.ok(stub.includes('type State int'));
+    assert.ok(stub.includes('const'));
+  });
+
+  it('should return error_policy stub for typescript', () => {
+    const stub = getDeclarationStub('error_policy', 'typescript');
+    assert.ok(stub.includes('class Error extends Error'));
+  });
+
+  it('should return test_policy stub for rust with cfg attribute', () => {
+    const stub = getDeclarationStub('test_policy', 'rust');
+    assert.ok(stub.includes('#[cfg(test)]'));
+    assert.ok(stub.includes('fn test_example'));
+  });
+
+  it('should return security stub for go', () => {
+    const stub = getDeclarationStub('security', 'go');
+    assert.ok(stub.includes('func Authorize'));
+  });
+
+  it('should return empty string for unknown kind', () => {
+    assert.strictEqual(getDeclarationStub('unknown_kind', 'rust'), '');
+  });
+
+  it('should return empty string for unknown language', () => {
+    assert.strictEqual(getDeclarationStub('config', 'python'), '');
+  });
+
+  it('should return empty string for empty kind', () => {
+    assert.strictEqual(getDeclarationStub('', 'rust'), '');
+  });
+
+  it('should return empty string for empty language', () => {
+    assert.strictEqual(getDeclarationStub('config', ''), '');
+  });
+});
+
+// ============================================================
+// PX-30: resolveHeaderPaths
+// ============================================================
+
+describe('resolveHeaderPaths', () => {
+  const GRAPH_DIR = '/Users/kawata/shyme/project';
+  const GRAPH_BASENAME = 'RFC-ROOT-GRAPH.json';
+  const DIRS_TREE_BASENAME = 'RFC-ROOT-Dirs-Tree.json';
+  const SOURCE_BASENAME = 'RFC-ROOT.md';
+
+  it('should compute relDir as ".." for one-level deep file', () => {
+    const result = resolveHeaderPaths(
+      '/Users/kawata/shyme/project/src/main.rs',
+      GRAPH_DIR,
+      GRAPH_BASENAME,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+    assert.strictEqual(result.relDirToGraph, '..');
+    assert.strictEqual(result.graphRelPath, '../RFC-ROOT-GRAPH.json');
+    assert.strictEqual(result.cdCommandPrefix, '(cd .. &&');
+  });
+
+  it('should compute relDir as "../.." for two-level deep file', () => {
+    const result = resolveHeaderPaths(
+      '/Users/kawata/shyme/project/src/config/db.rs',
+      GRAPH_DIR,
+      GRAPH_BASENAME,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+    assert.strictEqual(result.relDirToGraph, '../..');
+    assert.strictEqual(result.dirsTreeRelPath, '../../RFC-ROOT-Dirs-Tree.json');
+    assert.strictEqual(result.sourceRelPath, '../../RFC-ROOT.md');
+  });
+
+  it('should compute relDir as ".." for docs-level file', () => {
+    const result = resolveHeaderPaths(
+      '/Users/kawata/shyme/project/docs/plan.md',
+      GRAPH_DIR,
+      GRAPH_BASENAME,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+    assert.strictEqual(result.relDirToGraph, '..');
+  });
+
+  it('should compute relDir as "." for same-directory case', () => {
+    const result = resolveHeaderPaths(
+      '/Users/kawata/shyme/project/some.rs',
+      GRAPH_DIR,
+      GRAPH_BASENAME,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+    assert.strictEqual(result.relDirToGraph, '.');
+    assert.strictEqual(result.graphRelPath, './RFC-ROOT-GRAPH.json');
+    assert.strictEqual(result.cdCommandPrefix, '(cd . &&');
+  });
+
+  it('should keep --graph= flag as basename only (no relDir prefix)', () => {
+    const result = resolveHeaderPaths(
+      '/Users/kawata/shyme/project/src/config/db.rs',
+      GRAPH_DIR,
+      GRAPH_BASENAME,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+    assert.strictEqual(result.graphFlagForCmd, '--graph="RFC-ROOT-GRAPH.json"');
+    // relDir と basename が連結していないことを確認
+    assert.ok(!result.graphFlagForCmd.includes(result.relDirToGraph));
+  });
+
+  it('should satisfy the invariance: path.resolve(fileDir, graphRelPath) === originalGraphAbsPath', () => {
+    const path = require('path');
+    const generatedFilePath = '/Users/kawata/shyme/project/src/net/http/handler.rs';
+    const graphDirAbs = '/Users/kawata/shyme/project';
+    const graphBasename = 'RFC-ROOT-GRAPH.json';
+    const originalGraphAbs = path.resolve(graphDirAbs, graphBasename);
+
+    const result = resolveHeaderPaths(
+      generatedFilePath,
+      graphDirAbs,
+      graphBasename,
+      DIRS_TREE_BASENAME,
+      SOURCE_BASENAME
+    );
+
+    const fileDir = path.dirname(generatedFilePath);
+    const resolvedBack = path.resolve(fileDir, result.graphRelPath);
+    assert.strictEqual(resolvedBack, originalGraphAbs);
+  });
+});
+
+// ============================================================
+// PX-30: generateHeaderComment
+// ============================================================
+
+describe('generateHeaderComment', () => {
+  const headerPaths = {
+    relDirToGraph: '..',
+    graphRelPath: '../RFC-ROOT-GRAPH.json',
+    dirsTreeRelPath: '../RFC-ROOT-Dirs-Tree.json',
+    sourceRelPath: '../RFC-ROOT.md',
+    cdCommandPrefix: '(cd .. &&',
+    graphFlagForCmd: '--graph="RFC-ROOT-GRAPH.json"',
+  };
+  const mappedNodeIds = ['N0005'];
+  const nodeMetaList = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
+  const graphBasename = 'RFC-ROOT-GRAPH.json';
+  const sourceBasename = 'RFC-ROOT.md';
+
+  it('should generate Rust-style comment with // syntax', () => {
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, [],
+      graphBasename, sourceBasename, 'rust'
+    );
+    assert.ok(comment.startsWith('//'));
+    assert.ok(comment.includes(HEADER_SEPARATOR));
+    assert.ok(comment.includes('RFC-ROOT-GRAPH.json'));
+    assert.ok(comment.includes('N0005'));
+    assert.ok(comment.includes('query.js'));
+  });
+
+  it('should generate Go-style comment with // syntax', () => {
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, [],
+      graphBasename, sourceBasename, 'go'
+    );
+    assert.ok(comment.startsWith('//'));
+    assert.ok(comment.includes('Initial Design Artifact'));
+  });
+
+  it('should generate TypeScript-style comment with // syntax', () => {
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, [],
+      graphBasename, sourceBasename, 'typescript'
+    );
+    assert.ok(comment.startsWith('//'));
+  });
+
+  it('should include mapped node info', () => {
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, [],
+      graphBasename, sourceBasename, 'rust'
+    );
+    assert.ok(comment.includes('N0005'));
+    assert.ok(comment.includes('Database Connection Config'));
+  });
+
+  it('should show "No direct node mapping" when mappedNodeIds is empty', () => {
+    const comment = generateHeaderComment(
+      headerPaths, [], [], [],
+      graphBasename, sourceBasename, 'rust'
+    );
+    assert.ok(comment.includes('No direct node mapping'));
+  });
+
+  it('should include cross-referenced design context when provided', () => {
+    const crossRefs = [
+      {
+        nodeId: 'N0003',
+        kind: 'rationale',
+        title: 'Why Adopt EDA',
+        headingRef: '§ 2.1',
+        connections: [
+          { toFile: 'config/db_settings.rs', edgeType: 'refines', direction: '→' }
+        ],
+      },
+    ];
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, crossRefs,
+      graphBasename, sourceBasename, 'rust'
+    );
+    assert.ok(comment.includes('Cross-referenced design context'));
+    assert.ok(comment.includes('rationale/Why Adopt EDA'));
+    assert.ok(comment.includes('N0003'));
+  });
+
+  it('should include graph exploration commands', () => {
+    const comment = generateHeaderComment(
+      headerPaths, mappedNodeIds, nodeMetaList, [],
+      graphBasename, sourceBasename, 'rust'
+    );
+    assert.ok(comment.includes('Full graph exploration'));
+    assert.ok(comment.includes('show-graph-summary-markdown.js'));
+    assert.ok(comment.includes('--hops=3'));
+  });
+});
+
+// ============================================================
+// PX-30: SCHEMA crossReferences
+// ============================================================
+
+describe('SCHEMA crossReferences', () => {
+  it('should have crossReferences in DirNode properties', () => {
+    assert.ok(SCHEMA.definitions.DirNode.properties.crossReferences);
+    assert.strictEqual(SCHEMA.definitions.DirNode.properties.crossReferences.type, 'array');
+  });
+
+  it('should have CrossReference definition', () => {
+    assert.ok(SCHEMA.definitions.CrossReference);
+    assert.ok(SCHEMA.definitions.CrossReference.required.includes('nodeId'));
+    assert.ok(SCHEMA.definitions.CrossReference.required.includes('kind'));
+  });
+
+  it('should have CrossReference with connections array', () => {
+    const connItems = SCHEMA.definitions.CrossReference.properties.connections;
+    assert.strictEqual(connItems.type, 'array');
+    assert.ok(connItems.items.required.includes('toNodeId'));
+    assert.ok(connItems.items.required.includes('toFile'));
+    assert.ok(connItems.items.required.includes('edgeType'));
+    assert.ok(connItems.items.required.includes('direction'));
+  });
+
+  it('should have sourceFile in root properties', () => {
+    assert.strictEqual(SCHEMA.properties.sourceFile.type, 'string');
   });
 });

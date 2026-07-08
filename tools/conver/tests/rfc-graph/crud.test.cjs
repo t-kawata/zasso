@@ -47,10 +47,12 @@ let testFilePath;
  * @returns {Object} ノードデータ
  */
 function createTestNode(id, kind) {
+  const slug = 'test_node_' + id.toLowerCase();
   return {
     id,
     title: 'テストノード ' + id,
     kind,
+    slug,
     summary: 'これはテスト用ノードです。',
     headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}],
   };
@@ -220,8 +222,8 @@ describe('crud.js — readGraph', () => {
   });
 
   it('存在しないファイルパスで空のグラフを返す', () => {
-    const graph = readGraph(path.join(tmpDir, 'nonexistent.json'));
-    assert.equal(graph.sourceFile, path.join(tmpDir, 'nonexistent.json'));
+    const graph = readGraph(path.join(tmpDir, 'nonexistent.json'), path.join(tmpDir, 'source.md'));
+    assert.equal(graph.sourceFile, path.join(tmpDir, 'source.md'));
     assert.deepEqual(graph.nodes, []);
     assert.deepEqual(graph.edges, []);
   });

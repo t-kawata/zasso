@@ -8,6 +8,9 @@
  * 下位層モジュール（boundify-helpers.js、boundify-tree.js）を require で読み込み、
  * アダプター関数を介して関数シグネチャの差異を吸収する。
  *
+ * PX-30: 出力 Dirs-Tree.json の各言語ツリーに、prose 系ノードのクロスリファレンス
+ * （crossReferences）を boundify-tree.js の computeCrossReferences() 経由で注入する。
+ *
  * CLI: boundify-graph-to-dirs.js /path/to/RFC-ROOT-GRAPH.json [--json] [--quiet]
  *
  * 出力契約:
@@ -244,6 +247,7 @@ function adaptBuildDirectoryTree(graph, lang) {
   const boundHelpers = {
     languageExtensions: LANGUAGE_EXTENSIONS,
     deduplicateFileNames: helpers.deduplicateFileNames,
+    getDeclarationStub: helpers.getDeclarationStub,
   };
   return treeBuilder.buildDirectoryTree(graph, lang, boundHelpers);
 }
@@ -426,6 +430,11 @@ function main(testArgs) {
     const { tree, nodeToDir } = adaptBuildDirectoryTree(graph, lang);
     trees[lang] = tree;
 
+    // 4-a2: クロスリファレンス計算（PX-30: prose 系ノードの設計情報を接続先ファイルに紐付け）
+    if (tree && graph) {
+      tree.crossReferences = treeBuilder.computeCrossReferences(graph, nodeToDir);
+    }
+
     // 4-b: エッジ投影（アダプター経由）
     const dirEdges = adaptProjectEdgesToDirectories(graph, nodeToDir);
 
@@ -473,6 +482,7 @@ function main(testArgs) {
     schemaVersion: "1.0",
     generatedAt: new Date().toISOString(),
     sourceGraph: graphPath,
+    sourceFile: graph.sourceFile || '',
     analysis: {
       nodeCount: graph.nodes.length,
       edgeCount: graph.edges.length,
@@ -529,6 +539,19 @@ function main(testArgs) {
     );
     process.exit(EXIT_FAILURE);
   }
+
+  // BOUNDIFY-Status.json を書き出す
+  const statusContent = {
+    schemaVersion: "1.0",
+    state: "STEP1_DONE",
+    generatedAt: new Date().toISOString(),
+    sourceGraph: graphPath,
+  };
+  fs.writeFileSync(
+    outputPaths.statusPath,
+    JSON.stringify(statusContent, null, 2),
+    "utf-8",
+  );
 
   // ---- Step 7: 標準出力の3分岐 ----
   if (flags.json) {
