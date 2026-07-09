@@ -34,6 +34,7 @@ const path = require("path");
 const helpers = require("./boundify-helpers.js");
 const treeBuilder = require("./boundify-tree.js");
 const { validateFiles } = require("./validate-dirs-tree-schema.js");
+const { createDefaultStatus, atomicWrite } = require("./update-boundify-step-status.js");
 
 // ============================================================
 // 定数定義
@@ -540,18 +541,15 @@ function main(testArgs) {
     process.exit(EXIT_FAILURE);
   }
 
-  // BOUNDIFY-Status.json を書き出す
-  const statusContent = {
-    schemaVersion: "1.0",
-    state: "STEP1_DONE",
-    generatedAt: new Date().toISOString(),
-    sourceGraph: graphPath,
-  };
-  fs.writeFileSync(
-    outputPaths.statusPath,
-    JSON.stringify(statusContent, null, 2),
-    "utf-8",
-  );
+  // BOUNDIFY-Status.json を正しい形式で書き出す
+  // update-boundify-step-status.js の createDefaultStatus を借用し、
+  // スキーマの共通化を図る（分散したスキーマ定義のリスクを回避）
+  const statusData = createDefaultStatus(outputPaths.statusPath);
+  statusData.currentStep = 2;
+  statusData.steps["0"] = "done";
+  statusData.steps["1"] = "done";
+  statusData.steps["2"] = "running";
+  atomicWrite(outputPaths.statusPath, JSON.stringify(statusData, null, 2));
 
   // ---- Step 7: 標準出力の3分岐 ----
   if (flags.json) {
