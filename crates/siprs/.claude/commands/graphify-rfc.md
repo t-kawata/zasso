@@ -372,7 +372,7 @@ node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=
 
 ```bash
 # 全ノードの query.js 結果を _quality/ に保存し、8%を乱数選出してコマンド一覧を表示
-node .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
+bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
 ```
 
 出力されたコマンド一覧の各ノードに対して、以下の手順で点検する：
