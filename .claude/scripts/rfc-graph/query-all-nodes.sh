@@ -3,15 +3,17 @@
 # query-all-nodes.sh — 全ノード品質点検用ファイル生成 + ランダムサンプリング選出
 #
 # 1. 全ノードに対して query.js --hops=2 を実行し、結果を _quality/Nxxxx.md に保存
-# 2. 総ノード数の 8%（切り捨て）を bash $RANDOM で重複なく選出
+# 2. 総ノード数の 5%（切り捨て）を bash $RANDOM で重複なく選出
 # 3. 選出ノードの get-node-for-check.js コマンド一覧を stdout に出力
 #
 # Usage:
-#   query-all-nodes.sh --graph=<path> --source=<path>
+#   query-all-nodes.sh --graph=<path> --source=<path>        # 初回: 保存 + 選出
+#   query-all-nodes.sh --graph=<path> --additional           # 追加: 選出のみ（_quality 再生成なし）
 #
 # Options:
 #   --graph=<path>   グラフファイルのパス
-#   --source=<path>  ソースファイルのパス
+#   --source=<path>  ソースファイルのパス（初回のみ必須）
+#   --additional     追加ラウンド: _quality 生成をスキップし、再ランダム選出のみ行う
 #
 # Exit codes:
 #   0  正常終了
@@ -23,7 +25,7 @@ set -euo pipefail
 # 定数
 # ============================================================
 
-SAMPLE_RATE=0.08
+SAMPLE_RATE=0.05
 QUALITY_DIR="_quality"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 QUERY_JS="$SCRIPT_DIR/query.js"
@@ -34,18 +36,22 @@ QUERY_JS="$SCRIPT_DIR/query.js"
 
 GRAPH_PATH=""
 SOURCE_PATH=""
+ADDITIONAL=false
 
 for arg in "$@"; do
   case "$arg" in
     --graph=*) GRAPH_PATH="${arg#--graph=}" ;;
     --source=*) SOURCE_PATH="${arg#--source=}" ;;
+    --additional) ADDITIONAL=true ;;
     --help|-h)
       echo "Usage: query-all-nodes.sh --graph=<path> --source=<path>"
+      echo "       query-all-nodes.sh --graph=<path> --additional"
       exit 0
       ;;
     *)
       echo "[ERROR] 不明な引数: $arg" >&2
       echo "Usage: query-all-nodes.sh --graph=<path> --source=<path>" >&2
+      echo "       query-all-nodes.sh --graph=<path> --additional" >&2
       exit 1
       ;;
   esac
@@ -55,28 +61,24 @@ if [ -z "$GRAPH_PATH" ]; then
   echo "[ERROR] --graph=<path> が指定されていません。" >&2
   exit 1
 fi
-if [ -z "$SOURCE_PATH" ]; then
-  echo "[ERROR] --source=<path> が指定されていません。" >&2
-  exit 1
-fi
 if [ ! -f "$GRAPH_PATH" ]; then
   echo "[ERROR] グラフファイルが見つかりません: $GRAPH_PATH" >&2
   exit 1
 fi
-if [ ! -f "$SOURCE_PATH" ]; then
-  echo "[ERROR] ソースファイルが見つかりません: $SOURCE_PATH" >&2
-  exit 1
+if [ "$ADDITIONAL" = false ]; then
+  if [ -z "$SOURCE_PATH" ]; then
+    echo "[ERROR] --source=<path> が指定されていません。" >&2
+    exit 1
+  fi
+  if [ ! -f "$SOURCE_PATH" ]; then
+    echo "[ERROR] ソースファイルが見つかりません: $SOURCE_PATH" >&2
+    exit 1
+  fi
+  if [ ! -f "$QUERY_JS" ]; then
+    echo "[ERROR] query.js が見つかりません: $QUERY_JS" >&2
+    exit 1
+  fi
 fi
-if [ ! -f "$QUERY_JS" ]; then
-  echo "[ERROR] query.js が見つかりません: $QUERY_JS" >&2
-  exit 1
-fi
-
-# ============================================================
-# _quality/ ディレクトリ作成
-# ============================================================
-
-mkdir -p "$QUALITY_DIR"
 
 # ============================================================
 # 全ノードID取得
@@ -99,32 +101,31 @@ read -ra ID_ARRAY <<< "$NODE_IDS"
 TOTAL_NODES=${#ID_ARRAY[@]}
 
 # ============================================================
-# 全ノードの query.js 実行 → _quality/Nxxxx.md 保存
+# 初回のみ: _quality/ 生成 + query.js 実行
 # ============================================================
 
-echo "=== 全 $TOTAL_NODES ノードの query.js 結果を $QUALITY_DIR/ に保存中 ===" >&2
+if [ "$ADDITIONAL" = false ]; then
+  mkdir -p "$QUALITY_DIR"
 
-for node_id in "${ID_ARRAY[@]}"; do
-  output_file="$QUALITY_DIR/${node_id}.md"
-  # query.js を実行し、結果をファイルに保存
-  if node "$QUERY_JS" --graph="$GRAPH_PATH" --source="$SOURCE_PATH" --id="$node_id" --hops=2 > "$output_file" 2>/dev/null; then
-    echo "  $node_id -> $output_file" >&2
-  else
-    # query.js が失敗してもエラーメッセージはファイルに保存して続行
-    node "$QUERY_JS" --graph="$GRAPH_PATH" --source="$SOURCE_PATH" --id="$node_id" --hops=2 > "$output_file" 2>&1 || true
-    echo "  $node_id -> $output_file (exit $?)" >&2
-  fi
-done
+  echo "=== 全 $TOTAL_NODES ノードの query.js 結果を $QUALITY_DIR/ に保存中 ===" >&2
 
-echo "=== 保存完了 ===" >&2
+  for node_id in "${ID_ARRAY[@]}"; do
+    output_file="$QUALITY_DIR/${node_id}.md"
+    if node "$QUERY_JS" --graph="$GRAPH_PATH" --source="$SOURCE_PATH" --id="$node_id" --hops=2 > "$output_file" 2>/dev/null; then
+      echo "  $node_id -> $output_file" >&2
+    else
+      node "$QUERY_JS" --graph="$GRAPH_PATH" --source="$SOURCE_PATH" --id="$node_id" --hops=2 > "$output_file" 2>&1 || true
+      echo "  $node_id -> $output_file (exit $?)" >&2
+    fi
+  done
+
+  echo "=== 保存完了 ===" >&2
+fi
 
 # ============================================================
 # ランダムサンプリング（Fisher-Yates シャッフル + 先頭N件）
 # ============================================================
 
-# 選出個数計算: floor(total * 0.08)、最低1件
-SAMPLE_COUNT=$(( TOTAL_NODES * 100 / 100 * SAMPLE_RATE ))
-# bash で小数計算できないので node に任せる
 SAMPLE_COUNT=$(node -e "console.log(Math.max(1, Math.floor($TOTAL_NODES * $SAMPLE_RATE)))")
 
 # Fisher-Yates シャッフル（bash $RANDOM を使用）

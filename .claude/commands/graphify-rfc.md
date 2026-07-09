@@ -371,15 +371,15 @@ node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=
 機械的検証では検出できない品質問題（エッジの正しさ、kind 分類の整合、headingRefs の過不足）を、ランダムサンプリングにより目視確認する。
 
 ```bash
-# 全ノードの query.js 結果を _quality/ に保存し、8%を乱数選出してコマンド一覧を表示
+# 全ノードの query.js 結果を _quality/ に保存し、5%を乱数選出してコマンド一覧を表示
 bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
 ```
 
-出力されたコマンド一覧の各ノードに対して、以下の手順で点検する：
+選出された全ノードに対して、以下の手順で**1件ずつ、1件も欠かさず**点検すること：
 
 ```bash
-# 選出されたノードの内容を表示（例: N0001）
-node .claude/scripts/rfc-graph/get-node-for-check.js N0001
+# 選出された各ノードを1件ずつ順番に表示する（全件を一気に表示しようとしないこと）
+node .claude/scripts/rfc-graph/get-node-for-check.js Nxxxx
 ```
 
 各ノードの表示内容を読み、以下の点検項目を確認する：
@@ -388,7 +388,7 @@ node .claude/scripts/rfc-graph/get-node-for-check.js N0001
 2. **各ノードの内容が設計文書の該当箇所を過不足なくカバーしているか**
 3. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか**
 
-不足がある場合 → 新規ノードの追加・既存ノードの修正・必要に応じて削除しての再作成を組み合わせ、**グラフを洗練（補強）する**ために Step 1 に戻る。
+不足がある場合 → 新規ノードの追加・既存ノードの修正・新規エッジの追加・既存エッジの修正・必要に応じて削除しての再作成を組み合わせ、**グラフを洗練（補強）する**ために Step 1 に戻る。
 
 ```bash
 # 補強: 不足情報をカバーするため、Step 1 に戻る
@@ -398,7 +398,20 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 「やり直す」のではなく「補強（洗練）」である点に注意。重複や粒度の粗いノードは delete-node で削除し、より適切なノードに再分割する。不足があれば add-node で追加する。update-node で既存ノードを微調整してもよい。グラフ全体の品質を高める方向であれば、変更の種類は問わない。
 
-不足がない場合 → Step 4 正常終了。
+点検が1件も欠けずに完了したら、次の判断を行う：
+
+> 点検したのは全体の5%だけであって、全てを点検したわけではない。つまり全ての品質が保証されたわけではない。この前提で、追加で更にランダム5%を選出して点検を行うか判断すること。
+
+追加点検を行う場合：
+
+```bash
+# 追加5%を再ランダム選出（_quality の再生成は行わない）
+bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --additional
+```
+
+出力されたコマンド一覧に対して**1件ずつ、1件も欠かさず**点検する。点検完了後、再度上記の判断を行う。
+
+追加点検を行わない（現状の品質で十分と判断する）場合 → Step 4 正常終了。
 
 ```bash
 # 成功時: Step 4 正常終了（進行ステータスを done に更新）
