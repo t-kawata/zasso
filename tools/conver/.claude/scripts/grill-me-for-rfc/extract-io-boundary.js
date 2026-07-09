@@ -26,9 +26,8 @@ const content = fs.readFileSync(resolvedPath, "utf-8");
 const lines = content.split("\n");
 
 // I/O 境界セクションのタイトルを検出
-// 形式: ## <N>. graphify-rfc + boundify-graph-to-dirs のための参考情報 ...
-const SECTION_TITLE_MARKER = "graphify-rfc + boundify-graph-to-dirs のための参考情報";
-const SECTION_PATTERN = new RegExp(`^## \\d+\\.\\s+${escapeRegex(SECTION_TITLE_MARKER)}`);
+// 形式: ## <N>. グラフ分割のための参考情報 ...
+const SECTION_PATTERN = /^## \d+\.\s+graphify-rfc \+ boundify-graph-to-dirs のための参考情報/;
 
 let sectionStartIndex = -1;
 for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {

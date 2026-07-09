@@ -2,7 +2,7 @@
 /**
  * insert-io-boundary-template.js <rfc-file>
  *
- * RFC ファイルに「graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
+ * RFC ファイルに「グラフ分割のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
  * セクションをテンプレートとして追記する。
  *
  * テンプレート内の RFC 固有記述が必要な箇所には
@@ -29,7 +29,7 @@ if (!fs.existsSync(resolvedPath)) {
 const content = fs.readFileSync(resolvedPath, "utf-8");
 
 // 既存セクションの有無を確認（二重挿入防止）
-const sectionPattern = /graphify-rfc + boundify-graph-to-dirs\s*のための参考情報/;
+const sectionPattern = /graphify-rfc + boundify-graph-to-dirss*のための参考情報/;
 if (sectionPattern.test(content)) {
   console.log("I/O boundary reference section already exists. Skipping.");
   process.exit(0);
