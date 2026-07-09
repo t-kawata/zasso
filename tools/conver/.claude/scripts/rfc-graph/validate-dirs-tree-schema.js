@@ -107,7 +107,9 @@ function checkRequiredFields(dirsTree, errors) {
  */
 function checkNodeIds(node, allNodeIds, pathStr, errors) {
   if (node.mappedNodeIds) {
-    for (const nodeId of node.mappedNodeIds) {
+    for (const entry of node.mappedNodeIds) {
+      // mappedNodeIds はオブジェクト {nodeId, title} 形式と文字列 nodeId 形式の両方を許容する
+      const nodeId = typeof entry === 'object' ? entry.nodeId : entry;
       if (!allNodeIds.has(nodeId)) {
         errors.push(
           `存在しないノードID "${nodeId}" が "${pathStr}" の mappedNodeIds で参照されています`

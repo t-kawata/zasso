@@ -175,9 +175,8 @@ function discover(node, currentPath, headerContext) {
       content += headerComment + '\n';
     }
 
-    if (node.declarationStub) {
-      content += node.declarationStub + '\n\n';
-    }
+    // declarationStub（テンプレートコード）は意図的に書き込まない。
+    // テンプレートコードはノイズになる可能性が高く、「Initial Design Artifact」ヘッダのみで十分。
     created.push({ type: 'file', path: fullPath, size: content.length, content });
   }
 
