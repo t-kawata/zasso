@@ -175,8 +175,17 @@ function discover(node, currentPath, headerContext) {
       content += headerComment + '\n';
     }
 
-    // declarationStub（テンプレートコード）は意図的に書き込まない。
-    // テンプレートコードはノイズになる可能性が高く、「Initial Design Artifact」ヘッダのみで十分。
+    // ファイル末尾にスタブマーカーを追記（実装が必要なノードIDとタイトルを明示）
+    const stubEntries = (node.mappedNodeIds || []).filter(function (e) {
+      return typeof e !== 'string';
+    });
+    if (stubEntries.length > 0) {
+      content += '\n';
+      for (let si = 0; si < stubEntries.length; si++) {
+        const entry = stubEntries[si];
+        content += '// TODO: [::STUB::] MUST implement NODE_ID=' + entry.nodeId + ': ' + (entry.title || '') + '\n';
+      }
+    }
     created.push({ type: 'file', path: fullPath, size: content.length, content });
   }
 
