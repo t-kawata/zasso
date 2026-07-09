@@ -3497,6 +3497,62 @@
           "instrumentation": "静的品質チェック: N/A（JSONデータ修正のため）\n翻訳可能性: N/A（コード修正なし）\ntest-query-all.js: 172/172 正常解決\n全トークン一致検証: 172/172 通過\nrefId ユニーク: 172件中0重複\nJSON構文: 正常",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-09"
+        },
+        {
+          "id": 36,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "グラフ品質点検機構の整備",
+          "referenceSection": ".claude/specs/0036-graph-quality-check.md",
+          "background": "graphify-rfc.md Step 4「AI による品質点検」は6つの点検観点を列挙しているが、手段が明記されているのは観点6のみ。観点1〜3は query.js による目視確認が必須だが、全ノードの出力は膨大でAIが一度に読めない。query-all-nodes.sh で全ノードの query.js 結果を個別ファイルに保存し、8%を乱数選出、get-node-for-check.js で個別点検するプロトコルを導入する。",
+          "scope": [
+            "query-all-nodes.sh 新規: 全ノードの query.js --hops=2 結果を _quality/Nxxxx.md に保存 + 8%乱数選出 + コマンド一覧表示",
+            "get-node-for-check.js 新規: _quality/Nxxxx.md 内容＋3点検項目を表示",
+            "graphify-rfc.md 改修: 品質点検セクション書き換え + cleanupに _quality/ 追加"
+          ],
+          "testVerification": [
+            "_quality/ に全ノード分のファイルが生成される",
+            "選出ノード数が total * 0.08 切り捨てと一致",
+            "選出に重複がない",
+            "get-node-for-check.js が内容＋点検項目を表示する",
+            "存在しないノードIDでエラーになる",
+            "2回実行で選出結果が異なる",
+            "cleanup で _quality/ が削除される"
+          ],
+          "testExceptions": [
+            "クエリ動作は別チケット検証済み"
+          ],
+          "notes": "レビュー報告書:\n- 構文チェック: bash -n query-all-nodes.sh OK, node --check get-node-for-check.js OK\n- 静的品質: 新規スクリプトのみのため既存品質影響なし\n- 翻訳可能性: 新規スクリプト（関数名動詞句、定数名SAMPLE_RATE/RESOLVED/QUALITY_DIR）\n- 依存関係: PX-33/34/35 全て reviewed — 整合性確認済\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 不完全実装: 7パターン全面査 該当なし\n- Acceptance Criteria 点検:\n  - query-all-nodes.sh: 全ノードループ + _quality/ 生成 + 8%乱数選出 ✅\n  - get-node-for-check.js: ファイル表示 + 3点検項目 + 全エラーケース ✅\n  - graphify-rfc.md: 品質点検セクション書き換え ✅\n  - graphify-rfc.md cleanup: rm -rf _quality/ 追加 ✅\n\n判定: ACCEPT ✅",
+          "startedAt": "2026-07-09",
+          "changes": [
+            {
+              "file": ".claude/scripts/rfc-graph/query-all-nodes.sh",
+              "before": "(新規)",
+              "after": "全ノードquery.js実行→_quality保存＋8%乱数選出＋stdoutコマンド一覧",
+              "description": "新規作成"
+            },
+            {
+              "file": ".claude/scripts/rfc-graph/get-node-for-check.js",
+              "before": "(新規)",
+              "after": "_quality/Nxxxx.md内容＋3点検項目表示＋エラー処理",
+              "description": "新規作成"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "before": "「AI による品質点検」が6観点列挙のみで手段不明確",
+              "after": "query-all-nodes.sh 実行→get-node-for-check.js 点検→3観点確認の明確な手順",
+              "description": "品質点検セクション書き換え"
+            },
+            {
+              "file": ".claude/commands/graphify-rfc.md",
+              "before": "cleanup に _quality/ 削除なし",
+              "after": "cleanup に rm -rf _quality/ 追加",
+              "description": "_quality/ を cleanup 対象化"
+            }
+          ],
+          "instrumentation": "構文チェック: bash -n OK, node --check OK\nスタブ: 0件\n不完全実装: 検出なし（7パターンgrep確認）\ntest-query-all.js: 影響なし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-09"
         }
       ]
     },

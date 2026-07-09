@@ -4,35 +4,35 @@
   "nodes": [
     {
       "id": "N0001",
-      "title": "§1 目的 — 本crateの責務定義",
+      "title": "§1 目的 — 本crateの責務定義と非機能要件",
       "kind": "architecture",
-      "summary": "PJSUAをRustから安全に非同期的に利用し、複数SIPアカウント・トランスポート・発着信・音声処理・DTMF・ICE/TURN/STUN・TLS・SRTP・イベント配信をtokioネイティブAPIで提供するcrateの目的を定義。映像機能は対象外。",
+      "summary": "RustからPJSUAを安全かつ非同期的に利用し、複数SIPアカウント・トランスポート・発着信・音声処理・DTMF・ICE/TURN/STUN・TLS・SRTP・イベント配信をtokioネイティブAPIで提供する。映像は対象外。",
       "language": "rust",
-      "slug": "purpose_crate_responsibil",
+      "slug": "purpose_crate_scope",
       "headingRefs": [
         {
+          "refId": "REF162",
           "heading": 2,
           "texts": [
             "1. 目的"
-          ],
-          "refId": "REF001"
+          ]
         }
       ]
     },
     {
       "id": "N0002",
-      "title": "§1a M20実装優先度マップ",
-      "kind": "architecture",
-      "summary": "M20追補の全実装項目を優先度P0〜P3で整理した実装順序マップ。NativeEvent変換、RegistrationStateChanged、DtmfSent、lock修正、SubscribeAudio、configure_codecs、CallStateChanged、DualClient、Docker/CI、prebuilt等を優先度付きで列挙。",
+      "title": "§1a M20 実装優先度マップ",
+      "kind": "requirement",
+      "summary": "M20追補の全実装項目をP0-P3の実装優先度とともに整理。各項目の詳細設計は後方の該当M20追補セクションに記述。上位完了を下位の前提としない並行着手可能。",
       "language": "rust",
-      "slug": "m20_implementation_priori",
+      "slug": "m20_priority_map",
       "headingRefs": [
         {
+          "refId": "REF163",
           "heading": 2,
           "texts": [
             "1a. M20 実装優先度マップ"
-          ],
-          "refId": "REF002"
+          ]
         }
       ]
     },
@@ -40,33 +40,33 @@
       "id": "N0003",
       "title": "§1a 設計判断対応表",
       "kind": "rationale",
-      "summary": "M20優先度マップで参照される設計判断Q1:A〜Q14:Aの一覧表。各判断の決定内容と該当セクションを対応付ける。",
+      "summary": "M20マップで参照する設計判断Q1:A〜Q14:Aの一覧。各IDの決定内容と該当M20セクションを対応付ける。",
       "language": "rust",
-      "slug": "design_decision_reference",
+      "slug": "design_decision_table",
       "headingRefs": [
         {
+          "refId": "REF164",
           "heading": 4,
           "texts": [
             "設計判断対応表"
-          ],
-          "refId": "REF003"
+          ]
         }
       ]
     },
     {
       "id": "N0004",
-      "title": "§2 非目的 — 責務範囲外の明示",
+      "title": "§2 非目的 — 本crateが提供しない機能",
       "kind": "architecture",
-      "summary": "本crateが提供しない機能を明示。SIPサーバ、PBX、独自RTPスタック、録音ファイル書出、GUI、永続設定保存、課金、映像処理は対象外。録音はAudioChunkPair提供に留める。",
+      "summary": "SIPサーバ実装、PBX、独自RTPスタック、録音ファイル書き出し機構、GUI、永続設定保存、通話課金、映像処理は提供しない。録音はAudioChunkPair提供に留める。",
       "language": "rust",
-      "slug": "non_goals_excluded_scope",
+      "slug": "non_goals",
       "headingRefs": [
         {
+          "refId": "REF165",
           "heading": 2,
           "texts": [
             "2. 非目的"
-          ],
-          "refId": "REF004"
+          ]
         }
       ]
     },
@@ -74,50 +74,50 @@
       "id": "N0005",
       "title": "§2.1 Tauri統合との責務境界",
       "kind": "architecture",
-      "summary": "本crateとTauriフロントエンドの責務境界を定義。crate側はRust公開API・tracingログ・serde optional featureを提供。利用者側はDTO変換・AudioChunkPair転送・タイムスタンプ変換・アダプタ層を担当。Tauri非依存を保つ。",
+      "summary": "本crateはTauri非依存。本crateの責務は公開API提供・tracingログ・serde optional feature。利用者(Tauri層)の責務はDTO変換・バイナリ転送・タイムスタンプ変換・アダプタ層。",
       "language": "rust",
-      "slug": "tauri_integration_boundar",
+      "slug": "tauri_boundary",
       "headingRefs": [
         {
+          "refId": "REF166",
           "heading": 3,
           "texts": [
             "2.1 Tauri（フロントエンド）統合との責務境界"
-          ],
-          "refId": "REF005"
+          ]
         }
       ]
     },
     {
       "id": "N0006",
-      "title": "§3 用語 — ドメイン固有の定義",
+      "title": "§3 用語定義",
       "kind": "glossary",
-      "summary": "Client、Account、Call、Media Session、Source、Chunk Pair、Raw SIP Eventの各用語を定義。",
+      "summary": "Client・Account・Call・Media Session・Source・Chunk Pair・Raw SIP Eventの7用語を定義。",
       "language": "rust",
-      "slug": "terminology_domain_defini",
+      "slug": "glossary",
       "headingRefs": [
         {
+          "refId": "REF167",
           "heading": 2,
           "texts": [
             "3. 用語"
-          ],
-          "refId": "REF006"
+          ]
         }
       ]
     },
     {
       "id": "N0007",
-      "title": "§4 準拠要件 — MSRV・PJSIPバージョン・対象OS",
+      "title": "§4 準拠要件",
       "kind": "requirement",
-      "summary": "MSRVはRust 1.95以上、tokioを唯一の公開非同期ランタイムとし、PJSIP 2.17を正本バージョンに固定。対象OSはWindows x86_64、macOS arm64、Ubuntu x86_64。プレビルド優先・欠損時ソースビルドの二段階戦略。",
+      "summary": "Rust 1.95以上をMSRV、PJSIP 2.17を正本固定、対象OSはWindows x86_64/macOS arm64/Ubuntu x86_64。二段階ビルド戦略(プレビルド優先・欠損時ソースビルド)。",
       "language": "rust",
-      "slug": "compliance_requirements_m",
+      "slug": "compliance_requirements",
       "headingRefs": [
         {
+          "refId": "REF168",
           "heading": 2,
           "texts": [
             "4. 準拠要件"
-          ],
-          "refId": "REF007"
+          ]
         }
       ]
     },
@@ -125,16 +125,16 @@
       "id": "N0008",
       "title": "§4.1 バージョニングポリシー",
       "kind": "config",
-      "summary": "0.xフェーズではsemverに厳密準拠せず破壊的変更を許容。1.0以降はMAJOR.MINOR.PATCHのsemver厳守。SipEventPayloadのバリアント追加はnon_exhaustiveにより破壊的変更と見なさない。セキュリティ脆弱性修正はPATCHで対応可能。",
+      "summary": "0.xフェーズはsemver非厳守、1.0以降はsemver完全準拠。SipEventPayloadの#[non_exhaustive]によりバリアント追加は破壊的変更と見なさない。セキュリティ修正はPATCHで対応可。",
       "language": "rust",
       "slug": "versioning_policy",
       "headingRefs": [
         {
+          "refId": "REF169",
           "heading": 3,
           "texts": [
             "4.1 バージョニングポリシー"
-          ],
-          "refId": "REF008"
+          ]
         }
       ]
     },
@@ -142,16 +142,16 @@
       "id": "N0009",
       "title": "§5 機能要求の確定化 — normative scope",
       "kind": "requirement",
-      "summary": "15項目の機能要求をnormative scopeとして列挙。複数アカウント同時保持、動的追加削除、Register/Unregister切替、発信専用モード、UDP/TCP/TLS、feature flag TLS/SRTP、ICE完全対応、PCMU/Opus、DTMF 3方式、網羅的イベントバス、IN/OUTペアチャンク、リサンプル、複数音源ミキシング、Result<T,SipError>統一、Send+Sync成立。",
+      "summary": "15項目のnormative scope。複数SIPアカウント・動的追加削除・Register/Unregister・UDP/TCP/TLS・ICE・PCMU/Opus・DTMF・イベントバス・音声配信・リサンプル・ミキシング・Result統一API・Send+Sync。",
       "language": "rust",
-      "slug": "functional_requirements_n",
+      "slug": "normative_requirements",
       "headingRefs": [
         {
+          "refId": "REF170",
           "heading": 2,
           "texts": [
             "5. 機能要求の確定化"
-          ],
-          "refId": "REF009"
+          ]
         }
       ]
     },
@@ -159,2735 +159,2301 @@
       "id": "N0010",
       "title": "§6 全体構成 — モジュール分割",
       "kind": "architecture",
-      "summary": "crateのモジュール分割構成を定義。lib.rs、client.rs、config.rs、account.rs、call.rs、transport.rs、event.rs、error.rs、audio/（chunk/format/mixer/source/resampler/bridge）、ffi/（bindings/bootstrap/callbacks/strings/account/call/transport/media）、runtime/（command/reactor/handle）、util/（id/time/sync）、build.rs、vendor/。",
+      "summary": "siprs/src/のディレクトリ構成。lib.rs/client.rs/config.rs/account.rs/call.rs/transport.rs/event.rs/error.rs/audio/ffi/runtime/utilの各モジュール。vendor/pjsipとbuild.rsを含む。",
       "language": "rust",
-      "slug": "overall_structure_module",
+      "slug": "module_structure",
       "headingRefs": [
         {
+          "refId": "REF171",
           "heading": 2,
           "texts": [
             "6. 全体構成"
-          ],
-          "refId": "REF010"
+          ]
         }
       ]
     },
     {
       "id": "N0011",
-      "title": "§6.1 Crate責務分割方針（設計判断）",
+      "title": "§6.1 Crate責務分割方針",
       "kind": "rationale",
-      "summary": "SIP signalling・media bridge・audio processing・event busを単一crate（siprs）に同居させる設計判断の理由を説明。PJSIPの密結合、通話とメディアの不可分性、Tauri統合の実用性の3点。将来の分割可能性（siprs-core + siprs-media）にも言及。",
+      "summary": "SIP signalling/media bridge/audio processing/event busを単一crateに同居させる設計判断。PJSIP密結合・通話とメディアの不可分性・Tauri実用性が理由。将来のsiprs-core/siprs-media分割可能性。",
       "language": "rust",
-      "slug": "crate_split_rationale",
+      "slug": "single_crate_rationale",
       "headingRefs": [
         {
+          "refId": "REF172",
           "heading": 3,
           "texts": [
             "6.1 Crate 責務分割方針（設計判断）"
-          ],
-          "refId": "REF011"
+          ]
         }
       ]
     },
     {
       "id": "N0012",
-      "title": "§7 並行性モデル",
+      "title": "§7 並行性モデルと実行コンテキスト",
       "kind": "architecture",
-      "summary": "単一core reactor threadを持ち、全pjsua_*呼出をシリアライズする並行性モデル。PJSIP callbackから公開APIを直接実行しない設計方針。",
+      "summary": "PJSIPネイティブスレッドから公開APIを保護する単一core reactor thread方式。User async context/Core reactor/PJSIP native callbacks/Audio worker tasksの4実行コンテキストを定義。",
       "language": "rust",
       "slug": "concurrency_model",
       "headingRefs": [
         {
+          "refId": "REF173",
           "heading": 2,
           "texts": [
             "7. 並行性モデル"
-          ],
-          "refId": "REF012"
+          ]
+        },
+        {
+          "refId": "REF174",
+          "heading": 3,
+          "texts": [
+            "7.1 実行コンテキスト"
+          ]
         }
       ]
     },
     {
       "id": "N0013",
-      "title": "§7.1 実行コンテキスト — 4層のスレッドモデル",
-      "kind": "architecture",
-      "summary": "User async context（利用者tokio task）、Core reactor（専用std::thread）、PJSIP native callbacks（最小限のwork enqueueのみ）、Audio worker tasks（Tokio blocking pool上でAsyncAudioSourceからのpull・ミキシング・リサンプル・整列・lock-free queue書込）の4層を定義。",
+      "title": "§7.1a 単一Reactorのスケーラビリティ注記",
+      "kind": "rationale",
+      "summary": "単一Reactorは〜30同時通話まで十分。大規模PBX級(100アカウント・300通話以上)はreactor分割を別途検討するがPJSIPスレッド安全制約がボトルネックになる可能性に注意。",
       "language": "rust",
-      "slug": "execution_context_thread",
+      "slug": "reactor_scalability_note",
       "headingRefs": [
         {
+          "refId": "REF175",
           "heading": 3,
           "texts": [
-            "7.1 実行コンテキスト"
-          ],
-          "refId": "REF013"
+            "7.1a 単一Reactorのスケーラビリティ注記"
+          ]
         }
       ]
     },
     {
       "id": "N0014",
-      "title": "§7.1a 単一Reactorのスケーラビリティ注記",
-      "kind": "rationale",
-      "summary": "単一ReactorはTauriデスクトップアプリ・AI電話エージェント・〜30同時通話まで十分。大規模PBX級（100アカウント・300通話以上）ではreactor分割が必要だが、PJSIPのスレッド安全制約がボトルネックになる可能性を指摘。",
+      "title": "§7.2 command serialization と RuntimeCommand enum",
+      "kind": "api_contract",
+      "summary": "RuntimeCommandをunbounded MPSCでreactorへ送信・単一スレッド順序実行・oneshotで結果返却。Initialize/AddAccount/RemoveAccount/SetRegistration/MakeCall/Hangup/Hold/Unhold/SendDtmf/Shutdownの10バリアント。",
       "language": "rust",
-      "slug": "single_reactor_scalabilit",
+      "slug": "runtimecommand_enum",
       "headingRefs": [
         {
+          "refId": "REF176",
           "heading": 3,
           "texts": [
-            "7.1a 単一Reactorのスケーラビリティ注記"
-          ],
-          "refId": "REF014"
+            "7.2 command serialization"
+          ]
         }
       ]
     },
     {
       "id": "N0015",
-      "title": "§7.2 RuntimeCommandによるコマンドシリアライズ",
-      "kind": "architecture",
-      "summary": "RuntimeCommand enumの完全定義。Initialize/AddAccount/RemoveAccount/SetRegistration/MakeCall/Hangup/Hold/Unhold/SendDtmf/Shutdownの各バリアントをunbounded MPSCでreactorへ送り、単一スレッド順序実行・oneshot返却。PJSUAのスレッド安全制約を隠蔽しSend+Syncを成立させる。",
+      "title": "§8.1 crate ルート — 公開型の再export",
+      "kind": "api_contract",
+      "summary": "SipClient/各種Config/AccountId/CallId/SipAccountHandle/各種Audio型/SipEvent/EventBus/SipError等をcrateルートからpub useで再export。",
       "language": "rust",
-      "slug": "command_serialization_run",
+      "slug": "crate_root_exports",
       "headingRefs": [
         {
+          "refId": "REF177",
           "heading": 3,
           "texts": [
-            "7.2 command serialization"
-          ],
-          "refId": "REF015"
+            "8.1 crate ルート"
+          ]
+        },
+        {
+          "heading": 2,
+          "texts": [
+            "8. 公開 API 設計"
+          ]
         }
       ]
     },
     {
       "id": "N0016",
-      "title": "§8 公開API設計 — crateルート再export",
+      "title": "§8.2 SipClient 構造体",
       "kind": "api_contract",
-      "summary": "crateルートからの公開型再export一覧。SipClient、各Config、AccountId/SipAccountHandle/RegistrationState、CallId/CallState/OutgoingCallRequest/IncomingCall/HangupReason/ReferRequest、audio各種、SipEvent/SipEventPayload/EventBus/AccountEventReceiver、SipError/SipErrorKind。",
+      "summary": "SipClientはArc<ClientInner>の参照カウントハンドル。内部にRuntimeHandle/EventBus/RwLock<ClientState>/watch::Sender<bool>を持つ。Clone可能。",
       "language": "rust",
-      "slug": "public_api_crate_root_ree",
+      "slug": "sipclient_struct",
       "headingRefs": [
         {
-          "heading": 2,
-          "texts": [
-            "8. 公開 API 設計"
-          ],
-          "refId": "REF016"
-        },
-        {
+          "refId": "REF178",
           "heading": 3,
           "texts": [
-            "8.1 crate ルート"
-          ],
-          "refId": "REF017"
+            "8.2 SipClient"
+          ]
         }
       ]
     },
     {
       "id": "N0017",
-      "title": "§8.2 SipClient内部構造",
-      "kind": "data_model",
-      "summary": "SipClientは参照カウント化された薄いハンドル（Arc<ClientInner>）。ClientInnerはRuntimeHandle、EventBus、tokio::sync::RwLock<ClientState>、shutdown watch channelを持つ。",
+      "title": "§8.3 SipClient API — 公開メソッド",
+      "kind": "api_contract",
+      "summary": "new/subscribe/subscribe_raw_sip/subscribe_account/add_account/remove_account/account/accounts/shutdownの9公開メソッド。全てasync。",
       "language": "rust",
-      "slug": "sip_client_internal_struc",
+      "slug": "sipclient_api_methods",
       "headingRefs": [
         {
+          "refId": "REF179",
           "heading": 3,
           "texts": [
-            "8.2 SipClient"
-          ],
-          "refId": "REF018"
+            "8.3 SipClient API"
+          ]
         }
       ]
     },
     {
       "id": "N0018",
-      "title": "§8.3 SipClient公開API",
+      "title": "§8.4 SipAccountHandle API",
       "kind": "api_contract",
-      "summary": "SipClientの公開APIシグネチャ。new/subscribe/subscribe_raw_sip/subscribe_account/add_account/remove_account/account/accounts/shutdown。制御系イベント購読、RawSIPメッセージ購読、アカウント単位購読を提供。",
+      "summary": "SipAccountHandleはClone可能なアカウント操作ハンドル。id/register/unregister/set_registration_enabled/registration_state/make_call/update_configの7メソッド。",
       "language": "rust",
-      "slug": "sip_client_public_api",
+      "slug": "sipaccounthandle_api",
       "headingRefs": [
         {
+          "refId": "REF180",
           "heading": 3,
           "texts": [
-            "8.3 SipClient API"
-          ],
-          "refId": "REF019"
+            "8.4 SipAccountHandle API"
+          ]
         }
       ]
     },
     {
       "id": "N0019",
-      "title": "§8.4 SipAccountHandle API",
+      "title": "§8.5 OutgoingCallRequest 構造体",
       "kind": "api_contract",
-      "summary": "SipAccountHandleの公開API。id/register/unregister/set_registration_enabled/registration_state/make_call/update_config。利用者はこのハンドルを通じてアカウント単位操作を行う。",
+      "summary": "target_uri/headers/auth_override/preferred_transport/media(CallMediaPreferences)/auto_answer_referのフィールド。preferred_codecsはPCMU/Opusのみ受理。",
       "language": "rust",
-      "slug": "sip_account_handle_api",
+      "slug": "outgoingcallrequest",
       "headingRefs": [
         {
+          "refId": "REF181",
           "heading": 3,
           "texts": [
-            "8.4 SipAccountHandle API"
-          ],
-          "refId": "REF020"
+            "8.5 OutgoingCallRequest"
+          ]
         }
       ]
     },
     {
       "id": "N0020",
-      "title": "§8.5 OutgoingCallRequestとCallMediaPreferences",
-      "kind": "api_contract",
-      "summary": "OutgoingCallRequestのフィールド定義（target_uri/headers/auth_override/preferred_transport/media/auto_answer_refer）とCallMediaPreferences（enable_early_media/enable_srtp/preferred_codecs）。preferred_codecsはPCMU/Opusのみ受理。",
+      "title": "§9 ID設計 — AccountId/CallId/AudioSourceId",
+      "kind": "data_model",
+      "summary": "ランタイム一意な非ゼロ整数のnewtype。PJSUAのnative id再利用に対応するためBiMap<RuntimeId, NativeId>で内部変換。Debug/Clone/Copy/PartialEq/Eq/Hash/PartialOrd/Ordをderive。",
       "language": "rust",
-      "slug": "outgoing_call_request_med",
+      "slug": "id_design_newtypes",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF182",
+          "heading": 2,
           "texts": [
-            "8.5 OutgoingCallRequest"
-          ],
-          "refId": "REF021"
+            "9. ID 設計"
+          ]
         }
       ]
     },
     {
       "id": "N0021",
-      "title": "§9 ID設計 — 識別子のnewtype隠蔽",
-      "kind": "data_model",
-      "summary": "AccountId/CallId/AudioSourceIdをNonZeroU64のnewtypeとして定義。PJSUAのpjsua_acc_id/pjsua_call_idは再利用されうるためBiMap<RuntimeId,NativeId>で変換し、そのまま公開しない。",
+      "title": "§10 ClientConfig 完全仕様",
+      "kind": "config",
+      "summary": "ClientConfig構造体の全フィールド定義。user_agent/log_level/max_calls/event_bus_capacity/audio/transports/ice/srtp/tls/accounts/raw_sip_events/log_level_filter等。",
       "language": "rust",
-      "slug": "id_design_newtype_hiding",
+      "slug": "clientconfig_spec",
       "headingRefs": [
         {
+          "refId": "REF183",
           "heading": 2,
           "texts": [
-            "9. ID 設計"
-          ],
-          "refId": "REF022"
+            "10. ClientConfig 完全仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0022",
-      "title": "§10 ClientConfig完全仕様",
+      "title": "§10.1 ClientConfig 既定値",
       "kind": "config",
-      "summary": "ClientConfigの全フィールド定義。user_agent/log_level/max_calls/event_bus_capacity/raw_sip_event_capacity/audio（default_delivery_format等）/transports/stun_servers/turn_servers/ice/raw_sip_events/timeouts。加えてClientAudioConfig/LogLevel/TimeoutConfig/RawSipEventConfigの定義。",
+      "summary": "各フィールドのデフォルト値。16kHz/i16/stereo(L=IN,R=OUT)を既定delivery formatとする。",
       "language": "rust",
-      "slug": "client_config_full_spec",
+      "slug": "clientconfig_defaults",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF184",
+          "heading": 3,
           "texts": [
-            "10. ClientConfig 完全仕様"
-          ],
-          "refId": "REF023"
+            "10.1 既定値"
+          ]
         }
       ]
     },
     {
       "id": "N0023",
-      "title": "§10.1 ClientConfig既定値",
+      "title": "§11 AccountConfig 完全仕様",
       "kind": "config",
-      "summary": "ClientConfig::default()の完全な既定値定義。user_agent=\"tauri-siprs/0.1\"、log_level=Info、max_calls=32、event_bus_capacity=2048、raw_sip_event_capacity=4096、audio 16kHz/i16/stereo/pair_buffer_ms=120等、timeouts各値。既定delivery formatは16kHz/i16/stereo(L=IN,R=OUT)。",
+      "summary": "AccountConfig構造体の全フィールド定義。username/domain/password/registrar_uri/realm/transport/register_on_start/allow_outbound_without_register等。",
       "language": "rust",
-      "slug": "client_config_defaults",
+      "slug": "accountconfig_spec",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF185",
+          "heading": 2,
           "texts": [
-            "10.1 既定値"
-          ],
-          "refId": "REF024"
+            "11. AccountConfig 完全仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0024",
-      "title": "§11 AccountConfig完全仕様",
-      "kind": "config",
-      "summary": "AccountConfigの全フィールド定義。display_name/username/auth_username/password(SecretString)/domain/registrar_uri/outbound_proxy/contact_params/transport/register_on_start/allow_outbound_without_register/registration_expires/codecs/dtmf/media/headers。加えてAccountCodecPolicy/OpusConfig/DtmfPolicy/AccountMediaConfig。",
+      "title": "§11.1 AccountConfig validation rules",
+      "kind": "error_policy",
+      "summary": "username/domain/passwordは空禁止。register_on_start==falseでもallow_outbound_without_register==trueなら有効。registrar_uri未指定時はsip:{domain}を自動導出。",
       "language": "rust",
-      "slug": "account_config_full_spec",
+      "slug": "accountconfig_validation",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF186",
+          "heading": 3,
           "texts": [
-            "11. AccountConfig 完全仕様"
-          ],
-          "refId": "REF025"
+            "11.1 validation rules"
+          ]
         }
       ]
     },
     {
       "id": "N0025",
-      "title": "§11.1 AccountConfig検証規則",
+      "title": "§12 TransportConfig 完全仕様",
       "kind": "config",
-      "summary": "AccountConfigのvalidation rules。username/domain/passwordは空禁止。register_on_start=falseでもallow_outbound_without_register=trueなら有効。registrar_uri未指定時はsip:{domain}を自動導出。codec policyはenable_pcmu||enable_opus必須。DTMF policyは送受信とも1つ以上必須。",
+      "summary": "Transport/ICE/STUN/TURN/SRTPの設定構造体。TLSはfeature flagでAPIから完全に消える設計。",
       "language": "rust",
-      "slug": "account_config_validation",
+      "slug": "transportconfig_spec",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF187",
+          "heading": 2,
           "texts": [
-            "11.1 validation rules"
-          ],
-          "refId": "REF026"
+            "12. TransportConfig 完全仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0026",
-      "title": "§12 TransportConfig完全仕様",
+      "title": "§13 ICE/STUN/TURN 完全仕様",
       "kind": "config",
-      "summary": "TransportConfig enumの定義。Udp(UdpTransportConfig)/Tcp(TcpTransportConfig)/Tls(TlsTransportConfig: feature=\"tls\")。TLSはfeature flagで型レベルで出現制御。TlsConfigにはverify_server/ca_cert_path/client_cert_path/client_key_path/server_name/allow_insecure_cipher_legacy。",
+      "summary": "ICE対応・複数STUN/TURN設定。trickle ICE未対応時はvalidation errorではなくcapability matrixで明示。",
       "language": "rust",
-      "slug": "transport_config_full_spe",
+      "slug": "ice_stun_turn_spec",
       "headingRefs": [
         {
+          "refId": "REF188",
           "heading": 2,
           "texts": [
-            "12. TransportConfig 完全仕様"
-          ],
-          "refId": "REF027"
+            "13. ICE/STUN/TURN 完全仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0027",
-      "title": "§13 ICE/STUN/TURN完全仕様",
-      "kind": "config",
-      "summary": "IceConfig（enabled/aggressive_nomination/trickle_ice/renomination/max_host_candidates）と既定値、StunServerConfig（uri）、TurnServerConfig（uri/username/password/transport）の定義。trickle ICEはdisabled defaultのoptional optimization。",
+      "title": "§14 エラー設計 — SipError型",
+      "kind": "data_model",
+      "summary": "全APIはResult<T, SipError>。SipErrorはnative error code・文脈・recoverabilityを保持。pj_status_t!=PJ_SUCCESSはNativeErrorまたは文脈特化エラーへ変換。",
       "language": "rust",
-      "slug": "ice_stun_turn_full_spec",
+      "slug": "sipersor_type",
       "headingRefs": [
         {
+          "refId": "REF189",
           "heading": 2,
           "texts": [
-            "13. ICE/STUN/TURN 完全仕様"
-          ],
-          "refId": "REF028"
+            "14. エラー設計"
+          ]
         }
       ]
     },
     {
       "id": "N0028",
-      "title": "§14 エラー設計 — SipErrorとSipErrorKind",
+      "title": "§14.1 エラー変換方針",
       "kind": "error_policy",
-      "summary": "全APIがResult<T,SipError>を返す統一エラーモデル。SipErrorはkind(SipErrorKind)/message/native_status/account_id/call_id/retryableを保持。SipErrorKindは20種のenum（InvalidConfig/InvalidState/AlreadyInitialized/NotInitialized/AccountNotFound/CallNotFound/TransportInitFailed/RegistrationFailed/AuthenticationFailed/InviteFailed/MediaInitFailed/MediaNegotiationFailed/IceFailed/TlsFailed/SrtpFailed/AudioFormatUnsupported/AudioPipelineBroken/DtmfFailed/Timeout/ChannelClosed/NativeError/ShutdownInProgress/InternalInvariantBroken）。",
+      "summary": "pj_status_t -> SipErrorの変換ルール。4xx/5xx/6xxはSIP応答コードをInviteFailed/RegistrationFailedに格納。",
       "language": "rust",
-      "slug": "error_design_sip_error_ki",
+      "slug": "error_conversion_policy",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF190",
+          "heading": 3,
           "texts": [
-            "14. エラー設計"
-          ],
-          "refId": "REF029"
+            "14.1 エラー変換方針"
+          ]
         }
       ]
     },
     {
       "id": "N0029",
-      "title": "§14.1 エラー変換方針",
+      "title": "M20 新RuntimeCommandのエラー設計",
       "kind": "error_policy",
-      "summary": "pj_status_t!=PJ_SUCCESSは必ずNativeErrorまたは文脈特化エラーへ変換。4xx/5xx/6xxはSIP応答コードをInviteFailed/RegistrationFailedに格納。callback内panicはcatch_unwindでInternalInvariantBrokenをemitし該当call/accountを安全停止。",
+      "summary": "RuntimeCommand::ConfConnect/ConfDisconnect/GetAccountInfoのエラーは既存InvalidState/NotFound/InternalErrorを兼用。新規エラーバリアントは追加しない。",
       "language": "rust",
-      "slug": "error_conversion_policy",
+      "slug": "m20_new_cmd_errors",
       "headingRefs": [
         {
+          "refId": "REF191",
           "heading": 3,
           "texts": [
-            "14.1 エラー変換方針"
-          ],
-          "refId": "REF030"
+            "M20 追補: 新 RuntimeCommand のエラー設計"
+          ]
         }
       ]
     },
     {
       "id": "N0030",
-      "title": "§14 M20追補: 新RuntimeCommandのエラー設計",
-      "kind": "error_policy",
-      "summary": "ConfConnect/ConfDisconnect/GetAccountInfoの3つの新RuntimeCommandのエラー設計。既存のInvalidState/NotFound/InternalErrorで全失敗条件を表現し新規バリアントは追加しない。ConfConnectエラー変換の擬似コード例を含む。",
+      "title": "§15.1 SipEventPayload — 全イベント定義",
+      "kind": "api_contract",
+      "summary": "全SIPイベントをpayload enumで完全定義。制御系イベントとメディア系イベントをチャネル種別で分離。全バリアントにAccountId/タイムスタンプ/ステータスコード等の共通フィールド。",
       "language": "rust",
-      "slug": "m20_new_runtime_command_e",
+      "slug": "sipeventpayload_enum",
       "headingRefs": [
         {
+          "refId": "REF192",
           "heading": 3,
           "texts": [
-            "M20 追補: 新 RuntimeCommand のエラー設計"
-          ],
-          "refId": "REF031"
+            "15.1 SipEventPayload"
+          ]
+        },
+        {
+          "heading": 2,
+          "texts": [
+            "15. イベントモデル"
+          ]
         }
       ]
     },
     {
       "id": "N0031",
-      "title": "§15 イベントモデル概要",
-      "kind": "architecture",
-      "summary": "全イベントをSipEventPayload enumで完全定義し、SipEvent（メタデータ+payload）にラップ。チャネル種別によりloss-tolerantな制御系と大量発生するメディア系を分離するイベントモデルの概要。",
+      "title": "§15.2 SipEvent と §15.3 EventMeta",
+      "kind": "api_contract",
+      "summary": "SipEventはメタデータ+payloadのラッパー構造体。EventMetaはイベント種別・発生時刻・関連AccountId・シーケンス番号を保持。",
       "language": "rust",
-      "slug": "event_model_overview",
+      "slug": "sipevent_eventmeta",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF193",
+          "heading": 3,
           "texts": [
-            "15. イベントモデル"
-          ],
-          "refId": "REF032"
+            "15.2 SipEvent"
+          ]
+        },
+        {
+          "refId": "REF194",
+          "heading": 3,
+          "texts": [
+            "15.3 EventMeta"
+          ]
         }
       ]
     },
     {
       "id": "N0032",
-      "title": "§15.1 SipEventPayload — 全イベント種別定義",
-      "kind": "api_contract",
-      "summary": "SipEventPayload enumの完全定義。#[non_exhaustive]付き。登録系5種、発着信系12種、メディア系3種、DTMF系2種、ICE系3種、トランスポート系3種、アカウント系3種、クライアントライフサイクル系2種、エラー系1種の計34バリアント。",
+      "title": "§15.4 EventBus — イベント配信機構",
+      "kind": "architecture",
+      "summary": "tokio broadcast channelベースのイベント配信。制御系とRawSIP用に別バス。subscribe_control/subscribe_raw_sipの2購読口。",
       "language": "rust",
-      "slug": "sip_event_payload_full_de",
+      "slug": "eventbus_architecture",
       "headingRefs": [
         {
+          "refId": "REF195",
           "heading": 3,
           "texts": [
-            "15.1 SipEventPayload"
-          ],
-          "refId": "REF033"
+            "15.4 EventBus"
+          ]
         }
       ]
     },
     {
       "id": "N0033",
-      "title": "§15.2 SipEvent・§15.3 EventMeta",
-      "kind": "data_model",
-      "summary": "SipEvent（meta: EventMeta + payload: SipEventPayload）とEventMeta（event_id/timestamp/account_id/call_id/direction/headers/status_code/reason_phrase/logical_context）のデータ構造定義。",
+      "title": "§15.5 AccountEventReceiver",
+      "kind": "api_contract",
+      "summary": "アカウント単位のイベント購読インターフェース。account_idでフィルタリングされたSipEventを受信。",
       "language": "rust",
-      "slug": "sip_event_event_meta",
+      "slug": "accounteventreceiver",
       "headingRefs": [
         {
+          "refId": "REF196",
           "heading": 3,
           "texts": [
-            "15.2 SipEvent"
-          ],
-          "refId": "REF034"
-        },
-        {
-          "heading": 3,
-          "texts": [
-            "15.3 EventMeta"
-          ],
-          "refId": "REF171"
+            "15.5 AccountEventReceiver"
+          ]
         }
       ]
     },
     {
       "id": "N0034",
-      "title": "§15.4 EventBus — 制御系・RawSIP分割バス",
-      "kind": "architecture",
-      "summary": "EventBusの内部構造。制御系イベント用controlバスとRawSIPメッセージ専用raw_sipバス（Option）をtokio::sync::broadcastで実装。subscribe_control/subscribe_raw_sip/publish/publish_raw_sipの全メソッド。RawSIP無効時はraw_sipチャネル自体が作成されずオーバーヘッドゼロ。",
+      "title": "§15.6 イベントバス分割の設計判断",
+      "kind": "rationale",
+      "summary": "制御系とRawSIPを別バスに分割する判断。RawSIP有効時の制御系イベント取りこぼし防止が目的。",
       "language": "rust",
-      "slug": "event_bus_control_raw_sip",
+      "slug": "eventbus_split_rationale",
       "headingRefs": [
         {
+          "refId": "REF197",
           "heading": 3,
           "texts": [
-            "15.4 EventBus"
-          ],
-          "refId": "REF035"
+            "15.6 イベントバス分割の設計判断"
+          ]
         }
       ]
     },
     {
       "id": "N0035",
-      "title": "§15.5 AccountEventReceiver",
-      "kind": "api_contract",
-      "summary": "AccountEventReceiverの実装。account_idでフィルタリングし、該当アカウントのイベントのみをrecv()で返す。tokio::sync::broadcast::Receiverを内部に保持。",
+      "title": "§15.7 イベントバスは観測用途であり確実配送を保証しない",
+      "kind": "config",
+      "summary": "broadcast channelの性質上、受信側が読み遅れた場合のイベント消失は許容設計。制御系重要イベントも同様。確実配送が必要なユースケースでは上位層でreconciliationを実装する必要。",
       "language": "rust",
-      "slug": "account_event_receiver",
+      "slug": "eventbus_best_effort",
       "headingRefs": [
         {
+          "refId": "REF198",
           "heading": 3,
           "texts": [
-            "15.5 AccountEventReceiver"
-          ],
-          "refId": "REF036"
+            "15.7 重要: イベントバスは観測用途であり確実配送を保証しない"
+          ]
         }
       ]
     },
     {
       "id": "N0036",
-      "title": "§15.6 イベントバス分割の設計判断",
-      "kind": "rationale",
-      "summary": "制御系イベント（登録・発着信・DTMF・ICE・トランスポート・ライフサイクル・エラー）とRawSIPメッセージを別バスで配送する設計判断の理由。単一プロデューサ内で順序preserve、RawSIP大量発生時の制御系取りこぼし防止、subscribe_raw_sip()による追加購読。",
+      "title": "M20 NativeEvent変換基本方針",
+      "kind": "requirement",
+      "summary": "全NativeEvent→SipEventPayload変換をP0/P1/P2優先度付きで完全実装。Registration/Call/DTMF系はP0、SubscribeAudio/Transport/ICE系はP1/P2。",
       "language": "rust",
-      "slug": "event_bus_split_rationale",
+      "slug": "m20_nativeevent_policy",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF199",
+          "heading": 4,
           "texts": [
-            "15.6 イベントバス分割の設計判断"
-          ],
-          "refId": "REF037"
+            "基本方針"
+          ]
         }
       ]
     },
     {
       "id": "N0037",
-      "title": "§15.7 イベントバスの観測用途・確実配送非保証",
-      "kind": "architecture",
-      "summary": "イベントバスは観測・UI更新・ロギング用途であり確実配送を保証しない。lossy配送（Lagged(n)で通知）・再送機構なし・取りこぼし検知と復旧（query APIで状態再取得）・ソースオブ真理はSipClientのquery API。capacity設計（既定2048=100通話分余裕）。",
+      "title": "M20 NativeEvent→SipEventPayload 完全マッピングテーブル",
+      "kind": "api_contract",
+      "summary": "全NativeEvent→SipEventPayloadの変換マッピングテーブル。RegistrationStateChanged/CallStateChanged/CallMediaStateChanged/DtmfReceived/DtmfSent等の対応関係。",
       "language": "rust",
-      "slug": "event_bus_observation_bes",
+      "slug": "m20_event_mapping_table",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF200",
+          "heading": 4,
           "texts": [
-            "15.7 重要: イベントバスは観測用途であり確実配送を保証しない"
-          ],
-          "refId": "REF038"
+            "完全マッピングテーブル"
+          ]
         }
       ]
     },
     {
       "id": "N0038",
-      "title": "§15 M20追補: NativeEvent→SipEventPayload変換マッピング",
-      "kind": "architecture",
-      "summary": "Reactorのprocess_native_event()がPJSIP callbackから受信したNativeEventをSipEventPayloadに変換する完全マッピング設計。重要度P0（Registration/Call/DTMF）・P1（Transport/ICE）・P2（補完的情報）の3段階優先度。",
+      "title": "M20 CallStateChanged の pjsip_inv_state マッピング",
+      "kind": "state_machine",
+      "summary": "pjsip_inv_stateの各値(NULL/CALLING/CONNECTING/CONFIRMED/DISCONNECTED)をCallStateへ変換するルール。PJSIPとRust側の状態の同期を定義。",
       "language": "rust",
-      "slug": "m20_native_event_to_paylo",
+      "slug": "m20_callstate_mapping",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF201",
+          "heading": 4,
           "texts": [
-            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
-          ],
-          "refId": "REF039"
+            "CallStateChanged の pjsip_inv_state マッピング"
+          ]
         }
       ]
     },
     {
       "id": "N0039",
-      "title": "§15 M20追補: 基本方針 — 優先度別実装計画",
-      "kind": "requirement",
-      "summary": "NativeEvent→SipEventPayload変換の基本方針。P0: RegistrationStateChanged/CallStateChanged/CallMediaStateChanged/DtmfDigit（統合テストの成立に必須）。P1: TransportStateChanged/IceTransportError（運用観測・障害検知）。P2: CallTsxStateChanged等（補完的情報、RawSIP購読でカバー）。全NativeEventの実装をM20で完了。",
+      "title": "M20 CallMediaStateChanged の media_status 判定",
+      "kind": "state_machine",
+      "summary": "media_status判定ロジック。Active/Held/Errorの3状態への変換ルールと判定条件。",
       "language": "rust",
-      "slug": "m20_native_event_priority",
+      "slug": "m20_mediastate_judgment",
       "headingRefs": [
         {
+          "refId": "REF202",
           "heading": 4,
           "texts": [
-            "基本方針"
-          ],
-          "refId": "REF040"
+            "CallMediaStateChanged の media_status 判定"
+          ]
         }
       ]
     },
     {
       "id": "N0040",
-      "title": "§15 M20追補: 完全マッピングテーブル",
-      "kind": "data_model",
-      "summary": "convert_native_event_to_payload関数の完全実装マッピング。RegistrationStateChanged→RuntimeCommand::GetAccountInfo経由、CallStateChanged→convert_call_state()、DtmfDigit→DtmfReceived、TransportStateChanged→P1、CallTsxStateChanged等→None（対象外）。",
+      "title": "M20 RegistrationStateChanged の RuntimeCommand パターン",
+      "kind": "architecture",
+      "summary": "RegistrationStateChanged通知はRuntimeCommand::GetAccountInfo経由で非同期的に状態を取得する設計。callback内で直接状態を書き換えず、reactorに問い合わせる。",
       "language": "rust",
-      "slug": "m20_full_mapping_table",
+      "slug": "m20_reg_rt_cmd",
       "headingRefs": [
         {
+          "refId": "REF203",
           "heading": 4,
           "texts": [
-            "完全マッピングテーブル"
-          ],
-          "refId": "REF041"
+            "RegistrationStateChanged の RuntimeCommand パターン"
+          ]
         }
       ]
     },
     {
       "id": "N0041",
-      "title": "§15 M20追補: CallStateChangedのpjsip_inv_stateマッピング",
-      "kind": "state_machine",
-      "summary": "PJSIPのpjsip_inv_state enum値（NULL=0/CALLING=1/CONNECTING=2/CONFIRMED=3/DISCONNECTED=4）とCallStateの対応表。convert_call_state関数の疑似実装。CONNECTING状態のTrying/Ringing判別はReactorのCallEntryのprevious_stateを参照。",
+      "title": "§16 raw SIP メッセージ仕様",
+      "kind": "api_contract",
+      "summary": "RawSipMessage構造体。redact_authorization==trueでAuthorization/Proxy-Authorizationを***REDACTED***に置換。",
       "language": "rust",
-      "slug": "call_state_changed_pjsip",
+      "slug": "raw_sip_message_spec",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF204",
+          "heading": 2,
           "texts": [
-            "CallStateChanged の pjsip_inv_state マッピング"
-          ],
-          "refId": "REF042"
+            "16. raw SIP メッセージ仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0042",
-      "title": "§15 M20追補: CallMediaStateChangedのmedia_status判定",
+      "title": "§17 登録状態モデル",
       "kind": "state_machine",
-      "summary": "on_call_media_state() callbackから発火されるCallMediaStateChangedの変換ロジック。PJSUA_CALL_MEDIA_NONE→イベントなし、ACTIVE→MediaActive、LOCAL_HOLD/REMOTE_HOLD→CallHeld、ERROR→MediaError。convert_call_media_stateの擬似実装。",
+      "summary": "RegistrationState enum定義。Disabled/Idle/Registering/Registered/Unregistering/Errorの6状態。",
       "language": "rust",
-      "slug": "call_media_state_changed",
+      "slug": "registration_state_model",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF205",
+          "heading": 2,
           "texts": [
-            "CallMediaStateChanged の media_status 判定"
-          ],
-          "refId": "REF043"
+            "17. 登録状態モデル"
+          ]
         }
       ]
     },
     {
       "id": "N0043",
-      "title": "§15 M20追補: RegistrationStateChangedのRuntimeCommandパターン",
-      "kind": "architecture",
-      "summary": "RegistrationStateChangedはPJSIP API(pjsua_acc_get_info)の能動的呼出を必要とするため、RuntimeCommand::GetAccountInfoを経由する非同期パターン。callback→NativeEvent→Reactor→RuntimeCommand→PjsuaBackend→pjsua_acc_get_info→Reactor→EventBusのフロー。AccountInfoSnapshot構造体定義。",
+      "title": "§17.1 登録状態遷移規則",
+      "kind": "state_machine",
+      "summary": "各状態からの遷移条件とトリガー。Disabled→Registering/Idle→Registering/Registered→Unregistering等の完全遷移表。",
       "language": "rust",
-      "slug": "registration_state_change",
+      "slug": "reg_transition_rules",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF206",
+          "heading": 3,
           "texts": [
-            "RegistrationStateChanged の RuntimeCommand パターン"
-          ],
-          "refId": "REF044"
+            "17.1 遷移規則"
+          ]
         }
       ]
     },
     {
       "id": "N0044",
-      "title": "§16 RawSIPメッセージ仕様",
-      "kind": "data_model",
-      "summary": "RawSipMessage構造体の定義。direction/transport/start_line/headers/body/text/content_length/remote_addr/local_addr。redact_authorization=trueの場合Authorization/Proxy-Authorizationを***REDACTED***に置換。",
+      "title": "§18 通話状態モデル",
+      "kind": "state_machine",
+      "summary": "CallState enum定義。New/Calling/Trying/Ringing/EarlyMedia/Connecting/Active/Held/Disconnecting/Incomingの10状態。",
       "language": "rust",
-      "slug": "raw_sip_message_spec",
+      "slug": "call_state_model",
       "headingRefs": [
         {
+          "refId": "REF207",
           "heading": 2,
           "texts": [
-            "16. raw SIP メッセージ仕様"
-          ],
-          "refId": "REF045"
+            "18. 通話状態モデル"
+          ]
         }
       ]
     },
     {
       "id": "N0045",
-      "title": "§17 登録状態モデル — RegistrationState",
+      "title": "§18.1 通話状態遷移規則",
       "kind": "state_machine",
-      "summary": "RegistrationState enumの定義（Disabled/Idle/Registering/Registered/Unregistering/Failed/Expiredの7状態）。Mermaid状態遷移図と全遷移規則（Disabled→Registering、Registered→Expired、Expired→Registering等）。未登録でもmake_call()は常に可能。",
+      "summary": "Outgoing: New→Calling→Trying→Ringing|EarlyMedia→Connecting→Active→Held↔Active→Disconnecting。Incoming: New→Incoming→Connecting→Active。",
       "language": "rust",
-      "slug": "registration_state_model",
+      "slug": "call_transition_rules",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF208",
+          "heading": 3,
           "texts": [
-            "17. 登録状態モデル"
-          ],
-          "refId": "REF046"
+            "18.1 遷移規則"
+          ]
         }
       ]
     },
     {
       "id": "N0046",
-      "title": "§17.1 登録状態遷移規則",
-      "kind": "state_machine",
-      "summary": "RegistrationStateの全遷移規則の列挙。Disabled→Registering（register/set_enabled）、Idle→Registering、Registering→Registered|Failed、Registered→Unregistering→Idle|Failed、Registered→Expired→Registering、Failed→Registering。",
+      "title": "§18.2 同時通話制約",
+      "kind": "architecture",
+      "summary": "同時通話数はClientConfig::max_callsで制限。上限到達時の振る舞いを定義。",
       "language": "rust",
-      "slug": "registration_state_transi",
+      "slug": "concurrent_call_limit",
       "headingRefs": [
         {
+          "refId": "REF209",
           "heading": 3,
           "texts": [
-            "17.1 遷移規則"
-          ],
-          "refId": "REF047"
+            "18.2 同時通話制約"
+          ]
         }
       ]
     },
     {
       "id": "N0047",
-      "title": "§18 通話状態モデル — CallState",
-      "kind": "state_machine",
-      "summary": "CallState enumの定義（New/Calling/Trying/Ringing/EarlyMedia/Incoming/Connecting/Active/Held/Transferring/Disconnecting/Disconnected/Failedの13状態）。Mermaid状態遷移図（Outgoing/Incoming/ActiveSessionの3グループ）。",
+      "title": "§19 発着信API詳細とanswer semantics",
+      "kind": "api_contract",
+      "summary": "make_callの詳細動作。IncomingCall受信時のanswer/拒否のセマンティクス。SIP 180/183/200の扱い。",
       "language": "rust",
-      "slug": "call_state_model",
+      "slug": "call_api_semantics",
       "headingRefs": [
         {
+          "refId": "REF210",
           "heading": 2,
           "texts": [
-            "18. 通話状態モデル"
-          ],
-          "refId": "REF048"
+            "19. 発着信 API 詳細"
+          ]
+        },
+        {
+          "refId": "REF211",
+          "heading": 3,
+          "texts": [
+            "19.1 answer semantics"
+          ]
         }
       ]
     },
     {
       "id": "N0048",
-      "title": "§18.1 通話状態遷移規則",
-      "kind": "state_machine",
-      "summary": "CallStateの全遷移規則。Outgoing: New→Calling→Trying→Ringing|EarlyMedia|Connecting→Active→Held↔Active→Disconnecting→Disconnected。Incoming: New→Incoming→Connecting→Active。異常系: Ringing/EarlyMedia/Connecting→Failed(4xx/5xx/6xx)。REFER送信時Transferring transient state。",
+      "title": "§20 DTMF仕様",
+      "kind": "api_contract",
+      "summary": "send_dtmfの基本仕様。DtmfMethod(Inband/SIPInfo/RFC4733)。無効なmethod指定時はInvalidConfigエラー。DtmfReceivedイベント発火。",
       "language": "rust",
-      "slug": "call_state_transition_rul",
+      "slug": "dtmf_spec",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF212",
+          "heading": 2,
           "texts": [
-            "18.1 遷移規則"
-          ],
-          "refId": "REF049"
+            "20. DTMF 仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0049",
-      "title": "§18.2 同時通話制約",
-      "kind": "config",
-      "summary": "ClientConfig::max_callsを上限とする同時通話制約。アカウントごとの上限は未設定なら無制限だが、runtime validationでclient上限のみ強制。",
+      "title": "M20 DtmfSentInfo 構造体",
+      "kind": "api_contract",
+      "summary": "DtmfSentInfo構造体の定義。call_id/digits/method/timestampを保持。send_dtmf戻り値とDtmfSentイベントの二段構え設計。",
       "language": "rust",
-      "slug": "concurrent_call_constrain",
+      "slug": "m20_dtmfsentinfo_struct",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF213",
+          "heading": 4,
           "texts": [
-            "18.2 同時通話制約"
-          ],
-          "refId": "REF050"
+            "DtmfSentInfo 構造体"
+          ]
         }
       ]
     },
     {
       "id": "N0050",
-      "title": "§19 発着信API詳細",
-      "kind": "api_contract",
-      "summary": "SipClientの発着信操作API。answer/hangup/hold/unhold/transfer/send_dtmf/call_state。answer()はincoming call以外にInvalidState。",
+      "title": "M20 DtmfSent 発火タイミング",
+      "kind": "state_machine",
+      "summary": "send_dtmf戻り値=コマンド受理、DtmfSent=送出完了の二段構え。PJSIP callback不在時は500msタイムアウトベースで発火。",
       "language": "rust",
-      "slug": "call_control_api_detail",
+      "slug": "m20_dtmfsent_timing",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF214",
+          "heading": 4,
           "texts": [
-            "19. 発着信 API 詳細"
-          ],
-          "refId": "REF051"
+            "DtmfSent 発火タイミング"
+          ]
         }
       ]
     },
     {
       "id": "N0051",
-      "title": "§19.1 answer semantics",
-      "kind": "api_contract",
-      "summary": "answer()の応答コード意味論。180: 着信呼出継続、183: SDP付きprovisional answer、200: 通話受諾、486: Busy Here、603: Decline。incoming call以外に対してInvalidState。",
+      "title": "M20 DtmfSent の発火条件（優先順位）",
+      "kind": "error_policy",
+      "summary": "DTMF発火条件の優先順位。PJSIP callback有無・タイムアウト・エラー時のフォールバック動作。",
       "language": "rust",
-      "slug": "answer_semantics",
+      "slug": "m20_dtmfsent_conditions",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF215",
+          "heading": 4,
           "texts": [
-            "19.1 answer semantics"
-          ],
-          "refId": "REF052"
+            "DtmfSent の発火条件（優先順位）"
+          ]
         }
       ]
     },
     {
       "id": "N0052",
-      "title": "§20 DTMF仕様",
-      "kind": "api_contract",
-      "summary": "DtmfMethod enum（Inband/SipInfo/Rfc4733）とDtmfReceivedInfo構造体。送信時はaccount policyで無効なmethodはInvalidConfig。受信時はPJSIP callbackごとに正規化しDtmfReceivedを発火。",
+      "title": "§21 音声フォーマットモデルと§21.1 AudioChunkPair",
+      "kind": "data_model",
+      "summary": "IN/OUT同一タイムスタンプ対の音声モデル。AudioChunkPairは同一時刻で揃えられたIN/OUTペア音声バッファ。SampleRate/BitDepth/ChannelLayout/AudioFormatを定義。",
       "language": "rust",
-      "slug": "dtmf_spec",
+      "slug": "audio_format_chunk",
       "headingRefs": [
         {
+          "refId": "REF216",
           "heading": 2,
           "texts": [
-            "20. DTMF 仕様"
-          ],
-          "refId": "REF053"
+            "21. 音声フォーマットモデル"
+          ]
+        },
+        {
+          "refId": "REF217",
+          "heading": 3,
+          "texts": [
+            "21.1 AudioChunkPair"
+          ]
         }
       ]
     },
     {
       "id": "N0053",
-      "title": "§20 M20追補: DtmfSentInfo構造体",
-      "kind": "data_model",
-      "summary": "DtmfSentInfo構造体（method/digit/status:Result<(),SentDtmfError>/pjsip_status）とSentDtmfError enum（PjsipError/Timeout）の定義。DtmfReceivedInfoと異なり送出側の試行結果を伝える。",
+      "title": "§22 音声購読API",
+      "kind": "api_contract",
+      "summary": "subscribe_audio APIの仕様。AudioTapMode(Realtime/Lossless)の2モード。戻り値のReceiver型と利用方法。",
       "language": "rust",
-      "slug": "m20_dtmf_sent_info_struct",
+      "slug": "audio_subscription_api",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF218",
+          "heading": 2,
           "texts": [
-            "DtmfSentInfo 構造体"
-          ],
-          "refId": "REF054"
+            "22. 音声購読 API"
+          ]
         }
       ]
     },
     {
       "id": "N0054",
-      "title": "§20 M20追補: DtmfSent発火タイミング — 二段構え設計",
-      "kind": "architecture",
-      "summary": "send_dtmf()の戻り値（コマンド受理の同期確認）とDtmfSentイベント（非同期の送出完了通知）の二段構え設計。SipBackend::send_dtmfの擬似実装。",
+      "title": "§22.1 backpressure policy",
+      "kind": "config",
+      "summary": "Realtimeモードはoldest-drop(Lossy)。LosslessモードはAudioWorkerTaskでバックプレッシャーをかける。持続的バックプレッシャー時の挙動を定義。",
       "language": "rust",
-      "slug": "m20_dtmf_sent_two_phase_d",
+      "slug": "audio_backpressure_policy",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF219",
+          "heading": 3,
           "texts": [
-            "DtmfSent 発火タイミング"
-          ],
-          "refId": "REF055"
+            "22.1 backpressure policy"
+          ]
         }
       ]
     },
     {
       "id": "N0055",
-      "title": "§20 M20追補: DtmfSent発火条件（優先順位）",
-      "kind": "error_policy",
-      "summary": "DtmfSentの発火条件。1.PJSIP callback経由（最優先）: on_dtmf_digit callbackの送信完了通知。2.タイムアウトベース（fallback）: 500ms経過後にDtmfSent自動発行。DtmfConfig::sent_timeout_msで設定可能。タイマー設定の擬似実装。",
+      "title": "M20 SubscribeAudio Reactor ハンドラ実装設計",
+      "kind": "api_contract",
+      "summary": "SubscribeAudio RuntimeCommandのreactorハンドラ設計。conf_connect標準経路での実装。CallId+MediaDirectionで抽象化。",
       "language": "rust",
-      "slug": "m20_dtmf_sent_firing_cond",
+      "slug": "m20_subs_audio_handler",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF220",
+          "heading": 3,
           "texts": [
-            "DtmfSent の発火条件（優先順位）"
-          ],
-          "refId": "REF056"
+            "M20 追補: SubscribeAudio Reactor ハンドラ実装設計"
+          ]
         }
       ]
     },
     {
       "id": "N0056",
-      "title": "§21 音声フォーマットモデル",
-      "kind": "data_model",
-      "summary": "SampleRate（Hz8000/Hz16000/Hz24000/Hz48000）、BitDepth（I16/F32）、ChannelLayout（Mono/StereoInOut）、AudioFormat（sample_rate/bit_depth/channel_layout/frame_ms）の型定義。",
+      "title": "M20 AudioTapMode と conf_connect の連携",
+      "kind": "architecture",
+      "summary": "conf_port_id管理はPjsuaBackend内部で解決。RuntimeはCallIdのみ意識。conf_connect/disconnect RuntimeCommandの新設。",
       "language": "rust",
-      "slug": "audio_format_model",
+      "slug": "m20_audiotap_confconnect",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF221",
+          "heading": 4,
           "texts": [
-            "21. 音声フォーマットモデル"
-          ],
-          "refId": "REF057"
+            "AudioTapMode と conf_connect の連携"
+          ]
         }
       ]
     },
     {
       "id": "N0057",
-      "title": "§21.1 AudioChunkPair",
-      "kind": "data_model",
-      "summary": "AudioChunkPair（call_id/account_id/timestamp/in_chunk/out_chunk）とAudioChunk enum（I16(Vec<i16>)/F32(Vec<f32>)）の定義。IN/OUTは同一タイムスタンプで対にされズレは内部吸収。",
+      "title": "§23 AsyncAudioSource 仕様",
+      "kind": "api_contract",
+      "summary": "RPITIT(async fn in trait)を使用したAsyncAudioSource trait定義。fn next_chunk(&mut self)->OutputChunk。MSRV 1.95前提。",
       "language": "rust",
-      "slug": "audio_chunk_pair",
+      "slug": "asyncaudiosource_trait",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF222",
+          "heading": 2,
           "texts": [
-            "21.1 AudioChunkPair"
-          ],
-          "refId": "REF058"
+            "23. AsyncAudioSource 仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0058",
-      "title": "§22 音声購読API",
+      "title": "§23.1 動的ディスパッチと§23.2 SyncSourceAdapter",
       "kind": "api_contract",
-      "summary": "AudioTapMode enum（Realtime: oldest-drop / Lossless: バックプレッシャー）、AudioTapHandle（mpsc::Receiver<AudioChunkPair>）、SipClient::subscribe_audio API。既定値はRealtime。",
+      "summary": "Box<dyn AsyncAudioSource>のためのobject-safe wrapper自動導出。SyncSourceAdapterで同期限界ソースを非同期変換。",
       "language": "rust",
-      "slug": "audio_subscription_api",
+      "slug": "async_source_adapter",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF223",
+          "heading": 3,
           "texts": [
-            "22. 音声購読 API"
-          ],
-          "refId": "REF059"
+            "23.1 動的ディスパッチ用自動導出"
+          ]
+        },
+        {
+          "refId": "REF224",
+          "heading": 3,
+          "texts": [
+            "23.2 SyncSourceAdapter"
+          ]
         }
       ]
     },
     {
       "id": "N0059",
-      "title": "§22.1 backpressure policy",
-      "kind": "config",
-      "summary": "AudioTapMode別のバックプレッシャー挙動。Realtime: oldest-drop・チャネル満杯時は最新pair優先・MediaError(AudioTapOverflow)報告。Lossless: 送信側ブロック・持続的バックプレッシャーはジッタ誘発リスク・capacityを5秒以上相当に設定推奨。",
+      "title": "§23.3 設計判断の注記",
+      "kind": "rationale",
+      "summary": "RPITIT採用による利用者記述性向上。SyncSourceAdapterの導入判断と代替手段との比較。",
       "language": "rust",
-      "slug": "backpressure_policy",
+      "slug": "audiosource_design_notes",
       "headingRefs": [
         {
+          "refId": "REF225",
           "heading": 3,
           "texts": [
-            "22.1 backpressure policy"
-          ],
-          "refId": "REF060"
+            "23.3 設計判断の注記"
+          ]
         }
       ]
     },
     {
       "id": "N0060",
-      "title": "§22 M20追補: SubscribeAudio Reactorハンドラ実装設計",
+      "title": "§24.0 リアルタイム境界（最重要設計判断）",
       "kind": "architecture",
-      "summary": "MediaDirection enum（Inbound/Outbound/Both）とSubscribeAudio→ConfConnectの経路設計。subscribe_audio→RuntimeCommand::SubscribeAudio→Reactor→ConfConnect(MediaDirection::Both)→PjsuaBackend::conf_connect→AudioTapHandle生成のフロー。",
+      "summary": "PJSIPオーディオコールバック内でロック取得・非同期待機・メモリ確保は厳禁。crossbeam_queue::ArrayQueueでasync contextとリアルタイムcontextを分離。",
       "language": "rust",
-      "slug": "m20_subscribe_audio_react",
+      "slug": "audio_realtime_boundary",
       "headingRefs": [
         {
+          "refId": "REF226",
           "heading": 3,
           "texts": [
-            "M20 追補: SubscribeAudio Reactor ハンドラ実装設計"
-          ],
-          "refId": "REF061"
+            "24.0 リアルタイム境界（最重要設計判断）"
+          ]
+        },
+        {
+          "heading": 2,
+          "texts": [
+            "24. AudioMixer 設計"
+          ]
         }
       ]
     },
     {
       "id": "N0061",
-      "title": "§22 M20追補: SubscribeAudioハンドラ擬似実装",
+      "title": "§24.1 AudioMixerと§24.2 mixing algorithm",
       "kind": "architecture",
-      "summary": "handle_subscribe_audioの5段階実装。1.CallId→native_call_id解決、2.conf_port解決とconf_connect_media呼出、3.AudioChunkPair streamとAudioTapHandle生成、4.conf_port→AudioChunkPair変換ループ起動、5.AudioTapHandle返却。",
+      "summary": "AudioWorkerTask側で動作するAudioMixer。複数AsyncAudioSourceからの音声Pull・ミキシング・リサンプル・PairAligner整列・lock-free queue書込。",
       "language": "rust",
-      "slug": "m20_subscribe_audio_handl",
+      "slug": "audiomixer_algorithm",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF227",
+          "heading": 3,
           "texts": [
-            "SubscribeAudio ハンドラ擬似実装"
-          ],
-          "refId": "REF062"
+            "24.1 AudioMixer（AudioWorkerTask 側）"
+          ]
+        },
+        {
+          "refId": "REF228",
+          "heading": 3,
+          "texts": [
+            "24.2 mixing algorithm"
+          ]
         }
       ]
     },
     {
       "id": "N0062",
-      "title": "§22 M20追補: AudioTapModeとconf_connectの連携",
+      "title": "§24.2 gain/normalizationと§24.3 AudioWorkerTask駆動",
       "kind": "architecture",
-      "summary": "AudioTapMode別のconf_connect動作とAudioTapHandleチャネル挙動の対応表。RuntimeCommand::ConfConnectの引数は(CallId,MediaDirection)で抽象化しconf_port_id解決はPjsuaBackend内部で行う。",
+      "summary": "音声ゲイン調整と正規化。AudioWorkerTaskのTokio blocking pool上での駆動方式とフレーム処理サイクル。",
       "language": "rust",
-      "slug": "m20_audio_tap_mode_conf_c",
+      "slug": "audio_gain_worker_task",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF229",
+          "heading": 3,
           "texts": [
-            "AudioTapMode と conf_connect の連携"
-          ],
-          "refId": "REF063"
+            "24.2 gain and normalization"
+          ]
+        },
+        {
+          "refId": "REF230",
+          "heading": 3,
+          "texts": [
+            "24.3 AudioWorkerTask 駆動"
+          ]
         }
       ]
     },
     {
       "id": "N0063",
-      "title": "§23 AsyncAudioSource仕様",
-      "kind": "api_contract",
-      "summary": "RPITIT（async fn in trait）を採用したAsyncAudioSource trait（async fn next_chunk(&mut self, buf: &mut [i16]) -> usize）。MSRV 1.95でRPITIT安定化済みのため利用者はPin<Box<dyn Future>>記述不要。",
+      "title": "§24.4 source lifecycleと§24.5 slab拡張",
+      "kind": "architecture",
+      "summary": "AsyncAudioSourceの動的追加・削除・差替えライフサイクル。将来のslabベースsource管理拡張の注記。",
       "language": "rust",
-      "slug": "async_audio_source_spec",
+      "slug": "audio_source_lifecycle",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF231",
+          "heading": 3,
           "texts": [
-            "23. AsyncAudioSource 仕様"
-          ],
-          "refId": "REF064"
+            "24.4 source lifecycle"
+          ]
+        },
+        {
+          "refId": "REF232",
+          "heading": 3,
+          "texts": [
+            "24.5 将来拡張：slab ベース source 管理（注記）"
+          ]
         }
       ]
     },
     {
       "id": "N0064",
-      "title": "§23.1 動的ディスパッチ用自動導出 — ErasedAudioSource",
+      "title": "§25 IN/OUT ペア整列アルゴリズム",
       "kind": "architecture",
-      "summary": "object-safeなErasedAudioSource traitとAsyncAudioSourceへのblanket impl。Box::pinによる毎フレームのヒープアロケーションはblanket impl内に閉じ込められ利用者から隠蔽。動的ディスパッチ不要時はBox::pin完全回避でホットパスオーバーヘッドゼロ。",
+      "summary": "timestamped ring buffer 2本によるPairAligner。共通frame boundaryで最も近いサンプル列を結合。Vec/VecDeque操作をAudioWorkerTaskで安全実行。",
       "language": "rust",
-      "slug": "erased_audio_source_dynam",
+      "slug": "pair_aligner_algorithm",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF233",
+          "heading": 2,
           "texts": [
-            "23.1 動的ディスパッチ用自動導出"
-          ],
-          "refId": "REF065"
+            "25. IN/OUT ペア整列アルゴリズム"
+          ]
         }
       ]
     },
     {
       "id": "N0065",
-      "title": "§23.2 SyncSourceAdapter",
-      "kind": "api_contract",
-      "summary": "同期的音声ソース用のSyncAudioSource traitと、AsyncAudioSourceへの適合アダプタSyncSourceAdapter<T>。",
+      "title": "§25.1 欠損時の扱い",
+      "kind": "error_policy",
+      "summary": "INなし/OUTあり、または逆の場合のtolerance超過後のゼロパディング処理。drift metricsの収集。",
       "language": "rust",
-      "slug": "sync_source_adapter",
+      "slug": "pair_aligner_gap_handling",
       "headingRefs": [
         {
+          "refId": "REF234",
           "heading": 3,
           "texts": [
-            "23.2 SyncSourceAdapter"
-          ],
-          "refId": "REF066"
+            "25.1 欠損時の扱い"
+          ]
         }
       ]
     },
     {
       "id": "N0066",
-      "title": "§23.3 AsyncAudioSource設計判断の注記",
-      "kind": "rationale",
-      "summary": "RPITIT採用の設計判断。Box::pinアロケーションはblanket impl内に隠蔽、動的ディスパッチ不要時は静的ディスパッチでオーバーヘッドゼロ、将来TAIT安定化時にErasedAudioSource置換の可能性。",
+      "title": "§25.2 メモリ最適化注記と§26 リサンプラ設計",
+      "kind": "architecture",
+      "summary": "PairAlignerのメモリ最適化方針。rubatoを用いたリサンプラ設計。内部native formatはmonaural i16 PCM。",
       "language": "rust",
-      "slug": "async_audio_source_design",
+      "slug": "mem_opt_resampler",
       "headingRefs": [
         {
+          "refId": "REF235",
           "heading": 3,
           "texts": [
-            "23.3 設計判断の注記"
-          ],
-          "refId": "REF067"
+            "25.2 メモリ最適化注記"
+          ]
+        },
+        {
+          "refId": "REF236",
+          "heading": 2,
+          "texts": [
+            "26. リサンプラ設計"
+          ]
         }
       ]
     },
     {
       "id": "N0067",
-      "title": "§24 AudioMixer設計",
-      "kind": "architecture",
-      "summary": "1通話ごとに1つのAudioMixer。複数sourceをframeごとにpull/sum/clamp/gain適用し、ミキシング済みフレームをlock-free queueへ書込。全操作はAudioWorkerTask上で実行。",
+      "title": "§26.1 stereo in/out mapping",
+      "kind": "config",
+      "summary": "既定stereo出力はL=IN, R=OUTを保証。rubatoの入出力チャネルマッピング。",
       "language": "rust",
-      "slug": "audio_mixer_design",
+      "slug": "stereo_inout_mapping",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF237",
+          "heading": 3,
           "texts": [
-            "24. AudioMixer 設計"
-          ],
-          "refId": "REF068"
+            "26.1 stereo in/out mapping"
+          ]
         }
       ]
     },
     {
       "id": "N0068",
-      "title": "§24.0 リアルタイム境界（最重要設計判断）",
+      "title": "§27 PJSIP FFI層と§27.3 callback bridge",
       "kind": "architecture",
-      "summary": "PJSIPオーディオコールバック（get_frame/put_frame）はOS最優先リアルタイムスレッドで駆動。ロック取得・非同期待機・メモリ動的確保・システムコールは厳禁。AudioWorkerTask（Tokio async context）とRustMediaPort（PJSIP RT callback thread）の2層完全分離アーキテクチャ。",
+      "summary": "unsafeをffi::bindingsのみに隔離。callback bridgeでPJSIPネイティブcallbackをRust eventに変換。最小限のwork enqueueのみ実行。",
       "language": "rust",
-      "slug": "realtime_boundary_critica",
+      "slug": "pjsip_ffi_callback_bridge",
       "headingRefs": [
         {
+          "refId": "REF238",
+          "heading": 2,
+          "texts": [
+            "27. PJSIP FFI 層"
+          ]
+        },
+        {
+          "refId": "REF239",
           "heading": 3,
           "texts": [
-            "24.0 リアルタイム境界（最重要設計判断）"
-          ],
-          "refId": "REF069"
+            "27.3 callback bridge"
+          ]
         }
       ]
     },
     {
       "id": "N0069",
-      "title": "§24.1 AudioMixer内部構造（AudioWorkerTask側）",
-      "kind": "data_model",
-      "summary": "AudioMixerの内部構造。DashMap<AudioSourceId,MixerSourceEntry>、master_gain(AtomicU32)、out_queue/in_queue(crossbeam::ArrayQueue)。MixerSourceEntryはsource(tokio::sync::Mutex<Box<dyn ErasedAudioSource>>)/gain/muted/eof。",
+      "title": "§27.1 bindgen 生成方針",
+      "kind": "build_ci",
+      "summary": "bindgenでpjsua.h/pjsua-lib/pjsua.h/pjmedia-codec/opus.h等を対象に自動生成。pkg-configとbuild.rsでinclude path解決。",
       "language": "rust",
-      "slug": "audio_mixer_internal_stru",
+      "slug": "bindgen_generation_policy",
       "headingRefs": [
         {
+          "refId": "REF240",
           "heading": 3,
           "texts": [
-            "24.1 AudioMixer（AudioWorkerTask 側）"
-          ],
-          "refId": "REF070"
+            "27.1 bindgen 生成方針"
+          ]
         }
       ]
     },
     {
       "id": "N0070",
-      "title": "§24.2 ミキシングアルゴリズム",
+      "title": "§27.2 C string 管理",
       "kind": "architecture",
-      "summary": "i32 accumulationでオーバーフロー回避、saturating i16にクランプするmix_i16_frame関数。",
+      "summary": "pj_str_tのRust wrapper。CStringのlifetime問題を回避するsafe wrapper。",
       "language": "rust",
-      "slug": "mixing_algorithm",
+      "slug": "cstring_management",
       "headingRefs": [
         {
+          "refId": "REF241",
           "heading": 3,
           "texts": [
-            "24.2 mixing algorithm"
-          ],
-          "refId": "REF071"
+            "27.2 C string 管理"
+          ]
         }
       ]
     },
     {
       "id": "N0071",
-      "title": "§24.2 gain and normalization",
-      "kind": "rationale",
-      "summary": "既定ではsoft normalizationを行わない設計判断。通話品質の一貫性と予測可能性を優先。利用者はsource gainを明示設定する。",
+      "title": "§27a SipBackend 抽象化（内部 trait）",
+      "kind": "architecture",
+      "summary": "PJSUA操作を抽象化する内部trait SipBackend。実装はPjsuaBackend(本番)とMockBackend(テスト)。テスタビリティ確保。",
       "language": "rust",
-      "slug": "gain_and_normalization",
+      "slug": "sipbackend_internal_trait",
       "headingRefs": [
         {
+          "refId": "REF242",
           "heading": 3,
           "texts": [
-            "24.2 gain and normalization"
-          ],
-          "refId": "REF072"
+            "27a. SipBackend 抽象化（内部 trait）"
+          ]
         }
       ]
     },
     {
       "id": "N0072",
-      "title": "§24.3 AudioWorkerTask駆動",
+      "title": "M20 Dual Client 時の PJSIP callback routing",
       "kind": "architecture",
-      "summary": "AudioWorkerのprocess_frameループ。1.各AsyncAudioSourceから.awaitでpull、2.mix_i16_frameでミキシング、3.リサンプル・型変換、4.out_queueへpush、5.in_queueからpullしPairAlignerへ。全操作はAudioWorkerTask（Tokio async context）上で実行。",
+      "summary": "単一PjsuaBackend singletonを複数Clientで共有。reactor内でaccount_idベースのcallback routing。EventBus分割でglobal_runtime維持。",
       "language": "rust",
-      "slug": "audio_worker_task_drive",
+      "slug": "m20_dual_client_routing",
       "headingRefs": [
         {
+          "refId": "REF243",
           "heading": 3,
           "texts": [
-            "24.3 AudioWorkerTask 駆動"
-          ],
-          "refId": "REF073"
+            "M20 追補: Dual Client 時の PJSIP callback routing"
+          ]
         }
       ]
     },
     {
       "id": "N0073",
-      "title": "§24.4 source lifecycle API",
-      "kind": "api_contract",
-      "summary": "SipClientの音声ソース操作API。add_audio_source/remove_audio_source/set_audio_source_gain/mute_audio_source。通話中の追加・削除・切替はreactor command経由で同期化し次frame境界で反映。Box<dyn AsyncAudioSource>は内部でErasedAudioSourceに自動変換。",
+      "title": "§28 build.rs 戦略（全体概要）",
+      "kind": "build_ci",
+      "summary": "プレビルド優先・欠損時ソースビルドの二段階戦略。vendor/prebuilt/{target-triple}/lib/の確認。pjsua2ではなくpjsuaベース。",
       "language": "rust",
-      "slug": "source_lifecycle_api",
+      "slug": "buildrs_strategy_overview",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF244",
+          "heading": 2,
           "texts": [
-            "24.4 source lifecycle"
-          ],
-          "refId": "REF074"
+            "28. build.rs 戦略"
+          ]
         }
       ]
     },
     {
       "id": "N0074",
-      "title": "§24.5 将来拡張: slabベースsource管理（注記）",
-      "kind": "rationale",
-      "summary": "多数音源時にDashMapのハッシュ競合とMutex取得がボトルネックになる可能性を指摘。slab::Slabベースの固定長テーブルへの移行を将来の最適化候補として提示。移行判断はプロファイリングを根拠とする。",
+      "title": "§28.1-28.4 build.rs 詳細",
+      "kind": "build_ci",
+      "summary": "探索順序・build script擬似実装・cmake flags・OS別システムパッケージ依存関係の詳細。MSVC/Clang対応。",
       "language": "rust",
-      "slug": "future_slab_source_manage",
+      "slug": "buildrs_details",
       "headingRefs": [
         {
+          "refId": "REF245",
           "heading": 3,
           "texts": [
-            "24.5 将来拡張：slab ベース source 管理（注記）"
-          ],
-          "refId": "REF075"
+            "28.1 探索順序"
+          ]
+        },
+        {
+          "refId": "REF246",
+          "heading": 3,
+          "texts": [
+            "28.2 build script 擬似実装"
+          ]
+        },
+        {
+          "refId": "REF247",
+          "heading": 3,
+          "texts": [
+            "28.3 cmake flags"
+          ]
+        },
+        {
+          "refId": "REF248",
+          "heading": 3,
+          "texts": [
+            "28.4 OS別システムパッケージ依存関係"
+          ]
         }
       ]
     },
     {
       "id": "N0075",
-      "title": "§25 IN/OUTペア整列アルゴリズム — PairAligner",
-      "kind": "architecture",
-      "summary": "受信音声（RTP由来）と送信音声（mixer由来）の時間軸ズレを吸収するPairAligner。timestamped ring buffer 2本で共通frame boundaryの最も近いサンプル列を結合。AudioWorkerTask（Tokio async context）上で動作。TimedFrame<T>とPairAlignerの実装。",
+      "title": "§29 codec policy 強制",
+      "kind": "config",
+      "summary": "PCMUとOpus以外は初期化時にpriority 0に設定。SDP negotiation時の優先順位(Opus>PCMU)。",
       "language": "rust",
-      "slug": "pair_aligner_algorithm",
+      "slug": "codec_policy",
       "headingRefs": [
         {
+          "refId": "REF249",
           "heading": 2,
           "texts": [
-            "25. IN/OUT ペア整列アルゴリズム"
-          ],
-          "refId": "REF076"
+            "29. codec policy 強制"
+          ]
         }
       ]
     },
     {
       "id": "N0076",
-      "title": "§25.1 欠損時の扱い",
+      "title": "§29.1 コーデックフォールバックルール",
       "kind": "error_policy",
-      "summary": "INなし/OUTありまたは逆の場合、tolerance超過後にゼロパディングでpair生成。ゼロパディング時はMediaActiveInfo::alignment_driftに累積統計記録。長時間欠損時のみMediaError(AudioAlignmentBroken)発火。",
+      "summary": "ネゴシエーション失敗時のフォールバック順序。Opus→PCMU→エラー。",
       "language": "rust",
-      "slug": "pair_aligner_missing_hand",
+      "slug": "codec_fallback_rules",
       "headingRefs": [
         {
+          "refId": "REF250",
           "heading": 3,
           "texts": [
-            "25.1 欠損時の扱い"
-          ],
-          "refId": "REF077"
+            "29.1 コーデックフォールバックルール"
+          ]
         }
       ]
     },
     {
       "id": "N0077",
-      "title": "§25.2 メモリ最適化注記",
-      "kind": "rationale",
-      "summary": "Vec<i16>生成はAudioWorkerTask上でメモリ確保を伴うがTokio async contextのためRTスレッド上の非決定的遅延問題はない。将来の最適化候補として固定長バッファプール・crossbeam::ArrayQueueベースのPairAligner入出力・プロファイリングベースの判断を提示。",
+      "title": "§29.2 NegotiatedCodec と CodecSelectionPolicy",
+      "kind": "api_contract",
+      "summary": "NegotiatedCodec型とCodecSelectionPolicy enumの定義。選択ポリシーと交渉結果の型表現。",
       "language": "rust",
-      "slug": "pair_aligner_memory_optim",
+      "slug": "codec_selection_policy",
       "headingRefs": [
         {
+          "refId": "REF251",
           "heading": 3,
           "texts": [
-            "25.2 メモリ最適化注記"
-          ],
-          "refId": "REF078"
+            "29.2 NegotiatedCodec と CodecSelectionPolicy"
+          ]
         }
       ]
     },
     {
       "id": "N0078",
-      "title": "§26 リサンプラ設計",
-      "kind": "architecture",
-      "summary": "rubatoを用いたリサンプラ。内部native formatはPJSIP/codec negotiationに応じたmonaural i16 PCM。ResamplePipeline（in_rate/out_rate/bit_depth/layout/rubato_i16_to_f32）。",
+      "title": "M20 明示的コーデック指定と auto モードの2層ポリシー",
+      "kind": "config",
+      "summary": "明示指定が基本。autoモード時のみOpus=255, PCMU=254のpriority設定。configure_codecs autoモードの実装詳細。",
       "language": "rust",
-      "slug": "resampler_design",
+      "slug": "m20_codec_explicit_auto",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF252",
+          "heading": 3,
           "texts": [
-            "26. リサンプラ設計"
-          ],
-          "refId": "REF079"
+            "M20 追補: 明示的コーデック指定と auto モードの2層ポリシー"
+          ]
         }
       ]
     },
     {
       "id": "N0079",
-      "title": "§26.1 stereo in/out mapping",
-      "kind": "data_model",
-      "summary": "既定stereo出力のL=IN,R=OUT保証。interleave_in_out関数の実装（in_mono/out_monoを交互にinterleave）。",
+      "title": "§30 SRTP 仕様",
+      "kind": "config",
+      "summary": "feature flagでON/OFF可能、デフォルトOFF。無効時Mandatory/OptionalはInvalidConfig。SDP a=crypto/D TLS-SRTP negotiation。",
       "language": "rust",
-      "slug": "stereo_in_out_mapping",
+      "slug": "srtp_spec",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF253",
+          "heading": 2,
           "texts": [
-            "26.1 stereo in/out mapping"
-          ],
-          "refId": "REF080"
+            "30. SRTP 仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0080",
-      "title": "§27 PJSIP FFI層",
-      "kind": "architecture",
-      "summary": "FFI層の全体方針。unsafeをffi::bindingsに隔離し上位モジュールへはsafe wrapperのみ露出。bindgen生成方針・C string管理（PjOwnedStr）・callback bridge（最小限のwork enqueueのみ）の3層。",
+      "title": "§31 トランスポート再接続方針",
+      "kind": "error_policy",
+      "summary": "UDP/TCP/TLS別の再接続戦略。TransportDisconnectedイベントemit。登録アカウントはbackoff付きexplicit refresh試行。",
       "language": "rust",
-      "slug": "pjsip_ffi_layer",
+      "slug": "transport_reconnect",
       "headingRefs": [
         {
+          "refId": "REF254",
           "heading": 2,
           "texts": [
-            "27. PJSIP FFI 層"
-          ],
-          "refId": "REF081"
+            "31. トランスポート再接続方針"
+          ]
         }
       ]
     },
     {
       "id": "N0081",
-      "title": "§27a SipBackend抽象化（内部trait）",
-      "kind": "architecture",
-      "summary": "RuntimeがPJSUAを操作するための内部trait SipBackend。initialize/shutdown/create_transport/add_account/remove_account/set_registration/make_call/answer_call/hangup/conf_connect/conf_disconnect/configure_codecs/send_dtmf/transfer_callの全メソッド。テスト用MockBackend、pub(crate)で外部非公開。",
+      "title": "§32 Shutdown 仕様",
+      "kind": "state_machine",
+      "summary": "shutdown()はidempotent。進行中command拒否・全call BYE/CANCEL・全account unregister・audio pipeline drain。",
       "language": "rust",
-      "slug": "sip_backend_abstraction_t",
+      "slug": "shutdown_spec",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF255",
+          "heading": 2,
           "texts": [
-            "27a. SipBackend 抽象化（内部 trait）"
-          ],
-          "refId": "REF082"
+            "32. Shutdown 仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0082",
-      "title": "§27 M20追補: Dual Client時のPJSIP callback routing",
+      "title": "§32.1 cancellation safety",
       "kind": "architecture",
-      "summary": "複数SipClientが同一PjsuaBackend singletonを共有する場合のcallback routing設計。単一Reactor+EventBus分割。account_idベースのEventBus振り分けロジック（dispatch_event）。Dual Clientテスト初期化パターン。",
+      "summary": "caller task cancel時もreactor処理は継続。native stateとcaller cancellationを分離。",
       "language": "rust",
-      "slug": "m20_dual_client_callback",
+      "slug": "shutdown_cancel_safety",
       "headingRefs": [
         {
+          "refId": "REF256",
           "heading": 3,
           "texts": [
-            "M20 追補: Dual Client 時の PJSIP callback routing"
-          ],
-          "refId": "REF083"
+            "32.1 cancellation safety"
+          ]
         }
       ]
     },
     {
       "id": "N0083",
-      "title": "§28 build.rs戦略",
-      "kind": "build_ci",
-      "summary": "プレビルド優先・欠損時ソースビルドの2段階戦略。build.rsの全体フロー。",
+      "title": "M20 Shutdown 中の RuntimeCommand 振り分け",
+      "kind": "error_policy",
+      "summary": "Shutdown中: GetAccountInfo許可・ConfConnect/ConfDisconnect拒否。稼働中とShutdown中でcommand挙動が異なる。",
       "language": "rust",
-      "slug": "build_rs_strategy",
+      "slug": "m20_shutdown_dispatch",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF257",
+          "heading": 3,
           "texts": [
-            "28. build.rs 戦略"
-          ],
-          "refId": "REF084"
+            "M20 追補: Shutdown 中の RuntimeCommand 振り分け"
+          ]
         }
       ]
     },
     {
       "id": "N0084",
-      "title": "§28.1 探索順序",
-      "kind": "build_ci",
-      "summary": "build.rsの5段階探索順序。1.vendor/prebuilt/{target-triple}/lib/確認、2.必須ライブラリ一式あればlink、3.欠損時vendor/pjsip/ソースをCMakeビルド、4.OUT_DIR/pjsip-buildへ配置しlink、5.bindgen実行。",
+      "title": "§33 ランタイム内部 state",
+      "kind": "architecture",
+      "summary": "状態の唯一正本はreactor thread所有。公開query APIはsnapshot clone返却。tokio RwLockはsnapshot共有用。",
       "language": "rust",
-      "slug": "build_rs_search_order",
+      "slug": "runtime_internal_state",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF258",
+          "heading": 2,
           "texts": [
-            "28.1 探索順序"
-          ],
-          "refId": "REF085"
+            "33. ランタイム内部 state"
+          ]
         }
       ]
     },
     {
       "id": "N0085",
-      "title": "§28.2 build script擬似実装",
-      "kind": "build_ci",
-      "summary": "build.rsの擬似実装。prebuilt_availableチェック→emit_link_directives+generate_bindings、またはbuild_pjsip_from_source→emit_link_directives+generate_bindings。",
+      "title": "M20 ロック獲得ルールと conf_port_id 管理方針",
+      "kind": "error_policy",
+      "summary": "Client側: read().await絶対義務(blocking_read禁止)。Reactor側: write().awaitによる安全な更新。conf_port_idはPjsuaBackend内部管理。",
       "language": "rust",
-      "slug": "build_script_pseudocode",
+      "slug": "m20_lock_rules_confport",
       "headingRefs": [
         {
+          "refId": "REF259",
           "heading": 3,
           "texts": [
-            "28.2 build script 擬似実装"
-          ],
-          "refId": "REF086"
+            "M20 追補: ロック獲得ルールと conf_port_id 管理方針"
+          ]
         }
       ]
     },
     {
       "id": "N0086",
-      "title": "§28.3 cmake flags",
-      "kind": "build_ci",
-      "summary": "PJSIP CMakeビルドフラグ。PJMEDIA_WITH_VIDEO=OFF必須、Opus enabled、TLS/SRTPはfeature flagで制御。",
+      "title": "§34 観測性 — tracing",
+      "kind": "config",
+      "summary": "全public operationとnative callbackをtracing spanで囲む。log_levelおよびlog_level_filterの設定。",
       "language": "rust",
-      "slug": "cmake_flags",
+      "slug": "observability_tracing",
       "headingRefs": [
         {
+          "refId": "REF260",
+          "heading": 2,
+          "texts": [
+            "34. 観測性"
+          ]
+        },
+        {
+          "refId": "REF261",
           "heading": 3,
           "texts": [
-            "28.3 cmake flags"
-          ],
-          "refId": "REF087"
+            "34.1 tracing"
+          ]
         }
       ]
     },
     {
       "id": "N0087",
-      "title": "§28.4 OS別システムパッケージ依存関係",
-      "kind": "build_ci",
-      "summary": "ソースビルドフォールバック時のOS別必須パッケージ。Ubuntu 22.04（build-essential/cmake/libasound2-dev/libssl-dev/libcrypto-dev/libuuid-dev/libsrtp2-dev）、macOS arm64（pkg-config/cmake+system frameworks）、Windows x86_64（MSVC Build Tools+libsrtp vcpkg）。",
+      "title": "§34.2 metrics",
+      "kind": "config",
+      "summary": "optional feature metricsで提供されるcounters/gauges。active_calls/registration_count/audio_jitter/error_count等。",
       "language": "rust",
-      "slug": "os_specific_system_packag",
+      "slug": "observability_metrics",
       "headingRefs": [
         {
+          "refId": "REF262",
           "heading": 3,
           "texts": [
-            "28.4 OS別システムパッケージ依存関係"
-          ],
-          "refId": "REF088"
+            "34.2 metrics"
+          ]
         }
       ]
     },
     {
       "id": "N0088",
-      "title": "§29 codec policy強制",
-      "kind": "config",
-      "summary": "PCMUとOpus以外を無効化するcodec policy。初期化時に全codecをenumerateしPCMU/Opus以外priority=0に設定。configure_codecs()の実装。",
+      "title": "§34.3 ClientCapabilities",
+      "kind": "api_contract",
+      "summary": "ClientInitializedイベントに載せるcapability matrix。利用可能なcodec・transport・feature一覧。",
       "language": "rust",
-      "slug": "codec_policy_enforcement",
+      "slug": "clientcapabilities",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF263",
+          "heading": 3,
           "texts": [
-            "29. codec policy 強制"
-          ],
-          "refId": "REF089"
+            "34.3 ClientCapabilities"
+          ]
         }
       ]
     },
     {
       "id": "N0089",
-      "title": "§29.1 コーデックフォールバックルール",
-      "kind": "error_policy",
-      "summary": "SDP negotiation時のコーデックフォールバック。1.Opus最優先、2.PCMU（Opus拒否時のフォールバック）、3.両者に共通コーデックなし→MediaNegotiationFailed。preferred_codecs指定順序とは独立。",
+      "title": "§35 セキュリティ",
+      "kind": "security",
+      "summary": "SecretStringでpassword漏洩防止。raw SIP eventのAuthorization header redact。TLS verify default true。",
       "language": "rust",
-      "slug": "codec_fallback_rules",
+      "slug": "security_overview",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF264",
+          "heading": 2,
           "texts": [
-            "29.1 コーデックフォールバックルール"
-          ],
-          "refId": "REF090"
+            "35. セキュリティ"
+          ]
         }
       ]
     },
     {
       "id": "N0090",
-      "title": "§29.2 NegotiatedCodecとCodecSelectionPolicy",
-      "kind": "data_model",
-      "summary": "SDP negotiation結果を表現するNegotiatedCodec enum（Pcmu/Opus(OpusConfig)）とCodecSelectionPolicy enum（Ordered/PreferOpusFallbackPcmu: 既定）。NegotiatedCodecはCallConnectedイベントのConnectedCallInfoに含めて通知。",
+      "title": "§36 プラットフォーム差異",
+      "kind": "build_ci",
+      "summary": "Windows MSVC AXI prebuilt・macOS arm64 system frameworks・Linux libasound/libssl等のlink要件。",
       "language": "rust",
-      "slug": "negotiated_codec_selectio",
+      "slug": "platform_differences",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF265",
+          "heading": 2,
           "texts": [
-            "29.2 NegotiatedCodec と CodecSelectionPolicy"
-          ],
-          "refId": "REF091"
+            "36. プラットフォーム差異"
+          ]
         }
       ]
     },
     {
       "id": "N0091",
-      "title": "§29 M20追補: 明示的コーデック指定とautoモードの2層ポリシー",
-      "kind": "config",
-      "summary": "コーデック選択の2層ポリシー。利用者明示指定時はpreferred_codecsの先頭から試行、全滅時MediaNegotiationFailed。autoモード（preferred_codecs空）時はOpus=255,PCMU=254でOpus最優先→PCMUフォールバック。configure_codecs autoモードの実装。M20でOpus=255/PCMU=254に修正。",
+      "title": "§37 受信 call の扱い",
+      "kind": "state_machine",
+      "summary": "着信時IncomingCallイベントemit+stateにCallEntry作成。optional auto reject timerをaccount configで設定可能。",
       "language": "rust",
-      "slug": "m20_explicit_codec_auto_t",
+      "slug": "incoming_call_handling",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF266",
+          "heading": 2,
           "texts": [
-            "M20 追補: 明示的コーデック指定と auto モードの2層ポリシー"
-          ],
-          "refId": "REF092"
+            "37. 受信 call の扱い"
+          ]
         }
       ]
     },
     {
       "id": "N0092",
-      "title": "§30 SRTP仕様",
-      "kind": "config",
-      "summary": "SRTPはfeature flagでオンオフ可能・デフォルトオフ。SrtpPolicy enum（Disabled/Optional/Mandatory）。feature無効時Mandatory/OptionalはInvalidConfig。feature有効時はSDP negotiationにa=cryptoまたはDTLS-SRTP相当のnative supportを反映。",
+      "title": "§38 REFER/転送仕様",
+      "kind": "api_contract",
+      "summary": "blind transfer first-class support。転送完了はNOTIFY final stateで判断。TransferInfoに成功/失敗詳細。",
       "language": "rust",
-      "slug": "srtp_spec",
+      "slug": "refer_transfer_spec",
       "headingRefs": [
         {
+          "refId": "REF267",
           "heading": 2,
           "texts": [
-            "30. SRTP 仕様"
-          ],
-          "refId": "REF093"
+            "38. REFER/転送仕様"
+          ]
         }
       ]
     },
     {
       "id": "N0093",
-      "title": "§31 トランスポート再接続方針",
-      "kind": "state_machine",
-      "summary": "UDP（接続概念なし・listen socket failure時TransportError emit後bind retry）、TCP/TLS（connection-oriented state追跡・切断時TransportDisconnected emit）の再接続方針。ReconnectPolicy（base_delay/max_delay/jitter_ratio）。登録アカウントはtransport failure後PJSIP再登録に加えbackoff付きexplicit refresh。",
+      "title": "§39 Media bridge と PJSUA conference port",
+      "kind": "architecture",
+      "summary": "PJSUA conference bridge経由でcall mediaとcustom media portを接続。通話ごとにcapture tap port/playback inject portの2ポート。",
       "language": "rust",
-      "slug": "transport_reconnect_polic",
+      "slug": "media_bridge_overview",
       "headingRefs": [
         {
+          "refId": "REF268",
           "heading": 2,
           "texts": [
-            "31. トランスポート再接続方針"
-          ],
-          "refId": "REF094"
+            "39. Media bridge と PJSUA conference port"
+          ]
         }
       ]
     },
     {
       "id": "N0094",
-      "title": "§32 Shutdown仕様",
-      "kind": "state_machine",
-      "summary": "shutdown()はidempotent。進行中commandをこれ以上受け付けず、全callをBYE/CANCEL、全accountをunregister、audio pipelineをdrain、最後にpjsua_destroy。is_shutdown_startedで二重実行防止。",
+      "title": "§39.1-39.3 Media bridge 詳細",
+      "kind": "architecture",
+      "summary": "リアルタイム境界とlock-free queue。custom media port設計(capture tap/playback inject)。データフロー全体図。",
       "language": "rust",
-      "slug": "shutdown_spec",
+      "slug": "media_bridge_details",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF269",
+          "heading": 3,
           "texts": [
-            "32. Shutdown 仕様"
-          ],
-          "refId": "REF095"
+            "39.1 リアルタイム境界と lock-free queue"
+          ]
+        },
+        {
+          "refId": "REF270",
+          "heading": 3,
+          "texts": [
+            "39.2 custom media port 設計"
+          ]
+        },
+        {
+          "refId": "REF271",
+          "heading": 3,
+          "texts": [
+            "39.3 データフロー全体"
+          ]
         }
       ]
     },
     {
       "id": "N0095",
-      "title": "§32.1 cancellation safety",
-      "kind": "state_machine",
-      "summary": "各async APIはoneshot reply待ち中にcaller taskがcancelされてもreactor処理は継続。native stateとcaller cancellationを分離する設計。",
+      "title": "§40 audio device policy",
+      "kind": "config",
+      "summary": "optional feature cpal-inputでdevice abstraction提供。feature無効時もtrait実装で任意source追加可能。",
       "language": "rust",
-      "slug": "cancellation_safety",
+      "slug": "audio_device_policy",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF272",
+          "heading": 2,
           "texts": [
-            "32.1 cancellation safety"
-          ],
-          "refId": "REF096"
+            "40. audio device policy"
+          ]
         }
       ]
     },
     {
       "id": "N0096",
-      "title": "§32 M20追補: Shutdown中のRuntimeCommand振り分け",
-      "kind": "error_policy",
-      "summary": "Shutdown中のRuntimeCommand振り分けルール。GetAccountInfoは許可（読取専用）、ConfConnect/ConfDisconnectは拒否（InvalidState）。dispatch_commandの振分ロジック。",
+      "title": "§41 具体的使用例",
+      "kind": "rationale",
+      "summary": "Client初期化・account追加とregister・発信とイベント受信・音声tapとWAV書出し・AI TTS source挿入の5使用例。",
       "language": "rust",
-      "slug": "m20_shutdown_runtime_comm",
+      "slug": "usage_examples",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF273",
+          "heading": 2,
           "texts": [
-            "M20 追補: Shutdown 中の RuntimeCommand 振り分け"
-          ],
-          "refId": "REF097"
+            "41. 具体的使用例"
+          ]
         }
       ]
     },
     {
       "id": "N0097",
-      "title": "§33 ランタイム内部state",
-      "kind": "data_model",
-      "summary": "ClientState（initialized/accounts: BTreeMap/calls: BTreeMap/transports/capabilities）、AccountEntry（id/native_id/config/registration）、CallEntry（id/native_id/account_id/state/media）の内部データ構造。状態の唯一正本はreactor threadが所有し公開query APIはsnapshot cloneを返す。",
+      "title": "§42 validation フェーズ",
+      "kind": "error_policy",
+      "summary": "初期化時validationはfail-fast。unsupported transport・codec zero selection・duplicate account・invalid URI等のチェック。",
       "language": "rust",
-      "slug": "runtime_internal_state",
+      "slug": "validation_phase",
       "headingRefs": [
         {
+          "refId": "REF274",
           "heading": 2,
           "texts": [
-            "33. ランタイム内部 state"
-          ],
-          "refId": "REF098"
+            "42. validation フェーズ"
+          ]
         }
       ]
     },
     {
       "id": "N0098",
-      "title": "§33 M20追補: ロック獲得ルール — read().await絶対義務",
-      "kind": "requirement",
-      "summary": "全query APIはtokio::sync::RwLockに対してread().await（非ブロッキング）を使用しblocking_read()は禁止。blocking_read()はtokioランタイム上でパニックするため。",
+      "title": "§43.1-43.2 Layer1 Unit Tests・Layer2 State-Machine Tests",
+      "kind": "test_policy",
+      "summary": "SipBackend::MockBackend使用。config validation・event mapping・state machine transitionのPJSIP不要テスト。",
       "language": "rust",
-      "slug": "m20_lock_acquisition_rule",
+      "slug": "test_layer1_layer2",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF275",
+          "heading": 3,
           "texts": [
-            "Client 側: `read().await` 絶対義務"
-          ],
-          "refId": "REF099"
+            "43.1 Layer 1: Unit Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "refId": "REF276",
+          "heading": 3,
+          "texts": [
+            "43.2 Layer 2: Deterministic State-Machine Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "heading": 2,
+          "texts": [
+            "43. テスト戦略"
+          ]
         }
       ]
     },
     {
       "id": "N0099",
-      "title": "§33 M20追補: conf_port_id管理方針",
-      "kind": "architecture",
-      "summary": "conf_port_idの管理はPjsuaBackend内部で行いRuntime（ClientStateのCallEntry）には露出しない。CallId→native_call_id解決はRuntime、native_call_id→conf_port_id解決はPjsuaBackendの責務。CallEntryにconf_port_idフィールド不要化。",
+      "title": "§43.3-43.4 Layer3 SIP Integration Tests・Layer4 Interop Tests",
+      "kind": "test_policy",
+      "summary": "ローカルSIP serverとの結合テスト。実PBX/Proxyとの相互接続試験。Dockerベースのテスト環境。",
       "language": "rust",
-      "slug": "m20_conf_port_id_manageme",
+      "slug": "test_layer3_layer4",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF277",
+          "heading": 3,
           "texts": [
-            "conf_port_id: PjsuaBackend 内部管理"
-          ],
-          "refId": "REF100"
+            "43.3 Layer 3: SIP Integration Tests（ローカルSIP server）"
+          ]
+        },
+        {
+          "refId": "REF278",
+          "heading": 3,
+          "texts": [
+            "43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"
+          ]
         }
       ]
     },
     {
       "id": "N0100",
-      "title": "§34 観測性 — tracing・metrics・ClientCapabilities",
-      "kind": "config",
-      "summary": "全public operationとnative callbackをtracing spanで囲む。optional feature metricsで8種のcounters/gauges（active_calls/registered_accounts/audio_tap_overflows_total/dtmf_sent_total/dtmf_received_total/ice_failures_total/transport_reconnects_total/raw_sip_messages_total）。",
+      "title": "§43.5 プラットフォームテストとM20 新機能テスト層マッピング",
+      "kind": "test_policy",
+      "summary": "各OSでのテスト要件。M20新機能のテスト層対応マッピング。プレースホルダーテストの解決条件。Dual Clientテストutility設計。",
       "language": "rust",
-      "slug": "observability_tracing_met",
+      "slug": "test_platform_m20_mapping",
       "headingRefs": [
         {
-          "heading": 2,
-          "texts": [
-            "34. 観測性"
-          ],
-          "refId": "REF101"
-        },
-        {
+          "refId": "REF279",
           "heading": 3,
           "texts": [
-            "34.1 tracing"
-          ],
-          "refId": "REF102"
+            "43.5 プラットフォームテスト"
+          ]
         },
         {
+          "refId": "REF280",
           "heading": 3,
           "texts": [
-            "34.2 metrics"
-          ],
-          "refId": "REF172"
+            "M20 追補: 新機能のテスト層マッピング"
+          ]
         }
       ]
     },
     {
       "id": "N0101",
-      "title": "§34.3 ClientCapabilities",
-      "kind": "data_model",
-      "summary": "ClientCapabilities構造体の定義。台数制約（max_calls/max_accounts）、トランスポート、セキュリティ（tls_available/srtp_available）、メディア（available_codecs/opus_available/audio_devices）、NAT/ICE、DTMF、SIP拡張、付加機能の全フィールド。ClientInitializedイベントとして1度だけ発火。",
+      "title": "§44 CI/CD 要件",
+      "kind": "build_ci",
+      "summary": "matrix: windows-latest/macos-14/ubuntu-22.04。features: default/tls/srtp/tls+srtp。cargo test/check/sample integration smoke。",
       "language": "rust",
-      "slug": "client_capabilities",
+      "slug": "ci_cd_requirements",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF281",
+          "heading": 2,
           "texts": [
-            "34.3 ClientCapabilities"
-          ],
-          "refId": "REF103"
+            "44. CI/CD 要件"
+          ]
         }
       ]
     },
     {
       "id": "N0102",
-      "title": "§35 セキュリティ",
-      "kind": "security",
-      "summary": "SecretStringによるpasswordのaccidental debug print防止、raw SIP eventでAuthorization header redact、TLS verify default=true、TURN passwordもsecret、メモリゼロ化必要時はsecrecy+optional zeroize。",
+      "title": "M20 Docker テスト job と prebuilt CI pipeline",
+      "kind": "build_ci",
+      "summary": "Docker Integration Test Job(GitHub Actions)。Prebuilt Refresh Pipelineの設計。自動化ビルド・テストパイプライン。",
       "language": "rust",
-      "slug": "security_measures",
+      "slug": "m20_docker_prebuilt_ci",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF282",
+          "heading": 3,
           "texts": [
-            "35. セキュリティ"
-          ],
-          "refId": "REF104"
+            "M20 追補: Docker テスト job と prebuilt CI pipeline"
+          ]
         }
       ]
     },
     {
       "id": "N0103",
-      "title": "§36 プラットフォーム差異",
-      "kind": "build_ci",
-      "summary": "Windows（MSVC ABI前提prebuilt同梱）、macOS arm64（system frameworks連携をbuild.rsで追加）、Linux x86_64（libasound/libssl/libcrypto/libuuid等のlink要件をbuild.rsで通知）の3OS対応。",
+      "title": "§45 既知の実装上の難所と設計上の解答",
+      "kind": "rationale",
+      "summary": "PJSIP callback→async橋渡し・送受音声時間ズレ・multi-source injection・native id再利用の4難所と各設計的解答。",
       "language": "rust",
-      "slug": "platform_differences",
+      "slug": "impl_challenges",
       "headingRefs": [
         {
+          "refId": "REF283",
           "heading": 2,
           "texts": [
-            "36. プラットフォーム差異"
-          ],
-          "refId": "REF105"
+            "45. 既知の実装上の難所と設計上の解答"
+          ]
         }
       ]
     },
     {
       "id": "N0104",
-      "title": "§37 受信callの扱い",
-      "kind": "state_machine",
-      "summary": "着信時はIncomingCallイベントをemitしCallEntryを作成。IncomingCall構造体（from_uri/to_uri/display_name/headers/offered_codecs/has_early_media）。optional auto reject timerをaccount configで設定可能。",
+      "title": "§46 panic policy",
+      "kind": "error_policy",
+      "summary": "公開APIはpanic-free目標。内部invariant破壊時はtracing::error!+SipEventPayload::Error emit。call/accountを切り離して継続。",
       "language": "rust",
-      "slug": "incoming_call_handling",
+      "slug": "panic_policy",
       "headingRefs": [
         {
+          "refId": "REF284",
           "heading": 2,
           "texts": [
-            "37. 受信 call の扱い"
-          ],
-          "refId": "REF106"
+            "46. panic policy"
+          ]
         }
       ]
     },
     {
       "id": "N0105",
-      "title": "§38 REFER/転送仕様",
-      "kind": "state_machine",
-      "summary": "blind transferをfirst-class support、attended transferはnative supportに依存。ReferRequest構造体（refer_to/referred_by/replaces）。転送完了はNOTIFY final stateにより判断しTransferInfoに詳細格納。",
+      "title": "§46.1 catch_unwind 発火時のクリーンアップ手順",
+      "kind": "error_policy",
+      "summary": "FFI callback内catch_unwind捕捉時の安全停止手順。即時stopping・リソース解放・イベント通知。",
       "language": "rust",
-      "slug": "refer_transfer_spec",
+      "slug": "catch_unwind_cleanup",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF285",
+          "heading": 3,
           "texts": [
-            "38. REFER/転送仕様"
-          ],
-          "refId": "REF107"
+            "46.1 catch_unwind 発火時のクリーンアップ手順"
+          ]
         }
       ]
     },
     {
       "id": "N0106",
-      "title": "§39 Media bridgeとPJSUA conference port",
+      "title": "§47 メモリ所有権規則",
       "kind": "architecture",
-      "summary": "PJSUA conference bridgeを利用したcall mediaとcustom media portの接続。通話ごとにCapture tap port（IN pull）とPlayback inject port（OUT push）の2つのcustom port。mic device以外の任意ソース注入が可能。",
+      "summary": "native callback由来pointerはcallbackスコープ外へ保持禁止。必要情報は即座にRust owned dataへコピー。pj_pool_t由来メモリはRust struct fieldに埋め込まない。",
       "language": "rust",
-      "slug": "media_bridge_conference_p",
+      "slug": "memory_ownership_rules",
       "headingRefs": [
         {
+          "refId": "REF286",
           "heading": 2,
           "texts": [
-            "39. Media bridge と PJSUA conference port"
-          ],
-          "refId": "REF108"
+            "47. メモリ所有権規則"
+          ]
         }
       ]
     },
     {
       "id": "N0107",
-      "title": "§39.1 リアルタイム境界とlock-free queue",
-      "kind": "architecture",
-      "summary": "PJSIP callback（get_frame/put_frame）上の許容操作はcrossbeam::ArrayQueueのpop/push、事前確保済みバッファへのmemcpy、アンダーラン時のゼロフィルのみ。全ロック・メモリ確保・非同期待機はAudioWorkerTask（Tokio async context）で実行。",
+      "title": "§48 デフォルトポリシーの明文化",
+      "kind": "config",
+      "summary": "既定transport UDP+TCP、既定codec order Opus>PCMU、既定DTMF send method RFC4733、既定audio format 16kHz/i16/stereo。",
       "language": "rust",
-      "slug": "realtime_boundary_lock_fr",
+      "slug": "default_policies",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF287",
+          "heading": 2,
           "texts": [
-            "39.1 リアルタイム境界と lock-free queue"
-          ],
-          "refId": "REF109"
+            "48. デフォルトポリシーの明文化"
+          ]
         }
       ]
     },
     {
       "id": "N0108",
-      "title": "§39.2 custom media port設計 — RustMediaPort",
+      "title": "§49 lib.rs 雛形",
       "kind": "architecture",
-      "summary": "RustMediaPort構造体（pjmedia_port/call_id/rx_queue:ArrayQueue<MediaFrame>/tx_queue:ArrayQueue<MediaFrame>）。RT callback用get_frame（queue pop→memcpy→ゼロフィル）とput_frame（lock-free push→ドロップ）の実装。AudioWorkerTask側のAudioBridge構造体。",
+      "summary": "lib.rsの公開API再export・モジュール宣言・feature gate・コンパイル時条件付きtrait実装の雛形。",
       "language": "rust",
-      "slug": "custom_media_port_rust_me",
+      "slug": "librs_template",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF288",
+          "heading": 2,
           "texts": [
-            "39.2 custom media port 設計"
-          ],
-          "refId": "REF110"
+            "49. lib.rs 雛形"
+          ]
         }
       ]
     },
     {
       "id": "N0109",
-      "title": "§39.3 データフロー全体",
-      "kind": "architecture",
-      "summary": "AudioWorkerTask(Tokio async)↔RT callback間の完全データフロー図。AsyncAudioSource(s)→AudioMixer→out_queue→RT、RT→in_queue→PairAligner→AudioWorkerTask。全queueはcrossbeam::ArrayQueue（固定長・lock-free・pre-allocated）。",
+      "title": "§50 受け入れ基準",
+      "kind": "test_policy",
+      "summary": "3OS build成功・PJSUA binding自動生成・4層テスト通過・50 concurrent calls安定・shutdown clean・CI/CD pipeline確立等の完了基準。",
       "language": "rust",
-      "slug": "overall_data_flow",
+      "slug": "acceptance_criteria",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF289",
+          "heading": 2,
           "texts": [
-            "39.3 データフロー全体"
-          ],
-          "refId": "REF111"
+            "50. 受け入れ基準"
+          ]
         }
       ]
     },
     {
       "id": "N0110",
-      "title": "§40 audio device policy",
-      "kind": "config",
-      "summary": "マイクデバイスをsourceの一種としてoptional feature cpal-inputで提供。open_default_microphone_source API。feature無効時もtrait実装で任意source追加可能。",
+      "title": "§51 結論",
+      "kind": "rationale",
+      "summary": "本RFCはSIP client crateの責務を単一文書に閉じた完全設計へ展開した。全設計判断とその根拠を包含。",
       "language": "rust",
-      "slug": "audio_device_policy",
+      "slug": "conclusion",
       "headingRefs": [
         {
+          "refId": "REF290",
           "heading": 2,
           "texts": [
-            "40. audio device policy"
-          ],
-          "refId": "REF112"
+            "51. 結論"
+          ]
         }
       ]
     },
     {
       "id": "N0111",
-      "title": "§41 具体的使用例",
-      "kind": "api_contract",
-      "summary": "5つの使用例。41.1 Client初期化（UDP+TCP+STUN）、41.2 account追加とregister（SecretString・AccountConfig全フィールド）、41.3 発信とイベント受信（subscribe_raw_sip・subscribe_account・make_call・イベントループ）、41.4 音声tapとWAV書出準備（subscribe_audio・AudioTapMode::Lossless）、41.5 AI TTS source挿入（AsyncAudioSource実装例・add_audio_source・set_audio_source_gain）。",
+      "title": "§52 HTTP/WebSocket API層 — 責務範囲",
+      "kind": "architecture",
+      "summary": "siprs + siprs-serverの分離crate方式。ライブラリとしての側面とHTTP/WS APIサーバとしての側面の2面性。",
       "language": "rust",
-      "slug": "usage_examples",
+      "slug": "http_ws_api_overview",
       "headingRefs": [
         {
+          "refId": "REF291",
           "heading": 2,
           "texts": [
-            "41. 具体的使用例"
-          ],
-          "refId": "REF113"
+            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
+          ]
         }
       ]
     },
     {
       "id": "N0112",
-      "title": "§42 validationフェーズ",
-      "kind": "config",
-      "summary": "初期化時validationはfail-fast。unsupported transport feature・codec zero selection・TLS configとfeature不整合・SRTP mandatoryかつfeature off・不正sample rate・event_bus_capacity<16・raw_sip_event_capacity<event_bus_capacity・pair buffer非frame_ms整数倍を検証。validate_client_configの擬似実装。",
+      "title": "§52.1-52.4 Crate分割方針と設計判断",
+      "kind": "rationale",
+      "summary": "siprs-server分離の理由(Axum依存分離・独立デプロイ・ライセンス管理)。マルチインスタンス方式。PJSIP非Pure Rustの補足。",
       "language": "rust",
-      "slug": "validation_phase",
+      "slug": "server_design_rationale",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF292",
+          "heading": 3,
           "texts": [
-            "42. validation フェーズ"
-          ],
-          "refId": "REF114"
+            "52.1 Crate 分割方針（設計判断）"
+          ]
+        },
+        {
+          "refId": "REF293",
+          "heading": 3,
+          "texts": [
+            "52.2 ライセンス方針"
+          ]
+        },
+        {
+          "refId": "REF294",
+          "heading": 3,
+          "texts": [
+            "52.3 マルチインスタンス方式（設計判断）"
+          ]
+        },
+        {
+          "refId": "REF295",
+          "heading": 3,
+          "texts": [
+            "52.4 PJSIP 非 Pure Rust の補足"
+          ]
         }
       ]
     },
     {
       "id": "N0113",
-      "title": "§43 テスト戦略 — 4層テスト構造",
-      "kind": "test_policy",
-      "summary": "Layer 1: Unit Tests（MockBackend/PJSIP不要・cargo test最速）、Layer 2: Deterministic State-Machine Tests（MockBackend使用・PJSIP不要・状態機械全遷移検証）、Layer 3: SIP Integration Tests（Docker Asterisk/FreeSWITCH・PJSIP必要・SIPプロトコルレベル結合試験）、Layer 4: 相互接続試験（実PBX/Proxy・CI外）。",
+      "title": "§53 スタンドアロンサーバーモード",
+      "kind": "architecture",
+      "summary": "siprs-server crateはAxumベースHTTP/WSサーバ。全SIP操作とイベント取得を外部APIとして公開。",
       "language": "rust",
-      "slug": "test_strategy_four_layer",
+      "slug": "standalone_server_mode",
       "headingRefs": [
         {
+          "refId": "REF296",
           "heading": 2,
           "texts": [
-            "43. テスト戦略"
-          ],
-          "refId": "REF115"
+            "53. スタンドアロンサーバーモード"
+          ]
         }
       ]
     },
     {
       "id": "N0114",
-      "title": "§43.1 Layer 1: Unit Tests（PJSIP不要）",
-      "kind": "test_policy",
-      "summary": "MockBackendを使用した7種のユニットテスト。config validation・id mapping(BiMap)・pair aligner・resampler format conversion・mixer clipping semantics・event filtering(AccountEventReceiver)・SipError整合性。",
+      "title": "§53.1-53.2 起動モードと設定ファイル構成",
+      "kind": "config",
+      "summary": "ライブラリモード・サーバーモードの2起動モード。TOML/YAML/環境変数からの設定読込。",
       "language": "rust",
-      "slug": "layer_1_unit_tests",
+      "slug": "server_launch_config",
       "headingRefs": [
         {
+          "refId": "REF297",
           "heading": 3,
           "texts": [
-            "43.1 Layer 1: Unit Tests（PJSIP不要）"
-          ],
-          "refId": "REF116"
+            "53.1 起動モード"
+          ]
+        },
+        {
+          "refId": "REF298",
+          "heading": 3,
+          "texts": [
+            "53.2 設定ファイル構成"
+          ]
         }
       ]
     },
     {
       "id": "N0115",
-      "title": "§43.2 Layer 2: Deterministic State-Machine Tests（PJSIP不要）",
-      "kind": "test_policy",
-      "summary": "MockBackend注入Runtimeを使用した状態機械全遷移検証。RegistrationState全遷移（正常系・再試行系・期限切れ系）、CallState全遷移（Outgoing/Incoming/異常系/cancel/transfer/hold/unhold）、並行性（max_calls超過・重複register/unregister・shutdown中新規操作拒否）。",
+      "title": "§54 HTTP/WebSocket API プロトコル構成概要",
+      "kind": "api_contract",
+      "summary": "REST(操作系)+WebSocket(イベント配信+音声バイナリ)の2層構成。",
       "language": "rust",
-      "slug": "layer_2_state_machine_tes",
+      "slug": "http_ws_protocol_overview",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF299",
+          "heading": 2,
           "texts": [
-            "43.2 Layer 2: Deterministic State-Machine Tests（PJSIP不要）"
-          ],
-          "refId": "REF117"
+            "54. HTTP/WebSocket API プロトコル構成"
+          ]
         }
       ]
     },
     {
       "id": "N0116",
-      "title": "§43.3 Layer 3: SIP Integration Tests（ローカルSIP server）",
-      "kind": "test_policy",
-      "summary": "Docker上のAsterisk(PJSIPチャネル)とFreeSWITCHに対する結合試験。REGISTER認証・INVITE/BYE・provisional response(180/183)・DTMF 3方式・unregister/re-register・dual account同時通話・TURN/ICE negotiation・media loopback。",
+      "title": "§54.1-54.2 REST API エンドポイントとWebSocket エンドポイント",
+      "kind": "api_contract",
+      "summary": "全REST APIエンドポイント一覧(Method/Path/説明/cURL例)。WebSocketエンドポイント(/ws/events /ws/audio)。",
       "language": "rust",
-      "slug": "layer_3_sip_integration_t",
+      "slug": "rest_ws_endpoints",
       "headingRefs": [
         {
+          "refId": "REF300",
           "heading": 3,
           "texts": [
-            "43.3 Layer 3: SIP Integration Tests（ローカルSIP server）"
-          ],
-          "refId": "REF118"
+            "54.1 REST API エンドポイント一覧"
+          ]
+        },
+        {
+          "refId": "REF301",
+          "heading": 3,
+          "texts": [
+            "54.2 WebSocket エンドポイント"
+          ]
         }
       ]
     },
     {
       "id": "N0117",
-      "title": "§43.4 Layer 4: 相互接続試験（実PBX/Proxy）",
-      "kind": "test_policy",
-      "summary": "5種の実PBX/Proxyとの相互接続試験計画。Asterisk LTS(P0)/FreeSWITCH(P0)/OpenSIPS(P1)/Kamailio(P1)/3CX SBC(P1)。P0は1.0前完了必須、P1は1.0後順次対応。",
+      "title": "§54.3 Axum Router 構造",
+      "kind": "architecture",
+      "summary": "siprs-serverのAxum Router構成。ルート階層・middleware適用・状態共有。",
       "language": "rust",
-      "slug": "layer_4_interop_tests",
+      "slug": "axum_router_structure",
       "headingRefs": [
         {
+          "refId": "REF302",
           "heading": 3,
           "texts": [
-            "43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"
-          ],
-          "refId": "REF119"
+            "54.3 Axum Router 構造"
+          ]
         }
       ]
     },
     {
       "id": "N0118",
-      "title": "§43.5 プラットフォームテスト",
-      "kind": "test_policy",
-      "summary": "各target OSでprebuilt link・source build fallbackの双方をCIで検証。",
+      "title": "§54.4-54.5 WebSocket メッセージプロトコルと時間的相関",
+      "kind": "api_contract",
+      "summary": "JSONテキストフレーム＋バイナリフレームの2層。イベント-音声時間的相関保証(同一timestamp参照)。",
       "language": "rust",
-      "slug": "platform_tests",
+      "slug": "ws_temporal_correlation",
       "headingRefs": [
         {
+          "refId": "REF303",
           "heading": 3,
           "texts": [
-            "43.5 プラットフォームテスト"
-          ],
-          "refId": "REF120"
+            "54.4 WebSocket メッセージプロトコル"
+          ]
+        },
+        {
+          "refId": "REF304",
+          "heading": 3,
+          "texts": [
+            "54.5 イベント-音声時間的相関保証（設計判断）"
+          ]
         }
       ]
     },
     {
       "id": "N0119",
-      "title": "§43 M20追補: 新機能のテスト層マッピング",
-      "kind": "test_policy",
-      "summary": "M20新機能12項目のテスト層対応表。NativeEvent変換(L2)/RegistrationStateChanged(L2+L3)/CallStateChanged(L2)/CallMediaStateChanged(L2)/DtmfSent二段構え(L2+L3)/DtmfSentタイムアウト(L2)/SubscribeAudio conf_connect(L3)/conf_connect RuntimeCommand(L3)/configure_codecs auto(L2)/Dual Client(L3)/low-priority NativeEvent(L2)。",
+      "title": "§55 認証・認可モデル",
+      "kind": "security",
+      "summary": "SIPアカウント認証→JWT発行→Bearer Token検証(Axum middleware)の3段階。",
       "language": "rust",
-      "slug": "m20_new_features_test_lay",
+      "slug": "auth_model",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF305",
+          "heading": 2,
           "texts": [
-            "M20 追補: 新機能のテスト層マッピング"
-          ],
-          "refId": "REF121"
+            "55. 認証・認可モデル"
+          ]
         }
       ]
     },
     {
       "id": "N0120",
-      "title": "§43 M20追補: プレースホルダーテストの解決条件",
-      "kind": "test_policy",
-      "summary": "3つのプレースホルダーテスト（call_reject/provisional::early_media_received/register::reregister_after_unregister）の現状と解決条件。Dual Client TestContext utilityによるcall_reject解決、SIPpスクリプトによるearly_media_received代替、blocking_read→read().await修正後のreregister有効化。",
+      "title": "§55.1-55.2 JWT 発行とAxum Middleware",
+      "kind": "security",
+      "summary": "JWT発行エンドポイント(POST /auth/token)。Axum JWT認証Middlewareの実装方針。",
       "language": "rust",
-      "slug": "m20_placeholder_test_reso",
+      "slug": "jwt_auth_middleware",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF306",
+          "heading": 3,
           "texts": [
-            "プレースホルダーテストの解決条件"
-          ],
-          "refId": "REF122"
+            "55.1 JWT 発行エンドポイント"
+          ]
+        },
+        {
+          "refId": "REF307",
+          "heading": 3,
+          "texts": [
+            "55.2 Axum JWT 認証 Middleware"
+          ]
         }
       ]
     },
     {
       "id": "N0121",
-      "title": "§43 M20追補: Dual Clientテストutility設計",
-      "kind": "test_policy",
-      "summary": "双方向テスト用DualClientContextの設計。client_a/client_bで同一PjsuaBackend singleton共有・別アカウント・call_a_to_bメソッド。",
+      "title": "§55.3 認証設定のデフォルト",
+      "kind": "config",
+      "summary": "デフォルトbind: 127.0.0.1:3910。デフォルト認証: LocalhostOnly(認証不要)。",
       "language": "rust",
-      "slug": "m20_dual_client_test_util",
+      "slug": "auth_default_config",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF308",
+          "heading": 3,
           "texts": [
-            "Dual Client テスト utility 設計"
-          ],
-          "refId": "REF123"
+            "55.3 認証設定のデフォルト"
+          ]
         }
       ]
     },
     {
       "id": "N0122",
-      "title": "§44 CI/CD要件",
-      "kind": "build_ci",
-      "summary": "CI/CDマトリクス。windows-latest/macos-14/ubuntu-22.04の3OS、default/tls/srtp/tls+srtpの4feature組み合わせ。cargo test・cargo check --all-features・sample integration smoke。binary artifactとprebuilt refresh pipelineを分離。",
+      "title": "§56 設定永続化 — SQLite + SeaORM",
+      "kind": "data_model",
+      "summary": "SQLite+SeaORMによる設定・アカウント情報の永続化。siprs-server/migrations/で管理。",
       "language": "rust",
-      "slug": "ci_cd_requirements",
+      "slug": "persistence_sqlite_seaorm",
       "headingRefs": [
         {
+          "refId": "REF309",
           "heading": 2,
           "texts": [
-            "44. CI/CD 要件"
-          ],
-          "refId": "REF124"
+            "56. 設定永続化 — SQLite + SeaORM"
+          ]
         }
       ]
     },
     {
       "id": "N0123",
-      "title": "§44 M20追補: Dockerテストjob",
-      "kind": "build_ci",
-      "summary": "GitHub ActionsのDocker Integration Test Job定義。asterisk:20.6.0 service使用、ubuntu-22.04 runner、cargo build --features pjsip・cargo test --features pjsip --test integration_test実行。",
+      "title": "§56.1-56.2 テーブルスキーマとマイグレーション管理",
+      "kind": "data_model",
+      "summary": "accounts/transports/ice_config/srtp_config/log_settings等のテーブルスキーマ。Makefile経由のマイグレーション管理。",
       "language": "rust",
-      "slug": "m20_docker_test_job",
+      "slug": "table_schema_migration",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF310",
+          "heading": 3,
           "texts": [
-            "Docker Integration Test Job（GitHub Actions）"
-          ],
-          "refId": "REF125"
+            "56.1 テーブルスキーマ"
+          ]
+        },
+        {
+          "refId": "REF311",
+          "heading": 3,
+          "texts": [
+            "56.2 マイグレーション管理"
+          ]
         }
       ]
     },
     {
       "id": "N0124",
-      "title": "§44 M20追補: Prebuilt Refresh Pipeline",
-      "kind": "build_ci",
-      "summary": "macOS prebuiltバイナリの自動再ビルドpipeline。macos-14 runner・CMake Releaseビルド・make -j・upload-artifact@v4。prebuilt非利用時はbuild.rsがsource buildへ自動フォールバック。",
+      "title": "§57 テスト戦略拡張 — Layer 5",
+      "kind": "test_policy",
+      "summary": "Layer5 HTTP/WebSocket API Integration Test新設。split-rfc-to-children連携のガイドライン。",
       "language": "rust",
-      "slug": "m20_prebuilt_refresh_pipe",
+      "slug": "test_layer5_extension",
       "headingRefs": [
         {
-          "heading": 4,
+          "refId": "REF312",
+          "heading": 2,
           "texts": [
-            "Prebuilt Refresh Pipeline"
-          ],
-          "refId": "REF126"
+            "57. テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）"
+          ]
         }
       ]
     },
     {
       "id": "N0125",
-      "title": "§45 既知の実装上の難所と設計上の解答",
-      "kind": "architecture",
-      "summary": "4つの難所と解答。45.1 PJSIP callback→async橋渡し（callbackでenqueueのみ・状態遷移はreactor）、45.2 送受音声の時間ズレ（PairAligner+tolerance+ゼロパディング+drift metrics）、45.3 multi-source injection（通話ごとAudioMixer+source lifecycle API）、45.4 native id再利用（public id別採番+bi-map変換）。",
+      "title": "§57.1-57.3 Layer5 詳細構成",
+      "kind": "test_policy",
+      "summary": "テスト層構造(拡張版)・テストディレクトリ構成・split-rfc-to-childrenとの連携ルール。",
       "language": "rust",
-      "slug": "known_implementation_chal",
+      "slug": "test_layer5_details",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF313",
+          "heading": 3,
           "texts": [
-            "45. 既知の実装上の難所と設計上の解答"
-          ],
-          "refId": "REF127"
+            "57.1 テスト層構造（拡張版）"
+          ]
+        },
+        {
+          "refId": "REF314",
+          "heading": 3,
+          "texts": [
+            "57.2 テストディレクトリ構成"
+          ]
+        },
+        {
+          "refId": "REF315",
+          "heading": 3,
+          "texts": [
+            "57.3 split-rfc-to-children との連携"
+          ]
         }
       ]
     },
     {
       "id": "N0126",
-      "title": "§46 panic policy",
-      "kind": "error_policy",
-      "summary": "公開APIはpanic-freeを目標。内部invariant破壊時のみtracing::error!とSipEventPayload::Errorをemitし該当call/accountを切り離し。FFI callback境界ではcatch_unwind必須。",
+      "title": "§58 セマンティックバージョニング運用方針",
+      "kind": "config",
+      "summary": "0.xフェーズは柔軟性最優先。破壊的変更はCHANGELOG.mdのunreleasedセクションに記載。",
       "language": "rust",
-      "slug": "panic_policy",
+      "slug": "semver_operations",
       "headingRefs": [
         {
+          "refId": "REF316",
           "heading": 2,
           "texts": [
-            "46. panic policy"
-          ],
-          "refId": "REF128"
+            "58. セマンティックバージョニング運用方針"
+          ]
         }
       ]
     },
     {
       "id": "N0127",
-      "title": "§46.1 catch_unwind発火時のクリーンアップ手順",
-      "kind": "error_policy",
-      "summary": "FFI callback内catch_unwindがパニック捕捉時の4段階安全停止手順。1.即時stopping（該当エンティティをStopping状態遷移・InternalInvariantBroken emit）、2.非同期クリーンアップ（Core Reactor経由でhangup/unregister/conf_remove_port・各操作は個別catch_unwind保護）、3.リソースリーク許容（破損データに依存した完全クリーンアップは不可能・影響範囲は当該call/accountに限定）、4.事後通知（CallDisconnected emit・タイムアウト時はError emit）。",
+      "title": "§59 SIP ネットワーキング詳細",
+      "kind": "security",
+      "summary": "TLS証明書管理(fingerprint/expiry→NativeEvent)。DNS SRV/NAPTR解決(PJSIP内蔵)。マルチネットワークインターフェース。",
       "language": "rust",
-      "slug": "catch_unwind_cleanup_proc",
+      "slug": "sip_networking_details",
       "headingRefs": [
         {
-          "heading": 3,
+          "refId": "REF317",
+          "heading": 2,
           "texts": [
-            "46.1 catch_unwind 発火時のクリーンアップ手順"
-          ],
-          "refId": "REF129"
+            "59. SIP ネットワーキング詳細"
+          ]
         }
       ]
     },
     {
       "id": "N0128",
-      "title": "§47 メモリ所有権規則",
-      "kind": "data_model",
-      "summary": "4つのメモリ所有権規則。native callback由来pointerはcallbackスコープ外保持禁止、必要情報は即座にRust owned dataへコピー、pj_pool_t由来メモリはRust struct fieldに埋め込まない、pj_str_tは常にRust側owner保持。",
+      "title": "§59.1-59.3 TLS/DNS/マルチネットワーク",
+      "kind": "security",
+      "summary": "TLS証明書管理はPJSIP委譲・Rust側NativeEvent受信。DNS解決はPJSIP内蔵機能使用。マルチネットワークIFはPJSIP設定委譲。",
       "language": "rust",
-      "slug": "memory_ownership_rules",
+      "slug": "tls_dns_multinet",
       "headingRefs": [
         {
-          "heading": 2,
+          "refId": "REF318",
+          "heading": 3,
           "texts": [
-            "47. メモリ所有権規則"
-          ],
-          "refId": "REF130"
+            "59.1 TLS 証明書管理"
+          ]
+        },
+        {
+          "refId": "REF319",
+          "heading": 3,
+          "texts": [
+            "59.2 DNS SRV/NAPTR 解決"
+          ]
+        },
+        {
+          "refId": "REF320",
+          "heading": 3,
+          "texts": [
+            "59.3 マルチネットワークインターフェース"
+          ]
         }
       ]
     },
     {
       "id": "N0129",
-      "title": "§48 デフォルトポリシーの明文化",
-      "kind": "config",
-      "summary": "7つのデフォルトポリシー。既定transport:UDP+TCP、既定codec order:Opus>PCMU、既定DTMF send method:RFC4733、既定audio delivery:16kHz/i16/stereo L=IN R=OUT、既定raw SIP events:enabled、既定SRTP:disabled、既定ICE:enabled。",
-      "language": "rust",
-      "slug": "default_policy_explicit",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "48. デフォルトポリシーの明文化"
-          ],
-          "refId": "REF131"
-        }
-      ]
-    },
-    {
-      "id": "N0130",
-      "title": "§49 lib.rs雛形",
-      "kind": "architecture",
-      "summary": "crateのlib.rs雛形。mod宣言（client/config/account/call/transport/event/error/audio/ffi/runtime/util）とpub use再export一覧。",
-      "language": "rust",
-      "slug": "lib_rs_skeleton",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "49. lib.rs 雛形"
-          ],
-          "refId": "REF132"
-        }
-      ]
-    },
-    {
-      "id": "N0131",
-      "title": "§50 受け入れ基準",
-      "kind": "requirement",
-      "summary": "RFC準拠実装の完了条件14項目。3OS build成功、PJSUAバインディング自動生成、prebuilt優先+source build fallback機能、複数account独立register/unregister、未登録発信可能、UDP/TCP/TLS/SRTP/ICE/STUN/TURN動作、PCMU/Opusのみ交渉、DTMF 3方式送受信、全列挙イベント発火、AudioChunkPair取得、複数audio source注入切替、全API Result<T,SipError>統一、SipClient:Send+Sync成立。",
-      "language": "rust",
-      "slug": "acceptance_criteria",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "50. 受け入れ基準"
-          ],
-          "refId": "REF133"
-        }
-      ]
-    },
-    {
-      "id": "N0132",
-      "title": "§51 結論",
+      "title": "§60 既存RFCセクションとの対応関係と§61 split-rfc-to-children参考情報",
       "kind": "rationale",
-      "summary": "本RFCが元要件定義の全責務を単一文書に閉じた完全設計に展開したことの総括。公開API・内部スレッドモデル・FFI境界・音声ミキシング・イベント体系・ビルド戦略・検証方針まで実装可能な粒度で固定。残る作業は本RFCのコード化。",
+      "summary": "既存RFCセクション対応表。split-rfc-to-children実行時のI/O境界・境界属性・注意依存関係・テスト分割・ファイル構成案。",
       "language": "rust",
-      "slug": "conclusion",
+      "slug": "reference_split_guidance",
       "headingRefs": [
         {
-          "heading": 2,
-          "texts": [
-            "51. 結論"
-          ],
-          "refId": "REF134"
-        }
-      ]
-    },
-    {
-      "id": "N0133",
-      "title": "§52 HTTP/WebSocket API層 — 責務範囲とcrate分割",
-      "kind": "architecture",
-      "summary": "siprsの2つの側面（純粋ライブラリ+スタンドアロンサーバー）とcrate分割方針。siprs（SIPクライアントコア）+siprs-server（HTTP/WebSocket APIサーバー）の分離crate方式。",
-      "language": "rust",
-      "slug": "http_websocket_api_layer",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
-          ],
-          "refId": "REF135"
-        }
-      ]
-    },
-    {
-      "id": "N0134",
-      "title": "§52.1 Crate分割方針（設計判断）",
-      "kind": "rationale",
-      "summary": "siprs+siprs-server分離の設計判断。Tauri埋込時にHTTP/WS依存不要でバンドルサイズ最小化、siprsの責務をSIPクライアントコアに限定しテストがHTTP依存から解放、将来のバックエンド差し替え時もsiprs-serverは影響なし。siprs-serverのCargo.toml・siprsへのfeature追記。",
-      "language": "rust",
-      "slug": "crate_split_design_decisi",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "52.1 Crate 分割方針（設計判断）"
-          ],
-          "refId": "REF136"
-        }
-      ]
-    },
-    {
-      "id": "N0135",
-      "title": "§52.2 ライセンス方針",
-      "kind": "error_policy",
-      "summary": "PJSIP（GPL v2）依存を踏まえたライセンス方針。1.0までの現フェーズでは未確定。目標: siprs本体はMIT/Apache 2.0デュアルライセンス、PJSIPとのリンクにGPL linking exception付与。",
-      "language": "rust",
-      "slug": "license_policy",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "52.2 ライセンス方針"
-          ],
-          "refId": "REF137"
-        }
-      ]
-    },
-    {
-      "id": "N0136",
-      "title": "§52.3 マルチインスタンス方式（設計判断）",
-      "kind": "rationale",
-      "summary": "単一PjsuaBackend singleton共有（Dual Client）モデルを本番運用として正式サポートする設計判断。最初のSipClient::new()でReactor+PjsuaBackend singleton生成、2つ目以降はsingleton共有+新規EventBus追加登録。account_idベースEventBus振り分け。Dual Clientは本番マルチテナント運用の標準モデル。",
-      "language": "rust",
-      "slug": "multi_instance_design_dec",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "52.3 マルチインスタンス方式（設計判断）"
-          ],
-          "refId": "REF138"
-        }
-      ]
-    },
-    {
-      "id": "N0137",
-      "title": "§52.4 PJSIP非Pure Rustの補足",
-      "kind": "requirement",
-      "summary": "vendor/pjsip/内Cライブラリ依存とunsafe FFI境界の監査方針。ffi/bindings.rs（bindgen自動生成・手動編集禁止）、ffi/callbacks.rs（extern \"C\"・catch_unwind必須・最小限work enqueue）、ffi/strings.rs（pj_str_t↔Rust &str変換・Rust側メモリ所有）。",
-      "language": "rust",
-      "slug": "pjsip_non_pure_rust_note",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "52.4 PJSIP 非 Pure Rust の補足"
-          ],
-          "refId": "REF139"
-        }
-      ]
-    },
-    {
-      "id": "N0138",
-      "title": "§53 スタンドアロンサーバーモード",
-      "kind": "architecture",
-      "summary": "siprs-server crateのAxumベースHTTP/WSサーバー概要。起動モード（SipClient初期化→DB初期化→保存済みアカウント復元→Axumサーバー起動）、ServerConfig（bind_addr/db_path/config_file/allowed_origins/auth）、AuthConfig（LocalhostOnly/ApiKey/Jwt）。",
-      "language": "rust",
-      "slug": "standalone_server_mode",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "53. スタンドアロンサーバーモード"
-          ],
-          "refId": "REF140"
-        }
-      ]
-    },
-    {
-      "id": "N0139",
-      "title": "§53.2 設定ファイル構成",
-      "kind": "config",
-      "summary": "ServerConfigとAuthConfigのフィールド定義。bind_addr（default 127.0.0.1:3910）、db_path、config_file、allowed_origins、auth（AuthMode: LocalhostOnly/ApiKey/Jwt, jwt_secret, jwt_expiry_secs:3600）。",
-      "language": "rust",
-      "slug": "server_config_structure",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "53.2 設定ファイル構成"
-          ],
-          "refId": "REF141"
-        }
-      ]
-    },
-    {
-      "id": "N0140",
-      "title": "§54 HTTP/WebSocket APIプロトコル構成",
-      "kind": "api_contract",
-      "summary": "REST（操作系）+WebSocket（イベント配信+音声バイナリ）の2層構成の設計決定。",
-      "language": "rust",
-      "slug": "http_websocket_protocol_a",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "54. HTTP/WebSocket API プロトコル構成"
-          ],
-          "refId": "REF142"
-        }
-      ]
-    },
-    {
-      "id": "N0141",
-      "title": "§54.1 REST APIエンドポイント一覧",
-      "kind": "api_contract",
-      "summary": "19のREST APIエンドポイント一覧。POST /auth/token（JWT発行）、GET/POST/DELETE /accounts（CRUD）、POST /accounts/:id/register・/unregister、POST /accounts/:id/calls（発信）、GET /calls・/calls/:id（通話状態）、POST /calls/:id/hangup・/hold・/unhold・/dtmf・/transfer、GET /events（SSE）、GET /health、POST /shutdown。",
-      "language": "rust",
-      "slug": "rest_api_endpoints",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "54.1 REST API エンドポイント一覧"
-          ],
-          "refId": "REF143"
-        }
-      ]
-    },
-    {
-      "id": "N0142",
-      "title": "§54.2 WebSocketエンドポイント",
-      "kind": "api_contract",
-      "summary": "2つのWebSocketエンドポイント。ws://host:port/api/v1/ws（制御系イベント+音声チャンク）、ws://host:port/api/v1/ws/audio（音声チャンク専用）。Authorization: Bearer <token>ヘッダで認証。",
-      "language": "rust",
-      "slug": "websocket_endpoints",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "54.2 WebSocket エンドポイント"
-          ],
-          "refId": "REF144"
-        }
-      ]
-    },
-    {
-      "id": "N0143",
-      "title": "§54.3 Axum Router構造",
-      "kind": "architecture",
-      "summary": "build_router関数によるAxum Router定義。認証不要エンドポイント（health/auth/token）とJWT認証必須エンドポイント（accounts/calls/shutdown）の2層。WebSocket route（ws/ws_audio）。AxumJWTAuthLayerで共通認証。",
-      "language": "rust",
-      "slug": "axum_router_structure",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "54.3 Axum Router 構造"
-          ],
-          "refId": "REF145"
-        }
-      ]
-    },
-    {
-      "id": "N0144",
-      "title": "§54.4 WebSocketメッセージプロトコル",
-      "kind": "api_contract",
-      "summary": "テキストフレーム（制御系イベント: JSON {type:\"event\",seq,payload:{kind,call_id,account_id,timestamp_ms}}）とバイナリフレーム（音声チャンク: 24バイト固定ヘッダAudioFrameHeader{sequence_number,timestamp_ms,frame_ms,sample_rate,channels,bits_per_sample,call_id,reserved}+可変長PCMデータ）のプロトコル定義。",
-      "language": "rust",
-      "slug": "websocket_message_protoco",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "54.4 WebSocket メッセージプロトコル"
-          ],
-          "refId": "REF146"
-        }
-      ]
-    },
-    {
-      "id": "N0145",
-      "title": "§54.5 イベント-音声時間的相関保証（設計判断）",
-      "kind": "rationale",
-      "summary": "グローバルシーケンス番号をプライマリキーとしタイムスタンプをフォールバック指標とする設計判断。SipEventにseq:u64追加、AudioChunkPairにfirst_seq/last_seq追加。受信側はseqで制御系イベントと音声チャンクを対応付け。",
-      "language": "rust",
-      "slug": "event_audio_temporal_corr",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "54.5 イベント-音声時間的相関保証（設計判断）"
-          ],
-          "refId": "REF147"
-        }
-      ]
-    },
-    {
-      "id": "N0146",
-      "title": "§55 認証・認可モデル",
-      "kind": "security",
-      "summary": "SIPアカウント認証によるJWT発行+Bearer Token検証（Axum middleware）の認証モデル全体像。",
-      "language": "rust",
-      "slug": "authentication_authorizat",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "55. 認証・認可モデル"
-          ],
-          "refId": "REF148"
-        }
-      ]
-    },
-    {
-      "id": "N0147",
-      "title": "§55.1 JWT発行エンドポイント",
-      "kind": "api_contract",
-      "summary": "POST /api/v1/auth/tokenのJWT発行フロー。sip_username/sip_password/sip_domainでSIPアカウント認証→JWT発行（sub/username/domain/exp/scope:\"sip:all\"）。AuthRequest/AuthResponseのJSON形式。",
-      "language": "rust",
-      "slug": "jwt_issuance_endpoint",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "55.1 JWT 発行エンドポイント"
-          ],
-          "refId": "REF149"
-        }
-      ]
-    },
-    {
-      "id": "N0148",
-      "title": "§55.2 Axum JWT認証Middleware",
-      "kind": "security",
-      "summary": "AxumJWTAuthLayerの設計。Authorization: Bearer <token>ヘッダ検証。WebSocket接続時も同一トークンをクエリパラメータまたはヘッダで検証。Axum Layer trait実装。",
-      "language": "rust",
-      "slug": "axum_jwt_auth_middleware",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "55.2 Axum JWT 認証 Middleware"
-          ],
-          "refId": "REF150"
-        }
-      ]
-    },
-    {
-      "id": "N0149",
-      "title": "§55.3 認証設定のデフォルト",
-      "kind": "config",
-      "summary": "認証の3つのデフォルト。バインドアドレス127.0.0.1:3910（ローカルホストのみ）、認証モードLocalhostOnly（認証不要）、外部公開時はAuthConfigで認証モード強制。",
-      "language": "rust",
-      "slug": "auth_config_defaults",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "55.3 認証設定のデフォルト"
-          ],
-          "refId": "REF151"
-        }
-      ]
-    },
-    {
-      "id": "N0150",
-      "title": "§56 設定永続化 — SQLite + SeaORM",
-      "kind": "config",
-      "summary": "SQLite+SeaORMによる設定・アカウント情報永続化の方針。rusqlite（bundled feature）でシステムライブラリ非依存。マイグレーション管理はSeaORM CLI + Makefile（gen-migration/migrate-refresh/migrate-fresh/migrate-up/gen-entities）。",
-      "language": "rust",
-      "slug": "config_persistence_sqlite",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "56. 設定永続化 — SQLite + SeaORM"
-          ],
-          "refId": "REF152"
-        }
-      ]
-    },
-    {
-      "id": "N0151",
-      "title": "§56.1 テーブルスキーマ",
-      "kind": "data_model",
-      "summary": "4テーブルのSQLiteスキーマ。accounts（id/display_name/username/auth_username/password(BLOB暗号化済)/domain/registrar_uri/transport/register_on_start/allow_outbound_without_register/created_at/updated_at）、transport_configs（kind/bind_addr/port/tls_config_id）、client_settings（key/value）、tls_configs（verify_server/ca_cert_path/client_cert_path/server_name）。",
-      "language": "rust",
-      "slug": "table_schema",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "56.1 テーブルスキーマ"
-          ],
-          "refId": "REF153"
-        }
-      ]
-    },
-    {
-      "id": "N0152",
-      "title": "§56.2 マイグレーション管理",
-      "kind": "build_ci",
-      "summary": "siprs-server/migrations/ディレクトリでのSeaORMマイグレーション管理。gen-migration/migrate-up/migrate-refresh/migrate-fresh/gen-entitiesの各Makefileターゲット。初回セットアップ手順。",
-      "language": "rust",
-      "slug": "migration_management",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "56.2 マイグレーション管理"
-          ],
-          "refId": "REF154"
-        }
-      ]
-    },
-    {
-      "id": "N0153",
-      "title": "§57 テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）",
-      "kind": "test_policy",
-      "summary": "既存4層にLayer 5を新設するテスト戦略拡張。REST API単体テスト（Axum TestResponse）・WebSocket接続テスト・音声バイナリフレーム送受信テスト・JWT認証フローテスト・SIP結合テスト（Docker Asterisk+HTTP/WS API）。split-rfc-to-childrenによる将来分割時のテストスコープ分割設計。",
-      "language": "rust",
-      "slug": "test_strategy_extension_l",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "57. テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）"
-          ],
-          "refId": "REF155"
-        }
-      ]
-    },
-    {
-      "id": "N0154",
-      "title": "§57.2 テストディレクトリ構成",
-      "kind": "test_policy",
-      "summary": "siprs-server/tests/のディレクトリ構成。api/（auth_test/accounts_test/calls_test/health_test）、ws/（event_stream_test/audio_frame_test/auth_test）、integration/（sip_via_api_test）。Axum TestResponseとWebSocket接続テストのコード例。",
-      "language": "rust",
-      "slug": "test_directory_structure",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "57.2 テストディレクトリ構成"
-          ],
-          "refId": "REF156"
-        }
-      ]
-    },
-    {
-      "id": "N0155",
-      "title": "§57.3 split-rfc-to-childrenとの連携",
-      "kind": "test_policy",
-      "summary": "RFC分割時のテスト分割ガイドライン。各子RFCに対応するテストモジュールも同時分割、CRUD境界・プロトコル層・Docker依存の有無で分割基準。",
-      "language": "rust",
-      "slug": "split_rfc_to_children_tes",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "57.3 split-rfc-to-children との連携"
-          ],
-          "refId": "REF157"
-        }
-      ]
-    },
-    {
-      "id": "N0156",
-      "title": "§58 セマンティックバージョニング運用方針",
-      "kind": "config",
-      "summary": "0.xフェーズのバージョニング運用方針。破壊的変更はCHANGELOG.mdのunreleasedセクションに記載、deprecation期間なしで即時変更可能、1.0以降はcargo semver-checksをCI導入してAPI互換性自動検証。",
-      "language": "rust",
-      "slug": "semantic_versioning_opera",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "58. セマンティックバージョニング運用方針"
-          ],
-          "refId": "REF158"
-        }
-      ]
-    },
-    {
-      "id": "N0157",
-      "title": "§59 SIPネットワーキング詳細",
-      "kind": "architecture",
-      "summary": "TLS証明書管理（PJSIP委譲+TlsCertificateInfo NativeEvent通知）、DNS SRV/NAPTR解決（PJSIP内蔵pjsip_resolver使用+DnsResolutionResult通知）、マルチネットワークインターフェース（バインドアドレス指定のみ・OSネットワークスタック委譲）の3項目。",
-      "language": "rust",
-      "slug": "sip_networking_details",
-      "headingRefs": [
-        {
-          "heading": 2,
-          "texts": [
-            "59. SIP ネットワーキング詳細"
-          ],
-          "refId": "REF159"
-        }
-      ]
-    },
-    {
-      "id": "N0158",
-      "title": "§59.1 TLS証明書管理",
-      "kind": "security",
-      "summary": "PJSIPのTLS処理に完全委譲し、TlsCertificateInfo NativeEvent（transport_id/server_name/peer_cert_fingerprint/peer_cert_subject/peer_cert_issuer/peer_cert_expiry/verified）でRust側に通知。",
-      "language": "rust",
-      "slug": "tls_certificate_managemen",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "59.1 TLS 証明書管理"
-          ],
-          "refId": "REF160"
-        }
-      ]
-    },
-    {
-      "id": "N0159",
-      "title": "§59.2 DNS SRV/NAPTR解決",
-      "kind": "architecture",
-      "summary": "PJSIP内蔵DNS解決機能の使用方針。Rust側でDNS解決を再実装しない。解決結果はDnsResolutionResult NativeEvent（hostname/resolved_addresses/srv_records/ttl_secs）で通知。",
-      "language": "rust",
-      "slug": "dns_srv_naptr_resolution",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "59.2 DNS SRV/NAPTR 解決"
-          ],
-          "refId": "REF161"
-        }
-      ]
-    },
-    {
-      "id": "N0160",
-      "title": "§59.3 マルチネットワークインターフェース",
-      "kind": "api_contract",
-      "summary": "PJSIPトランスポート設定にバインドアドレス指定のみ。経路制御・フェイルオーバーはOSのネットワークスタック委譲。マルチホーミング設定例（UDP全IF+TCP特定IF+TCP VPN IF）。特定IF障害時の自動フェイルオーバーはPJSIPのトランスポート管理機能委譲・Rust側はTransportDisconnected監視。",
-      "language": "rust",
-      "slug": "multi_network_interface",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "59.3 マルチネットワークインターフェース"
-          ],
-          "refId": "REF162"
-        }
-      ]
-    },
-    {
-      "id": "N0161",
-      "title": "§60 既存RFCセクションとの対応関係",
-      "kind": "glossary",
-      "summary": "本RFCの新規セクション（§52〜§59）と既存RFCセクション（§1〜§51）の対応関係表。grill決定と関連既存セクション・補足の一覧。",
-      "language": "rust",
-      "slug": "existing_rfc_section_corr",
-      "headingRefs": [
-        {
+          "refId": "REF321",
           "heading": 2,
           "texts": [
             "60. 既存 RFC セクションとの対応関係"
-          ],
-          "refId": "REF163"
-        }
-      ]
-    },
-    {
-      "id": "N0162",
-      "title": "§61 split-rfc-to-childrenのための参考情報 — I/O境界の手がかり",
-      "kind": "architecture",
-      "summary": "将来のRFC分割・チケット策定のためのI/O境界参考情報。7つの自然なI/O境界（B1:crate境界/B2:FFI境界/B3:Async境界/B4:API公開境界/B5:イベント配送境界/B6:永続化境界/B7:認証境界）、各境界の属性（同期非同期・データ形式・分割後結合手段・テスト独立性）、注意が必要な依存関係（NativeEvent拡張/RuntimeCommand追加/sequence number一貫性）、テスト分割と分割後ファイル構成の参考案。",
-      "language": "rust",
-      "slug": "split_rfc_io_boundary_ref",
-      "headingRefs": [
+          ]
+        },
         {
+          "refId": "REF322",
           "heading": 2,
           "texts": [
             "61. split-rfc-to-children のための参考情報 — RFC設計書が示す I/O 境界の手がかり"
-          ],
-          "refId": "REF164"
-        }
-      ]
-    },
-    {
-      "id": "N0163",
-      "title": "§61.1 観測された自然なI/O境界",
-      "kind": "architecture",
-      "summary": "7つのI/O境界候補（B1〜B7）と各切断面・該当セクション・備考。B1:crate境界(siprs↔siprs-server)、B2:FFI境界(Rust↔C)、B3:Async境界(Reactor↔AudioWorkerTask)、B4:API公開境界(SipClient↔HTTP/WS)、B5:イベント配送境界(EventBus↔購読者)、B6:永続化境界(runtime↔SQLite)、B7:認証境界(Router↔JWT Middleware)。",
-      "language": "rust",
-      "slug": "observed_natural_io_bound",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.1 観測された自然な I/O 境界"
-          ],
-          "refId": "REF165"
-        }
-      ]
-    },
-    {
-      "id": "N0164",
-      "title": "§61.2 境界の属性",
-      "kind": "architecture",
-      "summary": "7境界の属性一覧表。同期/非同期・データ形式・分割後結合手段・テスト独立性の4軸で各境界を評価。B1/B4/B5/B6/B7はテスト独立性高、B2は低（PJSIP初期化必要）、B3は中程度。",
-      "language": "rust",
-      "slug": "boundary_attributes",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.2 境界の属性"
-          ],
-          "refId": "REF166"
-        }
-      ]
-    },
-    {
-      "id": "N0165",
-      "title": "§61.3 分割時に注意が必要な依存関係",
-      "kind": "architecture",
-      "summary": "循環または暗黙的依存で分割時に追加考慮が必要な3項目。NativeEvent拡張（Reactor変換+EventBus配送の両方に影響）、RuntimeCommand追加（SipClient→RuntimeCommand→Reactor→SipBackend→PjsuaBackendの全層影響）、sequence number一貫性（EventBusとAudioChunkPairの共有。Reactor内一元採番が有効）。",
-      "language": "rust",
-      "slug": "split_dependency_concerns",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.3 分割時に注意が必要な依存関係"
-          ],
-          "refId": "REF167"
-        }
-      ]
-    },
-    {
-      "id": "N0166",
-      "title": "§61.4 テスト分割への参考",
-      "kind": "test_policy",
-      "summary": "I/O境界切断と連動したテスト分割の指針。B1分割時はsiprs/tests/=Layer1+2、siprs-server/tests/=Layer5。B4分割時はHTTPサーバーさえ立てれば独立実行可能。B6分割時は:memory: SQLiteで完全分離可能。",
-      "language": "rust",
-      "slug": "test_split_reference",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.4 テスト分割への参考"
-          ],
-          "refId": "REF168"
-        }
-      ]
-    },
-    {
-      "id": "N0167",
-      "title": "§61.5 分割後のファイル構成（一案）",
-      "kind": "architecture",
-      "summary": "B1（crate境界）とB4（API境界）で分割した場合のファイル構成案。siprs/（変更なし）・siprs-server/（新設）・siprs-core/（将来の分割例）の3crate構成。ただし現在のフェーズではsiprs単一crate開発を継続。",
-      "language": "rust",
-      "slug": "post_split_file_structure",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.5 分割後のファイル構成（一案）"
-          ],
-          "refId": "REF169"
-        }
-      ]
-    },
-    {
-      "id": "N0168",
-      "title": "§61.6 本セクションの目的と限界",
-      "kind": "rationale",
-      "summary": "本セクションはRFC設計記述から事後的に観測された境界を書き留めたものであり境界を事前設計したものではないことの注記。実際の分割判断は実装・コード・テスト蓄積後に/split-rfc-to-children実行時に行う。境界候補は参考情報であり新発見があれば優先。",
-      "language": "rust",
-      "slug": "section_purpose_and_limit",
-      "headingRefs": [
-        {
-          "heading": 3,
-          "texts": [
-            "61.6 参考: 本セクションの目的と限界"
-          ],
-          "refId": "REF170"
+          ]
         }
       ]
     }
   ],
   "edges": [
+    {
+      "from": "N0002",
+      "to": "N0001",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
     {
       "from": "N0003",
       "to": "N0002",
@@ -2898,9 +2464,36 @@
       }
     },
     {
+      "from": "N0004",
+      "to": "N0001",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0005",
       "to": "N0004",
       "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0006",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0007",
+      "to": "N0001",
+      "type": "depends_on",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -2916,7 +2509,34 @@
       }
     },
     {
+      "from": "N0009",
+      "to": "N0001",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0010",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0011",
+      "to": "N0010",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0012",
       "to": "N0010",
       "type": "part_of",
       "attributes": {
@@ -2927,9 +2547,9 @@
     {
       "from": "N0013",
       "to": "N0012",
-      "type": "part_of",
+      "type": "refines",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
@@ -2944,15 +2564,6 @@
     },
     {
       "from": "N0015",
-      "to": "N0012",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0016",
       "to": "N0010",
       "type": "part_of",
       "attributes": {
@@ -2961,9 +2572,18 @@
       }
     },
     {
-      "from": "N0017",
-      "to": "N0016",
+      "from": "N0016",
+      "to": "N0017",
       "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0017",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -2971,8 +2591,8 @@
     },
     {
       "from": "N0018",
-      "to": "N0016",
-      "type": "part_of",
+      "to": "N0017",
+      "type": "depends_on",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -2980,7 +2600,16 @@
     },
     {
       "from": "N0019",
-      "to": "N0016",
+      "to": "N0017",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0020",
+      "to": "N0010",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -2988,8 +2617,17 @@
       }
     },
     {
-      "from": "N0020",
-      "to": "N0016",
+      "from": "N0021",
+      "to": "N0007",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0022",
+      "to": "N0021",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -2998,7 +2636,7 @@
     },
     {
       "from": "N0023",
-      "to": "N0022",
+      "to": "N0021",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3006,8 +2644,44 @@
       }
     },
     {
+      "from": "N0024",
+      "to": "N0023",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0025",
-      "to": "N0024",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0026",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0027",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0028",
+      "to": "N0027",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3016,26 +2690,35 @@
     },
     {
       "from": "N0029",
-      "to": "N0028",
-      "type": "part_of",
+      "to": "N0027",
+      "type": "extends",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0030",
-      "to": "N0028",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
       }
     },
     {
+      "from": "N0031",
+      "to": "N0030",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0032",
-      "to": "N0031",
-      "type": "part_of",
+      "to": "N0030",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3043,7 +2726,7 @@
     },
     {
       "from": "N0033",
-      "to": "N0031",
+      "to": "N0032",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3052,34 +2735,34 @@
     },
     {
       "from": "N0034",
-      "to": "N0031",
-      "type": "part_of",
+      "to": "N0032",
+      "type": "refines",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0035",
-      "to": "N0031",
-      "type": "part_of",
+      "to": "N0032",
+      "type": "constrains",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0036",
-      "to": "N0031",
-      "type": "part_of",
+      "to": "N0030",
+      "type": "refines",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0037",
-      "to": "N0031",
+      "to": "N0036",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3088,7 +2771,7 @@
     },
     {
       "from": "N0038",
-      "to": "N0031",
+      "to": "N0037",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3097,7 +2780,7 @@
     },
     {
       "from": "N0039",
-      "to": "N0038",
+      "to": "N0037",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3106,7 +2789,7 @@
     },
     {
       "from": "N0040",
-      "to": "N0038",
+      "to": "N0037",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3115,17 +2798,17 @@
     },
     {
       "from": "N0041",
-      "to": "N0038",
-      "type": "part_of",
+      "to": "N0030",
+      "type": "extends",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0042",
-      "to": "N0038",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3133,7 +2816,25 @@
     },
     {
       "from": "N0043",
-      "to": "N0038",
+      "to": "N0042",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0044",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0045",
+      "to": "N0044",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3142,8 +2843,17 @@
     },
     {
       "from": "N0046",
-      "to": "N0045",
-      "type": "part_of",
+      "to": "N0044",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0047",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3151,8 +2861,8 @@
     },
     {
       "from": "N0048",
-      "to": "N0047",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3160,7 +2870,16 @@
     },
     {
       "from": "N0049",
-      "to": "N0047",
+      "to": "N0048",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0050",
+      "to": "N0048",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3169,8 +2888,17 @@
     },
     {
       "from": "N0051",
-      "to": "N0050",
+      "to": "N0048",
       "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0052",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3178,8 +2906,8 @@
     },
     {
       "from": "N0053",
-      "to": "N0052",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3187,7 +2915,7 @@
     },
     {
       "from": "N0054",
-      "to": "N0052",
+      "to": "N0053",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3196,7 +2924,16 @@
     },
     {
       "from": "N0055",
-      "to": "N0052",
+      "to": "N0053",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0056",
+      "to": "N0055",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3205,7 +2942,16 @@
     },
     {
       "from": "N0057",
-      "to": "N0056",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0058",
+      "to": "N0057",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3214,17 +2960,17 @@
     },
     {
       "from": "N0059",
-      "to": "N0058",
-      "type": "part_of",
+      "to": "N0057",
+      "type": "refines",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0060",
-      "to": "N0058",
-      "type": "part_of",
+      "to": "N0061",
+      "type": "constrains",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3232,8 +2978,8 @@
     },
     {
       "from": "N0061",
-      "to": "N0060",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3241,7 +2987,16 @@
     },
     {
       "from": "N0062",
-      "to": "N0060",
+      "to": "N0061",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0063",
+      "to": "N0061",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3250,8 +3005,8 @@
     },
     {
       "from": "N0064",
-      "to": "N0063",
-      "type": "part_of",
+      "to": "N0061",
+      "type": "depends_on",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3259,7 +3014,7 @@
     },
     {
       "from": "N0065",
-      "to": "N0063",
+      "to": "N0064",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3268,7 +3023,16 @@
     },
     {
       "from": "N0066",
-      "to": "N0063",
+      "to": "N0061",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0067",
+      "to": "N0066",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3277,8 +3041,8 @@
     },
     {
       "from": "N0068",
-      "to": "N0067",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3286,7 +3050,7 @@
     },
     {
       "from": "N0069",
-      "to": "N0067",
+      "to": "N0068",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3295,7 +3059,7 @@
     },
     {
       "from": "N0070",
-      "to": "N0067",
+      "to": "N0068",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3304,7 +3068,7 @@
     },
     {
       "from": "N0071",
-      "to": "N0067",
+      "to": "N0068",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3313,17 +3077,17 @@
     },
     {
       "from": "N0072",
-      "to": "N0067",
-      "type": "part_of",
+      "to": "N0071",
+      "type": "extends",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0073",
-      "to": "N0067",
-      "type": "part_of",
+      "to": "N0007",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3331,8 +3095,17 @@
     },
     {
       "from": "N0074",
-      "to": "N0067",
+      "to": "N0073",
       "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0075",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3357,9 +3130,27 @@
       }
     },
     {
+      "from": "N0078",
+      "to": "N0075",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0079",
-      "to": "N0078",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0080",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3367,8 +3158,8 @@
     },
     {
       "from": "N0081",
-      "to": "N0080",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3376,7 +3167,7 @@
     },
     {
       "from": "N0082",
-      "to": "N0080",
+      "to": "N0081",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3384,9 +3175,18 @@
       }
     },
     {
+      "from": "N0083",
+      "to": "N0081",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0084",
-      "to": "N0083",
-      "type": "part_of",
+      "to": "N0012",
+      "type": "depends_on",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3394,8 +3194,8 @@
     },
     {
       "from": "N0085",
-      "to": "N0083",
-      "type": "part_of",
+      "to": "N0084",
+      "type": "constrains",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3403,8 +3203,8 @@
     },
     {
       "from": "N0086",
-      "to": "N0083",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3412,17 +3212,26 @@
     },
     {
       "from": "N0087",
-      "to": "N0083",
-      "type": "part_of",
+      "to": "N0086",
+      "type": "extends",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0088",
+      "to": "N0030",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0089",
-      "to": "N0088",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3430,7 +3239,7 @@
     },
     {
       "from": "N0090",
-      "to": "N0088",
+      "to": "N0073",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3439,7 +3248,34 @@
     },
     {
       "from": "N0091",
-      "to": "N0088",
+      "to": "N0047",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0092",
+      "to": "N0047",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0093",
+      "to": "N0009",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0094",
+      "to": "N0093",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3448,17 +3284,26 @@
     },
     {
       "from": "N0095",
-      "to": "N0094",
+      "to": "N0057",
       "type": "part_of",
       "attributes": {
-        "strength": "hard",
+        "strength": "soft",
         "bidirectional": false
       }
     },
     {
       "from": "N0096",
-      "to": "N0094",
-      "type": "part_of",
+      "to": "N0017",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0097",
+      "to": "N0021",
+      "type": "constrains",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3466,8 +3311,8 @@
     },
     {
       "from": "N0098",
-      "to": "N0097",
-      "type": "part_of",
+      "to": "N0071",
+      "type": "validates",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3475,7 +3320,61 @@
     },
     {
       "from": "N0099",
-      "to": "N0097",
+      "to": "N0012",
+      "type": "validates",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0100",
+      "to": "N0098",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0101",
+      "to": "N0073",
+      "type": "validates",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0102",
+      "to": "N0101",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0103",
+      "to": "N0012",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0104",
+      "to": "N0027",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0105",
+      "to": "N0104",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3483,9 +3382,9 @@
       }
     },
     {
-      "from": "N0101",
-      "to": "N0100",
-      "type": "part_of",
+      "from": "N0106",
+      "to": "N0068",
+      "type": "constrains",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3493,7 +3392,7 @@
     },
     {
       "from": "N0107",
-      "to": "N0106",
+      "to": "N0021",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3502,8 +3401,8 @@
     },
     {
       "from": "N0108",
-      "to": "N0106",
-      "type": "part_of",
+      "to": "N0010",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3511,8 +3410,44 @@
     },
     {
       "from": "N0109",
-      "to": "N0106",
-      "type": "part_of",
+      "to": "N0009",
+      "type": "validates",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0110",
+      "to": "N0001",
+      "type": "supersedes",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0111",
+      "to": "N0001",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0112",
+      "to": "N0111",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0113",
+      "to": "N0111",
+      "type": "implements",
       "attributes": {
         "strength": "hard",
         "bidirectional": false
@@ -3529,7 +3464,7 @@
     },
     {
       "from": "N0115",
-      "to": "N0113",
+      "to": "N0111",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3538,7 +3473,7 @@
     },
     {
       "from": "N0116",
-      "to": "N0113",
+      "to": "N0115",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3556,7 +3491,7 @@
     },
     {
       "from": "N0118",
-      "to": "N0113",
+      "to": "N0115",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3565,7 +3500,7 @@
     },
     {
       "from": "N0119",
-      "to": "N0113",
+      "to": "N0111",
       "type": "part_of",
       "attributes": {
         "strength": "hard",
@@ -3591,6 +3526,15 @@
       }
     },
     {
+      "from": "N0122",
+      "to": "N0113",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      }
+    },
+    {
       "from": "N0123",
       "to": "N0122",
       "type": "part_of",
@@ -3601,611 +3545,8 @@
     },
     {
       "from": "N0124",
-      "to": "N0122",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0127",
-      "to": "N0126",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0134",
-      "to": "N0133",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0135",
-      "to": "N0133",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0136",
-      "to": "N0133",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0137",
-      "to": "N0133",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0139",
-      "to": "N0138",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0141",
-      "to": "N0140",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0142",
-      "to": "N0140",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0143",
-      "to": "N0140",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0144",
-      "to": "N0140",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0145",
-      "to": "N0140",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0147",
-      "to": "N0146",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0148",
-      "to": "N0146",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0149",
-      "to": "N0146",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0151",
-      "to": "N0150",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0152",
-      "to": "N0150",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0154",
-      "to": "N0153",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0155",
-      "to": "N0153",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0158",
-      "to": "N0157",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0159",
-      "to": "N0157",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0160",
-      "to": "N0157",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0163",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0164",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0165",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0166",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0167",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0168",
-      "to": "N0162",
-      "type": "part_of",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0010",
-      "to": "N0001",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0009",
-      "to": "N0001",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0012",
-      "to": "N0010",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0015",
-      "to": "N0012",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0018",
-      "to": "N0015",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0022",
-      "to": "N0009",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0024",
-      "to": "N0009",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0028",
-      "to": "N0018",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0045",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0047",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0044",
-      "to": "N0032",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0034",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0050",
-      "to": "N0018",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0052",
-      "to": "N0018",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0058",
-      "to": "N0018",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0056",
-      "to": "N0057",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0063",
-      "to": "N0056",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0067",
-      "to": "N0063",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0075",
-      "to": "N0067",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0078",
-      "to": "N0056",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0080",
-      "to": "N0012",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0081",
-      "to": "N0080",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0083",
-      "to": "N0007",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0088",
-      "to": "N0009",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0092",
-      "to": "N0102",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0093",
-      "to": "N0012",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0094",
-      "to": "N0015",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0097",
-      "to": "N0017",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0100",
-      "to": "N0010",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0101",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0102",
-      "to": "N0001",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0104",
-      "to": "N0047",
-      "type": "triggers",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0105",
-      "to": "N0047",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0106",
-      "to": "N0067",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0110",
-      "to": "N0063",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0112",
-      "to": "N0022",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0113",
-      "to": "N0001",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0115",
-      "to": "N0045",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0115",
-      "to": "N0047",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0116",
-      "to": "N0009",
-      "type": "validates",
+      "to": "N0099",
+      "type": "extends",
       "attributes": {
         "strength": "soft",
         "bidirectional": false
@@ -4213,17 +3554,26 @@
     },
     {
       "from": "N0125",
-      "to": "N0012",
-      "type": "refines",
+      "to": "N0124",
+      "type": "part_of",
       "attributes": {
-        "strength": "soft",
+        "strength": "hard",
         "bidirectional": false
       }
     },
     {
       "from": "N0126",
-      "to": "N0028",
-      "type": "refines",
+      "to": "N0008",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      }
+    },
+    {
+      "from": "N0127",
+      "to": "N0001",
+      "type": "depends_on",
       "attributes": {
         "strength": "soft",
         "bidirectional": false
@@ -4231,835 +3581,16 @@
     },
     {
       "from": "N0128",
-      "to": "N0080",
-      "type": "constrains",
+      "to": "N0127",
+      "type": "part_of",
       "attributes": {
-        "strength": "soft",
+        "strength": "hard",
         "bidirectional": false
       }
     },
     {
       "from": "N0129",
-      "to": "N0022",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0130",
-      "to": "N0010",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0131",
-      "to": "N0009",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0132",
-      "to": "N0001",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0133",
-      "to": "N0010",
-      "type": "extends",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0138",
-      "to": "N0133",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0140",
-      "to": "N0138",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0146",
-      "to": "N0102",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0150",
-      "to": "N0022",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0153",
-      "to": "N0113",
-      "type": "extends",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0156",
-      "to": "N0008",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0157",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0162",
-      "to": "N0133",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0007",
-      "to": "N0001",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0008",
-      "to": "N0007",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0028",
-      "to": "N0015",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0002",
-      "to": "N0001",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0004",
-      "to": "N0001",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0006",
-      "to": "N0001",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0021",
-      "to": "N0017",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0026",
-      "to": "N0022",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0027",
-      "to": "N0022",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0092",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0094",
-      "to": "N0017",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0098",
-      "to": "N0017",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0099",
-      "to": "N0081",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0102",
-      "to": "N0028",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0131",
-      "to": "N0113",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0131",
-      "to": "N0083",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0139",
-      "to": "N0022",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0143",
-      "to": "N0141",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0148",
-      "to": "N0147",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0149",
-      "to": "N0146",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0151",
-      "to": "N0024",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0151",
-      "to": "N0022",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0154",
-      "to": "N0153",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0166",
-      "to": "N0113",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0166",
-      "to": "N0153",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0053",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0054",
-      "to": "N0052",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0055",
-      "to": "N0052",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0058",
-      "to": "N0057",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0060",
-      "to": "N0058",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0061",
-      "to": "N0060",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0068",
-      "to": "N0013",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0072",
-      "to": "N0013",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0073",
-      "to": "N0063",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0075",
-      "to": "N0057",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0078",
-      "to": "N0075",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0082",
-      "to": "N0081",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0085",
-      "to": "N0084",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0086",
-      "to": "N0085",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0087",
-      "to": "N0085",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0090",
-      "to": "N0089",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0091",
-      "to": "N0089",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0093",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0103",
-      "to": "N0083",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0104",
-      "to": "N0032",
-      "type": "triggers",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0106",
-      "to": "N0013",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0107",
-      "to": "N0068",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0109",
-      "to": "N0068",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0111",
-      "to": "N0018",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0112",
-      "to": "N0024",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0118",
-      "to": "N0103",
-      "type": "validates",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0122",
-      "to": "N0083",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0123",
-      "to": "N0116",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0124",
-      "to": "N0083",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0128",
-      "to": "N0021",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0135",
-      "to": "N0083",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0136",
-      "to": "N0017",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0138",
-      "to": "N0130",
-      "type": "extends",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0142",
-      "to": "N0034",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0144",
-      "to": "N0032",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0147",
-      "to": "N0024",
-      "type": "depends_on",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0152",
-      "to": "N0150",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0158",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0159",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0160",
-      "to": "N0026",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0163",
-      "to": "N0133",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0165",
-      "to": "N0015",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0165",
-      "to": "N0038",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0167",
-      "to": "N0133",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0038",
-      "to": "N0040",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0039",
-      "to": "N0041",
-      "type": "precedes",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0041",
-      "to": "N0047",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0042",
-      "to": "N0047",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0043",
-      "to": "N0045",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0069",
-      "to": "N0009",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0070",
-      "to": "N0069",
-      "type": "refines",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0071",
-      "to": "N0070",
-      "type": "constrains",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0100",
-      "to": "N0018",
-      "type": "implements",
-      "attributes": {
-        "strength": "hard",
-        "bidirectional": false
-      }
-    },
-    {
-      "from": "N0161",
-      "to": "N0133",
+      "to": "N0110",
       "type": "references",
       "attributes": {
         "strength": "soft",

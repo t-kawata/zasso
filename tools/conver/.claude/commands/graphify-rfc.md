@@ -366,16 +366,27 @@ node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=
 
 ノード数が多い場合も、AI が必要と判断したノードのみクエリすればよい（全 headingRefs 解決済みのため、グラフ全体の到達可能性は保証されている）。
 
-### AI による品質点検
+### AI による品質点検（ランダムサンプリング目視確認）
 
-全ノードの検索結果を読み、以下の観点でグラフ構造の十分性を評価する：
+機械的検証では検出できない品質問題（エッジの正しさ、kind 分類の整合、headingRefs の過不足）を、ランダムサンプリングにより目視確認する。
 
-1. **各ノードに最低1本のエッジが存在するか**（孤立ノードがないか）
-2. **依存関係が設計文書の記述を正しく反映しているか**（必須の依存が欠落していないか）
-3. **kind の分類が設計文書の内容と整合しているか**
-4. **各ノードの headingRefs が設計文書の該当箇所を過不足なくカバーしているか**
-5. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか**
-6. **headingRefs が全ノードでソースファイルに対して解決可能であるか（test-query-all.js が exit 0 であること）**
+```bash
+# 全ノードの query.js 結果を _quality/ に保存し、8%を乱数選出してコマンド一覧を表示
+node .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
+```
+
+出力されたコマンド一覧の各ノードに対して、以下の手順で点検する：
+
+```bash
+# 選出されたノードの内容を表示（例: N0001）
+node .claude/scripts/rfc-graph/get-node-for-check.js N0001
+```
+
+各ノードの表示内容を読み、以下の点検項目を確認する：
+
+1. **他のノードとの関係性が設計文書の記述を正しく反映しているか**（必須のエッジが欠落していないか）
+2. **各ノードの内容が設計文書の該当箇所を過不足なくカバーしているか**
+3. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか**
 
 不足がある場合 → 新規ノードの追加・既存ノードの修正・必要に応じて削除しての再作成を組み合わせ、**グラフを洗練（補強）する**ために Step 1 に戻る。
 
@@ -392,7 +403,8 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 ```bash
 # 成功時: Step 4 正常終了（進行ステータスを done に更新）
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 4
-# 一時ファイルのクリーンアップ
+# 一時ファイルのクリーンアップ（_quality/ ディレクトリも削除対象）
+rm -rf _quality/
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
