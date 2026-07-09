@@ -1,0 +1,1460 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-07-09T08:56:57.826Z",
+  "sourceGraph": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "analysis": {
+    "nodeCount": 176,
+    "edgeCount": 207,
+    "kindCounts": {
+      "architecture": 45,
+      "requirement": 8,
+      "rationale": 24,
+      "glossary": 1,
+      "api_contract": 28,
+      "data_model": 9,
+      "config": 17,
+      "error_policy": 6,
+      "state_machine": 6,
+      "build_ci": 12,
+      "security": 8,
+      "test_policy": 12
+    },
+    "edgeTypeCounts": {
+      "part_of": 113,
+      "refines": 15,
+      "depends_on": 52,
+      "references": 15,
+      "triggers": 3,
+      "extends": 2,
+      "precedes": 7
+    }
+  },
+  "trees": {
+    "rust": {
+      "name": "src",
+      "type": "directory",
+      "kind": "root",
+      "children": [
+        {
+          "name": "concurrency_model",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0012",
+              "title": "§7 並行性モデル"
+            }
+          ],
+          "children": [
+            {
+              "name": "command_serialization.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0015",
+                  "title": "§7.2 command serialization"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "crate_root_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0016",
+                  "title": "§8.1 crateルート公開API"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "sipclient_struct.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0017",
+                  "title": "§8.2 SipClient構造体"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "sipclient_methods.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0018",
+                  "title": "§8.3 SipClient APIメソッド"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "account_handle_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0019",
+                  "title": "§8.4 SipAccountHandle API"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "outgoing_call_request.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0020",
+                  "title": "§8.5 OutgoingCallRequest"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            }
+          ]
+        },
+        {
+          "name": "event_model_overview",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0031",
+              "title": "§15 イベントモデル概要"
+            }
+          ],
+          "children": [
+            {
+              "name": "sip_event_payload.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0032",
+                  "title": "§15.1 SipEventPayload enum"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "sip_event_struct.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0033",
+                  "title": "§15.2 SipEvent構造体"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "event_meta.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0034",
+                  "title": "§15.3 EventMeta構造体"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "eventbus.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0035",
+                  "title": "§15.4 EventBus"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "account_event_receiver.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0036",
+                  "title": "§15.5 AccountEventReceiver"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "native_event_mapping.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0040",
+                  "title": "M20 追補: NativeEvent完全マッピングテーブル"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "callstate_mapping.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0041",
+                  "title": "M20 追補: CallStateChanged pjsip_inv_stateマッピング"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "media_state_mapping.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0042",
+                  "title": "M20 追補: CallMediaStateChanged media_status判定"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            }
+          ]
+        },
+        {
+          "name": "ffi_overview",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0078",
+              "title": "§27 PJSIP FFI層概要"
+            }
+          ],
+          "children": [
+            {
+              "name": "bindgen_strategy.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0079",
+                  "title": "§27.1 bindgen生成方針"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            }
+          ]
+        },
+        {
+          "name": "standalone_server",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0152",
+              "title": "§53 スタンドアロンサーバーモード"
+            }
+          ],
+          "children": [
+            {
+              "name": "server_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0154",
+                  "title": "§53.2 設定ファイル構成"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            }
+          ]
+        },
+        {
+          "name": "config",
+          "type": "directory",
+          "kind": "config",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0022",
+              "title": "§10 ClientConfig完全仕様"
+            },
+            {
+              "nodeId": "N0023",
+              "title": "§10.1 既定値"
+            },
+            {
+              "nodeId": "N0024",
+              "title": "§11 AccountConfig完全仕様"
+            },
+            {
+              "nodeId": "N0025",
+              "title": "§11.1 validation rules"
+            },
+            {
+              "nodeId": "N0026",
+              "title": "§12 TransportConfig完全仕様"
+            },
+            {
+              "nodeId": "N0027",
+              "title": "§13 ICE/STUN/TURN完全仕様"
+            },
+            {
+              "nodeId": "N0059",
+              "title": "§22.1 backpressure policy"
+            },
+            {
+              "nodeId": "N0089",
+              "title": "§29 codec policy強制"
+            },
+            {
+              "nodeId": "N0092",
+              "title": "M20 追補: 明示的/autoモード優先順位"
+            },
+            {
+              "nodeId": "N0094",
+              "title": "M20 追補: 利用者明示指定時の動作"
+            },
+            {
+              "nodeId": "N0104",
+              "title": "§34 観測性概要"
+            },
+            {
+              "nodeId": "N0105",
+              "title": "§34.1 tracing"
+            },
+            {
+              "nodeId": "N0106",
+              "title": "§34.2 metrics"
+            },
+            {
+              "nodeId": "N0116",
+              "title": "§40 audio device policy"
+            },
+            {
+              "nodeId": "N0142",
+              "title": "§48 デフォルトポリシーの明文化"
+            },
+            {
+              "nodeId": "N0165",
+              "title": "§56 設定永続化SQLite+SeaORM"
+            }
+          ],
+          "children": [
+            {
+              "name": "client_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0022",
+                  "title": "§10 ClientConfig完全仕様"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "config_defaults.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0023",
+                  "title": "§10.1 既定値"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "account_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0024",
+                  "title": "§11 AccountConfig完全仕様"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "account_validation.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0025",
+                  "title": "§11.1 validation rules"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "transport_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0026",
+                  "title": "§12 TransportConfig完全仕様"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "ice_stun_turn.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0027",
+                  "title": "§13 ICE/STUN/TURN完全仕様"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "backpressure_policy.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0059",
+                  "title": "§22.1 backpressure policy"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "codec_policy.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0089",
+                  "title": "§29 codec policy強制"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "codec_mode_priority.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0092",
+                  "title": "M20 追補: 明示的/autoモード優先順位"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "codec_explicit_mode.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0094",
+                  "title": "M20 追補: 利用者明示指定時の動作"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "observability.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0104",
+                  "title": "§34 観測性概要"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "tracing.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0105",
+                  "title": "§34.1 tracing"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "metrics.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0106",
+                  "title": "§34.2 metrics"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "audio_device_policy.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0116",
+                  "title": "§40 audio device policy"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "default_policies.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0142",
+                  "title": "§48 デフォルトポリシーの明文化"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "persistence.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0165",
+                  "title": "§56 設定永続化SQLite+SeaORM"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "type": "directory",
+          "kind": "error_policy",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0028",
+              "title": "§14 エラー設計"
+            },
+            {
+              "nodeId": "N0029",
+              "title": "§14.1 エラー変換方針"
+            },
+            {
+              "nodeId": "N0030",
+              "title": "M20 追補: 新RuntimeCommandのエラー設計"
+            },
+            {
+              "nodeId": "N0090",
+              "title": "§29.1 コーデックフォールバックルール"
+            },
+            {
+              "nodeId": "N0139",
+              "title": "§46 panic policy"
+            },
+            {
+              "nodeId": "N0140",
+              "title": "§46.1 catch_unwind発火時クリーンアップ手順"
+            }
+          ],
+          "children": [
+            {
+              "name": "error_design.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0028",
+                  "title": "§14 エラー設計"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "error_conversion.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0029",
+                  "title": "§14.1 エラー変換方針"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "runtime_command_errors.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0030",
+                  "title": "M20 追補: 新RuntimeCommandのエラー設計"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "codec_fallback.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0090",
+                  "title": "§29.1 コーデックフォールバックルール"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "panic_policy.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0139",
+                  "title": "§46 panic policy"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "catch_unwind_cleanup.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0140",
+                  "title": "§46.1 catch_unwind発火時クリーンアップ手順"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            }
+          ]
+        },
+        {
+          "name": "build",
+          "type": "directory",
+          "kind": "build_ci",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0084",
+              "title": "§28 build.rs戦略"
+            },
+            {
+              "nodeId": "N0085",
+              "title": "§28.1 探索順序"
+            },
+            {
+              "nodeId": "N0086",
+              "title": "§28.2 build script実装"
+            },
+            {
+              "nodeId": "N0087",
+              "title": "§28.3 cmake flags"
+            },
+            {
+              "nodeId": "N0088",
+              "title": "§28.4 OS別依存関係"
+            },
+            {
+              "nodeId": "N0109",
+              "title": "§36 プラットフォーム差異"
+            },
+            {
+              "nodeId": "N0132",
+              "title": "§44 CI/CD要件"
+            },
+            {
+              "nodeId": "N0133",
+              "title": "M20 追補: Docker Integration Test Job"
+            },
+            {
+              "nodeId": "N0134",
+              "title": "M20 追補: Prebuilt Refresh Pipeline"
+            },
+            {
+              "nodeId": "N0167",
+              "title": "§56.2 マイグレーション管理"
+            },
+            {
+              "nodeId": "N0172",
+              "title": "§58 セマンティックバージョニング運用方針"
+            }
+          ],
+          "children": [
+            {
+              "name": "build_strategy.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0084",
+                  "title": "§28 build.rs戦略"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "search_order.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0085",
+                  "title": "§28.1 探索順序"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "build_script_impl.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0086",
+                  "title": "§28.2 build script実装"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "cmake_flags.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0087",
+                  "title": "§28.3 cmake flags"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "os_dependencies.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0088",
+                  "title": "§28.4 OS別依存関係"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "platform_diffs.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0109",
+                  "title": "§36 プラットフォーム差異"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "cicd_requirements.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0132",
+                  "title": "§44 CI/CD要件"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "docker_test_job.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0133",
+                  "title": "M20 追補: Docker Integration Test Job"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "prebuilt_pipeline.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0134",
+                  "title": "M20 追補: Prebuilt Refresh Pipeline"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "db_migrations.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0167",
+                  "title": "§56.2 マイグレーション管理"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "semver_operation.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0172",
+                  "title": "§58 セマンティックバージョニング運用方針"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            }
+          ]
+        },
+        {
+          "name": "security",
+          "type": "directory",
+          "kind": "security",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0095",
+              "title": "§30 SRTP仕様"
+            },
+            {
+              "nodeId": "N0096",
+              "title": "§31 トランスポート再接続方針"
+            },
+            {
+              "nodeId": "N0108",
+              "title": "§35 セキュリティ"
+            },
+            {
+              "nodeId": "N0161",
+              "title": "§55 認証・認可モデル"
+            },
+            {
+              "nodeId": "N0162",
+              "title": "§55.1 JWT発行エンドポイント"
+            },
+            {
+              "nodeId": "N0163",
+              "title": "§55.2 Axum JWT認証Middleware"
+            },
+            {
+              "nodeId": "N0164",
+              "title": "§55.3 認証設定のデフォルト"
+            },
+            {
+              "nodeId": "N0173",
+              "title": "§59.1 TLS証明書管理"
+            }
+          ],
+          "children": [
+            {
+              "name": "srtp_spec.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0095",
+                  "title": "§30 SRTP仕様"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "transport_reconnect.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0096",
+                  "title": "§31 トランスポート再接続方針"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "security.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0108",
+                  "title": "§35 セキュリティ"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "auth_model.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0161",
+                  "title": "§55 認証・認可モデル"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "jwt_endpoint.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0162",
+                  "title": "§55.1 JWT発行エンドポイント"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "jwt_middleware.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0163",
+                  "title": "§55.2 Axum JWT認証Middleware"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "auth_defaults.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0164",
+                  "title": "§55.3 認証設定のデフォルト"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "tls_cert_management.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0173",
+                  "title": "§59.1 TLS証明書管理"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            }
+          ]
+        },
+        {
+          "name": "tests",
+          "type": "directory",
+          "kind": "test_policy",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0123",
+              "title": "§43 テスト戦略概要"
+            },
+            {
+              "nodeId": "N0124",
+              "title": "§43.1 Layer1 Unit Tests"
+            },
+            {
+              "nodeId": "N0125",
+              "title": "§43.2 Layer2 State-Machine Tests"
+            },
+            {
+              "nodeId": "N0126",
+              "title": "§43.3 Layer3 SIP Integration Tests"
+            },
+            {
+              "nodeId": "N0127",
+              "title": "§43.4 Layer4 相互接続試験"
+            },
+            {
+              "nodeId": "N0128",
+              "title": "§43.5 プラットフォームテスト"
+            },
+            {
+              "nodeId": "N0129",
+              "title": "M20 追補: 新機能テスト層マッピング"
+            },
+            {
+              "nodeId": "N0130",
+              "title": "M20 追補: プレースホルダーテスト解決条件"
+            },
+            {
+              "nodeId": "N0131",
+              "title": "M20 追補: Dual Client TestContext utility設計"
+            },
+            {
+              "nodeId": "N0168",
+              "title": "§57 テスト戦略拡張概要"
+            },
+            {
+              "nodeId": "N0169",
+              "title": "§57.1 テスト層構造拡張版"
+            },
+            {
+              "nodeId": "N0170",
+              "title": "§57.2 テストディレクトリ構成"
+            }
+          ],
+          "children": [
+            {
+              "name": "test_strategy.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0123",
+                  "title": "§43 テスト戦略概要"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer1.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0124",
+                  "title": "§43.1 Layer1 Unit Tests"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer2.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0125",
+                  "title": "§43.2 Layer2 State-Machine Tests"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer3.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0126",
+                  "title": "§43.3 Layer3 SIP Integration Tests"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer4.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0127",
+                  "title": "§43.4 Layer4 相互接続試験"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_platform.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0128",
+                  "title": "§43.5 プラットフォームテスト"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "m20_test_mapping.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0129",
+                  "title": "M20 追補: 新機能テスト層マッピング"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "placeholder_test.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0130",
+                  "title": "M20 追補: プレースホルダーテスト解決条件"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "dual_client_test_utility.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0131",
+                  "title": "M20 追補: Dual Client TestContext utility設計"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_expansion.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0168",
+                  "title": "§57 テスト戦略拡張概要"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer5_structure.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0169",
+                  "title": "§57.1 テスト層構造拡張版"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_directory.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0170",
+                  "title": "§57.2 テストディレクトリ構成"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            }
+          ]
+        }
+      ],
+      "crossReferences": [
+        {
+          "nodeId": "N0002",
+          "kind": "requirement",
+          "title": "§1a M20実装優先度マップ",
+          "connections": []
+        },
+        {
+          "nodeId": "N0003",
+          "kind": "rationale",
+          "title": "§1a 設計判断対応表",
+          "connections": []
+        },
+        {
+          "nodeId": "N0006",
+          "kind": "glossary",
+          "title": "§3 用語",
+          "connections": []
+        },
+        {
+          "nodeId": "N0007",
+          "kind": "requirement",
+          "title": "§4 準拠要件",
+          "connections": [
+            {
+              "toNodeId": "N0173",
+              "toFile": "src/security/tls_cert_management.rs",
+              "edgeType": "part_of",
+              "direction": "←"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0009",
+          "kind": "requirement",
+          "title": "§5 機能要求の確定化",
+          "connections": [
+            {
+              "toNodeId": "N0022",
+              "toFile": "src/config/client_config.rs",
+              "edgeType": "references",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0024",
+              "toFile": "src/config/account_config.rs",
+              "edgeType": "references",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0022",
+              "toFile": "src/config/client_config.rs",
+              "edgeType": "depends_on",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0022",
+              "toFile": "src/config/client_config.rs",
+              "edgeType": "precedes",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0011",
+          "kind": "rationale",
+          "title": "§6.1 Crate責務分割方針",
+          "connections": []
+        },
+        {
+          "nodeId": "N0014",
+          "kind": "rationale",
+          "title": "§7.1a 単一Reactorスケーラビリティ注記",
+          "connections": []
+        },
+        {
+          "nodeId": "N0037",
+          "kind": "rationale",
+          "title": "§15.6 イベントバス分割の設計判断",
+          "connections": []
+        },
+        {
+          "nodeId": "N0039",
+          "kind": "requirement",
+          "title": "M20 追補: NativeEvent変換基本方針",
+          "connections": [
+            {
+              "toNodeId": "N0032",
+              "toFile": "src/event_model_overview/sip_event_payload.rs",
+              "edgeType": "refines",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0049",
+          "kind": "requirement",
+          "title": "§18.2 同時通話制約",
+          "connections": []
+        },
+        {
+          "nodeId": "N0055",
+          "kind": "requirement",
+          "title": "M20 追補: DtmfSent発火条件",
+          "connections": []
+        },
+        {
+          "nodeId": "N0065",
+          "kind": "rationale",
+          "title": "§23.3 設計判断の注記",
+          "connections": []
+        },
+        {
+          "nodeId": "N0066",
+          "kind": "rationale",
+          "title": "§24.0 リアルタイム境界（最重要設計判断）",
+          "connections": []
+        },
+        {
+          "nodeId": "N0072",
+          "kind": "rationale",
+          "title": "§24.5 slabベースsource管理",
+          "connections": []
+        },
+        {
+          "nodeId": "N0075",
+          "kind": "rationale",
+          "title": "§25.2 メモリ最適化注記",
+          "connections": []
+        },
+        {
+          "nodeId": "N0117",
+          "kind": "rationale",
+          "title": "§41.1 Client初期化例",
+          "connections": [
+            {
+              "toNodeId": "N0017",
+              "toFile": "src/concurrency_model/sipclient_struct.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0118",
+          "kind": "rationale",
+          "title": "§41.2 account追加とregister例",
+          "connections": [
+            {
+              "toNodeId": "N0019",
+              "toFile": "src/concurrency_model/account_handle_api.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0119",
+          "kind": "rationale",
+          "title": "§41.3 発信とイベント受信例",
+          "connections": []
+        },
+        {
+          "nodeId": "N0120",
+          "kind": "rationale",
+          "title": "§41.4 音声tap例",
+          "connections": []
+        },
+        {
+          "nodeId": "N0121",
+          "kind": "rationale",
+          "title": "§41.5 AI TTS source挿入例",
+          "connections": []
+        },
+        {
+          "nodeId": "N0122",
+          "kind": "requirement",
+          "title": "§42 validationフェーズ",
+          "connections": [
+            {
+              "toNodeId": "N0018",
+              "toFile": "src/concurrency_model/sipclient_methods.rs",
+              "edgeType": "precedes",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0025",
+              "toFile": "src/config/account_validation.rs",
+              "edgeType": "depends_on",
+              "direction": "←"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0135",
+          "kind": "rationale",
+          "title": "§45.1 PJSIP callback→async橋渡し",
+          "connections": []
+        },
+        {
+          "nodeId": "N0136",
+          "kind": "rationale",
+          "title": "§45.2 送受音声の時間ズレ",
+          "connections": []
+        },
+        {
+          "nodeId": "N0137",
+          "kind": "rationale",
+          "title": "§45.3 multi-source injection",
+          "connections": []
+        },
+        {
+          "nodeId": "N0138",
+          "kind": "rationale",
+          "title": "§45.4 native id再利用",
+          "connections": []
+        },
+        {
+          "nodeId": "N0144",
+          "kind": "requirement",
+          "title": "§50 受け入れ基準",
+          "connections": []
+        },
+        {
+          "nodeId": "N0145",
+          "kind": "rationale",
+          "title": "§51 結論",
+          "connections": []
+        },
+        {
+          "nodeId": "N0147",
+          "kind": "rationale",
+          "title": "§52.1 Crate分割方針",
+          "connections": []
+        },
+        {
+          "nodeId": "N0148",
+          "kind": "rationale",
+          "title": "§52.2 ライセンス方針",
+          "connections": []
+        },
+        {
+          "nodeId": "N0149",
+          "kind": "rationale",
+          "title": "§52.2 ライセンス方針",
+          "connections": []
+        },
+        {
+          "nodeId": "N0150",
+          "kind": "rationale",
+          "title": "§52.3 マルチインスタンス方式",
+          "connections": []
+        },
+        {
+          "nodeId": "N0160",
+          "kind": "rationale",
+          "title": "§54.5 イベント-音声時間的相関保証",
+          "connections": []
+        },
+        {
+          "nodeId": "N0176",
+          "kind": "rationale",
+          "title": "§61 I/O境界参考情報",
+          "connections": []
+        }
+      ]
+    }
+  },
+  "dependencyDirections": {
+    "rust": [
+      {
+        "from": "src/config",
+        "to": "src/security",
+        "rule": "config → security (N0027->N0096 (references))"
+      },
+      {
+        "from": "src/tests",
+        "to": "src/error",
+        "rule": "tests → error (N0124->N0028 (depends_on))"
+      }
+    ]
+  },
+  "warnings": []
+}
