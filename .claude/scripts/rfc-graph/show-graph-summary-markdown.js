@@ -130,8 +130,7 @@ function loadSourceFile(filePath) {
  * @returns {string}
  */
 function truncateSummary(summary) {
-  if (!summary || summary.length <= 28) return summary || '';
-  return summary.slice(0, 25) + '...';
+  return summary || '';
 }
 
 /**
@@ -283,26 +282,25 @@ function generateSummary(graph, sourceText) {
 function generateCliExamples(graphPath, sourcePath, firstNodeId) {
   const graphFileName = path.basename(graphPath);
   const sourceFileName = path.basename(sourcePath);
-  const nodeId = firstNodeId || 'N0001';
+  const nodeId = firstNodeId || "N0001";
 
   return [
-    '',
-    '---',
-    '### グラフ探索コマンド',
-    '',
-    `\`\`\`bash`,
-    `# 全ノード一覧`,
-    `node ${SCRIPTS_DIR}/crud.js list-nodes --graph=${graphFileName}`,
-    ``,
-    `# 特定ノード取得`,
-    `node ${SCRIPTS_DIR}/crud.js get-node --graph=${graphFileName} --id=${nodeId}`,
-    ``,
-    `# ${DEFAULT_HOPS}ホップ探索`,
-    `node ${SCRIPTS_DIR}/query.js --graph=${graphFileName} --source=${sourceFileName} --id=${nodeId} --hops=${DEFAULT_HOPS}`,
-    `\`\`\``,
+    "",
+    "---",
+    "### グラフ探索コマンド",
+    "",
+    "```bash",
+    "# 1ホップ探索（直接接続のみ）",
+    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=1",
+    "",
+    "# 2ホップ探索（子・孫を含む）",
+    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=2",
+    "",
+    "# 3ホップ探索（より深い関係性まで）",
+    "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=3",
+    "```",
   ];
 }
-
 function main() {
   let parsed;
   try {
