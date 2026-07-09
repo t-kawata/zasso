@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-07-09T03:47:13.185Z",
+  "totalBroken": 1,
+  "uniqueBroken": 1,
+  "nodes": [
+    {
+      "nodeId": "N0001",
+      "nodeTitle": "§1 目的 — 本crateの責務定義",
+      "refId": "REF_TEST",
+      "diagnosis": "M9",
+      "score": 50,
+      "heading": 2,
+      "texts": [
+        "1. 目的",
+        "2. 非目的"
+      ],
+      "resolutionLine": 14,
+      "resolvedText": "## 1. 目的",
+      "allTokensMatched": false,
+      "details": {
+        "tokenMatches": [
+          {
+            "token": "1. 目的",
+            "matched": true,
+            "matchCount": 1
+          },
+          {
+            "token": "2. 非目的",
+            "matched": false,
+            "matchCount": 1
+          }
+        ],
+        "candidateLines": [
+          {
+            "line": 14,
+            "text": "## 1. 目的",
+            "score": 50
+          },
+          {
+            "line": 68,
+            "text": "## 2. 非目的",
+            "score": 50
+          },
+          {
+            "line": 18,
+            "text": "## 1a. M20 実装優先度マップ",
+            "score": 0
+          }
+        ]
+      },
+      "summary": "トークンが複数の見出しに分散しており、1行で全てを満たせません。",
+      "remedyHint": "トークンが複数の見出しに分散しており、1行で全てを満たせません。",
+      "remedyCommand": "crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs"
+    }
+  ]
+}

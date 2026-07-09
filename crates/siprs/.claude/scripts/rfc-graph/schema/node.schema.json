@@ -24,7 +24,7 @@
     "slug": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]*$",
-      "maxLength": 64,
+      "maxLength": 25,
       "description": "タイトルから生成された lower_snake_case の識別子。ファイル名・ディレクトリ名のベースとして使用。graphify 側で静的に確定する。"
     },
     "headingRefs": {

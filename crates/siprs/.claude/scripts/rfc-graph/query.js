@@ -13,25 +13,25 @@
  * CLI: query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N>
  */
 
-const fs = require('fs');
-const path = require('path');
-const { resolveByHeading } = require('./resolve-by-heading.js');
+const fs = require("fs");
+const path = require("path");
+const { resolveByHeading } = require("./resolve-by-heading.js");
 
 // ============================================================
 // 定数定義
 // ============================================================
 
 /** グラフファイルパスを指定するCLI引数のプレフィックス */
-const GRAPH_PATH_ARG_PREFIX = '--graph=';
+const GRAPH_PATH_ARG_PREFIX = "--graph=";
 
 /** ソースファイルパスを指定するCLI引数のプレフィックス */
-const SOURCE_PATH_ARG_PREFIX = '--source=';
+const SOURCE_PATH_ARG_PREFIX = "--source=";
 
 /** ノードIDを指定するCLI引数のプレフィックス */
-const NODE_ID_ARG_PREFIX = '--id=';
+const NODE_ID_ARG_PREFIX = "--id=";
 
 /** ホップ数を指定するCLI引数のプレフィックス */
-const HOPS_ARG_PREFIX = '--hops=';
+const HOPS_ARG_PREFIX = "--hops=";
 
 /** 探索が未指定時のデフォルトホップ数 */
 const DEFAULT_HOPS = 1;
@@ -57,7 +57,7 @@ function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
   // --help オプション
-  if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
+  if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
@@ -65,8 +65,8 @@ function parseArguments(testArgs) {
   // 最小引数: --graph=<path> --source=<path> --id=<nodeId>
   if (args.length < 3) {
     throw new Error(
-      '引数が不足しています。\n' +
-      '  Usage: query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]'
+      "引数が不足しています。\n" +
+        "  Usage: query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]",
     );
   }
 
@@ -74,26 +74,26 @@ function parseArguments(testArgs) {
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '最初の引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      "最初の引数は --graph=<path> である必要があります。\n" +
+        `  実際の値: ${graphFlag}`,
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error("--graph=<path> の <path> が空です。");
   }
 
   // --source=<path> のパース
   const sourceFlag = args[1];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
-      '2番目の引数は --source=<path> である必要があります。\n' +
-      `  実際の値: ${sourceFlag}`
+      "2番目の引数は --source=<path> である必要があります。\n" +
+        `  実際の値: ${sourceFlag}`,
     );
   }
   const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error("--source=<path> の <path> が空です。");
   }
 
   // --id=<nodeId> のパース（複数指定はカンマ区切りに対応）
@@ -120,15 +120,18 @@ function parseArguments(testArgs) {
 function parseNodeIds(idFlag) {
   if (!idFlag.startsWith(NODE_ID_ARG_PREFIX)) {
     throw new Error(
-      '3番目の引数は --id=<nodeId> である必要があります。\n' +
-      `  実際の値: ${idFlag}`
+      "3番目の引数は --id=<nodeId> である必要があります。\n" +
+        `  実際の値: ${idFlag}`,
     );
   }
   const rawIds = idFlag.slice(NODE_ID_ARG_PREFIX.length);
   if (!rawIds) {
-    throw new Error('--id=<nodeId> の <nodeId> が空です。');
+    throw new Error("--id=<nodeId> の <nodeId> が空です。");
   }
-  return rawIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
+  return rawIds
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
 }
 
 /**
@@ -141,19 +144,19 @@ function parseNodeIds(idFlag) {
 function parseHops(hopsFlag) {
   if (!hopsFlag.startsWith(HOPS_ARG_PREFIX)) {
     throw new Error(
-      '4番目の引数は --hops=<N> である必要があります。\n' +
-      `  実際の値: ${hopsFlag}`
+      "4番目の引数は --hops=<N> である必要があります。\n" +
+        `  実際の値: ${hopsFlag}`,
     );
   }
   const hopsStr = hopsFlag.slice(HOPS_ARG_PREFIX.length);
   if (!hopsStr) {
-    throw new Error('--hops=<N> の <N> が空です。');
+    throw new Error("--hops=<N> の <N> が空です。");
   }
   const hops = parseInt(hopsStr, 10);
   if (!Number.isInteger(hops) || hops < 1) {
     throw new Error(
-      '--hops=<N> の <N> は1以上の整数である必要があります。\n' +
-      `  実際の値: ${hopsStr}`
+      "--hops=<N> の <N> は1以上の整数である必要があります。\n" +
+        `  実際の値: ${hopsStr}`,
     );
   }
   return hops;
@@ -172,13 +175,13 @@ function parseHops(hopsFlag) {
  */
 function loadGraph(graphPath) {
   const resolvedPath = path.resolve(graphPath);
-  const raw = fs.readFileSync(resolvedPath, 'utf8');
+  const raw = fs.readFileSync(resolvedPath, "utf8");
   try {
     return JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
       `グラフファイルのJSONパースに失敗しました: ${graphPath}\n` +
-      `原因: ${parseError.message}`
+        `原因: ${parseError.message}`,
     );
   }
 }
@@ -192,7 +195,7 @@ function loadGraph(graphPath) {
  */
 function loadSourceFile(sourcePath) {
   const resolvedPath = path.resolve(sourcePath);
-  return fs.readFileSync(resolvedPath, 'utf8');
+  return fs.readFileSync(resolvedPath, "utf8");
 }
 
 // ============================================================
@@ -207,7 +210,7 @@ function loadSourceFile(sourcePath) {
  * @returns {Object|null} 見つかったノード、存在しなければ null
  */
 function resolveNodeById(graph, nodeId) {
-  return graph.nodes.find(n => n.id === nodeId) || null;
+  return graph.nodes.find((n) => n.id === nodeId) || null;
 }
 
 // ============================================================
@@ -219,7 +222,7 @@ function resolveNodeById(graph, nodeId) {
  *
  * 無向グラフとして扱い、edge.from / edge.to 両方向を探索する。
  * visited は Map<nodeId, depth> で管理し、循環参照を防止する。
- * 同一エッジが重複しないように、エッジの参照による Set で管理する。
+ * 同一エッジが重複しないように、from:to:type の文字列キーで管理する。
  *
  * @param {Object} graph — グラフオブジェクト
  * @param {string} startNodeId — 探索起点ノードID
@@ -227,37 +230,50 @@ function resolveNodeById(graph, nodeId) {
  * @returns {{ nodeIds: string[], edges: Object[] }}
  */
 function multiHopBFS(graph, startNodeId, hops) {
-  const visited = new Map([[startNodeId, 0]]);
+  const visited = new Map([[startNodeId, { depth: 0, parent: null }]]);
   const queue = [startNodeId];
   const resultEdges = [];
-  const edgeSet = new Set();
+  const edgeKeys = new Set();
 
   while (queue.length) {
     const current = queue.shift();
-    const depth = visited.get(current);
-    if (depth >= hops) continue;
+    const entry = visited.get(current);
+    if (entry.depth >= hops) continue;
 
     for (const edge of graph.edges) {
       const neighbor =
-        edge.from === current ? edge.to
-        : edge.to === current ? edge.from
-        : null;
+        edge.from === current
+          ? edge.to
+          : edge.to === current
+            ? edge.from
+            : null;
       if (!neighbor) continue;
 
-      // エッジの重複を防止（エッジオブジェクトの参照によるSet管理）
-      if (!edgeSet.has(edge)) {
-        edgeSet.add(edge);
+      // エッジの重複を防止（from と to をソートして正規化したキーで管理）
+      // 順序正規化により、from:N0113→to:N0119 と from:N0119→to:N0113 を同一視する
+      const [normFrom, normTo] = [edge.from, edge.to].sort();
+      const key = `${normFrom}:${normTo}:${edge.type}`;
+      if (!edgeKeys.has(key)) {
+        edgeKeys.add(key);
         resultEdges.push(edge);
       }
 
       if (!visited.has(neighbor)) {
-        visited.set(neighbor, depth + 1);
+        visited.set(neighbor, {
+          depth: entry.depth + 1,
+          parent: current,
+          edge: edge,
+        });
         queue.push(neighbor);
       }
     }
   }
 
-  return { nodeIds: [...visited.keys()], edges: resultEdges };
+  return {
+    nodeIds: [...visited.keys()],
+    edges: resultEdges,
+    depthMap: visited,
+  };
 }
 
 // ============================================================
@@ -280,10 +296,12 @@ function multiHopBFS(graph, startNodeId, hops) {
  * @returns {{ line: number, confidence: string }|undefined}
  */
 function resolveCurrentLines(sourceText, headingRefs, refId) {
-  const ref = headingRefs.find(r => r.refId === refId);
+  const ref = headingRefs.find((r) => r.refId === refId);
   if (!ref) return undefined;
 
-  const result = resolveByHeading(sourceText, ref.heading, ref.texts);
+  // resolveByHeading は行配列を期待するため、文字列を分割する
+  const sourceLines = sourceText.split("\n");
+  const result = resolveByHeading(sourceLines, ref.heading, ref.texts);
   if (!result) return undefined;
 
   return { line: result.line, confidence: result.confidence };
@@ -294,77 +312,174 @@ function resolveCurrentLines(sourceText, headingRefs, refId) {
 // ============================================================
 
 /**
+ * BFSのdepthMapから、起点ノードからtargetIdまでの経路を再構成する
+ *
+ * parent チェーンを逆にたどり、N0113 → N0119 → N0120 の配列を返す。
+ * targetId が depthMap に含まれない場合は空配列。
+ *
+ * @param {Map} depthMap — BFS の訪問記録
+ * @param {string} targetId — 経路終点のノードID
+ * @returns {string[]} 経路上のノードID配列（起点→終点の順）
+ */
+function buildPathToNode(depthMap, targetId) {
+  if (!depthMap.has(targetId)) return [];
+  const path = [];
+  let current = targetId;
+  while (current !== null && depthMap.has(current)) {
+    path.unshift(current);
+    current = depthMap.get(current).parent;
+  }
+  return path;
+}
+
+/**
+ * depthMap から親子隣接リストを構築する
+ *
+ * BFS の訪問記録から各親ノードに子ノードのリストを集約する。
+ * 子ノードはノードID順にソートされる。
+ *
+ * @param {Map} depthMap — BFS の訪問記録（{depth, parent, edge}）
+ * @returns {Map<string, Array<{nodeId:string, edge:Object}>>}
+ */
+function buildChildMap(depthMap) {
+  const map = new Map();
+  for (const [nodeId, entry] of depthMap) {
+    if (entry.parent === null) continue;
+    if (!map.has(entry.parent)) map.set(entry.parent, []);
+    map.get(entry.parent).push({ nodeId, edge: entry.edge });
+  }
+  for (const [, children] of map) {
+    children.sort((a, b) => a.nodeId.localeCompare(b.nodeId));
+  }
+  return map;
+}
+
+/**
+ * 親子隣接リストから再帰的にツリー行を生成する
+ *
+ * 各行の形式: {indent}- {edge.type} {direction} {nodeId} ({title})
+ * direction は親ノードから見た方向（→ / ← / ↔）。
+ *
+ * @param {string} parentId — 親ノードID
+ * @param {number} depth — インデント深さ（1始まり）
+ * @param {Map} childMap — buildChildMap の出力
+ * @param {Object} graph — グラフ全体（ノード名解決用）
+ * @param {string[]} lines — 行蓄積配列（破壊的追加）
+ */
+function renderChildTree(parentId, depth, childMap, graph, lines) {
+  const children = childMap.get(parentId) || [];
+  const indent = "    ".repeat(depth);
+  for (const { nodeId, edge } of children) {
+    const childNode = resolveNodeById(graph, nodeId);
+    if (!childNode) continue;
+    const direction = getDirectionLabel(parentId, edge);
+    lines.push(
+      `${indent}- ${edge.type} ${direction} ${nodeId} (${childNode.title})`,
+    );
+    renderChildTree(nodeId, depth + 1, childMap, graph, lines);
+  }
+}
+
+/**
+ * 行配列から該当見出し行を起点に、次の同レベル以上の見出しまでを本文として抽出する
+ *
+ * 見出し行自身は除外し、本文のみを返す。
+ * 次の見出しがない場合は EOF までを抽出する。
+ *
+ * @param {string[]} sourceLines — ソースファイルの行配列
+ * @param {number} headingLineIndex — 見出し行の0-basedインデックス
+ * @returns {string|null} 抽出された本文、失敗時は null
+ */
+function extractSectionContent(sourceLines, headingLineIndex) {
+  if (!Array.isArray(sourceLines) || sourceLines.length === 0) return null;
+  if (headingLineIndex < 0 || headingLineIndex >= sourceLines.length)
+    return null;
+
+  const headingLine = sourceLines[headingLineIndex];
+  const headingMatch = headingLine.match(/^(#+)\s/);
+  if (!headingMatch) return null;
+  const headingLevel = headingMatch[1].length;
+
+  // 次の同レベル以上の見出しまで走査（なければ EOF）
+  let endIndex = sourceLines.length;
+  for (let i = headingLineIndex + 1; i < sourceLines.length; i++) {
+    const m = sourceLines[i].match(/^(#+)\s/);
+    if (m && m[1].length <= headingLevel) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  // 見出し行自身を除外
+  const contentLines = sourceLines.slice(headingLineIndex + 1, endIndex);
+  if (contentLines.length === 0) return null;
+
+  return contentLines.join("\n");
+}
+
+/**
  * ノード情報をMarkdown形式に整形する
  *
  * @param {Object} node — ノードオブジェクト
  * @param {Object[]} edges — このノードに関連するエッジ配列
  * @param {Object} graph — グラフ全体（ノード名解決用）
  * @param {string} sourceText — ソーステキスト（行番号解決用）
+ * @param {Map} [depthMap] — BFS の訪問記録（周辺ノード間エッジの経路表示用）
  * @returns {string} Markdown形式の文字列
  */
-function formatNodeMarkdown(node, edges, graph, sourceText) {
+function formatNodeMarkdown(node, edges, graph, sourceText, depthMap) {
   const lines = [];
 
   // 見出し
   lines.push(`## ${node.id}: ${node.title}`);
-  lines.push('');
+  lines.push("");
+  // 種別
+  lines.push(`**種別**: ${node.kind}`);
+  lines.push("");
 
-  // 種別と参照情報（headingRefs 方式 — 見出し表示）
-  const headingRef = node.headingRefs && node.headingRefs[0];
-  const refId = headingRef ? headingRef.refId : null;
-  let refText = 'N/A';
-
-  if (refId && Array.isArray(node.headingRefs)) {
-    const resolved = resolveCurrentLines(sourceText, node.headingRefs, refId);
-    if (resolved) {
-      const headingLevel = headingRef.heading;
-      const headingLabel = headingLevel > 0 ? `h${headingLevel}` : 'title';
-      const headingSummary = headingRef.texts.slice(0, 2).join(' ');
-      refText = `[${headingLabel}: ${headingSummary}] (L${resolved.line})`;
-    } else {
-      refText = 'N/A';
-    }
-  }
-
-  lines.push(`**種別**: ${node.kind} | **参照**: ${refId || 'N/A'} ${refText}`);
-  lines.push('');
-
-  // Summary
+  // Summary（グラフJSON内の短い説明）
   if (node.summary) {
     lines.push(node.summary);
-    lines.push('');
+    lines.push("");
   }
 
-  // エッジ情報
-  if (edges.length === 0) {
-    lines.push('### 関係 (なし)');
-    lines.push('');
-    return lines.join('\n');
-  }
-
-  // エッジを type ごとにグループ化
-  const groupedEdges = groupEdgesByType(edges);
-
-  for (const [type, typeEdges] of groupedEdges) {
-    // グループ内の代表的な strength を取得（最初のエッジの strength）
-    const firstStrength = typeEdges[0].attributes
-      ? typeEdges[0].attributes.strength || 'hard'
-      : 'hard';
-
-    lines.push(`### 関係 (${type} / ${firstStrength})`);
-
-    for (const edge of typeEdges) {
-      const targetNode = resolveNodeById(graph, edge.to === node.id ? edge.from : edge.to);
-      const targetTitle = targetNode ? targetNode.title : '不明なノード';
-      const direction = getDirectionLabel(node.id, edge);
-      const strength = edge.attributes ? edge.attributes.strength || 'hard' : 'hard';
-
-      lines.push(`- ${type} ${direction} ${targetNode ? targetNode.id : 'N/A'} (${targetTitle}) [${strength}]`);
+  // RFC での記述（--source の該当セクション本文）
+  if (
+    sourceText &&
+    Array.isArray(node.headingRefs) &&
+    node.headingRefs.length > 0
+  ) {
+    const ref = node.headingRefs[0];
+    const sourceLines = sourceText.split("\n");
+    const resolved = resolveByHeading(sourceLines, ref.heading, ref.texts);
+    if (resolved) {
+      const content = extractSectionContent(sourceLines, resolved.line - 1);
+      if (content) {
+        lines.push("### RFC での記述\n");
+        lines.push("---");
+        lines.push(content);
+        lines.push("---\n");
+      }
     }
-    lines.push('');
   }
 
-  return lines.join('\n');
+  // ツリー形式で関係性を表示
+  if (edges.length === 0) {
+    lines.push("### 他のノードとの関係性");
+    lines.push("");
+    return lines.join("\n");
+  }
+
+  lines.push("### 他のノードとの関係性\n");
+
+  // ルート行（検索起点ノード）
+  lines.push(`- ${node.id} (${node.title})`);
+
+  // depthMap から親子隣接リストを構築し、再帰的に子ノードを描画
+  const childMap = buildChildMap(depthMap);
+  renderChildTree(node.id, 1, childMap, graph, lines);
+
+  return lines.join("\n");
 }
 
 /**
@@ -377,7 +492,7 @@ function groupEdgesByType(edges) {
   const grouped = new Map();
 
   for (const edge of edges) {
-    const type = edge.type || 'unknown';
+    const type = edge.type || "unknown";
     if (!grouped.has(type)) {
       grouped.set(type, []);
     }
@@ -396,12 +511,12 @@ function groupEdgesByType(edges) {
  */
 function getDirectionLabel(nodeId, edge) {
   if (edge.attributes && edge.attributes.bidirectional) {
-    return '↔';
+    return "↔";
   }
   if (edge.from === nodeId) {
-    return '→';
+    return "→";
   }
-  return '←';
+  return "←";
 }
 
 // ============================================================
@@ -417,9 +532,7 @@ function getDirectionLabel(nodeId, edge) {
  */
 function printError(message, cause, action) {
   process.stderr.write(
-    `[ERROR] ${message}\n` +
-    `原因: ${cause}\n` +
-    `対応: ${action}\n`
+    `[ERROR] ${message}\n` + `原因: ${cause}\n` + `対応: ${action}\n`,
   );
 }
 
@@ -432,25 +545,25 @@ function printError(message, cause, action) {
  */
 function printUsage() {
   console.log(
-    'query.js — マルチホップグラフ探索\n' +
-    '\n' +
-    'Usage:\n' +
-    '  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]\n' +
-    '\n' +
-    'Options:\n' +
-    '  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス\n' +
-    '  --source=<path>  探索対象のソースファイルのパス\n' +
-    '  --id=<nodeId>    探索起点のノードID（カンマ区切りで複数指定可）\n' +
-    '  --hops=<N>       最大ホップ数（デフォルト: 1、1以上）\n' +
-    '  --help, -h       このヘルプを表示\n' +
-    '\n' +
-    'Exit codes:\n' +
-    '  0  正常終了（マーカー欠損時も0、警告はstderr）\n' +
-    '  1  エラー終了（引数不正・ファイル不在等）\n' +
-    '\n' +
-    'Examples:\n' +
-    '  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001 --hops=2\n' +
-    '  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001,N0003 --hops=1\n'
+    "query.js — マルチホップグラフ探索\n" +
+      "\n" +
+      "Usage:\n" +
+      "  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]\n" +
+      "\n" +
+      "Options:\n" +
+      "  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス\n" +
+      "  --source=<path>  探索対象のソースファイルのパス\n" +
+      "  --id=<nodeId>    探索起点のノードID（カンマ区切りで複数指定可）\n" +
+      "  --hops=<N>       最大ホップ数（デフォルト: 1、1以上）\n" +
+      "  --help, -h       このヘルプを表示\n" +
+      "\n" +
+      "Exit codes:\n" +
+      "  0  正常終了\n" +
+      "  1  エラー終了（引数不正・ファイル不在等）\n" +
+      "\n" +
+      "Examples:\n" +
+      "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001 --hops=2\n" +
+      "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001,N0003 --hops=1\n",
   );
 }
 
@@ -486,9 +599,9 @@ function main() {
     hops = parsed.hops;
   } catch (parseError) {
     printError(
-      '引数のパースに失敗しました。',
+      "引数のパースに失敗しました。",
       parseError.message,
-      '正しい引数で再実行してください。'
+      "正しい引数で再実行してください。",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -499,9 +612,9 @@ function main() {
     graph = loadGraph(graphPath);
   } catch (graphError) {
     printError(
-      'グラフファイルの読み込みに失敗しました。',
+      "グラフファイルの読み込みに失敗しました。",
       graphError.message,
-      '--graph=<path> に正しいグラフファイルを指定してください。'
+      "--graph=<path> に正しいグラフファイルを指定してください。",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -512,15 +625,12 @@ function main() {
     sourceText = loadSourceFile(sourcePath);
   } catch (sourceError) {
     printError(
-      'ソースファイルの読み込みに失敗しました。',
+      "ソースファイルの読み込みに失敗しました。",
       sourceError.message,
-      '--source=<path> に正しいソースファイルを指定してください。'
+      "--source=<path> に正しいソースファイルを指定してください。",
     );
     process.exit(EXIT_FAILURE);
   }
-
-  // headingRefs 欠損の追跡
-  let hasHeadingRefWarning = false;
 
   // 各ノードIDに対して探索と出力を実行
   for (const nodeId of nodeIds) {
@@ -529,8 +639,8 @@ function main() {
     if (!startNode) {
       printError(
         `ノード ${nodeId} がグラフ内に見つかりません。`,
-        `グラフ内のノード: [${graph.nodes.map(n => n.id).join(', ')}]`,
-        '--id=<nodeId> に正しいノードIDを指定してください。'
+        `グラフ内のノード: [${graph.nodes.map((n) => n.id).join(", ")}]`,
+        "--id=<nodeId> に正しいノードIDを指定してください。",
       );
       process.exit(EXIT_FAILURE);
     }
@@ -540,43 +650,39 @@ function main() {
 
     // 探索結果のノードのうち、起点以外のノード名を解決
     const visitedNodes = searchResult.nodeIds
-      .map(id => resolveNodeById(graph, id))
+      .map((id) => resolveNodeById(graph, id))
       .filter(Boolean);
 
-    // 6. 行位置を動的に解決し、欠損時に警告を出力する
-    for (const vNode of visitedNodes) {
-      if (!Array.isArray(vNode.headingRefs)) continue;
-      for (const hr of vNode.headingRefs) {
-        const resolved = resolveCurrentLines(sourceText, vNode.headingRefs, hr.refId);
-        if (!resolved) {
-          process.stderr.write(
-            `[WARN] ノード ${vNode.id} の refId ${hr.refId} の見出しがソースファイル内に見つかりません。\n` +
-            `原因: 見出しが書き換えられたか、headingRefs が更新されていない可能性があります。\n` +
-            `対応: clarify-rfc / graphify-rfc を再実行して headingRefs を更新してください。\n`
-          );
-          hasHeadingRefWarning = true;
-        }
-      }
-    }
-
-    // 7. 結果をMarkdown形式で整形する
+    // 6. 結果をMarkdown形式で整形する
     const allEdges = searchResult.edges;
-    const markdown = formatNodeMarkdown(startNode, allEdges, graph, sourceText);
+    const markdown = formatNodeMarkdown(
+      startNode,
+      allEdges,
+      graph,
+      sourceText,
+      searchResult.depthMap,
+    );
     console.log(markdown);
+
+    // 深掘り案内
+    console.log("");
+    console.log("---\n");
+    console.log("### 深掘り方法");
+    console.log(
+      "以下のコマンドにより、更に別のノード情報を深掘りすることが可能。",
+    );
+    console.log("```");
+    console.log(
+      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}" --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
+    );
+    console.log("```");
 
     // 複数ノード指定時に区切りを出力
     if (nodeIds.length > 1 && nodeIds.indexOf(nodeId) < nodeIds.length - 1) {
-      console.log('');
-      console.log('---');
-      console.log('');
+      console.log("");
+      console.log("---");
+      console.log("");
     }
-  }
-
-  // headingRefs 欠損があっても終了コード0（部分結果を返す）
-  if (hasHeadingRefWarning) {
-    process.stderr.write(
-      `[WARN] 一部のノードで headingRefs に対応する見出しが見つかりませんでした。出力の行位置が正しくない可能性があります。\n`
-    );
   }
 
   process.exit(EXIT_SUCCESS);
@@ -595,6 +701,10 @@ module.exports = {
   loadSourceFile,
   resolveNodeById,
   multiHopBFS,
+  buildPathToNode,
+  buildChildMap,
+  renderChildTree,
+  extractSectionContent,
   resolveCurrentLines,
   formatNodeMarkdown,
   groupEdgesByType,

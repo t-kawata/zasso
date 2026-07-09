@@ -3459,6 +3459,44 @@
           "instrumentation": "静的品質チェック: 合格（console.log 10件はCLI意図的出力 — 修正不可能）\n翻訳可能性: 問題なし（全関数動詞句、新規1文字変数なし）\nテスト: update-step-status 50/50 + 全rfc-graphテスト20ファイル全件pass\n犯罪: 0件\nスタブ: 0件\n不完全実装: 検出なし",
           "completedAt": "2026-07-08",
           "rfcDiscrepancies": []
+        },
+        {
+          "id": 35,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "headingRefs 複数セクショントークン混入の修正",
+          "referenceSection": ".claude/specs/0035-headingrefs.md",
+          "background": "test-query-all.js による全 headingRefs 一括解決検証で、170件中168件は正常解決。しかし追加検証により2件（N0033/REF034, N0100/REF102）で texts に別セクションのトークンが混入していることが判明。resolveByHeading は第1トークンのみで一意解決するためexactを返すが、後続トークンが別セクションを指している。",
+          "scope": [
+            "crates/siprs/RFC-ROOT-GRAPH.json: N0033/REF034 の texts を [\"15.2 SipEvent\"] に修正し、同一ノードに新規 headingRef(refId=REF171) を追加",
+            "crates/siprs/RFC-ROOT-GRAPH.json: N0100/REF102 の texts を [\"34.1 tracing\"] に修正し、同一ノードに新規 headingRef(refId=REF172) を追加",
+            "検証: test-query-all.js + 全トークン一致確認 + refId ユニーク確認"
+          ],
+          "testVerification": [
+            "test-query-all.js が exit 0 で完了",
+            "全 headingRef の全トークンが解決行に含まれていることを追加検証",
+            "分割後の全 refId がユニーク"
+          ],
+          "testExceptions": [
+            "データ修正のためユニットテスト不要"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: N/A（コード修正なし、JSONデータのみ）\n- 翻訳可能性: N/A（コード修正なし）\n- 依存関係: なし（単独チケット）\n- 犯罪: 3件（既存、本チケットと無関係）\n- [::STUB::]: 0件\n- 不完全実装: 7パターン全面査 該当なし\n- test-query-all.js: 172/172 OK\n- 全トークン一致検証: 172/172 OK\n- refId ユニーク: 確認済\n- JSON構文: 正常\n\n判定: ACCEPT ✅",
+          "startedAt": "2026-07-09",
+          "changes": [
+            {
+              "before": "REF034: texts=[\"15.2 SipEvent\",\"15.3 EventMeta\"]",
+              "after": "REF034: texts=[\"15.2 SipEvent\"], 新規 REF171: heading=3, texts=[\"15.3 EventMeta\"]",
+              "description": "N0033: 複数セクショントークンを2件の headingRef に分割"
+            },
+            {
+              "before": "REF102: texts=[\"34.1 tracing\",\"34.2 metrics\"]",
+              "after": "REF102: texts=[\"34.1 tracing\"], 新規 REF172: heading=3, texts=[\"34.2 metrics\"]",
+              "description": "N0100: 複数セクショントークンを2件の headingRef に分割"
+            }
+          ],
+          "instrumentation": "静的品質チェック: N/A（JSONデータ修正のため）\n翻訳可能性: N/A（コード修正なし）\ntest-query-all.js: 172/172 正常解決\n全トークン一致検証: 172/172 通過\nrefId ユニーク: 172件中0重複\nJSON構文: 正常",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-09"
         }
       ]
     },
