@@ -152,13 +152,11 @@ function discover(node, currentPath, headerContext) {
         headerContext.sourceBasename
       );
 
-      // mappedNodeIds に対応する nodeMeta のリストを構築
-      const nodeMetaList = (node.mappedNodeIds || []).map(function (nid) {
-        return (headerContext.nodeMetaMap || {})[nid] || { nodeId: nid };
-      });
-
       // このファイルの mappedNodeIds に関連する prose ノードに絞り込む
-      const mappedNodeIdsSet = new Set(node.mappedNodeIds || []);
+      const mappedNodeIdStrings = (node.mappedNodeIds || []).map(function (e) {
+        return (typeof e === 'string') ? e : e.nodeId;
+      });
+      const mappedNodeIdsSet = new Set(mappedNodeIdStrings);
       const fileCrossRefs = (headerContext.crossReferences || []).filter(function (cr) {
         return cr.connections && cr.connections.some(function (conn) {
           return mappedNodeIdsSet.has(conn.toNodeId);
@@ -168,7 +166,7 @@ function discover(node, currentPath, headerContext) {
       const headerComment = helpers.generateHeaderComment(
         headerPaths,
         node.mappedNodeIds || [],
-        nodeMetaList,
+        mappedNodeIdStrings,
         fileCrossRefs,
         headerContext.graphBasename,
         headerContext.sourceBasename,

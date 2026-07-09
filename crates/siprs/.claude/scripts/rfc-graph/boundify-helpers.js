@@ -86,7 +86,7 @@ const SCHEMA = {
             typescript: { type: 'string' }
           }
         },
-        mappedNodeIds: { type: 'array', items: { type: 'string' } },
+        mappedNodeIds: { type: 'array', items: { type: 'object', properties: { nodeId: { type: 'string' }, title: { type: 'string' } }, required: ['nodeId'] } },
         role: { type: 'string' },
         declarationStub: { type: 'string' },
         crossReferences: {
@@ -539,7 +539,7 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
  * 全生成ファイルの先頭に配置するヘッダーコメントを生成する。
  *
  * @param {object} headerPaths - resolveHeaderPaths の戻り値
- * @param {string[]} mappedNodeIds - このファイルにマッピングされたノードID配列
+ * @param {Array<{nodeId: string, title: string}>} mappedNodeIds - このファイルにマッピングされたノード情報配列
  * @param {Array<{nodeId:string, kind:string, title:string, headingRef?:string}>} nodeMetaList - マッピングノードのメタ情報
  * @param {Array} crossRefs - このファイルに関連するクロスリファレンス配列（ルートレベルの crossReferences からフィルタ済み）
  * @param {string} graphBasename - グラフJSONのベース名
@@ -571,12 +571,11 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
   if (mappedNodeIds && mappedNodeIds.length > 0) {
     lines.push(L + ' Mapped node(s):');
     for (let i = 0; i < mappedNodeIds.length; i++) {
-      const nid = mappedNodeIds[i];
-      const meta = (nodeMetaList || []).find(function (m) { return m.nodeId === nid; });
-      const titleInfo = meta ? (' ' + meta.title) : '';
-      const headingInfo = meta && meta.headingRef ? (' § ' + meta.headingRef) : '';
-      lines.push(L + '   - ' + nid + titleInfo + headingInfo);
-      lines.push(L + '     → Details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=' + nid + ')');
+      const entry = mappedNodeIds[i];
+      const nid = (typeof entry === 'string') ? entry : entry.nodeId;
+      const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
+      lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
+      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' --id=' + nid + ')');
     }
   } else {
     lines.push(L + ' Mapped node(s):');
@@ -590,14 +589,14 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
     for (let i = 0; i < crossRefs.length; i++) {
       const cr = crossRefs[i];
       const headingInfo = cr.headingRef ? (' § ' + cr.headingRef) : '';
-      lines.push(L + '   - ' + cr.kind + '/' + cr.title + ' [' + cr.nodeId + ']' + headingInfo);
+      lines.push(L + '   - ' + cr.kind + '/' + cr.title + ' [NODE_ID=' + cr.nodeId + ']' + headingInfo);
       if (cr.connections && cr.connections.length > 0) {
         for (let j = 0; j < cr.connections.length; j++) {
           const conn = cr.connections[j];
           lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
         }
       }
-      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=' + cr.nodeId + ')');
+      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' --id=' + cr.nodeId + ')');
     }
   }
 
@@ -605,7 +604,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
   lines.push(L + '');
   lines.push(L + ' Full graph exploration:');
   lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '")');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=<NODE_ID> --hops=3)');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
 
   // 閉じ区切り線
   lines.push(L + ' ' + HEADER_SEPARATOR);

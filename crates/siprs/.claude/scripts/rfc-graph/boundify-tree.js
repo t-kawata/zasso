@@ -222,7 +222,7 @@ function buildDirectoryTree(graph, lang, helpers) {
         name: dirName,
         type: 'directory',
         kind,
-        mappedNodeIds: [node.id],
+        mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
         children: [],
       };
 
@@ -249,7 +249,7 @@ function buildDirectoryTree(graph, lang, helpers) {
                     name: fileName,
                     type: 'file',
                     kind: childNode.kind || '',
-                    mappedNodeIds: [childNode.id],
+                    mappedNodeIds: [{nodeId: childNode.id, title: childNode.title || ''}],
                     declarationStub: getDeclarationStub(childNode.kind || '', lang),
                   },
                 });
@@ -285,7 +285,7 @@ function buildDirectoryTree(graph, lang, helpers) {
           name: fileName,
           type: 'file',
           kind: inlineChild.kind || '',
-          mappedNodeIds: [inlineChild.id],
+          mappedNodeIds: [{nodeId: inlineChild.id, title: inlineChild.title || ''}],
           declarationStub: getDeclarationStub(inlineChild.kind || '', lang),
         });
       }
@@ -339,7 +339,21 @@ function buildDirectoryTree(graph, lang, helpers) {
   // 全ファイル一覧を収集
   const files = collectFiles(tree, []);
 
-  return { tree, nodeToDir, files };
+  // ノードID → ファイルパス のマップを構築（crossReferences の toFile で使用）
+  const nodeIdToFilePath = {};
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi];
+    const ids = file.mappedNodeIds || [];
+    for (let mi = 0; mi < ids.length; mi++) {
+      const entry = ids[mi];
+      const nid = (typeof entry === 'string') ? entry : entry.nodeId;
+      if (nid && !nodeIdToFilePath[nid]) {
+        nodeIdToFilePath[nid] = file.path;
+      }
+    }
+  }
+
+  return { tree, nodeToDir, files, nodeIdToFilePath };
 }
 
 /**
@@ -400,12 +414,12 @@ function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplic
         name: dirName,
         type: 'directory',
         kind: node.kind || '',
-        mappedNodeIds: [node.id],
+        mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
         children: [{
           name: fileName,
           type: 'file',
           kind: node.kind || '',
-          mappedNodeIds: [node.id],
+          mappedNodeIds: [{nodeId: node.id, title: node.title || ''}],
           declarationStub: getStub(node.kind || '', lang),
         }],
       });
@@ -441,9 +455,11 @@ function mergeTopLevelNodes(backboneNodes, ruleDrivenNodes) {
         }
       }
       if (node.mappedNodeIds) {
-        const existingIds = new Set(existing.mappedNodeIds || []);
+        const existingIdSet = new Set(
+          (existing.mappedNodeIds || []).map(function(e) { return e.nodeId || e; })
+        );
         for (const id of node.mappedNodeIds) {
-          if (!existingIds.has(id)) {
+          if (!existingIdSet.has(id.nodeId || id)) {
             existing.mappedNodeIds.push(id);
           }
         }
@@ -683,9 +699,10 @@ function renderTreeAscii(node, prefix) {
  *
  * @param {{ nodes: object[], edges: Array<{from:string, to:string, type:string}> }} graph - グラフ
  * @param {object} nodeToDirMap - ノードID → ディレクトリパスのマッピング
+ * @param {object} [nodeToFilePathMap] - ノードID → ファイルパスのマッピング（省略時は nodeToDirMap を使用）
  * @returns {Array<{nodeId:string, kind:string, title:string, headingRef?:string, connections:Array<{toFile:string, edgeType:string, direction:string}>}>}
  */
-function computeCrossReferences(graph, nodeToDirMap) {
+function computeCrossReferences(graph, nodeToDirMap, nodeToFilePathMap) {
   const PROSE_KINDS = new Set(['rationale', 'glossary', 'requirement']);
   const proseNodes = (graph.nodes || []).filter(function (n) {
     return PROSE_KINDS.has(n.kind);
@@ -711,7 +728,11 @@ function computeCrossReferences(graph, nodeToDirMap) {
         // 接続先ノードID（prose でない方）
         const connectedNodeId = edge.from === prose.id ? edge.to : edge.from;
         const connectedNode = nodeMap[connectedNodeId];
-        const connectedFile = connectedNode ? nodeToDirMap[connectedNodeId] : undefined;
+        const connectedDir = connectedNode ? nodeToDirMap[connectedNodeId] : undefined;
+        // ファイルパスが利用可能なら優先、なければディレクトリ名（後方互換）
+        const connectedFile = (nodeToFilePathMap && connectedNodeId)
+          ? (nodeToFilePathMap[connectedNodeId] || connectedDir)
+          : connectedDir;
 
         if (connectedFile) {
           // 方向: prose → 相手 なら "→"、相手 → prose なら "←"

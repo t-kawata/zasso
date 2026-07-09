@@ -428,12 +428,12 @@ function main(testArgs) {
 
   for (const lang of languages) {
     // 4-a: ディレクトリツリー生成（アダプター経由）
-    const { tree, nodeToDir } = adaptBuildDirectoryTree(graph, lang);
+    const { tree, nodeToDir, nodeIdToFilePath } = adaptBuildDirectoryTree(graph, lang);
     trees[lang] = tree;
 
     // 4-a2: クロスリファレンス計算（PX-30: prose 系ノードの設計情報を接続先ファイルに紐付け）
     if (tree && graph) {
-      tree.crossReferences = treeBuilder.computeCrossReferences(graph, nodeToDir);
+      tree.crossReferences = treeBuilder.computeCrossReferences(graph, nodeToDir, nodeIdToFilePath);
     }
 
     // 4-b: エッジ投影（アダプター経由）
