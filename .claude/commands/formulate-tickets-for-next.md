@@ -64,44 +64,15 @@ description: 例: /formulate-tickets-for-next conver/RFC-002-next-phase.md conve
 ### Step 0: 初期化（引数パース + Malfeasance.json 初期化 + 出力先決定）
 
 ```bash
-# 第1引数: 次世代RFCのパス（必須）
+# 引数パース
 NEXT_RFC_PATH="${ARGUMENTS%% *}"
 NEXT_RFC_DIR="$(dirname "$NEXT_RFC_PATH")"
-
-# 第2引数（任意）: OMISSIONSファイルのパス（残りの引数）
-REMAINING="${ARGUMENTS#* }"
-OMISSIONS_PATH=""
-if [ -n "$REMAINING" ] && [ "$REMAINING" != "$NEXT_RFC_PATH" ]; then
-  OMISSIONS_PATH="$REMAINING"
+_REMAINING="${ARGUMENTS#* }"
+_OMISSIONS=""
+if [ -n "$_REMAINING" ] && [ "$_REMAINING" != "$NEXT_RFC_PATH" ]; then
+  _OMISSIONS="--omissions-path=$_REMAINING"
 fi
-
-# Tickets.json のパス
-TICKETS_PATH="Tickets.json"
-
-# 次世代RFCの存在確認
-if [ ! -f "$NEXT_RFC_PATH" ]; then
-  echo "エラー: 次世代RFCファイルが見つかりません: $NEXT_RFC_PATH"
-  exit 1
-fi
-
-# Tickets.json の存在確認（なければスケルトン生成）
-if [ ! -f "$TICKETS_PATH" ]; then
-  echo "注意: Tickets.json が見つかりません。スケルトンを新規生成します。"
-  node .claude/scripts/tickets/init-tickets-json.js "$TICKETS_PATH" "$NEXT_RFC_PATH"
-  if [ $? -ne 0 ]; then
-    echo "エラー: Tickets.json のスケルトン生成に失敗しました。"
-    exit 1
-  fi
-fi
-
-# OMISSIONS が指定されていればスキーマ検証
-if [ -n "$OMISSIONS_PATH" ]; then
-  if [ ! -f "$OMISSIONS_PATH" ]; then
-    echo "エラー: OMISSIONSファイルが見つかりません: $OMISSIONS_PATH"
-    exit 1
-  fi
-  node .claude/scripts/lib/validate-omissions.js "$OMISSIONS_PATH"
-fi
+bash .claude/scripts/tickets/init-formulate-for-next.sh --rfc-path="$NEXT_RFC_PATH" $_OMISSIONS
 ```
 
 Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。
@@ -109,14 +80,18 @@ Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪�
 
 ```bash
 # 犯罪記録台帳が存在しなければ空の状態で作成する
-node .claude/scripts/tickets/ensure-malfeasance.js "$NEXT_RFC_DIR"
+node .claude/scripts/tickets/ensure-malfeasance.js "$(dirname "${ARGUMENTS%% *}")"
 ```
 
 ---
 
 ### Step 1: RFC 内の I/O 境界参考情報を参照
 
-対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示する。この情報は後続の依存グラフ構築やチケット束ね直しの参考として活用する。
+この I/O 境界参考情報は、grill / drill によって詳細な設計書として RFC を書き上げた段階で作成されたものである。
+RFC 執筆者の設計意図が最も新鮮なタイミングで記述された I/O 境界であり、チケット分割において最大限尊重しなければならない。
+ただし、後続の /graphify-rfc によってさらに発散的に細分化する I/O 境界分割の設計が行われており、必ずしも RFC 執筆時点の I/O 境界と一致する状態にはないことに注意すること。
+
+対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示する。
 
 ```bash
 echo "=== I/O 境界参考情報 ==="
@@ -127,6 +102,9 @@ echo "========================"
 ---
 
 ### Step 2: RFC の設計における関係グラフ構造の確認
+
+このグラフ構造は、/graphify-rfc によって RFC の I/O 境界想定よりもさらに細かい安全な I/O 境界単位に細分化されたノード群とその関係性である。
+Step 1 で表示された RFC 執筆時点の I/O 境界参考情報よりも 1 ステージ進んだものであり、チケット分解の主要な判断材料となる。
 
 /graphify-rfc スラッシュコマンドで生成されたグラフが存在する場合、show-graph-summary-markdown.js でグラフサマリーを表示する：
 
@@ -145,7 +123,26 @@ echo "========================"
 
 ---
 
-### Step 3: 次世代RFCの検証と情報抽出
+### Step 3: boundify によるディレクトリ・ファイル構造の確認
+
+このディレクトリ・ファイル構造は、grill / drill → /graphify-rfc → /boundify-graph-to-dirs の直列パイプラインによって最終的に生成された現時点の実装ディレクトリ・ファイル構成である。
+
+**現時点のディレクトリ・ファイル構造は変更を禁止する。** ただし、crate や package、class などが他のプログラムから利用されるためのインターフェースを公開するためのディレクトリやファイルの**追加**に関しては、必要に応じて許可する。
+追加を行う場合は、チケット内に当該 *-GRAPH.json および *-Dirs-Tree.json には定義されていない追加ディレクトリまたは追加ファイルであることを**必ず明記しなければならない**。
+
+```bash
+echo "=== boundify ディレクトリ・ファイル構造 ==="
+DIRS_TREE_PATH="$NEXT_RFC_DIR/$(basename "$NEXT_RFC_PATH" .md)-Dirs-Tree.json"
+if [ -f "$DIRS_TREE_PATH" ]; then
+  node .claude/scripts/rfc-graph/show-dirs-files-tree.js "$DIRS_TREE_PATH"
+else
+  echo "(Dirs-Tree.json なし)"
+fi
+echo "========================================"
+```
+
+---
+### Step 4: 次世代RFCの検証と情報抽出
 
 ```bash
 # ファイル存在確認（Step 0 で実施済み）
@@ -161,7 +158,7 @@ echo "========================"
 
 OMISSIONS ファイルが指定されている場合は、親RFCの設計コンテキストとして参照する。
 
-### Step 4: CLAUDE.md の生成 — 設計全体マップへの追記
+### Step 5: CLAUDE.md の生成 — 設計全体マップへの追記
 
 既存の `CLAUDE.md` が存在する場合は読み込み、次世代RFCの情報を追記する。
 CLAUDE.md が存在しない場合は新規生成する。
@@ -176,29 +173,10 @@ CLAUDE.md が存在する場合：
 
 CLAUDE.md が存在しない場合：
 ```bash
-node .claude/scripts/tickets/write-claude-md.js \
-  "$CLAUDE_MD" \
-  "formulate-tickets-for-next" \
-  "<次世代RFCタイトル — Step 1 で抽出した実際のタイトルに置き換える>" \
-  "<NEXT_RFC_PATH — Step 0 で設定済みのRFCパス>" \
-  <<'BODY'
-
-## 目的とスコープ
-
-<次世代RFCの目的・スコープの要約 — Step 1 で抽出した内容>
-
-## 主要な型とデータ構造
-
-<主要な型・トレイト・構造体とそれらの関係性 — Step 1 で抽出した内容>
-
-## モジュール／コンポーネント間の関係
-
-<RFCに記述された各コンポーネント・モジュール間の依存関係と結合の一覧 — Step 1 で抽出した内容>
-
-## スタブ一覧と解決計画
-
-<本RFCに基づく実装で発生するスタブの一覧と、各スタブをどのチケットがどのように解決するかの対応関係 — Step 1 で抽出した内容>
-BODY
+bash .claude/scripts/tickets/write-claude-md-formulate-for-next.sh \
+  --claude-md="$CLAUDE_MD" \
+  --rfc-path="$NEXT_RFC_PATH" \
+  --title="<次世代RFCタイトル — Step 1 で抽出した実際のタイトルに置き換える>"
 ```
 
 生成された `CLAUDE_MD` はチケット作業中の任意のタイミングで Claude Code が自動的に読み込み、
@@ -206,7 +184,7 @@ BODY
 
 ---
 
-### Step 5: 依存グラフの構築（5層モデル）
+### Step 6: 依存グラフの構築（5層モデル）
 
 抽出した全要素を以下の5層に分類する。**例の部分はRFCから実際に抽出した要素で置き換えること**：
 
@@ -253,9 +231,9 @@ BODY
 
 ---
 
-### Step 6: 発散的チケット分解（グラフ構造がある場合のみ）
+### Step 7: 発散的チケット分解（グラフ構造がある場合のみ）
 
-/graphify-rfc スラッシュコマンドで生成されたグラフが存在する場合、Step 2 で得たグラフサマリーを参照し（必要に応じて再度 `show-graph-summary-markdown.js --with-cli-examples` を呼び出してもよい）、グラフの全ノードを走査して最少粒度のチケット候補を列挙する。このStepは「発散」フェーズであり、安全側に振って細かく分解する。統合は次の Step 7 で行う。
+/graphify-rfc スラッシュコマンドで生成されたグラフが存在する場合、Step 2 で得たグラフサマリーを参照し（必要に応じて再度 `show-graph-summary-markdown.js --with-cli-examples` を呼び出してもよい）、グラフの全ノードを走査して最少粒度のチケット候補を列挙する。このStepは「発散」フェーズであり、安全側に振って細かく分解する。統合は次の Step 9 で行う。
 
 ```bash
 # グラフの全ノードを走査し、各ノードを1チケット候補とする
@@ -265,13 +243,13 @@ BODY
 # エッジ（precedes）は実装順序の決定に使用する
 ```
 
-**グラフがない場合**: 「グラフがないため発散フェーズをスキップします」と表示し、何もせず次の Step 7 に進む。
+**グラフがない場合**: 「グラフがないため発散フェーズをスキップします」と表示し、何もせず次の Step 9 に進む。
 
 ---
 
-### Step 7: チケット統合チェック（収束） — I/O 境界による候補の束ね直し
+### Step 8: チケット統合チェック（収束） — I/O 境界による候補の束ね直し
 
-Step 6 で発散させたチケット候補に対して、安全に統合できるものを束ねる。これにより情報密度を落とさずにチケット数を節約する。
+Step 7 で発散させたチケット候補に対して、安全に統合できるものを束ねる。これにより情報密度を落とさずにチケット数を節約する。
 
 **グラフがある場合**、以下の機械的判定を統合判断に追加する：
 
@@ -292,9 +270,9 @@ Step 6 で発散させたチケット候補に対して、安全に統合でき�
 - 統合前: 「型A」「関数B」「関数C」が3つの候補として存在
 - 統合後: 「ファイル読み込みから結果出力までのパイプライン」が1つのI/O境界
 
-### Step 8: フェーズ設計
+### Step 9: フェーズ設計
 
-このステップは Step 7（チケット統合チェック）を通過した後の候補に対して、依存グラフに基づいてフェーズを設計する。
+このステップは Step 9（チケット統合チェック）を通過した後の候補に対して、依存グラフに基づいてフェーズを設計する。
 
 依存グラフに基づき、段階的に外部依存を導入する順序でフェーズを設計する：
 
@@ -338,7 +316,7 @@ Step 6 で発散させたチケット候補に対して、安全に統合でき�
 
 既存フェーズと同名のフェーズは作成せず、既存フェーズにチケットを追加する。新規に必要なフェーズのみ追加する。
 
-### Step 9: 既存 Tickets.json の確認
+### Step 10: 既存 Tickets.json の確認
 
 既存の Tickets.json のフェーズ構造を確認する：
 
@@ -348,9 +326,9 @@ node ".claude/scripts/tickets/list-phases-and-tickets.js" "$TICKETS_PATH"
 
 出力をもとに、既存のフェーズにチケットを追加するか、新規フェーズが必要かを判断する。
 
-### Step 10: フェーズの追加
+### Step 11: フェーズの追加
 
-Step 5-6 で設計した新規フェーズのみを `add-phase.js` で追加する。既存のフェーズは追加しない。ID は 0 から自動採番。
+Step 7-6 で設計した新規フェーズのみを `add-phase.js` で追加する。既存のフェーズは追加しない。ID は 0 から自動採番。
 
 ```bash
 echo '{"name":"純粋ロジック・状態機械の完全隔離検証","externalDependencies":"なし"}' | node .claude/scripts/tickets/add-phase.js "$TICKETS_PATH"
@@ -363,7 +341,7 @@ echo '{"name":"非同期ランタイム","externalDependencies":"tokio"}' | node
 node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 ```
 
-### Step 11: チケットの追加
+### Step 12: チケットの追加
 
 各フェーズのチケットを依存関係の順序に従って追加する。チケット ID はフェーズ内で 1 から自動インクリメント。
 R/U/D 操作では P{フェーズID}-{チケットID} 形式（例: P0-1）で特定する。
@@ -419,7 +397,7 @@ echo '[
 
 必要に応じて抽象トレイトを定義するチケットを先行配置する（例: `M-2`, `M-1` のようにマイナス番号で事前準備フェーズを表現してもよい）。
 
-### Step 12: フェーズ・チケットチェックリストの出力
+### Step 13: フェーズ・チケットチェックリストの出力
 
 全てのチケットの追加が完了したら、list-phases-and-tickets.js でチェックリストを出力して報告する：
 
