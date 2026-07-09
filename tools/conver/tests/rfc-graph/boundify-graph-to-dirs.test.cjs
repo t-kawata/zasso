@@ -461,12 +461,18 @@ describe('main', () => {
     assert.ok(dirsTree.warnings.length > 0);
   });
 
-  it('should write BOUNDIFY-Status.json with STEP1_DONE state', () => {
+  it('should write BOUNDIFY-Status.json with correct schema', () => {
     main([graphFilePath, '--quiet']);
 
     const statusPath = path.join(tempDir, 'test-BOUNDIFY-Status.json');
     const status = JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
-    assert.strictEqual(status.state, 'STEP1_DONE');
+    assert.ok(status.sourceFile);
+    assert.ok(status.graphFile);
+    assert.strictEqual(typeof status.currentStep, 'number');
+    assert.ok(status.steps);
+    assert.strictEqual(status.steps['0'], 'done');
+    assert.strictEqual(status.steps['1'], 'done');
+    assert.strictEqual(status.steps['2'], 'running');
   });
 
   it('should fail with invalid JSON', () => {

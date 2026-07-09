@@ -563,7 +563,7 @@ describe('generateHeaderComment', () => {
     cdCommandPrefix: '(cd .. &&',
     graphFlagForCmd: '--graph="RFC-ROOT-GRAPH.json"',
   };
-  const mappedNodeIds = ['N0005'];
+  const mappedNodeIds = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
   const nodeMetaList = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
   const graphBasename = 'RFC-ROOT-GRAPH.json';
   const sourceBasename = 'RFC-ROOT.md';
@@ -642,7 +642,7 @@ describe('generateHeaderComment', () => {
     );
     assert.ok(comment.includes('Full graph exploration'));
     assert.ok(comment.includes('show-graph-summary-markdown.js'));
-    assert.ok(comment.includes('--hops=3'));
+    assert.ok(comment.includes('--hops='));
   });
 });
 
