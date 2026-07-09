@@ -246,7 +246,7 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
 | **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
-| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `graphify-rfc`, `boundify-graph-to-dirs`, `split-rfc-to-children`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
+| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `graphify-rfc`, `boundify-graph-to-dirs`, `graphify-rfc` + `boundify-graph-to-dirs`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
 内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
@@ -335,15 +335,6 @@ parent-omissions: <OMISSIONSファイルのパス>
 
 - `merge-history` を RFC-ROOT.md の frontmatter に追記
 - 該当する既存セクションがない場合はエラーで停止
-
-#### `/split-rfc-to-children <正典RFCパス>`
-
-長大で密結合な正典RFCを、安全なI/O境界で区切られた**独立した名前空間単位**（crate/module/package）の子・孫RFCに分割する。
-
-- `RFC-TREE.json` にツリー構造を記録
-- 子: `{正典名}-{childId}-{slug}/`、孫: `{正典名}-{childId}-{grandchildId}-{slug}/`
-- ディレクトリ構造が RFC_TREE と完全一致
-- 言語（Rust/Go/TypeScript）を自動検出し、言語別の追加ファイル（`Cargo.toml`/`go.mod`/`package.json`）も生成
 
 #### `/graphify-rfc <source-file-path>`
 
@@ -473,22 +464,6 @@ OMISSIONS-XXX.json
 ```
 
 
-### RFC-TREE.json
-
-`/split-rfc-to-children` が生成・管理する、正典RFCのツリー構造を記録したファイル。正典RFCと同じディレクトリに作成される。
-
-```
-RFC-TREE.json
-├── canonicalRfcPath, canonicalRfcTitle (正典RFCのパスとタイトル)
-├── generatedAt, summary
-├── language (rust / go / typescript — 自動検出)
-├── rfcUnderstanding: object (14フィールド — find-omissions と同一スキーマ)
-├── draftTree: childNode[] (素案ツリー)
-│   └── childNode: { childId, slug, directoryName, namespaceUnit, ioSchema, decouplingMethod, rfcEvidence, dependencyOn, children[] }
-│       └── grandchildNode: { grandchildId, slug, directoryName, ... }
-└── finalTree: childNode[] (検証済み完成ツリー)
-```
-
 ### Tickets.json
 
 ```
@@ -592,7 +567,7 @@ Tickets.json
 5. `find` が出力した `OMISSIONS-XXX.json` を確認する
    - RFC-OMISSIONS を正典に統合するなら `/merge-omissions-into-root-rfc`
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
-   - 長大なRFCを分割するなら `/split-rfc-to-children`
+   - 長大なRFCを分割するなら `/graphify-rfc` → `/boundify-graph-to-dirs`
    - 既存RFCの穴を塞ぐなら `/drill-rfc-down`
    - 軽微なら `/check-final` で完了確認
 6. `/check-final` が PASS を返したら 🎉 開発完了

@@ -300,7 +300,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
 
 ### STEP 7a: I/O 境界参考情報の追記
 
-設計ツリー上の全判断が解決したRFCに、将来の `/split-rfc-to-children` で安全に分割するための I/O 境界参考情報を追記する。
+設計ツリー上の全判断が解決したRFCに、将来の `/graphify-rfc`（グラフ化）と `/boundify-graph-to-dirs`（ディレクトリ境界生成）で安全に分割するための I/O 境界参考情報を追記する。
 
 ```bash
 # テンプレート挿入

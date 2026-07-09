@@ -2,7 +2,7 @@
 /**
  * extract-io-boundary.js <rfc-file>
  *
- * RFC ファイルから「split-rfc-to-children のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
+ * RFC ファイルから「graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
  * セクションを抽出して stdout に出力する。
  *
  * 抽出できなかった場合は空出力 + exit 0（エラーではなく「情報がない」だけ）。
@@ -26,8 +26,8 @@ const content = fs.readFileSync(resolvedPath, "utf-8");
 const lines = content.split("\n");
 
 // I/O 境界セクションのタイトルを検出
-// 形式: ## <N>. split-rfc-to-children のための参考情報 ...
-const SECTION_TITLE_MARKER = "split-rfc-to-children のための参考情報";
+// 形式: ## <N>. graphify-rfc + boundify-graph-to-dirs のための参考情報 ...
+const SECTION_TITLE_MARKER = "graphify-rfc + boundify-graph-to-dirs のための参考情報";
 const SECTION_PATTERN = new RegExp(`^## \\d+\\.\\s+${escapeRegex(SECTION_TITLE_MARKER)}`);
 
 let sectionStartIndex = -1;
