@@ -16,7 +16,7 @@
  * 全書き込みは一時ファイル + rename のアトミック書込（atomicWrite）で行われ、
  * プロセス異常終了時に元ファイルが破損することはない。
  *
- * 本スクリプトは /boundify-graph-to-dirs 専用。Step範囲は 0〜4。
+ * 本スクリプトは /boundify-graph-to-dirs 専用。Step範囲は 0〜3。
  */
 
 const fs = require('fs');
@@ -29,8 +29,8 @@ const path = require('path');
 /** 最小のStep番号（Step 0: 見出し重複排除） */
 const MIN_STEP = 0;
 
-/** 最大のStep番号（boundify-graph-to-dirs は4Step + Step 0 の5Step構成） */
-const MAX_STEP = 4;
+/** 最大のStep番号（boundify-graph-to-dirs はStep 0〜3 の4Step構成） */
+const MAX_STEP = 3;
 
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
