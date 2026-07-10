@@ -43,7 +43,7 @@ RFC設計上の要求：
 ### 実装内容
 
 1. **CLI引数パース**（既存スクリプトと統一形式）
-   - `query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N>`
+   - `query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N> [--dirs-tree=<path>]`
    - `--help` / `-h` で usage 表示
    - 引数不足・不正形式は 3段テンプレートエラーで stderr 出力し exit code 1
    - `--id` 未指定・空の場合はエラー
@@ -163,7 +163,7 @@ POST /api/v1/auth/login および POST /api/v1/auth/refresh を含む。
 
 ### CLI契約（RFC-GRAPHIFY.md:277-278）:
 ```
-query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N>
+query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N> [--dirs-tree=<path>]
 ```
 
 ### エラー処理プロトコル（RFC-GRAPHIFY.md:294-317）:

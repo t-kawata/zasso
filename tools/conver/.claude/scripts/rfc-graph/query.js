@@ -720,7 +720,7 @@ function main() {
     );
     console.log("```");
     console.log(
-      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}" --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
+      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
     );
     console.log("```");
 

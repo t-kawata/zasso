@@ -62,17 +62,17 @@ PX-28 で prose 系 kind の独立ファイル生成が廃止された。これ�
 // Mapped node(s):
 //   - N0005 (config/database_settings)
 //     § 3.2 "Database Connection Configuration"
-//     → Details: (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --id=N0005)
+//     → Details: (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --id=N0005 --dirs-tree="RFC-ROOT-Dirs-Tree.json")
 //
 // Cross-referenced design context:
 //   - rationale/why_adopt_eda [N0003] (refines → N0005)
 //     § 2.1 "Why Adopt EDA"
-//     → (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-TEST-GRAPH.json" --id=N0003)
+//     → (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-TEST-GRAPH.json" --id=N0003 --dirs-tree="RFC-TEST-Dirs-Tree.json")
 //
 // Full graph exploration:
 //   (cd ../../path/to && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js \
 //     --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
-//   (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --id=<NODE_ID> --hops=3)
+//   (cd ../../path/to && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --id=<NODE_ID> --hops=3 --dirs-tree="RFC-ROOT-Dirs-Tree.json")
 // ============================================================================
 ```
 
@@ -255,13 +255,13 @@ graphBasename = `RFC-ROOT-GRAPH.json` として4通り列挙する:
 PREFIX = "(cd " + relDirToGraph + " &&"
 
 # --- 個別ノード詳細 ---
-PREFIX + " node .claude/scripts/rfc-graph/query.js --graph="BASENAME" --id=N0005)"
+PREFIX + " node .claude/scripts/rfc-graph/query.js --graph="BASENAME" --id=N0005 --dirs-tree="DIRS_TREE_BASENAME")"
 
 # --- グラフサマリー ---
 PREFIX + " node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="BASENAME" --source="SOURCE_BASENAME")"
 
 # --- マルチホップ探索 ---
-PREFIX + " node .claude/scripts/rfc-graph/query.js --graph="BASENAME" --id=<NODE_ID> --hops=3)"
+PREFIX + " node .claude/scripts/rfc-graph/query.js --graph="BASENAME" --id=<NODE_ID> --hops=3 --dirs-tree="DIRS_TREE_BASENAME")"
 ```
 
 **致命的制約:**
