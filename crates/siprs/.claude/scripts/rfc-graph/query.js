@@ -65,57 +65,34 @@ function parseArguments(testArgs) {
     process.exit(EXIT_SUCCESS);
   }
 
-  // 最小引数: --graph=<path> --source=<path> --id=<nodeId>
-  if (args.length < 3) {
-    throw new Error(
-      "引数が不足しています。\n" +
-        "  Usage: query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]",
-    );
-  }
-
-  // --graph=<path> のパース
-  const graphFlag = args[0];
-  if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
-    throw new Error(
-      "最初の引数は --graph=<path> である必要があります。\n" +
-        `  実際の値: ${graphFlag}`,
-    );
-  }
-  const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
-  if (!graphPath) {
-    throw new Error("--graph=<path> の <path> が空です。");
-  }
-
-  // --source=<path> のパース
-  const sourceFlag = args[1];
-  if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
-    throw new Error(
-      "2番目の引数は --source=<path> である必要があります。\n" +
-        `  実際の値: ${sourceFlag}`,
-    );
-  }
-  const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
-  if (!sourcePath) {
-    throw new Error("--source=<path> の <path> が空です。");
-  }
-
-  // --id=<nodeId> のパース（複数指定はカンマ区切りに対応）
-  const idFlag = args[2];
-  const nodeIds = parseNodeIds(idFlag);
-
-  // 残りの引数から --hops=<N> と --dirs-tree=<path> を検索
+  // 全引数をフラグ名で検索（位置に依存しない）
+  let graphPath = null, sourcePath = null, nodeIds = null;
   let hops = DEFAULT_HOPS;
   let dirsTreePath = null;
-  for (let i = 3; i < args.length; i++) {
-    if (args[i].startsWith(HOPS_ARG_PREFIX)) {
-      hops = parseHops(args[i]);
-    } else if (args[i].startsWith(DIRS_TREE_ARG_PREFIX)) {
-      dirsTreePath = args[i].slice(DIRS_TREE_ARG_PREFIX.length);
-      if (!dirsTreePath) {
-        throw new Error("--dirs-tree=<path> の <path> が空です。");
-      }
+
+  for (const arg of args) {
+    if (arg.startsWith(GRAPH_PATH_ARG_PREFIX)) {
+      graphPath = arg.slice(GRAPH_PATH_ARG_PREFIX.length);
+    } else if (arg.startsWith(SOURCE_PATH_ARG_PREFIX)) {
+      sourcePath = arg.slice(SOURCE_PATH_ARG_PREFIX.length);
+    } else if (arg.startsWith(NODE_ID_ARG_PREFIX)) {
+      const rawIds = arg.slice(NODE_ID_ARG_PREFIX.length);
+      // 空 ID、および後続の -- フラグが連結した場合のゴミを除去
+      // 後続フラグ（全角スペース等で連結されたケース）を除去
+      const cleaned = rawIds.replace(/[\s　]+--.*$/, '');
+      if (!cleaned) continue;
+      nodeIds = cleaned.split(",").map((id) => id.trim()).filter((id) => id.length > 0);
+    } else if (arg.startsWith(HOPS_ARG_PREFIX)) {
+      hops = parseHops(arg);
+    } else if (arg.startsWith(DIRS_TREE_ARG_PREFIX)) {
+      dirsTreePath = arg.slice(DIRS_TREE_ARG_PREFIX.length);
     }
   }
+
+  // 必須フラグのバリデーション
+  if (!graphPath) throw new Error("--graph=<path> は必須です。");
+  if (!sourcePath) throw new Error("--source=<path> は必須です。");
+  if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> は必須です。");
 
   return { graphPath, sourcePath, nodeIds, hops, dirsTreePath };
 }
@@ -259,10 +236,9 @@ function multiHopBFS(graph, startNodeId, hops) {
             : null;
       if (!neighbor) continue;
 
-      // エッジの重複を防止（from と to をソートして正規化したキーで管理）
-      // 順序正規化により、from:N0113→to:N0119 と from:N0119→to:N0113 を同一視する
-      const [normFrom, normTo] = [edge.from, edge.to].sort();
-      const key = `${normFrom}:${normTo}:${edge.type}`;
+      // エッジの重複を防止（from+to+type の複合キーで管理）
+      // from→to と to→from は方向が異なる別エッジとして扱う
+      const key = edge.from + ':' + edge.to + ':' + edge.type;
       if (!edgeKeys.has(key)) {
         edgeKeys.add(key);
         resultEdges.push(edge);
@@ -353,6 +329,7 @@ function buildPathToNode(depthMap, targetId) {
  */
 function buildChildMap(depthMap) {
   const map = new Map();
+  if (!depthMap) return map;
   for (const [nodeId, entry] of depthMap) {
     if (entry.parent === null) continue;
     if (!map.has(entry.parent)) map.set(entry.parent, []);
@@ -496,12 +473,25 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
 
   lines.push("### 他のノードとの関係性\n");
 
-  // ルート行（検索起点ノード）
-  lines.push(`- ${node.id} (${node.title})`);
-
   // depthMap から親子隣接リストを構築し、再帰的に子ノードを描画
-  const childMap = buildChildMap(depthMap);
-  renderChildTree(node.id, 1, childMap, graph, lines);
+  if (depthMap) {
+    const childMap = buildChildMap(depthMap);
+    // ルート行（検索起点ノード）
+    lines.push(`- ${node.id} (${node.title})`);
+    renderChildTree(node.id, 1, childMap, graph, lines);
+  } else {
+    // depthMap がない場合は edges 配列から直接レンダリング
+    const grouped = groupEdgesByType(edges);
+    for (const [type, typeEdges] of grouped) {
+      for (const edge of typeEdges) {
+        const neighbor = edge.from === node.id ? edge.to : edge.from;
+        const neighborNode = resolveNodeById(graph, neighbor);
+        const title = neighborNode ? neighborNode.title : neighbor;
+        const dir = getDirectionLabel(node.id, edge);
+        lines.push(`  - ${edge.type} ${dir} ${neighbor} (${title})`);
+      }
+    }
+  }
 
   return lines.join("\n");
 }
@@ -720,7 +710,7 @@ function main() {
     );
     console.log("```");
     console.log(
-      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}" --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
+      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
     );
     console.log("```");
 

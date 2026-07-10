@@ -101,6 +101,7 @@ function main() {
 
   const graphFileName = path.basename(dirsTree.sourceGraph || "");
   const sourceFileName = path.basename(dirsTree.sourceFile || "");
+  const dirsTreeFileName = path.basename(dirsTreePath);
 
   console.log("# Directory / File Structure — Mapped Nodes");
   console.log("");
@@ -120,6 +121,8 @@ function main() {
       graphFileName +
       '" --source="' +
       sourceFileName +
+      '" --dirs-tree="' +
+      dirsTreeFileName +
       '" --id=Nxxxx (e.g. N0001) --hops=<N> (1=direct, 2+=includes grandchildren)'
   );
   console.log("```");

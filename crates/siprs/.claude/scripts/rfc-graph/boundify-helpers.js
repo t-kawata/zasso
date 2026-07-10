@@ -520,6 +520,9 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
   // Step 8: --graph= フラグ（basename のみ、cd により既に移動済み）
   const graphFlagForCmd = '--graph="' + graphBasename + '"';
 
+  // Step 9: --dirs-tree= フラグ（同上、basename のみ）
+  const dirsTreeFlagForCmd = '--dirs-tree="' + dirsTreeBasename + '"';
+
   return {
     relDirToGraph: relDir,
     graphRelPath: graphRelPath,
@@ -527,6 +530,7 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
     sourceRelPath: sourceRelPath,
     cdCommandPrefix: cdCommandPrefix,
     graphFlagForCmd: graphFlagForCmd,
+    dirsTreeFlagForCmd: dirsTreeFlagForCmd,
   };
 }
 
@@ -575,7 +579,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
       const nid = (typeof entry === 'string') ? entry : entry.nodeId;
       const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
       lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
-      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' --id=' + nid + ')');
+      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + nid + '　--hops=2)');
     }
   } else {
     lines.push(L + ' Mapped node(s):');
@@ -596,7 +600,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
           lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
         }
       }
-      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' --id=' + cr.nodeId + ')');
+      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + cr.nodeId + '　--hops=2)');
     }
   }
 
@@ -604,7 +608,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
   lines.push(L + '');
   lines.push(L + ' Full graph exploration:');
   lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '")');
-  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
+  lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
 
   // 閉じ区切り線
   lines.push(L + ' ' + HEADER_SEPARATOR);

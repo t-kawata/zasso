@@ -130,7 +130,9 @@ function loadSourceFile(filePath) {
  * @returns {string}
  */
 function truncateSummary(summary) {
-  return summary || '';
+  if (!summary) return '';
+  if (summary.length <= 25) return summary;
+  return summary.substring(0, 25) + '...';
 }
 
 /**

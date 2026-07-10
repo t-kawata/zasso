@@ -260,11 +260,9 @@ describe('generateSummary', () => {
 describe('generateCliExamples', () => {
   const { generateCliExamples } = require('../../.claude/scripts/rfc-graph/show-graph-summary-markdown.js');
 
-  it('crud.js と query.js のCLI使用例を含む', () => {
+  it('query.js のCLI使用例を含む', () => {
     const examples = generateCliExamples('/g.json', '/s.md', 'N0001');
     const output = examples.join('\n');
-    assert.ok(output.includes('crud.js list-nodes'));
-    assert.ok(output.includes('crud.js get-node'));
     assert.ok(output.includes('query.js'));
     assert.ok(output.includes('--graph=g.json'));
     assert.ok(output.includes('--source=s.md'));

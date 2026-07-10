@@ -175,6 +175,11 @@ function discover(node, currentPath, headerContext) {
       content += headerComment + '\n';
     }
 
+    // declarationStub が定義されていれば内容に追加
+    if (node.declarationStub) {
+      content += node.declarationStub + '\n\n';
+    }
+
     // ファイル末尾にスタブマーカーを追記（実装が必要なノードIDとタイトルを明示）
     const stubEntries = (node.mappedNodeIds || []).filter(function (e) {
       return typeof e !== 'string';

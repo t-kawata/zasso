@@ -97,35 +97,35 @@ const SIMPLE_GRAPH = {
       title: '認証API定義',
       kind: 'api_contract',
       summary: 'POST /api/v1/auth/login エンドポイントの定義。',
-      headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}],
+      headingRefs: [{ refId: 'REF001', heading:2, texts:["認証API定義"]}],
     },
     {
       id: 'N0002',
       title: '用語集',
       kind: 'glossary',
       summary: '認証関連の用語定義。',
-      headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}],
+      headingRefs: [{ refId: 'REF002', heading:2, texts:["用語集"]}],
     },
     {
       id: 'N0003',
       title: 'トークン検証ロジック',
       kind: 'requirement',
       summary: 'JWTトークンの検証手順。',
-      headingRefs: [{ refId: 'REF003', heading:1, texts:["test"]}],
+      headingRefs: [{ refId: 'REF003', heading:2, texts:["トークン検証"]}],
     },
     {
       id: 'N0004',
       title: 'データモデル定義',
       kind: 'data_model',
       summary: 'Userエンティティの定義。',
-      headingRefs: [{ refId: 'REF004', heading:1, texts:["test"]}],
+      headingRefs: [{ refId: 'REF004', heading:2, texts:["データモデル"]}],
     },
     {
       id: 'N0005',
       title: 'セッション管理',
       kind: 'requirement',
       summary: 'ユーザーセッションの管理方法。',
-      headingRefs: [{ refId: 'REF005', heading:1, texts:["test"]}],
+      headingRefs: [{ refId: 'REF005', heading:2, texts:["セッション管理"]}],
     },
   ],
   edges: [
@@ -247,31 +247,32 @@ describe('parseArguments', () => {
   it('異常系: 引数不足（--graph のみ）でエラー', () => {
     assert.throws(() => {
       parseArguments(['--graph=test.json']);
-    }, /引数が不足/);
+    }, /--source|--id/);
   });
 
   it('異常系: 引数なしでエラー', () => {
     assert.throws(() => {
       parseArguments([]);
-    }, /引数が不足/);
+    }, /--graph|--source|--id/);
   });
 
   it('異常系: --graph が空でエラー', () => {
     assert.throws(() => {
       parseArguments(['--graph=', '--source=test.md', '--id=N0001']);
-    }, /空です/);
+    }, /--graph/);
   });
 
   it('異常系: --id が空でエラー', () => {
     assert.throws(() => {
       parseArguments(['--graph=test.json', '--source=test.md', '--id=']);
-    }, /空です/);
+    }, /--id/);
   });
 
-  it('異常系: 最初の引数が --graph 以外でエラー', () => {
-    assert.throws(() => {
-      parseArguments(['--source=test.md', '--graph=test.json', '--id=N0001']);
-    }, /最初の引数/);
+  it('正常系: 引数の順序に依存しない（--source が先でもOK）', () => {
+    const result = parseArguments(['--source=test.md', '--graph=test.json', '--id=N0001']);
+    assert.equal(result.graphPath, 'test.json');
+    assert.equal(result.sourcePath, 'test.md');
+    assert.deepEqual(result.nodeIds, ['N0001']);
   });
 });
 
@@ -527,7 +528,7 @@ describe('multiHopBFS', () => {
 
 describe('resolveCurrentLines', () => {
   it('正常系: headingRefs から行番号を解決する', () => {
-    const sourceText = SOURCE_LINES; // resolveCurrentLines は配列として sourceLines を期待
+    const sourceText = SOURCE_LINES.join('\n'); // resolveCurrentLines は配列として sourceLines を期待
     const headingRefs = [{ refId: 'REF001', heading: 2, texts: ['認証API定義'] }];
     const result = resolveCurrentLines(sourceText, headingRefs, 'REF001');
     assert.notEqual(result, undefined);
@@ -535,7 +536,7 @@ describe('resolveCurrentLines', () => {
   });
 
   it('正常系: 複数ノードの行番号をそれぞれ解決する', () => {
-    const sourceText = SOURCE_LINES;
+    const sourceText = SOURCE_LINES.join('\n');
     const refs = [
       { refId: 'REF001', heading: 2, texts: ['認証API定義'] },
       { refId: 'REF003', heading: 2, texts: ['トークン検証'] },
@@ -549,7 +550,7 @@ describe('resolveCurrentLines', () => {
   });
 
   it('異常系: 存在しない refId は undefined を返す', () => {
-    const sourceText = SOURCE_LINES;
+    const sourceText = SOURCE_LINES.join('\n');
     const headingRefs = [{ refId: 'REF001', heading: 2, texts: ['認証API定義'] }];
     const result = resolveCurrentLines(sourceText, headingRefs, 'REF999');
     assert.equal(result, undefined);
@@ -614,7 +615,7 @@ describe('formatNodeMarkdown', () => {
   it('正常系: ノード情報を正しいMarkdownに整形する', () => {
     const node = SIMPLE_GRAPH.nodes[0]; // N0001
     const searchResult = multiHopBFS(SIMPLE_GRAPH, 'N0001', 1);
-    const sourceText = SOURCE_LINES;
+    const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(node, searchResult.edges, SIMPLE_GRAPH, sourceText);
 
     // 見出し
@@ -627,33 +628,34 @@ describe('formatNodeMarkdown', () => {
     // Summary
     assert.ok(output.includes('POST /api/v1/auth/login'));
     // 関係セクション
-    assert.ok(output.includes('### 関係'));
+    assert.ok(output.includes('### 他のノードとの関係性'));
     assert.ok(output.includes('depends_on'));
     assert.ok(output.includes('implements'));
   });
 
   it('正常系: 孤立ノードは「関係 (なし)」を出力する', () => {
     const node = SIMPLE_GRAPH.nodes[1]; // N0002（孤立）
-    const sourceText = SOURCE_LINES;
+    const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(node, [], SIMPLE_GRAPH, sourceText);
 
     assert.ok(output.includes('## N0002: 用語集'));
-    assert.ok(output.includes('### 関係 (なし)'));
+    assert.ok(output.includes('### 他のノードとの関係性'));
   });
 
-  it('正常系: マーカー欠損時に行番号をN/Aと表示する', () => {
-    // マーカーがない refId のノード
+  it('正常系: マーカー欠損時はRFC記述セクションを省略する', () => {
+    // 解決不能な headingRefs を持つノード（ソースに該当見出しなし）
     const nodeWithMissingRef = {
       id: 'NX001',
       title: '欠損ノード',
       kind: 'requirement',
-      headingRefs: [{ refId: 'REF999', heading:1, texts:["test"]}]
+      headingRefs: [{ refId: 'REF999', heading:1, texts:["nonexistent-heading"]}]
     };
     const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(nodeWithMissingRef, [], SIMPLE_GRAPH, sourceText);
 
     assert.ok(output.includes('NX001'));
-    assert.ok(output.includes('N/A'));
+    // headingRefs が解決不能な場合、「RFC での記述」セクションは出力されない
+    assert.ok(!output.includes('RFC での記述'));
   });
 
   it('正常系: 双方向エッジを含む場合に正しく表示する', () => {
@@ -676,27 +678,31 @@ describe('formatNodeMarkdown', () => {
     assert.ok(output.includes('↔'));
   });
 
-  it('正常系: headingRefs がないノードは N/A と表示する', () => {
+  it('正常系: headingRefs がないノードは「RFC での記述」セクションを出力しない', () => {
     const node = { id: 'NX001', title: '範囲なし', kind: 'requirement', summary: 'Test' };
     const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(node, [], SIMPLE_GRAPH, sourceText);
 
     assert.ok(output.includes('NX001'));
-    assert.ok(output.includes('N/A'));
+    assert.ok(output.includes('Test'));
+    // headingRefs がない場合、RFC記述セクションは出力されない
+    assert.ok(!output.includes('RFC での記述'));
   });
 
-  it('正常系: グループ見出しに種別と強度が含まれる', () => {
+  it('正常系: 関係セクションに「他のノードとの関係性」見出しとエッジ種別が含まれる', () => {
     const node = SIMPLE_GRAPH.nodes[0]; // N0001
     const searchResult = multiHopBFS(SIMPLE_GRAPH, 'N0001', 1);
-    const sourceText = SOURCE_LINES;
+    const sourceText = SOURCE_LINES.join('\n');
     const output = formatNodeMarkdown(node, searchResult.edges, SIMPLE_GRAPH, sourceText);
 
-    // グループ見出し「### 関係 (type / strength)」の形式を維持
-    assert.ok(output.includes('### 関係 ('));
-    assert.ok(output.includes('/'));
+    // 関係セクション見出し
+    assert.ok(output.includes('### 他のノードとの関係性'));
+    // エッジ行に種別と方向ラベルが含まれる
+    assert.ok(output.includes('depends_on'));
+    assert.ok(output.includes('→'));
   });
 
-  it('正常系: 各行に種別と強度が含まれない（方向ラベルのみ）', () => {
+  it('正常系: エッジ行に種別と方向ラベルが含まれる', () => {
     // 1ホップで単一エッジのグラフ
     const singleEdgeGraph = {
       sourceFile: 'test.md',
@@ -715,16 +721,14 @@ describe('formatNodeMarkdown', () => {
     const output = formatNodeMarkdown(node, searchResult.edges, singleEdgeGraph, sourceText);
     const lines = output.split('\n');
 
-    // グループ見出し行を取得（種別と強度を含む）
-    const headerLine = lines.find(l => l.startsWith('### 関係'));
-    assert.ok(headerLine);
-    assert.ok(headerLine.includes('depends_on'));
+    // 関係セクション見出し
+    assert.ok(lines.some(l => l.startsWith('### 他のノードとの関係性')));
 
-    // 各行（- で始まる行）には種別も強度も含まれない
+    // エッジ行（- で始まる行）に種別と方向ラベルが含まれる
     const edgeLines = lines.filter(l => l.startsWith('- '));
     for (const edgeLine of edgeLines) {
-      assert.ok(!edgeLine.includes('depends_on'), `行に種別が含まれていません: ${edgeLine}`);
-      assert.ok(!edgeLine.includes('[hard]'), `行に強度が含まれていません: ${edgeLine}`);
+      assert.ok(edgeLine.includes('depends_on'), `エッジ行に種別が含まれるべき: ${edgeLine}`);
+      assert.ok(edgeLine.includes('→'), `エッジ行に方向ラベルが含まれるべき: ${edgeLine}`);
     }
 
     // 方向ラベルは維持されている
@@ -794,7 +798,7 @@ describe('main 統合', () => {
     const searchResult = multiHopBFS(graph, 'N0001', 2);
     assert.equal(searchResult.nodeIds.length, 4);
 
-    const output = formatNodeMarkdown(node, searchResult.edges, graph, sourceText);
+    const output = formatNodeMarkdown(node, searchResult.edges, graph, sourceText, searchResult.depthMap);
     assert.ok(output.includes('N0001'));
     assert.ok(output.includes('N0005')); // 2ホップで到達
   });

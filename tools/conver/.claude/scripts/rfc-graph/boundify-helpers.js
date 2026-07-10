@@ -579,7 +579,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
       const nid = (typeof entry === 'string') ? entry : entry.nodeId;
       const titleStr = (typeof entry === 'object' && entry.title) ? (' ' + entry.title) : '';
       lines.push(L + '   - NODE_ID=' + nid + ': ' + titleStr);
-      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + nid + ')');
+      lines.push(L + '     → To show details: ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + nid + '　--hops=2)');
     }
   } else {
     lines.push(L + ' Mapped node(s):');
@@ -600,7 +600,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
           lines.push(L + '     (' + conn.edgeType + ' ' + conn.direction + ' ' + conn.toFile + ')');
         }
       }
-      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + cr.nodeId + ')');
+      lines.push(L + '     → ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=' + cr.nodeId + '　--hops=2)');
     }
   }
 
