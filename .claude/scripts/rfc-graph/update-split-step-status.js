@@ -284,7 +284,8 @@ function executeEndStep(status, n, label) {
   if (n >= MAX_STEP) {
     console.log(`${stepName} が完了しました。全Stepが完了しました。`);
   } else {
-    console.log(`${stepName} が完了しました。状態: ${STATUS_DONE}。`);
+    const nextName = resolveStepLabel(n + 1);
+    console.log(`${stepName} が完了しました。状態: ${STATUS_DONE}。次に ${nextName} を実行してください。`);
   }
 }
 
