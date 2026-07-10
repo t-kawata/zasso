@@ -78,6 +78,11 @@
           "items": { "type": "string" },
           "description": "このチケットに束ねられたグラフノードIDの配列（例: [\"N0001\",\"N0003\"]）。フェーズ内の全nodeIdsが tickets[].nodeIds の和集合と一致することを検証に使う。required には含めず後方互換性を維持。"
         },
+        "default_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "このチケットの実装先となるファイルパスの配列。Dirs-Tree.json から nodeIds 経由で機械的に解決される。AI が手動で指定してはならず、add-tickets-for-phase.js が --dirs-tree フラグ指定時に自動設定する。required には含めず後方互換性を維持。"
+        },
         "changes": {
           "type": "array",
           "items": {

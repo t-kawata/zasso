@@ -3883,6 +3883,91 @@
           "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし、console.logはCLI意図的出力）\n依存関係: PX-37(reviewed) / PX-40(reviewed) — 整合性確認済\n7パターン不完全実装: 全パターン 該当なし\n犯罪: 0件\n[::STUB::]: 2件（対象外ファイル、保留妥当）\nテスト: 873/873 PASS（新規27含む）\nBoy Scout改善: add-ticket.js変数名改善 + split-to-tickets.md旧重複削除 — 確認済",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-10"
+        },
+        {
+          "id": 42,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "default_files スキーマ追加と add-tickets-for-phase.js への自動解決機能統合",
+          "referenceSection": "tickets/specs/0079-default-files-add-tickets-for-phasejs.md",
+          "background": "add-tickets-for-phase.js は現在、AI が手動で指定したフィールドのみを追加し、ファイルパスを管理していない。AI に default_files を手動で書かせると憶測パス・書き漏れが発生する。一方 buildNodeToDirMap()（validate-phasify.js）は既に Dirs-Tree.json から nodeId→filePath の正確なマッピングを構築できる。同関数を add-tickets-for-phase.js から呼び出し、nodeIds から機械的にファイルパスを解決して default_files を自動設定することで、AI の操作を一切介さずに正確なパス管理を実現する。",
+          "scope": [
+            "tickets-schema.json: #/definitions/ticket に default_files (string[]) 追加（required には含めず後方互換性維持）",
+            "add-tickets-for-phase.js: --dirs-tree 引数パース + resolveDefaultFiles() + main()統合 + buildNodeToDirMap require",
+            "split-to-tickets.md: Usage と JSON 例を default_files 対応に更新",
+            "tests/rfc-graph/step5-add-tickets-coverage.test.cjs: resolveDefaultFiles テスト4件追加"
+          ],
+          "notes": "レビュー報告書:\n- 変更ファイル: 4ファイル（全て改修）\n- tickets-schema.json: default_files 追加\n- add-tickets-for-phase.js: --dirs-tree引数 + resolveDefaultFiles + parseCliArguments\n- split-to-tickets.md: Usage + JSON例更新\n- テスト: 883/883 PASS（resolveDefaultFiles 4 + parseCliArguments 4 + schema互換性 2）\n- 品質: 0 issues（PX-42対象ファイル）\n- 不完全実装: 該当なし\n- BOUNDIFY残骸: 対象外\n\n判定: ACCEPT ✅",
+          "relatedTicketIds": "PX-41 (依存: show-phase-nodes.js + add-tickets-for-phase.js 基盤)",
+          "testVerification": [
+            "resolveDefaultFiles: 全nodeIds解決→正しいdefault_files",
+            "resolveDefaultFiles: 一部nodeId不在→存在するもののみ設定",
+            "resolveDefaultFiles: nodeIds空→default_files未設定",
+            "resolveDefaultFiles: 重複パス→重複排除＋ソート"
+          ],
+          "testExceptions": [],
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(default_files未定義)",
+              "after": "default_files (string[]) を追加",
+              "description": "tickets-schema.json: #/definitions/ticket に default_files を追加（required には含めず後方互換性維持）"
+            },
+            {
+              "before": "--dirs-tree なし / resolveDefaultFiles なし",
+              "after": "--dirs-tree 引数 + resolveDefaultFiles() 追加",
+              "description": "add-tickets-for-phase.js: 第3引数 --dirs-tree=<path> を追加。resolveDefaultFiles() で nodeIds→Dirs-Tree 解決→default_files 自動設定。buildNodeToDirMap を validate-phasify.js から require。"
+            },
+            {
+              "before": "Usageに --dirs-tree なし",
+              "after": "Usageに --dirs-tree 追記 + JSON例に default_files 追加",
+              "description": "split-to-tickets.md: Step 5-2 Usage に --dirs-tree 追加。JSON例に default_files 追加（スクリプト自動設定の注記付き）。"
+            },
+            {
+              "before": "resolveDefaultFiles テストなし",
+              "after": "4テスト追加",
+              "description": "step5-add-tickets-coverage.test.cjs: resolveDefaultFiles 4テスト（全解決/部分不在/空IDS/重複排除）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（11 issues — 全件 boundify継承の意図的console.log/ループ変数f）\n翻訳可能性: 問題なし（全関数動詞句、todo!/panic!/FIXMEなし）\n依存関係: PX-41(reviewed) — 整合性確認済\n7パターン不完全実装: 全パターン 該当なし\n犯罪: 0件\n[::STUB::]: 2件（対象外ファイル、保留妥当）\nテスト: 883/883 PASS\nBOUNDIFY残骸: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
+        },
+        {
+          "id": 43,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "SPLIT-Status.json 管理スクリプトと split-to-tickets.md Status管理機構の追加",
+          "referenceSection": "tickets/specs/0080-split-statusjson-split-to-ticketsmd-status.md",
+          "background": "split-to-tickets.md には進行状態管理機構が存在しない。graphify-rfc.md と boundify-graph-to-dirs.md は update-step-status.js / update-boundify-step-status.js による *-Status.json 管理で各Stepの進行状態を永続化している。split-to-tickets.md も同様の機構が必要。但し split はサブステップを含む10原子ステップ（MAX_STEP=9）と graphify/boundify より多いため、専用の update-split-step-status.js を新規作成する。",
+          "scope": [
+            "update-split-step-status.js 新規（コピー元: update-boundify-step-status.js, MAX_STEP=9, SPLITサフィックス追加, 全メッセージ置換）",
+            "split-to-tickets.md: statusPath導出 + 全10Stepにstart-step/end-step + エラー復帰手順",
+            "make test-rfc-graph 全通過確認"
+          ],
+          "notes": "レビュー報告書:\n- 変更ファイル: 新規1 + 改修1 = 合計2ファイル\n- update-split-step-status.js: boundify版コピー＋MAX_STEP=9, SPLITサフィックス, 全置換\n- split-to-tickets.md: 全10原子StepにStatus管理（start-step/end-step/fail-step/reset-to-step）\n- テスト: 883/883 PASS\n- 品質: 11 issues（全件 boundify継承の意図的出力＝問題なし）\n- BOUNDIFY残骸grep: 0件\n- 不完全実装: 該当なし\n\n判定: ACCEPT ✅",
+          "relatedTicketIds": "PX-41 (split-to-tickets.md全Step確定), PX-42 (add-tickets-for-phase.js IF確定)",
+          "testVerification": [
+            "make test-rfc-graph 全通過（既存883テストへの影響なし）",
+            "grep BOUNDIFY残骸: 0件"
+          ],
+          "testExceptions": [],
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "update-split-step-status.js: update-boundify-step-status.js をコピーし MAX_STEP=9, SPLITサフィックス対応, 全メッセージ置換"
+            },
+            {
+              "before": "Status管理なし",
+              "after": "statusPath導出 + 全10Stepにstart-step/end-step + エラー復帰",
+              "description": "split-to-tickets.md: 冒頭にstatusPath導出, スクリプト一覧にupdate-split-step-status.js追加, 全10原子Stepの前後にstart-step/end-step, 各Stepにエラー時復帰セクション"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（11 issues — 全件 boundify継承の意図的console.log/ループ変数f）\n翻訳可能性: 問題なし（全関数動詞句、todo!/panic!/FIXMEなし）\n依存関係: PX-41(reviewed), PX-42(done) — 整合性確認済\n7パターン不完全実装: 全パターン 該当なし\n犯罪: 0件\n[::STUB::]: 2件（対象外ファイル、保留妥当）\nテスト: 883/883 PASS\nBOUNDIFY残骸grep: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
         }
       ]
     },

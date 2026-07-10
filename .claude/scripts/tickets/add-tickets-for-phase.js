@@ -7,17 +7,23 @@
  * bulkAddTickets() を呼び出してチケットを追加した後、当該フェーズの全 nodeIds が
  * 追加された tickets[].nodeIds の和集合と一致することを検証する。
  *
+ * 第2引数で受け取った Dirs-Tree.json から各チケットの nodeIds 経由で
+ * ファイルパスを機械的に解決し、default_files を自動設定する。
+ * これにより AI がファイルパスを手書きする必要がなくなる。
+ *
  * 検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
  *
  * Usage:
  *   echo '<tickets-array-json>' | node add-tickets-for-phase.js \
  *     <Tickets.json のパス> \
+ *     <Dirs-Tree.json のパス> \
  *     <P{id}>
  */
 
 const fs = require("fs");
 const path = require("path");
 const { bulkAddTickets } = require("./bulk-add-tickets.js");
+const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
 
 // ============================================================
 // 定数定義
@@ -28,6 +34,36 @@ const EXIT_SUCCESS = 0;
 
 /** 異常終了コード */
 const EXIT_FAILURE = 1;
+
+// ============================================================
+// default_files 自動解決
+// ============================================================
+
+/**
+ * 各チケットの nodeIds から Dirs-Tree 解決済みマップを使って default_files を自動設定する。
+ *
+ * 重複するファイルパス（異なる nodeId が同じファイルを指す）は排除され、ソートされる。
+ * nodeIds が空のチケットや nodeToDirMap に該当がない場合は default_files を設定しない。
+ *
+ * @param {Object[]} tickets — チケットデータの配列（各要素に nodeIds が必須）
+ * @param {Object} nodeToDirMap — buildNodeToDirMap() の戻り値（{ nodeId: filePath, ... }）
+ */
+function resolveDefaultFiles(tickets, nodeToDirMap) {
+  for (const ticket of tickets) {
+    const paths = new Set();
+    if (Array.isArray(ticket.nodeIds)) {
+      for (const nodeId of ticket.nodeIds) {
+        const resolvedPath = nodeToDirMap[nodeId];
+        if (resolvedPath) {
+          paths.add(resolvedPath);
+        }
+      }
+    }
+    if (paths.size > 0) {
+      ticket.default_files = Array.from(paths).sort();
+    }
+  }
+}
 
 // ============================================================
 // nodeIds過不足検証
@@ -84,17 +120,38 @@ function verifyNodeCoverage(phase) {
 // メイン処理
 // ============================================================
 
-function main() {
-  const ticketsJsonPath = process.argv[2];
-  const phaseArg = process.argv[3];
+/**
+ * CLI引数をパースして各パスとフェーズ指定子を取得する。
+ *
+ * @param {string[]} argv — process.argv（通常は process.argv をそのまま渡す）
+ * @returns {{ ticketsJsonPath: string|null, dirsTreePath: string|null, phaseArg: string|null, error: string|null }}
+ */
+function parseCliArguments(argv) {
+  const ticketsJsonPath = argv[2] || null;
+  const dirsTreePath = argv[3] || null;
+  const phaseArg = argv[4] || null;
 
-  // 引数チェック
-  if (!ticketsJsonPath || !phaseArg) {
-    console.error(
-      "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <P{id}>"
-    );
+  if (!ticketsJsonPath || !dirsTreePath || !phaseArg) {
+    return {
+      ticketsJsonPath: null,
+      dirsTreePath: null,
+      phaseArg: null,
+      error:
+        "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <Dirs-Tree.json> <P{id}>",
+    };
+  }
+
+  return { ticketsJsonPath, dirsTreePath, phaseArg, error: null };
+}
+
+function main() {
+  const parsed = parseCliArguments(process.argv);
+  if (parsed.error) {
+    console.error(parsed.error);
     process.exit(EXIT_FAILURE);
   }
+
+  const { ticketsJsonPath, dirsTreePath, phaseArg } = parsed;
 
   // 1. stdin からチケット配列を読み込み
   let ticketsInput;
@@ -126,7 +183,26 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 3. Tickets.json を読み込み、フェーズを解決
+  // 3. Dirs-Tree.json から default_files を自動解決
+  let dirsTreeData;
+  try {
+    dirsTreeData = JSON.parse(
+      fs.readFileSync(path.resolve(dirsTreePath), "utf8")
+    );
+  } catch (err) {
+    console.error(
+      "Dirs-Tree.json の読み込みに失敗しました: " +
+        dirsTreePath +
+        " (" +
+        err.message +
+        ")"
+    );
+    process.exit(EXIT_FAILURE);
+  }
+  const nodeToDirMap = buildNodeToDirMap(dirsTreeData);
+  resolveDefaultFiles(ticketsInput, nodeToDirMap);
+
+  // 4. Tickets.json を読み込み、フェーズを解決
   const resolvedPath = path.resolve(ticketsJsonPath);
   let data;
   try {
@@ -163,7 +239,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 4. bulkAddTickets を実行（単一バッチとして）
+  // 5. bulkAddTickets を実行（単一バッチとして）
   const batch = [
     {
       phaseId: phase.id,
@@ -177,14 +253,11 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 5. nodeIds 過不足検証
+  // 6. nodeIds 過不足検証
   const coverageResult = verifyNodeCoverage(phase);
 
   if (!coverageResult.valid) {
-    // 検証失敗 → 変更を破棄（data はまだ書き込まれていないので何もしない）
-    console.error(
-      "nodeIds 過不足検証に失敗しました。"
-    );
+    console.error("nodeIds 過不足検証に失敗しました。");
     if (coverageResult.missingNodeIds.length > 0) {
       console.error(
         "不足ノード: [" + coverageResult.missingNodeIds.join(", ") + "]"
@@ -198,10 +271,10 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 6. 検証成功 → ファイルに書き込み
+  // 7. 検証成功 → ファイルに書き込み
   fs.writeFileSync(resolvedPath, JSON.stringify(data, null, 2) + "\n", "utf8");
 
-  // 7. 結果出力
+  // 8. 結果出力
   const output = {
     success: true,
     phaseKey: phaseArg,
@@ -209,9 +282,10 @@ function main() {
     tickets: addResult.tickets,
     missingNodeIds: coverageResult.missingNodeIds,
     extraNodeIds: coverageResult.extraNodeIds,
+    defaultFilesResolved: true,
   };
   console.log(JSON.stringify(output, null, 2));
 }
 
 if (require.main === module) main();
-module.exports = { verifyNodeCoverage };
+module.exports = { verifyNodeCoverage, resolveDefaultFiles, parseCliArguments };
