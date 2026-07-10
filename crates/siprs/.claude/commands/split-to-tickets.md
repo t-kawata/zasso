@@ -221,52 +221,11 @@ node .claude/scripts/rfc-graph/show-phase-nodes.js \
   --phase="P{n}"
 ```
 
-出力例：
-```markdown
-# Phase P0: 認証基盤
-
-認証トークン生成・検証・Session管理
-
----
-## ノード一覧
-
-以下の 3 個のノードがこのフェーズに割り当てられています。
-各ノードは graphify-rfc によって安全な I/O 境界として策定されています。
-ノード同士の組み合わせもまた安全な I/O 境界になりやすい性質を持ちます。
-
-チケットとは、1回の実装で安全に行えるノードの組み合わせです。
-1つ以上のノードを束ねてチケット単位を構成してください。
-全ノードを重複なく、過不足なくチケット化しなければなりません。
-
----
-
-### N0001: 認証トークン生成
-
-**種別**: api_contract
-
-Ed448-Goldilocks を使用したトークン生成処理。鍵ペアの生成・署名・検証を提供する。
-
-### 実装先となるファイルパス
-
-```
-src/auth/token.rs
-```
-
-// (他のノードの詳細が続く...)
----
-```
-
-出力は以下の情報を必ず含む：
-- フェーズ名（name）とサマリー（summary）
-- **全ノードの一覧**（ノードID・タイトル・種別・要約・ファイルパス）
-- 各ノード間の明確な区切り（`---`）
-- ノードが安全な I/O 境界である旨の注釈と、チケット構成の指示
-
-① AI が①の出力を読み、各ノードの I/O 境界性と実装先ファイルパスを考慮して、1回の実装で安全に行えるノードの組み合わせを判断する。
+AI が出力を理解し、各ノードの I/O 境界性と実装先ファイルパスを考慮して、1回の実装で安全に行えるノードの組み合わせを判断する。
 
 #### 5-2: チケット化（add-tickets-for-phase.js）
 
-`add-tickets-for-phase.js` は、stdin から受け取ったチケット配列を `bulkAddTickets()` で追加し、追加後に当該フェーズの全 `nodeIds` が `tickets[].nodeIds` の和集合と一致することを検証する。検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
+`add-tickets-for-phase.js` は、stdin から受け取ったチケット配列を一括で追加し、追加後に当該フェーズの全 `nodeIds` がチケット化されたかを検証する。検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
 
 ```bash
 echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js \
@@ -288,6 +247,59 @@ stdin の JSON 形式（各チケットに `nodeIds` 配列が必須）：
 ]
 ```
 
+#### チケットのフィールド定義・詳細度指針
+
+各フィールドのスキーマは `tickets-schema.json` `#/definitions/ticket` に定義されている。
+`id`, `phaseId`, `status` はスクリプト自動設定のため入力禁止。それ以外の全フィールドは `additionalProperties: true` により追加可能。
+
+**記述の長さと情報密度に関する厳格な指針**:
+
+AI がチケットを登録する際、**簡素で短い記述は「横着」とみなす**。以下は最低要件である。
+
+| フィールド | 最低目安 | 基準（実在の Tickets.json 実例） |
+|-----------|---------|------------------------------|
+| `background` | **300文字以上** | 622文字 — 調査結果（箇条書き）、コードレベルの具体的言及を含む複数段落 |
+| `scope` | **各項目を型シグネチャ付きで列挙** | 828文字 — ファイル名＋処理内容＋種別を1項目ずつ具体的に |
+| `testVerification` | **項目ごとにテスト内容を明示** | 870文字 — 「UT: 〜」の形式で正常系・異常系・境界値を列挙 |
+| `notes` | **複数セクション構成、500文字以上** | 1342文字 — 実装サマリー・テスト結果・翻訳可能性・リスクを構造化 |
+| `relatedTicketIds` | **依存方向と理由を明記** | 251文字 — 「P17-1 (依存: …), P19-1 (被依存: …)」形式 |
+
+以下の JSON は上記の指針を満たした記述例である。**簡素なプレースホルダー（`<...>` 形式）で済ませてはならない。**
+
+```json
+[
+  {
+    "title": "認証トークン生成 — Ed448-Goldilocks 署名生成・検証API",
+    "nodeIds": ["N0001", "N0003"],
+    "background": "フェーズ0「認証基盤」の中核。N0001 は Ed448-Goldilocks を使用したトークン生成処理（鍵ペア生成・署名・検証）を定義し、N0003 はトークンリフレッシュ機構（期限切れ検出・再署名）を定義する。両者は同一の鍵ストア（src/auth/keystore.rs）を共有し、鍵のシリアライズ形式も共通であるため、同一チケットで実装することで不変条件（鍵の一貫性）を検証しやすくなる。鍵長は448ビット固定、署名アルゴリズムはEdDSA。実装先は src/auth/token.rs および src/auth/keystore.rs。",
+    "scope": [
+      "pub fn generate_keypair() -> Result<(PrivateKey, PublicKey), CryptoError> — Ed448鍵ペア生成。システムエントロピーを source に、OS提供のCSPRNGを使用。",
+      "pub fn sign(payload: &[u8], private_key: &PrivateKey) -> Result<Signature, CryptoError> — 指定ペイロードに対するEd448署名生成。署名長は114バイト固定。",
+      "pub fn verify(payload: &[u8], signature: &Signature, public_key: &PublicKey) -> Result<bool, CryptoError> — 署名検証。タイミング攻撃対策のため比較は定数時間で行う。",
+      "pub struct Token { pub payload: Vec<u8>, pub signature: Signature, pub expires_at: SystemTime } — トークン型。有効期限を保持し、検証時に現在時刻との比較を行う。",
+      "pub fn refresh(token: &Token, private_key: &PrivateKey) -> Result<Token, CryptoError> — 期限切れトークンの再署名。有効期限内のトークンには新たな期限を設定して再署名する。"
+    ],
+    "testVerification": [
+      "UT: generate_keypair が毎回異なる鍵ペアを生成する（同一性の否定）",
+      "UT: sign → verify が正しい署名に対して true を返す（Happy Path）",
+      "UT: verify が改ざんされたペイロードに対して false を返す（改ざん検知）",
+      "UT: verify が異なる鍵ペアの署名に対して false を返す（鍵バインディング）",
+      "UT: refresh が期限内トークンに新しい期限を設定し再署名する",
+      "UT: refresh に期限切れトークンを渡すとエラーを返す",
+      "UT: Token の expires_at が過去の場合に verify が false を返す（期限切れ検知）",
+      "境界値: 空ペイロードの署名生成・検証",
+      "境界値: 最大ペイロード長（65535バイト）での署名・検証"
+    ],
+    "testExceptions": ["SecretKey のメモリゼロクリア（mlock/mprotect）はカーネル依存のためユニットテスト不可。CI の integration test で valgrind 確認。"],
+    "referenceSection": "RFC-ROOT.md (§3.1 認証トークン形式, §3.2 鍵管理)",
+    "relatedTicketIds": "P0-2 (依存: エラー型 CryptoError の定義), PX-YY (Ed448ライブラリラッパー, 先行実装必須), P0-4 (被依存: Session管理が本チケットの Token を入力として使用)",
+    "notes": "結合テスト計画:\n[::STUB::] P0-4（Session管理）実装後に、自チケットが出力する Token と P0-4 が入力として受ける Token の結合テストを追加する。完全性の基準: P0-4 が Token::verify を呼び出した結果に基づいて正しく Session を確立・拒絶すること。\n\n注意事項:\n- PrivateKey のシリアライズは PKCS#8 v2 形式に従う\n- PublicKey のシリアライズは SPKI 形式に従う\n- 定数時間比較には borrow::subtle の ConstantTimeEq トレイトを使用すること"
+  }
+]
+```
+
+`id`, `phaseId`, `status` はスクリプトが自動設定する。上記以外のスキーマ定義フィールドも全て指定可能。Tickets.json のスキーマに従う限り任意のフィールドを追加できる。
+
 **チケット構成のルール**:
 - 1つ以上のノードを束ねて1チケットとする（単一ノードでも可）
 - 全 `nodeIds` を重複なく、過不足なくチケット化する
@@ -303,61 +315,7 @@ stdin の JSON 形式（各チケットに `nodeIds` 配列が必須）：
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 ```
 
-### Step 6: チケットの追加
-
-各フェーズのチケットを依存関係の順序に従って追加する。チケット ID はフェーズ内で 1 から自動インクリメント。
-R/U/D 操作では P{フェーズID}-{チケットID} 形式（例: P0-1）で特定する。
-
-#### チケットのフィールド定義
-
-id と status はスクリプトが自動設定する。省略可能な全フィールドは additionalProperties で許容。
-
-```json
-{
-  "title": "<I/O境界の契約を1文で表す>",
-  "referenceSection": "<参照設計書パス> (§<該当セクション番号>)",
-  "background": "<このI/O境界の契約が何か、実装の背景と目的>",
-  "scope": ["<型シグネチャ付き公開I/O: 実装する公開インターフェースの一覧>"],
-  "relatedTicketIds": "<入力元I/O: PX-YY / 出力先I/O: PX-ZZ — 結合するI/O境界の前後関係>",
-  "testVerification": [
-    "正常系: 公開I/Oに対する契約の充足を検証",
-    "異常系: 契約違反時の動作を検証",
-    "境界値: I/O境界における極値の振る舞いを検証"
-  ],
-  "testExceptions": ["<ユニットテスト不可能な項目とその理由 — なければ空配列>"],
-  "instrumentation": "<計装方法（ログ・メトリクス等）>",
-  "notes": "結合テスト計画:\n[::STUB::] 出力先チケット({出力先ID})実装後に、自チケットの出力I/Oと{出力先ID}の入力I/Oとの結合テストを追加する。完全性の基準: <例: 暗号文を正しく復号できるまで転送>"
-}
-```
-
-#### 単一追加（add-ticket.js）
-
-```bash
-echo '{"title":"純粋データ型の定義","scope":[...],"testVerification":[...]}' \
-  | node .claude/scripts/tickets/add-ticket.js "$TICKETS_PATH" "P0"
-```
-
-#### 一括追加（bulk-add-tickets.js）
-
-```bash
-echo '[
-  {"phaseId":0,"tickets":[{"title":"..."},{"title":"..."}]},
-  {"phaseId":1,"tickets":[{"title":"..."}]}
-]' | node .claude/scripts/tickets/bulk-add-tickets.js "$TICKETS_PATH"
-```
-
-#### チケットIDの採番
-
-チケットIDは以下の命名規則に従い、各 CRUD スクリプトが自動採番する：
-
-- **フェーズID**: `P0`, `P1`, `P2`, ...（フェーズを通して連番）
-- **チケットID**: `P<数字>-<連番>`（例: `P0-1`, `P0-2`, ...）
-
-採番は依存順序を反映すること。つまり、先に実装すべきチケットほど小さいフェーズ番号・チケット番号を持つ。
-
-必要に応じて抽象トレイトを定義するチケットを先行配置する（例: `M-2`, `M-1` のようにマイナス番号で事前準備フェーズを表現してもよい）。
-
-### Step 10: フェーズ・チケットチェックリストの出力
+### Step 6: フェーズ・チケットチェックリストの出力
 
 全てのチケットの追加が完了したら、list-phases-and-tickets.js でチェックリストを出力して報告する：
 
@@ -367,21 +325,13 @@ node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 
 出力例:
 ```
-- [] Phase 0: 純粋ロジック・状態機械の完全隔離検証
+- [] P0: 純粋ロジック・状態機械の完全隔離検証
     - [ ] P0-1: 純粋データ型の定義
     - [ ] P0-2: エラー型の定義
     - [ ] P0-3: プロセス状態とレジストリ型の定義
-- [] Phase 1: 非同期ランタイム・Mock可能な実行基盤
+- [] P1: 非同期ランタイム・Mock可能な実行基盤
     - [ ] P1-1: RestartPolicy::on_crash_default と next_delay の実装
 ```
 
-チェックボックスはチケットの status に応じて表示が変わる：
-- `status: "todo"` → `[ ]`
-- `status: "done"` → `[/]`
-- `status: "reviewed"` → `[x]`
-
 ## 注意事項
-
-- 本コマンドは設計書の解析結果をチケットとして生成するに過ぎない。生成されたチケットの内容は必要に応じて調整・修正すること。
 - 出力先 Tickets.json が既に存在する場合は上書き前にユーザーに確認を取ること。
-- Tickets.json の内容は CRUD スクリプト群を介して後から修正可能。各操作はスキーマ検証を通ることを保証する。
