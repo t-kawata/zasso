@@ -33,6 +33,9 @@ const NODE_ID_ARG_PREFIX = "--id=";
 /** ホップ数を指定するCLI引数のプレフィックス */
 const HOPS_ARG_PREFIX = "--hops=";
 
+/** Dirs-Tree.json のパスを指定するCLI引数のプレフィックス（省略可） */
+const DIRS_TREE_ARG_PREFIX = "--dirs-tree=";
+
 /** 探索が未指定時のデフォルトホップ数 */
 const DEFAULT_HOPS = 1;
 
@@ -100,14 +103,21 @@ function parseArguments(testArgs) {
   const idFlag = args[2];
   const nodeIds = parseNodeIds(idFlag);
 
-  // --hops=<N> のパース（省略可能、デフォルト1）
+  // 残りの引数から --hops=<N> と --dirs-tree=<path> を検索
   let hops = DEFAULT_HOPS;
-  if (args.length > 3) {
-    const hopsFlag = args[3];
-    hops = parseHops(hopsFlag);
+  let dirsTreePath = null;
+  for (let i = 3; i < args.length; i++) {
+    if (args[i].startsWith(HOPS_ARG_PREFIX)) {
+      hops = parseHops(args[i]);
+    } else if (args[i].startsWith(DIRS_TREE_ARG_PREFIX)) {
+      dirsTreePath = args[i].slice(DIRS_TREE_ARG_PREFIX.length);
+      if (!dirsTreePath) {
+        throw new Error("--dirs-tree=<path> の <path> が空です。");
+      }
+    }
   }
 
-  return { graphPath, sourcePath, nodeIds, hops };
+  return { graphPath, sourcePath, nodeIds, hops, dirsTreePath };
 }
 
 /**
@@ -425,9 +435,10 @@ function extractSectionContent(sourceLines, headingLineIndex) {
  * @param {Object} graph — グラフ全体（ノード名解決用）
  * @param {string} sourceText — ソーステキスト（行番号解決用）
  * @param {Map} [depthMap] — BFS の訪問記録（周辺ノード間エッジの経路表示用）
+ * @param {Object|null} [nodeToDirMap] — nodeId→ファイルパスのマップ（省略可）
  * @returns {string} Markdown形式の文字列
  */
-function formatNodeMarkdown(node, edges, graph, sourceText, depthMap) {
+function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirMap) {
   const lines = [];
 
   // 見出し
@@ -460,6 +471,19 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap) {
         lines.push(content);
         lines.push("---\n");
       }
+    }
+  }
+
+  // 実装先となるファイルパス（--dirs-tree 指定時のみ表示）
+  if (nodeToDirMap) {
+    const filePath = nodeToDirMap[node.id];
+    lines.push("### 実装先となるファイルパス\n");
+    if (filePath) {
+      lines.push("```");
+      lines.push(filePath);
+      lines.push("```\n");
+    } else {
+      lines.push("（このノードに割り当てられたファイルはありません）\n");
     }
   }
 
@@ -548,14 +572,15 @@ function printUsage() {
     "query.js — マルチホップグラフ探索\n" +
       "\n" +
       "Usage:\n" +
-      "  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>]\n" +
+      "  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>] [--dirs-tree=<path>]\n" +
       "\n" +
       "Options:\n" +
-      "  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス\n" +
-      "  --source=<path>  探索対象のソースファイルのパス\n" +
-      "  --id=<nodeId>    探索起点のノードID（カンマ区切りで複数指定可）\n" +
-      "  --hops=<N>       最大ホップ数（デフォルト: 1、1以上）\n" +
-      "  --help, -h       このヘルプを表示\n" +
+      "  --graph=<path>       グラフファイル（graph.schema.json 準拠）のパス\n" +
+      "  --source=<path>      探索対象のソースファイルのパス\n" +
+      "  --id=<nodeId>        探索起点のノードID（カンマ区切りで複数指定可）\n" +
+      "  --hops=<N>           最大ホップ数（デフォルト: 1、1以上）\n" +
+      "  --dirs-tree=<path>   Dirs-Tree.json のパス（省略可、指定時は実装先ファイルパスを表示）\n" +
+      "  --help, -h           このヘルプを表示\n" +
       "\n" +
       "Exit codes:\n" +
       "  0  正常終了\n" +
@@ -563,7 +588,8 @@ function printUsage() {
       "\n" +
       "Examples:\n" +
       "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001 --hops=2\n" +
-      "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001,N0003 --hops=1\n",
+      "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001,N0003 --hops=1\n" +
+      "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001 --dirs-tree=RFC-Dirs-Tree.json\n",
   );
 }
 
@@ -588,7 +614,7 @@ function printUsage() {
  * ファイル変更は一切行わない。
  */
 function main() {
-  let graphPath, sourcePath, nodeIds, hops;
+  let graphPath, sourcePath, nodeIds, hops, dirsTreePath;
 
   // 1. 引数をパースする
   try {
@@ -597,6 +623,7 @@ function main() {
     sourcePath = parsed.sourcePath;
     nodeIds = parsed.nodeIds;
     hops = parsed.hops;
+    dirsTreePath = parsed.dirsTreePath;
   } catch (parseError) {
     printError(
       "引数のパースに失敗しました。",
@@ -632,6 +659,25 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
+  // 4. Dirs-Tree.json が指定されていれば node→dir マップを構築
+  let nodeToDirMap = null;
+  if (dirsTreePath) {
+    try {
+      const { buildNodeToDirMap } = require("./validate-phasify.js");
+      const dirsTreeData = JSON.parse(
+        fs.readFileSync(path.resolve(dirsTreePath), "utf8"),
+      );
+      nodeToDirMap = buildNodeToDirMap(dirsTreeData);
+    } catch (e) {
+      printError(
+        "Dirs-Tree.json の読み込みに失敗しました。",
+        e.message,
+        "--dirs-tree=<path> に正しい Dirs-Tree.json を指定してください。",
+      );
+      process.exit(EXIT_FAILURE);
+    }
+  }
+
   // 各ノードIDに対して探索と出力を実行
   for (const nodeId of nodeIds) {
     // 4. ノードを解決する
@@ -661,6 +707,7 @@ function main() {
       graph,
       sourceText,
       searchResult.depthMap,
+      nodeToDirMap,
     );
     console.log(markdown);
 

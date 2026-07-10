@@ -154,11 +154,55 @@ echo "========================================"
 
 ---
 
-### Step 4: フェーズ設計
+### Step 4: 第一次フェーズ設計（機械的フェーズグルーピング）
 
-<!--
-Step 0, Step 1 で得た RFC の理解と、Step 2 で得たグラフ構造サマリー、 Step 3 で得たディレクトリ・ファイル構造を情報源とし、グラフのノードを適切なフェーズにグルーピングする。一つのグループ（フェーズ）は、10ノードを下回ってはならない。フェーズ単位で安全な I/O 境界を持つことを必須とする。一つのノードが複数のフェーズグループに所属していることは何ら問題ない。むしろエッジで繋がっているノード同士は必ず同じフェーズグループに含まれるように機械的に制御されることが望ましい。Tickets.json のスキーマ（/Users/kawata/shyme/zasso/tools/conver/.claude/scripts/tickets/tickets-schema.json）の phase フィールドには nodeIds の配列の追加が必要。フェーズ登録と同時にそのフェーズグループに含まれるnodeIdsも登録できるスクリプトでなければならない。この時点での Tickets.json の専用検証スクリプトを作成し、*-GRAPH.json の全ノードが必ずどこかのフェーズグループに含まれ、孤立は存在しないことを保証しなければならない。
--->
+#### 4.1. スクリプトによるフェーズ分割
+
+GRAPH.json と Dirs-Tree.json を入力とし、`phasify-graph-and-dirs-files-tree.js` が数学的に安全な重み付きトポロジカルソートと SCC 縮約により全ノードを実装フェーズにグルーピングする。結果は Tickets.json の phase[].nodeIds に書き込まれる。
+
+```bash
+node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
+  "$GRAPH_PATH" \
+  "$DIRS_TREE_PATH"
+```
+
+出力末尾のサマリー行で合格（✅）を確認する。不合格（⚠️）の場合は不合格原因を報告して split を中断。
+
+#### 4.2. 全フェーズの名前とサマリー書き込み
+
+4.1 で Tickets.json に書き込まれた全フェーズに対して、以下の手順でフェーズ名（name）とサマリー（summary）を設定する。必要なスクリプトは2つ：`show-all-nodes-title-summary.js`（表示）と `write-phase-name-summary.js`（書き込み）。
+
+全フェーズに対して、以下の①→②→③を**1フェーズずつ逐次実行する**。全フェーズを一括で出力してはならない。
+
+```bash
+# ① 該当フェーズのノード一覧を表示（例: フェーズ P0）
+node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js \
+  --tickets="$TICKETS_PATH" \
+  --graph="$GRAPH_PATH" \
+  --phase="P0"
+```
+
+①の出力例：
+```
+N0001: [§1 目的 — 本crateの責務定義] RustからPJSUAを安全に...
+N0002: [§1a M20実装優先度マップ] M20追補の全実装項目を...
+```
+
+② AI が①の出力を読み、このフェーズにふさわしい名前とサマリーを生成する。
+
+```bash
+# ③ 生成した name/summary を Tickets.json に書き込む
+echo '{"name":"認証基盤","summary":"認証トークン生成・検証・Session管理"}' | \
+  node .claude/scripts/rfc-graph/write-phase-name-summary.js \
+    "$TICKETS_PATH" \
+    "P0"
+```
+
+①→②→③が完了したら次のフェーズ（P1, P2, ...）に進む。全フェーズ終了後、以下のスクリプトで全フェーズの name/summary が埋まっていることを確認する。不合格の場合は全てのフェーズが完了するまで Step 5 への進行を禁止する。
+
+```bash
+node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
+```
 
 ### Step 5: 第一次チケット定義
 

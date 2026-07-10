@@ -40,6 +40,15 @@
         "tickets": {
           "type": "array",
           "items": { "$ref": "#/definitions/ticket" }
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "このフェーズに割り当てられたグラフノードIDの配列（例: [\"N0001\",\"N0003\"]）。phasify で自動設定。required には含めず後方互換性を維持。"
+        },
+        "summary": {
+          "type": "string",
+          "description": "このフェーズの実装サマリー（フェーズ内のノード群が何を実装するかの説明）。split-to-tickets Step 4.2 でAIが生成。required には含めず後方互換性を維持。"
         }
       }
     },

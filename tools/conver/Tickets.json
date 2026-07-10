@@ -3557,16 +3557,246 @@
         {
           "id": 37,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "phasify基盤整備 — スキーマ改修・CLI骨格・テンプレート移植",
-          "referenceSection": ".claude/specs/0074-phasify-cli.md"
+          "referenceSection": ".claude/specs/0074-phasify-cli.md",
+          "background": "split-to-tickets.md Step 4 で使用する phasify-graph-and-dirs-files-tree.js の基盤部分。スキーマ改修（phase.nodeIds追加）、write-tickets-json-template.js移植、CLI骨格、validate-phasify.js検証サブスクリプトを含む。コアアルゴリズムはPX-38。",
+          "scope": [
+            "tickets-schema.json: phase.nodeIds追加（requiredに含めず互換性維持）",
+            "write-tickets-json-template.js移植: Tickets.json未存在時の新規生成",
+            "phasify-graph-and-dirs-files-tree.js CLI骨格: 引数パース/Dirs-Tree存在確認/--dry-run",
+            "validate-phasify.js: 6項目検証サブスクリプト作成",
+            "既存CRUD互換性テスト"
+          ],
+          "testVerification": [
+            "validate-phasify.js: 正常系/異常系5種/境界値",
+            "CLI引数パース: 正常/引数不足/Dirs欠落/不明フラグ",
+            "スキーマ互換性: 既存Tickets.json読込OK/nodeIds追加後もOK",
+            "write-tickets-json-template移植: 生成+検証+PX追加まで",
+            "dry-run: 書き込み発生しないことの確認"
+          ],
+          "testExceptions": [
+            "特記事項なし（全検証項目はテストファイルシステム上で実現可能）"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: run-quality-checks 23 issues 全件 console.log（CLIツールとして意図的出力）\n- 翻訳可能性: 全関数が動詞句の小文字始まり、1文字変数なし、マジックナンバーなし\n- テスト: 3スイート 52テスト 全PASS\n- 不完全実装7パターン: 全パターン 該当なし\n- 依存関係: PX-37→P17-1/PX-28/PX-30/PX-24（全て reviewed）の依存が整合、PX-38との相互参照に矛盾なし\n- 犯罪: 0件\n- [::STUB::]: 1件（phasify-graph-and-dirs-files-tree.js:228 — PX-38で解決予定、保留妥当）\n- 変更ファイル: tickets-schema.json / phasify-graph-and-dirs-files-tree.js / validate-phasify.js / 3テストファイル\n- Boy Scout改善: 該当なし（新規スクリプトのみ）\n\n判定: ACCEPT ✅",
+          "relatedTicketIds": "P17-1 (tarjanSCC流用), PX-28 (boundify宣言スタブ), PX-30 (クロスリファレンス), PX-24 (スキーマ), PX-38 (依存先: 本チケット完了後に実装)",
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(スキーマ未定義)",
+              "after": "phase.nodeIds 追加",
+              "description": "tickets-schema.json: phase プロパティに nodeIds (array of string) を追加（required には含めず後方互換性維持）"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "validate-phasify.js: 6項目検証サブスクリプト（全カバレッジ/単一フェーズ/Hard制約/下限10/Dirs制約/孤立0）"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "phasify-graph-and-dirs-files-tree.js: CLI骨格（引数パース/Dirs-Tree存在確認/Tickets.json確保/--dry-run/--verbose）"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(16テスト)",
+              "description": "phasify-cli.test.cjs"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(28テスト)",
+              "description": "validate-phasify.test.cjs"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(8テスト)",
+              "description": "phasify-schema-compat.test.cjs"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 23件（全件 console.log — CLIの意図的出力、デバッグ残骸なし）\n翻訳可能性: 問題なし\nテスト: 52/52 PASS\n不完全実装パターン(7種): 0件\n犯罪: 0件\nスタブ: 1件（[::STUB::] PX-38 — 保留妥当）",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
         },
         {
           "id": 38,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "phasifyコアアルゴリズム — SCC・重み付きトポロジカルソート・フェーズ合併・検証",
-          "referenceSection": ".claude/specs/0075-phasify-scc.md"
+          "referenceSection": ".claude/specs/0075-phasify-scc.md",
+          "background": "phasify-graph-and-dirs-files-tree.js のコアアルゴリズム。SCC縮約・重み付きトポロジカルソート・フェーズ合併。数学的定式化: 重み付き有向グラフG=(V,E,w)からフェーズ割当phase:V→ℕを出力。決定論的・単調・∞制約完全遵守・有限の4性質を保証。",
+          "scope": [
+            "重みテーブルWEIGHT定義（∞/2/1/0）",
+            "Phase1: tarjanSCC流用によるSCC縮約",
+            "Phase2: Kahnトポロジカルソート（∞エッジDAG）＋ディレクトリ制約",
+            "Phase3: Soft制約違反コスト計算",
+            "Phase4: フェーズ合併と離散化（下限10ノード充足）",
+            "Phase5: Tickets.json phase[].nodeIds出力",
+            "アルゴリズム正当性保証（決定論性/単調性テスト）"
+          ],
+          "testVerification": [
+            "tarjanSCC流用: 176ノード実データで正常動作",
+            "kahnTopologicalSort: DAG/循環/エッジ0本/一直線",
+            "重みテーブル: 全12種定義/∞循環エラー/Soft違反コスト計算",
+            "フェーズ合併: 176→17程度/全phase≥10/総<10は警告",
+            "全体統合: 実データ6項目検証/全カバレッジ/SCC同一性/Hard制約/Dirs制約/下限",
+            "決定論性: 同一入力2回=同一出力/単調性"
+          ],
+          "testExceptions": [
+            "なし（全アルゴリズムは純粋関数として実装可能）"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 20 issues\n  - 単一文字変数1: let i (computeSoftViolations ループカウンタ) — 許容範囲\n  - debug出力19: 全件 CLIの意図的出力（レポート・verbose・エラー報告）\n- 翻訳可能性: 全関数動詞句、w/p→weight/phase にBoy Scout改善済\n- テスト: 5スイート 102テスト 全PASS\n  - phasify-helpers: 38/38\n  - phasify-integration: 12/12（176ノード実データ）\n  - phasify-cli: 16/16\n  - validate-phasify: 28/28\n  - phasify-schema-compat: 8/8\n- 不完全実装7パターン: 全パターン 該当なし\n- 犯罪: 0件\n- [::STUB::]: PX-38 STUB（phasify-graph-and-dirs-files-tree.js:228）は Phase1-5 実装で解決済\n- 依存関係: PX-37(reviewed) P17-1(reviewed) PX-24(reviewed) — 相互参照矛盾なし\n- 変更ファイル: phasify-helpers.js / phasify-graph-and-dirs-files-tree.js / 2テストファイル\n- Boy Scout改善: w→weight, p→phase の単一文字変数修正\n- 実データ検証: 176ノード→17フェーズ、全phase≥10、全ノードカバー、決定論性確認済\n\n判定: ACCEPT ✅",
+          "relatedTicketIds": "PX-37 (先行実装必須: 基盤整備完了後に本チケット実装), P17-1 (tarjanSCC流用), PX-24 (スキーマ言語フィールド)",
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "phasify-helpers.js: 4つの純粋関数（kahnTopologicalSort / computeSoftViolations / mergePhases / buildSccConstraint / applySccToOrder / phasesToTicketsFormat）+ 重みテーブルWEIGHT_MAP"
+            },
+            {
+              "before": "[::STUB::] PX-38: コアアルゴリズム未実装",
+              "after": "Phase 1-5 実装",
+              "description": "phasify-graph-and-dirs-files-tree.js: runPhasify内のSTUBをPhase1(SCC)→2(Kahn)→3(Soft)→4(合併)→5(出力)で置換、applyDirectoryConstraints追加、import追加"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(38テスト)",
+              "description": "phasify-helpers.test.cjs: 全純粋関数のユニットテスト"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(12テスト)",
+              "description": "phasify-integration.test.cjs: 実データ176ノード統合テスト"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 20件（単一文字変数1=ループカウンタlet i / 19=CLI意図的出力）\n翻訳可能性: 問題なし\nテスト: 102/102 PASS（既存52+新規50）\n不完全実装パターン(7種): 0件\n犯罪: 0件\n[::STUB::]: PX-38 STUBは実装で解決済、新規STUBなし",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
+        },
+        {
+          "id": 39,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "phasify修正 — depends_on方向・検証・未テスト経路の包括的修正",
+          "referenceSection": ".claude/specs/0076-phasify-depends-on.md",
+          "background": "PX-37/38のphasify実装においてdepends_on方向がKahnソートで逆になっている不具合を発見。依存元(from)を先に配置してしまうため、enforceHardConstraintsが不必要な分割を引き起こし、実データで検証不合格となる。方向修正により全てのHard制約違反が解消される。",
+          "scope": [
+            "kahnTopologicalSort: depends_on制約方向を反転（adjacency[to].push(from)）",
+            "checkHardConstraints: 比較方向を反転",
+            "enforceHardConstraints: 比較方向を反転",
+            "mergePhases: ルックアヘッド方向を反転",
+            "既存テストアサーション修正（posU/posV・phase比較）",
+            "実データ統合テスト確認（hard constraint 0件）"
+          ],
+          "testVerification": [
+            "kahnTopologicalSort: depends_onで依存先が前に来ることを確認",
+            "checkHardConstraints: 正しい方向で違反検出することを確認",
+            "enforceHardConstraints: 方向修正後も分割ロジック正常",
+            "統合テスト: 176ノード実データでhard constraints 0件",
+            "回帰: 全128テストPASS（アサーション修正後）",
+            "決定論性維持確認"
+          ],
+          "testExceptions": [
+            "なし（全修正箇所は純粋関数）"
+          ],
+          "relatedTicketIds": "PX-37 (基盤), PX-38 (コアアルゴリズム→本チケットで修正)",
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "adjacency[from].push(to) / inDegree[to]++",
+              "after": "adjacency[to].push(from) / inDegree[from]++",
+              "description": "kahnTopologicalSort: depends_on方向を修正（依存先to→依存元fromの制約）"
+            },
+            {
+              "before": "checkHardConstraints: phaseV >= phaseU",
+              "after": "配列インデックス比較に変更",
+              "description": "validate-phasify.js: 比較を配列インデックス基準に変更（ID≠順序のため）"
+            },
+            {
+              "before": "enforceHardConstraints: phaseV >= phaseU（かつ分割不能ケースあり）",
+              "after": "配列インデックス比較 + splitIdx=0時にfrom位置で分割",
+              "description": "phasify-helpers.js: enforceHardConstraints を配列インデックス基準に修正"
+            },
+            {
+              "before": "(なし)",
+              "after": "新規追加",
+              "description": "consolidatePhases: 分割で小さくなったフェーズを安全に統合"
+            },
+            {
+              "before": "(実データで16件のHard違反)",
+              "after": "実データでHard違反0件",
+              "description": "方向修正＋enforcement＋統合により完全解決"
+            },
+            {
+              "before": "(テストアサーション旧方向)",
+              "after": "依存先優先の方向に修正",
+              "description": "3テストファイルのアサーション修正"
+            }
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 24 issues（23件 console.log=CLI意図的出力、1件 single-letter v→violation修正済）\n- 翻訳可能性: 全関数動詞句、マジックナンバーなし\n- テスト: 6スイート 128テスト 全PASS\n- 不完全実装7パターン: 全パターン 該当なし\n- 依存関係: PX-37(reviewed)/PX-38(reviewed) — 相互参照矛盾なし\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 変更ファイル: phasify-helpers.js / validate-phasify.js / phasify-graph-and-dirs-files-tree.js / 3テストファイル\n- 実データ検証: hard constraints 16件→0件、Soft制約 8件→1件\n- Boy Scout改善: validate-phasify.jsに方向根拠コメント追加、enforceHardConstraintsに配列インデックス比較の理由コメント追加\n\n判定: ACCEPT ✅",
+          "instrumentation": "静的品質チェック: 24件（全件 console.log=CLI意図的出力 または 単一文字変数 v→violation修正済）\n翻訳可能性: 問題なし\nテスト: 128/128 PASS\n不完全実装パターン(7種): 0件\n犯罪: 0件\n[::STUB::]: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
+        },
+        {
+          "id": 40,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "フェーズ名・サマリー書き込みスクリプト群 — show-all-nodes-title-summary.js + write-phase-name-summary.js",
+          "referenceSection": ".claude/specs/0077-show-all-nodes-title-summaryjs-write-phase-name-summaryjs.md",
+          "background": "split-to-tickets.md Step 4.2 の実装。phasifyで割り当てられた全フェーズにname/summaryを付与する2つのスクリプト（show-all-nodes-title-summary.js / write-phase-name-summary.js）とスキーマ拡張（phase.summary追加）。",
+          "scope": [
+            "tickets-schema.json: phase.summary追加（requiredに含めず互換性維持）",
+            "show-all-nodes-title-summary.js: フェーズ内全ノードのtitle/summaryをGRAPH.jsonから抽出表示",
+            "write-phase-name-summary.js: 指定フェーズにname/summaryをTickets.jsonに書き込み",
+            "完了確認: 全フェーズのname/summary書き込み完了チェック"
+          ],
+          "testVerification": [
+            "show-all-nodes: 正常系/存在しないphaseId/空nodeIds/不明ノードID/単一ノード",
+            "write-phase-name: 正常系/存在しないphaseId/空name/summary/不正JSON",
+            "スキーマ互換性: summary有無で検証通過"
+          ],
+          "testExceptions": [
+            "なし"
+          ],
+          "relatedTicketIds": "PX-37 (スキーマ改修 precedent), PX-38 (コアアルゴリズム), PX-39 (方向修正)",
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(スキーマ未定義)",
+              "after": "phase.summary 追加",
+              "description": "tickets-schema.json: phase プロパティに summary (string) を追加（required には含めず後方互換性維持）"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "show-all-nodes-title-summary.js: 指定フェーズの全ノード title/summary を GRAPH.json から抽出表示"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "write-phase-name-summary.js: 指定フェーズに name/summary を Tickets.json に書き込み（stdin JSON）"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(8テスト)",
+              "description": "show-all-nodes-title-summary.test.cjs"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(6テスト)",
+              "description": "write-phase-name-summary.test.cjs"
+            },
+            {
+              "before": "(8テスト)",
+              "after": "(12テスト)",
+              "description": "phasify-schema-compat.test.cjs: summary 互換性テスト4件追加"
+            }
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 3 issues（2件 console.log=CLI意図的出力、1件 n→node Boy Scout修正済）\n- 翻訳可能性: 全関数動詞句、マジックナンバーなし\n- テスト: show-all-nodes: 8/8, write-phase-name: 6/6, schema-compat: 12/12\n- 不完全実装7パターン: 全パターン 該当なし\n- 依存関係: PX-37/38/39 全て reviewed — 矛盾なし\n- 犯罪: 0件\n- [::STUB::]: 0件\n- 変更ファイル: tickets-schema.json / show-all-nodes-title-summary.js / write-phase-name-summary.js / 2テストファイル / schema-compatテスト\n- Boy Scout改善: n→node 単一文字変数修正\n\n判定: ACCEPT ✅",
+          "instrumentation": "静的品質チェック: 3件（console.log=CLI意図的出力2、単一文字n→node修正済1）\n翻訳可能性: 問題なし\nテスト: 関連3スイート 26/26 PASS\n不完全実装パターン(7種): 0件\n犯罪: 0件\n[::STUB::]: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
         }
       ]
     },

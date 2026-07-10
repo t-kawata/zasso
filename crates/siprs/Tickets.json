@@ -1,0 +1,338 @@
+{
+  "title": "phasify 自動生成チケット分解設計書",
+  "metadata": {
+    "source": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+    "generatedAt": "2026-07-10",
+    "analyzedSections": "phasify-graph-and-dirs-files-tree.js による自動生成"
+  },
+  "phases": [
+    {
+      "id": 0,
+      "name": "プロジェクト基盤定義",
+      "tickets": [],
+      "nodeIds": [
+        "N0001",
+        "N0002",
+        "N0003",
+        "N0004",
+        "N0007",
+        "N0008",
+        "N0009"
+      ],
+      "summary": "crateの目的・スコープ・準拠要件・機能要求を定義する前提フェーズ"
+    },
+    {
+      "id": 1,
+      "name": "ClientConfig定義",
+      "tickets": [],
+      "nodeIds": [
+        "N0022"
+      ],
+      "summary": "ClientConfig構造体の全フィールドを定義。user_agent/log_level/max_calls等の基本設定。config/モジュールの中核。"
+    },
+    {
+      "id": 2,
+      "name": "アーキテクチャ基盤と公開API",
+      "tickets": [],
+      "nodeIds": [
+        "N0010",
+        "N0011",
+        "N0012",
+        "N0013",
+        "N0014",
+        "N0016",
+        "N0018",
+        "N0019",
+        "N0020",
+        "N0021",
+        "N0024",
+        "N0026"
+      ],
+      "summary": "モジュール構成・並行性モデル・SipClient/SipAccountHandle公開API・ID設計・AccountConfig/TransportConfigを定義"
+    },
+    {
+      "id": 3,
+      "name": "エラー設計とイベントモデル基盤",
+      "tickets": [],
+      "nodeIds": [
+        "N0023",
+        "N0027",
+        "N0028",
+        "N0029",
+        "N0030",
+        "N0031",
+        "N0033",
+        "N0034",
+        "N0037",
+        "N0038"
+      ],
+      "summary": "エラーコード体系・pj_status_t変換・ICE/STUN/TURN設定・イベントモデル概要・SipEvent/EventMeta構造体・イベントバス設計判断を定義"
+    },
+    {
+      "id": 4,
+      "name": "状態モデル定義とNativeEvent変換",
+      "tickets": [],
+      "nodeIds": [
+        "N0039",
+        "N0040",
+        "N0041",
+        "N0042",
+        "N0043",
+        "N0045",
+        "N0046",
+        "N0047",
+        "N0048",
+        "N0049"
+      ],
+      "summary": "登録状態モデル(RegistrationState/7状態)・通話状態モデル(CallState/13状態)・各遷移規則・NativeEvent→SipEventPayload完全マッピング変換を定義"
+    },
+    {
+      "id": 5,
+      "name": "通話制御・DTMF・音声フォーマット",
+      "tickets": [],
+      "nodeIds": [
+        "N0051",
+        "N0052",
+        "N0053",
+        "N0054",
+        "N0055",
+        "N0056",
+        "N0057",
+        "N0060",
+        "N0061",
+        "N0062"
+      ],
+      "summary": "answer semantics・DTMF 3方式(DtmfSentInfo/発火タイミング/条件)・音声フォーマットモデル・AudioChunkPair・SubscribeAudio・AsyncAudioSource trait を定義"
+    },
+    {
+      "id": 6,
+      "name": "音声処理ランタイムとFFI層概要",
+      "tickets": [],
+      "nodeIds": [
+        "N0063",
+        "N0064",
+        "N0065",
+        "N0066",
+        "N0068",
+        "N0070",
+        "N0071",
+        "N0072",
+        "N0074",
+        "N0075",
+        "N0077",
+        "N0078"
+      ],
+      "summary": "AsyncAudioSource動的ディスパッチ・SyncSourceAdapter・リアルタイム境界(lock-free queue)・AudioMixerアルゴリズム・AudioWorkerTask駆動・source lifecycle・IN/OUTペア整列・stereo mapping・PJSIP FFI層概要を定義"
+    },
+    {
+      "id": 7,
+      "name": "FFI詳細・ビルド基盤・コーデックポリシー",
+      "tickets": [],
+      "nodeIds": [
+        "N0080",
+        "N0081",
+        "N0082",
+        "N0083",
+        "N0085",
+        "N0086",
+        "N0087",
+        "N0088",
+        "N0090",
+        "N0091"
+      ],
+      "summary": "C string管理(PjOwnedStr)・callback bridge・SipBackend trait抽象化・Dual Client routing・build.rs戦略(prebuilt探索/CMake/OS別)・コーデックフォールバックルール・NegotiatedCodec定義"
+    },
+    {
+      "id": 8,
+      "name": "ランタイム状態管理・観測性・セキュリティ",
+      "tickets": [],
+      "nodeIds": [
+        "N0089",
+        "N0092",
+        "N0093",
+        "N0094",
+        "N0098",
+        "N0099",
+        "N0100",
+        "N0101",
+        "N0102",
+        "N0103",
+        "N0104",
+        "N0105",
+        "N0106",
+        "N0108",
+        "N0113",
+        "N0115",
+        "N0117",
+        "N0118"
+      ],
+      "summary": "codec auto/明示モード優先順位・cancellation safety・Shutdown中Command振り分け・RwLock<RuntimeState>管理・tracing/metrics観測性・SecretStringセキュリティ・MediaBridgeデータフロー・使用例を定義"
+    },
+    {
+      "id": 9,
+      "name": "使用例・バリデーション・テスト戦略",
+      "tickets": [],
+      "nodeIds": [
+        "N0119",
+        "N0120",
+        "N0121",
+        "N0122",
+        "N0123",
+        "N0126",
+        "N0127",
+        "N0128",
+        "N0129",
+        "N0130"
+      ],
+      "summary": "具体的使用例(発信/イベント受信/音声tap/AI TTS)・init時validation・4層テスト戦略(Layer1 Unit〜Layer4相互接続)・M20テスト層マッピングを定義"
+    },
+    {
+      "id": 10,
+      "name": "CI/CD・既知の難所対策・panicポリシー",
+      "tickets": [],
+      "nodeIds": [
+        "N0131",
+        "N0132",
+        "N0133",
+        "N0135",
+        "N0136",
+        "N0137",
+        "N0138",
+        "N0139",
+        "N0140",
+        "N0144"
+      ],
+      "summary": "Dual Client TestContext utility・CI/CD要件(Docker job含む)・PJSIP→async橋渡し・PairAligner・multi-source injection・BiMap id管理・panic policy(catch_unwind)・13項目の受け入れ基準を定義"
+    },
+    {
+      "id": 11,
+      "name": "siprs-server 基盤・APIエンドポイント",
+      "tickets": [],
+      "nodeIds": [
+        "N0145",
+        "N0148",
+        "N0149",
+        "N0150",
+        "N0151",
+        "N0153",
+        "N0154",
+        "N0156",
+        "N0157",
+        "N0158"
+      ],
+      "summary": "ライセンス方針(GPL)・マルチインスタンス方式・PJSIP非Pure Rust制約・サーバー起動モード・REST APIエンドポイント一覧・WebSocket(/api/v1/ws)・Axum Router構造を定義"
+    },
+    {
+      "id": 12,
+      "name": "WebSocketプロトコル・認証・永続化",
+      "tickets": [],
+      "nodeIds": [
+        "N0159",
+        "N0160",
+        "N0162",
+        "N0163",
+        "N0164",
+        "N0166",
+        "N0167",
+        "N0168",
+        "N0169",
+        "N0170"
+      ],
+      "summary": "WebSocket JSON/バイナリ多重化・イベント-音声時間的相関保証・JWT発行/検証Middleware・認証設定デフォルト・SQLiteテーブルスキーマ・SeaORM migration・Layer5テスト拡張構造を定義"
+    },
+    {
+      "id": 13,
+      "name": "共通データ型・SIPネットワーキング詳細",
+      "tickets": [],
+      "nodeIds": [
+        "N0006",
+        "N0015",
+        "N0032",
+        "N0044",
+        "N0107",
+        "N0124",
+        "N0143",
+        "N0146",
+        "N0171",
+        "N0173",
+        "N0174",
+        "N0175",
+        "N0176"
+      ],
+      "summary": "用語定義・RuntimeCommand/SipEventPayload/RawSipMessage・ClientCapabilities・lib.rs雛形・HTTP/WS API層概要・TLS証明書管理・DNS SRV/NAPTR・マルチネットワークIF・I/O境界参考情報を定義"
+    },
+    {
+      "id": 14,
+      "name": "EventBus・メディア処理実装詳細",
+      "tickets": [],
+      "nodeIds": [
+        "N0035",
+        "N0050",
+        "N0058",
+        "N0067",
+        "N0069",
+        "N0073",
+        "N0076",
+        "N0084",
+        "N0112",
+        "N0116",
+        "N0141"
+      ],
+      "summary": "EventBus(tokio broadcast)・発着信API詳細・音声購読API・AudioMixer・gain/normalization・PairAligner・rubatoリサンプラ・Media bridge・audio device policy・メモリ所有権規則を定義"
+    },
+    {
+      "id": 15,
+      "name": "SipClient実装・SRTP・Shutdown方針",
+      "tickets": [],
+      "nodeIds": [
+        "N0017",
+        "N0025",
+        "N0079",
+        "N0095",
+        "N0096",
+        "N0097",
+        "N0114",
+        "N0134",
+        "N0142",
+        "N0147",
+        "N0172"
+      ],
+      "summary": "SipClient構造体実装・validation rules・bindgen生成設定・SRTP仕様・トランスポート再接続・2phase Shutdown・custom media port・Prebuilt CI pipeline・デフォルトポリシー明文化・Crate分割方針・semver運用を定義"
+    },
+    {
+      "id": 16,
+      "name": "プラットフォーム差異・着信・転送処理",
+      "tickets": [],
+      "nodeIds": [
+        "N0005",
+        "N0059",
+        "N0109",
+        "N0110",
+        "N0111",
+        "N0125",
+        "N0152"
+      ],
+      "summary": "Tauri統合責務境界・backpressure policy・プラットフォーム差異・受信call処理(IncomingCall/auto reject)・REFER blind transfer・Layer2 State-Machine Tests・スタンドアロンサーバーモードを定義"
+    },
+    {
+      "id": 17,
+      "name": "APIプロトコル構成・永続化設計",
+      "tickets": [],
+      "nodeIds": [
+        "N0036",
+        "N0155",
+        "N0165"
+      ],
+      "summary": "AccountEventReceiver(account_idフィルタリング)・HTTP/WebSocket APIプロトコル全体構成・SQLite+SeaORM設定永続化を定義"
+    },
+    {
+      "id": 18,
+      "name": "認証・認可モデル",
+      "tickets": [],
+      "nodeIds": [
+        "N0161"
+      ],
+      "summary": "JWTベースの認証/認可モデル。API token発行・検証・ロール分離方式を定義"
+    }
+  ]
+}
