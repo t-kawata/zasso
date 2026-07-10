@@ -118,6 +118,8 @@ function main() {
   console.log(
     'node .claude/scripts/rfc-graph/query.js --graph="' +
       graphFileName +
+      '" --source="' +
+      sourceFileName +
       '" --id=Nxxxx (e.g. N0001) --hops=<N> (1=direct, 2+=includes grandchildren)'
   );
   console.log("```");

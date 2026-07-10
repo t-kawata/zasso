@@ -3553,6 +3553,20 @@
           "instrumentation": "構文チェック: bash -n OK, node --check OK\nスタブ: 0件\n不完全実装: 検出なし（7パターンgrep確認）\ntest-query-all.js: 影響なし",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-09"
+        },
+        {
+          "id": 37,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "phasify基盤整備 — スキーマ改修・CLI骨格・テンプレート移植",
+          "referenceSection": ".claude/specs/0074-phasify-cli.md"
+        },
+        {
+          "id": 38,
+          "phaseId": -1,
+          "status": "todo",
+          "title": "phasifyコアアルゴリズム — SCC・重み付きトポロジカルソート・フェーズ合併・検証",
+          "referenceSection": ".claude/specs/0075-phasify-scc.md"
         }
       ]
     },
