@@ -1,39 +1,78 @@
 const fs = require('fs'), path = require('path');
 const { validateTickets } = require('../lib/validate-tickets');
 
-function main() {
-  const jp = process.argv[2];
-  if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
-  const rp = path.resolve(jp);
-  const data = JSON.parse(fs.readFileSync(rp, 'utf8'));
-  let batches;
-  try { batches = JSON.parse(fs.readFileSync('/dev/stdin', 'utf8')); } catch (e) { console.log(JSON.stringify({ success: false, error: 'stdin parse fail' })); process.exit(1); }
-  if (!Array.isArray(batches)) { console.log(JSON.stringify({ success: false, error: 'Must be array' })); process.exit(1); }
+/**
+ * 既存Tickets.jsonに複数バッチのチケットを一括追加する（非破壊的：検証失敗時は変更を破棄）。
+ *
+ * @param {Object} data — パース済みのTickets.jsonデータ（変更はこのオブジェクトに加えられる）
+ * @param {Array} batches — 追加バッチの配列。各バッチは { phaseId?, phaseName?, tickets: [...] }
+ * @returns {{ success: boolean, added: number, tickets?: Array, error?: string, errors?: Array }}
+ */
+function bulkAddTickets(data, batches) {
   const added = [];
-  for (const b of batches) {
-    const idSpecified = typeof b.phaseId === 'number' && Number.isInteger(b.phaseId);
-    const nameSpecified = b.phaseName;
-    if (!idSpecified && !nameSpecified) { console.log(JSON.stringify({ success: false, error: 'Batch must specify phaseId or phaseName' })); process.exit(1); }
-    if (!Array.isArray(b.tickets) || b.tickets.length === 0) { console.log(JSON.stringify({ success: false, error: 'No tickets' })); process.exit(1); }
-    let ph = idSpecified ? data.phases.find(function(p) { return p.id === b.phaseId; }) : null;
-    if (!ph && nameSpecified) ph = data.phases.find(function(p) { return p.name === b.phaseName; });
-    if (!ph) {
-      ph = { id: data.phases.length, name: b.phaseName, tickets: [] };
-      data.phases.push(ph);
+  for (const batch of batches) {
+    const idSpecified = typeof batch.phaseId === 'number' && Number.isInteger(batch.phaseId);
+    const nameSpecified = batch.phaseName;
+    if (!idSpecified && !nameSpecified) {
+      return { success: false, error: 'Batch must specify phaseId or phaseName' };
+    }
+    if (!Array.isArray(batch.tickets) || batch.tickets.length === 0) {
+      return { success: false, error: 'No tickets in batch' };
+    }
+    let phase = idSpecified
+      ? data.phases.find(function(p) { return p.id === batch.phaseId; })
+      : null;
+    if (!phase && nameSpecified) {
+      phase = data.phases.find(function(p) { return p.name === batch.phaseName; });
+    }
+    if (!phase) {
+      phase = { id: data.phases.length, name: batch.phaseName, tickets: [] };
+      data.phases.push(phase);
     }
     let maxId = 0;
-    for (const t of (ph.tickets || [])) { if (t.id > maxId) maxId = t.id; }
-    for (let i = 0; i < b.tickets.length; i++) {
-      const tid = maxId + 1 + i;
-      const ticket = { id: tid, phaseId: ph.id, status: 'todo', ...b.tickets[i] };
-      ph.tickets.push(ticket);
-      added.push({ ticketKey: (ph.id === -1 ? 'PX' : 'P' + ph.id) + '-' + tid });
+    for (const existingTicket of (phase.tickets || [])) {
+      if (existingTicket.id > maxId) maxId = existingTicket.id;
+    }
+    for (let i = 0; i < batch.tickets.length; i++) {
+      const ticketId = maxId + 1 + i;
+      const ticket = { id: ticketId, phaseId: phase.id, status: 'todo', ...batch.tickets[i] };
+      phase.tickets.push(ticket);
+      added.push({ ticketKey: (phase.id === -1 ? 'PX' : 'P' + phase.id) + '-' + ticketId });
     }
   }
-  const vr = validateTickets(data);
-  if (!vr.valid) { console.log(JSON.stringify({ success: false, error: 'Validation failed', errors: vr.errors })); process.exit(1); }
-  fs.writeFileSync(rp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  console.log(JSON.stringify({ success: true, added: added.length, tickets: added }));
+  const validationResult = validateTickets(data);
+  if (!validationResult.valid) {
+    return { success: false, error: 'Validation failed', errors: validationResult.errors };
+  }
+  return { success: true, added: added.length, tickets: added };
+}
+
+function main() {
+  const ticketsJsonPath = process.argv[2];
+  if (!ticketsJsonPath) {
+    console.log(JSON.stringify({ success: false, error: 'Usage: node bulk-add-tickets.js <PATH to Tickets.json>' }));
+    process.exit(1);
+  }
+  const resolvedPath = path.resolve(ticketsJsonPath);
+  const data = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+  let batches;
+  try {
+    batches = JSON.parse(fs.readFileSync('/dev/stdin', 'utf8'));
+  } catch (e) {
+    console.log(JSON.stringify({ success: false, error: 'stdin parse fail' }));
+    process.exit(1);
+  }
+  if (!Array.isArray(batches)) {
+    console.log(JSON.stringify({ success: false, error: 'Must be array' }));
+    process.exit(1);
+  }
+  const result = bulkAddTickets(data, batches);
+  if (!result.success) {
+    console.log(JSON.stringify(result));
+    process.exit(1);
+  }
+  fs.writeFileSync(resolvedPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  console.log(JSON.stringify(result));
 }
 if (require.main === module) main();
-module.exports = { main };
+module.exports = { main, bulkAddTickets };

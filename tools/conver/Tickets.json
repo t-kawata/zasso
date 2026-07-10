@@ -3797,6 +3797,92 @@
           "instrumentation": "静的品質チェック: 3件（console.log=CLI意図的出力2、単一文字n→node修正済1）\n翻訳可能性: 問題なし\nテスト: 関連3スイート 26/26 PASS\n不完全実装パターン(7種): 0件\n犯罪: 0件\n[::STUB::]: 0件",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-10"
+        },
+        {
+          "id": 41,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Step 5: フェーズ内ノードの安全なI/O境界チケット化パイプライン",
+          "referenceSection": "tickets/specs/0078-step-5-io.md",
+          "background": "split-to-tickets.md の Step 5（第一次チケット定義）が空のプレースホルダー状態。query.js --dirs-tree の改修は完了済みだが、チケット化のためのスクリプト群（show-phase-nodes.js, add-tickets-for-phase.js, verify-all-ticket-coverage.js）が存在しない。また tickets-schema.json の ticket 定義に nodeIds フィールドが欠けており、フェーズ内ノードとチケットの対応関係を追跡できない。これらを一括で実装し、設計グラフから実装チケットへのパイプラインを完成させる。",
+          "scope": [
+            "tickets-schema.json: #/definitions/ticket に nodeIds 追加（required には含めず後方互換性維持）",
+            "add-ticket.js: addTicket() 関数を export + 1文字変数名の翻訳可能性修正",
+            "bulk-add-tickets.js: bulkAddTickets() 関数を export",
+            "show-phase-nodes.js 新規作成: CLI→query.js子プロセス→Markdown出力",
+            "add-tickets-for-phase.js 新規作成: bulkAddTicketsラップ＋nodeIds過不足検証",
+            "verify-all-ticket-coverage.js 新規作成: 全フェーズ完全性最終検証",
+            "split-to-tickets.md Step 5 セクション完成 + 旧重複L219-L286削除",
+            "tests/rfc-graph/step5-phase-nodes.test.cjs 新規",
+            "tests/rfc-graph/step5-add-tickets-coverage.test.cjs 新規"
+          ],
+          "testVerification": [
+            "step5-phase-nodes: 正常系→stdoutにMarkdown",
+            "step5-phase-nodes: 各引数欠損でexit 1",
+            "step5-phase-nodes: 存在しないフェーズでexit 1",
+            "step5-phase-nodes: nodeIdsなしフェーズでexit 1",
+            "step5-add-tickets-coverage: add-tickets-for-phase 正常追加＋過不足検証PASS",
+            "step5-add-tickets-coverage: stdinパース失敗→exit 1",
+            "step5-add-tickets-coverage: nodeIds未指定チケット→exit 1",
+            "step5-add-tickets-coverage: 不足ノードあり→exit 1＋不足ノード一覧",
+            "step5-add-tickets-coverage: verify-all-ticket-coverage 全カバー→PASS",
+            "step5-add-tickets-coverage: verify-all-ticket-coverage 不足→exit 1",
+            "schema互換性: nodeIds追加後も既存チケットのスキーマ検証通過"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n- 変更ファイル: 新規4 + 改修3 + ドキュメント1 + テスト2 = 合計10ファイル\n- 静的品質チェック: 合格（0 issues）\n- 翻訳可能性: 全関数が動詞句説明的変数名、console.log/errorはCLIツールとして意図的出力\n- 依存関係: PX-37(reviewed), PX-40(reviewed) — 先行依存完了\n- 7パターン不完全実装: todo!/panic!/TODO/FIXME/空return/#[allow] 全て該当なし\n- 犯罪: 0件\n- [::STUB::]: 2件（merge-omissions-into-root-rfc.js, write-claude-md.js — 本チケット非対象）\n- テスト: rfc-graph全873テスト PASS（新規27テストを含む）\n- Boy Scout改善: add-ticket.js変数名改善（jp→jsonPath等6件）+ split-to-tickets.md旧重複セクション削除\n- 品質: 0 issues\n\n判定: ACCEPT ✅",
+          "relatedTicketIds": "PX-37 (phasify: phase/nodeIds基盤), PX-40 (show-all-nodes-title-summary.js: フェーズ名書き込み, split-to-tickets Step 4.2)",
+          "startedAt": "2026-07-10",
+          "changes": [
+            {
+              "before": "(ticket定義にnodeIdsなし)",
+              "after": "nodeIds配列フィールドを追加",
+              "description": "tickets-schema.json: #/definitions/ticket に nodeIds (array of string) を追加（required には含めず後方互換性維持）"
+            },
+            {
+              "before": "main() のみ export + 1文字変数",
+              "after": "addTicket() + main() を export + 説明的変数名",
+              "description": "add-ticket.js: addTicket(ticketsJsonPath, phaseArg, ticketData) 関数を export 追加。jp→ticketsJsonPath, pa→phaseArg, td→ticketData, ph→phase, pn→phaseName, rp→resolvedPath に改名。"
+            },
+            {
+              "before": "main() のみ export",
+              "after": "bulkAddTickets() + main() を export",
+              "description": "bulk-add-tickets.js: bulkAddTickets(data, batches) 関数を export 追加。書き込みを呼び出し側に委譲。"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "show-phase-nodes.js: CLI→query.js子プロセス→Markdown出力。parseCliArguments/resolvePhase/runQueryJs/formatOutput の4関数を export。"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "add-tickets-for-phase.js: bulkAddTicketsラップ＋verifyNodeCoverage過不足検証。全nodeIdsがtickets[].nodeIdsの和集合と一致することを検証、不一致ならロールバック。"
+            },
+            {
+              "before": "(ファイルなし)",
+              "after": "新規作成",
+              "description": "verify-all-ticket-coverage.js: 全フェーズのチケット化完全性を最終検証。checkPhase/verifyAllTicketCoverage/formatReport を export。"
+            },
+            {
+              "before": "Step5: 空プレースホルダー + L219-L286に旧重複",
+              "after": "Step5完全記述 + 旧重複削除",
+              "description": "split-to-tickets.md: Step5（5-1 show-phase-nodes → 5-2 add-tickets-for-phase）を完全記述。旧Step5-8の重複セクション（旧L219-L286）を削除しStep番号を再構成。"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(11テスト)",
+              "description": "step5-phase-nodes.test.cjs: parseCliArguments/resolvePhase/formatOutput のテスト"
+            },
+            {
+              "before": "(テストなし)",
+              "after": "新規作成(16テスト)",
+              "description": "step5-add-tickets-coverage.test.cjs: verifyNodeCoverage/bulkAddTickets/checkPhase/verifyAllTicketCoverage/formatReport のテスト"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格（0 issues）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし、console.logはCLI意図的出力）\n依存関係: PX-37(reviewed) / PX-40(reviewed) — 整合性確認済\n7パターン不完全実装: 全パターン 該当なし\n犯罪: 0件\n[::STUB::]: 2件（対象外ファイル、保留妥当）\nテスト: 873/873 PASS（新規27含む）\nBoy Scout改善: add-ticket.js変数名改善 + split-to-tickets.md旧重複削除 — 確認済",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-10"
         }
       ]
     },

@@ -54,7 +54,7 @@ argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree
 
 ### Step 0: 初期化（引数パース + Malfeasance.json 初期化 + 出力先決定）及びRFC読込
 
-#### 0.1. 初期化
+#### 0-1. 初期化
 
 ```bash
 # 全引数を配列でパース（第1引数=RFC, 第2引数=GRAPH.json, 第3引数=Dirs-Tree.json）
@@ -63,7 +63,7 @@ DOC_DIR="$(dirname "$DOC_PATH")"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 ```
 
-#### 0.2. Malfeasance.json 作成
+#### 0-2. Malfeasance.json 作成
 
 Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。`DOC_DIR` 内で初期化する。
 
@@ -72,7 +72,7 @@ Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪�
 node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
 ```
 
-#### 0.3. RFC 読込（analyze-source-structure.js で構造把握 → セクションごとに順次読込）
+#### 0-3. RFC 読込（analyze-source-structure.js で構造把握 → セクションごとに順次読込）
 
 ```bash
 echo "=== RFC 構造分析 ==="
@@ -156,7 +156,7 @@ echo "========================================"
 
 ### Step 4: 第一次フェーズ設計（機械的フェーズグルーピング）
 
-#### 4.1. スクリプトによるフェーズ分割
+#### 4-1. スクリプトによるフェーズ分割
 
 GRAPH.json と Dirs-Tree.json を入力とし、`phasify-graph-and-dirs-files-tree.js` が数学的に安全な重み付きトポロジカルソートと SCC 縮約により全ノードを実装フェーズにグルーピングする。結果は Tickets.json の phase[].nodeIds に書き込まれる。
 
@@ -168,7 +168,7 @@ node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
 
 出力末尾のサマリー行で合格（✅）を確認する。不合格（⚠️）の場合は不合格原因を報告して split を中断。
 
-#### 4.2. 全フェーズの名前とサマリー書き込み
+#### 4-2. 全フェーズの名前とサマリー書き込み
 
 4.1 で Tickets.json に書き込まれた全フェーズに対して、以下の手順でフェーズ名（name）とサマリー（summary）を設定する。必要なスクリプトは2つ：`show-all-nodes-title-summary.js`（表示）と `write-phase-name-summary.js`（書き込み）。
 
@@ -204,98 +204,106 @@ echo '{"name":"認証基盤","summary":"認証トークン生成・検証・Sess
 node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
 ```
 
-### Step 5: 第一次チケット定義
+### Step 5: 第一次チケット定義（チケット化）
 
-<!--
-グルーピングされたノードで構成された各フェーズ内で、関連していて連続した実装が安全で合理的であると判断されるノードを束ねることでチケットを構成していく。全チケットは安全な I/O 境界を持つ単位でなければならない。
--->
+4-2 で書き込まれた全フェーズに対して、以下の 5-1 → 5-2 を**1フェーズずつ逐次実行する**。
+全フェーズを一括で処理してはならない。
 
-### Step 6: 第二次フェーズ設計（フェーズ収束）
+#### 5-1: フェーズ内ノードの詳細取得
 
-### Step 7: 第二次チケット定義（チケット収束）
+`show-phase-nodes.js` が指定フェーズに割り当てられた全ノードの詳細（ID・タイトル・種別・要約・実装先ファイルパス）を Markdown 形式で出力する。
+
+```bash
+node .claude/scripts/rfc-graph/show-phase-nodes.js \
+  --tickets="$TICKETS_PATH" \
+  --graph="$GRAPH_PATH" \
+  --dirs-tree="$DIRS_TREE_PATH" \
+  --phase="P{n}"
+```
+
+出力例：
+```markdown
+# Phase P0: 認証基盤
+
+認証トークン生成・検証・Session管理
+
+---
+## ノード一覧
+
+以下の 3 個のノードがこのフェーズに割り当てられています。
+各ノードは graphify-rfc によって安全な I/O 境界として策定されています。
+ノード同士の組み合わせもまた安全な I/O 境界になりやすい性質を持ちます。
+
+チケットとは、1回の実装で安全に行えるノードの組み合わせです。
+1つ以上のノードを束ねてチケット単位を構成してください。
+全ノードを重複なく、過不足なくチケット化しなければなりません。
 
 ---
 
-### Step 5: チケット統合チェック（収束） — I/O 境界による候補の束ね直し
+### N0001: 認証トークン生成
 
-Step 7 で発散させたチケット候補に対して、安全に統合できるものを束ねる。これにより情報密度を落とさずにチケット数を節約する。
+**種別**: api_contract
 
-**グラフがある場合**、以下の機械的判定を統合判断に追加する：
+Ed448-Goldilocks を使用したトークン生成処理。鍵ペアの生成・署名・検証を提供する。
 
-1. **ノードID重複**: 複数のチケット候補が同じグラフノードIDを参照している → 1チケットに統合する（同じ設計要素を分割しすぎ）
-2. **validates エッジ**: validates で結ばれた2ノードは同じチケットに統合してよい（検証と実装は一体）
-3. **単一 kind 集中**: 同一フェーズ内の全チケット候補が1つの kind に集中している → 粒度が細かすぎるので統合を検討する
+### 実装先となるファイルパス
 
-**グラフがない場合**、従来通り以下の質問ベースの判定のみを行う：
-
-1. 「この2つの候補は、同じファイルを読み、同じファイルに書き出すか？」
-   → YES: 1チケットに統合する
-2. 「この候補は単独では呼ばれず、別の候補の出力を入力としてのみ動作するか？」
-   → YES: パイプライン全体を1チケットに統合する
-3. 「この2つの候補は、テストも含めて異なる不変条件で検証できるか？」
-   → NO: 同じ不変条件のもとで検証できるなら統合する
-
-統合の判断基準:
-- 統合前: 「型A」「関数B」「関数C」が3つの候補として存在
-- 統合後: 「ファイル読み込みから結果出力までのパイプライン」が1つのI/O境界
-
-#### チケット分解の基準
-
-各チケットは **I/O 境界の単位で区切る**。ただし、その前に Step 8（チケット統合チェック）で過剰分解された候補を統合する。判断フロー:
-
-   Step 5 で列挙された候補（発散）
-     ↓
-   Step 7 で発散（Expand）
-     ↓
-   Step 8 で「同じI/O境界なら統合」（収束）
-     ↓
-   収束後に残った単位を I/O 境界としてチケット化
-
-I/O 境界とは、そのチケットが外部に公開する抽象化されたインターフェースを指し、以下の具象言語要素で表現される：
-
-- **Rust**: `pub fn`, `pub async fn`, `trait` の各メソッド, `struct` の `pub` コンストラクタ, `pub mod`, `crate`
-- **Go**: `func`（大文字開始の公開関数）, `interface` の各メソッド, `package`
-- **TypeScript**: `export function`, `export class` の公開メソッド, `export` された `interface` / `type`, モジュール
-
-チケットが完了したかどうかは、この I/O 境界に対するテストが全て PASS したかで判断する。
-内部実装の詳細（プライベート関数、バッファ管理、キャッシュ戦略）が未完成であっても、
-公開 I/O 境界の契約を満たしていれば「チケット完了」とみなす。
-
-各フェーズ内で、依存関係のある単位をフェーズとして区切る。フェーズはアルファベットと数字の組み合わせでIDを付与する（例: `P0`, `P1`, ..., `P4`）。
-
-### Step 7: Tickets.json スケルトン生成
-
-メタデータを渡してスケルトンを生成する。phases は空配列。
-
-書き出しとスキーマ検証を自動実行する。エラー時は exit 1。
-
-```bash
-node .claude/scripts/tickets/write-tickets-json-template.js "$TICKETS_PATH" '{
-  "title": "<設計書タイトル> 実装チケット分解設計書",
-  "source": "<DOC_PATH>",
-  "generatedAt": "<YYYY-MM-DD>",
-  "analyzedSections": "<セクション一覧>"
-}'
+```
+src/auth/token.rs
 ```
 
-書き出しとスキーマ検証を自動実行する。エラー時は exit 1。
-
-### Step 8: フェーズの追加
-
-Step 7〜Step 8 で設計したフェーズを add-phase.js で追加する。ID は 0 から自動採番。
-
-```bash
-echo '{"name":"純粋ロジック・状態機械の完全隔離検証","externalDependencies":"なし"}' | node .claude/scripts/tickets/add-phase.js "$TICKETS_PATH"
-echo '{"name":"非同期ランタイム","externalDependencies":"tokio"}' | node .claude/scripts/tickets/add-phase.js "$TICKETS_PATH"
+// (他のノードの詳細が続く...)
+---
 ```
 
-全フェーズ追加後、list-phases-and-tickets.js で一覧を確認する：
+出力は以下の情報を必ず含む：
+- フェーズ名（name）とサマリー（summary）
+- **全ノードの一覧**（ノードID・タイトル・種別・要約・ファイルパス）
+- 各ノード間の明確な区切り（`---`）
+- ノードが安全な I/O 境界である旨の注釈と、チケット構成の指示
+
+① AI が①の出力を読み、各ノードの I/O 境界性と実装先ファイルパスを考慮して、1回の実装で安全に行えるノードの組み合わせを判断する。
+
+#### 5-2: チケット化（add-tickets-for-phase.js）
+
+`add-tickets-for-phase.js` は、stdin から受け取ったチケット配列を `bulkAddTickets()` で追加し、追加後に当該フェーズの全 `nodeIds` が `tickets[].nodeIds` の和集合と一致することを検証する。検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
 
 ```bash
-node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
+echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js \
+  "$TICKETS_PATH" \
+  "P{n}"
 ```
 
-### Step 9: チケットの追加
+stdin の JSON 形式（各チケットに `nodeIds` 配列が必須）：
+```json
+[
+  {
+    "title": "認証トークン生成・検証",
+    "nodeIds": ["N0001", "N0003"]
+  },
+  {
+    "title": "Session管理",
+    "nodeIds": ["N0002"]
+  }
+]
+```
+
+**チケット構成のルール**:
+- 1つ以上のノードを束ねて1チケットとする（単一ノードでも可）
+- 全 `nodeIds` を重複なく、過不足なくチケット化する
+- 各チケットの `nodeIds` 配列には、そのチケットに含まれるノードIDを全て列挙する
+- チケット化は当該フェーズ内で完結し、他フェーズのノードを含んではならない
+
+5-1 → 5-2 が完了したら次のフェーズ（P1, P2, ...）に進む。
+
+全フェーズ終了後、以下のスクリプトで全フェーズのチケット化が完了していることを確認する。
+不合格の場合は全てのフェーズが完了するまで Step 6 への進行を禁止する。
+
+```bash
+node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
+```
+
+### Step 6: チケットの追加
 
 各フェーズのチケットを依存関係の順序に従って追加する。チケット ID はフェーズ内で 1 から自動インクリメント。
 R/U/D 操作では P{フェーズID}-{チケットID} 形式（例: P0-1）で特定する。
