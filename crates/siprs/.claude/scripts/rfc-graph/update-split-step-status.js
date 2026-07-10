@@ -61,6 +61,35 @@ const STATUS_DONE = 'done';
 /** Stepの状態: 異常終了 */
 const STATUS_ERROR = 'error';
 
+/** 内部Step番号と表示ラベルの対応マップ（update-split-step-status.js 専用） */
+const STEP_LABELS = {
+  0: '0-1. 初期化',
+  1: '0-2. RFC読込',
+  2: '1. I/O境界参考情報',
+  3: '2. グラフ構造確認',
+  4: '3. boundify確認',
+  5: '4-1. phasify',
+  6: '4-2. フェーズ名・サマリー書き込み',
+  7: '5-1. ノード詳細表示',
+  8: '5-2. チケット化',
+  9: '6. チェックリスト',
+};
+
+/**
+ * Step番号に対応する表示ラベルを返す。
+ * 明示的なラベルが指定された場合はそちらを優先し、なければ STEP_LABELS マップから取得する。
+ * マップにない場合は "Step N" の汎用形式を返す。
+ *
+ * @param {number} n — Step番号
+ * @param {string|null} explicitLabel — CLIから明示指定されたラベル（省略可）
+ * @returns {string} 表示用ラベル
+ */
+function resolveStepLabel(n, explicitLabel) {
+  if (explicitLabel) return explicitLabel;
+  if (STEP_LABELS[n]) return STEP_LABELS[n];
+  return 'Step ' + n;
+}
+
 // ============================================================
 // 型: StatusData
 // ============================================================
@@ -82,7 +111,7 @@ const STATUS_ERROR = 'error';
 /**
  * コマンドライン引数をパースする
  *
- * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null }}
+ * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null, stepLabel: string|null }}
  * @throws {Error} 引数が不正な場合
  */
 function parseArguments() {
@@ -98,7 +127,7 @@ function parseArguments() {
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
-      '  Usage: update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]'
+      '  Usage: update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N] ["Stepラベル"]'
     );
   }
 
@@ -128,6 +157,7 @@ function parseArguments() {
 
   // step-number の読み取り（status / cleanup / backup 以外は必須）
   let stepNumber = null;
+  let stepLabel = null;
   if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup') {
     if (args.length < 3) {
       throw new Error(
@@ -140,9 +170,11 @@ function parseArguments() {
         `Step番号が数値ではありません: ${args[2]}`
       );
     }
+    // 第4引数に Stepラベル（省略可）
+    stepLabel = args[3] || null;
   }
 
-  return { statusPath, subcommand, stepNumber };
+  return { statusPath, subcommand, stepNumber, stepLabel };
 }
 
 /**
@@ -226,29 +258,33 @@ function validateStepNumber(n) {
  *
  * @param {StatusData} status — 更新対象のステータスデータ
  * @param {number} n — 開始するStep番号
+ * @param {string|null} [label] — メッセージに使用するStepラベル（省略時は "Step N"）
  */
-function executeStartStep(status, n) {
+function executeStartStep(status, n, label) {
   status.steps[String(n)] = STATUS_RUNNING;
   status.currentStep = n;
-  console.log(`Step ${n} を開始しました。状態: ${STATUS_RUNNING}。`);
+  const stepName = resolveStepLabel(n, label);
+  console.log(`${stepName} を開始しました。状態: ${STATUS_RUNNING}。`);
 }
 
 /**
  * end-step <N>: Step N を正常終了状態に設定する
  *
  * 完了後、currentStep は N+1 に進む。
- * Step 5 完了時は currentStep が 6 になる（全Step完了を示す）。
+ * MAX_STEP 完了時は currentStep が MAX_STEP+1 になる（全Step完了を示す）。
  *
  * @param {StatusData} status — 更新対象のステータスデータ
  * @param {number} n — 終了するStep番号
+ * @param {string|null} [label] — メッセージに使用するStepラベル（省略時は STEP_LABELS マップ優先）
  */
-function executeEndStep(status, n) {
+function executeEndStep(status, n, label) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
+  const stepName = resolveStepLabel(n, label);
   if (n >= MAX_STEP) {
-    console.log(`Step ${n} が完了しました。全Stepが完了しました。`);
+    console.log(`${stepName} が完了しました。全Stepが完了しました。`);
   } else {
-    console.log(`Step ${n} が完了しました。状態: ${STATUS_DONE}。次に Step ${n + 1} を実行してください。`);
+    console.log(`${stepName} が完了しました。状態: ${STATUS_DONE}。`);
   }
 }
 
@@ -260,10 +296,10 @@ function executeEndStep(status, n) {
  * @param {StatusData} status — 更新対象のステータスデータ
  * @param {number} n — 異常終了したStep番号
  */
-function executeFailStep(status, n) {
+function executeFailStep(status, n, label) {
   status.steps[String(n)] = STATUS_ERROR;
-  // currentStep は変更しない
-  console.log(`Step ${n} が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${n} で再実行してください。`);
+  const stepName = resolveStepLabel(n, label);
+  console.log(`${stepName} が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${n} で再実行してください。`);
 }
 
 /**
@@ -275,12 +311,13 @@ function executeFailStep(status, n) {
  * @param {StatusData} status — 更新対象のステータスデータ
  * @param {number} n — 復帰先のStep番号
  */
-function executeResetToStep(status, n) {
+function executeResetToStep(status, n, label) {
   for (let i = n + 1; i <= MAX_STEP; i++) {
     status.steps[String(i)] = STATUS_PENDING;
   }
   status.currentStep = n;
-  console.log(`Step ${n} に復帰しました。Step ${n} より後のStepを pending にリセットしました。Step ${n} のコマンドを最初から再実行してください。`);
+  const stepName = resolveStepLabel(n, label);
+  console.log(`${stepName} に復帰しました。${stepName} より後のStepを pending にリセットしました。${stepName} のコマンドを最初から再実行してください。`);
 }
 
 /**
@@ -454,7 +491,7 @@ function main() {
     );
   }
 
-  const { statusPath, subcommand, stepNumber } = parsed;
+  const { statusPath, subcommand, stepNumber, stepLabel } = parsed;
 
   // Step 2: ステータスファイル読み込み（存在しなければデフォルト状態）
   let status;
@@ -479,7 +516,7 @@ function main() {
             `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
           );
         }
-        executeStartStep(status, stepNumber);
+        executeStartStep(status, stepNumber, stepLabel);
         break;
 
       case 'end-step':
@@ -490,7 +527,7 @@ function main() {
             `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
           );
         }
-        executeEndStep(status, stepNumber);
+        executeEndStep(status, stepNumber, stepLabel);
         break;
 
       case 'fail-step':
@@ -501,7 +538,7 @@ function main() {
             `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
           );
         }
-        executeFailStep(status, stepNumber);
+        executeFailStep(status, stepNumber, stepLabel);
         break;
 
       case 'reset-to-step':
@@ -512,7 +549,7 @@ function main() {
             `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
           );
         }
-        executeResetToStep(status, stepNumber);
+        executeResetToStep(status, stepNumber, stepLabel);
         break;
 
       case 'status':
