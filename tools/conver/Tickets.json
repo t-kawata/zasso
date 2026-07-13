@@ -4132,6 +4132,58 @@
           "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 172/172 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件\n不完全実装: 検出されず",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-13"
+        },
+        {
+          "id": 47,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "ticket.id 型統一 — string→integer 修正 + Phase name 保存 + 表示修正",
+          "referenceSection": "tickets/specs/0084-ticketid-stringinteger-phase-name.md",
+          "background": "split-to-tickets テスト（siprs crate）で、ticket.id がスキーマ違反の文字列（\"P0-1\"）になっていることを確認。tickets-schema.json では { type: \"integer\", minimum: 1 } と定義されている。原因は3箇所: 1) bulkAddTickets.js で AI の string id が auto 数値IDを上書き、2) consolidate-phase-tickets.js renumberPhaseIds で統合済み Phase name を上書き、3) consolidate-phase-tickets.js renumberTicketIds で文字列IDを生成。3ファイルの計3行を修正する。",
+          "scope": [
+            "bulk-add-tickets.js L38: ...batch.tickets[i] を前置し id: ticketId を後置（スプレッド上書き防止）",
+            "consolidate-phase-tickets.js L252: name: PHASE_ID_PREFIX + index の代入行を削除（結合済みname維持）",
+            "consolidate-phase-tickets.js L285: id 生成を phasePrefix + \"-\" + (index+1) → index+1（数値化）",
+            "renumberTicketIds のコメント/JSDoc 更新（文字列形式から整数形式へ）",
+            "未使用変数 phasePrefix の削除",
+            "既存テストの期待値更新（renumberTicketIds の id 型変更）",
+            "全172テスト PASS 確認"
+          ],
+          "testVerification": [
+            "UT: renumberTicketIds が数値ID（integer）を生成する",
+            "UT: renumberPhaseIds が name を上書きしない",
+            "UT: bulkAddTickets で AI の string id が auto 数値IDで上書きされる",
+            "既存テスト: consolidate-phase-tickets 76/76 → 修正後も PASS",
+            "既存テスト: generate-related-ticket-ids 75/75 → PASS維持",
+            "既存テスト: update-split-step-status-5-3 21/21 → PASS維持",
+            "既存テスト: bulk-add-tickets（存在すれば）→ PASS"
+          ],
+          "testExceptions": [
+            "list-phases-and-tickets.js の表示確認は、t.id が数値に戻れば自動解決するため単体テスト不要"
+          ],
+          "notes": "レビュー報告書: PX-47\n---\n【Step1】存在確認: ✅ PX-47 存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ PX-44 (reviewed), PX-45 (reviewed) 両方完了、相互参照矛盾なし\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ 174/174 PASS\n【Step8】静的品質チェック: ✅ 0 issues\n【Step9】翻訳可能性: ✅ 問題なし（修正3行、1文字変数なし、コメント適切）\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な修正:\n  - bulk-add-tickets.js L38: スプレッド順序入替（1行）\n  - consolidate-phase-tickets.js L252: name上書き行削除（1行）\n  - consolidate-phase-tickets.js L285: 文字列ID→数値ID + finalValidation数値対応（5行）\n  - テスト期待値更新（18行、新規アサーション2件追加）\nスキーマ準拠: ticket.id が全チケットで integer に統一 ✅",
+          "relatedTicketIds": "PX-44 (関連: consolidate-phase-tickets.js に2件の修正を含む), PX-45 (関連: generate-related-ticket-ids.js は修正対象外だが結合テストで確認)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "{ id: ticketId, ..., ...batch.tickets[i] }",
+              "after": "{ ...batch.tickets[i], id: ticketId, ... }",
+              "description": "bulk-add-tickets.js L38: スプレッド順序入替。AI の string id が auto 数値IDを上書きしないよう修正。"
+            },
+            {
+              "before": "name: PHASE_ID_PREFIX + index",
+              "after": "(削除)",
+              "description": "consolidate-phase-tickets.js L252: name 上書き行を削除。統合済み name を維持。"
+            },
+            {
+              "before": "id: phasePrefix + \"-\" + (index + 1) → string",
+              "after": "id: index + 1 → integer",
+              "description": "consolidate-phase-tickets.js L285: 文字列IDから数値IDに変更。phasePrefix 変数削除。finalValidation のIDチェックも数値対応。"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし\nテスト: 174/174 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件",
+          "completedAt": "2026-07-13",
+          "rfcDiscrepancies": []
         }
       ]
     },

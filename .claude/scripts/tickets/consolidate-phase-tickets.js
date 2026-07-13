@@ -255,7 +255,6 @@ function renumberPhaseIds(phases) {
     return {
       ...phase,
       id: index,
-      name: PHASE_ID_PREFIX + index,
     };
   });
 }
@@ -266,7 +265,7 @@ function renumberPhaseIds(phases) {
 
 /**
  * 全チケットの id と phaseId を、新しいフェーズIDに基づいて振り直す。
- * id の形式: "{PHASE_ID_PREFIX}{phaseId}-{intraPhaseIndex + 1}"
+ * id: phaseId 内の連番（1始まり integer、tickets-schema.json 準拠）。
  *
  * @param {Phase[]} phases — 全フェーズ配列（コピーを操作）
  * @returns {Phase[]} チケットID振り直し後のフェーズ配列
@@ -278,11 +277,10 @@ function renumberTicketIds(phases) {
 
   return phases.map(function(phase) {
     const newPhaseId = phase.id;
-    const phasePrefix = PHASE_ID_PREFIX + newPhaseId;
     const newTickets = (phase.tickets || []).map(function(ticket, index) {
       return {
         ...ticket,
-        id: phasePrefix + '-' + (index + 1),
+        id: index + 1,
         phaseId: newPhaseId,
       };
     });
@@ -429,12 +427,10 @@ function finalValidation(phases) {
     }
 
     for (const ticket of (phase.tickets || [])) {
-      const expectedPrefix = PHASE_ID_PREFIX + phase.id + '-';
-
-      // ID形式チェック
-      if (typeof ticket.id !== 'string' || !ticket.id.startsWith(expectedPrefix)) {
-        errors.push('チケット ' + (ticket.id || '(空)') +
-          ' のID形式が不正（期待: ' + expectedPrefix + '{n}' + ' の形式）');
+      // ID形式チェック（integer、1以上）
+      if (typeof ticket.id !== 'number' || !Number.isInteger(ticket.id) || ticket.id < 1) {
+        errors.push('チケット ' + (ticket.id !== undefined && ticket.id !== null ? ticket.id : '(空)') +
+          ' のIDが不正（期待: 1 以上の integer）');
       }
 
       // phaseId 整合性チェック

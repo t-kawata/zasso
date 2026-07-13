@@ -270,15 +270,15 @@ function testRenumberPhaseIds() {
   assert(result[0].id === 0, 'ID振り直し: 最初が0');
   assert(result[1].id === 1, 'ID振り直し: 次が1');
   assert(result[2].id === 2, 'ID振り直し: 次が2');
-  assert(result[0].name === 'P0', '名前更新: P0');
-  assert(result[1].name === 'P1', '名前更新: P1');
-  assert(result[2].name === 'P2', '名前更新: P2');
+  assert(result[0].name === 'P5', '名前維持: P5（上書きされない）');
+  assert(result[1].name === 'P3', '名前維持: P3（上書きされない）');
+  assert(result[2].name === 'P7', '名前維持: P7（上書きされない）');
 
   // 境界値: 1フェーズのみ
   const singlePhase = [{ id: 42, name: 'P42', summary: 'only' }];
   const resultSingle = renumberPhaseIds(singlePhase);
   assert(resultSingle[0].id === 0, '1フェーズ: ID=0');
-  assert(resultSingle[0].name === 'P0', '1フェーズ: P0');
+  assert(resultSingle[0].name === 'P42', '1フェーズ: 名前維持 P42');
 
   // 境界値: 空配列
   assertDeepEqual(renumberPhaseIds([]), [], '空配列: 空配列が返る');
@@ -305,17 +305,18 @@ function testRenumberTicketIds() {
   const result = renumberTicketIds([phase1, phase2]);
 
   // P0 のチケット
-  assert(result[0].tickets[0].id === 'P0-1', 'P0-1: ID=P0-1');
+  assert(result[0].tickets[0].id === 1, 'P0 tickets[0]: ID=1 (integer)');
   assert(result[0].tickets[0].phaseId === 0, 'P0-1: phaseId=0');
-  assert(result[0].tickets[1].id === 'P0-2', 'P0-2: ID=P0-2');
+  assert(typeof result[0].tickets[0].id === 'number', 'P0 tickets[0]: id is number');
+  assert(result[0].tickets[1].id === 2, 'P0 tickets[1]: ID=2');
   assert(result[0].tickets[1].phaseId === 0, 'P0-2: phaseId=0');
-  assert(result[0].tickets[2].id === 'P0-3', 'P0-3: ID=P0-3');
+  assert(result[0].tickets[2].id === 3, 'P0 tickets[2]: ID=3');
   assert(result[0].tickets[2].phaseId === 0, 'P0-3: phaseId=0');
 
   // P1 のチケット
-  assert(result[1].tickets[0].id === 'P1-1', 'P1-1: ID=P1-1');
+  assert(result[1].tickets[0].id === 1, 'P1 tickets[0]: ID=1');
   assert(result[1].tickets[0].phaseId === 1, 'P1-1: phaseId=1');
-  assert(result[1].tickets[1].id === 'P1-2', 'P1-2: ID=P1-2');
+  assert(result[1].tickets[1].id === 2, 'P1 tickets[1]: ID=2');
   assert(result[1].tickets[1].phaseId === 1, 'P1-2: phaseId=1');
 
   // 境界値: チケット0個のフェーズ
@@ -345,15 +346,15 @@ function testFinalValidation() {
     nodeIds: ['N0001', 'N0002', 'N0003'],
     tickets: [
       {
-        id: 'P0-1', phaseId: 0, nodeIds: ['N0001'],
+        id: 1, phaseId: 0, nodeIds: ['N0001'],
         title: 'ticket 1',
       },
       {
-        id: 'P0-2', phaseId: 0, nodeIds: ['N0002'],
+        id: 2, phaseId: 0, nodeIds: ['N0002'],
         title: 'ticket 2',
       },
       {
-        id: 'P0-3', phaseId: 0, nodeIds: ['N0003'],
+        id: 3, phaseId: 0, nodeIds: ['N0003'],
         title: 'ticket 3',
       },
     ],
@@ -367,16 +368,16 @@ function testFinalValidation() {
     id: 0, name: 'P0', summary: 'small',
     nodeIds: ['N0001'],
     tickets: [
-      { id: 'P0-1', phaseId: 0, nodeIds: ['N0001'], title: 'ticket 1' },
+      { id: 1, phaseId: 0, nodeIds: ['N0001'], title: 'ticket 1' },
     ],
   };
   const largePhase = {
     id: 1, name: 'P1', summary: 'large',
     nodeIds: ['N0002', 'N0003', 'N0004'],
     tickets: [
-      { id: 'P1-1', phaseId: 1, nodeIds: ['N0002'], title: 'ticket 1' },
-      { id: 'P1-2', phaseId: 1, nodeIds: ['N0003'], title: 'ticket 2' },
-      { id: 'P1-3', phaseId: 1, nodeIds: ['N0004'], title: 'ticket 3' },
+      { id: 1, phaseId: 1, nodeIds: ['N0002'], title: 'ticket 1' },
+      { id: 2, phaseId: 1, nodeIds: ['N0003'], title: 'ticket 2' },
+      { id: 3, phaseId: 1, nodeIds: ['N0004'], title: 'ticket 3' },
     ],
   };
   const resultSmall = finalValidation([smallPhase, largePhase]);
@@ -387,29 +388,40 @@ function testFinalValidation() {
     id: 1, name: 'P1', summary: 'last small',
     nodeIds: ['N0002'],
     tickets: [
-      { id: 'P1-1', phaseId: 1, nodeIds: ['N0002'], title: 'ticket 1' },
+      { id: 1, phaseId: 1, nodeIds: ['N0002'], title: 'ticket 1' },
     ],
   };
   const resultLastSmall = finalValidation([largePhase, lastSmallPhase]);
   assert(resultLastSmall.valid === true, '最終フェーズのみ3未満: valid=true');
 
-  // 異常系: ID形式不正
+  // 異常系: ID形式不正（0は不正）
   const badIdPhase = {
     id: 0, name: 'P0', summary: 'bad id',
     nodeIds: ['N0001'],
     tickets: [
-      { id: 'invalid-id', phaseId: 0, nodeIds: ['N0001'], title: 'bad' },
+      { id: 0, phaseId: 0, nodeIds: ['N0001'], title: 'bad' },
     ],
   };
   const resultBadId = finalValidation([badIdPhase]);
-  assert(resultBadId.valid === false, 'ID形式不正: valid=false');
+  assert(resultBadId.valid === false, 'ID=0: valid=false');
+
+  // 異常系: ID形式不正（文字列）
+  const badIdStringPhase = {
+    id: 0, name: 'P0', summary: 'bad id',
+    nodeIds: ['N0001'],
+    tickets: [
+      { id: 'P0-1', phaseId: 0, nodeIds: ['N0001'], title: 'bad' },
+    ],
+  };
+  const resultBadIdString = finalValidation([badIdStringPhase]);
+  assert(resultBadIdString.valid === false, 'IDが文字列: valid=false');
 
   // 異常系: phaseId 不整合
   const badPhaseIdTicket = {
     id: 0, name: 'P0', summary: 'bad phaseId',
     nodeIds: ['N0001'],
     tickets: [
-      { id: 'P0-1', phaseId: 999, nodeIds: ['N0001'], title: 'bad' },
+      { id: 1, phaseId: 999, nodeIds: ['N0001'], title: 'bad' },
     ],
   };
   const resultBadPhaseId = finalValidation([badPhaseIdTicket]);
@@ -420,7 +432,7 @@ function testFinalValidation() {
     id: 0, name: 'P0', summary: 'empty nodeIds',
     nodeIds: [],
     tickets: [
-      { id: 'P0-1', phaseId: 0, nodeIds: [], title: 'empty' },
+      { id: 1, phaseId: 0, nodeIds: [], title: 'empty' },
     ],
   };
   const resultEmptyNodeIds = finalValidation([emptyNodeIdsPhase]);

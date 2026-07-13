@@ -35,7 +35,7 @@ function bulkAddTickets(data, batches) {
     }
     for (let i = 0; i < batch.tickets.length; i++) {
       const ticketId = maxId + 1 + i;
-      const ticket = { id: ticketId, phaseId: phase.id, status: 'todo', ...batch.tickets[i] };
+      const ticket = { ...batch.tickets[i], id: ticketId, phaseId: phase.id, status: 'todo' };
       phase.tickets.push(ticket);
       added.push({ ticketKey: (phase.id === -1 ? 'PX' : 'P' + phase.id) + '-' + ticketId });
     }
