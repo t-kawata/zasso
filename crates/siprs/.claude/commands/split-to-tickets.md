@@ -47,7 +47,7 @@ argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree
 | `delete-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一削除 |
 | `bulk-delete-tickets.js` | `<PATH of Tickets.json>`（stdin: 削除キー一覧） | 複数一括削除 |
 | `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
-| `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N> ["Stepラベル"]` | SPLIT-Status.json の進行管理（6サブコマンド） |
+| `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | SPLIT-Status.json の進行管理（6サブコマンド） |
 
 全スクリプトは書き込み前にスキーマ検証（`validate-tickets.js`）を実行し、失敗時は保存しない。
 
@@ -68,40 +68,25 @@ bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 
 ※ 0-1. 以降のStepでは、進行ステータスの管理に `update-split-step-status.js` を使用する。
 
-**SPLIT Status Step番号と文書上のStepの対応表**:
-
-| SPLIT Step | 文書上のStep | 内容 |
-|-----------|-------------|------|
-| 0 | 0-1 | 初期化（引数パース + Malfeasance作成） |
-| 1 | 0-2 | RFC読込 |
-| 2 | 1 | I/O境界参考情報 |
-| 3 | 2 | グラフ構造確認 |
-| 4 | 3 | boundify確認 |
-| 5 | 4-1 | phasify |
-| 6 | 4-2 | フェーズ名・サマリー書き込み（ループ） |
-| 7 | 5-1 | ノード詳細表示（ループ） |
-| 8 | 5-2 | チケット化（ループ） |
-| 9 | 6 | チェックリスト |
-
 各Stepの開始・終了時の呼び出し例：
 
 ```bash
-# Step N の開始（第4引数に文書上のStepラベルを指定）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step N "Stepラベル"
+# Step の開始（STEP_ID は "0-1", "4-2" 等の実際のステップ識別子）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step <STEP_ID>
 # ... 処理 ...
-# Step N の正常終了（currentStep が N+1 に進む）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step N "Stepラベル"
+# Step の正常終了（currentStep が次の Step に進む）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step <STEP_ID>
 # 異常終了時（currentStep は変更なし）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" fail-step N
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" fail-step <STEP_ID>
 # エラー修正後、復帰
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step N
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step <STEP_ID>
 ```
 
 #### 0-2. Malfeasance.json 作成
 
 ```bash
-# Step 0 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 0 "0-1. 初期化"
+# Step 0-1 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-1"
 ```
 
 Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。`DOC_DIR` 内で初期化する。
@@ -110,22 +95,22 @@ Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪�
 # 犯罪記録台帳が存在しなければ空の状態で作成する
 node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
 
-# Step 0 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 0 "0-1. 初期化"
+# Step 0-1 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-1"
 ```
 
 ### エラー時の復帰
-スクリプトが出力するエラーメッセージに従って修正した後、`reset-to-step 0` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
+スクリプトが出力するエラーメッセージに従って修正した後、`reset-to-step "0-1"` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
 
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 0
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-1"
 ```
 
 #### 0-3. RFC 読込（analyze-source-structure.js で構造把握 → セクションごとに順次読込）
 
 ```bash
-# Step 1 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 1 "0-2. RFC読込"
+# Step 0-2 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-2"
 
 echo "=== RFC 構造分析 ==="
 node ".claude/scripts/rfc-graph/analyze-source-structure.js" "$DOC_PATH"
@@ -145,13 +130,13 @@ RFC 文書は極めて長大な文書であるため、一度に全文を読も�
 - **テスト戦略**: テスト方法、検証基準、結合計画
 
 ```bash
-# Step 1 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 1 "0-2. RFC読込"
+# Step 0-2 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-2"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 1
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-2"
 ```
 
 ---
@@ -159,8 +144,8 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 1: RFC 内の I/O 境界参考情報を参照
 
 ```bash
-# Step 2 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 2 "1. I/O境界参考情報"
+# Step 1 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "1"
 ```
 
 この I/O 境界参考情報は、grill / drill によって詳細な設計書として RFC を書き上げた段階で作成されたものである。
@@ -178,13 +163,13 @@ echo "========================"
 I/O 境界参考情報が存在しない場合は、事前の grill/drill を促して split 中断。
 
 ```bash
-# Step 2 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 2 "1. I/O境界参考情報"
+# Step 1 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "1"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 2
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "1"
 ```
 
 ---
@@ -192,8 +177,8 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 2: RFC の設計における関係グラフ構造の確認
 
 ```bash
-# Step 3 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 3 "2. グラフ構造確認"
+# Step 2 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "2"
 ```
 
 このグラフ構造は、/graphify-rfc によって RFC の I/O 境界想定よりもさらに細かい安全な I/O 境界単位に細分化されたノード群とその関係性である。
@@ -214,13 +199,13 @@ echo "========================"
 グラフ構造サマリーが存在しない場合は、事前の graphify を促して split 中断。
 
 ```bash
-# Step 3 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 3 "2. グラフ構造確認"
+# Step 2 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "2"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 3
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "2"
 ```
 
 ---
@@ -228,8 +213,8 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 3: boundify によるディレクトリ・ファイル構造の確認
 
 ```bash
-# Step 4 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 4 "3. boundify確認"
+# Step 3 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "3"
 ```
 
 このディレクトリ・ファイル構造は、grill / drill → /graphify-rfc → /boundify-graph-to-dirs の直列パイプラインによって最終的に生成された現時点の実装ディレクトリ・ファイル構成である。
@@ -250,13 +235,13 @@ echo "========================================"
 *-Dirs-Tree.jsonが存在しない場合は、事前の boundify を促して split 中断。
 
 ```bash
-# Step 4 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 4 "3. boundify確認"
+# Step 3 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "3"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 4
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "3"
 ```
 
 ---
@@ -266,8 +251,8 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 #### 4-1. スクリプトによるフェーズ分割
 
 ```bash
-# Step 5 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 5 "4-1. phasify"
+# Step 4-1 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-1"
 ```
 
 GRAPH.json と Dirs-Tree.json を入力とし、`phasify-graph-and-dirs-files-tree.js` が数学的に安全な重み付きトポロジカルソートと SCC 縮約により全ノードを実装フェーズにグルーピングする。結果は Tickets.json の phase[].nodeIds に書き込まれる。
@@ -281,20 +266,20 @@ node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
 出力末尾のサマリー行で合格（✅）を確認する。不合格（⚠️）の場合は不合格原因を報告して split を中断。
 
 ```bash
-# Step 5 正常終了
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 5 "4-1. phasify"
+# Step 4-1 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-1"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 5
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-1"
 ```
 
 #### 4-2. 全フェーズの名前とサマリー書き込み
 
 ```bash
-# Step 6 を開始（4-2 ループ全体の開始）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 6 "4-2. フェーズ名・サマリー書き込み"
+# Step 4-2 を開始（4-2 ループ全体の開始）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-2"
 ```
 
 4.1 で Tickets.json に書き込まれた全フェーズに対して、以下の手順でフェーズ名（name）とサマリー（summary）を設定する。必要なスクリプトは2つ：`show-all-nodes-title-summary.js`（表示）と `write-phase-name-summary.js`（書き込み）。
@@ -330,20 +315,20 @@ echo '{"name":"認証基盤","summary":"認証トークン生成・検証・Sess
 ```bash
 node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
 
-# Step 6 正常終了（4-2 ループ完了）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 6 "4-2. フェーズ名・サマリー書き込み"
+# Step 4-2 正常終了（4-2 ループ完了）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-2"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 6
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-2"
 ```
 
 ### Step 5: 第一次チケット定義（チケット化）
 
 ```bash
-# Step 7 を開始（5-1 ノード詳細表示ループの開始）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 7 "5-1. ノード詳細表示"
+# Step 5-1 を開始（5-1 ノード詳細表示ループの開始）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
 ```
 
 4-2 で書き込まれた全フェーズに対して、以下の 5-1 → 5-2 を**1フェーズずつ逐次実行する**。
@@ -366,11 +351,11 @@ AI が出力を理解し、各ノードの I/O 境界性と実装先ファイル
 5-1 の各フェーズループが全て完了したら、5-2 に進む。
 
 ```bash
-# Step 7 正常終了（5-1 ループ完了）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 7 "5-1. ノード詳細表示"
+# Step 5-1 正常終了（5-1 ループ完了）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-1"
 
-# Step 8 を開始（5-2 チケット化ループの開始）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 8 "5-2. チケット化"
+# Step 5-2 を開始（5-2 チケット化ループの開始）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-2"
 ```
 
 #### 5-2: チケット化（add-tickets-for-phase.js）
@@ -454,20 +439,50 @@ AI がチケットを登録する際、**簡素で短い記述は「横着」と
 ```bash
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 
-# Step 8 正常終了（5-2 ループ完了）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 8 "5-2. チケット化"
+# Step 5-2 正常終了（5-2 ループ完了）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 8
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-2"
+```
+
+### Step 5-3: フェーズ統合
+
+チケット化が完了した全フェーズに対して、チケット数が3未満のフェーズを自動統合する。
+`consolidate-phase-tickets.js` が後方から走査し、閾値未満のフェーズを安全にマージする。
+
+```bash
+# Step 5-3 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
+```
+
+`consolidate-phase-tickets.js` が全フェーズのチケット数を確認し、3未満のフェーズを後方のフェーズにマージする。6つのサブステップ（ガード→バリデーション→後方統合→ID振り直し→relatedTicketIds再生成→status.json更新→最終検証）を逐次実行する。
+
+```bash
+node .claude/scripts/tickets/consolidate-phase-tickets.js \
+  "$TICKETS_PATH" \
+  "$STATUS_PATH"
+```
+
+出力末尾の ✅ または ⚠️ を確認する。不合格の場合はエラー原因を確認して修正した上で 5-3 を再実行する。
+
+```bash
+# Step 5-3 正常終了
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
+```
+
+### エラー時の復帰
+```bash
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-3"
 ```
 
 ### Step 6: フェーズ・チケットチェックリストの出力
 
 ```bash
-# Step 9 を開始
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step 9 "6. チェックリスト"
+# Step 6 を開始
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "6"
 ```
 
 全てのチケットの追加が完了したら、list-phases-and-tickets.js でチェックリストを出力して報告する：
@@ -475,13 +490,13 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ```bash
 node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 
-# Step 9 正常終了（全Step完了）
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step 9 "6. チェックリスト"
+# Step 6 正常終了（全Step完了）
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "6"
 ```
 
 ### エラー時の復帰
 ```bash
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step 9
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "6"
 ```
 
 出力例:

@@ -5,10 +5,10 @@
  *
  * /split-to-tickets スラッシュコマンドの進行状態を管理する。
  * SPLIT-Status.json に対して以下の6操作を提供する：
- * - start-step  <N>  : Step N を開始する
- * - end-step    <N>  : Step N を正常終了する
- * - fail-step   <N>  : Step N を異常終了する
- * - reset-to-step <N>: Step N に復帰する（N+1 以降を pending に戻す）
+ * - start-step  <STEP_ID>  : Step を開始する
+ * - end-step    <STEP_ID>  : Step を正常終了する
+ * - fail-step   <STEP_ID>  : Step を異常終了する
+ * - reset-to-step <STEP_ID>: Step に復帰する（後続Stepを pending に戻す）
  * - status           : 現在の状態を出力する
  * - cleanup          : 既知の一時ファイルを全て削除する（冪等）
  * - backup           : graphFile の .bak ファイルを作成する
@@ -16,7 +16,8 @@
  * 全書き込みは一時ファイル + rename のアトミック書込（atomicWrite）で行われ、
  * プロセス異常終了時に元ファイルが破損することはない。
  *
- * 本スクリプトは /split-to-tickets 専用。Step範囲は 0〜9。
+ * Step ID は実際のステップ識別子（"0-1", "0-2", "1", "4-1" 等）をそのまま使用する。
+ * 本スクリプトは /split-to-tickets 専用。
  */
 
 const fs = require('fs');
@@ -26,11 +27,20 @@ const path = require('path');
 // 定数定義
 // ============================================================
 
-/** 最小のStep番号（Step 0: 見出し重複排除） */
-const MIN_STEP = 0;
-
-/** 最大のStep番号（split-to-tickets はStep 0〜9 の10Step構成） */
-const MAX_STEP = 9;
+/** 全Step ID の定義順配列（インデックスが進行順序） */
+const STEP_ORDER = [
+  '0-1',
+  '0-2',
+  '1',
+  '2',
+  '3',
+  '4-1',
+  '4-2',
+  '5-1',
+  '5-2',
+  '5-3',
+  '6',
+];
 
 /** 認容されるサブコマンド名の配列 */
 const ALLOWED_SUBCOMMANDS = [
@@ -41,6 +51,8 @@ const ALLOWED_SUBCOMMANDS = [
   'status',
   'cleanup',
   'backup',
+  'prune-phases',
+  'renumber-phases',
 ];
 
 /** プライマリフラグ: GRAPHIFY-Status.json のパス指定 */
@@ -61,35 +73,6 @@ const STATUS_DONE = 'done';
 /** Stepの状態: 異常終了 */
 const STATUS_ERROR = 'error';
 
-/** 内部Step番号と表示ラベルの対応マップ（update-split-step-status.js 専用） */
-const STEP_LABELS = {
-  0: '0-1. 初期化',
-  1: '0-2. RFC読込',
-  2: '1. I/O境界参考情報',
-  3: '2. グラフ構造確認',
-  4: '3. boundify確認',
-  5: '4-1. phasify',
-  6: '4-2. フェーズ名・サマリー書き込み',
-  7: '5-1. ノード詳細表示',
-  8: '5-2. チケット化',
-  9: '6. チェックリスト',
-};
-
-/**
- * Step番号に対応する表示ラベルを返す。
- * 明示的なラベルが指定された場合はそちらを優先し、なければ STEP_LABELS マップから取得する。
- * マップにない場合は "Step N" の汎用形式を返す。
- *
- * @param {number} n — Step番号
- * @param {string|null} explicitLabel — CLIから明示指定されたラベル（省略可）
- * @returns {string} 表示用ラベル
- */
-function resolveStepLabel(n, explicitLabel) {
-  if (explicitLabel) return explicitLabel;
-  if (STEP_LABELS[n]) return STEP_LABELS[n];
-  return 'Step ' + n;
-}
-
 // ============================================================
 // 型: StatusData
 // ============================================================
@@ -100,8 +83,8 @@ function resolveStepLabel(n, explicitLabel) {
  * @typedef {Object} StatusData
  * @property {string} sourceFile — グラフ化対象のソースファイルパス
  * @property {string} graphFile — 出力先グラフファイルパス
- * @property {number} currentStep — 現在の進行Step番号
- * @property {Object<string, string>} steps — Step0〜9の状態マップ（キーは文字列 "0"〜"9"）
+ * @property {string} currentStep — 現在の進行Step ID（例: "0-1", "4-2"）
+ * @property {Object<string, string>} steps — Step状態マップ（キーは Step ID）
  */
 
 // ============================================================
@@ -111,7 +94,7 @@ function resolveStepLabel(n, explicitLabel) {
 /**
  * コマンドライン引数をパースする
  *
- * @returns {{ statusPath: string, subcommand: string, stepNumber: number|null, stepLabel: string|null }}
+ * @returns {{ statusPath: string, subcommand: string, stepId: string|null }}
  * @throws {Error} 引数が不正な場合
  */
 function parseArguments() {
@@ -123,11 +106,11 @@ function parseArguments() {
     process.exit(0);
   }
 
-  // 最小引数: --graphify-status=<path> subcommand [N]
+  // 最小引数: --graphify-status=<path> subcommand [STEP_ID]
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
-      '  Usage: update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N] ["Stepラベル"]'
+      '  Usage: update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [STEP_ID]'
     );
   }
 
@@ -155,26 +138,24 @@ function parseArguments() {
     );
   }
 
-  // step-number の読み取り（status / cleanup / backup 以外は必須）
-  let stepNumber = null;
-  let stepLabel = null;
-  if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup') {
+  // step-id の読み取り（status / cleanup / backup / prune-phases / renumber-phases 以外は必須）
+  let stepId = null;
+  if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup'
+      && subcommand !== 'prune-phases' && subcommand !== 'renumber-phases') {
     if (args.length < 3) {
       throw new Error(
-        `サブコマンド "${subcommand}" には Step番号が必要です。`
+        `サブコマンド "${subcommand}" には Step ID が必要です。`
       );
     }
-    stepNumber = parseInt(args[2], 10);
-    if (isNaN(stepNumber)) {
+    stepId = args[2];
+    if (!stepId || stepId.trim() === '') {
       throw new Error(
-        `Step番号が数値ではありません: ${args[2]}`
+        `Step ID が空です: "${args[2]}"`
       );
     }
-    // 第4引数に Stepラベル（省略可）
-    stepLabel = args[3] || null;
   }
 
-  return { statusPath, subcommand, stepNumber, stepLabel };
+  return { statusPath, subcommand, stepId };
 }
 
 /**
@@ -192,9 +173,9 @@ function readStatus(statusPath) {
   const data = JSON.parse(raw);
 
   // 読み込みデータの簡易検証（必須フィールドの存在確認）
-  if (!data.sourceFile || !data.graphFile || typeof data.currentStep !== 'number' || !data.steps) {
+  if (!data.sourceFile || !data.graphFile || typeof data.currentStep !== 'string' || !data.steps) {
     throw new Error(
-      `${statusPath} の形式が不正です。sourceFile / graphFile / currentStep / steps が必要です。`
+      `${statusPath} の形式が不正です。sourceFile / graphFile / currentStep（string）/ steps が必要です。`
     );
   }
 
@@ -231,94 +212,91 @@ function createDefaultStatus(statusPath) {
   const graphFile = path.resolve(dir, basename + '-GRAPH.json');
 
   const steps = {};
-  for (let i = MIN_STEP; i <= MAX_STEP; i++) {
-    steps[String(i)] = STATUS_PENDING;
+  for (const stepId of STEP_ORDER) {
+    steps[stepId] = STATUS_PENDING;
   }
 
   return {
     sourceFile,
     graphFile,
-    currentStep: MIN_STEP,
+    currentStep: STEP_ORDER[0],
     steps,
   };
 }
 
 /**
- * Step番号が 1〜5 の範囲内か検証する
+ * Step ID が有効な識別子か検証する
  *
- * @param {number} n — 検証対象のStep番号
- * @returns {boolean} 有効なStep番号なら true
+ * @param {string} stepId — 検証対象のStep ID
+ * @returns {boolean} 有効なStep IDなら true
  */
-function validateStepNumber(n) {
-  return Number.isInteger(n) && n >= MIN_STEP && n <= MAX_STEP;
+function validateStepId(stepId) {
+  return STEP_ORDER.includes(stepId);
 }
 
 /**
- * start-step <N>: Step N を開始状態に設定する
+ * start-step <STEP_ID>: Step を開始状態に設定する
  *
  * @param {StatusData} status — 更新対象のステータスデータ
- * @param {number} n — 開始するStep番号
- * @param {string|null} [label] — メッセージに使用するStepラベル（省略時は "Step N"）
+ * @param {string} stepId — 開始するStep ID
  */
-function executeStartStep(status, n, label) {
-  status.steps[String(n)] = STATUS_RUNNING;
-  status.currentStep = n;
-  const stepName = resolveStepLabel(n, label);
-  console.log(`${stepName} を開始しました。状態: ${STATUS_RUNNING}。`);
+function executeStartStep(status, stepId) {
+  status.steps[stepId] = STATUS_RUNNING;
+  status.currentStep = stepId;
+  console.log(`[${stepId}] を開始しました。状態: ${STATUS_RUNNING}。`);
 }
 
 /**
- * end-step <N>: Step N を正常終了状態に設定する
+ * end-step <STEP_ID>: Step を正常終了状態に設定する
  *
- * 完了後、currentStep は N+1 に進む。
- * MAX_STEP 完了時は currentStep が MAX_STEP+1 になる（全Step完了を示す）。
+ * 完了後、currentStep は順序配列上の次の Step ID に進む。
+ * 最終Step完了時は全Step完了を示す。
  *
  * @param {StatusData} status — 更新対象のステータスデータ
- * @param {number} n — 終了するStep番号
- * @param {string|null} [label] — メッセージに使用するStepラベル（省略時は STEP_LABELS マップ優先）
+ * @param {string} stepId — 終了するStep ID
  */
-function executeEndStep(status, n, label) {
-  status.steps[String(n)] = STATUS_DONE;
-  status.currentStep = n + 1;
-  const stepName = resolveStepLabel(n, label);
-  if (n >= MAX_STEP) {
-    console.log(`${stepName} が完了しました。全Stepが完了しました。`);
+function executeEndStep(status, stepId) {
+  status.steps[stepId] = STATUS_DONE;
+  const idx = STEP_ORDER.indexOf(stepId);
+  if (idx === STEP_ORDER.length - 1) {
+    status.currentStep = stepId;
+    console.log(`[${stepId}] が完了しました。全Stepが完了しました。`);
   } else {
-    const nextName = resolveStepLabel(n + 1);
-    console.log(`${stepName} が完了しました。状態: ${STATUS_DONE}。次に ${nextName} を実行してください。`);
+    const nextId = STEP_ORDER[idx + 1];
+    status.currentStep = nextId;
+    console.log(`[${stepId}] が完了しました。状態: ${STATUS_DONE}。次に [${nextId}] を実行してください。`);
   }
 }
 
 /**
- * fail-step <N>: Step N を異常終了状態に設定する
+ * fail-step <STEP_ID>: Step を異常終了状態に設定する
  *
  * currentStep は変更しない（現在位置を維持して再開可能にする）。
  *
  * @param {StatusData} status — 更新対象のステータスデータ
- * @param {number} n — 異常終了したStep番号
+ * @param {string} stepId — 異常終了したStep ID
  */
-function executeFailStep(status, n, label) {
-  status.steps[String(n)] = STATUS_ERROR;
-  const stepName = resolveStepLabel(n, label);
-  console.log(`${stepName} が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${n} で再実行してください。`);
+function executeFailStep(status, stepId) {
+  status.steps[stepId] = STATUS_ERROR;
+  console.log(`[${stepId}] が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${stepId} で再実行してください。`);
 }
 
 /**
- * reset-to-step <N>: Step N に復帰する
+ * reset-to-step <STEP_ID>: 指定されたStepに復帰する
  *
- * N より大きい全Step（N+1 〜 5）を pending に戻す。
- * N 自身のステータスは変更しない（N の内容を保持したまま再実行可能にする）。
+ * 指定されたStepより後続の全Stepを pending に戻す。
+ * 指定されたStep自身のステータスは変更しない（内容を保持したまま再実行可能にする）。
  *
  * @param {StatusData} status — 更新対象のステータスデータ
- * @param {number} n — 復帰先のStep番号
+ * @param {string} stepId — 復帰先のStep ID
  */
-function executeResetToStep(status, n, label) {
-  for (let i = n + 1; i <= MAX_STEP; i++) {
-    status.steps[String(i)] = STATUS_PENDING;
+function executeResetToStep(status, stepId) {
+  const idx = STEP_ORDER.indexOf(stepId);
+  for (let i = idx + 1; i < STEP_ORDER.length; i++) {
+    status.steps[STEP_ORDER[i]] = STATUS_PENDING;
   }
-  status.currentStep = n;
-  const stepName = resolveStepLabel(n, label);
-  console.log(`${stepName} に復帰しました。${stepName} より後のStepを pending にリセットしました。${stepName} のコマンドを最初から再実行してください。`);
+  status.currentStep = stepId;
+  console.log(`[${stepId}] に復帰しました。後続のStepを pending にリセットしました。[${stepId}] のコマンドを最初から再実行してください。`);
 }
 
 /**
@@ -406,6 +384,119 @@ function executeBackup(status) {
   }
 }
 
+/**
+ * prune-phases: 指定されたフェーズIDのStep状態エントリを status.steps から削除する。
+ *
+ * stdin から削除するフェーズIDのJSON配列を受け取る。
+ * 例: ["P0", "P3"]
+ *
+ * @param {StatusData} status — 更新対象のステータスデータ
+ */
+function executePrunePhases(status) {
+  let phaseIdsToRemove = [];
+  try {
+    const stdinData = fs.readFileSync(process.stdin.fd, 'utf8').trim();
+    if (stdinData) {
+      phaseIdsToRemove = JSON.parse(stdinData);
+    }
+  } catch (parseError) {
+    exitWithError(
+      'prune-phases: stdin のJSONパースに失敗しました',
+      parseError.message,
+      '削除するフェーズIDのJSON配列をstdinから入力してください。例: ["P0"]'
+    );
+  }
+
+  if (!Array.isArray(phaseIdsToRemove) || phaseIdsToRemove.length === 0) {
+    console.log('prune-phases: 削除対象のフェーズIDが指定されていません。');
+    return;
+  }
+
+  let removedCount = 0;
+  for (const key of Object.keys(status.steps)) {
+    for (const phaseId of phaseIdsToRemove) {
+      // "P0" または "P0-1" のようなキーにマッチ
+      if (key === phaseId || key.startsWith(phaseId + '-')) {
+        delete status.steps[key];
+        removedCount++;
+        break;
+      }
+    }
+  }
+
+  // currentStep が削除対象のフェーズIDを含む場合、最初の残存Stepに調整
+  if (status.currentStep) {
+    for (const phaseId of phaseIdsToRemove) {
+      if (status.currentStep === phaseId || status.currentStep.startsWith(phaseId + '-')) {
+        const remainingKeys = Object.keys(status.steps);
+        status.currentStep = remainingKeys.length > 0 ? remainingKeys[0] : '';
+        break;
+      }
+    }
+  }
+
+  console.log(`prune-phases: ${removedCount} 件のStep状態を削除しました。`);
+}
+
+/**
+ * renumber-phases: status.steps のフェーズID接頭辞をリネームする。
+ *
+ * stdin から旧ID→新ID のマッピングオブジェクトを受け取る。
+ * 例: {"0":"1", "3":"2"}
+ *
+ * @param {StatusData} status — 更新対象のステータスデータ
+ */
+function executeRenumberPhases(status) {
+  let mapping = {};
+  try {
+    const stdinData = fs.readFileSync(process.stdin.fd, 'utf8').trim();
+    if (stdinData) {
+      mapping = JSON.parse(stdinData);
+    }
+  } catch (parseError) {
+    exitWithError(
+      'renumber-phases: stdin のJSONパースに失敗しました',
+      parseError.message,
+      'マッピングオブジェクトをstdinから入力してください。例: {"0":"1"}'
+    );
+  }
+
+  const mappingKeys = Object.keys(mapping);
+  if (mappingKeys.length === 0) {
+    console.log('renumber-phases: マッピングが指定されていません。');
+    return;
+  }
+
+  const newSteps = {};
+  let updatedCount = 0;
+  for (const [key, value] of Object.entries(status.steps)) {
+    let newKey = key;
+    for (const oldId of mappingKeys) {
+      const prefix = 'P' + oldId;
+      if (key === prefix || key.startsWith(prefix + '-')) {
+        newKey = 'P' + mapping[oldId] + key.slice(prefix.length);
+        updatedCount++;
+        break;
+      }
+    }
+    newSteps[newKey] = value;
+  }
+  status.steps = newSteps;
+
+  // currentStep も変換
+  if (status.currentStep) {
+    for (const oldId of mappingKeys) {
+      const prefix = 'P' + oldId;
+      if (status.currentStep === prefix || status.currentStep.startsWith(prefix + '-')) {
+        status.currentStep = 'P' + mapping[oldId] + status.currentStep.slice(prefix.length);
+        break;
+      }
+    }
+  }
+
+  console.log(`renumber-phases: ${updatedCount} 件のキーを変換しました。`);
+}
+
 // ============================================================
 // ファイル入出力
 // ============================================================
@@ -451,7 +542,7 @@ function printUsage() {
 update-split-step-status.js — SPLIT-Status.json 管理（graphify非互換）
 
 使用方法:
-  node update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]
+  node update-split-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [STEP_ID]
   node update-split-step-status.js --help
 
 フラグ:
@@ -459,15 +550,15 @@ update-split-step-status.js — SPLIT-Status.json 管理（graphify非互換）
   --status=<path>           上記のエイリアス（split-to-tickets 等でも汎用的に使用）
 
 サブコマンド:
-  start-step <N>    Step N を開始（running, currentStep=N）
-  end-step <N>      Step N を正常終了（done, currentStep=N+1）
-  fail-step <N>     Step N を異常終了（error, currentStep 不変）
-  reset-to-step <N> Step N に復帰（N+1〜5 を pending に戻す）
-  status            現在の状態を整形JSONで出力
-  cleanup           既知の一時ファイルを全て削除（冪等）
-  backup            graphFile の .bak ファイルを作成（退行チェック用）
+  start-step <STEP_ID>    Step を開始（running, currentStep=STEP_ID）
+  end-step <STEP_ID>      Step を正常終了（done, currentStep=次のStep）
+  fail-step <STEP_ID>     Step を異常終了（error, currentStep 不変）
+  reset-to-step <STEP_ID> 指定Stepに復帰（後続Stepを pending に戻す）
+  status                  現在の状態を整形JSONで出力
+  cleanup                 既知の一時ファイルを全て削除（冪等）
+  backup                  graphFile の .bak ファイルを作成（退行チェック用）
 
-Step番号: ${MIN_STEP}〜${MAX_STEP}
+Step ID（定義順）: ${STEP_ORDER.join(', ')}
 `);
 }
 
@@ -492,7 +583,7 @@ function main() {
     );
   }
 
-  const { statusPath, subcommand, stepNumber, stepLabel } = parsed;
+  const { statusPath, subcommand, stepId } = parsed;
 
   // Step 2: ステータスファイル読み込み（存在しなければデフォルト状態）
   let status;
@@ -510,69 +601,73 @@ function main() {
   try {
     switch (subcommand) {
       case 'start-step':
-        if (!validateStepNumber(stepNumber)) {
+        if (!validateStepId(stepId)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
-        executeStartStep(status, stepNumber, stepLabel);
+        executeStartStep(status, stepId);
         break;
 
       case 'end-step':
-        if (!validateStepNumber(stepNumber)) {
+        if (!validateStepId(stepId)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
-        executeEndStep(status, stepNumber, stepLabel);
+        executeEndStep(status, stepId);
         break;
 
       case 'fail-step':
-        if (!validateStepNumber(stepNumber)) {
+        if (!validateStepId(stepId)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
-        executeFailStep(status, stepNumber, stepLabel);
+        executeFailStep(status, stepId);
         break;
 
       case 'reset-to-step':
-        if (!validateStepNumber(stepNumber)) {
+        if (!validateStepId(stepId)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
-        executeResetToStep(status, stepNumber, stepLabel);
+        executeResetToStep(status, stepId);
         break;
 
       case 'status':
         executeStatus(status);
         process.exit(0);
-        // status はファイル書き込み不要で終了する
 
       case 'backup':
         executeBackup(status);
         process.exit(0);
-        // backup はファイル書き込み不要で終了する
 
       case 'cleanup':
         executeCleanup(status);
         process.exit(0);
-        // cleanup はファイル書き込み不要で終了する
+
+      case 'prune-phases':
+        executePrunePhases(status);
+        break;
+
+      case 'renumber-phases':
+        executeRenumberPhases(status);
+        break;
 
       default:
-        // parseArguments で検証済みなのでここには到達しない
         exitWithError(
           `未知のサブコマンドです: ${subcommand}`,
-          'start-step / end-step / fail-step / reset-to-step / status / cleanup のいずれかを指定してください。',
+          'start-step / end-step / fail-step / reset-to-step / status / cleanup / backup / prune-phases / renumber-phases のいずれかを指定してください。',
           '正しいサブコマンド名で再実行してください。'
         );
     }
@@ -585,7 +680,6 @@ function main() {
   }
 
   // Step 4: アトミック書き込み
-  // status サブコマンド以外はファイルを更新する
   try {
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
   } catch (writeError) {
@@ -606,7 +700,7 @@ module.exports = {
   parseArguments,
   readStatus,
   createDefaultStatus,
-  validateStepNumber,
+  validateStepId,
   executeStartStep,
   executeEndStep,
   executeFailStep,
@@ -614,9 +708,10 @@ module.exports = {
   executeStatus,
   executeCleanup,
   executeBackup,
+  executePrunePhases,
+  executeRenumberPhases,
   atomicWrite,
-  MIN_STEP,
-  MAX_STEP,
+  STEP_ORDER,
   ALLOWED_SUBCOMMANDS,
   FLAG_GRAPHIFY_STATUS,
   FLAG_ALIAS_STATUS,

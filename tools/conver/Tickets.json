@@ -3968,6 +3968,170 @@
           "instrumentation": "静的品質チェック: 合格（11 issues — 全件 boundify継承の意図的console.log/ループ変数f）\n翻訳可能性: 問題なし（全関数動詞句、todo!/panic!/FIXMEなし）\n依存関係: PX-41(reviewed), PX-42(done) — 整合性確認済\n7パターン不完全実装: 全パターン 該当なし\n犯罪: 0件\n[::STUB::]: 2件（対象外ファイル、保留妥当）\nテスト: 883/883 PASS\nBOUNDIFY残骸grep: 0件",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-10"
+        },
+        {
+          "id": 44,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "consolidate-phase-tickets.js — Step 5-3 コアロジック（ガード・バリデーション・後方1パス統合・ID一括振り直し）",
+          "referenceSection": "tickets/specs/0081-consolidate-phase-ticketsjs-step-5-3.md",
+          "background": "split-to-tickets.md の Step 5-2（全フェーズのチケット化完了）後に実行する Step 5-3 の中核スクリプト consolidate-phase-tickets.js を実装する。フェーズ内のチケット数が3未満の場合、後方から前方貪欲に次のフェーズへ全チケットを移譲（マージ）し、フェーズID・チケットIDを一括振り直す。split-to-tickets.md パイプラインの品質を担保するために必須のチケット。",
+          "scope": [
+            "5-3-1 ガード: フェーズ数 < 3 ならスキップ",
+            "5-3-2 バリデーション: 全フェーズの全 nodeIds がチケット化済みであることを確認",
+            "5-3-3 後方1パス統合: tickets.length < 3 のフェーズを後方のフェーズにマージ",
+            "5-3-4/5 フェーズID・チケットID一括振り直し（飛び番防止）",
+            "5-3-8 最終検証: 全フェーズ3以上を確認",
+            "PX-45 の generateRelatedTicketIds() を呼び出して relatedTicketIds 再生成",
+            "PX-46 の update-split-step-status.js prune-phases/renumber-phases を spawnSync 呼び出し"
+          ],
+          "testVerification": [
+            "UT: guardPhaseCount — 5,3,2,1,0フェーズで正しい挙動を確認",
+            "UT: validateAllNodeIdsCovered — 全カバー/未カバー/空の3ケース",
+            "UT: consolidateFromRight — 3未満統合/全3以上/最終フェーズのみ3未満/全フェーズ3未満",
+            "UT: renumberPhaseIds — 空/1フェーズ/複数フェーズ",
+            "UT: renumberTicketIds — id/phaseId の正しい振り直し",
+            "UT: finalValidation — 全条件充足/3未満あり/空配列"
+          ],
+          "testExceptions": [
+            "status.json の実ファイル操作（spawnSync）はモックで代替",
+            "generateRelatedTicketIds() の呼び出し（PX-45）はモックで代替"
+          ],
+          "notes": "レビュー報告書: PX-44/PX-45/PX-46 3チケット一括レビュー\n---\n【Step1】存在確認: ✅ 全3チケット存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ 相互参照矛盾なし\n  - PX-44→PX-45 (依存), PX-44→PX-46 (依存)\n  - PX-45→PX-44 (被依存), PX-46→PX-44 (被依存)\n  - 循環依存: なし\n  - 実装順序: PX-44(Phase A) → PX-45 → PX-46 → PX-44(Phase B/C解決) ✅\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件（全スタブ解決済み）\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ 172/172 PASS\n【Step8】静的品質チェック: ✅ 0 issues（変更ファイルのみ）\n【Step9】翻訳可能性: ✅ 問題なし（17関数全て動詞句、1文字変数なし）\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な成果:\n  - consolidate-phase-tickets.js: Step 5-3 コア（76テスト）\n  - generate-related-ticket-ids.js: relatedTicketIds 機械生成（75テスト）\n  - update-split-step-status.js改修: STEP_ORDER+prune/renumber（21テスト）\n  - split-to-tickets.md: Step 5-3セクション追記\n  - 全 [::STUB::] 解決済み",
+          "relatedTicketIds": "PX-45 (依存: relatedTicketIds 機械生成ロジックを require で呼び出す), PX-46 (依存: update-split-step-status.js の prune-phases/renumber-phases を spawnSync で呼び出す)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "(なし)",
+              "after": ".claude/scripts/tickets/consolidate-phase-tickets.js",
+              "description": "新規スクリプト作成。6つの純粋関数（guardPhaseCount, validateAllNodeIdsCovered, consolidateFromRight, renumberPhaseIds, renumberTicketIds, finalValidation）+ スタブ2つ（regenerateRelatedTicketIds, updateStatusJson）+ mainエントリポイント。"
+            },
+            {
+              "before": "(なし)",
+              "after": "tests/consolidate-phase-tickets.test.cjs",
+              "description": "ユニットテスト作成。9テスト関数・76テストケース（全PASS）。Phase A純粋関数は全分岐カバー。Phase B/Cはモック検証。"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 172/172 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件\n不完全実装: 検出されず",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 45,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "relatedTicketIds 機械生成ロジック — GRAPH.json × nodeIds 直積 + prose整形",
+          "referenceSection": "tickets/specs/0082-relatedticketids-graphjson-nodeids-prose.md",
+          "background": "GRAPH.json の edges と Tickets.json の各チケットの nodeIds の直積から、機械的かつ完全に correct な relatedTicketIds（prose 文字列）を生成する純粋関数 generateRelatedTicketIds() を実装する。現在の relatedTicketIds は AI 手書きの prose で hallucination のリスクがあるが、本ロジックにより完全に決定論的になる。",
+          "scope": [
+            "generateRelatedTicketIds(tickets, graphEdges) 純粋関数の実装",
+            "nodeId→ticketId 逆引きマップの構築",
+            "全エッジ種別（depends_on/implements/constrains/refines/references/relates_to/alternative_to）を対象",
+            "自己参照ガード（同一チケット内エッジをスキップ）",
+            "出力 prose フォーマット: \"[type] ticketId (direction: title)\" を \", \" 連結",
+            "direction の正しい判定（依存先/被依存元（依存元））",
+            "module.exports で関数を公開（PX-44 が require 可能に）"
+          ],
+          "testVerification": [
+            "UT: 単一エッジ same-ticket 自己参照 → 空（ガード）",
+            "UT: 単一エッジ cross-ticket → 双方向に正しい prose",
+            "UT: 複数エッジ cross-ticket → 連結",
+            "UT: 無関係エッジ → 空マップ",
+            "UT: 空の nodeIds / 空の edges → 正常終了",
+            "UT: ID振り直し後 → 新しいIDで正しく再生成",
+            "UT: direction の正確性（from→to / to→from）"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書: PX-44/PX-45/PX-46 3チケット一括レビュー\n---\n【Step1】存在確認: ✅ 全3チケット存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ 相互参照矛盾なし\n  - PX-44→PX-45 (依存), PX-44→PX-46 (依存)\n  - PX-45→PX-44 (被依存), PX-46→PX-44 (被依存)\n  - 循環依存: なし\n  - 実装順序: PX-44(Phase A) → PX-45 → PX-46 → PX-44(Phase B/C解決) ✅\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件（全スタブ解決済み）\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ 172/172 PASS\n【Step8】静的品質チェック: ✅ 0 issues（変更ファイルのみ）\n【Step9】翻訳可能性: ✅ 問題なし（17関数全て動詞句、1文字変数なし）\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な成果:\n  - consolidate-phase-tickets.js: Step 5-3 コア（76テスト）\n  - generate-related-ticket-ids.js: relatedTicketIds 機械生成（75テスト）\n  - update-split-step-status.js改修: STEP_ORDER+prune/renumber（21テスト）\n  - split-to-tickets.md: Step 5-3セクション追記\n  - 全 [::STUB::] 解決済み",
+          "relatedTicketIds": "PX-44 (被依存: consolidate-phase-tickets.js が本関数を require で呼び出す)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "(なし)",
+              "after": ".claude/scripts/tickets/generate-related-ticket-ids.js",
+              "description": "新規スクリプト作成。generateRelatedTicketIds(tickets, graphEdges) 純粋関数 + loadGraphEdgesFromTickets(ticketsPath) 補助関数。12種のエッジ種別に対応、自己参照ガード付き。"
+            },
+            {
+              "before": "(なし)",
+              "after": "tests/generate-related-ticket-ids.test.cjs",
+              "description": "ユニットテスト作成。11テスト関数・75テストケース（全PASS）。全エッジ種別・自己参照・空入力・ID振り直し後を含む。"
+            },
+            {
+              "before": "consolidate-phase-tickets.js: regenerateRelatedTicketIds が [::STUB::] ダミー実装（何もしない）",
+              "after": "consolidate-phase-tickets.js: regenerateRelatedTicketIds が PX-45 の generateRelatedTicketIds を require 呼び出しする実装に置き換え",
+              "description": "PX-44 Phase B スタブ解決。regenerateRelatedTicketIds(phases, graphEdges) にシグネチャ変更。runConsolidation で loadGraphEdgesFromTickets により GRAPH.json からエッジ読込。"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 172/172 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件\n不完全実装: 検出されず",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 46,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "update-split-step-status.js改修 + split-to-tickets.md Step 5-3追記",
+          "referenceSection": "tickets/specs/0083-update-split-step-statusjs-split-to-ticketsmd-step-5-3.md",
+          "background": "Step 5-3 追加に伴うインフラ整備。update-split-step-status.js に 5-3 を STEP_ORDER に追加し、prune-phases/renumber-phases の2サブコマンドを新設する。split-to-tickets.md に Step 5-3 の全セクションを追記する。",
+          "scope": [
+            "STEP_ORDER に \"5-3\" を追加（5-2と6の間）",
+            "ALLOWED_SUBCOMMANDS に prune-phases / renumber-phases を追加",
+            "executePrunePhases(status, phaseIdsToRemove) の実装（stdin から JSON 配列入力）",
+            "executeRenumberPhases(status, phaseIdMapping) の実装（stdin から JSON オブジェクト入力）",
+            "main() switch 文への case 追加",
+            "module.exports への関数エクスポート追加",
+            "split-to-tickets.md に \"Step 5-3: フェーズ統合\" セクション追記",
+            "エラー時復帰手順（reset-to-step 5-3）の記述"
+          ],
+          "testVerification": [
+            "UT: STEP_ORDER に \"5-3\" が含まれる",
+            "UT: ALLOWED_SUBCOMMANDS に prune-phases/renumber-phases が含まれる",
+            "UT: end-step \"5-2\" の next step が \"5-3\"",
+            "UT: end-step \"5-3\" の next step が \"6\"",
+            "UT: executePrunePhases — 単一/複数フェーズ削除、currentStep 調整",
+            "UT: executeRenumberPhases — 単一/複数マッピング、currentStep 変換"
+          ],
+          "testExceptions": [
+            "split-to-tickets.md の Markdown 更新は目視確認"
+          ],
+          "notes": "レビュー報告書: PX-44/PX-45/PX-46 3チケット一括レビュー\n---\n【Step1】存在確認: ✅ 全3チケット存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ 相互参照矛盾なし\n  - PX-44→PX-45 (依存), PX-44→PX-46 (依存)\n  - PX-45→PX-44 (被依存), PX-46→PX-44 (被依存)\n  - 循環依存: なし\n  - 実装順序: PX-44(Phase A) → PX-45 → PX-46 → PX-44(Phase B/C解決) ✅\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件（全スタブ解決済み）\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ 172/172 PASS\n【Step8】静的品質チェック: ✅ 0 issues（変更ファイルのみ）\n【Step9】翻訳可能性: ✅ 問題なし（17関数全て動詞句、1文字変数なし）\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な成果:\n  - consolidate-phase-tickets.js: Step 5-3 コア（76テスト）\n  - generate-related-ticket-ids.js: relatedTicketIds 機械生成（75テスト）\n  - update-split-step-status.js改修: STEP_ORDER+prune/renumber（21テスト）\n  - split-to-tickets.md: Step 5-3セクション追記\n  - 全 [::STUB::] 解決済み",
+          "relatedTicketIds": "PX-44 (被依存: consolidate-phase-tickets.js が prune-phases/renumber-phases を spawnSync 呼び出し)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "STEP_ORDER = [..., \"5-1\", \"5-2\", \"6\"]",
+              "after": "STEP_ORDER = [..., \"5-1\", \"5-2\", \"5-3\", \"6\"]",
+              "description": "update-split-step-status.js: STEP_ORDER に \"5-3\" を追加"
+            },
+            {
+              "before": "ALLOWED_SUBCOMMANDS = [7個]",
+              "after": "ALLOWED_SUBCOMMANDS = [9個: +prune-phases, +renumber-phases]",
+              "description": "update-split-step-status.js: ALLOWED_SUBCOMMANDS に prune-phases / renumber-phases を追加"
+            },
+            {
+              "before": "executeBackup まで（6関数）",
+              "after": "executePrunePhases / executeRenumberPhases を追加（8関数）",
+              "description": "update-split-step-status.js: 2新規サブコマンド関数 + switch case + exports + stepId不要条件に追加"
+            },
+            {
+              "before": "split-to-tickets.md: Step 5-2 の直後が Step 6",
+              "after": "split-to-tickets.md: Step 5-2 と Step 6 の間に \"Step 5-3: フェーズ統合\" を挿入",
+              "description": "split-to-tickets.md: Step 5-3 セクション追記（開始/consolidateコマンド/終了/エラー復帰）"
+            },
+            {
+              "before": "consolidate-phase-tickets.js: updateStatusJson が [::STUB::] ダミー（何もしない）",
+              "after": "consolidate-phase-tickets.js: updateStatusJson が spawnSync で prune-phases/renumber-phases を呼び出す実装に置き換え",
+              "description": "consolidate-phase-tickets.js Phase C スタブ解決。updateStatusJson の [::STUB::] PX-46 削除。"
+            },
+            {
+              "before": "(なし)",
+              "after": "tests/update-split-step-status-5-3.test.cjs",
+              "description": "ユニットテスト作成。7テスト関数・21テストケース（全PASS）。"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし（全関数動詞句、1文字変数なし）\nテスト: 172/172 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件\n不完全実装: 検出されず",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
         }
       ]
     },
