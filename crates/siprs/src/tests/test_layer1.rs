@@ -9,7 +9,7 @@
 //
 // Mapped node(s):
 //   - NODE_ID=N0124:  §43.1 Layer1 Unit Tests
-//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0124　--hops=2)
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0124 --hops=2)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -18,13 +18,12 @@
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+    use super::*;
 
-	#[test]
-	fn test_example() {
-		// TODO: write test
-	}
+    #[test]
+    fn test_example() {
+        // TODO: write test
+    }
 }
-
 
 // TODO: [::STUB::] MUST implement NODE_ID=N0124: §43.1 Layer1 Unit Tests

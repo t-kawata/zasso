@@ -9,13 +9,13 @@
 //
 // Mapped node(s):
 //   - NODE_ID=N0018:  §8.3 SipClient APIメソッド
-//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0018　--hops=2)
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0018 --hops=2)
 //
 // Cross-referenced design context:
 //   - requirement/§42 validationフェーズ [NODE_ID=N0122]
 //     (precedes → src/concurrency_model/sipclient_methods.rs)
 //     (depends_on ← src/config/account_validation.rs)
-//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0122　--hops=2)
+//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0122 --hops=2)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -23,6 +23,5 @@
 // ============================================================================
 
 pub trait Service {}
-
 
 // TODO: [::STUB::] MUST implement NODE_ID=N0018: §8.3 SipClient APIメソッド

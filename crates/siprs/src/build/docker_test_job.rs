@@ -9,7 +9,7 @@
 //
 // Mapped node(s):
 //   - NODE_ID=N0133:  M20 追補: Docker Integration Test Job
-//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0133　--hops=2)
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0133 --hops=2)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -17,8 +17,7 @@
 // ============================================================================
 
 fn main() {
-	// TODO: implement build/CI entry point
+    // TODO: implement build/CI entry point
 }
-
 
 // TODO: [::STUB::] MUST implement NODE_ID=N0133: M20 追補: Docker Integration Test Job

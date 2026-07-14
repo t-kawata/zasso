@@ -9,12 +9,12 @@
 //
 // Mapped node(s):
 //   - NODE_ID=N0173:  §59.1 TLS証明書管理
-//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0173　--hops=2)
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0173 --hops=2)
 //
 // Cross-referenced design context:
 //   - requirement/§4 準拠要件 [NODE_ID=N0007]
 //     (part_of ← src/security/tls_cert_management.rs)
-//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0007　--hops=2)
+//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0007 --hops=2)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -22,8 +22,7 @@
 // ============================================================================
 
 pub fn authorize() {
-	// TODO: implement authorization
+    // TODO: implement authorization
 }
-
 
 // TODO: [::STUB::] MUST implement NODE_ID=N0173: §59.1 TLS証明書管理
