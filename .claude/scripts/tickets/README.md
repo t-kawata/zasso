@@ -4,14 +4,13 @@
 
 ## スクリプトの実行方法
 
-すべてのスクリプトは `$_R/scripts/tickets/` に配置されている。`$_R` の取得方法は以下の通り：
+すべてのスクリプトは `.claude/scripts/tickets/` に配置されている。カレントディレクトリ（プロジェクトルートまたは tools/conver など）からの相対パスで実行する：
 
 ```bash
-_R="$(git rev-parse --show-toplevel)/.claude"
-node "$_R/scripts/tickets/<script-name>.js" "<args>"
+node ".claude/scripts/tickets/<script-name>.js" "<args>"
 ```
 
-`_R` はプロジェクトルートからの絶対パスで取得する（`cd` でカレントディレクトリが変わっても正しく `.claude/` を参照できる）。
+絶対パスが必要な場合は `$(git rev-parse --show-toplevel)` でプロジェクトルートを取得し、その下の `.claude/scripts/tickets/` を指定する。
 
 ## 出力形式
 
@@ -71,6 +70,8 @@ node "$_R/scripts/tickets/<script-name>.js" "<args>"
 | 26 | `promote-draft.js` | 下書き → spec 昇格 |
 | 27 | `ensure-ticket-structure.js` | ディレクトリ構造初期化 |
 | 28 | `resync-queue.js` | キュー再同期 |
+| 29 | `ensure-tickets-json.js` | Tickets.json 存在保証（なければテンプレート + PX phase 自動作成）。`make-ticket` Step 3 から使用 |
+| 30 | `resolve-ticket-context.js` | コンテキスト変数一括確定（TICKET_KEY / DOC_PATH / GRAPH_PATH / DIRS_TREE_PATH / PIPELINE_AVAILABLE）。構造化JSON（instruction フィールド）を出力。`make-ticket` Step 3 から使用 |
 
 ---
 
@@ -878,3 +879,109 @@ node "$_R/scripts/tickets/resync-queue.js"
 ```
 
 **いつ使うか**: キューと実ファイルの間に不整合が発生した場合。`validate-structure.js` で `orphan_queue_entry` や `missing_queue_entry` が報告されたときに修復手段として実行する。
+
+---
+
+### 29. `ensure-tickets-json.js`
+
+**用途**: Tickets.json の存在を保証する。存在しない場合は `write-tickets-json-template.js` + `add-px-phase.js` を子プロセスで呼び出し、テンプレートと PX phase を自動作成する。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| `--dir=<path>` | ディレクトリパス | 任意 | Tickets.json を配置するディレクトリ（省略時は CWD） |
+
+**使用例**:
+```bash
+# CWD に Tickets.json を保証
+node .claude/scripts/tickets/ensure-tickets-json.js
+
+# 特定ディレクトリに保証
+node .claude/scripts/tickets/ensure-tickets-json.js --dir=/path/to/project
+```
+
+**出力（既存時）**:
+```json
+{ "success": true, "path": "/path/to/Tickets.json", "existed": true, "instruction": "..." }
+```
+
+**出力（新規作成時）**:
+```json
+{ "success": true, "path": "/path/to/Tickets.json", "existed": false, "instruction": "add-ticket.js でチケットを追加してください。" }
+```
+
+**いつ使うか**: `/make-ticket` の Step 3 で Tickets.json の存在確認と保証のために使用する。`instruction` フィールドに従い、AI は次のアクションを機械的に判断する。
+
+---
+
+### 30. `resolve-ticket-context.js`
+
+**用途**: `--tickets=<path>` と `--ticket-key=<key>` から、TICKET_KEY / DOC_PATH / GRAPH_PATH / DIRS_TREE_PATH / PIPELINE_AVAILABLE を一括確定する。出力は機械的に解析可能な JSON（`instruction` フィールドで AI に次アクションを指示）。
+
+**引数**:
+
+| argv | 値 | 必須 | 説明 |
+|------|-----|------|------|
+| `--tickets=<path>` | Tickets.json のパス | 必須 | チケット情報の参照元 |
+| `--ticket-key=<key>` | チケットキー（例: P0-1） | 任意 | 省略時は `missing: ["ticketKey"]` を返す |
+
+**使用例**:
+```bash
+node .claude/scripts/tickets/resolve-ticket-context.js \
+  --tickets=Tickets.json \
+  --ticket-key=PX-1
+```
+
+**出力（全情報揃っている場合）**:
+```json
+{
+  "success": true,
+  "ticketKey": "P0-1",
+  "ticketKeySource": "argument",
+  "docPath": "/path/to/RFC-ROOT.md",
+  "docPathSource": "metadata.source",
+  "graphPath": "/path/to/RFC-ROOT-GRAPH.json",
+  "dirsTreePath": "/path/to/RFC-ROOT-Dirs-Tree.json",
+  "pipelineAvailable": true,
+  "available": ["ticketKey", "docPath", "graphPath", "dirsTreePath"],
+  "missing": [],
+  "instruction": "パイプライン情報が全て揃っています。Step 7 で機械的書き込みを実行できます。"
+}
+```
+
+**出力（パイプライン情報なし — スポットチケット）**:
+```json
+{
+  "success": true,
+  "ticketKey": "PX-1",
+  "pipelineAvailable": false,
+  "available": ["ticketKey"],
+  "missing": ["docPath", "graphPath", "dirsTreePath"],
+  "instruction": "パイプライン情報がありません（metadata.source 未設定、スポットチケット）。Step 7 はスキップしてください。"
+}
+```
+
+**いつ使うか**: `/make-ticket` の Step 3 で、チケット追加直後に実行し、後続の Step 4（調査範囲）と Step 7（機械的書き込み可否）の分岐条件を確定するために使用する。
+
+**DOC_PATH 解決ロジック**:
+
+`metadata.source` の値は Tickets.json の生成経路によって意味が異なる。`resolveDocPath()` が以下のルールで自動判別する:
+
+| metadata.source の状態 | 判定 | DOC_PATH 導出方法 |
+|------------------------|------|-------------------|
+| `.md` ファイルとして実在 | formulate-tickets 経由 | そのまま使用 |
+| `.json` ファイルとして実在 | split-to-tickets (phasify) 経由 | `-GRAPH.json` → `.md` に置換 |
+| 空文字列 | スポットモード（新規作成） | DOC_PATH なし |
+| ファイルが実在しない | パス切れ | DOC_PATH なし |
+
+**instruction の分岐一覧**:
+
+| 条件 | instruction |
+|------|-------------|
+| `--ticket-key` 未指定 | `add-ticket.js でチケットを追加し、--ticket-key を指定して再実行` |
+| `docPathSource=none` | `スポットチケット（metadata.source 未設定）。Step 7 はスキップ` |
+| `docPathSource=not_found` | `指定されたファイルが存在しません。パスを確認` |
+| `docPathSource=unknown` | `metadata.source の形式が不明（.md でも .json でもない）` |
+| GRAPH/Dirs-Tree 不足 | `パイプライン情報が不完全。Step 7 はスキップ` |
+| 全情報揃っている | `全て揃っています。Step 7 で機械的書き込みを実行` |

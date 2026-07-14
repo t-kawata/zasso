@@ -366,7 +366,8 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js \
   "$TICKETS_PATH" \
   "$DIRS_TREE_PATH" \
-  "P{n}"
+  "P{n}" \
+  "$GRAPH_PATH"
 ```
 
 #### チケットのフィールド定義・詳細度指針

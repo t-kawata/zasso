@@ -148,20 +148,23 @@ const COMPLEX_GRAPH = {
 // --- テストスイート ---
 
 describe('KIND_FILE_RULES', () => {
-  it('should have 5 non-inline kinds (prose kinds removed)', () => {
+  it('should have 8 rule-driven kinds (prose + architecture excluded)', () => {
     const expectedKinds = [
       'config', 'error_policy', 'security',
       'test_policy', 'build_ci',
+      'api_contract', 'data_model', 'state_machine',
     ];
     for (const kind of expectedKinds) {
       assert.ok(typeof KIND_FILE_RULES[kind] === 'string',
         `kind "${kind}" が KIND_FILE_RULES に定義されていません`);
     }
-    // prose 系 kind は削除されている
+    // prose 系 kind は除外されている
     assert.equal(KIND_FILE_RULES.rationale, undefined,
-      'rationale は削除されている');
+      'rationale は除外されている');
     assert.equal(KIND_FILE_RULES.glossary, undefined,
-      'glossary は削除されている');
+      'glossary は除外されている');
+    assert.equal(KIND_FILE_RULES.requirement, undefined,
+      'requirement は除外されている');
     assert.equal(KIND_FILE_RULES.requirement, undefined,
       'requirement は削除されている');
   });
@@ -186,12 +189,12 @@ describe('KIND_FILE_RULES', () => {
     assert.equal(KIND_FILE_RULES.architecture, undefined);
   });
 
-  it('api_contract は KIND_FILE_RULES に含まれない', () => {
-    assert.equal(KIND_FILE_RULES.api_contract, undefined);
+  it('api_contract は KIND_FILE_RULES に含まれる', () => {
+    assert.equal(KIND_FILE_RULES.api_contract, 'api');
   });
 
-  it('data_model は KIND_FILE_RULES に含まれない', () => {
-    assert.equal(KIND_FILE_RULES.data_model, undefined);
+  it('data_model は KIND_FILE_RULES に含まれる', () => {
+    assert.equal(KIND_FILE_RULES.data_model, 'model');
   });
 });
 
@@ -259,22 +262,22 @@ describe('resolveDirForNode', () => {
     assert.equal(dir, null);
   });
 
-  it('api_contract kind → null（親ドメイン内インライン）', () => {
+  it('api_contract kind → api（KIND_FILE_RULES）', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'a', kind: 'api_contract' }, hierarchy);
-    assert.equal(dir, null);
+    assert.equal(dir, 'api');
   });
 
-  it('data_model kind → null（親ドメイン内インライン）', () => {
+  it('data_model kind → model（KIND_FILE_RULES）', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'd', kind: 'data_model' }, hierarchy);
-    assert.equal(dir, null);
+    assert.equal(dir, 'model');
   });
 
-  it('state_machine kind → null（親ドメイン内インライン）', () => {
+  it('state_machine kind → state（KIND_FILE_RULES）', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 's', kind: 'state_machine' }, hierarchy);
-    assert.equal(dir, null);
+    assert.equal(dir, 'state');
   });
 
   it('未定義 kind は kind 名をフォールバックする', () => {
@@ -290,7 +293,7 @@ describe('resolveNodeToDirMap', () => {
     const map = resolveNodeToDirMap(SIMPLE_GRAPH, hierarchy);
     assert.ok(map['root'] === null);          // architecture → 骨格
     assert.ok(map['child1'] === null);        // architecture → 骨格
-    assert.ok(map['child2'] === null);        // data_model → インライン
+    assert.equal(map['child2'], 'model');       // data_model → model/
     assert.equal(map['config1'], 'config');    // config → config/
     assert.equal(map['error1'], 'error');      // error_policy → error/
   });
@@ -899,8 +902,8 @@ describe('buildDirectoryTree hierarchy', () => {
     assert.deepEqual(subDirNames, ['build', 'config', 'security']);
   });
 
-  it('inline kind（data_model）は従来通り親ディレクトリにファイルとして配置される', () => {
-    const INLINE_GRAPH = {
+  it('data_model は architecture 子として配置される', () => {
+    const RULE_GRAPH = {
       nodes: [
         { id: 'root', title: 'Root', kind: 'architecture', slug: 'root' },
         { id: 'model', title: 'Model', kind: 'data_model', slug: 'model' },
@@ -909,19 +912,18 @@ describe('buildDirectoryTree hierarchy', () => {
         { from: 'model', to: 'root', type: 'part_of' },
       ],
     };
-    const result = buildDirectoryTree(INLINE_GRAPH, 'rust', helpers);
+    const result = buildDirectoryTree(RULE_GRAPH, 'rust', helpers);
     assert.ok(result.tree);
 
     const rootDir = result.tree.children.find(c => c.name === 'root');
     assert.ok(rootDir);
 
-    // data_model はインライン配置 → root/ 直下に model.rs がある
+    // data_model は root 配下に model.rs として配置される
     const hasModelFile = rootDir.children.some(c => c.type === 'file' && c.name === 'model.rs');
-    assert.ok(hasModelFile, 'data_model が inline ファイルとして配置される');
+    assert.ok(hasModelFile, 'root/model.rs が存在する');
 
-    // data_model がサブディレクトリとして出現しない
-    const hasModelDir = rootDir.children.some(c => c.type === 'directory' && c.name === 'model');
-    assert.ok(!hasModelDir, 'data_model がサブディレクトリとして出現しない');
+    // nodeToDir に model ノードのマッピングがある
+    assert.equal(result.nodeToDir['model'], 'model');
   });
 
   it('フラット化後も全ファイルが src/ 直下に存在する', () => {

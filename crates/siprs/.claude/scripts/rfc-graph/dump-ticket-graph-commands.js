@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveSpecPath } = require('../lib/resolve-spec-path');
 
 // ============================================================
 // 定数定義
@@ -278,58 +279,30 @@ function formatNoGraphSection() {
 // ファイル書き込み
 // ============================================================
 
+// resolveSpecPath は scripts/lib/resolve-spec-path.js の共通モジュールから提供される。
+// referenceSection ベースのパス解決を行い、推測による誤追記を防止する。
+
 /**
- * spec ファイルのパスをチケットキーから導出する
+ * spec ファイルにセクションを追記する（冪等）
  *
- * @param {string} ticketKey — チケットキー（例: P0-1）
- * @returns {string|null} spec ファイルのパス（見つからない場合は null）
- */
-function resolveSpecPath(ticketKey) {
-  // spec ディレクトリの候補
-  const specDirs = [
-    'tickets/specs',
-  ];
-
-  // 実際に存在するディレクトリを探す
-  let specDir = null;
-  for (const dir of specDirs) {
-    if (fs.existsSync(dir)) {
-      specDir = dir;
-      break;
-    }
-  }
-
-  if (!specDir) {
-    return null;
-  }
-
-  // spec ディレクトリ内のファイルを検索
-  let files;
-  try {
-    files = fs.readdirSync(specDir);
-  } catch {
-    return null;
-  }
-
-  // チケット番号（例: P0-1 → 0-1 を含む）でマッチするファイルを探す
-  // spec ファイル名の先頭4桁がチケット番号に対応
-  // P0-1 → 0001, P0-2 → 0002 ...
-  // ただし ticket.ticket の id フィールドが整数 ID
-  // 単純に ticketKey（P0-1）の形式から spec ファイル内の frontmatter で検索するのは難しい
-  // → 一致しない場合は null を返し、spec なしとして扱う
-  return null;
-}
-
-/**
- * spec ファイルにセクションを追記する
+ * 既に同一のセクション見出しが spec ファイル内に存在する場合は追記をスキップする。
  *
  * @param {string} specPath — spec ファイルのパス
  * @param {string} section — 追記するセクション文字列
+ * @returns {boolean} 追記した場合は true、スキップした場合は false
  */
 function appendToSpec(specPath, section) {
   const existingContent = fs.readFileSync(specPath, 'utf8');
+
+  // 冪等性: 既に同一セクション見出しが存在する場合はスキップ
+  const sectionHeading = section.split('\n')[0].trim();
+  if (existingContent.includes(sectionHeading)) {
+    return false;
+  }
+
   const newContent = existingContent.trimEnd() + '\n\n' + section + '\n';
   fs.writeFileSync(specPath, newContent, 'utf8');
+  return true;
 }
 
 // ============================================================
@@ -450,7 +423,7 @@ function main() {
     // 各チケットの spec があれば追記
     const writtenSpecs = [];
     for (const entry of nodeIdEntries) {
-      const specPath = resolveSpecPath(entry.ticketKey);
+      const specPath = resolveSpecPath(entry.ticketKey, ticketsPath);
       if (specPath) {
         try {
           const sectionForTicket = formatSection(
@@ -491,6 +464,5 @@ module.exports = {
   formatSection,
   formatNoGraphSection,
   appendToSpec,
-  resolveSpecPath,
   printUsage,
 };

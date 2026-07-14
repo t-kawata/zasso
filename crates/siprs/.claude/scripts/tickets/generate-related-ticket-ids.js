@@ -63,23 +63,25 @@ function generateRelatedTicketIds(tickets, graphEdges) {
     return result;
   }
 
-  // nodeId → ticketId の逆引きマップ（全チケットを事前に走査）
+  // nodeId → { id, phaseId } の逆引きマップ（同一数値IDを異なるフェーズで区別）
   const nodeToTicket = {};
   for (const ticket of tickets) {
     if (!Array.isArray(ticket.nodeIds)) continue;
     for (const nodeId of ticket.nodeIds) {
-      nodeToTicket[nodeId] = ticket.id;
+      nodeToTicket[nodeId] = { id: ticket.id, phaseId: ticket.phaseId };
     }
   }
 
-  // ticket.id → ticket のマップ（タイトル等の取得用）
+  // 複合キー "phaseId:id" → ticket のマップ（全チケットを一意に識別）
   const ticketMap = {};
   for (const ticket of tickets) {
-    ticketMap[ticket.id] = ticket;
+    const key = ticket.phaseId + ':' + ticket.id;
+    ticketMap[key] = ticket;
   }
 
   // 各チケットについて、その nodeIds から出入りするエッジを走査
   for (const ticket of tickets) {
+    const ticketKey = ticket.phaseId + ':' + ticket.id;
     const ticketNodeSet = new Set(ticket.nodeIds || []);
     const relations = [];
 
@@ -89,30 +91,34 @@ function generateRelatedTicketIds(tickets, graphEdges) {
       const isFrom = ticketNodeSet.has(edge.from);
       const isTo = ticketNodeSet.has(edge.to);
 
-      // このチケットに関係ないエッジはスキップ
       if (!isFrom && !isTo) continue;
 
-      // 自チケットが持つ側と反対側のノードを特定
+      // 相手ノードが属するチケットを特定
       const targetNodeId = isFrom ? edge.to : edge.from;
-      const targetTicketId = nodeToTicket[targetNodeId];
+      const targetInfo = nodeToTicket[targetNodeId];
+      if (!targetInfo) continue;
 
-      // 自己参照ガード: 同一チケット内のノード間エッジはスキップ
-      if (!targetTicketId || targetTicketId === ticket.id) continue;
+      // 自己参照ガード: 同一 (phaseId, ticketId) のエッジはスキップ
+      if (targetInfo.phaseId === ticket.phaseId && targetInfo.id === ticket.id) continue;
 
       // 方向ラベルの決定
       const direction = isFrom
         ? (DIRECTION_LABELS[edge.type] || edge.type)
         : '被依存元（依存元）';
 
-      const targetTitle = (ticketMap[targetTicketId] || {}).title || '';
+      // 表示用チケットID: "P{phaseId}-{ticketId}" で一意に特定可能
+      const displayId = 'P' + targetInfo.phaseId + '-' + targetInfo.id;
+      const targetKey = targetInfo.phaseId + ':' + targetInfo.id;
+      const targetTitle = (ticketMap[targetKey] || {}).title || '';
+
       relations.push(
-        '[' + edge.type + '] ' + targetTicketId +
+        '[' + edge.type + '] ' + displayId +
         ' (' + direction + ': ' + targetTitle + ')'
       );
     }
 
     if (relations.length > 0) {
-      result.set(ticket.id, relations.join(', '));
+      result.set(ticketKey, relations.join(', '));
     }
   }
 

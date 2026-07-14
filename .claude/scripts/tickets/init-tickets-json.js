@@ -65,11 +65,19 @@ function main() {
   const rfcName = path.basename(resolvedRfcPath, path.extname(resolvedRfcPath));
   const analyzedSections = generateAnalyzedSections(resolvedRfcPath);
 
+  const graphPath = resolvedRfcPath.replace(/\.md$/, '-GRAPH.json');
+  const dirsTreePath = resolvedRfcPath.replace(/\.md$/, '-Dirs-Tree.json');
+
   const metadata = JSON.stringify({
     title: rfcName + " 実装チケット分解設計書",
     source: resolvedRfcPath,
     generatedAt: generatedAt,
     analyzedSections: analyzedSections,
+    resolvedPaths: {
+      rfcPath: resolvedRfcPath,
+      graphPath: graphPath,
+      dirsTreePath: dirsTreePath,
+    },
   });
 
   const templateScript = path.join(

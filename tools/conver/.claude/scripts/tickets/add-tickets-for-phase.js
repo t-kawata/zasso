@@ -66,6 +66,48 @@ function resolveDefaultFiles(tickets, nodeToDirMap) {
 }
 
 // ============================================================
+// referenceSection 自動解決（GRAPH.json の § マーカーから機械生成）
+// ============================================================
+
+/** § セクションマーカーの正規表現（例: §1, §1a, §2.1, §27a） */
+const SECTION_PATTERN = /§[0-9]+(?:\.[0-9]+)?[a-z]?/;
+
+/**
+ * チケットの nodeIds から GRAPH.json のノード title の § マーカーを抽出し、
+ * referenceSection を機械生成する。
+ *
+ * 出力例: "RFC-ROOT.md (§1, §1a, §2, §4.1)"
+ * § マーカーがない場合は空文字列を返す。
+ *
+ * @param {string[]} nodeIds — チケットに属するノードID配列
+ * @param {Object[]} graphNodes — GRAPH.json の nodes 配列（各要素に id と title）
+ * @param {string} sourceFile — GRAPH.json の sourceFile（RFCファイルパス、拡張子除去）
+ * @returns {string} 生成された referenceSection
+ */
+function resolveReferenceSection(nodeIds, graphNodes, sourceFile) {
+  const sections = new Set();
+  for (const nodeId of (nodeIds || [])) {
+    const node = graphNodes.find(function(n) { return n.id === nodeId; });
+    if (!node) continue;
+    const match = node.title.match(SECTION_PATTERN);
+    if (match) sections.add(match[0]);
+  }
+  if (sections.size === 0) return '';
+  const sorted = Array.from(sections).sort(function(a, b) {
+    // 数値部で比較: §1a → 1, §2.1 → 2.1, §10 → 10
+    const anum = parseFloat(a.replace(/[^0-9.]/g, '')) || 0;
+    const bnum = parseFloat(b.replace(/[^0-9.]/g, '')) || 0;
+    if (anum !== bnum) return anum - bnum;
+    // 同一数値の接尾辞比較: §1 < §1a
+    const asuf = a.match(/[a-z]$/) ? a.slice(-1) : '';
+    const bsuf = b.match(/[a-z]$/) ? b.slice(-1) : '';
+    return asuf.localeCompare(bsuf);
+  });
+  const basename = sourceFile.replace(/\.md$/, '');
+  return basename + ' (' + sorted.join(', ') + ')';
+}
+
+// ============================================================
 // nodeIds過不足検証
 // ============================================================
 
@@ -130,18 +172,20 @@ function parseCliArguments(argv) {
   const ticketsJsonPath = argv[2] || null;
   const dirsTreePath = argv[3] || null;
   const phaseArg = argv[4] || null;
+  const graphPath = argv[5] || null;
 
   if (!ticketsJsonPath || !dirsTreePath || !phaseArg) {
     return {
       ticketsJsonPath: null,
       dirsTreePath: null,
       phaseArg: null,
+      graphPath: null,
       error:
-        "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <Dirs-Tree.json> <P{id}>",
+        "Usage: echo '<tickets-array-json>' | node add-tickets-for-phase.js <Tickets.json> <Dirs-Tree.json> <P{id}> [GRAPH.json]",
     };
   }
 
-  return { ticketsJsonPath, dirsTreePath, phaseArg, error: null };
+  return { ticketsJsonPath, dirsTreePath, phaseArg, graphPath, error: null };
 }
 
 function main() {
@@ -151,7 +195,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  const { ticketsJsonPath, dirsTreePath, phaseArg } = parsed;
+  const { ticketsJsonPath, dirsTreePath, phaseArg, graphPath } = parsed;
 
   // 1. stdin からチケット配列を読み込み
   let ticketsInput;
@@ -201,6 +245,28 @@ function main() {
   }
   const nodeToDirMap = buildNodeToDirMap(dirsTreeData);
   resolveDefaultFiles(ticketsInput, nodeToDirMap);
+
+  // 3b. GRAPH.json から referenceSection を自動生成
+  if (graphPath) {
+    try {
+      const resolvedGraphPath = path.resolve(graphPath);
+      if (fs.existsSync(resolvedGraphPath)) {
+        const graphData = JSON.parse(fs.readFileSync(resolvedGraphPath, 'utf8'));
+        const graphNodes = graphData.nodes || [];
+        const sourceFile = graphData.sourceFile || '';
+        for (const ticket of ticketsInput) {
+          const refSection = resolveReferenceSection(ticket.nodeIds, graphNodes, sourceFile);
+          if (refSection) {
+            ticket.referenceSection = refSection;
+          }
+        }
+      } else {
+        console.warn('[WARN] GRAPH.json が見つかりません: ' + resolvedGraphPath);
+      }
+    } catch (e) {
+      console.warn('[WARN] GRAPH.json の読み込みに失敗しました: ' + e.message);
+    }
+  }
 
   // 4. Tickets.json を読み込み、フェーズを解決
   const resolvedPath = path.resolve(ticketsJsonPath);
@@ -288,4 +354,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyNodeCoverage, resolveDefaultFiles, parseCliArguments };
+module.exports = { verifyNodeCoverage, resolveDefaultFiles, resolveReferenceSection, parseCliArguments };

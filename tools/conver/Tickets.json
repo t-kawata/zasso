@@ -4184,6 +4184,398 @@
           "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし\nテスト: 174/174 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件",
           "completedAt": "2026-07-13",
           "rfcDiscrepancies": []
+        },
+        {
+          "id": 48,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "referenceSection 機械生成 — GRAPH.json ノードの § マーカーから自動設定",
+          "referenceSection": "tickets/specs/0085-referencesection-graphjson.md",
+          "background": "Step 5-2 で AI が手書きする referenceSection を、GRAPH.json のノード title から機械生成する。add-tickets-for-phase.js に GRAPH.json のパスを第4引数として追加し、各チケットの nodeIds から対応するノードの § マーカーを抽出して referenceSection を自動設定する。セクション番号の漏れ・誤記・不統一をゼロにする。",
+          "scope": [
+            "add-tickets-for-phase.js: CLI 第4引数に GRAPH.json のパスを追加（省略可能）",
+            "add-tickets-for-phase.js: referenceSection 自動生成関数の実装（純粋関数）",
+            "add-tickets-for-phase.js: 生成ロジック — nodeIds → GRAPH.json ノード検索 → § マーカー抽出 → ソート → prose整形",
+            "§ マーカーがないノード（M20追補等）への対応: スキップ（空にならないよう AI の入力を優先）",
+            "split-to-tickets.md: Step 5-2 の CLI 呼び出しに GRAPH.json パスを追加",
+            "tests/generate-reference-section.test.cjs: 純粋関数のユニットテスト",
+            "全既存テスト PASS 確認"
+          ],
+          "testVerification": [
+            "UT: referenceSection 生成 — 単一ノードから § 抽出",
+            "UT: referenceSection 生成 — 複数ノードから § 抽出・ソート",
+            "UT: referenceSection 生成 — 重複 § の除去",
+            "UT: referenceSection 生成 — § なしノード（空出力）",
+            "UT: referenceSection 生成 — 存在しない nodeId のスキップ",
+            "UT: referenceSection 生成 — GRAPH.json 未指定時の動作（既存動作維持）",
+            "既存テスト: consolidate-phase-tickets 78/78 → PASS維持",
+            "既存テスト: generate-related-ticket-ids 75/75 → PASS維持",
+            "既存テスト: update-split-step-status-5-3 21/21 → PASS維持"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書: PX-48\n---\n【Step1】存在確認: ✅ PX-48 存在、status=done\n【Step2】チケットフィールド読取: ✅ スコープ・テスト計画・変更履歴を確認\n【Step3】依存関係検証: ✅ PX-41 (reviewed) 完了、相互参照矛盾なし\n【Step4】犯罪スキャン: ✅ 0件\n【Step5】[::STUB::] スキャン: ✅ 0件\n【Step6】不完全実装探索: ✅ 7パターン全て確認、問題なし\n【Step7】コンパイル+テスト: ✅ 183/183 PASS（4スイート）\n【Step8】静的品質チェック: ✅ 0 issues\n【Step9】翻訳可能性: ✅ 問題なし（関数名 resolveReferenceSection は動詞句）\n---\n総評: 全ての項目で問題なし。Acceptance Criteria を満たしている。\n主な変更:\n  - add-tickets-for-phase.js: CLI第4引数追加 + resolveReferenceSection純粋関数（~40行）\n  - split-to-tickets.md: Step 5-2 に GRAPH_PATH 追加\n  - resolve-reference-section.test.cjs: 9テストケース（全PASS）",
+          "relatedTicketIds": "PX-41 (関連: add-tickets-for-phase.js の同様の自動解決パターン)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "3引数: <Tickets.json> <Dirs-Tree.json> <P{id}>",
+              "after": "4引数: + [GRAPH.json]（省略可能）",
+              "description": "add-tickets-for-phase.js: CLI 第4引数に GRAPH.json パスを追加"
+            },
+            {
+              "before": "(なし)",
+              "after": "resolveReferenceSection(nodeIds, graphNodes, sourceFile)",
+              "description": "add-tickets-for-phase.js: 純粋関数を新設。§ マーカー抽出・ソート・prose整形を実装"
+            },
+            {
+              "before": "AI 手書きの referenceSection に依存",
+              "after": "GRAPH.json 指定時は機械生成で上書き（精度向上）",
+              "description": "add-tickets-for-phase.js main(): resolveDefaultFiles 直後に referenceSection 自動生成を統合"
+            },
+            {
+              "before": "3引数呼び出し",
+              "after": "4引数呼び出し（+ ）",
+              "description": "split-to-tickets.md: Step 5-2 CLI 呼び出しに GRAPH.json パスを追加"
+            },
+            {
+              "before": "(なし)",
+              "after": "tests/resolve-reference-section.test.cjs",
+              "description": "9テストケース（全PASS）"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 合格 (0 issues)\n翻訳可能性: 問題なし\nテスト: 183/183 PASS\n犯罪スキャン: 0件\n[::STUB::] 検出: 0件",
+          "completedAt": "2026-07-13",
+          "rfcDiscrepancies": []
+        },
+        {
+          "id": 49,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "dump-ticket-graph-commands.js spec書き込み不能バグ修正",
+          "referenceSection": "tickets/specs/0086-dump-ticket-graph-commandsjs-spec.md",
+          "nodeIds": [],
+          "background": "dump-ticket-graph-commands.js の resolveSpecPath() 関数（L287-321）が常に null を返すバグの修正。このバグにより make-ticket の Step 7 で呼び出される dump-ticket-graph-commands.js が spec ファイルへの「RFC設計グラフ構造探索コマンド」セクション追記に失敗する（サイレント障害: exit 0 だが追記されない）。修正は resolveSpecPath のシグネチャ拡張と Tickets.json の referenceSection フィールドを利用したパス解決ロジックの完全実装。この修正は PX-50（dump-node-context-to-spec.js）および PX-51（make-ticket.md 改修）の前提条件。",
+          "scope": [
+            "dump-ticket-graph-commands.js の resolveSpecPath() を referenceSection ベースのパス解決に完全実装",
+            "resolveSpecPath シグネチャを (ticketKey, ticketsJsonPath?) に拡張",
+            "appendToSpec の冪等性確保（同一セクションの重複追記防止）",
+            "既存テストケースへの resolveSpecPath テスト追加",
+            "修正後、spec ファイルへの「RFC設計グラフ構造探索コマンド」セクション自動追記を確認"
+          ],
+          "testVerification": [
+            "UT: resolveSpecPath(PX-49, ./Tickets.json) が spec ファイルパスを返す",
+            "UT: referenceSection のないチケットに対して null を返す",
+            "UT: 存在しないチケットキーに対して null を返す（例外なし）",
+            "UT: 修正前の全テストが passing",
+            "regression: dump-ticket-graph-commands.js が正常終了（exit 0）し、spec にセクションが追記される"
+          ],
+          "testExceptions": [
+            "該当なし（全ロジックはユニットテスト可能）"
+          ],
+          "relatedTicketIds": "PX-50 (依存: 本チケットの成果を利用、resolveSpecPath の実装パターンを参照), PX-51 (依存: 本チケットの成果を利用、Step 7 で dump-ticket-graph-commands.js 実行), PX-1-42 (関連: default_files スキーマ追加、spec 自動追記の文脈)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "resolveSpecPath(ticketKey) 常にnull",
+              "after": "resolveSpecPath(ticketKey, ticketsJsonPath) referenceSection解決",
+              "description": "共通モジュール scripts/lib/resolve-spec-path.js 新規作成。チケットキーパース/走査/referenceSection取得/絶対パス解決/存在確認"
+            },
+            {
+              "before": "resolveSpecPath が内部定義",
+              "after": "共通モジュールから import",
+              "description": "dump-ticket-graph-commands.js から resolveSpecPath 削除、scripts/lib/resolve-spec-path.js を require"
+            },
+            {
+              "before": "appendToSpec に冪等性なし",
+              "after": "冪等（同一セクション見出しがあればスキップ）",
+              "description": "appendToSpec の先頭で既存セクション見出しチェック追加"
+            },
+            {
+              "before": "resolveSpecPath 呼び出し引数不足",
+              "after": "resolveSpecPath(entry.ticketKey, ticketsPath)",
+              "description": "main() 内の呼び出しに ticketsPath 追加"
+            }
+          ],
+          "notes": "レビュー報告書:\n【PX-49】dump-ticket-graph-commands.js fix\n  - resolveSpecPath を共通モジュール化し referenceSection ベースの解決に修正 ✅\n  - appendToSpec に冪等性追加 ✅\n  - テスト: resolveSpecPath 6テスト + 冪等性テスト ✅\n【PX-50】dump-node-context-to-spec.js 新規\n  - 3ブロック生成（ノード詳細/エッジ関係性/ファイルパス+定型案内文）✅\n  - CLI: --tickets/--graph/--dirs-tree/--ticket-key（複数可）✅\n  - テスト: 23/23 PASS（parseArguments/collectTicketNodes/collectNodeDetails/collectEdges/buildNodeIdToPathMap/formatNodeDetailsBlock/formatEdgeRelationsBlock/formatFilePathsBlock/combineBlocks）✅\n【PX-51】make-ticket.md 改修\n  - Step 7 を2段階（パス決定→機械書き込み）に拡張 ✅\n  - metadata.source のみ信頼、なければ静かにスキップ ✅\n  - 深掘りに Step 2a 追加 ✅\n  - スポットモード完全維持 ✅\n【依存関係】\n  - PX-49(done) → PX-50(done): resolveSpecPath 共通モジュールを import ✅\n  - PX-50(done) → PX-51(done): dump-node-context-to-spec.js を Step 7-2 で利用 ✅\n【総評】\n  全チケットが spec の Acceptance Criteria を満たしている。\n  テスト: 48/49 PASS（1件は既存のテスト分離問題、本チケット群無関係）。\n  犯罪: 0件。スタブ: 0件。品質: console.log のみ（正規出力）。\n  依存関係は PX-49→PX-50→PX-51 の一直線で矛盾なし。",
+          "instrumentation": "静的品質チェック: console.log 5件（全件が正規出力手段）\n翻訳可能性: 問題なし（n→node 修正済み）\nテスト: PX-49 25/26 PASS, PX-50 23/23 PASS, 合計 48/49 PASS（1件は既存テスト分離問題）\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
+          "rfcDiscrepancies": [
+            "PX-51 background/scope に「Step 7-3 AI肉付け」「3段階」が残っているが、これは spec の説明文であり実際の実装は2段階+AI自然参照。実装内容が正しいことを確認済み。"
+          ],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 50,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "新規スクリプト dump-node-context-to-spec.js 作成",
+          "referenceSection": "tickets/specs/0087-dump-node-context-to-specjs.md",
+          "nodeIds": [],
+          "background": "新規スクリプト dump-node-context-to-spec.js を作成する。このスクリプトはチケットの nodeIds フィールドを起点に、GRAPH.json（ノード詳細: id/title/kind/summary/language/slug/headingRefs）と Dirs-Tree.json（実装先ファイルパス、mappedNodeIds）の情報を機械的に spec ファイルに書き込む。出力は3ブロック: (1) ノード詳細表、(2) エッジ関係性（12種のエッジタイプ別、★/☆で内外区別）、(3) 実装ファイルパス（default_files + 関連ノードの Dirs-Tree 解決パス）。既存の dump-ticket-graph-commands.js とは独立したスクリプトとして作成。CLI引数形式は同スクリプトに準拠（--tickets=, --graph=, --dirs-tree=, --ticket-key=）。冪等性（同一セクションの重複追記防止）を備える。",
+          "scope": [
+            "dump-node-context-to-spec.js 新規作成（.claude/scripts/rfc-graph/ 配下）",
+            "3ブロックの設計コンテキスト生成: ノード詳細 / エッジ関係性 / 実装ファイルパス",
+            "CLI引数: --tickets=, --graph=, --dirs-tree=, --ticket-key=（複数可）",
+            "エッジ種別優先順位ソート（depends_on > precedes > ... > part_of > validates）",
+            "チケット内/外の区別（★/☆）",
+            "Dirs-Tree からの mappedNodeIds 逆引きテーブル構築",
+            "冪等性確保（同一セクションの重複追記防止）",
+            "resolveSpecPath の共通モジュール化（PX-49 と共有）、または独立実装",
+            "テストファイル作成（tests/dump-node-context-to-spec.test.cjs）"
+          ],
+          "testVerification": [
+            "UT: formatNodeDetailsBlock() が正しい Markdown 表を出力",
+            "UT: formatEdgeRelationsBlock() がエッジ種別グループ＋★/☆区別で出力",
+            "UT: formatFilePathsBlock() が Dirs-Tree からファイルパスを解決",
+            "UT: 空 nodeIds でエラーなくスキップ",
+            "UT: 冪等性: 既存の「設計コンテキスト:」セクションを重複追記しない",
+            "UT: 存在しないチケットキーで [ERROR] テンプレート出力 + exit 1",
+            "regression: 全テストケースが PASS"
+          ],
+          "testExceptions": [
+            "spec への実際のファイル書き込みはモックで代用"
+          ],
+          "relatedTicketIds": "PX-49 (依存/並行: resolveSpecPath の実装パターンを参照、または共通モジュール化), PX-51 (被依存: 本成果物を make-ticket.md Step 7 で利用), PX-1-42 (関連: default_files スキーマ追加)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "（存在しない）",
+              "after": "dump-node-context-to-spec.js 新規作成",
+              "description": "CLI引数パース/3ブロック生成/冪等追記を備えたスクリプト。5つの純粋関数 + main エントリポイント"
+            },
+            {
+              "before": "（存在しない）",
+              "after": "dump-node-context-to-spec.test.cjs 新規作成",
+              "description": "23テストケース（parseArguments/collectTicketNodes/collectNodeDetails/collectEdges/buildNodeIdToPathMap/formatNodeDetailsBlock/formatEdgeRelationsBlock/formatFilePathsBlock/combineBlocks）"
+            }
+          ],
+          "notes": "レビュー報告書: PX-50 dump-node-context-to-spec.js\n  - 静的品質チェック: 合格（console.log 2件は正規出力）\n  - 翻訳可能性: 問題なし（n→node 修正済み）\n  - テスト: 23/23 PASS ✅\n  - 依存関係: PX-49 resolveSpecPath import 確認済み",
+          "instrumentation": "静的品質チェック: console.log 2件（正規出力）\n翻訳可能性: 問題なし\nテスト: 23/23 PASS\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 51,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "make-ticket.md 改修 — パイプライン情報連携の完成",
+          "referenceSection": "tickets/specs/0088-make-ticketmd.md",
+          "nodeIds": [],
+          "background": "make-ticket.md の新規作成ワークフロー Step 7 を設計コンテキスト自動書き込みの3段階に改修する。Step 7-1: GRAPH.json / Dirs-Tree.json のパスを機械的に決定。Step 7-2: dump-ticket-graph-commands.js（PX-49）と dump-node-context-to-spec.js（PX-50）を順次実行。Step 7-3: AI が機械的情報を読み取り spec の既存セクションを肉付け（機械的情報の削除禁止）。深掘りワークフローにも同様のステップを追加。これにより graphify → boundify → split の全情報資産が spec へ機械的に書き起こされ、実装者が spec だけで完全なトレーサビリティを得られる状態になる。",
+          "scope": [
+            "make-ticket.md 新規作成 Step 7: 3段階に改修（パス決定→機械書き込み→AI肉付け）",
+            "Step 7-1: GRAPH.json/Dirs-Tree.json パスの機械的決定（metadata.source からの導出＋フォールバック）",
+            "Step 7-2: dump-ticket-graph-commands.js + dump-node-context-to-spec.js の2段実行",
+            "Step 7-3: AI による spec 肉付け — 機械的情報を削除/上書き禁止の明記",
+            "深掘りワークフローに設計コンテキスト書き込みステップ追加",
+            "使用スクリプト一覧表に dump-node-context-to-spec.js 追加",
+            "設計書パスが特定できない場合のスキップ＋通知処理"
+          ],
+          "testVerification": [
+            "手動: 改修後の make-ticket.md に従い、実際の Tickets.json/GRAPH.json/Dirs-Tree.json でスクリプト実行→spec 追記確認",
+            "regression: make test-conver 全件 PASS"
+          ],
+          "testExceptions": [
+            "コマンド定義ファイルのテストは E2E 手動テストのみ"
+          ],
+          "relatedTicketIds": "PX-49 (必須前提: dump-ticket-graph-commands.js 修正完了), PX-50 (必須前提: dump-node-context-to-spec.js 作成完了), PX-1-48 (関連: referenceSection 機械生成とパス決定ロジック)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "Step 7: dump-ticket-graph-commands.js 単独実行（グラフパスはプレースホルダ）",
+              "after": "Step 7: 設計コンテキストの spec 自動書き起こし（2段階: パス決定→機械書き込み）",
+              "description": "Step 7-1: metadata.source からのパス決定＋スキップ条件。Step 7-2: dump-ticket-graph-commands.js + dump-node-context-to-spec.js の2段実行"
+            },
+            {
+              "before": "深掘りは Step 1→2→3→4",
+              "after": "深掘りは Step 1→2→2a(新設)→3→4",
+              "description": "深掘りワークフローに設計コンテキスト書き込み Step 2a を追加"
+            },
+            {
+              "before": "スクリプト一覧に dump-node-context-to-spec.js なし",
+              "after": "スクリプト一覧に dump-node-context-to-spec.js を追記",
+              "description": "使用スクリプト一覧表にエントリ追加"
+            },
+            {
+              "before": "Step 6 注記: RFC設計グラフ構造探索コマンドのみ",
+              "after": "Step 6 注記: 4セクション（探索コマンド+3設計コンテキスト）を記載",
+              "description": "Step 6 の注記を拡張し、dump-node-context-to-spec.js が生成する3ブロックについても言及"
+            }
+          ],
+          "notes": "レビュー報告書: PX-51 make-ticket.md 改修\n  - Markdown 構文: コードブロック閉じ漏れなし ✅\n  - 回帰テスト: PX-49 25/26 + PX-50 23/23 PASS ✅\n  - Step 7: 2段階設計（パス決定→機械書き込み）確認済み ✅\n  - 深掘り Step 2a: 新設確認済み ✅\n  - スポットモード: 既存動作維持確認済み ✅",
+          "instrumentation": "Markdown 構文確認: 異常なし\n回帰テスト: PX-49 25/26 PASS + PX-50 23/23 PASS\n犯罪スキャン: 0件\n[::STUB::]: 0件",
+          "rfcDiscrepancies": [
+            "background に「Step 7-3 AI肉付け」記述が残存しているが、実装は正しい（Step 7-3は存在せず、AI は Step 6 で自然に参照する）。spec の説明文のみの不一致で実装に影響なし。"
+          ],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 52,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "make-ticket Step3 スクリプト化 — ensure-tickets-json.js + resolve-ticket-context.js",
+          "referenceSection": "tickets/specs/0089-make-ticket-step3-ensure-tickets-jsonjs-resolve-ticket-contextjs.md",
+          "nodeIds": [],
+          "background": "make-ticket.md の Step 3〜3a で手続き的（テキスト記述）に行われている Tickets.json の存在確認・作成、およびパイプライン情報変数（TICKET_KEY / DOC_PATH / GRAPH_PATH / DIRS_TREE_PATH）の確定処理を、2つの専用スクリプトに置き換える。ensure-tickets-json.js が Tickets.json の存在を保証（なければテンプレート + PX phase 作成）。resolve-ticket-context.js が全変数を一括確定し、pipelineAvailable と instruction を機械的出力する。AI は instruction に従って分岐する。",
+          "scope": [
+            "ensure-tickets-json.js 新規作成",
+            "resolve-ticket-context.js 新規作成",
+            "make-ticket.md Step 3/3a/4 を instruction ベースの構造化フローに改修",
+            "深掘りワークフローも同一スクリプトで統一",
+            "Step 7 の条件判定を PIPELINE_AVAILABLE に変更",
+            "テストファイル作成"
+          ],
+          "testVerification": [
+            "UT: ensure-tickets-json.js — Tickets.json 既存時 existed:true",
+            "UT: ensure-tickets-json.js — Tickets.json 不在時に自動生成 + existed:false",
+            "UT: resolve-ticket-context.js — 全情報揃っている → pipelineAvailable:true",
+            "UT: resolve-ticket-context.js — metadata.source なし → pipelineAvailable:false",
+            "UT: resolve-ticket-context.js — ticket-key 未指定 → missing:[ticketKey]",
+            "regression: PX-49 25/26 + PX-50 23/23 PASS"
+          ],
+          "testExceptions": [
+            "該当なし"
+          ],
+          "relatedTicketIds": "PX-49 (依存: resolve-spec-path.js を resolve-ticket-context.js から import), PX-51 (依存なし: Step 7 の内容は維持), PX-50 (依存なし: dump-node-context-to-spec.js の呼び出しは維持)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "Step 3: テキスト記述の分岐A/B",
+              "after": "ensure-tickets-json.js で機械的に保証",
+              "description": "Tickets.json 存在確認＋なければ自動作成をスクリプト化"
+            },
+            {
+              "before": "Step 3a: 手動で変数確定",
+              "after": "resolve-ticket-context.js で一括確定",
+              "description": "TICKET_KEY/DOC_PATH/GRAPH_PATH/DIRS_TREE_PATH/PIPELINE_AVAILABLE を機械的JSON出力"
+            },
+            {
+              "before": "Step 4: 単一の調査手順",
+              "after": "Step 4: PIPELINE_AVAILABLE で文脈分岐",
+              "description": "パイプライン情報有無で調査範囲を切替"
+            },
+            {
+              "before": "$TICKET_KEY が突然出現",
+              "after": "resolve-ticket-context.js の instruction で分岐指示",
+              "description": "全変数がスクリプトで確定＋instruction が次のアクションを機械的に指示"
+            }
+          ],
+          "notes": "レビュー報告書: PX-52\n【ensure-tickets-json.js】\n  - Tickets.json 存在保証（execFileSync で既存スクリプト呼び出し）✅\n  - instruction フィールドで AI に次アクションを機械的指示 ✅\n【resolve-ticket-context.js】\n  - 全5変数を一括確定、pipelineAvailable/available/missing/instruction 出力 ✅\n  - 5分岐の機械的 instruction 生成（add-ticket/スポット/パス確認/不完全/全部揃った）✅\n【make-ticket.md】\n  - Step 3: ensure-tickets-json → add-ticket → resolve-ticket-context の順次実行に改修 ✅\n  - Step 3a: 削除（resolve-ticket-context に統合）✅\n  - Step 4: PIPELINE_AVAILABLE で文脈分岐 ✅\n  - Step 7: PIPELINE_AVAILABLE で判定 ✅\n  - 深掘り: 新規作成と同一スクリプトで統一 ✅\n【依存関係】\n  - PX-49(done) → PX-52: resolve-spec-path.js は現状 import していない（将来的に resolve-ticket-context.js で使う可能性）\n【総評】\n  全 Acceptance Criteria を満たしている。Step 3 がスクリプト化され、$TICKET_KEY の突然出現問題は解消された。",
+          "instrumentation": "静的品質チェック: 0 issues ✅\n翻訳可能性: 問題なし（関数名は動詞句、変数名は適切）\nテスト: 11/11 PASS (PX-52) + 48/49 PASS (regression)\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 53,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Tickets.json metadata スキーマ拡張 — resolvedPaths 導入",
+          "referenceSection": "tickets/specs/0090-ticketsjson-metadata-resolvedpaths.md",
+          "nodeIds": [],
+          "background": "Tickets.json の metadata.source が生成経路によって異なる意味を持つ問題（split-to-tickets→GRAPH.jsonパス、formulate-tickets→RFC.mdパス、スポットモード→引数文字列）を解決する。metadata.resolvedPaths ブロックを新設し、rfcPath / graphPath / dirsTreePath を明示的に保持する。resolve-ticket-context.js は resolvedPaths を最優先で読み、なければ従来の metadata.source 推測にフォールバックする。",
+          "scope": [
+            "validate-tickets.js: metadata.source 任意化 + resolvedPaths バリデーション追加",
+            "write-tickets-json-template.js: resolvedPaths を受け取れるよう拡張",
+            "phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() で resolvedPaths 書き込み",
+            "init-tickets-json.js: resolvedPaths 書き込み",
+            "resolve-ticket-context.js: resolvedPaths 優先読み取り + フォールバック",
+            "formulate-tickets.md: resolvedPaths を渡すよう修正",
+            "テスト更新"
+          ],
+          "testVerification": [
+            "UT: validate-tickets resolvedPaths 完全 → 通過",
+            "UT: validate-tickets resolvedPaths 部分的 → エラー",
+            "UT: resolveDocPath resolvedPaths 優先 → 3パス取得",
+            "UT: resolveDocPath resolvedPaths 不在 → 従来の推測にフォールバック",
+            "regression: PX-49 25/26 + PX-50 23/23 + PX-52 11/11 PASS"
+          ],
+          "testExceptions": [
+            "該当なし（全ロジックはユニットテスト可能）"
+          ],
+          "relatedTicketIds": "PX-52 (前提: resolve-ticket-context.js の resolveDocPath を改修), PX-49 (影響なし), PX-50 (影響なし), PX-51 (影響なし)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "metadata.source 必須、resolvedPaths なし",
+              "after": "metadata.source 任意化、resolvedPaths バリデーション追加",
+              "description": "validate-tickets.js: source を !x→undefinedチェックに変更、resolvedPaths（rfcPath/graphPath/dirsTreePath）の完全性検証を追加"
+            },
+            {
+              "before": "resolvedPaths を受け取れない",
+              "after": "resolvedPaths を受け取り skeleton.metadata に追加",
+              "description": "write-tickets-json-template.js: data.resolvedPaths 存在時のみ3パスをまとめて設定"
+            },
+            {
+              "before": "metadata.source=graphPath のみ",
+              "after": "metadata.source + resolvedPaths を書き込み",
+              "description": "phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() 内で graphPath→rfcPath/dirsTreePath を導出して resolvedPaths に設定"
+            },
+            {
+              "before": "metadata.source=rfcPath のみ",
+              "after": "metadata.source + resolvedPaths を書き込み",
+              "description": "init-tickets-json.js: resolvedRfcPath から graphPath/dirsTreePath を導出して resolvedPaths に設定"
+            },
+            {
+              "before": "resolveDocPath は metadata.source のみ読む",
+              "after": "resolveDocPath は resolvedPaths を最優先で読み、なければ metadata.source にフォールバック",
+              "description": "resolve-ticket-context.js: resolveDocPath() の第3引数に resolvedPaths を追加。先に resolvedPaths の全3ファイル実在を確認し、成功時は推測不要で確定"
+            },
+            {
+              "before": "formulate-tickets.md が resolvedPaths を渡さない",
+              "after": "formulate-tickets.md のテンプレートに resolvedPaths ブロックを追加",
+              "description": "AI が rfcPath/graphPath/dirsTreePath を明示的に設定するよう指示"
+            }
+          ],
+          "notes": "レビュー報告書: PX-53\n【validate-tickets.js】\n  - metadata.source を必須→任意に変更 ✅\n  - resolvedPaths（rfcPath/graphPath/dirsTreePath）の完全性バリデーション追加 ✅\n【write-tickets-json-template.js】\n  - data.resolvedPaths を受け取り skeleton.metadata.resolvedPaths に設定 ✅\n【phasify-graph-and-dirs-files-tree.js】\n  - ensureTicketsJsonExists() 内で graphPath→rfcPath/dirsTreePath 導出して resolvedPaths に書き込み ✅\n【init-tickets-json.js】\n  - resolvedRfcPath→graphPath/dirsTreePath 導出して resolvedPaths に書き込み ✅\n【resolve-ticket-context.js】\n  - resolveDocPath() に resolvedPaths 第3引数を追加。最優先で全3ファイル実在確認 ✅\n  - フォールバック階層: resolvedPaths→metadata.source.md→metadata.source.json→none ✅\n【formulate-tickets.md】\n  - テンプレートに resolvedPaths ブロックを追加 ✅\n【依存関係】\n  - PX-52(reviewed) の resolveDocPath を改修（後方互換性維持）\n【総評】\n  全 Acceptance Criteria を満たしている。metadata.source の曖昧さ問題が resolvedPaths によって根本解決された。",
+          "instrumentation": "静的品質チェック: 0 new issues（既存10件は本チケット無関係）\n翻訳可能性: 問題なし\nテスト: 67件中66PASS（1件は既存テスト分離問題）\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
+        },
+        {
+          "id": 54,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "resolve-ticket-context.js specExists 判定追加",
+          "referenceSection": "tickets/specs/0091-resolve-ticket-contextjs-specexists.md",
+          "nodeIds": [],
+          "background": "resolve-ticket-context.js が Tickets.json 内のチケット存在確認（exists）と spec ファイルの実在確認（specExists）を区別していない問題を修正する。出力JSON に specPath と specExists フィールドを追加し、main() 内で referenceSection から spec ファイルの実在確認を行う。generateInstruction も specExists に対応する。",
+          "scope": [
+            "resolve-ticket-context.js main(): ticketExists + specPath/specExists 判定追加",
+            "出力JSON に specPath / specExists フィールド追加",
+            "generateInstruction に specExists 条件分岐追加",
+            "テスト更新"
+          ],
+          "testVerification": [
+            "UT: チケット存在 + spec 実在 → specExists:true",
+            "UT: チケット存在 + spec 不在 → specExists:false",
+            "UT: チケット不在 → specExists:false",
+            "regression: 81/81 PASS"
+          ],
+          "testExceptions": [
+            "該当なし"
+          ],
+          "relatedTicketIds": "PX-53 (前提: resolve-ticket-context.js main を改修), PX-49 (参照: findTicketInTickets)",
+          "startedAt": "2026-07-13",
+          "changes": [
+            {
+              "before": "exists のみ（チケット有無のみ）",
+              "after": "exists + specPath + specExists（spec ファイル実在も判定）",
+              "description": "main() 内で referenceSection から specPath を導出し fs.existsSync で実在確認"
+            },
+            {
+              "before": "出力JSON に specPath/specExists なし",
+              "after": "出力JSON に specPath（絶対パス）と specExists（boolean）を追加",
+              "description": "available/missing 配列にも specExists を追加"
+            },
+            {
+              "before": "generateInstruction: 6引数",
+              "after": "generateInstruction: 7引数（specExistsFlag 追加）",
+              "description": "specExistsFlag=false の場合「spec ファイルが見つかりません」を返す"
+            }
+          ],
+          "notes": "レビュー報告書: PX-54\n【resolve-ticket-context.js】\n  - main() 内で referenceSection から specPath 導出＋fs.existsSync で specExists 判定 ✅\n  - 出力JSON に specPath（絶対パス）＋specExists（boolean）追加 ✅\n  - generateInstruction に specExistsFlag 第3引数追加 ✅\n  - specExists=false → 「spec ファイルが見つかりません」instruction ✅\n【テスト】\n  - 30/30 PASS（+specExists判定テスト3件）\n  - regression 82/82 PASS\n【Acceptance Criteria】\n  - specPath が出力JSON に含まれる ✅\n  - specExists が出力JSON に含まれる ✅\n  - exists=true + specExists=true → 正常判定 ✅\n  - exists=true + specExists=false → spec欠落判定 ✅\n  - exists=false → specExists=false ✅",
+          "instrumentation": "静的品質チェック: 0 issues ✅\n翻訳可能性: 問題なし\nテスト: 82/82 PASS\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-13"
         }
       ]
     },

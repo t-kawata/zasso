@@ -30,15 +30,18 @@ const KIND_FILE_RULES = Object.freeze({
   security: 'security',
   test_policy: 'tests',
   build_ci: 'build',
+  api_contract: 'api',
+  data_model: 'model',
+  state_machine: 'state',
 });
 
 /**
  * 親ドメイン内にインライン配置される kind のセット
  */
 const INLINE_KINDS = Object.freeze(new Set([
-  'api_contract',
-  'data_model',
-  'state_machine',
+  // PX-48 で api_contract / data_model / state_machine を
+  // KIND_FILE_RULES に移したため、INLINE_KINDS は空になった。
+  // 将来インライン配置が必要な kind が生じた場合に追加する。
 ]));
 
 /**

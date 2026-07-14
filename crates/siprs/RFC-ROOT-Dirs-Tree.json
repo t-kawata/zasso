@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-07-10T10:09:10.073Z",
+  "generatedAt": "2026-07-13T04:35:51.459Z",
   "sourceGraph": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
   "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "analysis": {
@@ -28,7 +28,19 @@
       "triggers": 3,
       "extends": 2,
       "precedes": 7
-    }
+    },
+    "circularDependencies": [
+      {
+        "cycle": [
+          "state",
+          "security",
+          "config",
+          "api"
+        ],
+        "language": "rust",
+        "message": "循環依存を検出しました: state → security → config → api（rust）\nこの循環は design-level の問題である可能性があります。以下の手順で対応してください:\n\n  1. 循環に含まれる各エッジの種類（depends_on, refines 等）と、その意味論が本当に双方向依存なのか確認してください\n\n  2. 真に双方向依存が必要な関係（例: 互いに参照し合う状態機械等）は、設計として許容する判断をしてください。\n     その場合、warnings は既知の制約として記録されたまま次Stepに進んで構いません\n\n  3. 一方通行にできる関係は、crud.js で該当エッジを修正してください:\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" delete-edges --file=_remove.json\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" create-edges --file=_add.json\n\n  4. 循環が設計上の誤りである場合、ソースRFCを確認して正しい依存関係を特定し、crud.js でエッジ定義を直接修正してください\n\n  5. 修正後、本スクリプトを再実行して循環が解消されたことを確認し、verify-graph-integrity.js で退行チェックを実行してください\n\n注意: 意味論を無視したエッジの削除や反転はグラフの品質を損なうため避けてください。必ず各エッジの意味を確認した上で修正してください"
+      }
+    ]
   },
   "trees": {
     "rust": {
@@ -133,100 +145,121 @@
           ],
           "children": [
             {
-              "name": "sip_event_payload.rs",
-              "type": "file",
+              "name": "api",
+              "type": "directory",
               "kind": "api_contract",
-              "mappedNodeIds": [
+              "children": [
                 {
-                  "nodeId": "N0032",
-                  "title": "§15.1 SipEventPayload enum"
+                  "name": "sip_event_payload.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0032",
+                      "title": "§15.1 SipEventPayload enum"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                },
+                {
+                  "name": "eventbus.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0035",
+                      "title": "§15.4 EventBus"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                },
+                {
+                  "name": "account_event_receiver.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0036",
+                      "title": "§15.5 AccountEventReceiver"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                },
+                {
+                  "name": "native_event_mapping.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0040",
+                      "title": "M20 追補: NativeEvent完全マッピングテーブル"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
                 }
-              ],
-              "declarationStub": "pub trait Service {}"
+              ]
             },
             {
-              "name": "sip_event_struct.rs",
-              "type": "file",
+              "name": "model",
+              "type": "directory",
               "kind": "data_model",
-              "mappedNodeIds": [
+              "children": [
                 {
-                  "nodeId": "N0033",
-                  "title": "§15.2 SipEvent構造体"
+                  "name": "sip_event_struct.rs",
+                  "type": "file",
+                  "kind": "data_model",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0033",
+                      "title": "§15.2 SipEvent構造体"
+                    }
+                  ],
+                  "declarationStub": "pub struct Model {}"
+                },
+                {
+                  "name": "event_meta.rs",
+                  "type": "file",
+                  "kind": "data_model",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0034",
+                      "title": "§15.3 EventMeta構造体"
+                    }
+                  ],
+                  "declarationStub": "pub struct Model {}"
                 }
-              ],
-              "declarationStub": "pub struct Model {}"
+              ]
             },
             {
-              "name": "event_meta.rs",
-              "type": "file",
-              "kind": "data_model",
-              "mappedNodeIds": [
-                {
-                  "nodeId": "N0034",
-                  "title": "§15.3 EventMeta構造体"
-                }
-              ],
-              "declarationStub": "pub struct Model {}"
-            },
-            {
-              "name": "eventbus.rs",
-              "type": "file",
-              "kind": "api_contract",
-              "mappedNodeIds": [
-                {
-                  "nodeId": "N0035",
-                  "title": "§15.4 EventBus"
-                }
-              ],
-              "declarationStub": "pub trait Service {}"
-            },
-            {
-              "name": "account_event_receiver.rs",
-              "type": "file",
-              "kind": "api_contract",
-              "mappedNodeIds": [
-                {
-                  "nodeId": "N0036",
-                  "title": "§15.5 AccountEventReceiver"
-                }
-              ],
-              "declarationStub": "pub trait Service {}"
-            },
-            {
-              "name": "native_event_mapping.rs",
-              "type": "file",
-              "kind": "api_contract",
-              "mappedNodeIds": [
-                {
-                  "nodeId": "N0040",
-                  "title": "M20 追補: NativeEvent完全マッピングテーブル"
-                }
-              ],
-              "declarationStub": "pub trait Service {}"
-            },
-            {
-              "name": "callstate_mapping.rs",
-              "type": "file",
+              "name": "state",
+              "type": "directory",
               "kind": "state_machine",
-              "mappedNodeIds": [
+              "children": [
                 {
-                  "nodeId": "N0041",
-                  "title": "M20 追補: CallStateChanged pjsip_inv_stateマッピング"
-                }
-              ],
-              "declarationStub": "pub enum State {}"
-            },
-            {
-              "name": "media_state_mapping.rs",
-              "type": "file",
-              "kind": "state_machine",
-              "mappedNodeIds": [
+                  "name": "callstate_mapping.rs",
+                  "type": "file",
+                  "kind": "state_machine",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0041",
+                      "title": "M20 追補: CallStateChanged pjsip_inv_stateマッピング"
+                    }
+                  ],
+                  "declarationStub": "pub enum State {}"
+                },
                 {
-                  "nodeId": "N0042",
-                  "title": "M20 追補: CallMediaStateChanged media_status判定"
+                  "name": "media_state_mapping.rs",
+                  "type": "file",
+                  "kind": "state_machine",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0042",
+                      "title": "M20 追補: CallMediaStateChanged media_status判定"
+                    }
+                  ],
+                  "declarationStub": "pub enum State {}"
                 }
-              ],
-              "declarationStub": "pub enum State {}"
+              ]
             }
           ]
         },
@@ -277,6 +310,424 @@
                 }
               ],
               "declarationStub": "pub struct Config {}"
+            }
+          ]
+        },
+        {
+          "name": "api",
+          "type": "directory",
+          "kind": "api_contract",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0008",
+              "title": "§4.1 バージョニングポリシー"
+            },
+            {
+              "nodeId": "N0050",
+              "title": "§19 発着信API詳細"
+            },
+            {
+              "nodeId": "N0051",
+              "title": "§19.1 answer semantics"
+            },
+            {
+              "nodeId": "N0052",
+              "title": "§20 DTMF仕様"
+            },
+            {
+              "nodeId": "N0054",
+              "title": "M20 追補: DtmfSent発火タイミング"
+            },
+            {
+              "nodeId": "N0058",
+              "title": "§22 音声購読API"
+            },
+            {
+              "nodeId": "N0060",
+              "title": "M20 追補: SubscribeAudio Reactorハンドラ実装設計"
+            },
+            {
+              "nodeId": "N0062",
+              "title": "§23 AsyncAudioSource仕様"
+            },
+            {
+              "nodeId": "N0063",
+              "title": "§23.1 動的ディスパッチ用自動導出"
+            },
+            {
+              "nodeId": "N0064",
+              "title": "§23.2 SyncSourceAdapter"
+            },
+            {
+              "nodeId": "N0093",
+              "title": "M20 追補: configure_codecs autoモード実装"
+            },
+            {
+              "nodeId": "N0107",
+              "title": "§34.3 ClientCapabilities"
+            },
+            {
+              "nodeId": "N0110",
+              "title": "§37 受信callの扱い"
+            },
+            {
+              "nodeId": "N0111",
+              "title": "§38 REFER/転送仕様"
+            },
+            {
+              "nodeId": "N0155",
+              "title": "§54 HTTP/WebSocket APIプロトコル構成"
+            },
+            {
+              "nodeId": "N0156",
+              "title": "§54.1 REST APIエンドポイント一覧"
+            },
+            {
+              "nodeId": "N0157",
+              "title": "§54.2 WebSocketエンドポイント"
+            },
+            {
+              "nodeId": "N0159",
+              "title": "§54.4 WebSocketメッセージプロトコル"
+            }
+          ],
+          "children": [
+            {
+              "name": "versioning_policy.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0008",
+                  "title": "§4.1 バージョニングポリシー"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "call_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0050",
+                  "title": "§19 発着信API詳細"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "answer_semantics.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0051",
+                  "title": "§19.1 answer semantics"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "dtmf_spec.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0052",
+                  "title": "§20 DTMF仕様"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "dtmf_sent_timing.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0054",
+                  "title": "M20 追補: DtmfSent発火タイミング"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "audio_subscribe_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0058",
+                  "title": "§22 音声購読API"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "subscribe_audio_handler.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0060",
+                  "title": "M20 追補: SubscribeAudio Reactorハンドラ実装設計"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "async_audio_source.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0062",
+                  "title": "§23 AsyncAudioSource仕様"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "dynamic_dispatch.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0063",
+                  "title": "§23.1 動的ディスパッチ用自動導出"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "sync_source_adapter.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0064",
+                  "title": "§23.2 SyncSourceAdapter"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "codec_auto_mode.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0093",
+                  "title": "M20 追補: configure_codecs autoモード実装"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "client_capabilities.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0107",
+                  "title": "§34.3 ClientCapabilities"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "incoming_call.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0110",
+                  "title": "§37 受信callの扱い"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "refer_transfer.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0111",
+                  "title": "§38 REFER/転送仕様"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "protocol_composition.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0155",
+                  "title": "§54 HTTP/WebSocket APIプロトコル構成"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "rest_endpoints.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0156",
+                  "title": "§54.1 REST APIエンドポイント一覧"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "ws_endpoint.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0157",
+                  "title": "§54.2 WebSocketエンドポイント"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "ws_message_protocol.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0159",
+                  "title": "§54.4 WebSocketメッセージプロトコル"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            }
+          ]
+        },
+        {
+          "name": "model",
+          "type": "directory",
+          "kind": "data_model",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0021",
+              "title": "§9 ID設計"
+            },
+            {
+              "nodeId": "N0044",
+              "title": "§16 raw SIPメッセージ仕様"
+            },
+            {
+              "nodeId": "N0053",
+              "title": "M20 追補: DtmfSentInfo構造体"
+            },
+            {
+              "nodeId": "N0056",
+              "title": "§21 音声フォーマットモデル"
+            },
+            {
+              "nodeId": "N0057",
+              "title": "§21.1 AudioChunkPair"
+            },
+            {
+              "nodeId": "N0091",
+              "title": "§29.2 NegotiatedCodec/CodecSelectionPolicy"
+            },
+            {
+              "nodeId": "N0166",
+              "title": "§56.1 テーブルスキーマ"
+            }
+          ],
+          "children": [
+            {
+              "name": "id_design.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0021",
+                  "title": "§9 ID設計"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "raw_sip_spec.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0044",
+                  "title": "§16 raw SIPメッセージ仕様"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "dtmf_sent_info.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0053",
+                  "title": "M20 追補: DtmfSentInfo構造体"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "audio_format_model.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0056",
+                  "title": "§21 音声フォーマットモデル"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "audio_chunk_pair.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0057",
+                  "title": "§21.1 AudioChunkPair"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "negotiated_codec.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0091",
+                  "title": "§29.2 NegotiatedCodec/CodecSelectionPolicy"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "db_schema.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0166",
+                  "title": "§56.1 テーブルスキーマ"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
             }
           ]
         },
@@ -647,6 +1098,79 @@
                 }
               ],
               "declarationStub": "pub enum Error {}"
+            }
+          ]
+        },
+        {
+          "name": "state",
+          "type": "directory",
+          "kind": "state_machine",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0045",
+              "title": "§17 登録状態モデル"
+            },
+            {
+              "nodeId": "N0046",
+              "title": "§17.1 遷移規則"
+            },
+            {
+              "nodeId": "N0047",
+              "title": "§18 通話状態モデル"
+            },
+            {
+              "nodeId": "N0048",
+              "title": "§18.1 遷移規則"
+            }
+          ],
+          "children": [
+            {
+              "name": "registration_state.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0045",
+                  "title": "§17 登録状態モデル"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "registration_transitions.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0046",
+                  "title": "§17.1 遷移規則"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "call_state_model.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0047",
+                  "title": "§18 通話状態モデル"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "call_state_transitions.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0048",
+                  "title": "§18.1 遷移規則"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
             }
           ]
         },
@@ -1199,6 +1723,12 @@
           "title": "§4 準拠要件",
           "connections": [
             {
+              "toNodeId": "N0008",
+              "toFile": "src/api/versioning_policy.rs",
+              "edgeType": "part_of",
+              "direction": "←"
+            },
+            {
               "toNodeId": "N0173",
               "toFile": "src/security/tls_cert_management.rs",
               "edgeType": "part_of",
@@ -1262,7 +1792,7 @@
           "connections": [
             {
               "toNodeId": "N0032",
-              "toFile": "src/event_model_overview/sip_event_payload.rs",
+              "toFile": "src/event_model_overview/api/sip_event_payload.rs",
               "edgeType": "refines",
               "direction": "→"
             }
@@ -1272,25 +1802,53 @@
           "nodeId": "N0049",
           "kind": "requirement",
           "title": "§18.2 同時通話制約",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0047",
+              "toFile": "src/state/call_state_model.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0055",
           "kind": "requirement",
           "title": "M20 追補: DtmfSent発火条件",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0052",
+              "toFile": "src/api/dtmf_spec.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0065",
           "kind": "rationale",
           "title": "§23.3 設計判断の注記",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0062",
+              "toFile": "src/api/async_audio_source.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0066",
           "kind": "rationale",
           "title": "§24.0 リアルタイム境界（最重要設計判断）",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0062",
+              "toFile": "src/api/async_audio_source.rs",
+              "edgeType": "part_of",
+              "direction": "←"
+            }
+          ]
         },
         {
           "nodeId": "N0072",
@@ -1334,19 +1892,40 @@
           "nodeId": "N0119",
           "kind": "rationale",
           "title": "§41.3 発信とイベント受信例",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0050",
+              "toFile": "src/api/call_api.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0120",
           "kind": "rationale",
           "title": "§41.4 音声tap例",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0058",
+              "toFile": "src/api/audio_subscribe_api.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0121",
           "kind": "rationale",
           "title": "§41.5 AI TTS source挿入例",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0062",
+              "toFile": "src/api/async_audio_source.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0122",
@@ -1389,7 +1968,14 @@
           "nodeId": "N0138",
           "kind": "rationale",
           "title": "§45.4 native id再利用",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0021",
+              "toFile": "src/model/id_design.rs",
+              "edgeType": "refines",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0144",
@@ -1431,7 +2017,14 @@
           "nodeId": "N0160",
           "kind": "rationale",
           "title": "§54.5 イベント-音声時間的相関保証",
-          "connections": []
+          "connections": [
+            {
+              "toNodeId": "N0155",
+              "toFile": "src/api/protocol_composition.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
         },
         {
           "nodeId": "N0176",
@@ -1445,6 +2038,46 @@
   "dependencyDirections": {
     "rust": [
       {
+        "from": "src/event_model_overview/api",
+        "to": "src/config",
+        "rule": "api → config (N0017->N0022 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/model",
+        "rule": "api → model (N0032->N0034 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/state",
+        "rule": "api → state (N0050->N0047 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/model",
+        "rule": "api → model (N0035->N0033 (depends_on))"
+      },
+      {
+        "from": "src/config",
+        "to": "src/event_model_overview/model",
+        "rule": "config → model (N0089->N0091 (depends_on))"
+      },
+      {
+        "from": "src/security",
+        "to": "src/event_model_overview/api",
+        "rule": "security → api (N0161->N0155 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/state",
+        "to": "src/config",
+        "rule": "state → config (N0045->N0024 (references))"
+      },
+      {
+        "from": "src/event_model_overview/state",
+        "to": "src/config",
+        "rule": "state → config (N0047->N0024 (references))"
+      },
+      {
         "from": "src/config",
         "to": "src/security",
         "rule": "config → security (N0027->N0096 (references))"
@@ -1453,8 +2086,54 @@
         "from": "src/tests",
         "to": "src/error",
         "rule": "tests → error (N0124->N0028 (depends_on))"
+      },
+      {
+        "from": "src/tests",
+        "to": "src/event_model_overview/api",
+        "rule": "tests → api (N0125->N0015 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/model",
+        "rule": "api → model (N0058->N0056 (depends_on))"
+      },
+      {
+        "from": "src/config",
+        "to": "src/event_model_overview/api",
+        "rule": "config → api (N0059->N0058 (depends_on))"
+      },
+      {
+        "from": "src/config",
+        "to": "src/event_model_overview/api",
+        "rule": "config → api (N0116->N0062 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/state",
+        "rule": "api → state (N0110->N0047 (depends_on))"
+      },
+      {
+        "from": "src/event_model_overview/api",
+        "to": "src/event_model_overview/state",
+        "rule": "api → state (N0111->N0047 (depends_on))"
+      },
+      {
+        "from": "src/build",
+        "to": "src/event_model_overview/api",
+        "rule": "build → api (N0172->N0008 (depends_on))"
       }
     ]
   },
-  "warnings": []
+  "warnings": [
+    {
+      "cycle": [
+        "state",
+        "security",
+        "config",
+        "api"
+      ],
+      "language": "rust",
+      "message": "循環依存を検出しました: state → security → config → api（rust）\nこの循環は design-level の問題である可能性があります。以下の手順で対応してください:\n\n  1. 循環に含まれる各エッジの種類（depends_on, refines 等）と、その意味論が本当に双方向依存なのか確認してください\n\n  2. 真に双方向依存が必要な関係（例: 互いに参照し合う状態機械等）は、設計として許容する判断をしてください。\n     その場合、warnings は既知の制約として記録されたまま次Stepに進んで構いません\n\n  3. 一方通行にできる関係は、crud.js で該当エッジを修正してください:\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" delete-edges --file=_remove.json\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" create-edges --file=_add.json\n\n  4. 循環が設計上の誤りである場合、ソースRFCを確認して正しい依存関係を特定し、crud.js でエッジ定義を直接修正してください\n\n  5. 修正後、本スクリプトを再実行して循環が解消されたことを確認し、verify-graph-integrity.js で退行チェックを実行してください\n\n注意: 意味論を無視したエッジの削除や反転はグラフの品質を損なうため避けてください。必ず各エッジの意味を確認した上で修正してください"
+    }
+  ]
 }

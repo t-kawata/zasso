@@ -327,7 +327,12 @@ node .claude/scripts/tickets/write-tickets-json-template.js "$TICKETS_PATH" '{
   "title": "<設計書タイトル> 実装チケット分解設計書",
   "source": "<DOC_PATH>",
   "generatedAt": "<YYYY-MM-DD>",
-  "analyzedSections": "<セクション一覧>"
+  "analyzedSections": "<セクション一覧>",
+  "resolvedPaths": {
+    "rfcPath": "<DOC_PATH>",
+    "graphPath": "<DOC_PATHの .md を -GRAPH.json に置換>",
+    "dirsTreePath": "<DOC_PATHの .md を -Dirs-Tree.json に置換>"
+  }
 }'
 ```
 

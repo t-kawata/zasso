@@ -1,5 +1,5 @@
 ---
-description: 例: /make-ticket（ヒアリング）/ /make-ticket P0-1（深掘り）/ /make-ticket タイトル（新規作成）。引数なしなら詳細をヒアリングしてAIがタイトルを決定、P0-1形式またはPX-1形式なら既存チケットを深掘り、それ以外ならそのままタイトルとして spec を新規作成。
+description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phaseID}-{ticketID} 形式のチケットキーが必須。resolve-ticket-context.js が最初に実行され機械的に全てを判断する。
 ---
 
 # /make-ticket
@@ -10,20 +10,21 @@ description: 例: /make-ticket（ヒアリング）/ /make-ticket P0-1（深掘�
 
 ## ワークフローにおける位置づけ
 
-このプロジェクトの作業の流れは `make → plan → start → review` である。ただし、各コマンドは必ずしも連続して実行されず、ユーザーの作業スタイルに応じて非連続的に使用される：
+このプロジェクトの作業の流れは `make → plan → start → review` である。
 
-- **`/make-ticket`**: 複数の spec をまとめて作成することが多い。作成後、すぐに計画・実装されるとは限らない。
-- **`/plan-ticket` + `/start-ticket`**: ひとつのチケットに対して連続実行されることが多い（計画承認→即実装）。
-- **`/review-ticket`**: 完了したチケットをまとめてレビューすることが多い。
+- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。。
+- **`/plan-ticket`**: 実装レベルの詳細な計画。
+- **`/start-ticket`**: 実装。
+- **`/review-ticket`**: 完了したチケットをレビュー。
 
-**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案してもよい（例：「次に計画を策定する場合は /plan-ticket を実行してください」）。ただし、決定はユーザーに委ね、押し付けない。
+**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案。
 
 ## 引数の解釈
 
-- 引数なし → 実装したい内容を詳しくユーザーにヒアリングし、それに基づいてAIが適切なタイトルを決定する
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`）または `PX-{ticketID}` 形式（例: `PX-1`） → 既存チケットの複合キーとして深掘り
-- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）または `PX-{ticketID}` 形式（例: `PX-1`）で指定してください」
-- 上記以外 → 新規 spec のタイトルとして作成
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。最初に `resolve-ticket-context.js` に投入する。
+- 引数なし → エラーで中断
+- 数字のみ → エラーで中断
+- 上記以外 → エラーで中断
 
 ## Boy Scout Rule
 
@@ -35,209 +36,88 @@ description: 例: /make-ticket（ヒアリング）/ /make-ticket P0-1（深掘�
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。ticketID はフェーズ内で自動インクリメント |
-| `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。phaseID は 0 から自動採番 |
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一取得。複合キーで検索 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | 更新。phaseId/ticketID は変更不可 |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全一覧。status フィルタ可能 |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索（title/background/scope/referenceSection） |
-| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
-| `create-spec.js` | `"" <title>`（引数: specファイル名のタイトル） | spec ファイルのスケルトン生成（Investigation セクション付き） |
-| `add-px-phase.js` | `<PATH of Tickets.json>` | PX フェーズ（id=-1）を追加。既存の場合はエラー |
+| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。内部的に resolve-ticket-context.js から呼ばれる |
+| `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加 |
+| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報取得 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールド更新 |
+| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索 |
+| `create-spec.js` | `"" <title>` | spec スケルトン生成。内部的に resolve-ticket-context.js から呼ばれる |
+| `resolve-ticket-context.js` | `--ticket-key=<P{id}-{id}> --title="..."` | 中央判断エンジン。Tickets.json 保証・spec自動作成・チケット追加・パイプライン判定・instruction 発行を単一呼び出しで完了。--title は必須（PX-49〜PX-55） |
+| `dump-node-context-to-spec.js` | `--tickets=... --graph=... --dirs-tree=... --ticket-key=...` | 設計コンテキストを spec に自動追記 |
 
 ## ワークフロー
 
-### 新規作成
+### Step 1: コンテキスト解決（単一呼び出し）
 
-#### Step 1: ヒアリングとタイトル決定
-
-$ARGUMENTS が空なら、何を実装したいのか詳しくユーザーにヒアリングする（目的、背景、期待する動作など）。得られた情報をもとにAIが適切なタイトルを決める。
-
-#### Step 2: spec スケルトン作成
+`resolve-ticket-context.js` が全ての機械的判断を単一の呼び出しで行う。
 
 ```bash
-node ".claude/scripts/tickets/create-spec.js" "" "タイトル"
+# --title は必須（チケット及びspecファイルのタイトルをAIが考えて入れる）
+node .claude/scripts/tickets/resolve-ticket-context.js \
+  --ticket-key=$ARGUMENTS \
+  --title="チケット及びspecファイルのタイトル"
 ```
 
-出力の `ticketId`（識別用の整数ID）と `specPath`（spec ファイルのパス）を保持する。
-`create-spec.js` は Summary / Background / Scope / Investigation / Test Plan / Boy Scout Rule / Acceptance Criteria の各セクションを持つテンプレートを生成する。以降のステップはこの spec ファイルを埋めていく作業となる。
+出力の主なフィールド:
 
-#### Step 3: Tickets.json の存在確認と作成
+| フィールド | シェル変数 | 意味 |
+|-----------|-----------|------|
+| `ticketKey` | `$TICKET_KEY` | チケットキー（例: PX-53） |
+| `specPath` | `$SPEC_PATH` | spec ファイルのパス |
+| `docPath` | `$DOC_PATH` | 設計書（RFC）のファイルパス |
+| `graphPath` | `$GRAPH_PATH` | GRAPH.json のファイルパス |
+| `dirsTreePath` | `$DIRS_TREE_PATH` | Dirs-Tree.json のファイルパス |
+| `pipelineAvailable` | `$PIPELINE_AVAILABLE` | パイプライン情報の有無 |
+| `instruction` | （文字列） | AI が次に行うべきアクション |
 
-Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。Tickets.json が存在するか確認する。
+### Step 2: 調査・記述
 
-**分岐 A: Tickets.json が存在する場合**
+#### 2a: ソースコード調査
 
-既存のフェーズを確認し、適切なフェーズを指定してチケットを登録する：
+`$PIPELINE_AVAILABLE=true` なら GRAPH.json のノード情報を活用した調査、`false` ならスポット調査。
+
+#### 2b: 証拠の記録
 
 ```bash
-node ".claude/scripts/tickets/list-phases-and-tickets.js" "Tickets.json"
+echo '{"background":"調査結果の詳細...","referenceSection":"src/foo.rs:42","notes":"再現手順: ..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$TICKET_KEY"
 ```
 
+#### 2c: 仕様の具体化
+
+**「設計コンテキスト」ブロックについて**: dump-ticket-graph-commands.js と dump-node-context-to-spec.js によって 2d で自動追記される4セクションを意識して spec を設計する。
+
+Test Plan 具体化後、JSON フィールドに反映:
 ```bash
-echo '{"title":"タイトル","referenceSection":"spec/0042-type-defs.md"}' | node ".claude/scripts/tickets/add-ticket.js" "Tickets.json" "P0"
+echo '{"scope":["範囲..."],"testVerification":["テスト..."],"testExceptions":["例外..."]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$TICKET_KEY"
 ```
 
-出力の `ticketKey`（例: `P0-1`）を保持する。以降の操作ではこのキーでチケットを特定する。
+#### 2d: 設計コンテキストの spec 自動書き起こし
 
-**分岐 B: Tickets.json が存在しない場合**
-
-1. `write-tickets-json-template.js` でスケルトンを生成する：
-
-   ```bash
-   node ".claude/scripts/tickets/write-tickets-json-template.js" "Tickets.json" '{"title":"アドホックチケット","source":"'$ARGUMENTS'","generatedAt":"'$(date +%Y-%m-%d)'"}'
-   ```
-
-2. `add-px-phase.js` で PX フェーズ（id=-1）を作成する：
-
-   ```bash
-   node ".claude/scripts/tickets/add-px-phase.js" "Tickets.json"
-   ```
-
-3. `add-ticket.js` で PX フェーズにチケットを追加する：
-
-   ```bash
-   echo '{"title":"タイトル","referenceSection":"spec/0042-type-defs.md"}' | node ".claude/scripts/tickets/add-ticket.js" "Tickets.json" "PX"
-   ```
-
-   出力の `ticketKey`（例: `PX-1`）を保持する。以降の操作ではこのキーでチケットを特定する。
-
-#### Step 4: ソースコード調査
-
-問題の原因や実装に必要な情報を、ソースコードの解析、grep、調査解析、解析調査用テストコードの作成、テスト実行、ログ確認などを通じて調査する。エラーメッセージやスタックトレースなど**物理的な証拠**を収集する。
-
-#### Step 5: 証拠の記録
-
-調査で得られた証拠（エラー箇所のファイル名・行番号、実際の出力、再現手順など）を spec ファイルの `## Investigation` セクションに書き込む。あわせて、パイプラインから参照可能にするため、チケットの JSON フィールド（`background`, `referenceSection`, `notes`）にも反映する。
-
-```bash
-echo '{"background":"調査結果の詳細...","referenceSection":"参照ファイル: src/foo.rs:42","notes":"再現手順: ..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "P0-1"
-```
-
-#### Step 6: 仕様の具体化
-
-証拠に基づいて Background / Scope / Test Plan / Acceptance Criteria をユーザーと対話しながら具体化する。spec ファイルの各セクションに直接記述し、完了後に JSON フィールドにも反映する。
-
-**「RFC設計グラフ構造探索コマンド」セクションについて**: このセクションは dump-ticket-graph-commands.js によって後続の Step X で自動追記される。spec 作成時点では記述不要だが、グラフ探索クエリの起点となる nodeIDs がチケットに存在することを意識して spec を設計する。
-
-Test Plan は spec のテンプレート（以下の構造）に従い、**ユニットテストの網羅性を最優先して設計する**：
-
-```markdown
-### ユニットテスト計画
-- どの関数／モジュールに対してテストを書くか
-- 正常系・異常系・境界値の各ケース
-- モック・スタブが必要な外部依存
-- カバレッジ目標（目安: 80%以上、クリティカルパスは90%以上）
-
-### ユニットテスト不可能な項目（例外）
-- 理由の明示（外部API結合、ハードウェア依存等）
-```
-
-**例外ルール**: ユニットテストではどうしてもテスト不可能な部分だけを「ユニットテスト不可能な項目」として理由付きで列挙する。それ以外の全ての検証はユニットテストでカバーする。極限の網羅性でユニットテストを設計しておくことで、実装段階でほぼすべての不具合が発見・修正され、結果として E2E テストはほぼ成功すると考えられる状態を目指す。
-
-Test Plan 具体化後、JSON フィールドに反映する:
-```bash
-echo '{"scope":["範囲1","範囲2"],"testVerification":["正常系ケース...","異常系ケース..."],"testExceptions":["例外理由..."]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "P0-1"
-```
-
-#### Step 7: dump-ticket-graph-commands.js の実行
-
-graphify-rfc で生成されたグラフが存在する場合、dump-ticket-graph-commands.js を実行して spec に「RFC設計グラフ構造探索コマンド」セクションを自動追記する：
+`$PIPELINE_AVAILABLE` が true の場合のみ実行:
 
 ```bash
 node .claude/scripts/rfc-graph/dump-ticket-graph-commands.js \
-  --tickets=Tickets.json \
-  --graph=<設計書ディレクトリ>/<設計書名>-GRAPH.json \
-  --source=<設計書パス>
+  --tickets=Tickets.json --graph=$GRAPH_PATH --source=$DOC_PATH
+
+node .claude/scripts/rfc-graph/dump-node-context-to-spec.js \
+  --tickets=Tickets.json --graph=$GRAPH_PATH \
+  --dirs-tree=$DIRS_TREE_PATH --ticket-key=$TICKET_KEY
 ```
 
-グラフが存在しない場合、dump-ticket-graph-commands.js は「グラフファイルがありません」メッセージを出力するが、処理自体は正常終了する。
-
----
-
-#### Step 8: 依存・関連チケットID の点検
-
-関連する既存チケットを検索し、依存関係を spec の `## Notes` セクションに記述する。各参照先チケットの存在確認および循環依存の有無を確認する。
+#### 2e: 依存・関連チケットID の点検
 
 ```bash
 node ".claude/scripts/tickets/search-tickets.js" "Tickets.json" "<キーワード>"
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
 ```
 
-依存関係は `relatedTicketIds` フィールドにも反映する:
-```bash
-echo '{"relatedTicketIds":"P0-1 (先行実装必須), P1-2 (関連)"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "P0-1"
-```
-
-#### Step 9: 犯罪の点検（必須 — 第一級規則）
-
-Malfeasance.json を読み取り、未解決の犯罪（`[::STUB::]` 未付与の不完全実装）がないか確認する。これは**絶対的法規に基づく必須ステップ**であり、スキップを禁止する。
-
-未解決の犯罪が存在する場合、本チケットの spec 内にそれらを解消する具体的計画を**必ず**盛り込む。解消計画には各犯罪の ID・内容・解決方法・本チケットのスコープ内か否かの判断を含めること。犯罪を単に「既知の状態」として放置するだけの記述は許可されない。
-
-```bash
-.claude/scripts/tickets/scan-crimes.sh
-```
-
-併せて、`[::STUB::]` マーカーの状態も点検し、未マーカーのスタブを発見したらその場で `[::STUB::]` を追加し、`malfeasance-create.js` で犯罪として記録する。
-
-```bash
-node .claude/scripts/tickets/review/find-all-stubs.js .
-```
-
-#### Step 10: ステータス更新
-
-全工程完了後、チケットの status を `made` に更新する。
-
-```bash
-echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-#### Step 11: ユーザー確認
-
-調査結果の書き込みと仕様の具体化が完了しました。以下のコマンドを実行して計画を策定できます: `/plan-ticket $ARGUMENTS`
-
-### 深掘り
-
-`$ARGUMENTS` が `P{phaseID}-{ticketID}` 形式（例: `P0-1`）または `PX-{ticketID}` 形式（例: `PX-1`）の場合、既存チケットの深掘りとして扱う。
-
-#### Step 1: チケット取得
-
-Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。Tickets.json が存在しない場合は「Tickets.json が見つかりません。先に新規作成でチケットを作成するか、/formulate-tickets を実行してください」と表示して終了する。
-
-```bash
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-出力の `success` が `false` なら終了。存在すれば取得した JSON フィールド（`title`, `background`, `scope`, `referenceSection`, `testVerification`, `notes` 等）を読み取り、不足セクションを補完する。
-
-#### Step 2: フィールド補完
-
-```bash
-echo '{"background":"補完した背景情報...","scope":["範囲1","範囲2"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-#### Step 3: 依存・関連チケットID の点検
-
-既存の依存関係記述に不足・矛盾がないか検証する。必要に応じて `search-tickets.js` で関連チケットを検索し、依存関係を補完する。
-
-```bash
-node ".claude/scripts/tickets/search-tickets.js" "Tickets.json" "<キーワード>"
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
-```
-
-#### Step 4: 犯罪の点検（必須 — 第一級規則）
-
-Malfeasance.json を読み取り、未解決の犯罪がないか確認する。これは**絶対的法規に基づく必須ステップ**であり、スキップを禁止する。未解決の犯罪が存在する場合、本チケットの spec 内に解消計画を必ず盛り込む。
+#### 2f: 犯罪の点検
 
 ```bash
 .claude/scripts/tickets/scan-crimes.sh
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-#### Step 10: ステータス更新
-
-全工程完了後、チケットの status を `made` に更新する。
+#### 2g: ステータス更新
 
 ```bash
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

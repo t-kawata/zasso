@@ -323,7 +323,8 @@ function regenerateRelatedTicketIds(phases, graphEdges) {
 
   for (const phase of phases) {
     for (const ticket of (phase.tickets || [])) {
-      const ids = relatedMap.get(ticket.id);
+      const compositeKey = phase.id + ':' + ticket.id;
+      const ids = relatedMap.get(compositeKey);
       if (ids) {
         ticket.relatedTicketIds = ids;
       }
