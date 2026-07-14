@@ -41,7 +41,7 @@ function validateTickets(data) {
         if (!Array.isArray(t.changes)) errors.push(tp + '.changes: must be array');
         else for (let i = 0; i < t.changes.length; i++) { if (!t.changes[i] || typeof t.changes[i] !== 'object') errors.push(tp + '.changes[' + i + ']: must be object'); }
       }
-      const strFields = ['referenceSection','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','notes'];
+      const strFields = ['referenceSection','specPath','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','investigation','notes'];
       for (const f of strFields) { if (t[f] !== undefined && typeof t[f] !== 'string') errors.push(tp + '.' + f + ': must be string'); }
       if (t.id && t.phaseId) {
         const key = t.phaseId + '-' + t.id;

@@ -114,7 +114,7 @@ function main() {
   }
   let addResult;
   try {
-    const ticketData = { title, referenceSection: specPath };
+    const ticketData = { title, specPath };
     if (background) ticketData.background = background;
     if (scope) ticketData.scope = scope;
     if (testUnit) ticketData.testUnit = testUnit;

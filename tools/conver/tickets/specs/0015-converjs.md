@@ -104,3 +104,13 @@ import * as acp from "@agentclientprotocol/sdk";
 - **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド
+
+### Unit Tests
+
+- npm run build で dist/conver.js が単一ファイルとして生成される
+- npm test が全56テスト PASS
+- バンドル後の単一ファイルだけで node dist/conver.js が起動可能
+
+### Exceptions
+
+- プロセスの実起動テストは E2E/手動

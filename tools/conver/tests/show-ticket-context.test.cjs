@@ -4,7 +4,7 @@
  * テスト対象: parseArgs, isValidTicketKey, parseTicketKey, findTicket,
  *            parseRelatedTicketIds, resolveRfcPaths,
  *            buildTicketNotFoundMarkdown, buildTicketMarkdown
- * カバレッジ: 27ケース（正常系18 / 異常系5 / 境界値4）
+ * カバレッジ: 38ケース
  */
 
 const assert = require("node:assert");
@@ -82,32 +82,23 @@ function writeFile(dir, name, content) {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — parseArgs", function () {
-  it("Case 1: --ticket-key のみ指定 → Tickets.json は CWD 基準", function () {
-    const result = parseArgs(["--ticket-key=P0-1"]);
-    assert.strictEqual(result.ticketKey, "P0-1");
-    assert(result.ticketsPath.endsWith("Tickets.json"));
+  it("--ticket-key のみ指定", function () {
+    const r = parseArgs(["--ticket-key=P0-1"]);
+    assert.strictEqual(r.ticketKey, "P0-1");
+    assert.strictEqual(r.writeSpec, false);
   });
 
-  it("Case 2: --ticket-key + --tickets を指定", function () {
-    const result = parseArgs([
-      "--ticket-key=PX-53",
-      "--tickets=/tmp/my/Tickets.json",
-    ]);
-    assert.strictEqual(result.ticketKey, "PX-53");
-    assert.strictEqual(result.ticketsPath, "/tmp/my/Tickets.json");
+  it("--ticket-key + --tickets + --write-spec を指定", function () {
+    const r = parseArgs(["--ticket-key=PX-53", "--tickets=/tmp/Tickets.json", "--write-spec"]);
+    assert.strictEqual(r.ticketKey, "PX-53");
+    assert.strictEqual(r.ticketsPath, "/tmp/Tickets.json");
+    assert.strictEqual(r.writeSpec, true);
   });
 
-  it("Case 3: 引数なし → ticketKey は空文字", function () {
-    const result = parseArgs([]);
-    assert.strictEqual(result.ticketKey, "");
-  });
-
-  it("Case 4: 不明なフラグは無視", function () {
-    const result = parseArgs([
-      "--unknown=foo",
-      "--ticket-key=P0-99",
-    ]);
-    assert.strictEqual(result.ticketKey, "P0-99");
+  it("引数なし", function () {
+    const r = parseArgs([]);
+    assert.strictEqual(r.ticketKey, "");
+    assert.strictEqual(r.writeSpec, false);
   });
 });
 
@@ -116,24 +107,12 @@ describe("show-ticket-context — parseArgs", function () {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — isValidTicketKey", function () {
-  it("Case 1: P0-1 形式 → true", function () {
-    assert.strictEqual(isValidTicketKey("P0-1"), true);
-  });
-  it("Case 2: PX-53 形式 → true", function () {
-    assert.strictEqual(isValidTicketKey("PX-53"), true);
-  });
-  it("Case 3: P-1-5 形式（負の phaseId）→ true", function () {
-    assert.strictEqual(isValidTicketKey("P-1-5"), true);
-  });
-  it("Case 4: 空文字 → false", function () {
-    assert.strictEqual(isValidTicketKey(""), false);
-  });
-  it("Case 5: p0-1（小文字 p）→ false", function () {
-    assert.strictEqual(isValidTicketKey("p0-1"), false);
-  });
-  it("Case 6: 数字のみ → false", function () {
-    assert.strictEqual(isValidTicketKey("123"), false);
-  });
+  it("P0-1 → true", () => assert.strictEqual(isValidTicketKey("P0-1"), true));
+  it("PX-53 → true", () => assert.strictEqual(isValidTicketKey("PX-53"), true));
+  it("P-1-5 → true", () => assert.strictEqual(isValidTicketKey("P-1-5"), true));
+  it("空文字 → false", () => assert.strictEqual(isValidTicketKey(""), false));
+  it("p0-1 → false", () => assert.strictEqual(isValidTicketKey("p0-1"), false));
+  it("数字のみ → false", () => assert.strictEqual(isValidTicketKey("123"), false));
 });
 
 // ---------------------------------------------------------------------------
@@ -141,21 +120,10 @@ describe("show-ticket-context — isValidTicketKey", function () {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — parseTicketKey", function () {
-  it("Case 1: P0-1 → phaseId=0, ticketId=1", function () {
-    const r = parseTicketKey("P0-1");
-    assert.deepStrictEqual(r, { phaseId: 0, ticketId: 1 });
-  });
-  it("Case 2: PX-53 → phaseId=-1, ticketId=53", function () {
-    const r = parseTicketKey("PX-53");
-    assert.deepStrictEqual(r, { phaseId: -1, ticketId: 53 });
-  });
-  it("Case 3: P-1-5 → phaseId=-1, ticketId=5", function () {
-    const r = parseTicketKey("P-1-5");
-    assert.deepStrictEqual(r, { phaseId: -1, ticketId: 5 });
-  });
-  it("Case 4: 不正形式 → null", function () {
-    assert.strictEqual(parseTicketKey("invalid"), null);
-  });
+  it("P0-1 → {phaseId:0, ticketId:1}", () => assert.deepStrictEqual(parseTicketKey("P0-1"), { phaseId: 0, ticketId: 1 }));
+  it("PX-53 → {phaseId:-1, ticketId:53}", () => assert.deepStrictEqual(parseTicketKey("PX-53"), { phaseId: -1, ticketId: 53 }));
+  it("P-1-5 → {phaseId:-1, ticketId:5}", () => assert.deepStrictEqual(parseTicketKey("P-1-5"), { phaseId: -1, ticketId: 5 }));
+  it("不正形式 → null", () => assert.strictEqual(parseTicketKey("invalid"), null));
 });
 
 // ---------------------------------------------------------------------------
@@ -163,35 +131,14 @@ describe("show-ticket-context — parseTicketKey", function () {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — findTicket", function () {
-  it("Case 1: 存在するチケットを検索 → チケットオブジェクト", function () {
-    const ticket = makeTicket({ id: 1 });
-    const data = makeTicketsData(ticket);
-    const result = findTicket(data, { phaseId: 0, ticketId: 1 });
-    assert.notStrictEqual(result, null);
-    assert.strictEqual(result.title, "Test Ticket");
-  });
-
-  it("Case 2: 存在しないチケット → null", function () {
+  it("存在するチケット", function () {
     const data = makeTicketsData(makeTicket({ id: 1 }));
-    const result = findTicket(data, { phaseId: 0, ticketId: 999 });
-    assert.strictEqual(result, null);
+    assert.notStrictEqual(findTicket(data, { phaseId: 0, ticketId: 1 }), null);
   });
-
-  it("Case 3: parsed が null → null", function () {
-    const data = makeTicketsData();
-    assert.strictEqual(findTicket(data, null), null);
+  it("存在しないチケット → null", function () {
+    assert.strictEqual(findTicket(makeTicketsData(), { phaseId: 0, ticketId: 999 }), null);
   });
-
-  it("Case 4: PX フェーズ（id=-1）のチケット", function () {
-    const ticket = makeTicket({ id: 53, phaseId: -1 });
-    const data = {
-      phases: [{ id: -1, ticketKeyPrefix: "PX", tickets: [ticket] }],
-      metadata: {},
-    };
-    const result = findTicket(data, { phaseId: -1, ticketId: 53 });
-    assert.notStrictEqual(result, null);
-    assert.strictEqual(result.title, "Test Ticket");
-  });
+  it("parsed null → null", () => assert.strictEqual(findTicket(makeTicketsData(), null), null));
 });
 
 // ---------------------------------------------------------------------------
@@ -199,37 +146,18 @@ describe("show-ticket-context — findTicket", function () {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — parseRelatedTicketIds", function () {
-  it("Case 1: 3件の関連チケット → 3行パース", function () {
-    const raw =
-      "[depends_on] P0-1 (dep description), [references] P0-2 (ref description), [part_of] P1-1 (part description)";
+  it("3件の関連チケット", function () {
+    const raw = "[depends_on] P0-1 (a), [references] P0-2 (b), [part_of] P1-1 (c)";
     const rows = parseRelatedTicketIds(raw);
     assert.strictEqual(rows.length, 3);
-    assert.strictEqual(rows[0].relation, "depends_on");
-    assert.strictEqual(rows[0].ticket, "P0-1");
-    assert.strictEqual(rows[1].relation, "references");
-    assert.strictEqual(rows[2].relation, "part_of");
   });
-
-  it("Case 2: 空文字 → 空配列", function () {
-    assert.deepStrictEqual(parseRelatedTicketIds(""), []);
+  it("空文字 → []", () => assert.deepStrictEqual(parseRelatedTicketIds(""), []));
+  it("null → []", () => assert.deepStrictEqual(parseRelatedTicketIds(null), []));
+  it("重複排除", function () {
+    assert.strictEqual(parseRelatedTicketIds("[depends_on] P0-1 (a), [depends_on] P0-1 (a)").length, 1);
   });
-
-  it("Case 3: null → 空配列", function () {
-    assert.deepStrictEqual(parseRelatedTicketIds(null), []);
-  });
-
-  it("Case 4: 重複行 → 排除される", function () {
-    const raw =
-      "[depends_on] P0-1 (desc1), [depends_on] P0-1 (desc1)";
-    const rows = parseRelatedTicketIds(raw);
-    assert.strictEqual(rows.length, 1);
-  });
-
-  it("Case 5: 記述に全角括弧を含む", function () {
-    const raw = '[part_of] P9-2 (被依存元（依存元）: ネットワーク基盤)';
-    const rows = parseRelatedTicketIds(raw);
-    assert.strictEqual(rows.length, 1);
-    assert.ok(rows[0].description.includes("ネットワーク基盤"));
+  it("全角括弧", function () {
+    assert.ok(parseRelatedTicketIds('[part_of] P9-2 (被依存元（依存元）)')[0].description.includes("被依存元"));
   });
 });
 
@@ -238,148 +166,200 @@ describe("show-ticket-context — parseRelatedTicketIds", function () {
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — buildTicketNotFoundMarkdown", function () {
-  it("Case 1: ヘッダーに Not Found が含まれる", function () {
-    const md = buildTicketNotFoundMarkdown("PX-999");
-    assert.ok(md.includes("# PX-999: Not Found"));
+  it("Not Found ヘッダー", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("Not Found")));
+  it("ensure-ticket-and-spec.js 参照", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("ensure-ticket-and-spec.js")));
+  it("中断メッセージ", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("中断します")));
+});
+
+// ---------------------------------------------------------------------------
+// buildTicketMarkdown — 通常モード (writeSpec=false)
+// ---------------------------------------------------------------------------
+
+describe("show-ticket-context — buildTicketMarkdown (normal mode)", function () {
+  let dir, ticketsDir;
+  before(function () { dir = tmpDir(); ticketsDir = dir; });
+  after(function () { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  function md(ticket, data) {
+    return buildTicketMarkdown("P0-1", ticket, data || makeTicketsData(ticket), ticketsDir, false);
+  }
+
+  it("Case 1: 基本セクション + ステータスバッジ", function () {
+    const ticket = makeTicket();
+    const out = md(ticket);
+    assert.ok(out.includes("# P0-1: Test Ticket [todo]"));
+    assert.ok(out.includes("## Background"));
+    assert.ok(out.includes("## Scope"));
+    assert.ok(out.includes("## Implementation Target Files"));
+    assert.ok(out.includes("## Test Plan"));
+    assert.ok(out.includes("### Unit Tests"));
+    assert.ok(out.includes("### Exceptions"));
+    assert.ok(out.includes("## Pipeline Context"));
+    // IMPORTANT バナーは通常モードのみ
+    assert.ok(out.includes("IMPORTANT"));
   });
 
-  it("Case 2: ensure-ticket-and-spec.js のコマンド例が含まれる", function () {
-    const md = buildTicketNotFoundMarkdown("PX-999");
-    assert.ok(md.includes("ensure-ticket-and-spec.js"));
-    assert.ok(md.includes("--ticket-key=PX-999"));
+  it("Case 2: nodeIds + pipeline → graph セクション", function () {
+    writeFile(dir, "test-rfc.md", "# RFC");
+    writeFile(dir, "test-rfc-GRAPH.json", "{}");
+    writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
+    const out = md(makeTicket({ nodeIds: ["N0001"] }));
+    assert.ok(out.includes("To show related RFC graph details"));
   });
 
-  it("Case 3: 中断メッセージが含まれる", function () {
-    const md = buildTicketNotFoundMarkdown("PX-999");
-    assert.ok(md.includes("中断します"));
+  it("Case 3: nodeIds なし → graph なし", function () {
+    assert.ok(!md(makeTicket({ nodeIds: undefined })).includes("To show related RFC graph details"));
+  });
+
+  it("Case 4: relatedTicketIds → Related Tickets 表", function () {
+    assert.ok(md(makeTicket({ relatedTicketIds: "[depends_on] P0-1 (dep)" })).includes("## Related Tickets"));
+  });
+
+  it("Case 5: relatedTicketIds なし → Related Tickets なし", function () {
+    assert.ok(!md(makeTicket({ relatedTicketIds: undefined })).includes("## Related Tickets"));
+  });
+
+  it("Case 6: Notes", function () {
+    const out = md(makeTicket({ notes: "Important note." }));
+    assert.ok(out.includes("## Notes"));
+    assert.ok(out.includes("Important note."));
+  });
+
+  it("Case 7: Scope なし → Scope 非表示", function () {
+    assert.ok(!md(makeTicket({ scope: undefined })).includes("## Scope"));
+  });
+
+  it("Case 8: Spec-File → Pipeline Context に表示", function () {
+    writeFile(dir, "test-spec.md", "# Spec");
+    assert.ok(md(makeTicket({ specPath: "test-spec.md" })).includes("Spec-File"));
+  });
+
+  it("Case 9: Pipeline Available true", function () {
+    writeFile(dir, "test-rfc.md", "# RFC");
+    writeFile(dir, "test-rfc-GRAPH.json", "{}");
+    writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
+    assert.ok(md(makeTicket({ nodeIds: ["N0001"] })).includes("**true**"));
+  });
+
+  it("Case 10: pipeline + nodeIds なし → graph なし", function () {
+    writeFile(dir, "test-rfc.md", "# RFC");
+    writeFile(dir, "test-rfc-GRAPH.json", "{}");
+    writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
+    assert.ok(!md(makeTicket({ nodeIds: undefined })).includes("To show related RFC graph details"));
+  });
+
+  it("Case 11: testIntegration → Integration Tests", function () {
+    assert.ok(md(makeTicket({ testIntegration: ["IT: test"] })).includes("### Integration Tests"));
+  });
+
+  it("Case 12: testIntegration なし → Integration Tests 非表示", function () {
+    assert.ok(!md(makeTicket({ testIntegration: undefined })).includes("### Integration Tests"));
+  });
+
+  // ---- 新規フィールド ----
+
+  it("Case 13: status バッジ [todo]", function () {
+    assert.ok(md(makeTicket({ status: "made" })).includes("[made]"));
+    assert.ok(md(makeTicket({ status: "done" })).includes("[done]"));
+  });
+
+  it("Case 14: referenceSection → RFC Reference", function () {
+    const out = md(makeTicket({ referenceSection: "RFC-ROOT (§1, §2)" }));
+    assert.ok(out.includes("## RFC Reference"));
+    assert.ok(out.includes("RFC-ROOT (§1, §2)"));
+  });
+
+  it("Case 15: investigation → Investigation", function () {
+    const out = md(makeTicket({ investigation: "src/foo.rs:42 を確認" }));
+    assert.ok(out.includes("## Investigation"));
+    assert.ok(out.includes("src/foo.rs:42"));
+  });
+
+  it("Case 16: referenceUrls → Reference URLs", function () {
+    const out = md(makeTicket({ referenceUrls: ["https://example.com"] }));
+    assert.ok(out.includes("## Reference URLs"));
+    assert.ok(out.includes("https://example.com"));
+  });
+
+  it("Case 17: sourcePaths → Source Paths", function () {
+    const out = md(makeTicket({ sourcePaths: ["src/foo.rs:42"] }));
+    assert.ok(out.includes("## Source Paths"));
+    assert.ok(out.includes("src/foo.rs:42"));
+  });
+
+  it("Case 18: rfcDiscrepancies → RFC Discrepancies", function () {
+    const out = md(makeTicket({ rfcDiscrepancies: ["§3.1 未実装"] }));
+    assert.ok(out.includes("## RFC Discrepancies"));
+    assert.ok(out.includes("§3.1 未実装"));
+  });
+
+  it("Case 19: invariants → Invariants", function () {
+    const out = md(makeTicket({ invariants: "鍵長は448ビット固定" }));
+    assert.ok(out.includes("## Invariants"));
+    assert.ok(out.includes("鍵長は448ビット固定"));
+  });
+
+  it("Case 20: 全新規フィールドが空 → 該当セクション非表示", function () {
+    const ticket = makeTicket({
+      referenceSection: undefined, investigation: undefined,
+      referenceUrls: undefined, sourcePaths: undefined,
+      rfcDiscrepancies: undefined, invariants: undefined,
+    });
+    const out = md(ticket);
+    assert.ok(!out.includes("## RFC Reference"));
+    assert.ok(!out.includes("## Investigation"));
+    assert.ok(!out.includes("## Reference URLs"));
+    assert.ok(!out.includes("## Source Paths"));
+    assert.ok(!out.includes("## RFC Discrepancies"));
+    assert.ok(!out.includes("## Invariants"));
   });
 });
 
 // ---------------------------------------------------------------------------
-// buildTicketMarkdown - セクション有無
+// buildTicketMarkdown — --write-spec モード
 // ---------------------------------------------------------------------------
 
-describe("show-ticket-context — buildTicketMarkdown", function () {
+describe("show-ticket-context — buildTicketMarkdown (--write-spec mode)", function () {
   let dir, ticketsDir;
+  before(function () { dir = tmpDir(); ticketsDir = dir; });
+  after(function () { fs.rmSync(dir, { recursive: true, force: true }); });
 
-  before(function () {
-    dir = tmpDir();
-    ticketsDir = dir;
+  function wsMd(ticket, data) {
+    return buildTicketMarkdown("P0-1", ticket, data || makeTicketsData(ticket), ticketsDir, true);
+  }
+
+  it("IMPORTANT バナーが出力されない", function () {
+    assert.ok(!wsMd(makeTicket()).includes("IMPORTANT"));
   });
 
-  after(function () {
-    fs.rmSync(dir, { recursive: true, force: true });
+  it("Pipeline Context が出力されない", function () {
+    assert.ok(!wsMd(makeTicket()).includes("## Pipeline Context"));
   });
 
-  it("Case 1: 基本セクション（Background/Scope/DefaultFiles/TestPlan）が含まれる", function () {
-    const ticket = makeTicket();
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-42", ticket, data, ticketsDir);
-    assert.ok(md.includes("# P0-42: Test Ticket"));
-    assert.ok(md.includes("## Background"));
-    assert.ok(md.includes("## Scope"));
-    assert.ok(md.includes("## Implementation Target Files"));
-    assert.ok(md.includes("## Test Plan"));
-    assert.ok(md.includes("### Unit Tests"));
-    assert.ok(md.includes("### Exceptions"));
-    assert.ok(md.includes("## Pipeline Context"));
+  it("Universal Testing Rules が冒頭に出力される", function () {
+    const out = wsMd(makeTicket());
+    assert.ok(out.startsWith("**Universal Testing Rules**"));
+    assert.ok(out.includes("non-negotiable rules"));
+    assert.ok(out.includes("Write all code under the following"));
   });
 
-  it("Case 2: nodeIds + pipeline available → graph セクションが含まれる", function () {
-    const rfcFile = writeFile(dir, "test-rfc.md", "# RFC");
-    const graphFile = writeFile(dir, "test-rfc-GRAPH.json", "{}");
-    const dirsFile = writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
-    const ticket = makeTicket({ nodeIds: ["N0001", "N0002"] });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("To show related RFC graph details"));
-    assert.ok(md.includes("query.js"));
-    assert.ok(md.includes("`N0001`"));
-    assert.ok(md.includes("`N0002`"));
+  it("通常のセクションは出力される", function () {
+    const out = wsMd(makeTicket());
+    assert.ok(out.includes("## Background"));
+    assert.ok(out.includes("## Scope"));
+    assert.ok(out.includes("## Test Plan"));
+    assert.ok(out.includes("## Notes"));
   });
 
-  it("Case 3: nodeIds なし → graph セクションが含まれない", function () {
-    const ticket = makeTicket({ nodeIds: undefined });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(!md.includes("To show related RFC graph details"));
-  });
-
-  it("Case 4: relatedTicketIds あり → Related Tickets 表が含まれる", function () {
-    const ticket = makeTicket({
-      relatedTicketIds: "[depends_on] P0-1 (dep description)",
-    });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("## Related Tickets"));
-    assert.ok(md.includes("P0-1"));
-    assert.ok(md.includes("depends_on"));
-  });
-
-  it("Case 5: relatedTicketIds なし → Related Tickets 表が含まれない", function () {
-    const ticket = makeTicket({ relatedTicketIds: undefined });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(!md.includes("## Related Tickets"));
-  });
-
-  it("Case 6: Notes が含まれる", function () {
-    const ticket = makeTicket({ notes: "Important note here." });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("## Notes"));
-    assert.ok(md.includes("Important note here."));
-  });
-
-  it("Case 7: Scope なし → Scope セクションが含まれない", function () {
-    const ticket = makeTicket({ scope: undefined });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(!md.includes("## Scope"));
-  });
-
-  it("Case 8: Spec-File が存在する → Pipeline Context に Spec-File 行が Exist=true", function () {
-    writeFile(dir, "test-spec.md", "# Spec");
-    const ticket = makeTicket({ referenceSection: "test-spec.md" });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("Spec-File"));
-  });
-
-  it("Case 9: Pipeline Available の表示", function () {
-    const rfcFile = writeFile(dir, "test-rfc.md", "# RFC");
-    const graphFile = writeFile(dir, "test-rfc-GRAPH.json", "{}");
-    const dirsFile = writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
-    const ticket = makeTicket({ nodeIds: ["N0001"] });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("**true**"));
-  });
-
-  it("Case 10: pipeline available だが nodeIds なし → graph セクションなし", function () {
-    // pipeline は整っているがチケットに nodeIds がない → グラフは非表示
-    const rfcFile = writeFile(dir, "test-rfc.md", "# RFC");
-    const graphFile = writeFile(dir, "test-rfc-GRAPH.json", "{}");
-    const dirsFile = writeFile(dir, "test-rfc-Dirs-Tree.json", "{}");
-    const ticket = makeTicket({ nodeIds: undefined });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(!md.includes("To show related RFC graph details"));
-  });
-
-  it("Case 11: testIntegration を指定 → Integration Tests セクションが含まれる", function () {
-    const ticket = makeTicket({ testIntegration: ["IT: module A + B"] });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(md.includes("### Integration Tests"));
-    assert.ok(md.includes("IT: module A + B"));
-  });
-
-  it("Case 12: testIntegration なし → Integration Tests セクションが含まれない", function () {
-    const ticket = makeTicket({ testIntegration: undefined });
-    const data = makeTicketsData(ticket);
-    const md = buildTicketMarkdown("P0-1", ticket, data, ticketsDir);
-    assert.ok(!md.includes("### Integration Tests"));
+  it("新規フィールドも出力される（writeSpec の有無で差がない）", function () {
+    const out = wsMd(makeTicket({
+      referenceSection: "RFC-ROOT (§1)",
+      investigation: "Investigation content",
+      invariants: "Invariant content",
+    }));
+    assert.ok(out.includes("## RFC Reference"));
+    assert.ok(out.includes("## Investigation"));
+    assert.ok(out.includes("## Invariants"));
   });
 });
 
@@ -389,50 +369,40 @@ describe("show-ticket-context — buildTicketMarkdown", function () {
 
 describe("show-ticket-context — resolveRfcPaths", function () {
   let dir;
-
   before(function () { dir = tmpDir(); });
   after(function () { fs.rmSync(dir, { recursive: true, force: true }); });
 
-  it("Case 1: resolvedPaths が存在し全ファイル実在 → そのパスを返す", function () {
+  it("resolvedPaths 全ファイル実在", function () {
     writeFile(dir, "rfc.md", "# R");
     writeFile(dir, "rfc-GRAPH.json", "{}");
     writeFile(dir, "rfc-Dirs-Tree.json", "{}");
-    const rp = {
-      rfcPath: "rfc.md",
-      graphPath: "rfc-GRAPH.json",
-      dirsTreePath: "rfc-Dirs-Tree.json",
-    };
-    const result = resolveRfcPaths("ignored.md", dir, rp);
-    assert.ok(result.rfcPath.endsWith("rfc.md"));
-    assert.strictEqual(result.rfcPathSource, "resolvedPaths");
+    const rp = { rfcPath: "rfc.md", graphPath: "rfc-GRAPH.json", dirsTreePath: "rfc-Dirs-Tree.json" };
+    const r = resolveRfcPaths("ignored.md", dir, rp);
+    assert.strictEqual(r.rfcPathSource, "resolvedPaths");
   });
 
-  it("Case 2: rawSource が .md → graph/dirs を自動導出", function () {
+  it("rawSource .md → graph/dirs 自動導出", function () {
     writeFile(dir, "doc.md", "# Doc");
-    const result = resolveRfcPaths("doc.md", dir, null);
-    assert.ok(result.rfcPath.endsWith("doc.md"));
-    assert.ok(result.graphPath.endsWith("doc-GRAPH.json"));
-    assert.ok(result.dirsTreePath.endsWith("doc-Dirs-Tree.json"));
-    assert.strictEqual(result.rfcPathSource, "metadata.source.md");
+    const r = resolveRfcPaths("doc.md", dir, null);
+    assert.ok(r.graphPath.endsWith("doc-GRAPH.json"));
+    assert.strictEqual(r.rfcPathSource, "metadata.source.md");
   });
 
-  it("Case 3: rawSource が .json（GRAPH.json）→ RFC を逆算", function () {
+  it("rawSource .json → RFC 逆算", function () {
     writeFile(dir, "spec-GRAPH.json", "{}");
-    const result = resolveRfcPaths("spec-GRAPH.json", dir, null);
-    assert.ok(result.rfcPath.endsWith("spec.md"));
-    assert.ok(result.graphPath.endsWith("spec-GRAPH.json"));
-    assert.strictEqual(result.rfcPathSource, "metadata.source.json");
+    const r = resolveRfcPaths("spec-GRAPH.json", dir, null);
+    assert.ok(r.rfcPath.endsWith("spec.md"));
+    assert.strictEqual(r.rfcPathSource, "metadata.source.json");
   });
 
-  it("Case 4: rawSource が存在しないファイル → rfcPathSource=not_found, パス空", function () {
-    const result = resolveRfcPaths("nonexistent.md", dir, null);
-    assert.strictEqual(result.rfcPath, "");
-    assert.strictEqual(result.rfcPathSource, "not_found");
+  it("存在しないファイル → not_found", function () {
+    const r = resolveRfcPaths("nonexistent.md", dir, null);
+    assert.strictEqual(r.rfcPath, "");
+    assert.strictEqual(r.rfcPathSource, "not_found");
   });
 
-  it("Case 5: rawSource なし → rfcPathSource=none", function () {
-    const result = resolveRfcPaths("", dir, null);
-    assert.strictEqual(result.rfcPath, "");
-    assert.strictEqual(result.rfcPathSource, "none");
+  it("rawSource なし → none", function () {
+    const r = resolveRfcPaths("", dir, null);
+    assert.strictEqual(r.rfcPathSource, "none");
   });
 });

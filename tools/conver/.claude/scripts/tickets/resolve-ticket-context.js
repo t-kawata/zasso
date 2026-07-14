@@ -255,8 +255,8 @@ function main() {
     for (const phase of phases) {
       if (phase.id !== parsed.phaseId && phase.phaseId !== parsed.phaseId) continue;
       const ticket = (phase.tickets || []).find(t => t.id === parsed.ticketId);
-      if (ticket && ticket.referenceSection) {
-        specPath = path.resolve(ticketsDir, ticket.referenceSection);
+      if (ticket && ticket.specPath) {
+        specPath = path.resolve(ticketsDir, ticket.specPath);
         specExists = fs.existsSync(specPath);
       }
       break;

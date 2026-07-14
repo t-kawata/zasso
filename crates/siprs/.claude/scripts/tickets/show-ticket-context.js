@@ -4,16 +4,15 @@
  * show-ticket-context.js — make-ticket の Step 1
  *
  * --ticket-key で指定されたチケットの状態を調査し、AI が読みやすい
- * Markdown 形式で stdout に出力する。
+ * Markdown 形式で stdout に出力する。Tickets.json の全フィールドを
+ * 表示するため、出力自体が spec 文書として成立する。
  *
- * チケットが存在する場合:
- *   Background / Scope / Implementation Target Files / Graph node-IDs /
- *   Test Plan / Related Tickets / Notes / Pipeline Context を表示
+ * --write-spec フラグを指定すると、spec ファイルへの書き出しに適した
+ * 形式で出力する（IMPORTANT バナー / Pipeline Context を省略し、
+ * Universal Testing Rules を前置する）。
  *
- * チケットが存在しない場合:
- *   Not Found メッセージを出力する（中断判断は AI に委ねる）
- *
- * CLI: show-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}> [--tickets=<Tickets.json>]
+ * CLI: show-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
+ *       [--tickets=<Tickets.json>] [--write-spec]
  */
 
 const fs = require('fs');
@@ -27,11 +26,14 @@ function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
   let ticketKey = '';
+  let writeSpec = false;
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
       ticketsPath = arg.slice('--tickets='.length);
     } else if (arg.startsWith('--ticket-key=')) {
       ticketKey = arg.slice('--ticket-key='.length);
+    } else if (arg === '--write-spec') {
+      writeSpec = true;
     }
   }
   if (!ticketsPath) {
@@ -39,7 +41,7 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey };
+  return { ticketsPath, ticketKey, writeSpec };
 }
 
 /** ticketKey が P{phaseId}-{ticketId} または PX-{id} 形式か検証する */
@@ -166,23 +168,68 @@ function buildTicketNotFoundMarkdown(ticketKey) {
 }
 
 /** チケット情報の Markdown を生成する */
-function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir) {
+function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) {
   const lines = [];
 
-  lines.push('> [!IMPORTANT]');
-  lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
-  lines.push('>');
-  lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
+  // --write-spec モードでは IMPORTANT バナーを出力しない
+  if (!writeSpec) {
+    lines.push('> [!IMPORTANT]');
+    lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
+    lines.push('>');
+    lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
+  }
 
-  // H1: タイトル
-  lines.push(`# ${ticketKey}: ${ticket.title}`);
+  // --write-spec モードでは冒頭に Universal Testing Rules を前置する
+  if (writeSpec) {
+    lines.push('**Universal Testing Rules**');
+    lines.push('');
+    lines.push('Write all code under the following non-negotiable rules:');
+    lines.push('');
+    lines.push('1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.');
+    lines.push('');
+    lines.push('2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.');
+    lines.push('');
+    lines.push('3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.');
+    lines.push('');
+    lines.push('4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.');
+    lines.push('');
+    lines.push('5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.');
+    lines.push('');
+    lines.push('6. Implementation is considered complete only when:');
+    lines.push('   - The tests fully and precisely specify the intended behavior.');
+    lines.push('   - The implementation passes all tests without exception.');
+    lines.push('   - The implementation\'s correctness is demonstrably guaranteed by those tests.');
+    lines.push('');
+    lines.push('7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.');
+    lines.push('');
+  }
+
+  // H1: タイトル + ステータスバッジ
+  const statusBadge = ticket.status ? ` [${ticket.status}]` : '';
+  lines.push(`# ${ticketKey}: ${ticket.title}${statusBadge}`);
   lines.push('');
+
+  // RFC Reference
+  if (ticket.referenceSection) {
+    lines.push('## RFC Reference');
+    lines.push('');
+    lines.push(ticket.referenceSection);
+    lines.push('');
+  }
 
   // Background
   if (ticket.background) {
     lines.push('## Background');
     lines.push('');
     lines.push(ticket.background);
+    lines.push('');
+  }
+
+  // Investigation
+  if (ticket.investigation) {
+    lines.push('## Investigation');
+    lines.push('');
+    lines.push(ticket.investigation);
     lines.push('');
   }
 
@@ -202,6 +249,16 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir) {
     lines.push('');
     for (const f of ticket.default_files) {
       lines.push(`- \`${f}\``);
+    }
+    lines.push('');
+  }
+
+  // Source Paths
+  if (ticket.sourcePaths && ticket.sourcePaths.length > 0) {
+    lines.push('## Source Paths');
+    lines.push('');
+    for (const p of ticket.sourcePaths) {
+      lines.push(`- \`${p}\``);
     }
     lines.push('');
   }
@@ -236,6 +293,14 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir) {
     lines.push('');
   }
 
+  // Invariants
+  if (ticket.invariants) {
+    lines.push('## Invariants');
+    lines.push('');
+    lines.push(ticket.invariants);
+    lines.push('');
+  }
+
   // Test Plan
   lines.push('## Test Plan');
   lines.push('');
@@ -264,6 +329,26 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir) {
     lines.push('');
   }
 
+  // Reference URLs
+  if (ticket.referenceUrls && ticket.referenceUrls.length > 0) {
+    lines.push('## Reference URLs');
+    lines.push('');
+    for (const u of ticket.referenceUrls) {
+      lines.push(`- ${u}`);
+    }
+    lines.push('');
+  }
+
+  // RFC Discrepancies
+  if (ticket.rfcDiscrepancies && ticket.rfcDiscrepancies.length > 0) {
+    lines.push('## RFC Discrepancies');
+    lines.push('');
+    for (const d of ticket.rfcDiscrepancies) {
+      lines.push(`- ${d}`);
+    }
+    lines.push('');
+  }
+
   // Related Tickets
   if (ticket.relatedTicketIds) {
     const rows = parseRelatedTicketIds(ticket.relatedTicketIds);
@@ -287,25 +372,27 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir) {
     lines.push('');
   }
 
-  // Pipeline Context
-  lines.push('## Pipeline Context');
-  lines.push('');
-  lines.push('| Resource | Path | Exist |');
-  lines.push('|----------|------|-------|');
-  if (rfcPath) lines.push(`| RFC | \`${makeRelative(rfcPath, ticketsDir)}\` | ${rfcExists} |`);
-  if (graphPath) lines.push(`| Graph | \`${makeRelative(graphPath, ticketsDir)}\` | ${graphExists} |`);
-  if (dirsTreePath) lines.push(`| Dirs-Tree | \`${makeRelative(dirsTreePath, ticketsDir)}\` | ${dirsExists} |`);
-  const specPath = ticket.referenceSection ? path.resolve(ticketsDir, ticket.referenceSection) : '';
-  const specExists = specPath ? fs.existsSync(specPath) : false;
-  if (specPath) lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
-  lines.push(`| Pipeline Available | **${pipelineAvailable}** | - |`);
-  lines.push('');
+  // Pipeline Context（--write-spec モードでは出力しない）
+  if (!writeSpec) {
+    lines.push('## Pipeline Context');
+    lines.push('');
+    lines.push('| Resource | Path | Exist |');
+    lines.push('|----------|------|-------|');
+    if (rfcPath) lines.push(`| RFC | \`${makeRelative(rfcPath, ticketsDir)}\` | ${rfcExists} |`);
+    if (graphPath) lines.push(`| Graph | \`${makeRelative(graphPath, ticketsDir)}\` | ${graphExists} |`);
+    if (dirsTreePath) lines.push(`| Dirs-Tree | \`${makeRelative(dirsTreePath, ticketsDir)}\` | ${dirsExists} |`);
+    const specPath = ticket.specPath ? path.resolve(ticketsDir, ticket.specPath) : '';
+    const specExists = specPath ? fs.existsSync(specPath) : false;
+    if (specPath) lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
+    lines.push(`| Pipeline Available | **${pipelineAvailable}** | - |`);
+    lines.push('');
+  }
 
   return lines.join('\n');
 }
 
 function main() {
-  const { ticketsPath, ticketKey } = parseArgs();
+  const { ticketsPath, ticketKey, writeSpec } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.error('Error: --ticket-key は P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。');
@@ -327,7 +414,7 @@ function main() {
   }
 
   const ticketsDir = path.dirname(ticketsPath);
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir);
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec);
   console.log(output);
   process.exit(EXIT_SUCCESS);
 }

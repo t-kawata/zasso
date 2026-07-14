@@ -53,7 +53,7 @@ describe("ensure-ticket-and-spec — integration", function () {
     assert.ok(stdout.includes("## Test Plan"));
     const tickets = JSON.parse(fs.readFileSync(ticketsPath, "utf8"));
     assert.strictEqual(tickets.phases[0].tickets.length, 1);
-    assert.ok(fs.existsSync(tickets.phases[0].tickets[0].referenceSection));
+    assert.ok(fs.existsSync(tickets.phases[0].tickets[0].specPath));
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -114,7 +114,7 @@ describe("ensure-ticket-and-spec — integration", function () {
     assert.deepStrictEqual(t.testExceptions, ["E2E: cannot unit test"]);
     assert.deepStrictEqual(t.default_files, ["src/main.rs"]);
     assert.strictEqual(t.notes, "Important notes.");
-    assert.ok(fs.existsSync(t.referenceSection));
+    assert.ok(fs.existsSync(t.specPath));
 
     fs.rmSync(dir, { recursive: true, force: true });
   });
