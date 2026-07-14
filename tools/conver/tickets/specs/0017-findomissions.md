@@ -121,6 +121,6 @@ OMISSIONS ファイルの命名規則: `OMISSIONS-XXX.json`（XXX は連番、`c
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: `scope[]`, `testVerification[]`, `testExceptions[]`, `notes` フィールド
+- **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド

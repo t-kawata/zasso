@@ -168,6 +168,6 @@ RFC_ADDITION-002.md（Proposal B-1/B-2/B-3）に基づく。各スクリプト�
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: `scope[]`, `testVerification[]`, `testExceptions[]`, `notes` フィールド
+- **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド

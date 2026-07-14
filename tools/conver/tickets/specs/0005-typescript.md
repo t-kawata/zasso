@@ -173,7 +173,7 @@ run-conver:
 
 ## Notes
 
-- plan: /plan-ticket が計画を策定し、チケットの JSON フィールド（scope, testVerification, notes）に保存する
+- plan: /plan-ticket が計画を策定し、チケットの JSON フィールド（scope, testUnit, notes）に保存する
 - implementation: /start-ticket が実装サマリーをチケットの JSON フィールド（changes, notes）に保存する
 - review: /review-ticket がレビュー報告をチケットの JSON フィールド（instrumentation, notes）に保存する
 

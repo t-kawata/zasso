@@ -186,6 +186,6 @@ P9-1 の実装過程で既に完了している。残る項目 3（結合テス�
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: `scope[]`, `testVerification[]`, `testExceptions[]`, `notes` フィールド
+- **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド

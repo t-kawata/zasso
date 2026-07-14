@@ -1,228 +1,141 @@
 /**
- * resolve-ticket-context.test.cjs
+ * resolve-ticket-context.test.cjs — resolve-ticket-context.js の単体テスト
+ *
+ * テスト対象: parseArguments, ticketExists, generateInstruction,
+ *            isValidTicketKey, parseTicketKey
  */
 
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const assert = require("node:assert");
+const { describe, it } = require("node:test");
 
 const {
   parseArguments,
-  derivePaths,
   generateInstruction,
-  resolveRfcPaths,
   isValidTicketKey,
   parseTicketKey,
   ticketExists,
-} = require('../.claude/scripts/tickets/resolve-ticket-context.js');
+} = require("../.claude/scripts/tickets/resolve-ticket-context");
 
-describe('resolve-ticket-context', () => {
-  describe('parseArguments', () => {
-    it('正常系: --tickets と --ticket-key をパースする', () => {
-      const result = parseArguments(['--tickets=/a/Tickets.json', '--ticket-key=P0-1']);
-      assert.ok(result.ticketsPath.endsWith('Tickets.json'));
-      assert.equal(result.ticketKey, 'P0-1');
-    });
+// ---------------------------------------------------------------------------
+// parseArguments
+// ---------------------------------------------------------------------------
 
-    it('正常系: --ticket-key なしでもエラーにならない', () => {
-      const result = parseArguments(['--tickets=/a/Tickets.json']);
-      assert.equal(result.ticketKey, '');
-    });
+describe("resolve-ticket-context — parseArguments", function () {
+  it("Case 1: --ticket-key のみ指定", function () {
+    const r = parseArguments(["--ticket-key=P0-1"]);
+    assert.strictEqual(r.ticketKey, "P0-1");
   });
 
-  describe('derivePaths', () => {
-    it('正常系: md パスから GRAPH/Dirs-Tree パスを導出する', () => {
-      const r = derivePaths('/path/to/RFC-ROOT.md');
-      assert.ok(r.graphPath.endsWith('RFC-ROOT-GRAPH.json'));
-      assert.ok(r.dirsTreePath.endsWith('RFC-ROOT-Dirs-Tree.json'));
-    });
+  it("Case 2: --tickets + --ticket-key を指定", function () {
+    const r = parseArguments([
+      "--tickets=/tmp/foo/Tickets.json",
+      "--ticket-key=PX-53",
+    ]);
+    assert.strictEqual(r.ticketKey, "PX-53");
+    assert.strictEqual(r.ticketsPath, "/tmp/foo/Tickets.json");
   });
 
-  describe('resolveRfcPaths', () => {
-    it('正常系: metadata.source が空の場合 → rfcPath 空', () => {
-      const r = resolveRfcPaths('', '/some/dir');
-      assert.equal(r.rfcPath, '');
-      assert.equal(r.rfcPathSource, 'none');
-    });
-
-    it('正常系: metadata.source が .md ファイルとして存在する場合 → そのまま使用', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdp-md-'));
-      try {
-        const mdPath = path.join(tmpDir, 'RFC-ROOT.md');
-        fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveRfcPaths(mdPath, tmpDir);
-        assert.equal(r.rfcPath, mdPath);
-        assert.ok(r.graphPath.endsWith('RFC-ROOT-GRAPH.json'));
-        assert.ok(r.dirsTreePath.endsWith('RFC-ROOT-Dirs-Tree.json'));
-        assert.equal(r.rfcPathSource, 'metadata.source.md');
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-
-    it('正常系: metadata.source が GRAPH.json の場合 → .md に変換して使用', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdp-json-'));
-      try {
-        // GRAPH.json と RFC.md の両方を作成
-        const graphPath = path.join(tmpDir, 'RFC-ROOT-GRAPH.json');
-        const mdPath = path.join(tmpDir, 'RFC-ROOT.md');
-        fs.writeFileSync(graphPath, '{}', 'utf8');
-        fs.writeFileSync(mdPath, '# test', 'utf8');
-
-        const r = resolveRfcPaths(graphPath, tmpDir);
-        assert.equal(r.rfcPath, mdPath);
-        assert.equal(r.graphPath, graphPath);
-        assert.ok(r.dirsTreePath.endsWith('RFC-ROOT-Dirs-Tree.json'));
-        assert.equal(r.rfcPathSource, 'metadata.source.json');
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-
-    it('正常系: metadata.source が存在しないファイルの場合 → rfcPath 空、rfcPathSource=not_found', () => {
-      const r = resolveRfcPaths('/nonexistent/path.md', '/some/dir');
-      assert.equal(r.rfcPath, '');
-      assert.equal(r.rfcPathSource, 'not_found');
-    });
-
-    it('正常系: metadata.source が相対パスの .md の場合 → ticketsDir から絶対パス解決', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdp-rel-'));
-      try {
-        const mdPath = path.join(tmpDir, 'RFC.md');
-        fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveRfcPaths('RFC.md', tmpDir);
-        assert.equal(r.rfcPath, mdPath);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-
-    it('正常系: metadata.source が .json で -GRAPH サフィックスなしの場合 → そのまま basename を使用', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdp-js2-'));
-      try {
-        const jsonPath = path.join(tmpDir, 'data.json');
-        const mdPath = path.join(tmpDir, 'data.md');
-        fs.writeFileSync(jsonPath, '{}', 'utf8');
-        fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveRfcPaths(jsonPath, tmpDir);
-        assert.equal(r.rfcPath, mdPath);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
+  it("Case 3: --title を渡しても無視される（auto-creation 削除）", function () {
+    const r = parseArguments([
+      "--ticket-key=P0-1",
+      "--title=Should Be Ignored",
+    ]);
+    assert.strictEqual(r.ticketKey, "P0-1");
+    assert.strictEqual(Object.keys(r).length, 2);
   });
 
-  describe('isValidTicketKey', () => {
-    it('正常系: P{id}-{id} 形式 → true', () => {
-      assert.equal(isValidTicketKey('P0-1'), true);
-    });
+  it("Case 4: 引数なし → ticketKey は空文字", function () {
+    const r = parseArguments([]);
+    assert.strictEqual(r.ticketKey, "");
+  });
+});
 
-    it('正常系: PX-{id} 形式 → true', () => {
-      assert.equal(isValidTicketKey('PX-53'), true);
-    });
+// ---------------------------------------------------------------------------
+// isValidTicketKey / parseTicketKey
+// ---------------------------------------------------------------------------
 
-    it('異常系: 空文字列 → false', () => {
-      assert.equal(isValidTicketKey(''), false);
-    });
+describe("resolve-ticket-context — isValidTicketKey", function () {
+  it("P0-1 → true", () => assert.strictEqual(isValidTicketKey("P0-1"), true));
+  it("PX-53 → true", () => assert.strictEqual(isValidTicketKey("PX-53"), true));
+  it("空文字 → false", () => assert.strictEqual(isValidTicketKey(""), false));
+});
 
-    it('異常系: 不正形式 → false', () => {
-      assert.equal(isValidTicketKey('invalid'), false);
-    });
+describe("resolve-ticket-context — parseTicketKey", function () {
+  it("P0-1 → {phaseId:0, ticketId:1}", () => assert.deepStrictEqual(parseTicketKey("P0-1"), { phaseId: 0, ticketId: 1 }));
+  it("PX-53 → {phaseId:-1, ticketId:53}", () => assert.deepStrictEqual(parseTicketKey("PX-53"), { phaseId: -1, ticketId: 53 }));
+  it("不正形式 → null", () => assert.strictEqual(parseTicketKey("bad"), null));
+});
+
+// ---------------------------------------------------------------------------
+// ticketExists
+// ---------------------------------------------------------------------------
+
+describe("resolve-ticket-context — ticketExists", function () {
+  const tickets = {
+    phases: [
+      { id: 0, ticketKeyPrefix: "P0", tickets: [{ id: 1 }, { id: 2 }] },
+      { id: -1, ticketKeyPrefix: "PX", tickets: [{ id: 53 }] },
+    ],
+  };
+
+  it("存在（P0-1）→ true", () => assert.strictEqual(ticketExists(tickets, 0, 1), true));
+  it("不在（P0-999）→ false", () => assert.strictEqual(ticketExists(tickets, 0, 999), false));
+  it("PX-53 → true", () => assert.strictEqual(ticketExists(tickets, -1, 53), true));
+  it("存在しないフェーズ → false", () => assert.strictEqual(ticketExists(tickets, 99, 1), false));
+});
+
+// ---------------------------------------------------------------------------
+// generateInstruction — 新文言の確認
+// ---------------------------------------------------------------------------
+
+describe("resolve-ticket-context — generateInstruction", function () {
+  it("ticketKey 不正 → 引数エラー", function () {
+    const msg = generateInstruction("", true, true, "", "", false, false, false);
+    assert.ok(msg.includes("引数が指定されていないか"));
   });
 
-  describe('parseTicketKey', () => {
-    it('正常系: P0-1 → {phaseId:0, ticketId:1}', () => {
-      const r = parseTicketKey('P0-1');
-      assert.equal(r.phaseId, 0);
-      assert.equal(r.ticketId, 1);
-    });
-
-    it('正常系: PX-53 → {phaseId:-1, ticketId:53}', () => {
-      const r = parseTicketKey('PX-53');
-      assert.equal(r.phaseId, -1);
-      assert.equal(r.ticketId, 53);
-    });
-
-    it('異常系: 不正形式 → null', () => {
-      assert.equal(parseTicketKey('invalid'), null);
-    });
+  it("チケット不在 → ensure-ticket-and-spec.js を参照", function () {
+    const msg = generateInstruction("P0-1", false, false, "", "", false, false, false);
+    assert.ok(msg.includes("ensure-ticket-and-spec.js"));
+    assert.ok(!msg.includes("--title を指定して再実行"));
   });
 
-  describe('ticketExists', () => {
-    const tickets = {
-      phases: [
-        { id: 0, name: 'P0', tickets: [{ id: 1 }, { id: 2 }] },
-        { id: -1, name: 'PX', tickets: [{ id: 53 }] },
-      ],
-    };
-
-    it('正常系: 存在するチケット → true', () => {
-      assert.equal(ticketExists(tickets, 0, 1), true);
-    });
-
-    it('正常系: 存在する PX チケット → true', () => {
-      assert.equal(ticketExists(tickets, -1, 53), true);
-    });
-
-    it('異常系: 存在しないチケット → false', () => {
-      assert.equal(ticketExists(tickets, 0, 999), false);
-    });
-
-    it('異常系: 存在しないフェーズ → false', () => {
-      assert.equal(ticketExists(tickets, 99, 1), false);
-    });
-
-    it('異常系: 空の phases → false', () => {
-      assert.equal(ticketExists({ phases: [] }, 0, 1), false);
-    });
+  it("spec 不在 → create-spec.js を参照", function () {
+    const msg = generateInstruction("P0-1", true, false, "", "", false, false, false);
+    assert.ok(msg.includes("create-spec.js"));
   });
 
-  describe('generateInstruction', () => {
-    it('正常系: ticketKey なし → add-ticket 指示', () => {
-      const instr = generateInstruction('', true, false, '', 'none', false, false, false);
-      assert.ok(instr.includes('引数'));
-    });
+  it("rfcPathSource=none → Step 3/Step 6 を参照", function () {
+    const msg = generateInstruction("P0-1", true, true, "", "none", false, false, false);
+    assert.ok(msg.includes("Step 6 はスキップ"));
+    assert.ok(msg.includes("Step 3 はスポット調査"));
+  });
 
-    it('正常系: ticketKey 不正形式 → 引数エラー指示', () => {
-      const instr = generateInstruction('invalid', true, false, '', 'none', false, false, false);
-      assert.ok(instr.includes('形式'));
-    });
+  it("rfcPathSource=not_found → Step 6 スキップ", function () {
+    const msg = generateInstruction("P0-1", true, true, "", "not_found", false, false, false);
+    assert.ok(msg.includes("Step 6 はスキップ"));
+  });
 
-    it('正常系: ticketExistsFlag=false → 新規作成指示', () => {
-      const instr = generateInstruction('P0-1', false, false, '', 'none', false, false, false);
-      assert.ok(instr.includes('存在しません'));
-    });
+  it("rfcPathSource=unknown → Step 6 スキップ", function () {
+    const msg = generateInstruction("P0-1", true, true, "", "unknown", false, false, false);
+    assert.ok(msg.includes("Step 6 はスキップ"));
+  });
 
-    it('正常系: specExistsFlag=false → spec 欠落指示', () => {
-      const instr = generateInstruction('P0-1', true, false, '', 'none', false, false, false);
-      assert.ok(instr.includes('見つかりません'));
-    });
+  it("rfcPath 実在しない → Step 6 スキップ", function () {
+    const msg = generateInstruction("P0-1", true, true, "/path/to/rfc.md", "md", false, true, true);
+    assert.ok(msg.includes("Step 6 はスキップ"));
+  });
 
-    it('正常系: rfcPathSource=none → スポットモード指示', () => {
-      const instr = generateInstruction('P0-1', true, true, '', 'none', false, false, false);
-      assert.ok(instr.includes('スポット'));
-    });
+  it("GRAPH/Dirs-Tree 不足 → Step 6 スキップ", function () {
+    const m1 = generateInstruction("P0-1", true, true, "/path/to/rfc.md", "md", true, false, true);
+    assert.ok(m1.includes("Step 6 はスキップ"));
+    const m2 = generateInstruction("P0-1", true, true, "/path/to/rfc.md", "md", true, true, false);
+    assert.ok(m2.includes("Step 6 はスキップ"));
+  });
 
-    it('正常系: rfcPathSource=not_found → パス確認指示', () => {
-      const instr = generateInstruction('P0-1', true, true, '', 'not_found', false, false, false);
-      assert.ok(instr.includes('存在しません'));
-    });
-
-    it('正常系: rfcPathSource=unknown → 形式不明指示', () => {
-      const instr = generateInstruction('P0-1', true, true, '', 'unknown', false, false, false);
-      assert.ok(instr.includes('形式が不明'));
-    });
-
-    it('正常系: 全情報あり → pipeline 実行指示', () => {
-      const instr = generateInstruction('P0-1', true, true, '/a/RFC.md', 'metadata.source.md', true, true, true);
-      assert.ok(instr.includes('全て揃っています'));
-    });
-
-    it('正常系: graph/dirs 不足 → 不完全指示', () => {
-      const instr = generateInstruction('P0-1', true, true, '/a/RFC.md', 'metadata.source.md', true, false, true);
-      assert.ok(instr.includes('不完全'));
-    });
+  it("全リソース完備 → Step 6 機械的書き込み + Step 3 グラフ調査", function () {
+    const msg = generateInstruction("P0-1", true, true, "/path/to/rfc.md", "md", true, true, true);
+    assert.ok(msg.includes("Step 6 で機械的書き込み"));
+    assert.ok(msg.includes("Step 3 ではグラフ"));
   });
 });

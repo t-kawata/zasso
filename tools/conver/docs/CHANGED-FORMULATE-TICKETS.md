@@ -49,7 +49,7 @@ Root
 │               ├── status: enum(todo/done/reviewed)
 │               ├── referenceSection: string
 │               ├── scope: string[]
-│               ├── testVerification: string[]
+│               ├── testUnit: string[]
 │               ├── instrumentation: string
 │               └── additionalProperties: true
 └── dependencyMap: string

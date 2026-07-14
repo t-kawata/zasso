@@ -45,7 +45,7 @@ Tickets.json は以下の構造を持つ（`.claude/scripts/lib/validate-tickets
 ## Scope
 
 ### 型定義の修正
-- Ticket: id, phaseId, status, title + オプショナルフィールド（referenceSection, background, scope, testVerification, testExceptions, instrumentation, notes, relatedTicketIds, startedAt, completedAt）
+- Ticket: id, phaseId, status, title + オプショナルフィールド（referenceSection, background, scope, testUnit, testExceptions, instrumentation, notes, relatedTicketIds, startedAt, completedAt）
 - Phase: id, name, externalDependencies?, tickets: Ticket[]
 - TicketsJson: title?, metadata?: { source: string, generatedAt: string, analyzedSections?: string }, phases: Phase[]
 
@@ -139,7 +139,7 @@ export function getSourceFromTickets(tickets: Ticket[]): string {
 - referenceSection (string, optional)
 - background (string, optional)
 - scope (string[], optional)
-- testVerification (string[], optional)
+- testUnit (string[], optional)
 - testExceptions (string[], optional)
 - instrumentation (string, optional)
 - notes (string, optional)
@@ -237,6 +237,6 @@ export function getSourceFromTickets(tickets: Ticket[]): string {
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: `scope[]`, `testVerification[]`, `testExceptions[]`, `notes` フィールド
+- **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド

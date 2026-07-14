@@ -165,7 +165,7 @@ main()
 <!--
 注: このコメントは人間向けの説明である。
 
-- plan: /plan-ticket が計画を策定し、チケットの JSON フィールド（scope, testVerification, notes）に保存する
+- plan: /plan-ticket が計画を策定し、チケットの JSON フィールド（scope, testUnit, notes）に保存する
 - implementation: /start-ticket が実装サマリーをチケットの JSON フィールド（changes, notes）に保存する
 - review: /review-ticket がレビュー報告をチケットの JSON フィールド（instrumentation, notes）に保存する
 
@@ -176,6 +176,6 @@ main()
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: `scope[]`, `testVerification[]`, `testExceptions[]`, `notes` フィールド
+- **計画**: `scope[]`, `testUnit[]`, `testExceptions[]`, `notes` フィールド
 - **実装サマリ**: `changes[]`, `notes` フィールド
 - **レビュー報告書**: `instrumentation`, `notes`, `rfcDiscrepancies[]` フィールド

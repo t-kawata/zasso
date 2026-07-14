@@ -477,7 +477,7 @@ Tickets.json
 │       ├── id: integer (フェーズ内連番)
 │       ├── title: string
 │       ├── status: "todo" | "made" | "planned" | "done" | "reviewed"
-│       ├── scope[], testVerification[], notes
+│       ├── scope[], testUnit[], notes
 │       ├── startedAt, completedAt
 │       └── changes[], instrumentation
 ```

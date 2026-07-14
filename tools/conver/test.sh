@@ -28,9 +28,9 @@ R="$(echo '{"name":"Phase 1: Async","externalDependencies":"tokio"}' | node "$S/
 assert_json_field "$R" "d.phaseId" "1"
 
 echo "[3] add-ticket x2"
-R="$(echo '{"title":"Type Defs","scope":["struct"],"testVerification":["t1"]}' | node "$S/add-ticket.js" "$TJ" "Phase 0" 2>&1)" || true
+R="$(echo '{"title":"Type Defs","scope":["struct"],"testUnit":["t1"]}' | node "$S/add-ticket.js" "$TJ" "Phase 0" 2>&1)" || true
 assert_json_field "$R" "d.ticketKey" "P0-1"
-R="$(echo '{"title":"Error Types","scope":["enum"],"testVerification":["t2"]}' | node "$S/add-ticket.js" "$TJ" "Phase 0" 2>&1)" || true
+R="$(echo '{"title":"Error Types","scope":["enum"],"testUnit":["t2"]}' | node "$S/add-ticket.js" "$TJ" "Phase 0" 2>&1)" || true
 assert_json_field "$R" "d.ticketKey" "P0-2"
 
 echo "[4] bulk-add-tickets"

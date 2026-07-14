@@ -2,8 +2,10 @@ const fs = require("fs"),
   path = require("path");
 const { validateTickets, parseTicketKey } = require("../lib/validate-tickets");
 function main() {
-  const jp = process.argv[2],
-    key = process.argv[3];
+  const args = process.argv.slice(2);
+  const jp = args[0],
+    key = args[1],
+    appendFlag = args[2] === '--append';
   if (!jp || !key) {
     console.log(JSON.stringify({ success: false, error: "Usage: ..." }));
     process.exit(1);
@@ -35,7 +37,22 @@ function main() {
         p.tickets[i].id === k.ticketId
       ) {
         const { id, phaseId, ...safe } = updates;
-        p.tickets[i] = { ...p.tickets[i], ...safe };
+        if (appendFlag) {
+          // --append mode: merge string/array fields, replace others
+          for (const f of Object.keys(safe)) {
+            const existing = p.tickets[i][f];
+            const incoming = safe[f];
+            if (typeof existing === 'string' && typeof incoming === 'string') {
+              p.tickets[i][f] = existing + '\n' + incoming;
+            } else if (Array.isArray(existing) && Array.isArray(incoming)) {
+              p.tickets[i][f] = existing.concat(incoming);
+            } else {
+              p.tickets[i][f] = incoming;
+            }
+          }
+        } else {
+          p.tickets[i] = { ...p.tickets[i], ...safe };
+        }
         found = p.tickets[i];
         break;
       }

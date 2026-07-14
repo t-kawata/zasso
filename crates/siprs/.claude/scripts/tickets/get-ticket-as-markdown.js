@@ -40,7 +40,7 @@ function renderTicket(ticketKey, phaseName, ticket) {
     }
   }
 
-  var arrFields = ['scope', 'testVerification', 'testExceptions', 'referenceUrls', 'sourcePaths', 'rfcDiscrepancies'];
+  var arrFields = ['scope', 'testUnit', 'testExceptions', 'referenceUrls', 'sourcePaths', 'rfcDiscrepancies'];
   for (var j = 0; j < arrFields.length; j++) {
     var af = arrFields[j];
     if (Array.isArray(ticket[af]) && ticket[af].length > 0) {

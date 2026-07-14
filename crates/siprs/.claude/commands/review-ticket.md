@@ -65,7 +65,7 @@ node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-出力の `ticket` オブジェクトから `scope`, `testVerification`, `testExceptions`, `changes`, `notes` 等を読み取り、Acceptance Criteria と実装内容を確認する。`testVerification` に記載されたユニットテストが全て実装されているか確認する。
+出力の `ticket` オブジェクトから `scope`, `testUnit`, `testExceptions`, `changes`, `notes` 等を読み取り、Acceptance Criteria と実装内容を確認する。`testUnit` に記載されたユニットテストが全て実装されているか確認する。
 
 ### Step 3: 依存・関連チケットID の整合性検証
 

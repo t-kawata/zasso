@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * resolve-ticket-context.js — make-ticket の中央判断エンジン
+ * resolve-ticket-context.js — チケットコンテキストの機械的判定（JSON 出力）
  *
- * /make-ticket スラッシュコマンドの最初に実行される。--ticket-key を必須引数とし、
- * 以下の情報を機械的に判定して JSON 出力する:
+ * --ticket-key を必須引数とし、以下の情報を機械的に判定して JSON 出力する。
+ * 旧 /make-ticket の Step 1 だったが、現在は show-ticket-context.js が
+ * Markdown 出力の Step 1 として置き換えた。本スクリプトは互換性のために維持する。
  *
- * - Tickets.json の存在（なければ自動生成）
- * - チケットの存在有無（新規 or 深掘り）
- * - spec ファイルの存在有無（なければ --title があれば自動作成）
+ * - Tickets.json の存在確認
+ * - チケットの存在有無
+ * - spec ファイルの存在有無
  * - パイプライン情報（resolvedPaths / metadata.source）の有無
  * - AI が次に行うべきアクション（instruction）
  *
- * --title を指定すると、チケットや spec が存在しない場合に自動作成する。
+ * 注: auto-creation（create-spec.js / add-ticket.js の自動実行）は
+ * ensure-ticket-and-spec.js に移譲した。本スクリプトは作成を行わない。
  *
- * CLI: resolve-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}> [--title="タイトル"]
+ * CLI: resolve-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
  */
 
 const fs = require('fs');
@@ -26,22 +28,18 @@ const EXIT_FAILURE = 1;
 
 /**
  * コマンドライン引数をパースする
- * --ticket-key は必須。--title はオプション（指定時は spec を自動作成）。
- * --tickets は省略時は CWD の Tickets.json。
+ * --ticket-key は必須。--tickets は省略時は CWD の Tickets.json。
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
   let ticketKey = '';
-  let title = '';
 
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
       ticketsPath = arg.slice('--tickets='.length);
     } else if (arg.startsWith('--ticket-key=')) {
       ticketKey = arg.slice('--ticket-key='.length);
-    } else if (arg.startsWith('--title=')) {
-      title = arg.slice('--title='.length);
     }
   }
 
@@ -51,7 +49,7 @@ function parseArguments(testArgs) {
     ticketsPath = path.resolve(ticketsPath);
   }
 
-  return { ticketsPath, ticketKey, title };
+  return { ticketsPath, ticketKey };
 }
 
 /**
@@ -73,48 +71,6 @@ function runEnsureTicketsJson(ticketsDir) {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
   });
-}
-
-/**
- * 子プロセスで create-spec.js を実行し、出力をパースする
- * @returns {{ ticketId: number, specPath: string }}
- */
-function runCreateSpec(title) {
-  const scriptPath = path.join(__dirname, 'create-spec.js');
-  if (!fs.existsSync(scriptPath)) {
-    throw new Error('create-spec.js が見つかりません');
-  }
-  const stdout = execFileSync(process.execPath, [scriptPath, '', title], {
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const result = JSON.parse(stdout);
-  if (!result.success) {
-    throw new Error(`create-spec.js 失敗: ${result.error || '不明'}`);
-  }
-  return { ticketId: result.ticketId, specPath: result.specPath };
-}
-
-/**
- * 子プロセスで add-ticket.js を実行する
- * @returns {{ ticketKey: string }}
- */
-function runAddTicket(ticketsPath, title, specPath) {
-  const scriptPath = path.join(__dirname, 'add-ticket.js');
-  if (!fs.existsSync(scriptPath)) {
-    throw new Error('add-ticket.js が見つかりません');
-  }
-  const input = JSON.stringify({ title, referenceSection: specPath });
-  const stdout = execFileSync(process.execPath, [scriptPath, ticketsPath, 'PX'], {
-    encoding: 'utf8',
-    input,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const result = JSON.parse(stdout);
-  if (!result.success) {
-    throw new Error(`add-ticket.js 失敗: ${result.error || '不明'}`);
-  }
-  return { ticketKey: result.ticketKey || '' };
 }
 
 /**
@@ -237,135 +193,73 @@ function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPat
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     return '/make-ticket の引数が指定されていないか、形式が正しくありません。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。';
   }
+  // 注意: auto-creation は ensure-ticket-and-spec.js に移譲した。
+  // 以下の2つの分岐は単体テスト用の防御的ガードとして維持する。
   if (!ticketExistsFlag) {
-    return 'チケットが存在しません。--title を指定して再実行すると spec 作成＋チケット追加を自動で行います。';
+    return 'チケットが存在しません。ensure-ticket-and-spec.js を実行して作成してください。';
   }
   if (!specExistsFlag) {
-    return 'spec ファイルが見つかりません。--title を指定して再実行すると spec を自動作成します。';
+    return 'spec ファイルが存在しません（異常状態）。create-spec.js を手動実行して作成してください。';
   }
   if (!rfcPath) {
     if (rfcPathSource === 'none') {
-      return 'パイプライン情報がありません（metadata.source 未設定、スポットチケット）。Step 7 はスキップしてください。Step 4 はスポット調査のみで構いません。';
+      return 'パイプライン情報がありません（metadata.source 未設定、スポットチケット）。Step 6 はスキップしてください。Step 3 はスポット調査のみで構いません。';
     }
     if (rfcPathSource === 'not_found') {
-      return 'metadata.source に指定されたファイルが存在しません。パスを確認してください。Step 7 はスキップします。';
+      return 'metadata.source に指定されたファイルが存在しません。パスを確認してください。Step 6 はスキップします。';
     }
-    return 'metadata.source の形式が不明です（.md でも .json でもありません）。Step 7 はスキップします。';
+    return 'metadata.source の形式が不明です（.md でも .json でもありません）。Step 6 はスキップします。';
   }
   if (!rfcExists) {
-    return 'metadata.source から導出した設計書ファイルが存在しません。パスを確認してください。Step 7 はスキップします。';
+    return 'metadata.source から導出した設計書ファイルが存在しません。パスを確認してください。Step 6 はスキップします。';
   }
   if (!graphExists || !dirsExists) {
-    return 'パイプライン情報が不完全です（GRAPH.json または Dirs-Tree.json が不足）。Step 7 はスキップしてください。';
+    return 'パイプライン情報が不完全です（GRAPH.json または Dirs-Tree.json が不足）。Step 6 はスキップしてください。';
   }
-  return 'パイプライン情報が全て揃っています。Step 7 で機械的書き込みを実行できます。Step 4 ではグラフのノード情報を活用した調査を行ってください。';
+  return 'パイプライン情報が全て揃っています。Step 6 で機械的書き込みを実行できます。Step 3 ではグラフのノード情報を活用した調査を行ってください。';
 }
 
 /**
  * メイン処理
  */
 function main() {
-  const { ticketsPath, ticketKey, title } = parseArguments();
+  const { ticketsPath, ticketKey } = parseArguments();
 
   // --ticket-key の検証
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.log(JSON.stringify({
       success: false,
-      error: '/make-ticket の引数が不正です。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。',
-      instruction: '/make-ticket コマンドの第1引数にチケットキーを指定してください。',
+      error: 'チケットキーの形式が不正です。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。',
+      instruction: 'チケットキーを確認して再実行してください。',
     }));
     process.exit(EXIT_FAILURE);
   }
 
-  // --title の検証（必須）
-  if (!title) {
-    console.log(JSON.stringify({
-      success: false,
-      error: '--title が指定されていません。',
-      instruction: '--title="タイトル" を指定して再実行してください。',
-    }));
-    process.exit(EXIT_FAILURE);
-  }
-
-  // Tickets.json が存在しなければ内部で ensure-tickets-json.js を呼び出して作成
+  // Tickets.json の存在確認
   const ticketsDir = path.dirname(ticketsPath);
   if (!fs.existsSync(ticketsPath)) {
-    try {
-      runEnsureTicketsJson(ticketsDir);
-    } catch (e) {
-      console.log(JSON.stringify({
-        success: false,
-        error: `Tickets.json の作成に失敗しました: ${e.message}`,
-        instruction: 'ensure-tickets-json.js のエラーを確認してください。',
-      }));
-      process.exit(EXIT_FAILURE);
-    }
+    console.log(JSON.stringify({
+      success: false,
+      error: `Tickets.json が見つかりません: ${ticketsPath}`,
+      instruction: 'ensure-tickets-json.js で Tickets.json を作成してから再実行してください。',
+    }));
+    process.exit(EXIT_FAILURE);
   }
 
-  /**
-   * Tickets.json を読み込み直す内部関数
-   */
-  function reloadTickets() {
-    return JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
-  }
-
-  /**
-   * 現在の Tickets.json の状態から exists / specPath / specExists を再計算する
-   */
-  function resolveTicketState(tickets, parsed) {
-    const ex = parsed ? ticketExists(tickets, parsed.phaseId, parsed.ticketId) : false;
-    let sp = '', sEx = false;
-    if (ex && parsed) {
-      const phases = tickets.phases || [];
-      for (const phase of phases) {
-        if (phase.id !== parsed.phaseId && phase.phaseId !== parsed.phaseId) continue;
-        const ticket = (phase.tickets || []).find(t => t.id === parsed.ticketId);
-        if (ticket && ticket.referenceSection) {
-          sp = path.resolve(ticketsDir, ticket.referenceSection);
-          sEx = fs.existsSync(sp);
-        }
-        break;
-      }
-    }
-    return { exists: ex, specPath: sp, specExists: sEx };
-  }
-
-  let tickets = reloadTickets();
+  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   const parsed = parseTicketKey(ticketKey);
-  let { exists, specPath, specExists } = resolveTicketState(tickets, parsed);
-
-  // --title が指定されている場合、不足を自動で作成する
-  let autoCreated = false;
-  if (title && parsed) {
-    if (!exists) {
-      // チケットも spec も存在しない → create-spec → add-ticket
-      const spec = runCreateSpec(title);
-      specPath = spec.specPath;
-      runAddTicket(ticketsPath, title, specPath);
-      tickets = reloadTickets();
-      const state = resolveTicketState(tickets, parsed);
-      exists = state.exists;
-      specPath = state.specPath;
-      specExists = state.specExists;
-      autoCreated = true;
-    } else if (exists && !specExists) {
-      // チケットはあるが spec がない → create-spec のみ
-      const spec = runCreateSpec(title);
-      specPath = spec.specPath;
-      // referenceSection を新しい spec パスに更新
-      const phases = tickets.phases || [];
-      for (const phase of phases) {
-        if (phase.id !== parsed.phaseId && phase.phaseId !== parsed.phaseId) continue;
-        const ticket = (phase.tickets || []).find(t => t.id === parsed.ticketId);
-        if (ticket) {
-          ticket.referenceSection = specPath;
-          break;
-        }
-        break;
+  const exists = parsed ? ticketExists(tickets, parsed.phaseId, parsed.ticketId) : false;
+  let specPath = '', specExists = false;
+  if (exists && parsed) {
+    const phases = tickets.phases || [];
+    for (const phase of phases) {
+      if (phase.id !== parsed.phaseId && phase.phaseId !== parsed.phaseId) continue;
+      const ticket = (phase.tickets || []).find(t => t.id === parsed.ticketId);
+      if (ticket && ticket.referenceSection) {
+        specPath = path.resolve(ticketsDir, ticket.referenceSection);
+        specExists = fs.existsSync(specPath);
       }
-      fs.writeFileSync(ticketsPath, JSON.stringify(tickets, null, 2) + '\n', 'utf8');
-      specExists = true;
-      autoCreated = true;
+      break;
     }
   }
 
@@ -412,7 +306,6 @@ function main() {
     exists,
     specPath,
     specExists,
-    autoCreated,
     rfcPath,
     rfcPathSource,
     graphPath,
@@ -429,4 +322,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArguments, resolveRfcPaths, derivePaths, generateInstruction, main, isValidTicketKey, parseTicketKey, ticketExists, runEnsureTicketsJson, runCreateSpec, runAddTicket };
+module.exports = { parseArguments, resolveRfcPaths, derivePaths, generateInstruction, main, isValidTicketKey, parseTicketKey, ticketExists, runEnsureTicketsJson };

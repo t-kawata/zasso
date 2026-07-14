@@ -45,7 +45,7 @@
 | 旧アーティファクト | 新 JSON フィールド |
 |-------------------|-------------------|
 | spec（調査・背景・要件） | `background`, `scope[]`, `referenceSection`, `relatedTicketIds` |
-| plan（実装計画） | `scope[]`（詳細）, `testVerification[]`, `testExceptions[]`, `notes` |
+| plan（実装計画） | `scope[]`（詳細）, `testUnit[]`, `testExceptions[]`, `notes` |
 | implementation（実装サマリ） | `changes[]`, `notes` |
 | review（レビュー報告書） | `instrumentation`, `notes`, `rfcDiscrepancies[]` |
 
@@ -131,7 +131,7 @@
 | Step 7: 犯罪・スタブ点検 | Step 6 | 内容維持 |
 | Step 8: 計画策定 | Step 7 | spec→チケットフィールド |
 | Step 9: ユーザー承認待ち | Step 8 | 内容維持 |
-| Step 10: 計画の保存 | Step 9 | `save-artifact.js`→`update-ticket.js`（`scope`, `testVerification`, `notes` に保存） |
+| Step 10: 計画の保存 | Step 9 | `save-artifact.js`→`update-ticket.js`（`scope`, `testUnit`, `notes` に保存） |
 
 ---
 

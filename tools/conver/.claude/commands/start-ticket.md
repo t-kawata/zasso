@@ -72,7 +72,7 @@ echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/upd
 node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-出力の `ticket` オブジェクトから `background`, `scope`, `testVerification`, `notes` 等を確認する。
+出力の `ticket` オブジェクトから `background`, `scope`, `testUnit`, `notes` 等を確認する。
 
 ### Step 4: 依存・関連チケットID の充足確認
 

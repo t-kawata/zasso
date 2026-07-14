@@ -30,7 +30,7 @@ function validateTickets(data) {
       if (pId >= -1 && t.phaseId !== undefined && t.phaseId !== pId) errors.push(tp + '.phaseId (' + t.phaseId + ') does not match parent phase id (' + pId + ')');
       if (!t.title || typeof t.title !== 'string') errors.push(tp + '.title: required');
       if (!t.status || !ALLOWED.includes(t.status)) errors.push(tp + '.status: must be one of ' + ALLOWED.join(', '));
-      const arrayFields = ['scope','testVerification','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies'];
+      const arrayFields = ['scope','testUnit','testIntegration','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies'];
       for (const f of arrayFields) {
         if (t[f] !== undefined) {
           if (!Array.isArray(t[f])) errors.push(tp + '.' + f + ': must be array');

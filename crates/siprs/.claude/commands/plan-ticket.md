@@ -64,11 +64,11 @@ node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 
 `success` が `false` → 終了。以下のステップでは、この出力の `ticket` オブジェクトを参照する。
 
-出力された `ticket` オブジェクトの全フィールド（`title`, `status`, `background`, `scope`, `referenceSection`, `testVerification`, `testExceptions`, `notes`, `relatedTicketIds` 等）を読み取り、以下の観点で情報を把握する：
+出力された `ticket` オブジェクトの全フィールド（`title`, `status`, `background`, `scope`, `referenceSection`, `testUnit`, `testExceptions`, `notes`, `relatedTicketIds` 等）を読み取り、以下の観点で情報を把握する：
 
 - **チケットの基本情報**: `title`, `status`, `background`
 - **フィールドの充足度**: 各フィールドが空か埋まっているか
-- **既存計画の有無**: `testVerification` や `notes` に計画らしき内容が含まれていれば既存の計画が存在する。空または未設定なら新規に計画を策定する。
+- **既存計画の有無**: `testUnit` や `notes` に計画らしき内容が含まれていれば既存の計画が存在する。空または未設定なら新規に計画を策定する。
 
 ### Step 2: Investigation の再検証
 
@@ -179,7 +179,7 @@ echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "T
 ```bash
 echo '{
   "scope": ["変更ファイル一覧（ファイルパス・種別・内容）"],
-  "testVerification": ["UT: 正常系ケース...", "UT: 異常系ケース...", "UT: 境界値ケース..."],
+  "testUnit": ["UT: 正常系ケース...", "UT: 異常系ケース...", "UT: 境界値ケース..."],
   "testExceptions": ["ユニットテスト不可能な項目とその理由"],
   "notes": "実装手順:\n1. ...\n2. ...\n\nレビュー方法:\n- run-quality-checks\n- 翻訳可能性 grep\n\nリスク:\n- ..."
 }' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

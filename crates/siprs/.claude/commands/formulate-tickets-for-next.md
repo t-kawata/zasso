@@ -357,7 +357,7 @@ id と status はスクリプトが自動設定する。省略可能な全フィ
   "background": "<このI/O境界の契約が何か、実装の背景と目的>",
   "scope": ["<型シグネチャ付き公開I/O: 実装する公開インターフェースの一覧>"],
   "relatedTicketIds": "<入力元I/O: PX-YY / 出力先I/O: PX-ZZ — 結合するI/O境界の前後関係>",
-  "testVerification": [
+  "testUnit": [
     "正常系: 公開I/Oに対する契約の充足を検証",
     "異常系: 契約違反時の動作を検証",
     "境界値: I/O境界における極値の振る舞いを検証"
@@ -373,7 +373,7 @@ id と status はスクリプトが自動設定する。省略可能な全フィ
 #### 単一追加（add-ticket.js）
 
 ```bash
-echo '{"title":"純粋データ型の定義","scope":[...],"testVerification":[...],"notes":"parentOmissionId: O-001"}' \
+echo '{"title":"純粋データ型の定義","scope":[...],"testUnit":[...],"notes":"parentOmissionId: O-001"}' \
   | node .claude/scripts/tickets/add-ticket.js "$TICKETS_PATH" "P0"
 ```
 

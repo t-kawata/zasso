@@ -25,7 +25,7 @@
             "devDependencies に esbuild 追加",
             "型チェックは tsc --noEmit として分離維持"
           ],
-          "testVerification": [
+          "testUnit": [
             "npm run build で dist/conver.js が単一ファイルとして生成される",
             "npm test が全56テスト PASS",
             "バンドル後の単一ファイルだけで node dist/conver.js が起動可能"
@@ -73,7 +73,7 @@
             "conver.ts のグローバルエラーハンドラを全削除",
             "acp-test.mjs を回帰テストとして保存"
           ],
-          "testVerification": [
+          "testUnit": [
             "node ./conver.js -k <key> -s <url> -c 1 -v 1 が1チケット以上処理完了",
             "make test-conver 全テスト PASS",
             "acp-test.mjs <key> 全15テスト PASS"
@@ -124,7 +124,7 @@
             "整形結果を Slack にコードブロック通知",
             "ファイル不在/空配列のケースもハンドリング"
           ],
-          "testVerification": [
+          "testUnit": [
             "notifier.ts: buildOmissionsBlocks の整形テスト",
             "runner.ts: find-omissions 後の通知フロー",
             "make test-conver 全テスト PASS"
@@ -164,7 +164,7 @@
             "plan-ticket.md: 完了時に status→planned",
             "loadPendingTickets: reviewed のみ除外（変更不要）"
           ],
-          "testVerification": [
+          "testUnit": [
             "todo→make/plan/start/review",
             "made→plan/start/review（make スキップ）",
             "planned→start/review（make/plan スキップ）",
@@ -210,7 +210,7 @@
             "status 分岐（todo→make, made→plan, planned→start, done→reviewのみ）は維持",
             "resolve/jpush-branch/find-omissions のセッション構成は維持"
           ],
-          "testVerification": [
+          "testUnit": [
             "todo→withSession 2回（統合内+resolve）",
             "done→withSession 2回（review+resolve）",
             "make test-conver 全 PASS"
@@ -243,7 +243,7 @@
             "CliOptions/LoopOptions に bindReviewInOneSession 追加",
             "runner.ts のセッション分岐をフラグでガード"
           ],
-          "testVerification": [
+          "testUnit": [
             "-b 0 → bindReviewInOneSession: false",
             "-b 1／未指定 → bindReviewInOneSession: true",
             "make test-conver 全 PASS"
@@ -291,7 +291,7 @@
             "plan-ticket.md: ステータス更新（→planned）を承認待ちより前に移動。承認待ちを案内表示に変更",
             "start/review は現状維持"
           ],
-          "testVerification": [
+          "testUnit": [
             "make-ticket → made が確定してから停止",
             "plan-ticket → planned が確定してから停止",
             "make test-conver 全 PASS"
@@ -328,7 +328,7 @@
             "runner.ts に updateStatus() 関数追加（execSync + update-ticket.js）",
             "各 runCommand 直後に status を強制更新：todo→made→planned→done→reviewed"
           ],
-          "testVerification": [
+          "testUnit": [
             "各工程完了後に確定的 status 更新",
             ".md や Claude Code の動作に影響されない",
             "make test-conver 全 PASS"
@@ -361,7 +361,7 @@
             ".claude/scripts/tickets/merge-omissions-into-root-rfc.js 新規作成（機械的処理のみ: validateArgs/readFrontmatter/addMergeHistory/extractSections）",
             "README.md 更新（二層ループ図への新コマンド追加）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: frontmatter新規追加（YAMLなし→追加される）",
             "UT: frontmatter追記（既存frontmatter→merge-history追記）",
             "UT: merge-history重複防止（同名ソース→スキップ）",
@@ -421,7 +421,7 @@
             ".claude/scripts/tickets/check-rfc-placeholders.js 新規（未記入マーカー再帰的検出）",
             ".claude/scripts/tickets/verify-rfc-coverage.js 新規（構造一致＋言語別設定検証）"
           ],
-          "testVerification": [
+          "testUnit": [
             "create-rfc-tree.js: 雛形作成・スキーマ検証・言語検出",
             "add-rfc-tree-goal/architecture/detail*.js: 14フィールド書き込み",
             "write-rfc-tree-draft/final: draft→final保存・孤立検出",
@@ -522,7 +522,7 @@
             "split-rfc-to-children.md: 命名規則説明を新規則に更新",
             "tickets/specs/0024-split-rfc-to-children.md: 命名規則記述を更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: 子ファイル名 canonical=RFC_ROOT.md, childId=01, slug=parser → RFC-ROOT-01-parser/ + RFC-ROOT-01-parser.md",
             "UT: 孫ファイル名 同上＋gcId=01, slug=lexer → RFC-ROOT-01-01-lexer/ + RFC-ROOT-01-01-lexer.md",
             "UT: 別正典名 canonical=MY-DESIGN.md → MY-DESIGN-01-parser/",
@@ -567,7 +567,7 @@
             "split-rfc-to-children.md: L31説明文、L185/200スキーマ表、L220-243例JSON、L292/295例コマンド、L326 find→check-rfc-placeholders、L332文言",
             "spec/0024: rfc.md/01-parser/ 等の旧命名を新規則に更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "check-rfc-placeholders: RFC-TREE→期待ファイル名導出（3子+2孫→5ファイル）",
             "check-rfc-placeholders: マーカー検出（該当ファイルの<!-- ??? --> → 検出）",
             "check-rfc-placeholders: 引数変更（<DIR>呼出→エラー、<RFC_TREE>→正常）",
@@ -607,7 +607,7 @@
             ".claude/commands/drill-rfc-down.md 新規作成（6ステップワークフロー）",
             ".claude/scripts/grill-me-for-rfc/init-for-drill-rfc-down.js 新規作成（専用初期化: 既存ファイル確認＋再利用＋init.js呼出）"
           ],
-          "testVerification": [
+          "testUnit": [
             "init-for-drill-rfc-down.js: 初回実行（3ファイルなし→init.js生成）",
             "init-for-drill-rfc-down.js: セッション継続（3ファイル存在→そのまま使用）",
             "init-for-drill-rfc-down.js: 一部欠落（欠落のみ生成）",
@@ -645,7 +645,7 @@
             "src/runner.ts: LoopOptions に noFind 追加、find-omissions ブロックのガード条件変更",
             "src/conver.ts: 起動パラメータログに noFind 表示行追加"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: parseCliOptions デフォルト → noFind === false",
             "UT: parseCliOptions -n 1 → noFind === true",
             "UT: parseCliOptions -n 0 → noFind === false",
@@ -700,7 +700,7 @@
             "formulate-tickets-for-next.md: Step 4 (210行目) — 同上③",
             "formulate-tickets-for-next.md: Step 7 — 同上④(notes:parentOmissionId統合)"
           ],
-          "testVerification": [
+          "testUnit": [
             "改修前後を diff 比較し既存内容の完全保存確認",
             "追記内容の一貫性確認（不変条件=I/O境界契約の定義と矛盾しない）",
             "言語マッピングの正確性確認",
@@ -751,7 +751,7 @@
             "formulate-tickets.md CLAUDE_EOF ブロック内: 「## スタブ一覧と解決計画」直後に設計原則セクションを追記",
             "formulate-tickets-for-next.md CLAUDE_EOF ブロック内: 同位置に同一セクションを追記"
           ],
-          "testVerification": [
+          "testUnit": [
             "改修前後の diff で既存内容の完全保存確認",
             "両ファイルの追記内容が同一であることを確認",
             "追記内容が PX-15 の定義と矛盾しないことを確認",
@@ -847,7 +847,7 @@
             "query.js — resolveCurrentLines → resolveByHeading 移行",
             "show-graph-summary-markdown.js — 行番号→見出し表示"
           ],
-          "testVerification": [
+          "testUnit": [
             "スキーマ検証: 新 headingRefs 形式が正しく検証通過することを確認",
             "resolveByHeading: Stage1-4 フォールバック照合の全ケース確認",
             "構文チェック: 全6ファイルの require() 成功を確認",
@@ -875,7 +875,7 @@
             "tests/rfc-graph/acceptance-criteria.test.cjs — AC2/AC4削除",
             ".claude/commands/graphify-rfc.md — Step0追加、Step4廃止（3ヶ所）"
           ],
-          "testVerification": [
+          "testUnit": [
             "grep embed-markers 残存参照がないことを確認",
             "node tests/run-all.js 全テストパス確認",
             "run-quality-checks.js 静的品質チェック"
@@ -937,7 +937,7 @@
             "tests/rfc-graph/deduplicate-headings.test.cjs — 新規",
             "tests/rfc-graph/resolve-by-heading.test.cjs — 新規"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: deduplicateHeadings — 重複なし/1件/複数/26件/27件",
             "UT: resolveByHeading — Stage1-4フォールバック/複数マッチ/全滅/空texts/heading=0",
             "UT: resolveAllHeadings — 全ノード解決",
@@ -1056,7 +1056,7 @@
             "graphify 関連スクリプトで新フィールドを出力するロジック追加",
             "slug 生成ルールの定義（セクション番号＋英字キーワード抽出等、日本語フォールバック）"
           ],
-          "testVerification": [
+          "testUnit": [
             "新フィールド（mainLanguage/language/slug）を含むグラフJSONの生成確認",
             "slug が lower_snake_case 命名規則に従っていることの確認",
             "language が単一値（配列ではない）であることの確認"
@@ -1101,7 +1101,7 @@
             "validate-dirs-tree-schema.js: 新スキーマフィールドの検証ルール追加",
             "全4テストファイルをスキーマ変更に追従"
           ],
-          "testVerification": [
+          "testUnit": [
             "削除後も tarjanSCC() / projectEdgesToDirectories() が正常動作",
             "slug ベースのファイル名が正しく生成される",
             "グラフ内実在言語のみでツリーが生成される",
@@ -1150,7 +1150,7 @@
             "verify-graph-integrity.js 新規作成（5軸チェック＋退行チェック）",
             "boundify-graph-to-dirs.md 全面改修（Step順序変更、全エラー時復帰を自己修復ループ化）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: 循環依存警告にAI指示文が含まれる",
             "UT: verify-graph-integrity.js が5軸チェックを正しく行う",
             "UT: 異常グラフで verify-graph-integrity.js がエラー＋remediesを返す",
@@ -1200,7 +1200,7 @@
             "graphify-rfc の Step 1 自己修復ループへの統合",
             "boundify-helpers.js の MAX_FILE_NAME_LENGTH を 48→25 に変更"
           ],
-          "testVerification": [
+          "testUnit": [
             "正常 slug 群が検証を通過する",
             "異常 slug（CamelCase, has space, 26文字超過等）が検出される",
             "4単語以上の slug が警告されるがブロックされない",
@@ -1248,7 +1248,7 @@
             "KIND_FILE_RULES から rationale/glossary/requirement 削除（docs/ 廃止）",
             "既存テストの期待値更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "宣言スタブテーブルが 8 kind × 3 言語を網羅している",
             "全ファイルノードに declarationStub が設定される",
             "prose 系 kind が Dirs-Tree.json に含まれない",
@@ -1306,7 +1306,7 @@
             "mergeTopLevelNodes 強化",
             "既存テストの期待値更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "pruneEmptyDirectories: 空ディレクトリ削除（子なしディレクトリが除去される）",
             "pruneEmptyDirectories: 子1つはフラット化（子が1ディレクトリのみの場合、親子をマージ）",
             "pruneEmptyDirectories: 複数子は維持、ファイルのみのディレクトリは維持",
@@ -3180,7 +3180,7 @@
             "tests/rfc-graph/generate-dir-template.test.cjs: discoverヘッダーテスト",
             "tests/rfc-graph/boundify-graph-to-dirs.test.cjs: crossReferences統合テスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: resolveHeaderPaths 4パターン相対パス＋同一ディレクトリケース＋不変表明",
             "UT: generateHeaderComment 3言語コメント記法＋mappedNodeIds＋crossRefs",
             "UT: computeCrossReferences prose→エッジ追跡→ファイル解決＋エッジなし",
@@ -3209,7 +3209,7 @@
             "boundify-graph-to-dirs.md の全セクション更新（使用スクリプト, 全Step, 完了報告）",
             "各スクリプトの JSDoc 更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "boundify-graph-to-dirs.md の全Stepが更新後のパイプラインと一致する",
             "validate-slug.js が使用スクリプト一覧に追加されている",
             "prune ルール・ヘッダーコメント・クロスリファレンスが記載されている",
@@ -3288,7 +3288,7 @@
             "診断パス M0〜M10 の実装（スコアリング + メッセージ分岐）",
             "test-query-all.js / query-fix-hints.js のユニットテスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "test-query-all.js が全 headingRefs 解決時 exit 0、1件でも解決不能時 exit 1",
             "解決不能一覧が重複排除され最大25件まで詳細表示 + 残り件数",
             "診断 M0〜M10 が適切に分類されトークン別一致状況・示唆・修正コマンド例を含む",
@@ -3340,7 +3340,7 @@
             "query.test.cjs — エッジ重複除去テスト追加",
             "query.test.cjs — フォーマット改善テスト更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: 同一from/to/typeエッジが重複出力されないこと",
             "UT: 異なるtypeは別エッジとして出力されること",
             "UT: from→toとto→fromは別エッジとして扱われること",
@@ -3410,7 +3410,7 @@
             ".claude/commands/graphify-rfc.md — Step 5 完了条件に headingRefs 解決率を追加",
             ".claude/commands/graphify-rfc.md — エラー時復帰手順に test-query-all.js 失敗時の具体的手順を追加"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: cleanup 実行後に _fix_graph_hints.json が削除されること",
             "UT: cleanup 実行後も必須ファイル（グラフJSON・ステータスJSON）は削除されないこと",
             "UT: _fix_graph_hints.json が存在しない状態で cleanup を実行してもエラーにならないこと（冪等性）",
@@ -3472,7 +3472,7 @@
             "crates/siprs/RFC-ROOT-GRAPH.json: N0100/REF102 の texts を [\"34.1 tracing\"] に修正し、同一ノードに新規 headingRef(refId=REF172) を追加",
             "検証: test-query-all.js + 全トークン一致確認 + refId ユニーク確認"
           ],
-          "testVerification": [
+          "testUnit": [
             "test-query-all.js が exit 0 で完了",
             "全 headingRef の全トークンが解決行に含まれていることを追加検証",
             "分割後の全 refId がユニーク"
@@ -3510,7 +3510,7 @@
             "get-node-for-check.js 新規: _quality/Nxxxx.md 内容＋3点検項目を表示",
             "graphify-rfc.md 改修: 品質点検セクション書き換え + cleanupに _quality/ 追加"
           ],
-          "testVerification": [
+          "testUnit": [
             "_quality/ に全ノード分のファイルが生成される",
             "選出ノード数が total * 0.08 切り捨てと一致",
             "選出に重複がない",
@@ -3568,7 +3568,7 @@
             "validate-phasify.js: 6項目検証サブスクリプト作成",
             "既存CRUD互換性テスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "validate-phasify.js: 正常系/異常系5種/境界値",
             "CLI引数パース: 正常/引数不足/Dirs欠落/不明フラグ",
             "スキーマ互換性: 既存Tickets.json読込OK/nodeIds追加後もOK",
@@ -3633,7 +3633,7 @@
             "Phase5: Tickets.json phase[].nodeIds出力",
             "アルゴリズム正当性保証（決定論性/単調性テスト）"
           ],
-          "testVerification": [
+          "testUnit": [
             "tarjanSCC流用: 176ノード実データで正常動作",
             "kahnTopologicalSort: DAG/循環/エッジ0本/一直線",
             "重みテーブル: 全12種定義/∞循環エラー/Soft違反コスト計算",
@@ -3688,7 +3688,7 @@
             "既存テストアサーション修正（posU/posV・phase比較）",
             "実データ統合テスト確認（hard constraint 0件）"
           ],
-          "testVerification": [
+          "testUnit": [
             "kahnTopologicalSort: depends_onで依存先が前に来ることを確認",
             "checkHardConstraints: 正しい方向で違反検出することを確認",
             "enforceHardConstraints: 方向修正後も分割ロジック正常",
@@ -3751,7 +3751,7 @@
             "write-phase-name-summary.js: 指定フェーズにname/summaryをTickets.jsonに書き込み",
             "完了確認: 全フェーズのname/summary書き込み完了チェック"
           ],
-          "testVerification": [
+          "testUnit": [
             "show-all-nodes: 正常系/存在しないphaseId/空nodeIds/不明ノードID/単一ノード",
             "write-phase-name: 正常系/存在しないphaseId/空name/summary/不正JSON",
             "スキーマ互換性: summary有無で検証通過"
@@ -3816,7 +3816,7 @@
             "tests/rfc-graph/step5-phase-nodes.test.cjs 新規",
             "tests/rfc-graph/step5-add-tickets-coverage.test.cjs 新規"
           ],
-          "testVerification": [
+          "testUnit": [
             "step5-phase-nodes: 正常系→stdoutにMarkdown",
             "step5-phase-nodes: 各引数欠損でexit 1",
             "step5-phase-nodes: 存在しないフェーズでexit 1",
@@ -3899,7 +3899,7 @@
           ],
           "notes": "レビュー報告書:\n- 変更ファイル: 4ファイル（全て改修）\n- tickets-schema.json: default_files 追加\n- add-tickets-for-phase.js: --dirs-tree引数 + resolveDefaultFiles + parseCliArguments\n- split-to-tickets.md: Usage + JSON例更新\n- テスト: 883/883 PASS（resolveDefaultFiles 4 + parseCliArguments 4 + schema互換性 2）\n- 品質: 0 issues（PX-42対象ファイル）\n- 不完全実装: 該当なし\n- BOUNDIFY残骸: 対象外\n\n判定: ACCEPT ✅",
           "relatedTicketIds": "PX-41 (依存: show-phase-nodes.js + add-tickets-for-phase.js 基盤)",
-          "testVerification": [
+          "testUnit": [
             "resolveDefaultFiles: 全nodeIds解決→正しいdefault_files",
             "resolveDefaultFiles: 一部nodeId不在→存在するもののみ設定",
             "resolveDefaultFiles: nodeIds空→default_files未設定",
@@ -3947,7 +3947,7 @@
           ],
           "notes": "レビュー報告書:\n- 変更ファイル: 新規1 + 改修1 = 合計2ファイル\n- update-split-step-status.js: boundify版コピー＋MAX_STEP=9, SPLITサフィックス, 全置換\n- split-to-tickets.md: 全10原子StepにStatus管理（start-step/end-step/fail-step/reset-to-step）\n- テスト: 883/883 PASS\n- 品質: 11 issues（全件 boundify継承の意図的出力＝問題なし）\n- BOUNDIFY残骸grep: 0件\n- 不完全実装: 該当なし\n\n判定: ACCEPT ✅",
           "relatedTicketIds": "PX-41 (split-to-tickets.md全Step確定), PX-42 (add-tickets-for-phase.js IF確定)",
-          "testVerification": [
+          "testUnit": [
             "make test-rfc-graph 全通過（既存883テストへの影響なし）",
             "grep BOUNDIFY残骸: 0件"
           ],
@@ -3985,7 +3985,7 @@
             "PX-45 の generateRelatedTicketIds() を呼び出して relatedTicketIds 再生成",
             "PX-46 の update-split-step-status.js prune-phases/renumber-phases を spawnSync 呼び出し"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: guardPhaseCount — 5,3,2,1,0フェーズで正しい挙動を確認",
             "UT: validateAllNodeIdsCovered — 全カバー/未カバー/空の3ケース",
             "UT: consolidateFromRight — 3未満統合/全3以上/最終フェーズのみ3未満/全フェーズ3未満",
@@ -4032,7 +4032,7 @@
             "direction の正しい判定（依存先/被依存元（依存元））",
             "module.exports で関数を公開（PX-44 が require 可能に）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: 単一エッジ same-ticket 自己参照 → 空（ガード）",
             "UT: 単一エッジ cross-ticket → 双方向に正しい prose",
             "UT: 複数エッジ cross-ticket → 連結",
@@ -4083,7 +4083,7 @@
             "split-to-tickets.md に \"Step 5-3: フェーズ統合\" セクション追記",
             "エラー時復帰手順（reset-to-step 5-3）の記述"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: STEP_ORDER に \"5-3\" が含まれる",
             "UT: ALLOWED_SUBCOMMANDS に prune-phases/renumber-phases が含まれる",
             "UT: end-step \"5-2\" の next step が \"5-3\"",
@@ -4149,7 +4149,7 @@
             "既存テストの期待値更新（renumberTicketIds の id 型変更）",
             "全172テスト PASS 確認"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: renumberTicketIds が数値ID（integer）を生成する",
             "UT: renumberPhaseIds が name を上書きしない",
             "UT: bulkAddTickets で AI の string id が auto 数値IDで上書きされる",
@@ -4201,7 +4201,7 @@
             "tests/generate-reference-section.test.cjs: 純粋関数のユニットテスト",
             "全既存テスト PASS 確認"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: referenceSection 生成 — 単一ノードから § 抽出",
             "UT: referenceSection 生成 — 複数ノードから § 抽出・ソート",
             "UT: referenceSection 生成 — 重複 § の除去",
@@ -4262,7 +4262,7 @@
             "既存テストケースへの resolveSpecPath テスト追加",
             "修正後、spec ファイルへの「RFC設計グラフ構造探索コマンド」セクション自動追記を確認"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: resolveSpecPath(PX-49, ./Tickets.json) が spec ファイルパスを返す",
             "UT: referenceSection のないチケットに対して null を返す",
             "UT: 存在しないチケットキーに対して null を返す（例外なし）",
@@ -4322,7 +4322,7 @@
             "resolveSpecPath の共通モジュール化（PX-49 と共有）、または独立実装",
             "テストファイル作成（tests/dump-node-context-to-spec.test.cjs）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: formatNodeDetailsBlock() が正しい Markdown 表を出力",
             "UT: formatEdgeRelationsBlock() がエッジ種別グループ＋★/☆区別で出力",
             "UT: formatFilePathsBlock() が Dirs-Tree からファイルパスを解決",
@@ -4370,7 +4370,7 @@
             "使用スクリプト一覧表に dump-node-context-to-spec.js 追加",
             "設計書パスが特定できない場合のスキップ＋通知処理"
           ],
-          "testVerification": [
+          "testUnit": [
             "手動: 改修後の make-ticket.md に従い、実際の Tickets.json/GRAPH.json/Dirs-Tree.json でスクリプト実行→spec 追記確認",
             "regression: make test-conver 全件 PASS"
           ],
@@ -4424,7 +4424,7 @@
             "Step 7 の条件判定を PIPELINE_AVAILABLE に変更",
             "テストファイル作成"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: ensure-tickets-json.js — Tickets.json 既存時 existed:true",
             "UT: ensure-tickets-json.js — Tickets.json 不在時に自動生成 + existed:false",
             "UT: resolve-ticket-context.js — 全情報揃っている → pipelineAvailable:true",
@@ -4481,7 +4481,7 @@
             "formulate-tickets.md: resolvedPaths を渡すよう修正",
             "テスト更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: validate-tickets resolvedPaths 完全 → 通過",
             "UT: validate-tickets resolvedPaths 部分的 → エラー",
             "UT: resolveDocPath resolvedPaths 優先 → 3パス取得",
@@ -4544,7 +4544,7 @@
             "generateInstruction に specExists 条件分岐追加",
             "テスト更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: チケット存在 + spec 実在 → specExists:true",
             "UT: チケット存在 + spec 不在 → specExists:false",
             "UT: チケット不在 → specExists:false",
@@ -4591,7 +4591,7 @@
             "tools/conver/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js: runPhasify() の in-memory tickets に resolvedPaths と analyzedSections 追加",
             "tools/conver/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js: main() の ensureTicketsJsonExists 呼び出しに opts.dirsTreePath 追加"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: write-tickets-json-template.js — resolvedPaths を渡したときに metadata に反映されること",
             "UT: write-tickets-json-template.js — resolvedPaths なし（互換性）でも従来通り動作すること",
             "UT: phasify の ensureTicketsJsonExists が dirsTreePath を正しく受け取り resolvedPaths に反映すること",
@@ -4653,7 +4653,7 @@
             "tools/conver/.claude/commands/make-ticket.md: 出力テーブルの docPath/$DOC_PATH → rfcPath/$RFC_PATH",
             "tools/conver/.claude/commands/make-ticket.md: Step 2d の $DOC_PATH 参照 → $RFC_PATH に変更"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: resolve-ticket-context.test.cjs の全テストが改名後に通過すること",
             "UT: テストから resolveDocPath() を呼んでいる箇所 → resolveRfcPaths() に変更",
             "UT: テストが期待する出力JSONキー docPath → rfcPath, docPathSource → rfcPathSource に変更",
@@ -4728,7 +4728,7 @@
             "Makefile: build-conver/run-conver ターゲット追加",
             "src/ ディレクトリ作成 + スタブファイル配置 ([::STUB::] マーカー必須)"
           ],
-          "testVerification": [
+          "testUnit": [
             "npm run build で dist/ に JavaScript が生成される",
             "tsc --noEmit で型エラーゼロ",
             "npm run clean で dist/ が削除される"
@@ -4782,7 +4782,7 @@
           "scope": [
             "CommandTimeoutError extends Error: コンストラクタで message を受け取り this.name = CommandTimeoutError を設定"
           ],
-          "testVerification": [
+          "testUnit": [
             "new CommandTimeoutError(msg) で name === CommandTimeoutError",
             "instanceof Error が true",
             "error.message が正しく格納される",
@@ -4822,7 +4822,7 @@
             "必須フラグ(--api-key/--slack-url)欠如時 → exit 1",
             "--help/-h 表示時 → exit 0"
           ],
-          "testVerification": [
+          "testUnit": [
             "デフォルト値の確認: model=deepseek-v4-flash, count=999999, resolveEvery=3, timeout=1800",
             "--api-key 欠如で exit 1 + エラーメッセージ",
             "--slack-url 欠如で exit 1 + エラーメッセージ",
@@ -4883,7 +4883,7 @@
             "getSourceFromTickets(ticketsPath): metadata.source を返す（なければ引数そのまま）",
             "src/tickets.test.ts 作成: node --test + node:assert/strict"
           ],
-          "testVerification": [
+          "testUnit": [
             "loadPendingTickets: 1phase に未処理2件+reviewed1件→未処理2件のみ",
             "loadPendingTickets: 複数 phase に分散した未処理→全未処理を抽出",
             "loadPendingTickets: 全 reviewed→空配列",
@@ -4912,7 +4912,7 @@
             },
             {
               "before": "Ticket: id/phaseId/status/title のみ",
-              "after": "Ticket: 全オプショナルフィールド追加（referenceSection, background, scope, testVerification, notes 等）",
+              "after": "Ticket: 全オプショナルフィールド追加（referenceSection, background, scope, testUnit, notes 等）",
               "description": "実際の Tickets.json が持つ全フィールドを型定義に追加"
             },
             {
@@ -4958,7 +4958,7 @@
             "sendSlackWithRetry(webhookUrl, payload, maxRetries=3): 指数バックオフリトライ",
             "sendSlackError(webhookUrl, context): buildSlackMessage → sendSlackWithRetry"
           ],
-          "testVerification": [
+          "testUnit": [
             "classifyError: CommandTimeoutError→CommandTimeout / permission→PermissionDenied / ENOENT→FileNotFound / その他→Unknown",
             "classifyError: permission と ENOENT 両方→PermissionDenied（先勝ち）",
             "getUsername: 空でない文字列を返す",
@@ -5005,7 +5005,7 @@
             "runCommand(acpSession, command, options): prompt + nextUpdate ループ + タイムアウト検出",
             "disposeSession(acpSession): session.dispose() + proc.kill()"
           ],
-          "testVerification": [
+          "testUnit": [
             "spawnAgent: 正しい env 値が設定される（callCount/spy で検証）",
             "buildClientApp: onRequest permission ハンドラが allow_always を選択すること",
             "runCommand: タイムアウト時に CommandTimeoutError を throw",
@@ -5093,7 +5093,7 @@
             "getCurrentPhase(error): エラーメッセージから工程名抽出",
             "runLoop(options: LoopOptions): メインループ制御 — withSession によるセッション管理"
           ],
-          "testVerification": [
+          "testUnit": [
             "getCurrentPhase: 各エラー種別から正しい工程名を抽出",
             "runLoop: 正常フロー（全モック）でエラーなく完了",
             "runLoop: エラー → sendSlackError 呼出 + process.exit(1)",
@@ -5137,7 +5137,7 @@
             "main().catch: runLoop エラー時に process.exit(1) でプロセス終了。",
             "src/conver.test.ts 新規作成: mock.module() で cli.ts/runner.ts をモック化し、正常系・異常系の3テストケースを実装。"
           ],
-          "testVerification": [
+          "testUnit": [
             "正常系: main() が parseCliOptions → runLoop の順に正しく呼び出す（モック呼出確認）",
             "異常系: runLoop が reject した時に process.exit(1) が呼ばれる",
             "引数不足エラー伝播: cli.ts 内部の process.exit(1) が優先されることを確認"
@@ -5177,7 +5177,7 @@
             "node dist/conver.js --help で usage 表示",
             "node dist/conver.js（必須フラグ欠如）でエラーメッセージ + exit 1"
           ],
-          "testVerification": [
+          "testUnit": [
             "tsc エラーゼロ",
             "dist/conver.js が実行可能（--help で usage 表示）",
             "必須フラグ欠如でエラーメッセージ（error.ts の Notify 試験）",
@@ -5218,7 +5218,7 @@
             "tickets.test.ts: phaseId 検証テスト追加（複数 phase / phaseId 欠落 / 上書き）",
             "runner.test.ts: ./tickets.js モックに loadPendingTickets / checkAllReviewed 追加"
           ],
-          "testVerification": [
+          "testUnit": [
             "tickets.test.ts で loadPendingTickets() の戻り値全件に phaseId が含まれ phase.id と一致することを確認",
             "phaseId 欠落チケットでも自動補完されることを確認",
             "誤った phaseId が親 phase の id で上書きされることを確認",
@@ -5265,7 +5265,7 @@
             "cli.ts: parseCliOptions() の ticketsPath に path.resolve() 適用",
             "runner.ts: runLoop() 冒頭の cwd に path.resolve() 適用"
           ],
-          "testVerification": [
+          "testUnit": [
             "cli.test.ts で相対パス指定時に絶対パスが返ることを確認",
             "runner.test.ts で cwd が絶対パスであることを確認",
             "既存テストが全てパスすること"
@@ -5307,7 +5307,7 @@
           "scope": [
             "conver.ts: main() の console.log を4行追加し全6項目を key=value 形式で表示"
           ],
-          "testVerification": [
+          "testUnit": [
             "conver.test.ts で main() の出力が6行の key=value 形式であることを検証",
             "現行の「モデル:」形式のアサーションを更新",
             "既存テストが全てパスすること"
@@ -5342,7 +5342,7 @@
             "RFC_ROOT.md: 2箇所の acp.NdJsonStream を acp.Stream に修正（lines 235, 244）",
             "session.ts: SDK バージョンによる型名差異の注釈コメントを冒頭に追記"
           ],
-          "testVerification": [
+          "testUnit": [
             "npm run build で型エラーが出ないことを確認",
             "既存テストが全てパスすること（make test-conver）",
             "grep NdJsonStream で残存がないことを確認"
@@ -5379,7 +5379,7 @@
             "Makefile: 全4エントリに日本語説明コメント追加",
             "RFC_ROOT.md §7: 表形式リファクタリング + test-conver追記"
           ],
-          "testVerification": [
+          "testUnit": [
             "make build-conver が成功すること",
             "make test-conver が成功すること",
             "list-tickets が RFC_ROOT.md に含まれていないこと"
@@ -5426,7 +5426,7 @@
             "export function validateWatcherConfig(config: unknown): ValidationResult"
           ],
           "relatedTicketIds": "入力元I/O: P8-2 / 出力先I/O: P6-2, P7-1",
-          "testVerification": [
+          "testUnit": [
             "正常系: 全フィールドが正しいWatcherConfig → valid: true",
             "正常系: intervalMinutes=1 の最小値ケース",
             "正常系: intervalMinutes=525600 の最大値ケース",
@@ -5487,7 +5487,7 @@
             "export function isInTimeWindow(now: Date, startTime: string, endTime: string, timezone: string): boolean"
           ],
           "relatedTicketIds": "入力元I/O: P6-1 / 出力先I/O: P7-1, P8-1",
-          "testVerification": [
+          "testUnit": [
             "正常系: 同一日内（start < end）で範囲内",
             "正常系: 同一日内（start < end）で範囲外",
             "正常系: 日跨ぎ（start > end）で範囲内",
@@ -5546,7 +5546,7 @@
             "Makefile: test-conver にテストファイル追加"
           ],
           "relatedTicketIds": "入力元I/O: P6-1 / 出力先I/O: P7-2",
-          "testVerification": [
+          "testUnit": [
             "正常系: コンストラクタ → start() → isRunning() が true → cron.schedule() が正しい cron 式で呼ばれる",
             "正常系: start() → stop() → isRunning() が false → cronTask.stop() が呼ばれる",
             "正常系: コンストラクタ直後 isRunning() が false",
@@ -5606,7 +5606,7 @@
             "Makefile — test-conver ターゲットにテスト追加"
           ],
           "relatedTicketIds": "入力元: P7-1(CronSchedulerコールバック), P1-1(tickets.ts: loadPendingTickets), P4-1(runner.ts: runLoop) | 出力先: P8-3(Watcher起動パスでコールバック登録) | 関連: P8-1(時間窓制御), P6-1(WatcherConfig)",
-          "testVerification": [
+          "testUnit": [
             "正常系: 未reviewedチケットあり→runLoop が呼ばれる",
             "正常系: 未reviewedチケットなし→何もせず即時 return",
             "正常系: ループ実行中に再呼び出し→スキップ（再入防止）",
@@ -5662,7 +5662,7 @@
             "Makefile（修正）— test-conver に step-timer.test.js 追加"
           ],
           "relatedTicketIds": "入力元I/O: P6-2(時間窓判定), P4-1(既存runner) / 出力先I/O: P8-3",
-          "testVerification": [
+          "testUnit": [
             "UT: isWithinTimeWindow(null) → true（後方互換）",
             "UT: isWithinTimeWindow(config) 時間枠内 → true",
             "UT: isWithinTimeWindow(config) 時間枠外開始前 → false",
@@ -5738,7 +5738,7 @@
             "src/conver.test.ts: パラメータログ7→8項目に更新"
           ],
           "relatedTicketIds": "入力元I/O: P0-3(既存cli.ts) / 出力先I/O: P6-1, P8-3",
-          "testVerification": [
+          "testUnit": [
             "正常系: -w /path/to/config.json → watcherConfig に格納",
             "正常系: --watcher /path/to/config.json → ロングオプション同等",
             "正常系: -w 未指定 → undefined（通常モード）",
@@ -5803,7 +5803,7 @@
             "src/conver.test.ts: MockLoopOptions に watcherConfig/noFind フィールド追加（Boy Scout）"
           ],
           "relatedTicketIds": "入力元I/O: P8-2(CLI), P8-1(時間制御), P7-2(点検), P4-2(既存conver.ts) / 出力先I/O: なし",
-          "testVerification": [
+          "testUnit": [
             "UT1: watcherConfig未指定→runNormalMode→runLoop呼出（正常系）",
             "UT2: watcherConfig指定+有効→loadWatcherConfig→runLoop呼出（正常系）",
             "UT3: watcherConfig指定+時間枠外→即時終了（正常系: runLoop未呼出）",
@@ -5881,7 +5881,7 @@
             "tests/diminishing-returns.test.cjs: 新規 — 5ケース",
             "tests/pipeline-merge.test.cjs: 新規 — 2ケース（パイプライン結合）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT dedup (6): 完全重複skip / stub_remaining格下げ / repeated_areaタグ / 履歴空 / 2回連続 / 複合ルール適用順",
             "UT materiality (5): 全阻害(score6→medium) / 無阻害(score0→cosmetic) / 部分阻害(score1→low) / goals空 / RFC不在",
             "UT diminishing (5): low増加傾向(33→50→78%) / low減少傾向 / 総数増加 / 履歴1件 / low50%横ばい",
@@ -5959,7 +5959,7 @@
             "Makefile: test-conver ターゲットに結合テスト追加"
           ],
           "relatedTicketIds": "P9-1（前提: 機械的フィルタリングパイプライン、reviewed）",
-          "testVerification": [
+          "testUnit": [
             "UT Case1: 正常系 — 複数 omission 混在でパイプライン直列実行（出力形式検証）",
             "UT Case2: 正常系 — cosmetic のみで Goal Gate 通過（trend.warning 空）",
             "UT Case3: 異常系 — 空 omissions 配列でエラーにならない",
@@ -6010,7 +6010,7 @@
             "scripts/tickets/create-omissions.js: SKELETON_STEPS に step 4 を追加し旧4〜6を5〜7にリナンバリング",
             "P10-1 の scope/notes更新: 参照しているStep 3.5をStep 4に修正"
           ],
-          "testVerification": [
+          "testUnit": [
             "formulate-tickets.md: Step 4(チケット統合チェック)が存在し後続Stepが5〜9の整数であること",
             "formulate-tickets-for-next.md: 同上",
             "find-omissions-for-next-rfc.md: Step 4(機械的フィルタリング)が存在し後続Stepが5〜7の整数であること",
@@ -6076,7 +6076,7 @@
             "tests/rfc-graph/schema/validate.test.cjs — 20+ケースのテスト"
           ],
           "relatedTicketIds": "出力先I/O: P13-2 (crud.jsが本チケットのスキーマ検証関数を呼び出す)",
-          "testVerification": [
+          "testUnit": [
             "UT 正常系: 全12種のkindのノードが node.schema.json を通過する",
             "UT 正常系: 全12種のtypeのエッジが edge.schema.json を通過する",
             "UT 正常系: 有効なグラフJSONが graph.schema.json を通過する",
@@ -6142,7 +6142,7 @@
             ".claude/scripts/rfc-graph/update-step-status.js — 新規: 5サブコマンド + atomicWrite + エラーハンドリング",
             "tests/rfc-graph/update-step-status.test.cjs — 新規: テスト15ケース以上"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: start-step 1 で steps[1]=running、currentStep=1",
             "UT: end-step 1 で steps[1]=done、currentStep=2",
             "UT: fail-step 2 で steps[2]=error、currentStep 不変",
@@ -6196,7 +6196,7 @@
             "crud.js create-edges — エッジ一括追加＋from/to存在検証＋スキーマ検証",
             "atomicWrite() — 一時ファイル+renameの共有アトミック書込関数（update-step-status.jsと共通化）"
           ],
-          "testVerification": [
+          "testUnit": [
             "正常系: create-nodesで有効なノードを追加しJSON出力",
             "正常系: list-nodesで全ノード一覧を出力",
             "正常系: get-nodeで特定ノードを出力",
@@ -6250,7 +6250,7 @@
             "Makefile — test-conver ターゲット修正: 新規テストファイル追加"
           ],
           "relatedTicketIds": "入力元I/O: P13-2 (crud.jsのグラフを読み取る)。出力先I/O: P15-1 (query.jsがマーカーを行番号解決に使用)",
-          "testVerification": [
+          "testUnit": [
             "UT: verify.js parseArguments 正常形（--graph=p --source=q）",
             "UT: verify.js parseArguments --help",
             "UT: verify.js parseArguments 引数不足・--graph欠落",
@@ -6323,7 +6323,7 @@
           "title": "query.js — BFSマルチホップ探索＋行番号動的解決＋Markdown整形",
           "referenceSection": "RFC-GRAPHIFY.md (3.7 CLI契約, 4.4 query.js詳細設計), crud.js, verify.js, embed-markers.js, tests/rfc-graph/*.test.cjs",
           "background": "query.js は graphify-rfc パイプラインの Layer 2（グラフ探索機構）の中核。ノードID起点のBFS幅優先探索で最大Nホップ先までグラフを探索し、マーカー（::REF<N>-START::/::REF<N>-END::）を起点に行番号を動的に再計算し、結果をMarkdown形式で整形出力する。読み取り専用で副作用ゼロ。\n\n既存スクリプト（crud.js P13-2、verify.js/embed-markers.js P14-1）は完了済み。query.js はそれらが生成したグラフファイルとマーカー付きソース文書を読み取り専用で使用する。",
-          "testVerification": [
+          "testUnit": [
             "UT: BFS 1ホップ/2ホップ/最大ホップ制限/孤立/循環/重複エッジ (6ケース)",
             "UT: 行番号動的解決 正常/複数範囲/変更耐性 (3ケース)",
             "UT: Markdown整形 基本/エッジ種別/エッジなし/双方向 (4ケース)",
@@ -6377,7 +6377,7 @@
             "tests/rfc-graph/graphify-cmd.test.cjs — 新規作成: 導出パス計算検証＋Stepセクション存在確認＋エラーハンドリング記述確認の結合テスト",
             "Tickets.json — 更新: specのreferenceSection更新"
           ],
-          "testVerification": [
+          "testUnit": [
             "結合テスト: 導出パス計算（通常.md/深いパス/拡張子なし）の正しさ",
             "結合テスト: frontmatter（argument-hint/allowed-tools/description）の存在",
             "結合テスト: Step1〜5のMarkdown見出しセクションの完全性",
@@ -6433,7 +6433,7 @@
             "tests/rfc-graph/acceptance-criteria.test.cjs — 新規: 8テストケース（4AC）"
           ],
           "relatedTicketIds": "入力元I/O: P12-1 (スキーマ定義), P13-2 (crud.jsで生成されたグラフ), P16-1 (graphify-rfc.md), P14-1 (verify+embed-markers), P15-1 (query.js)",
-          "testVerification": [
+          "testUnit": [
             "UT: load-rfc-graph.js deriveGraphPath（3ケース: 通常/拡張子なし/深いパス）",
             "UT: load-rfc-graph.js loadGraph（2ケース: 存在/不在）",
             "UT: load-rfc-graph.js summarizeGraph（3ケース: 空/混在/孤立あり）",
@@ -6536,7 +6536,7 @@
             "新規: .claude/scripts/rfc-graph/boundify-helpers.js — SCHEMA定数 / SAFE_BOUNDARIES_EN_TEXT定数 / inferLanguage() / graphToLangJson() / projectEdgesToDirectories() / tarjanSCC() / titleToFileName() / deduplicateFileNames()",
             "新規: tests/rfc-graph/boundify-helpers.test.cjs — 全関数の node:test ユニットテスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT-Schema: SCHEMA が有効なJSON Schema、requiredフィールド一致、DirNode/DependencyDirection 必須検証",
             "UT-inferLanguage: Rust/Go/TS キーワード検出、kind補完、空titleフォールバック",
             "UT-graphToLangJson: 3言語ノード languageMap、空グラフ、edges保持",
@@ -6586,7 +6586,7 @@
             "generateDeclarationStub(dirNode, lang): string|null",
             "generateReport(graph, dirsTree, lang): string"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT-buildDomainHierarchy: part_of エッジ→ドメイン階層構築",
             "UT-buildDomainHierarchy: part_of なし→空 roots",
             "UT-buildDomainHierarchy: 循環 part_of → エラー",
@@ -6647,7 +6647,7 @@
             "(NEW) .claude/scripts/rfc-graph/validate-dirs-tree-schema.js — 6検証項目+CLIエントリポイント",
             "(NEW) tests/rfc-graph/validate-dirs-tree-schema.test.cjs — node:test ユニットテスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT-正常系: 正しいDirs-Tree.json → {ok: true}, exit 0",
             "UT-引数: --dirs-tree= のみ → exit 1",
             "UT-引数: 存在しないパス → exit 1",
@@ -6709,7 +6709,7 @@
             "createItems(created, isForce): 実際のディレクトリ/ファイル作成",
             "main(testArgs): 統合エントリポイント（引数パース→discover→confirm→create→JSON出力）"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: 全引数不足 → exit code 1",
             "UT: 未サポート言語 → exit code 1",
             "UT: --dry-run → dryRun:true, ファイル作成なし",
@@ -6762,7 +6762,7 @@
             "NEW: .claude/scripts/rfc-graph/boundify-graph-to-dirs.js — メインスクリプト（parseArguments/loadGraph/main/アダプター関数群）",
             "NEW: tests/rfc-graph/boundify-graph-to-dirs.test.cjs — ユニットテスト"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT-parseArguments: 正常系 フラグパース/-GRAPH除去/絶対パス変換",
             "UT-parseArguments: 異常系 引数なし/--help/存在しないパス",
             "UT-loadGraph: 正常系 有効JSON→nodes/edges通過",
@@ -6812,7 +6812,7 @@
             ".claude/commands/boundify-graph-to-dirs.md — 記述: 前付 + 引数説明 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰",
             "tests/rfc-graph/update-step-status.test.cjs — 追加: --status= フラグ関連 5テストケース"
           ],
-          "testVerification": [
+          "testUnit": [
             "UT: --status=path start-step 1 → statusPath=path 正しく抽出",
             "UT: --graphify-status=path status → 従来通り後方互換",
             "UT: --graphify-status=a --status=b 両方指定 → エラーにならない",

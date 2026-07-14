@@ -6,7 +6,7 @@ function main() {
   const results = [];
   for (const p of (data.phases || [])) {
     for (const t of (p.tickets || [])) {
-      const s = [t.title || '', t.background || '', t.referenceSection || '', ...(t.scope || []), ...(t.testVerification || [])].join('\n').toLowerCase();
+      const s = [t.title || '', t.background || '', t.referenceSection || '', ...(t.scope || []), ...(t.testUnit || [])].join('\n').toLowerCase();
       if (s.includes(q)) results.push({ ticketKey: (p.id === -1 ? 'PX' : 'P' + p.id) + '-' + t.id, title: t.title, status: t.status, phase: p.name });
     }
   }

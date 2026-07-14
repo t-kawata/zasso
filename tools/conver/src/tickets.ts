@@ -17,7 +17,7 @@ export interface Ticket {
   referenceSection?: string;
   background?: string;
   scope?: string[];
-  testVerification?: string[];
+  testUnit?: string[];
   testExceptions?: string[];
   instrumentation?: string;
   notes?: string;
