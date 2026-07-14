@@ -146,39 +146,39 @@ function parseTicketKey(ticketKey) {
 }
 
 /**
- * Tickets.json の metadata から DOC_PATH を解決する
+ * Tickets.json の metadata から RFC_PATH を解決する
  *
  * 優先順位:
  *   1. metadata.resolvedPaths が存在し全ファイル実在 → 推測不要
  *   2. metadata.source が .md ファイル → derivePaths で導出
  *   3. metadata.source が .json ファイル → -GRAPH.json→.md 置換
- *   4. いずれも該当なし → DOC_PATH なし
+ *   4. いずれも該当なし → RFC_PATH なし
  *
  * @param {string} rawSource — Tickets.json の metadata.source の生の値
  * @param {string} ticketsDir — Tickets.json があるディレクトリの絶対パス
  * @param {Object} [resolvedPaths] — Tickets.json の metadata.resolvedPaths（省略可）
- * @returns {{ docPath: string, graphPath: string, dirsTreePath: string, docPathSource: string }}
+ * @returns {{ rfcPath: string, graphPath: string, dirsTreePath: string, rfcPathSource: string }}
  */
-function resolveDocPath(rawSource, ticketsDir, resolvedPaths) {
+function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   // 最優先: resolvedPaths が存在し全ファイルが実在するか確認
   if (resolvedPaths && resolvedPaths.rfcPath && resolvedPaths.graphPath && resolvedPaths.dirsTreePath) {
-    const docPath = path.resolve(ticketsDir, resolvedPaths.rfcPath);
+    const rfcPath = path.resolve(ticketsDir, resolvedPaths.rfcPath);
     const graphPath = path.resolve(ticketsDir, resolvedPaths.graphPath);
     const dirsTreePath = path.resolve(ticketsDir, resolvedPaths.dirsTreePath);
-    if (fs.existsSync(docPath) && fs.existsSync(graphPath) && fs.existsSync(dirsTreePath)) {
-      return { docPath, graphPath, dirsTreePath, docPathSource: 'resolvedPaths' };
+    if (fs.existsSync(rfcPath) && fs.existsSync(graphPath) && fs.existsSync(dirsTreePath)) {
+      return { rfcPath, graphPath, dirsTreePath, rfcPathSource: 'resolvedPaths' };
     }
   }
 
   // フォールバック: metadata.source からの推測
   if (!rawSource) {
-    return { docPath: '', graphPath: '', dirsTreePath: '', docPathSource: 'none' };
+    return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'none' };
   }
 
   const resolved = path.resolve(ticketsDir, rawSource);
 
   if (!fs.existsSync(resolved)) {
-    return { docPath: '', graphPath: '', dirsTreePath: '', docPathSource: 'not_found' };
+    return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'not_found' };
   }
 
   const ext = path.extname(resolved).toLowerCase();
@@ -188,10 +188,10 @@ function resolveDocPath(rawSource, ticketsDir, resolvedPaths) {
     const dir = path.dirname(resolved);
     const basename = path.basename(resolved, '.md');
     return {
-      docPath: resolved,
+      rfcPath: resolved,
       graphPath: path.join(dir, `${basename}-GRAPH.json`),
       dirsTreePath: path.join(dir, `${basename}-Dirs-Tree.json`),
-      docPathSource: 'metadata.source.md',
+      rfcPathSource: 'metadata.source.md',
     };
   }
 
@@ -204,26 +204,26 @@ function resolveDocPath(rawSource, ticketsDir, resolvedPaths) {
     const rfcBasename = basename.endsWith('-GRAPH')
       ? basename.slice(0, -6)
       : basename;
-    const docPath = path.join(dir, `${rfcBasename}.md`);
+    const rfcPath = path.join(dir, `${rfcBasename}.md`);
 
     return {
-      docPath,
+      rfcPath,
       graphPath: resolved,
       dirsTreePath: path.join(dir, `${rfcBasename}-Dirs-Tree.json`),
-      docPathSource: 'metadata.source.json',
+      rfcPathSource: 'metadata.source.json',
     };
   }
 
   // ケース c: 未知の拡張子 → スポットモード扱い
-  return { docPath: '', graphPath: '', dirsTreePath: '', docPathSource: 'unknown' };
+  return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'unknown' };
 }
 
 /**
- * DOC_PATH から GRAPH_PATH と DIRS_TREE_PATH を導出する（従来の派生用）
+ * RFC_PATH から GRAPH_PATH と DIRS_TREE_PATH を導出する（従来の派生用）
  */
-function derivePaths(docPath) {
-  const dir = path.dirname(docPath);
-  const basename = path.basename(docPath, '.md');
+function derivePaths(rfcPath) {
+  const dir = path.dirname(rfcPath);
+  const basename = path.basename(rfcPath, '.md');
   return {
     graphPath: path.join(dir, `${basename}-GRAPH.json`),
     dirsTreePath: path.join(dir, `${basename}-Dirs-Tree.json`),
@@ -233,7 +233,7 @@ function derivePaths(docPath) {
 /**
  * instruction を条件分岐で機械的に生成する
  */
-function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, docPath, docPathSource, docExists, graphExists, dirsExists) {
+function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPath, rfcPathSource, rfcExists, graphExists, dirsExists) {
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     return '/make-ticket の引数が指定されていないか、形式が正しくありません。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。';
   }
@@ -243,16 +243,16 @@ function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, docPat
   if (!specExistsFlag) {
     return 'spec ファイルが見つかりません。--title を指定して再実行すると spec を自動作成します。';
   }
-  if (!docPath) {
-    if (docPathSource === 'none') {
+  if (!rfcPath) {
+    if (rfcPathSource === 'none') {
       return 'パイプライン情報がありません（metadata.source 未設定、スポットチケット）。Step 7 はスキップしてください。Step 4 はスポット調査のみで構いません。';
     }
-    if (docPathSource === 'not_found') {
+    if (rfcPathSource === 'not_found') {
       return 'metadata.source に指定されたファイルが存在しません。パスを確認してください。Step 7 はスキップします。';
     }
     return 'metadata.source の形式が不明です（.md でも .json でもありません）。Step 7 はスキップします。';
   }
-  if (!docExists) {
+  if (!rfcExists) {
     return 'metadata.source から導出した設計書ファイルが存在しません。パスを確認してください。Step 7 はスキップします。';
   }
   if (!graphExists || !dirsExists) {
@@ -373,23 +373,23 @@ function main() {
   const rawSource = (tickets.metadata && tickets.metadata.source) || '';
   const resolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
   const {
-    docPath,
+    rfcPath,
     graphPath,
     dirsTreePath,
-    docPathSource,
-  } = resolveDocPath(rawSource, ticketsDir, resolvedPaths);
+    rfcPathSource,
+  } = resolveRfcPaths(rawSource, ticketsDir, resolvedPaths);
 
   // 各ファイルの実在確認
-  const docExists = docPath ? fs.existsSync(docPath) : false;
+  const rfcExists = rfcPath ? fs.existsSync(rfcPath) : false;
   const graphExists = graphPath ? fs.existsSync(graphPath) : false;
   const dirsExists = dirsTreePath ? fs.existsSync(dirsTreePath) : false;
 
-  // pipelineAvailable は docPath が実在する .md ファイルであることが前提
+  // pipelineAvailable は rfcPath が実在する .md ファイルであることが前提
   const pipelineAvailable = !!(
     exists &&
-    docPath &&
-    docExists &&
-    docPath.toLowerCase().endsWith('.md') &&
+    rfcPath &&
+    rfcExists &&
+    rfcPath.toLowerCase().endsWith('.md') &&
     graphExists &&
     dirsExists
   );
@@ -400,11 +400,11 @@ function main() {
   if (ticketKey) available.push('ticketKey'); else missing.push('ticketKey');
   if (exists) available.push('exists'); else missing.push('exists');
   if (specExists) available.push('specExists'); else if (exists) missing.push('specExists');
-  if (docPath && docExists) available.push('docPath'); else missing.push('docPath');
+  if (rfcPath && rfcExists) available.push('rfcPath'); else missing.push('rfcPath');
   if (graphExists) available.push('graphPath'); else missing.push('graphPath');
   if (dirsExists) available.push('dirsTreePath'); else missing.push('dirsTreePath');
 
-  const instruction = generateInstruction(ticketKey, exists, specExists, docPath, docPathSource, docExists, graphExists, dirsExists);
+  const instruction = generateInstruction(ticketKey, exists, specExists, rfcPath, rfcPathSource, rfcExists, graphExists, dirsExists);
 
   console.log(JSON.stringify({
     success: true,
@@ -413,8 +413,8 @@ function main() {
     specPath,
     specExists,
     autoCreated,
-    docPath,
-    docPathSource,
+    rfcPath,
+    rfcPathSource,
     graphPath,
     dirsTreePath,
     pipelineAvailable,
@@ -429,4 +429,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArguments, resolveDocPath, derivePaths, generateInstruction, main, isValidTicketKey, parseTicketKey, ticketExists, runEnsureTicketsJson, runCreateSpec, runAddTicket };
+module.exports = { parseArguments, resolveRfcPaths, derivePaths, generateInstruction, main, isValidTicketKey, parseTicketKey, ticketExists, runEnsureTicketsJson, runCreateSpec, runAddTicket };

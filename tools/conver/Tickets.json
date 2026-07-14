@@ -4576,6 +4576,137 @@
           "instrumentation": "静的品質チェック: 0 issues ✅\n翻訳可能性: 問題なし\nテスト: 82/82 PASS\n犯罪スキャン: 0件\n[::STUB::]: 0件\n不完全実装: 0件",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-13"
+        },
+        {
+          "id": 55,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "phasify が Tickets.json metadata に resolvedPaths を出力する",
+          "referenceSection": "specs/0092-phasify-ticketsjson-metadata-resolvedpaths.md",
+          "background": "/split-to-tickets → phasify-graph-and-dirs-files-tree.js が生成する Tickets.json の metadata に resolvedPaths が存在せず、resolve-ticket-context.js が機械的にパスを確定できなかった。かつ source に GRAPH.json の絶対パスが入っていたため find-omissions への引数が誤っていた。解決として source を rfcPath（RFC.md）に変更し、resolvedPaths { rfcPath, graphPath, dirsTreePath } を metadata に追加する。",
+          "scope": [
+            "tools/conver/.claude/scripts/tickets/write-tickets-json-template.js: data.resolvedPaths を metadata に反映",
+            "tools/conver/.claude/scripts/tickets/tickets-schema.json: resolvedPaths を正式プロパティとして定義",
+            "tools/conver/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() に dirsTreePath パラメータ追加 + metadata に resolvedPaths 追加 + source を rfcPath に変更",
+            "tools/conver/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js: runPhasify() の in-memory tickets に resolvedPaths と analyzedSections 追加",
+            "tools/conver/.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js: main() の ensureTicketsJsonExists 呼び出しに opts.dirsTreePath 追加"
+          ],
+          "testVerification": [
+            "UT: write-tickets-json-template.js — resolvedPaths を渡したときに metadata に反映されること",
+            "UT: write-tickets-json-template.js — resolvedPaths なし（互換性）でも従来通り動作すること",
+            "UT: phasify の ensureTicketsJsonExists が dirsTreePath を正しく受け取り resolvedPaths に反映すること",
+            "UT: phasify の in-memory tickets に resolvedPaths が含まれること",
+            "UT: tickets-schema.json の検証が resolvedPaths を含む metadata を通すこと",
+            "既存の phasify 結合テスト（tests/rfc-graph/phasify-*.test.cjs）が全て通過すること"
+          ],
+          "testExceptions": [
+            "ensureTicketsJsonExists() のファイル生成テストはファイルI/Oを伴うため実環境での確認に委ねる"
+          ],
+          "notes": "レビュー報告書:\n\n【PX-55】phasify が Tickets.json metadata に resolvedPaths を出力する\n- 変更ファイル: 3ファイル（write-tickets-json-template.js, tickets-schema.json, phasify-graph-and-dirs-files-tree.js）\n- 検証内容:\n  - write-tickets-json-template.js: data.resolvedPaths のパススルー追加 ✅\n  - tickets-schema.json: resolvedPaths を正式プロパティとして定義、additionalProperties を緩和 ✅\n  - phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() に dirsTreePath 追加、source を graphPath→rfcPath に変更、resolvedPaths 追加 ✅\n  - 同: runPhasify() の in-memory tickets にも同変更 ✅\n  - 同: main() の呼び出しに dirsTreePath 追加 ✅\n\n【PX-56】resolve-ticket-context.js の docPath を rfcPath に改名する\n- 変更ファイル: 3ファイル（resolve-ticket-context.js, make-ticket.md, test）\n- 検証内容:\n  - resolveDocPath() → resolveRfcPaths() 改名 ✅\n  - 戻り値/出力JSONの docPath/docPathSource → rfcPath/rfcPathSource ✅\n  - 内部変数 docExists → rfcExists ✅\n  - derivePaths(docPath) → derivePaths(rfcPath) ✅\n  - generateInstruction 引数名変更 ✅\n  - module.exports 更新 ✅\n  - make-ticket.md 出力テーブル/シェル変数更新 ✅\n  - テストファイル全参照更新 ✅\n\n【共通】\n- 静的品質チェック: 合格（全5ファイル 0 issues）\n- 翻訳可能性: 問題なし\n  - 全関数が動詞句（resolveRfcPaths, derivePaths, generateInstruction 等）\n  - 変数名はドメイン概念（rfcPath, graphPath, dirsTreePath 等）\n  - マジックナンバー・デバッグ出力なし\n- 依存関係: PX-55 → PX-56 の順序で実装完了、整合性確認済\n- テスト: resolve-ticket-context 30/30 + phasify 系 35/35 = 全65件成功\n- 不完全実装: 0件\n- 犯罪: 0件\n- 評価: Blocker/Major なし、Minor/Nit なし",
+          "startedAt": "2026-07-14",
+          "changes": [
+            {
+              "before": "metadata に resolvedPaths を出力しない（source は graphPath）",
+              "after": "metadata に resolvedPaths { rfcPath, graphPath, dirsTreePath } を出力（source は rfcPath）",
+              "description": "phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() のシグネチャに dirsTreePath 追加、source を graphPath→rfcPath に変更、resolvedPaths を metadata に追加"
+            },
+            {
+              "before": "in-memory tickets の metadata が source と generatedAt のみ",
+              "after": "analyzedSections と resolvedPaths を追加",
+              "description": "phasify-graph-and-dirs-files-tree.js: runPhasify() の in-memory tickets に analyzedSections + resolvedPaths を追加"
+            },
+            {
+              "before": "ensureTicketsJsonExists(ticketsPath, graphPath, dryRun)",
+              "after": "ensureTicketsJsonExists(ticketsPath, graphPath, dirsTreePath, dryRun)",
+              "description": "phasify-graph-and-dirs-files-tree.js: main() の呼び出しに opts.dirsTreePath を追加"
+            },
+            {
+              "before": "data.resolvedPaths を無視",
+              "after": "data.resolvedPaths を metadata に反映",
+              "description": "write-tickets-json-template.js: skeleton.metadata に ...(data.resolvedPaths ? { resolvedPaths: data.resolvedPaths } : {}) を追加"
+            },
+            {
+              "before": "metadata の additionalProperties が { type: string } で object を拒否",
+              "after": "resolvedPaths を正式プロパティとして定義、additionalProperties を false に変更",
+              "description": "tickets-schema.json: resolvedPaths を metadata の正式プロパティとして追加"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 全5ファイル 0 issues\n翻訳可能性: 問題なし（全関数が動詞句、新規汎用変数なし、マジックナンバーなし）\nテスト: resolve-ticket-context 30件 + phasify 系 35件 = 全65件成功\n不完全実装: 0件\n犯罪: 0件\nスタブ: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-14"
+        },
+        {
+          "id": 56,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "resolve-ticket-context.js の docPath を rfcPath に改名する",
+          "referenceSection": "specs/0093-resolve-ticket-contextjs-docpath-rfcpath.md",
+          "background": "resolve-ticket-context.js の出力フィールド名 docPath/docPathSource が resolvedPaths.rfcPath と命名一貫性を欠いている。関数名 resolveDocPath()、出力JSONキー、make-ticket.md のシェル変数 $DOC_PATH を全て rfcPath に改名する。ロジックは変更しない。",
+          "scope": [
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: resolveDocPath() → resolveRfcPaths() に関数名変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: 戻り値の docPath/docPathSource → rfcPath/rfcPathSource に変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: 出力JSONの docPath/docPathSource → rfcPath/rfcPathSource に変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: 内部変数 docExists → rfcExists に変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: derivePaths() の引数名 docPath → rfcPath に変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: generateInstruction() の引数名 docPath/docPathSource/docExists → rfcPath/rfcPathSource/rfcExists に変更",
+            "tools/conver/.claude/scripts/tickets/resolve-ticket-context.js: 全コメント・JSDoc のドキュメント文字列を更新",
+            "tools/conver/.claude/commands/make-ticket.md: 出力テーブルの docPath/$DOC_PATH → rfcPath/$RFC_PATH",
+            "tools/conver/.claude/commands/make-ticket.md: Step 2d の $DOC_PATH 参照 → $RFC_PATH に変更"
+          ],
+          "testVerification": [
+            "UT: resolve-ticket-context.test.cjs の全テストが改名後に通過すること",
+            "UT: テストから resolveDocPath() を呼んでいる箇所 → resolveRfcPaths() に変更",
+            "UT: テストが期待する出力JSONキー docPath → rfcPath, docPathSource → rfcPathSource に変更",
+            "UT: 同一入力に対する出力値のキー名以外が変わらないこと"
+          ],
+          "testExceptions": [],
+          "notes": "レビュー報告書:\n\n【PX-55】phasify が Tickets.json metadata に resolvedPaths を出力する\n- 変更ファイル: 3ファイル（write-tickets-json-template.js, tickets-schema.json, phasify-graph-and-dirs-files-tree.js）\n- 検証内容:\n  - write-tickets-json-template.js: data.resolvedPaths のパススルー追加 ✅\n  - tickets-schema.json: resolvedPaths を正式プロパティとして定義、additionalProperties を緩和 ✅\n  - phasify-graph-and-dirs-files-tree.js: ensureTicketsJsonExists() に dirsTreePath 追加、source を graphPath→rfcPath に変更、resolvedPaths 追加 ✅\n  - 同: runPhasify() の in-memory tickets にも同変更 ✅\n  - 同: main() の呼び出しに dirsTreePath 追加 ✅\n\n【PX-56】resolve-ticket-context.js の docPath を rfcPath に改名する\n- 変更ファイル: 3ファイル（resolve-ticket-context.js, make-ticket.md, test）\n- 検証内容:\n  - resolveDocPath() → resolveRfcPaths() 改名 ✅\n  - 戻り値/出力JSONの docPath/docPathSource → rfcPath/rfcPathSource ✅\n  - 内部変数 docExists → rfcExists ✅\n  - derivePaths(docPath) → derivePaths(rfcPath) ✅\n  - generateInstruction 引数名変更 ✅\n  - module.exports 更新 ✅\n  - make-ticket.md 出力テーブル/シェル変数更新 ✅\n  - テストファイル全参照更新 ✅\n\n【共通】\n- 静的品質チェック: 合格（全5ファイル 0 issues）\n- 翻訳可能性: 問題なし\n  - 全関数が動詞句（resolveRfcPaths, derivePaths, generateInstruction 等）\n  - 変数名はドメイン概念（rfcPath, graphPath, dirsTreePath 等）\n  - マジックナンバー・デバッグ出力なし\n- 依存関係: PX-55 → PX-56 の順序で実装完了、整合性確認済\n- テスト: resolve-ticket-context 30/30 + phasify 系 35/35 = 全65件成功\n- 不完全実装: 0件\n- 犯罪: 0件\n- 評価: Blocker/Major なし、Minor/Nit なし",
+          "startedAt": "2026-07-14",
+          "changes": [
+            {
+              "before": "resolveDocPath() — 関数名、戻り値 docPath/docPathSource、内部変数 docExists",
+              "after": "resolveRfcPaths() — 関数名、戻り値 rfcPath/rfcPathSource、内部変数 rfcExists",
+              "description": "resolve-ticket-context.js: 全 docPath/docPathSource/docExists → rfcPath/rfcPathSource/rfcExists に改名"
+            },
+            {
+              "before": "return キー docPath/docPathSource（6箇所）",
+              "after": "return キー rfcPath/rfcPathSource",
+              "description": "resolve-ticket-context.js: 戻り値オブジェクトのキー名を改名"
+            },
+            {
+              "before": "derivePaths(docPath) — 引数名 docPath",
+              "after": "derivePaths(rfcPath) — 引数名 rfcPath",
+              "description": "resolve-ticket-context.js: derivePaths の引数名を改名"
+            },
+            {
+              "before": "generateInstruction(..., docPath, docPathSource, docExists, ...)",
+              "after": "generateInstruction(..., rfcPath, rfcPathSource, rfcExists, ...)",
+              "description": "resolve-ticket-context.js: generateInstruction の引数名を改名"
+            },
+            {
+              "before": "出力JSONキー docPath/docPathSource",
+              "after": "出力JSONキー rfcPath/rfcPathSource",
+              "description": "resolve-ticket-context.js: console.log の JSON キー名を改名"
+            },
+            {
+              "before": "module.exports = { ..., resolveDocPath, ... }",
+              "after": "module.exports = { ..., resolveRfcPaths, ... }",
+              "description": "resolve-ticket-context.js: export 名を改名"
+            },
+            {
+              "before": "テスト: resolveDocPath 参照、.docPath .docPathSource アサーション",
+              "after": "テスト: resolveRfcPaths 参照、.rfcPath .rfcPathSource アサーション",
+              "description": "resolve-ticket-context.test.cjs: 全テスト参照を改名"
+            },
+            {
+              "before": "make-ticket.md: docPath/$DOC_PATH",
+              "after": "make-ticket.md: rfcPath/$RFC_PATH",
+              "description": "make-ticket.md: 出力テーブルとシェル変数を改名"
+            }
+          ],
+          "instrumentation": "静的品質チェック: 全5ファイル 0 issues\n翻訳可能性: 問題なし（全関数が動詞句、新規汎用変数なし、マジックナンバーなし）\nテスト: resolve-ticket-context 30件 + phasify 系 35件 = 全65件成功\n不完全実装: 0件\n犯罪: 0件\nスタブ: 0件",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-14"
         }
       ]
     },

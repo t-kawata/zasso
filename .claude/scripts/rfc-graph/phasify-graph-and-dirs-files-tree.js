@@ -170,11 +170,12 @@ function checkDirsTreeExists(dirsTreePath) {
  * Tickets.json の存在を確認し、存在しなければ新規生成する。
  *
  * @param {string} ticketsPath — Tickets.json の絶対パス
- * @param {string} graphPath — GRAPH.json の絶対パス（metadata の source に使用）
+ * @param {string} graphPath — GRAPH.json の絶対パス
+ * @param {string} dirsTreePath — Dirs-Tree.json の絶対パス
  * @param {boolean} dryRun — true の場合、実際の書き込みは行わない
  * @returns {boolean} 新規生成した場合は true、既存の場合は false
  */
-function ensureTicketsJsonExists(ticketsPath, graphPath, dryRun) {
+function ensureTicketsJsonExists(ticketsPath, graphPath, dirsTreePath, dryRun) {
   if (fs.existsSync(ticketsPath)) {
     return false;
   }
@@ -191,11 +192,21 @@ function ensureTicketsJsonExists(ticketsPath, graphPath, dryRun) {
     process.exit(3);
   }
 
+  // rfcPath は graphPath（例: RFC-ROOT-GRAPH.json）から -GRAPH.json → .md で機械的に導出
+  const rfcPath = graphPath.endsWith('-GRAPH.json')
+    ? graphPath.slice(0, -11) + '.md'
+    : graphPath.replace(/\.json$/, '.md');
+
   const metadata = JSON.stringify({
     title: 'phasify 自動生成チケット分解設計書',
-    source: graphPath,
+    source: rfcPath,
     generatedAt: new Date().toISOString().split('T')[0],
     analyzedSections: 'phasify-graph-and-dirs-files-tree.js による自動生成',
+    resolvedPaths: {
+      rfcPath,
+      graphPath,
+      dirsTreePath,
+    },
   });
 
   const { spawnSync } = require('child_process');
@@ -338,9 +349,21 @@ function runPhasify(opts) {
   const ticketsPhases = phasesToTicketsFormat(phaseAssignments);
 
   // メモリ上の Tickets.json データを構築（検証用・書き込み用）
+  const rfcPath = opts.graphPath.endsWith('-GRAPH.json')
+    ? opts.graphPath.slice(0, -11) + '.md'
+    : opts.graphPath.replace(/\.json$/, '.md');
   const inMemoryTickets = {
     title: 'phasify 自動生成',
-    metadata: { source: opts.graphPath, generatedAt: new Date().toISOString().split('T')[0] },
+    metadata: {
+      source: rfcPath,
+      generatedAt: new Date().toISOString().split('T')[0],
+      analyzedSections: 'phasify-graph-and-dirs-files-tree.js による自動生成',
+      resolvedPaths: {
+        rfcPath,
+        graphPath: opts.graphPath,
+        dirsTreePath: opts.dirsTreePath,
+      },
+    },
     phases: ticketsPhases,
   };
 
@@ -414,7 +437,7 @@ function main() {
   opts.ticketsPath = resolveTicketsPath(opts.graphPath, opts.dirsTreePath);
 
   checkDirsTreeExists(opts.dirsTreePath);
-  const created = ensureTicketsJsonExists(opts.ticketsPath, opts.graphPath, opts.dryRun);
+  const created = ensureTicketsJsonExists(opts.ticketsPath, opts.graphPath, opts.dirsTreePath, opts.dryRun);
   if (created && !opts.dryRun) {
     console.log('[INFO] Tickets.json を新規作成しました: ' + opts.ticketsPath);
   }

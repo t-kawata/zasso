@@ -64,7 +64,7 @@ node .claude/scripts/tickets/resolve-ticket-context.js \
 |-----------|-----------|------|
 | `ticketKey` | `$TICKET_KEY` | チケットキー（例: PX-53） |
 | `specPath` | `$SPEC_PATH` | spec ファイルのパス |
-| `docPath` | `$DOC_PATH` | 設計書（RFC）のファイルパス |
+| `rfcPath` | `$RFC_PATH` | 設計書（RFC）のファイルパス |
 | `graphPath` | `$GRAPH_PATH` | GRAPH.json のファイルパス |
 | `dirsTreePath` | `$DIRS_TREE_PATH` | Dirs-Tree.json のファイルパス |
 | `pipelineAvailable` | `$PIPELINE_AVAILABLE` | パイプライン情報の有無 |
@@ -97,7 +97,7 @@ echo '{"scope":["範囲..."],"testVerification":["テスト..."],"testExceptions
 
 ```bash
 node .claude/scripts/rfc-graph/dump-ticket-graph-commands.js \
-  --tickets=Tickets.json --graph=$GRAPH_PATH --source=$DOC_PATH
+  --tickets=Tickets.json --graph=$GRAPH_PATH --source=$RFC_PATH
 
 node .claude/scripts/rfc-graph/dump-node-context-to-spec.js \
   --tickets=Tickets.json --graph=$GRAPH_PATH \

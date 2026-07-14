@@ -12,7 +12,7 @@ const {
   parseArguments,
   derivePaths,
   generateInstruction,
-  resolveDocPath,
+  resolveRfcPaths,
   isValidTicketKey,
   parseTicketKey,
   ticketExists,
@@ -40,11 +40,11 @@ describe('resolve-ticket-context', () => {
     });
   });
 
-  describe('resolveDocPath', () => {
-    it('正常系: metadata.source が空の場合 → docPath 空', () => {
-      const r = resolveDocPath('', '/some/dir');
-      assert.equal(r.docPath, '');
-      assert.equal(r.docPathSource, 'none');
+  describe('resolveRfcPaths', () => {
+    it('正常系: metadata.source が空の場合 → rfcPath 空', () => {
+      const r = resolveRfcPaths('', '/some/dir');
+      assert.equal(r.rfcPath, '');
+      assert.equal(r.rfcPathSource, 'none');
     });
 
     it('正常系: metadata.source が .md ファイルとして存在する場合 → そのまま使用', () => {
@@ -52,11 +52,11 @@ describe('resolve-ticket-context', () => {
       try {
         const mdPath = path.join(tmpDir, 'RFC-ROOT.md');
         fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveDocPath(mdPath, tmpDir);
-        assert.equal(r.docPath, mdPath);
+        const r = resolveRfcPaths(mdPath, tmpDir);
+        assert.equal(r.rfcPath, mdPath);
         assert.ok(r.graphPath.endsWith('RFC-ROOT-GRAPH.json'));
         assert.ok(r.dirsTreePath.endsWith('RFC-ROOT-Dirs-Tree.json'));
-        assert.equal(r.docPathSource, 'metadata.source.md');
+        assert.equal(r.rfcPathSource, 'metadata.source.md');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -71,20 +71,20 @@ describe('resolve-ticket-context', () => {
         fs.writeFileSync(graphPath, '{}', 'utf8');
         fs.writeFileSync(mdPath, '# test', 'utf8');
 
-        const r = resolveDocPath(graphPath, tmpDir);
-        assert.equal(r.docPath, mdPath);
+        const r = resolveRfcPaths(graphPath, tmpDir);
+        assert.equal(r.rfcPath, mdPath);
         assert.equal(r.graphPath, graphPath);
         assert.ok(r.dirsTreePath.endsWith('RFC-ROOT-Dirs-Tree.json'));
-        assert.equal(r.docPathSource, 'metadata.source.json');
+        assert.equal(r.rfcPathSource, 'metadata.source.json');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
 
-    it('正常系: metadata.source が存在しないファイルの場合 → docPath 空、docPathSource=not_found', () => {
-      const r = resolveDocPath('/nonexistent/path.md', '/some/dir');
-      assert.equal(r.docPath, '');
-      assert.equal(r.docPathSource, 'not_found');
+    it('正常系: metadata.source が存在しないファイルの場合 → rfcPath 空、rfcPathSource=not_found', () => {
+      const r = resolveRfcPaths('/nonexistent/path.md', '/some/dir');
+      assert.equal(r.rfcPath, '');
+      assert.equal(r.rfcPathSource, 'not_found');
     });
 
     it('正常系: metadata.source が相対パスの .md の場合 → ticketsDir から絶対パス解決', () => {
@@ -92,8 +92,8 @@ describe('resolve-ticket-context', () => {
       try {
         const mdPath = path.join(tmpDir, 'RFC.md');
         fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveDocPath('RFC.md', tmpDir);
-        assert.equal(r.docPath, mdPath);
+        const r = resolveRfcPaths('RFC.md', tmpDir);
+        assert.equal(r.rfcPath, mdPath);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -106,8 +106,8 @@ describe('resolve-ticket-context', () => {
         const mdPath = path.join(tmpDir, 'data.md');
         fs.writeFileSync(jsonPath, '{}', 'utf8');
         fs.writeFileSync(mdPath, '# test', 'utf8');
-        const r = resolveDocPath(jsonPath, tmpDir);
-        assert.equal(r.docPath, mdPath);
+        const r = resolveRfcPaths(jsonPath, tmpDir);
+        assert.equal(r.rfcPath, mdPath);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -200,17 +200,17 @@ describe('resolve-ticket-context', () => {
       assert.ok(instr.includes('見つかりません'));
     });
 
-    it('正常系: docPathSource=none → スポットモード指示', () => {
+    it('正常系: rfcPathSource=none → スポットモード指示', () => {
       const instr = generateInstruction('P0-1', true, true, '', 'none', false, false, false);
       assert.ok(instr.includes('スポット'));
     });
 
-    it('正常系: docPathSource=not_found → パス確認指示', () => {
+    it('正常系: rfcPathSource=not_found → パス確認指示', () => {
       const instr = generateInstruction('P0-1', true, true, '', 'not_found', false, false, false);
       assert.ok(instr.includes('存在しません'));
     });
 
-    it('正常系: docPathSource=unknown → 形式不明指示', () => {
+    it('正常系: rfcPathSource=unknown → 形式不明指示', () => {
       const instr = generateInstruction('P0-1', true, true, '', 'unknown', false, false, false);
       assert.ok(instr.includes('形式が不明'));
     });

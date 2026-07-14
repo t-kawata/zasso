@@ -7,7 +7,7 @@
  *   node write-tickets-json-template.js <PATH to Tickets.json> '<metadata-json>'
  *
  * metadata-json:
- *   {"title":"...","source":"...","generatedAt":"YYYY-MM-DD","analyzedSections":"..."}
+ *   {"title":"...","source":"...","generatedAt":"YYYY-MM-DD","analyzedSections":"...","resolvedPaths":{...}}
  */
 
 const fs = require("fs");
@@ -48,6 +48,7 @@ function main() {
       source: data.source || "",
       generatedAt: data.generatedAt || "",
       analyzedSections: data.analyzedSections || "",
+      ...(data.resolvedPaths ? { resolvedPaths: data.resolvedPaths } : {}),
     },
     phases: [],
   };
