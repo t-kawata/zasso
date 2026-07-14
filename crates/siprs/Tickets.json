@@ -1,0 +1,1912 @@
+{
+  "title": "phasify 自動生成チケット分解設計書",
+  "metadata": {
+    "source": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
+    "generatedAt": "2026-07-14",
+    "analyzedSections": "phasify-graph-and-dirs-files-tree.js による自動生成",
+    "resolvedPaths": {
+      "rfcPath": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
+      "graphPath": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+      "dirsTreePath": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-Dirs-Tree.json"
+    }
+  },
+  "phases": [
+    {
+      "id": 0,
+      "name": "要件定義・設計基本方針 → ClientConfig定義 → 全体アーキテクチャ・公開API設計",
+      "tickets": [
+        {
+          "title": "RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義",
+          "nodeIds": [
+            "N0001",
+            "N0002",
+            "N0003",
+            "N0004",
+            "N0007",
+            "N0008",
+            "N0009"
+          ],
+          "background": "P0はcrate全体の設計のよりどころとなる要件定義と基本方針をまとめる。N0001（目的）でcrateの責務を定義し、N0002（M20優先度マップ）・N0003（設計判断対応表）でM20実装の優先順位と設計判断を整理する。N0004（非目的）でcrateが提供しない機能を明確化し、N0007（準拠要件）でMSRV・PJSIPバージョン・対象OSを規定する。N0008（バージョニングポリシー）でsemver運用方針を、N0009（機能要求）で15項目のnormative scopeを確定する。全ノードが文書化と方針定義に関わるものであり、同一チケットで一貫して実装することで要件の整合性を担保する。",
+          "scope": [
+            "crateルートのドキュメントコメント（lib.rs） - crate全体の目的・スコープ・非目的を記述",
+            "src/api/versioning_policy.rs - バージョニングポリシーをドキュメントとして実装（CHANGELOG管理指針、semver運用ルール）",
+            "RFC-ROOT.md の要件定義セクションをコード内ドキュメントと整合させる",
+            "pub const MSRV: &str = \"1.95\" 等の定数をcrateに定義（build.rs等から参照可能に）"
+          ],
+          "testVerification": [
+            "UT: ドキュメントテスト（cargo test --doc）が通ることを確認",
+            "UT: バージョニング定数が期待値と一致することを確認"
+          ],
+          "testExceptions": [
+            "本チケットは主に文書化と定数定義であり、ロジック実装を伴わないためテスト範囲は限定される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§1, §1a, §2, §4, §4.1, §5)",
+          "relatedTicketIds": "[part_of] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [references] P2-1 (参照先: NativeEvent→SipEventPayload変換マッピングの実装), [references] P0-2 (参照先: ClientConfig構造体の定義とDefault実装), [references] P0-5 (参照先: AccountConfig構造体の定義), [references] P7-6 (被依存元（依存元）: panicポリシーと受け入れ基準), [depends_on] P0-2 (被依存元（依存元）: ClientConfig構造体の定義とDefault実装), [precedes] P0-2 (先行: ClientConfig構造体の定義とDefault実装), [precedes] P0-3 (先行: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [part_of] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [part_of] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [references] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [references] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用)",
+          "notes": "本チケットはコード実装よりも文書化と定数定義に重きを置く。RFC設計書に記載された要件をコード内ドキュメントや定数として落とし込み、後続チケットが参照できる基盤を提供する。実装サマリー: lib.rsにcrateレベルのドキュメントを追加（目的・スコープ・非目的・準拠要件）、src/api/versioning_policy.rsにバージョニングポリシーを記述、MSRV・PJSIPバージョン等を定数定義、15項目の機能要求リストをドキュメント化。注意事項: バージョニングポリシーは後続のsemver_operation.rs（P15）で実装詳細を追加する。M20実装優先度マップは参照情報であり、実装の着手順序は各チケットの依存関係に従う。",
+          "default_files": [
+            "src/api/versioning_policy.rs"
+          ],
+          "id": 1,
+          "phaseId": 0,
+          "status": "todo"
+        },
+        {
+          "title": "ClientConfig構造体の定義とDefault実装",
+          "nodeIds": [
+            "N0022"
+          ],
+          "background": "N0022はClientConfig構造体の全フィールド定義とDefault実装を規定する。ClientConfigはcrate初期化時に唯一の設定として渡され、user_agent・log_level・max_calls・event_bus_capacity・audio設定・transports・STUN/TURN・ICE・RawSIP設定・タイムアウト設定を保持する。Default実装により最小構成での初期化を可能にする。ClientAudioConfig・TimeoutConfig・RawSipEventConfigのサブ構造体も同時に定義する。",
+          "scope": [
+            "pub struct ClientConfig（全フィールド） - src/config/client_config.rs",
+            "pub struct ClientAudioConfig（default_delivery_format/pair_buffer_ms/jitter_buffer_ms/mixer_frame_ms/max_sources_per_call/resampler_quality）",
+            "pub enum LogLevel { Error, Warn, Info, Debug, Trace }",
+            "pub struct TimeoutConfig（command_timeout/shutdown_timeout/register_timeout/invite_timeout）",
+            "pub struct RawSipEventConfig（enabled/include_bodies/max_body_bytes/redact_authorization）",
+            "impl Default for ClientConfig - RFC指定の既定値に従った実装",
+            "impl Default for ClientAudioConfig / TimeoutConfig / RawSipEventConfig"
+          ],
+          "testVerification": [
+            "UT: ClientConfig::default() が全フィールドをRFC指定値で初期化する",
+            "UT: 各フィールドへのsetter/getterが正常動作する",
+            "UT: LogLevelの全バリアントがDebug/Displayを実装する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§10)",
+          "relatedTicketIds": "[depends_on] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [depends_on] P0-5 (被依存元（依存元）: AccountConfig構造体の定義), [references] P0-1 (被依存元（依存元）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [depends_on] P0-1 (依存先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [depends_on] P0-6 (被依存元（依存元）: TransportConfig列挙型の定義), [depends_on] P0-5 (被依存元（依存元）: AccountConfig構造体の定義), [precedes] P0-1 (被依存元（依存元）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [precedes] P0-5 (先行: AccountConfig構造体の定義), [precedes] P0-6 (先行: TransportConfig列挙型の定義), [depends_on] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [part_of] P1-1 (被依存元（依存元）: ClientConfig既定値とICE/STUN/TURN設定の実装)",
+          "notes": "ClientConfigはcrate初期化時に唯一の設定として利用される。Default実装により `SipClient::new(ClientConfig::default())` での簡易初期化が可能となる。トランスポート設定のベクタは規定値としてUDP:5060とTCP:5060を含む。",
+          "default_files": [
+            "src/config/client_config.rs"
+          ],
+          "id": 2,
+          "phaseId": 0,
+          "status": "todo"
+        },
+        {
+          "title": "全体アーキテクチャと並行性モデルの設計文書化",
+          "nodeIds": [
+            "N0010",
+            "N0011",
+            "N0012",
+            "N0013",
+            "N0014"
+          ],
+          "background": "crateのモジュール構成（N0010）・単一crate選択の根拠（N0011）・core reactor threadによる並行性モデル（N0012）・4実行コンテキスト（N0013）・単一Reactorのスケーラビリティ注記（N0014）を文書化する。実装ファイルは持たないが、コード内ドキュメントとしてこれらの設計判断を残すことで、後続の実装チケットが設計意図を参照できる基盤を提供する。",
+          "scope": [
+            "crateルートのアーキテクチャドキュメント - モジュール構成図と並行性モデルの記述",
+            "モジュール分割方針のドキュメントコメント（各モジュールのmod.rs等）",
+            "src/concurrency_model/ 配下の各ファイルの先頭に設計コンテキストを記述"
+          ],
+          "testVerification": [
+            "UT: ドキュメントテスト（cargo test --doc）が通ることを確認"
+          ],
+          "testExceptions": [
+            "設計文書化が主であり、ロジック実装を伴わない"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§6, §6.1, §7, §7.1, §7.1a)",
+          "relatedTicketIds": "[part_of] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [part_of] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [part_of] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [part_of] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [part_of] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [part_of] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P9-4 (被依存元（依存元）: HTTP/WebSocket API層概要とcrate分割判断), [extends] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [precedes] P0-1 (被依存元（依存元）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [references] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート)",
+          "notes": "本チケットは設計文書化が主目的であり、コード実装は最小限。各モジュールの役割をコード内ドキュメントとして記述し、後続の実装チケットが参照できるようにする。",
+          "default_files": [
+            "src/concurrency_model"
+          ],
+          "id": 3,
+          "phaseId": 0,
+          "status": "todo"
+        },
+        {
+          "title": "公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型",
+          "nodeIds": [
+            "N0016",
+            "N0018",
+            "N0019",
+            "N0020",
+            "N0021"
+          ],
+          "background": "N0016（crateルート公開API一覧）・N0018（SipClient APIメソッド全シグネチャ）・N0019（SipAccountHandle API）・N0020（OutgoingCallRequest構造体）・N0021（AccountId/CallId/AudioSourceIdのID設計）を実装する。公開APIサーフェス全体の型定義を一貫して行うことで、後続の全実装チケットが正しい型とシグネチャを参照できる基盤を提供する。",
+          "scope": [
+            "lib.rsのpub use再公開 - src/concurrency_model/crate_root_api.rs",
+            "SipClient構造体（Arc<ClientInner>）の定義 - src/concurrency_model/sipclient_struct.rs",
+            "SipClient APIメソッド（new/subscribe/add_account等）のスタブ - src/concurrency_model/sipclient_methods.rs",
+            "SipAccountHandle構造体とAPI（register/unregister/make_call等） - src/concurrency_model/account_handle_api.rs",
+            "OutgoingCallRequestとCallMediaPreferences構造体 - src/concurrency_model/outgoing_call_request.rs",
+            "AccountId/CallId/AudioSourceId newtype（NonZeroU64ベース） - src/model/id_design.rs"
+          ],
+          "testVerification": [
+            "UT: AccountId/CallId/AudioSourceIdの生成・比較・コピーが正常動作",
+            "UT: SipClientがCloneを実装しSend+Syncを満たす",
+            "UT: OutgoingCallRequestのPCMU/Opus validation（Opus/PCMU以外はエラー）",
+            "UT: 全ID型がDebug/Clone/Copy/PartialEq/Eq/Hash/PartialOrd/Ordをderiveする"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§8.1, §8.3, §8.4, §8.5, §9)",
+          "relatedTicketIds": "[part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [triggers] P9-1 (トリガー先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [triggers] P10-1 (トリガー先: EventBus実装（control/raw_sip 2バス配信）), [precedes] P7-1 (被依存元（依存元）: 使用例の完全実装とconfig validation), [part_of] P6-5 (被依存元（依存元）: 使用例の実装（Client初期化 / account追加 / 発信 / 音声tap / AI TTS）), [refines] P7-5 (被依存元（依存元）: 既知の実装課題解決 - callback橋渡し / 音声ズレ / multi-source / id再利用)",
+          "notes": "本チケットでは型定義とAPIシグネチャの宣言までを行う。実際のRuntimeCommand経由の処理ロジックはP15（SipClient実装）で実装する。SipClientはClone可能な薄いハンドルとして設計され、内部にArc<ClientInner>を持つ。ID型はNonZeroU64のnewtypeとし、PJSIPのnative ID再利用に対応するためBiMap管理はP14で実装。",
+          "default_files": [
+            "src/concurrency_model/account_handle_api.rs",
+            "src/concurrency_model/crate_root_api.rs",
+            "src/concurrency_model/outgoing_call_request.rs",
+            "src/concurrency_model/sipclient_methods.rs",
+            "src/model/id_design.rs"
+          ],
+          "id": 4,
+          "phaseId": 0,
+          "status": "todo"
+        },
+        {
+          "title": "AccountConfig構造体の定義",
+          "nodeIds": [
+            "N0024"
+          ],
+          "background": "AccountConfig構造体の全フィールドを定義する。SIPアカウント設定（認証情報・ドメイン・トランスポート・コーデック・DTMF・メディア設定）を保持し、RFCのvalidation rulesに従った入力検証を行う。",
+          "scope": [
+            "pub struct AccountConfig（全フィールド: display_name/username/auth_username/password/domain/registrar_uri/outbound_proxy/contact_params/transport/register_on_start/allow_outbound_without_register/registration_expires/codecs/dtmf/media/headers） - src/config/account_config.rs",
+            "pub struct AccountCodecPolicy（enable_pcmu/enable_opus/opus）",
+            "pub struct OpusConfig（bitrate/complexity/cbr/inband_fec/dtx/ptime_ms）",
+            "pub struct DtmfPolicy（send_methods/receive_methods/default_send_method）",
+            "pub struct AccountMediaConfig（srtp/ice/vad/ec_tail_ms/input_gain_db/output_gain_db）"
+          ],
+          "testVerification": [
+            "UT: AccountConfigの全フィールドがデフォルト値を持つ",
+            "UT: username/domain/passwordの空文字禁止バリデーション"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§11)",
+          "relatedTicketIds": "[depends_on] P0-2 (依存先: ClientConfig構造体の定義とDefault実装), [references] P0-1 (被依存元（依存元）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [references] P2-2 (被依存元（依存元）: 登録状態機械（RegistrationState）の実装), [references] P2-3 (被依存元（依存元）: 通話状態機械（CallState）の実装), [depends_on] P0-2 (依存先: ClientConfig構造体の定義とDefault実装), [precedes] P0-2 (被依存元（依存元）: ClientConfig構造体の定義とDefault実装), [part_of] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies)",
+          "notes": "passwordフィールドはSecretString（secrecy crate）を使用し、シリアライズ時は常に***REDACTED***となる。register_on_startとallow_outbound_without_registerの相互バリデーションはvalidation rules（N0025, P15）で実装。",
+          "default_files": [
+            "src/config/account_config.rs"
+          ],
+          "id": 5,
+          "phaseId": 0,
+          "status": "todo"
+        },
+        {
+          "title": "TransportConfig列挙型の定義",
+          "nodeIds": [
+            "N0026"
+          ],
+          "background": "TransportConfig列挙型（UDP/TCP/TLS）と各トランスポート設定構造体を定義する。TLSはfeature flagでAPIから消える設計とし、無効時にTLS variantが型レベルで出現しないようにする。",
+          "scope": [
+            "pub enum TransportConfig { Udp, Tcp, #[cfg(feature=tls)] Tls } - src/config/transport_config.rs",
+            "pub struct UdpTransportConfig { bind_addr: SocketAddr }",
+            "pub struct TcpTransportConfig { bind_addr: SocketAddr }",
+            "#[cfg(feature=tls)] pub struct TlsTransportConfig { bind_addr: SocketAddr, tls: TlsConfig }",
+            "#[cfg(feature=tls)] pub struct TlsConfig（verify_server/ca_cert_path/client_cert_path/client_key_path/server_name/allow_insecure_cipher_legacy）"
+          ],
+          "testVerification": [
+            "UT: TransportConfig::udp(5060)が正しいUDP設定を生成する",
+            "UT: TransportConfig::tcp(5060)が正しいTCP設定を生成する",
+            "UT: feature=tls有効時にTLS variantが型レベルで出現する",
+            "UT: feature=tls無効時にTLS variantがコンパイルエラーになることをcargo test --no-default-featuresで確認"
+          ],
+          "testExceptions": [
+            "TLS variantのコンパイル時除外はfeature flag依存のため、テストは別feature設定でのビルド確認となる"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§12)",
+          "relatedTicketIds": "[depends_on] P0-2 (依存先: ClientConfig構造体の定義とDefault実装), [precedes] P0-2 (被依存元（依存元）: ClientConfig構造体の定義とDefault実装)",
+          "notes": "TLS feature flagはCargo.tomlで管理し、cfg属性でTLS関連型の公開/非公開を制御する。TLS無効時はコンパイルエラーではなく、型レベルでTLS variantが出現しない設計を徹底する。",
+          "default_files": [
+            "src/config/transport_config.rs"
+          ],
+          "id": 6,
+          "phaseId": 0,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0001",
+        "N0002",
+        "N0003",
+        "N0004",
+        "N0007",
+        "N0008",
+        "N0009",
+        "N0022",
+        "N0010",
+        "N0011",
+        "N0012",
+        "N0013",
+        "N0014",
+        "N0016",
+        "N0018",
+        "N0019",
+        "N0020",
+        "N0021",
+        "N0024",
+        "N0026"
+      ],
+      "summary": "RFCの目的、スコープ、準拠要件、バージョニングポリシー、機能要求の確定化。crate全体の設計判断指針を定義する基礎フェーズ。\n---\nクライアント設定構造体の全フィールド定義。ユーザーエージェント、ログレベル、最大通話数、イベントバス容量、音声設定、タイムアウト設定等。\n---\ncrateのモジュール構成、並行性モデル（core reactor/serialization）、公開API（SipClient/SipAccountHandle）、ID設計、AccountConfig/TransportConfig定義。"
+    },
+    {
+      "id": 1,
+      "name": "エラー設計・イベントモデル基盤",
+      "tickets": [
+        {
+          "title": "ClientConfig既定値とICE/STUN/TURN設定の実装",
+          "nodeIds": [
+            "N0023",
+            "N0027"
+          ],
+          "background": "N0023（ClientConfigのDefault実装 - config_defaults.rs）とN0027（ICE/STUN/TURN設定 - ice_stun_turn.rs）を実装する。Default値はRFC指定のmax_calls=32/event_bus_capacity=2048等に従う。ICE設定はenabled/aggressive_nomination/trickle_ice等を定義。",
+          "scope": [
+            "impl Default for ClientConfig（RFC§10.1既定値に従う） - src/config/config_defaults.rs",
+            "pub struct IceConfig（enabled/aggressive_nomination/trickle_ice/renomination/max_host_candidates） - src/config/ice_stun_turn.rs",
+            "pub struct StunServerConfig { uri: String }",
+            "pub struct TurnServerConfig（uri/username/password/transport）",
+            "impl Default for IceConfig"
+          ],
+          "testVerification": [
+            "UT: ClientConfig::default()がRFC指定値と一致する（max_calls=32, event_bus_capacity=2048等）",
+            "UT: IceConfig::default()がenabled=true, aggressive_nomination=true等を返す",
+            "UT: StunServerConfig/TurnServerConfigの生成と表示"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§10.1, §13)",
+          "relatedTicketIds": "[references] P11-2 (参照先: SRTP / トランスポート再接続 / Shutdown / custom media port), [part_of] P0-2 (部分（親）: ClientConfig構造体の定義とDefault実装)",
+          "notes": "trickle ICEはdisabled defaultのoptional optimization。full ICE必須。TurnServerConfigのpasswordはSecretStringを使用。",
+          "default_files": [
+            "src/config/config_defaults.rs",
+            "src/config/ice_stun_turn.rs"
+          ],
+          "id": 1,
+          "phaseId": 1,
+          "status": "todo"
+        },
+        {
+          "title": "エラー設計 - SipError / SipErrorKind / RuntimeCommandエラー",
+          "nodeIds": [
+            "N0028",
+            "N0029",
+            "N0030"
+          ],
+          "background": "N0028（SipError/SipErrorKind定義）・N0029（pj_status_t→SipError変換方針）・N0030（M20新RuntimeCommandのエラー設計）を実装する。全APIがResult<T, SipError>を返す統一設計のもと、エラー型にkind/message/native_status/account_id/call_id/retryableを含める。RuntimeCommandのエラーは既存のInvalidState/NotFound/InternalErrorで兼用する。",
+          "scope": [
+            "pub struct SipError（kind/message/native_status/account_id/call_id/retryable, #[derive(thiserror::Error)]） - src/error/error_design.rs",
+            "pub enum SipErrorKind（InvalidConfig/InvalidState/AlreadyInitialized等 20+ バリアント）",
+            "pj_status_t → SipError 変換関数 - src/error/error_conversion.rs",
+            "RuntimeCommand用エラー変換（ConfConnect/ConfDisconnect/GetAccountInfo） - src/error/runtime_command_errors.rs"
+          ],
+          "testVerification": [
+            "UT: SipErrorの全kindが適切なエラーメッセージを生成する（Display）",
+            "UT: エラー変換関数がpj_status_tを正しいSipErrorKindにマッピングする",
+            "UT: RuntimeCommandエラーが既存バリアント（InvalidState/NotFound/InternalError）のみを使用する",
+            "UT: SipErrorにaccount_id/call_idが正しく設定される",
+            "UT: retryableフラグが適切に設定される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§14, §14.1)",
+          "relatedTicketIds": "[depends_on] P9-3 (被依存元（依存元）: レイヤー1 ユニットテスト設計とgraphify-rfc連携ガイド)",
+          "notes": "SipErrorKindは肥大化を防ぐため、バリアント追加はRFC承認を要する。RuntimeCommandエラーは新規バリアントを追加せず既存のInvalidState/NotFound/InternalErrorで表現する。pj_status_t→SipError変換はPJSIPのエラーコード体系をラップする重要な変換層。",
+          "default_files": [
+            "src/error/error_conversion.rs",
+            "src/error/error_design.rs",
+            "src/error/runtime_command_errors.rs"
+          ],
+          "id": 2,
+          "phaseId": 1,
+          "status": "todo"
+        },
+        {
+          "title": "イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計",
+          "nodeIds": [
+            "N0031",
+            "N0033",
+            "N0034",
+            "N0037",
+            "N0038"
+          ],
+          "background": "N0031（イベントモデル概要 - 全payload enum定義）・N0033（SipEvent構造体）・N0034（EventMeta構造体）・N0037（イベントバス分割の設計判断）・N0038（確実配送保証しない方針）を実装する。制御系とメディア系のイベント種別を区分し、#[non_exhaustive]で将来拡張に備える。EventBusは制御系/raw_sipの2バス構成とし、観測用途であることを明確化する。",
+          "scope": [
+            "pub enum SipEventPayload（#[non_exhaustive]） - 全バリアント定義（Registration/Call/Media/DTMF/ICE/Transport/Account/Client/Error系） - src/event_model_overview/ 配下",
+            "pub struct SipEvent { meta: EventMeta, payload: SipEventPayload } - src/event_model_overview/model/sip_event_struct.rs",
+            "pub struct EventMeta（event_id/timestamp/account_id/call_id/direction/headers等） - src/event_model_overview/model/event_meta.rs",
+            "イベントバス2バス分割の設計判断をドキュメント化",
+            "確実配送を保証しない方針のドキュメント化（観測用途のみ）"
+          ],
+          "testVerification": [
+            "UT: SipEventの全バリアントがDebug/Cloneを実装する",
+            "UT: EventMetaのevent_idが単調増加する",
+            "UT: #[non_exhaustive]属性により外部クレートからのマッチングが非網羅的でコンパイル可能"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§15, §15.2, §15.3, §15.6, §15.7)",
+          "relatedTicketIds": "[part_of] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [part_of] P10-1 (被依存元（依存元）: EventBus実装（control/raw_sip 2バス配信）), [part_of] P12-2 (被依存元（依存元）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [part_of] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [part_of] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [part_of] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [part_of] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P10-1 (被依存元（依存元）: EventBus実装（control/raw_sip 2バス配信）), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート)",
+          "notes": "SipEventPayloadは#[non_exhaustive]により将来のバリアント追加が破壊的変更にならない。EventMetaにはlogical_context（BTreeMap）を含め、拡張性を確保。EventBusはbroadcast channelを使用し、購読者がいなくても送信側は動作する設計。",
+          "default_files": [
+            "src/event_model_overview",
+            "src/event_model_overview/model/event_meta.rs",
+            "src/event_model_overview/model/sip_event_struct.rs"
+          ],
+          "id": 3,
+          "phaseId": 1,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0023",
+        "N0027",
+        "N0028",
+        "N0029",
+        "N0030",
+        "N0031",
+        "N0033",
+        "N0034",
+        "N0037",
+        "N0038"
+      ],
+      "summary": "エラー型（SipError/SipErrorKind）の定義と変換方針、イベントモデル概要（SipEvent/EventMeta）、ICE/STUN/TURN設定、ClientConfig既定値。"
+    },
+    {
+      "id": 2,
+      "name": "NativeEvent変換・状態機械定義",
+      "tickets": [
+        {
+          "title": "NativeEvent→SipEventPayload変換マッピングの実装",
+          "nodeIds": [
+            "N0039",
+            "N0040",
+            "N0041",
+            "N0042",
+            "N0043"
+          ],
+          "background": "PJSIP NativeEventからSipEventPayloadへの変換を実装する。N0039は変換基本方針（P0/P1/P2優先度）、N0040は全NativeEventバリアントとSipEventPayloadのマッピングテーブル、N0041はCallStateChangedのpjsip_inv_state→CallState変換、N0042はCallMediaStateChangedのmedia_status判定、N0043はRegistrationStateChangedのRuntimeCommand::GetAccountInfo経由パターンを定義する。",
+          "scope": [
+            "NativeEvent→SipEventPayload変換基本方針の実装 - src/event_model_overview/api/native_event_mapping.rs",
+            "全NativeEventバリアントとSipEventPayloadのマッピングテーブル",
+            "pjsip_inv_state→CallState変換ロジック",
+            "media_status→MediaActive/Held/Error判定ロジック",
+            "RegistrationStateChangedのRuntimeCommand::GetAccountInfo経由パターン"
+          ],
+          "testVerification": [
+            "UT: 各NativeEventバリアントが正しいSipEventPayloadに変換される",
+            "UT: 全pjsip_inv_state値に対応するCallStateが定義されている",
+            "UT: media_statusの各値が正しいMediaActive/Held/Errorにマッピングされる",
+            "UT: 未定義のNativeEventバリアントが来た場合のフォールバック動作"
+          ],
+          "referenceSection": "RFC-ROOT.md (M20 追補: NativeEvent変換マッピング, M20 追補: CallStateChanged, M20 追補: CallMediaStateChanged, M20 追補: RegistrationStateChanged)",
+          "relatedTicketIds": "[part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [refines] P9-1 (詳細化先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [refines] P9-1 (詳細化先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [references] P0-1 (被依存元（依存元）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義)",
+          "notes": "NativeEventバリアントの追加はPJSIP callback bridge（P7）の拡張と連動する。変換テーブルの一貫性を保つため、NativeEvent→SipEventPayloadの変換は集中管理する。",
+          "default_files": [
+            "src/event_model_overview/api/native_event_mapping.rs",
+            "src/event_model_overview/state/callstate_mapping.rs",
+            "src/event_model_overview/state/media_state_mapping.rs"
+          ],
+          "id": 1,
+          "phaseId": 2,
+          "status": "todo"
+        },
+        {
+          "title": "登録状態機械（RegistrationState）の実装",
+          "nodeIds": [
+            "N0045",
+            "N0046"
+          ],
+          "background": "N0045（RegistrationState enum定義、7状態）とN0046（遷移規則 - 未登録でも発信可能な設計）を実装する。SIPアカウントの登録状態遷移を型安全にモデル化する。",
+          "scope": [
+            "pub enum RegistrationState（7状態: 未登録/登録中/登録済/登録解除中/登録失敗/登録期限切れ/登録解除済） - src/state/registration_state.rs",
+            "全遷移規則の実装（各状態からの許容遷移と不正遷移のエラーハンドリング） - src/state/registration_transitions.rs"
+          ],
+          "testVerification": [
+            "UT: 全7状態がDebug/Clone/Copy/PartialEq/Eqを実装する",
+            "UT: 登録中→登録済への遷移が成功する（Happy Path）",
+            "UT: 未登録→発信操作が許可される（未登録でも発信可能）",
+            "UT: 不正遷移（登録済→登録中）がエラーを返す",
+            "UT: 登録期限切れ→登録中の再遷移が正常動作"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§17, §17.1)",
+          "relatedTicketIds": "[references] P0-5 (参照先: AccountConfig構造体の定義)",
+          "notes": "PJSIPの登録動作とは独立した純粋状態機械として実装し、Layer2テスト（MockBackend）で全遷移を検証可能にする。",
+          "default_files": [
+            "src/state/registration_state.rs",
+            "src/state/registration_transitions.rs"
+          ],
+          "id": 2,
+          "phaseId": 2,
+          "status": "todo"
+        },
+        {
+          "title": "通話状態機械（CallState）の実装",
+          "nodeIds": [
+            "N0047",
+            "N0048",
+            "N0049"
+          ],
+          "background": "N0047（CallState enum定義、13状態）・N0048（Outgoing/Incoming/ActiveSession別遷移図）・N0049（max_calls上限による同時通話制約）を実装する。SIP通話のライフサイクルを型安全にモデル化する。",
+          "scope": [
+            "pub enum CallState（13状態） - src/state/call_state_model.rs",
+            "Outgoing/Incoming/ActiveSession別の遷移規則 - src/state/call_state_transitions.rs",
+            "max_calls上限チェック（runtime validationで強制）"
+          ],
+          "testVerification": [
+            "UT: 全13状態がDebug/Clone/Copy/PartialEq/Eqを実装する",
+            "UT: 発信時の状態遷移（Dialing→Ringing→Connected→Disconnected）が正しい",
+            "UT: 着信時の状態遷移（Incoming→Connected→Disconnected）が正しい",
+            "UT: max_calls超過時のエラーを検出する",
+            "UT: 不正遷移（Connected→Dialing）がエラーを返す",
+            "UT: Failed→4xx/5xx/6xxの遷移が正しい"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§18, §18.1, §18.2)",
+          "relatedTicketIds": "[depends_on] P10-2 (被依存元（依存元）: 発着信APIの完全実装（answer/hangup/hold/transfer/send_dtmf）), [references] P0-5 (参照先: AccountConfig構造体の定義), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード)",
+          "notes": "Pure Rustの状態機械としてPJSIP非依存で実装し、Layer2テストで全遷移をカバーする。",
+          "default_files": [
+            "src/state/call_state_model.rs",
+            "src/state/call_state_transitions.rs"
+          ],
+          "id": 3,
+          "phaseId": 2,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0039",
+        "N0040",
+        "N0041",
+        "N0042",
+        "N0043",
+        "N0045",
+        "N0046",
+        "N0047",
+        "N0048",
+        "N0049"
+      ],
+      "summary": "PJSIP NativeEventからSipEventPayloadへの変換マッピング、登録状態機械（RegistrationState 7状態）、通話状態機械（CallState 13状態）、遷移規則定義。"
+    },
+    {
+      "id": 3,
+      "name": "DTMF・音声フォーマット・音声購読",
+      "tickets": [
+        {
+          "title": "DTMF仕様の実装 - DtmfMethod / DtmfReceived / DtmfSent 二段構え",
+          "nodeIds": [
+            "N0052",
+            "N0053",
+            "N0054",
+            "N0055"
+          ],
+          "background": "DTMF関連の型定義と発火ロジックを実装する。DtmfMethod列挙型、DtmfReceivedInfo構造体、DtmfSentInfo構造体、およびPJSIP callback不在時の500msタイムアウトフォールバックを実装する。send_dtmf()の戻り値（コマンド受理）とDtmfSentイベント（送出完了）の二段構え意味論を実現する。",
+          "scope": [
+            "pub enum DtmfMethod（Inband/SipInfo/Rfc2833） - src/api/dtmf_spec.rs",
+            "pub struct DtmfReceivedInfo（digits/method/timestamp等）",
+            "pub struct DtmfSentInfo（method/digit/status/pjsip_status） - src/model/dtmf_sent_info.rs",
+            "pub enum SentDtmfError",
+            "DtmfSent発火タイミング制御（callback優先・500msタイムアウトフォールバック） - src/api/dtmf_sent_timing.rs"
+          ],
+          "testVerification": [
+            "UT: DtmfMethodの全バリアントがDebug/Clone/Copy/PartialEq/Eqを実装",
+            "UT: DtmfSentInfoの全フィールドが正しく設定される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§20)",
+          "relatedTicketIds": "P4-1（NativeEvent変換）DTMF系NativeEvent変換で連携",
+          "notes": "DtmfSent発火の二段構え（戻り値=コマンド受理、イベント=送出完了）は設計判断Q2:Aに基づく。",
+          "default_files": [
+            "src/api/dtmf_sent_timing.rs",
+            "src/api/dtmf_spec.rs",
+            "src/model/dtmf_sent_info.rs"
+          ],
+          "id": 1,
+          "phaseId": 3,
+          "status": "todo"
+        },
+        {
+          "title": "音声フォーマットモデルとAudioChunkPairの実装",
+          "nodeIds": [
+            "N0056",
+            "N0057"
+          ],
+          "background": "音声データの型階層を定義する。SampleRate/BitDepth/ChannelLayout/AudioFormat/AudioChunkPairを実装し、sequence_numberによるSipEventとの時間的相関を可能にする。",
+          "scope": [
+            "pub enum SampleRate（Hz8000/Hz16000等） - src/model/audio_format_model.rs",
+            "pub enum BitDepth（U8/I16/I24/I32/F32）",
+            "pub enum ChannelLayout（Mono/Stereo/StereoInOut）",
+            "pub struct AudioFormat（sample_rate/bit_depth/channel_layout/frame_ms）",
+            "pub struct AudioChunkPair（sequence_number/input_chunk/output_chunk/timestamp） - src/model/audio_chunk_pair.rs"
+          ],
+          "testVerification": [
+            "UT: 全enumがDebug/Clone/Copy/PartialEqを実装",
+            "UT: AudioChunkPairのsequence_numberが単調増加する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§21, §21.1)",
+          "relatedTicketIds": "[depends_on] P10-5 (被依存元（依存元）: PairAligner / ResamplePipeline / メモリ所有権規則), [depends_on] P10-5 (被依存元（依存元）: PairAligner / ResamplePipeline / メモリ所有権規則), [depends_on] P10-3 (被依存元（依存元）: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）)",
+          "notes": "AudioChunkPairのsequence_numberはSipEventのevent_idと時間的相関を取るために使用される。",
+          "default_files": [
+            "src/model/audio_chunk_pair.rs",
+            "src/model/audio_format_model.rs"
+          ],
+          "id": 2,
+          "phaseId": 3,
+          "status": "todo"
+        },
+        {
+          "title": "answer semanticsの定義",
+          "nodeIds": [
+            "N0051"
+          ],
+          "background": "answer()のステータスコード意味論（180/183/200/486/603）を定義する。",
+          "scope": [
+            "answer() status code semantics（180=Ringing/183=SessionProgress/200=OK/486=Busy/603=Decline） - src/api/answer_semantics.rs"
+          ],
+          "testVerification": [
+            "UT: 各status codeが正しい意味論マッピングを持つ"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§19.1)",
+          "relatedTicketIds": "[part_of] P10-2 (部分（親）: 発着信APIの完全実装（answer/hangup/hold/transfer/send_dtmf）)",
+          "notes": "本チケットは意味論の定義に留める。",
+          "default_files": [
+            "src/api/answer_semantics.rs"
+          ],
+          "id": 3,
+          "phaseId": 3,
+          "status": "todo"
+        },
+        {
+          "title": "SubscribeAudio ReactorハンドラとAsyncAudioSource trait",
+          "nodeIds": [
+            "N0060",
+            "N0061",
+            "N0062"
+          ],
+          "background": "SubscribeAudio Reactorハンドラでconf_connect経路を実装し、AudioTapMode別のconf_connect/disconnect呼び出し分岐を実現する。AsyncAudioSource traitは非同期音声ソースのインターフェースを提供する。",
+          "scope": [
+            "SubscribeAudio Reactor handler（conf_connect標準経路） - src/api/subscribe_audio_handler.rs",
+            "AudioTapMode別conf_connect/disconnect呼び出し分岐",
+            "pub trait AsyncAudioSource: Send + Sync: next_chunk pollベース - src/api/async_audio_source.rs"
+          ],
+          "testVerification": [
+            "UT: AsyncAudioSourceのnext_chunkが期待通り呼び出される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§23)",
+          "relatedTicketIds": "[part_of] P10-3 (部分（親）: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [part_of] P10-3 (部分（親）: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [refines] P10-3 (詳細化先: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [depends_on] P10-4 (被依存元（依存元）: AudioMixer完全実装とgain管理), [part_of] P4-2 (部分（親）: リアルタイム境界とAudioMixer設計), [part_of] P7-1 (被依存元（依存元）: 使用例の完全実装とconfig validation), [depends_on] P10-6 (被依存元（依存元）: build.rs戦略 / Media bridge / audio device policy), [part_of] P4-1 (被依存元（依存元）: AsyncAudioSource動的ディスパッチとSyncSourceAdapter), [part_of] P4-1 (被依存元（依存元）: AsyncAudioSource動的ディスパッチとSyncSourceAdapter), [part_of] P4-1 (被依存元（依存元）: AsyncAudioSource動的ディスパッチとSyncSourceAdapter)",
+          "notes": "SubscribeAudioのconf_connect経路は設計判断Q2:A（conf_connect標準経路）に基づく。conf_port_idはPjsuaBackend内部で解決（Q10:B）。",
+          "default_files": [
+            "src/api/async_audio_source.rs",
+            "src/api/subscribe_audio_handler.rs"
+          ],
+          "id": 4,
+          "phaseId": 3,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0051",
+        "N0052",
+        "N0053",
+        "N0054",
+        "N0055",
+        "N0056",
+        "N0057",
+        "N0060",
+        "N0061",
+        "N0062"
+      ],
+      "summary": "answer()意味論、DTMF送受信（DtmfSent二段構え発火）、音声フォーマット型定義（SampleRate/BitDepth/AudioChunkPair）、SubscribeAudio/ConfConnectハンドラ、AsyncAudioSource trait定義。"
+    },
+    {
+      "id": 4,
+      "name": "音声パイプライン・FFI境界設計",
+      "tickets": [
+        {
+          "title": "AsyncAudioSource動的ディスパッチとSyncSourceAdapter",
+          "nodeIds": [
+            "N0063",
+            "N0064",
+            "N0065"
+          ],
+          "background": "AsyncAudioSourceの動的ディスパッチ用自動導出（Box<T>等へのblanket impl）を実装し、SyncSourceAdapterで同期音声ソースをspawn_blocking経由でasync変換する。",
+          "scope": [
+            "impl AsyncAudioSource for Box<T> blanket impl - src/api/dynamic_dispatch.rs",
+            "trait SyncAudioSource - src/api/sync_source_adapter.rs",
+            "struct SyncSourceAdapter - spawn_blockingでasync変換"
+          ],
+          "testVerification": [
+            "UT: Box<dyn AsyncAudioSource>がtrait objectとして動作する",
+            "UT: SyncSourceAdapterがspawn_blockingで正しくasync変換する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§23.1, §23.2, §23.3)",
+          "relatedTicketIds": "[part_of] P3-4 (部分（親）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [part_of] P3-4 (部分（親）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [part_of] P3-4 (部分（親）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait)",
+          "notes": "RPITIT採用により毎フレームのヒープアロケーションはblanket impl内に閉じ込める。",
+          "default_files": [
+            "src/api/dynamic_dispatch.rs",
+            "src/api/sync_source_adapter.rs"
+          ],
+          "id": 1,
+          "phaseId": 4,
+          "status": "todo"
+        },
+        {
+          "title": "リアルタイム境界とAudioMixer設計",
+          "nodeIds": [
+            "N0066",
+            "N0068",
+            "N0070",
+            "N0071",
+            "N0072"
+          ],
+          "background": "最も重要な設計判断であるPJSIP RT callbackとAudioWorkerTask間のlock-free queue境界を実装する。AudioMixerのmixing algorithm（i32累積+飽和クリッピング）、AudioWorkerTask駆動（Tokio blocking pool）、source lifecycle（add/remove/set_gain）、将来のslab置換設計を実装する。",
+          "scope": [
+            "RT境界設計（PJSIP RT callback - lock-free queue - AudioWorkerTask）",
+            "mixing algorithm（i32累積+飽和クリッピング、チャネル別accumulator）",
+            "AudioWorkerTask駆動（Tokio blocking pool固定sleepループ）",
+            "source lifecycle（add/remove/set_gainによる動的管理）",
+            "slabベースsource管理の将来設計（HashMap→slab置換）"
+          ],
+          "testVerification": [
+            "UT: mixing algorithmが正しくi32累積+飽和クリッピングする",
+            "UT: 複数sourceの加算合成が正しい",
+            "UT: source add/remove/set_gainが動的に反映される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§24.0, §24.2, §24.3, §24.4, §24.5)",
+          "relatedTicketIds": "[depends_on] P10-6 (被依存元（依存元）: build.rs戦略 / Media bridge / audio device policy), [part_of] P3-4 (被依存元（依存元）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [part_of] P10-4 (部分（親）: AudioMixer完全実装とgain管理), [part_of] P10-4 (部分（親）: AudioMixer完全実装とgain管理), [part_of] P10-4 (部分（親）: AudioMixer完全実装とgain管理), [references] P10-4 (参照先: AudioMixer完全実装とgain管理), [depends_on] P10-4 (被依存元（依存元）: AudioMixer完全実装とgain管理)",
+          "notes": "PJSIP RT callback内でのlock-free queue操作（crossbeam::ArrayQueueのpush/pop）以外のメモリ確保・ロック・非同期待機は禁止。",
+          "id": 2,
+          "phaseId": 4,
+          "status": "todo"
+        },
+        {
+          "title": "IN/OUTペア整列アルゴリズム（PairAligner）とリサンプラ設計",
+          "nodeIds": [
+            "N0074",
+            "N0075",
+            "N0077"
+          ],
+          "background": "IN/OUTペア整列の欠損時処理とメモリ最適化、リサンプラのstereo mappingを実装する。",
+          "scope": [
+            "欠損時のゼロパディングとタイムアウト強制ペア出力 - ペア整列",
+            "ring buffer設定とアリーナベース最適化 - メモリ最適化",
+            "IN=L/OUT=R標準配置のstereo mapping - リサンプラ"
+          ],
+          "testVerification": [
+            "UT: 片方欠損時のゼロパディングが正しい",
+            "UT: タイムアウト時に強制ペア出力される",
+            "UT: stereo mappingがIN=L/OUT=Rの標準配置を守る"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§25.1, §25.2, §26.1)",
+          "relatedTicketIds": "[part_of] P10-5 (部分（親）: PairAligner / ResamplePipeline / メモリ所有権規則), [part_of] P10-5 (部分（親）: PairAligner / ResamplePipeline / メモリ所有権規則), [part_of] P10-5 (部分（親）: PairAligner / ResamplePipeline / メモリ所有権規則)",
+          "notes": "PairAlignerのsequence_numberはAudioChunkPairから継承。",
+          "id": 3,
+          "phaseId": 4,
+          "status": "todo"
+        },
+        {
+          "title": "PJSIP FFI層概要とunsafe隔離設計",
+          "nodeIds": [
+            "N0078"
+          ],
+          "background": "PJSIP FFI層のunsafe完全隔離設計を文書化する。bindgenはffi::bindingsのみでsafe wrapperは露出しない設計方針を実装する。",
+          "scope": [
+            "FFI層unsafe隔離設計の文書化 - FFI overview",
+            "safe wrapperのみが公開APIとして露出する設計"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "unsafe境界の検証はbindgen生成とPJSIP結合テストに委ねる"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§27)",
+          "relatedTicketIds": "[depends_on] P5-1 (被依存元（依存元）: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [precedes] P5-1 (先行: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [part_of] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [part_of] P5-1 (被依存元（依存元）: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [part_of] P5-1 (被依存元（依存元）: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [references] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [depends_on] P10-5 (被依存元（依存元）: PairAligner / ResamplePipeline / メモリ所有権規則)",
+          "notes": "本チケットは設計文書化が主。実際のunsafeコード実装はP7で行う。",
+          "default_files": [
+            "src/ffi_overview"
+          ],
+          "id": 4,
+          "phaseId": 4,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0063",
+        "N0064",
+        "N0065",
+        "N0066",
+        "N0068",
+        "N0070",
+        "N0071",
+        "N0072",
+        "N0074",
+        "N0075",
+        "N0077",
+        "N0078"
+      ],
+      "summary": "AsyncAudioSource動的ディスパッチ/SyncSourceAdapter変換、AudioMixer（mixing algorithm/worker/source lifecycle）、IN/OUTペア整列アルゴリズム、リサンプラ構成、PJSIP FFI層unsafe隔離設計。"
+    },
+    {
+      "id": 5,
+      "name": "FFI詳細・ビルド戦略・コーデックポリシー",
+      "tickets": [
+        {
+          "title": "PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait",
+          "nodeIds": [
+            "N0080",
+            "N0081",
+            "N0082",
+            "N0083"
+          ],
+          "background": "PJSIPとのFFI境界を実装する。N0080（PjOwnedStr C string管理）、N0081（extern C関数→NativeEvent enqueue callback bridge）、N0082（SipBackend trait抽象化 - MockBackendでテスト可能）、N0083（Dual Client時のcallback routing - account_idベース振り分け）を含む。",
+          "scope": [
+            "PjOwnedStr wrapper（Vec<u8>がRust側owner） - C string管理",
+            "extern C関数→NativeEvent enqueue（最小workパターン、メモリ確保・ロック禁止） - callback bridge",
+            "pub(crate) trait SipBackend（MockBackendでテスト可能） - SipBackend抽象化",
+            "Dual Client時のaccount_idベースcallback routing"
+          ],
+          "testVerification": [
+            "UT: PjOwnedStrがC stringを正しくRust文字列に変換する",
+            "UT: SipBackend traitのMockBackend実装が正しく動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§27a, §27.2, §27.3)",
+          "relatedTicketIds": "[depends_on] P4-4 (依存先: PJSIP FFI層概要とunsafe隔離設計), [depends_on] P10-6 (被依存元（依存元）: build.rs戦略 / Media bridge / audio device policy), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [precedes] P4-4 (被依存元（依存元）: PJSIP FFI層概要とunsafe隔離設計), [part_of] P4-4 (部分（親）: PJSIP FFI層概要とunsafe隔離設計), [part_of] P4-4 (部分（親）: PJSIP FFI層概要とunsafe隔離設計), [refines] P7-5 (被依存元（依存元）: 既知の実装課題解決 - callback橋渡し / 音声ズレ / multi-source / id再利用)",
+          "notes": "callback bridge内ではメモリ確保・ロック・非同期待機を一切行わない。NativeEventのenqueueのみを行い、Reactorスレッドで非同期処理する。",
+          "id": 1,
+          "phaseId": 5,
+          "status": "todo"
+        },
+        {
+          "title": "build.rs戦略 - 探索順序 / build script / CMake flags / OS依存",
+          "nodeIds": [
+            "N0085",
+            "N0086",
+            "N0087",
+            "N0088"
+          ],
+          "background": "PJSIPのビルド戦略を実装する。vendor/prebuilt確認→CMake source build→bindgen生成の探索順序、build.rs疑似コード、CMake flags（PJMEDIA_WITH_VIDEO=OFF等）、OS別システムパッケージ依存関係を実装する。",
+          "scope": [
+            "prebuilt優先・欠損時source buildの二段階探索順序 - src/build/search_order.rs",
+            "build.rs疑似コード（prebuilt_available→build_pjsip_from_source→generate_bindings） - src/build/build_script_impl.rs",
+            "CMake flags（PJMEDIA_WITH_VIDEO=OFF等） - src/build/cmake_flags.rs",
+            "OS別システムパッケージ要件（Ubuntu/macOS/Windows） - src/build/os_dependencies.rs"
+          ],
+          "testVerification": [
+            "UT: 探索順序ロジックが正しい優先度で動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§28.1, §28.2, §28.3, §28.4)",
+          "relatedTicketIds": "[depends_on] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy), [references] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード)",
+          "notes": "各OSでのビルド検証はCIで自動化する。prebuilt優先により開発イテレーションを高速化。",
+          "default_files": [
+            "src/build/build_script_impl.rs",
+            "src/build/cmake_flags.rs",
+            "src/build/os_dependencies.rs",
+            "src/build/search_order.rs"
+          ],
+          "id": 2,
+          "phaseId": 5,
+          "status": "todo"
+        },
+        {
+          "title": "コーデックフォールバックルールとNegotiatedCodec定義",
+          "nodeIds": [
+            "N0090",
+            "N0091"
+          ],
+          "background": "Opus最優先→PCMUフォールバック→MediaNegotiationFailedのフォールバックルールと、NegotiatedCodec/CodecSelectionPolicyを実装する。",
+          "scope": [
+            "codec fallback rules（Opus最優先→PCMU→MediaNegotiationFailed） - src/error/codec_fallback.rs",
+            "pub enum NegotiatedCodec（Pcmu/Opus） - src/model/negotiated_codec.rs",
+            "pub enum CodecSelectionPolicy（Ordered/PreferOpusFallbackPcmu）"
+          ],
+          "testVerification": [
+            "UT: Opus最優先フォールバックが正しい",
+            "UT: 全コーデック非対応時にMediaNegotiationFailedを返す",
+            "UT: NegotiatedCodecが全バリアントを正しく表現する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§29.1, §29.2)",
+          "relatedTicketIds": "[depends_on] P6-1 (被依存元（依存元）: コーデック実装 - explicit/autoモードとconfigure_codecs), [part_of] P6-1 (部分（親）: コーデック実装 - explicit/autoモードとconfigure_codecs), [part_of] P6-1 (部分（親）: コーデック実装 - explicit/autoモードとconfigure_codecs)",
+          "notes": "PCMU/Opus以外はpriority 0に設定される。",
+          "default_files": [
+            "src/error/codec_fallback.rs",
+            "src/model/negotiated_codec.rs"
+          ],
+          "id": 3,
+          "phaseId": 5,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0080",
+        "N0081",
+        "N0082",
+        "N0083",
+        "N0085",
+        "N0086",
+        "N0087",
+        "N0088",
+        "N0090",
+        "N0091"
+      ],
+      "summary": "PJSIP FFI詳細（C string管理/callback bridge/SipBackend抽象化）、ビルド戦略（探索順序/build.rs/CMake/OS依存）、コーデックフォールバックとNegotiatedCodec定義。"
+    },
+    {
+      "id": 6,
+      "name": "コーデック実装・シャットダウン・RuntimeState",
+      "tickets": [
+        {
+          "title": "コーデック実装 - explicit/autoモードとconfigure_codecs",
+          "nodeIds": [
+            "N0092",
+            "N0093",
+            "N0094",
+            "N0089"
+          ],
+          "background": "コーデックポリシーの実装。autoモード時はOpus=255/PCMU=254のpriority設定を行い、explicitモード時はpreferred_codecs指定のみ許可する。全体的なcodec policy強制ロジック（PCMU/Opus以外priority 0）をconfigure_codecsとして実装する。",
+          "scope": [
+            "利用者明示指定→autoモードの優先順位ロジック - src/config/codec_mode_priority.rs",
+            "autoモード時のpriority設定（Opus=255, PCMU=254） - src/api/codec_auto_mode.rs",
+            "preferred_codecs指定時の動作（指定codecのみ許可） - src/config/codec_explicit_mode.rs",
+            "configure_codecs実装（PCMU/Opus以外priority 0） - src/config/codec_policy.rs"
+          ],
+          "testVerification": [
+            "UT: autoモードでOpus=255/PCMU=254が設定される",
+            "UT: 利用者明示指定時は指定codecのみ許可",
+            "UT: PCMU/Opus以外がpriority 0になる",
+            "UT: 指定codecがOpus/PCMU以外の場合にvalidation error"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§29)",
+          "relatedTicketIds": "[depends_on] P5-3 (依存先: コーデックフォールバックルールとNegotiatedCodec定義), [part_of] P5-3 (被依存元（依存元）: コーデックフォールバックルールとNegotiatedCodec定義), [part_of] P5-3 (被依存元（依存元）: コーデックフォールバックルールとNegotiatedCodec定義)",
+          "notes": "codec仕様の設計判断Q7: 明示指定が基本。auto時のみOpus=255, PCMU=254。",
+          "default_files": [
+            "src/api/codec_auto_mode.rs",
+            "src/config/codec_explicit_mode.rs",
+            "src/config/codec_mode_priority.rs",
+            "src/config/codec_policy.rs"
+          ],
+          "id": 1,
+          "phaseId": 6,
+          "status": "todo"
+        },
+        {
+          "title": "Shutdown仕様とRuntimeState管理",
+          "nodeIds": [
+            "N0098",
+            "N0099",
+            "N0100",
+            "N0101",
+            "N0102",
+            "N0103"
+          ],
+          "background": "Shutdown手順（cancellation safety、RuntimeCommand振り分け）とRuntimeState管理（RwLock安全ルール、conf_port_id管理方針）を実装する。Shutdown中はGetAccountInfoのみ許可し、conf_connect/disconnect等はInvalidState拒否する。RwLockはread().await絶対義務とし、blocking_readは禁止。",
+          "scope": [
+            "cancellation safety（tokio::select!向け、drop安全） - Shutdown仕様",
+            "Shutdown中RuntimeCommand振り分け（GetAccountInfo許可、他はInvalidState拒否）",
+            "RwLock<RuntimeState>による内部state管理",
+            "Client側: RwLock::read().await必須（blocking_read禁止）",
+            "Reactor側: RwLock::write().awaitでstate安全更新",
+            "conf_port_id: PjsuaBackend内部管理（RuntimeはCallIdのみ意識）"
+          ],
+          "testVerification": [
+            "UT: Shutdown中にconf_connectがInvalidStateを返す",
+            "UT: Shutdown中にGetAccountInfoが許可される",
+            "UT: RwLockのread()/write()がdeadlockなく動作する",
+            "UT: conf_port_id解決が正しく動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§32.1, §33)",
+          "relatedTicketIds": "[refines] P11-2 (詳細化先: SRTP / トランスポート再接続 / Shutdown / custom media port), [depends_on] P11-2 (被依存元（依存元）: SRTP / トランスポート再接続 / Shutdown / custom media port), [part_of] P11-2 (部分（親）: SRTP / トランスポート再接続 / Shutdown / custom media port), [part_of] P11-2 (部分（親）: SRTP / トランスポート再接続 / Shutdown / custom media port)",
+          "notes": "blocking_read禁止ルール（Q3:A）は重要設計判断。conf_port_id管理はPjsuaBackend内部で解決（Q10:B）。",
+          "id": 2,
+          "phaseId": 6,
+          "status": "todo"
+        },
+        {
+          "title": "観測性設計 - tracing / metrics / ClientCapabilities",
+          "nodeIds": [
+            "N0104",
+            "N0105",
+            "N0106"
+          ],
+          "background": "観測性の3層設計を実装する。tracing（public operation全span、#[tracing::instrument]）、metrics（optional feature、active_calls/registered_accounts等）、ClientCapabilities構造体を実装する。",
+          "scope": [
+            "tracingによる構造化ログ出力（public operation全span） - src/config/tracing.rs",
+            "metrics（optional feature, active_calls/registered_accounts等） - src/config/metrics.rs",
+            "pub struct ClientCapabilities（ClientInitializedイベントで通知） - src/api/client_capabilities.rs",
+            "観測性の3層概要 - src/config/observability.rs"
+          ],
+          "testVerification": [
+            "UT: tracing spanが正しく階層化される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§34, §34.1, §34.2)",
+          "relatedTicketIds": "[part_of] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート)",
+          "notes": "metricsはoptional feature。tracingは必須。",
+          "default_files": [
+            "src/config/metrics.rs",
+            "src/config/observability.rs",
+            "src/config/tracing.rs"
+          ],
+          "id": 3,
+          "phaseId": 6,
+          "status": "todo"
+        },
+        {
+          "title": "セキュリティ基本設計とMedia bridgeデータフロー",
+          "nodeIds": [
+            "N0108",
+            "N0113",
+            "N0115"
+          ],
+          "background": "セキュリティ基本設計（SecretString保護、Authorization redact、TLS verify default true）とMedia bridgeのデータフロー全体（AudioWorkerTask→to_rt→RT→from_rt→PairAligner）を実装する。",
+          "scope": [
+            "SecretString保護、Authorization redact、TLS verify default true - src/security/security.rs",
+            "RT境界とlock-free queue（crossbeam ArrayQueue） - media bridge",
+            "データフロー全体（AudioWorkerTask→to_rt→RT→from_rt→PairAligner）"
+          ],
+          "testVerification": [
+            "UT: SecretStringのシリアライズが***REDACTED***になる"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§35, §39.1, §39.3)",
+          "relatedTicketIds": "[depends_on] P11-2 (被依存元（依存元）: SRTP / トランスポート再接続 / Shutdown / custom media port), [depends_on] P11-2 (被依存元（依存元）: SRTP / トランスポート再接続 / Shutdown / custom media port), [depends_on] P11-2 (被依存元（依存元）: SRTP / トランスポート再接続 / Shutdown / custom media port), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy)",
+          "notes": "SecretString（secrecy crate）のserde実装は常に***REDACTED***を出力する。",
+          "default_files": [
+            "src/security/security.rs"
+          ],
+          "id": 4,
+          "phaseId": 6,
+          "status": "todo"
+        },
+        {
+          "title": "使用例の実装（Client初期化 / account追加 / 発信 / 音声tap / AI TTS）",
+          "nodeIds": [
+            "N0117",
+            "N0118"
+          ],
+          "background": "RFC§41に記載された具体的使用例を実装する。Client初期化、account追加とregister、発信とイベント受信、音声tap、AI TTS source挿入の各使用例をコードとして提供する。",
+          "scope": [
+            "SipClient::new()具体例（UDP/TCP/STUN設定）",
+            "AccountConfig設定例（display_name/username/password等）とregister",
+            "make_callとsubscribe_accountによるイベント受信",
+            "subscribe_audio Lossless→AudioChunkPair→WAV書き出し",
+            "AsyncAudioSource実装例（AI TTS source挿入）"
+          ],
+          "testVerification": [
+            "UT: 各使用例のコードがコンパイル可能であること"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§41.1, §41.2)",
+          "relatedTicketIds": "[part_of] P11-1 (部分（親）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [part_of] P0-4 (部分（親）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型)",
+          "notes": "使用例はexamples/ ディレクトリに配置し、cargo test --examplesで検証可能にする。",
+          "id": 5,
+          "phaseId": 6,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0089",
+        "N0092",
+        "N0093",
+        "N0094",
+        "N0098",
+        "N0099",
+        "N0100",
+        "N0101",
+        "N0102",
+        "N0103",
+        "N0104",
+        "N0105",
+        "N0106",
+        "N0108",
+        "N0113",
+        "N0115",
+        "N0117",
+        "N0118"
+      ],
+      "summary": "コーデック自動設定（auto/explicitモード）、シャットダウン手順とRuntimeCommand振り分け、RuntimeState管理（RwLock安全ルール）、観測性（tracing/metrics）、セキュリティ基本設計、使用例。"
+    },
+    {
+      "id": 7,
+      "name": "使用例・テスト戦略 → CI/CD・実装課題・panicポリシー",
+      "tickets": [
+        {
+          "title": "使用例の完全実装とconfig validation",
+          "nodeIds": [
+            "N0119",
+            "N0120",
+            "N0121",
+            "N0122"
+          ],
+          "background": "使用例（発信とイベント受信・音声tap・AI TTS source挿入）とconfig validation（fail-fast）を実装する。",
+          "scope": [
+            "発信とイベント受信例",
+            "音声tap例（subscribe_audio Lossless→AudioChunkPair）",
+            "AI TTS source挿入例",
+            "init時fail-fast validation（ClientConfig全validation rule）"
+          ],
+          "testVerification": [
+            "UT: 各使用例のコードが実行可能であること",
+            "UT: config validationが不正設定を拒否する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§41.3, §41.4, §41.5, §42)",
+          "relatedTicketIds": "[precedes] P0-4 (先行: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [part_of] P10-2 (部分（親）: 発着信APIの完全実装（answer/hangup/hold/transfer/send_dtmf）), [part_of] P10-3 (部分（親）: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [part_of] P3-4 (部分（親）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [depends_on] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies)",
+          "notes": "使用例はexamples/に配置。Layer1 unit testsでvalidationを検証。",
+          "id": 1,
+          "phaseId": 7,
+          "status": "todo"
+        },
+        {
+          "title": "テスト戦略概要とLayer3/4統合テスト設計",
+          "nodeIds": [
+            "N0123",
+            "N0126",
+            "N0127",
+            "N0128",
+            "N0129",
+            "N0130"
+          ],
+          "background": "テスト戦略の全体概要（4層+Layer5拡張）とLayer3/4統合テストを設計する。Layer3はDocker Asterisk/FreeSWITCHに対するPJSUA結合試験、Layer4は実PBX/Proxyとの相互接続試験を定義する。M20新機能のテスト層マッピングとプレースホルダーテスト解決条件も含む。",
+          "scope": [
+            "4層テスト戦略の実装ガイドライン - src/tests/test_strategy.rs",
+            "Layer3: DockerベースSIP Integration Tests設計",
+            "Layer4: 相互接続試験設計",
+            "Layer5: API Integration Tests（新設）",
+            "プラットフォームテスト設計",
+            "M20新機能テスト層マッピング - src/tests/m20_test_mapping.rs",
+            "プレースホルダーテスト解決条件 - src/tests/placeholder_test.rs"
+          ],
+          "testVerification": [
+            "各テスト層の設計文書が存在すること"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§43, §43.3, §43.4, §43.5)",
+          "relatedTicketIds": "[part_of] P9-3 (被依存元（依存元）: レイヤー1 ユニットテスト設計とgraphify-rfc連携ガイド), [part_of] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [part_of] P7-3 (被依存元（依存元）: Dual Client TestContext utility設計)",
+          "notes": "テスト戦略はコードコメントおよび/tests/ディレクトリの構成として具現化する。",
+          "default_files": [
+            "src/tests/m20_test_mapping.rs",
+            "src/tests/placeholder_test.rs",
+            "src/tests/test_layer3.rs",
+            "src/tests/test_layer4.rs",
+            "src/tests/test_platform.rs",
+            "src/tests/test_strategy.rs"
+          ],
+          "id": 2,
+          "phaseId": 7,
+          "status": "todo"
+        },
+        {
+          "title": "Dual Client TestContext utility設計",
+          "nodeIds": [
+            "N0131"
+          ],
+          "background": "Dual Clientテスト用utilityを設計・実装する。同一PjsuaBackend singletonを複数Clientで共有するパターンをテスト可能にする。",
+          "scope": [
+            "Dual Client TestContext utility - src/tests/dual_client_test_utility.rs",
+            "PjsuaBackend singleton共有パターン"
+          ],
+          "testVerification": [
+            "UT: Dual Client TestContextが正しくClientを生成する"
+          ],
+          "referenceSection": "RFC-ROOT.md (M20追補: Dual Client TestContext utility設計)",
+          "relatedTicketIds": "[part_of] P7-2 (部分（親）: テスト戦略概要とLayer3/4統合テスト設計)",
+          "notes": "Dual Clientの設計判断Q6:A: 同一PjsuaBackend singletonを複数Clientで共有。",
+          "default_files": [
+            "src/tests/dual_client_test_utility.rs"
+          ],
+          "id": 3,
+          "phaseId": 7,
+          "status": "todo"
+        },
+        {
+          "title": "CI/CD要件とDockerテストjob設計",
+          "nodeIds": [
+            "N0132",
+            "N0133"
+          ],
+          "background": "CI/CDパイプラインとDocker Integration Test Jobを設計する。GitHub ActionsでAsterisk/FreeSWITCHコンテナを起動し、Layer3統合テストを自動実行する。",
+          "scope": [
+            "テスト層別CI job構成 - src/build/cicd_requirements.rs",
+            "Docker Integration Test Job（GitHub Actions） - src/build/docker_test_job.rs"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "CI/CD設定は実際のGitHub Actions workflowで検証"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§44)",
+          "relatedTicketIds": "[part_of] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用), [depends_on] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用)",
+          "notes": "Dockerテストはprebuiltバイナリを使用して高速化する。",
+          "default_files": [
+            "src/build/cicd_requirements.rs",
+            "src/build/docker_test_job.rs"
+          ],
+          "id": 4,
+          "phaseId": 7,
+          "status": "todo"
+        },
+        {
+          "title": "既知の実装課題解決 - callback橋渡し / 音声ズレ / multi-source / id再利用",
+          "nodeIds": [
+            "N0135",
+            "N0136",
+            "N0137",
+            "N0138"
+          ],
+          "background": "RFC§45に記載された4つの既知の実装課題を解決する設計を実装する。PJSIP callback→async橋渡し（callback内enqueue→oneshot reply）、PairAlignerのsequence number整列、AudioMixer加算合成、BiMapによるid管理。",
+          "scope": [
+            "callback内enqueue→oneshot replyによるasync橋渡し設計",
+            "PairAlignerのsequence number整列とtimeout解決",
+            "AudioMixer加算合成による複数音源同時注入",
+            "BiMapによるRuntimeId→NativeId変換とid管理"
+          ],
+          "testVerification": [
+            "UT: BiMapが正しくRuntimeId→NativeId変換する",
+            "UT: 音声ズレ補正がsequence numberベースで正しく動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§45.1, §45.2, §45.3, §45.4)",
+          "relatedTicketIds": "[refines] P5-1 (詳細化先: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [refines] P10-5 (詳細化先: PairAligner / ResamplePipeline / メモリ所有権規則), [refines] P10-4 (詳細化先: AudioMixer完全実装とgain管理), [refines] P0-4 (詳細化先: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型)",
+          "notes": "native id再利用（N0138）はPJSIPのpjsua_acc_id/pjsua_call_idが再利用される問題への対策。",
+          "id": 5,
+          "phaseId": 7,
+          "status": "todo"
+        },
+        {
+          "title": "panicポリシーと受け入れ基準",
+          "nodeIds": [
+            "N0139",
+            "N0140",
+            "N0144"
+          ],
+          "background": "panicポリシー（公開API panic-free、内部invariant破壊時はErrorイベント）とcatch_unwind発火時のクリーンアップ手順（即時stopping→非同期cleanup→リーク許容→事後通知の4段階）を実装する。また、13項目の受け入れ基準を定義する。",
+          "scope": [
+            "公開API panic-free設計 - src/error/panic_policy.rs",
+            "catch_unwind発火時クリーンアップ手順（4段階） - src/error/catch_unwind_cleanup.rs",
+            "13項目の受け入れ基準定義"
+          ],
+          "testVerification": [
+            "UT: pub APIがpanicを伝播しない",
+            "UT: catch_unwindが正しくエラーイベントをemitする"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§46, §46.1, §50)",
+          "relatedTicketIds": "[references] P0-1 (参照先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義)",
+          "notes": "panic-freeは公開APIの契約。内部のunwrapは許可されるが、catch_unwindで保護する。",
+          "default_files": [
+            "src/error/catch_unwind_cleanup.rs",
+            "src/error/panic_policy.rs"
+          ],
+          "id": 6,
+          "phaseId": 7,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0119",
+        "N0120",
+        "N0121",
+        "N0122",
+        "N0123",
+        "N0126",
+        "N0127",
+        "N0128",
+        "N0129",
+        "N0130",
+        "N0131",
+        "N0132",
+        "N0133",
+        "N0135",
+        "N0136",
+        "N0137",
+        "N0138",
+        "N0139",
+        "N0140",
+        "N0144"
+      ],
+      "summary": "使用例（発信/音声tap/AI TTS挿入）、config validation（fail-fast）、テスト戦略概要（4層+Layer5拡張）、Layer3/4統合テスト、新機能テスト層マッピング。\n---\nDual Client TestContext utility設計、CI/CD要件とDockerテストjob、既知の実装課題（callback async橋渡し/音声時間ズレ/multi-source注入/id再利用）、panicポリシー、受け入れ基準。"
+    },
+    {
+      "id": 8,
+      "name": "siprs-server API層設計 → WSプロトコル・JWT認証・永続化",
+      "tickets": [
+        {
+          "title": "siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード",
+          "nodeIds": [
+            "N0145",
+            "N0148",
+            "N0149",
+            "N0150",
+            "N0151",
+            "N0153"
+          ],
+          "background": "HTTP/WebSocket APIサーバー（siprs-server）の設計を実装する。crate分割方針（siprs+siprs-server分離）、ライセンス方針（PJSIP GPLとの関係）、マルチインスタンス方式（PjsuaBackend singleton共有）、PJSIP非Pure Rustの制約、起動モード（スタンドアロンバイナリ/Tauri埋め込み）を含む。",
+          "scope": [
+            "siprs+siprs-server分離crate方式の設計文書化",
+            "ライセンス方針（PJSIP GPL v2, special exception）",
+            "マルチインスタンス方式（同一PjsuaBackend singleton共有）",
+            "PJSIP非Pure Rust制約とTauri公開への影響文書化",
+            "serve()関数の2起動モード（設定ファイル/プログラム的設定）"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "siprs-serverのcrate分割は1.0以降の判断"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§51, §52.2, §52.3, §52.4, §53.1)",
+          "relatedTicketIds": "[extends] P0-3 (拡張先: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P9-4 (部分（親）: HTTP/WebSocket API層概要とcrate分割判断), [part_of] P9-4 (部分（親）: HTTP/WebSocket API層概要とcrate分割判断), [part_of] P9-4 (部分（親）: HTTP/WebSocket API層概要とcrate分割判断), [part_of] P12-1 (部分（親）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [references] P0-1 (参照先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [references] P0-1 (参照先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [part_of] P9-4 (部分（親）: HTTP/WebSocket API層概要とcrate分割判断)",
+          "notes": "siprs-serverはsiprsに依存するが逆はない。B1境界で分割可能。現在のフェーズでは同一crate内で設計を文書化する。",
+          "id": 1,
+          "phaseId": 8,
+          "status": "todo"
+        },
+        {
+          "title": "siprs-server設定ファイル構成とAxum Router構造",
+          "nodeIds": [
+            "N0154",
+            "N0156",
+            "N0157",
+            "N0158"
+          ],
+          "background": "siprs-serverの設定ファイル構成（JSON/YAML）とREST APIエンドポイント一覧・WebSocketエンドポイント・Axum Router階層構造を実装する。",
+          "scope": [
+            "siprs-server設定ファイル構成（SipClientConfig + server設定） - src/standalone_server/server_config.rs",
+            "全REST APIエンドポイント定義（GET/POST/PUT/DELETE accounts/calls/health等） - src/api/rest_endpoints.rs",
+            "WebSocketエンドポイント（/api/v1/ws, イベントストリーム+音声バイナリフレーム） - src/api/ws_endpoint.rs",
+            "Axum Router階層構造（/api/v1/accounts /calls /ws） - api側で定義"
+          ],
+          "testVerification": [
+            "UT: Rest APIエンドポイント一覧が正しく定義されている",
+            "UT: WSエンドポイントが正しいパスで定義されている"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§53.2, §54.1, §54.2, §54.3)",
+          "relatedTicketIds": "[part_of] P12-1 (部分（親）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化)",
+          "notes": "REST APIエンドポイントはAxum Routerとして構築し、認証Middleware（JWT）をLayerとして追加する。",
+          "default_files": [
+            "src/api/rest_endpoints.rs",
+            "src/api/ws_endpoint.rs",
+            "src/standalone_server/server_config.rs"
+          ],
+          "id": 2,
+          "phaseId": 8,
+          "status": "todo"
+        },
+        {
+          "title": "WebSocketメッセージプロトコルとイベント-音声時間的相関保証",
+          "nodeIds": [
+            "N0159",
+            "N0160"
+          ],
+          "background": "WebSocketメッセージプロトコル（JSONテキスト+バイナリフレーム多重化、op-code prefix）と、sequence_number共有によるSipEventとAudioChunkPairの時間的相関保証を実装する。",
+          "scope": [
+            "WebSocketメッセージプロトコル（JSONテキスト+バイナリフレーム多重化） - src/api/ws_message_protocol.rs",
+            "sequence_number共有によるSipEvent/AudioChunkPair時間的相関保証"
+          ],
+          "testVerification": [
+            "UT: WSメッセージのop-code prefixが正しく解析される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§54.4, §54.5)",
+          "relatedTicketIds": "[part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化)",
+          "notes": "sequence_numberの一貫性は分割後も維持する必要がある（§61.3）。",
+          "default_files": [
+            "src/api/ws_message_protocol.rs"
+          ],
+          "id": 3,
+          "phaseId": 8,
+          "status": "todo"
+        },
+        {
+          "title": "JWT認証実装 - エンドポイント / Axum Middleware / デフォルト設定",
+          "nodeIds": [
+            "N0162",
+            "N0163",
+            "N0164"
+          ],
+          "background": "JWTベース認証/認可の完全実装。POST /api/v1/auth/tokenエンドポイント（secret/keyベースtoken発行）、JWT検証Axum Layer（Bearer token→Claims→認可チェック）、開発時認証無効/本番認証必須のデフォルト設定を実装する。",
+          "scope": [
+            "POST /api/v1/auth/token（secret/keyベースtoken発行） - src/security/jwt_endpoint.rs",
+            "JWT検証Axum Layer（Bearer token→Claims→認可チェック） - src/security/jwt_middleware.rs",
+            "開発時認証無効/本番認証必須のデフォルト設定 - src/security/auth_defaults.rs"
+          ],
+          "testVerification": [
+            "UT: JWT tokenの発行・検証が正常動作する",
+            "UT: 無効なJWTが拒否される",
+            "UT: 開発時認証無効モードが正しく動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§55.1, §55.2, §55.3)",
+          "relatedTicketIds": "[part_of] P12-3 (部分（親）: JWT認証・認可モデル全体設計), [part_of] P12-3 (部分（親）: JWT認証・認可モデル全体設計), [part_of] P12-3 (部分（親）: JWT認証・認可モデル全体設計)",
+          "notes": "SecretStringとの連携により、JWT secretはメモリ保護される。",
+          "default_files": [
+            "src/security/auth_defaults.rs",
+            "src/security/jwt_endpoint.rs",
+            "src/security/jwt_middleware.rs"
+          ],
+          "id": 4,
+          "phaseId": 8,
+          "status": "todo"
+        },
+        {
+          "title": "SQLite永続化 - テーブルスキーマとマイグレーション管理",
+          "nodeIds": [
+            "N0166",
+            "N0167"
+          ],
+          "background": "設定永続化のSQLite+SeaORM実装。accounts/transports/servers/credentialsテーブル定義とSeaORM migration管理を実装する。",
+          "scope": [
+            "テーブルスキーマ（accounts/transports/servers/credentials） - src/model/db_schema.rs",
+            "SeaORM migration（スキーマバージョン管理と自動migration） - src/build/db_migrations.rs"
+          ],
+          "testVerification": [
+            "UT: 各テーブルのスキーマ定義が正しい",
+            "UT: migrationが正しく適用される（:memory: SQLiteで検証）"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§56.1, §56.2)",
+          "relatedTicketIds": "[part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P12-2 (部分（親）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化)",
+          "notes": "SQLiteの:memory:モードでテスト可能。マイグレーションはsiprs-server起動時に自動実行。",
+          "default_files": [
+            "src/build/db_migrations.rs",
+            "src/model/db_schema.rs"
+          ],
+          "id": 5,
+          "phaseId": 8,
+          "status": "todo"
+        },
+        {
+          "title": "テスト戦略拡張 - Layer5 API Integration Tests構成",
+          "nodeIds": [
+            "N0168",
+            "N0169",
+            "N0170"
+          ],
+          "background": "テスト戦略のLayer5拡張（HTTP/WebSocket API Integration Test）を設計する。テストディレクトリ構成（tests/api/ws/integration）、Axum TestResponse/WSテスト例を実装する。",
+          "scope": [
+            "Layer5テスト戦略拡張概要 - src/tests/test_expansion.rs",
+            "テスト層構造拡張版（Layer5:REST API単体/WS接続/音声バイナリ/JWT認証/SIP結合） - src/tests/test_layer5_structure.rs",
+            "テストディレクトリ構成 - src/tests/test_directory.rs"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "Layer5テストの実体はsiprs-server crateに配置"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§57, §57.1, §57.2)",
+          "relatedTicketIds": "[part_of] P9-3 (被依存元（依存元）: レイヤー1 ユニットテスト設計とgraphify-rfc連携ガイド)",
+          "notes": "Layer5はsiprs-server crateのテストとして実装。Axum TestResponseとtungstenite WS clientを使用。",
+          "default_files": [
+            "src/tests/test_directory.rs",
+            "src/tests/test_expansion.rs",
+            "src/tests/test_layer5_structure.rs"
+          ],
+          "id": 6,
+          "phaseId": 8,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0145",
+        "N0148",
+        "N0149",
+        "N0150",
+        "N0151",
+        "N0153",
+        "N0154",
+        "N0156",
+        "N0157",
+        "N0158",
+        "N0159",
+        "N0160",
+        "N0162",
+        "N0163",
+        "N0164",
+        "N0166",
+        "N0167",
+        "N0168",
+        "N0169",
+        "N0170"
+      ],
+      "summary": "HTTP/WebSocket API層のcrate分割方針・ライセンス・マルチインスタンス設計、起動モード、設定ファイル構成、REST APIエンドポイント、WebSocket/イベントストリーム、Axum Router構造。\n---\nWebSocketメッセージプロトコル（JSON+バイナリ多重化）、イベント-音声時間的相関保証、JWT認証（発行/Middleware/デフォルト）、SQLiteテーブルスキーマ、マイグレーション管理、Layer5テスト拡張。"
+    },
+    {
+      "id": 9,
+      "name": "基盤型・用語・テスト基盤",
+      "tickets": [
+        {
+          "title": "基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート",
+          "nodeIds": [
+            "N0006",
+            "N0015",
+            "N0032",
+            "N0044",
+            "N0107",
+            "N0143"
+          ],
+          "background": "crate全体で使用される基盤型を一貫して定義する。用語定義、RuntimeCommand enum（unbounded MPSCでReactorへ送信）、SipEventPayload全種、RawSipMessage、ClientCapabilities、lib.rsモジュール宣言とpub use再公開を実装する。",
+          "scope": [
+            "用語定義（Client/Account/Call/MediaSession等） - ドキュメント",
+            "pub(crate) enum RuntimeCommand（Initialize/AddAccount/MakeCall/Hangup/Shutdown等） - command serialization",
+            "pub enum SipEventPayload（#[non_exhaustive], 全バリアント） - src/event_model_overview/api/sip_event_payload.rs",
+            "pub struct RawSipMessage（Authorization redact処理） - src/model/raw_sip_spec.rs",
+            "pub struct ClientCapabilities（ClientInitializedイベントで通知） - src/api/client_capabilities.rs",
+            "lib.rs（モジュール宣言とpub use再公開）"
+          ],
+          "testVerification": [
+            "UT: RuntimeCommandの全バリアントがDebug/Cloneを実装する",
+            "UT: SipEventPayloadの全バリアントがDebug/Cloneを実装する",
+            "UT: RawSipMessageのAuthorization redactが正しく動作する",
+            "UT: lib.rsのpub useが全公開型を正しく再エクスポートする"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§3, §7.2, §15.1, §16, §34.3, §49)",
+          "relatedTicketIds": "[part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [refines] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [refines] P2-1 (被依存元（依存元）: NativeEvent→SipEventPayload変換マッピングの実装), [depends_on] P0-3 (依存先: 全体アーキテクチャと並行性モデルの設計文書化), [depends_on] P1-3 (依存先: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [depends_on] P10-1 (被依存元（依存元）: EventBus実装（control/raw_sip 2バス配信）), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [triggers] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [triggers] P10-1 (トリガー先: EventBus実装（control/raw_sip 2バス配信）), [part_of] P6-3 (部分（親）: 観測性設計 - tracing / metrics / ClientCapabilities), [depends_on] P1-3 (依存先: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [depends_on] P1-3 (依存先: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [depends_on] P0-1 (依存先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [depends_on] P0-3 (依存先: 全体アーキテクチャと並行性モデルの設計文書化)",
+          "notes": "RuntimeCommandはcrate内部（pub(crate)）で使用される。oneshot replyでReactorからの応答を受信する。",
+          "default_files": [
+            "src/api/client_capabilities.rs",
+            "src/concurrency_model/command_serialization.rs",
+            "src/event_model_overview/api/sip_event_payload.rs",
+            "src/model/raw_sip_spec.rs"
+          ],
+          "id": 1,
+          "phaseId": 9,
+          "status": "todo"
+        },
+        {
+          "title": "ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照",
+          "nodeIds": [
+            "N0173",
+            "N0174",
+            "N0175",
+            "N0176"
+          ],
+          "background": "SIPネットワーキング詳細（TLS証明書管理、DNS SRV/NAPTR解決、マルチネットワークIF）とI/O境界参照情報（B1-B7定義）を実装する。",
+          "scope": [
+            "TLS証明書情報NativeEvent通知（fingerprint/subject/expiry） - src/security/tls_cert_management.rs",
+            "DNS SRV/NAPTR解決（PJSIP内蔵DNS、結果をNativeEvent通知）",
+            "マルチネットワークIF（PJSIPトランスポートbind address指定）",
+            "I/O境界参照情報（B1-B7定義・属性・注意依存関係）"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "DNS/ネットワークの検証はPJSIP結合テストに委ねる"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§59.1, §59.2, §59.3, §61)",
+          "relatedTicketIds": "[part_of] P0-1 (部分（親）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [part_of] P0-1 (部分（親）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [part_of] P0-1 (部分（親）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [references] P9-4 (参照先: HTTP/WebSocket API層概要とcrate分割判断), [references] P4-4 (参照先: PJSIP FFI層概要とunsafe隔離設計), [references] P0-3 (参照先: 全体アーキテクチャと並行性モデルの設計文書化)",
+          "notes": "I/O境界参照情報（N0176）は将来のcrate分割判断の参考として文書化する。",
+          "default_files": [
+            "src/security/tls_cert_management.rs"
+          ],
+          "id": 2,
+          "phaseId": 9,
+          "status": "todo"
+        },
+        {
+          "title": "レイヤー1 ユニットテスト設計とgraphify-rfc連携ガイド",
+          "nodeIds": [
+            "N0124",
+            "N0171"
+          ],
+          "background": "Layer1 Unit Testsの設計（config validation/id mapping/pair aligner/resampler/mixer/event filter - PJSIP不要）と、将来のgraphify-rfc/boundify分割時のテストモジュール分割ガイドラインを実装する。",
+          "scope": [
+            "Layer1 Unit Tests設計（PJSIP不要） - src/tests/test_layer1.rs",
+            "graphify-rfc連携ガイドライン - graphify連携"
+          ],
+          "testVerification": [
+            "UT: Layer1テストの設計文書が存在すること"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§43.1, §57.3)",
+          "relatedTicketIds": "[depends_on] P1-2 (依存先: エラー設計 - SipError / SipErrorKind / RuntimeCommandエラー), [part_of] P7-2 (部分（親）: テスト戦略概要とLayer3/4統合テスト設計), [part_of] P8-6 (部分（親）: テスト戦略拡張 - Layer5 API Integration Tests構成)",
+          "notes": "Layer1はPJSIP不要で最速のフィードバックを得られるテスト層。",
+          "default_files": [
+            "src/tests/test_layer1.rs"
+          ],
+          "id": 3,
+          "phaseId": 9,
+          "status": "todo"
+        },
+        {
+          "title": "HTTP/WebSocket API層概要とcrate分割判断",
+          "nodeIds": [
+            "N0146"
+          ],
+          "background": "HTTP/WebSocket API層の概要設計。Rust公開APIライブラリ+HTTP/WSサーバーの2側面を持つsiprs-serverの設計を文書化する。",
+          "scope": [
+            "HTTP/WebSocket API層概要 - crate分割判断を含む"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "設計文書化が主"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§52)",
+          "relatedTicketIds": "[depends_on] P0-3 (依存先: 全体アーキテクチャと並行性モデルの設計文書化), [depends_on] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [part_of] P11-3 (被依存元（依存元）: Prebuilt Refresh Pipeline / crate分割判断 / semver運用), [part_of] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [part_of] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [part_of] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [references] P9-2 (被依存元（依存元）: ネットワーク基盤 - TLS証明書 / DNS SRV / マルチネットワークIF / I/O境界参照), [part_of] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード)",
+          "notes": "本チケットは設計概要の文書化。実際のサーバー実装はP11/P12で行う。",
+          "id": 4,
+          "phaseId": 9,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0006",
+        "N0015",
+        "N0032",
+        "N0044",
+        "N0107",
+        "N0124",
+        "N0143",
+        "N0146",
+        "N0171",
+        "N0173",
+        "N0174",
+        "N0175",
+        "N0176"
+      ],
+      "summary": "用語定義、RuntimeCommandシリアライゼーション、SipEventPayload全種、RawSIP仕様、ClientCapabilities、Layer1 Unit Tests設計、lib.rs雛形、HTTP/WS API層概要、TLS/DNS/ネットワーク仕様、I/O境界定義。"
+    },
+    {
+      "id": 10,
+      "name": "EventBus・通話API・メディア基盤",
+      "tickets": [
+        {
+          "title": "EventBus実装（control/raw_sip 2バス配信）",
+          "nodeIds": [
+            "N0035"
+          ],
+          "background": "EventBus（control/raw_sipの2バス配信、tokio broadcast channelラッパー）を実装する。購読者がいなくても送信側は動作する観測用途設計。",
+          "scope": [
+            "EventBus（control/raw_sipの2バス配信） - src/event_model_overview/api/eventbus.rs",
+            "publish/subscribe/publish_raw_sipメソッド"
+          ],
+          "testVerification": [
+            "UT: EventBus::publish/subscribeが正常動作する",
+            "UT: publish_raw_sipが制御系と独立して動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§15.4)",
+          "relatedTicketIds": "[part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [depends_on] P9-1 (依存先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P12-2 (被依存元（依存元）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [depends_on] P1-3 (依存先: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [triggers] P0-4 (被依存元（依存元）: 公開API型定義 - SipClient / SipAccountHandle / OutgoingCallRequest / ID型), [triggers] P9-1 (被依存元（依存元）: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート)",
+          "notes": "EventBusはbroadcast channel。確実配送は保証しない（§15.7）。",
+          "default_files": [
+            "src/event_model_overview/api/eventbus.rs"
+          ],
+          "id": 1,
+          "phaseId": 10,
+          "status": "todo"
+        },
+        {
+          "title": "発着信APIの完全実装（answer/hangup/hold/transfer/send_dtmf）",
+          "nodeIds": [
+            "N0050"
+          ],
+          "background": "発着信API（answer/hangup/hold/unhold/transfer/send_dtmf/call_state）をRuntimeCommand経由で実装する。",
+          "scope": [
+            "SipClient::answer/hangup/hold/unhold/transfer/send_dtmf/call_state - src/api/call_api.rs"
+          ],
+          "testVerification": [
+            "UT: answer/hangup/hold/unholdが正しいRuntimeCommandを生成する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§19)",
+          "relatedTicketIds": "[part_of] P3-3 (被依存元（依存元）: answer semanticsの定義), [depends_on] P2-3 (依存先: 通話状態機械（CallState）の実装), [part_of] P7-1 (被依存元（依存元）: 使用例の完全実装とconfig validation), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード)",
+          "notes": "各APIはRuntimeCommandをMPSCでReactorへ送信する。",
+          "default_files": [
+            "src/api/call_api.rs"
+          ],
+          "id": 2,
+          "phaseId": 10,
+          "status": "todo"
+        },
+        {
+          "title": "音声購読APIの完全実装（subscribe_audio / AudioTapHandle）",
+          "nodeIds": [
+            "N0058"
+          ],
+          "background": "subscribe_audio API（AudioTapMode/AudioTapHandle/recv）を実装する。",
+          "scope": [
+            "SipClient::subscribe_audio（format/capacity/modeを引数にAudioTapHandleを返す） - src/api/audio_subscribe_api.rs",
+            "AudioTapHandle::recv（AudioChunkPairを非同期で受信）"
+          ],
+          "testVerification": [
+            "UT: subscribe_audioが正しいAudioTapHandleを返す"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§22)",
+          "relatedTicketIds": "[part_of] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [part_of] P3-4 (被依存元（依存元）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [part_of] P3-4 (被依存元（依存元）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [refines] P3-4 (被依存元（依存元）: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [depends_on] P3-2 (依存先: 音声フォーマットモデルとAudioChunkPairの実装), [part_of] P7-1 (被依存元（依存元）: 使用例の完全実装とconfig validation), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード)",
+          "notes": "AudioTapModeにより購読動作が変化する。",
+          "default_files": [
+            "src/api/audio_subscribe_api.rs"
+          ],
+          "id": 3,
+          "phaseId": 10,
+          "status": "todo"
+        },
+        {
+          "title": "AudioMixer完全実装とgain管理",
+          "nodeIds": [
+            "N0067",
+            "N0069"
+          ],
+          "background": "AudioMixerの完全実装（AudioWorkerTask側で全AsyncAudioSourceからPull/ミキシング）とgain/normalization（source単位ゲイン設定、i32→i16飽和変換）を実装する。",
+          "scope": [
+            "AudioMixer（AudioWorkerTask側で全AsyncAudioSourceからPull/ミキシング）",
+            "gain and normalization（source単位ゲイン設定、i32→i16飽和変換）"
+          ],
+          "testVerification": [
+            "UT: AudioMixerが複数sourceを正しくミキシングする",
+            "UT: gain設定がsource単位で正しく適用される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§24.1, §24.2)",
+          "relatedTicketIds": "[depends_on] P3-4 (依存先: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [part_of] P4-2 (被依存元（依存元）: リアルタイム境界とAudioMixer設計), [part_of] P4-2 (被依存元（依存元）: リアルタイム境界とAudioMixer設計), [part_of] P4-2 (被依存元（依存元）: リアルタイム境界とAudioMixer設計), [refines] P7-5 (被依存元（依存元）: 既知の実装課題解決 - callback橋渡し / 音声ズレ / multi-source / id再利用), [references] P4-2 (被依存元（依存元）: リアルタイム境界とAudioMixer設計), [depends_on] P4-2 (依存先: リアルタイム境界とAudioMixer設計)",
+          "notes": "AudioMixerはTokio blocking pool上のAudioWorkerTaskで動作する。",
+          "id": 4,
+          "phaseId": 10,
+          "status": "todo"
+        },
+        {
+          "title": "PairAligner / ResamplePipeline / メモリ所有権規則",
+          "nodeIds": [
+            "N0073",
+            "N0076",
+            "N0141"
+          ],
+          "background": "IN/OUTペア整列アルゴリズム（PairAligner, sequence_numberでring buffer管理）、rubatoベースリサンプラ（可変サンプル数/チャネル数対応）、メモリ所有権規則（native callback pointer保持禁止）を実装する。",
+          "scope": [
+            "PairAligner（sequence_numberでring buffer管理）",
+            "ResamplePipeline（rubatoベース高品質リサンプラ）",
+            "メモリ所有権規則（pj_str_t Rust owner, pj_pool_t埋め込み禁止）"
+          ],
+          "testVerification": [
+            "UT: PairAlignerが正しくIN/OUTペアを整列する",
+            "UT: ResamplePipelineがサンプルレート変換を正しく行う"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§25, §26, §47)",
+          "relatedTicketIds": "[depends_on] P3-2 (依存先: 音声フォーマットモデルとAudioChunkPairの実装), [depends_on] P3-2 (依存先: 音声フォーマットモデルとAudioChunkPairの実装), [part_of] P4-3 (被依存元（依存元）: IN/OUTペア整列アルゴリズム（PairAligner）とリサンプラ設計), [part_of] P4-3 (被依存元（依存元）: IN/OUTペア整列アルゴリズム（PairAligner）とリサンプラ設計), [part_of] P4-3 (被依存元（依存元）: IN/OUTペア整列アルゴリズム（PairAligner）とリサンプラ設計), [refines] P7-5 (被依存元（依存元）: 既知の実装課題解決 - callback橋渡し / 音声ズレ / multi-source / id再利用), [depends_on] P4-4 (依存先: PJSIP FFI層概要とunsafe隔離設計)",
+          "notes": "rubatoは可変サンプル数・チャネル数に対応する高品質リサンプラ。",
+          "id": 5,
+          "phaseId": 10,
+          "status": "todo"
+        },
+        {
+          "title": "build.rs戦略 / Media bridge / audio device policy",
+          "nodeIds": [
+            "N0084",
+            "N0112",
+            "N0116"
+          ],
+          "background": "build.rs戦略概要（prebuilt優先・欠損時source build）、Media bridge（PJSUA conference bridge/Capture tap/Playback inject port）、audio device policy（optional feature cpal-input）を実装する。",
+          "scope": [
+            "build.rs戦略（prebuilt優先・欠損時source build） - src/build/build_strategy.rs",
+            "Media bridge（PJSUA conference bridge利用）",
+            "audio device policy（optional feature cpal-input） - src/config/audio_device_policy.rs"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "build.rs戦略は実際のビルドで検証必要"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§28, §39, §40)",
+          "relatedTicketIds": "[depends_on] P4-2 (依存先: リアルタイム境界とAudioMixer設計), [depends_on] P5-1 (依存先: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [depends_on] P11-1 (被依存元（依存元）: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [precedes] P11-1 (先行: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [part_of] P5-2 (被依存元（依存元）: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [part_of] P5-2 (被依存元（依存元）: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [part_of] P5-2 (被依存元（依存元）: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [part_of] P5-2 (被依存元（依存元）: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [part_of] P6-4 (被依存元（依存元）: セキュリティ基本設計とMedia bridgeデータフロー), [part_of] P11-2 (被依存元（依存元）: SRTP / トランスポート再接続 / Shutdown / custom media port), [part_of] P6-4 (被依存元（依存元）: セキュリティ基本設計とMedia bridgeデータフロー), [depends_on] P3-4 (依存先: SubscribeAudio ReactorハンドラとAsyncAudioSource trait), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード)",
+          "notes": "PJSUA conference bridgeのCapture tap portとPlayback inject portを利用。",
+          "default_files": [
+            "src/build/build_strategy.rs",
+            "src/config/audio_device_policy.rs"
+          ],
+          "id": 6,
+          "phaseId": 10,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0035",
+        "N0050",
+        "N0058",
+        "N0067",
+        "N0069",
+        "N0073",
+        "N0076",
+        "N0084",
+        "N0112",
+        "N0116",
+        "N0141"
+      ],
+      "summary": "EventBus実装（制御系/raw_sip2バス）、発着信API詳細、音声購読subscribe_audio、AudioMixer（gain/normalization）、PairAligner整列、rubatoリサンプラ、build.rs戦略、Media bridge、メモリ所有権規則。"
+    },
+    {
+      "id": 11,
+      "name": "SipClient実装・セキュリティ・crate分割",
+      "tickets": [
+        {
+          "title": "SipClient構造体とbindgen / AccountConfig validation / Default Policies",
+          "nodeIds": [
+            "N0017",
+            "N0025",
+            "N0079",
+            "N0142"
+          ],
+          "background": "SipClient構造体（Arc<ClientInner>, RuntimeHandle/EventBus/RwLock/shutdown）、bindgen生成方針（allowlistで必要ヘッダのみ）、AccountConfig validation rules、デフォルトポリシー明文化（transport/codec/DTMF/audio deliveryの既定値一覧）を実装する。",
+          "scope": [
+            "SipClient構造体（Arc<ClientInner>の薄いハンドル） - concurrency_model/sipclient_struct.rs",
+            "AccountConfig validation rules（username/domain/password空禁止等） - src/config/account_validation.rs",
+            "bindgen生成方針（allowlistで必要ヘッダのみ） - src/ffi_overview/bindgen_strategy.rs",
+            "デフォルトポリシー明文化（transport/codec/DTMF/audioの既定値一覧） - src/config/default_policies.rs"
+          ],
+          "testVerification": [
+            "UT: AccountConfig validationが不正設定を拒否する（空username/domain/password）",
+            "UT: register_on_start=false + allow_outbound_without_register=true が有効"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§8.2, §11.1, §27.1, §48)",
+          "relatedTicketIds": "[part_of] P0-3 (部分（親）: 全体アーキテクチャと並行性モデルの設計文書化), [depends_on] P0-2 (依存先: ClientConfig構造体の定義とDefault実装), [depends_on] P10-6 (依存先: build.rs戦略 / Media bridge / audio device policy), [precedes] P10-6 (被依存元（依存元）: build.rs戦略 / Media bridge / audio device policy), [part_of] P4-4 (部分（親）: PJSIP FFI層概要とunsafe隔離設計), [part_of] P6-5 (被依存元（依存元）: 使用例の実装（Client初期化 / account追加 / 発信 / 音声tap / AI TTS）), [depends_on] P12-1 (被依存元（依存元）: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [depends_on] P0-2 (依存先: ClientConfig構造体の定義とDefault実装), [part_of] P0-5 (部分（親）: AccountConfig構造体の定義), [depends_on] P7-1 (依存先: 使用例の完全実装とconfig validation)",
+          "notes": "SipClientはClone可能な薄いハンドル。内部状態はRwLockで保護。",
+          "default_files": [
+            "src/concurrency_model/sipclient_struct.rs",
+            "src/config/account_validation.rs",
+            "src/config/default_policies.rs",
+            "src/ffi_overview/bindgen_strategy.rs"
+          ],
+          "id": 1,
+          "phaseId": 11,
+          "status": "todo"
+        },
+        {
+          "title": "SRTP / トランスポート再接続 / Shutdown / custom media port",
+          "nodeIds": [
+            "N0095",
+            "N0096",
+            "N0097",
+            "N0114"
+          ],
+          "background": "SRTP仕様（feature flag切替、SDES SRTP必須）、トランスポート再接続方針（PJSIP自動再接続、切断イベント通知）、Shutdown手順（RuntimeCommand→backend shutdown→2phase）、custom media port設計（RustMediaPort, rx_queue/tx_queue双方向）を実装する。",
+          "scope": [
+            "SRTP仕様（feature flag切替、SDES SRTP必須） - src/security/srtp_spec.rs",
+            "トランスポート再接続方針（切断イベント通知と可視性） - src/security/transport_reconnect.rs",
+            "Shutdown仕様（RuntimeCommand→backend shutdown→2phase）",
+            "custom media port（RustMediaPort, rx_queue/tx_queue双方向, get_frame/put_frame）"
+          ],
+          "testVerification": [
+            "UT: SRTP feature flag切替が正しく動作する",
+            "UT: Shutdown手順が正しい順序で実行される"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§30, §31, §32, §39.2)",
+          "relatedTicketIds": "[refines] P6-2 (被依存元（依存元）: Shutdown仕様とRuntimeState管理), [depends_on] P6-4 (依存先: セキュリティ基本設計とMedia bridgeデータフロー), [depends_on] P6-4 (依存先: セキュリティ基本設計とMedia bridgeデータフロー), [depends_on] P6-4 (依存先: セキュリティ基本設計とMedia bridgeデータフロー), [depends_on] P6-2 (依存先: Shutdown仕様とRuntimeState管理), [references] P1-1 (被依存元（依存元）: ClientConfig既定値とICE/STUN/TURN設定の実装), [part_of] P6-2 (被依存元（依存元）: Shutdown仕様とRuntimeState管理), [part_of] P6-2 (被依存元（依存元）: Shutdown仕様とRuntimeState管理), [part_of] P10-6 (部分（親）: build.rs戦略 / Media bridge / audio device policy)",
+          "notes": "DTLS-SRTPはexperimental。SDES SRTPが必須。",
+          "default_files": [
+            "src/security/srtp_spec.rs",
+            "src/security/transport_reconnect.rs"
+          ],
+          "id": 2,
+          "phaseId": 11,
+          "status": "todo"
+        },
+        {
+          "title": "Prebuilt Refresh Pipeline / crate分割判断 / semver運用",
+          "nodeIds": [
+            "N0134",
+            "N0147",
+            "N0172"
+          ],
+          "background": "PJSIP prebuilt自動リフレッシュCI（3OS定期ビルド）、crate分割判断（siprs+siprs-server分離方式）、セマンティックバージョニング運用方針（0.x柔軟性/CHANGELOG/1.0以降cargo semver-checks）を実装する。",
+          "scope": [
+            "Prebuilt Refresh Pipeline（3OS定期ビルド） - src/build/prebuilt_pipeline.rs",
+            "Crate分割判断（siprs+siprs-server分離方式）",
+            "セマンティックバージョニング運用方針 - src/build/semver_operation.rs"
+          ],
+          "testVerification": [],
+          "testExceptions": [
+            "CI/CDの実検証はGitHub Actions運用時に実施"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§52.1, §58)",
+          "relatedTicketIds": "[depends_on] P9-4 (依存先: HTTP/WebSocket API層概要とcrate分割判断), [depends_on] P5-2 (依存先: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [part_of] P7-4 (部分（親）: CI/CD要件とDockerテストjob設計), [part_of] P9-4 (部分（親）: HTTP/WebSocket API層概要とcrate分割判断), [depends_on] P0-1 (依存先: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [depends_on] P7-4 (依存先: CI/CD要件とDockerテストjob設計)",
+          "notes": "crate分割は1.0以降の判断。現在のフェーズでは単一crateで開発継続。",
+          "default_files": [
+            "src/build/prebuilt_pipeline.rs",
+            "src/build/semver_operation.rs"
+          ],
+          "id": 3,
+          "phaseId": 11,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0017",
+        "N0025",
+        "N0079",
+        "N0095",
+        "N0096",
+        "N0097",
+        "N0114",
+        "N0134",
+        "N0142",
+        "N0147",
+        "N0172"
+      ],
+      "summary": "SipClient構造体（Arc/RuntimeHandle）、AccountConfig validation、bindgen生成、SRTP/TLS/再接続、Shutdown手順、custom media port設計、prebuilt CIパイプライン、crate分割判断。"
+    },
+    {
+      "id": 12,
+      "name": "統合境界・プラットフォーム・Layer2 → AccountEventReceiver・API・永続化 → JWT認証モデル",
+      "tickets": [
+        {
+          "title": "Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード",
+          "nodeIds": [
+            "N0005",
+            "N0059",
+            "N0109",
+            "N0110",
+            "N0111",
+            "N0125",
+            "N0152"
+          ],
+          "background": "P16は複数の統合境界をまとめる。Tauri統合責務境界、backpressure policy（§22.1）、プラットフォーム差異対応（Windows/macOS/Linux）、受信call処理（IncomingCallイベント→CallEntry）、REFER/転送仕様（blind transfer first-class）、Layer2 State-Machine Tests（MockBackend注入Runtime）、スタンドアロンサーバーモードを実装する。",
+          "scope": [
+            "Tauri統合責務境界の文書化（crateはTauri非依存） - Tauri境界",
+            "backpressure policy（Lossless/OldestDrop戦略） - src/config/backpressure_policy.rs",
+            "プラットフォーム差異対応（Windows MSVC/macOS/Linux） - src/build/platform_diffs.rs",
+            "受信call処理（IncomingCallイベント→CallEntry, auto reject timer） - src/api/incoming_call.rs",
+            "REFER/転送仕様（blind transfer, ReferRequest/TransferInfo, NOTIFY完了判断） - src/api/refer_transfer.rs",
+            "Layer2 State-Machine Tests（MockBackend注入Runtime） - src/tests/test_layer2.rs",
+            "スタンドアロンサーバーモード（siprs-server 2起動モード）"
+          ],
+          "testVerification": [
+            "UT: Layer2 State-Machine TestsがRegistrationState/CallState全遷移を検証",
+            "UT: REFER転送のblind transferが正しく動作する"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§2.1, §22.1, §36, §37, §38, §43.2, §53)",
+          "relatedTicketIds": "[part_of] P0-1 (部分（親）: RFC要件定義・設計基本方針の文書化とバージョニングポリシー定義), [part_of] P10-3 (部分（親）: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [depends_on] P9-4 (依存先: HTTP/WebSocket API層概要とcrate分割判断), [depends_on] P12-2 (被依存元（依存元）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [depends_on] P12-2 (被依存元（依存元）: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [depends_on] P5-1 (依存先: PJSIP FFI詳細 - C string管理 / callback bridge / SipBackend trait), [depends_on] P9-1 (依存先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [part_of] P7-2 (部分（親）: テスト戦略概要とLayer3/4統合テスト設計), [part_of] P8-1 (被依存元（依存元）: siprs-server設計 - Crate分割 / ライセンス / マルチインスタンス / 起動モード), [part_of] P8-2 (被依存元（依存元）: siprs-server設定ファイル構成とAxum Router構造), [depends_on] P11-1 (依存先: SipClient構造体とbindgen / AccountConfig validation / Default Policies), [depends_on] P10-3 (依存先: 音声購読APIの完全実装（subscribe_audio / AudioTapHandle）), [depends_on] P10-6 (依存先: build.rs戦略 / Media bridge / audio device policy), [references] P5-2 (参照先: build.rs戦略 - 探索順序 / build script / CMake flags / OS依存), [depends_on] P2-3 (依存先: 通話状態機械（CallState）の実装), [depends_on] P9-1 (依存先: 基盤型定義 - 用語 / RuntimeCommand / SipEventPayload / RawSIP / ClientCapabilities / lib.rsテンプレート), [depends_on] P2-3 (依存先: 通話状態機械（CallState）の実装), [depends_on] P10-2 (依存先: 発着信APIの完全実装（answer/hangup/hold/transfer/send_dtmf）)",
+          "notes": "Tauri統合境界はcrateの責務を明確に線引きする重要な設計判断。Layer2はSipBackend Mockを使用してPJSIP不要の状態機械テストを実現。",
+          "default_files": [
+            "src/api/incoming_call.rs",
+            "src/api/refer_transfer.rs",
+            "src/build/platform_diffs.rs",
+            "src/config/backpressure_policy.rs",
+            "src/standalone_server",
+            "src/tests/test_layer2.rs"
+          ],
+          "id": 1,
+          "phaseId": 12,
+          "status": "todo"
+        },
+        {
+          "title": "AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化",
+          "nodeIds": [
+            "N0036",
+            "N0155",
+            "N0165"
+          ],
+          "background": "P17はsiprs-serverのAPIプロトコル全体構成と永続化層を実装する。AccountEventReceiver（account_idベースフィルタリング）、HTTP/WS APIプロトコル構成（REST+WebSocketハイブリッド）、SQLite+SeaORM設定永続化（accounts/transports CRUD）を実装する。",
+          "scope": [
+            "AccountEventReceiver（account_idベースフィルタリングReceiverラッパー） - src/event_model_overview/api/account_event_receiver.rs",
+            "HTTP/WebSocket APIプロトコル全体構成（REST+WebSocketハイブリッド） - src/api/protocol_composition.rs",
+            "SQLite+SeaORM設定永続化（accounts/transports CRUD, ClientConfig同期） - src/config/persistence.rs"
+          ],
+          "testVerification": [
+            "UT: AccountEventReceiverが正しくaccount_idフィルタリングする",
+            "UT: 永続化層がaccounts/transports CRUDを正しく行う（:memory: SQLiteで検証）"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§15.5, §54, §56)",
+          "relatedTicketIds": "[part_of] P1-3 (部分（親）: イベントモデル基盤 - SipEventPayload / SipEvent / EventMeta / EventBus分割設計), [depends_on] P10-1 (依存先: EventBus実装（control/raw_sip 2バス配信）), [depends_on] P12-1 (依存先: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [depends_on] P12-3 (被依存元（依存元）: JWT認証・認可モデル全体設計), [depends_on] P12-1 (依存先: Tauri統合境界 / 受信call処理 / REFER転送 / backpressure policy / プラットフォーム差異 / Layer2テスト / サーバーモード), [part_of] P8-2 (被依存元（依存元）: siprs-server設定ファイル構成とAxum Router構造), [part_of] P8-2 (被依存元（依存元）: siprs-server設定ファイル構成とAxum Router構造), [part_of] P8-2 (被依存元（依存元）: siprs-server設定ファイル構成とAxum Router構造), [part_of] P8-3 (被依存元（依存元）: WebSocketメッセージプロトコルとイベント-音声時間的相関保証), [part_of] P8-3 (被依存元（依存元）: WebSocketメッセージプロトコルとイベント-音声時間的相関保証), [part_of] P8-5 (被依存元（依存元）: SQLite永続化 - テーブルスキーマとマイグレーション管理), [part_of] P8-5 (被依存元（依存元）: SQLite永続化 - テーブルスキーマとマイグレーション管理)",
+          "notes": "AccountEventReceiverはEventBusのbroadcast Receiverをaccount_idでフィルタリングする薄いラッパー。",
+          "default_files": [
+            "src/api/protocol_composition.rs",
+            "src/config/persistence.rs",
+            "src/event_model_overview/api/account_event_receiver.rs"
+          ],
+          "id": 2,
+          "phaseId": 12,
+          "status": "todo"
+        },
+        {
+          "title": "JWT認証・認可モデル全体設計",
+          "nodeIds": [
+            "N0161"
+          ],
+          "background": "JWTベース認証/認可モデル全体設計を実装する。API token発行・検証・ロール分離の方式を定義し、src/security/auth_model.rsに設計を文書化する。",
+          "scope": [
+            "JWTベース認証/認可モデル全体設計 - src/security/auth_model.rs",
+            "API token発行・検証・ロール分離の定義"
+          ],
+          "testVerification": [
+            "UT: JWT認証モデルの設計が正しく文書化されている"
+          ],
+          "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§55)",
+          "relatedTicketIds": "[depends_on] P12-2 (依存先: AccountEventReceiver / HTTP/WS APIプロトコル構成 / 設定永続化), [part_of] P8-4 (被依存元（依存元）: JWT認証実装 - エンドポイント / Axum Middleware / デフォルト設定), [part_of] P8-4 (被依存元（依存元）: JWT認証実装 - エンドポイント / Axum Middleware / デフォルト設定), [part_of] P8-4 (被依存元（依存元）: JWT認証実装 - エンドポイント / Axum Middleware / デフォルト設定)",
+          "notes": "JWT認証はsiprs-serverのAxum Layerとして実装される。開発時は認証無効モードを提供。",
+          "default_files": [
+            "src/security/auth_model.rs"
+          ],
+          "id": 3,
+          "phaseId": 12,
+          "status": "todo"
+        }
+      ],
+      "nodeIds": [
+        "N0005",
+        "N0059",
+        "N0109",
+        "N0110",
+        "N0111",
+        "N0125",
+        "N0152",
+        "N0036",
+        "N0155",
+        "N0165",
+        "N0161"
+      ],
+      "summary": "Tauri統合責務境界、backpressure policy、プラットフォーム差異対応、受信call処理、REFER/転送、Layer2 State-Machine Tests、スタンドアロンサーバーモード。\n---\nAccountEventReceiverフィルタリング設計、HTTP/WS APIプロトコル全体構成、SQLite+SeaORM設定永続化。\n---\nJWTベース認証/認可モデル全体設計。API token発行・検証・ロール分離。"
+    }
+  ]
+}
