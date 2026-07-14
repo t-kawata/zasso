@@ -4,20 +4,16 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 
 # /make-ticket
 
-**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
-
 **役割**: 実装仕様（spec）の詳細文書の作成と詳細化。
 
 ## ワークフローにおける位置づけ
 
-このプロジェクトの作業の流れは `make → plan → start → review` である。
+作業の流れは `make → plan → start → review` であり、現在 `make` 実行中。
 
 - **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
 - **`/plan-ticket`**: 実装レベルの詳細な計画。
 - **`/start-ticket`**: 実装。
 - **`/review-ticket`**: 完了したチケットをレビュー。
-
-**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案。
 
 ## 引数の解釈
 
@@ -25,8 +21,6 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 - 引数なし → エラーで中断
 - 数字のみ → エラーで中断
 - 上記以外 → エラーで中断
-
-**`--title` は不要**: チケットが既に存在する場合はそのタイトルが使われる。存在しない場合も会話からタイトルは確定しているはずであり、AI はそのタイトルを記憶していて `ensure-ticket-and-spec.js` の `--title` に渡す。
 
 ## Boy Scout Rule
 
@@ -47,24 +41,17 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索。 |
 | `create-spec.js` | `"" <title>` | spec スケルトン生成。ensure-ticket-and-spec.js から内部的に呼ばれる。 |
 | `resolve-ticket-context.js` | `--ticket-key=...` | （互換性維持）JSON 出力のコンテキスト解決。現在のワークフローでは使用しない。 |
-| `dump-node-context-to-spec.js` | `--tickets=... --graph=... --dirs-tree=... --ticket-key=...` | 設計コンテキストを spec に自動追記。Step 6 で使用。 |
 
 ## ワークフロー
 
-**重要**: show-ticket-context.js は JSON ではなく Markdown を出力する。以降の Step では、その Markdown に表示されたパスやキーを読み取ってコマンドに具体値を入れて実行すること。
+**重要**: show-ticket-context.js は Markdown を出力する。以降の Step では、その Markdown に表示されたパスやキーを読み取ってコマンドに具体値を入れて実行すること。
 
 ### Step 1: コンテキスト表示（show-ticket-context.js）
 
 show-ticket-context.js を実行し、チケットの状態を Markdown で取得する。
-`--write-spec` を指定すると、spec ファイル書き出しに適した形式で出力する
-（IMPORTANT バナー / Pipeline Context を省略し、Universal Testing Rules を前置する）。
 
 ```bash
-# 通常モード（AI がコンテキストとして読む）
 node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS
-
-# spec 書き出しモード（Step 6 で使用）
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS --write-spec
 ```
 
 出力される Markdown にはチケットの全フィールドがセクションとして含まれる:
@@ -77,12 +64,8 @@ node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS --wr
 | `## Investigation` | 調査で得た物的証拠 |
 | `## Scope` | 実装範囲の箇条書き |
 | `## Implementation Target Files` | 実装対象ファイル一覧 |
-| `## Source Paths` | 調査で参照したファイル |
 | `## To show related RFC graph details` | query.js の使用法と NODE-IDs（pipelineAvailable の場合のみ） |
-| `## Invariants` | 不変条件 |
 | `## Test Plan` | Unit Tests / Integration Tests / Exceptions |
-| `## Reference URLs` | 参考URL |
-| `## RFC Discrepancies` | 設計乖離リスト |
 | `## Related Tickets` | 関連チケット一覧表 |
 | `## Notes` | 補足情報 |
 | `## Pipeline Context` | 全リソースパスと存在確認の一覧表（通常モードのみ） |
@@ -122,19 +105,19 @@ node .claude/scripts/tickets/ensure-ticket-and-spec.js \
 
 「ticket & spec 化する事前情報が無いため /make-ticket を中断します。」とユーザに回答して終了する。
 
-### Step 3: ソースコード調査
+### Step 3: 設計及びソースコード調査
 
-Step 1 の Pipeline Context の内容に基づいて調査方法を選択する。
+Step 1, 2 で得た情報に基づいて調査方法を選択する。
 
 - **pipelineAvailable が true**: show-ticket-context.js の出力情報と To show related RFC graph details セクションの query.js の使用法によって得られる関連グラフノード情報を活用した調査を行う
-- **pipelineAvailable が false**: スポット調査（直接ソースコードを grep / read して情報収集）
+- **pipelineAvailable が false**: スポット調査（事前のユーザとの会話に加え、直接ソースコードを grep / read して情報収集）
 
 ### Step 4: 証拠の記録
 
-調査で得られた情報をチケットの JSON フィールドに追記する。`investigation` および `notes` は累積されるため `--append` モードで実行する。これらの内容は Step 6 で spec ファイルに自動転記される。
+調査で得られた情報をチケットの JSON フィールドに追記する。`investigation`, `boyScoutPlan`, `notes` は累積されるため `--append` モードで実行する。これらの内容は Step 6 で spec ファイルに自動転記される。
 
 ```bash
-echo '{"investigation":"src/foo.rs:42 で新規公開関数のパラメータ制約を確認。\n想定される全入力パターン（正常系3種・異常系2種）を列挙。\n型シグネチャと不変条件をコードコメントから抽出...", "notes":"実装時の注意... 調査時に発見した重要な情報..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
+echo '{"boyScoutPlan":"src/foo.rs:42 の関数 process() が「検証→変換→送信」の3責務を持つ。validate() / transform() / dispatch() の3関数に分割する。同ファイルのマジックナンバー300000 を consts/settings.rs の DEFAULT_TIMEOUT_MS として抽出する...", "investigation":"src/foo.rs:42 で新規公開関数のパラメータ制約を確認。\n想定される全入力パターン（正常系3種・異常系2種）を列挙。\n型シグネチャと不変条件をコードコメントから抽出...", "notes":"実装時の注意事項..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
 ### Step 5: 仕様の具体化
@@ -178,38 +161,14 @@ Test Plan 具体化後、JSON フィールドに反映:
 echo '{"scope":["範囲..."],"testUnit":["UT: ..."],"testIntegration":["IT: ..."],"testExceptions":["理由: ..."]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 6: 設計コンテキストの自動書き起こし + チケットフィールド転記
+### Step 6: 設計コンテキストの自動書き起こし + チケットフィールド転記 + ステータス更新
 
-Step 1 の Pipeline Context で Pipeline Available が **true** の場合のみ、グラフ情報の書き込みを実行。`show-ticket-context.js --write-spec` は常に実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。
+`show-ticket-context.js --write-spec` を実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。グラフ情報（ノード詳細・エッジ関係性・ファイルパス）は `--write-spec` 出力に自動的に含まれる。
 
 ```bash
-# 設計グラフ情報の書き込み（pipelineAvailable=true の場合のみ）
-node .claude/scripts/rfc-graph/dump-ticket-graph-commands.js \
-  --tickets=Tickets.json --graph="（Pipeline Context の Graph のパス）" --source="（Pipeline Context の RFC のパス）"
-
-node .claude/scripts/rfc-graph/dump-node-context-to-spec.js \
-  --tickets=Tickets.json --graph="（Pipeline Context の Graph のパス）" \
-  --dirs-tree="（Pipeline Context の Dirs-Tree のパス）" --ticket-key="$ARGUMENTS"
-
-# ticke全フィールドの spec 書き出し（常に実行）
 node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --write-spec >> "（Spec-File のパス）"
 ```
-
-### Step 7: 依存・関連チケットID の点検
-
-```bash
-node ".claude/scripts/tickets/search-tickets.js" "Tickets.json" "<キーワード>"
-```
-
-### Step 8: 犯罪の点検
-
-```bash
-.claude/scripts/tickets/scan-crimes.sh
-node .claude/scripts/tickets/review/find-all-stubs.js .
-```
-
-### Step 9: ステータス更新
 
 ```bash
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

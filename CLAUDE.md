@@ -1,3 +1,24 @@
+# Supreme law: "TDD = Test-Driven Development" is a non‑negotiable obligation (Universal Testing Rules)
+
+Write all code under the following non-negotiable rules:
+
+1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.
+
+2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.
+
+3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.
+
+4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.
+
+5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.
+
+6. Implementation is considered complete only when:
+   - The tests fully and precisely specify the intended behavior.
+   - The implementation passes all tests without exception.
+   - The implementation's correctness is demonstrably guaranteed by those tests.
+
+7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
+
 # CLAUDE.md — zasso Project Instructions
 
 このファイルは zasso プロジェクトにおける Claude Code の最上位指示です。
@@ -165,15 +186,6 @@ fn xor_with_key(buffer: &mut Vec<u8>, data: &[u8], key: &[u8]) {
 - パブリックAPI（構造体フィールド、関数シグネチャ）の変更
 - 新しい依存クレートの追加
 - アーキテクチャに関わる変更
-
-### TDD の義務化
-
-- バグ修正: 修正前にバグを再現する回帰テストを作成
-- 新機能: 機能実装とセットで必ずテストを追加
-  - Unit tests: 同一ファイル内の `mod tests`
-  - Integration tests: `tests/` ディレクトリ
-- テスト不可能な場合は理由を説明し、代替検証手順を提示
-- `/tdd` コマンドも利用可能
 
 ### 検証の義務化 (Verification)
 

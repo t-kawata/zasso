@@ -313,6 +313,16 @@ describe("show-ticket-context — buildTicketMarkdown (normal mode)", function (
     assert.ok(!out.includes("## RFC Discrepancies"));
     assert.ok(!out.includes("## Invariants"));
   });
+
+  it("Case 21: boyScoutPlan → Boy Scout Rule セクション", function () {
+    const out = md(makeTicket({ boyScoutPlan: "src/foo.rs:42 の process() を3分割" }));
+    assert.ok(out.includes("## Boy Scout Rule"));
+    assert.ok(out.includes("process() を3分割"));
+  });
+
+  it("Case 22: boyScoutPlan なし → Boy Scout Rule 非表示", function () {
+    assert.ok(!md(makeTicket({ boyScoutPlan: undefined })).includes("## Boy Scout Rule"));
+  });
 });
 
 // ---------------------------------------------------------------------------

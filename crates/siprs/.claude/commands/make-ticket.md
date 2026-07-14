@@ -47,7 +47,6 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索。 |
 | `create-spec.js` | `"" <title>` | spec スケルトン生成。ensure-ticket-and-spec.js から内部的に呼ばれる。 |
 | `resolve-ticket-context.js` | `--ticket-key=...` | （互換性維持）JSON 出力のコンテキスト解決。現在のワークフローでは使用しない。 |
-| `dump-node-context-to-spec.js` | `--tickets=... --graph=... --dirs-tree=... --ticket-key=...` | 設計コンテキストを spec に自動追記。Step 6 で使用。 |
 
 ## ワークフロー
 
@@ -180,18 +179,9 @@ echo '{"scope":["範囲..."],"testUnit":["UT: ..."],"testIntegration":["IT: ..."
 
 ### Step 6: 設計コンテキストの自動書き起こし + チケットフィールド転記
 
-Step 1 の Pipeline Context で Pipeline Available が **true** の場合のみ、グラフ情報の書き込みを実行。`show-ticket-context.js --write-spec` は常に実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。
+`show-ticket-context.js --write-spec` を実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。グラフ情報（ノード詳細・エッジ関係性・ファイルパス）は `--write-spec` 出力に自動的に含まれる。
 
 ```bash
-# 設計グラフ情報の書き込み（pipelineAvailable=true の場合のみ）
-node .claude/scripts/rfc-graph/dump-ticket-graph-commands.js \
-  --tickets=Tickets.json --graph="（Pipeline Context の Graph のパス）" --source="（Pipeline Context の RFC のパス）"
-
-node .claude/scripts/rfc-graph/dump-node-context-to-spec.js \
-  --tickets=Tickets.json --graph="（Pipeline Context の Graph のパス）" \
-  --dirs-tree="（Pipeline Context の Dirs-Tree のパス）" --ticket-key="$ARGUMENTS"
-
-# ticke全フィールドの spec 書き出し（常に実行）
 node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --write-spec >> "（Spec-File のパス）"
 ```

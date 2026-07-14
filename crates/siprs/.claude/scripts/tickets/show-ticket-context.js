@@ -145,6 +145,118 @@ function parseRelatedTicketIds(raw) {
   return items;
 }
 
+/** GRAPH.json と Dirs-Tree.json を読み込む */
+function loadGraphAndDirs(graphPath, dirsTreePath) {
+  let graphNodes = [], graphEdges = [], dirsTree = null;
+  try {
+    if (graphPath && fs.existsSync(graphPath)) {
+      const g = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+      graphNodes = g.nodes || [];
+      graphEdges = g.edges || [];
+    }
+  } catch (e) { /* ignore */ }
+  try {
+    if (dirsTreePath && fs.existsSync(dirsTreePath)) {
+      dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
+    }
+  } catch (e) { /* ignore */ }
+  return { graphNodes, graphEdges, dirsTree };
+}
+
+/** ticketNodeIds に対応するノード詳細の Markdown を生成する */
+function formatGraphNodeDetails(ticketNodeIds, graphNodes) {
+  const lines = [];
+  lines.push('### Related Nodes');
+  lines.push('');
+  lines.push('| ID | Kind | Language | Title |');
+  lines.push('|----|------|----------|-------|');
+  const nodeMap = {};
+  for (const n of graphNodes) nodeMap[n.id] = n;
+  for (const nodeId of ticketNodeIds) {
+    const node = nodeMap[nodeId];
+    if (node) {
+      lines.push(`| \`${node.id}\` | ${node.kind || '-'} | ${node.language || '-'} | ${node.title || '-'} |`);
+    } else {
+      lines.push(`| \`${nodeId}\` | — | — | — |`);
+    }
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+/** ticketNodeIds が関与するエッジ関係性の Markdown を生成する */
+function formatGraphEdgeRelationships(ticketNodeIds, graphEdges, graphNodes) {
+  const lines = [];
+  const nodeMap = {};
+  for (const n of graphNodes) nodeMap[n.id] = n;
+  const edgeTypes = ['depends_on', 'precedes', 'triggers', 'constrains', 'conflicts_with',
+    'refines', 'extends', 'implements', 'supersedes', 'references', 'part_of', 'validates'];
+  const ticketSet = new Set(ticketNodeIds);
+  // 自チケット内のノードのみが関与するエッジを抽出
+  const relevantEdges = graphEdges.filter(e =>
+    ticketSet.has(e.from) || ticketSet.has(e.to)
+  );
+  if (relevantEdges.length === 0) return '';
+  lines.push('### Edge Relationships');
+  lines.push('');
+  lines.push('| Type | From | → | To |');
+  lines.push('|------|------|----|-----|');
+  for (const et of edgeTypes) {
+    const edgesOfType = relevantEdges.filter(e => e.type === et);
+    for (const e of edgesOfType) {
+      const fromNode = nodeMap[e.from];
+      const toNode = nodeMap[e.to];
+      const fromLabel = fromNode ? fromNode.title : e.from;
+      const toLabel = toNode ? toNode.title : e.to;
+      const fromMarker = ticketSet.has(e.from) ? '★' : '☆';
+      const toMarker = ticketSet.has(e.to) ? '★' : '☆';
+      lines.push(`| ${et} | ${fromMarker} ${fromLabel} (${e.from}) | → | ${toMarker} ${toLabel} (${e.to}) |`);
+    }
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+/** Dirs-Tree から ticketNodeIds にマップされるファイルパスを探索する */
+function collectFilePathsForNodes(dirsTree, ticketNodeIds) {
+  const result = [];
+  const ticketSet = new Set(ticketNodeIds);
+  function walk(node, prefix) {
+    const currentPath = prefix ? prefix + '/' + node.name : node.name;
+    if (node.type === 'file') {
+      const mapped = (node.mappedNodeIds || []).filter(m => ticketSet.has(m.nodeId));
+      for (const m of mapped) {
+        result.push({ path: currentPath, nodeId: m.nodeId, title: m.title });
+      }
+    }
+    if (node.children) {
+      for (const c of node.children) walk(c, node.type === 'directory' ? currentPath : prefix);
+    }
+  }
+  // trees オブジェクトの各言語ツリーを探索
+  const trees = (dirsTree && dirsTree.trees) || {};
+  for (const lang of Object.keys(trees)) {
+    walk(trees[lang], '');
+  }
+  return result;
+}
+
+/** ticketNodeIds に対応するファイルパスの Markdown を生成する */
+function formatGraphFilePaths(ticketNodeIds, dirsTree) {
+  const entries = collectFilePathsForNodes(dirsTree, ticketNodeIds);
+  if (entries.length === 0) return '';
+  const lines = [];
+  lines.push('### Implementation File Paths');
+  lines.push('');
+  lines.push('| Node ID | File Path |');
+  lines.push('|---------|-----------|');
+  for (const e of entries) {
+    lines.push(`| \`${e.nodeId}\` | \`${e.path}\` |`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
 /** チケット不在時の Markdown を生成する */
 function buildTicketNotFoundMarkdown(ticketKey) {
   return [
@@ -291,6 +403,15 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     lines.push('');
     lines.push(ticket.nodeIds.map(id => `\`${id}\``).join(' '));
     lines.push('');
+
+    // GRAPH.json / Dirs-Tree.json から詳細情報を展開
+    const { graphNodes, graphEdges, dirsTree } = loadGraphAndDirs(graphPath, dirsTreePath);
+    const nodeDetails = formatGraphNodeDetails(ticket.nodeIds, graphNodes);
+    lines.push(nodeDetails);
+    const edgeRelations = formatGraphEdgeRelationships(ticket.nodeIds, graphEdges, graphNodes);
+    if (edgeRelations) lines.push(edgeRelations);
+    const filePaths = formatGraphFilePaths(ticket.nodeIds, dirsTree);
+    if (filePaths) lines.push(filePaths);
   }
 
   // Invariants
