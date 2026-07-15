@@ -63,11 +63,11 @@ node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS
 | `# {ticketKey}: {title} [{status}]` | H1 見出し + ステータスバッジ |
 | `## RFC Reference` | RFC 文書内セクション参照 |
 | `## Background` | 背景・目的 |
-| `## Investigation` | 調査で得た物的証拠 |
 | `## Scope` | 実装範囲の箇条書き |
-| `## Acceptance Criteria` | 合格条件（Happy path / Error case / Edge case） |
 | `## Implementation Target Files` | 実装対象ファイル一覧 |
-| `## To show related RFC graph details` | query.js の使用法と NODE-IDs（pipelineAvailable の場合のみ） |
+| `## To show related RFC graph details` | query.js の使用法と NODE-IDs（pipelineAvailable の場合のみ）。Step 4a で最初に参照する調査エントリポイント |
+| `## Investigation` | 調査で得た物的証拠 |
+| `## Acceptance Criteria` | 合格条件（Happy path / Error case / Edge case） |
 | `## Invariants` | 不変条件（正常成立条件 / 異常時 / 内部状態 / 境界値） |
 | `## Boy Scout Rule` | 翻訳可能性改善計画 |
 | `## Test Plan` | Unit Tests / Integration Tests / Exceptions |

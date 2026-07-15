@@ -337,29 +337,11 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     lines.push('');
   }
 
-  // Investigation
-  if (ticket.investigation) {
-    lines.push('## Investigation');
-    lines.push('');
-    lines.push(ticket.investigation);
-    lines.push('');
-  }
-
   // Scope
   if (ticket.scope && ticket.scope.length > 0) {
     lines.push('## Scope');
     lines.push('');
     for (const item of ticket.scope) {
-      lines.push(`- ${item}`);
-    }
-    lines.push('');
-  }
-
-  // Acceptance Criteria
-  if (ticket.acceptanceCriteria && ticket.acceptanceCriteria.length > 0) {
-    lines.push('## Acceptance Criteria');
-    lines.push('');
-    for (const item of ticket.acceptanceCriteria) {
       lines.push(`- ${item}`);
     }
     lines.push('');
@@ -397,6 +379,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
   );
 
   // Graph セクション（pipelineAvailable かつ nodeIds が存在する場合のみ）
+  // Step 4a で AI が最初に実行すべき調査アクション（node 探索）のトリガーとなる。
   if (pipelineAvailable && ticket.nodeIds && ticket.nodeIds.length > 0) {
     lines.push('## To show related RFC graph details');
     lines.push('');
@@ -422,6 +405,24 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     if (edgeRelations) lines.push(edgeRelations);
     const filePaths = formatGraphFilePaths(ticket.nodeIds, dirsTree);
     if (filePaths) lines.push(filePaths);
+  }
+
+  // Investigation（Step 4a の graph 調査後に参照する既存の調査結果）
+  if (ticket.investigation) {
+    lines.push('## Investigation');
+    lines.push('');
+    lines.push(ticket.investigation);
+    lines.push('');
+  }
+
+  // Acceptance Criteria
+  if (ticket.acceptanceCriteria && ticket.acceptanceCriteria.length > 0) {
+    lines.push('## Acceptance Criteria');
+    lines.push('');
+    for (const item of ticket.acceptanceCriteria) {
+      lines.push(`- ${item}`);
+    }
+    lines.push('');
   }
 
   // Invariants

@@ -9,7 +9,10 @@ const path = require('path');
 
 // スクリプト自身の場所（.claude/scripts/lib/）からプロジェクトルートを算出
 // これにより、どのディレクトリから node を起動しても正しいパスを参照できる。
-const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+// TICKETS_PROJECT_ROOT 環境変数で上書き可能（テスト分離用）。
+const PROJECT_ROOT = process.env.TICKETS_PROJECT_ROOT
+  ? path.resolve(process.env.TICKETS_PROJECT_ROOT)
+  : path.resolve(__dirname, '../../..');
 const TICKETS_DIR = path.resolve(PROJECT_ROOT, 'tickets');
 
 /** @returns {{ ticketsDir: string, specsDir: string, contextDir: string, draftsDir: string, queueFile: string, backupDir: string, review: object }} */

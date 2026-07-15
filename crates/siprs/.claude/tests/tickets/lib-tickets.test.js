@@ -294,8 +294,8 @@ console.log('\n## archiveExpiredEntries\n');
   try {
     const queuePath = path.join(tmpDir, 'queue.md');
     const archivePath = path.join(tmpDir, 'queue-archive.md');
-    const oldDate = '2026-04-01'; // 45 days ago from 2026-05-16
-    const recentDate = '2026-05-10'; // 6 days ago
+    const oldDate = '2026-05-31'; // 45 days ago from now
+    const recentDate = '2026-07-09'; // 6 days ago
     fs.writeFileSync(queuePath, '# Ticket Queue\n\n' +
       '- [x] #10 Old | specs/010-old.md | 2026-03-15 | 2026-03-20 | ' + oldDate + '\n' +
       '- [x] #11 Recent | specs/011-recent.md | 2026-05-01 | 2026-05-05 | ' + recentDate + '\n' +

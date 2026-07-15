@@ -77,8 +77,13 @@
         "invariants": { "type": "string" },
         "background": { "type": "string" },
         "scope": { "type": "array", "items": { "type": "string" } },
-        "testVerification": { "type": "array", "items": { "type": "string" } },
+        "testUnit": { "type": "array", "items": { "type": "string" } },
         "testExceptions": { "type": "array", "items": { "type": "string" } },
+        "testIntegration": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "結合テスト計画。複数モジュール間の結合点と検証内容を IT: プレフィックスで記述。"
+        },
         "startedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "実装開始日 (YYYY-MM-DD)" },
         "completedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "レビュー完了日 (YYYY-MM-DD)" },
         "instrumentation": { "type": "string" },
@@ -104,7 +109,8 @@
             }
           }
         },
-        "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } }
+        "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } },
+        "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" }
       },
       "additionalProperties": true
     },

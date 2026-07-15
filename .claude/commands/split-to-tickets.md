@@ -383,9 +383,40 @@ AI がチケットを登録する際、**簡素で短い記述は「横着」と
 |-----------|---------|------------------------------|
 | `background` | **300文字以上** | 622文字 — 調査結果（箇条書き）、コードレベルの具体的言及を含む複数段落 |
 | `scope` | **各項目を型シグネチャ付きで列挙** | 828文字 — ファイル名＋処理内容＋種別を1項目ずつ具体的に |
-| `testVerification` | **項目ごとにテスト内容を明示** | 870文字 — 「UT: 〜」の形式で正常系・異常系・境界値を列挙 |
 | `notes` | **複数セクション構成、500文字以上** | 1342文字 — 実装サマリー・テスト結果・翻訳可能性・リスクを構造化 |
 | `relatedTicketIds` | **依存方向と理由を明記** | 251文字 — 「P17-1 (依存: …), P19-1 (被依存: …)」形式 |
+| `acceptanceCriteria` | **各条件を1行で完結に記述** | Happy path / Error case / Edge case を各1行、チケット単位で3〜5項目 |
+
+### Universal Testing Rules
+
+Write all code under the following non-negotiable rules:
+
+1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.
+
+2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.
+
+3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.
+
+4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.
+
+5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.
+
+6. Implementation is considered complete only when:
+   - The tests fully and precisely specify the intended behavior.
+   - The implementation passes all tests without exception.
+   - The implementation's correctness is demonstrably guaranteed by those tests.
+
+7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
+
+### Test Field Reference
+
+| Field | Requirement | Format |
+|-------|------------|--------|
+| `testUnit` | Unit tests — automated tests covering individual functions/modules | `UT:` prefix; enumerate normal/edge/failure cases |
+| `testIntegration` | Integration tests — automated tests spanning multiple modules | `IT:` prefix; specify which tickets/modules are integrated |
+| `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested |
+
+`UT:` と `IT:` は自動テストコードであり、手動テストではない。両者を合わせて全実装コードの正当性を検証可能にしなければならない。`testExceptions` はその補完であり代替ではない。
 
 以下の JSON は上記の指針を満たした記述例である。**簡素なプレースホルダー（`<...>` 形式）で済ませてはならない。**
 `default_files` は `--dirs-tree` 指定時にスクリプトが自動設定するため、AI が入力してはならない。
@@ -407,7 +438,7 @@ AI がチケットを登録する際、**簡素で短い記述は「横着」と
       "pub struct Token { pub payload: Vec<u8>, pub signature: Signature, pub expires_at: SystemTime } — トークン型。有効期限を保持し、検証時に現在時刻との比較を行う。",
       "pub fn refresh(token: &Token, private_key: &PrivateKey) -> Result<Token, CryptoError> — 期限切れトークンの再署名。有効期限内のトークンには新たな期限を設定して再署名する。"
     ],
-    "testVerification": [
+    "testUnit": [
       "UT: generate_keypair が毎回異なる鍵ペアを生成する（同一性の否定）",
       "UT: sign → verify が正しい署名に対して true を返す（Happy Path）",
       "UT: verify が改ざんされたペイロードに対して false を返す（改ざん検知）",
@@ -418,10 +449,19 @@ AI がチケットを登録する際、**簡素で短い記述は「横着」と
       "境界値: 空ペイロードの署名生成・検証",
       "境界値: 最大ペイロード長（65535バイト）での署名・検証"
     ],
+    "testIntegration": [
+      "IT: P0-4（Session管理）実装後に Token 発行→verify→Session確立のend-to-endを検証",
+      "IT: 並行接続10セッション下での認証フロー完全性確認"
+    ],
     "testExceptions": ["SecretKey のメモリゼロクリア（mlock/mprotect）はカーネル依存のためユニットテスト不可。CI の integration test で valgrind 確認。"],
+    "acceptanceCriteria": [
+      "署名・検証・リフレッシュの全APIがエラーなく動作する",
+      "不正な署名・改ざんペイロード・期限切れの全異常系で適切なエラーを返す",
+      "空ペイロード・最大長ペイロード（65535バイト）の境界値で破綻しない"
+    ],
     "referenceSection": "RFC-ROOT.md (§3.1 認証トークン形式, §3.2 鍵管理)",
     "relatedTicketIds": "P0-2 (依存: エラー型 CryptoError の定義), PX-YY (Ed448ライブラリラッパー, 先行実装必須), P0-4 (被依存: Session管理が本チケットの Token を入力として使用)",
-    "notes": "結合テスト計画:\n[::STUB::] P0-4（Session管理）実装後に、自チケットが出力する Token と P0-4 が入力として受ける Token の結合テストを追加する。完全性の基準: P0-4 が Token::verify を呼び出した結果に基づいて正しく Session を確立・拒絶すること。\n\n注意事項:\n- PrivateKey のシリアライズは PKCS#8 v2 形式に従う\n- PublicKey のシリアライズは SPKI 形式に従う\n- 定数時間比較には borrow::subtle の ConstantTimeEq トレイトを使用すること"
+    "notes": "PrivateKey のシリアライズは PKCS#8 v2 形式、PublicKey のシリアライズは SPKI 形式に従う。定数時間比較には subtle::ConstantTimeEq を使用すること。"
   }
 ]
 ```

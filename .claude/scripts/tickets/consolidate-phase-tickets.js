@@ -37,7 +37,7 @@ const { loadGraphEdgesFromTickets } = require('./generate-related-ticket-ids.js'
 // ============================================================
 
 /** 1フェーズあたりの最小チケット数（この値未満のフェーズを統合対象とする） */
-const MIN_TICKETS_PER_PHASE = 5;
+const MIN_TICKETS_PER_PHASE = 3;
 
 /** フェーズIDの接頭辞 */
 const PHASE_ID_PREFIX = 'P';

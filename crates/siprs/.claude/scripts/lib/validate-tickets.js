@@ -30,7 +30,7 @@ function validateTickets(data) {
       if (pId >= -1 && t.phaseId !== undefined && t.phaseId !== pId) errors.push(tp + '.phaseId (' + t.phaseId + ') does not match parent phase id (' + pId + ')');
       if (!t.title || typeof t.title !== 'string') errors.push(tp + '.title: required');
       if (!t.status || !ALLOWED.includes(t.status)) errors.push(tp + '.status: must be one of ' + ALLOWED.join(', '));
-      const arrayFields = ['scope','testUnit','testIntegration','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies'];
+      const arrayFields = ['scope','testUnit','testIntegration','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies','acceptanceCriteria'];
       for (const f of arrayFields) {
         if (t[f] !== undefined) {
           if (!Array.isArray(t[f])) errors.push(tp + '.' + f + ': must be array');
@@ -41,7 +41,7 @@ function validateTickets(data) {
         if (!Array.isArray(t.changes)) errors.push(tp + '.changes: must be array');
         else for (let i = 0; i < t.changes.length; i++) { if (!t.changes[i] || typeof t.changes[i] !== 'object') errors.push(tp + '.changes[' + i + ']: must be object'); }
       }
-      const strFields = ['referenceSection','specPath','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','investigation','notes'];
+      const strFields = ['referenceSection','specPath','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','investigation','boyScoutPlan','notes'];
       for (const f of strFields) { if (t[f] !== undefined && typeof t[f] !== 'string') errors.push(tp + '.' + f + ': must be string'); }
       if (t.id && t.phaseId) {
         const key = t.phaseId + '-' + t.id;

@@ -666,9 +666,9 @@ function generateSpecBody(ticketId, title, slug) {
 
 各成果物は Tickets.json のチケットフィールドに JSON として保存される。
 
-- **計画**: \`scope[]\`, \`testUnit[]\`, \`testExceptions[]\`, \`notes\` フィールド
-- **実装サマリ**: \`changes[]\`, \`notes\` フィールド
-- **レビュー報告書**: \`instrumentation\`, \`notes\`, \`rfcDiscrepancies[]\` フィールド
+- **計画**: \`scope[]\`, \`testUnit[]\`, \`testExceptions[]\`, \`notes\` フィールド（差分: \`context/${String(ticketId).padStart(4, '0')}-${slug}/plan.md\`）
+- **実装サマリ**: \`changes[]\`, \`notes\` フィールド（差分: \`context/${String(ticketId).padStart(4, '0')}-${slug}/implementation.md\`）
+- **レビュー報告書**: \`instrumentation\`, \`notes\`, \`rfcDiscrepancies[]\` フィールド（差分: \`context/${String(ticketId).padStart(4, '0')}-${slug}/review.md\`）
 `;
 }
 
