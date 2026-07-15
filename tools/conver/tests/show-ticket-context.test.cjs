@@ -88,8 +88,8 @@ describe("show-ticket-context — parseArgs", function () {
     assert.strictEqual(r.writeSpec, false);
   });
 
-  it("--ticket-key + --tickets + --write-spec を指定", function () {
-    const r = parseArgs(["--ticket-key=PX-53", "--tickets=/tmp/Tickets.json", "--write-spec"]);
+  it("--ticket-key + --tickets + --for-spec を指定", function () {
+    const r = parseArgs(["--ticket-key=PX-53", "--tickets=/tmp/Tickets.json", "--for-spec"]);
     assert.strictEqual(r.ticketKey, "PX-53");
     assert.strictEqual(r.ticketsPath, "/tmp/Tickets.json");
     assert.strictEqual(r.writeSpec, true);
@@ -326,10 +326,10 @@ describe("show-ticket-context — buildTicketMarkdown (normal mode)", function (
 });
 
 // ---------------------------------------------------------------------------
-// buildTicketMarkdown — --write-spec モード
+// buildTicketMarkdown — --for-spec モード
 // ---------------------------------------------------------------------------
 
-describe("show-ticket-context — buildTicketMarkdown (--write-spec mode)", function () {
+describe("show-ticket-context — buildTicketMarkdown (--for-spec mode)", function () {
   let dir, ticketsDir;
   before(function () { dir = tmpDir(); ticketsDir = dir; });
   after(function () { fs.rmSync(dir, { recursive: true, force: true }); });

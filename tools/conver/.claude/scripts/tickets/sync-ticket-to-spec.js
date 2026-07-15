@@ -93,6 +93,10 @@ function writeFieldsToSpec(specPath, ticket) {
     fields.push({ heading: '## Investigation', text: ticket.investigation });
   }
 
+  if (ticket.boyScoutPlan) {
+    fields.push({ heading: '## Boy Scout Rule', text: ticket.boyScoutPlan });
+  }
+
   if (ticket.notes) {
     fields.push({ heading: '## Notes', text: ticket.notes });
   }

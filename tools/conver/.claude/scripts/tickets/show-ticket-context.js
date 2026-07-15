@@ -7,12 +7,12 @@
  * Markdown 形式で stdout に出力する。Tickets.json の全フィールドを
  * 表示するため、出力自体が spec 文書として成立する。
  *
- * --write-spec フラグを指定すると、spec ファイルへの書き出しに適した
+ * --for-spec フラグを指定すると、spec ファイルへの書き出しに適した
  * 形式で出力する（IMPORTANT バナー / Pipeline Context を省略し、
  * Universal Testing Rules を前置する）。
  *
  * CLI: show-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
- *       [--tickets=<Tickets.json>] [--write-spec]
+ *       [--tickets=<Tickets.json>] [--for-spec]
  */
 
 const fs = require('fs');
@@ -32,7 +32,7 @@ function parseArgs(testArgs) {
       ticketsPath = arg.slice('--tickets='.length);
     } else if (arg.startsWith('--ticket-key=')) {
       ticketKey = arg.slice('--ticket-key='.length);
-    } else if (arg === '--write-spec') {
+    } else if (arg === '--for-spec') {
       writeSpec = true;
     }
   }
@@ -283,7 +283,7 @@ function buildTicketNotFoundMarkdown(ticketKey) {
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) {
   const lines = [];
 
-  // --write-spec モードでは IMPORTANT バナーを出力しない
+  // --for-spec モードでは IMPORTANT バナーを出力しない
   if (!writeSpec) {
     lines.push('> [!IMPORTANT]');
     lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
@@ -291,7 +291,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
   }
 
-  // --write-spec モードでは冒頭に Universal Testing Rules を前置する
+  // --for-spec モードでは冒頭に Universal Testing Rules を前置する
   if (writeSpec) {
     lines.push('**Universal Testing Rules**');
     lines.push('');
@@ -512,7 +512,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     lines.push('');
   }
 
-  // Pipeline Context（--write-spec モードでは出力しない）
+  // Pipeline Context（--for-spec モードでは出力しない）
   if (!writeSpec) {
     lines.push('## Pipeline Context');
     lines.push('');

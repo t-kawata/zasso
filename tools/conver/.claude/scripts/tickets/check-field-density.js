@@ -32,6 +32,8 @@ const FIELD_EXPECTED = {
   instrumentation: 4,
   notes: 5,
   acceptanceCriteria: 3,
+  investigation: 1,
+  boyScoutPlan: 1,
 };
 
 function main() {

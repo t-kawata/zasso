@@ -84,7 +84,9 @@ try {
     assert(result.updated.includes('instrumentation'), 'instrumentation updated');
     assert(result.updated.includes('notes'), 'notes updated');
     assert(result.updated.includes('acceptanceCriteria'), 'acceptanceCriteria updated');
-    assertEq(result.count, 9, 'all 9 fields updated');
+    assert(result.updated.includes('investigation'), 'investigation updated');
+    assert(result.updated.includes('boyScoutPlan'), 'boyScoutPlan updated');
+    assertEq(result.count, 11, 'all 11 fields updated');
 
     // 実際に保存された値を確認
     const data = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));
@@ -99,6 +101,8 @@ try {
     assert(typeof ticket.notes === 'string' && ticket.notes.includes('[::TEMPLATE-STUB::'), 'notes has stubs');
     assert(ticket.acceptanceCriteria.length === 3, 'acceptanceCriteria has 3 items');
     assert(ticket.acceptanceCriteria[0].includes('[::TEMPLATE-STUB::'), 'acceptanceCriteria[0] has stub');
+    assert(typeof ticket.investigation === 'string' && ticket.investigation.includes('[::TEMPLATE-STUB::'), 'investigation has stub');
+    assert(typeof ticket.boyScoutPlan === 'string' && ticket.boyScoutPlan.includes('[::TEMPLATE-STUB::'), 'boyScoutPlan has stub');
   }
 
   // ===============================================

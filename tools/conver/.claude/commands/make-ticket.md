@@ -33,15 +33,16 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 | スクリプト | 引数 | 説明 |
 |---|---|---|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}>` | **Step 1 で実行**。チケット情報を Markdown で出力。存在しない場合は Not Found 表示。 |
-| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--notes=...]` | **Step 2 Case B で AI が手動実行**。add-ticket.js → show-ticket-context.js を順次呼び出す。spec ファイルは作成せず、spec パスのみ導出する。Step 6 で show-ticket-context.js --write-spec により spec ファイルが書き出される。 |
-| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 3 で AI が実行**。チケットの8フィールドにテンプレートをマージ挿入する。 |
-| `check-field-density.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 5 で AI が実行**。全 `[::TEMPLATE-STUB::]` マーカーの残存チェック + 密度スコアリング。exit 0 = 合格 / exit 1 = 未記入あり。 |
+| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--notes=...]` | **Step 2 Case B で AI が手動実行**。add-ticket.js → show-ticket-context.js を順次呼び出す。spec ファイルは作成せず、spec パスのみ導出する。Step 6 で show-ticket-context.js --for-spec により spec ファイルが書き出される。 |
+| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 3 で AI が実行**。チケットの11フィールドにテンプレートをマージ挿入する。 |
+| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 4b のループ内で AI が繰り返し実行**。自然言語で残存 `[::TEMPLATE-STUB::]` マーカーを一覧表示。exit 0 = 全置換完了 / exit 1 = 未置換あり。 |
+| `check-field-density.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 5a で AI が実行**。全 `[::TEMPLATE-STUB::]` マーカーの残存チェック + 密度スコアリング。exit 0 = 合格 / exit 1 = 未記入あり。 |
 | `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。ensure-ticket.js から内部的に呼ばれる。 |
 | `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。 |
 | `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報取得。 |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID} [--append]`（stdin: 更新JSON） | チケットフィールド更新。`--append` 指定時は文字列・配列フィールドを追記（上書きしない）。 |
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索。 |
-| `create-spec.js` | `"" <title>` | spec スケルトン生成。現在のワークフローでは直接使用しない（spec は Step 6 で show-ticket-context.js --write-spec により書き出される）。 |
+| `create-spec.js` | `"" <title>` | spec スケルトン生成。現在のワークフローでは直接使用しない（spec は Step 6 で show-ticket-context.js --for-spec により書き出される）。 |
 | `resolve-ticket-context.js` | `--ticket-key=...` | （互換性維持）JSON 出力のコンテキスト解決。現在のワークフローでは使用しない。 |
 
 ## ワークフロー
@@ -119,69 +120,9 @@ node .claude/scripts/tickets/ensure-ticket.js \
 node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 4: 調査 + テンプレート記入
+### Step 4: Universal Testing Rules の完全理解
 
-#### 4a: 設計及びソースコード調査
-
-テンプレートで定義された各フィールドの要求事項に基づいて調査方法を選択する。
-
-- **pipelineAvailable が true**: show-ticket-context.js の出力情報と query.js の使用法によって得られる関連グラフノード情報を活用した調査を行う。出力内の「Related RFC graph NODE-IDs to check」にある全 NODE-ID を「Usage of query.js」に提示されるスクリプト実行コマンドにより参照し、全ての設計情報を得た後に具体的なソースコード調査を開始する。
-- **pipelineAvailable が false**: スポット調査（事前のユーザとの会話に加え、直接ソースコードを grep / read して情報収集）
-
-#### 4b: 証拠の記録
-
-調査で得られた情報をチケットの JSON フィールドに追記する。`investigation`, `boyScoutPlan`, `notes` は累積されるため `--append` モードで実行する。これらの内容は Step 6 で spec ファイルに自動転記される。
-
-```bash
-echo '{"boyScoutPlan":"...", "investigation":"...", "notes":"..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
-```
-
-#### 4c: テンプレートマーカーの置換
-
-調査結果に基づき、各 `[::TEMPLATE-STUB::<field-name>::]` マーカーを実際の内容で置換する。以下の9フィールドのすべてのマーカーを対象とする：
-
-| フィールド | マーカー数 | 各マーカーの意味 |
-|-----------|-----------|----------------|
-| `invariants` | 4 | 正常成立条件 / 異常永不変条件 / 内部状態不変条件 / 境界不変条件 |
-| `background` | 4 | Goal / Purpose / Motivation / Constraints |
-| `scope` | 13 | 変更対象（path/action/detail/before-after/api/schema/config/dep） / 非変更範囲（item/why） / 影響範囲（component/nature/response） |
-| `testUnit` | 4 | Normal / Error / Boundary / Invariant |
-| `testIntegration` | 4 | Integration point / Verification / Prerequisites / Related tickets |
-| `testExceptions` | 3 | Item / Reason / Alternative verification |
-| `instrumentation` | 4 | Logging / Metrics / Error tracking / Health check |
-| `notes` | 5 | Implementation steps / Risks / Caveats / Open items / Future improvements |
-| `acceptanceCriteria` | 3 | Happy path / Error case / Edge case |
-
-各フィールドは `update-ticket.js` で更新する。配列フィールド（`scope`, `testUnit`, `testIntegration`, `testExceptions`, `acceptanceCriteria`）は要素単位でマーカーを置換し、文字列フィールド（`invariants`, `background`, `instrumentation`, `notes`）はマーカー行ごとに置換する。
-
-```bash
-# 例: 文字列フィールドの更新
-echo '{"invariants":"- 【正常成立条件】入力値は schema 検証を通過すること\n- 【異常永不変条件】エラー時も DB 整合性は保たれる"}', | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
-
-# 例: 配列フィールドの更新
-echo '{"testUnit":["UT: [正常系] 有効な入力で正しい結果が返ること","UT: [異常系] 無効な入力でエラーが返ること"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-**マーカーが1つも残らなくなるまでこの作業を繰り返す。**
-
-### Step 5: 検証 + 仕様の具体化
-
-#### 5a: 密度検証（check-field-density.js）
-
-全マーカーが置換されたことをプログラム的に検証する：
-
-```bash
-node ".claude/scripts/tickets/check-field-density.js" "Tickets.json" "$ARGUMENTS"
-if [ $? -ne 0 ]; then
-  echo "エラー: 未記入の [::TEMPLATE-STUB::] マーカーが残っています。AI による内容記入が不完全です。"
-  echo "check-field-density.js の出力を確認し、残存マーカーを全て置換してください。"
-  exit 1
-fi
-```
-
-出力の `density.overallRatio` が 1.0 になるまで（全マーカーが置換されるまで）Step 4c に戻って繰り返す。
-
-#### 5b: Universal Testing Rules に基づくテスト計画の具体化
+以下のとおり、TDD は絶対的義務である。このルールが Step 5b で testUnit / testIntegration / testExceptions のスタブを埋める際の法律となる。Step 5 の調査中は常に Universal Testing Rules を遵守するための思考を行わなければならない。
 
 **Universal Testing Rules**
 
@@ -214,21 +155,68 @@ Write all code under the following non-negotiable rules:
 
 `UT:` と `IT:` は自動テストコードであり、手動テストではない。両者を合わせて全実装コードの正当性を検証可能にしなければならない。`testExceptions` はその補完であり代替ではない。
 
-**「設計コンテキスト」ブロックについて**: dump-ticket-graph-commands.js と dump-node-context-to-spec.js によって Step 6 で自動追記される4セクションを意識して spec を設計する。
+### Step 5: 調査 + テンプレート記入
 
-Test Plan 具体化後、JSON フィールドに反映:
+#### 5a: 設計及びソースコード調査
+
+テンプレートで定義された各フィールドの要求事項に基づいて調査方法を選択する。
+
+- **pipelineAvailable が true**: show-ticket-context.js の出力情報と query.js の使用法によって得られる関連グラフノード情報を活用した調査を行う。出力内の「Related RFC graph NODE-IDs to check」にある全 NODE-ID を「Usage of query.js」に提示されるスクリプト実行コマンドにより参照し、全ての設計情報を得た後に具体的なソースコード調査を開始する。
+- **pipelineAvailable が false**: スポット調査（事前のユーザとの会話に加え、直接ソースコードを grep / read して情報収集）
+
+#### 5b: テンプレートマーカーの置換
+
+調査結果に基づき、11フィールドの全 `[::TEMPLATE-STUB::<field-name>::]` マーカーを実際の内容で置換する。
+
+**品質基準（厳守）**: 以下で書き込む内容は、Step 1 の show-ticket-context.js 出力や Step 2 の ensure-ticket.js 出力よりも**大幅に具体的**で**大幅に詳細**で**物的証拠に基づき**、**高密度情報**でなければならない。各項目の文字数は大幅に増加する。簡素なプレースホルダーは「横着」とみなす。型シグネチャ、ファイルパス、データ構造、エラー種類を具体的に列挙すること。
+
+**Phase 1 — テストファースト（TDD）**: Universal Testing Rules（Step 4 に提示済み）に従い、まず `testUnit`, `testIntegration`, `testExceptions` の全マーカーを置換する。テスト計画が固まるまで他のフィールドに着手してはならない。
+
+**Phase 2 — 残り全フィールド**: `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria` の全残存マーカーを置換する。
+
+各フィールドの型とマーカー構成は以下の通り：
+
+| フィールド | 型 | マーカー数 | 各マーカーの意味 |
+|-----------|----|-----------|----------------|
+| `invariants` | string | 4 | 正常成立条件 / 異常永不変条件 / 内部状態不変条件 / 境界不変条件 |
+| `background` | string | 4 | Goal / Purpose / Motivation / Constraints |
+| `scope` | array | 13 | 変更対象（path/action/detail/before-after/api/schema/config/dep） / 非変更範囲（item/why） / 影響範囲（component/nature/response） |
+| `testUnit` | array | 4 | Normal / Error / Boundary / Invariant |
+| `testIntegration` | array | 4 | Integration point / Verification / Prerequisites / Related tickets |
+| `testExceptions` | array | 3 | Item / Reason / Alternative verification |
+| `instrumentation` | string | 4 | Logging / Metrics / Error tracking / Health check |
+| `notes` | string | 5 | Implementation steps / Risks / Caveats / Open items / Future improvements |
+| `acceptanceCriteria` | array | 3 | Happy path / Error case / Edge case |
+| `investigation` | string | 1 | コード調査で得た証拠一式 |
+| `boyScoutPlan` | string | 1 | 翻訳可能性改善計画 |
+
+**string 型**のフィールドはマーカー行ごとに文字列全体を置換し、**array 型**のフィールドは要素単位でマーカーを置換する：
 
 ```bash
-echo '{"scope":["範囲..."],"testUnit":["UT: ..."],"testIntegration":["IT: ..."],"testExceptions":["理由: ..."]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+# 例: string 型フィールドの更新
+echo '{"invariants":"- 【正常成立条件】入力値は schema 検証を通過すること\n- 【異常永不変条件】エラー時も DB 整合性は保たれる"}', | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+
+# 例: array 型フィールドの更新
+echo '{"testUnit":["UT: [正常系] 有効な入力で正しい結果が返ること","UT: [異常系] 無効な入力でエラーが返ること"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
+
+**残存マーカーの確認とループ**: 1回以上の置換を行ったら以下を実行する：
+
+```bash
+node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENTS"
+```
+
+未記入マーカーがある限り（exit 1）本 Step 5b に戻って置換を続ける。全マーカーが置換された（exit 0）時点で Step 6 へ進む。
 
 ### Step 6: 設計コンテキストの自動書き起こし + チケットフィールド転記 + ステータス更新
 
-`show-ticket-context.js --write-spec` を実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。グラフ情報（ノード詳細・エッジ関係性・ファイルパス）は `--write-spec` 出力に自動的に含まれる。
+**「設計コンテキスト」ブロックについて**: dump-ticket-graph-commands.js と dump-node-context-to-spec.js によって本 Step で自動追記される4セクションを意識して spec を設計する。
+
+`show-ticket-context.js --for-spec` を実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。グラフ情報（ノード詳細・エッジ関係性・ファイルパス）は `--for-spec` 出力に自動的に含まれる。
 
 ```bash
 node .claude/scripts/tickets/show-ticket-context.js \
-  --ticket-key="$ARGUMENTS" --write-spec > "（Spec-File のパス）"
+  --ticket-key="$ARGUMENTS" --for-spec > "（Spec-File のパス）"
 ```
 
 ```bash
