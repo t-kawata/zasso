@@ -1,4 +1,4 @@
-.PHONY: list-tickets list-active-tickets build push push-branch
+.PHONY: list-tickets list-active-tickets build test push push-branch
 
 list-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
@@ -8,6 +8,9 @@ list-active-tickets:
 
 build:
 	cargo build --release
+
+test:
+	cargo test
 
 # ═══════════════════════════════════════════════
 #  commit / push（親 Makefile へ透過委譲）

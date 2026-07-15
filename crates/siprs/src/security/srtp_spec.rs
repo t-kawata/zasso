@@ -1,5 +1,6 @@
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
+// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
 // ============================================================================
 // "Node" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.
 //

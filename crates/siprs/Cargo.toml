@@ -1,0 +1,11 @@
+[package]
+name = "siprs"
+version = "0.1.0"
+description = "Safe asynchronous SIP voice communication via PJSUA for Rust"
+authors = ["Toshimi Kawata"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# 本チケットでは依存 crate を追加しない（後続チケットで段階的に導入）

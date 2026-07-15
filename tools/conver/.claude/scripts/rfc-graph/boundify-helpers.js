@@ -475,6 +475,15 @@ const NODE_DEFINITION_EN_TEXT =
 const HEADER_SEPARATOR =
   '============================================================================';
 
+/**
+ * ヘッダー削除禁止警告文（全ファイル共通・英語）
+ * 「このコメントアウトは設計トレーサビリティの心臓部かつ情報の血管である。
+ *  絶対に削除・編集してはならない」という趣旨を1行で厳格に表現する。
+ */
+const HEADER_WARNING_EN_TEXT = [
+  '!!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!',
+];
+
 // ============================================================
 // 相対パス計算 (resolveHeaderPaths)
 // PX-30: 絶対仕様に基づく相対パス計算
@@ -559,6 +568,12 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
   // 開き区切り線
   lines.push(L + ' ' + HEADER_SEPARATOR);
   lines.push(L + ' Initial Design Artifact — RFC-driven Implementation');
+
+  // 削除禁止警告（設計トレーサビリティの心臓部）
+  for (let wi = 0; wi < HEADER_WARNING_EN_TEXT.length; wi++) {
+    lines.push(L + ' ' + HEADER_WARNING_EN_TEXT[wi]);
+  }
+
   lines.push(L + ' ' + HEADER_SEPARATOR);
 
   // Node 定義
@@ -630,6 +645,7 @@ module.exports = {
   COMMENT_SYNTAX,
   NODE_DEFINITION_EN_TEXT,
   HEADER_SEPARATOR,
+  HEADER_WARNING_EN_TEXT,
   DECLARATION_STUB_TABLE,
   DIRECTIONAL_EDGE_TYPES,
   LANGUAGE_EXTENSIONS,
