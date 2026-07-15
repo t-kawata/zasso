@@ -31,6 +31,7 @@ const FIELD_EXPECTED = {
   testExceptions: 3,
   instrumentation: 4,
   notes: 5,
+  acceptanceCriteria: 3,
 };
 
 function main() {

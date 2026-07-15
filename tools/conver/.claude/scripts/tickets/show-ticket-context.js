@@ -355,6 +355,16 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
     lines.push('');
   }
 
+  // Acceptance Criteria
+  if (ticket.acceptanceCriteria && ticket.acceptanceCriteria.length > 0) {
+    lines.push('## Acceptance Criteria');
+    lines.push('');
+    for (const item of ticket.acceptanceCriteria) {
+      lines.push(`- ${item}`);
+    }
+    lines.push('');
+  }
+
   // Implementation Target Files
   if (ticket.default_files && ticket.default_files.length > 0) {
     lines.push('## Implementation Target Files');

@@ -385,6 +385,7 @@ AI がチケットを登録する際、**簡素で短い記述は「横着」と
 | `scope` | **各項目を型シグネチャ付きで列挙** | 828文字 — ファイル名＋処理内容＋種別を1項目ずつ具体的に |
 | `notes` | **複数セクション構成、500文字以上** | 1342文字 — 実装サマリー・テスト結果・翻訳可能性・リスクを構造化 |
 | `relatedTicketIds` | **依存方向と理由を明記** | 251文字 — 「P17-1 (依存: …), P19-1 (被依存: …)」形式 |
+| `acceptanceCriteria` | **各条件を1行で完結に記述** | Happy path / Error case / Edge case を各1行、チケット単位で3〜5項目 |
 
 ### Universal Testing Rules
 
@@ -453,6 +454,11 @@ Write all code under the following non-negotiable rules:
       "IT: 並行接続10セッション下での認証フロー完全性確認"
     ],
     "testExceptions": ["SecretKey のメモリゼロクリア（mlock/mprotect）はカーネル依存のためユニットテスト不可。CI の integration test で valgrind 確認。"],
+    "acceptanceCriteria": [
+      "署名・検証・リフレッシュの全APIがエラーなく動作する",
+      "不正な署名・改ざんペイロード・期限切れの全異常系で適切なエラーを返す",
+      "空ペイロード・最大長ペイロード（65535バイト）の境界値で破綻しない"
+    ],
     "referenceSection": "RFC-ROOT.md (§3.1 認証トークン形式, §3.2 鍵管理)",
     "relatedTicketIds": "P0-2 (依存: エラー型 CryptoError の定義), PX-YY (Ed448ライブラリラッパー, 先行実装必須), P0-4 (被依存: Session管理が本チケットの Token を入力として使用)",
     "notes": "PrivateKey のシリアライズは PKCS#8 v2 形式、PublicKey のシリアライズは SPKI 形式に従う。定数時間比較には subtle::ConstantTimeEq を使用すること。"

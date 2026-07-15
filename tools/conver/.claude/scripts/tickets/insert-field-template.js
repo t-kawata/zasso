@@ -2,9 +2,9 @@
 /**
  * insert-field-template.js <Tickets.json path> <ticket-key>
  *
- * /make-ticket Step 3 開始時に AI が実行する。対象チケットの 8 フィールド
+ * /make-ticket Step 3 開始時に AI が実行する。対象チケットの 9 フィールド
  * （invariants, background, scope, testUnit, testIntegration,
- *  testExceptions, instrumentation, notes）にテンプレートをマージ挿入する。
+ *  testExceptions, instrumentation, notes, acceptanceCriteria）にテンプレートをマージ挿入する。
  *
  * 全 [::TEMPLATE-STUB::] マーカーが既に揃っているフィールドのみスキップ。
  * それ以外のフィールドは既存コンテンツを保持した上で不足マーカーを追記する。
@@ -28,7 +28,7 @@ const { execFileSync } = require("child_process");
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-// ---- 8フィールドのテンプレート定義 ----
+// ---- 9フィールドのテンプレート定義 ----
 
 const TEMPLATES = {
   invariants:
@@ -66,6 +66,12 @@ const TEMPLATES = {
 
   notes:
     "- [Implementation steps] [::TEMPLATE-STUB::notes-steps::]\n- [Risks] [::TEMPLATE-STUB::notes-risks::]\n- [Caveats] [::TEMPLATE-STUB::notes-caveats::]\n- [Open items] [::TEMPLATE-STUB::notes-open::]\n- [Future improvements] [::TEMPLATE-STUB::notes-future::]",
+
+  acceptanceCriteria: [
+    "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - [::TEMPLATE-STUB::acceptance-happy::]",
+    "**[Error case] — Describe an error scenario the feature must handle:**\n  - [::TEMPLATE-STUB::acceptance-error::]",
+    "**[Edge case] — Describe any boundary or exception to verify:**\n  - [::TEMPLATE-STUB::acceptance-edge::]",
+  ],
 };
 
 /**
@@ -284,7 +290,7 @@ function main() {
         ok: true,
         ticketKey,
         updated: [],
-        note: "All 8 fields already contain templates or data. No changes made.",
+        note: "All 9 fields already contain templates or data. No changes made.",
       }),
     );
     process.exit(EXIT_SUCCESS);

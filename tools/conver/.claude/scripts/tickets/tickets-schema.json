@@ -109,7 +109,8 @@
             }
           }
         },
-        "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } }
+        "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } },
+        "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" }
       },
       "additionalProperties": true
     },

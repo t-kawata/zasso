@@ -68,6 +68,7 @@ try {
       testUnit: ['[::TEMPLATE-STUB::testunit-normal::]'],
       testIntegration: ['[::TEMPLATE-STUB::testintegration-point::]'],
       testExceptions: ['[::TEMPLATE-STUB::exception-item::]'],
+      acceptanceCriteria: ['[::TEMPLATE-STUB::acceptance-happy::]'],
       instrumentation: '[::TEMPLATE-STUB::instrumentation-log::]',
       notes: '[::TEMPLATE-STUB::notes-steps::]',
     }] }]);
@@ -93,6 +94,7 @@ try {
       testUnit: ['UT: 正常系', 'UT: 異常系', 'UT: 境界値', 'UT: 不変条件'],
       testIntegration: ['IT: 結合点', 'IT: 検証内容', 'IT: 前提条件', 'IT: 関連チケット'],
       testExceptions: ['項目X', '理由: 非決定性', '代替: 手動確認'],
+      acceptanceCriteria: ['AC happy', 'AC error', 'AC edge'],
       instrumentation: '- ログ: info\n- メトリクス: counter',
       notes: '- 手順1\n- リスクなし\n- 注意: なし\n- 未確定: なし\n- 将来: 改善',
     }] }]);
@@ -116,6 +118,7 @@ try {
       testUnit: ['UT: [正常系] OK', 'UT: [異常系] OK', 'UT: [境界値] OK', 'UT: [不変条件] OK'],
       testIntegration: ['IT: [結合点] OK', 'IT: [検証内容] OK', 'IT: [前提条件] OK', 'IT: [関連チケット] OK'],
       testExceptions: ['項目', '理由', '代替手段'],
+      acceptanceCriteria: ['AC happy', 'AC error', 'AC edge'],
       instrumentation: '- ログOK\n- メトリクスOK',
       notes: '- 手順OK\n- リスクOK\n- 注意OK\n- 未確定OK\n- 将来OK',
     }] }]);
@@ -169,6 +172,8 @@ try {
       testIntegration: ['IT: 結合点', 'IT: 検証内容', 'IT: 前提条件', 'IT: 関連チケット'],
       // testExceptions: 3 expected, 3 filled → 1.0
       testExceptions: ['項目', '理由', '代替手段'],
+      // acceptanceCriteria: 3 expected, 3 filled → 1.0
+      acceptanceCriteria: ['AC happy', 'AC error', 'AC edge'],
       // instrumentation: 4 expected, 3 filled (1 stub) → ratio 0.75
       instrumentation: '- 【ログ出力】OK\n- 【メトリクス】OK\n- 【エラー追跡】[::TEMPLATE-STUB::instrumentation-errors::]\n- 【正常動作確認】OK',
       // notes: 5 expected, 4 filled (1 stub) → ratio 0.8
@@ -185,7 +190,7 @@ try {
     assertEq(f.testExceptions.ratio, 1, 'testExceptions ratio 1.0');
     assertEq(f.instrumentation.ratio, 0.75, 'instrumentation ratio 0.75 (3/4)');
     assertEq(f.notes.ratio, 0.8, 'notes ratio 0.8 (4/5)');
-    assert(stdout.density.total.expected === 41, 'total expected = 41');
+    assert(stdout.density.total.expected === 44, 'total expected = 44');
   }
 
 } finally {

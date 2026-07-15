@@ -64,6 +64,11 @@ function writeFieldsToSpec(specPath, ticket) {
     fields.push({ heading: '## Scope', text: items });
   }
 
+  if (ticket.acceptanceCriteria && ticket.acceptanceCriteria.length > 0) {
+    const items = ticket.acceptanceCriteria.map(a => `- ${a}`).join('\n');
+    fields.push({ heading: '## Acceptance Criteria', text: items });
+  }
+
   if (ticket.default_files && ticket.default_files.length > 0) {
     const items = ticket.default_files.map(f => `- \`${f}\``).join('\n');
     fields.push({ heading: '## Implementation Target Files', text: items });

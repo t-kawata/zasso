@@ -19,6 +19,7 @@
  *   --test-integration='["..."]' テスト計画: 結合テスト IT:（JSON 配列）
  *   --test-exceptions='["..."]'  テスト計画: テスト不可能な項目（JSON 配列）
  *   --default-files='["..."]'  実装対象ファイル（JSON 配列）
+ *   --acceptance-criteria='["..."]'  完了条件（JSON 配列）
  *   --notes="..."              補足情報（文字列）
  *
  * CLI: ensure-ticket.js --ticket-key=<PX-{id}> --title="..." [options] [--tickets=<Tickets.json>]
@@ -68,6 +69,7 @@ function parseArgs(testArgs) {
   let testIntegration = null;
   let testExceptions = null;
   let default_files = null;
+  let acceptanceCriteria = null;
   let notes = '';
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
@@ -88,6 +90,8 @@ function parseArgs(testArgs) {
       testExceptions = JSON.parse(arg.slice('--test-exceptions='.length));
     } else if (arg.startsWith('--default-files=')) {
       default_files = JSON.parse(arg.slice('--default-files='.length));
+    } else if (arg.startsWith('--acceptance-criteria=')) {
+      acceptanceCriteria = JSON.parse(arg.slice('--acceptance-criteria='.length));
     } else if (arg.startsWith('--notes=')) {
       notes = arg.slice('--notes='.length);
     }
@@ -97,11 +101,11 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, notes };
+  return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, notes };
 }
 
 function main() {
-  const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, notes } = parseArgs();
+  const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, notes } = parseArgs();
 
   if (!ticketKey) {
     console.error('Error: --ticket-key は必須です。');
@@ -131,6 +135,7 @@ function main() {
     if (testIntegration) ticketData.testIntegration = testIntegration;
     if (testExceptions) ticketData.testExceptions = testExceptions;
     if (default_files) ticketData.default_files = default_files;
+    if (acceptanceCriteria) ticketData.acceptanceCriteria = acceptanceCriteria;
     if (notes) ticketData.notes = notes;
     const input = JSON.stringify(ticketData);
     const stdout = execFileSync(process.execPath, [addTicketScript, ticketsPath, 'PX'], {
