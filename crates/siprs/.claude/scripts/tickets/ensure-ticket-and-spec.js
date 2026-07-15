@@ -83,7 +83,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // Step 1: create-spec.js で spec スケルトンを生成
+  // Step 1: create-spec.js で spec スケルトンを生成（新しい命名規則）
   const createSpecScript = path.join(__dirname, 'create-spec.js');
   if (!fs.existsSync(createSpecScript)) {
     console.error('Error: create-spec.js が見つかりません。');
@@ -91,7 +91,7 @@ function main() {
   }
   let specResult;
   try {
-    const stdout = execFileSync(process.execPath, [createSpecScript, '', title], {
+    const stdout = execFileSync(process.execPath, [createSpecScript, ticketKey, title, 'draft', `--tickets=${ticketsPath}`], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });

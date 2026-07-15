@@ -28,6 +28,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { resolveTicketSpecPath } = require('../lib/tickets');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -47,14 +48,10 @@ function extractTicketId(ticketKey) {
   return match ? parseInt(match[1], 10) : null;
 }
 
-/** チケットキーとタイトルから spec ファイルのパスを導出する */
-function resolveSpecPath(ticketKey, title) {
-  const ticketId = extractTicketId(ticketKey);
-  if (!ticketId) return null;
-  const slug = generateSlug(title);
-  const prefix = String(ticketId).padStart(4, '0');
-  const filename = slug ? `${prefix}-${slug}.md` : `${prefix}-untitled.md`;
-  return path.resolve('tickets', 'specs', filename);
+/** チケットキーから spec ファイルのパスを導出する（新しい命名規則） */
+function resolveSpecPath(ticketKey, ticketsPath) {
+  const ticketsDir = path.dirname(ticketsPath);
+  return resolveTicketSpecPath(ticketsDir, ticketKey);
 }
 
 /** コマンドライン引数をパースする */
@@ -117,7 +114,7 @@ function main() {
   }
 
   // spec パスを導出（ファイルは作成しない）
-  const specPath = resolveSpecPath(ticketKey, title);
+  const specPath = resolveSpecPath(ticketKey, ticketsPath);
 
   // add-ticket.js で PX フェーズにチケットを追加
   const addTicketScript = path.join(__dirname, 'add-ticket.js');

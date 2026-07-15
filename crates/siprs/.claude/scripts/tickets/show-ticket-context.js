@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveTicketSpecPath } = require('../lib/tickets');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -603,9 +604,12 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     if (rfcPath) lines.push(`| RFC | \`${makeRelative(rfcPath, ticketsDir)}\` | ${rfcExists} |`);
     if (graphPath) lines.push(`| Graph | \`${makeRelative(graphPath, ticketsDir)}\` | ${graphExists} |`);
     if (dirsTreePath) lines.push(`| Dirs-Tree | \`${makeRelative(dirsTreePath, ticketsDir)}\` | ${dirsExists} |`);
-    const specPath = ticket.specPath ? path.resolve(ticketsDir, ticket.specPath) : '';
+    // spec パス: チケットに specPath があればそれを優先、なければ新しい命名規則で確定的に計算
+    const specPath = ticket.specPath
+      ? path.resolve(ticketsDir, ticket.specPath)
+      : resolveTicketSpecPath(ticketsDir, ticketKey);
     const specExists = specPath ? fs.existsSync(specPath) : false;
-    if (specPath) lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
+    lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
     lines.push(`| Pipeline Available | **${pipelineAvailable}** | - |`);
     lines.push('');
   }

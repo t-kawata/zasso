@@ -26,34 +26,69 @@
             "N0008",
             "N0009"
           ],
-          "background": "フェーズP0「要件定義・スコープ確定」は本crate（siprs）の全体的な設計の方向性を定義する。N0001（§1目的）はcrateの存在意義を定め、N0004（§2非目的）は範囲外を明確化することでスコープクリープを防止する。N0007（§4準拠要件）とN0008（§4.1バージョニングポリシー）は技術的制約とバージョニング契約を固定し、N0009（§5機能要求の確定化）は実装すべき15項目のnormative scopeを定義する。N0002（§1a M20実装優先度マップ）とN0003（§1a設計判断対応表）はM20追補全体の実装優先度と設計判断一覧を提供する。これらは全てコード化の前提となる設計情報であり、単一チケットで一貫して定義することでcrate全体の一貫性を担保する。",
+          "background": "フェーズP0「要件定義・スコープ確定」は本crate（siprs）の全体的な設計の方向性を定義する。N0001（§1目的）はcrateの存在意義を定め、N0004（§2非目的）は範囲外を明確化することでスコープクリープを防止する。N0007（§4準拠要件）とN0008（§4.1バージョニングポリシー）は技術的制約とバージョニング契約を固定し、N0009（§5機能要求の確定化）は実装すべき15項目のnormative scopeを定義する。N0002（§1a M20実装優先度マップ）とN0003（§1a設計判断対応表）はM20追補全体の実装優先度と設計判断一覧を提供する。これらは全てコード化の前提となる設計情報であり、単一チケットで一貫して定義することでcrate全体の一貫性を担保する。\n\n### Goal\nsiprs crate のビルド可能な最小構成（Cargo.toml + lib.rs + versioning_policy.rs）を確立し、RFC §1〜§5 の設計判断をコードとして表現すること。\n\n### Purpose\nsiprs crate の存在意義・スコープ・技術的制約をコード化し、全後続チケットが依拠する基盤を提供する。Cargo.toml（MSRV/edition）と versioning_policy.rs（バージョニング契約/準拠要件）が crate 利用者と開発者に対する唯一の信頼できる情報源（single source of truth）となる。\n\n### Motivation\nRFC-ROOT.md として設計文書は存在するが、コード成果物（Cargo.toml, lib.rs, versioning_policy.rs）が未作成。後続チケット（P0-2 ClientConfig、P0-3 並行性モデル等）の前提として、まずビルド可能な crate 最小構成を確立する必要がある。\n\n### Constraints\n- MSRV 1.95 未満の Rust ツールチェインではビルドを保証しない\n- PJSIP 2.17 固定（minor version 変更は別途評価）\n- tokio 唯一の非同期ランタイム（async-std/smol 等の代替は非対応）\n- 対象 OS は Windows x86_64、macOS arm64、Ubuntu x86_64 の3系統\n- 外部依存 crate なしでこのチケットを完了する（Cargo.toml に [dependencies] は空）",
           "scope": [
             "RFC-ROOT.md の §1〜§5 に対応する設計情報の記述完了確認",
             "src/api/versioning_policy.rs: バージョニングポリシー定数・コメントの実装（N0008）",
-            "Cargo.toml: MSRV 1.95 設定、edition 2021 確認",
-            "CHANGELOG.md: 0.x フェーズ運用ルールの記載"
+            "crates/siprs/Cargo.toml: [新規作成] name=siprs, version=0.1.0, edition=2021, rust-version=1.95",
+            "CHANGELOG.md: [新規作成] 0.x フェーズ運用ルールの記載",
+            "**Scope of changes (describe each change comprehensively):**\n  - [crates/siprs/Cargo.toml]\n  - [Action: add]\n  - [What: crate マニフェスト新規作成]\n  - [Before: 存在せず → After: Cargo.toml が配置され crates.io ワークスペースに認識される]\n  - [API contract: なし]\n  - [Data schema: なし]\n  - [Config: ワークスペースルートへの member 登録が必要]\n  - [Dep: なし（このフェーズでは依存 crate を追加しない）]\n\n  - [src/api/versioning_policy.rs]\n  - [Action: add]\n  - [What: バージョニングポリシー定数・純関数モジュールの新規作成]\n  - [Before: 存在せず → After: crate_version()/msrv()/supported_os_list()/pjsip_version() 等を提供]\n  - [API contract: 新規公開API（pub fn）]\n  - [Data schema: なし]\n  - [Config: なし]\n  - [Dep: なし]\n\n  - [src/api/mod.rs]\n  - [Action: add]\n  - [What: api サブモジュールルートファイル新規作成]\n  - [Before: 存在せず → After: pub mod versioning_policy; を宣言]\n  - [API contract: 新規モジュールパス crate::api::versioning_policy]\n\n  - [CHANGELOG.md]\n  - [Action: add]\n  - [What: チェンジログ新規作成]\n  - [Before: 存在せず → After: CHANGELOG.md が配置され 0.x 運用ルールを明示]",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [src/lib.rs の完全実装] → [別チケット（P4-10 Layer1）で実装。本チケットでは crate ルートの最小限宣言のみ]\n  - [PJSIP バインディング実装] → [PJSIP 2.17 固定の定数定義のみ。実際のバインディングコードは後続フェーズ]\n  - [tokio Runtime の設定実装] → [本チケットは tokio 唯一宣言のみ。Runtime 生成は P0-3]\n  - [crate 内部のモジュール構成] → [全体モジュール構成は P0-3 で実装]",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [zasso ワークスペースルート Cargo.toml]\n  - [Nature of impact: ワークスペースメンバー追加が必要]\n  - [Corresponding change: Y — workspace.dependencies 設定と members 配列への siprs 追加]\n\n  - [src-tauri/Cargo.toml]\n  - [Nature of impact: 将来的に siprs を依存関係として追加予定]\n  - [Corresponding change: N（本チケットのスコープ外）]\n\n  - [全後続チケットの Cargo.toml 依存]\n  - [Nature of impact: 本チケットでCargo.tomlが workspace member 化されるため後続の cargo add が有効になる]\n  - [Corresponding change: Y（間接的）— 後続チケットでは dependencies 追加が可能になる]"
           ],
           "testUnit": [
-            "UT: バージョニングポリシー定数の値の検証（crate_version/msrv等）"
+            "UT: [Normal] crate_version() が Cargo.toml の package.version と一致することを文字列比較で検証",
+            "UT: [Normal] msrv() が期待値 1.95 を返すこと",
+            "UT: [Normal] versioning_policy_description() が空文字列ではなく、0.x フェーズの説明を含むこと",
+            "UT: [Normal] semver_breaking_change_allowance() が 0.x フェーズでは true、1.0 以降では false を返すこと",
+            "UT: [Normal] supported_os_list() が [windows-x86_64, macos-arm64, ubuntu-x86_64] を含むこと",
+            "UT: [Normal] pjsip_version() が固定バージョン \"2.17\" を返すこと",
+            "UT: [Normal] non_exhaustive_sip_event_payload() が true を返すこと",
+            "UT: [Boundary] msrv() の返値が \">=1.95\" 形式の semver 範囲式としてパース可能であること",
+            "UT: [Invariant] 全公開定数が Copy + Send + Sync を満たすこと（定数値のみのモジュールであること）",
+            "UT: [Invariant] 全関数が純粋（引数なし、副作用なし、常に同一値を返す）であること"
           ],
-          "testIntegration": [],
+          "testIntegration": [
+            "IT: [Integration point] Cargo.toml package.version と versioning_policy::crate_version() の一致確認",
+            "IT: [Verification] ビルドスクリプト（build.rs）が MSRV 1.95 未満の Rust ツールチェーンで適切にエラーを報告するか",
+            "IT: [Prerequisites] Cargo.toml の package.edition が \"2021\"、package.rust-version が \"1.95\" に設定されていること",
+            "IT: [Related tickets] P0-2 (ClientConfig), P0-3 (全体構成・並行性モデル) — 本チケットのバージョニングポリシー定数が依存先で参照される"
+          ],
           "testExceptions": [
-            "N0001/N0002/N0003/N0004/N0007/N0009 は設計文書上の定義であり、自動テストによる検証は不可能。代わりにコードレビューでRFCと実装の整合性を確認する。"
+            "Item: N0001/N0002/N0003/N0004/N0007/N0009 — RFC §1〜§5 の設計文書上の定義",
+            "Reason: 自動テストによる検証不可能。コンパイル可能なコード成果物ではなく設計判断の文書であるため。",
+            "Alternative verification: コードレビューで RFC と実装の整合性を確認する（/review-ticket の工程で実施）。",
+            "Item: Cargo.toml の edition 設定（\"2021\"）",
+            "Reason: edition 値はパースしても意味のない静的文字列であり、テストでアサートする価値がない。",
+            "Alternative verification: cargo check で edition 準拠のコンパイルが通ることのみ確認。",
+            "Item: MSRV 1.95 未満のツールチェインでの動作保証",
+            "Reason: CI 環境で旧ツールチェインを用意してテストするコストに見合わない（MSRV 未満での動作は未定義）。",
+            "Alternative verification: Cargo.toml の rust-version フィールドにより cargo が自動警告する設計。"
           ],
           "acceptanceCriteria": [
-            "RFC §1〜§5 の全ての設計判断がコードに反映されている",
-            "Cargo.toml に MSRV 1.95 が設定されている",
-            "src/api/versioning_policy.rs が実装されコンパイルが通る"
+            "RFC §1〜§5 の全ての設計判断がコードに反映されている（コードレビューで確認済み）",
+            "Cargo.toml に MSRV 1.95 が設定され、cargo check が通る",
+            "src/api/versioning_policy.rs が実装され、全公開関数の UT が通過する",
+            "CHANGELOG.md が作成され、0.x フェーズ運用ルールが記載されている",
+            "**[Happy path]** cargo check + cargo test が何も警告なくパスする。versioning_policy モジュールの全関数が期待値を返す。",
+            "**[Error case]** 該当なし — versioning_policy.rs は純粋関数 + 定数のみであり、エラーパスが存在しない。",
+            "**[Edge case]** バージョン文字列のフォーマット: crate_version() が返す文字列が semver 互換（X.Y.Z）であること。msrv() が返す文字列が \"1.95\" 形式であること。"
           ],
           "referenceSection": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT (§1, §1a, §2, §4, §4.1, §5)",
           "relatedTicketIds": "[part_of] P6-1 (被依存元（依存元）: Tauri統合境界・backpressure・受信call・REFER・Layer2 State-Machine Tests実装), [references] P2-1 (参照先: NativeEvent→SipEventPayload 変換マッピングの完全実装), [references] P0-2 (参照先: ClientConfig 構造体完全定義とデフォルト実装), [references] P0-5 (参照先: ID設計・AccountConfig・TransportConfig データ型定義), [references] P4-4 (被依存元（依存元）: 既知の難所対策・panic policy・受け入れ基準実装), [depends_on] P0-2 (被依存元（依存元）: ClientConfig 構造体完全定義とデフォルト実装), [precedes] P0-2 (先行: ClientConfig 構造体完全定義とデフォルト実装), [precedes] P0-3 (先行: 全体モジュール構成・並行性モデル実装), [part_of] P4-10 (被依存元（依存元）: Layer1 Unit Tests・lib.rs雛形・SIPネットワーキング), [part_of] P4-10 (被依存元（依存元）: Layer1 Unit Tests・lib.rs雛形・SIPネットワーキング), [part_of] P4-10 (被依存元（依存元）: Layer1 Unit Tests・lib.rs雛形・SIPネットワーキング), [references] P4-5 (被依存元（依存元）: Crate分割方針・ライセンス・マルチインスタンス設計), [references] P4-5 (被依存元（依存元）: Crate分割方針・ライセンス・マルチインスタンス設計), [depends_on] P4-9 (被依存元（依存元）: 用語定義・SipEventPayload完全実装・runtime command serialization), [depends_on] P5-3 (被依存元（依存元）: Prebuilt Refresh Pipeline・semver運用方針・Crate分割設計判断)",
-          "notes": "本チケットはコード実装よりも設計文書の確認が主目的である。バージョニングポリシーの定数定義（MSRV, crate version）のみが実際のコード成果物となる。",
+          "notes": "本チケットはコード実装よりも設計文書の確認が主目的である。バージョニングポリシーの定数定義（MSRV, crate version）のみが実際のコード成果物となる。\n\n- [Implementation steps]\n  1. crates/siprs/Cargo.toml 新規作成（name=siprs, version=0.1.0, edition=2021, rust-version=1.95）\n  2. ワークスペースルート Cargo.toml の members に crates/siprs を追加\n  3. src/api/ ディレクトリ新規作成\n  4. src/api/versioning_policy.rs 実装（定数 + 純関数）\n  5. src/api/mod.rs 新規作成（pub mod versioning_policy;）\n  6. src/lib.rs 新規作成（mod api;）\n  7. CHANGELOG.md 新規作成\n  8. cargo check でコンパイル確認\n\n- [Risks]\n  - ワークスペースルート Cargo.toml に members = [\"crates/siprs\"] を追加する際、既存の workspace 設定との競合リスクが低い（src-tauri のみの単純構成）\n  - edition = \"2021\" は既存の zasso 全体と一致するため問題なし\n\n- [Caveats]\n  - src/ 下の既存 .rs ファイルは設計文書であり、crate のコンパイル対象からは除外する必要がある。Cargo.toml の default members に含めないこと。\n  - Cargo.toml の path 指定は crates/siprs/ を正しく指すこと\n\n- [Open items]\n  - PJSIP 2.17 の実際のバインディングコードは本チケットのスコープ外。本チケットでは定数 \"2.17\" を返す関数まで。\n  - versioning_policy.rs の正確なパブリックAPI設計は /start-ticket 時に精査\n\n- [Future improvements]\n  - 1.0 移行時に versioning_policy.rs を拡張し、semver 厳格準拠のロジックを追加\n  - バージョン境界テスト（MSRV 未満・以上）を CI で自動化",
           "default_files": [
             "src/api/versioning_policy.rs"
           ],
           "id": 1,
           "phaseId": 0,
-          "status": "todo"
+          "status": "made",
+          "invariants": "- 【正常成立条件】RFC §1〜§5 に記載された全設計判断が、コードのコメントまたは定数値として参照可能であること\n- 【正常成立条件】Cargo.toml の rust-version = 1.95 が crate の MSRV を正確に表現していること\n- 【正常成立条件】CHANGELOG.md が 0.x フェーズ運用ルールを記載していること\n- 【異常时不変条件】versioning_policy.rs はエラーを返さない（純粋関数＋定数のみであり、実行時パニック・エラーの可能性が存在しない）\n- 【異常时不変条件】Cargo.toml に誤った MSRV が設定されても crate の論理的正しさには影響しない（ビルド時に cargo が警告するのみ）\n- 【内部状態不変条件】versioning_policy.rs に可変状態（static mut、Mutex、Cell 等）を一切持たない\n- 【内部状態不変条件】全公開関数は引数なし・副作用なし・常に同一の戻り値を返す純粋関数である\n- 【境界不変条件】MSRV 1.95 は Rust ツールチェインのメジャー・マイナー境界を表し、パッチバージョン（1.95.x）は含意しない\n- 【境界不変条件】PJSIP 固定バージョン 2.17 の patch 更新（2.17.x）は互換性確認後に追従可能だが、minor 更新（2.18+）は別途評価を要する",
+          "instrumentation": "- [Logging] 本チケットの成果物（versioning_policy.rs）は定数・純関数のみのため、実行時ログ出力は発生しない。将来のログ基盤（tracing crate）導入は後続チケット（P0-3）で対応。\n- [Metrics] 本チケットではメトリクス出力不要。versioning_policy は静的データのみ。\n- [Error tracking] versioning_policy.rs はエラーを返さない設計のため、エラートラッキング対象外。\n- [Health check] crate の MSRV 準拠確認は cargo check のビルド成功をもって代用する。",
+          "investigation": "## 調査結果: P0-1 RFCスコープ・目的定義・準拠要件・バージョニング方針\n\n### 1. RFCノード調査結果\n\n#### N0001 (§1 目的)\n- crate の存在意義: RustからPJSUAを安全かつ非同期に利用しSIP音声通話機能を提供\n- 映像機能は明確に対象外\n- 実装ファイル: なし（設計定義のみ）\n- 依存関係: N0006 (§3 用語) に依存、N0145 (§51 結論) から参照\n\n#### N0002 (§1a M20実装優先度マップ)\n- P0〜P3 の15項目の実装優先度を定義\n- 設計判断 Q1:A〜Q14:A の対応表を含む\n- 実装ファイル: なし\n- 参照先: N0039 (NativeEvent変換基本方針)\n\n#### N0003 (§1a 設計判断対応表)\n- Q1:A〜Q14:A の14設計判断の一覧表\n- 実装ファイル: なし\n\n#### N0004 (§2 非目的)\n- 明確な非目的: SIPサーバ、PBX、独自RTP、録音ファイル、GUI、永続設定保存、通話課金、映像処理\n- §2.1 Tauri統合の責務境界を詳細に定義\n- RUST crate → Tauri IPC Channel の責務分離\n  - crate側: Rust公開API + tracingログ + serde (optional)\n  - 利用者側: SipEventPayload→DTO変換、AudioChunkPair転送、Instant→SystemTime変換\n\n#### N0007 (§4 準拠要件)\n- MSRV: Rust 1.95 以上\n- 非同期ランタイム: tokio 唯一\n- PJSIP: 2.17 固定。patch追従可、minorは要評価\n- 対象OS: Windows x86_64, macOS arm64, Ubuntu x86_64\n- ビルド戦略: プレビルド優先、欠損時ソースビルド\n\n#### N0008 (§4.1 バージョニングポリシー)\n- 0.x フェーズ: semver 非厳密、破壊的変更許容、CHANGELOG/Migration Guide 明示\n- 1.0+ フェーズ: semver 厳守\n  - MAJOR: 破壊的変更（enum variant削除、field削除、trait sig変更）\n  - MINOR: 後方互換追加（variant追加、field追加、trait追加）\n  - PATCH: バグ修正・リファクタリング\n- 例外: セキュリティ脆弱性修正はPATCH、動作変更は型互換維持ならPATCH\n- SipEventPayload は #[non_exhaustive] で拡張容易\n- 実装ファイル: src/api/versioning_policy.rs\n\n#### N0009 (§5 機能要求の確定化)\n- 15項目の normative scope を定義（複数アカウント、動的追加削除、Register/Unregister、UDP/TCP/TLS、ICE、PCMU/Opus codec、DTMF 3方式、イベントバス、音声配信、リサンプル、ミキシング、SipError統一API、Send+Sync）\n\n### 2. ソースコード実態調査\n- Cargo.toml: **存在しない** — siprs はまだ Rust crate として初期化されていない\n- src/api/versioning_policy.rs: **存在しない** — 新規作成が必要\n- CHANGELOG.md: **存在しない** — 新規作成が必要\n- src/lib.rs: **存在しない** — crate ルート未作成\n- src/ 以下は全ファイルが設計文書（RFC から自動生成された設計方針記述）であり、コンパイル可能な Rust コードではない\n\n### 3. 既存コードパターン\n- 全 src/ ファイルは .rs 拡張子だが Rust コードではなく、RFC セクションの該当部分を引用した設計文書\n- 実際の Rust crate としての Cargo.toml / lib.rs は存在せず、P0-1 の完了要件として作成が必要\n\n### 4. 発見事項\n- チケットの実装対象は versioning_policy.rs, Cargo.toml (MSRV), CHANGELOG.md の3点\n- Cargo.toml は workspace 構成（src-tauri/Cargo.toml が存在）内に新規作成が必要\n- edition 2021、MSRV 1.95、name = \"siprs\" で設定\n- versioning_policy.rs は定数・純関数のみのモジュールであり、外部依存不要",
+          "boyScoutPlan": "## 翻訳可能性改善計画\n\n本チケットのコード成果物は新規作成（versioning_policy.rs, Cargo.toml, CHANGELOG.md）が中心であり、既存コードの改修は発生しない。新規作成において以下の翻訳可能性を確保する：\n\n### versioning_policy.rs\n- **関数名は動詞句**: `crate_version()` / `msrv()` / `supported_os_list()` / `pjsip_version()` — 関数名を読めば「どのバージョン情報を返す関数か」が即座に理解できる\n- **定数名は UPPER_SNAKE_CASE + ドメイン接頭辞**: `SIPRS_VERSION` / `SIPRS_MSRV` / `PJSIP_VERSION` / `SUPPORTED_OS_TARGETS` — 名前空間で所属を明確に\n- **一関数一責務**: 一つの関数は一つのバージョン情報のみを返す。複合情報は構造体を別途定義\n- **ハードコード禁止**: 全ての値は名前付き定数として定義し、関数はその定数を返す\n- **コメントは「なぜ」を記述**: 0.x フェーズでは semver 非厳密とする のように運用ルールの背景を説明\n\n### スコープ外だが Boy Scout Rule 範囲\n- 既存 src/ 以下の設計文書ファイルは編集対象外（本チケットのスコープに含まれない）だが、`src/api/` ディレクトリを新規作成する過程でディレクトリ構成を一貫させる\n- 次チケット（P0-2 ClientConfig等）が読みやすいように `src/api/mod.rs` を新規作成し、pub mod versioning_policy; を宣言する",
+          "created_at": "2026-07-15",
+          "updated_at": "2026-07-15"
         },
         {
           "title": "ClientConfig 構造体完全定義とデフォルト実装",

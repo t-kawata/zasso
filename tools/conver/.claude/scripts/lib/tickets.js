@@ -133,6 +133,21 @@ function resolveSpecPath(specsDir, ticketId, slug) {
 }
 
 /**
+ * 新しい命名規則で spec ファイルの絶対パスを解決する。
+ *
+ * すべての経路（create-spec.js / ensure-ticket.js / show-ticket-context.js /
+ * dump-node-context-to-spec.js / dump-ticket-graph-commands.js / make-ticket.md）
+ * でこの関数を使用し、{ticketsDir}/specs/{ticketKey}.md に統一する。
+ *
+ * @param {string} ticketsDir - Tickets.json のディレクトリ（絶対パス）
+ * @param {string} ticketKey - チケットキー（例: "P0-1", "PX-5"）
+ * @returns {string} spec ファイルの絶対パス
+ */
+function resolveTicketSpecPath(ticketsDir, ticketKey) {
+  return path.resolve(ticketsDir, 'specs', ticketKey + '.md');
+}
+
+/**
  * 指定された ticket_id について全関連パスを解決する。
  * @param {number} ticketId
  * @param {string} [slug]
@@ -702,6 +717,7 @@ function createSpecFile(filePath, ticketId, title, slug, status) {
 
 module.exports = {
   CFG,
+  resolveTicketSpecPath,
   validateTicketId,
   formatTicketId,
   findNextTicketId,

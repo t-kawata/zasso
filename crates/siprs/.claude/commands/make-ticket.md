@@ -209,9 +209,12 @@ node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENT
 
 `show-ticket-context.js --for-spec` を実行し、Tickets.json の全フィールドを spec ファイルの先頭に書き込む。グラフ情報（ノード詳細・エッジ関係性・ファイルパス）は `--for-spec` 出力に自動的に含まれる。
 
+spec ファイルの出力先は **必ず `specs/$ARGUMENTS.md`** とする（`$ARGUMENTS` は `P0-1` 等のチケットキー）。これは手動変更せず、以下のコマンドをそのまま使用すること。
+
 ```bash
+mkdir -p specs && \
 node .claude/scripts/tickets/show-ticket-context.js \
-  --ticket-key="$ARGUMENTS" --for-spec > "（Spec-File のパス）"
+  --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
 ```bash
