@@ -85,20 +85,20 @@ describe("show-ticket-context — parseArgs", function () {
   it("--ticket-key のみ指定", function () {
     const r = parseArgs(["--ticket-key=P0-1"]);
     assert.strictEqual(r.ticketKey, "P0-1");
-    assert.strictEqual(r.writeSpec, false);
+    assert.strictEqual(r.forSpec, false);
   });
 
   it("--ticket-key + --tickets + --for-spec を指定", function () {
     const r = parseArgs(["--ticket-key=PX-53", "--tickets=/tmp/Tickets.json", "--for-spec"]);
     assert.strictEqual(r.ticketKey, "PX-53");
     assert.strictEqual(r.ticketsPath, "/tmp/Tickets.json");
-    assert.strictEqual(r.writeSpec, true);
+    assert.strictEqual(r.forSpec, true);
   });
 
   it("引数なし", function () {
     const r = parseArgs([]);
     assert.strictEqual(r.ticketKey, "");
-    assert.strictEqual(r.writeSpec, false);
+    assert.strictEqual(r.forSpec, false);
   });
 });
 
@@ -172,7 +172,7 @@ describe("show-ticket-context — buildTicketNotFoundMarkdown", function () {
 });
 
 // ---------------------------------------------------------------------------
-// buildTicketMarkdown — 通常モード (writeSpec=false)
+// buildTicketMarkdown — 通常モード (forSpec=false)
 // ---------------------------------------------------------------------------
 
 describe("show-ticket-context — buildTicketMarkdown (normal mode)", function () {
@@ -361,7 +361,7 @@ describe("show-ticket-context — buildTicketMarkdown (--for-spec mode)", functi
     assert.ok(out.includes("## Notes"));
   });
 
-  it("新規フィールドも出力される（writeSpec の有無で差がない）", function () {
+  it("新規フィールドも出力される（forSpec の有無で差がない）", function () {
     const out = wsMd(makeTicket({
       referenceSection: "RFC-ROOT (§1)",
       investigation: "Investigation content",

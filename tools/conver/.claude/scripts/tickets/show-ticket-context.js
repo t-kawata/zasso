@@ -26,14 +26,14 @@ function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
   let ticketKey = '';
-  let writeSpec = false;
+  let forSpec = false;
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
       ticketsPath = arg.slice('--tickets='.length);
     } else if (arg.startsWith('--ticket-key=')) {
       ticketKey = arg.slice('--ticket-key='.length);
     } else if (arg === '--for-spec') {
-      writeSpec = true;
+      forSpec = true;
     }
   }
   if (!ticketsPath) {
@@ -41,7 +41,7 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey, writeSpec };
+  return { ticketsPath, ticketKey, forSpec };
 }
 
 /** ticketKey が P{phaseId}-{ticketId} または PX-{id} 形式か検証する */
@@ -280,11 +280,39 @@ function buildTicketNotFoundMarkdown(ticketKey) {
 }
 
 /** チケット情報の Markdown を生成する */
-function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) {
+/**
+ * タイトルから slug（kebab-case）を生成する（ensure-ticket.js と同一ロジック）
+ */
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 80);
+}
+
+function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
   const lines = [];
 
+  // --for-spec モードでは YAML frontmatter を先頭に出力
+  if (forSpec) {
+    const slug = generateSlug(ticket.title || '');
+    lines.push('---');
+    // ticketKey から数値 ID を抽出（例: P0-1 → 1, PX-148 → 148）
+    const idMatch = ticketKey.match(/(\d+)$/);
+    const ticketId = idMatch ? parseInt(idMatch[1], 10) : (ticket.id || 0);
+    lines.push(`ticket_id: ${ticketId}`);
+    lines.push(`title: ${ticket.title || ''}`);
+    if (slug) lines.push(`slug: ${slug}`);
+    lines.push(`status: ${ticket.status || 'todo'}`);
+    if (ticket.created_at) lines.push(`created_at: ${ticket.created_at}`);
+    if (ticket.updated_at) lines.push(`updated_at: ${ticket.updated_at}`);
+    lines.push('---');
+    lines.push('');
+  }
+
   // --for-spec モードでは IMPORTANT バナーを出力しない
-  if (!writeSpec) {
+  if (!forSpec) {
     lines.push('> [!IMPORTANT]');
     lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
     lines.push('>');
@@ -292,7 +320,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
   }
 
   // --for-spec モードでは冒頭に Universal Testing Rules を前置する
-  if (writeSpec) {
+  if (forSpec) {
     lines.push('**Universal Testing Rules**');
     lines.push('');
     lines.push('Write all code under the following non-negotiable rules:');
@@ -317,8 +345,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
   }
 
   // H1: タイトル + ステータスバッジ
-  const statusBadge = ticket.status ? ` [${ticket.status}]` : '';
-  lines.push(`# ${ticketKey}: ${ticket.title}${statusBadge}`);
+  lines.push(`# ${ticketKey}: ${ticket.title}`);
   lines.push('');
 
   // RFC Reference
@@ -513,7 +540,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
   }
 
   // Pipeline Context（--for-spec モードでは出力しない）
-  if (!writeSpec) {
+  if (!forSpec) {
     lines.push('## Pipeline Context');
     lines.push('');
     lines.push('| Resource | Path | Exist |');
@@ -532,7 +559,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec) 
 }
 
 function main() {
-  const { ticketsPath, ticketKey, writeSpec } = parseArgs();
+  const { ticketsPath, ticketKey, forSpec } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.error('Error: --ticket-key は P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。');
@@ -554,7 +581,7 @@ function main() {
   }
 
   const ticketsDir = path.dirname(ticketsPath);
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, writeSpec);
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec);
   console.log(output);
   process.exit(EXIT_SUCCESS);
 }

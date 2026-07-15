@@ -291,6 +291,18 @@ function main() {
     }
   }
 
+  // created_at / updated_at を設定
+  // created_at は未設定の場合のみ、updated_at は常に現在日付
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (!ticket.created_at) {
+    updates.created_at = today;
+    updated.push("created_at");
+  }
+  if (ticket.updated_at !== today) {
+    updates.updated_at = today;
+    updated.push("updated_at");
+  }
+
   if (updated.length === 0) {
     console.log(
       JSON.stringify({

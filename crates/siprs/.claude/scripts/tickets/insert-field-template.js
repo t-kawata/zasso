@@ -2,9 +2,10 @@
 /**
  * insert-field-template.js <Tickets.json path> <ticket-key>
  *
- * /make-ticket Step 3 開始時に AI が実行する。対象チケットの 9 フィールド
+ * /make-ticket Step 3 開始時に AI が実行する。対象チケットの 11 フィールド
  * （invariants, background, scope, testUnit, testIntegration,
- *  testExceptions, instrumentation, notes, acceptanceCriteria）にテンプレートをマージ挿入する。
+ *  testExceptions, instrumentation, notes, acceptanceCriteria,
+ *  investigation, boyScoutPlan）にテンプレートをマージ挿入する。
  *
  * 全 [::TEMPLATE-STUB::] マーカーが既に揃っているフィールドのみスキップ。
  * それ以外のフィールドは既存コンテンツを保持した上で不足マーカーを追記する。
@@ -28,7 +29,7 @@ const { execFileSync } = require("child_process");
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-// ---- 9フィールドのテンプレート定義 ----
+// ---- 11フィールドのテンプレート定義 ----
 
 const TEMPLATES = {
   invariants:
@@ -72,6 +73,12 @@ const TEMPLATES = {
     "**[Error case] — Describe an error scenario the feature must handle:**\n  - [::TEMPLATE-STUB::acceptance-error::]",
     "**[Edge case] — Describe any boundary or exception to verify:**\n  - [::TEMPLATE-STUB::acceptance-edge::]",
   ],
+
+  investigation:
+    "- [::TEMPLATE-STUB::investigation::] Record all evidence gathered during code investigation — architecture, patterns, potential issues, specific file contents relevant to this ticket. Replace the stub with the actual investigation findings.",
+
+  boyScoutPlan:
+    "- [::TEMPLATE-STUB::boyscout-plan::] Describe the translatability improvements planned for the code touched by this ticket. Specify which code will be refactored (function extraction, variable renaming, constant extraction) and why. Replace the stub with the actual plan.",
 };
 
 /**
@@ -282,6 +289,18 @@ function main() {
       updates[field] = mergeTemplate(ticket[field], template);
       updated.push(field);
     }
+  }
+
+  // created_at / updated_at を設定
+  // created_at は未設定の場合のみ、updated_at は常に現在日付
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (!ticket.created_at) {
+    updates.created_at = today;
+    updated.push("created_at");
+  }
+  if (ticket.updated_at !== today) {
+    updates.updated_at = today;
+    updated.push("updated_at");
   }
 
   if (updated.length === 0) {

@@ -8,7 +8,7 @@
  * チケットを追加し、最後に show-ticket-context.js を実行して結果を表示する。
  *
  * spec ファイルは作成しない。チケットの specPath は命名規則から決定し、
- * 実際の spec ファイル内容は Step 6（show-ticket-context.js --write-spec）
+ * 実際の spec ファイル内容は Step 6（show-ticket-context.js --for-spec）
  * で書き出される。
  *
  * 必須引数: --ticket-key, --title

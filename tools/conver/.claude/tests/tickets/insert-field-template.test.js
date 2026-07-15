@@ -86,7 +86,9 @@ try {
     assert(result.updated.includes('acceptanceCriteria'), 'acceptanceCriteria updated');
     assert(result.updated.includes('investigation'), 'investigation updated');
     assert(result.updated.includes('boyScoutPlan'), 'boyScoutPlan updated');
-    assertEq(result.count, 11, 'all 11 fields updated');
+    assert(result.updated.includes('created_at'), 'created_at set');
+    assert(result.updated.includes('updated_at'), 'updated_at set');
+    assertEq(result.count, 13, 'all 11 + 2 date fields updated');
 
     // 実際に保存された値を確認
     const data = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));
