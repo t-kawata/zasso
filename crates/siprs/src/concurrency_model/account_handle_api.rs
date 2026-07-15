@@ -22,6 +22,22 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-pub trait Service {}
+// [::STUB::] P4-9: SipAccountHandle requires AccountConfig and related types.
+// This file defines the handle skeleton only.
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0019: §8.4 SipAccountHandle API
+/// Handle to a registered SIP account.
+///
+/// [::STUB::] P4-9: add account operations (register, unregister, modify).
+pub struct SipAccountHandle {
+    // [::STUB::] P4-9: account_id: AccountId,
+    // [::STUB::] P4-9: client: SipClient,
+    _placeholder: (),
+}
+
+impl SipAccountHandle {
+    /// Create a new account handle.
+    // [::STUB::] P4-9: full constructor
+    pub fn new() -> Self {
+        Self { _placeholder: () }
+    }
+}

@@ -14,3 +14,9 @@
 //! See `CHANGELOG.md` for the 0.x phase operation rules.
 
 pub mod api;
+pub mod config;
+pub mod concurrency_model;
+
+// Re-export primary types.
+pub use crate::concurrency_model::sipclient_struct::SipClient;
+pub use crate::config::client_config::{LogLevel, RawSipEventConfig, ResamplerQuality, TimeoutConfig};

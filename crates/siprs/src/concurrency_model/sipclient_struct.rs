@@ -22,6 +22,63 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-pub trait Service {}
+// [::STUB::] P4-9 / P5-1: SipClient and ClientInner require RuntimeHandle,
+// EventBus, and ClientState types from later tickets. This file provides
+// the Arc wrapper skeleton; full field types will be resolved by P5-1.
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0017: §8.2 SipClient構造体
+/// Thin handle to the SIP client runtime.
+///
+/// `SipClient` is a reference-counted handle that is `Clone + Send + Sync`.
+/// All PJSUA control goes through a single core reactor thread.
+#[derive(Clone)]
+pub struct SipClient {
+    // [::STUB::] P5-1: remove dead_code allow when methods use self.inner
+    #[allow(dead_code)]
+    pub(crate) inner: std::sync::Arc<ClientInner>,
+}
+
+/// Inner state shared across all `SipClient` clones.
+///
+/// Fields are stub-typed (`()`) until P4-9 / P5-1 resolves them.
+pub struct ClientInner {
+    // [::STUB::] P5-1: runtime: RuntimeHandle,
+    // [::STUB::] P5-1: events: EventBus,
+    // [::STUB::] P5-1: state: tokio::sync::RwLock<ClientState>,
+    // [::STUB::] P5-1: shutdown: tokio::sync::watch::Sender<bool>,
+    _placeholder: (),
+}
+
+// SAFETY: SipClient wraps Arc<ClientInner> which provides automatic
+// Send + Sync when ClientInner itself is Send + Sync. ClientInner
+// currently contains only `()` which is trivially Send + Sync.
+// When fields are added in P5-1, verify each field's Send/Sync bounds.
+unsafe impl Send for ClientInner {}
+unsafe impl Sync for ClientInner {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sip_client_is_clone() {
+        fn assert_clone<T: Clone>() {}
+        assert_clone::<SipClient>();
+    }
+
+    #[test]
+    fn sip_client_is_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<SipClient>();
+        assert_sync::<SipClient>();
+    }
+
+    #[test]
+    fn sip_client_clone_shares_inner() {
+        let client = SipClient {
+            inner: std::sync::Arc::new(ClientInner { _placeholder: () }),
+        };
+        let cloned = client.clone();
+        assert!(std::sync::Arc::ptr_eq(&client.inner, &cloned.inner));
+    }
+}

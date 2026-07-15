@@ -17,6 +17,15 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-pub trait Service {}
+// [::STUB::] P0-4: OutgoingCallRequest requires CallConfig and URI types.
+// This file defines the parameter skeleton only.
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0020: §8.5 OutgoingCallRequest
+/// Parameters for an outgoing SIP call.
+///
+/// [::STUB::] P0-4: add uri, headers, audio config fields.
+pub struct OutgoingCallRequest {
+    // [::STUB::] P0-4: uri: String,
+    // [::STUB::] P0-4: headers: Vec<(String, String)>,
+    // [::STUB::] P0-4: audio: (),
+    _placeholder: (),
+}

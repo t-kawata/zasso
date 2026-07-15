@@ -17,6 +17,21 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-pub trait Service {}
+// [::STUB::] P0-4: Type re-exports from other modules are pending.
+// This module defines the paths that will re-export types to lib.rs.
+// Re-export markers are commented out until the source modules exist.
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0016: §8.1 crateルート公開API
+// Crate root public API — re-exported from lib.rs.
+//
+// These `pub use` chains form the crate's external contract.
+// Each commented line indicates a re-export destination that will be
+// activated when the corresponding module is implemented.
+//
+// [::STUB::] P0-4: pub use crate::client::SipClient;
+// [::STUB::] P0-4: pub use crate::config::{ClientConfig, AccountConfig, ...};
+// [::STUB::] P0-4: pub use crate::account::{AccountId, SipAccountHandle, ...};
+// [::STUB::] P0-4: pub use crate::call::{CallId, CallState, OutgoingCallRequest, ...};
+// [::STUB::] P0-4: pub use crate::audio::{AudioChunkPair, ...};
+// [::STUB::] P0-4: pub use crate::event::{SipEvent, SipEventPayload, EventBus, ...};
+// [::STUB::] P0-4: pub use crate::error::{SipError, SipErrorKind};
+// [::STUB::] P0-4: pub use crate::transport::*;
