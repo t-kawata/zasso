@@ -94,9 +94,9 @@ describe("resolve-ticket-context — generateInstruction", function () {
     assert.ok(msg.includes("引数が指定されていないか"));
   });
 
-  it("チケット不在 → ensure-ticket-and-spec.js を参照", function () {
+  it("チケット不在 → ensure-ticket.js を参照", function () {
     const msg = generateInstruction("P0-1", false, false, "", "", false, false, false);
-    assert.ok(msg.includes("ensure-ticket-and-spec.js"));
+    assert.ok(msg.includes("ensure-ticket.js"));
     assert.ok(!msg.includes("--title を指定して再実行"));
   });
 

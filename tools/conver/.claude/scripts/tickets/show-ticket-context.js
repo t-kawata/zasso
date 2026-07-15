@@ -268,7 +268,7 @@ function buildTicketNotFoundMarkdown(ticketKey) {
     '以下のコマンドを実行してください。',
     '',
     '```bash',
-    `node .claude/scripts/tickets/ensure-ticket-and-spec.js \\`,
+    `node .claude/scripts/tickets/ensure-ticket.js \\`,
     `  --ticket-key=${ticketKey} \\`,
     '  --title="（会話から確定したタイトル）"',
     '```',

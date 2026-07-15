@@ -167,7 +167,7 @@ describe("show-ticket-context — parseRelatedTicketIds", function () {
 
 describe("show-ticket-context — buildTicketNotFoundMarkdown", function () {
   it("Not Found ヘッダー", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("Not Found")));
-  it("ensure-ticket-and-spec.js 参照", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("ensure-ticket-and-spec.js")));
+  it("ensure-ticket.js 参照", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("ensure-ticket.js")));
   it("中断メッセージ", () => assert.ok(buildTicketNotFoundMarkdown("PX-999").includes("中断します")));
 });
 

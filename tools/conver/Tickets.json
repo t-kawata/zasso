@@ -4707,6 +4707,78 @@
           "instrumentation": "静的品質チェック: 全5ファイル 0 issues\n翻訳可能性: 問題なし（全関数が動詞句、新規汎用変数なし、マジックナンバーなし）\nテスト: resolve-ticket-context 30件 + phasify 系 35件 = 全65件成功\n不完全実装: 0件\n犯罪: 0件\nスタブ: 0件",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-14"
+        },
+        {
+          "id": 57,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "/make-ticket Step 3,4,5 のフィールド高密度化テンプレート導入",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/0148-make-ticket-step-345.md",
+          "background": "現在の /make-ticket の Step 3,4,5 は、チケットフィールドを詳細化・高密度化すべきと述べているが、各フィールド（invariants, background, scope, testUnit, testIntegration, testExceptions, instrumentation, notes）について「何を・どれだけ書けば合格か」という具体的な基準と手順が欠けている。\n\nStep 5 の Universal Testing Rules の掲示はあるが、フィールドごとの密度基準がないため、AI 実装者によって出力の品質にばらつきが生じ、spec の情報密度が不十分なまま次のフェーズ（plan → start → review）に進んでしまう問題がある。\n\n解決策: grill-me-for-rfc-ja.md で採用されている insert-io-boundary-template.js + check-io-stubs.js のテンプレート＋マーカー方式を /make-ticket にも導入する。各フィールドに事前定義されたテンプレート（未記入箇所を示すマーカー付き）を挿入し、AI がすべてのマーカーを実際の内容で置換するまで検証スクリプトが通過しない仕組みにより、フィールド密度をプログラム的に保証する。\n\n必要スクリプト:\n- insert-field-template.js: チケットの8フィールドにテンプレートを挿入\n- check-field-density.js: 全マーカーの残存チェック + 密度スコアリング\n\n付随作業:\n- tickets-schema.json に testIntegration フィールドを追加（現時点ではスキーマ未定義だが ensure-ticket-and-spec.js と make-ticket.md では使用されている）",
+          "scope": [
+            "insert-field-template.js の実装（新規スクリプト: .claude/scripts/tickets/insert-field-template.js）",
+            "check-field-density.js の実装（新規スクリプト: .claude/scripts/tickets/check-field-density.js）",
+            "tickets-schema.json への testIntegration フィールド追加",
+            "/make-ticket.md Step 3,4,5 の手順記述をテンプレート＋マーカー方式に対応するよう書き換え",
+            "ensure-ticket-and-spec.js — insert-field-template.js の呼び出しを Step 2b 末尾に追加"
+          ],
+          "testUnit": [
+            "UT: insert-field-template.js が空のチケット8フィールドすべてに正しいテンプレートを挿入すること",
+            "UT: insert-field-template.js が既存値のあるフィールドを上書きしないこと（二重挿入防止）",
+            "UT: insert-field-template.js が存在しないチケットキーに対して exit 1 でエラー終了すること",
+            "UT: check-field-density.js が全マーカー未記入状態で exit 1、残存マーカー数を正しく報告すること",
+            "UT: check-field-density.js が一部マーカー未記入状態で exit 1、未記入フィールド名のみを報告すること",
+            "UT: check-field-density.js が全マーカー記入済み状態で exit 0 を返すこと",
+            "UT: tickets-schema.json の testIntegration 追加後、既存 Tickets.json のバリデーションが通ること"
+          ],
+          "testIntegration": [
+            "IT: ensure-ticket-and-spec.js で作成したチケットに対し insert-field-template.js → AI記入 → check-field-density.js の一連の流れが動作すること",
+            "IT: /make-ticket の Step 2b→3→4→5→6 を通した spec 生成パイプライン全体の結合テスト"
+          ],
+          "testExceptions": [
+            "テンプレート内容の「意味的正確性」（AI が各フィールドに適切な情報を書いたか）はプログラムで判定不能。check-field-density.js はマーカー残存と構造的充足性のみ検証し、意味的正確性は /plan-ticket の Investigation 再検証で担保する"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/insert-field-template.js",
+            ".claude/scripts/tickets/check-field-density.js",
+            ".claude/commands/make-ticket.md",
+            ".claude/scripts/tickets/tickets-schema.json"
+          ],
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格（totalIssues=0）\n- 翻訳可能性: 問題なし\n  · insert-field-template.js: main/shouldSkipField/writeFields → 動詞句\n  · check-field-density.js: main → 動詞句\n  · 1文字変数・マジックナンバー・デバッグ出力・console.log: なし\n- 依存関係: relatedTicketIds 未設定のため確認不要\n- 不完全実装（7パターン）: 0件\n- 犯罪（[::STUB::]未付与）: 0件\n- check-field-density: PX-57 ratio=1.0, temp ticket全状態で正常動作確認済\n- 既存コードに対する改善: tickets-schema.json の testIntegration 追加（設計と実装の乖離修正）",
+          "investigation": "参考実装の調査:\n- insert-io-boundary-template.js (.claude/scripts/grill-me-for-rfc/): RFC ファイルに <!-- [::IO-INFO-STUB::] --> マーカーを含むテンプレートセクションを追記。同名セクションが既にあればスキップ（二重挿入防止）。セクション番号は既存最大+1で自動採番。\n- check-io-stubs.js: ファイル内の [::IO-INFO-STUB::] マーカー残存を全行スキャン。0件→exit 0（正常）、1件以上→exit 1（未記入）。\n- grill-me-for-rfc-ja.md: 上記2スクリプトを組み合わせたワークフロー。テンプレート挿入→AI記入→check→ループのサイクル。\n\nスキーマ不整合の確認:\n- tickets-schema.json の ticket 定義に testIntegration が存在しない。additionalProperties: true により保存は可能だが、スキーマ定義がないため型検証・description が欠落。\n- ensure-ticket-and-spec.js の parseArgs() は --test-integration を正しくパースし、add-ticket.js に渡している。add-ticket.js は cleanTicketData のスプレッドで ticket に格納するため、実データとしては保存される。\n- /make-ticket.md のスクリプト一覧や ensure-ticket-and-spec.js の Usage には testIntegration が記載されている。\n\nテンプレート+マーカー方式の設計判断:\n- 今回の対象は RFC .md ファイルではなく Tickets.json の JSON フィールドであるため、挿入方法が異なる。各フィールドの値を update-ticket.js で上書き設定する形になる。\n- テンプレート内のマーカー形式: [::TEMPLATE-STUB::<field-name>::] を採用。check-field-density.js でパターン検出する。\n- テンプレートは各フィールドの文字列/配列として格納されるため、check-field-density.js は get-ticket.js 経由でチケットを読み、全フィールドを文字列として連接してマーカー検索を行う。",
+          "boyScoutPlan": "参考実装 insert-io-boundary-template.js および check-io-stubs.js のコード品質は高く、特段の改善不要。\ntickets-schema.json に testIntegration が未定義である点はバグ（設計と実装の乖離）に近い。PX-57 のスコープ内で修正する。",
+          "invariants": "- 【正常成立条件】insert-field-template.js は空フィールドに対してのみテンプレートを挿入し、既存値があるフィールドは上書きしないこと\n- 【異常永不変条件】check-field-density.js がエラー終了（exit 1）しても tickets.json は破損しないこと\n- 【内部状態不変条件】テンプレート挿入前後でチケットの id / phaseId / status / title は不変\n- 【境界不変条件】全マーカーが置換されたチケットに対して check-field-density.js は exit 0 を返すこと",
+          "instrumentation": "静的品質チェック: totalIssues=0 合格\ncheck-field-density on PX-57: overallRatio=1.0（全31項目記入済み）\n翻訳可能性: 問題なし（関数名は動詞句、変数名はドメイン概念、マジックナンバーなし、デバッグ出力なし）\nテスト: 全7項目のUnit Tests手動検証通過 + 統合テスト動作確認",
+          "startedAt": "2026-07-15",
+          "changes": [
+            {
+              "before": "(none)",
+              "after": "tickets-schema.json に testIntegration フィールド追加",
+              "description": "type: array, items: { type: string }, description 付き"
+            },
+            {
+              "before": "(none)",
+              "after": "insert-field-template.js 新規作成",
+              "description": "8フィールドに [::TEMPLATE-STUB::] マーカー入りテンプレートを挿入。空/未設定フィールドのみ対象。update-ticket.js 経由で書き込み。"
+            },
+            {
+              "before": "(none)",
+              "after": "check-field-density.js 新規作成",
+              "description": "全 [::TEMPLATE-STUB::] マーカーの残存チェック + 8フィールドの密度スコアリング。exit 0=合格 / exit 1=未記入あり。"
+            },
+            {
+              "before": "create-spec.js → add-ticket.js → show-ticket-context.js",
+              "after": "create-spec.js → add-ticket.js → insert-field-template.js → show-ticket-context.js",
+              "description": "ensure-ticket-and-spec.js に insert-field-template.js 呼び出しを追加"
+            },
+            {
+              "before": "Step 3: 調査／Step 4: 記録／Step 5: Test Plan",
+              "after": "Step 3: insert-field-template 挿入／Step 4: 調査+マーカー置換／Step 5: check-field-density 検証+Test Plan",
+              "description": "make-ticket.md の手順をテンプレート＋マーカー方式に書き換え"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-15"
         }
       ]
     },

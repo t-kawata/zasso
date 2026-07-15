@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * ensure-ticket-and-spec.js — チケット不在時にチケットと spec を自動作成する
+ * ensure-ticket.js — チケット不在時にチケットを作成する（spec ファイルは作成しない）
  *
  * /make-ticket の Step 2（判断分岐）で、事前会話からチケット化を依頼された
- * 場合に AI が手動実行する。内部で create-spec.js → add-ticket.js を順次
- * 呼び出し、最後に show-ticket-context.js を再実行して結果を表示する。
+ * 場合に AI が手動実行する。内部で add-ticket.js を呼び出して Tickets.json に
+ * チケットを追加し、最後に show-ticket-context.js を実行して結果を表示する。
+ *
+ * spec ファイルは作成しない。チケットの specPath は命名規則から決定し、
+ * 実際の spec ファイル内容は Step 6（show-ticket-context.js --write-spec）
+ * で書き出される。
  *
  * 必須引数: --ticket-key, --title
  * オプション（会話から得た情報をチケットに反映する）:
@@ -17,7 +21,7 @@
  *   --default-files='["..."]'  実装対象ファイル（JSON 配列）
  *   --notes="..."              補足情報（文字列）
  *
- * CLI: ensure-ticket-and-spec.js --ticket-key=<PX-{id}> --title="..." [options] [--tickets=<Tickets.json>]
+ * CLI: ensure-ticket.js --ticket-key=<PX-{id}> --title="..." [options] [--tickets=<Tickets.json>]
  */
 
 const fs = require('fs');
@@ -26,6 +30,31 @@ const { execFileSync } = require('child_process');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
+
+/** タイトルから slug（kebab-case）を生成する */
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 80);
+}
+
+/** チケットキーから数値 ID を抽出する */
+function extractTicketId(ticketKey) {
+  const match = ticketKey.match(/(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/** チケットキーとタイトルから spec ファイルのパスを導出する */
+function resolveSpecPath(ticketKey, title) {
+  const ticketId = extractTicketId(ticketKey);
+  if (!ticketId) return null;
+  const slug = generateSlug(title);
+  const prefix = String(ticketId).padStart(4, '0');
+  const filename = slug ? `${prefix}-${slug}.md` : `${prefix}-untitled.md`;
+  return path.resolve('tickets', 'specs', filename);
+}
 
 /** コマンドライン引数をパースする */
 function parseArgs(testArgs) {
@@ -83,30 +112,10 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // Step 1: create-spec.js で spec スケルトンを生成
-  const createSpecScript = path.join(__dirname, 'create-spec.js');
-  if (!fs.existsSync(createSpecScript)) {
-    console.error('Error: create-spec.js が見つかりません。');
-    process.exit(EXIT_FAILURE);
-  }
-  let specResult;
-  try {
-    const stdout = execFileSync(process.execPath, [createSpecScript, '', title], {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    specResult = JSON.parse(stdout);
-  } catch (e) {
-    console.error(`create-spec.js の実行に失敗しました: ${e.message}`);
-    process.exit(EXIT_FAILURE);
-  }
-  if (!specResult.success) {
-    console.error(`create-spec.js 失敗: ${specResult.error || '不明'}`);
-    process.exit(EXIT_FAILURE);
-  }
-  const specPath = specResult.specPath;
+  // spec パスを導出（ファイルは作成しない）
+  const specPath = resolveSpecPath(ticketKey, title);
 
-  // Step 2: add-ticket.js で PX フェーズにチケットを追加
+  // add-ticket.js で PX フェーズにチケットを追加
   const addTicketScript = path.join(__dirname, 'add-ticket.js');
   if (!fs.existsSync(addTicketScript)) {
     console.error('Error: add-ticket.js が見つかりません。');
@@ -114,7 +123,8 @@ function main() {
   }
   let addResult;
   try {
-    const ticketData = { title, specPath };
+    const ticketData = { title };
+    if (specPath) ticketData.specPath = specPath;
     if (background) ticketData.background = background;
     if (scope) ticketData.scope = scope;
     if (testUnit) ticketData.testUnit = testUnit;
@@ -139,7 +149,7 @@ function main() {
   }
   const actualTicketKey = addResult.ticketKey || ticketKey;
 
-  // Step 3: show-ticket-context.js を再実行して結果を表示
+  // show-ticket-context.js を実行して結果を表示
   const showScript = path.join(__dirname, 'show-ticket-context.js');
   if (!fs.existsSync(showScript)) {
     console.error('Error: show-ticket-context.js が見つかりません。');
@@ -160,4 +170,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, main };
+module.exports = { parseArgs, main, resolveSpecPath, generateSlug, extractTicketId };

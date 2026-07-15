@@ -37,10 +37,22 @@ function runScript(scriptName, args, stdin) {
 
 console.log('\n━━━ tickets/scripts.test.js ━━━\n');
 
+// テスト分離のため、一時ディレクトリでテストを実行する。
+// TICKETS_PROJECT_ROOT 環境変数で ticket-config.js の PROJECT_ROOT を上書きする。
 const TEST_TICKETS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-script-test-'));
+process.env.TICKETS_PROJECT_ROOT = TEST_TICKETS_DIR;
 process.chdir(TEST_TICKETS_DIR);
 
 try {
+  // テストに必要な最小限の Tickets.json を作成（search-tickets.js 等が参照する）
+  fs.writeFileSync('Tickets.json', JSON.stringify({
+    title: 'test',
+    metadata: { source: 'test', generatedAt: '2026-07-15' },
+    phases: [{ id: -1, name: '[X] Test', tickets: [] }],
+    dependencyMap: '',
+    checklist: [],
+  }, null, 2) + '\n', 'utf8');
+
   // ===============================================
   // ensure-ticket-structure
   // ===============================================
@@ -313,12 +325,16 @@ try {
   // ===============================================
   console.log('\n## search-tickets\n');
   {
-    const result = runScript('search-tickets.js', 'Updated', null);
+    // Tickets.json を更新し、search-tickets がテストできるようにする
+    const tj = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));
+    tj.phases[0].tickets.push({ id: 42, phaseId: -1, title: 'Updated Title', status: 'todo' });
+    fs.writeFileSync('Tickets.json', JSON.stringify(tj, null, 2) + '\n', 'utf8');
+    const result = runScript('search-tickets.js', 'Tickets.json Updated', null);
     assert(result.success === true, 'searches by keyword');
     assert(result.count >= 1, 'found matching ticket');
   }
   {
-    const result = runScript('search-tickets.js', 'nonexistent', null);
+    const result = runScript('search-tickets.js', 'Tickets.json nonexistent', null);
     assertEq(result.count, 0, 'no match for nonexistent keyword');
   }
 
@@ -382,11 +398,26 @@ try {
   // ===============================================
   console.log('\n## delete-ticket\n');
   {
-    const createResult = runScript('create-ticket.js', '43 "To Delete"', null);
-    assert(createResult.success === true, 'created ticket to delete');
-    const result = runScript('delete-ticket.js', '43', null);
+    // create-ticket.js は spec ファイルを作成するが Tickets.json には追加しない。
+    // delete-ticket.js は Tickets.json から削除するため、先に手動で追加する。
+    const specPath = path.resolve(process.cwd(), 'tickets/specs/0043-to-delete.md');
+    // spec ファイルを直接作成
+    if (!fs.existsSync(path.dirname(specPath))) {
+      fs.mkdirSync(path.dirname(specPath), { recursive: true });
+    }
+    fs.writeFileSync(specPath, '---\nticket_id: 43\ntitle: To Delete\nslug: to-delete\nstatus: todo\n---\n\n# To Delete\n', 'utf8');
+    // Tickets.json に追加
+    const tj = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));
+    tj.phases[0].tickets.push({ id: 43, phaseId: -1, title: 'To Delete', specPath, status: 'todo' });
+    fs.writeFileSync('Tickets.json', JSON.stringify(tj, null, 2) + '\n', 'utf8');
+    // 削除実行
+    const result = runScript('delete-ticket.js', 'Tickets.json PX-43', null);
     assert(result.success === true, 'deletes ticket');
-    assert(result.deleted.length >= 1, 'files were deleted');
+    assert(result.deleted === true, 'deleted flag is true');
+    // 手動で作成した spec ファイルも削除（delete-ticket.js は Tickets.json からの削除のみ行う）
+    const specsDir = path.resolve(process.cwd(), 'tickets/specs');
+    const specToDelete = path.join(specsDir, '0043-to-delete.md');
+    try { if (fs.existsSync(specToDelete)) fs.unlinkSync(specToDelete); } catch (_) {}
     const resolveResult = runScript('resolve-ticket.js', '43', null);
     assert(resolveResult.exists === false, 'ticket no longer exists');
   }

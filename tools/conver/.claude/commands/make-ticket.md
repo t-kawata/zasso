@@ -33,13 +33,15 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 | スクリプト | 引数 | 説明 |
 |---|---|---|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}>` | **Step 1 で実行**。チケット情報を Markdown で出力。存在しない場合は Not Found 表示。 |
-| `ensure-ticket-and-spec.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--notes=...]` | **Step 2b で AI が手動実行**。create-spec.js → add-ticket.js を順次呼び出し、show-ticket-context.js を再実行する。会話から得た情報をオプション引数で渡せる。 |
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。ensure-ticket-and-spec.js から内部的に呼ばれる。 |
+| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--notes=...]` | **Step 2 Case B で AI が手動実行**。add-ticket.js → show-ticket-context.js を順次呼び出す。spec ファイルは作成せず、spec パスのみ導出する。Step 6 で show-ticket-context.js --write-spec により spec ファイルが書き出される。 |
+| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 3 で AI が実行**。チケットの8フィールドにテンプレートをマージ挿入する。 |
+| `check-field-density.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 5 で AI が実行**。全 `[::TEMPLATE-STUB::]` マーカーの残存チェック + 密度スコアリング。exit 0 = 合格 / exit 1 = 未記入あり。 |
+| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。ensure-ticket.js から内部的に呼ばれる。 |
 | `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。 |
 | `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報取得。 |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID} [--append]`（stdin: 更新JSON） | チケットフィールド更新。`--append` 指定時は文字列・配列フィールドを追記（上書きしない）。 |
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索。 |
-| `create-spec.js` | `"" <title>` | spec スケルトン生成。ensure-ticket-and-spec.js から内部的に呼ばれる。 |
+| `create-spec.js` | `"" <title>` | spec スケルトン生成。現在のワークフローでは直接使用しない（spec は Step 6 で show-ticket-context.js --write-spec により書き出される）。 |
 | `resolve-ticket-context.js` | `--ticket-key=...` | （互換性維持）JSON 出力のコンテキスト解決。現在のワークフローでは使用しない。 |
 
 ## ワークフロー
@@ -54,7 +56,7 @@ show-ticket-context.js を実行し、チケットの状態を Markdown で取�
 node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS
 ```
 
-出力される Markdown にはチケットの全フィールドがセクションとして含まれる:
+出力される Markdown にはチケット内の値がある全フィールドを含む:
 
 | セクション | 内容 |
 |---|---|
@@ -85,7 +87,7 @@ Step 1 で表示された Markdown をコンテキストとして保持し、**S
 事前にユーザーと会話し、このチケットの内容について合意ができている場合、以下のコマンドを実行する。
 
 ```bash
-node .claude/scripts/tickets/ensure-ticket-and-spec.js \
+node .claude/scripts/tickets/ensure-ticket.js \
   --ticket-key=$ARGUMENTS \
   --title="（会話から確定したタイトル）" \
   [--background="（会話から得た背景説明）"] \
@@ -99,28 +101,82 @@ node .claude/scripts/tickets/ensure-ticket-and-spec.js \
 
 **オプション引数について**: `--scope` / `--test-unit` / `--test-integration` / `--test-exceptions` / `--default-files` は JSON 配列として渡す。`--background` / `--notes` は文字列。会話から得られた情報を全て埋めることで、空のセクションが少なくなり以降のステップが効率的になる。`--test-unit` には単体テスト計画（`UT:` prefix）、`--test-integration` には結合テスト計画（`IT:` prefix）、`--test-exceptions` にはテスト不可能な項目の理由を記述する。`UT:` と `IT:` はどちらも自動テストコードであり、`testExceptions` はその補完であって代替ではない。
 
-このスクリプトが内部で create-spec.js → add-ticket.js → show-ticket-context.js を順次実行し、最終的にチケット情報の Markdown が表示される。その出力をコンテキストとして **Step 3 へ進む**。
+このスクリプトが内部で add-ticket.js → show-ticket-context.js を順次実行し、最終的にチケット情報の Markdown が表示される。その出力をコンテキストとして **Step 3 へ進む**。
 
 #### Case C: チケットが存在しない + 事前会話なし
 
 「ticket & spec 化する事前情報が無いため /make-ticket を中断します。」とユーザに回答して終了する。
 
-### Step 3: 設計及びソースコード調査
+### Step 3: チケットにテンプレート挿入
 
-Step 1, 2 で得た情報に基づいて調査方法を選択する。
+各フィールドに `[::TEMPLATE-STUB::<field-name>::]` 形式のマーカーが設定され、AI が後続ステップで埋めるべき項目が明確になる。
 
-- **pipelineAvailable が true**: show-ticket-context.js の出力情報と To show related RFC graph details セクションの query.js の使用法によって得られる関連グラフノード情報を活用した調査を行う
+```bash
+node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
+```
+
+### Step 4: 調査 + テンプレート記入
+
+#### 4a: 設計及びソースコード調査
+
+テンプレートで定義された各フィールドの要求事項に基づいて調査方法を選択する。
+
+- **pipelineAvailable が true**: show-ticket-context.js の出力情報と query.js の使用法によって得られる関連グラフノード情報を活用した調査を行う。出力内の「Related RFC graph NODE-IDs to check」にある全 NODE-ID を「Usage of query.js」に提示されるスクリプト実行コマンドにより参照し、全ての設計情報を得た後に具体的なソースコード調査を開始する。
 - **pipelineAvailable が false**: スポット調査（事前のユーザとの会話に加え、直接ソースコードを grep / read して情報収集）
 
-### Step 4: 証拠の記録
+#### 4b: 証拠の記録
 
 調査で得られた情報をチケットの JSON フィールドに追記する。`investigation`, `boyScoutPlan`, `notes` は累積されるため `--append` モードで実行する。これらの内容は Step 6 で spec ファイルに自動転記される。
 
 ```bash
-echo '{"boyScoutPlan":"src/foo.rs:42 の関数 process() が「検証→変換→送信」の3責務を持つ。validate() / transform() / dispatch() の3関数に分割する。同ファイルのマジックナンバー300000 を consts/settings.rs の DEFAULT_TIMEOUT_MS として抽出する...", "investigation":"src/foo.rs:42 で新規公開関数のパラメータ制約を確認。\n想定される全入力パターン（正常系3種・異常系2種）を列挙。\n型シグネチャと不変条件をコードコメントから抽出...", "notes":"実装時の注意事項..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
+echo '{"boyScoutPlan":"...", "investigation":"...", "notes":"..."}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
-### Step 5: 仕様の具体化
+#### 4c: テンプレートマーカーの置換
+
+調査結果に基づき、各 `[::TEMPLATE-STUB::<field-name>::]` マーカーを実際の内容で置換する。以下の8フィールドのすべてのマーカーを対象とする：
+
+| フィールド | マーカー数 | 各マーカーの意味 |
+|-----------|-----------|----------------|
+| `invariants` | 4 | 正常成立条件 / 異常永不変条件 / 内部状態不変条件 / 境界不変条件 |
+| `background` | 4 | 目的 / 動機 / 制約 / 関連RFC |
+| `scope` | 3 | 変更範囲 / 非変更範囲 / 影響範囲 |
+| `testUnit` | 4 | 正常系 / 異常系 / 境界値 / 不変条件の各テスト |
+| `testIntegration` | 4 | 結合点 / 検証内容 / 前提条件 / 関連チケット |
+| `testExceptions` | 3 | 項目名 / 技術的理由 / 代替検証手段 |
+| `instrumentation` | 4 | ログ出力 / メトリクス / エラー追跡 / 正常動作確認 |
+| `notes` | 5 | 実装手順 / リスク一覧 / 注意点 / 未確定事項 / 将来改善 |
+
+各フィールドは `update-ticket.js` で更新する。配列フィールド（`scope`, `testUnit`, `testIntegration`, `testExceptions`）は要素単位でマーカーを置換し、文字列フィールド（`invariants`, `background`, `instrumentation`, `notes`）はマーカー行ごとに置換する。
+
+```bash
+# 例: 文字列フィールドの更新
+echo '{"invariants":"- 【正常成立条件】入力値は schema 検証を通過すること\n- 【異常永不変条件】エラー時も DB 整合性は保たれる"}', | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+
+# 例: 配列フィールドの更新
+echo '{"testUnit":["UT: [正常系] 有効な入力で正しい結果が返ること","UT: [異常系] 無効な入力でエラーが返ること"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+**マーカーが1つも残らなくなるまでこの作業を繰り返す。**
+
+### Step 5: 検証 + 仕様の具体化
+
+#### 5a: 密度検証（check-field-density.js）
+
+全マーカーが置換されたことをプログラム的に検証する：
+
+```bash
+node ".claude/scripts/tickets/check-field-density.js" "Tickets.json" "$ARGUMENTS"
+if [ $? -ne 0 ]; then
+  echo "エラー: 未記入の [::TEMPLATE-STUB::] マーカーが残っています。AI による内容記入が不完全です。"
+  echo "check-field-density.js の出力を確認し、残存マーカーを全て置換してください。"
+  exit 1
+fi
+```
+
+出力の `density.overallRatio` が 1.0 になるまで（全マーカーが置換されるまで）Step 4c に戻って繰り返す。
+
+#### 5b: Universal Testing Rules に基づくテスト計画の具体化
 
 **Universal Testing Rules**
 
@@ -167,7 +223,7 @@ echo '{"scope":["範囲..."],"testUnit":["UT: ..."],"testIntegration":["IT: ..."
 
 ```bash
 node .claude/scripts/tickets/show-ticket-context.js \
-  --ticket-key="$ARGUMENTS" --write-spec >> "（Spec-File のパス）"
+  --ticket-key="$ARGUMENTS" --write-spec > "（Spec-File のパス）"
 ```
 
 ```bash

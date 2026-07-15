@@ -1,10 +1,13 @@
 ---
 ticket_id: 42
-title: Anchor Marker System — RFC分割パイプライン改修
+title: Updated Title
 slug: anchor-marker-system-rfc
-status: draft
+status: approved
 created_at: 2026-07-03
-updated_at: 2026-07-03
+updated_at: 2026-07-15
+plan_path: /Users/kawata/shyme/zasso/tools/conver/tickets/context/0042-test-ticket/plan.md
+implementation_path: /Users/kawata/shyme/zasso/tools/conver/tickets/context/0042-anchor-marker-system-rfc/implementation.md
+review_report_path: /Users/kawata/shyme/zasso/tools/conver/tickets/context/0042-anchor-marker-system-rfc/review.md
 ---
 # Anchor Marker System — RFC分割パイプライン改修
 

@@ -1,14 +1,14 @@
 /**
- * ensure-ticket-and-spec.test.cjs — ensure-ticket-and-spec.js の単体テスト
+ * ensure-ticket.test.cjs — ensure-ticket.js の単体テスト
  *
  * テスト対象: parseArgs
  */
 
 const assert = require("node:assert");
 const { describe, it } = require("node:test");
-const { parseArgs } = require("../.claude/scripts/tickets/ensure-ticket-and-spec");
+const { parseArgs } = require("../.claude/scripts/tickets/ensure-ticket");
 
-describe("ensure-ticket-and-spec — parseArgs", function () {
+describe("ensure-ticket — parseArgs", function () {
   it("必須: --ticket-key + --title + --tickets", () => {
     const r = parseArgs(["--ticket-key=PX-53", "--title=T", "--tickets=/tmp/Tickets.json"]);
     assert.strictEqual(r.ticketKey, "PX-53");

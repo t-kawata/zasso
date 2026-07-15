@@ -14,7 +14,7 @@
  * - AI が次に行うべきアクション（instruction）
  *
  * 注: auto-creation（create-spec.js / add-ticket.js の自動実行）は
- * ensure-ticket-and-spec.js に移譲した。本スクリプトは作成を行わない。
+ * ensure-ticket.js に移譲した。本スクリプトは作成を行わない。
  *
  * CLI: resolve-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
  */
@@ -193,10 +193,10 @@ function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPat
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     return '/make-ticket の引数が指定されていないか、形式が正しくありません。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。';
   }
-  // 注意: auto-creation は ensure-ticket-and-spec.js に移譲した。
+  // 注意: auto-creation は ensure-ticket.js に移譲した。
   // 以下の2つの分岐は単体テスト用の防御的ガードとして維持する。
   if (!ticketExistsFlag) {
-    return 'チケットが存在しません。ensure-ticket-and-spec.js を実行して作成してください。';
+    return 'チケットが存在しません。ensure-ticket.js を実行して作成してください。';
   }
   if (!specExistsFlag) {
     return 'spec ファイルが存在しません（異常状態）。create-spec.js を手動実行して作成してください。';
