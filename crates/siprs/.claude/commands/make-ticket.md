@@ -1,5 +1,6 @@
 ---
-description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phaseID}-{ticketID} 形式のチケットキーが必須。show-ticket-context.js が最初に実行され状況を Markdown で表示する。
+description: 実装仕様（spec）の詳細文書の作成と詳細化。
+argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /make-ticket
@@ -28,22 +29,16 @@ description: 実装仕様（spec）の詳細文書の作成と詳細化。P{phas
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}>` | **Step 1 で実行**。チケット情報を Markdown で出力。存在しない場合は Not Found 表示。 |
-| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--notes=...]` | **Step 2 Case B で AI が手動実行**。add-ticket.js → show-ticket-context.js を順次呼び出す。spec ファイルは作成せず、spec パスのみ導出する。Step 6 で show-ticket-context.js --for-spec により spec ファイルが書き出される。 |
-| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 3 で AI が実行**。チケットの11フィールドにテンプレートをマージ挿入する。 |
-| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 4b のループ内で AI が繰り返し実行**。自然言語で残存 `[::TEMPLATE-STUB::]` マーカーを一覧表示。exit 0 = 全置換完了 / exit 1 = 未置換あり。 |
-| `check-field-density.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 5a で AI が実行**。全 `[::TEMPLATE-STUB::]` マーカーの残存チェック + 密度スコアリング。exit 0 = 合格 / exit 1 = 未記入あり。 |
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加。ensure-ticket.js から内部的に呼ばれる。 |
-| `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。 |
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報取得。 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID} [--append]`（stdin: 更新JSON） | チケットフィールド更新。`--append` 指定時は文字列・配列フィールドを追記（上書きしない）。 |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索。 |
-| `create-spec.js` | `"" <title>` | spec スケルトン生成。現在のワークフローでは直接使用しない（spec は Step 6 で show-ticket-context.js --for-spec により書き出される）。 |
-| `resolve-ticket-context.js` | `--ticket-key=...` | （互換性維持）JSON 出力のコンテキスト解決。現在のワークフローでは使用しない。 |
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-test-rules]` | **Step 1 / Step 6 で実行**。チケット情報を Markdown で出力。Step 6 では `--for-spec` で spec ファイル書き出し。 |
+| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--notes=...]` | **Step 2 Case B で実行**。add-ticket.js → show-ticket-context.js を順次呼び出す。spec パスのみ導出、ファイルは作成しない。 |
+| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 3 で実行**。11フィールドにテンプレートマージ挿入。`created_at`/`updated_at` も同時設定。 |
+| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Step 5b ループ内で実行**。自然言語で残存 `[::TEMPLATE-STUB::]` マーカーを一覧。exit 0 = 全置換完了。 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | **Step 5b / Step 6 で実行**。フィールド更新（上書き）。string/array の区別を自動処理。 |
+| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加（ensure-ticket.js から内部的に呼ばれる）。 |
 
 ## ワークフロー
 

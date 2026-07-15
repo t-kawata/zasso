@@ -1,5 +1,6 @@
 ---
-description: 例: /start-ticket P0-1。第1引数にチケットID（P{phaseID}-{ticketID}形式）を指定すると、そのチケットの実装を実行する。実装完了後にチケットのステータスを done に遷移させる。引数なしならチケットIDを質問する。
+description: チケットの実装を実行する。
+argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /start-ticket
@@ -10,23 +11,19 @@ description: 例: /start-ticket P0-1。第1引数にチケットID（P{phaseID}-
 
 ## ワークフローにおける位置づけ
 
-このプロジェクトの作業の流れは `make → plan → start → review` である。ただし、各コマンドは必ずしも連続して実行されず、ユーザーの作業スタイルに応じて非連続的に使用される：
+作業の流れは `make → plan → start → review` であり、現在 `start` 実行中。
 
-- **`/make-ticket`**: 複数のチケットをまとめて作成することが多い。作成後、すぐに計画・実装されるとは限らない。
-- **`/plan-ticket` + `/start-ticket`**: ひとつのチケットに対して連続実行されることが多い（計画承認→即実装）。
-- **`/review-ticket`**: 完了したチケットをまとめてレビューすることが多い。
-
-**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案してもよい（例：「品質レビューを行う場合は /review-ticket を実行してください」）。ただし、決定はユーザーに委ね、押し付けない。
+- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
+- **`/plan-ticket`**: 実装レベルの詳細な計画。
+- **`/start-ticket`**: 実装。
+- **`/review-ticket`**: 完了したチケットをレビュー。
 
 ## 引数の解釈
 
-- 引数なし → ユーザーに「どのチケットを実装しますか？」と質問する
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`） → チケットID
-- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）で指定してください」
-
-## 必須条件
-
-チケットが存在すること（ステータスは任意）。`todo` 以外のステータスの場合はユーザーに注意を促すが、実装自体はブロックしない。
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。
+- 引数なし → エラーで中断
+- 数字のみ → エラーで中断
+- 上記以外 → エラーで中断
 
 ## Boy Scout Rule
 
@@ -34,27 +31,21 @@ description: 例: /start-ticket P0-1。第1引数にチケットID（P{phaseID}-
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報の取得 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新・status 変更 |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全チケット一覧 |
-| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
-| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールド更新・status 変更。`--append` で既存内容を保持し追記。 |
+| `review/run-quality-checks.js` | `<files...>` | **Step 10 で実行**。静的品質チェック。 |
+| `review/generate-report.js` | （stdin経由） | **Step 10 で実行**。品質レポート生成。 |
+| `scan-crimes.sh` | （なし） | **Step 4, 6 で実行**。Malfeasance.json の犯罪スキャン。 |
+| `review/find-all-stubs.js` | `<path>` | **Step 5 で実行**。`[::STUB::]` マーカーの全件検索。 |
 
 ## ワークフロー
 
-### Step 1: 存在確認
+### Step 1: 同一セッション内で、直前に /plan-ticket を実行済みかどうかでブロック
 
-Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。
-
-```bash
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-`success` が `false` なら終了。存在すれば status を確認する。`todo` 以外の場合はユーザーに注意を促す。
+直前に同一セッションにて `/plan-ticket` を実行済みでないならば「/plan-ticket の事前実行が必要です。中断します。」と回答して中断。
 
 ### Step 2: 実装開始日の記録
 
@@ -64,35 +55,7 @@ node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
 echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 3: チケットフィールド読み取り
-
-`get-ticket.js` でチケットの全フィールドを読み取り、計画内容を把握する：
-
-```bash
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
-```
-
-出力の `ticket` オブジェクトから `background`, `scope`, `testUnit`, `notes` 等を確認する。
-
-### Step 4: 依存・関連チケットID の充足確認
-
-実装を開始する前に、`relatedTicketIds` で記述された依存関係が充足されていることを確認する：
-
-1. `get-ticket.js` でチケットの `relatedTicketIds` フィールドを読み取る
-2. 「先行実装必須」と記載されたチケットがすべて `done` ステータスであることを確認する
-3. 未完了の先行依存がある場合はユーザーに報告し、実装順序の調整または依存チケットの完了を待つ
-
-```bash
-# チケットを取得して関連チケットID を確認
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
-
-# 各参照先チケットのステータス確認
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
-```
-
-依存関係に問題がないことを確認した上で実装に進む。
-
-### Step 5: 犯罪の緊急解決（最優先 — 第一級規則）
+### Step 3: 犯罪の緊急解決（最優先 — 第一級規則）
 
 Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する場合、**本チケットの実装作業より優先して**解決する。これは最優先タスクであり、スキップを禁止する。
 
@@ -109,7 +72,7 @@ Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する
 3. 技術的に解決不可能な場合は `malfeasance-update.js` で `status` を `false_positive` に変更し、理由を `note` に記録する
 4. 全ての犯罪を解決（または適切に分類）するまで実装作業を開始してはならない
 
-### Step 6: スタブの解決
+### Step 4: スタブの解決
 
 実装を開始する前に、解決可能なスタブを確認する：
 
@@ -124,28 +87,35 @@ Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-### グラフ探索（RFC設計グラフ構造探索コマンド）
+### Step 5: 実装
 
-spec 内の「RFC設計グラフ構造探索コマンド」セクションに記載された query.js コマンドを実行し、対象チケットのグラフ上の位置と依存関係を確認する。
-
-- 全ノード一覧: `crud.js list-nodes --graph=<graph-path>`
-- 起点ノードからの探索: `query.js --graph=<graph-path> --source=<rfc-path> --id=<nodeId> --hops=3`
-
-グラフが存在しない場合（dump-ticket-graph-commands.js が「グラフファイルがありません」と記載した場合）は、このサブステップをスキップする。
-
----
-
-### Step 7: 実装
-
-`/plan-ticket` の計画に従って実装する。乖離が生じたらユーザーに相談する。
+直前に行った `/plan-ticket` の計画に従って実装する。乖離が生じたらユーザーに相談する。
 
 **スタブ解決の義務**: 実装中に依存完了により解決可能になった `[::STUB::]` を発見した場合、計画に含まれていなくても**その場で解決（実際の実装への置き換え）する**。解決が不可能な場合は `[::STUB::]` マーカーと理由を残し、実装サマリに記録する。
 
-**テスト実装の義務**: 計画されたユニットテストを全て実装する。ユニットテストでカバーできない正当な理由がある項目のみ、E2Eテストまたは手動テストで代替する。テスト未実装のまま完了として**ならない**。
+**Universal Testing Rules**
+Write all code under the following non-negotiable rules:
 
-### Step 8: 不完全実装の能動的探索（必須）
+1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.
 
-実装が完了したら、その場で完了とする前に**自分が変更した全コードを精査し**、CLAUDE.md の「対象となるコード」に定義された 7 パターンの不完全実装が混入していないか確認する。これは**自動スクリプトでは検出できない漏れを発見するための能動的ステップ**であり、スキップを禁止する。
+2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.
+
+3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.
+
+4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.
+
+5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.
+
+6. Implementation is considered complete only when:
+   - The tests fully and precisely specify the intended behavior.
+   - The implementation passes all tests without exception.
+   - The implementation's correctness is demonstrably guaranteed by those tests.
+
+7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
+
+### Step 6: 不完全実装の能動的探索（必須）
+
+実装が完了したら、その場で完了とする前に**自分が変更した全コードを精査し**、不完全実装が混入していないか確認する。これは**自動スクリプトでは検出できない漏れを発見するための能動的ステップ**であり、スキップを禁止する。
 
 ```bash
 # 変更ファイル一覧を確認
@@ -180,7 +150,7 @@ node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-### Step 9: コンパイル検証とテスト
+### Step 7: コンパイル検証とテスト
 
 実装した内容のコンパイル検証とテストを実行する。実行方法は以下の指針に従い、
 AI が状況に応じて判断すること：
@@ -206,7 +176,7 @@ AI が状況に応じて判断すること：
 ```
 
 **警告・エラー完全解決の原則**:
-- `cargo check`（または `make check-*`）で検出された警告・エラーは、**1つ残さず解決しなければならない**。未解決の状態で次ステップに進むことを禁止する。
+- `cargo check`, `cargo test`（または `make` コマンド経由）で検出された警告・エラーは、**1つ残さず解決しなければならない**。未解決の状態で次ステップに進むことを禁止する。
 - `cargo test`（または `make test`）が**1つでも失敗する状態**での次ステップ進行を禁止する。テストが通るまで修正すること。
 - やむを得ず警告・エラーを残す場合（別チケットで解決予定など）は、**該当箇所に `[::STUB::]` マーカーとコメントアウトで「どのチケット（チケットID）のタイミングで、どのように解決されるか」を明記した上で、`#[allow(...)]` や `#[cfg(test)]` 等の適切な機構で警告・エラーを抑制し、他のチケットのコンパイルやテストを阻害しない状態にしなければならない**。
 - 抑制が不十分で後続のビルドやテストを阻害する場合、それはバグとみなす。
@@ -217,7 +187,7 @@ AI が状況に応じて判断すること：
 - **`[::STUB::]` のみで抑制が欠如** → コンパイル検証でエラーが出ているか確認する。エラーがあれば `#[allow(...)]` を追加し、エラーがなければ抑制不要（設計上の意図的スタブ）と判断して良い
 - 整合性確認後、**再度コンパイル検証を実行する**
 
-### Step 10: 品質チェック
+### Step 8: 品質チェック
 
 実装後、変更ファイルを列挙して実行する：
 
@@ -231,7 +201,7 @@ node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/fil
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
-### Step 11: 実装成果の保存
+### Step 9: 実装成果の保存
 
 コンパイル検証・テスト・品質チェック通過後、実装内容のサマリーを `update-ticket.js` でチケットの JSON フィールドに保存する：
 
@@ -239,12 +209,12 @@ node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node 
 echo '{
   "changes": [{"before":"旧状態","after":"新状態","description":"変更内容"}],
   "notes": "実装サマリー:\n- 変更ファイル: a.rs, b.rs\n- 主要な変更点: ...\n- テスト結果: 全xx件成功"
-}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
 これにより、後でチケットを確認したときに「どのように実装されたか」を追跡できる。
 
-### Step 12: done に遷移
+### Step 10: done に遷移
 
 コンパイル検証・テスト・品質チェック通過後：
 
@@ -252,4 +222,4 @@ echo '{
 echo '{"status":"done"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-品質問題がある場合は修正してから `done` にする。やむを得ない中断時は `todo` のまま（または `notes` に中断理由を記録）。
+品質問題がある場合は修正してから `done` にする。

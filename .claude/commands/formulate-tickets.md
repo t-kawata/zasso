@@ -32,7 +32,7 @@ description: 例: /formulate-tickets conver/RFC-001-process-registry.md。第1�
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|

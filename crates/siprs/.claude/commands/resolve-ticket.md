@@ -1,23 +1,22 @@
 ---
-description: 例: /resolve-ticket src-tauri。第1引数に対象ディレクトリのパスを指定。そのディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。cargo check / cargo test を実行し、警告・エラー・スタブ・犯罪の全てを解決する。引数なしならユーザーに質問する。
+description: ディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。
 ---
 
 # /resolve-ticket
 
 **第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
 
-**役割**: 指定ディレクトリ配下の警告・エラー・スタブ・犯罪の一括解決。機械的に行える部分は可能な限りスクリプトで行い、トークンを節約する。
+**役割**: ディレクトリ配下の警告・エラー・スタブ・犯罪の一括解決。
 
 **禁止事項**: このコマンドは Tickets.json のチケットの status を絶対に変更してはならない。`update-ticket.js` を呼び出したり、`echo '{"status":...}'` を実行したりしてはならない。
 
 ## 引数の解釈
 
-- 引数なし → ユーザーに「どのディレクトリを解決しますか？」と質問する
-- ディレクトリパス → そのディレクトリをカレントディレクトリとして `cargo check`/`cargo test` を実行し、配下のスタブ・犯罪を解決する
+引数なし。ある場合は全てエラーとして中断。
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
@@ -35,11 +34,9 @@ description: 例: /resolve-ticket src-tauri。第1引数に対象ディレクト
 引数で指定されたディレクトリをカレントディレクトリとして `cargo check` と `cargo test` を実行し、すべての警告とエラーを取得する。
 
 ```bash
-# 対象ディレクトリに移動して cargo check
-(cd "$ARGUMENTS" && cargo check 2>&1)
+cargo check 2>&1
 
-# 対象ディレクトリに移動して cargo test
-(cd "$ARGUMENTS" && cargo test 2>&1)
+cargo test 2>&1
 ```
 
 **注意**: 対象ディレクトリに Makefile が存在し適切なターゲットがある場合は `make` 経由でもよいが、生の出力が必要な場合は直接 `cargo` を使用する。
@@ -59,7 +56,7 @@ description: 例: /resolve-ticket src-tauri。第1引数に対象ディレクト
 `find-all-stubs.js` に引数で指定されたディレクトリを渡し、配下のスタブのみを一覧する。
 
 ```bash
-node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
+node .claude/scripts/tickets/review/find-all-stubs.js "."
 ```
 
 出力を解析し、各スタブの `[::STUB::]` マーカーにチケットIDが明記されているかを確認する。
@@ -69,7 +66,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
 引数で指定したディレクトリ配下において、過去のチケットで解決されているべきだったにも関わらず解決されていないスタブを発見したら、全て `malfeasance-create.js` で犯罪として登録する。犯罪は対象ディレクトリの `Malfeasance.json` に記録するため、`cd` してから実行する。
 
 ```bash
-(cd "$ARGUMENTS" && node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>")
+node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
 ```
 
 **判断基準**:
@@ -92,7 +89,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
 `scan-crimes.sh` に引数で指定されたディレクトリを渡し、配下の犯罪のみを一覧する。
 
 ```bash
-.claude/scripts/tickets/scan-crimes.sh "$ARGUMENTS"
+.claude/scripts/tickets/scan-crimes.sh "."
 ```
 
 ### Step 7: 全犯罪の解決
@@ -106,10 +103,10 @@ node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
 
 ```bash
 # 犯罪の解決（対象ディレクトリの Malfeasance.json に対して）
-(cd "$ARGUMENTS" && node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved")
+node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 
 # 再確認（ディレクトリ指定）
-.claude/scripts/tickets/scan-crimes.sh "$ARGUMENTS"
+.claude/scripts/tickets/scan-crimes.sh "."
 ```
 
 **全犯罪を解決したことを確認するまで、このコマンドの完了を宣言してはならない。**
@@ -119,8 +116,8 @@ node .claude/scripts/tickets/review/find-all-stubs.js "$ARGUMENTS"
 解決後、再度コンパイルとテストを実行してすべてが通ることを確認する。
 
 ```bash
-(cd "$ARGUMENTS" && cargo check 2>&1)
-(cd "$ARGUMENTS" && cargo test 2>&1)
+cargo check 2>2>&1)1
+cargo test 2>2>&1)1
 ```
 
 確認が取れたら、解決した内容のサマリーを提示してユーザーに報告する。

@@ -1,5 +1,6 @@
 ---
-description: 例: /plan-ticket P0-1。第1引数にチケットID（P{phaseID}-{ticketID}形式）を指定すると、そのチケットの実装計画を策定する。物理的レビュー方法を計画に含め、計画の承認をユーザーに求める。引数なしならチケットIDを質問する。
+description: チケットの実装計画を策定する。
+argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /plan-ticket
@@ -10,23 +11,19 @@ description: 例: /plan-ticket P0-1。第1引数にチケットID（P{phaseID}-{
 
 ## ワークフローにおける位置づけ
 
-このプロジェクトの作業の流れは `make → plan → start → review` である。ただし、各コマンドは必ずしも連続して実行されず、ユーザーの作業スタイルに応じて非連続的に使用される：
+作業の流れは `make → plan → start → review` であり、現在 `plan` 実行中。
 
-- **`/make-ticket`**: 複数のチケットをまとめて作成することが多い。作成後、すぐに計画・実装されるとは限らない。
-- **`/plan-ticket` + `/start-ticket`**: ひとつのチケットに対して連続実行されることが多い（計画承認→即実装）。
-- **`/review-ticket`**: 完了したチケットをまとめてレビューすることが多い。
-
-**ルール**: 自分の役割を完了したら、必要に応じて次のアクションを提案してもよい（例：「実装を開始する場合は /start-ticket を実行してください」）。ただし、決定はユーザーに委ね、押し付けない。
+- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
+- **`/plan-ticket`**: 実装レベルの詳細な計画。
+- **`/start-ticket`**: 実装。
+- **`/review-ticket`**: 完了したチケットをレビュー。
 
 ## 引数の解釈
 
-- 引数なし → ユーザーに「どのチケットの計画を策定しますか？」と質問する
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`） → チケットID
-- 数字のみ → エラー: 「チケットIDは `P{phaseID}-{ticketID}` 形式（例: `P0-1`）で指定してください」
-
-## 必須条件
-
-チケットのステータスは任意（`todo` / `done` / `reviewed` のいずれでも可）。計画策定はステータスに関わらず実行できる。
+- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。`show-ticket-context.js` の `--ticket-key` に投入する。
+- 引数なし → エラーで中断
+- 数字のみ → エラーで中断
+- 上記以外 → エラーで中断
 
 ## Boy Scout Rule
 
@@ -36,68 +33,47 @@ description: 例: /plan-ticket P0-1。第1引数にチケットID（P{phaseID}-{
 
 - 関数定義を grep し、名詞始まりの関数がないか
 - 変数宣言を grep し、1文字変数や汎用名（`data`, `info`, `tmp`）がないか
-- 4桁以上の数値リテラルが直接書かれていないか
+- 数値リテラルが直接書かれていないか
 - デバッグ出力が残っていないか
 
 ## 使用スクリプト一覧
 
-`.claude/scripts/tickets/` 配下。詳細は `.claude/scripts/tickets/README.md` を参照。
+`.claude/scripts/tickets/` 配下。
 
 | スクリプト | 引数 | 説明 |
 |---|---|---|
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | チケット情報の取得 |
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan]` | **Step 1 で実行**。チケット情報を Markdown で出力。`--plan` で Not Found 時中断メッセージ。 |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新 |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全チケット一覧 |
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索 |
-| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
-| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
+| `scan-crimes.sh` | （なし） | **Step 4 で実行**。Malfeasance.json の犯罪スキャン。 |
+| `review/find-all-stubs.js` | `<path>` | **Step 4 で実行**。`[::STUB::]` マーカーの全件検索。 |
+| `review/run-quality-checks.js` | `<files...>` | **Step 5 で実行**。静的品質チェック。 |
 
 ## ワークフロー
 
 ### Step 1: 存在確認 + チケット情報取得
 
-Tickets.json のパスを決定する（カレントディレクトリの Tickets.json を優先）。
-
 ```bash
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
+node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --plan
 ```
 
-`success` が `false` → 終了。以下のステップでは、この出力の `ticket` オブジェクトを参照する。
+出力の先頭が `# {ticketKey}: Not Found` の場合 → 出力に従い「チケットが存在しないため /plan-ticket を中断します。」と回答して終了。Not Found でなければ設計情報及び関連情報探索方法が Markdown として出力されるため、これをコンテキストとして使用。
 
-出力された `ticket` オブジェクトの全フィールド（`title`, `status`, `background`, `scope`, `referenceSection`, `testUnit`, `testExceptions`, `notes`, `relatedTicketIds` 等）を読み取り、以下の観点で情報を把握する：
+### Step 2: 設計情報・関連設計情報・関連チケット情報・ソースコードを探索・理解
 
-- **チケットの基本情報**: `title`, `status`, `background`
-- **フィールドの充足度**: 各フィールドが空か埋まっているか
-- **既存計画の有無**: `testUnit` や `notes` に計画らしき内容が含まれていれば既存の計画が存在する。空または未設定なら新規に計画を策定する。
-
-### Step 2: Investigation の再検証
-
-spec 作成時から時間が経過している場合、当時記録された Investigation セクションの物理的証拠が現在のコードベースと一致しているとは限らない。以下の観点で再検証する：
-
-- Investigation に記載されたファイルの該当行が現在も同じ内容か確認する
-- 既に修正・改善されていたり、逆に新たな問題が発生していないか grep やテスト実行で確認する
-- 検証結果に基づき、Investigation の情報を最新の状態に更新する
-
-**計画は常に現在のコードベースの状態に基づいて策定しなければならない。**
-
-### Step 3: 依存・関連チケットID の検証
-
-チケットの `relatedTicketIds` フィールドで記述された依存関係を点検する：
-
-1. `get-ticket.js` でチケット全フィールドを読み取り、`relatedTicketIds` の記述を確認する
-2. 参照先チケットID が実在することを `get-ticket.js` で確認する
-3. 循環依存がないか確認する（AがBに先行実装必須、かつBがAに先行実装必須 → 矛盾）
-4. 不足がある場合は補完する
+Step 1 の出力を理解。その後、「Usage of query.js」に従い「Related RFC graph NODE-IDs to check」に表示されている全ての Node ID に対して以下を実行し、詳細設計情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、物理的証拠を伴って実装計画に含めなければならない。物理的証拠がない実装計画は妄想であり厳しく禁止する。
 
 ```bash
-# チケットから依存・関連チケットID の記述を抽出
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "$ARGUMENTS"
-
-# 各参照先チケットの存在確認
-node ".claude/scripts/tickets/get-ticket.js" "Tickets.json" "P{phaseID}-{ticketID}"
+node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 ```
 
-### Step 4: 犯罪・スタブの点検（必須 — 第一級規則）
+必要に応じて、「Related Tickets」に示されている関連チケットの情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、物理的証拠を伴って実装計画に含めなければならない。物理的証拠がない実装計画は妄想であり厳しく禁止する。
+
+```bash
+node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules
+```
+
+### Step 3: 犯罪・スタブの点検（必須 — 第一級規則）
 
 Malfeasance.json を読み取り、未解決の犯罪がないか確認する。**計画承認の条件**として、以下のいずれかを満たさなければならない：
 
@@ -124,7 +100,7 @@ Malfeasance.json を読み取り、未解決の犯罪がないか確認する。
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**能動的コード探索**: 計画対象のソースツリーにおいて、CLAUDE.md の「対象となるコード」に定義された 7 パターンの不完全実装が既存コードに存在しないか grep で確認する。発見した場合は `[::STUB::]` マーカーを追加し、`malfeasance-create.js` で犯罪として記録する。この探索結果は計画の「リスク」または「Boy Scout 改善」セクションに反映すること。
+**能動的コード探索**: 計画対象のソースツリーにおいて、不完全実装が既存コードに存在しないか grep で確認する。発見した場合は `[::STUB::]` マーカーを追加し、`malfeasance-create.js` で犯罪として記録する。この探索結果は計画の「リスク」または「Boy Scout 改善」セクションに反映すること。
 
 ```bash
 # 不完全実装パターンの grep
@@ -133,56 +109,47 @@ grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.
 grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 ```
 
-### グラフ探索（RFC設計グラフ構造探索コマンド）
+### Step 4: 計画策定
 
-spec 内の「RFC設計グラフ構造探索コマンド」セクションに記載された query.js コマンドを実行し、対象チケットのグラフ上の位置と依存関係を確認する。
+Step 1, Step 2, Step 3 によって得られた情報を元に、実装計画を策定する。
+計画は **Universal Testing Rules** を最高法規として遵守しなければならない。
+計画は、Step 1, Step 2, Step 3 にて得られた情報が安全に盛り込まれ、Step 1 の show-ticket-context.js の出力と同じ項目を出力しなければならないが、以下の条件を満たさない場合には Step 5 へ進むことを禁じる。満たさない場合、Step 2 に戻ってやり直さなければならない。満たす場合は、Step 5 に進む。
 
-- 全ノード一覧: `crud.js list-nodes --graph=<graph-path>`
-- 起点ノードからの探索: `query.js --graph=<graph-path> --source=<rfc-path> --id=<nodeId> --hops=3`
+**Step 5 に進むことができる条件**
+1. **Universal Testing Rules** を完全遵守し、網羅的テストコードとしての単体テスト及び結合テストによって完全な動作検証が計画されている
+2. show-ticket-context.js の出力よりも**大幅に具体的**で**大幅に詳細**で**物的証拠に基づき**、**高密度情報**である
+3. 実装時に考えなければならないことがゼロに近い程、実際に実装するコードスニペットが網羅的に書かれている
 
-グラフが存在しない場合（dump-ticket-graph-commands.js が「グラフファイルがありません」と記載した場合）は、このサブステップをスキップする。
+**Universal Testing Rules**
 
----
+Write all code under the following non-negotiable rules:
 
-### Step 5: 計画策定
+1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.
 
-チケットフィールド（`background`, `scope`, `referenceSection`, `relatedTicketIds`）をもとに以下の構造で提示する：
+2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.
 
-- 要件の再確認
-- 変更ファイル一覧（| ファイル | 種別 | 内容 |）
-- Boy Scout 改善（スコープ外の翻訳可能性修正）
-- テスト計画
-  - **基本方針**: ユニットテストの網羅性を最優先する。ユニットテストでカバーできる範囲は全てユニットテストで検証し、どうしてもテスト不可能な部分だけを「ユニットテスト不可能な項目」として理由付きで例外扱いする
-  - **ユニットテスト計画**: 正常系・異常系・境界値の各ケース、モック/スタブの要否、カバレッジ目標
-  - **ユニットテスト不可能な項目（例外）**: 各項目の理由を明示
-  - spec の Test Plan を確認し、不足があれば補完する
-- 実装手順
-- 物理的レビュー方法（`run-quality-checks.js` + 翻訳可能性 grep、**テストが全て通ることの確認を含む**）
-- リスク
+3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.
 
-#### ステータス更新
+4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.
 
-計画策定が完了しました。チケットの status を `planned` に更新する。
+5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.
+
+6. Implementation is considered complete only when:
+   - The tests fully and precisely specify the intended behavior.
+   - The implementation passes all tests without exception.
+   - The implementation's correctness is demonstrably guaranteed by those tests.
+
+7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
+
+### Step 5: ステータスを更新してから計画完成報告
+
+ステータス更新。
 
 ```bash
 echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 6: 次に可能なアクション
-
-計画の策定が完了しました。以下のコマンドを実行して実装を開始できます: `/start-ticket $ARGUMENTS`
-
-### Step 7: 計画の保存
-
-計画内容を `update-ticket.js` でチケットの JSON フィールドに保存する。これにより計画内容が Tickets.json に記録される。
-
-```bash
-echo '{
-  "scope": ["変更ファイル一覧（ファイルパス・種別・内容）"],
-  "testUnit": ["UT: 正常系ケース...", "UT: 異常系ケース...", "UT: 境界値ケース..."],
-  "testExceptions": ["ユニットテスト不可能な項目とその理由"],
-  "notes": "実装手順:\n1. ...\n2. ...\n\nレビュー方法:\n- run-quality-checks\n- 翻訳可能性 grep\n\nリスク:\n- ..."
-}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+Step 4 で策定した計画の全文をMarkdown形式でユーザーに報告し、以下のメッセージで締める。
 ```
-
-これにより、後でチケットを確認したときに「どのような計画で実装されたか」を追跡できる。
+計画の策定が完了しました。以下のコマンドを実行して実装を開始できます: `/start-ticket $ARGUMENTS`
+```

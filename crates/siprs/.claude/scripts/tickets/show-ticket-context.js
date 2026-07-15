@@ -27,6 +27,9 @@ function parseArgs(testArgs) {
   let ticketsPath = '';
   let ticketKey = '';
   let forSpec = false;
+  let noTestRules = false;
+  let plan = false;
+  let review = false;
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
       ticketsPath = arg.slice('--tickets='.length);
@@ -34,6 +37,12 @@ function parseArgs(testArgs) {
       ticketKey = arg.slice('--ticket-key='.length);
     } else if (arg === '--for-spec') {
       forSpec = true;
+    } else if (arg === '--no-test-rules') {
+      noTestRules = true;
+    } else if (arg === '--plan') {
+      plan = true;
+    } else if (arg === '--review') {
+      review = true;
     }
   }
   if (!ticketsPath) {
@@ -41,7 +50,7 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey, forSpec };
+  return { ticketsPath, ticketKey, forSpec, noTestRules, plan, review };
 }
 
 /** ticketKey が P{phaseId}-{ticketId} または PX-{id} 形式か検証する */
@@ -168,7 +177,7 @@ function formatGraphNodeDetails(ticketNodeIds, graphNodes) {
   const lines = [];
   lines.push('### Related Nodes');
   lines.push('');
-  lines.push('| ID | Kind | Language | Title |');
+  lines.push('| Node ID | Kind | Language | Title |');
   lines.push('|----|------|----------|-------|');
   const nodeMap = {};
   for (const n of graphNodes) nodeMap[n.id] = n;
@@ -258,7 +267,25 @@ function formatGraphFilePaths(ticketNodeIds, dirsTree) {
 }
 
 /** チケット不在時の Markdown を生成する */
-function buildTicketNotFoundMarkdown(ticketKey) {
+function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
+  if (plan) {
+    return [
+      `# ${ticketKey}: Not Found`,
+      '',
+      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
+      '/plan-ticket を中断してください。',
+      '',
+    ].join('\n');
+  }
+  if (review) {
+    return [
+      `# ${ticketKey}: Not Found`,
+      '',
+      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
+      '/review-ticket を中断してください。',
+      '',
+    ].join('\n');
+  }
   return [
     `# ${ticketKey}: Not Found`,
     '',
@@ -291,7 +318,7 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
+function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules) {
   const lines = [];
 
   // --for-spec モードでは YAML frontmatter を先頭に出力
@@ -307,6 +334,13 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
     lines.push(`status: ${ticket.status || 'todo'}`);
     if (ticket.created_at) lines.push(`created_at: ${ticket.created_at}`);
     if (ticket.updated_at) lines.push(`updated_at: ${ticket.updated_at}`);
+    // rfc / graph / dirs パスを解決して YAML に追加
+    const yamlRawSource = (tickets.metadata && tickets.metadata.source) || '';
+    const yamlResolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
+    const { rfcPath: yamlRfc, graphPath: yamlGraph, dirsTreePath: yamlDirs } = resolveRfcPaths(yamlRawSource, ticketsDir, yamlResolvedPaths);
+    if (yamlRfc) lines.push(`rfc: ${makeRelative(yamlRfc, ticketsDir)}`);
+    if (yamlGraph) lines.push(`graph: ${makeRelative(yamlGraph, ticketsDir)}`);
+    if (yamlDirs) lines.push(`dirs: ${makeRelative(yamlDirs, ticketsDir)}`);
     lines.push('---');
     lines.push('');
   }
@@ -319,8 +353,8 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
     lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
   }
 
-  // --for-spec モードでは冒頭に Universal Testing Rules を前置する
-  if (forSpec) {
+  // --for-spec モードでは冒頭に Universal Testing Rules を前置する（--no-test-rules で抑制）
+  if (forSpec && !noTestRules) {
     lines.push('**Universal Testing Rules**');
     lines.push('');
     lines.push('Write all code under the following non-negotiable rules:');
@@ -496,6 +530,21 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
     lines.push('');
   }
 
+  // Changes（start-ticket で記録された実装変更の before/after）
+  if (ticket.changes && ticket.changes.length > 0) {
+    lines.push('## Changes');
+    lines.push('');
+    lines.push('| Before | After | Description |');
+    lines.push('|--------|-------|-------------|');
+    for (const c of ticket.changes) {
+      const before = c.before || '';
+      const after = c.after || '';
+      const desc = c.description || '';
+      lines.push(`| ${before} | ${after} | ${desc} |`);
+    }
+    lines.push('');
+  }
+
   // Reference URLs
   if (ticket.referenceUrls && ticket.referenceUrls.length > 0) {
     lines.push('## Reference URLs');
@@ -522,11 +571,17 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
     if (rows.length > 0) {
       lines.push('## Related Tickets');
       lines.push('');
-      lines.push('| Ticket | Relation | Description |');
+      lines.push('| Ticket KEY | Relation | Description |');
       lines.push('|--------|----------|-------------|');
       for (const row of rows) {
         lines.push(`| ${row.ticket} | ${row.relation} | ${row.description} |`);
       }
+      lines.push('');
+      lines.push('### To show related tickets details');
+      lines.push('');
+      lines.push('```');
+      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules');
+      lines.push('```');
       lines.push('');
     }
   }
@@ -559,7 +614,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec) {
 }
 
 function main() {
-  const { ticketsPath, ticketKey, forSpec } = parseArgs();
+  const { ticketsPath, ticketKey, forSpec, noTestRules, plan, review } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.error('Error: --ticket-key は P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。');
@@ -576,12 +631,12 @@ function main() {
   const ticket = findTicket(tickets, parsed);
 
   if (!ticket) {
-    console.log(buildTicketNotFoundMarkdown(ticketKey));
+    console.log(buildTicketNotFoundMarkdown(ticketKey, plan, review));
     process.exit(EXIT_SUCCESS);
   }
 
   const ticketsDir = path.dirname(ticketsPath);
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec);
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules);
   console.log(output);
   process.exit(EXIT_SUCCESS);
 }
