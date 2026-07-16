@@ -9,6 +9,16 @@ argument-hint: <P{phaseID}-{ticketID}>
 
 **役割**: チケットの実装計画と物理的レビュー方法の定義。
 
+## Language Protocol
+
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+
 ## ワークフローにおける位置づけ
 
 作業の流れは `make → plan → start → review` であり、現在 `plan` 実行中。

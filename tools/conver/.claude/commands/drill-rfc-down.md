@@ -1,6 +1,6 @@
 ---
 description: Fill gaps in consideration and design deficiencies in existing RFCs through grill-style questioning. Append-only. Destructive changes prohibited.
-argument-hint: </path/to/RFC-?.md>
+argument-hint: </path/to/RFC-*.md>
 ---
 
 # /drill-rfc-down

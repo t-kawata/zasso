@@ -1,6 +1,6 @@
 ---
 description: Executes graph conversion via 7-step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
-argument-hint: </path/to/RFC-?.md>
+argument-hint: </path/to/RFC-*.md>
 ---
 
 # /graphify-rfc <source-file-path>

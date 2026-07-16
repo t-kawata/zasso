@@ -10,6 +10,16 @@ description: ディレクトリ配下の警告・エラー・スタブ・犯罪�
 
 **禁止事項**: このコマンドは Tickets.json のチケットの status を絶対に変更してはならない。`update-ticket.js` を呼び出したり、`echo '{"status":...}'` を実行したりしてはならない。
 
+## Language Protocol
+
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+
 ## 引数の解釈
 
 引数なし。ある場合は全てエラーとして中断。
