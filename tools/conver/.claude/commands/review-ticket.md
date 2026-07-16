@@ -1,13 +1,13 @@
 ---
-description: 実装済みチケットの品質レビューを実行。
+description: Executes quality review of completed tickets.
 argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /review-ticket
 
-**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
 
-**役割**: `done` チケットの品質検証。
+**Role**: Quality verification of `done` tickets.
 
 ## Language Protocol
 
@@ -19,219 +19,215 @@ argument-hint: <P{phaseID}-{ticketID}>
 | Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
 | Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-## ワークフローにおける位置づけ
+## Position in the Workflow
 
-作業の流れは `make → plan → start → review` であり、現在 `review` 実行中。
+The workflow flow is `make → plan → start → review`, currently executing `review`.
 
-- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
-- **`/plan-ticket`**: 実装レベルの詳細な計画。
-- **`/start-ticket`**: 実装。
-- **`/review-ticket`**: 完了したチケットをレビュー。
+- **`/make-ticket`**: Creates and details an implementation specification (spec) document.
+- **`/plan-ticket`**: Detailed implementation-level planning.
+- **`/start-ticket`**: Implementation.
+- **`/review-ticket`**: Reviews completed tickets.
 
-## 引数の解釈
+## Argument Interpretation
 
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。`show-ticket-context.js` の `--ticket-key` に投入する。
-- 引数なし → エラーで中断
-- 数字のみ → エラーで中断
-- 上記以外 → エラーで中断
+- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required. Passed to `show-ticket-context.js`'s `--ticket-key`.
+- No argument → Interrupt with error
+- Numeric only → Interrupt with error
+- Anything else → Interrupt with error
 
-## Boy Scout Rule — レビュー観点
+## Boy Scout Rule — Review Perspective
 
-**実装者が既存コードの改善を行ったか検証する。** 新コードの品質だけでなく、既存コードに対する改善痕跡（エラー伝播への修正、定数化、関数分割等）も確認する。翻訳可能性チェック（grep パターンは言語に応じて選択）：
+**Verify whether the implementer made improvements to existing code.** Check not only the quality of new code, but also evidence of improvements to existing code (error propagation fixes, constant extraction, function splitting, etc.). Translatability checks (select grep patterns per language):
 
-- 関数定義を grep し、動詞句でない関数名がないか
-- 変数宣言を grep し、1文字変数や汎用名が新たに追加されていないか
-- マジックナンバーが直接書かれていないか
-- デバッグ出力が残っていないか
-- コメントは「なぜ」のみか（「何を」はコード自身が語るべき）
+- Grep function definitions for function names that are not verb phrases
+- Grep variable declarations for newly added single-character variables or generic names
+- Check for hardcoded magic numbers
+- Check for leftover debug output
+- Comments should only explain "why" (the "what" should be conveyed by the code itself)
 
-## 使用スクリプト一覧
+## List of Scripts Used
 
-`.claude/scripts/tickets/` 配下。
+Located under `.claude/scripts/tickets/`.
 
-| スクリプト | 引数 | 説明 |
-|---|---|---|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --for-spec --review` | **Step 1 で実行**。チケット情報を Markdown で出力。`--review` で Not Found 時中断。 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールド更新・status 変更。`--append` で既存内容を保持し追記。 |
-| `scan-crimes.sh` | （なし） | **Step 3, 4 で実行**。Malfeasance.json の犯罪スキャン。 |
-| `review/find-all-stubs.js` | `<path>` | **Step 3 で実行**。`[::STUB::]` マーカーの全件検索。 |
-| `review/run-quality-checks.js` | `<files...>` | **Step 5 で実行**。静的品質チェック。 |
-| `review/generate-report.js` | （stdin経由） | **Step 5 で実行**。品質レポート生成。 |
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --for-spec --review` | **Executed in Step 1**. Outputs ticket information in Markdown. With `--review`, interrupts on Not Found. |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields and change status. Use `--append` to retain existing content and append. |
+| `scan-crimes.sh` | (none) | **Executed in Step 3, 4**. Crime scan of Malfeasance.json. |
+| `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
+| `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
+| `review/generate-report.js` | (via stdin) | **Executed in Step 5**. Generate quality report. |
 
-## ワークフロー
+## Workflow
 
-### Step 1: 存在確認 + チケット情報取得
+### Step 1: Existence check + retrieve ticket information
 
 ```bash
 node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --review
 ```
 
-出力の先頭が `# {ticketKey}: Not Found` の場合 → 出力に従い「チケットが存在しないため /review-ticket を中断します。」と回答して終了。Not Found でなければ設計情報及び関連情報探索方法が Markdown として出力されるため、これをコンテキストとして使用。
+If the output starts with `# {ticketKey}: Not Found` → Follow the output, respond with "The ticket does not exist, so /review-ticket is interrupted." and exit. If Not Found is not the case, design information and methods for exploring related information are output as Markdown; use this as context.
 
-### Step 2: 設計情報・関連設計情報・関連チケット情報・ソースコードを探索・理解
+### Step 2: Explore and understand design information, related design information, related ticket information, and source code
 
-Step 1 の出力を理解。その後、「Usage of query.js」に従い「Related RFC graph NODE-IDs to check」に表示されている全ての Node ID に対して以下を実行し、詳細設計情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、実装状況に関して物理的証拠を伴ってレビューを行わなければならない。物理的証拠がないレビューは妄想であり厳しく禁止する。
+Understand the output of Step 1. Then, following "Usage of query.js," execute the following for every Node ID listed in "Related RFC graph NODE-IDs to check" to explore detailed design information. The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis**, and the review must be conducted with material evidence regarding the implementation status. A review without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
 node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 ```
 
-必要に応じて、「Related Tickets」に示されている関連チケットの情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、実装状況に関して物理的証拠を伴ってレビューを行わなければならない。物理的証拠がないレビューは妄想であり厳しく禁止する。
+As needed, explore information about related tickets shown in "Related Tickets." The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis**, and the review must be conducted with material evidence regarding the implementation status. A review without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
 node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules
 ```
 
-### Step 3: 犯罪の緊急解決（最優先 — 第一級規則）
+### Step 3: Emergency crime resolution (highest priority — First-Class Rule)
 
-Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する場合、**レビュー処理より優先して**解決する。これは最優先タスクであり、スキップを禁止する。
+Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with priority over the review process**. This is the highest priority task; skipping is prohibited.
 
 ```bash
-# 犯罪スキャンを実行（初回時は自動初期化）
+# Execute crime scan (auto-initializes on first run)
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-犯罪解決の手順は start-ticket.md の「犯罪の緊急解決」に従う。全犯罪を解決するまでレビューを進行してはならない。
+Follow the crime resolution procedure in start-ticket.md's "Emergency crime resolution." Do not proceed with the review until all crimes are resolved.
 
-また、本チケットの実装コードに新たな犯罪（`[::STUB::]` 未付与の不完全実装）がないことを確認する。発見した場合は：
-1. その場で `[::STUB::]` マーカーを追加する
-2. `malfeasance-create.js` で犯罪として記録する
-3. 犯罪を解決する（実装完了 or マーカー追加）
+Also verify that there are no new crimes in the implementation code of this ticket (incomplete implementations without `[::STUB::]` markers). If found:
+1. Add a `[::STUB::]` marker on the spot
+2. Record it as a crime via `malfeasance-create.js`
+3. Resolve the crime (complete implementation or add marker)
 
-### Step 4: [::STUB::] の一覧と評価
+### Step 4: List and evaluate [::STUB::] markers
 
-`find-all-stubs.js` で全スタブを抽出し、以下の3分類で評価する：
+Extract all stubs via `find-all-stubs.js` and evaluate them in the following 3 categories:
 
 ```bash
-# 全スタブの一覧取得
+# List all stubs
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**分類基準**:
+**Classification criteria**:
 
-1. **解決可能なスタブ** — 依存先チケットが完了し、現状で実際の実装に置き換えられるもの
-   → **その場で実装し、`[::STUB::]` マーカーを除去する**
+1. **Resolvable stubs** — Dependency tickets are complete, and can now be replaced with actual implementation
+   → **Implement on the spot and remove the `[::STUB::]` marker**
 
-2. **別チケットが必要なスタブ** — 解決には別の新規チケットが必要なもの
-   → **新規チケットの作成をユーザーに提案する**
+2. **Stubs requiring a separate ticket** — Resolution requires a new ticket
+   → **Propose creating a new ticket to the user**
 
-3. **保留妥当なスタブ** — 将来的なチケットで解決予定であり、現在はスタブのままが正しいもの
-   → **理由を明確にし、解決予定チケットIDを確認してユーザーに報告する**
+3. **Stubs that are correctly deferred** — Scheduled for resolution in a future ticket, currently correct as stubs
+   → **Clarify the reason, verify the planned resolution ticket ID, and report to the user**
 
-**未マークスタブの発見時**: コードの内容から明らかにスタブと判断されるにも関わらず `[::STUB::]` が付与されていない場合、**その場でマーカーを追加し、`malfeasance-create.js` で犯罪として記録する**。その後、上記の分類に従って評価する。
+**When an unmarked stub is found**: If code content clearly indicates a stub but no `[::STUB::]` marker is attached, **add the marker on the spot and record it as a crime via `malfeasance-create.js`**. Then evaluate according to the classification above.
 
-スタブ評価の結果はレビュー報告書に必記録すること。
+The results of the stub evaluation must be recorded in the review report.
 
-### Step 5: 不完全実装の能動的探索（必須）
+### Step 5: Active search for incomplete implementations (mandatory)
 
-コンパイル検証に入る前に、レビュー対象の**変更コード全体を精査し**、不完全実装が混入していないか確認する。これは**自動スクリプトでは検出できない漏れを発見するための能動的ステップ**であり、スキップを禁止する。
+Before entering compilation verification, **scrutinize the entire changed code** of the review target and check for mixed-in incomplete implementations. This is an **active step to discover omissions that automated scripts cannot detect**; skipping is prohibited.
 
 ```bash
-# 変更ファイル一覧を確認
+# View the list of changed files
 git diff --name-only "$(git merge-base HEAD origin/master)"
 
-# 各ファイルの変更行を確認
+# Confirm changed lines of each file
 git diff "$(git merge-base HEAD origin/master)"
 ```
 
-**確認基準（7パターン）**:
-1. `todo!()`, `unimplemented!()`, `panic!()` — `[::STUB::]` は付いているか
-2. 空の関数本体 — 仮置きのままではないか
-3. `return Ok(())` / `return None` — エラー処理が未完了ではないか
-4. コメントアウトされたコード — 残骸を残していないか
-5. `TODO` / `FIXME` / `HACK` / `XXX` — `[::STUB::]` と併記されているか
-6. Mock / Fake オブジェクト — `[::STUB::]` は付いているか
-7. `#[allow(...)]` — 抑制理由に `[::STUB::]` があるか
+**Verification criteria (7 patterns)**:
+1. `todo!()`, `unimplemented!()`, `panic!()` — Does it have a `[::STUB::]` marker?
+2. Empty function bodies — Is it left as a placeholder?
+3. `return Ok(())` / `return None` — Is error handling incomplete?
+4. Commented-out code — Is debris left behind?
+5. `TODO` / `FIXME` / `HACK` / `XXX` — Is it accompanied by a `[::STUB::]` marker?
+6. Mock / Fake objects — Does it have a `[::STUB::]` marker?
+7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
 
-不完全実装を発見した場合：
-1. `[::STUB::]` 未付与 → その場でマーカーを追加する
-2. `malfeasance-create.js` で犯罪として記録する
-3. 直ちに解決する。解決不可能な場合は `false_positive` に変更し理由を `note` に記録する
+If an incomplete implementation is found:
+1. If no `[::STUB::]` marker → Add the marker on the spot
+2. Record it as a crime via `malfeasance-create.js`
+3. Resolve it immediately. If unresolvable, change to `false_positive` and record the reason in `note`
 
 ```bash
 node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
 ```
 
-記録後、必ず `scan-crimes.sh` を再実行し、犯罪が正しく Malfeasance.json に反映されたことを確認する：
+After recording, re-run `scan-crimes.sh` to verify the crime has been correctly reflected in Malfeasance.json:
 
 ```bash
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-### Step 6: コンパイル検証とユニットテスト検証
+### Step 6: Compilation verification and unit test verification
 
-まずコンパイル検証を実行する。実行方法は以下の指針に従い、AI が状況に応じて判断すること：
+First, run compilation verification. Follow the guidelines below; the AI determines the approach based on the situation:
 
-- **作業ディレクトリ**: 変更範囲に応じて適切なディレクトリで実行する。`cd` が必要な
-  場合はサブシェル `(cd <dir> && <command>)` を使い、後続に影響を与えないようにする。
-- **コンパイル検証**: 選択したディレクトリに Makefile が存在し、`check` 系ターゲットが
-  定義されていれば `make` を優先、なければ `cargo check` を使用する。
-- **テスト実行**: 同様に、Makefile に `test` ターゲットが定義されていれば `make test`
-  を優先、なければ `cargo test` を使用する。テスト範囲は変更の影響範囲に応じて判断する。
+- **Working directory**: Execute in the appropriate directory depending on the scope of changes. If `cd` is needed, use a **subshell** `(cd <dir> && <command>)` to avoid affecting subsequent commands.
+- **Compilation verification**: If a Makefile exists in the selected directory with `check`-family targets defined, prefer `make`; otherwise use `cargo check`.
+- **Test execution**: Similarly, if a Makefile has a `test` target defined, prefer `make test`; otherwise use `cargo test`. Determine the test scope based on the impact range of the changes.
 
 ```bash
-# 例: プロジェクトルートの Makefile を使う場合
+# Example: Using the project root Makefile
 (cd "$(git rev-parse --show-toplevel)" && make check-be)
 
-# 例: 特定クレート内で cargo を直接使う場合
+# Example: Using cargo directly in a specific crate
 (cd crates/voiput && cargo check --all-targets)
 ```
 
-コンパイルが通らない場合は修正してから先に進む。
+If compilation does not pass, fix before proceeding.
 
-続けて、Step 1 で得た Test Plan で定義されたテストが全て実装されていることを確認し、テストを実行する。実行の指針はコンパイル検証と同様とする：
+Next, verify that all tests defined in the Test Plan obtained in Step 1 are implemented, then run the tests. The execution guidelines are the same as for compilation verification:
 
-テストが存在しない、または失敗がある場合 → 修正してから先に進む。
-「ユニットテスト不可能な項目（例外）」として spec に明記されたものだけが未テストを許容される。
+If tests do not exist or any fail → Fix before proceeding.
+Only items explicitly stated in the spec as "exceptions (unit-testable items)" are allowed to remain untested.
 
-**警告・エラー完全解決の原則**:
-- `cargo check`, `cargo test`（または `make` コマンド経由）で検出された警告・エラーは、**1つ残さず解決しなければならない**。未解決の状態で次ステップに進むことを禁止する。
-- `cargo test`（または `make test`）が**1つでも失敗する状態**での次ステップ進行を禁止する。テストが通るまで修正すること。
-- やむを得ず警告・エラーを残す場合（別チケットで解決予定など）は、**該当箇所に `[::STUB::]` マーカーとコメントアウトで「どのチケット（チケットID）のタイミングで、どのように解決されるか」を明記した上で、`#[allow(...)]` や `#[cfg(test)]` 等の適切な機構で警告・エラーを抑制し、他のチケットのコンパイルやテストを阻害しない状態にしなければならない**。
-- 抑制が不十分で後続のビルドやテストを阻害する場合、それはバグとみなす。
+**Principle of complete warning/error resolution**:
+- Warnings and errors detected by `cargo check`, `cargo test` (or via `make` commands) **must be resolved without exception**. Proceeding to the next step with unresolved items is prohibited.
+- Proceeding to the next step when **even one `cargo test` (or `make test`) fails** is prohibited. Fix until all tests pass.
+- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **add a `[::STUB::]` marker with a comment stating "which ticket (ticket ID) will resolve it and how," and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**.
+- If the suppression is insufficient and blocks subsequent builds or tests, it is considered a bug.
 
-**抑制と `[::STUB::]` の整合性検証**:
-- `cargo check`（または `make check-*`）通過後、`#[allow(...)]` 等の抑制機構が使用されている箇所をすべて抽出し、それぞれに対応する `[::STUB::]` マーカーと解決予定チケットIDが同一箇所に明記されていることを確認する
-- **抑制のみで `[::STUB::]` が欠如** → マーカーを追加し、解決予定チケットIDと解決方法をコメントに記入する
-- **`[::STUB::]` のみで抑制が欠如** → コンパイル検証でエラーが出ているか確認する。エラーがあれば `#[allow(...)]` を追加し、エラーがなければ抑制不要（設計上の意図的スタブ）と判断して良い
-- 整合性確認後、**再度コンパイル検証を実行する**
+**Suppression and `[::STUB::]` consistency verification**:
+- After `cargo check` (or `make check-*`) passes, extract all locations where suppression mechanisms such as `#[allow(...)]` are used, and verify that each has a corresponding `[::STUB::]` marker and planned resolution ticket ID clearly stated at the same location
+- **Suppression without `[::STUB::]`** → Add the marker and write the planned resolution ticket ID and resolution method in a comment
+- **`[::STUB::]` without suppression** → Check whether compilation verification produces an error. If there is an error, add `#[allow(...)]`; if there is no error, suppression is unnecessary (it can be considered a deliberate design stub)
+- After consistency verification, **re-run compilation verification**
 
-### Step 7: 実装の完全性を徹底検査
+### Step 7: Thoroughly inspect implementation completeness
 
-Step 1 で得た設計情報と Step 2 で得た探索情報及びソースコード解析情報を使用し、Step 1 で得た設計情報に書かれている全てを満たす実装が完全に完了していることを検査する。
+Using the design information obtained in Step 1, the exploration information obtained in Step 2, and the source code analysis, inspect whether the implementation fully satisfies everything described in the design information from Step 1.
 
-検査は、Step 1 で得た設計情報に対して、危険・漏れ・矛盾・不足 に分けて4段階で積極的に探索する。
-危険・漏れ・矛盾・不足 を発見することを重視し、見逃さないという粘着性を発揮すること。
+Actively search through the design information from Step 1 in 4 categories: **risks, omissions, contradictions, deficiencies**. Focus on discovering risks, omissions, contradictions, and deficiencies — demonstrate tenacity in not overlooking anything.
 
-発見した危険・漏れ・矛盾・不足は、Step 1 で得た設計情報を全て完全に満たし、全てのテストに合格し且つ一つのエラーも警告も無いという状態を Step 8 に進んでも良い唯一の条件とする。
+The sole condition for proceeding to Step 8 is: the design information from Step 1 is fully satisfied, all tests pass, and there are zero errors and zero warnings.
 
-### Step 8: 静的品質チェック
+### Step 8: Static quality check
 
 ```bash
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
-### Step 9: 翻訳可能性チェック
+### Step 9: Translatability check
 
-`/plan-ticket` で定義された grep コマンドを全て再実行する。
+Re-execute all grep commands defined in `/plan-ticket`.
 
-### Step 10: レビュー報告書の保存
+### Step 10: Save review report
 
-全チェック通過後、レビュー結果を `update-ticket.js` でチケットの JSON フィールドに保存する：
+After all checks pass, save the review results to the ticket's JSON fields via `update-ticket.js`:
 
 ```bash
 echo '{
-  "instrumentation": "静的品質チェック: 合格\n翻訳可能性: 問題なし\nテスト: 全xx件成功",
+  "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: all xx tests passed",
   "rfcDiscrepancies": [],
-  "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済\n- 見つかった問題と修正内容: ..."
+  "notes": "Review report:\n- Static quality check: passed\n- Translatability: no issues\n- Dependencies: consistency verified\n- Issues found and fixes applied: ..."
 }' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
-これにより、後でチケットを確認したときに「どのようにレビューされ、品質が担保されているか」を追跡できる。
+This makes it possible to trace "how the review was conducted and quality assured" when checking the ticket later.
 
-### Step 11: reviewed に遷移
+### Step 11: Transition to reviewed
 
-全チェック通過後、レビュー完了日と共に status を更新する：
+After all checks pass, update the status together with the review completion date:
 
 ```bash
 echo "{\"status\":\"reviewed\",\"completedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
