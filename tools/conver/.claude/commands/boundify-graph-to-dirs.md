@@ -1,22 +1,31 @@
 ---
-description: 例: /boundify-graph-to-dirs RFC-BOUNDIFY-GRAPH.json（相対パス）/ /boundify-graph-to-dirs /path/to/RFC-BOUNDIFY-GRAPH.json（絶対パス）。第1引数に /graphify-rfc が生成したグラフJSONのファイルパスを指定し、4Step進行制御でディレクトリツリーとDirs-Tree.jsonを生成する。
+description: Generates a directory tree and Dirs-Tree.json from graph JSON produced by /graphify-rfc.
 argument-hint: </path/to/*-GRAPH.json>
-allowed-tools: Read, Write, Bash
 ---
 
 # /boundify-graph-to-dirs <graph-file-path>
 
-**役割**: /graphify-rfc が生成したグラフJSONを入力として受け取り、検証・自己修復ループを経て安全な境界を持つ実装ディレクトリツリーを生成する。
+**Role**: Accepts the graph JSON produced by /graphify-rfc as input, and through a verification and self-healing loop, generates an implementation directory tree with safe boundaries.
 
-## 引数
+## Language Protocol
 
-- **第1引数（必須）**: /graphify-rfc が生成したグラフJSONのファイルパス（絶対パスまたは相対パス）
-  - 例: `RFC-BOUNDIFY-GRAPH.json`
-  - 例: `/absolute/path/to/rfc-graph.json`
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-## 導出パス
+## Arguments
 
-グラフJSONのパスから以下のファイルパスを計算する：
+- **1st argument (required)**: File path to the graph JSON produced by /graphify-rfc (absolute or relative path)
+  - Example: `RFC-BOUNDIFY-GRAPH.json`
+  - Example: `/absolute/path/to/rfc-graph.json`
+
+## Derived Paths
+
+The following file paths are computed from the graph JSON path:
 
 ```bash
 graphPath="$1"
@@ -25,110 +34,110 @@ basename="$(basename "$1" -GRAPH.json)"
 dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"
 statusPath="${graphDir}/${basename}-BOUNDIFY-Status.json"
 
-# グラフJSONから sourceFile（元Markdown文書パス）を抽出する
+# Extract sourceFile (original Markdown document path) from the graph JSON
 sourcePath=$(node -p "JSON.parse(require('fs').readFileSync('${graphPath}','utf8')).sourceFile||''")
 if [ -z "$sourcePath" ]; then
-  echo "[ERROR] グラフJSONに sourceFile が見つかりません"
+  echo "[ERROR] sourceFile not found in graph JSON"
   exit 1
 fi
 ```
 
-- `graphPath`: 入力グラフJSONファイル
-- `dirsTreePath`: 出力されるディレクトリツリーJSONファイル
-- `statusPath`: 進行管理ステータスJSONファイル（update-boundify-step-status.js が読書きする）
-- `sourcePath`: 元Markdown文書のパス（グラフJSONの sourceFile フィールドから抽出）
+- `graphPath`: Input graph JSON file
+- `dirsTreePath`: Output directory tree JSON file
+- `statusPath`: Progress management status JSON file (read/written by update-boundify-step-status.js)
+- `sourcePath`: Path to the original Markdown document (extracted from the graph JSON's sourceFile field)
 
-## ガイドライン
+## Guidelines
 
-- **/boundify-graph-to-dirs は /graphify-rfc の出力を唯一の入力とする**。グラフが存在しない状態では実行できない。
-- 各Stepで使用するスクリプトは `.claude/scripts/rfc-graph/` 配下に配置されている。
-- update-boundify-step-status.js の呼び出しは `--status=<path>` フラグで行う。
-- boundify-graph-to-dirs.js は `--graph=<path>` の引数形式で呼び出す。
-- **自己修復ループ**: 各Stepでエラーや警告が発生した場合、スクリプトの出力するメッセージに従ってAIが自力でグラフデータを修正し、再実行する。`/graphify-rfc` に戻る必要はない。修正後は必ず `verify-graph-integrity.js` で退行チェックを実行する。
-- **prose 系 kind のファイル生成除外**: `rationale`/`glossary`/`requirement` の3 kind は実行時振る舞いを持たない設計情報ノードのため、ファイル生成対象から除外される。これらのノードの設計情報は、エッジで接続された先のファイルのヘッダーコメント内にクロスリファレンスとして埋め込まれる（PX-28/PX-30）。
-- **prune ルール**: ツリー生成時に最低2子ノードの要件を満たさないディレクトリは削除され、単一の子のみを持つディレクトリは親にフラット化される（PX-29）。
-- **宣言スタブ**: 実装のない空ファイルには、言語と kind に応じた宣言スタブ（関数シグネチャ＋実装TODOコメント）が自動生成される。これにより直ちに実装に着手できる（PX-28）。
-- **クロスリファレンス**: prose 系ノード（設計情報）に接続されたファイルのヘッダーコメントに、該当 prose ノードの設計意図への参照が埋め込まれる。これにより設計文書と実装ファイル間のトレーサビリティを確保する（PX-30）。
+- **/boundify-graph-to-dirs takes the output of /graphify-rfc as its sole input**. It cannot run without an existing graph.
+- Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
+- Calls to update-boundify-step-status.js use the `--status=<path>` flag.
+- boundify-graph-to-dirs.js is called with the `--graph=<path>` argument format.
+- **Self-healing loop**: If errors or warnings occur in any Step, the AI fixes the graph data according to the messages output by the scripts and re-runs. There is no need to return to `/graphify-rfc`. After fixing, always run `verify-graph-integrity.js` for regression checking.
+- **Prose kind file generation exclusion**: 3 kinds — `rationale`/`glossary`/`requirement` — are design-information nodes without runtime behavior, so they are excluded from file generation targets. The design information from these nodes is embedded as cross-references within the header comments of files connected via edges (PX-28/PX-30).
+- **Prune rules**: During tree generation, directories that do not meet the minimum 2-child-node requirement are removed; directories with a single child are flattened into the parent (PX-29).
+- **Declaration stubs**: Empty files without implementation automatically receive declaration stubs (function signature + implementation TODO comment) appropriate to the language and kind. This allows implementation to begin immediately (PX-28).
+- **Cross-references**: File header comments connected to prose nodes (design information) embed references to the design intent of the corresponding prose node. This ensures traceability between the design document and implementation files (PX-30).
 
-## 使用スクリプト一覧
+## List of Scripts Used
 
-`.claude/scripts/rfc-graph/` 配下。
+Located under `.claude/scripts/rfc-graph/`.
 
-| スクリプト | 引数 | 説明 |
+| Script | Arguments | Description |
 |---|---|---|
-| `boundify-graph-to-dirs.js` | `--graph=<path> [--json\|--quiet\|--dry-run\|--force]` | メインスクリプト。グラフ読込・言語収集・ツリー生成・エッジ投影・循環検出・ファイル書出・3出力モード制御 |
-| `validate-dirs-tree-schema.js` | `--dirs-tree=<path> --graph=<path>` | Dirs-Tree.json スキーマ検証（nodes/edges/trees/dependencyDirections の構造検証） |
-| `verify-graph-integrity.js` | `--graph-after=<path> --graph-before=<path> --source=<path>` | 5軸チェック（nodes/edges/headingRefs/孤立/カバレッジ）。退行チェック用 |
-| `generate-all-dir-templates.js` | `--dirs-tree=<path> [--dry-run] [--delete]` | Dirs-Tree.json 内の全言語に対して生成/削除を一括実行 |
-| `generate-dir-template.js` | `--dirs-tree=<path> --root-dir=<path> --lang=<lang> [--dry-run] [--force] [--delete]` | ディレクトリツリーから実ディレクトリ/ファイルを生成/削除（単一言語） |
-| `boundify-helpers.js` | （ライブラリ） | 純粋関数群（projectEdgesToDirectories, tarjanSCC, deduplicateFileNames, collectLanguagesFromGraph 等） |
-| `boundify-tree.js` | （ライブラリ） | ディレクトリツリー生成（buildDomainHierarchy, buildDirectoryTree, generateReport 等） |
-| `update-boundify-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY-Status.json の進行管理（5サブコマンド） |
-| `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | グラフサマリーを kind 別Markdown形式で出力 |
-| `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | マルチホップグラフ検索（退行チェックの補助手段） |
-| `validate-slug.js` | `--graph=<path>` | 全ノードの slug フィールドを命名規則検証（lower_snake_case/25文字上限/先頭英小文字）。エラー時は remedy に crud.js の修正コマンド例を出力 |
+| `boundify-graph-to-dirs.js` | `--graph=<path> [--json\|--quiet\|--dry-run\|--force]` | Main script. Graph loading, language collection, tree generation, edge projection, cycle detection, file output, 3 output mode control |
+| `validate-dirs-tree-schema.js` | `--dirs-tree=<path> --graph=<path>` | Dirs-Tree.json schema validation (structure validation of nodes/edges/trees/dependencyDirections) |
+| `verify-graph-integrity.js` | `--graph-after=<path> --graph-before=<path> --source=<path>` | 5-axis check (nodes/edges/headingRefs/orphans/coverage). Used for regression checking |
+| `generate-all-dir-templates.js` | `--dirs-tree=<path> [--dry-run] [--delete]` | Batch generation/deletion for all languages in Dirs-Tree.json |
+| `generate-dir-template.js` | `--dirs-tree=<path> --root-dir=<path> --lang=<lang> [--dry-run] [--force] [--delete]` | Generate/delete actual directories and files from directory tree (single language) |
+| `boundify-helpers.js` | (library) | Pure function collection (projectEdgesToDirectories, tarjanSCC, deduplicateFileNames, collectLanguagesFromGraph, etc.) |
+| `boundify-tree.js` | (library) | Directory tree generation (buildDomainHierarchy, buildDirectoryTree, generateReport, etc.) |
+| `update-boundify-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | BOUNDIFY-Status.json progress management (5 subcommands) |
+| `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | Outputs graph summary in kind-organized Markdown format |
+| `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | Multi-hop graph search (auxiliary means for regression checking) |
+| `validate-slug.js` | `--graph=<path>` | Validates naming conventions for all nodes' slug fields (lower_snake_case/25 char limit/leading lowercase letter). On error, outputs example crud.js fix commands in remedy |
 
-多くのスクリプトはエラー時に問題点と対応方法を出力する。出力された指示に従って修正し、再実行すること。
+Many scripts output the problem and resolution method on error. Follow the instructions output and re-run.
 
-## Step 0: グラフ読み込み・言語収集（事前処理）
+## Step 0: Graph Loading, Language Collection (Pre-processing)
 
-グラフJSONが有効であることを確認し、全ノードの `language` フィールドを読み取って使用言語を把握する。
+Confirm the graph JSON is valid and read all nodes' `language` fields to identify the languages in use.
 
 ```bash
-# Step 0 を開始（進行ステータスを running に更新）
+# Start Step 0 (update progress status to running)
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 0
 
-# メインスクリプトを dry-run モードで実行し、事前処理のみを確認する
+# Run the main script in dry-run mode to confirm only pre-processing
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --dry-run
 
-# Step 0 正常終了（進行ステータスを done に更新し、currentStep を 1 に進める）
+# Step 0 successful completion (update progress status to done and advance currentStep to 1)
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 0
 ```
 
-### エラー時の復帰
-スクリプトが出力するエラーメッセージに従ってグラフデータを修正した後、`reset-to-step 0` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
+### Recovery on Error
+After fixing the graph data according to the error message output by the script, use `reset-to-step 0` to reset the status, then re-run the Step 0 commands from the beginning.
 
 ```bash
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 0
 ```
 
-修正後は退行チェックを必ず実行する。
+Always run regression checking after fixing.
 
-## Step 1: 検証・自己修復ループ（新設）
+## Step 1: Verification and Self-Healing Loop (New)
 
-graphify → boundify の接合部が壊れていないことを5軸で検証する。問題があればスクリプトが具体的な修正指示を出力し、AIが修正 → 再実行 → 問題消失確認まで行う。
+Verify on 5 axes that the graphify → boundify junction is intact. If problems are found, the script outputs specific fix instructions, and the AI proceeds through fix → re-run → problem disappearance confirmation.
 
-### 検証の5軸
+### 5 Verification Axes
 
-| 軸 | チェック内容 | 検出される問題 |
+| Axis | Check Content | Problem Detected |
 |---|---|---|
-| 1 | nodes の ID 集合が変化していないか | ノードの誤削除・誤追加 |
-| 2 | edges が変化していないか | エッジの誤削除・誤変更 |
-| 3 | headingRefs が全て解決可能か | 参照切れ |
-| 4 | 孤立ノードが存在しないか | エッジ切れノード |
-| 5 | ソースの全見出しがカバーされているか | 未カバーセクション |
+| 1 | Whether the nodes ID set has changed | Accidental node deletion or addition |
+| 2 | Whether edges have changed | Accidental edge deletion or modification |
+| 3 | Whether all headingRefs are resolvable | Broken references |
+| 4 | Whether orphan nodes exist | Nodes with disconnected edges |
+| 5 | Whether all source headings are covered | Uncovered sections |
 
 ```bash
-# Step 1 を開始
+# Start Step 1
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 1
 
-# 以前のバックアップを削除し、新たに取得する
+# Delete previous backup and create a new one
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" backup
 
-# 5軸チェックを実行
+# Run the 5-axis check
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --graph-after="$graphPath" \
   --graph-before="$graphPath.bak" \
   --source="$sourcePath"
 
-# slug 検証を実行
+# Run slug validation
 node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 ```
 
-5軸チェックと slug 検証の両方で `{"ok":true}` が返るまで以下の手順を繰り返す（最大5回）：
+Repeat the following procedure until both the 5-axis check and slug validation return `{"ok":true}` (max 5 iterations):
 
 ```bash
-# verify-graph-integrity.js と validate-slug.js を実行する
+# Run verify-graph-integrity.js and validate-slug.js
 node .claude/scripts/rfc-graph/verify-graph-integrity.js \
   --graph-after="$graphPath" \
   --graph-before="$graphPath.bak" \
@@ -136,142 +145,142 @@ node .claude/scripts/rfc-graph/verify-graph-integrity.js \
 node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 ```
 
-検証結果に応じて分岐する：
+Branch based on verification results:
 
-- **`{"ok":true}`（両方）の場合** → 自己修復ループ終了。バックアップを削除し、Step 1 正常終了へ進む。
+- **If `{"ok":true}` (both)** → Self-healing loop ends. Delete the backup and proceed to Step 1 successful completion.
   ```bash
   node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
   node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 1
   ```
 
-- **エラーが報告された場合** → スクリプトが出力する `remedies` フィールドの指示に従ってグラフデータを修正し、再度 verify-graph-integrity.js と validate-slug.js を実行する。slug エラーは remedy の crud.js コマンドで slug を修正する。この修正→実行のサイクルを最大5回まで繰り返す。
+- **If errors are reported** → Fix the graph data following the `remedies` field output by the script, then re-run verify-graph-integrity.js and validate-slug.js. For slug errors, fix the slug using the crud.js command in the remedy. Repeat this fix → run cycle up to 5 times.
 
-- **5回を超えても `{"ok":true}` にならない場合** → reset-to-step 1 で復帰する。
+- **If `{"ok":true}` is not reached after 5 iterations** → Recover with reset-to-step 1.
   ```bash
-  echo "[ERROR] 自己修復ループが最大試行回数(5)に達しました。"
+  echo "[ERROR] Self-healing loop reached maximum attempts (5)."
   node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
   ```
 
-### エラー時の復帰
-`verify-graph-integrity.js` または `validate-slug.js` が出力する `remedies` フィールドの指示に従ってグラフデータを修正した後、両スクリプトを再実行してエラー消失を確認する。slug エラーは remedy の crud.js コマンドで slug を修正する。これらを `{"ok":true}` が返るまで繰り返す。やむを得ず `reset-to-step 1` で最初からやり直す場合は以下のコマンドを実行する：
+### Recovery on Error
+After fixing the graph data according to the `remedies` field output by `verify-graph-integrity.js` or `validate-slug.js`, re-run both scripts to confirm the error has disappeared. For slug errors, fix the slug using the crud.js command in the remedy. Repeat until `{"ok":true}` is returned. If the situation requires starting over from scratch with `reset-to-step 1`, run the following command:
 
 ```bash
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 1
 ```
 
-## Step 2: Dirs-Tree.json 生成 + スキーマ検証
+## Step 2: Dirs-Tree.json Generation + Schema Validation
 
-Dirs-Tree.json を生成し、JSON Schema に準拠していることを検証する。旧 Step 1（ツリー生成）と旧 Step 3（スキーマ検証）を統合した。
+Generate Dirs-Tree.json and verify it conforms to the JSON Schema. This merges the old Step 1 (tree generation) and old Step 3 (schema validation).
 
-ツリー生成時には以下の処理が自動適用される：
-- **階層化**: ドメイン構造（domain hierarchy）に基づいてノードをディレクトリ階層に配置する
-- **prune**: 最低2子ノードの要件を満たさないディレクトリは削除、単一子ディレクトリは親にフラット化する
-- **prose 除外**: `rationale`/`glossary`/`requirement` の3 kind はファイル生成対象から自動除外される
+During tree generation, the following processes are automatically applied:
+- **Hierarchization**: Nodes are placed into the directory hierarchy based on domain structure (domain hierarchy)
+- **Prune**: Directories not meeting the minimum 2-child-node requirement are removed; single-child directories are flattened into the parent
+- **Prose exclusion**: 3 kinds — `rationale`/`glossary`/`requirement` — are automatically excluded from file generation targets
 
 ```bash
-# Step 2 を開始
+# Start Step 2
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 2
 
-# Dirs-Tree.json を生成（ついでに循環依存があれば warnings に記録される）
+# Generate Dirs-Tree.json (if cyclic dependencies exist, they are recorded in warnings)
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath"
 
-# 出力ファイルの存在確認
+# Verify output file existence
 test -f "$dirsTreePath" && echo "Dirs-Tree.json: OK" || echo "Dirs-Tree.json: MISSING"
 
-# スキーマ検証を実行
+# Run schema validation
 node .claude/scripts/rfc-graph/validate-dirs-tree-schema.js \
   --dirs-tree="$dirsTreePath" \
   --graph="$graphPath"
 
-# Step 2 正常終了
+# Step 2 successful completion
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 2
 ```
 
-### 循環依存が検出された場合
-boundify-graph-to-dirs.js が出力する `warnings` に循環依存の詳細と修正手順が記録されている。AIが指示に従ってグラフのエッジ定義を修正した後、再度 `boundify-graph-to-dirs.js` を実行し、循環が解消されたことを確認する。エッジ修正後は必ず `verify-graph-integrity.js` で退行チェックを実行する。
+### When Cyclic Dependencies Are Detected
+The `warnings` output by boundify-graph-to-dirs.js contain details about cyclic dependencies and fix procedures. After the AI fixes the graph's edge definitions according to the instructions, re-run `boundify-graph-to-dirs.js` and confirm the cycle has been resolved. After fixing edges, always run `verify-graph-integrity.js` for regression checking.
 
-### スキーマ検証エラーの場合
-`validate-dirs-tree-schema.js` が出力するエラー一覧の先頭に修正優先順位の指示が含まれている。上から1件ずつ修正し、その都度再実行する。
+### On Schema Validation Error
+The error list output by `validate-dirs-tree-schema.js` includes fix priority instructions at the top. Fix one error at a time from the top, re-running after each fix.
 
-### エラー時の復帰
-各スクリプトが出力するエラーメッセージの指示に従ってグラフデータを修正した後、再実行する。問題が解決したら `verify-graph-integrity.js` で退行チェックを実行する。やむを得ず最初からやり直す場合：
+### Recovery on Error
+After fixing the graph data according to the instructions in each script's error message, re-run. Once the issue is resolved, run `verify-graph-integrity.js` for regression checking. If the situation requires starting over from scratch:
 
 ```bash
-# 生成済みファイルを削除してからリセット
+# Delete generated files before resetting
 rm -f "$dirsTreePath"
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 2
 ```
 
-### モード切替
+### Mode Switching
 
-- **`--quiet`**: 標準出力を抑制する（CI用）。エラー時のみ stderr に出力。
-- **`--json`**: JSON のみを標準出力に出力する（パイプライン連携用）。
+- **`--quiet`**: Suppress standard output (for CI). Outputs to stderr only on error.
+- **`--json`**: Output only JSON to standard output (for pipeline chaining).
 
 ```bash
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --json
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --quiet
 ```
 
-## Step 3: 一括ファイル生成
+## Step 3: Batch File Generation
 
-Dirs-Tree.json に基づいて、実際のディレクトリとテンプレートファイルを一括生成する。
+Based on Dirs-Tree.json, batch generate the actual directories and template files.
 
 ```bash
-# Step 3 を開始
+# Start Step 3
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" start-step 3
 
-# 全言語の生成内容を dry-run で確認
+# Preview generation output for all languages with dry-run
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --dry-run
 
-# 確認後、実際の生成を実行
+# After review, execute actual generation
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
 
-# Step 3 正常終了
+# Step 3 successful completion
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" end-step 3
 ```
 
-### 生成されるファイルの構造
+### Structure of Generated Files
 
-`generate-all-dir-templates.js` が生成する各ファイルには、以下の要素が自動的に付与される：
+Each file generated by `generate-all-dir-templates.js` automatically receives the following elements:
 
-- **ヘッダーコメント**: 全ファイルの先頭に、グラフ由来のメタデータ（生成元グラフファイル・マッピングノード一覧・言語・タイムスタンプ）を含むコメントが言語別の文法で挿入される。これにより各ファイルの出自が明確になる（PX-30）。
-- **宣言スタブ**: 実装が存在しない空ファイルには、kind と言語に応じた宣言スタブ（構造体宣言・関数シグネチャ＋実装TODOコメント）が雛形として書き込まれる。これにより直ちに実装に着手できる（PX-28）。
-- **クロスリファレンス**: prose 系ノード（`rationale`/`glossary`/`requirement`）に接続されたファイルのヘッダーコメントには、該当 prose ノードの設計意図への参照が埋め込まれる。方向（`→`/`←`）と接続先ファイルパスが明示される（PX-30）。
+- **Header comment**: A comment at the top of every file containing graph-derived metadata (source graph file, list of mapped nodes, language, timestamp) in language-appropriate syntax. This makes each file's origin clear (PX-30).
+- **Declaration stubs**: Empty files without implementation receive declaration stubs (struct declarations, function signatures + implementation TODO comments) as templates appropriate to the kind and language. This allows implementation to begin immediately (PX-28).
+- **Cross-references**: The header comments of files connected to prose nodes (`rationale`/`glossary`/`requirement`) embed references to the design intent of the corresponding prose node. The direction (`→`/`←`) and connected file path are made explicit (PX-30).
 
-### エラー時の復帰
-生成に失敗した場合、エラーメッセージに従って修正した後、`generate-all-dir-templates.js` を再実行する。必要に応じて `--delete` で既存の生成物を削除してから再実行する：
+### Recovery on Error
+If generation fails, fix according to the error message, then re-run `generate-all-dir-templates.js`. If necessary, delete existing output with `--delete` before re-running:
 
 ```bash
-# 生成物を完全削除してから再実行
+# Fully delete output before re-running
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath" --delete
 node .claude/scripts/rfc-graph/generate-all-dir-templates.js --dirs-tree="$dirsTreePath"
 
-# やむを得ずリセット
+# If unavoidable, reset
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" reset-to-step 3
 ```
 
-## 完了報告
+## Completion Report
 
-全Step正常終了。一時ファイルをクリーンアップする：
+All Steps completed successfully. Clean up temporary files:
 
 ```bash
-# バックアップファイルが残っていれば削除
+# Delete any remaining backup files
 node .claude/scripts/rfc-graph/update-boundify-step-status.js --status="$statusPath" cleanup
 ```
 
-以下の情報を報告する：
+Report the following information:
 
-- **入力グラフファイル**: `$graphPath`
-- **出力 Dirs-Tree.json**: `$dirsTreePath`
-- **進行ステータスファイル**: `$statusPath`
-- **ノード数**: boundify-graph-to-dirs.js の出力から取得
-- **エッジ数**: 同上
-- **循環依存**: 検出有無
-- **スキーマ検証**: validate-dirs-tree-schema.js の最終結果
-- **退行チェック**: verify-graph-integrity.js の最終結果
-- **生成ファイル数**: 各言語のファイル数合計
-- **クロスリファレンス**: 解決された prose 系ノード数・接続数（boundify-graph-to-dirs.js の出力から取得）
-- **prune 結果**: 削除された空ディレクトリ数・フラット化数（同上）
-- **宣言スタブ品質**: 自動生成された宣言スタブ数（同上）
+- **Input graph file**: `$graphPath`
+- **Output Dirs-Tree.json**: `$dirsTreePath`
+- **Progress status file**: `$statusPath`
+- **Node count**: Obtained from boundify-graph-to-dirs.js output
+- **Edge count**: Same as above
+- **Cyclic dependencies**: Detected or not
+- **Schema validation**: validate-dirs-tree-schema.js final result
+- **Regression check**: verify-graph-integrity.js final result
+- **Generated file count**: Total file count across all languages
+- **Cross-references**: Number of resolved prose nodes and connections (obtained from boundify-graph-to-dirs.js output)
+- **Prune results**: Number of empty directories removed and flattenings (same as above)
+- **Declaration stub quality**: Number of auto-generated declaration stubs (same as above)
 
-完了後、生成されたディレクトリツリーとファイルを起点に実装を開始できる。
+After completion, implementation can begin from the generated directory tree and files.

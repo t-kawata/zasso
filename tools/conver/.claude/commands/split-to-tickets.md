@@ -1,15 +1,23 @@
 ---
-description: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは「1チケット・1不変条件」を徹底し、安全な I/O 境界を持つ実装単位に分解する。
+description: 設計書を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。
 argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree.json>
 ---
 
 # /split-to-tickets
 
-**役割**: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは「1チケット・1不変条件」を徹底し、安全な I/O 境界を持つ実装単位に分解する。
-
-「不変条件」とは、そのチケットが実装する I/O 境界において外部と交わす契約（contract）の正しさを意味する。チケットの完了は、この I/O 境界での契約がテストコードによる単体テスト及び結合テストによって漏れなく検証されたことをもって判断する。全チケットはテストコードによる単体テスト及び結合テストによってスタブ無しの完全な実装を保証できる単位でなければならない。
+**役割**: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは、安全な I/O 境界を持つ実装単位に分解する。
 
 生成結果は `Tickets.json` として保存され、後続のコマンド（`/make-ticket`,`/plan-ticket`、`/start-ticket`、`/review-ticket` 等）からスクリプト群を介して参照・更新される。
+
+## Language Protocol
+
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
 ## 引数の解釈
 

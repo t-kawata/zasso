@@ -1,5 +1,6 @@
 ---
 description: Interactive grill session for writing RFC design documents under strict constraints (complete coverage, no delegation, no stubs).
+argument-hint: </path/to/INFO-DIR-OR-FILE> </path/to/RFC-TO-OURPUT.md>
 ---
 
 # /grill-me-for-rfc
@@ -7,6 +8,16 @@ description: Interactive grill session for writing RFC design documents under st
 ## Overview
 
 An interactive grill session command for writing an RFC design document under strict constraints: complete coverage of the design tree, no scope delegation, and no stub implementations.
+
+## Language Protocol
+
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
 ## Usage
 
