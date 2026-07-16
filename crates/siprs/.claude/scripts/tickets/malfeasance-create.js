@@ -1,18 +1,18 @@
 /**
- * malfeasance-create.js — Malfeasance.json に新規犯罪レコードを作成
+ * malfeasance-create.js — Creates a new crime record in Malfeasance.json
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-create.js <file> <line> <description> [note]
  *
- * 引数:
- *   file (必須):        犯罪が存在するファイルの相対パス
- *   line (必須):        犯罪コードの開始行番号（正の整数）
- *   description (必須): 犯罪の内容説明
- *   note (任意):        備考
+ * Arguments:
+ *   file (required):      Relative path to the file containing the crime
+ *   line (required):      Starting line number of the crime code (positive integer)
+ *   description (required): Description of the crime
+ *   note (optional):      Additional note
  *
- * 出力:
+ * Output:
  *   { "success": true, "ticketId": N, "record": { ... } }
- *   または
+ *   or
  *   { "success": false, "error": "..." }
  */
 
@@ -24,7 +24,7 @@ function main() {
   const description = process.argv[4];
   const note = process.argv[5];
 
-  // 引数チェック
+  // Argument check
   if (!file || !rawLine || !description) {
     output({
       success: false,
@@ -39,14 +39,14 @@ function main() {
     return;
   }
 
-  // スキーマファイルの確認
+  // Verify schema file
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });
@@ -55,7 +55,7 @@ function main() {
 
   const records = loaded.data.records;
 
-  // 重複チェック: 同一ファイル+同一行の open レコード
+  // Duplicate check: open record with the same file and line
   const duplicate = records.find(r => r.file === file && r.line === line && r.status === 'open');
   if (duplicate) {
     output({
@@ -65,7 +65,7 @@ function main() {
     return;
   }
 
-  // 新 ID の自動採番
+  // Auto-increment new ID
   const maxId = records.length > 0 ? Math.max(...records.map(r => r.id)) : 0;
   const newId = maxId + 1;
 
@@ -80,14 +80,14 @@ function main() {
     status: 'open',
   };
 
-  // note が指定されていれば追加
+  // Add note if specified
   if (note !== undefined && note !== '') {
     newRecord.note = note;
   }
 
   records.push(newRecord);
 
-  // 保存 + スキーマ検証
+  // Save + schema validation
   const saved = saveRecords(records);
   if (!saved.success) {
     output({ success: false, error: saved.error });

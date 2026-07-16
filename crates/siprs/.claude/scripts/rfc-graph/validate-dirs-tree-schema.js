@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * validate-dirs-tree-schema.js — Dirs-Tree.json スキーマ検証スクリプト
+ * validate-dirs-tree-schema.js — Dirs-Tree.json schema validation script
  *
- * --dirs-tree=<path> --graph=<path> の形式で Dirs-Tree.json を検証する。
- * boundify-graph-to-dirs パイプラインの各 Step 終了時に自動実行される。
- * graphify の check-all-schema.js と同様の役割を担う。
+ * Validates Dirs-Tree.json via --dirs-tree=<path> --graph=<path>.
+ * Automatically executed at the end of each Step in the boundify-graph-to-dirs pipeline.
+ * Serves the same role as check-all-schema.js in graphify.
  *
- * 検証項目（6項目）:
- *   1. JSON Schema 準拠 — schemaVersion, trees, dependencyDirections の存在
- *   2. 全 mappedNodeIds が元グラフに存在すること
- *   3. パスの重複がないこと
- *   4. 依存方向の from/to が実在のディレクトリパスであること
- *   5. ネスト深さが 4 を超えないこと
- *   6. 各ファイル名が言語の命名規則に従っていること
+ * Validation items (6 items):
+ *   1. JSON Schema compliance — existence of schemaVersion, trees, dependencyDirections
+ *   2. All mappedNodeIds exist in the source graph
+ *   3. No duplicate paths
+ *   4. from/to of dependency directions are actual directory paths
+ *   5. Nesting depth does not exceed 4
+ *   6. Each file name follows the language's naming conventions
  *
- * 出力契約:
- *   正常時 → {"ok":true}（終了コード 0）
- *   異常時 → {"ok":false, "errors":[...]}（終了コード 1）
- *   異常時は stderr に 3 段テンプレートのエラーも出力する
+ * Output contract:
+ *   Success → {"ok":true} (exit code 0)
+ *   Failure → {"ok":false, "errors":[...]} (exit code 1)
+ *   On failure, also outputs 3-tier template error to stderr
  */
 
 'use strict';
@@ -26,34 +26,34 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// 定数
+// Constants
 // ============================================================
 
-/** 許可される最大ネスト深さ（ルートを 0 とする） */
+/** Maximum allowed nesting depth (root is 0) */
 const MAX_DEPTH = 4;
 
-/** 言語別の想定拡張子マッピング */
+/** Expected extension mapping per language */
 const LANGUAGE_EXTENSIONS = Object.freeze({
   rust: '.rs',
   go: '.go',
   typescript: '.ts',
 });
 
-/** 対応言語の一覧 */
+/** List of supported languages */
 const SUPPORTED_LANGUAGES = Object.freeze(['rust', 'go', 'typescript']);
 
-/** 3 段テンプレートエラー（stderr 用） — 引数不足時 */
+/** 3-tier template error (for stderr) — when arguments are missing */
 const ERROR_MISSING_ARGS = '[ERROR] 引数が不足しています\n原因: --dirs-tree=<path> と --graph=<path> が必要\n対応: 両方の引数を指定して再実行';
 
 // ============================================================
-// 検証関数
+// Validation Functions
 // ============================================================
 
 /**
- * Dirs-Tree.json の schemaVersion フィールドの存在を検証する
+ * Validates the existence of the schemaVersion field in Dirs-Tree.json
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkSchemaVersion(dirsTree, errors) {
   if (!dirsTree.schemaVersion) {
@@ -62,10 +62,10 @@ function checkSchemaVersion(dirsTree, errors) {
 }
 
 /**
- * Dirs-Tree.json の trees フィールドの存在を検証する
+ * Validates the existence of the trees field in Dirs-Tree.json
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkTreesField(dirsTree, errors) {
   if (!dirsTree.trees) {
@@ -74,10 +74,10 @@ function checkTreesField(dirsTree, errors) {
 }
 
 /**
- * Dirs-Tree.json の dependencyDirections フィールドの存在を検証する
+ * Validates the existence of the dependencyDirections field in Dirs-Tree.json
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkDependencyDirectionsField(dirsTree, errors) {
   if (!dirsTree.dependencyDirections) {
@@ -86,10 +86,10 @@ function checkDependencyDirectionsField(dirsTree, errors) {
 }
 
 /**
- * 必須フィールド 3 項目（schemaVersion, trees, dependencyDirections）の存在を検証する
+ * Validates the existence of the 3 required fields (schemaVersion, trees, dependencyDirections)
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkRequiredFields(dirsTree, errors) {
   checkSchemaVersion(dirsTree, errors);
@@ -98,17 +98,17 @@ function checkRequiredFields(dirsTree, errors) {
 }
 
 /**
- * ツリー内の全 mappedNodeIds が元グラフに存在することを再帰的に検証する
+ * Recursively validates that all mappedNodeIds in the tree exist in the source graph
  *
- * @param {object} node — 現在の DirNode
- * @param {Set<string>} allNodeIds — 元グラフの全ノードID 集合
- * @param {string} pathStr — 現在のパス（エラーメッセージ用）
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} node — Current DirNode
+ * @param {Set<string>} allNodeIds — Set of all node IDs in the source graph
+ * @param {string} pathStr — Current path (for error messages)
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkNodeIds(node, allNodeIds, pathStr, errors) {
   if (node.mappedNodeIds) {
     for (const entry of node.mappedNodeIds) {
-      // mappedNodeIds はオブジェクト {nodeId, title} 形式と文字列 nodeId 形式の両方を許容する
+      // mappedNodeIds accepts both {nodeId, title} object form and string nodeId form
       const nodeId = typeof entry === 'object' ? entry.nodeId : entry;
       if (!allNodeIds.has(nodeId)) {
         errors.push(
@@ -125,13 +125,13 @@ function checkNodeIds(node, allNodeIds, pathStr, errors) {
 }
 
 /**
- * ツリー内の全パスが重複していないことを検証する
+ * Validates that all paths in the tree are not duplicated
  *
- * 同一言語ツリー内で同名の兄弟ノード（file/directory）が存在する場合、
- * パス重複とみなす。
+ * If sibling nodes (file/directory) with the same name exist within the same language tree,
+ * it is considered a path duplication.
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkPathDuplication(dirsTree, errors) {
   for (const lang of SUPPORTED_LANGUAGES) {
@@ -143,11 +143,11 @@ function checkPathDuplication(dirsTree, errors) {
 }
 
 /**
- * 指定ノード配下の兄弟間で重複する名前がないか再帰的に検証する
+ * Recursively validates that there are no duplicate names among siblings under the specified node
  *
- * @param {object} node — 現在の DirNode
- * @param {string} pathStr — パス文字列（エラーメッセージ用）
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} node — Current DirNode
+ * @param {string} pathStr — Path string (for error messages)
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkNodeNameDuplication(node, pathStr, errors) {
   if (!node.children) return;
@@ -162,7 +162,7 @@ function checkNodeNameDuplication(node, pathStr, errors) {
     seenNames.add(child.name);
   }
 
-  // 子ノードの配下も再帰的にチェック
+  // Recursively check children's descendants as well
   for (const child of node.children) {
     if (child.children) {
       checkNodeNameDuplication(child, `${pathStr}/${child.name}`, errors);
@@ -171,12 +171,12 @@ function checkNodeNameDuplication(node, pathStr, errors) {
 }
 
 /**
- * ツリーのネスト深さが MAX_DEPTH を超えないことを再帰的に検証する
+ * Recursively validates that tree nesting depth does not exceed MAX_DEPTH
  *
- * @param {object} node — 現在の DirNode
- * @param {number} depth — 現在の深さ（ルートを 0 とする）
- * @param {string} pathStr — 現在のパス（エラーメッセージ用）
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} node — Current DirNode
+ * @param {number} depth — Current depth (root is 0)
+ * @param {string} pathStr — Current path (for error messages)
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkDepth(node, depth, pathStr, errors) {
   if (depth > MAX_DEPTH) {
@@ -190,10 +190,10 @@ function checkDepth(node, depth, pathStr, errors) {
 }
 
 /**
- * 全言語ツリーの全ノードのネスト深さを検証する
+ * Validates nesting depth of all nodes across all language trees
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkAllDepths(dirsTree, errors) {
   for (const lang of SUPPORTED_LANGUAGES) {
@@ -204,10 +204,10 @@ function checkAllDepths(dirsTree, errors) {
 }
 
 /**
- * 各言語ツリーのファイル名が言語の命名規則（拡張子）に従っていることを検証する
+ * Validates that file names in each language tree follow the language's naming convention (extension)
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkNamingConventions(dirsTree, errors) {
   for (const lang of SUPPORTED_LANGUAGES) {
@@ -220,15 +220,15 @@ function checkNamingConventions(dirsTree, errors) {
 }
 
 /**
- * 指定ノード配下の全ファイルの拡張子を再帰的に検証する
+ * Recursively validates the extension of all files under the specified node
  *
- * directory ノードは拡張子チェックの対象外。
- * file ノードのみ、対応言語の想定拡張子と一致することを確認する。
+ * directory nodes are not subject to extension checking.
+ * Only file nodes are checked to match the expected extension of the corresponding language.
  *
- * @param {object} node — 現在の DirNode
- * @param {string} lang — 言語名（rust/go/typescript）
- * @param {string} expectedExt — 期待される拡張子（例: ".rs"）
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} node — Current DirNode
+ * @param {string} lang — Language name (rust/go/typescript)
+ * @param {string} expectedExt — Expected extension (e.g. ".rs")
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkNodeNaming(node, lang, expectedExt, errors) {
   if (node.type === 'file') {
@@ -247,23 +247,23 @@ function checkNodeNaming(node, lang, expectedExt, errors) {
 }
 
 /**
- * ファイル名が slug 形式（lower_snake_case + 拡張子）に従っていることを検証する
+ * Validates that file names follow slug format (lower_snake_case + extension)
  *
- * PX-24 スキーマで導入された slug フィールドにより、ファイル名は
- * <slug><.ext> の形式になる。slug 部分は lower_snake_case に従う。
- * 拡張子が期待値と一致するかのチェックは checkNodeNaming が担当。
+ * With the slug field introduced in the PX-24 schema, file names
+ * take the form <slug><.ext>. The slug part follows lower_snake_case.
+ * Extension matching is handled by checkNodeNaming.
  *
- * @param {object} node — 現在の DirNode
- * @param {string} pathStr — パス文字列（エラーメッセージ用）
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} node — Current DirNode
+ * @param {string} pathStr — Path string (for error messages)
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkSlugConvention(node, pathStr, errors) {
   if (node.type === 'file') {
     const baseName = path.basename(node.name, path.extname(node.name));
-    // slug パターン: lower_snake_case（英小文字・数字・アンダースコアのみ、先頭は英小文字）
+    // slug pattern: lower_snake_case (lowercase letters, digits, underscores only; must start with a lowercase letter)
     const slugPattern = /^[a-z][a-z0-9_]*$/;
     if (baseName === '' || baseName === 'unnamed') {
-      // 空または unnamed はフォールバック名として許容する
+      // Empty or unnamed is tolerated as a fallback name
       return;
     }
     if (!slugPattern.test(baseName)) {
@@ -281,10 +281,10 @@ function checkSlugConvention(node, pathStr, errors) {
 }
 
 /**
- * 全言語の dependencyDirections が参照するディレクトリパスが実在することを検証する
+ * Validates that all directory paths referenced by dependencyDirections exist
  *
- * @param {object} dirsTree — 検証対象の Dirs-Tree.json オブジェクト
- * @param {string[]} errors — エラー蓄積用配列（副作用で追加）
+ * @param {object} dirsTree — Dirs-Tree.json object to validate
+ * @param {string[]} errors — Error accumulation array (mutated as side effect)
  */
 function checkDependencyDirections(dirsTree, errors) {
   const allDirectoryPaths = collectAllDirectoryPaths(dirsTree);
@@ -312,10 +312,10 @@ function checkDependencyDirections(dirsTree, errors) {
 }
 
 /**
- * 全言語ツリーからディレクトリノードのパスを収集して Set で返す
+ * Collects directory node paths from all language trees and returns them as a Set
  *
- * @param {object} dirsTree — Dirs-Tree.json オブジェクト
- * @returns {Set<string>} ディレクトリパスの集合
+ * @param {object} dirsTree — Dirs-Tree.json object
+ * @returns {Set<string>} Set of directory paths
  */
 function collectAllDirectoryPaths(dirsTree) {
   const allDirectoryPaths = new Set();
@@ -342,16 +342,16 @@ function collectAllDirectoryPaths(dirsTree) {
 }
 
 /**
- * Dirs-Tree.json の全 6 項目を検証する
+ * Validates all 6 items of Dirs-Tree.json
  *
- * @param {string} dirsTreePath — Dirs-Tree.json のファイルパス
- * @param {string} graphPath — 元グラフ JSON のファイルパス
- * @returns {{ok: boolean, errors?: string[]}} 検証結果
+ * @param {string} dirsTreePath — File path of Dirs-Tree.json
+ * @param {string} graphPath — File path of the source graph JSON
+ * @returns {{ok: boolean, errors?: string[]}} Validation result
  */
 function validateFiles(dirsTreePath, graphPath) {
   const errors = [];
 
-  // ファイルの存在確認
+  // Check file existence
   if (!fs.existsSync(dirsTreePath)) {
     console.error(`[ERROR] Dirs-Tree.json が見つかりません\n原因: 指定されたパスにファイルが存在しない\n対応: パスを確認して再実行: ${dirsTreePath}`);
     return { ok: false, errors: [`Dirs-Tree.json が見つかりません: ${dirsTreePath}`] };
@@ -361,7 +361,7 @@ function validateFiles(dirsTreePath, graphPath) {
     return { ok: false, errors: [`グラフ JSON が見つかりません: ${graphPath}`] };
   }
 
-  // JSON パース
+  // Parse JSON
   let dirsTree;
   let graph;
   try {
@@ -379,38 +379,38 @@ function validateFiles(dirsTreePath, graphPath) {
 
   const allNodeIds = new Set(graph.nodes.map(node => node.id));
 
-  // 検証 1: 必須フィールド
+  // Validation 1: Required fields
   checkRequiredFields(dirsTree, errors);
 
-  // 検証 2: mappedNodeIds
+  // Validation 2: mappedNodeIds
   for (const lang of SUPPORTED_LANGUAGES) {
     const tree = dirsTree.trees && dirsTree.trees[lang];
     if (!tree) continue;
     checkNodeIds(tree, allNodeIds, `${lang}/${tree.name}`, errors);
   }
 
-  // 検証 3: パス重複
+  // Validation 3: Path duplication
   checkPathDuplication(dirsTree, errors);
 
-  // 検証 4: ネスト深さ
+  // Validation 4: Nesting depth
   checkAllDepths(dirsTree, errors);
 
-  // 検証 5: ファイル命名規則
+  // Validation 5: File naming conventions
   checkNamingConventions(dirsTree, errors);
 
-  // 検証 5b: slug 命名規則（lower_snake_case）
-  // PX-24 以降のスキーマではファイル名が slug + 拡張子の形式になるため、
-  // slug 部分が lower_snake_case に従っていることを確認する。
+  // Validation 5b: Slug naming convention (lower_snake_case)
+  // Starting from PX-24, file names follow slug + extension format,
+  // so verify that the slug part follows lower_snake_case.
   for (const lang of SUPPORTED_LANGUAGES) {
     const tree = dirsTree.trees && dirsTree.trees[lang];
     if (!tree) continue;
     checkSlugConvention(tree, `${lang}/${tree.name}`, errors);
   }
 
-  // 検証 6: dependencyDirections パス存在確認
+  // Validation 6: Verify dependencyDirections path existence
   checkDependencyDirections(dirsTree, errors);
 
-  // エラーがある場合、先頭に修正優先順位の指示を追加する
+  // If there are errors, add fix-priority instructions at the top
   if (errors.length > 0) {
     errors.unshift(
       `---\n${errors.length}件の検証エラーがあります。上から順に1件ずつ修正し、その都度再実行してください。\n修正手順:\n  1. 先頭のエラーから修正を開始してください\n  2. 1件修正するごとに本スクリプトを再実行し、エラーが減ったことを確認してください\n  3. 全エラーが解消されるまで繰り返してください\n---`
@@ -423,9 +423,9 @@ function validateFiles(dirsTreePath, graphPath) {
 }
 
 /**
- * CLI エントリポイント。コマンドライン引数をパースして検証を実行する
+ * CLI entry point. Parses command line arguments and runs validation
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv を使用）
+ * @param {string[]} [testArgs] — Argument array for testing (defaults to process.argv)
  */
 function validate(testArgs) {
   const args = testArgs || process.argv.slice(2);
@@ -444,13 +444,13 @@ function validate(testArgs) {
   const result = validateFiles(dirsTreePath, graphPath);
 
   if (result.ok) {
-    // 出力契約: stdout に JSON 結果を出力
+    // Output contract: Write JSON result to stdout
     process.stdout.write(JSON.stringify({ ok: true }) + '\n');
   } else {
     console.error(
       `[ERROR] スキーマ検証に失敗しました\n原因: ${result.errors.length} 件の違反\n対応: 各エラーを修正してから次の Step に進んでください`
     );
-    // 出力契約: stdout にエラー情報を含む JSON 結果を出力
+    // Output contract: Write JSON result with error info to stdout
     process.stdout.write(JSON.stringify({ ok: false, errors: result.errors }) + '\n');
     process.exit(1);
   }

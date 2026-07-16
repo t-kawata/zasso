@@ -1,27 +1,27 @@
 /**
- * malfeasance-all.js — Malfeasance.json の全件取得
+ * malfeasance-all.js — Fetches all records from Malfeasance.json
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-all.js [filter]
  *
- * 引数:
- *   filter (任意): "open" | "resolved" | "false_positive" | 省略時=全件
+ * Arguments:
+ *   filter (optional): "open" | "resolved" | "false_positive" | omitted=all items
  *
- * 出力:
+ * Output:
  *   { "success": true, "count": N, "records": [...] }
  */
 
 const { loadRecords, checkSchema, output } = require('../lib/malfeasance-utils');
 
 function main() {
-  // スキーマファイルの確認（事前チェック）
+  // Verify schema file (pre-check)
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });

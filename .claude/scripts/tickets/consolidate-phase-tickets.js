@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 
 /**
- * consolidate-phase-tickets.js — Step 5-3: チケット数によるフェーズ統合
+ * consolidate-phase-tickets.js — Step 5-3: Phase consolidation by ticket count
  *
- * split-to-tickets パイプラインの Step 5-3 で使用する。
- * 全フェーズのチケット化が完了した後、チケット数が3未満のフェーズを
- * 後方のフェーズにマージ（移譲）し、フェーズID・チケットIDを一括振り直す。
+ * Used in the split-to-tickets pipeline Step 5-3.
+ * After all phases have been converted to tickets, merges phases with fewer
+ * than 3 tickets into subsequent phases and reassigns phase IDs and ticket IDs in bulk.
  *
  * Usage:
  *   node consolidate-phase-tickets.js \
- *     <Tickets.json のパス> \
- *     <status.json のパス> \
+ *     <path to Tickets.json> \
+ *     <path to status.json> \
  *     [--dry-run]
  *
- * 引数:
- *   Tickets.json  — 分割パイプラインのチケットデータ（必須）
- *   status.json   — SPLIT-Status.json のパス（必須）
- *   --dry-run     — ファイル書き込みを抑制し、変更内容のみ標準出力に表示
+ * Arguments:
+ *   Tickets.json  — ticket data from the split pipeline (required)
+ *   status.json   — path to SPLIT-Status.json (required)
+ *   --dry-run     — suppress file writing, display changes on stdout only
  *
- * 終了コード:
- *   0 = 成功（統合完了、またはガードによりスキップ）
- *   1 = バリデーションエラー（全 nodeIds がチケット化されていない）
- *   2 = 引数エラー
- *   3 = ファイル未存在
+ * Exit codes:
+ *   0 = success (consolidation complete, or skipped by guard)
+ *   1 = validation error (not all nodeIds converted to tickets)
+ *   2 = argument error
+ *   3 = file not found
  */
 
 'use strict';
@@ -33,57 +33,57 @@ const { spawnSync } = require('child_process');
 const { loadGraphEdgesFromTickets } = require('./generate-related-ticket-ids.js');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** 1フェーズあたりの最小チケット数（この値未満のフェーズを統合対象とする） */
+/** Minimum tickets per phase (phases below this threshold are consolidated) */
 const MIN_TICKETS_PER_PHASE = 3;
 
-/** フェーズIDの接頭辞 */
+/** Phase ID prefix */
 const PHASE_ID_PREFIX = 'P';
 
-/** 正常終了コード */
+/** Normal exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード（バリデーションエラー等） */
+/** Abnormal exit code (validation error, etc.) */
 const EXIT_FAILURE = 1;
 
-/** 引数エラー終了コード */
+/** Argument error exit code */
 const EXIT_ARG_ERROR = 2;
 
-/** ファイル未存在終了コード */
+/** File not found exit code */
 const EXIT_FILE_NOT_FOUND = 3;
 
 // ============================================================
-// 型: Phase
+// Types: Phase
 // ============================================================
 
 /**
  * @typedef {Object} Phase
- * @property {number} id       — フェーズID（例: 0）
- * @property {string} name     — フェーズ名（例: "P0"）
- * @property {string} summary  — フェーズの概要説明
- * @property {string[]} nodeIds — このフェーズに属するグラフノードID配列
- * @property {Object[]} tickets — このフェーズに属するチケット配列
+ * @property {number} id       — phase ID (e.g., 0)
+ * @property {string} name     — phase name (e.g., "P0")
+ * @property {string} summary  — phase summary description
+ * @property {string[]} nodeIds — graph node IDs belonging to this phase
+ * @property {Object[]} tickets — tickets belonging to this phase
  */
 
 /**
  * @typedef {Object} Ticket
- * @property {string} id       — チケットID（例: "P0-1"）
- * @property {number} phaseId  — 所属フェーズID
- * @property {string[]} nodeIds — このチケットがカバーするグラフノードID配列
- * @property {string} title    — チケットタイトル
+ * @property {string} id       — ticket ID (e.g., "P0-1")
+ * @property {number} phaseId  — owning phase ID
+ * @property {string[]} nodeIds — graph node IDs covered by this ticket
+ * @property {string} title    — ticket title
  */
 
 // ============================================================
-// 5-3-1: ガード判定
+// 5-3-1: Guard check
 // ============================================================
 
 /**
- * フェーズ数が MIN_TICKETS_PER_PHASE 未満かを判定する。
- * 統合対象が存在しない場合はスキップするために使用する。
+ * Check if the number of phases is below MIN_TICKETS_PER_PHASE.
+ * Used to skip consolidation when no targets exist.
  *
- * @param {Phase[]} phases — 全フェーズ配列
+ * @param {Phase[]} phases — all phases array
  * @returns {{ shouldSkip: boolean, phaseCount: number }}
  */
 function guardPhaseCount(phases) {
@@ -95,14 +95,14 @@ function guardPhaseCount(phases) {
 }
 
 // ============================================================
-// 5-3-2: nodeIds 過不足検証
+// 5-3-2: nodeIds coverage verification
 // ============================================================
 
 /**
- * 全フェーズの全 nodeIds がチケット化されていることを確認する。
- * add-tickets-for-phase.js の verifyNodeCoverage() と同様のロジック。
+ * Verify that all nodeIds across all phases have been converted to tickets.
+ * Similar logic to verifyNodeCoverage() in add-tickets-for-phase.js.
  *
- * @param {Phase[]} phases — 全フェーズ配列
+ * @param {Phase[]} phases — all phases array
  * @returns {{ valid: boolean, missingNodeIds: { phaseId: number, nodeIds: string[] }[] }}
  */
 function validateAllNodeIdsCovered(phases) {
@@ -117,7 +117,7 @@ function validateAllNodeIdsCovered(phases) {
         for (const nodeId of ticket.nodeIds) {
           coveredNodeIds.add(nodeId);
         }
-        // チケットの nodeIds が phase.nodeIds の範囲外（余剰）のチェック
+        // Check if ticket nodeIds are outside phase.nodeIds (extra)
         for (const nodeId of ticket.nodeIds) {
           if (phaseNodeIds.has(nodeId)) {
             coveredNodeIds.add(nodeId);
@@ -126,7 +126,7 @@ function validateAllNodeIdsCovered(phases) {
       }
     }
 
-    // 正しいカバレッジ計算: 各チケットの nodeIds の各要素が phase.nodeIds に含まれるかどうか
+    // Correct coverage calculation: each element in each ticket's nodeIds must be in phase.nodeIds
     const correctCovered = new Set();
     for (const ticket of (phase.tickets || [])) {
       if (Array.isArray(ticket.nodeIds)) {
@@ -138,7 +138,7 @@ function validateAllNodeIdsCovered(phases) {
       }
     }
 
-    // 不足しているノードID（フェーズにあってどのチケットにも含まれない）
+    // Missing nodeIds (in phase but not covered by any ticket)
     const missing = [];
     for (const nodeId of phaseNodeIds) {
       if (!correctCovered.has(nodeId)) {
@@ -158,41 +158,41 @@ function validateAllNodeIdsCovered(phases) {
 }
 
 // ============================================================
-// 5-3-3: 後方1パス統合
+// 5-3-3: Single-pass right-to-left consolidation
 // ============================================================
 
 /**
- * チケット数が MIN_TICKETS_PER_PHASE 未満のフェーズを後方にマージする。
- * 後方から走査することで、カスケード統合を1パスで完了させる。
+ * Merge phases with fewer than MIN_TICKETS_PER_PHASE tickets backward.
+ * Scanning from right to left completes cascade consolidation in a single pass.
  *
- * 後方1パスを選んだ理由:
- * - 前方マージだと、統合後に後続フェーズのインデックスが変わり、複数パスが必要になる
- * - 後方スキャンでは右側のフェーズは既に確定済みなので、統合先は常に「十分なサイズ」
- *   か「最終フェーズ」である
- * - 最終フェーズは統合対象外（後方にマージ先がないため）
+ * Rationale for right-to-left single pass:
+ * - Forward merging changes subsequent phase indices, requiring multiple passes
+ * - In a right-to-left scan, phases to the right are already final, so the merge
+ *   target is always "large enough" or "the final phase"
+ * - The final phase is excluded from consolidation (no target behind it)
  *
- * @param {Phase[]} phases — 全フェーズ配列（コピーを操作）
- * @returns {Phase[]} 統合後のフェーズ配列
+ * @param {Phase[]} phases — all phases array (operates on a copy)
+ * @returns {Phase[]} consolidated phases array
  */
 function consolidateFromRight(phases) {
   if (!Array.isArray(phases) || phases.length === 0) {
     return [];
   }
 
-  // phases のコピーを作成してから操作（immutable）
+  // Create a copy of phases before mutating (immutable)
   const working = phases.map(function(p) {
     return JSON.parse(JSON.stringify(p));
   });
 
-  // 後方から走査（最終フェーズは統合対象外）
+  // Scan from right to left (skip the final phase)
   for (let i = working.length - 2; i >= 0; i--) {
     const current = working[i];
     if (!current) {
-      // 既に他にマージされたフェーズはスキップ
+      // Skip phases already merged into others
       continue;
     }
 
-    // 後続の非nullフェーズを探す（null（削除済み）をスキップ）
+    // Find the next non-null phase (skip deleted/null ones)
     let next = null;
     for (let j = i + 1; j < working.length; j++) {
       if (working[j] !== null) {
@@ -202,49 +202,48 @@ function consolidateFromRight(phases) {
     }
 
     if (!next) {
-      // 後続フェーズがない場合はスキップ
+      // Skip if there is no subsequent phase
       continue;
     }
 
     const ticketCount = (current.tickets || []).length;
     if (ticketCount < MIN_TICKETS_PER_PHASE) {
-      // current の全チケットを next の先頭に挿入
+      // Prepend all current tickets to next
       const currentTickets = current.tickets || [];
       const nextTickets = next.tickets || [];
       next.tickets = currentTickets.concat(nextTickets);
 
-      // nodeIds を順序を保って結合
+      // Merge nodeIds preserving order
       const currentNodeIds = current.nodeIds || [];
       const nextNodeIds = next.nodeIds || [];
       next.nodeIds = currentNodeIds.concat(nextNodeIds);
 
-      // name と summary を結合
+      // Merge name and summary
       next.name = current.name + ' → ' + next.name;
       next.summary = current.summary
         ? current.summary + '\n---\n' + (next.summary || '')
         : next.summary;
 
-      // current を削除マーク（null でマークして後でフィルタ）
+      // Mark current as deleted (null to filter out later)
       working[i] = null;
     }
   }
 
-  // null（削除マーク）を除去
+  // Remove null (deletion markers)
   const result = working.filter(function(p) { return p !== null; });
 
   return result;
 }
 
 // ============================================================
-// 5-3-4: フェーズID一括振り直し
+// 5-3-4: Bulk reassign phase IDs
 // ============================================================
 
 /**
- * 全フェーズに 0 から始まる連続IDを再割り当てする。
- * フェーズ名のプレフィックスも P0, P1, ... に更新する。
+ * Reassign sequential IDs starting from 0 to all phases.
  *
- * @param {Phase[]} phases — 全フェーズ配列（コピーを操作）
- * @returns {Phase[]} ID振り直し後のフェーズ配列
+ * @param {Phase[]} phases — all phases array (operates on a copy)
+ * @returns {Phase[]} phases array after ID reassignment
  */
 function renumberPhaseIds(phases) {
   if (!Array.isArray(phases)) {
@@ -260,15 +259,15 @@ function renumberPhaseIds(phases) {
 }
 
 // ============================================================
-// 5-3-5: チケットID一括振り直し
+// 5-3-5: Bulk reassign ticket IDs
 // ============================================================
 
 /**
- * 全チケットの id と phaseId を、新しいフェーズIDに基づいて振り直す。
- * id: phaseId 内の連番（1始まり integer、tickets-schema.json 準拠）。
+ * Reassign ticket id and phaseId based on new phase IDs.
+ * id: sequential within phaseId (1-based integer, per tickets-schema.json).
  *
- * @param {Phase[]} phases — 全フェーズ配列（コピーを操作）
- * @returns {Phase[]} チケットID振り直し後のフェーズ配列
+ * @param {Phase[]} phases — all phases array (operates on a copy)
+ * @returns {Phase[]} phases array after ticket ID reassignment
  */
 function renumberTicketIds(phases) {
   if (!Array.isArray(phases)) {
@@ -293,18 +292,18 @@ function renumberTicketIds(phases) {
 }
 
 // ============================================================
-// Phase B: relatedTicketIds 再生成（PX-45 依存）
+// Phase B: Regenerate relatedTicketIds (depends on PX-45)
 // ============================================================
 
 /**
- * 全チケットの relatedTicketIds を、GRAPH.json のエッジから機械再生成する。
+ * Mechanically regenerate relatedTicketIds for all tickets from GRAPH.json edges.
  *
- * PX-45 の generateRelatedTicketIds() を require して呼び出す。
- * graphEdges には GRAPH.json の edges 配列を渡す。
+ * Requires and calls generateRelatedTicketIds() from PX-45.
+ * Passes graphEdges as the edges array from GRAPH.json.
  *
- * @param {Phase[]} phases — 全フェーズ配列
- * @param {Object[]} graphEdges — GRAPH.json の edges 配列
- * @returns {Phase[]} relatedTicketIds 更新後のフェーズ配列
+ * @param {Phase[]} phases — all phases array
+ * @param {Object[]} graphEdges — edges array from GRAPH.json
+ * @returns {Phase[]} phases array after relatedTicketIds update
  */
 function regenerateRelatedTicketIds(phases, graphEdges) {
   if (!Array.isArray(graphEdges) || graphEdges.length === 0) {
@@ -335,23 +334,23 @@ function regenerateRelatedTicketIds(phases, graphEdges) {
 }
 
 // ============================================================
-// Phase C: status.json 更新（PX-46 依存）
+// Phase C: Update status.json (depends on PX-46)
 // ============================================================
 
 /**
- * status.json の prune-phases / renumber-phases を spawnSync で呼び出す。
+ * Call prune-phases / renumber-phases on status.json via spawnSync.
  *
- * PX-46 のサブコマンドを使用して、削除されたフェーズのエントリを除去し、
- * 振り直されたIDに status.steps のキーを追従させる。
+ * Uses PX-46 subcommands to remove entries for deleted phases and
+ * update status.steps keys to match reassigned IDs.
  *
- * @param {string} statusPath — SPLIT-Status.json の絶対パス
- * @param {Phase[]} oldPhases — 統合前のフェーズ配列（削除されたフェーズの特定に使用）
- * @param {Phase[]} newPhases — 統合後のフェーズ配列（新しいIDマッピングの取得に使用）
+ * @param {string} statusPath — absolute path to SPLIT-Status.json
+ * @param {Phase[]} oldPhases — phases array before consolidation (to identify removed phases)
+ * @param {Phase[]} newPhases — phases array after consolidation (to get new ID mapping)
  */
 function updateStatusJson(statusPath, oldPhases, newPhases) {
   const tsScript = path.resolve(__dirname, '../rfc-graph/update-split-step-status.js');
 
-  // 削除されたフェーズIDを特定（oldPhases にあって newPhases にない id）
+  // Identify removed phase IDs (in oldPhases but not in newPhases)
   const oldIds = new Set((oldPhases || []).map(function(p) { return p.id; }));
   const newIds = new Set((newPhases || []).map(function(p) { return p.id; }));
   const removedIds = [];
@@ -374,9 +373,9 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
     }
   }
 
-  // IDマッピングの構築（新しいIDと古いIDが異なる場合の変換）
-  // 注意: consolidateFromRight で null 除去後の phases のみ渡されるため、
-  // id は既に連番とは限らない。renumberPhaseIds 後の連番IDとのマッピング。
+  // Build ID mapping (conversion when new and old IDs differ)
+  // Note: only phases after null removal from consolidateFromRight are passed,
+  // so IDs are not necessarily sequential. Maps to sequential IDs after renumberPhaseIds.
   const idMapping = {};
   for (let i = 0; i < newPhases.length; i++) {
     idMapping[String(newPhases[i].id)] = String(i);
@@ -396,17 +395,17 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
 }
 
 // ============================================================
-// 5-3-8: 最終検証
+// 5-3-8: Final validation
 // ============================================================
 
 /**
- * 統合後の全フェーズを検証する。
- * - 全フェーズのチケット数 >= MIN_TICKETS_PER_PHASE（最終フェーズは除く）
- * - 全チケットの id 形式が正しい（P{d}-{n}）
- * - 全チケットの phaseId が所属フェーズの id と一致する
- * - 空のチケットがない（nodeIds が空でない）
+ * Validate all phases after consolidation.
+ * - All phases have ticketCount >= MIN_TICKETS_PER_PHASE (except the last)
+ * - All ticket IDs are valid
+ * - All ticket phaseIds match their owning phase id
+ * - No empty tickets (non-empty nodeIds)
  *
- * @param {Phase[]} phases — 検証対象のフェーズ配列
+ * @param {Phase[]} phases — phases array to validate
  * @returns {{ valid: boolean, errors: string[] }}
  */
 function finalValidation(phases) {
@@ -420,7 +419,7 @@ function finalValidation(phases) {
     const phase = phases[i];
     const ticketCount = (phase.tickets || []).length;
 
-    // チケット数チェック（最終フェーズは除く）
+    // Check ticket count (skip final phase)
     const isLastPhase = (i === phases.length - 1);
     if (!isLastPhase && ticketCount < MIN_TICKETS_PER_PHASE) {
       errors.push('フェーズ ' + PHASE_ID_PREFIX + phase.id +
@@ -428,19 +427,19 @@ function finalValidation(phases) {
     }
 
     for (const ticket of (phase.tickets || [])) {
-      // ID形式チェック（integer、1以上）
+      // Check ID format (integer, >= 1)
       if (typeof ticket.id !== 'number' || !Number.isInteger(ticket.id) || ticket.id < 1) {
         errors.push('チケット ' + (ticket.id !== undefined && ticket.id !== null ? ticket.id : '(空)') +
           ' のIDが不正（期待: 1 以上の integer）');
       }
 
-      // phaseId 整合性チェック
+      // Check phaseId consistency
       if (ticket.phaseId !== phase.id) {
         errors.push('チケット ' + ticket.id + ' の phaseId が ' +
           ticket.phaseId + '（期待: ' + phase.id + '）');
       }
 
-      // 空 nodeIds チェック
+      // Check for empty nodeIds
       if (!Array.isArray(ticket.nodeIds) || ticket.nodeIds.length === 0) {
         errors.push('チケット ' + ticket.id + ' の nodeIds が空です');
       }
@@ -454,14 +453,14 @@ function finalValidation(phases) {
 }
 
 // ============================================================
-// ファイル入出力
+// File I/O
 // ============================================================
 
 /**
- * Tickets.json を読み込む。読み込みに失敗した場合は process.exit する。
+ * Read Tickets.json. Exits with process.exit on read failure.
  *
- * @param {string} ticketsPath — Tickets.json の絶対パス
- * @returns {object} パースされたチケットデータ
+ * @param {string} ticketsPath — absolute path to Tickets.json
+ * @returns {object} parsed ticket data
  */
 function readTickets(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) {
@@ -477,20 +476,20 @@ function readTickets(ticketsPath) {
 }
 
 /**
- * SPLIT-Status.json が存在するか確認する。
+ * Check if SPLIT-Status.json exists.
  *
- * @param {string} statusPath — Status.json の絶対パス
- * @returns {boolean} 存在すれば true
+ * @param {string} statusPath — absolute path to Status.json
+ * @returns {boolean} true if exists
  */
 function checkStatusFile(statusPath) {
   return fs.existsSync(statusPath);
 }
 
 /**
- * 一時ファイル + rename でアトミックに JSON ファイルを書き込む。
+ * Atomically write a JSON file using temp file + rename.
  *
- * @param {string} targetPath — 書き込み先ファイルのパス
- * @param {object} data — 書き込むデータオブジェクト
+ * @param {string} targetPath — path to the target file
+ * @param {object} data — data object to write
  */
 function atomicWriteJson(targetPath, data) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
@@ -500,13 +499,13 @@ function atomicWriteJson(targetPath, data) {
 }
 
 // ============================================================
-// CLI 引数パース
+// CLI argument parsing
 // ============================================================
 
 /**
- * CLI引数をパースする。
+ * Parse CLI arguments.
  *
- * @param {string[]} argv — process.argv.slice(2) 相当
+ * @param {string[]} argv — equivalent to process.argv.slice(2)
  * @returns {{ ticketsPath: string, statusPath: string, dryRun: boolean, error: string|null }}
  */
 function parseCliArgs(argv) {
@@ -546,18 +545,18 @@ function parseCliArgs(argv) {
 }
 
 // ============================================================
-// メインエントリポイント
+// Main entry point
 // ============================================================
 
 /**
- * メイン処理 — 全フェーズの統合・ID振り直し・検証を逐次実行する。
+ * Main processing — sequentially execute phase consolidation, ID reassignment, and validation.
  *
- * @param {string} ticketsPath — Tickets.json の絶対パス
- * @param {string} statusPath — SPLIT-Status.json の絶対パス
- * @param {boolean} dryRun — --dry-run モード時はファイル書き込みを抑制
+ * @param {string} ticketsPath — absolute path to Tickets.json
+ * @param {string} statusPath — absolute path to SPLIT-Status.json
+ * @param {boolean} dryRun — suppress file writes in dry-run mode
  */
 function runConsolidation(ticketsPath, statusPath, dryRun) {
-  // Tickets.json を読み込み
+  // Read Tickets.json
   const ticketsData = readTickets(ticketsPath);
   let phases = ticketsData.phases || [];
 
@@ -565,7 +564,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   console.log('入力 Tickets.json: ' + ticketsPath);
   console.log('フェーズ数: ' + phases.length);
 
-  // 5-3-1: ガード判定
+  // 5-3-1: Guard check
   console.log('\n[5-3-1] ガード判定中...');
   const guardResult = guardPhaseCount(phases);
   if (guardResult.shouldSkip) {
@@ -575,7 +574,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   }
   console.log('フェーズ数: ' + guardResult.phaseCount + '（閾値 ' + MIN_TICKETS_PER_PHASE + ' 以上）→ 続行');
 
-  // 5-3-2: nodeIds 過不足検証
+  // 5-3-2: nodeIds coverage verification
   console.log('\n[5-3-2] nodeIds 過不足検証中...');
   const coverageResult = validateAllNodeIdsCovered(phases);
   if (!coverageResult.valid) {
@@ -590,10 +589,10 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   }
   console.log('全 nodeIds が正しくチケット化されています。✅');
 
-  // 統合前のフェーズを保存（status.json 更新用）
+  // Save pre-consolidation phases (for status.json update)
   const oldPhasesJSON = JSON.parse(JSON.stringify(phases));
 
-  // 5-3-3: 後方1パス統合
+  // 5-3-3: Single-pass right-to-left consolidation
   console.log('\n[5-3-3] 後方1パス統合を実行中...');
   console.log('  閾値: ' + MIN_TICKETS_PER_PHASE + ' チケット未満のフェーズを統合');
   const consolidatedPhases = consolidateFromRight(phases);
@@ -605,7 +604,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   }
   phases = consolidatedPhases;
 
-  // 5-3-4: フェーズID一括振り直し
+  // 5-3-4: Bulk reassign phase IDs
   console.log('\n[5-3-4] フェーズID一括振り直し中...');
   const beforePhaseIds = phases.map(function(p) { return p.id; });
   phases = renumberPhaseIds(phases);
@@ -613,13 +612,13 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   console.log('  ID: [' + beforePhaseIds.join(', ') + '] → [' + afterPhaseIds.join(', ') + ']');
   console.log('  フェーズ数: ' + phases.length);
 
-  // 5-3-5: チケットID一括振り直し
+  // 5-3-5: Bulk reassign ticket IDs
   console.log('\n[5-3-5] チケットID一括振り直し中...');
   phases = renumberTicketIds(phases);
   const totalTickets = phases.reduce(function(acc, p) { return acc + (p.tickets || []).length; }, 0);
   console.log('  総チケット数: ' + totalTickets);
 
-  // Phase B: relatedTicketIds 再生成（GRAPH.json のエッジから機械生成）
+  // Phase B: Regenerate relatedTicketIds (mechanically from GRAPH.json edges)
   console.log('\n[Phase B] relatedTicketIds 再生成中...');
   const graphEdges = loadGraphEdgesFromTickets(ticketsPath);
   if (graphEdges && graphEdges.length > 0) {
@@ -629,7 +628,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
     console.log('  GRAPH.json が見つからないか空のためスキップ');
   }
 
-  // Phase C: status.json 更新
+  // Phase C: Update status.json
   if (checkStatusFile(statusPath)) {
     console.log('\n[Phase C] status.json 更新中...');
     updateStatusJson(statusPath, oldPhasesJSON, phases);
@@ -638,7 +637,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
     console.log('\n[Phase C] status.json が見つからないためスキップ: ' + statusPath);
   }
 
-  // 5-3-8: 最終検証
+  // 5-3-8: Final validation
   console.log('\n[5-3-8] 最終検証中...');
   const finalResult = finalValidation(phases);
   if (!finalResult.valid) {
@@ -652,7 +651,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   console.log('全検証項目を通過しました。✅');
 
   // ============================================================
-  // Tickets.json への書き込み
+  // Write to Tickets.json
   // ============================================================
   ticketsData.phases = phases;
 
@@ -670,7 +669,7 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
 }
 
 /**
- * エントリポイント。
+ * Entry point.
  */
 function main() {
   const parsed = parseCliArgs(process.argv.slice(2));
@@ -688,7 +687,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  // 純粋関数（テスト可能）
+  // Pure functions (testable)
   guardPhaseCount,
   validateAllNodeIdsCovered,
   consolidateFromRight,
@@ -696,18 +695,18 @@ module.exports = {
   renumberTicketIds,
   finalValidation,
 
-  // Phase B/C（スタブ）
+  // Phase B/C (stubs)
   regenerateRelatedTicketIds,
   updateStatusJson,
 
-  // 入出力
+  // I/O
   readTickets,
   checkStatusFile,
   atomicWriteJson,
   parseCliArgs,
   runConsolidation,
 
-  // 定数
+  // Constants
   MIN_TICKETS_PER_PHASE,
   PHASE_ID_PREFIX,
   EXIT_SUCCESS,

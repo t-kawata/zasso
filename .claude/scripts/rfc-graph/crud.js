@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * crud.js — グラフの唯一の書き込み経路（6サブコマンド）
+ * crud.js — Exclusive write path for graph files (6 subcommands)
  *
- * /graphify-rfc スラッシュコマンドで使用するグラフファイルのCRUD操作を提供する。
- * 全書き込み操作はスキーマ検証を通過後、一時ファイル + rename のアトミック書込を実行する。
+ * Provides CRUD operations for graph files used by the /graphify-rfc slash command.
+ * All write operations pass schema validation before executing atomic write (temp file + rename).
  *
- * サブコマンド:
- *   create-nodes --file=<nodes.json>  — ノード一括追加（重複IDチェック＋スキーマ検証）
- *   list-nodes                        — 全ノード一覧JSON出力
- *   get-node --id=<nodeId>            — 単一ノード取得
- *   update-node --id=<nodeId> --file=<patch.json> — ノード更新（スキーマ検証）
- *   delete-node --id=<nodeId>         — ノード削除
- *   create-edges --file=<edges.json>  — エッジ一括追加（from/to存在検証＋スキーマ検証）
+ * Subcommands:
+ *   create-nodes --file=<nodes.json>  — Batch add nodes (duplicate ID check + schema validation)
+ *   list-nodes                        — Output all nodes as JSON
+ *   get-node --id=<nodeId>            — Get a single node
+ *   update-node --id=<nodeId> --file=<patch.json> — Update a node (schema validation)
+ *   delete-node --id=<nodeId>         — Delete a node
+ *   create-edges --file=<edges.json>  — Batch add edges (from/to existence check + schema validation)
  */
 
 const fs = require('fs');
@@ -20,22 +20,22 @@ const path = require('path');
 const { validateAgainstSchema } = require('./schema/validate.js');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying the graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
 
-/** ノードIDを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying the node ID */
 const NODE_ID_ARG_PREFIX = '--id=';
 
-/** 入力JSONファイルを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying the input JSON file */
 const FILE_ARG_PREFIX = '--file=';
 
-/** 元Markdown文書のパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying the source Markdown document path */
 const SOURCE_ARG_PREFIX = '--source=';
 
-/** 認容されるサブコマンド名の配列 */
+/** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
   'create-nodes',
   'list-nodes',
@@ -46,43 +46,43 @@ const ALLOWED_SUBCOMMANDS = [
   'delete-edges',
 ];
 
-/** スキーマファイルが格納されたディレクトリへの絶対パス */
+/** Absolute path to the directory containing schema files */
 const SCHEMAS_DIR = path.resolve(__dirname, 'schema');
 
-/** スキーマファイル名: ノード */
+/** Schema filename: node */
 const NODE_SCHEMA_FILE = 'node.schema.json';
 
-/** スキーマファイル名: エッジ */
+/** Schema filename: edge */
 const EDGE_SCHEMA_FILE = 'edge.schema.json';
 
-/** スキーマファイル名: グラフ全体 */
+/** Schema filename: full graph */
 const GRAPH_SCHEMA_FILE = 'graph.schema.json';
 
-/** 空のグラフデータを生成する */
+/** Creates an empty graph data structure */
 function createEmptyGraph(sourceFile) {
   return { sourceFile: sourceFile || '', nodes: [], edges: [] };
 }
 
 // ============================================================
-// コマンドライン引数パース
+// Command-line argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parses command line arguments
  *
  * @returns {{ graphPath: string, subcommand: string, nodeId: string|null, filePath: string|null }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments() {
   const args = process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(0);
   }
 
-  // 最小引数: --graph=<path> subcommand
+  // Minimum arguments: --graph=<path> subcommand
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
@@ -90,7 +90,7 @@ function parseArguments() {
     );
   }
 
-  // --graph=<path> のパース
+  // Parse --graph=<path>
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -105,14 +105,14 @@ function parseArguments() {
 
   const subcommand = args[1];
 
-  // サブコマンドの検証
+  // Validate subcommand
   if (!ALLOWED_SUBCOMMANDS.includes(subcommand)) {
     throw new Error(
       `未知のサブコマンドです: ${subcommand}`
     );
   }
 
-  // サブコマンド固有の追加引数のパース
+  // Parse subcommand-specific additional arguments
   let nodeId = null;
   let filePath = null;
   let sourcePath = null;
@@ -139,7 +139,7 @@ function parseArguments() {
     }
   }
 
-  // サブコマンドごとの必須引数チェック
+  // Required argument check per subcommand
   const subcommandsRequiringFile = ['create-nodes', 'create-edges', 'update-node', 'delete-edges'];
   const subcommandsRequiringId = ['get-node', 'update-node', 'delete-node'];
 
@@ -158,19 +158,19 @@ function parseArguments() {
 }
 
 // ============================================================
-// グラフファイル入出力
+// Graph file I/O
 // ============================================================
 
 /**
- * グラフファイルを読み込む。ファイルが存在しない場合は空のグラフを生成する。
+ * Reads the graph file. Generates an empty graph if the file does not exist.
  *
- * 初回作成時（グラフ不在）は sourcePath が必須。
- * sourcePath はグラフルートの sourceFile フィールドにセットされる。
+ * When creating for the first time (graph absent), sourcePath is required.
+ * sourcePath is set in the graph root's sourceFile field.
  *
- * @param {string} graphPath — グラフファイルのパス
- * @param {string|null} sourcePath — 元Markdown文書のパス（初回作成時必須）
- * @returns {Object} グラフデータ
- * @throws {Error} ファイル読み込みエラー時、または初回作成時に sourcePath 未指定
+ * @param {string} graphPath — Path to the graph file
+ * @param {string|null} sourcePath — Path to the source Markdown document (required for first creation)
+ * @returns {Object} Graph data
+ * @throws {Error} On file read error, or when sourcePath is missing for first creation
  */
 function readGraph(graphPath, sourcePath) {
   if (!fs.existsSync(graphPath)) {
@@ -187,13 +187,13 @@ function readGraph(graphPath, sourcePath) {
 }
 
 /**
- * 一時ファイル + rename でアトミックにファイルを書き込む
+ * Writes a file atomically using temp file + rename
  *
- * 書き込み途中でプロセスが異常終了した場合でも、.tmp ファイルは残るが
- * 元ファイルは破損しない。これは rename が OS レベルのアトミック操作であるため。
+ * Even if the process crashes mid-write, the .tmp file may remain
+ * but the original file is never corrupted because rename is an OS-level atomic operation.
  *
- * @param {string} targetPath — 書き込み先ファイルのパス
- * @param {string} data — 書き込むデータ（UTF-8文字列）
+ * @param {string} targetPath — Target file path
+ * @param {string} data — Data to write (UTF-8 string)
  */
 function atomicWrite(targetPath, data) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
@@ -202,16 +202,16 @@ function atomicWrite(targetPath, data) {
 }
 
 // ============================================================
-// スキーマ検証
+// Schema validation
 // ============================================================
 
 /**
- * データを指定されたスキーマで検証する。違反時はエラーをスローする。
+ * Validates data against the specified schema. Throws on violation.
  *
- * @param {Object} data — 検証対象のデータ
- * @param {string} schemaFileName — スキーマファイル名
- * @param {string} description — エラーメッセージ用のデータ説明
- * @throws {Error} スキーマ検証失敗時
+ * @param {Object} data — Data to validate
+ * @param {string} schemaFileName — Schema file name
+ * @param {string} description — Data description for error messages
+ * @throws {Error} On schema validation failure
  */
 function validateWithSchema(data, schemaFileName, description) {
   const result = validateAgainstSchema(data, schemaFileName, SCHEMAS_DIR);
@@ -226,24 +226,24 @@ function validateWithSchema(data, schemaFileName, description) {
 }
 
 // ============================================================
-// サブコマンド実装
+// Subcommand implementations
 // ============================================================
 
 /**
- * create-nodes: ノードを一括追加する
+ * create-nodes: Batch adds nodes
  *
- * 全ノードがスキーマ検証を通過し、かつ既存ノードとのID重複がない場合のみ追加する。
- * 1件でも違反があれば一切変更せずエラー終了する。
- * headingRefs の refId は自動採番される（グラフ内の既存最大値+1から順に割り当て）。
- * ノードJSONに refId が書かれていても無視され、機械的に上書きされる。
+ * Only adds nodes if all pass schema validation and no ID duplicates with existing nodes.
+ * If even one violation is found, exits with error without any changes.
+ * headingRefs refId values are auto-assigned (sequentially from max existing +1 in graph).
+ * Any refId written in the node JSON is ignored and mechanically overwritten.
  *
- * @param {Object} graph — グラフデータ
- * @param {Object[]} nodesData — 追加するノードの配列
- * @throws {Error} 検証失敗時
+ * @param {Object} graph — Graph data
+ * @param {Object[]} nodesData — Array of nodes to add
+ * @throws {Error} On validation failure
  */
 function executeCreateNodes(graph, nodesData) {
-  // ステップ1: 全ノードのスキーマ検証
-  // headingRefs の refId は仮の値で一時的に検証通過させる
+  // Step 1: Schema validate all nodes
+  // Temporarily set headingRefs refId to a dummy value for validation to pass
   for (const node of nodesData) {
     if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
       for (const range of node.headingRefs) {
@@ -255,7 +255,7 @@ function executeCreateNodes(graph, nodesData) {
     validateWithSchema(node, NODE_SCHEMA_FILE, `ノード ${node.id || '(ID不明)'}`);
   }
 
-  // ステップ2: 既存ノードとのID重複チェック
+  // Step 2: Check ID duplicates with existing nodes
   const existingIds = new Set(graph.nodes.map((n) => n.id));
   for (const node of nodesData) {
     if (existingIds.has(node.id)) {
@@ -268,8 +268,8 @@ function executeCreateNodes(graph, nodesData) {
     existingIds.add(node.id);
   }
 
-  // ステップ3: refId 自動採番
-  // 既存グラフ + 新規ノードの全 headingRefs から最大 refId 番号をスキャン
+  // Step 3: Auto-increment refId
+  // Scan all headingRefs across existing graph + new nodes for max refId number
   let maxRefNumber = 0;
   const allNodes = [...graph.nodes, ...nodesData];
   for (const node of allNodes) {
@@ -285,7 +285,7 @@ function executeCreateNodes(graph, nodesData) {
     }
   }
 
-  // 新規ノードの headingRefs に max+1 から順に refId を割り当てる
+  // Assign refId to new node headingRefs sequentially from max+1
   let nextRefNumber = maxRefNumber + 1;
   for (const node of nodesData) {
     if (!Array.isArray(node.headingRefs)) continue;
@@ -295,26 +295,26 @@ function executeCreateNodes(graph, nodesData) {
     }
   }
 
-  // ステップ4: 追加実行
+  // Step 4: Execute addition
   graph.nodes.push(...nodesData);
   console.log(JSON.stringify({ ok: true, created: nodesData.length, refStart: maxRefNumber + 1, refEnd: nextRefNumber - 1 }, null, 2));
 }
 
 /**
- * list-nodes: 全ノード一覧をJSON出力する
+ * list-nodes: Output all nodes as JSON
  *
- * @param {Object} graph — グラフデータ
+ * @param {Object} graph — Graph data
  */
 function executeListNodeIds(graph) {
   console.log(JSON.stringify(graph.nodes, null, 2));
 }
 
 /**
- * get-node: 指定されたIDのノードを取得する
+ * get-node: Get a node by its ID
  *
- * @param {Object} graph — グラフデータ
- * @param {string} nodeId — 取得するノードのID
- * @throws {Error} ノード未発見時
+ * @param {Object} graph — Graph data
+ * @param {string} nodeId — ID of the node to get
+ * @throws {Error} If node not found
  */
 function executeGetNode(graph, nodeId) {
   const node = graph.nodes.find((n) => n.id === nodeId);
@@ -328,15 +328,15 @@ function executeGetNode(graph, nodeId) {
 }
 
 /**
- * update-node: 指定されたIDのノードを更新する
+ * update-node: Update a node by its ID
  *
- * patch の各フィールドで上書き更新する。headingRefs は配列全体の置換。
- * 更新後の完全なノードがスキーマ検証を通過することを確認する。
+ * Overwrites fields with patch data. headingRefs is replaced as a whole array.
+ * Verifies the complete updated node passes schema validation.
  *
- * @param {Object} graph — グラフデータ
- * @param {string} nodeId — 更新するノードのID
- * @param {Object} patchData — 更新内容
- * @throws {Error} 検証失敗時
+ * @param {Object} graph — Graph data
+ * @param {string} nodeId — ID of the node to update
+ * @param {Object} patchData — Update content
+ * @throws {Error} On validation failure
  */
 function executeUpdateNode(graph, nodeId, patchData) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
@@ -347,23 +347,23 @@ function executeUpdateNode(graph, nodeId, patchData) {
     );
   }
 
-  // 更新後のノードを構築
+  // Build the updated node
   const updatedNode = { ...graph.nodes[nodeIndex], ...patchData };
 
-  // スキーマ検証
+  // Schema Validation
   validateWithSchema(updatedNode, NODE_SCHEMA_FILE, `更新後のノード ${nodeId}`);
 
-  // 更新実行
+  // Execute update
   graph.nodes[nodeIndex] = updatedNode;
   console.log(JSON.stringify({ ok: true, id: nodeId }, null, 2));
 }
 
 /**
- * delete-node: 指定されたIDのノードを削除する
+ * delete-node: Delete a node by its ID
  *
- * @param {Object} graph — グラフデータ
- * @param {string} nodeId — 削除するノードのID
- * @throws {Error} ノード未発見時
+ * @param {Object} graph — Graph data
+ * @param {string} nodeId — ID of the node to delete
+ * @throws {Error} If node not found
  */
 function executeDeleteNode(graph, nodeId) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
@@ -374,28 +374,28 @@ function executeDeleteNode(graph, nodeId) {
     );
   }
 
-  // 削除実行
+  // Execute deletion
   graph.nodes.splice(nodeIndex, 1);
   console.log(JSON.stringify({ ok: true, removed: nodeId }, null, 2));
 }
 
 /**
- * create-edges: エッジを一括追加する
+ * create-edges: Batch add edges
  *
- * 全エッジがスキーマ検証を通過し、かつ from/to が既存ノードを参照している場合のみ追加する。
- * 1件でも違反があれば一切変更せずエラー終了する。
+ * Only adds if all edges pass schema validation and from/to reference existing nodes.
+ * Exits with error without making any changes if even one violation is found.
  *
- * @param {Object} graph — グラフデータ
- * @param {Object[]} edgesData — 追加するエッジの配列
- * @throws {Error} 検証失敗時
+ * @param {Object} graph — Graph data
+ * @param {Object[]} edgesData — Array of edges to add
+ * @throws {Error} On validation failure
  */
 function executeCreateEdges(graph, edgesData) {
-  // ステップ1: 全エッジのスキーマ検証
+  // Step 1: Schema validation for all edges
   for (const edge of edgesData) {
     validateWithSchema(edge, EDGE_SCHEMA_FILE, `エッジ ${edge.from}→${edge.to}`);
   }
 
-  // ステップ2: from/to ノード存在検証
+  // Step 2: Verify from/to node existence
   const existingIds = new Set(graph.nodes.map((n) => n.id));
   for (const edge of edgesData) {
     if (!existingIds.has(edge.from)) {
@@ -412,20 +412,20 @@ function executeCreateEdges(graph, edgesData) {
     }
   }
 
-  // ステップ3: 追加実行
+  // Step 3: Execute addition
   graph.edges.push(...edgesData);
   console.log(JSON.stringify({ ok: true, created: edgesData.length }, null, 2));
 }
 
 /**
- * delete-edges: エッジを一括削除する
+ * delete-edges: Batch delete edges
  *
- * from + to + type の組み合わせで識別し、一致するエッジを削除する。
- * 指定されたエッジが存在しなくてもエラーにはならない（冪等）。
- * 削除後は最低1本のエッジが残っているかの検証は行わない（孤立ノードは verify.js の責務）。
+ * Identifies edges by from + to + type combination and removes matching edges.
+ * Does not error if specified edges do not exist (idempotent).
+ * Does not verify at least one edge remains after deletion (orphan nodes are verify.js responsibility).
  *
- * @param {Object} graph — グラフデータ
- * @param {Object[]} edgesData — 削除するエッジの指定（from, to, type を含む）
+ * @param {Object} graph — Graph data
+ * @param {Object[]} edgesData — Edge specifications to delete (containing from, to, type)
  */
 function executeDeleteEdges(graph, edgesData) {
   let removedCount = 0;
@@ -442,15 +442,15 @@ function executeDeleteEdges(graph, edgesData) {
 }
 
 // ============================================================
-// ユーティリティ
+// Utilities
 // ============================================================
 
 /**
- * エラー情報を3段テンプレートで stderr に出力し、プロセスを終了する
+ * Output error info in 3-section template to stderr and exit the process
  *
- * @param {string} message — 何が起きたか
- * @param {string} reason — なぜ起きたか
- * @param {string} action — 次に取るべきアクション
+ * @param {string} message — What happened
+ * @param {string} reason — Why it happened
+ * @param {string} action — Next action to take
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
@@ -460,7 +460,7 @@ function exitWithError(message, reason, action) {
 }
 
 /**
- * 使用方法を表示する
+ * Displays usage instructions
  */
 function printUsage() {
   console.log(`
@@ -490,13 +490,13 @@ crud.js — グラフファイルCRUD操作
 }
 
 // ============================================================
-// メインエントリポイント
+// Main Entry Point
 // ============================================================
 
 /**
- * メイン処理: 引数パース → サブコマンドディスパッチ → 書き込み
+ * Main processing: parse arguments → dispatch subcommand → write
  *
- * すべてのエラーはこの関数内で catch され、3段テンプレートで stderr に出力される。
+ * All errors are caught in this function and output to stderr in 3-section template.
  */
 function main() {
   let parsed;
@@ -513,14 +513,14 @@ function main() {
   const { graphPath, subcommand, nodeId, filePath, sourcePath } = parsed;
 
   try {
-    // ファイル入力を必要とするサブコマンド: 入力JSONを読み込む
+    // Subcommands requiring file input: read input JSON
     let inputData = null;
     if (filePath) {
       const content = fs.readFileSync(filePath, 'utf-8');
       inputData = JSON.parse(content);
     }
 
-    // 読み取り専用サブコマンド（グラフファイル変更なし）
+    // Read-only subcommands (no graph file modification)
     const readOnlySubcommands = ['list-nodes', 'get-node'];
 
     if (readOnlySubcommands.includes(subcommand)) {
@@ -536,10 +536,10 @@ function main() {
       return;
     }
 
-    // 書き込みサブコマンド（グラフファイル変更あり）
+    // Write subcommands (graph file modification)
     const graph = readGraph(graphPath, sourcePath);
 
-    // グラフ全体としてのスキーマ検証（既存データの整合性確認）
+    // Schema validation of entire graph (verify existing data integrity)
     validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'グラフデータ全体');
 
     switch (subcommand) {
@@ -560,15 +560,15 @@ function main() {
         break;
     }
 
-    // 変更後のグラフ全体としてのスキーマ検証
+    // Schema validation of entire graph after modification
     validateWithSchema(graph, GRAPH_SCHEMA_FILE, '更新後のグラフデータ全体');
 
-    // アトミック書込
+    // Atomic write
     atomicWrite(graphPath, JSON.stringify(graph, null, 2));
 
-    // 消費済みの入力ファイルを削除（使用後はゴミを残さない）
+    // Delete consumed input file (leave no garbage after use)
     if (filePath) {
-      try { fs.unlinkSync(filePath); } catch { /* 削除できなくても処理自体は成功 */ }
+      try { fs.unlinkSync(filePath); } catch { /* Deletion failure does not affect the write operation itself */ }
     }
   } catch (operationError) {
     exitWithError(
@@ -583,7 +583,7 @@ if (require.main === module) {
   main();
 }
 
-// テスト用エクスポート
+// Test exports
 module.exports = {
   parseArguments,
   readGraph,

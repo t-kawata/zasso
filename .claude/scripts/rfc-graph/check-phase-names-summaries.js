@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * check-phase-names-summaries.js — 全フェーズの name/summary 書き込み完了チェック
+ * check-phase-names-summaries.js — Verify all phases have name/summary set
  *
- * Tickets.json の全フェーズに name と summary が空でなく設定されているか確認する。
- * split-to-tickets.md Step 4.2 の完了判定に使用する。
+ * Checks that all phases in Tickets.json have non-empty name and summary fields.
+ * Used as the completion check for split-to-tickets.md Step 4.2.
  *
- * 使用法:
+ * Usage:
  *   node check-phase-names-summaries.js <Tickets.json>
  *
- * 終了コード:
- *   0 = 全フェーズ完了
- *   1 = 未書き込みのフェーズあり
- *   2 = 引数エラー
+ * Exit codes:
+ *   0 = All phases complete
+ *   1 = Some phases missing name/summary
+ *   2 = Argument error
  */
 
 'use strict';

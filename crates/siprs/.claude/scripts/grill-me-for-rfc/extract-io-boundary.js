@@ -2,10 +2,10 @@
 /**
  * extract-io-boundary.js <rfc-file>
  *
- * RFC ファイルから「graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
- * セクションを抽出して stdout に出力する。
+ * Extracts the "graphify-rfc + boundify-graph-to-dirs reference info — I/O boundary clues from the RFC design document"
+ * section from the RFC file and outputs it to stdout.
  *
- * 抽出できなかった場合は空出力 + exit 0（エラーではなく「情報がない」だけ）。
+ * If no section is found, outputs nothing and exits 0 (not an error, just no info).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -25,8 +25,8 @@ if (!fs.existsSync(resolvedPath)) {
 const content = fs.readFileSync(resolvedPath, "utf-8");
 const lines = content.split("\n");
 
-// I/O 境界セクションのタイトルを検出
-// 形式: ## <N>. グラフ分割のための参考情報 ...
+// Detect the I/O boundary section title
+// Format: ## <N>. graphify-rfc + boundify-graph-to-dirs reference info ...
 const SECTION_PATTERN = /^## \d+\.\s+graphify-rfc \+ boundify-graph-to-dirs のための参考情報/;
 
 let sectionStartIndex = -1;
@@ -38,11 +38,11 @@ for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
 }
 
 if (sectionStartIndex === -1) {
-  // I/O 境界セクションなし
+  // No I/O boundary section found
   process.exit(0);
 }
 
-// 次の ## レベル見出しまでを抽出
+// Extract content up to the next ## level heading
 let sectionEndIndex = lines.length;
 for (let lineIndex = sectionStartIndex + 1; lineIndex < lines.length; lineIndex++) {
   if (/^## \d/.test(lines[lineIndex])) {

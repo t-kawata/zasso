@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # get-before-rfc-understanding.sh
-# 前回の OMISSIONS-XXX.json から rfcUnderstanding の該当フィールドを取得する。
-# Output (stdout): フィールドの値（空文字の場合は前回データなし）
-# Exit code: 0=取得成功, 1=取得失敗または前回データなし
+# Retrieve the rfcUnderstanding field from the previous OMISSIONS-XXX.json.
+# Output (stdout): field value (empty string means no previous data)
+# Exit code: 0=success, 1=failure or no previous data
 #
 # Usage: PURPOSE=$(./get-before-rfc-understanding.sh "$RFC_DIR" "purpose")
 

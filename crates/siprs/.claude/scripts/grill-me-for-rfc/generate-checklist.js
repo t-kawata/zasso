@@ -2,21 +2,21 @@
 /**
  * generate-checklist.js <rfc-dir>
  *
- * DesignTree.json を読み込み、CheckList.md をセクション×ノードの2段構造で生成する。
- * 既存の CheckList.md はバックアップしてから上書きする。
+ * Reads DesignTree.json and generates CheckList.md in a section-by-node two-tier structure.
+ * Backs up the existing CheckList.md before overwriting.
  *
- * 出力フォーマット:
- *   ## §N <トップレベルノードのtitle>
- *   - [ ] セクションが完全に記述されている
- *   - [ ] コードスニペットが含まれている
- *   - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+ * Output format:
+ *   ## §N <top-level node title>
+ *   - [ ] Section is fully described
+ *   - [ ] Code snippets are included
+ *   - [ ] No TBD/TODO/"deferred to future version" expressions remain
  *
- *   ### §N.M <子ノードのtitle>
- *   - [ ] <子ノードのtitle> が設計として記述されている
- *   - [ ] コードスニペットが含まれている
- *   - [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+ *   ### §N.M <child node title>
+ *   - [ ] <child node title> is described in the design
+ *   - [ ] Code snippets are included
+ *   - [ ] No TBD/TODO/"deferred to future version" expressions remain
  *
- * ★ 生成後、AIが目視チェックして補足事項を追記すること（コマンド定義に明記済み）。
+ * After generation, AI must visually inspect and add supplementary notes (as stated in the command definition).
  */
 import fs from "fs";
 import path from "path";
@@ -34,7 +34,7 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// 既存 CheckList.md をバックアップ（--no-backup 指定時はスキップ）
+// Backup existing CheckList.md (skipped when --no-backup is specified)
 if (fs.existsSync(checklistPath) && !noBackup) {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const backup = checklistPath.replace(/\.md$/, `.${ts}.bak.md`);
@@ -42,7 +42,7 @@ if (fs.existsSync(checklistPath) && !noBackup) {
   console.error(`Backed up existing CheckList.md → ${path.basename(backup)}`);
 }
 
-// --- ノードから Markdown を生成 ---
+// --- Generate Markdown from nodes ---
 
 const FORBIDDEN = "TBD / TODO / 別バージョンで対応 という表現が含まれていないこと";
 

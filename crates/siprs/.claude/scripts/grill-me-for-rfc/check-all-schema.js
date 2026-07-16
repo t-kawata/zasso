@@ -2,14 +2,14 @@
 /**
  * check-all-schema.js <rfc-dir>
  *
- * Status.json / DesignTree.json / CheckList.md のスキーマを検証する。
- * モジュールとして export され、全スクリプトの成功パス末尾から内部呼び出しされる。
- * CLI としても単独実行可能。
+ * Validates the schema of Status.json, DesignTree.json, and CheckList.md.
+ * Exported as a module and called internally at the end of every script's success path.
+ * Also executable standalone as a CLI.
  *
- * 使用方法（CLI）:
+ * Usage (CLI):
  *   node check-all-schema.js <rfc-dir>
  *
- * 使用方法（スクリプト内インポート）:
+ * Usage (import within scripts):
  *   import { validateAll } from './check-all-schema.js';
  *   const errors = validateAll(rfcDir);
  *   if (errors.length) { process.exit(1); }
@@ -18,7 +18,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ─── ステート定数（update-status.js と同期すること） ───
+// ─── State constants (keep in sync with update-status.js) ───
 const VALID_STATES = [
   "GRILLING",
   "CHECKLIST_PENDING",
@@ -28,7 +28,7 @@ const VALID_STATES = [
   "DONE",
 ];
 
-// ─── Status.json スキーマ検証 ───
+// ─── Status.json schema validation ───
 
 export function validateStatus(rfcDir) {
   const errors = [];
@@ -72,7 +72,7 @@ export function validateStatus(rfcDir) {
   return errors;
 }
 
-// ─── DesignTree.json スキーマ検証 ───
+// ─── DesignTree.json schema validation ───
 
 export function validateDesignTree(rfcDir) {
   const errors = [];
@@ -146,7 +146,7 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
   return errors;
 }
 
-// ─── CheckList.md スキーマ検証 ───
+// ─── CheckList.md schema validation ───
 
 export function validateChecklist(rfcDir) {
   const errors = [];
@@ -166,11 +166,11 @@ export function validateChecklist(rfcDir) {
   return errors;
 }
 
-// ─── 統合バリデーション ───
+// ─── Combined validation ───
 
 /**
- * 3ファイル全てのスキーマを検証し、エラーメッセージの配列を返す。
- * エラーがない場合は空配列を返す。
+ * Validates the schema of all 3 files and returns an array of error messages.
+ * Returns an empty array if there are no errors.
  */
 export function validateAll(rfcDir) {
   const errors = [];
@@ -180,8 +180,8 @@ export function validateAll(rfcDir) {
   return errors;
 }
 
-// ─── CLI エントリポイント ───
-// インポートされた場合に副作用として実行されるのを防ぐガード
+// ─── CLI entry point ───
+// Guard to prevent side effects when imported as a module
 
 const isMainModule =
   process.argv[1] &&

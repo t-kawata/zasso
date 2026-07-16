@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * test-query-all.js — 全 headingRefs 一括解決検証
+ * test-query-all.js — Batch resolution verification for all headingRefs
  *
- * グラフ内の全ノードの全 headingRefs がソースファイルに対して
- * 解決可能であることを検証する。解決不能な参照がある場合、
- * exit 1 で終了し _fix_graph_hints.json に診断情報を出力する。
+ * Verifies that all headingRefs for all nodes in the graph are resolvable
+ * against the source file. When unresolvable references are found,
+ * exits with code 1 and writes diagnostic info to _fix_graph_hints.json.
  *
  * CLI: test-query-all.js --graph=<path> --source=<path>
  *
  * Exit codes:
- *   0  全 headingRefs が正常解決
- *   1  1件以上の headingRefs が解決不能
+ *   0  All headingRefs resolved successfully
+ *   1  One or more headingRefs could not be resolved
  *
- * 公開関数: validateAllHeadingRefs, diagnoseBrokenRef, loadGraphAndSource
+ * Exported functions: validateAllHeadingRefs, diagnoseBrokenRef, loadGraphAndSource
  */
 
 const fs = require('fs');
@@ -22,13 +22,13 @@ const path = require('path');
 const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
-// 定数
+// Constants
 // ============================================================
 
-/** 詳細表示する最大エントリ数 */
+/** Maximum entries to display in detail */
 const MAX_DETAIL_ENTRIES = 25;
 
-/** 診断用スコア閾値（パーセント） */
+/** Diagnostic score thresholds (percent) */
 const SCORE_THRESHOLDS = {
   ZERO: 0,
   ONE_TOKEN_MAX: 25,
@@ -38,7 +38,7 @@ const SCORE_THRESHOLDS = {
   PERFECT: 100,
 };
 
-/** 診断ラベル定義 */
+/** Diagnosis label definitions */
 const DIAGNOSIS_LABELS = {
   M0: 'M0',
   M1: 'M1',
@@ -53,25 +53,25 @@ const DIAGNOSIS_LABELS = {
   M10: 'M10',
 };
 
-/** ヘッディングレベル最大値 */
+/** Maximum heading level */
 const MAX_HEADING_LEVEL = 6;
 
-/** 入力行数（空行も含む） */
+/** Input line count (including blank lines) */
 const SOURCE_LINE_LIMIT_WARN = 10000;
 
-/** 出力する hints ファイル名 */
+/** Output hints file name */
 const HINTS_OUTPUT_FILENAME = '_fix_graph_hints.json';
 
 // ============================================================
-// 公開関数
+// Public functions
 // ============================================================
 
 /**
- * CLI引数をパースする
+ * Parse CLI arguments
  *
- * @param {string[]} argv — process.argv 相当
+ * @param {string[]} argv — Equivalent to process.argv
  * @returns {{ graphPath: string, sourcePath: string }}
- * @throws {Error} 必須引数が不足している場合
+ * @throws {Error} If required arguments are missing
  */
 function parseArguments(argv) {
   const args = argv.slice(2);
@@ -90,10 +90,10 @@ function parseArguments(argv) {
 }
 
 /**
- * グラフとソースファイルを読み込む
+ * Load graph and source files
  *
- * @param {string} graphPath — グラフJSONファイルのパス
- * @param {string} sourcePath — ソースMarkdownファイルのパス
+ * @param {string} graphPath — Path to the graph JSON file
+ * @param {string} sourcePath — Path to the source Markdown file
  * @returns {{ graph: Object, sourceLines: string[] }}
  */
 function loadGraphAndSource(graphPath, sourcePath) {
@@ -107,13 +107,13 @@ function loadGraphAndSource(graphPath, sourcePath) {
 }
 
 /**
- * 全 headingRefs を検証する
+ * Validate all headingRefs
  *
- * 重複排除（nodeId + refId の組み合わせ）を行い、
- * 解決不能な参照の配列と解決成功件数を返す。
+ * Deduplicates by nodeId + refId combination and returns
+ * unresolvable references array and count of successful resolutions.
  *
- * @param {Object} graph — グラフデータ
- * @param {string[]} sourceLines — ソースファイルの行配列
+ * @param {Object} graph — Graph data
+ * @param {string[]} sourceLines — Array of source file lines
  * @returns {{ broken: Array, totalRefs: number, seen: Set<string> }}
  */
 function validateAllHeadingRefs(graph, sourceLines) {
@@ -156,20 +156,20 @@ function validateAllHeadingRefs(graph, sourceLines) {
 }
 
 /**
- * 解決不能な headingRef を診断する（M0〜M10）
+ * Diagnose an unresolvable headingRef (M0 through M10)
  *
- * @param {string[]} sourceLines — ソースファイルの行配列
- * @param {{ heading: number, texts: string[] }} ref — headingRef オブジェクト
+ * @param {string[]} sourceLines — Array of source file lines
+ * @param {{ heading: number, texts: string[] }} ref — headingRef object
  * @returns {{ diagnosis: string, score: number, details: Object, summary: string, remedyHint: string, remedyCommand: string }}
  */
 function diagnoseBrokenRef(sourceLines, ref) {
   const { heading, texts } = ref;
 
-  // 指定 heading レベルの行を収集
+  // Collect lines at the specified heading level
   const headingLines = collectHeadingLines(sourceLines, heading);
   const totalTokens = texts.length;
 
-  // M0: 指定見出しレベルの行が0件
+  // M0: No lines found at the specified heading level
   if (headingLines.length === 0) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M0, 0, texts, [], [],
       '指定された見出しレベルが見つかりません。',
@@ -177,7 +177,7 @@ function diagnoseBrokenRef(sourceLines, ref) {
       'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
   }
 
-  // 各見出し行のスコアを計算
+  // Calculate scores for each heading line
   const lineScores = headingLines.map(line => ({
     line: line.line,
     text: line.text,
@@ -186,12 +186,12 @@ function diagnoseBrokenRef(sourceLines, ref) {
     unmatchedTokens: texts.filter(t => !line.text.includes(t)),
   }));
 
-  // 最高スコアの行を特定
+  // Identify the highest scoring line
   lineScores.sort((a, b) => b.score - a.score);
   const bestScore = lineScores[0].score;
   const bestLines = lineScores.filter(l => l.score === bestScore);
 
-  // M9: 各トークンがそれぞれ異なる行にしかマッチしない（共存不可能）
+  // M9: Each token matches only different lines (mutually exclusive)
   if (isMutuallyExclusive(texts, headingLines)) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M9, bestScore, texts, lineScores[0],
       lineScores.slice(0, 3),
@@ -200,7 +200,7 @@ function diagnoseBrokenRef(sourceLines, ref) {
       'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
   }
 
-  // M8: 別の見出しレベルの方が高スコア
+  // M8: Another heading level scores higher
   const bestOtherLevel = checkOtherHeadingLevels(sourceLines, heading, texts);
   if (bestOtherLevel && bestOtherLevel.score > bestScore) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M8, bestScore, texts, lineScores[0],
@@ -210,7 +210,7 @@ function diagnoseBrokenRef(sourceLines, ref) {
       `crud.js update --graph=<g> --source=<s> --id=<nodeId> --heading=${bestOtherLevel.level}`);
   }
 
-  // スコアに基づく診断（M1〜M7）
+  // Score-based diagnosis (M1 through M7)
   const percentage = bestScore;
 
   let diagnosis;
@@ -240,14 +240,14 @@ function diagnoseBrokenRef(sourceLines, ref) {
 }
 
 // ============================================================
-// 診断補助関数
+// Diagnostic helper functions
 // ============================================================
 
 /**
- * 指定 heading レベルの行を収集する
+ * Collect lines at the specified heading level
  *
- * @param {string[]} sourceLines — ソース行配列
- * @param {number} heading — 見出しレベル（0〜6）
+ * @param {string[]} sourceLines — Array of source lines
+ * @param {number} heading — Heading level (0 through 6)
  * @returns {Array<{ line: number, text: string }>}
  */
 function collectHeadingLines(sourceLines, heading) {
@@ -268,11 +268,11 @@ function collectHeadingLines(sourceLines, heading) {
 }
 
 /**
- * トークンの一致スコアを計算する（%）
+ * Compute token match score (percentage)
  *
- * @param {string[]} texts — トークン配列
- * @param {string} line — 見出し行
- * @returns {number} 0〜100 のパーセント値
+ * @param {string[]} texts — Token array
+ * @param {string} line — Heading line
+ * @returns {number} Percentage value from 0 to 100
  */
 function computeTokenMatchScore(texts, line) {
   const matched = texts.filter(t => line.includes(t)).length;
@@ -281,10 +281,10 @@ function computeTokenMatchScore(texts, line) {
 }
 
 /**
- * トークンが複数の行に分散して共存不可能かを判定する
+ * Determine whether tokens are spread across multiple lines (mutually exclusive)
  *
- * @param {string[]} texts — トークン配列
- * @param {Array<{ line: number, text: string }>} headingLines — 見出し行配列
+ * @param {string[]} texts — Token array
+ * @param {Array<{ line: number, text: string }>} headingLines — Array of heading lines
  * @returns {boolean}
  */
 function isMutuallyExclusive(texts, headingLines) {
@@ -293,19 +293,19 @@ function isMutuallyExclusive(texts, headingLines) {
     const matched = texts.filter(t => line.text.includes(t)).length;
     allTokensCovered += matched;
   }
-  // 各トークンが合計で1回しかマッチしない場合、かつ texts が2件以上なら排他的
+  // Exclusive if each token matches only once total and texts has 2+ entries
   if (texts.length < 2) return false;
 
-  // 各トークンがマッチする行数をカウント
+  // Count how many lines each token matches
   for (const token of texts) {
     let matchCount = 0;
     for (const line of headingLines) {
       if (line.text.includes(token)) matchCount++;
     }
-    if (matchCount === 0) return false; // マッチしないトークンがある = M9 ではない
+    if (matchCount === 0) return false; // Token with zero matches is not M9
   }
 
-  // 全トークンがそれぞれ1行にしかマッチせず、かつそれらが異なる行の場合
+  // Check if every token matches exactly one line, and those lines differ
   const tokenLineMap = new Map();
   for (const token of texts) {
     const matches = headingLines.filter(l => l.text.includes(token));
@@ -318,18 +318,18 @@ function isMutuallyExclusive(texts, headingLines) {
 }
 
 /**
- * 別の見出しレベルをチェックし、より高スコアのレベルがあれば返す
+ * Check other heading levels and return if a higher-scoring level exists
  *
- * @param {string[]} sourceLines — ソース行配列
- * @param {number} originalHeading — 元の見出しレベル
- * @param {string[]} texts — トークン配列
+ * @param {string[]} sourceLines — Array of source lines
+ * @param {number} originalHeading — Original heading level
+ * @param {string[]} texts — Token array
  * @returns {{ level: number, score: number } | null}
  */
 function checkOtherHeadingLevels(sourceLines, originalHeading, texts) {
   let best = null;
   let bestScore = -1;
 
-  // heading=0 は特殊（全行にマッチ）のため、比較対象から除外する
+  // heading=0 is special (matches all lines), so exclude it from comparison
   for (let level = 1; level <= MAX_HEADING_LEVEL; level++) {
     if (level === originalHeading) continue;
     const lines = collectHeadingLines(sourceLines, level);
@@ -348,16 +348,16 @@ function checkOtherHeadingLevels(sourceLines, originalHeading, texts) {
 }
 
 /**
- * 診断結果オブジェクトを構築する
+ * Build a diagnosis result object
  *
- * @param {string} diagnosis — 診断ラベル
- * @param {number} score — スコア
- * @param {string[]} texts — トークン配列
- * @param {Object|null} bestLine — 最高スコアの行
- * @param {Array} candidateLines — 候補見出し行
- * @param {string} summary — 要約メッセージ
- * @param {string} suggestion — 示唆
- * @param {string} remedyCommand — 修正コマンド例
+ * @param {string} diagnosis — Diagnosis label
+ * @param {number} score — Score
+ * @param {string[]} texts — Token array
+ * @param {Object|null} bestLine — Highest scoring line
+ * @param {Array} candidateLines — Candidate heading lines
+ * @param {string} summary — Summary message
+ * @param {string} suggestion — Suggestion text
+ * @param {string} remedyCommand — Example remedy command
  * @returns {Object}
  */
 function buildDiagnosisResult(diagnosis, score, texts, bestLine, candidateLines, summary, suggestion, remedyCommand) {
@@ -395,12 +395,12 @@ function buildDiagnosisResult(diagnosis, score, texts, bestLine, candidateLines,
 }
 
 /**
- * 診断ラベルに応じた理由メッセージを生成する
+ * Generate a reason message based on the diagnosis label
  *
- * @param {string} diagnosis — 診断ラベル
- * @param {number} score — スコア
- * @param {string[]} texts — トークン配列
- * @param {Object|null} bestLine — 最高スコアの行
+ * @param {string} diagnosis — Diagnosis label
+ * @param {number} score — Score
+ * @param {string[]} texts — Token array
+ * @param {Object|null} bestLine — Highest scoring line
  * @returns {string}
  */
 function generateReason(diagnosis, score, texts, bestLine) {
@@ -431,11 +431,11 @@ function generateReason(diagnosis, score, texts, bestLine) {
 }
 
 /**
- * 診断ラベルに応じた要約メッセージを生成する
+ * Generate a summary message based on the diagnosis label
  *
- * @param {string} diagnosis — 診断ラベル
- * @param {string[]} texts — トークン配列
- * @param {number} score — スコア
+ * @param {string} diagnosis — Diagnosis label
+ * @param {string[]} texts — Token array
+ * @param {number} score — Score
  * @returns {string}
  */
 function generateSummary(diagnosis, texts, score) {
@@ -455,11 +455,11 @@ function generateSummary(diagnosis, texts, score) {
 }
 
 /**
- * 診断ラベルに応じた示唆メッセージを生成する
+ * Generate a suggestion message based on the diagnosis label
  *
- * @param {string} diagnosis — 診断ラベル
- * @param {string[]} texts — トークン配列
- * @param {number} score — スコア
+ * @param {string} diagnosis — Diagnosis label
+ * @param {string[]} texts — Token array
+ * @param {number} score — Score
  * @returns {string}
  */
 function generateSuggestion(diagnosis, texts, score) {
@@ -490,9 +490,9 @@ function generateSuggestion(diagnosis, texts, score) {
 }
 
 /**
- * 診断ラベルに応じた修正コマンド例を生成する
+ * Generate an example remedy command based on the diagnosis label
  *
- * @param {string} diagnosis — 診断ラベル
+ * @param {string} diagnosis — Diagnosis label
  * @returns {string}
  */
 function generateRemedyCommand(diagnosis) {
@@ -519,13 +519,13 @@ function generateRemedyCommand(diagnosis) {
 }
 
 // ============================================================
-// 出力補助関数
+// Output helper functions
 // ============================================================
 
 /**
- * 成功メッセージを整形する
+ * Format a success message
  *
- * @param {number} totalRefs — 総 headingRefs 件数
+ * @param {number} totalRefs — Total count of headingRefs
  * @returns {string}
  */
 function formatSuccessMessage(totalRefs) {
@@ -533,9 +533,9 @@ function formatSuccessMessage(totalRefs) {
 }
 
 /**
- * 失敗メッセージを整形する
+ * Format an error message
  *
- * @param {Array} broken — 解決不能な参照の配列
+ * @param {Array} broken — Array of unresolvable references
  * @returns {string}
  */
 function formatErrorMessage(broken) {
@@ -574,9 +574,9 @@ function formatErrorMessage(broken) {
 }
 
 /**
- * _fix_graph_hints.json の内容を構築する
+ * Build the contents of _fix_graph_hints.json
  *
- * @param {Array} broken — 解決不能な参照の配列
+ * @param {Array} broken — Array of unresolvable references
  * @returns {Object}
  */
 function buildHintsJson(broken) {
@@ -604,7 +604,7 @@ function buildHintsJson(broken) {
 }
 
 // ============================================================
-// メイン
+// Main
 // ============================================================
 
 function main() {
@@ -650,12 +650,12 @@ Exit codes:
     process.stdout.write(formatSuccessMessage(totalRefs) + '\n');
     process.exit(0);
   } else {
-    // 失敗時: hints JSON を出力し、stderr にエラー一覧
+    // On failure: output hints JSON and error list to stderr
     const hintsJson = buildHintsJson(broken);
     try {
       fs.writeFileSync(HINTS_OUTPUT_FILENAME, JSON.stringify(hintsJson, null, 2));
     } catch (_) {
-      // ファイル書き込み失敗は致命的ではない
+      // File write failure is not fatal
     }
 
     process.stderr.write(formatErrorMessage(broken) + '\n');
@@ -664,7 +664,7 @@ Exit codes:
 }
 
 // ============================================================
-// exports
+// Exports
 // ============================================================
 
 module.exports = {

@@ -2,13 +2,13 @@
 /**
  * session-status.js <rfc-dir>
  *
- * Status.json / DesignTree.json を読み取り、現在の工程・次の工程・
- * ノード状況・ループ回数を機械的に導出して表示する。
+ * Reads Status.json / DesignTree.json and mechanically derives
+ * the current step, next step, node status, and loop count.
  *
- * AI はこのスクリプトを呼ぶだけで「今どこにいるか」「次に何をすべきか」
- * を考えることなく把握できる。
+ * The AI can understand "where it is now" and "what to do next"
+ * just by calling this script, without having to think about it.
  *
- * 使用:
+ * Usage:
  *   node session-status.js <rfc-dir>
  */
 import fs from "fs";
@@ -32,7 +32,7 @@ if (!fs.existsSync(statusPath)) {
 const status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
 const { state, reviewLoopCount, researchPath, rfcPath } = status;
 
-// DesignTree 読み取り（存在しなければ空ツリー扱い）
+// Read DesignTree (treat as empty tree if it does not exist)
 let nodes = [];
 let totalNodes = 0;
 let openCount = 0;
@@ -43,11 +43,11 @@ if (fs.existsSync(treePath)) {
     totalNodes = countAll(nodes);
     openCount = countOpen(nodes);
   } catch {
-    // パース失敗時は空扱い
+    // Treat parse failure as empty
   }
 }
 
-// ─── 補助関数 ───
+// ─── Helper functions ───
 
 function countAll(ns) {
   return ns.reduce((acc, n) => acc + 1 + countAll(n.children || []), 0);
@@ -61,7 +61,7 @@ function countOpen(ns) {
   );
 }
 
-// ─── 工程導出 ───
+// ─── Derive step ───
 
 function deriveStep(state, nodes, openCount, loopCount) {
   switch (state) {
@@ -146,7 +146,7 @@ const { step, label, action, warning } = deriveStep(
   reviewLoopCount,
 );
 
-// ─── 表示 ───
+// ─── Display ───
 
 console.log("📋 Session Status");
 console.log(`  State: ${state}`);

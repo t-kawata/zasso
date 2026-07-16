@@ -1,33 +1,33 @@
 #!/usr/bin/env node
 
 /**
- * update-split-step-status.js — SPLIT-Status.json 管理（6サブコマンド）
+ * update-split-step-status.js — SPLIT-Status.json management (7 subcommands)
  *
- * /split-to-tickets スラッシュコマンドの進行状態を管理する。
- * SPLIT-Status.json に対して以下の6操作を提供する：
- * - start-step  <STEP_ID>  : Step を開始する
- * - end-step    <STEP_ID>  : Step を正常終了する
- * - fail-step   <STEP_ID>  : Step を異常終了する
- * - reset-to-step <STEP_ID>: Step に復帰する（後続Stepを pending に戻す）
- * - status           : 現在の状態を出力する
- * - cleanup          : 既知の一時ファイルを全て削除する（冪等）
- * - backup           : graphFile の .bak ファイルを作成する
+ * Manages the progress of the /split-to-tickets slash command.
+ * Provides the following 7 operations on SPLIT-Status.json:
+ * - start-step  <STEP_ID>  : Start a step
+ * - end-step    <STEP_ID>  : Finish a step normally
+ * - fail-step   <STEP_ID>  : Fail a step abnormally
+ * - reset-to-step <STEP_ID>: Reset to a step (set subsequent steps to pending)
+ * - status           : Output current state
+ * - cleanup          : Delete all known temporary files (idempotent)
+ * - backup           : Create a .bak file of graphFile
  *
- * 全書き込みは一時ファイル + rename のアトミック書込（atomicWrite）で行われ、
- * プロセス異常終了時に元ファイルが破損することはない。
+ * All writes use atomic write (temp file + rename) via atomicWrite,
+ * ensuring the original file is never corrupted on process crash.
  *
- * Step ID は実際のステップ識別子（"0-1", "0-2", "1", "4-1" 等）をそのまま使用する。
- * 本スクリプトは /split-to-tickets 専用。
+ * Step IDs use actual step identifiers ("0-1", "0-2", "1", "4-1", etc.) directly.
+ * This script is specific to /split-to-tickets.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** 全Step ID の定義順配列（インデックスが進行順序） */
+/** Array of all Step IDs in definition order (index defines progression order) */
 const STEP_ORDER = [
   '0-1',
   '0-2',
@@ -42,7 +42,7 @@ const STEP_ORDER = [
   '6',
 ];
 
-/** 認容されるサブコマンド名の配列 */
+/** Array of allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
   'start-step',
   'end-step',
@@ -55,58 +55,58 @@ const ALLOWED_SUBCOMMANDS = [
   'renumber-phases',
 ];
 
-/** プライマリフラグ: GRAPHIFY-Status.json のパス指定 */
+/** Primary flag: specifies the path to GRAPHIFY-Status.json */
 const FLAG_GRAPHIFY_STATUS = '--graphify-status=';
 
-/** エイリアスフラグ: --graphify-status= のエイリアス、split-to-tickets でも汎用的に使用 */
+/** Alias flag: alias for --graphify-status=, also used generically by split-to-tickets */
 const FLAG_ALIAS_STATUS = '--status=';
 
-/** Stepの状態: 未着手 */
+/** Step status: not started (pending) */
 const STATUS_PENDING = 'pending';
 
-/** Stepの状態: 実行中 */
+/** Step status: running */
 const STATUS_RUNNING = 'running';
 
-/** Stepの状態: 完了 */
+/** Step status: done */
 const STATUS_DONE = 'done';
 
-/** Stepの状態: 異常終了 */
+/** Step status: error (abnormally terminated) */
 const STATUS_ERROR = 'error';
 
 // ============================================================
-// 型: StatusData
+// Type: StatusData
 // ============================================================
 
 /**
- * GRAPHIFY-Status.json のデータ構造
+ * Data structure of GRAPHIFY-Status.json
  *
  * @typedef {Object} StatusData
- * @property {string} sourceFile — グラフ化対象のソースファイルパス
- * @property {string} graphFile — 出力先グラフファイルパス
- * @property {string} currentStep — 現在の進行Step ID（例: "0-1", "4-2"）
- * @property {Object<string, string>} steps — Step状態マップ（キーは Step ID）
+ * @property {string} sourceFile — Path to the source file to be graphed
+ * @property {string} graphFile — Path to the output graph file
+ * @property {string} currentStep — Current step ID (e.g. "0-1", "4-2")
+ * @property {Object<string, string>} steps — Step status map (keys are step IDs)
  */
 
 // ============================================================
-// コア関数
+// Core Functions
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parses command-line arguments
  *
  * @returns {{ statusPath: string, subcommand: string, stepId: string|null }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments() {
   const args = process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(0);
   }
 
-  // 最小引数: --graphify-status=<path> subcommand [STEP_ID]
+  // Minimum args: --graphify-status=<path> subcommand [STEP_ID]
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
@@ -114,7 +114,7 @@ function parseArguments() {
     );
   }
 
-  // --graphify-status=<path> または --status=<path> のパース
+  // Parse --graphify-status=<path> or --status=<path>
   const statusFlag = args[0];
   if (!statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) && !statusFlag.startsWith(FLAG_ALIAS_STATUS)) {
     throw new Error(
@@ -131,14 +131,14 @@ function parseArguments() {
 
   const subcommand = args[1];
 
-  // サブコマンドの検証
+  // Validate subcommand
   if (!ALLOWED_SUBCOMMANDS.includes(subcommand)) {
     throw new Error(
       `未知のサブコマンドです: ${subcommand}`
     );
   }
 
-  // step-id の読み取り（status / cleanup / backup / prune-phases / renumber-phases 以外は必須）
+  // Read step-id (required except for status/cleanup/backup/prune-phases/renumber-phases)
   let stepId = null;
   if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup'
       && subcommand !== 'prune-phases' && subcommand !== 'renumber-phases') {
@@ -159,10 +159,10 @@ function parseArguments() {
 }
 
 /**
- * GRAPHIFY-Status.json を読み込む。ファイルが存在しない場合はデフォルト状態を返す。
+ * Read GRAPHIFY-Status.json. Returns default state if the file does not exist.
  *
- * @param {string} statusPath — ステータスファイルのパス
- * @returns {StatusData} パースされたステータスデータ
+ * @param {string} statusPath — Path to the status file
+ * @returns {StatusData} Parsed status data
  */
 function readStatus(statusPath) {
   if (!fs.existsSync(statusPath)) {
@@ -172,7 +172,7 @@ function readStatus(statusPath) {
   const raw = fs.readFileSync(statusPath, 'utf8');
   const data = JSON.parse(raw);
 
-  // 読み込みデータの簡易検証（必須フィールドの存在確認）
+  // Basic validation of read data (check required fields)
   if (!data.sourceFile || !data.graphFile || typeof data.currentStep !== 'string' || !data.steps) {
     throw new Error(
       `${statusPath} の形式が不正です。sourceFile / graphFile / currentStep（string）/ steps が必要です。`
@@ -183,21 +183,21 @@ function readStatus(statusPath) {
 }
 
 /**
- * デフォルトのステータスデータを生成する
+ * Generate default status data
  *
- * ファイル名のサフィックスから basename を抽出し、sourceFile（.md）と graphFile（-GRAPH.json）を逆算する。
- * 対応サフィックス:
- *   - GRAPHIFY: *-GRAPHIFY-Status.json → basename から -GRAPHIFY は除去されない（正しく逆算するため）
- *   - SPLIT: *-SPLIT-Status.json → basename から -SPLIT は除去されない
+ * Extracts basename from the filename suffix and reverse-calculates sourceFile (.md) and graphFile (-GRAPH.json).
+ * Supported suffixes:
+ *   - GRAPHIFY: *-GRAPHIFY-Status.json → -GRAPHIFY is NOT removed from basename (for correct reverse calculation)
+ *   - SPLIT: *-SPLIT-Status.json → -SPLIT is NOT removed from basename
  *
- * @param {string} statusPath — ステータスファイルのパス
- * @returns {StatusData} デフォルト状態
+ * @param {string} statusPath — Path to the status file
+ * @returns {StatusData} Default status
  */
 function createDefaultStatus(statusPath) {
   const dir = path.dirname(statusPath);
   const filename = path.basename(statusPath);
 
-  // ファイル名から既知のサフィックスを除去して basename を得る
+  // Remove known suffixes from filename to obtain basename
   const GRAPHIFY_SUFFIX = '-GRAPHIFY-Status.json';
   const SPLIT_SUFFIX = '-SPLIT-Status.json';
   let basename = filename;
@@ -207,7 +207,7 @@ function createDefaultStatus(statusPath) {
     basename = filename.slice(0, -SPLIT_SUFFIX.length);
   }
 
-  // sourceFile: basename から元のソースファイルパスを逆算する
+  // sourceFile: reverse-calculate original source file path from basename
   const sourceFile = path.resolve(dir, basename + '.md');
   const graphFile = path.resolve(dir, basename + '-GRAPH.json');
 
@@ -225,20 +225,20 @@ function createDefaultStatus(statusPath) {
 }
 
 /**
- * Step ID が有効な識別子か検証する
+ * Validate whether the Step ID is a valid identifier
  *
- * @param {string} stepId — 検証対象のStep ID
- * @returns {boolean} 有効なStep IDなら true
+ * @param {string} stepId — Step ID to validate
+ * @returns {boolean} true if valid Step ID
  */
 function validateStepId(stepId) {
   return STEP_ORDER.includes(stepId);
 }
 
 /**
- * start-step <STEP_ID>: Step を開始状態に設定する
+ * start-step <STEP_ID>: Set a step to running state
  *
- * @param {StatusData} status — 更新対象のステータスデータ
- * @param {string} stepId — 開始するStep ID
+ * @param {StatusData} status — Status data to update
+ * @param {string} stepId — Step ID to start
  */
 function executeStartStep(status, stepId) {
   status.steps[stepId] = STATUS_RUNNING;
@@ -247,13 +247,13 @@ function executeStartStep(status, stepId) {
 }
 
 /**
- * end-step <STEP_ID>: Step を正常終了状態に設定する
+ * end-step <STEP_ID>: Set a step to done state
  *
- * 完了後、currentStep は順序配列上の次の Step ID に進む。
- * 最終Step完了時は全Step完了を示す。
+ * After completion, currentStep advances to the next Step ID in order.
+ * When the final step completes, indicates all steps are done.
  *
- * @param {StatusData} status — 更新対象のステータスデータ
- * @param {string} stepId — 終了するStep ID
+ * @param {StatusData} status — Status data to update
+ * @param {string} stepId — Step ID to finish
  */
 function executeEndStep(status, stepId) {
   status.steps[stepId] = STATUS_DONE;
@@ -269,12 +269,12 @@ function executeEndStep(status, stepId) {
 }
 
 /**
- * fail-step <STEP_ID>: Step を異常終了状態に設定する
+ * fail-step <STEP_ID>: Set a step to error state
  *
- * currentStep は変更しない（現在位置を維持して再開可能にする）。
+ * Does not change currentStep (keeps current position to allow resumption).
  *
- * @param {StatusData} status — 更新対象のステータスデータ
- * @param {string} stepId — 異常終了したStep ID
+ * @param {StatusData} status — Status data to update
+ * @param {string} stepId — Step ID that encountered an error
  */
 function executeFailStep(status, stepId) {
   status.steps[stepId] = STATUS_ERROR;
@@ -282,13 +282,13 @@ function executeFailStep(status, stepId) {
 }
 
 /**
- * reset-to-step <STEP_ID>: 指定されたStepに復帰する
+ * reset-to-step <STEP_ID>: Reset to the specified step
  *
- * 指定されたStepより後続の全Stepを pending に戻す。
- * 指定されたStep自身のステータスは変更しない（内容を保持したまま再実行可能にする）。
+ * Sets all steps after the specified step back to pending.
+ * Does not change the specified step's own status (preserves content for re-execution).
  *
- * @param {StatusData} status — 更新対象のステータスデータ
- * @param {string} stepId — 復帰先のStep ID
+ * @param {StatusData} status — Status data to update
+ * @param {string} stepId — Step ID to reset to
  */
 function executeResetToStep(status, stepId) {
   const idx = STEP_ORDER.indexOf(stepId);
@@ -300,40 +300,40 @@ function executeResetToStep(status, stepId) {
 }
 
 /**
- * status: 現在のステータスデータを整形JSONとして標準出力に出力する
+ * status: Output current status data as formatted JSON to stdout
  *
- * @param {StatusData} status — 出力対象のステータスデータ
+ * @param {StatusData} status — Status data to output
  */
 function executeStatus(status) {
   console.log(JSON.stringify(status, null, 2));
 }
 
 /**
- * cleanup: 既知の一時ファイルを全て削除する（冪等）
+ * cleanup: Delete all known temporary files (idempotent)
  *
- * 削除対象:
- * - $graphFile.bak（graphFile と同じディレクトリ）
- * - CWD 配下の _temp_nodes.json / _temp_edges.json / _patch.json
- *   / _remove_edges.json / _add_edges.json
+ * Deletion targets:
+ * - $graphFile.bak (same directory as graphFile)
+ * - _temp_nodes.json / _temp_edges.json / _patch.json
+ *   / _remove_edges.json / _add_edges.json under CWD
  *
- * 本関数は冪等である。何度実行しても安全で、ファイルが存在しない場合は
- * 何も削除せず正常終了する。
+ * This function is idempotent. Safe to run multiple times.
+ * If files do not exist, exits normally without deleting anything.
  *
- * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ * @param {StatusData} status — Status data (used for graphFile)
  */
 function executeCleanup(status) {
   const removed = [];
 
-  // .bak ファイル（グラフファイルと同じディレクトリ）
+  // .bak file (same directory as graph file)
   const bakPath = status.graphFile + '.bak';
   try {
     if (fs.existsSync(bakPath)) {
       fs.unlinkSync(bakPath);
       removed.push(bakPath);
     }
-  } catch (_) { /* 削除競合など — 無視して続行 */ }
+  } catch (_) { /* Deletion race, etc. — ignore and continue */ }
 
-  // CWD の一時ファイル
+  // CWD temp files
   const cwd = process.cwd();
   const tempFiles = [
     '_temp_nodes.json',
@@ -349,7 +349,7 @@ function executeCleanup(status) {
         fs.unlinkSync(fp);
         removed.push(f);
       }
-    } catch (_) { /* 同上 */ }
+    } catch (_) { /* Same as above */ }
   }
 
   if (removed.length > 0) {
@@ -360,12 +360,12 @@ function executeCleanup(status) {
 }
 
 /**
- * backup: graphFile のバックアップを作成する（冪等）
+ * backup: Create a backup of graphFile (idempotent)
  *
- * 古い .bak ファイルがあれば削除した上で、graphFile を graphFile.bak にコピーする。
- * 退行チェック（verify-graph-integrity.js）の --graph-before 引数で使用する。
+ * Removes old .bak file if it exists, then copies graphFile to graphFile.bak.
+ * Used by verify-graph-integrity.js with the --graph-before argument for regression checking.
  *
- * @param {StatusData} status — ステータスデータ（graphFile の取得に使用）
+ * @param {StatusData} status — Status data (used for graphFile)
  */
 function executeBackup(status) {
   const bakPath = status.graphFile + '.bak';
@@ -385,12 +385,12 @@ function executeBackup(status) {
 }
 
 /**
- * prune-phases: 指定されたフェーズIDのStep状態エントリを status.steps から削除する。
+ * prune-phases: Remove step status entries for specified phase IDs from status.steps.
  *
- * stdin から削除するフェーズIDのJSON配列を受け取る。
- * 例: ["P0", "P3"]
+ * Receives a JSON array of phase IDs to remove from stdin.
+ * Example: ["P0", "P3"]
  *
- * @param {StatusData} status — 更新対象のステータスデータ
+ * @param {StatusData} status — Status data to update
  */
 function executePrunePhases(status) {
   let phaseIdsToRemove = [];
@@ -415,7 +415,7 @@ function executePrunePhases(status) {
   let removedCount = 0;
   for (const key of Object.keys(status.steps)) {
     for (const phaseId of phaseIdsToRemove) {
-      // "P0" または "P0-1" のようなキーにマッチ
+      // Matches keys like "P0" or "P0-1"
       if (key === phaseId || key.startsWith(phaseId + '-')) {
         delete status.steps[key];
         removedCount++;
@@ -424,7 +424,7 @@ function executePrunePhases(status) {
     }
   }
 
-  // currentStep が削除対象のフェーズIDを含む場合、最初の残存Stepに調整
+  // If currentStep contains a phase ID being removed, adjust to the first remaining step
   if (status.currentStep) {
     for (const phaseId of phaseIdsToRemove) {
       if (status.currentStep === phaseId || status.currentStep.startsWith(phaseId + '-')) {
@@ -439,12 +439,12 @@ function executePrunePhases(status) {
 }
 
 /**
- * renumber-phases: status.steps のフェーズID接頭辞をリネームする。
+ * renumber-phases: Rename phase ID prefixes in status.steps.
  *
- * stdin から旧ID→新ID のマッピングオブジェクトを受け取る。
- * 例: {"0":"1", "3":"2"}
+ * Receives a mapping object of old ID -> new ID from stdin.
+ * Example: {"0":"1", "3":"2"}
  *
- * @param {StatusData} status — 更新対象のステータスデータ
+ * @param {StatusData} status — Status data to update
  */
 function executeRenumberPhases(status) {
   let mapping = {};
@@ -483,7 +483,7 @@ function executeRenumberPhases(status) {
   }
   status.steps = newSteps;
 
-  // currentStep も変換
+  // Also convert currentStep
   if (status.currentStep) {
     for (const oldId of mappingKeys) {
       const prefix = 'P' + oldId;
@@ -498,17 +498,17 @@ function executeRenumberPhases(status) {
 }
 
 // ============================================================
-// ファイル入出力
+// File I/O
 // ============================================================
 
 /**
- * 一時ファイル + rename でアトミックにファイルを書き込む
+ * Write file atomically using temp file + rename
  *
- * 書き込み途中でプロセスが異常終了した場合でも、.tmp ファイルは残るが
- * 元ファイルは破損しない。これは rename が OS レベルのアトミック操作であるため。
+ * Even if the process crashes mid-write, the .tmp file is left behind
+ * but the original file remains uncorrupted, because rename is an OS-level atomic operation.
  *
- * @param {string} targetPath — 書き込み先ファイルのパス
- * @param {string} data — 書き込むデータ（UTF-8文字列）
+ * @param {string} targetPath — Path to the target file
+ * @param {string} data — Data to write (UTF-8 string)
  */
 function atomicWrite(targetPath, data) {
   const tmpPath = targetPath + '.tmp.' + process.pid;
@@ -517,15 +517,15 @@ function atomicWrite(targetPath, data) {
 }
 
 // ============================================================
-// ユーティリティ
+// Utilities
 // ============================================================
 
 /**
- * エラー情報を3段テンプレートで stderr に出力し、プロセスを終了する
+ * Output error info in 3-section template to stderr and exit the process
  *
- * @param {string} message — 何が起きたか
- * @param {string} reason — なぜ起きたか
- * @param {string} action — 次に取るべきアクション
+ * @param {string} message — What happened
+ * @param {string} reason — Why it happened
+ * @param {string} action — Next action to take
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
@@ -535,7 +535,7 @@ function exitWithError(message, reason, action) {
 }
 
 /**
- * 使用方法を表示する
+ * Displays usage instructions
  */
 function printUsage() {
   console.log(`
@@ -563,16 +563,16 @@ Step ID（定義順）: ${STEP_ORDER.join(', ')}
 }
 
 // ============================================================
-// エントリポイント
+// Entry Point
 // ============================================================
 
 /**
- * メイン処理: 引数パース、サブコマンドディスパッチ、ファイル書込を実行する
+ * Main processing: parse arguments, dispatch subcommand, write file
  */
 function main() {
   let parsed;
 
-  // Step 1: 引数パース
+  // Step 1: Parse arguments
   try {
     parsed = parseArguments();
   } catch (parseError) {
@@ -585,7 +585,7 @@ function main() {
 
   const { statusPath, subcommand, stepId } = parsed;
 
-  // Step 2: ステータスファイル読み込み（存在しなければデフォルト状態）
+  // Step 2: Read status file (or default state if not found)
   let status;
   try {
     status = readStatus(statusPath);
@@ -597,7 +597,7 @@ function main() {
     );
   }
 
-  // Step 3: サブコマンド実行
+  // Step 3: Execute subcommand
   try {
     switch (subcommand) {
       case 'start-step':
@@ -679,7 +679,7 @@ function main() {
     );
   }
 
-  // Step 4: アトミック書き込み
+  // Step 4: Atomic write
   try {
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
   } catch (writeError) {
@@ -691,7 +691,7 @@ function main() {
   }
 }
 
-// 直接実行時のみ main() を呼び出す
+// Only call main() when executed directly
 if (require.main === module) {
   main();
 }

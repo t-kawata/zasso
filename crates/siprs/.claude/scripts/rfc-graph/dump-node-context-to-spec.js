@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
 /**
- * dump-node-context-to-spec.js — 設計コンテキストの spec 自動書き込み
+ * dump-node-context-to-spec.js — Auto-write design context to spec
  *
- * チケットの nodeIds を起点に、GRAPH.json（ノード詳細・エッジ関係性）と
- * Dirs-Tree.json（実装先ファイルパス）の情報を機械的に spec ファイルに書き込む。
+ * Starting from ticket nodeIds, mechanically write GRAPH.json (node details, edge relationships) and
+ * Dirs-Tree.json (implementation file path) information to spec files.
  *
  * CLI:
  *   dump-node-context-to-spec.js \
  *     --tickets=<path> --graph=<path> --dirs-tree=<path> --ticket-key=<key>
  *     [--ticket-key=<key2> ...]
  *
- * 出力ブロック:
- *   Block 1: ノード詳細（id, kind, language, slug, title, summary, headingRefs）
- *   Block 2: エッジ関係性（エッジ種別グループ + ★/☆ 区別）
- *   Block 3: 実装ファイルパス（default_files + 関連ノードのファイルパス）
+ * Output blocks:
+ *   Block 1: Node details (id, kind, language, slug, title, summary, headingRefs)
+ *   Block 2: Edge relationships (edge type groups + ★/☆ distinction)
+ *   Block 3: Implementation file paths (default_files + related node file paths)
  */
 
 const fs = require('fs');
@@ -22,31 +22,31 @@ const path = require('path');
 const { resolveSpecPath } = require('../lib/resolve-spec-path');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** Tickets.json パスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying Tickets.json path */
 const TICKETS_ARG_PREFIX = '--tickets=';
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying graph file path */
 const GRAPH_ARG_PREFIX = '--graph=';
 
-/** ディレクトリツリーパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying directory tree path */
 const DIRS_TREE_ARG_PREFIX = '--dirs-tree=';
 
-/** チケットキーを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for specifying ticket key */
 const TICKET_KEY_ARG_PREFIX = '--ticket-key=';
 
-/** 正常終了コード */
+/** Normal exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Abnormal exit code */
 const EXIT_FAILURE = 1;
 
-/** 設計コンテキストの最上位見出し */
+/** Top-level heading for design context */
 const SECTION_HEADING = '### 設計コンテキスト';
 
-/** エッジ種別の優先順位（実装影響度順） */
+/** Edge type priority (implementation impact order) */
 const EDGE_PRIORITY = [
   'depends_on',
   'precedes',
@@ -62,32 +62,32 @@ const EDGE_PRIORITY = [
   'validates',
 ];
 
-/** チケット内ノードの凡例 */
+/** Legend for ticket-internal nodes */
 const IN_TICKET_MARK = '★';
-/** チケット外ノードの凡例 */
+/** Legend for ticket-external nodes */
 const OUT_TICKET_MARK = '☆';
 
 // ============================================================
-// CLI引数パース
+// CLI Argument Parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parse command-line arguments
  *
- * @param {string[]} [testArgs] — テスト用引数配列（省略時は process.argv.slice(2)）
+ * @param {string[]} [testArgs] — Test argument array (defaults to process.argv.slice(2))
  * @returns {{ ticketsPath: string, graphPath: string, dirsTreePath: string, ticketKeys: string[] }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
 
-  // 最低3つの引数が必要（--tickets, --graph, --dirs-tree）
+  // At least 3 arguments required (--tickets, --graph, --dirs-tree)
   if (args.length < 3) {
     throw new Error(
       '引数が不足しています。\n' +
@@ -129,15 +129,15 @@ function parseArguments(testArgs) {
 }
 
 // ============================================================
-// ファイル読み込み
+// File Loading
 // ============================================================
 
 /**
- * JSON ファイルを読み込む
+ * Load a JSON file
  *
- * @param {string} filePath — JSON ファイルのパス
- * @returns {Object} パース済みJSONデータ
- * @throws {Error} ファイル不在またはJSON不正
+ * @param {string} filePath — Path to the JSON file
+ * @returns {Object} Parsed JSON data
+ * @throws {Error} If file not found or JSON is invalid
  */
 function loadJson(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -148,49 +148,49 @@ function loadJson(filePath) {
 }
 
 /**
- * Tickets.json を読み込む
+ * Load Tickets.json
  *
- * @param {string} ticketsPath — Tickets.json のパス
- * @returns {Object} パース済みデータ
+ * @param {string} ticketsPath — Path to Tickets.json
+ * @returns {Object} Parsed data
  */
 function loadTickets(ticketsPath) {
   return loadJson(ticketsPath);
 }
 
 /**
- * GRAPH.json を読み込む
+ * Load GRAPH.json
  *
- * @param {string} graphPath — GRAPH.json のパス
- * @returns {Object} パース済みデータ
+ * @param {string} graphPath — Path to GRAPH.json
+ * @returns {Object} Parsed data
  */
 function loadGraph(graphPath) {
   return loadJson(graphPath);
 }
 
 /**
- * Dirs-Tree.json を読み込む
+ * Load Dirs-Tree.json
  *
- * @param {string} dirsTreePath — Dirs-Tree.json のパス
- * @returns {Object} パース済みデータ
+ * @param {string} dirsTreePath — Path to Dirs-Tree.json
+ * @returns {Object} Parsed data
  */
 function loadDirsTree(dirsTreePath) {
   return loadJson(dirsTreePath);
 }
 
 // ============================================================
-// データ収集（純粋関数）
+// Data Collection (Pure Functions)
 // ============================================================
 
 /**
- * Tickets.json から特定チケットの nodeIds を取得する
+ * Get nodeIds for a specific ticket from Tickets.json
  *
- * @param {Object} tickets — パース済みTickets.json
- * @param {string} ticketKey — チケットキー（"P{phaseId}-{ticketId}" または "PX-{ticketId}"）
+ * @param {Object} tickets — Parsed Tickets.json
+ * @param {string} ticketKey — Ticket key ("P{phaseId}-{ticketId}" or "PX-{ticketId}")
  * @returns {{ nodeIds: string[], defaultFiles: string[], title: string } | null}
- *   見つからない場合は null
+ *   null if not found
  */
 function collectTicketNodes(tickets, ticketKey) {
-  // ticketKey のパース
+  // Parse ticketKey
   const match = ticketKey.match(/^P(-?\d+)-(\d+)$/);
   if (!match) {
     return null;
@@ -218,11 +218,11 @@ function collectTicketNodes(tickets, ticketKey) {
 }
 
 /**
- * GRAPH.json から指定された nodeIds のノード詳細を収集する
+ * Collect node details for the given nodeIds from GRAPH.json
  *
- * @param {Object} graph — パース済みGRAPH.json
- * @param {string[]} nodeIds — 収集対象のノードID配列
- * @returns {Array} ノード詳細オブジェクトの配列
+ * @param {Object} graph — Parsed GRAPH.json
+ * @param {string[]} nodeIds — Array of node IDs to collect
+ * @returns {Array} Array of node detail objects
  */
 function collectNodeDetails(graph, nodeIds) {
   const nodeSet = new Set(nodeIds);
@@ -230,10 +230,10 @@ function collectNodeDetails(graph, nodeIds) {
 }
 
 /**
- * GRAPH.json から指定された nodeIds を含む全エッジを収集する
+ * Collect all edges involving the given nodeIds from GRAPH.json
  *
- * @param {Object} graph — パース済みGRAPH.json
- * @param {string[]} nodeIds — 自チケットのノードID配列
+ * @param {Object} graph — Parsed GRAPH.json
+ * @param {string[]} nodeIds — Array of own ticket node IDs
  * @returns {Array<{ from: string, to: string, type: string, fromInTicket: boolean, toInTicket: boolean }>}
  */
 function collectEdges(graph, nodeIds) {
@@ -248,12 +248,12 @@ function collectEdges(graph, nodeIds) {
 }
 
 /**
- * Dirs-Tree.json から nodeId → filePath の逆引きマップを構築する
+ * Build a reverse-lookup map from nodeId to filePath from Dirs-Tree.json
  *
- * 全ツリーを再帰的に走査し、mappedNodeIds を持つノードからマップを構築する。
+ * Recursively traverse all trees and build a map from nodes with mappedNodeIds.
  *
- * @param {Object} dirsTree — パース済みDirs-Tree.json
- * @returns {Object<string, string>} nodeId → filePath のマッピング
+ * @param {Object} dirsTree — Parsed Dirs-Tree.json
+ * @returns {Object<string, string>} nodeId → filePath mapping
  */
 function buildNodeIdToPathMap(dirsTree) {
   const map = {};
@@ -267,11 +267,11 @@ function buildNodeIdToPathMap(dirsTree) {
 }
 
 /**
- * ツリーノードを再帰的に走査し nodeId → filePath マップに追加する
+ * Recursively traverse tree nodes and add to nodeId → filePath map
  *
- * @param {Object} node — ツリーノード
- * @param {string} parentPath — 親ディレクトリからの累積パス
- * @param {Object<string, string>} map — 書き込み先マップ
+ * @param {Object} node — Tree node
+ * @param {string} parentPath — Accumulated path from parent directory
+ * @param {Object<string, string>} map — Target map to write to
  */
 function traverseTree(node, parentPath, map) {
   const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
@@ -292,15 +292,15 @@ function traverseTree(node, parentPath, map) {
 }
 
 // ============================================================
-// グラフノードのタイトル解決ヘルパー
+// Graph Node Title Resolution Helper
 // ============================================================
 
 /**
- * ノードIDからタイトルを解決する
+ * Resolve title from a node ID
  *
- * @param {string} nodeId — ノードID
- * @param {Array} nodes — GRAPH.json の nodes 配列
- * @returns {string} ノードのタイトル（見つからない場合は nodeId 自身）
+ * @param {string} nodeId — Node ID
+ * @param {Array} nodes — GRAPH.json nodes array
+ * @returns {string} Node title (returns nodeId itself if not found)
  */
 function resolveNodeTitle(nodeId, nodes) {
   const found = nodes.find(n => n.id === nodeId);
@@ -308,15 +308,15 @@ function resolveNodeTitle(nodeId, nodes) {
 }
 
 // ============================================================
-// フォーマット（純粋関数）
+// Formatting (Pure Functions)
 // ============================================================
 
 /**
- * Block 1: ノード詳細のMarkdownを生成する
+ * Block 1: Generate Markdown for node details
  *
- * @param {Array} nodes — ノード詳細配列
- * @param {string} ticketTitle — チケットタイトル
- * @returns {string} Markdownセクション文字列
+ * @param {Array} nodes — Node details array
+ * @param {string} ticketTitle — Ticket title
+ * @returns {string} Markdown section string
  */
 function formatNodeDetailsBlock(nodes, ticketTitle) {
   if (!nodes.length) {
@@ -355,18 +355,18 @@ function formatNodeDetailsBlock(nodes, ticketTitle) {
 }
 
 /**
- * Block 2: エッジ関係性のMarkdownを生成する
+ * Block 2: Generate Markdown for edge relationships
  *
- * @param {Array} edges — エッジ配列（collectEdges の出力）
- * @param {Array} nodes — 全ノード配列（タイトル解決用）
- * @returns {string} Markdownセクション文字列
+ * @param {Array} edges — Edge array (output of collectEdges)
+ * @param {Array} nodes — All nodes array (for title resolution)
+ * @returns {string} Markdown section string
  */
 function formatEdgeRelationsBlock(edges, nodes) {
   if (!edges.length) {
     return '';
   }
 
-  // エッジ種別ごとにグループ化
+  // Group by edge type
   const groups = {};
   for (const e of edges) {
     if (!groups[e.type]) {
@@ -382,7 +382,7 @@ function formatEdgeRelationsBlock(edges, nodes) {
     ``,
   ];
 
-  // エッジ種別優先度順に出力
+  // Output in edge type priority order
   for (const edgeType of EDGE_PRIORITY) {
     const group = groups[edgeType];
     if (!group || !group.length) continue;
@@ -406,13 +406,13 @@ function formatEdgeRelationsBlock(edges, nodes) {
 }
 
 /**
- * Block 3: 実装ファイルパスのMarkdownを生成する
+ * Block 3: Generate Markdown for implementation file paths
  *
- * @param {Array} nodes — ノード詳細配列
- * @param {Array} edges — エッジ配列
- * @param {Object} dirsTree — パース済みDirs-Tree.json
- * @param {{ defaultFiles: string[], title: string }} ticketInfo — チケット情報
- * @returns {string} Markdownセクション文字列
+ * @param {Array} nodes — Node details array
+ * @param {Array} edges — Edge array
+ * @param {Object} dirsTree — Parsed Dirs-Tree.json
+ * @param {{ defaultFiles: string[], title: string }} ticketInfo — Ticket information
+ * @returns {string} Markdown section string
  */
 function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
   const nodeIdToPath = buildNodeIdToPathMap(dirsTree);
@@ -421,12 +421,12 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
     ``,
   ];
 
-  // default_files が存在する場合のみ出力
+  // Only output if default_files exist
   const defaultFiles = ticketInfo.defaultFiles || [];
   if (defaultFiles.length > 0) {
     lines.push(`##### 本チケットの実装先（default_files）`);
     for (const df of defaultFiles) {
-      // このファイルにマッピングされる nodeId を特定
+      // Identify nodeIds mapped to this file
       const mappedNodeIds = nodes.filter(n => {
         const pathForNode = nodeIdToPath[n.id];
         return pathForNode && df.includes(pathForNode);
@@ -437,12 +437,12 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
     lines.push('');
   }
 
-  // 関連ノードのファイルパス
+  // File paths for related nodes
   const relatedPaths = [];
   const seenPaths = new Set();
 
   for (const e of edges) {
-    // 自チケット外のノードを対象に
+    // Target nodes outside the current ticket
     const externalNodeIds = [];
     if (!e.fromInTicket) externalNodeIds.push(e.from);
     if (!e.toInTicket) externalNodeIds.push(e.to);
@@ -471,26 +471,25 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
     lines.push('');
   }
 
-  // 定型案内文
+  // Standard guidance note
   lines.push(`##### 実装ファイル冒頭コメントの活用`);
   lines.push(``);
   lines.push(`上記の各実装ファイルを開くと、ファイル先頭に \`Initial Design Artifact — RFC-driven Implementation\``);
   lines.push(`コメントブロックが埋め込まれている。このブロックには query.js 探索コマンドや`);
   lines.push(`エッジ関係のクロスリファレンスが含まれている。実装中にノード間の関係性を`);
   lines.push(`再確認したい場合は、このコメントブロック内のコマンドを直接利用すること。`);
-  lines.push(``);
 
   return lines.join('\n');
 }
 
 /**
- * 3ブロックを結合し、最上位見出しを付与する
+ * Combine the three blocks and prepend the top-level heading
  *
- * @param {string} block1 — ノード詳細ブロック
- * @param {string} block2 — エッジ関係ブロック
- * @param {string} block3 — ファイルパスブロック
- * @param {string} graphFileName — グラフファイル名
- * @returns {string} 完全なセクション文字列
+ * @param {string} block1 — Node details block
+ * @param {string} block2 — Edge relationship block
+ * @param {string} block3 — File path block
+ * @param {string} graphFileName — Graph file name
+ * @returns {string} Complete section string
  */
 function combineBlocks(block1, block2, block3, graphFileName) {
   const parts = [SECTION_HEADING, '', `グラフファイル: ${graphFileName}`, ''];
@@ -503,17 +502,17 @@ function combineBlocks(block1, block2, block3, graphFileName) {
 }
 
 // ============================================================
-// ファイル書き込み（冪等）
+// File Writing (Idempotent)
 // ============================================================
 
 /**
- * spec ファイルにセクションを追記する（冪等）
+ * Append a section to a spec file (idempotent)
  *
- * 既に同一のセクション見出しが spec ファイル内に存在する場合は追記をスキップする。
+ * Skip appending if the same section heading already exists in the spec file.
  *
- * @param {string} specPath — spec ファイルのパス
- * @param {string} section — 追記するセクション文字列
- * @returns {boolean} 追記した場合は true、スキップした場合は false
+ * @param {string} specPath — Path to the spec file
+ * @param {string} section — Section string to append
+ * @returns {boolean} true if appended, false if skipped
  */
 function appendToSpec(specPath, section) {
   if (!fs.existsSync(specPath)) {
@@ -521,7 +520,7 @@ function appendToSpec(specPath, section) {
   }
   const existingContent = fs.readFileSync(specPath, 'utf8');
 
-  // 冪等性: 既に同一セクション見出しが存在する場合はスキップ
+  // Idempotency: skip if the same section heading already exists
   const sectionHeading = section.split('\n')[0].trim();
   if (existingContent.includes(sectionHeading)) {
     return false;
@@ -533,11 +532,11 @@ function appendToSpec(specPath, section) {
 }
 
 // ============================================================
-// ヘルプ表示
+// Help Display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage information
  */
 function printUsage() {
   console.log(
@@ -565,23 +564,23 @@ function printUsage() {
 }
 
 // ============================================================
-// エントリポイント
+// Entry Point
 // ============================================================
 
 /**
- * main — CLIエントリポイント
+ * main — CLI entry point
  *
- * 1. 引数パース
- * 2. Tickets.json / GRAPH.json / Dirs-Tree.json 読み込み
- * 3. 各 --ticket-key について:
- *    a. nodeIds 収集
- *    b. ノード詳細収集 + Block 1 生成
- *    c. エッジ収集 + Block 2 生成
- *    d. ファイルパス収集 + Block 3 生成
- *    e. ブロック結合
- *    f. spec パス解決 + 追記
+ * 1. Parse arguments
+ * 2. Load Tickets.json / GRAPH.json / Dirs-Tree.json
+ * 3. For each --ticket-key:
+ *    a. Collect nodeIds
+ *    b. Collect node details + generate Block 1
+ *    c. Collect edges + generate Block 2
+ *    d. Collect file paths + generate Block 3
+ *    e. Combine blocks
+ *    f. Resolve spec path + append
  *
- * 全エラーは3段テンプレートで stderr に出力し、終了コード1で終了する。
+ * All errors are output to stderr using the 3-line template and exit with code 1.
  */
 function main() {
   let ticketsPath, graphPath, dirsTreePath, ticketKeys;
@@ -601,7 +600,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // ファイル読み込み
+  // Load files
   let tickets, graph, dirsTree;
   try {
     tickets = loadTickets(ticketsPath);
@@ -620,7 +619,7 @@ function main() {
   const allNodes = graph.nodes || [];
 
   for (const ticketKey of ticketKeys) {
-    // チケット情報 + nodeIds の収集
+    // Collect ticket info + nodeIds
     const ticketInfo = collectTicketNodes(tickets, ticketKey);
     if (!ticketInfo) {
       process.stderr.write(
@@ -633,24 +632,24 @@ function main() {
 
     const nodeIds = ticketInfo.nodeIds;
     if (!nodeIds.length) {
-      // nodeIds が空のチケットはスキップ（エラーにしない）
+      // Skip tickets with empty nodeIds (not an error)
       continue;
     }
 
-    // データ収集
+    // Collect data
     const nodes = collectNodeDetails(graph, nodeIds);
     const edges = collectEdges(graph, nodeIds);
 
-    // ブロック生成（純粋関数）
+    // Generate blocks (pure functions)
     const block1 = formatNodeDetailsBlock(nodes, ticketInfo.title);
     const block2 = formatEdgeRelationsBlock(edges, allNodes);
     const block3 = formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo);
 
-    // 結合
+    // Combine
     const section = combineBlocks(block1, block2, block3, graphFileName);
-    console.log(section); // stdout に出力
+    console.log(section); // Output to stdout
 
-    // spec ファイルに追記
+    // Append to spec file
     const specPath = resolveSpecPath(ticketKey, ticketsPath);
     if (specPath) {
       const appended = appendToSpec(specPath, section);
@@ -663,7 +662,7 @@ function main() {
   process.exit(EXIT_SUCCESS);
 }
 
-// CLIとして実行された場合のみ main を呼び出す
+// Only call main when executed as CLI
 if (require.main === module) {
   main();
 }

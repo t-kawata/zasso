@@ -1,9 +1,9 @@
 /**
- * OMISSIONS JSON ファイルをチェックリスト形式で表示する。
+ * Displays an OMISSIONS JSON file in checklist format.
  *
  * Usage: node list-omissions.js <path-to-omissions.json>
- * Output (stdout): チェックリスト形式のテキスト
- * Output (stderr): JSON メタデータ
+ * Output (stdout): Checklist-formatted text
+ * Output (stderr): JSON metadata
  */
 
 const fs = require("fs");
@@ -71,7 +71,7 @@ function main() {
     process.exit(1);
   }
 
-  // 人間向け表示は stdout、JSON メタデータは stderr
+  // Human-readable output goes to stdout, JSON metadata to stderr
   console.log(result.output);
   console.error(JSON.stringify({ success: true, count: result.count }));
   process.exit(0);

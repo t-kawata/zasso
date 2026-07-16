@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * deduplicate-headings.js — 見出し重複排除（graphify-rfc Step 0）
+ * deduplicate-headings.js — Heading deduplication (graphify-rfc Step 0)
  *
- * ソースMarkdown文書の全見出し行（^#{1,6}\s+）を抽出し、同一階層内で
- * 同一テキストの見出しが複数ある場合、末尾に " A", " B", ... " Z" を追記する。
- * これにより、見出しベースの参照（headingRefs）が一意に解決可能になる。
+ * Extracts all heading lines (^#{1,6}\s+) from a source Markdown document.
+ * When multiple headings at the same level have identical text, appends
+ * " A", " B", ... " Z" to make heading-based references (headingRefs) uniquely resolvable.
  *
  * CLI: deduplicate-headings.js <source-path>
  *
- * 出力契約:
- *   正常時 → 変更の有無を stdout に出力（終了コード0）
- *   異常時 → 3段テンプレートを stderr に出力（終了コード1）
+ * Output contract:
+ *   Normal case → outputs change status to stdout (exit code 0)
+ *   Error case → outputs 3-part template to stderr (exit code 1)
  */
 
 const fs = require('fs');
@@ -31,13 +31,13 @@ function readLines(filePath) {
 }
 
 /**
- * 同一階層内で同一テキストの見出しを検出し、A-Z を追記する
+ * Detect duplicate heading texts at the same level and append A-Z
  *
- * @param {string[]} lines — ファイルの行配列
+ * @param {string[]} lines — Array of file lines
  * @returns {{ result: string[], modified: boolean, changes: string[] }}
  */
 function deduplicateHeadings(lines) {
-  const seen = {}; // key: "level:text" → count
+  const seen = {}; // key: "level:text" -> count
   const changes = [];
 
   const result = lines.map((line, i) => {
@@ -64,7 +64,7 @@ function deduplicateHeadings(lines) {
       );
     }
 
-    const suffix = ' ' + String.fromCharCode(64 + count); // A=65, B=66, ...
+    const suffix = ' ' + String.fromCharCode(64 + count); // A=65, B=66, etc.
     const newLine = `${'#'.repeat(level)} ${text}${suffix}`;
     changes.push(`L${i + 1}: "${line}" → "${newLine}"`);
     return newLine;

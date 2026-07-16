@@ -1,12 +1,12 @@
 /**
- * run-step-3.5.js — Step 3.5 機械的フィルタリングパイプライン
+ * run-step-3.5.js — Step 3.5 mechanical filtering pipeline
  *
- * 3つの決定論スクリプトを直列実行するパイプラインエントリポイント。
+ * Pipeline entry point that executes three deterministic scripts serially.
  *
- * 実行順序:
- *   dedup-omissions-by-history.js (重複排除)
- *     → materiality-filter.js (Goal 阻害度スコアリング)
- *     → diminishing-returns.js (発散/収束判定)
+ * Execution order:
+ *   dedup-omissions-by-history.js (deduplication)
+ *     → materiality-filter.js (Goal hindrance severity scoring)
+ *     → diminishing-returns.js (divergence/convergence detection)
  *
  * Usage:
  *   node run-step-3.5.js <OMISSIONS_PATH>
@@ -19,9 +19,9 @@ const { scoreAllOmissions } = require("./materiality-filter");
 const { loadAndAnalyze } = require("./diminishing-returns");
 
 /**
- * Step 3.5 パイプライン全体を実行する。
+ * Runs the entire Step 3.5 pipeline.
  *
- * @param {string} omissionsPath - OMISSIONS JSON ファイルのパス
+ * @param {string} omissionsPath - path to the OMISSIONS JSON file
  * @returns {{ success: boolean, dedupResult?: object, materialityScores?: object[], trend?: object, error?: string }}
  */
 function runPipeline(omissionsPath) {

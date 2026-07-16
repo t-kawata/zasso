@@ -1,19 +1,19 @@
 /**
- * malfeasance-delete.js — Malfeasance.json からレコードを削除
+ * malfeasance-delete.js — Delete a record from Malfeasance.json
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-delete.js <id>
  *
- * 引数:
- *   id (必須): 削除する犯罪レコードの数値 ID
+ * Arguments:
+ *   id (required): Numeric ID of the crime record to delete
  *
- * 注意:
- *   削除前に確認プロンプトが表示される（y/N）。
- *   削除は復元不可能。
+ * Note:
+ *   A confirmation prompt is displayed before deletion (y/N).
+ *   Deletion is irreversible.
  *
- * 出力:
+ * Output:
  *   { "success": true, "deleted": { "id": N, "file": "...", "line": N } }
- *   または
+ *   or
  *   { "success": false, "error": "..." }
  */
 
@@ -34,14 +34,14 @@ function main() {
     return;
   }
 
-  // スキーマファイルの確認
+  // Verify schema file
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });
@@ -58,7 +58,7 @@ function main() {
 
   const targetRecord = records[recordIndex];
 
-  // 確認プロンプト（プロンプト文字列は stderr に出力し、stdout の JSON を汚染しない）
+  // Confirmation prompt (output to stderr to avoid polluting stdout JSON)
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stderr,
@@ -75,7 +75,7 @@ function main() {
 
     records.splice(recordIndex, 1);
 
-    // 保存 + スキーマ検証
+    // Save + schema validation
     const saved = saveRecords(records);
     if (!saved.success) {
       output({ success: false, error: saved.error });

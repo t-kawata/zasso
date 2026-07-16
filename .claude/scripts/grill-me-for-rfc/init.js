@@ -2,12 +2,12 @@
 /**
  * init.js <research-path> <rfc-output-file-path>
  *
- * 第1引数に調査パス、第2引数にRFC出力ファイルパスを受け取り、
- * 雛形ファイル群を生成する。調査パスは Status.json に永続化され、
- * 後続スクリプトが機械的に読み出せるようになる。
+ * Takes a research path (1st arg) and an RFC output file path (2nd arg),
+ * and generates the template files. The research path is persisted in Status.json
+ * so subsequent scripts can read it mechanically.
  *
- * 既存ファイルの検出により新規/再開/上書き確認のモードを判定し、
- * 結果を STDOUT に JSON で報告する。
+ * Detects existing files to determine whether the mode is new/resume/overwrite_confirm,
+ * and reports the result as JSON on STDOUT.
  */
 import fs from "fs";
 import path from "path";
@@ -28,7 +28,7 @@ const checklistPath = path.join(rfcDir, "CheckList.md");
 const rfcExists = fs.existsSync(rfcPath);
 const statusExists = fs.existsSync(statusPath);
 
-// モード判定
+// Determine mode
 let mode = "new";
 if (statusExists) {
   mode = "resume";
@@ -52,10 +52,10 @@ if (mode === "overwrite_confirm") {
   process.exit(0);
 }
 
-// 新規モード: 雛形ファイル群を生成
+// New mode: generate template files
 fs.mkdirSync(rfcDir, { recursive: true });
 
-// Status.json 雛形 — researchPath を永続化
+// Status.json template — persist researchPath
 const statusTemplate = {
   state: "GRILLING",
   researchPath: path.resolve(researchPath),
@@ -67,7 +67,7 @@ const statusTemplate = {
 };
 fs.writeFileSync(statusPath, JSON.stringify(statusTemplate, null, 2), "utf-8");
 
-// DesignTree.json 雛形
+// DesignTree.json template
 const treeTemplate = {
   version: 1,
   updatedAt: new Date().toISOString(),
@@ -75,7 +75,7 @@ const treeTemplate = {
 };
 fs.writeFileSync(treePath, JSON.stringify(treeTemplate, null, 2), "utf-8");
 
-// CheckList.md 雛形
+// CheckList.md template
 const checklistTemplate = `# RFC 要件チェックリスト
 
 > このファイルは /grill-me-for-rfc により自動管理されます。

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * validate-slug.js — グラフノードの slug フィールド命名規則検証
+ * validate-slug.js — Validates slug field naming conventions for graph nodes
  *
- * graphify-rfc の自己修復ループで使用される。グラフJSONの全ノードの slug フィールドが
- * lower_snake_case 形式・最大25文字・先頭英小文字の制約を満たすか検証する。
- * 4単語以上の slug は警告として報告する（ブロックしない）。
+ * Used in the graphify-rfc self-healing loop. Validates that every node's slug field
+ * in the graph JSON satisfies lower_snake_case format, max 25 characters, and
+ * lowercase-first-letter constraints.
+ * Slugs with 4+ words are reported as warnings (non-blocking).
  *
  * CLI: validate-slug.js --graph=<path>
  *
- * 出力契約:
- *   正常時 → {"ok":true, "errors":[], "warnings":[]}（終了コード0）
- *   異常時 → {"ok":false, "errors":[...], "warnings":[...]}（終了コード1）
- *   エラー時は stderr に3段テンプレートの自然言語エラーも出力する。
+ * Output contract:
+ *   On success → {"ok":true, "errors":[], "warnings":[]} (exit code 0)
+ *   On error   → {"ok":false, "errors":[...], "warnings":[...]} (exit code 1)
+ *   On failure, stderr also receives a 3-part natural language error.
  */
 
 const fs = require('fs');
@@ -20,37 +21,37 @@ const path = require('path');
 const { MAX_FILE_NAME_LENGTH } = require('./boundify-helpers.js');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** 最大 slug 長（拡張子を除くファイル名ベースの最大長、boundify-helpers.js から参照） */
+/** Max slug length (file-name-based max excluding extension, referenced from boundify-helpers.js) */
 const MAX_SLUG_LENGTH = MAX_FILE_NAME_LENGTH;
 
-/** slug の形式パターン: lower_snake_case、先頭英小文字 */
+/** Slug format pattern: lower_snake_case, starts with lowercase letter */
 const SLUG_FORMAT_PATTERN = /^[a-z][a-z0-9_]*$/;
 
-/** 警告を発する最低単語数（アンダースコア区切り） */
+/** Minimum word count that triggers a warning (underscore-delimited) */
 const WARNING_WORD_COUNT = 4;
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
 
-/** 正常終了コード */
+/** Success exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Failure exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// コマンドライン引数パース
+// CLI argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parses CLI arguments
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv から取得）
+ * @param {string[]} [testArgs] — Argument array for testing (defaults to process.argv)
  * @returns {{ graphPath: string }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
@@ -62,7 +63,7 @@ function parseArguments(testArgs) {
 
   if (args.length !== 1) {
     throw new Error(
-      '引数が不正です。\n' +
+      'Invalid arguments.\n' +
       '  Usage: validate-slug.js --graph=<path>'
     );
   }
@@ -70,13 +71,13 @@ function parseArguments(testArgs) {
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      'Argument must be --graph=<path>.\n' +
+      `  Actual value: ${graphFlag}`
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> is empty.');
   }
 
   return { graphPath };
@@ -105,22 +106,22 @@ slug ルール:
 }
 
 // ============================================================
-// グラフ読み込み
+// Graph loading
 // ============================================================
 
 /**
- * グラフJSONファイルを読み込む
+ * Loads a graph JSON file
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {object} グラフオブジェクト
- * @throws {Error} ファイル読み込みまたはJSONパースに失敗した場合
+ * @param {string} graphPath — Path to the graph file
+ * @returns {object} Graph object
+ * @throws {Error} If file read or JSON parse fails
  */
 function loadGraph(graphPath) {
   const resolvedPath = path.resolve(graphPath);
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(
-      `グラフファイルが見つかりません: ${resolvedPath}\n` +
-      '  指定されたパスが正しいか確認してください。'
+      `Graph file not found: ${resolvedPath}\n` +
+      '  Verify the specified path is correct.'
     );
   }
   const raw = fs.readFileSync(resolvedPath, 'utf-8');
@@ -128,59 +129,59 @@ function loadGraph(graphPath) {
     return JSON.parse(raw);
   } catch (e) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${resolvedPath}\n` +
+      `Failed to parse graph JSON file: ${resolvedPath}\n` +
       `  ${e.message}`
     );
   }
 }
 
 // ============================================================
-// slug 検証関数
+// Slug validation functions
 // ============================================================
 
 /**
- * slug が lower_snake_case 形式（先頭英小文字、英小文字・数字・アンダースコアのみ）かを検証する
+ * Validates that a slug follows lower_snake_case format (lowercase letter start, lowercase/digits/underscore only)
  *
- * @param {string} slug — 検証対象の slug
+ * @param {string} slug — Slug to validate
  * @returns {{ valid: boolean, reason: string | null }}
  */
 function checkSlugFormat(slug) {
   if (!SLUG_FORMAT_PATTERN.test(slug)) {
-    // 違反の種別を特定して具体的な理由を返す
+    // Identify the violation type and return a specific reason
     if (/[A-Z]/.test(slug)) {
-      return { valid: false, reason: '大文字が含まれています（lower_snake_case にしてください）' };
+      return { valid: false, reason: 'Contains uppercase characters (use lower_snake_case)' };
     }
     if (/[ -]/.test(slug)) {
-      return { valid: false, reason: 'スペースまたはハイフンが含まれています（アンダースコアを使用してください）' };
+      return { valid: false, reason: 'Contains space or hyphen (use underscores)' };
     }
     if (/^[^a-z]/.test(slug)) {
-      return { valid: false, reason: '先頭が英小文字ではありません。英小文字で始めてください' };
+      return { valid: false, reason: 'Does not start with a lowercase letter' };
     }
-    return { valid: false, reason: '形式が lower_snake_case に違反しています（使用可能: [a-z0-9_]）' };
+    return { valid: false, reason: 'Format violates lower_snake_case (allowed: [a-z0-9_])' };
   }
   return { valid: true, reason: null };
 }
 
 /**
- * slug の長さが上限以内かを検証する
+ * Validates that slug length is within the maximum limit
  *
- * @param {string} slug — 検証対象の slug
+ * @param {string} slug — Slug to validate
  * @returns {{ valid: boolean, reason: string | null }}
  */
 function checkSlugLength(slug) {
   if (slug.length > MAX_SLUG_LENGTH) {
     return {
       valid: false,
-      reason: `${slug.length}文字（上限${MAX_SLUG_LENGTH}文字を超えています。${MAX_SLUG_LENGTH}文字以内に短縮してください）`
+      reason: `${slug.length} chars (exceeds max ${MAX_SLUG_LENGTH}. Shorten to ${MAX_SLUG_LENGTH} or fewer)`
     };
   }
   return { valid: true, reason: null };
 }
 
 /**
- * slug の単語数（アンダースコア区切り）をカウントし、閾値を超えているか検証する
+ * Counts slug words (underscore-delimited) and validates against threshold
  *
- * @param {string} slug — 検証対象の slug
+ * @param {string} slug — Slug to validate
  * @returns {{ wordCount: number, isWarning: boolean }}
  */
 function checkWordCount(slug) {
@@ -190,11 +191,11 @@ function checkWordCount(slug) {
 }
 
 /**
- * 検証エラーオブジェクトを構築する（remedy フィールド付き）
+ * Builds a validation error object (with remedy field)
  *
- * @param {string} nodeId — 違反のあるノードID
- * @param {string} slug — 違反のある slug
- * @param {string} reason — 違反理由
+ * @param {string} nodeId — Node ID with the violation
+ * @param {string} slug — Slug with the violation
+ * @param {string} reason — Violation reason
  * @returns {{ nodeId: string, slug: string, reason: string, remedy: string }}
  */
 function buildSlugError(nodeId, slug, reason) {
@@ -208,10 +209,10 @@ function buildSlugError(nodeId, slug, reason) {
 }
 
 /**
- * 修正提案 slug を生成する（大文字→小文字、ハイフン→_、先頭数字回避、25文字以内）
+ * Generates a suggested fixed slug (lowercase, hyphen→_, leading digit avoidance, 25-char limit)
  *
- * @param {string} slug — 元の slug
- * @returns {string} 修正提案
+ * @param {string} slug — Original slug
+ * @returns {string} Suggested fix
  */
 function suggestFixedSlug(slug) {
   let fixed = slug
@@ -220,7 +221,7 @@ function suggestFixedSlug(slug) {
     .replace(/[^a-z0-9_]/g, '')
     .replace(/^_+/, '');
 
-  // 空文字または先頭が英小文字でない場合、先頭に 's' を付与
+  // If empty or does not start with lowercase, prepend 's'
   if (fixed.length === 0) {
     return 'unnamed';
   }
@@ -228,7 +229,7 @@ function suggestFixedSlug(slug) {
     fixed = 's' + fixed;
   }
 
-  // 25文字以内に切り詰め（単語単位で）
+  // Truncate to 25 chars at word boundary
   if (fixed.length > MAX_SLUG_LENGTH) {
     fixed = truncateAtWordBoundary(fixed, MAX_SLUG_LENGTH);
   }
@@ -236,10 +237,10 @@ function suggestFixedSlug(slug) {
 }
 
 /**
- * 単語境界（アンダースコア）で切り詰める
+ * Truncates at word boundary (underscore)
  *
- * @param {string} str — 切り詰め対象文字列
- * @param {number} maxLen — 最大長
+ * @param {string} str — String to truncate
+ * @param {number} maxLen — Maximum length
  * @returns {string}
  */
 function truncateAtWordBoundary(str, maxLen) {
@@ -254,7 +255,7 @@ function truncateAtWordBoundary(str, maxLen) {
       break;
     }
   }
-  // 1単語も収まらない場合は単純切り詰め
+  // Fall back to simple truncation if no single word fits
   if (result.length === 0 || result.length > maxLen) {
     result = str.slice(0, maxLen).replace(/_+$/, '');
   }
@@ -262,13 +263,13 @@ function truncateAtWordBoundary(str, maxLen) {
 }
 
 // ============================================================
-// メイン検証ロジック
+// Main validation logic
 // ============================================================
 
 /**
- * グラフの全ノードの slug を検証する
+ * Validates all node slugs in the graph
  *
- * @param {object} graph — グラフオブジェクト（{ nodes: [...], edges: [...] }）
+ * @param {object} graph — Graph object ({ nodes: [...], edges: [...] })
  * @returns {{ ok: boolean, errors: Array, warnings: Array }}
  */
 function validateSlugs(graph) {
@@ -279,35 +280,35 @@ function validateSlugs(graph) {
   for (const node of nodes) {
     const { id, slug } = node;
 
-    // slug 未設定または空文字はスキップ（許容）
+    // Skip unset or empty slugs (allowed)
     if (slug === undefined || slug === null || slug === '') {
       continue;
     }
     if (typeof slug !== 'string') {
-      errors.push(buildSlugError(id, String(slug), 'slug が文字列ではありません'));
+      errors.push(buildSlugError(id, String(slug), 'slug is not a string'));
       continue;
     }
 
-    // 形式チェック（形式違反の場合、長さチェックはスキップ）
+    // Format check (skip length check on format violation)
     const formatResult = checkSlugFormat(slug);
     if (!formatResult.valid) {
       errors.push(buildSlugError(id, slug, formatResult.reason));
       continue;
     }
 
-    // 長さチェック
+    // Length check
     const lengthResult = checkSlugLength(slug);
     if (!lengthResult.valid) {
       errors.push(buildSlugError(id, slug, lengthResult.reason));
     }
 
-    // 単語数チェック（警告のみ、ブロックしない）
+    // Word count check (warning only, non-blocking)
     const wordResult = checkWordCount(slug);
     if (wordResult.isWarning) {
       warnings.push({
         nodeId: id,
         slug,
-        message: `${wordResult.wordCount}単語の slug です（${WARNING_WORD_COUNT}単語以上は推奨されません。より短い slug にしてください）`
+        message: `${wordResult.wordCount}-word slug (>= ${WARNING_WORD_COUNT} words not recommended. Use a shorter slug)`
       });
     }
   }
@@ -320,7 +321,7 @@ function validateSlugs(graph) {
 }
 
 // ============================================================
-// メインエントリポイント
+// Main entry point
 // ============================================================
 
 function main() {
@@ -339,7 +340,7 @@ function main() {
   }
 }
 
-// テスト用に公開
+// Exported for testing
 module.exports = {
   validateSlugs,
   checkSlugFormat,
@@ -355,7 +356,7 @@ module.exports = {
   GRAPH_PATH_ARG_PREFIX
 };
 
-// 直接実行時のみ main を呼び出す
+// Run main only when executed directly
 if (require.main === module) {
   main();
 }

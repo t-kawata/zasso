@@ -2,10 +2,10 @@ const fs = require('fs'), path = require('path');
 const { validateTickets } = require('../lib/validate-tickets');
 
 /**
- * 既存Tickets.jsonに複数バッチのチケットを一括追加する（非破壊的：検証失敗時は変更を破棄）。
+ * Bulk-add multiple batches of tickets to an existing Tickets.json (non-destructive: discards changes on validation failure).
  *
- * @param {Object} data — パース済みのTickets.jsonデータ（変更はこのオブジェクトに加えられる）
- * @param {Array} batches — 追加バッチの配列。各バッチは { phaseId?, phaseName?, tickets: [...] }
+ * @param {Object} data — parsed Tickets.json data (mutations are applied to this object)
+ * @param {Array} batches — array of batches to add. Each batch is { phaseId?, phaseName?, tickets: [...] }
  * @returns {{ success: boolean, added: number, tickets?: Array, error?: string, errors?: Array }}
  */
 function bulkAddTickets(data, batches) {

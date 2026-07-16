@@ -3,11 +3,11 @@ const fs = require("fs"),
 const { parseTicketKey } = require("../lib/validate-tickets");
 
 /**
- * Tickets.json からチケットを検索する。
- * @param {string} jsonPath - Tickets.json のパス
- * @param {string} key - "P0-1" または "PX-1" 形式のキー
+ * Search for a ticket in Tickets.json.
+ * @param {string} jsonPath - Path to Tickets.json
+ * @param {string} key - Key in "P0-1" or "PX-1" format
  * @returns {{ ticket: object, phase: string, ticketKey: string }}
- * @throws {Error} ファイル読込エラー、キー形式エラー、見つからない場合
+ * @throws {Error} File read error, key format error, or not found
  */
 function findTicket(jsonPath, key) {
   var rp = path.resolve(jsonPath);

@@ -1,17 +1,17 @@
 /**
- * materiality-filter.js — Goal 阻害度スコアリング
+ * materiality-filter.js — Goal blocking degree scoring
  *
- * 各 omission を RFC の purpose / goals / successCriteria と照合し、
- * Goal 阻害度を機械的にスコアリングする。
- * このスクリプトの出力は決定論であり、AI が覆せない。
+ * Matches each omission against RFC purpose / goals / successCriteria,
+ * and mechanically scores the degree of goal blocking.
+ * This script's output is deterministic and cannot be overridden by AI.
  *
- * スコアリング:
- *   purpose(3点) + goals(2点) + successCriteria(1点) の3階層
+ * Scoring:
+ *   Three-tier: purpose (3 pts) + goals (2 pts) + successCriteria (1 pt)
  *
- *   合計スコア → severity:
- *     0       → cosmetic（check-final通過可能）
- *     1-2     → low（優先度低）
- *     3-5     → medium
+ *   Total score -> severity:
+ *     0       -> cosmetic (can pass check-final)
+ *     1-2     -> low
+ *     3-5     -> medium
  *
  * Usage:
  *   node materiality-filter.js <OMISSIONS_PATH>
@@ -21,13 +21,12 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * 目的(purpose)・目標(goals)・成功条件(successCriteria)に対して
- * omission が与える阻害度をスコアリングする。
+ * Score how much an omission blocks the purpose, goals, and successCriteria of the RFC.
  *
- * @param {object} omission - omission（description, affectedFiles, type, severity 等）
- * @param {string} purpose - RFC の目的文
- * @param {string} goals - RFC の目標（改行区切りテキスト）
- * @param {string[]|string} successCriteria - RFC の成功条件
+ * @param {object} omission - omission (description, affectedFiles, type, severity, etc.)
+ * @param {string} purpose - RFC purpose statement
+ * @param {string} goals - RFC goals (newline-separated text)
+ * @param {string[]|string} successCriteria - RFC success criteria
  * @returns {{ score: number, breakdown: object, recommendedSeverity: string }}
  */
 function scoreGoalBlocking(omission, purpose, goals, successCriteria) {
@@ -35,14 +34,14 @@ function scoreGoalBlocking(omission, purpose, goals, successCriteria) {
   const keywords = extractKeywords(omission);
   let score = 0;
 
-  // purpose の阻害判定（最大3点）
+  // Purpose blocking check (max 3 pts)
   const purposeBlocked = keywordMatchScore(keywords, purpose);
   if (purposeBlocked > 0) {
     breakdown.purpose = 3;
     score += 3;
   }
 
-  // goals の阻害判定（最大2点）
+  // Goals blocking check (max 2 pts)
   const goalsArray = normalizeLines(goals);
   let goalsBlocked = 0;
   for (const goal of goalsArray) {
@@ -56,7 +55,7 @@ function scoreGoalBlocking(omission, purpose, goals, successCriteria) {
     score += goalScore;
   }
 
-  // successCriteria の阻害判定（最大1点）
+  // SuccessCriteria blocking check (max 1 pt)
   const criteriaArray = normalizeLines(successCriteria);
   let criteriaBlocked = 0;
   for (const criterion of criteriaArray) {
@@ -81,7 +80,7 @@ function scoreGoalBlocking(omission, purpose, goals, successCriteria) {
 }
 
 /**
- * omission からキーワードを抽出する。
+ * Extract keywords from an omission.
  */
 function extractKeywords(omission) {
   return {
@@ -92,15 +91,15 @@ function extractKeywords(omission) {
 }
 
 /**
- * キーワードが targetText に含まれているか判定する。
- * 日本語（単語境界なし）と英語の両方をサポートするため、
- * サブストリングマッチング（4文字以上の共通部分文字列）を基本とする。
+ * Determine whether keywords are contained in targetText.
+ * Supports both Japanese (no word boundaries) and English, so uses
+ * substring matching (common substrings of 4+ characters) as the basis.
  */
 function keywordMatchScore(keywords, targetText) {
   if (!targetText) return 0;
   const lowerTarget = targetText.toLowerCase();
 
-  // ファイル名ベースのマッチング（拡張子なし + 拡張子あり）
+  // File name-based matching (with and without extension)
   for (const file of keywords.files) {
     const baseName = path.basename(file).toLowerCase();
     if (lowerTarget.indexOf(baseName) !== -1) return 1;
@@ -108,7 +107,7 @@ function keywordMatchScore(keywords, targetText) {
     if (nameWithoutExt.length > 1 && lowerTarget.indexOf(nameWithoutExt) !== -1) return 1;
   }
 
-  // 省略記号や記号を除去した description から共通サブストリングを検出
+  // Detect common substrings from description with punctuation/symbols removed
   const desc = keywords.description
     .replace(/[^a-z0-9一-鿿ぁ-んァ-ヶ\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -116,20 +115,20 @@ function keywordMatchScore(keywords, targetText) {
 
   if (desc.length < 4) return 0;
 
-  // 単語・連続テキスト（空白区切り）のうち、4文字以上のものを lowerTarget と照合
-  // 日本語（単語境界なし）と英語の両方をサポート
+  // Match words/contiguous text (space-separated) of 4+ characters against lowerTarget
+  // Supports both Japanese (no word boundaries) and English
   const words = desc.split(/\s+/).filter(function (w) { return w.length >= 4; });
 
   for (const word of words) {
     if (lowerTarget.indexOf(word) !== -1) return 1;
   }
 
-  // 日本語の助詞を含む連続テキストのために、全サブストリングもチェック（小規模のみ効率的に）
+  // Also check all substrings for texts with Japanese particles (efficient for small strings only)
   if (desc.length <= 100) {
     for (let start = 0; start < desc.length; start++) {
       for (let len = 4; len <= 20 && start + len <= desc.length; len++) {
         const sub = desc.substring(start, start + len);
-        if (sub.indexOf(" ") !== -1) continue; // 空白を含むサブストリングはスキップ
+        if (sub.indexOf(" ") !== -1) continue; // Skip substrings containing spaces
         if (sub.length >= 4 && lowerTarget.indexOf(sub) !== -1) return 1;
       }
     }
@@ -139,7 +138,7 @@ function keywordMatchScore(keywords, targetText) {
 }
 
 /**
- * omission が successCriteria に記述されたファイルに影響するか判定する。
+ * Determine whether the omission affects files described in successCriteria.
  */
 function omissionAffectsFiles(omission, criterion) {
   const files = omission.affectedFiles || [];
@@ -154,7 +153,7 @@ function omissionAffectsFiles(omission, criterion) {
 }
 
 /**
- * スコアから推奨 severity を決定する。
+ * Determine recommended severity from score.
  */
 function determineSeverity(score) {
   if (score === 0) return "cosmetic";
@@ -163,7 +162,7 @@ function determineSeverity(score) {
 }
 
 /**
- * テキストを行配列に正規化する。
+ * Normalize text into an array of lines.
  */
 function normalizeLines(text) {
   if (Array.isArray(text)) return text;
@@ -172,7 +171,7 @@ function normalizeLines(text) {
 }
 
 /**
- * OMISSIONS ファイルから rfcUnderstanding を読み取る。
+ * Load rfcUnderstanding from an OMISSIONS file.
  */
 function loadRfcUnderstanding(omissionsPath) {
   const resolvedPath = path.resolve(omissionsPath);
@@ -191,7 +190,7 @@ function loadRfcUnderstanding(omissionsPath) {
 }
 
 /**
- * 全 omission をスコアリングする。
+ * Score all omissions.
  *
  * @param {string} omissionsPath
  * @returns {{ success: boolean, scores?: object[], error?: string }}

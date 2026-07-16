@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
 /**
- * resolve-ticket-context.js — チケットコンテキストの機械的判定（JSON 出力）
+ * resolve-ticket-context.js — Mechanical ticket context determination (JSON output)
  *
- * --ticket-key を必須引数とし、以下の情報を機械的に判定して JSON 出力する。
- * 旧 /make-ticket の Step 1 だったが、現在は show-ticket-context.js が
- * Markdown 出力の Step 1 として置き換えた。本スクリプトは互換性のために維持する。
+ * Requires --ticket-key to mechanically determine the following and output as JSON.
+ * This was formerly /make-ticket Step 1, but is now replaced by show-ticket-context.js
+ * which outputs Markdown as Step 1. This script is maintained for compatibility.
  *
- * - Tickets.json の存在確認
- * - チケットの存在有無
- * - spec ファイルの存在有無
- * - パイプライン情報（resolvedPaths / metadata.source）の有無
- * - AI が次に行うべきアクション（instruction）
+ * - Checks existence of Tickets.json
+ * - Checks ticket existence
+ * - Checks spec file existence
+ * - Checks pipeline info (resolvedPaths / metadata.source) availability
+ * - Determines the next AI action (instruction)
  *
- * 注: auto-creation（create-spec.js / add-ticket.js の自動実行）は
- * ensure-ticket.js に移譲した。本スクリプトは作成を行わない。
+ * Note: auto-creation (create-spec.js / add-ticket.js auto-execution) has been
+ * delegated to ensure-ticket.js. This script does not create anything.
  *
  * CLI: resolve-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
  */
@@ -27,8 +27,8 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 /**
- * コマンドライン引数をパースする
- * --ticket-key は必須。--tickets は省略時は CWD の Tickets.json。
+ * Parses command line arguments.
+ * --ticket-key is required. --tickets defaults to Tickets.json in CWD.
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
@@ -53,14 +53,14 @@ function parseArguments(testArgs) {
 }
 
 /**
- * ticketKey が P{phaseId}-{ticketId} または PX-{ticketId} 形式か検証する
+ * Validates that ticketKey matches P{phaseId}-{ticketId} or PX-{ticketId} format
  */
 function isValidTicketKey(ticketKey) {
   return /^P([Xx]|-?\d+)-(\d+)$/.test(ticketKey);
 }
 
 /**
- * 子プロセスで ensure-tickets-json.js を実行する
+ * Runs ensure-tickets-json.js as a child process
  */
 function runEnsureTicketsJson(ticketsDir) {
   const scriptPath = path.join(__dirname, 'ensure-tickets-json.js');
@@ -74,7 +74,7 @@ function runEnsureTicketsJson(ticketsDir) {
 }
 
 /**
- * Tickets.json から該当チケットが存在するか確認する
+ * Checks whether the specified ticket exists in Tickets.json
  */
 function ticketExists(tickets, phaseId, ticketId) {
   const phases = tickets.phases || [];
@@ -86,8 +86,8 @@ function ticketExists(tickets, phaseId, ticketId) {
 }
 
 /**
- * ticketKey をパースして phaseId / ticketId を返す
- * P{phaseId}-{ticketId} 形式（例: P0-1）と PX-{ticketId} 形式（例: PX-53）に対応
+ * Parses ticketKey into phaseId / ticketId.
+ * Supports P{phaseId}-{ticketId} format (e.g., P0-1) and PX-{ticketId} format (e.g., PX-53)
  */
 function parseTicketKey(ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/i);
@@ -102,21 +102,21 @@ function parseTicketKey(ticketKey) {
 }
 
 /**
- * Tickets.json の metadata から RFC_PATH を解決する
+ * Resolves RFC_PATH from Tickets.json metadata.
  *
- * 優先順位:
- *   1. metadata.resolvedPaths が存在し全ファイル実在 → 推測不要
- *   2. metadata.source が .md ファイル → derivePaths で導出
- *   3. metadata.source が .json ファイル → -GRAPH.json→.md 置換
- *   4. いずれも該当なし → RFC_PATH なし
+ * Priority order:
+ *   1. metadata.resolvedPaths exists and all files exist on disk → no guessing needed
+ *   2. metadata.source is a .md file → derive via derivePaths
+ *   3. metadata.source is a .json file → -GRAPH.json → .md replacement
+ *   4. None of the above → no RFC_PATH
  *
- * @param {string} rawSource — Tickets.json の metadata.source の生の値
- * @param {string} ticketsDir — Tickets.json があるディレクトリの絶対パス
- * @param {Object} [resolvedPaths] — Tickets.json の metadata.resolvedPaths（省略可）
+ * @param {string} rawSource — raw value of Tickets.json metadata.source
+ * @param {string} ticketsDir — absolute path to the directory containing Tickets.json
+ * @param {Object} [resolvedPaths] — Tickets.json metadata.resolvedPaths (optional)
  * @returns {{ rfcPath: string, graphPath: string, dirsTreePath: string, rfcPathSource: string }}
  */
 function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
-  // 最優先: resolvedPaths が存在し全ファイルが実在するか確認
+  // Priority 1: check if resolvedPaths exists and all files are present on disk
   if (resolvedPaths && resolvedPaths.rfcPath && resolvedPaths.graphPath && resolvedPaths.dirsTreePath) {
     const rfcPath = path.resolve(ticketsDir, resolvedPaths.rfcPath);
     const graphPath = path.resolve(ticketsDir, resolvedPaths.graphPath);
@@ -126,7 +126,7 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
     }
   }
 
-  // フォールバック: metadata.source からの推測
+  // Fallback: guess from metadata.source
   if (!rawSource) {
     return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'none' };
   }
@@ -140,7 +140,7 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   const ext = path.extname(resolved).toLowerCase();
 
   if (ext === '.md') {
-    // metadata.source が .md ファイル（formulate-tickets 経路）
+    // metadata.source is a .md file (formulate-tickets path)
     const dir = path.dirname(resolved);
     const basename = path.basename(resolved, '.md');
     return {
@@ -152,11 +152,11 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   }
 
   if (ext === '.json') {
-    // ケース b: metadata.source が .json ファイル（GRAPH.json）
-    // -GRAPH.json を .md に置換して RFC 文書パスを導出
+    // Case b: metadata.source is a .json file (GRAPH.json)
+    // Replace -GRAPH.json with .md to derive the RFC document path
     const dir = path.dirname(resolved);
     const basename = path.basename(resolved, '.json');
-    // basename が "-GRAPH" で終わる場合、それを除去
+    // If basename ends with "-GRAPH", strip the suffix
     const rfcBasename = basename.endsWith('-GRAPH')
       ? basename.slice(0, -6)
       : basename;
@@ -170,12 +170,12 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
     };
   }
 
-  // ケース c: 未知の拡張子 → スポットモード扱い
+  // Case c: unknown extension → treat as spot mode
   return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'unknown' };
 }
 
 /**
- * RFC_PATH から GRAPH_PATH と DIRS_TREE_PATH を導出する（従来の派生用）
+ * Derives GRAPH_PATH and DIRS_TREE_PATH from RFC_PATH (conventional derivation)
  */
 function derivePaths(rfcPath) {
   const dir = path.dirname(rfcPath);
@@ -187,14 +187,14 @@ function derivePaths(rfcPath) {
 }
 
 /**
- * instruction を条件分岐で機械的に生成する
+ * Generates instruction mechanically via conditional branches
  */
 function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPath, rfcPathSource, rfcExists, graphExists, dirsExists) {
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     return '/make-ticket の引数が指定されていないか、形式が正しくありません。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。';
   }
-  // 注意: auto-creation は ensure-ticket.js に移譲した。
-  // 以下の2つの分岐は単体テスト用の防御的ガードとして維持する。
+  // Note: auto-creation has been delegated to ensure-ticket.js.
+  // The two branches below are defensive guards maintained for unit test compatibility.
   if (!ticketExistsFlag) {
     return 'チケットが存在しません。ensure-ticket.js を実行して作成してください。';
   }
@@ -220,12 +220,12 @@ function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPat
 }
 
 /**
- * メイン処理
+ * Main entry point
  */
 function main() {
   const { ticketsPath, ticketKey } = parseArguments();
 
-  // --ticket-key の検証
+  // Validate --ticket-key
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.log(JSON.stringify({
       success: false,
@@ -235,7 +235,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // Tickets.json の存在確認
+  // Check Tickets.json existence
   const ticketsDir = path.dirname(ticketsPath);
   if (!fs.existsSync(ticketsPath)) {
     console.log(JSON.stringify({
@@ -263,7 +263,7 @@ function main() {
     }
   }
 
-  // metadata から全パスを解決（resolvedPaths 最優先→metadata.source フォールバック）
+  // Resolve all paths from metadata (resolvedPaths priority → metadata.source fallback)
   const rawSource = (tickets.metadata && tickets.metadata.source) || '';
   const resolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
   const {
@@ -273,12 +273,12 @@ function main() {
     rfcPathSource,
   } = resolveRfcPaths(rawSource, ticketsDir, resolvedPaths);
 
-  // 各ファイルの実在確認
+  // Check each file's existence
   const rfcExists = rfcPath ? fs.existsSync(rfcPath) : false;
   const graphExists = graphPath ? fs.existsSync(graphPath) : false;
   const dirsExists = dirsTreePath ? fs.existsSync(dirsTreePath) : false;
 
-  // pipelineAvailable は rfcPath が実在する .md ファイルであることが前提
+  // pipelineAvailable requires rfcPath to be an existing .md file
   const pipelineAvailable = !!(
     exists &&
     rfcPath &&
@@ -288,7 +288,7 @@ function main() {
     dirsExists
   );
 
-  // available / missing を収集
+  // Collect available / missing flags
   const available = [];
   const missing = [];
   if (ticketKey) available.push('ticketKey'); else missing.push('ticketKey');
@@ -306,6 +306,7 @@ function main() {
     exists,
     specPath,
     specExists,
+    autoCreated: false,
     rfcPath,
     rfcPathSource,
     graphPath,

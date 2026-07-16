@@ -1,8 +1,8 @@
 /**
- * validate.js — スキーマディレクトリからJSON Schemaを読み込んで検証する汎用関数
+ * validate.js — Generic function to load and validate against JSON Schema from a schema directory
  *
- * crud.js（P13-2）から呼び出されることを前提とする。
- * Ajv Draft 2020-12 を使用し、エラー時は3段テンプレート（エラーパス・期待値・実際の値）で構造化エラーを返す。
+ * Designed to be called from crud.js (P13-2).
+ * Uses Ajv Draft 2020-12 and returns structured errors using a 3-part template (error path, expected value, actual value).
  */
 
 const AjvDraft2020 = require("ajv/dist/2020");
@@ -10,33 +10,33 @@ const path = require("path");
 const fs = require("fs");
 
 /**
- * スキーマディレクトリのデフォルトパス
- * このファイルからの相対パスで解決する
+ * Default path for the schema directory
+ * Resolved relative to this file's location
  */
 const DEFAULT_SCHEMAS_DIR = path.resolve(__dirname);
 
 /**
- * スキーマに対する検証結果
+ * Result of schema validation
  *
  * @typedef {Object} ValidationResult
- * @property {boolean} valid — 検証が成功したか
- * @property {string[]} [errors] — 検証失敗時の3段テンプレートエラー配列
+ * @property {boolean} valid — Whether validation succeeded
+ * @property {string[]} [errors] — Array of 3-part template errors on validation failure
  */
 
 /**
- * 指定されたデータをJSON Schemaで検証する
+ * Validates specified data against a JSON Schema
  *
- * @param {Object} data — 検証対象のデータ
- * @param {string} schemaFileName — スキーマファイル名（例: "node.schema.json"）
- * @param {string} [schemasDir] — スキーマファイルが格納されたディレクトリへの絶対パス
- * @returns {ValidationResult} 検証結果
+ * @param {Object} data — Data to validate
+ * @param {string} schemaFileName — Schema file name (e.g. "node.schema.json")
+ * @param {string} [schemasDir] — Absolute path to the directory containing schema files
+ * @returns {ValidationResult} Validation result
  */
 function validateAgainstSchema(data, schemaFileName, schemasDir) {
-  // スキーマディレクトリの解決
+  // Resolve the schema directory
   const resolvedSchemasDir = schemasDir || DEFAULT_SCHEMAS_DIR;
   const schemaFilePath = path.resolve(resolvedSchemasDir, schemaFileName);
 
-  // スキーマファイルの存在確認
+  // Check if schema file exists
   if (!fs.existsSync(schemaFilePath)) {
     return {
       valid: false,
@@ -62,11 +62,11 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
     };
   }
 
-  // Ajv インスタンスの作成
-  // allErrors: true — 全エラーを収集（最初の1件で止めない）
+  // Create Ajv instance
+  // allErrors: true — Collect all errors (don't stop at the first one)
   const ajv = new AjvDraft2020({ allErrors: true });
 
-  // 依存スキーマを事前登録（ターゲットスキーマ以外の全スキーマ、$ref 解決のため）
+  // Pre-register dependent schemas (all schemas except the target, for $ref resolution)
   registerDependentSchemas(ajv, resolvedSchemasDir, schemaFileName);
 
   let validate;
@@ -89,7 +89,7 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
     return { valid: true };
   }
 
-  // エラー情報を3段テンプレートで構造化
+  // Structure error information in 3-part template
   const errors = validate.errors.map((err) => {
     const instancePath = err.instancePath || "/";
     const expectedMessage = err.message || "制約違反";
@@ -103,11 +103,11 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
 }
 
 /**
- * オブジェクトからJSONポインタ形式のパスに対応する値を取得する
+ * Retrieves the value at a JSON Pointer-style path from an object
  *
- * @param {Object} obj — 検索対象のオブジェクト
- * @param {string} pathStr — JSONポインタ形式のパス（例: "/properties/name"）
- * @returns {*} 該当する値、または undefined
+ * @param {Object} obj — Object to search
+ * @param {string} pathStr — JSON Pointer-style path (e.g. "/properties/name")
+ * @returns {*} The matching value, or undefined
  */
 function getValueAtPath(obj, pathStr) {
   if (pathStr === "" || pathStr === "/") {
@@ -122,7 +122,7 @@ function getValueAtPath(obj, pathStr) {
       return undefined;
     }
 
-    // 配列インデックスの処理
+    // Handle array index
     const arrayIndex = /^\d+$/.test(segment) ? parseInt(segment, 10) : null;
     if (arrayIndex !== null && Array.isArray(current)) {
       current = current[arrayIndex];
@@ -135,14 +135,14 @@ function getValueAtPath(obj, pathStr) {
 }
 
 /**
- * ターゲットスキーマ以外の全 JSON Schema ファイルを Ajv に事前登録する
+ * Pre-registers all JSON Schema files except the target into Ajv
  *
- * graph.schema.json が node.schema.json / edge.schema.json を $ref 参照するため、
- * コンパイル前に依存スキーマを先に登録しておく必要がある。
+ * Since graph.schema.json references node.schema.json / edge.schema.json via $ref,
+ * dependent schemas must be registered before compilation.
  *
- * @param {object} ajv — Ajv インスタンス
- * @param {string} schemasDir — スキーマディレクトリへの絶対パス
- * @param {string} excludeFileName — 除外するスキーマファイル名（ターゲット自身）
+ * @param {object} ajv — Ajv instance
+ * @param {string} schemasDir — Absolute path to the schema directory
+ * @param {string} excludeFileName — Schema file name to exclude (the target itself)
  */
 function registerDependentSchemas(ajv, schemasDir, excludeFileName) {
   let files;
@@ -161,7 +161,7 @@ function registerDependentSchemas(ajv, schemasDir, excludeFileName) {
       const schema = JSON.parse(fs.readFileSync(filePath, "utf-8"));
       ajv.addSchema(schema);
     } catch {
-      // 個別のスキーマ登録失敗は無視（compile 時に再検証される）
+      // Ignore individual schema registration failures (re-validated during compile)
     }
   }
 }
