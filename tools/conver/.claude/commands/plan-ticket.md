@@ -1,13 +1,13 @@
 ---
-description: チケットの実装計画を策定する。
+description: Formulates an implementation plan for a ticket.
 argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /plan-ticket
 
-**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
 
-**役割**: チケットの実装計画と物理的レビュー方法の定義。
+**Role**: Formulates the implementation plan for a ticket and defines the physical review method.
 
 ## Language Protocol
 
@@ -19,116 +19,116 @@ argument-hint: <P{phaseID}-{ticketID}>
 | Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
 | Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-## ワークフローにおける位置づけ
+## Position in the Workflow
 
-作業の流れは `make → plan → start → review` であり、現在 `plan` 実行中。
+The workflow flow is `make → plan → start → review`, currently executing `plan`.
 
-- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
-- **`/plan-ticket`**: 実装レベルの詳細な計画。
-- **`/start-ticket`**: 実装。
-- **`/review-ticket`**: 完了したチケットをレビュー。
+- **`/make-ticket`**: Creates and details an implementation specification (spec) document.
+- **`/plan-ticket`**: Detailed implementation-level planning.
+- **`/start-ticket`**: Implementation.
+- **`/review-ticket`**: Reviews completed tickets.
 
-## 引数の解釈
+## Argument Interpretation
 
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。`show-ticket-context.js` の `--ticket-key` に投入する。
-- 引数なし → エラーで中断
-- 数字のみ → エラーで中断
-- 上記以外 → エラーで中断
+- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required. Passed to `show-ticket-context.js`'s `--ticket-key`.
+- No argument → Interrupt with error
+- Numeric only → Interrupt with error
+- Anything else → Interrupt with error
 
 ## Boy Scout Rule
 
-**翻訳可能性を損なっている既存コードを、スコープ内外問わず改善することを計画に含める。** 変更ファイル一覧とは別に「Boy Scout 改善（スコープ外の翻訳可能性修正）」セクションを設け、どのファイルの何を直すかを明記する。
+**Include in the plan improvements to existing code that violates translatability, both inside and outside the scope.** Separately from the list of changed files, create a "Boy Scout Improvements (translatability fixes outside scope)" section specifying which files to fix and what to fix in them.
 
-### 翻訳可能性チェック（全言語共通、grep パターンは言語に応じて選択）
+### Translatability Checks (common to all languages; select grep patterns per language)
 
-- 関数定義を grep し、名詞始まりの関数がないか
-- 変数宣言を grep し、1文字変数や汎用名（`data`, `info`, `tmp`）がないか
-- 数値リテラルが直接書かれていないか
-- デバッグ出力が残っていないか
+- Grep function definitions for functions beginning with a noun
+- Grep variable declarations for single-character variables or generic names (`data`, `info`, `tmp`)
+- Check for hardcoded numeric literals
+- Check for leftover debug output
 
-## 使用スクリプト一覧
+## List of Scripts Used
 
-`.claude/scripts/tickets/` 配下。
+Located under `.claude/scripts/tickets/`.
 
-| スクリプト | 引数 | 説明 |
-|---|---|---|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan]` | **Step 1 で実行**。チケット情報を Markdown で出力。`--plan` で Not Found 時中断メッセージ。 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールドの更新 |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索 |
-| `scan-crimes.sh` | （なし） | **Step 4 で実行**。Malfeasance.json の犯罪スキャン。 |
-| `review/find-all-stubs.js` | `<path>` | **Step 4 で実行**。`[::STUB::]` マーカーの全件検索。 |
-| `review/run-quality-checks.js` | `<files...>` | **Step 5 で実行**。静的品質チェック。 |
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan]` | **Executed in Step 1**. Outputs ticket information in Markdown. With `--plan`, shows interruption message on Not Found. |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields |
+| `search-tickets.js` | `<PATH of Tickets.json> <query>` | Full-text search |
+| `scan-crimes.sh` | (none) | **Executed in Step 4**. Crime scan of Malfeasance.json. |
+| `review/find-all-stubs.js` | `<path>` | **Executed in Step 4**. Search for all `[::STUB::]` markers. |
+| `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
 
-## ワークフロー
+## Workflow
 
-### Step 1: 存在確認 + チケット情報取得
+### Step 1: Existence check + retrieve ticket information
 
 ```bash
 node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --for-spec --plan
 ```
 
-出力の先頭が `# {ticketKey}: Not Found` の場合 → 出力に従い「チケットが存在しないため /plan-ticket を中断します。」と回答して終了。Not Found でなければ設計情報及び関連情報探索方法が Markdown として出力されるため、これをコンテキストとして使用。
+If the output starts with `# {ticketKey}: Not Found` → Follow the output, respond with "The ticket does not exist, so /plan-ticket is interrupted." and exit. If Not Found is not the case, design information and methods for exploring related information are output as Markdown; use this as context.
 
-### Step 2: 設計情報・関連設計情報・関連チケット情報・ソースコードを探索・理解
+### Step 2: Explore and understand design information, related design information, related ticket information, and source code
 
-Step 1 の出力を理解。その後、「Usage of query.js」に従い「Related RFC graph NODE-IDs to check」に表示されている全ての Node ID に対して以下を実行し、詳細設計情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、物理的証拠を伴って実装計画に含めなければならない。物理的証拠がない実装計画は妄想であり厳しく禁止する。
+Understand the output of Step 1. Then, following "Usage of query.js," execute the following for every Node ID listed in "Related RFC graph NODE-IDs to check" to explore detailed design information. The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis** and included in the implementation plan with material evidence. An implementation plan without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
 node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --source="</path/to/RFC-?.md>" --dirs-tree="</path/to/?-Dirs-Tree.json>" --id=Nxxxx (NODE-ID, e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 ```
 
-必要に応じて、「Related Tickets」に示されている関連チケットの情報を探索する。どの階層まで連続的に深掘りしていくかは AI が判断する。得られた情報は**必ず実際のソースコードを解析**し、物理的証拠を伴って実装計画に含めなければならない。物理的証拠がない実装計画は妄想であり厳しく禁止する。
+As needed, explore information about related tickets shown in "Related Tickets." The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis** and included in the implementation plan with material evidence. An implementation plan without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
 node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules
 ```
 
-### Step 3: 犯罪・スタブの点検（必須 — 第一級規則）
+### Step 3: Crime and stub inspection (mandatory — First-Class Rule)
 
-Malfeasance.json を読み取り、未解決の犯罪がないか確認する。**計画承認の条件**として、以下のいずれかを満たさなければならない：
+Read Malfeasance.json and check for unresolved crimes. **As a condition for plan approval**, one of the following must be satisfied:
 
-- **条件 A**: Malfeasance.json に `open` レコードが存在しない
-- **条件 B**: `open` レコードが存在する場合、本チケットの実装計画内にそれらを解消する具体的ステップが含まれている
+- **Condition A**: No `open` records exist in Malfeasance.json
+- **Condition B**: If `open` records exist, the implementation plan for this ticket includes concrete steps to resolve them
 
 ```bash
-# 犯罪スキャンを実行（初回時は自動初期化）
+# Execute crime scan (auto-initializes on first run)
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-条件 B の場合、計画内に各犯罪の解消ステップを明記すること。
+For Condition B, clearly specify the resolution steps for each crime in the plan.
 
-併せて、`[::STUB::]` マーカーが計画に影響するか検証する：
+Additionally, verify whether `[::STUB::]` markers affect the plan:
 
-1. `find-all-stubs.js` でスタブを一覧する
-2. このチケットで解決可能なスタブがあるか評価する
-3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加し、`malfeasance-create.js` で犯罪として記録する
-4. 解決可能なスタブは計画の実装スコープに含める
-5. 解決不可能なスタブは注記として計画に残し、将来のチケットとの関係を明記する
+1. List stubs via `find-all-stubs.js`
+2. Evaluate whether any stubs can be resolved within this ticket
+3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
+4. Include resolvable stubs in the plan's implementation scope
+5. Leave unresolvable stubs in the plan as notes, clearly stating their relationship to future tickets
 
 ```bash
-# スタブの検索
+# Search for stubs
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**能動的コード探索**: 計画対象のソースツリーにおいて、不完全実装が既存コードに存在しないか grep で確認する。発見した場合は `[::STUB::]` マーカーを追加し、`malfeasance-create.js` で犯罪として記録する。この探索結果は計画の「リスク」または「Boy Scout 改善」セクションに反映すること。
+**Active code exploration**: In the source tree targeted by the plan, grep to check whether incomplete implementations exist in the existing code. If found, add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
 
 ```bash
-# 不完全実装パターンの grep
+# Grep for incomplete implementation patterns
 grep -rE "todo!\(\)|unimplemented!\(\)|panic!\(" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 ```
 
-### Step 4: 計画策定
+### Step 4: Formulate the plan
 
-Step 1, Step 2, Step 3 によって得られた情報を元に、実装計画を策定する。
-計画は **Universal Testing Rules** を最高法規として遵守しなければならない。
-計画は、Step 1, Step 2, Step 3 にて得られた情報が安全に盛り込まれ、Step 1 の show-ticket-context.js の出力と同じ項目を出力しなければならないが、以下の条件を満たさない場合には Step 5 へ進むことを禁じる。満たさない場合、Step 2 に戻ってやり直さなければならない。満たす場合は、Step 5 に進む。
+Based on the information obtained from Step 1, Step 2, and Step 3, formulate the implementation plan.
+The plan **must comply with the Universal Testing Rules as the supreme law**.
+The plan must safely incorporate the information obtained from Step 1, Step 2, and Step 3, and must output the same items as the output of show-ticket-context.js from Step 1. However, if the following conditions are not met, proceeding to Step 5 is prohibited. If not met, return to Step 2 and redo. If met, proceed to Step 5.
 
-**Step 5 に進むことができる条件**
-1. **Universal Testing Rules** を完全遵守し、網羅的テストコードとしての単体テスト及び結合テストによって完全な動作検証が計画されている
-2. show-ticket-context.js の出力よりも**大幅に具体的**で**大幅に詳細**で**物的証拠に基づき**、**高密度情報**である
-3. 実装時に考えなければならないことがゼロに近い程、実際に実装するコードスニペットが網羅的に書かれている
+**Conditions for proceeding to Step 5**
+1. **Universal Testing Rules** are fully complied with, and comprehensive behavioral verification through exhaustive unit and integration test code is planned
+2. The plan is **significantly more concrete**, **significantly more detailed**, **based on material evidence**, and **high-density information** compared to the show-ticket-context.js output
+3. The plan includes code snippets covering implementation to the extent that there are near-zero unknowns at implementation time
 
 **Universal Testing Rules**
 
@@ -151,15 +151,15 @@ Write all code under the following non-negotiable rules:
 
 7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
 
-### Step 5: ステータスを更新してから計画完成報告
+### Step 5: Update status and report plan completion
 
-ステータス更新。
+Update the status.
 
 ```bash
 echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-Step 4 で策定した計画の全文をMarkdown形式でユーザーに報告し、以下のメッセージで締める。
+Report the full plan formulated in Step 4 to the user in Markdown format, and conclude with the following message.
 ```
-計画の策定が完了しました。以下のコマンドを実行して実装を開始できます: `/start-ticket $ARGUMENTS`
+Planning is complete. You can start the implementation by running: `/start-ticket $ARGUMENTS`
 ```
