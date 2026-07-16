@@ -1,8 +1,8 @@
 /**
- * OMISSIONS JSON スキーマ検証
+ * OMISSIONS JSON schema validation
  *
- * validate-tickets.js と同様のパターンで、OMISSIONS JSON のスキーマ検証を行う。
- * ajv 等の外部依存なし、手書きバリデータ。
+ * Validates OMISSIONS JSON schema using the same pattern as validate-tickets.js.
+ * Hand-written validator with no external dependencies like ajv.
  */
 
 const fs = require("fs");
@@ -22,8 +22,8 @@ const ALLOWED_TYPES = [
 const ALLOWED_SEVERITIES = ["critical", "high", "medium", "low"];
 
 /**
- * OMISSIONS JSON 全体を検証する。
- * @param {*} data - パース済み JSON オブジェクト
+ * Validate the entire OMISSIONS JSON.
+ * @param {*} data - Parsed JSON object
  * @returns {{ valid: boolean, errors: string[] }}
  */
 function validateOmissions(data) {
@@ -165,10 +165,10 @@ function validateOmissions(data) {
 }
 
 /**
- * steps 配列を再帰的に検証する。
+ * Recursively validate the steps array.
  * @param {Array} steps
- * @param {string} prefix - エラーメッセージのプレフィックス
- * @param {string[]} errors - エラー収集配列
+ * @param {string} prefix - Error message prefix
+ * @param {string[]} errors - Error accumulation array
  */
 function validateSteps(steps, prefix, errors) {
   const ALLOWED_STATUSES = ["todo", "in_progress", "done"];

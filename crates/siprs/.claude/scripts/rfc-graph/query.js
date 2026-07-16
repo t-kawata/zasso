@@ -90,9 +90,9 @@ function parseArguments(testArgs) {
   }
 
   // Required flag validation
-  if (!graphPath) throw new Error("--graph=<path> は必須です。");
-  if (!sourcePath) throw new Error("--source=<path> は必須です。");
-  if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> は必須です。");
+  if (!graphPath) throw new Error("--graph=<path> is required.");
+  if (!sourcePath) throw new Error("--source=<path> is required.");
+  if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> is required.");
 
   return { graphPath, sourcePath, nodeIds, hops, dirsTreePath };
 }
@@ -107,13 +107,13 @@ function parseArguments(testArgs) {
 function parseNodeIds(idFlag) {
   if (!idFlag.startsWith(NODE_ID_ARG_PREFIX)) {
     throw new Error(
-      "3番目の引数は --id=<nodeId> である必要があります。\n" +
-        `  実際の値: ${idFlag}`,
+      "The third argument must be --id=<nodeId>.\n" +
+        `  Actual value: ${idFlag}`,
     );
   }
   const rawIds = idFlag.slice(NODE_ID_ARG_PREFIX.length);
   if (!rawIds) {
-    throw new Error("--id=<nodeId> の <nodeId> が空です。");
+    throw new Error("--id=<nodeId> <nodeId> is empty.");
   }
   return rawIds
     .split(",")
@@ -131,19 +131,19 @@ function parseNodeIds(idFlag) {
 function parseHops(hopsFlag) {
   if (!hopsFlag.startsWith(HOPS_ARG_PREFIX)) {
     throw new Error(
-      "4番目の引数は --hops=<N> である必要があります。\n" +
-        `  実際の値: ${hopsFlag}`,
+      "The fourth argument must be --hops=<N>.\n" +
+        `  Actual value: ${hopsFlag}`,
     );
   }
   const hopsStr = hopsFlag.slice(HOPS_ARG_PREFIX.length);
   if (!hopsStr) {
-    throw new Error("--hops=<N> の <N> が空です。");
+    throw new Error("--hops=<N> <N> is empty.");
   }
   const hops = parseInt(hopsStr, 10);
   if (!Number.isInteger(hops) || hops < 1) {
     throw new Error(
-      "--hops=<N> の <N> は1以上の整数である必要があります。\n" +
-        `  実際の値: ${hopsStr}`,
+      "--hops=<N> must be an integer >= 1.\n" +
+        `  Actual value: ${hopsStr}`,
     );
   }
   return hops;
@@ -167,8 +167,8 @@ function loadGraph(graphPath) {
     return JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${graphPath}\n` +
-        `原因: ${parseError.message}`,
+      `Graph file JSON parse failed: ${graphPath}\n` +
+        `Cause: ${parseError.message}`,
     );
   }
 }
@@ -423,7 +423,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
   lines.push(`## ${node.id}: ${node.title}`);
   lines.push("");
   // Kind
-  lines.push(`**種別**: ${node.kind}`);
+  lines.push(`**Kind**: ${node.kind}`);
   lines.push("");
 
   // Summary (short description in the graph JSON)
@@ -444,7 +444,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
     if (resolved) {
       const content = extractSectionContent(sourceLines, resolved.line - 1);
       if (content) {
-        lines.push("### RFC での記述\n");
+        lines.push("### RFC Description\n");
         lines.push("---");
         lines.push(content);
         lines.push("---\n");
@@ -455,24 +455,24 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
   // Implementation target file path (shown only when --dirs-tree is specified)
   if (nodeToDirMap) {
     const filePath = nodeToDirMap[node.id];
-    lines.push("### 実装先となるファイルパス\n");
+    lines.push("### Implementation File Path\n");
     if (filePath) {
       lines.push("```");
       lines.push(filePath);
       lines.push("```\n");
     } else {
-      lines.push("（このノードに割り当てられたファイルはありません）\n");
+      lines.push("(No file assigned to this node)\n");
     }
   }
 
   // Display relationships in tree format
   if (edges.length === 0) {
-    lines.push("### 他のノードとの関係性");
+    lines.push("### Relationships With Other Nodes");
     lines.push("");
     return lines.join("\n");
   }
 
-  lines.push("### 他のノードとの関係性\n");
+  lines.push("### Relationships With Other Nodes\n");
 
   // Build parent-child adjacency list from depthMap and recursively render child nodes
   if (depthMap) {
@@ -547,7 +547,7 @@ function getDirectionLabel(nodeId, edge) {
  */
 function printError(message, cause, action) {
   process.stderr.write(
-    `[ERROR] ${message}\n` + `原因: ${cause}\n` + `対応: ${action}\n`,
+    `[ERROR] ${message}\n` + `Cause: ${cause}\n` + `Action: ${action}\n`,
   );
 }
 
@@ -560,22 +560,22 @@ function printError(message, cause, action) {
  */
 function printUsage() {
   console.log(
-    "query.js — マルチホップグラフ探索\n" +
+    "query.js — Multi-hop graph exploration\n" +
       "\n" +
       "Usage:\n" +
       "  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>] [--dirs-tree=<path>]\n" +
       "\n" +
       "Options:\n" +
-      "  --graph=<path>       グラフファイル（graph.schema.json 準拠）のパス\n" +
-      "  --source=<path>      探索対象のソースファイルのパス\n" +
-      "  --id=<nodeId>        探索起点のノードID（カンマ区切りで複数指定可）\n" +
-      "  --hops=<N>           最大ホップ数（デフォルト: 1、1以上）\n" +
-      "  --dirs-tree=<path>   Dirs-Tree.json のパス（省略可、指定時は実装先ファイルパスを表示）\n" +
-      "  --help, -h           このヘルプを表示\n" +
+      "  --graph=<path>       Path to the graph file (graph.schema.json compliant)\n" +
+      "  --source=<path>      Path to the source file to explore\n" +
+      "  --id=<nodeId>        Start node ID(s) for exploration (comma-separated for multiple)\n" +
+      "  --hops=<N>           Maximum hops (default: 1, must be >= 1)\n" +
+      "  --dirs-tree=<path>   Path to Dirs-Tree.json (optional, shows implementation file paths)\n" +
+      "  --help, -h           Display this help\n" +
       "\n" +
       "Exit codes:\n" +
-      "  0  正常終了\n" +
-      "  1  エラー終了（引数不正・ファイル不在等）\n" +
+      "  0  Normal completion\n" +
+      "  1  Error exit (invalid arguments, file not found, etc.)\n" +
       "\n" +
       "Examples:\n" +
       "  query.js --graph=RFC-GRAPH.json --source=RFC.md --id=N0001 --hops=2\n" +
@@ -617,9 +617,9 @@ function main() {
     dirsTreePath = parsed.dirsTreePath;
   } catch (parseError) {
     printError(
-      "引数のパースに失敗しました。",
+      "Argument parse failed.",
       parseError.message,
-      "正しい引数で再実行してください。",
+      "Re-run with correct arguments.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -630,9 +630,9 @@ function main() {
     graph = loadGraph(graphPath);
   } catch (graphError) {
     printError(
-      "グラフファイルの読み込みに失敗しました。",
+      "Graph file failed to load.",
       graphError.message,
-      "--graph=<path> に正しいグラフファイルを指定してください。",
+      "Specify a valid graph file via --graph=<path>.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -643,9 +643,9 @@ function main() {
     sourceText = loadSourceFile(sourcePath);
   } catch (sourceError) {
     printError(
-      "ソースファイルの読み込みに失敗しました。",
+      "Source file failed to load.",
       sourceError.message,
-      "--source=<path> に正しいソースファイルを指定してください。",
+      "Specify a valid source file via --source=<path>.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -661,9 +661,9 @@ function main() {
       nodeToDirMap = buildNodeToDirMap(dirsTreeData);
     } catch (e) {
       printError(
-        "Dirs-Tree.json の読み込みに失敗しました。",
+        "Dirs-Tree.json failed to load.",
         e.message,
-        "--dirs-tree=<path> に正しい Dirs-Tree.json を指定してください。",
+        "Specify a valid Dirs-Tree.json via --dirs-tree=<path>.",
       );
       process.exit(EXIT_FAILURE);
     }
@@ -675,9 +675,9 @@ function main() {
     const startNode = resolveNodeById(graph, nodeId);
     if (!startNode) {
       printError(
-        `ノード ${nodeId} がグラフ内に見つかりません。`,
-        `グラフ内のノード: [${graph.nodes.map((n) => n.id).join(", ")}]`,
-        "--id=<nodeId> に正しいノードIDを指定してください。",
+        `Node ${nodeId} not found in graph.`,
+        `Nodes in graph: [${graph.nodes.map((n) => n.id).join(", ")}]`,
+        "Specify a valid node ID via --id=<nodeId>.",
       );
       process.exit(EXIT_FAILURE);
     }
@@ -705,13 +705,13 @@ function main() {
     // Deep-dive guidance
     console.log("");
     console.log("---\n");
-    console.log("### 深掘り方法");
+    console.log("### Deep Dive Method");
     console.log(
-      "以下のコマンドにより、更に別のノード情報を深掘りすることが可能。",
+      "Use the following command to explore additional node information in depth.",
     );
     console.log("```");
     console.log(
-      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
+      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<target node ID to drill into (N??? format)> --hops=<drill depth>`,
     );
     console.log("```");
 

@@ -84,25 +84,25 @@ function parseArguments(testArgs) {
 }
 
 /**
- * 使用方法を出力する
+ * Print usage information
  */
 function printUsage() {
   console.log(`Usage: validate-slug.js --graph=<path>
 
-グラフJSONの全ノードの slug フィールドを検証する。
+Validates the slug field of all nodes in the graph JSON.
 
-引数:
-  --graph=<path>  グラフJSONファイルのパス（必須）
+Arguments:
+  --graph=<path>  Path to the graph JSON file (required)
 
-出力:
-  正常時: {"ok":true, "errors":[], "warnings":[]}（終了コード0）
-  異常時: {"ok":false, "errors":[...], "warnings":[...]}（終了コード1）
+Output:
+  On success: {"ok":true, "errors":[], "warnings":[]} (exit code 0)
+  On error: {"ok":false, "errors":[...], "warnings":[...]} (exit code 1)
 
-slug ルール:
-  - lower_snake_case 形式（英小文字・数字・アンダースコアのみ）
-  - 先頭は英小文字
-  - 最大25文字
-  - 4単語以上は警告（ブロックしない）`);
+Slug rules:
+  - lower_snake_case format (lowercase letters, digits, underscores only)
+  - Must start with a lowercase letter
+  - Max 25 characters
+  - 4+ words triggers a warning (non-blocking)`);
 }
 
 // ============================================================
@@ -332,9 +332,9 @@ function main() {
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? EXIT_SUCCESS : EXIT_FAILURE);
   } catch (err) {
-    console.error(`[ERROR] slug 検証に失敗しました。
-原因: ${err.message}
-対応: エラーメッセージに従って引数またはグラフファイルを修正してください。`);
+    console.error(`[ERROR] Slug validation failed.
+Cause: ${err.message}
+Action: Follow the error message to fix arguments or the graph file.`);
     console.log(JSON.stringify({ ok: false, errors: [], warnings: [] }));
     process.exit(EXIT_FAILURE);
   }

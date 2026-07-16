@@ -1,6 +1,6 @@
 const fs = require('fs'), path = require('path');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
-const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // CLI 引数用: P{phaseId}-{ticketId} または PX-{ticketId}
+const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed'];
 
 function validateTickets(data) {
@@ -14,7 +14,7 @@ function validateTickets(data) {
     if (!data.metadata.generatedAt || typeof data.metadata.generatedAt !== 'string' || !ISO_RE.test(data.metadata.generatedAt)) errors.push('metadata.generatedAt: must be YYYY-MM-DD');
   }
   if (!Array.isArray(data.phases)) { errors.push('phases: must be an array'); return { valid: false, errors }; }
-  const seen = {}; // 重複チェック: key "phaseId-id"
+  const seen = {}; // Dedup check: key "phaseId-id"
   for (let i = 0; i < data.phases.length; i++) {
     const p = data.phases[i], pp = 'phases[' + i + ']';
     if (!p || typeof p !== 'object' || Array.isArray(p)) { errors.push(pp + ': must be an object'); continue; }

@@ -37,7 +37,7 @@ try {
 
 /** 3-element template: [problem] / [cause] / [remedy] */
 function formatError(problem, cause, remedy) {
-  return `[ERROR] ${problem}\n原因: ${cause}\n対応: ${remedy}`;
+  return `[ERROR] ${problem}\nCause: ${cause}\nAction: ${remedy}`;
 }
 
 // ============================================================
@@ -93,20 +93,20 @@ function checkNodesIntegrity(graphAfter, graphBefore) {
 
   if (added.length > 0) {
     errors.push(formatError(
-      `${added.length}件のノードが増加しています`,
-      `追加されたノードID: ${added.join(', ')}`,
-      `crud.js delete-node で追加分を削除するか、graphify に戻ってノード定義を見直してください。`
+      `${added.length} nodes added`,
+      `Added node IDs: ${added.join(', ')}`,
+      `Delete extra nodes with crud.js delete-node, or return to graphify to review node definitions.`
     ));
-    remedies.push(`crud.js --graph="${process.argv[2]}" delete-node --id=${added.join(',')} で余分なノードを削除するか、グラフを再生成してください。`);
+    remedies.push(`Delete extra nodes with crud.js delete-node --id=${added.join(',')}, or regenerate the graph.`);
   }
 
   if (removed.length > 0) {
     errors.push(formatError(
-      `${removed.length}件のノードが削除されています`,
-      `削除されたノードID: ${removed.join(', ')}`,
-      `欠落したノードを crud.js create-nodes で再追加するか、graphify に戻ってグラフを再生成してください。`
+      `${removed.length} nodes removed`,
+      `Removed node IDs: ${removed.join(', ')}`,
+      `Re-add missing nodes with crud.js create-nodes, or regenerate the graph via graphify.`
     ));
-    remedies.push(`crud.js create-nodes で不足ノードを追加するか、グラフを再生成してください。`);
+    remedies.push(`Add missing nodes with crud.js create-nodes, or regenerate the graph.`);
   }
 
   return { errors, remedies };
@@ -135,20 +135,20 @@ function checkEdgesIntegrity(graphAfter, graphBefore) {
 
   if (added.length > 0) {
     errors.push(formatError(
-      `${added.length}本のエッジが増加しています`,
-      `追加されたエッジ: ${added.join(', ')}`,
-      `crud.js delete-edges で追加分を削除するか、グラフを再生成してください。`
+      `${added.length} edges added`,
+      `Added edges: ${added.join(', ')}`,
+      `Delete extra edges with crud.js delete-edges, or regenerate the graph.`
     ));
-    remedies.push(`余分なエッジを削除してから再実行してください。`);
+    remedies.push(`Delete extra edges and re-run.`);
   }
 
   if (removed.length > 0) {
     errors.push(formatError(
-      `${removed.length}本のエッジが削除されています`,
-      `削除されたエッジ: ${removed.join(', ')}`,
-      `crud.js create-edges で不足エッジを再追加するか、グラフを再生成してください。`
+      `${removed.length} edges removed`,
+      `Removed edges: ${removed.join(', ')}`,
+      `Re-add missing edges with crud.js create-edges, or regenerate the graph.`
     ));
-    remedies.push(`crud.js create-edges --file=... で不足エッジを追加してから再実行してください。`);
+    remedies.push(`Add missing edges with crud.js create-edges --file=... and re-run.`);
   }
 
   return { errors, remedies };
@@ -188,17 +188,17 @@ function checkWithVerifyjs(graphPath, sourcePath) {
       }
       // General remedy
       remedies.push(
-        `verify.js のエラーを解消してください。未カバー見出しがあればノードの headingRefs を拡張し、孤立ノードがあればエッジを追加し、解決不能な headingRefs があれば texts トークンを修正してください。その後、再実行してください。`
+        `Resolve verify.js errors. Extend headingRefs for uncovered headings, add edges for isolated nodes, fix texts for unresolvable headingRefs. Then re-run.`
       );
     }
   } catch (err) {
     // Treat verify.js abnormal termination as an error too
     errors.push(formatError(
-      'verify.js による検証が失敗しました',
+      'verify.js validation failed',
       err.stderr ? err.stderr.trim() : err.message,
-      'verify.js のエラー出力を確認して原因を修正してください。'
+      'Check verify.js error output and fix the cause.'
     ));
-    remedies.push(`verify.js のエラーを確認し、修正後に再実行してください。`);
+    remedies.push(`Check verify.js errors, fix them, then re-run.`);
   }
 
   return { errors, remedies };
@@ -219,7 +219,7 @@ function main(testArgs) {
 
   // At minimum, graphAfter is required
   if (!graphAfter && !sourcePath) {
-    console.error('[ERROR] 引数が不足しています\n原因: --graph-after=<path> または --source=<path> が必要\n対応: 両方の引数を指定して再実行してください。');
+    console.error('[ERROR] Insufficient arguments\nCause: --graph-after=<path> or --source=<path> is required\nAction: Specify both arguments and re-run.');
     process.exit(1);
   }
 

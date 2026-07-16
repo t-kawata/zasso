@@ -98,7 +98,7 @@ function restoreRealDb() {
 // ============================================================
 
 function runAllTests() {
-  console.log('\n=== Malfeasance 操作スクリプト テスト ===\n');
+  console.log('\n=== Malfeasance operation scripts test ===\n');
 
   // ---- Direct tests for validate-malfeasance.js ----
   console.log('[validate-malfeasance.js]');
@@ -114,7 +114,7 @@ function runAllTests() {
       version: 1,
       records: [{
         id: 1, file: 'src/main.rs', line: 42,
-        description: 'テスト犯罪', detected_at: '2026-06-21T12:00:00.000Z',
+        description: 'test crime', detected_at: '2026-06-21T12:00:00.000Z',
         status: 'open',
       }],
     });
@@ -281,7 +281,7 @@ function runAllTests() {
 
   // ---- Integration tests for operation scripts ----
   // Backup real DB and replace with test data
-  console.log('\n[操作スクリプト統合テスト]');
+  console.log('\n[Operation script integration tests]');
   backupRealDb();
 
   try {
@@ -305,17 +305,17 @@ function runAllTests() {
     console.log('  [malfeasance-create.js]');
 
     assert('create: normal creation', () => {
-      const r = runScript('malfeasance-create.js', ['src/test.rs', '10', 'テスト犯罪です']);
+      const r = runScript('malfeasance-create.js', ['src/test.rs', '10', 'test crime']);
       if (!r.success || !r.record || r.record.id !== 1) throw new Error(`Expected success+id=1, got: ${JSON.stringify(r)}`);
     });
 
     assert('create: second item → id=2', () => {
-      const r = runScript('malfeasance-create.js', ['src/test2.rs', '20', '2件目の犯罪']);
+      const r = runScript('malfeasance-create.js', ['src/test2.rs', '20', 'second crime']);
       if (!r.success || r.record.id !== 2) throw new Error(`Expected success+id=2, got: ${JSON.stringify(r)}`);
     });
 
     assert('create: duplicate file+line → error', () => {
-      const r = runScript('malfeasance-create.js', ['src/test.rs', '10', '重複犯罪']);
+      const r = runScript('malfeasance-create.js', ['src/test.rs', '10', 'duplicate crime']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
@@ -325,8 +325,8 @@ function runAllTests() {
     });
 
     assert('create: creation with note', () => {
-      const r = runScript('malfeasance-create.js', ['src/test3.rs', '30', 'note付き', 'これは備考です']);
-      if (!r.success || r.record.note !== 'これは備考です') throw new Error(`Expected note, got: ${JSON.stringify(r)}`);
+      const r = runScript('malfeasance-create.js', ['src/test3.rs', '30', 'with note', 'this is a note']);
+      if (!r.success || r.record.note !== 'this is a note') throw new Error(`Expected note, got: ${JSON.stringify(r)}`);
     });
 
     // malfeasance-get.js
@@ -361,7 +361,7 @@ function runAllTests() {
     });
 
     assert('search: key omitted (all fields search)', () => {
-      const r = runScript('malfeasance-search.js', ['', 'テスト犯罪']);
+      const r = runScript('malfeasance-search.js', ['', 'test crime']);
       if (!r.success || r.count < 1) throw new Error(`Expected count>=1, got: ${JSON.stringify(r)}`);
     });
 
@@ -395,8 +395,8 @@ function runAllTests() {
     });
 
     assert('update: note update', () => {
-      const r = runScript('malfeasance-update.js', ['2', 'note', '更新された備考']);
-      if (!r.success || r.record.note !== '更新された備考') throw new Error(`Expected note updated, got: ${JSON.stringify(r)}`);
+      const r = runScript('malfeasance-update.js', ['2', 'note', 'updated note']);
+      if (!r.success || r.record.note !== 'updated note') throw new Error(`Expected note updated, got: ${JSON.stringify(r)}`);
     });
 
     assert('update: resolved_by_ticket set', () => {
@@ -449,7 +449,7 @@ function runAllTests() {
 
   // ---- Display results ----
   console.log('\n==============================');
-  console.log(`結果: ${passed} passed, ${failed} failed`);
+  console.log(`Result: ${passed} passed, ${failed} failed`);
   console.log('==============================\n');
 
   if (failures.length > 0) {

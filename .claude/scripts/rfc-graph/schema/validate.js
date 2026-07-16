@@ -42,8 +42,8 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
       valid: false,
       errors: [
         `schemaFile: ${schemaFileName}`,
-        `expected: 存在するスキーマファイル`,
-        `actual: ${schemaFilePath} が見つかりません`,
+        `expected: existing schema file`,
+        `actual: ${schemaFilePath} not found`,
       ],
     };
   }
@@ -56,8 +56,8 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
       valid: false,
       errors: [
         `schemaFile: ${schemaFileName}`,
-        `expected: 有効なJSON`,
-        `actual: JSONパースエラー — ${parseError.message}`,
+        `expected: valid JSON`,
+        `actual: JSON parse error — ${parseError.message}`,
       ],
     };
   }
@@ -77,8 +77,8 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
       valid: false,
       errors: [
         `schema: ${schemaFileName}`,
-        `expected: 有効なJSON Schema`,
-        `actual: スキーマコンパイルエラー — ${compileError.message}`,
+        `expected: valid JSON Schema`,
+        `actual: schema compile error — ${compileError.message}`,
       ],
     };
   }
@@ -92,7 +92,7 @@ function validateAgainstSchema(data, schemaFileName, schemasDir) {
   // Structure error information in 3-part template
   const errors = validate.errors.map((err) => {
     const instancePath = err.instancePath || "/";
-    const expectedMessage = err.message || "制約違反";
+    const expectedMessage = err.message || "constraint violation";
     const actualValue = JSON.stringify(
       instancePath === "/" ? data : getValueAtPath(data, instancePath)
     );

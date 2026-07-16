@@ -1,15 +1,15 @@
 /**
- * チケットシステム設定管理
+ * Ticket system configuration management
  *
- * レビュー閾値など変更可能な設定はここに集約する。
- * 将来的に外部設定ファイルからの読み込みにも対応可能。
+ * Centralizes configurable settings such as review thresholds.
+ * Future support for loading from external config files is feasible.
  */
 
 const path = require('path');
 
-// スクリプト自身の場所（.claude/scripts/lib/）からプロジェクトルートを算出
-// これにより、どのディレクトリから node を起動しても正しいパスを参照できる。
-// TICKETS_PROJECT_ROOT 環境変数で上書き可能（テスト分離用）。
+// Derive project root from script location (.claude/scripts/lib/)
+// Ensures correct path resolution regardless of where node is launched from.
+// Overridable via TICKETS_PROJECT_ROOT env var (for test isolation).
 const PROJECT_ROOT = process.env.TICKETS_PROJECT_ROOT
   ? path.resolve(process.env.TICKETS_PROJECT_ROOT)
   : path.resolve(__dirname, '../../..');
@@ -18,7 +18,7 @@ const TICKETS_DIR = path.resolve(PROJECT_ROOT, 'tickets');
 /** @returns {{ ticketsDir: string, specsDir: string, contextDir: string, draftsDir: string, queueFile: string, backupDir: string, review: object }} */
 function loadConfig() {
   return {
-    // ディレクトリ・ファイルパス（全パスは __dirname 基準で絶対解決済み）
+    // Directory/file paths (all resolved absolutely relative to __dirname)
     ticketsDir: TICKETS_DIR,
     specsDir: path.resolve(TICKETS_DIR, 'specs'),
     contextDir: path.resolve(TICKETS_DIR, 'context'),
@@ -28,13 +28,13 @@ function loadConfig() {
     archivalDays: 14,
     backupDir: path.resolve(TICKETS_DIR, '.backups'),
 
-    // レビュー品質チェックの閾値
+    // Review quality check thresholds
     review: {
       maxFunctionLines: 30,
       maxNestingDepth: 4,
       maxParams: 5,
 
-      // 許容される status 値の一覧
+      // Allowed status values
       allowedStatuses: [
         'draft',
         'reviewing',
@@ -45,7 +45,7 @@ function loadConfig() {
         'blocked',
       ],
 
-      // status 遷移ルール: from -> [allowed to]
+      // Status transition rules: from -> [allowed to]
       validTransitions: {
         draft: ['reviewing'],
         reviewing: ['approved', 'draft', 'blocked'],
@@ -56,11 +56,11 @@ function loadConfig() {
         blocked: ['draft', 'reviewing', 'approved', 'implementing'],
       },
 
-      // レビュー対象のファイル拡張子
+      // File extensions subject to review
       targetExtensions: ['.rs', '.js', '.ts', '.tsx', '.jsx', '.vue', '.go'],
     },
 
-    // IDのゼロ埋め桁数
+    // ID zero-padding digits
     idPadding: 4,
   };
 }

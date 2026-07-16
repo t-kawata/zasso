@@ -38,7 +38,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 
 ## Guidelines
 
-- **The /graphify-rfc slash command always splits at a finer granularity（より細かい粒度）than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence／発散).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
+- **The /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
 - Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
 - Calls to update-step-status.js use the `--graphify-status=<path>` prefix.
 - crud.js / verify.js / query.js are called with `--graph=<path>` / `--source=<path>` argument format.

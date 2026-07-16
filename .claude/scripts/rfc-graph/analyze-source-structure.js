@@ -31,7 +31,23 @@ const path = require("path");
 const KIND_PATTERNS = [
   {
     kind: "requirement",
-    heading: [/要件/, /要求/, /必須/, /条件/, /必要/, /機能要件/, /非機能要件/],
+    heading: [
+      /要件/,
+      /要求/,
+      /必須/,
+      /条件/,
+      /必要/,
+      /機能要件/,
+      /非機能要件/,
+      /Requirements?/i,
+      /Functional Requirements/i,
+      /Non.functional Requirements/i,
+      /Constraints/i,
+      /Prerequisites/i,
+      /Business Rules/i,
+      /User Stories?/i,
+      /Acceptance Criteria/i,
+    ],
     body: [
       /must\b/,
       /\bshall\b/,
@@ -41,6 +57,10 @@ const KIND_PATTERNS = [
       /必須/,
       /〜する必要/,
       /〜できること/,
+      /required/i,
+      /mandatory/i,
+      /SHOULD\b/,
+      /MUST NOT/i,
     ],
   },
   {
@@ -53,6 +73,16 @@ const KIND_PATTERNS = [
       /REST/,
       /Web API/,
       /インタフェース/,
+      /API Specification/i,
+      /API Reference/i,
+      /Endpoints?/i,
+      /GraphQL/i,
+      /API Contract/i,
+      /Request.?Response/i,
+      /API Routes?/i,
+      /RESTful/i,
+      /API Design/i,
+      /API Documentation/i,
     ],
     body: [
       /POST\b/,
@@ -72,6 +102,16 @@ const KIND_PATTERNS = [
       /ステータスコード/,
       /status code/,
       /リクエストボディ/,
+      /\bheader\b/,
+      /\bpayload\b/,
+      /\bquery param/i,
+      /\bpath param/i,
+      /\brequest body/i,
+      /\bresponse body/i,
+      /\bCRUD/i,
+      /OpenAPI/i,
+      /swagger/i,
+      /gRPC/i,
     ],
   },
   {
@@ -90,6 +130,19 @@ const KIND_PATTERNS = [
       /\bentity/,
       /カラム/,
       /フィールド定義/,
+      /Data Model/i,
+      /Schema/i,
+      /Database Schema/i,
+      /Entity Relationship/i,
+      /Data Structure/i,
+      /Type Definitions/i,
+      /Models?/i,
+      /Database Design/i,
+      /Data Dictionary/i,
+      /Data Types/i,
+      /Type System/i,
+      /Table Definition/i,
+      /Entity Model/i,
     ],
     body: [
       /\bstruct\b/,
@@ -107,6 +160,11 @@ const KIND_PATTERNS = [
       /\bWHERE\b/,
       /\bjoin\b/,
       /\bschema\b/,
+      /\bentity\b/,
+      /\brelation\b/,
+      /\battribute\b/,
+      /\bnullable\b/,
+      /\bdefault\b/,
     ],
   },
   {
@@ -123,6 +181,16 @@ const KIND_PATTERNS = [
       /フェーズ/,
       /ライフサイクル/,
       /状態図/,
+      /State Machine/i,
+      /State Transition/i,
+      /Lifecycle/i,
+      /States?/i,
+      /State Diagram/i,
+      /Status Management/i,
+      /Finite State Machine/i,
+      /Phase Transitions/i,
+      /Status Flow/i,
+      /State Chart/i,
     ],
     body: [
       /\bstate\b/,
@@ -136,6 +204,7 @@ const KIND_PATTERNS = [
       /ガード条件/,
       /\bguard\b/,
       /\btrigger\b/,
+      /\bworkflow\b/,
     ],
   },
   {
@@ -153,6 +222,18 @@ const KIND_PATTERNS = [
       /システム設計/,
       /モジュール/,
       /サブシステム/,
+      /System Architecture/i,
+      /Architecture Overview/i,
+      /Component Diagram/i,
+      /Module Structure/i,
+      /System Design/i,
+      /System Overview/i,
+      /System Context/i,
+      /Container Diagram/i,
+      /Deployment Diagram/i,
+      /High.level Design/i,
+      /Architecture/i,
+      /Component Architecture/i,
     ],
     body: [
       /\bcomponent\b/,
@@ -165,6 +246,10 @@ const KIND_PATTERNS = [
       /\binterface\b/,
       /責務/,
       /\bresponsibility\b/,
+      /\bsubsystem\b/,
+      /\bdecomposition\b/,
+      /\bcohesion\b/,
+      /\bcoupling\b/,
     ],
   },
   {
@@ -181,6 +266,20 @@ const KIND_PATTERNS = [
       /アクセス制御/,
       /監査/,
       /コンプライアンス/,
+      /Security/i,
+      /Authentication/i,
+      /Authorization/i,
+      /Access Control/i,
+      /Encryption/i,
+      /Threat Model/i,
+      /Security Model/i,
+      /Audit/i,
+      /Compliance/i,
+      /Security Policy/i,
+      /Permissions?/i,
+      /Identity/i,
+      /SSO/i,
+      /OAuth/i,
     ],
     body: [
       /\bauth\b/,
@@ -207,6 +306,9 @@ const KIND_PATTERNS = [
       /権限/,
       /\bsanitize\b/,
       /バリデーション/,
+      /\bCORS\b/,
+      /\bCSP\b/,
+      /\bHSTS\b/,
     ],
   },
   {
@@ -223,6 +325,18 @@ const KIND_PATTERNS = [
       /フォールバック/,
       /エラー戦略/,
       /障害対策/,
+      /Error Handling/i,
+      /Error Policy/i,
+      /Exception Handling/i,
+      /Error Codes/i,
+      /Failure Recovery/i,
+      /Graceful Degradation/i,
+      /Fault Tolerance/i,
+      /Retry Policy/i,
+      /Error Strategy/i,
+      /Recovery/i,
+      /Fallback/i,
+      /Error Boundaries/i,
     ],
     body: [
       /\berror\b/,
@@ -242,6 +356,9 @@ const KIND_PATTERNS = [
       /\bResult\b/,
       /\bOption\b/,
       /\bunwrap\b/,
+      /\brecover\b/,
+      /\bfault\b/,
+      /\bdegrad\b/,
     ],
   },
   {
@@ -256,6 +373,14 @@ const KIND_PATTERNS = [
       /\bconfig\b/,
       /設定ファイル/,
       /パラメータ/,
+      /Configuration/i,
+      /Environment Variables/i,
+      /Settings/i,
+      /Parameters?/i,
+      /Configuration Management/i,
+      /Application Settings/i,
+      /Feature Flags/i,
+      /Runtime Config/i,
     ],
     body: [
       /\benv\b/,
@@ -274,6 +399,9 @@ const KIND_PATTERNS = [
       /\bdefault\b/,
       /初期化/,
       /\binit\b/,
+      /\bflag\b/,
+      /\bproperty\b/,
+      /\bprofile\b/,
     ],
   },
   {
@@ -288,6 +416,18 @@ const KIND_PATTERNS = [
       /\bE2E\b/,
       /テスト手法/,
       /品質保証/,
+      /Testing/i,
+      /Test Plan/i,
+      /Test Strategy/i,
+      /Test Cases?/i,
+      /Unit Testing/i,
+      /Integration Testing/i,
+      /E2E Testing/i,
+      /Quality Assurance/i,
+      /Test Coverage/i,
+      /Test Suite/i,
+      /Testing Guide/i,
+      /\bQA\b/,
     ],
     body: [
       /\btest\b/,
@@ -306,6 +446,9 @@ const KIND_PATTERNS = [
       /\bstub\b/,
       /\bfixture\b/,
       /\bCI\b/,
+      /\btest case/i,
+      /\btest suite/i,
+      /snapshot/i,
     ],
   },
   {
@@ -321,6 +464,17 @@ const KIND_PATTERNS = [
       /デプロイ戦略/,
       /ビルド設定/,
       /継続的インテグレーション/,
+      /Build/i,
+      /CI\/CD/i,
+      /Continuous Integration/i,
+      /Continuous Deployment/i,
+      /Deployment/i,
+      /Release/i,
+      /Package Management/i,
+      /Build Pipeline/i,
+      /Release Process/i,
+      /Versioning/i,
+      /Release Notes/i,
     ],
     body: [
       /\bMakefile\b/,
@@ -339,6 +493,9 @@ const KIND_PATTERNS = [
       /\bdist\b/,
       /コンパイル/,
       /\bcompile\b/,
+      /\bdeploy\b/,
+      /\brollback\b/,
+      /\brollout\b/,
     ],
   },
   {
@@ -355,6 +512,19 @@ const KIND_PATTERNS = [
       /背景/,
       /設計選択/,
       /比較/,
+      /解答/,
+      /難所/,
+      /Rationale/i,
+      /Design Decision/i,
+      /Decision Log/i,
+      /\bADR\b/,
+      /Architecture Decision Record/i,
+      /Trade.?off Analysis/i,
+      /Alternatives Considered/i,
+      /Why/i,
+      /Decision/i,
+      /Motivation/i,
+      /Background/i,
     ],
     body: [
       /\btherefore\b/,
@@ -371,11 +541,33 @@ const KIND_PATTERNS = [
       /検討/,
       /優位性/,
       /デメリット/,
+      /\bmerit\b/,
+      /\bdemerit\b/,
+      /\bdrawback\b/,
+      /\badvantage\b/,
+      /\bdisadvantage\b/,
     ],
   },
   {
     kind: "glossary",
-    heading: [/用語/, /用語集/, /定義/, /用語定義/, /語彙/, /辞書/, /用語解説/],
+    heading: [
+      /用語/,
+      /用語集/,
+      /定義/,
+      /用語定義/,
+      /語彙/,
+      /辞書/,
+      /用語解説/,
+      /Glossary/i,
+      /Terminology/i,
+      /Definitions?/i,
+      /Terms/i,
+      /Vocabulary/i,
+      /Acronyms?/i,
+      /Abbreviations?/i,
+      /Term Definition/i,
+      /Dictionary/i,
+    ],
     body: [
       /用語/,
       /定義/,
@@ -389,6 +581,9 @@ const KIND_PATTERNS = [
       /\bi\.e\./,
       /\be\.g\./,
       /曖昧さ回避/,
+      /\babbreviat\b/,
+      /\bsynonym\b/,
+      /\bdefinition\b/,
     ],
   },
 ];
@@ -459,11 +654,17 @@ const DEP_PATTERNS = [
       /\bseaorm\b/,
       /\bsqlx\b/,
       /コネクション/,
-      /\bpostgresql\b/,
-      /\bmysql\b/,
-      /\bsqlite\b/,
-      /\bredis\b/,
-      /\bmongo\b/,
+      /\bpostgresql\b/i,
+      /\bmysql\b/i,
+      /\bsqlite\b/i,
+      /\bredis\b/i,
+      /\bmongo\b/i,
+      /\bDynamoDB\b/,
+      /\bFirestore\b/,
+      /\bCassandra\b/,
+      /\bElasticsearch\b/,
+      /\bBigQuery\b/,
+      /\bSpanner\b/,
     ],
   },
   {
@@ -564,6 +765,13 @@ const DEP_PATTERNS = [
       /\bcrate\b/,
       /\bpackage\b/,
       /ライブラリ/,
+      /\bPython\b/,
+      /\bRuby\b/,
+      /\bGo\b/,
+      /\bRust\b/,
+      /\bTypeScript\b/,
+      /\bgolang\b/,
+      /\bNode\.?js\b/,
     ],
   },
   {
@@ -598,6 +806,86 @@ const DEP_PATTERNS = [
       /\bparse\b/,
     ],
   },
+  {
+    label: "クラウド/インフラ",
+    patterns: [
+      /\bAWS\b/,
+      /\bLambda\b/i,
+      /\bS3\b/,
+      /\bEC2\b/,
+      /\bECS\b/,
+      /\bEKS\b/,
+      /\bGCP\b/,
+      /Cloud Run/i,
+      /\bAzure\b/i,
+      /Azure Functions/i,
+      /\bVPC\b/,
+      /\bCDN\b/,
+      /\bCloudFront\b/,
+      /\bRoute53\b/,
+      /クラウド/,
+      /cloud/i,
+      /\binfra\b/i,
+    ],
+  },
+  {
+    label: "メッセージング",
+    patterns: [
+      /\bKafka\b/i,
+      /\bRabbitMQ\b/,
+      /\bSQS\b/,
+      /\bSNS\b/,
+      /\bpub\b.*\bsub\b/i,
+      /message queue/i,
+      /\bNATS\b/,
+      /\bMQTT\b/,
+      /\bqueue\b/i,
+      /\bproducer\b/i,
+      /\bconsumer\b/i,
+      /\bstream\b/i,
+      /メッセージ/,
+      /メッセージキュー/,
+    ],
+  },
+  {
+    label: "監視/可観測性",
+    patterns: [
+      /\bPrometheus\b/i,
+      /\bGrafana\b/i,
+      /\bDatadog\b/i,
+      /\bOpenTelemetry\b/i,
+      /\btracing\b/i,
+      /\bmetrics\b/i,
+      /\blogging\b/i,
+      /\bAPM\b/,
+      /\balert\b/i,
+      /\bmonitor\b/i,
+      /\bdashboard\b/i,
+      /可観測性/,
+      /オブザーバビリティ/,
+      /監視/,
+      /\bSentry\b/i,
+      /\bNew Relic\b/i,
+    ],
+  },
+  {
+    label: "コンテナ/オーケストレーション",
+    patterns: [
+      /\bKubernetes\b/i,
+      /\bk8s\b/,
+      /\bDocker\b/i,
+      /docker compose/i,
+      /\bHelm\b/i,
+      /\bistio\b/,
+      /\bcontainer\b/i,
+      /\bpod\b/i,
+      /\bcluster\b/i,
+      /service mesh/i,
+      /\bnamespace\b/i,
+      /コンテナ/,
+      /オーケストレーション/,
+    ],
+  },
 ];
 
 // ============================================================
@@ -612,15 +900,15 @@ const LONG_SECTION_THRESHOLD = 100;
 // ============================================================
 
 /**
- * エラーを3-partテンプレート形式でstderrに出力し、終了コード1でプロセスを終了する
+ * Output error to stderr in 3-part template format and exit with code 1
  *
- * @param {string} summary — 何が起きたか
- * @param {string} cause — なぜ起きたか
- * @param {string} action — 次に取るべき対応
+ * @param {string} summary — What happened
+ * @param {string} cause — Why it happened
+ * @param {string} action — Next step to take
  */
 function exitWithError(summary, cause, action) {
   process.stderr.write(
-    `[ERROR] ${summary}\n` + `原因: ${cause}\n` + `対応: ${action}\n`,
+    `[ERROR] ${summary}\n` + `Cause: ${cause}\n` + `Action: ${action}\n`,
   );
   process.exit(1);
 }
@@ -630,39 +918,39 @@ function exitWithError(summary, cause, action) {
 // ============================================================
 
 /**
- * CLI引数をパースする
+ * Parse CLI arguments
  *
- * @param {string[]} argv — process.argv 相当の配列
- * @returns {{ sourcePath: string }} パース結果
- * @throws {Error} 引数が不正な場合
+ * @param {string[]} argv — Array equivalent to process.argv
+ * @returns {{ sourcePath: string }} Parsing result
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments(argv) {
   if (argv.length < 3) {
     throw new Error(
-      "ソースファイルのパスを指定してください。\n使用法: analyze-source-structure.js <source-path>",
+      "Specify the source file path.\nUsage: analyze-source-structure.js <source-path>",
     );
   }
   if (argv[2] === "--help" || argv[2] === "-h") {
-    console.log("使用法: analyze-source-structure.js <source-path>");
+    console.log("Usage: analyze-source-structure.js <source-path>");
     console.log("");
     console.log(
-      "Markdownファイルの構造情報（セクションツリー、行数、kind候補、外部依存）を",
+      "Outputs structural information (section tree, line count, kind candidates, external dependencies)",
     );
-    console.log("自然言語レポートとして標準出力に出力します。");
+    console.log("of a Markdown file to stdout as a natural language report.");
     process.exit(0);
   }
   if (argv.length > 3) {
     throw new Error(
-      `余剰な引数があります: ${argv.slice(3).join(" ")}\n使用法: analyze-source-structure.js <source-path>`,
+      `Excess arguments: ${argv.slice(3).join(" ")}\nUsage: analyze-source-structure.js <source-path>`,
     );
   }
   return { sourcePath: argv[2] };
 }
 
 /**
- * 引数をパースし、失敗時は exitWithError で終了する（main用）
+ * Parse arguments, exit via exitWithError on failure (for main)
  *
- * @param {string[]} argv — process.argv 相当の配列
+ * @param {string[]} argv — Array equivalent to process.argv
  * @returns {{ sourcePath: string }}
  */
 function parseArgumentsSafe(argv) {
@@ -670,9 +958,9 @@ function parseArgumentsSafe(argv) {
     return parseArguments(argv);
   } catch (e) {
     exitWithError(
-      "引数のパースに失敗しました。",
+      "Argument parse failed.",
       e.message,
-      "正しい引数で再実行してください。",
+      "Re-run with correct arguments.",
     );
     // unreachable
     process.exit(1);
@@ -680,14 +968,14 @@ function parseArgumentsSafe(argv) {
 }
 
 /**
- * ソースファイルを行の配列として読み込む
+ * Read source file as an array of lines
  *
  * @param {string} filePath
  * @returns {string[]}
  */
 function readSourceFile(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`ソースファイルが見つかりません: ${filePath}`);
+    throw new Error(`Source file not found: ${filePath}`);
   }
   const content = fs.readFileSync(filePath, "utf8");
   return content.split("\n");
@@ -698,7 +986,7 @@ function readSourceFile(filePath) {
 // ============================================================
 
 /**
- * ``` で囲まれたコードブロックの行範囲を検出する
+ * Detect line ranges of code blocks enclosed in ```
  *
  * @param {string[]} sourceLines
  * @returns {{ start: number, end: number }[]}
@@ -729,7 +1017,7 @@ function extractCodeBlocks(sourceLines) {
 // ============================================================
 
 /**
- * コードブロック外のMarkdown見出しを抽出する
+ * Extract Markdown headings outside code blocks
  *
  * @param {string[]} sourceLines
  * @param {{ start: number, end: number }[]} codeBlocks
@@ -832,11 +1120,11 @@ function extractHeadingTree(sourceLines, codeBlocks) {
 // ============================================================
 
 /**
- * 見出しと本文から kind 候補を推定する
+ * Estimate kind candidates from heading and body text
  *
- * @param {string} heading — セクション見出し
- * @param {string} bodyText — セクション本文
- * @returns {string[]} 推定されたkindの配列（0〜複数）
+ * @param {string} heading — Section heading
+ * @param {string} bodyText — Section body text
+ * @returns {string[]} Array of estimated kinds (0 or more)
  */
 function estimateKind(heading, bodyText) {
   const matches = [];
@@ -859,11 +1147,11 @@ function estimateKind(heading, bodyText) {
 }
 
 /**
- * 本文から正規表現パターンにマッチする文字列を収集する（重複除去、最大5件）
+ * Collect strings matching regex patterns from body text (dedup, max 5)
  *
- * @param {string} bodyText — 検索対象の本文
- * @param {RegExp[]} patterns — マッチさせる正規表現パターンの配列
- * @returns {string[]} マッチした文字列の配列（部分一致を含む）
+ * @param {string} bodyText — Body text to search
+ * @param {RegExp[]} patterns — Array of regex patterns to match
+ * @returns {string[]} Array of matched strings (including partial matches)
  */
 function collectBodyMatches(bodyText, patterns) {
   const matches = [];
@@ -985,11 +1273,11 @@ function formatReport(
 
   const basename = path.basename(sourcePath);
 
-  lines.push(`# ${basename} 構造分析レポート`);
+  lines.push(`# ${basename} Structure Analysis Report`);
   lines.push("");
-  lines.push(`## 基本情報`);
+  lines.push(`## Basic Information`);
   lines.push(
-    `総行数: ${totalLines}行（うちコードブロック: ${codeLines}行、実質記述: ${proseLines}行）`,
+    `Total lines: ${totalLines} (code blocks: ${codeLines}, prose: ${proseLines})`,
   );
   lines.push("");
 
@@ -1005,11 +1293,11 @@ function formatReport(
 
   // Section listing
   lines.push(
-    `## セクション一覧（ノード候補。機械的な検出結果でありAIが判断を上書き可能。）`,
+    `## Section List (node candidates. Mechanical detection results — AI may override.)`,
   );
   for (const sec of sections) {
     const hTag = `- h${sec.level}`;
-    const proseStr = sec.proseLines > 0 ? `${sec.proseLines}行` : "";
+    const proseStr = sec.proseLines > 0 ? `${sec.proseLines} lines` : "";
     const indent = sec.level > 0 ? "  ".repeat(sec.level - 1) : "";
     const range = `L${sec.startLine}-L${sec.endLine}`;
     const kindInfo = kindByRange[range] ? ` [kind: ${kindByRange[range]}]` : "";
@@ -1064,13 +1352,13 @@ function formatReport(
 
   // Sections exceeding 100 lines
   lines.push(
-    `## 100行超セクション（コードブロック除く実質記述行数 — 強制分割候補）`,
+    `## Sections Exceeding 100 Lines (prose lines excl. code blocks — forced split candidates)`,
   );
   if (longSections.length === 0) {
-    lines.push("なし（全セクションが100行未満）");
+    lines.push("None (all sections under 100 lines)");
   } else {
     for (const sec of longSections) {
-      lines.push(`${sec.lineRange}  実質${sec.proseLines}行  ${sec.label}`);
+      lines.push(`${sec.lineRange}  ${sec.proseLines} prose lines  ${sec.label}`);
     }
   }
   lines.push("");
@@ -1118,13 +1406,13 @@ function generateReport(sourcePath, sourceLines) {
         if (!pattern) continue;
         const headingMatch = pattern.heading.some((re) => re.test(sec.heading));
         if (headingMatch) {
-          reasons.push(`見出しに "${sec.heading}"`);
+          reasons.push(`heading: "${sec.heading}"`);
         } else {
           const bodyMatches = collectBodyMatches(sec.bodyText, pattern.body);
           reasons.push(
             bodyMatches.length > 0
-              ? `本文に "${bodyMatches.slice(0, 3).join('", "')}"`
-              : `本文キーワード`,
+              ? `body: "${bodyMatches.slice(0, 3).join('", "')}"`
+              : `body keyword`,
           );
         }
       }
@@ -1188,9 +1476,9 @@ function main() {
     sourceLines = readSourceFile(sourcePath);
   } catch (e) {
     exitWithError(
-      "ソースファイルが見つかりません。",
+      "Source file not found.",
       e.message,
-      "正しいファイルパスを指定してください。",
+      "Specify a valid file path.",
     );
   }
   const report = generateReport(sourcePath, sourceLines);

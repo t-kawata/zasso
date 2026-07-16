@@ -1,8 +1,8 @@
 /**
- * Malfeasance.json 操作の共通ユーティリティ
+ * Common utilities for Malfeasance.json operations
  *
- * 全 malfeasance 操作スクリプトから利用されるファイル読み書き・
- * パス解決・スキーマ検証の共通処理を提供する。
+ * Provides file read/write, path resolution, and schema validation
+ * shared across all malfeasance operation scripts.
  */
 
 const fs = require('fs');
@@ -10,14 +10,14 @@ const path = require('path');
 
 const { validateRecords, validateSchema } = require('./validate-malfeasance');
 
-// .claude/ ディレクトリはこのファイルの場所（.claude/scripts/lib/）から 2 階層上
+// .claude/ directory is 2 levels up from this file location (.claude/scripts/lib/)
 const CLAUDE_DIR = path.resolve(__dirname, '..', '..');
 const SCHEMA_PATH = path.join(CLAUDE_DIR, 'scripts', 'tickets', 'malfeasance-schema.json');
 
 /**
- * Malfeasance.json のパスを取得する。
- * 引数でディレクトリが指定された場合はそのディレクトリ内、なければ CWD 内。
- * @param {string} [dir] - 基準ディレクトリ（省略時は process.cwd()）
+ * Get the path to Malfeasance.json.
+ * If a directory is specified, looks inside it; otherwise uses CWD.
+ * @param {string} [dir] - Base directory (default: process.cwd())
  * @returns {string}
  */
 function getMalfeasancePath(dir) {
@@ -25,7 +25,7 @@ function getMalfeasancePath(dir) {
 }
 
 /**
- * スキーマファイルのパスを取得する。
+ * Get the path to the schema file.
  * @returns {string}
  */
 function getSchemaPath() {
@@ -33,10 +33,10 @@ function getSchemaPath() {
 }
 
 /**
- * Malfeasance.json を読み込み、パースして返す。
- * 読み取り後にスキーマ検証を実施する。
+ * Read and parse Malfeasance.json.
+ * Runs schema validation after reading.
  *
- * @param {string} [dir] - Malfeasance.json があるディレクトリ（省略時は process.cwd()）
+ * @param {string} [dir] - Directory containing Malfeasance.json (default: process.cwd())
  * @returns {{ success: boolean, data?: object, error?: string, warning?: string }}
  */
 function loadRecords(dir) {
@@ -53,7 +53,7 @@ function loadRecords(dir) {
     return { success: false, error: `Failed to parse Malfeasance.json: ${e.message}` };
   }
 
-  // スキーマ検証
+  // Schema validation
   const validation = validateRecords(data);
   if (!validation.valid) {
     return {
@@ -66,18 +66,18 @@ function loadRecords(dir) {
 }
 
 /**
- * レコード配列を Malfeasance.json に書き込む。
- * 書き込み前にスキーマ検証を実施する。
+ * Write a record array to Malfeasance.json.
+ * Runs schema validation before writing.
  *
- * @param {object[]} records - 書き込むレコード配列
- * @param {string} [dir] - Malfeasance.json を置くディレクトリ（省略時は process.cwd()）
+ * @param {object[]} records - Record array to write
+ * @param {string} [dir] - Directory to place Malfeasance.json (default: process.cwd())
  * @returns {{ success: boolean, error?: string }}
  */
 function saveRecords(records, dir) {
   const fullData = { version: 1, records };
   const malfPath = getMalfeasancePath(dir);
 
-  // スキーマ検証
+  // Schema validation
   const validation = validateRecords(fullData);
   if (!validation.valid) {
     return { success: false, error: `Schema validation failed: ${validation.errors.join('; ')}` };
@@ -97,7 +97,7 @@ function saveRecords(records, dir) {
 }
 
 /**
- * スキーマファイルの存在と妥当性を確認する。
+ * Verify the schema file exists and is valid.
  *
  * @returns {{ success: boolean, error?: string }}
  */
@@ -121,7 +121,7 @@ function checkSchema() {
 }
 
 /**
- * JSON を stdout に出力する（全スクリプト共通の出力形式）。
+ * Output JSON to stdout (common output format for all scripts).
  *
  * @param {object} result
  */

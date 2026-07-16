@@ -36,33 +36,33 @@ const helpers = require('./boundify-helpers.js');
 const SUPPORTED_LANGUAGES = Object.freeze(['rust', 'go', 'typescript']);
 
 /** Three-line template error -- missing arguments */
-const ERROR_MISSING_ARGS = '[ERROR] 引数が不足しています\n原因: --dirs-tree=<path> --root-dir=<path> --lang=<lang> が必要\n対応: 3つの引数を指定して再実行';
+const ERROR_MISSING_ARGS = '[ERROR] Insufficient arguments\nCause: --dirs-tree=<path> --root-dir=<path> --lang=<lang> required\nAction: Re-run with all three arguments';
 
 /** Three-line template error -- unsupported language */
 const ERROR_UNSUPPORTED_LANG = (lang) =>
-  `[ERROR] サポートされていない言語です: ${lang}\n原因: rust/go/typescript のいずれかを指定\n対応: 正しい言語を指定してください`;
+  `[ERROR] Unsupported language: ${lang}\nCause: specify one of rust/go/typescript\nAction: Specify a valid language`;
 
 /** Three-line template error -- file not found */
 const ERROR_FILE_NOT_FOUND = (filePath) =>
-  `[ERROR] ファイルが見つかりません: ${filePath}\n原因: 指定されたパスにファイルが存在しません\n対応: 正しいパスを指定してください`;
+  `[ERROR] File not found: ${filePath}\nCause: File does not exist at the specified path\nAction: Specify a valid path`;
 
 /** Three-line template error -- JSON parse failure */
 const ERROR_PARSE_FAILED = (filePath, message) =>
-  `[ERROR] JSONのパースに失敗しました: ${filePath}\n原因: ${message}\n対応: ファイルが有効なJSON形式であることを確認してください`;
+  `[ERROR] JSON parse failed: ${filePath}\nCause: ${message}\nAction: Verify the file is valid JSON`;
 
 /** Three-line template error -- language tree not found */
 const ERROR_LANG_TREE_NOT_FOUND = (lang) =>
-  `[ERROR] 言語 ${lang} のツリーが Dirs-Tree.json に見つかりません\n原因: 該当言語のツリー定義が存在しません\n対応: Dirs-Tree.json に正しい言語ツリーが含まれているか確認してください`;
+  `[ERROR] Tree for language ${lang} not found in Dirs-Tree.json\nCause: Tree definition for that language does not exist\nAction: Verify Dirs-Tree.json contains the correct language tree`;
 
 /** Three-line template error -- file already exists */
 const ERROR_FILE_EXISTS = (filePath) =>
-  `[ERROR] ファイルが既に存在します: ${filePath}\n原因: 出力先に同名ファイルがある\n対応: --force フラグを指定して上書きするか、既存ファイルを退避してください`;
+  `[ERROR] File already exists: ${filePath}\nCause: A file with the same name already exists at the output location\nAction: Use --force to overwrite, or move the existing file`;
 
 /** Three-line template error -- file deletion failed */
 const ERROR_DELETE_FAILED = (filePath, message) =>
-  `[ERROR] 削除に失敗しました: ${filePath}\n原因: ${message}\n対応: パーミッションやファイルの状態を確認してください`;
+  `[ERROR] Deletion failed: ${filePath}\nCause: ${message}\nAction: Check permissions and file status`;
 const ERROR_CREATE_FAILED = (filePath, message) =>
-  `[ERROR] ファイル作成に失敗しました: ${filePath}\n原因: ${message}\n対応: パーミッションやディスク容量を確認してください`;
+  `[ERROR] File creation failed: ${filePath}\nCause: ${message}\nAction: Check permissions and disk space`;
 
 // ============================================================
 // CLI argument parsing
@@ -216,7 +216,7 @@ function runDryRun(created, lang) {
     language: lang,
     created: created.map(c => ({ type: c.type, path: c.path })),
     total: created.length,
-    note: 'dry-run モードです。実際に生成するには --dry-run を外して再実行してください。',
+    note: 'dry-run mode. Remove --dry-run and re-run to actually generate.',
   };
 }
 
@@ -243,7 +243,7 @@ async function confirmPrompt(created) {
     .filter(c => c.type === 'file')
     .map(c => `  ${c.path}`)
     .join('\n');
-  process.stderr.write(`以下の ${created.length} アイテムを生成します:\n${summary}\n\n続行しますか？ (y/N): `);
+  process.stderr.write(`The following ${created.length} items will be generated:\n${summary}\n\nContinue? (y/N): `);
 
   const answer = await new Promise(resolve => rl.question('', resolve));
   rl.close();
@@ -421,7 +421,7 @@ async function main(testArgs) {
 
   const tree = dirsTree.trees && dirsTree.trees[lang];
   if (!tree) {
-    const msg = `${lang} は Dirs-Tree.json 内に定義が存在しないため、何も作成せずに正常に終了しました。`;
+    const msg = `${lang} has no definition in Dirs-Tree.json, exiting normally without creating anything.`;
     console.log(msg);
     process.exit(0);
     return;
@@ -444,7 +444,7 @@ async function main(testArgs) {
         language: lang,
         toBeDeleted: created.map(c => ({ type: c.type, path: c.path })),
         total: created.length,
-        note: 'dry-run モードです。実際に削除するには --delete から --dry-run を外して再実行してください。',
+        note: 'dry-run mode. Remove --dry-run from --delete and re-run to actually delete.',
       }) + '\n');
       return;
     }
@@ -479,7 +479,7 @@ async function main(testArgs) {
       process.stdout.write(JSON.stringify({
         ok: false,
         cancelled: true,
-        message: 'ユーザーによりキャンセルされました',
+        message: 'Cancelled by user',
       }) + '\n');
       return;
     }

@@ -45,7 +45,7 @@ const EDGE_ABBREV = {
 
 function exitWithError(summary, cause, action) {
   process.stderr.write(
-    `[ERROR] ${summary}\n原因: ${cause}\n対応: ${action}\n`
+    `[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`
   );
   process.exit(1);
 }
@@ -62,27 +62,27 @@ const DEFAULT_HOPS = 2;
 
 function parseArguments(argv) {
   if (argv.length < 4) {
-    throw new Error('引数が不足しています。\n使用法: show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]');
+    throw new Error('Insufficient arguments.\nUsage: show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]');
   }
 
   const graphArg = argv[2];
   const sourceArg = argv[3];
 
   if (!graphArg.startsWith('--graph=')) {
-    throw new Error(`最初の引数は --graph=<path> である必要があります: ${graphArg}`);
+    throw new Error(`First argument must be --graph=<path>: ${graphArg}`);
   }
   if (!sourceArg.startsWith('--source=')) {
-    throw new Error(`2番目の引数は --source=<path> である必要があります: ${sourceArg}`);
+    throw new Error(`Second argument must be --source=<path>: ${sourceArg}`);
   }
 
   const graphPath = graphArg.slice('--graph='.length);
   const sourcePath = sourceArg.slice('--source='.length);
 
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> path is empty.');
   }
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error('--source=<path> path is empty.');
   }
 
   // Optional flag
@@ -93,17 +93,17 @@ function parseArguments(argv) {
 
 function loadGraph(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`グラフファイルが見つかりません: ${filePath}`);
+    throw new Error(`Graph file not found: ${filePath}`);
   }
   const raw = fs.readFileSync(filePath, 'utf8');
   let data;
   try {
     data = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`JSONパースに失敗しました: ${filePath} — ${e.message}`);
+    throw new Error(`JSON parse failed: ${filePath} — ${e.message}`);
   }
   if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
-    throw new Error(`グラフデータの構造が不正です: nodes または edges がありません`);
+    throw new Error('Graph data structure is invalid: nodes or edges missing');
   }
   return data;
 }
@@ -111,9 +111,9 @@ function loadGraph(filePath) {
 function loadSourceFile(filePath) {
   if (!fs.existsSync(filePath)) {
     exitWithError(
-      'ソースファイルが見つかりません。',
-      `${filePath} が存在しません。`,
-      '--source=<path> に正しいファイルパスを指定してください。'
+      'Source file not found.',
+      `${filePath} does not exist.`,
+      'Specify the correct file path with --source=<path>.'
     );
   }
   return fs.readFileSync(filePath, 'utf8');
@@ -203,7 +203,7 @@ function generateSummary(graph, sourceText) {
     if (!nodes || nodes.length === 0) continue;
     delete kindGroups[kind];
 
-    lines.push(`## ${kind} (${nodes.length}件)`);
+    lines.push(`## ${kind} (${nodes.length} items)`);
 
     for (const node of nodes) {
       // Resolve line position from heading (for level display)
@@ -222,8 +222,8 @@ function generateSummary(graph, sourceText) {
       // Node basic information
       const summaryText = truncateSummary(node.summary);
       lines.push(`    - ${node.id}: ${formatTitle(node)}`);
-      lines.push(`        * レベル: ${headingLevel || '?'}`);
-      lines.push(`        * 要約: ${summaryText}`);
+      lines.push(`        * Level: ${headingLevel || '?'}`);
+      lines.push(`        * Summary: ${summaryText}`);
 
       // Edge list
       const edgeLines = [];
@@ -248,7 +248,7 @@ function generateSummary(graph, sourceText) {
       }
 
       if (edgeLines.length > 0) {
-        lines.push(`        * エッジ一覧:`);
+        lines.push(`        * Edges:`);
         lines.push(...edgeLines);
       }
     }
@@ -259,7 +259,7 @@ function generateSummary(graph, sourceText) {
   const remainingKinds = Object.keys(kindGroups).filter(k => kindGroups[k].length > 0);
   for (const kind of remainingKinds) {
     const nodes = kindGroups[kind];
-    lines.push(`## ${kind} (${nodes.length}件)`);
+    lines.push(`## ${kind} (${nodes.length} items)`);
     for (const node of nodes) {
       lines.push(`    - ${node.id}: ${formatTitle(node)}`);
     }
@@ -289,16 +289,16 @@ function generateCliExamples(graphPath, sourcePath, firstNodeId) {
   return [
     "",
     "---",
-    "### グラフ探索コマンド",
+    "### Graph Exploration Commands",
     "",
     "```bash",
-    "# 1ホップ探索（直接接続のみ）",
+    "# 1-hop (direct connections only)",
     "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=1",
     "",
-    "# 2ホップ探索（子・孫を含む）",
+    "# 2-hop (includes children and grandchildren)",
     "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=2",
     "",
-    "# 3ホップ探索（より深い関係性まで）",
+    "# 3-hop (deeper relationships)",
     "node " + SCRIPTS_DIR + "/query.js --graph=" + graphFileName + " --source=" + sourceFileName + " --id=" + nodeId + " --hops=3",
     "```",
   ];
@@ -309,7 +309,7 @@ function main() {
     parsed = parseArguments(process.argv);
   } catch (e) {
     exitWithError(
-      '引数のパースに失敗しました。',
+      'Argument parse failed.',
       e.message,
       'show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]'
     );

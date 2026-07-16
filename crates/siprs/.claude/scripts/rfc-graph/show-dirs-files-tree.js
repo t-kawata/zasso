@@ -24,8 +24,8 @@ const EXIT_FAILURE = 1;
  */
 function exitWithError(message, cause, action) {
   process.stderr.write("[ERROR] " + message + "\n");
-  process.stderr.write("原因: " + cause + "\n");
-  process.stderr.write("対応: " + action + "\n");
+  process.stderr.write("Cause: " + cause + "\n");
+  process.stderr.write("Action: " + action + "\n");
   process.exit(EXIT_FAILURE);
 }
 
@@ -82,9 +82,9 @@ function main() {
   const dirsTreePath = path.resolve(args[0]);
   if (!fs.existsSync(dirsTreePath)) {
     exitWithError(
-      "Dirs-Tree.json が見つかりません: " + dirsTreePath,
-      "指定されたパスにファイルが存在しません。",
-      "正しいパスを指定してください。"
+      "Dirs-Tree.json not found: " + dirsTreePath,
+      "File does not exist at the specified path.",
+      "Specify the correct path."
     );
   }
 
@@ -93,9 +93,9 @@ function main() {
     dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, "utf8"));
   } catch (e) {
     exitWithError(
-      "Dirs-Tree.json のパースに失敗しました: " + e.message,
-      "ファイルが有効なJSON形式であることを確認してください。",
-      "正しい Dirs-Tree.json を指定してください。"
+      "Dirs-Tree.json parse failed: " + e.message,
+      "Verify the file is valid JSON format.",
+      "Specify a correct Dirs-Tree.json file."
     );
   }
 

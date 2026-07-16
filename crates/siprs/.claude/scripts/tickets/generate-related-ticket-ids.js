@@ -22,21 +22,21 @@
 
 /**
  * Per edge type, the label for the direction from own ticket to other ticket.
- * The reverse direction is fixed as "被依存元（依存元）".
+ * The reverse direction is fixed as "Dependency source (dependent)".
  */
 const DIRECTION_LABELS = {
-  depends_on: '依存先',
-  implements: '実装先',
-  constrains: '制約先',
-  precedes: '先行',
-  triggers: 'トリガー先',
-  refines: '詳細化先',
-  references: '参照先',
-  extends: '拡張先',
-  conflicts_with: '競合先',
-  supersedes: '差替え先',
-  validates: '検証先',
-  part_of: '部分（親）',
+  depends_on: 'Dependency',
+  implements: 'Implementation target',
+  constrains: 'Constraint target',
+  precedes: 'Predecessor',
+  triggers: 'Trigger target',
+  refines: 'Refinement target',
+  references: 'Reference target',
+  extends: 'Extension target',
+  conflicts_with: 'Conflict target',
+  supersedes: 'Replacement target',
+  validates: 'Validation target',
+  part_of: 'Part (parent)',
 };
 
 // ============================================================
@@ -47,7 +47,7 @@ const DIRECTION_LABELS = {
  * Generates relatedTicketIds from GRAPH.json edges and the tickets array.
  *
  * Output prose format (example):
- *   [depends_on] P1-2 (依存先: エラー型 CryptoError の定義), [refines] P2-1 (被依存元（依存元）: Session管理)
+ *   [depends_on] P1-2 (Dependency: Error type CryptoError definition), [refines] P2-1 (Dependency source (dependent): Session management)
  *
  * @param {Object[]} tickets — Array of all tickets (each requires id, nodeIds, title)
  * @param {Object[]} graphEdges — GRAPH.json edges array (each requires from, to, type)
@@ -104,7 +104,7 @@ function generateRelatedTicketIds(tickets, graphEdges) {
       // Determine direction label
       const direction = isFrom
         ? (DIRECTION_LABELS[edge.type] || edge.type)
-        : '被依存元（依存元）';
+        : 'Dependency source (dependent)';
 
       // Display ticket ID: uniquely identifiable as "P{phaseId}-{ticketId}"
       const displayId = 'P' + targetInfo.phaseId + '-' + targetInfo.id;
@@ -194,7 +194,7 @@ function main() {
   try {
     graphEdges = JSON.parse(require('fs').readFileSync(graphPath, 'utf8')).edges || [];
   } catch (e) {
-    console.error('[ERROR] GRAPH.json の読み込みに失敗: ' + e.message);
+    console.error('[ERROR] GRAPH.json load failed: ' + e.message);
     process.exit(1);
   }
 
@@ -207,7 +207,7 @@ function main() {
       }
     }
   } catch (e) {
-    console.error('[ERROR] Tickets.json の読み込みに失敗: ' + e.message);
+    console.error('[ERROR] Tickets.json load failed: ' + e.message);
     process.exit(1);
   }
 

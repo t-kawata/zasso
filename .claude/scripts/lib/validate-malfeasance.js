@@ -1,27 +1,27 @@
 /**
- * Malfeasance.json スキーマ検証ユーティリティ
+ * Malfeasance.json schema validation utility
  *
- * JSON Schema draft-07 に準拠したスキーマ定義に対する検証を、
- * 標準 Node.js のみで行う軽量バリデータ。
- * 外部依存（ajv 等）不要。
+ * A lightweight validator for JSON Schema draft-07 definitions,
+ * using only standard Node.js (no external dependencies like ajv).
+ * No external dependencies required.
  *
- * 使用方法:
+ * Usage:
  *   const { validateRecords } = require('../lib/validate-malfeasance');
  *   const result = validateRecords(data);
  *   if (!result.valid) { console.error(result.errors); }
  */
 
-// ISO 8601 日時形式の正規表現（ミリ秒精度対応）
-// 例: 2026-06-21T12:34:56.789Z または 2026-06-21T12:34:56+09:00
+// ISO 8601 datetime regex (with millisecond precision)
+// e.g. 2026-06-21T12:34:56.789Z or 2026-06-21T12:34:56+09:00
 const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
-// 許可されるステータス値
+// Allowed status values
 const ALLOWED_STATUSES = ['open', 'resolved', 'false_positive'];
 
 /**
- * Malfeasance.json 全体を検証する。
+ * Validate the entire Malfeasance.json.
  *
- * @param {any} data - パース済みの JSON データ
+ * @param {any} data - Parsed JSON data
  * @returns {{ valid: boolean, errors: string[] }}
  */
 function validateRecords(data) {
@@ -32,14 +32,14 @@ function validateRecords(data) {
     return { valid: false, errors };
   }
 
-  // version の検証
+  // Validate version
   if (!('version' in data)) {
     errors.push('Missing required field: version');
   } else if (!Number.isInteger(data.version) || data.version < 1) {
     errors.push('version must be an integer >= 1');
   }
 
-  // records の検証
+  // Validate records
   if (!('records' in data)) {
     errors.push('Missing required field: records');
     return { valid: false, errors };
@@ -50,7 +50,7 @@ function validateRecords(data) {
     return { valid: false, errors };
   }
 
-  // ID の重複チェック
+  // Check for duplicate IDs
   const seenIds = new Set();
 
   // eslint-disable-next-line prefer-const
@@ -70,11 +70,11 @@ function validateRecords(data) {
 }
 
 /**
- * 単一の犯罪レコードを検証する。
+ * Validate a single crime record.
  *
- * @param {any} record - 検証対象のレコード
- * @param {number} index - 配列内のインデックス（エラーメッセージ用）
- * @returns {string[]} エラーメッセージの配列
+ * @param {any} record - Record to validate
+ * @param {number} index - Index in the array (for error messaging)
+ * @returns {string[]} Array of error messages
  */
 function validateSingleRecord(record, index) {
   const prefix = `records[${index}]`;
@@ -85,7 +85,7 @@ function validateSingleRecord(record, index) {
     return errors;
   }
 
-  // 必須フィールドのチェック
+  // Check required fields
   const requiredFields = ['id', 'file', 'line', 'description', 'detected_at', 'status'];
   for (const field of requiredFields) {
     if (!(field in record)) {
@@ -93,7 +93,7 @@ function validateSingleRecord(record, index) {
     }
   }
 
-  // 以降は必須フィールドが存在した場合のみ型チェック
+  // Subsequent checks only when required fields exist
   if (!(record.id === undefined)) {
     if (!Number.isInteger(record.id) || record.id < 1) {
       errors.push(`${prefix}.id: Must be an integer >= 1`);
@@ -130,7 +130,7 @@ function validateSingleRecord(record, index) {
     }
   }
 
-  // status=resolved の場合は resolved_at が必須
+  // resolved_at required when status=resolved
   if (record.status === 'resolved' && !record.resolved_at) {
     errors.push(`${prefix}: resolved_at is required when status is "resolved"`);
   }
@@ -157,9 +157,9 @@ function validateSingleRecord(record, index) {
 }
 
 /**
- * スキーマファイルの内容を検証する（スキーマ自身の妥当性チェック）。
+ * Validate the schema file content (schema self-validation).
  *
- * @param {object} schema - パース済みのスキーマ JSON
+ * @param {object} schema - Parsed schema JSON
  * @returns {{ valid: boolean, errors: string[] }}
  */
 function validateSchema(schema) {

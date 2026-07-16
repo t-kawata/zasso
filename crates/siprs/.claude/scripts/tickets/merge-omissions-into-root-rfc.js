@@ -26,15 +26,15 @@ const path = require("path");
  */
 function validateArgs(sourcePath, targetPath) {
   if (!sourcePath || !targetPath) {
-    return { success: false, error: "第1引数(source)と第2引数(target)の両方が必要です" };
+    return { success: false, error: "Both source and target arguments are required" };
   }
   const sourceAbs = path.resolve(sourcePath);
   const targetAbs = path.resolve(targetPath);
   if (!fs.existsSync(sourceAbs)) {
-    return { success: false, error: `ソースファイルが見つかりません: ${sourceAbs}` };
+    return { success: false, error: `Source file not found: ${sourceAbs}` };
   }
   if (!fs.existsSync(targetAbs)) {
-    return { success: false, error: `ターゲットファイルが見つかりません: ${targetAbs}` };
+    return { success: false, error: `Target file not found: ${targetAbs}` };
   }
   const fm = readFrontmatter(sourceAbs);
   if (fm && fm["parent-rfc"]) {
@@ -43,9 +43,9 @@ function validateArgs(sourcePath, targetPath) {
       return {
         success: false,
         error:
-          `parent-rfc がターゲットと一致しません。` +
-          `source の parent-rfc: ${fm["parent-rfc"]}` +
-          ` (解決後: ${parentRfcResolved}), target: ${targetAbs}`,
+          `parent-rfc does not match target. ` +
+          `Source parent-rfc: ${fm["parent-rfc"]}` +
+          ` (resolved: ${parentRfcResolved}), target: ${targetAbs}`,
       };
     }
   }
@@ -104,7 +104,7 @@ function writeFrontmatter(filePath, data) {
 function addMergeHistory(targetPath, sourcePath, resolvedIds, date) {
   const targetAbs = path.resolve(targetPath);
   if (!fs.existsSync(targetAbs)) {
-    return { success: false, error: `ターゲットファイルが見つかりません: ${targetAbs}` };
+    return { success: false, error: `Target file not found: ${targetAbs}` };
   }
   const fm = readFrontmatter(targetAbs) || {};
   const history = fm["merge-history"] || [];
@@ -115,7 +115,7 @@ function addMergeHistory(targetPath, sourcePath, resolvedIds, date) {
   if (alreadyExists) {
     return {
       success: false,
-      error: `重複: ${sourcePath} は既に merge-history に存在します`,
+      error: `Duplicate: ${sourcePath} already exists in merge-history`,
       skipped: true,
     };
   }
@@ -138,7 +138,7 @@ function addMergeHistory(targetPath, sourcePath, resolvedIds, date) {
 function extractSections(filePath) {
   const absPath = path.resolve(filePath);
   if (!fs.existsSync(absPath)) {
-    return { success: false, error: `ファイルが見つかりません: ${absPath}` };
+    return { success: false, error: `File not found: ${absPath}` };
   }
   const content = fs.readFileSync(absPath, "utf8");
   const sections = [];
@@ -334,12 +334,12 @@ function main() {
         console.log(JSON.stringify(sr));
         process.exit(1);
       }
-      console.log("=== 抽出されたセクション ===");
+      console.log("=== Extracted sections ===");
       for (const s of sr.sections) {
         const oid = s.omissionId || "N/A";
         const lines = s.content.split("\n").length;
         console.log(`  ${s.id} ${s.title} [${oid}]`);
-        console.log(`    → ${lines}行`);
+        console.log(`    → ${lines} lines`);
       }
       return;
     }

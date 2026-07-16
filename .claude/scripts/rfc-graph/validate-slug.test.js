@@ -516,15 +516,15 @@ test('non-string slug is reported in errors', () => {
 
 console.log('\n--- Constants ---');
 
-test('MAX_SLUG_LENGTH が 25 である', () => {
+test('MAX_SLUG_LENGTH is 25', () => {
   assert.strictEqual(MAX_SLUG_LENGTH, 25);
 });
 
-test('WARNING_WORD_COUNT が 4 である', () => {
+test('WARNING_WORD_COUNT is 4', () => {
   assert.strictEqual(WARNING_WORD_COUNT, 4);
 });
 
-test('SLUG_FORMAT_PATTERN が lower_snake_case に一致する', () => {
+test('SLUG_FORMAT_PATTERN matches lower_snake_case', () => {
   assert.ok(SLUG_FORMAT_PATTERN.test('config'));
   assert.ok(SLUG_FORMAT_PATTERN.test('db_settings'));
   assert.ok(!SLUG_FORMAT_PATTERN.test('CamelCase'));

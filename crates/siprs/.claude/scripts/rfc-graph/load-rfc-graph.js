@@ -53,7 +53,7 @@ function parseArguments(testArgs) {
   // Required argument: <source-path>
   if (args.length < 1) {
     throw new Error(
-      'ソースファイルのパスを指定してください。\n' +
+      'Provide the source file path.\n' +
       '  Usage: load-rfc-graph.js <source-path>'
     );
   }
@@ -63,7 +63,7 @@ function parseArguments(testArgs) {
   // Check for excess arguments
   if (args.length > 1) {
     throw new Error(
-      '余剰な引数があります。\n' +
+      'Excess arguments provided.\n' +
       '  Usage: load-rfc-graph.js <source-path>'
     );
   }
@@ -113,7 +113,7 @@ function loadGraph(graphPath) {
     raw = fs.readFileSync(graphPath, 'utf8');
   } catch (readError) {
     throw new Error(
-      `グラフファイルの読み込みに失敗しました: ${readError.message}`
+      `Failed to read graph file: ${readError.message}`
     );
   }
 
@@ -122,14 +122,14 @@ function loadGraph(graphPath) {
     graph = JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${parseError.message}`
+      `Failed to parse graph file JSON: ${parseError.message}`
     );
   }
 
   // Minimal structure validation
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error(
-      'グラフデータの構造が不正です。nodes と edges が必要です。'
+      'Invalid graph data structure. nodes and edges are required.'
     );
   }
 
@@ -198,9 +198,9 @@ function generateUsageExamples(graphPath, sourcePath, firstNodeId = 'N0001') {
   const sourceFileName = path.basename(sourcePath);
 
   return [
-    `全ノード一覧: node ${SCRIPTS_DIR}/crud.js list-nodes --graph=${graphFileName}`,
-    `特定ノード取得: node ${SCRIPTS_DIR}/crud.js get-node --graph=${graphFileName} --id=${firstNodeId}`,
-    `${DEFAULT_HOPS}ホップ探索: node ${SCRIPTS_DIR}/query.js --graph=${graphFileName} --source=${sourceFileName} --id=${firstNodeId} --hops=${DEFAULT_HOPS}`,
+    `List all nodes: node ${SCRIPTS_DIR}/crud.js list-nodes --graph=${graphFileName}`,
+    `Get specific node: node ${SCRIPTS_DIR}/crud.js get-node --graph=${graphFileName} --id=${firstNodeId}`,
+    `${DEFAULT_HOPS}hop exploration: node ${SCRIPTS_DIR}/query.js --graph=${graphFileName} --source=${sourceFileName} --id=${firstNodeId} --hops=${DEFAULT_HOPS}`,
   ];
 }
 
@@ -231,13 +231,13 @@ function outputSummary(summary, graphPath, examples) {
     .join(', ');
 
   const lines = [
-    '[グラフ構造サマリー]',
-    `グラフファイル: ${graphFileName}`,
-    `ノード: ${summary.nodeCount}件${kindParts ? ' (' + kindParts + ')' : ''}`,
-    `エッジ: ${summary.edgeCount}件${typeParts ? ' (' + typeParts + ')' : ''}`,
-    `孤立ノード: ${summary.isolatedNodes.length}件`,
+    '[Graph Structure Summary]',
+    `Graph file: ${graphFileName}`,
+    `Nodes: ${summary.nodeCount}${kindParts ? ' (' + kindParts + ')' : ''}`,
+    `Edges: ${summary.edgeCount}${typeParts ? ' (' + typeParts + ')' : ''}`,
+    `Isolated nodes: ${summary.isolatedNodes.length}`,
     '',
-    '[グラフ探索コマンド]',
+    '[Graph Exploration Commands]',
     ...examples,
   ];
 
@@ -253,18 +253,18 @@ function outputSummary(summary, graphPath, examples) {
  */
 function printUsage() {
   console.log(
-    'load-rfc-graph.js — グラフサマリー＋CLI使用例表示\n' +
+    'load-rfc-graph.js — Graph summary + CLI usage examples\n' +
     '\n' +
     'Usage:\n' +
     '  load-rfc-graph.js <source-path>\n' +
     '\n' +
     'Options:\n' +
-    '  <source-path>  グラフファイルの元となったソースファイルのパス\n' +
-    '  --help, -h     このヘルプを表示\n' +
+    '  <source-path>  Path to the source file from which the graph was generated\n' +
+    '  --help, -h     Show this help\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  正常終了（グラフファイルが存在しなくても0）\n' +
-    '  1  引数エラーまたはファイル読み込みエラー\n'
+    '  0  Normal exit (0 even when the graph file does not exist)\n' +
+    '  1  Argument error or file read error\n'
   );
 }
 
@@ -293,9 +293,9 @@ function main() {
     sourcePath = parsed.sourcePath;
   } catch (parseError) {
     process.stderr.write(
-      `[ERROR] 引数のパースに失敗しました。\n` +
-      `原因: ${parseError.message}\n` +
-      `対応: 正しい引数で再実行してください。\n`
+      `[ERROR] Argument parsing failed.\n` +
+      `Cause: ${parseError.message}\n` +
+      `Action: Re-run with correct arguments.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -307,9 +307,9 @@ function main() {
     graph = loadGraph(graphPath);
   } catch (graphError) {
     process.stderr.write(
-      `[ERROR] グラフファイルの読み込みに失敗しました。\n` +
-      `原因: ${graphError.message}\n` +
-      `対応: グラフファイルのパーミッションと内容を確認してください。\n`
+      `[ERROR] Failed to load graph file.\n` +
+      `Cause: ${graphError.message}\n` +
+      `Action: Verify graph file permissions and contents.\n`
     );
     process.exit(EXIT_FAILURE);
   }

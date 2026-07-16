@@ -84,8 +84,8 @@ function parseArguments(argv) {
   }
 
   if (result.help) return result;
-  if (!result.graphPath) throw new Error('--graph=<path> が必要です。');
-  if (!result.sourcePath) throw new Error('--source=<path> が必要です。');
+  if (!result.graphPath) throw new Error('--graph=<path> is required.');
+  if (!result.sourcePath) throw new Error('--source=<path> is required.');
   return result;
 }
 
@@ -172,8 +172,8 @@ function diagnoseBrokenRef(sourceLines, ref) {
   // M0: No lines found at the specified heading level
   if (headingLines.length === 0) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M0, 0, texts, [], [],
-      '指定された見出しレベルが見つかりません。',
-      '見出しレベルが誤っているか、該当セクションが削除された可能性があります。',
+      'Specified heading level not found.',
+      'The heading level is incorrect or the section was deleted.',
       'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
   }
 
@@ -195,8 +195,8 @@ function diagnoseBrokenRef(sourceLines, ref) {
   if (isMutuallyExclusive(texts, headingLines)) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M9, bestScore, texts, lineScores[0],
       lineScores.slice(0, 3),
-      'トークンが複数の見出しに分散しており、1行で全てを満たせません。',
-      'headingRefs の texts が複数のセクションにまたがっています。分割を検討してください。',
+      'Tokens are spread across multiple headings and cannot all be satisfied in one line.',
+      'headingRefs texts span multiple sections. Consider splitting.',
       'crud.js update --graph=<g> --source=<s> --id=<nodeId> --updateHeadingRefs');
   }
 
@@ -205,8 +205,8 @@ function diagnoseBrokenRef(sourceLines, ref) {
   if (bestOtherLevel && bestOtherLevel.score > bestScore) {
     return buildDiagnosisResult(DIAGNOSIS_LABELS.M8, bestScore, texts, lineScores[0],
       lineScores.slice(0, 3),
-      `別の見出しレベル (h${bestOtherLevel.level}) の方が高スコア (${bestOtherLevel.score}%) です。`,
-      `見出しレベルが誤っています。h${bestOtherLevel.level} が正しい可能性があります。`,
+      `Another heading level (h${bestOtherLevel.level}) has a higher score (${bestOtherLevel.score}%).`,
+      `Heading level is incorrect. h${bestOtherLevel.level} may be correct.`,
       `crud.js update --graph=<g> --source=<s> --id=<nodeId> --heading=${bestOtherLevel.level}`);
   }
 
@@ -406,27 +406,27 @@ function buildDiagnosisResult(diagnosis, score, texts, bestLine, candidateLines,
 function generateReason(diagnosis, score, texts, bestLine) {
   switch (diagnosis) {
     case DIAGNOSIS_LABELS.M0:
-      return `指定見出しレベル h${bestLine ? '?' : '?'} の行がソース内に存在しません。`;
+      return `Specified heading level h${bestLine ? '?' : '?'} has no matching lines in the source.`;
     case DIAGNOSIS_LABELS.M1:
-      return `トークン ${texts.length}件のうち 0件が一致しました (${score}%)。`;
+      return `0 of ${texts.length} tokens matched (${score}%).`;
     case DIAGNOSIS_LABELS.M2:
-      return `トークン ${texts.length}件のうち 1件のみ一致しました (${score}%)。`;
+      return `Only 1 of ${texts.length} tokens matched (${score}%).`;
     case DIAGNOSIS_LABELS.M3:
-      return `トークンの半数未満が一致しました (${score}%)。`;
+      return `Less than half of tokens matched (${score}%).`;
     case DIAGNOSIS_LABELS.M4:
-      return `過半数のトークンが一致しましたが、完全一致には至りません (${score}%)。`;
+      return `Majority of tokens matched but not all (${score}%).`;
     case DIAGNOSIS_LABELS.M5:
-      return `ほぼ全てのトークンが一致しましたが、1トークン不足しています (${score}%)。`;
+      return `Almost all tokens matched but one is missing (${score}%).`;
     case DIAGNOSIS_LABELS.M6:
-      return `全トークンが一致する行が複数存在するため、一意に特定できません。`;
+      return `Multiple lines match all tokens; cannot uniquely identify.`;
     case DIAGNOSIS_LABELS.M7:
-      return `全トークンが一致し一意の行が特定できるにも関わらず解決失敗しました（不審）。`;
+      return `All tokens matched a unique line but resolution failed (suspicious).`;
     case DIAGNOSIS_LABELS.M8:
-      return `指定レベルより別の見出しレベルの方が高スコアです (${score}%)。`;
+      return `Another heading level scores higher than the specified level (${score}%).`;
     case DIAGNOSIS_LABELS.M9:
-      return `トークンが複数の見出し行に分散しており共存不可能です (${score}%)。`;
+      return `Tokens are spread across multiple heading lines and cannot coexist (${score}%).`;
     default:
-      return `診断不能 (スコア ${score}%)。`;
+      return `Unable to diagnose (score ${score}%).`;
   }
 }
 
@@ -440,17 +440,17 @@ function generateReason(diagnosis, score, texts, bestLine) {
  */
 function generateSummary(diagnosis, texts, score) {
   switch (diagnosis) {
-    case DIAGNOSIS_LABELS.M0: return '見出しレベルがソースに存在しません。';
-    case DIAGNOSIS_LABELS.M1: return 'どのトークンもマッチしません。';
-    case DIAGNOSIS_LABELS.M2: return '1トークンのみ一致しています。';
-    case DIAGNOSIS_LABELS.M3: return '半数未満のトークンが一致しています。';
-    case DIAGNOSIS_LABELS.M4: return '過半数のトークンが一致しています。';
-    case DIAGNOSIS_LABELS.M5: return 'ほぼ一致しています（1トークン不足）。';
-    case DIAGNOSIS_LABELS.M6: return '全トークン一致する候補が複数存在します。';
-    case DIAGNOSIS_LABELS.M7: return '不審な失敗（全トークン一致かつ一意）。';
-    case DIAGNOSIS_LABELS.M8: return '別の見出しレベルの方が適切です。';
-    case DIAGNOSIS_LABELS.M9: return 'トークンが共存不可能です。';
-    default: return `診断不能 (${score}%)。`;
+    case DIAGNOSIS_LABELS.M0: return 'Heading level does not exist in source.';
+    case DIAGNOSIS_LABELS.M1: return 'No tokens match.';
+    case DIAGNOSIS_LABELS.M2: return 'Only one token matches.';
+    case DIAGNOSIS_LABELS.M3: return 'Less than half of tokens match.';
+    case DIAGNOSIS_LABELS.M4: return 'Majority of tokens match.';
+    case DIAGNOSIS_LABELS.M5: return 'Almost matching (one token short).';
+    case DIAGNOSIS_LABELS.M6: return 'Multiple candidates match all tokens.';
+    case DIAGNOSIS_LABELS.M7: return 'Suspicious failure (all tokens matched uniquely).';
+    case DIAGNOSIS_LABELS.M8: return 'Another heading level is more appropriate.';
+    case DIAGNOSIS_LABELS.M9: return 'Tokens cannot coexist.';
+    default: return `Unable to diagnose (${score}%).`;
   }
 }
 
@@ -465,27 +465,27 @@ function generateSummary(diagnosis, texts, score) {
 function generateSuggestion(diagnosis, texts, score) {
   switch (diagnosis) {
     case DIAGNOSIS_LABELS.M0:
-      return 'headingRefs の heading 値が誤っているか、ソースの該当セクションが削除されました。';
+      return 'The heading value in headingRefs is incorrect or the source section was deleted.';
     case DIAGNOSIS_LABELS.M1:
-      return 'texts が全く異なります。ソースの見出しが改名された可能性があります。';
+      return 'texts are completely different. The source heading may have been renamed.';
     case DIAGNOSIS_LABELS.M2:
-      return 'texts の大部分が一致しません。ソースの見出しが変更された可能性があります。';
+      return 'Most texts do not match. The source heading may have changed.';
     case DIAGNOSIS_LABELS.M3:
-      return 'texts の多くが一致しません。トークンの見直しが必要です。';
+      return 'Many texts do not match. Tokens need review.';
     case DIAGNOSIS_LABELS.M4:
-      return '過半数は一致していますが、一部のトークンが見つかりません。';
+      return 'Majority matches but some tokens not found.';
     case DIAGNOSIS_LABELS.M5:
-      return '細かい表記揺れの可能性があります（句読点・空白等）。';
+      return 'Possible minor notation inconsistencies (punctuation, whitespace, etc.).';
     case DIAGNOSIS_LABELS.M6:
-      return '全トークン一致する候補が複数あります。texts をより具体的にしてください。';
+      return 'Multiple candidates match all tokens. Make texts more specific.';
     case DIAGNOSIS_LABELS.M7:
-      return 'ロジック上のバグの可能性があります。手動で確認してください。';
+      return 'Possible logic bug. Verify manually.';
     case DIAGNOSIS_LABELS.M8:
-      return '指定された heading レベルが誤っています。別レベルの方が適切です。';
+      return 'Specified heading level is incorrect. Another level is more appropriate.';
     case DIAGNOSIS_LABELS.M9:
-      return '1つの headingRef に複数セクションのトークンが混在しています。分割してください。';
+      return 'A single headingRef contains tokens from multiple sections. Split them.';
     default:
-      return '手動で原因を確認してください。';
+      return 'Check the cause manually.';
   }
 }
 
@@ -500,7 +500,7 @@ function generateRemedyCommand(diagnosis) {
   switch (diagnosis) {
     case DIAGNOSIS_LABELS.M0:
     case DIAGNOSIS_LABELS.M8:
-      return `${base} --heading=<正しいレベル>`;
+      return `${base} --heading=<correct_level>`;
     case DIAGNOSIS_LABELS.M1:
     case DIAGNOSIS_LABELS.M2:
     case DIAGNOSIS_LABELS.M3:
@@ -508,9 +508,9 @@ function generateRemedyCommand(diagnosis) {
     case DIAGNOSIS_LABELS.M5:
       return `${base} --updateHeadingRefs`;
     case DIAGNOSIS_LABELS.M6:
-      return `${base} --updateHeadingRefs （texts をより具体的に）`;
+      return `${base} --updateHeadingRefs (make texts more specific)`;
     case DIAGNOSIS_LABELS.M7:
-      return `${base} --updateHeadingRefs （手動確認推奨）`;
+      return `${base} --updateHeadingRefs (manual verification recommended)`;
     case DIAGNOSIS_LABELS.M9:
       return `${base} --splitHeadingRefs`;
     default:
@@ -529,7 +529,7 @@ function generateRemedyCommand(diagnosis) {
  * @returns {string}
  */
 function formatSuccessMessage(totalRefs) {
-  return `全 ${totalRefs} 件の headingRefs が正常解決しました。`;
+  return `All ${totalRefs} headingRefs resolved successfully.`;
 }
 
 /**
@@ -542,32 +542,32 @@ function formatErrorMessage(broken) {
   const display = broken.slice(0, MAX_DETAIL_ENTRIES);
   const remaining = broken.length - MAX_DETAIL_ENTRIES;
 
-  const lines = [`解決不能な headingRefs が ${broken.length} 件あります。`];
+  const lines = [`${broken.length} headingRefs are unresolvable.`];
 
   for (const entry of display) {
     lines.push('');
     lines.push(`[${entry.diagnosis}] ${entry.nodeId} / ${entry.refId}`);
-    lines.push(`  ノード: ${entry.nodeTitle}`);
-    lines.push(`  見出しレベル: h${entry.heading}`);
-    lines.push(`  トークン: [${entry.texts.join(', ')}]`);
-    lines.push(`  スコア: ${entry.score}%`);
-    lines.push(`  診断: ${entry.summary}`);
+    lines.push(`  Node: ${entry.nodeTitle}`);
+    lines.push(`  Heading level: h${entry.heading}`);
+    lines.push(`  Tokens: [${entry.texts.join(', ')}]`);
+    lines.push(`  Score: ${entry.score}%`);
+    lines.push(`  Diagnosis: ${entry.summary}`);
     if (entry.resolutionLine) {
-      lines.push(`  解決行 L${entry.resolutionLine}: ${entry.resolvedText}`);
+      lines.push(`  Resolved line L${entry.resolutionLine}: ${entry.resolvedText}`);
       const matched = entry.texts.filter(t => entry.resolvedText?.includes(t));
       const unmatched = entry.texts.filter(t => !entry.resolvedText?.includes(t));
       if (unmatched.length > 0) {
-        lines.push(`  一致トークン: [${matched.join(', ')}]`);
-        lines.push(`  不一致トークン: [${unmatched.join(', ')}]`);
+        lines.push(`  Matched tokens: [${matched.join(', ')}]`);
+        lines.push(`  Unmatched tokens: [${unmatched.join(', ')}]`);
       }
     }
-    lines.push(`  示唆: ${entry.suggestion}`);
-    lines.push(`  修正: ${entry.remedyCommand}`);
+    lines.push(`  Suggestion: ${entry.suggestion}`);
+    lines.push(`  Fix: ${entry.remedyCommand}`);
   }
 
   if (remaining > 0) {
     lines.push('');
-    lines.push(`その他 ${remaining} 件（詳細は _fix_graph_hints.json を参照）`);
+    lines.push(`${remaining} more (see _fix_graph_hints.json for details)`);
   }
 
   return lines.join('\n');
@@ -612,24 +612,24 @@ function main() {
   try {
     parsed = parseArguments(process.argv);
   } catch (e) {
-    process.stderr.write(`エラー: ${e.message}\n`);
+    process.stderr.write(`Error: ${e.message}\n`);
     process.exit(1);
   }
 
   if (parsed.help) {
-    process.stdout.write(`test-query-all.js — 全 headingRefs 一括解決検証
+    process.stdout.write(`test-query-all.js — Batch resolution verification for all headingRefs
 
 Usage:
   test-query-all.js --graph=<path> --source=<path>
 
 Options:
-  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス
-  --source=<path>  ソースファイルのパス
-  --help, -h       このヘルプを表示
+  --graph=<path>   Path to the graph file (graph.schema.json compliant)
+  --source=<path>  Path to the source file
+  --help, -h       Show this help
 
 Exit codes:
-  0  全 headingRefs が正常解決
-  1  1件以上の headingRefs が解決不能
+  0  All headingRefs resolved successfully
+  1  One or more headingRefs could not be resolved
 `);
     process.exit(0);
   }
@@ -640,7 +640,7 @@ Exit codes:
     graph = loaded.graph;
     sourceLines = loaded.sourceLines;
   } catch (e) {
-    process.stderr.write(`ファイル読み込みエラー: ${e.message}\n`);
+    process.stderr.write(`File read error: ${e.message}\n`);
     process.exit(1);
   }
 

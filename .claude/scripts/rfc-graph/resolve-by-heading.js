@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 function exitWithError(summary, cause, action) {
-  process.stderr.write(`[ERROR] ${summary}\n原因: ${cause}\n対応: ${action}\n`);
+  process.stderr.write(`[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`);
   process.exit(1);
 }
 
@@ -105,7 +105,7 @@ function resolveAllHeadings(graph, sourcePath) {
       if (resolved) {
         results.push({ refId: ref.refId, nodeId: node.id, line: resolved.line, confidence: resolved.confidence });
       } else {
-        results.push({ refId: ref.refId, nodeId: node.id, error: '見出しの特定に失敗しました' });
+        results.push({ refId: ref.refId, nodeId: node.id, error: 'Failed to identify heading' });
       }
     }
   }
@@ -123,7 +123,7 @@ function parseArguments(argv) {
     else if (arg.startsWith('--texts=')) result.texts = arg.slice('--texts='.length).split(',');
   }
 
-  if (!result.sourcePath) throw new Error('--source=<path> が必要です。');
+  if (!result.sourcePath) throw new Error('--source=<path> is required.');
   return result;
 }
 
@@ -132,7 +132,7 @@ function main() {
   try {
     parsed = parseArguments(process.argv);
   } catch (e) {
-    exitWithError('引数のパースに失敗しました。', e.message, 'resolve-by-heading.js --source=<path> --heading=<N> --texts=t1,t2 または --graph=<path> --source=<path>');
+    exitWithError('Argument parse failed.', e.message, 'resolve-by-heading.js --source=<path> --heading=<N> --texts=t1,t2 or --graph=<path> --source=<path>');
   }
 
   const sourceLines = fs.readFileSync(parsed.sourcePath, 'utf8').split('\n');
@@ -148,10 +148,10 @@ function main() {
     if (result) {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      exitWithError('見出しの特定に失敗しました。', `heading=${parsed.heading}, texts=[${parsed.texts.join(', ')}]`, 'ソースファイルの該当見出しが削除または改名された可能性があります。');
+      exitWithError('Failed to identify heading.', `heading=${parsed.heading}, texts=[${parsed.texts.join(', ')}]`, 'The corresponding heading in the source file may have been deleted or renamed.');
     }
   } else {
-    exitWithError('引数が不足しています。', '--graph または --heading+--texts のいずれかが必要です。', 'resolve-by-heading.js --source=<path> --heading=<N> --texts=t1,t2');
+    exitWithError('Insufficient arguments.', 'Either --graph or --heading+--texts is required.', 'resolve-by-heading.js --source=<path> --heading=<N> --texts=t1,t2');
   }
 }
 

@@ -108,7 +108,7 @@ function writeFieldsToSpec(specPath, ticket) {
     try {
       appendToSpec(specPath, section);
     } catch (e) {
-      console.error(`Warning: ${f.heading} の書き込みに失敗: ${e.message}`);
+      console.error(`Warning: writing ${f.heading} failed: ${e.message}`);
     }
   }
 }
@@ -122,7 +122,7 @@ function main() {
   }
 
   if (!fs.existsSync(ticketsPath)) {
-    console.error(`Tickets.json が見つかりません: ${ticketsPath}`);
+    console.error(`Tickets.json not found: ${ticketsPath}`);
     process.exit(EXIT_FAILURE);
   }
 
@@ -131,20 +131,20 @@ function main() {
   const ticket = findTicket(tickets, parsed);
 
   if (!ticket) {
-    console.error(`チケット ${ticketKey} が見つかりません`);
+    console.error(`Ticket ${ticketKey} not found`);
     process.exit(EXIT_FAILURE);
   }
 
   // Resolve spec file path from specPath
   if (!ticket.specPath) {
-    console.error(`チケット ${ticketKey} に specPath（spec ファイルのパス）がありません`);
+    console.error(`Ticket ${ticketKey} has no specPath (spec file path)`);
     process.exit(EXIT_FAILURE);
   }
   const ticketsDir = path.dirname(ticketsPath);
   const specPath = path.resolve(ticketsDir, ticket.specPath);
 
   if (!fs.existsSync(specPath)) {
-    console.error(`spec ファイルが見つかりません: ${specPath}`);
+    console.error(`spec file not found: ${specPath}`);
     process.exit(EXIT_FAILURE);
   }
 

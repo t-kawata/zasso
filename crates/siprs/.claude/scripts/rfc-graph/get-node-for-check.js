@@ -22,10 +22,10 @@ const QUALITY_DIR = path.resolve(process.cwd(), "_quality");
 
 /** Check items template */
 const CHECK_ITEMS = `
-# 点検項目
-1. 他のノードとの関係性が設計文書の記述を正しく反映しているか
-2. 各ノードの内容が設計文書の該当箇所を過不足なくカバーしているか
-3. /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか
+# Check Items
+1. Whether relationships with other nodes correctly reflect the design document description
+2. Whether each node's content covers the corresponding section of the design document completely
+3. Whether there is any missing information that /formulate-tickets and /formulate-tickets-for-next need when decomposing tickets from this graph
 `;
 
 /**
@@ -38,8 +38,8 @@ const CHECK_ITEMS = `
 function printError(message, cause, action) {
   process.stderr.write(
     `[ERROR] ${message}\n` +
-    `原因: ${cause}\n` +
-    `対応: ${action}\n`
+    `Cause: ${cause}\n` +
+    `Action: ${action}\n`
   );
   process.exit(1);
 }
@@ -56,9 +56,9 @@ function main() {
 
   if (args.length === 0) {
     printError(
-      "ノードIDが指定されていません。",
-      "引数なしで実行されました。",
-      "get-node-for-check.js N0001 のようにノードIDを指定してください。"
+      "Node ID not specified.",
+      "Executed without arguments.",
+      "Specify a node ID like: get-node-for-check.js N0001"
     );
   }
 
@@ -67,9 +67,9 @@ function main() {
   // Validate node ID format (Nxxxx)
   if (!/^N[0-9]{4}$/.test(nodeId)) {
     printError(
-      `ノードIDの形式が不正です: ${nodeId}`,
-      `Nxxxx 形式（例: N0001）である必要があります。`,
-      "正しいノードIDを指定してください。"
+      `Invalid node ID format: ${nodeId}`,
+      "Must follow Nxxxx format (e.g. N0001).",
+      "Specify a valid node ID."
     );
   }
 
@@ -77,9 +77,9 @@ function main() {
 
   if (!fs.existsSync(filePath)) {
     printError(
-      `品質点検ファイルが見つかりません: ${filePath}`,
-      `ノードID ${nodeId} に対応する _quality/${nodeId}.md が存在しません。`,
-      "先に query-all-nodes.sh を実行して _quality/ ディレクトリを生成してください。"
+      `Quality check file not found: ${filePath}`,
+      `The file _quality/${nodeId}.md for node ID ${nodeId} does not exist.`,
+      "Run query-all-nodes.sh first to generate the _quality/ directory."
     );
   }
 

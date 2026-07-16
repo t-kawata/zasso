@@ -1,8 +1,8 @@
 /**
- * チケットシステム共通ユーティリティ
+ * Ticket system common utilities
  *
- * すべての ticket スクリプトから利用される共通処理を提供する。
- * ファイル操作、frontmatter パース、slug 生成、status 遷移検証等。
+ * Provides common processing shared across all ticket scripts.
+ * File operations, frontmatter parsing, slug generation, status transition validation, etc.
  */
 
 const fs = require("fs");
@@ -16,9 +16,9 @@ const CFG = loadConfig();
 // ============================================================
 
 /**
- * ticket_id が正の整数か検証する。
- * @param {*} value - 検証する値
- * @returns {number|null} 有効な場合は数値、無効な場合は null
+ * Validate that ticket_id is a positive integer.
+ * @param {*} value - Value to validate
+ * @returns {number|null} Numeric if valid, null if invalid
  */
 function validateTicketId(value) {
   const num = Number(value);
@@ -27,18 +27,18 @@ function validateTicketId(value) {
 }
 
 /**
- * ticket_id をゼロ埋め文字列にフォーマットする。
- * @param {number} id - チケットID
- * @returns {string} "0042" 形式
+ * Format ticket_id as a zero-padded string.
+ * @param {number} id - Ticket ID
+ * @returns {string} Formatted like "0042"
  */
 function formatTicketId(id) {
   return String(id).padStart(CFG.idPadding, "0");
 }
 
 /**
- * specs ディレクトリから次に使える空き ticket_id を採番する。
- * 既存の最大値 + 1 を返す。1件もない場合は 1 を返す。
- * @param {string} specsDir - specs ディレクトリの絶対パス
+ * Find the next available ticket_id from the specs directory.
+ * Returns max existing + 1, or 1 if none exist.
+ * @param {string} specsDir - Absolute path to specs directory
  * @returns {number}
  */
 function findNextTicketId(specsDir) {
@@ -60,8 +60,8 @@ function findNextTicketId(specsDir) {
 // ============================================================
 
 /**
- * タイトルから slug を生成する（kebab-case）。
- * @param {string} title - チケットタイトル
+ * Generate a slug (kebab-case) from a title.
+ * @param {string} title - Ticket title
  * @returns {string}
  */
 function generateSlug(title) {
@@ -76,10 +76,10 @@ function generateSlug(title) {
 }
 
 /**
- * 既存の slug 一覧と重複しない slug を生成する。
- * 重複時は "-2", "-3" のサフィックスを付加する。
- * @param {string} slug - 基本 slug
- * @param {string[]} existingSlugs - 既存の slug 一覧
+ * Generate a unique slug that does not conflict with existing slugs.
+ * Appends "-2", "-3" suffixes on collision.
+ * @param {string} slug - Base slug
+ * @param {string[]} existingSlugs - List of existing slugs
  * @returns {string}
  */
 function makeUniqueSlug(slug, existingSlugs) {
@@ -92,7 +92,7 @@ function makeUniqueSlug(slug, existingSlugs) {
 }
 
 /**
- * specs ディレクトリ内の全 slug を取得する。
+ * Get all slugs from the specs directory.
  * @param {string} specsDir
  * @returns {string[]}
  */
@@ -113,10 +113,10 @@ function collectSlugs(specsDir) {
 // ============================================================
 
 /**
- * ticket_id に対応する spec ファイルの絶対パスを解決する。
- * @param {string} specsDir - specs ディレクトリの絶対パス
+ * Resolve the absolute path of a spec file for the given ticket_id.
+ * @param {string} specsDir - Absolute path to specs directory
  * @param {number} ticketId
- * @param {string} [slug] - 未作成時に使用する slug
+ * @param {string} [slug] - Slug to use if not yet created
  * @returns {{ path: string, exists: boolean }}
  */
 function resolveSpecPath(specsDir, ticketId, slug) {
@@ -133,22 +133,22 @@ function resolveSpecPath(specsDir, ticketId, slug) {
 }
 
 /**
- * 新しい命名規則で spec ファイルの絶対パスを解決する。
+ * Resolve the absolute path of a spec file using the new naming convention.
  *
- * すべての経路（create-spec.js / ensure-ticket.js / show-ticket-context.js /
+ * All paths (create-spec.js / ensure-ticket.js / show-ticket-context.js /
  * dump-node-context-to-spec.js / dump-ticket-graph-commands.js / make-ticket.md）
- * でこの関数を使用し、{ticketsDir}/specs/{ticketKey}.md に統一する。
+ * use this function, unified to {ticketsDir}/specs/{ticketKey}.md.
  *
- * @param {string} ticketsDir - Tickets.json のディレクトリ（絶対パス）
- * @param {string} ticketKey - チケットキー（例: "P0-1", "PX-5"）
- * @returns {string} spec ファイルの絶対パス
+ * @param {string} ticketsDir - Tickets.json directory (absolute path)
+ * @param {string} ticketKey - Ticket key (e.g. "P0-1", "PX-5")
+ * @returns {string} Absolute path to spec file
  */
 function resolveTicketSpecPath(ticketsDir, ticketKey) {
   return path.resolve(ticketsDir, 'specs', ticketKey + '.md');
 }
 
 /**
- * 指定された ticket_id について全関連パスを解決する。
+ * Resolve all related paths for the given ticket_id.
  * @param {number} ticketId
  * @param {string} [slug]
  * @returns {{ specPath: string, contextDir: string, draftPath: string, specExists: boolean }}
@@ -180,8 +180,8 @@ function resolveAllPaths(ticketId, slug) {
 // ============================================================
 
 /**
- * Markdown 本文から YAML frontmatter を抽出する。
- * @param {string} content - ファイル全文
+ * Extract YAML frontmatter from Markdown body.
+ * @param {string} content - Full file content
  * @returns {{ attrs: object|null, body: string }}
  */
 function parseFrontmatter(content) {
@@ -207,7 +207,7 @@ function parseFrontmatter(content) {
 }
 
 /**
- * frontmatter オブジェクトを YAML 文字列に変換する。
+ * Convert a frontmatter object to a YAML string.
  * @param {object} data
  * @returns {string}
  */
@@ -218,7 +218,7 @@ function stringifyFrontmatter(data) {
 }
 
 /**
- * ファイルから frontmatter を読み取る。
+ * Read frontmatter from a file.
  * @param {string} filePath
  * @returns {{ attrs: object|null, body: string }}
  */
@@ -229,7 +229,7 @@ function readFrontmatterFromFile(filePath) {
 }
 
 /**
- * ファイルの全 frontmatter 属性を上書き保存する。
+ * Overwrite-save all frontmatter attributes of a file.
  * @param {string} filePath
  * @param {object} newAttrs
  */
@@ -245,7 +245,7 @@ function writeFrontmatter(filePath, newAttrs) {
 }
 
 /**
- * 特定の frontmatter フィールドを読み取る。
+ * Read a specific frontmatter field.
  * @param {string} filePath
  * @param {string} field
  * @returns {*|null}
@@ -256,7 +256,7 @@ function readField(filePath, field) {
 }
 
 /**
- * 特定の frontmatter フィールドを更新する（他のフィールドは維持）。
+ * Update a specific frontmatter field (preserves others).
  * @param {string} filePath
  * @param {string} field
  * @param {*} value
@@ -269,7 +269,7 @@ function writeField(filePath, field, value) {
 }
 
 /**
- * ファイルから複数の frontmatter フィールドを一括更新する。
+ * Batch-update multiple frontmatter fields in a file.
  * @param {string} filePath
  * @param {object} updates
  */
@@ -285,7 +285,7 @@ function updateFrontmatterFields(filePath, updates) {
 // ============================================================
 
 /**
- * spec ファイルを frontmatter と本文に分割して読み込む。
+ * Read a spec file split into frontmatter and body.
  * @param {string} filePath
  * @returns {{ frontmatter: object|null, body: string, fullContent: string }}
  */
@@ -298,7 +298,7 @@ function loadSpec(filePath) {
 }
 
 /**
- * spec ファイルを frontmatter + body の形式で保存する。
+ * Save a spec file in frontmatter + body format.
  * @param {string} filePath
  * @param {object} frontmatter
  * @param {string} body
@@ -314,7 +314,7 @@ function saveSpecFrontmatter(filePath, frontmatter, body) {
 // ============================================================
 
 /**
- * queue.md の 1行をパースする。
+ * Parse one line of queue.md.
  * @param {string} line
  * @returns {{ checked: boolean, ticketId: number|null, title: string|null, specPath: string|null }|null}
  */
@@ -338,7 +338,7 @@ function parseQueueLine(line) {
 }
 
 /**
- * queue の 1行を生成する。
+ * Generate one line of queue entry.
  * @param {number} ticketId
  * @param {string} title
  * @param {string} specPath
@@ -363,7 +363,7 @@ function generateQueueLine(
 }
 
 /**
- * queue.md ファイルをパースする。
+ * Parse the queue.md file.
  * @param {string} queuePath
  * @returns {{ entries: Array, headerLines: string[] }}
  */
@@ -385,7 +385,7 @@ function parseQueueFile(queuePath) {
 }
 
 /**
- * queue に新しいエントリを追加する。
+ * Add a new entry to the queue.
  * @param {string} queuePath
  * @param {number} ticketId
  * @param {string} title
@@ -409,7 +409,7 @@ function addToQueue(queuePath, ticketId, title, specPath) {
 }
 
 /**
- * queue 内のエントリを更新する。
+ * Update an entry in the queue.
  * @param {string} queuePath
  * @param {number} ticketId
  * @param {{ title?: string, specPath?: string, checked?: boolean }} updates
@@ -436,7 +436,7 @@ function updateQueueEntry(queuePath, ticketId, updates) {
 }
 
 /**
- * queue からエントリを削除する。
+ * Remove an entry from the queue.
  * @param {string} queuePath
  * @param {number} ticketId
  */
@@ -460,7 +460,7 @@ function removeFromQueue(queuePath, ticketId) {
 }
 
 /**
- * queue から完了から14日以上経過したエントリを archive に移動する。
+ * Move entries completed 14+ days ago from queue to archive.
  * @param {string} queuePath
  * @param {string} archivePath
  * @param {number} archivalDays
@@ -526,7 +526,7 @@ function archiveExpiredEntries(queuePath, archivePath, archivalDays) {
 // ============================================================
 
 /**
- * status 値が許容済み一覧に含まれるか検証する。
+ * Check if a status value is in the allowed list.
  * @param {string} status
  * @returns {boolean}
  */
@@ -535,7 +535,7 @@ function validateStatus(status) {
 }
 
 /**
- * status 遷移がルールに従っているか検証する。
+ * Check if a status transition follows the rules.
  * @param {string} from
  * @param {string} to
  * @returns {boolean}
@@ -547,7 +547,7 @@ function validateTransition(from, to) {
 }
 
 /**
- * 指定 status から遷移可能な status 一覧を返す。
+ * Return the list of statuses reachable from a given status.
  * @param {string} from
  * @returns {string[]}
  */
@@ -560,7 +560,7 @@ function getAllowedTransitions(from) {
 // ============================================================
 
 /**
- * Date オブジェクトを "YYYY-MM-DD" 形式にフォーマットする。
+ * Format a Date object as "YYYY-MM-DD".
  * @param {Date} [date=new Date()]
  * @returns {string}
  */
@@ -573,7 +573,7 @@ function formatDate(date) {
 }
 
 /**
- * 本日の日付文字列を "YYYY-MM-DD" 形式で返す。
+ * Return today's date as "YYYY-MM-DD".
  * @returns {string}
  */
 function today() {
@@ -585,7 +585,7 @@ function today() {
 // ============================================================
 
 /**
- * spec ファイルのテンプレート本文を生成する。
+ * Generate the template body for a spec file.
  * @param {number} ticketId
  * @param {string} title
  * @returns {string}
@@ -688,7 +688,7 @@ function generateSpecBody(ticketId, title, slug) {
 }
 
 /**
- * 新規 spec ファイルをテンプレートから生成する。
+ * Generate a new spec file from a template.
  * @param {string} filePath
  * @param {number} ticketId
  * @param {string} title

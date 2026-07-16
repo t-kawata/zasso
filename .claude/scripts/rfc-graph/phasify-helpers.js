@@ -180,7 +180,7 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
       success: false,
       order: [],
       cycle: [...inCycle],
-      error: '循環依存を検出しました: [' + [...inCycle].join(', ') + ']',
+      error: 'Circular dependency detected: [' + [...inCycle].join(', ') + ']',
     };
   }
 

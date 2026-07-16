@@ -44,7 +44,7 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 /** Top-level heading for design context */
-const SECTION_HEADING = '### 設計コンテキスト';
+const SECTION_HEADING = '### Design Context';
 
 /** Edge type priority (implementation impact order) */
 const EDGE_PRIORITY = [
@@ -90,7 +90,7 @@ function parseArguments(testArgs) {
   // At least 3 arguments required (--tickets, --graph, --dirs-tree)
   if (args.length < 3) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: dump-node-context-to-spec.js --tickets=<path> --graph=<path> --dirs-tree=<path> --ticket-key=<key>'
     );
   }
@@ -113,16 +113,16 @@ function parseArguments(testArgs) {
   }
 
   if (!ticketsPath) {
-    throw new Error('--tickets=<path> が指定されていません。');
+    throw new Error('--tickets=<path> not specified.');
   }
   if (!graphPath) {
-    throw new Error('--graph=<path> が指定されていません。');
+    throw new Error('--graph=<path> not specified.');
   }
   if (!dirsTreePath) {
-    throw new Error('--dirs-tree=<path> が指定されていません。');
+    throw new Error('--dirs-tree=<path> not specified.');
   }
   if (ticketKeys.length === 0) {
-    throw new Error('--ticket-key=<key> が1つも指定されていません。');
+    throw new Error('--ticket-key=<key> not specified (at least one required).');
   }
 
   return { ticketsPath, graphPath, dirsTreePath, ticketKeys };
@@ -141,7 +141,7 @@ function parseArguments(testArgs) {
  */
 function loadJson(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`ファイルが見つかりません: ${filePath}`);
+    throw new Error(`File not found: ${filePath}`);
   }
   const raw = fs.readFileSync(filePath, 'utf8');
   return JSON.parse(raw);
@@ -324,12 +324,12 @@ function formatNodeDetailsBlock(nodes, ticketTitle) {
   }
 
   const lines = [
-    `#### 設計コンテキスト: ノード詳細`,
+    `#### Design Context: Node Details`,
     ``,
-    `チケット「${ticketTitle}」に統合されたグラフノード（${nodes.length}件）:`,
+    `Graph nodes integrated in ticket "${ticketTitle}" (${nodes.length} total):`,
     ``,
-    `| ID | kind | language | slug | title | 要約 |`,
-    `|----|------|----------|------|-------|------|`,
+    `| ID | kind | language | slug | title | summary |`,
+    `|----|------|----------|------|-------|---------|`,
   ];
 
   for (const node of nodes) {
@@ -337,9 +337,9 @@ function formatNodeDetailsBlock(nodes, ticketTitle) {
     lines.push(`| ${node.id} | ${node.kind || '-'} | ${node.language || '-'} | ${node.slug || '-'} | ${node.title || '-'} | ${summary} |`);
   }
 
-  lines.push('', '##### headingRefs（RFC参照位置）', '');
-  lines.push(`| ID | 見出しレベル | 見出しテキスト |`);
-  lines.push(`|----|-------------|---------------|`);
+  lines.push('', '##### headingRefs (RFC reference positions)', '');
+  lines.push(`| ID | heading level | heading text |`);
+  lines.push(`|----|---------------|--------------|`);
 
   for (const node of nodes) {
     if (Array.isArray(node.headingRefs)) {
@@ -376,9 +376,9 @@ function formatEdgeRelationsBlock(edges, nodes) {
   }
 
   const lines = [
-    `#### 設計コンテキスト: ノード間関係性（エッジ）`,
+    `#### Design Context: Node Relationships (Edges)`,
     ``,
-    `凡例: ${IN_TICKET_MARK} = 自チケット内ノード、${OUT_TICKET_MARK} = 他チケット/フェーズのノード`,
+    `Legend: ${IN_TICKET_MARK} = node in this ticket, ${OUT_TICKET_MARK} = node in another ticket/phase`,
     ``,
   ];
 
@@ -417,14 +417,14 @@ function formatEdgeRelationsBlock(edges, nodes) {
 function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
   const nodeIdToPath = buildNodeIdToPathMap(dirsTree);
   const lines = [
-    `#### 設計コンテキスト: 実装ファイルパス`,
+    `#### Design Context: Implementation File Paths`,
     ``,
   ];
 
   // Only output if default_files exist
   const defaultFiles = ticketInfo.defaultFiles || [];
   if (defaultFiles.length > 0) {
-    lines.push(`##### 本チケットの実装先（default_files）`);
+    lines.push(`##### Implementation target for this ticket (default_files)`);
     for (const df of defaultFiles) {
       // Identify nodeIds mapped to this file
       const mappedNodeIds = nodes.filter(n => {
@@ -462,9 +462,9 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
   }
 
   if (relatedPaths.length > 0) {
-    lines.push(`##### 関連ノードの実装先（エッジ接続先）`);
-    lines.push(`| ノード | ファイルパス | 関係 |`);
-    lines.push(`|--------|-------------|------|`);
+    lines.push(`##### Related node implementation targets (edge connections)`);
+    lines.push(`| Node | File path | Relation |`);
+    lines.push(`|------|-----------|----------|`);
     for (const rp of relatedPaths) {
       lines.push(`| ${rp.nodeId} (${rp.title.slice(0, 30)}) | \`${rp.filePath}\` | ${rp.relation} |`);
     }
@@ -472,12 +472,12 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
   }
 
   // Standard guidance note
-  lines.push(`##### 実装ファイル冒頭コメントの活用`);
+  lines.push(`##### Using the Implementation File Header Comment`);
   lines.push(``);
-  lines.push(`上記の各実装ファイルを開くと、ファイル先頭に \`Initial Design Artifact — RFC-driven Implementation\``);
-  lines.push(`コメントブロックが埋め込まれている。このブロックには query.js 探索コマンドや`);
-  lines.push(`エッジ関係のクロスリファレンスが含まれている。実装中にノード間の関係性を`);
-  lines.push(`再確認したい場合は、このコメントブロック内のコマンドを直接利用すること。`);
+  lines.push(`Each implementation file above contains an \`Initial Design Artifact — RFC-driven Implementation\``);
+  lines.push(`comment block at its top. This block includes query.js exploration commands and`);
+  lines.push(`edge relationship cross-references. To re-check node relationships during implementation,`);
+  lines.push(`use the commands directly from this comment block.`);
 
   return lines.join('\n');
 }
@@ -492,7 +492,7 @@ function formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo) {
  * @returns {string} Complete section string
  */
 function combineBlocks(block1, block2, block3, graphFileName) {
-  const parts = [SECTION_HEADING, '', `グラフファイル: ${graphFileName}`, ''];
+  const parts = [SECTION_HEADING, '', `Graph file: ${graphFileName}`, ''];
 
   if (block1) parts.push(block1);
   if (block2) parts.push(block2);
@@ -540,26 +540,26 @@ function appendToSpec(specPath, section) {
  */
 function printUsage() {
   console.log(
-    'dump-node-context-to-spec.js — 設計コンテキストの spec 自動書き込み\n' +
+    'dump-node-context-to-spec.js — Auto-write design context to spec\n' +
     '\n' +
     'Usage:\n' +
     '  dump-node-context-to-spec.js --tickets=<path> --graph=<path> --dirs-tree=<path> --ticket-key=<key>\n' +
     '    [--ticket-key=<key2> ...]\n' +
     '\n' +
     'Options:\n' +
-    '  --tickets=<path>      Tickets.json のパス\n' +
-    '  --graph=<path>        GRAPH.json のパス\n' +
-    '  --dirs-tree=<path>    Dirs-Tree.json のパス\n' +
-    '  --ticket-key=<key>    チケットキー（複数指定可）。少なくとも1つ必須\n' +
+    '  --tickets=<path>      Path to Tickets.json\n' +
+    '  --graph=<path>        Path to GRAPH.json\n' +
+    '  --dirs-tree=<path>    Path to Dirs-Tree.json\n' +
+    '  --ticket-key=<key>    Ticket key (multiple allowed). At least one required\n' +
     '\n' +
     'Output blocks:\n' +
-    '  Block 1: ノード詳細（id/kind/language/slug/title/summary/headingRefs）\n' +
-    '  Block 2: エッジ関係性（種別グループ + ★/☆ 区別）\n' +
-    '  Block 3: 実装ファイルパス（default_files + Dirs-Tree 解決）\n' +
+    '  Block 1: Node details (id/kind/language/slug/title/summary/headingRefs)\n' +
+    '  Block 2: Edge relationships (type groups + ★/☆ distinction)\n' +
+    '  Block 3: Implementation file paths (default_files + Dirs-Tree resolution)\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  正常終了\n' +
-    '  1  引数エラーまたはファイル読み込みエラー\n'
+    '  0  Normal completion\n' +
+    '  1  Argument error or file load error\n'
   );
 }
 
@@ -593,9 +593,9 @@ function main() {
     ticketKeys = parsed.ticketKeys;
   } catch (parseError) {
     process.stderr.write(
-      `[ERROR] 引数のパースに失敗しました。\n` +
-      `原因: ${parseError.message}\n` +
-      `対応: 正しい引数で再実行してください。\n`
+      `[ERROR] Argument parse failed.\n` +
+      `Cause: ${parseError.message}\n` +
+      `Action: Re-run with correct arguments.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -608,9 +608,9 @@ function main() {
     dirsTree = loadDirsTree(dirsTreePath);
   } catch (loadError) {
     process.stderr.write(
-      `[ERROR] ファイルの読み込みに失敗しました。\n` +
-      `原因: ${loadError.message}\n` +
-      `対応: 各ファイルパスが正しいか確認してください。\n`
+      `[ERROR] File load failed.\n` +
+      `Cause: ${loadError.message}\n` +
+      `Action: Verify each file path is correct.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -623,9 +623,9 @@ function main() {
     const ticketInfo = collectTicketNodes(tickets, ticketKey);
     if (!ticketInfo) {
       process.stderr.write(
-        `[ERROR] チケット ${ticketKey} が見つかりません。\n` +
-        `原因: Tickets.json に該当するチケットが存在しません。\n` +
-        `対応: 正しいチケットキーを指定してください。\n`
+        `[ERROR] Ticket ${ticketKey} not found.\n` +
+        `Cause: No matching ticket exists in Tickets.json.\n` +
+        `Action: Specify a valid ticket key.\n`
       );
       process.exit(EXIT_FAILURE);
     }
@@ -654,7 +654,7 @@ function main() {
     if (specPath) {
       const appended = appendToSpec(specPath, section);
       if (appended) {
-        console.error(`spec に追記しました: ${specPath}`);
+        console.error(`Appended to spec: ${specPath}`);
       }
     }
   }
