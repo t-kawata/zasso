@@ -235,20 +235,20 @@ describe('formatAsMarkdown', () => {
   it('should show empty-message for empty hints', () => {
     const entries = filterEntries(EMPTY_HINTS, { idFilter: null, diagnosisFilter: null, refIdFilter: null });
     const md = formatAsMarkdown(entries, EMPTY_HINTS);
-    assert.equal(md, '該当するエントリがありません。');
+    assert.equal(md, 'No matching entries found.');
   });
 
   it('should include token match status table in Markdown', () => {
     const entries = filterEntries(SAMPLE_HINTS, { idFilter: 'N0001', diagnosisFilter: null, refIdFilter: null });
     const md = formatAsMarkdown(entries, SAMPLE_HINTS);
-    assert.ok(md.includes('### トークン別一致状況'));
+    assert.ok(md.includes('### Per-token match status'));
     assert.ok(md.includes('Non-existent heading'));
   });
 
   it('should include candidate heading lines table in Markdown', () => {
     const entries = filterEntries(SAMPLE_HINTS, { idFilter: 'N0001', diagnosisFilter: null, refIdFilter: null });
     const md = formatAsMarkdown(entries, SAMPLE_HINTS);
-    assert.ok(md.includes('### 候補見出し行'));
+    assert.ok(md.includes('### Candidate heading lines'));
     assert.ok(md.includes('Section 1'));
   });
 

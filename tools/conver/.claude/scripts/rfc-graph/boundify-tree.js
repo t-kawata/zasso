@@ -607,31 +607,31 @@ function generateReport(graph, dirsTree, lang) {
   const langName = { rust: 'Rust', go: 'Go', typescript: 'TypeScript' }[lang] || lang;
 
   const lines = [];
-  lines.push(`# ディレクトリツリーレポート（${langName}）`);
+  lines.push(`# Directory Tree Report (${langName})`);
   lines.push('');
-  lines.push(`生成日時: ${new Date().toISOString()}`);
+  lines.push(`Generated at: ${new Date().toISOString()}`);
   lines.push('');
-  lines.push('## 統計');
+  lines.push('## Statistics');
   lines.push('');
-  lines.push(`- 総ノード数: ${nodes.length}`);
-  lines.push(`- 総エッジ数: ${edges.length}`);
-  lines.push(`- 対象言語: ${langName}`);
+  lines.push(`- Total nodes: ${nodes.length}`);
+  lines.push(`- Total edges: ${edges.length}`);
+  lines.push(`- Target language: ${langName}`);
 
   // Collect total file count
   const files = dirsTree ? collectFiles(dirsTree, []) : [];
-  lines.push(`- 生成ファイル数: ${files.length}`);
+  lines.push(`- Generated files: ${files.length}`);
 
-  // kind 別統計
+  // Statistics by kind
   const kindCounts = {};
   for (const node of nodes) {
     const kind = node.kind || 'unknown';
     kindCounts[kind] = (kindCounts[kind] || 0) + 1;
   }
   lines.push('');
-  lines.push('### kind 別ノード数');
+  lines.push('### Node count by kind');
   lines.push('');
-  lines.push('| kind | ノード数 |');
-  lines.push('|------|---------|');
+  lines.push('| kind | Count |');
+  lines.push('|------|-------|');
   for (const [kind, count] of Object.entries(kindCounts).sort()) {
     lines.push(`| ${kind} | ${count} |`);
   }
@@ -639,7 +639,7 @@ function generateReport(graph, dirsTree, lang) {
   // Tree structure
   if (dirsTree) {
     lines.push('');
-    lines.push('## ディレクトリツリー');
+    lines.push('## Directory Tree');
     lines.push('');
     lines.push('```');
     lines.push(...renderTreeAscii(dirsTree));
@@ -649,7 +649,7 @@ function generateReport(graph, dirsTree, lang) {
   // File list
   if (files.length > 0) {
     lines.push('');
-    lines.push('## ファイル一覧');
+    lines.push('## File List');
     lines.push('');
     for (const file of files) {
       lines.push(`- ${file.path}`);

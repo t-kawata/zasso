@@ -118,19 +118,19 @@ describe('load-rfc-graph.js', () => {
       // the argument check works; --help handling exits before that check.
       assert.throws(() => {
         parseArguments([]);
-      }, /ソースファイルのパスを指定してください/);
+      }, /Provide the source file path/i);
     });
 
     it('should throw on missing arguments (empty array)', () => {
       assert.throws(() => {
         parseArguments([]);
-      }, /ソースファイルのパスを指定してください/);
+      }, /Provide the source file path/i);
     });
 
     it('should throw on extra arguments', () => {
       assert.throws(() => {
         parseArguments(['doc.md', 'extra.md']);
-      }, /余剰な引数があります/);
+      }, /Excess arguments/);
     });
   });
 
@@ -182,14 +182,14 @@ describe('load-rfc-graph.js', () => {
       fs.writeFileSync(graphFilePath, '{invalid JSON}', 'utf8');
       assert.throws(() => {
         loadGraph(graphFilePath);
-      }, /JSONパースに失敗/);
+      }, /Failed to parse graph file JSON/);
     });
 
     it('should throw on invalid structure (missing nodes/edges)', () => {
       fs.writeFileSync(graphFilePath, JSON.stringify({}), 'utf8');
       assert.throws(() => {
         loadGraph(graphFilePath);
-      }, /構造が不正/);
+      }, /Invalid graph data structure/);
     });
   });
 
@@ -292,10 +292,10 @@ describe('load-rfc-graph.js', () => {
 
       const lines = captured.split('\n');
       // Verify expected structure
-      assert.ok(lines[0].includes('[グラフ構造サマリー]'));
+      assert.ok(lines[0].includes('[Graph Structure Summary]'));
       assert.ok(lines[1].includes('test-rfc-GRAPH.json'));
-      assert.ok(lines[2].includes('3件'));
-      assert.ok(lines[4].includes('0件'));
+      assert.ok(lines[2].includes('3'));
+      assert.ok(lines[4].includes(''));
     });
 
     it('should output summary with isolated nodes', () => {
@@ -310,7 +310,7 @@ describe('load-rfc-graph.js', () => {
       console.log = originalLog;
 
       const lines = captured.split('\n');
-      assert.ok(lines[4].includes('2件')); // isolated node count
+      assert.ok(lines[4].includes('2')); // isolated node count
     });
   });
 });

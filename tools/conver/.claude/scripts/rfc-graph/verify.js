@@ -58,7 +58,7 @@ function parseArguments(testArgs) {
   // Minimum arguments: --graph=<path> --source=<path>
   if (args.length < 2) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: verify.js --graph=<path> --source=<path>'
     );
   }
@@ -67,32 +67,32 @@ function parseArguments(testArgs) {
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '最初の引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      'First argument must be --graph=<path>.\n' +
+      `   Actual value: ${graphFlag}`
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> path is empty.');
   }
 
   // Parse --source=<path>
   const sourceFlag = args[1];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
-      '2番目の引数は --source=<path> である必要があります。\n' +
-      `  実際の値: ${sourceFlag}`
+      'Second argument must be --source=<path>.\n' +
+      `   Actual value: ${sourceFlag}`
     );
   }
   const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error('--source=<path> path is empty.');
   }
 
   // Check for excess arguments
   if (args.length > 2) {
     throw new Error(
-      '余剰な引数があります。\n' +
+      'Excess arguments found.\n' +
       '  Usage: verify.js --graph=<path> --source=<path>'
     );
   }
@@ -114,7 +114,7 @@ function parseArguments(testArgs) {
 function readGraph(graphPath) {
   if (!fs.existsSync(graphPath)) {
     throw new Error(
-      `グラフファイルが見つかりません: ${graphPath}`
+      `Graph file not found: ${graphPath}`
     );
   }
 
@@ -123,7 +123,7 @@ function readGraph(graphPath) {
     raw = fs.readFileSync(graphPath, 'utf8');
   } catch (readError) {
     throw new Error(
-      `グラフファイルの読み込みに失敗しました: ${readError.message}`
+      `Failed to read graph file: ${readError.message}`
     );
   }
 
@@ -132,14 +132,14 @@ function readGraph(graphPath) {
     graph = JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${parseError.message}`
+      `Failed to parse graph JSON file: ${parseError.message}`
     );
   }
 
   // Minimal structure validation
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error(
-      'グラフデータの構造が不正です。nodes と edges が必要です。'
+      'Graph data structure is invalid. nodes and edges are required.'
     );
   }
 
@@ -156,7 +156,7 @@ function readGraph(graphPath) {
 function readSourceFile(sourcePath) {
   if (!fs.existsSync(sourcePath)) {
     throw new Error(
-      `ソースファイルが見つかりません: ${sourcePath}`
+      `Source file not found: ${sourcePath}`
     );
   }
 
@@ -165,7 +165,7 @@ function readSourceFile(sourcePath) {
     return content.split('\n');
   } catch (readError) {
     throw new Error(
-      `ソースファイルの読み込みに失敗しました: ${readError.message}`
+      `Failed to read source file: ${readError.message}`
     );
   }
 }
@@ -345,17 +345,17 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 
     if (uncoveredHeadings.length > 0) {
       messages.push(
-        `[ERROR] ${uncoveredHeadings.length}件の未カバー見出しがあります。`,
-        `原因: 以下の見出しが全ノードの headingRefs に含まれていません: ${uncoveredHeadings.join(', ')}`,
-        `対応: 該当見出しのセクションをカバーするノードを追加するか、既存ノードの headingRefs を拡張してください。`
+        `[ERROR] ${uncoveredHeadings.length} uncovered headings.`,
+        `Cause: The following headings are not covered by any node headingRefs: ${uncoveredHeadings.join(', ')}`,
+        `Action: Add a node covering the section or extend headingRefs of existing nodes.`
       );
     }
 
     if (isolatedNodes.length > 0) {
       messages.push(
-        `[ERROR] ${isolatedNodes.length}件の孤立ノードがあります。`,
-        `原因: 以下のノードが1本もエッジで接続されていません: ${isolatedNodes.join(', ')}`,
-        `対応: crud.js create-edges で該当ノードを他のノードと接続してください。`
+        `[ERROR] ${isolatedNodes.length} isolated nodes.`,
+        `Cause: The following nodes have zero edges: ${isolatedNodes.join(', ')}`,
+        `Action: Connect the nodes with crud.js create-edges.`
       );
     }
 
@@ -364,9 +364,9 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
         r => `${r.nodeId}(${r.refId}): heading=${r.heading}, texts=[${r.texts.join(', ')}]`
       ).join('; ');
       messages.push(
-        `[ERROR] ${unresolvableRefs.length}件の解決不能な headingRefs があります。`,
-        `原因: resolve-by-heading.js で一意に特定できませんでした: ${details}`,
-        `対応: 該当ノードの headingRefs の heading レベルまたは texts トークンを修正してください。`
+        `[ERROR] ${unresolvableRefs.length} unresolvable headingRefs.`,
+        `Cause: Could not uniquely resolve via resolve-by-heading.js: ${details}`,
+        `Action: Fix the heading level or texts tokens in the node headingRefs.`
       );
     }
 
@@ -386,19 +386,19 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
  */
 function printUsage() {
   console.log(
-    'verify.js — カバレッジ・孤立ノード検証（headingRefs 方式）\n' +
+    'verify.js — Coverage and isolated node validation (headingRefs method)\n' +
     '\n' +
     'Usage:\n' +
     '  verify.js --graph=<path> --source=<path>\n' +
     '\n' +
     'Options:\n' +
-    '  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス\n' +
-    '  --source=<path>  検証対象のソースファイルのパス\n' +
-    '  --help, -h       このヘルプを表示\n' +
+    '  --graph=<path>   Path to the graph file (graph.schema.json compliant)\n' +
+    '  --source=<path>  Path to the source file to validate\n' +
+    '  --help, -h       Show this help\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  全見出しカバー＋全ノード接続\n' +
-    '  1  未カバー見出しまたは孤立ノードが存在\n'
+    '  0  All headings covered + all nodes connected\n' +
+    '  1  Uncovered headings or isolated nodes exist\n'
   );
 }
 
@@ -427,9 +427,9 @@ function main() {
     sourcePath = parsed.sourcePath;
   } catch (parseError) {
     process.stderr.write(
-      `[ERROR] 引数のパースに失敗しました。\n` +
-      `原因: ${parseError.message}\n` +
-      `対応: 正しい引数で再実行してください。\n`
+      `[ERROR] Argument parse failed.\n` +
+      `Cause: ${parseError.message}\n` +
+      `Action: Re-run with correct arguments.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -439,9 +439,9 @@ function main() {
     graph = readGraph(graphPath);
   } catch (graphError) {
     process.stderr.write(
-      `[ERROR] グラフファイルの読み込みに失敗しました。\n` +
-      `原因: ${graphError.message}\n` +
-      `対応: --graph=<path> に正しいグラフファイルを指定してください。\n`
+      `[ERROR] Failed to read graph file.\n` +
+      `Cause: ${graphError.message}\n` +
+      `Action: Specify the correct graph file path with --graph=<path>.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -451,9 +451,9 @@ function main() {
     sourceLines = readSourceFile(sourcePath);
   } catch (sourceError) {
     process.stderr.write(
-      `[ERROR] ソースファイルの読み込みに失敗しました。\n` +
-      `原因: ${sourceError.message}\n` +
-      `対応: --source=<path> に正しいソースファイルを指定してください。\n`
+      `[ERROR] Failed to read source file.\n` +
+      `Cause: ${sourceError.message}\n` +
+      `Action: Specify the correct source file path with --source=<path>.\n`
     );
     process.exit(EXIT_FAILURE);
   }

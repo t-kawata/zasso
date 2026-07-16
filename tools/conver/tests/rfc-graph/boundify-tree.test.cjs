@@ -539,16 +539,16 @@ describe('generateReport', () => {
   it('includes statistics section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
-    assert.ok(report.includes('## 統計'));
-    assert.ok(report.includes('総ノード数'));
-    assert.ok(report.includes('総エッジ数'));
-    assert.ok(report.includes('生成ファイル数'));
+    assert.ok(report.includes('## Statistics'));
+    assert.ok(report.includes('Total nodes'));
+    assert.ok(report.includes('Total edges'));
+    assert.ok(report.includes('Generated files'));
   });
 
   it('includes kind statistics section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
-    assert.ok(report.includes('kind 別ノード数'));
+    assert.ok(report.includes('Node count by kind'));
     assert.ok(report.includes('architecture'));
     assert.ok(report.includes('data_model'));
   });
@@ -556,7 +556,7 @@ describe('generateReport', () => {
   it('includes directory tree section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
-    assert.ok(report.includes('## ディレクトリツリー'));
+    assert.ok(report.includes('## Directory Tree'));
     assert.ok(report.includes('root/'));
   });
 
@@ -568,14 +568,14 @@ describe('generateReport', () => {
       ],
     };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
-    assert.ok(report.includes('## ファイル一覧'));
+    assert.ok(report.includes('## File List'));
     assert.ok(report.includes('test.rs'));
   });
 
   it('handles empty graph without error', () => {
     const report = generateReport(EMPTY_GRAPH, null, 'rust');
     assert.ok(report);
-    assert.ok(report.includes('総ノード数: 0'));
+    assert.ok(report.includes('Total nodes: 0'));
   });
 });
 

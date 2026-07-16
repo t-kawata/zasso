@@ -84,7 +84,7 @@ describe('checkEdgesIntegrity', () => {
     };
     const result = checkEdgesIntegrity(after, BASE_GRAPH);
     assert.ok(result.errors.length > 0);
-    assert.ok(result.errors[0].includes('増加'));
+    assert.ok(result.errors[0].includes('edges added'));
   });
 
   it('should detect removed edges', () => {
@@ -94,7 +94,7 @@ describe('checkEdgesIntegrity', () => {
     };
     const result = checkEdgesIntegrity(after, BASE_GRAPH);
     assert.ok(result.errors.length > 0);
-    assert.ok(result.errors[0].includes('削除'));
+    assert.ok(result.errors[0].includes('edges removed'));
   });
 
   it('should handle null graphs gracefully', () => {

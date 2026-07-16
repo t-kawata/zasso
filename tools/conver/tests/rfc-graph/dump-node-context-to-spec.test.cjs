@@ -118,7 +118,7 @@ describe('parseArguments', () => {
   it('error: insufficient arguments', () => {
     assert.throws(() => {
       parseArguments(['--tickets=T.json']);
-    }, /引数が不足/);
+    }, /Insufficient arguments/);
   });
 });
 
@@ -226,7 +226,7 @@ describe('buildNodeIdToPathMap', () => {
 describe('formatNodeDetailsBlock', () => {
   it('normal: generates Markdown table of node details', () => {
     const result = formatNodeDetailsBlock(SAMPLE_NODES, 'Test Ticket');
-    assert.ok(result.includes('設計コンテキスト: ノード詳細'));
+    assert.ok(result.includes('Design Context: Node Details'));
     assert.ok(result.includes('N0001'));
     assert.ok(result.includes('architecture'));
     assert.ok(result.includes('rust'));
@@ -247,7 +247,7 @@ describe('formatNodeDetailsBlock', () => {
 describe('formatEdgeRelationsBlock', () => {
   it('normal: generates Markdown with edge type groups and ★/☆ distinction', () => {
     const result = formatEdgeRelationsBlock(SAMPLE_EDGES, SAMPLE_ALL_NODES);
-    assert.ok(result.includes('設計コンテキスト: ノード間関係性'));
+    assert.ok(result.includes('Design Context: Node Relationships (Edges)'));
     assert.ok(result.includes('part_of'));
     assert.ok(result.includes('depends_on'));
     assert.ok(result.includes('references'));
@@ -271,10 +271,10 @@ describe('formatFilePathsBlock', () => {
   it('normal: generates default_files + related node file paths + boilerplate text', () => {
     const ticketInfo = { defaultFiles: ['src/auth/keystore.rs'], title: 'Test Ticket' };
     const result = formatFilePathsBlock(SAMPLE_NODES, SAMPLE_EDGES, SAMPLE_DIRS_TREE, ticketInfo);
-    assert.ok(result.includes('実装ファイルパス'));
+    assert.ok(result.includes('Design Context: Implementation File Paths'));
     assert.ok(result.includes('default_files'));
     assert.ok(result.includes('src/auth/keystore.rs'));
-    assert.ok(result.includes('関連ノードの実装先'));
+    assert.ok(result.includes('Related node implementation targets'));
     assert.ok(result.includes('src/config/client_config.rs'));
     assert.ok(result.includes('src/lib.rs'));
     assert.ok(result.includes('Initial Design Artifact'));
@@ -283,8 +283,8 @@ describe('formatFilePathsBlock', () => {
   it('normal: handles empty default_files without error', () => {
     const ticketInfo = { defaultFiles: [], title: 'Test Ticket' };
     const result = formatFilePathsBlock(SAMPLE_NODES, SAMPLE_EDGES, SAMPLE_DIRS_TREE, ticketInfo);
-    assert.ok(result.includes('実装ファイルパス'));
-    assert.ok(result.includes('関連ノードの実装先'));
+    assert.ok(result.includes('Implementation File Paths'));
+    assert.ok(result.includes('Related node implementation targets'));
     assert.ok(!result.includes('default_files'));
   });
 
@@ -292,7 +292,7 @@ describe('formatFilePathsBlock', () => {
     const ticketInfo = { defaultFiles: [], title: 'Test Ticket' };
     const result = formatFilePathsBlock([], [], SAMPLE_DIRS_TREE, ticketInfo);
     assert.ok(result.includes('Initial Design Artifact'));
-    assert.ok(result.includes('実装ファイル冒頭コメントの活用'));
+    assert.ok(result.includes('Using the Implementation File Header Comment'));
   });
 });
 
@@ -303,7 +303,7 @@ describe('formatFilePathsBlock', () => {
 describe('combineBlocks', () => {
   it('normal: combines 3 blocks', () => {
     const result = combineBlocks('block1', 'block2', 'block3', 'test.json');
-    assert.ok(result.includes('### 設計コンテキスト'));
+    assert.ok(result.includes('### Design Context'));
     assert.ok(result.includes('test.json'));
     assert.ok(result.includes('block1'));
     assert.ok(result.includes('block2'));

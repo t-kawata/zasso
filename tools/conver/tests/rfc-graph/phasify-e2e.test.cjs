@@ -129,7 +129,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
 
       // Validation runs in-memory (does not read Tickets.json from disk)
       // Regardless of pass/fail, no "file read error" should occur
-      assert.ok(!result.stdout.includes('ファイル読み込みエラー'),
+      assert.ok(!result.stdout.includes('read error'),
         'dry-run produced file read error: ' + result.stdout.substring(result.stdout.length - 300));
     });
   });
@@ -230,7 +230,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
         '--dry-run',
       ], { encoding: 'utf8', timeout: 10000 });
 
-      assert.ok(result.stderr.includes('循環') || result.stdout.includes('ERROR'),
+      assert.ok(result.stderr.includes('Circular') || result.stderr.includes('ERROR'),
         'should mention cycle in output: ' + result.stderr + result.stdout);
     });
   });

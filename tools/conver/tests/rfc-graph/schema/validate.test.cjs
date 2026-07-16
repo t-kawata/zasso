@@ -442,11 +442,11 @@ describe("validateAgainstSchema() — error handling", () => {
     assert.strictEqual(result.valid, false);
     assert.ok(result.errors.length > 0);
     const hasNotFoundMessage = result.errors.some((e) =>
-      e.includes("見つかりません")
+      e.includes("not found")
     );
     assert.ok(
       hasNotFoundMessage,
-      `Error message does not include "見つかりません": ${JSON.stringify(result.errors)}`
+      `Error message does not include "not found": ${JSON.stringify(result.errors)}`
     );
   });
 

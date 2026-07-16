@@ -139,24 +139,24 @@ function formatReport(report) {
   const lines = [];
 
   if (report.valid) {
-    lines.push("✅ PASS — 全フェーズのチケット化完全性を確認しました。");
+    lines.push("✅ PASS — All phases ticket coverage verified.");
   } else {
-    lines.push("❌ FAIL — チケット化が不完全なフェーズがあります。");
+    lines.push("❌ FAIL — Some phases have incomplete ticket coverage.");
   }
   lines.push("");
 
-  lines.push("全 " + report.totalPhases + " フェーズ / 全 " + report.totalTickets + " チケット");
+  lines.push("Total " + report.totalPhases + " phases / " + report.totalTickets + " tickets");
   lines.push("");
 
   for (const phaseResult of report.phaseResults) {
     const statusIcon = phaseResult.valid ? "✅" : "❌";
     const missingInfo =
       phaseResult.missingNodeIds.length > 0
-        ? " / 不足ノード: [" + phaseResult.missingNodeIds.join(", ") + "]"
+        ? " / Missing nodes: [" + phaseResult.missingNodeIds.join(", ") + "]"
         : "";
     const extraInfo =
       phaseResult.extraNodeIds.length > 0
-        ? " / 余剰ノード: [" + phaseResult.extraNodeIds.join(", ") + "]"
+        ? " / Extra nodes: [" + phaseResult.extraNodeIds.join(", ") + "]"
         : "";
     lines.push(
       statusIcon +
@@ -164,7 +164,7 @@ function formatReport(report) {
         phaseResult.phaseLabel +
         ": " +
         phaseResult.ticketCount +
-        " チケット" +
+        " tickets" +
         missingInfo +
         extraInfo
     );
@@ -182,7 +182,7 @@ function main() {
 
   if (!ticketsJsonPath) {
     console.error(
-      "Usage: node verify-all-ticket-coverage.js <Tickets.json のパス>"
+      "Usage: node verify-all-ticket-coverage.js <path to Tickets.json>"
     );
     process.exit(EXIT_FAILURE);
   }
@@ -193,7 +193,7 @@ function main() {
       fs.readFileSync(path.resolve(ticketsJsonPath), "utf8")
     );
   } catch (err) {
-    console.error("Tickets.json の読み込みに失敗しました: " + err.message);
+    console.error("Tickets.json read failed: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
@@ -208,13 +208,13 @@ function main() {
     console.error("---");
     for (const failed of report.failedPhases) {
       if (!failed.hasTickets) {
-        console.error("フェーズ " + failed.phaseLabel + ": チケットがありません。");
+        console.error("Phase " + failed.phaseLabel + ": no tickets.");
       }
       if (failed.missingNodeIds.length > 0) {
         console.error(
-          "フェーズ " +
+          "Phase " +
             failed.phaseLabel +
-            " の不足ノード: [" +
+            " missing nodes: [" +
             failed.missingNodeIds.join(", ") +
             "]"
         );

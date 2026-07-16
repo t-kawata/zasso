@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * generate-related-ticket-ids.test.cjs — relatedTicketIds 生成のユニットテスト
+ * generate-related-ticket-ids.test.cjs — Unit tests for relatedTicketIds generation
  *
- * テストフレームワーク非依存。node コマンドで直接実行可能。
+ * Framework-agnostic. Can be run directly with:
  *   node tests/generate-related-ticket-ids.test.cjs
  */
 
@@ -14,7 +14,7 @@ const mod = require(path.resolve(__dirname, '../.claude/scripts/tickets/generate
 const { generateRelatedTicketIds, DIRECTION_LABELS } = mod;
 
 // ============================================================
-// テストユーティリティ
+// Test utilities
 // ============================================================
 
 let passedCount = 0;
@@ -67,44 +67,44 @@ function assertNotContains(str, substring, message) {
 }
 
 /**
- * テスト用のチケットを生成する
+ * Create a test ticket
  */
 function makeTicket(id, nodeIds, title, phaseId) {
   return { id: id, nodeIds: nodeIds || [], phaseId: phaseId !== undefined ? phaseId : 0, title: title || 'ticket ' + id };
 }
 
 /**
- * テスト用のエッジを生成する
+ * Create a test edge
  */
 function makeEdge(from, to, type) {
   return { from: from, to: to, type: type || 'depends_on' };
 }
 
 // ============================================================
-// テスト: 逆引きマップ構築
+// Test: reverse map construction
 // ============================================================
 
 function testReverseMap() {
-  console.log('\n=== 逆引きマップ（内部実装間接検証）===');
+  console.log('\n=== Reverse map (internal implementation indirect verification) ===');
 
-  // 2チケット・2ノードの単純ケース
+  // Simple case: 2 tickets, 2 nodes
   const tickets = [
     makeTicket(1, ['N0001', 'N0002'], 'First', 0),
     makeTicket(2, ['N0003'], 'Second', 0),
   ];
   const edges = [makeEdge('N0001', 'N0003', 'depends_on')];
   const result = generateRelatedTicketIds(tickets, edges);
-  assertMapSize(result, 2, '2チケット間エッジ: 双方向とも出力される');
-  assertContains(result.get("0:1"), 'P0-2', 'ticket 1 の related に P0-2 が含まれる');
-  assertContains(result.get("0:2"), 'P0-1', 'ticket 2 の related に P0-1 が含まれる');
+  assertMapSize(result, 2, '2-ticket edge: both directions are output');
+  assertContains(result.get("0:1"), 'P0-2', 'ticket 1 related contains P0-2');
+  assertContains(result.get("0:2"), 'P0-1', 'ticket 2 related contains P0-1');
 }
 
 // ============================================================
-// テスト: 単一エッジ・交差チケット
+// Test: single edge cross-ticket
 // ============================================================
 
 function testSingleEdgeCrossTicket() {
-  console.log('\n=== 単一エッジ・交差チケット ===');
+  console.log('\n=== Single edge cross-ticket ===');
 
   const tickets = [
     makeTicket(1, ['N0001'], 'Ticket A', 0),
@@ -113,51 +113,51 @@ function testSingleEdgeCrossTicket() {
   const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
   const result = generateRelatedTicketIds(tickets, edges);
 
-  // P0-1: N0001→N0002 の依存元 → "依存先"
-  assertMapSize(result, 2, '双方向にエントリ');
-  assertContains(result.get("0:1"), '[depends_on] P0-2', 'P0-1 に [depends_on] P0-2');
-  assertContains(result.get("0:1"), '依存先', 'P0-1 は依存先方向');
-  assertContains(result.get("0:2"), '[depends_on] P0-1', 'P0-2 に [depends_on] P0-1');
-  assertContains(result.get("0:2"), '被依存元（依存元）', 'P0-2 は被依存元方向');
+  // P0-1: N0001→N0002 as source → "Dependency"
+  assertMapSize(result, 2, 'Both directions have entries');
+  assertContains(result.get("0:1"), '[depends_on] P0-2', 'P0-1 contains [depends_on] P0-2');
+  assertContains(result.get("0:1"), 'Dependency', 'P0-1 is the dependency direction');
+  assertContains(result.get("0:2"), '[depends_on] P0-1', 'P0-2 contains [depends_on] P0-1');
+  assertContains(result.get("0:2"), 'Dependency source (dependent)', 'P0-2 is the dependency source direction');
 }
 
 // ============================================================
-// テスト: 自己参照ガード
+// Test: self-reference guard
 // ============================================================
 
 function testSelfReferenceGuard() {
-  console.log('\n=== 自己参照ガード ===');
+  console.log('\n=== Self-reference guard ===');
 
-  // 同一チケット内の nodeIds に両端点が含まれるエッジ → 出力しない
+  // Both endpoints in same ticket's nodeIds → skip edge
   const tickets = [
     makeTicket(1, ['N0001', 'N0002'], 'Self ticket', 0),
     makeTicket(2, ['N0003'], 'Other', 0),
   ];
   const edges = [makeEdge('N0001', 'N0002', 'refines')];
   const result = generateRelatedTicketIds(tickets, edges);
-  assertMapSize(result, 0, '自己参照エッジは出力されない');
+  assertMapSize(result, 0, 'Self-reference edge not output');
 
-  // 混合ケース: 自己参照 + 交差エッジ
+  // Mixed case: self-reference + cross edge
   const tickets2 = [
     makeTicket(1, ['N0001', 'N0002'], 'Mixed', 0),
     makeTicket(2, ['N0003'], 'Other', 0),
   ];
   const edges2 = [
-    makeEdge('N0001', 'N0002', 'refines'), // 自己参照 → スキップ
-    makeEdge('N0001', 'N0003', 'depends_on'), // 交差 → 出力
+    makeEdge('N0001', 'N0002', 'refines'), // self-reference → skip
+    makeEdge('N0001', 'N0003', 'depends_on'), // cross → output
   ];
   const result2 = generateRelatedTicketIds(tickets2, edges2);
-  assertMapSize(result2, 2, '混合: 自己参照をスキップし交差のみ出力');
-  assertContains(result2.get("0:1"), 'P0-2', 'ticket1 に P0-2 への交差エッジ');
-  assertNotContains(result2.get("0:1"), 'refines', 'ticket1 に refines 自己参照は含まれない');
+  assertMapSize(result2, 2, 'Mixed: self-reference skipped, cross only output');
+  assertContains(result2.get("0:1"), 'P0-2', 'ticket1 has cross edge to P0-2');
+  assertNotContains(result2.get("0:1"), 'refines', 'ticket1 does not contain refines self-reference');
 }
 
 // ============================================================
-// テスト: 複数エッジの連結
+// Test: multiple edge concatenation
 // ============================================================
 
 function testMultipleEdges() {
-  console.log('\n=== 複数エッジの連結 ===');
+  console.log('\n=== Multiple edges concatenation ===');
 
   const tickets = [
     makeTicket(1, ['N0001'], 'Source', 0),
@@ -170,20 +170,20 @@ function testMultipleEdges() {
   ];
   const result = generateRelatedTicketIds(tickets, edges);
 
-  assertMapSize(result, 3, '3チケット・2エッジ: 全3チケットにエントリ');
-  assertContains(result.get("0:1"), "P0-2", "P0-1 に P0-2 へのエッジ");
-  assertContains(result.get("0:1"), 'P0-3', 'P0-1 に P0-3 へのエッジ');
-  // 2つのエッジが ", " で連結されていることを確認
+  assertMapSize(result, 3, '3 tickets, 2 edges: all 3 tickets have entries');
+  assertContains(result.get("0:1"), "P0-2", "P0-1 has edge to P0-2");
+  assertContains(result.get("0:1"), 'P0-3', 'P0-1 has edge to P0-3');
+  // Verify 2 edges are concatenated with ", "
   const prose = result.get("0:1");
-  assert(prose.indexOf(', ') !== -1, '複数エッジが ", " で連結される');
+  assert(prose.indexOf(', ') !== -1, 'Multiple edges concatenated with ", "');
 }
 
 // ============================================================
-// テスト: 全エッジ種別
+// Test: all edge types
 // ============================================================
 
 function testAllEdgeTypes() {
-  console.log('\n=== 全エッジ種別 ===');
+  console.log('\n=== All edge types ===');
 
   const tickets = [
     makeTicket(1, ['N0001'], 'Source', 0),
@@ -199,95 +199,95 @@ function testAllEdgeTypes() {
   for (const type of types) {
     const edges = [makeEdge('N0001', 'N0002', type)];
     const result = generateRelatedTicketIds(tickets, edges);
-    assertMapSize(result, 2, 'type=' + type + ': 双方向に出力');
-    assertContains(result.get("0:1"), '[' + type + ']', 'type=' + type + ': P0-1 に [' + type + ']');
+    assertMapSize(result, 2, 'type=' + type + ': both directions output');
+    assertContains(result.get("0:1"), '[' + type + ']', 'type=' + type + ': P0-1 contains [' + type + ']');
   }
 
-  // 未知のエッジ種別 → type 名をそのまま方向ラベルとして使用
+  // Unknown edge type → use type name as direction label
   const unknownEdges = [makeEdge('N0001', 'N0002', 'unknown_type')];
   const result = generateRelatedTicketIds(tickets, unknownEdges);
-  assertMapSize(result, 2, '未知のエッジ種別: 双方向に出力');
-  assertContains(result.get("0:1"), '[unknown_type]', '未知のエッジ種別: type名がそのまま使われる');
-  assertContains(result.get("0:1"), 'unknown_type', '方向ラベルに type 名がフォールバック');
+  assertMapSize(result, 2, 'Unknown edge type: both directions output');
+  assertContains(result.get("0:1"), '[unknown_type]', 'Unknown edge type: type name used as-is');
+  assertContains(result.get("0:1"), 'unknown_type', 'Direction label falls back to type name');
 }
 
 // ============================================================
-// テスト: 無関係エッジ
+// Test: unrelated edge
 // ============================================================
 
 function testUnrelatedEdge() {
-  console.log('\n=== 無関係エッジ ===');
+  console.log('\n=== Unrelated edge ===');
 
   const tickets = [
     makeTicket(1, ['N0001'], 'Ticket', 0),
   ];
   const edges = [
-    makeEdge('N9999', 'N8888', 'depends_on'), // どのチケットの nodeId にも含まれない
+    makeEdge('N9999', 'N8888', 'depends_on'), // Not in any ticket's nodeIds
   ];
   const result = generateRelatedTicketIds(tickets, edges);
-  assertMapSize(result, 0, '無関係エッジ: 出力されない');
+  assertMapSize(result, 0, 'Unrelated edge: not output');
 }
 
 // ============================================================
-// テスト: 空/null 入力
+// Test: empty/null inputs
 // ============================================================
 
 function testEmptyInputs() {
-  console.log('\n=== 空/null 入力 ===');
+  console.log('\n=== Empty/null inputs ===');
 
-  // 空チケット配列
-  assertMapSize(generateRelatedTicketIds([], [makeEdge('N1', 'N2')]), 0, '空チケット配列: 空マップ');
+  // Empty tickets array
+  assertMapSize(generateRelatedTicketIds([], [makeEdge('N1', 'N2')]), 0, 'Empty tickets array: empty map');
 
-  // 空エッジ配列
+  // Empty edges array
   const tickets = [makeTicket(1, ['N1'], undefined, 0)];
-  assertMapSize(generateRelatedTicketIds(tickets, []), 0, '空エッジ配列: 空マップ');
+  assertMapSize(generateRelatedTicketIds(tickets, []), 0, 'Empty edges array: empty map');
 
   // null/undefined
-  assertMapSize(generateRelatedTicketIds(null, [makeEdge('N1', 'N2')]), 0, 'null tickets: 空マップ');
-  assertMapSize(generateRelatedTicketIds(tickets, null), 0, 'null edges: 空マップ');
-  assertMapSize(generateRelatedTicketIds(undefined, undefined), 0, 'undefined/undefined: 空マップ');
+  assertMapSize(generateRelatedTicketIds(null, [makeEdge('N1', 'N2')]), 0, 'null tickets: empty map');
+  assertMapSize(generateRelatedTicketIds(tickets, null), 0, 'null edges: empty map');
+  assertMapSize(generateRelatedTicketIds(undefined, undefined), 0, 'undefined/undefined: empty map');
 
-  // 空の nodeIds を持つチケット
+  // Ticket with empty nodeIds
   const emptyNodeTickets = [makeTicket(1, [], 'empty', 0)];
-  assertMapSize(generateRelatedTicketIds(emptyNodeTickets, [makeEdge('N1', 'N2')]), 0, '空nodeIds: 空マップ');
+  assertMapSize(generateRelatedTicketIds(emptyNodeTickets, [makeEdge('N1', 'N2')]), 0, 'Empty nodeIds: empty map');
 }
 
 // ============================================================
-// テスト: ID振り直し後の再実行（冪等性）
+// Test: idempotent after ID renumbering
 // ============================================================
 
 function testIdempotentAfterRename() {
-  console.log('\n=== ID振り直し後の再実行 ===');
+  console.log('\n=== Idempotent after ID renumbering ===');
 
-  // GRAPH.json は不変（nodeId は変わらない）
+  // GRAPH.json is immutable (nodeIds don't change)
   const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
 
-  // 1回目: 古いID
+  // 1st run: old IDs
   const oldTickets = [
     makeTicket(1, ['N0001'], 'Old A', 0),
     makeTicket(2, ['N0002'], 'Old B', 0),
   ];
   const oldResult = generateRelatedTicketIds(oldTickets, edges);
-  assertContains(oldResult.get("0:1"), 'P0-2', '古いID: phase0-ticket1→P0-2');
+  assertContains(oldResult.get("0:1"), 'P0-2', 'Old IDs: phase0-ticket1→P0-2');
 
-  // ID振り直し後: 新しいIDでも同じ GRAPH.json から正しく生成される
+  // After renumbering: new IDs correctly generated from same GRAPH.json
   const newTickets = [
     makeTicket(1, ['N0001'], 'New A', 3),
     makeTicket(2, ['N0002'], 'New B', 3),
   ];
   const newResult = generateRelatedTicketIds(newTickets, edges);
-  assertContains(newResult.get("3:1"), 'P3-2', '新しいID: P3-1→P3-2');
-  assertNotContains(newResult.get("3:1"), 'P0-2', '古いIDが残らない');
+  assertContains(newResult.get("3:1"), 'P3-2', 'New IDs: P3-1→P3-2');
+  assertNotContains(newResult.get("3:1"), 'P0-2', 'Old IDs not present');
 }
 
 // ============================================================
-// テスト: direction の正確性
+// Test: direction accuracy
 // ============================================================
 
 function testDirectionAccuracy() {
-  console.log('\n=== direction の正確性 ===');
+  console.log('\n=== Direction accuracy ===');
 
-  // depends_on: N0001 → N0002 (N0001 は P0-1, N0002 は P0-2)
+  // depends_on: N0001 → N0002 (N0001 belongs to P0-1, N0002 belongs to P0-2)
   const tickets = [
     makeTicket(1, ['N0001'], 'From', 0),
     makeTicket(2, ['N0002'], 'To', 0),
@@ -295,48 +295,48 @@ function testDirectionAccuracy() {
   const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
   const result = generateRelatedTicketIds(tickets, edges);
 
-  // P0-1 は from 側 → "依存先"
-  assertContains(result.get("0:1"), '依存先', 'from 側チケット: "依存先"');
-  // P0-2 は to 側 → "被依存元（依存元）"
-  assertContains(result.get("0:2"), '被依存元（依存元）', 'to 側チケット: "被依存元（依存元）"');
+  // P0-1 is the from side → "Dependency"
+  assertContains(result.get("0:1"), 'Dependency', 'From-side ticket has "Dependency"');
+  // P0-2 is the to side → "Dependency source (dependent)"
+  assertContains(result.get("0:2"), 'Dependency source (dependent)', 'To-side ticket has "Dependency source (dependent)"');
 
-  // refines, references, extends の方向ラベル確認 (from→to のラベル)
+  // Verify direction labels for all edge types (from→to label)
   const testCases = Object.entries(DIRECTION_LABELS);
   for (const [type, label] of testCases) {
     const e = [makeEdge('N0001', 'N0002', type)];
     const r = generateRelatedTicketIds(tickets, e);
-    assertContains(r.get("0:1"), label, type + ': from側に "' + label + '"');
+    assertContains(r.get("0:1"), label, type + ': from-side has "' + label + '"');
   }
 }
 
 // ============================================================
-// テスト: エッジの欠落フィールド
+// Test: edge missing fields
 // ============================================================
 
 function testEdgeMissingFields() {
-  console.log('\n=== エッジ欠落フィールド ===');
+  console.log('\n=== Edge missing fields ===');
 
   const tickets = [makeTicket(1, ['N0001'], 'Ticket', 0)];
 
-  // from がないエッジ
+  // Missing from
   const missingFrom = [{ to: 'N0002', type: 'depends_on' }];
-  assertMapSize(generateRelatedTicketIds(tickets, missingFrom), 0, 'from欠落: スキップ');
+  assertMapSize(generateRelatedTicketIds(tickets, missingFrom), 0, 'Missing from: skipped');
 
-  // to がないエッジ
+  // Missing to
   const missingTo = [{ from: 'N0001', type: 'depends_on' }];
-  assertMapSize(generateRelatedTicketIds(tickets, missingTo), 0, 'to欠落: スキップ');
+  assertMapSize(generateRelatedTicketIds(tickets, missingTo), 0, 'Missing to: skipped');
 
-  // type がないエッジ
+  // Missing type
   const missingType = [{ from: 'N0001', to: 'N0002' }];
-  assertMapSize(generateRelatedTicketIds(tickets, missingType), 0, 'type欠落: スキップ');
+  assertMapSize(generateRelatedTicketIds(tickets, missingType), 0, 'Missing type: skipped');
 }
 
 // ============================================================
-// テスト: 複数フェーズにまたがるチケット
+// Test: cross-phase tickets
 // ============================================================
 
 function testCrossPhaseTickets() {
-  console.log('\n=== 複数フェーズまたがり ===');
+  console.log('\n=== Cross-phase tickets ===');
 
   const tickets = [
     makeTicket(1, ['N0001'], 'Phase0 ticket', 0),
@@ -349,20 +349,20 @@ function testCrossPhaseTickets() {
   ];
   const result = generateRelatedTicketIds(tickets, edges);
 
-  assertMapSize(result, 3, "3フェーズ間エッジ: 全3チケットにエントリ（複合キーで区別）");
+  assertMapSize(result, 3, "3-phase edges: all 3 tickets have entries (composite key differentiation)");
   assertContains(result.get("0:1"), '[depends_on] P1-1', 'phase0 ticket → P1-1 (depends_on)');
-  assertContains(result.get("1:1"), '[depends_on] P0-1', 'phase1 ticket が P0-1 からの被依存＋');
+  assertContains(result.get("1:1"), '[depends_on] P0-1', 'phase1 ticket has dependent from P0-1 +');
   assertContains(result.get("1:1"), '[implements] P2-1', 'phase1 ticket → P2-1 (implements)');
-  assertContains(result.get("2:1"), 'P1-1', 'phase2 ticket が P1-1 からの被依存');
+  assertContains(result.get("2:1"), 'P1-1', 'phase2 ticket has dependent from P1-1');
 }
 
 // ============================================================
-// テストランナー
+// Test runner
 // ============================================================
 
 function runAllTests() {
   console.log('=== generate-related-ticket-ids.test.cjs ===');
-  console.log('開始時刻: ' + new Date().toISOString());
+  console.log('Started at: ' + new Date().toISOString());
 
   const tests = [
     testReverseMap,
@@ -389,10 +389,10 @@ function runAllTests() {
   }
 
   const total = passedCount + failedCount;
-  console.log('\n=== 結果: ' + passedCount + '/' + total + ' PASS ===');
+  console.log('\n=== Result: ' + passedCount + '/' + total + ' PASS ===');
 
   if (failedCount > 0) {
-    console.error('\n失敗したテスト:');
+    console.error('\nFailed tests:');
     for (const f of failures) {
       console.error('  ' + f);
     }

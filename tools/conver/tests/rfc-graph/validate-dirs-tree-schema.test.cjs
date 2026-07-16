@@ -138,7 +138,7 @@ describe('validateFiles — File I/O', () => {
   it('should return error when dirs-tree file does not exist', () => {
     const result = validateFiles('/tmp/non-existent-dirs-tree.json', '/tmp/test-graph.json');
     assert.strictEqual(result.ok, false);
-    assert.ok(result.errors[0].includes('見つかりません'));
+    assert.ok(result.errors[0].includes('not found'));
   });
 
   it('should return error when graph file does not exist', () => {
@@ -147,7 +147,7 @@ describe('validateFiles — File I/O', () => {
     try {
       const result = validateFiles(dirsTreePath, '/tmp/non-existent-graph.json');
       assert.strictEqual(result.ok, false);
-      assert.ok(result.errors[0].includes('見つかりません'));
+      assert.ok(result.errors[0].includes('not found'));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -160,7 +160,7 @@ describe('validateFiles — File I/O', () => {
     try {
       const result = validateFiles(badPath, badPath);
       assert.strictEqual(result.ok, false);
-      assert.ok(result.errors[0].includes('パースエラー'));
+      assert.ok(result.errors[0].includes('parse error'));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -269,7 +269,7 @@ describe('validateFiles — Nesting Depth', () => {
     try {
       const result = validateFiles(dirsTreePath, graphPath);
       assert.strictEqual(result.ok, false);
-      assert.ok(result.errors.some(e => e.includes('深さ')));
+      assert.ok(result.errors.some(e => e.includes('Nesting depth limit')));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -409,7 +409,7 @@ describe('validateFiles — Path Duplicates', () => {
     try {
       const result = validateFiles(dirsTreePath, graphPath);
       assert.strictEqual(result.ok, false);
-      assert.ok(result.errors.some(e => e.includes('重複')));
+      assert.ok(result.errors.some(e => e.includes('Path duplication')));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

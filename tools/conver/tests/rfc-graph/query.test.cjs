@@ -298,7 +298,7 @@ describe('parseNodeIds', () => {
   });
 
   it('error: throws on empty ID', () => {
-    assert.throws(() => parseNodeIds('--id='), /空/);
+    assert.throws(() => parseNodeIds('--id='), /empty/i);
   });
 });
 
@@ -308,19 +308,19 @@ describe('parseHops', () => {
   });
 
   it('error: hops=0 throws error', () => {
-    assert.throws(() => parseHops('--hops=0'), /1以上/);
+    assert.throws(() => parseHops('--hops=0'), /must be an integer/);
   });
 
   it('error: negative hops throws error', () => {
-    assert.throws(() => parseHops('--hops=-1'), /1以上/);
+    assert.throws(() => parseHops('--hops=-1'), /must be an integer/);
   });
 
   it('error: non-integer hops throws error', () => {
-    assert.throws(() => parseHops('--hops=abc'), /1以上/);
+    assert.throws(() => parseHops('--hops=abc'), /must be an integer/);
   });
 
   it('error: empty hops throws error', () => {
-    assert.throws(() => parseHops('--hops='), /空です/);
+    assert.throws(() => parseHops('--hops='), /is empty/i);
   });
 
   it('error: throws without --hops= prefix', () => {
@@ -355,7 +355,7 @@ describe('loadGraph', () => {
     fs.writeFileSync(filePath, 'not-json', 'utf8');
     assert.throws(() => {
       loadGraph(filePath);
-    }, /JSONパース/);
+    }, /JSON parse failed/);
   });
 });
 
@@ -628,7 +628,7 @@ describe('formatNodeMarkdown', () => {
     // Summary
     assert.ok(output.includes('POST /api/v1/auth/login'));
     // Relation section
-    assert.ok(output.includes('### 他のノードとの関係性'));
+    assert.ok(output.includes('### Relationships With Other Nodes'));
     assert.ok(output.includes('depends_on'));
     assert.ok(output.includes('implements'));
   });
@@ -639,7 +639,7 @@ describe('formatNodeMarkdown', () => {
     const output = formatNodeMarkdown(node, [], SIMPLE_GRAPH, sourceText);
 
     assert.ok(output.includes('## N0002: Glossary'));
-    assert.ok(output.includes('### 他のノードとの関係性'));
+    assert.ok(output.includes('### Relationships With Other Nodes'));
   });
 
   it('normal: omits RFC description section when markers are missing', () => {
@@ -696,7 +696,7 @@ describe('formatNodeMarkdown', () => {
     const output = formatNodeMarkdown(node, searchResult.edges, SIMPLE_GRAPH, sourceText);
 
     // Relation section heading
-    assert.ok(output.includes('### 他のノードとの関係性'));
+    assert.ok(output.includes('### Relationships With Other Nodes'));
     // Edge line includes type and direction label
     assert.ok(output.includes('depends_on'));
     assert.ok(output.includes('→'));
@@ -722,7 +722,7 @@ describe('formatNodeMarkdown', () => {
     const lines = output.split('\n');
 
     // Relation section heading
-    assert.ok(lines.some(l => l.startsWith('### 他のノードとの関係性')));
+    assert.ok(lines.some(l => l.startsWith('### Relationships With Other Nodes')));
 
     // Edge lines (starting with - ) contain type and direction label
     const edgeLines = lines.filter(l => l.startsWith('- '));

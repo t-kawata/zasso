@@ -87,15 +87,15 @@ describe('parseArguments', () => {
   });
 
   it('throws on missing arguments', () => {
-    assert.throws(() => parseArguments(['node', 'script.js', '--graph=/g.json']), /引数が不足/);
+    assert.throws(() => parseArguments(['node', 'script.js', '--graph=/g.json']), /Insufficient arguments/i);
   });
 
   it('throws on wrong --graph prefix', () => {
-    assert.throws(() => parseArguments(['node', 's.js', '--gra=/g.json', '--source=/s.md']), /最初の引数/);
+    assert.throws(() => parseArguments(['node', 's.js', '--gra=/g.json', '--source=/s.md']), /First argument/i);
   });
 
   it('throws on empty --graph path', () => {
-    assert.throws(() => parseArguments(['node', 's.js', '--graph=', '--source=/s.md']), /空です/);
+    assert.throws(() => parseArguments(['node', 's.js', '--graph=', '--source=/s.md']), /is empty/i);
   });
 });
 
@@ -170,13 +170,13 @@ describe('loadGraph', () => {
   });
 
   it('throws on non-existent file', () => {
-    assert.throws(() => loadGraph(path.join(tmpDir, 'nonexist.json')), /見つかりません/);
+    assert.throws(() => loadGraph(path.join(tmpDir, 'nonexist.json')), /not found/i);
   });
 
   it('throws on invalid JSON', () => {
     const filePath = path.join(tmpDir, 'bad.json');
     fs.writeFileSync(filePath, '{bad}', 'utf8');
-    assert.throws(() => loadGraph(filePath), /JSONパース/);
+    assert.throws(() => loadGraph(filePath), /JSON parse/i);
   });
 });
 
@@ -190,10 +190,10 @@ describe('generateSummary', () => {
     assert.ok(lines[0].includes('6 nodes / 5 edges'));
 
     // kind groups
-    assert.ok(output.includes('## requirement (3件)'));
-    assert.ok(output.includes('## api_contract (1件)'));
-    assert.ok(output.includes('## architecture (1件)'));
-    assert.ok(output.includes('## glossary (1件)'));
+    assert.ok(output.includes('## requirement (3 items)'));
+    assert.ok(output.includes('## api_contract (1 items)'));
+    assert.ok(output.includes('## architecture (1 items)'));
+    assert.ok(output.includes('## glossary (1 items)'));
 
     // Each node ID + title
     assert.ok(output.includes('N0001: Authentication API Definition'));

@@ -177,35 +177,35 @@ describe('crud.js — parseArguments', () => {
   it('throws parse error on insufficient arguments', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json']),
-      /引数が不足しています/
+      /insufficient arguments/i
     );
   });
 
   it('throws parse error on unknown subcommand', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'unknown-command']),
-      /未知のサブコマンドです/
+      /Unknown subcommand/i
     );
   });
 
   it('throws parse error without --graph= prefix', () => {
     assert.throws(
       () => testParse(['/tmp/test.json', 'list-nodes']),
-      /最初の引数は --graph=<path>/
+      /First argument.*--graph/i
     );
   });
 
   it('throws parse error when --file is missing for create-nodes', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'create-nodes']),
-      /--file=<path> が必要です/
+      /requires --file=/i
     );
   });
 
   it('throws parse error when --id is missing for update-node', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'update-node', '--file=/tmp/patch.json']),
-      /--id=<nodeId> が必要です/
+      /requires --id=/i
     );
   });
 });
@@ -297,7 +297,7 @@ describe('crud.js — executeCreateNodes', () => {
     const invalidNode = { id: 'N0001', title: '', kind: 'requirement', summary: 'test', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]};
     assert.throws(
       () => executeCreateNodes(graph, [invalidNode]),
-      /スキーマ検証に失敗しました/
+      /failed schema validation/
     );
     // Graph is unchanged
     assert.equal(graph.nodes.length, 0);
@@ -308,7 +308,7 @@ describe('crud.js — executeCreateNodes', () => {
     const duplicateNode = createTestNode('N0001', 'requirement');
     assert.throws(
       () => executeCreateNodes(graph, [duplicateNode]),
-      /既に存在します/
+      /already exists/
     );
     // Graph is unchanged (duplicate check validates all entries before adding)
     assert.equal(graph.nodes.length, 1);
@@ -377,7 +377,7 @@ describe('crud.js — executeGetNode', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
       () => executeGetNode(graph, 'N9999'),
-      /見つかりません/
+      /not found/
     );
   });
 });
@@ -396,7 +396,7 @@ describe('crud.js — executeUpdateNode', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
       () => executeUpdateNode(graph, 'N9999', { title: 'New title' }),
-      /見つかりません/
+      /not found/
     );
   });
 });
@@ -416,7 +416,7 @@ describe('crud.js — executeDeleteNode', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
       () => executeDeleteNode(graph, 'N9999'),
-      /見つかりません/
+      /not found/
     );
   });
 });
@@ -439,7 +439,7 @@ describe('crud.js — executeCreateEdges', () => {
     const edges = [createTestEdge('N9999', 'N0001', 'depends_on')];
     assert.throws(
       () => executeCreateEdges(graph, edges),
-      /存在しません/
+      /not found in graph/
     );
     assert.equal(graph.edges.length, 0);
   });
@@ -449,7 +449,7 @@ describe('crud.js — executeCreateEdges', () => {
     const edges = [createTestEdge('N0001', 'N9999', 'depends_on')];
     assert.throws(
       () => executeCreateEdges(graph, edges),
-      /存在しません/
+      /not found in graph/
     );
     assert.equal(graph.edges.length, 0);
   });

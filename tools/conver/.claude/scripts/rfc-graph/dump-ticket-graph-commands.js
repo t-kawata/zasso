@@ -42,10 +42,10 @@ const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 const DEFAULT_HOPS = 3;
 
 /** Message when graph is absent */
-const NO_GRAPH_MESSAGE = 'グラフファイルがありません。/graphify-rfc を先に実行してグラフを生成してください。';
+const NO_GRAPH_MESSAGE = 'Graph file not found. Run /graphify-rfc first to generate the graph.';
 
 /** Section heading */
-const SECTION_HEADING = '### RFC設計グラフ構造探索コマンド';
+const SECTION_HEADING = '### RFC Design Graph Structure Exploration Commands';
 
 // ============================================================
 // Command-line argument parsing
@@ -70,7 +70,7 @@ function parseArguments(testArgs) {
   // Three arguments are required
   if (args.length < 3) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: dump-ticket-graph-commands.js --tickets=<path> --graph=<path> --source=<path>'
     );
   }
@@ -79,45 +79,45 @@ function parseArguments(testArgs) {
   const ticketsFlag = args[0];
   if (!ticketsFlag.startsWith(TICKETS_PATH_ARG_PREFIX)) {
     throw new Error(
-      '最初の引数は --tickets=<path> である必要があります。\n' +
-      `  実際の値: ${ticketsFlag}`
+      'The first argument must be --tickets=<path>.\n' +
+      `  Actual value: ${ticketsFlag}`
     );
   }
   const ticketsPath = ticketsFlag.slice(TICKETS_PATH_ARG_PREFIX.length);
   if (!ticketsPath) {
-    throw new Error('--tickets=<path> の <path> が空です。');
+    throw new Error('--tickets=<path> <path> is empty.');
   }
 
   // Parse --graph=<path>
   const graphFlag = args[1];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '2番目の引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      'The second argument must be --graph=<path>.\n' +
+      `  Actual value: ${graphFlag}`
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> <path> is empty.');
   }
 
   // Parse --source=<path>
   const sourceFlag = args[2];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
-      '3番目の引数は --source=<path> である必要があります。\n' +
-      `  実際の値: ${sourceFlag}`
+      'The third argument must be --source=<path>.\n' +
+      `  Actual value: ${sourceFlag}`
     );
   }
   const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error('--source=<path> <path> is empty.');
   }
 
   // Check for excess arguments
   if (args.length > 3) {
     throw new Error(
-      '余剰な引数があります。\n' +
+      'Excess arguments.\n' +
       '  Usage: dump-ticket-graph-commands.js --tickets=<path> --graph=<path> --source=<path>'
     );
   }
@@ -139,7 +139,7 @@ function parseArguments(testArgs) {
 function loadTickets(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) {
     throw new Error(
-      `Tickets.json が見つかりません: ${ticketsPath}`
+      `Tickets.json not found: ${ticketsPath}`
     );
   }
 
@@ -148,7 +148,7 @@ function loadTickets(ticketsPath) {
     raw = fs.readFileSync(ticketsPath, 'utf8');
   } catch (readError) {
     throw new Error(
-      `Tickets.json の読み込みに失敗しました: ${readError.message}`
+      `Tickets.json failed to load: ${readError.message}`
     );
   }
 
@@ -157,7 +157,7 @@ function loadTickets(ticketsPath) {
     tickets = JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `Tickets.json のJSONパースに失敗しました: ${parseError.message}`
+      `Tickets.json JSON parse failed: ${parseError.message}`
     );
   }
 
@@ -248,10 +248,10 @@ function buildNodeTitleMap(graph) {
  * @returns {string} Full section string
  */
 function formatSection(results, graphFileName) {
-  const lines = [SECTION_HEADING, '', `グラフファイル: ${graphFileName}`, ''];
+  const lines = [SECTION_HEADING, '', `Graph file: ${graphFileName}`, ''];
 
   for (const result of results) {
-    lines.push(`チケット ${result.ticketKey} に統合されたノード:`);
+    lines.push(`Nodes integrated in ticket ${result.ticketKey}:`);
     for (const command of result.commands) {
       lines.push(command);
     }
@@ -314,20 +314,20 @@ function appendToSpec(specPath, section) {
  */
 function printUsage() {
   console.log(
-    'dump-ticket-graph-commands.js — Tickets.json nodeIDs→specコマンド追記\n' +
+    'dump-ticket-graph-commands.js — Append Tickets.json nodeIDs as spec commands\n' +
     '\n' +
     'Usage:\n' +
     '  dump-ticket-graph-commands.js --tickets=<path> --graph=<path> --source=<path>\n' +
     '\n' +
     'Options:\n' +
-    '  --tickets=<path>  Tickets.json のパス\n' +
-    '  --graph=<path>    グラフファイルのパス\n' +
-    '  --source=<path>   ソースファイルのパス\n' +
-    '  --help, -h        このヘルプを表示\n' +
+    '  --tickets=<path>  Path to Tickets.json\n' +
+    '  --graph=<path>    Path to the graph file\n' +
+    '  --source=<path>   Path to the source file\n' +
+    '  --help, -h        Display this help\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  正常終了\n' +
-    '  1  引数エラーまたはファイル読み込みエラー\n'
+    '  0  Normal completion\n' +
+    '  1  Argument error or file load error\n'
   );
 }
 
@@ -358,9 +358,9 @@ function main() {
     sourcePath = parsed.sourcePath;
   } catch (parseError) {
     process.stderr.write(
-      `[ERROR] 引数のパースに失敗しました。\n` +
-      `原因: ${parseError.message}\n` +
-      `対応: 正しい引数で再実行してください。\n`
+      `[ERROR] Argument parse failed.\n` +
+      `Cause: ${parseError.message}\n` +
+      `Action: Re-run with correct arguments.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -370,9 +370,9 @@ function main() {
     tickets = loadTickets(ticketsPath);
   } catch (ticketsError) {
     process.stderr.write(
-      `[ERROR] Tickets.json の読み込みに失敗しました。\n` +
-      `原因: ${ticketsError.message}\n` +
-      `対応: --tickets=<path> に正しい Tickets.json を指定してください。\n`
+      `[ERROR] Tickets.json failed to load.\n` +
+      `Cause: ${ticketsError.message}\n` +
+      `Action: Specify a valid Tickets.json via --tickets=<path>.\n`
     );
     process.exit(EXIT_FAILURE);
   }
@@ -395,9 +395,9 @@ function main() {
       graph = JSON.parse(raw);
     } catch (graphError) {
       process.stderr.write(
-        `[ERROR] グラフファイルの読み込みに失敗しました。\n` +
-        `原因: ${graphError.message}\n` +
-        `対応: --graph=<path> に正しいグラフファイルを指定してください。\n`
+        `[ERROR] Graph file failed to load.\n` +
+        `Cause: ${graphError.message}\n` +
+        `Action: Specify a valid graph file via --graph=<path>.\n`
       );
       process.exit(EXIT_FAILURE);
     }
@@ -439,7 +439,7 @@ function main() {
     }
 
     if (writtenSpecs.length > 0) {
-      console.error(`spec に追記しました: ${writtenSpecs.join(', ')}`);
+      console.error(`Appended to spec: ${writtenSpecs.join(', ')}`);
     }
   } else {
     // Graph does not exist: output absence message

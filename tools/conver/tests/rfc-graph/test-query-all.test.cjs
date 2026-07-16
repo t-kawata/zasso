@@ -361,7 +361,7 @@ describe('formatSuccessMessage', () => {
   it('generates success message', () => {
     const msg = formatSuccessMessage(5);
     assert.ok(msg.includes('5'));
-    assert.ok(msg.includes('正常解決'));
+    assert.ok(msg.includes('resolved successfully'));
   });
 });
 
@@ -384,7 +384,7 @@ describe('formatErrorMessage', () => {
     const graph = buildAllBrokenGraph(26);
     const { broken } = validateAllHeadingRefs(graph, SAMPLE_LINES);
     const msg = formatErrorMessage(broken);
-    assert.ok(msg.includes('その他 1 件'));
+    assert.ok(msg.includes('1 more'));
   });
 });
 

@@ -388,10 +388,10 @@ describe('graphify-rfc.md slash command integration tests', () => {
   describe('error cases', () => {
     it('should have usage instructions for missing arguments or argument-related description', () => {
       assert.ok(
-        commandContent.includes('引数') ||
-        commandContent.includes('第1引数') ||
+        commandContent.includes('argument') ||
+        commandContent.includes('1st argument') ||
         commandContent.includes('source-file-path') ||
-        commandContent.includes('必須'),
+        commandContent.includes('required'),
         'should describe argument usage'
       );
     });
@@ -417,7 +417,7 @@ describe('graphify-rfc.md slash command integration tests', () => {
     it('should mention that graphify splits at finer granularity than formulate', () => {
       assert.ok(
         commandContent.includes('formulate') &&
-        (commandContent.includes('細かい') || commandContent.includes('発散')),
+        commandContent.includes('finer granularity'),
         'should describe that graphify splits at finer granularity than formulate'
       );
     });

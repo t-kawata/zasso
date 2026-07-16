@@ -109,11 +109,11 @@ function main() {
   const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, notes } = parseArgs();
 
   if (!ticketKey) {
-    console.error('Error: --ticket-key は必須です。');
+    console.error('Error: --ticket-key is required.');
     process.exit(EXIT_FAILURE);
   }
   if (!title) {
-    console.error('Error: --title は必須です。');
+    console.error('Error: --title is required.');
     process.exit(EXIT_FAILURE);
   }
 
@@ -123,7 +123,7 @@ function main() {
   // Add ticket to PX phase via add-ticket.js
   const addTicketScript = path.join(__dirname, 'add-ticket.js');
   if (!fs.existsSync(addTicketScript)) {
-    console.error('Error: add-ticket.js が見つかりません。');
+    console.error('Error: add-ticket.js not found.');
     process.exit(EXIT_FAILURE);
   }
   let addResult;
@@ -146,11 +146,11 @@ function main() {
     });
     addResult = JSON.parse(stdout);
   } catch (e) {
-    console.error(`add-ticket.js の実行に失敗しました: ${e.message}`);
+    console.error(`add-ticket.js execution failed: ${e.message}`);
     process.exit(EXIT_FAILURE);
   }
   if (!addResult.success) {
-    console.error(`add-ticket.js 失敗: ${addResult.error || '不明'}`);
+    console.error(`add-ticket.js failed: ${addResult.error || 'unknown'}`);
     process.exit(EXIT_FAILURE);
   }
   const actualTicketKey = addResult.ticketKey || ticketKey;
@@ -158,7 +158,7 @@ function main() {
   // Run show-ticket-context.js to display results
   const showScript = path.join(__dirname, 'show-ticket-context.js');
   if (!fs.existsSync(showScript)) {
-    console.error('Error: show-ticket-context.js が見つかりません。');
+    console.error('Error: show-ticket-context.js not found.');
     process.exit(EXIT_FAILURE);
   }
   try {
@@ -167,7 +167,7 @@ function main() {
       stdio: ['pipe', 'inherit', 'pipe'],
     });
   } catch (e) {
-    console.error(`show-ticket-context.js の実行に失敗しました: ${e.message}`);
+    console.error(`show-ticket-context.js execution failed: ${e.message}`);
     process.exit(EXIT_FAILURE);
   }
 }

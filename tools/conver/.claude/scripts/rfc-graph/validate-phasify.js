@@ -41,7 +41,7 @@ const HARD_EDGE_TYPES = new Set([
   'constrains',
 ]);
 
-/** 重み ∞ のエッジ種別 */
+/** Edge types with weight infinity */
 const WEIGHT_INFINITY = new Set([
   'depends_on',
   'implements',

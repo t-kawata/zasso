@@ -150,25 +150,25 @@ describe('dump-ticket-graph-commands.js', () => {
     it('should throw on missing arguments', () => {
       assert.throws(() => {
         parseArguments(['--tickets=a.json', '--graph=b.json']);
-      }, /引数が不足しています/);
+      }, /insufficient arguments/i);
     });
 
     it('should throw on wrong --tickets prefix', () => {
       assert.throws(() => {
         parseArguments(['--ticket=a.json', '--graph=b.json', '--source=c.md']);
-      }, /最初の引数は --tickets=<path>/);
+      }, /First argument.*--tickets/i);
     });
 
     it('should throw on wrong --graph prefix', () => {
       assert.throws(() => {
         parseArguments(['--tickets=a.json', '--gra=b.json', '--source=c.md']);
-      }, /2番目の引数は --graph=<path>/);
+      }, /Second argument.*--graph/i);
     });
 
     it('should throw on empty path', () => {
       assert.throws(() => {
         parseArguments(['--tickets=', '--graph=b.json', '--source=c.md']);
-      }, /<path> が空です/);
+      }, /is empty/i);
     });
   });
 
@@ -188,14 +188,14 @@ describe('dump-ticket-graph-commands.js', () => {
       const noExist = path.join(tmpDir, 'no-such-file.json');
       assert.throws(() => {
         loadTickets(noExist);
-      }, /Tickets.json が見つかりません/);
+      }, /Tickets.json not found/i);
     });
 
     it('should throw on invalid JSON', () => {
       fs.writeFileSync(ticketsPath, '{invalid}', 'utf8');
       assert.throws(() => {
         loadTickets(ticketsPath);
-      }, /JSONパースに失敗/);
+      }, /JSON parse failed/);
     });
   });
 
@@ -284,8 +284,8 @@ describe('dump-ticket-graph-commands.js', () => {
         },
       ];
       const section = formatSection(results, 'graph.json');
-      assert.ok(section.includes('### RFC設計グラフ構造探索コマンド'));
-      assert.ok(section.includes('グラフファイル: graph.json'));
+      assert.ok(section.includes('### RFC Design Graph Structure Exploration Commands'));
+      assert.ok(section.includes('Graph file: graph.json'));
       assert.ok(section.includes('P0-1'));
       assert.ok(section.includes('N0001'));
       assert.ok(section.includes('query.js'));
@@ -322,8 +322,8 @@ describe('dump-ticket-graph-commands.js', () => {
   describe('formatNoGraphSection', () => {
     it('should generate no-graph section', () => {
       const section = formatNoGraphSection();
-      assert.ok(section.includes('### RFC設計グラフ構造探索コマンド'));
-      assert.ok(section.includes('グラフファイルがありません'));
+      assert.ok(section.includes('### RFC Design Graph Structure Exploration Commands'));
+      assert.ok(section.includes('Graph file not found'));
     });
   });
 
@@ -336,10 +336,10 @@ describe('dump-ticket-graph-commands.js', () => {
       const specPath = path.join(tmpDir, 'spec-test.md');
       fs.writeFileSync(specPath, '# Test Spec\n', 'utf8');
 
-      appendToSpec(specPath, '### RFC設計グラフ構造探索コマンド\n\ngraph.json\n');
+      appendToSpec(specPath, '### RFC Design Graph Structure Exploration Commands\n\ngraph.json\n');
 
       const content = fs.readFileSync(specPath, 'utf8');
-      assert.ok(content.includes('### RFC設計グラフ構造探索コマンド'));
+      assert.ok(content.includes('### RFC Design Graph Structure Exploration Commands'));
       assert.ok(content.includes('graph.json'));
     });
 
@@ -347,7 +347,7 @@ describe('dump-ticket-graph-commands.js', () => {
       const specPath = path.join(tmpDir, 'spec-idempotent.md');
       fs.writeFileSync(specPath, '# Test Spec\n', 'utf8');
 
-      const section = '### RFC設計グラフ構造探索コマンド\n\ngraph.json\n';
+      const section = '### RFC Design Graph Structure Exploration Commands\n\ngraph.json\n';
       const firstResult = appendToSpec(specPath, section);
       const secondResult = appendToSpec(specPath, section);
 
@@ -355,7 +355,7 @@ describe('dump-ticket-graph-commands.js', () => {
       assert.equal(secondResult, false);
 
       const content = fs.readFileSync(specPath, 'utf8');
-      const occurrences = content.split('### RFC設計グラフ構造探索コマンド').length - 1;
+      const occurrences = content.split('### RFC Design Graph Structure Exploration Commands').length - 1;
       assert.equal(occurrences, 1);
     });
   });

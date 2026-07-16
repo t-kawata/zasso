@@ -45,7 +45,7 @@ function parseArguments(argv) {
   }
 
   if (result.help) return result;
-  if (!result.hintsPath) throw new Error('--hints=<path> が必要です。');
+  if (!result.hintsPath) throw new Error('--hints=<path> is required.');
   return result;
 }
 
@@ -94,15 +94,15 @@ function filterEntries(hintsData, filters) {
  */
 function formatAsMarkdown(entries, hintsData) {
   if (entries.length === 0) {
-    return '該当するエントリがありません。';
+    return 'No matching entries found.';
   }
 
   const parts = [];
   parts.push(`# Fix Graph Hints`);
   parts.push('');
-  parts.push(`- **生成日時**: ${hintsData.generatedAt || '不明'}`);
-  parts.push(`- **総件数**: ${hintsData.totalBroken || 0}`);
-  parts.push(`- **表示件数**: ${entries.length}`);
+  parts.push(`- **Generated at**: ${hintsData.generatedAt || 'unknown'}`);
+  parts.push(`- **Total entries**: ${hintsData.totalBroken || 0}`);
+  parts.push(`- **Displayed**: ${entries.length}`);
   parts.push('');
 
   for (const entry of entries) {
@@ -110,29 +110,29 @@ function formatAsMarkdown(entries, hintsData) {
     parts.push('');
     parts.push(`## ${entry.diagnosis || '?'}: ${entry.nodeId || '?'} / ${entry.refId || '?'}`);
     parts.push('');
-    parts.push(`| 項目 | 値 |`);
+    parts.push(`| Item | Value |`);
     parts.push(`|------|-----|`);
-    parts.push(`| ノード | ${entry.nodeTitle || '?'} |`);
+    parts.push(`| Node | ${entry.nodeTitle || '?'} |`);
     parts.push(`| refId | ${entry.refId || '?'} |`);
-    parts.push(`| 見出しレベル | h${entry.heading ?? '?'} |`);
-    parts.push(`| 診断 | ${entry.diagnosis || '?'} |`);
-    parts.push(`| スコア | ${entry.score ?? '?'}% |`);
-    parts.push(`| トークン | \`${(entry.texts || []).join(', ')}\` |`);
+    parts.push(`| heading level | h${entry.heading ?? '?'} |`);
+    parts.push(`| Diagnosis | ${entry.diagnosis || '?'} |`);
+    parts.push(`| Score | ${entry.score ?? '?'}% |`);
+    parts.push(`| Tokens | \`${(entry.texts || []).join(', ')}\` |`);
     parts.push('');
 
     if (entry.summary) {
-      parts.push(`**診断メッセージ**: ${entry.summary}`);
+      parts.push(`**Diagnosis message**: ${entry.summary}`);
       parts.push('');
     }
 
     if (entry.remedyHint) {
-      parts.push(`**示唆**: ${entry.remedyHint}`);
+      parts.push(`**Suggestion**: ${entry.remedyHint}`);
       parts.push('');
     }
 
     if (entry.remedyCommand) {
       parts.push('```bash');
-      parts.push(`# 修正コマンド例`);
+      parts.push(`# Example fix command`);
       parts.push(entry.remedyCommand);
       parts.push('```');
       parts.push('');
@@ -140,9 +140,9 @@ function formatAsMarkdown(entries, hintsData) {
 
     // Per-token match status
     if (entry.details && Array.isArray(entry.details.tokenMatches)) {
-      parts.push('### トークン別一致状況');
+      parts.push('### Per-token match status');
       parts.push('');
-      parts.push('| トークン | 一致 | 一致行数 |');
+      parts.push('| Token | Match | Match lines |');
       parts.push('|----------|------|----------|');
       for (const tm of entry.details.tokenMatches) {
         parts.push(`| \`${tm.token}\` | ${tm.matched ? '✅' : '❌'} | ${tm.matchCount ?? '?'} |`);
@@ -152,9 +152,9 @@ function formatAsMarkdown(entries, hintsData) {
 
     // Candidate heading lines
     if (entry.details && Array.isArray(entry.details.candidateLines) && entry.details.candidateLines.length > 0) {
-      parts.push('### 候補見出し行');
+      parts.push('### Candidate heading lines');
       parts.push('');
-      parts.push('| 行番号 | 内容 | スコア |');
+      parts.push('| Line | Content | Score |');
       parts.push('|--------|------|--------|');
       for (const cl of entry.details.candidateLines) {
         parts.push(`| ${cl.line} | \`${cl.text}\` | ${cl.score ?? 0}% |`);
@@ -175,26 +175,26 @@ function main() {
   try {
     parsed = parseArguments(process.argv);
   } catch (e) {
-    process.stderr.write(`エラー: ${e.message}\n`);
+    process.stderr.write(`Error: ${e.message}\n`);
     process.exit(1);
   }
 
   if (parsed.help) {
-    process.stdout.write(`query-fix-hints.js — _fix_graph_hints.json 検索・Markdown 整形表示
+    process.stdout.write(`query-fix-hints.js — Search _fix_graph_hints.json and format as Markdown
 
 Usage:
   query-fix-hints.js --hints=<path> [--id=<nodeId>] [--diagnosis=<M0..M10>] [--refId=<refId>]
 
 Options:
-  --hints=<path>     _fix_graph_hints.json のパス
-  --id=<nodeId>      特定ノードIDでフィルタ（例: --id=N0100）
-  --diagnosis=<M0..M10>  特定診断種別でフィルタ（例: --diagnosis=M1）
-  --refId=<refId>    特定 refId でフィルタ（例: --refId=REF101）
-  --help, -h         このヘルプを表示
+  --hints=<path>     Path to _fix_graph_hints.json
+  --id=<nodeId>      Filter by specific node ID (e.g., --id=N0100)
+  --diagnosis=<M0..M10>  Filter by specific diagnosis type (e.g., --diagnosis=M1)
+  --refId=<refId>    Filter by specific refId (e.g., --refId=REF101)
+  --help, -h         Display this help
 
 Exit codes:
-  0  正常終了
-  1  エラー終了（ファイル不在・引数不正等）
+  0  Normal completion
+  1  Error exit (file not found, invalid arguments, etc.)
 `);
     process.exit(0);
   }
@@ -204,11 +204,11 @@ Exit codes:
     hintsData = loadHintsFile(parsed.hintsPath);
   } catch (e) {
     if (e.code === 'ENOENT') {
-      process.stderr.write(`エラー: ファイルが見つかりません: ${parsed.hintsPath}\n`);
+      process.stderr.write(`Error: File not found: ${parsed.hintsPath}\n`);
     } else if (e instanceof SyntaxError) {
-      process.stderr.write(`エラー: JSON のパースに失敗しました: ${e.message}\n`);
+      process.stderr.write(`Error: JSON parse failed: ${e.message}\n`);
     } else {
-      process.stderr.write(`エラー: ${e.message}\n`);
+      process.stderr.write(`Error: ${e.message}\n`);
     }
     process.exit(1);
   }

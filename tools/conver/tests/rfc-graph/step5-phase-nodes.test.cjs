@@ -118,8 +118,8 @@ describe('formatOutput', () => {
 
   it('includes I/O boundary annotations', () => {
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, SAMPLE_NODE_MARKDOWN, [null, null]);
-    assert.ok(output.includes('安全な I/O 境界'));
-    assert.ok(output.includes('チケットとは、1回の実装で安全に行えるノードの組み合わせです'));
+    assert.ok(output.includes('Each node was designed as a safe I/O boundary by graphify-rfc.'));
+    assert.ok(output.includes('A ticket is a combination of nodes safely implementable in one go.'));
   });
 
   it('includes details for each node', () => {
@@ -133,7 +133,7 @@ describe('formatOutput', () => {
   it('includes error messages when error nodes exist', () => {
     const errors = ['query.js execution failed', null];
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, [null, SAMPLE_NODE_MARKDOWN[1]], errors);
-    assert.ok(output.includes('エラーのためノード詳細を取得できませんでした'));
+    assert.ok(output.includes('node details unavailable due to error'));
     assert.ok(output.includes('query.js execution failed'));
   });
 });

@@ -75,11 +75,11 @@ describe('parseArguments', () => {
   });
 
   it('error: throws on insufficient arguments', () => {
-    assert.throws(() => parseArguments(['node', 'script.js']), /ソースファイルのパスを指定/);
+    assert.throws(() => parseArguments(['node', 'script.js']), /Specify the source file path/);
   });
 
   it('error: throws on extra arguments', () => {
-    assert.throws(() => parseArguments(['node', 'script.js', 'doc.md', 'extra.md']), /余剰な引数/);
+    assert.throws(() => parseArguments(['node', 'script.js', 'doc.md', 'extra.md']), /Excess arguments/);
   });
 });
 
@@ -100,7 +100,7 @@ describe('readSourceFile', () => {
   it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readSourceFile(path.join(tmpDir, 'nonexistent.md'));
-    }, /見つかりません/);
+    }, /Source file not found/);
   });
 });
 
@@ -402,12 +402,12 @@ describe('formatReport', () => {
     );
 
     // Basic info
-    assert.ok(report.includes('基本情報'));
-    assert.ok(report.includes('100行'));
-    assert.ok(report.includes('70行')); // 100-30
+    assert.ok(report.includes('Basic Information'));
+    assert.ok(report.includes('Total lines: 100'));
+    assert.ok(report.includes('prose: 70')); // 100-30
 
     // Section list (kind/dep inline)
-    assert.ok(report.includes('セクション一覧'));
+    assert.ok(report.includes('Section List'));
     assert.ok(report.includes('- h1'));
     assert.ok(report.includes('Title'));
     assert.ok(report.includes('[kind:')); // kind annotated inline
@@ -416,8 +416,8 @@ describe('formatReport', () => {
     assert.ok(report.includes('ファイルI/O'));
 
     // Sections over 100 lines
-    assert.ok(report.includes('100行超セクション'));
-    assert.ok(report.includes('150行'));
+    assert.ok(report.includes('Sections Exceeding 100 Lines'));
+    assert.ok(report.includes('150 prose lines'));
   });
 
   it('normal: explicitly states "(none)" for empty data', () => {
@@ -431,7 +431,7 @@ describe('formatReport', () => {
       [], // headingRefCandidates
     );
 
-    assert.ok(report.includes('なし（全セクションが100行未満）'));
+    assert.ok(report.includes('None (all sections under 100 lines)'));
   });
 });
 
@@ -467,12 +467,12 @@ describe('Integration: generateReport', () => {
     const report = generateReport(filePath, sourceLines);
 
     // Contains basic structure
-    assert.ok(report.includes('test-rfc.md 構造分析レポート'));
-    assert.ok(report.includes('基本情報'));
-    assert.ok(report.includes('セクション一覧'));
+    assert.ok(report.includes('Structure Analysis Report'));
+    assert.ok(report.includes('Basic Information'));
+    assert.ok(report.includes('Section List'));
     assert.ok(report.includes('[kind:')); // kind annotated inline
     assert.ok(report.includes('[dep:'));  // dep annotated inline
-    assert.ok(report.includes('100行超セクション'));
+    assert.ok(report.includes('Sections Exceeding 100 Lines'));
 
     // Sections are extracted
     assert.ok(report.includes('要件定義'));

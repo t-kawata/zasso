@@ -120,7 +120,7 @@ describe('parseArgs — CLI argument parsing', () => {
     const args = ['--dirs-tree=/dt', '--root-dir=/out', '--lang=python'];
     const result = parseArgs(args);
     assert.strictEqual(result.ok, false);
-    assert.ok(result.error.includes('サポート'));
+    assert.ok(result.error.includes('Unsupported language'));
   });
 
   it('should accept rust, go, typescript', () => {
@@ -302,7 +302,7 @@ describe('createItems — Actual creation', () => {
     const created = [
       { type: 'file', path: existingFile, content: 'new content' },
     ];
-    assert.throws(() => createItems(created, false), /既に存在/);
+    assert.throws(() => createItems(created, false), /already exists/);
   });
 
   it('should overwrite existing file with --force', () => {
@@ -416,7 +416,7 @@ describe('main — Integration test', () => {
     try {
       await main(['--dirs-tree=/dt', '--root-dir=/out', '--lang=python']);
       assert.strictEqual(exitCode, 1);
-      assert.ok(capturedStderr.includes('サポート'));
+      assert.ok(capturedStderr.includes('Unsupported language'));
     } finally {
       process.stderr.write = origStderr;
       process.exit = origExit;
@@ -434,7 +434,7 @@ describe('main — Integration test', () => {
     try {
       await main(['--dirs-tree=/tmp/non-existent-dirs-tree.json', '--root-dir=/out', '--lang=rust']);
       assert.strictEqual(exitCode, 1);
-      assert.ok(capturedStderr.includes('見つかりません'));
+      assert.ok(capturedStderr.includes('not found'));
     } finally {
       process.stderr.write = origStderr;
       process.exit = origExit;
@@ -456,7 +456,7 @@ describe('main — Integration test', () => {
     try {
       await main([`--dirs-tree=${dtPath}`, '--root-dir=/out', '--lang=rust']);
       assert.strictEqual(exitCode, 0);
-      assert.ok(capturedStdout.includes('正常に終了'));
+      assert.ok(capturedStdout.includes('exiting normally'));
     } finally {
       process.stdout.write = origStdout;
       process.exit = origExit;

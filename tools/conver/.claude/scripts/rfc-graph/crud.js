@@ -85,7 +85,7 @@ function parseArguments() {
   // Minimum arguments: --graph=<path> subcommand
   if (args.length < 2) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: crud.js --graph=<path> <subcommand> [options]'
     );
   }
@@ -94,13 +94,13 @@ function parseArguments() {
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '最初の引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      'The first argument must be --graph=<path>.\n' +
+      `  Actual value: ${graphFlag}`
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> <path> is empty.');
   }
 
   const subcommand = args[1];
@@ -108,7 +108,7 @@ function parseArguments() {
   // Validate subcommand
   if (!ALLOWED_SUBCOMMANDS.includes(subcommand)) {
     throw new Error(
-      `未知のサブコマンドです: ${subcommand}`
+      `Unknown subcommand: ${subcommand}`
     );
   }
 
@@ -122,20 +122,20 @@ function parseArguments() {
     if (arg.startsWith(NODE_ID_ARG_PREFIX)) {
       nodeId = arg.slice(NODE_ID_ARG_PREFIX.length);
       if (!nodeId) {
-        throw new Error('--id=<nodeId> の <nodeId> が空です。');
+        throw new Error('--id=<nodeId> <nodeId> is empty.');
       }
     } else if (arg.startsWith(FILE_ARG_PREFIX)) {
       filePath = arg.slice(FILE_ARG_PREFIX.length);
       if (!filePath) {
-        throw new Error('--file=<path> の <path> が空です。');
+        throw new Error('--file=<path> <path> is empty.');
       }
     } else if (arg.startsWith(SOURCE_ARG_PREFIX)) {
       sourcePath = arg.slice(SOURCE_ARG_PREFIX.length);
       if (!sourcePath) {
-        throw new Error('--source=<path> の <path> が空です。');
+        throw new Error('--source=<path> <path> is empty.');
       }
     } else {
-      throw new Error(`未知の引数です: ${arg}`);
+      throw new Error(`Unknown argument: ${arg}`);
     }
   }
 
@@ -145,12 +145,12 @@ function parseArguments() {
 
   if (subcommandsRequiringFile.includes(subcommand) && !filePath) {
     throw new Error(
-      `サブコマンド "${subcommand}" には --file=<path> が必要です。`
+      `Subcommand "${subcommand}" requires --file=<path>.`
     );
   }
   if (subcommandsRequiringId.includes(subcommand) && !nodeId) {
     throw new Error(
-      `サブコマンド "${subcommand}" には --id=<nodeId> が必要です。`
+      `Subcommand "${subcommand}" requires --id=<nodeId>.`
     );
   }
 
@@ -176,7 +176,7 @@ function readGraph(graphPath, sourcePath) {
   if (!fs.existsSync(graphPath)) {
     if (!sourcePath) {
       throw new Error(
-        '--source 未指定です。--source=</path/to/RFC-???.md> で元Markdown文書のパスを指定してください。'
+        '--source not specified. Specify --source=</path/to/RFC-???.md> for the source Markdown document path.'
       );
     }
     return createEmptyGraph(sourcePath);
@@ -218,9 +218,9 @@ function validateWithSchema(data, schemaFileName, description) {
   if (!result.valid) {
     const errorDetails = result.errors.join('\n  - ');
     throw new Error(
-      `${description} がスキーマ検証に失敗しました。` +
-      `\n  スキーマ: ${schemaFileName}` +
-      `\n  詳細:\n  - ${errorDetails}`
+      `${description} failed schema validation.` +
+      `\n  Schema: ${schemaFileName}` +
+      `\n  Details:\n  - ${errorDetails}`
     );
   }
 }
@@ -252,7 +252,7 @@ function executeCreateNodes(graph, nodesData) {
         }
       }
     }
-    validateWithSchema(node, NODE_SCHEMA_FILE, `ノード ${node.id || '(ID不明)'}`);
+    validateWithSchema(node, NODE_SCHEMA_FILE, `Node ${node.id || '(unknown ID)'}`);
   }
 
   // Step 2: Check ID duplicates with existing nodes
@@ -260,9 +260,9 @@ function executeCreateNodes(graph, nodesData) {
   for (const node of nodesData) {
     if (existingIds.has(node.id)) {
       throw new Error(
-        `ノードID ${node.id} は既に存在します。` +
-        `\n  既存ノード数: ${graph.nodes.length}件` +
-        `\n  重複ID: ${node.id}`
+        `Node ID ${node.id} already exists.` +
+        `\n  Existing node count: ${graph.nodes.length}` +
+        `\n  Duplicate ID: ${node.id}`
       );
     }
     existingIds.add(node.id);
@@ -320,8 +320,8 @@ function executeGetNode(graph, nodeId) {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error(
-      `ノード ${nodeId} が見つかりません。` +
-      `\n  グラフ内のノード: ${graph.nodes.map((n) => n.id).join(', ') || '(なし)'}`
+      `Node ${nodeId} not found.` +
+      `\n  Nodes in graph: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
     );
   }
   console.log(JSON.stringify(node, null, 2));
@@ -342,8 +342,8 @@ function executeUpdateNode(graph, nodeId, patchData) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
     throw new Error(
-      `ノード ${nodeId} が見つかりません。` +
-      `\n  グラフ内のノード: ${graph.nodes.map((n) => n.id).join(', ') || '(なし)'}`
+      `Node ${nodeId} not found.` +
+      `\n  Nodes in graph: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
     );
   }
 
@@ -351,7 +351,7 @@ function executeUpdateNode(graph, nodeId, patchData) {
   const updatedNode = { ...graph.nodes[nodeIndex], ...patchData };
 
   // Schema Validation
-  validateWithSchema(updatedNode, NODE_SCHEMA_FILE, `更新後のノード ${nodeId}`);
+  validateWithSchema(updatedNode, NODE_SCHEMA_FILE, `Updated node ${nodeId}`);
 
   // Execute update
   graph.nodes[nodeIndex] = updatedNode;
@@ -369,8 +369,8 @@ function executeDeleteNode(graph, nodeId) {
   const nodeIndex = graph.nodes.findIndex((n) => n.id === nodeId);
   if (nodeIndex === -1) {
     throw new Error(
-      `ノード ${nodeId} が見つかりません。` +
-      `\n  グラフ内のノード: ${graph.nodes.map((n) => n.id).join(', ') || '(なし)'}`
+      `Node ${nodeId} not found.` +
+      `\n  Nodes in graph: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
     );
   }
 
@@ -392,7 +392,7 @@ function executeDeleteNode(graph, nodeId) {
 function executeCreateEdges(graph, edgesData) {
   // Step 1: Schema validation for all edges
   for (const edge of edgesData) {
-    validateWithSchema(edge, EDGE_SCHEMA_FILE, `エッジ ${edge.from}→${edge.to}`);
+    validateWithSchema(edge, EDGE_SCHEMA_FILE, `Edge ${edge.from}→${edge.to}`);
   }
 
   // Step 2: Verify from/to node existence
@@ -400,14 +400,14 @@ function executeCreateEdges(graph, edgesData) {
   for (const edge of edgesData) {
     if (!existingIds.has(edge.from)) {
       throw new Error(
-        `エッジの参照元ノード ${edge.from} がグラフ内に存在しません。` +
-        `\n  存在するノード: ${graph.nodes.map((n) => n.id).join(', ') || '(なし)'}`
+        `Edge source node ${edge.from} not found in graph.` +
+        `\n  Existing nodes: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
       );
     }
     if (!existingIds.has(edge.to)) {
       throw new Error(
-        `エッジの参照先ノード ${edge.to} がグラフ内に存在しません。` +
-        `\n  存在するノード: ${graph.nodes.map((n) => n.id).join(', ') || '(なし)'}`
+        `Edge target node ${edge.to} not found in graph.` +
+        `\n  Existing nodes: ${graph.nodes.map((n) => n.id).join(', ') || '(none)'}`
       );
     }
   }
@@ -454,8 +454,8 @@ function executeDeleteEdges(graph, edgesData) {
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
-  console.error('原因: ' + reason);
-  console.error('対応: ' + action);
+  console.error('Cause: ' + reason);
+  console.error('Action: ' + action);
   process.exit(1);
 }
 
@@ -464,28 +464,28 @@ function exitWithError(message, reason, action) {
  */
 function printUsage() {
   console.log(`
-crud.js — グラフファイルCRUD操作
+crud.js — Graph file CRUD operations
 
-使用方法:
+Usage:
   node crud.js --graph=<path> create-nodes --file=<nodes.json>
-    nodes.json に定義されたノードを一括追加する
+    Batch add nodes defined in nodes.json
 
   node crud.js --graph=<path> list-nodes
-    全ノード一覧をJSON出力する
+    Output all nodes as JSON
 
   node crud.js --graph=<path> get-node --id=<nodeId>
-    指定されたIDのノードを取得する
+    Get a node by its ID
 
   node crud.js --graph=<path> update-node --id=<nodeId> --file=<patch.json>
-    指定されたIDのノードを更新する（patch.json のフィールドで上書き）
+    Update a node by its ID (overwrite with patch.json fields)
 
   node crud.js --graph=<path> delete-node --id=<nodeId>
-    指定されたIDのノードを削除する
+    Delete a node by its ID
 
   node crud.js --graph=<path> create-edges --file=<edges.json>
-    edges.json に定義されたエッジを一括追加する（from/to ノード存在確認）
+    Batch add edges defined in edges.json (with from/to node existence check)
 
-全書き込み操作はスキーマ検証通過後にアトミック書込を実行します。
+All write operations execute atomic writes after passing schema validation.
 `);
 }
 
@@ -504,9 +504,9 @@ function main() {
     parsed = parseArguments();
   } catch (parseError) {
     exitWithError(
-      'コマンドライン引数が不正です。',
+      'Invalid command-line arguments.',
       parseError.message,
-      '--help で使用方法を確認してください。'
+      'Check usage with --help.'
     );
   }
 
@@ -540,7 +540,7 @@ function main() {
     const graph = readGraph(graphPath, sourcePath);
 
     // Schema validation of entire graph (verify existing data integrity)
-    validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'グラフデータ全体');
+    validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'Entire graph data');
 
     switch (subcommand) {
       case 'create-nodes':
@@ -561,7 +561,7 @@ function main() {
     }
 
     // Schema validation of entire graph after modification
-    validateWithSchema(graph, GRAPH_SCHEMA_FILE, '更新後のグラフデータ全体');
+    validateWithSchema(graph, GRAPH_SCHEMA_FILE, 'Entire graph data after update');
 
     // Atomic write
     atomicWrite(graphPath, JSON.stringify(graph, null, 2));
@@ -572,9 +572,9 @@ function main() {
     }
   } catch (operationError) {
     exitWithError(
-      `${subcommand} の実行中にエラーが発生しました。`,
+      `Error during execution of ${subcommand}.`,
       operationError.message,
-      '入力データを確認して再実行してください。'
+      'Check input data and re-run.'
     );
   }
 }

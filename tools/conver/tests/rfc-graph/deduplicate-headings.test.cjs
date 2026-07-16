@@ -64,6 +64,6 @@ describe('deduplicateHeadings', () => {
   it('error: throws on 27 duplicates', () => {
     const lines = ['# X'];
     for (let i = 0; i < 27; i++) lines.push('# X');
-    assert.throws(() => deduplicateHeadings(lines), /27件/);
+    assert.throws(() => deduplicateHeadings(lines), /exceeded 27/i);
   });
 });

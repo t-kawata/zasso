@@ -1,15 +1,15 @@
 /**
- * OMISSIONS フィールド更新の共通処理。
- * add-omissions-*.js 系スクリプトから利用される。
+ * Common processing for OMISSIONS field updates.
+ * Used by add-omissions-*.js scripts.
  */
 const fs = require("fs");
 const path = require("path");
 
 /**
- * OMISSIONS JSON の指定フィールドを更新する。
- * @param {string} omPath - OMISSIONS ファイルのパス
- * @param {object} updates - 更新するフィールドのキー・値マップ
- * @param {string} [parentKey] - 親キー（例: "rfcUnderstanding"）
+ * Update the specified field in an OMISSIONS JSON.
+ * @param {string} omPath - Path to the OMISSIONS file
+ * @param {object} updates - Key-value map of fields to update
+ * @param {string} [parentKey] - Parent key (e.g. "rfcUnderstanding")
  */
 function updateOmissionsField(omPath, updates, parentKey) {
   const resolved = path.resolve(omPath);
@@ -47,12 +47,12 @@ function mainGeneric(allowedFields, scriptName, parentKey) {
 }
 
 /**
- * ステップの実効的な status を計算する。
- * 子を持つステップの場合、子の status から動的に導出する：
- * - 全子が "done" → "done"
- * - いずれかの子が "in_progress" → "in_progress"
- * - 上記以外 → "todo"
- * 葉（子なし）のステップは自身の status をそのまま返す。
+ * Calculate the effective status of a step.
+ * For steps with children, dynamically derive from children's status:
+ * - All children "done" → "done"
+ * - Any child "in_progress" → "in_progress"
+ * - Otherwise → "todo"
+ * Leaf steps (no children) return their own status unchanged.
  * @param {{ status?: string, children?: Array }} step
  * @returns {string} "done" | "in_progress" | "todo"
  */

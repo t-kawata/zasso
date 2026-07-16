@@ -149,25 +149,25 @@ describe('verify.js — parseArguments', () => {
   it('error: throws when arguments are insufficient', () => {
     assert.throws(() => {
       parseArguments(['--graph=/path.json']);
-    }, /引数が不足/);
+    }, /Insufficient arguments/);
   });
 
   it('error: throws with no arguments', () => {
     assert.throws(() => {
       parseArguments([]);
-    }, /引数が不足/);
+    }, /Insufficient arguments/);
   });
 
   it('error: throws when first argument is not --graph', () => {
     assert.throws(() => {
       parseArguments(['--source=/path.md', '--graph=/path.json']);
-    }, /最初の引数は --graph/);
+    }, /must be --graph/);
   });
 
   it('error: throws when extra arguments exist', () => {
     assert.throws(() => {
       parseArguments(['--graph=p', '--source=q', '--extra']);
-    }, /余剰な引数/);
+    }, /Excess arguments/);
   });
 });
 
@@ -190,7 +190,7 @@ describe('verify.js — readGraph', () => {
   it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readGraph(path.join(tmpDir, 'nonexistent.json'));
-    }, /見つかりません/);
+    }, /not found/);
   });
 
   it('error: throws on invalid JSON', () => {
@@ -199,7 +199,7 @@ describe('verify.js — readGraph', () => {
 
     assert.throws(() => {
       readGraph(filePath);
-    }, /JSONパース/);
+    }, /Failed to parse graph/);
   });
 
   it('error: throws when nodes/edges are missing', () => {
@@ -208,7 +208,7 @@ describe('verify.js — readGraph', () => {
 
     assert.throws(() => {
       readGraph(filePath);
-    }, /構造が不正/);
+    }, /data structure is invalid/);
   });
 });
 
@@ -230,7 +230,7 @@ describe('verify.js — readSourceFile', () => {
   it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readSourceFile(path.join(tmpDir, 'nonexistent.md'));
-    }, /見つかりません/);
+    }, /not found/);
   });
 
   it('normal: empty file returns empty array', () => {
@@ -530,8 +530,8 @@ describe('verify.js — exitWithResult', () => {
       process.exit = originalExit;
       console.log = originalStdout;
       assert.ok(stderrOutput.includes('[ERROR]'));
-      assert.ok(stderrOutput.includes('未カバー'));
-      assert.ok(stderrOutput.includes('孤立ノード'));
+      assert.ok(stderrOutput.includes('uncovered'));
+      assert.ok(stderrOutput.includes('isolated'));
     } finally {
       // process.exit and console.log are explicitly restored inside try
     }
@@ -551,8 +551,8 @@ describe('verify.js — exitWithResult', () => {
       process.exit = originalExit;
       console.log = originalStdout;
       assert.ok(stderrOutput.includes('[ERROR]'));
-      assert.ok(stderrOutput.includes('未カバー'));
-      assert.ok(!stderrOutput.includes('孤立'));
+      assert.ok(stderrOutput.includes('uncovered'));
+      assert.ok(!stderrOutput.includes('isolated'));
     } finally {
       // process.exit and console.log are explicitly restored inside try
     }
@@ -572,8 +572,8 @@ describe('verify.js — exitWithResult', () => {
       process.exit = originalExit;
       console.log = originalStdout;
       assert.ok(stderrOutput.includes('[ERROR]'));
-      assert.ok(stderrOutput.includes('孤立ノード'));
-      assert.ok(!stderrOutput.includes('未カバー'));
+      assert.ok(stderrOutput.includes('isolated'));
+      assert.ok(!stderrOutput.includes('uncovered'));
     } finally {
       // process.exit and console.log are explicitly restored inside try
     }
@@ -595,11 +595,11 @@ describe('verify.js — exitWithResult', () => {
       process.exit = originalExit;
       console.log = originalStdout;
       assert.ok(stderrOutput.includes('[ERROR]'));
-      assert.ok(stderrOutput.includes('解決不能'));
+      assert.ok(stderrOutput.includes('unresolvable'));
       assert.ok(stderrOutput.includes('N0001'));
       assert.ok(stderrOutput.includes('REF001'));
-      assert.ok(!stderrOutput.includes('未カバー'));
-      assert.ok(!stderrOutput.includes('孤立'));
+      assert.ok(!stderrOutput.includes('uncovered'));
+      assert.ok(!stderrOutput.includes('isolated'));
     } finally {
       // process.exit and console.log are explicitly restored inside try
     }

@@ -13,9 +13,9 @@
  *
  * Usage:
  *   node show-phase-nodes.js \
- *     --tickets=<Tickets.json のパス> \
- *     --graph=<GRAPH.json のパス> \
- *     --dirs-tree=<Dirs-Tree.json のパス> \
+ *     --tickets=<Path to Tickets.json> \
+ *     --graph=<Path to GRAPH.json> \
+ *     --dirs-tree=<Path to Dirs-Tree.json> \
  *     --phase=<P{id}>
  */
 
@@ -172,15 +172,15 @@ function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
 
   // Node list section
   lines.push("---\n");
-  lines.push("# ノード一覧");
+  lines.push("# Node List");
   lines.push("");
-  lines.push("以下の " + nodeIds.length + " 個のノードがこのフェーズに割り当てられています。");
-  lines.push("各ノードは graphify-rfc によって安全な I/O 境界として策定されています。");
-  lines.push("ノード同士の組み合わせもまた安全な I/O 境界になりやすい性質を持ちます。");
+  lines.push("The following " + nodeIds.length + " nodes are assigned to this phase.");
+  lines.push("Each node was designed as a safe I/O boundary by graphify-rfc.");
+  lines.push("Node combinations also tend to form safe I/O boundaries.");
   lines.push("");
-  lines.push("チケットとは、1回の実装で安全に行えるノードの組み合わせです。");
-  lines.push("1つ以上のノードを束ねてチケット単位を構成してください。");
-  lines.push("全ノードを重複なく、過不足なくチケット化しなければなりません。");
+  lines.push("A ticket is a combination of nodes safely implementable in one go.");
+  lines.push("Group one or more nodes into ticket units.");
+  lines.push("All nodes must be ticketed without duplication or omission.");
   lines.push("");
 
   // Output details for each node
@@ -192,10 +192,10 @@ function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
     if (nodeMarkdown) {
       lines.push(nodeMarkdown);
     } else {
-      lines.push("### " + nodeId + ": （エラーのためノード詳細を取得できませんでした）");
+      lines.push("### " + nodeId + ": (node details unavailable due to error)");
       lines.push("");
       if (nodeErrors[i]) {
-        lines.push("**エラー**: " + nodeErrors[i]);
+        lines.push("**Error**: " + nodeErrors[i]);
         lines.push("");
       }
     }
@@ -224,7 +224,7 @@ function main() {
 
   if (missingArgs.length > 0) {
     console.error(
-      "必須引数が不足しています: " + missingArgs.join(", ")
+      "Required arguments missing: " + missingArgs.join(", ")
     );
     console.error(
       "Usage: node show-phase-nodes.js --tickets=<path> --graph=<path> --dirs-tree=<path> --phase=<P{id}>"
@@ -239,7 +239,7 @@ function main() {
       fs.readFileSync(path.resolve(parsed.ticketsPath), "utf8")
     );
   } catch (err) {
-    console.error("Tickets.json の読み込みに失敗しました: " + err.message);
+    console.error("Tickets.json failed to load: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
@@ -256,7 +256,7 @@ function main() {
   const nodeIds = phase.nodeIds;
   if (!nodeIds || !Array.isArray(nodeIds) || nodeIds.length === 0) {
     console.error(
-      "フェーズ " + parsed.phaseArg + " にはノードが割り当てられていません（nodeIds が空です）。"
+      "Phase " + parsed.phaseArg + " has no nodes assigned (nodeIds is empty)."
     );
     process.exit(EXIT_FAILURE);
   }
@@ -290,7 +290,7 @@ function main() {
     if (result.error) {
       nodeMarkdowns.push(null);
       nodeErrors.push(result.error);
-      console.error("警告: " + result.error);
+      console.error("Warning: " + result.error);
     } else {
       nodeMarkdowns.push(result.markdown);
       nodeErrors.push(null);
@@ -306,7 +306,7 @@ function main() {
 
   if (hasErrors) {
     console.error(
-      "一部のノード詳細の取得に失敗しました。上記の警告を確認してください。"
+      "Some node details could not be retrieved. Check warnings above."
     );
     process.exit(EXIT_FAILURE);
   }

@@ -297,22 +297,22 @@ describe('parseArguments()', () => {
 
   it('should throw error when missing subcommand', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json'];
-    assert.throws(() => parseArguments(), /引数が不足/);
+    assert.throws(() => parseArguments(), /Insufficient arguments/);
   });
 
   it('should throw error when start-step has no step number', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'start-step'];
-    assert.throws(() => parseArguments(), /Step番号が必要/);
+    assert.throws(() => parseArguments(), /requires a step number/);
   });
 
   it('should throw error for unknown subcommand', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'unknown-cmd', '1'];
-    assert.throws(() => parseArguments(), /未知のサブコマンド/);
+    assert.throws(() => parseArguments(), /Unknown subcommand/);
   });
 
   it('should throw error when --graphify-status= has empty path', () => {
     process.argv = ['node', 'script.js', '--graphify-status=', 'start-step', '1'];
-    assert.throws(() => parseArguments(), /パスが空/);
+    assert.throws(() => parseArguments(), /Path is empty/);
   });
 
   it('should throw error when --graphify-status flag is missing', () => {
@@ -322,7 +322,7 @@ describe('parseArguments()', () => {
 
   it('should throw error when step number is not a number', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/s.json', 'start-step', 'abc'];
-    assert.throws(() => parseArguments(), /数値ではありません/);
+    assert.throws(() => parseArguments(), /is not a number/);
   });
 
   // ============================================================
@@ -356,7 +356,7 @@ describe('parseArguments()', () => {
 
   it('should throw error when --status= path is empty', () => {
     process.argv = ['node', 'script.js', '--status=', 'start-step', '1'];
-    assert.throws(() => parseArguments(), /パスが空/);
+    assert.throws(() => parseArguments(), /Path is empty/);
   });
 
   it('should throw error for --stat=path typo', () => {
@@ -417,7 +417,7 @@ describe('File I/O', () => {
     it('should throw error for file missing required fields', () => {
       const badPath = path.join(tmpDir, 'incomplete-Status.json');
       fs.writeFileSync(badPath, JSON.stringify({ foo: 'bar' }), 'utf8');
-      assert.throws(() => readStatus(badPath), /形式が不正/);
+      assert.throws(() => readStatus(badPath), /invalid format/);
     });
   });
 

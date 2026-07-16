@@ -43,7 +43,7 @@ const LANGUAGE_EXTENSIONS = Object.freeze({
 const SUPPORTED_LANGUAGES = Object.freeze(['rust', 'go', 'typescript']);
 
 /** 3-tier template error (for stderr) — when arguments are missing */
-const ERROR_MISSING_ARGS = '[ERROR] 引数が不足しています\n原因: --dirs-tree=<path> と --graph=<path> が必要\n対応: 両方の引数を指定して再実行';
+const ERROR_MISSING_ARGS = '[ERROR] Insufficient arguments\nCause: --dirs-tree=<path> and --graph=<path> are required\nAction: Specify both arguments and re-run';
 
 // ============================================================
 // Validation Functions
@@ -57,7 +57,7 @@ const ERROR_MISSING_ARGS = '[ERROR] 引数が不足しています\n原因: --di
  */
 function checkSchemaVersion(dirsTree, errors) {
   if (!dirsTree.schemaVersion) {
-    errors.push('schemaVersion が欠落しています');
+    errors.push('schemaVersion is missing');
   }
 }
 
@@ -69,7 +69,7 @@ function checkSchemaVersion(dirsTree, errors) {
  */
 function checkTreesField(dirsTree, errors) {
   if (!dirsTree.trees) {
-    errors.push('trees が欠落しています');
+    errors.push('trees is missing');
   }
 }
 
@@ -81,7 +81,7 @@ function checkTreesField(dirsTree, errors) {
  */
 function checkDependencyDirectionsField(dirsTree, errors) {
   if (!dirsTree.dependencyDirections) {
-    errors.push('dependencyDirections が欠落しています');
+    errors.push('dependencyDirections is missing');
   }
 }
 
@@ -112,7 +112,7 @@ function checkNodeIds(node, allNodeIds, pathStr, errors) {
       const nodeId = typeof entry === 'object' ? entry.nodeId : entry;
       if (!allNodeIds.has(nodeId)) {
         errors.push(
-          `存在しないノードID "${nodeId}" が "${pathStr}" の mappedNodeIds で参照されています`
+          `Non-existent node ID "${nodeId}" referenced in mappedNodeIds of "${pathStr}"`
         );
       }
     }
@@ -156,7 +156,7 @@ function checkNodeNameDuplication(node, pathStr, errors) {
   for (const child of node.children) {
     if (seenNames.has(child.name)) {
       errors.push(
-        `パス重複: "${pathStr}" 配下に同名ノード "${child.name}" が複数存在します`
+        `Path duplication: "${pathStr}" has duplicate child "${child.name}"`
       );
     }
     seenNames.add(child.name);
@@ -180,7 +180,7 @@ function checkNodeNameDuplication(node, pathStr, errors) {
  */
 function checkDepth(node, depth, pathStr, errors) {
   if (depth > MAX_DEPTH) {
-    errors.push(`ネスト深さ制限(${MAX_DEPTH})超過: "${pathStr}"（深さ ${depth}）`);
+    errors.push(`Nesting depth limit (${MAX_DEPTH}) exceeded: "${pathStr}" (depth ${depth})`);
   }
   if (node.children) {
     for (const child of node.children) {
@@ -235,7 +235,7 @@ function checkNodeNaming(node, lang, expectedExt, errors) {
     const actualExtension = path.extname(node.name);
     if (actualExtension !== expectedExt) {
       errors.push(
-        `${lang} ファイルの拡張子が "${expectedExt}" ではありません: "${node.name}"（拡張子: "${actualExtension}"）`
+        `${lang} file extension is not "${expectedExt}": "${node.name}" (extension: "${actualExtension}")`
       );
     }
   }
@@ -268,7 +268,7 @@ function checkSlugConvention(node, pathStr, errors) {
     }
     if (!slugPattern.test(baseName)) {
       errors.push(
-        `ファイル名が slug 形式（lower_snake_case）に従っていません: "${pathStr}/${node.name}"（ベース名: "${baseName}"）`
+        `File name does not follow slug format (lower_snake_case): "${pathStr}/${node.name}" (base name: "${baseName}")`
       );
     }
   }
@@ -299,12 +299,12 @@ function checkDependencyDirections(dirsTree, errors) {
     for (const direction of directions) {
       if (!allDirectoryPaths.has(direction.from)) {
         errors.push(
-          `dependencyDirections.${lang} に存在しないディレクトリ from が参照されています: "${direction.from}"`
+          `dependencyDirections.${lang} references a non-existent directory from: "${direction.from}"`
         );
       }
       if (!allDirectoryPaths.has(direction.to)) {
         errors.push(
-          `dependencyDirections.${lang} に存在しないディレクトリ to が参照されています: "${direction.to}"`
+          `dependencyDirections.${lang} references a non-existent directory to: "${direction.to}"`
         );
       }
     }
@@ -353,12 +353,12 @@ function validateFiles(dirsTreePath, graphPath) {
 
   // Check file existence
   if (!fs.existsSync(dirsTreePath)) {
-    console.error(`[ERROR] Dirs-Tree.json が見つかりません\n原因: 指定されたパスにファイルが存在しない\n対応: パスを確認して再実行: ${dirsTreePath}`);
-    return { ok: false, errors: [`Dirs-Tree.json が見つかりません: ${dirsTreePath}`] };
+    console.error(`[ERROR] Dirs-Tree.json not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${dirsTreePath}`);
+    return { ok: false, errors: [`Dirs-Tree.json not found: ${dirsTreePath}`] };
   }
   if (!fs.existsSync(graphPath)) {
-    console.error(`[ERROR] グラフ JSON が見つかりません\n原因: 指定されたパスにファイルが存在しない\n対応: パスを確認して再実行: ${graphPath}`);
-    return { ok: false, errors: [`グラフ JSON が見つかりません: ${graphPath}`] };
+    console.error(`[ERROR] Graph JSON not found\nCause: File does not exist at the specified path\nAction: Verify the path and re-run: ${graphPath}`);
+    return { ok: false, errors: [`Graph JSON not found: ${graphPath}`] };
   }
 
   // Parse JSON
@@ -367,14 +367,14 @@ function validateFiles(dirsTreePath, graphPath) {
   try {
     dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf-8'));
   } catch (parseError) {
-    console.error(`[ERROR] Dirs-Tree.json のパースに失敗しました\n原因: ${parseError.message}\n対応: ファイルが有効な JSON 形式であることを確認してください`);
-    return { ok: false, errors: [`Dirs-Tree.json パースエラー: ${parseError.message}`] };
+    console.error(`[ERROR] Dirs-Tree.json parse failed\nCause: ${parseError.message}\nAction: Verify the file is valid JSON`);
+    return { ok: false, errors: [`Dirs-Tree.json parse error: ${parseError.message}`] };
   }
   try {
     graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
   } catch (parseError) {
-    console.error(`[ERROR] グラフ JSON のパースに失敗しました\n原因: ${parseError.message}\n対応: ファイルが有効な JSON 形式であることを確認してください`);
-    return { ok: false, errors: [`グラフ JSON パースエラー: ${parseError.message}`] };
+    console.error(`[ERROR] Graph JSON parse failed\nCause: ${parseError.message}\nAction: Verify the file is valid JSON`);
+    return { ok: false, errors: [`Graph JSON parse error: ${parseError.message}`] };
   }
 
   const allNodeIds = new Set(graph.nodes.map(node => node.id));
@@ -413,7 +413,7 @@ function validateFiles(dirsTreePath, graphPath) {
   // If there are errors, add fix-priority instructions at the top
   if (errors.length > 0) {
     errors.unshift(
-      `---\n${errors.length}件の検証エラーがあります。上から順に1件ずつ修正し、その都度再実行してください。\n修正手順:\n  1. 先頭のエラーから修正を開始してください\n  2. 1件修正するごとに本スクリプトを再実行し、エラーが減ったことを確認してください\n  3. 全エラーが解消されるまで繰り返してください\n---`
+      `---\n${errors.length} validation errors found. Fix one at a time from top, re-running after each fix.\nFix procedure:\n  1. Start fixing from the first error\n  2. Re-run this script after each fix to verify errors decrease\n  3. Repeat until all errors are resolved\n---`
     );
   }
 
@@ -448,7 +448,7 @@ function validate(testArgs) {
     process.stdout.write(JSON.stringify({ ok: true }) + '\n');
   } else {
     console.error(
-      `[ERROR] スキーマ検証に失敗しました\n原因: ${result.errors.length} 件の違反\n対応: 各エラーを修正してから次の Step に進んでください`
+      `[ERROR] Schema validation failed\nCause: ${result.errors.length}  violations\nAction: Fix each error before proceeding to the next step`
     );
     // Output contract: Write JSON result with error info to stdout
     process.stdout.write(JSON.stringify({ ok: false, errors: result.errors }) + '\n');

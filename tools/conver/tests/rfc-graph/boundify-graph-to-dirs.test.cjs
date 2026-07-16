@@ -356,8 +356,8 @@ describe('reportError', () => {
   it('should format error with 3-level template', () => {
     const result = reportError('test error', 'test cause', 'test remedy');
     assert.ok(result.includes('[ERROR] test error'));
-    assert.ok(result.includes('原因: test cause'));
-    assert.ok(result.includes('対応: test remedy'));
+    assert.ok(result.includes('Cause: test cause'));
+    assert.ok(result.includes('Action: test remedy'));
   });
 });
 
@@ -443,7 +443,7 @@ describe('main', () => {
     // .en.md text should be included
     assert.ok(output.includes('Safe boundaries'));
     // Directory tree report should be included
-    assert.ok(output.includes('ディレクトリツリーレポート'));
+    assert.ok(output.includes('Directory Tree Report'));
     // JSON block should be included
     assert.ok(output.includes('```json'));
   });
