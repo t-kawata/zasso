@@ -1,51 +1,51 @@
 #!/usr/bin/env node
 /**
- * verify-graph-integrity.js — グラフ整合性の5軸チェック
+ * verify-graph-integrity.js — 5-axis graph integrity check
  *
  * --graph-after=<path> --graph-before=<path> --source=<path>
  *
- * graphify 〜 boundify の接合部において、グラフデータが修正前後で
- * 壊れていないことを検証する。以下の5軸をチェック：
+ * Verifies that the graph data has not been corrupted after modification
+ * at the boundary between graphify and boundify. Checks the following 5 axes:
  *
- * 1. nodes構成: nodes の ID 集合が変化していないか
- * 2. edges構成: edges 配列が変化していないか
- * 3. headingRefs解決性: 全 headingRefs が解決可能か
- * 4. 孤立ノード: 1本もエッジを持たないノードがないか
- * 5. 未カバー見出し: ソースの見出しが全ノードの headingRefs に含まれているか
+ * 1. nodes integrity: whether the set of node IDs has changed
+ * 2. edges integrity: whether the edges array has changed
+ * 3. headingRefs resolvability: whether all headingRefs are resolvable
+ * 4. orphan nodes: whether any node has zero edges
+ * 5. uncovered headings: whether all source headings are covered by node headingRefs
  *
- * 出力契約:
- *   正常時 → {ok: true}
- *   異常時 → {ok: false, errors: [...], remedies: [...]}
- *             remedies は AI が次に取るべき行動の自然言語指示
+ * Output contract:
+ *   On success → {ok: true}
+ *   On error → {ok: false, errors: [...], remedies: [...]}
+ *             remedies is a natural-language instruction for the next AI action
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 
-// verify.js の検証関数を直接利用
+// Use verify.js validation functions directly
 let verify;
 try {
   verify = require('./verify.js');
 } catch (_) {
-  // fallback: verify.js がモジュールエクスポートしていない場合に備える
+  // fallback: in case verify.js does not export modules
 }
 
 // ============================================================
-// エラーメッセージテンプレート
+// Error message template
 // ============================================================
 
-/** 3要素テンプレート: [問題] / [原因] / [修正方法] */
+/** 3-element template: [problem] / [cause] / [remedy] */
 function formatError(problem, cause, remedy) {
   return `[ERROR] ${problem}\n原因: ${cause}\n対応: ${remedy}`;
 }
 
 // ============================================================
-// 引数パース
+// Argument parsing
 // ============================================================
 
 /**
- * CLI引数をパースする
+ * Parse CLI arguments
  */
 function parseArgs(argv) {
   const afterFlag = argv.find(a => a.startsWith('--graph-after='));
@@ -60,7 +60,7 @@ function parseArgs(argv) {
 }
 
 // ============================================================
-// グラフ読み込み
+// Graph loading
 // ============================================================
 
 function loadGraph(filePath) {
@@ -73,11 +73,11 @@ function loadGraph(filePath) {
 }
 
 // ============================================================
-// チェック1: nodes構成
+// Check 1: nodes integrity
 // ============================================================
 
 /**
- * 修正前後で nodes の ID 集合が一致しているか検証する
+ * Verify that the set of node IDs matches before and after modification
  */
 function checkNodesIntegrity(graphAfter, graphBefore) {
   const errors = [];
@@ -113,12 +113,12 @@ function checkNodesIntegrity(graphAfter, graphBefore) {
 }
 
 // ============================================================
-// チェック2: edges構成
+// Check 2: edges integrity
 // ============================================================
 
 /**
- * 修正前後で edges が一致しているか検証する
- * エッジは from+to+type のタプルで比較する。
+ * Verify that edges match before and after modification
+ * Edges are compared as from+to+type tuples.
  */
 function checkEdgesIntegrity(graphAfter, graphBefore) {
   const errors = [];
@@ -155,14 +155,14 @@ function checkEdgesIntegrity(graphAfter, graphBefore) {
 }
 
 // ============================================================
-// チェック3-5: verify.js の関数を利用
+// Checks 3-5: use verify.js functions
 // ============================================================
 
 /**
- * verify.js の 3軸検証（headingRefs解決性、孤立ノード、未カバー見出し）を
- * 子プロセスとして実行し、結果を返す。
+ * Run verify.js's 3-axis checks (headingRefs resolvability, orphan nodes, uncovered headings)
+ * as a child process and return the results.
  *
- * verify.js の関数は内部でファイルI/Oを行うため、安全のため子プロセス実行する。
+ * verify.js functions perform file I/O internally, so run them as a child process for safety.
  */
 function checkWithVerifyjs(graphPath, sourcePath) {
   const errors = [];
@@ -180,19 +180,19 @@ function checkWithVerifyjs(graphPath, sourcePath) {
     );
     const result = JSON.parse(stdout.trim());
     if (!result.ok) {
-      // verify.js のエラーをそのまま伝播
+      // Propagate verify.js errors as-is
       if (result.errors) {
         for (const err of result.errors) {
           errors.push(err);
         }
       }
-      // 全般的な remedy
+      // General remedy
       remedies.push(
         `verify.js のエラーを解消してください。未カバー見出しがあればノードの headingRefs を拡張し、孤立ノードがあればエッジを追加し、解決不能な headingRefs があれば texts トークンを修正してください。その後、再実行してください。`
       );
     }
   } catch (err) {
-    // verify.js が異常終了した場合もエラーとする
+    // Treat verify.js abnormal termination as an error too
     errors.push(formatError(
       'verify.js による検証が失敗しました',
       err.stderr ? err.stderr.trim() : err.message,
@@ -205,19 +205,19 @@ function checkWithVerifyjs(graphPath, sourcePath) {
 }
 
 // ============================================================
-// メイン
+// Main
 // ============================================================
 
 /**
- * 5軸チェックを実行し、結果を返す
+ * Run all 5 checks and return results
  *
- * @param {string[]} [testArgs] — テスト用の引数配列
+ * @param {string[]} [testArgs] — argument array for testing
  */
 function main(testArgs) {
   const args = testArgs || process.argv.slice(2);
   const { graphAfter, graphBefore, sourcePath } = parseArgs(args);
 
-  // 最低限 graphAfter は必須
+  // At minimum, graphAfter is required
   if (!graphAfter && !sourcePath) {
     console.error('[ERROR] 引数が不足しています\n原因: --graph-after=<path> または --source=<path> が必要\n対応: 両方の引数を指定して再実行してください。');
     process.exit(1);
@@ -228,24 +228,24 @@ function main(testArgs) {
   const graphAfterData = graphAfter ? loadGraph(graphAfter) : null;
   const graphBeforeData = graphBefore ? loadGraph(graphBefore) : null;
 
-  // 軸1: nodes構成
+  // Axis 1: nodes integrity
   const nodesResult = checkNodesIntegrity(graphAfterData, graphBeforeData);
   allErrors.push(...nodesResult.errors);
   allRemedies.push(...nodesResult.remedies);
 
-  // 軸2: edges構成
+  // Axis 2: edges integrity
   const edgesResult = checkEdgesIntegrity(graphAfterData, graphBeforeData);
   allErrors.push(...edgesResult.errors);
   allRemedies.push(...edgesResult.remedies);
 
-  // 軸3-5: verify.js 経由（headingRefs解決性、孤立ノード、未カバー見出し）
+  // Axes 3-5: via verify.js (headingRefs resolvability, orphan nodes, uncovered headings)
   if (graphAfter && sourcePath) {
     const verifyResult = checkWithVerifyjs(graphAfter, sourcePath);
     allErrors.push(...verifyResult.errors);
     allRemedies.push(...verifyResult.remedies);
   }
 
-  // 重複除去
+  // Deduplication
   const uniqueRemedies = [...new Set(allRemedies)];
 
   if (allErrors.length === 0) {

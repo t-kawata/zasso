@@ -1,8 +1,8 @@
 /**
- * OMISSIONS ファイルの次番号を採番する。
+ * Assign the next number for OMISSIONS files.
  *
- * 既存の OMISSIONS-<3桁>.json ファイルをディレクトリから走査し、
- * 最大番号 + 1 を返す。1件もなければ 1 を返す。
+ * Scan the directory for existing OMISSIONS-<3-digit>.json files,
+ * return max + 1, or 1 if none exist.
  *
  * Usage: node next-omissions-number.js <directory-path>
  * Output: {"success":true,"nextNumber":1}

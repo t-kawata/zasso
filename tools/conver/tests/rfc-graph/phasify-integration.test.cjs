@@ -1,8 +1,8 @@
 /**
- * phasify-integration.test.cjs — 実データ(176ノード)を使った統合テスト
+ * phasify-integration.test.cjs — Integration test with real data (176 nodes)
  *
- * PX-38 の全 Phase が実データで正しく動作することを確認する。
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Verifies that all PX-38 Phases work correctly with real data.
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');
@@ -21,13 +21,13 @@ const {
 } = require('../../.claude/scripts/rfc-graph/phasify-helpers.js');
 const { buildNodeToDirMap } = require('../../.claude/scripts/rfc-graph/validate-phasify.js');
 
-// 実データのパス
+// Real data paths
 const GRAPH_PATH = path.resolve(__dirname, '../../../../crates/siprs/RFC-ROOT-GRAPH.json');
 const DIRS_TREE_PATH = path.resolve(__dirname, '../../../../crates/siprs/RFC-ROOT-Dirs-Tree.json');
 
 /**
- * テスト前に実データが存在することを確認する。
- * なければテストをスキップする（CI or 別構成への対応）。
+ * Check that real data files exist before running tests.
+ * Skips if not found (handles CI or alternate setup).
  */
 function loadRealData() {
   if (!fs.existsSync(GRAPH_PATH) || !fs.existsSync(DIRS_TREE_PATH)) {
@@ -39,13 +39,13 @@ function loadRealData() {
 }
 
 // ============================================================
-// 統合テスト
+// Integration tests
 // ============================================================
 
 describe('phasify integration (real 176-node data)', () => {
   const data = loadRealData();
 
-  // 実データがなければスキップ
+  // Skip if no real data
   if (!data) {
     it.skip('skipped: real data files not found');
     return;
@@ -56,14 +56,14 @@ describe('phasify integration (real 176-node data)', () => {
   const edges = graphData.edges || [];
   const allNodeIds = nodes.map(n => n.id);
 
-  // 基本統計
+  // Basic statistics
   it('should have 176 nodes and 207 edges', () => {
     assert.strictEqual(nodes.length, 176);
     assert.strictEqual(edges.length, 207);
   });
 
   // ----------------------------------------------------------
-  // Phase 1: SCC縮約
+  // Phase 1: SCC contraction
   // ----------------------------------------------------------
   describe('Phase 1: SCC contraction', () => {
     it('should contract SCC without error', () => {
@@ -74,20 +74,20 @@ describe('phasify integration (real 176-node data)', () => {
     it('should build SCC constraint map', () => {
       const sccResult = tarjanSCC(edges);
       const { sccMap, sccIds } = buildSccConstraint(sccResult);
-      // 実データではほとんどのSCCは単一ノード
-      // sccIds に含まれるのはマルチノードSCCのみ
+      // In real data, most SCCs are single-node
+      // sccIds only contains multi-node SCCs
       assert.ok(Object.keys(sccMap).length >= 0);
       assert.ok(sccIds.size >= 0);
     });
   });
 
   // ----------------------------------------------------------
-  // Phase 2: トポロジカルソート
+  // Phase 2: topological sort
   // ----------------------------------------------------------
   describe('Phase 2: topological sort', () => {
     it('should succeed on real data (no cycles)', () => {
       const result = kahnTopologicalSort(allNodeIds, edges, getWeight);
-      assert.ok(result.success, '循環依存が検出されました。設計書を確認してください。');
+      assert.ok(result.success, 'Cyclic dependency detected. Please review the design document.');
     });
 
     it('should sort all 176 nodes', () => {
@@ -106,14 +106,14 @@ describe('phasify integration (real 176-node data)', () => {
         position[order[i]] = i;
       }
 
-      // 全 depends_on エッジをチェック
+      // Check all depends_on edges
       for (const edge of edges) {
         if (edge.type === 'depends_on') {
           const posU = position[edge.from];
           const posV = position[edge.to];
-          // depends_on(u→v): uはvに依存 → v(依存先)を先に実装
+          // depends_on(u→v): u depends on v → v (dependency target) should be implemented first
           assert.ok(posV < posU,
-            'depends_on 違反: ' + edge.from + ' (pos=' + posU + ') depends on ' + edge.to + ' (pos=' + posV + ') — to should come before from');
+            'depends_on violation: ' + edge.from + ' (pos=' + posU + ') depends on ' + edge.to + ' (pos=' + posV + ') — to should come before from');
         }
       }
     });
@@ -127,22 +127,22 @@ describe('phasify integration (real 176-node data)', () => {
       const sccOrder = applySccToOrder(sortResult.order, sccMap);
       assert.strictEqual(sccOrder.length, 176);
 
-      // SCC 内のノードが隣接しているか確認
+      // Check that SCC nodes are adjacent
       for (const nid of Object.keys(sccMap)) {
         const rep = sccMap[nid];
         if (rep !== nid) {
-          // 代表ノードと同一SCCのノードの位置差を確認
+          // Check position difference between the representative node and the SCC node
           const posRep = sccOrder.indexOf(rep);
           const posNid = sccOrder.indexOf(nid);
           assert.ok(Math.abs(posRep - posNid) < 10,
-            'SCC違反: ' + nid + ' が代表 ' + rep + ' から離れすぎ (' + Math.abs(posRep - posNid) + ')');
+            'SCC violation: ' + nid + ' too far from representative ' + rep + ' (distance: ' + Math.abs(posRep - posNid) + ')');
         }
       }
     });
   });
 
   // ----------------------------------------------------------
-  // Phase 3: Soft制約
+  // Phase 3: soft constraints
   // ----------------------------------------------------------
   describe('Phase 3: soft constraint violations', () => {
     it('should compute violations without error', () => {
@@ -160,7 +160,7 @@ describe('phasify integration (real 176-node data)', () => {
   });
 
   // ----------------------------------------------------------
-  // Phase 4: フェーズ合併
+  // Phase 4: phase merging
   // ----------------------------------------------------------
   describe('Phase 4: phase merging', () => {
     it('should produce phases with 10+ nodes each', () => {
@@ -174,10 +174,10 @@ describe('phasify integration (real 176-node data)', () => {
       const phases = mergePhases(order, 10);
       assert.ok(phases.length >= 1);
 
-      // 全フェーズが10ノード以上（総ノード≧10なので）
+      // All phases should have 10+ nodes (since total nodes >= 10)
       for (const phase of phases) {
         assert.ok(phase.nodeIds.length >= 10,
-          'フェーズ P' + phase.id + ' のノード数が ' + phase.nodeIds.length + '（下限10未満）');
+          'Phase P' + phase.id + ' has ' + phase.nodeIds.length + ' nodes (minimum 10 required)');
       }
     });
 
@@ -208,14 +208,14 @@ describe('phasify integration (real 176-node data)', () => {
       const order = applySccToOrder(sortResult.order, sccMap);
 
       const phases = mergePhases(order, 10);
-      // 176/10 = 17.6 → 17〜18 程度。SCC制約で多少増減
-      assert.ok(phases.length >= 15, 'フェーズ数が少なすぎ: ' + phases.length);
-      assert.ok(phases.length <= 20, 'フェーズ数が多すぎ: ' + phases.length);
+      // 176/10 = 17.6 → ~17-18 phases. SCC constraints may cause slight variation
+      assert.ok(phases.length >= 15, 'Too few phases: ' + phases.length);
+      assert.ok(phases.length <= 20, 'Too many phases: ' + phases.length);
     });
   });
 
   // ----------------------------------------------------------
-  // 決定論性テスト
+  // Determinism test
   // ----------------------------------------------------------
   describe('determinism', () => {
     it('should produce identical order on two runs', () => {

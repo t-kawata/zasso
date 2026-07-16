@@ -2,32 +2,33 @@
 /**
  * list-remaining-stubs.js <Tickets.json path> <ticket-key>
  *
- * /make-ticket Step 4b で AI が繰り返し実行する。チケットの全フィールドから
- * [::TEMPLATE-STUB::] マーカーを検出し、未記入の項目を自然言語で一覧表示する。
+ * Repeatedly executed by AI during /make-ticket Step 4b. Detects
+ * [::TEMPLATE-STUB::] markers across all ticket fields and lists unfilled
+ * items in natural language.
  *
- * check-field-density.js の STUB_PATTERN を再利用し、出力形式のみ差別化する。
+ * Reuses STUB_PATTERN from check-field-density.js, only output format differs.
  *
- * 動作仕様:
- *   - exit 0: マーカー0件（全フィールド記入済み）
- *   - exit 1: マーカー1件以上（未記入あり）
- *   - stdout: 人間（AI）が読む自然言語形式。JSON は出力しない。
+ * Behavior specification:
+ *   - exit 0: 0 markers (all fields filled)
+ *   - exit 1: 1+ markers (unfilled items exist)
+ *   - stdout: Natural language format readable by humans (AI). No JSON output.
  */
 
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-// check-field-density.js からスタブ検出パターンを再利用
+// Reuse stub detection pattern from check-field-density.js
 const { STUB_PATTERN } = require("./check-field-density.js");
 
 const EXIT_CLEAN = 0;
 const EXIT_STUBS_REMAIN = 1;
 
 /**
- * フィールド値を文字列に平坦化し、全てのスタブマーカーを検出する
+ * Flatten field value to string and detect all stub markers
  *
- * @param {*} rawValue - チケットフィールドの値（string / array / undefined 等）
- * @returns {{ marker: string, name: string }[]} 検出されたマーカーの配列
+ * @param {*} rawValue - Ticket field value (string / array / undefined, etc.)
+ * @returns {{ marker: string, name: string }[]} Array of detected markers
  */
 function findStubs(rawValue) {
   if (rawValue === undefined || rawValue === null) return [];
@@ -47,7 +48,7 @@ function findStubs(rawValue) {
   return matches;
 }
 
-/** 検証対象とするチケットフィールド名のリスト */
+/** List of ticket field names to scan */
 const TARGET_FIELDS = [
   "invariants", "background", "scope", "testUnit", "testIntegration",
   "testExceptions", "instrumentation", "notes", "acceptanceCriteria",
@@ -55,7 +56,7 @@ const TARGET_FIELDS = [
 ];
 
 /**
- * フィールド名から短い説明を返す（スタブ種別の補助情報）
+ * Return a short description for a field name (auxiliary info for stub type)
  */
 function fieldLabel(field) {
   const labels = {
@@ -91,7 +92,7 @@ function main() {
     process.exit(EXIT_STUBS_REMAIN);
   }
 
-  // get-ticket.js で現在のチケット状態を取得
+  // Get current ticket state via get-ticket.js
   const getScript = path.join(__dirname, "get-ticket.js");
   let getResult;
   try {
@@ -112,7 +113,7 @@ function main() {
 
   const ticket = getResult.ticket;
 
-  // 全対象フィールドをスキャンし、スタブがあるフィールドのみ収集
+  // Scan all target fields, collect only those with stubs
   const stubsByField = {};
   let totalStubs = 0;
 
@@ -124,7 +125,7 @@ function main() {
     }
   }
 
-  // 自然言語形式で出力
+  // Output in natural language format
   if (totalStubs === 0) {
     console.log(`✅  All TEMPLATE-STUB markers have been replaced. No remaining markers in ticket ${ticketKey}.`);
     process.exit(EXIT_CLEAN);

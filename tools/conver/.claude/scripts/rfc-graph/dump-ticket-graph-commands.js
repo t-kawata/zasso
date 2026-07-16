@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * dump-ticket-graph-commands.js — Tickets.json nodeIDs→specコマンド追記
+ * dump-ticket-graph-commands.js — Append Tickets.json nodeIDs as spec commands
  *
- * Tickets.json の各チケットに設定された nodeIDs フィールドを読み取り、
- * 対応する query.js コマンドを生成して spec ファイルに追記する。
+ * Read the nodeIDs field set in each ticket of Tickets.json,
+ * generate corresponding query.js commands and append them to the spec file.
  *
  * CLI: dump-ticket-graph-commands.js --tickets=<path> --graph=<path> --source=<path>
  *
- * グラフファイルが存在しない場合は「グラフファイルがありません」メッセージを
- * 追記する。nodeIDs がないチケットはスキップする。
+ * If the graph file does not exist, append a "graph file not found" message.
+ * Skip tickets without nodeIDs.
  */
 
 const fs = require('fs');
@@ -17,57 +17,57 @@ const path = require('path');
 const { resolveSpecPath } = require('../lib/resolve-spec-path');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** Tickets.json のパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for Tickets.json path */
 const TICKETS_PATH_ARG_PREFIX = '--tickets=';
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
 
-/** ソースファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for source file path */
 const SOURCE_PATH_ARG_PREFIX = '--source=';
 
-/** 正常終了コード */
+/** Success exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Failure exit code */
 const EXIT_FAILURE = 1;
 
-/** スクリプトディレクトリへの相対パス */
+/** Relative path to the scripts directory */
 const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 
-/** デフォルトの探索ホップ数 */
+/** Default number of search hops */
 const DEFAULT_HOPS = 3;
 
-/** グラフ不在時のメッセージ */
+/** Message when graph is absent */
 const NO_GRAPH_MESSAGE = 'グラフファイルがありません。/graphify-rfc を先に実行してグラフを生成してください。';
 
-/** セクション見出し */
+/** Section heading */
 const SECTION_HEADING = '### RFC設計グラフ構造探索コマンド';
 
 // ============================================================
-// コマンドライン引数パース
+// Command-line argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parse command-line arguments.
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv から取得）
+ * @param {string[]} [testArgs] — Test argument array (defaults to process.argv)
  * @returns {{ ticketsPath: string, graphPath: string, sourcePath: string }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
 
-  // 3つの引数が必須
+  // Three arguments are required
   if (args.length < 3) {
     throw new Error(
       '引数が不足しています。\n' +
@@ -75,7 +75,7 @@ function parseArguments(testArgs) {
     );
   }
 
-  // --tickets=<path> のパース
+  // Parse --tickets=<path>
   const ticketsFlag = args[0];
   if (!ticketsFlag.startsWith(TICKETS_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -88,7 +88,7 @@ function parseArguments(testArgs) {
     throw new Error('--tickets=<path> の <path> が空です。');
   }
 
-  // --graph=<path> のパース
+  // Parse --graph=<path>
   const graphFlag = args[1];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -101,7 +101,7 @@ function parseArguments(testArgs) {
     throw new Error('--graph=<path> の <path> が空です。');
   }
 
-  // --source=<path> のパース
+  // Parse --source=<path>
   const sourceFlag = args[2];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -114,7 +114,7 @@ function parseArguments(testArgs) {
     throw new Error('--source=<path> の <path> が空です。');
   }
 
-  // 余剰引数のチェック
+  // Check for excess arguments
   if (args.length > 3) {
     throw new Error(
       '余剰な引数があります。\n' +
@@ -126,15 +126,15 @@ function parseArguments(testArgs) {
 }
 
 // ============================================================
-// ファイル読み込み
+// File loading
 // ============================================================
 
 /**
- * Tickets.json を読み込む
+ * Load Tickets.json.
  *
- * @param {string} ticketsPath — Tickets.json のパス
- * @returns {Object} パース済みTickets.jsonデータ
- * @throws {Error} ファイル読み込みまたはJSONパースに失敗した場合
+ * @param {string} ticketsPath — Path to Tickets.json
+ * @returns {Object} Parsed Tickets.json data
+ * @throws {Error} If file reading or JSON parsing fails
  */
 function loadTickets(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) {
@@ -165,22 +165,22 @@ function loadTickets(ticketsPath) {
 }
 
 // ============================================================
-// データ収集（純粋関数）
+// Data collection (pure functions)
 // ============================================================
 
 /**
- * 全チケットから nodeIDs フィールドを収集する
+ * Collect nodeIDs from all tickets.
  *
- * 各チケットに nodeIDs フィールドが存在し、かつ空でない配列の場合のみ収集する。
- * nodeIDs がないチケットや空配列のチケットはスキップする。
+ * Only collects when nodeIDs exists and is a non-empty array.
+ * Skip tickets without nodeIDs or with empty arrays.
  *
- * @param {Object} tickets — Tickets.json のデータ（{ phases: [...], tickets: [...] } 形式）
- * @returns {Array<{ ticketKey: string, nodeIds: string[] }>} 各チケットの nodeIDs
+ * @param {Object} tickets — Tickets.json data ({ phases: [...], tickets: [...] } format)
+ * @returns {Array<{ ticketKey: string, nodeIds: string[] }>} NodeIDs per ticket
  */
 function collectNodeIds(tickets) {
   const result = [];
 
-  // phases 配列内の tickets 配列を走査する
+  // Iterate over tickets arrays within the phases array
   const phases = tickets.phases || [];
   for (const phase of phases) {
     const phaseTickets = phase.tickets || [];
@@ -197,23 +197,23 @@ function collectNodeIds(tickets) {
 }
 
 /**
- * グラフファイルの存在確認とノードIDの存在検証を行う
+ * Check whether the graph file exists and validate node ID presence.
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {boolean} グラフファイルが存在するか
+ * @param {string} graphPath — Path to the graph file
+ * @returns {boolean} Whether the graph file exists
  */
 function graphExists(graphPath) {
   return fs.existsSync(graphPath);
 }
 
 /**
- * query.js コマンドを生成する
+ * Generate a query.js command string.
  *
- * @param {string} nodeId — ノードID
- * @param {Object} nodeTitleMap — ノードIDとタイトルのマッピング
- * @param {string} graphPath — グラフファイルのパス
- * @param {string} sourcePath — ソースファイルのパス
- * @returns {string} query.js コマンド文字列
+ * @param {string} nodeId — Node ID
+ * @param {Object} nodeTitleMap — Mapping of node ID to title
+ * @param {string} graphPath — Path to the graph file
+ * @param {string} sourcePath — Path to the source file
+ * @returns {string} query.js command string
  */
 function generateCommand(nodeId, nodeTitleMap, graphPath, sourcePath) {
   const title = nodeTitleMap[nodeId] || '';
@@ -225,10 +225,10 @@ function generateCommand(nodeId, nodeTitleMap, graphPath, sourcePath) {
 }
 
 /**
- * グラフファイルからノードIDとタイトルのマッピングを読み取る
+ * Build a mapping of node ID to title from the graph data.
  *
- * @param {Object} graph — パース済みグラフデータ
- * @returns {Object<string, string>} ノードIDをキー、タイトルを値とするマッピング
+ * @param {Object} graph — Parsed graph data
+ * @returns {Object<string, string>} Mapping of node ID to title
  */
 function buildNodeTitleMap(graph) {
   const map = {};
@@ -241,11 +241,11 @@ function buildNodeTitleMap(graph) {
 }
 
 /**
- * 「RFC設計グラフ構造探索コマンド」セクションの内容を生成する
+ * Generate the content of the "RFC design graph structure exploration commands" section.
  *
- * @param {Array<{ ticketKey: string, nodeIds: string[], commands: string[] }>} results — 各チケットの生成結果
- * @param {string} graphFileName — グラフファイル名
- * @returns {string} セクション全体の文字列
+ * @param {Array<{ ticketKey: string, nodeIds: string[], commands: string[] }>} results — Results per ticket
+ * @param {string} graphFileName — Graph file name
+ * @returns {string} Full section string
  */
 function formatSection(results, graphFileName) {
   const lines = [SECTION_HEADING, '', `グラフファイル: ${graphFileName}`, ''];
@@ -262,9 +262,9 @@ function formatSection(results, graphFileName) {
 }
 
 /**
- * グラフ不在時のメッセージセクションを生成する
+ * Generate the message section for when the graph is absent.
  *
- * @returns {string} セクション全体の文字列
+ * @returns {string} Full section string
  */
 function formatNoGraphSection() {
   return [
@@ -276,25 +276,25 @@ function formatNoGraphSection() {
 }
 
 // ============================================================
-// ファイル書き込み
+// File writing
 // ============================================================
 
-// resolveSpecPath は scripts/lib/resolve-spec-path.js の共通モジュールから提供される。
-// referenceSection ベースのパス解決を行い、推測による誤追記を防止する。
+// resolveSpecPath is provided by the shared module scripts/lib/resolve-spec-path.js.
+// It performs referenceSection-based path resolution to prevent speculative mis-writes.
 
 /**
- * spec ファイルにセクションを追記する（冪等）
+ * Append a section to the spec file (idempotent).
  *
- * 既に同一のセクション見出しが spec ファイル内に存在する場合は追記をスキップする。
+ * Skips if the same section heading already exists in the spec file.
  *
- * @param {string} specPath — spec ファイルのパス
- * @param {string} section — 追記するセクション文字列
- * @returns {boolean} 追記した場合は true、スキップした場合は false
+ * @param {string} specPath — Path to the spec file
+ * @param {string} section — Section string to append
+ * @returns {boolean} true if appended, false if skipped
  */
 function appendToSpec(specPath, section) {
   const existingContent = fs.readFileSync(specPath, 'utf8');
 
-  // 冪等性: 既に同一セクション見出しが存在する場合はスキップ
+  // Idempotency: skip if the same section heading already exists
   const sectionHeading = section.split('\n')[0].trim();
   if (existingContent.includes(sectionHeading)) {
     return false;
@@ -306,11 +306,11 @@ function appendToSpec(specPath, section) {
 }
 
 // ============================================================
-// ヘルプ表示
+// Help display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage information.
  */
 function printUsage() {
   console.log(
@@ -332,21 +332,21 @@ function printUsage() {
 }
 
 // ============================================================
-// エントリポイント
+// Entry point
 // ============================================================
 
 /**
- * main — CLIエントリポイント
+ * main — CLI entry point
  *
- * 1. 引数パース
- * 2. Tickets.json 読み込み
- * 3. nodeIDs 収集
- * 4. グラフ存在確認
- * 5. コマンド生成（グラフ存在時）または不在メッセージ生成
- * 6. 結果を標準出力に出力
+ * 1. Parse arguments
+ * 2. Load Tickets.json
+ * 3. Collect nodeIDs
+ * 4. Check graph existence
+ * 5. Generate commands (if graph exists) or generate absence message
+ * 6. Output results to stdout
  *
- * 全エラーは3段テンプレートで stderr に出力し、終了コード1で終了する。
- * ファイル変更は一切行わない（標準出力に結果を出力するのみ）。
+ * All errors are output to stderr with a three-line template and exit code 1.
+ * No file modifications are performed (only stdout output).
  */
 function main() {
   let ticketsPath, graphPath, sourcePath;
@@ -379,7 +379,7 @@ function main() {
 
   const nodeIdEntries = collectNodeIds(tickets);
 
-  // nodeIDs がない場合は何も出力せず正常終了
+  // If no nodeIDs found, exit normally without output
   if (nodeIdEntries.length === 0) {
     process.exit(EXIT_SUCCESS);
   }
@@ -388,7 +388,7 @@ function main() {
   const graphFileExists = graphExists(graphPath);
 
   if (graphFileExists) {
-    // グラフが存在する場合：ノード情報を読み取り、コマンド生成
+    // Graph exists: read node info and generate commands
     let graph;
     try {
       const raw = fs.readFileSync(graphPath, 'utf8');
@@ -404,7 +404,7 @@ function main() {
 
     const nodeTitleMap = buildNodeTitleMap(graph);
 
-    // 各チケットのエントリについてコマンド生成
+    // Generate commands for each ticket entry
     const results = [];
     for (const entry of nodeIdEntries) {
       const commands = entry.nodeIds.map(nodeId =>
@@ -420,7 +420,7 @@ function main() {
     const section = formatSection(results, graphFileName);
     console.log(section);
 
-    // 各チケットの spec があれば追記
+    // Append to each ticket's spec if it exists
     const writtenSpecs = [];
     for (const entry of nodeIdEntries) {
       const specPath = resolveSpecPath(entry.ticketKey, ticketsPath);
@@ -433,7 +433,7 @@ function main() {
           appendToSpec(specPath, sectionForTicket);
           writtenSpecs.push(entry.ticketKey);
         } catch {
-          // spec がなければスキップ（エラーにしない）
+          // Skip if spec does not exist (non-fatal)
         }
       }
     }
@@ -442,7 +442,7 @@ function main() {
       console.error(`spec に追記しました: ${writtenSpecs.join(', ')}`);
     }
   } else {
-    // グラフが存在しない場合：不在メッセージを出力
+    // Graph does not exist: output absence message
     const section = formatNoGraphSection();
     console.log(section);
   }
@@ -450,7 +450,7 @@ function main() {
   process.exit(EXIT_SUCCESS);
 }
 
-// CLIとして実行された場合のみ main を呼び出す
+// Only call main when executed as CLI
 if (require.main === module) {
   main();
 }

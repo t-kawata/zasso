@@ -1,9 +1,9 @@
 /**
- * update-step-status.test.cjs — update-step-status.js のテスト
+ * update-step-status.test.cjs — Tests for update-step-status.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象モジュールの全関数をカバーする。
- * 一時ディレクトリを使用した実際のファイル I/O テストを含む。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Covers all functions of the target module.
+ * Includes actual file I/O tests using temporary directories.
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// テスト対象モジュールを require パスで読み込む
+// Load target module via require path
 const {
   parseArguments,
   readStatus,
@@ -35,21 +35,21 @@ const {
 } = require('../../.claude/scripts/rfc-graph/update-step-status.js');
 
 // ============================================================
-// テスト用ユーティリティ
+// Test Utilities
 // ============================================================
 
-/** テスト用の一時ディレクトリパス */
+/** Temporary directory path for tests */
 let tmpDir;
 
-/** テスト用のステータスファイルパス */
+/** Status file path for tests */
 let testStatusPath;
 
 /**
- * テスト用の有効なステータスデータを作成する
+ * Create valid test status data
  *
- * @param {number} currentStep — 設定する currentStep
- * @param {Object<string, string>} [overrides] — 上書きするStep状態
- * @returns {Object} ステータスデータ
+ * @param {number} currentStep — The currentStep value to set
+ * @param {Object<string, string>} [overrides] — Step status overrides
+ * @returns {Object} Status data
  */
 function createTestStatus(currentStep = 1, overrides = {}) {
   const steps = {};
@@ -66,10 +66,10 @@ function createTestStatus(currentStep = 1, overrides = {}) {
 }
 
 /**
- * テスト用のステータスファイルを作成する
+ * Write a test status file
  *
- * @param {Object} data — 書き込むステータスデータ
- * @returns {string} 作成されたファイルのパス
+ * @param {Object} data — Status data to write
+ * @returns {string} Path to the created file
  */
 function writeTestStatusFile(data) {
   const filePath = path.join(tmpDir, 'test-GRAPHIFY-Status.json');
@@ -78,19 +78,19 @@ function writeTestStatusFile(data) {
 }
 
 // ============================================================
-// 定数テスト
+// Constants Tests
 // ============================================================
 
-describe('定数', () => {
-  it('MIN_STEP は 0 である', () => {
+describe('Constants', () => {
+  it('MIN_STEP should be 0', () => {
     assert.strictEqual(MIN_STEP, 0);
   });
 
-  it('MAX_STEP は 5 である', () => {
+  it('MAX_STEP should be 5', () => {
     assert.strictEqual(MAX_STEP, 5);
   });
 
-  it('ALLOWED_SUBCOMMANDS は7つのサブコマンド名を持つ', () => {
+  it('ALLOWED_SUBCOMMANDS should contain 7 subcommand names', () => {
     assert.deepStrictEqual(ALLOWED_SUBCOMMANDS, [
       'start-step',
       'end-step',
@@ -102,7 +102,7 @@ describe('定数', () => {
     ]);
   });
 
-  it('Step状態定数が正しい', () => {
+  it('Step status constants should be correct', () => {
     assert.strictEqual(STATUS_PENDING, 'pending');
     assert.strictEqual(STATUS_RUNNING, 'running');
     assert.strictEqual(STATUS_DONE, 'done');
@@ -111,67 +111,67 @@ describe('定数', () => {
 });
 
 // ============================================================
-// validateStepNumber テスト
+// validateStepNumber Tests
 // ============================================================
 
 describe('validateStepNumber()', () => {
-  it('1 は有効なStep番号', () => {
+  it('1 should be a valid step number', () => {
     assert.strictEqual(validateStepNumber(1), true);
   });
 
-  it('3 は有効なStep番号', () => {
+  it('3 should be a valid step number', () => {
     assert.strictEqual(validateStepNumber(3), true);
   });
 
-  it('5 は有効なStep番号', () => {
+  it('5 should be a valid step number', () => {
     assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('0 は有効なStep番号（Step 0: 見出し重複排除）', () => {
+  it('0 should be a valid step number (Step 0: heading deduplication)', () => {
     assert.strictEqual(validateStepNumber(0), true);
   });
 
-  it('5 は有効なStep番号（範囲上限）', () => {
+  it('5 should be a valid step number (upper bound)', () => {
     assert.strictEqual(validateStepNumber(5), true);
   });
 
-  it('6 は無効なStep番号（範囲超過）', () => {
+  it('6 should be an invalid step number (out of range)', () => {
     assert.strictEqual(validateStepNumber(6), false);
   });
 
-  it('負の数は無効なStep番号', () => {
+  it('Negative should be an invalid step number', () => {
     assert.strictEqual(validateStepNumber(-1), false);
   });
 
-  it('小数は無効なStep番号', () => {
+  it('Decimal should be an invalid step number', () => {
     assert.strictEqual(validateStepNumber(2.5), false);
   });
 
-  it('NaN は無効なStep番号', () => {
+  it('NaN should be an invalid step number', () => {
     assert.strictEqual(validateStepNumber(NaN), false);
   });
 });
 
 // ============================================================
-// サブコマンド実行テスト（純粋関数）
+// Subcommand Execution Tests (pure functions)
 // ============================================================
 
 describe('executeStartStep()', () => {
-  it('start-step 1 で steps[1]=running、currentStep=1 になる', () => {
+  it('start-step 1 should set steps[1]=running, currentStep=1', () => {
     const status = createTestStatus(1);
     executeStartStep(status, 1);
     assert.strictEqual(status.steps['1'], STATUS_RUNNING);
     assert.strictEqual(status.currentStep, 1);
   });
 
-  it('start-step 5 で steps[5]=running、currentStep=5 になる（最終Step）', () => {
+  it('start-step 5 should set steps[5]=running, currentStep=5 (last step)', () => {
     const status = createTestStatus(4);
     executeStartStep(status, 5);
     assert.strictEqual(status.steps['5'], STATUS_RUNNING);
     assert.strictEqual(status.currentStep, 5);
   });
 
-  it('既に done のStepに start-step しても上書きされる（再実行対応）', () => {
+  it('start-step on an already done step should still overwrite (re-execution support)', () => {
     const status = createTestStatus(2, { '2': STATUS_DONE });
     executeStartStep(status, 2);
     assert.strictEqual(status.steps['2'], STATUS_RUNNING);
@@ -179,21 +179,21 @@ describe('executeStartStep()', () => {
 });
 
 describe('executeEndStep()', () => {
-  it('end-step 1 で steps[1]=done、currentStep=2 になる', () => {
+  it('end-step 1 should set steps[1]=done, currentStep=2', () => {
     const status = createTestStatus(1);
     executeEndStep(status, 1);
     assert.strictEqual(status.steps['1'], STATUS_DONE);
     assert.strictEqual(status.currentStep, 2);
   });
 
-  it('end-step 5 で steps[5]=done、currentStep=6 になる（全完了）', () => {
+  it('end-step 5 should set steps[5]=done, currentStep=6 (all complete)', () => {
     const status = createTestStatus(5);
     executeEndStep(status, 5);
     assert.strictEqual(status.steps['5'], STATUS_DONE);
     assert.strictEqual(status.currentStep, 6);
   });
 
-  it('end-step を繰り返しても冪等に動作する', () => {
+  it('repeated end-step should be idempotent', () => {
     const status = createTestStatus(1);
     executeEndStep(status, 1);
     executeEndStep(status, 1);
@@ -202,14 +202,14 @@ describe('executeEndStep()', () => {
 });
 
 describe('executeFailStep()', () => {
-  it('fail-step 2 で steps[2]=error、currentStep は変更されない', () => {
+  it('fail-step 2 should set steps[2]=error, currentStep unchanged', () => {
     const status = createTestStatus(3);
     executeFailStep(status, 2);
     assert.strictEqual(status.steps['2'], STATUS_ERROR);
     assert.strictEqual(status.currentStep, 3);
   });
 
-  it('fail-step を繰り返しても冪等に動作する', () => {
+  it('repeated fail-step should be idempotent', () => {
     const status = createTestStatus(1);
     executeFailStep(status, 1);
     executeFailStep(status, 1);
@@ -218,7 +218,7 @@ describe('executeFailStep()', () => {
 });
 
 describe('executeResetToStep()', () => {
-  it('reset-to-step 2 で steps[3]〜steps[5]=pending、currentStep=2、steps[1]〜steps[2] は不変', () => {
+  it('reset-to-step 2 should reset steps[3]~steps[5]=pending, currentStep=2, steps[1]~steps[2] unchanged', () => {
     const status = createTestStatus(4, {
       '1': STATUS_DONE,
       '2': STATUS_DONE,
@@ -226,15 +226,15 @@ describe('executeResetToStep()', () => {
       '4': STATUS_RUNNING,
     });
     executeResetToStep(status, 2);
-    assert.strictEqual(status.steps['1'], STATUS_DONE);   // 不変
-    assert.strictEqual(status.steps['2'], STATUS_DONE);   // 不変
-    assert.strictEqual(status.steps['3'], STATUS_PENDING); // リセット
-    assert.strictEqual(status.steps['4'], STATUS_PENDING); // リセット
-    assert.strictEqual(status.steps['5'], STATUS_PENDING); // リセット
+    assert.strictEqual(status.steps['1'], STATUS_DONE);   // unchanged
+    assert.strictEqual(status.steps['2'], STATUS_DONE);   // unchanged
+    assert.strictEqual(status.steps['3'], STATUS_PENDING); // reset
+    assert.strictEqual(status.steps['4'], STATUS_PENDING); // reset
+    assert.strictEqual(status.steps['5'], STATUS_PENDING); // reset
     assert.strictEqual(status.currentStep, 2);
   });
 
-  it('reset-to-step 5 は何もリセットしない（5より大きいStepは存在しない）', () => {
+  it('reset-to-step 5 should reset nothing (no steps beyond 5)', () => {
     const status = createTestStatus(5, {
       '1': STATUS_DONE,
       '2': STATUS_DONE,
@@ -250,7 +250,7 @@ describe('executeResetToStep()', () => {
 });
 
 describe('executeStatus()', () => {
-  it('status サブコマンドで整形JSONが出力される', () => {
+  it('status subcommand should output formatted JSON', () => {
     const status = createTestStatus(2, { '1': STATUS_DONE });
     const originalLog = console.log;
     const capturedOutput = [];
@@ -269,7 +269,7 @@ describe('executeStatus()', () => {
 });
 
 // ============================================================
-// parseArguments テスト（process.argv のモック）
+// parseArguments Tests (process.argv mock)
 // ============================================================
 
 describe('parseArguments()', () => {
@@ -279,7 +279,7 @@ describe('parseArguments()', () => {
     process.argv = originalArgv;
   });
 
-  it('正しい引数で start-step をパースできる', () => {
+  it('should parse start-step with valid arguments', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'start-step', '1'];
     const result = parseArguments();
     assert.strictEqual(result.statusPath, '/tmp/status.json');
@@ -287,7 +287,7 @@ describe('parseArguments()', () => {
     assert.strictEqual(result.stepNumber, 1);
   });
 
-  it('正しい引数で status をパースできる（Step番号なし）', () => {
+  it('should parse status without step number', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'status'];
     const result = parseArguments();
     assert.strictEqual(result.statusPath, '/tmp/status.json');
@@ -295,41 +295,41 @@ describe('parseArguments()', () => {
     assert.strictEqual(result.stepNumber, null);
   });
 
-  it('引数不足（サブコマンドなし）でエラーを投げる', () => {
+  it('should throw error when missing subcommand', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json'];
     assert.throws(() => parseArguments(), /引数が不足/);
   });
 
-  it('引数不足（Step番号なしの start-step）でエラーを投げる', () => {
+  it('should throw error when start-step has no step number', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'start-step'];
     assert.throws(() => parseArguments(), /Step番号が必要/);
   });
 
-  it('未知のサブコマンドでエラーを投げる', () => {
+  it('should throw error for unknown subcommand', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/status.json', 'unknown-cmd', '1'];
     assert.throws(() => parseArguments(), /未知のサブコマンド/);
   });
 
-  it('--graphify-status= がない（空 path）でエラーを投げる', () => {
+  it('should throw error when --graphify-status= has empty path', () => {
     process.argv = ['node', 'script.js', '--graphify-status=', 'start-step', '1'];
     assert.throws(() => parseArguments(), /パスが空/);
   });
 
-  it('--graphify-status フラグ自体がないでエラーを投げる', () => {
+  it('should throw error when --graphify-status flag is missing', () => {
     process.argv = ['node', 'script.js', '/tmp/status.json', 'start-step', '1'];
     assert.throws(() => parseArguments(), /--graphify-status/);
   });
 
-  it('Step番号が非数値でエラーを投げる', () => {
+  it('should throw error when step number is not a number', () => {
     process.argv = ['node', 'script.js', '--graphify-status=/tmp/s.json', 'start-step', 'abc'];
     assert.throws(() => parseArguments(), /数値ではありません/);
   });
 
   // ============================================================
-  // --status= エイリアスフラグのテスト
+  // --status= Alias Flag Tests
   // ============================================================
 
-  it('--status= で start-step をパースできる（エイリアス互換）', () => {
+  it('should parse start-step with --status= alias', () => {
     process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'start-step', '1'];
     const result = parseArguments();
     assert.strictEqual(result.statusPath, '/tmp/boundify.json');
@@ -337,7 +337,7 @@ describe('parseArguments()', () => {
     assert.strictEqual(result.stepNumber, 1);
   });
 
-  it('--status= で status をパースできる（Step番号なし）', () => {
+  it('should parse status with --status= alias (no step number)', () => {
     process.argv = ['node', 'script.js', '--status=/tmp/boundify.json', 'status'];
     const result = parseArguments();
     assert.strictEqual(result.statusPath, '/tmp/boundify.json');
@@ -345,8 +345,8 @@ describe('parseArguments()', () => {
     assert.strictEqual(result.stepNumber, null);
   });
 
-  it('--graphify-status= と --status= のフラグ定数が両方とも定義されている', () => {
-    // FLAG_ALIAS_STATUS の存在を確認（テスト用に module.exports から参照）
+  it('both FLAG_GRAPHIFY_STATUS and FLAG_ALIAS_STATUS should be defined', () => {
+    // Verify FLAG_ALIAS_STATUS exists (referenced from module.exports for testing)
     const mod = require('../../.claude/scripts/rfc-graph/update-step-status.js');
     assert.ok(mod.FLAG_GRAPHIFY_STATUS);
     assert.ok(mod.FLAG_ALIAS_STATUS);
@@ -354,22 +354,22 @@ describe('parseArguments()', () => {
     assert.strictEqual(mod.FLAG_ALIAS_STATUS, '--status=');
   });
 
-  it('--status= の path が空でエラーを投げる', () => {
+  it('should throw error when --status= path is empty', () => {
     process.argv = ['node', 'script.js', '--status=', 'start-step', '1'];
     assert.throws(() => parseArguments(), /パスが空/);
   });
 
-  it('--stat=path の誤記（typo）でエラーを投げる', () => {
+  it('should throw error for --stat=path typo', () => {
     process.argv = ['node', 'script.js', '--stat=/tmp/s.json', 'start-step', '1'];
     assert.throws(() => parseArguments(), /--graphify-status/);
   });
 });
 
 // ============================================================
-// ファイルI/O テスト（一時ディレクトリ使用）
+// File I/O Tests (using temporary directory)
 // ============================================================
 
-describe('ファイルI/O', () => {
+describe('File I/O', () => {
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-step-status-test-'));
     testStatusPath = path.join(tmpDir, 'test-GRAPHIFY-Status.json');
@@ -380,7 +380,7 @@ describe('ファイルI/O', () => {
   });
 
   describe('createDefaultStatus()', () => {
-    it('存在しないパスからデフォルト状態を生成する', () => {
+    it('should create default status from non-existent path', () => {
       const nonExistentPath = path.join(tmpDir, 'non-existent-GRAPHIFY-Status.json');
       const status = createDefaultStatus(nonExistentPath);
       assert.ok(status.sourceFile.endsWith('non-existent.md'));
@@ -393,7 +393,7 @@ describe('ファイルI/O', () => {
   });
 
   describe('readStatus()', () => {
-    it('存在するファイルを正しく読み込む', () => {
+    it('should read an existing file correctly', () => {
       const testData = createTestStatus(2, { '1': STATUS_DONE });
       const filePath = writeTestStatusFile(testData);
       const loaded = readStatus(filePath);
@@ -401,20 +401,20 @@ describe('ファイルI/O', () => {
       assert.strictEqual(loaded.steps['1'], STATUS_DONE);
     });
 
-    it('存在しないファイルはデフォルト状態を返す', () => {
+    it('should return default status for non-existent file', () => {
       const nonExistentPath = path.join(tmpDir, 'no-such-file-GRAPHIFY-Status.json');
       const status = readStatus(nonExistentPath);
       assert.strictEqual(status.currentStep, MIN_STEP);
       assert.strictEqual(status.steps['0'], STATUS_PENDING);
     });
 
-    it('不正なJSONファイルでエラーを投げる', () => {
+    it('should throw error for malformed JSON file', () => {
       const badPath = path.join(tmpDir, 'bad-json-GRAPHIFY-Status.json');
       fs.writeFileSync(badPath, '{ invalid json }', 'utf8');
       assert.throws(() => readStatus(badPath), /SyntaxError/);
     });
 
-    it('必須フィールド不足のファイルでエラーを投げる', () => {
+    it('should throw error for file missing required fields', () => {
       const badPath = path.join(tmpDir, 'incomplete-Status.json');
       fs.writeFileSync(badPath, JSON.stringify({ foo: 'bar' }), 'utf8');
       assert.throws(() => readStatus(badPath), /形式が不正/);
@@ -422,29 +422,29 @@ describe('ファイルI/O', () => {
   });
 
   describe('atomicWrite()', () => {
-    // NOTE: tmpDir は before() で設定されるため、describe 評価時ではなく test 実行時に解決する
+    // NOTE: tmpDir is set in before(), so it resolves at test execution time, not describe evaluation time
     function getTestFilePath() {
       return path.join(tmpDir, 'atomic-test.json');
     }
 
     afterEach(() => {
-      // 後片付け
-      try { fs.unlinkSync(getTestFilePath()); } catch { /* 無視 */ }
+      // Cleanup
+      try { fs.unlinkSync(getTestFilePath()); } catch { /* Ignore */ }
     });
 
-    it('正常にファイルを書き込める', () => {
+    it('should write a file successfully', () => {
       atomicWrite(getTestFilePath(), JSON.stringify({ key: 'value' }));
       const content = fs.readFileSync(getTestFilePath(), 'utf8');
       assert.strictEqual(JSON.parse(content).key, 'value');
     });
 
-    it('書き込み後、一時ファイルが残っていない', () => {
+    it('should not leave temporary files after write', () => {
       atomicWrite(getTestFilePath(), JSON.stringify({ test: 'data' }));
       const tmpFiles = fs.readdirSync(tmpDir).filter(f => f.includes('.tmp.'));
       assert.strictEqual(tmpFiles.length, 0);
     });
 
-    it('大きなJSONデータでも正常に書き込める', () => {
+    it('should handle large JSON data correctly', () => {
       const largeObj = {
         sourceFile: '/test/big.md',
         graphFile: '/test/big-GRAPH.json',
@@ -456,7 +456,7 @@ describe('ファイルI/O', () => {
         nodes: Array.from({ length: 100 }, (_, i) => ({ id: `N${String(i + 1).padStart(4, '0')}` })),
       };
       const json = JSON.stringify(largeObj);
-      assert.ok(json.length > 1000); // 1000行相当のサイズより多いことを確認
+      assert.ok(json.length > 1000); // Verify size exceeds 1000 bytes equivalent
       atomicWrite(getTestFilePath(), json);
       const loaded = JSON.parse(fs.readFileSync(getTestFilePath(), 'utf8'));
       assert.strictEqual(loaded.currentStep, 3);
@@ -466,10 +466,10 @@ describe('ファイルI/O', () => {
 });
 
 // ============================================================
-// 統合テスト（ファイル経由のサブコマンド実行）
+// Integration Tests (subcommand execution via file)
 // ============================================================
 
-describe('read-modify-write 統合', () => {
+describe('read-modify-write integration', () => {
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'update-step-status-integration-'));
   });
@@ -478,7 +478,7 @@ describe('read-modify-write 統合', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('ファイルを読み込んで start-step で変更し書き込む一連の流れ', () => {
+  it('should read file, apply start-step, and write back', () => {
     const statusPath = path.join(tmpDir, 'flow-test-GRAPHIFY-Status.json');
     const initialData = createTestStatus(1);
     fs.writeFileSync(statusPath, JSON.stringify(initialData), 'utf8');
@@ -493,15 +493,15 @@ describe('read-modify-write 統合', () => {
     assert.strictEqual(loaded.currentStep, 1);
   });
 
-  it('存在しないファイルから始めて full flow（start→end→reset）', () => {
+  it('should start from non-existent file with full flow (start→end→reset)', () => {
     const statusPath = path.join(tmpDir, 'full-flow-GRAPHIFY-Status.json');
 
-    // Step 1: ファイルなしからデフォルト読み込み（MIN_STEP から開始）
+    // Step 1: no file exists, load default (starting from MIN_STEP)
     let status = readStatus(statusPath);
     assert.strictEqual(status.currentStep, MIN_STEP);
     assert.strictEqual(status.steps['0'], STATUS_PENDING);
 
-    // Step 2: start-step 1 に進む
+    // Step 2: advance to start-step 1
     executeStartStep(status, 1);
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
     status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
@@ -520,25 +520,25 @@ describe('read-modify-write 統合', () => {
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
     status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
     assert.strictEqual(status.steps['2'], STATUS_ERROR);
-    assert.strictEqual(status.currentStep, 2); // failはcurrentStep不変
+    assert.strictEqual(status.currentStep, 2); // fail does not change currentStep
 
     // Step 5: reset-to-step 1
     executeResetToStep(status, 1);
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
     status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
     assert.strictEqual(status.currentStep, 1);
-    assert.strictEqual(status.steps['1'], STATUS_DONE);   // 不変
-    assert.strictEqual(status.steps['2'], STATUS_PENDING); // リセット
+    assert.strictEqual(status.steps['1'], STATUS_DONE);   // unchanged
+    assert.strictEqual(status.steps['2'], STATUS_PENDING); // reset
     assert.strictEqual(status.steps['3'], STATUS_PENDING);
   });
 
   // ============================================================
-  // cleanup サブコマンドテスト
+  // cleanup Subcommand Tests
   // ============================================================
 
   describe('cleanup', () => {
-    it('cleanup 実行後に _fix_graph_hints.json が削除されている', () => {
-      // Arrange: cleanup は CWD から temp ファイルを探す
+    it('should delete _fix_graph_hints.json after cleanup', () => {
+      // Arrange: cleanup looks for temp files from CWD
       const status = createTestStatus(2);
       const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
       status.graphFile = testGraphFile;
@@ -547,18 +547,18 @@ describe('read-modify-write 統合', () => {
       try {
         fs.writeFileSync(hintsFile, JSON.stringify({ diagnosis: 'test' }), 'utf8');
 
-        // Act: cleanup 実行
+        // Act: execute cleanup
         executeCleanup(status);
 
-        // Assert: _fix_graph_hints.json が削除されている
+        // Assert: _fix_graph_hints.json is deleted
         assert.strictEqual(fs.existsSync(hintsFile), false);
       } finally {
-        // 後片付け（テスト失敗時も確実に削除）
-        try { fs.unlinkSync(hintsFile); } catch { /* 無視 */ }
+        // Cleanup (ensure deletion even on test failure)
+        try { fs.unlinkSync(hintsFile); } catch { /* Ignore */ }
       }
     });
 
-    it('cleanup 実行後も必須ファイル（グラフJSON）は削除されない', () => {
+    it('should not delete required files (graph JSON) after cleanup', () => {
       // Arrange
       const status = createTestStatus(2);
       const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
@@ -571,24 +571,24 @@ describe('read-modify-write 統合', () => {
         // Act
         executeCleanup(status);
 
-        // Assert: グラフJSONは残っている
+        // Assert: graph JSON remains
         assert.strictEqual(fs.existsSync(testGraphFile), true);
       } finally {
-        try { fs.unlinkSync(hintsFile); } catch { /* 無視 */ }
+        try { fs.unlinkSync(hintsFile); } catch { /* Ignore */ }
       }
     });
 
-    it('_fix_graph_hints.json が存在しない状態でもエラーにならない（冪等性）', () => {
-      // Arrange: _fix_graph_hints.json を作成しない
+    it('should not error when _fix_graph_hints.json does not exist (idempotent)', () => {
+      // Arrange: do not create _fix_graph_hints.json
       const status = createTestStatus(2);
       const testGraphFile = path.join(tmpDir, 'test-GRAPH.json');
       status.graphFile = testGraphFile;
       fs.writeFileSync(testGraphFile, JSON.stringify({ nodes: [], edges: [] }), 'utf8');
 
-      // Act & Assert: エラーが発生しない
+      // Act & Assert: no error should occur
       assert.doesNotThrow(() => executeCleanup(status));
     });
   });
 });
 
-console.log('update-step-status.js 全テスト完了');
+console.log('update-step-status.js all tests complete');

@@ -36,7 +36,6 @@ TICKETS_PATH="$DOC_DIR/Tickets.json"
 
 echo "[init] 設計書: $DOC_PATH" >&2
 echo "[init] 出力ディレクトリ: $DOC_DIR" >&2
-echo "[init] Tickets.json: $TICKETS_PATH" >&2
 
 if [ -f "$TICKETS_PATH" ]; then
   echo "[init] 注意: $TICKETS_PATH は既に存在します。/formulate-tickets により上書きされます。" >&2

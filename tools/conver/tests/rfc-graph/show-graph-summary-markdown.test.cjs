@@ -1,7 +1,7 @@
 /**
- * show-graph-summary-markdown.test.cjs — show-graph-summary-markdown.js のテスト
+ * show-graph-summary-markdown.test.cjs — Tests for show-graph-summary-markdown.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -21,18 +21,18 @@ const {
 } = require('../../.claude/scripts/rfc-graph/show-graph-summary-markdown.js');
 
 // ============================================================
-// テスト用データ
+// Test data
 // ============================================================
 
 const SAMPLE_GRAPH = {
   sourceFile: '/path/to/RFC-GRAPHIFY.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: '認証API定義', summary: '認証の失敗時にリトライする回数と間隔を規定', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
-    { id: 'N0002', kind: 'requirement', title: 'エラー型定義', summary: '本モジュールで使用するエラー型', headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}]},
-    { id: 'N0003', kind: 'requirement', title: 'トークン検証', summary: 'JWTトークンの署名検証手順', headingRefs: [{ refId: 'REF003', heading:1, texts:["test"]}]},
-    { id: 'N0004', kind: 'api_contract', title: 'POST /api/v1/auth/login', summary: 'ログインエンドポイントのリクエスト/レスポンス仕様', headingRefs: [{ refId: 'REF004', heading:1, texts:["test"]}]},
-    { id: 'N0005', kind: 'architecture', title: 'セッション管理', summary: 'ユーザーセッションの作成と破棄のライフサイクル', headingRefs: [{ refId: 'REF005', heading:1, texts:["test"]}]},
-    { id: 'N0006', kind: 'glossary', title: '用語定義', summary: '認証関連用語', headingRefs: [{ refId: 'REF006', heading:1, texts:["test"]}]},
+    { id: 'N0001', kind: 'requirement', title: 'Authentication API Definition', summary: 'Specifies the number of retries and intervals on authentication failure', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'requirement', title: 'Error Type Definition', summary: 'Error types used in this module', headingRefs: [{ refId: 'REF002', heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'requirement', title: 'Token Validation', summary: 'JWT token signature verification procedure', headingRefs: [{ refId: 'REF003', heading:1, texts:["test"]}]},
+    { id: 'N0004', kind: 'api_contract', title: 'POST /api/v1/auth/login', summary: 'Login endpoint request/response specification', headingRefs: [{ refId: 'REF004', heading:1, texts:["test"]}]},
+    { id: 'N0005', kind: 'architecture', title: 'Session Management', summary: 'User session creation and destruction lifecycle', headingRefs: [{ refId: 'REF005', heading:1, texts:["test"]}]},
+    { id: 'N0006', kind: 'glossary', title: 'Glossary', summary: 'Authentication-related terms', headingRefs: [{ refId: 'REF006', heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0003', type: 'depends_on', attributes: { strength: 'hard', bidirectional: false } },
@@ -43,82 +43,82 @@ const SAMPLE_GRAPH = {
   ],
 };
 
-/** マーカーを含むソーステキスト */
+/** Source text with markers */
 const SAMPLE_SOURCE = [
   '# RFC',
   '',
-  '## 要件',
-  '[::REF001-START::] 認証API定義',
-  'リトライ回数の規定',
+  '## Requirements',
+  '[::REF001-START::] Authentication API Definition',
+  'Retry count specification',
   '[::REF001-END::]',
   '',
-  '[::REF002-START::] エラー型定義',
-  'エラー型の詳細',
+  '[::REF002-START::] Error Type Definition',
+  'Error type details',
   '[::REF002-END::]',
   '',
-  '## 実装',
-  '[::REF003-START::] トークン検証',
-  'JWT署名検証',
+  '## Implementation',
+  '[::REF003-START::] Token Validation',
+  'JWT signature verification',
   '[::REF003-END::]',
   '',
   '[::REF004-START::] POST /api/v1/auth/login',
-  'エンドポイント仕様',
+  'Endpoint specification',
   '[::REF004-END::]',
   '',
-  '## 設計',
-  '[::REF005-START::] セッション管理',
-  'ライフサイクル',
+  '## Design',
+  '[::REF005-START::] Session Management',
+  'Lifecycle',
   '[::REF005-END::]',
   '',
-  '[::REF006-START::] 用語定義',
-  '用語一覧',
+  '[::REF006-START::] Glossary',
+  'Term list',
   '[::REF006-END::]',
 ].join('\n');
 
 // ============================================================
-// テスト
+// Tests
 // ============================================================
 
 describe('parseArguments', () => {
-  it('正常系: --graph --source をパースする', () => {
+  it('parses --graph --source correctly', () => {
     const result = parseArguments(['node', 'script.js', '--graph=/g.json', '--source=/s.md']);
     assert.equal(result.graphPath, '/g.json');
     assert.equal(result.sourcePath, '/s.md');
   });
 
-  it('異常系: 引数不足', () => {
+  it('throws on missing arguments', () => {
     assert.throws(() => parseArguments(['node', 'script.js', '--graph=/g.json']), /引数が不足/);
   });
 
-  it('異常系: --graph プレフィックス誤り', () => {
+  it('throws on wrong --graph prefix', () => {
     assert.throws(() => parseArguments(['node', 's.js', '--gra=/g.json', '--source=/s.md']), /最初の引数/);
   });
 
-  it('異常系: --graph パス空', () => {
+  it('throws on empty --graph path', () => {
     assert.throws(() => parseArguments(['node', 's.js', '--graph=', '--source=/s.md']), /空です/);
   });
 });
 
 describe('truncateSummary', () => {
-  it('28字以下はそのまま返す', () => {
-    assert.equal(truncateSummary('短いサマリー'), '短いサマリー');
+  it('returns as-is for 28 characters or fewer', () => {
+    assert.equal(truncateSummary('Short summary'), 'Short summary');
   });
 
-  it('29字以上は25字+...で切る', () => {
-    const long = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ';
+  it('truncates to 25 chars + ... for 29+ characters', () => {
+    const long = 'This is a long summary that should be truncated by the function';
     const result = truncateSummary(long);
     assert.ok(result.endsWith('...'));
     assert.equal(result.length, 28); // 25 + ...
   });
 
-  it('null/undefined は空文字を返す', () => {
+  it('returns empty string for null/undefined', () => {
     assert.equal(truncateSummary(null), '');
     assert.equal(truncateSummary(undefined), '');
   });
 });
 
 describe('abbreviateEdgeType', () => {
-  it('全12種のエッジタイプが3文字に変換される', () => {
+  it('all 12 edge types are abbreviated to 3 characters', () => {
     const cases = [
       ['depends_on', 'dep'], ['implements', 'imp'], ['refines', 'rfn'],
       ['extends', 'ext'], ['conflicts_with', 'cnf'], ['triggers', 'trg'],
@@ -130,21 +130,21 @@ describe('abbreviateEdgeType', () => {
     }
   });
 
-  it('未知のタイプは先頭3文字を返す', () => {
+  it('returns first 3 characters for unknown type', () => {
     assert.equal(abbreviateEdgeType('unknown'), 'unk');
   });
 });
 
 describe('EDGE_ABBREV', () => {
-  it('全12種の定義が存在する', () => {
+  it('all 12 edge type abbreviations exist', () => {
     assert.equal(Object.keys(EDGE_ABBREV).length, 12);
   });
 });
 
 describe('buildNodeMap', () => {
-  it('ノードID → ノードオブジェクトのマップを構築する', () => {
+  it('builds node ID to node object map', () => {
     const map = buildNodeMap(SAMPLE_GRAPH.nodes);
-    assert.equal(map['N0001'].title, '認証API定義');
+    assert.equal(map['N0001'].title, 'Authentication API Definition');
     assert.equal(map['N0006'].kind, 'glossary');
     assert.equal(Object.keys(map).length, 6);
   });
@@ -161,7 +161,7 @@ describe('loadGraph', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('有効なグラフJSONを読み込む', () => {
+  it('loads valid graph JSON', () => {
     const filePath = path.join(tmpDir, 'graph.json');
     fs.writeFileSync(filePath, JSON.stringify(SAMPLE_GRAPH), 'utf8');
     const graph = loadGraph(filePath);
@@ -169,11 +169,11 @@ describe('loadGraph', () => {
     assert.equal(graph.nodes.length, 6);
   });
 
-  it('存在しないファイルでエラー', () => {
+  it('throws on non-existent file', () => {
     assert.throws(() => loadGraph(path.join(tmpDir, 'nonexist.json')), /見つかりません/);
   });
 
-  it('不正なJSONでエラー', () => {
+  it('throws on invalid JSON', () => {
     const filePath = path.join(tmpDir, 'bad.json');
     fs.writeFileSync(filePath, '{bad}', 'utf8');
     assert.throws(() => loadGraph(filePath), /JSONパース/);
@@ -181,65 +181,65 @@ describe('loadGraph', () => {
 });
 
 describe('generateSummary', () => {
-  it('kind 別グループでノード一覧を出力する', () => {
+  it('outputs node list grouped by kind', () => {
     const output = generateSummary(SAMPLE_GRAPH, SAMPLE_SOURCE);
     const lines = output.split('\n');
 
-    // 先頭行: 絶対パス + カウント
+    // First line: absolute path + count
     assert.ok(lines[0].startsWith('/path/to/RFC-GRAPHIFY.md'));
     assert.ok(lines[0].includes('6 nodes / 5 edges'));
 
-    // kind 別グループ
+    // kind groups
     assert.ok(output.includes('## requirement (3件)'));
     assert.ok(output.includes('## api_contract (1件)'));
     assert.ok(output.includes('## architecture (1件)'));
     assert.ok(output.includes('## glossary (1件)'));
 
-    // 各ノードのID + タイトル
-    assert.ok(output.includes('N0001: 認証API定義'));
-    assert.ok(output.includes('N0002: エラー型定義'));
-    assert.ok(output.includes('N0003: トークン検証'));
+    // Each node ID + title
+    assert.ok(output.includes('N0001: Authentication API Definition'));
+    assert.ok(output.includes('N0002: Error Type Definition'));
+    assert.ok(output.includes('N0003: Token Validation'));
     assert.ok(output.includes('N0004: POST /api/v1/auth/login'));
-    assert.ok(output.includes('N0005: セッション管理'));
+    assert.ok(output.includes('N0005: Session Management'));
 
-    // 要約
-    assert.ok(output.includes('ログインエンドポイント'));
+    // Summary
+    assert.ok(output.includes('Login endpoint'));
 
-    // エッジ関係（新しい形式）
-    assert.ok(output.includes('[N0001] -> depends_on -> [N0003: トークン検証]'));
-    assert.ok(output.includes('[N0003] <- depends_on <- [N0001: 認証API定義]'));
+    // Edge relationships (new format)
+    assert.ok(output.includes('[N0001] -> depends_on -> [N0003: Token Validation]'));
+    assert.ok(output.includes('[N0003] <- depends_on <- [N0001: Authentication API Definition]'));
   });
 
-  it('孤立ノードのみのグラフでも空のエッジ一覧になる', () => {
+  it('generates empty edge list for isolated node graph', () => {
     const isolatedGraph = {
       sourceFile: '/test.md',
       nodes: [
-        { id: 'N0001', kind: 'requirement', title: '孤立', summary: '孤立ノード', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
+        { id: 'N0001', kind: 'requirement', title: 'Isolated Node', summary: 'Isolated node', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]},
       ],
       edges: [],
     };
-    const singleLineSource = '[::REF001-START::] 孤立\n内容\n[::REF001-END::]';
+    const singleLineSource = '[::REF001-START::] Isolated Node\nContent\n[::REF001-END::]';
     const output = generateSummary(isolatedGraph, singleLineSource);
-    assert.ok(output.includes('孤立'));
-    // エッジがないので矢印表記がない
+    assert.ok(output.includes('Isolated Node'));
+    // No edges — no arrow notation
     assert.ok(!output.includes('→'));
     assert.ok(!output.includes('←'));
   });
 
-  it('headingRefs がないノードは行番号なしで表示される', () => {
+  it('displays nodes without headingRefs without line numbers', () => {
     const noRangeGraph = {
       sourceFile: '/test.md',
       nodes: [
-        { id: 'N0001', kind: 'requirement', title: '範囲なし', summary: '範囲なしノード' },
+        { id: 'N0001', kind: 'requirement', title: 'No Range', summary: 'Node without range' },
       ],
       edges: [],
     };
     const output = generateSummary(noRangeGraph, '');
-    assert.ok(output.includes('範囲なし'));
-    assert.ok(!output.includes('[L')); // 行番号なし
+    assert.ok(output.includes('No Range'));
+    assert.ok(!output.includes('[L')); // No line numbers
   });
 
-  it('bidirectional エッジで双方向矢印が表示される', () => {
+  it('displays bidirectional arrows for bidirectional edges', () => {
     const graph = {
       sourceFile: '/test.md',
       nodes: [
@@ -252,7 +252,7 @@ describe('generateSummary', () => {
     };
     const src = '[::REF001-START::] A\n[::REF001-END::]\n[::REF002-START::] B\n[::REF002-END::]';
     const output = generateSummary(graph, src);
-    // bidirectional は <-> で表示
+    // bidirectional displays as <->
     assert.ok(output.includes('<->'));
   });
 });
@@ -260,7 +260,7 @@ describe('generateSummary', () => {
 describe('generateCliExamples', () => {
   const { generateCliExamples } = require('../../.claude/scripts/rfc-graph/show-graph-summary-markdown.js');
 
-  it('query.js のCLI使用例を含む', () => {
+  it('includes query.js CLI usage examples', () => {
     const examples = generateCliExamples('/g.json', '/s.md', 'N0001');
     const output = examples.join('\n');
     assert.ok(output.includes('query.js'));
@@ -274,12 +274,12 @@ describe('generateCliExamples', () => {
 describe('parseArguments with --with-cli-examples', () => {
   const { parseArguments } = require('../../.claude/scripts/rfc-graph/show-graph-summary-markdown.js');
 
-  it('--with-cli-examples フラグをパースする', () => {
+  it('parses --with-cli-examples flag', () => {
     const result = parseArguments(['node', 's.js', '--graph=/g.json', '--source=/s.md', '--with-cli-examples']);
     assert.equal(result.withCliExamples, true);
   });
 
-  it('フラグなしの場合は false', () => {
+  it('returns false without flag', () => {
     const result = parseArguments(['node', 's.js', '--graph=/g.json', '--source=/s.md']);
     assert.equal(result.withCliExamples, false);
   });

@@ -1,9 +1,9 @@
 /**
- * write-tickets-json-template.js — Tickets.json スケルトンを生成してスキーマ検証
+ * write-tickets-json-template.js — Generate Tickets.json skeleton and validate schema
  *
- * phases は空配列の固定構造。title と metadata は第3引数で受け取る。
+ * phases is a fixed empty array structure. title and metadata come from 3rd argument.
  *
- * 使用法:
+ * Usage:
  *   node write-tickets-json-template.js <PATH to Tickets.json> '<metadata-json>'
  *
  * metadata-json:

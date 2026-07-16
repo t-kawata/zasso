@@ -3,14 +3,14 @@
  * update-tree.js <rfc-dir> <operation> [args...]
  *
  * Operations:
- *   add            '<node_json>'                        - ルートにノードを追加
- *   add-child      '<parent_id>' '<node_json>'          - 親ノードに子を追加
- *   resolve        '<node_id>'  '<answer_summary>'      - ノードをresolvedにして回答を記録
- *   batch-resolve  '<["id1","id2",...]>' '<answer>'     - 複数ノードを一括resolve
- *   refine         '<node_id>'  '<new_title>'           - ノードのタイトルを更新（洗練）
- *   delete         '<node_id>'                          - ノードとその子孫をすべて削除
- *   show                                                - 現在のツリーをSTDOUTに出力
- *   open-count                                          - status:open のノード数を出力
+ *   add            '<node_json>'                        - Add a node to the root
+ *   add-child      '<parent_id>' '<node_json>'          - Add a child to a parent node
+ *   resolve        '<node_id>'  '<answer_summary>'      - Mark a node as resolved and record the answer
+ *   batch-resolve  '<["id1","id2",...]>' '<answer>'     - Resolve multiple nodes at once
+ *   refine         '<node_id>'  '<new_title>'           - Update (refine) a node's title
+ *   delete         '<node_id>'                          - Delete a node and all its descendants
+ *   show                                                - Output the current tree to STDOUT
+ *   open-count                                          - Output the count of nodes with status:open
  */
 import fs from "fs";
 import path from "path";

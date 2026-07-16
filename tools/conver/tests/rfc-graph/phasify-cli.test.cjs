@@ -1,7 +1,7 @@
 /**
- * phasify-cli.test.cjs — phasify-graph-and-dirs-files-tree.js CLI骨格のユニットテスト
+ * phasify-cli.test.cjs — Unit tests for the phasify-graph-and-dirs-files-tree.js CLI skeleton
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js built-in node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -55,7 +55,7 @@ describe('parseArguments', () => {
 
   it('should exit with code 2 when no arguments given', () => {
     assert.throws(() => {
-      // process.exit をスローに変換するラッパー
+      // Wrapper to convert process.exit into a throw
       const origExit = process.exit;
       let exitCode = null;
       process.exit = (code) => { throw new Error('exit:' + code); };
@@ -122,7 +122,7 @@ describe('resolveTicketsPath', () => {
 
 describe('checkDirsTreeExists', () => {
   it('should not throw when file exists', () => {
-    // /dev/null は全てのOSに存在する
+    // /dev/null exists on all OSes
     const result = checkDirsTreeExists('/dev/null');
     assert.strictEqual(result, undefined);
   });
@@ -148,7 +148,7 @@ describe('ensureTicketsJsonExists', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phasify-cli-test-'));
 
   after(() => {
-    // クリーンアップ
+    // Cleanup
     try {
       const files = fs.readdirSync(tmpDir);
       for (const f of files) {
@@ -171,8 +171,8 @@ describe('ensureTicketsJsonExists', () => {
 
   it('should create Tickets.json when not exists and not dry-run', () => {
     const testPath = path.join(tmpDir, 'new-Tickets.json');
-    // write-tickets-json-template.js はプロジェクトルートにあるので、
-    // CI以外ではテストできない。代わりに、存在しない場合の挙動を確認。
+    // write-tickets-json-template.js is in the project root, so this cannot be
+    // tested outside CI. Instead, verify the non-existent case behavior.
     const result = ensureTicketsJsonExists(testPath, '/project/graph.json', true);
     assert.strictEqual(result, true);
   });

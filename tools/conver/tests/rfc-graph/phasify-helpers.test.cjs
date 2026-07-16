@@ -1,7 +1,7 @@
 /**
- * phasify-helpers.test.cjs — phasify-helpers.js のユニットテスト
+ * phasify-helpers.test.cjs — Unit tests for phasify-helpers.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');
@@ -24,7 +24,7 @@ const {
 } = require('../../.claude/scripts/rfc-graph/phasify-helpers.js');
 
 // ============================================================
-// 重みテーブル
+// Weight table
 // ============================================================
 
 describe('getWeight', () => {
@@ -94,7 +94,7 @@ describe('kahnTopologicalSort', () => {
       getWeight,
     );
     assert.ok(result.success);
-    // depends_on: N0003はN0001とN0002の依存先 → N0003が先に来る
+    // depends_on: N0003 is the dependency target of N0001 and N0002 → N0003 comes first
     assert.ok(result.order.indexOf('N0003') < result.order.indexOf('N0001'));
     assert.ok(result.order.indexOf('N0003') < result.order.indexOf('N0002'));
   });
@@ -106,7 +106,7 @@ describe('kahnTopologicalSort', () => {
       getWeight,
     );
     assert.ok(result.success);
-    // references は重み0なので順序制約なし → 両方処理される
+    // references has weight 0 so no ordering constraint → both are processed
     assert.strictEqual(result.order.length, 2);
   });
 
@@ -132,7 +132,7 @@ describe('kahnTopologicalSort', () => {
     );
     assert.ok(result.success);
     assert.strictEqual(result.order.length, 3);
-    // 入力順が維持される
+    // Input order is preserved
     assert.deepStrictEqual(result.order, ['N0001', 'N0002', 'N0003']);
   });
 
@@ -147,7 +147,7 @@ describe('kahnTopologicalSort', () => {
       getWeight,
     );
     assert.ok(result.success);
-    // depends_on: 依存先(to)が先に来る → N0004, N0003, N0002, N0001
+    // depends_on: dependency target (to) comes first → N0004, N0003, N0002, N0001
     assert.deepStrictEqual(result.order, ['N0004', 'N0003', 'N0002', 'N0001']);
   });
 
@@ -215,9 +215,9 @@ describe('computeSoftViolations', () => {
       ],
       getWeight,
     );
-    // N0001→N0002 違反 cost=2
-    // N0002→N0003 違反 cost=2
-    // N0001→N0003 違反 cost=1
+    // N0001→N0002 violation cost=2
+    // N0002→N0003 violation cost=2
+    // N0001→N0003 violation cost=1
     assert.strictEqual(result.totalCost, 5);
     assert.strictEqual(result.violations.length, 3);
   });
@@ -257,20 +257,20 @@ describe('mergePhases', () => {
     const result = mergePhases(nodes, 5);
     assert.strictEqual(result.length, 2);
     assert.strictEqual(result[0].nodeIds.length, 5);
-    // 最終フェーズは残り6ノード（5 + 1合併）
+    // Last phase has remaining 6 nodes (5 + 1 merged)
     assert.strictEqual(result[1].nodeIds.length, 6);
   });
 
   it('should merge final underflow phase into previous', () => {
     const nodes = ['N0001', 'N0002', 'N0003', 'N0004', 'N0005', 'N0006', 'N0007', 'N0008', 'N0009', 'N0010', 'N0011', 'N0012'];
     const result = mergePhases(nodes, 10);
-    // 10ノードでP0作成 → 残り2ノードはP0に合併 → 全12ノードが1フェーズ
+    // Create P0 with 10 nodes → remaining 2 nodes merge into P0 → all 12 nodes in 1 phase
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].nodeIds.length, 12);
   });
 
   it('should create multiple phases for large input', () => {
-    // 35ノード、minSize=10 → P0(10), P1(10), P2(10), 残り5→P2に合併 = 3フェーズ
+    // 35 nodes, minSize=10 → P0(10), P1(10), P2(10), remaining 5 → merged into P2 = 3 phases
     const nodes = Array.from({ length: 35 }, (_, i) => 'N' + String(i + 1).padStart(4, '0'));
     const result = mergePhases(nodes, 10);
     assert.strictEqual(result.length, 3);
@@ -359,17 +359,17 @@ describe('applySccToOrder', () => {
 
   it('should group SCC nodes together', () => {
     const sccMap = { 'N0002': 'N0001', 'N0003': 'N0001' };
-    // 元の順序: N0001, N0004, N0002, N0005, N0003
-    // SCCグループ: N0001,N0002,N0003 → 最初の代表 N0001 の位置にグループ化
+    // Original order: N0001, N0004, N0002, N0005, N0003
+    // SCC group: N0001,N0002,N0003 → grouped at the position of the first representative N0001
     const result = applySccToOrder(
       ['N0001', 'N0004', 'N0002', 'N0005', 'N0003'],
       sccMap,
     );
-    // N0001,N0002,N0003 が隣接していることを確認
+    // Verify N0001,N0002,N0003 are adjacent
     const pos1 = result.indexOf('N0001');
     const pos2 = result.indexOf('N0002');
     const pos3 = result.indexOf('N0003');
-    // 隣接しているはず（間にある要素数 < 3）
+    // They should be adjacent (elements between them < 3)
     assert.ok(Math.abs(pos1 - pos2) <= 2);
     assert.ok(Math.abs(pos2 - pos3) <= 1);
   });
@@ -386,14 +386,14 @@ describe('enforceHardConstraints', () => {
     ];
     const hardEdges = [{ from: 'N0002', to: 'N0004', type: 'depends_on' }];
     const result = enforceHardConstraints(phases, hardEdges);
-    // N0002 と N0004 が同一フェーズ → N0004 以降を分割
-    assert.ok(result.length >= 2, '分割されること');
+    // N0002 and N0004 are in the same phase → split after N0004
+    assert.ok(result.length >= 2, 'Should be split');
     assert.ok(result.some(p => p.nodeIds.includes('N0002')));
     assert.ok(result.some(p => p.nodeIds.includes('N0004')));
-    // N0002 と N0004 が異なるフェーズであること
+    // N0002 and N0004 should be in different phases
     const phaseOf2 = result.find(p => p.nodeIds.includes('N0002'));
     const phaseOf4 = result.find(p => p.nodeIds.includes('N0004'));
-    assert.ok(phaseOf2.id < phaseOf4.id, 'N0002 は N0004 より前のフェーズ');
+    assert.ok(phaseOf2.id < phaseOf4.id, 'N0002 should be in an earlier phase than N0004');
   });
 
   it('should handle no violations (empty hardEdges)', () => {
@@ -416,7 +416,7 @@ describe('enforceHardConstraints', () => {
   });
 
   it('should fix multiple violations in same phase', () => {
-    // N0001→N0003, N0002→N0004 の両方とも同一フェーズ内
+    // Both N0001→N0003 and N0002→N0004 are within the same phase
     const phases = [
       { id: 0, name: 'P0', nodeIds: ['N0001', 'N0002', 'N0003', 'N0004'] },
     ];
@@ -425,7 +425,7 @@ describe('enforceHardConstraints', () => {
       { from: 'N0002', to: 'N0004', type: 'depends_on' },
     ];
     const result = enforceHardConstraints(phases, hardEdges);
-    // 複数回の分割で全ての違反が解消される
+    // Multiple splits resolve all violations
     const nodePhase = {};
     result.forEach(p => p.nodeIds.forEach(n => { nodePhase[n] = p.id; }));
     assert.ok(nodePhase['N0001'] < nodePhase['N0003'], 'N0001→N0003');
@@ -450,11 +450,11 @@ describe('enforceHardConstraints', () => {
       { from: 'N0002', to: 'N0003', type: 'depends_on' },
     ];
     const result = enforceHardConstraints(phases, hardEdges);
-    // 各ノードが異なるフェーズになる
+    // Each node should be in a different phase
     const nodePhase = {};
     result.forEach(p => p.nodeIds.forEach(n => { nodePhase[n] = p.id; }));
-    assert.ok(nodePhase['N0001'] < nodePhase['N0002'], 'N0001→N0002');
-    assert.ok(nodePhase['N0002'] < nodePhase['N0003'], 'N0002→N0003');
+    assert.ok(nodePhase['N0001'] < nodePhase['N0002'], 'N0001 should be in earlier phase than N0002');
+    assert.ok(nodePhase['N0002'] < nodePhase['N0003'], 'N0002 should be in earlier phase than N0003');
   });
 });
 
@@ -482,7 +482,7 @@ describe('applyDirectoryConstraints', () => {
     const order = ['N0001', 'N0002', 'N0003', 'N0004'];
     const depDirs = [{ from: 'src/config', to: 'src/security' }];
     const result = applyDirectoryConstraints(order, depDirs, nodeToDirMap);
-    // config(の最終=N0002) が security(の先頭=N0003) より前 → 維持
+    // config (last=N0002) is before security (first=N0003) → preserved
     assert.deepStrictEqual(result, order);
   });
 
@@ -490,15 +490,15 @@ describe('applyDirectoryConstraints', () => {
     const order = ['N0003', 'N0001', 'N0004', 'N0002'];
     const depDirs = [{ from: 'src/config', to: 'src/security' }];
     const result = applyDirectoryConstraints(order, depDirs, nodeToDirMap);
-    // config(N0001,N0002) が security(N0003,N0004) より前になるよう調整
+    // Adjust so config (N0001,N0002) comes before security (N0003,N0004)
     const posConfig1 = result.indexOf('N0001');
     const posConfig2 = result.indexOf('N0002');
     const posSec3 = result.indexOf('N0003');
     const posSec4 = result.indexOf('N0004');
-    // config の最後のノードが security の最初のノードより前
+    // The last config node must be before the first security node
     const lastConfig = Math.max(posConfig1, posConfig2);
     const firstSec = Math.min(posSec3, posSec4);
-    assert.ok(lastConfig < firstSec, 'config は security より前に配置されるべき');
+    assert.ok(lastConfig < firstSec, 'config should be placed before security');
   });
 
   it('should handle multiple dependency directions', () => {
@@ -508,7 +508,7 @@ describe('applyDirectoryConstraints', () => {
       { from: 'src/security', to: 'src/error' },
     ];
     const result = applyDirectoryConstraints(order, depDirs, nodeToDirMap);
-    // config が security より前、security が error より前
+    // config before security, security before error
     const configLast = Math.max(result.indexOf('N0001'), result.indexOf('N0002'));
     const secFirst = Math.min(result.indexOf('N0003'), result.indexOf('N0004'));
     const secLast = Math.max(result.indexOf('N0003'), result.indexOf('N0004'));
@@ -549,9 +549,9 @@ describe('applyDirectoryConstraints', () => {
     const depDirs = [{ from: 'src/config', to: 'src/security' }];
     const result = applyDirectoryConstraints(order, depDirs, nodeToDirMap);
     assert.strictEqual(result.length, order.length);
-    // 全ノードが保持されている
+    // All nodes are preserved
     for (const nid of order) {
-      assert.ok(result.includes(nid), '欠落: ' + nid);
+      assert.ok(result.includes(nid), 'Missing node: ' + nid);
     }
   });
 });

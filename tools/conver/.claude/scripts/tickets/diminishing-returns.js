@@ -1,14 +1,14 @@
 /**
- * diminishing-returns.js — 発散/収束の時系列分析
+ * diminishing-returns.js — Time-series analysis of divergence/convergence
  *
- * find のループ回数と omission 発見数の時系列を分析し、収束しているか
- * 発散しているかを機械的に判定する。このスクリプトは 100% 決定論。
+ * Analyzes the time series of find loop iterations and omission discovery counts,
+ * mechanically determining whether convergence or divergence is occurring. This script is 100% deterministic.
  *
- * 処理:
- * 1. 全 OMISSIONS-*.json から omission 数を種別・severity 別に集計
- * 2. low / (high + medium + low) 比率の推移を計算
- * 3. 前回比で omission 総数が増加していれば発散フラグ
- * 4. low 比率が 50% 以上かつ増加傾向なら発散警告
+ * Processing:
+ * 1. Aggregate omission counts by type and severity across all OMISSIONS-*.json
+ * 2. Calculate low / (high + medium + low) ratio trend
+ * 3. Flag divergence if omission total increased vs previous round
+ * 4. Warn of divergence if low ratio >= 50% and trending upward
  *
  * Usage:
  *   node diminishing-returns.js <OMISSIONS_DIR_OR_FILE>
@@ -20,9 +20,9 @@ const path = require("path");
 const OMISSION_FILE_RE = /^OMISSIONS-(\d{3})\.json$/;
 
 /**
- * 時系列分析を実行する。
+ * Execute time-series analysis.
  *
- * @param {object[]} analysisData - 各ラウンドの分析データ配列
+ * @param {object[]} analysisData - analysis data array per round
  * @returns {{ isDiverging: boolean, lowRatioTrend: string, warning: string|null, details: object }}
  */
 function analyzeTrend(analysisData) {
@@ -42,13 +42,13 @@ function analyzeTrend(analysisData) {
     });
   }
 
-  // 各ラウンドの low 比率を計算
+  // Calculate low ratio per round
   for (const round of analysisData) {
     const significantTotal = round.high + round.medium + round.low;
     details.lowRatios.push(significantTotal === 0 ? 0 : round.low / significantTotal);
   }
 
-  // low 比率の増減傾向（初回 vs 最終）
+  // Low ratio trend (first vs last)
   const firstRatio = details.lowRatios[0];
   const lastRatio = details.lowRatios[details.lowRatios.length - 1];
 
@@ -60,10 +60,10 @@ function analyzeTrend(analysisData) {
     details.lowRatioTrend = "stable";
   }
 
-  // 発散フラグ判定
+  // Divergence flag check
   const divergingFlags = [];
 
-  // 条件1: 前回比で total 増加
+  // Condition 1: total increased vs previous
   const lastRound = analysisData[analysisData.length - 1];
   const prevRound = analysisData[analysisData.length - 2];
   if (lastRound.total > prevRound.total) {
@@ -73,7 +73,7 @@ function analyzeTrend(analysisData) {
     details.totalTrend = "decreasing";
   }
 
-  // 条件2: low 比率 50% 以上かつ増加傾向
+  // Condition 2: low ratio >= 50% and increasing
   if (lastRatio >= 0.5 && details.lowRatioTrend === "increasing") {
     divergingFlags.push("low_ratio_high_and_increasing");
   }
@@ -99,9 +99,9 @@ function analyzeTrend(analysisData) {
 }
 
 /**
- * OMISSIONS ファイルを読み込み、ラウンドごとの集計データを生成する。
+ * Read OMISSIONS files and generate per-round aggregation data.
  *
- * @param {string} targetPath - OMISSIONS JSON ファイル or ディレクトリ
+ * @param {string} targetPath - OMISSIONS JSON file or directory
  * @returns {{ success: boolean, analysisData?: object[], trend?: object, error?: string }}
  */
 function loadAndAnalyze(targetPath) {
@@ -150,7 +150,7 @@ function loadAndAnalyze(targetPath) {
         low: low,
       });
     } catch (_) {
-      // 破損ファイルはスキップ
+      // Skip corrupted files
     }
   }
 

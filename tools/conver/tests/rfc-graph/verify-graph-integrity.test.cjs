@@ -1,7 +1,7 @@
 /**
- * verify-graph-integrity.test.cjs — verify-graph-integrity.js のユニットテスト
+ * verify-graph-integrity.test.cjs — Unit tests for verify-graph-integrity.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 'use strict';
 
@@ -14,7 +14,7 @@ const {
 } = require('../../.claude/scripts/rfc-graph/verify-graph-integrity.js');
 
 // ============================================================
-// テスト用グラフデータ
+// Test Graph Data
 // ============================================================
 
 const BASE_GRAPH = {

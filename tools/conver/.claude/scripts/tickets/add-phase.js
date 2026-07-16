@@ -1,11 +1,11 @@
 /**
- * add-phase.js — Tickets.json にフェーズを追加（id 自動採番）
+ * add-phase.js — Add a phase to Tickets.json (id auto-assigned)
  *
- * 使用法:
+ * Usage:
  *   echo '{"name":"Phase 0: ...","externalDependencies":"..."}' | \
  *     node add-phase.js <PATH to Tickets.json>
  *
- * id は既存の最大 id + 1 で自動採番される。
+ * The id is auto-assigned as max existing id + 1.
  */
 const fs = require("fs"),
   path = require("path");

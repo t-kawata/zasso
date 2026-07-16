@@ -1,7 +1,7 @@
 /**
- * show-all-nodes-title-summary.test.cjs — show-all-nodes-title-summary.js のテスト
+ * show-all-nodes-title-summary.test.cjs — Tests for show-all-nodes-title-summary.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');

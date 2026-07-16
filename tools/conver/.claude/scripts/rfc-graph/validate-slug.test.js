@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * validate-slug.test.js — validate-slug.js の単体テスト
+ * validate-slug.test.js — Unit tests for validate-slug.js
  *
- * テスト実行: node validate-slug.test.js
+ * Run: node validate-slug.test.js
  *
- * カバレッジ目標: 95%（クリティカルパス: 検出ロジック 100%）
+ * Coverage target: 95% (critical path: detection logic 100%)
  */
 
 const assert = require('assert');
@@ -22,17 +22,17 @@ const {
 } = require('./validate-slug.js');
 
 // ============================================================
-// テストランナー
+// Test runner
 // ============================================================
 
-/** テスト結果集計 */
+/** Test result accumulator */
 const stats = { passed: 0, failed: 0, total: 0 };
 
 /**
- * テストケースを実行する
+ * Executes a test case
  *
- * @param {string} name — テスト名
- * @param {Function} fn — テスト関数（アサーションエラーで失敗扱い）
+ * @param {string} name — Test name
+ * @param {Function} fn — Test function (assertion error = failure)
  */
 function test(name, fn) {
   stats.total++;
@@ -48,7 +48,7 @@ function test(name, fn) {
 }
 
 /**
- * テスト結果を集計して終了コードを返す
+ * Aggregates test results and returns exit code
  */
 function report() {
   const ok = stats.failed === 0;
@@ -57,221 +57,221 @@ function report() {
 }
 
 // ============================================================
-// テスト: checkSlugFormat
+// Tests: checkSlugFormat
 // ============================================================
 
 console.log('\n--- checkSlugFormat ---');
 
-test('有効な lower_snake_case slug が valid を返す', () => {
+test('valid lower_snake_case slug returns valid', () => {
   const r = checkSlugFormat('config');
   assert.strictEqual(r.valid, true);
   assert.strictEqual(r.reason, null);
 });
 
-test('有効な複数単語 slug が valid を返す', () => {
+test('valid multi-word slug returns valid', () => {
   const r = checkSlugFormat('db_settings');
   assert.strictEqual(r.valid, true);
 });
 
-test('数字を含む slug が valid を返す', () => {
+test('slug with digits returns valid', () => {
   const r = checkSlugFormat('tls_config_2');
   assert.strictEqual(r.valid, true);
 });
 
-test('CamelCase slug が大文字違反を検出する', () => {
+test('CamelCase slug detects uppercase violation', () => {
   const r = checkSlugFormat('CamelCaseName');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('大文字'));
+  assert.ok(r.reason.includes('uppercase'));
 });
 
-test('スペースを含む slug を検出する', () => {
+test('detects slug with spaces', () => {
   const r = checkSlugFormat('has space');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('スペース') || r.reason.includes('ハイフン'));
+  assert.ok(r.reason.includes('space') || r.reason.includes('hyphen'));
 });
 
-test('UPPER_CASE slug を検出する', () => {
+test('detects UPPER_CASE slug', () => {
   const r = checkSlugFormat('UPPER_CASE');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('大文字'));
+  assert.ok(r.reason.includes('uppercase'));
 });
 
-test('先頭アンダースコア slug を検出する', () => {
+test('detects leading underscore slug', () => {
   const r = checkSlugFormat('_leading_underscore');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('先頭'));
+  assert.ok(r.reason.includes('start'));
 });
 
-test('ハイフンを含む slug を検出する', () => {
+test('detects slug with hyphens', () => {
   const r = checkSlugFormat('has-hyphens');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('ハイフン') || r.reason.includes('スペース'));
+  assert.ok(r.reason.includes('hyphen') || r.reason.includes('space'));
 });
 
-test('先頭数字 slug を検出する', () => {
+test('detects leading digit slug', () => {
   const r = checkSlugFormat('123abc');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('先頭'));
+  assert.ok(r.reason.includes('start'));
 });
 
-test('アンダースコアのみ slug を検出する', () => {
+test('detects underscore-only slug', () => {
   const r = checkSlugFormat('_');
   assert.strictEqual(r.valid, false);
 });
 
-test('数字のみ slug を検出する', () => {
+test('detects digit-only slug', () => {
   const r = checkSlugFormat('123');
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('先頭'));
+  assert.ok(r.reason.includes('start'));
 });
 
 // ============================================================
-// テスト: checkSlugLength
+// Tests: checkSlugLength
 // ============================================================
 
 console.log('\n--- checkSlugLength ---');
 
-test('25文字ちょうどの slug が通過する', () => {
-  const slug = 'a234567890123456789012345'; // 25文字
+test('25-char slug passes', () => {
+  const slug = 'a234567890123456789012345'; // 25 chars
   assert.strictEqual(slug.length, MAX_SLUG_LENGTH);
   const r = checkSlugLength(slug);
   assert.strictEqual(r.valid, true);
 });
 
-test('26文字（上限+1）の slug が違反になる', () => {
-  const slug = 'a2345678901234567890123456'; // 26文字
+test('26-char slug (max+1) triggers violation', () => {
+  const slug = 'a2345678901234567890123456'; // 26 chars
   assert.strictEqual(slug.length, MAX_SLUG_LENGTH + 1);
   const r = checkSlugLength(slug);
   assert.strictEqual(r.valid, false);
-  assert.ok(r.reason.includes('超えています'));
+  assert.ok(r.reason.includes('exceeds'));
 });
 
-test('1文字 slug が通過する', () => {
+test('1-char slug passes', () => {
   const r = checkSlugLength('a');
   assert.strictEqual(r.valid, true);
 });
 
-test('50文字の長大 slug が違反になる', () => {
+test('50-char long slug triggers violation', () => {
   const r = checkSlugLength('a_very_long_slug_over_twentyfive_chars');
   assert.strictEqual(r.valid, false);
 });
 
 // ============================================================
-// テスト: checkWordCount
+// Tests: checkWordCount
 // ============================================================
 
 console.log('\n--- checkWordCount ---');
 
-test('1単語 slug は警告なし', () => {
+test('1-word slug has no warning', () => {
   const r = checkWordCount('config');
   assert.strictEqual(r.isWarning, false);
   assert.strictEqual(r.wordCount, 1);
 });
 
-test('2単語 slug は警告なし', () => {
+test('2-word slug has no warning', () => {
   const r = checkWordCount('db_settings');
   assert.strictEqual(r.isWarning, false);
   assert.strictEqual(r.wordCount, 2);
 });
 
-test('3単語 slug は警告なし', () => {
+test('3-word slug has no warning', () => {
   const r = checkWordCount('tls_config_prod');
   assert.strictEqual(r.isWarning, false);
   assert.strictEqual(r.wordCount, 3);
 });
 
-test('4単語 slug は警告あり', () => {
+test('4-word slug has warning', () => {
   const r = checkWordCount('word1_word2_word3_word4');
   assert.strictEqual(r.isWarning, true);
   assert.strictEqual(r.wordCount, 4);
 });
 
-test('5単語 slug は警告あり', () => {
+test('5-word slug has warning', () => {
   const r = checkWordCount('a_b_c_d_e');
   assert.strictEqual(r.isWarning, true);
   assert.strictEqual(r.wordCount, 5);
 });
 
-test('空文字 slug は警告なし（カウント0）', () => {
+test('empty slug has no warning (count 0)', () => {
   const r = checkWordCount('');
   assert.strictEqual(r.isWarning, false);
   assert.strictEqual(r.wordCount, 0);
 });
 
 // ============================================================
-// テスト: buildSlugError
+// Tests: buildSlugError
 // ============================================================
 
 console.log('\n--- buildSlugError ---');
 
-test('エラーオブジェクトに nodeId が含まれる', () => {
-  const e = buildSlugError('N0001', 'BadSlug', '大文字違反');
+test('error object contains nodeId', () => {
+  const e = buildSlugError('N0001', 'BadSlug', 'uppercase violation');
   assert.strictEqual(e.nodeId, 'N0001');
 });
 
-test('エラーオブジェクトに元の slug が含まれる', () => {
-  const e = buildSlugError('N0001', 'BadSlug', '大文字違反');
+test('error object contains original slug', () => {
+  const e = buildSlugError('N0001', 'BadSlug', 'uppercase violation');
   assert.strictEqual(e.slug, 'BadSlug');
 });
 
-test('エラーオブジェクトに reason が含まれる', () => {
-  const e = buildSlugError('N0001', 'BadSlug', '大文字違反');
-  assert.strictEqual(e.reason, '大文字違反');
+test('error object contains reason', () => {
+  const e = buildSlugError('N0001', 'BadSlug', 'uppercase violation');
+  assert.strictEqual(e.reason, 'uppercase violation');
 });
 
-test('エラーオブジェクトに crud.js 形式の remedy が含まれる', () => {
-  const e = buildSlugError('N0001', 'BadSlug', '大文字違反');
+test('error object contains crud.js-style remedy', () => {
+  const e = buildSlugError('N0001', 'BadSlug', 'uppercase violation');
   assert.ok(e.remedy.includes('crud.js'));
   assert.ok(e.remedy.includes('update-node'));
   assert.ok(e.remedy.includes('--id=N0001'));
   assert.ok(e.remedy.includes('--field=slug'));
 });
 
-test('remedy の slug 値が提案修正値である', () => {
-  const e = buildSlugError('N0001', 'CamelCaseName', '大文字違反');
+test('remedy slug value is the suggested fix', () => {
+  const e = buildSlugError('N0001', 'CamelCaseName', 'uppercase violation');
   assert.ok(e.remedy.includes('--value="camelcasename"'));
 });
 
 // ============================================================
-// テスト: suggestFixedSlug
+// Tests: suggestFixedSlug
 // ============================================================
 
 console.log('\n--- suggestFixedSlug ---');
 
-test('大文字 slug が小文字化される', () => {
+test('uppercase slug is lowercased', () => {
   assert.strictEqual(suggestFixedSlug('CamelCaseName'), 'camelcasename');
 });
 
-test('ハイフン slug がアンダースコア化される', () => {
+test('hyphen slug is converted to underscore', () => {
   assert.strictEqual(suggestFixedSlug('has-hyphens'), 'has_hyphens');
 });
 
-test('先頭数字に s が前置される', () => {
+test('leading digit gets s prefix', () => {
   assert.strictEqual(suggestFixedSlug('123abc'), 's123abc');
 });
 
-test('先頭アンダースコアが除去される', () => {
+test('leading underscore is removed', () => {
   assert.strictEqual(suggestFixedSlug('_leading'), 'leading');
 });
 
-test('アンダースコアのみが unnamed になる', () => {
+test('underscore-only becomes unnamed', () => {
   assert.strictEqual(suggestFixedSlug('_'), 'unnamed');
 });
 
-test('30文字 slug が25文字に切り詰められる', () => {
+test('30-char slug is truncated to 25', () => {
   const long = 'config_manager_for_database_connect';
   assert.ok(long.length > MAX_SLUG_LENGTH);
   const fixed = suggestFixedSlug(long);
-  assert.ok(fixed.length <= MAX_SLUG_LENGTH, `${fixed} は ${MAX_SLUG_LENGTH} 文字を超えています`);
+  assert.ok(fixed.length <= MAX_SLUG_LENGTH, `${fixed} exceeds ${MAX_SLUG_LENGTH} chars`);
 });
 
 // ============================================================
-// テスト: validateSlugs（統合）
+// Tests: validateSlugs (integration)
 // ============================================================
 
 console.log('\n--- validateSlugs ---');
 
-test('有効な slug のみのグラフが ok:true を返す', () => {
+test('graph with only valid slugs returns ok:true', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'config' },
@@ -285,7 +285,7 @@ test('有効な slug のみのグラフが ok:true を返す', () => {
   assert.strictEqual(r.warnings.length, 0);
 });
 
-test('slug 未設定ノードがスキップされる', () => {
+test('nodes with unset slug are skipped', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: undefined },
@@ -298,7 +298,7 @@ test('slug 未設定ノードがスキップされる', () => {
   assert.strictEqual(r.errors.length, 0);
 });
 
-test('空文字 slug ノードがスキップされる', () => {
+test('nodes with empty slug are skipped', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: '' },
@@ -310,7 +310,7 @@ test('空文字 slug ノードがスキップされる', () => {
   assert.strictEqual(r.errors.length, 0);
 });
 
-test('CamelCase slug が検出される', () => {
+test('CamelCase slug is detected', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'CamelCaseName' }
@@ -322,7 +322,7 @@ test('CamelCase slug が検出される', () => {
   assert.strictEqual(r.errors[0].nodeId, 'N0001');
 });
 
-test('スペース slug が検出される', () => {
+test('space-containing slug is detected', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'has space' }
@@ -333,7 +333,7 @@ test('スペース slug が検出される', () => {
   assert.strictEqual(r.errors.length, 1);
 });
 
-test('UPPER_CASE slug が検出される', () => {
+test('UPPER_CASE slug is detected', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'UPPER_CASE' }
@@ -344,7 +344,7 @@ test('UPPER_CASE slug が検出される', () => {
   assert.strictEqual(r.errors.length, 1);
 });
 
-test('26文字超過 slug が検出される', () => {
+test('slug exceeding 26 chars is detected', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'a_very_long_slug_over_twentyfive_chars' }
@@ -353,10 +353,10 @@ test('26文字超過 slug が検出される', () => {
   const r = validateSlugs(graph);
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.errors.length, 1);
-  assert.ok(r.errors[0].reason.includes('超えています'));
+  assert.ok(r.errors[0].reason.includes('exceeds'));
 });
 
-test('ハイフン slug が検出される', () => {
+test('hyphen slug is detected', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'has-hyphens' }
@@ -367,7 +367,7 @@ test('ハイフン slug が検出される', () => {
   assert.strictEqual(r.errors.length, 1);
 });
 
-test('複数ノードに違反がある場合、全件が errors に列挙される', () => {
+test('multiple violation nodes are all listed in errors', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'CamelCase' },
@@ -380,7 +380,7 @@ test('複数ノードに違反がある場合、全件が errors に列挙され
   assert.strictEqual(r.errors.length, 2);
 });
 
-test('4単語 slug が warning に報告される（errors なし）', () => {
+test('4-word slug is reported as warning (no errors)', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'word1_word2_word3_word4' }
@@ -393,7 +393,7 @@ test('4単語 slug が warning に報告される（errors なし）', () => {
   assert.strictEqual(r.warnings[0].nodeId, 'N0001');
 });
 
-test('5単語 slug が warning に報告される', () => {
+test('5-word slug is reported as warning', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'a_b_c_d_e' }
@@ -405,7 +405,7 @@ test('5単語 slug が warning に報告される', () => {
   assert.strictEqual(r.warnings.length, 1);
 });
 
-test('違反のみで警告なしの場合、warnings が空配列である', () => {
+test('violations without warnings have empty warnings array', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'CamelCase' }
@@ -416,7 +416,7 @@ test('違反のみで警告なしの場合、warnings が空配列である', ()
   assert.strictEqual(r.warnings.length, 0);
 });
 
-test('25文字ちょうどの slug が通過する（統合）', () => {
+test('25-char slug passes (integration)', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'a234567890123456789012345' }
@@ -427,7 +427,7 @@ test('25文字ちょうどの slug が通過する（統合）', () => {
   assert.strictEqual(r.errors.length, 0);
 });
 
-test('1文字 slug "a" が通過する', () => {
+test('1-char slug "a" passes', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'a' }
@@ -437,7 +437,7 @@ test('1文字 slug "a" が通過する', () => {
   assert.strictEqual(r.ok, true);
 });
 
-test('数字のみ slug "123" が errors に報告される', () => {
+test('digit-only slug "123" is reported in errors', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: '123' }
@@ -448,7 +448,7 @@ test('数字のみ slug "123" が errors に報告される', () => {
   assert.strictEqual(r.errors.length, 1);
 });
 
-test('アンダースコアのみ "_" が errors に報告される', () => {
+test('underscore-only "_" is reported in errors', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: '_' }
@@ -459,7 +459,7 @@ test('アンダースコアのみ "_" が errors に報告される', () => {
   assert.strictEqual(r.errors.length, 1);
 });
 
-test('エラー0件の場合 {ok:true, errors:[], warnings:[]} が返る', () => {
+test('zero errors returns {ok:true, errors:[], warnings:[]}', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'config' }
@@ -469,7 +469,7 @@ test('エラー0件の場合 {ok:true, errors:[], warnings:[]} が返る', () =>
   assert.deepStrictEqual(r, { ok: true, errors: [], warnings: [] });
 });
 
-test('全エラーに remedy（crud.js コマンド）が含まれる', () => {
+test('all errors include remedy (crud.js command)', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 'BadSlug' },
@@ -479,26 +479,26 @@ test('全エラーに remedy（crud.js コマンド）が含まれる', () => {
   const r = validateSlugs(graph);
   assert.ok(r.errors.length > 0);
   for (const err of r.errors) {
-    assert.ok(err.remedy, `nodeId=${err.nodeId} に remedy がありません`);
-    assert.ok(err.remedy.includes('crud.js'), `nodeId=${err.nodeId} の remedy に crud.js が含まれていません`);
-    assert.ok(err.remedy.includes('update-node'), `nodeId=${err.nodeId} の remedy に update-node が含まれていません`);
+    assert.ok(err.remedy, `nodeId=${err.nodeId} missing remedy`);
+    assert.ok(err.remedy.includes('crud.js'), `nodeId=${err.nodeId} remedy missing crud.js`);
+    assert.ok(err.remedy.includes('update-node'), `nodeId=${err.nodeId} remedy missing update-node`);
   }
 });
 
-test('nodes が存在しないグラフが ok:true を返す', () => {
+test('graph without nodes returns ok:true', () => {
   const r = validateSlugs({ edges: [] });
   assert.strictEqual(r.ok, true);
   assert.strictEqual(r.errors.length, 0);
   assert.strictEqual(r.warnings.length, 0);
 });
 
-test('null グラフが ok:true を返す', () => {
+test('null graph returns ok:true', () => {
   const r = validateSlugs(null);
   assert.strictEqual(r.ok, true);
   assert.strictEqual(r.errors.length, 0);
 });
 
-test('slug が文字列でない場合、errors に報告される', () => {
+test('non-string slug is reported in errors', () => {
   const graph = {
     nodes: [
       { id: 'N0001', slug: 12345 }
@@ -507,14 +507,14 @@ test('slug が文字列でない場合、errors に報告される', () => {
   const r = validateSlugs(graph);
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.errors.length, 1);
-  assert.ok(r.errors[0].reason.includes('文字列ではありません'));
+  assert.ok(r.errors[0].reason.includes('not a string'));
 });
 
 // ============================================================
-// 定数定義の確認
+// Constants verification
 // ============================================================
 
-console.log('\n--- 定数定義 ---');
+console.log('\n--- Constants ---');
 
 test('MAX_SLUG_LENGTH が 25 である', () => {
   assert.strictEqual(MAX_SLUG_LENGTH, 25);
@@ -533,7 +533,7 @@ test('SLUG_FORMAT_PATTERN が lower_snake_case に一致する', () => {
 });
 
 // ============================================================
-// 結果報告
+// Results
 // ============================================================
 
 report();

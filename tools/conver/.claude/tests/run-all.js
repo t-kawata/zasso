@@ -10,16 +10,18 @@ const path = require('path');
 const fs = require('fs');
 
 const testsDir = __dirname;
-const repoRoot = path.resolve(testsDir, '..');
-const TEST_GLOB = 'tests/**/*.test.js';
+const conftestDir = path.resolve(testsDir, '..');
+const repoRoot = path.resolve(testsDir, '../..');
+const TEST_GLOB = 'tests/**/*.test.{js,cjs}';
 
+/** Matches paths like tests/foo.test.js, tests/foo/bar.test.cjs */
 function matchesTestGlob(relativePath) {
   const normalized = relativePath.split(path.sep).join('/');
   if (typeof path.matchesGlob === 'function') {
     return path.matchesGlob(normalized, TEST_GLOB);
   }
 
-  return /^tests\/(?:.+\/)?[^/]+\.test\.js$/.test(normalized);
+  return /^tests\/(?:.+\/)?[^/]+\.test\.(?:js|cjs)$/.test(normalized);
 }
 
 function walkFiles(dir, acc = []) {
@@ -36,11 +38,22 @@ function walkFiles(dir, acc = []) {
 }
 
 function discoverTestFiles() {
-  return walkFiles(testsDir)
-    .map(fullPath => path.relative(repoRoot, fullPath))
+  // Discover tests from .claude/tests/ (legacy location)
+  const legacyFiles = walkFiles(testsDir)
+    .map(fullPath => path.relative(conftestDir, fullPath))
     .filter(matchesTestGlob)
-    .map(repoRelativePath => path.relative(testsDir, path.join(repoRoot, repoRelativePath)))
-    .sort();
+    .map(relPath => path.relative(testsDir, path.join(conftestDir, relPath)));
+
+  // Discover tests from project-level tests/ (rfc-graph tests, etc.)
+  const projectTestsDir = path.join(repoRoot, 'tests');
+  const projectFiles = fs.existsSync(projectTestsDir)
+    ? walkFiles(projectTestsDir)
+        .map(fullPath => path.relative(repoRoot, fullPath))
+        .filter(matchesTestGlob)
+        .map(repoRelPath => path.resolve(repoRoot, repoRelPath))
+    : [];
+
+  return [...legacyFiles, ...projectFiles].sort();
 }
 
 const testFiles = discoverTestFiles();
@@ -63,7 +76,8 @@ let totalFailed = 0;
 let totalTests = 0;
 
 for (const testFile of testFiles) {
-  const testPath = path.join(testsDir, testFile);
+  // testFile may be relative (legacy) or absolute (project-level)
+  const testPath = path.isAbsolute(testFile) ? testFile : path.join(testsDir, testFile);
   const displayPath = testFile.split(path.sep).join('/');
 
   if (!fs.existsSync(testPath)) {

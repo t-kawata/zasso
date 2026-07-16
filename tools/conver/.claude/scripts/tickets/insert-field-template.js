@@ -2,23 +2,23 @@
 /**
  * insert-field-template.js <Tickets.json path> <ticket-key>
  *
- * /make-ticket Step 3 開始時に AI が実行する。対象チケットの 11 フィールド
- * （invariants, background, scope, testUnit, testIntegration,
- *  testExceptions, instrumentation, notes, acceptanceCriteria,
- *  investigation, boyScoutPlan）にテンプレートをマージ挿入する。
+ * Executed by AI at the start of /make-ticket Step 3. Merges templates into the
+ * target ticket's 11 fields (invariants, background, scope, testUnit, testIntegration,
+ * testExceptions, instrumentation, notes, acceptanceCriteria,
+ * investigation, boyScoutPlan).
  *
- * 全 [::TEMPLATE-STUB::] マーカーが既に揃っているフィールドのみスキップ。
- * それ以外のフィールドは既存コンテンツを保持した上で不足マーカーを追記する。
+ * Skips only fields where all [::TEMPLATE-STUB::] markers are already present.
+ * For other fields, preserves existing content and appends only missing markers.
  *
- * マージ動作:
- *   - 空/未設定 → テンプレート全体を新規挿入
- *   - 実コンテンツあり（スタブなし）→ 既存コンテンツ + 空行 + 全テンプレート
- *   - 一部スタブあり → 既存コンテンツ + 不足スタブ行のみ追記
- *   - 全スタブ揃い → スキップ（真の二重挿入防止）
+ * Merge behavior:
+ *   - Empty/unset → Insert full template
+ *   - Real content present (no stubs) → Existing content + blank line + full template
+ *   - Partial stubs present → Existing content + only missing stub lines
+ *   - All stubs present → Skip (true deduplication prevention)
  *
- * 動作仕様:
- *   - exit 0: 正常終了（1つ以上のフィールドを更新 or 全フィールドスキップ）
- *   - exit 1: エラー
+ * Behavior specification:
+ *   - exit 0: Success (updated 1+ fields or all fields skipped)
+ *   - exit 1: Error
  *   - stdout: JSON { ok: true/false, ticketKey, updated: [field names] }
  */
 
@@ -29,7 +29,7 @@ const { execFileSync } = require("child_process");
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-// ---- 11フィールドのテンプレート定義 ----
+// ---- 11-field template definitions ----
 
 const TEMPLATES = {
   invariants:
@@ -82,10 +82,10 @@ const TEMPLATES = {
 };
 
 /**
- * 文字列から [::TEMPLATE-STUB::XXX::] マーカー名を全て抽出する
+ * Extract all [::TEMPLATE-STUB::XXX::] marker names from a string
  *
- * @param {string} str - 検索対象の文字列
- * @returns {string[]} マーカー名の配列
+ * @param {string} str - The string to search
+ * @returns {string[]} Array of marker names
  */
 function extractStubNames(str) {
   const regex = /\[::TEMPLATE-STUB::([^:]+)::\]/g;
@@ -98,11 +98,11 @@ function extractStubNames(str) {
 }
 
 /**
- * テンプレートに定義された全スタブマーカーがフィールド値に含まれているかを判定
- * （真の二重挿入防止）
+ * Check whether all template stub markers are present in the field value
+ * (true deduplication prevention)
  *
- * @param {*} fieldValue - チケットフィールドの現在値
- * @param {string|string[]} templateDef - テンプレート定義
+ * @param {*} fieldValue - Current value of the ticket field
+ * @param {string|string[]} templateDef - Template definition
  * @returns {boolean}
  */
 function hasAllTemplateStubs(fieldValue, templateDef) {
@@ -127,44 +127,44 @@ function hasAllTemplateStubs(fieldValue, templateDef) {
 }
 
 /**
- * フィールドがテンプレート挿入/マージ対象かを判定
- * （true=スキップ, false=挿入/マージ）
+ * Check whether a field is eligible for template insert/merge
+ * (true=skip, false=insert/merge)
  *
- * 空/未設定 → テンプレート全体を新規挿入（false）
- * 全スタブマーカー済み → スキップ（true、真の二重挿入防止）
- * 不足スタブあり → マージ対象（false）
+ * Empty/unset → Insert full template (false)
+ * All stub markers present → Skip (true, deduplication prevention)
+ * Missing stubs exist → Merge target (false)
  */
 function shouldSkipField(value, templateDef) {
-  // フィールドが存在しない → 挿入対象
+  // Field does not exist → insert target
   if (value === undefined || value === null) return false;
-  // 空文字列 → 挿入対象
+  // Empty string → insert target
   if (typeof value === "string" && value.trim() === "") return false;
-  // 空配列 → 挿入対象
+  // Empty array → insert target
   if (Array.isArray(value) && value.length === 0) return false;
-  // 全スタブマーカーが揃っている → スキップ（真の二重挿入防止）
+  // All stub markers present → skip (true deduplication prevention)
   if (hasAllTemplateStubs(value, templateDef)) return true;
-  // マージ結果が既存と同一（マルチスタブ要素内で不足があっても
-  // マージ不能な場合）→ スキップ
+  // Merge result identical to existing (missing stubs within multi-stub
+  // elements but merge not possible) → skip
   const merged = mergeTemplate(value, templateDef);
   if (merged === value) return true;
-  // 実コンテンツはあるが不足スタブあり、且つマージ可能 → 挿入対象
+  // Real content exists but stubs missing, and merge is possible → insert target
   return false;
 }
 
 /**
- * 既存コンテンツに不足テンプレートをマージする
+ * Merge missing template content into existing content
  *
- * - 空/未設定 → テンプレート全体を返す
- * - 既存にスタブなし → 既存コンテンツ + 空行 + 全テンプレート
- * - 一部スタブあり → 既存コンテンツ + 不足スタブ行のみ追記
- * - 全スタブあり（呼び出し元でフィルタ済みのため通常ここには来ない）
+ * - Empty/unset → Return full template
+ * - No stubs in existing → Existing content + blank line + full template
+ * - Partial stubs present → Existing content + only missing stub lines
+ * - All stubs present (filtered by caller, so normally not reached)
  *
- * @param {*} existing - チケットフィールドの現在値
- * @param {string|string[]} template - テンプレート定義
- * @returns {string|string[]} マージ後の値
+ * @param {*} existing - Current value of the ticket field
+ * @param {string|string[]} template - Template definition
+ * @returns {string|string[]} Merged value
  */
 function mergeTemplate(existing, template) {
-  // 空/未設定 → テンプレート全体
+  // Empty/unset → Return full template
   if (existing === undefined || existing === null) return template;
 
   if (typeof template === "string") {
@@ -172,10 +172,10 @@ function mergeTemplate(existing, template) {
 
     const existingStubs = extractStubNames(existing);
     if (existingStubs.length === 0) {
-      // スタブが1つもない → 既存コンテンツ + 空行 + 全テンプレート
+      // No stubs in existing → existing content + blank line + full template
       return existing.trimEnd() + "\n\n" + template;
     }
-    // 一部マーカーのみ存在 → 不足行のみ追記
+    // Only partial markers exist → append only missing lines
     const templateLines = template.split("\n");
     const missingLines = templateLines.filter(function (line) {
       const stubsInLine = extractStubNames(line);
@@ -190,7 +190,7 @@ function mergeTemplate(existing, template) {
   if (Array.isArray(template)) {
     if (!existing || (Array.isArray(existing) && existing.length === 0)) return template;
 
-    // 既存の全スタブを収集
+    // Collect all stubs from existing content
     var existingStubs = new Set();
     if (Array.isArray(existing)) {
       existing.forEach(function (item) {
@@ -217,7 +217,7 @@ function mergeTemplate(existing, template) {
   return template;
 }
 
-/** update-ticket.js 経由でフィールドを書き込む */
+/** Write fields via update-ticket.js */
 function writeFields(ticketsPath, ticketKey, updates) {
   const script = path.join(__dirname, "update-ticket.js");
   const input = JSON.stringify(updates);
@@ -250,7 +250,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // get-ticket.js で現在のチケット状態を取得
+  // Get current ticket state via get-ticket.js
   const getScript = path.join(__dirname, "get-ticket.js");
   let getResult;
   try {
@@ -282,7 +282,7 @@ function main() {
   const ticket = getResult.ticket;
   const updated = [];
 
-  // 各フィールドのテンプレートを準備（不足スタブをマージ）
+  // Prepare templates for each field (merge missing stubs)
   const updates = {};
   for (const [field, template] of Object.entries(TEMPLATES)) {
     if (!shouldSkipField(ticket[field], template)) {
@@ -291,8 +291,8 @@ function main() {
     }
   }
 
-  // created_at / updated_at を設定
-  // created_at は未設定の場合のみ、updated_at は常に現在日付
+  // Set created_at / updated_at
+  // created_at only if unset, updated_at always to today's date
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   if (!ticket.created_at) {
     updates.created_at = today;
@@ -315,7 +315,7 @@ function main() {
     process.exit(EXIT_SUCCESS);
   }
 
-  // update-ticket.js で一括書き込み
+  // Batch write via update-ticket.js
   try {
     writeFields(resolvedPath, ticketKey, updates);
   } catch (e) {

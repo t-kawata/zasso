@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * show-phase-nodes.js — フェーズ内ノード詳細のMarkdown出力
+ * show-phase-nodes.js — Markdown output of phase node details
  *
- * split-to-tickets パイプラインの Step 5-1 で使用する。
- * 指定フェーズに割り当てられた全ノードの詳細（ID・タイトル・種別・要約・実装先ファイルパス）を
- * query.js --dirs-tree を子プロセスで呼び出して取得し、読みやすい Markdown 形式で stdout に出力する。
- * 各ノードは graphify-rfc によって安全な I/O 境界として策定されていることを注釈として含む。
+ * Used in split-to-tickets pipeline Step 5-1.
+ * Retrieves details (ID, title, kind, summary, implementation file path) of all nodes
+ * assigned to the specified phase by calling query.js --dirs-tree as a subprocess,
+ * and outputs them in readable Markdown format to stdout.
+ * Includes annotation that each node is defined as a safe I/O boundary by graphify-rfc.
  *
- * 読み取り専用で副作用ゼロ。
+ * Read-only with zero side effects.
  *
  * Usage:
  *   node show-phase-nodes.js \
@@ -23,36 +24,36 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 // ============================================================
-// 定数定義
+// Constant definitions
 // ============================================================
 
-/** Tickets.json のパスを指定するCLI引数 */
+/** CLI argument specifying the Tickets.json path */
 const TICKETS_PATH_ARG_PREFIX = "--tickets=";
 
-/** GRAPH.json のパスを指定するCLI引数 */
+/** CLI argument specifying the GRAPH.json path */
 const GRAPH_PATH_ARG_PREFIX = "--graph=";
 
-/** Dirs-Tree.json のパスを指定するCLI引数 */
+/** CLI argument specifying the Dirs-Tree.json path */
 const DIRS_TREE_ARG_PREFIX = "--dirs-tree=";
 
-/** 処理対象フェーズを指定するCLI引数 */
+/** CLI argument specifying the target phase */
 const PHASE_ARG_PREFIX = "--phase=";
 
-/** query.js のパス（同ディレクトリ内） */
+/** Path to query.js (within same directory) */
 const QUERY_JS_RELATIVE_PATH = "./query.js";
 
-/** 正常終了コード */
+/** Success exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Failure exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// コマンドライン引数パース
+// CLI argument parsing
 // ============================================================
 
 /**
- * CLI引数をパースして各パスを取得する。
+ * Parses CLI arguments and retrieves each path.
  *
  * @param {string[]} args — process.argv.slice(2)
  * @returns {{ ticketsPath: string, graphPath: string, dirsTreePath: string, phaseArg: string }}
@@ -79,14 +80,14 @@ function parseCliArguments(args) {
 }
 
 // ============================================================
-// フェーズ解決
+// Phase resolution
 // ============================================================
 
 /**
- * フェーズ指定子（"PX", "P{n}"）からフェーズオブジェクトを解決する。
+ * Resolves a phase object from a phase specifier ("PX", "P{n}").
  *
- * @param {Object[]} phases — Tickets.json の phases 配列
- * @param {string} phaseArg — フェーズ指定子
+ * @param {Object[]} phases — Phases array from Tickets.json
+ * @param {string} phaseArg — Phase specifier
  * @returns {{ phase: Object|null, error: string|null }}
  */
 function resolvePhase(phases, phaseArg) {
@@ -104,17 +105,17 @@ function resolvePhase(phases, phaseArg) {
 }
 
 // ============================================================
-// query.js 子プロセス実行
+// query.js subprocess execution
 // ============================================================
 
 /**
- * query.js を子プロセスで実行し、ノード詳細のMarkdownを取得する。
+ * Executes query.js as a subprocess and retrieves node detail Markdown.
  *
- * @param {string} queryJsDir — query.js が存在するディレクトリ
- * @param {string} graphPath — GRAPH.json のパス
- * @param {string} sourcePath — ソースファイルのパス
- * @param {string} dirsTreePath — Dirs-Tree.json のパス
- * @param {string} nodeId — ノードID（例: "N0001"）
+ * @param {string} queryJsDir — Directory containing query.js
+ * @param {string} graphPath — Path to GRAPH.json
+ * @param {string} sourcePath — Path to source file
+ * @param {string} dirsTreePath — Path to Dirs-Tree.json
+ * @param {string} nodeId — Node ID (e.g. "N0001")
  * @returns {{ markdown: string, error: string|null }}
  */
 function runQueryJs(queryJsDir, graphPath, sourcePath, dirsTreePath, nodeId) {
@@ -145,22 +146,22 @@ function runQueryJs(queryJsDir, graphPath, sourcePath, dirsTreePath, nodeId) {
 }
 
 // ============================================================
-// Markdown出力生成
+// Markdown output generation
 // ============================================================
 
 /**
- * フェーズ情報と全ノード詳細を連結したMarkdownを生成する。
+ * Generates Markdown combining phase info and all node details.
  *
- * @param {Object} phase — フェーズオブジェクト
- * @param {string[]} nodeIds — ノードID配列
- * @param {Array} nodeMarkdowns — 各ノードのMarkdown文字列配列（成功ノードのみ）
- * @param {string[]} nodeErrors — エラーが発生したノードの説明配列
- * @returns {string} 完全なMarkdown
+ * @param {Object} phase — Phase object
+ * @param {string[]} nodeIds — Array of node IDs
+ * @param {Array} nodeMarkdowns — Array of Markdown strings per node (successful nodes only)
+ * @param {string[]} nodeErrors — Array of descriptions for nodes with errors
+ * @returns {string} Complete Markdown
  */
 function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
   const lines = [];
 
-  // フェーズヘッダー
+  // Phase header
   const phaseLabel = phase.id === -1 ? "PX" : "P" + phase.id;
   lines.push("# Phase " + phaseLabel + ": " + phase.name);
   lines.push("");
@@ -169,7 +170,7 @@ function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
     lines.push("");
   }
 
-  // ノード一覧セクション
+  // Node list section
   lines.push("---\n");
   lines.push("# ノード一覧");
   lines.push("");
@@ -182,7 +183,7 @@ function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
   lines.push("全ノードを重複なく、過不足なくチケット化しなければなりません。");
   lines.push("");
 
-  // 各ノードの詳細を出力
+  // Output details for each node
   for (let i = 0; i < nodeIds.length; i++) {
     lines.push("---\n");
     const nodeId = nodeIds[i];
@@ -206,15 +207,15 @@ function formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors) {
 }
 
 // ============================================================
-// メイン処理
+// Main processing
 // ============================================================
 
 function main() {
-  // 1. CLI引数をパース
+  // 1. Parse CLI arguments
   const args = process.argv.slice(2);
   const parsed = parseCliArguments(args);
 
-  // 引数不足チェック
+  // Check for missing arguments
   const missingArgs = [];
   if (!parsed.ticketsPath) missingArgs.push("--tickets");
   if (!parsed.graphPath) missingArgs.push("--graph");
@@ -231,7 +232,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 2. Tickets.json を読み込みフェーズを解決
+  // 2. Load Tickets.json and resolve phase
   let ticketsData;
   try {
     ticketsData = JSON.parse(
@@ -251,7 +252,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 3. フェーズの nodeIds を取得
+  // 3. Get phase nodeIds
   const nodeIds = phase.nodeIds;
   if (!nodeIds || !Array.isArray(nodeIds) || nodeIds.length === 0) {
     console.error(
@@ -260,11 +261,11 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 4. 各ノードに対して query.js を実行
-  // query.js と同じディレクトリを基準に相対パス解決
+  // 4. Execute query.js for each node
+  // Resolve relative paths based on directory containing query.js
   const queryJsDir = path.resolve(__dirname, "../rfc-graph");
-  // ソースファイルは GRAPH.json から推測（source フィールドがあれば使用、なければ graph と同じディレクトリに拡張子.md）
-  // 実際には GRAPH.json の sourceFile フィールドを参照する
+  // Source file is inferred from GRAPH.json (use source field if present, otherwise same dir with .md extension)
+  // Actually references the sourceFile field from GRAPH.json
   let sourcePath = parsed.graphPath.replace(/\.json$/i, ".md");
   try {
     const graphData = JSON.parse(fs.readFileSync(path.resolve(parsed.graphPath), "utf8"));
@@ -272,7 +273,7 @@ function main() {
       sourcePath = graphData.sourceFile;
     }
   } catch (err) {
-    // GRAPH.json から sourceFile が読めない場合、拡張子置換をデフォルトとして使用
+    // If sourceFile cannot be read from GRAPH.json, use extension substitution as default
   }
 
   const nodeMarkdowns = [];
@@ -296,10 +297,10 @@ function main() {
     }
   }
 
-  // エラーがある場合は全体を失敗とする
+  // If any errors exist, treat the whole run as failure
   const hasErrors = nodeErrors.some(function (err) { return err !== null; });
 
-  // 5. Markdown を生成して stdout に出力
+  // 5. Generate Markdown and output to stdout
   const output = formatOutput(phase, nodeIds, nodeMarkdowns, nodeErrors);
   process.stdout.write(output + "\n");
 

@@ -2,9 +2,9 @@
 /**
  * init-for-drill-rfc-down.js <target-rfc-path>
  *
- * /drill-rfc-down 専用の初期化ラッパー。
- * 既存 DesignTree/Status/CheckList を確認し、あれば再利用、なければ init.js で生成。
- * research-path = target-rfc-path（自身に追記するため）。
+ * Dedicated initialization wrapper for /drill-rfc-down.
+ * Checks existing DesignTree/Status/CheckList; reuses if present, generates via init.js if not.
+ * research-path = target-rfc-path (to append to itself).
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";

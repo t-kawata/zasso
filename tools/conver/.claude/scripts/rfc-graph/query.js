@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * query.js — マルチホップグラフ探索
+ * query.js — Multi-hop graph exploration
  *
- * graphify-rfc パイプラインの Layer 2（グラフ探索機構）の中核。
- * ノードID起点の BFS（幅優先探索）で最大Nホップ先までグラフを探索し、
- * 実行時に行位置を headingRefs 経由で動的に解決し（マーカー不要）、
- * 結果を Markdown 形式で整形出力する。
+ * Core of Layer 2 (graph exploration mechanism) in the graphify-rfc pipeline.
+ * Performs BFS from a starting node ID up to N hops through the graph,
+ * dynamically resolves line positions at runtime via headingRefs (no markers needed),
+ * and formats the result as Markdown.
  *
- * 読み取り専用で副作用ゼロ、headingRefs 欠損時は部分結果と stderr 通知を行う。
+ * Read-only, zero side effects. On missing headingRefs, outputs partial results and stderr notification.
  *
  * CLI: query.js --graph=<path> --source=<path> --id=<nodeId> --hops=<N>
  */
@@ -18,54 +18,54 @@ const path = require("path");
 const { resolveByHeading } = require("./resolve-by-heading.js");
 
 // ============================================================
-// 定数定義
+// Constant definitions
 // ============================================================
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for the graph file path */
 const GRAPH_PATH_ARG_PREFIX = "--graph=";
 
-/** ソースファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for the source file path */
 const SOURCE_PATH_ARG_PREFIX = "--source=";
 
-/** ノードIDを指定するCLI引数のプレフィックス */
+/** CLI argument prefix for the node ID */
 const NODE_ID_ARG_PREFIX = "--id=";
 
-/** ホップ数を指定するCLI引数のプレフィックス */
+/** CLI argument prefix for the hop count */
 const HOPS_ARG_PREFIX = "--hops=";
 
-/** Dirs-Tree.json のパスを指定するCLI引数のプレフィックス（省略可） */
+/** CLI argument prefix for the Dirs-Tree.json path (optional) */
 const DIRS_TREE_ARG_PREFIX = "--dirs-tree=";
 
-/** 探索が未指定時のデフォルトホップ数 */
+/** Default hop count when not specified */
 const DEFAULT_HOPS = 1;
 
-/** 正常終了コード */
+/** Success exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Failure exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// コマンドライン引数パース
+// Command line argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parse command line arguments
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv から取得）
+ * @param {string[]} [testArgs] — Test argument array (defaults to process.argv when omitted)
  * @returns {{ graphPath: string, sourcePath: string, nodeIds: string[], hops: number }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} When arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
 
-  // 全引数をフラグ名で検索（位置に依存しない）
+  // Search all arguments by flag name (position-independent)
   let graphPath = null, sourcePath = null, nodeIds = null;
   let hops = DEFAULT_HOPS;
   let dirsTreePath = null;
@@ -77,8 +77,8 @@ function parseArguments(testArgs) {
       sourcePath = arg.slice(SOURCE_PATH_ARG_PREFIX.length);
     } else if (arg.startsWith(NODE_ID_ARG_PREFIX)) {
       const rawIds = arg.slice(NODE_ID_ARG_PREFIX.length);
-      // 空 ID、および後続の -- フラグが連結した場合のゴミを除去
-      // 後続フラグ（全角スペース等で連結されたケース）を除去
+      // Remove empty IDs and trailing flags concatenated with debris
+      // Remove trailing flags (cases concatenated with full-width spaces etc.)
       const cleaned = rawIds.replace(/[\s　]+--.*$/, '');
       if (!cleaned) continue;
       nodeIds = cleaned.split(",").map((id) => id.trim()).filter((id) => id.length > 0);
@@ -89,7 +89,7 @@ function parseArguments(testArgs) {
     }
   }
 
-  // 必須フラグのバリデーション
+  // Required flag validation
   if (!graphPath) throw new Error("--graph=<path> は必須です。");
   if (!sourcePath) throw new Error("--source=<path> は必須です。");
   if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> は必須です。");
@@ -98,11 +98,11 @@ function parseArguments(testArgs) {
 }
 
 /**
- * --id=<nodeId> の値からノードID配列をパースする（カンマ区切り対応）
+ * Parse the node ID array from the --id=<nodeId> value (comma-separated)
  *
- * @param {string} idFlag — --id= を含む引数文字列
- * @returns {string[]} ノードID配列
- * @throws {Error} 引数が不正な場合
+ * @param {string} idFlag — Argument string including --id=
+ * @returns {string[]} Array of node IDs
+ * @throws {Error} When arguments are invalid
  */
 function parseNodeIds(idFlag) {
   if (!idFlag.startsWith(NODE_ID_ARG_PREFIX)) {
@@ -122,11 +122,11 @@ function parseNodeIds(idFlag) {
 }
 
 /**
- * --hops=<N> の値をパースする
+ * Parse the --hops=<N> value
  *
- * @param {string} hopsFlag — --hops= を含む引数文字列
- * @returns {number} ホップ数
- * @throws {Error} 引数が不正な場合
+ * @param {string} hopsFlag — Argument string including --hops=
+ * @returns {number} Hop count
+ * @throws {Error} When arguments are invalid
  */
 function parseHops(hopsFlag) {
   if (!hopsFlag.startsWith(HOPS_ARG_PREFIX)) {
@@ -150,15 +150,15 @@ function parseHops(hopsFlag) {
 }
 
 // ============================================================
-// ファイル読み込み
+// File loading
 // ============================================================
 
 /**
- * グラフJSONファイルを読み込み、パースする
+ * Load and parse a graph JSON file
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {Object} パースされたグラフオブジェクト
- * @throws {Error} 読み込みまたはパースに失敗した場合
+ * @param {string} graphPath — Path to the graph file
+ * @returns {Object} Parsed graph object
+ * @throws {Error} When reading or parsing fails
  */
 function loadGraph(graphPath) {
   const resolvedPath = path.resolve(graphPath);
@@ -174,11 +174,11 @@ function loadGraph(graphPath) {
 }
 
 /**
- * ソースファイルを読み込む
+ * Load the source file
  *
- * @param {string} sourcePath — ソースファイルのパス
- * @returns {string} ファイル内容
- * @throws {Error} 読み込みに失敗した場合
+ * @param {string} sourcePath — Path to the source file
+ * @returns {string} File contents
+ * @throws {Error} When reading fails
  */
 function loadSourceFile(sourcePath) {
   const resolvedPath = path.resolve(sourcePath);
@@ -186,34 +186,34 @@ function loadSourceFile(sourcePath) {
 }
 
 // ============================================================
-// ノード解決
+// Node resolution
 // ============================================================
 
 /**
- * ノードIDからグラフ内のノードを検索する
+ * Find a node in the graph by node ID
  *
- * @param {Object} graph — グラフオブジェクト
- * @param {string} nodeId — 検索するノードID
- * @returns {Object|null} 見つかったノード、存在しなければ null
+ * @param {Object} graph — Graph object
+ * @param {string} nodeId — Node ID to search for
+ * @returns {Object|null} Found node, or null if not found
  */
 function resolveNodeById(graph, nodeId) {
   return graph.nodes.find((n) => n.id === nodeId) || null;
 }
 
 // ============================================================
-// BFSマルチホップ探索
+// BFS multi-hop exploration
 // ============================================================
 
 /**
- * BFS（幅優先探索）でグラフを探索する
+ * Explore the graph using BFS (Breadth-First Search)
  *
- * 無向グラフとして扱い、edge.from / edge.to 両方向を探索する。
- * visited は Map<nodeId, depth> で管理し、循環参照を防止する。
- * 同一エッジが重複しないように、from:to:type の文字列キーで管理する。
+ * Treated as an undirected graph — explores both edge.from and edge.to directions.
+ * visited is managed as Map<nodeId, depth> to prevent circular references.
+ * Duplicate edges are prevented via a from:to:type composite key.
  *
- * @param {Object} graph — グラフオブジェクト
- * @param {string} startNodeId — 探索起点ノードID
- * @param {number} hops — 最大ホップ数（1以上）
+ * @param {Object} graph — Graph object
+ * @param {string} startNodeId — Starting node ID
+ * @param {number} hops — Maximum hops (1 or more)
  * @returns {{ nodeIds: string[], edges: Object[] }}
  */
 function multiHopBFS(graph, startNodeId, hops) {
@@ -236,8 +236,8 @@ function multiHopBFS(graph, startNodeId, hops) {
             : null;
       if (!neighbor) continue;
 
-      // エッジの重複を防止（from+to+type の複合キーで管理）
-      // from→to と to→from は方向が異なる別エッジとして扱う
+      // Prevent edge duplication via from+to+type composite key
+      // from→to and to→from are treated as distinct edges by different direction
       const key = edge.from + ':' + edge.to + ':' + edge.type;
       if (!edgeKeys.has(key)) {
         edgeKeys.add(key);
@@ -263,29 +263,29 @@ function multiHopBFS(graph, startNodeId, hops) {
 }
 
 // ============================================================
-// 行位置動的解決（headingRefs 方式）
+// Dynamic line resolution (headingRefs method)
 // ============================================================
 
 /**
- * headingRefs を元に resolveByHeading で行位置を動的に解決する
+ * Resolve line positions dynamically via resolveByHeading using headingRefs
  *
- * マーカー方式（旧）の後継。行番号を一切使わず、見出しレベル+トークン列から
- * ソースファイル内の該当行を特定する。
+ * Successor to the marker method (legacy). Identifies the relevant line in the source
+ * file using only heading level and token sequence, never line numbers.
  *
- * headingRefs 配列から該当 refId の heading と texts を取得し、
- * resolveByHeading に渡す。見つからない場合は undefined を返し、
- * 呼び出し元が欠損時の警告を行う。
+ * Retrieves the heading and texts for the matching refId from the headingRefs array,
+ * then passes them to resolveByHeading. Returns undefined if not found;
+ * the caller handles the missing reference warning.
  *
- * @param {string} sourceText — ソースファイルの全文
- * @param {Array<{refId: string, heading: number, texts: string[]}>} headingRefs — headingRefs 配列
- * @param {string} refId — 解決する参照ID（例: "REF001"）
+ * @param {string} sourceText — Full text of the source file
+ * @param {Array<{refId: string, heading: number, texts: string[]}>} headingRefs — headingRefs array
+ * @param {string} refId — Reference ID to resolve (e.g., "REF001")
  * @returns {{ line: number, confidence: string }|undefined}
  */
 function resolveCurrentLines(sourceText, headingRefs, refId) {
   const ref = headingRefs.find((r) => r.refId === refId);
   if (!ref) return undefined;
 
-  // resolveByHeading は行配列を期待するため、文字列を分割する
+  // resolveByHeading expects a line array, so split the string
   const sourceLines = sourceText.split("\n");
   const result = resolveByHeading(sourceLines, ref.heading, ref.texts);
   if (!result) return undefined;
@@ -294,18 +294,18 @@ function resolveCurrentLines(sourceText, headingRefs, refId) {
 }
 
 // ============================================================
-// Markdown整形出力
+// Markdown formatted output
 // ============================================================
 
 /**
- * BFSのdepthMapから、起点ノードからtargetIdまでの経路を再構成する
+ * Reconstruct the path from the start node to targetId from the BFS depthMap
  *
- * parent チェーンを逆にたどり、N0113 → N0119 → N0120 の配列を返す。
- * targetId が depthMap に含まれない場合は空配列。
+ * Traces the parent chain backwards and returns an array like N0113 → N0119 → N0120.
+ * Returns an empty array if targetId is not in depthMap.
  *
- * @param {Map} depthMap — BFS の訪問記録
- * @param {string} targetId — 経路終点のノードID
- * @returns {string[]} 経路上のノードID配列（起点→終点の順）
+ * @param {Map} depthMap — BFS visit record
+ * @param {string} targetId — Target node ID at the path endpoint
+ * @returns {string[]} Node ID array along the path (start → end order)
  */
 function buildPathToNode(depthMap, targetId) {
   if (!depthMap.has(targetId)) return [];
@@ -319,12 +319,12 @@ function buildPathToNode(depthMap, targetId) {
 }
 
 /**
- * depthMap から親子隣接リストを構築する
+ * Build a parent-child adjacency list from depthMap
  *
- * BFS の訪問記録から各親ノードに子ノードのリストを集約する。
- * 子ノードはノードID順にソートされる。
+ * Aggregates child node lists under each parent from BFS visit records.
+ * Child nodes are sorted by node ID.
  *
- * @param {Map} depthMap — BFS の訪問記録（{depth, parent, edge}）
+ * @param {Map} depthMap — BFS visit record ({depth, parent, edge})
  * @returns {Map<string, Array<{nodeId:string, edge:Object}>>}
  */
 function buildChildMap(depthMap) {
@@ -342,16 +342,16 @@ function buildChildMap(depthMap) {
 }
 
 /**
- * 親子隣接リストから再帰的にツリー行を生成する
+ * Generate tree rows recursively from the parent-child adjacency list
  *
- * 各行の形式: {indent}- {edge.type} {direction} {nodeId} ({title})
- * direction は親ノードから見た方向（→ / ← / ↔）。
+ * Each row format: {indent}- {edge.type} {direction} {nodeId} ({title})
+ * direction represents the direction from the parent node (→ / ← / ↔).
  *
- * @param {string} parentId — 親ノードID
- * @param {number} depth — インデント深さ（1始まり）
- * @param {Map} childMap — buildChildMap の出力
- * @param {Object} graph — グラフ全体（ノード名解決用）
- * @param {string[]} lines — 行蓄積配列（破壊的追加）
+ * @param {string} parentId — Parent node ID
+ * @param {number} depth — Indentation depth (1-based)
+ * @param {Map} childMap — Output from buildChildMap
+ * @param {Object} graph — Full graph (for node name resolution)
+ * @param {string[]} lines — Accumulating line array (destructive append)
  */
 function renderChildTree(parentId, depth, childMap, graph, lines) {
   const children = childMap.get(parentId) || [];
@@ -368,14 +368,15 @@ function renderChildTree(parentId, depth, childMap, graph, lines) {
 }
 
 /**
- * 行配列から該当見出し行を起点に、次の同レベル以上の見出しまでを本文として抽出する
+ * Extract the section body starting from the given heading line up to the next
+ * heading at the same level or higher
  *
- * 見出し行自身は除外し、本文のみを返す。
- * 次の見出しがない場合は EOF までを抽出する。
+ * Excludes the heading line itself, returning only the body content.
+ * Extracts up to EOF if no subsequent heading exists.
  *
- * @param {string[]} sourceLines — ソースファイルの行配列
- * @param {number} headingLineIndex — 見出し行の0-basedインデックス
- * @returns {string|null} 抽出された本文、失敗時は null
+ * @param {string[]} sourceLines — Line array of the source file
+ * @param {number} headingLineIndex — 0-based index of the heading line
+ * @returns {string|null} Extracted body text, or null on failure
  */
 function extractSectionContent(sourceLines, headingLineIndex) {
   if (!Array.isArray(sourceLines) || sourceLines.length === 0) return null;
@@ -387,7 +388,7 @@ function extractSectionContent(sourceLines, headingLineIndex) {
   if (!headingMatch) return null;
   const headingLevel = headingMatch[1].length;
 
-  // 次の同レベル以上の見出しまで走査（なければ EOF）
+  // Scan until the next heading at the same level or higher (or EOF)
   let endIndex = sourceLines.length;
   for (let i = headingLineIndex + 1; i < sourceLines.length; i++) {
     const m = sourceLines[i].match(/^(#+)\s/);
@@ -397,7 +398,7 @@ function extractSectionContent(sourceLines, headingLineIndex) {
     }
   }
 
-  // 見出し行自身を除外
+  // Exclude the heading line itself
   const contentLines = sourceLines.slice(headingLineIndex + 1, endIndex);
   if (contentLines.length === 0) return null;
 
@@ -405,33 +406,33 @@ function extractSectionContent(sourceLines, headingLineIndex) {
 }
 
 /**
- * ノード情報をMarkdown形式に整形する
+ * Format node information as Markdown
  *
- * @param {Object} node — ノードオブジェクト
- * @param {Object[]} edges — このノードに関連するエッジ配列
- * @param {Object} graph — グラフ全体（ノード名解決用）
- * @param {string} sourceText — ソーステキスト（行番号解決用）
- * @param {Map} [depthMap] — BFS の訪問記録（周辺ノード間エッジの経路表示用）
- * @param {Object|null} [nodeToDirMap] — nodeId→ファイルパスのマップ（省略可）
- * @returns {string} Markdown形式の文字列
+ * @param {Object} node — Node object
+ * @param {Object[]} edges — Edge array related to this node
+ * @param {Object} graph — Full graph (for node name resolution)
+ * @param {string} sourceText — Source text (for line number resolution)
+ * @param {Map} [depthMap] — BFS visit record (for path display of surrounding node edges)
+ * @param {Object|null} [nodeToDirMap] — nodeId→file path map (optional)
+ * @returns {string} Markdown formatted string
  */
 function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirMap) {
   const lines = [];
 
-  // 見出し
+  // Heading
   lines.push(`## ${node.id}: ${node.title}`);
   lines.push("");
-  // 種別
+  // Kind
   lines.push(`**種別**: ${node.kind}`);
   lines.push("");
 
-  // Summary（グラフJSON内の短い説明）
+  // Summary (short description in the graph JSON)
   if (node.summary) {
     lines.push(node.summary);
     lines.push("");
   }
 
-  // RFC での記述（--source の該当セクション本文）
+  // RFC description (relevant section body from --source)
   if (
     sourceText &&
     Array.isArray(node.headingRefs) &&
@@ -451,7 +452,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
     }
   }
 
-  // 実装先となるファイルパス（--dirs-tree 指定時のみ表示）
+  // Implementation target file path (shown only when --dirs-tree is specified)
   if (nodeToDirMap) {
     const filePath = nodeToDirMap[node.id];
     lines.push("### 実装先となるファイルパス\n");
@@ -464,7 +465,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
     }
   }
 
-  // ツリー形式で関係性を表示
+  // Display relationships in tree format
   if (edges.length === 0) {
     lines.push("### 他のノードとの関係性");
     lines.push("");
@@ -473,14 +474,14 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
 
   lines.push("### 他のノードとの関係性\n");
 
-  // depthMap から親子隣接リストを構築し、再帰的に子ノードを描画
+  // Build parent-child adjacency list from depthMap and recursively render child nodes
   if (depthMap) {
     const childMap = buildChildMap(depthMap);
-    // ルート行（検索起点ノード）
+    // Root row (search start node)
     lines.push(`- ${node.id} (${node.title})`);
     renderChildTree(node.id, 1, childMap, graph, lines);
   } else {
-    // depthMap がない場合は edges 配列から直接レンダリング
+    // When depthMap is absent, render directly from the edges array
     const grouped = groupEdgesByType(edges);
     for (const [type, typeEdges] of grouped) {
       for (const edge of typeEdges) {
@@ -497,10 +498,10 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
 }
 
 /**
- * エッジ配列を type ごとにグループ化する
+ * Group an edge array by type
  *
- * @param {Object[]} edges — エッジ配列
- * @returns {Map<string, Object[]>} type をキーとするグループ化済み Map
+ * @param {Object[]} edges — Edge array
+ * @returns {Map<string, Object[]>} Map grouped by type key
  */
 function groupEdgesByType(edges) {
   const grouped = new Map();
@@ -517,11 +518,11 @@ function groupEdgesByType(edges) {
 }
 
 /**
- * ノードから見たエッジの方向ラベルを取得する
+ * Get the direction label of an edge from the node's perspective
  *
- * @param {string} nodeId — 基準ノードID
- * @param {Object} edge — エッジオブジェクト
- * @returns {string} 方向ラベル（"→", "←", "↔"）
+ * @param {string} nodeId — Reference node ID
+ * @param {Object} edge — Edge object
+ * @returns {string} Direction label ("→", "←", "↔")
  */
 function getDirectionLabel(nodeId, edge) {
   if (edge.attributes && edge.attributes.bidirectional) {
@@ -534,15 +535,15 @@ function getDirectionLabel(nodeId, edge) {
 }
 
 // ============================================================
-// 3段テンプレートエラー出力
+// Three-part template error output
 // ============================================================
 
 /**
- * 3段テンプレートのエラーメッセージを標準エラー出力に書き込む
+ * Write a three-part template error message to stderr
  *
- * @param {string} message — 何が起きたか
- * @param {string} cause — なぜ起きたか
- * @param {string} action — 次に取るべきアクション
+ * @param {string} message — What happened
+ * @param {string} cause — Why it happened
+ * @param {string} action — Next action to take
  */
 function printError(message, cause, action) {
   process.stderr.write(
@@ -551,11 +552,11 @@ function printError(message, cause, action) {
 }
 
 // ============================================================
-// ヘルプ表示
+// Help display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage instructions
  */
 function printUsage() {
   console.log(
@@ -584,29 +585,29 @@ function printUsage() {
 }
 
 // ============================================================
-// エントリポイント
+// Entry point
 // ============================================================
 
 /**
- * main — CLIエントリポイント
+ * main — CLI entry point
  *
- * 1. 引数をパースする
- * 2. グラフファイルを読み込む
- * 3. ソースファイルを読み込む
- * 4. ノードを解決する
- * 5. BFSでグラフを探索する
- * 6. 行番号を動的に解決する
- * 7. 結果をMarkdown形式で整形する
- * 8. 標準出力に出力する
+ * 1. Parse arguments
+ * 2. Load graph file
+ * 3. Load source file
+ * 4. Resolve node
+ * 5. Explore graph with BFS
+ * 6. Dynamically resolve line numbers
+ * 7. Format result as Markdown
+ * 8. Output to stdout
  *
- * 全エラーは3段テンプレートで stderr に出力し、終了コード1で終了する。
- * マーカー欠損時は部分結果 + stderr 通知、終了コード0で続行する。
- * ファイル変更は一切行わない。
+ * All errors are output to stderr using the three-part template, exit code 1.
+ * On missing markers, output partial results + stderr notification, exit code 0.
+ * Never modifies any files.
  */
 function main() {
   let graphPath, sourcePath, nodeIds, hops, dirsTreePath;
 
-  // 1. 引数をパースする
+  // 1. Parse arguments
   try {
     const parsed = parseArguments();
     graphPath = parsed.graphPath;
@@ -623,7 +624,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 2. グラフファイルを読み込む
+  // 2. Load graph file
   let graph;
   try {
     graph = loadGraph(graphPath);
@@ -636,7 +637,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 3. ソースファイルを読み込む
+  // 3. Load source file
   let sourceText;
   try {
     sourceText = loadSourceFile(sourcePath);
@@ -649,7 +650,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 4. Dirs-Tree.json が指定されていれば node→dir マップを構築
+  // 4. Build node→dir map if Dirs-Tree.json is specified
   let nodeToDirMap = null;
   if (dirsTreePath) {
     try {
@@ -668,9 +669,9 @@ function main() {
     }
   }
 
-  // 各ノードIDに対して探索と出力を実行
+  // Execute exploration and output for each node ID
   for (const nodeId of nodeIds) {
-    // 4. ノードを解決する
+    // 4. Resolve node
     const startNode = resolveNodeById(graph, nodeId);
     if (!startNode) {
       printError(
@@ -681,15 +682,15 @@ function main() {
       process.exit(EXIT_FAILURE);
     }
 
-    // 5. BFSでグラフを探索する
+    // 5. Explore graph with BFS
     const searchResult = multiHopBFS(graph, nodeId, hops);
 
-    // 探索結果のノードのうち、起点以外のノード名を解決
+    // Resolve node names excluding the start node from the exploration result
     const visitedNodes = searchResult.nodeIds
       .map((id) => resolveNodeById(graph, id))
       .filter(Boolean);
 
-    // 6. 結果をMarkdown形式で整形する
+    // 6. Format result as Markdown
     const allEdges = searchResult.edges;
     const markdown = formatNodeMarkdown(
       startNode,
@@ -701,7 +702,7 @@ function main() {
     );
     console.log(markdown);
 
-    // 深掘り案内
+    // Deep-dive guidance
     console.log("");
     console.log("---\n");
     console.log("### 深掘り方法");
@@ -714,7 +715,7 @@ function main() {
     );
     console.log("```");
 
-    // 複数ノード指定時に区切りを出力
+    // Output separator when multiple nodes are specified
     if (nodeIds.length > 1 && nodeIds.indexOf(nodeId) < nodeIds.length - 1) {
       console.log("");
       console.log("---");
@@ -725,7 +726,7 @@ function main() {
   process.exit(EXIT_SUCCESS);
 }
 
-// CLIとして実行された場合のみ main を呼び出す
+// Only call main when executed as a CLI
 if (require.main === module) {
   main();
 }

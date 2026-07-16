@@ -1,5 +1,5 @@
 /**
- * OMISSIONS スケルトン生成 + 番号採番 + 検証を一体化。
+ * Combined OMISSIONS skeleton generation, number assignment, and validation.
  * Usage: node create-omissions.js <RFC_FILE_PATH>
  */
 

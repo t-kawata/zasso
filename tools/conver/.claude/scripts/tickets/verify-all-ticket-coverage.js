@@ -1,39 +1,39 @@
 #!/usr/bin/env node
 
 /**
- * verify-all-ticket-coverage.js — 全フェーズのチケット化完全性を最終検証
+ * verify-all-ticket-coverage.js — Final verification of ticket completeness across all phases
  *
- * split-to-tickets パイプラインの Step 5 終了時に実行する。
- * 全フェーズについて以下を検証する：
- *   1. 全フェーズに tickets 配列が存在し、空でない
- *   2. 全フェーズの nodeIds が tickets[].nodeIds の和集合に過不足なく含まれる
- *   3. tickets[].nodeIds にフェーズ外のノードIDが混入していない（警告）
+ * Executed at the end of split-to-tickets pipeline Step 5.
+ * Verifies for all phases:
+ *   1. Every phase has a non-empty tickets array
+ *   2. All phase nodeIds are covered by tickets[].nodeIds union (no omissions, no extras)
+ *   3. No nodeIds from outside the phase appear in tickets[].nodeIds (warning)
  *
  * Usage:
- *   node verify-all-ticket-coverage.js <Tickets.json のパス>
+ *   node verify-all-ticket-coverage.js <Tickets.json path>
  */
 
 const fs = require("fs");
 const path = require("path");
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** 正常終了コード */
+/** Normal exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Error exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// 検証ロジック
+// Verification Logic
 // ============================================================
 
 /**
- * 単一フェーズのチケット化完全性を検証する。
+ * Verify ticket completeness for a single phase.
  *
- * @param {Object} phase — フェーズオブジェクト
+ * @param {Object} phase — phase object
  * @returns {{
  *   phaseId: number,
  *   phaseLabel: string,
@@ -49,10 +49,10 @@ function checkPhase(phase) {
   const phaseNodeIds = new Set(phase.nodeIds || []);
   const tickets = phase.tickets || [];
 
-  // チケットの有無
+  // Check if tickets exist
   const hasTickets = tickets.length > 0;
 
-  // tickets[].nodeIds の和集合を収集
+  // Collect the union of tickets[].nodeIds
   const coveredNodeIds = new Set();
   for (const ticket of tickets) {
     if (Array.isArray(ticket.nodeIds)) {
@@ -62,7 +62,7 @@ function checkPhase(phase) {
     }
   }
 
-  // 不足ノード（フェーズにあってチケットにない）
+  // Missing nodes (in phase but not in any ticket)
   const missingNodeIds = [];
   for (const nodeId of phaseNodeIds) {
     if (!coveredNodeIds.has(nodeId)) {
@@ -70,7 +70,7 @@ function checkPhase(phase) {
     }
   }
 
-  // 余剰ノード（チケットにあってフェーズにない）
+  // Extra nodes (in tickets but not in phase)
   const extraNodeIds = [];
   for (const nodeId of coveredNodeIds) {
     if (!phaseNodeIds.has(nodeId)) {
@@ -92,9 +92,9 @@ function checkPhase(phase) {
 }
 
 /**
- * 全フェーズのチケット化完全性を検証する。
+ * Verify ticket completeness across all phases.
  *
- * @param {Object} ticketsData — パース済みTickets.json
+ * @param {Object} ticketsData — parsed Tickets.json
  * @returns {{
  *   valid: boolean,
  *   phaseResults: Array,
@@ -127,13 +127,13 @@ function verifyAllTicketCoverage(ticketsData) {
 }
 
 // ============================================================
-// レポート出力
+// Report Output
 // ============================================================
 
 /**
- * 検証結果を人間が読める形式で出力する。
+ * Format verification results in human-readable form.
  *
- * @param {Object} report — verifyAllTicketCoverage の戻り値
+ * @param {Object} report — return value of verifyAllTicketCoverage
  */
 function formatReport(report) {
   const lines = [];
@@ -174,7 +174,7 @@ function formatReport(report) {
 }
 
 // ============================================================
-// メイン処理
+// Main Entry Point
 // ============================================================
 
 function main() {
@@ -200,11 +200,11 @@ function main() {
   const report = verifyAllTicketCoverage(ticketsData);
   const output = formatReport(report);
 
-  // stdout に人間が読めるレポートを出力
+  // Output human-readable report to stdout
   console.log(output);
 
   if (!report.valid) {
-    // 失敗フェーズの詳細を stderr に出力
+    // Output failed phase details to stderr
     console.error("---");
     for (const failed of report.failedPhases) {
       if (!failed.hasTickets) {

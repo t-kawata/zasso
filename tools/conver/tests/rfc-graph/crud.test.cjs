@@ -1,8 +1,8 @@
 /**
- * crud.test.cjs — crud.js のテスト
+ * crud.test.cjs — Tests for crud.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * 一時ディレクトリを使用した実際のファイル I/O テストを含む。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Includes actual file I/O tests using a temporary directory.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// テスト対象モジュールを require パスで読み込む
+// Load the target module via require path
 const {
   parseArguments,
   readGraph,
@@ -27,44 +27,44 @@ const {
 } = require('../../.claude/scripts/rfc-graph/crud.js');
 
 // ============================================================
-// テスト用ユーティリティ
+// Test Utilities
 // ============================================================
 
-/** テスト用の一時ディレクトリパス */
+/** Temporary directory path for tests */
 let tmpDir;
 
-/** 恒常的なテスト用グラフファイルパス */
+/** Persistent test graph file path */
 let testGraphPath;
 
-/** テスト用ファイルパス */
+/** Test file path */
 let testFilePath;
 
 /**
- * テスト用の有効なノードを作成する
+ * Create a valid test node
  *
- * @param {string} id — ノードID
- * @param {string} kind — ノード種別
- * @returns {Object} ノードデータ
+ * @param {string} id — Node ID
+ * @param {string} kind — Node kind
+ * @returns {Object} Node data
  */
 function createTestNode(id, kind) {
   const slug = 'test_node_' + id.toLowerCase();
   return {
     id,
-    title: 'テストノード ' + id,
+    title: 'Test Node ' + id,
     kind,
     slug,
-    summary: 'これはテスト用ノードです。',
+    summary: 'This is a test node.',
     headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}],
   };
 }
 
 /**
- * テスト用の有効なエッジを作成する
+ * Create a valid test edge
  *
- * @param {string} from — 参照元ノードID
- * @param {string} to — 参照先ノードID
- * @param {string} type — エッジタイプ
- * @returns {Object} エッジデータ
+ * @param {string} from — Source node ID
+ * @param {string} to — Target node ID
+ * @param {string} type — Edge type
+ * @returns {Object} Edge data
  */
 function createTestEdge(from, to, type) {
   return {
@@ -76,22 +76,22 @@ function createTestEdge(from, to, type) {
 }
 
 /**
- * テスト用のグラフデータを作成する
+ * Create test graph data
  *
- * @param {Object[]} [nodes] — ノード配列
- * @param {Object[]} [edges] — エッジ配列
- * @returns {Object} グラフデータ
+ * @param {Object[]} [nodes] — Array of nodes
+ * @param {Object[]} [edges] — Array of edges
+ * @returns {Object} Graph data
  */
 function createTestGraph(nodes = [], edges = []) {
   return { sourceFile: '/test/source.md', nodes, edges };
 }
 
 // ============================================================
-// テストスイート
+// Test Suites
 // ============================================================
 
-describe('crud.js — 定数', () => {
-  it('ALLOWED_SUBCOMMANDS は7つのサブコマンドを含む', () => {
+describe('crud.js — constants', () => {
+  it('ALLOWED_SUBCOMMANDS contains 7 subcommands', () => {
     assert.equal(ALLOWED_SUBCOMMANDS.length, 7);
     assert.ok(ALLOWED_SUBCOMMANDS.includes('create-nodes'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('list-nodes'));
@@ -104,7 +104,7 @@ describe('crud.js — 定数', () => {
 });
 
 describe('crud.js — parseArguments', () => {
-  // 元の process.argv を保存
+  // Save original process.argv
   let originalArgv;
 
   before(() => {
@@ -116,17 +116,17 @@ describe('crud.js — parseArguments', () => {
   });
 
   /**
-   * parseArguments のテスト用ヘルパー
+   * Helper for testing parseArguments
    *
-   * @param {string[]} args — CLI引数（node/path を含まない）
-   * @returns {Object} parseArguments の戻り値
+   * @param {string[]} args — CLI arguments (excluding node/path)
+   * @returns {Object} Return value of parseArguments
    */
   function testParse(args) {
     process.argv = ['node', 'crud.js', ...args];
     return parseArguments();
   }
 
-  it('create-nodes サブコマンドを正常にパースする', () => {
+  it('parses create-nodes subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'create-nodes', '--file=/tmp/nodes.json']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'create-nodes');
@@ -134,7 +134,7 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, '/tmp/nodes.json');
   });
 
-  it('list-nodes サブコマンドを正常にパースする', () => {
+  it('parses list-nodes subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'list-nodes']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'list-nodes');
@@ -142,7 +142,7 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, null);
   });
 
-  it('get-node サブコマンドを正常にパースする', () => {
+  it('parses get-node subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'get-node', '--id=N0001']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'get-node');
@@ -150,7 +150,7 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, null);
   });
 
-  it('update-node サブコマンドを正常にパースする', () => {
+  it('parses update-node subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'update-node', '--id=N0001', '--file=/tmp/patch.json']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'update-node');
@@ -158,7 +158,7 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, '/tmp/patch.json');
   });
 
-  it('delete-node サブコマンドを正常にパースする', () => {
+  it('parses delete-node subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'delete-node', '--id=N0001']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'delete-node');
@@ -166,7 +166,7 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, null);
   });
 
-  it('create-edges サブコマンドを正常にパースする', () => {
+  it('parses create-edges subcommand correctly', () => {
     const result = testParse(['--graph=/tmp/test.json', 'create-edges', '--file=/tmp/edges.json']);
     assert.equal(result.graphPath, '/tmp/test.json');
     assert.equal(result.subcommand, 'create-edges');
@@ -174,35 +174,35 @@ describe('crud.js — parseArguments', () => {
     assert.equal(result.filePath, '/tmp/edges.json');
   });
 
-  it('引数不足でパースエラーをスローする', () => {
+  it('throws parse error on insufficient arguments', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json']),
       /引数が不足しています/
     );
   });
 
-  it('未知のサブコマンドでパースエラーをスローする', () => {
+  it('throws parse error on unknown subcommand', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'unknown-command']),
       /未知のサブコマンドです/
     );
   });
 
-  it('--graph= プレフィックスなしでパースエラーをスローする', () => {
+  it('throws parse error without --graph= prefix', () => {
     assert.throws(
       () => testParse(['/tmp/test.json', 'list-nodes']),
       /最初の引数は --graph=<path>/
     );
   });
 
-  it('create-nodes に --file がない場合パースエラーをスローする', () => {
+  it('throws parse error when --file is missing for create-nodes', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'create-nodes']),
       /--file=<path> が必要です/
     );
   });
 
-  it('update-node に --id がない場合パースエラーをスローする', () => {
+  it('throws parse error when --id is missing for update-node', () => {
     assert.throws(
       () => testParse(['--graph=/tmp/test.json', 'update-node', '--file=/tmp/patch.json']),
       /--id=<nodeId> が必要です/
@@ -221,14 +221,14 @@ describe('crud.js — readGraph', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('存在しないファイルパスで空のグラフを返す', () => {
+  it('returns empty graph for non-existent file path', () => {
     const graph = readGraph(path.join(tmpDir, 'nonexistent.json'), path.join(tmpDir, 'source.md'));
     assert.equal(graph.sourceFile, path.join(tmpDir, 'source.md'));
     assert.deepEqual(graph.nodes, []);
     assert.deepEqual(graph.edges, []);
   });
 
-  it('有効なグラフJSONファイルを読み込む', () => {
+  it('reads valid graph JSON file', () => {
     const graphPath = path.join(tmpDir, 'valid.json');
     const testGraph = createTestGraph(
       [createTestNode('N0001', 'requirement')],
@@ -255,7 +255,7 @@ describe('crud.js — atomicWrite', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('ファイルを正常に書き込む', () => {
+  it('writes file successfully', () => {
     const filePath = path.join(tmpDir, 'output.json');
     const data = JSON.stringify({ ok: true });
     atomicWrite(filePath, data);
@@ -263,17 +263,17 @@ describe('crud.js — atomicWrite', () => {
     assert.equal(fs.readFileSync(filePath, 'utf-8'), data);
   });
 
-  it('一時ファイルが書き込み後に残っていない', () => {
+  it('does not leave temp file after write', () => {
     const filePath = path.join(tmpDir, 'clean.json');
     atomicWrite(filePath, JSON.stringify({ test: true }));
-    // .tmp.pid ファイルが残っていないことを確認
+    // Verify no .tmp.pid file remains
     const tmpFiles = fs.readdirSync(tmpDir).filter((f) => f.includes('.tmp.'));
     assert.equal(tmpFiles.length, 0);
   });
 });
 
 describe('crud.js — executeCreateNodes', () => {
-  it('有効なノードを追加する', () => {
+  it('adds valid nodes', () => {
     const graph = createTestGraph();
     const nodes = [createTestNode('N0001', 'requirement')];
     executeCreateNodes(graph, nodes);
@@ -281,7 +281,7 @@ describe('crud.js — executeCreateNodes', () => {
     assert.equal(graph.nodes[0].id, 'N0001');
   });
 
-  it('複数の有効なノードを一括追加する', () => {
+  it('adds multiple valid nodes in batch', () => {
     const graph = createTestGraph();
     const nodes = [
       createTestNode('N0001', 'requirement'),
@@ -292,36 +292,36 @@ describe('crud.js — executeCreateNodes', () => {
     assert.equal(graph.nodes.length, 3);
   });
 
-  it('スキーマ違反のノードでエラー終了する（未実装はタイトルは必須のため、空文字列でテスト）', () => {
+  it('throws error on schema-violating node (title is required by schema, tested with empty string)', () => {
     const graph = createTestGraph();
     const invalidNode = { id: 'N0001', title: '', kind: 'requirement', summary: 'test', headingRefs: [{ refId: 'REF001', heading:1, texts:["test"]}]};
     assert.throws(
       () => executeCreateNodes(graph, [invalidNode]),
       /スキーマ検証に失敗しました/
     );
-    // グラフは変更されていない
+    // Graph is unchanged
     assert.equal(graph.nodes.length, 0);
   });
 
-  it('重複IDでエラー終了しグラフは変更されない', () => {
+  it('throws error on duplicate ID and does not modify graph', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     const duplicateNode = createTestNode('N0001', 'requirement');
     assert.throws(
       () => executeCreateNodes(graph, [duplicateNode]),
       /既に存在します/
     );
-    // グラフは変更されていない（重複チェックは追加前に全件検証）
+    // Graph is unchanged (duplicate check validates all entries before adding)
     assert.equal(graph.nodes.length, 1);
   });
 });
 
 describe('crud.js — executeListNodeIds', () => {
-  it('全ノード一覧をJSONで出力する', () => {
+  it('outputs full node list as JSON', () => {
     const graph = createTestGraph([
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),
     ]);
-    // 標準出力への出力を補足
+    // Capture stdout output
     const logs = [];
     const originalLog = console.log;
     console.log = (msg) => logs.push(msg);
@@ -338,7 +338,7 @@ describe('crud.js — executeListNodeIds', () => {
     }
   });
 
-  it('空のグラフで空配列を出力する', () => {
+  it('outputs empty array for empty graph', () => {
     const graph = createTestGraph();
     const logs = [];
     const originalLog = console.log;
@@ -356,7 +356,7 @@ describe('crud.js — executeListNodeIds', () => {
 });
 
 describe('crud.js — executeGetNode', () => {
-  it('既存ノードを取得する', () => {
+  it('retrieves an existing node', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     const logs = [];
     const originalLog = console.log;
@@ -373,7 +373,7 @@ describe('crud.js — executeGetNode', () => {
     }
   });
 
-  it('存在しないノードIDでエラー終了する', () => {
+  it('throws error on non-existent node ID', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
       () => executeGetNode(graph, 'N9999'),
@@ -383,26 +383,26 @@ describe('crud.js — executeGetNode', () => {
 });
 
 describe('crud.js — executeUpdateNode', () => {
-  it('ノードを更新する', () => {
+  it('updates a node', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
-    executeUpdateNode(graph, 'N0001', { title: '更新後のタイトル', kind: 'api_contract' });
-    assert.equal(graph.nodes[0].title, '更新後のタイトル');
+    executeUpdateNode(graph, 'N0001', { title: 'Updated title', kind: 'api_contract' });
+    assert.equal(graph.nodes[0].title, 'Updated title');
     assert.equal(graph.nodes[0].kind, 'api_contract');
-    // 更新していないフィールドは維持される
-    assert.equal(graph.nodes[0].summary, 'これはテスト用ノードです。');
+    // Unmodified fields are preserved
+    assert.equal(graph.nodes[0].summary, 'This is a test node.');
   });
 
-  it('存在しないノードIDでエラー終了する', () => {
+  it('throws error on non-existent node ID', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
-      () => executeUpdateNode(graph, 'N9999', { title: '新しいタイトル' }),
+      () => executeUpdateNode(graph, 'N9999', { title: 'New title' }),
       /見つかりません/
     );
   });
 });
 
 describe('crud.js — executeDeleteNode', () => {
-  it('ノードを削除する', () => {
+  it('deletes a node', () => {
     const graph = createTestGraph([
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),
@@ -412,7 +412,7 @@ describe('crud.js — executeDeleteNode', () => {
     assert.equal(graph.nodes[0].id, 'N0002');
   });
 
-  it('存在しないノードIDでエラー終了する', () => {
+  it('throws error on non-existent node ID', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     assert.throws(
       () => executeDeleteNode(graph, 'N9999'),
@@ -422,7 +422,7 @@ describe('crud.js — executeDeleteNode', () => {
 });
 
 describe('crud.js — executeCreateEdges', () => {
-  it('有効なエッジを追加する', () => {
+  it('adds valid edges', () => {
     const graph = createTestGraph([
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),
@@ -434,7 +434,7 @@ describe('crud.js — executeCreateEdges', () => {
     assert.equal(graph.edges[0].to, 'N0002');
   });
 
-  it('存在しないfromノードを参照するエッジでエラー終了し変更されない', () => {
+  it('throws error on edge referencing non-existent from-node and does not modify graph', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     const edges = [createTestEdge('N9999', 'N0001', 'depends_on')];
     assert.throws(
@@ -444,7 +444,7 @@ describe('crud.js — executeCreateEdges', () => {
     assert.equal(graph.edges.length, 0);
   });
 
-  it('存在しないtoノードを参照するエッジでエラー終了し変更されない', () => {
+  it('throws error on edge referencing non-existent to-node and does not modify graph', () => {
     const graph = createTestGraph([createTestNode('N0001', 'requirement')]);
     const edges = [createTestEdge('N0001', 'N9999', 'depends_on')];
     assert.throws(
@@ -456,7 +456,7 @@ describe('crud.js — executeCreateEdges', () => {
 });
 
 describe('crud.js — executeDeleteEdges', () => {
-  it('既存のエッジを削除する', () => {
+  it('deletes an existing edge', () => {
     const graph = createTestGraph([
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),
@@ -471,7 +471,7 @@ describe('crud.js — executeDeleteEdges', () => {
     assert.equal(graph.edges[0].from, 'N0002');
   });
 
-  it('存在しないエッジを指定してもエラーにならない（冪等）', () => {
+  it('does not error when deleting non-existent edge (idempotent)', () => {
     const graph = createTestGraph([
       createTestNode('N0001', 'requirement'),
       createTestNode('N0002', 'api_contract'),

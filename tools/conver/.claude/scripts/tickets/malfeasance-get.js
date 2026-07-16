@@ -1,15 +1,15 @@
 /**
- * malfeasance-get.js — Malfeasance.json から ID 指定でレコード取得
+ * malfeasance-get.js — Get a record from Malfeasance.json by ID
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-get.js <id>
  *
- * 引数:
- *   id (必須): 取得する犯罪レコードの数値 ID
+ * Arguments:
+ *   id (required): Numeric ID of the crime record to retrieve
  *
- * 出力:
+ * Output:
  *   { "success": true, "record": { ... } }
- *   または
+ *   or
  *   { "success": false, "error": "Record not found" }
  */
 
@@ -29,14 +29,14 @@ function main() {
     return;
   }
 
-  // スキーマファイルの確認
+  // Verify schema file
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });

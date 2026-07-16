@@ -1,9 +1,9 @@
 /**
- * verify.test.cjs — verify.js のテスト
+ * verify.test.cjs — Tests for verify.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象モジュールの全公開関数をカバーする。
- * 一時ディレクトリを使用した実際のファイル I/O テストを含む。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Covers all public functions of the target module.
+ * Includes actual file I/O tests using a temporary directory.
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// テスト対象モジュールを require パスで読み込む
+// Load the target module via require path
 const {
   parseArguments,
   readGraph,
@@ -27,21 +27,21 @@ const {
 } = require('../../.claude/scripts/rfc-graph/verify.js');
 
 // ============================================================
-// テスト用ユーティリティ
+// Test Utilities
 // ============================================================
 
-/** テスト用の一時ディレクトリパス */
+/** Temporary directory path for tests */
 let tmpDir;
 
 /**
- * テスト前に一時ディレクトリを作成する
+ * Create a temporary directory before each test
  */
 function setupTempDir() {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-test-'));
 }
 
 /**
- * テスト後に一時ディレクトリを削除する
+ * Remove the temporary directory after each test
  */
 function cleanupTempDir() {
   if (tmpDir) {
@@ -50,11 +50,11 @@ function cleanupTempDir() {
 }
 
 /**
- * テスト用のグラフファイルを作成する
+ * Write a test graph file
  *
- * @param {string} fileName — ファイル名
- * @param {Object} data — グラフデータ
- * @returns {string} 作成されたファイルの絶対パス
+ * @param {string} fileName — File name
+ * @param {Object} data — Graph data
+ * @returns {string} Absolute path to the created file
  */
 function writeGraphFile(fileName, data) {
   const filePath = path.join(tmpDir, fileName);
@@ -63,11 +63,11 @@ function writeGraphFile(fileName, data) {
 }
 
 /**
- * テスト用のソースファイルを作成する
+ * Write a test source file
  *
- * @param {string} fileName — ファイル名
- * @param {string[]} lines — 行配列
- * @returns {string} 作成されたファイルの絶対パス
+ * @param {string} fileName — File name
+ * @param {string[]} lines — Array of lines
+ * @returns {string} Absolute path to the created file
  */
 function writeSourceFile(fileName, lines) {
   const filePath = path.join(tmpDir, fileName);
@@ -76,40 +76,40 @@ function writeSourceFile(fileName, lines) {
 }
 
 /**
- * テスト用の有効なノードを作成する
+ * Create a valid test node
  *
- * @param {string} id — ノードID
- * @param {Array} headingRefs — headingRefs 配列
- * @returns {Object} ノードデータ
+ * @param {string} id — Node ID
+ * @param {Array} headingRefs — headingRefs array
+ * @returns {Object} Node data
  */
-/** headingRefs形式のテストノード作成（カバレッジテスト用） */
+/** Create a coverage test node with headingRefs */
 function createCoverageNode(id, headingRefs) {
   return {
     id,
-    title: "テストノード " + id,
+    title: "Test Node " + id,
     kind: "requirement",
-    summary: "これはverify.jsのテスト用ノードです。",
+    summary: "This is a test node for verify.js.",
     headingRefs,
   };
 }
 
-/** 見出し参照を含むテストノード作成 */
+/** Create a test node with heading references */
 function createTestNode(id, headingRefs) {
   return {
     id,
-    title: 'テストノード ' + id,
+    title: 'Test Node ' + id,
     kind: 'requirement',
-    summary: 'テスト用ノード',
+    summary: 'Test node',
     headingRefs,
   };
 }
 
 /**
- * テスト用の有効なエッジを作成する
+ * Create a valid test edge
  *
- * @param {string} from — 参照元ノードID
- * @param {string} to — 参照先ノードID
- * @returns {Object} エッジデータ
+ * @param {string} from — Source node ID
+ * @param {string} to — Target node ID
+ * @returns {Object} Edge data
  */
 function createTestEdge(from, to) {
   return {
@@ -121,17 +121,17 @@ function createTestEdge(from, to) {
 }
 
 // ============================================================
-// テストスイート
+// Test Suites
 // ============================================================
 
 describe('verify.js — parseArguments', () => {
-  it('正常系: --graph=p --source=q をパースする', () => {
+  it('normal: parses --graph=p --source=q', () => {
     const result = parseArguments(['--graph=/path/to/graph.json', '--source=/path/to/source.md']);
     assert.equal(result.graphPath, '/path/to/graph.json');
     assert.equal(result.sourcePath, '/path/to/source.md');
   });
 
-  it('正常系: printUsage が使用法を表示する', () => {
+  it('normal: printUsage displays usage', () => {
     let logOutput = '';
     const originalLog = console.log;
     console.log = (msg) => { logOutput += msg; };
@@ -146,25 +146,25 @@ describe('verify.js — parseArguments', () => {
     }
   });
 
-  it('異常系: 引数が不足している場合にエラーを投げる', () => {
+  it('error: throws when arguments are insufficient', () => {
     assert.throws(() => {
       parseArguments(['--graph=/path.json']);
     }, /引数が不足/);
   });
 
-  it('異常系: 引数なしでエラーを投げる', () => {
+  it('error: throws with no arguments', () => {
     assert.throws(() => {
       parseArguments([]);
     }, /引数が不足/);
   });
 
-  it('異常系: 最初の引数が --graph でない場合にエラーを投げる', () => {
+  it('error: throws when first argument is not --graph', () => {
     assert.throws(() => {
       parseArguments(['--source=/path.md', '--graph=/path.json']);
     }, /最初の引数は --graph/);
   });
 
-  it('異常系: 余剰引数がある場合にエラーを投げる', () => {
+  it('error: throws when extra arguments exist', () => {
     assert.throws(() => {
       parseArguments(['--graph=p', '--source=q', '--extra']);
     }, /余剰な引数/);
@@ -175,7 +175,7 @@ describe('verify.js — readGraph', () => {
   before(setupTempDir);
   after(cleanupTempDir);
 
-  it('正常系: 有効なグラフJSONを読み込む', () => {
+  it('normal: reads valid graph JSON', () => {
     const graphData = {
       sourceFile: '/test/source.md',
       nodes: [createTestNode('N0001', [{ refId: 'REF001', heading:1, texts:["test"]}])],
@@ -187,13 +187,13 @@ describe('verify.js — readGraph', () => {
     assert.deepEqual(result, graphData);
   });
 
-  it('異常系: 存在しないファイルでエラーを投げる', () => {
+  it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readGraph(path.join(tmpDir, 'nonexistent.json'));
     }, /見つかりません/);
   });
 
-  it('異常系: 不正なJSONでエラーを投げる', () => {
+  it('error: throws on invalid JSON', () => {
     const filePath = path.join(tmpDir, 'invalid.json');
     fs.writeFileSync(filePath, '{不正なJSON}', 'utf8');
 
@@ -202,7 +202,7 @@ describe('verify.js — readGraph', () => {
     }, /JSONパース/);
   });
 
-  it('異常系: nodes/edges がない構造でエラーを投げる', () => {
+  it('error: throws when nodes/edges are missing', () => {
     const filePath = path.join(tmpDir, 'no-nodes.json');
     fs.writeFileSync(filePath, JSON.stringify({ sourceFile: '/test.md' }), 'utf8');
 
@@ -216,24 +216,24 @@ describe('verify.js — readSourceFile', () => {
   before(setupTempDir);
   after(cleanupTempDir);
 
-  it('正常系: ソースファイルを行配列として読み込む', () => {
+  it('normal: reads source file as array of lines', () => {
     const filePath = writeSourceFile('test.md', [
-      '# タイトル',
+      '# Title',
       '',
-      'コンテンツ1',
-      'コンテンツ2',
+      'Content 1',
+      'Content 2',
     ]);
     const result = readSourceFile(filePath);
-    assert.deepEqual(result, ['# タイトル', '', 'コンテンツ1', 'コンテンツ2']);
+    assert.deepEqual(result, ['# Title', '', 'Content 1', 'Content 2']);
   });
 
-  it('異常系: 存在しないファイルでエラーを投げる', () => {
+  it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readSourceFile(path.join(tmpDir, 'nonexistent.md'));
     }, /見つかりません/);
   });
 
-  it('正常系: 空ファイルは空配列を返す', () => {
+  it('normal: empty file returns empty array', () => {
     const filePath = writeSourceFile('empty.md', ['']);
     const result = readSourceFile(filePath);
     assert.deepEqual(result, ['']);
@@ -241,32 +241,32 @@ describe('verify.js — readSourceFile', () => {
 });
 
 describe('verify.js — extractHeadings', () => {
-  it('正常系: 大見出し（##）を抽出する', () => {
+  it('normal: extracts h2 headings', () => {
     const sourceLines = [
-      '# タイトル',
-      '## 要件定義',
-      '本文',
-      '### サブ',
-      '## アーキテクチャ',
+      '# Title',
+      '## Requirements',
+      'Body',
+      '### Sub',
+      '## Architecture',
     ];
     const result = extractHeadings(sourceLines);
     assert.equal(result.length, 2);
-    assert.equal(result[0].text, '要件定義');
+    assert.equal(result[0].text, 'Requirements');
     assert.equal(result[0].level, 2);
-    assert.equal(result[1].text, 'アーキテクチャ');
+    assert.equal(result[1].text, 'Architecture');
   });
 
-  it('正常系: 見出しがない場合に空配列を返す', () => {
-    const result = extractHeadings(['本文のみ', 'さらに本文']);
+  it('normal: returns empty array when no headings exist', () => {
+    const result = extractHeadings(['Body only', 'More body']);
     assert.deepEqual(result, []);
   });
 
-  it('正常系: 空行のみで空配列を返す', () => {
+  it('normal: returns empty array for blank lines', () => {
     const result = extractHeadings(['', '  ']);
     assert.deepEqual(result, []);
   });
 
-  it('正常系: h1 や h3 は抽出対象外', () => {
+  it('normal: h1 and h3 are not extracted', () => {
     const result = extractHeadings(['# h1', '## h2', '### h3']);
     assert.equal(result.length, 1);
     assert.equal(result[0].text, 'h2');
@@ -274,41 +274,41 @@ describe('verify.js — extractHeadings', () => {
 });
 
 describe('verify.js — checkCoverage', () => {
-  it('正常系: 全見出しが headingRefs でカバーされている', () => {
+  it('normal: all headings are covered by headingRefs', () => {
     const sourceLines = [
-      '## 要件定義',
-      '内容1',
-      '## アーキテクチャ',
-      '内容2',
+      '## Requirements',
+      'Content 1',
+      '## Architecture',
+      'Content 2',
     ];
     const nodes = [
-      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
-      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }]),
+      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['Architecture'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
     assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('異常系: 未カバー見出しを検出する', () => {
+  it('error: detects uncovered headings', () => {
     const sourceLines = [
-      '## 要件定義',
-      '内容1',
-      '## アーキテクチャ',
-      '内容2',
-      '## セキュリティ',
-      '内容3',
+      '## Requirements',
+      'Content 1',
+      '## Architecture',
+      'Content 2',
+      '## Security',
+      'Content 3',
     ];
     const nodes = [
-      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
-      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }]),
+      createCoverageNode('N0002', [{ refId: 'REF002', heading: 2, texts: ['Architecture'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, false);
-    assert.deepEqual(result.uncoveredHeadings, ['セキュリティ']);
+    assert.deepEqual(result.uncoveredHeadings, ['Security']);
   });
 
-  it('正常系: 空のソースはカバー済みとみなす', () => {
+  it('normal: empty source is considered covered', () => {
     const sourceLines = [];
     const nodes = [];
     const result = checkCoverage(sourceLines, nodes);
@@ -316,57 +316,57 @@ describe('verify.js — checkCoverage', () => {
     assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: 見出しがないソースはカバー済みとみなす', () => {
-    const sourceLines = ['行1', '行2', '行3'];
+  it('normal: source with no headings is considered covered', () => {
+    const sourceLines = ['Line 1', 'Line 2', 'Line 3'];
     const nodes = [];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
     assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: headingRefs がないノードは無視する', () => {
-    const sourceLines = ['## 要件定義', '内容'];
+  it('normal: nodes without headingRefs are ignored', () => {
+    const sourceLines = ['## Requirements', 'Content'];
     const nodes = [
-      { id: 'N0001', title: '空', kind: 'requirement', summary: '空', headingRefs: [] },
+      { id: 'N0001', title: 'Empty', kind: 'requirement', summary: 'Empty', headingRefs: [] },
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, false);
-    assert.deepEqual(result.uncoveredHeadings, ['要件定義']);
+    assert.deepEqual(result.uncoveredHeadings, ['Requirements']);
   });
 
-  it('正常系: 部分的に heading テキストが一致する場合もカバー済み', () => {
-    const sourceLines = ['## 要件定義詳細', '内容'];
+  it('normal: partial heading text match is sufficient', () => {
+    const sourceLines = ['## Requirements Details', 'Content'];
     const nodes = [
-      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
     assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('正常系: texts に複数トークンがある場合も正しくマッチ', () => {
-    const sourceLines = ['## エラー処理方針', '内容'];
+  it('normal: multiple tokens in texts also match correctly', () => {
+    const sourceLines = ['## Error Handling Policy', 'Content'];
     const nodes = [
-      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['error_policy', 'エラー処理'] }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 2, texts: ['error_policy', 'Error Handling'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, true);
     assert.deepEqual(result.uncoveredHeadings, []);
   });
 
-  it('異常系: heading レベルが一致しない場合はカバーされない', () => {
-    const sourceLines = ['## 要件定義'];
+  it('error: heading level mismatch is not covered', () => {
+    const sourceLines = ['## Requirements'];
     const nodes = [
-      createCoverageNode('N0001', [{ refId: 'REF001', heading: 3, texts: ['要件定義'] }]),
+      createCoverageNode('N0001', [{ refId: 'REF001', heading: 3, texts: ['Requirements'] }]),
     ];
     const result = checkCoverage(sourceLines, nodes);
     assert.equal(result.covered, false);
-    assert.deepEqual(result.uncoveredHeadings, ['要件定義']);
+    assert.deepEqual(result.uncoveredHeadings, ['Requirements']);
   });
 });
 
 describe('verify.js — checkIsolated', () => {
-  it('正常系: 全ノード接続', () => {
+  it('normal: all nodes connected', () => {
     const nodes = [
       { id: 'N0001' }, { id: 'N0002' }, { id: 'N0003' },
     ];
@@ -379,7 +379,7 @@ describe('verify.js — checkIsolated', () => {
     assert.deepEqual(result.isolatedNodes, []);
   });
 
-  it('異常系: 孤立ノードを検出する', () => {
+  it('error: detects isolated nodes', () => {
     const nodes = [
       { id: 'N0001' }, { id: 'N0002' }, { id: 'N0003' },
     ];
@@ -391,7 +391,7 @@ describe('verify.js — checkIsolated', () => {
     assert.deepEqual(result.isolatedNodes, ['N0003']);
   });
 
-  it('境界値: エッジ0本 — 全ノードが孤立', () => {
+  it('boundary: zero edges — all nodes isolated', () => {
     const nodes = [
       { id: 'N0001' }, { id: 'N0002' },
     ];
@@ -401,7 +401,7 @@ describe('verify.js — checkIsolated', () => {
     assert.deepEqual(result.isolatedNodes, ['N0001', 'N0002']);
   });
 
-  it('境界値: ノード0件', () => {
+  it('boundary: zero nodes', () => {
     const nodes = [];
     const edges = [];
     const result = checkIsolated(nodes, edges);
@@ -409,7 +409,7 @@ describe('verify.js — checkIsolated', () => {
     assert.deepEqual(result.isolatedNodes, []);
   });
 
-  it('正常系: 双方向エッジでも正しく検出', () => {
+  it('normal: bidirectional edges are detected correctly', () => {
     const nodes = [
       { id: 'N0001' }, { id: 'N0002' },
     ];
@@ -423,32 +423,32 @@ describe('verify.js — checkIsolated', () => {
 });
 
 describe('verify.js — checkResolvability', () => {
-  it('正常系: 全 headingRefs が解決可能', () => {
+  it('normal: all headingRefs are resolvable', () => {
     const sourceLines = [
-      '# タイトル',
-      '## 要件定義',
-      '内容1',
-      '## アーキテクチャ',
-      '内容2',
+      '# Title',
+      '## Requirements',
+      'Content 1',
+      '## Architecture',
+      'Content 2',
     ];
     const nodes = [
-      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }] },
-      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['アーキテクチャ'] }] },
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }] },
+      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['Architecture'] }] },
     ];
     const result = checkResolvability(sourceLines, nodes);
     assert.equal(result.resolvable, true);
     assert.deepEqual(result.unresolvableRefs, []);
   });
 
-  it('異常系: 解決不能な headingRefs を検出する', () => {
+  it('error: detects unresolvable headingRefs', () => {
     const sourceLines = [
-      '## 要件定義',
-      '内容',
-      '## アーキテクチャ',
-      '内容',
+      '## Requirements',
+      'Content',
+      '## Architecture',
+      'Content',
     ];
     const nodes = [
-      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['存在しないセクション'] }] },
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['Non-existent Section'] }] },
     ];
     const result = checkResolvability(sourceLines, nodes);
     assert.equal(result.resolvable, false);
@@ -457,21 +457,21 @@ describe('verify.js — checkResolvability', () => {
     assert.equal(result.unresolvableRefs[0].refId, 'REF001');
   });
 
-  it('異常系: heading レベルが一致しない場合は解決不能', () => {
+  it('error: heading level mismatch is unresolvable', () => {
     const sourceLines = [
-      '## 要件定義',
-      '内容',
+      '## Requirements',
+      'Content',
     ];
     const nodes = [
-      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 3, texts: ['要件定義'] }] },
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 3, texts: ['Requirements'] }] },
     ];
     const result = checkResolvability(sourceLines, nodes);
     assert.equal(result.resolvable, false);
     assert.equal(result.unresolvableRefs.length, 1);
   });
 
-  it('正常系: headingRefs がないノードは無視する', () => {
-    const sourceLines = ['## 要件定義'];
+  it('normal: nodes without headingRefs are ignored', () => {
+    const sourceLines = ['## Requirements'];
     const nodes = [
       { id: 'N0001', headingRefs: [] },
       { id: 'N0002' },
@@ -481,12 +481,12 @@ describe('verify.js — checkResolvability', () => {
     assert.deepEqual(result.unresolvableRefs, []);
   });
 
-  it('正常系: 複数ノードにまたがる解決不能をすべて報告する', () => {
-    const sourceLines = ['## 要件定義', '内容'];
+  it('normal: reports all unresolvable refs across multiple nodes', () => {
+    const sourceLines = ['## Requirements', 'Content'];
     const nodes = [
-      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['要件定義'] }] },
-      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['幻のセクション'] }] },
-      { id: 'N0003', headingRefs: [{ refId: 'REF003', heading: 2, texts: ['消えたセクション'] }] },
+      { id: 'N0001', headingRefs: [{ refId: 'REF001', heading: 2, texts: ['Requirements'] }] },
+      { id: 'N0002', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['Phantom Section'] }] },
+      { id: 'N0003', headingRefs: [{ refId: 'REF003', heading: 2, texts: ['Vanished Section'] }] },
     ];
     const result = checkResolvability(sourceLines, nodes);
     assert.equal(result.resolvable, false);
@@ -497,7 +497,7 @@ describe('verify.js — checkResolvability', () => {
 });
 
 describe('verify.js — exitWithResult', () => {
-  it('正常系: ok=true で stderr 出力なし', () => {
+  it('normal: ok=true produces no stderr output', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -512,11 +512,11 @@ describe('verify.js — exitWithResult', () => {
       console.log = originalStdout;
       assert.equal(stderrOutput, '');
     } finally {
-      // process.exit と console.log は try 内で明示的に復元
+      // process.exit and console.log are explicitly restored inside try
     }
   });
 
-  it('異常系: ok=false で stderr に3段テンプレートを出力する', () => {
+  it('error: ok=false outputs 3-section template to stderr', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -525,7 +525,7 @@ describe('verify.js — exitWithResult', () => {
       console.log = () => {};
       process.stderr.write = (msg) => { stderrOutput += msg; };
 
-      exitWithResult(false, ['要件定義', 'アーキテクチャ'], ['N0003']);
+      exitWithResult(false, ['Requirements', 'Architecture'], ['N0003']);
 
       process.exit = originalExit;
       console.log = originalStdout;
@@ -533,11 +533,11 @@ describe('verify.js — exitWithResult', () => {
       assert.ok(stderrOutput.includes('未カバー'));
       assert.ok(stderrOutput.includes('孤立ノード'));
     } finally {
-      // process.exit と console.log は try 内で明示的に復元
+      // process.exit and console.log are explicitly restored inside try
     }
   });
 
-  it('異常系: 未カバー見出しのみのエラーメッセージ', () => {
+  it('error: error message with uncovered headings only', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -546,7 +546,7 @@ describe('verify.js — exitWithResult', () => {
       console.log = () => {};
       process.stderr.write = (msg) => { stderrOutput += msg; };
 
-      exitWithResult(false, ['セキュリティ'], []);
+      exitWithResult(false, ['Security'], []);
 
       process.exit = originalExit;
       console.log = originalStdout;
@@ -554,11 +554,11 @@ describe('verify.js — exitWithResult', () => {
       assert.ok(stderrOutput.includes('未カバー'));
       assert.ok(!stderrOutput.includes('孤立'));
     } finally {
-      // process.exit と console.log は try 内で明示的に復元
+      // process.exit and console.log are explicitly restored inside try
     }
   });
 
-  it('異常系: 孤立ノードのみのエラーメッセージ', () => {
+  it('error: error message with isolated nodes only', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -575,11 +575,11 @@ describe('verify.js — exitWithResult', () => {
       assert.ok(stderrOutput.includes('孤立ノード'));
       assert.ok(!stderrOutput.includes('未カバー'));
     } finally {
-      // process.exit と console.log は try 内で明示的に復元
+      // process.exit and console.log are explicitly restored inside try
     }
   });
 
-  it('異常系: 解決不能 headingRefs のエラーメッセージ', () => {
+  it('error: error message for unresolvable headingRefs', () => {
     try {
       let stderrOutput = '';
       const originalExit = process.exit;
@@ -589,7 +589,7 @@ describe('verify.js — exitWithResult', () => {
       process.stderr.write = (msg) => { stderrOutput += msg; };
 
       exitWithResult(false, [], [], [
-        { nodeId: 'N0001', refId: 'REF001', heading: 2, texts: ['存在しない'] },
+        { nodeId: 'N0001', refId: 'REF001', heading: 2, texts: ['Non-existent'] },
       ]);
 
       process.exit = originalExit;
@@ -601,7 +601,7 @@ describe('verify.js — exitWithResult', () => {
       assert.ok(!stderrOutput.includes('未カバー'));
       assert.ok(!stderrOutput.includes('孤立'));
     } finally {
-      // process.exit と console.log は try 内で明示的に復元
+      // process.exit and console.log are explicitly restored inside try
     }
   });
 });

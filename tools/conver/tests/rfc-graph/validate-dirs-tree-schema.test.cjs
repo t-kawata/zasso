@@ -1,9 +1,9 @@
 /**
- * validate-dirs-tree-schema.test.cjs — validate-dirs-tree-schema.js のユニットテスト
+ * validate-dirs-tree-schema.test.cjs — Unit tests for validate-dirs-tree-schema.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * 検証関数 validateFiles() に直接メモリ上のデータを渡してテストする。
- * validate()（CLI+I/O 統合）は最小限のファイルI/Oテストのみ行う。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Tests the validateFiles() function by passing in-memory data directly.
+ * validate() (CLI+I/O integration) is tested with minimal file I/O.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -15,10 +15,10 @@ const os = require('os');
 const { validate, validateFiles } = require('../../.claude/scripts/rfc-graph/validate-dirs-tree-schema.js');
 
 // ============================================================
-// テストデータ（ファクトリ関数）
+// Test Data (factory functions)
 // ============================================================
 
-/** 検証合格する有効な Dirs-Tree.json を作成する */
+/** Create a valid Dirs-Tree.json that passes validation */
 function createValidDirsTree(overrides = {}) {
   return {
     schemaVersion: '1.0',
@@ -82,7 +82,7 @@ function createValidDirsTree(overrides = {}) {
   };
 }
 
-/** 検証に使用する有効なグラフを作成する */
+/** Create a valid graph for validation */
 function createValidGraph() {
   return {
     nodes: [
@@ -98,7 +98,7 @@ function createValidGraph() {
   };
 }
 
-/** 一時ディレクトリにテストファイルを書き込み、パスを返す */
+/** Write test files to a temporary directory and return paths */
 function writeTempFiles(dirsTree, graph) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vds-test-'));
   const dirsTreePath = path.join(tmpDir, 'Dirs-Tree.json');
@@ -109,17 +109,17 @@ function writeTempFiles(dirsTree, graph) {
 }
 
 // ============================================================
-// validateFiles — 正常系
+// validateFiles — Happy Path
 // ============================================================
 
-describe('validateFiles — 正常系', () => {
+describe('validateFiles — Happy Path', () => {
   it('should return {ok: true} for a valid Dirs-Tree.json', () => {
     const dirsTree = createValidDirsTree();
     const graph = createValidGraph();
     const graphPath = '/tmp/test-graph.json';
     const dirsTreePath = '/tmp/test-dirs-tree.json';
 
-    // validateFiles はファイルシステムを読むので、一旦ファイルに書く
+    // validateFiles reads the filesystem, so write files first
     const { tmpDir, dirsTreePath: dtPath, graphPath: gPath } = writeTempFiles(dirsTree, graph);
     try {
       const result = validateFiles(dtPath, gPath);
@@ -131,10 +131,10 @@ describe('validateFiles — 正常系', () => {
 });
 
 // ============================================================
-// validateFiles — 異常系: 引数/ファイル
+// validateFiles — Error Path: Arguments/Files
 // ============================================================
 
-describe('validateFiles — ファイル入出力', () => {
+describe('validateFiles — File I/O', () => {
   it('should return error when dirs-tree file does not exist', () => {
     const result = validateFiles('/tmp/non-existent-dirs-tree.json', '/tmp/test-graph.json');
     assert.strictEqual(result.ok, false);
@@ -168,10 +168,10 @@ describe('validateFiles — ファイル入出力', () => {
 });
 
 // ============================================================
-// validateFiles — 異常系: 検証ロジック
+// validateFiles — Error Path: Validation Logic
 // ============================================================
 
-describe('validateFiles — 必須フィールド', () => {
+describe('validateFiles — Required Fields', () => {
   it('should detect missing schemaVersion', () => {
     const dirsTree = createValidDirsTree({ schemaVersion: undefined });
     const graph = createValidGraph();
@@ -215,7 +215,7 @@ describe('validateFiles — 必須フィールド', () => {
 describe('validateFiles — mappedNodeIds', () => {
   it('should detect non-existent nodeId', () => {
     const dirsTree = createValidDirsTree();
-    // trees.rust.config.settings.mappedNodeIds[0] を存在しないIDに変更
+    // Change trees.rust.config.settings.mappedNodeIds[0] to a non-existent ID
     dirsTree.trees.rust.children[0].children[0].mappedNodeIds = ['N9999'];
     const graph = createValidGraph();
     const { tmpDir, dirsTreePath, graphPath } = writeTempFiles(dirsTree, graph);
@@ -230,13 +230,13 @@ describe('validateFiles — mappedNodeIds', () => {
 
   it('should not error when mappedNodeIds is absent', () => {
     const dirsTree = createValidDirsTree();
-    // trees.rust.config.settings から mappedNodeIds を削除
+    // Remove mappedNodeIds from trees.rust.config.settings
     delete dirsTree.trees.rust.children[0].children[0].mappedNodeIds;
     const graph = createValidGraph();
     const { tmpDir, dirsTreePath, graphPath } = writeTempFiles(dirsTree, graph);
     try {
       const result = validateFiles(dirsTreePath, graphPath);
-      // mappedNodeIds がない場合はスキップされ、他にエラーがなければ正常
+      // mappedNodeIds is optional; skip when absent, ok if no other errors
       assert.strictEqual(result.ok, true);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -244,10 +244,10 @@ describe('validateFiles — mappedNodeIds', () => {
   });
 });
 
-describe('validateFiles — ネスト深さ', () => {
+describe('validateFiles — Nesting Depth', () => {
   it('should detect depth exceeding 4', () => {
     const dirsTree = createValidDirsTree();
-    // 深さ5になる構造（rust → config → deep → deeper → deepest → ultimate.rs: 深さ5）
+    // Create depth-5 structure (rust → config → deep → deeper → deepest → ultimate.rs: depth 5)
     dirsTree.trees.rust.children[0].children.push({
       name: 'deep',
       type: 'directory',
@@ -277,7 +277,7 @@ describe('validateFiles — ネスト深さ', () => {
 
   it('should accept depth exactly 4 (boundary)', () => {
     const dirsTree = createValidDirsTree();
-    // 深さ4になる構造（rust/config/settings に子を追加 → 深さ4）
+    // Create depth-4 structure (rust/config/settings with children → depth 4)
     // rust(0) → config(1) → settings(2) → deep(3) → deeper.rs(4)
     const leafDir = { name: 'deep', type: 'directory', children: [
       { name: 'deeper', type: 'directory', children: [
@@ -296,7 +296,7 @@ describe('validateFiles — ネスト深さ', () => {
   });
 });
 
-describe('validateFiles — ファイル命名規則', () => {
+describe('validateFiles — File Naming Conventions', () => {
   it('should detect .go file in rust tree', () => {
     const dirsTree = createValidDirsTree();
     dirsTree.trees.rust.children[0].children.push(
@@ -348,7 +348,7 @@ describe('validateFiles — ファイル命名規則', () => {
 
   it('should not check extensions for directory nodes', () => {
     const dirsTree = createValidDirsTree();
-    // directory ノードを追加（拡張子のない名前でもエラーにならないこと）
+    // Add a directory node (no extension check for directories)
     dirsTree.trees.rust.children.push(
       { name: 'custom-dir', type: 'directory' }
     );
@@ -397,10 +397,10 @@ describe('validateFiles — dependencyDirections', () => {
   });
 });
 
-describe('validateFiles — パス重複', () => {
+describe('validateFiles — Path Duplicates', () => {
   it('should detect duplicate sibling names', () => {
     const dirsTree = createValidDirsTree();
-    // config 配下に同名ファイルを追加
+    // Add a file with the same name under config
     dirsTree.trees.rust.children[0].children.push(
       { name: 'settings.rs', type: 'file', kind: 'config' }
     );
@@ -416,13 +416,13 @@ describe('validateFiles — パス重複', () => {
   });
 });
 
-describe('validateFiles — 複合エラー', () => {
+describe('validateFiles — Composite Errors', () => {
   it('should collect multiple errors simultaneously', () => {
     const dirsTree = createValidDirsTree({
       schemaVersion: undefined,
       dependencyDirections: undefined,
     });
-    // さらに拡張子エラーも追加
+    // Also add an extension mismatch error
     dirsTree.trees.rust.children[0].children.push(
       { name: 'bad.go', type: 'file' }
     );
@@ -431,7 +431,7 @@ describe('validateFiles — 複合エラー', () => {
     try {
       const result = validateFiles(dirsTreePath, graphPath);
       assert.strictEqual(result.ok, false);
-      // 3 件以上のエラーが同時に収集されることを確認
+      // Verify that 3+ errors are collected simultaneously
       assert.ok(result.errors.length >= 3);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -440,11 +440,11 @@ describe('validateFiles — 複合エラー', () => {
 });
 
 // ============================================================
-// validate() — CLI エントリポイントのテスト（最小限）
+// validate() — CLI Entry Point Tests (minimal)
 // ============================================================
 
-describe('validate() — CLI エントリポイント', () => {
-  // process.exit をスタブ化するためのフラグ
+describe('validate() — CLI Entry Point', () => {
+  // Flag for stubbing process.exit
   let originalExit;
 
   before(() => {
@@ -485,14 +485,14 @@ describe('validate() — CLI エントリポイント', () => {
     let exitCode = null;
     process.exit = (code) => { exitCode = code; };
 
-    // stdout をキャプチャ
+    // Capture stdout
     const originalStdout = process.stdout.write;
     let capturedStdout = '';
     process.stdout.write = (chunk) => { capturedStdout += chunk; return true; };
 
     try {
       validate([`--dirs-tree=${dirsTreePath}`, `--graph=${graphPath}`]);
-      assert.strictEqual(exitCode, null); // process.exit は呼ばれない
+      assert.strictEqual(exitCode, null); // process.exit should not be called
       const parsed = JSON.parse(capturedStdout);
       assert.strictEqual(parsed.ok, true);
     } finally {

@@ -1,7 +1,7 @@
 /**
- * boundify-helpers.test.cjs — boundify-helpers.js のユニットテスト
+ * boundify-helpers.test.cjs — boundify-helpers.js unit tests
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');
@@ -23,7 +23,7 @@ const {
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
 // ============================================================
-// SCHEMA 定数
+// SCHEMA constants
 // ============================================================
 
 describe('SCHEMA', () => {
@@ -75,7 +75,7 @@ describe('SCHEMA', () => {
 });
 
 // ============================================================
-// SAFE_BOUNDARIES_EN_TEXT 定数
+// SAFE_BOUNDARIES_EN_TEXT constants
 // ============================================================
 
 describe('SAFE_BOUNDARIES_EN_TEXT', () => {
@@ -286,7 +286,7 @@ describe('tarjanSCC', () => {
       { from: 'src/a/', to: 'src/b/' }
     ];
     const result = tarjanSCC(edges);
-    // 重複エッジが存在しても、1つの循環として報告される
+    // Even with duplicate edges, it should report one cycle
     assert.strictEqual(result.length, 1);
   });
 });
@@ -314,7 +314,7 @@ describe('deduplicateFileNames', () => {
     const files = [{ name: 'a.rs' }, { name: 'a.rs' }];
     const result = deduplicateFileNames(files, 'rust');
     const names = result.map(function(f) { return f.name; });
-    // 1つ目は a.rs、2つ目は a_1.rs
+    // First stays a.rs, second becomes a_1.rs
     assert.ok(names.includes('a.rs'));
     assert.ok(names.includes('a_1.rs'));
     assert.strictEqual(result.length, 2);
@@ -357,7 +357,7 @@ describe('deduplicateFileNames', () => {
     const result = deduplicateFileNames(files, 'rust');
     const names = result.map(function(f) { return f.name; });
     assert.ok(names.includes('a.rs'));
-    assert.ok(names.includes('a_1.rs')); // a.go のベース名 a → 重複とみなす
+    assert.ok(names.includes('a_1.rs')); // a.go's base name is 'a', so it's treated as duplicate
   });
 });
 
@@ -373,7 +373,7 @@ describe('DECLARATION_STUB_TABLE', () => {
     ];
     for (const kind of expectedKinds) {
       assert.ok(typeof DECLARATION_STUB_TABLE[kind] === 'object',
-        `kind "${kind}" が DECLARATION_STUB_TABLE に定義されていません`);
+        `kind "${kind}" is not defined in DECLARATION_STUB_TABLE`);
     }
     assert.strictEqual(Object.keys(DECLARATION_STUB_TABLE).length, 8);
   });
@@ -383,7 +383,7 @@ describe('DECLARATION_STUB_TABLE', () => {
     for (const kind of Object.keys(DECLARATION_STUB_TABLE)) {
       for (const lang of expectedLangs) {
         assert.ok(typeof DECLARATION_STUB_TABLE[kind][lang] === 'string',
-          `kind "${kind}" に言語 "${lang}" のスタブがありません`);
+          `kind "${kind}" has no stub for language "${lang}"`);
       }
     }
   });
@@ -525,7 +525,7 @@ describe('resolveHeaderPaths', () => {
       SOURCE_BASENAME
     );
     assert.strictEqual(result.graphFlagForCmd, '--graph="RFC-ROOT-GRAPH.json"');
-    // relDir と basename が連結していないことを確認
+    // Verify that relDir and basename are NOT concatenated
     assert.ok(!result.graphFlagForCmd.includes(result.relDirToGraph));
   });
 

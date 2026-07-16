@@ -1,8 +1,8 @@
 /**
- * レビュー結果レポート生成スクリプト
+ * Generate review result report
  *
- * run-quality-checks.js の出力を入力として受け取り、
- * 人間可読なレポート文字列を生成する。
+ * Takes output from run-quality-checks.js as input and
+ * produces a human-readable report string.
  */
 
 function generateReport(results) {

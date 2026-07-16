@@ -1,15 +1,15 @@
 /**
- * get-ticket-as-markdown.js — Tickets.json のチケット情報を Markdown で出力する
+ * get-ticket-as-markdown.js — Outputs ticket information from Tickets.json as Markdown
  *
- * get-ticket.js の findTicket() でチケットを取得し、結果を Markdown に整形して
- * 標準出力に書き出す。AI が読みやすい形式でチケットの全フィールドを表示する。
+ * Retrieves a ticket via get-ticket.js's findTicket() and formats the result as Markdown
+ * for stdout. Displays all ticket fields in an AI-readable format.
  *
- * 使用法:
+ * Usage:
  *   node get-ticket-as-markdown.js <PATH of Tickets.json> <P{phaseID}-{ticketID}>
  *   node get-ticket-as-markdown.js <PATH of Tickets.json> PX-{ticketID}
  *
- * 成功時: Markdown 形式で出力、exit 0
- * エラー時: "## Error" + 説明、exit 1
+ * On success: Outputs Markdown, exit 0
+ * On error: "## Error" + description, exit 1
  */
 
 const { findTicket } = require('./get-ticket');

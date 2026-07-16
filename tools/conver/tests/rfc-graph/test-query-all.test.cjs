@@ -1,8 +1,8 @@
 /**
- * test-query-all.test.cjs — test-query-all.js のテスト
+ * test-query-all.test.cjs — Tests for test-query-all.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象: validateAllHeadingRefs, diagnoseBrokenRef, 診断補助関数
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Test targets: validateAllHeadingRefs, diagnoseBrokenRef, auxiliary diagnosis functions
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -29,108 +29,108 @@ const {
   HINTS_OUTPUT_FILENAME,
 } = require('../../.claude/scripts/rfc-graph/test-query-all.js');
 
-/** テスト用ソース行配列（resolve-by-heading.test.cjs と同様の形式） */
+/** Test source line array (same format as resolve-by-heading.test.cjs) */
 const SAMPLE_LINES = [
-  '# タイトル',
+  '# Title',
   '',
-  '## セクション1',
-  '内容A',
+  '## Section 1',
+  'Content A',
   '',
-  '## セクション2',
-  '内容B',
+  '## Section 2',
+  'Content B',
   '',
-  '### サブセクション2.1',
-  '詳細B1',
+  '### Subsection 2.1',
+  'Detail B1',
   '',
-  '## セクション3',
-  '内容C',
+  '## Section 3',
+  'Content C',
 ];
 
-/** 全て解決可能なテスト用グラフ */
+/** Fully resolvable test graph */
 const VALID_GRAPH = {
   nodes: [
     {
       id: 'N0001',
-      title: 'タイトルノード',
+      title: 'Title Node',
       kind: 'overview',
-      summary: '概要',
+      summary: 'Overview',
       slug: 'overview',
       headingRefs: [
-        { refId: 'REF001', heading: 1, texts: ['タイトル'] },
-        { refId: 'REF002', heading: 2, texts: ['セクション1'] },
+        { refId: 'REF001', heading: 1, texts: ['Title'] },
+        { refId: 'REF002', heading: 2, texts: ['Section 1'] },
       ],
     },
     {
       id: 'N0002',
-      title: 'サブセクション',
+      title: 'Subsection',
       kind: 'detail',
-      summary: '詳細',
+      summary: 'Details',
       slug: 'detail',
       headingRefs: [
-        { refId: 'REF003', heading: 3, texts: ['サブセクション2.1'] },
+        { refId: 'REF003', heading: 3, texts: ['Subsection 2.1'] },
       ],
     },
   ],
 };
 
-/** 一部解決不能なテスト用グラフ */
+/** Partially unresolvable test graph */
 const BROKEN_GRAPH = {
   nodes: [
     {
       id: 'N0001',
-      title: '正常ノード',
+      title: 'Normal Node',
       kind: 'overview',
-      summary: '概要',
+      summary: 'Overview',
       slug: 'overview',
       headingRefs: [
-        { refId: 'REF001', heading: 2, texts: ['セクション1'] },
+        { refId: 'REF001', heading: 2, texts: ['Section 1'] },
       ],
     },
     {
       id: 'N0002',
-      title: '異常ノード',
+      title: 'Broken Node',
       kind: 'detail',
-      summary: '詳細',
+      summary: 'Details',
       slug: 'detail',
       headingRefs: [
-        { refId: 'REF002', heading: 2, texts: ['存在しない見出し'] },
+        { refId: 'REF002', heading: 2, texts: ['Non-existent Heading'] },
       ],
     },
   ],
 };
 
-/** 全解決不能なテスト用グラフ（26件の broken） */
+/** Fully unresolvable test graph (26 broken entries) */
 function buildAllBrokenGraph(count) {
   const nodes = [];
   for (let i = 0; i < count; i++) {
     const nodeId = `N${String(i + 1).padStart(4, '0')}`;
     nodes.push({
       id: nodeId,
-      title: `ノード${i + 1}`,
+      title: `Node ${i + 1}`,
       kind: 'detail',
-      summary: '詳細',
+      summary: 'Details',
       slug: `node${i + 1}`,
       headingRefs: [
-        { refId: `REF${String(i * 3 + 1).padStart(3, '0')}`, heading: 5, texts: [`存在しない${i + 1}`] },
+        { refId: `REF${String(i * 3 + 1).padStart(3, '0')}`, heading: 5, texts: [`Non-existent ${i + 1}`] },
       ],
     });
   }
   return { nodes };
 }
 
-/** 重複排除テスト用グラフ */
+/** Deduplication test graph */
 const DUPLICATE_GRAPH = {
   nodes: [
     {
       id: 'N0001',
-      title: '重複テスト',
+      title: 'Duplicate Test',
       kind: 'detail',
-      summary: '詳細',
+      summary: 'Details',
       slug: 'duplicate',
       headingRefs: [
-        { refId: 'REF001', heading: 2, texts: ['存在しない'] },
-        { refId: 'REF001', heading: 2, texts: ['存在しない'] }, // 同一 refId の重複
-        { refId: 'REF002', heading: 2, texts: ['別の欠損'] },
+        { refId: 'REF001', heading: 2, texts: ['Non-existent'] },
+        { refId: 'REF001', heading: 2, texts: ['Non-existent'] }, // Same refId duplicate
+        { refId: 'REF002', heading: 2, texts: ['Another Missing'] },
       ],
     },
   ],
@@ -141,26 +141,26 @@ const DUPLICATE_GRAPH = {
 // ============================================================
 
 describe('parseArguments', () => {
-  it('正常系: --graph + --source', () => {
+  it('parses --graph + --source correctly', () => {
     const r = parseArguments(['node', 'script', '--graph=g.json', '--source=s.md']);
     assert.equal(r.graphPath, 'g.json');
     assert.equal(r.sourcePath, 's.md');
   });
 
-  it('異常系: --graph のみ', () => {
+  it('throws with --graph only', () => {
     assert.throws(() => parseArguments(['node', 'script', '--graph=g.json']), /--source/);
   });
 
-  it('異常系: --source のみ', () => {
+  it('throws with --source only', () => {
     assert.throws(() => parseArguments(['node', 'script', '--source=s.md']), /--graph/);
   });
 
-  it('正常系: --help', () => {
+  it('parses --help correctly', () => {
     const r = parseArguments(['node', 'script', '--help']);
     assert.equal(r.help, true);
   });
 
-  it('異常系: 引数なし', () => {
+  it('throws with no arguments', () => {
     assert.throws(() => parseArguments(['node', 'script']), /--graph/);
   });
 });
@@ -170,19 +170,19 @@ describe('parseArguments', () => {
 // ============================================================
 
 describe('collectHeadingLines', () => {
-  it('h2: 3行収集できる', () => {
+  it('collects 3 h2 heading lines', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 2);
     assert.equal(lines.length, 3);
-    assert.equal(lines[0].text, '## セクション1');
+    assert.equal(lines[0].text, '## Section 1');
   });
 
-  it('h1: 1行収集できる', () => {
+  it('collects 1 h1 heading line', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 1);
     assert.equal(lines.length, 1);
-    assert.equal(lines[0].text, '# タイトル');
+    assert.equal(lines[0].text, '# Title');
   });
 
-  it('h5: 0行（存在しないレベル）', () => {
+  it('returns 0 lines for non-existent heading level h5', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 5);
     assert.equal(lines.length, 0);
   });
@@ -193,23 +193,23 @@ describe('collectHeadingLines', () => {
 // ============================================================
 
 describe('computeTokenMatchScore', () => {
-  it('全トークン一致: 100%', () => {
-    const score = computeTokenMatchScore(['セクション', '1'], '## セクション1');
+  it('all tokens match: 100%', () => {
+    const score = computeTokenMatchScore(['Section', '1'], '## Section 1');
     assert.equal(score, 100);
   });
 
-  it('半数一致: 50%', () => {
-    const score = computeTokenMatchScore(['セクション', '存在しない'], '## セクション1');
+  it('half match: 50%', () => {
+    const score = computeTokenMatchScore(['Section', 'Non-existent'], '## Section 1');
     assert.equal(score, 50);
   });
 
-  it('0件一致: 0%', () => {
-    const score = computeTokenMatchScore(['存在しない', '別の何か'], '## セクション1');
+  it('no match: 0%', () => {
+    const score = computeTokenMatchScore(['Non-existent', 'Something Else'], '## Section 1');
     assert.equal(score, 0);
   });
 
-  it('空配列: 0%', () => {
-    const score = computeTokenMatchScore([], '## セクション1');
+  it('empty array: 0%', () => {
+    const score = computeTokenMatchScore([], '## Section 1');
     assert.equal(score, 0);
   });
 });
@@ -219,28 +219,28 @@ describe('computeTokenMatchScore', () => {
 // ============================================================
 
 describe('isMutuallyExclusive', () => {
-  it('同じ行にあるトークン: false', () => {
+  it('tokens on same line: false', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 2);
-    const result = isMutuallyExclusive(['セクション', '1'], lines);
+    const result = isMutuallyExclusive(['Section', '1'], lines);
     assert.equal(result, false);
   });
 
-  it('異なる行のトークン: true（M9）', () => {
+  it('tokens on different lines: true (M9)', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 2);
-    // 'セクション1' と 'セクション3' は別の行
-    const result = isMutuallyExclusive(['セクション1', 'セクション3'], lines);
+    // 'Section 1' and 'Section 3' are on different lines
+    const result = isMutuallyExclusive(['Section 1', 'Section 3'], lines);
     assert.equal(result, true);
   });
 
-  it('1トークン: false', () => {
+  it('single token: false', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 2);
-    const result = isMutuallyExclusive(['セクション1'], lines);
+    const result = isMutuallyExclusive(['Section 1'], lines);
     assert.equal(result, false);
   });
 
-  it('マッチしないトークンを含む: false', () => {
+  it('includes non-matching tokens: false', () => {
     const lines = collectHeadingLines(SAMPLE_LINES, 2);
-    const result = isMutuallyExclusive(['存在しない', '別の何か'], lines);
+    const result = isMutuallyExclusive(['Non-existent', 'Something Else'], lines);
     assert.equal(result, false);
   });
 });
@@ -250,17 +250,17 @@ describe('isMutuallyExclusive', () => {
 // ============================================================
 
 describe('checkOtherHeadingLevels', () => {
-  it('別レベルに高スコアがあれば返す', () => {
-    // h3 で 'サブセクション2.1' を探す → 指定:h1 別:h3 で100%
-    const result = checkOtherHeadingLevels(SAMPLE_LINES, 1, ['サブセクション2.1']);
+  it('returns alternative level when it has a higher score', () => {
+    // Searching for 'Subsection 2.1' at h1 → h3 has 100% match
+    const result = checkOtherHeadingLevels(SAMPLE_LINES, 1, ['Subsection 2.1']);
     assert.notEqual(result, null);
     assert.equal(result.level, 3);
     assert.equal(result.score, 100);
   });
 
-  it('他のレベルに高スコアがない場合は null', () => {
-    const result = checkOtherHeadingLevels(SAMPLE_LINES, 2, ['セクション1']);
-    // h2 が最も適切
+  it('returns null when no other level has a higher score', () => {
+    const result = checkOtherHeadingLevels(SAMPLE_LINES, 2, ['Section 1']);
+    // h2 is the most appropriate
     assert.equal(result, null);
   });
 });
@@ -270,33 +270,33 @@ describe('checkOtherHeadingLevels', () => {
 // ============================================================
 
 describe('diagnoseBrokenRef', () => {
-  it('M1: 全トークン不一致（0%一致）', () => {
-    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['存在しない見出し'] });
+  it('M1: no tokens match (0%)', () => {
+    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['Non-existent Heading'] });
     assert.equal(result.diagnosis, DIAGNOSIS_LABELS.M1);
     assert.equal(result.score, 0);
   });
 
-  it('M2: 1トークンのみ一致（1〜25%）', () => {
-    // 4トークンのうち1つだけ一致 = 25%
-    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['セクション', 'X', 'Y', 'Z'] });
+  it('M2: only 1 token matches (1-25%)', () => {
+    // 4 tokens, only 1 matches = 25%
+    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['Section', 'X', 'Y', 'Z'] });
     assert.equal(result.diagnosis, DIAGNOSIS_LABELS.M2);
     assert.ok(result.score <= 25);
     assert.ok(result.score > 0);
   });
 
-  it('M8: 別の見出しレベルの方が高スコア', () => {
-    // h1 で 'サブセクション2.1' → h3 の方が適切
-    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 1, texts: ['サブセクション2.1'] });
+  it('M8: different heading level has higher score', () => {
+    // Searching for 'Subsection 2.1' at h1 → h3 is more appropriate
+    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 1, texts: ['Subsection 2.1'] });
     assert.equal(result.diagnosis, DIAGNOSIS_LABELS.M8);
   });
 
-  it('M9: トークンが共存不可能', () => {
-    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['セクション1', 'セクション3'] });
+  it('M9: tokens cannot coexist', () => {
+    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 2, texts: ['Section 1', 'Section 3'] });
     assert.equal(result.diagnosis, DIAGNOSIS_LABELS.M9);
   });
 
-  it('M0: 指定 heading の行が0件', () => {
-    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 7, texts: ['何か'] });
+  it('M0: 0 lines for specified heading level', () => {
+    const result = diagnoseBrokenRef(SAMPLE_LINES, { heading: 7, texts: ['Something'] });
     assert.equal(result.diagnosis, DIAGNOSIS_LABELS.M0);
   });
 });
@@ -306,29 +306,29 @@ describe('diagnoseBrokenRef', () => {
 // ============================================================
 
 describe('validateAllHeadingRefs', () => {
-  it('正常系: 全 headingRefs が解決可能 → broken 0件', () => {
+  it('all headingRefs resolvable: 0 broken', () => {
     const { broken, totalRefs } = validateAllHeadingRefs(VALID_GRAPH, SAMPLE_LINES);
     assert.equal(broken.length, 0);
     assert.equal(totalRefs, 3);
   });
 
-  it('異常系: 一部解決不能 → broken 1件', () => {
+  it('partial resolution failure: 1 broken', () => {
     const { broken, totalRefs } = validateAllHeadingRefs(BROKEN_GRAPH, SAMPLE_LINES);
     assert.equal(broken.length, 1);
     assert.equal(totalRefs, 2);
     assert.equal(broken[0].nodeId, 'N0002');
   });
 
-  it('異常系: 全 headingRefs が解決不能 → broken 全件', () => {
+  it('all headingRefs unresolvable: all broken', () => {
     const graph = buildAllBrokenGraph(3);
     const { broken, totalRefs } = validateAllHeadingRefs(graph, SAMPLE_LINES);
     assert.equal(broken.length, 3);
     assert.equal(totalRefs, 3);
   });
 
-  it('重複排除: 同一 nodeId + 同一 refId は1件にまとまる', () => {
+  it('deduplication: same nodeId + same refId merges into 1 entry', () => {
     const { broken } = validateAllHeadingRefs(DUPLICATE_GRAPH, SAMPLE_LINES);
-    // REF001 は重複しているので1件にまとまる、REF002 は別
+    // REF001 is duplicated so it merges into 1, REF002 is separate
     assert.equal(broken.length, 2);
   });
 });
@@ -338,7 +338,7 @@ describe('validateAllHeadingRefs', () => {
 // ============================================================
 
 describe('buildHintsJson', () => {
-  it('hints JSON が正しい構造を持つ', () => {
+  it('hints JSON has correct structure', () => {
     const { broken } = validateAllHeadingRefs(BROKEN_GRAPH, SAMPLE_LINES);
     const hints = buildHintsJson(broken);
     assert.ok(hints.generatedAt);
@@ -350,7 +350,7 @@ describe('buildHintsJson', () => {
     assert.ok(hints.nodes[0].details);
   });
 
-  it('broken 0件でも正常動作', () => {
+  it('works correctly with 0 broken entries', () => {
     const hints = buildHintsJson([]);
     assert.equal(hints.totalBroken, 0);
     assert.equal(hints.nodes.length, 0);
@@ -358,7 +358,7 @@ describe('buildHintsJson', () => {
 });
 
 describe('formatSuccessMessage', () => {
-  it('正常メッセージを生成する', () => {
+  it('generates success message', () => {
     const msg = formatSuccessMessage(5);
     assert.ok(msg.includes('5'));
     assert.ok(msg.includes('正常解決'));
@@ -366,21 +366,21 @@ describe('formatSuccessMessage', () => {
 });
 
 describe('formatErrorMessage', () => {
-  it('1件のエラーメッセージを生成する', () => {
+  it('generates error message for 1 broken entry', () => {
     const { broken } = validateAllHeadingRefs(BROKEN_GRAPH, SAMPLE_LINES);
     const msg = formatErrorMessage(broken);
     assert.ok(msg.includes('N0002'));
     assert.ok(msg.includes(DIAGNOSIS_LABELS.M1));
   });
 
-  it('25件以下は全件詳細表示', () => {
+  it('shows all details for 25 or fewer entries', () => {
     const graph = buildAllBrokenGraph(5);
     const { broken } = validateAllHeadingRefs(graph, SAMPLE_LINES);
     const msg = formatErrorMessage(broken);
     assert.ok(!msg.includes('その他'));
   });
 
-  it('26件以上は25件詳細 + 残り件数表示', () => {
+  it('shows 25 details + remaining count for 26+ entries', () => {
     const graph = buildAllBrokenGraph(26);
     const { broken } = validateAllHeadingRefs(graph, SAMPLE_LINES);
     const msg = formatErrorMessage(broken);
@@ -389,21 +389,21 @@ describe('formatErrorMessage', () => {
 });
 
 // ============================================================
-// MAX_DETAIL_ENTRIES — 定数確認
+// MAX_DETAIL_ENTRIES — constant check
 // ============================================================
 
-describe('定数', () => {
-  it('MAX_DETAIL_ENTRIES は25', () => {
+describe('Constants', () => {
+  it('MAX_DETAIL_ENTRIES is 25', () => {
     assert.equal(MAX_DETAIL_ENTRIES, 25);
   });
 
-  it('HINTS_OUTPUT_FILENAME は _fix_graph_hints.json', () => {
+  it('HINTS_OUTPUT_FILENAME is _fix_graph_hints.json', () => {
     assert.equal(HINTS_OUTPUT_FILENAME, '_fix_graph_hints.json');
   });
 });
 
 // ============================================================
-// loadGraphAndSource — 実際のファイルI/O
+// loadGraphAndSource — actual file I/O
 // ============================================================
 
 describe('loadGraphAndSource', () => {
@@ -419,7 +419,7 @@ describe('loadGraphAndSource', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('正常系: ファイル読み込み成功', () => {
+  it('loads files successfully', () => {
     const { graph, sourceLines } = loadGraphAndSource(
       path.join(tmpDir, 'test.json'),
       path.join(tmpDir, 'test.md')
@@ -428,7 +428,7 @@ describe('loadGraphAndSource', () => {
     assert.equal(sourceLines.length, SAMPLE_LINES.length);
   });
 
-  it('異常系: 存在しないファイルパス → エラー', () => {
+  it('throws on non-existent file path', () => {
     assert.throws(() => loadGraphAndSource('/nonexistent/file.json', '/nonexistent/file.md'));
   });
 });

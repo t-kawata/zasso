@@ -2,12 +2,12 @@
 /**
  * check-field-density.js <Tickets.json path> <ticket-key>
  *
- * /make-ticket Step 5 終了時に AI が実行する。対象チケットの全フィールドから
- * [::TEMPLATE-STUB::] マーカーを検出し、未記入の有無を検証する。
+ * Executed by AI at the end of /make-ticket Step 5. Detects [::TEMPLATE-STUB::]
+ * markers across all fields of the target ticket and verifies whether any remain unfilled.
  *
- * 動作仕様:
- *   - exit 0: マーカー0件（全フィールド記入済み）
- *   - exit 1: マーカー1件以上（未記入あり）、stderr に詳細JSON
+ * Behavior:
+ *   - exit 0: no markers found (all fields filled)
+ *   - exit 1: one or more markers found (unfilled fields), details JSON to stderr
  *   - stdout: JSON { ok: true/false, count: N, density: { ... } }
  */
 
@@ -18,10 +18,10 @@ const { execFileSync } = require("child_process");
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-/** マーカー検出用正規表現 */
+/** Regex for detecting markers */
 const STUB_PATTERN = /\[::TEMPLATE-STUB::([^\]]+)::\]/g;
 
-/** 密度スコアリング対象フィールドとその必須項目数 */
+/** Density scoring target fields and their expected item counts */
 const FIELD_EXPECTED = {
   invariants: 4,
   background: 4,
@@ -61,7 +61,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // get-ticket.js でチケット取得
+  // Retrieve ticket via get-ticket.js
   const getScript = path.join(__dirname, "get-ticket.js");
   let getResult;
   try {
@@ -92,7 +92,7 @@ function main() {
 
   const ticket = getResult.ticket;
 
-  // 全フィールドを文字列連接してマーカー検出
+  // Concatenate all fields as strings and detect markers
   const allStubs = []; // { field, marker, context }
   const fieldDensity = {};
   let totalExpected = 0;
@@ -101,7 +101,7 @@ function main() {
   for (const field of Object.keys(FIELD_EXPECTED)) {
     const raw = ticket[field];
     if (raw === undefined || raw === null) {
-      // フィールドそのものが存在しない
+      // Field itself does not exist
       fieldDensity[field] = { expected: FIELD_EXPECTED[field], filled: 0, ratio: 0 };
       continue;
     }
@@ -125,14 +125,14 @@ function main() {
     }
   }
 
-  // 密度スコアリング結果
+  // Density scoring results
   const densityResult = {
     fields: fieldDensity,
     total: { expected: totalExpected, filled: totalFilled },
     overallRatio: totalExpected > 0 ? totalFilled / totalExpected : 1,
   };
 
-  // stdout に結果を出力
+  // Output results to stdout
   const result = {
     ok: allStubs.length === 0,
     count: allStubs.reduce((sum, s) => sum + s.count, 0),
@@ -142,7 +142,7 @@ function main() {
   console.log(JSON.stringify(result));
 
   if (allStubs.length > 0) {
-    // stderr に未記入の詳細を出力
+    // Output unfilled details to stderr
     const errors = allStubs.map(
       (s) => `${s.field}: ${s.count} unset marker(s) - ${s.markers.join(", ")}`,
     );

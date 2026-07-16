@@ -1,9 +1,9 @@
 /**
- * resolve-by-heading.test.cjs — resolveByHeading のテスト
+ * resolve-by-heading.test.cjs — Tests for resolveByHeading
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象: resolveByHeading(), resolveAllHeadings(), parseArguments()
- * 4段階フォールバックの全ケースを網羅する。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Test target: resolveByHeading(), resolveAllHeadings(), parseArguments()
+ * Covers all 4-stage fallback cases.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -18,21 +18,21 @@ const {
   parseArguments,
 } = require('../../.claude/scripts/rfc-graph/resolve-by-heading.js');
 
-/** テスト用のソース行配列 */
+/** Test source lines */
 const SAMPLE_LINES = [
-  '# タイトル',
+  '# Title',
   '',
-  '## セクション1',
-  '内容A',
+  '## Section 1',
+  'Content A',
   '',
-  '## セクション2',
-  '内容B',
+  '## Section 2',
+  'Content B',
   '',
-  '### サブセクション2.1',
-  '詳細B1',
+  '### Subsection 2.1',
+  'Detail B1',
   '',
-  '## セクション3',
-  '内容C',
+  '## Section 3',
+  'Content C',
 ];
 
 // ============================================================
@@ -40,25 +40,25 @@ const SAMPLE_LINES = [
 // ============================================================
 
 describe('parseArguments', () => {
-  it('正常系: --source のみ', () => {
+  it('normal: --source only', () => {
     const r = parseArguments(['node', 'script', '--source=/path/file.md']);
     assert.equal(r.sourcePath, '/path/file.md');
   });
 
-  it('正常系: --source --heading --texts', () => {
-    const r = parseArguments(['node', 'script', '--source=f.md', '--heading=2', '--texts=概要,説明']);
+  it('normal: --source --heading --texts', () => {
+    const r = parseArguments(['node', 'script', '--source=f.md', '--heading=2', '--texts=Overview,Description']);
     assert.equal(r.sourcePath, 'f.md');
     assert.equal(r.heading, 2);
-    assert.deepEqual(r.texts, ['概要', '説明']);
+    assert.deepEqual(r.texts, ['Overview', 'Description']);
   });
 
-  it('正常系: --source --graph', () => {
+  it('normal: --source --graph', () => {
     const r = parseArguments(['node', 'script', '--source=f.md', '--graph=g.json']);
     assert.equal(r.sourcePath, 'f.md');
     assert.equal(r.graphPath, 'g.json');
   });
 
-  it('異常系: --source が不足', () => {
+  it('error: missing --source', () => {
     assert.throws(() => parseArguments(['node', 'script']), /--source/);
   });
 });
@@ -68,32 +68,32 @@ describe('parseArguments', () => {
 // ============================================================
 
 describe('resolveByHeading', () => {
-  it('Stage1 exact: texts[0] で一意に決まる', () => {
-    const r = resolveByHeading(SAMPLE_LINES, 2, ['セクション1']);
+  it('Stage1 exact: texts[0] resolves uniquely', () => {
+    const r = resolveByHeading(SAMPLE_LINES, 2, ['Section 1']);
     assert.notEqual(r, null);
     assert.equal(r.line, 3);
     assert.equal(r.confidence, 'exact');
   });
 
-  it('heading=0: ファイル先頭付近を検索', () => {
-    const lines = ['---', 'title: Test', '---', '', '# 本文'];
+  it('heading=0: search near file start', () => {
+    const lines = ['---', 'title: Test', '---', '', '# Body'];
     const r = resolveByHeading(lines, 0, ['title']);
     assert.notEqual(r, null);
     assert.equal(r.line, 2);
   });
 
-  it('複数マッチ → 連結grepで1件に絞れる場合 partial', () => {
-    const r = resolveByHeading(SAMPLE_LINES, 2, ['セクション2']);
+  it('multiple matches narrowed to one via combined grep partial', () => {
+    const r = resolveByHeading(SAMPLE_LINES, 2, ['Section 2']);
     assert.notEqual(r, null);
     assert.equal(r.confidence, 'exact');
   });
 
-  it('全フェーズ不発 → null', () => {
-    const r = resolveByHeading(SAMPLE_LINES, 1, ['存在しない']);
+  it('all phases miss returns null', () => {
+    const r = resolveByHeading(SAMPLE_LINES, 1, ['nonexistent']);
     assert.equal(r, null);
   });
 
-  it('空のtexts配列 → null', () => {
+  it('empty texts array returns null', () => {
     const r = resolveByHeading(SAMPLE_LINES, 1, []);
     assert.equal(r, null);
   });
@@ -114,7 +114,7 @@ describe('resolveAllHeadings', () => {
     if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('正常系: グラフ内の全 headingRefs を解決する', () => {
+  it('normal: resolves all headingRefs in graph', () => {
     const sourcePath = path.join(tmpDir, 'test.md');
     fs.writeFileSync(sourcePath, SAMPLE_LINES.join('\n'), 'utf8');
 
@@ -123,15 +123,15 @@ describe('resolveAllHeadings', () => {
       nodes: [
         {
           id: 'N0001',
-          title: 'セクション1',
+          title: 'Section 1',
           kind: 'requirement',
-          headingRefs: [{ refId: 'REF001', heading: 2, texts: ['セクション1'] }],
+          headingRefs: [{ refId: 'REF001', heading: 2, texts: ['Section 1'] }],
         },
         {
           id: 'N0002',
-          title: 'セクション2',
+          title: 'Section 2',
           kind: 'requirement',
-          headingRefs: [{ refId: 'REF002', heading: 2, texts: ['セクション2'] }],
+          headingRefs: [{ refId: 'REF002', heading: 2, texts: ['Section 2'] }],
         },
       ],
       edges: [],
@@ -145,7 +145,7 @@ describe('resolveAllHeadings', () => {
     assert.equal(results[1].confidence, 'exact');
   });
 
-  it('異常系: 解決できない headingRefs は error を含む', () => {
+  it('error: unresolvable headingRefs include error', () => {
     const sourcePath = path.join(tmpDir, 'empty.md');
     fs.writeFileSync(sourcePath, '', 'utf8');
 
@@ -154,9 +154,9 @@ describe('resolveAllHeadings', () => {
       nodes: [
         {
           id: 'N0001',
-          title: '不明',
+          title: 'Unknown',
           kind: 'requirement',
-          headingRefs: [{ refId: 'REF001', heading: 2, texts: ['ない見出し'] }],
+          headingRefs: [{ refId: 'REF001', heading: 2, texts: ['nonexistent heading'] }],
         },
       ],
       edges: [],

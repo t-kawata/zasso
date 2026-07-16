@@ -1,8 +1,8 @@
 /**
- * boundify-tree.test.cjs — boundify-tree.js のユニットテスト
+ * boundify-tree.test.cjs — boundify-tree.js unit tests
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * RFC-BOUNDIFY.md §3.5 準拠
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Compliant with RFC-BOUNDIFY.md §3.5
  */
 
 'use strict';
@@ -31,16 +31,16 @@ const {
   getDeclarationStub,
 } = require('../../.claude/scripts/rfc-graph/boundify-helpers.js');
 
-// --- フィクスチャデータ ---
+// --- Fixture data ---
 
-/** 基本的な part_of 階層を持つグラフ */
+/** Graph with a basic part_of hierarchy */
 const SIMPLE_GRAPH = {
   nodes: [
     { id: 'root', title: 'Root', kind: 'architecture' },
-    { id: 'child1', title: 'イベントモデル', kind: 'architecture' },
-    { id: 'child2', title: 'ペイロード定義', kind: 'data_model' },
-    { id: 'config1', title: '設定', kind: 'config' },
-    { id: 'error1', title: 'エラー型', kind: 'error_policy' },
+    { id: 'child1', title: 'Event Model', kind: 'architecture' },
+    { id: 'child2', title: 'Payload Definition', kind: 'data_model' },
+    { id: 'config1', title: 'Config', kind: 'config' },
+    { id: 'error1', title: 'Error Types', kind: 'error_policy' },
   ],
   edges: [
     { from: 'child1', to: 'root', type: 'part_of' },
@@ -49,7 +49,7 @@ const SIMPLE_GRAPH = {
   ],
 };
 
-/** part_of エッジがないグラフ */
+/** Graph with no part_of edges */
 const EDGELESS_GRAPH = {
   nodes: [
     { id: 'n1', title: 'Node1', kind: 'architecture' },
@@ -58,7 +58,7 @@ const EDGELESS_GRAPH = {
   edges: [],
 };
 
-/** 循環 part_of エッジを持つグラフ */
+/** Graph with circular part_of edges */
 const CYCLIC_GRAPH = {
   nodes: [
     { id: 'a', title: 'A', kind: 'architecture' },
@@ -68,11 +68,11 @@ const CYCLIC_GRAPH = {
   edges: [
     { from: 'b', to: 'a', type: 'part_of' },
     { from: 'c', to: 'b', type: 'part_of' },
-    { from: 'a', to: 'c', type: 'part_of' }, // 循環
+    { from: 'a', to: 'c', type: 'part_of' }, // circular
   ],
 };
 
-/** part_of エッジなし、kind だけのグラフ */
+/** Graph with no part_of edges, only kinds */
 const NO_PARENT_GRAPH = {
   nodes: [
     { id: 'cfg', title: 'Config', kind: 'config' },
@@ -83,13 +83,13 @@ const NO_PARENT_GRAPH = {
   ],
 };
 
-/** 空グラフ */
+/** Empty graph */
 const EMPTY_GRAPH = {
   nodes: [],
   edges: [],
 };
 
-/** 子ファイルを持つディレクトリノード */
+/** Directory node with child files */
 const DIR_WITH_FILES = {
   name: 'event',
   type: 'directory',
@@ -100,14 +100,14 @@ const DIR_WITH_FILES = {
   ],
 };
 
-/** 子がないディレクトリノード */
+/** Directory node with no children */
 const DIR_NO_CHILDREN = {
   name: 'empty',
   type: 'directory',
   children: [],
 };
 
-/** Rust の barrel ファイル（mod.rs）を子に含む */
+/** Directory containing a Rust barrel file (mod.rs) */
 const DIR_WITH_MOD_RS = {
   name: 'event',
   type: 'directory',
@@ -117,7 +117,7 @@ const DIR_WITH_MOD_RS = {
   ],
 };
 
-/** TS の barrel ファイル（index.ts）を子に含む */
+/** Directory containing a TS barrel file (index.ts) */
 const DIR_WITH_INDEX_TS = {
   name: 'components',
   type: 'directory',
@@ -127,17 +127,17 @@ const DIR_WITH_INDEX_TS = {
   ],
 };
 
-/** 複数階層を持ち重複を含む複雑なグラフ */
+/** Complex graph with multiple levels and duplicates */
 const COMPLEX_GRAPH = {
   nodes: [
     { id: 'src', title: 'SourceRoot', kind: 'architecture' },
-    { id: 'evt', title: 'イベントモデル', kind: 'architecture' },
-    { id: 'pl', title: 'ペイロード', kind: 'data_model' },
-    { id: 'cfg', title: '設定管理', kind: 'config' },
-    { id: 'err', title: 'エラー処理', kind: 'error_policy' },
-    { id: 'sec', title: 'セキュリティ', kind: 'security' },
-    { id: 'test', title: 'テスト', kind: 'test_policy' },
-    { id: 'build', title: 'ビルド', kind: 'build_ci' },
+    { id: 'evt', title: 'Event Model', kind: 'architecture' },
+    { id: 'pl', title: 'Payload', kind: 'data_model' },
+    { id: 'cfg', title: 'Config Manager', kind: 'config' },
+    { id: 'err', title: 'Error Handler', kind: 'error_policy' },
+    { id: 'sec', title: 'Security', kind: 'security' },
+    { id: 'test', title: 'Test', kind: 'test_policy' },
+    { id: 'build', title: 'Build', kind: 'build_ci' },
   ],
   edges: [
     { from: 'evt', to: 'src', type: 'part_of' },
@@ -145,7 +145,7 @@ const COMPLEX_GRAPH = {
   ],
 };
 
-// --- テストスイート ---
+// --- Test suites ---
 
 describe('KIND_FILE_RULES', () => {
   it('should have 8 rule-driven kinds (prose + architecture excluded)', () => {
@@ -156,72 +156,72 @@ describe('KIND_FILE_RULES', () => {
     ];
     for (const kind of expectedKinds) {
       assert.ok(typeof KIND_FILE_RULES[kind] === 'string',
-        `kind "${kind}" が KIND_FILE_RULES に定義されていません`);
+        `kind "${kind}" is not defined in KIND_FILE_RULES`);
     }
-    // prose 系 kind は除外されている
+    // prose kinds should be excluded
     assert.equal(KIND_FILE_RULES.rationale, undefined,
-      'rationale は除外されている');
+      'rationale should be excluded');
     assert.equal(KIND_FILE_RULES.glossary, undefined,
-      'glossary は除外されている');
+      'glossary should be excluded');
     assert.equal(KIND_FILE_RULES.requirement, undefined,
-      'requirement は除外されている');
+      'requirement should be excluded');
     assert.equal(KIND_FILE_RULES.requirement, undefined,
-      'requirement は削除されている');
+      'requirement should be removed');
   });
 
-  it('config は config/ にマッピングされる', () => {
+  it('config maps to config/ directory', () => {
     assert.equal(KIND_FILE_RULES.config, 'config');
   });
 
-  it('error_policy は error/ にマッピングされる', () => {
+  it('error_policy maps to error/ directory', () => {
     assert.equal(KIND_FILE_RULES.error_policy, 'error');
   });
 
-  it('test_policy は tests/ にマッピングされる', () => {
+  it('test_policy maps to tests/ directory', () => {
     assert.equal(KIND_FILE_RULES.test_policy, 'tests');
   });
 
-  it('build_ci は build/ にマッピングされる', () => {
+  it('build_ci maps to build/ directory', () => {
     assert.equal(KIND_FILE_RULES.build_ci, 'build');
   });
 
-  it('architecture は KIND_FILE_RULES に含まれない', () => {
+  it('architecture is NOT included in KIND_FILE_RULES', () => {
     assert.equal(KIND_FILE_RULES.architecture, undefined);
   });
 
-  it('api_contract は KIND_FILE_RULES に含まれる', () => {
+  it('api_contract is included in KIND_FILE_RULES', () => {
     assert.equal(KIND_FILE_RULES.api_contract, 'api');
   });
 
-  it('data_model は KIND_FILE_RULES に含まれる', () => {
+  it('data_model is included in KIND_FILE_RULES', () => {
     assert.equal(KIND_FILE_RULES.data_model, 'model');
   });
 });
 
 describe('buildDomainHierarchy', () => {
-  it('part_of エッジからドメイン階層を構築する', () => {
+  it('builds domain hierarchy from part_of edges', () => {
     const result = buildDomainHierarchy(SIMPLE_GRAPH);
     assert.ok(result.roots);
     assert.ok(result.childOf);
 
-    // ルートノード: root（arch）、config1、error1（part_of なし）
+    // Root nodes: root (arch), config1, error1 (no part_of)
     assert.equal(result.roots.length, 3);
     assert.ok(result.roots.some(r => r.node.id === 'root'));
 
-    // childOf マップ
+    // childOf map
     assert.equal(result.childOf['child1'], 'root');
     assert.equal(result.childOf['child2'], 'child1');
   });
 
-  it('part_of エッジがない場合、全ノードがルートになる', () => {
+  it('all nodes become roots when there are no part_of edges', () => {
     const result = buildDomainHierarchy(EDGELESS_GRAPH);
     assert.equal(result.roots.length, 2);
     assert.deepEqual(result.childOf, {});
   });
 
-  it('グラフに part_of エッジのみで kind が混在する場合も正しく階層構築する', () => {
+  it('builds hierarchy correctly with mixed kinds and only part_of edges', () => {
     const result = buildDomainHierarchy(SIMPLE_GRAPH);
-    // root ノードの子が child1
+    // root node should have child1 as a child
     const rootNode = result.roots.find(r => r.node.id === 'root');
     assert.ok(rootNode);
     assert.ok(rootNode.children);
@@ -229,58 +229,58 @@ describe('buildDomainHierarchy', () => {
     assert.equal(rootNode.children[0].node.id, 'child1');
   });
 
-  it('空グラフでエラーにならない', () => {
+  it('handles empty graph without error', () => {
     const result = buildDomainHierarchy(EMPTY_GRAPH);
     assert.deepEqual(result.roots, []);
     assert.deepEqual(result.childOf, {});
   });
 
-  it('循環 part_of エッジでエラーにならない（循環ノードは除外される）', () => {
+  it('handles circular part_of edges without error (circular nodes are excluded)', () => {
     const result = buildDomainHierarchy(CYCLIC_GRAPH);
-    // 循環検出により少なくとも1つのノードが除外される可能性がある
+    // Cycle detection may exclude at least one node
     assert.ok(Array.isArray(result.roots));
     assert.ok(result.roots.length <= 3);
   });
 });
 
 describe('resolveDirForNode', () => {
-  it('config kind → config/ ディレクトリ', () => {
+  it('config kind maps to config/ directory', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'c', kind: 'config' }, hierarchy);
     assert.equal(dir, 'config');
   });
 
-  it('error_policy kind → error/ ディレクトリ', () => {
+  it('error_policy kind maps to error/ directory', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'e', kind: 'error_policy' }, hierarchy);
     assert.equal(dir, 'error');
   });
 
-  it('architecture kind → null（ディレクトリ骨格）', () => {
+  it('architecture kind returns null (directory skeleton)', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'a', kind: 'architecture' }, hierarchy);
     assert.equal(dir, null);
   });
 
-  it('api_contract kind → api（KIND_FILE_RULES）', () => {
+  it('api_contract kind maps to api (KIND_FILE_RULES)', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'a', kind: 'api_contract' }, hierarchy);
     assert.equal(dir, 'api');
   });
 
-  it('data_model kind → model（KIND_FILE_RULES）', () => {
+  it('data_model kind maps to model (KIND_FILE_RULES)', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'd', kind: 'data_model' }, hierarchy);
     assert.equal(dir, 'model');
   });
 
-  it('state_machine kind → state（KIND_FILE_RULES）', () => {
+  it('state_machine kind maps to state (KIND_FILE_RULES)', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 's', kind: 'state_machine' }, hierarchy);
     assert.equal(dir, 'state');
   });
 
-  it('未定義 kind は kind 名をフォールバックする', () => {
+  it('undefined kind falls back to the kind name itself', () => {
     const hierarchy = { childOf: {} };
     const dir = resolveDirForNode({ id: 'x', kind: 'unknown_kind' }, hierarchy);
     assert.equal(dir, 'unknown_kind');
@@ -288,17 +288,17 @@ describe('resolveDirForNode', () => {
 });
 
 describe('resolveNodeToDirMap', () => {
-  it('全ノードのディレクトリマップを構築する', () => {
+  it('builds directory map for all nodes', () => {
     const hierarchy = buildDomainHierarchy(SIMPLE_GRAPH);
     const map = resolveNodeToDirMap(SIMPLE_GRAPH, hierarchy);
-    assert.ok(map['root'] === null);          // architecture → 骨格
-    assert.ok(map['child1'] === null);        // architecture → 骨格
-    assert.equal(map['child2'], 'model');       // data_model → model/
-    assert.equal(map['config1'], 'config');    // config → config/
-    assert.equal(map['error1'], 'error');      // error_policy → error/
+    assert.ok(map['root'] === null);          // architecture -> skeleton
+    assert.ok(map['child1'] === null);        // architecture -> skeleton
+    assert.equal(map['child2'], 'model');       // data_model -> model/
+    assert.equal(map['config1'], 'config');    // config -> config/
+    assert.equal(map['error1'], 'error');      // error_policy -> error/
   });
 
-  it('空グラフで空マップを返す', () => {
+  it('returns empty map for empty graph', () => {
     const hierarchy = buildDomainHierarchy(EMPTY_GRAPH);
     const map = resolveNodeToDirMap(EMPTY_GRAPH, hierarchy);
     assert.deepEqual(map, {});
@@ -339,81 +339,81 @@ describe('buildDirectoryTree', () => {
     getDeclarationStub: getDeclarationStub,
   };
 
-  it('単一ルート→単一ディレクトリツリー', () => {
+  it('single root produces single directory tree', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
     assert.ok(result.tree);
     assert.equal(result.tree.name, 'src');
     assert.ok(result.tree.children.length > 0);
   });
 
-  it('階層→子ディレクトリ', () => {
+  it('hierarchy produces subdirectories', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
-    // root の子に「イベントモデル」ディレクトリがある
+    // There should be an "Event Model" directory under root
     assert.ok(result.files.length > 0);
   });
 
-  it('nodeToDir マップが正しい', () => {
+  it('nodeToDir map is correct', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
     assert.ok(result.nodeToDir['root'] === null);
     assert.equal(result.nodeToDir['config1'], 'config');
     assert.equal(result.nodeToDir['error1'], 'error');
   });
 
-  it('kind ルール駆動ノードが含まれる', () => {
+  it('includes kind-rule-driven nodes', () => {
     const result = buildDirectoryTree(NO_PARENT_GRAPH, 'rust', helpers);
-    // config と error_policy のディレクトリが生成される
+    // config and error_policy directories should be generated
     const dirNames = (result.tree?.children || []).map(c => c.name);
-    assert.ok(dirNames.includes('config'), 'config ディレクトリが存在する');
-    assert.ok(dirNames.includes('error'), 'error ディレクトリが存在する');
+    assert.ok(dirNames.includes('config'), 'config directory should exist');
+    assert.ok(dirNames.includes('error'), 'error directory should exist');
   });
 
-  it('空グラフで空の結果を返す', () => {
+  it('returns empty result for empty graph', () => {
     const result = buildDirectoryTree(EMPTY_GRAPH, 'rust', helpers);
     assert.equal(result.tree, null);
     assert.deepEqual(result.nodeToDir, {});
     assert.deepEqual(result.files, []);
   });
 
-  it('files 一覧に全ファイルが含まれる', () => {
+  it('files list contains all files', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
-    // 少なくとも config と error ディレクトリ配下にファイルがある
+    // At minimum, files should exist under config and error directories
     const filePaths = result.files.map(f => f.path);
-    assert.ok(filePaths.some(p => p.includes('config')), 'config ファイルが存在する');
-    assert.ok(filePaths.some(p => p.includes('error')), 'error ファイルが存在する');
+    assert.ok(filePaths.some(p => p.includes('config')), 'config file should exist');
+    assert.ok(filePaths.some(p => p.includes('error')), 'error file should exist');
   });
 
-  it('全ファイルノードに declarationStub が設定されている', () => {
+  it('all file nodes have declarationStub set', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
     for (const file of result.files) {
       assert.ok(typeof file.declarationStub === 'string',
-        `ファイル "${file.path}" に declarationStub が設定されていません`);
+        `file "${file.path}" has no declarationStub set`);
     }
   });
 
-  it('inline kind（data_model）のファイルに正しい declarationStub が設定される', () => {
+  it('inline kind (data_model) files get correct declarationStub', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
-    // data_model のファイルを探す
+    // Find data_model files
     const dataModelFiles = result.files.filter(f => f.kind === 'data_model');
     assert.ok(dataModelFiles.length > 0);
     for (const file of dataModelFiles) {
       assert.ok(file.declarationStub.includes('pub struct Model'),
-        `data_model ファイル "${file.path}" の宣言スタブが不正: ${file.declarationStub}`);
+        `data_model file "${file.path}" declaration stub invalid: ${file.declarationStub}`);
     }
   });
 
-  it('config kind のファイルに正しい declarationStub が設定される', () => {
+  it('config kind files get correct declarationStub', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'typescript', helpers);
     const configFiles = result.files.filter(f => f.kind === 'config');
     assert.ok(configFiles.length > 0);
     for (const file of configFiles) {
       assert.ok(file.declarationStub.includes('interface Config'),
-        `config ファイル "${file.path}" の宣言スタブが不正`);
+        `config file "${file.path}" declaration stub invalid`);
     }
   });
 });
 
 // ============================================================
-// prose 系 kind（rationale/glossary/requirement）が排除されることの検証
+// Verification that prose kinds (rationale/glossary/requirement) are excluded
 // ============================================================
 
 describe('prose kind exclusion', () => {
@@ -431,11 +431,11 @@ describe('prose kind exclusion', () => {
   const PROSE_GRAPH = {
     nodes: [
       { id: 'root', title: 'Root', kind: 'architecture' },
-      { id: 'doc1', title: '設計判断', kind: 'rationale' },
-      { id: 'doc2', title: '用語集', kind: 'glossary' },
-      { id: 'doc3', title: '要件定義', kind: 'requirement' },
-      { id: 'cfg', title: '設定', kind: 'config' },
-      { id: 'err', title: 'エラー型', kind: 'error_policy' },
+      { id: 'doc1', title: 'Design Decision', kind: 'rationale' },
+      { id: 'doc2', title: 'Glossary', kind: 'glossary' },
+      { id: 'doc3', title: 'Requirements', kind: 'requirement' },
+      { id: 'cfg', title: 'Config', kind: 'config' },
+      { id: 'err', title: 'Error Types', kind: 'error_policy' },
     ],
     edges: [
       { from: 'doc1', to: 'root', type: 'part_of' },
@@ -454,40 +454,40 @@ describe('prose kind exclusion', () => {
 
   it('prose kind nodes do NOT appear in Dirs-Tree.json files', () => {
     const result = buildDirectoryTree(PROSE_GRAPH, 'rust', proseHelpers);
-    // prose 系 kind のファイルが含まれていない
+    // Prose kind files should not be present
     const proseKinds = result.files.filter(f =>
       ['rationale', 'glossary', 'requirement'].includes(f.kind)
     );
     assert.equal(proseKinds.length, 0,
-      'prose 系 kind のファイルが含まれています');
-    // docs/ ディレクトリが出現しない
+      'prose kind files should not be present');
+    // docs/ directory should not appear
     const hasDocs = result.files.some(f => f.path.includes('docs'));
-    assert.equal(hasDocs, false, 'docs/ ディレクトリが出現しています');
+    assert.equal(hasDocs, false, 'docs/ directory should not appear');
   });
 
   it('non-prose kinds still appear after removal', () => {
     const result = buildDirectoryTree(PROSE_GRAPH, 'rust', proseHelpers);
     const configFiles = result.files.filter(f => f.kind === 'config');
-    assert.ok(configFiles.length > 0, 'config ファイルが存在する');
+    assert.ok(configFiles.length > 0, 'config file should exist');
     const errorFiles = result.files.filter(f => f.kind === 'error_policy');
-    assert.ok(errorFiles.length > 0, 'error_policy ファイルが存在する');
+    assert.ok(errorFiles.length > 0, 'error_policy file should exist');
   });
 });
 
 describe('generateDeclarationStub', () => {
-  it('Rust → pub mod 宣言を生成する', () => {
+  it('Rust generates pub mod declarations', () => {
     const result = generateDeclarationStub(DIR_WITH_FILES, 'rust');
     assert.ok(result.includes('pub mod payload;'));
     assert.ok(result.includes('pub mod meta;'));
     assert.ok(result.includes('pub mod sub_dir;'));
   });
 
-  it('Go → package 宣言を生成する', () => {
+  it('Go generates package declaration', () => {
     const result = generateDeclarationStub(DIR_WITH_FILES, 'go');
     assert.equal(result, 'package event');
   });
 
-  it('TypeScript → barrel export を生成する', () => {
+  it('TypeScript generates barrel exports', () => {
     const dirWithTsFiles = {
       name: 'components',
       type: 'directory',
@@ -503,40 +503,40 @@ describe('generateDeclarationStub', () => {
     assert.ok(result.includes("export * from './sub_dir';"));
   });
 
-  it('子がない場合 → null', () => {
+  it('returns null when there are no children', () => {
     const result = generateDeclarationStub(DIR_NO_CHILDREN, 'rust');
     assert.equal(result, null);
   });
 
-  it('Rust: mod.rs は self 宣言としてスキップされる', () => {
+  it('Rust: mod.rs is skipped as self-declaration', () => {
     const result = generateDeclarationStub(DIR_WITH_MOD_RS, 'rust');
-    // mod.rs は含まれない
+    // mod.rs should not be included
     assert.ok(!result.includes('pub mod mod;'));
-    // payload.rs は含まれる
+    // payload.rs should be included
     assert.ok(result.includes('pub mod payload;'));
   });
 
-  it('TypeScript: index.ts は barrel 自身としてスキップされる', () => {
+  it('TypeScript: index.ts is skipped as self-barrel', () => {
     const result = generateDeclarationStub(DIR_WITH_INDEX_TS, 'typescript');
-    // index.ts は含まれない
+    // index.ts should not be included
     assert.ok(!result.includes("export * from './index';"));
-    // button.ts は含まれる
+    // button.ts should be included
     assert.ok(result.includes("export * from './button';"));
   });
 
-  it('未対応言語 → null', () => {
+  it('returns null for unsupported language', () => {
     const result = generateDeclarationStub(DIR_WITH_FILES, 'python');
     assert.equal(result, null);
   });
 
-  it('null ノード → null', () => {
+  it('returns null for null node', () => {
     const result = generateDeclarationStub(null, 'rust');
     assert.equal(result, null);
   });
 });
 
 describe('generateReport', () => {
-  it('統計セクションが含まれる', () => {
+  it('includes statistics section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
     assert.ok(report.includes('## 統計'));
@@ -545,7 +545,7 @@ describe('generateReport', () => {
     assert.ok(report.includes('生成ファイル数'));
   });
 
-  it('kind 別統計セクションが含まれる', () => {
+  it('includes kind statistics section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
     assert.ok(report.includes('kind 別ノード数'));
@@ -553,14 +553,14 @@ describe('generateReport', () => {
     assert.ok(report.includes('data_model'));
   });
 
-  it('ディレクトリツリーセクションが含まれる', () => {
+  it('includes directory tree section', () => {
     const dirsTree = { name: 'root', type: 'directory', children: [] };
     const report = generateReport(SIMPLE_GRAPH, dirsTree, 'rust');
     assert.ok(report.includes('## ディレクトリツリー'));
     assert.ok(report.includes('root/'));
   });
 
-  it('ファイル一覧セクションが含まれる', () => {
+  it('includes file list section', () => {
     const dirsTree = {
       name: 'root', type: 'directory',
       children: [
@@ -572,7 +572,7 @@ describe('generateReport', () => {
     assert.ok(report.includes('test.rs'));
   });
 
-  it('空グラフでもエラーにならない', () => {
+  it('handles empty graph without error', () => {
     const report = generateReport(EMPTY_GRAPH, null, 'rust');
     assert.ok(report);
     assert.ok(report.includes('総ノード数: 0'));
@@ -580,7 +580,7 @@ describe('generateReport', () => {
 });
 
 describe('collectFiles', () => {
-  it('ファイルのみを収集する', () => {
+  it('collects only files', () => {
     const tree = {
       name: 'src', type: 'directory',
       children: [
@@ -601,13 +601,13 @@ describe('collectFiles', () => {
     assert.equal(files[1].path, 'src/event/payload.rs');
   });
 
-  it('null で空配列を返す', () => {
+  it('returns empty array for null', () => {
     assert.deepEqual(collectFiles(null, []), []);
   });
 });
 
 describe('mergeTopLevelNodes', () => {
-  it('同名ディレクトリの子をマージする', () => {
+  it('merges children of directories with the same name', () => {
     const merged = mergeTopLevelNodes(
       [{ name: 'docs', type: 'directory', children: [{ name: 'a.md', type: 'file' }], mappedNodeIds: ['n1'] }],
       [{ name: 'docs', type: 'directory', children: [{ name: 'b.md', type: 'file' }], mappedNodeIds: ['n2'] }]
@@ -617,7 +617,7 @@ describe('mergeTopLevelNodes', () => {
     assert.deepEqual(merged[0].mappedNodeIds, ['n1', 'n2']);
   });
 
-  it('異名ディレクトリは独立して残る', () => {
+  it('directories with different names remain separate', () => {
     const merged = mergeTopLevelNodes(
       [{ name: 'src', type: 'directory', children: [] }],
       [{ name: 'docs', type: 'directory', children: [] }]
@@ -627,7 +627,7 @@ describe('mergeTopLevelNodes', () => {
 });
 
 describe('renderTreeAscii', () => {
-  it('ディレクトリツリーを ASCII 形式でレンダリングする', () => {
+  it('renders directory tree in ASCII format', () => {
     const tree = {
       name: 'src', type: 'directory',
       children: [
@@ -642,16 +642,16 @@ describe('renderTreeAscii', () => {
 });
 
 // ============================================================
-// PX-29: pruneEmptyDirectories — 空ディレクトリ削除 + 子1つフラット化
+// PX-29: pruneEmptyDirectories — remove empty dirs + flatten single-child dirs
 // ============================================================
 
 describe('pruneEmptyDirectories', () => {
-  it('空ディレクトリを削除する', () => {
+  it('removes empty directories', () => {
     const tree = { name: 'empty', type: 'directory', children: [] };
     assert.equal(pruneEmptyDirectories(tree), null);
   });
 
-  it('子が1つだけのディレクトリをフラット化する', () => {
+  it('flattens single-child directories', () => {
     const tree = {
       name: 'parent', type: 'directory',
       children: [
@@ -663,12 +663,12 @@ describe('pruneEmptyDirectories', () => {
     const result = pruneEmptyDirectories(tree);
     assert.ok(result);
     assert.equal(result.name, 'parent');
-    // child がフラット化され、その子 file.rs が親の直下に
+    // child should be flattened, putting file.rs directly under parent
     assert.equal(result.children.length, 1);
     assert.equal(result.children[0].name, 'file.rs');
   });
 
-  it('複数子のディレクトリは維持する', () => {
+  it('preserves directories with multiple children', () => {
     const tree = {
       name: 'multi', type: 'directory',
       children: [
@@ -681,7 +681,7 @@ describe('pruneEmptyDirectories', () => {
     assert.equal(result.children.length, 2);
   });
 
-  it('ファイルのみのディレクトリは維持する', () => {
+  it('preserves file-only directories', () => {
     const tree = {
       name: 'src', type: 'directory',
       children: [
@@ -693,7 +693,7 @@ describe('pruneEmptyDirectories', () => {
     assert.equal(result.children.length, 1);
   });
 
-  it('再帰的に空ディレクトリを削除する', () => {
+  it('recursively removes empty directories', () => {
     const tree = {
       name: 'src', type: 'directory',
       children: [
@@ -706,12 +706,12 @@ describe('pruneEmptyDirectories', () => {
       ],
     };
     const result = pruneEmptyDirectories(tree);
-    // src → outer → inner（空）, src → outer → inner は削除, outer も子が空になる → 削除
-    // src も子が空 → 削除
+    // src -> outer -> inner (empty), src -> outer -> inner removed, outer also has no children -> removed
+    // src also has no children -> removed
     assert.equal(result, null);
   });
 
-  it('子1つのフラット化後も mappedNodeIds が継承される', () => {
+  it('preserves mappedNodeIds after single-child flattening', () => {
     const tree = {
       name: 'parent', type: 'directory', mappedNodeIds: ['p1'],
       children: [
@@ -725,18 +725,18 @@ describe('pruneEmptyDirectories', () => {
     };
     const result = pruneEmptyDirectories(tree);
     assert.ok(result);
-    // mappedNodeIds がマージされている
+    // mappedNodeIds should be merged
     assert.ok(result.mappedNodeIds.includes('p1'));
     assert.ok(result.mappedNodeIds.includes('c1'));
     assert.equal(result.children.length, 1);
     assert.equal(result.children[0].name, 'file.rs');
   });
 
-  it('null 入力で null を返す', () => {
+  it('returns null for null input', () => {
     assert.equal(pruneEmptyDirectories(null), null);
   });
 
-  it('ファイルノードはそのまま返す', () => {
+  it('returns file nodes as-is', () => {
     const file = { name: 'test.rs', type: 'file', kind: 'config' };
     const result = pruneEmptyDirectories(file);
     assert.equal(result, file);
@@ -744,38 +744,38 @@ describe('pruneEmptyDirectories', () => {
 });
 
 // ============================================================
-// PX-29: collectDescendantIds — 階層子孫収集
+// PX-29: collectDescendantIds — collect hierarchy descendants
 // ============================================================
 
 describe('collectDescendantIds', () => {
-  it('architecture ルートの全子孫を収集する', () => {
+  it('collects all descendants of architecture roots', () => {
     const hierarchy = buildDomainHierarchy(SIMPLE_GRAPH);
     const ids = collectDescendantIds(hierarchy.roots);
-    // root(arch)→child1(arch)→child2(data_model)
-    assert.ok(ids.has('root'), 'root が含まれる');
-    assert.ok(ids.has('child1'), 'child1 が含まれる');
-    assert.ok(ids.has('child2'), 'child2 が含まれる');
-    // 非 architecture ルートは含まれない
-    assert.ok(!ids.has('config1'), 'config1（非 backbone）は含まれない');
-    assert.ok(!ids.has('error1'), 'error1（非 backbone）は含まれない');
+    // root(arch)->child1(arch)->child2(data_model)
+    assert.ok(ids.has('root'), 'root should be included');
+    assert.ok(ids.has('child1'), 'child1 should be included');
+    assert.ok(ids.has('child2'), 'child2 should be included');
+    // Non-architecture roots should not be included
+    assert.ok(!ids.has('config1'), 'config1 (non-backbone) should not be included');
+    assert.ok(!ids.has('error1'), 'error1 (non-backbone) should not be included');
   });
 
-  it('空ルートで空セットを返す', () => {
+  it('returns empty set for empty roots', () => {
     const ids = collectDescendantIds([]);
     assert.equal(ids.size, 0);
   });
 });
 
 // ============================================================
-// PX-29: findRuleDrivenNodes — excludeNodeIds フィルタ
+// PX-29: findRuleDrivenNodes — excludeNodeIds filter
 // ============================================================
 
 describe('findRuleDrivenNodes with excludeNodeIds', () => {
-  it('excludeNodeIds に含まれるノードを除外する', () => {
+  it('excludes nodes present in excludeNodeIds', () => {
     const hierarchy = buildDomainHierarchy(SIMPLE_GRAPH);
     const descendantIds = collectDescendantIds(hierarchy.roots);
 
-    // excludeNodeIds あり
+    // With excludeNodeIds
     const filtered = findRuleDrivenNodes(
       SIMPLE_GRAPH, hierarchy, 'rust',
       (node) => (node.slug || node.id || 'unnamed') + '.rs',
@@ -783,48 +783,48 @@ describe('findRuleDrivenNodes with excludeNodeIds', () => {
       () => '// stub',
       descendantIds,
     );
-    // config1 と error1 は descendantIds に含まれていないので残る
+    // config1 and error1 are not in descendantIds, so they remain
     const configEntries = filtered.filter(n => n.name === 'config');
-    assert.equal(configEntries.length, 1, 'config エントリが1つ存在する');
+    assert.equal(configEntries.length, 1, 'there should be exactly one config entry');
 
-    // excludeNodeIds なし（従来動作）
+    // Without excludeNodeIds (legacy behavior)
     const unfiltered = findRuleDrivenNodes(
       SIMPLE_GRAPH, hierarchy, 'rust',
       (node) => (node.slug || node.id || 'unnamed') + '.rs',
       (files) => files,
       () => '// stub',
     );
-    // excludeNodeIds なしの場合、root/child1/child2 も含まれるが
-    // resolveDirForNode が null を返すので実質的には同じ
+    // Without excludeNodeIds, root/child1/child2 are also included but
+    // resolveDirForNode returns null for them, so the result is effectively the same
     assert.ok(unfiltered.length >= filtered.length);
   });
 });
 
 // ============================================================
-// PX-29: mergeTopLevelNodes — 子の重複排除強化
+// PX-29: mergeTopLevelNodes — child dedup enhancement
 // ============================================================
 
 describe('mergeTopLevelNodes dedup', () => {
-  it('同名ディレクトリの子を重複排除してマージする', () => {
+  it('deduplicates and merges children of same-name directories', () => {
     const merged = mergeTopLevelNodes(
       [{ name: 'docs', type: 'directory', children: [
         { name: 'a.md', type: 'file' },
-        { name: 'b.md', type: 'file' },  // b.md は重複
+        { name: 'b.md', type: 'file' },  // b.md is duplicate
       ], mappedNodeIds: ['n1'] }],
       [{ name: 'docs', type: 'directory', children: [
-        { name: 'b.md', type: 'file' },  // 重複
+        { name: 'b.md', type: 'file' },  // duplicate
         { name: 'c.md', type: 'file' },
       ], mappedNodeIds: ['n2'] }]
     );
     assert.equal(merged.length, 1);
-    // a.md, b.md, c.md → b.md は重複排除されて3つ
+    // a.md, b.md, c.md — b.md deduplicated, so 3 total
     assert.equal(merged[0].children.length, 3);
     assert.deepEqual(merged[0].mappedNodeIds, ['n1', 'n2']);
   });
 });
 
 // ============================================================
-// PX-29: buildDirectoryTree — 階層化の動作検証
+// PX-29: buildDirectoryTree — hierarchy behavior verification
 // ============================================================
 
 describe('buildDirectoryTree hierarchy', () => {
@@ -845,8 +845,8 @@ describe('buildDirectoryTree hierarchy', () => {
     getDeclarationStub: getDeclarationStub,
   };
 
-  it('非 architecture 子が architecture 下のサブディレクトリに配置される', () => {
-    // config/error_policy が architecture の part_of 子であるグラフ
+  it('non-architecture children are placed under architecture subdirectories', () => {
+    // Graph where config/error_policy are part_of children of architecture
     const HIERARCHICAL_GRAPH = {
       nodes: [
         { id: 'root', title: 'Root', kind: 'architecture', slug: 'root' },
@@ -859,26 +859,26 @@ describe('buildDirectoryTree hierarchy', () => {
       ],
     };
     const result = buildDirectoryTree(HIERARCHICAL_GRAPH, 'rust', helpers);
-    assert.ok(result.tree, 'ツリーが生成される');
+    assert.ok(result.tree, 'tree should be generated');
 
-    // root/ 配下に config/ と error/ がある
+    // root/ should contain config/ and error/
     const rootDir = result.tree.children.find(c => c.name === 'root');
-    assert.ok(rootDir, 'root ディレクトリが存在する');
+    assert.ok(rootDir, 'root directory should exist');
     const configDir = rootDir.children.find(c => c.name === 'config');
-    assert.ok(configDir, 'root 下に config ディレクトリが存在する');
+    assert.ok(configDir, 'config directory should exist under root');
     const errorDir = rootDir.children.find(c => c.name === 'error');
-    assert.ok(errorDir, 'root 下に error ディレクトリが存在する');
+    assert.ok(errorDir, 'error directory should exist under root');
 
-    // config ディレクトリにファイルがある
+    // config directory should have a file
     assert.ok(configDir.children.length > 0);
     assert.equal(configDir.children[0].name, 'config.rs');
 
-    // ルート直下に config/error がない
+    // config/error should NOT appear at root level
     const topLevelConfig = result.tree.children.find(c => c.name === 'config');
-    assert.ok(!topLevelConfig, 'ルート直下に config ディレクトリがない');
+    assert.ok(!topLevelConfig, 'config directory should not appear directly under root');
   });
 
-  it('複数 kind 混在でも個別サブディレクトリに分割される', () => {
+  it('mixed kinds are split into individual subdirectories', () => {
     const MULTI_KIND_GRAPH = {
       nodes: [
         { id: 'root', title: 'Root', kind: 'architecture', slug: 'root' },
@@ -902,7 +902,7 @@ describe('buildDirectoryTree hierarchy', () => {
     assert.deepEqual(subDirNames, ['build', 'config', 'security']);
   });
 
-  it('data_model は architecture 子として配置される', () => {
+  it('data_model is placed under architecture as a child file', () => {
     const RULE_GRAPH = {
       nodes: [
         { id: 'root', title: 'Root', kind: 'architecture', slug: 'root' },
@@ -918,20 +918,20 @@ describe('buildDirectoryTree hierarchy', () => {
     const rootDir = result.tree.children.find(c => c.name === 'root');
     assert.ok(rootDir);
 
-    // data_model は root 配下に model.rs として配置される
+    // data_model should be placed as model.rs under root
     const hasModelFile = rootDir.children.some(c => c.type === 'file' && c.name === 'model.rs');
-    assert.ok(hasModelFile, 'root/model.rs が存在する');
+    assert.ok(hasModelFile, 'root/model.rs should exist');
 
-    // nodeToDir に model ノードのマッピングがある
+    // nodeToDir should have a mapping for the model node
     assert.equal(result.nodeToDir['model'], 'model');
   });
 
-  it('フラット化後も全ファイルが src/ 直下に存在する', () => {
+  it('all files are under src/ after flattening', () => {
     const result = buildDirectoryTree(SIMPLE_GRAPH, 'rust', helpers);
-    // 全ファイルパスが src/ で始まる
+    // All file paths should start with src/
     for (const file of result.files) {
       assert.ok(file.path.startsWith('src/'),
-        `ファイルパス "${file.path}" が src/ で始まらない`);
+        `file path "${file.path}" does not start with src/`);
     }
   });
 });
@@ -983,7 +983,7 @@ describe('computeCrossReferences', () => {
     assert.strictEqual(n003.connections[0].toNodeId, 'N001');
   });
 
-  it('should record direction: prose→target=→, target→prose=←', () => {
+  it('should record direction: prose->target=→, target->prose=←', () => {
     const graph = { nodes: SIMPLE_NODES, edges: SIMPLE_EDGES };
     const result = computeCrossReferences(graph, NODE_TO_DIR);
     const n003 = result.find(r => r.nodeId === 'N003');
