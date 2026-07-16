@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * phasify-helpers.js — phasify コアアルゴリズムの純粋関数群
+ * phasify-helpers.js — Pure function collection for the phasify core algorithm
  *
- * Phase 2〜4 の実装を提供する。Phase 1（SCC縮約）は boundify-helpers.js の
- * tarjanSCC() を流用する。
+ * Implements Phases 2-4. Phase 1 (SCC condensation) reuses tarjanSCC()
+ * from boundify-helpers.js.
  *
- * 全関数は外部I/Oを持たない純粋関数として設計される。
+ * All functions are designed as pure functions with no external I/O.
  *
  * @module phasify-helpers
  */
@@ -14,27 +14,27 @@
 'use strict';
 
 // ============================================================
-// 重みテーブル（エッジ種別 → 逆順実装コスト）
+// Weight table (edge type → reverse implementation cost)
 // ============================================================
 
-/** 重み ∞：絶対制約（逆順禁止） */
+/** Weight Infinity: absolute constraint (reverse prohibited) */
 const WEIGHT_INFINITY = Object.freeze({
   depends_on: Infinity,
   implements: Infinity,
   constrains: Infinity,
 });
 
-/** 重み 2：強推奨（逆順でも構造的変更で対応可能） */
+/** Weight 2: strong recommendation (reverse possible with structural changes) */
 const WEIGHT_STRONG = Object.freeze({
   precedes: 2,
 });
 
-/** 重み 1：弱推奨（逆順でもモックで代替可能） */
+/** Weight 1: weak recommendation (reverse can be substituted with mocks) */
 const WEIGHT_WEAK = Object.freeze({
   triggers: 1,
 });
 
-/** 重み 0：制約なし */
+/** Weight 0: no constraint */
 const WEIGHT_NONE = Object.freeze({
   refines: 0,
   references: 0,
@@ -46,8 +46,8 @@ const WEIGHT_NONE = Object.freeze({
 });
 
 /**
- * 全エッジ種別の重みマップ（統合テーブル）
- * キー: エッジ種別, 値: 重み（Infinity / 2 / 1 / 0）
+ * Unified weight map for all edge types
+ * Key: edge type, Value: weight (Infinity / 2 / 1 / 0)
  */
 const WEIGHT_MAP = Object.freeze(
   Object.assign(
@@ -60,25 +60,25 @@ const WEIGHT_MAP = Object.freeze(
 );
 
 /**
- * 重み ∞ のエッジ種別セット（高速判定用）
+ * Set of edge types with weight Infinity (for fast lookup)
  */
 const HARD_EDGE_TYPES = new Set(
   Object.keys(WEIGHT_INFINITY)
 );
 
 /**
- * 重み > 0 のエッジ種別セット（Soft制約判定用）
+ * Set of edge types with weight > 0 (for soft constraint checking)
  */
 const SOFT_EDGE_TYPES = new Set(
   Object.keys(WEIGHT_STRONG).concat(Object.keys(WEIGHT_WEAK))
 );
 
 /**
- * エッジ種別から重みを取得する。
- * 未知の種別は 0 として扱う。
+ * Get the weight for a given edge type.
+ * Unknown types are treated as weight 0.
  *
- * @param {string} edgeType — エッジ種別
- * @returns {number} 重み（0, 1, 2, Infinity）
+ * @param {string} edgeType — Edge type
+ * @returns {number} Weight (0, 1, 2, Infinity)
  */
 function getWeight(edgeType) {
   const weight = WEIGHT_MAP[edgeType];
@@ -86,9 +86,9 @@ function getWeight(edgeType) {
 }
 
 /**
- * エッジがハード制約（重み ∞）か判定する。
+ * Check if an edge is a hard constraint (weight Infinity).
  *
- * @param {string} edgeType — エッジ種別
+ * @param {string} edgeType — Edge type
  * @returns {boolean}
  */
 function isHard(edgeType) {
@@ -96,20 +96,20 @@ function isHard(edgeType) {
 }
 
 // ============================================================
-// Phase 2: Kahn トポロジカルソート
+// Phase 2: Kahn topological sort
 // ============================================================
 
 /**
- * 重み付き有向グラフに対してトポロジカルソートを実行する。
+ * Perform topological sort on a weighted directed graph.
  *
- * 重み ∞ のエッジのみを「絶対制約」として扱い、トポロジカルソートを実行する。
- * 循環（DAGでない）場合はエラー情報を返す。
+ * Only edges with weight Infinity are treated as "absolute constraints" for sorting.
+ * If a cycle exists (not a DAG), error information is returned.
  *
- * @param {string[]} nodeIds — 全ノードIDの配列
- * @param {Array<{from:string, to:string, type:string}>} edges — エッジ配列
- * @param {Function} weightFn — エッジ種別→重みの関数（デフォルト: getWeight）
+ * @param {string[]} nodeIds — Array of all node IDs
+ * @param {Array<{from:string, to:string, type:string}>} edges — Edge array
+ * @param {Function} weightFn — Edge type → weight function (default: getWeight)
  * @returns {{ success: boolean, order: string[], cycle?: string[], error?: string }}
- *   success: true なら order が有効。false なら cycle に循環ノードが格納される。
+ *   success: true means order is valid. false means cycle contains cyclic nodes.
  */
 function kahnTopologicalSort(nodeIds, edges, weightFn) {
   const wFn = weightFn || getWeight;
@@ -117,24 +117,24 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
   const inDegree = {};
   const adjacency = {};
 
-  // 全ノードの初期化
+  // Initialize all nodes
   for (const nid of nodeIds) {
     inDegree[nid] = 0;
     adjacency[nid] = [];
   }
 
-  // 重み ∞ のエッジのみでグラフを構築
+  // Build graph using only edges with weight Infinity
   for (const edge of edges) {
     if (!nodeSet.has(edge.from) || !nodeSet.has(edge.to)) continue;
     if (wFn(edge.type) === Infinity) {
-      // エッジ u→v (depends_on) は「uはvに依存する」。
-      // 依存先vを先に実装するため制約方向は v→u とする。
+      // Edge u→v (depends_on) means "u depends on v".
+      // Since dependency v must be implemented first, the constraint direction is v→u.
       adjacency[edge.to].push(edge.from);
       inDegree[edge.from] = (inDegree[edge.from] || 0) + 1;
     }
   }
 
-  // 入次数 0 のノードをキューに追加
+  // Add nodes with in-degree 0 to the queue
   const queue = [];
   for (const nid of nodeIds) {
     if (inDegree[nid] === 0) queue.push(nid);
@@ -142,7 +142,7 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
 
   const order = [];
   while (queue.length > 0) {
-    // 安定ソートのため入力順を維持（shift で先頭から）
+    // Maintain input order for stable sort (shift from front)
     const nid = queue.shift();
     order.push(nid);
 
@@ -154,14 +154,14 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
     }
   }
 
-  // 未処理のノード（循環成分）を検出
+  // Detect unprocessed nodes (cyclic components)
   const visited = new Set(order);
   const unprocessed = nodeIds.filter(id => !visited.has(id));
 
   if (unprocessed.length > 0) {
-    // 循環成分を抽出（簡易的なトレース）
+    // Extract cyclic components (simple trace)
     const inCycle = new Set(unprocessed);
-    // 循環成分から到達可能なノードも含める
+    // Include nodes reachable from cyclic components
     let changed = true;
     while (changed) {
       changed = false;
@@ -188,18 +188,18 @@ function kahnTopologicalSort(nodeIds, edges, weightFn) {
 }
 
 // ============================================================
-// Phase 3: Soft制約違反コスト計算
+// Phase 3: Soft constraint violation cost calculation
 // ============================================================
 
 /**
- * Soft制約（重み 1 または 2）の違反コストを計算する。
+ * Calculate violation cost for soft constraints (weight 1 or 2).
  *
- * トポロジカルソート順序 order において、Softエッジ e = (u→v) が
- * order[u] > order[v] の場合に違反とみなし、w(type(e)) のコストを加算する。
+ * In the topological sort order, a soft edge e = (u→v) is considered
+ * a violation when order[u] > order[v], and the cost w(type(e)) is added.
  *
- * @param {string[]} order — トポロジカルソート順序
- * @param {Array<{from:string, to:string, type:string}>} edges — 全エッジ
- * @param {Function} weightFn — エッジ種別→重みの関数
+ * @param {string[]} order — Topological sort order
+ * @param {Array<{from:string, to:string, type:string}>} edges — All edges
+ * @param {Function} weightFn — Edge type → weight function
  * @returns {{ totalCost: number, violations: Array<{from:string, to:string, type:string, cost:number}> }}
  */
 function computeSoftViolations(order, edges, weightFn) {
@@ -214,14 +214,14 @@ function computeSoftViolations(order, edges, weightFn) {
 
   for (const edge of edges) {
     const weight = wFn(edge.type);
-    if (weight <= 0 || weight === Infinity) continue; // Soft のみ対象
+    if (weight <= 0 || weight === Infinity) continue; // Only soft edges
     if (!SOFT_EDGE_TYPES.has(edge.type)) continue;
 
     const posU = position[edge.from];
     const posV = position[edge.to];
     if (posU === undefined || posV === undefined) continue;
 
-    // 違反: u が v より後ろにある
+    // Violation: u is positioned after v
     if (posU > posV) {
       totalCost += weight;
       violations.push({
@@ -237,28 +237,29 @@ function computeSoftViolations(order, edges, weightFn) {
 }
 
 // ============================================================
-// Phase 4: フェーズ合併と離散化
+// Phase 4: Phase merging and discretization
 // ============================================================
 
 /**
- * トポロジカルソート順序をフェーズに分割する。
+ * Split the topological sort order into phases.
  *
- * 各フェーズは最低 minSize ノードを含むことを保証する。
- * ただし、hardEdges（重み∞のエッジ）がある場合、from と to が
- * 同一フェーズに含まれないように分割する。
- * 総ノード数が minSize 未満の場合は全ノードが1フェーズとなる（警告は呼び出し元で処理）。
+ * Each phase is guaranteed to contain at least minSize nodes.
+ * However, if hardEdges (weight ∞ edges) exist, from and to are
+ * split so they are not in the same phase.
+ * If the total node count is less than minSize, all nodes become one
+ * phase (warning is handled by the caller).
  *
- * @param {string[]} sortedNodes — トポロジカルソート済みのノードID配列
- * @param {number} minSize — 1フェーズあたりの最小ノード数（デフォルト: 10）
- * @param {Array<{from:string, to:string}>} [hardEdges] — 重み∞のエッジ配列（省略時は制約なし）
- * @returns {Array<{id: number, nodeIds: string[]}>} フェーズ配列
+ * @param {string[]} sortedNodes — Topologically sorted node ID array
+ * @param {number} minSize — Minimum nodes per phase (default: 10)
+ * @param {Array<{from:string, to:string}>} [hardEdges] — Array of weight ∞ edges (optional)
+ * @returns {Array<{id: number, nodeIds: string[]}>} Phase array
  */
 function mergePhases(sortedNodes, minSize, hardEdges) {
   const size = minSize || 10;
   if (!sortedNodes || sortedNodes.length === 0) return [];
 
-  // ハードエッジの to→from（到達元）マップを構築
-  // 「キー（ノード）には、どのノードからのdepends_onが張られているか」
+  // Build hard edge to→from (source) map
+  // "Which nodes have depends_on edges pointing to this node (key)"
   const incomingHard = {};
   if (hardEdges) {
     for (const edge of hardEdges) {
@@ -274,10 +275,10 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
   for (let i = 0; i < sortedNodes.length; i++) {
     const nid = sortedNodes[i];
 
-    // サイズ制限に達したら、その時点でフェーズを閉じて良いか判定
+    // When the size limit is reached, check if the phase can be safely closed
     if (currentPhase.length >= size) {
-      // 現在地から最大 size 個先までスキャンし、いずれかのノードが
-      // 現在のフェーズに属するノードからの depends_on の対象か確認
+      // Scan ahead up to size nodes to see if any node is a dependency target
+      // of nodes in the current phase
       let dependentInLookahead = false;
       if (hardEdges) {
         const lookaheadLimit = Math.min(i + size, sortedNodes.length);
@@ -297,7 +298,7 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
       }
 
       if (!dependentInLookahead) {
-        // 安全に閉じられる
+        // Can safely close
         phases.push({ id: phaseId, name: 'P' + phaseId, nodeIds: currentPhase });
         currentPhase = [];
         phaseId++;
@@ -307,7 +308,7 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
     currentPhase.push(nid);
   }
 
-  // 残りのノードを直前のフェーズに合併（存在する場合）
+  // Merge remaining nodes into the previous phase (if it exists)
   if (currentPhase.length > 0) {
     if (phases.length > 0) {
       const lastPhase = phases[phases.length - 1];
@@ -321,17 +322,17 @@ function mergePhases(sortedNodes, minSize, hardEdges) {
 }
 
 // ============================================================
-// Phase 5 補助: SCC縮約結果の展開
+// Phase 5 auxiliary: SCC condensation result expansion
 // ============================================================
 
 /**
- * SCC縮約結果から、同じSCCに属するノードを同一フェーズに割り当てるための
- * 情報を構築する。
+ * Build constraint information from SCC condensation results
+ * to assign nodes in the same SCC to the same phase.
  *
- * @param {Array<{cycle: string[]}>} sccResult — tarjanSCC の戻り値
+ * @param {Array<{cycle: string[]}>} sccResult — Return value of tarjanSCC
  * @returns {{ sccMap: object, sccIds: Set<string> }}
- *   sccMap: ノードID → SCC代表ノードID（SCC内の最初のノード）
- *   sccIds: マルチノードSCCに含まれる全ノードIDのセット
+ *   sccMap: node ID → SCC representative node ID (first node in SCC)
+ *   sccIds: set of all node IDs contained in multi-node SCCs
  */
 function buildSccConstraint(sccResult) {
   const sccMap = {};
@@ -353,12 +354,12 @@ function buildSccConstraint(sccResult) {
 }
 
 /**
- * SCC制約を考慮したノード配列を構築する。
- * 同一SCCのノードは隣接するよう reorder される。
+ * Build a node array considering SCC constraints.
+ * Nodes in the same SCC are reordered to be adjacent.
  *
- * @param {string[]} sortedNodes — トポロジカルソート順序
- * @param {object} sccMap — ノードID→SCC代表ノードIDのマップ
- * @returns {string[]} SCC制約適用後のノード順序
+ * @param {string[]} sortedNodes — Topological sort order
+ * @param {object} sccMap — Node ID → SCC representative node ID map
+ * @returns {string[]} Node order after applying SCC constraints
  */
 function applySccToOrder(sortedNodes, sccMap) {
   const groups = {};
@@ -383,20 +384,20 @@ function applySccToOrder(sortedNodes, sccMap) {
 }
 
 // ============================================================
-// ハード制約の事後調整
+// Post-hoc hard constraint adjustment
 // ============================================================
 
 /**
- * mergePhases の出力に対して、depends_on の両端点が同一フェーズに
- * 含まれないよう事後調整する。
+ * Post-hoc adjust the output of mergePhases to ensure both endpoints
+ * of depends_on edges are not in the same phase.
  *
- * トポロジカルソートが「正しい順序」を保証しているため、
- * フェーズを分割しても新たな順序違反は発生しない。
- * これは数学的に安全な操作である。
+ * Since the topological sort guarantees the "correct order",
+ * splitting phases does not create new order violations.
+ * This is a mathematically safe operation.
  *
- * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — mergePhases の出力
- * @param {Array<{from:string, to:string}>} hardEdges — 重み∞のエッジ配列
- * @returns {Array<{id:number, name:string, nodeIds:string[]}>} 調整後のフェーズ
+ * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — Output of mergePhases
+ * @param {Array<{from:string, to:string}>} hardEdges — Array of weight ∞ edges
+ * @returns {Array<{id:number, name:string, nodeIds:string[]}>} Adjusted phases
  */
 function enforceHardConstraints(phases, hardEdges) {
   if (!hardEdges || hardEdges.length === 0) return phases;
@@ -411,7 +412,7 @@ function enforceHardConstraints(phases, hardEdges) {
   while (changed) {
     changed = false;
 
-    // 現在のノード→フェーズID マップを構築
+    // Build current node → phase ID map
     const nodePhase = {};
     for (let pi = 0; pi < phases.length; pi++) {
       const phase = phases[pi];
@@ -420,28 +421,28 @@ function enforceHardConstraints(phases, hardEdges) {
       }
     }
 
-    // 違反を検出
+    // Detect violations
     for (let ei = 0; ei < hardEdges.length; ei++) {
       const edge = hardEdges[ei];
       const phaseU = nodePhase[edge.from];
       const phaseV = nodePhase[edge.to];
       if (phaseU === undefined || phaseV === undefined) continue;
 
-      // depends_on(u→v): u(依存元)はv(依存先)に依存 → vを先に実装
-      // 違反: 依存先vのフェーズ位置 >= 依存元uのフェーズ位置
-      // フェーズIDではなく配列インデックスで比較（ID＝≠順序のため）
+      // depends_on(u→v): u(dependent) depends on v(dependency) → v must be implemented first
+      // Violation: dependency v phase position >= dependent u phase position
+      // Compare by array index, not phase ID (ID does not guarantee order)
       const idxU = phases.findIndex(function(p) { return p.id === phaseU; });
       const idxV = phases.findIndex(function(p) { return p.id === phaseV; });
       if (idxU === -1 || idxV === -1) continue;
       if (idxV >= idxU) {
-        // 違反を解消するためフェーズを分割
+        // Split the phase to resolve the violation
         const vPhaseIndex = phases.findIndex(function(p) { return p.id === phaseV; });
         if (vPhaseIndex === -1) continue;
         const vPhase = phases[vPhaseIndex];
 
         const splitIdx = vPhase.nodeIds.indexOf(edge.to);
         if (splitIdx > 0) {
-          // 通常ケース: edge.to の位置で分割 → to以降を新フェーズに
+          // Normal case: split at edge.to position → move to and after to a new phase
           const movedNodes = vPhase.nodeIds.splice(splitIdx);
           maxPhaseId++;
           const newPhase = { id: maxPhaseId, name: 'P' + maxPhaseId, nodeIds: movedNodes };
@@ -450,8 +451,8 @@ function enforceHardConstraints(phases, hardEdges) {
           break;
         }
 
-        // splitIdx === 0: edge.toがフェーズ先頭にある。
-        // edge.from が同一フェーズ内なら、fromの位置で分割する。
+        // splitIdx === 0: edge.to is at the beginning of the phase.
+        // If edge.from is in the same phase, split at the from position.
         if (phaseU === phaseV) {
           const fromIdx = vPhase.nodeIds.indexOf(edge.from);
           if (fromIdx > 0) {
@@ -463,12 +464,12 @@ function enforceHardConstraints(phases, hardEdges) {
             break;
           }
         }
-        // 分割不能 — この違反は保留
+        // Unable to split — this violation is deferred
       }
     }
   }
 
-  // 空になったフェーズを削除
+  // Remove empty phases
   for (let pi = phases.length - 1; pi >= 0; pi--) {
     if (phases[pi].nodeIds.length === 0) {
       phases.splice(pi, 1);
@@ -479,27 +480,28 @@ function enforceHardConstraints(phases, hardEdges) {
 }
 
 // ============================================================
-// 事後フェーズ統合 — 下限未満の小フェーズを前後に統合
+// Post-phase consolidation — merge small phases below the minimum
 // ============================================================
 
 /**
- * enforceHardConstraints で分割された小さなフェーズ（下限10未満）を
- * 前後のフェーズに安全に統合する。
+ * Safely merge small phases (below the minimum size of 10) created by
+ * enforceHardConstraints into adjacent phases.
  *
- * depends_on 制約を尊重し、統合によって新たな違反が発生しないことを保証する。
+ * Respects depends_on constraints and guarantees no new violations
+ * are introduced by the merge.
  *
- * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — フェーズ配列
- * @param {Array<{from:string, to:string}>} hardEdges — 重み∞のエッジ配列
- * @param {number} minSize — 下限サイズ
- * @returns {Array<{id:number, name:string, nodeIds:string[]}>} 統合後のフェーズ
+ * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — Phase array
+ * @param {Array<{from:string, to:string}>} hardEdges — Array of weight ∞ edges
+ * @param {number} minSize — Minimum size threshold
+ * @returns {Array<{id:number, name:string, nodeIds:string[]}>} Consolidated phases
  */
 function consolidatePhases(phases, hardEdges, minSize) {
   if (!phases || phases.length <= 1) return phases;
   const size = minSize || 10;
 
-  // depends_on の node→{froms,tos} マップ
-  const depsFrom = {}; // node → このノードに依存するノード群
-  const depsTo = {};   // node → このノードが依存するノード群
+  // depends_on node → {froms,tos} map
+  const depsFrom = {}; // node → nodes that depend on this node
+  const depsTo = {};   // node → nodes this node depends on
   for (const e of (hardEdges || [])) {
     if (!depsFrom[e.to]) depsFrom[e.to] = new Set();
     depsFrom[e.to].add(e.from);
@@ -513,11 +515,11 @@ function consolidatePhases(phases, hardEdges, minSize) {
     for (let i = 0; i < phases.length; i++) {
       if (phases[i].nodeIds.length >= size) continue;
 
-      // 前のフェーズとの統合を試みる
+      // Try merging with the previous phase
       if (i > 0) {
         const prevPhase = phases[i - 1];
         const currPhase = phases[i];
-        // currPhase のノードが prevPhase に depends_on していないか確認
+        // Check if currPhase nodes depend on prevPhase nodes
         let canMergePrev = true;
         for (const nid of currPhase.nodeIds) {
           const targets = depsTo[nid];
@@ -539,11 +541,11 @@ function consolidatePhases(phases, hardEdges, minSize) {
         }
       }
 
-      // 後のフェーズとの統合を試みる
+      // Try merging with the next phase
       if (i < phases.length - 1) {
         const nextPhase = phases[i + 1];
         const currPhase = phases[i];
-        // nextPhase のノードが currPhase に depends_on していないか確認
+        // Check if nextPhase nodes depend on currPhase nodes
         let canMergeNext = true;
         for (const nid of nextPhase.nodeIds) {
           const targets = depsTo[nid];
@@ -571,26 +573,26 @@ function consolidatePhases(phases, hardEdges, minSize) {
 }
 
 // ============================================================
-// フェーズIDの再割り当て
+// Phase ID reassignment
 // ============================================================
 
 /**
- * フェーズIDを配列順に0から振り直す。
+ * Reassign phase IDs sequentially from 0 in array order.
  *
- * enforceHardConstraints により分割されたフェーズはIDが飛び飛びになる。
- * 配列順＝正しい実装順序であるため、IDを0からの連番に再割り当てする。
- * この関数はフェーズの配列順序を一切変更しない。
+ * Phases split by enforceHardConstraints have non-sequential IDs.
+ * Since array order = correct implementation order, reassign IDs
+ * sequentially from 0. This function does not change the phase array order.
  *
- * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — フェーズ配列
- * @returns {Array<{id:number, name:string, nodeIds:string[]}>} ID振り直し後のフェーズ配列
+ * @param {Array<{id:number, name:string, nodeIds:string[]}>} phases — Phase array
+ * @returns {Array<{id:number, name:string, nodeIds:string[]}>} Phase array after ID reassignment
  */
 function reassignPhaseIds(phases) {
   if (!phases) return phases;
   for (let i = 0; i < phases.length; i++) {
     phases[i].id = i;
     phases[i].name = 'P' + i;
-    // nodeIds を昇順ソート（フェーズ内の実装順序に意味はなく、
-    // RFCセクション順に並べた方が可読性が高いため）
+    // Sort nodeIds in ascending order (implementation order within a phase
+    // is not meaningful; sorting by RFC section order improves readability)
     if (phases[i].nodeIds) {
       phases[i].nodeIds.sort();
     }
@@ -599,20 +601,20 @@ function reassignPhaseIds(phases) {
 }
 
 // ============================================================
-// ディレクトリ制約適用
+// Directory constraint application
 // ============================================================
 
 /**
- * ディレクトリ間依存方向をトポロジカル順序に反映する。
+ * Reflect directory dependency directions into the topological order.
  *
- * 依存方向 (fromDir→toDir) に対して、fromDir に属する全ノードが
- * toDir に属する全ノードより前に配置されるよう調整する。
- * 違反がある場合、toDir のノード群を fromDir のノード群より後ろに移動する。
+ * For each dependency direction (fromDir → toDir), all nodes belonging
+ * to fromDir are adjusted to appear before all nodes belonging to toDir.
+ * If a violation exists, the toDir nodes are moved after the fromDir nodes.
  *
- * @param {string[]} order — 現在の順序
- * @param {Array<{from:string, to:string}>} depDirs — 依存方向配列
- * @param {object} nodeToDirMap — ノードID→ディレクトリパス のマップ
- * @returns {string[]} 調整後の順序（違反がない場合は元の順序をそのまま返す）
+ * @param {string[]} order — Current order
+ * @param {Array<{from:string, to:string}>} depDirs — Array of dependency directions
+ * @param {object} nodeToDirMap — Node ID → directory path map
+ * @returns {string[]} Adjusted order (returns original order if no violation)
  */
 function applyDirectoryConstraints(order, depDirs, nodeToDirMap) {
   if (!depDirs || depDirs.length === 0) return order;
@@ -636,7 +638,7 @@ function applyDirectoryConstraints(order, depDirs, nodeToDirMap) {
     }));
     if (lastFromPos < firstToPos) continue;
 
-    // 違反: toNodes を fromNodes の後ろに移動
+    // Violation: move toNodes after fromNodes
     const ordered = [];
     const moved = new Set(toNodes);
     for (let i = 0; i < order.length; i++) {
@@ -653,16 +655,16 @@ function applyDirectoryConstraints(order, depDirs, nodeToDirMap) {
 }
 
 // ============================================================
-// Tickets.json 書き込み形式への変換
+// Conversion to Tickets.json write format
 // ============================================================
 
 /**
- * フェーズ配列を Tickets.json の phasse 形式に変換する。
- * 既存の Tickets.json の phases 配列をマージする必要がある場合、
- * 別途呼び出し元で処理する。
+ * Convert the phase array to the Tickets.json phase format.
+ * If existing Tickets.json phases need to be merged, the caller
+ * should handle that separately.
  *
- * @param {Array<{id: number, name: string, nodeIds: string[]}>} phases — mergePhases の出力
- * @returns {Array} Tickets.json 互換の phase オブジェクト配列
+ * @param {Array<{id: number, name: string, nodeIds: string[]}>} phases — Output of mergePhases
+ * @returns {Array} Tickets.json-compatible phase object array
  */
 function phasesToTicketsFormat(phases) {
   return phases.map(function(phase) {
@@ -676,7 +678,7 @@ function phasesToTicketsFormat(phases) {
 }
 
 module.exports = {
-  // 重みテーブル
+  // Weight table
   WEIGHT_MAP,
   WEIGHT_INFINITY,
   WEIGHT_STRONG,
@@ -692,13 +694,13 @@ module.exports = {
   computeSoftViolations,
   // Phase 4
   mergePhases,
-  // ハード制約事後調整
+  // Post-hoc hard constraint adjustment
   enforceHardConstraints,
   consolidatePhases,
   reassignPhaseIds,
-  // ディレクトリ制約
+  // Directory constraints
   applyDirectoryConstraints,
-  // Phase 5 補助
+  // Phase 5 auxiliary
   buildSccConstraint,
   applySccToOrder,
   phasesToTicketsFormat,

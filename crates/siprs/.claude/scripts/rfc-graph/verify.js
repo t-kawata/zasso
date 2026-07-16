@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * verify.js — カバレッジ・孤立ノード検証 + headingRefs 解決可能性検証
+ * verify.js — Coverage, isolated node detection + headingRefs resolvability verification
  *
- * graphify-rfc Step 3 で使用する。グラフファイルのノードがソースファイルの全見出し
- * （`## `）を headingRefs 経由でカバーしているか、全ノードが最低1本のエッジで
- * 接続されているか、および全 headingRefs が resolve-by-heading.js で一意に
- * 解決可能かを検証する。
+ * Used in graphify-rfc Step 3. Verifies that graph nodes cover all source file headings
+ * (`## `) via headingRefs, that all nodes are connected by at least one edge,
+ * and that all headingRefs can be uniquely resolved by resolve-by-heading.js.
  *
  * CLI: verify.js --graph=<path> --source=<path>
  *
- * 出力契約:
- *   正常時 → {"ok":true}（終了コード0）
- *   異常時 → {"ok":false, "uncoveredHeadings":[...], "isolatedNodes":[...], "unresolvableRefs":[...]}（終了コード1）
- *   異常時は stderr に3段テンプレートの自然言語エラーも出力する。
+ * Output contract:
+ *   Normal case → {"ok":true} (exit code 0)
+ *   Error case → {"ok":false, "uncoveredHeadings":[...], "isolatedNodes":[...], "unresolvableRefs":[...]} (exit code 1)
+ *   On error, outputs a 3-part natural language error to stderr as well.
  */
 
 const fs = require('fs');
@@ -21,42 +20,42 @@ const path = require('path');
 const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** グラフファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix specifying the graph file path */
 const GRAPH_PATH_ARG_PREFIX = '--graph=';
 
-/** ソースファイルパスを指定するCLI引数のプレフィックス */
+/** CLI argument prefix specifying the source file path */
 const SOURCE_PATH_ARG_PREFIX = '--source=';
 
-/** 正常終了コード */
+/** Successful exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Error exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// コマンドライン引数パース
+// Command line argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parse command line arguments
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv から取得）
+ * @param {string[]} [testArgs] — Test argument array (defaults to process.argv when omitted)
  * @returns {{ graphPath: string, sourcePath: string }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} If arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
 
-  // 最小引数: --graph=<path> --source=<path>
+  // Minimum arguments: --graph=<path> --source=<path>
   if (args.length < 2) {
     throw new Error(
       '引数が不足しています。\n' +
@@ -64,7 +63,7 @@ function parseArguments(testArgs) {
     );
   }
 
-  // --graph=<path> のパース
+  // Parse --graph=<path>
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -77,7 +76,7 @@ function parseArguments(testArgs) {
     throw new Error('--graph=<path> の <path> が空です。');
   }
 
-  // --source=<path> のパース
+  // Parse --source=<path>
   const sourceFlag = args[1];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
@@ -90,7 +89,7 @@ function parseArguments(testArgs) {
     throw new Error('--source=<path> の <path> が空です。');
   }
 
-  // 余剰引数のチェック
+  // Check for excess arguments
   if (args.length > 2) {
     throw new Error(
       '余剰な引数があります。\n' +
@@ -102,15 +101,15 @@ function parseArguments(testArgs) {
 }
 
 // ============================================================
-// ファイル読み込み
+// File reading
 // ============================================================
 
 /**
- * グラフJSONファイルを読み込む
+ * Read a graph JSON file
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {Object} パース済みグラフデータ（{ sourceFile, nodes, edges }）
- * @throws {Error} ファイル読み込みまたはJSONパースに失敗した場合
+ * @param {string} graphPath — Path to the graph file
+ * @returns {Object} Parsed graph data ({ sourceFile, nodes, edges })
+ * @throws {Error} If file reading or JSON parsing fails
  */
 function readGraph(graphPath) {
   if (!fs.existsSync(graphPath)) {
@@ -137,7 +136,7 @@ function readGraph(graphPath) {
     );
   }
 
-  // 最小限の構造検証
+  // Minimal structure validation
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error(
       'グラフデータの構造が不正です。nodes と edges が必要です。'
@@ -148,11 +147,11 @@ function readGraph(graphPath) {
 }
 
 /**
- * ソースファイルを行配列として読み込む
+ * Read a source file as an array of lines
  *
- * @param {string} sourcePath — ソースファイルのパス
- * @returns {string[]} 1行ごとの配列（改行は除去済み）
- * @throws {Error} ファイル読み込みに失敗した場合
+ * @param {string} sourcePath — Path to the source file
+ * @returns {string[]} Array of lines (newlines removed)
+ * @throws {Error} If file reading fails
  */
 function readSourceFile(sourcePath) {
   if (!fs.existsSync(sourcePath)) {
@@ -172,15 +171,15 @@ function readSourceFile(sourcePath) {
 }
 
 // ============================================================
-// 検証関数（純粋関数）
+// Validation functions (pure)
 // ============================================================
 
 /**
- * ソースファイルから大見出し（`## `）を抽出する
+ * Extract level-2 headings (`## `) from the source file
  *
- * @param {string[]} sourceLines — ソースファイルの行配列
+ * @param {string[]} sourceLines — Array of source file lines
  * @returns {Array<{ line: number, level: number, text: string, tokens: string[] }>}
- *   大見出しのリスト（行番号1-indexed、見出しレベル、見出しテキスト、トークン列）
+ *   List of level-2 headings (line number 1-indexed, heading level, heading text, token array)
  */
 function extractHeadings(sourceLines) {
   const headings = [];
@@ -199,16 +198,16 @@ function extractHeadings(sourceLines) {
 }
 
 /**
- * 1つの見出しがいずれかのノードの headingRefs でカバーされているかを判定する
+ * Determine whether a single heading is covered by any node's headingRefs
  *
- * 見出しレベルが一致し、かつ headingRefs の texts のいずれかが見出しテキストと
- * 部分一致する場合に「カバー済み」とみなす。
+ * Considered "covered" when the heading level matches and any text in headingRefs
+ * partially matches the heading text.
  *
  * @param {{ line: number, level: number, text: string, tokens: string[] }} heading
- *   判定対象の見出し
- * @param {Object[]} nodes — グラフのノード配列
- * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
- * @returns {boolean} カバーされているか
+ *   The heading to check
+ * @param {Object[]} nodes — Array of graph nodes
+ * @param {Object[]} nodes[].headingRefs — Each node's headingRefs
+ * @returns {boolean} Whether the heading is covered
  */
 function isHeadingCovered(heading, nodes) {
   for (const node of nodes) {
@@ -225,18 +224,18 @@ function isHeadingCovered(heading, nodes) {
 }
 
 /**
- * 未カバー見出しを検出する
+ * Detect uncovered headings
  *
- * ソースファイルの大見出し（`## `）が各ノードの headingRefs に出現しているかを
- * 検証する。空行や通常の本文行は検証対象外。
+ * Verifies that all level-2 headings (`## `) in the source file appear in
+ * at least one node's headingRefs. Blank lines and regular body text are excluded.
  *
- * @param {string[]} sourceLines — ソースファイルの行配列
- * @param {Object[]} nodes — グラフのノード配列
- * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
- *   （{ refId, heading: 見出しレベル, texts: トークン列 }）
+ * @param {string[]} sourceLines — Array of source file lines
+ * @param {Object[]} nodes — Array of graph nodes
+ * @param {Object[]} nodes[].headingRefs — Each node's headingRefs
+ *   ({ refId, heading: heading level, texts: token array })
  * @returns {{ covered: boolean, uncoveredHeadings: string[] }}
- *   covered: 全見出しがカバーされているか
- *   uncoveredHeadings: 未カバー見出しのテキストリスト
+ *   covered: Whether all headings are covered
+ *   uncoveredHeadings: List of uncovered heading texts
  */
 function checkCoverage(sourceLines, nodes) {
   const headings = extractHeadings(sourceLines);
@@ -252,18 +251,18 @@ function checkCoverage(sourceLines, nodes) {
 }
 
 /**
- * 孤立ノードを検出する
+ * Detect isolated nodes
  *
- * 全ノードが最低1本のエッジで接続されているかを検証する。
- * エッジの from/to に1回も出現しないノードIDを孤立ノードとする。
+ * Verifies that all nodes are connected by at least one edge.
+ * Node IDs that never appear in any edge's from/to are considered isolated.
  *
- * @param {Object[]} nodes — グラフのノード配列
- * @param {Object[]} edges — グラフのエッジ配列
- * @param {string} edges[].from — 参照元ノードID
- * @param {string} edges[].to — 参照先ノードID
+ * @param {Object[]} nodes — Array of graph nodes
+ * @param {Object[]} edges — Array of graph edges
+ * @param {string} edges[].from — Source node ID
+ * @param {string} edges[].to — Target node ID
  * @returns {{ connected: boolean, isolatedNodes: string[] }}
- *   connected: 全ノードが接続されているか
- *   isolatedNodes: 孤立ノードのIDリスト
+ *   connected: Whether all nodes are connected
+ *   isolatedNodes: List of isolated node IDs
  */
 function checkIsolated(nodes, edges) {
   const connected = new Set();
@@ -283,14 +282,14 @@ function checkIsolated(nodes, edges) {
 }
 
 /**
- * 全 headingRefs が resolve-by-heading.js で一意に解決可能かを検証する
+ * Verify that all headingRefs can be uniquely resolved by resolve-by-heading.js
  *
- * 各ノードの headingRefs エントリに対して resolveByHeading を実行し、
- * 解決に失敗したものを unresolvableRefs として報告する。
+ * Runs resolveByHeading for each headingRefs entry in every node,
+ * reporting unresolvable ones as unresolvableRefs.
  *
- * @param {string[]} sourceLines — ソースファイルの行配列
- * @param {Object[]} nodes — グラフのノード配列
- * @param {Object[]} nodes[].headingRefs — 各ノードの headingRefs
+ * @param {string[]} sourceLines — Array of source file lines
+ * @param {Object[]} nodes — Array of graph nodes
+ * @param {Object[]} nodes[].headingRefs — Each node's headingRefs
  * @returns {{ resolvable: boolean, unresolvableRefs: Array<{ nodeId: string, refId: string, heading: number, texts: string[] }> }}
  */
 function checkResolvability(sourceLines, nodes) {
@@ -316,20 +315,20 @@ function checkResolvability(sourceLines, nodes) {
 }
 
 // ============================================================
-// 出力処理
+// Output processing
 // ============================================================
 
 /**
- * 検証結果を出力し、適切な終了コードでプロセスを終了する
+ * Output the verification result and exit the process with the appropriate exit code
  *
- * 正常時: {"ok":true} を stdout、終了コード0
- * 異常時: {"ok":false, ...} を stdout、
- *         終了コード1、加えて自然言語の3段テンプレートを stderr
+ * Normal case: {"ok":true} to stdout, exit code 0
+ * Error case: {"ok":false, ...} to stdout,
+ *             exit code 1, plus a natural language 3-part template to stderr
  *
- * @param {boolean} ok — 検証が成功したか
- * @param {string[]} uncoveredHeadings — 未カバー見出しのテキストリスト
- * @param {string[]} isolatedNodes — 孤立ノードのIDリスト
- * @param {Array} unresolvableRefs — 解決不能な headingRefs のリスト
+ * @param {boolean} ok — Whether verification succeeded
+ * @param {string[]} uncoveredHeadings — List of uncovered heading texts
+ * @param {string[]} isolatedNodes — List of isolated node IDs
+ * @param {Array} unresolvableRefs — List of unresolvable headingRefs
  */
 function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) {
   const result = {
@@ -379,11 +378,11 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 }
 
 // ============================================================
-// ヘルプ表示
+// Help display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage information
  */
 function printUsage() {
   console.log(
@@ -404,20 +403,20 @@ function printUsage() {
 }
 
 // ============================================================
-// エントリポイント
+// Entry point
 // ============================================================
 
 /**
- * main — CLIエントリポイント
+ * main — CLI entry point
  *
- * 1. 引数パース
- * 2. グラフ・ソースファイル読み込み
- * 3. カバレッジ検証
- * 4. 孤立ノード検証
- * 5. 結果出力
+ * 1. Parse arguments
+ * 2. Read graph and source files
+ * 3. Coverage validation
+ * 4. Isolated node validation
+ * 5. Output results
  *
- * 全エラーは3段テンプレートで stderr に出力し、終了コード1で終了する。
- * ファイル変更は一切行わない。
+ * All errors are output to stderr in the 3-part template format with exit code 1.
+ * No file modifications are performed.
  */
 function main() {
   let graphPath, sourcePath;
@@ -471,7 +470,7 @@ function main() {
   );
 }
 
-// CLIとして実行された場合のみ main を呼び出す
+// Call main only when executed as CLI
 if (require.main === module) {
   main();
 }

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * generate-all-dir-templates.js — Dirs-Tree.json 内の全言語に対して一括生成/削除
+ * generate-all-dir-templates.js — Batch generate/delete for all languages in Dirs-Tree.json
  *
  * --dirs-tree=<path> [--dry-run] [--delete]
  *
- * Dirs-Tree.json に定義された全言語のディレクトリ/ファイルを一括生成する。
- * --delete を指定すると生成物を完全削除する（--dry-run で予定確認可能）。
+ * Batch-generates directories/files for all languages defined in Dirs-Tree.json.
+ * With --delete, completely removes the generated artifacts (--dry-run to preview).
  *
- * 出力契約:
- *   正常時 → JSON 配列（言語ごとの結果）を stdout に出力、終了コード 0
- *   異常時 → stderr にエラー、終了コード 1
+ * Output contract:
+ *   On success → JSON array (per-language results) to stdout, exit code 0
+ *   On error → stderr error message, exit code 1
  */
 'use strict';
 
@@ -21,7 +21,7 @@ const SCRIPT_DIR = __dirname;
 const GENERATE_SCRIPT = path.join(SCRIPT_DIR, 'generate-dir-template.js');
 
 // ============================================================
-// 引数パース
+// Argument parsing
 // ============================================================
 
 const args = process.argv.slice(2);
@@ -37,7 +37,7 @@ if (!dirsTreeFlag) {
 const dirsTreePath = path.resolve(dirsTreeFlag.slice('--dirs-tree='.length));
 
 // ============================================================
-// Dirs-Tree.json 読み込み
+// Read Dirs-Tree.json
 // ============================================================
 
 let dirsTree;
@@ -55,7 +55,7 @@ if (languages.length === 0) {
 }
 
 // ============================================================
-// 言語別に generate-dir-template.js を実行
+// Run generate-dir-template.js per language
 // ============================================================
 
 const results = [];
@@ -64,7 +64,7 @@ for (const lang of languages) {
   const actionLabel = isDelete ? '削除' : '生成';
   console.error(`[${lang}] ${actionLabel}を開始します...`);
 
-  // 生成先の基点は Dirs-Tree.json と同じディレクトリ
+  // Root directory is the same as Dirs-Tree.json's directory
   const rootDir = path.dirname(dirsTreePath);
 
   const cmdArgs = [
@@ -100,7 +100,7 @@ for (const lang of languages) {
 }
 
 // ============================================================
-// 結果出力
+// Output results
 // ============================================================
 
 const overallOk = results.every(r => r.ok);

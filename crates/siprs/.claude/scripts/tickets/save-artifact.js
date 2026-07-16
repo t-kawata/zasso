@@ -37,7 +37,7 @@ function main() {
     process.exit(1);
   }
 
-  // stdin から内容を読み取る
+  // Read content from stdin
   let content = '';
   try {
     content = fs.readFileSync(process.stdin.fd, 'utf8');
@@ -50,7 +50,7 @@ function main() {
     process.exit(1);
   }
 
-  // 既存の frontmatter パスを確認、なければ contextDir から構築
+  // Check existing frontmatter path; fall back to constructing from contextDir
   const { attrs } = readFrontmatterFromFile(paths.specPath);
   const existingPath = attrs?.[field];
   let artifactPath;
@@ -60,7 +60,7 @@ function main() {
     artifactPath = path.join(paths.contextDir, `${type}.md`);
   }
 
-  // ファイル保存 + frontmatter 更新
+  // Save file + update frontmatter
   fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
   fs.writeFileSync(artifactPath, content);
   updateFrontmatterFields(paths.specPath, { [field]: artifactPath });

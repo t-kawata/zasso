@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 
 /**
- * validate-phasify.js — フェーズ割当の6項目検証サブスクリプト
+ * validate-phasify.js — 6-item phase assignment validation sub-script
  *
- * phasify-graph-and-dirs-files-tree.js の出力（Tickets.json phase[].nodeIds）が
- * 以下の6項目を満たすことを検証する：
+ * Validates that the output of phasify-graph-and-dirs-files-tree.js (Tickets.json phase[].nodeIds)
+ * satisfies the following 6 checks:
  *
- * 1. 全ノードカバレッジ: GRAPH.json の全ノードが最低1フェーズに属する
- * 2. SCC同一性: 同一SCCのノードはすべて同一フェーズに属する
- * 3. Hard制約遵守: w=∞ のエッジで逆順（phase(u) >= phase(v)）がない
- * 4. 下限充足: 各フェーズが10ノード以上（総ノード<10の場合は警告のみ）
- * 5. Dirs制約: ディレクトリ間依存方向に違反していない
- * 6. 孤立0: フェーズに属さないノードが存在しない（=1と同じだが逆方向の保証）
+ * 1. All nodes covered: every node in GRAPH.json belongs to at least 1 phase
+ * 2. SCC identity: all nodes of the same SCC belong to the same phase
+ * 3. Hard constraint compliance: no reverse order (phase(u) >= phase(v)) for w=infinity edges
+ * 4. Lower bound: each phase has >=10 nodes (warning only if total nodes < 10)
+ * 5. Dirs constraint: no violation of inter-directory dependency direction
+ * 6. No orphans: no node is phase-unassigned (= same as 1 but reverse guarantee)
  *
- * 使用法:
+ * Usage:
  *   node validate-phasify.js --tickets=<PATH> --graph=<PATH> --dirs-tree=<PATH>
  *
- * 出力（stdout）:
+ * Output (stdout):
  *   {"valid": true/false, "checks": {...}, "errors": [...]}
  *
- * 終了コード:
+ * Exit code:
  *   0 = valid
  *   1 = validation error
  *   2 = argument error
@@ -31,10 +31,10 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// 重みテーブル（PX-38 でも使用される。ここでは検証用に∞判定のみ）
+// Weight table (also used in PX-38. Here only used for infinity determination in validation)
 // ============================================================
 
-/** 絶対制約（Hard）エッジ種別 — 逆順を禁止する */
+/** Hard constraint edge types — prohibits reverse order */
 const HARD_EDGE_TYPES = new Set([
   'depends_on',
   'implements',
@@ -49,10 +49,10 @@ const WEIGHT_INFINITY = new Set([
 ]);
 
 // ============================================================
-// プロジェクション: ノード→ディレクトリ
+// Projection: node → directory
 // ============================================================
 
-/** Dirs-Tree.json からノードID→ディレクトリパスのマップを構築する */
+/** Builds a nodeId→directory path map from Dirs-Tree.json */
 function buildNodeToDirMap(dirsTree) {
   const nodeToDir = {};
   function walk(node, parentPath) {
@@ -81,12 +81,12 @@ function buildNodeToDirMap(dirsTree) {
 }
 
 // ============================================================
-// 6項目検証
+// 6-check validation
 // ============================================================
 
 /**
- * 検証1: 全ノードカバレッジ
- * GRAPH.json の全ノードが最低1フェーズに属することを確認する。
+ * Check 1: All nodes covered
+ * Confirms that every node in GRAPH.json belongs to at least 1 phase.
  */
 function checkAllNodesCovered(graphNodes, phases) {
   const coveredIds = new Set();
@@ -108,11 +108,11 @@ function checkAllNodesCovered(graphNodes, phases) {
 }
 
 /**
- * 検証2: SCC同一性
- * 同一SCCのノードがすべて同一フェーズに属することを確認する。
- * SCC情報は Dirs-Tree.json の分析結果からは取得できないため、
- * ここでは割愛し、PX-38 のスクリプト側で保証する。
- * 代わりに、各ノードが唯一のフェーズに属することを確認する。
+ * Check 2: SCC identity
+ * Confirms that all nodes of the same SCC belong to the same phase.
+ * SCC info is not obtainable from Dirs-Tree.json analysis results,
+ * so this is omitted here and guaranteed by PX-38 scripts instead.
+ * Instead validates that each node belongs to exactly one phase.
  */
 function checkSinglePhasePerNode(phases) {
   const nodeToPhases = {};
@@ -135,8 +135,8 @@ function checkSinglePhasePerNode(phases) {
 }
 
 /**
- * 検証3: Hard制約遵守
- * w=∞ のエッジで phase(u) >= phase(v) になっていないか確認する。
+ * Check 3: Hard constraint compliance
+ * Confirms that no w=infinity edge has phase(u) >= phase(v).
  */
 function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
   const violations = [];
@@ -149,14 +149,14 @@ function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
         from: edge.from,
         to: edge.to,
         type: edge.type,
-        reason: 'ノードがどのフェーズにも属していない',
+        reason: 'Node does not belong to any phase',
       });
       continue;
     }
-    // depends_on(u→v) = 「uはvに依存する」→ v(依存先)を先に実装
-    // 違反: 依存先vのフェーズ位置 >= 依存元uのフェーズ位置
-    // フェーズIDではなく配列上のインデックスで比較する
-    // （enforceHardConstraints によりIDと順序が乖離するため）
+    // depends_on(u→v) = u depends on v → v (dependency) is implemented first
+    // Violation: dependency v's phase index >= dependent u's phase index
+    // Compare by array index, not phase ID
+    // (enforceHardConstraints may cause ID/order divergence)
     const idxU = phases.findIndex(function(p) { return p.id === phaseU; });
     const idxV = phases.findIndex(function(p) { return p.id === phaseV; });
     if (idxU === -1 || idxV === -1) continue;
@@ -168,7 +168,7 @@ function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
         type: edge.type,
         phaseU,
         phaseV,
-        reason: '逆順: phase_index(dependency) >= phase_index(dependant)',
+        reason: 'Reverse order: phase_index(dependency) >= phase_index(dependant)',
       });
     }
   }
@@ -179,9 +179,9 @@ function checkHardConstraints(graphEdges, phases, nodeToPhaseMap) {
 }
 
 /**
- * 検証4: 下限充足
- * 各フェーズが最低10ノード以上か確認する。
- * 総ノード数が10未満の場合は警告のみ。
+ * Check 4: Lower bound
+ * Validates that each phase has at least 10 nodes.
+ * Warning only if total nodes < 10.
  */
 function checkPhaseSizeMinimum(phases, totalNodes) {
   const sizeIssues = [];
@@ -205,8 +205,8 @@ function checkPhaseSizeMinimum(phases, totalNodes) {
 }
 
 /**
- * 検証5: Dirs制約
- * ディレクトリ間依存方向に違反していないか確認する。
+ * Check 5: Dirs constraint
+ * Validates that inter-directory dependency directions are not violated.
  */
 function checkDirsConstraint(dependencyDirections, phases, nodeToDirMap, nodeToPhaseMap) {
   const violations = [];
@@ -217,14 +217,14 @@ function checkDirsConstraint(dependencyDirections, phases, nodeToDirMap, nodeToP
     for (const dep of dirs) {
       const fromDir = dep.from;
       const toDir = dep.to;
-      // この依存方向に該当する全ノードペアを検証
+      // Validate all node pairs subject to this dependency direction
       for (const phase of phases) {
         if (!phase.nodeIds) continue;
         for (const nid of phase.nodeIds) {
           const nodeDir = nodeToDirMap[nid];
           if (nodeDir === fromDir) {
             const phaseU = nodeToPhaseMap[nid];
-            // toDir に属する全ノードのフェーズをチェック
+            // Check phases of all nodes belonging to toDir
             for (const otherPhase of phases) {
               if (!otherPhase.nodeIds) continue;
               for (const otherNid of otherPhase.nodeIds) {
@@ -237,7 +237,7 @@ function checkDirsConstraint(dependencyDirections, phases, nodeToDirMap, nodeToP
                       fromDir,
                       toDir,
                       rule: dep.rule,
-                      reason: 'ディレクトリ間依存方向に違反',
+                      reason: 'Violates inter-directory dependency direction',
                     });
                   }
                 }
@@ -255,9 +255,9 @@ function checkDirsConstraint(dependencyDirections, phases, nodeToDirMap, nodeToP
 }
 
 /**
- * 検証6: 孤立0
- * 全ノードが最低1フェーズに属することを保証する（検証1と同じ。
- * 独立して結果を報告する）。
+ * Check 6: No orphan nodes
+ * Guarantees that all nodes belong to at least 1 phase (same as Check 1,
+ * but reports results independently).
  */
 function checkNoOrphanNodes(graphNodes, phases) {
   const coveredIds = new Set();
@@ -278,12 +278,12 @@ function checkNoOrphanNodes(graphNodes, phases) {
 }
 
 // ============================================================
-// ノードID → フェーズID マップ構築
+// NodeId → PhaseId map construction
 // ============================================================
 
 /**
- * フェーズ配列からノードID→フェーズIDのマップを構築する。
- * 複数フェーズに属するノードは最初に見つかったフェーズを優先する。
+ * Builds a nodeId→phaseId map from the phase array.
+ * For nodes belonging to multiple phases, the first found phase takes priority.
  */
 function buildNodeToPhaseMap(phases) {
   const map = {};
@@ -304,16 +304,16 @@ function buildNodeToPhaseMap(phases) {
 // ============================================================
 
 /**
- * 全6項目の検証を実行する。
+ * Executes all 6 validation checks.
  *
- * 検証4（下限充足）は情報提供であり、他の5項目のような致命的違反ではない。
- * 下限10未満のフェーズは depends_on 制約を尊重した結果であり、許容される。
+ * Check 4 (lower bound) is informational and not a fatal violation like the other 5.
+ * Phases with fewer than 10 nodes may be a result of depends_on constraints and are allowed.
  *
- * @param {object} graphTickets — Tickets.json 相当のオブジェクト
- * @param {object[]} graphNodes — GRAPH.json の nodes 配列
- * @param {object[]} graphEdges — GRAPH.json の edges 配列
- * @param {object} dirsTree — Dirs-Tree.json 相当のオブジェクト
- * @param {{ allowSmallPhases?: boolean }} [options] — オプション（allowSmallPhases=trueの場合、下限未満をエラーにしない）
+ * @param {object} graphTickets — Tickets.json equivalent object
+ * @param {object[]} graphNodes — GRAPH.json nodes array
+ * @param {object[]} graphEdges — GRAPH.json edges array
+ * @param {object} dirsTree — Dirs-Tree.json equivalent object
+ * @param {{ allowSmallPhases?: boolean }} [options] — Options (if allowSmallPhases=true, lower bound is not an error)
  * @returns {{ valid: boolean, checks: object, errors: string[] }}
  */
 function validateAll(graphTickets, graphNodes, graphEdges, dirsTree, options) {
@@ -322,47 +322,47 @@ function validateAll(graphTickets, graphNodes, graphEdges, dirsTree, options) {
   const checks = {};
   const phases = graphTickets.phases || [];
 
-  // ノードID→フェーズID マップ
+  // Build nodeId→phaseId map
   const nodeToPhaseMap = buildNodeToPhaseMap(phases);
 
-  // ノードID→ディレクトリパス マップ
+  // Build nodeId→directory path map
   const nodeToDirMap = buildNodeToDirMap(dirsTree);
 
-  // 検証1: 全ノードカバレッジ
+  // Check 1: All nodes covered
   checks.allNodesCovered = checkAllNodesCovered(graphNodes, phases);
   if (!checks.allNodesCovered.passed) {
-    errors.push('検証1 不合格: ' + checks.allNodesCovered.missing.length + ' 個のノードが未カバー');
+    errors.push('Check 1 FAILED: ' + checks.allNodesCovered.missing.length + ' nodes not covered');
   }
 
-  // 検証2: 単一フェーズ所属（SCC同一性の代替検証）
+  // Check 2: Single phase per node (SCC identity alternate validation)
   checks.singlePhasePerNode = checkSinglePhasePerNode(phases);
   if (!checks.singlePhasePerNode.passed) {
-    errors.push('検証2 不合格: ' + checks.singlePhasePerNode.duplicates.length + ' 個のノードが複数フェーズに所属');
+    errors.push('Check 2 FAILED: ' + checks.singlePhasePerNode.duplicates.length + ' nodes belong to multiple phases');
   }
 
-  // 検証3: Hard制約遵守
+  // Check 3: Hard constraint compliance
   checks.hardConstraints = checkHardConstraints(graphEdges, phases, nodeToPhaseMap);
   if (!checks.hardConstraints.passed) {
-    errors.push('検証3 不合格: ' + checks.hardConstraints.violations.length + ' 件のHard制約違反');
+    errors.push('Check 3 FAILED: ' + checks.hardConstraints.violations.length + ' hard constraint violations');
   }
 
-  // 検証4: 下限充足（情報提供。allowSmallPhases=false時のみエラーに計上）
+  // Check 4: Lower bound (informational; counted as error only when allowSmallPhases=false)
   checks.phaseSizeMinimum = checkPhaseSizeMinimum(phases, graphNodes.length);
   if (!checks.phaseSizeMinimum.passed && opts.allowSmallPhases === false) {
-    errors.push('検証4 不合格: ' + checks.phaseSizeMinimum.issues.filter(i => !i.isWarning).length + ' 個のフェーズが下限(10)未満');
+    errors.push('Check 4 FAILED: ' + checks.phaseSizeMinimum.issues.filter(i => !i.isWarning).length + ' phases below min(10)');
   }
 
-  // 検証5: Dirs制約
+  // Check 5: Dirs constraint
   const depDirs = dirsTree ? dirsTree.dependencyDirections : null;
   checks.dirsConstraint = checkDirsConstraint(depDirs, phases, nodeToDirMap, nodeToPhaseMap);
   if (!checks.dirsConstraint.passed) {
-    errors.push('検証5 不合格: ' + checks.dirsConstraint.violations.length + ' 件のDirs制約違反');
+    errors.push('Check 5 FAILED: ' + checks.dirsConstraint.violations.length + ' dirs constraint violations');
   }
 
-  // 検証6: 孤立0
+  // Check 6: No orphan nodes
   checks.noOrphanNodes = checkNoOrphanNodes(graphNodes, phases);
   if (!checks.noOrphanNodes.passed) {
-    errors.push('検証6 不合格: ' + checks.noOrphanNodes.orphans.length + ' 個の孤立ノード');
+    errors.push('Check 6 FAILED: ' + checks.noOrphanNodes.orphans.length + ' orphan nodes');
   }
 
   const valid = errors.length === 0;
@@ -370,7 +370,7 @@ function validateAll(graphTickets, graphNodes, graphEdges, dirsTree, options) {
 }
 
 /**
- * CLIエントリポイント
+ * CLI entry point
  */
 function main() {
   const args = process.argv.slice(2);
@@ -386,7 +386,7 @@ function main() {
     console.log(JSON.stringify({
       valid: false,
       checks: {},
-      errors: ['使用法: node validate-phasify.js --tickets=<PATH> --graph=<PATH> --dirs-tree=<PATH>'],
+      errors: ['Usage: node validate-phasify.js --tickets=<PATH> --graph=<PATH> --dirs-tree=<PATH>'],
     }));
     process.exit(2);
   }
@@ -404,7 +404,7 @@ function main() {
     console.log(JSON.stringify({
       valid: false,
       checks: {},
-      errors: ['ファイル読み込みエラー: ' + e.message],
+      errors: ['File read error: ' + e.message],
     }));
     process.exit(2);
   }

@@ -2,12 +2,12 @@
 /**
  * list-files.js <rfc-dir>
  *
- * <rfc-dir>/Status.json から researchPath を読み取り、
- * そのパスが指すファイルまたはディレクトリをフラットなファイルパス一覧
- * （JSON配列）で STDOUT に出力する。
+ * Reads researchPath from <rfc-dir>/Status.json and
+ * outputs a flat list of file paths (as a JSON array) to STDOUT
+ * for the file or directory pointed to by that path.
  *
- * これにより AI が $RESEARCH_PATH を記憶する必要はなく、
- * $RFC_DIR だけで機械的に解決される。
+ * This eliminates the need for the AI to remember $RESEARCH_PATH;
+ * it is resolved mechanically from $RFC_DIR alone.
  */
 import fs from "fs";
 import path from "path";

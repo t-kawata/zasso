@@ -1,23 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * show-all-nodes-title-summary.js — フェーズ内全ノードの title/summary を表示
+ * show-all-nodes-title-summary.js — Display title/summary of all nodes in a phase
  *
- * split-to-tickets.md Step 4.2 で使用する。Tickets.json の指定フェーズの nodeIds
- * から、GRAPH.json の該当ノードの title と summary を抽出して表示する。
- * 出力は AI がフェーズ名とサマリーを生成するための参照情報として使用される。
+ * Used in split-to-tickets.md Step 4.2. Extracts and displays the title and summary
+ * of matching nodes from GRAPH.json based on the nodeIds of the specified phase
+ * in Tickets.json. The output serves as reference information for AI to generate
+ * phase names and summaries.
  *
- * 使用法:
+ * Usage:
  *   node show-all-nodes-title-summary.js --tickets=<PATH> --graph=<PATH> --phase=<phaseId>
  *
- * 出力形式:
- *   N0001: [§1 目的 — 本crateの責務定義] RustからPJSUAを安全に...
- *   N0002: [§1a M20実装優先度マップ] M20追補の全実装項目を...
+ * Output format:
+ *   N0001: [§1 Purpose — Crate responsibility definition] Safely wrapping PJSUA from Rust...
+ *   N0002: [§1a M20 implementation priority map] All implementation items for M20 supplement...
  *
- * 終了コード:
- *   0 = 成功
- *   1 = データエラー
- *   2 = 引数エラー
+ * Exit codes:
+ *   0 = Success
+ *   1 = Data error
+ *   2 = Argument error
  */
 
 'use strict';
@@ -26,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * CLI引数をパースする。
+ * Parse CLI arguments.
  */
 function parseArguments(argv) {
   const parsed = {};
@@ -44,7 +45,7 @@ function parseArguments(argv) {
 }
 
 /**
- * 指定フェーズの nodeIds を取得する。
+ * Get nodeIds for the specified phase.
  */
 function getPhaseNodeIds(ticketsData, phaseId) {
   const phases = ticketsData.phases || [];
@@ -59,7 +60,7 @@ function getPhaseNodeIds(ticketsData, phaseId) {
 }
 
 /**
- * メイン処理。
+ * Main processing.
  */
 function main() {
   const args = parseArguments(process.argv.slice(2));
@@ -74,7 +75,7 @@ function main() {
 
   const nodeIds = getPhaseNodeIds(ticketsData, args.phase);
   if (nodeIds.length === 0) {
-    return; // 空出力、exit 0
+    return; // Empty output, exit 0
   }
 
   for (const nid of nodeIds) {

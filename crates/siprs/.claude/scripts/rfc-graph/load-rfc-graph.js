@@ -1,56 +1,56 @@
 #!/usr/bin/env node
 
 /**
- * load-rfc-graph.js — グラフサマリー＋CLI使用例表示 [::STUB::] 廃止予定
+ * load-rfc-graph.js — Graph summary + CLI usage examples [::STUB::] Scheduled for removal
  *
- * このスクリプトは show-graph-summary-markdown.js --with-cli-examples に統合されました。
- * 新規利用は show-graph-summary-markdown.js に移行し、本スクリプトは互換性のために
- * 暫定維持します（削除時期未定）。
+ * This script has been merged into show-graph-summary-markdown.js --with-cli-examples.
+ * New users should migrate to show-graph-summary-markdown.js; this script is
+ * temporarily retained for compatibility (removal date TBD).
  */
 
 const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// 定数定義
+// Constant definitions
 // ============================================================
 
-/** グラフファイル名の接尾辞 */
+/** Graph file name suffix */
 const GRAPH_FILE_SUFFIX = '-GRAPH.json';
 
-/** 正常終了コード */
+/** Success exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Failure exit code */
 const EXIT_FAILURE = 1;
 
-/** デフォルトの探索ホップ数（CLI使用例で表示する値） */
+/** Default hop count for CLI usage examples */
 const DEFAULT_HOPS = 2;
 
-/** スクリプトディレクトリへの相対パス */
+/** Relative path to the scripts directory */
 const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 
 // ============================================================
-// コマンドライン引数パース
+// Command line argument parsing
 // ============================================================
 
 /**
- * コマンドライン引数をパースする
+ * Parse command line arguments
  *
- * @param {string[]} [testArgs] — テスト用の引数配列（省略時は process.argv から取得）
+ * @param {string[]} [testArgs] — Test argument array (defaults to process.argv when omitted)
  * @returns {{ sourcePath: string }}
- * @throws {Error} 引数が不正な場合
+ * @throws {Error} When arguments are invalid
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
 
-  // --help オプション
+  // --help option
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     printUsage();
     process.exit(EXIT_SUCCESS);
   }
 
-  // 必須引数: <source-path>
+  // Required argument: <source-path>
   if (args.length < 1) {
     throw new Error(
       'ソースファイルのパスを指定してください。\n' +
@@ -60,7 +60,7 @@ function parseArguments(testArgs) {
 
   const sourcePath = args[0];
 
-  // 余剰引数のチェック
+  // Check for excess arguments
   if (args.length > 1) {
     throw new Error(
       '余剰な引数があります。\n' +
@@ -72,17 +72,17 @@ function parseArguments(testArgs) {
 }
 
 // ============================================================
-// グラフパス導出（純粋関数）
+// Graph path derivation (pure function)
 // ============================================================
 
 /**
- * ソースファイルのパスからグラフファイルのパスを導出する
+ * Derive the graph file path from the source file path
  *
- * RFC §3.9.1 の導出式: <source-dir>/<basename>-GRAPH.json
- * ソースパスが /path/to/doc.md の場合 → /path/to/doc-GRAPH.json
+ * RFC Section 3.9.1 derivation formula: <source-dir>/<basename>-GRAPH.json
+ * Source path /path/to/doc.md → /path/to/doc-GRAPH.json
  *
- * @param {string} sourcePath — ソースファイルのパス
- * @returns {string} グラフファイルのパス
+ * @param {string} sourcePath — Path to the source file
+ * @returns {string} Path to the graph file
  */
 function deriveGraphPath(sourcePath) {
   const dir = path.dirname(sourcePath);
@@ -91,17 +91,17 @@ function deriveGraphPath(sourcePath) {
 }
 
 // ============================================================
-// ファイル読み込み
+// File loading
 // ============================================================
 
 /**
- * グラフJSONファイルを読み込む
+ * Load a graph JSON file
  *
- * グラフファイルが存在しない場合は null を返す（エラーにしない）。
+ * Returns null if the graph file does not exist (no error).
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {Object|null} パース済みグラフデータ、または null（ファイル不在時）
- * @throws {Error} ファイル読み込みまたはJSONパースに失敗した場合
+ * @param {string} graphPath — Path to the graph file
+ * @returns {Object|null} Parsed graph data, or null (file not found)
+ * @throws {Error} When file read or JSON parse fails
  */
 function loadGraph(graphPath) {
   if (!fs.existsSync(graphPath)) {
@@ -126,7 +126,7 @@ function loadGraph(graphPath) {
     );
   }
 
-  // 最小限の構造検証
+  // Minimal structure validation
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error(
       'グラフデータの構造が不正です。nodes と edges が必要です。'
@@ -137,36 +137,36 @@ function loadGraph(graphPath) {
 }
 
 // ============================================================
-// 集計関数（純粋関数）
+// Aggregation functions (pure functions)
 // ============================================================
 
 /**
- * グラフデータを集計しサマリーを生成する
+ * Aggregate graph data and generate a summary
  *
- * @param {Object} graph — グラフデータ（{ nodes, edges }）
- * @returns {Object} サマリー情報
- * @returns {number} return.nodeCount — ノード総数
- * @returns {Object<string, number>} return.kindDistribution — kind別の件数
- * @returns {number} return.edgeCount — エッジ総数
- * @returns {Object<string, number>} return.typeDistribution — type別の件数
- * @returns {string[]} return.isolatedNodes — 孤立ノードのIDリスト
+ * @param {Object} graph — Graph data ({ nodes, edges })
+ * @returns {Object} Summary information
+ * @returns {number} return.nodeCount — Total node count
+ * @returns {Object<string, number>} return.kindDistribution — Distribution by kind
+ * @returns {number} return.edgeCount — Total edge count
+ * @returns {Object<string, number>} return.typeDistribution — Distribution by type
+ * @returns {string[]} return.isolatedNodes — List of isolated node IDs
  */
 function summarizeGraph(graph) {
-  // kind別分布の集計
+  // Aggregate distribution by kind
   const kindDistribution = {};
   for (const node of graph.nodes) {
     const kind = node.kind || 'unknown';
     kindDistribution[kind] = (kindDistribution[kind] || 0) + 1;
   }
 
-  // type別分布の集計
+  // Aggregate distribution by type
   const typeDistribution = {};
   for (const edge of graph.edges) {
     const type = edge.type || 'unknown';
     typeDistribution[type] = (typeDistribution[type] || 0) + 1;
   }
 
-  // 孤立ノードの検出
+  // Detect isolated nodes
   const connectedNodes = new Set();
   for (const edge of graph.edges) {
     connectedNodes.add(edge.from);
@@ -186,12 +186,12 @@ function summarizeGraph(graph) {
 }
 
 /**
- * crud.js と query.js の具体的なCLI使用例を生成する
+ * Generate concrete CLI usage examples for crud.js and query.js
  *
- * @param {string} graphPath — グラフファイルのパス
- * @param {string} sourcePath — ソースファイルのパス
- * @param {string} [firstNodeId='N0001'] — 探索の起点とするノードID
- * @returns {string[]} CLI使用例の行配列
+ * @param {string} graphPath — Path to the graph file
+ * @param {string} sourcePath — Path to the source file
+ * @param {string} [firstNodeId='N0001'] — Node ID to use as the exploration start point
+ * @returns {string[]} Array of CLI usage example lines
  */
 function generateUsageExamples(graphPath, sourcePath, firstNodeId = 'N0001') {
   const graphFileName = path.basename(graphPath);
@@ -205,26 +205,26 @@ function generateUsageExamples(graphPath, sourcePath, firstNodeId = 'N0001') {
 }
 
 // ============================================================
-// 出力処理
+// Output processing
 // ============================================================
 
 /**
- * サマリーとCLI使用例を整形して標準出力に出力する
+ * Format and output summary and CLI usage examples to stdout
  *
- * @param {Object} summary — summarizeGraph の戻り値
- * @param {string} graphPath — グラフファイルのパス
- * @param {string[]} examples — generateUsageExamples の戻り値
+ * @param {Object} summary — Return value of summarizeGraph
+ * @param {string} graphPath — Path to the graph file
+ * @param {string[]} examples — Return value of generateUsageExamples
  */
 function outputSummary(summary, graphPath, examples) {
   const graphFileName = path.basename(graphPath);
 
-  // kind別分布の文字列（例: requirement:4, api_contract:3）
+  // Distribution string by kind (e.g., requirement:4, api_contract:3)
   const kindParts = Object.entries(summary.kindDistribution)
-    .sort((a, b) => b[1] - a[1]) // 件数の降順
+    .sort((a, b) => b[1] - a[1]) // Descending order by count
     .map(([kind, count]) => `${kind}:${count}`)
     .join(', ');
 
-  // type別分布の文字列
+  // Distribution string by type
   const typeParts = Object.entries(summary.typeDistribution)
     .sort((a, b) => b[1] - a[1])
     .map(([type, count]) => `${type}:${count}`)
@@ -245,11 +245,11 @@ function outputSummary(summary, graphPath, examples) {
 }
 
 // ============================================================
-// ヘルプ表示
+// Help display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage information
  */
 function printUsage() {
   console.log(
@@ -269,21 +269,21 @@ function printUsage() {
 }
 
 // ============================================================
-// エントリポイント
+// Entry point
 // ============================================================
 
 /**
- * main — CLIエントリポイント
+ * main — CLI entry point
  *
- * 1. 引数パース
- * 2. グラフパス導出
- * 3. グラフ読み込み（不在時は何も出力せず終了コード0）
- * 4. サマリー集計
- * 5. CLI使用例生成
- * 6. 整形出力
+ * 1. Parse arguments
+ * 2. Derive graph path
+ * 3. Load graph (no output if not found, exit code 0)
+ * 4. Aggregate summary
+ * 5. Generate CLI usage examples
+ * 6. Output formatted result
  *
- * 全エラーは3段テンプレートで stderr に出力し、終了コード1で終了する。
- * ファイル変更は一切行わない。
+ * All errors are printed to stderr using a three-part template and exit with code 1.
+ * No file modifications are performed.
  */
 function main() {
   let sourcePath;
@@ -314,14 +314,14 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // グラフが存在しない場合は何も出力せず正常終了
+  // Exit normally with no output if graph does not exist
   if (graph === null) {
     process.exit(EXIT_SUCCESS);
   }
 
   const summary = summarizeGraph(graph);
 
-  // 最初のノードIDを取得（出力例用、ノードがなければ N0001 をデフォルトとする）
+  // Get the first node ID (for usage examples; defaults to N0001 if no nodes exist)
   const firstNodeId = graph.nodes.length > 0 ? graph.nodes[0].id : 'N0001';
 
   const examples = generateUsageExamples(graphPath, sourcePath, firstNodeId);
@@ -331,7 +331,7 @@ function main() {
   process.exit(EXIT_SUCCESS);
 }
 
-// CLIとして実行された場合のみ main を呼び出す
+// Only call main when executed as a CLI
 if (require.main === module) {
   main();
 }

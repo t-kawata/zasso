@@ -1,30 +1,32 @@
 #!/usr/bin/env node
 
 /**
- * analyze-source-structure.js — 3軸分割支援の機械的情報提供スクリプト
+ * analyze-source-structure.js — Mechanical information provider script for 3-axis split support
  *
- * graphify-rfc Step 1 で使用する。ソースMarkdown文書の構造情報（セクションツリー、
- * コードブロックを除外した実質行数、kind 候補、外部依存、100行超セクション）を
- * 機械的に抽出し、自然言語レポートとして標準出力に出力する。
+ * Used in graphify-rfc Step 1. Mechanically extracts structural information
+ * (section tree, substantive line count excluding code blocks, kind candidates,
+ * external dependencies, sections exceeding 100 lines) from a source Markdown document,
+ * and outputs it as a natural language report to stdout.
  *
  * CLI: analyze-source-structure.js <source-path>
  *
- * 第1軸（セクション階層）は決定論的に確定する。
- * 第2軸（kind推定）と第3軸（外部依存検出）は機械的な候補提示であり、
- * AI が判断を上書き可能。出力にその旨の但し書きを含める。
+ * Axis 1 (section hierarchy) is deterministically determined.
+ * Axis 2 (kind estimation) and Axis 3 (external dependency detection) provide
+ * mechanical candidate suggestions that the AI may override. The output includes
+ * a disclaimer to that effect.
  *
- * 出力契約:
- *   正常時 → 自然言語レポートを stdout に出力（終了コード0）
- *   異常時 → 3段テンプレートを stderr に出力（終了コード1）
+ * Output contract:
+ *   Normal → natural language report to stdout (exit code 0)
+ *   Error → 3-part template to stderr (exit code 1)
  */
 
 const fs = require("fs");
 const path = require("path");
 
 // ============================================================
-// kind 推定用キーワードテーブル（第2軸）
-// 見出しトリガー（heading）と本文キーワード（body）で構成。
-// 見出しマッチを優先し、本文キーワードは補助的に使用する。
+// Kind estimation keyword table (Axis 2)
+// Composed of heading triggers (heading) and body keywords (body).
+// Heading matches take priority; body keywords are supplementary.
 // ============================================================
 const KIND_PATTERNS = [
   {
@@ -392,7 +394,7 @@ const KIND_PATTERNS = [
 ];
 
 // ============================================================
-// 外部依存検出テーブル（第3軸）
+// External dependency detection table (Axis 3)
 // ============================================================
 const DEP_PATTERNS = [
   {
@@ -599,22 +601,22 @@ const DEP_PATTERNS = [
 ];
 
 // ============================================================
-// 定数
+// Constants
 // ============================================================
 
-/** 強制分割判定のしきい値（この行数を超えるセクションは必ず複数ノードに分割する） */
+/** Threshold for forced splitting (sections exceeding this line count must be split into multiple nodes) */
 const LONG_SECTION_THRESHOLD = 100;
 
 // ============================================================
-// ユーティリティ
+// Utilities
 // ============================================================
 
 /**
- * 3段テンプレートでエラーを stderr に出力し、終了コード1でプロセスを終了する
+ * エラーを3-partテンプレート形式でstderrに出力し、終了コード1でプロセスを終了する
  *
  * @param {string} summary — 何が起きたか
  * @param {string} cause — なぜ起きたか
- * @param {string} action — 次に取るべきアクション
+ * @param {string} action — 次に取るべき対応
  */
 function exitWithError(summary, cause, action) {
   process.stderr.write(
@@ -624,7 +626,7 @@ function exitWithError(summary, cause, action) {
 }
 
 // ============================================================
-// 引数パース
+// Argument parsing
 // ============================================================
 
 /**
@@ -658,7 +660,7 @@ function parseArguments(argv) {
 }
 
 /**
- * 引数をパースし、エラー時に exitWithError で終了する（main 用）
+ * 引数をパースし、失敗時は exitWithError で終了する（main用）
  *
  * @param {string[]} argv — process.argv 相当の配列
  * @returns {{ sourcePath: string }}
@@ -678,7 +680,7 @@ function parseArgumentsSafe(argv) {
 }
 
 /**
- * ソースファイルを行配列として読み込む
+ * ソースファイルを行の配列として読み込む
  *
  * @param {string} filePath
  * @returns {string[]}
@@ -692,7 +694,7 @@ function readSourceFile(filePath) {
 }
 
 // ============================================================
-// コードブロック検出
+// Code block detection
 // ============================================================
 
 /**
@@ -718,16 +720,16 @@ function extractCodeBlocks(sourceLines) {
       }
     }
   }
-  // 閉じていないコードブロックは無視（最終行までがコードブロック扱いにはしない）
+  // Ignore unclosed code blocks (do not treat until end of file as a code block)
   return blocks;
 }
 
 // ============================================================
-// セクションツリー抽出（第1軸）
+// Section tree extraction (Axis 1)
 // ============================================================
 
 /**
- * コードブロック外の Markdown 見出しを抽出する
+ * コードブロック外のMarkdown見出しを抽出する
  *
  * @param {string[]} sourceLines
  * @param {{ start: number, end: number }[]} codeBlocks
@@ -748,23 +750,23 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     const line = sourceLines[i];
     const lineNum = i + 1; // 1-based
 
-    // コードブロック内の行はスキップ（見出しも無視）
+    // Skip lines inside code blocks (headings are also ignored)
     if (codeBlockSet.has(i)) continue;
 
-    // 見出し行を検出
+    // Detect heading lines
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      // 直前のセクションをクローズ
+      // Close the previous section
       if (currentSection) {
         currentSection.endLine = lineNum - 1;
-        // コードブロック行を除いた実質記述行数を再計算（後でやる）
+        // Recalculate actual prose line count excluding code block lines (done later)
       }
 
       currentSection = {
         level: headingMatch[1].length,
         heading: headingMatch[2].trim(),
         startLine: lineNum,
-        endLine: sourceLines.length, // 暫定
+        endLine: sourceLines.length, // Tentative
         proseLines: 0,
         codeBlockCount: 0,
         bodyText: "",
@@ -773,7 +775,7 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     }
   }
 
-  // 見出しが1つもない場合、ファイル全体を1セクションとする
+  // If no headings exist, treat the entire file as one section
   if (sections.length === 0) {
     sections.push({
       level: 0,
@@ -786,7 +788,7 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     });
   }
 
-  // 各セクションの範囲を確定（次の同レベル以上の見出しの直前まで）
+  // Finalize each section's range (up to just before the next heading of same or higher level)
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
     let endLine = sourceLines.length;
@@ -798,17 +800,17 @@ function extractHeadingTree(sourceLines, codeBlocks) {
     }
     sec.endLine = endLine;
 
-    // セクション内の記述行数とコードブロック件数を計算
+    // Calculate prose line count and code block count within the section
     let proseCount = 0;
     let codeBlockCount = 0;
     const bodyParts = [];
     for (let j = sec.startLine - 1; j < sec.endLine; j++) {
       if (codeBlockSet.has(j)) continue;
       const text = sourceLines[j];
-      // 空行はカウントしない
+      // Do not count blank lines
       if (text.trim() !== "") {
         proseCount++;
-        // 見出し行自体は本文には含めない（タイトル行）
+        // Exclude the heading line itself from the body (title line)
         const isHeading = /^#{1,6}\s+/.test(text);
         if (!isHeading) {
           bodyParts.push(text);
@@ -826,27 +828,27 @@ function extractHeadingTree(sourceLines, codeBlocks) {
 }
 
 // ============================================================
-// kind 推定（第2軸支援）
+// kind estimation (Axis 2 support)
 // ============================================================
 
 /**
- * 見出しと本文テキストから kind 候補を推定する
+ * 見出しと本文から kind 候補を推定する
  *
  * @param {string} heading — セクション見出し
  * @param {string} bodyText — セクション本文
- * @returns {string[]} 推定された kind の配列（0〜複数）
+ * @returns {string[]} 推定されたkindの配列（0〜複数）
  */
 function estimateKind(heading, bodyText) {
   const matches = [];
 
   for (const pattern of KIND_PATTERNS) {
-    // 見出しマッチ（優先）
+    // Heading match (priority)
     const headingMatch = pattern.heading.some((re) => re.test(heading));
     if (headingMatch) {
       matches.push(pattern.kind);
-      continue; // 見出しマッチしたら本文はチェックしない（重複防止）
+      continue; // Skip body check if heading matched (prevent duplicates)
     }
-    // 本文キーワードマッチ（補助）
+    // Body keyword match (supplementary)
     const bodyMatch = pattern.body.some((re) => re.test(bodyText));
     if (bodyMatch) {
       matches.push(pattern.kind);
@@ -857,10 +859,10 @@ function estimateKind(heading, bodyText) {
 }
 
 /**
- * 本文から正規表現パターンにマッチした文字列を収集する（重複除去・最大5件）
+ * 本文から正規表現パターンにマッチする文字列を収集する（重複除去、最大5件）
  *
- * @param {string} bodyText — 検索対象の本文テキスト
- * @param {RegExp[]} patterns — 照合する正規表現の配列
+ * @param {string} bodyText — 検索対象の本文
+ * @param {RegExp[]} patterns — マッチさせる正規表現パターンの配列
  * @returns {string[]} マッチした文字列の配列（部分一致を含む）
  */
 function collectBodyMatches(bodyText, patterns) {
@@ -881,18 +883,18 @@ function collectBodyMatches(bodyText, patterns) {
 }
 
 // ============================================================
-// 外部依存検出（第3軸支援）
+// External dependency detection (Axis 3 support)
 // ============================================================
 
 /**
- * セクションに子見出し（より深いレベルの見出し）が存在するかを判定する
+ * セクションに子見出し（より深いレベルの見出し）が存在するか判定する
  *
  * 子見出しを持つセクションは既に適切に分割済みとみなし、
- * 100行超セクションの警告対象から除外するために使用する。
+ * 長大セクション（100行超）の警告対象から除外する。
  *
  * @param {Array} sections — 全セクションの配列
- * @param {Object} sec — 判定対象のセクション
- * @returns {boolean} 子見出しが存在すれば true
+ * @param {Object} sec — 評価対象のセクション
+ * @returns {boolean} 子見出しが存在する場合 true
  */
 function sectionHasChildren(sections, sec) {
   return sections.some(
@@ -901,7 +903,7 @@ function sectionHasChildren(sections, sec) {
 }
 
 /**
- * 本文テキストから外部依存パターンを検出する
+ * 本文から外部依存パターンを検出する
  *
  * @param {string} bodyText
  * @returns {string[]} 検出された依存ラベルの配列
@@ -917,7 +919,7 @@ function detectExternalDeps(bodyText) {
 }
 
 // ============================================================
-// レポート整形
+// Report formatting
 // ============================================================
 
 /**
@@ -991,7 +993,7 @@ function formatReport(
   );
   lines.push("");
 
-  // セクションの lineRange をキーにした kind / dep ルックアップ
+  // Build kind/dep lookup keyed by section lineRange
   const kindByRange = {};
   for (const hint of kindHints) {
     kindByRange[hint.lineRange] = hint.kind;
@@ -1001,7 +1003,7 @@ function formatReport(
     depByRange[dep.lineRange] = dep.labels.join(", ");
   }
 
-  // セクション一覧
+  // Section listing
   lines.push(
     `## セクション一覧（ノード候補。機械的な検出結果でありAIが判断を上書き可能。）`,
   );
@@ -1018,7 +1020,7 @@ function formatReport(
   }
   lines.push("");
 
-  // // kind 候補（第2軸）— 各セクション行にインライン付記済み
+  // // kind candidates (Axis 2) — already annotated inline on each section line
   // lines.push(`## kind 候補（機械的推定。AI が判断を上書き可能）`);
   // if (kindHints.length === 0) {
   //   lines.push(
@@ -1031,7 +1033,7 @@ function formatReport(
   // }
   // lines.push("");
   //
-  // // 外部依存（第3軸）— 各セクション行にインライン付記済み
+  // // External dependencies (Axis 3) — already annotated inline on each section line
   // lines.push(
   //   `## 外部依存の可能性があるセクション（機械的検出。AIは参考にして自由に判断可。）`,
   // );
@@ -1044,7 +1046,7 @@ function formatReport(
   // }
   // lines.push("");
 
-  // // 候補 headingRefs（第4軸）
+  // // Candidate headingRefs (Axis 4)
   // lines.push(
   //   `## ノード候補 headingRefs（機械的抽出。AI は参考にして独自に判断可。）`,
   // );
@@ -1060,7 +1062,7 @@ function formatReport(
   // }
   // lines.push("");
 
-  // 100行超セクション
+  // Sections exceeding 100 lines
   lines.push(
     `## 100行超セクション（コードブロック除く実質記述行数 — 強制分割候補）`,
   );
@@ -1077,7 +1079,7 @@ function formatReport(
 }
 
 // ============================================================
-// レポート生成（全情報の統合）
+// Report generation (integration of all information)
 // ============================================================
 
 /**
@@ -1090,7 +1092,7 @@ function formatReport(
 function generateReport(sourcePath, sourceLines) {
   const totalLines = sourceLines.length;
 
-  // コードブロック検出
+  // Code block detection
   const codeBlocks = extractCodeBlocks(sourceLines);
   const codeBlockLines = new Set();
   for (const block of codeBlocks) {
@@ -1100,17 +1102,17 @@ function generateReport(sourcePath, sourceLines) {
   }
   const codeLines = codeBlockLines.size;
 
-  // セクションツリー抽出
+  // Section tree extraction
   const sections = extractHeadingTree(sourceLines, codeBlocks);
 
-  // kind 候補（第2軸）
+  // Kind candidates (Axis 2)
   const kindHints = [];
   for (const sec of sections) {
-    // 見出し行は bodyText に含まれないので、heading も合わせて渡す
+    // Heading lines are not included in bodyText, so pass heading as well
     const matches = estimateKind(sec.heading, sec.bodyText);
     if (matches.length > 0) {
       const reasons = [];
-      // 理由を構築するため、マッチしたパターンを探す
+      // Search for matched patterns to construct reasons
       for (const kind of matches) {
         const pattern = KIND_PATTERNS.find((p) => p.kind === kind);
         if (!pattern) continue;
@@ -1134,7 +1136,7 @@ function generateReport(sourcePath, sourceLines) {
     }
   }
 
-  // 外部依存（第3軸）
+  // External dependencies (Axis 3)
   const deps = [];
   for (const sec of sections) {
     const foundDeps = detectExternalDeps(sec.bodyText);
@@ -1146,8 +1148,8 @@ function generateReport(sourcePath, sourceLines) {
     }
   }
 
-  // 100行超セクション（h2以上のみ。h1は文書全体を包むため判定対象外）
-  // 子見出し（h3/h4）を持つセクションは、小見出しで適切に分割済みとみなし対象外
+  // Sections exceeding 100 lines (h2 and above only; h1 wraps the entire document so it is excluded)
+  // Sections with child headings (h3/h4) are considered already properly split and excluded
   const longSections = [];
   for (const sec of sections) {
     if (sec.level <= 1) continue;
@@ -1160,7 +1162,7 @@ function generateReport(sourcePath, sourceLines) {
     }
   }
 
-  // 候補 headingRefs
+  // Candidate headingRefs
   const headingRefCandidates = generateCandidateHeadingRefs(sections);
 
   return formatReport(
@@ -1176,7 +1178,7 @@ function generateReport(sourcePath, sourceLines) {
 }
 
 // ============================================================
-// メイン
+// Main
 // ============================================================
 
 function main() {
@@ -1195,7 +1197,7 @@ function main() {
   console.log(report);
 }
 
-// `require` で読み込めるように公開関数をエクスポート
+// Export public functions for loading via require
 module.exports = {
   parseArguments,
   parseArgumentsSafe,
@@ -1213,7 +1215,7 @@ module.exports = {
   DEP_PATTERNS,
 };
 
-// 直接実行時のみ main を呼ぶ
+// Call main only when executed directly
 if (require.main === module) {
   main();
 }

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * sync-ticket-to-spec.js — チケットJSONのフィールドを spec ファイルに転記する
+ * sync-ticket-to-spec.js — Transcribe ticket JSON fields to spec file
  *
- * Step 6 で実行。ticketKey で指定されたチケットの background / scope / testUnit /
- * testIntegration / testExceptions / default_files / notes を spec ファイルの
- * 該当セクションに書き込む。既存セクションはスキップする（冪等）。
+ * Executed in Step 6. Writes background / scope / testUnit /
+ * testIntegration / testExceptions / default_files / notes from the
+ * ticket specified by ticketKey into the corresponding sections of
+ * the spec file. Existing sections are skipped (idempotent).
  *
  * CLI: sync-ticket-to-spec.js --tickets=<Tickets.json> --ticket-key=<P{id}-{id}>
  */
@@ -48,11 +49,11 @@ function findTicket(tickets, parsed) {
 }
 
 /**
- * チケットフィールドを spec のセクションとして書き込む
- * appendToSpec は既存セクション見出しを検出してスキップするため冪等
+ * Write ticket fields as spec sections.
+ * appendToSpec skips existing section headings, making this idempotent
  */
 function writeFieldsToSpec(specPath, ticket) {
-  // 各フィールド → spec セクションのマッピング
+  // Field to spec section mapping
   const fields = [];
 
   if (ticket.background) {
@@ -101,7 +102,7 @@ function writeFieldsToSpec(specPath, ticket) {
     fields.push({ heading: '## Notes', text: ticket.notes });
   }
 
-  // appendToSpec に渡す完全なセクション文字列を構築して書き込み
+  // Build complete section strings and pass to appendToSpec for writing
   for (const f of fields) {
     const section = f.heading + '\n\n' + f.text;
     try {
@@ -134,7 +135,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // specPath から spec ファイルのパスを解決
+  // Resolve spec file path from specPath
   if (!ticket.specPath) {
     console.error(`チケット ${ticketKey} に specPath（spec ファイルのパス）がありません`);
     process.exit(EXIT_FAILURE);

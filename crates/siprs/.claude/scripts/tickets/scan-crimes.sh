@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# scan-crimes.sh — 犯罪スキャン共通ラッパー
+# scan-crimes.sh — crime scan common wrapper
 #
-# 指定ディレクトリ（または CWD）の Malfeasance.json が存在しなければ
-# ensure-malfeasance.js で初期化してから、未解決の犯罪一覧を表示する。
+# If Malfeasance.json does not exist in the specified directory (or CWD),
+# initialize it with ensure-malfeasance.js, then display the list of unresolved crimes.
 #
-# 使用法:
-#   ./scan-crimes.sh                    # CWD の Malfeasance.json を表示
-#   ./scan-crimes.sh <directory>        # 指定ディレクトリの Malfeasance.json を表示
+# Usage:
+#   ./scan-crimes.sh                    # Display Malfeasance.json in CWD
+#   ./scan-crimes.sh <directory>        # Display Malfeasance.json in the specified directory
 #
-# 全 make/plan/start/review コマンドから犯罪点検・犯罪解決の最初のステップとして
-# 呼び出されることを想定する。
+# Intended to be called as the first step of crime inspection/resolution
+# from all make/plan/start/review commands.
 
 set -euo pipefail
 
-# .claude/ ディレクトリを絶対パスで解決（スクリプトパス解決用）
+# Resolve .claude/ directory to absolute path (for script path resolution)
 _R="$(cd "$(dirname "$0")/../.." && pwd)"
 
 TARGET_DIR="${1:-}"
 
 if [ -n "$TARGET_DIR" ]; then
-  # 指定ディレクトリに移動してから実行
+  # Change to specified directory before execution
   cd "$TARGET_DIR"
 fi
 
-# Malfeasance.json が存在しなければ初期化
+# Initialize Malfeasance.json if it does not exist
 node "$_R/scripts/tickets/ensure-malfeasance.js" > /dev/null
 
-# 未解決の犯罪を表示（CWD の Malfeasance.json を読み取る）
+# Display unresolved crimes (reads Malfeasance.json in CWD)
 node "$_R/scripts/tickets/malfeasance-all.js" "open"

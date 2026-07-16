@@ -1,17 +1,17 @@
 /**
- * ensure-malfeasance.js — Malfeasance.json の初期化
+ * ensure-malfeasance.js — Initialize Malfeasance.json
  *
- * Malfeasance.json が存在しなければ空のレコード配列を持つ初期 JSON を作成する。
- * 既に存在する場合は何も変更しない。
+ * Creates an initial JSON with an empty records array if Malfeasance.json does not exist.
+ * Does nothing if it already exists.
  *
- * 使用法:
- *   node ensure-malfeasance.js               # CWD に作成
- *   node ensure-malfeasance.js <directory>    # 指定ディレクトリに作成
+ * Usage:
+ *   node ensure-malfeasance.js               # create in CWD
+ *   node ensure-malfeasance.js <directory>    # create in specified directory
  *
- * 出力:
- *   作成時: { "success": true, "action": "created", "path": "..." }
- *   スキップ: { "success": true, "action": "skipped", "path": "..." }
- *   エラー: { "success": false, "error": "..." }
+ * Output:
+ *   on create: { "success": true, "action": "created", "path": "..." }
+ *   on skip:   { "success": true, "action": "skipped", "path": "..." }
+ *   on error:  { "success": false, "error": "..." }
  */
 
 const fs = require('fs');
@@ -23,8 +23,8 @@ const CLAUDE_DIR = path.resolve(__dirname, '..', '..');
 const SCHEMA_PATH = path.join(CLAUDE_DIR, 'scripts', 'tickets', 'malfeasance-schema.json');
 
 /**
- * Malfeasance.json のパスを返す。
- * @param {string} [dir] - 基準ディレクトリ
+ * Return the path to Malfeasance.json.
+ * @param {string} [dir] - base directory
  * @returns {string}
  */
 function getMalfeasancePath(dir) {
@@ -32,7 +32,7 @@ function getMalfeasancePath(dir) {
 }
 
 /**
- * JSON を stdout に出力する。
+ * Output JSON to stdout.
  * @param {object} result
  */
 function output(result) {
@@ -40,19 +40,19 @@ function output(result) {
 }
 
 /**
- * Malfeasance.json の初期化を実行する。
- * @param {string} [targetDir] - 作成先ディレクトリ
+ * Execute initialization of Malfeasance.json.
+ * @param {string} [targetDir] - target directory
  */
 function main(targetDir) {
   const MALFEASANCE_PATH = getMalfeasancePath(targetDir);
 
-  // スキーマファイルの存在確認
+  // Verify schema file exists
   if (!fs.existsSync(SCHEMA_PATH)) {
     output({ success: false, error: `Schema file not found at ${SCHEMA_PATH}` });
     return;
   }
 
-  // スキーマファイルのパース確認
+  // Verify schema file parses
   try {
     const schemaRaw = fs.readFileSync(SCHEMA_PATH, 'utf8');
     JSON.parse(schemaRaw);
@@ -61,29 +61,29 @@ function main(targetDir) {
     return;
   }
 
-  // 既存の Malfeasance.json があればスキップ
+  // Skip if Malfeasance.json already exists
   if (fs.existsSync(MALFEASANCE_PATH)) {
     output({ success: true, action: 'skipped', path: MALFEASANCE_PATH });
     return;
   }
 
-  // 初期データの作成
+  // Create initial data
   const initialData = { version: 1, records: [] };
 
-  // スキーマ検証
+  // Schema validation
   const validation = validateRecords(initialData);
   if (!validation.valid) {
     output({ success: false, error: `Schema validation failed: ${validation.errors.join('; ')}` });
     return;
   }
 
-  // ディレクトリの存在確認
+  // Verify directory exists
   const malfDir = path.dirname(MALFEASANCE_PATH);
   if (!fs.existsSync(malfDir)) {
     fs.mkdirSync(malfDir, { recursive: true });
   }
 
-  // ファイル書き出し
+  // Write file
   try {
     fs.writeFileSync(MALFEASANCE_PATH, JSON.stringify(initialData, null, 2) + '\n', 'utf8');
   } catch (e) {

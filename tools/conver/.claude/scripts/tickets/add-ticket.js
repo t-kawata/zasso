@@ -3,15 +3,15 @@ const fs = require("fs"),
 const { validateTickets } = require("../lib/validate-tickets");
 
 /**
- * 引数（phaseArg）からフェーズを解決する。
+ * Resolve a phase from the argument (phaseArg).
  *
- * - "PX" → id=-1（独立フェーズ）
+ * - "PX" → id=-1 (detached phase)
  * - "P{n}" → id=n
- * - その他 → name の前方一致で検索
+ * - otherwise → prefix match on name
  *
- * @param {Object[]} phases — Tickets.json の phases 配列
- * @param {string} phaseArg — フェーズ指定子
- * @returns {Object|null} 該当するフェーズオブジェクト、なければ null
+ * @param {Object[]} phases — phases array from Tickets.json
+ * @param {string} phaseArg — phase specifier
+ * @returns {Object|null} matching phase or null
  */
 function resolvePhase(phases, phaseArg) {
   if (phaseArg === "PX")
@@ -29,11 +29,11 @@ function resolvePhase(phases, phaseArg) {
 }
 
 /**
- * 既存Tickets.jsonにチケットを1件追加する（非破壊的：検証失敗時はロールバック）。
+ * Add one ticket to an existing Tickets.json (non-destructive: rollback on validation failure).
  *
- * @param {string} ticketsJsonPath — Tickets.json のファイルパス
- * @param {string} phaseArg — フェーズ指定子（"PX", "P{n}", phase name）
- * @param {Object} ticketData — 追加するチケットデータ（phaseName を含む場合は除去される）
+ * @param {string} ticketsJsonPath — path to Tickets.json
+ * @param {string} phaseArg — phase specifier ("PX", "P{n}", phase name)
+ * @param {Object} ticketData — ticket data to add (phaseName is stripped if present)
  * @returns {{ success: boolean, ticketKey?: string, phase?: string, path?: string, error?: string }}
  */
 function addTicket(ticketsJsonPath, phaseArg, ticketData) {

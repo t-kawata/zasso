@@ -1,11 +1,11 @@
 /**
- * load-rfc-graph.test.cjs — load-rfc-graph.js のテスト [::STUB::] 廃止予定
+ * load-rfc-graph.test.cjs — Tests for load-rfc-graph.js [::STUB::] Deprecated
  *
- * load-rfc-graph.js は show-graph-summary-markdown.js に統合されました。
- * 本テストファイルは互換性のために維持していますが、新規機能のテストは
- * show-graph-summary-markdown.test.cjs に追加してください。
+ * load-rfc-graph.js has been merged into show-graph-summary-markdown.js.
+ * This test file is maintained for backward compatibility, but new feature tests
+ * should be added to show-graph-summary-markdown.test.cjs.
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js built-in node:test + node:assert/strict
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// テスト対象モジュールを require パスで読み込む
+// Load the module under test via require path
 const {
   parseArguments,
   deriveGraphPath,
@@ -26,22 +26,22 @@ const {
 } = require('../../.claude/scripts/rfc-graph/load-rfc-graph.js');
 
 // ============================================================
-// テスト用ユーティリティ
+// Test Utilities
 // ============================================================
 
-/** テスト用の一時ディレクトリパス */
+/** Temporary directory path for tests */
 let tmpDir;
 
-/** テスト用のグラフファイルパス */
+/** Graph file path for tests */
 let graphFilePath;
 
-/** テスト用の最小グラフデータ */
+/** Minimal graph test data */
 const MINIMAL_GRAPH = {
   sourceFile: '/tmp/test-rfc.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: 'ログイン機能', summary: 'ユーザーログイン', headingRefs: [{ heading:1, texts:["test"]}]},
-    { id: 'N0002', kind: 'api_contract', title: 'POST /login', summary: 'ログインAPI', headingRefs: [{ heading:1, texts:["test"]}]},
-    { id: 'N0003', kind: 'data_model', title: 'User型', summary: 'ユーザーデータ', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0001', kind: 'requirement', title: 'Login Feature', summary: 'User Login', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'api_contract', title: 'POST /login', summary: 'Login API', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0003', kind: 'data_model', title: 'User Type', summary: 'User Data', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0002', type: 'refines', attributes: { strength: 0.8, bidirectional: false } },
@@ -49,24 +49,24 @@ const MINIMAL_GRAPH = {
   ],
 };
 
-/** 孤立ノードを含むグラフデータ */
+/** Graph data with isolated nodes */
 const GRAPH_WITH_ISOLATED = {
   sourceFile: '/tmp/test-isolated.md',
   nodes: [
-    { id: 'N0001', kind: 'requirement', title: '要件A', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
-    { id: 'N0002', kind: 'requirement', title: '要件B（孤立）', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0001', kind: 'requirement', title: 'Requirement A', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0002', kind: 'requirement', title: 'Requirement B (Isolated)', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [],
 };
 
-/** 空グラフデータ */
+/** Empty graph data */
 const EMPTY_GRAPH = {
   sourceFile: '/tmp/empty.md',
   nodes: [],
   edges: [],
 };
 
-/** 多様なkind/typeのグラフデータ */
+/** Graph data with diverse kinds/types */
 const DIVERSE_GRAPH = {
   sourceFile: '/tmp/diverse.md',
   nodes: [
@@ -74,8 +74,8 @@ const DIVERSE_GRAPH = {
     { id: 'N0002', kind: 'requirement', title: 'R2', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
     { id: 'N0003', kind: 'api_contract', title: 'API1', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
     { id: 'N0004', kind: 'data_model', title: 'D1', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
-    { id: 'N0005', kind: 'rationale', title: '理由', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
-    { id: 'N0006', kind: 'glossary', title: '用語', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0005', kind: 'rationale', title: 'Rationale', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
+    { id: 'N0006', kind: 'glossary', title: 'Glossary', summary: '', headingRefs: [{ heading:1, texts:["test"]}]},
   ],
   edges: [
     { from: 'N0001', to: 'N0003', type: 'depends_on', attributes: {} },
@@ -87,17 +87,17 @@ const DIVERSE_GRAPH = {
 };
 
 // ============================================================
-// テスト
+// Tests
 // ============================================================
 
 describe('load-rfc-graph.js', () => {
-  // 各テストの前に一時ディレクトリを作成
+  // Create a temporary directory before each test
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'load-rfc-graph-test-'));
     graphFilePath = path.join(tmpDir, 'test-rfc-GRAPH.json');
   });
 
-  // 各テスト後にファイルクリーンアップ
+  // Clean up files after each test
   after(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -107,27 +107,27 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('parseArguments', () => {
-    it('正常系: ソースパスをパースする', () => {
+    it('should parse the source path', () => {
       const result = parseArguments(['/path/to/doc.md']);
       assert.equal(result.sourcePath, '/path/to/doc.md');
     });
 
-    it('正常系: --help オプションは例外をスローせずプロセス終了', () => {
-      // --help は process.exit(0) を呼ぶためテストではエラーになる。
-      // 代わりに --help がパース関数内で処理されることを確認するために、
-      // プロセス終了直前の状態をテストする
+    it('should throw on missing source path (--help detection path)', () => {
+      // --help triggers process.exit(0) which cannot be tested directly.
+      // Instead, we verify that parseArguments([]) throws to confirm
+      // the argument check works; --help handling exits before that check.
       assert.throws(() => {
         parseArguments([]);
       }, /ソースファイルのパスを指定してください/);
     });
 
-    it('異常系: 引数不足（空配列）', () => {
+    it('should throw on missing arguments (empty array)', () => {
       assert.throws(() => {
         parseArguments([]);
       }, /ソースファイルのパスを指定してください/);
     });
 
-    it('異常系: 余剰引数がある', () => {
+    it('should throw on extra arguments', () => {
       assert.throws(() => {
         parseArguments(['doc.md', 'extra.md']);
       }, /余剰な引数があります/);
@@ -139,22 +139,22 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('deriveGraphPath', () => {
-    it('正常系: 通常の.mdファイル', () => {
+    it('should derive path from a normal .md file', () => {
       const result = deriveGraphPath('/path/to/doc.md');
       assert.equal(result, '/path/to/doc-GRAPH.json');
     });
 
-    it('正常系: 拡張子なしのパス', () => {
+    it('should derive path from a file without extension', () => {
       const result = deriveGraphPath('/path/to/doc');
       assert.equal(result, '/path/to/doc-GRAPH.json');
     });
 
-    it('正常系: 深いパス', () => {
+    it('should derive path from a deeply nested file', () => {
       const result = deriveGraphPath('/a/b/c/d/e.md');
       assert.equal(result, '/a/b/c/d/e-GRAPH.json');
     });
 
-    it('正常系: 空のディレクトリ（相対パス）', () => {
+    it('should derive path from a relative path', () => {
       const result = deriveGraphPath('doc.md');
       assert.equal(result, 'doc-GRAPH.json');
     });
@@ -165,7 +165,7 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('loadGraph', () => {
-    it('正常系: 存在するグラフファイルを読み込む', () => {
+    it('should load an existing graph file', () => {
       fs.writeFileSync(graphFilePath, JSON.stringify(MINIMAL_GRAPH), 'utf8');
       const graph = loadGraph(graphFilePath);
       assert.equal(graph.sourceFile, '/tmp/test-rfc.md');
@@ -173,19 +173,19 @@ describe('load-rfc-graph.js', () => {
       assert.equal(graph.edges.length, 2);
     });
 
-    it('正常系: グラフが存在しない場合はnullを返す', () => {
+    it('should return null when graph does not exist', () => {
       const result = loadGraph('/tmp/nonexistent-GRAPH.json');
       assert.equal(result, null);
     });
 
-    it('異常系: 不正なJSON形式のファイル', () => {
-      fs.writeFileSync(graphFilePath, '{不正なJSON}', 'utf8');
+    it('should throw on invalid JSON format', () => {
+      fs.writeFileSync(graphFilePath, '{invalid JSON}', 'utf8');
       assert.throws(() => {
         loadGraph(graphFilePath);
       }, /JSONパースに失敗/);
     });
 
-    it('異常系: 構造が不正（nodes/edges欠落）', () => {
+    it('should throw on invalid structure (missing nodes/edges)', () => {
       fs.writeFileSync(graphFilePath, JSON.stringify({}), 'utf8');
       assert.throws(() => {
         loadGraph(graphFilePath);
@@ -198,7 +198,7 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('summarizeGraph', () => {
-    it('正常系: 各種kindが混在したグラフを集計する', () => {
+    it('should summarize a graph with mixed kinds', () => {
       const summary = summarizeGraph(MINIMAL_GRAPH);
       assert.equal(summary.nodeCount, 3);
       assert.deepEqual(summary.kindDistribution, {
@@ -214,13 +214,13 @@ describe('load-rfc-graph.js', () => {
       assert.deepEqual(summary.isolatedNodes, []);
     });
 
-    it('正常系: 孤立ノードを含むグラフ', () => {
+    it('should summarize a graph with isolated nodes', () => {
       const summary = summarizeGraph(GRAPH_WITH_ISOLATED);
       assert.equal(summary.nodeCount, 2);
       assert.deepEqual(summary.isolatedNodes, ['N0001', 'N0002']);
     });
 
-    it('境界値: 空グラフ', () => {
+    it('should handle empty graph', () => {
       const summary = summarizeGraph(EMPTY_GRAPH);
       assert.equal(summary.nodeCount, 0);
       assert.deepEqual(summary.kindDistribution, {});
@@ -229,7 +229,7 @@ describe('load-rfc-graph.js', () => {
       assert.deepEqual(summary.isolatedNodes, []);
     });
 
-    it('正常系: 多様なkind/typeのグラフ', () => {
+    it('should summarize a graph with diverse kinds and types', () => {
       const summary = summarizeGraph(DIVERSE_GRAPH);
       assert.equal(summary.nodeCount, 6);
       assert.deepEqual(summary.kindDistribution, {
@@ -254,7 +254,7 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('generateUsageExamples', () => {
-    it('正常系: crud.js/query.js の完全なCLI形式を生成する', () => {
+    it('should generate full CLI format for crud.js/query.js', () => {
       const examples = generateUsageExamples('/tmp/test-rfc-GRAPH.json', '/tmp/test-rfc.md', 'N0001');
       assert.equal(examples.length, 3);
       assert.ok(examples[0].includes('crud.js list-nodes'));
@@ -267,7 +267,7 @@ describe('load-rfc-graph.js', () => {
       assert.ok(examples[2].includes('--hops=2'));
     });
 
-    it('正常系: デフォルトノードIDで生成する', () => {
+    it('should generate examples with default node ID', () => {
       const examples = generateUsageExamples('/tmp/graph.json', '/tmp/source.md');
       assert.ok(examples[1].includes('N0001'));
     });
@@ -278,8 +278,8 @@ describe('load-rfc-graph.js', () => {
   // ============================================================
 
   describe('outputSummary', () => {
-    it('正常系: サマリーを整形して出力する', () => {
-      // stdout への書き込みをキャプチャ（outputSummaryは1回のconsole.logに改行区切りで出力）
+    it('should format and output the summary', () => {
+      // Capture writes to stdout (outputSummary uses a single console.log with newline-separated output)
       const originalLog = console.log;
       let captured = '';
       console.log = (msg) => { captured = msg; };
@@ -291,14 +291,14 @@ describe('load-rfc-graph.js', () => {
       console.log = originalLog;
 
       const lines = captured.split('\n');
-      // 期待する構造の確認
+      // Verify expected structure
       assert.ok(lines[0].includes('[グラフ構造サマリー]'));
       assert.ok(lines[1].includes('test-rfc-GRAPH.json'));
       assert.ok(lines[2].includes('3件'));
       assert.ok(lines[4].includes('0件'));
     });
 
-    it('正常系: 孤立ノードありのサマリー', () => {
+    it('should output summary with isolated nodes', () => {
       const originalLog = console.log;
       let captured = '';
       console.log = (msg) => { captured = msg; };
@@ -310,7 +310,7 @@ describe('load-rfc-graph.js', () => {
       console.log = originalLog;
 
       const lines = captured.split('\n');
-      assert.ok(lines[4].includes('2件')); // 孤立ノード数
+      assert.ok(lines[4].includes('2件')); // isolated node count
     });
   });
 });

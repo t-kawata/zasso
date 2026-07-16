@@ -1,9 +1,9 @@
 /**
- * generate-dir-template.test.cjs — generate-dir-template.js のユニットテスト
+ * generate-dir-template.test.cjs — Unit tests for generate-dir-template.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * 内部関数（parseArgs, discover, createItems 等）に直接メモリ上のデータを渡してテストする。
- * main() は最小限のファイルI/Oテストのみ行う。
+ * Test framework: Node.js built-in node:test + node:assert/strict
+ * Tests internal functions (parseArgs, discover, createItems, etc.) by passing
+ * in-memory data directly. main() is tested with minimal file I/O only.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -22,10 +22,10 @@ const {
 } = require('../../.claude/scripts/rfc-graph/generate-dir-template.js');
 
 // ============================================================
-// テストデータ（ファクトリ関数）
+// Test data (factory functions)
 // ============================================================
 
-/** テスト用の有効な Dirs-Tree.json を作成する */
+/** Create a valid Dirs-Tree.json for testing */
 function createValidDirsTree(overrides = {}) {
   return {
     schemaVersion: '1.0',
@@ -66,7 +66,7 @@ function createValidDirsTree(overrides = {}) {
   };
 }
 
-/** テスト用の一時ディレクトリに Dirs-Tree.json を書き込む */
+/** Write Dirs-Tree.json to a temporary directory */
 function writeDirsTreeFile(dirsTree) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gdt-test-'));
   const dtPath = path.join(tmpDir, 'Dirs-Tree.json');
@@ -75,10 +75,10 @@ function writeDirsTreeFile(dirsTree) {
 }
 
 // ============================================================
-// parseArgs — CLI引数パース
+// parseArgs — CLI argument parsing
 // ============================================================
 
-describe('parseArgs — CLI引数パース', () => {
+describe('parseArgs — CLI argument parsing', () => {
   it('should parse all flags correctly', () => {
     const args = [
       '--dirs-tree=/path/to/Dirs-Tree.json',
@@ -139,10 +139,10 @@ describe('parseArgs — CLI引数パース', () => {
 });
 
 // ============================================================
-// discover — 再帰的ツリー走査
+// discover — Recursive tree traversal
 // ============================================================
 
-describe('discover — 再帰的ツリー走査', () => {
+describe('discover — Recursive tree traversal', () => {
   it('should traverse directory-only tree', () => {
     const tree = {
       name: 'root', type: 'directory', children: [
@@ -208,7 +208,7 @@ describe('discover — 再帰的ツリー走査', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gdt-disc-'));
     try {
       discover(tree, tmpDir);
-      // ファイルが作成されていないことを確認
+      // Verify no files are created
       assert.strictEqual(fs.readdirSync(tmpDir).length, 0);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -240,10 +240,10 @@ describe('discover — 再帰的ツリー走査', () => {
 });
 
 // ============================================================
-// runDryRun — dry-run 出力
+// runDryRun — dry-run output
 // ============================================================
 
-describe('runDryRun — dry-run 出力生成', () => {
+describe('runDryRun — Dry-run output generation', () => {
   it('should produce correct dry-run JSON format', () => {
     const created = [
       { type: 'directory', path: '/out/src' },
@@ -262,10 +262,10 @@ describe('runDryRun — dry-run 出力生成', () => {
 });
 
 // ============================================================
-// createItems — 実際のファイル/ディレクトリ作成
+// createItems — Actual file/directory creation
 // ============================================================
 
-describe('createItems — 実作成', () => {
+describe('createItems — Actual creation', () => {
   let tmpDir;
 
   before(() => {
@@ -284,9 +284,9 @@ describe('createItems — 実作成', () => {
     ];
     const result = createItems(created, false);
 
-    // ディレクトリ作成確認
+    // Verify directory creation
     assert.ok(fs.statSync(path.join(tmpDir, 'src')).isDirectory());
-    // ファイル作成確認
+    // Verify file creation
     assert.strictEqual(fs.readFileSync(path.join(tmpDir, 'src', 'main.rs'), 'utf-8'), '// main\n');
     assert.strictEqual(fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf-8'), '# Project\n');
 
@@ -317,7 +317,7 @@ describe('createItems — 実作成', () => {
   });
 
   it('should handle directory existence gracefully', () => {
-    // 既存ディレクトリがある状態で mkdirSync recursive はエラーにならない
+    // mkdirSync recursive does not error on existing directory
     const subDir = path.join(tmpDir, 'existing_dir');
     fs.mkdirSync(subDir, { recursive: true });
     const created = [
@@ -329,10 +329,10 @@ describe('createItems — 実作成', () => {
 });
 
 // ============================================================
-// main — 統合テスト（ファイルI/O）
+// main — Integration test (file I/O)
 // ============================================================
 
-describe('main — 統合テスト', () => {
+describe('main — Integration test', () => {
   it('should output dry-run JSON on --dry-run', async () => {
     const dirsTree = createValidDirsTree();
     const { tmpDir, dtPath } = writeDirsTreeFile(dirsTree);
@@ -377,7 +377,7 @@ describe('main — 統合テスト', () => {
       assert.strictEqual(parsed.dryRun, false);
       assert.ok(parsed.created.length > 0);
       assert.strictEqual(exitCode, null);
-      // 実際のファイル作成確認（ルートは言語名）
+      // Verify actual file creation (root is language name)
       assert.ok(fs.existsSync(path.join(rootDir, 'rust', 'config', 'settings.rs')));
       assert.ok(fs.existsSync(path.join(rootDir, 'rust', 'main.rs')));
     } finally {
@@ -443,7 +443,7 @@ describe('main — 統合テスト', () => {
 
   it('should exit 0 on missing language tree in dirs-tree', async () => {
     const dirsTree = createValidDirsTree();
-    // trees.rust が存在しない Dirs-Tree → 何もせず正常終了
+    // Dirs-Tree without trees.rust -> exit normally with nothing to do
     delete dirsTree.trees.rust;
     const { tmpDir, dtPath } = writeDirsTreeFile(dirsTree);
     let capturedStdout = '';

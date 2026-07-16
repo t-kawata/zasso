@@ -1,30 +1,30 @@
 #!/usr/bin/env node
 
 /**
- * query-fix-hints.js — _fix_graph_hints.json 検索・Markdown 整形表示
+ * query-fix-hints.js — Search _fix_graph_hints.json and format as Markdown
  *
- * test-query-all.js が出力する _fix_graph_hints.json を読み込み、
- * フィルタ条件に基づいて該当エントリを Markdown 整形して表示する。
+ * Reads _fix_graph_hints.json produced by test-query-all.js,
+ * filters entries by criteria, and displays them formatted in Markdown.
  *
  * CLI: query-fix-hints.js --hints=<path> [--id=<nodeId>] [--diagnosis=<M0..M10>] [--refId=<refId>]
  *
  * Exit codes:
- *   0  正常終了
- *   1  エラー終了（ファイル不在・引数不正等）
+ *   0  Normal completion
+ *   1  Error exit (file not found, invalid arguments, etc.)
  */
 
 const fs = require('fs');
 
 // ============================================================
-// 公開関数
+// Public functions
 // ============================================================
 
 /**
- * CLI引数をパースする
+ * Parse CLI arguments
  *
- * @param {string[]} argv — process.argv 相当
+ * @param {string[]} argv — Equivalent to process.argv
  * @returns {{ hintsPath: string, idFilter: string|null, diagnosisFilter: string|null, refIdFilter: string|null, help: boolean }}
- * @throws {Error} 必須引数が不足している場合
+ * @throws {Error} If required arguments are missing
  */
 function parseArguments(argv) {
   const args = argv.slice(2);
@@ -50,10 +50,10 @@ function parseArguments(argv) {
 }
 
 /**
- * _fix_graph_hints.json を読み込む
+ * Load _fix_graph_hints.json
  *
- * @param {string} hintsPath — hints ファイルのパス
- * @returns {Object} hints データ
+ * @param {string} hintsPath — Path to the hints file
+ * @returns {Object} hints data
  */
 function loadHintsFile(hintsPath) {
   const raw = fs.readFileSync(hintsPath, 'utf8');
@@ -61,13 +61,13 @@ function loadHintsFile(hintsPath) {
 }
 
 /**
- * フィルタ条件に合致するエントリを検索する
+ * Filter entries matching the given criteria
  *
- * フィルタは AND 条件。指定しないフィルタは無視される。
+ * Filters are AND conditions. Unspecified filters are ignored.
  *
- * @param {Object} hintsData — hints データ
- * @param {{ idFilter: string|null, diagnosisFilter: string|null, refIdFilter: string|null }} filters — フィルタ条件
- * @returns {Array} フィルタ済みエントリ
+ * @param {Object} hintsData — hints data
+ * @param {{ idFilter: string|null, diagnosisFilter: string|null, refIdFilter: string|null }} filters — Filter criteria
+ * @returns {Array} Filtered entries
  */
 function filterEntries(hintsData, filters) {
   let entries = hintsData.nodes || [];
@@ -86,11 +86,11 @@ function filterEntries(hintsData, filters) {
 }
 
 /**
- * エントリを Markdown 整形する
+ * Format entries as Markdown
  *
- * @param {Array} entries — フィルタ済みエントリ配列
- * @param {Object} hintsData — オリジナルの hints データ（メタ情報表示用）
- * @returns {string} Markdown 文字列
+ * @param {Array} entries — Array of filtered entries
+ * @param {Object} hintsData — Original hints data (for metadata display)
+ * @returns {string} Markdown string
  */
 function formatAsMarkdown(entries, hintsData) {
   if (entries.length === 0) {
@@ -138,7 +138,7 @@ function formatAsMarkdown(entries, hintsData) {
       parts.push('');
     }
 
-    // トークン別一致状況
+    // Per-token match status
     if (entry.details && Array.isArray(entry.details.tokenMatches)) {
       parts.push('### トークン別一致状況');
       parts.push('');
@@ -150,7 +150,7 @@ function formatAsMarkdown(entries, hintsData) {
       parts.push('');
     }
 
-    // 候補見出し行
+    // Candidate heading lines
     if (entry.details && Array.isArray(entry.details.candidateLines) && entry.details.candidateLines.length > 0) {
       parts.push('### 候補見出し行');
       parts.push('');
@@ -167,7 +167,7 @@ function formatAsMarkdown(entries, hintsData) {
 }
 
 // ============================================================
-// メイン
+// Main
 // ============================================================
 
 function main() {
@@ -226,7 +226,7 @@ Exit codes:
 }
 
 // ============================================================
-// exports
+// Exports
 // ============================================================
 
 module.exports = {

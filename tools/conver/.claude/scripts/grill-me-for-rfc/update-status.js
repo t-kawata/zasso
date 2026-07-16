@@ -3,11 +3,11 @@
  * update-status.js <rfc-dir> <operation> [args...]
  *
  * Operations:
- *   set-state  <STATE>        - ステートを更新する
- *                               有効値: GRILLING | CHECKLIST_PENDING | CHECKLIST_APPROVED
- *                                       WRITING | REVIEWING | DONE
- *   inc-loop                  - reviewLoopCountをインクリメントする
- *   show                      - 現在のStatus.jsonを出力する
+ *   set-state  <STATE>        - Update the state
+ *                               Valid values: GRILLING | CHECKLIST_PENDING | CHECKLIST_APPROVED
+ *                                             WRITING | REVIEWING | DONE
+ *   inc-loop                  - Increment reviewLoopCount
+ *   show                      - Output the current Status.json
  */
 import fs from "fs";
 import path from "path";

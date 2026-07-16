@@ -1,16 +1,16 @@
 /**
- * phasify-metadata-pipeline.test.cjs — phasify→Tickets.json→resolve-ticket-context 結合テスト
+ * phasify-metadata-pipeline.test.cjs — phasify → Tickets.json → resolve-ticket-context integration test
  *
- * 以下のパイプライン全体が正しく動作することを検証する:
+ * Verifies the following pipeline works correctly:
  *   phasify-graph-and-dirs-files-tree.js
- *     ↓ 生成
- *   Tickets.json（metadata に source + resolvedPaths）
- *     ↓ 読み取り
- *   resolve-ticket-context.js（出力に rfcPath, graphPath, dirsTreePath）
+ *     ↓ generates
+ *   Tickets.json (metadata with source + resolvedPaths)
+ *     ↓ reads
+ *   resolve-ticket-context.js (outputs rfcPath, graphPath, dirsTreePath)
  *
- * PX-55 / PX-56 の Acceptance Criteria をカバーする。
+ * Covers PX-55 / PX-56 Acceptance Criteria.
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -21,14 +21,14 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 // ============================================================
-// スクリプトパス
+// Script paths
 // ============================================================
 
 const PHASIFY_SCRIPT = path.resolve(__dirname, '../../.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js');
 const RESOLVE_SCRIPT = path.resolve(__dirname, '../../.claude/scripts/tickets/resolve-ticket-context.js');
 
 // ============================================================
-// ヘルパー: テスト用グラフ生成
+// Helper: test graph generation
 // ============================================================
 
 function makeGraph() {
@@ -70,7 +70,7 @@ function makeDirsTree() {
 }
 
 // ============================================================
-// 結合テスト
+// Integration tests
 // ============================================================
 
 describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline', () => {
@@ -91,16 +91,16 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
     graphFilePath = graphPath;
     dirsTreeFilePath = dirsTreePath;
 
-    // テスト用のグラフと Dirs-Tree を作成
+    // Create test graph and Dirs-Tree
     fs.writeFileSync(graphPath, JSON.stringify(makeGraph()));
     fs.writeFileSync(dirsTreePath, JSON.stringify(makeDirsTree()));
 
-    // RFC.md を作成（resolvedPaths の実在確認用）
+    // Create RFC.md (for resolvedPaths existence check)
     fs.writeFileSync(rfcPath, '# RFC-ROOT Test Document\n\nTest content for phasify metadata pipeline.\n');
   });
 
   after(() => {
-    // クリーンアップ
+    // Cleanup
     try {
       const files = fs.readdirSync(tmpDir);
       for (const f of files) {
@@ -113,12 +113,12 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
   });
 
   // ----------------------------------------------------------
-  // PX-55: phasify が Tickets.json metadata に resolvedPaths を出力する
+  // PX-55: phasify outputs resolvedPaths in Tickets.json metadata
   // ----------------------------------------------------------
 
   describe('PX-55: Tickets.json metadata resolvedPaths', () => {
     before(() => {
-      // Tickets.json が存在しない状態で phasify を実行
+      // Run phasify with no pre-existing Tickets.json
       if (fs.existsSync(ticketsPath)) {
         fs.rmSync(ticketsPath);
       }
@@ -194,12 +194,12 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
     });
 
     it('should preserve metadata on re-run (phases overwritten, metadata unchanged)', () => {
-      // 1回目の metadata を記録
+      // Record metadata from first run
       const first = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
       const firstMeta = JSON.stringify(first.metadata);
       const firstPhaseCount = first.phases.length;
 
-      // 2回目の phasify 実行
+      // Run phasify a second time
       const result = spawnSync('node', [
         PHASIFY_SCRIPT,
         graphPath,
@@ -207,18 +207,18 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
       ], { encoding: 'utf8', timeout: 10000 });
       assert.strictEqual(result.status, 0);
 
-      // 2回目の metadata が同じであること
+      // Second-run metadata should be identical
       const second = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
       const secondMeta = JSON.stringify(second.metadata);
       assert.equal(secondMeta, firstMeta, 'metadata should be preserved on re-run');
 
-      // phases は上書きされていること（同じ結果になるはずだが再生成はされている）
+      // phases should be overwritten (same result but regenerated)
       assert.ok(second.phases.length >= 1, 'phases should exist after re-run');
     });
   });
 
   // ----------------------------------------------------------
-  // PX-56: resolve-ticket-context が rfcPath を出力する
+  // PX-56: resolve-ticket-context outputs rfcPath
   // ----------------------------------------------------------
 
   describe('PX-56: resolve-ticket-context outputs rfcPath', () => {
@@ -235,11 +235,11 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
       const output = JSON.parse(result.stdout);
       assert.ok(output.success, 'resolve-ticket-context should succeed');
 
-      // rfcPath が存在し docPath が存在しないこと
+      // rfcPath should exist but docPath should not
       assert.ok(output.hasOwnProperty('rfcPath'), 'output should have rfcPath property');
       assert.ok(!output.hasOwnProperty('docPath'), 'output should NOT have docPath property');
 
-      // rfcPath が .md ファイルを指していること
+      // rfcPath should point to a .md file
       assert.ok(output.rfcPath.endsWith('.md'), `rfcPath should end with .md, got: ${output.rfcPath}`);
     });
 
@@ -269,9 +269,9 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
       assert.strictEqual(result.status, 0);
       const output = JSON.parse(result.stdout);
 
-      // pipelineAvailable は ticket exists && rfcPath && graphPath && dirsTreePath 全てが必要。
-      // phasify は phases のみ作成し個別チケットは作成しないため、exists=false → pipelineAvailable=false が正しい。
-      // しかし rfcPath/graphPath/dirsTreePath は正しく解決されている。
+      // pipelineAvailable requires: ticket exists && rfcPath && graphPath && dirsTreePath.
+      // phasify only creates phases, not individual tickets, so exists=false → pipelineAvailable=false is correct.
+      // However, rfcPath/graphPath/dirsTreePath are correctly resolved.
       assert.equal(output.pipelineAvailable, false,
         'pipelineAvailable should be false because ticket P0-1 does not exist yet');
       assert.ok(output.available.includes('rfcPath'), 'available should include rfcPath');
@@ -305,7 +305,7 @@ describe('phasify → Tickets.json metadata → resolve-ticket-context pipeline'
       assert.strictEqual(result.status, 0);
       const output = JSON.parse(result.stdout);
 
-      // resolvedPaths が存在するので、ソースは 'resolvedPaths' になる
+      // Since resolvedPaths exists, the source should be 'resolvedPaths'
       assert.equal(output.rfcPathSource, 'resolvedPaths',
         `rfcPathSource should be 'resolvedPaths', got: ${output.rfcPathSource}`);
     });

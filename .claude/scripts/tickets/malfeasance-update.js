@@ -1,28 +1,28 @@
 /**
- * malfeasance-update.js — Malfeasance.json のレコードを更新
+ * malfeasance-update.js — Update a record in Malfeasance.json
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-update.js <id> <field> <value>
  *
- * 引数:
- *   id (必須):    更新対象のレコード ID
- *   field (必須): 更新するフィールド名
- *                  許可: "status" | "resolved_at" | "resolved_by_ticket" | "note"
- *   value (必須): 設定する値
- *                  - status: "open" | "resolved" | "false_positive"
+ * Arguments:
+ *   id (required):    Record ID to update
+ *   field (required): Field name to update
+ *                    Allowed: "status" | "resolved_at" | "resolved_by_ticket" | "note"
+ *   value (required): Value to set
+ *                     - status: "open" | "resolved" | "false_positive"
  *
- * 出力:
+ * Output:
  *   { "success": true, "record": { ... } }
- *   または
+ *   or
  *   { "success": false, "error": "..." }
  */
 
 const { loadRecords, saveRecords, checkSchema, output } = require('../lib/malfeasance-utils');
 
-// 更新可能なフィールド（ホワイトリスト）
+// Updateable fields (whitelist)
 const ALLOWED_FIELDS = ['status', 'resolved_at', 'resolved_by_ticket', 'note'];
 
-// status の enum 値
+// Allowed status values
 const ALLOWED_STATUSES = ['open', 'resolved', 'false_positive'];
 
 function main() {
@@ -44,7 +44,7 @@ function main() {
     return;
   }
 
-  // フィールドホワイトリストチェック
+  // Field whitelist check
   if (!ALLOWED_FIELDS.includes(field)) {
     output({
       success: false,
@@ -53,7 +53,7 @@ function main() {
     return;
   }
 
-  // resolved_at 単独設定の禁止
+  // Prevent setting resolved_at directly
   if (field === 'resolved_at') {
     output({
       success: false,
@@ -62,14 +62,14 @@ function main() {
     return;
   }
 
-  // スキーマファイルの確認
+  // Verify schema file
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });
@@ -84,7 +84,7 @@ function main() {
     return;
   }
 
-  // 値の検証と更新
+  // Validate and update value
   if (field === 'status') {
     if (!ALLOWED_STATUSES.includes(value)) {
       output({
@@ -96,7 +96,7 @@ function main() {
 
     record.status = value;
 
-    // resolved への変更時に resolved_at を自動設定
+    // Auto-set resolved_at when status changes to "resolved"
     if (value === 'resolved') {
       record.resolved_at = new Date().toISOString();
     }
@@ -111,7 +111,7 @@ function main() {
     record.note = String(value);
   }
 
-  // 保存 + スキーマ検証
+  // Save + schema validation
   const saved = saveRecords(records);
   if (!saved.success) {
     output({ success: false, error: saved.error });

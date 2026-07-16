@@ -1,9 +1,9 @@
 /**
- * analyze-source-structure.test.cjs — analyze-source-structure.js のテスト
+ * analyze-source-structure.test.cjs — Tests for analyze-source-structure.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象モジュールの全公開関数をカバーする。
- * 一時ディレクトリを使用した実際のファイル I/O テストを含む。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Covers all public functions of the target module.
+ * Includes actual file I/O tests using a temporary directory.
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// テスト対象モジュールを require パスで読み込む
+// Load the target module via require path
 const {
   parseArguments,
   readSourceFile,
@@ -29,21 +29,21 @@ const {
 } = require('../../.claude/scripts/rfc-graph/analyze-source-structure.js');
 
 // ============================================================
-// テスト用ユーティリティ
+// Test Utilities
 // ============================================================
 
-/** テスト用の一時ディレクトリパス */
+/** Temporary directory path for tests */
 let tmpDir;
 
 /**
- * テスト前に一時ディレクトリを作成する
+ * Create a temporary directory before each test
  */
 function setupTempDir() {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'analyze-test-'));
 }
 
 /**
- * テスト後に一時ディレクトリを削除する
+ * Remove the temporary directory after each test
  */
 function cleanupTempDir() {
   if (tmpDir) {
@@ -52,11 +52,11 @@ function cleanupTempDir() {
 }
 
 /**
- * テスト用のソースファイルを作成する
+ * Write a test source file
  *
- * @param {string} fileName — ファイル名
- * @param {string[]} lines — 行配列
- * @returns {string} 作成されたファイルの絶対パス
+ * @param {string} fileName — File name
+ * @param {string[]} lines — Array of lines
+ * @returns {string} Absolute path to the created file
  */
 function writeSourceFile(fileName, lines) {
   const filePath = path.join(tmpDir, fileName);
@@ -65,39 +65,39 @@ function writeSourceFile(fileName, lines) {
 }
 
 // ============================================================
-// parseArguments テスト
+// parseArguments tests
 // ============================================================
 
 describe('parseArguments', () => {
-  it('正常系: ソースパスをパースする', () => {
+  it('normal: parses source path', () => {
     const result = parseArguments(['node', 'script.js', '/path/to/doc.md']);
     assert.equal(result.sourcePath, '/path/to/doc.md');
   });
 
-  it('異常系: 引数不足でエラーを投げる', () => {
+  it('error: throws on insufficient arguments', () => {
     assert.throws(() => parseArguments(['node', 'script.js']), /ソースファイルのパスを指定/);
   });
 
-  it('異常系: 余剰引数があるでエラーを投げる', () => {
+  it('error: throws on extra arguments', () => {
     assert.throws(() => parseArguments(['node', 'script.js', 'doc.md', 'extra.md']), /余剰な引数/);
   });
 });
 
 // ============================================================
-// readSourceFile テスト
+// readSourceFile tests
 // ============================================================
 
 describe('readSourceFile', () => {
   before(setupTempDir);
   after(cleanupTempDir);
 
-  it('正常系: ファイルを行配列として読み込む', () => {
+  it('normal: reads file as array of lines', () => {
     const filePath = writeSourceFile('test.md', ['# Title', '', 'Content']);
     const result = readSourceFile(filePath);
     assert.deepEqual(result, ['# Title', '', 'Content']);
   });
 
-  it('異常系: 存在しないファイルでエラーを投げる', () => {
+  it('error: throws when file does not exist', () => {
     assert.throws(() => {
       readSourceFile(path.join(tmpDir, 'nonexistent.md'));
     }, /見つかりません/);
@@ -105,18 +105,18 @@ describe('readSourceFile', () => {
 });
 
 // ============================================================
-// extractCodeBlocks テスト
+// extractCodeBlocks tests
 // ============================================================
 
 describe('extractCodeBlocks', () => {
-  it('正常系: コードブロックを検出する', () => {
+  it('normal: detects code blocks', () => {
     const lines = [
-      '行1',
+      'Line 1',
       '```js',
-      'コード1',
-      'コード2',
+      'Code 1',
+      'Code 2',
       '```',
-      '行2',
+      'Line 2',
     ];
     const blocks = extractCodeBlocks(lines);
     assert.equal(blocks.length, 1);
@@ -124,12 +124,12 @@ describe('extractCodeBlocks', () => {
     assert.equal(blocks[0].end, 4);
   });
 
-  it('正常系: 複数のコードブロックを検出する', () => {
+  it('normal: detects multiple code blocks', () => {
     const lines = [
       '```js',
       'a',
       '```',
-      '# 見出し',
+      '# Heading',
       '```',
       'b',
       'c',
@@ -143,34 +143,34 @@ describe('extractCodeBlocks', () => {
     assert.equal(blocks[1].end, 7);
   });
 
-  it('正常系: コードブロックがないファイルは空配列を返す', () => {
-    const lines = ['行1', '行2'];
+  it('normal: file without code blocks returns empty array', () => {
+    const lines = ['Line 1', 'Line 2'];
     const blocks = extractCodeBlocks(lines);
     assert.deepEqual(blocks, []);
   });
 
-  it('異常系: 閉じていないコードブロックは無視する', () => {
-    const lines = ['```', '閉じてない'];
+  it('error: ignores unclosed code blocks', () => {
+    const lines = ['```', 'Unclosed'];
     const blocks = extractCodeBlocks(lines);
-    assert.equal(blocks.length, 0, '閉じていないブロックは検出しない');
+    assert.equal(blocks.length, 0, 'Unclosed blocks should not be detected');
   });
 });
 
 // ============================================================
-// extractHeadingTree テスト
+// extractHeadingTree tests
 // ============================================================
 
 describe('extractHeadingTree', () => {
-  it('正常系: 複数階層の見出しを抽出する', () => {
+  it('normal: extracts headings at multiple levels', () => {
     const lines = [
       '# Title',
-      '本文1',
+      'Body 1',
       '## Section 1',
-      '内容1',
+      'Content 1',
       '### Sub 1',
-      '詳細1',
+      'Detail 1',
       '## Section 2',
-      '内容2',
+      'Content 2',
     ];
     const sections = extractHeadingTree(lines, []);
     assert.equal(sections.length, 4);
@@ -184,24 +184,24 @@ describe('extractHeadingTree', () => {
     assert.equal(sections[3].level, 2);
   });
 
-  it('正常系: コードブロック内の # を見出しと誤認しない', () => {
+  it('normal: does not mistake # inside code blocks as headings', () => {
     const lines = [
-      '# 本当の見出し',
-      '本文',
+      '# Real Heading',
+      'Body',
       '```',
-      '# これはコードブロック内',
+      '# This is inside a code block',
       '```',
-      '## 次の見出し',
+      '## Next Heading',
     ];
     const codeBlocks = [{ start: 2, end: 4 }];
     const sections = extractHeadingTree(lines, codeBlocks);
     assert.equal(sections.length, 2);
-    assert.equal(sections[0].heading, '本当の見出し');
-    assert.equal(sections[1].heading, '次の見出し');
+    assert.equal(sections[0].heading, 'Real Heading');
+    assert.equal(sections[1].heading, 'Next Heading');
   });
 
-  it('正常系: 見出しがない場合は全体を1セクションとする', () => {
-    const lines = ['行1', '行2', '行3'];
+  it('normal: treats document without headings as a single section', () => {
+    const lines = ['Line 1', 'Line 2', 'Line 3'];
     const sections = extractHeadingTree(lines, []);
     assert.equal(sections.length, 1);
     assert.equal(sections[0].heading, '(全体)');
@@ -209,47 +209,47 @@ describe('extractHeadingTree', () => {
     assert.equal(sections[0].endLine, 3);
   });
 
-  it('正常系: 空行を除いた実質行数を計算する', () => {
+  it('normal: calculates prose lines excluding blank lines', () => {
     const lines = [
       '# S1',
       '',
-      '内容1',
+      'Content 1',
       '',
       '## S2',
-      '内容2',
+      'Content 2',
     ];
     const sections = extractHeadingTree(lines, []);
-    // S1(h1) は S2(h2) を含む（h2 は h1 より下位レベルのため）
-    assert.equal(sections[0].proseLines, 4); // "# S1" + "内容1" + "## S2" + "内容2"
-    assert.equal(sections[1].proseLines, 2); // "## S2" + "内容2"
+    // S1(h1) includes S2(h2) (h2 is lower level than h1)
+    assert.equal(sections[0].proseLines, 4); // "# S1" + "Content 1" + "## S2" + "Content 2"
+    assert.equal(sections[1].proseLines, 2); // "## S2" + "Content 2"
   });
 
-  it('正常系: コードブロック行を除外した行数を計算する', () => {
+  it('normal: calculates line count excluding code block lines', () => {
     const lines = [
       '# S1',
-      '本文',
+      'Body',
       '```',
-      'コード',
-      'コード',
+      'code',
+      'code',
       '```',
       '## S2',
-      '本文2',
+      'Body 2',
     ];
     const codeBlocks = [{ start: 2, end: 5 }];
     const sections = extractHeadingTree(lines, codeBlocks);
-    // S1(h1) は S2(h2) を含む（h2 は h1 より下位レベルのため）
-    assert.equal(sections[0].proseLines, 4); // "# S1" + "本文" + "## S2" + "本文2"
-    assert.equal(sections[1].proseLines, 2); // "## S2" + "本文2"
+    // S1(h1) includes S2(h2) (h2 is lower level than h1)
+    assert.equal(sections[0].proseLines, 4); // "# S1" + "Body" + "## S2" + "Body 2"
+    assert.equal(sections[1].proseLines, 2); // "## S2" + "Body 2"
   });
 });
 
 // ============================================================
-// estimateKind テスト
+// estimateKind tests
 // ============================================================
 
 describe('estimateKind', () => {
-  it('正常系: 全12種の kind が見出しから推定される', () => {
-    // KIND_PATTERNS の各 kind が見出しでマッチすることを確認
+  it('normal: all 12 kinds are estimated from headings', () => {
+    // Verify each kind in KIND_PATTERNS matches against its heading
     const testCases = [
       { heading: '要件定義', expected: 'requirement' },
       { heading: 'API定義', expected: 'api_contract' },
@@ -268,39 +268,38 @@ describe('estimateKind', () => {
     for (const { heading, expected } of testCases) {
       const result = estimateKind(heading, '');
       assert.ok(result.includes(expected),
-        `見出し "${heading}" が kind "${expected}" とマッチしません。結果: [${result.join(', ')}]`);
+        `Heading "${heading}" did not match kind "${expected}". Result: [${result.join(', ')}]`);
     }
   });
 
-  it('正常系: 見出しマッチは本文キーワードより優先される（見出しにマッチしたら本文は探索しない）', () => {
-    // 見出しに architecture がマッチし、かつ見出しにも test_policy がマッチする場合
-    // 両方とも見出しマッチとして返る（continue は同一パターン内の body スキップのみ）
+  it('normal: heading match takes priority over body keywords (if heading matches, body is skipped)', () => {
+    // Both architecture and test_policy match via heading patterns
     const heading = 'テスト計画 - アーキテクチャ概要';
     const result = estimateKind(heading, '');
     assert.ok(result.includes('architecture'));
     assert.ok(result.includes('test_policy'));
   });
 
-  it('正常系: キーワード不在のセクションは空配列を返す', () => {
-    // 見出しにも本文にもどの kind パターンにもマッチしないテキストを使用する
+  it('normal: section without keywords returns empty array', () => {
+    // Use text that does not match any kind pattern in heading or body
     const result = estimateKind('xyzzy', 'zwxy abcd efgh ijkl mnop qrst uvwx');
     assert.equal(result.length, 0);
   });
 
-  it('正常系: 本文キーワードのみでも推定される', () => {
-    const heading = '実装詳細';
+  it('normal: estimated from body keywords only', () => {
+    const heading = 'Implementation Details';
     const body = '必須: この機能は MUST で実装すること';
     const result = estimateKind(heading, body);
-    assert.ok(result.includes('requirement'), `本文キーワード "MUST" で requirement が推定されること。結果: [${result.join(', ')}]`);
+    assert.ok(result.includes('requirement'), `Body keyword "MUST" should match requirement. Result: [${result.join(', ')}]`);
   });
 });
 
 // ============================================================
-// detectExternalDeps テスト
+// detectExternalDeps tests
 // ============================================================
 
 describe('detectExternalDeps', () => {
-  it('正常系: 全11種の依存パターンが検出される', () => {
+  it('normal: all 11 dependency patterns are detected', () => {
     const testCases = [
       { body: 'fs.readFileSync', expected: 'ファイルI/O' },
       { body: 'https://example.com', expected: 'ネットワーク' },
@@ -318,16 +317,16 @@ describe('detectExternalDeps', () => {
     for (const { body, expected } of testCases) {
       const result = detectExternalDeps(body);
       assert.ok(result.includes(expected),
-        `本文 "${body}" が依存 "${expected}" とマッチしません。結果: [${result.join(', ')}]`);
+        `Body "${body}" did not match dep "${expected}". Result: [${result.join(', ')}]`);
     }
   });
 
-  it('正常系: 依存がないファイルは空配列を返す', () => {
+  it('normal: file without dependencies returns empty array', () => {
     const result = detectExternalDeps('これは特に依存のないプレーンテキストです。');
     assert.equal(result.length, 0);
   });
 
-  it('正常系: 複数の依存が検出される', () => {
+  it('normal: multiple dependencies are detected', () => {
     const body = 'fs.readFileSync でファイルを読み込み、async/await で非同期処理する';
     const result = detectExternalDeps(body);
     assert.ok(result.includes('ファイルI/O'));
@@ -336,61 +335,61 @@ describe('detectExternalDeps', () => {
 });
 
 // ============================================================
-// extractHeadingTokens テスト
+// extractHeadingTokens tests
 // ============================================================
 
 describe('extractHeadingTokens', () => {
-  it('正常系: 日本語見出しをトークン化する', () => {
+  it('normal: tokenizes Japanese heading', () => {
     const result = extractHeadingTokens('要件定義');
     assert.deepEqual(result, ['要件定義']);
   });
 
-  it('正常系: 複合見出しを分割する', () => {
+  it('normal: splits compound heading', () => {
     const result = extractHeadingTokens('API エンドポイント一覧');
     assert.deepEqual(result, ['API', 'エンドポイント一覧']);
   });
 
-  it('正常系: 記号区切りの見出しを分割する', () => {
+  it('normal: splits heading with delimiter character', () => {
     const result = extractHeadingTokens('セキュリティ・認証');
     assert.deepEqual(result, ['セキュリティ', '認証']);
   });
 
-  it('正常系: 英数字を含む見出し', () => {
+  it('normal: heading with alphanumeric characters', () => {
     const result = extractHeadingTokens('POST /api/v1/login');
     assert.deepEqual(result, ['POST', '/api/v1/login']);
   });
 });
 
 // ============================================================
-// generateCandidateHeadingRefs テスト
+// generateCandidateHeadingRefs tests
 // ============================================================
 
 describe('generateCandidateHeadingRefs', () => {
-  it('正常系: セクションから候補 headingRefs を生成する', () => {
+  it('normal: generates candidate headingRefs from sections', () => {
     const sections = [
-      { level: 1, heading: 'タイトル', startLine: 1, endLine: 10, proseLines: 5 },
-      { level: 2, heading: '要件定義', startLine: 2, endLine: 10, proseLines: 5 },
+      { level: 1, heading: 'Title', startLine: 1, endLine: 10, proseLines: 5 },
+      { level: 2, heading: 'Requirements', startLine: 2, endLine: 10, proseLines: 5 },
     ];
     const result = generateCandidateHeadingRefs(sections);
     assert.equal(result.length, 2);
     assert.equal(result[0].heading, 1);
-    assert.equal(result[0].texts[0], 'タイトル');
+    assert.equal(result[0].texts[0], 'Title');
     assert.equal(result[1].heading, 2);
-    assert.equal(result[1].texts[0], '要件定義');
+    assert.equal(result[1].texts[0], 'Requirements');
   });
 
-  it('正常系: 空のセクション配列で空配列を返す', () => {
+  it('normal: empty sections array returns empty array', () => {
     const result = generateCandidateHeadingRefs([]);
     assert.deepEqual(result, []);
   });
 });
 
 // ============================================================
-// formatReport テスト
+// formatReport tests
 // ============================================================
 
 describe('formatReport', () => {
-  it('正常系: 全情報を含む自然言語レポートが出力される', () => {
+  it('normal: outputs natural language report with full information', () => {
     const report = formatReport(
       'test.md',
       100,  // totalLines
@@ -402,26 +401,26 @@ describe('formatReport', () => {
       [{ lineRange: 'L1-L10', heading: 1, texts: ['Title'] }],
     );
 
-    // 基本情報
+    // Basic info
     assert.ok(report.includes('基本情報'));
     assert.ok(report.includes('100行'));
     assert.ok(report.includes('70行')); // 100-30
 
-    // セクション一覧（kind／dep をインライン表示）
+    // Section list (kind/dep inline)
     assert.ok(report.includes('セクション一覧'));
     assert.ok(report.includes('- h1'));
     assert.ok(report.includes('Title'));
-    assert.ok(report.includes('[kind:')); // kind をインライン付記
+    assert.ok(report.includes('[kind:')); // kind annotated inline
     assert.ok(report.includes('requirement'));
-    assert.ok(report.includes('[dep:'));  // dep をインライン付記
+    assert.ok(report.includes('[dep:'));  // dep annotated inline
     assert.ok(report.includes('ファイルI/O'));
 
-    // 100行超セクション
+    // Sections over 100 lines
     assert.ok(report.includes('100行超セクション'));
     assert.ok(report.includes('150行'));
   });
 
-  it('正常系: 空情報がある場合も「なし」と明示する', () => {
+  it('normal: explicitly states "(none)" for empty data', () => {
     const report = formatReport(
       'empty.md',
       5, 0,
@@ -437,14 +436,14 @@ describe('formatReport', () => {
 });
 
 // ============================================================
-// 統合テスト（実際のファイル I/O）
+// Integration tests (actual file I/O)
 // ============================================================
 
-describe('統合: generateReport', () => {
+describe('Integration: generateReport', () => {
   before(setupTempDir);
   after(cleanupTempDir);
 
-  it('正常系: 実際の Markdown ファイルに対してレポートを生成する', () => {
+  it('normal: generates report for an actual Markdown file', () => {
     const lines = [
       '# 要件定義',
       '',
@@ -467,28 +466,28 @@ describe('統合: generateReport', () => {
 
     const report = generateReport(filePath, sourceLines);
 
-    // 基本的な構造が含まれている
+    // Contains basic structure
     assert.ok(report.includes('test-rfc.md 構造分析レポート'));
     assert.ok(report.includes('基本情報'));
     assert.ok(report.includes('セクション一覧'));
-    assert.ok(report.includes('[kind:')); // kind をインライン付記
-    assert.ok(report.includes('[dep:'));  // dep をインライン付記
+    assert.ok(report.includes('[kind:')); // kind annotated inline
+    assert.ok(report.includes('[dep:'));  // dep annotated inline
     assert.ok(report.includes('100行超セクション'));
 
-    // セクションが抽出されている
+    // Sections are extracted
     assert.ok(report.includes('要件定義'));
     assert.ok(report.includes('API エンドポイント'));
     assert.ok(report.includes('セキュリティ'));
   });
 
-  it('正常系: コードブロック内の # を見出しと誤認しない', () => {
+  it('normal: does not mistake # inside code blocks as headings', () => {
     const lines = [
-      '# 本当の見出し',
-      '内容',
+      '# Real Heading',
+      'Content',
       '```',
-      '# これはコードなので見出しにしない',
+      '# This is inside a code block, not a heading',
       '```',
-      '## 次のセクション',
+      '## Next Section',
     ];
     const filePath = writeSourceFile('code-in-block.md', lines);
     const sourceLines = fs.readFileSync(filePath, 'utf8').split('\n');
@@ -496,19 +495,19 @@ describe('統合: generateReport', () => {
     const report = generateReport(filePath, sourceLines);
 
     const sectionMatches = report.match(/- h\d/g);
-    // h1 と h2 のみ（コードブロック内の h1 は除外）
+    // Only h1 and h2 (h1 inside code block is excluded)
     assert.equal(sectionMatches.length, 2);
   });
 
-  // generateReport は既に読み込んだ行配列を処理する関数のため、ファイル不在はスコープ外
+  // generateReport processes an already-loaded line array, so file-not-found is out of scope
 });
 
 // ============================================================
-// KIND_PATTERNS / DEP_PATTERNS 完全性テスト
+// KIND_PATTERNS / DEP_PATTERNS completeness tests
 // ============================================================
 
-describe('KIND_PATTERNS 完全性', () => {
-  it('全12種の kind が定義されている', () => {
+describe('KIND_PATTERNS completeness', () => {
+  it('all 12 kinds are defined', () => {
     const kinds = KIND_PATTERNS.map(p => p.kind);
     assert.equal(kinds.length, 12);
     const expectedKinds = [
@@ -517,20 +516,20 @@ describe('KIND_PATTERNS 完全性', () => {
       'test_policy', 'build_ci', 'rationale', 'glossary',
     ];
     for (const k of expectedKinds) {
-      assert.ok(kinds.includes(k), `kind "${k}" が定義されていません`);
+      assert.ok(kinds.includes(k), `kind "${k}" is not defined`);
     }
   });
 
-  it('各 kind に少なくとも1つの見出しパターンがある', () => {
+  it('each kind has at least one heading pattern', () => {
     for (const p of KIND_PATTERNS) {
       assert.ok(p.heading.length >= 1,
-        `kind "${p.kind}" に見出しパターンがありません`);
+        `kind "${p.kind}" has no heading pattern`);
     }
   });
 });
 
-describe('DEP_PATTERNS 完全性', () => {
-  it('全11種の依存パターンが定義されている', () => {
+describe('DEP_PATTERNS completeness', () => {
+  it('all 11 dependency patterns are defined', () => {
     const depLabels = DEP_PATTERNS.map(p => p.label);
     assert.equal(depLabels.length, 11);
     const expectedLabels = [
@@ -539,7 +538,7 @@ describe('DEP_PATTERNS 完全性', () => {
       '外部モジュール読込', '標準入出力', '設定ファイル読込',
     ];
     for (const lbl of expectedLabels) {
-      assert.ok(depLabels.includes(lbl), `依存 "${lbl}" が定義されていません`);
+      assert.ok(depLabels.includes(lbl), `Dependency "${lbl}" is not defined`);
     }
   });
 });

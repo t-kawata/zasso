@@ -1,11 +1,11 @@
 /**
- * Malfeasance 操作スクリプト統合テスト
+ * Integration tests for malfeasance operation scripts
  *
- * テスト用の一時データを CWD の Malfeasance.json に配置し、
- * 各操作スクリプトを子プロセスとして実行して出力 JSON を検証する。
- * テスト終了後は元の状態に復元する。
+ * Places temporary data in CWD's Malfeasance.json, executes each
+ * operation script as a child process, and validates the output JSON.
+ * Restores original state after tests complete.
  *
- * 使用法:
+ * Usage:
  *   node tests/malfeasance/test-malfeasance.js
  */
 
@@ -14,23 +14,23 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 // ============================================================
-// パス設定
+// Path configuration
 // ============================================================
 
 const SCRIPTS_DIR = path.resolve(__dirname, '../..');
 const LIB_DIR = path.resolve(__dirname, '../../../lib');
 const MALFEASANCE_PATH = path.resolve(process.cwd(), 'Malfeasance.json');
 
-// バックアップとテストデータ
+// Backup and test data
 const BACKUP_PATH = MALFEASANCE_PATH + '.bak';
 
-// テスト結果集計
+// Test result aggregation
 let passed = 0;
 let failed = 0;
 const failures = [];
 
 // ============================================================
-// ヘルパー
+// Helpers
 // ============================================================
 
 function assert(name, fn) {
@@ -94,22 +94,22 @@ function restoreRealDb() {
 }
 
 // ============================================================
-// テストケース
+// Test cases
 // ============================================================
 
 function runAllTests() {
   console.log('\n=== Malfeasance 操作スクリプト テスト ===\n');
 
-  // ---- validate-malfeasance.js の直接テスト ----
+  // ---- Direct tests for validate-malfeasance.js ----
   console.log('[validate-malfeasance.js]');
   const { validateRecords, validateSchema } = require(path.join(LIB_DIR, 'validate-malfeasance'));
 
-  assert('正常な空データは valid', () => {
+  assert('valid empty data is valid', () => {
     const r = validateRecords({ version: 1, records: [] });
     if (!r.valid) throw new Error(`Expected valid, got: ${r.errors.join(', ')}`);
   });
 
-  assert('正常なレコードは valid', () => {
+  assert('valid record is valid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -121,7 +121,7 @@ function runAllTests() {
     if (!r.valid) throw new Error(`Expected valid, got: ${r.errors.join(', ')}`);
   });
 
-  assert('不正な status は invalid', () => {
+  assert('invalid status is invalid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -132,7 +132,7 @@ function runAllTests() {
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('id フィールド欠落は invalid', () => {
+  assert('missing id field is invalid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -143,7 +143,7 @@ function runAllTests() {
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('status=resolved で resolved_at なしは invalid', () => {
+  assert('status=resolved without resolved_at is invalid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -154,7 +154,7 @@ function runAllTests() {
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('status=resolved で resolved_at ありは valid', () => {
+  assert('status=resolved with resolved_at is valid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -166,7 +166,7 @@ function runAllTests() {
     if (!r.valid) throw new Error(`Expected valid, got: ${r.errors.join(', ')}`);
   });
 
-  assert('不正な日付形式は invalid', () => {
+  assert('invalid date format is invalid', () => {
     const r = validateRecords({
       version: 1,
       records: [{
@@ -177,12 +177,12 @@ function runAllTests() {
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('version が 0 は invalid', () => {
+  assert('version 0 is invalid', () => {
     const r = validateRecords({ version: 0, records: [] });
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('重複 ID は invalid', () => {
+  assert('duplicate ID is invalid', () => {
     const r = validateRecords({
       version: 1,
       records: [
@@ -193,22 +193,22 @@ function runAllTests() {
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('version 不足は invalid', () => {
+  assert('missing version is invalid', () => {
     const r = validateRecords({ records: [] });
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('records 不足は invalid', () => {
+  assert('missing records is invalid', () => {
     const r = validateRecords({ version: 1 });
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('null ルートは invalid', () => {
+  assert('null root is invalid', () => {
     const r = validateRecords(null);
     if (r.valid) throw new Error('Expected invalid');
   });
 
-  assert('validSchema: 正常なスキーマは valid', () => {
+  assert('validSchema: valid schema is valid', () => {
     const r = validateSchema({
       $schema: 'http://json-schema.org/draft-07/schema#',
       type: 'object',
@@ -216,7 +216,7 @@ function runAllTests() {
     if (!r.valid) throw new Error(`Expected valid, got: ${r.errors.join(', ')}`);
   });
 
-  // ---- ensure-malfeasance.js のテスト ----
+  // ---- Tests for ensure-malfeasance.js ----
   console.log('\n[ensure-malfeasance.js]');
 
   (function testEnsure() {
@@ -229,12 +229,12 @@ function runAllTests() {
     backupRealDb();
 
     try {
-      // テスト1: 存在しない場合 → 作成
+      // Test 1: not found → create
       if (fs.existsSync(MALFEASANCE_PATH)) {
         fs.unlinkSync(MALFEASANCE_PATH);
       }
 
-      assert('ensure: 不在時 → action=created', () => {
+      assert('ensure: not found → action=created', () => {
         const child = spawnSync('node', [ENSURE_SCRIPT], { encoding: 'utf8', timeout: 5000 });
         const r = JSON.parse(child.stdout.trim());
         if (!r.success || r.action !== 'created') throw new Error(`Expected created, got: ${JSON.stringify(r)}`);
@@ -245,20 +245,20 @@ function runAllTests() {
         }
       });
 
-      // テスト2: 既存の場合 → スキップ
-      assert('ensure: 既存時 → action=skipped', () => {
+      // Test 2: existing → skip
+      assert('ensure: existing → action=skipped', () => {
         const child = spawnSync('node', [ENSURE_SCRIPT], { encoding: 'utf8', timeout: 5000 });
         const r = JSON.parse(child.stdout.trim());
         if (!r.success || r.action !== 'skipped') throw new Error(`Expected skipped, got: ${JSON.stringify(r)}`);
-        // 内容が変更されていないこと
+        // Verify content was not modified
         const content = JSON.parse(fs.readFileSync(MALFEASANCE_PATH, 'utf8'));
         if (content.version !== 1) throw new Error(`Content was modified!`);
       });
 
-      // テスト3: スキーマ不在時 → エラー
-      assert('ensure: スキーマ不在 → エラー', () => {
+      // Test 3: schema missing → error
+      assert('ensure: schema missing → error', () => {
         const schemaPath = path.join(SCRIPTS_DIR, '..', '..', 'scripts', 'tickets', 'malfeasance-schema.json');
-        // スキーマを退避
+        // Save schema temporarily
         const schemaTmp = schemaPath + '.tmp';
         if (fs.existsSync(schemaPath)) {
           fs.renameSync(schemaPath, schemaTmp);
@@ -268,7 +268,7 @@ function runAllTests() {
           const r = JSON.parse(child.stdout.trim());
           if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
         } finally {
-          // スキーマを復元
+          // Restore schema
           if (fs.existsSync(schemaTmp)) {
             fs.renameSync(schemaTmp, schemaPath);
           }
@@ -279,24 +279,24 @@ function runAllTests() {
     }
   })();
 
-  // ---- 操作スクリプトの統合テスト ----
-  // 実DBをバックアップし、テストデータで置き換え
+  // ---- Integration tests for operation scripts ----
+  // Backup real DB and replace with test data
   console.log('\n[操作スクリプト統合テスト]');
   backupRealDb();
 
   try {
-    // 空のテストDBで開始
+    // Start with empty test DB
     writeTestDb([]);
 
     // malfeasance-all.js
     console.log('  [malfeasance-all.js]');
 
-    assert('all: 空DBで全件取得 → count=0', () => {
+    assert('all: empty DB returns count=0', () => {
       const r = runScript('malfeasance-all.js', []);
       if (!r.success || r.count !== 0) throw new Error(`Expected success+count=0, got: ${JSON.stringify(r)}`);
     });
 
-    assert('all: 不正フィルタでエラー', () => {
+    assert('all: invalid filter returns error', () => {
       const r = runScript('malfeasance-all.js', ['invalid']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
@@ -304,27 +304,27 @@ function runAllTests() {
     // malfeasance-create.js
     console.log('  [malfeasance-create.js]');
 
-    assert('create: 正常作成', () => {
+    assert('create: normal creation', () => {
       const r = runScript('malfeasance-create.js', ['src/test.rs', '10', 'テスト犯罪です']);
       if (!r.success || !r.record || r.record.id !== 1) throw new Error(`Expected success+id=1, got: ${JSON.stringify(r)}`);
     });
 
-    assert('create: 2件目作成 → id=2', () => {
+    assert('create: second item → id=2', () => {
       const r = runScript('malfeasance-create.js', ['src/test2.rs', '20', '2件目の犯罪']);
       if (!r.success || r.record.id !== 2) throw new Error(`Expected success+id=2, got: ${JSON.stringify(r)}`);
     });
 
-    assert('create: 同一ファイル+同一行の重複 → エラー', () => {
+    assert('create: duplicate file+line → error', () => {
       const r = runScript('malfeasance-create.js', ['src/test.rs', '10', '重複犯罪']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('create: 引数不足 → エラー', () => {
+    assert('create: missing arguments → error', () => {
       const r = runScript('malfeasance-create.js', ['src/test.rs']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('create: note 付き作成', () => {
+    assert('create: creation with note', () => {
       const r = runScript('malfeasance-create.js', ['src/test3.rs', '30', 'note付き', 'これは備考です']);
       if (!r.success || r.record.note !== 'これは備考です') throw new Error(`Expected note, got: ${JSON.stringify(r)}`);
     });
@@ -332,17 +332,17 @@ function runAllTests() {
     // malfeasance-get.js
     console.log('  [malfeasance-get.js]');
 
-    assert('get: 存在するID → 取得成功', () => {
+    assert('get: existing ID returns success', () => {
       const r = runScript('malfeasance-get.js', ['1']);
       if (!r.success || !r.record || r.record.id !== 1) throw new Error(`Expected record id=1, got: ${JSON.stringify(r)}`);
     });
 
-    assert('get: 存在しないID → Record not found', () => {
+    assert('get: non-existent ID returns Record not found', () => {
       const r = runScript('malfeasance-get.js', ['999']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('get: 引数なし → エラー', () => {
+    assert('get: missing argument → error', () => {
       const r = runScript('malfeasance-get.js', []);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
@@ -350,22 +350,22 @@ function runAllTests() {
     // malfeasance-search.js
     console.log('  [malfeasance-search.js]');
 
-    assert('search: status=open 検索', () => {
+    assert('search: status=open query', () => {
       const r = runScript('malfeasance-search.js', ['status', 'open']);
       if (!r.success || r.count < 3) throw new Error(`Expected count>=3, got: ${JSON.stringify(r)}`);
     });
 
-    assert('search: file 部分一致', () => {
+    assert('search: file partial match', () => {
       const r = runScript('malfeasance-search.js', ['file', 'test2']);
       if (!r.success || r.count !== 1) throw new Error(`Expected count=1, got: ${JSON.stringify(r)}`);
     });
 
-    assert('search: キー省略（全フィールド検索）', () => {
+    assert('search: key omitted (all fields search)', () => {
       const r = runScript('malfeasance-search.js', ['', 'テスト犯罪']);
       if (!r.success || r.count < 1) throw new Error(`Expected count>=1, got: ${JSON.stringify(r)}`);
     });
 
-    assert('search: id 完全一致', () => {
+    assert('search: id exact match', () => {
       const r = runScript('malfeasance-search.js', ['id', '2']);
       if (!r.success || r.count !== 1 || r.records[0].id !== 2) throw new Error(`Expected id=2, got: ${JSON.stringify(r)}`);
     });
@@ -373,33 +373,33 @@ function runAllTests() {
     // malfeasance-update.js
     console.log('  [malfeasance-update.js]');
 
-    assert('update: status 変更 open→resolved', () => {
+    assert('update: status change open→resolved', () => {
       const r = runScript('malfeasance-update.js', ['1', 'status', 'resolved']);
       if (!r.success || r.record.status !== 'resolved') throw new Error(`Expected resolved, got: ${JSON.stringify(r)}`);
       if (!r.record.resolved_at) throw new Error(`Expected resolved_at to be auto-set, got: ${JSON.stringify(r)}`);
     });
 
-    assert('update: 存在しないID → エラー', () => {
+    assert('update: non-existent ID → error', () => {
       const r = runScript('malfeasance-update.js', ['999', 'status', 'resolved']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('update: 禁止フィールド（id）→ エラー', () => {
+    assert('update: forbidden field (id) → error', () => {
       const r = runScript('malfeasance-update.js', ['1', 'id', '999']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('update: resolved_at 単独設定 → エラー', () => {
+    assert('update: resolved_at alone → error', () => {
       const r = runScript('malfeasance-update.js', ['1', 'resolved_at', '2026-01-01T00:00:00Z']);
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('update: note 更新', () => {
+    assert('update: note update', () => {
       const r = runScript('malfeasance-update.js', ['2', 'note', '更新された備考']);
       if (!r.success || r.record.note !== '更新された備考') throw new Error(`Expected note updated, got: ${JSON.stringify(r)}`);
     });
 
-    assert('update: resolved_by_ticket 設定', () => {
+    assert('update: resolved_by_ticket set', () => {
       const r = runScript('malfeasance-update.js', ['2', 'resolved_by_ticket', '178']);
       if (!r.success || r.record.resolved_by_ticket !== 178) throw new Error(`Expected resolved_by_ticket=178, got: ${JSON.stringify(r)}`);
     });
@@ -407,35 +407,35 @@ function runAllTests() {
     // malfeasance-delete.js
     console.log('  [malfeasance-delete.js]');
 
-    assert('delete: 削除確認キャンセル → エラー', () => {
+    assert('delete: confirmation cancelled → error', () => {
       const r = runScript('malfeasance-delete.js', ['3'], 'n\n');
       if (r.success !== false) throw new Error(`Expected error (cancelled), got: ${JSON.stringify(r)}`);
     });
 
-    assert('delete: 存在しないID → エラー', () => {
+    assert('delete: non-existent ID → error', () => {
       const r = runScript('malfeasance-delete.js', ['999'], 'y\n');
       if (r.success !== false) throw new Error(`Expected error, got: ${JSON.stringify(r)}`);
     });
 
-    assert('delete: 正常削除', () => {
+    assert('delete: normal deletion', () => {
       const r = runScript('malfeasance-delete.js', ['3'], 'y\n');
       if (!r.success || !r.deleted || r.deleted.id !== 3) throw new Error(`Expected deleted id=3, got: ${JSON.stringify(r)}`);
-      // 削除後に id=3 が存在しないことを確認
+      // Verify id=3 no longer exists after deletion
       const getResult = runScript('malfeasance-get.js', ['3']);
       if (getResult.success !== false) throw new Error('Expected get after delete to fail');
     });
 
-    // malfeasance-all フィルタリング
+    // malfeasance-all filtering
     console.log('  [malfeasance-all.js filtered]');
 
-    assert('all: filter=resolved → 解決済みのみ', () => {
+    assert('all: filter=resolved → resolved only', () => {
       const r = runScript('malfeasance-all.js', ['resolved']);
       if (!r.success || r.count < 1) throw new Error(`Expected count>=1 (resolved), got: ${JSON.stringify(r)}`);
       const allResolved = r.records.every(rec => rec.status === 'resolved');
       if (!allResolved) throw new Error('Not all records have status=resolved');
     });
 
-    assert('all: filter=open → 未解決のみ', () => {
+    assert('all: filter=open → open only', () => {
       const r = runScript('malfeasance-all.js', ['open']);
       if (!r.success || r.count < 1) throw new Error(`Expected count>=1 (open), got: ${JSON.stringify(r)}`);
       const allOpen = r.records.every(rec => rec.status === 'open');
@@ -443,11 +443,11 @@ function runAllTests() {
     });
 
   } finally {
-    // 必ず元の状態に復元
+    // Always restore original state
     restoreRealDb();
   }
 
-  // ---- 結果表示 ----
+  // ---- Display results ----
   console.log('\n==============================');
   console.log(`結果: ${passed} passed, ${failed} failed`);
   console.log('==============================\n');

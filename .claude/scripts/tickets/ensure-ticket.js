@@ -1,26 +1,25 @@
 #!/usr/bin/env node
 
 /**
- * ensure-ticket.js — チケット不在時にチケットを作成する（spec ファイルは作成しない）
+ * ensure-ticket.js — Create a ticket when one does not exist (does not create spec file)
  *
- * /make-ticket の Step 2（判断分岐）で、事前会話からチケット化を依頼された
- * 場合に AI が手動実行する。内部で add-ticket.js を呼び出して Tickets.json に
- * チケットを追加し、最後に show-ticket-context.js を実行して結果を表示する。
+ * Manual execution by AI in /make-ticket Step 2 (decision branch) when ticket creation
+ * is requested from prior conversation. Internally calls add-ticket.js to add the ticket
+ * to Tickets.json, then runs show-ticket-context.js to display results.
  *
- * spec ファイルは作成しない。チケットの specPath は命名規則から決定し、
- * 実際の spec ファイル内容は Step 6（show-ticket-context.js --for-spec）
- * で書き出される。
+ * Does not create a spec file. The ticket's specPath is determined by naming convention;
+ * actual spec file content is written in Step 6 (show-ticket-context.js --for-spec).
  *
- * 必須引数: --ticket-key, --title
- * オプション（会話から得た情報をチケットに反映する）:
- *   --background="..."         背景・目的（文字列）
- *   --scope='["item1","..."]'  実装範囲（JSON 配列）
- *   --test-unit='["..."]'        テスト計画: 単体テスト UT:（JSON 配列）
- *   --test-integration='["..."]' テスト計画: 結合テスト IT:（JSON 配列）
- *   --test-exceptions='["..."]'  テスト計画: テスト不可能な項目（JSON 配列）
- *   --default-files='["..."]'  実装対象ファイル（JSON 配列）
- *   --acceptance-criteria='["..."]'  完了条件（JSON 配列）
- *   --notes="..."              補足情報（文字列）
+ * Required args: --ticket-key, --title
+ * Options (reflect conversation information onto the ticket):
+ *   --background="..."         background/purpose (string)
+ *   --scope='["item1","..."]'  implementation scope (JSON array)
+ *   --test-unit='["..."]'        test plan: unit tests (JSON array)
+ *   --test-integration='["..."]' test plan: integration tests (JSON array)
+ *   --test-exceptions='["..."]'  test plan: untestable items (JSON array)
+ *   --default-files='["..."]'  implementation target files (JSON array)
+ *   --acceptance-criteria='["..."]'  completion criteria (JSON array)
+ *   --notes="..."              supplementary information (string)
  *
  * CLI: ensure-ticket.js --ticket-key=<PX-{id}> --title="..." [options] [--tickets=<Tickets.json>]
  */
@@ -28,12 +27,11 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { resolveTicketSpecPath } = require('../lib/tickets');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-/** タイトルから slug（kebab-case）を生成する */
+/** Generate a slug (kebab-case) from a title */
 function generateSlug(title) {
   return title
     .toLowerCase()
@@ -42,19 +40,25 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-/** チケットキーから数値 ID を抽出する */
+/** Extract a numeric ID from a ticket key */
 function extractTicketId(ticketKey) {
   const match = ticketKey.match(/(\d+)$/);
   return match ? parseInt(match[1], 10) : null;
 }
 
-/** チケットキーから spec ファイルのパスを導出する（新しい命名規則） */
-function resolveSpecPath(ticketKey, ticketsPath) {
-  const ticketsDir = path.dirname(ticketsPath);
-  return resolveTicketSpecPath(ticketsDir, ticketKey);
+/** Derive spec file path from a ticket key and title (new naming convention) */
+function resolveSpecPath(ticketKey, title) {
+  const id = extractTicketId(ticketKey);
+  if (id === null) return null;
+  const slug = generateSlug(title || '');
+  // Resolve specs directory relative to a conventional tickets/ directory
+  const cwd = process.cwd();
+  const ticketsDir = cwd.includes('tickets') ? cwd : path.resolve(cwd, 'tickets');
+  const specsDir = path.resolve(ticketsDir, 'specs');
+  return path.resolve(specsDir, id + '-' + slug + '.md');
 }
 
-/** コマンドライン引数をパースする */
+/** Parse command-line arguments */
 function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
@@ -113,10 +117,10 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // spec パスを導出（ファイルは作成しない）
+  // Derive spec path (do not create file)
   const specPath = resolveSpecPath(ticketKey, ticketsPath);
 
-  // add-ticket.js で PX フェーズにチケットを追加
+  // Add ticket to PX phase via add-ticket.js
   const addTicketScript = path.join(__dirname, 'add-ticket.js');
   if (!fs.existsSync(addTicketScript)) {
     console.error('Error: add-ticket.js が見つかりません。');
@@ -151,7 +155,7 @@ function main() {
   }
   const actualTicketKey = addResult.ticketKey || ticketKey;
 
-  // show-ticket-context.js を実行して結果を表示
+  // Run show-ticket-context.js to display results
   const showScript = path.join(__dirname, 'show-ticket-context.js');
   if (!fs.existsSync(showScript)) {
     console.error('Error: show-ticket-context.js が見つかりません。');

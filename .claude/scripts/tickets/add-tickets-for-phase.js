@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * add-tickets-for-phase.js — フェーズ単位のチケット追加＋nodeIds過不足検証
+ * add-tickets-for-phase.js — Phase-level ticket addition + nodeIds coverage verification
  *
- * split-to-tickets パイプラインの Step 5-2 で使用する。
- * bulkAddTickets() を呼び出してチケットを追加した後、当該フェーズの全 nodeIds が
- * 追加された tickets[].nodeIds の和集合と一致することを検証する。
+ * Used in the split-to-tickets pipeline Step 5-2.
+ * Calls bulkAddTickets() to add tickets, then verifies that all nodeIds of the phase
+ * match the union of the added tickets[].nodeIds.
  *
- * 第2引数で受け取った Dirs-Tree.json から各チケットの nodeIds 経由で
- * ファイルパスを機械的に解決し、default_files を自動設定する。
- * これにより AI がファイルパスを手書きする必要がなくなる。
+ * From the Dirs-Tree.json received as the second argument, file paths are mechanically
+ * resolved via each ticket's nodeIds, automatically setting default_files.
+ * This eliminates the need for AI to manually write file paths.
  *
- * 検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
+ * If verification fails, no write is performed (rollback) and the process exits with code 1.
  *
  * Usage:
  *   echo '<tickets-array-json>' | node add-tickets-for-phase.js \
- *     <Tickets.json のパス> \
- *     <Dirs-Tree.json のパス> \
+ *     <path to Tickets.json> \
+ *     <path to Dirs-Tree.json> \
  *     <P{id}>
  */
 
@@ -26,27 +26,27 @@ const { bulkAddTickets } = require("./bulk-add-tickets.js");
 const { buildNodeToDirMap } = require("../rfc-graph/validate-phasify.js");
 
 // ============================================================
-// 定数定義
+// Constants
 // ============================================================
 
-/** 正常終了コード */
+/** Normal exit code */
 const EXIT_SUCCESS = 0;
 
-/** 異常終了コード */
+/** Abnormal exit code */
 const EXIT_FAILURE = 1;
 
 // ============================================================
-// default_files 自動解決
+// Auto-resolve default_files
 // ============================================================
 
 /**
- * 各チケットの nodeIds から Dirs-Tree 解決済みマップを使って default_files を自動設定する。
+ * Automatically set default_files for each ticket using the Dirs-Tree resolved map via nodeIds.
  *
- * 重複するファイルパス（異なる nodeId が同じファイルを指す）は排除され、ソートされる。
- * nodeIds が空のチケットや nodeToDirMap に該当がない場合は default_files を設定しない。
+ * Duplicate file paths (different nodeIds pointing to the same file) are removed and sorted.
+ * Tickets with empty nodeIds or no match in nodeToDirMap will not have default_files set.
  *
- * @param {Object[]} tickets — チケットデータの配列（各要素に nodeIds が必須）
- * @param {Object} nodeToDirMap — buildNodeToDirMap() の戻り値（{ nodeId: filePath, ... }）
+ * @param {Object[]} tickets — array of ticket data (each must have nodeIds)
+ * @param {Object} nodeToDirMap — return value of buildNodeToDirMap() ({ nodeId: filePath, ... })
  */
 function resolveDefaultFiles(tickets, nodeToDirMap) {
   for (const ticket of tickets) {
@@ -66,23 +66,22 @@ function resolveDefaultFiles(tickets, nodeToDirMap) {
 }
 
 // ============================================================
-// referenceSection 自動解決（GRAPH.json の § マーカーから機械生成）
+// Auto-resolve referenceSection (mechanically generated from § markers in GRAPH.json)
 // ============================================================
 
-/** § セクションマーカーの正規表現（例: §1, §1a, §2.1, §27a） */
+/** Regex for § section markers (e.g., §1, §1a, §2.1, §27a) */
 const SECTION_PATTERN = /§[0-9]+(?:\.[0-9]+)?[a-z]?/;
 
 /**
- * チケットの nodeIds から GRAPH.json のノード title の § マーカーを抽出し、
- * referenceSection を機械生成する。
+ * Extract § markers from GRAPH.json node titles via ticket nodeIds and mechanically generate referenceSection.
  *
- * 出力例: "RFC-ROOT.md (§1, §1a, §2, §4.1)"
- * § マーカーがない場合は空文字列を返す。
+ * Output example: "RFC-ROOT.md (§1, §1a, §2, §4.1)"
+ * Returns an empty string if no § markers are found.
  *
- * @param {string[]} nodeIds — チケットに属するノードID配列
- * @param {Object[]} graphNodes — GRAPH.json の nodes 配列（各要素に id と title）
- * @param {string} sourceFile — GRAPH.json の sourceFile（RFCファイルパス、拡張子除去）
- * @returns {string} 生成された referenceSection
+ * @param {string[]} nodeIds — array of node IDs belonging to the ticket
+ * @param {Object[]} graphNodes — nodes array from GRAPH.json (each has id and title)
+ * @param {string} sourceFile — sourceFile from GRAPH.json (RFC file path, extension removed)
+ * @returns {string} generated referenceSection
  */
 function resolveReferenceSection(nodeIds, graphNodes, sourceFile) {
   const sections = new Set();
@@ -94,11 +93,11 @@ function resolveReferenceSection(nodeIds, graphNodes, sourceFile) {
   }
   if (sections.size === 0) return '';
   const sorted = Array.from(sections).sort(function(a, b) {
-    // 数値部で比較: §1a → 1, §2.1 → 2.1, §10 → 10
+    // Compare by numeric part: §1a → 1, §2.1 → 2.1, §10 → 10
     const anum = parseFloat(a.replace(/[^0-9.]/g, '')) || 0;
     const bnum = parseFloat(b.replace(/[^0-9.]/g, '')) || 0;
     if (anum !== bnum) return anum - bnum;
-    // 同一数値の接尾辞比較: §1 < §1a
+    // Compare same-numeric-value suffixes: §1 < §1a
     const asuf = a.match(/[a-z]$/) ? a.slice(-1) : '';
     const bsuf = b.match(/[a-z]$/) ? b.slice(-1) : '';
     return asuf.localeCompare(bsuf);
@@ -108,13 +107,13 @@ function resolveReferenceSection(nodeIds, graphNodes, sourceFile) {
 }
 
 // ============================================================
-// nodeIds過不足検証
+// nodeIds coverage verification
 // ============================================================
 
 /**
- * フェーズの全 nodeIds が tickets[].nodeIds の和集合と一致するか検証する。
+ * Verify that all nodeIds of a phase match the union of tickets[].nodeIds.
  *
- * @param {Object} phase — フェーズオブジェクト（nodeIds と tickets を持つ）
+ * @param {Object} phase — phase object (with nodeIds and tickets)
  * @returns {{
  *   valid: boolean,
  *   missingNodeIds: string[],
@@ -137,7 +136,7 @@ function verifyNodeCoverage(phase) {
     }
   }
 
-  // 不足しているノードID（フェーズにあってチケットにない）
+  // Missing nodeIds (in phase but not in any ticket)
   const missingNodeIds = [];
   for (const nodeId of phaseNodeIds) {
     if (!coveredNodeIds.has(nodeId)) {
@@ -145,7 +144,7 @@ function verifyNodeCoverage(phase) {
     }
   }
 
-  // 余分なノードID（チケットにあってフェーズにない）
+  // Extra nodeIds (in tickets but not in phase)
   const extraNodeIds = [];
   for (const nodeId of coveredNodeIds) {
     if (!phaseNodeIds.has(nodeId)) {
@@ -159,13 +158,13 @@ function verifyNodeCoverage(phase) {
 }
 
 // ============================================================
-// メイン処理
+// Main processing
 // ============================================================
 
 /**
- * CLI引数をパースして各パスとフェーズ指定子を取得する。
+ * Parse CLI arguments to obtain each path and phase specifier.
  *
- * @param {string[]} argv — process.argv（通常は process.argv をそのまま渡す）
+ * @param {string[]} argv — process.argv (typically pass process.argv directly)
  * @returns {{ ticketsJsonPath: string|null, dirsTreePath: string|null, phaseArg: string|null, error: string|null }}
  */
 function parseCliArguments(argv) {
@@ -197,7 +196,7 @@ function main() {
 
   const { ticketsJsonPath, dirsTreePath, phaseArg, graphPath } = parsed;
 
-  // 1. stdin からチケット配列を読み込み
+  // 1. Read ticket array from stdin
   let ticketsInput;
   try {
     ticketsInput = JSON.parse(fs.readFileSync("/dev/stdin", "utf8"));
@@ -211,7 +210,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 2. 各チケットの nodeIds を検証
+  // 2. Validate nodeIds on each ticket
   const ticketsWithoutNodeIds = ticketsInput.filter(function (t) {
     return !Array.isArray(t.nodeIds) || t.nodeIds.length === 0;
   });
@@ -227,7 +226,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 3. Dirs-Tree.json から default_files を自動解決
+  // 3. Auto-resolve default_files from Dirs-Tree.json
   let dirsTreeData;
   try {
     dirsTreeData = JSON.parse(
@@ -246,7 +245,7 @@ function main() {
   const nodeToDirMap = buildNodeToDirMap(dirsTreeData);
   resolveDefaultFiles(ticketsInput, nodeToDirMap);
 
-  // 3b. GRAPH.json から referenceSection を自動生成
+  // 3b. Auto-generate referenceSection from GRAPH.json
   if (graphPath) {
     try {
       const resolvedGraphPath = path.resolve(graphPath);
@@ -268,7 +267,7 @@ function main() {
     }
   }
 
-  // 4. Tickets.json を読み込み、フェーズを解決
+  // 4. Read Tickets.json and resolve the phase
   const resolvedPath = path.resolve(ticketsJsonPath);
   let data;
   try {
@@ -278,7 +277,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // フェーズ解決（add-ticket.js と同じロジック）
+  // Phase resolution (same logic as add-ticket.js)
   let phase = null;
   if (phaseArg === "PX") {
     phase = data.phases.find(function (p) { return p.id === -1; });
@@ -295,7 +294,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // フェーズに nodeIds が存在するか確認
+  // Verify that the phase has nodeIds
   if (!Array.isArray(phase.nodeIds) || phase.nodeIds.length === 0) {
     console.error(
       "フェーズ " +
@@ -305,7 +304,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 5. bulkAddTickets を実行（単一バッチとして）
+  // 5. Execute bulkAddTickets (as a single batch)
   const batch = [
     {
       phaseId: phase.id,
@@ -319,7 +318,7 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 6. nodeIds 過不足検証
+  // 6. nodeIds coverage verification
   const coverageResult = verifyNodeCoverage(phase);
 
   if (!coverageResult.valid) {
@@ -337,10 +336,10 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 7. 検証成功 → ファイルに書き込み
+  // 7. Validation passed — write to file
   fs.writeFileSync(resolvedPath, JSON.stringify(data, null, 2) + "\n", "utf8");
 
-  // 8. 結果出力
+  // 8. Output results
   const output = {
     success: true,
     phaseKey: phaseArg,

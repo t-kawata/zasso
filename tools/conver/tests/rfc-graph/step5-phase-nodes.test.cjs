@@ -1,7 +1,7 @@
 /**
- * step5-phase-nodes.test.cjs — show-phase-nodes.js のユニットテスト
+ * step5-phase-nodes.test.cjs — Unit tests for show-phase-nodes.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -17,22 +17,22 @@ const {
 } = require('../../.claude/scripts/rfc-graph/show-phase-nodes.js');
 
 // ============================================================
-// テスト用データ
+// Test data
 // ============================================================
 
 const SAMPLE_NODE_IDS = ['N0001', 'N0002'];
 
 const SAMPLE_PHASE = {
   id: 0,
-  name: 'テストフェーズ',
-  summary: 'テスト用のフェーズです。',
+  name: 'Test Phase',
+  summary: 'This is a test phase.',
   nodeIds: SAMPLE_NODE_IDS,
   tickets: [],
 };
 
 const SAMPLE_NODE_MARKDOWN = [
-  '## N0001: テストノード1\n\n**種別**: api_contract\n\nテスト用ノード1です。\n\n### 実装先となるファイルパス\n\n```\nsrc/test/mod.rs\n```\n',
-  '## N0002: テストノード2\n\n**種別**: architecture\n\nテスト用ノード2です。\n\n### 実装先となるファイルパス\n\n```\nsrc/test/core.rs\n```\n',
+  '## N0001: Test Node 1\n\n**Type**: api_contract\n\nTest node 1.\n\n### Implementation file path\n\n```\nsrc/test/mod.rs\n```\n',
+  '## N0002: Test Node 2\n\n**Type**: architecture\n\nTest node 2.\n\n### Implementation file path\n\n```\nsrc/test/core.rs\n```\n',
 ];
 
 // ============================================================
@@ -40,7 +40,7 @@ const SAMPLE_NODE_MARKDOWN = [
 // ============================================================
 
 describe('parseCliArguments', () => {
-  it('すべての引数を正しくパースする', () => {
+  it('parses all arguments correctly', () => {
     const args = [
       '--tickets=/path/to/tickets.json',
       '--graph=/path/to/graph.json',
@@ -54,7 +54,7 @@ describe('parseCliArguments', () => {
     assert.equal(result.phaseArg, 'P0');
   });
 
-  it('引数が足りない場合は null を返す', () => {
+  it('returns null on insufficient arguments', () => {
     const result = parseCliArguments(['--tickets=/path/to/tickets.json']);
     assert.equal(result.graphPath, null);
     assert.equal(result.dirsTreePath, null);
@@ -68,32 +68,32 @@ describe('parseCliArguments', () => {
 
 describe('resolvePhase', () => {
   const phases = [
-    { id: -1, name: '独立フェーズ', tickets: [] },
-    { id: 0, name: 'フェーズ0', tickets: [] },
-    { id: 1, name: 'フェーズ1', tickets: [] },
+    { id: -1, name: 'Independent Phase', tickets: [] },
+    { id: 0, name: 'Phase 0', tickets: [] },
+    { id: 1, name: 'Phase 1', tickets: [] },
   ];
 
-  it('PX で独立フェーズ（id=-1）を解決する', () => {
+  it('resolves PX to independent phase (id=-1)', () => {
     const { phase, error } = resolvePhase(phases, 'PX');
     assert.notEqual(phase, null);
     assert.equal(phase.id, -1);
     assert.equal(error, null);
   });
 
-  it('P{n} 形式でフェーズを解決する', () => {
+  it('resolves phase with P{n} format', () => {
     const { phase, error } = resolvePhase(phases, 'P0');
     assert.notEqual(phase, null);
     assert.equal(phase.id, 0);
     assert.equal(error, null);
   });
 
-  it('存在しないフェーズは null を返す', () => {
+  it('returns null for non-existent phase', () => {
     const { phase, error } = resolvePhase(phases, 'P999');
     assert.equal(phase, null);
     assert.notEqual(error, null);
   });
 
-  it('不正なフォーマットはエラーを返す', () => {
+  it('returns error for invalid format', () => {
     const { phase, error } = resolvePhase(phases, 'invalid');
     assert.equal(phase, null);
     assert.ok(error.includes('Invalid phase format'));
@@ -105,32 +105,32 @@ describe('resolvePhase', () => {
 // ============================================================
 
 describe('formatOutput', () => {
-  it('フェーズ名とサマリーを含むMarkdownを出力する', () => {
+  it('outputs Markdown with phase name and summary', () => {
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, SAMPLE_NODE_MARKDOWN, [null, null]);
-    assert.ok(output.includes('# Phase P0: テストフェーズ'));
-    assert.ok(output.includes('テスト用のフェーズです。'));
+    assert.ok(output.includes('# Phase P0: Test Phase'));
+    assert.ok(output.includes('This is a test phase.'));
   });
 
-  it('ノード区切りに --- を含む', () => {
+  it('includes --- between nodes', () => {
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, SAMPLE_NODE_MARKDOWN, [null, null]);
     assert.ok(output.includes('---'));
   });
 
-  it('I/O 境界の注釈を含む', () => {
+  it('includes I/O boundary annotations', () => {
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, SAMPLE_NODE_MARKDOWN, [null, null]);
     assert.ok(output.includes('安全な I/O 境界'));
     assert.ok(output.includes('チケットとは、1回の実装で安全に行えるノードの組み合わせです'));
   });
 
-  it('各ノードの詳細を含む', () => {
+  it('includes details for each node', () => {
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, SAMPLE_NODE_MARKDOWN, [null, null]);
-    assert.ok(output.includes('N0001: テストノード1'));
-    assert.ok(output.includes('N0002: テストノード2'));
+    assert.ok(output.includes('N0001: Test Node 1'));
+    assert.ok(output.includes('N0002: Test Node 2'));
     assert.ok(output.includes('src/test/mod.rs'));
     assert.ok(output.includes('src/test/core.rs'));
   });
 
-  it('エラーノードがある場合もエラーメッセージを含む', () => {
+  it('includes error messages when error nodes exist', () => {
     const errors = ['query.js execution failed', null];
     const output = formatOutput(SAMPLE_PHASE, SAMPLE_NODE_IDS, [null, SAMPLE_NODE_MARKDOWN[1]], errors);
     assert.ok(output.includes('エラーのためノード詳細を取得できませんでした'));

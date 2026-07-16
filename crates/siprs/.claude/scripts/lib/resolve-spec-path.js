@@ -1,31 +1,31 @@
 #!/usr/bin/env node
 
 /**
- * resolve-spec-path.js — チケットキーから spec ファイルパスを解決する共通モジュール
+ * resolve-spec-path.js — Resolve spec file path from a ticket key
  *
- * 新しい命名規則: {ticketsDir}/specs/{ticketKey}.md
- * ticketsDir は Tickets.json のディレクトリ、ticketKey は "P0-1" 形式。
- * referenceSection に依存しない確定的なパス計算に統一された。
+ * Reads Tickets.json to find the ticket's referenceSection field.
+ * Falls back to deriving the path from the ticket key.
  *
- * dump-ticket-graph-commands.js と dump-node-context-to-spec.js の両方から使用される。
+ * dump-ticket-graph-commands.js and ensure-ticket.js both use this.
  */
 
+const fs = require('fs');
 const path = require('path');
 
 /**
- * チケットキーから phaseId と ticketId をパースする
+ * Parse a ticket key into phaseId and ticketId
  *
- * @param {string} ticketKey — "P{phaseId}-{ticketId}" または "PX-{ticketId}" 形式
- * @returns {{ phaseId: number, ticketId: number } | null} — パース結果、不正な形式なら null
+ * @param {string} ticketKey — "P{phaseId}-{ticketId}" or "PX-{ticketId}" format
+ * @returns {{ phaseId: number, ticketId: number } | null}
  */
 function parseTicketKey(ticketKey) {
-  // PX-{id} 形式 (独立フェーズ、phaseId = -1)
+  // PX-{id} format (independent phase, phaseId = -1)
   const pxMatch = ticketKey.match(/^PX-(\d+)$/);
   if (pxMatch) {
     return { phaseId: -1, ticketId: parseInt(pxMatch[1], 10) };
   }
 
-  // P{phaseId}-{ticketId} 形式
+  // P{phaseId}-{ticketId} format
   const pMatch = ticketKey.match(/^P(-?\d+)-(\d+)$/);
   if (pMatch) {
     return { phaseId: parseInt(pMatch[1], 10), ticketId: parseInt(pMatch[2], 10) };
@@ -35,28 +35,60 @@ function parseTicketKey(ticketKey) {
 }
 
 /**
- * 新しい命名規則で spec ファイルパスを解決する。
+ * Resolve spec file path from a ticket key using Tickets.json.
  *
- * パスは常に {ticketsDir}/specs/{ticketKey}.md であり、referenceSection 等の
- * フィールドに依存しない。ファイルが実在しない場合でもパスを返す。
+ * Reads Tickets.json to find the ticket matching the given key,
+ * then uses its referenceSection field if present. The spec path
+ * is resolved relative to the Tickets.json directory.
  *
- * @param {string} ticketKey — "P{phaseId}-{ticketId}" または "PX-{ticketId}" 形式
- * @param {string} ticketsJsonPath — Tickets.json へのパス
- * @returns {string|null} spec ファイルの絶対パス（ticketKey が不正な場合は null）
+ * @param {string} ticketKey — "P{phaseId}-{ticketId}" or "PX-{ticketId}" format
+ * @param {string} ticketsJsonPath — Path to Tickets.json
+ * @returns {string|null} Absolute spec path, or null
  */
 function resolveSpecPath(ticketKey, ticketsJsonPath) {
-  // ticketKey の形式チェック
   const parsed = parseTicketKey(ticketKey);
   if (!parsed) {
     return null;
   }
 
-  // ticketsJsonPath からディレクトリを取得し、新しい命名規則でパスを計算
   const resolvedTicketsPath = path.resolve(ticketsJsonPath);
   const ticketsDir = path.dirname(resolvedTicketsPath);
-  const specPath = path.resolve(ticketsDir, 'specs', ticketKey + '.md');
+  const specsDir = path.resolve(ticketsDir, 'specs');
 
-  return specPath;
+  // Read Tickets.json to find the ticket
+  let ticketsData;
+  try {
+    const raw = fs.readFileSync(resolvedTicketsPath, 'utf8');
+    ticketsData = JSON.parse(raw);
+  } catch {
+    // Cannot read Tickets.json — fall back to direct path
+    return path.resolve(specsDir, ticketKey + '.md');
+  }
+
+  // Find the ticket by matching phase and ticket id
+  const phases = ticketsData.phases || [];
+  for (const phase of phases) {
+    const tickets = phase.tickets || [];
+    for (const ticket of tickets) {
+      if (ticket.id === parsed.ticketId) {
+        const referenceSection = ticket.referenceSection;
+        if (referenceSection) {
+          // referenceSection is relative to the directory containing Tickets.json
+          const specPath = path.resolve(ticketsDir, referenceSection);
+          // Return null if the resolved spec file does not exist
+          if (!fs.existsSync(specPath)) {
+            return null;
+          }
+          return specPath;
+        }
+        // Ticket found but no referenceSection — return null
+        return null;
+      }
+    }
+  }
+
+  // Ticket key not found in Tickets.json
+  return null;
 }
 
 module.exports = { resolveSpecPath, parseTicketKey };

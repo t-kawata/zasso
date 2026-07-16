@@ -1,6 +1,7 @@
 ---
-description: Executes graph conversion via 7-step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
-argument-hint: </path/to/RFC-*.md>
+description: Executes graph conversion via 7-step Step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
+argument-hint: </path/to/RFC-doc.md>
+allowed-tools: Read, Write, Bash
 ---
 
 # /graphify-rfc <source-file-path>
@@ -37,7 +38,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 
 ## Guidelines
 
-- **The /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
+- **The /graphify-rfc slash command always splits at a finer granularity（より細かい粒度）than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence／発散).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
 - Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
 - Calls to update-step-status.js use the `--graphify-status=<path>` prefix.
 - crud.js / verify.js / query.js are called with `--graph=<path>` / `--source=<path>` argument format.
@@ -128,7 +129,7 @@ node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
 ```
 
-### Recovery on Error
+### エラー時の復帰
 After fixing the cause according to the error message, use `reset-to-step 0` to reset the status, then re-run the Step 0 commands from the beginning.
 
 ```bash
@@ -245,7 +246,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### Recovery on Error
+### エラー時の復帰
 
 If validate-slug.js reports slug validation errors, fix the slug using the crud.js command specified in each error's remedy field, then re-run with `reset-to-step 1`:
 
@@ -300,7 +301,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### Recovery on Error
+### エラー時の復帰
 After fixing the cause according to the error message, use `reset-to-step 2` to reset the status, then re-run the Step 2 commands from the beginning. Delete any old temporary files before re-running:
 
 ```bash
@@ -339,7 +340,7 @@ Branch based on verification results:
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
   ```
-- **If orphan nodes are reported** → Return to Step 2 with `reset-to-step 2` to add appropriate edges to orphan nodes
+- **If orphan nodes（孤立ノード）are reported** → Return to Step 2 with `reset-to-step 2` to add appropriate edges to orphan nodes
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
   ```
@@ -348,9 +349,9 @@ Branch based on verification results:
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 3
   ```
 
-Repeat Steps 1 through 3 until `{"ok":true}` is returned.
+Repeat Steps 1 through 3 until `{"ok":true}` is returned（{"ok":true} が返るまで繰り返す）. This loop continues until verification passes.
 
-### Recovery on Error
+### エラー時の復帰
 After fixing the cause according to the error message, use `reset-to-step 3` to reset the status, then re-run the Step 3 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 3
@@ -448,7 +449,7 @@ rm -rf _quality/
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### Recovery on Error
+### エラー時の復帰
 
 Identify the cause according to the query.js error message and fix it by resetting the status with the appropriate Step's `reset-to-step N` (missing nodes → Step 1, missing edges → Step 2).
 
@@ -517,20 +518,20 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 5
 ```
 
-### Recovery on Error
+### エラー時の復帰
 After fixing the cause according to the script's error message, use `reset-to-step 5` to reset the status, then re-run the Step 5 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 5
 ```
 
-## Completion Report
+## Completion Report（完了報告／生成結果）
 
 Report the following information:
 
 - **Generated graph file**: `$graphPath`
 - **Progress status file**: `$statusPath`
-- **Node count**: Obtained via crud.js list-nodes
-- **Edge count**: Obtained from the graph JSON's edges array length
+- **Node count（ノード数）**: Obtained via crud.js list-nodes
+- **Edge count（エッジ数）**: Obtained from the graph JSON's edges array length
 - **headingRefs resolution rate**: All N entries confirmed resolvable by test-query-all.js
 - **Verification result**: verify.js final output (coverage rate, presence of orphan nodes)
 - **Final quality verification**: show-graph-summary-markdown.js adequacy judgment result (sufficient/reinforcement history)

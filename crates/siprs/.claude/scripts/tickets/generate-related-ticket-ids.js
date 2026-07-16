@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * generate-related-ticket-ids.js — relatedTicketIds 機械生成
+ * generate-related-ticket-ids.js — Automatic generation of relatedTicketIds
  *
- * GRAPH.json の edges と Tickets.json の各チケットの nodeIds の直積から、
- * 機械的かつ完全に correct な relatedTicketIds（prose 文字列）を生成する。
+ * Generates mechanically and fully correct relatedTicketIds (prose strings)
+ * from the cartesian product of GRAPH.json edges and each ticket's nodeIds in Tickets.json.
  *
- * Usage (CLI, GRAPH.json から読み込み):
+ * Usage (CLI, reads from GRAPH.json):
  *   node generate-related-ticket-ids.js <GRAPH.json> <Tickets.json>
  *
- * Usage (モジュールとして require):
+ * Usage (import as module):
  *   const { generateRelatedTicketIds } = require('./generate-related-ticket-ids.js');
  *   const relatedMap = generateRelatedTicketIds(tickets, graphEdges);
  */
@@ -17,12 +17,12 @@
 'use strict';
 
 // ============================================================
-// エッジ種別の方向ラベルマップ
+// Edge type direction label map
 // ============================================================
 
 /**
- * エッジ種別ごとに、自チケット→他チケット方向のラベル。
- * 被依存方向は "被依存元（依存元）" で固定。
+ * Per edge type, the label for the direction from own ticket to other ticket.
+ * The reverse direction is fixed as "被依存元（依存元）".
  */
 const DIRECTION_LABELS = {
   depends_on: '依存先',
@@ -40,18 +40,18 @@ const DIRECTION_LABELS = {
 };
 
 // ============================================================
-// 純粋関数
+// Pure functions
 // ============================================================
 
 /**
- * GRAPH.json の edges とチケット配列から relatedTicketIds を生成する。
+ * Generates relatedTicketIds from GRAPH.json edges and the tickets array.
  *
- * 出力 prose フォーマット（例）:
+ * Output prose format (example):
  *   [depends_on] P1-2 (依存先: エラー型 CryptoError の定義), [refines] P2-1 (被依存元（依存元）: Session管理)
  *
- * @param {Object[]} tickets — 全チケットの配列（各要素に id, nodeIds, title 必須）
- * @param {Object[]} graphEdges — GRAPH.json の edges 配列（各要素に from, to, type 必須）
- * @returns {Map<string, string>} ticketId → prose 文字列のマップ
+ * @param {Object[]} tickets — Array of all tickets (each requires id, nodeIds, title)
+ * @param {Object[]} graphEdges — GRAPH.json edges array (each requires from, to, type)
+ * @returns {Map<string, string>} Map from ticketId to prose string
  */
 function generateRelatedTicketIds(tickets, graphEdges) {
   const result = new Map();
@@ -63,7 +63,7 @@ function generateRelatedTicketIds(tickets, graphEdges) {
     return result;
   }
 
-  // nodeId → { id, phaseId } の逆引きマップ（同一数値IDを異なるフェーズで区別）
+  // Reverse map from nodeId to { id, phaseId } (to distinguish same numeric IDs across different phases)
   const nodeToTicket = {};
   for (const ticket of tickets) {
     if (!Array.isArray(ticket.nodeIds)) continue;
@@ -72,14 +72,14 @@ function generateRelatedTicketIds(tickets, graphEdges) {
     }
   }
 
-  // 複合キー "phaseId:id" → ticket のマップ（全チケットを一意に識別）
+  // Composite key "phaseId:id" to ticket map (to uniquely identify all tickets)
   const ticketMap = {};
   for (const ticket of tickets) {
     const key = ticket.phaseId + ':' + ticket.id;
     ticketMap[key] = ticket;
   }
 
-  // 各チケットについて、その nodeIds から出入りするエッジを走査
+  // For each ticket, scan edges entering/leaving its nodeIds
   for (const ticket of tickets) {
     const ticketKey = ticket.phaseId + ':' + ticket.id;
     const ticketNodeSet = new Set(ticket.nodeIds || []);
@@ -93,20 +93,20 @@ function generateRelatedTicketIds(tickets, graphEdges) {
 
       if (!isFrom && !isTo) continue;
 
-      // 相手ノードが属するチケットを特定
+      // Identify the ticket to which the counterpart node belongs
       const targetNodeId = isFrom ? edge.to : edge.from;
       const targetInfo = nodeToTicket[targetNodeId];
       if (!targetInfo) continue;
 
-      // 自己参照ガード: 同一 (phaseId, ticketId) のエッジはスキップ
+      // Self-reference guard: skip edges with the same (phaseId, ticketId)
       if (targetInfo.phaseId === ticket.phaseId && targetInfo.id === ticket.id) continue;
 
-      // 方向ラベルの決定
+      // Determine direction label
       const direction = isFrom
         ? (DIRECTION_LABELS[edge.type] || edge.type)
         : '被依存元（依存元）';
 
-      // 表示用チケットID: "P{phaseId}-{ticketId}" で一意に特定可能
+      // Display ticket ID: uniquely identifiable as "P{phaseId}-{ticketId}"
       const displayId = 'P' + targetInfo.phaseId + '-' + targetInfo.id;
       const targetKey = targetInfo.phaseId + ':' + targetInfo.id;
       const targetTitle = (ticketMap[targetKey] || {}).title || '';
@@ -126,15 +126,15 @@ function generateRelatedTicketIds(tickets, graphEdges) {
 }
 
 // ============================================================
-// GRAPH.json 読み込み補助関数
+// GRAPH.json loading helper
 // ============================================================
 
 /**
- * Tickets.json の metadata.source から GRAPH.json のパスを逆算して読み込む。
+ * Reads GRAPH.json by computing its path from Tickets.json's metadata.source.
  *
- * @param {string} ticketsPath — Tickets.json の絶対パス
- * @param {string} projectRoot — プロジェクトルートの絶対パス（省略時は ticketsPath の2階層上を仮定）
- * @returns {{ edges: Object[] }|null} GRAPH.json の edges 配列、またはファイルがなければ null
+ * @param {string} ticketsPath — Absolute path to Tickets.json
+ * @param {string} projectRoot — Absolute path to project root (defaults to 2 levels above ticketsPath)
+ * @returns {{ edges: Object[] }|null} GRAPH.json edges array, or null if file does not exist
  */
 function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
   const path = require('path');
@@ -142,8 +142,8 @@ function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
 
   let root = projectRoot;
   if (!root) {
-    // Tickets.json が tools/conver/Tickets.json の場合、
-    // プロジェクトルートは tools/conver の2階層上
+    // When Tickets.json is at tools/conver/Tickets.json,
+    // the project root is 2 levels above tools/conver
     root = path.resolve(path.dirname(ticketsPath), '..', '..');
   }
 
@@ -157,7 +157,7 @@ function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
 
   if (!sourcePath) return null;
 
-  // metadata.source はプロジェクトルートからの相対パス
+  // metadata.source is a relative path from the project root
   const graphPath = path.resolve(root, sourcePath.replace(/\.md$/, '-GRAPH.json'));
 
   if (!fs.existsSync(graphPath)) return null;
@@ -171,11 +171,11 @@ function loadGraphEdgesFromTickets(ticketsPath, projectRoot) {
 }
 
 // ============================================================
-// CLI エントリポイント
+// CLI entry point
 // ============================================================
 
 /**
- * CLI として呼び出された場合のメイン処理。
+ * Main entry when called as CLI.
  * Usage: node generate-related-ticket-ids.js <GRAPH.json> <Tickets.json>
  */
 function main() {
@@ -213,7 +213,7 @@ function main() {
 
   const relatedMap = generateRelatedTicketIds(tickets, graphEdges);
 
-  // 結果を JSON として出力（キーが ticketId、値が prose 文字列）
+  // Output result as JSON (keys are ticketId, values are prose strings)
   const output = {};
   for (const [ticketId, prose] of relatedMap) {
     output[ticketId] = prose;

@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * write-phase-name-summary.js — フェーズの name/summary を書き込む
+ * write-phase-name-summary.js — Writes the name/summary of a phase
  *
- * split-to-tickets.md Step 4.2 で使用する。Tickets.json の指定フェーズに
- * name と summary を書き込む。name/summary は stdin から JSON で受け取る。
+ * Used in split-to-tickets.md Step 4.2. Writes name and summary to the
+ * specified phase in Tickets.json. name/summary are received as JSON from stdin.
  *
- * 使用法:
+ * Usage:
  *   echo '{"name":"認証基盤","summary":"認証トークン生成・検証・Session管理"}' | \
  *     node write-phase-name-summary.js <Tickets.json> <phaseId>
  *
- * 終了コード:
- *   0 = 成功
- *   1 = データエラー
- *   2 = 引数エラー
+ * Exit codes:
+ *   0 = success
+ *   1 = data error
+ *   2 = argument error
  */
 
 'use strict';
@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * メイン処理。
+ * Main entry point.
  */
 function main() {
   const args = process.argv.slice(2);
@@ -34,7 +34,7 @@ function main() {
   const ticketsPath = path.resolve(args[0]);
   const phaseId = args[1];
 
-  // stdin から JSON を読み取る
+  // Read JSON from stdin
   let inputData = '';
   const stdin = process.stdin;
   stdin.setEncoding('utf8');
@@ -64,7 +64,7 @@ function main() {
       process.exit(1);
     }
 
-    // Tickets.json を読み込み
+    // Read Tickets.json
     let ticketsData;
     try {
       ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
@@ -83,7 +83,7 @@ function main() {
       process.exit(1);
     }
 
-    // 書き込み
+    // Write back
     phases[phaseIndex].name = name.trim();
     phases[phaseIndex].summary = summary.trim();
 

@@ -1,10 +1,10 @@
 /**
- * phasify-e2e.test.cjs — エンドツーエンドテスト（書き込みパス・循環検出・--dry-run）
+ * phasify-e2e.test.cjs — End-to-end tests (write path, cycle detection, --dry-run)
  *
- * 実際のファイルI/Oを伴う phasify スクリプトの動作を検証する。
- * テスト用の一時ディレクトリを作成し、後でクリーンアップする。
+ * Verifies phasify script behavior with actual file I/O.
+ * Creates test temporary directories and cleans up afterward.
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js built-in node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -17,7 +17,7 @@ const { spawnSync } = require('child_process');
 const PHASIFY_SCRIPT = path.resolve(__dirname, '../../.claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js');
 
 // ============================================================
-// ヘルパー: テスト用グラフデータ生成
+// Helper: Generate test graph data
 // ============================================================
 
 function makeSimpleGraph() {
@@ -41,7 +41,7 @@ function makeSimpleGraph() {
 
 function makeCyclicGraph() {
   const graph = makeSimpleGraph();
-  // N0001→N0025 + N0025→N0001 = 循環
+  // N0001→N0025 + N0025→N0001 = cycle
   graph.edges.push(
     { from: 'N0025', to: 'N0001', type: 'depends_on' },
   );
@@ -68,7 +68,7 @@ function makeSimpleDirsTree() {
 }
 
 // ============================================================
-// E2E テスト
+// E2E Tests
 // ============================================================
 
 describe('phasify E2E (write path, cycle detection, dry-run)', () => {
@@ -78,12 +78,12 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   const ticketsPath = path.join(tmpDir, 'Tickets.json');
 
   before(() => {
-    // テスト用の write-tickets-json-template.js を用意
-    // 実際のスクリプトをそのまま使う
+    // Prepare write-tickets-json-template.js for testing
+    // Uses the actual script as-is
   });
 
   after(() => {
-    // クリーンアップ
+    // Cleanup
     try {
       const files = fs.readdirSync(tmpDir);
       for (const f of files) {
@@ -97,13 +97,13 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   });
 
   // ----------------------------------------------------------
-  // --dry-run モード
+  // --dry-run mode
   // ----------------------------------------------------------
   describe('--dry-run mode', () => {
     before(() => {
       fs.writeFileSync(graphPath, JSON.stringify(makeSimpleGraph()));
       fs.writeFileSync(dirsTreePath, JSON.stringify(makeSimpleDirsTree()));
-      // Tickets.json は作成しない（未存在テスト）
+      // Do not create Tickets.json (testing its absence)
     });
 
     it('should not create Tickets.json in dry-run mode', () => {
@@ -127,25 +127,25 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
         '--verbose',
       ], { encoding: 'utf8' });
 
-      // 検証がメモリ上で実行される（ディスクのTickets.jsonを読まない）
-      // 結果の成否はともかく、「ファイル読み込みエラー」が発生しない
+      // Validation runs in-memory (does not read Tickets.json from disk)
+      // Regardless of pass/fail, no "file read error" should occur
       assert.ok(!result.stdout.includes('ファイル読み込みエラー'),
-        'dry-run でファイル読み込みエラーが発生: ' + result.stdout.substring(result.stdout.length - 300));
+        'dry-run produced file read error: ' + result.stdout.substring(result.stdout.length - 300));
     });
   });
 
   // ----------------------------------------------------------
-  // 書き込みパス（正常系）
+  // Write path (normal)
   // ----------------------------------------------------------
   describe('write path (normal)', () => {
     before(() => {
       fs.writeFileSync(graphPath, JSON.stringify(makeSimpleGraph()));
       fs.writeFileSync(dirsTreePath, JSON.stringify(makeSimpleDirsTree()));
-      // Tickets.json は未存在 → 自動生成される
+      // Tickets.json absent -> auto-generated
     });
 
     it('should create Tickets.json and write phases', () => {
-      // 事前にファイルが存在しないことを確認
+      // Verify the file does not exist beforehand
       if (fs.existsSync(ticketsPath)) {
         fs.rmSync(ticketsPath);
       }
@@ -158,7 +158,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
 
       assert.strictEqual(result.status, 0, 'exit code 0 expected. stderr: ' + result.stderr);
 
-      // Tickets.json が作成されたことを確認
+      // Verify Tickets.json was created
       assert.ok(fs.existsSync(ticketsPath), 'Tickets.json should be created');
 
       const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
@@ -187,7 +187,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
     });
 
     it('should overwrite existing Tickets.json', () => {
-      // 2回目の実行で上書きされることを確認
+      // Verify overwrite on second execution
       const result = spawnSync('node', [
         PHASIFY_SCRIPT,
         graphPath,
@@ -202,7 +202,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   });
 
   // ----------------------------------------------------------
-  // 循環依存検出
+  // Cycle detection
   // ----------------------------------------------------------
   describe('cycle detection', () => {
     it('should exit with code 1 on cyclic graph', () => {
@@ -236,7 +236,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   });
 
   // ----------------------------------------------------------
-  // Dirs-Tree.json 未存在
+  // Missing Dirs-Tree.json
   // ----------------------------------------------------------
   describe('missing Dirs-Tree.json', () => {
     it('should exit with code 3 when Dirs-Tree.json missing (same dir)', () => {
@@ -253,7 +253,7 @@ describe('phasify E2E (write path, cycle detection, dry-run)', () => {
   });
 
   // ----------------------------------------------------------
-  // 引数不足
+  // Missing arguments
   // ----------------------------------------------------------
   describe('missing arguments', () => {
     it('should exit with code 2 when no arguments', () => {

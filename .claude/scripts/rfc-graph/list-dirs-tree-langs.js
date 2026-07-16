@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * list-dirs-tree-langs.js — Dirs-Tree.json から言語一覧を出力する
+ * list-dirs-tree-langs.js — Output language list from Dirs-Tree.json
  *
- * $1: Dirs-Tree.json のファイルパス
- * stdout: 言語名をスペース区切りで出力（例: "rust go typescript"）
- * 終了コード: 常に 0（エラー時は空出力）
+ * $1: Path to Dirs-Tree.json
+ * stdout: Language names space-separated (e.g. "rust go typescript")
+ * Exit code: always 0 (empty output on error)
  */
 const fs = require('fs');
 const path = require('path');
 
 const filePath = process.argv[2];
 if (!filePath) {
-  // 引数なし → フォールバック: 全言語
+  // No arguments → fallback: all languages
   process.stdout.write('rust go typescript');
   process.exit(0);
 }
@@ -27,6 +27,6 @@ try {
     process.stdout.write('rust go typescript');
   }
 } catch (_) {
-  // 読み込み／パースエラー → フォールバック
+  // Read/parse error → fallback
   process.stdout.write('rust go typescript');
 }

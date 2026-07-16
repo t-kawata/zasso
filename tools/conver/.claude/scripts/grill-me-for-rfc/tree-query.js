@@ -2,15 +2,15 @@
 /**
  * tree-query.js <rfc-dir> <operation> [args...]
  *
- * DesignTree を可読性高く表示・検索する読み取り専用スクリプト。
- * ツリー描画・検索・パス表示・統計を提供し、AI が生JSONを読む代わりに
- * 構造を一目で把握できるようにする。
+ * A read-only script to display and search the DesignTree with high readability.
+ * Provides tree rendering, search, path display, and statistics so the AI can
+ * grasp the structure at a glance instead of reading raw JSON.
  *
  * Operations:
- *   tree                    - ツリー構造を階層表示（open/resolved バッジ付き）
- *   search <keyword>        - ノードタイトルまたはIDから部分一致検索
- *   path <node-id>          - ルートから指定ノードまでの経路を表示
- *   stats                   - 統計情報（総数/open/resolved/深度/進行度）を表示
+ *   tree                    - Display tree structure hierarchically (with open/resolved badges)
+ *   search <keyword>        - Partial-match search by node title or ID
+ *   path <node-id>          - Display the path from root to the specified node
+ *   stats                   - Display statistics (total/open/resolved/depth/progress)
  */
 import fs from "fs";
 import path from "path";
@@ -29,7 +29,7 @@ if (!fs.existsSync(treePath)) {
 
 const tree = JSON.parse(fs.readFileSync(treePath, "utf-8"));
 
-// ─── ヘルパー ───
+// ─── Helpers ───
 
 function findNodeWithPath(nodes, id, trail = []) {
   for (let i = 0; i < nodes.length; i++) {
@@ -63,7 +63,7 @@ function maxDepth(nodes, depth = 1) {
 
 const BADGE = { open: "🔲", resolved: "✅" };
 
-// ─── 各操作の描画処理 ───
+// ─── Render operations ───
 
 function renderTree(nodes, prefix = "") {
   return nodes

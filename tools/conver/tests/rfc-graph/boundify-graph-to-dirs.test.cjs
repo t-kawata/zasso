@@ -1,7 +1,7 @@
 /**
- * boundify-graph-to-dirs.test.cjs — boundify-graph-to-dirs.js のユニットテスト
+ * boundify-graph-to-dirs.test.cjs — boundify-graph-to-dirs.js unit tests
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after, beforeEach } = require('node:test');
@@ -27,10 +27,10 @@ const {
 } = require('../../.claude/scripts/rfc-graph/boundify-graph-to-dirs.js');
 
 // ============================================================
-// テスト用グラフデータ
+// Test graph data
 // ============================================================
 
-/** 最小グラフ（nodes 1件 + edges 0件） */
+/** Minimal graph (1 node + 0 edges) */
 function createMinimalGraph() {
   return {
     nodes: [
@@ -40,7 +40,7 @@ function createMinimalGraph() {
   };
 }
 
-/** 標準グラフ（nodes 5件 + part_of/depends_on エッジ） */
+/** Standard graph (5 nodes + part_of/depends_on edges) */
 function createStandardGraph() {
   return {
     nodes: [
@@ -60,7 +60,7 @@ function createStandardGraph() {
   };
 }
 
-/** 循環依存を含むグラフ */
+/** Graph containing circular dependencies */
 function createCyclicGraph() {
   return {
     nodes: [
@@ -77,7 +77,7 @@ function createCyclicGraph() {
 }
 
 // ============================================================
-// グローバルフック: process.exit のモック
+// Global hooks: process.exit mock
 // ============================================================
 
 let originalExit;
@@ -92,7 +92,7 @@ after(() => {
 });
 
 // ============================================================
-// parseArguments のテスト
+// parseArguments tests
 // ============================================================
 
 describe('parseArguments', () => {
@@ -106,7 +106,7 @@ describe('parseArguments', () => {
   });
 
   after(() => {
-    try { fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* クリーンアップ */ }
+    try { fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* cleanup */ }
   });
 
   it('should parse graph path and flags correctly', () => {
@@ -154,7 +154,7 @@ describe('parseArguments', () => {
     assert.throws(() => parseArguments(['/nonexistent/path.json']), /exit/);
   });
 
-  // ---- --graph=<path> 形式のテスト（正規形式） ----
+  // ---- --graph=<path> format tests (canonical form) ----
 
   it('should parse --graph= flag with absolute path', () => {
     const result = parseArguments([`--graph=${graphFilePath}`, '--json']);
@@ -163,7 +163,7 @@ describe('parseArguments', () => {
   });
 
   it('should parse --graph= flag with relative path', () => {
-    // 相対パスをシミュレートするため、graphFilePath の絶対パスから cwd との相対を求める
+    // Compute relative path from graphFilePath's absolute path against cwd
     const relPath = path.relative(process.cwd(), graphFilePath);
     const result = parseArguments([`--graph=${relPath}`]);
     assert.strictEqual(result.graphPath, path.resolve(relPath));
@@ -172,7 +172,7 @@ describe('parseArguments', () => {
   it('should prefer --graph= over positional argument when both given', () => {
     const otherPath = path.join(tempDir, 'other-GRAPH.json');
     fs.writeFileSync(otherPath, '{"nodes":[],"edges":[]}', 'utf-8');
-    // 両方指定しても --graph= が優先される
+    // Even when both are specified, --graph= takes precedence
     const result = parseArguments([`--graph=${otherPath}`, graphFilePath]);
     assert.strictEqual(result.graphPath, path.resolve(otherPath));
   });
@@ -187,7 +187,7 @@ describe('parseArguments', () => {
 });
 
 // ============================================================
-// loadGraph のテスト
+// loadGraph tests
 // ============================================================
 
 describe('loadGraph', () => {
@@ -198,7 +198,7 @@ describe('loadGraph', () => {
   });
 
   after(() => {
-    try { fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* クリーンアップ */ }
+    try { fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* cleanup */ }
   });
 
   it('should load and parse a valid graph JSON', () => {
@@ -233,14 +233,14 @@ describe('loadGraph', () => {
 });
 
 // ============================================================
-// adaptBuildDirectoryTree のテスト
+// adaptBuildDirectoryTree tests
 // ============================================================
 
 describe('adaptBuildDirectoryTree', () => {
   it('should produce a tree with nodeToDir map for standard graph', () => {
     const graph = createStandardGraph();
     const { tree, nodeToDir, files } = adaptBuildDirectoryTree(graph, 'rust');
-    // 少なくとも何らかのツリーとマップが得られる
+    // At minimum, some tree and map should be produced
     assert.ok(typeof tree === 'object' || tree === null);
     assert.ok(typeof nodeToDir === 'object');
     assert.ok(Array.isArray(files));
@@ -250,7 +250,7 @@ describe('adaptBuildDirectoryTree', () => {
     const graph = createStandardGraph();
     const rustResult = adaptBuildDirectoryTree(graph, 'rust');
     const goResult = adaptBuildDirectoryTree(graph, 'go');
-    // 言語が違っても同一グラフからツリーを生成できる
+    // Different languages should still produce a tree from the same graph
     assert.ok(rustResult.tree !== undefined);
     assert.ok(goResult.tree !== undefined);
   });
@@ -258,13 +258,13 @@ describe('adaptBuildDirectoryTree', () => {
   it('should handle minimal graph without crashing', () => {
     const graph = createMinimalGraph();
     const { tree, nodeToDir } = adaptBuildDirectoryTree(graph, 'typescript');
-    // 最小グラフでも適切に処理される
+    // Should handle a minimal graph appropriately
     assert.ok(typeof nodeToDir === 'object');
   });
 });
 
 // ============================================================
-// adaptProjectEdgesToDirectories のテスト
+// adaptProjectEdgesToDirectories tests
 // ============================================================
 
 describe('adaptProjectEdgesToDirectories', () => {
@@ -274,7 +274,7 @@ describe('adaptProjectEdgesToDirectories', () => {
     const dirEdges = adaptProjectEdgesToDirectories(graph, nodeToDir);
 
     assert.ok(Array.isArray(dirEdges));
-    // 全エッジが from/to を持つ
+    // All edges should have from/to
     for (const edge of dirEdges) {
       assert.ok(typeof edge.from === 'string');
       assert.ok(typeof edge.to === 'string');
@@ -286,18 +286,18 @@ describe('adaptProjectEdgesToDirectories', () => {
     const graph = createStandardGraph();
     const emptyNodeToDir = {};
     const dirEdges = adaptProjectEdgesToDirectories(graph, emptyNodeToDir);
-    // マッピングが空なら空配列
+    // Empty mapping should return empty array
     assert.strictEqual(dirEdges.length, 0);
   });
 });
 
 // ============================================================
-// collectLanguagesFromGraph は既存の boundify-helpers テストで網羅済み
+// collectLanguagesFromGraph is already covered by boundify-helpers tests
 // ============================================================
 
 
 // ============================================================
-// countKinds / countEdgeTypes のテスト
+// countKinds / countEdgeTypes tests
 // ============================================================
 
 describe('countKinds', () => {
@@ -330,7 +330,7 @@ describe('countEdgeTypes', () => {
 });
 
 // ============================================================
-// resolveOutputPaths のテスト
+// resolveOutputPaths tests
 // ============================================================
 
 describe('resolveOutputPaths', () => {
@@ -349,7 +349,7 @@ describe('resolveOutputPaths', () => {
 });
 
 // ============================================================
-// reportError のテスト
+// reportError tests
 // ============================================================
 
 describe('reportError', () => {
@@ -399,7 +399,7 @@ describe('resolveDirNameToPath', () => {
 });
 
 // ============================================================
-// main のテスト
+// main tests
 // ============================================================
 
 describe('main', () => {
@@ -407,7 +407,7 @@ describe('main', () => {
   let graphFilePath;
 
   after(() => {
-    try { if (tempDir) fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* クリーンアップ */ }
+    try { if (tempDir) fs.rmSync(tempDir, { recursive: true }); } catch (_) { /* cleanup */ }
   });
 
   beforeEach(() => {
@@ -419,7 +419,7 @@ describe('main', () => {
   it('should produce two output files', () => {
     main([graphFilePath, '--quiet']);
 
-    // 2ファイル（Dirs-Tree.json + BOUNDIFY-Status.json）が出力されている
+    // Two files (Dirs-Tree.json + BOUNDIFY-Status.json) should be output
     const files = fs.readdirSync(tempDir).filter(f => f.endsWith('.json'));
     const jsonFiles = files.filter(f => f.match(/Dirs-Tree\.json|BOUNDIFY-Status\.json/));
     assert.strictEqual(jsonFiles.length, 2);
@@ -440,11 +440,11 @@ describe('main', () => {
 
   it('should output default format (en.md + markdown + json) without flags', () => {
     const output = captureStdout(() => main([graphFilePath]));
-    // .en.md テキストが含まれている
+    // .en.md text should be included
     assert.ok(output.includes('Safe boundaries'));
-    // Markdown レポートが含まれている
+    // Directory tree report should be included
     assert.ok(output.includes('ディレクトリツリーレポート'));
-    // JSON ブロックが含まれている
+    // JSON block should be included
     assert.ok(output.includes('```json'));
   });
 
@@ -454,7 +454,7 @@ describe('main', () => {
 
     captureStdout(() => main([cyclicFilePath, '--quiet']));
 
-    // Dirs-Tree.json を読み込んで検証
+    // Verify by reading Dirs-Tree.json
     const dirsTree = JSON.parse(
       fs.readFileSync(path.join(tempDir, 'cyclic-Dirs-Tree.json'), 'utf-8')
     );
@@ -488,14 +488,14 @@ describe('main', () => {
 });
 
 // ============================================================
-// ヘルパー: 標準出力キャプチャ
+// Helper: capture stdout
 // ============================================================
 
 /**
- * 関数実行中の標準出力をキャプチャして文字列として返す
+ * Captures stdout during function execution and returns it as a string
  *
- * @param {Function} fn — 実行する関数
- * @returns {string} キャプチャされた標準出力
+ * @param {Function} fn — function to execute
+ * @returns {string} captured stdout
  */
 function captureStdout(fn) {
   const originalStdoutWrite = process.stdout.write;

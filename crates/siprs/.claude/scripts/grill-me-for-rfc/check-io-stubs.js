@@ -2,9 +2,9 @@
 /**
  * check-io-stubs.js <rfc-file>
  *
- * RFC ファイル内に [::IO-INFO-STUB::] マーカーが残存していないか検証する。
- * マーカーが 0 件 → exit 0（正常）
- * マーカーが 1 件以上 → exit 1（未記入）
+ * Checks whether [::IO-INFO-STUB::] markers remain in the RFC file.
+ * 0 markers → exit 0 (clean)
+ * 1+ markers → exit 1 (content not filled in)
  */
 import fs from "node:fs";
 import path from "node:path";

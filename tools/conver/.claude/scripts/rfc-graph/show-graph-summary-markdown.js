@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * show-graph-summary-markdown.js — グラフサマリーをMarkdown形式で出力する
+ * show-graph-summary-markdown.js — Output graph summary in Markdown format
  *
- * グラフJSONから kind 別にグループ化したノード一覧を生成し、各ノードの
- * タイトル・要約・現在行番号（マーカーから動的解決）・エッジ関係を
- * Markdown形式で標準出力に出力する。
+ * Generates a node list grouped by kind from the graph JSON, and outputs
+ * each node's title, summary, current line number (dynamically resolved from markers),
+ * and edge relationships to stdout in Markdown format.
  *
  * CLI: show-graph-summary-markdown.js --graph=<path> --source=<path>
  *
- * 出力契約:
- *   正常時 → Markdown形式のサマリーを stdout に出力（終了コード0）
- *   異常時 → 3段テンプレートを stderr に出力（終了コード1）
+ * Output contract:
+ *   Success → Markdown summary written to stdout (exit code 0)
+ *   Error   → 3-part template written to stderr (exit code 1)
  */
 
 const fs = require('fs');
@@ -20,10 +20,10 @@ const path = require('path');
 const { resolveByHeading } = require('./resolve-by-heading.js');
 
 // ============================================================
-// 定数
+// Constants
 // ============================================================
 
-/** エッジタイプ → 3文字略称 */
+/** Edge type → 3-letter abbreviation */
 const EDGE_ABBREV = {
   depends_on: 'dep',
   implements: 'imp',
@@ -40,7 +40,7 @@ const EDGE_ABBREV = {
 };
 
 // ============================================================
-// ユーティリティ
+// Utilities
 // ============================================================
 
 function exitWithError(summary, cause, action) {
@@ -51,13 +51,13 @@ function exitWithError(summary, cause, action) {
 }
 
 // ============================================================
-// 引数パース
+// Argument parsing
 // ============================================================
 
-/** スクリプト配置ディレクトリ（相対パス） */
+/** Script directory (relative path) */
 const SCRIPTS_DIR = '.claude/scripts/rfc-graph';
 
-/** デフォルトの探索ホップ数 */
+/** Default hop count for traversal */
 const DEFAULT_HOPS = 2;
 
 function parseArguments(argv) {
@@ -85,7 +85,7 @@ function parseArguments(argv) {
     throw new Error('--source=<path> の <path> が空です。');
   }
 
-  // オプションフラグ
+  // Optional flag
   const withCliExamples = argv.slice(4).some(a => a === '--with-cli-examples');
 
   return { graphPath, sourcePath, withCliExamples };
@@ -120,11 +120,11 @@ function loadSourceFile(filePath) {
 }
 
 // ============================================================
-// サマリー整形
+// Summary formatting
 // ============================================================
 
 /**
- * summary を25字程度に要約する
+ * Truncate summary to ~25 characters
  *
  * @param {string} summary
  * @returns {string}
@@ -136,7 +136,7 @@ function truncateSummary(summary) {
 }
 
 /**
- * ノードのタイトルを取得する（kind が api_contract の場合はタイトルを優先）
+ * Get node title
  *
  * @param {Object} node
  * @returns {string}
@@ -146,7 +146,7 @@ function formatTitle(node) {
 }
 
 /**
- * エッジタイプを3文字略称に変換する
+ * Convert edge type to 3-letter abbreviation
  *
  * @param {string} type
  * @returns {string}
@@ -156,7 +156,7 @@ function abbreviateEdgeType(type) {
 }
 
 /**
- * ノードマップ（id → node）を構築する
+ * Build node map (id → node)
  *
  * @param {Object[]} nodes
  * @returns {Object<string, Object>}
@@ -170,21 +170,21 @@ function buildNodeMap(nodes) {
 }
 
 /**
- * Markdown形式のサマリーを生成する
+ * Generate Markdown summary
  *
- * @param {Object} graph — グラフデータ
- * @param {string} sourceText — ソースファイル全文（行番号動的解決用）
+ * @param {Object} graph — Graph data
+ * @param {string} sourceText — Full source file text (for dynamic line number resolution)
  * @returns {string}
  */
 function generateSummary(graph, sourceText) {
   const nodeMap = buildNodeMap(graph.nodes);
   const lines = [];
 
-  // 先頭行: 絶対パス + ノード数 + エッジ数
+  // First line: absolute path + node count + edge count
   lines.push(`${graph.sourceFile}  —  ${graph.nodes.length} nodes / ${graph.edges.length} edges`);
   lines.push('');
 
-  // kind 別グループ
+  // Group by kind
   const kindGroups = {};
   const KIND_ORDER = [
     'requirement', 'api_contract', 'data_model', 'state_machine',
@@ -206,7 +206,7 @@ function generateSummary(graph, sourceText) {
     lines.push(`## ${kind} (${nodes.length}件)`);
 
     for (const node of nodes) {
-      // 見出しで行位置を動的解決（レベル表示用）
+      // Resolve line position from heading (for level display)
       let headingLevel = '';
       if (Array.isArray(node.headingRefs) && node.headingRefs.length > 0) {
         const firstRef = node.headingRefs[0];
@@ -219,13 +219,13 @@ function generateSummary(graph, sourceText) {
         }
       }
 
-      // ノード基本情報
+      // Node basic information
       const summaryText = truncateSummary(node.summary);
       lines.push(`    - ${node.id}: ${formatTitle(node)}`);
       lines.push(`        * レベル: ${headingLevel || '?'}`);
       lines.push(`        * 要約: ${summaryText}`);
 
-      // エッジ一覧
+      // Edge list
       const edgeLines = [];
       for (const edge of graph.edges) {
         if (edge.from === node.id) {
@@ -237,7 +237,7 @@ function generateSummary(graph, sourceText) {
             `            - [${node.id}] ${arrow} ${edge.type} ${arrow} [${edge.to}: ${targetTitle}]`
           );
         } else if (edge.to === node.id) {
-          // bidirectional は from 側で出力済みのためスキップ
+          // Skip because bidirectional was already output from the from-side
           if (edge.attributes && edge.attributes.bidirectional) continue;
           const source = nodeMap[edge.from];
           const sourceTitle = source ? formatTitle(source) : edge.from;
@@ -255,7 +255,7 @@ function generateSummary(graph, sourceText) {
     lines.push('');
   }
 
-  // 未分類の kind があれば出力
+  // Output uncategorized kinds if any
   const remainingKinds = Object.keys(kindGroups).filter(k => kindGroups[k].length > 0);
   for (const kind of remainingKinds) {
     const nodes = kindGroups[kind];
@@ -270,16 +270,16 @@ function generateSummary(graph, sourceText) {
 }
 
 // ============================================================
-// メイン
+// Main
 // ============================================================
 
 /**
- * crud.js と query.js の具体的なCLI使用例を生成する（formulate連携用）
+ * Generate concrete CLI usage examples for crud.js and query.js (for formulate integration)
  *
- * @param {string} graphPath — グラフファイルのパス
- * @param {string} sourcePath — ソースファイルのパス
- * @param {string} [firstNodeId='N0001'] — 探索の起点とするノードID
- * @returns {string[]} CLI使用例の行配列
+ * @param {string} graphPath — Path to the graph file
+ * @param {string} sourcePath — Path to the source file
+ * @param {string} [firstNodeId='N0001'] — Node ID to use as traversal starting point
+ * @returns {string[]} Array of CLI example lines
  */
 function generateCliExamples(graphPath, sourcePath, firstNodeId) {
   const graphFileName = path.basename(graphPath);
@@ -319,7 +319,7 @@ function main() {
   const sourceText = loadSourceFile(parsed.sourcePath);
   const output = generateSummary(graph, sourceText);
 
-  // --with-cli-examples が指定された場合、CLI使用例を追加出力する
+  // When --with-cli-examples is specified, append CLI usage examples to output
   if (parsed.withCliExamples) {
     const firstNodeId = graph.nodes.length > 0 ? graph.nodes[0].id : undefined;
     const cliExamples = generateCliExamples(parsed.graphPath, parsed.sourcePath, firstNodeId);

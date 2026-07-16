@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# init-formulate.sh — formulate-tickets Step 0 初期化
+# init-formulate.sh — formulate-tickets Step 0 initialization
 #
 # Usage:
 #   bash init-formulate.sh --doc-path=<path>

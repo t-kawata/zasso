@@ -1,19 +1,19 @@
 /**
- * malfeasance-search.js — Malfeasance.json の条件検索
+ * malfeasance-search.js — Search Malfeasance.json with conditions
  *
- * 使用法:
+ * Usage:
  *   node malfeasance-search.js [key] [value]
  *
- * 引数:
- *   key (任意): 検索対象フィールド "status" | "file" | "id" | "description"
- *               省略時は全フィールドから部分一致検索
- *   value (key指定時は必須): 検索値
- *       - id: 数値（完全一致）
- *       - status: "open" | "resolved" | "false_positive"（完全一致）
- *       - file: 文字列（部分一致、大文字小文字区別なし）
- *       - description: 文字列（部分一致、大文字小文字区別なし）
+ * Arguments:
+ *   key (optional): Search target field "status" | "file" | "id" | "description"
+ *                   When omitted, performs partial match search across all fields
+ *   value (required when key specified): Search value
+ *       - id: numeric (exact match)
+ *       - status: "open" | "resolved" | "false_positive" (exact match)
+ *       - file: string (partial match, case-insensitive)
+ *       - description: string (partial match, case-insensitive)
  *
- * 出力:
+ * Output:
  *   { "success": true, "count": N, "records": [...] }
  */
 
@@ -23,14 +23,14 @@ function main() {
   const key = process.argv[2];
   const value = process.argv[3];
 
-  // スキーマファイルの確認
+  // Verify schema file
   const schemaCheck = checkSchema();
   if (!schemaCheck.success) {
     output({ success: false, error: schemaCheck.error });
     return;
   }
 
-  // データ読み込み
+  // Load data
   const loaded = loadRecords();
   if (!loaded.success) {
     output({ success: false, error: loaded.error });
@@ -39,10 +39,10 @@ function main() {
 
   const records = loaded.data.records;
 
-  // キー省略時は全フィールド部分一致検索
+  // Full-field partial match search when key is omitted
   if (!key) {
     if (!value) {
-      // キーも値もなし → 全件返す（malfeasance-all と同様だが互換性維持）
+      // No key or value -- return all records (same as malfeasance-all, kept for compatibility)
       output({ success: true, count: records.length, records });
       return;
     }
@@ -57,7 +57,7 @@ function main() {
     return;
   }
 
-  // キー指定検索
+  // Key-specified search
   const allowedKeys = ['status', 'file', 'id', 'description'];
   if (!allowedKeys.includes(key)) {
     output({ success: false, error: `Invalid key "${key}". Allowed: ${allowedKeys.join(', ')}` });
@@ -80,7 +80,7 @@ function main() {
   } else if (key === 'status') {
     matched = records.filter(r => r.status === value);
   } else {
-    // file または description: 部分一致（大文字小文字区別なし）
+    // file or description: partial match (case-insensitive)
     const lowerValue = String(value).toLowerCase();
     matched = records.filter(r => {
       const fieldValue = r[key];

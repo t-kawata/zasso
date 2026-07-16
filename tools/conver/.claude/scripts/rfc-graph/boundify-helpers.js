@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * boundify-helpers.js — boundify-graph-to-dirs の内部純粋関数群
+ * boundify-helpers.js — Internal pure functions for boundify-graph-to-dirs
  *
- * 本モジュールは P17-1（4純粋関数一括）の実装である。
- * すべての関数は外部I/Oを持たない純粋関数として設計される。
+ * This module implements P17-1 (4 pure functions batch).
+ * All functions are designed as pure functions with no external I/O.
  *
- * PX-28 追加: getDeclarationStub（kind/言語に応じた宣言スタブ生成）
- * PX-30 追加: resolveHeaderPaths, generateHeaderComment（ヘッダーコメント生成）
- *            SCHEMA に declarationStub/crossReferences フィールド追加
+ * PX-28 added: getDeclarationStub (declaration stub generation per kind/language)
+ * PX-30 added: resolveHeaderPaths, generateHeaderComment (header comment generation)
+ *            Added declarationStub/crossReferences fields to SCHEMA
  *
  * @module boundify-helpers
  */
 
 // ============================================================
-// Dirs-Tree.json 完全JSON Schema
-// RFC-BOUNDIFY.md Appendix A からの完全な移植
+// Complete JSON Schema for Dirs-Tree.json
+// Full port from RFC-BOUNDIFY.md Appendix A
 // ============================================================
 
-/** Dirs-Tree.json のJSON Schema定義 */
+/** JSON Schema definition for Dirs-Tree.json */
 const SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'DirsTree',
@@ -78,7 +78,7 @@ const SCHEMA = {
         rationale: { type: 'string' },
         language: { type: 'array', items: { type: 'string', enum: ['rust', 'go', 'typescript'] } },
         languageRules: {
-          description: 'ディレクトリノードのみ有効。ファイルノードでは使用しない。',
+          description: 'Valid only for directory nodes. Do not use on file nodes.',
           type: 'object',
           properties: {
             rust: { type: 'string' },
@@ -91,7 +91,7 @@ const SCHEMA = {
         declarationStub: { type: 'string' },
         crossReferences: {
           type: 'array',
-          description: 'ルート DirNode のみ有効。prose 系ノード（rationale/glossary/requirement）のクロスリファレンス情報。',
+          description: 'Valid only for root DirNode. Cross-reference info for prose nodes (rationale/glossary/requirement).',
           items: { $ref: '#/definitions/CrossReference' }
         },
         children: {
@@ -137,11 +137,11 @@ const SCHEMA = {
 };
 
 // ============================================================
-// SAFE_BOUNDARIES_EN_TEXT 定数
-// RFC-BOUNDIFY.md §3.2 に基づく英文 safe boundaries 説明
+// SAFE_BOUNDARIES_EN_TEXT constant
+// English safe boundaries description based on RFC-BOUNDIFY.md §3.2
 // ============================================================
 
-/** ディレクトリと名前空間で構築された安全な境界を説明する英文テキスト */
+/** English text describing safe boundaries built with directories and namespaces */
 const SAFE_BOUNDARIES_EN_TEXT = [
   'Safe boundaries built with directories and namespaces (Rust/Go/TypeScript)',
   '',
@@ -156,22 +156,22 @@ const SAFE_BOUNDARIES_EN_TEXT = [
 ].join('\n');
 
 // ============================================================
-// グラフ → 言語収集
-// graphToLangJson の後継: PX-24 で追加されたノードの
-// language フィールドを直接読み取る（推論は行わない）。
+// Graph → language collection
+// Successor of graphToLangJson: reads the language field directly
+// from each node (added in PX-24). No inference is performed.
 // ============================================================
 
 /**
- * グラフ全ノードの language フィールドを収集し、マップとユニーク言語リストを返す。
+ * Collects the language field from all graph nodes, returning a map and a unique language list.
  *
- * PX-24 でスキーマに追加された language フィールド（単一値）を直接読み取る。
- * 言語推論（inferLanguage）は行わない。language 未設定のノードは無視される。
- * 全ノードが language 未設定の場合は graph.mainLanguage をフォールバックとして使用する。
+ * Reads the language field (single value) directly, added to the schema in PX-24.
+ * Does not perform language inference. Nodes without language are ignored.
+ * Falls back to graph.mainLanguage when no node has a language set.
  *
- * @param {{ mainLanguage?: string, nodes: object[] }} graph - 入力グラフ
+ * @param {{ mainLanguage?: string, nodes: object[] }} graph - Input graph
  * @returns {{ languageMap: object, languages: string[] }}
- *   languageMap: ノードID → language 値（string）のマップ
- *   languages: 使用する言語値のユニーク配列（少なくとも1件）
+ *   languageMap: nodeId → language (string) mapping
+ *   languages: unique array of language values (at least 1 entry)
  */
 function collectLanguagesFromGraph(graph) {
   const nodes = (graph.nodes || []);
@@ -186,7 +186,7 @@ function collectLanguagesFromGraph(graph) {
     }
   }
 
-  // フォールバック: 全ノードが language 未設定の場合のみ mainLanguage を使用
+  // Fallback: use mainLanguage only when no node has language set
   if (languageSet.size === 0 && graph.mainLanguage && typeof graph.mainLanguage === "string") {
     languageSet.add(graph.mainLanguage);
   }
@@ -198,12 +198,12 @@ function collectLanguagesFromGraph(graph) {
 }
 
 // ============================================================
-// ノード間エッジ → ディレクトリ間エッジの投影
-// RFC-BOUNDIFY.md §3.6 からの完全な移植
+// Node-edge → directory-edge projection
+// Full port from RFC-BOUNDIFY.md §3.6
 // ============================================================
 
 /**
- * 方向性を持つエッジ種別の集合（これら以外のエッジは投影対象外）。
+ * Set of directional edge types (edges of other types are not projected).
  */
 const DIRECTIONAL_EDGE_TYPES = new Set([
   'depends_on',
@@ -214,11 +214,10 @@ const DIRECTIONAL_EDGE_TYPES = new Set([
 ]);
 
 /**
- * ノード間エッジを、ノード→ディレクトリのマッピングテーブルを用いて
- * ディレクトリ間エッジに投影する。
+ * Projects node-level edges to directory-level edges using a node→directory mapping table.
  *
- * @param {{ from: string, to: string, type: string }[]} graphEdges - グラフのエッジ配列
- * @param {object} nodeToDirMap - ノードID → ディレクトリパスのマッピング
+ * @param {{ from: string, to: string, type: string }[]} graphEdges - Graph edge array
+ * @param {object} nodeToDirMap - NodeId → directory path mapping
  * @returns {{ from: string, to: string, type: string, evidence: string }[]}
  */
 function projectEdgesToDirectories(graphEdges, nodeToDirMap) {
@@ -228,11 +227,11 @@ function projectEdgesToDirectories(graphEdges, nodeToDirMap) {
     const fromDir = nodeToDirMap[edge.from];
     const toDir = nodeToDirMap[edge.to];
 
-    // マッピング未解決のノードはスキップ
+    // Skip nodes without resolved mapping
     if (!fromDir || !toDir) continue;
-    // 同一ディレクトリ内のエッジはスキップ
+    // Skip edges within the same directory
     if (fromDir === toDir) continue;
-    // 方向性のあるエッジ種別のみ対象
+    // Only directional edge types are projected
     if (!DIRECTIONAL_EDGE_TYPES.has(edge.type)) continue;
 
     dirEdges.push({
@@ -247,19 +246,19 @@ function projectEdgesToDirectories(graphEdges, nodeToDirMap) {
 }
 
 // ============================================================
-// 循環依存の検出（Tarjan SCC）
-// RFC-BOUNDIFY.md §3.6 からの完全な移植
+// Circular dependency detection (Tarjan SCC)
+// Full port from RFC-BOUNDIFY.md §3.6
 // ============================================================
 
 /**
- * 投影されたディレクトリ間有向グラフに対してTarjanの強連結成分分解（SCC）を適用する。
- * サイズが1より大きいSCCのみを循環として報告する。
+ * Applies Tarjan's Strongly Connected Components (SCC) algorithm on projected inter-directory digraph.
+ * Only SCCs with size > 1 are reported as cycles.
  *
- * @param {{ from: string, to: string }[]} dirEdges - ディレクトリ間エッジ配列
- * @returns {{ cycle: string[] }[]} 検出された循環の配列
+ * @param {{ from: string, to: string }[]} dirEdges - Inter-directory edge array
+ * @returns {{ cycle: string[] }[]} Array of detected cycles
  */
 function tarjanSCC(dirEdges) {
-  // 隣接リストを構築
+  // Build adjacency list
   const graph = {};
   for (const e of dirEdges) {
     if (!graph[e.from]) graph[e.from] = [];
@@ -298,7 +297,7 @@ function tarjanSCC(dirEdges) {
         onStack[poppedNode] = false;
         scc.push(poppedNode);
       } while (poppedNode !== nodeId);
-      // サイズ > 1 の SCC のみを循環として報告
+      // Only SCCs with size > 1 are reported as cycles
       if (scc.length > 1) {
         cycles.push({ cycle: scc });
       }
@@ -313,14 +312,14 @@ function tarjanSCC(dirEdges) {
 }
 
 // ============================================================
-// ファイル名構築用定数
-// slug + 拡張子でファイル名を構築するために使用。
-// titleToFileName は PX-25 で削除された。代わりにノードの
-// slug フィールドをそのままファイル名ベースとして使用する。
+// Constants for file name construction
+// Used to build file names from slug + extension.
+// titleToFileName was removed in PX-25; the node's slug field
+// is now used directly as the file name base.
 // ============================================================
 
 /**
- * 言語別の拡張子マッピング。
+ * Language-specific extension mapping.
  */
 const LANGUAGE_EXTENSIONS = {
   rust: '.rs',
@@ -329,8 +328,8 @@ const LANGUAGE_EXTENSIONS = {
 };
 
 /**
- * 言語別のセパレータ（Rust/Go はアンダースコア、TypeScript はハイフン）。
- * slug は lower_snake_case のため、ディレクトリ名などでのみ使用する。
+ * Language-specific separators (Rust/Go use underscore, TypeScript uses hyphen).
+ * Slug follows lower_snake_case; separators are only used for directory names, etc.
  */
 const LANGUAGE_SEPARATORS = {
   rust: '_',
@@ -339,22 +338,23 @@ const LANGUAGE_SEPARATORS = {
 };
 
 /**
- * 最大ファイル名長（拡張子を除く slug 部分）。
- * validate-slug.js から参照され、slug 検証の上限値として使用される。
+ * Max file name length (slug portion excluding extension).
+ * Referenced from validate-slug.js and used as slug validation upper bound.
  */
 const MAX_FILE_NAME_LENGTH = 25;
 
 // ============================================================
-// 重複ファイル名の解決（フォールバック用）
-// slug による一意化が原則だが、古いグラフとの互換性のために維持。
+// Duplicate file name resolution (fallback)
+// Uniquification via slug is the principle, but this is kept for
+// compatibility with older graphs.
 // ============================================================
 
 /**
- * 同一ディレクトリ内で重複するファイル名にサフィックス（_1, _2）を付与する。
+ * Appends suffixes (_1, _2) to duplicate file names within the same directory.
  *
- * @param {{ name: string }[]} files - ファイルノード配列
- * @param {string} language - 対象言語
- * @returns {{ name: string }[]} 重複解決後のファイルノード配列
+ * @param {{ name: string }[]} files - File node array
+ * @param {string} language - Target language
+ * @returns {{ name: string }[]} File node array after deduplication
  */
 function deduplicateFileNames(files, language) {
   const ext = LANGUAGE_EXTENSIONS[language] || LANGUAGE_EXTENSIONS.rust;
@@ -381,15 +381,15 @@ function deduplicateFileNames(files, language) {
 }
 
 // ============================================================
-// 宣言スタブテーブル（8 kind × 3 言語）
-// PX-28: 全プログラムファイルに kind × 言語の雛形コードを提供する。
+// Declaration stub table (8 kinds × 3 languages)
+// PX-28: Provides kind × language boilerplate for all program files.
 // ============================================================
 
 /**
- * ファイル種別（kind）と言語に応じた宣言スタブ（雛形コード）テーブル。
+ * Declaration stub (boilerplate) table per file kind and language.
  *
- * { kind: { language: stubString, ... }, ... } の2段構え。
- * 未知の kind や言語の場合は空文字列を返す。
+ * Two-level structure: { kind: { language: stubString, ... }, ... }.
+ * Returns empty string for unknown kind or language.
  */
 const DECLARATION_STUB_TABLE = Object.freeze({
   config: Object.freeze({
@@ -435,11 +435,11 @@ const DECLARATION_STUB_TABLE = Object.freeze({
 });
 
 /**
- * kind と言語に応じた宣言スタブを取得する。
+ * Gets the declaration stub for the given kind and language.
  *
- * @param {string} kind — ファイル種別（'config' | 'api_contract' | 'data_model' | 'state_machine' | 'error_policy' | 'security' | 'test_policy' | 'build_ci'）
- * @param {string} language — 言語名（'rust' | 'go' | 'typescript'）
- * @returns {string} 宣言スタブ文字列。未知の kind や言語の場合は空文字列。
+ * @param {string} kind — File kind ('config' | 'api_contract' | 'data_model' | 'state_machine' | 'error_policy' | 'security' | 'test_policy' | 'build_ci')
+ * @param {string} language — Language name ('rust' | 'go' | 'typescript')
+ * @returns {string} Declaration stub string. Empty string for unknown kind or language.
  */
 function getDeclarationStub(kind, language) {
   const langStubs = DECLARATION_STUB_TABLE[kind];
@@ -449,11 +449,11 @@ function getDeclarationStub(kind, language) {
 }
 
 // ============================================================
-// 言語別コメント記法テーブル
-// PX-30: ヘッダーコメント生成時に言語に応じたコメント記法を使用する
+// Language-specific comment syntax table
+// PX-30: Use language-appropriate comment syntax when generating header comments
 // ============================================================
 
-/** 言語別コメント記法（行頭/行末マーカー） */
+/** Language-specific comment syntax (line start/end markers) */
 const COMMENT_SYNTAX = Object.freeze({
   rust:       { line: '//', blockOpen: '/*', blockClose: '*/', hashLine: false },
   go:         { line: '//', blockOpen: '/*', blockClose: '*/', hashLine: false },
@@ -461,75 +461,75 @@ const COMMENT_SYNTAX = Object.freeze({
 });
 
 // ============================================================
-// ヘッダーコメントテンプレート定数
-// PX-30: 全生成ファイルの先頭に機械生成される設計情報コメント
+// Header comment template constants
+// PX-30: Machine-generated design info comments at the top of all generated files
 // ============================================================
 
-/** "Node" の定義説明（全ファイル共通） */
+/** "Node" definition description (common to all files) */
 const NODE_DEFINITION_EN_TEXT =
   '"Node" refers to a design fragment bounded by safe I/O boundaries in the ' +
   'Original RFC. Each node captures a distinct architectural concern that must ' +
   'be carefully implemented with attention to its relationships.';
 
-/** ヘッダー区切り線（全ファイル共通） */
+/** Header separator line (common to all files) */
 const HEADER_SEPARATOR =
   '============================================================================';
 
 /**
- * ヘッダー削除禁止警告文（全ファイル共通・英語）
- * 「このコメントアウトは設計トレーサビリティの心臓部かつ情報の血管である。
- *  絶対に削除・編集してはならない」という趣旨を1行で厳格に表現する。
+ * Header deletion prohibition warning (common to all files, English)
+ * Strictly expresses in one line: "this comment is the heart of design traceability
+ * and the bloodstream of provenance information — never delete or edit it."
  */
 const HEADER_WARNING_EN_TEXT = [
   '!!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!',
 ];
 
 // ============================================================
-// 相対パス計算 (resolveHeaderPaths)
-// PX-30: 絶対仕様に基づく相対パス計算
+// Relative path resolution (resolveHeaderPaths)
+// PX-30: Relative path calculation based on absolute paths
 // ============================================================
 
 /**
- * 生成ファイルの絶対パスから、グラフ/ツリー/元文書への相対パスを計算する。
+ * Computes relative paths from the generated file to graph/tree/source document.
  *
- * 内部計算では絶対パスを使用し、戻り値のパスは全て「このファイルからの相対パス」で
- * 表現される。cd コマンドは直接実行可能な形式で生成される。
+ * Internal computation uses absolute paths; all returned paths are expressed
+ * as "relative from this file." cd commands are generated in directly executable form.
  *
- * @param {string} generatedFilePath - 生成するファイルの絶対パス
- * @param {string} graphDirAbs - graphPath の path.dirname()（絶対パス）
- * @param {string} graphBasename - path.basename(graphPath) 例: "RFC-ROOT-GRAPH.json"
- * @param {string} dirsTreeBasename - Dirs-Tree.json のベース名
- * @param {string} sourceBasename - 元Markdownのベース名 例: "RFC-ROOT.md"
+ * @param {string} generatedFilePath - Absolute path of the file being generated
+ * @param {string} graphDirAbs - path.dirname(graphPath) (absolute)
+ * @param {string} graphBasename - path.basename(graphPath), e.g. "RFC-ROOT-GRAPH.json"
+ * @param {string} dirsTreeBasename - Basename of Dirs-Tree.json
+ * @param {string} sourceBasename - Basename of original Markdown, e.g. "RFC-ROOT.md"
  * @returns {object} HeaderPaths
  *   { relDirToGraph, graphRelPath, dirsTreeRelPath, sourceRelPath, cdCommandPrefix, graphFlagForCmd }
  */
 function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsTreeBasename, sourceBasename) {
   const path = require('path');
-  // Step 1: 生成ファイルの親ディレクトリを絶対パスで取得
+  // Step 1: Get parent directory of generated file as absolute path
   const fileDir = path.dirname(generatedFilePath);
 
-  // Step 2: グラフディレクトリへの相対パスを計算
+  // Step 2: Compute relative path to graph directory
   const rawRel = path.relative(fileDir, graphDirAbs);
 
-  // Step 3: 空文字列対策（同一ディレクトリの場合）
+  // Step 3: Handle empty string (same directory)
   const relDir = rawRel === '' ? '.' : rawRel;
 
-  // Step 4: グラフファイルへの相対パス
+  // Step 4: Relative path to graph file
   const graphRelPath = relDir + '/' + graphBasename;
 
-  // Step 5: Dirs-Tree への相対パス
+  // Step 5: Relative path to Dirs-Tree
   const dirsTreeRelPath = relDir + '/' + dirsTreeBasename;
 
-  // Step 6: 元文書への相対パス
+  // Step 6: Relative path to source document
   const sourceRelPath = relDir + '/' + sourceBasename;
 
-  // Step 7: cd コマンドプレフィックス
+  // Step 7: cd command prefix
   const cdCommandPrefix = '(cd ' + relDir + ' &&';
 
-  // Step 8: --graph= フラグ（basename のみ、cd により既に移動済み）
+  // Step 8: --graph= flag (basename only, already moved via cd)
   const graphFlagForCmd = '--graph="' + graphBasename + '"';
 
-  // Step 9: --dirs-tree= フラグ（同上、basename のみ）
+  // Step 9: --dirs-tree= flag (same, basename only)
   const dirsTreeFlagForCmd = '--dirs-tree="' + dirsTreeBasename + '"';
 
   return {
@@ -544,48 +544,48 @@ function resolveHeaderPaths(generatedFilePath, graphDirAbs, graphBasename, dirsT
 }
 
 // ============================================================
-// ヘッダーコメント生成 (generateHeaderComment)
-// PX-30: 全生成ファイルの先頭コメントを機械生成する
+// Header comment generation (generateHeaderComment)
+// PX-30: Machine-generates header comments for all generated files
 // ============================================================
 
 /**
- * 全生成ファイルの先頭に配置するヘッダーコメントを生成する。
+ * Generates the header comment placed at the top of all generated files.
  *
- * @param {object} headerPaths - resolveHeaderPaths の戻り値
- * @param {Array<{nodeId: string, title: string}>} mappedNodeIds - このファイルにマッピングされたノード情報配列
- * @param {Array<{nodeId:string, kind:string, title:string, headingRef?:string}>} nodeMetaList - マッピングノードのメタ情報
- * @param {Array} crossRefs - このファイルに関連するクロスリファレンス配列（ルートレベルの crossReferences からフィルタ済み）
- * @param {string} graphBasename - グラフJSONのベース名
- * @param {string} sourceBasename - 元Markdownのベース名
- * @param {string} lang - 言語（'rust' | 'go' | 'typescript'）
- * @returns {string} ヘッダーコメント文字列（改行含む）
+ * @param {object} headerPaths - Return value of resolveHeaderPaths
+ * @param {Array<{nodeId: string, title: string}>} mappedNodeIds - Node info array mapped to this file
+ * @param {Array<{nodeId:string, kind:string, title:string, headingRef?:string}>} nodeMetaList - Mapped node metadata
+ * @param {Array} crossRefs - Cross-reference array filtered for this file (from root-level crossReferences)
+ * @param {string} graphBasename - Basename of the graph JSON
+ * @param {string} sourceBasename - Basename of the original Markdown
+ * @param {string} lang - Language ('rust' | 'go' | 'typescript')
+ * @returns {string} Header comment string (including newlines)
  */
 function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRefs, graphBasename, sourceBasename, lang) {
   const syntax = COMMENT_SYNTAX[lang] || COMMENT_SYNTAX.rust;
   const L = syntax.line;
   const lines = [];
 
-  // 開き区切り線
+  // Opening separator line
   lines.push(L + ' ' + HEADER_SEPARATOR);
   lines.push(L + ' Initial Design Artifact — RFC-driven Implementation');
 
-  // 削除禁止警告（設計トレーサビリティの心臓部）
+  // Deletion prohibition warning (heart of design traceability)
   for (let wi = 0; wi < HEADER_WARNING_EN_TEXT.length; wi++) {
     lines.push(L + ' ' + HEADER_WARNING_EN_TEXT[wi]);
   }
 
   lines.push(L + ' ' + HEADER_SEPARATOR);
 
-  // Node 定義
+  // Node definition
   lines.push(L + ' ' + NODE_DEFINITION_EN_TEXT);
 
-  // パス情報
+  // Path information
   lines.push(L + '');
   lines.push(L + ' Graph:        ' + headerPaths.graphRelPath);
   lines.push(L + ' Directory:    ' + headerPaths.dirsTreeRelPath);
   lines.push(L + ' Original RFC: ' + headerPaths.sourceRelPath);
 
-  // マッピングノード
+  // Mapped nodes
   lines.push(L + '');
   if (mappedNodeIds && mappedNodeIds.length > 0) {
     lines.push(L + ' Mapped node(s):');
@@ -601,7 +601,7 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
     lines.push(L + '   - No direct node mapping');
   }
 
-  // クロスリファレンス（prose 系ノードの情報）
+  // Cross-references (prose node information)
   if (crossRefs && crossRefs.length > 0) {
     lines.push(L + '');
     lines.push(L + ' Cross-referenced design context:');
@@ -619,13 +619,13 @@ function generateHeaderComment(headerPaths, mappedNodeIds, nodeMetaList, crossRe
     }
   }
 
-  // フルグラフ探索コマンド
+  // Full graph exploration command
   lines.push(L + '');
   lines.push(L + ' Full graph exploration:');
   lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/show-graph-summary-markdown.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '")');
   lines.push(L + '   ' + headerPaths.cdCommandPrefix + ' node .claude/scripts/rfc-graph/query.js ' + headerPaths.graphFlagForCmd + ' --source="' + sourceBasename + '"' + ' ' + headerPaths.dirsTreeFlagForCmd + ' --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)');
 
-  // 閉じ区切り線
+  // Closing separator line
   lines.push(L + ' ' + HEADER_SEPARATOR);
 
   return lines.join('\n') + '\n';
@@ -641,7 +641,7 @@ module.exports = {
   getDeclarationStub,
   resolveHeaderPaths,
   generateHeaderComment,
-  // テスト用に定数を露出（変更不可の意図）
+  // Expose constants for testing (immutable by design)
   COMMENT_SYNTAX,
   NODE_DEFINITION_EN_TEXT,
   HEADER_SEPARATOR,

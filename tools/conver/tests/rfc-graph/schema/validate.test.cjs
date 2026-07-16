@@ -1,10 +1,10 @@
 /**
- * validate.test.cjs — スキーマ検証基盤のテスト
+ * validate.test.cjs — Tests for the schema validation infrastructure
  *
- * テスト対象: node.schema.json, edge.schema.json, graph.schema.json, validateAgainstSchema()
- * カバレッジ: 22ケース（正常系 5 / 異常系 12 / 境界値 5）
+ * Test targets: node.schema.json, edge.schema.json, graph.schema.json, validateAgainstSchema()
+ * Coverage: 22 cases (positive 5 / negative 12 / boundary 5)
  *
- * このテストは全てのスキーマ定義が RFC-GRAPHIFY.md §§3.2.1-3.2.3 に完全準拠していることを検証する。
+ * This test verifies that all schema definitions fully comply with RFC-GRAPHIFY.md §§3.2.1-3.2.3.
  */
 
 const assert = require("node:assert");
@@ -19,25 +19,25 @@ const SCHEMAS_DIR = path.resolve(
 );
 
 // ============================================================
-// ヘルパー: 有効なデータのファクトリ関数
+// Helpers: factory functions for valid data
 // ============================================================
 
-/** 有効なノードデータを生成する */
+/** Creates valid node data */
 function createValidNode(overrides) {
   return Object.assign(
     {
       id: "N0001",
-      title: "認証要件",
+      title: "Authentication Requirements",
       kind: "requirement",
-      summary: "ユーザー認証に関する要件定義",
+      summary: "Requirements definition for user authentication",
       slug: "auth_requirements",
-      headingRefs: [{ refId: "REF001", heading: 2, texts: ["要件", "認証"] }],
+      headingRefs: [{ refId: "REF001", heading: 2, texts: ["Requirements", "Authentication"] }],
     },
     overrides
   );
 }
 
-/** 有効なエッジデータを生成する */
+/** Creates valid edge data */
 function createValidEdge(overrides) {
   return Object.assign(
     {
@@ -53,7 +53,7 @@ function createValidEdge(overrides) {
   );
 }
 
-/** 有効なグラフデータを生成する */
+/** Creates valid graph data */
 function createValidGraph(overrides) {
   return Object.assign(
     {
@@ -67,10 +67,10 @@ function createValidGraph(overrides) {
 }
 
 // ============================================================
-// 正常系テスト
+// Positive (normal) tests
 // ============================================================
 
-describe("node.schema.json — 正常系", () => {
+describe("node.schema.json — positive", () => {
   const ALL_KINDS = [
     "requirement",
     "api_contract",
@@ -87,18 +87,18 @@ describe("node.schema.json — 正常系", () => {
   ];
 
   for (const kind of ALL_KINDS) {
-    it(`kind="${kind}" のノードが検証を通過する`, () => {
+    it(`kind="${kind}" node passes validation`, () => {
       const result = validateAgainstSchema(
         createValidNode({ kind }),
         "node.schema.json",
         SCHEMAS_DIR
       );
-      assert.strictEqual(result.valid, true, `kind="${kind}" で検証失敗: ${JSON.stringify(result.errors)}`);
+      assert.strictEqual(result.valid, true, `Validation failed for kind="${kind}": ${JSON.stringify(result.errors)}`);
     });
   }
 });
 
-describe("edge.schema.json — 正常系", () => {
+describe("edge.schema.json — positive", () => {
   const ALL_TYPES = [
     "depends_on",
     "implements",
@@ -115,17 +115,17 @@ describe("edge.schema.json — 正常系", () => {
   ];
 
   for (const type of ALL_TYPES) {
-    it(`type="${type}" のエッジが検証を通過する`, () => {
+    it(`type="${type}" edge passes validation`, () => {
       const result = validateAgainstSchema(
         createValidEdge({ type }),
         "edge.schema.json",
         SCHEMAS_DIR
       );
-      assert.strictEqual(result.valid, true, `type="${type}" で検証失敗: ${JSON.stringify(result.errors)}`);
+      assert.strictEqual(result.valid, true, `Validation failed for type="${type}": ${JSON.stringify(result.errors)}`);
     });
   }
 
-  it("strength=hard + bidirectional=true のエッジが検証を通過する", () => {
+  it("edge with strength=hard + bidirectional=true passes validation", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: { strength: "hard", bidirectional: true },
@@ -136,13 +136,13 @@ describe("edge.schema.json — 正常系", () => {
     assert.strictEqual(result.valid, true);
   });
 
-  it("strength=soft + bidirectional=false + note 付きのエッジが検証を通過する", () => {
+  it("edge with strength=soft + bidirectional=false + note passes validation", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: {
           strength: "soft",
           bidirectional: false,
-          note: "この依存関係は暫定的",
+          note: "This dependency is provisional",
         },
       }),
       "edge.schema.json",
@@ -152,8 +152,8 @@ describe("edge.schema.json — 正常系", () => {
   });
 });
 
-describe("graph.schema.json — 正常系", () => {
-  it("ノード1個 + エッジ1本の最小グラフが検証を通過する", () => {
+describe("graph.schema.json — positive", () => {
+  it("minimal graph with 1 node + 1 edge passes validation", () => {
     const result = validateAgainstSchema(
       createValidGraph(),
       "graph.schema.json",
@@ -162,11 +162,11 @@ describe("graph.schema.json — 正常系", () => {
     assert.strictEqual(result.valid, true);
   });
 
-  it("ノード10個 + エッジ5本のグラフが検証を通過する", () => {
+  it("graph with 10 nodes + 5 edges passes validation", () => {
     const nodes = Array.from({ length: 10 }, (_, i) =>
       createValidNode({
         id: `N${String(i + 1).padStart(4, "0")}`,
-        title: `ノード${i + 1}`,
+        title: `Node ${i + 1}`,
       })
     );
     const edges = Array.from({ length: 5 }, (_, i) =>
@@ -185,14 +185,14 @@ describe("graph.schema.json — 正常系", () => {
 });
 
 // ============================================================
-// 異常系テスト
+// Negative (abnormal) tests
 // ============================================================
 
-describe("node.schema.json — 異常系（必須フィールド欠落）", () => {
+describe("node.schema.json — negative (missing required fields)", () => {
   const REQUIRED_FIELDS = ["id", "title", "kind", "summary", "slug", "headingRefs"];
 
   for (const field of REQUIRED_FIELDS) {
-    it(`必須フィールド "${field}" 欠落で検証失敗する`, () => {
+    it(`validation fails when required field "${field}" is missing`, () => {
       const node = createValidNode();
       delete node[field];
       const result = validateAgainstSchema(
@@ -201,16 +201,16 @@ describe("node.schema.json — 異常系（必須フィールド欠落）", () =
         SCHEMAS_DIR
       );
       assert.strictEqual(result.valid, false);
-      assert.ok(result.errors.length > 0, "エラーが返されていません");
+      assert.ok(result.errors.length > 0, "No errors were returned");
     });
   }
 });
 
-describe("edge.schema.json — 異常系（必須フィールド欠落）", () => {
+describe("edge.schema.json — negative (missing required fields)", () => {
   const REQUIRED_FIELDS = ["from", "to", "type", "attributes"];
 
   for (const field of REQUIRED_FIELDS) {
-    it(`必須フィールド "${field}" 欠落で検証失敗する`, () => {
+    it(`validation fails when required field "${field}" is missing`, () => {
       const edge = createValidEdge();
       delete edge[field];
       const result = validateAgainstSchema(
@@ -219,16 +219,16 @@ describe("edge.schema.json — 異常系（必須フィールド欠落）", () =
         SCHEMAS_DIR
       );
       assert.strictEqual(result.valid, false);
-      assert.ok(result.errors.length > 0, "エラーが返されていません");
+      assert.ok(result.errors.length > 0, "No errors were returned");
     });
   }
 });
 
-describe("graph.schema.json — 異常系（必須フィールド欠落）", () => {
+describe("graph.schema.json — negative (missing required fields)", () => {
   const REQUIRED_FIELDS = ["sourceFile", "mainLanguage", "nodes", "edges"];
 
   for (const field of REQUIRED_FIELDS) {
-    it(`必須フィールド "${field}" 欠落で検証失敗する`, () => {
+    it(`validation fails when required field "${field}" is missing`, () => {
       const graph = createValidGraph();
       delete graph[field];
       const result = validateAgainstSchema(
@@ -237,13 +237,13 @@ describe("graph.schema.json — 異常系（必須フィールド欠落）", () 
         SCHEMAS_DIR
       );
       assert.strictEqual(result.valid, false);
-      assert.ok(result.errors.length > 0, "エラーが返されていません");
+      assert.ok(result.errors.length > 0, "No errors were returned");
     });
   }
 });
 
-describe("node.schema.json — 異常系（kind制約違反）", () => {
-  it("未知のkind値で検証失敗する", () => {
+describe("node.schema.json — negative (kind constraint violation)", () => {
+  it("validation fails with unknown kind value", () => {
     const result = validateAgainstSchema(
       createValidNode({ kind: "unknown_kind" }),
       "node.schema.json",
@@ -253,8 +253,8 @@ describe("node.schema.json — 異常系（kind制約違反）", () => {
   });
 });
 
-describe("edge.schema.json — 異常系（type制約違反）", () => {
-  it("未知のtype値で検証失敗する", () => {
+describe("edge.schema.json — negative (type constraint violation)", () => {
+  it("validation fails with unknown type value", () => {
     const result = validateAgainstSchema(
       createValidEdge({ type: "unknown_type" }),
       "edge.schema.json",
@@ -264,15 +264,15 @@ describe("edge.schema.json — 異常系（type制約違反）", () => {
   });
 });
 
-describe("node.schema.json — 異常系（IDパターン違反）", () => {
+describe("node.schema.json — negative (ID pattern violation)", () => {
   const INVALID_IDS = [
-    { id: "N001", reason: "4桁未満" },
-    { id: "X0001", reason: "先頭がN以外" },
-    { id: "N001a", reason: "数字以外を含む" },
+    { id: "N001", reason: "less than 4 digits" },
+    { id: "X0001", reason: "does not start with N" },
+    { id: "N001a", reason: "contains non-numeric characters" },
   ];
 
   for (const { id, reason } of INVALID_IDS) {
-    it(`ID "${id}"（${reason}）で検証失敗する`, () => {
+    it(`ID "${id}" (${reason}) fails validation`, () => {
       const result = validateAgainstSchema(
         createValidNode({ id }),
         "node.schema.json",
@@ -281,14 +281,14 @@ describe("node.schema.json — 異常系（IDパターン違反）", () => {
       assert.strictEqual(
         result.valid,
         false,
-        `ID "${id}"（${reason}）が不正に通過しました`
+        `ID "${id}" (${reason}) incorrectly passed validation`
       );
     });
   }
 });
 
-describe("edge.schema.json — 異常系（from/to パターン違反）", () => {
-  it("from がIDパターンに従わない値で検証失敗する", () => {
+describe("edge.schema.json — negative (from/to pattern violation)", () => {
+  it("validation fails when from does not match ID pattern", () => {
     const result = validateAgainstSchema(
       createValidEdge({ from: "X0001" }),
       "edge.schema.json",
@@ -297,7 +297,7 @@ describe("edge.schema.json — 異常系（from/to パターン違反）", () =>
     assert.strictEqual(result.valid, false);
   });
 
-  it("to がIDパターンに従わない値で検証失敗する", () => {
+  it("validation fails when to does not match ID pattern", () => {
     const result = validateAgainstSchema(
       createValidEdge({ to: "N00" }),
       "edge.schema.json",
@@ -307,8 +307,8 @@ describe("edge.schema.json — 異常系（from/to パターン違反）", () =>
   });
 });
 
-describe("edge.schema.json — 異常系（attributes 制約違反）", () => {
-  it("strength が hard/soft 以外で検証失敗する", () => {
+describe("edge.schema.json — negative (attributes constraint violation)", () => {
+  it("validation fails when strength is not hard/soft", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: { strength: "medium", bidirectional: false },
@@ -319,7 +319,7 @@ describe("edge.schema.json — 異常系（attributes 制約違反）", () => {
     assert.strictEqual(result.valid, false);
   });
 
-  it("bidirectional が boolean 以外で検証失敗する", () => {
+  it("validation fails when bidirectional is not boolean", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: { strength: "hard", bidirectional: "yes" },
@@ -331,8 +331,8 @@ describe("edge.schema.json — 異常系（attributes 制約違反）", () => {
   });
 });
 
-describe("全スキーマ — 異常系（additionalProperties 違反）", () => {
-  it("node に未知フィールドを含めて検証失敗する", () => {
+describe("all schemas — negative (additionalProperties violation)", () => {
+  it("validation fails when node contains unknown field", () => {
     const result = validateAgainstSchema(
       createValidNode({ extraField: "should_not_exist" }),
       "node.schema.json",
@@ -341,7 +341,7 @@ describe("全スキーマ — 異常系（additionalProperties 違反）", () =>
     assert.strictEqual(result.valid, false);
   });
 
-  it("edge に未知フィールドを含めて検証失敗する", () => {
+  it("validation fails when edge contains unknown field", () => {
     const result = validateAgainstSchema(
       createValidEdge({ extraField: "should_not_exist" }),
       "edge.schema.json",
@@ -350,7 +350,7 @@ describe("全スキーマ — 異常系（additionalProperties 違反）", () =>
     assert.strictEqual(result.valid, false);
   });
 
-  it("graph に未知フィールドを含めて検証失敗する", () => {
+  it("validation fails when graph contains unknown field", () => {
     const result = validateAgainstSchema(
       createValidGraph({ extraField: "should_not_exist" }),
       "graph.schema.json",
@@ -361,20 +361,20 @@ describe("全スキーマ — 異常系（additionalProperties 違反）", () =>
 });
 
 // ============================================================
-// 境界値テスト
+// Boundary value tests
 // ============================================================
 
-describe("node.schema.json — 境界値（title）", () => {
-  it("title が maxLength=120 を超える文字列で検証失敗する", () => {
+describe("node.schema.json — boundary (title)", () => {
+  it("validation fails with title exceeding maxLength=120", () => {
     const result = validateAgainstSchema(
-      createValidNode({ title: "あ".repeat(121) }),
+      createValidNode({ title: "x".repeat(121) }),
       "node.schema.json",
       SCHEMAS_DIR
     );
     assert.strictEqual(result.valid, false);
   });
 
-  it("title が空文字列で検証失敗する", () => {
+  it("validation fails with empty title", () => {
     const result = validateAgainstSchema(
       createValidNode({ title: "" }),
       "node.schema.json",
@@ -383,9 +383,9 @@ describe("node.schema.json — 境界値（title）", () => {
     assert.strictEqual(result.valid, false);
   });
 
-  it("title が maxLength=120 ちょうどの文字列で検証通過する", () => {
+  it("title at maxLength=120 boundary passes validation", () => {
     const result = validateAgainstSchema(
-      createValidNode({ title: "あ".repeat(120) }),
+      createValidNode({ title: "x".repeat(120) }),
       "node.schema.json",
       SCHEMAS_DIR
     );
@@ -393,8 +393,8 @@ describe("node.schema.json — 境界値（title）", () => {
   });
 });
 
-describe("node.schema.json — 境界値（sourceRanges）", () => {
-  it("sourceRanges が空配列で検証失敗する", () => {
+describe("node.schema.json — boundary (sourceRanges)", () => {
+  it("validation fails with empty sourceRanges array", () => {
     const result = validateAgainstSchema(
       createValidNode({ sourceRanges: [] }),
       "node.schema.json",
@@ -404,8 +404,8 @@ describe("node.schema.json — 境界値（sourceRanges）", () => {
   });
 });
 
-describe("edge.schema.json — 境界値（attributes.note）", () => {
-  it("attributes.note が maxLength=240 を超える文字列で検証失敗する", () => {
+describe("edge.schema.json — boundary (attributes.note)", () => {
+  it("validation fails when note exceeds maxLength=240", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: { strength: "soft", bidirectional: false, note: "x".repeat(241) },
@@ -416,7 +416,7 @@ describe("edge.schema.json — 境界値（attributes.note）", () => {
     assert.strictEqual(result.valid, false);
   });
 
-  it("attributes.note が maxLength=240 ちょうどの文字列で検証通過する", () => {
+  it("note at maxLength=240 boundary passes validation", () => {
     const result = validateAgainstSchema(
       createValidEdge({
         attributes: { strength: "soft", bidirectional: false, note: "x".repeat(240) },
@@ -429,11 +429,11 @@ describe("edge.schema.json — 境界値（attributes.note）", () => {
 });
 
 // ============================================================
-// validateAgainstSchema() 関数のテスト
+// Tests for validateAgainstSchema()
 // ============================================================
 
-describe("validateAgainstSchema() — エラー処理", () => {
-  it("存在しないスキーマファイルを指定した場合にエラーを返す", () => {
+describe("validateAgainstSchema() — error handling", () => {
+  it("returns error for non-existent schema file", () => {
     const result = validateAgainstSchema(
       { id: "N0001" },
       "nonexistent.schema.json",
@@ -446,11 +446,11 @@ describe("validateAgainstSchema() — エラー処理", () => {
     );
     assert.ok(
       hasNotFoundMessage,
-      `エラーメッセージに「見つかりません」が含まれていません: ${JSON.stringify(result.errors)}`
+      `Error message does not include "見つかりません": ${JSON.stringify(result.errors)}`
     );
   });
 
-  it("有効なデータで成功結果を返す", () => {
+  it("returns success for valid data", () => {
     const result = validateAgainstSchema(
       createValidNode(),
       "node.schema.json",
@@ -460,18 +460,18 @@ describe("validateAgainstSchema() — エラー処理", () => {
     assert.strictEqual(result.errors, undefined);
   });
 
-  it("無効なデータで3段テンプレート形式のエラーを返す", () => {
+  it("returns triple-template format errors for invalid data", () => {
     const node = createValidNode();
     delete node.id;
     const result = validateAgainstSchema(node, "node.schema.json", SCHEMAS_DIR);
     assert.strictEqual(result.valid, false);
     assert.ok(Array.isArray(result.errors));
     assert.ok(result.errors.length > 0);
-    // 各エラーがパス: メッセージ (actual: 値) の形式になっていることを確認
+    // Each error should be in "path: message (actual: value)" format
     for (const err of result.errors) {
       assert.ok(
         typeof err === "string" && err.length > 0,
-        `エラーが文字列ではありません: ${err}`
+        `Error is not a string: ${err}`
       );
     }
   });

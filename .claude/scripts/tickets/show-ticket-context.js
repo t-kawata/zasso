@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * show-ticket-context.js — make-ticket の Step 1
+ * show-ticket-context.js — make-ticket Step 1
  *
- * --ticket-key で指定されたチケットの状態を調査し、AI が読みやすい
- * Markdown 形式で stdout に出力する。Tickets.json の全フィールドを
- * 表示するため、出力自体が spec 文書として成立する。
+ * Investigates the state of the ticket specified by --ticket-key and outputs
+ * to stdout in AI-readable Markdown format. The output includes all Ticket.json
+ * fields and can serve as a spec document.
  *
- * --for-spec フラグを指定すると、spec ファイルへの書き出しに適した
- * 形式で出力する（IMPORTANT バナー / Pipeline Context を省略し、
- * Universal Testing Rules を前置する）。
+ * With --for-spec flag, outputs in a format suitable for writing to a spec file
+ * (omits IMPORTANT banner / Pipeline Context, prepends Universal Testing Rules).
  *
  * CLI: show-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
  *       [--tickets=<Tickets.json>] [--for-spec]
@@ -22,7 +21,7 @@ const { resolveTicketSpecPath } = require('../lib/tickets');
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-/** コマンドライン引数をパースする */
+/** Parse command line arguments */
 function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
@@ -54,12 +53,12 @@ function parseArgs(testArgs) {
   return { ticketsPath, ticketKey, forSpec, noTestRules, plan, review };
 }
 
-/** ticketKey が P{phaseId}-{ticketId} または PX-{id} 形式か検証する */
+/** Validate that ticketKey matches P{phaseId}-{ticketId} or PX-{id} format */
 function isValidTicketKey(ticketKey) {
   return /^P([Xx]|-?\d+)-(\d+)$/.test(ticketKey);
 }
 
-/** ticketKey をパースして phaseId / ticketId を返す */
+/** Parse ticketKey into phaseId / ticketId */
 function parseTicketKey(ticketKey) {
   const pxMatch = ticketKey.match(/^PX-(\d+)$/i);
   if (pxMatch) {
@@ -72,7 +71,7 @@ function parseTicketKey(ticketKey) {
   return null;
 }
 
-/** Tickets.json から該当チケットを検索する */
+/** Find the matching ticket in Tickets.json */
 function findTicket(tickets, parsed) {
   if (!parsed) return null;
   const phases = tickets.phases || [];
@@ -84,8 +83,8 @@ function findTicket(tickets, parsed) {
 }
 
 /**
- * Tickets.json の metadata から RFC / Graph / Dirs-Tree のパスを解決する
- * （resolve-ticket-context.js の resolveRfcPaths と同一ロジック）
+ * Resolves RFC / Graph / Dirs-Tree paths from Tickets.json metadata
+ * (same logic as resolveRfcPaths in resolve-ticket-context.js)
  */
 function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   if (resolvedPaths && resolvedPaths.rfcPath && resolvedPaths.graphPath && resolvedPaths.dirsTreePath) {
@@ -128,7 +127,7 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'unknown' };
 }
 
-/** 絶対パスを ticketsDir からの相対パスに変換する（短縮できない場合は絶対パスのまま） */
+/** Convert absolute path to relative from ticketsDir (keep absolute if can't shorten) */
 function makeRelative(absPath, base) {
   try {
     const rel = path.relative(base, absPath);
@@ -138,7 +137,7 @@ function makeRelative(absPath, base) {
   }
 }
 
-/** relatedTicketIds 文字列をパースして { relation, ticket, description } の配列に変換する */
+/** Parse relatedTicketIds string into an array of { relation, ticket, description } */
 function parseRelatedTicketIds(raw) {
   if (!raw) return [];
   const items = [];
@@ -155,7 +154,7 @@ function parseRelatedTicketIds(raw) {
   return items;
 }
 
-/** GRAPH.json と Dirs-Tree.json を読み込む */
+/** Load GRAPH.json and Dirs-Tree.json */
 function loadGraphAndDirs(graphPath, dirsTreePath) {
   let graphNodes = [], graphEdges = [], dirsTree = null;
   try {
@@ -173,7 +172,7 @@ function loadGraphAndDirs(graphPath, dirsTreePath) {
   return { graphNodes, graphEdges, dirsTree };
 }
 
-/** ticketNodeIds に対応するノード詳細の Markdown を生成する */
+/** Generate Markdown for node details corresponding to ticketNodeIds */
 function formatGraphNodeDetails(ticketNodeIds, graphNodes) {
   const lines = [];
   lines.push('### Related Nodes');
@@ -194,7 +193,7 @@ function formatGraphNodeDetails(ticketNodeIds, graphNodes) {
   return lines.join('\n');
 }
 
-/** ticketNodeIds が関与するエッジ関係性の Markdown を生成する */
+/** Generate Markdown for edge relationships involving ticketNodeIds */
 function formatGraphEdgeRelationships(ticketNodeIds, graphEdges, graphNodes) {
   const lines = [];
   const nodeMap = {};
@@ -202,7 +201,7 @@ function formatGraphEdgeRelationships(ticketNodeIds, graphEdges, graphNodes) {
   const edgeTypes = ['depends_on', 'precedes', 'triggers', 'constrains', 'conflicts_with',
     'refines', 'extends', 'implements', 'supersedes', 'references', 'part_of', 'validates'];
   const ticketSet = new Set(ticketNodeIds);
-  // 自チケット内のノードのみが関与するエッジを抽出
+  // Extract edges involving only nodes within this ticket
   const relevantEdges = graphEdges.filter(e =>
     ticketSet.has(e.from) || ticketSet.has(e.to)
   );
@@ -227,7 +226,7 @@ function formatGraphEdgeRelationships(ticketNodeIds, graphEdges, graphNodes) {
   return lines.join('\n');
 }
 
-/** Dirs-Tree から ticketNodeIds にマップされるファイルパスを探索する */
+/** Walk Dirs-Tree to find file paths mapped to ticketNodeIds */
 function collectFilePathsForNodes(dirsTree, ticketNodeIds) {
   const result = [];
   const ticketSet = new Set(ticketNodeIds);
@@ -243,7 +242,7 @@ function collectFilePathsForNodes(dirsTree, ticketNodeIds) {
       for (const c of node.children) walk(c, node.type === 'directory' ? currentPath : prefix);
     }
   }
-  // trees オブジェクトの各言語ツリーを探索
+  // Walk each language tree in the trees object
   const trees = (dirsTree && dirsTree.trees) || {};
   for (const lang of Object.keys(trees)) {
     walk(trees[lang], '');
@@ -251,7 +250,7 @@ function collectFilePathsForNodes(dirsTree, ticketNodeIds) {
   return result;
 }
 
-/** ticketNodeIds に対応するファイルパスの Markdown を生成する */
+/** Generate Markdown for file paths corresponding to ticketNodeIds */
 function formatGraphFilePaths(ticketNodeIds, dirsTree) {
   const entries = collectFilePathsForNodes(dirsTree, ticketNodeIds);
   if (entries.length === 0) return '';
@@ -267,7 +266,7 @@ function formatGraphFilePaths(ticketNodeIds, dirsTree) {
   return lines.join('\n');
 }
 
-/** チケット不在時の Markdown を生成する */
+/** Generate Markdown when ticket is not found */
 function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
   if (plan) {
     return [
@@ -307,9 +306,9 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
   ].join('\n');
 }
 
-/** チケット情報の Markdown を生成する */
+/** Generate Markdown for ticket information */
 /**
- * タイトルから slug（kebab-case）を生成する（ensure-ticket.js と同一ロジック）
+ * Generate slug (kebab-case) from title (same logic as ensure-ticket.js)
  */
 function generateSlug(title) {
   return title
@@ -322,39 +321,7 @@ function generateSlug(title) {
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules) {
   const lines = [];
 
-  // --for-spec モードでは YAML frontmatter を先頭に出力
-  if (forSpec) {
-    const slug = generateSlug(ticket.title || '');
-    lines.push('---');
-    // ticketKey から数値 ID を抽出（例: P0-1 → 1, PX-148 → 148）
-    const idMatch = ticketKey.match(/(\d+)$/);
-    const ticketId = idMatch ? parseInt(idMatch[1], 10) : (ticket.id || 0);
-    lines.push(`ticket_id: ${ticketId}`);
-    lines.push(`title: ${ticket.title || ''}`);
-    if (slug) lines.push(`slug: ${slug}`);
-    lines.push(`status: ${ticket.status || 'todo'}`);
-    if (ticket.created_at) lines.push(`created_at: ${ticket.created_at}`);
-    if (ticket.updated_at) lines.push(`updated_at: ${ticket.updated_at}`);
-    // rfc / graph / dirs パスを解決して YAML に追加
-    const yamlRawSource = (tickets.metadata && tickets.metadata.source) || '';
-    const yamlResolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
-    const { rfcPath: yamlRfc, graphPath: yamlGraph, dirsTreePath: yamlDirs } = resolveRfcPaths(yamlRawSource, ticketsDir, yamlResolvedPaths);
-    if (yamlRfc) lines.push(`rfc: ${makeRelative(yamlRfc, ticketsDir)}`);
-    if (yamlGraph) lines.push(`graph: ${makeRelative(yamlGraph, ticketsDir)}`);
-    if (yamlDirs) lines.push(`dirs: ${makeRelative(yamlDirs, ticketsDir)}`);
-    lines.push('---');
-    lines.push('');
-  }
-
-  // --for-spec モードでは IMPORTANT バナーを出力しない
-  if (!forSpec) {
-    lines.push('> [!IMPORTANT]');
-    lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
-    lines.push('>');
-    lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
-  }
-
-  // --for-spec モードでは冒頭に Universal Testing Rules を前置する（--no-test-rules で抑制）
+  // In --for-spec mode, output Universal Testing Rules first (before YAML frontmatter)
   if (forSpec && !noTestRules) {
     lines.push('**Universal Testing Rules**');
     lines.push('');
@@ -379,8 +346,17 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // H1: タイトル + ステータスバッジ
-  lines.push(`# ${ticketKey}: ${ticket.title}`);
+  // Omit IMPORTANT banner in --for-spec mode
+  if (!forSpec) {
+    lines.push('> [!IMPORTANT]');
+    lines.push('> The following content is an initial ticket-level draft and shall not be treated as a complete specification. As part of the /make-ticket workflow, it must be reviewed against the actual design, related nodes, related tickets, and the implementation state of the source code, and then expanded into a detailed and accurate specification.');
+    lines.push('>');
+    lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
+  }
+
+  // H1: Title + status badge
+  const statusBadge = ticket.status || 'todo';
+  lines.push(`# ${ticketKey}: ${ticket.title} [${statusBadge}]`);
   lines.push('');
 
   // RFC Reference
@@ -429,7 +405,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // ---- パイプライン情報の解決 ----
+  // ---- Resolve pipeline information ----
   const rawSource = (tickets.metadata && tickets.metadata.source) || '';
   const resolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
   const { rfcPath, graphPath, dirsTreePath } = resolveRfcPaths(rawSource, ticketsDir, resolvedPaths);
@@ -440,8 +416,8 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     ticketKey && rfcPath && rfcExists && rfcPath.toLowerCase().endsWith('.md') && graphExists && dirsExists
   );
 
-  // Graph セクション（pipelineAvailable かつ nodeIds が存在する場合のみ）
-  // Step 4a で AI が最初に実行すべき調査アクション（node 探索）のトリガーとなる。
+  // Graph section (only when pipelineAvailable and nodeIds exist)
+  // Triggers the first investigation action (node exploration) AI should perform in Step 4a.
   if (pipelineAvailable && ticket.nodeIds && ticket.nodeIds.length > 0) {
     lines.push('## To show related RFC graph details');
     lines.push('');
@@ -459,7 +435,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push(ticket.nodeIds.map(id => `\`${id}\``).join(' '));
     lines.push('');
 
-    // GRAPH.json / Dirs-Tree.json から詳細情報を展開
+    // Expand detailed information from GRAPH.json / Dirs-Tree.json
     const { graphNodes, graphEdges, dirsTree } = loadGraphAndDirs(graphPath, dirsTreePath);
     const nodeDetails = formatGraphNodeDetails(ticket.nodeIds, graphNodes);
     lines.push(nodeDetails);
@@ -469,7 +445,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     if (filePaths) lines.push(filePaths);
   }
 
-  // Investigation（Step 4a の graph 調査後に参照する既存の調査結果）
+  // Investigation (existing investigation results referenced after Step 4a graph exploration)
   if (ticket.investigation) {
     lines.push('## Investigation');
     lines.push('');
@@ -531,7 +507,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // Changes（start-ticket で記録された実装変更の before/after）
+  // Changes (implementation before/after recorded by start-ticket)
   if (ticket.changes && ticket.changes.length > 0) {
     lines.push('## Changes');
     lines.push('');
@@ -595,7 +571,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // Pipeline Context（--for-spec モードでは出力しない）
+  // Pipeline Context (not output in --for-spec mode)
   if (!forSpec) {
     lines.push('## Pipeline Context');
     lines.push('');
@@ -604,7 +580,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     if (rfcPath) lines.push(`| RFC | \`${makeRelative(rfcPath, ticketsDir)}\` | ${rfcExists} |`);
     if (graphPath) lines.push(`| Graph | \`${makeRelative(graphPath, ticketsDir)}\` | ${graphExists} |`);
     if (dirsTreePath) lines.push(`| Dirs-Tree | \`${makeRelative(dirsTreePath, ticketsDir)}\` | ${dirsExists} |`);
-    // spec パス: チケットに specPath があればそれを優先、なければ新しい命名規則で確定的に計算
+    // spec path: prefer ticket's specPath if available, otherwise compute deterministically using naming convention
     const specPath = ticket.specPath
       ? path.resolve(ticketsDir, ticket.specPath)
       : resolveTicketSpecPath(ticketsDir, ticketKey);

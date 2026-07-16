@@ -1,7 +1,7 @@
 /**
- * validate-phasify.test.cjs — validate-phasify.js のユニットテスト
+ * validate-phasify.test.cjs — Unit tests for validate-phasify.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');
@@ -21,7 +21,7 @@ const {
 } = require('../../.claude/scripts/rfc-graph/validate-phasify.js');
 
 // ============================================================
-// ヘルパー: テストデータ生成
+// Helpers: Test Data Generation
 // ============================================================
 
 function makeNode(id) {
@@ -125,12 +125,12 @@ describe('checkSinglePhasePerNode', () => {
 // ============================================================
 
 describe('checkHardConstraints', () => {
-  // depends_on(u→v) = 「uはvに依存」→ v(依存先)を先に実装
-  // 違反条件: phase(v) >= phase(u) = 依存先が依存元より後
+  // depends_on(u→v) = "u depends on v" → v (dependency) implemented first
+  // Violation: phase(v) >= phase(u) = dependency is equal or later than dependant
 
   it('should pass when dependency is before dependant', () => {
     const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
-    // N0002(依存先)がP0, N0001(依存元)がP1 → 正しい順序
+    // N0002 (dependency) in P0, N0001 (dependant) in P1 → correct order
     const phases = [makePhase(0, 'P0', ['N0002']), makePhase(1, 'P1', ['N0001'])];
     const nodeToPhase = buildNodeToPhaseMap(phases);
     const result = checkHardConstraints(edges, phases, nodeToPhase);
@@ -140,7 +140,7 @@ describe('checkHardConstraints', () => {
 
   it('should fail when dependency is after dependant', () => {
     const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
-    // N0001(依存元)がP0, N0002(依存先)がP1 → 逆順（違反）
+    // N0001 (dependant) in P0, N0002 (dependency) in P1 → reversed (violation)
     const phases = [makePhase(0, 'P0', ['N0001']), makePhase(1, 'P1', ['N0002'])];
     const nodeToPhase = buildNodeToPhaseMap(phases);
     const result = checkHardConstraints(edges, phases, nodeToPhase);
@@ -165,7 +165,7 @@ describe('checkHardConstraints', () => {
     const result = checkHardConstraints(edges, phases, nodeToPhase);
     assert.ok(!result.passed);
     assert.strictEqual(result.violations.length, 1);
-    assert.ok(result.violations[0].reason.includes('どのフェーズにも属していない'));
+    assert.ok(result.violations[0].reason.includes('does not belong to any phase'));
   });
 
   it('should pass with empty edges', () => {
@@ -197,7 +197,7 @@ describe('checkPhaseSizeMinimum', () => {
   it('should issue warning (not error) when total nodes < 10', () => {
     const smallPhase = makePhase(0, 'P0', ['N0001', 'N0003']);
     const result = checkPhaseSizeMinimum([smallPhase], 5);
-    // totalNodes (5) < 10 → isWarning が true になる
+    // totalNodes (5) < 10 → isWarning should be true
     assert.ok(result.passed);
     assert.strictEqual(result.issues.length, 1);
     assert.ok(result.issues[0].isWarning);
@@ -315,12 +315,12 @@ describe('checkNoOrphanNodes', () => {
 });
 
 // ============================================================
-// validateAll (統合テスト)
+// validateAll (Integration Test)
 // ============================================================
 
 describe('validateAll', () => {
-  // depends_on(u→v): uはvに依存 → v(依存先)を先に実装
-  // 違反: phase(v) >= phase(u)
+  // depends_on(u→v): u depends on v → v (dependency) implemented first
+  // Violation: phase(v) >= phase(u)
 
   it('should pass with valid input (all conditions met)', () => {
     const ticketJson = makeTicketJson([
@@ -328,7 +328,7 @@ describe('validateAll', () => {
       { id: 1, name: 'P1', nodeIds: ['N0011', 'N0012', 'N0013', 'N0014', 'N0015', 'N0016', 'N0017', 'N0018', 'N0019', 'N0020'] },
     ]);
     const nodes = Array.from({ length: 20 }, (_, i) => makeNode('N' + String(i + 1).padStart(4, '0')));
-    // N0011 depends_on N0001 → N0001(依存先)がP0, N0011(依存元)がP1 → 正しい
+    // N0011 depends_on N0001 → N0001 (dependency) in P0, N0011 (dependant) in P1 → correct
     const edges = [makeEdge('N0011', 'N0001', 'depends_on')];
     const dirsTree = makeDirsTree({ name: 'src', type: 'directory', children: [] });
 
@@ -345,7 +345,7 @@ describe('validateAll', () => {
 
     const result = validateAll(ticketJson, nodes, [], makeDirsTree({ name: 'src', type: 'directory', children: [] }));
     assert.ok(!result.valid);
-    assert.ok(result.errors.some(e => e.includes('未カバー')));
+    assert.ok(result.errors.some(e => e.includes('not covered')));
   });
 
   it('should fail when hard constraint is violated', () => {
@@ -354,17 +354,17 @@ describe('validateAll', () => {
       { id: 1, name: 'P1', nodeIds: ['N0002', 'N0003', 'N0004', 'N0005', 'N0006', 'N0007', 'N0008', 'N0009', 'N0010', 'N0011', 'N0012'] },
     ]);
     const nodes = Array.from({ length: 22 }, (_, i) => makeNode('N' + String(i + 1).padStart(4, '0')));
-    // N0001 depends_on N0002 → N0002(依存先)がP1(後), N0001(依存元)がP0(前) → 逆順で違反
+    // N0001 depends_on N0002 → N0002 (dependency) in P1 (later), N0001 (dependant) in P0 (earlier) → reversed, violation
     const edges = [makeEdge('N0001', 'N0002', 'depends_on')];
     const dirsTree = makeDirsTree({ name: 'src', type: 'directory', children: [] });
 
     const result = validateAll(ticketJson, nodes, edges, dirsTree);
     assert.ok(!result.valid);
-    assert.ok(result.errors.some(e => e.includes('Hard制約')));
+    assert.ok(result.errors.some(e => e.includes('Check 3 FAILED')));
   });
 
   it('should fail when phase is below minimum size (total >= 10)', () => {
-    // totalNodes >= 10 で、かつ特定のフェーズだけが10未満の場合 → エラー
+    // totalNodes >= 10 and a specific phase has fewer than 10 → error
     const ticketJson = makeTicketJson([
       { id: 0, name: 'P0', nodeIds: ['N0001', 'N0002', 'N0003', 'N0004', 'N0005'] },
       { id: 1, name: 'P1', nodeIds: Array.from({ length: 10 }, (_, i) => 'N' + String(i + 6).padStart(4, '0')) },
@@ -373,6 +373,6 @@ describe('validateAll', () => {
 
     const result = validateAll(ticketJson, nodes, [], makeDirsTree({ name: 'src', type: 'directory', children: [] }), { allowSmallPhases: false });
     assert.ok(!result.valid);
-    assert.ok(result.errors.some(e => e.includes('下限')));
+    assert.ok(result.errors.some(e => e.includes('below min')));
   });
 });

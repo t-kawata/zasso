@@ -1,10 +1,10 @@
 /**
- * write-phase-name-summary.test.cjs — write-phase-name-summary.js のテスト
+ * write-phase-name-summary.test.cjs — Tests for write-phase-name-summary.js
  *
- * 子プロセスを起動して stdin 経由で name/summary を渡し、Tickets.json が
- * 正しく更新されることを確認する。
+ * Spawns a child process, passes name/summary via stdin, and verifies that
+ * Tickets.json is updated correctly.
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -43,7 +43,7 @@ describe('write-phase-name-summary', () => {
   });
 
   it('should write name and summary to existing phase', function() {
-    const input = JSON.stringify({ name: '認証基盤', summary: '認証トークン生成・検証・Session管理' });
+    const input = JSON.stringify({ name: 'Authentication', summary: 'Auth token generation, verification, and session management' });
     const result = spawnSync('node', [SCRIPT_PATH, ticketsPath, 'P0'], {
       input: input,
       encoding: 'utf8',
@@ -54,8 +54,8 @@ describe('write-phase-name-summary', () => {
 
     const updated = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
     const p0 = updated.phases.find(function(p) { return p.id === 0; });
-    assert.strictEqual(p0.name, '認証基盤');
-    assert.strictEqual(p0.summary, '認証トークン生成・検証・Session管理');
+    assert.strictEqual(p0.name, 'Authentication');
+    assert.strictEqual(p0.summary, 'Auth token generation, verification, and session management');
   });
 
   it('should reject empty name', function() {

@@ -2,14 +2,14 @@
 /**
  * insert-io-boundary-template.js <rfc-file>
  *
- * RFC ファイルに「グラフ分割のための参考情報 — RFC設計書が示す I/O 境界の手がかり」
- * セクションをテンプレートとして追記する。
+ * Appends the "graphify-rfc + boundify-graph-to-dirs reference info — I/O boundary clues from the RFC design document"
+ * section as a template to the RFC file.
  *
- * テンプレート内の RFC 固有記述が必要な箇所には
- *   <!-- [::IO-INFO-STUB::] ここに記述すべき内容の説明 -->
- * 形式のマーカーを挿入する。AI がこのマーカーを手がかりに内容を記入する。
+ * Places markers of the form
+ *   <!-- [::IO-INFO-STUB::] description of content to be written here -->
+ * at locations requiring RFC-specific content. The AI uses these markers as cues to fill in the content.
  *
- * 既に同名セクションが存在する場合は何もせず正常終了する（二重挿入防止）。
+ * If the section already exists, exits normally without making changes (prevents duplicate insertion).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -28,14 +28,14 @@ if (!fs.existsSync(resolvedPath)) {
 
 const content = fs.readFileSync(resolvedPath, "utf-8");
 
-// 既存セクションの有無を確認（二重挿入防止）
+// Check if section already exists (prevent duplicate insertion)
 const sectionPattern = /graphify-rfc + boundify-graph-to-dirss*のための参考情報/;
 if (sectionPattern.test(content)) {
   console.log("I/O boundary reference section already exists. Skipping.");
   process.exit(0);
 }
 
-// 次のセクション番号を決定（RFC が持つ最大セクション番号 + 1）
+// Determine the next section number (max section number in the RFC + 1)
 const sectionNumbers = content.match(/^## (\d+)\./gm);
 let nextNumber = 1;
 if (sectionNumbers && sectionNumbers.length > 0) {

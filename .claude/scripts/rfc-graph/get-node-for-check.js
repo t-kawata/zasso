@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 
 /**
- * get-node-for-check.js — 個別ノードの品質点検表示
+ * get-node-for-check.js — Display individual node quality check
  *
- * _quality/ ディレクトリに保存された query.js の出力を表示し、
- * 末尾に3つの点検項目を追記する。
+ * Shows the output of query.js saved in the _quality/ directory,
+ * appending three check items at the end.
  *
  * CLI: get-node-for-check.js <nodeId>
- *   nodeId: 例 N0001
+ *   nodeId: e.g. N0001
  *
  * Exit codes:
- *   0  正常終了
- *   1  エラー終了（引数不足・ファイル不在）
+ *   0  Normal termination
+ *   1  Error termination (missing arguments / file not found)
  */
 
 const fs = require("fs");
 const path = require("path");
 
-/** _quality ディレクトリのパス（カレントワーキングディレクトリ基準） */
+/** Path to the _quality directory (relative to the current working directory) */
 const QUALITY_DIR = path.resolve(process.cwd(), "_quality");
 
-/** 点検項目テンプレート */
+/** Check items template */
 const CHECK_ITEMS = `
 # 点検項目
 1. 他のノードとの関係性が設計文書の記述を正しく反映しているか
@@ -29,11 +29,11 @@ const CHECK_ITEMS = `
 `;
 
 /**
- * 3段テンプレートでエラーメッセージを出力し、exit 1 する
+ * Print an error message in a three-part template and exit with code 1
  *
- * @param {string} message — 何が起きたか
- * @param {string} cause — なぜ起きたか
- * @param {string} action — 次に取るべきアクション
+ * @param {string} message — what happened
+ * @param {string} cause — why it happened
+ * @param {string} action — next action to take
  */
 function printError(message, cause, action) {
   process.stderr.write(
@@ -45,11 +45,11 @@ function printError(message, cause, action) {
 }
 
 /**
- * メインエントリポイント
+ * Main entry point
  *
- * 1. 引数からノードIDを取得
- * 2. _quality/<nodeId>.md を読み込む
- * 3. 内容と点検項目を表示
+ * 1. Get node ID from arguments
+ * 2. Read _quality/<nodeId>.md
+ * 3. Display content and check items
  */
 function main() {
   const args = process.argv.slice(2);
@@ -64,7 +64,7 @@ function main() {
 
   const nodeId = args[0];
 
-  // ノードIDの形式検証（Nxxxx）
+  // Validate node ID format (Nxxxx)
   if (!/^N[0-9]{4}$/.test(nodeId)) {
     printError(
       `ノードIDの形式が不正です: ${nodeId}`,
@@ -85,15 +85,15 @@ function main() {
 
   const content = fs.readFileSync(filePath, "utf8");
 
-  // 内容を表示
+  // Display content
   process.stdout.write(content);
 
-  // 内容が空行で終わっていなければ空行を追加
+  // Add a blank line if content does not end with one
   if (!content.endsWith("\n")) {
     process.stdout.write("\n");
   }
 
-  // 点検項目を追記
+  // Append check items
   process.stdout.write(CHECK_ITEMS);
 }
 

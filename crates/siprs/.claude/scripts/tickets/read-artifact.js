@@ -34,13 +34,13 @@ function main() {
     process.exit(1);
   }
 
-  // spec: 直接 specPath を読む（frontmatter + body 全体）
+  // spec: read specPath directly (entire frontmatter + body)
   if (type === 'spec') {
     console.log(fs.readFileSync(paths.specPath, 'utf8'));
     return;
   }
 
-  // それ以外: frontmatter から artifact パスを解決
+  // Otherwise: resolve artifact path from frontmatter
   const field = FIELD_MAP[type];
   if (!field) {
     console.log(JSON.stringify({ success: false, error: `Unknown artifact type: "${type}". Expected: spec, plan, implementation, review` }));

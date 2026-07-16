@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * ensure-tickets-json.js — Tickets.json 存在保証スクリプト
+ * ensure-tickets-json.js — Tickets.json existence guarantee script
  *
- * Tickets.json の存在を確認し、存在しない場合はテンプレートと PX phase を自動作成する。
- * 出力は機械的に解析可能な JSON（instruction フィールド付き）。
+ * Checks for Tickets.json existence and auto-creates template + PX phase if absent.
+ * Output is mechanically parseable JSON (with instruction field).
  *
  * CLI: ensure-tickets-json.js --dir=<path>
  */
@@ -17,7 +17,7 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
 /**
- * コマンドライン引数をパースする
+ * Parse command-line arguments
  */
 function parseArguments(testArgs) {
   const args = testArgs || process.argv.slice(2);
@@ -27,7 +27,7 @@ function parseArguments(testArgs) {
 }
 
 /**
- * 子プロセスでスクリプトを実行する
+ * Execute a script in a child process
  */
 function runScript(scriptName, scriptArgs) {
   const scriptPath = path.join(__dirname, scriptName);
@@ -41,7 +41,7 @@ function runScript(scriptName, scriptArgs) {
 }
 
 /**
- * メイン処理
+ * Main processing
  */
 function main() {
   const dir = parseArguments();
@@ -58,7 +58,7 @@ function main() {
     process.exit(EXIT_SUCCESS);
   }
 
-  // Tickets.json が存在しない場合: テンプレート作成 + PX phase 作成
+  // Tickets.json does not exist: create template + PX phase
   try {
     runScript('write-tickets-json-template.js', [
       ticketsPath,

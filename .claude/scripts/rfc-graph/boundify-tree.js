@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 
 /**
- * boundify-tree.js — boundify-graph-to-dirs のディレクトリツリー生成関数群
+ * boundify-tree.js — Directory tree generation functions for boundify-graph-to-dirs
  *
- * グラフノードからディレクトリツリーを生成する関数群を提供する。
- * RFC-BOUNDIFY.md §3.5（ディレクトリ提案アルゴリズム）に準拠。
+ * Provides functions to generate directory trees from graph nodes.
+ * Conforms to RFC-BOUNDIFY.md §3.5 (Directory proposal algorithm).
  *
- * PX-29 追加: pruneEmptyDirectories（空ディレクトリ削除・フラット化）
- * PX-30 追加: computeCrossReferences（prose 系ノードのクロスリファレンス）
+ * PX-29 added: pruneEmptyDirectories (empty directory removal and flattening)
+ * PX-30 added: computeCrossReferences (cross-references for prose-type nodes)
  *
- * 依存: boundify-helpers.js (titleToFileName, deduplicateFileNames)
+ * Dependencies: boundify-helpers.js (titleToFileName, deduplicateFileNames)
  */
 
 'use strict';
 
-// P18-1 内部では require で読み込む（CommonJS）
+// P18-1 Uses require internally (CommonJS)
 const path = require('path');
 
 /**
- * kind→ディレクトリ配置先 マッピング定数
+ * kind → directory placement mapping constants
  *
- * 各 kind がどのサブディレクトリに配置されるかを定義する。
- * value が null の kind はディレクトリ骨格（architecture）または
- * 親ドメイン内インライン配置（api_contract/data_model/state_machine）。
+ * Defines which subdirectory each kind is placed into.
+ * Kinds with null value are directory skeletons (architecture) or
+ * inline placement within the parent domain (api_contract/data_model/state_machine).
  */
 const KIND_FILE_RULES = Object.freeze({
   config: 'config',
@@ -36,25 +36,25 @@ const KIND_FILE_RULES = Object.freeze({
 });
 
 /**
- * 親ドメイン内にインライン配置される kind のセット
+ * Set of kinds placed inline within the parent domain
  */
 const INLINE_KINDS = Object.freeze(new Set([
-  // PX-48 で api_contract / data_model / state_machine を
-  // KIND_FILE_RULES に移したため、INLINE_KINDS は空になった。
-  // 将来インライン配置が必要な kind が生じた場合に追加する。
+  // PX-48 moved api_contract / data_model / state_machine to
+  // KIND_FILE_RULES, so INLINE_KINDS is now empty.
+  // Add kinds that need inline placement in the future here.
 ]));
 
 /**
- * ディレクトリ骨格（ファイルを生成しない）kind のセット
+ * Set of directory skeleton kinds (do not generate files)
  */
 const BACKBONE_KINDS = Object.freeze(new Set([
   'architecture',
 ]));
 
 /**
- * prose 系 kind — 実行時の振る舞いを持たず独立ファイルを生成しない。
- * PX-28: rationale/glossary/requirement は kind→ディレクトリ名の
- * フォールバックからも除外し、ファイル生成されないようにする。
+ * Prose-type kinds — no runtime behavior, do not generate independent files.
+ * PX-28: rationale/glossary/requirement are excluded from kind→directory name
+ * fallback to prevent file generation.
  */
 const PROSE_KINDS = Object.freeze(new Set([
   'rationale',
@@ -63,35 +63,35 @@ const PROSE_KINDS = Object.freeze(new Set([
 ]));
 
 /**
- * part_of エッジからドメイン階層を構築する
+ * Build domain hierarchy from part_of edges
  *
- * @param {object} graph - グラフオブジェクト（{nodes, edges}）
+ * @param {object} graph - Graph object ({nodes, edges})
  * @returns {{roots: Array, childOf: object}}
- *   roots: 再帰的ツリー構造のルートノード配列
- *   childOf: ノードID→親ノードID のマップ
+ *   roots: Root node array of the recursive tree structure
+ *   childOf: Node ID → parent node ID map
  */
 function buildDomainHierarchy(graph) {
   const childOf = {};
   const nodes = graph.nodes || [];
   const edges = graph.edges || [];
 
-  // part_of エッジから親子関係マップを構築
+  // Build parent-child relationship map from part_of edges
   for (const edge of edges) {
     if (edge.type === 'part_of') {
       childOf[edge.from] = edge.to;
     }
   }
 
-  // ルートノード（part_of の対象になっていないノード）を特定
+  // Identify root nodes (not targeted by part_of edges)
   const allNodeIds = new Set(nodes.map(n => n.id));
   const hasParent = new Set(Object.keys(childOf));
   const rootIds = [...allNodeIds].filter(id => !hasParent.has(id));
 
-  // 指定ノードを根とするサブツリーを再帰構築する
+  // Recursively build a subtree rooted at the specified node
   function buildTree(nodeId, visited) {
     if (visited.has(nodeId)) {
-      // [::STUB::] 循環 part_of エッジ: 現在はエラーとして扱う。
-      // 将来、循環検出を改善する場合は tickets/P18-1 参照。
+      // [::STUB::] Circular part_of edge: currently treated as an error.
+      // For improved circular detection, see tickets/P18-1.
       return null;
     }
     const nextVisited = new Set(visited);
@@ -100,7 +100,7 @@ function buildDomainHierarchy(graph) {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return null;
 
-    // このノードを親とする子ノードを収集
+    // Collect children whose parent is this node
     const childIds = edges
       .filter(e => e.type === 'part_of' && childOf[e.from] === nodeId && e.from !== nodeId)
       .map(e => e.from);
@@ -123,45 +123,45 @@ function buildDomainHierarchy(graph) {
 }
 
 /**
- * ノードの kind と hierarchy に基づいて配置先ディレクトリを解決する
+ * Resolve the target directory for a node based on its kind and hierarchy
  *
- * @param {object} node - グラフノード（{id, kind, title}）
- * @param {object} hierarchy - buildDomainHierarchy の戻り値
- * @returns {string|null} ディレクトリ名（骨格の場合は null）
+ * @param {object} node - Graph node ({id, kind, title})
+ * @param {object} hierarchy - Return value of buildDomainHierarchy
+ * @returns {string|null} Directory name (null for skeleton kinds)
  */
 function resolveDirForNode(node, hierarchy) {
   const kind = node.kind || '';
   const rules = KIND_FILE_RULES;
 
-  // ディレクトリ骨格はファイルを生成しない
+  // Directory skeleton kinds do not generate files
   if (BACKBONE_KINDS.has(kind)) return null;
 
-  // prose 系 kind は独立ファイルを生成しない
+  // Prose-type kinds do not generate independent files
   if (PROSE_KINDS.has(kind)) return null;
 
-  // 親ドメイン内インライン配置は親アーキテクチャ名を使用
+  // Inline placement within parent domain uses parent architecture name
   if (INLINE_KINDS.has(kind)) {
     const parentId = hierarchy.childOf[node.id];
     if (parentId) {
-      // [::STUB::] 要解決: 親ノードの解決時に階層全体のパスを構築する。
-      // 現在は親ノード名のみ返すが、将来はルートからの相対パスを返す必要がある。
+      // [::STUB::] TO RESOLVE: Build the full hierarchy path when resolving the parent.
+      // Currently returns only the parent node name, but should return a path from the root.
       return null;
     }
     return null;
   }
 
-  // kind→ディレクトリ名 マッピング
+  // kind → directory name mapping
   const dirName = rules[kind];
   if (dirName) return dirName;
 
-  // 未定義 kind は kind 名をそのままフォールバック
+  // Undefined kind falls back to the kind name
   return kind || null;
 }
 
 /**
- * グラフから ノード→ディレクトリ名 マップを構築する
+ * Build a node → directory name map from the graph
  *
- * @param {object} graph - グラフオブジェクト（{nodes, edges}）
+ * @param {object} graph - Graph object ({nodes, edges})
  * @returns {object} {nodeToDir: {[nodeId]: string|null}}
  */
 function resolveNodeToDirMap(graph, hierarchy) {
@@ -176,18 +176,18 @@ function resolveNodeToDirMap(graph, hierarchy) {
 }
 
 /**
- * グラフからディレクトリツリーを構築する
+ * Build directory tree from graph
  *
- * Phase 1（buildDomainHierarchy）の階層に Phase 2（kind ベース配置）を適用する。
- * メインの統合関数。内部で titleToFileName() と deduplicateFileNames() を使用。
+ * Apply Phase 2 (kind-based placement) to Phase 1 (buildDomainHierarchy) hierarchy.
+ * Main integration function. Uses titleToFileName() and deduplicateFileNames() internally.
  *
- * @param {object} graph - グラフオブジェクト
- * @param {string} lang - 言語名（'rust' | 'go' | 'typescript'）
- * @param {object} helpers - 外部依存関数（titleToFileName, deduplicateFileNames）
+ * @param {object} graph - Graph object
+ * @param {string} lang - Language name ('rust' | 'go' | 'typescript')
+ * @param {object} helpers - External dependency functions (titleToFileName, deduplicateFileNames)
  * @returns {{tree: object|null, nodeToDir: object, files: Array}}
- *   tree: ディレクトリツリーのルート
- *   nodeToDir: ノードID→ディレクトリパス のマップ
- *   files: 生成されるファイル一覧
+ *   tree: Root of the directory tree
+ *   nodeToDir: Node ID → directory path map
+ *   files: List of generated files
  */
 function buildDirectoryTree(graph, lang, helpers) {
   const languageExtensions = helpers.languageExtensions || { rust: '.rs', go: '.go', typescript: '.ts' };
@@ -198,27 +198,27 @@ function buildDirectoryTree(graph, lang, helpers) {
   const nodes = graph.nodes || [];
 
   /**
-   * ノードの slug から言語別ファイル名を解決する。
-   * slug 未設定の場合はノードIDをフォールバックとして使用する。
+   * Resolve the language-specific file name from a node slug.
+   * Falls back to node ID if slug is not set.
    */
   function resolveFileName(node, lang) {
     const slug = node.slug;
     if (slug && typeof slug === 'string' && slug.length > 0) {
       return slug + (languageExtensions[lang] || '.rs');
     }
-    // フォールバック: slug 未設定（古いグラフとの互換性）
+    // Fallback: slug not set (backward compatibility with older graphs)
     const fallback = node.id ? node.id.toLowerCase() : 'unnamed';
     return fallback + (languageExtensions[lang] || '.rs');
   }
 
-    // ルート階層からディレクトリツリー構築
+    // Build directory tree from root hierarchy
   function buildTreeFromRoot(root) {
     if (!root || !root.node) return null;
 
     const node = root.node;
     const kind = node.kind || '';
 
-    // architecture kind → ディレクトリノード
+    // architecture kind → directory node
     if (BACKBONE_KINDS.has(kind)) {
       const dirName = resolveFileName(node, lang).replace(/\.(rs|go|ts)$/, '');
       const dirNode = {
@@ -229,9 +229,9 @@ function buildDirectoryTree(graph, lang, helpers) {
         children: [],
       };
 
-      // 子ノードの処理
+      // Process children
       if (root.children) {
-        // 子を architecture 系と非 architecture 系に分離
+        // Separate children into architecture and non-architecture
         const backboneChildren = [];
         const ruleDirEntries = [];
 
@@ -240,7 +240,7 @@ function buildDirectoryTree(graph, lang, helpers) {
           if (childDir) {
             backboneChildren.push(childDir);
           } else {
-            // 非 architecture 子 → rule-driven として処理
+            // Non-architecture children → process as rule-driven
             const childNode = child.node;
             if (childNode && !PROSE_KINDS.has(childNode.kind || '')) {
               const childDirName = resolveDirForNode(childNode, hierarchy);
@@ -261,10 +261,10 @@ function buildDirectoryTree(graph, lang, helpers) {
           }
         }
 
-        // architecture 子を追加
+        // Add architecture children
         dirNode.children.push(...backboneChildren);
 
-        // rule-driven 子をディレクトリ名でグループ化してサブディレクトリとして追加
+        // Group rule-driven children by directory name and add as subdirectories
         const dirGroups = {};
         for (const entry of ruleDirEntries) {
           if (!dirGroups[entry.dirName]) dirGroups[entry.dirName] = [];
@@ -280,7 +280,7 @@ function buildDirectoryTree(graph, lang, helpers) {
         }
       }
 
-      // インライン kind の子ノードも追加（part_of 以外のエッジから）
+      // Also add inline kind children (from non-part_of edges)
       const inlineChildren = findInlineChildren(node.id, graph, hierarchy);
       for (const inlineChild of inlineChildren) {
         const fileName = resolveFileName(inlineChild, lang);
@@ -299,12 +299,12 @@ function buildDirectoryTree(graph, lang, helpers) {
     return null;
   }
 
-  // 指定ノードのインライン子ノードを取得（kind ベース）
+  // Get inline children for the specified node (kind-based)
   function findInlineChildren(nodeId, graph, hierarchy) {
     const allNodes = graph.nodes || [];
     const edges = graph.edges || [];
 
-    // このノードを親とする part_of エッジの子で、インライン kind のものを収集
+    // Collect children of part_of edges whose parent is this node and whose kind is inline
     const childIds = edges
       .filter(e => e.type === 'part_of' && hierarchy.childOf[e.from] === nodeId && e.from !== nodeId)
       .map(e => e.from);
@@ -314,24 +314,24 @@ function buildDirectoryTree(graph, lang, helpers) {
       .filter(n => n && INLINE_KINDS.has(n.kind || ''));
   }
 
-  // ルート階層全体をツリーに変換
+  // Convert entire root hierarchy to tree
   const topNodes = [];
   for (const root of hierarchy.roots) {
     const treeNode = buildTreeFromRoot(root);
     if (treeNode) topNodes.push(treeNode);
   }
 
-  // hierarchy ルートの全子孫を収集し、findRuleDrivenNodes から除外する
+  // Collect all descendants of hierarchy roots to exclude from findRuleDrivenNodes
   const descendantIds = collectDescendantIds(hierarchy.roots);
 
-  // kind→ディレクトリルールに該当する独立ノードも収集（hierarchy 子孫は除外）
+  // Also collect independent nodes matching kind→directory rules (excluding hierarchy descendants)
   const ruleDrivenNodes = findRuleDrivenNodes(graph, hierarchy, lang, resolveFileName, deduplicateFileNames, getDeclarationStub, descendantIds);
 
-  // マージ
+  // Merge
   const allTopNodes = mergeTopLevelNodes(topNodes, ruleDrivenNodes);
 
-  // 空ディレクトリ削除と子1つフラット化
-  // 子ノードを個別に pruning し、src/ ルート自体はフラット化対象外
+  // Remove empty directories and flatten single-child directories
+  // Prune children individually; src/ root itself is not flattened
   const prunedChildren = allTopNodes.length > 0
     ? allTopNodes.map(n => pruneEmptyDirectories(n)).filter(Boolean)
     : [];
@@ -339,10 +339,10 @@ function buildDirectoryTree(graph, lang, helpers) {
     ? { name: 'src', type: 'directory', kind: 'root', children: prunedChildren }
     : null;
 
-  // 全ファイル一覧を収集
+  // Collect the full file list
   const files = collectFiles(tree, []);
 
-  // ノードID → ファイルパス のマップを構築（crossReferences の toFile で使用）
+  // Build node ID → file path map (used for crossReferences toFile field)
   const nodeIdToFilePath = {};
   for (let fi = 0; fi < files.length; fi++) {
     const file = files[fi];
@@ -360,12 +360,12 @@ function buildDirectoryTree(graph, lang, helpers) {
 }
 
 /**
- * hierarchy ルートから全ての子孫ノードIDを収集する
+ * Collect all descendant node IDs from hierarchy roots
  *
- * buildTreeFromRoot で処理済みのノードを findRuleDrivenNodes から除外するために使用する。
+ * Used to exclude nodes already processed by buildTreeFromRoot from findRuleDrivenNodes.
  *
- * @param {Array} roots — buildDomainHierarchy の roots 配列
- * @returns {Set<string>} 全子孫ノードID のセット
+ * @param {Array} roots — roots array from buildDomainHierarchy
+ * @returns {Set<string>} Set of all descendant node IDs
  */
 function collectDescendantIds(roots) {
   const ids = new Set();
@@ -379,8 +379,8 @@ function collectDescendantIds(roots) {
     }
   }
   for (const root of roots) {
-    // architecture（BACKBONE）ルートの子孫のみを収集する。
-    // 非 architecture ルート（config 等、part_of なし）は findRuleDrivenNodes で処理される。
+    // Only collect descendants of architecture (BACKBONE) roots.
+    // Non-architecture roots (e.g. config without part_of) are processed by findRuleDrivenNodes.
     if (root.node && BACKBONE_KINDS.has(root.node.kind || '')) {
       walk(root);
     }
@@ -389,16 +389,16 @@ function collectDescendantIds(roots) {
 }
 
 /**
- * kind→ディレクトリルールに該当するルートレベルのノードを収集する
+ * Collect root-level nodes that match kind → directory rules
  *
- * @param {object} graph — グラフオブジェクト
- * @param {object} hierarchy — buildDomainHierarchy の戻り値
- * @param {string} lang — 言語名
- * @param {Function} resolveFileNameFn — ファイル名解決関数
- * @param {Function} deduplicateFileNames — 重複解決関数（未使用）
- * @param {Function} getDeclarationStubFn — 宣言スタブ取得関数
- * @param {Set<string>} [excludeNodeIds] — 除外するノードID のセット
- * @returns {Array} ルール駆動ノードの配列
+ * @param {object} graph — Graph object
+ * @param {object} hierarchy — Return value of buildDomainHierarchy
+ * @param {string} lang — Language name
+ * @param {Function} resolveFileNameFn — File name resolution function
+ * @param {Function} deduplicateFileNames — Deduplication function (unused)
+ * @param {Function} getDeclarationStubFn — Declaration stub function
+ * @param {Set<string>} [excludeNodeIds] — Set of node IDs to exclude
+ * @returns {Array} Array of rule-driven nodes
  */
 function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplicateFileNames, getDeclarationStubFn, excludeNodeIds) {
   const getStub = getDeclarationStubFn || (() => '');
@@ -406,11 +406,11 @@ function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplic
   const result = [];
 
   for (const node of nodes) {
-    // hierarchy 内で既に処理済みのノードは除外
+    // Exclude nodes already processed within the hierarchy
     if (excludeNodeIds && excludeNodeIds.has(node.id)) continue;
 
     const dirName = resolveDirForNode(node, hierarchy);
-    // ルールに該当し、かつルート階層に含まれていないノード
+    // Nodes matching rules and not in the root hierarchy
     if (dirName && !BACKBONE_KINDS.has(node.kind || '')) {
       const fileName = resolveFileNameFn(node, lang);
       result.push({
@@ -433,8 +433,8 @@ function findRuleDrivenNodes(graph, hierarchy, lang, resolveFileNameFn, deduplic
 }
 
 /**
- * 同階層のノードを名前でマージする
- * 同名ディレクトリがあれば子を統合する（子の重複排除あり）
+ * Merge nodes at the same level by name
+ * Merges children if directories share the same name (with child deduplication)
  */
 function mergeTopLevelNodes(backboneNodes, ruleDrivenNodes) {
   const merged = {};
@@ -447,7 +447,7 @@ function mergeTopLevelNodes(backboneNodes, ruleDrivenNodes) {
         mappedNodeIds: [...(node.mappedNodeIds || [])],
       };
     } else {
-      // 同名ディレクトリ → 子をマージ（重複排除）
+      // Same name directory → merge children (deduplicate)
       const existing = merged[node.name];
       if (node.children) {
         const existingChildNames = new Set(existing.children.map(c => c.name));
@@ -474,36 +474,36 @@ function mergeTopLevelNodes(backboneNodes, ruleDrivenNodes) {
 }
 
 /**
- * 空ディレクトリを削除し、子が1つのディレクトリをフラット化する
+ * Remove empty directories and flatten single-child directories
  *
- * 以下のルールでツリーを整形する：
- * 1. 子がないディレクトリ → 削除（null を返す）
- * 2. 子が1つだけのディレクトリ（かつその子がディレクトリ） → フラット化（親の名前に子の内容を統合）
- * 3. ファイルを含むディレクトリ → 維持
+ * Transforms the tree according to these rules:
+ * 1. Directory with no children → remove (return null)
+ * 2. Directory with exactly one child (and that child is a directory) → flatten (merge child contents into parent)
+ * 3. Directory containing files → keep
  *
- * @param {object|null} node — ツリーノード
- * @param {boolean} [skipFlatten] — true の場合、フラット化（ルール2）をスキップする
- * @returns {object|null} 整形後のノード、削除される場合は null
+ * @param {object|null} node — Tree node
+ * @param {boolean} [skipFlatten] — If true, skip flattening (rule 2)
+ * @returns {object|null} Transformed node, or null if removed
  */
 function pruneEmptyDirectories(node, skipFlatten) {
   if (!node) return null;
 
-  // ファイルノードはそのまま返す
+  // File nodes are returned as-is
   if (node.type !== 'directory') return node;
 
-  // 子を再帰的に整形
+  // Recursively transform children
   if (node.children && node.children.length > 0) {
     node.children = node.children
       .map(child => pruneEmptyDirectories(child))
       .filter(Boolean);
   }
 
-  // ルール1: 子がないディレクトリ → 削除
+  // Rule 1: Directory with no children → remove
   if (!node.children || node.children.length === 0) {
     return null;
   }
 
-  // ルール2: 子が1つだけのディレクトリ（かつその子がディレクトリ） → フラット化
+  // Rule 2: Directory with exactly one child (and that child is a directory) → flatten
   if (!skipFlatten && node.children.length === 1 && node.children[0].type === 'directory') {
     const singleChild = node.children[0];
     return {
@@ -516,12 +516,12 @@ function pruneEmptyDirectories(node, skipFlatten) {
     };
   }
 
-  // ルール3: 複数の子を持つディレクトリ → 維持
+  // Rule 3: Directory with multiple children → keep
   return node;
 }
 
 /**
- * ツリーから全ファイル一覧を再帰収集する
+ * Recursively collect all files from the tree
  */
 function collectFiles(treeNode, pathSegments) {
   const files = [];
@@ -550,11 +550,11 @@ function collectFiles(treeNode, pathSegments) {
 }
 
 /**
- * 子ファイルの宣言スタブ（Rust pub mod / Go package / TS barrel）を生成する
+ * Generate declaration stubs for child files (Rust pub mod / Go package / TS barrel)
  *
- * @param {object} dirNode - ディレクトリノード（{name, type, children}）
- * @param {string} lang - 言語名（'rust' | 'go' | 'typescript'）
- * @returns {string|null} 宣言文字列、子がない場合は null
+ * @param {object} dirNode - Directory node ({name, type, children})
+ * @param {string} lang - Language name ('rust' | 'go' | 'typescript')
+ * @returns {string|null} Declaration string, or null if no children
  */
 function generateDeclarationStub(dirNode, lang) {
   if (!dirNode || !dirNode.children || dirNode.children.length === 0) return null;
@@ -565,7 +565,7 @@ function generateDeclarationStub(dirNode, lang) {
 
   switch (lang) {
     case 'rust': {
-      // mod.rs は self 宣言に相当するためスキップ
+      // mod.rs is equivalent to a self declaration, so skip it
       const modDecls = files
         .filter(f => path.basename(f.name, '.rs') !== 'mod')
         .map(f => `pub mod ${path.basename(f.name, '.rs')};`);
@@ -578,7 +578,7 @@ function generateDeclarationStub(dirNode, lang) {
       break;
     }
     case 'typescript': {
-      // index.ts は barrel 自身に相当するためスキップ
+      // index.ts is equivalent to the barrel itself, so skip it
       const barrel = files
         .filter(f => path.basename(f.name, '.ts') !== 'index')
         .map(f => `export * from './${path.basename(f.name, '.ts')}';`);
@@ -594,12 +594,12 @@ function generateDeclarationStub(dirNode, lang) {
 }
 
 /**
- * Markdown レポートを生成する
+ * Generate a Markdown report
  *
- * @param {object} graph - グラフオブジェクト
- * @param {object|null} dirsTree - buildDirectoryTree の戻り値 tree
- * @param {string} lang - 言語名
- * @returns {string} Markdown レポート
+ * @param {object} graph - Graph object
+ * @param {object|null} dirsTree - buildDirectoryTree return value tree
+ * @param {string} lang - Language name
+ * @returns {string} Markdown report
  */
 function generateReport(graph, dirsTree, lang) {
   const nodes = graph.nodes || [];
@@ -617,7 +617,7 @@ function generateReport(graph, dirsTree, lang) {
   lines.push(`- 総エッジ数: ${edges.length}`);
   lines.push(`- 対象言語: ${langName}`);
 
-  // 全ファイル数を収集
+  // Collect total file count
   const files = dirsTree ? collectFiles(dirsTree, []) : [];
   lines.push(`- 生成ファイル数: ${files.length}`);
 
@@ -636,7 +636,7 @@ function generateReport(graph, dirsTree, lang) {
     lines.push(`| ${kind} | ${count} |`);
   }
 
-  // ツリー構造
+  // Tree structure
   if (dirsTree) {
     lines.push('');
     lines.push('## ディレクトリツリー');
@@ -646,7 +646,7 @@ function generateReport(graph, dirsTree, lang) {
     lines.push('```');
   }
 
-  // ファイル一覧
+  // File list
   if (files.length > 0) {
     lines.push('');
     lines.push('## ファイル一覧');
@@ -660,11 +660,11 @@ function generateReport(graph, dirsTree, lang) {
 }
 
 /**
- * ディレクトリツリーを ASCII ツリー形式でレンダリングする
+ * Render a directory tree in ASCII tree format
  *
- * @param {object} node - ツリーノード
- * @param {string} prefix - 行頭プレフィックス
- * @returns {string[]} ツリー行の配列
+ * @param {object} node - Tree node
+ * @param {string} prefix - Line prefix
+ * @returns {string[]} Array of tree lines
  */
 function renderTreeAscii(node, prefix) {
   if (!node) return [];
@@ -690,19 +690,19 @@ function renderTreeAscii(node, prefix) {
 }
 
 // ============================================================
-// クロスリファレンス計算 (computeCrossReferences)
-// PX-30: prose 系ノードの設計情報を接続先ファイルに紐付ける
+// Cross-reference computation (computeCrossReferences)
+// PX-30: Link prose-type node design info to connected files
 // ============================================================
 
 /**
- * prose 系 kind（rationale/glossary/requirement）のノードを収集し、
- * グラフのエッジを辿って接続先ノードのファイルパスを解決する。
+ * Collect prose-type kind (rationale/glossary/requirement) nodes and
+ * resolve connected node file paths by traversing graph edges.
  *
- * エッジがない prose ノードは connections が空配列となる。
+ * Prose nodes with no edges will have an empty connections array.
  *
- * @param {{ nodes: object[], edges: Array<{from:string, to:string, type:string}> }} graph - グラフ
- * @param {object} nodeToDirMap - ノードID → ディレクトリパスのマッピング
- * @param {object} [nodeToFilePathMap] - ノードID → ファイルパスのマッピング（省略時は nodeToDirMap を使用）
+ * @param {{ nodes: object[], edges: Array<{from:string, to:string, type:string}> }} graph - Graph
+ * @param {object} nodeToDirMap - Node ID → directory path mapping
+ * @param {object} [nodeToFilePathMap] - Node ID → file path mapping (falls back to nodeToDirMap)
  * @returns {Array<{nodeId:string, kind:string, title:string, headingRef?:string, connections:Array<{toFile:string, edgeType:string, direction:string}>}>}
  */
 function computeCrossReferences(graph, nodeToDirMap, nodeToFilePathMap) {
@@ -724,21 +724,21 @@ function computeCrossReferences(graph, nodeToDirMap, nodeToFilePathMap) {
     const prose = proseNodes[i];
     const connections = [];
 
-    // この prose ノードを端点とする全エッジを収集
+    // Collect all edges with this prose node as an endpoint
     for (let j = 0; j < edges.length; j++) {
       const edge = edges[j];
       if (edge.from === prose.id || edge.to === prose.id) {
-        // 接続先ノードID（prose でない方）
+        // Connected node ID (the one that is not prose)
         const connectedNodeId = edge.from === prose.id ? edge.to : edge.from;
         const connectedNode = nodeMap[connectedNodeId];
         const connectedDir = connectedNode ? nodeToDirMap[connectedNodeId] : undefined;
-        // ファイルパスが利用可能なら優先、なければディレクトリ名（後方互換）
+        // Prefer file path if available, otherwise use directory name (backward compatibility)
         const connectedFile = (nodeToFilePathMap && connectedNodeId)
           ? (nodeToFilePathMap[connectedNodeId] || connectedDir)
           : connectedDir;
 
         if (connectedFile) {
-          // 方向: prose → 相手 なら "→"、相手 → prose なら "←"
+          // Direction: "→" for prose → other, "←" for other → prose
           const direction = edge.from === prose.id ? '→' : '←';
           connections.push({
             toNodeId: connectedNodeId,
@@ -779,6 +779,6 @@ module.exports = {
   computeCrossReferences,
   generateDeclarationStub,
   generateReport,
-  // テスト用
+  // For testing
   renderTreeAscii,
 };

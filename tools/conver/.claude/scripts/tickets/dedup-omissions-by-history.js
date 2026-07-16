@@ -1,20 +1,20 @@
 /**
- * dedup-omissions-by-history.js — 過去 OMISSIONS との重複排除
+ * dedup-omissions-by-history.js — Deduplicate against past OMISSIONS
  *
- * 現在の OMISSIONS と過去の OMISSIONS ファイル群を比較し、3つの決定論ルールを適用する。
- * このスクリプトは 100% 決定論 — AI が覆せない。
+ * Compares the current OMISSIONS with past OMISSIONS files and applies 3 deterministic rules.
+ * This script is 100% deterministic — AI cannot override it.
  *
- * Rule 1 — 完全重複:
- *   同一ファイル（affectedFiles） + 同一セクション（rfcSection） + 同一种別（type）
- *   → autoSkipped に追加（AI に渡さない）
+ * Rule 1 — Exact duplicate:
+ *   same file (affectedFiles) + same section (rfcSection) + same type
+ *   → added to autoSkipped (not passed to AI)
  *
- * Rule 2 — stub_remaining 格下げ:
+ * Rule 2 — stub_remaining downgrade:
  *   severity === "low" & type === "stub_remaining"
- *   → cosmetic に自動格下げ
+ *   → automatically downgraded to cosmetic
  *
  * Rule 3 — repeated_area:
- *   同一ファイルが 3 回以上連続して omission 対象になった
- *   → repeated_area タグ + 要確認フラグ
+ *   same file targeted by omission for 3+ consecutive rounds
+ *   → repeated_area tag + needsReview flag
  *
  * Usage:
  *   node dedup-omissions-by-history.js <CURRENT_OMISSIONS_PATH>
@@ -23,15 +23,15 @@
 const fs = require("fs");
 const path = require("path");
 
-// OMISSIONS JSON のファイル名パターン
+// OMISSIONS JSON file name pattern
 const OMISSION_FILE_RE = /^OMISSIONS-(\d{3})\.json$/;
 
 /**
- * 3つの決定論ルールを適用して重複排除を実行する。
+ * Apply 3 deterministic rules to filter duplicates.
  *
- * @param {object[]} currentOmissions - 現在の omission 配列
- * @param {object[]} historyOmissions - 過去の全 omission 配列（全 OMISSIONS ファイルを flat）
- * @param {string[][]} historyFilesPerRound - 過去の各ラウンドで出現した全ファイルパス配列
+ * @param {object[]} currentOmissions - current omission array
+ * @param {object[]} historyOmissions - all past omissions (flattened across all OMISSIONS files)
+ * @param {string[][]} historyFilesPerRound - all file paths per past round
  * @returns {{ autoSkipped: object[], downgraded: object[], repeatedAreas: object[], pendingForAI: object[] }}
  */
 function filterDuplicates(currentOmissions, historyOmissions, historyFilesPerRound) {
@@ -43,7 +43,7 @@ function filterDuplicates(currentOmissions, historyOmissions, historyFilesPerRou
   for (const omission of currentOmissions) {
     const omissionCopy = JSON.parse(JSON.stringify(omission));
 
-    // Rule 1: 完全重複チェック（同一ファイル + 同一セクション + 同一种別）
+    // Rule 1: Exact duplicate check (same file + section + type)
     const isDuplicate = historyOmissions.some(function (h) {
       const filesMatch = arraysOverlap(h.affectedFiles, omission.affectedFiles);
       const sectionsMatch = h.rfcSection === omission.rfcSection;
@@ -57,10 +57,10 @@ function filterDuplicates(currentOmissions, historyOmissions, historyFilesPerRou
         description: omission.description,
         reason: "完全重複: 過去の OMISSIONS と同じファイル・セクション・種別の指摘",
       });
-      continue; // Rule 2, Rule 3 は適用しない
+      continue; // Rule 2, Rule 3 do not apply
     }
 
-    // Rule 2: stub_remaining かつ low severity → cosmetic に格下げ
+    // Rule 2: stub_remaining with low severity → downgrade to cosmetic
     const isStubRemainingLow = (
       omission.type === "stub_remaining" &&
       omission.severity === "low"
@@ -75,7 +75,7 @@ function filterDuplicates(currentOmissions, historyOmissions, historyFilesPerRou
       });
     }
 
-    // Rule 3: 同一ファイルが 3 回以上連続して omission 対象
+    // Rule 3: Same file appears 3+ consecutive rounds as omission target
     const affectedFiles = omission.affectedFiles || [];
     const repeatedFile = findRepeatedFile(affectedFiles, historyFilesPerRound);
     if (repeatedFile) {
@@ -99,7 +99,7 @@ function filterDuplicates(currentOmissions, historyOmissions, historyFilesPerRou
 }
 
 /**
- * 2つの配列に共通する要素があるか判定する。
+ * Check if two arrays share any common element.
  */
 function arraysOverlap(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
@@ -108,11 +108,11 @@ function arraysOverlap(a, b) {
 }
 
 /**
- * 指定ファイルが過去の全ラウンドで 3 回以上連続出現しているか判定する。
+ * Check if a specific file has appeared in 3+ consecutive rounds across all history.
  *
- * @param {string[]} currentFiles - 現在の omission の affectedFiles
- * @param {string[][]} historyFilesPerRound - 過去各ラウンドのファイルパス配列
- * @returns {string|null} 条件を満たす最初のファイル、なければ null
+ * @param {string[]} currentFiles - affectedFiles of the current omission
+ * @param {string[][]} historyFilesPerRound - file paths per past round
+ * @returns {string|null} first matching file, or null
  */
 function findRepeatedFile(currentFiles, historyFilesPerRound) {
   if (!Array.isArray(currentFiles) || currentFiles.length === 0) return null;
@@ -124,11 +124,11 @@ function findRepeatedFile(currentFiles, historyFilesPerRound) {
       if (Array.isArray(roundFiles) && roundFiles.indexOf(file) !== -1) {
         consecutiveCount++;
       } else {
-        break; // 連続が途切れた
+        break; // Streak broken
       }
     }
 
-    // 現在のラウンドも含めて 3 回以上
+    // 3+ including current round
     if (consecutiveCount + 1 >= 3) {
       return file;
     }
@@ -138,10 +138,10 @@ function findRepeatedFile(currentFiles, historyFilesPerRound) {
 }
 
 /**
- * ファイルパスから過去の全 OMISSIONS ファイルを読み取り、omission 配列とファイル一覧を集計する。
+ * Read all past OMISSIONS files from the directory and aggregate omission arrays and file lists.
  *
- * @param {string} omissionsDir - OMISSIONS JSON が置かれているディレクトリ（絶対パス推奨）
- * @param {string} currentFilePath - 現在処理中の OMISSIONS ファイルの絶対パス
+ * @param {string} omissionsDir - directory where OMISSIONS JSON files are stored (absolute path recommended)
+ * @param {string} currentFilePath - absolute path of the current OMISSIONS file being processed
  * @returns {{ historyOmissions: object[], historyFilesPerRound: string[][] }}
  */
 function loadHistoryOmissions(omissionsDir, currentFilePath) {
@@ -161,7 +161,7 @@ function loadHistoryOmissions(omissionsDir, currentFilePath) {
       const omissions = data.omissions || [];
       historyOmissions.push.apply(historyOmissions, omissions);
 
-      // このラウンドの全 affectedFiles を収集
+      // Collect all affectedFiles for this round
       const roundFiles = [];
       for (const o of omissions) {
         const files = o.affectedFiles || [];
@@ -173,7 +173,7 @@ function loadHistoryOmissions(omissionsDir, currentFilePath) {
       }
       historyFilesPerRound.push(roundFiles);
     } catch (_) {
-      // 読み取りエラーは無視（破損ファイルはスキップ）
+      // Ignore read errors (skip corrupted files)
     }
   }
 
@@ -181,9 +181,9 @@ function loadHistoryOmissions(omissionsDir, currentFilePath) {
 }
 
 /**
- * メイン関数: ファイルを読み込み、重複排除を実行し、結果を返す。
+ * Main function: read file, execute dedup, return result.
  *
- * @param {string} currentPath - 現在の OMISSIONS ファイルのパス
+ * @param {string} currentPath - path to the current OMISSIONS file
  * @returns {{ success: boolean, result?: object, error?: string }}
  */
 function dedupFile(currentPath) {

@@ -2,22 +2,22 @@
 /**
  * validate-question-format.js <question-text>
  *
- * grill 質問の形式を検証する。AIはユーザーに質問を提示する前に
- * 必ずこのスクリプトを通過しなければならない。
+ * Validates the format of grill questions. The AI must pass through this script
+ * before presenting any question to the user.
  *
- * 検証ルール:
- *   0. 質問ID（Q<番号>）が含まれている
- *   1. 提案の理由・背景・トレードオフが含まれている
- *   2. Yes/No または ABC 選択肢で回答可能である
- *   3. 自由記述を求める表現が含まれていない
- *   4. 選択肢は改行で区切られたリスト形式であり、その後ろにAIが1つを選んだおすすめ＋理由が続く
+ * Validation rules:
+ *   0. Question ID (Q<number>) is present
+ *   1. Proposal rationale, context, and trade-offs are included
+ *   2. Answerable via Yes/No or A/B/C choices
+ *   3. No free-form input solicitations
+ *   4. Choices are in newline-separated list format, followed by the AI's recommendation with reasoning
  *
- * 使用方法:
- *   node validate-question-format.js "質問文..."
+ * Usage:
+ *   node validate-question-format.js "question text..."
  *
- * 終了コード:
- *   0 — 形式適合
- *   1 — 形式違反（エラーメッセージ付き）
+ * Exit codes:
+ *   0 — Format valid
+ *   1 — Format violation (with error message)
  */
 const question = process.argv[2];
 if (!question) {
@@ -27,7 +27,7 @@ if (!question) {
 
 const errors = [];
 
-// ── ルール0: 質問ID（Q<番号>）が含まれている ──
+// ── Rule 0: Question ID (Q<number>) is present ──
 
 const hasQuestionId = /\bQ\d+\b/.test(question);
 if (!hasQuestionId) {
@@ -37,7 +37,7 @@ if (!hasQuestionId) {
   );
 }
 
-// ── ルール1: 理由・背景・トレードオフが含まれている ──
+// ── Rule 1: Rationale, context, and trade-offs are included ──
 
 const reasoningPatterns = [
   /理由/i, /ため/i, /だから/i, /なぜ/i, /なので/i,
@@ -58,7 +58,7 @@ if (!hasReasoning) {
   );
 }
 
-// ── ルール2: Yes/No または ABC 選択肢で回答可能 ──
+// ── Rule 2: Answerable via Yes/No or A/B/C choices ──
 
 const choicePatterns = [
   /[\(（]?\s*A\s*[\)）]/, /[\(（]?\s*B\s*[\)）]/, /[\(（]?\s*C\s*[\)）]/,
@@ -74,7 +74,7 @@ if (!hasChoice) {
   );
 }
 
-// ── ルール3: 自由記述を求めていない ──
+// ── Rule 3: No free-form input solicitations ──
 
 const openEndedPatterns = [
   /どう思いますか/, /どう考えますか/, /どうしますか/, /いかがでしょうか/,
@@ -83,7 +83,7 @@ const openEndedPatterns = [
   /\[自由記述\]/, /\[フリーテキスト\]/,
 ];
 
-// 「どうしますか」は文脈による — ABC選択肢があれば許可
+// "dou shimasu ka" depends on context — allowed if ABC choices exist
 const hasOpenEnded = openEndedPatterns.some((p) => p.test(question));
 if (hasOpenEnded && !hasChoice) {
   errors.push(
@@ -92,7 +92,7 @@ if (hasOpenEnded && !hasChoice) {
   );
 }
 
-// ── ルール4: 選択肢は改行リスト形式 ＋ 列挙後にAIのおすすめ＋理由が必要 ──
+// ── Rule 4: Choices in newline list format + AI recommendation with reasoning after listing ──
 
 const lines = question.split("\n");
 let inlineChoicesFound = false;
@@ -101,7 +101,7 @@ const choiceLabelPattern = /^\s*[\(（]?\s*[ABC]\s*[\)）]/;
 
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
-  // 1行に複数の A) B) C) があるか → インライン形式（違反）
+  // Multiple A) B) C) on one line → inline format (violation)
   const matches = line.match(/[\(（]?\s*[ABC]\s*[\)）]/g);
   if (matches && matches.length >= 2) {
     inlineChoicesFound = true;
@@ -119,7 +119,7 @@ if (inlineChoicesFound) {
   );
 }
 
-// 選択肢を列挙した後、AIが1つを選んで理由を述べているか
+// Whether the AI picks one and states reasoning after listing choices
 if (lastChoiceLineIndex >= 0) {
   const afterChoices = lines.slice(lastChoiceLineIndex + 1).join("\n");
   const recommendationPatterns = [
@@ -138,7 +138,7 @@ if (lastChoiceLineIndex >= 0) {
   }
 }
 
-// ── 結果出力 ──
+// ── Output result ──
 
 if (errors.length > 0) {
   console.log(JSON.stringify({ valid: false, errors }, null, 2));

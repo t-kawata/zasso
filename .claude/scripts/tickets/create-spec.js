@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
 /**
- * create-spec.js — 実装仕様 (spec) ファイル作成
+ * create-spec.js — Create implementation specification (spec) file
  *
- * 新しい命名規則: {ticketsDir}/specs/{ticketKey}.md
- * ticketsDir は Tickets.json のディレクトリ、ticketKey は "P0-1" 形式。
+ * New naming convention: {ticketsDir}/specs/{ticketKey}.md
+ * ticketsDir is the directory of Tickets.json, ticketKey is "P0-1" format.
  *
  * CLI: create-spec.js <ticketKey> [title] [status] [--tickets=<path>]
  *
- * 引数:
- *   ticketKey   — 必須。チケットキー（例: "P0-1", "PX-5"）
- *   title       — オプション。チケットタイトル（省略時は stdin JSON の title）
- *   status      — オプション。初期ステータス（デフォルト: "draft"）
- *   --tickets=  — オプション。Tickets.json のパス（デフォルト: "Tickets.json"）
+ * Arguments:
+ *   ticketKey   — required. Ticket key (e.g., "P0-1", "PX-5")
+ *   title       — optional. Ticket title (defaults to stdin JSON title)
+ *   status      — optional. Initial status (default: "draft")
+ *   --tickets=  — optional. Path to Tickets.json (default: "Tickets.json")
  *
- * stdin から JSON { title, status } を受け付ける（CLI引数より優先度低）。
+ * Accepts JSON { title, status } from stdin (lower priority than CLI args).
  */
 
 const fs = require('fs');
@@ -49,7 +49,7 @@ function parseArgs() {
 function main() {
   const { ticketKey, title: cliTitle, status: cliStatus, ticketsPath: rawTicketsPath } = parseArgs();
 
-  // ticketKey は必須
+  // ticketKey is required
   if (!ticketKey) {
     console.log(JSON.stringify({
       success: false,
@@ -58,7 +58,7 @@ function main() {
     process.exit(1);
   }
 
-  // stdin から title/status を読み取り（CLI引数より優先度低）
+  // Read title/status from stdin (lower priority than CLI args)
   let input = {};
   try {
     const stdin = fs.readFileSync(process.stdin.fd, 'utf8').trim();
@@ -75,25 +75,25 @@ function main() {
   const ticketsPath = path.resolve(rawTicketsPath);
   const ticketsDir = path.dirname(ticketsPath);
 
-  // 新しい命名規則: {ticketsDir}/specs/{ticketKey}.md
+  // New naming convention: {ticketsDir}/specs/{ticketKey}.md
   const specPath = resolveTicketSpecPath(ticketsDir, ticketKey);
   const specsDir = path.dirname(specPath);
 
-  // specs ディレクトリがなければ作成
+  // Create specs directory if needed
   if (!fs.existsSync(specsDir)) {
     fs.mkdirSync(specsDir, { recursive: true });
   }
 
-  // 既存ファイルの上書きを防止
+  // Prevent overwriting existing files
   if (fs.existsSync(specPath)) {
     console.log(JSON.stringify({ success: false, error: `Spec already exists at ${specPath}` }));
     process.exit(1);
   }
 
-  // slug は frontmatter 用（ファイル名には使用しない）
+  // Slug is for frontmatter only (not used in filename)
   const slug = makeUniqueSlug(generateSlug(title), collectSlugs(specsDir));
 
-  // spec ファイル作成
+  // Create spec file
   const now = new Date().toISOString().slice(0, 10);
   const frontmatter = {
     ticket_id: ticketKey,

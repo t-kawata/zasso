@@ -1,9 +1,9 @@
 /**
- * dump-node-context-to-spec.test.cjs — dump-node-context-to-spec.js のテスト
+ * dump-node-context-to-spec.test.cjs — dump-node-context-to-spec.js tests
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
- * テスト対象は主に純粋関数（formatNodeDetailsBlock / formatEdgeRelationsBlock / formatFilePathsBlock）。
- * ファイルI/O を含む appendToSpec は dump-ticket-graph-commands.test.cjs で既にカバー済み。
+ * Test framework: Node.js standard node:test + node:assert/strict
+ * Mainly tests pure functions (formatNodeDetailsBlock / formatEdgeRelationsBlock / formatFilePathsBlock).
+ * File I/O (appendToSpec) is already covered by dump-ticket-graph-commands.test.cjs.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -26,13 +26,13 @@ const {
 } = require('../../.claude/scripts/rfc-graph/dump-node-context-to-spec.js');
 
 // ============================================================
-// テスト用共通データ
+// Common test data
 // ============================================================
 
 const SAMPLE_NODES = [
-  { id: 'N0001', title: '§1 目的 — 本crateの責務定義', kind: 'architecture', language: 'rust', slug: 'purpose', summary: 'RustからPJSUAを安全に利用する', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['§1 目的'] }] },
-  { id: 'N0002', title: '§1a M20実装優先度マップ', kind: 'requirement', language: 'rust', slug: 'm20_priority', summary: 'M20追補の実装項目', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['§1a M20実装優先度マップ'] }] },
-  { id: 'N0003', title: '§1a 設計判断対応表', kind: 'rationale', language: 'rust', slug: 'design_decisions', summary: 'M20設計判断一覧', headingRefs: [] },
+  { id: 'N0001', title: '§1 Purpose — Responsibility definition of this crate', kind: 'architecture', language: 'rust', slug: 'purpose', summary: 'Safely use PJSUA from Rust', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['§1 Purpose'] }] },
+  { id: 'N0002', title: '§1a M20 Implementation Priority Map', kind: 'requirement', language: 'rust', slug: 'm20_priority', summary: 'M20 supplementary implementation items', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['§1a M20 Implementation Priority Map'] }] },
+  { id: 'N0003', title: '§1a Design Decision Response Table', kind: 'rationale', language: 'rust', slug: 'design_decisions', summary: 'M20 design decision list', headingRefs: [] },
 ];
 
 const SAMPLE_EDGES = [
@@ -76,8 +76,8 @@ const SAMPLE_DIRS_TREE = {
 
 const SAMPLE_ALL_NODES = [
   ...SAMPLE_NODES,
-  { id: 'N0098', title: '§3 用語' },
-  { id: 'N0099', title: '§10 ClientConfig完全仕様' },
+  { id: 'N0098', title: '§3 Glossary' },
+  { id: 'N0099', title: '§10 ClientConfig Complete Spec' },
 ];
 
 // ============================================================
@@ -85,7 +85,7 @@ const SAMPLE_ALL_NODES = [
 // ============================================================
 
 describe('parseArguments', () => {
-  it('正常系: 全引数をパースする', () => {
+  it('normal: parses all arguments', () => {
     const result = parseArguments([
       '--tickets=Tickets.json',
       '--graph=graph.json',
@@ -98,7 +98,7 @@ describe('parseArguments', () => {
     assert.deepEqual(result.ticketKeys, ['P0-1']);
   });
 
-  it('正常系: 複数 --ticket-key をパースする', () => {
+  it('normal: parses multiple --ticket-key arguments', () => {
     const result = parseArguments([
       '--tickets=T.json',
       '--graph=G.json',
@@ -109,13 +109,13 @@ describe('parseArguments', () => {
     assert.deepEqual(result.ticketKeys, ['P0-1', 'P0-2']);
   });
 
-  it('異常系: --ticket-key なし', () => {
+  it('error: missing --ticket-key', () => {
     assert.throws(() => {
       parseArguments(['--tickets=T.json', '--graph=G.json', '--dirs-tree=D.json']);
     }, /--ticket-key/);
   });
 
-  it('異常系: 引数不足', () => {
+  it('error: insufficient arguments', () => {
     assert.throws(() => {
       parseArguments(['--tickets=T.json']);
     }, /引数が不足/);
@@ -129,29 +129,29 @@ describe('parseArguments', () => {
 describe('collectTicketNodes', () => {
   const tickets = {
     phases: [
-      { id: 0, name: 'フェーズ0', tickets: [
-        { id: 1, title: 'テスト', nodeIDs: ['N0001', 'N0003'], default_files: ['src/auth/keystore.rs'] },
+      { id: 0, name: 'Phase 0', tickets: [
+        { id: 1, title: 'Test Ticket', nodeIDs: ['N0001', 'N0003'], default_files: ['src/auth/keystore.rs'] },
       ]},
       { id: -1, name: '[X]', tickets: [
-        { id: 99, title: 'PXテスト', nodeIds: ['N0099'] },
+        { id: 99, title: 'PX Test', nodeIds: ['N0099'] },
       ]},
     ],
   };
 
-  it('正常系: P{id}-{id} 形式のチケットを解決する', () => {
+  it('normal: resolves ticket in P{id}-{id} format', () => {
     const result = collectTicketNodes(tickets, 'P0-1');
     assert.ok(result);
     assert.deepEqual(result.nodeIds, ['N0001', 'N0003']);
     assert.deepEqual(result.defaultFiles, ['src/auth/keystore.rs']);
   });
 
-  it('正常系: PX-{id} 形式のチケットを解決する', () => {
+  it('normal: resolves ticket in PX-{id} format', () => {
     const result = collectTicketNodes(tickets, 'P-1-99');
     assert.ok(result);
     assert.deepEqual(result.nodeIds, ['N0099']);
   });
 
-  it('異常系: 存在しないチケットキー', () => {
+  it('error: non-existent ticket key', () => {
     assert.equal(collectTicketNodes(tickets, 'P999-999'), null);
   });
 });
@@ -161,14 +161,14 @@ describe('collectTicketNodes', () => {
 // ============================================================
 
 describe('collectNodeDetails', () => {
-  it('正常系: 指定された nodeIds のノードを収集する', () => {
+  it('normal: collects nodes matching the given nodeIds', () => {
     const result = collectNodeDetails({ nodes: SAMPLE_NODES }, ['N0001', 'N0003']);
     assert.equal(result.length, 2);
     assert.equal(result[0].id, 'N0001');
     assert.equal(result[1].id, 'N0003');
   });
 
-  it('正常系: 空の nodeIds は空配列を返す', () => {
+  it('normal: empty nodeIds returns empty array', () => {
     const result = collectNodeDetails({ nodes: SAMPLE_NODES }, []);
     assert.deepEqual(result, []);
   });
@@ -181,12 +181,12 @@ describe('collectNodeDetails', () => {
 describe('collectEdges', () => {
   const graph = { edges: SAMPLE_EDGES };
 
-  it('正常系: nodeIds を含むエッジのみ収集する', () => {
+  it('normal: collects only edges involving the given nodeIds', () => {
     const result = collectEdges(graph, ['N0001', 'N0002', 'N0003']);
     assert.equal(result.length, 4);
   });
 
-  it('正常系: チケット内/外の区別がついている', () => {
+  it('normal: distinguishes inside/outside ticket edges', () => {
     const result = collectEdges(graph, ['N0001', 'N0002', 'N0003']);
     const refEdge = result.find(e => e.type === 'references');
     assert.ok(refEdge);
@@ -194,7 +194,7 @@ describe('collectEdges', () => {
     assert.equal(refEdge.toInTicket, false);
   });
 
-  it('正常系: 自チケットに含まれないノードのみのエッジは収集しない', () => {
+  it('normal: does not collect edges that only involve non-ticket nodes', () => {
     const result = collectEdges(graph, ['N9999']);
     assert.equal(result.length, 0);
   });
@@ -205,7 +205,7 @@ describe('collectEdges', () => {
 // ============================================================
 
 describe('buildNodeIdToPathMap', () => {
-  it('正常系: ツリーから nodeId → filePath のマップを構築する', () => {
+  it('normal: builds nodeId -> filePath map from tree', () => {
     const map = buildNodeIdToPathMap(SAMPLE_DIRS_TREE);
     assert.equal(map['N0001'], 'src/auth/keystore.rs');
     assert.equal(map['N0003'], 'src/auth/keystore.rs');
@@ -213,7 +213,7 @@ describe('buildNodeIdToPathMap', () => {
     assert.equal(map['N0098'], 'src/lib.rs');
   });
 
-  it('正常系: 空のツリーは空マップを返す', () => {
+  it('normal: empty tree returns empty map', () => {
     const map = buildNodeIdToPathMap({ trees: {} });
     assert.deepEqual(map, {});
   });
@@ -224,19 +224,19 @@ describe('buildNodeIdToPathMap', () => {
 // ============================================================
 
 describe('formatNodeDetailsBlock', () => {
-  it('正常系: ノード詳細のMarkdown表を生成する', () => {
-    const result = formatNodeDetailsBlock(SAMPLE_NODES, 'テストチケット');
+  it('normal: generates Markdown table of node details', () => {
+    const result = formatNodeDetailsBlock(SAMPLE_NODES, 'Test Ticket');
     assert.ok(result.includes('設計コンテキスト: ノード詳細'));
     assert.ok(result.includes('N0001'));
     assert.ok(result.includes('architecture'));
     assert.ok(result.includes('rust'));
     assert.ok(result.includes('purpose'));
     assert.ok(result.includes('headingRefs'));
-    assert.ok(result.includes('§1 目的'));
+    assert.ok(result.includes('§1 Purpose'));
   });
 
-  it('正常系: 空ノード配列は空文字列を返す', () => {
-    assert.equal(formatNodeDetailsBlock([], 'テスト'), '');
+  it('normal: empty node array returns empty string', () => {
+    assert.equal(formatNodeDetailsBlock([], 'Test Ticket'), '');
   });
 });
 
@@ -245,7 +245,7 @@ describe('formatNodeDetailsBlock', () => {
 // ============================================================
 
 describe('formatEdgeRelationsBlock', () => {
-  it('正常系: エッジ種別グループ + ★/☆ 区別でMarkdownを生成する', () => {
+  it('normal: generates Markdown with edge type groups and ★/☆ distinction', () => {
     const result = formatEdgeRelationsBlock(SAMPLE_EDGES, SAMPLE_ALL_NODES);
     assert.ok(result.includes('設計コンテキスト: ノード間関係性'));
     assert.ok(result.includes('part_of'));
@@ -257,7 +257,7 @@ describe('formatEdgeRelationsBlock', () => {
     assert.ok(result.includes('N0099'));
   });
 
-  it('正常系: 空エッジ配列は空文字列を返す', () => {
+  it('normal: empty edge array returns empty string', () => {
     assert.equal(formatEdgeRelationsBlock([], SAMPLE_ALL_NODES), '');
   });
 });
@@ -268,8 +268,8 @@ describe('formatEdgeRelationsBlock', () => {
 
 describe('formatFilePathsBlock', () => {
 
-  it('正常系: default_files + 関連ノードファイルパス + 定型案内文を生成する', () => {
-    const ticketInfo = { defaultFiles: ['src/auth/keystore.rs'], title: 'テスト' };
+  it('normal: generates default_files + related node file paths + boilerplate text', () => {
+    const ticketInfo = { defaultFiles: ['src/auth/keystore.rs'], title: 'Test Ticket' };
     const result = formatFilePathsBlock(SAMPLE_NODES, SAMPLE_EDGES, SAMPLE_DIRS_TREE, ticketInfo);
     assert.ok(result.includes('実装ファイルパス'));
     assert.ok(result.includes('default_files'));
@@ -280,16 +280,16 @@ describe('formatFilePathsBlock', () => {
     assert.ok(result.includes('Initial Design Artifact'));
   });
 
-  it('正常系: default_files が空でもエラーにならない', () => {
-    const ticketInfo = { defaultFiles: [], title: 'テスト' };
+  it('normal: handles empty default_files without error', () => {
+    const ticketInfo = { defaultFiles: [], title: 'Test Ticket' };
     const result = formatFilePathsBlock(SAMPLE_NODES, SAMPLE_EDGES, SAMPLE_DIRS_TREE, ticketInfo);
     assert.ok(result.includes('実装ファイルパス'));
     assert.ok(result.includes('関連ノードの実装先'));
     assert.ok(!result.includes('default_files'));
   });
 
-  it('正常系: 定型案内文が常に含まれる', () => {
-    const ticketInfo = { defaultFiles: [], title: 'テスト' };
+  it('normal: boilerplate text is always included', () => {
+    const ticketInfo = { defaultFiles: [], title: 'Test Ticket' };
     const result = formatFilePathsBlock([], [], SAMPLE_DIRS_TREE, ticketInfo);
     assert.ok(result.includes('Initial Design Artifact'));
     assert.ok(result.includes('実装ファイル冒頭コメントの活用'));
@@ -301,7 +301,7 @@ describe('formatFilePathsBlock', () => {
 // ============================================================
 
 describe('combineBlocks', () => {
-  it('正常系: 3ブロックを結合する', () => {
+  it('normal: combines 3 blocks', () => {
     const result = combineBlocks('block1', 'block2', 'block3', 'test.json');
     assert.ok(result.includes('### 設計コンテキスト'));
     assert.ok(result.includes('test.json'));
@@ -310,7 +310,7 @@ describe('combineBlocks', () => {
     assert.ok(result.includes('block3'));
   });
 
-  it('正常系: 空ブロックがあっても結合する', () => {
+  it('normal: combines even with empty blocks', () => {
     const result = combineBlocks('block1', '', '', 'test.json');
     assert.ok(result.includes('block1'));
     assert.equal(result.includes('block2'), false);

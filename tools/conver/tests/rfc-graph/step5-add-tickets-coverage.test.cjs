@@ -1,7 +1,7 @@
 /**
- * step5-add-tickets-coverage.test.cjs — add-tickets-for-phase.js + verify-all-ticket-coverage.js のテスト
+ * step5-add-tickets-coverage.test.cjs — Tests for add-tickets-for-phase.js + verify-all-ticket-coverage.js
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -16,19 +16,19 @@ const { bulkAddTickets } = require('../../.claude/scripts/tickets/bulk-add-ticke
 const { validateTickets } = require('../../.claude/scripts/lib/validate-tickets.js');
 
 // ============================================================
-// テスト用データ
+// Test data helpers
 // ============================================================
 
 const SAMPLE_NODE_IDS = ['N0001', 'N0002', 'N0003'];
 
 function createTestTicketsData(overrides) {
   const data = {
-    title: 'テスト',
+    title: 'Test Project',
     metadata: { source: 'test', generatedAt: '2026-07-10' },
     phases: [
       {
         id: 0,
-        name: 'フェーズ0',
+        name: 'Phase 0',
         nodeIds: SAMPLE_NODE_IDS,
         tickets: [],
       },
@@ -43,18 +43,18 @@ function createTestTicketsData(overrides) {
 function createTestTicketsDataWithTickets() {
   const data = createTestTicketsData();
   data.phases[0].tickets = [
-    { id: 1, phaseId: 0, title: 'チケット1', status: 'todo', nodeIds: ['N0001', 'N0002'] },
-    { id: 2, phaseId: 0, title: 'チケット2', status: 'todo', nodeIds: ['N0003'] },
+    { id: 1, phaseId: 0, title: 'Ticket 1', status: 'todo', nodeIds: ['N0001', 'N0002'] },
+    { id: 2, phaseId: 0, title: 'Ticket 2', status: 'todo', nodeIds: ['N0003'] },
   ];
   return data;
 }
 
 // ============================================================
-// verifyNodeCoverage（add-tickets-for-phase.js）
+// verifyNodeCoverage (from add-tickets-for-phase.js)
 // ============================================================
 
 describe('verifyNodeCoverage', () => {
-  it('全ノードがカバーされていれば valid=true', () => {
+  it('should report valid=true when all nodes are covered', () => {
     const phase = {
       nodeIds: ['N0001', 'N0002', 'N0003'],
       tickets: [
@@ -68,7 +68,7 @@ describe('verifyNodeCoverage', () => {
     assert.equal(result.missingNodeIds.length, 0);
   });
 
-  it('1チケットに複数ノードが束ねられていても valid', () => {
+  it('should be valid when one ticket bundles multiple nodes', () => {
     const phase = {
       nodeIds: ['N0001', 'N0002', 'N0003'],
       tickets: [
@@ -79,7 +79,7 @@ describe('verifyNodeCoverage', () => {
     assert.equal(result.valid, true);
   });
 
-  it('不足ノードがある場合は valid=false + 不足リスト', () => {
+  it('should report valid=false + missing list when nodes are missing', () => {
     const phase = {
       nodeIds: ['N0001', 'N0002', 'N0003', 'N0004'],
       tickets: [
@@ -92,11 +92,11 @@ describe('verifyNodeCoverage', () => {
     assert.deepEqual(result.missingNodeIds, ['N0003', 'N0004']);
   });
 
-  it('nodeIds 未設定のチケットがある場合も検出する', () => {
+  it('should detect tickets without nodeIds', () => {
     const phase = {
       nodeIds: ['N0001'],
       tickets: [
-        { title: 'nodeIdsなしチケット' },
+        { title: 'ticket without nodeIds' },
       ],
     };
     const result = verifyNodeCoverage(phase);
@@ -104,7 +104,7 @@ describe('verifyNodeCoverage', () => {
     assert.equal(result.ticketsWithoutNodeIds, 1);
   });
 
-  it('フェーズ外のノードIDを extraNodeIds として報告する', () => {
+  it('should report nodeIds outside the phase as extraNodeIds', () => {
     const phase = {
       nodeIds: ['N0001'],
       tickets: [
@@ -112,24 +112,24 @@ describe('verifyNodeCoverage', () => {
       ],
     };
     const result = verifyNodeCoverage(phase);
-    assert.equal(result.valid, true); // 不足はない
+    assert.equal(result.valid, true); // no missing nodes
     assert.deepEqual(result.extraNodeIds, ['N9999']);
   });
 });
 
 // ============================================================
-// bulkAddTickets（bulk-add-tickets.js）
+// bulkAddTickets (from bulk-add-tickets.js)
 // ============================================================
 
 describe('bulkAddTickets (nodeIds integration)', () => {
-  it('nodeIds 付きチケットを追加できる', () => {
+  it('should add tickets with nodeIds', () => {
     const data = createTestTicketsData();
     const batch = [
       {
         phaseId: 0,
         tickets: [
-          { title: 'チケット1', nodeIds: ['N0001'] },
-          { title: 'チケット2', nodeIds: ['N0002', 'N0003'] },
+          { title: 'Ticket 1', nodeIds: ['N0001'] },
+          { title: 'Ticket 2', nodeIds: ['N0002', 'N0003'] },
         ],
       },
     ];
@@ -137,20 +137,20 @@ describe('bulkAddTickets (nodeIds integration)', () => {
     assert.equal(result.success, true);
     assert.equal(result.added, 2);
 
-    // チケットが正しく追加され、nodeIds が保持されている
+    // Verify tickets were correctly added and nodeIds are preserved
     const tickets = data.phases[0].tickets;
     assert.equal(tickets.length, 2);
     assert.deepEqual(tickets[0].nodeIds, ['N0001']);
     assert.deepEqual(tickets[1].nodeIds, ['N0002', 'N0003']);
   });
 
-  it('nodeIds なしでも追加できる（互換性）', () => {
+  it('should add tickets without nodeIds (backward compatibility)', () => {
     const data = createTestTicketsData();
     const batch = [
       {
         phaseId: 0,
         tickets: [
-          { title: 'nodeIdsなしチケット' },
+          { title: 'ticket without nodeIds' },
         ],
       },
     ];
@@ -161,11 +161,11 @@ describe('bulkAddTickets (nodeIds integration)', () => {
 });
 
 // ============================================================
-// checkPhase / verifyAllTicketCoverage（verify-all-ticket-coverage.js）
+// checkPhase / verifyAllTicketCoverage (from verify-all-ticket-coverage.js)
 // ============================================================
 
 describe('checkPhase', () => {
-  it('全カバーされたフェーズを valid と判定する', () => {
+  it('should report a fully covered phase as valid', () => {
     const phase = {
       id: 0,
       nodeIds: ['N0001', 'N0002'],
@@ -179,7 +179,7 @@ describe('checkPhase', () => {
     assert.equal(result.ticketCount, 1);
   });
 
-  it('チケットが空のフェーズを invalid と判定する', () => {
+  it('should report an empty-ticket phase as invalid', () => {
     const phase = {
       id: 0,
       nodeIds: ['N0001'],
@@ -190,7 +190,7 @@ describe('checkPhase', () => {
     assert.equal(result.hasTickets, false);
   });
 
-  it('フェーズに nodeIds がない場合は valid と判定する（後方互換性）', () => {
+  it('should report valid for a phase without nodeIds (backward compatibility)', () => {
     const phase = {
       id: 1,
       nodeIds: [],
@@ -200,7 +200,7 @@ describe('checkPhase', () => {
     assert.equal(result.valid, true);
   });
 
-  it('PX フェーズを正しくラベル付けする', () => {
+  it('should label PX phases correctly', () => {
     const phase = {
       id: -1,
       nodeIds: ['N0001'],
@@ -212,7 +212,7 @@ describe('checkPhase', () => {
 });
 
 describe('verifyAllTicketCoverage', () => {
-  it('全フェーズがカバーされていれば valid=true', () => {
+  it('should report valid=true when all phases are covered', () => {
     const data = {
       phases: [
         {
@@ -233,7 +233,7 @@ describe('verifyAllTicketCoverage', () => {
     assert.equal(result.totalTickets, 2);
   });
 
-  it('不完全なフェーズがある場合は valid=false', () => {
+  it('should report valid=false when some phases are incomplete', () => {
     const data = {
       phases: [
         {
@@ -248,7 +248,7 @@ describe('verifyAllTicketCoverage', () => {
     assert.equal(result.failedPhases.length, 1);
   });
 
-  it('空のフェーズリストでもエラーにならない', () => {
+  it('should not error on an empty phases list', () => {
     const data = { phases: [] };
     const result = verifyAllTicketCoverage(data);
     assert.equal(result.valid, true);
@@ -257,7 +257,7 @@ describe('verifyAllTicketCoverage', () => {
 });
 
 describe('formatReport', () => {
-  it('全PASSケースで「✅ PASS」を含む', () => {
+  it('should include "PASS" for all-pass cases', () => {
     const report = {
       valid: true,
       totalPhases: 1,
@@ -271,7 +271,7 @@ describe('formatReport', () => {
     assert.ok(output.includes('✅ PASS'));
   });
 
-  it('FAILケースで「❌ FAIL」を含む', () => {
+  it('should include "FAIL" for failing cases', () => {
     const report = {
       valid: false,
       totalPhases: 1,
@@ -290,13 +290,13 @@ describe('formatReport', () => {
 });
 
 // ============================================================
-// resolveDefaultFiles（add-tickets-for-phase.js）
+// resolveDefaultFiles (from add-tickets-for-phase.js)
 // ============================================================
 
 describe('resolveDefaultFiles', () => {
-  it('全 nodeIds が nodeToDirMap に存在する場合、default_files が正しく設定される', () => {
+  it('should set default_files correctly when all nodeIds exist in nodeToDirMap', () => {
     const tickets = [
-      { title: 'チケット1', nodeIds: ['N0001', 'N0003'] },
+      { title: 'Ticket 1', nodeIds: ['N0001', 'N0003'] },
     ];
     const nodeToDirMap = {
       N0001: 'src/auth/token.rs',
@@ -311,9 +311,9 @@ describe('resolveDefaultFiles', () => {
     assert.equal(tickets[0].default_files[1], 'src/auth/token.rs');
   });
 
-  it('一部の nodeId が nodeToDirMap に存在しない場合、存在するもののみ設定される', () => {
+  it('should set only existing mappings when some nodeIds are missing from nodeToDirMap', () => {
     const tickets = [
-      { title: 'チケットA', nodeIds: ['N0001', 'N9999'] },
+      { title: 'Ticket A', nodeIds: ['N0001', 'N9999'] },
     ];
     const nodeToDirMap = {
       N0001: 'src/auth/token.rs',
@@ -326,9 +326,9 @@ describe('resolveDefaultFiles', () => {
     assert.equal(tickets[0].default_files[0], 'src/auth/token.rs');
   });
 
-  it('nodeIds が空の場合、default_files は設定されない', () => {
+  it('should not set default_files when nodeIds is empty', () => {
     const tickets = [
-      { title: 'チケットB', nodeIds: [] },
+      { title: 'Ticket B', nodeIds: [] },
     ];
     const nodeToDirMap = {};
 
@@ -337,9 +337,9 @@ describe('resolveDefaultFiles', () => {
     assert.equal(tickets[0].default_files, undefined);
   });
 
-  it('重複するファイルパスは排除されソートされる', () => {
+  it('should deduplicate and sort file paths', () => {
     const tickets = [
-      { title: 'チケットC', nodeIds: ['N0001', 'N0002', 'N0003'] },
+      { title: 'Ticket C', nodeIds: ['N0001', 'N0002', 'N0003'] },
     ];
     const nodeToDirMap = {
       N0001: 'src/core/api.rs',
@@ -357,11 +357,11 @@ describe('resolveDefaultFiles', () => {
 });
 
 // ============================================================
-// parseCliArguments（add-tickets-for-phase.js）
+// parseCliArguments (from add-tickets-for-phase.js)
 // ============================================================
 
 describe('parseCliArguments', () => {
-  it('3引数全てが揃っていれば正しくパースする', () => {
+  it('should parse correctly when all 3 arguments are provided', () => {
     const argv = ['node', 'script.js', '/path/to/tickets.json', '/path/to/dirs-tree.json', 'P0'];
     const result = parseCliArguments(argv);
     assert.equal(result.error, null);
@@ -370,21 +370,21 @@ describe('parseCliArguments', () => {
     assert.equal(result.phaseArg, 'P0');
   });
 
-  it('第2引数（ticketsJsonPath）が欠落している場合はエラーを返す', () => {
+  it('should return error when 2nd argument (ticketsJsonPath) is missing', () => {
     const argv = ['node', 'script.js', null, '/path/to/dirs-tree.json', 'P0'];
     const result = parseCliArguments(argv);
     assert.notEqual(result.error, null);
     assert.ok(result.error.includes('Usage'));
   });
 
-  it('第3引数（dirsTreePath）が欠落している場合はエラーを返す', () => {
+  it('should return error when 3rd argument (dirsTreePath) is missing', () => {
     const argv = ['node', 'script.js', '/path/to/tickets.json', undefined, 'P0'];
     const result = parseCliArguments(argv);
     assert.notEqual(result.error, null);
     assert.ok(result.error.includes('Usage'));
   });
 
-  it('第4引数（phaseArg）が欠落している場合はエラーを返す', () => {
+  it('should return error when 4th argument (phaseArg) is missing', () => {
     const argv = ['node', 'script.js', '/path/to/tickets.json', '/path/to/dirs-tree.json'];
     const result = parseCliArguments(argv);
     assert.notEqual(result.error, null);
@@ -393,24 +393,24 @@ describe('parseCliArguments', () => {
 });
 
 // ============================================================
-// スキーマ互換性（default_files を含むチケットの検証通過）
+// Schema compatibility (tickets with default_files pass validation)
 // ============================================================
 
-describe('スキーマ互換性 (default_files)', () => {
-  it('default_files を含むチケットがスキーマ検証を通過する', () => {
+describe('schema compatibility (default_files)', () => {
+  it('should pass schema validation for tickets with default_files', () => {
     const data = {
-      title: 'テスト',
+      title: 'Test Project',
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         {
           id: 0,
-          name: 'フェーズ0',
+          name: 'Phase 0',
           nodeIds: ['N0001'],
           tickets: [
             {
               id: 1,
               phaseId: 0,
-              title: 'default_files 付きチケット',
+              title: 'ticket with default_files',
               status: 'todo',
               nodeIds: ['N0001'],
               default_files: ['src/auth/token.rs', 'src/auth/keystore.rs'],
@@ -423,19 +423,19 @@ describe('スキーマ互換性 (default_files)', () => {
     assert.equal(result.valid, true);
   });
 
-  it('default_files が空配列でもスキーマ検証を通過する', () => {
+  it('should pass schema validation with an empty default_files array', () => {
     const data = {
-      title: 'テスト',
+      title: 'Test Project',
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         {
           id: 0,
-          name: 'フェーズ0',
+          name: 'Phase 0',
           tickets: [
             {
               id: 1,
               phaseId: 0,
-              title: 'default_files 空配列チケット',
+              title: 'ticket with empty default_files array',
               status: 'todo',
               default_files: [],
             },

@@ -1,27 +1,27 @@
 /**
- * merge-omissions-into-root-rfc.js — 機械的補助スクリプト
+ * merge-omissions-into-root-rfc.js — Mechanical helper script
  *
  * Design Contract:
- *   このスクリプトは機械的判断のみを行う。
- *   マージの意味的判断（どの §N をどの既存セクションにマージするか、
- *   セクション内容をどう書き換えるか）は一切行わない。
- *   それらの判断は .md コマンドファイルの指示に従い AI が行う。
+ *   This script performs mechanical judgments only.
+ *   It does NOT perform semantic merge decisions (which section N merges into which
+ *   existing section, or how to rewrite section content).
+ *   Those judgments are made by the AI following the .md command file instructions.
  *
- * [::STUB::] ポリシー: このファイルに不完全実装を残してはならない。
- *   全関数は完全に実装され、export され、テスト可能でなければならない。
+ * [::STUB::] policy: no incomplete implementations may remain in this file.
+ *   All functions must be fully implemented, exported, and testable.
  */
 
 const fs = require("fs");
 const path = require("path");
 
 // ============================================================
-// 公開 API
+// Public API
 // ============================================================
 
 /**
- * 引数を検証する。両ファイルの存在確認と parent-rfc 整合性チェック。
- * @param {string} sourcePath - RFC-OMISSIONS-XXX.md のパス
- * @param {string} targetPath - RFC-ROOT.md のパス
+ * Validate arguments. Check both files exist and parent-rfc consistency.
+ * @param {string} sourcePath - Path to RFC-OMISSIONS-XXX.md
+ * @param {string} targetPath - Path to RFC-ROOT.md
  * @returns {{success:boolean, error?:string}}
  */
 function validateArgs(sourcePath, targetPath) {
@@ -53,9 +53,9 @@ function validateArgs(sourcePath, targetPath) {
 }
 
 /**
- * Markdown ファイルから YAML frontmatter を読み取る。
+ * Read YAML frontmatter from a Markdown file.
  * @param {string} filePath
- * @returns {object|null} frontmatter オブジェクト、なければ null
+ * @returns {object|null} frontmatter object, or null if not found
  */
 function readFrontmatter(filePath) {
   const absPath = path.resolve(filePath);
@@ -69,9 +69,9 @@ function readFrontmatter(filePath) {
 }
 
 /**
- * Markdown ファイルの YAML frontmatter を書き換える（なければ追加）。
+ * Rewrite (or add if missing) YAML frontmatter in a Markdown file.
  * @param {string} filePath
- * @param {object} data - frontmatter として書き込むオブジェクト
+ * @param {object} data - Object to write as frontmatter
  */
 function writeFrontmatter(filePath, data) {
   const absPath = path.resolve(filePath);
@@ -93,12 +93,12 @@ function writeFrontmatter(filePath, data) {
 }
 
 /**
- * ターゲット RFC の frontmatter に merge-history エントリを追記する。
- * 同一 sourcePath のエントリが既に存在する場合はスキップする。
- * @param {string} targetPath - RFC-ROOT.md のパス
- * @param {string} sourcePath - マージ元ファイル名
- * @param {string[]} resolvedIds - 解決された omission ID の配列
- * @param {string} [date] - 日付（YYYY-MM-DD）、省略時は本日
+ * Append a merge-history entry to the target RFC frontmatter.
+ * Skip if an entry for the same sourcePath already exists.
+ * @param {string} targetPath - Path to RFC-ROOT.md
+ * @param {string} sourcePath - Source file name for merge
+ * @param {string[]} resolvedIds - Array of resolved omission IDs
+ * @param {string} [date] - Date string (YYYY-MM-DD), defaults to today
  * @returns {{success:boolean, error?:string, skipped?:boolean}}
  */
 function addMergeHistory(targetPath, sourcePath, resolvedIds, date) {
@@ -131,8 +131,8 @@ function addMergeHistory(targetPath, sourcePath, resolvedIds, date) {
 }
 
 /**
- * RFC-OMISSIONS ファイルから `### §N` セクションを抽出する。
- * @param {string} filePath - RFC-OMISSIONS-XXX.md のパス
+ * Extract ### section N sections from an RFC-OMISSIONS file.
+ * @param {string} filePath - Path to RFC-OMISSIONS-XXX.md
  * @returns {{success:boolean, count?:number, sections?:Array, error?:string}}
  */
 function extractSections(filePath) {
@@ -171,11 +171,11 @@ function extractSections(filePath) {
 }
 
 // ============================================================
-// 内部ヘルパー
+// Internal helpers
 // ============================================================
 
 /**
- * 簡易 YAML パーサー（frontmatter 用、merge-history のネスト構造対応）。
+ * Simple YAML parser (for frontmatter, handles merge-history nested structure).
  */
 function parseSimpleYaml(yamlBlock) {
   const result = {};
@@ -197,7 +197,7 @@ function parseSimpleYaml(yamlBlock) {
         currentKey = keyMatch[1];
         const value = keyMatch[2].trim();
         if (value === "" || value === "|" || value === ">") {
-          // 値は後続行
+          // Value follows on subsequent lines
           result[currentKey] = [];
         } else if (value.startsWith("[") && value.endsWith("]")) {
           result[currentKey] = value
@@ -210,18 +210,18 @@ function parseSimpleYaml(yamlBlock) {
         }
       }
     } else if (indent === 2 && trimmed.startsWith("- ")) {
-      // 配列の文字列要素
+      // Array string element
       const item = trimmed.slice(2).replace(/^["']|["']$/g, "");
       if (currentKey && Array.isArray(result[currentKey])) {
         result[currentKey].push(item);
       }
     } else if (indent === 2 && trimmed === "-") {
-      // 配列のオブジェクト要素（空ハイフン）
+      // Array object element (empty hyphen)
       if (currentKey && Array.isArray(result[currentKey])) {
         result[currentKey].push({});
       }
     } else if (indent === 4) {
-      // オブジェクト配列のプロパティ（例: date/source/resolved）
+      // Object array property (e.g., date/source/resolved)
       const objMatch = trimmed.match(/^([\w-]+):\s*(.*)$/);
       if (objMatch && currentKey && Array.isArray(result[currentKey])) {
         const arr = result[currentKey];
@@ -243,7 +243,7 @@ function parseSimpleYaml(yamlBlock) {
         }
       }
     } else if (indent === 6 && trimmed.startsWith("- ")) {
-      // オブジェクト配列内の配列要素（resolved の値など）
+      // Array element inside object array (e.g., resolved values)
       const item = trimmed.slice(2).replace(/^["']|["']$/g, "");
       if (currentKey && Array.isArray(result[currentKey])) {
         const arr = result[currentKey];
@@ -264,7 +264,7 @@ function parseSimpleYaml(yamlBlock) {
 }
 
 /**
- * オブジェクトを簡易 YAML 文字列に変換する（merge-history のネスト構造対応）。
+ * Convert object to a simple YAML string (handles merge-history nested structure).
  */
 function objectToSimpleYaml(obj) {
   const lines = [];
@@ -307,7 +307,7 @@ function objectToSimpleYaml(obj) {
 }
 
 // ============================================================
-// CLI エントリポイント
+// CLI entry point
 // ============================================================
 
 function main() {

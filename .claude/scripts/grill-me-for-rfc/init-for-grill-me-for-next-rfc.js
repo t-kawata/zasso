@@ -2,20 +2,20 @@
 /**
  * init-for-grill-me-for-next-rfc.js <research-path> <rfc-output-file-path>
  *
- * /grill-me-for-next-rfc-ja 専用の初期化ラッパー。
+ * Dedicated initialization wrapper for /grill-me-for-next-rfc-ja.
  *
- * 以下の順で処理する：
+ * Processes in the following order:
  *
- *   1. 親RFCのパスを OMISSIONS JSON から読み取り、安全確認に使用する
- *   2. 前回セッションのファイルとRFC出力ファイルを grills/<RFC名>/ に退避（mv）
- *   3. init.js を子プロセス実行
+ *   1. Reads the parent RFC path from the OMISSIONS JSON and uses it for safety checks
+ *   2. Evacuates (mv) the previous session files and RFC output file to grills/<RFC name>/
+ *   3. Runs init.js as a child process
  *
- * 【安全機構】退避対象が親RFC（RFC_ROOT.md 等）と同一ファイルの場合は
- * エラー終了する。これにより親RFCが誤って退避される事故を防止する。
+ * [Safety mechanism] If the evacuation target is the same file as the parent RFC (RFC_ROOT.md etc.),
+ * exits with an error. This prevents the parent RFC from being accidentally evacuated.
  *
- * 【出力】
- *   退避あり: {"evacuated":true,"dir":"<grillsディレクトリの絶対パス>"}
- *   退避なし: {"evacuated":false,"dir":null}
+ * [Output]
+ *   With evacuation: {"evacuated":true,"dir":"<absolute path to grills directory>"}
+ *   Without evacuation: {"evacuated":false,"dir":null}
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -27,7 +27,7 @@ const cwd = process.cwd();
 const researchPath = process.argv[2];
 const rfcOutputPath = process.argv[3];
 
-// --- 安全機構: 親RFCのパスを取得 ---
+// --- Safety mechanism: get parent RFC path ---
 let parentRfcPath = null;
 try {
   const omPath = path.resolve(researchPath);
@@ -38,10 +38,10 @@ try {
       : null;
   }
 } catch {
-  // OMISSIONS JSON が読めなくても処理は続行（安全確認が一部制限されるのみ）
+  // Continue even if OMISSIONS JSON is unreadable (only partial safety check limitation)
 }
 
-// --- 退避対象リスト ---
+// --- Evacuation target list ---
 const rfcBasename = path.basename(path.resolve(rfcOutputPath), ".md");
 const resolvedRfcPath = path.resolve(rfcOutputPath);
 const targetFiles = [
@@ -51,7 +51,7 @@ const targetFiles = [
   path.basename(resolvedRfcPath),
 ];
 
-// --- 安全機構: 親RFCの退避を防止 ---
+// --- Safety mechanism: prevent evacuation of parent RFC ---
 if (
   parentRfcPath &&
   resolvedRfcPath === parentRfcPath
@@ -63,7 +63,7 @@ if (
   process.exit(1);
 }
 
-// --- 退避実行 ---
+// --- Execute evacuation ---
 let grillDir = null;
 const hasOldFiles = targetFiles.some((f) =>
   fs.existsSync(path.join(cwd, f)),
@@ -80,17 +80,17 @@ if (hasOldFiles) {
   }
 }
 
-// --- init.js 実行 ---
+// --- Run init.js ---
 const initScript = path.join(__dirname, "init.js");
 const result = spawnSync(
   "node",
   [initScript, researchPath, rfcOutputPath],
-  // init.js の stdout は抑制（ノイズ）、stderr は継承（エラー可視化）
+  // Suppress init.js stdout (noise), inherit stderr (error visibility)
   { stdio: ["inherit", "pipe", "inherit"], encoding: "utf-8" },
 );
 if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-// --- 退避結果出力 ---
+// --- Output evacuation result ---
 console.log(JSON.stringify({ evacuated: hasOldFiles, dir: grillDir }));

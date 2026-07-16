@@ -1,10 +1,10 @@
 /**
- * phasify-schema-compat.test.cjs — tickets-schema.json 互換性テスト
+ * phasify-schema-compat.test.cjs — tickets-schema.json compatibility test
  *
- * phase.nodeIds 追加が既存の Tickets.json や CRUD スクリプトに
- * 影響を与えないことを確認する。
+ * Verifies that adding phase.nodeIds does not affect existing Tickets.json
+ * or CRUD scripts.
  *
- * テストフレームワーク: Node.js 標準の node:test + node:assert/strict
+ * Test framework: Node.js standard node:test + node:assert/strict
  */
 
 const { describe, it } = require('node:test');
@@ -16,7 +16,7 @@ const SCHEMA_PATH = path.resolve(__dirname, '../../.claude/scripts/tickets/ticke
 const TICKETS_JSON_PATH = path.resolve(__dirname, '../../Tickets.json');
 
 // ============================================================
-// スキーマファイルの存在と構造
+// Schema file existence and structure
 // ============================================================
 
 describe('tickets-schema.json compatibility', () => {
@@ -31,7 +31,7 @@ describe('tickets-schema.json compatibility', () => {
     const content = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const schema = JSON.parse(content);
     const phaseProps = schema.definitions.phase.properties;
-    assert.ok(phaseProps.nodeIds, 'nodeIds プロパティが存在すること');
+    assert.ok(phaseProps.nodeIds, 'nodeIds property should exist');
     assert.strictEqual(phaseProps.nodeIds.type, 'array');
     assert.strictEqual(phaseProps.nodeIds.items.type, 'string');
   });
@@ -40,21 +40,21 @@ describe('tickets-schema.json compatibility', () => {
     const content = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const schema = JSON.parse(content);
     const phaseRequired = schema.definitions.phase.required;
-    assert.ok(!phaseRequired.includes('nodeIds'), 'nodeIds は required に含まれないこと');
-    assert.ok(phaseRequired.includes('id'), '既存の required フィールドは維持されること');
+    assert.ok(!phaseRequired.includes('nodeIds'), 'nodeIds should not be in required');
+    assert.ok(phaseRequired.includes('id'), 'existing required fields should be preserved');
     assert.ok(phaseRequired.includes('name'));
     assert.ok(phaseRequired.includes('tickets'));
   });
 
   it('should validate existing Tickets.json without nodeIds', () => {
-    // 既存の Tickets.json は nodeIds なしでも読み込めることを確認
+    // Verify existing Tickets.json loads without nodeIds
     const content = fs.readFileSync(TICKETS_JSON_PATH, 'utf8');
     const tickets = JSON.parse(content);
     assert.ok(tickets);
     assert.ok(Array.isArray(tickets.phases));
-    // nodeIds がなくてもエラーにならない
+    // Should not error even without nodeIds
     for (const phase of tickets.phases) {
-      // nodeIds が undefined でもスキーマ検証を通るはず
+      // Schema validation should pass even if nodeIds is undefined
       assert.ok(phase.id !== undefined);
       assert.ok(phase.name);
       assert.ok(Array.isArray(phase.tickets));
@@ -64,10 +64,10 @@ describe('tickets-schema.json compatibility', () => {
   it('should validate Tickets.json with nodeIds added', () => {
     const content = fs.readFileSync(TICKETS_JSON_PATH, 'utf8');
     const tickets = JSON.parse(content);
-    // いくつかのフェーズに nodeIds を追加しても検証を通る
+    // Validation should still pass when nodeIds are added to some phases
     if (tickets.phases.length > 0) {
       tickets.phases[0].nodeIds = ['N0001', 'N0002', 'N0003'];
-      // JSON として有効
+      // Should remain valid JSON
       const serialized = JSON.stringify(tickets);
       const parsed = JSON.parse(serialized);
       assert.ok(Array.isArray(parsed.phases[0].nodeIds));
@@ -79,7 +79,7 @@ describe('tickets-schema.json compatibility', () => {
     const content = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const schema = JSON.parse(content);
     const phaseProps = schema.definitions.phase.properties;
-    assert.ok(phaseProps.summary, 'summary プロパティが存在すること');
+    assert.ok(phaseProps.summary, 'summary property should exist');
     assert.strictEqual(phaseProps.summary.type, 'string');
   });
 
@@ -87,17 +87,17 @@ describe('tickets-schema.json compatibility', () => {
     const content = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const schema = JSON.parse(content);
     const phaseRequired = schema.definitions.phase.required;
-    assert.ok(!phaseRequired.includes('summary'), 'summary は required に含まれないこと');
+    assert.ok(!phaseRequired.includes('summary'), 'summary should not be in required');
   });
 
   it('should validate Tickets.json with summary added', () => {
     const content = fs.readFileSync(TICKETS_JSON_PATH, 'utf8');
     const tickets = JSON.parse(content);
     if (tickets.phases.length > 0) {
-      tickets.phases[0].summary = 'テストサマリー';
+      tickets.phases[0].summary = 'test summary';
       const serialized = JSON.stringify(tickets);
       const parsed = JSON.parse(serialized);
-      assert.strictEqual(parsed.phases[0].summary, 'テストサマリー');
+      assert.strictEqual(parsed.phases[0].summary, 'test summary');
     }
   });
 
@@ -112,14 +112,14 @@ describe('tickets-schema.json compatibility', () => {
       ],
     };
     const result = mod.validateTickets(sample);
-    assert.ok(result.valid, 'summary ありでも検証を通すこと: ' + JSON.stringify(result.errors));
+    assert.ok(result.valid, 'should pass validation with summary: ' + JSON.stringify(result.errors));
   });
 
   it('should maintain existing phase field types', () => {
     const content = fs.readFileSync(SCHEMA_PATH, 'utf8');
     const schema = JSON.parse(content);
     const phaseProps = schema.definitions.phase.properties;
-    // 既存フィールドの型が変わっていないことを確認
+    // Verify existing field types have not changed
     assert.strictEqual(phaseProps.id.type, 'integer');
     assert.strictEqual(phaseProps.name.type, 'string');
     assert.strictEqual(phaseProps.tickets.type, 'array');
@@ -129,11 +129,11 @@ describe('tickets-schema.json compatibility', () => {
 
   it('should be loadable by validate-tickets.js', () => {
     const validatePath = path.resolve(__dirname, '../../.claude/scripts/lib/validate-tickets.js');
-    assert.ok(fs.existsSync(validatePath), 'validate-tickets.js が存在すること');
+    assert.ok(fs.existsSync(validatePath), 'validate-tickets.js should exist');
     const mod = require(validatePath);
     assert.ok(typeof mod.validateTickets === 'function');
 
-    // nodeIds なしの Tickets.json で検証を通す
+    // Should pass validation for Tickets.json without nodeIds
     const sample = {
       title: 'test',
       metadata: { source: 'test', generatedAt: '2026-07-10' },
@@ -143,14 +143,14 @@ describe('tickets-schema.json compatibility', () => {
       ],
     };
     const result = mod.validateTickets(sample);
-    assert.ok(result.valid, 'nodeIds なしでも検証を通すこと: ' + JSON.stringify(result.errors));
+    assert.ok(result.valid, 'should pass validation without nodeIds: ' + JSON.stringify(result.errors));
   });
 
   it('should be loadable by validate-tickets.js with nodeIds', () => {
     const validatePath = path.resolve(__dirname, '../../.claude/scripts/lib/validate-tickets.js');
     const mod = require(validatePath);
 
-    // nodeIds ありの Tickets.json で検証を通す
+    // Should pass validation for Tickets.json with nodeIds
     const sample = {
       title: 'test',
       metadata: { source: 'test', generatedAt: '2026-07-10' },
@@ -159,6 +159,6 @@ describe('tickets-schema.json compatibility', () => {
       ],
     };
     const result = mod.validateTickets(sample);
-    assert.ok(result.valid, 'nodeIds ありでも検証を通すこと: ' + JSON.stringify(result.errors));
+    assert.ok(result.valid, 'should pass validation with nodeIds: ' + JSON.stringify(result.errors));
   });
 });
