@@ -1,0 +1,1463 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-07-16T07:16:28.435Z",
+  "sourceGraph": "/Users/shyme/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "sourceFile": "RFC-ROOT.md",
+  "analysis": {
+    "nodeCount": 91,
+    "edgeCount": 140,
+    "kindCounts": {
+      "architecture": 17,
+      "requirement": 7,
+      "rationale": 8,
+      "glossary": 1,
+      "api_contract": 13,
+      "data_model": 8,
+      "config": 11,
+      "error_policy": 7,
+      "state_machine": 8,
+      "build_ci": 5,
+      "security": 3,
+      "test_policy": 3
+    },
+    "edgeTypeCounts": {
+      "depends_on": 28,
+      "references": 20,
+      "part_of": 31,
+      "refines": 9,
+      "implements": 18,
+      "extends": 21,
+      "triggers": 1,
+      "constrains": 2,
+      "validates": 2,
+      "precedes": 8
+    },
+    "circularDependencies": [
+      {
+        "cycle": [
+          "model",
+          "config",
+          "state",
+          "api"
+        ],
+        "language": "rust",
+        "message": "Circular dependency detected: model → config → state → api (rust)\nThis may be a design-level issue. Follow these steps to resolve:\n\n  1. Examine each edge type (depends_on, refines, etc.) in the cycle to determine whether the semantics truly require bidirectional dependency\n\n  2. If genuine bidirectional dependency is necessary (e.g. mutually referencing state machines), you may accept it as a design choice.\n     In that case, the warning can remain recorded as a known constraint and proceed to the next step\n\n  3. For edges that can be made unidirectional, fix them with crud.js:\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" delete-edges --file=_remove.json\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" create-edges --file=_add.json\n\n  4. If the cycle is a design error, check the source RFC to identify the correct dependency direction and fix edge definitions directly with crud.js\n\n  5. After fixing, re-run this script to confirm the cycle is resolved, then run verify-graph-integrity.js for regression checks\n\nNote: Avoid deleting or reversing edges without considering their semantics, as this degrades graph quality. Always confirm the meaning of each edge before modifying"
+      }
+    ]
+  },
+  "trees": {
+    "rust": {
+      "name": "src",
+      "type": "directory",
+      "kind": "root",
+      "children": [
+        {
+          "name": "module_structure",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0009",
+              "title": "§6 Module Structure and Crate Layout"
+            }
+          ],
+          "children": [
+            {
+              "name": "id_design.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0016",
+                  "title": "§9 ID Design — Newtype Identifiers"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "runtime_internal_state.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0061",
+                  "title": "§33 Runtime Internal State"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            }
+          ]
+        },
+        {
+          "name": "concurrency_model",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0011",
+              "title": "§7 Concurrency Model and Execution Contexts"
+            }
+          ],
+          "children": [
+            {
+              "name": "audio_mixer_architecture",
+              "type": "directory",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0045",
+                  "title": "§24 AudioMixer Design — Real-time Architecture"
+                }
+              ],
+              "children": [
+                {
+                  "name": "source_lifecycle.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0047",
+                      "title": "§24.4-24.5 Source Lifecycle and Slab Optimization"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                }
+              ]
+            },
+            {
+              "name": "api",
+              "type": "directory",
+              "kind": "api_contract",
+              "children": [
+                {
+                  "name": "command_serialization.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0014",
+                      "title": "§7.2 Command Serialization via RuntimeCommand"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "event_model",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0026",
+              "title": "§15 Event Model Architecture"
+            }
+          ],
+          "children": [
+            {
+              "name": "model",
+              "type": "directory",
+              "kind": "data_model",
+              "children": [
+                {
+                  "name": "event_payload.rs",
+                  "type": "file",
+                  "kind": "data_model",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0027",
+                      "title": "§15.1 SipEventPayload Enum"
+                    }
+                  ],
+                  "declarationStub": "pub struct Model {}"
+                },
+                {
+                  "name": "event_and_metadata.rs",
+                  "type": "file",
+                  "kind": "data_model",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0028",
+                      "title": "§15.2-15.3 SipEvent and EventMeta"
+                    }
+                  ],
+                  "declarationStub": "pub struct Model {}"
+                }
+              ]
+            },
+            {
+              "name": "api",
+              "type": "directory",
+              "kind": "api_contract",
+              "children": [
+                {
+                  "name": "event_bus.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0029",
+                      "title": "§15.4 EventBus Implementation"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "http_api_crate_split",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0082",
+              "title": "§52 HTTP/WebSocket API Layer and Crate Split"
+            }
+          ],
+          "children": [
+            {
+              "name": "api",
+              "type": "directory",
+              "kind": "api_contract",
+              "children": [
+                {
+                  "name": "standalone_server.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0083",
+                      "title": "§53 Standalone Server Mode"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                },
+                {
+                  "name": "http_ws_protocol.rs",
+                  "type": "file",
+                  "kind": "api_contract",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0084",
+                      "title": "§54 HTTP/WebSocket API Protocol Design"
+                    }
+                  ],
+                  "declarationStub": "pub trait Service {}"
+                }
+              ]
+            },
+            {
+              "name": "model",
+              "type": "directory",
+              "kind": "data_model",
+              "children": [
+                {
+                  "name": "persistence.rs",
+                  "type": "file",
+                  "kind": "data_model",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0087",
+                      "title": "§56 Persistence — SQLite + SeaORM"
+                    }
+                  ],
+                  "declarationStub": "pub struct Model {}"
+                }
+              ]
+            },
+            {
+              "name": "security",
+              "type": "directory",
+              "kind": "security",
+              "children": [
+                {
+                  "name": "sip_networking.rs",
+                  "type": "file",
+                  "kind": "security",
+                  "mappedNodeIds": [
+                    {
+                      "nodeId": "N0090",
+                      "title": "§59 SIP Networking Details"
+                    }
+                  ],
+                  "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "api",
+          "type": "directory",
+          "kind": "api_contract",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0007",
+              "title": "§4.1 Versioning Policy"
+            },
+            {
+              "nodeId": "N0015",
+              "title": "§8 Public API Design"
+            },
+            {
+              "nodeId": "N0030",
+              "title": "§15.5 AccountEventReceiver"
+            },
+            {
+              "nodeId": "N0038",
+              "title": "§19 Call API Details and Answer Semantics"
+            },
+            {
+              "nodeId": "N0039",
+              "title": "§20 DTMF Specification"
+            },
+            {
+              "nodeId": "N0042",
+              "title": "§22 Audio Subscribe API and Backpressure Policy"
+            },
+            {
+              "nodeId": "N0044",
+              "title": "§23 AsyncAudioSource Trait Specification"
+            },
+            {
+              "nodeId": "N0067",
+              "title": "§38 REFER/Transfer Specification"
+            }
+          ],
+          "children": [
+            {
+              "name": "versioning_policy.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0007",
+                  "title": "§4.1 Versioning Policy"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "public_api_design.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0015",
+                  "title": "§8 Public API Design"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "account_event_receiver.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0030",
+                  "title": "§15.5 AccountEventReceiver"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "call_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0038",
+                  "title": "§19 Call API Details and Answer Semantics"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "dtmf_spec.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0039",
+                  "title": "§20 DTMF Specification"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "audio_subscribe_api.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0042",
+                  "title": "§22 Audio Subscribe API and Backpressure Policy"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "async_audio_source.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0044",
+                  "title": "§23 AsyncAudioSource Trait Specification"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "refer_transfer.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0067",
+                  "title": "§38 REFER/Transfer Specification"
+                }
+              ],
+              "declarationStub": "pub trait Service {}"
+            }
+          ]
+        },
+        {
+          "name": "config",
+          "type": "directory",
+          "kind": "config",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0017",
+              "title": "§10 ClientConfig Complete Specification"
+            },
+            {
+              "nodeId": "N0018",
+              "title": "§10.1 Default Configuration Values"
+            },
+            {
+              "nodeId": "N0019",
+              "title": "§11 AccountConfig Complete Specification"
+            },
+            {
+              "nodeId": "N0021",
+              "title": "§12 TransportConfig Complete Specification"
+            },
+            {
+              "nodeId": "N0022",
+              "title": "§13 ICE/STUN/TURN Complete Specification"
+            },
+            {
+              "nodeId": "N0054",
+              "title": "§29 Codec Policy Enforcement"
+            },
+            {
+              "nodeId": "N0056",
+              "title": "§29 M20 Explicit Codec and Auto Mode Policy"
+            },
+            {
+              "nodeId": "N0057",
+              "title": "§30 SRTP Specification"
+            },
+            {
+              "nodeId": "N0063",
+              "title": "§34 Observability — Tracing, Metrics, Capabilities"
+            },
+            {
+              "nodeId": "N0069",
+              "title": "§40 Audio Device Policy"
+            },
+            {
+              "nodeId": "N0078",
+              "title": "§48 Default Policies Codification"
+            }
+          ],
+          "children": [
+            {
+              "name": "client_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0017",
+                  "title": "§10 ClientConfig Complete Specification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "config_defaults.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0018",
+                  "title": "§10.1 Default Configuration Values"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "account_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0019",
+                  "title": "§11 AccountConfig Complete Specification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "transport_config.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0021",
+                  "title": "§12 TransportConfig Complete Specification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "ice_stun_turn.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0022",
+                  "title": "§13 ICE/STUN/TURN Complete Specification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "codec_policy.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0054",
+                  "title": "§29 Codec Policy Enforcement"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "codec_auto_mode.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0056",
+                  "title": "§29 M20 Explicit Codec and Auto Mode Policy"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "srtp_spec.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0057",
+                  "title": "§30 SRTP Specification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "observability.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0063",
+                  "title": "§34 Observability — Tracing, Metrics, Capabilities"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "audio_device_policy.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0069",
+                  "title": "§40 Audio Device Policy"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "default_policies.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0078",
+                  "title": "§48 Default Policies Codification"
+                }
+              ],
+              "declarationStub": "pub struct Config {}"
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "type": "directory",
+          "kind": "error_policy",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0023",
+              "title": "§14 Error Design — SipError and SipErrorKind"
+            },
+            {
+              "nodeId": "N0024",
+              "title": "§14.1 Error Conversion Policy"
+            },
+            {
+              "nodeId": "N0025",
+              "title": "§14 M20 New RuntimeCommand Error Design"
+            },
+            {
+              "nodeId": "N0040",
+              "title": "§20 M20 DtmfSentInfo and DtmfSent Firing Design"
+            },
+            {
+              "nodeId": "N0055",
+              "title": "§29.1-29.2 Codec Fallback and Negotiation"
+            },
+            {
+              "nodeId": "N0060",
+              "title": "§32 M20 Shutdown Command Dispatch Rules"
+            },
+            {
+              "nodeId": "N0076",
+              "title": "§46 Panic Policy"
+            }
+          ],
+          "children": [
+            {
+              "name": "error_design.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0023",
+                  "title": "§14 Error Design — SipError and SipErrorKind"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "error_conversion.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0024",
+                  "title": "§14.1 Error Conversion Policy"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "runtime_command_errors.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0025",
+                  "title": "§14 M20 New RuntimeCommand Error Design"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "dtmf_sent_design.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0040",
+                  "title": "§20 M20 DtmfSentInfo and DtmfSent Firing Design"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "codec_fallback.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0055",
+                  "title": "§29.1-29.2 Codec Fallback and Negotiation"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "shutdown_command_dispatch.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0060",
+                  "title": "§32 M20 Shutdown Command Dispatch Rules"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "panic_policy.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0076",
+                  "title": "§46 Panic Policy"
+                }
+              ],
+              "declarationStub": "pub enum Error {}"
+            }
+          ]
+        },
+        {
+          "name": "state",
+          "type": "directory",
+          "kind": "state_machine",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0032",
+              "title": "§15 M20 NativeEvent to SipEventPayload Mapping"
+            },
+            {
+              "nodeId": "N0033",
+              "title": "§15 M20 CallStateChanged pjsip_inv_state Mapping"
+            },
+            {
+              "nodeId": "N0034",
+              "title": "§15 M20 CallMediaStateChanged and RegistrationStateChanged"
+            },
+            {
+              "nodeId": "N0036",
+              "title": "§17 Registration State Model"
+            },
+            {
+              "nodeId": "N0037",
+              "title": "§18 Call State Model"
+            },
+            {
+              "nodeId": "N0058",
+              "title": "§31 Transport Reconnect Policy"
+            },
+            {
+              "nodeId": "N0059",
+              "title": "§32 Shutdown Specification"
+            },
+            {
+              "nodeId": "N0066",
+              "title": "§37 Incoming Call Handling"
+            }
+          ],
+          "children": [
+            {
+              "name": "native_event_mapping.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0032",
+                  "title": "§15 M20 NativeEvent to SipEventPayload Mapping"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "call_state_mapping.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0033",
+                  "title": "§15 M20 CallStateChanged pjsip_inv_state Mapping"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "media_reg_mapping.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0034",
+                  "title": "§15 M20 CallMediaStateChanged and RegistrationStateChanged"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "registration_state_model.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0036",
+                  "title": "§17 Registration State Model"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "call_state_model.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0037",
+                  "title": "§18 Call State Model"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "transport_reconnect.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0058",
+                  "title": "§31 Transport Reconnect Policy"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "shutdown_spec.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0059",
+                  "title": "§32 Shutdown Specification"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "incoming_call.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0066",
+                  "title": "§37 Incoming Call Handling"
+                }
+              ],
+              "declarationStub": "pub enum State {}"
+            }
+          ]
+        },
+        {
+          "name": "model",
+          "type": "directory",
+          "kind": "data_model",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0035",
+              "title": "§16 Raw SIP Message Specification"
+            },
+            {
+              "nodeId": "N0041",
+              "title": "§21 Audio Format Model and AudioChunkPair"
+            },
+            {
+              "nodeId": "N0077",
+              "title": "§47 Memory Ownership Rules"
+            }
+          ],
+          "children": [
+            {
+              "name": "raw_sip_message.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0035",
+                  "title": "§16 Raw SIP Message Specification"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "audio_format_model.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0041",
+                  "title": "§21 Audio Format Model and AudioChunkPair"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "memory_ownership.rs",
+              "type": "file",
+              "kind": "data_model",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0077",
+                  "title": "§47 Memory Ownership Rules"
+                }
+              ],
+              "declarationStub": "pub struct Model {}"
+            }
+          ]
+        },
+        {
+          "name": "build",
+          "type": "directory",
+          "kind": "build_ci",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0053",
+              "title": "§28 Build Script Strategy"
+            },
+            {
+              "nodeId": "N0065",
+              "title": "§36 Platform Differences"
+            },
+            {
+              "nodeId": "N0074",
+              "title": "§44 CI/CD Requirements"
+            },
+            {
+              "nodeId": "N0079",
+              "title": "§49 lib.rs Template"
+            },
+            {
+              "nodeId": "N0089",
+              "title": "§58 Semantic Versioning Operational Policy"
+            }
+          ],
+          "children": [
+            {
+              "name": "build_script.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0053",
+                  "title": "§28 Build Script Strategy"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "platform_differences.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0065",
+                  "title": "§36 Platform Differences"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "ci_cd_requirements.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0074",
+                  "title": "§44 CI/CD Requirements"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "lib_rs_template.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0079",
+                  "title": "§49 lib.rs Template"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "semver_policy.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0089",
+                  "title": "§58 Semantic Versioning Operational Policy"
+                }
+              ],
+              "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            }
+          ]
+        },
+        {
+          "name": "security",
+          "type": "directory",
+          "kind": "security",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0064",
+              "title": "§35 Security Requirements"
+            },
+            {
+              "nodeId": "N0086",
+              "title": "§55 Authentication and Authorization Model"
+            }
+          ],
+          "children": [
+            {
+              "name": "security.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0064",
+                  "title": "§35 Security Requirements"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            },
+            {
+              "name": "auth_model.rs",
+              "type": "file",
+              "kind": "security",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0086",
+                  "title": "§55 Authentication and Authorization Model"
+                }
+              ],
+              "declarationStub": "pub fn authorize() {\n\t// TODO: implement authorization\n}"
+            }
+          ]
+        },
+        {
+          "name": "tests",
+          "type": "directory",
+          "kind": "test_policy",
+          "mappedNodeIds": [
+            {
+              "nodeId": "N0072",
+              "title": "§43 Test Strategy — Four-Layer Model"
+            },
+            {
+              "nodeId": "N0073",
+              "title": "§43 M20 New Feature Test Layer Mapping"
+            },
+            {
+              "nodeId": "N0088",
+              "title": "§57 Test Strategy Extension — Layer 5 API Tests"
+            }
+          ],
+          "children": [
+            {
+              "name": "test_strategy.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0072",
+                  "title": "§43 Test Strategy — Four-Layer Model"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "m20_test_mapping.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0073",
+                  "title": "§43 M20 New Feature Test Layer Mapping"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "test_layer5.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0088",
+                  "title": "§57 Test Strategy Extension — Layer 5 API Tests"
+                }
+              ],
+              "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            }
+          ]
+        }
+      ],
+      "crossReferences": [
+        {
+          "nodeId": "N0002",
+          "kind": "requirement",
+          "title": "§1a M20 Implementation Priority Map",
+          "connections": []
+        },
+        {
+          "nodeId": "N0003",
+          "kind": "rationale",
+          "title": "§1a Design Decision Mapping Table",
+          "connections": []
+        },
+        {
+          "nodeId": "N0005",
+          "kind": "glossary",
+          "title": "§3 Glossary",
+          "connections": []
+        },
+        {
+          "nodeId": "N0006",
+          "kind": "requirement",
+          "title": "§4 Compliance Requirements and MSRV",
+          "connections": [
+            {
+              "toNodeId": "N0007",
+              "toFile": "src/api/versioning_policy.rs",
+              "edgeType": "refines",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0007",
+              "toFile": "src/api/versioning_policy.rs",
+              "edgeType": "part_of",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0053",
+              "toFile": "src/build/build_script.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0008",
+          "kind": "requirement",
+          "title": "§5 Functional Requirements",
+          "connections": [
+            {
+              "toNodeId": "N0015",
+              "toFile": "src/api/public_api_design.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0017",
+              "toFile": "src/config/client_config.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0019",
+              "toFile": "src/config/account_config.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0023",
+              "toFile": "src/error/error_design.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0036",
+              "toFile": "src/state/registration_state_model.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0037",
+              "toFile": "src/state/call_state_model.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0039",
+              "toFile": "src/api/dtmf_spec.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0041",
+              "toFile": "src/model/audio_format_model.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0042",
+              "toFile": "src/api/audio_subscribe_api.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0044",
+              "toFile": "src/api/async_audio_source.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0054",
+              "toFile": "src/config/codec_policy.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0057",
+              "toFile": "src/config/srtp_spec.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0059",
+              "toFile": "src/state/shutdown_spec.rs",
+              "edgeType": "implements",
+              "direction": "←"
+            },
+            {
+              "toNodeId": "N0072",
+              "toFile": "src/tests/test_strategy.rs",
+              "edgeType": "validates",
+              "direction": "←"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0010",
+          "kind": "rationale",
+          "title": "§6.1 Crate Responsibility Split Design Decision",
+          "connections": []
+        },
+        {
+          "nodeId": "N0013",
+          "kind": "rationale",
+          "title": "§7.1a Single Reactor Scalability Note",
+          "connections": []
+        },
+        {
+          "nodeId": "N0020",
+          "kind": "requirement",
+          "title": "§11.1 Validation Rules for AccountConfig",
+          "connections": [
+            {
+              "toNodeId": "N0019",
+              "toFile": "src/config/account_config.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0031",
+          "kind": "rationale",
+          "title": "§15.6-15.7 Event Bus Design Decisions",
+          "connections": [
+            {
+              "toNodeId": "N0029",
+              "toFile": "src/event_model/api/event_bus.rs",
+              "edgeType": "references",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0029",
+              "toFile": "src/event_model/api/event_bus.rs",
+              "edgeType": "precedes",
+              "direction": "←"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0062",
+          "kind": "requirement",
+          "title": "§33 M20 Lock Acquisition Rules and ConfPort Management",
+          "connections": [
+            {
+              "toNodeId": "N0061",
+              "toFile": "src/module_structure/runtime_internal_state.rs",
+              "edgeType": "extends",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0034",
+              "toFile": "src/state/media_reg_mapping.rs",
+              "edgeType": "references",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0070",
+          "kind": "rationale",
+          "title": "§41 Usage Examples",
+          "connections": [
+            {
+              "toNodeId": "N0015",
+              "toFile": "src/api/public_api_design.rs",
+              "edgeType": "references",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0071",
+          "kind": "requirement",
+          "title": "§42 Validation Phase",
+          "connections": [
+            {
+              "toNodeId": "N0017",
+              "toFile": "src/config/client_config.rs",
+              "edgeType": "constrains",
+              "direction": "→"
+            },
+            {
+              "toNodeId": "N0019",
+              "toFile": "src/config/account_config.rs",
+              "edgeType": "constrains",
+              "direction": "→"
+            }
+          ]
+        },
+        {
+          "nodeId": "N0075",
+          "kind": "rationale",
+          "title": "§45 Known Implementation Challenges",
+          "connections": []
+        },
+        {
+          "nodeId": "N0080",
+          "kind": "requirement",
+          "title": "§50 Acceptance Criteria",
+          "connections": []
+        },
+        {
+          "nodeId": "N0081",
+          "kind": "rationale",
+          "title": "§51 Conclusion",
+          "connections": []
+        },
+        {
+          "nodeId": "N0085",
+          "kind": "rationale",
+          "title": "§54.5 Event-Audio Temporal Correlation",
+          "connections": [
+            {
+              "toNodeId": "N0084",
+              "toFile": "src/http_api_crate_split/api/http_ws_protocol.rs",
+              "edgeType": "part_of",
+              "direction": "→"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "dependencyDirections": {
+    "rust": [
+      {
+        "from": "src/concurrency_model/api",
+        "to": "src/state",
+        "rule": "api → state (N0038->N0037 (depends_on))"
+      },
+      {
+        "from": "src/error",
+        "to": "src/concurrency_model/api",
+        "rule": "error → api (N0040->N0039 (extends))"
+      },
+      {
+        "from": "src/concurrency_model/api",
+        "to": "src/event_model/model",
+        "rule": "api → model (N0042->N0041 (depends_on))"
+      },
+      {
+        "from": "src/state",
+        "to": "src/config",
+        "rule": "state → config (N0058->N0021 (depends_on))"
+      },
+      {
+        "from": "src/state",
+        "to": "src/concurrency_model/api",
+        "rule": "state → api (N0059->N0014 (depends_on))"
+      },
+      {
+        "from": "src/error",
+        "to": "src/state",
+        "rule": "error → state (N0060->N0059 (extends))"
+      },
+      {
+        "from": "src/event_model/model",
+        "to": "src/concurrency_model/api",
+        "rule": "model → api (N0061->N0015 (depends_on))"
+      },
+      {
+        "from": "src/http_api_crate_split/security",
+        "to": "src/error",
+        "rule": "security → error (N0064->N0023 (depends_on))"
+      },
+      {
+        "from": "src/concurrency_model/api",
+        "to": "src/state",
+        "rule": "api → state (N0067->N0037 (extends))"
+      },
+      {
+        "from": "src/config",
+        "to": "src/concurrency_model/api",
+        "rule": "config → api (N0069->N0044 (references))"
+      },
+      {
+        "from": "src/build",
+        "to": "src/tests",
+        "rule": "build → tests (N0074->N0072 (references))"
+      },
+      {
+        "from": "src/http_api_crate_split/security",
+        "to": "src/concurrency_model/api",
+        "rule": "security → api (N0086->N0084 (extends))"
+      },
+      {
+        "from": "src/error",
+        "to": "src/concurrency_model/api",
+        "rule": "error → api (N0023->N0015 (depends_on))"
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "cycle": [
+        "model",
+        "config",
+        "state",
+        "api"
+      ],
+      "language": "rust",
+      "message": "Circular dependency detected: model → config → state → api (rust)\nThis may be a design-level issue. Follow these steps to resolve:\n\n  1. Examine each edge type (depends_on, refines, etc.) in the cycle to determine whether the semantics truly require bidirectional dependency\n\n  2. If genuine bidirectional dependency is necessary (e.g. mutually referencing state machines), you may accept it as a design choice.\n     In that case, the warning can remain recorded as a known constraint and proceed to the next step\n\n  3. For edges that can be made unidirectional, fix them with crud.js:\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" delete-edges --file=_remove.json\n     node .claude/scripts/rfc-graph/crud.js --graph=\"<graphPath>\" create-edges --file=_add.json\n\n  4. If the cycle is a design error, check the source RFC to identify the correct dependency direction and fix edge definitions directly with crud.js\n\n  5. After fixing, re-run this script to confirm the cycle is resolved, then run verify-graph-integrity.js for regression checks\n\nNote: Avoid deleting or reversing edges without considering their semantics, as this degrades graph quality. Always confirm the meaning of each edge before modifying"
+    }
+  ]
+}
