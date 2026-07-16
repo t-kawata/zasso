@@ -367,10 +367,10 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
       'prune-phases',
     ], { input: pruneInput, encoding: 'utf8' });
     if (pruneResult.status !== 0) {
-      console.error('[WARN] prune-phases 呼び出しが失敗しました: ' +
+      console.error('[WARN] prune-phases call failed: ' +
         (pruneResult.stderr || pruneResult.stdout || ''));
     } else {
-      console.log('  prune-phases: ' + removedIds.length + ' 件削除');
+      console.log('  prune-phases: ' + removedIds.length + ' removed');
     }
   }
 
@@ -388,10 +388,10 @@ function updateStatusJson(statusPath, oldPhases, newPhases) {
     'renumber-phases',
   ], { input: renumberInput, encoding: 'utf8' });
   if (renumberResult.status !== 0) {
-    console.error('[WARN] renumber-phases 呼び出しが失敗しました: ' +
+    console.error('[WARN] renumber-phases call failed: ' +
       (renumberResult.stderr || renumberResult.stdout || ''));
   } else {
-    console.log('  renumber-phases: ' + Object.keys(idMapping).length + ' 件変換');
+    console.log('  renumber-phases: ' + Object.keys(idMapping).length + ' mapped');
   }
 }
 
@@ -423,26 +423,26 @@ function finalValidation(phases) {
     // チケット数チェック（最終フェーズは除く）
     const isLastPhase = (i === phases.length - 1);
     if (!isLastPhase && ticketCount < MIN_TICKETS_PER_PHASE) {
-      errors.push('フェーズ ' + PHASE_ID_PREFIX + phase.id +
-        ' のチケット数が ' + ticketCount + '（最小 ' + MIN_TICKETS_PER_PHASE + ' 未満）');
+      errors.push('Phase ' + PHASE_ID_PREFIX + phase.id +
+        ' has ' + ticketCount + ' tickets (minimum ' + MIN_TICKETS_PER_PHASE + ')');
     }
 
     for (const ticket of (phase.tickets || [])) {
       // ID形式チェック（integer、1以上）
       if (typeof ticket.id !== 'number' || !Number.isInteger(ticket.id) || ticket.id < 1) {
-        errors.push('チケット ' + (ticket.id !== undefined && ticket.id !== null ? ticket.id : '(空)') +
-          ' のIDが不正（期待: 1 以上の integer）');
+        errors.push('Ticket ' + (ticket.id !== undefined && ticket.id !== null ? ticket.id : '(empty)') +
+          ' has invalid ID (expected: positive integer)');
       }
 
       // phaseId 整合性チェック
       if (ticket.phaseId !== phase.id) {
-        errors.push('チケット ' + ticket.id + ' の phaseId が ' +
-          ticket.phaseId + '（期待: ' + phase.id + '）');
+        errors.push('Ticket ' + ticket.id + ' phaseId is ' +
+          ticket.phaseId + ' (expected: ' + phase.id + ')');
       }
 
       // 空 nodeIds チェック
       if (!Array.isArray(ticket.nodeIds) || ticket.nodeIds.length === 0) {
-        errors.push('チケット ' + ticket.id + ' の nodeIds が空です');
+        errors.push('Ticket ' + ticket.id + ' has empty nodeIds');
       }
     }
   }
@@ -465,13 +465,13 @@ function finalValidation(phases) {
  */
 function readTickets(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) {
-    console.error('[ERROR] Tickets.json が見つかりません: ' + ticketsPath);
+    console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
     process.exit(EXIT_FILE_NOT_FOUND);
   }
   try {
     return JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   } catch (parseError) {
-    console.error('[ERROR] Tickets.json のパースに失敗しました: ' + parseError.message);
+    console.error('[ERROR] Failed to parse Tickets.json: ' + parseError.message);
     process.exit(EXIT_FAILURE);
   }
 }
@@ -521,7 +521,7 @@ function parseCliArgs(argv) {
         ticketsPath: '',
         statusPath: '',
         dryRun: false,
-        error: '不明なフラグ: ' + arg + '。使用法: node consolidate-phase-tickets.js <Tickets.json> <status.json> [--dry-run]',
+        error: 'Unknown flag: ' + arg + '. Usage: node consolidate-phase-tickets.js <Tickets.json> <status.json> [--dry-run]',
       };
     } else {
       positional.push(arg);
@@ -533,7 +533,7 @@ function parseCliArgs(argv) {
       ticketsPath: '',
       statusPath: '',
       dryRun: false,
-      error: '引数が不足しています。使用法: node consolidate-phase-tickets.js <Tickets.json> <status.json> [--dry-run]',
+      error: 'Missing arguments. Usage: node consolidate-phase-tickets.js <Tickets.json> <status.json> [--dry-run]',
     };
   }
 
@@ -561,95 +561,95 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   const ticketsData = readTickets(ticketsPath);
   let phases = ticketsData.phases || [];
 
-  console.log('=== consolidate-phase-tickets.js 開始 ===');
-  console.log('入力 Tickets.json: ' + ticketsPath);
-  console.log('フェーズ数: ' + phases.length);
+  console.log('=== consolidate-phase-tickets.js started ===');
+  console.log('Input Tickets.json: ' + ticketsPath);
+  console.log('Phase count: ' + phases.length);
 
-  // 5-3-1: ガード判定
-  console.log('\n[5-3-1] ガード判定中...');
+  // 5-3-1: Guard check
+  console.log('\n[5-3-1] Guard check...');
   const guardResult = guardPhaseCount(phases);
   if (guardResult.shouldSkip) {
-    console.log('フェーズ数が ' + guardResult.phaseCount + '（最小 ' + MIN_TICKETS_PER_PHASE + ' 未満）のため統合処理をスキップしました');
-    console.log('✅ スキップ（ガード条件充足）');
+    console.log('Skipping consolidation: ' + guardResult.phaseCount + ' phases (below minimum ' + MIN_TICKETS_PER_PHASE + ')');
+    console.log('✅ Skipped (guard condition met)');
     return;
   }
-  console.log('フェーズ数: ' + guardResult.phaseCount + '（閾値 ' + MIN_TICKETS_PER_PHASE + ' 以上）→ 続行');
+  console.log('Phase count: ' + guardResult.phaseCount + ' (threshold ' + MIN_TICKETS_PER_PHASE + ') => proceeding');
 
-  // 5-3-2: nodeIds 過不足検証
-  console.log('\n[5-3-2] nodeIds 過不足検証中...');
+  // 5-3-2: nodeIds coverage check
+  console.log('\n[5-3-2] nodeIds coverage check...');
   const coverageResult = validateAllNodeIdsCovered(phases);
   if (!coverageResult.valid) {
-    console.error('[ERROR] 未カバーの nodeIds が存在します:');
+    console.error('[ERROR] Uncovered nodeIds exist:');
     for (const issue of coverageResult.missingNodeIds) {
-      console.error('  フェーズ ' + PHASE_ID_PREFIX + issue.phaseId +
+      console.error('  Phase ' + PHASE_ID_PREFIX + issue.phaseId +
         ': ' + issue.nodeIds.join(', '));
     }
-    console.error('全フェーズのチケット化を完了してから再実行してください。');
-    console.log('⚠️ 不合格');
+    console.error('Complete ticketization of all phases before re-running.');
+    console.log('⚠️ FAILED');
     process.exit(EXIT_FAILURE);
   }
-  console.log('全 nodeIds が正しくチケット化されています。✅');
+  console.log('All nodeIds are correctly ticketized. ✅');
 
   // 統合前のフェーズを保存（status.json 更新用）
   const oldPhasesJSON = JSON.parse(JSON.stringify(phases));
 
-  // 5-3-3: 後方1パス統合
-  console.log('\n[5-3-3] 後方1パス統合を実行中...');
-  console.log('  閾値: ' + MIN_TICKETS_PER_PHASE + ' チケット未満のフェーズを統合');
+  // 5-3-3: One-pass consolidation from right
+  console.log('\n[5-3-3] One-pass consolidation from right...');
+  console.log('  Threshold: consolidating phases with < ' + MIN_TICKETS_PER_PHASE + ' tickets');
   const consolidatedPhases = consolidateFromRight(phases);
   const removedCount = phases.length - consolidatedPhases.length;
   if (removedCount > 0) {
-    console.log('  ' + removedCount + ' フェーズを統合しました');
+    console.log('  ' + removedCount + ' phases consolidated');
   } else {
-    console.log('  統合対象のフェーズはありませんでした');
+    console.log('  No phases to consolidate');
   }
   phases = consolidatedPhases;
 
-  // 5-3-4: フェーズID一括振り直し
-  console.log('\n[5-3-4] フェーズID一括振り直し中...');
+  // 5-3-4: Phase ID renumbering
+  console.log('\n[5-3-4] Phase ID renumbering...');
   const beforePhaseIds = phases.map(function(p) { return p.id; });
   phases = renumberPhaseIds(phases);
   const afterPhaseIds = phases.map(function(p) { return p.id; });
   console.log('  ID: [' + beforePhaseIds.join(', ') + '] → [' + afterPhaseIds.join(', ') + ']');
-  console.log('  フェーズ数: ' + phases.length);
+  console.log('  Phase count: ' + phases.length);
 
-  // 5-3-5: チケットID一括振り直し
-  console.log('\n[5-3-5] チケットID一括振り直し中...');
+  // 5-3-5: Ticket ID renumbering
+  console.log('\n[5-3-5] Ticket ID renumbering...');
   phases = renumberTicketIds(phases);
   const totalTickets = phases.reduce(function(acc, p) { return acc + (p.tickets || []).length; }, 0);
-  console.log('  総チケット数: ' + totalTickets);
+  console.log('  Total tickets: ' + totalTickets);
 
-  // Phase B: relatedTicketIds 再生成（GRAPH.json のエッジから機械生成）
-  console.log('\n[Phase B] relatedTicketIds 再生成中...');
+  // Phase B: Regenerate relatedTicketIds from GRAPH.json edges
+  console.log('\n[Phase B] Regenerating relatedTicketIds...');
   const graphEdges = loadGraphEdgesFromTickets(ticketsPath);
   if (graphEdges && graphEdges.length > 0) {
     phases = regenerateRelatedTicketIds(phases, graphEdges);
-    console.log('  ' + graphEdges.length + ' エッジから relatedTicketIds を生成しました ✅');
+    console.log('  Generated relatedTicketIds from ' + graphEdges.length + ' edges ✅');
   } else {
-    console.log('  GRAPH.json が見つからないか空のためスキップ');
+    console.log('  Skipped: GRAPH.json not found or empty');
   }
 
-  // Phase C: status.json 更新
+  // Phase C: Update status.json
   if (checkStatusFile(statusPath)) {
-    console.log('\n[Phase C] status.json 更新中...');
+    console.log('\n[Phase C] Updating status.json...');
     updateStatusJson(statusPath, oldPhasesJSON, phases);
-    console.log('  status.json の prune/renumber 完了 ✅');
+    console.log('  status.json prune/renumber completed ✅');
   } else {
-    console.log('\n[Phase C] status.json が見つからないためスキップ: ' + statusPath);
+    console.log('\n[Phase C] Skipped: status.json not found: ' + statusPath);
   }
 
-  // 5-3-8: 最終検証
-  console.log('\n[5-3-8] 最終検証中...');
+  // 5-3-8: Final validation
+  console.log('\n[5-3-8] Final validation...');
   const finalResult = finalValidation(phases);
   if (!finalResult.valid) {
-    console.error('[ERROR] 最終検証に失敗しました:');
+    console.error('[ERROR] Final validation failed:');
     for (const err of finalResult.errors) {
       console.error('  - ' + err);
     }
-    console.log('⚠️ 不合格');
+    console.log('⚠️ FAILED');
     process.exit(EXIT_FAILURE);
   }
-  console.log('全検証項目を通過しました。✅');
+  console.log('All validation checks passed. ✅');
 
   // ============================================================
   // Tickets.json への書き込み
@@ -657,16 +657,16 @@ function runConsolidation(ticketsPath, statusPath, dryRun) {
   ticketsData.phases = phases;
 
   if (dryRun) {
-    console.log('\n[--dry-run モード] 変更内容のサマリー:');
-    console.log('  フェーズ数: ' + phases.length + ' / 総チケット数: ' + totalTickets);
-    console.log('  Tickets.json への書き込みは行いませんでした。');
+    console.log('\n[--dry-run mode] Summary of changes:');
+    console.log('  Phases: ' + phases.length + ' / Total tickets: ' + totalTickets);
+    console.log('  No write to Tickets.json was performed.');
   } else {
     atomicWriteJson(ticketsPath, ticketsData);
-    console.log('\n' + ticketsPath + ' に ' + phases.length + ' フェーズ / ' +
-      totalTickets + ' チケットを書き込みました。');
+    console.log('\nWrote ' + phases.length + ' phases / ' +
+      totalTickets + ' tickets to ' + ticketsPath);
   }
 
-  console.log('\n✅ 合格 — 統合処理が正常に完了しました。');
+  console.log('\n✅ PASSED — Consolidation completed successfully.');
 }
 
 /**

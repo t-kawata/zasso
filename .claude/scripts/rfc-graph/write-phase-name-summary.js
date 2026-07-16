@@ -27,7 +27,7 @@ const path = require('path');
 function main() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
-    console.error('[ERROR] 使用法: echo \'{"name":"...","summary":"..."}\' | node write-phase-name-summary.js <Tickets.json> <phaseId>');
+    console.error('[ERROR] Usage: echo \'{"name":"...","summary":"..."}\' | node write-phase-name-summary.js <Tickets.json> <phaseId>');
     process.exit(2);
   }
 
@@ -41,7 +41,7 @@ function main() {
   stdin.on('data', function(chunk) { inputData += chunk; });
   stdin.on('end', function() {
     if (!inputData.trim()) {
-      console.error('[ERROR] stdin からデータを受け取れませんでした。name/summary を JSON で渡してください。');
+      console.error('[ERROR] Could not read data from stdin. Pass name/summary as JSON.');
       process.exit(1);
     }
 
@@ -49,18 +49,18 @@ function main() {
     try {
       data = JSON.parse(inputData);
     } catch (e) {
-      console.error('[ERROR] JSON パースエラー: ' + e.message);
+      console.error('[ERROR] JSON parse error: ' + e.message);
       process.exit(1);
     }
 
     const name = data.name;
     const summary = data.summary;
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      console.error('[ERROR] name が空、または文字列ではありません。');
+      console.error('[ERROR] name is empty or not a string.');
       process.exit(1);
     }
     if (!summary || typeof summary !== 'string' || summary.trim().length === 0) {
-      console.error('[ERROR] summary が空、または文字列ではありません。');
+      console.error('[ERROR] summary is empty or not a string.');
       process.exit(1);
     }
 
@@ -69,7 +69,7 @@ function main() {
     try {
       ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
     } catch (e) {
-      console.error('[ERROR] Tickets.json の読み込みに失敗しました: ' + e.message);
+      console.error('[ERROR] Failed to read Tickets.json: ' + e.message);
       process.exit(1);
     }
 
@@ -79,7 +79,7 @@ function main() {
     });
 
     if (phaseIndex === -1) {
-      console.error('[ERROR] フェーズが見つかりません: ' + phaseId);
+      console.error('[ERROR] Phase not found: ' + phaseId);
       process.exit(1);
     }
 

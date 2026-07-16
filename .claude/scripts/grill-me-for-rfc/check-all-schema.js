@@ -35,7 +35,7 @@ export function validateStatus(rfcDir) {
   const statusPath = path.join(rfcDir, "Status.json");
 
   if (!fs.existsSync(statusPath)) {
-    errors.push("Status.json: ファイルが存在しません");
+    errors.push("Status.json: file not found");
     return errors;
   }
 
@@ -43,30 +43,30 @@ export function validateStatus(rfcDir) {
   try {
     data = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
   } catch (e) {
-    errors.push("Status.json: JSON パースに失敗しました — " + e.message);
+    errors.push("Status.json: JSON parse failed — " + e.message);
     return errors;
   }
 
   const requiredFields = ["state", "researchPath", "rfcPath", "rfcDir", "reviewLoopCount", "createdAt", "updatedAt"];
   for (const f of requiredFields) {
     if (data[f] === undefined || data[f] === null) {
-      errors.push(`Status.json: 必須フィールド "${f}" が存在しません`);
+      errors.push(`Status.json: required field "${f}" is missing`);
     }
   }
 
   if (data.state && !VALID_STATES.includes(data.state)) {
-    errors.push(`Status.json.state: "${data.state}" は不正な値です（有効: ${VALID_STATES.join(", ")}）`);
+    errors.push(`Status.json.state: "${data.state}" is invalid (valid: ${VALID_STATES.join(", ")})`);
   }
 
   if (typeof data.reviewLoopCount !== "number" || data.reviewLoopCount < 0) {
-    errors.push("Status.json.reviewLoopCount: 0 以上の数値である必要があります");
+    errors.push("Status.json.reviewLoopCount: must be a non-negative number");
   }
 
   if (data.createdAt && isNaN(Date.parse(data.createdAt))) {
-    errors.push("Status.json.createdAt: ISO 8601 形式の日付である必要があります");
+    errors.push("Status.json.createdAt: must be an ISO 8601 date string");
   }
   if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
-    errors.push("Status.json.updatedAt: ISO 8601 形式の日付である必要があります");
+    errors.push("Status.json.updatedAt: must be an ISO 8601 date string");
   }
 
   return errors;
@@ -79,7 +79,7 @@ export function validateDesignTree(rfcDir) {
   const treePath = path.join(rfcDir, "DesignTree.json");
 
   if (!fs.existsSync(treePath)) {
-    errors.push("DesignTree.json: ファイルが存在しません");
+    errors.push("DesignTree.json: file not found");
     return errors;
   }
 
@@ -87,20 +87,20 @@ export function validateDesignTree(rfcDir) {
   try {
     data = JSON.parse(fs.readFileSync(treePath, "utf-8"));
   } catch (e) {
-    errors.push("DesignTree.json: JSON パースに失敗しました — " + e.message);
+    errors.push("DesignTree.json: JSON parse failed — " + e.message);
     return errors;
   }
 
   if (data.version === undefined || typeof data.version !== "number" || data.version < 1) {
-    errors.push("DesignTree.json.version: 1 以上の数値である必要があります");
+    errors.push("DesignTree.json.version: must be a number >= 1");
   }
 
   if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
-    errors.push("DesignTree.json.updatedAt: ISO 8601 形式の日付である必要があります");
+    errors.push("DesignTree.json.updatedAt: must be an ISO 8601 date string");
   }
 
   if (!Array.isArray(data.nodes)) {
-    errors.push("DesignTree.json.nodes: 配列である必要があります");
+    errors.push("DesignTree.json.nodes: must be an array");
   } else {
     errors.push(...validateNodeArray(data.nodes, "nodes", new Set()));
   }
@@ -113,32 +113,32 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
   nodes.forEach((node, i) => {
     const p = `${pathPrefix}[${i}]`;
     if (!node.id || typeof node.id !== "string") {
-      errors.push(`${p}.id: 空でない文字列である必要があります`);
+      errors.push(`${p}.id: must be a non-empty string`);
     } else if (seenIds.has(node.id)) {
-      errors.push(`${p}.id: 重複しています（"${node.id}"）`);
+      errors.push(`${p}.id: duplicate detected ("${node.id}")`);
     } else {
       seenIds.add(node.id);
     }
     if (!node.title || typeof node.title !== "string") {
-      errors.push(`${p}.title: 空でない文字列である必要があります`);
+      errors.push(`${p}.title: must be a non-empty string`);
     }
     if (!["open", "resolved"].includes(node.status)) {
-      errors.push(`${p}.status: "open" または "resolved" である必要があります（現在: "${node.status}"）`);
+      errors.push(`${p}.status: must be "open" or "resolved" (current: "${node.status}")`);
     }
     if (!Array.isArray(node.questions)) {
-      errors.push(`${p}.questions: 配列である必要があります`);
+      errors.push(`${p}.questions: must be an array`);
     } else {
       node.questions.forEach((q, qi) => {
         if (!q.resolvedAt || typeof q.resolvedAt !== "string") {
-          errors.push(`${p}.questions[${qi}].resolvedAt: 必須フィールドです`);
+          errors.push(`${p}.questions[${qi}].resolvedAt: required field`);
         }
         if (!q.answer || typeof q.answer !== "string") {
-          errors.push(`${p}.questions[${qi}].answer: 必須フィールドです`);
+          errors.push(`${p}.questions[${qi}].answer: required field`);
         }
       });
     }
     if (!Array.isArray(node.children)) {
-      errors.push(`${p}.children: 配列である必要があります`);
+      errors.push(`${p}.children: must be an array`);
     } else {
       errors.push(...validateNodeArray(node.children, `${p}.children`, seenIds));
     }
@@ -153,14 +153,14 @@ export function validateChecklist(rfcDir) {
   const checklistPath = path.join(rfcDir, "CheckList.md");
 
   if (!fs.existsSync(checklistPath)) {
-    errors.push("CheckList.md: ファイルが存在しません");
+    errors.push("CheckList.md: file not found");
     return errors;
   }
 
   const content = fs.readFileSync(checklistPath, "utf-8");
 
   if (!content.includes("# RFC 要件チェックリスト")) {
-    errors.push("CheckList.md: 先頭の \"# RFC 要件チェックリスト\" が見つかりません");
+    errors.push("CheckList.md: leading \"# RFC 要件チェックリスト\" not found");
   }
 
   return errors;

@@ -27,7 +27,7 @@ const VALID_COMMANDS = [CMD_ADD, CMD_BATCH, CMD_REMOVE, CMD_LIST];
  * スクリプト使用方法を標準出力に表示する。
  */
 function printUsage() {
-  console.log(`使用方法:
+  console.log(`Usage:
   node add-ref-pointer.js <RFC-TREE.json> <childId> add --id <id> --lineStart <n> --lineEnd <n>
   node add-ref-pointer.js <RFC-TREE.json> <childId> batch '<json_array>'
   node add-ref-pointer.js <RFC-TREE.json> <childId> remove <id>
@@ -51,7 +51,7 @@ function fail(message) {
 function loadTree(filePath) {
   const resolved = path.resolve(filePath);
   if (!fs.existsSync(resolved)) {
-    fail(`ファイルが見つかりません: ${resolved}`);
+    fail(`File not found: ${resolved}`);
   }
   return JSON.parse(fs.readFileSync(resolved, "utf8"));
 }
@@ -88,7 +88,7 @@ function addRefPointer(child, id, lineStart, lineEnd) {
   }
   var exists = child.refPointers.some(function(r) { return r.id === id; });
   if (exists) {
-    fail("ID 重複: childId=" + child.childId + ", id=" + id + " は既に登録されています");
+    fail("Duplicate ID: childId=" + child.childId + ", id=" + id + " is already registered");
   }
   child.refPointers.push({ id: id, lineStart: lineStart, lineEnd: lineEnd });
 }
@@ -100,17 +100,17 @@ function addRefPointer(child, id, lineStart, lineEnd) {
  */
 function batchAddRefPointers(child, entries) {
   if (!Array.isArray(entries)) {
-    fail("batch モードの入力は JSON 配列である必要があります");
+    fail("batch mode input must be a JSON array");
   }
   entries.forEach(function(entry, i) {
     if (!entry.id || !ID_PATTERN.test(entry.id)) {
-      fail("batch[" + i + "]: id が不正です（期待形式: {childId}-{seq}, 例: 01-001）");
+      fail("batch[" + i + "]: invalid id (expected format: {childId}-{seq}, e.g. 01-001)");
     }
     if (typeof entry.lineStart !== "number" || entry.lineStart < 1) {
-      fail("batch[" + i + "]: lineStart が不正です（1以上の数値が必要）");
+      fail("batch[" + i + "]: invalid lineStart (must be a number >= 1)");
     }
     if (typeof entry.lineEnd !== "number" || entry.lineEnd < entry.lineStart) {
-      fail("batch[" + i + "]: lineEnd が不正です（lineStart 以上の数値が必要）");
+      fail("batch[" + i + "]: invalid lineEnd (must be >= lineStart)");
     }
     addRefPointer(child, entry.id, entry.lineStart, entry.lineEnd);
   });
@@ -123,7 +123,7 @@ function batchAddRefPointers(child, entries) {
  */
 function removeRefPointer(child, id) {
   if (!child.refPointers) {
-    fail("削除対象なし: childId=" + child.childId + " に refPointers が存在しません");
+    fail("Nothing to delete: childId=" + child.childId + " has no refPointers");
   }
   var index = -1;
   child.refPointers.some(function(r, i) {
@@ -131,7 +131,7 @@ function removeRefPointer(child, id) {
     return false;
   });
   if (index === -1) {
-    fail("削除対象なし: childId=" + child.childId + ", id=" + id + " は見つかりません");
+    fail("Nothing to delete: childId=" + child.childId + ", id=" + id + " not found");
   }
   child.refPointers.splice(index, 1);
   if (child.refPointers.length === 0) {
@@ -170,23 +170,23 @@ function main() {
     // childId 単体では /^\d{2}$/ のパターンだが、ID_PATTERN は /^\d{2}-\d{3}$/
     // 簡易チェックとして先頭2桁が数字か確認
     if (!/^\d{2}$/.test(childId)) {
-      fail("childId が不正です（2桁の数字が必要, 例: 01）");
+      fail("Invalid childId (2-digit number required, e.g. 01)");
     }
   }
 
   if (VALID_COMMANDS.indexOf(command) === -1) {
-    fail("不明なコマンド: " + command + "（有効: " + VALID_COMMANDS.join(", ") + "）");
+    fail("Unknown command: " + command + " (valid: " + VALID_COMMANDS.join(", ") + ")");
   }
 
   var treeData = loadTree(treePath);
   var finalTree = treeData.finalTree;
   if (!finalTree || !Array.isArray(finalTree)) {
-    fail("RFC-TREE.json に finalTree が存在しません");
+    fail("RFC-TREE.json has no finalTree");
   }
 
   var child = findChild(finalTree, childId);
   if (!child) {
-    fail("childId=" + childId + " が RFC-TREE.json の finalTree に見つかりません");
+    fail("childId=" + childId + " not found in RFC-TREE.json finalTree");
   }
 
   if (command === CMD_ADD) {
@@ -194,20 +194,20 @@ function main() {
     var lsIdx = args.indexOf("--lineStart");
     var leIdx = args.indexOf("--lineEnd");
     if (addIdx === -1 || lsIdx === -1 || leIdx === -1) {
-      fail("add モードには --id, --lineStart, --lineEnd が必須です");
+      fail("add mode requires --id, --lineStart, --lineEnd");
     }
     var id = args[addIdx + 1];
     var lineStart = parseInt(args[lsIdx + 1], 10);
     var lineEnd = parseInt(args[leIdx + 1], 10);
 
     if (!id || !ID_PATTERN.test(id)) {
-      fail("id が不正です（期待形式: {childId}-{seq}, 例: 01-001）");
+      fail("Invalid id (expected format: {childId}-{seq}, e.g. 01-001)");
     }
     if (isNaN(lineStart) || lineStart < 1) {
-      fail("lineStart が不正です（1以上の数値が必要）");
+      fail("Invalid lineStart (must be a number >= 1)");
     }
     if (isNaN(lineEnd) || lineEnd < lineStart) {
-      fail("lineEnd が不正です（lineStart 以上の数値が必要）");
+      fail("Invalid lineEnd (must be >= lineStart)");
     }
 
     addRefPointer(child, id, lineStart, lineEnd);
@@ -218,13 +218,13 @@ function main() {
   } else if (command === CMD_BATCH) {
     var jsonStr = args[3];
     if (!jsonStr) {
-      fail("batch モードには JSON 配列文字列が必須です");
+      fail("batch mode requires a JSON array string");
     }
     var entries;
     try {
       entries = JSON.parse(jsonStr);
     } catch (e) {
-      fail("batch モードの JSON パースエラー: " + e.message);
+      fail("batch mode JSON parse error: " + e.message);
     }
     batchAddRefPointers(child, entries);
     saveTree(treePath, treeData);
@@ -234,7 +234,7 @@ function main() {
   } else if (command === CMD_REMOVE) {
     var removeId = args[3];
     if (!removeId) {
-      fail("remove モードには削除する id が必須です");
+      fail("remove mode requires an id to delete");
     }
     removeRefPointer(child, removeId);
     saveTree(treePath, treeData);

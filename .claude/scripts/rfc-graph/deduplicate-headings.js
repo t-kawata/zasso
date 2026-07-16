@@ -19,13 +19,13 @@ const fs = require('fs');
 const MAX_DUPLICATES = 26;
 
 function exitWithError(summary, cause, action) {
-  process.stderr.write(`[ERROR] ${summary}\n原因: ${cause}\n対応: ${action}\n`);
+  process.stderr.write(`[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`);
   process.exit(1);
 }
 
 function readLines(filePath) {
   if (!fs.existsSync(filePath)) {
-    exitWithError('ソースファイルが見つかりません。', `${filePath} が存在しません。`, '正しいファイルパスを指定してください。');
+    exitWithError('Source file not found.', `${filePath} does not exist.`, 'Provide a valid file path.');
   }
   return fs.readFileSync(filePath, 'utf8').split('\n');
 }
@@ -76,8 +76,8 @@ function deduplicateHeadings(lines) {
 function main() {
   const args = process.argv.slice(2);
   if (args.length !== 1 || args[0] === '--help' || args[0] === '-h') {
-    console.log('使用法: deduplicate-headings.js <source-path>');
-    console.log('ソースファイルの重複見出しに A-Z を追記します。');
+    console.log('Usage: deduplicate-headings.js <source-path>');
+    console.log('Appends A-Z suffixes to duplicate headings in the source file.');
     process.exit(args[0] === '--help' || args[0] === '-h' ? 0 : 1);
   }
 
@@ -86,10 +86,10 @@ function main() {
 
   if (modified) {
     fs.writeFileSync(args[0], result.join('\n'), 'utf8');
-    console.log(`[修正] ${changes.length}件の重複見出しに接尾辞を追加しました。`);
+    console.log(`[Fixed] Suffix added to ${changes.length} duplicate headings.`);
     changes.forEach(c => console.log(`  ${c}`));
   } else {
-    console.log('重複見出しは見つかりませんでした。変更はありません。');
+    console.log('No duplicate headings found. No changes made.');
   }
 }
 

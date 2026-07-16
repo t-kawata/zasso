@@ -53,7 +53,7 @@ var DEFAULT_INSTRUCTION = "コマンドファイルの該当 Step の説明に�
 function printProgress(data) {
   var steps = data.split_status && data.split_status.steps;
   if (!steps) {
-    console.log("[ERROR] split_status.steps が見つかりません");
+    console.log("[ERROR] split_status.steps not found");
     return { total: 0, done: 0, nextId: null };
   }
 
@@ -77,10 +77,10 @@ function printProgress(data) {
     }
   });
 
-  console.log("【進捗状況】" + total + "ステップ中 " + done + "ステップ完了\n");
+  console.log("[Progress] " + done + "/" + total + " steps completed\n");
 
   if (doneList.length > 0) {
-    console.log("=== 完了 ===");
+    console.log("=== Completed ===");
     doneList.forEach(function(id) {
       console.log("  " + STEP_LABELS[id] || id);
     });
@@ -88,7 +88,7 @@ function printProgress(data) {
   }
 
   if (pendingList.length > 0) {
-    console.log("=== 未完了 ===");
+    console.log("=== Pending ===");
     pendingList.forEach(function(item) {
       var label = STEP_LABELS[item.id] || item.id;
       console.log("  " + label + " [" + item.status.toUpperCase() + "]");
@@ -104,15 +104,15 @@ function printProgress(data) {
  */
 function printNextAction(nextId) {
   if (!nextId) {
-    console.log("【全ステップ完了】/split-rfc-to-children は正常に完了しました。");
+    console.log("[All steps complete] /split-rfc-to-children completed successfully.");
     return;
   }
 
   var label = STEP_LABELS[nextId] || nextId;
   var instruction = STEP_INSTRUCTIONS[nextId] || DEFAULT_INSTRUCTION;
 
-  console.log("【次のアクション】");
-  console.log("次に実行すべき Step: " + nextId + " — " + label + "\n");
+  console.log("[Next action]");
+  console.log("Next Step: " + nextId + " — " + label + "\n");
   console.log(instruction);
   console.log("");
 }
@@ -127,9 +127,9 @@ function main() {
 
   var resolved = path.resolve(args[0]);
   if (!fs.existsSync(resolved)) {
-    console.log("【進捗状況】RFC-TREE.json がまだ作成されていません（Step 0-1: 準備段階）");
-    console.log("次のアクション: 引数パースとI/O境界情報の確認を進めてください。");
-    console.log("RFC-TREE.json は Step 2 で作成されます。");
+    console.log("[Progress] RFC-TREE.json not yet created (Step 0-1: preparation phase)");
+    console.log("Next action: Proceed with argument parsing and I/O boundary confirmation.");
+    console.log("RFC-TREE.json will be created at Step 2.");
     process.exit(1);
   }
 

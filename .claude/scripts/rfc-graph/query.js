@@ -90,9 +90,9 @@ function parseArguments(testArgs) {
   }
 
   // 必須フラグのバリデーション
-  if (!graphPath) throw new Error("--graph=<path> は必須です。");
-  if (!sourcePath) throw new Error("--source=<path> は必須です。");
-  if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> は必須です。");
+  if (!graphPath) throw new Error("--graph=<path> is required.");
+  if (!sourcePath) throw new Error("--source=<path> is required.");
+  if (!nodeIds || nodeIds.length === 0) throw new Error("--id=<nodeId> is required.");
 
   return { graphPath, sourcePath, nodeIds, hops, dirsTreePath };
 }
@@ -113,7 +113,7 @@ function parseNodeIds(idFlag) {
   }
   const rawIds = idFlag.slice(NODE_ID_ARG_PREFIX.length);
   if (!rawIds) {
-    throw new Error("--id=<nodeId> の <nodeId> が空です。");
+    throw new Error("--id=<nodeId> <nodeId> is empty.");
   }
   return rawIds
     .split(",")
@@ -137,7 +137,7 @@ function parseHops(hopsFlag) {
   }
   const hopsStr = hopsFlag.slice(HOPS_ARG_PREFIX.length);
   if (!hopsStr) {
-    throw new Error("--hops=<N> の <N> が空です。");
+    throw new Error("--hops=<N> <N> is empty.");
   }
   const hops = parseInt(hopsStr, 10);
   if (!Number.isInteger(hops) || hops < 1) {
@@ -704,13 +704,13 @@ function main() {
     // 深掘り案内
     console.log("");
     console.log("---\n");
-    console.log("### 深掘り方法");
+    console.log("### How to dig deeper");
     console.log(
-      "以下のコマンドにより、更に別のノード情報を深掘りすることが可能。",
+      "You can dig deeper into node information with the following command.",
     );
     console.log("```");
     console.log(
-      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<深掘りターゲットのID（N???形式）> --hops=<深掘る階層数>`,
+      `node .claude/scripts/rfc-graph/query.js --graph="${graphPath}" --source="${sourcePath}"${dirsTreePath ? ' --dirs-tree="' + dirsTreePath + '"' : ''} --id=<target node ID (N??? format)> --hops=<number of hops to traverse>`,
     );
     console.log("```");
 

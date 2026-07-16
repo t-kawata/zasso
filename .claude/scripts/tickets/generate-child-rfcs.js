@@ -110,7 +110,7 @@ function gcDirName(cb, parentId, gc) {
 function loadTree(rp) {
   var fp = path.resolve(rp);
   if (!fs.existsSync(fp)) {
-    console.log(JSON.stringify({ success: false, error: "ファイルが見つかりません: " + fp }));
+    console.log(JSON.stringify({ success: false, error: "File not found: " + fp }));
     process.exit(1);
   }
   var data = JSON.parse(fs.readFileSync(fp, "utf8"));
@@ -124,7 +124,7 @@ function loadTree(rp) {
   var canonRel = "../" + path.basename(data.canonicalRfcPath);
   var canonPath = path.resolve(path.dirname(fp), data.canonicalRfcPath);
   if (!fs.existsSync(canonPath)) {
-    console.log(JSON.stringify({ success: false, error: "正典RFCが見つかりません: " + canonPath }));
+    console.log(JSON.stringify({ success: false, error: "Canonical RFC not found: " + canonPath }));
     process.exit(1);
   }
   return {
@@ -237,7 +237,7 @@ function phaseInsertMarkers(ctx) {
   // 上書き前にマーカーが既存でないか確認
   insertions.forEach(function(ins) {
     if (existingMarkers[ins.id]) {
-      console.log("[SKIP] マーカー " + ins.id + " は既に存在します（lineStart/lineEnd を削除して継続）");
+      console.log("[SKIP] Marker " + ins.id + " already exists (remove lineStart/lineEnd to continue)");
       // JSON から lineStart/lineEnd を除去するために、ここでは削除リストに記録するだけ
     }
   });
@@ -296,7 +296,7 @@ function phaseInsertMarkers(ctx) {
     if (backupPath) {
       restoreFromBackup(ctx.canonPath, backupPath);
     }
-    console.log(JSON.stringify({ success: false, error: "マーカー挿入に失敗しました: " + e.message }));
+    console.log(JSON.stringify({ success: false, error: "Marker insertion failed: " + e.message }));
     process.exit(1);
   }
 
@@ -717,9 +717,9 @@ function main() {
   if (phase === "both" || phase === "insert") {
     var inserted = phaseInsertMarkers(ctx);
     if (inserted) {
-      console.log("[フェーズ1] マーカーを挿入しました");
+      console.log("[Phase 1] Markers inserted");
     } else {
-      console.log("[フェーズ1] 挿入すべきマーカーはありませんでした");
+      console.log("[Phase 1] No markers to insert");
     }
 
     // 正典RFCに注釈ブロックを挿入
@@ -727,7 +727,7 @@ function main() {
     var annotated = annotateCanonRfc(canonContent);
     if (annotated !== canonContent) {
       fs.writeFileSync(ctx.canonPath, annotated, "utf8");
-      console.log("[フェーズ1] 正典RFCに注釈ブロックを挿入しました");
+      console.log("[Phase 1] Annotation block inserted into canonical RFC");
     }
   }
 
@@ -737,10 +737,10 @@ function main() {
     var backupPath = backupFile(ctx.canonPath);
     try {
       phaseTransfer(ctx);
-      console.log("[フェーズ2] 機械転記が完了しました");
+      console.log("[Phase 2] Mechanical transfer completed");
     } catch (e) {
       restoreFromBackup(ctx.canonPath, backupPath);
-      console.log(JSON.stringify({ success: false, error: "機械転記に失敗しました: " + e.message }));
+      console.log(JSON.stringify({ success: false, error: "Mechanical transfer failed: " + e.message }));
       process.exit(1);
     }
   }

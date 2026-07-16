@@ -84,8 +84,8 @@ function parseArguments(argv) {
   }
 
   if (result.help) return result;
-  if (!result.graphPath) throw new Error('--graph=<path> が必要です。');
-  if (!result.sourcePath) throw new Error('--source=<path> が必要です。');
+  if (!result.graphPath) throw new Error('--graph=<path> is required.');
+  if (!result.sourcePath) throw new Error('--source=<path> is required.');
   return result;
 }
 
@@ -612,24 +612,24 @@ function main() {
   try {
     parsed = parseArguments(process.argv);
   } catch (e) {
-    process.stderr.write(`エラー: ${e.message}\n`);
+    process.stderr.write(`Error: ${e.message}\n`);
     process.exit(1);
   }
 
   if (parsed.help) {
-    process.stdout.write(`test-query-all.js — 全 headingRefs 一括解決検証
+    process.stdout.write(`test-query-all.js — Batch resolve and validate all headingRefs
 
 Usage:
   test-query-all.js --graph=<path> --source=<path>
 
 Options:
-  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス
-  --source=<path>  ソースファイルのパス
-  --help, -h       このヘルプを表示
+  --graph=<path>   Path to graph file (graph.schema.json compliant)
+  --source=<path>  Path to source file
+  --help, -h       Show this help
 
 Exit codes:
-  0  全 headingRefs が正常解決
-  1  1件以上の headingRefs が解決不能
+  0  All headingRefs resolved successfully
+  1  One or more headingRefs could not be resolved
 `);
     process.exit(0);
   }
@@ -640,7 +640,7 @@ Exit codes:
     graph = loaded.graph;
     sourceLines = loaded.sourceLines;
   } catch (e) {
-    process.stderr.write(`ファイル読み込みエラー: ${e.message}\n`);
+    process.stderr.write(`File read error: ${e.message}\n`);
     process.exit(1);
   }
 

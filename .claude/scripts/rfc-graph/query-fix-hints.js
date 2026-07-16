@@ -45,7 +45,7 @@ function parseArguments(argv) {
   }
 
   if (result.help) return result;
-  if (!result.hintsPath) throw new Error('--hints=<path> が必要です。');
+  if (!result.hintsPath) throw new Error('--hints=<path> is required.');
   return result;
 }
 
@@ -175,26 +175,26 @@ function main() {
   try {
     parsed = parseArguments(process.argv);
   } catch (e) {
-    process.stderr.write(`エラー: ${e.message}\n`);
+    process.stderr.write(`Error: ${e.message}\n`);
     process.exit(1);
   }
 
   if (parsed.help) {
-    process.stdout.write(`query-fix-hints.js — _fix_graph_hints.json 検索・Markdown 整形表示
+    process.stdout.write(`query-fix-hints.js — _fix_graph_hints.json search and Markdown display
 
 Usage:
   query-fix-hints.js --hints=<path> [--id=<nodeId>] [--diagnosis=<M0..M10>] [--refId=<refId>]
 
 Options:
-  --hints=<path>     _fix_graph_hints.json のパス
-  --id=<nodeId>      特定ノードIDでフィルタ（例: --id=N0100）
-  --diagnosis=<M0..M10>  特定診断種別でフィルタ（例: --diagnosis=M1）
-  --refId=<refId>    特定 refId でフィルタ（例: --refId=REF101）
-  --help, -h         このヘルプを表示
+  --hints=<path>     Path to _fix_graph_hints.json
+  --id=<nodeId>      Filter by node ID (e.g., --id=N0100)
+  --diagnosis=<M0..M10>  Filter by diagnosis type (e.g., --diagnosis=M1)
+  --refId=<refId>    Filter by refId (e.g., --refId=REF101)
+  --help, -h         Show this help
 
 Exit codes:
-  0  正常終了
-  1  エラー終了（ファイル不在・引数不正等）
+  0  Success
+  1  Error (file not found, invalid arguments, etc.)
 `);
     process.exit(0);
   }
@@ -204,11 +204,11 @@ Exit codes:
     hintsData = loadHintsFile(parsed.hintsPath);
   } catch (e) {
     if (e.code === 'ENOENT') {
-      process.stderr.write(`エラー: ファイルが見つかりません: ${parsed.hintsPath}\n`);
+      process.stderr.write(`Error: File not found: ${parsed.hintsPath}\n`);
     } else if (e instanceof SyntaxError) {
-      process.stderr.write(`エラー: JSON のパースに失敗しました: ${e.message}\n`);
+      process.stderr.write(`Error: JSON parse failed: ${e.message}\n`);
     } else {
-      process.stderr.write(`エラー: ${e.message}\n`);
+      process.stderr.write(`Error: ${e.message}\n`);
     }
     process.exit(1);
   }

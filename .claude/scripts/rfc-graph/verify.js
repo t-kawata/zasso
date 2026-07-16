@@ -59,41 +59,41 @@ function parseArguments(testArgs) {
   // 最小引数: --graph=<path> --source=<path>
   if (args.length < 2) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: verify.js --graph=<path> --source=<path>'
     );
   }
 
-  // --graph=<path> のパース
+  // Parse --graph=<path>
   const graphFlag = args[0];
   if (!graphFlag.startsWith(GRAPH_PATH_ARG_PREFIX)) {
     throw new Error(
-      '最初の引数は --graph=<path> である必要があります。\n' +
-      `  実際の値: ${graphFlag}`
+      'The first argument must be --graph=<path>.\n' +
+      `  Actual value: ${graphFlag}`
     );
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('The <path> in --graph=<path> is empty.');
   }
 
-  // --source=<path> のパース
+  // Parse --source=<path>
   const sourceFlag = args[1];
   if (!sourceFlag.startsWith(SOURCE_PATH_ARG_PREFIX)) {
     throw new Error(
-      '2番目の引数は --source=<path> である必要があります。\n' +
-      `  実際の値: ${sourceFlag}`
+      'The second argument must be --source=<path>.\n' +
+      `  Actual value: ${sourceFlag}`
     );
   }
   const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error('The <path> in --source=<path> is empty.');
   }
 
-  // 余剰引数のチェック
+  // Check for extra arguments
   if (args.length > 2) {
     throw new Error(
-      '余剰な引数があります。\n' +
+      'Extra arguments found.\n' +
       '  Usage: verify.js --graph=<path> --source=<path>'
     );
   }
@@ -106,16 +106,16 @@ function parseArguments(testArgs) {
 // ============================================================
 
 /**
- * グラフJSONファイルを読み込む
+ * Read the graph JSON file.
  *
- * @param {string} graphPath — グラフファイルのパス
- * @returns {Object} パース済みグラフデータ（{ sourceFile, nodes, edges }）
- * @throws {Error} ファイル読み込みまたはJSONパースに失敗した場合
+ * @param {string} graphPath — Path to the graph file
+ * @returns {Object} Parsed graph data ({ sourceFile, nodes, edges })
+ * @throws {Error} If file reading or JSON parsing fails
  */
 function readGraph(graphPath) {
   if (!fs.existsSync(graphPath)) {
     throw new Error(
-      `グラフファイルが見つかりません: ${graphPath}`
+      `Graph file not found: ${graphPath}`
     );
   }
 
@@ -124,7 +124,7 @@ function readGraph(graphPath) {
     raw = fs.readFileSync(graphPath, 'utf8');
   } catch (readError) {
     throw new Error(
-      `グラフファイルの読み込みに失敗しました: ${readError.message}`
+      `Failed to read graph file: ${readError.message}`
     );
   }
 
@@ -133,14 +133,14 @@ function readGraph(graphPath) {
     graph = JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${parseError.message}`
+      `Failed to parse graph JSON: ${parseError.message}`
     );
   }
 
-  // 最小限の構造検証
+  // Minimal structure validation
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error(
-      'グラフデータの構造が不正です。nodes と edges が必要です。'
+      'Invalid graph data structure. nodes and edges arrays are required.'
     );
   }
 
@@ -346,17 +346,17 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 
     if (uncoveredHeadings.length > 0) {
       messages.push(
-        `[ERROR] ${uncoveredHeadings.length}件の未カバー見出しがあります。`,
-        `原因: 以下の見出しが全ノードの headingRefs に含まれていません: ${uncoveredHeadings.join(', ')}`,
-        `対応: 該当見出しのセクションをカバーするノードを追加するか、既存ノードの headingRefs を拡張してください。`
+        `[ERROR] ${uncoveredHeadings.length} uncovered headings found.`,
+        `Cause: The following headings are not covered by any node's headingRefs: ${uncoveredHeadings.join(', ')}`,
+        `Action: Add nodes covering the sections for these headings, or extend existing nodes' headingRefs.`
       );
     }
 
     if (isolatedNodes.length > 0) {
       messages.push(
-        `[ERROR] ${isolatedNodes.length}件の孤立ノードがあります。`,
-        `原因: 以下のノードが1本もエッジで接続されていません: ${isolatedNodes.join(', ')}`,
-        `対応: crud.js create-edges で該当ノードを他のノードと接続してください。`
+        `[ERROR] ${isolatedNodes.length} orphan nodes found.`,
+        `Cause: The following nodes have no connected edges: ${isolatedNodes.join(', ')}`,
+        `Action: Use crud.js create-edges to connect these nodes to others.`
       );
     }
 
@@ -365,9 +365,9 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
         r => `${r.nodeId}(${r.refId}): heading=${r.heading}, texts=[${r.texts.join(', ')}]`
       ).join('; ');
       messages.push(
-        `[ERROR] ${unresolvableRefs.length}件の解決不能な headingRefs があります。`,
-        `原因: resolve-by-heading.js で一意に特定できませんでした: ${details}`,
-        `対応: 該当ノードの headingRefs の heading レベルまたは texts トークンを修正してください。`
+        `[ERROR] ${unresolvableRefs.length} unresolvable headingRefs found.`,
+        `Cause: Could not uniquely resolve via resolve-by-heading.js: ${details}`,
+        `Action: Fix the heading level or texts tokens in the affected node's headingRefs.`
       );
     }
 
@@ -379,27 +379,27 @@ function exitWithResult(ok, uncoveredHeadings, isolatedNodes, unresolvableRefs) 
 }
 
 // ============================================================
-// ヘルプ表示
+// Help display
 // ============================================================
 
 /**
- * 使用方法を表示する
+ * Display usage information.
  */
 function printUsage() {
   console.log(
-    'verify.js — カバレッジ・孤立ノード検証（headingRefs 方式）\n' +
+    'verify.js — Coverage and orphan node verification (headingRefs method)\n' +
     '\n' +
     'Usage:\n' +
     '  verify.js --graph=<path> --source=<path>\n' +
     '\n' +
     'Options:\n' +
-    '  --graph=<path>   グラフファイル（graph.schema.json 準拠）のパス\n' +
-    '  --source=<path>  検証対象のソースファイルのパス\n' +
-    '  --help, -h       このヘルプを表示\n' +
+    '  --graph=<path>   Path to the graph file (graph.schema.json compliant)\n' +
+    '  --source=<path>  Path to the source file to verify\n' +
+    '  --help, -h       Show this help message\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  全見出しカバー＋全ノード接続\n' +
-    '  1  未カバー見出しまたは孤立ノードが存在\n'
+    '  0  All headings covered + all nodes connected\n' +
+    '  1  Uncovered headings or orphan nodes exist\n'
   );
 }
 

@@ -86,7 +86,7 @@ function main() {
     generatorName !== "formulate-tickets" &&
     generatorName !== "formulate-tickets-for-next"
   ) {
-    console.error(`エラー: 不明な generatorName "${generatorName}"`);
+    console.error(`Error: Unknown generatorName "${generatorName}"`);
     process.exit(1);
   }
 
@@ -102,7 +102,7 @@ function main() {
   stdin.on("end", () => {
     const trimmedBody = body.trim();
     if (!trimmedBody) {
-      console.error("エラー: stdin から本文が読み取れませんでした");
+      console.error("Error: Could not read body from stdin");
       process.exit(1);
     }
 
@@ -121,16 +121,16 @@ function main() {
       fs.writeFileSync(resolvedPath, content, "utf-8");
     } catch (err) {
       console.error(
-        `エラー: ファイル書き込み失敗 ${resolvedPath}: ${err.message}`,
+        `Error: File write failed ${resolvedPath}: ${err.message}`,
       );
       process.exit(1);
     }
 
-    console.log(`設計全体マップを ${resolvedPath} に生成しました`);
+    console.log(`Design overview map generated at ${resolvedPath}`);
   });
 
   stdin.on("error", (err) => {
-    console.error(`エラー: stdin 読み込み失敗 — ${err.message}`);
+    console.error(`Error: stdin read failed — ${err.message}`);
     process.exit(1);
   });
 }

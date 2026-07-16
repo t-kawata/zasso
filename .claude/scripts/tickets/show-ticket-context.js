@@ -621,12 +621,12 @@ function main() {
   const { ticketsPath, ticketKey, forSpec, noTestRules, plan, review } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
-    console.error('Error: --ticket-key は P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。');
+    console.error('Error: --ticket-key must be in P{phaseId}-{ticketId} format (e.g., P0-1, PX-53).');
     process.exit(EXIT_FAILURE);
   }
 
   if (!fs.existsSync(ticketsPath)) {
-    console.error(`Error: Tickets.json が見つかりません: ${ticketsPath}`);
+    console.error(`Error: Tickets.json not found: ${ticketsPath}`);
     process.exit(EXIT_FAILURE);
   }
 

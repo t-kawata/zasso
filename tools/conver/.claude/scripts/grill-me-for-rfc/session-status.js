@@ -25,7 +25,7 @@ const statusPath = path.join(rfcDir, "Status.json");
 const treePath = path.join(rfcDir, "DesignTree.json");
 
 if (!fs.existsSync(statusPath)) {
-  console.log("⚠️  Status.json が見つかりません。init.js を実行してください。");
+  console.log("⚠️  Status.json not found. Run init.js first.");
   process.exit(0);
 }
 
@@ -69,72 +69,72 @@ function deriveStep(state, nodes, openCount, loopCount) {
       if (nodes.length === 0) {
         return {
           step: "STEP 1",
-          label: "DesignTree 初期ノード生成",
-          action: "update-tree.js add で調査内容から初期ノードを追加する",
+          label: "STEP 1: DesignTree Initial Node Generation",
+          action: "Run update-tree.js add to create initial nodes from research material",
         };
       }
       if (openCount > 0) {
         return {
           step: "STEP 2",
-          label: "Grill セッション中",
-          action: "tree-query.js tree で未解決ノードを確認し、質問を生成する",
+          label: "STEP 2: Grill Session Active",
+          action: "Run tree-query.js tree to review unresolved nodes and generate questions",
         };
       }
       return {
         step: "STEP 3",
-        label: "Grill 終了判定待ち",
+        label: "STEP 3: Grill End Pending",
         action:
-          "全ノード解決済み。ユーザーに終了を提案し、承認されれば CHECKLIST_PENDING に遷移する",
+          "All nodes resolved. Propose session end to user; transition to CHECKLIST_PENDING on approval",
       };
     case "CHECKLIST_PENDING":
       return {
         step: "STEP 4",
-        label: "チェックリスト生成前",
+        label: "STEP 4: Checklist Generation Pending",
         action:
-          "generate-checklist.js を実行し、目視チェック後ユーザー承認を得る。承認後 CHECKLIST_APPROVED に遷移",
+          "Run generate-checklist.js, visually verify, get user approval, then transition to CHECKLIST_APPROVED",
       };
     case "CHECKLIST_APPROVED":
       return {
         step: "STEP 4 → STEP 5",
-        label: "チェックリスト承認済み",
-        action: "RFC 執筆を開始する。WRITING に遷移",
+        label: "STEP 4 → STEP 5: Checklist Approved",
+        action: "Begin writing the RFC. Transition to WRITING",
       };
     case "WRITING":
       return {
         step: "STEP 5",
-        label: "RFC 執筆中",
-        action: "RFC を書き終えたら REVIEWING に遷移する",
+        label: "STEP 5: RFC Writing",
+        action: "When RFC writing is complete, transition to REVIEWING",
       };
     case "REVIEWING":
       if (openCount > 0) {
         const base = {
           step: "STEP 7",
-          label: "再grill が必要",
+          label: "STEP 7: Re-grill Required",
           action:
-            "未解決ノードを grill するため GRILLING に遷移する（inc-loop）",
+            "Transition to GRILLING to re-grill unresolved nodes (inc-loop)",
         };
         if (loopCount >= 3) {
           base.warning =
-            "ループが3回を超えました。ユーザーに長期化の理由と現状を報告してから遷移すること";
+            "Loop count exceeds 3. Report the reason for the extended cycle and current status to the user before transitioning";
         }
         return base;
       }
       return {
         step: "STEP 8",
-        label: "完了条件確認中",
-        action: "全条件を確認し、DONE に遷移して完了宣言する",
+        label: "STEP 8: Completion Check",
+        action: "Verify all conditions, transition to DONE to declare completion",
       };
     case "DONE":
       return {
         step: "✅ STEP 8",
-        label: "完了",
+        label: "Complete",
         action: "—",
       };
     default:
       return {
         step: "⚠️",
-        label: "不明な状態",
-        action: "Status.json の state を確認する",
+        label: "Unknown State",
+        action: "Check Status.json state field",
       };
   }
 }
@@ -150,13 +150,13 @@ const { step, label, action, warning } = deriveStep(
 
 console.log("📋 Session Status");
 console.log(`  State: ${state}`);
-console.log(`  現在の工程: ${step} — ${label}`);
-console.log(`  次のアクション: ${action}`);
+console.log(`  Step: ${step} — ${label}`);
+console.log(`  Next Action: ${action}`);
 if (warning) {
   console.log(`  ⚠️  ${warning}`);
 }
 console.log("");
-console.log(`  ノード: ${totalNodes} 総数 / ${openCount} open`);
-console.log(`  ループ回数: ${reviewLoopCount ?? 0}`);
-console.log(`  調査パス: ${researchPath ?? "（未設定）"}`);
-console.log(`  RFC パス: ${rfcPath ?? "（未設定）"}`);
+console.log(`  Nodes: ${totalNodes} total / ${openCount} open`);
+console.log(`  Loop Count: ${reviewLoopCount ?? 0}`);
+console.log(`  Research Path: ${researchPath ?? "(not set)"}`);
+console.log(`  RFC Path: ${rfcPath ?? "(not set)"}`);

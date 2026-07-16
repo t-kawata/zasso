@@ -16,30 +16,30 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      echo "[init] 不明な引数: $arg" >&2
+      echo "[init] Unknown argument: $arg" >&2
       exit 1
       ;;
   esac
 done
 
 if [ -z "$DOC_PATH" ]; then
-  echo "[init] ERROR: --doc-path=<path> が指定されていません。" >&2
+  echo "[init] ERROR: --doc-path=<path> is not specified." >&2
   exit 1
 fi
 if [ ! -f "$DOC_PATH" ]; then
-  echo "[init] ERROR: 設計書ファイルが見つかりません: $DOC_PATH" >&2
+  echo "[init] ERROR: Design document file not found: $DOC_PATH" >&2
   exit 1
 fi
 
 DOC_DIR="$(dirname "$DOC_PATH")"
 TICKETS_PATH="$DOC_DIR/Tickets.json"
 
-echo "[init] 設計書: $DOC_PATH" >&2
-echo "[init] 出力ディレクトリ: $DOC_DIR" >&2
+echo "[init] Design doc: $DOC_PATH" >&2
+echo "[init] Output dir: $DOC_DIR" >&2
 echo "[init] Tickets.json: $TICKETS_PATH" >&2
 
 if [ -f "$TICKETS_PATH" ]; then
-  echo "[init] 注意: $TICKETS_PATH は既に存在します。/formulate-tickets により上書きされます。" >&2
+  echo "[init] Note: $TICKETS_PATH already exists. It will be overwritten by /formulate-tickets." >&2
 fi
 
-echo "[init] OK: 初期化完了" >&2
+echo "[init] OK: Initialization complete" >&2

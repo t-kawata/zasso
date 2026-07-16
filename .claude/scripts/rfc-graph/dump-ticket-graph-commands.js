@@ -85,7 +85,7 @@ function parseArguments(testArgs) {
   }
   const ticketsPath = ticketsFlag.slice(TICKETS_PATH_ARG_PREFIX.length);
   if (!ticketsPath) {
-    throw new Error('--tickets=<path> の <path> が空です。');
+    throw new Error('--tickets=<path> <path> is empty.');
   }
 
   // --graph=<path> のパース
@@ -98,7 +98,7 @@ function parseArguments(testArgs) {
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> の <path> が空です。');
+    throw new Error('--graph=<path> <path> is empty.');
   }
 
   // --source=<path> のパース
@@ -111,7 +111,7 @@ function parseArguments(testArgs) {
   }
   const sourcePath = sourceFlag.slice(SOURCE_PATH_ARG_PREFIX.length);
   if (!sourcePath) {
-    throw new Error('--source=<path> の <path> が空です。');
+    throw new Error('--source=<path> <path> is empty.');
   }
 
   // 余剰引数のチェック
@@ -314,20 +314,20 @@ function appendToSpec(specPath, section) {
  */
 function printUsage() {
   console.log(
-    'dump-ticket-graph-commands.js — Tickets.json nodeIDs→specコマンド追記\n' +
+    'dump-ticket-graph-commands.js — Append Tickets.json nodeIDs to spec as commands\n' +
     '\n' +
     'Usage:\n' +
     '  dump-ticket-graph-commands.js --tickets=<path> --graph=<path> --source=<path>\n' +
     '\n' +
     'Options:\n' +
-    '  --tickets=<path>  Tickets.json のパス\n' +
-    '  --graph=<path>    グラフファイルのパス\n' +
-    '  --source=<path>   ソースファイルのパス\n' +
-    '  --help, -h        このヘルプを表示\n' +
+    '  --tickets=<path>  Path to Tickets.json\n' +
+    '  --graph=<path>    Path to graph file\n' +
+    '  --source=<path>   Path to source file\n' +
+    '  --help, -h        Show this help\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  正常終了\n' +
-    '  1  引数エラーまたはファイル読み込みエラー\n'
+    '  0  Success\n' +
+    '  1  Argument error or file read error\n'
   );
 }
 
@@ -439,7 +439,7 @@ function main() {
     }
 
     if (writtenSpecs.length > 0) {
-      console.error(`spec に追記しました: ${writtenSpecs.join(', ')}`);
+      console.error(`Appended to spec: ${writtenSpecs.join(', ')}`);
     }
   } else {
     // グラフが存在しない場合：不在メッセージを出力

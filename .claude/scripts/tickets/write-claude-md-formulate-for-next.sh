@@ -23,18 +23,18 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      echo "[claude-md] 不明な引数: $arg" >&2
+      echo "[claude-md] Unknown argument: $arg" >&2
       exit 1
       ;;
   esac
 done
 
 if [ -z "$CLAUDE_MD" ] || [ -z "$RFC_PATH" ] || [ -z "$TITLE" ]; then
-  echo "[claude-md] ERROR: --claude-md, --rfc-path, --title は全て必須です。" >&2
+  echo "[claude-md] ERROR: --claude-md, --rfc-path, --title are all required." >&2
   exit 1
 fi
 
-echo "[claude-md] CLAUDE.md 追記生成中: $CLAUDE_MD" >&2
+echo "[claude-md] Generating CLAUDE.md appendix: $CLAUDE_MD" >&2
 
 node "$SCRIPT_DIR/write-claude-md.js" \
   "$CLAUDE_MD" \
@@ -60,4 +60,4 @@ node "$SCRIPT_DIR/write-claude-md.js" \
 <本RFCに基づく実装で発生するスタブの一覧と、各スタブをどのチケットがどのように解決するかの対応関係 — Step 1 で抽出した内容>
 BODY
 
-echo "[claude-md] OK: $CLAUDE_MD に追記生成しました" >&2
+echo "[claude-md] OK: Appendix generated for $CLAUDE_MD" >&2

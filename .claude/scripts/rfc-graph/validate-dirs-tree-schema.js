@@ -353,12 +353,12 @@ function validateFiles(dirsTreePath, graphPath) {
 
   // ファイルの存在確認
   if (!fs.existsSync(dirsTreePath)) {
-    console.error(`[ERROR] Dirs-Tree.json が見つかりません\n原因: 指定されたパスにファイルが存在しない\n対応: パスを確認して再実行: ${dirsTreePath}`);
-    return { ok: false, errors: [`Dirs-Tree.json が見つかりません: ${dirsTreePath}`] };
+    console.error(`[ERROR] Dirs-Tree.json not found\nCause: File does not exist at specified path\nAction: Verify path and re-run: ${dirsTreePath}`);
+    return { ok: false, errors: [`Dirs-Tree.json not found: ${dirsTreePath}`] };
   }
   if (!fs.existsSync(graphPath)) {
-    console.error(`[ERROR] グラフ JSON が見つかりません\n原因: 指定されたパスにファイルが存在しない\n対応: パスを確認して再実行: ${graphPath}`);
-    return { ok: false, errors: [`グラフ JSON が見つかりません: ${graphPath}`] };
+    console.error(`[ERROR] Graph JSON not found\nCause: File does not exist at specified path\nAction: Verify path and re-run: ${graphPath}`);
+    return { ok: false, errors: [`Graph JSON not found: ${graphPath}`] };
   }
 
   // JSON パース
@@ -367,14 +367,14 @@ function validateFiles(dirsTreePath, graphPath) {
   try {
     dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf-8'));
   } catch (parseError) {
-    console.error(`[ERROR] Dirs-Tree.json のパースに失敗しました\n原因: ${parseError.message}\n対応: ファイルが有効な JSON 形式であることを確認してください`);
-    return { ok: false, errors: [`Dirs-Tree.json パースエラー: ${parseError.message}`] };
+    console.error(`[ERROR] Dirs-Tree.json parse failed\nCause: ${parseError.message}\nAction: Verify the file is valid JSON`);
+    return { ok: false, errors: [`Dirs-Tree.json parse error: ${parseError.message}`] };
   }
   try {
     graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
   } catch (parseError) {
-    console.error(`[ERROR] グラフ JSON のパースに失敗しました\n原因: ${parseError.message}\n対応: ファイルが有効な JSON 形式であることを確認してください`);
-    return { ok: false, errors: [`グラフ JSON パースエラー: ${parseError.message}`] };
+    console.error(`[ERROR] Graph JSON parse failed\nCause: ${parseError.message}\nAction: Verify the file is valid JSON`);
+    return { ok: false, errors: [`Graph JSON parse error: ${parseError.message}`] };
   }
 
   const allNodeIds = new Set(graph.nodes.map(node => node.id));

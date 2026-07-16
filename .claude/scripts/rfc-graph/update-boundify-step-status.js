@@ -97,7 +97,7 @@ function parseArguments() {
   // 最小引数: --graphify-status=<path> subcommand [N]
   if (args.length < 2) {
     throw new Error(
-      '引数が不足しています。\n' +
+      'Insufficient arguments.\n' +
       '  Usage: update-boundify-step-status.js --graphify-status=<path>|--status=<path> <subcommand> [N]'
     );
   }
@@ -106,14 +106,14 @@ function parseArguments() {
   const statusFlag = args[0];
   if (!statusFlag.startsWith(FLAG_GRAPHIFY_STATUS) && !statusFlag.startsWith(FLAG_ALIAS_STATUS)) {
     throw new Error(
-      '最初の引数は --graphify-status=<path> または --status=<path> である必要があります。\n' +
-      `  実際の値: ${statusFlag}`
+      'The first argument must be --graphify-status=<path> or --status=<path>.\n' +
+      `  Actual value: ${statusFlag}`
     );
   }
   const statusPath = statusFlag.split('=', 2)[1];
   if (!statusPath) {
     throw new Error(
-      'パスが空です。--graphify-status=<path> または --status=<path> の <path> に有効なパスを指定してください。'
+      'Path is empty. Provide a valid path for --graphify-status=<path> or --status=<path>.'
     );
   }
 
@@ -122,7 +122,7 @@ function parseArguments() {
   // サブコマンドの検証
   if (!ALLOWED_SUBCOMMANDS.includes(subcommand)) {
     throw new Error(
-      `未知のサブコマンドです: ${subcommand}`
+      `Unknown subcommand: ${subcommand}`
     );
   }
 
@@ -131,13 +131,13 @@ function parseArguments() {
   if (subcommand !== 'status' && subcommand !== 'cleanup' && subcommand !== 'backup') {
     if (args.length < 3) {
       throw new Error(
-        `サブコマンド "${subcommand}" には Step番号が必要です。`
+        `Subcommand "${subcommand}": step number is required.`
       );
     }
     stepNumber = parseInt(args[2], 10);
     if (isNaN(stepNumber)) {
       throw new Error(
-        `Step番号が数値ではありません: ${args[2]}`
+        `Step number is not a number: ${args[2]}`
       );
     }
   }
@@ -162,7 +162,7 @@ function readStatus(statusPath) {
   // 読み込みデータの簡易検証（必須フィールドの存在確認）
   if (!data.sourceFile || !data.graphFile || typeof data.currentStep !== 'number' || !data.steps) {
     throw new Error(
-      `${statusPath} の形式が不正です。sourceFile / graphFile / currentStep / steps が必要です。`
+      `${statusPath}  has invalid format. sourceFile, graphFile, currentStep, and steps are required.`
     );
   }
 
@@ -230,7 +230,7 @@ function validateStepNumber(n) {
 function executeStartStep(status, n) {
   status.steps[String(n)] = STATUS_RUNNING;
   status.currentStep = n;
-  console.log(`Step ${n} を開始しました。状態: ${STATUS_RUNNING}。`);
+  console.log(`Step ${n} started. Status: ${STATUS_RUNNING}.`);
 }
 
 /**
@@ -246,9 +246,9 @@ function executeEndStep(status, n) {
   status.steps[String(n)] = STATUS_DONE;
   status.currentStep = n + 1;
   if (n >= MAX_STEP) {
-    console.log(`Step ${n} が完了しました。全Stepが完了しました。`);
+    console.log(`Step ${n} completed. All steps completed.`);
   } else {
-    console.log(`Step ${n} が完了しました。状態: ${STATUS_DONE}。次に Step ${n + 1} を実行してください。`);
+    console.log(`Step ${n} completed. Status: ${STATUS_DONE}. Run Step ${n + 1} next.`);
   }
 }
 
@@ -263,7 +263,7 @@ function executeEndStep(status, n) {
 function executeFailStep(status, n) {
   status.steps[String(n)] = STATUS_ERROR;
   // currentStep は変更しない
-  console.log(`Step ${n} が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${n} で再実行してください。`);
+  console.log(`Step ${n} failed. Status: ${STATUS_ERROR}. currentStep remains at ${status.currentStep}. Check the error message, fix the issue, and re-run with reset-to-step ${n}.`);
 }
 
 /**
@@ -280,7 +280,7 @@ function executeResetToStep(status, n) {
     status.steps[String(i)] = STATUS_PENDING;
   }
   status.currentStep = n;
-  console.log(`Step ${n} に復帰しました。Step ${n} より後のStepを pending にリセットしました。Step ${n} のコマンドを最初から再実行してください。`);
+  console.log(`Reset to Step ${n}. Steps after Step ${n} reset to pending. Re-run the Step ${n} commands from the beginning.`);
 }
 
 /**
@@ -337,9 +337,9 @@ function executeCleanup(status) {
   }
 
   if (removed.length > 0) {
-    console.log(`cleanup: ${removed.join(', ')} を削除しました。`);
+    console.log(`cleanup: deleted ${removed.join(', ')}.`);
   } else {
-    console.log('cleanup: 削除対象の一時ファイルはありませんでした。');
+    console.log('cleanup: no temporary files to delete.');
   }
 }
 
@@ -361,9 +361,9 @@ function executeBackup(status) {
     console.log(`backup: ${status.graphFile} → ${bakPath}`);
   } catch (err) {
     exitWithError(
-      `バックアップ作成に失敗しました: ${err.message}`,
+      `Backup creation failed: ${err.message}`,
       `graphFile=${status.graphFile}`,
-      'ディスク容量や書き込み権限を確認してください。'
+      'Check disk space and write permissions.'
     );
   }
 }
@@ -400,8 +400,8 @@ function atomicWrite(targetPath, data) {
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
-  console.error('原因: ' + reason);
-  console.error('対応: ' + action);
+  console.error('Cause: ' + reason);
+  console.error('Action: ' + action);
   process.exit(1);
 }
 
@@ -448,9 +448,9 @@ function main() {
     parsed = parseArguments();
   } catch (parseError) {
     exitWithError(
-      `引数パースに失敗しました: ${parseError.message}`,
-      'コマンドライン引数の形式が正しくありません。',
-      '--help オプションで使用方法を確認し、正しい引数で再実行してください。'
+      `Argument parsing failed: ${parseError.message}`,
+      'Command-line argument format is incorrect.',
+      'Check usage with --help and re-run with correct arguments.'
     );
   }
 
@@ -462,9 +462,9 @@ function main() {
     status = readStatus(statusPath);
   } catch (readError) {
     exitWithError(
-      `ステータスファイルの読み込みに失敗しました: ${readError.message}`,
-      `ファイルパス: ${statusPath}`,
-      'ファイルが存在し、有効なJSON形式であることを確認してください。'
+      `Failed to read status file: ${readError.message}`,
+      `File path: ${statusPath}`,
+      'Ensure the file exists and is valid JSON.'
     );
   }
 
@@ -474,9 +474,9 @@ function main() {
       case 'start-step':
         if (!validateStepNumber(stepNumber)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `Step number out of range: ${stepNumber}`,
+            `Step番号は ${MIN_STEP}〜${MAX_STEP}  must be an integer between`,
+            `${MIN_STEP}〜${MAX_STEP} のSpecify an integer in the range`
           );
         }
         executeStartStep(status, stepNumber);
@@ -485,9 +485,9 @@ function main() {
       case 'end-step':
         if (!validateStepNumber(stepNumber)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `Step number out of range: ${stepNumber}`,
+            `Step番号は ${MIN_STEP}〜${MAX_STEP}  must be an integer between`,
+            `${MIN_STEP}〜${MAX_STEP} のSpecify an integer in the range`
           );
         }
         executeEndStep(status, stepNumber);
@@ -496,9 +496,9 @@ function main() {
       case 'fail-step':
         if (!validateStepNumber(stepNumber)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `Step number out of range: ${stepNumber}`,
+            `Step番号は ${MIN_STEP}〜${MAX_STEP}  must be an integer between`,
+            `${MIN_STEP}〜${MAX_STEP} のSpecify an integer in the range`
           );
         }
         executeFailStep(status, stepNumber);
@@ -507,9 +507,9 @@ function main() {
       case 'reset-to-step':
         if (!validateStepNumber(stepNumber)) {
           exitWithError(
-            `Step番号が範囲外です: ${stepNumber}`,
-            `Step番号は ${MIN_STEP}〜${MAX_STEP} の整数である必要があります。`,
-            `${MIN_STEP}〜${MAX_STEP} の範囲の整数を指定して再実行してください。`
+            `Step number out of range: ${stepNumber}`,
+            `Step番号は ${MIN_STEP}〜${MAX_STEP}  must be an integer between`,
+            `${MIN_STEP}〜${MAX_STEP} のSpecify an integer in the range`
           );
         }
         executeResetToStep(status, stepNumber);
@@ -533,16 +533,16 @@ function main() {
       default:
         // parseArguments で検証済みなのでここには到達しない
         exitWithError(
-          `未知のサブコマンドです: ${subcommand}`,
-          'start-step / end-step / fail-step / reset-to-step / status / cleanup のいずれかを指定してください。',
-          '正しいサブコマンド名で再実行してください。'
+          `Unknown subcommand: ${subcommand}`,
+          'start-step / end-step / fail-step / reset-to-step / status / cleanup Specify one of:',
+          'Re-run with a valid subcommand name.'
         );
     }
   } catch (execError) {
     exitWithError(
-      `サブコマンド実行中にエラーが発生しました: ${execError.message}`,
-      'サブコマンドの引数が不正か、内部エラーが発生しました。',
-      'エラーメッセージを確認し、正しい引数で再実行してください。'
+      `Error executing subcommand: ${execError.message}`,
+      'Invalid subcommand arguments or internal error.',
+      'Check the error message and re-run with correct arguments.'
     );
   }
 
@@ -552,9 +552,9 @@ function main() {
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
   } catch (writeError) {
     exitWithError(
-      `ステータスファイルの書き込みに失敗しました: ${writeError.message}`,
-      `ファイルパス: ${statusPath}`,
-      'ディスク容量や書き込み権限を確認してください。'
+      `Failed to write status file: ${writeError.message}`,
+      `File path: ${statusPath}`,
+      'Check disk space and write permissions.'
     );
   }
 }

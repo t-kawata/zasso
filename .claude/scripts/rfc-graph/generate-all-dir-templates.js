@@ -30,7 +30,7 @@ const isDryRun = args.includes('--dry-run');
 const isDelete = args.includes('--delete');
 
 if (!dirsTreeFlag) {
-  console.error('[ERROR] --dirs-tree=<path> が必要です');
+  console.error('[ERROR] --dirs-tree=<path> is required');
   process.exit(1);
 }
 
@@ -44,13 +44,13 @@ let dirsTree;
 try {
   dirsTree = JSON.parse(fs.readFileSync(dirsTreePath, 'utf-8'));
 } catch (err) {
-  console.error(`[ERROR] Dirs-Tree.json の読み込みに失敗: ${err.message}`);
+  console.error(`[ERROR] Failed to read Dirs-Tree.json: ${err.message}`);
   process.exit(1);
 }
 
 const languages = Object.keys(dirsTree.trees || {});
 if (languages.length === 0) {
-  console.log(JSON.stringify({ ok: true, skipped: true, message: 'Dirs-Tree.json に言語定義がありません', languages: [] }));
+  console.log(JSON.stringify({ ok: true, skipped: true, message: 'No language definitions in Dirs-Tree.json', languages: [] }));
   process.exit(0);
 }
 
@@ -61,8 +61,8 @@ if (languages.length === 0) {
 const results = [];
 
 for (const lang of languages) {
-  const actionLabel = isDelete ? '削除' : '生成';
-  console.error(`[${lang}] ${actionLabel}を開始します...`);
+  const actionLabel = isDelete ? 'delete' : 'generate';
+  console.error(`[${lang}] Starting ${actionLabel}...`);
 
   // 生成先の基点は Dirs-Tree.json と同じディレクトリ
   const rootDir = path.dirname(dirsTreePath);
@@ -83,7 +83,7 @@ for (const lang of languages) {
     });
     const result = JSON.parse(stdout.trim());
     results.push({ language: lang, ok: true, ...result });
-    console.error(`[${lang}] ${actionLabel}完了`);
+    console.error(`[${lang}] ${actionLabel} completed`);
   } catch (err) {
     const stderr = err.stderr || '';
     const stdout = err.stdout || '';
@@ -95,7 +95,7 @@ for (const lang of languages) {
       error: stderr.trim() || err.message,
       ...(parsed || {}),
     });
-    console.error(`[${lang}] ${actionLabel}失敗: ${stderr.trim() || err.message}`);
+    console.error(`[${lang}] ${actionLabel} failed: ${stderr.trim() || err.message}`);
   }
 }
 

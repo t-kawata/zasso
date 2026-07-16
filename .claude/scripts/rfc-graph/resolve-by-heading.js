@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 function exitWithError(summary, cause, action) {
-  process.stderr.write(`[ERROR] ${summary}\n原因: ${cause}\n対応: ${action}\n`);
+  process.stderr.write(`[ERROR] ${summary}\nCause: ${cause}\nAction: ${action}\n`);
   process.exit(1);
 }
 
@@ -123,7 +123,7 @@ function parseArguments(argv) {
     else if (arg.startsWith('--texts=')) result.texts = arg.slice('--texts='.length).split(',');
   }
 
-  if (!result.sourcePath) throw new Error('--source=<path> が必要です。');
+  if (!result.sourcePath) throw new Error('--source=<path> is required.');
   return result;
 }
 

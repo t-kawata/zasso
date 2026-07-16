@@ -514,7 +514,7 @@ test('slug が文字列でない場合、errors に報告される', () => {
 // 定数定義の確認
 // ============================================================
 
-console.log('\n--- 定数定義 ---');
+console.log('\n--- Constants ---');
 
 test('MAX_SLUG_LENGTH が 25 である', () => {
   assert.strictEqual(MAX_SLUG_LENGTH, 25);
