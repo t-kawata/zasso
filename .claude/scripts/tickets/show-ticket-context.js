@@ -273,8 +273,8 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
     return [
       `# ${ticketKey}: Not Found`,
       '',
-      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
-      '/plan-ticket を中断してください。',
+      `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
+      'Please abort /plan-ticket.',
       '',
     ].join('\n');
   }
@@ -282,27 +282,27 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
     return [
       `# ${ticketKey}: Not Found`,
       '',
-      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
-      '/review-ticket を中断してください。',
+      `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
+      'Please abort /review-ticket.',
       '',
     ].join('\n');
   }
   return [
     `# ${ticketKey}: Not Found`,
     '',
-    `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
+    `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
     '',
-    '**事前に会話からチケット化を依頼された場合**:',
-    '以下のコマンドを実行してください。',
+    '**If you were asked to create a ticket from prior conversation**:',
+    'Run the following command.',
     '',
     '```bash',
     `node .claude/scripts/tickets/ensure-ticket.js \\`,
     `  --ticket-key=${ticketKey} \\`,
-    '  --title="（会話から確定したタイトル）"',
+    '  --title="(title confirmed from conversation)"',
     '```',
     '',
-    '**事前の会話がない場合**:',
-    '「ticket & spec 化する事前情報が無いため /make-ticket を中断します。」とユーザに回答して中断してください。',
+    '**If there is no prior conversation**:',
+    'Reply to the user "No prior information available to create ticket & spec, aborting /make-ticket." and abort.',
     '',
   ].join('\n');
 }

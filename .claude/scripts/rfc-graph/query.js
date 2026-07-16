@@ -107,8 +107,8 @@ function parseArguments(testArgs) {
 function parseNodeIds(idFlag) {
   if (!idFlag.startsWith(NODE_ID_ARG_PREFIX)) {
     throw new Error(
-      "3番目の引数は --id=<nodeId> である必要があります。\n" +
-        `  実際の値: ${idFlag}`,
+      "The 3rd argument must be --id=<nodeId>.\n" +
+        `  Actual value: ${idFlag}`,
     );
   }
   const rawIds = idFlag.slice(NODE_ID_ARG_PREFIX.length);
@@ -131,8 +131,8 @@ function parseNodeIds(idFlag) {
 function parseHops(hopsFlag) {
   if (!hopsFlag.startsWith(HOPS_ARG_PREFIX)) {
     throw new Error(
-      "4番目の引数は --hops=<N> である必要があります。\n" +
-        `  実際の値: ${hopsFlag}`,
+      "The 4th argument must be --hops=<N>.\n" +
+        `  Actual value: ${hopsFlag}`,
     );
   }
   const hopsStr = hopsFlag.slice(HOPS_ARG_PREFIX.length);
@@ -142,8 +142,8 @@ function parseHops(hopsFlag) {
   const hops = parseInt(hopsStr, 10);
   if (!Number.isInteger(hops) || hops < 1) {
     throw new Error(
-      "--hops=<N> の <N> は1以上の整数である必要があります。\n" +
-        `  実際の値: ${hopsStr}`,
+      "<N> in --hops=<N> must be a positive integer.\n" +
+        `  Actual value: ${hopsStr}`,
     );
   }
   return hops;
@@ -167,8 +167,8 @@ function loadGraph(graphPath) {
     return JSON.parse(raw);
   } catch (parseError) {
     throw new Error(
-      `グラフファイルのJSONパースに失敗しました: ${graphPath}\n` +
-        `原因: ${parseError.message}`,
+      `Failed to parse graph JSON file: ${graphPath}\n` +
+        `Cause: ${parseError.message}`,
     );
   }
 }
@@ -422,7 +422,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
   lines.push(`## ${node.id}: ${node.title}`);
   lines.push("");
   // 種別
-  lines.push(`**種別**: ${node.kind}`);
+  lines.push(`**Kind**: ${node.kind}`);
   lines.push("");
 
   // Summary（グラフJSON内の短い説明）
@@ -443,7 +443,7 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
     if (resolved) {
       const content = extractSectionContent(sourceLines, resolved.line - 1);
       if (content) {
-        lines.push("### RFC での記述\n");
+        lines.push("### RFC Description\n");
         lines.push("---");
         lines.push(content);
         lines.push("---\n");
@@ -454,24 +454,24 @@ function formatNodeMarkdown(node, edges, graph, sourceText, depthMap, nodeToDirM
   // 実装先となるファイルパス（--dirs-tree 指定時のみ表示）
   if (nodeToDirMap) {
     const filePath = nodeToDirMap[node.id];
-    lines.push("### 実装先となるファイルパス\n");
+    lines.push("### Implementation File Path\n");
     if (filePath) {
       lines.push("```");
       lines.push(filePath);
       lines.push("```\n");
     } else {
-      lines.push("（このノードに割り当てられたファイルはありません）\n");
+      lines.push("(No file assigned to this node)\n");
     }
   }
 
   // ツリー形式で関係性を表示
   if (edges.length === 0) {
-    lines.push("### 他のノードとの関係性");
+    lines.push("### Relationships with Other Nodes");
     lines.push("");
     return lines.join("\n");
   }
 
-  lines.push("### 他のノードとの関係性\n");
+  lines.push("### Relationships with Other Nodes\n");
 
   // depthMap から親子隣接リストを構築し、再帰的に子ノードを描画
   if (depthMap) {
@@ -546,7 +546,7 @@ function getDirectionLabel(nodeId, edge) {
  */
 function printError(message, cause, action) {
   process.stderr.write(
-    `[ERROR] ${message}\n` + `原因: ${cause}\n` + `対応: ${action}\n`,
+    `[ERROR] ${message}\n` + `Cause: ${cause}\n` + `Action: ${action}\n`,
   );
 }
 
@@ -559,7 +559,7 @@ function printError(message, cause, action) {
  */
 function printUsage() {
   console.log(
-    "query.js — マルチホップグラフ探索\n" +
+    "query.js — Multi-hop graph traversal\n" +
       "\n" +
       "Usage:\n" +
       "  query.js --graph=<path> --source=<path> --id=<nodeId> [--hops=<N>] [--dirs-tree=<path>]\n" +
@@ -616,9 +616,9 @@ function main() {
     dirsTreePath = parsed.dirsTreePath;
   } catch (parseError) {
     printError(
-      "引数のパースに失敗しました。",
+      "Failed to parse arguments.",
       parseError.message,
-      "正しい引数で再実行してください。",
+      "Re-run with correct arguments.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -629,9 +629,9 @@ function main() {
     graph = loadGraph(graphPath);
   } catch (graphError) {
     printError(
-      "グラフファイルの読み込みに失敗しました。",
+      "Failed to load graph file.",
       graphError.message,
-      "--graph=<path> に正しいグラフファイルを指定してください。",
+      "Specify a valid graph file via --graph=<path>.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -642,9 +642,9 @@ function main() {
     sourceText = loadSourceFile(sourcePath);
   } catch (sourceError) {
     printError(
-      "ソースファイルの読み込みに失敗しました。",
+      "Failed to load source file.",
       sourceError.message,
-      "--source=<path> に正しいソースファイルを指定してください。",
+      "Specify a valid source file via --source=<path>.",
     );
     process.exit(EXIT_FAILURE);
   }
@@ -660,9 +660,9 @@ function main() {
       nodeToDirMap = buildNodeToDirMap(dirsTreeData);
     } catch (e) {
       printError(
-        "Dirs-Tree.json の読み込みに失敗しました。",
+        "Failed to load Dirs-Tree.json.",
         e.message,
-        "--dirs-tree=<path> に正しい Dirs-Tree.json を指定してください。",
+        "Specify a valid Dirs-Tree.json via --dirs-tree=<path>.",
       );
       process.exit(EXIT_FAILURE);
     }
@@ -674,9 +674,9 @@ function main() {
     const startNode = resolveNodeById(graph, nodeId);
     if (!startNode) {
       printError(
-        `ノード ${nodeId} がグラフ内に見つかりません。`,
-        `グラフ内のノード: [${graph.nodes.map((n) => n.id).join(", ")}]`,
-        "--id=<nodeId> に正しいノードIDを指定してください。",
+        `Node ${nodeId} not found in graph.`,
+        `Nodes in graph: [${graph.nodes.map((n) => n.id).join(", ")}]`,
+        "Specify a valid node ID via --id=<nodeId>.",
       );
       process.exit(EXIT_FAILURE);
     }
