@@ -273,8 +273,8 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
     return [
       `# ${ticketKey}: Not Found`,
       '',
-      `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
-      'Please abort /plan-ticket.',
+      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
+      '/plan-ticket を中断してください。',
       '',
     ].join('\n');
   }
@@ -282,27 +282,27 @@ function buildTicketNotFoundMarkdown(ticketKey, plan, review) {
     return [
       `# ${ticketKey}: Not Found`,
       '',
-      `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
-      'Please abort /review-ticket.',
+      `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
+      '/review-ticket を中断してください。',
       '',
     ].join('\n');
   }
   return [
     `# ${ticketKey}: Not Found`,
     '',
-    `Ticket \`${ticketKey}\` does not exist in Tickets.json.`,
+    `チケット \`${ticketKey}\` は Tickets.json に存在しません。`,
     '',
-    '**If you were asked to create a ticket from prior conversation**:',
-    'Run the following command.',
+    '**事前に会話からチケット化を依頼された場合**:',
+    '以下のコマンドを実行してください。',
     '',
     '```bash',
     `node .claude/scripts/tickets/ensure-ticket.js \\`,
     `  --ticket-key=${ticketKey} \\`,
-    '  --title="(title confirmed from conversation)"',
+    '  --title="（会話から確定したタイトル）"',
     '```',
     '',
-    '**If there is no prior conversation**:',
-    'Reply to the user "No prior information available to create ticket & spec, aborting /make-ticket." and abort.',
+    '**事前の会話がない場合**:',
+    '「ticket & spec 化する事前情報が無いため /make-ticket を中断します。」とユーザに回答して中断してください。',
     '',
   ].join('\n');
 }
@@ -621,12 +621,12 @@ function main() {
   const { ticketsPath, ticketKey, forSpec, noTestRules, plan, review } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
-    console.error('Error: --ticket-key must be in P{phaseId}-{ticketId} format (e.g., P0-1, PX-53).');
+    console.error('Error: --ticket-key は P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。');
     process.exit(EXIT_FAILURE);
   }
 
   if (!fs.existsSync(ticketsPath)) {
-    console.error(`Error: Tickets.json not found: ${ticketsPath}`);
+    console.error(`Error: Tickets.json が見つかりません: ${ticketsPath}`);
     process.exit(EXIT_FAILURE);
   }
 

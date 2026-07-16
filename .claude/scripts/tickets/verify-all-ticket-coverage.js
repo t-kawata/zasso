@@ -193,7 +193,7 @@ function main() {
       fs.readFileSync(path.resolve(ticketsJsonPath), "utf8")
     );
   } catch (err) {
-    console.error("Failed to read Tickets.json: " + err.message);
+    console.error("Tickets.json の読み込みに失敗しました: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
@@ -208,7 +208,7 @@ function main() {
     console.error("---");
     for (const failed of report.failedPhases) {
       if (!failed.hasTickets) {
-        console.error("Phase " + failed.phaseLabel + ": No tickets found.");
+        console.error("フェーズ " + failed.phaseLabel + ": チケットがありません。");
       }
       if (failed.missingNodeIds.length > 0) {
         console.error(

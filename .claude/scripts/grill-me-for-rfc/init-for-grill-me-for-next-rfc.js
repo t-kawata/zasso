@@ -57,8 +57,8 @@ if (
   resolvedRfcPath === parentRfcPath
 ) {
   console.error(
-    `Error: Output path "${rfcOutputPath}" conflicts with the parent RFC (${path.basename(parentRfcPath)}).` +
-    "Specify a different output path from the parent RFC.",
+    `エラー: 出力先パス "${rfcOutputPath}" は親RFC（${path.basename(parentRfcPath)}）と同一です。` +
+    "出力先には親RFCと異なるパスを指定してください。",
   );
   process.exit(1);
 }

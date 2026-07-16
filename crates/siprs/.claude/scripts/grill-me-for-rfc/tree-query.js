@@ -96,7 +96,7 @@ switch (operation) {
     const total = countNodes(tree.nodes);
     const open = countStatus(tree.nodes, "open");
     const resolved = countStatus(tree.nodes, "resolved");
-    console.log(`📋 DesignTree（${total} ノード: ${open} open, ${resolved} resolved）`);
+    console.log(`📋 DesignTree (${total} nodes: ${open} open, ${resolved} resolved)`);
     console.log(renderTree(tree.nodes));
     break;
   }
@@ -120,9 +120,9 @@ switch (operation) {
     }
     searchNodes(tree.nodes);
     if (results.length === 0) {
-      console.log(`🔍 "${keyword}" に一致するノードはありません`);
+      console.log(`🔍 No nodes match "${keyword}"`);
     } else {
-      console.log(`🔍 "${keyword}" の検索結果（${results.length}件）:`);
+      console.log(`🔍 Search results for "${keyword}" (${results.length}):`);
       results.forEach((r) => console.log(`  [${BADGE[r.status]}] ${r.id}: ${r.title}`));
     }
     break;
@@ -137,9 +137,9 @@ switch (operation) {
     }
     const found = findNodeWithPath(tree.nodes, nodeId);
     if (!found) {
-      console.log(`📍 ノード "${nodeId}" は見つかりませんでした`);
+      console.log(`📍 Node "${nodeId}" not found`);
     } else {
-      console.log(`📍 ${nodeId} までのパス:`);
+      console.log(`📍 Path to ${nodeId}:`);
       console.log(renderPath(found));
     }
     break;
@@ -152,13 +152,13 @@ switch (operation) {
     const resolved = countStatus(tree.nodes, "resolved");
     const depth = maxDepth(tree.nodes);
     const progress = total > 0 ? Math.round((resolved / total) * 100) : 0;
-    console.log(`📊 DesignTree 統計`);
-    console.log(`  総ノード数: ${total}`);
+    console.log(`📊 DesignTree Stats`);
+    console.log(`  Total Nodes: ${total}`);
     console.log(`  Open: ${open}`);
     console.log(`  Resolved: ${resolved}`);
-    console.log(`  最大深度: ${depth}`);
-    console.log(`  トップレベルセクション: ${tree.nodes.length}`);
-    console.log(`  進行度: ${progress}%`);
+    console.log(`  Max Depth: ${depth}`);
+    console.log(`  Top-Level Sections: ${tree.nodes.length}`);
+    console.log(`  Progress: ${progress}%`);
     break;
   }
 

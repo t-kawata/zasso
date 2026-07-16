@@ -129,5 +129,5 @@ console.log(JSON.stringify({
   checklistPath,
   topLevelSections: tree.nodes.length,
   totalNodes,
-  note: "Manual AI review and supplementary notes required",
+  note: "AI visual inspection and supplementary notes are required",
 }));

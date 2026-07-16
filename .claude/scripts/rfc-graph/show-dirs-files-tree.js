@@ -24,8 +24,8 @@ const EXIT_FAILURE = 1;
  */
 function exitWithError(message, cause, action) {
   process.stderr.write("[ERROR] " + message + "\n");
-  process.stderr.write("Cause: " + cause + "\n");
-  process.stderr.write("Action: " + action + "\n");
+  process.stderr.write("原因: " + cause + "\n");
+  process.stderr.write("対応: " + action + "\n");
   process.exit(EXIT_FAILURE);
 }
 

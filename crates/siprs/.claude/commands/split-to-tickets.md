@@ -1,64 +1,72 @@
 ---
-description: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは「1チケット・1不変条件」を徹底し、安全な I/O 境界を持つ実装単位に分解する。
+description: Analyzes a design document and decomposes it into phases and individual tickets based on dependencies.
 argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree.json>
 ---
 
 # /split-to-tickets
 
-**役割**: 設計書（Requirements / Functional Specification / RFC / 設計ドキュメント）を分析し、依存関係に基づいたフェーズ（段階）・フェーズ・個別チケットに分解する。各チケットは「1チケット・1不変条件」を徹底し、安全な I/O 境界を持つ実装単位に分解する。
+**Role**: Analyzes a design document (Requirements / Functional Specification / RFC / Design Document) and decomposes it into phases and individual tickets based on dependencies. Each ticket is decomposed into implementation units with safe I/O boundaries.
 
-「不変条件」とは、そのチケットが実装する I/O 境界において外部と交わす契約（contract）の正しさを意味する。チケットの完了は、この I/O 境界での契約がテストコードによる単体テスト及び結合テストによって漏れなく検証されたことをもって判断する。全チケットはテストコードによる単体テスト及び結合テストによってスタブ無しの完全な実装を保証できる単位でなければならない。
+The generated result is saved as `Tickets.json`, which is referenced and updated via scripts from subsequent commands (`/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, etc.).
 
-生成結果は `Tickets.json` として保存され、後続のコマンド（`/make-ticket`,`/plan-ticket`、`/start-ticket`、`/review-ticket` 等）からスクリプト群を介して参照・更新される。
+## Language Protocol
 
-## 引数の解釈
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-- **第1引数（必須）**: 設計書（RFC）のファイルパス
-  - 例: `conver/RFC-001-process-registry.md`
-  - 例: `/absolute/path/to/design-doc.md`
-- **第2引数（必須）**: I/O 境界の関係性グラフファイルパス
-  - 例: `conver/RFC-001-process-registry-GRAPH.json`
-  - 例: `/absolute/path/to/design-doc-GRAPH.json`
-- **第3引数（必須）**: I/O 境界の関係性グラフから安全に区切られたディレクトリツリーファイルパス
-  - 例: `conver/RFC-001-process-registry-Dirs-Tree.json`
-  - 例: `/absolute/path/to/design-doc-Dirs-Tree.json`
+## Argument Interpretation
 
-## 出力先
+- **1st argument (required)**: Path to the design document (RFC) file
+  - e.g. `conver/RFC-001-process-registry.md`
+  - e.g. `/absolute/path/to/design-doc.md`
+- **2nd argument (required)**: Path to the I/O boundary relationship graph file
+  - e.g. `conver/RFC-001-process-registry-GRAPH.json`
+  - e.g. `/absolute/path/to/design-doc-GRAPH.json`
+- **3rd argument (required)**: Path to the directory tree file safely delimited from the I/O boundary relationship graph
+  - e.g. `conver/RFC-001-process-registry-Dirs-Tree.json`
+  - e.g. `/absolute/path/to/design-doc-Dirs-Tree.json`
 
-- 設計書と同じ階層に `Tickets.json` を自動生成する
-- 例: `docs/RFC-001-process-registry.md` → `docs/Tickets.json`
-- 既に存在する場合は上書き前に確認すること
+## Output Destination
 
-## 使用スクリプト一覧
+- Automatically generates `Tickets.json` in the same directory as the design document
+- e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`
+- If the file already exists, confirm with the user before overwriting
 
-`.claude/scripts/tickets/` 配下。
+## List of Scripts Used
 
-| スクリプト | 引数 | 説明 |
-|---|---|---|
-| `write-tickets-json-template.js` | `<PATH of Tickets.json> '<metadata-json>'` | Tickets.json スケルトン生成（phases: []） |
-| `add-phase.js` | `<PATH of Tickets.json>`（stdin: フェーズJSON） | フェーズ追加。phaseID は 0 から自動採番 |
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}`（stdin: チケットJSON） | チケット追加（単一）。ticketID はフェーズ内で自動インクリメント |
-| `bulk-add-tickets.js` | `<PATH of Tickets.json>`（stdin: 一括JSON） | チケット追加（一括）。phaseId/phaseName でフェーズ指定 |
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一取得。複合キーで検索 |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | 全文検索（title/background/scope/referenceSection） |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | 全一覧。status フィルタ可能 |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | 更新。phaseId/ticketID は変更不可 |
-| `bulk-update-tickets.js` | `<PATH of Tickets.json>`（stdin: 一括更新JSON） | 複数一括更新 |
-| `delete-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | 単一削除 |
-| `bulk-delete-tickets.js` | `<PATH of Tickets.json>`（stdin: 削除キー一覧） | 複数一括削除 |
-| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | チェックリスト形式で表示 |
-| `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | SPLIT-Status.json の進行管理（6サブコマンド） |
+Located under `.claude/scripts/tickets/`.
 
-全スクリプトは書き込み前にスキーマ検証（`validate-tickets.js`）を実行し、失敗時は保存しない。
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `write-tickets-json-template.js` | `<PATH of Tickets.json> '<metadata-json>'` | Generate Tickets.json skeleton (phases: []) |
+| `add-phase.js` | `<PATH of Tickets.json>` (stdin: phase JSON) | Add a phase. phaseID auto-increments from 0 |
+| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Add a ticket (single). ticketID auto-increments within the phase |
+| `bulk-add-tickets.js` | `<PATH of Tickets.json>` (stdin: bulk JSON) | Add tickets (bulk). Specify phase via phaseId/phaseName |
+| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | Retrieve single ticket by composite key |
+| `search-tickets.js` | `<PATH of Tickets.json> <query>` | Full-text search (title/background/scope/referenceSection) |
+| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | List all tickets. Optional status filter |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update a ticket. phaseId/ticketID are immutable |
+| `bulk-update-tickets.js` | `<PATH of Tickets.json>` (stdin: bulk update JSON) | Bulk update multiple tickets |
+| `delete-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | Delete a single ticket |
+| `bulk-delete-tickets.js` | `<PATH of Tickets.json>` (stdin: list of deletion keys) | Bulk delete multiple tickets |
+| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | Display in checklist format |
+| `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | Manage SPLIT-Status.json progress (6 subcommands) |
 
-## 分析手順
+All scripts run schema validation (`validate-tickets.js`) before writing, and do not save on failure.
 
-### Step 0: 初期化（引数パース + Malfeasance.json 初期化 + 出力先決定）及びRFC読込
+## Analysis Procedure
 
-#### 0-1. 初期化
+### Step 0: Initialization (argument parsing + Malfeasance.json initialization + determine output destination) and RFC loading
+
+#### 0-1. Initialization
 
 ```bash
-# 全引数を配列でパース（第1引数=RFC, 第2引数=GRAPH.json, 第3引数=Dirs-Tree.json）
+# Parse all arguments as an array (1st arg=RFC, 2nd arg=GRAPH.json, 3rd arg=Dirs-Tree.json)
 IFS=' ' read -r DOC_PATH GRAPH_PATH DIRS_TREE_PATH <<< "$ARGUMENTS"
 DOC_DIR="$(dirname "$DOC_PATH")"
 BASENAME="$(basename "$DOC_PATH" .md)"
@@ -66,196 +74,196 @@ STATUS_PATH="${DOC_DIR}/${BASENAME}-SPLIT-Status.json"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 ```
 
-※ 0-1. 以降のStepでは、進行ステータスの管理に `update-split-step-status.js` を使用する。
+Note: From Step 0-1 onwards, use `update-split-step-status.js` to manage progress status.
 
-各Stepの開始・終了時の呼び出し例：
+Example calls at the start and end of each step:
 
 ```bash
-# Step の開始（STEP_ID は "0-1", "4-2" 等の実際のステップ識別子）
+# Start of Step (STEP_ID is an actual step identifier such as "0-1", "4-2", etc.)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step <STEP_ID>
-# ... 処理 ...
-# Step の正常終了（currentStep が次の Step に進む）
+# ... processing ...
+# Normal end of Step (currentStep advances to the next Step)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step <STEP_ID>
-# 異常終了時（currentStep は変更なし）
+# On abnormal end (currentStep remains unchanged)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" fail-step <STEP_ID>
-# エラー修正後、復帰
+# After error correction, resume
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step <STEP_ID>
 ```
 
-#### 0-2. Malfeasance.json 作成
+#### 0-2. Create Malfeasance.json
 
 ```bash
-# Step 0-1 を開始
+# Start Step 0-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-1"
 ```
 
-Malfeasance.json は不完全な実装（`[::STUB::]` 未付与）を「犯罪」として記録する台帳である。`DOC_DIR` 内で初期化する。
+Malfeasance.json is a ledger that records incomplete implementations (those lacking a `[::STUB::]` marker) as "crimes." Initialize it within `DOC_DIR`.
 
 ```bash
-# 犯罪記録台帳が存在しなければ空の状態で作成する
+# Create the crime record ledger as empty if it does not exist
 node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
 
-# Step 0-1 正常終了
+# Normal end of Step 0-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-1"
 ```
 
-### エラー時の復帰
-スクリプトが出力するエラーメッセージに従って修正した後、`reset-to-step "0-1"` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
+### Resuming from an Error
+After fixing the error according to the script's error message, use `reset-to-step "0-1"` to roll back the status and re-execute the Step 0 commands from the beginning.
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-1"
 ```
 
-#### 0-3. RFC 読込（analyze-source-structure.js で構造把握 → セクションごとに順次読込）
+#### 0-3. Read RFC (understand structure via analyze-source-structure.js → read sections sequentially)
 
 ```bash
-# Step 0-2 を開始
+# Start Step 0-2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-2"
 
-echo "=== RFC 構造分析 ==="
+echo "=== RFC Structure Analysis ==="
 node ".claude/scripts/rfc-graph/analyze-source-structure.js" "$DOC_PATH"
-echo "======================"
+echo "=============================="
 ```
 
-RFC 文書は極めて長大な文書であるため、一度に全文を読もうとしてはならない。
-上記の構造分析結果でセクション一覧（行範囲付き）を把握した上で、**上から順に**セクションを読み進めること。
+Since the RFC document is extremely long, do not attempt to read the entire text at once.
+After understanding the section listing (with line ranges) from the structure analysis above, read sections **from top to bottom** sequentially.
 
-一度にいくつのセクションをまとめて読むかは AI の判断に委ねるが、以下の観点で内容を記憶に留めながら読了すること：
+How many sections to read at once is left to the AI's judgment, but read through all of them while keeping the following aspects in memory:
 
-- **目的とスコープ**: この RFC が何を実現しようとしているのか、どこまでが範囲か
-- **技術スタック**: 使用する言語、フレームワーク、外部依存関係
-- **主要なデータ型**: 構造体、列挙型、トレイトの定義とその関係
-- **アーキテクチャ**: モジュール間の依存関係、データフロー、制御フロー
-- **I/O 境界**: 外部との契約（公開API、ファイルI/O、ネットワークI/O、DBアクセス等）
-- **テスト戦略**: テスト方法、検証基準、結合計画
+- **Purpose and scope**: What this RFC aims to achieve and the extent of its scope
+- **Technology stack**: Languages, frameworks, and external dependencies used
+- **Key data types**: Struct, enum, trait definitions and their relationships
+- **Architecture**: Module dependencies, data flow, and control flow
+- **I/O boundaries**: Contracts with the outside (public API, file I/O, network I/O, DB access, etc.)
+- **Testing strategy**: Testing methodology, verification criteria, and integration plan
 
 ```bash
-# Step 0-2 正常終了
+# Normal end of Step 0-2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-2"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-2"
 ```
 
 ---
 
-### Step 1: RFC 内の I/O 境界参考情報を参照
+### Step 1: Reference I/O boundary information in the RFC
 
 ```bash
-# Step 1 を開始
+# Start Step 1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "1"
 ```
 
-この I/O 境界参考情報は、grill / drill によって詳細な設計書として RFC を書き上げた段階で作成されたものである。
-RFC 執筆者の設計意図が最も新鮮なタイミングで記述された I/O 境界の素案であり、チケット分割において最大限尊重しなければならない。
-ただし、後続の /graphify-rfc によってさらに発散的に細分化する I/O 境界分割の設計が行われており、必ずしも RFC 執筆時点の I/O 境界と一致する状態にはないことに注意すること。
+This I/O boundary reference information was created at the stage when the RFC was written as a detailed design document through grill / drill.
+It is a draft of I/O boundaries written when the RFC author's design intent was freshest, and must be respected as much as possible in ticket decomposition.
+However, note that the subsequent `/graphify-rfc` may have further divergently subdivided the I/O boundaries, so the current state may not match the I/O boundaries at the time of RFC writing.
 
-対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示する。
+If the target RFC has an I/O boundary reference information section, display it.
 
 ```bash
-echo "=== I/O 境界参考情報 ==="
-node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$DOC_PATH" || echo "(I/O 境界参考情報なし。事前に grill/drill が必要。split を中断しなさい。)"
-echo "========================"
+echo "=== I/O Boundary Reference ==="
+node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$DOC_PATH" || echo "(No I/O boundary reference. grill/drill needed beforehand. Interrupt split.)"
+echo "============================="
 ```
 
-I/O 境界参考情報が存在しない場合は、事前の grill/drill を促して split 中断。
+If no I/O boundary reference exists, prompt prior grill/drill and interrupt split.
 
 ```bash
-# Step 1 正常終了
+# Normal end of Step 1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "1"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "1"
 ```
 
 ---
 
-### Step 2: RFC の設計における関係グラフ構造の確認
+### Step 2: Examine the relationship graph structure in the RFC design
 
 ```bash
-# Step 2 を開始
+# Start Step 2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "2"
 ```
 
-このグラフ構造は、/graphify-rfc によって RFC の I/O 境界想定よりもさらに細かい安全な I/O 境界単位に細分化されたノード群とその関係性である。
-Step 1 で表示された RFC 執筆時点の I/O 境界参考情報よりも 1 ステージ進んだものであり、チケット分解の主要な判断材料となる。
+This graph structure consists of nodes and their relationships, subdivided by `/graphify-rfc` into safe I/O boundary units finer than the I/O boundary assumptions in the original RFC.
+It is one stage more advanced than the I/O boundary reference information from RFC writing time displayed in Step 1, and serves as the primary decision material for ticket decomposition.
 
-/graphify-rfc で生成されたグラフが存在する場合、show-graph-summary-markdown.js でグラフ構造サマリーを表示する：
+If the graph generated by `/graphify-rfc` exists, display the graph structure summary via `show-graph-summary-markdown.js`:
 
 ```bash
-echo "=== グラフ構造サマリー ==="
+echo "=== Graph Structure Summary ==="
 if [ -f "$GRAPH_PATH" ]; then
   node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$GRAPH_PATH" --source="$DOC_PATH" --with-cli-examples
 else
-  echo "(グラフ構造サマリーなし。事前に graphify が必要。split を中断しなさい。)"
+  echo "(No graph structure summary. graphify needed beforehand. Interrupt split.)"
 fi
-echo "========================"
+echo "==============================="
 ```
 
-グラフ構造サマリーが存在しない場合は、事前の graphify を促して split 中断。
+If no graph structure summary exists, prompt prior graphify and interrupt split.
 
 ```bash
-# Step 2 正常終了
+# Normal end of Step 2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "2"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "2"
 ```
 
 ---
 
-### Step 3: boundify によるディレクトリ・ファイル構造の確認
+### Step 3: Examine directory and file structure via boundify
 
 ```bash
-# Step 3 を開始
+# Start Step 3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "3"
 ```
 
-このディレクトリ・ファイル構造は、grill / drill → /graphify-rfc → /boundify-graph-to-dirs の直列パイプラインによって最終的に生成された現時点の実装ディレクトリ・ファイル構成である。
+This directory and file structure is the current implementation directory and file configuration, ultimately generated by the serial pipeline of grill / drill → `/graphify-rfc` → `/boundify-graph-to-dirs`.
 
-**現時点のディレクトリ・ファイル構造は変更を禁止する。** ただし、crate や package、class などが他のプログラムから利用されるためのインターフェースを公開するためのディレクトリやファイルの**追加**に関しては、必要に応じて許可する。
-追加を行う場合は、チケット内に当該 *-GRAPH.json および *-Dirs-Tree.json には定義されていない追加ディレクトリまたは追加ファイルであることを**必ず明記しなければならない**。
+**The current directory and file structure must not be modified.** However, **adding** directories or files that expose interfaces for crates, packages, classes, etc. to be used by other programs is permitted as needed.
+When adding, you **must explicitly state** in the ticket that these are additional directories or files not defined in the corresponding *-GRAPH.json or *-Dirs-Tree.json.
 
 ```bash
-echo "=== boundify ディレクトリ・ファイル構造 ==="
+echo "=== boundify Directory/File Structure ==="
 if [ -f "$DIRS_TREE_PATH" ]; then
   node .claude/scripts/rfc-graph/show-dirs-files-tree.js "$DIRS_TREE_PATH"
 else
-  echo "(*-Dirs-Tree.json なし。事前の boundify が必要。split を中断しなさい。)"
+  echo "(*-Dirs-Tree.json not found. boundify needed beforehand. Interrupt split.)"
 fi
-echo "========================================"
+echo "========================================="
 ```
 
-*-Dirs-Tree.jsonが存在しない場合は、事前の boundify を促して split 中断。
+If *-Dirs-Tree.json does not exist, prompt prior boundify and interrupt split.
 
 ```bash
-# Step 3 正常終了
+# Normal end of Step 3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "3"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "3"
 ```
 
 ---
 
-### Step 4: 第一次フェーズ設計（機械的フェーズグルーピング）
+### Step 4: Primary phase design (mechanical phase grouping)
 
-#### 4-1. スクリプトによるフェーズ分割
+#### 4-1. Phase splitting via script
 
 ```bash
-# Step 4-1 を開始
+# Start Step 4-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-1"
 ```
 
-GRAPH.json と Dirs-Tree.json を入力とし、`phasify-graph-and-dirs-files-tree.js` が数学的に安全な重み付きトポロジカルソートと SCC 縮約により全ノードを実装フェーズにグルーピングする。結果は Tickets.json の phase[].nodeIds に書き込まれる。
+Taking GRAPH.json and Dirs-Tree.json as input, `phasify-graph-and-dirs-files-tree.js` groups all nodes into implementation phases using mathematically safe weighted topological sorting and SCC condensation. The result is written to Tickets.json's `phase[].nodeIds`.
 
 ```bash
 node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
@@ -263,80 +271,80 @@ node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
   "$DIRS_TREE_PATH"
 ```
 
-出力末尾のサマリー行で合格（✅）を確認する。不合格（⚠️）の場合は不合格原因を報告して split を中断。
+Confirm the summary line at the end of the output shows a pass (✅). If it shows a failure (⚠️), report the cause and interrupt split.
 
 ```bash
-# Step 4-1 正常終了
+# Normal end of Step 4-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-1"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-1"
 ```
 
-#### 4-2. 全フェーズの名前とサマリー書き込み
+#### 4-2. Write names and summaries for all phases
 
 ```bash
-# Step 4-2 を開始（4-2 ループ全体の開始）
+# Start Step 4-2 (start of the 4-2 loop)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-2"
 ```
 
-4.1 で Tickets.json に書き込まれた全フェーズに対して、以下の手順でフェーズ名（name）とサマリー（summary）を設定する。必要なスクリプトは2つ：`show-all-nodes-title-summary.js`（表示）と `write-phase-name-summary.js`（書き込み）。
+For all phases written to Tickets.json in 4.1, set the phase name and summary using the following procedure. Two scripts are needed: `show-all-nodes-title-summary.js` (display) and `write-phase-name-summary.js` (writing).
 
-全フェーズに対して、以下の①→②→③を**1フェーズずつ逐次実行する**。全フェーズを一括で出力してはならない。
+For all phases, execute the following ①→②→③ **sequentially, one phase at a time**. Do not output all phases in bulk.
 
 ```bash
-# ① 該当フェーズのノード一覧を表示（例: フェーズ P0）
+# ① Display the list of nodes for the relevant phase (example: phase P0)
 node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js \
   --tickets="$TICKETS_PATH" \
   --graph="$GRAPH_PATH" \
   --phase="P0"
 ```
 
-①の出力例：
+Example output of ①:
 ```
-N0001: [§1 目的 — 本crateの責務定義] RustからPJSUAを安全に...
-N0002: [§1a M20実装優先度マップ] M20追補の全実装項目を...
+N0001: [§1 Purpose — Definition of this crate's responsibilities] Safely wrapping PJSUA from Rust...
+N0002: [§1a M20 implementation priority map] All implementation items of the M20 supplement...
 ```
 
-② AI が①の出力を読み、このフェーズにふさわしい名前とサマリーを生成する。
+② AI reads the output of ① and generates an appropriate name and summary for this phase.
 
 ```bash
-# ③ 生成した name/summary を Tickets.json に書き込む
-echo '{"name":"認証基盤","summary":"認証トークン生成・検証・Session管理"}' | \
+# ③ Write the generated name/summary to Tickets.json
+echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | \
   node .claude/scripts/rfc-graph/write-phase-name-summary.js \
     "$TICKETS_PATH" \
     "P0"
 ```
 
-①→②→③が完了したら次のフェーズ（P1, P2, ...）に進む。全フェーズ終了後、以下のスクリプトで全フェーズの name/summary が埋まっていることを確認する。不合格の場合は全てのフェーズが完了するまで Step 5 への進行を禁止する。
+After completing ①→②→③, proceed to the next phase (P1, P2, ...). After all phases are done, verify that the name/summary of every phase is filled using the following script. If verification fails, prohibit progression to Step 5 until all phases are complete.
 
 ```bash
 node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
 
-# Step 4-2 正常終了（4-2 ループ完了）
+# Normal end of Step 4-2 (4-2 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-2"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-2"
 ```
 
-### Step 5: 第一次チケット定義（チケット化）
+### Step 5: Primary ticket definition (ticket creation)
 
 ```bash
-# Step 5-1 を開始（5-1 ノード詳細表示ループの開始）
+# Start Step 5-1 (start of the 5-1 node detail display loop)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
 ```
 
-4-2 で書き込まれた全フェーズに対して、以下の 5-1 → 5-2 を**1フェーズずつ逐次実行する**。
-全フェーズを一括で処理してはならない。
+For all phases written in 4-2, execute the following 5-1 → 5-2 **sequentially, one phase at a time**.
+Do not process all phases in bulk.
 
-#### 5-1: フェーズ内ノードの詳細取得
+#### 5-1: Retrieve detailed information for nodes within a phase
 
-`show-phase-nodes.js` が指定フェーズに割り当てられた全ノードの詳細（ID・タイトル・種別・要約・実装先ファイルパス）を Markdown 形式で出力する。
+`show-phase-nodes.js` outputs detailed information (ID, title, kind, summary, implementation file path) for all nodes assigned to the specified phase in Markdown format.
 
 ```bash
 node .claude/scripts/rfc-graph/show-phase-nodes.js \
@@ -346,21 +354,21 @@ node .claude/scripts/rfc-graph/show-phase-nodes.js \
   --phase="P{n}"
 ```
 
-AI が出力を理解し、各ノードの I/O 境界性と実装先ファイルパスを考慮して、1回の実装で安全に行えるノードの組み合わせを判断する。
+The AI understands the output and determines, considering the I/O boundary nature and implementation file path of each node, which combination of nodes can be safely implemented in a single implementation.
 
-5-1 の各フェーズループが全て完了したら、5-2 に進む。
+Once all phase loops in 5-1 are complete, proceed to 5-2.
 
 ```bash
-# Step 5-1 正常終了（5-1 ループ完了）
+# Normal end of Step 5-1 (5-1 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-1"
 
-# Step 5-2 を開始（5-2 チケット化ループの開始）
+# Start Step 5-2 (start of the 5-2 ticket creation loop)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-2"
 ```
 
-#### 5-2: チケット化（add-tickets-for-phase.js）
+#### 5-2: Ticket creation (add-tickets-for-phase.js)
 
-`add-tickets-for-phase.js` は、stdin から受け取ったチケット配列を一括で追加し、追加後に当該フェーズの全 `nodeIds` がチケット化されたかを検証する。検証が通らなければ書き込みは行われず（ロールバック）、exit 1 で終了する。
+`add-tickets-for-phase.js` bulk-adds the ticket array received from stdin, and after addition verifies whether all `nodeIds` for that phase have been ticketized. If verification fails, no write occurs (rollback) and the script exits with exit code 1.
 
 ```bash
 echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js \
@@ -370,22 +378,22 @@ echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase
   "$GRAPH_PATH"
 ```
 
-#### チケットのフィールド定義・詳細度指針
+#### Ticket Field Definitions and Detail Level Guidelines
 
-各フィールドのスキーマは `tickets-schema.json` `#/definitions/ticket` に定義されている。
-`id`, `phaseId`, `status` はスクリプト自動設定のため入力禁止。それ以外の全フィールドは `additionalProperties: true` により追加可能。
+Each field's schema is defined in `tickets-schema.json` `#/definitions/ticket`.
+`id`, `phaseId`, and `status` are set automatically by the script and must not be provided as input. All other fields can be added via `additionalProperties: true`.
 
-**記述の長さと情報密度に関する厳格な指針**:
+**Strict guidelines on description length and information density**:
 
-AI がチケットを登録する際、**簡素で短い記述は「横着」とみなす**。以下は最低要件である。
+When the AI registers a ticket, **short, simplistic descriptions are considered "cutting corners."** The following are minimum requirements.
 
-| フィールド | 最低目安 | 基準（実在の Tickets.json 実例） |
-|-----------|---------|------------------------------|
-| `background` | **300文字以上** | 622文字 — 調査結果（箇条書き）、コードレベルの具体的言及を含む複数段落 |
-| `scope` | **各項目を型シグネチャ付きで列挙** | 828文字 — ファイル名＋処理内容＋種別を1項目ずつ具体的に |
-| `notes` | **複数セクション構成、500文字以上** | 1342文字 — 実装サマリー・テスト結果・翻訳可能性・リスクを構造化 |
-| `relatedTicketIds` | **依存方向と理由を明記** | 251文字 — 「P17-1 (依存: …), P19-1 (被依存: …)」形式 |
-| `acceptanceCriteria` | **各条件を1行で完結に記述** | Happy path / Error case / Edge case を各1行、チケット単位で3〜5項目 |
+| Field | Minimum Guideline | Benchmark (from actual Tickets.json examples) |
+|-------|-------------------|-----------------------------------------------|
+| `background` | **300+ characters** | 622 chars — Investigation results (bullet points), multiple paragraphs with concrete code-level references |
+| `scope` | **Enumerate each item with type signatures** | 828 chars — File name + processing content + type, concrete per item |
+| `notes` | **Multiple sections, 500+ characters** | 1342 chars — Structured with implementation summary, test results, translatability, and risks |
+| `relatedTicketIds` | **Explicitly state dependency direction and reason** | 251 chars — "P17-1 (depends on: ...), P19-1 (depended by: ...)" format |
+| `acceptanceCriteria` | **Concisely describe each condition in one line** | Happy path / Error case / Edge case in one line each, 3-5 items per ticket |
 
 ### Universal Testing Rules
 
@@ -416,90 +424,90 @@ Write all code under the following non-negotiable rules:
 | `testIntegration` | Integration tests — automated tests spanning multiple modules | `IT:` prefix; specify which tickets/modules are integrated |
 | `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested |
 
-`UT:` と `IT:` は自動テストコードであり、手動テストではない。両者を合わせて全実装コードの正当性を検証可能にしなければならない。`testExceptions` はその補完であり代替ではない。
+`UT:` and `IT:` are automated test code, not manual tests. Together they must enable verification of the correctness of all implementation code. `testExceptions` is a supplement to this, not a substitute.
 
-以下の JSON は上記の指針を満たした記述例である。**簡素なプレースホルダー（`<...>` 形式）で済ませてはならない。**
-`default_files` は `--dirs-tree` 指定時にスクリプトが自動設定するため、AI が入力してはならない。
+The following JSON is an example description that meets the above guidelines. **Do not settle for simplistic placeholders (in `<...>` format).**
+`default_files` is set automatically by the script when `--dirs-tree` is specified; the AI must not provide it as input.
 
 ```json
 [
   {
-    "title": "認証トークン生成 — Ed448-Goldilocks 署名生成・検証API",
+    "title": "Authentication Token Generation — Ed448-Goldilocks signature generation and verification API",
     "nodeIds": ["N0001", "N0003"],
     "default_files": [
       "src/auth/keystore.rs",
       "src/auth/token.rs"
     ],
-    "background": "フェーズ0「認証基盤」の中核。N0001 は Ed448-Goldilocks を使用したトークン生成処理（鍵ペア生成・署名・検証）を定義し、N0003 はトークンリフレッシュ機構（期限切れ検出・再署名）を定義する。両者は同一の鍵ストア（src/auth/keystore.rs）を共有し、鍵のシリアライズ形式も共通であるため、同一チケットで実装することで不変条件（鍵の一貫性）を検証しやすくなる。鍵長は448ビット固定、署名アルゴリズムはEdDSA。実装先は src/auth/token.rs および src/auth/keystore.rs。",
+    "background": "Core of Phase 0 \"Authentication Infrastructure.\" N0001 defines token generation processing (key pair generation, signing, verification) using Ed448-Goldilocks, and N0003 defines the token refresh mechanism (expiration detection, re-signing). Both share the same key store (src/auth/keystore.rs) and serialization format for keys, so implementing them in the same ticket makes it easier to verify invariants (key consistency). Key length is fixed at 448 bits, signature algorithm is EdDSA. Implementation targets are src/auth/token.rs and src/auth/keystore.rs.",
     "scope": [
-      "pub fn generate_keypair() -> Result<(PrivateKey, PublicKey), CryptoError> — Ed448鍵ペア生成。システムエントロピーを source に、OS提供のCSPRNGを使用。",
-      "pub fn sign(payload: &[u8], private_key: &PrivateKey) -> Result<Signature, CryptoError> — 指定ペイロードに対するEd448署名生成。署名長は114バイト固定。",
-      "pub fn verify(payload: &[u8], signature: &Signature, public_key: &PublicKey) -> Result<bool, CryptoError> — 署名検証。タイミング攻撃対策のため比較は定数時間で行う。",
-      "pub struct Token { pub payload: Vec<u8>, pub signature: Signature, pub expires_at: SystemTime } — トークン型。有効期限を保持し、検証時に現在時刻との比較を行う。",
-      "pub fn refresh(token: &Token, private_key: &PrivateKey) -> Result<Token, CryptoError> — 期限切れトークンの再署名。有効期限内のトークンには新たな期限を設定して再署名する。"
+      "pub fn generate_keypair() -> Result<(PrivateKey, PublicKey), CryptoError> — Ed448 key pair generation. Uses system entropy as source with OS-provided CSPRNG.",
+      "pub fn sign(payload: &[u8], private_key: &PrivateKey) -> Result<Signature, CryptoError> — Ed448 signature generation for the specified payload. Signature length is fixed at 114 bytes.",
+      "pub fn verify(payload: &[u8], signature: &Signature, public_key: &PublicKey) -> Result<bool, CryptoError> — Signature verification. Comparison must be constant-time to prevent timing attacks.",
+      "pub struct Token { pub payload: Vec<u8>, pub signature: Signature, pub expires_at: SystemTime } — Token type. Holds an expiration time, compared against the current time during verification.",
+      "pub fn refresh(token: &Token, private_key: &PrivateKey) -> Result<Token, CryptoError> — Re-signing of expired tokens. Sets a new expiration time and re-signs tokens within their validity period."
     ],
     "testUnit": [
-      "UT: generate_keypair が毎回異なる鍵ペアを生成する（同一性の否定）",
-      "UT: sign → verify が正しい署名に対して true を返す（Happy Path）",
-      "UT: verify が改ざんされたペイロードに対して false を返す（改ざん検知）",
-      "UT: verify が異なる鍵ペアの署名に対して false を返す（鍵バインディング）",
-      "UT: refresh が期限内トークンに新しい期限を設定し再署名する",
-      "UT: refresh に期限切れトークンを渡すとエラーを返す",
-      "UT: Token の expires_at が過去の場合に verify が false を返す（期限切れ検知）",
-      "境界値: 空ペイロードの署名生成・検証",
-      "境界値: 最大ペイロード長（65535バイト）での署名・検証"
+      "UT: generate_keypair produces a different key pair each time (non-identity verification)",
+      "UT: sign → verify returns true for a valid signature (Happy Path)",
+      "UT: verify returns false for a tampered payload (tamper detection)",
+      "UT: verify returns false for a signature from a different key pair (key binding)",
+      "UT: refresh sets a new expiration and re-signs a within-validity token",
+      "UT: refresh returns an error when given an expired token",
+      "UT: verify returns false when Token's expires_at is in the past (expiration detection)",
+      "Boundary: signature generation and verification with an empty payload",
+      "Boundary: signature and verification at maximum payload length (65535 bytes)"
     ],
     "testIntegration": [
-      "IT: P0-4（Session管理）実装後に Token 発行→verify→Session確立のend-to-endを検証",
-      "IT: 並行接続10セッション下での認証フロー完全性確認"
+      "IT: After P0-4 (Session management) implementation, verify end-to-end Token issuance → verify → Session establishment",
+      "IT: Confirm authentication flow integrity under 10 concurrent sessions"
     ],
-    "testExceptions": ["SecretKey のメモリゼロクリア（mlock/mprotect）はカーネル依存のためユニットテスト不可。CI の integration test で valgrind 確認。"],
+    "testExceptions": ["Memory zeroing of SecretKey (mlock/mprotect) is kernel-dependent and cannot be unit-tested. Verify with valgrind in CI integration tests."],
     "acceptanceCriteria": [
-      "署名・検証・リフレッシュの全APIがエラーなく動作する",
-      "不正な署名・改ざんペイロード・期限切れの全異常系で適切なエラーを返す",
-      "空ペイロード・最大長ペイロード（65535バイト）の境界値で破綻しない"
+      "All APIs for signing, verification, and refresh work without errors",
+      "Return appropriate errors for all abnormal cases: invalid signature, tampered payload, expired token",
+      "No failure at boundary values: empty payload and maximum length payload (65535 bytes)"
     ],
-    "referenceSection": "RFC-ROOT.md (§3.1 認証トークン形式, §3.2 鍵管理)",
-    "relatedTicketIds": "P0-2 (依存: エラー型 CryptoError の定義), PX-YY (Ed448ライブラリラッパー, 先行実装必須), P0-4 (被依存: Session管理が本チケットの Token を入力として使用)",
-    "notes": "PrivateKey のシリアライズは PKCS#8 v2 形式、PublicKey のシリアライズは SPKI 形式に従う。定数時間比較には subtle::ConstantTimeEq を使用すること。"
+    "referenceSection": "RFC-ROOT.md (§3.1 Authentication token format, §3.2 Key management)",
+    "relatedTicketIds": "P0-2 (depends on: definition of error type CryptoError), PX-YY (Ed448 library wrapper, must be implemented first), P0-4 (depended by: Session management uses this ticket's Token as input)",
+    "notes": "PrivateKey serialization follows PKCS#8 v2 format, PublicKey serialization follows SPKI format. Use subtle::ConstantTimeEq for constant-time comparison."
   }
 ]
 ```
 
-**チケット構成のルール**:
-- 1つ以上のノードを束ねて1チケットとする（単一ノードでも可）
-- 全 `nodeIds` を重複なく、過不足なくチケット化する
-- 各チケットの `nodeIds` 配列には、そのチケットに含まれるノードIDを全て列挙する
-- チケット化は当該フェーズ内で完結し、他フェーズのノードを含んではならない
+**Rules for ticket composition**:
+- Bundle one or more nodes into one ticket (a single node is also acceptable)
+- Ticketize all `nodeIds` without duplication or omission
+- The `nodeIds` array of each ticket must list all node IDs included in that ticket
+- Ticketization must be self-contained within the relevant phase and must not include nodes from other phases
 
-5-1 → 5-2 が完了したら次のフェーズ（P1, P2, ...）に進む。
+After completing 5-1 → 5-2, proceed to the next phase (P1, P2, ...).
 
-全フェーズ終了後、以下のスクリプトで全フェーズのチケット化が完了していることを確認する。
-不合格の場合は全てのフェーズが完了するまで Step 6 への進行を禁止する。
+After all phases are complete, verify that ticketization of all phases is complete using the following script.
+If verification fails, prohibit progression to Step 6 until all phases are complete.
 
 ```bash
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 
-# Step 5-2 正常終了（5-2 ループ完了）
+# Normal end of Step 5-2 (5-2 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-2"
 ```
 
-### Step 5-3: フェーズ統合
+### Step 5-3: Phase consolidation
 
-チケット化が完了した全フェーズに対して、チケット数が3未満のフェーズを自動統合する。
-`consolidate-phase-tickets.js` が後方から走査し、閾値未満のフェーズを安全にマージする。
+For all phases where ticketization is complete, automatically consolidate phases with fewer than 3 tickets.
+`consolidate-phase-tickets.js` scans from the back and safely merges phases below the threshold.
 
 ```bash
-# Step 5-3 を開始
+# Start Step 5-3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
 ```
 
-`consolidate-phase-tickets.js` が全フェーズのチケット数を確認し、3未満のフェーズを後方のフェーズにマージする。6つのサブステップ（ガード→バリデーション→後方統合→ID振り直し→relatedTicketIds再生成→status.json更新→最終検証）を逐次実行する。
+`consolidate-phase-tickets.js` checks the ticket count of all phases and merges phases with fewer than 3 tickets into the following phase. It executes 6 substeps sequentially: guard → validation → backward merge → re-index IDs → regenerate relatedTicketIds → update status.json → final verification.
 
 ```bash
 node .claude/scripts/tickets/consolidate-phase-tickets.js \
@@ -507,48 +515,48 @@ node .claude/scripts/tickets/consolidate-phase-tickets.js \
   "$STATUS_PATH"
 ```
 
-出力末尾の ✅ または ⚠️ を確認する。不合格の場合はエラー原因を確認して修正した上で 5-3 を再実行する。
+Check for ✅ or ⚠️ at the end of the output. On failure, verify the cause of the error, fix it, then re-run 5-3.
 
 ```bash
-# Step 5-3 正常終了
+# Normal end of Step 5-3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-3"
 ```
 
-### Step 6: フェーズ・チケットチェックリストの出力
+### Step 6: Output phase and ticket checklist
 
 ```bash
-# Step 6 を開始
+# Start Step 6
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "6"
 ```
 
-全てのチケットの追加が完了したら、list-phases-and-tickets.js でチェックリストを出力して報告する：
+Once all tickets have been added, output and report the checklist via list-phases-and-tickets.js:
 
 ```bash
 node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
 
-# Step 6 正常終了（全Step完了）
+# Normal end of Step 6 (all steps complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "6"
 ```
 
-### エラー時の復帰
+### Resuming from an Error
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "6"
 ```
 
-出力例:
+Example output:
 ```
-- [] P0: 純粋ロジック・状態機械の完全隔離検証
-    - [ ] P0-1: 純粋データ型の定義
-    - [ ] P0-2: エラー型の定義
-    - [ ] P0-3: プロセス状態とレジストリ型の定義
-- [] P1: 非同期ランタイム・Mock可能な実行基盤
-    - [ ] P1-1: RestartPolicy::on_crash_default と next_delay の実装
+- [] P0: Pure logic — full isolation verification of state machine
+    - [ ] P0-1: Definition of pure data types
+    - [ ] P0-2: Definition of error types
+    - [ ] P0-3: Definition of process state and registry types
+- [] P1: Async runtime — mockable execution foundation
+    - [ ] P1-1: Implementation of RestartPolicy::on_crash_default and next_delay
 ```
 
-## 注意事項
-- 出力先 Tickets.json が既に存在する場合は上書き前にユーザーに確認を取ること。
+## Notes
+- If the destination Tickets.json already exists, confirm with the user before overwriting.

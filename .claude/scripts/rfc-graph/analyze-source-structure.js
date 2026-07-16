@@ -637,21 +637,21 @@ function exitWithError(summary, cause, action) {
 function parseArguments(argv) {
   if (argv.length < 3) {
     throw new Error(
-      "Please specify a source file path.\nUsage: analyze-source-structure.js <source-path>",
+      "ソースファイルのパスを指定してください。\n使用法: analyze-source-structure.js <source-path>",
     );
   }
   if (argv[2] === "--help" || argv[2] === "-h") {
-    console.log("Usage: analyze-source-structure.js <source-path>");
+    console.log("使用法: analyze-source-structure.js <source-path>");
     console.log("");
     console.log(
-      "Analyzes Markdown file structure (section tree, line count, kind candidates, external dependencies)",
+      "Markdownファイルの構造情報（セクションツリー、行数、kind候補、外部依存）を",
     );
-    console.log("and outputs a natural language report to stdout.");
+    console.log("自然言語レポートとして標準出力に出力します。");
     process.exit(0);
   }
   if (argv.length > 3) {
     throw new Error(
-      `Extra arguments: ${argv.slice(3).join(" ")}\nUsage: analyze-source-structure.js <source-path>`,
+      `余剰な引数があります: ${argv.slice(3).join(" ")}\n使用法: analyze-source-structure.js <source-path>`,
     );
   }
   return { sourcePath: argv[2] };
@@ -685,7 +685,7 @@ function parseArgumentsSafe(argv) {
  */
 function readSourceFile(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`Source file not found: ${filePath}`);
+    throw new Error(`ソースファイルが見つかりません: ${filePath}`);
   }
   const content = fs.readFileSync(filePath, "utf8");
   return content.split("\n");

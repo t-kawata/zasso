@@ -35,7 +35,7 @@ export function validateStatus(rfcDir) {
   const statusPath = path.join(rfcDir, "Status.json");
 
   if (!fs.existsSync(statusPath)) {
-    errors.push("Status.json: file not found");
+    errors.push("Status.json: file does not exist");
     return errors;
   }
 
@@ -55,7 +55,7 @@ export function validateStatus(rfcDir) {
   }
 
   if (data.state && !VALID_STATES.includes(data.state)) {
-    errors.push(`Status.json.state: "${data.state}" is invalid (valid: ${VALID_STATES.join(", ")})`);
+    errors.push(`Status.json.state: invalid value "${data.state}" (valid: ${VALID_STATES.join(", ")})`);
   }
 
   if (typeof data.reviewLoopCount !== "number" || data.reviewLoopCount < 0) {
@@ -63,10 +63,10 @@ export function validateStatus(rfcDir) {
   }
 
   if (data.createdAt && isNaN(Date.parse(data.createdAt))) {
-    errors.push("Status.json.createdAt: must be an ISO 8601 date string");
+    errors.push("Status.json.createdAt: must be a valid ISO 8601 date");
   }
   if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
-    errors.push("Status.json.updatedAt: must be an ISO 8601 date string");
+    errors.push("Status.json.updatedAt: must be a valid ISO 8601 date");
   }
 
   return errors;
@@ -79,7 +79,7 @@ export function validateDesignTree(rfcDir) {
   const treePath = path.join(rfcDir, "DesignTree.json");
 
   if (!fs.existsSync(treePath)) {
-    errors.push("DesignTree.json: file not found");
+    errors.push("DesignTree.json: file does not exist");
     return errors;
   }
 
@@ -96,7 +96,7 @@ export function validateDesignTree(rfcDir) {
   }
 
   if (data.updatedAt && isNaN(Date.parse(data.updatedAt))) {
-    errors.push("DesignTree.json.updatedAt: must be an ISO 8601 date string");
+    errors.push("DesignTree.json.updatedAt: must be a valid ISO 8601 date");
   }
 
   if (!Array.isArray(data.nodes)) {
@@ -115,7 +115,7 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
     if (!node.id || typeof node.id !== "string") {
       errors.push(`${p}.id: must be a non-empty string`);
     } else if (seenIds.has(node.id)) {
-      errors.push(`${p}.id: duplicate detected ("${node.id}")`);
+      errors.push(`${p}.id: duplicate id "${node.id}"`);
     } else {
       seenIds.add(node.id);
     }
@@ -153,14 +153,14 @@ export function validateChecklist(rfcDir) {
   const checklistPath = path.join(rfcDir, "CheckList.md");
 
   if (!fs.existsSync(checklistPath)) {
-    errors.push("CheckList.md: file not found");
+    errors.push("CheckList.md: file does not exist");
     return errors;
   }
 
   const content = fs.readFileSync(checklistPath, "utf-8");
 
   if (!content.includes("# RFC 要件チェックリスト")) {
-    errors.push("CheckList.md: leading \"# RFC 要件チェックリスト\" not found");
+    errors.push("CheckList.md: header \"# RFC 要件チェックリスト\" not found");
   }
 
   return errors;

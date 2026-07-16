@@ -100,7 +100,7 @@ function parseArguments() {
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> <path> is empty.');
+    throw new Error('--graph=<path> の <path> が空です。');
   }
 
   const subcommand = args[1];
@@ -122,20 +122,20 @@ function parseArguments() {
     if (arg.startsWith(NODE_ID_ARG_PREFIX)) {
       nodeId = arg.slice(NODE_ID_ARG_PREFIX.length);
       if (!nodeId) {
-        throw new Error('--id=<nodeId> <nodeId> is empty.');
+        throw new Error('--id=<nodeId> の <nodeId> が空です。');
       }
     } else if (arg.startsWith(FILE_ARG_PREFIX)) {
       filePath = arg.slice(FILE_ARG_PREFIX.length);
       if (!filePath) {
-        throw new Error('--file=<path> <path> is empty.');
+        throw new Error('--file=<path> の <path> が空です。');
       }
     } else if (arg.startsWith(SOURCE_ARG_PREFIX)) {
       sourcePath = arg.slice(SOURCE_ARG_PREFIX.length);
       if (!sourcePath) {
-        throw new Error('--source=<path> <path> is empty.');
+        throw new Error('--source=<path> の <path> が空です。');
       }
     } else {
-      throw new Error(`Unknown argument: ${arg}`);
+      throw new Error(`未知の引数です: ${arg}`);
     }
   }
 
@@ -446,46 +446,46 @@ function executeDeleteEdges(graph, edgesData) {
 // ============================================================
 
 /**
- * Output error info to stderr using the 3-line template and exit the process.
+ * エラー情報を3段テンプレートで stderr に出力し、プロセスを終了する
  *
- * @param {string} message — What happened
- * @param {string} reason — Why it happened
- * @param {string} action — Next action to take
+ * @param {string} message — 何が起きたか
+ * @param {string} reason — なぜ起きたか
+ * @param {string} action — 次に取るべきアクション
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
-  console.error('Cause: ' + reason);
-  console.error('Action: ' + action);
+  console.error('原因: ' + reason);
+  console.error('対応: ' + action);
   process.exit(1);
 }
 
 /**
- * Print usage information.
+ * 使用方法を表示する
  */
 function printUsage() {
   console.log(`
-crud.js — Graph file CRUD operations
+crud.js — グラフファイルCRUD操作
 
-Usage:
+使用方法:
   node crud.js --graph=<path> create-nodes --file=<nodes.json>
-    Bulk-add nodes defined in nodes.json
+    nodes.json に定義されたノードを一括追加する
 
   node crud.js --graph=<path> list-nodes
-    Output all nodes as JSON
+    全ノード一覧をJSON出力する
 
   node crud.js --graph=<path> get-node --id=<nodeId>
-    Get a node by ID
+    指定されたIDのノードを取得する
 
   node crud.js --graph=<path> update-node --id=<nodeId> --file=<patch.json>
-    Update a node by ID (overwrite with fields from patch.json)
+    指定されたIDのノードを更新する（patch.json のフィールドで上書き）
 
   node crud.js --graph=<path> delete-node --id=<nodeId>
-    Delete a node by ID
+    指定されたIDのノードを削除する
 
   node crud.js --graph=<path> create-edges --file=<edges.json>
-    Bulk-add edges defined in edges.json (with from/to node existence check)
+    edges.json に定義されたエッジを一括追加する（from/to ノード存在確認）
 
-All write operations perform atomic writes after schema validation passes.
+全書き込み操作はスキーマ検証通過後にアトミック書込を実行します。
 `);
 }
 
@@ -504,9 +504,9 @@ function main() {
     parsed = parseArguments();
   } catch (parseError) {
     exitWithError(
-      'Invalid command-line arguments.',
+      'コマンドライン引数が不正です。',
       parseError.message,
-      'Check usage with --help.'
+      '--help で使用方法を確認してください。'
     );
   }
 
@@ -572,9 +572,9 @@ function main() {
     }
   } catch (operationError) {
     exitWithError(
-      `Error occurred during ${subcommand} execution.`,
+      `${subcommand} の実行中にエラーが発生しました。`,
       operationError.message,
-      'Check input data and re-run.'
+      '入力データを確認して再実行してください。'
     );
   }
 }

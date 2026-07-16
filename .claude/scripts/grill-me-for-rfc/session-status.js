@@ -69,60 +69,60 @@ function deriveStep(state, nodes, openCount, loopCount) {
       if (nodes.length === 0) {
         return {
           step: "STEP 1",
-          label: "DesignTree initial node generation",
-          action: "Add initial nodes from research content using update-tree.js add",
+          label: "STEP 1: DesignTree Initial Node Generation",
+          action: "Run update-tree.js add to create initial nodes from research material",
         };
       }
       if (openCount > 0) {
         return {
           step: "STEP 2",
-          label: "Grill session in progress",
-          action: "Check unresolved nodes with tree-query.js tree and generate questions",
+          label: "STEP 2: Grill Session Active",
+          action: "Run tree-query.js tree to review unresolved nodes and generate questions",
         };
       }
       return {
         step: "STEP 3",
-        label: "Awaiting grill completion decision",
+        label: "STEP 3: Grill End Pending",
         action:
-          "All nodes resolved. Propose completion to user; transition to CHECKLIST_PENDING on approval",
+          "All nodes resolved. Propose session end to user; transition to CHECKLIST_PENDING on approval",
       };
     case "CHECKLIST_PENDING":
       return {
         step: "STEP 4",
-        label: "Before checklist generation",
+        label: "STEP 4: Checklist Generation Pending",
         action:
-          "Run generate-checklist.js, perform manual review, then obtain user approval. Transition to CHECKLIST_APPROVED after approval",
+          "Run generate-checklist.js, visually verify, get user approval, then transition to CHECKLIST_APPROVED",
       };
     case "CHECKLIST_APPROVED":
       return {
         step: "STEP 4 → STEP 5",
-        label: "Checklist approved",
-        action: "Start writing the RFC. Transition to WRITING",
+        label: "STEP 4 → STEP 5: Checklist Approved",
+        action: "Begin writing the RFC. Transition to WRITING",
       };
     case "WRITING":
       return {
         step: "STEP 5",
-        label: "Writing RFC",
-        action: "Transition to REVIEWING when RFC writing is complete",
+        label: "STEP 5: RFC Writing",
+        action: "When RFC writing is complete, transition to REVIEWING",
       };
     case "REVIEWING":
       if (openCount > 0) {
         const base = {
           step: "STEP 7",
-          label: "Re-grill needed",
+          label: "STEP 7: Re-grill Required",
           action:
-            "Transition to GRILLING to grill unresolved nodes (inc-loop)",
+            "Transition to GRILLING to re-grill unresolved nodes (inc-loop)",
         };
         if (loopCount >= 3) {
           base.warning =
-            "Loop count exceeds 3. Report the reason for prolonged review and current status to the user before transitioning";
+            "Loop count exceeds 3. Report the reason for the extended cycle and current status to the user before transitioning";
         }
         return base;
       }
       return {
         step: "STEP 8",
-        label: "Checking completion conditions",
-        action: "Verify all conditions, transition to DONE, and declare completion",
+        label: "STEP 8: Completion Check",
+        action: "Verify all conditions, transition to DONE to declare completion",
       };
     case "DONE":
       return {
@@ -133,8 +133,8 @@ function deriveStep(state, nodes, openCount, loopCount) {
     default:
       return {
         step: "⚠️",
-        label: "Unknown state",
-        action: "Check the state in Status.json",
+        label: "Unknown State",
+        action: "Check Status.json state field",
       };
   }
 }
@@ -150,13 +150,13 @@ const { step, label, action, warning } = deriveStep(
 
 console.log("📋 Session Status");
 console.log(`  State: ${state}`);
-console.log(`  Current step: ${step} — ${label}`);
-console.log(`  Next action: ${action}`);
+console.log(`  Step: ${step} — ${label}`);
+console.log(`  Next Action: ${action}`);
 if (warning) {
   console.log(`  ⚠️  ${warning}`);
 }
 console.log("");
 console.log(`  Nodes: ${totalNodes} total / ${openCount} open`);
-console.log(`  Review loops: ${reviewLoopCount ?? 0}`);
-console.log(`  Research path: ${researchPath ?? "(not set)"}`);
-console.log(`  RFC path: ${rfcPath ?? "(not set)"}`);
+console.log(`  Loop Count: ${reviewLoopCount ?? 0}`);
+console.log(`  Research Path: ${researchPath ?? "(not set)"}`);
+console.log(`  RFC Path: ${rfcPath ?? "(not set)"}`);

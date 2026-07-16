@@ -105,8 +105,8 @@ function parseArguments(argv) {
       if (flagName === 'dry-run' || flagName === 'verbose') {
         flags[flagName] = true;
       } else {
-        console.error('[ERROR] Unknown flag: ' + arg);
-        console.error('Usage: node phasify-graph-and-dirs-files-tree.js <GRAPH.json> <Dirs-Tree.json> [--dry-run] [--verbose]');
+        console.error('[ERROR] 不明なフラグ: ' + arg);
+        console.error('使用法: node phasify-graph-and-dirs-files-tree.js <GRAPH.json> <Dirs-Tree.json> [--dry-run] [--verbose]');
         process.exit(2);
       }
     } else {
@@ -115,8 +115,8 @@ function parseArguments(argv) {
   }
 
   if (positionalArgs.length < 2) {
-    console.error('[ERROR] Missing arguments. GRAPH.json and Dirs-Tree.json are required.');
-    console.error('Usage: node phasify-graph-and-dirs-files-tree.js <GRAPH.json> <Dirs-Tree.json> [--dry-run] [--verbose]');
+    console.error('[ERROR] 引数が不足しています。GRAPH.json と Dirs-Tree.json の2つが必要です。');
+    console.error('使用法: node phasify-graph-and-dirs-files-tree.js <GRAPH.json> <Dirs-Tree.json> [--dry-run] [--verbose]');
     process.exit(2);
   }
 
@@ -144,9 +144,9 @@ function resolveTicketsPath(graphPath, dirsTreePath) {
   const graphDir = path.dirname(graphPath);
   const dirsTreeDir = path.dirname(dirsTreePath);
   if (graphDir !== dirsTreeDir) {
-    console.error('[ERROR] GRAPH.json and Dirs-Tree.json must be in the same directory.');
-    console.error('  GRAPH.json directory: ' + graphDir);
-    console.error('  Dirs-Tree.json directory: ' + dirsTreeDir);
+    console.error('[ERROR] GRAPH.json と Dirs-Tree.json は同じディレクトリに配置されている必要があります。');
+    console.error('  GRAPH.json のディレクトリ: ' + graphDir);
+    console.error('  Dirs-Tree.json のディレクトリ: ' + dirsTreeDir);
     process.exit(2);
   }
   return path.join(graphDir, 'Tickets.json');
@@ -159,9 +159,9 @@ function resolveTicketsPath(graphPath, dirsTreePath) {
  */
 function checkDirsTreeExists(dirsTreePath) {
   if (!fs.existsSync(dirsTreePath)) {
-    console.error('[ERROR] Dirs-Tree.json not found: ' + dirsTreePath);
-    console.error('Run boundify-graph-to-dirs beforehand.');
-    console.error('  Example: /boundify-graph-to-dirs ' + dirsTreePath.replace(/-Dirs-Tree\.json$/, '') + '-GRAPH.json');
+    console.error('[ERROR] Dirs-Tree.json が見つかりません: ' + dirsTreePath);
+    console.error('事前に boundify-graph-to-dirs を実行してください。');
+    console.error('  例: /boundify-graph-to-dirs ' + dirsTreePath.replace(/-Dirs-Tree\.json$/, '') + '-GRAPH.json');
     process.exit(3);
   }
 }
@@ -181,14 +181,14 @@ function ensureTicketsJsonExists(ticketsPath, graphPath, dirsTreePath, dryRun) {
   }
 
   if (dryRun) {
-    console.log('[INFO] --dry-run mode: Tickets.json not found; skipping generation.');
+    console.log('[INFO] --dry-run モード: Tickets.json が存在しませんが、生成はスキップします。');
     return true;
   }
 
   // write-tickets-json-template.js を呼び出してスケルトンを生成する
   const templateScript = path.resolve(__dirname, WRITE_TICKETS_TEMPLATE_PATH);
   if (!fs.existsSync(templateScript)) {
-    console.error('[ERROR] write-tickets-json-template.js not found: ' + templateScript);
+    console.error('[ERROR] write-tickets-json-template.js が見つかりません: ' + templateScript);
     process.exit(3);
   }
 
@@ -216,7 +216,7 @@ function ensureTicketsJsonExists(ticketsPath, graphPath, dirsTreePath, dryRun) {
   });
 
   if (result.status !== 0) {
-    console.error('[ERROR] Tickets.json skeleton generation failed.');
+    console.error('[ERROR] Tickets.json スケルトン生成に失敗しました。');
     console.error(result.stderr || result.stdout);
     process.exit(1);
   }
@@ -274,7 +274,7 @@ function runPhasify(opts) {
 
   if (!sortResult.success) {
     console.error('[ERROR] ' + sortResult.error);
-    console.error('Resolve cyclic dependencies and re-run.');
+    console.error('循環依存を解消してから再実行してください。');
     process.exit(1);
   }
 
@@ -300,12 +300,12 @@ function runPhasify(opts) {
   logVerbose('Phase 3: Soft制約違反コストを計算中...', opts.verbose);
   const softResult = computeSoftViolations(finalOrder, edges, getWeight);
   if (softResult.violations.length > 0 && opts.verbose) {
-    console.log('[VERBOSE] Soft constraint violations: ' + softResult.violations.length + '  violations,  total cost: ' + softResult.totalCost);
+    console.log('[VERBOSE] Soft制約違反: ' + softResult.violations.length + ' 件, 総コスト: ' + softResult.totalCost);
     for (const violation of softResult.violations) {
       console.log('  ' + violation.from + ' → ' + violation.to + ' (' + violation.type + ', cost=' + violation.cost + ')');
     }
   } else if (opts.verbose) {
-    console.log('[VERBOSE] Soft constraint violations: none');
+    console.log('[VERBOSE] Soft制約違反: なし');
   }
 
   // ============================================================
@@ -338,7 +338,7 @@ function runPhasify(opts) {
   for (const phase of phaseAssignments) {
     const size = phase.nodeIds ? phase.nodeIds.length : 0;
     if (size < MIN_NODES_PER_PHASE && nodes.length >= MIN_NODES_PER_PHASE) {
-      console.warn('[WARN] Phase P' + phase.id + ' has ' + size + ' (minimum ' + MIN_NODES_PER_PHASE + ') ');
+      console.warn('[WARN] フェーズ P' + phase.id + ' のノード数が ' + size + '（下限 ' + MIN_NODES_PER_PHASE + ' 未満）');
     }
   }
 
@@ -371,13 +371,13 @@ function runPhasify(opts) {
   // ユーザーへのレポート出力（常に stdout）
   // ============================================================
   console.log('');
-  console.log('=== phasify Phase Design Report ===');
-  console.log('Input graph: ' + opts.graphPath);
-  console.log('Input Dirs-Tree: ' + opts.dirsTreePath);
-  console.log('Output Tickets.json: ' + opts.ticketsPath);
-  console.log('Total nodes: ' + nodes.length);
-  console.log('Total edges: ' + edges.length);
-  console.log('Total phases: ' + phaseAssignments.length);
+  console.log('=== phasify フェーズ設計 レポート ===');
+  console.log('入力グラフ: ' + opts.graphPath);
+  console.log('入力Dirs-Tree: ' + opts.dirsTreePath);
+  console.log('出力Tickets.json: ' + opts.ticketsPath);
+  console.log('総ノード数: ' + nodes.length);
+  console.log('総エッジ数: ' + edges.length);
+  console.log('総フェーズ数: ' + phaseAssignments.length);
   console.log('====================================');
 
   // ============================================================
@@ -397,18 +397,18 @@ function runPhasify(opts) {
     validateResult.checks.noOrphanNodes.passed : false;
   const dirsOk = validateResult.checks.dirsConstraint ?
     validateResult.checks.dirsConstraint.passed : false;
-  console.log((validateResult.valid ? '✅ Passed' : '⚠️ Failed') + '\n\n' + phaseAssignments.length + ' phases, ' +
-    (allCovered ? 'all ' + nodes.length + ' nodes covered' : 'uncovered nodes exist') + ', ' +
-    'hard constraint violations: ' + hardViolations + ', ' +
-    'below minimum 10: ' + sizeIssues + ' phases' +
-    (sizeIssues > 0 ? ' (merging would violate dependency constraints, so this is the safe decision)' : ''));
+  console.log((validateResult.valid ? '✅ 合格' : '⚠️ 不合格') + '\n\n' + phaseAssignments.length + ' phases, ' +
+    (allCovered ? '全' + nodes.length + 'ノードカバー' : '未カバーあり') + ', ' +
+    'hard制約違反 ' + hardViolations + '件, ' +
+    '下限10未満 ' + sizeIssues + 'フェーズ' +
+    (sizeIssues > 0 ? '（統合すると依存関係制約に違反する為これが安全な判断である）' : ''));
 
   if (validateResult.valid) {
-    console.log('Wrote ' + phaseAssignments.length + ' phases to ' + opts.ticketsPath + '.');
+    console.log(opts.ticketsPath + ' に' + phaseAssignments.length + '件のフェーズを書き込みました。');
   } else {
-    console.log('Validation result:');
+    console.log('検証結果:');
     // console.log(JSON.stringify(validateResult, null, 2));
-    console.log('[WARN] Validation failed, but continuing due to --dry-run.');
+    console.log('[WARN] 検証に不合格でしたが、--dry-run のため処理を継続します。');
   }
 
   // ============================================================
@@ -416,7 +416,7 @@ function runPhasify(opts) {
   // ============================================================
   if (opts.dryRun) {
     console.log('');
-    console.log('[--dry-run mode] No writes to Tickets.json were performed.');
+    console.log('[--dry-run モード] Tickets.json への書き込みは行いませんでした。');
     return;
   }
 
@@ -439,7 +439,7 @@ function main() {
   checkDirsTreeExists(opts.dirsTreePath);
   const created = ensureTicketsJsonExists(opts.ticketsPath, opts.graphPath, opts.dirsTreePath, opts.dryRun);
   if (created && !opts.dryRun) {
-    console.log('[INFO] Created Tickets.json: ' + opts.ticketsPath);
+    console.log('[INFO] Tickets.json を新規作成しました: ' + opts.ticketsPath);
   }
 
   runPhasify(opts);

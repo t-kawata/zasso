@@ -238,7 +238,7 @@ function main() {
       fs.readFileSync(path.resolve(parsed.ticketsPath), "utf8")
     );
   } catch (err) {
-    console.error("Failed to read Tickets.json: " + err.message);
+    console.error("Tickets.json の読み込みに失敗しました: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
@@ -289,7 +289,7 @@ function main() {
     if (result.error) {
       nodeMarkdowns.push(null);
       nodeErrors.push(result.error);
-      console.error("Warning: " + result.error);
+      console.error("警告: " + result.error);
     } else {
       nodeMarkdowns.push(result.markdown);
       nodeErrors.push(null);

@@ -1,65 +1,74 @@
 ---
-description: 例: /graphify-rfc RFC-GRAPHIFY.md（相対パス）/ /graphify-rfc /path/to/RFC-doc.md（絶対パス）。引数なしならエラー、第1引数に対象Markdown文書のファイルパス（相対/絶対）を指定し、7Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）でグラフ変換を実行。
-argument-hint: </path/to/RFC-doc.md>
-allowed-tools: Read, Write, Bash
+description: Executes graph conversion via 7-step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
+argument-hint: </path/to/RFC-*.md>
 ---
 
 # /graphify-rfc <source-file-path>
 
-**役割**: 長大Markdown設計文書をI/O境界単位の細粒度ノードに分割し、属性付きエッジで結んだグラフ構造として永続化する。生成されたグラフは /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドから利用可能になる。
+**Role**: Splits a large Markdown design document into fine-grained I/O-boundary nodes and persists it as a graph structure connected by attributed edges. The generated graph is available from the `/formulate-tickets` and `/formulate-tickets-for-next` slash commands.
 
-## 引数
+## Language Protocol
 
-- **第1引数（必須）**: 設計文書のファイルパス（絶対パスまたは相対パス）
-  - 例: `RFC-GRAPHIFY.md`
-  - 例: `/absolute/path/to/rfc-doc.md`
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-## 導出パス
+## Arguments
 
-ソース文書のパスから以下のファイルパスを計算する：
+- **1st argument (required)**: File path to the design document (absolute or relative path)
+  - Example: `RFC-GRAPHIFY.md`
+  - Example: `/absolute/path/to/rfc-doc.md`
+
+## Derived Paths
+
+The following file paths are computed from the source document path:
 
 ```bash
 graphPath="$(dirname "$1")/$(basename "$1" .md)-GRAPH.json"
 statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 ```
 
-- `graphPath`: 生成されるグラフJSONファイル
-- `statusPath`: 進行管理ステータスJSONファイル（update-step-status.js が読書きする）
+- `graphPath`: The generated graph JSON file
+- `statusPath`: Progress management status JSON file (read/written by update-step-status.js)
 
-## ガイドライン
+## Guidelines
 
-- **/graphify-rfc スラッシュコマンドは /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドよりも常に細かい粒度で分割する（発散）**。/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがグラフから必要な粒度の情報を取り出す際に、細かすぎるノードは集約可能だが、粗すぎるノードは分割不能である。
-- 各Stepで使用するスクリプトは `.claude/scripts/rfc-graph/` 配下に配置されている。
-- update-step-status.js の呼び出しは `--graphify-status=<path>` プリフィックスで行う。
-- crud.js / verify.js / query.js は `--graph=<path>` / `--source=<path>` の引数形式で呼び出す。
+- **The /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
+- Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
+- Calls to update-step-status.js use the `--graphify-status=<path>` prefix.
+- crud.js / verify.js / query.js are called with `--graph=<path>` / `--source=<path>` argument format.
 
-## 使用スクリプト一覧
+## List of Scripts Used
 
-`.claude/scripts/rfc-graph/` 配下。
+Located under `.claude/scripts/rfc-graph/`.
 
-| スクリプト | 引数 | 説明 |
+| Script | Arguments | Description |
 |---|---|---|
-| `crud.js` | `--graph=<path> <subcommand>`（各サブコマンド参照） | グラフの唯一の書き込み経路。create-nodes / list-nodes / get-node / update-node / delete-node / create-edges / delete-edges |
-| `deduplicate-headings.js` | `<source-path>` | 見出し重複排除（同一階層・同一テキストに A-Z 追記） |
-| `resolve-by-heading.js` | `<source-path> --target=<heading>` | headingRefs 解決（4段階フォールバック照合） |
-| `verify.js` | `--graph=<path> --source=<path>` | 未カバー行と孤立ノードの機械検証 |
-| `validate-slug.js` | `--graph=<path>` | 全ノードの slug 命名規則・長さ検証（Step 1 自己修復ループで使用） |
-| `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | マルチホップグラフ検索とMarkdown整形出力 |
-| `test-query-all.js` | `--graph=<path> --source=<path>` | 全 headingRefs 一括検証（exit 0/1 + _fix_graph_hints.json 出力） |
-| `query-fix-hints.js` | `--hints=<path> [--id=<nodeId>] [--diagnosis=<M0-M10>] [--refId=<refId>]` | _fix_graph_hints.json 検索・Markdown整形表示 |
-| `update-step-status.js` | `--graphify-status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | GRAPHIFY-Status.json の進行管理（5サブコマンド） |
-| ~~`load-rfc-graph.js`~~ | （廃止） | `show-graph-summary-markdown.js --with-cli-examples` に統合 |
-| `dump-ticket-graph-commands.js` | `--tickets=<path> --graph=<path> --source=<path>` | formulate連携: チケットの spec に query.js コマンドを追記 |
-| `analyze-source-structure.js` | `<source-path>` | ソース文書の構造分析レポート（3軸分割支援） |
-| `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | グラフサマリーを kind 別Markdown形式で出力 |
+| `crud.js` | `--graph=<path> <subcommand>` (see each subcommand) | The sole write path for the graph. create-nodes / list-nodes / get-node / update-node / delete-node / create-edges / delete-edges |
+| `deduplicate-headings.js` | `<source-path>` | Heading deduplication (appends A-Z to same-level, same-text headings) |
+| `resolve-by-heading.js` | `<source-path> --target=<heading>` | headingRefs resolution (4-level fallback matching) |
+| `verify.js` | `--graph=<path> --source=<path>` | Machine verification of uncovered lines and orphan nodes |
+| `validate-slug.js` | `--graph=<path>` | Slug naming convention and length validation for all nodes (used in Step 1 self-healing loop) |
+| `query.js` | `--graph=<path> --source=<path> --id=<nodeId> --hops=<N>` | Multi-hop graph search and Markdown-formatted output |
+| `test-query-all.js` | `--graph=<path> --source=<path>` | Batch verification of all headingRefs (exit 0/1 + outputs _fix_graph_hints.json) |
+| `query-fix-hints.js` | `--hints=<path> [--id=<nodeId>] [--diagnosis=<M0-M10>] [--refId=<refId>]` | Search _fix_graph_hints.json and display results in Markdown format |
+| `update-step-status.js` | `--graphify-status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <N>` | GRAPHIFY-Status.json progress management (5 subcommands) |
+| ~~`load-rfc-graph.js`~~ | (deprecated) | Merged into `show-graph-summary-markdown.js --with-cli-examples` |
+| `dump-ticket-graph-commands.js` | `--tickets=<path> --graph=<path> --source=<path>` | formulate integration: appends query.js commands to ticket spec |
+| `analyze-source-structure.js` | `<source-path>` | Source document structure analysis report (assists 3-axis splitting) |
+| `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | Outputs graph summary in kind-organized Markdown format |
 
-全スクリプトはエラー時に3段テンプレート（`[ERROR]` / `原因:` / `対応:`）を stderr に出力し、終了コード1で終了する。書き込み前の JSON Schema 検証に違反した場合も同様のテンプレートでエラー内容を報告する。
+All scripts output a 3-line error template (`[ERROR]` / `Cause:` / `Action:`) to stderr on error and exit with code 1. Pre-write JSON Schema validation violations are also reported using the same template.
 
-## グラフスキーマ定義
+## Graph Schema Definitions
 
-`*-GRAPH.json` は以下の3層スキーマで構成される。
+`*-GRAPH.json` consists of the following 3-layer schema.
 
-### ルート (graph.schema.json)
+### Root (graph.schema.json)
 
 ```json
 {
@@ -70,461 +79,461 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 }
 ```
 
-| フィールド | 型 | 必須 | 説明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `sourceFile` | string | required | 元Markdown文書のパス |
-| `mainLanguage` | string | required | プロジェクト全体の主要プログラミング言語（例: `"rust"`）。複数言語混在プロジェクトでは中心言語を指定する。全ノードの `language` 未設定時の唯一のフォールバック値として使用される。 |
-| `nodes` | array | required | ノード配列（node.schema.json） |
-| `edges` | array | required | エッジ配列（edge.schema.json） |
+| `sourceFile` | string | required | Path to the original Markdown document |
+| `mainLanguage` | string | required | The project's primary programming language (e.g. `"rust"`). For multilingual projects, specify the central language. Used as the sole fallback when a node's `language` field is not set. |
+| `nodes` | array | required | Node array (node.schema.json) |
+| `edges` | array | required | Edge array (edge.schema.json) |
 
-### ノード (node.schema.json)
+### Node (node.schema.json)
 
 ```json
 {
   "id": "N0001",
-  "title": "§1 目的 — 本crateの責務定義",
+  "title": "§1 Purpose — Responsibilities of this crate",
   "kind": "architecture",
-  "summary": "本crateの目的を定義...",
+  "summary": "Defines the purpose of this crate...",
   "language": "rust",
   "slug": "purpose_crate_responsibility",
   "headingRefs": [
-    { "refId": "REF001", "heading": 2, "texts": ["§1 目的"] }
+    { "refId": "REF001", "heading": 2, "texts": ["§1 Purpose"] }
   ]
 }
 ```
 
-| フィールド | 型 | 必須 | 説明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | string | required | `^N[0-9]{4}$` 形式のノードID |
-| `title` | string | required | 1〜120文字のタイトル |
-| `kind` | string | required | 12種の enum から選択 |
-| `summary` | string | required | 1文字以上の要約 |
-| `language` | string | required（原則） | 当該ノードが実装されるプログラミング言語（単一値、配列ではない）。Step 1 の「言語割り当てルール」に従って原則必須で設定する。事故で空の場合のみ `mainLanguage` の値をフォールバックとして使用する。 |
-| `slug` | string | required | タイトルから生成された lower_snake_case の識別子（パターン: `^[a-z][a-z0-9_]*$`、最大25文字）。Step 1 の「slug 生成ルール」に従って必ず設定する。空を許容しない。ファイル名・ディレクトリ名のベースとして機械的に使用される。 |
-| `headingRefs` | array | required | 元文書の見出し参照（1件以上） |
+| `id` | string | required | Node ID in `^N[0-9]{4}$` format |
+| `title` | string | required | Title, 1 to 120 characters |
+| `kind` | string | required | Selected from the 12-kind enum |
+| `summary` | string | required | Summary of 1 or more characters |
+| `language` | string | required (in principle) | The programming language in which this node is implemented (single value, not an array). Must be set in principle according to Step 1's "Language Assignment Rules". Only uses `mainLanguage` as a fallback when accidentally empty. |
+| `slug` | string | required | A lower_snake_case identifier generated from the title (pattern: `^[a-z][a-z0-9_]*$`, max 25 characters). Must always be set according to Step 1's "slug generation rules". Empty values are not allowed. Used mechanically as the base for file and directory names. |
+| `headingRefs` | array | required | Heading references to the source document (1 or more entries) |
 
-## Step 0: 見出し重複排除（事前処理）
+## Step 0: Heading Deduplication (Pre-processing)
 
-headingRefs 方式では同一階層内で同一テキストの見出しが存在すると参照が一意に解決できない。事前にスクリプトにより機械的に見出しの重複を排除する。
+With the headingRefs approach, headings with the same text at the same level cannot be uniquely resolved. Headings are mechanically deduplicated in advance by the script.
 
 ```bash
-# Step 0 を開始（進行ステータスを running に更新）
+# Start Step 0 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 0
 
-# ソース文書の見出し重複を排除（同一階層・同一テキストに A-Z 追記）
-# 変更があった場合はファイルを上書きし、変更ログを出力する。変更がなければその旨を報告する。
+# Deduplicate headings in the source document (append A-Z for same-level, same-text headings)
+# If changes are made, overwrite the file and output a change log. If no changes, report accordingly.
 node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
 
-# Step 0 正常終了（進行ステータスを done に更新し、currentStep を 1 に進める）
+# Step 0 successful completion (update progress status to done and advance currentStep to 1)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
 ```
 
-### エラー時の復帰
-エラーメッセージに従って原因を修正した上で、`reset-to-step 0` でステータスを戻し、Step 0 のコマンドを最初から再実行する。
+### Recovery on Error
+After fixing the cause according to the error message, use `reset-to-step 0` to reset the status, then re-run the Step 0 commands from the beginning.
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 0
 ```
 
-## Step 1: ノード分割
+## Step 1: Node Splitting
 
-### 事前参照: I/O 境界参考情報
+### Pre-Reference: I/O Boundary Reference Information
 
-**重要: この情報は RFC 設計書の執筆者が最も新鮮な状態で設計意図を記述したものであり、後続のノード分割・エッジ付与の全フェーズにおいて最大限尊重しなければならない。**
+**Important: This information describes the design intent at its most current state as written by the RFC author, and must be respected to the fullest extent in all subsequent phases of node splitting and edge assignment.**
 
-対象 RFC に I/O 境界参考情報セクションが存在する場合、それを表示し、以下の観点で参照する：
+If the target RFC has an I/O Boundary Reference Information section, display it and reference it from the following perspectives:
 
 ```bash
-echo "=== I/O 境界参考情報 ==="
-node .claude/scripts/grill-me-for-rfc/extract-io-boundary.js "$1" || echo "(I/O 境界参考情報なし)"
-echo "========================"
+echo "=== I/O Boundary Reference Information ==="
+node .claude/scripts/grill-me-for-rfc/extract-io-boundary.js "$1" || echo "(No I/O Boundary Reference Information)"
+echo "==========================================="
 ```
 
-- **観測された自然な I/O 境界（B1, B2, ...）** → ノード分割の第1軸（セクション階層）の判断材料として活用する
-- **境界の属性** → ノードの kind 分類やエッジ種別の参考とする
-- **分割時に注意が必要な依存関係** → エッジ付与（Step 2）で特に注意すべき循環依存を事前に把握する
+- **Observed natural I/O boundaries (B1, B2, ...)** → Use as material for Axis 1 (section hierarchy) of node splitting
+- **Boundary attributes** → Use as reference for node kind classification and edge type selection
+- **Dependencies requiring caution during splitting** → Identify cyclic dependencies in advance that require special attention during edge assignment (Step 2)
 
-### ノード分割手順
+### Node Splitting Procedure
 
-ソース文書の全行を読み込み、以下の3軸で意味的I/O境界を特定しノードに分割する。/graphify-rfc スラッシュコマンドは /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドよりも常に細かい粒度で分割する（発散）ことを徹底する。graphify で発散的に分割した多数のノードを、formulate によって適切な実装チケット単位に束ねることで情報密度の高い収束を実現する為。
+Read all lines of the source document and identify semantic I/O boundaries across the following 4 axes, splitting into nodes. Ensure the /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence). This is because graphify's divergent splitting into many fine-grained nodes is then bundled by formulate into appropriate implementation ticket units, achieving high-information-density convergence.
 
-**第1軸: セクション階層**
-- Markdown の `##` 見出しを主要な分割境界とする
-- 同一見出し内でも内容が複数の概念にまたがる場合は分割する
-- 見出しのない段落群は前後のセクションに統合せず、独立したノードとする
-- 参照情報として `analyze-source-structure.js` が出力するセクションツリーを活用する
+**Axis 1: Section Hierarchy**
+- Use Markdown `##` headings as the primary splitting boundary
+- Split within the same heading if content spans multiple concepts
+- Paragraph groups without headings should be independent nodes, not merged with surrounding sections
+- Use the section tree output by `analyze-source-structure.js` as reference information
 
-**第2軸: kind（12種）の単一割り当て**
-- 各ノードは1つの kind のみを持つ。一つのセクション内で複数の kind が混在する場合は強制分割する
-- kind は以下の12種から選択する：
-  `requirement`（要件） / `api_contract`（API契約） / `data_model`（データモデル） /
-  `state_machine`（状態機械） / `architecture`（アーキテクチャ概要・コンポーネント構成） /
-  `security`（セキュリティモデル・脅威対策） /
-  `error_policy`（エラー処理方針） / `config`（設定） / `test_policy`（テスト方針） /
-  `build_ci`（ビルド/CI） / `rationale`（設計判断根拠） / `glossary`（用語集）
-- 例: 「要件」と「API契約」が同じセクションに混在 → 2ノードに分割
+**Axis 2: Single kind (12 types) Assignment**
+- Each node has exactly one kind. If multiple kinds coexist within one section, force-split
+- Select from the following 12 kinds:
+  `requirement` / `api_contract` / `data_model` /
+  `state_machine` / `architecture` / `security` /
+  `error_policy` / `config` / `test_policy` /
+  `build_ci` / `rationale` / `glossary`
+- Example: "Requirements" and "API contracts" mixed in the same section → split into 2 nodes
 
-**第3軸: 外部依存の有無**
-- 外部依存（ファイルI/O・ネットワーク・DB・他モジュール呼び出し等）を含む記述は、依存内容を持つノードと依存を持たないノードに強制分割する
-- これにより /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドの「1チケット・1不変条件」に対応した分割が可能になる
+**Axis 3: Presence of External Dependencies**
+- Descriptions containing external dependencies (file I/O, network, DB, calls to other modules, etc.) must be force-split into nodes that have dependency content and nodes that do not
+- This enables splitting that supports the "1 ticket, 1 invariant" principle of /formulate-tickets and /formulate-tickets-for-next
 
-**第4軸: 言語割り当て**
-- 各ノードに `language` フィールド（単一値）を設定する。配列ではない。
-- 基本ルール: プロジェクトの主要言語（`mainLanguage`）をデフォルトとする。ほとんどのノードは `mainLanguage` と同じ値になる。
-- 例外ルール: ノードの内容が他言語に強く依存する場合のみ、異なる値を設定する（例: TypeScript の型定義を記述したセクション → `"typescript"`、Go のインターフェース設計 → `"go"`）。
-- 言語に依存しない内容（要件定義・用語集・設計判断根拠等）には `mainLanguage` を設定する。
-- 対応言語: `"rust"`, `"go"`, `"typescript"` の3種。これ以外の値は設定しない。
+**Axis 4: Language Assignment**
+- Set the `language` field (single value) on each node. Not an array.
+- Basic rule: Default to the project's primary language (`mainLanguage`). Most nodes will have the same value as `mainLanguage`.
+- Exception rule: Only set a different value when the node's content strongly depends on another language (e.g., TypeScript type definitions section → `"typescript"`, Go interface design → `"go"`).
+- Content independent of any language (requirements, glossary, design rationale, etc.) gets `mainLanguage`.
+- Supported languages: `"rust"`, `"go"`, `"typescript"` — 3 types. Do not set values outside these.
 
-**slug 生成ルール**
+**Slug Generation Rules**
 
-各ノードに `slug` フィールド（lower_snake_case、最大64文字、パターン: `^[a-z][a-z0-9_]*$`）を設定する。以下の優先順位で決定論的に生成する:
+Set the `slug` field (lower_snake_case, max 64 characters, pattern: `^[a-z][a-z0-9_]*$`) on each node. Generate deterministically in the following priority order:
 
-1. **英単語抽出**: タイトルから英単語・数字を取り出し、lower_snake_case に変換する。
-   - `§1 目的 — 本crateの責務定義` → `purpose_crate_responsibility`
-   - `§2.1 Tauri統合との責務境界` → `tauri_integration_boundary`
-   - `§4.1 バージョニングポリシー` → `versioning_policy`
+1. **English word extraction**: Extract English words and numbers from the title, convert to lower_snake_case.
+   - `§1 Purpose — Responsibilities of this crate` → `purpose_crate_responsibility`
+   - `§2.1 Tauri integration boundary` → `tauri_integration_boundary`
+   - `§4.1 Versioning policy` → `versioning_policy`
 
-2. **セクション番号フォールバック**: 英単語がない（または少なすぎて識別性が低い）場合、セクション番号をベースにする。ドットはアンダースコアに置換する。
-   - `§3 用語 — ドメイン固有の定義` → `section_3_glossary`（kind名を接尾辞）
-   - `§17.1 登録状態遷移規則` → `section_17_1`
-   - `§18.1 通話状態遷移規則` → `section_18_1`
+2. **Section number fallback**: If there are no English words (or too few for distinctiveness), base it on the section number. Replace dots with underscores.
+   - `§3 Glossary — Domain-specific definitions` → `section_3_glossary` (kind name as suffix)
+   - `§17.1 Registration state transition rules` → `section_17_1`
+   - `§18.1 Call state transition rules` → `section_18_1`
 
-3. **衝突回避**: 同一グラフ内で slug が衝突する場合、末尾に `_2`, `_3` ... を付与して一意にする。最初の出現にはサフィックス不要。
+3. **Collision avoidance**: If slugs collide within the same graph, append `_2`, `_3`... to make them unique. No suffix is needed for the first occurrence.
 
-4. **禁止文字**: 大文字、ハイフン、先頭数字を禁止。すべて lower_snake_case に変換すること。
-   - `API設計` → `api_design`（大文字→小文字）
-   - `3rd-party` → `third_party`（先頭数字回避、ハイフン→_）
+4. **Forbidden characters**: Uppercase letters, hyphens, and leading digits are forbidden. All must be converted to lower_snake_case.
+   - `API Design` → `api_design` (uppercase → lowercase)
+   - `3rd-party` → `third_party` (avoid leading digit, hyphen → _)
 
-**粒度の目安**: コードスニペット（``` で囲まれたブロック）の行数を除いた実質的な記述内容で、1ノード概ね30〜50行程度を上限とする。100行を超えるセクション（コードスニペットを除く）は必ず複数ノードに分割する。/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドのチケット粒度よりも細かいことを常に意識する。
+**Granularity guideline**: Approximately 30 to 50 lines per node for the effective description content (excluding code snippets in ``` blocks). Sections exceeding 100 lines (excluding code snippets) must be split into multiple nodes. Always keep in mind that the granularity is finer than the ticket granularity of /formulate-tickets and /formulate-tickets-for-next.
 
 ```bash
-# 事前に analyze-source-structure.js で機械的構造情報を取得し、3軸すべての参考としての判断材料とする
+# Obtain mechanical structure information in advance with analyze-source-structure.js as reference material for all 4 axes
 node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
 ```
 
-`## 100行超セクション` の項目を確認し、100行を超えるセクションがあれば、内容自体の変更や情報の欠損が絶対に起きないように細心の注意を払いながらRFCソースファイルを直接編集して `###` 小見出しを挿入し、30〜50行程度の適切な粒度に分割する。分割が完了したら、再度 `analyze-source-structure.js` を実行して100行超セクションが解消されたことを確認する：
+Check the `## Sections exceeding 100 lines` item; if any section exceeds 100 lines, directly edit the RFC source file to insert `###` subheadings, being extremely careful not to change the content or cause any information loss, splitting into appropriate granularity of approximately 30-50 lines. After splitting, run `analyze-source-structure.js` again to confirm sections exceeding 100 lines have been resolved:
 
 ```bash
-# 再度構造分析を実行し、100行超セクションがなくなったことを確認する
+# Run structure analysis again to confirm no sections exceed 100 lines
 node .claude/scripts/rfc-graph/analyze-source-structure.js "$1"
 ```
 
-`## 100行超セクション` が「なし（全セクションが100行未満）」と報告されるまで、RFCソースファイルの編集と再確認を繰り返す。
+Repeat editing the RFC source file and re-checking until `## Sections exceeding 100 lines` reports "None (all sections under 100 lines)".
 
 ```bash
-# Step 1 を開始（進行ステータスを running に更新）
+# Start Step 1 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 1
 
-# 4軸の判断基準 + slug 生成ルール（上記）に基づいてノードJSONを生成し、crud.js でグラフファイルに投入する
-# 生成したノードJSONは一時ファイル _temp_nodes.json に保存してから crud.js の --file で指定する
-# ※ sourceRanges の refId は crud.js が自動採番するため、AI は startLine/endLine のみ指定すればよい
+# Generate node JSON based on the 4-axis criteria + slug generation rules (above), and inject it into the graph file via crud.js
+# Save the generated node JSON to the temporary file _temp_nodes.json first, then specify it via crud.js's --file
+# ※ The refId in sourceRanges is auto-assigned by crud.js, so the AI only needs to specify startLine/endLine
 #
-# ノードJSONの各エントリは以下の形式:
-# {"id":"N0001","title":"§1 目的","kind":"architecture","summary":"...","language":"rust","slug":"purpose","headingRefs":[{"refId":"REF001","heading":2,"texts":["§1 目的"]}]}
+# Each entry in the node JSON follows this format:
+# {"id":"N0001","title":"§1 Purpose","kind":"architecture","summary":"...","language":"rust","slug":"purpose","headingRefs":[{"refId":"REF001","heading":2,"texts":["§1 Purpose"]}]}
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-nodes --file=_temp_nodes.json --source="$1"
 
-# slug 検証（命名規則・長さ・単語数の事前チェック）
+# Slug validation (pre-check naming convention, length, word count)
 node .claude/scripts/rfc-graph/validate-slug.js --graph="$graphPath"
 
-# 検証エラーがある場合、crud.js で各ノードの slug を修正してから再実行する
-# 検証エラーは標準出力に {"ok":false, "errors":[...]} のJSON形式で出力される
-# 各 error.remedy に crud.js の修正コマンド例が含まれている
+# If validation errors exist, fix each node's slug via crud.js and re-run
+# Validation errors are output to stdout in JSON format: {"ok":false, "errors":[...]}
+# Each error.remedy contains an example crud.js fix command
 
-# Step 1 正常終了（進行ステータスを done に更新し、currentStep を 2 に進める）
+# Step 1 successful completion (update progress status to done and advance currentStep to 2)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 1
 
-# 一時ファイルのクリーンアップ
+# Clean up temporary files
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
+### Recovery on Error
 
-validate-slug.js で slug 検証エラーが報告された場合は、各エラーの remedy フィールドに記載された crud.js コマンドで slug を修正し、`reset-to-step 1` で再実行する：
+If validate-slug.js reports slug validation errors, fix the slug using the crud.js command specified in each error's remedy field, then re-run with `reset-to-step 1`:
 
 ```bash
-# エラー例: {"nodeId":"N0005","slug":"CamelCaseName","reason":"大文字が含まれています","remedy":"node ... crud.js ... update-node --id=N0005 --field=slug --value=camelcasename"}
-# remedy のコマンドを実行して slug を修正
+# Error example: {"nodeId":"N0005","slug":"CamelCaseName","reason":"Contains uppercase letters","remedy":"node ... crud.js ... update-node --id=N0005 --field=slug --value=camelcasename"}
+# Run the remedy command to fix the slug
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" update-node --id=N0005 --field=slug --value=camelcasename
 
-# 修正後、Step 1 の先頭から再実行
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
-node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
-```
-エラーメッセージに従って原因を修正した上で、`reset-to-step 1` でステータスを戻し、Step 1 のコマンドを最初から再実行する。古い一時ファイルがあれば削除してから再実行すること：
-
-```bash
-# 古い一時ファイルを削除してから再実行
+# After fixing, re-run from the beginning of Step 1
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 ```
 
-微修正であれば個別操作も利用可能：
+After fixing the cause according to the error message, use `reset-to-step 1` to reset the status, then re-run the Step 1 commands from the beginning. Delete any old temporary files before re-running:
 
 ```bash
-# 特定ノードの sourceRanges などを部分修正する
+# Delete old temporary files before re-running
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
+node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
+```
+
+For minor fixes, individual operations can also be used:
+
+```bash
+# Partially fix specific node's sourceRanges, etc.
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" get-node --id=N0003
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" update-node --id=N0003 --file=_patch.json
 
-# 不要なノードを削除する
+# Delete unnecessary nodes
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" delete-node --id=N0003
 
-# 広範囲の修正が必要なら全体を再実行
+# For extensive fixes, re-run everything
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 ```
 
-## Step 2: エッジ付与
+## Step 2: Edge Assignment
 
-12種のエッジタイプ（depends_on / implements / refines / extends / conflicts_with / triggers / constrains / supersedes / references / precedes / part_of / validates）から適切な関係を選択し、全ノードが最低1本のエッジを持つようにする。孤立ノードが発生しないことを確認する。
+Select appropriate relationships from the 12 edge types (depends_on / implements / refines / extends / conflicts_with / triggers / constrains / supersedes / references / precedes / part_of / validates), ensuring every node has at least one edge. Confirm that no orphan nodes exist.
 
 ```bash
-# Step 2 を開始（進行ステータスを running に更新）
+# Start Step 2 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 
-# エッジJSONを生成し、crud.js でグラフファイルに投入する
-# 生成したエッジJSONは一時ファイル _temp_edges.json に保存してから crud.js の --file で指定する
+# Generate edge JSON and inject it into the graph file via crud.js
+# Save the generated edge JSON to the temporary file _temp_edges.json first, then specify it via crud.js's --file
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
 
-# Step 2 正常終了（進行ステータスを done に更新し、currentStep を 3 に進める）
+# Step 2 successful completion (update progress status to done and advance currentStep to 3)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 
-# 一時ファイルのクリーンアップ
+# Clean up temporary files
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
-エラーメッセージに従って原因を修正した上で、`reset-to-step 2` でステータスを戻し、Step 2 のコマンドを最初から再実行する。古い一時ファイルがあれば削除してから再実行すること：
+### Recovery on Error
+After fixing the cause according to the error message, use `reset-to-step 2` to reset the status, then re-run the Step 2 commands from the beginning. Delete any old temporary files before re-running:
 
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
 ```
 
-個別のエッジを削除してから再追加することも可能。
+Individual edges can also be removed and re-added.
 
 ```bash
-# 不要なエッジを削除する（from + to + type で識別）
+# Delete unnecessary edges (identified by from + to + type)
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" delete-edges --file=_remove_edges.json
 
-# 追加のエッジを投入する
+# Inject additional edges
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_add_edges.json
 
-# 広範囲の修正が必要なら全体を再実行
+# For extensive fixes, re-run everything
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
 ```
 
-## Step 3: 機械検証
+## Step 3: Machine Verification
 
-verify.js で未カバー行と孤立ノードをチェックする。`{"ok":true}` が返るまで繰り返す。
+Use verify.js to check for uncovered lines and orphan nodes. Repeat until `{"ok":true}` is returned.
 
 ```bash
-# Step 3 を開始（進行ステータスを running に更新）
+# Start Step 3 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 3
 
-# 未カバー行・孤立ノードを機械検証する
+# Machine-verify uncovered lines and orphan nodes
 node .claude/scripts/rfc-graph/verify.js --graph="$graphPath" --source="$1"
 ```
 
-検証結果に応じて分岐する：
+Branch based on verification results:
 
-- **未カバー行が報告された場合** → `reset-to-step 1` でStep 1に戻り、未カバー行を含むノードを追加・修正する
+- **If uncovered lines are reported** → Return to Step 1 with `reset-to-step 1` to add or modify nodes covering the uncovered lines
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
   ```
-- **孤立ノードが報告された場合** → `reset-to-step 2` でStep 2に戻り、孤立ノードに適切なエッジを追加する
+- **If orphan nodes are reported** → Return to Step 2 with `reset-to-step 2` to add appropriate edges to orphan nodes
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 2
   ```
-- **`{"ok":true}` の場合** → Step 4へ進む
+- **If `{"ok":true}`** → Proceed to Step 4
   ```bash
   node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 3
   ```
 
-`{"ok":true}` が返るまでStep 1〜Step 3を繰り返す。
+Repeat Steps 1 through 3 until `{"ok":true}` is returned.
 
-### エラー時の復帰
-エラーメッセージに従って原因を修正した上で、`reset-to-step 3` でステータスを戻し、Step 3 のコマンドを最初から再実行する。
+### Recovery on Error
+After fixing the cause according to the error message, use `reset-to-step 3` to reset the status, then re-run the Step 3 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 3
 ```
 
-## Step 4: 自己検証
+## Step 4: Self-Verification
 
-全 headingRefs の解決可能性を test-query-all.js で機械検証し、通過後に必要に応じて query.js で構造クエリを実行する。グラフ構造が /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドおよび実装段階で参照可能な品質であることを確認する。
+Machine-verify the resolvability of all headingRefs using test-query-all.js. After passing, optionally run structural queries with query.js. Confirm the graph structure is of sufficient quality for the /formulate-tickets and /formulate-tickets-for-next slash commands and for reference during implementation.
 
 ```bash
-# Step 4 を開始（進行ステータスを running に更新）
+# Start Step 4 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 4
 
-# 全 headingRefs の解決可能性を検証する（通過必須ゲート）
+# Verify resolvability of all headingRefs (mandatory gate)
 node .claude/scripts/rfc-graph/test-query-all.js --graph="$graphPath" --source="$1"
 ```
 
-test-query-all.js の終了コードで分岐する：
+Branch based on the exit code of test-query-all.js:
 
-- **exit 0（全 headingRefs 解決確認済み）** → 後続の任意クエリに進む
-- **exit 1（解決不能な headingRefs が存在）** → 以下の手順で修正する：
-  1. stderr に出力された解決不能 headingRefs の一覧を確認する
-  2. 必要に応じて `query-fix-hints.js` で詳細診断情報を取得する：
+- **exit 0 (all headingRefs confirmed resolvable)** → Proceed to optional subsequent queries
+- **exit 1 (unresolvable headingRefs exist)** → Fix using the following procedure:
+  1. Check the list of unresolvable headingRefs output to stderr
+  2. If necessary, obtain detailed diagnostic information via `query-fix-hints.js`:
      ```bash
      node .claude/scripts/rfc-graph/query-fix-hints.js --hints=_fix_graph_hints.json
      ```
-  3. `_fix_graph_hints.json` の remedyHint に従い、`crud.js update-node` で headingRefs を修正する
-  4. 一時ファイルを削除してから再実行する：
+  3. Follow the remedyHint in `_fix_graph_hints.json` to fix headingRefs via `crud.js update-node`
+  4. Delete temporary files and re-run:
      ```bash
      node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
      node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
      ```
 
-test-query-all.js が exit 0 の場合、全 headingRefs の解決が保証されている。以降は必要に応じて任意のノードに対して構造クエリを実行する：
+When test-query-all.js exits with 0, all headingRefs are guaranteed resolvable. After that, optionally run structural queries against any nodes:
 
 ```bash
-# 例: 特定ノードのマルチホップ検索（必要に応じて --hops=2）
+# Example: Multi-hop search on a specific node (use --hops=2 as needed)
 node .claude/scripts/rfc-graph/query.js --graph="$graphPath" --source="$1" --id=N0001 --hops=2
 ```
 
-ノード数が多い場合も、AI が必要と判断したノードのみクエリすればよい（全 headingRefs 解決済みのため、グラフ全体の到達可能性は保証されている）。
+Even with a large number of nodes, the AI only needs to query nodes it deems necessary (all headingRefs are resolved, so the reachability of the entire graph is guaranteed).
 
-### AI による品質点検（ランダムサンプリング目視確認）
+### AI Quality Inspection (Random Sampling Visual Check)
 
-機械的検証では検出できない品質問題（エッジの正しさ、kind 分類の整合、headingRefs の過不足）を、ランダムサンプリングにより目視確認する。
+Visually inspect quality issues that cannot be detected by machine verification (edge correctness, kind classification consistency, headingRefs adequacy) through random sampling.
 
 ```bash
-# 全ノードの query.js 結果を _quality/ に保存し、5%を乱数選出してコマンド一覧を表示
+# Save query.js results for all nodes to _quality/, randomly select 5%, and display the command list
 bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --source="$1"
 ```
 
-選出された全ノードに対して、以下の手順で**1件ずつ、1件も欠かさず**点検すること：
+For each selected node, inspect them **one by one, without skipping a single one**, following this procedure:
 
 ```bash
-# 選出された各ノードを1件ずつ順番に表示する（全件を一気に表示しようとしないこと）
+# Display each selected node in order one at a time (do not attempt to display all at once)
 node .claude/scripts/rfc-graph/get-node-for-check.js Nxxxx
 ```
 
-各ノードの表示内容を読み、以下の点検項目を確認する：
+Read each node's display content and check the following items:
 
-1. **他のノードとの関係性が設計文書の記述を正しく反映しているか**（必須のエッジが欠落していないか）
-2. **各ノードの内容が設計文書の該当箇所を過不足なくカバーしているか**
-3. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足している情報がないか**
+1. **Does the relationship with other nodes correctly reflect the design document's description** (are any required edges missing)?
+2. **Does each node's content cover the corresponding section of the design document completely, without excess or deficiency**?
+3. **Are there any missing or ambiguous areas that would hinder /formulate-tickets and /formulate-tickets-for-next from decomposing tickets from this graph**?
 
-不足がある場合 → 新規ノードの追加・既存ノードの修正・新規エッジの追加・既存エッジの修正・必要に応じて削除しての再作成を組み合わせ、**グラフを洗練（補強）する**ために Step 1 に戻る。
+If deficiencies are found → Return to Step 1 to **refine (strengthen) the graph** by combining the addition of new nodes, modification of existing nodes, creation of new edges, modification of existing edges, and deletion-and-recreation as needed.
 
 ```bash
-# 補強: 不足情報をカバーするため、Step 1 に戻る
-# 新規ノード追加・update-node による修正・delete-node による再作成を適宜組み合わせる
+# Reinforce: Return to Step 1 to cover missing information
+# Combine new node addition, update-node modification, and delete-node recreation as appropriate
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 ```
 
-「やり直す」のではなく「補強（洗練）」である点に注意。重複や粒度の粗いノードは delete-node で削除し、より適切なノードに再分割する。不足があれば add-node で追加する。update-node で既存ノードを微調整してもよい。グラフ全体の品質を高める方向であれば、変更の種類は問わない。
+Note that this is "reinforcement (refinement)" rather than "rework." Delete duplicate or coarse-grained nodes via delete-node and re-split into more appropriate nodes. Add missing nodes via add-node. Fine-tune existing nodes via update-node. Any type of change is acceptable as long as it improves the overall quality of the graph.
 
-点検が1件も欠けずに完了したら、次の判断を行う：
+Once inspection is complete without missing a single node, make the following decision:
 
-> 点検したのは全体の5%だけであって、全てを点検したわけではない。つまり全ての品質が保証されたわけではない。この前提で、追加で更にランダム5%を選出して点検を行うか判断すること。
+> You only inspected 5% of the total, not all nodes. This means the quality of everything is not guaranteed. Based on this premise, decide whether to randomly select another 5% for additional inspection.
 
-追加点検を行う場合：
+To perform additional inspection:
 
 ```bash
-# 追加5%を再ランダム選出（_quality の再生成は行わない）
+# Re-random select an additional 5% (do not regenerate _quality)
 bash .claude/scripts/rfc-graph/query-all-nodes.sh --graph="$graphPath" --additional
 ```
 
-出力されたコマンド一覧に対して**1件ずつ、1件も欠かさず**点検する。点検完了後、再度上記の判断を行う。
+Inspect each node in the output command list **one by one, without skipping a single one**. After inspection, re-evaluate the decision above.
 
-追加点検を行わない（現状の品質で十分と判断する）場合 → Step 4 正常終了。
+If no additional inspection is needed (the current quality is deemed sufficient) → Step 4 successful completion.
 
 ```bash
-# 成功時: Step 4 正常終了（進行ステータスを done に更新）
+# On success: Step 4 successful completion (update progress status to done)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 4
-# 一時ファイルのクリーンアップ（_quality/ ディレクトリも削除対象）
+# Clean up temporary files (_quality/ directory is also subject to deletion)
 rm -rf _quality/
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
+### Recovery on Error
 
-query.js のエラーメッセージに従って原因を特定し、該当するStep（ノード欠損→Step 1、エッジ欠損→Step 2）の `reset-to-step N` でステータスを戻して修正する。
+Identify the cause according to the query.js error message and fix it by resetting the status with the appropriate Step's `reset-to-step N` (missing nodes → Step 1, missing edges → Step 2).
 
-#### test-query-all.js 失敗時の復帰
-stderr に出力された解決不能 headingRefs の一覧を確認し、`_fix_graph_hints.json` の remedyHint に従って `crud.js` で修正する。修正後、cleanup → reset-to-step 4 で再実行する：
+#### Recovery on test-query-all.js Failure
+Check the list of unresolvable headingRefs output to stderr, and fix via `crud.js` following the remedyHint in `_fix_graph_hints.json`. After fixing, re-run with cleanup → reset-to-step 4:
 
 ```bash
-# 一時ファイルを削除してから再実行
+# Delete temporary files before re-running
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
 ```
 
-#### 原因不明のエラー時の復帰
+#### Recovery on Unknown Errors
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 4
 ```
 
-## Step 5: 最終品質検証 — 全件サマリー点検
+## Step 5: Final Quality Verification — Full Summary Inspection
 
-show-graph-summary-markdown.js でグラフ全体のサマリーを機械的に出力し、AI が構造の十分性を最終判断する。
+Use show-graph-summary-markdown.js to mechanically output a summary of the entire graph, allowing the AI to make a final judgment on structural adequacy.
 
 ```bash
-# Step 5 を開始（進行ステータスを running に更新）
+# Start Step 5 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 5
 
-# グラフ全体のサマリーをMarkdown形式で出力する
+# Output the entire graph summary in Markdown format
 node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$graphPath" --source="$1"
 ```
 
-### AI による十分性判断
+### AI Adequacy Judgment
 
-出力されたサマリー全体を読み、以下の観点でグラフが「十分に構造化された関係グラフ」であるか判断する：
+Read the entire output summary and judge whether the graph is a "sufficiently structured relationship graph" from the following perspectives:
 
-1. **設計文書の全主要セクションが過不足なくノード化されているか**
-2. **各ノードの kind 分類が設計意図と整合しているか**
-3. **ノード間の依存関係（エッジ）が設計文書の論理的関係を正確に反映しているか**
-4. **/formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドがこのグラフからチケット分解する際に、不足や曖昧な箇所がないか**
+1. **Are all major sections of the design document fully represented as nodes, without excess or deficiency?**
+2. **Does the kind classification of each node align with the design intent?**
+3. **Do the dependency relationships (edges) between nodes accurately reflect the logical relationships in the design document?**
+4. **Are there any missing or ambiguous areas that would hinder /formulate-tickets and /formulate-tickets-for-next from decomposing tickets from this graph?**
 
-### 判断と分岐
+### Decision and Branching
 
-**十分と判断した場合** → その理由を以下の例の形式で具体的に説明する：
+**If judged sufficient** → Explain the reasons concretely, using the following example format:
 
 ```markdown
-[十分性の説明]
-- 全12セクション中12セクションがノード化されている
-- requirement 4件・api_contract 3件・architecture 2件の kind 分類はいずれも設計文書の記述と整合
-- 依存関係は「認証API→トークン検証→セッション管理→ACL」のチェーンが fully connected
-- 孤立ノードは0件
-- 各エッジは設計文書内の該当箇所に headingRefs で紐付いている
-- 補足情報: ?????
+[Adequacy Explanation]
+- All 12 out of 12 sections are represented as nodes
+- The kind classification of 4 requirement, 3 api_contract, and 2 architecture entries all align with the design document
+- Dependencies form a fully connected chain: "auth API → token verification → session management → ACL"
+- 0 orphan nodes
+- Each edge is linked via headingRefs to the corresponding location in the design document
+- Supplementary information: ?????
 ```
 
-この説明をユーザーが確実に納得できる水準であること。説明が弱いと感じる場合（例：抽象的な「十分です」だけ／具体的事実の列挙がない）は、それは納得させられる説明になっていないと判断し、補強に回る。
+The explanation must be at a level that the user can reliably accept. If the explanation feels weak (e.g., abstract "it's sufficient" without listing concrete facts), that means it is not a convincing explanation — return to reinforcement.
 
-**不十分と判断した場合、またはユーザーを納得させる説明を書けない場合** → Step 1 に戻って補強（洗練）する。
+**If judged insufficient, or if a convincing explanation cannot be written** → Return to Step 1 for reinforcement (refinement).
 
 ```bash
-# 補強: グラフを洗練するため Step 1 に戻る
+# Reinforce: Return to Step 1 to refine the graph
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 1
 ```
 
-**十分と判断し、かつユーザーを納得させる説明を書けた場合** → Step 5 正常終了。
+**If judged sufficient AND a convincing explanation can be written** → Step 5 successful completion.
 
 ```bash
-# 成功時: Step 5 正常終了（進行ステータスを done に更新）
+# On success: Step 5 successful completion (update progress status to done)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 5
 ```
 
-### エラー時の復帰
-スクリプトのエラーメッセージに従って原因を修正した上で、`reset-to-step 5` でステータスを戻し、Step 5 のコマンドを最初から再実行する。
+### Recovery on Error
+After fixing the cause according to the script's error message, use `reset-to-step 5` to reset the status, then re-run the Step 5 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 5
 ```
 
-## 完了報告
+## Completion Report
 
-以下の情報を報告する：
+Report the following information:
 
-- **生成グラフファイル**: `$graphPath`
-- **進行ステータスファイル**: `$statusPath`
-- **ノード数**: crud.js list-nodes で取得
-- **エッジ数**: グラフJSONの edges 配列長から取得
-- **headingRefs 解決率**: test-query-all.js が全 N 件解決確認済み
-- **検証結果**: verify.js の最終出力（カバレッジ率、孤立ノード有無）
-- **最終品質検証**: show-graph-summary-markdown.js による十分性判断の結果（十分/補強履歴）
-- **グラフ構造の要約**: show-graph-summary-markdown.js の出力（kind 別ノード一覧＋エッジ関係）
+- **Generated graph file**: `$graphPath`
+- **Progress status file**: `$statusPath`
+- **Node count**: Obtained via crud.js list-nodes
+- **Edge count**: Obtained from the graph JSON's edges array length
+- **headingRefs resolution rate**: All N entries confirmed resolvable by test-query-all.js
+- **Verification result**: verify.js final output (coverage rate, presence of orphan nodes)
+- **Final quality verification**: show-graph-summary-markdown.js adequacy judgment result (sufficient/reinforcement history)
+- **Graph structure summary**: show-graph-summary-markdown.js output (kind-organized node list + edge relationships)
 
-完了後、このグラフは /formulate-tickets 及び /formulate-tickets-for-next スラッシュコマンドから `show-graph-summary-markdown.js --with-cli-examples` を介して利用可能になる。
+After completion, this graph becomes available to the /formulate-tickets and /formulate-tickets-for-next slash commands via `show-graph-summary-markdown.js --with-cli-examples`.

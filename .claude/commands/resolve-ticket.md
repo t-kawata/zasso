@@ -1,37 +1,47 @@
 ---
-description: ディレクトリ配下の警告・エラー・スタブ・犯罪を解決する。
+description: Resolves warnings, errors, stubs, and crimes under a directory.
 ---
 
 # /resolve-ticket
 
-**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
 
-**役割**: ディレクトリ配下の警告・エラー・スタブ・犯罪の一括解決。
+**Role**: Batch resolution of warnings, errors, stubs, and crimes under a directory.
 
-**禁止事項**: このコマンドは Tickets.json のチケットの status を絶対に変更してはならない。`update-ticket.js` を呼び出したり、`echo '{"status":...}'` を実行したりしてはならない。
+**Prohibition**: This command must NEVER change the status of any ticket in Tickets.json. You must NOT call `update-ticket.js` or execute `echo '{"status":...}'`.
 
-## 引数の解釈
+## Language Protocol
 
-引数なし。ある場合は全てエラーとして中断。
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-## 使用スクリプト一覧
+## Argument Interpretation
 
-`.claude/scripts/tickets/` 配下。
+No arguments accepted. If any are provided, interrupt with an error.
 
-| スクリプト | 引数 | 説明 |
-|---|---|---|
-| `review/find-all-stubs.js` | `<directory>` | スタブの一覧取得 |
-| `scan-crimes.sh` | `[directory]`（指定時は配下の犯罪のみ表示） | 犯罪スキャン実行 |
-| `malfeasance-create.js` | `<file> <line> <description> [note]` | 犯罪を新規記録 |
-| `malfeasance-update.js` | `<id> <key> <val>` | 犯罪レコードの更新（解決等） |
-| `review/run-quality-checks.js` | `<files...>` | 静的品質チェック |
-| `review/generate-report.js` | （stdin経由） | 品質レポート生成 |
+## List of Scripts Used
 
-## ワークフロー
+Located under `.claude/scripts/tickets/`.
 
-### Step 1: cargo check / cargo test の実行と警告・エラー取得
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `review/find-all-stubs.js` | `<directory>` | List all stubs |
+| `scan-crimes.sh` | `[directory]` (when specified, shows only crimes under that directory) | Execute crime scan |
+| `malfeasance-create.js` | `<file> <line> <description> [note]` | Record a new crime |
+| `malfeasance-update.js` | `<id> <key> <val>` | Update a crime record (resolve, etc.) |
+| `review/run-quality-checks.js` | `<files...>` | Static quality check |
+| `review/generate-report.js` | (via stdin) | Generate quality report |
 
-引数で指定されたディレクトリをカレントディレクトリとして `cargo check` と `cargo test` を実行し、すべての警告とエラーを取得する。
+## Workflow
+
+### Step 1: Run cargo check / cargo test and capture warnings and errors
+
+Run `cargo check` and `cargo test` with the directory specified in the argument as the current directory, and capture all warnings and errors.
 
 ```bash
 cargo check 2>&1
@@ -39,85 +49,85 @@ cargo check 2>&1
 cargo test 2>&1
 ```
 
-**注意**: 対象ディレクトリに Makefile が存在し適切なターゲットがある場合は `make` 経由でもよいが、生の出力が必要な場合は直接 `cargo` を使用する。
+**Note**: If a Makefile exists in the target directory with an appropriate target, using `make` is also acceptable, but use `cargo` directly when raw output is needed.
 
-### Step 2: 警告とエラーの解決
+### Step 2: Resolve warnings and errors
 
-取得した警告とエラーをすべて解決する。解決方法は以下：
+Resolve all captured warnings and errors. Resolution methods:
 
-1. **即時解決可能なもの**: コードを修正して警告・エラーを消す
-2. **後続のチケットで解決されるべきもの**: 該当箇所に `[::STUB::]` マーカーと解決予定のチケットIDを明記し、`#[allow(...)]` 等の適切な機構で警告・エラーを抑制する
-3. **抑制とマーカーの整合性**: 抑制のみで `[::STUB::]` が欠如していないか、`[::STUB::]` のみで抑制が欠如していないかを検証する
+1. **Immediately resolvable**: Fix the code to eliminate the warning/error
+2. **Should be resolved by a subsequent ticket**: Add a `[::STUB::]` marker with the planned resolution ticket ID at the relevant location, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`
+3. **Suppression and marker consistency**: Verify that there is no suppression without `[::STUB::]`, and no `[::STUB::]` without suppression
 
-**すべての警告・エラーを解決するまで次ステップに進まない。**
+**Do not proceed to the next step until all warnings and errors are resolved.**
 
-### Step 3: スタブ一覧の取得（ディレクトリ指定）
+### Step 3: List stubs (directory-scoped)
 
-`find-all-stubs.js` に引数で指定されたディレクトリを渡し、配下のスタブのみを一覧する。
+Pass the directory specified in the argument to `find-all-stubs.js` to list only stubs under that directory.
 
 ```bash
 node .claude/scripts/tickets/review/find-all-stubs.js "."
 ```
 
-出力を解析し、各スタブの `[::STUB::]` マーカーにチケットIDが明記されているかを確認する。
+Parse the output and verify whether each stub's `[::STUB::]` marker specifies a ticket ID.
 
-### Step 4: 未解決スタブの犯罪登録
+### Step 4: Register unresolved stubs as crimes
 
-引数で指定したディレクトリ配下において、過去のチケットで解決されているべきだったにも関わらず解決されていないスタブを発見したら、全て `malfeasance-create.js` で犯罪として登録する。犯罪は対象ディレクトリの `Malfeasance.json` に記録するため、`cd` してから実行する。
+For stubs under the specified directory that should have been resolved by past tickets but remain unresolved, register all of them as crimes via `malfeasance-create.js`. Crimes are recorded in the target directory's `Malfeasance.json`, so `cd` into it before executing.
 
 ```bash
 node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
 ```
 
-**判断基準**:
-- マーカーに解決予定チケットIDが明記されている → そのチケットが `done` なら解決されているべき → 未解決は犯罪
-- マーカーにチケットIDがない → 後続ステップで評価
+**Judgment criteria**:
+- If the marker specifies a planned resolution ticket ID → If that ticket is `done`, it should have been resolved → unresolved is a crime
+- If the marker has no ticket ID → Evaluate in subsequent steps
 
-### Step 5: 解決不能スタブの後続チケット割り当て
+### Step 5: Allocate unresolvable stubs to subsequent tickets
 
-後続のチケットでの解決が明記されていないスタブについて、以下の対応を行う：
+For stubs that do not specify a resolution in a subsequent ticket, take the following actions:
 
-1. **解決を試みる**: 現在のコードベースの状態で実際の実装に置き換えられるものは、その場で解決する
-2. **解決不可能なもの**: 以下の理由に該当する場合、解決されるタイミングのチケットIDを `[::STUB::]` マーカーに明記する
-   - 後続のチケットが実装されないと解決不可能
-   - 現在着手するべきではない（スコープ外、リスク大等）
+1. **Attempt to resolve**: If the current codebase state allows replacement with actual implementation, resolve on the spot
+2. **Unresolvable**: If the following reasons apply, specify the ticket ID for the timing of resolution in the `[::STUB::]` marker
+   - Cannot be resolved until a subsequent ticket is implemented
+   - Should not be addressed now (out of scope, too risky, etc.)
 
-**解決したスタブは `[::STUB::]` マーカーを除去する。**
+**Remove the `[::STUB::]` marker from resolved stubs.**
 
-### Step 6: 犯罪一覧の取得（ディレクトリ指定）
+### Step 6: List crimes (directory-scoped)
 
-`scan-crimes.sh` に引数で指定されたディレクトリを渡し、配下の犯罪のみを一覧する。
+Pass the directory specified in the argument to `scan-crimes.sh` to list only crimes under that directory.
 
 ```bash
 .claude/scripts/tickets/scan-crimes.sh "."
 ```
 
-### Step 7: 全犯罪の解決
+### Step 7: Resolve all crimes
 
-犯罪が存在すれば全て解決する。**この時点で犯罪が解決されずに放置・保留されることは絶対に許されない。**
+If crimes exist, resolve all of them. **It is absolutely unacceptable for crimes to remain unresolved, deferred, or left pending at this point.**
 
-解決方法：
-1. 該当コードが既に実装済みなら `[::STUB::]` マーカーを削除し、`malfeasance-update.js` で `status` を `resolved` に変更する
-2. `[::STUB::]` 未付与ならマーカーを追加し、`malfeasance-update.js` で `status` を `resolved` に変更する
-3. 技術的に解決不可能な場合のみ `false_positive` に変更し、理由を `note` に記録する。ただしこれは真に解決不可能な場合に限る
+Resolution methods:
+1. If the corresponding code is already implemented, remove the `[::STUB::]` marker and change `status` to `resolved` via `malfeasance-update.js`
+2. If no `[::STUB::]` marker is attached, add the marker and change `status` to `resolved` via `malfeasance-update.js`
+3. Only if technically unresolvable, change to `false_positive` and record the reason in `note`. However, this is limited to cases that are truly unresolvable.
 
 ```bash
-# 犯罪の解決（対象ディレクトリの Malfeasance.json に対して）
+# Resolve a crime (against the target directory's Malfeasance.json)
 node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 
-# 再確認（ディレクトリ指定）
+# Re-verify (directory-scoped)
 .claude/scripts/tickets/scan-crimes.sh "."
 ```
 
-**全犯罪を解決したことを確認するまで、このコマンドの完了を宣言してはならない。**
+**Do not declare this command complete until all crimes have been confirmed as resolved.**
 
-### Step 8: 最終検証
+### Step 8: Final verification
 
-解決後、再度コンパイルとテストを実行してすべてが通ることを確認する。
+After resolution, re-run compilation and tests to confirm everything passes.
 
 ```bash
 cargo check 2>2>&1)1
 cargo test 2>2>&1)1
 ```
 
-確認が取れたら、解決した内容のサマリーを提示してユーザーに報告する。
+Once verified, present a summary of the resolved items and report to the user.

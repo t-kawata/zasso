@@ -55,10 +55,10 @@ node .claude/scripts/grill-me-for-rfc/session-status.js "$RFC_DIR"
 ```
 📋 Session Status
   State: GRILLING
-  現在の工程: STEP 2 — Grill セッション中
-  次のアクション: tree-query.js tree で未解決ノードを確認し、質問を生成する
-  ノード: 5 総数 / 3 open
-  ループ回数: 0
+  Step: STEP 2 — STEP 2: Grill Session Active
+  Next Action: Run tree-query.js tree to review unresolved nodes and generate questions
+  Nodes: 5 total / 3 open
+  Loop Count: 0
 ```
 
 ---

@@ -76,7 +76,7 @@ function parseArguments(testArgs) {
   }
   const graphPath = graphFlag.slice(GRAPH_PATH_ARG_PREFIX.length);
   if (!graphPath) {
-    throw new Error('--graph=<path> <path> is empty.');
+    throw new Error('--graph=<path> の <path> が空です。');
   }
 
   return { graphPath };
@@ -88,20 +88,20 @@ function parseArguments(testArgs) {
 function printUsage() {
   console.log(`Usage: validate-slug.js --graph=<path>
 
-Validates the slug field of all nodes in a graph JSON file.
+グラフJSONの全ノードの slug フィールドを検証する。
 
-Arguments:
-  --graph=<path>  Path to the graph JSON file (required)
+引数:
+  --graph=<path>  グラフJSONファイルのパス（必須）
 
-Output:
-  Success: {"ok":true, "errors":[], "warnings":[]} (exit code 0)
-  Failure: {"ok":false, "errors":[...], "warnings":[...]} (exit code 1)
+出力:
+  正常時: {"ok":true, "errors":[], "warnings":[]}（終了コード0）
+  異常時: {"ok":false, "errors":[...], "warnings":[...]}（終了コード1）
 
-Slug rules:
-  - Must be lower_snake_case (lowercase letters, digits, underscores only)
-  - Must start with a lowercase letter
-  - Max 25 characters
-  - Warning (not blocked) if 4+ words`);
+slug ルール:
+  - lower_snake_case 形式（英小文字・数字・アンダースコアのみ）
+  - 先頭は英小文字
+  - 最大25文字
+  - 4単語以上は警告（ブロックしない）`);
 }
 
 // ============================================================
@@ -331,9 +331,9 @@ function main() {
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? EXIT_SUCCESS : EXIT_FAILURE);
   } catch (err) {
-    console.error(`[ERROR] Slug validation failed.
-Cause: ${err.message}
-Action: Fix the arguments or graph file as indicated by the error message.`);
+    console.error(`[ERROR] slug 検証に失敗しました。
+原因: ${err.message}
+対応: エラーメッセージに従って引数またはグラフファイルを修正してください。`);
     console.log(JSON.stringify({ ok: false, errors: [], warnings: [] }));
     process.exit(EXIT_FAILURE);
   }

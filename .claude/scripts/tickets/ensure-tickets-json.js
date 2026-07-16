@@ -32,7 +32,7 @@ function parseArguments(testArgs) {
 function runScript(scriptName, scriptArgs) {
   const scriptPath = path.join(__dirname, scriptName);
   if (!fs.existsSync(scriptPath)) {
-    throw new Error(`${scriptName} not found: ${scriptPath}`);
+    throw new Error(`${scriptName} が見つかりません: ${scriptPath}`);
   }
   return execFileSync(process.execPath, [scriptPath, ...scriptArgs], {
     encoding: 'utf8',
@@ -69,14 +69,14 @@ function main() {
       }),
     ]);
   } catch (e) {
-    process.stderr.write(`[ERROR] Failed to execute write-tickets-json-template.js.\nCause: ${e.message}\n`);
+    process.stderr.write(`[ERROR] write-tickets-json-template.js の実行に失敗しました。\n原因: ${e.message}\n`);
     process.exit(EXIT_FAILURE);
   }
 
   try {
     runScript('add-px-phase.js', [ticketsPath]);
   } catch (e) {
-    process.stderr.write(`[ERROR] Failed to execute add-px-phase.js.\nCause: ${e.message}\n`);
+    process.stderr.write(`[ERROR] add-px-phase.js の実行に失敗しました。\n原因: ${e.message}\n`);
     process.exit(EXIT_FAILURE);
   }
 
@@ -84,7 +84,7 @@ function main() {
     success: true,
     path: ticketsPath,
     existed: false,
-    instruction: 'Tickets.json has been created. Use add-ticket.js to add tickets, then run resolve-ticket-context.js.',
+    instruction: 'Tickets.json を作成しました。add-ticket.js でチケットを追加した後、resolve-ticket-context.js を実行してください。',
   }));
   process.exit(EXIT_SUCCESS);
 }

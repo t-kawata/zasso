@@ -1,96 +1,106 @@
 ---
-description: チケットの実装を実行する。
+description: Executes the implementation of a ticket.
 argument-hint: <P{phaseID}-{ticketID}>
 ---
 
 # /start-ticket
 
-**第一級規則 — [::STUB::] マーカー絶対義務**: 不完全な実装（スタブ・モック・仮実装・プレースホルダー等、名称を問わず）には全て `[::STUB::]` マーカーを付与しなければならない。これは死守すべき絶対的法規であり、違反は「犯罪」として Malfeasance.json に記録される。本コマンドの全フェーズにおいて、Malfeasance.json を読み取り未解決の犯罪がないことを確認すること。違反を発見した場合は直ちに解決するか、その場でマーカーを追加・記録する。
+**First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
 
-**役割**: チケットの実装。
+**Role**: Implementation of the ticket.
 
-## ワークフローにおける位置づけ
+## Language Protocol
 
-作業の流れは `make → plan → start → review` であり、現在 `start` 実行中。
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
 
-- **`/make-ticket`**: 実装仕様（spec）の詳細文書の作成と詳細化。
-- **`/plan-ticket`**: 実装レベルの詳細な計画。
-- **`/start-ticket`**: 実装。
-- **`/review-ticket`**: 完了したチケットをレビュー。
+## Position in the Workflow
 
-## 引数の解釈
+The workflow flow is `make → plan → start → review`, currently executing `start`.
 
-- `P{phaseID}-{ticketID}` 形式（例: `P0-1`, `PX-53`） → チケットキー。必須。
-- 引数なし → エラーで中断
-- 数字のみ → エラーで中断
-- 上記以外 → エラーで中断
+- **`/make-ticket`**: Creates and details an implementation specification (spec) document.
+- **`/plan-ticket`**: Detailed implementation-level planning.
+- **`/start-ticket`**: Implementation.
+- **`/review-ticket`**: Reviews completed tickets.
+
+## Argument Interpretation
+
+- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required.
+- No argument → Interrupt with error
+- Numeric only → Interrupt with error
+- Anything else → Interrupt with error
 
 ## Boy Scout Rule
 
-実装中に翻訳可能性を損なっている既存コードを見つけたら、スコープ外でも積極的に直す：エラー握りつぶし→伝播、ハードコード値→定数化、汎用変数名→ドメイン名、複数責務関数→分割。**計画に含まれていなくても実施する。**
+If you find existing code that violates translatability during implementation, proactively fix it even if outside scope: propagate instead of swallowing errors, extract hardcoded values into constants, rename generic variables to domain names, split multi-responsibility functions. **Do it even if it was not in the plan.**
 
-## 使用スクリプト一覧
+## List of Scripts Used
 
-`.claude/scripts/tickets/` 配下。
+Located under `.claude/scripts/tickets/`.
 
-| スクリプト | 引数 | 説明 |
-|---|---|---|
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}`（stdin: 更新JSON） | チケットフィールド更新・status 変更。`--append` で既存内容を保持し追記。 |
-| `review/run-quality-checks.js` | `<files...>` | **Step 10 で実行**。静的品質チェック。 |
-| `review/generate-report.js` | （stdin経由） | **Step 10 で実行**。品質レポート生成。 |
-| `scan-crimes.sh` | （なし） | **Step 4, 6 で実行**。Malfeasance.json の犯罪スキャン。 |
-| `review/find-all-stubs.js` | `<path>` | **Step 5 で実行**。`[::STUB::]` マーカーの全件検索。 |
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields and change status. Use `--append` to retain existing content and append. |
+| `review/run-quality-checks.js` | `<files...>` | **Executed in Step 10**. Static quality checks. |
+| `review/generate-report.js` | (via stdin) | **Executed in Step 10**. Generate quality report. |
+| `scan-crimes.sh` | (none) | **Executed in Step 4, 6**. Crime scan of Malfeasance.json. |
+| `review/find-all-stubs.js` | `<path>` | **Executed in Step 5**. Search for all `[::STUB::]` markers. |
 
-## ワークフロー
+## Workflow
 
-### Step 1: 同一セッション内で、直前に /plan-ticket を実行済みかどうかでブロック
+### Step 1: Block unless /plan-ticket was executed immediately before in the same session
 
-直前に同一セッションにて `/plan-ticket` を実行済みでないならば「/plan-ticket の事前実行が必要です。中断します。」と回答して中断。
+If `/plan-ticket` was NOT executed immediately before in the same session, respond with "Prior execution of /plan-ticket is required. Interrupting." and abort.
 
-### Step 2: 実装開始日の記録
+### Step 2: Record implementation start date
 
-実装開始日を `startedAt` フィールドに記録する：
+Record the implementation start date in the `startedAt` field:
 
 ```bash
 echo "{\"startedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 3: 犯罪の緊急解決（最優先 — 第一級規則）
+### Step 3: Emergency crime resolution (highest priority — First-Class Rule)
 
-Malfeasance.json を読み取り、未解決の犯罪（`open`）が存在する場合、**本チケットの実装作業より優先して**解決する。これは最優先タスクであり、スキップを禁止する。
+Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with priority over the implementation work of this ticket**. This is the highest priority task; skipping is prohibited.
 
 ```bash
-# 犯罪スキャンを実行（初回時は自動初期化）
+# Execute crime scan (auto-initializes on first run)
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-1. 未解決の犯罪が存在する場合、直ちに解決に取り掛かる
-2. 解決方法：
-   - 該当コードに `[::STUB::]` マーカーが未付与なら、その場でマーカーを追加する
-   - マーカー追加後、`malfeasance-update.js` で `status` を `resolved` に変更する
-   - 実装が完了しているにも関わらずマーカーが残っている場合は、マーカーを削除して解決する
-3. 技術的に解決不可能な場合は `malfeasance-update.js` で `status` を `false_positive` に変更し、理由を `note` に記録する
-4. 全ての犯罪を解決（または適切に分類）するまで実装作業を開始してはならない
+1. If unresolved crimes exist, start resolving them immediately
+2. Resolution methods:
+   - If the corresponding code lacks a `[::STUB::]` marker, add the marker on the spot
+   - After adding the marker, change `status` to `resolved` via `malfeasance-update.js`
+   - If the implementation is complete but the marker remains, remove the marker to resolve
+3. If technically unresolvable, change `status` to `false_positive` via `malfeasance-update.js` and record the reason in `note`
+4. Do not start implementation work until all crimes are resolved (or properly classified)
 
-### Step 4: スタブの解決
+### Step 4: Resolve stubs
 
-実装を開始する前に、解決可能なスタブを確認する：
+Before starting implementation, check for resolvable stubs:
 
-1. `find-all-stubs.js` でスタブを一覧する
-2. このチケットで解決可能になったスタブ（依存先チケットが完了した等）を特定する
-3. `[::STUB::]` 未付与のスタブを発見したらマーカーを追加し、`malfeasance-create.js` で犯罪として記録する
-4. 解決可能なスタブは実装スコープに含めて実際の実装に置き換える
-5. 解決不可能なスタブは実装サマリに記録して後続チケットに引き継ぐ
+1. List stubs via `find-all-stubs.js`
+2. Identify stubs that have become resolvable with this ticket (e.g., dependency tickets completed)
+3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
+4. Include resolvable stubs in the implementation scope and replace them with actual implementation
+5. Record unresolvable stubs in the implementation summary and hand them over to subsequent tickets
 
 ```bash
-# スタブの検索
+# Search for stubs
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-### Step 5: 実装
+### Step 5: Implementation
 
-直前に実行した `/plan-ticket` の計画に基づいて実装を開始する。
-下記の最高法規を遵守すること。
+Begin implementation based on the plan from the immediately preceding `/plan-ticket` execution.
+Comply with the following supreme laws.
 
 **Universal Testing Rules**
 Write all code under the following non-negotiable rules:
@@ -118,113 +128,105 @@ Write all code under the following non-negotiable rules:
 
 **ABSOLUTE PROHIBITION — NEVER DELETE OR EDIT THE `Initial Design Artifact` HEADER**: Files generated by `/boundify-graph-to-dirs` carry a header beginning with `Initial Design Artifact — RFC-driven Implementation`. That header is the heart of design traceability and the bloodstream of provenance information — it encodes the link between every implementation file and its originating RFC graph node. You must NEVER delete, alter, or comment out this header under any circumstances. Violation of this rule severs the traceability chain and is a critical defect.
 
-### Step 6: 不完全実装の能動的探索（必須）
+### Step 6: Active search for incomplete implementations (mandatory)
 
-実装が完了したら、その場で完了とする前に**自分が変更した全コードを精査し**、不完全実装が混入していないか確認する。これは**自動スクリプトでは検出できない漏れを発見するための能動的ステップ**であり、スキップを禁止する。
+After completing the implementation, **scrutinize all code you changed** before declaring completion, and check for mixed-in incomplete implementations. This is an **active step to discover omissions that automated scripts cannot detect**; skipping is prohibited.
 
 ```bash
-# 変更ファイル一覧を確認
+# View the list of changed files
 git diff "$(git merge-base HEAD origin/master)" --name-only
 
-# 確認後、各ファイルの変更行を精査する
+# After confirming, scrutinize the changed lines of each file
 ```
 
-**確認基準** — 以下のパターンが変更コードに含まれていないか、1行ずつ確認する：
+**Verification criteria** — Check line by line whether the following patterns are present in the changed code:
 
-1. `todo!()`, `unimplemented!()`, `panic!()` — `[::STUB::]` は付いているか
-2. 空の関数本体（`fn foo() {}`）— 仮置きのままではないか
-3. `return Ok(())` / `return None` / `return Default::default()` — エラー処理が未完了ではないか
-4. コメントアウトされた実装コード — 残骸を残していないか
-5. `TODO` / `FIXME` / `HACK` / `XXX` — `[::STUB::]` と併記されているか
-6. Mock / Fake オブジェクト — `[::STUB::]` は付いているか
-7. `#[allow(...)]` — 抑制理由に `[::STUB::]` があるか
+1. `todo!()`, `unimplemented!()`, `panic!()` — Does it have a `[::STUB::]` marker?
+2. Empty function bodies (`fn foo() {}`) — Is it left as a placeholder?
+3. `return Ok(())` / `return None` / `return Default::default()` — Is error handling incomplete?
+4. Commented-out implementation code — Is debris left behind?
+5. `TODO` / `FIXME` / `HACK` / `XXX` — Is it accompanied by a `[::STUB::]` marker?
+6. Mock / Fake objects — Does it have a `[::STUB::]` marker?
+7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
 
-不完全実装を発見した場合：
-1. `[::STUB::]` 未付与 → その場でマーカーを追加する
-2. `malfeasance-create.js` で犯罪として記録する
-3. 直ちに解決する（実装完了・マーカー追加等）。解決不可能な場合は `malfeasance-update.js` で `status` を `false_positive` に変更し、理由を `note` に記録する
+If an incomplete implementation is found:
+1. If no `[::STUB::]` marker → Add the marker on the spot
+2. Record it as a crime via `malfeasance-create.js`
+3. Resolve it immediately (complete implementation, add marker, etc.). If unresolvable, change `status` to `false_positive` via `malfeasance-update.js` and record the reason in `note`
 
 ```bash
-# 犯罪を記録
+# Record a crime
 node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
 ```
 
-記録後、必ず `scan-crimes.sh` を再実行し、犯罪が正しく Malfeasance.json に反映されたことを確認する：
+After recording, re-run `scan-crimes.sh` to verify the crime has been correctly reflected in Malfeasance.json:
 
 ```bash
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-### Step 7: コンパイル検証とテスト
+### Step 7: Compilation verification and testing
 
-実装した内容のコンパイル検証とテストを実行する。実行方法は以下の指針に従い、
-AI が状況に応じて判断すること：
+Run compilation verification and tests on the implemented content. Follow the guidelines below;
+the AI determines the approach based on the situation:
 
-- **作業ディレクトリ**: 変更範囲に応じて適切なディレクトリ（プロジェクトルート、
-  該当クレートのディレクトリなど）で実行する。`cd` で移動が必要な場合は
-  サブシェル `(cd <dir> && <command>)` を使い、後続コマンドのカレントディレクトリ
-  に影響を与えないようにする。
-- **コンパイル検証**: 選択したディレクトリに Makefile が存在し、`check` 系ターゲット
-  （`check`, `check-be`, `check-all` 等）が定義されていれば `make` を優先して使用する。
-  Makefile がない場合や該当ターゲットがない場合は `cargo check` を使用する。
-  必要に応じて `--all-targets` や `--workspace` 等の適切なフラグを付与する。
-- **テスト実行**: 同様に、Makefile に `test` ターゲットが定義されていれば `make test`
-  を優先し、なければ `cargo test` を使用する。テスト範囲（クレート指定、ワークスペース
-  全体など）は変更の影響範囲に応じて判断する。
+- **Working directory**: Execute in the appropriate directory depending on the scope of changes (project root, relevant crate directory, etc.). If `cd` navigation is needed, use a **subshell** `(cd <dir> && <command>)` to avoid affecting the current directory of subsequent commands.
+- **Compilation verification**: If a Makefile exists in the selected directory with `check`-family targets (`check`, `check-be`, `check-all`, etc.), prefer using `make`. If no Makefile exists or no relevant target is defined, use `cargo check`. Add appropriate flags such as `--all-targets` or `--workspace` as needed.
+- **Test execution**: Similarly, if a Makefile has a `test` target defined, prefer `make test`; otherwise use `cargo test`. Determine the test scope (crate-specific, whole workspace, etc.) based on the impact range of the changes.
 
 ```bash
-# 例: プロジェクトルートで Makefile の check-be を使う場合
+# Example: Using Makefile's check-be at the project root
 (cd "$(git rev-parse --show-toplevel)" && make check-be)
 
-# 例: 特定クレート内で Makefile がない場合
+# Example: No Makefile in a specific crate
 (cd crates/voiput && cargo check --all-targets)
 ```
 
-**警告・エラー完全解決の原則**:
-- `cargo check`, `cargo test`（または `make` コマンド経由）で検出された警告・エラーは、**1つ残さず解決しなければならない**。未解決の状態で次ステップに進むことを禁止する。
-- `cargo test`（または `make test`）が**1つでも失敗する状態**での次ステップ進行を禁止する。テストが通るまで修正すること。
-- やむを得ず警告・エラーを残す場合（別チケットで解決予定など）は、**該当箇所に `[::STUB::]` マーカーとコメントアウトで「どのチケット（チケットID）のタイミングで、どのように解決されるか」を明記した上で、`#[allow(...)]` や `#[cfg(test)]` 等の適切な機構で警告・エラーを抑制し、他のチケットのコンパイルやテストを阻害しない状態にしなければならない**。
-- 抑制が不十分で後続のビルドやテストを阻害する場合、それはバグとみなす。
+**Principle of complete warning/error resolution**:
+- Warnings and errors detected by `cargo check`, `cargo test` (or via `make` commands) **must be resolved without exception**. Proceeding to the next step with unresolved items is prohibited.
+- Proceeding to the next step when **even one `cargo test` (or `make test`) fails** is prohibited. Fix until all tests pass.
+- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **add a `[::STUB::]` marker with a comment stating "which ticket (ticket ID) will resolve it and how," and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**.
+- If the suppression is insufficient and blocks subsequent builds or tests, it is considered a bug.
 
-**抑制と `[::STUB::]` の整合性検証**:
-- `cargo check`（または `make check-*`）通過後、`#[allow(...)]` 等の抑制機構が使用されている箇所をすべて抽出し、それぞれに対応する `[::STUB::]` マーカーと解決予定チケットIDが同一箇所に明記されていることを確認する
-- **抑制のみで `[::STUB::]` が欠如** → マーカーを追加し、解決予定チケットIDと解決方法をコメントに記入する
-- **`[::STUB::]` のみで抑制が欠如** → コンパイル検証でエラーが出ているか確認する。エラーがあれば `#[allow(...)]` を追加し、エラーがなければ抑制不要（設計上の意図的スタブ）と判断して良い
-- 整合性確認後、**再度コンパイル検証を実行する**
+**Suppression and `[::STUB::]` consistency verification**:
+- After `cargo check` (or `make check-*`) passes, extract all locations where suppression mechanisms such as `#[allow(...)]` are used, and verify that each has a corresponding `[::STUB::]` marker and planned resolution ticket ID clearly stated at the same location
+- **Suppression without `[::STUB::]`** → Add the marker and write the planned resolution ticket ID and resolution method in a comment
+- **`[::STUB::]` without suppression** → Check whether compilation verification produces an error. If there is an error, add `#[allow(...)]`; if there is no error, suppression is unnecessary (it can be considered a deliberate design stub)
+- After consistency verification, **re-run compilation verification**
 
-### Step 8: 品質チェック
+### Step 8: Quality check
 
-実装後、変更ファイルを列挙して実行する：
+After implementation, enumerate the changed files and execute:
 
 ```bash
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs src/file2.rs
 ```
 
-パイプでレポートを生成：
+Generate a report via pipe:
 
 ```bash
 node ".claude/scripts/tickets/review/run-quality-checks.js" src/file1.rs | node ".claude/scripts/tickets/review/generate-report.js"
 ```
 
-### Step 9: 実装成果の保存
+### Step 9: Save implementation results
 
-コンパイル検証・テスト・品質チェック通過後、実装内容のサマリーを `update-ticket.js` でチケットの JSON フィールドに保存する：
+After passing compilation verification, tests, and quality checks, save a summary of the implementation content to the ticket's JSON fields via `update-ticket.js`:
 
 ```bash
 echo '{
-  "changes": [{"before":"旧状態","after":"新状態","description":"変更内容"}],
-  "notes": "実装サマリー:\n- 変更ファイル: a.rs, b.rs\n- 主要な変更点: ...\n- テスト結果: 全xx件成功"
+  "changes": [{"before":"old state","after":"new state","description":"change description"}],
+  "notes": "Implementation summary:\n- Changed files: a.rs, b.rs\n- Key changes: ...\n- Test results: all xx tests passed"
 }' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
 ```
 
-これにより、後でチケットを確認したときに「どのように実装されたか」を追跡できる。
+This makes it possible to trace "how the implementation was done" when checking the ticket later.
 
-### Step 10: done に遷移
+### Step 10: Transition to done
 
-コンパイル検証・テスト・品質チェック通過後：
+After passing compilation verification, tests, and quality checks:
 
 ```bash
 echo '{"status":"done"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-品質問題がある場合は修正してから `done` にする。
+If there are quality issues, fix them before transitioning to `done`.

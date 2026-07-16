@@ -243,7 +243,7 @@ function validateStepId(stepId) {
 function executeStartStep(status, stepId) {
   status.steps[stepId] = STATUS_RUNNING;
   status.currentStep = stepId;
-  console.log(`[${stepId}] started. Status: ${STATUS_RUNNING}.`);
+  console.log(`[${stepId}] を開始しました。状態: ${STATUS_RUNNING}。`);
 }
 
 /**
@@ -260,11 +260,11 @@ function executeEndStep(status, stepId) {
   const idx = STEP_ORDER.indexOf(stepId);
   if (idx === STEP_ORDER.length - 1) {
     status.currentStep = stepId;
-    console.log(`[${stepId}] completed. All steps completed.`);
+    console.log(`[${stepId}] が完了しました。全Stepが完了しました。`);
   } else {
     const nextId = STEP_ORDER[idx + 1];
     status.currentStep = nextId;
-    console.log(`[${stepId}] completed. Status: ${STATUS_DONE}. Run [${nextId}] next.`);
+    console.log(`[${stepId}] が完了しました。状態: ${STATUS_DONE}。次に [${nextId}] を実行してください。`);
   }
 }
 
@@ -278,7 +278,7 @@ function executeEndStep(status, stepId) {
  */
 function executeFailStep(status, stepId) {
   status.steps[stepId] = STATUS_ERROR;
-  console.log(`[${stepId}] failed. Status: ${STATUS_ERROR}. currentStep remains at ${status.currentStep}. Check the error message, fix the issue, and re-run with reset-to-step ${stepId}.`);
+  console.log(`[${stepId}] が異常終了しました。状態: ${STATUS_ERROR}。currentStep は ${status.currentStep} のままです。エラーメッセージを確認して修正した上で、reset-to-step ${stepId} で再実行してください。`);
 }
 
 /**
@@ -296,7 +296,7 @@ function executeResetToStep(status, stepId) {
     status.steps[STEP_ORDER[i]] = STATUS_PENDING;
   }
   status.currentStep = stepId;
-  console.log(`Reset to [${stepId}]. Subsequent steps reset to pending. Re-run the [${stepId}] commands from the beginning.`);
+  console.log(`[${stepId}] に復帰しました。後続のStepを pending にリセットしました。[${stepId}] のコマンドを最初から再実行してください。`);
 }
 
 /**
@@ -353,9 +353,9 @@ function executeCleanup(status) {
   }
 
   if (removed.length > 0) {
-    console.log(`cleanup: Deleted ${removed.join(', ')}`);
+    console.log(`cleanup: ${removed.join(', ')} を削除しました。`);
   } else {
-    console.log('cleanup: no temporary files to delete.');
+    console.log('cleanup: 削除対象の一時ファイルはありませんでした。');
   }
 }
 
@@ -377,9 +377,9 @@ function executeBackup(status) {
     console.log(`backup: ${status.graphFile} → ${bakPath}`);
   } catch (err) {
     exitWithError(
-      `Backup creation failed: ${err.message}`,
+      `バックアップ作成に失敗しました: ${err.message}`,
       `graphFile=${status.graphFile}`,
-      'Check disk space and write permissions.'
+      'ディスク容量や書き込み権限を確認してください。'
     );
   }
 }
@@ -401,14 +401,14 @@ function executePrunePhases(status) {
     }
   } catch (parseError) {
     exitWithError(
-      'prune-phases: stdin JSON parse failed',
+      'prune-phases: stdin のJSONパースに失敗しました',
       parseError.message,
-      'Provide a JSON array of phase IDs via stdin. Example: ["P0"]'
+      '削除するフェーズIDのJSON配列をstdinから入力してください。例: ["P0"]'
     );
   }
 
   if (!Array.isArray(phaseIdsToRemove) || phaseIdsToRemove.length === 0) {
-    console.log('prune-phases: no phase IDs specified for removal.');
+    console.log('prune-phases: 削除対象のフェーズIDが指定されていません。');
     return;
   }
 
@@ -435,7 +435,7 @@ function executePrunePhases(status) {
     }
   }
 
-  console.log(`prune-phases: removed ${removedCount} step state entries.`);
+  console.log(`prune-phases: ${removedCount} 件のStep状態を削除しました。`);
 }
 
 /**
@@ -455,15 +455,15 @@ function executeRenumberPhases(status) {
     }
   } catch (parseError) {
     exitWithError(
-      'renumber-phases: stdin JSON parse failed',
+      'renumber-phases: stdin のJSONパースに失敗しました',
       parseError.message,
-      'Provide a mapping object via stdin. Example: {"0":"1"}'
+      'マッピングオブジェクトをstdinから入力してください。例: {"0":"1"}'
     );
   }
 
   const mappingKeys = Object.keys(mapping);
   if (mappingKeys.length === 0) {
-    console.log('renumber-phases: no mapping specified.');
+    console.log('renumber-phases: マッピングが指定されていません。');
     return;
   }
 
@@ -494,7 +494,7 @@ function executeRenumberPhases(status) {
     }
   }
 
-  console.log(`renumber-phases: converted ${updatedCount} keys.`);
+  console.log(`renumber-phases: ${updatedCount} 件のキーを変換しました。`);
 }
 
 // ============================================================
@@ -529,8 +529,8 @@ function atomicWrite(targetPath, data) {
  */
 function exitWithError(message, reason, action) {
   console.error('[ERROR] ' + message);
-  console.error('Cause: ' + reason);
-  console.error('Action: ' + action);
+  console.error('原因: ' + reason);
+  console.error('対応: ' + action);
   process.exit(1);
 }
 
@@ -577,35 +577,35 @@ function main() {
     parsed = parseArguments();
   } catch (parseError) {
     exitWithError(
-      `Argument parsing failed: ${parseError.message}`,
-      'Command-line argument format is incorrect.',
-      'Check usage with --help and re-run with correct arguments.'
+      `引数パースに失敗しました: ${parseError.message}`,
+      'コマンドライン引数の形式が正しくありません。',
+      '--help オプションで使用方法を確認し、正しい引数で再実行してください。'
     );
   }
 
   const { statusPath, subcommand, stepId } = parsed;
 
-  // Step 2: Read status file (use defaults if not found)
+  // Step 2: ステータスファイル読み込み（存在しなければデフォルト状態）
   let status;
   try {
     status = readStatus(statusPath);
   } catch (readError) {
     exitWithError(
-      `Failed to read status file: ${readError.message}`,
-      `File path: ${statusPath}`,
-      'Ensure the file exists and is valid JSON.'
+      `ステータスファイルの読み込みに失敗しました: ${readError.message}`,
+      `ファイルパス: ${statusPath}`,
+      'ファイルが存在し、有効なJSON形式であることを確認してください。'
     );
   }
 
-  // Step 3: Execute subcommand
+  // Step 3: サブコマンド実行
   try {
     switch (subcommand) {
       case 'start-step':
         if (!validateStepId(stepId)) {
           exitWithError(
-            `Unknown Step ID: ${stepId}`,
-            `Valid Step IDs: ${STEP_ORDER.join(', ')}`,
-            'Specify a valid Step ID and re-run.'
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
         executeStartStep(status, stepId);
@@ -614,9 +614,9 @@ function main() {
       case 'end-step':
         if (!validateStepId(stepId)) {
           exitWithError(
-            `Unknown Step ID: ${stepId}`,
-            `Valid Step IDs: ${STEP_ORDER.join(', ')}`,
-            'Specify a valid Step ID and re-run.'
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
         executeEndStep(status, stepId);
@@ -625,9 +625,9 @@ function main() {
       case 'fail-step':
         if (!validateStepId(stepId)) {
           exitWithError(
-            `Unknown Step ID: ${stepId}`,
-            `Valid Step IDs: ${STEP_ORDER.join(', ')}`,
-            'Specify a valid Step ID and re-run.'
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
         executeFailStep(status, stepId);
@@ -636,9 +636,9 @@ function main() {
       case 'reset-to-step':
         if (!validateStepId(stepId)) {
           exitWithError(
-            `Unknown Step ID: ${stepId}`,
-            `Valid Step IDs: ${STEP_ORDER.join(', ')}`,
-            'Specify a valid Step ID and re-run.'
+            `未知のStep ID です: ${stepId}`,
+            `有効なStep ID: ${STEP_ORDER.join(', ')}`,
+            '有効なStep ID を指定して再実行してください。'
           );
         }
         executeResetToStep(status, stepId);
@@ -666,27 +666,27 @@ function main() {
 
       default:
         exitWithError(
-          `Unknown subcommand: ${subcommand}`,
-          'Specify one of: start-step / end-step / fail-step / reset-to-step / status / cleanup / backup / prune-phases / renumber-phases',
-          'Re-run with a valid subcommand name.'
+          `未知のサブコマンドです: ${subcommand}`,
+          'start-step / end-step / fail-step / reset-to-step / status / cleanup / backup / prune-phases / renumber-phases のいずれかを指定してください。',
+          '正しいサブコマンド名で再実行してください。'
         );
     }
   } catch (execError) {
     exitWithError(
-      `Error executing subcommand: ${execError.message}`,
-      'Invalid subcommand arguments or internal error.',
-      'Check the error message and re-run with correct arguments.'
+      `サブコマンド実行中にエラーが発生しました: ${execError.message}`,
+      'サブコマンドの引数が不正か、内部エラーが発生しました。',
+      'エラーメッセージを確認し、正しい引数で再実行してください。'
     );
   }
 
-  // Step 4: Atomic write
+  // Step 4: アトミック書き込み
   try {
     atomicWrite(statusPath, JSON.stringify(status, null, 2));
   } catch (writeError) {
     exitWithError(
-      `Failed to write status file: ${writeError.message}`,
-      `File path: ${statusPath}`,
-      'Check disk space and write permissions.'
+      `ステータスファイルの書き込みに失敗しました: ${writeError.message}`,
+      `ファイルパス: ${statusPath}`,
+      'ディスク容量や書き込み権限を確認してください。'
     );
   }
 }

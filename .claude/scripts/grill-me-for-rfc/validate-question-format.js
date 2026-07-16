@@ -32,8 +32,8 @@ const errors = [];
 const hasQuestionId = /\bQ\d+\b/.test(question);
 if (!hasQuestionId) {
   errors.push(
-    "[MISSING_QUESTION_ID] Question does not contain a \"Q<number>\" format ID.\n" +
-    "  Fix: Add a unique ID at the start of the question in \"Q1\", \"Q2\" ... format."
+    "[MISSING_QUESTION_ID] Question does not contain an ID in \"Q<number>\" format.\n" +
+    "  Fix: Prefix the question with a unique ID like \"Q1\", \"Q2\", ..."
   );
 }
 
@@ -53,8 +53,8 @@ const reasoningPatterns = [
 const hasReasoning = reasoningPatterns.some((p) => p.test(question));
 if (!hasReasoning) {
   errors.push(
-    "[MISSING_RATIONALE] Question does not include rationale, background, or trade-off analysis.\n" +
-    "  Fix: Explain why the proposal is being made, including comparisons with alternatives."
+    "[MISSING_REASONING] Question does not include rationale, context, or trade-off analysis.\n" +
+    "  Fix: Explain why the proposal is made and include comparison with alternatives."
   );
 }
 
@@ -69,8 +69,8 @@ const choicePatterns = [
 const hasChoice = choicePatterns.some((p) => p.test(question));
 if (!hasChoice) {
   errors.push(
-    "[MISSING_OPTIONS] Question does not include Yes/No or A/B/C options.\n" +
-    "  Fix: Structure the question so the user can choose from options."
+    "[MISSING_CHOICES] Question does not include Yes/No or A/B/C choices.\n" +
+    "  Fix: Format the question so the user can pick from discrete options."
   );
 }
 
@@ -87,7 +87,7 @@ const openEndedPatterns = [
 const hasOpenEnded = openEndedPatterns.some((p) => p.test(question));
 if (hasOpenEnded && !hasChoice) {
   errors.push(
-    "[FREE_FORM_REQUEST] Question asks the user for free-form input.\n" +
+    "[OPEN_ENDED_QUESTION] Question asks for free-form user input.\n" +
     "  Fix: Restrict to Yes/No or A/B/C answerable format."
   );
 }
@@ -113,9 +113,9 @@ for (let i = 0; i < lines.length; i++) {
 
 if (inlineChoicesFound) {
   errors.push(
-    "[INLINE_OPTIONS] Multiple options are placed on the same line.\n" +
-    "  Fix: Separate each option onto its own line as a list.\n" +
-    "  Correct: A) Option1\n           B) Option2\n  Wrong:   A) Option1  B) Option2"
+    "[INLINE_CHOICES] Multiple choices appear on the same line.\n" +
+    "  Fix: Place each choice on its own line as a list.\n" +
+    "  Correct: A) Choice 1\n      B) Choice 2\n  Wrong: A) Choice 1  B) Choice 2"
   );
 }
 
@@ -130,10 +130,10 @@ if (lastChoiceLineIndex >= 0) {
   const hasRecommendation = recommendationPatterns.some((p) => p.test(afterChoices));
   if (!hasRecommendation) {
     errors.push(
-      "[MISSING_RECOMMENDATION] After listing options, the AI's recommendation with reason is missing.\n" +
-      "  Fix: Append \"I recommend A because ...\" after the option list.\n" +
-      "  Correct: ... C) Both\n\n           I recommend A (JWT) because ...\n" +
-      "  Wrong:   Listing options without a recommendation"
+      "[MISSING_RECOMMENDATION] After listing choices, the AI's recommendation with reasoning is not stated.\n" +
+      "  Fix: Append \"I recommend A because ...\" after the choices.\n" +
+      "  Correct: ... C) Both\n\n     I recommend A (JWT) because ...\n" +
+      "  Wrong: Listing choices without a recommendation"
     );
   }
 }

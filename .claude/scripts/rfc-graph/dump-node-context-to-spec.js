@@ -113,16 +113,16 @@ function parseArguments(testArgs) {
   }
 
   if (!ticketsPath) {
-    throw new Error('--tickets=<path> is not specified.');
+    throw new Error('--tickets=<path> が指定されていません。');
   }
   if (!graphPath) {
-    throw new Error('--graph=<path> is not specified.');
+    throw new Error('--graph=<path> が指定されていません。');
   }
   if (!dirsTreePath) {
-    throw new Error('--dirs-tree=<path> is not specified.');
+    throw new Error('--dirs-tree=<path> が指定されていません。');
   }
   if (ticketKeys.length === 0) {
-    throw new Error('--ticket-key=<key> is not specified (need at least 1).');
+    throw new Error('--ticket-key=<key> が1つも指定されていません。');
   }
 
   return { ticketsPath, graphPath, dirsTreePath, ticketKeys };
@@ -141,7 +141,7 @@ function parseArguments(testArgs) {
  */
 function loadJson(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
+    throw new Error(`ファイルが見つかりません: ${filePath}`);
   }
   const raw = fs.readFileSync(filePath, 'utf8');
   return JSON.parse(raw);
@@ -541,26 +541,26 @@ function appendToSpec(specPath, section) {
  */
 function printUsage() {
   console.log(
-    'dump-node-context-to-spec.js — Auto-write design context to spec\n' +
+    'dump-node-context-to-spec.js — 設計コンテキストの spec 自動書き込み\n' +
     '\n' +
     'Usage:\n' +
     '  dump-node-context-to-spec.js --tickets=<path> --graph=<path> --dirs-tree=<path> --ticket-key=<key>\n' +
     '    [--ticket-key=<key2> ...]\n' +
     '\n' +
     'Options:\n' +
-    '  --tickets=<path>      Path to Tickets.json\n' +
-    '  --graph=<path>        Path to GRAPH.json\n' +
-    '  --dirs-tree=<path>    Path to Dirs-Tree.json\n' +
-    '  --ticket-key=<key>    Ticket key (repeatable). At least one required\n' +
+    '  --tickets=<path>      Tickets.json のパス\n' +
+    '  --graph=<path>        GRAPH.json のパス\n' +
+    '  --dirs-tree=<path>    Dirs-Tree.json のパス\n' +
+    '  --ticket-key=<key>    チケットキー（複数指定可）。少なくとも1つ必須\n' +
     '\n' +
     'Output blocks:\n' +
-    '  Block 1: Node details (id/kind/language/slug/title/summary/headingRefs)\n' +
-    '  Block 2: Edge relationships (type groups + ★/☆ distinction)\n' +
-    '  Block 3: Implementation file paths (default_files + Dirs-Tree resolution)\n' +
+    '  Block 1: ノード詳細（id/kind/language/slug/title/summary/headingRefs）\n' +
+    '  Block 2: エッジ関係性（種別グループ + ★/☆ 区別）\n' +
+    '  Block 3: 実装ファイルパス（default_files + Dirs-Tree 解決）\n' +
     '\n' +
     'Exit codes:\n' +
-    '  0  Success\n' +
-    '  1  Argument error or file read error\n'
+    '  0  正常終了\n' +
+    '  1  引数エラーまたはファイル読み込みエラー\n'
   );
 }
 
@@ -655,7 +655,7 @@ function main() {
     if (specPath) {
       const appended = appendToSpec(specPath, section);
       if (appended) {
-        console.error(`Appended to spec: ${specPath}`);
+        console.error(`spec に追記しました: ${specPath}`);
       }
     }
   }

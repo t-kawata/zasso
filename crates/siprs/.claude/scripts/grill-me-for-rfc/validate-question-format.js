@@ -32,8 +32,8 @@ const errors = [];
 const hasQuestionId = /\bQ\d+\b/.test(question);
 if (!hasQuestionId) {
   errors.push(
-    "【質問IDの欠如】質問に「Q<番号>」形式のIDが含まれていません。\n" +
-    "  修正: 質問の先頭に「Q1」「Q2」... の形式で一意のIDを付与してください。"
+    "[MISSING_QUESTION_ID] Question does not contain an ID in \"Q<number>\" format.\n" +
+    "  Fix: Prefix the question with a unique ID like \"Q1\", \"Q2\", ..."
   );
 }
 
@@ -53,8 +53,8 @@ const reasoningPatterns = [
 const hasReasoning = reasoningPatterns.some((p) => p.test(question));
 if (!hasReasoning) {
   errors.push(
-    "【理由・背景の欠如】質問に提案の理由・背景・トレードオフ分析が含まれていません。\n" +
-    "  修正: なぜその提案をするのか、代案との比較を含めて説明してください。"
+    "[MISSING_REASONING] Question does not include rationale, context, or trade-off analysis.\n" +
+    "  Fix: Explain why the proposal is made and include comparison with alternatives."
   );
 }
 
@@ -69,8 +69,8 @@ const choicePatterns = [
 const hasChoice = choicePatterns.some((p) => p.test(question));
 if (!hasChoice) {
   errors.push(
-    "【選択肢の欠如】質問に Yes/No または A/B/C の選択肢が含まれていません。\n" +
-    "  修正: ユーザーが選択肢から選べる形式にしてください。"
+    "[MISSING_CHOICES] Question does not include Yes/No or A/B/C choices.\n" +
+    "  Fix: Format the question so the user can pick from discrete options."
   );
 }
 
@@ -87,8 +87,8 @@ const openEndedPatterns = [
 const hasOpenEnded = openEndedPatterns.some((p) => p.test(question));
 if (hasOpenEnded && !hasChoice) {
   errors.push(
-    "【自由記述の要求】ユーザーに自由記述を求めています。\n" +
-    "  修正: 必ず Yes/No または A/B/C で回答できる形式に絞ってください。"
+    "[OPEN_ENDED_QUESTION] Question asks for free-form user input.\n" +
+    "  Fix: Restrict to Yes/No or A/B/C answerable format."
   );
 }
 
@@ -113,9 +113,9 @@ for (let i = 0; i < lines.length; i++) {
 
 if (inlineChoicesFound) {
   errors.push(
-    "【選択肢がインライン形式】複数の選択肢が同じ行に並んでいます。\n" +
-    "  修正: 各選択肢を改行で区切ったリスト形式にしてください。\n" +
-    "  正: A) 選択肢1\n      B) 選択肢2\n  誤: A) 選択肢1  B) 選択肢2"
+    "[INLINE_CHOICES] Multiple choices appear on the same line.\n" +
+    "  Fix: Place each choice on its own line as a list.\n" +
+    "  Correct: A) Choice 1\n      B) Choice 2\n  Wrong: A) Choice 1  B) Choice 2"
   );
 }
 
@@ -130,10 +130,10 @@ if (lastChoiceLineIndex >= 0) {
   const hasRecommendation = recommendationPatterns.some((p) => p.test(afterChoices));
   if (!hasRecommendation) {
     errors.push(
-      "【おすすめの欠如】選択肢を列挙した後、AIがどの選択肢を推すのかの推奨と理由が述べられていません。\n" +
-      "  修正: 選択肢の後に「私は A をおすすめします。理由は...」を追記してください。\n" +
-      "  正: ... C) 両方\n\n     私は A (JWT) をおすすめします。理由は...\n" +
-      "  誤: 選択肢を出して終わり"
+      "[MISSING_RECOMMENDATION] After listing choices, the AI's recommendation with reasoning is not stated.\n" +
+      "  Fix: Append \"I recommend A because ...\" after the choices.\n" +
+      "  Correct: ... C) Both\n\n     I recommend A (JWT) because ...\n" +
+      "  Wrong: Listing choices without a recommendation"
     );
   }
 }

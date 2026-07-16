@@ -334,12 +334,12 @@ function main() {
         console.log(JSON.stringify(sr));
         process.exit(1);
       }
-      console.log("=== Extracted Sections ===");
+      console.log("=== 抽出されたセクション ===");
       for (const s of sr.sections) {
         const oid = s.omissionId || "N/A";
         const lines = s.content.split("\n").length;
         console.log(`  ${s.id} ${s.title} [${oid}]`);
-        console.log(`    → ${lines} lines`);
+        console.log(`    → ${lines}行`);
       }
       return;
     }

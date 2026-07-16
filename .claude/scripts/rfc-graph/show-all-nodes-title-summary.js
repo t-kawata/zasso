@@ -37,7 +37,7 @@ function parseArguments(argv) {
     }
   }
   if (!parsed.tickets || !parsed.graph || !parsed.phase) {
-    console.error('[ERROR] Usage: node show-all-nodes-title-summary.js --tickets=<PATH> --graph=<PATH> --phase=<phaseId>');
+    console.error('[ERROR] 使用法: node show-all-nodes-title-summary.js --tickets=<PATH> --graph=<PATH> --phase=<phaseId>');
     process.exit(2);
   }
   return parsed;
@@ -52,7 +52,7 @@ function getPhaseNodeIds(ticketsData, phaseId) {
     return p.name === phaseId || 'P' + p.id === phaseId || String(p.id) === phaseId.replace('P', '');
   });
   if (!phase) {
-    console.error('[ERROR] Phase not found: ' + phaseId);
+    console.error('[ERROR] フェーズが見つかりません: ' + phaseId);
     process.exit(1);
   }
   return phase.nodeIds || [];
@@ -80,7 +80,7 @@ function main() {
   for (const nid of nodeIds) {
     const node = nodeMap[nid];
     if (!node) {
-      console.error('[ERROR] Node not found in GRAPH.json: ' + nid);
+      console.error('[ERROR] GRAPH.json にノードが見つかりません: ' + nid);
       process.exit(1);
     }
     const title = node.title || '(タイトルなし)';

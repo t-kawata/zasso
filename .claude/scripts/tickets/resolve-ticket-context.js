@@ -65,7 +65,7 @@ function isValidTicketKey(ticketKey) {
 function runEnsureTicketsJson(ticketsDir) {
   const scriptPath = path.join(__dirname, 'ensure-tickets-json.js');
   if (!fs.existsSync(scriptPath)) {
-    throw new Error('ensure-tickets-json.js not found');
+    throw new Error('ensure-tickets-json.js が見つかりません');
   }
   execFileSync(process.execPath, [scriptPath, `--dir=${ticketsDir}`], {
     encoding: 'utf8',
@@ -191,32 +191,32 @@ function derivePaths(rfcPath) {
  */
 function generateInstruction(ticketKey, ticketExistsFlag, specExistsFlag, rfcPath, rfcPathSource, rfcExists, graphExists, dirsExists) {
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
-    return '/make-ticket argument is not specified or format is invalid. Use P{phaseId}-{ticketId} format (e.g. P0-1, PX-53).';
+    return '/make-ticket の引数が指定されていないか、形式が正しくありません。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。';
   }
   // 注意: auto-creation は ensure-ticket.js に移譲した。
   // 以下の2つの分岐は単体テスト用の防御的ガードとして維持する。
   if (!ticketExistsFlag) {
-    return 'Ticket does not exist. Run ensure-ticket.js to create it.';
+    return 'チケットが存在しません。ensure-ticket.js を実行して作成してください。';
   }
   if (!specExistsFlag) {
-    return 'Spec file does not exist (abnormal state). Run create-spec.js manually.';
+    return 'spec ファイルが存在しません（異常状態）。create-spec.js を手動実行して作成してください。';
   }
   if (!rfcPath) {
     if (rfcPathSource === 'none') {
-      return 'Pipeline info missing (metadata.source not set, spot ticket). Skip Step 6. Step 3 only requires spot investigation.';
+      return 'パイプライン情報がありません（metadata.source 未設定、スポットチケット）。Step 6 はスキップしてください。Step 3 はスポット調査のみで構いません。';
     }
     if (rfcPathSource === 'not_found') {
-      return 'File specified in metadata.source does not exist. Check the path. Step 6 will be skipped.';
+      return 'metadata.source に指定されたファイルが存在しません。パスを確認してください。Step 6 はスキップします。';
     }
-    return 'metadata.source format is unknown (neither .md nor .json). Step 6 will be skipped.';
+    return 'metadata.source の形式が不明です（.md でも .json でもありません）。Step 6 はスキップします。';
   }
   if (!rfcExists) {
-    return 'Design document derived from metadata.source does not exist. Check the path. Step 6 will be skipped.';
+    return 'metadata.source から導出した設計書ファイルが存在しません。パスを確認してください。Step 6 はスキップします。';
   }
   if (!graphExists || !dirsExists) {
-    return 'Pipeline information is incomplete (GRAPH.json or Dirs-Tree.json missing). Skip Step 6.';
+    return 'パイプライン情報が不完全です（GRAPH.json または Dirs-Tree.json が不足）。Step 6 はスキップしてください。';
   }
-  return 'All pipeline information is available. Proceed with mechanical writing in Step 6. In Step 3, conduct investigation using graph node information.';
+  return 'パイプライン情報が全て揃っています。Step 6 で機械的書き込みを実行できます。Step 3 ではグラフのノード情報を活用した調査を行ってください。';
 }
 
 /**
@@ -229,8 +229,8 @@ function main() {
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.log(JSON.stringify({
       success: false,
-      error: 'Ticket key format is invalid. Use P{phaseId}-{ticketId} format (e.g. P0-1, PX-53).',
-      instruction: 'Please check the ticket key and re-run.',
+      error: 'チケットキーの形式が不正です。P{phaseId}-{ticketId} 形式（例: P0-1, PX-53）で指定してください。',
+      instruction: 'チケットキーを確認して再実行してください。',
     }));
     process.exit(EXIT_FAILURE);
   }
@@ -240,8 +240,8 @@ function main() {
   if (!fs.existsSync(ticketsPath)) {
     console.log(JSON.stringify({
       success: false,
-      error: `Tickets.json not found: ${ticketsPath}`,
-      instruction: 'Create Tickets.json via ensure-tickets-json.js and re-run.',
+      error: `Tickets.json が見つかりません: ${ticketsPath}`,
+      instruction: 'ensure-tickets-json.js で Tickets.json を作成してから再実行してください。',
     }));
     process.exit(EXIT_FAILURE);
   }

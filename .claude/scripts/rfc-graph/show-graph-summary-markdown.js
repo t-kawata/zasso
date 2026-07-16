@@ -62,27 +62,27 @@ const DEFAULT_HOPS = 2;
 
 function parseArguments(argv) {
   if (argv.length < 4) {
-    throw new Error('Missing arguments.\nUsage: show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]');
+    throw new Error('引数が不足しています。\n使用法: show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]');
   }
 
   const graphArg = argv[2];
   const sourceArg = argv[3];
 
   if (!graphArg.startsWith('--graph=')) {
-    throw new Error(`The first argument must be --graph=<path>: ${graphArg}`);
+    throw new Error(`最初の引数は --graph=<path> である必要があります: ${graphArg}`);
   }
   if (!sourceArg.startsWith('--source=')) {
-    throw new Error(`The second argument must be --source=<path>: ${sourceArg}`);
+    throw new Error(`2番目の引数は --source=<path> である必要があります: ${sourceArg}`);
   }
 
   const graphPath = graphArg.slice('--graph='.length);
   const sourcePath = sourceArg.slice('--source='.length);
 
   if (!graphPath) {
-    throw new Error('--graph=<path> <path> is empty.');
+    throw new Error('--graph=<path> の <path> が空です。');
   }
   if (!sourcePath) {
-    throw new Error('--source=<path> <path> is empty.');
+    throw new Error('--source=<path> の <path> が空です。');
   }
 
   // オプションフラグ
@@ -93,17 +93,17 @@ function parseArguments(argv) {
 
 function loadGraph(filePath) {
   if (!fs.existsSync(filePath)) {
-    throw new Error(`Graph file not found: ${filePath}`);
+    throw new Error(`グラフファイルが見つかりません: ${filePath}`);
   }
   const raw = fs.readFileSync(filePath, 'utf8');
   let data;
   try {
     data = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`JSON parse failed: ${filePath} — ${e.message}`);
+    throw new Error(`JSONパースに失敗しました: ${filePath} — ${e.message}`);
   }
   if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
-    throw new Error(`Invalid graph data structure: nodes or edges are missing`);
+    throw new Error(`グラフデータの構造が不正です: nodes または edges がありません`);
   }
   return data;
 }
@@ -111,9 +111,9 @@ function loadGraph(filePath) {
 function loadSourceFile(filePath) {
   if (!fs.existsSync(filePath)) {
     exitWithError(
-      'Source file not found.',
-      `${filePath} does not exist.`,
-      'Provide a valid file path with --source=<path>.'
+      'ソースファイルが見つかりません。',
+      `${filePath} が存在しません。`,
+      '--source=<path> に正しいファイルパスを指定してください。'
     );
   }
   return fs.readFileSync(filePath, 'utf8');
@@ -309,7 +309,7 @@ function main() {
     parsed = parseArguments(process.argv);
   } catch (e) {
     exitWithError(
-      'Argument parsing failed.',
+      '引数のパースに失敗しました。',
       e.message,
       'show-graph-summary-markdown.js --graph=<path> --source=<path> [--with-cli-examples]'
     );

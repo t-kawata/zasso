@@ -242,7 +242,7 @@ async function confirmPrompt(created) {
     .filter(c => c.type === 'file')
     .map(c => `  ${c.path}`)
     .join('\n');
-  process.stderr.write(`Generate the following ${created.length} items:\n${summary}\n\nContinue? (y/N): `);
+  process.stderr.write(`以下の ${created.length} アイテムを生成します:\n${summary}\n\n続行しますか？ (y/N): `);
 
   const answer = await new Promise(resolve => rl.question('', resolve));
   rl.close();

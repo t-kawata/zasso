@@ -202,12 +202,12 @@ function main() {
   try {
     ticketsInput = JSON.parse(fs.readFileSync("/dev/stdin", "utf8"));
   } catch (err) {
-    console.error("Failed to parse stdin JSON: " + err.message);
+    console.error("stdin のJSONパースに失敗しました: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
   if (!Array.isArray(ticketsInput)) {
-    console.error("stdin must be a JSON array.");
+    console.error("stdin はJSON配列でなければなりません。");
     process.exit(EXIT_FAILURE);
   }
 
@@ -217,12 +217,12 @@ function main() {
   });
   if (ticketsWithoutNodeIds.length > 0) {
     console.error(
-      "Found " +
+      "nodeIds が未指定のチケットが " +
         ticketsWithoutNodeIds.length +
-        " tickets without nodeIds. Specify a nodeIds array for each ticket."
+        " 件あります。各チケットに nodeIds 配列を指定してください。"
     );
     for (const t of ticketsWithoutNodeIds) {
-      console.error("  - Title: " + (t.title || "(not set)"));
+      console.error("  - タイトル: " + (t.title || "(未設定)"));
     }
     process.exit(EXIT_FAILURE);
   }
@@ -235,7 +235,7 @@ function main() {
     );
   } catch (err) {
     console.error(
-      "Failed to read Dirs-Tree.json: " +
+      "Dirs-Tree.json の読み込みに失敗しました: " +
         dirsTreePath +
         " (" +
         err.message +
@@ -261,10 +261,10 @@ function main() {
           }
         }
       } else {
-        console.warn('[WARN] GRAPH.json not found: ' + resolvedGraphPath);
+        console.warn('[WARN] GRAPH.json が見つかりません: ' + resolvedGraphPath);
       }
     } catch (e) {
-      console.warn('[WARN] Failed to read GRAPH.json: ' + e.message);
+      console.warn('[WARN] GRAPH.json の読み込みに失敗しました: ' + e.message);
     }
   }
 
@@ -274,7 +274,7 @@ function main() {
   try {
     data = JSON.parse(fs.readFileSync(resolvedPath, "utf8"));
   } catch (err) {
-    console.error("Failed to read Tickets.json: " + err.message);
+    console.error("Tickets.json の読み込みに失敗しました: " + err.message);
     process.exit(EXIT_FAILURE);
   }
 
@@ -291,16 +291,16 @@ function main() {
   }
 
   if (!phase) {
-    console.error("Phase " + phaseArg + " not found.");
+    console.error("フェーズ " + phaseArg + " が見つかりません。");
     process.exit(EXIT_FAILURE);
   }
 
   // フェーズに nodeIds が存在するか確認
   if (!Array.isArray(phase.nodeIds) || phase.nodeIds.length === 0) {
     console.error(
-      "Phase " +
+      "フェーズ " +
         phaseArg +
-        " has no nodeIds (nodeIds is empty or undefined)."
+        " には nodeIds がありません（nodeIds が空または未定義です）。"
     );
     process.exit(EXIT_FAILURE);
   }
@@ -315,7 +315,7 @@ function main() {
 
   const addResult = bulkAddTickets(data, batch);
   if (!addResult.success) {
-    console.error("Failed to add tickets: " + JSON.stringify(addResult));
+    console.error("チケット追加に失敗しました: " + JSON.stringify(addResult));
     process.exit(EXIT_FAILURE);
   }
 
@@ -323,15 +323,15 @@ function main() {
   const coverageResult = verifyNodeCoverage(phase);
 
   if (!coverageResult.valid) {
-    console.error("nodeIds coverage check failed.");
+    console.error("nodeIds 過不足検証に失敗しました。");
     if (coverageResult.missingNodeIds.length > 0) {
       console.error(
-        "Missing nodes: [" + coverageResult.missingNodeIds.join(", ") + "]"
+        "不足ノード: [" + coverageResult.missingNodeIds.join(", ") + "]"
       );
     }
     if (coverageResult.extraNodeIds.length > 0) {
       console.error(
-        "Extra nodes (outside phase): [" + coverageResult.extraNodeIds.join(", ") + "]"
+        "余剰ノード（フェーズ外）: [" + coverageResult.extraNodeIds.join(", ") + "]"
       );
     }
     process.exit(EXIT_FAILURE);

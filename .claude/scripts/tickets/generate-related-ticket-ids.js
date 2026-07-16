@@ -194,7 +194,7 @@ function main() {
   try {
     graphEdges = JSON.parse(require('fs').readFileSync(graphPath, 'utf8')).edges || [];
   } catch (e) {
-    console.error('[ERROR] Failed to read GRAPH.json: ' + e.message);
+    console.error('[ERROR] GRAPH.json の読み込みに失敗: ' + e.message);
     process.exit(1);
   }
 
@@ -207,7 +207,7 @@ function main() {
       }
     }
   } catch (e) {
-    console.error('[ERROR] Failed to read Tickets.json: ' + e.message);
+    console.error('[ERROR] Tickets.json の読み込みに失敗: ' + e.message);
     process.exit(1);
   }
 

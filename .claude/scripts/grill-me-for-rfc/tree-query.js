@@ -152,12 +152,12 @@ switch (operation) {
     const resolved = countStatus(tree.nodes, "resolved");
     const depth = maxDepth(tree.nodes);
     const progress = total > 0 ? Math.round((resolved / total) * 100) : 0;
-    console.log(`📊 DesignTree Statistics`);
-    console.log(`  Total nodes: ${total}`);
+    console.log(`📊 DesignTree Stats`);
+    console.log(`  Total Nodes: ${total}`);
     console.log(`  Open: ${open}`);
     console.log(`  Resolved: ${resolved}`);
-    console.log(`  Max depth: ${depth}`);
-    console.log(`  Top-level sections: ${tree.nodes.length}`);
+    console.log(`  Max Depth: ${depth}`);
+    console.log(`  Top-Level Sections: ${tree.nodes.length}`);
     console.log(`  Progress: ${progress}%`);
     break;
   }

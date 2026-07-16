@@ -98,7 +98,7 @@ function restoreRealDb() {
 // ============================================================
 
 function runAllTests() {
-  console.log('\n=== Malfeasance Operation Script Tests ===\n');
+  console.log('\n=== Malfeasance 操作スクリプト テスト ===\n');
 
   // ---- validate-malfeasance.js の直接テスト ----
   console.log('[validate-malfeasance.js]');
@@ -281,7 +281,7 @@ function runAllTests() {
 
   // ---- 操作スクリプトの統合テスト ----
   // 実DBをバックアップし、テストデータで置き換え
-  console.log('\n[Operation Script Integration Test]');
+  console.log('\n[操作スクリプト統合テスト]');
   backupRealDb();
 
   try {
@@ -449,7 +449,7 @@ function runAllTests() {
 
   // ---- 結果表示 ----
   console.log('\n==============================');
-  console.log(`Result: ${passed} passed, ${failed} failed`);
+  console.log(`結果: ${passed} passed, ${failed} failed`);
   console.log('==============================\n');
 
   if (failures.length > 0) {

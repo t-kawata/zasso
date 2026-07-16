@@ -219,7 +219,7 @@ function main(testArgs) {
 
   // 最低限 graphAfter は必須
   if (!graphAfter && !sourcePath) {
-    console.error('[ERROR] Insufficient arguments\nCause: --graph-after=<path> or --source=<path> is required\nAction: Re-run with both arguments specified.');
+    console.error('[ERROR] 引数が不足しています\n原因: --graph-after=<path> または --source=<path> が必要\n対応: 両方の引数を指定して再実行してください。');
     process.exit(1);
   }
 
