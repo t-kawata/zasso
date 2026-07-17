@@ -48,7 +48,9 @@ function addTicket(ticketsJsonPath, phaseArg, ticketData) {
         error: 'Phase "' + phaseArg + '" not found. Specify phaseName.',
       };
     }
-    phase = { id: data.phases.length, name: phaseName, tickets: [] };
+    // PX の場合は id=-1（独立フェーズ）に固定。それ以外は自動採番
+    const phaseId = phaseArg === "PX" ? -1 : data.phases.length;
+    phase = { id: phaseId, name: phaseName, tickets: [] };
     data.phases.push(phase);
   }
   let maxId = 0;
