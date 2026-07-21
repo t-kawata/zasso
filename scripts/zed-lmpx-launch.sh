@@ -33,7 +33,7 @@ fi
 
 # DeepSeek の Anthropic互換エンドポイントを Claude Code に向ける
 # lmpx は認証トークンを検証しないため、ダミー値で十分
-export ANTHROPIC_BASE_URL="http://127.0.0.1:8080"
+export ANTHROPIC_BASE_URL="http://127.0.0.1:8080/anthropic"
 export ANTHROPIC_AUTH_TOKEN="dummy"
 
 # Claude Code 内部の論理モデル → DeepSeek 実モデルのマッピング
