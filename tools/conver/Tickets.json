@@ -4779,6 +4779,129 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-15"
+        },
+        {
+          "id": 58,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Normalize file paths in JSON outputs to home-directory-relative (~/) format",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/58-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nNormalize all file path outputs in JSON to home-directory-relative (~/) format, making them portable across machines without manual repair.\n\n### Purpose\nCurrently paths stored in GRAPH.json, status JSONs, Dirs-Tree.json, and Tickets.json are either (a) raw relative strings like `RFC-ROOT.md` or (b) absolute paths with hardcoded `/Users/kawata/...`. When the same JSON is used on another machine (different username, different $HOME), absolute paths break and relative paths resolve incorrectly. By storing all paths as `~/...` and expanding on read, the same JSON works on any machine.\n\n### Motivation\nReal failure: `RFC-ROOT-GRAPHIFY-Status.json` contains `/Users/shyme/shyme/zasso/crates/siprs/RFC-ROOT.md` — a path from a different user account. This causes pipeline operations to fail silently when run on the current machine. Root cause: scripts use `path.resolve()` which embeds current machine absolute path without post-processing.\n\n### Constraints\n- Scope strictly limited to `tools/conver/.claude/` scripts — no changes to command `.md` files or external tooling\n- Test code may be placed outside `.claude/` (e.g. tests/ directory)\n- No new npm dependencies allowed\n- Must use `os.homedir()` from Node.js standard library",
+          "scope": [
+            "Add: scripts/lib/path-utils.js — toHomeRelative() and fromHomeRelative() utility functions",
+            "Modify: scripts/rfc-graph/crud.js L63 — wrap sourceFile with toHomeRelative() in createEmptyGraph()",
+            "Modify: scripts/rfc-graph/update-step-status.js L194-195 — wrap path.resolve() results with toHomeRelative() in createDefaultStatus()",
+            "Modify: scripts/rfc-graph/update-boundify-step-status.js L198-199 — same pattern",
+            "Modify: scripts/rfc-graph/update-split-step-status.js L211-212 — same pattern",
+            "Modify: scripts/rfc-graph/boundify-graph-to-dirs.js L485-486 — wrap sourceGraph and sourceFile with toHomeRelative() in Dirs-Tree.json construction",
+            "Modify: scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js L205-208, L361-364 — wrap resolvedPaths fields with toHomeRelative()",
+            "Modify: scripts/tickets/resolve-ticket-context.js L121 — wrap resolvedPaths values with fromHomeRelative() before path.resolve()",
+            "Modify: scripts/tickets/show-ticket-context.js L91-93 — same fromHomeRelative() wrapping",
+            "Non-change: Logic changes, data format changes beyond ~/ normalization — none",
+            "Non-change: Adding new npm dependencies — not allowed, uses only os.homedir() from stdlib",
+            "Impact: All 3 command pipelines (graphify/boundify/split-to-tickets) — write side now normalizes paths, read side expands them"
+          ],
+          "testUnit": [
+            "UT: [Normal] toHomeRelative() converts /home/user/foo.md to ~/foo.md using os.homedir()",
+            "UT: [Normal] toHomeRelative() leaves ~/bar.md unchanged (already home-relative)",
+            "UT: [Normal] fromHomeRelative() converts ~/foo.md to /home/user/foo.md using os.homedir()",
+            "UT: [Normal] fromHomeRelative() leaves /absolute/path.md unchanged (outside $HOME)",
+            "UT: [Error] toHomeRelative(\"\") returns \"\" (empty string)",
+            "UT: [Error] fromHomeRelative(\"\") returns \"\" (empty string)",
+            "UT: [Error] fromHomeRelative(\"~\") returns os.homedir() (bare tilde, no slash)",
+            "UT: [Boundary] toHomeRelative() with path === os.homedir() returns \"~\"",
+            "UT: [Boundary] fromHomeRelative(\"~/\") returns os.homedir() + \"/\" (tilde with trailing slash)",
+            "UT: [Boundary] toHomeRelative() with path containing symlinked components returns ~/-relative resolved path",
+            "UT: [Invariant] Round-trip: fromHomeRelative(toHomeRelative(p)) === path.resolve(p) for all absolute paths under home",
+            "UT: [Invariant] Round-trip: toHomeRelative(fromHomeRelative(q)) === q for all ~/-relative paths"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] path-utils.js ↔ crud.js — crud.js calls toHomeRelative() on sourceFile before writing GRAPH.json",
+            "IT: [Integration point] path-utils.js ↔ update-step-status.js — createDefaultStatus() calls toHomeRelative() on both sourceFile and graphFile",
+            "IT: [Integration point] path-utils.js ↔ update-boundify-step-status.js — same as above for BOUNDIFY status",
+            "IT: [Integration point] path-utils.js ↔ update-split-step-status.js — same as above for SPLIT status",
+            "IT: [Integration point] path-utils.js ↔ boundify-graph-to-dirs.js — toHomeRelative() called on sourceGraph and sourceFile before Dirs-Tree.json write",
+            "IT: [Integration point] path-utils.js ↔ phasify-graph-and-dirs-files-tree.js — toHomeRelative() called on all resolvedPaths fields",
+            "IT: [Integration point] path-utils.js ↔ resolve-ticket-context.js — fromHomeRelative() called on resolvedPaths values before path.resolve()",
+            "IT: [Integration point] path-utils.js ↔ show-ticket-context.js — same fromHomeRelative() usage",
+            "IT: [Verification] Full write→read round-trip for each pipeline: invoke script that writes JSON → verify written path is ~/-relative → invoke script that reads same JSON → verify resoved path equals original",
+            "IT: [Prerequisites] Test fixtures: temp directory with mock GRAPH.json containing sourceFile field, temp output directory",
+            "IT: [Related tickets] PX-58 (this ticket) — no predecessor tickets exist; this is the foundational fix"
+          ],
+          "testExceptions": [
+            "Cannot integration-test with real Claude Code ACP sessions (requires external Claude runtime). Verified via script-level unit tests and mock file I/O.",
+            "Cannot cross-machine test without actual second machine. Verified via toHomeRelative()/fromHomeRelative() round-trip correctness with synthetic $HOME paths."
+          ],
+          "default_files": [
+            "scripts/lib/path-utils.js",
+            "scripts/rfc-graph/crud.js",
+            "scripts/rfc-graph/update-step-status.js",
+            "scripts/rfc-graph/update-boundify-step-status.js",
+            "scripts/rfc-graph/update-split-step-status.js",
+            "scripts/rfc-graph/boundify-graph-to-dirs.js",
+            "scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: After script modifications, writing to any of the 6 JSON files produces ~/-relative paths for all file paths under $HOME. Reading scripts correctly expand ~/ to the current os.homedir(). Round-trip consistency holds.",
+            "Error case: When os.homedir() returns empty string (extremely rare edge case), fromHomeRelative() returns the path unchanged rather than producing invalid output.",
+            "Edge case: Paths outside $HOME remain as absolute (no ~/ conversion). Path exactly equal to $HOME maps to bare ~ (no trailing slash). Empty string input returns empty string."
+          ],
+          "notes": "### Implementation Steps\n1. Create scripts/lib/path-utils.js with toHomeRelative() and fromHomeRelative()\n2. Add require('./path-utils') to each writing-side script and wrap path assignments\n3. Add require('./path-utils') to each reading-side script and wrap path reads with fromHomeRelative()\n4. Write unit tests for path-utils.js\n5. Write integration tests for write→read round-trips of each pipeline\n6. Run full test suite: node tests/run-all.js\n\n### Risks\nLow risk — all changes are mechanical wrapping of existing path assignments. The functions are pure and have no side effects. Main risk is forgetting to update one of the 9 insertion points.\n\n### Caveats\n- path.resolve() does NOT expand ~ — reading scripts MUST call fromHomeRelative() before path.resolve()\n- The 6 existing JSON files with stale `/Users/shyme/shyme/` paths will be repaired automatically the next time scripts are re-run (createDefaultStatus overwrites them)\n- crud.js L63 stores raw --source= value; this is often a relative path (e.g. RFC-ROOT.md). toHomeRelative() applied to a relative path that doesn't contain /Users/... is a no-op, which is correct: relative paths remain relative.\n\n### Open Items\nNone — all writing and reading insertion points identified.\n\n### Future Improvements\nConsider adding a `scripts/lib/path-utils.test.js` unit test file as part of this ticket.\nImplementation summary: 9 files (1 new + 8 modified). 14/14 path-utils unit tests + 98/98 existing tests passed. Key design: fromHomeRelative() only expands ~/ tokens, does NOT resolve non-~ paths (caller handles resolution with path.resolve()).\nReview report: Step 3 Crime scan: 0 crimes — clean. Step 4 Stub eval: 0 stubs — clean. Step 5 Incomplete impl scan (7 patterns): 0 findings — clean. Step 6 Tests: 168/168 passed. Step 7 Completeness: 3/3 criteria satisfied. Step 8 Quality: 86 issues (all pre-existing, 0 introduced). Step 9 Translatability: no issues.",
+          "invariants": "- [Normal establishment] All file paths written to JSON must be normalized to ~/-relative format before serialization\n- [Invariant on error] On write error (filesystem failure), no partial JSON is written (atomicWrite temp+rename pattern already ensures this)\n- [Internal state] toHomeRelative() and fromHomeRelative() must be pure functions with no side effects\n- [Boundary] Paths at os.homedir() boundary: exact $HOME maps to ~, subdirectories map to ~/... Paths outside $HOME remain unchanged",
+          "instrumentation": "- [Logging] No new logging needed — path normalization is silent; errors are surfaced via existing script error handling\n- [Metrics] No metrics needed — path normalization is a data format change, not a performance-sensitive operation\n- [Error tracking] toHomeRelative/fromHomeRelative use standard try-catch via Node.js path operations; os.homedir() returning empty string is the only error case — scripts should handle via guard clause\n- [Health check] No health check needed — path utilities are pure functions without external dependencies",
+          "investigation": "## Investigation evidence from source code analysis\n\nThe following evidence was collected by reading all affected scripts in `.claude/scripts/`:\n\n### 1. path-utils.js — nonexistent (new file needed)\n- Status: `scripts/lib/path-utils.js` does not exist\n- No shared path normalization utility exists anywhere in `.claude/scripts/lib/`\n\n### 2. Writing-side scripts needing toHomeRelative() at write time\n\n| File | Function | Line | Current code | Problem |\n|------|----------|------|-------------|---------|\n| `scripts/rfc-graph/crud.js` | `createEmptyGraph()` | 63 | `sourceFile: sourceFile || \"\"` | Raw string from `--source=` CLI arg — stores whatever user passes (often relative) |\n| `scripts/rfc-graph/update-step-status.js` | `createDefaultStatus()` | 194 | `path.resolve(dir, basename + \".md\")` | Produces absolute `/Users/kawata/...` path every time |\n| same | same | 195 | `path.resolve(dir, basename + \"-GRAPH.json\")` | Same issue |\n| `scripts/rfc-graph/update-boundify-step-status.js` | `createDefaultStatus()` | 198-199 | Same pattern | Same issue |\n| `scripts/rfc-graph/update-split-step-status.js` | `createDefaultStatus()` | 211-212 | Same pattern | Same issue |\n| `scripts/rfc-graph/boundify-graph-to-dirs.js` | main | 485 | `sourceGraph: graphPath` | `graphPath` is absolute via `path.resolve()` L147 |\n| same | main | 486 | `sourceFile: graph.sourceFile || \"\"` | Raw from GRAPH.json sourceFile field |\n| `scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js` | `ensureTicketsJsonExists()` | 205-208 | `resolvedPaths: { rfcPath, graphPath, dirsTreePath }` | All are absolute via `path.resolve()` L123-124 |\n| same | `runPhasify()` | 361-364 | Same `resolvedPaths` pattern | Same issue |\n\n### 3. Reading-side scripts needing fromHomeRelative() on read\n\n| File | Function | Line | Current code | Issue |\n|------|----------|------|-------------|-------|\n| `scripts/tickets/resolve-ticket-context.js` | `resolveRfcPaths()` | 121 | `path.resolve(ticketsDir, resolvedPaths.rfcPath)` | Does not expand `~` |\n| `scripts/tickets/show-ticket-context.js` | `resolveRfcPaths()` | 91-93 | Same pattern | Same issue |\n\n### 4. Scripts that read path fields but are SAFE (no fix needed)\n\n| File | Field read | Why safe |\n|------|-----------|----------|\n| `show-dirs-files-tree.js` | `sourceGraph`, `sourceFile` | Uses `path.basename()` only (display) |\n| `add-tickets-for-phase.js` | `graphData.sourceFile` | Used for human-readable label string, not filesystem |\n| `boundify-graph-to-dirs.js` | `graph.sourceFile` | Pass-through to Dirs-Tree.json (covered by writing-side fix) |\n\n### 5. Confirmed: existing stale paths in 6 JSON files\n11 absolute paths with `/Users/shyme/shyme/` prefix across all 6 files — these are from a different machine and will be repaired when scripts are re-run after the fix.",
+          "boyScoutPlan": "### Translatability Improvements\n\n1. **Extract shared path normalization into named utility functions**: Currently, 3 copies of createDefaultStatus() each contain inline `path.resolve(dir, basename + '.md')` — this violates DRY and makes the intent (file path derivation) inseparable from the resolution logic. After this fix, the intent is clear: `toHomeRelative(path.resolve(dir, basename + '.md'))` reads as \"resolve to absolute, then normalize to portable form.\"\n\n2. **Extract fromHomeRelative() into a named function on the reading side**: Both resolve-ticket-context.js and show-ticket-context.js have identical inline `path.resolve(ticketsDir, resolvedPaths.xxx)` patterns. Wrapping with `fromHomeRelative()` makes the path expansion intent explicit without adding comments.\n\n3. **No further Boy Scout improvements needed**: The existing scripts already have clean function names (createDefaultStatus, readGraph, createEmptyGraph), good variable names (sourceFile, graphFile, rfcPath), and no deep nesting. The only translatability problem was the hidden assumption that `path.resolve()` output is portable across machines.",
+          "created_at": "2026-07-23",
+          "updated_at": "2026-07-23",
+          "startedAt": "2026-07-23",
+          "changes": [
+            {
+              "action": "add",
+              "file": "scripts/lib/path-utils.js",
+              "description": "New utility: toHomeRelative() and fromHomeRelative() pure functions"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/crud.js",
+              "description": "Added toHomeRelative() wrapper on sourceFile in createEmptyGraph() L63"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/update-step-status.js",
+              "description": "Added toHomeRelative() wrappers on sourceFile/graphFile L194-195"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/update-boundify-step-status.js",
+              "description": "Same toHomeRelative() wrappers L198-199"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/update-split-step-status.js",
+              "description": "Same toHomeRelative() wrappers L211-212"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/boundify-graph-to-dirs.js",
+              "description": "Added toHomeRelative() on sourceGraph/sourceFile L485-486"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js",
+              "description": "Added toHomeRelative() on resolvedPaths fields (2 locations)"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/tickets/resolve-ticket-context.js",
+              "description": "Added fromHomeRelative() in resolveRfcPaths() L121-123"
+            },
+            {
+              "action": "modify",
+              "file": "scripts/tickets/show-ticket-context.js",
+              "description": "Added fromHomeRelative() in resolveRfcPaths() L91-93"
+            }
+          ],
+          "completedAt": "2026-07-23"
         }
       ]
     },

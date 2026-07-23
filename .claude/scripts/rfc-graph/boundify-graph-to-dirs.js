@@ -35,6 +35,7 @@ const helpers = require("./boundify-helpers.js");
 const treeBuilder = require("./boundify-tree.js");
 const { validateFiles } = require("./validate-dirs-tree-schema.js");
 const { createDefaultStatus, atomicWrite } = require("./update-boundify-step-status.js");
+const { toHomeRelative } = require("../lib/path-utils");
 
 // ============================================================
 // Constants
@@ -482,8 +483,8 @@ function main(testArgs) {
   const dirsTree = {
     schemaVersion: "1.0",
     generatedAt: new Date().toISOString(),
-    sourceGraph: graphPath,
-    sourceFile: graph.sourceFile || '',
+    sourceGraph: toHomeRelative(graphPath),
+    sourceFile: toHomeRelative(graph.sourceFile || ''),
     analysis: {
       nodeCount: graph.nodes.length,
       edgeCount: graph.edges.length,

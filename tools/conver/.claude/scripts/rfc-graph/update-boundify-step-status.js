@@ -21,6 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { toHomeRelative } = require('../lib/path-utils');
 
 // ============================================================
 // Constants
@@ -195,8 +196,8 @@ function createDefaultStatus(statusPath) {
   }
 
   // sourceFile: reverse-calculate original source file path from basename
-  const sourceFile = path.resolve(dir, basename + '.md');
-  const graphFile = path.resolve(dir, basename + '-GRAPH.json');
+  const sourceFile = toHomeRelative(path.resolve(dir, basename + '.md'));
+  const graphFile = toHomeRelative(path.resolve(dir, basename + '-GRAPH.json'));
 
   const steps = {};
   for (let i = MIN_STEP; i <= MAX_STEP; i++) {

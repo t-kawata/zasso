@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { validateAgainstSchema } = require('./schema/validate.js');
+const { toHomeRelative } = require('../lib/path-utils');
 
 // ============================================================
 // Constants
@@ -60,7 +61,7 @@ const GRAPH_SCHEMA_FILE = 'graph.schema.json';
 
 /** Creates an empty graph data structure */
 function createEmptyGraph(sourceFile) {
-  return { sourceFile: sourceFile || '', nodes: [], edges: [] };
+  return { sourceFile: toHomeRelative(sourceFile || ''), nodes: [], edges: [] };
 }
 
 // ============================================================

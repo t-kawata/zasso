@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { fromHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -118,9 +119,9 @@ function parseTicketKey(ticketKey) {
 function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   // Priority 1: check if resolvedPaths exists and all files are present on disk
   if (resolvedPaths && resolvedPaths.rfcPath && resolvedPaths.graphPath && resolvedPaths.dirsTreePath) {
-    const rfcPath = path.resolve(ticketsDir, resolvedPaths.rfcPath);
-    const graphPath = path.resolve(ticketsDir, resolvedPaths.graphPath);
-    const dirsTreePath = path.resolve(ticketsDir, resolvedPaths.dirsTreePath);
+    const rfcPath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.rfcPath));
+    const graphPath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.graphPath));
+    const dirsTreePath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.dirsTreePath));
     if (fs.existsSync(rfcPath) && fs.existsSync(graphPath) && fs.existsSync(dirsTreePath)) {
       return { rfcPath, graphPath, dirsTreePath, rfcPathSource: 'resolvedPaths' };
     }

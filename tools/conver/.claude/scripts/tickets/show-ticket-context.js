@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveTicketSpecPath } = require('../lib/tickets');
+const { fromHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
@@ -88,9 +89,9 @@ function findTicket(tickets, parsed) {
  */
 function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   if (resolvedPaths && resolvedPaths.rfcPath && resolvedPaths.graphPath && resolvedPaths.dirsTreePath) {
-    const rfcPath = path.resolve(ticketsDir, resolvedPaths.rfcPath);
-    const graphPath = path.resolve(ticketsDir, resolvedPaths.graphPath);
-    const dirsTreePath = path.resolve(ticketsDir, resolvedPaths.dirsTreePath);
+    const rfcPath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.rfcPath));
+    const graphPath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.graphPath));
+    const dirsTreePath = path.resolve(ticketsDir, fromHomeRelative(resolvedPaths.dirsTreePath));
     if (fs.existsSync(rfcPath) && fs.existsSync(graphPath) && fs.existsSync(dirsTreePath)) {
       return { rfcPath, graphPath, dirsTreePath, rfcPathSource: 'resolvedPaths' };
     }
@@ -354,10 +355,49 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('> The specification must fully reflect all information contained in the ticket. The existence of ticket information that is not captured in the specification is prohibited and shall be treated as a defect in the specification.\n');
   }
 
-  // H1: Title + status badge
-  const statusBadge = ticket.status || 'todo';
-  lines.push(`# ${ticketKey}: ${ticket.title} [${statusBadge}]`);
+  // ---- Resolve pipeline information ----
+  const rawSource = (tickets.metadata && tickets.metadata.source) || '';
+  const resolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
+  const { rfcPath, graphPath, dirsTreePath } = resolveRfcPaths(rawSource, ticketsDir, resolvedPaths);
+  const rfcExists = rfcPath ? fs.existsSync(rfcPath) : false;
+  const graphExists = graphPath ? fs.existsSync(graphPath) : false;
+  const dirsExists = dirsTreePath ? fs.existsSync(dirsTreePath) : false;
+  const pipelineAvailable = !!(
+    ticketKey && rfcPath && rfcExists && rfcPath.toLowerCase().endsWith('.md') && graphExists && dirsExists
+  );
+
+  // H1
+  lines.push(`# ${ticketKey}: ${ticket.title}${forSpec ? '' : ` [${ticket.status || 'todo'}]`}`);
   lines.push('');
+
+  // Compact metadata block (top of file — forSpec mode only)
+  if (forSpec) {
+    const parsed = parseTicketKey(ticketKey);
+    const phaseId = parsed ? parsed.phaseId : '?';
+
+    // Status + Ticket Key + Phase
+    lines.push(`**Status**: ${ticket.status || 'todo'} · **Ticket Key**: ${ticketKey} · **Phase**: ${phaseId}`);
+    lines.push('');
+
+    // RFC Source + Graph (only if resolved paths are available)
+    if (rfcPath) {
+      const rfcRel = makeRelative(rfcPath, ticketsDir);
+      const graphRel = graphPath ? makeRelative(graphPath, ticketsDir) : '';
+      const srcLine = `**RFC Source**: \`${rfcRel}\`` + (graphRel ? ` · **Graph**: \`${graphRel}\`` : '');
+      lines.push(srcLine);
+      lines.push('');
+    }
+
+    // Nodes
+    if (ticket.nodeIds && ticket.nodeIds.length > 0) {
+      lines.push(`**Nodes**: [${ticket.nodeIds.join(', ')}]`);
+      lines.push('');
+    }
+
+    // Visual separator between header and body
+    lines.push('---');
+    lines.push('');
+  }
 
   // RFC Reference
   if (ticket.referenceSection) {
@@ -404,17 +444,6 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     }
     lines.push('');
   }
-
-  // ---- Resolve pipeline information ----
-  const rawSource = (tickets.metadata && tickets.metadata.source) || '';
-  const resolvedPaths = (tickets.metadata && tickets.metadata.resolvedPaths) || null;
-  const { rfcPath, graphPath, dirsTreePath } = resolveRfcPaths(rawSource, ticketsDir, resolvedPaths);
-  const rfcExists = rfcPath ? fs.existsSync(rfcPath) : false;
-  const graphExists = graphPath ? fs.existsSync(graphPath) : false;
-  const dirsExists = dirsTreePath ? fs.existsSync(dirsTreePath) : false;
-  const pipelineAvailable = !!(
-    ticketKey && rfcPath && rfcExists && rfcPath.toLowerCase().endsWith('.md') && graphExists && dirsExists
-  );
 
   // Graph section (only when pipelineAvailable and nodeIds exist)
   // Triggers the first investigation action (node exploration) AI should perform in Step 4a.
