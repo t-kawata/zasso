@@ -27,6 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const helpers = require('./boundify-helpers.js');
+const { fromHomeRelative } = require('../lib/path-utils');
 
 // ============================================================
 // Constants
@@ -355,7 +356,7 @@ function deleteItems(created) {
  * @returns {object|null} Header context, or null if cannot be built
  */
 function buildHeaderContext(dirsTree, dirsTreePath, rootDir, lang) {
-  const sourceGraph = dirsTree.sourceGraph;
+  const sourceGraph = fromHomeRelative(dirsTree.sourceGraph);
   const sourceFile = dirsTree.sourceFile;
   if (!sourceGraph) return null;
 

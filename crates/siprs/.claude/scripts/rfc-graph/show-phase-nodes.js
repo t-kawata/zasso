@@ -22,6 +22,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { fromHomeRelative } = require("../lib/path-utils");
 
 // ============================================================
 // Constant definitions
@@ -270,7 +271,7 @@ function main() {
   try {
     const graphData = JSON.parse(fs.readFileSync(path.resolve(parsed.graphPath), "utf8"));
     if (graphData.sourceFile) {
-      sourcePath = graphData.sourceFile;
+      sourcePath = fromHomeRelative(graphData.sourceFile);
     }
   } catch (err) {
     // If sourceFile cannot be read from GRAPH.json, use extension substitution as default

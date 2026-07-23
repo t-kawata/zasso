@@ -22,6 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { fromHomeRelative } = require('../lib/path-utils');
 
 // Use verify.js validation functions directly
 let verify;
@@ -55,7 +56,7 @@ function parseArgs(argv) {
   return {
     graphAfter: afterFlag ? path.resolve(afterFlag.slice('--graph-after='.length)) : null,
     graphBefore: beforeFlag ? path.resolve(beforeFlag.slice('--graph-before='.length)) : null,
-    sourcePath: sourceFlag ? path.resolve(sourceFlag.slice('--source='.length)) : null,
+    sourcePath: sourceFlag ? path.resolve(fromHomeRelative(sourceFlag.slice('--source='.length))) : null,
   };
 }
 

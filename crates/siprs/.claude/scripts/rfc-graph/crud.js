@@ -184,7 +184,11 @@ function readGraph(graphPath, sourcePath) {
   }
 
   const content = fs.readFileSync(graphPath, 'utf-8');
-  return JSON.parse(content);
+  const graph = JSON.parse(content);
+  // Normalize sourceFile on every read to ensure it stays ~/-relative
+  // (handles pre-fix files with relative or stale absolute paths)
+  graph.sourceFile = toHomeRelative(graph.sourceFile || '');
+  return graph;
 }
 
 /**
