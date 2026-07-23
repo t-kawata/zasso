@@ -57,6 +57,8 @@ Located under `.claude/scripts/tickets/`.
 | `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
 | `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
 | `review/generate-report.js` | (via stdin) | **Executed in Step 5**. Generate quality report. |
+| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--verify]` | **Executed in Step 5 (annotation check)**. Verifies that ticket-key annotations exist on all changed source files. |
+| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --check-ambiguous` | **Executed in Step 5 (loop guard)**. Exits 0 if no `[::AMBIGUOUS::]` markers remain; exits 1 if unresolved markers exist. |
 
 ## Workflow
 
@@ -142,6 +144,32 @@ git diff "$(git merge-base HEAD origin/master)"
 5. `TODO` / `FIXME` / `HACK` / `XXX` — Is it accompanied by a `[::STUB::]` marker?
 6. Mock / Fake objects — Does it have a `[::STUB::]` marker?
 7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
+
+**8. Ticket-key annotation check — Verify that every changed source file has the correct ticket-key provenance annotation:**
+
+```bash
+node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
+  --ticket-key="$ARGUMENTS" --verify
+```
+
+- If a file lacks an annotation, this is a defect in the implementation — the implementer skipped Step 5a of start-ticket.md. Report it in the review findings and request re-execution of the annotation step.
+- If a file contains a `[::AMBIGUOUS::]` marker, the AI must resolve it using the loop defined in start-ticket.md Step 5a Phase 2, then re-verify.
+- If all changed files are non-source (config, docs, etc.), the annotation script will report no source files — this is acceptable and requires no action.
+
+**AMBIGUOUS marker resolution loop (mandatory before proceeding):**
+
+```bash
+# Check if any AMBIGUOUS markers remain
+node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
+  --ticket-key="$ARGUMENTS" --check-ambiguous
+```
+
+If exit code 1:
+1. Read each reported file and identify the correct annotation location
+2. Insert the standard-format annotation comment and remove the `[::AMBIGUOUS::]` line
+3. Re-run `--check-ambiguous` and repeat until exit code 0
+
+**Zero AMBIGUOUS markers is a hard gate.** Proceeding to Step 6 with unresolved markers is a defect.
 
 If an incomplete implementation is found:
 1. If no `[::STUB::]` marker → Add the marker on the spot
