@@ -77,6 +77,21 @@ describe("annotate-ticket-context-by-git-diff.js — module exports [RED]", () =
     const mod = require(SCRIPT);
     assert.strictEqual(typeof mod.annotateSourceFiles, "function");
   });
+
+  it("should export buildMultiAnnotation function (PX-60)", () => {
+    const mod = require(SCRIPT);
+    assert.strictEqual(typeof mod.buildMultiAnnotation, "function");
+  });
+
+  it("should export detectAnnotationAtLine function (PX-60)", () => {
+    const mod = require(SCRIPT);
+    assert.strictEqual(typeof mod.detectAnnotationAtLine, "function");
+  });
+
+  it("should export mergeAnnotation function (PX-60)", () => {
+    const mod = require(SCRIPT);
+    assert.strictEqual(typeof mod.mergeAnnotation, "function");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -330,7 +345,140 @@ describe("filterSourceFiles [RED]", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. CLI integration test
+// 7. buildMultiAnnotation (new for PX-60)
+// ---------------------------------------------------------------------------
+
+describe("buildMultiAnnotation [RED]", () => {
+  it("should produce correct multi-format for two keys", () => {
+    const mod = require(SCRIPT);
+    const result = mod.buildMultiAnnotation(["PX-59", "PX-61"]);
+    assert.ok(result.includes("tickets: PX-59, PX-61"));
+    assert.ok(result.includes("--ticket-key=(PX-59|PX-61)"));
+    assert.ok(result.includes("show-ticket-context.js"));
+  });
+
+  it("should deduplicate identical keys", () => {
+    const mod = require(SCRIPT);
+    const result = mod.buildMultiAnnotation(["PX-59", "PX-59", "PX-61"]);
+    // Should only have PX-59 appear once
+    const match = result.match(/tickets: (.+?);/);
+    assert.ok(match);
+    const keys = match[1].split(", ");
+    assert.strictEqual(keys.length, 2);
+    assert.ok(keys.includes("PX-59"));
+    assert.ok(keys.includes("PX-61"));
+  });
+
+  it("should handle single key gracefully", () => {
+    const mod = require(SCRIPT);
+    const result = mod.buildMultiAnnotation(["PX-59"]);
+    assert.ok(result.includes("tickets: PX-59"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. detectAnnotationAtLine (new for PX-60)
+// ---------------------------------------------------------------------------
+
+describe("detectAnnotationAtLine [RED]", () => {
+  it("should detect single-format annotation line above definition", () => {
+    const mod = require(SCRIPT);
+    // Annotation is on line 1, definition on line 2
+    const lines = [
+      "// This code was implemented under the PX-59 ticket; for details, refer to the command `...`.",
+      "fn target() {}",
+    ];
+    const result = mod.detectAnnotationAtLine(lines, 2);
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result.ticketKeys, ["PX-59"]);
+    assert.strictEqual(result.lineIndex, 1);
+  });
+
+  it("should detect multi-format annotation line above definition", () => {
+    const mod = require(SCRIPT);
+    const lines = [
+      "// This code was implemented under tickets: PX-59, PX-61; for details...",
+      "fn target() {}",
+    ];
+    const result = mod.detectAnnotationAtLine(lines, 2);
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result.ticketKeys, ["PX-59", "PX-61"]);
+    assert.strictEqual(result.lineIndex, 1);
+  });
+
+  it("should return null for non-annotation comment", () => {
+    const mod = require(SCRIPT);
+    const lines = [
+      "// regular comment about something",
+      "fn target() {}",
+    ];
+    const result = mod.detectAnnotationAtLine(lines, 2);
+    assert.strictEqual(result, null);
+  });
+
+  it("should return null for code line (not a comment) above definition", () => {
+    const mod = require(SCRIPT);
+    const lines = [
+      "fn helper() {}",
+      "fn target() {}",
+    ];
+    const result = mod.detectAnnotationAtLine(lines, 2);
+    assert.strictEqual(result, null);
+  });
+
+  it("should search backward from defLine for the annotation", () => {
+    const mod = require(SCRIPT);
+    const lines = [
+      "// unrelated comment",
+      "// This code was implemented under the PX-59 ticket; for details...",
+      "fn target() {}",
+    ];
+    // defLine = 3, should find annotation at line 2
+    const result = mod.detectAnnotationAtLine(lines, 3);
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result.ticketKeys, ["PX-59"]);
+    assert.strictEqual(result.lineIndex, 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. mergeAnnotation (new for PX-60)
+// ---------------------------------------------------------------------------
+
+describe("mergeAnnotation [RED]", () => {
+  it("should merge new key into single-format line", () => {
+    const mod = require(SCRIPT);
+    const line = "// This code was implemented under the PX-59 ticket; for details, refer to the command `...`.";
+    const result = mod.mergeAnnotation(line, "PX-61");
+    assert.ok(result !== null);
+    assert.ok(result.includes("tickets: PX-59, PX-61"));
+  });
+
+  it("should merge new key into multi-format line", () => {
+    const mod = require(SCRIPT);
+    const line = "// This code was implemented under tickets: PX-59, PX-61; for details...";
+    const result = mod.mergeAnnotation(line, "PX-62");
+    assert.ok(result !== null);
+    assert.ok(result.includes("tickets: PX-59, PX-61, PX-62"));
+  });
+
+  it("should NOT change line when key already exists (idempotent)", () => {
+    const mod = require(SCRIPT);
+    const line = "// This code was implemented under the PX-59 ticket; for details...";
+    const result = mod.mergeAnnotation(line, "PX-59");
+    assert.strictEqual(result, line); // unchanged reference
+  });
+
+  it("should return null for unparseable line", () => {
+    const mod = require(SCRIPT);
+    const line = "// just a comment";
+    const result = mod.mergeAnnotation(line, "PX-61");
+    assert.strictEqual(result, null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. CLI integration test
 // ---------------------------------------------------------------------------
 
 describe("CLI integration [RED]", () => {

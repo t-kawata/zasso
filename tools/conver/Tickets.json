@@ -4974,6 +4974,88 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-23"
+        },
+        {
+          "id": 60,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Implement annotation merge for hot-spot functions",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/60-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nannotate-ticket-context-by-git-diff.js が同一定義に複数チケットから注釈を挿入するとき、常に1行にマージする。\n\n### Purpose\nホットスポット（複数チケットが同一関数/定義を修正するケース）で注釈コメントが累積するのを防ぐ。1定義 = 1注釈行を維持し、コードの読みやすさを保つ。\n\n### Motivation\n現在、同一関数に PX-59, PX-61 の2チケットが注釈を入れると: PX-59挿入 → PX-61は既存注釈を検出してスキップ（チケットキー不一致のためスキップせず新規挿入になる）。結果として2行の verbose なコメントが積み上がる。これを「1行にマージ」に変える。\n\n### Constraints\n- マージはスクリプトが決定論的に行う（AI判断不要）\n- 同一キーの再注釈は常にスキップ（冪等性）\n- 単一チケットのみの注釈はフォーマット変更しない（後方互換性）\n- マージ後も show-ticket-context.js の参照コマンドは有効であること",
+          "scope": [
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n  - [Action: add/modify/remove/rename/refactor] modify\n  - [What specifically changes] buildAnnotation() → buildMultiAnnotation() 追加。hasExistingAnnotation() → detectAnnotationAtLine() に拡張。processFile() に merge 分岐追加。mergeAnnotation() 新規\n  - [Before → After (behavior/signature)] BEFORE: hasExistingAnnotation(lines, key) → bool。AFTER: detectAnnotationAtLine(lines, defLine) → {ticketKeys:[], lineIndex:number} | null。processFile 戻り値に merged:N を追加\n  - [API contract change (if any)] 新規公開関数: buildMultiAnnotation, detectAnnotationAtLine, mergeAnnotation\n  - [Data schema change (if any)] なし\n  - [Config/env change (if any)] なし\n  - [Dependency added/removed (if any)] なし",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] 10+ キーが集積したときの省略記法（\"...and N more\"）\n  - [Why excluded — separate ticket / future phase / not applicable] 現時点で必要ない。将来のチケットで対応可能\n\n  - [Excluded item] マージ済み注釈のファイル末尾ブロックへの集約\n  - [Why excluded — separate ticket / future phase / not applicable] 本チケットはインラインマージのみ。ブロック集約は別設計",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] start-ticket.md Step 5a\n  - [Nature of impact: performance / security / API surface / data format / …] 影響なし（Step 5a の呼び出し手順は不変）\n\n  - [Affected component] review-ticket.md pattern #8\n  - [Nature of impact: performance / security / API surface / data format / …] 影響なし（検証ロジックは不変）\n\n  - [Affected component] 既存の全 PX-n 注釈\n  - [Nature of impact: performance / security / API surface / data format / …] 単一形式の既存注釈は変更されない（後方互換性確保）"
+          ],
+          "testUnit": [
+            "UT: [Normal] detectAnnotationAtLine — 単一形式の注釈行をパース → {ticketKeys:[\"PX-59\"], lineIndex:N} を返す",
+            "UT: [Normal] detectAnnotationAtLine — マルチ形式の注釈行をパース → {ticketKeys:[\"PX-59\",\"PX-61\"], lineIndex:N} を返す",
+            "UT: [Normal] mergeAnnotation — 単一形式行 + 新キー → マルチ形式行に更新",
+            "UT: [Normal] mergeAnnotation — マルチ形式行 + 新キー → キーが追記されたマルチ形式行",
+            "UT: [Normal] buildMultiAnnotation — [\"PX-59\",\"PX-61\"] → マルチフォーマットの文字列",
+            "UT: [Error] detectAnnotationAtLine — 注釈でない行 → null を返す",
+            "UT: [Error] mergeAnnotation — パース不能な行 → 行を変更せず null を返す",
+            "UT: [Boundary] mergeAnnotation — 既存キーと同一キー → 変更なし（冪等）",
+            "UT: [Boundary] mergeAnnotation — 3キー以上のマージ → 全キーがカンマ区切りで並ぶ",
+            "UT: [Invariant] mergeAnnotation 実行後も show-ticket-context.js の参照コマンドは完全な形で維持される"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] processFile — 注釈なし定義 → insert (従来通りの新規挿入)",
+            "IT: [Integration point] processFile — 同一キー注釈あり → skip (変更なし)",
+            "IT: [Integration point] processFile — 異なるキー注釈あり → merge (1行に統合)",
+            "IT: [Integration point] processFile — マルチ形式注釈あり＋別キー → merge (キー追記)",
+            "IT: [Prerequisites] 事前に PX-59 が注釈した定義に対して PX-60 が annotate → PX-60 がマージする",
+            "IT: [Related tickets] PX-59 (annotate-ticket-context-by-git-diff.js)"
+          ],
+          "testExceptions": [
+            "実際の ACP パイプライン (make→plan→start→review) の全行程をまたいだホットスポット動作検証はユニットテスト範囲外。理由: 複数チケットにわたる逐次処理と ACP セッション制御に依存するため、E2E テストの責務。"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/annotate-ticket-context-by-git-diff.js",
+            ".claude/scripts/tickets/tests/annotate-ticket-context-by-git-diff.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path] — 同一定義に異なるチケットキーの注釈が挿入されるとき、スクリプトが自動検出しマージする:**\n  1回目: PX-59 → `// This code was implemented under the PX-59 ticket; ...`\n  2回目: PX-61 → `// This code was implemented under tickets: PX-59, PX-61; ...`\n  3回目: PX-62 → `// This code was implemented under tickets: PX-59, PX-61, PX-62; ...`",
+            "**[Error case] — 同一キーで再注釈 → 何も変更しない（冪等性）**",
+            "**[Edge case] — マルチ形式の行にさらに別キーが追加 → 追記のみ行われフォーマットは維持される**"
+          ],
+          "notes": "- [Implementation steps] (1) buildMultiAnnotation() 追加 (2) detectAnnotationsAtLine() 追加 (3) mergeAnnotation() 追加 (4) processFile() の分岐ロジック変更 (5) テスト更新\n- [Risks] 既存の注釈フォーマット変更による後方互換性リスク → 単一形式は変更しない設計で回避\n- [Caveats] パイプ区切りキー --ticket-key=(PX-59|PX-61) が show-ticket-context.js で実際に解釈可能かは未確認。実装後テスト必須\n- [Open items] 10+ キーが集積したときの人間可読性\n- [Future improvements] 定義位置とは異なる場所（ファイル末尾）へのマージ済み注釈ブロック集約\nImplementation summary:\n- Changed file: .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n- Test file: tests/annotate-ticket-context-by-git-diff.test.cjs\n- All 42 tests passed\n- Quality check: 0 issues\n- Crime/stub status: 0 crimes, 0 stubs\n- Bugfix: resolveGitPath() for subdirectory cwd\n- Annotation merge: deterministic, no AI judgment needed\nReview report for PX-60:\n- Status: done → reviewed\n- Test suite: 42 tests, 0 failures (27 PX-59 + 15 new PX-60 merge tests)\n- Static quality check: passed, 0 issues\n- Translatability: passed\n- Crime/stub status: 0 crimes, 0 stubs\n- Incomplete implementation scan (7+1 patterns): clean\n- Annotation verification: 0 missing, 0 ambiguous — clean\n- Boy Scout improvement: resolveGitPath() bugfix for subdirectory git diff paths\n- Risks identified: none\n- Omissions: none\n- Contradictions: none\n- Deficiencies: none",
+          "invariants": "- [Normal condition] マージされた注釈行は元の位置（定義直上）を維持する\n- [Error invariant] マージ対象行のパースに失敗した場合、既存行を変更せず新しい行を追加する（データ損失防止）\n- [Internal state invariant] マージ操作は冪等: 同一キーで再実行しても状態は変化しない\n- [Boundary invariant] キーリストが10件を超えても注釈は1行を維持する（改行せずカンマ区切り連続）",
+          "instrumentation": "- [Logging] verbose モード時、マージ実行を \"Merged key X into annotation at line N\" と stderr 出力\n- [Metrics] マージ回数・スキップ回数を集計結果に含める\n- [Error tracking] パース失敗時は stderr に警告を出力し exit 0（非致命）\n- [Health check] 該当なし（ワンショット実行）\nStatic quality check: passed (0 issues)\nTranslatability: passed (all 16 functions are verb phrases, no single-char variables, one justified console.log for JSON output)\nTests: all 42/42 tests passed",
+          "investigation": "## 既存コード調査結果\n\n### 修正対象ファイル\n.claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n\n### 修正対象関数\n- buildAnnotation(ticketKey): 単一形式のみ生成 → マルチ形式 buildMultiAnnotation(ticketKeys) を追加\n- hasExistingAnnotation(lines, ticketKey): 単一キーのみチェック → 全キー検出版 detectAnnotationsAtLine(lines, defLine) に拡張\n- processFile(filePath, ticketKey, opts): skip/insert の二択 → merge/skip/insert の三択に拡張\n- insertAnnotation(): 現状維持（新規挿入）\n- 新規 mergeAnnotation(existingLine, ticketKey): 既存行をパースしキーをマージ\n\n### マージフォーマット\n単一: // This code was implemented under the PX-59 ticket; for details...\nマルチ: // This code was implemented under tickets: PX-59, PX-61; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.\n\n### 処理フロー変更\nBEFORE: hasExistingAnnotation(該当キーあり) → skip\nAFTER: detectAnnotationsAtLine(いずれかのキー発見) → 異なるキーなら merge、同一キーなら skip",
+          "boyScoutPlan": "annotate-ticket-context-by-git-diff.js は PX-59 で作成されたスクリプトであり、翻訳可能性に問題はない。本チケットでは新規関数 buildMultiAnnotation / detectAnnotationsAtLine / mergeAnnotation を追加するが、関数名は動詞句、変数名はドメイン概念とする。processFile() の分岐ロジックを三択に拡張する際、条件分岐のネストを深くしないよう早期 return を活用する。",
+          "created_at": "2026-07-23",
+          "updated_at": "2026-07-23",
+          "startedAt": "2026-07-23",
+          "changes": [
+            {
+              "before": "buildAnnotation() single-format only",
+              "after": "+ buildMultiAnnotation(), detectAnnotationLine(), detectAnnotationAtLine(), mergeAnnotation()",
+              "description": "PX-60: Added merge support for hot-spot functions"
+            },
+            {
+              "before": "processFile(): skip/insert binary",
+              "after": "processFile(): merge/skip/insert ternary (detect at defLine, merge if diff key, skip if same, insert if none)",
+              "description": "Rewrite of annotation insertion logic with hot-spot awareness"
+            },
+            {
+              "before": "annotateSourceFiles() returned {annotated, skipped}",
+              "after": "returns {annotated, merged, skipped}",
+              "description": "Extended return type with merged count"
+            },
+            {
+              "before": "path.resolve(filePath) broke from subdirectory cwd",
+              "after": "resolveGitPath() handles repo-root-relative paths correctly",
+              "description": "Bugfix: git diff paths resolve from repo root, not cwd"
+            },
+            {
+              "before": "0 merge tests",
+              "after": "15 new tests (42 total): buildMultiAnnotation(3), detectAnnotationAtLine(5), mergeAnnotation(4), exports(3)",
+              "description": "Test suite expanded for merge functionality"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-23"
         }
       ]
     },

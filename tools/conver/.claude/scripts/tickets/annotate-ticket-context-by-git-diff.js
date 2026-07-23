@@ -62,12 +62,83 @@ const ANNOTATION_PATTERN = /implemented under the\s+(P\d+-\d+|PX-\d+)\s+ticket/;
 /**
  * Build the annotation comment for a given ticket key.
  */
+// This code was implemented under the PX-60 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-60 --for-spec --no-implementation-order`.
 function buildAnnotation(ticketKey) {
   return (
     `// This code was implemented under the ${ticketKey} ticket; for details, ` +
     `refer to the command \`node .claude/scripts/tickets/show-ticket-context.js ` +
     `--ticket-key=${ticketKey} --for-spec --no-implementation-order\`.`
   );
+}
+
+/**
+ * Build the multi-ticket annotation comment for merged hot-spot functions.
+ */
+function buildMultiAnnotation(ticketKeys) {
+  const keys = [...new Set(ticketKeys)];
+  const keyList = keys.join(", ");
+  const ticketKeyArg = keys.join("|");
+  return (
+    `// This code was implemented under tickets: ${keyList}; for details, ` +
+    `refer to the command \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `--ticket-key=(${ticketKeyArg}) --for-spec --no-implementation-order\`.`
+  );
+}
+
+/**
+ * Check if a specific line is an annotation comment and extract its ticket keys.
+ *
+ * Matches both single format:
+ *   "implemented under the PX-59 ticket"
+ * and multi format:
+ *   "implemented under tickets: PX-59, PX-61"
+ *
+ * Returns { ticketKeys: string[], lineIndex: number } or null.
+ */
+function detectAnnotationLine(line) {
+  if (typeof line !== "string" || !line.trimStart().startsWith("//")) {
+    return null;
+  }
+  // Multi-format: "implemented under tickets: KEY, KEY;"
+  const multiMatch = line.match(/implemented under tickets:\s*([^;]+);/);
+  if (multiMatch) {
+    const keys = multiMatch[1].split(",").map((k) => k.trim()).filter(Boolean);
+    return keys.length > 0 ? { ticketKeys: keys } : null;
+  }
+  // Single-format: "implemented under the KEY ticket"
+  const singleMatch = line.match(/implemented under\s+the\s+(P\d+-\d+|PX-\d+)\s+ticket/);
+  if (singleMatch) {
+    return { ticketKeys: [singleMatch[1]] };
+  }
+  return null;
+}
+
+/**
+ * Search for an annotation comment near the definition line.
+ * Checks the line immediately before defLine (1-indexed).
+ * Returns { ticketKeys: string[], lineIndex: number } or null.
+ */
+function detectAnnotationAtLine(lines, defLine) {
+  const checkIndex = defLine - 2; // line above the definition (0-indexed)
+  if (checkIndex < 0 || checkIndex >= lines.length) return null;
+  const result = detectAnnotationLine(lines[checkIndex]);
+  if (result) {
+    return { ticketKeys: result.ticketKeys, lineIndex: checkIndex + 1 };
+  }
+  return null;
+}
+
+/**
+ * Merge a new ticket key into an existing annotation line.
+ * Returns the updated line string, or null if parsing fails.
+ * If the key already exists, returns the original line unchanged (idempotent).
+ */
+function mergeAnnotation(existingLine, ticketKey) {
+  const detected = detectAnnotationLine(existingLine);
+  if (!detected) return null;
+  if (detected.ticketKeys.includes(ticketKey)) return existingLine; // idempotent
+  const allKeys = [...detected.ticketKeys, ticketKey];
+  return buildMultiAnnotation(allKeys);
 }
 
 /**
@@ -123,9 +194,26 @@ function filterSourceFiles(filePaths) {
  * Process a single file: detect definition, check for existing annotation,
  * insert if needed.  Returns an action string describing what happened.
  */
+/**
+ * Resolve a repo-root-relative path to an absolute path.
+ * git diff outputs paths relative to repo root, so path.resolve(filePath)
+ * would double-prefix when cwd is a subdirectory. Instead join with repo root.
+ */
+function resolveGitPath(filePath, cwd) {
+  const absolute = path.resolve(cwd, filePath);
+  if (fs.existsSync(absolute)) return absolute;
+  // Fallback: if git diff output is repo-root-relative (e.g. tools/conver/...),
+  // resolve against the repo root by going up from cwd
+  const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd, encoding: "utf8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"],
+  }).trim();
+  return path.resolve(repoRoot, filePath);
+}
+
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
-  const resolved = path.resolve(filePath);
+  const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
+  const resolved = resolveGitPath(filePath, cwd);
 
   let content;
   try {
@@ -136,12 +224,6 @@ function processFile(filePath, ticketKey, opts) {
   }
 
   const lines = content.split("\n");
-
-  // Check if annotation already exists
-  if (hasExistingAnnotation(lines, ticketKey)) {
-    if (verbose) console.error(`[annotate] Already annotated: ${filePath}`);
-    return "skipped:already-annotated";
-  }
 
   // Find the first definition
   const defLine = detectFirstDefinition(lines);
@@ -155,7 +237,26 @@ function processFile(filePath, ticketKey, opts) {
     return "annotated:ambiguous";
   }
 
-  // Insert annotation
+  // Check for existing annotation at the definition line
+  const existingAnnot = detectAnnotationAtLine(lines, defLine);
+
+  if (existingAnnot) {
+    if (existingAnnot.ticketKeys.includes(ticketKey)) {
+      if (verbose) console.error(`[annotate] Already annotated: ${filePath}`);
+      return "skipped:already-annotated";
+    }
+    // Merge: add new key to existing annotation by rewriting the line in-place
+    const mergedLine = mergeAnnotation(lines[existingAnnot.lineIndex - 1], ticketKey);
+    if (mergedLine) {
+      lines[existingAnnot.lineIndex - 1] = mergedLine;
+      fs.writeFileSync(resolved, lines.join("\n"), "utf8");
+      if (verbose) console.error(`[annotate] Merged key ${ticketKey} at line ${existingAnnot.lineIndex}: ${filePath}`);
+      return `merged:${existingAnnot.lineIndex}`;
+    }
+    // Merge failed (parse error) — fall through to insert a new line
+  }
+
+  // Insert annotation (new line)
   const comment = buildAnnotation(ticketKey);
   const newLines = insertAnnotation(lines, defLine, comment);
   fs.writeFileSync(resolved, newLines.join("\n"), "utf8");
@@ -204,15 +305,19 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
   }
 
   // 3. Process each file
+  const processOpts = { ...(opts || {}), cwd };
   const annotated = [];
+  const merged = [];
   const skipped = [];
   const errors = [];
 
   for (const file of sourceFiles) {
     try {
-      const action = processFile(file, ticketKey, opts);
+      const action = processFile(file, ticketKey, processOpts);
       if (action.startsWith("annotated")) {
         annotated.push(file);
+      } else if (action.startsWith("merged")) {
+        merged.push(file);
       } else {
         skipped.push(file);
       }
@@ -222,7 +327,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
     }
   }
 
-  return { total: sourceFiles.length, annotated, skipped, errors };
+  return { total: sourceFiles.length, annotated, merged, skipped, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +377,7 @@ function verifyAnnotations(cwd, ticketKey, opts) {
 
   for (const file of sourceFiles) {
     try {
-      const resolved = path.resolve(file);
+      const resolved = resolveGitPath(file, cwd);
       const content = fs.readFileSync(resolved, "utf8");
       const lines = content.split("\n");
 
@@ -295,11 +400,46 @@ function verifyAnnotations(cwd, ticketKey, opts) {
   return { total: sourceFiles.length, missing, ambiguous, errors };
 }
 
+/**
+ * Check for [::AMBIGUOUS::] markers in changed source files.
+ * Exits 0 if none found, 1 if any found (with list on stderr).
+ */
+function checkAmbiguousMarkers(cwd, ticketKey, opts) {
+  const verbose = opts && opts.verbose;
+
+  // Reuse verify logic — extract ambiguous field
+  const report = verifyAnnotations(cwd, ticketKey, opts);
+
+  if (verbose) {
+    console.error(
+      `[check-ambiguous] ${report.total} source file(s), ` +
+      `${report.ambiguous.length} ambiguous, ` +
+      `${report.errors.length} error(s)`,
+    );
+  }
+
+  if (report.ambiguous.length > 0) {
+    console.error("[check-ambiguous] AMBIGUOUS markers still present — must resolve:");
+    report.ambiguous.forEach((f) => console.error(`  ${f}`));
+    process.exit(EXIT_FAILURE); // 1 = unresolved
+  }
+
+  if (report.errors.length > 0) {
+    console.error("[check-ambiguous] Errors during check:");
+    report.errors.forEach((e) => console.error(`  ${e.file}: ${e.error}`));
+    process.exit(EXIT_FAILURE);
+  }
+
+  if (verbose) console.error("[check-ambiguous] No AMBIGUOUS markers found.");
+  process.exit(EXIT_SUCCESS); // 0 = clean
+}
+
 function parseArgs() {
   const args = process.argv.slice(2);
   let ticketKey = "";
   let verbose = false;
   let verifyMode = false;
+  let checkAmbiguousMode = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--ticket-key" && i + 1 < args.length) {
@@ -310,21 +450,28 @@ function parseArgs() {
       verbose = true;
     } else if (args[i] === "--verify") {
       verifyMode = true;
+    } else if (args[i] === "--check-ambiguous") {
+      checkAmbiguousMode = true;
     }
   }
 
-  return { ticketKey, verbose, verifyMode };
+  return { ticketKey, verbose, verifyMode, checkAmbiguousMode };
 }
 
 function main() {
   const opts = parseArgs();
 
   if (!opts.ticketKey) {
-    console.error("Usage: annotate-ticket-context-by-git-diff.js --ticket-key=<P{id}-{id}|PX-{id}> [--verbose] [--verify]");
+    console.error("Usage: annotate-ticket-context-by-git-diff.js --ticket-key=<P{id}-{id}|PX-{id}> [--verbose] [--verify] [--check-ambiguous]");
     process.exit(EXIT_FAILURE);
   }
 
   const cwd = process.cwd();
+
+  if (opts.checkAmbiguousMode) {
+    checkAmbiguousMarkers(cwd, opts.ticketKey, opts);
+    return; // exits inside
+  }
 
   if (opts.verifyMode) {
     // Verify mode: check annotations exist, report defects
@@ -379,12 +526,17 @@ function main() {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     buildAnnotation,
+    buildMultiAnnotation,
     detectFirstDefinition,
     hasExistingAnnotation,
+    detectAnnotationLine,
+    detectAnnotationAtLine,
+    mergeAnnotation,
     insertAnnotation,
     filterSourceFiles,
     annotateSourceFiles,
     verifyAnnotations,
+    checkAmbiguousMarkers,
     processFile,
     parseArgs,
     main,
