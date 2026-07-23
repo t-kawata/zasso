@@ -57,6 +57,7 @@ Located under `.claude/scripts/tickets/`.
 | `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
 | `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
 | `review/generate-report.js` | (via stdin) | **Executed in Step 5**. Generate quality report. |
+| `annotate-ticket-context-by-git-diff.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--verify]` | **Executed in Step 5 (annotation check)**. Verifies that ticket-key annotations exist on all changed source files. |
 
 ## Workflow
 
@@ -142,6 +143,17 @@ git diff "$(git merge-base HEAD origin/master)"
 5. `TODO` / `FIXME` / `HACK` / `XXX` — Is it accompanied by a `[::STUB::]` marker?
 6. Mock / Fake objects — Does it have a `[::STUB::]` marker?
 7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
+
+**8. Ticket-key annotation check — Verify that every changed source file has the correct ticket-key provenance annotation:**
+
+```bash
+node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js \
+  --ticket-key="$ARGUMENTS" --verify
+```
+
+- If a file lacks an annotation, this is a defect in the implementation — the implementer skipped Step 5a of start-ticket.md. Report it in the review findings and request re-execution of the annotation step.
+- If a file contains a `[::AMBIGUOUS::]` marker, the AI must resolve the correct insertion location, replace the marker with the actual comment, and re-run the annotation.
+- If all changed files are non-source (config, docs, etc.), the annotation script will report no source files — this is acceptable and requires no action.
 
 If an incomplete implementation is found:
 1. If no `[::STUB::]` marker → Add the marker on the spot
