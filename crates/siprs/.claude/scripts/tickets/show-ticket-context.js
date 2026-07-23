@@ -143,14 +143,40 @@ function parseRelatedTicketIds(raw) {
   if (!raw) return [];
   const items = [];
   const seen = new Set();
-  const regex = /\[(\w+)\]\s+(\S+)\s+\(([^)]*)\)/g;
+  // relation と ticket のみ正規表現で抽出（description は括弧ネスト深度追跡で別途取得）
+  const regex = /\[(\w+)\]\s+(\S+)/g;
   let m;
   while ((m = regex.exec(raw)) !== null) {
     const key = `${m[2]}|${m[1]}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      items.push({ relation: m[1], ticket: m[2], description: m[3] });
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const relation = m[1];
+    const ticket = m[2];
+
+    // m[0] の直後にある ( を見つけ、ネスト深度を追跡して対応する ) までを description とする
+    const openParen = raw.indexOf('(', m.index + m[0].length);
+    if (openParen === -1) continue;
+    let depth = 0;
+    let closeParen = -1;
+    for (let i = openParen; i < raw.length; i++) {
+      if (raw[i] === '(' || raw[i] === '（') depth++;
+      if (raw[i] === ')' || raw[i] === '）') depth--;
+      if (depth === 0) { closeParen = i; break; }
     }
+    if (closeParen === -1) continue;
+
+    // relation/ticket 部分を除去 → trim → 外側の括弧を除去 → trim
+    const fullEntry = raw.substring(m.index, closeParen + 1);
+    const prefix = `[${relation}] ${ticket}`;
+    const description = fullEntry
+      .replace(prefix, '')
+      .trim()
+      .replace(/^[(（]/, '')
+      .replace(/[)）]$/, '')
+      .trim();
+
+    items.push({ relation, ticket, description });
   }
   return items;
 }
@@ -256,7 +282,7 @@ function formatGraphFilePaths(ticketNodeIds, dirsTree) {
   const entries = collectFilePathsForNodes(dirsTree, ticketNodeIds);
   if (entries.length === 0) return '';
   const lines = [];
-  lines.push('### Implementation File Paths');
+  lines.push('### Implementation Target File Paths');
   lines.push('');
   lines.push('| Node ID | File Path |');
   lines.push('|---------|-----------|');
@@ -382,15 +408,10 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     // RFC Source + Graph (only if resolved paths are available)
     if (rfcPath) {
       const rfcRel = makeRelative(rfcPath, ticketsDir);
-      const graphRel = graphPath ? makeRelative(graphPath, ticketsDir) : '';
-      const srcLine = `**RFC Source**: \`${rfcRel}\`` + (graphRel ? ` · **Graph**: \`${graphRel}\`` : '');
+      // const graphRel = graphPath ? makeRelative(graphPath, ticketsDir) : '';
+      // const srcLine = `**RFC Source**: \`${rfcRel}\`` + (graphRel ? `\n\n**Graph**: \`${graphRel}\`` : '');
+      const srcLine = `**RFC Source**: \`${rfcRel}\``;
       lines.push(srcLine);
-      lines.push('');
-    }
-
-    // Nodes
-    if (ticket.nodeIds && ticket.nodeIds.length > 0) {
-      lines.push(`**Nodes**: [${ticket.nodeIds.join(', ')}]`);
       lines.push('');
     }
 
@@ -426,14 +447,14 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   }
 
   // Implementation Target Files
-  if (ticket.default_files && ticket.default_files.length > 0) {
-    lines.push('## Implementation Target Files');
-    lines.push('');
-    for (const f of ticket.default_files) {
-      lines.push(`- \`${f}\``);
-    }
-    lines.push('');
-  }
+  // if (ticket.default_files && ticket.default_files.length > 0) {
+  //   lines.push('## Implementation Target Files');
+  //   lines.push('');
+  //   for (const f of ticket.default_files) {
+  //     lines.push(`- \`${f}\``);
+  //   }
+  //   lines.push('');
+  // }
 
   // Source Paths
   if (ticket.sourcePaths && ticket.sourcePaths.length > 0) {
