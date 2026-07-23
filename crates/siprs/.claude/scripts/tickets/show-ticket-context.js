@@ -8,7 +8,7 @@
  * fields and can serve as a spec document.
  *
  * With --for-spec flag, outputs in a format suitable for writing to a spec file
- * (omits IMPORTANT banner / Pipeline Context, prepends Universal Testing Rules).
+ * (omits IMPORTANT banner / Pipeline Context, prepends Implementation Order).
  *
  * CLI: show-ticket-context.js --ticket-key=<P{id}-{id}|PX-{id}>
  *       [--tickets=<Tickets.json>] [--for-spec]
@@ -348,28 +348,46 @@ function generateSlug(title) {
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules) {
   const lines = [];
 
-  // In --for-spec mode, output Universal Testing Rules first (before YAML frontmatter)
+  // In --for-spec mode, output Implementation Order first (before YAML frontmatter)
   if (forSpec && !noTestRules) {
-    lines.push('**Universal Testing Rules**');
+    lines.push('# Implementation Order (TDD Red-Green-Refactor)');
     lines.push('');
-    lines.push('Write all code under the following non-negotiable rules:');
+    lines.push('Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.');
     lines.push('');
-    lines.push('1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.');
+    lines.push('## 1. Red — Fully Implement Failing Tests');
     lines.push('');
-    lines.push('2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.');
+    lines.push('Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec\'s **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.');
     lines.push('');
-    lines.push('3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.');
+    lines.push('- Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.');
+    lines.push('- If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.');
+    lines.push('- Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.');
     lines.push('');
-    lines.push('4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.');
+    lines.push('## 2. Green — Implement Behavior (No Stubs, No Test Modification)');
     lines.push('');
-    lines.push('5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.');
+    lines.push('Implement the **behavior** specified by the tests; do not treat passing the tests as an end in itself. Tests are a means of verifying correctness, not the goal itself.');
     lines.push('');
-    lines.push('6. Implementation is considered complete only when:');
-    lines.push('   - The tests fully and precisely specify the intended behavior.');
-    lines.push('   - The implementation passes all tests without exception.');
-    lines.push('   - The implementation\'s correctness is demonstrably guaranteed by those tests.');
+    lines.push('- Implementations that merely satisfy the literal wording of tests—via hardcoding, input-specific branching, or stubbed return values—are prohibited. The implementation must be a generalized, correct solution.');
+    lines.push('- If it is impossible to distinguish, via testing, whether an implementation is genuine or a disguised green, this indicates a design flaw caused by insufficient coverage. Add tests until the distinction is possible before proceeding with implementation.');
+    lines.push('- Modifying, deleting, or weakening tests to make an implementation pass is strictly forbidden. The implementation must conform to the tests; the reverse is never acceptable.');
+    lines.push('- An implementation whose correctness cannot be proven is invalid. It is not considered complete until it (or its design) is restructured into a provably correct form.');
     lines.push('');
-    lines.push('7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.');
+    lines.push('## 3. Refactor — Apply the Boy Scout Rule (Green State Only)');
+    lines.push('');
+    lines.push('Refactor only after all tests are green. Refactoring in a red state is prohibited.');
+    lines.push('');
+    lines.push('- Apply the Boy Scout Rule (leave the code cleaner than you found it; readability = translatability) to eliminate `unwrap()` calls, hardcoded values, false comments, and untested code in anything you touch.');
+    lines.push('- Verify that all tests remain green before and after each refactoring step. If a refactor breaks green, roll it back immediately.');
+    lines.push('');
+    lines.push('## Definition of Done');
+    lines.push('');
+    lines.push('Implementation is considered incomplete unless all of the following are satisfied:');
+    lines.push('');
+    lines.push('- The tests fully and precisely specify the intended behavior.');
+    lines.push('- The implementation passes all tests green, without exception.');
+    lines.push('- Correctness is empirically guaranteed by the tests (not a disguised green).');
+    lines.push('- No gap exists between test coverage and intended behavior.');
+    lines.push('');
+    lines.push('Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.');
     lines.push('');
   }
 
@@ -393,7 +411,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   );
 
   // H1
-  lines.push(`# ${ticketKey}: ${ticket.title}${forSpec ? '' : ` [${ticket.status || 'todo'}]`}`);
+  lines.push(`# Target ticket is ${ticketKey}: ${ticket.title}${forSpec ? '' : ` [${ticket.status || 'todo'}]`}`);
   lines.push('');
 
   // Compact metadata block (top of file — forSpec mode only)
@@ -402,7 +420,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     const phaseId = parsed ? parsed.phaseId : '?';
 
     // Status + Ticket Key + Phase
-    lines.push(`**Status**: ${ticket.status || 'todo'} · **Ticket Key**: ${ticketKey} · **Phase**: ${phaseId}`);
+    lines.push(`**Ticket Key**: ${ticketKey} · **Phase**: ${phaseId}`);
     lines.push('');
 
     // RFC Source + Graph (only if resolved paths are available)

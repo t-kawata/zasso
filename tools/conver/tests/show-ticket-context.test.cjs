@@ -346,11 +346,11 @@ describe("show-ticket-context — buildTicketMarkdown (--for-spec mode)", functi
     assert.ok(!wsMd(makeTicket()).includes("## Pipeline Context"));
   });
 
-  it("Universal Testing Rules が冒頭に出力される", function () {
+  it("Implementation Order が冒頭に出力される", function () {
     const out = wsMd(makeTicket());
-    assert.ok(out.startsWith("**Universal Testing Rules**"));
-    assert.ok(out.includes("non-negotiable rules"));
-    assert.ok(out.includes("Write all code under the following"));
+    assert.ok(out.startsWith("**Reference — Implementation Order (TDD Red-Green-Refactor)**"));
+    assert.ok(out.includes("Red → Green → Refactor"));
+    assert.ok(out.includes("Definition of Done"));
   });
 
   it("通常のセクションは出力される", function () {

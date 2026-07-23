@@ -125,38 +125,56 @@ Each field gets markers in `[::TEMPLATE-STUB::<field-name>::]` format, making it
 node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-### Step 4: Full understanding of Universal Testing Rules
+### Step 4: Full understanding of Universal Implementation Order
 
-As stated below, TDD is an absolute obligation. This rule serves as the law when filling in the testUnit / testIntegration / testExceptions stubs in Step 5b. During the investigation in Step 5, you must always reason in compliance with the Universal Testing Rules.
+As stated in the Reference — Implementation Order section below, TDD is an absolute obligation. This rule serves as the law when filling in the testUnit / testIntegration / testExceptions stubs in Step 5b. During the investigation in Step 5, you must always reason in compliance with the Implementation Order.
 
-**Universal Testing Rules**
+#### Reference — Implementation Order (TDD Red-Green-Refactor)
 
-Write all code under the following non-negotiable rules:
+Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.
 
-1. Tests must be comprehensive and exhaustive for all observable behavior, including edge cases, failure modes, and invariants. Any behavior not covered by tests is considered undefined and unacceptable.
+##### 1. Red — Fully Implement Failing Tests
 
-2. Do not write or accept any implementation whose correctness cannot be fully validated through tests. If correctness cannot be proven via tests, the implementation is invalid and must be redesigned.
+Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec's **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.
 
-3. If a feature cannot be completely and deterministically tested, treat this as a design failure. Refactor the architecture until full testability is achieved.
+- Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.
+- If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.
+- Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.
 
-4. Tests are not a scoreboard and must never be treated as a goal in themselves. Passing tests does not imply correctness unless the tests fully capture the intended behavior.
+##### 2. Green — Implement Behavior (No Stubs, No Test Modification)
 
-5. It is strictly forbidden to modify or weaken tests to make an implementation pass. The implementation must conform to the tests, not the other way around.
+Implement the **behavior** specified by the tests; do not treat passing the tests as an end in itself. Tests are a means of verifying correctness, not the goal itself.
 
-6. Implementation is considered complete only when:
-   - The tests fully and precisely specify the intended behavior.
-   - The implementation passes all tests without exception.
-   - The implementation's correctness is demonstrably guaranteed by those tests.
+- Implementations that merely satisfy the literal wording of tests—via hardcoding, input-specific branching, or stubbed return values—are prohibited. The implementation must be a generalized, correct solution.
+- If it is impossible to distinguish, via testing, whether an implementation is genuine or a disguised green, this indicates a design flaw caused by insufficient coverage. Add tests until the distinction is possible before proceeding with implementation.
+- Modifying, deleting, or weakening tests to make an implementation pass is strictly forbidden. The implementation must conform to the tests; the reverse is never acceptable.
+- An implementation whose correctness cannot be proven is invalid. It is not considered complete until it (or its design) is restructured into a provably correct form.
 
-7. Any gap between test coverage and intended behavior is a critical defect. Resolve such gaps before considering the work complete.
+##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)
 
-**Test Field Reference**:
+Refactor only after all tests are green. Refactoring in a red state is prohibited.
+
+- Apply the Boy Scout Rule (leave the code cleaner than you found it; readability = translatability) to eliminate `unwrap()` calls, hardcoded values, false comments, and untested code in anything you touch.
+- Verify that all tests remain green before and after each refactoring step. If a refactor breaks green, roll it back immediately.
+
+##### Definition of Done
+
+Implementation is considered incomplete unless all of the following are satisfied:
+
+- The tests fully and precisely specify the intended behavior.
+- The implementation passes all tests green, without exception.
+- Correctness is empirically guaranteed by the tests (not a disguised green).
+- No gap exists between test coverage and intended behavior.
+
+Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.
+
+#### Test Field Reference
 
 | Field | Requirement | Format |
 |-------|------------|--------|
 | `testUnit` | Unit tests — automated tests covering individual functions/modules | `UT:` prefix; enumerate normal/edge/failure cases |
 | `testIntegration` | Integration tests — automated tests spanning multiple modules | `IT:` prefix; specify which tickets/modules are integrated |
-| `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested |
+| `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested, **and explain why this is not a case of "deterministic yet fundamentally untestable" (which is an architectural defect, not a testing gap)** |
 
 `UT:` and `IT:` are automated test code, not manual tests. Together they must enable verification of the correctness of all implementation code. `testExceptions` is a supplement to this, not a substitute.
 
@@ -175,7 +193,7 @@ Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>:
 
 **Quality standards (strict compliance)**: The content written here must be **significantly more concrete**, **significantly more detailed**, **based on material evidence**, and **high-density information** compared to the show-ticket-context.js output from Step 1 or the ensure-ticket.js output from Step 2. The character count of each item should increase substantially. Simple placeholders are considered "cutting corners." Concretely enumerate type signatures, file paths, data structures, and error types.
 
-**Phase 1 — Test first (TDD)**: Following the Universal Testing Rules (presented in Step 4), first replace all markers in `testUnit`, `testIntegration`, and `testExceptions`. Do not start on other fields until the test plan is solidified.
+**Phase 1 — Test first (TDD)**: Following the Implementation Order (presented in Step 4), first replace all markers in `testUnit`, `testIntegration`, and `testExceptions`. Do not start on other fields until the test plan is solidified.
 
 **Phase 2 — All remaining fields**: Replace all remaining markers in `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria`.
 

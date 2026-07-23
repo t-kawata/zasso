@@ -129,7 +129,7 @@ node .claude/scripts/rfc-graph/deduplicate-headings.js "$1"
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 0
 ```
 
-### エラー時の復帰
+### Error Recovery
 After fixing the cause according to the error message, use `reset-to-step 0` to reset the status, then re-run the Step 0 commands from the beginning.
 
 ```bash
@@ -246,7 +246,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
+### Error Recovery
 
 If validate-slug.js reports slug validation errors, fix the slug using the crud.js command specified in each error's remedy field, then re-run with `reset-to-step 1`:
 
@@ -301,7 +301,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
+### Error Recovery
 After fixing the cause according to the error message, use `reset-to-step 2` to reset the status, then re-run the Step 2 commands from the beginning. Delete any old temporary files before re-running:
 
 ```bash
@@ -351,7 +351,7 @@ Branch based on verification results:
 
 Repeat Steps 1 through 3 until `{"ok":true}` is returned（{"ok":true} が返るまで繰り返す）. This loop continues until verification passes.
 
-### エラー時の復帰
+### Error Recovery
 After fixing the cause according to the error message, use `reset-to-step 3` to reset the status, then re-run the Step 3 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 3
@@ -449,7 +449,7 @@ rm -rf _quality/
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" cleanup
 ```
 
-### エラー時の復帰
+### Error Recovery
 
 Identify the cause according to the query.js error message and fix it by resetting the status with the appropriate Step's `reset-to-step N` (missing nodes → Step 1, missing edges → Step 2).
 
@@ -518,13 +518,13 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 5
 ```
 
-### エラー時の復帰
+### Error Recovery
 After fixing the cause according to the script's error message, use `reset-to-step 5` to reset the status, then re-run the Step 5 commands from the beginning.
 ```bash
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" reset-to-step 5
 ```
 
-## Completion Report（完了報告／生成結果）
+## Completion Report
 
 Report the following information:
 
