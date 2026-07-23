@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Bash
 
 # /graphify-rfc <source-file-path>
 
-**Role**: Splits a large Markdown design document into fine-grained I/O-boundary nodes and persists it as a graph structure connected by attributed edges. The generated graph is available from the `/formulate-tickets` and `/formulate-tickets-for-next` slash commands.
+**Role**: Splits a large Markdown design document into fine-grained I/O-boundary nodes and persists it as a graph structure connected by attributed edges. The generated graph is available from the `/split-to-tickets` and `/boundify-graph` slash commands, and referenced during the `/make-ticket`, `/plan-ticket`, `/start-ticket`, and `/review-ticket` ticket pipeline.
 
 ## Language Protocol
 
@@ -38,7 +38,7 @@ statusPath="$(dirname "$1")/$(basename "$1" .md)-GRAPHIFY-Status.json"
 
 ## Guidelines
 
-- **The /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence).** When /formulate-tickets and /formulate-tickets-for-next extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
+- **The /graphify-rfc slash command always splits at a finer granularity than the /split-to-tickets and /boundify-graph slash commands (divergence).** When /split-to-tickets and /boundify-graph extract information from the graph at the necessary granularity, overly fine nodes can be aggregated, but overly coarse nodes cannot be split.
 - Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
 - Calls to update-step-status.js use the `--graphify-status=<path>` prefix.
 - crud.js / verify.js / query.js are called with `--graph=<path>` / `--source=<path>` argument format.
@@ -156,7 +156,7 @@ echo "==========================================="
 
 ### Node Splitting Procedure
 
-Read all lines of the source document and identify semantic I/O boundaries across the following 4 axes, splitting into nodes. Ensure the /graphify-rfc slash command always splits at a finer granularity than the /formulate-tickets and /formulate-tickets-for-next slash commands (divergence). This is because graphify's divergent splitting into many fine-grained nodes is then bundled by formulate into appropriate implementation ticket units, achieving high-information-density convergence.
+Read all lines of the source document and identify semantic I/O boundaries across the following 4 axes, splitting into nodes. Ensure the /graphify-rfc slash command always splits at a finer granularity than the /split-to-tickets and /boundify-graph slash commands (divergence). This is because graphify's divergent splitting into many fine-grained nodes is then bundled by split-to-tickets into appropriate implementation ticket units, achieving high-information-density convergence.
 
 **Axis 1: Section Hierarchy**
 - Use Markdown `##` headings as the primary splitting boundary
@@ -175,7 +175,7 @@ Read all lines of the source document and identify semantic I/O boundaries acros
 
 **Axis 3: Presence of External Dependencies**
 - Descriptions containing external dependencies (file I/O, network, DB, calls to other modules, etc.) must be force-split into nodes that have dependency content and nodes that do not
-- This enables splitting that supports the "1 ticket, 1 invariant" principle of /formulate-tickets and /formulate-tickets-for-next
+- This enables splitting that supports the "1 ticket, 1 invariant" principle of /split-to-tickets and the downstream ticket pipeline
 
 **Axis 4: Language Assignment**
 - Set the `language` field (single value) on each node. Not an array.
@@ -204,7 +204,7 @@ Set the `slug` field (lower_snake_case, max 64 characters, pattern: `^[a-z][a-z0
    - `API Design` → `api_design` (uppercase → lowercase)
    - `3rd-party` → `third_party` (avoid leading digit, hyphen → _)
 
-**Granularity guideline**: Approximately 30 to 50 lines per node for the effective description content (excluding code snippets in ``` blocks). Sections exceeding 100 lines (excluding code snippets) must be split into multiple nodes. Always keep in mind that the granularity is finer than the ticket granularity of /formulate-tickets and /formulate-tickets-for-next.
+**Granularity guideline**: Approximately 30 to 50 lines per node for the effective description content (excluding code snippets in ``` blocks). Sections exceeding 100 lines (excluding code snippets) must be split into multiple nodes. Always keep in mind that the granularity is finer than the ticket granularity of /split-to-tickets and the downstream ticket pipeline.
 
 ```bash
 # Obtain mechanical structure information in advance with analyze-source-structure.js as reference material for all 4 axes
@@ -359,7 +359,7 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 ## Step 4: Self-Verification
 
-Machine-verify the resolvability of all headingRefs using test-query-all.js. After passing, optionally run structural queries with query.js. Confirm the graph structure is of sufficient quality for the /formulate-tickets and /formulate-tickets-for-next slash commands and for reference during implementation.
+Machine-verify the resolvability of all headingRefs using test-query-all.js. After passing, optionally run structural queries with query.js. Confirm the graph structure is of sufficient quality for the /split-to-tickets and /boundify-graph slash commands and for reference during the /make-ticket, /plan-ticket, /start-ticket, and /review-ticket pipeline.
 
 ```bash
 # Start Step 4 (update progress status to running)
@@ -414,7 +414,7 @@ Read each node's display content and check the following items:
 
 1. **Does the relationship with other nodes correctly reflect the design document's description** (are any required edges missing)?
 2. **Does each node's content cover the corresponding section of the design document completely, without excess or deficiency**?
-3. **Are there any missing or ambiguous areas that would hinder /formulate-tickets and /formulate-tickets-for-next from decomposing tickets from this graph**?
+3. **Are there any missing or ambiguous areas that would hinder /split-to-tickets from decomposing tickets from this graph**?
 
 If deficiencies are found → Return to Step 1 to **refine (strengthen) the graph** by combining the addition of new nodes, modification of existing nodes, creation of new edges, modification of existing edges, and deletion-and-recreation as needed.
 
@@ -486,7 +486,7 @@ Read the entire output summary and judge whether the graph is a "sufficiently st
 1. **Are all major sections of the design document fully represented as nodes, without excess or deficiency?**
 2. **Does the kind classification of each node align with the design intent?**
 3. **Do the dependency relationships (edges) between nodes accurately reflect the logical relationships in the design document?**
-4. **Are there any missing or ambiguous areas that would hinder /formulate-tickets and /formulate-tickets-for-next from decomposing tickets from this graph?**
+4. **Are there any missing or ambiguous areas that would hinder /split-to-tickets from decomposing tickets from this graph?**
 
 ### Decision and Branching
 
@@ -537,4 +537,4 @@ Report the following information:
 - **Final quality verification**: show-graph-summary-markdown.js adequacy judgment result (sufficient/reinforcement history)
 - **Graph structure summary**: show-graph-summary-markdown.js output (kind-organized node list + edge relationships)
 
-After completion, this graph becomes available to the /formulate-tickets and /formulate-tickets-for-next slash commands via `show-graph-summary-markdown.js --with-cli-examples`.
+After completion, this graph becomes available to the /split-to-tickets and /boundify-graph slash commands via `show-graph-summary-markdown.js --with-cli-examples`.
