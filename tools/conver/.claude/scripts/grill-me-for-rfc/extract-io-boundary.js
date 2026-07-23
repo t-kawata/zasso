@@ -2,7 +2,7 @@
 /**
  * extract-io-boundary.js <rfc-file>
  *
- * Extracts the "graphify-rfc + boundify-graph-to-dirs reference info — I/O boundary clues from the RFC design document"
+ * Extracts the "graphify-rfc + boundify-graph reference info — I/O boundary clues from the RFC design document"
  * section from the RFC file and outputs it to stdout.
  *
  * If no section is found, outputs nothing and exits 0 (not an error, just no info).
@@ -26,8 +26,8 @@ const content = fs.readFileSync(resolvedPath, "utf-8");
 const lines = content.split("\n");
 
 // Detect the I/O boundary section title
-// Format: ## <N>. graphify-rfc + boundify-graph-to-dirs reference info ...
-const SECTION_PATTERN = /^## \d+\.\s+graphify-rfc \+ boundify-graph-to-dirs のための参考情報/;
+// Format: ## <N>. graphify-rfc + boundify-graph reference info ...
+const SECTION_PATTERN = /^## \d+\.\s+graphify-rfc \+ boundify-graph のための参考情報/;
 
 let sectionStartIndex = -1;
 for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {

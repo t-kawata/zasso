@@ -1064,7 +1064,7 @@
           "testExceptions": [
             "graphify-rfc.md（設計文書）の改修はテスト不能 — 手動確認"
           ],
-          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
           "startedAt": "2026-07-07",
           "changes": [
             {
@@ -1109,7 +1109,7 @@
             "日本語タイトルで空ファイル名が生成されない"
           ],
           "testExceptions": [],
-          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (9 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし（関数名はすべて動詞句）\n- テスト:\n  - schema/validate: 61/61 PASS\n  - boundify-helpers: 33/33 PASS\n  - boundify-tree: 46/46 PASS\n  - boundify-graph: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n  - 合計: 204/204 PASS\n- 依存関係: PX-24 → PX-25 の順序依存、整合性確認済\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済。boundify-tree.js:79（循環part_of）とboundify-tree.js:129（親パス解決）は解決対象外（本チケットのスコープ外）、load-rfc-graph.js:4（廃止予定）も同様\n- 見つかった問題と修正内容: なし\n\nPX-24 スキーマ拡張:\n- node.schema.json: language（optional string）+ slug（optional, pattern: ^[a-z][a-z0-9_]*$）追加\n- graph.schema.json: mainLanguage（optional string）追加\n- graphify-rfc.md: 「グラフスキーマ定義」セクション新設、Step 1 に第4軸（言語割り当て）+ slug生成ルール追記\n\nPX-25 言語推論廃止:\n- inferLanguage() / graphToLangJson() / titleToFileName() 削除（3関数）\n- collectLanguagesFromGraph() / checkSlugConvention() 追加（2関数）\n- SUPPORTED_LANGUAGES 固定ループ → グラフ内実在言語のみの動的ループ\n- ファイル名生成: titleToFileName(title, lang) → node.slug + LANGUAGE_EXTENSIONS[lang]",
           "startedAt": "2026-07-07",
           "changes": [
             {
@@ -1148,7 +1148,7 @@
             "循環依存警告へのAI指示文（messageフィールド）追加",
             "スキーマ検証エラーへの優先順位指示追加",
             "verify-graph-integrity.js 新規作成（5軸チェック＋退行チェック）",
-            "boundify-graph-to-dirs.md 全面改修（Step順序変更、全エラー時復帰を自己修復ループ化）"
+            "boundify-graph.md 全面改修（Step順序変更、全エラー時復帰を自己修復ループ化）"
           ],
           "testUnit": [
             "UT: 循環依存警告にAI指示文が含まれる",
@@ -1158,7 +1158,7 @@
           ],
           "testExceptions": [
             "自己修復ループ全体の動作確認はE2E（AI修正→再実行→退行チェック）",
-            "boundify-graph-to-dirs.md ドキュメント修正はテスト不能"
+            "boundify-graph.md ドキュメント修正はテスト不能"
           ],
           "startedAt": "2026-07-07",
           "changes": [
@@ -1178,12 +1178,12 @@
               "description": "AIが複数エラーを上から順に1件ずつ修正できる導線を提供"
             },
             {
-              "before": "boundify-graph-to-dirs.md: 旧5Step＋無意味なエラー復帰",
+              "before": "boundify-graph.md: 旧5Step＋無意味なエラー復帰",
               "after": "4Step構成（検証自己修復→生成→品質検証）＋全エラー時復帰を自己修復ループ化",
               "description": "旧Step順序を再編、/graphify-rfc 回帰を排除、全Stepで AI修正→再実行→退行チェック を明記"
             }
           ],
-          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (17 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし\n- テスト:\n  - verify-graph-integrity: 8/8 PASS（新規）\n  - boundify-graph-to-dirs: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済で本チケットスコープ外\n- 見つかった問題と修正内容:\n  1. 循環依存警告の message フィールドが品質を損なう破壊的指示だった → 「エッジの意味論を確認の上修正」「crud.js で直接修正」に改善\n- 新規作成ファイル: verify-graph-integrity.js（5軸チェック）\n- 改修ファイル: boundify-graph-to-dirs.js（warnings.message）, validate-dirs-tree-schema.js（優先順位指示）, boundify-graph-to-dirs.md（全面改修）",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格 (17 issues, 全件 CLI 標準出力のため問題なし)\n- 翻訳可能性: 問題なし\n- テスト:\n  - verify-graph-integrity: 8/8 PASS（新規）\n  - boundify-graph: 42/42 PASS\n  - validate-dirs-tree-schema: 22/22 PASS\n- 犯罪スキャン: 0件\n- スタブ: 3件 — いずれも [::STUB::] マーカー付与済で本チケットスコープ外\n- 見つかった問題と修正内容:\n  1. 循環依存警告の message フィールドが品質を損なう破壊的指示だった → 「エッジの意味論を確認の上修正」「crud.js で直接修正」に改善\n- 新規作成ファイル: verify-graph-integrity.js（5軸チェック）\n- 改修ファイル: boundify-graph-to-dirs.js（warnings.message）, validate-dirs-tree-schema.js（優先順位指示）, boundify-graph.md（全面改修）",
           "instrumentation": "静的品質チェック: 17 issues（全件 CLI 標準出力、問題なし）\n翻訳可能性: 問題なし（全関数動詞句、1文字変数1件 $e$ → アロー関数の短縮形で許容範囲）\nテスト: 全72件成功（3スイート）\n犯罪スキャン: 0件\nスタブ: 3件（既存、解決対象外）",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-07"
@@ -1255,7 +1255,7 @@
             "docs/ ディレクトリが出現しない"
           ],
           "relatedTicketIds": "PX-27 (slug検証完了後), PX-29 (同じboundify-tree.jsを触るためPX-28→PX-29の順が安全)",
-          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済（PX-27 completed, PX-29 safe order）\n- DeclarationStub: 8 kind × 3 言語 = 24パターン網羅\n- Prose削除: rationale/glossary/requirement がファイル生成対象から除外済み\n- PROSE_KINDS: 新設によりフォールバックからの明示的除外も担保\n- collectFiles: declarationStub 収集追加\n- 2件の pre-existing failure を確認（boundify-graph-to-dirs: BOUNDIFY-Status.json は update-step-status.js が管理するため main 関数は書き出さない — 設計上有意）",
+          "notes": "レビュー報告書:\n- 静的品質チェック: 合格\n- 翻訳可能性: 問題なし\n- 依存関係: 整合性確認済（PX-27 completed, PX-29 safe order）\n- DeclarationStub: 8 kind × 3 言語 = 24パターン網羅\n- Prose削除: rationale/glossary/requirement がファイル生成対象から除外済み\n- PROSE_KINDS: 新設によりフォールバックからの明示的除外も担保\n- collectFiles: declarationStub 収集追加\n- 2件の pre-existing failure を確認（boundify-graph: BOUNDIFY-Status.json は update-step-status.js が管理するため main 関数は書き出さない — 設計上有意）",
           "startedAt": "2026-07-08",
           "changes": [
             {
@@ -1320,7 +1320,7 @@
           "relatedTicketIds": "PX-28 (宣言スタブ完了後), PX-30 (ツリー構造確定後)",
           "notes": "レビュー報告書:\n- 静的品質チェック: 合格（1件 minor、許容範囲）\n- 翻訳可能性: 問題なし（全関数動詞句）\n- 依存関係: 整合性確認済（PX-28 reviewed→PX-29 done, PX-30 made→待機中）\n- クロスチェック: PX-28 notes に「PX-29 safe order」→ PX-29 実装後に regression 0 を確認\n- テスト: 68/68 pass（全テストケース充足）\n- 実装範囲: scope 全4項目をカバー済み\n  ✓ buildTreeFromRoot 階層化強化（非 architecture 子をサブディレクトリ配置）\n  ✓ pruneEmptyDirectories 新設（空削除 + 子1つフラット化 + mappedNodeIds 継承）\n  ✓ mergeTopLevelNodes 強化（子の重複排除）\n  ✓ collectDescendantIds 新設（hierarchy 子孫フィルタ）\n- regression: 全 rfc-graph 599 tests 中 0 regression（13件 pre-existing は変動なし）\n- STUB: 2件未解決（循環 part_of 検出・inline kind パス解決 → 将来チケット）",
           "testExceptions": [
-            "main() の tree 出力整合性 → boundify-graph-to-dirs.test.cjs でカバー（I/O 含む統合テスト）",
+            "main() の tree 出力整合性 → boundify-graph.test.cjs でカバー（I/O 含む統合テスト）",
             "BOUNDIFY-Status.json → 2件 pre-existing failure、設計上有意"
           ],
           "startedAt": "2026-07-08",
@@ -3178,7 +3178,7 @@
             "tests/rfc-graph/boundify-helpers.test.cjs: resolveHeaderPaths/HeaderComment/SCHEMAテスト",
             "tests/rfc-graph/boundify-tree.test.cjs: computeCrossReferencesテスト",
             "tests/rfc-graph/generate-dir-template.test.cjs: discoverヘッダーテスト",
-            "tests/rfc-graph/boundify-graph-to-dirs.test.cjs: crossReferences統合テスト"
+            "tests/rfc-graph/boundify-graph.test.cjs: crossReferences統合テスト"
           ],
           "testUnit": [
             "UT: resolveHeaderPaths 4パターン相対パス＋同一ディレクトリケース＋不変表明",
@@ -3204,13 +3204,13 @@
           "status": "reviewed",
           "title": "Update boundify Command Documentation",
           "referenceSection": "tickets/specs/0070-px-31-update-boundify-command-documentation.md",
-          "background": "PX-27〜PX-30 の変更により boundify パイプラインに validate-slug.js 追加、宣言スタブ・prose kind 廃止・階層化/prune・クロスリファレンス/ヘッダーコメントの各機能が追加・変更された。これらの変更を boundify-graph-to-dirs.md スラッシュコマンド定義と各スクリプトの JSDoc に反映する。",
+          "background": "PX-27〜PX-30 の変更により boundify パイプラインに validate-slug.js 追加、宣言スタブ・prose kind 廃止・階層化/prune・クロスリファレンス/ヘッダーコメントの各機能が追加・変更された。これらの変更を boundify-graph.md スラッシュコマンド定義と各スクリプトの JSDoc に反映する。",
           "scope": [
-            "boundify-graph-to-dirs.md の全セクション更新（使用スクリプト, 全Step, 完了報告）",
+            "boundify-graph.md の全セクション更新（使用スクリプト, 全Step, 完了報告）",
             "各スクリプトの JSDoc 更新"
           ],
           "testUnit": [
-            "boundify-graph-to-dirs.md の全Stepが更新後のパイプラインと一致する",
+            "boundify-graph.md の全Stepが更新後のパイプラインと一致する",
             "validate-slug.js が使用スクリプト一覧に追加されている",
             "prune ルール・ヘッダーコメント・クロスリファレンスが記載されている",
             "各スクリプトの JSDoc が実装と一致している"
@@ -3939,7 +3939,7 @@
           "status": "reviewed",
           "title": "SPLIT-Status.json 管理スクリプトと split-to-tickets.md Status管理機構の追加",
           "referenceSection": "tickets/specs/0080-split-statusjson-split-to-ticketsmd-status.md",
-          "background": "split-to-tickets.md には進行状態管理機構が存在しない。graphify-rfc.md と boundify-graph-to-dirs.md は update-step-status.js / update-boundify-step-status.js による *-Status.json 管理で各Stepの進行状態を永続化している。split-to-tickets.md も同様の機構が必要。但し split はサブステップを含む10原子ステップ（MAX_STEP=9）と graphify/boundify より多いため、専用の update-split-step-status.js を新規作成する。",
+          "background": "split-to-tickets.md には進行状態管理機構が存在しない。graphify-rfc.md と boundify-graph.md は update-step-status.js / update-boundify-step-status.js による *-Status.json 管理で各Stepの進行状態を永続化している。split-to-tickets.md も同様の機構が必要。但し split はサブステップを含む10原子ステップ（MAX_STEP=9）と graphify/boundify より多いため、専用の update-split-step-status.js を新規作成する。",
           "scope": [
             "update-split-step-status.js 新規（コピー元: update-boundify-step-status.js, MAX_STEP=9, SPLITサフィックス追加, 全メッセージ置換）",
             "split-to-tickets.md: statusPath導出 + 全10Stepにstart-step/end-step + エラー復帰手順",
@@ -6951,11 +6951,11 @@
           "phaseId": 21,
           "status": "reviewed",
           "title": "boundify-graph-to-dirs.js メインスクリプト統合",
-          "referenceSection": "RFC-BOUNDIFY.md §4.2 (spec: 0061-boundify-graph-to-dirsjs.md)",
+          "referenceSection": "RFC-BOUNDIFY.md §4.2 (spec: 0061-boundify-graphjs.md)",
           "background": "全下位層（P18〜P22の実装）を統合し、CLI エントリポイントを完成させる。引数パース・グラフ読込・言語推定・ツリー生成・エッジ解析・スキーマ検証・ファイル書出・--json/--quiet出力制御を統合。",
           "scope": [
             "NEW: .claude/scripts/rfc-graph/boundify-graph-to-dirs.js — メインスクリプト（parseArguments/loadGraph/main/アダプター関数群）",
-            "NEW: tests/rfc-graph/boundify-graph-to-dirs.test.cjs — ユニットテスト"
+            "NEW: tests/rfc-graph/boundify-graph.test.cjs — ユニットテスト"
           ],
           "testUnit": [
             "UT-parseArguments: 正常系 フラグパース/-GRAPH除去/絶対パス変換",
@@ -6988,7 +6988,7 @@
             },
             {
               "before": "(new file)",
-              "after": "tests/rfc-graph/boundify-graph-to-dirs.test.cjs",
+              "after": "tests/rfc-graph/boundify-graph.test.cjs",
               "description": "ユニットテスト — 39ケース（12 describeスイート）"
             }
           ],
@@ -6999,12 +6999,12 @@
           "id": 2,
           "phaseId": 21,
           "status": "reviewed",
-          "title": "update-step-status.js --status= フラグ拡張 + boundify-graph-to-dirs.md スラッシュコマンド定義",
-          "referenceSection": "specs/0062-update-step-statusjs-status-boundify-graph-to-dirsmd.md",
-          "background": "既存 update-step-status.js に --status=<path> フラグを追加（--graphify-status= のエイリアス、既存挙動は変更禁止）。合わせて /boundify-graph-to-dirs の .md 定義ファイルを tools/conver/.claude/commands/ に作成する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存するため同一チケットに統合。\n\n【調査結果】\n1. parseArguments() L93-L106: --graphify-status= のみ受理。--status= も受理する条件に拡張要。\n2. printUsage() L308-L328: 全使用例が --graphify-status= 固定。--status= の例も追記要。\n3. エラーメッセージ L87-L99: フラグ名が --graphify-status= でハードコード。\n4. boundify-graph-to-dirs.md: ファイル存在するが内容空。\n5. boundify-graph-to-dirs.js L359: 出力先は *-BOUNDIFY-Status.json（graphify とは別ファイル）。\n6. update-step-status.test.cjs: 既存 41 ケース、全 PASS。",
+          "title": "update-step-status.js --status= フラグ拡張 + boundify-graph.md スラッシュコマンド定義",
+          "referenceSection": "specs/0062-update-step-statusjs-status-boundify-graphmd.md",
+          "background": "既存 update-step-status.js に --status=<path> フラグを追加（--graphify-status= のエイリアス、既存挙動は変更禁止）。合わせて /boundify-graph の .md 定義ファイルを tools/conver/.claude/commands/ に作成する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存するため同一チケットに統合。\n\n【調査結果】\n1. parseArguments() L93-L106: --graphify-status= のみ受理。--status= も受理する条件に拡張要。\n2. printUsage() L308-L328: 全使用例が --graphify-status= 固定。--status= の例も追記要。\n3. エラーメッセージ L87-L99: フラグ名が --graphify-status= でハードコード。\n4. boundify-graph.md: ファイル存在するが内容空。\n5. boundify-graph-to-dirs.js L359: 出力先は *-BOUNDIFY-Status.json（graphify とは別ファイル）。\n6. update-step-status.test.cjs: 既存 41 ケース、全 PASS。",
           "scope": [
             ".claude/scripts/rfc-graph/update-step-status.js — 改修: --status=<path> フラグ拡張 (parseArguments + printUsage + エラーメッセージ)",
-            ".claude/commands/boundify-graph-to-dirs.md — 記述: 前付 + 引数説明 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰",
+            ".claude/commands/boundify-graph.md — 記述: 前付 + 引数説明 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰",
             "tests/rfc-graph/update-step-status.test.cjs — 追加: --status= フラグ関連 5テストケース"
           ],
           "testUnit": [
@@ -7014,7 +7014,7 @@
             "UT: --status= 空パス → <path> 空エラー",
             "UT: --stat=path 誤記 → typo エラー",
             "正常系: update-step-status.test.cjs 既存41ケースが pass（回帰なし）",
-            "手動: test -f .claude/commands/boundify-graph-to-dirs.md → 存在確認"
+            "手動: test -f .claude/commands/boundify-graph.md → 存在確認"
           ],
           "testExceptions": [
             ".md はドキュメントのため自動テスト不可（存在確認のみ手動）"
@@ -7032,7 +7032,7 @@
             {
               "before": "（空ファイル）",
               "after": "全Step記述: 前付 + 引数 + 導出パス + スクリプト一覧 + Step 0〜5 + エラー復帰 + 完了報告",
-              "description": ".claude/commands/boundify-graph-to-dirs.md — graphify-rfc.md 準拠のフルスラッシュコマンド定義（--status= フラグ使用）"
+              "description": ".claude/commands/boundify-graph.md — graphify-rfc.md 準拠のフルスラッシュコマンド定義（--status= フラグ使用）"
             },
             {
               "before": "parseArguments テスト 8ケース",

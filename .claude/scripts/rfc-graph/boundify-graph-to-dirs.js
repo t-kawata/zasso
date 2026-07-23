@@ -19,7 +19,7 @@
  *   With --quiet   → Suppress stdout (file output only)
  *   Always writes Dirs-Tree.json to the same directory as the graph (*-BOUNDIFY-Status.json is managed by update-step-status.js)
  *
- * @module boundify-graph-to-dirs
+ * @module boundify-graph
  */
 
 "use strict";

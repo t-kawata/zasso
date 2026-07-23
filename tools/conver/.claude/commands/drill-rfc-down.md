@@ -225,7 +225,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
 
 ### STEP 7a: Append I/O Boundary Reference Information
 
-For RFCs with all design tree decisions resolved, append I/O boundary reference information to enable safe partitioning by future `/graphify-rfc` (graphing) and `/boundify-graph-to-dirs` (directory boundary generation).
+For RFCs with all design tree decisions resolved, append I/O boundary reference information to enable safe partitioning by future `/graphify-rfc` (graphing) and `/boundify-graph` (directory boundary generation).
 
 ```bash
 # Insert template

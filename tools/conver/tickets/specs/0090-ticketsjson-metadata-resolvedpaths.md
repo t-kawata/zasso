@@ -286,7 +286,7 @@ graphPath:     .../RFC_ROOT-GRAPH.json     ← rfcPath の .md → -GRAPH.json �
 dirsTreePath:  .../RFC_ROOT-Dirs-Tree.json ← rfcPath の .md → -Dirs-Tree.json に置換
 ```
 
-この規則は `/graphify-rfc` と `/boundify-graph-to-dirs` の出力命名規則と一致する。
+この規則は `/graphify-rfc` と `/boundify-graph` の出力命名規則と一致する。
 
 ## Test Plan
 

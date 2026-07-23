@@ -11,7 +11,7 @@ updated_at: 2026-07-08
 
 ## Summary
 
-PX-27〜PX-30 の一連の変更を反映し、`boundify-graph-to-dirs.md` スラッシュコマンド定義と関連ドキュメントを更新する。これにより、スラッシュコマンドの記述が実際の動作と一致する状態を維持する。
+PX-27〜PX-30 の一連の変更を反映し、`boundify-graph.md` スラッシュコマンド定義と関連ドキュメントを更新する。これにより、スラッシュコマンドの記述が実際の動作と一致する状態を維持する。
 
 ## ⚠️ 作業範囲の重大制約
 
@@ -34,11 +34,11 @@ PX-27〜PX-30 の4チケットにより、boundify パイプラインに以下�
 6. クロスリファレンスコメントとヘッダーテンプレートの追加
 7. `validate-dirs-tree-schema.js` の SCHEMA に `crossReferences` 追加
 
-これらの変更がスラッシュコマンド定義 `boundify-graph-to-dirs.md`、CLAUDE.md、および各スクリプトのドキュメント（JSDoc）に適切に反映されなければ、ユーザーは実際の動作とドキュメントの乖離に混乱する。
+これらの変更がスラッシュコマンド定義 `boundify-graph.md`、CLAUDE.md、および各スクリプトのドキュメント（JSDoc）に適切に反映されなければ、ユーザーは実際の動作とドキュメントの乖離に混乱する。
 
 ## Scope
 
-- `.claude/commands/boundify-graph-to-dirs.md` の更新:
+- `.claude/commands/boundify-graph.md` の更新:
   - 使用スクリプト一覧に `validate-slug.js` を追加
   - Step 1（自己修復ループ）に `validate-slug.js` の実行を追加
   - prose 系 kind 廃止に関する挙動変更を記載
@@ -58,7 +58,7 @@ PX-27〜PX-30 の4チケットにより、boundify パイプラインに以下�
 
 ## Investigation
 
-**`/Users/kawata/shyme/zasso/tools/conver/.claude/commands/boundify-graph-to-dirs.md`** — 現在の定義:
+**`/Users/kawata/shyme/zasso/tools/conver/.claude/commands/boundify-graph.md`** — 現在の定義:
 - 使用スクリプト一覧（L51-65）: 9スクリプト記載。`validate-slug.js` は未記載
 - ガイドライン（L41-48）: 自己修復ループの説明あり。prune ルール・ヘッダーコメント・クロスリファレンスの記述なし
 - Step 1（L92-151）: verify-graph-integrity.js の実行のみ。validate-slug.js なし
@@ -84,7 +84,7 @@ PX-27〜PX-30 の4チケットにより、boundify パイプラインに以下�
 テスト対象: なし（ドキュメントのみの変更のため、単体テストは存在しない）
 
 **検証手段:**
-- 更新後の `boundify-graph-to-dirs.md` が全Stepのコマンド例を実際に実行可能であることを確認（シェルチェック）
+- 更新後の `boundify-graph.md` が全Stepのコマンド例を実際に実行可能であることを確認（シェルチェック）
 - 更新後の JSDoc が `node -e "require('./boundify-helpers.js')"` でエラーなく読み込めることを確認
 - 記載内容が PX-27〜PX-30 の各 Acceptance Criteria と矛盾しないことを目視確認
 
@@ -96,13 +96,13 @@ PX-27〜PX-30 の4チケットにより、boundify パイプラインに以下�
 ## Boy Scout Rule — 翻訳可能性計画
 
 - コマンド定義は各Stepが「何を」「なぜ」「どのように」の3層で読めるよう記述する（翻訳可能性の原則）
-- `boundify-graph-to-dirs.md` は本チケット以前から「読めばわかる」状態を保っているため、更新によりその品質を維持する
+- `boundify-graph.md` は本チケット以前から「読めばわかる」状態を保っているため、更新によりその品質を維持する
 - `.md` ファイル内のコマンド例は一貫したスタイル（`$` プレフィックス統一）で記述する
 - ドキュメント更新で既存の誤記があれば併せて修正する（Boy Scout Rule）
 
 ## Acceptance Criteria
 
-- [ ] `boundify-graph-to-dirs.md` の使用スクリプト一覧に `validate-slug.js` が追加されている
+- [ ] `boundify-graph.md` の使用スクリプト一覧に `validate-slug.js` が追加されている
 - [ ] Step 1 に `validate-slug.js` の実行が追加されている
 - [ ] ガイドラインに prose 系 kind 廃止・prune ルール・ヘッダーコメント・クロスリファレンスが記載されている
 - [ ] Step 2 に prune・階層化の説明が追加されている

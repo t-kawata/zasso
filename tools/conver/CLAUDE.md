@@ -208,7 +208,7 @@ Step 3.5: 機械的フィルタリング（新設）
 
 ---
 
-## 拡張: RFC BOUNDIFY-001 — `/boundify-graph-to-dirs` スラッシュコマンド
+## 拡張: RFC BOUNDIFY-001 — `/boundify-graph` スラッシュコマンド
 
 > このセクションは `/formulate-tickets-for-next` によって自動追記されました。
 > **生成元:** tools/conver/RFC-BOUNDIFY.md
@@ -238,7 +238,7 @@ Step 3.5: 機械的フィルタリング（新設）
   update-step-status.js        ← --status= フラグ追加（既存改修）
 
 .claude/commands/
-  boundify-graph-to-dirs.md    ← スラッシュコマンド定義（新規）
+  boundify-graph.md    ← スラッシュコマンド定義（新規）
 ```
 
 ### スタブ一覧と解決計画

@@ -9,7 +9,7 @@ status: "Draft"
 
 ## Abstract
 
-本RFCは、`/graphify-rfc` が生成するグラフJSONを入力として受け取り、ディレクトリと名前空間で構築された安全な境界を持つ実装ディレクトリツリーを提案・洗練・生成する `/boundify-graph-to-dirs` スラッシュコマンドの完全設計を記述する。
+本RFCは、`/graphify-rfc` が生成するグラフJSONを入力として受け取り、ディレクトリと名前空間で構築された安全な境界を持つ実装ディレクトリツリーを提案・洗練・生成する `/boundify-graph` スラッシュコマンドの完全設計を記述する。
 
 **作業対象範囲**: 本RFCに記述される全スクリプト・コマンド定義は `tools/conver/.claude/` ディレクトリ内に配置する。既存ファイル（`graphify-rfc.md`、`crud.js`、`verify.js` 等）への変更は `update-step-status.js` への `--status=` フラグ追加に限定し、それ以外の既存ファイルは一切変更しない。
 
@@ -28,9 +28,9 @@ status: "Draft"
 - 公開/非公開の境界（`pub` vs `pub(crate)`、`internal/` パッケージ、barrel export）の不統一
 - 言語固有の規約（Rustのモジュール階層、Goのパッケージ設計、TypeScriptの barrel パターン）の適用漏れ
 
-### 解決策: boundify-graph-to-dirs
+### 解決策: boundify-graph
 
-`/boundify-graph-to-dirs` はグラフJSONの kind 分類とエッジの依存関係から、安全な境界を持つディレクトリツリーを**機械的に提案**し、**AIが洗練**し、**テンプレートとして出力**する3段階のパイプラインを提供する。
+`/boundify-graph` はグラフJSONの kind 分類とエッジの依存関係から、安全な境界を持つディレクトリツリーを**機械的に提案**し、**AIが洗練**し、**テンプレートとして出力**する3段階のパイプラインを提供する。
 
 ```text
 RFC-ROOT.md
@@ -39,7 +39,7 @@ RFC-ROOT-GRAPH.json          ← 設計の論理グラフ（177ノード・243�
   │
   ├──→ formulate-tickets    ← 「何を」実装するか
   │
-  └──→ boundify-graph-to-dirs  ← 「どこに」実装するか（← 本RFC）
+  └──→ boundify-graph  ← 「どこに」実装するか（← 本RFC）
          │
          ↓ Step 1-4 ループ
          RFC-ROOT-Dirs-Tree.json  ← 洗練されたディレクトリ構造
@@ -550,7 +550,7 @@ function findCycles(dirEdges) {
 └── query.js                     ← グラフ検索（既存、変更なし）
 
 .claude/commands/
-├── boundify-graph-to-dirs.md    ← スラッシュコマンド定義（新規）
+├── boundify-graph.md    ← スラッシュコマンド定義（新規）
 └── graphify-rfc.md              ← 既存、変更なし
 ```
 
@@ -1667,7 +1667,7 @@ boundify が出力する全ファイルの命名規則は以下の通り：
 
 ### 4.7 Step 構成
 
-boundify-graph-to-dirs は以下の6Stepで構成される。各Stepの進行は `update-step-status.js --status=<basename>-BOUNDIFY-Status.json <start-step|end-step|fail-step|reset-to-step> <N>` で管理する。
+boundify-graph は以下の6Stepで構成される。各Stepの進行は `update-step-status.js --status=<basename>-BOUNDIFY-Status.json <start-step|end-step|fail-step|reset-to-step> <N>` で管理する。
 
 #### Step 0: 初期化（--json 出力とファイル書き出し）
 

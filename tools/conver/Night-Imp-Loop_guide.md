@@ -33,8 +33,8 @@ Night-Imp-Loop（ナイトインプループ）は、**昼は人間が仕様と�
 5. **`/merge-omissions-into-root-rfc`**  
    見つかった不足を、元の設計書に反映します。設計書を最新の状態に保つための更新です。[file:62]
 
-6. **`/graphify-rfc` + `/boundify-graph-to-dirs`**  
-   `/graphify-rfc` で設計書を論理グラフ化し、`/boundify-graph-to-dirs` でディレクトリ境界を生成します。大規模な仕事を整理するときに使います。[file:62]
+6. **`/graphify-rfc` + `/boundify-graph`**  
+   `/graphify-rfc` で設計書を論理グラフ化し、`/boundify-graph` でディレクトリ境界を生成します。大規模な仕事を整理するときに使います。[file:62]
 
 7. **`/drill-rfc-down`**  
    既存の設計書に質問を重ねて、考慮漏れや設計の穴を埋めます。[file:62]

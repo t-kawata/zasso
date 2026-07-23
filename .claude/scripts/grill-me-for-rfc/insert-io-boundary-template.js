@@ -2,7 +2,7 @@
 /**
  * insert-io-boundary-template.js <rfc-file>
  *
- * Appends the "graphify-rfc + boundify-graph-to-dirs reference info — I/O boundary clues from the RFC design document"
+ * Appends the "graphify-rfc + boundify-graph reference info — I/O boundary clues from the RFC design document"
  * section as a template to the RFC file.
  *
  * Places markers of the form
@@ -29,7 +29,7 @@ if (!fs.existsSync(resolvedPath)) {
 const content = fs.readFileSync(resolvedPath, "utf-8");
 
 // Check if section already exists (prevent duplicate insertion)
-const sectionPattern = /graphify-rfc + boundify-graph-to-dirss*のための参考情報/;
+const sectionPattern = /graphify-rfc + boundify-graph*のための参考情報/;
 if (sectionPattern.test(content)) {
   console.log("I/O boundary reference section already exists. Skipping.");
   process.exit(0);
@@ -45,9 +45,9 @@ if (sectionNumbers && sectionNumbers.length > 0) {
 
 const sn = nextNumber;
 
-const template = `\n\n## ${sn}. graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり
+const template = `\n\n## ${sn}. graphify-rfc + boundify-graph のための参考情報 — RFC設計書が示す I/O 境界の手がかり
 
-本セクションは、後日 \`/graphify-rfc + boundify-graph-to-dirs\`（RFC分割）、\`/formulate-tickets\`（チケット策定）、\`/formulate-tickets-for-next\`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
+本セクションは、後日 \`/graphify-rfc + boundify-graph\`（RFC分割）、\`/formulate-tickets\`（チケット策定）、\`/formulate-tickets-for-next\`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
 
 ### ${sn}.1 観測された自然な I/O 境界
 
@@ -72,7 +72,7 @@ const template = `\n\n## ${sn}. graphify-rfc + boundify-graph-to-dirs のため�
 ### ${sn}.6 参考: 本セクションの目的と限界
 
 - 本セクションは RFC の設計記述から**事後的に観測された**境界を書き留めたものであり、境界を**事前に設計した**ものではない。
-- 実際の分割判断は、実装が進みコードとテストが蓄積された後、\`/graphify-rfc + boundify-graph-to-dirs\` 実行時に行う。
+- 実際の分割判断は、実装が進みコードとテストが蓄積された後、\`/graphify-rfc + boundify-graph\` 実行時に行う。
 - ここに書かれた境界の候補は参考情報であり、分割時に新たな発見があればそちらを優先してよい。
 `;
 

@@ -1,5 +1,5 @@
 /**
- * boundify-graph-to-dirs.test.cjs — boundify-graph-to-dirs.js unit tests
+ * boundify-graph.test.cjs — boundify-graph-to-dirs.js unit tests
  *
  * Test framework: Node.js standard node:test + node:assert/strict
  */

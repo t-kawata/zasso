@@ -66,7 +66,7 @@ PX-24 で追加されるスキーマフィールドにより、以下のこと�
 
 ### テストファイル
 
-- `tests/rfc-graph/boundify-graph-to-dirs.test.cjs`
+- `tests/rfc-graph/boundify-graph.test.cjs`
 - `tests/rfc-graph/boundify-helpers.test.cjs`（存在する場合）
 - `tests/rfc-graph/boundify-tree.test.cjs`（存在する場合）
 - 言語推論テスト → 削除（テスト自体が不要になる）
@@ -77,7 +77,7 @@ PX-24 で追加されるスキーマフィールドにより、以下のこと�
 
 - graphify 側のスキーマ拡張 — これは PX-24
 - 既存グラフデータの一括マイグレーション — PX-24 の完了後に再生成する
-- `commands/boundify-graph-to-dirs.md` の大幅な構造変更 — コマンド定義のインターフェースは維持
+- `commands/boundify-graph.md` の大幅な構造変更 — コマンド定義のインターフェースは維持
 
 ## Investigation
 

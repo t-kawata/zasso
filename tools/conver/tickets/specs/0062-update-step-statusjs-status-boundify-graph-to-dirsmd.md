@@ -1,16 +1,16 @@
 ---
 ticket_id: 62
-title: update-step-status.js --status= フラグ拡張 + boundify-graph-to-dirs.md スラッシュコマンド定義
-slug: update-step-statusjs-status-boundify-graph-to-dirsmd
+title: update-step-status.js --status= フラグ拡張 + boundify-graph.md スラッシュコマンド定義
+slug: update-step-statusjs-status-boundify-graphmd
 status: draft
 created_at: 2026-07-07
 updated_at: 2026-07-07
 ---
-# update-step-status.js --status= フラグ拡張 + boundify-graph-to-dirs.md スラッシュコマンド定義
+# update-step-status.js --status= フラグ拡張 + boundify-graph.md スラッシュコマンド定義
 
 ## Summary
 
-update-step-status.js に `--status=<path>` フラグを追加（既存 `--graphify-status=` のエイリアスとして併存させ、後方互換を維持する）。合わせて、空ファイル状態の `.claude/commands/boundify-graph-to-dirs.md` にスラッシュコマンド定義を記述する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存する（フラグの存在を前提に .md で呼び出し例を記述する）ため同一チケットに統合する。
+update-step-status.js に `--status=<path>` フラグを追加（既存 `--graphify-status=` のエイリアスとして併存させ、後方互換を維持する）。合わせて、空ファイル状態の `.claude/commands/boundify-graph.md` にスラッシュコマンド定義を記述する（graphify-rfc.md と同様の Step 0〜5 構成）。フラグ拡張とドキュメント化は相互依存する（フラグの存在を前提に .md で呼び出し例を記述する）ため同一チケットに統合する。
 
 ## Background
 
@@ -30,8 +30,8 @@ boundify-graph-to-dirs.js（P21-1）の出力先は `*-BOUNDIFY-Status.json` で
    - `module.exports`: 変更なし（新規API不要、既存export維持）
    - 後方互換性: `--graphify-status=` の動作は一切変更禁止
 
-2. **boundify-graph-to-dirs.md — スラッシュコマンド定義の記述**:
-   - 既存の空ファイル（.claude/commands/boundify-graph-to-dirs.md）に frontmatter + 本文を記述
+2. **boundify-graph.md — スラッシュコマンド定義の記述**:
+   - 既存の空ファイル（.claude/commands/boundify-graph.md）に frontmatter + 本文を記述
    - frontmatter: `description`, `argument-hint`, `allowed-tools`
    - 使用スクリプト一覧テーブル（graphify-rfc.md と同形式）
    - Step 0〜5 の進行制御手順（各Step: 開始→作業→正常終了→エラー時復帰）
@@ -122,9 +122,9 @@ fs.writeFileSync(outputPaths.statusPath, JSON.stringify({
 
 このように boundify は `*-BOUNDIFY-Status.json` を出力する。update-step-status.js が `--status=<path>` でこのファイルを受け取れるようにする必要がある。
 
-### 証拠5: boundify-graph-to-dirs.md の現状
+### 証拠5: boundify-graph.md の現状
 
-ファイル: `.claude/commands/boundify-graph-to-dirs.md`
+ファイル: `.claude/commands/boundify-graph.md`
 
 **現状**: ファイルは存在するが中身は空（0行）。全く記述がない。
 
@@ -167,7 +167,7 @@ P21-1 は `relatedTicketIds` に P21-2 を「後続」として明示してい�
 ### ユニットテスト不可能な項目（例外）
 
 - `.md` ファイル（Markdown コマンド定義）はコードではないため自動テスト不可
-- 存在確認のみテストケース外で手動確認: `test -f .claude/commands/boundify-graph-to-dirs.md`
+- 存在確認のみテストケース外で手動確認: `test -f .claude/commands/boundify-graph.md`
 
 ## Boy Scout Rule — 翻訳可能性計画
 
@@ -199,5 +199,5 @@ P21-1 は `relatedTicketIds` に P21-2 を「後続」として明示してい�
 | ファイル | 操作 | 内容 |
 |---------|------|------|
 | `.claude/scripts/rfc-graph/update-step-status.js` | 改修 | `--status=` フラグ拡張（parseArguments + printUsage + エラーメッセージ） |
-| `.claude/commands/boundify-graph-to-dirs.md` | 新規記述 | 空ファイルにスラッシュコマンド定義を記述（graphify-rfc.md 相当） |
+| `.claude/commands/boundify-graph.md` | 新規記述 | 空ファイルにスラッシュコマンド定義を記述（graphify-rfc.md 相当） |
 | `tests/rfc-graph/update-step-status.test.cjs` | テスト追加 | `--status=` フラグのパーステスト4〜5ケース |

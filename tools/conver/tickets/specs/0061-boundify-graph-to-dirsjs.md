@@ -1,7 +1,7 @@
 ---
 ticket_id: 61
 title: boundify-graph-to-dirs.js メインスクリプト統合
-slug: boundify-graph-to-dirsjs
+slug: boundify-graphjs
 status: draft
 created_at: 2026-07-07
 updated_at: 2026-07-07
@@ -43,7 +43,7 @@ Boundify パイプラインの全工程を統括するメインスクリプト�
    - 3ファイル出力: `<basename>-Dirs-Tree.json`, `<basename>-GRAPH-LANG.json`, `<basename>-BOUNDIFY-Status.json`
    - 3出力モード: `--json`（JSONのみstdout）、`--quiet`（stdout抑制）、デフォルト（.en.md + Markdown + JSONブロック）
 5. `module.exports` で全関数を露出（テストから呼び出し可能に）
-6. テストファイルの作成（boundify-graph-to-dirs.test.cjs）
+6. テストファイルの作成（boundify-graph.test.cjs）
 
 ## Non-scope
 
@@ -107,7 +107,7 @@ RFC-BOUNDIFY.md §4.2 より、メインスクリプトの完全な実装仕様�
 
 ### ユニットテスト計画
 
-`tests/rfc-graph/boundify-graph-to-dirs.test.cjs` に以下のテストを実装する。
+`tests/rfc-graph/boundify-graph.test.cjs` に以下のテストを実装する。
 
 テスト対象関数：
 
@@ -174,7 +174,7 @@ RFC-BOUNDIFY.md §4.2 より、メインスクリプトの完全な実装仕様�
 ### 配置先
 
 - スクリプト本体: `.claude/scripts/rfc-graph/boundify-graph-to-dirs.js`
-- テストファイル: `tests/rfc-graph/boundify-graph-to-dirs.test.cjs`
+- テストファイル: `tests/rfc-graph/boundify-graph.test.cjs`
 
 ### 作業制約
 

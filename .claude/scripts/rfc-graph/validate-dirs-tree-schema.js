@@ -3,7 +3,7 @@
  * validate-dirs-tree-schema.js — Dirs-Tree.json schema validation script
  *
  * Validates Dirs-Tree.json via --dirs-tree=<path> --graph=<path>.
- * Automatically executed at the end of each Step in the boundify-graph-to-dirs pipeline.
+ * Automatically executed at the end of each Step in the boundify-graph pipeline.
  * Serves the same role as check-all-schema.js in graphify.
  *
  * Validation items (6 items):

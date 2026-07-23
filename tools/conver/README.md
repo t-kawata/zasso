@@ -246,7 +246,7 @@ conver の二層ループは、**RFCが定義する設計ベクトル空間と�
 | ループ | 実行主体 | コマンド | 説明 |
 |--------|----------|----------|------|
 | **内側** | `conver.js`（ACP クライアント、自動） | `make` → `plan` → `start` → `review` → `resolve` → `find` | チケットの実装〜完了までの一連の流れを自動実行。make/plan/start/reviewは1セッション、resolveは別セッション（`-b 0` で review 分離可能） |
-| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `graphify-rfc`, `boundify-graph-to-dirs`, `graphify-rfc` + `boundify-graph-to-dirs`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
+| **外側** | 人間（手動） | `grill`, `formulate`, `formulate-for-next`, `grill-me-for-next-rfc-ja`, `merge-omissions-into-root-rfc`, `graphify-rfc`, `boundify-graph`, `graphify-rfc` + `boundify-graph`, `drill-rfc-down`, `check-final` | 設計判断・ループ継続判断は人間が行う |
 
 内側ループは `conver.js` が自動的に回し続けます。外側ループの各ステップは、人間が Claude Code 上で該当のスラッシュコマンドを実行することで進行します。
 
@@ -341,9 +341,9 @@ parent-omissions: <OMISSIONSファイルのパス>
 長大なMarkdown設計文書をI/O境界単位の細粒度ノードに分割し、属性付きエッジで結んだグラフ構造（`*-GRAPH.json`）として永続化する。 `/formulate-tickets` 及び `/formulate-tickets-for-next` から利用可能。
 
 - 6Step進行制御（見出し重複排除→ノード分割→エッジ付与→機械検証→自己検証→最終品質検証）
-- 生成されたグラフは `/boundify-graph-to-dirs` の入力となる
+- 生成されたグラフは `/boundify-graph` の入力となる
 
-#### `/boundify-graph-to-dirs <graph-file-path>`
+#### `/boundify-graph <graph-file-path>`
 
 `/graphify-rfc` が生成したグラフJSONを入力として受け取り、検証・自己修復ループを経て安全な境界を持つ実装ディレクトリツリー（`Dirs-Tree.json`）とテンプレートファイルを生成する。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成する。
 
@@ -561,13 +561,13 @@ Tickets.json
 ### スラッシュコマンド経由（Claude Code 内）
 
 1. `/grill-me-for-rfc` で設計判断を確定し、RFC を書く
-2. （任意）長大なRFCは `/graphify-rfc` → `/boundify-graph-to-dirs` で論理グラフ化・ディレクトリ構造化する
+2. （任意）長大なRFCは `/graphify-rfc` → `/boundify-graph` で論理グラフ化・ディレクトリ構造化する
 3. `/formulate-tickets` で RFC から `Tickets.json` を生成する
 4. ACP クライアント（後述の `conver.js`）が内側ループを自動実行する
 5. `find` が出力した `OMISSIONS-XXX.json` を確認する
    - RFC-OMISSIONS を正典に統合するなら `/merge-omissions-into-root-rfc`
    - 次の設計が必要なら `/grill-me-for-next-rfc-ja` → `/formulate-tickets-for-next` で次世代へ
-   - 長大なRFCを分割するなら `/graphify-rfc` → `/boundify-graph-to-dirs`
+   - 長大なRFCを分割するなら `/graphify-rfc` → `/boundify-graph`
    - 既存RFCの穴を塞ぐなら `/drill-rfc-down`
    - 軽微なら `/check-final` で完了確認
 6. `/check-final` が PASS を返したら 🎉 開発完了

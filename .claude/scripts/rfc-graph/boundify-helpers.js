@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * boundify-helpers.js — Internal pure functions for boundify-graph-to-dirs
+ * boundify-helpers.js — Internal pure functions for boundify-graph
  *
  * This module implements P17-1 (4 pure functions batch).
  * All functions are designed as pure functions with no external I/O.

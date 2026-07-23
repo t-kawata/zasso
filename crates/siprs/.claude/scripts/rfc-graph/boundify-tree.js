@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * boundify-tree.js — Directory tree generation functions for boundify-graph-to-dirs
+ * boundify-tree.js — Directory tree generation functions for boundify-graph
  *
  * Provides functions to generate directory trees from graph nodes.
  * Conforms to RFC-BOUNDIFY.md §3.5 (Directory proposal algorithm).

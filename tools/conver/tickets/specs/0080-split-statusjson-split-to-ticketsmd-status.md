@@ -14,7 +14,7 @@ updated_at: 2026-07-10
 
 ## Background
 
-現在の `split-to-tickets.md` は進行状態を一切管理していない。どのStepが完了し、どこから再開すべきかが不明であり、途中中断やエラー時にAIが迷う。`graphify-rfc.md` と `boundify-graph-to-dirs.md` は `*-Status.json` による進行管理機構を持ち、各Stepの開始時（`start-step`）・終了時（`end-step`）にステータスを記録し、エラー時は `reset-to-step` で復帰可能になっている。`split-to-tickets.md` も同様の機構を持つべきである。
+現在の `split-to-tickets.md` は進行状態を一切管理していない。どのStepが完了し、どこから再開すべきかが不明であり、途中中断やエラー時にAIが迷う。`graphify-rfc.md` と `boundify-graph.md` は `*-Status.json` による進行管理機構を持ち、各Stepの開始時（`start-step`）・終了時（`end-step`）にステータスを記録し、エラー時は `reset-to-step` で復帰可能になっている。`split-to-tickets.md` も同様の機構を持つべきである。
 
 但し `split-to-tickets.md` は **サブステップを含む10個の原子ステップ**（Step 0〜9）から構成されるため、graphify（MAX_STEP=5, 6Step）や boundify（MAX_STEP=3, 4Step）よりも多い。専用スクリプト `update-split-step-status.js` を新規作成し、MAX_STEP=9（10Step）に対応させる。
 
@@ -38,7 +38,7 @@ const SPLIT_SUFFIX = '-SPLIT-Status.json';
 
 **c. 全JSDoc・usageメッセージ・コメントの変更**:
 - "BOUNDIFY-Status.json" → "SPLIT-Status.json"
-- "/boundify-graph-to-dirs" → "/split-to-tickets"
+- "/boundify-graph" → "/split-to-tickets"
 - Step範囲の記述を `0〜9` に更新
 
 **d. `graphFile` の扱い**: split-to-tickets は graphFile を持たない（グラフではなくTickets.jsonが出力先）。`createDefaultStatus()` の graphFile 逆算は現状維持（graphify/boundify との互換性のため）。但し JSDoc では「出力先Tickets.jsonの存在するディレクトリを基準に逆算」と説明を修正する。
@@ -47,7 +47,7 @@ const SPLIT_SUFFIX = '-SPLIT-Status.json';
 
 **a. 導出パスの追加**（冒頭、引数パース直後）
 
-`boundify-graph-to-dirs.md` と同じパターンで statusPath を導出する。
+`boundify-graph.md` と同じパターンで statusPath を導出する。
 
 ```bash
 basename="$(basename "$DOC_PATH" .md)"

@@ -3,7 +3,7 @@ description: Generates a directory tree and Dirs-Tree.json from graph JSON produ
 argument-hint: </path/to/*-GRAPH.json>
 ---
 
-# /boundify-graph-to-dirs <graph-file-path>
+# /boundify-graph <graph-file-path>
 
 **Role**: Accepts the graph JSON produced by /graphify-rfc as input, and through a verification and self-healing loop, generates an implementation directory tree with safe boundaries.
 
@@ -49,7 +49,7 @@ fi
 
 ## Guidelines
 
-- **/boundify-graph-to-dirs takes the output of /graphify-rfc as its sole input**. It cannot run without an existing graph.
+- **/boundify-graph takes the output of /graphify-rfc as its sole input**. It cannot run without an existing graph.
 - Scripts used in each Step are located under `.claude/scripts/rfc-graph/`.
 - Calls to update-boundify-step-status.js use the `--status=<path>` flag.
 - boundify-graph-to-dirs.js is called with the `--graph=<path>` argument format.

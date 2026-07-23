@@ -3,7 +3,7 @@
 /**
  * update-boundify-step-status.js — BOUNDIFY-Status.json management (6 subcommands)
  *
- * Manages the progress of the /boundify-graph-to-dirs slash command.
+ * Manages the progress of the /boundify-graph slash command.
  * Provides the following 6 operations on BOUNDIFY-Status.json:
  * - start-step  <N>  : Start Step N
  * - end-step    <N>  : Finish Step N normally
@@ -16,7 +16,7 @@
  * All writes use atomic write (temp file + rename) via atomicWrite,
  * ensuring the original file is never corrupted on process crash.
  *
- * This script is specific to /boundify-graph-to-dirs. Step range is 0-3.
+ * This script is specific to /boundify-graph. Step range is 0-3.
  */
 
 const fs = require('fs');
@@ -30,7 +30,7 @@ const { toHomeRelative } = require('../lib/path-utils');
 /** Minimum step number (Step 0: heading deduplication) */
 const MIN_STEP = 0;
 
-/** Maximum step number (boundify-graph-to-dirs has Steps 0-3, 4 steps total) */
+/** Maximum step number (boundify-graph has Steps 0-3, 4 steps total) */
 const MAX_STEP = 3;
 
 /** Array of allowed subcommand names */

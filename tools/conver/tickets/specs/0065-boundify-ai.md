@@ -75,7 +75,7 @@ graphify 成果物の非破壊を機械的に検証する5軸チェックスク�
 
 出力は `{ok: true}` または `{ok: false, errors: [...], remedies: [...]}` とし、remedies にAIへの修正指示を含める。
 
-### boundify-graph-to-dirs.md の全面改修
+### boundify-graph.md の全面改修
 
 - Step順序を上記4Stepに変更
 - 各Stepの「エラー時の復帰」を自己修復ループとして書き直す
@@ -142,9 +142,9 @@ Step 2 の循環検出結果が実際に活用されるのは Step 5 の目視�
 | ファイル | 行 | 内容 |
 |---|---|---|
 | `boundify-graph-to-dirs.js` | 438-441 | warnings への循環記録（機械的JSONのみ） |
-| `boundify-graph-to-dirs.md` | 全Step | エラー時復帰のパターン（意味をなしていない） |
-| `boundify-graph-to-dirs.md` | 129-132 | 「/graphify-rfc に戻って」の抽象指示 |
-| `boundify-graph-to-dirs.md` | 219-237 | 「AI による十分性判断」manual prompt |
+| `boundify-graph.md` | 全Step | エラー時復帰のパターン（意味をなしていない） |
+| `boundify-graph.md` | 129-132 | 「/graphify-rfc に戻って」の抽象指示 |
+| `boundify-graph.md` | 219-237 | 「AI による十分性判断」manual prompt |
 | `validate-dirs-tree-schema.js` | 315-371 | スキーマ検証エラー（3段テンプレート＋一覧のみ） |
 | `.claude/scripts/rfc-graph/verify.js` | 全般 | 孤立ノード・カバレッジ・headingRefs解決性の3軸検証 |
 | `.claude/scripts/rfc-graph/resolve-by-heading.js` | 全般 | headingRefs解決性チェック |
@@ -170,7 +170,7 @@ Step 2 の循環検出結果が実際に活用されるのは Step 5 の目視�
 ### ユニットテスト不可能な項目（例外）
 
 - AIの自己修復ループ全体（AI修正 → 再実行 → 退行チェック）は E2E 手動確認
-- boundify-graph-to-dirs.md（ドキュメント）の修正はテスト不能
+- boundify-graph.md（ドキュメント）の修正はテスト不能
 
 ## Boy Scout Rule — 翻訳可能性計画
 
@@ -184,7 +184,7 @@ Step 2 の循環検出結果が実際に活用されるのは Step 5 の目視�
 
 - `boundify-graph-to-dirs.js` の warnings 構築: 循環情報に人間可読な指示文を追加
 - `validate-dirs-tree-schema.js`: エラー一覧に修正優先順位を追加
-- `boundify-graph-to-dirs.md`: 全Stepのエラー時復帰を自己修復ループとして統一的に書き直し
+- `boundify-graph.md`: 全Stepのエラー時復帰を自己修復ループとして統一的に書き直し
 
 ## Acceptance Criteria
 
