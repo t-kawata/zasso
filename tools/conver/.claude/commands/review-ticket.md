@@ -79,7 +79,7 @@ node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --sour
 As needed, explore information about related tickets shown in "Related Tickets." The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis**, and the review must be conducted with material evidence regarding the implementation status. A review without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules
+node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order
 ```
 
 ### Step 3: Emergency crime resolution (highest priority — First-Class Rule)
@@ -231,4 +231,70 @@ After all checks pass, update the status together with the review completion dat
 
 ```bash
 echo "{\"status\":\"reviewed\",\"completedAt\":\"$(date +%Y-%m-%d)\"}" | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+### Step 12: Commit the pipeline changes (no push)
+
+After all review steps pass and the ticket is marked as reviewed, commit the accumulated changes from the entire `make → plan → start → review` pipeline.
+
+**IMPORTANT — NEVER PUSH**. This step stages and commits only. Pushing is a separate operation performed deliberately by the user.
+
+First, verify the working tree state:
+
+```bash
+# Show working tree state
+git status
+
+# Show staged changes (if any pre-existing staged content exists)
+git diff --cached --stat
+```
+
+Then, craft an appropriate commit message:
+
+- **Scope**: Use the ticket key (e.g. `P0-1`) as the scope
+- **Type**: Use `feat` for feature implementation, `fix` for bug fixes, `refactor` for refactoring, `test` for test additions, `chore` for infrastructure changes
+- **Subject**: Summarize the core change of this ticket
+- **Body**: List the files changed and what was done in each. Reference the ticket key.
+
+```
+<type>(<scope>): <imperative subject line>
+
+- <file1>: <what changed and why>
+- <file2>: <what changed and why>
+...
+
+Ticket: <ticketKey>
+```
+
+**Composing the commit message**:
+1. Retrieve the ticket title via `show-ticket-context.js` to understand what this ticket was about
+2. Use `git diff --stat` and `git diff` to review the actual changes made
+3. Compose a conventional commit message following [git-workflow.md](.claude/rules/common/git-workflow.md)
+
+```bash
+# Retrieve ticket info for the commit message
+node ".claude/scripts/tickets/show-ticket-context.js" --ticket-key="$ARGUMENTS" --no-implementation-order 2>/dev/null | head -20
+```
+
+Stage and commit:
+
+```bash
+# Stage all changed files
+git add -A
+
+# Commit with a crafted message
+git commit -m "<type>(<scope>): <subject line>
+
+<body lines...>
+
+Ticket: $ARGUMENTS"
+```
+
+**DO NOT run `git push` under any circumstances.** If this step is combined with push, it is considered a critical defect in the pipeline execution.
+
+Verification: After committing, confirm the commit was created correctly:
+
+```bash
+# Show the latest commit
+git log -1 --oneline
 ```

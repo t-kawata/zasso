@@ -28,7 +28,7 @@ function parseArgs(testArgs) {
   let ticketsPath = '';
   let ticketKey = '';
   let forSpec = false;
-  let noTestRules = false;
+  let noImplementationOrder = false;
   let plan = false;
   let review = false;
   for (const arg of args) {
@@ -38,8 +38,8 @@ function parseArgs(testArgs) {
       ticketKey = arg.slice('--ticket-key='.length);
     } else if (arg === '--for-spec') {
       forSpec = true;
-    } else if (arg === '--no-test-rules') {
-      noTestRules = true;
+    } else if (arg === '--no-implementation-order') {
+      noImplementationOrder = true;
     } else if (arg === '--plan') {
       plan = true;
     } else if (arg === '--review') {
@@ -51,7 +51,7 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey, forSpec, noTestRules, plan, review };
+  return { ticketsPath, ticketKey, forSpec, noImplementationOrder, plan, review };
 }
 
 /** Validate that ticketKey matches P{phaseId}-{ticketId} or PX-{id} format */
@@ -345,11 +345,11 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules) {
+function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
   // In --for-spec mode, output Implementation Order first (before YAML frontmatter)
-  if (forSpec && !noTestRules) {
+  if (forSpec && !noImplementationOrder) {
     lines.push('# Implementation Order (TDD Red-Green-Refactor)');
     lines.push('');
     lines.push('Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.');
@@ -625,7 +625,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
       lines.push('### To show related tickets details');
       lines.push('');
       lines.push('```');
-      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules');
+      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order');
       lines.push('```');
       lines.push('');
     }
@@ -662,7 +662,7 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
 }
 
 function main() {
-  const { ticketsPath, ticketKey, forSpec, noTestRules, plan, review } = parseArgs();
+  const { ticketsPath, ticketKey, forSpec, noImplementationOrder, plan, review } = parseArgs();
 
   if (!ticketKey || !isValidTicketKey(ticketKey)) {
     console.error('Error: --ticket-key must be specified in P{phaseId}-{ticketId} format (e.g., P0-1, PX-53).');
@@ -684,7 +684,7 @@ function main() {
   }
 
   const ticketsDir = path.dirname(ticketsPath);
-  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noTestRules);
+  const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder);
   console.log(output);
   process.exit(EXIT_SUCCESS);
 }

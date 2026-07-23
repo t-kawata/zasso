@@ -43,7 +43,7 @@ Located under `.claude/scripts/tickets/`.
 
 | Script | Arguments | Description |
 |--------|-----------|-------------|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-test-rules]` | **Executed in Step 1 / Step 6**. Outputs ticket information in Markdown. In Step 6, uses `--for-spec` to write out the spec file. |
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]` | **Executed in Step 1 / Step 6**. Outputs ticket information in Markdown. In Step 6, uses `--for-spec` to write out the spec file. |
 | `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--notes=...]` | **Executed in Step 2 Case B**. Sequentially calls add-ticket.js → show-ticket-context.js. Only derives the spec path; does not create the file. |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 3**. Inserts template merge markers into 11 fields. Also sets `created_at`/`updated_at` simultaneously. |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 5b loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |

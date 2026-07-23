@@ -80,7 +80,7 @@ node .claude/scripts/rfc-graph/query.js --graph="</path/to/?-GRAPH.json>" --sour
 As needed, explore information about related tickets shown in "Related Tickets." The AI determines how many levels deep to continuously drill. The obtained information **must be backed by actual source code analysis** and included in the implementation plan with material evidence. An implementation plan without material evidence is a hallucination and is strictly prohibited.
 
 ```bash
-node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-test-rules
+node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order
 ```
 
 ### Step 3: Crime and stub inspection (mandatory — First-Class Rule)
