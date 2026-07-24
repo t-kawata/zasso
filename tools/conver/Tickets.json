@@ -5491,7 +5491,7 @@
         {
           "id": 66,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Schema Foundation — edge + ticket に contracts 必須フィールド追加",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/66-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nedge.schema.json と tickets-schema.json に contracts 必須フィールドを追加し、全パイプラインが契約情報を運搬できる基盤を確立する。validate-tickets.js と validate-edge-contracts.js により contracts の欠落を BLOCK する。\n\n### Purpose\n現在のエッジは type（depends_on / implements 等）と note（240文字制限）のみで関係性を表現。contracts 配列を必須とすることで全エッジ接続が明示的な事前条件・事後条件・不変条件を持つことが強制される。\n\n### Motivation\ncontracts は全契約パイプラインの基盤。PX-67〜PX-71 の全チケットがこのスキーマに依存する。\n\n### Constraints\n- 後方互換不要。既存の全 GRAPH.json / Tickets.json は再生成\n- contracts は必須（required）、空配列禁止（minItems:1）\n- 既存エッジフィールド（from/to/type/attributes）は変更しない\n- tickets-schema.json の additionalProperties: true は維持",
@@ -5556,7 +5556,7 @@
         {
           "id": 67,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "annotate-contracts — graphify 後のエッジ契約注釈スクリプト",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/67-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nGRAPH.json の全エッジに対して AI が contracts 配列（precondition/postcondition/invariant）を付与するためのスクリプト群を実装する。annotate-contracts.js がエッジ一覧を Markdown 出力し、crud.js の update-edge で contracts を書き戻す。verify-contracts-format.js が graphify 完了後に全エッジの契約フォーマットを検証する。\n\n### Purpose\nPX-66 でスキーマを定義した contracts 配列を、実際の GRAPH.json に書き込むための運用スクリプト。AI が各エッジの契約を記述するための情報表示と、crud.js による永続化を提供する。\n\n### Motivation\ngraphify のStep 2（Edge Assignment）直後にこのスクリプト群を実行することで、エッジ作成と契約注釈を同一フローで完結させる。\n\n### Constraints\n- crud.js の既存サブコマンド（create-nodes / create-edges / list-nodes 等）は変更しない\n- update-edge のみ contracts フィールドの追加・更新・削除をサポート\n- annotate-contracts.js は読み取り専用（GRAPH.json を変更しない）",
@@ -5610,7 +5610,7 @@
         {
           "id": 68,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "merge-contracts-to-tickets + Gate L2 — チケット契約合成と閉包性検証",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/68-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nmerge-contracts-to-tickets.js と verify-ticket-closure.js（Gate L2）を実装する。前者は GRAPH.json のエッジ契約をチケットに合成し、後者はチケット内閉包性とチケット間閉包性を機械検証する。\n\n### Purpose\nPX-67 で GRAPH.json に付与された contracts を、各チケットに自動合成する。合成時に内部閉包する契約はチケット外に露出せず、外部との契約連鎖のみをチケット.contracts に書き込む。\n\n### Motivation\nチケット.contracts がなければ、チケット間の契約依存関係を機械検証できない。split-to-tickets の後処理として自動合成することで、AI が手動で contracts を記述する負荷を排除する。\n\n### Constraints\n- merge-contracts-to-tickets.js は split-to-tickets の出力を変更するが、split 自体の Step 構造は変更しない\n- チケット内で閉じる契約（source.postcondition→target.precondition が充足）はチケット外に露出しない\n- verify-ticket-closure.js は BLOCK/PASS の二値判定。WARNING は出力しない。",
@@ -5663,7 +5663,7 @@
         {
           "id": 69,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Gate L1 + Gate M — グラフ契約検証と make 段階整合性",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/69-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\n2つのゲートスクリプトを実装する。verify-graph-contracts.js（Gate L1）は graphify 完了直後に全エッジの契約フォーマットを検証。verify-make-contracts.js（Gate M）は make-ticket 完了直後にチケット契約とテスト計画の整合性を検証。\n\n### Purpose\nGate L1: グラフレベルの契約—全エッジが contracts を持ち、そのフォーマットが正しいことを graphify 完了直後に保証する。Gate M: チケットレベルの契約—make-ticket で作成された spec の testUnit/testIntegration がチケット契約に言及していることを保証する。\n\n### Motivation\nGate L1 がなければ不正な contracts フォーマットが下流（PX-68 以降）に流れるリスクがある。Gate M がなければ spec 作成時点で契約とテスト計画の乖離が放置される。\n\n### Constraints\n- 両ゲートとも読み取り専用（Tickets.json / GRAPH.json を変更しない）\n- BLOCK/PASS の二値判定。WARNING は出力しない。\n- 既存の status.json 制御（start-step / end-step / reset-to-step）を利用。ゲート FAIL 時は fail-step 遷移。",
@@ -5718,7 +5718,7 @@
         {
           "id": 70,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Gate S — TDD Red @verifies 強制（verify-red-coverage.js）",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/70-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nverify-red-coverage.js（Gate S）を実装する。TDD Red フェーズ終了時に、テストコード内の @verifies 注釈を収集し、チケット.contracts の全契約 ID がテストでカバーされていることを機械検証する。Supreme Law §1.1（RED必須）を機械的に強制する。\n\n### Purpose\nTDD Red で書かれるテストコードが、宣言された契約を本当にカバーしているかを機械検証する。「テストを書いたつもり」と「契約がテストされたこと」の乖離を防ぐ。\n\n### Motivation\nSupreme Law は「テストを先に書け」と命じているが、現在それを強制する仕組みがない。@verifies 注釈によるトレーサビリティ強制は、契約がテストに変換されたことを可視化し、未カバーの契約を BLOCK する。\n\n### Constraints\n- @verifies 注釈は Rust: // @verifies C001、TypeScript: // @verifies C001 の形式。単一テスト関数に複数行の @verifies を許可。\n- ファイルスキャンは正規表現ベース（@verifies\\s+(C\\d+)）。AST 解析は行わない。\n- precondition/テスト setup、invariant/assertion の対応はコメントベースの近似判定。完全なコード解析は行わない。",
@@ -5768,7 +5768,7 @@
         {
           "id": 71,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Gate R + Pipeline Integration — 最終検証と既存コマンドへのゲート参照追加",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/71-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nverify-final-contracts.js（Gate R）を実装し、review-ticket 終了時に全ゲート通過記録を確認・契約充足率をレポートする。同時に graphify-rfc.md / split-to-tickets.md / make-ticket.md / start-ticket.md / review-ticket.md の5つのコマンド定義ファイルに、各ゲートスクリプトの呼び出しを最小限の改修で追記する。\n\n### Purpose\n全6チケットの最終統合。契約レイヤーの全ゲート（L1/L2/M/S/R）を既存パイプラインに結びつけ、graphify から review まで一貫した契約検証の流れを確立する。\n\n### Motivation\n各ゲートスクリプトの存在だけではパイプラインに統合されない。各コマンド定義ファイル（.md）に呼び出しを追記し、AI が graphify → split → make → start → review の各段階で自動的に契約検証を実行するようにする必要がある。\n\n### Constraints\n- 各コマンドの既存 Step 構造（Step 0〜N）は一切変更しない\n- ゲート呼び出しは Step 成功完了ブロックの末尾に追記するのみ\n- ゲート FAIL 時は既存の Error Recovery 手順（fail-step → reset-to-step）と同一パターンを使用\n- boundify-graph.md と plan-ticket.md は変更しない",
@@ -5826,6 +5826,85 @@
           "created_at": "2026-07-24",
           "updated_at": "2026-07-24",
           "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 72,
+          "phaseId": -1,
+          "title": "Contracts-aware Implementation Order expansion across 6 files",
+          "status": "reviewed",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-72 (design decision)",
+              "precondition": "Contracts section is already present in show-ticket-context.js output",
+              "postcondition": "All 6 files contain the Contracts-aware paragraph in the Red phase; make-ticket.md additionally has Contracts expansion substeps and correspondence rules",
+              "invariant": "Contracts paragraph is byte-identical across all 6 files; existing content is preserved"
+            }
+          ],
+          "background": "Contracts section has been added to show-ticket-context.js output (Precondition/Postcondition/Invariant from graph edge annotation). However, the Implementation Order (TDD Red-Green-Refactor) in all 6 files still treats the Red phase as covering only the original 7 elements (Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, Invariants). Contracts — as a concrete first-class input carrying Precondition/Postcondition/Invariant — must be explicitly referenced in the Red phase: each Contract Precondition/Postcondition/Invariant must first be translated into testable form (input schemas, output assertions, invariant predicates) before being implemented as concrete test code.",
+          "scope": [
+            "[CLAUDE.md] Insert Contracts-aware paragraph into Supreme Law §1.1 Red phase",
+            "[make-ticket.md] Insert Contracts-aware paragraph + add Contracts expansion substeps + Contract-to-template correspondence rules + clarify verify-make-contracts.js role",
+            "[plan-ticket.md] Insert Contracts-aware paragraph into Step 4 Reference",
+            "[split-to-tickets.md] Insert Contracts-aware paragraph into Reference section",
+            "[start-ticket.md] Insert Contracts-aware paragraph + align with Step 5b Red contract coverage",
+            "[show-ticket-context.js] Insert Contracts-aware paragraph into --for-spec Implementation Order output"
+          ],
+          "default_files": [
+            ".claude/CLAUDE.md",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/scripts/tickets/show-ticket-context.js"
+          ],
+          "testUnit": [
+            "UT: [Precondition] grep each of the 6 files — verify the Contracts paragraph exists in the Red phase section after the 7-elements sentence",
+            "UT: [Postcondition] diff the Contracts paragraph across all 6 files — must be byte-identical (prevents drift)",
+            "UT: [Invariant] grep existing Implementation Order content — verify all original sentences are still present (no accidental deletion)",
+            "UT: [Postcondition] for JS file (show-ticket-context.js) — syntax check via node --check"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "Documentation/config change — the Contracts paragraph insertion is inherently not testable by automated test frameworks because it modifies Markdown/text content, not runtime behavior. The verification method (grep/diff/node --check) is the appropriate deterministic alternative. This is not a design defect — the change is purely additive documentation and does not introduce runtime logic that could be unit-tested."
+          ],
+          "acceptanceCriteria": [
+            "All 6 files have the Contracts-aware paragraph inserted in the Red phase",
+            "Text is consistent (byte-identical) across files",
+            "Existing content preserved (no deletions, only additive)",
+            "JS file syntax remains valid"
+          ],
+          "notes": "PX-72 (cross-cutting, not tied to a specific phase). Purely additive change — no existing content modified or deleted. Contracts paragraph must be byte-identical across all 6 files to prevent drift. make-ticket.md needs structural expansion beyond paragraph insertion (expansion substeps, correspondence rules, verify-make-contracts.js clarification).\n\nImplementation summary:\n- Changed files: .claude/CLAUDE.md, .claude/commands/make-ticket.md, .claude/commands/plan-ticket.md, .claude/commands/split-to-tickets.md, .claude/commands/start-ticket.md, .claude/scripts/tickets/show-ticket-context.js\n- Key changes: Contracts paragraph inserted in all 6 files (byte-identical). make-ticket.md additionally receives Phase 1.5 Contracts expansion substep, Contract-to-template correspondence rule in 11-field table, and verify-make-contracts.js Gate M documentation.\n- Test results: UT1 (paragraph presence) ✅, UT2 (byte-identity) ✅, UT3 (content preservation) ✅, UT4 (JS syntax) ✅\n\nReview report:\n- Crime scan: 0 crimes\n- Stub scan: 0 stubs\n- Annotation check: 1 file annotated, 0 missing, 0 ambiguous\n- Test verification: UT1 ✅ (paragraph present), UT3 ✅ (content preserved), UT4 ✅ (JS syntax)\n- Quality check: 0 issues\n- Translatability: no issues (documentation change)\n- Contract C001 fulfillment: 100%",
+          "invariants": "- [Normal condition] All 6 files remain syntactically valid after insertion — Markdown files render correctly; JS file passes node --check\n- [Error invariant] On insertion failure (e.g., file locked), no partial writes occur; the change is atomic per file\n- [Internal state invariant] The document structure (headings, bullet hierarchy, code blocks) is preserved — existing content is never deleted or reordered\n- [Boundary invariant] The Contracts paragraph is inserted at exactly the same logical position (after the 7-elements sentence) in all 6 files, preventing drift",
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: all tests passed",
+          "investigation": "All 6 target files were read and analyzed:\n\n1. **CLAUDE.md** (§1.1 Red — Supreme law): Contains the canonical Implementation Order. The Red phase lists 7 elements (Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, Invariants) but has no reference to Contracts.\n\n2. **make-ticket.md** (Step 4 Reference): Contains a verbatim copy of CLAUDE.md Implementation Order. Additionally, Step 5b defines 11 template fields with marker counts but no Contract correspondence rule. Step 6 calls verify-make-contracts.js without explaining its role. The output table in Step 1 now lists Contracts section (added in prior conversation).\n\n3. **plan-ticket.md** (Step 4 Reference): Contains verbatim Implementation Order. No Contracts reference.\n\n4. **split-to-tickets.md** (Reference section): Contains verbatim Implementation Order. Schema defines contracts as required non-empty array. merge-contracts-to-tickets.js auto-populates contracts after Step 5-2.\n\n5. **start-ticket.md** (Step 5 Reference): Contains verbatim Implementation Order. Step 5b already has a Red contract coverage verification step (verify-red-coverage.js). However, the Implementation Order in Step 5 does not mention Contracts as a first-class input.\n\n6. **show-ticket-context.js** (forSpec mode): The --for-spec code path (lines 354-392) outputs Implementation Order as Markdown. This is the same verbatim text. No Contracts reference.\n\n**Common insertion point**: In all 6 files, after the sentence \"Coverage of these seven elements is mandatory; partial implementation is not acceptable.\" and before the bullet \"- Tests must cover all observable behaviors...\"\n\n**Current Contracts section**: show-ticket-context.js already outputs Contracts section (lines 544-555) when ticket.contracts is non-empty. This PX-72 ticket itself has a C001 contract to demonstrate the pattern.",
+          "boyScoutPlan": "This ticket modifies only documentation and configuration files (Markdown descriptions and JavaScript string literals). No code-level translatability issues to address — the change is purely additive (single paragraph insertion) and does not introduce functions, variables, or control flow that could violate translatability. The existing Implementation Order text is preserved verbatim; only addition, no modification.",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "No Contracts paragraph in Red phase",
+              "after": "Contracts paragraph present",
+              "description": "Inserted Contracts-aware paragraph into Implementation Order Red phase"
+            },
+            {
+              "before": "make-ticket.md: no Contracts expansion substep",
+              "after": "Phase 1.5 — Contracts expansion added",
+              "description": "Added Contract Precondition→input schema, Postcondition→output assertion, Invariant→predicate translation step"
+            },
+            {
+              "before": "make-ticket.md: testUnit field had no Contract correspondence",
+              "after": "testUnit field documents Contract coverage requirement",
+              "description": "Updated 11-field table with Contract-to-template correspondence rules"
+            },
+            {
+              "before": "make-ticket.md: verify-make-contracts.js role undocumented",
+              "after": "Role documented in script table + Step 6",
+              "description": "Added verify-make-contracts.js description as Gate M"
+            }
+          ],
           "completedAt": "2026-07-24"
         }
       ]

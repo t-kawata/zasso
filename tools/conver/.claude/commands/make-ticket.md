@@ -48,6 +48,7 @@ Located under `.claude/scripts/tickets/`.
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 3**. Inserts template merge markers into 11 fields. Also sets `created_at`/`updated_at` simultaneously. |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 5b loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | **Executed in Step 5b / Step 6**. Updates fields (overwrite). Automatically handles string/array distinction. |
+| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 6**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Exits 0 on pass, 1 on failure. |
 | `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Adds a ticket (called internally by ensure-ticket.js). |
 
 ## Workflow
@@ -75,6 +76,7 @@ The output Markdown includes all fields that have values in the ticket (no displ
 | `## Investigation` | Material evidence obtained from investigation |
 | `## Acceptance Criteria` | Pass conditions (Happy path / Error case / Edge case) |
 | `## Invariants` | Invariant conditions (normal establishment / on error / internal state / boundary values) |
+| `## Contracts — mandatory 100% test coverage in TDD Red phase` | Contract-based pre/post/invariant conditions derived from graph edge annotation. Only rendered when `ticket.contracts` is a non-empty array. Each contract lists Precondition / Postcondition / Invariant |
 | `## Boy Scout Rule` | Translatability improvement plan |
 | `## Test Plan` | Unit Tests / Integration Tests / Exceptions |
 | `## Related Tickets` | List of related tickets |
@@ -137,6 +139,8 @@ Implementation must strictly follow the **Red → Green → Refactor** sequence.
 
 Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec's **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.
 
+When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), the Red phase must first translate each Contract into testable form — input schemas, output assertions, and invariant predicates — before implementing them as concrete test code. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified.
+
 - Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.
 - If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.
 - Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.
@@ -195,6 +199,14 @@ Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>:
 
 **Phase 1 — Test first (TDD)**: Following the Implementation Order (presented in Step 4), first replace all markers in `testUnit`, `testIntegration`, and `testExceptions`. Do not start on other fields until the test plan is solidified.
 
+**Phase 1.5 — Contracts expansion (Contracts-aware)**: When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), execute this phase before replacing remaining fields. For each Contract:
+
+1. **Translate Precondition** into concrete input schemas or type definitions — e.g., JSON Schema, TypeScript interface, Rust struct, or valid/invalid input enumerations
+2. **Translate Postcondition** into concrete output assertions or state-transition predicates — e.g., return type definitions, side-effect specifications, state machine transitions
+3. **Translate Invariant** into assertable predicates — e.g., `assert!()`, `debug_assert!()`, property-based testing invariants
+
+Each translated element must map to at least one `testUnit` entry. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified — return to Step 2 (investigation) to refine the Contract definition.
+
 **Phase 2 — All remaining fields**: Replace all remaining markers in `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria`.
 
 The types and marker configuration for each field are as follows:
@@ -204,7 +216,7 @@ The types and marker configuration for each field are as follows:
 | `invariants` | string | 4 | Normal establishment condition / Invariant on error / Internal state invariant / Boundary invariant |
 | `background` | string | 4 | Goal / Purpose / Motivation / Constraints |
 | `scope` | array | 13 | Changes (path/action/detail/before-after/api/schema/config/dep) / Non-change scope (item/why) / Impact scope (component/nature/response) |
-| `testUnit` | array | 4 | Normal / Error / Boundary / Invariant |
+| `testUnit` | array | 4 + Contracts | Normal / Error / Boundary / Invariant. When Contracts are defined, each Contract's Precondition/Postcondition/Invariant must be covered by at least one `testUnit` entry — translate Precondition → input schema test, Postcondition → output assertion test, Invariant → invariant predicate test |
 | `testIntegration` | array | 4 | Integration point / Verification / Prerequisites / Related tickets |
 | `testExceptions` | array | 3 | Item / Reason / Alternative verification |
 | `instrumentation` | string | 4 | Logging / Metrics / Error tracking / Health check |
@@ -246,7 +258,9 @@ node .claude/scripts/tickets/show-ticket-context.js \
 ```
 
 ```bash
-# Verify that test plan covers all declared contracts
+# Gate M: Verify that test plan covers all declared contracts
+# Checks each Contract's Precondition/Postcondition/Invariant is covered
+# in testUnit entries, and testExceptions have proper justification.
 node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
