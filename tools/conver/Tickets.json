@@ -5427,6 +5427,66 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-24"
+        },
+        {
+          "id": 65,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix list-definitions output: Markdown with git diff context",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/65-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "The current list-definitions outputs JSON with {success, definitions, ambiguousLine, ambiguousLineNumber}. This is useless for AI judgment because AI reads natural language, not structured data.\n\n### Goal\nReplace JSON output with Markdown containing git diff -U5 context + definitions table.\n\n### Purpose\nGive AI the information it actually needs: which lines changed (git diff) and where definitions are (table). AI reads the diff, decides which definition the changed lines belong to, picks the line number, and runs inject-at.\n\n### Motivation\nPX-64 shipped with a broken design. The list-definitions output was designed as machine-readable JSON, but the consumer is AI, not a machine. AI needs visual context, not structured fields.\n\n### Constraints\n- inject-at mode output must remain JSON (it is consumed programmatically by scripts, not by AI)\n- Must reuse existing git diff infrastructure (execFileSync, not a new git wrapper)\n- Output goes to stdout; errors to stderr\n- Must handle files outside git repos gracefully",
+          "scope": [
+            "[Change] .claude/scripts/tickets/resolve-ambiguous-markers.js — listDefinitions() output format",
+            "[Change] modify — Replace console.log(JSON.stringify(result)) with Markdown output via console.log in listDefinitions mode",
+            "[Change] Markdown output: ## Changed lines (git diff -U5) block showing diff + ## Definitions table with Line/Name/Kind columns",
+            "[Change] git diff -U5 is obtained via execFileSync('git', ['diff', '-U5', '--', filePath]) inside listDefinitions",
+            "[Before] AI sees JSON {definitions: [...], ambiguousLine: ...}. [After] AI sees Markdown with diff context and definitions table.",
+            "[Non-change] inject-at mode: output format unchanged (still JSON), logic unchanged",
+            "[Non-change] listAllDefinitions() pure function unchanged",
+            "[Impact] AI workflow: reads diff output -> picks definition line -> runs inject-at. No more JSON parsing."
+          ],
+          "testUnit": [
+            "UT: [Normal] listDefinitions on file in git repo outputs Markdown starting with ## Changed lines and containing definitions table with correct line numbers",
+            "UT: [Normal] listDefinitions output includes git diff -U5 section showing changed lines with +/- markers",
+            "UT: [Normal] inject-at mode still outputs JSON {success: true, insertedAtLine: N} (unchanged from PX-64)",
+            "UT: [Error] listDefinitions on file not in git repo outputs definitions table with note that git diff is unavailable",
+            "UT: [Error] listDefinitions on non-existent file outputs error to stderr and exits 1",
+            "UT: [Boundary] listDefinitions on empty file outputs definitions table with header only and appropriate message",
+            "UT: [Boundary] listDefinitions on file with single definition outputs table with 1 row",
+            "UT: [Invariant] listDefinitions never outputs JSON object (must always start with # or text)",
+            "UT: [Invariant] inject-at never outputs Markdown (must always be JSON)"
+          ],
+          "testIntegration": [
+            "IT: Create temp git repo with source file -> listDefinitions shows diff section -> inject-at on chosen line succeeds"
+          ],
+          "testExceptions": [
+            "git diff -U5 requires a git repository. The non-git case is covered by unit test (Error: non-git file). Full diff correctness relies on git being available on the system."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/resolve-ambiguous-markers.js"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] listDefinitions in git repo outputs Markdown beginning with ## Changed lines (git diff -U5) and containing ## Definitions table",
+            "[Error case] listDefinitions outside git repo outputs Markdown with definitions table and note: *git diff unavailable*",
+            "[Edge case] Empty file outputs Markdown with empty definitions table"
+          ],
+          "notes": "- [Implementation steps] 1. Add git diff -U5 execution in listDefinitions mode 2. Replace JSON output with Markdown string construction 3. Update tests 4. Verify inject-at unchanged\n- [Risks] Low — output format change only, no logic change\n- [Caveats] git diff -U5 may fail for files outside git repo; catch and show note\n- [Open items] None\n- [Future improvements] None\nImplementation summary:\n- Changed files: resolve-ambiguous-markers.js\n- Key change: listDefinitions() output format JSON -> Markdown\n- New helpers: getGitDiffU5(), buildMarkdownOutput()\n- inject-at mode: completely unchanged\n- Test results: all tests pass\nReview report PX-65:\n- Static quality check: passed (0 issues)\n- Translatability: no issues — new functions getGitDiffU5, buildMarkdownOutput are verb phrases\n- Dependencies: inject-at mode output unchanged (JSON) — verified\n- Annotation check: 0 missing, 0 ambiguous\n- Stubs: 0 markers, Crimes: 0 unresolved\n- The output format change makes AMBIGUOUS resolution actually usable by AI",
+          "invariants": "- [Normal condition] listDefinitions always outputs Markdown with a definitions table\n- [Error invariant] On file read error, outputs error message to stderr and exits 1\n- [Internal state invariant] inject-at output format (JSON) NEVER changes — only list-definitions changes to Markdown\n- [Boundary invariant] File with 0 definitions outputs table with header row only and appropriate message",
+          "instrumentation": "- [Logging] stdout gets Markdown for list-definitions, JSON for inject-at. Errors to stderr.\n- [Metrics] Not applicable.\n- [Error tracking] File errors to stderr.\n- [Health check] Not applicable.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (getGitDiffU5, buildMarkdownOutput are verb phrases)\nTests: 6/6 passed",
+          "investigation": "- [Evidence from code analysis]\n\nCurrent listDefinitions() at line 99-126 of resolve-ambiguous-markers.js:\n```javascript\nfunction listDefinitions(filePath, ticketKey) {\n  const content = fs.readFileSync(filePath, 'utf8');\n  const lines = content.split('\\n');\n  const definitions = listAllDefinitions(lines);\n  // Find AMBIGUOUS marker (not needed by AI)\n  return { success: true, definitions, ambiguousLine, ambiguousLineNumber };\n}\n```\nThen CLI at line ~200:\n```javascript\nconsole.log(JSON.stringify(result));  // ← AI has to parse JSON\n```\n\nCurrent main() output: JSON to stdout. AI has to mentally parse this.\n\nRequired change: replace JSON output with:\n```\n## Changed lines (git diff -U5)\n\n```diff\n...git diff output...\n```\n\n## Definitions in this file\n\n| Line | Name | Kind |\n|------|------|------|\n| 5 | process_input | function |\n| 14 | validate_id | function |\n```",
+          "boyScoutPlan": "- listDefinitions function gets a clearer Markdown builder helper (buildMarkdownOutput) separated from the data-collection logic\n- Output format is self-documenting: AI reads Markdown, not JSON",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "JSON output with definitions/ambiguousLine/success",
+              "after": "Markdown output with git diff -U5 context + definitions table",
+              "description": "listDefinitions() now outputs AI-readable Markdown instead of machine JSON"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-24"
         }
       ]
     },

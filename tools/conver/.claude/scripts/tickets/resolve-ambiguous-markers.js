@@ -88,40 +88,76 @@ function listAllDefinitions(lines) {
 // =============================================================================
 
 /**
- * Mode 1: List all definitions and find AMBIGUOUS marker in a file.
- * Read-only — never mutates the file.
- *
- * @param {string} filePath
- * @param {string} ticketKey
- * @returns {{success: boolean, definitions: Array, ambiguousLine: string|null, ambiguousLineNumber: number|null}}
+ * Get git diff -U5 for the given file path.
+ * Returns the diff string, or null if not in a git repo.
  */
-// [::TICKET::] PX-64 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-64 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-65 --for-spec --no-implementation-order`.
+function getGitDiffU5(filePath) {
+  try {
+    const { execFileSync } = require("child_process");
+    const stdout = execFileSync("git", ["diff", "-U5", "--", filePath], {
+      encoding: "utf8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"],
+    });
+    return stdout.trim() || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Build Markdown output for AI consumption.
+ * Produces: diff context section + definitions table.
+ */
+// [::TICKET::] PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-65 --for-spec --no-implementation-order`.
+function buildMarkdownOutput(definitions, diffOutput) {
+  const lines = [];
+
+  if (diffOutput) {
+    lines.push("## Changed lines (git diff -U5)");
+    lines.push("");
+    lines.push("```diff");
+    lines.push(diffOutput);
+    lines.push("```");
+  } else {
+    lines.push("## Changed lines (git diff -U5)");
+    lines.push("");
+    lines.push("*git diff unavailable* — file may be outside a git repository");
+  }
+
+  lines.push("");
+  lines.push("## Definitions in this file");
+  lines.push("");
+  lines.push("| Line | Name | Kind |");
+  lines.push("|------|------|------|");
+
+  if (definitions.length === 0) {
+    lines.push("| *no definitions found* | | |");
+  } else {
+    for (const def of definitions) {
+      lines.push(`| ${def.line} | ${def.name} | ${def.kind} |`);
+    }
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+/**
+ * Mode 1: Print Markdown with git diff context + definitions table to stdout.
+ * Read-only — never mutates the file.
+ */
+// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
 function listDefinitions(filePath, ticketKey) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
     const lines = content.split("\n");
-
     const definitions = listAllDefinitions(lines);
-
-    // Find AMBIGUOUS marker
-    let ambiguousLine = null;
-    let ambiguousLineNumber = null;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes("[::AMBIGUOUS::]")) {
-        ambiguousLine = lines[i].trim();
-        ambiguousLineNumber = i;
-        break;
-      }
-    }
-
-    return {
-      success: true,
-      definitions,
-      ambiguousLine,
-      ambiguousLineNumber,
-    };
+    const diffOutput = getGitDiffU5(filePath);
+    const markdown = buildMarkdownOutput(definitions, diffOutput);
+    console.log(markdown);
   } catch (e) {
-    return { success: false, error: e.message };
+    console.error(`Error reading ${filePath}: ${e.message}`);
+    process.exit(1);
   }
 }
 
@@ -186,7 +222,7 @@ function parseArgs() {
   return opts;
 }
 
-// [::TICKET::] PX-64 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-64 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArgs();
 
@@ -202,9 +238,8 @@ function main() {
   }
 
   if (opts.mode === "list-definitions") {
-    const result = listDefinitions(opts.file, opts.ticketKey);
-    console.log(JSON.stringify(result));
-    process.exit(result.success ? EXIT_SUCCESS : EXIT_FAILURE);
+    listDefinitions(opts.file, opts.ticketKey); // prints Markdown to stdout
+    process.exit(EXIT_SUCCESS);
   }
 
   if (opts.mode === "inject-at") {
