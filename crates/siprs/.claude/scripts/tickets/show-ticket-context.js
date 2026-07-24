@@ -346,7 +346,7 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-// [::TICKET::] PX-72 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-72 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-72, PX-75 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -589,6 +589,16 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
     for (const e of ticket.testExceptions) {
       lines.push(`- ${e}`);
+    }
+    lines.push('');
+  }
+
+  // Plan Test Code (concrete code from plan-ticket Phase 1.5)
+  if (ticket.planTestCode && ticket.planTestCode.length > 0) {
+    lines.push('### Plan Test Code (concrete code)');
+    lines.push('');
+    for (const v of ticket.planTestCode) {
+      lines.push('- ' + v);
     }
     lines.push('');
   }

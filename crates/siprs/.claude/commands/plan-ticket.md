@@ -54,9 +54,10 @@ Located under `.claude/scripts/tickets/`.
 |--------|-----------|-------------|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan]` | **Executed in Step 1**. Outputs ticket information in Markdown. With `--plan`, shows interruption message on Not Found. |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields |
+| `verify-plan-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<PATH>` | **Executed in Step 4.5 (Gate P)**. Verifies all contracts have concrete test code patterns in the `planTestCode` field (set by Step 3.5). Gate M (make-ticket) verifies keyword overlap in `testUnit`; Gate P (plan-ticket) verifies actual code patterns in `planTestCode`. |
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | Full-text search |
-| `scan-crimes.sh` | (none) | **Executed in Step 4**. Crime scan of Malfeasance.json. |
-| `review/find-all-stubs.js` | `<path>` | **Executed in Step 4**. Search for all `[::STUB::]` markers. |
+| `scan-crimes.sh` | (none) | **Executed in Step 3**. Crime scan of Malfeasance.json. |
+| `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
 | `review/run-quality-checks.js` | `<files...>` | **Executed in Step 5**. Static quality checks. |
 
 ## Workflow
@@ -119,16 +120,34 @@ grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.
 grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
 ```
 
+### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)
+
+**Always execute this phase before formulating the plan.** If the ticket defines **Contracts** (Precondition/Postcondition/Invariant), translate each Contract element into concrete test code and write to the dedicated `planTestCode` field. This mirrors make-ticket's Phase 1.5 (spec-level translation to `testUnit`) but takes it one step further: from "testable form" to "actual test code" in a separate field.
+
+For each Contract:
+
+1. **Precondition -> test input code**: Write concrete test input setup code (variable bindings, test data literals, input schema instantiations) as code blocks in testUnit entries
+2. **Postcondition -> assertion code**: Write concrete assertion code (assert_eq!, expect(...).to..., should assertions) as code blocks in testUnit entries
+3. **Invariant -> predicate code**: Write concrete invariant check code (assert!, debug_assert!, property-based predicates) as code blocks in testUnit entries
+4. **Write to planTestCode**: Persist the translated test code to the dedicated `planTestCode` field (not `testUnit`, which remains spec-level only):
+
+```bash
+echo '{"planTestCode":["UT: [Normal] Input validation test\n  ```rust\n  let input = \"valid@example.com\";\n  let result = validate(&input);\n  assert!(result.is_ok());\n  ```"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+```
+
+Each Contract element must be represented by at least one testUnit entry containing **actual code** (not prose descriptions). A Contract whose element cannot be expressed as concrete test code is not yet fully specified — return to Step 2 (investigation) to refine.
+
 ### Step 4: Formulate the plan
 
-Based on the information obtained from Step 1, Step 2, and Step 3, formulate the implementation plan.
+Based on the information obtained from Step 1, Step 2, Step 3, and Step 3.5, formulate the implementation plan.
 The plan **must comply with the Implementation Order as the supreme law**.
-The plan must safely incorporate the information obtained from Step 1, Step 2, and Step 3, and must output the same items as the output of show-ticket-context.js from Step 1. However, if the following conditions are not met, proceeding to Step 5 is prohibited. If not met, return to Step 2 and redo. If met, proceed to Step 5.
+The plan must safely incorporate the information obtained from Step 1, Step 2, Step 3, and Step 3.5, and must output the same items as the output of show-ticket-context.js from Step 1. The test code from Step 3.5 serves as the concrete basis for the Red-phase implementation plan. However, if the following conditions are not met, proceeding to Step 4.5 (Gate P) is prohibited. If not met, return to Step 2 and redo. If met, proceed to Step 4.5.
 
-**Conditions for proceeding to Step 5**
+**Conditions for proceeding to Step 4.5**
 1. **Implementation Order** is fully complied with, and comprehensive behavioral verification through exhaustive unit and integration test code is planned
 2. The plan is **significantly more concrete**, **significantly more detailed**, **based on material evidence**, and **high-density information** compared to the show-ticket-context.js output
 3. The plan includes code snippets covering implementation to the extent that there are near-zero unknowns at implementation time
+4. **Step 3.5 (Phase 1.5) must have been executed** — the plan must reference the concrete test code from Step 3.5, and `planTestCode` in Tickets.json must have been set with code patterns, not prose descriptions
 
 #### Reference — Implementation Order (TDD Red-Green-Refactor)
 
@@ -171,7 +190,21 @@ Implementation is considered incomplete unless all of the following are satisfie
 
 Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.
 
+### Step 4.5 — Gate P: Verify contract-to-test-code translation
+
+Before updating the status, verify that all contracts have been translated into concrete test code patterns in the `planTestCode` field. This gate ensures that Step 3.5 was properly executed and that each Contract's Precondition/Postcondition/Invariant is represented by actual test code (not prose descriptions) in the dedicated `planTestCode` field.
+
+```bash
+node .claude/scripts/tickets/verify-plan-contracts.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+- **Exit 0**: All contracts covered with concrete test code -> proceed to Step 5
+- **Exit 1**: Missing coverage -> return to Step 3.5, add concrete test code for the reported contracts, re-run Gate P
+
 ### Step 5: Update status and report plan completion
+
+**Prerequisite**: Gate P (Step 4.5) must have passed before executing this step.
 
 Update the status.
 
