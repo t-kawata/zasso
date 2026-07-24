@@ -540,6 +540,20 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  // Contracts (contract-based pre/post/invariant, from graph edge annotation)
+  if (Array.isArray(ticket.contracts) && ticket.contracts.length > 0) {
+    lines.push('## Contracts — mandatory 100% test coverage in TDD Red phase');
+    lines.push('');
+    for (const c of ticket.contracts) {
+      lines.push('### ' + (c.id || '?') + ' — ' + (c.sourceEdge || ''));
+      lines.push('');
+      lines.push('- **Precondition**: ' + (c.precondition || '(none)'));
+      lines.push('- **Postcondition**: ' + (c.postcondition || '(none)'));
+      lines.push('- **Invariant**: ' + (c.invariant || '(none)'));
+      lines.push('');
+    }
+  }
+
   // Boy Scout Rule
   if (ticket.boyScoutPlan) {
     lines.push('## Boy Scout Rule');
