@@ -119,7 +119,8 @@ function main() {
     }
     process.exit(1);
   }
-  console.log(JSON.stringify({ ok: true, edgeCount: edges.length }));
+  const graphEdges = graph.edges || [];
+  console.log(JSON.stringify({ ok: true, edgeCount: graphEdges.length }));
   process.exit(0);
 }
 
