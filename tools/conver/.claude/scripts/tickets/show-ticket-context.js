@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
 const { fromHomeRelative } = require('../lib/path-utils');
 
@@ -686,6 +687,20 @@ function main() {
   const ticketsDir = path.dirname(ticketsPath);
   const output = buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder);
   console.log(output);
+
+  // Append implementation locations from show-ticket-locations.js (read-only)
+  try {
+    const scriptPath = path.join(path.dirname(process.argv[1]), 'show-ticket-locations.js');
+    if (fs.existsSync(scriptPath)) {
+      const locations = execFileSync('node', [scriptPath, '--ticket-key', ticketKey, '--show-lines', '1'], {
+        encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024,
+      });
+      console.log(locations.trim());
+    }
+  } catch (_) {
+    // Silently skip — locations is a best-effort supplement
+  }
+
   process.exit(EXIT_SUCCESS);
 }
 

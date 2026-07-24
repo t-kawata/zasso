@@ -48,7 +48,7 @@ function readContextLines(filePath, annotationLine, showLines) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
     const lines = content.split("\n");
-    const startIdx = annotationLine - 1; // convert to 0-indexed
+    const startIdx = annotationLine; // convert to 0-indexed
     const endIdx = Math.min(startIdx + showLines, lines.length);
     return lines.slice(startIdx, endIdx);
   } catch (_) {
@@ -61,7 +61,7 @@ function readContextLines(filePath, annotationLine, showLines) {
  */
 function formatMatch(match, showLines) {
   const lines = [];
-  lines.push(`Line ${match.line}: \`${match.annotationLine.trim()}\``);
+  lines.push(`- Line ${match.line}`);
   const lang = getLanguageTag(match.ext);
   lines.push("```" + lang);
   const contextLines = readContextLines(match.filePath, match.line, showLines);
@@ -107,7 +107,7 @@ function main() {
   } catch (e) {
     // git grep exits 1 when no matches found
     if (e.status === 1) {
-      console.log(`## ${opts.ticketKey} — 0 locations, not implemented`);
+      console.log(`## ${opts.ticketKey} — 0 locations, not implemented\n\nNot found`);
       process.exit(EXIT_SUCCESS);
     }
     console.error(`[show-ticket-locations] git grep failed: ${e.message}`);
@@ -157,7 +157,7 @@ function main() {
 
   // 5. Output
   if (matches.length === 0) {
-    console.log(`## ${opts.ticketKey} — 0 locations, not implemented`);
+    console.log(`## ${opts.ticketKey} — 0 locations, not implemented\n\nNot found`);
     process.exit(EXIT_SUCCESS);
   }
 
