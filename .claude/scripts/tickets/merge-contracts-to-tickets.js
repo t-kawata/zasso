@@ -83,15 +83,6 @@ function mergeContracts(tickets, graph) {
       const edgeContracts = edge.contracts || [];
 
       for (const contract of edgeContracts) {
-        // Internal closure: source.postcondition === target.precondition
-        // AND both ends are within the same ticket
-        const isInternalClosure = fromInTicket && toInTicket
-          && contract.postcondition === contract.precondition;
-
-        if (isInternalClosure) {
-          // This contract is internally resolved; do not expose externally
-          continue;
-        }
 
         // Determine sourceEdge label
         let sourceEdge;

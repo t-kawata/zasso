@@ -446,12 +446,14 @@ Green without red, green achieved by modifying tests, and green achieved through
 
 The following JSON is an example description that meets the above guidelines. **Do not settle for simplistic placeholders (in `<...>` format).**
 `default_files` is set automatically by the script when `--dirs-tree` is specified; the AI must not provide it as input.
+`contracts` is required by the schema; set it to an empty array (`[]`) at creation time. It will be auto-populated by `merge-contracts-to-tickets.js` after Step 5-2 completes.
 
 ```json
 [
   {
     "title": "Authentication Token Generation — Ed448-Goldilocks signature generation and verification API",
     "nodeIds": ["N0001", "N0003"],
+    "contracts": [],
     "default_files": [
       "src/auth/keystore.rs",
       "src/auth/token.rs"
