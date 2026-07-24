@@ -88,6 +88,7 @@ All comments are **part of the code** and must be written and maintained with th
 2. **Comments must not lie**: The moment a comment and the code contradict each other, the comment is wrong. A lying comment damages code quality more than the code error itself.
 3. **Comments must not rot**: When you change code, update the corresponding comments at the same time. A stale comment is a bug.
 4. **Comments are review subjects**: Adding or modifying a comment must pass code review, just like any code change.
+5. **Comments must encode provenance**: Source code modified under a ticket must carry an annotation pairing the ticket key with an executable command that retrieves its full design context. This makes the link between code and its originating design self-contained and verifiable — a runnable pointer that guarantees traceability.
 
 "It compiles, ship it" is not acceptable. A complete implementation must also convey its intent accurately.
 

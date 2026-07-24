@@ -222,7 +222,7 @@ describe("hasExistingAnnotation [RED]", () => {
   it("should return true when annotation for the same ticket key exists", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// This code was implemented under the PX-59 ticket; for details...",
+      "// Implemented or modified under the PX-59 ticket; for details...",
       "fn foo() {}",
     ];
     assert.strictEqual(mod.hasExistingAnnotation(lines, "PX-59"), true);
@@ -231,7 +231,7 @@ describe("hasExistingAnnotation [RED]", () => {
   it("should return false when annotation for a different ticket key exists", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// This code was implemented under the P0-1 ticket; for details...",
+      "// Implemented or modified under the P0-1 ticket; for details...",
       "fn foo() {}",
     ];
     assert.strictEqual(mod.hasExistingAnnotation(lines, "PX-59"), false);
@@ -385,7 +385,7 @@ describe("detectAnnotationAtLine [RED]", () => {
     const mod = require(SCRIPT);
     // Annotation is on line 1, definition on line 2
     const lines = [
-      "// This code was implemented under the PX-59 ticket; for details, refer to the command `...`.",
+      "// Implemented or modified under the PX-59 ticket; for details, refer to the command `...`.",
       "fn target() {}",
     ];
     const result = mod.detectAnnotationAtLine(lines, 2);
@@ -397,7 +397,7 @@ describe("detectAnnotationAtLine [RED]", () => {
   it("should detect multi-format annotation line above definition", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// This code was implemented under tickets: PX-59, PX-61; for details...",
+      "// Implemented or modified under tickets: PX-59, PX-61; for details...",
       "fn target() {}",
     ];
     const result = mod.detectAnnotationAtLine(lines, 2);
@@ -430,7 +430,7 @@ describe("detectAnnotationAtLine [RED]", () => {
     const mod = require(SCRIPT);
     const lines = [
       "// unrelated comment",
-      "// This code was implemented under the PX-59 ticket; for details...",
+      "// Implemented or modified under the PX-59 ticket; for details...",
       "fn target() {}",
     ];
     // defLine = 3, should find annotation at line 2
@@ -448,7 +448,7 @@ describe("detectAnnotationAtLine [RED]", () => {
 describe("mergeAnnotation [RED]", () => {
   it("should merge new key into single-format line", () => {
     const mod = require(SCRIPT);
-    const line = "// This code was implemented under the PX-59 ticket; for details, refer to the command `...`.";
+    const line = "// Implemented or modified under the PX-59 ticket; for details, refer to the command `...`.";
     const result = mod.mergeAnnotation(line, "PX-61");
     assert.ok(result !== null);
     assert.ok(result.includes("tickets: PX-59, PX-61"));
@@ -456,7 +456,7 @@ describe("mergeAnnotation [RED]", () => {
 
   it("should merge new key into multi-format line", () => {
     const mod = require(SCRIPT);
-    const line = "// This code was implemented under tickets: PX-59, PX-61; for details...";
+    const line = "// Implemented or modified under tickets: PX-59, PX-61; for details...";
     const result = mod.mergeAnnotation(line, "PX-62");
     assert.ok(result !== null);
     assert.ok(result.includes("tickets: PX-59, PX-61, PX-62"));
@@ -464,7 +464,7 @@ describe("mergeAnnotation [RED]", () => {
 
   it("should NOT change line when key already exists (idempotent)", () => {
     const mod = require(SCRIPT);
-    const line = "// This code was implemented under the PX-59 ticket; for details...";
+    const line = "// Implemented or modified under the PX-59 ticket; for details...";
     const result = mod.mergeAnnotation(line, "PX-59");
     assert.strictEqual(result, line); // unchanged reference
   });
