@@ -5487,6 +5487,346 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-24"
+        },
+        {
+          "id": 66,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Schema Foundation — edge + ticket に contracts 必須フィールド追加",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/66-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nedge.schema.json と tickets-schema.json に contracts 必須フィールドを追加し、全パイプラインが契約情報を運搬できる基盤を確立する。validate-tickets.js と validate-edge-contracts.js により contracts の欠落を BLOCK する。\n\n### Purpose\n現在のエッジは type（depends_on / implements 等）と note（240文字制限）のみで関係性を表現。contracts 配列を必須とすることで全エッジ接続が明示的な事前条件・事後条件・不変条件を持つことが強制される。\n\n### Motivation\ncontracts は全契約パイプラインの基盤。PX-67〜PX-71 の全チケットがこのスキーマに依存する。\n\n### Constraints\n- 後方互換不要。既存の全 GRAPH.json / Tickets.json は再生成\n- contracts は必須（required）、空配列禁止（minItems:1）\n- 既存エッジフィールド（from/to/type/attributes）は変更しない\n- tickets-schema.json の additionalProperties: true は維持",
+          "scope": [
+            "【変更】.claude/scripts/rfc-graph/schema/edge.schema.json — properties に contracts 追加、required に contracts 追加。contracts は配列（minItems:1）、各要素は id(C000)/precondition/postcondition/invariant を必須。additionalProperties:false 維持。",
+            "【変更】.claude/scripts/tickets/tickets-schema.json — ticket 定義の required に contracts 追加。contracts は配列、各要素は id/sourceEdge/precondition/postcondition/invariant を必須。additionalProperties:true 維持。",
+            "【変更】.claude/scripts/lib/validate-tickets.js — arrayFields に contracts 追加。各契約要素の precondition/postcondition/invariant が非空文字列であることの検証ロジックを追加。",
+            "【新規】.claude/scripts/tickets/validate-edge-contracts.js — GRAPH.json の全エッジの contracts 配列をスキーマ検証。3-line error template で違反報告。exit 1 on failure。",
+            "【非スコープ】crud.js の update-edge への contracts 対応 — PX-67（annotate-contracts）で対応。このチケットはスキーマ定義と検証スクリプトのみ。",
+            "【影響範囲】crud.js create-edges — 将来的に contracts 必須化が必要だが PX-67 で対応。"
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/schema/edge.schema.json",
+            ".claude/scripts/tickets/tickets-schema.json",
+            ".claude/scripts/tickets/validate-tickets.js",
+            ".claude/scripts/tickets/validate-edge-contracts.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** edge.schema.json が Ajv コンパイル可能で contracts 必須スキーマとして動作。validate-tickets.js が contracts ありチケットを PASS。validate-edge-contracts.js が適正 GRAPH.json を PASS。",
+            "**[Error case]** contracts なし GRAPH.json → validate-edge-contracts.js が BLOCK（exit 1）。contracts なしチケット → validate-tickets.js が BLOCK（exit 1）。",
+            "**[Edge case]** contracts 空配列のエッジ → BLOCK。precondition/postcondition/invariant のいずれかが空文字 → BLOCK。contracts.id に重複 → BLOCK。"
+          ],
+          "notes": "依存: なし。このチケットが全契約パイプラインの基盤となる。既存の全グラフ・全チケットがスキーマ違反になることを前提に、後方互換なしでの導入を決定済み。\n\n- [Implementation steps] 1) edge.schema.json に contracts 定義と required を追加, 2) tickets-schema.json に contracts 定義と required を追加, 3) validate-tickets.js に contracts 検証ロジック追加, 4) validate-edge-contracts.js を新規作成, 5) 全ユニットテスト実行, 6) 既存 GRAPH.json / Tickets.json のスキーマ違反確認\n- [Risks] Risk 1: crud.js create-edges が contracts なしエッジを許可し続ける（PX-67 まで許容するが検証スクリプトは新規エッジを拒否する）。Risk 2: 再生成されるまで既存パイプラインが動作しない（要: PX-67→PX-68→PX-71 完了後に全グラフ・全チケット再生成）。\n- [Caveats] Caveat 1: additionalProperties:true を維持するため contracts 以外の未知フィールドは tickets-schema.json で許可される。Caveat 2: validate-edge-contracts.js は edge.schema.json の Ajv 検証とは独立して動作する（二重検証による安全性向上だがメンテコスト増加）。\n- [Open items] Open 1: contracts.id の最大長を決めていない（C999 まで = 999契約。グラフ1つに1000契約超は非現実的）。\n- [Future improvements] 1) contracts.id を C0000（4桁）に拡張するか検討。2) Ajv スキーマコンパイル結果をキャッシュしてパフォーマンス改善。",
+          "invariants": "- 【Normal establishment】全エッジが contracts 配列を持ち、各契約が precondition/postcondition/invariant を非空文字列として持つ。\n- 【Invariant on error】contracts 検証失敗時も GRAPH.json / Tickets.json の他のデータ構造は一切変更されない（読み取り専用検証）。\n- 【Internal state invariant】validate-tickets.js と validate-edge-contracts.js は副作用ゼロ。ファイル読み取り + 検証 + 結果出力のみ。\n- 【Boundary invariant】contracts 配列の最小長は 1（空配列不許可）。precondition/postcondition/invariant の最小長は 1 文字（空文字不許可）。",
+          "testUnit": [
+            "UT: [Normal] edge.schema.json が contracts を required に持つことを Ajv スキーマ検証で確認",
+            "UT: [Normal] tickets-schema.json が ticket 定義の contracts を required に持つことを検証",
+            "UT: [Normal] validate-tickets.js が contracts 配列の存在チェックを正しく通す（contracts ありチケット）",
+            "UT: [Normal] validate-edge-contracts.js が全エッジの contracts 構造を正しく検証する（適正な GRAPH.json）",
+            "UT: [Error] validate-tickets.js が contracts なしチケットを BLOCK（exit 1 + エラーメッセージ）",
+            "UT: [Error] validate-edge-contracts.js が contracts なしエッジを BLOCK（exit 1 + エッジID一覧）",
+            "UT: [Boundary] contracts が空配列のエッジを BLOCK（minItems:1 違反）",
+            "UT: [Boundary] contracts の precondition/postcondition/invariant が空文字のエッジを BLOCK",
+            "UT: [Invariant] 全スキーマが strict モード（additionalProperties: false）で動作し、未知フィールドを自動拒否"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] GRAPH.json の全エッジに contracts 必須 — 実際の RFC-ROOT-GRAPH.json に対して validate-edge-contracts.js を実行し、全エッジのフォーマット検証",
+            "IT: [Verification] Tickets.json の全チケットに contracts 必須 — validate-tickets.js を実行し、全 PX チケットの contracts フィールド存在確認",
+            "IT: [Prerequisites] edge.schema.json の contracts スキーマが Ajv のドラフト2020-12 に準拠していること（node -e \"Ajv.compile(schema)\" で確認）",
+            "IT: [Related tickets] PX-67（annotate-contracts がこのスキーマに依存）, PX-68（merge-contracts-to-tickets がこのスキーマに依存）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: Ajv スキーマコンパイルのエラーメッセージの網羅性テスト。Reason: Ajv の内部エラー形式に依存するため、全エラーパターンをユニットテストで網羅するのは現実的でない。Alternative: Ajv のバリデーション結果をラップするヘルパー関数を設け、その関数のテストで主要パターン（required 違反・type 違反・pattern 違反）をカバーする。"
+          ],
+          "instrumentation": "- 【Logging】両スクリプトともファイル読み取り + 検証 + 結果出力のみ。stdout に JSON 結果、stderr にエラー詳細。\n- 【Metrics】検証対象ファイルのエッジ数・チケット数・contracts 数を合否とともに stdout に出力。\n- 【Error tracking】検証違反は exit 1 + JSON エラー配列出力。全違反を一度に報告。\n- 【Health check】なし（検証スクリプトは stateless なワンショット実行）。",
+          "investigation": "[Existing edge.schema.json]\n- 現在の必須フィールド: from(N0000)、to(N0000)、type(12種)、attributes(strength/bidirectional/note)\n- additionalProperties: false（strict モード）\n- attributes.note: maxLength 240（これが現在の契約情報の最大表現能力）\n- 変更点: properties に contracts 追加、required に contracts 追加\n\n[Existing tickets-schema.json ticket.definitions]\n- 現在の必須フィールド: id, phaseId, title, status\n- additionalProperties: true（contracts 追加時に違反にならない）\n- 既存の invariants（string, opt）を contracts（配列, required）に昇格\n\n[Existing validate-tickets.js]\n- validateTickets() が全チケット走査\n- arrayFields に contracts は未登録。strFields にも未登録（contracts は配列要素がオブジェクト）\n- 変更点: arrayFields に contracts 追加 + 各要素の precondition/postcondition/invariant の string チェック追加",
+          "boyScoutPlan": "- edge.schema.json: contracts.id を C000 形式（^C[0-9]{3}$）とし、グラフ全体で一貫した命名規則を強制。既存の note（maxLength 240）は維持するが、契約情報は contracts に移行。\n- validate-tickets.js: contracts 検証ロジックを既存の arrayFields ループと並立する独立ブロックとして実装し、既存ロジックとの干渉を防ぐ。\n- validate-edge-contracts.js（新規）: エラー出力形式は既存の verify.js と同一の 3-line template（[ERROR] / Cause: / Action:）を採用しツール間の一貫性を保つ。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "PX-66→pipeline",
+              "precondition": "contracts スキーマが定義されていること",
+              "postcondition": "全エッジと全チケットが contracts 必須となること",
+              "invariant": "contracts は空配列不可、pre/post/invariant は非空文字列"
+            }
+          ],
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 67,
+          "phaseId": -1,
+          "status": "done",
+          "title": "annotate-contracts — graphify 後のエッジ契約注釈スクリプト",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/67-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nGRAPH.json の全エッジに対して AI が contracts 配列（precondition/postcondition/invariant）を付与するためのスクリプト群を実装する。annotate-contracts.js がエッジ一覧を Markdown 出力し、crud.js の update-edge で contracts を書き戻す。verify-contracts-format.js が graphify 完了後に全エッジの契約フォーマットを検証する。\n\n### Purpose\nPX-66 でスキーマを定義した contracts 配列を、実際の GRAPH.json に書き込むための運用スクリプト。AI が各エッジの契約を記述するための情報表示と、crud.js による永続化を提供する。\n\n### Motivation\ngraphify のStep 2（Edge Assignment）直後にこのスクリプト群を実行することで、エッジ作成と契約注釈を同一フローで完結させる。\n\n### Constraints\n- crud.js の既存サブコマンド（create-nodes / create-edges / list-nodes 等）は変更しない\n- update-edge のみ contracts フィールドの追加・更新・削除をサポート\n- annotate-contracts.js は読み取り専用（GRAPH.json を変更しない）",
+          "scope": [
+            "【変更】.claude/scripts/rfc-graph/annotate-contracts.js（新規）— GRAPH.json を読み込み全エッジの kind/type/from/to/summary を Markdown 一覧出力。AI が各エッジの契約（precondition/postcondition/invariant）を記述するための情報源。GRAPH.json の変更は行わない（読み取り専用）。出力形式は show-graph-summary-markdown.js と同一の Markdown スタイル。",
+            "【変更】.claude/scripts/rfc-graph/crud.js — update-edge サブコマンドを追加。エッジ識別は from+to+type の複合キー。contracts 配列の追加・更新・削除をサポート。既存サブコマンド（create-nodes / delete-edges 等）は一切変更しない。update-node と同一の --file 引数パターンを踏襲。",
+            "【変更】.claude/scripts/rfc-graph/verify-contracts-format.js（新規）— GRAPH.json の全エッジの contracts 配列をスキーマ検証。precondition/postcondition/invariant が非空文字列であることを確認。contracts.id の重複チェック。違反時は 3-line error template（[ERROR] / Cause: / Action:）で報告し exit 1。",
+            "【非スコープ】annotate-contracts.js の契約内容自動生成（AI の契約記述を支援するが、契約内容自体は AI が判断）。",
+            "【影響範囲】graphify-rfc.md — PX-71 で annotate-contracts.js + verify-contracts-format.js + verify-graph-contracts.js の呼び出しが Step 2 完了ブロックに追記される。このチケットではスクリプト実装のみ。",
+            "【影響範囲】Tickets.json の contracts フィールド — PX-68 で merge-contracts-to-tickets.js がこのスクリプト群が生成した contracts を入力として使用。"
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/annotate-contracts.js",
+            ".claude/scripts/rfc-graph/crud.js",
+            ".claude/scripts/rfc-graph/verify-contracts-format.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** annotate-contracts.js が全エッジ情報を Markdown で出力。crud.js update-edge で contracts を追加。verify-contracts-format.js が PASS。",
+            "**[Error case]** precondition 空文字の contracts → verify-contracts-format.js が BLOCK。crud.js が不正フォーマットを拒否。",
+            "**[Edge case]** contracts.id 重複 → verify-contracts-format.js が BLOCK。空配列 contracts → crud.js が拒否。"
+          ],
+          "notes": "依存: PX-66（edge.schema.json 改修済み）。\n- [Implementation steps] 1) annotate-contracts.js 新規作成, 2) crud.js に update-edge サブコマンド追加, 3) verify-contracts-format.js 新規作成, 4) 全 UT 実行, 5) 既存グラフで動作確認\n- [Risks] crud.js は609行の大規模スクリプト。update-edge 追加時に既存サブコマンドを壊さないよう注意。\n- [Caveats] annotate-contracts.js は AI の契約記述を補助するものであり、契約内容の自動生成は行わない。",
+          "invariants": "- 【Normal establishment】全エッジが contracts 配列を持ち、各契約の precondition/postcondition/invariant が非空で記述される。contracts.id は C000 形式で全グラフ内で一意。\n- 【Invariant on error】crud.js update-edge の contracts 書き込み失敗時も、GRAPH.json の他のフィールドは一切変更されない（atomic write）。\n- 【Internal state invariant】全スクリプトは副作用ゼロ。ファイル読み取り＋処理＋ファイル書き戻しのみ。\n- 【Boundary invariant】contracts 配列は minItems:1。1エッジに複数契約を含める場合は C001, C002 と連番。",
+          "testUnit": [
+            "UT: [Normal] annotate-contracts.js が GRAPH.json を読み込み全エッジの kind/type/from/to/summary を Markdown 出力",
+            "UT: [Normal] crud.js update-edge が contracts 配列を正しく追加・更新・削除できる",
+            "UT: [Normal] verify-contracts-format.js が適正な contracts フォーマットを PASS",
+            "UT: [Error] crud.js update-edge が不正な contracts フォーマットを拒否",
+            "UT: [Error] verify-contracts-format.js が precondition 空文字のエッジを BLOCK",
+            "UT: [Boundary] crud.js update-edge が空配列 contracts を拒否（minItems:1）",
+            "UT: [Boundary] verify-contracts-format.js が contracts.id 重複を BLOCK",
+            "UT: [Invariant] crud.js update-edge の書き込みが atomic（失敗時に元ファイルを変更しない）"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] annotate-contracts.js → AI が契約記述 → crud.js update-edge で GRAPH.json に書き戻し → verify-contracts-format.js で検証の一連フロー",
+            "IT: [Verification] crud.js create-edges 後に update-edge で contracts を追加し、list-nodes / get-node で一貫性確認",
+            "IT: [Prerequisites] PX-66 完了（edge.schema.json に contracts 必須）",
+            "IT: [Related tickets] PX-66（スキーマ依存）, PX-71（graphify-rfc.md への統合）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: annotate-contracts.js の AI 補助情報（全エッジの kind と type からの契約推奨）の完全性テスト。Reason: AI による契約記述の品質はテストで検証不可能。Alternative: 出力フォーマットが正しいこと（JSON としてパース可能、Markdown 構造が崩れていない）のみテストする。"
+          ],
+          "instrumentation": "- 【Logging】全スクリプトとも stdout に JSON 結果。stderr にエラー詳細。\n- 【Metrics】crud.js 更新成功時に updated-edge-count を出力。\n- 【Error tracking】違反は exit 1 + JSON エラー配列。3-line template。\n- 【Health check】なし。",
+          "investigation": "[Existing crud.js]\n- 609行、単一ファイル。サブコマンド: create-nodes, create-edges, list-nodes, get-node, update-node, delete-node, delete-edges\n- update-node は --id, --field, --value で単一フィールド更新をサポート\n- update-edge は未実装。delete-edges → create-edges の再作成パターンのみ\n- 変更点: update-edge サブコマンドを追加。エッジ識別は from+to+type。contracts 配列の追加・更新・削除をサポート\n\n[Existing verify.js]\n- GRAPH.json の機械検証スクリプト。3-line error template 使用\n- 変更点: なし。verify-contracts-format.js は独立した新規スクリプトとして同形式を採用",
+          "boyScoutPlan": "- crud.js: update-edge サブコマンドを追加する際、既存の update-node と同一のパターン（--id --field --value）を踏襲。エッジ識別には from+to+type の複合キーを使用し、既存の create-edges との一貫性を保つ。\n- annotate-contracts.js（新規）: 出力フォーマットは既存の show-graph-summary-markdown.js と同一の Markdown スタイルを採用。AI が読みやすい形式。\n- verify-contracts-format.js（新規）: エラー出力形式は既存の verify.js と同一の 3-line template。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 68,
+          "phaseId": -1,
+          "status": "done",
+          "title": "merge-contracts-to-tickets + Gate L2 — チケット契約合成と閉包性検証",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/68-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nmerge-contracts-to-tickets.js と verify-ticket-closure.js（Gate L2）を実装する。前者は GRAPH.json のエッジ契約をチケットに合成し、後者はチケット内閉包性とチケット間閉包性を機械検証する。\n\n### Purpose\nPX-67 で GRAPH.json に付与された contracts を、各チケットに自動合成する。合成時に内部閉包する契約はチケット外に露出せず、外部との契約連鎖のみをチケット.contracts に書き込む。\n\n### Motivation\nチケット.contracts がなければ、チケット間の契約依存関係を機械検証できない。split-to-tickets の後処理として自動合成することで、AI が手動で contracts を記述する負荷を排除する。\n\n### Constraints\n- merge-contracts-to-tickets.js は split-to-tickets の出力を変更するが、split 自体の Step 構造は変更しない\n- チケット内で閉じる契約（source.postcondition→target.precondition が充足）はチケット外に露出しない\n- verify-ticket-closure.js は BLOCK/PASS の二値判定。WARNING は出力しない。",
+          "scope": [
+            "【新規】.claude/scripts/tickets/merge-contracts-to-tickets.js — GRAPH.json の edges[].contracts と Tickets.json の tickets[].nodeIds を突合。各チケット内エッジの contracts を収集し、内部閉包契約（source.postcondition == target.precondition が同一チケット内で充足）を除外し、外部露出契約のみをチケット.contracts に atomic write する。内部閉包判定は文字列完全一致。",
+            "【新規】.claude/scripts/tickets/verify-ticket-closure.js — Gate L2 スクリプト。検証: (1) チケット内閉包性 — 内部エッジの全 postcondition→precondition 連鎖が閉じている, (2) チケット間閉包性 — relatedTicketIds に基づく先行チケット.postcondition → 依存チケット.precondition 連鎖, (3) 全 acceptanceCriteria が契約 ID を参照, (4) 全契約に最低1つの acceptanceCriteria。exit 1 on failure。3-line error template。",
+            "【変更】split-to-tickets.md（PX-71で実施）— verify-all-ticket-coverage 直前に merge-contracts + verify-ticket-closure 呼び出し追記。このチケットではスクリプト実装のみ。",
+            "【非スコープ】split-to-tickets の Step 構造変更（スクリプトは後処理として独立。split 自体は変更しない）。",
+            "【影響範囲】Tickets.json — merge-contracts 実行後、各チケットに contracts フィールドが追加される（additionalProperties:true によりスキーマ違反にならない）。"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/merge-contracts-to-tickets.js",
+            ".claude/scripts/tickets/verify-ticket-closure.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** merge-contracts-to-tickets がチケット.contracts を正しく合成。verify-ticket-closure が PASS。",
+            "**[Error case]** チケット内閉包性違反 → BLOCK + 未充足エッジ一覧。チケット間閉包性違反 → BLOCK + 未充足チケット一覧。",
+            "**[Edge case]** チケットが1エッジのみ（= 全契約が外部露出）→ 正常動作。チケット間エッジなし → 自動 PASS。"
+          ],
+          "notes": "依存: PX-67（GRAPH.json に contracts 付与済み）。\n- [Implementation steps] 1) merge-contracts-to-tickets.js 実装, 2) verify-ticket-closure.js 実装, 3) UT 作成・実行, 4) 既存グラフ＋チケットで統合テスト\n- [Risks] merge-contracts の内部閉包判定ロジックが複雑。source.postcondition と target.precondition の突合は文字列の部分一致ではなく完全一致で行う。\n- [Caveats] sourceEdge はエッジの from→to 文字列。同一エッジに複数契約がある場合は連番 C001, C002 で識別。",
+          "invariants": "- 【Normal establishment】全チケットが contracts 配列を持ち、チケット内エッジの全 postcondition→precondition 連鎖が閉じている。チケット間エッジの全 postcondition→precondition 連鎖も閉じている。\n- 【Invariant on error】merge-contracts 失敗時は Tickets.json への書き込みを行わない（atomic write）。verify-ticket-closure は読み取り専用。\n- 【Internal state invariant】両スクリプトは副作用ゼロ。ファイル読み取り＋処理＋ファイル書き戻し（merge）／結果出力（verify）のみ。\n- 【Boundary invariant】チケット内閉包契約は契約連鎖が完全一致すること。チケット間閉包契約は異なるフェーズ間のエッジに適用。",
+          "testUnit": [
+            "UT: [Normal] merge-contracts-to-tickets がチケット内エッジの contracts を正しく合成し内部閉包契約を除外",
+            "UT: [Normal] merge-contracts-to-tickets が複数チケットの contracts を同時に正しく合成",
+            "UT: [Normal] verify-ticket-closure が閉包性正しいチケット群を PASS",
+            "UT: [Error] merge-contracts-to-tickets が sourceEdge 不明な contracts を正しくスキップ",
+            "UT: [Error] verify-ticket-closure がチケット内閉包性違反を BLOCK（postcondition→precondition 不整合）",
+            "UT: [Error] verify-ticket-closure がチケット間閉包性違反を BLOCK（先行チケットの postcondition が依存チケットの precondition を満たさない）",
+            "UT: [Boundary] チケットが1エッジのみの場合（内部閉包契約なし = 全契約が外部露出）→ 正しく全契約表示",
+            "UT: [Boundary] チケット間のエッジがない場合 → チケット間閉包性は PASS（検証対象なし）",
+            "UT: [Invariant] merge-contracts は atomic write（失敗時に元 Tickets.json を変更しない）"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] GRAPH.json + Tickets.json → merge-contracts-to-tickets → verify-ticket-closure（PASS or BLOCK）",
+            "IT: [Verification] merge-contracts 後、チケット.contracts が全エッジ契約を正しく合成していることを手動確認",
+            "IT: [Prerequisites] PX-66（スキーマ）, PX-67（annotate-contracts 完了）",
+            "IT: [Related tickets] PX-69（Gate M がチケット.contracts を入力として使用）, PX-70（Gate S がチケット.contracts を入力として使用）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: 巨大グラフ（100+エッジ）でのパフォーマンステスト。Reason: merge-contracts の合成アルゴリズムは O(n*m)。テスト用巨大グラフの作成コストに対して品質リターンが見合わない。Alternative: 実運用グラフ（RFC-ROOT-GRAPH.json）を使用した簡易ベンチマークで代用。"
+          ],
+          "instrumentation": "- 【Logging】両スクリプトとも stdout に JSON 結果。stderr に 3-line error template。\n- 【Metrics】merge-contracts: 処理エッジ数・合成契約数・内部閉包除外数。verify-ticket-closure: 判定（PASS/BLOCK）・未充足エッジ数。\n- 【Error tracking】違反は exit 1 + JSON 配列。\n- 【Health check】なし。",
+          "investigation": "[Existing merge-contracts 設計]\n- 入力: GRAPH.json（edges[].contracts） + Tickets.json（tickets[].nodeIds）\n- チケット内エッジ: 同一チケットの nodeIds に含まれるノード間のエッジ\n- チケット間エッジ: 異なるチケットの nodeIds に含まれるノード間のエッジ\n- 内部閉包判定: source の postcondition と target の precondition が文字列一致 → 内部閉包（チケット外に露出しない）\n- 外部露出契約: 内部閉包しない + チケット外のノードを参照するエッジの契約のみ\n\n[Existing verify-ticket-closure 設計]\n- チケット内閉包性: チケット内全エッジで source.postcondition == target.precondition\n- チケット間閉包性: 依存関係（relatedTicketIds）に基づき、P0-1.postcondition == P0-2.precondition\n- 全 acceptanceCriteria が契約 ID を参照（Cxxx.happy/error/edge 形式）",
+          "boyScoutPlan": "- merge-contracts-to-tickets.js: 内部閉包判定ロジックは純粋関数として分離（testable）。Tickets.json への書き込みは atomic write（tmp ファイル → rename）。\n- verify-ticket-closure.js: エラー出力は既存の verify.js と同一の 3-line template。エラー配列は未充足エッジを先頭にソート。\n- 両スクリプトとも既存の add-tickets-for-phase.js や verify-all-ticket-coverage.js を呼び出さない。独立して動作。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 69,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Gate L1 + Gate M — グラフ契約検証と make 段階整合性",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/69-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n2つのゲートスクリプトを実装する。verify-graph-contracts.js（Gate L1）は graphify 完了直後に全エッジの契約フォーマットを検証。verify-make-contracts.js（Gate M）は make-ticket 完了直後にチケット契約とテスト計画の整合性を検証。\n\n### Purpose\nGate L1: グラフレベルの契約—全エッジが contracts を持ち、そのフォーマットが正しいことを graphify 完了直後に保証する。Gate M: チケットレベルの契約—make-ticket で作成された spec の testUnit/testIntegration がチケット契約に言及していることを保証する。\n\n### Motivation\nGate L1 がなければ不正な contracts フォーマットが下流（PX-68 以降）に流れるリスクがある。Gate M がなければ spec 作成時点で契約とテスト計画の乖離が放置される。\n\n### Constraints\n- 両ゲートとも読み取り専用（Tickets.json / GRAPH.json を変更しない）\n- BLOCK/PASS の二値判定。WARNING は出力しない。\n- 既存の status.json 制御（start-step / end-step / reset-to-step）を利用。ゲート FAIL 時は fail-step 遷移。",
+          "scope": [
+            "【新規】.claude/scripts/tickets/verify-graph-contracts.js — Gate L1 スクリプト。検証: (1) 全エッジに contracts[] 存在, (2) 全 precondition/postcondition/invariant 非空, (3) contracts.id 重複チェック, (4) type-contract 矛盾（depends_on/constrains なのに contracts 空は矛盾。references/refines は許容）。exit 1 on failure。",
+            "【新規】.claude/scripts/tickets/verify-make-contracts.js — Gate M スクリプト。検証: (1) 全 precondition が testUnit にキーフレーズ「setup」「前提」で言及, (2) 全 postcondition が testUnit に「assert」「確認」で言及, (3) 全 invariant が testUnit に「不変」で言及, (4) testExceptions 各項目に「テスト不能理由」と「設計欠陥でない理由」の両方のキーフレーズ存在。exit 1 on failure。",
+            "【変更】graphify-rfc.md（PX-71で実施）— Step 2 完了ブロックに verify-graph-contracts.js 呼び出し追記。",
+            "【変更】make-ticket.md（PX-71で実施）— Step 6 status=made 直前に verify-make-contracts.js 呼び出し追記。",
+            "【非スコープ】Gate L1 と verify-contracts-format.js（PX-67）の重複 — format.js はスキーマ検証、L1 は type-contract 矛盾の高次検証。役割が異なるため両方維持。"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/verify-graph-contracts.js",
+            ".claude/scripts/tickets/verify-make-contracts.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** Gate L1 が全エッジ正常で PASS。Gate M が全チケット正常で PASS。",
+            "**[Error case]** precondition空文字 → Gate L1 BLOCK。testUnit未カバー契約 → Gate M BLOCK。",
+            "**[Edge case]** type-contract 矛盾（depends_on なのに空）→ Gate L1 BLOCK。type 不明なエッジ → Gate L1 の検証対象外。testExceptions 説明不足 → Gate M BLOCK。"
+          ],
+          "notes": "依存: PX-67（GRAPH.json に contracts 必要）, PX-68（チケット.contracts 必要）。\n- [Implementation steps] 1) verify-graph-contracts.js 実装, 2) verify-make-contracts.js 実装, 3) 全 UT 作成・実行, 4) 不正データでの BLOCK 確認\n- [Risks] verify-make-contracts の testExceptions 正当性判定はキーフレーズ一致に依存。テストデータで偽陽性・偽陰性がないことを確認。\n- [Caveats] Gate L1 は verify-contracts-format.js と役割が異なる（format.js = スキーマ検証、L1 = type-contract 矛盾等の高次検証）。",
+          "invariants": "- 【Normal establishment】Gate L1: 全エッジの contracts フォーマットがスキーマ適合。Gate M: 全テスト計画がチケット契約に言及。\n- 【Invariant on error】ゲート FAIL 時も GRAPH.json / Tickets.json は一切変更されない。\n- 【Internal state invariant】両スクリプトは副作用ゼロ。ファイル読み取り＋検証＋結果出力のみ。\n- 【Boundary invariant】空の contracts（minItems 違反）・空文字 precondition は BLOCK。",
+          "testUnit": [
+            "UT: [Normal] verify-graph-contracts が全エッジ正常フォーマットを PASS",
+            "UT: [Normal] verify-make-contracts が正常なテスト計画＋契約を PASS",
+            "UT: [Error] verify-graph-contracts が precondition 空文字エッジを BLOCK（+ エッジID一覧）",
+            "UT: [Error] verify-graph-contracts が contracts.id 重複を BLOCK",
+            "UT: [Error] verify-make-contracts が testUnit 未カバー契約を BLOCK",
+            "UT: [Error] verify-make-contracts が testExceptions の正当性説明不足を BLOCK",
+            "UT: [Boundary] verify-graph-contracts が depends_on なのに契約が空（type と contract の矛盾）を検出",
+            "UT: [Boundary] verify-make-contracts が precondition を UT でカバーしていないケースを検出",
+            "UT: [Invariant] 両スクリプトとも読み取り専用であることを確認"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] GRAPH.json → verify-graph-contracts（Gate L1）→ PASS→ graphify 継続",
+            "IT: [Integration point] spec 作成後 → verify-make-contracts（Gate M）→ PASS→ status=made",
+            "IT: [Verification] 人為的に不正 contracts を混入した GRAPH.json で Gate L1 が BLOCK することを確認",
+            "IT: [Prerequisites] PX-66（スキーマ）, PX-67（annotate-contracts 完了）, PX-68（merge 完了）",
+            "IT: [Related tickets] PX-71（graphify-rfc.md / make-ticket.md にゲート呼び出し追記）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: verify-make-contracts の「testExceptions 正当性説明不足」検出の網羅性。Reason: 「なぜテスト不能か」と「なぜ設計欠陥でないか」の両方があるかの判定は自然言語解析に依存。Alternative: 「because test is impossible」と「not a design defect」のキーフレーズ有無で判定。フレーズがない場合のみ BLOCK。",
+            "Exception 2 — Item: verify-graph-contracts の type-contract 矛盾検出（depends_on なのに契約が空等）。Reason: 矛盾の定義はエッジ type と契約内容の組み合わせに依存。Alternative: 矛盾検出は「contracts が空かつ type が depends_on/constrains/conflicts_with」の最小限に限定。"
+          ],
+          "instrumentation": "- 【Logging】両スクリプトとも stdout に JSON 結果。stderr に 3-line error template。\n- 【Metrics】検証対象エッジ数・チケット数・契約数・合否。\n- 【Error tracking】違反は exit 1 + JSON エラー配列。\n- 【Health check】なし。",
+          "investigation": "[Gate L1 検証ロジック設計]\n- 検証1: 全エッジに contracts[] がある（スキーマ required 確認）\n- 検証2: 全 contract の precondition/postcondition/invariant 非空\n- 検証3: contracts.id 重複チェック\n- 検証4: type-contract 矛盾（depends_on/constrains → contracts 空は矛盾、references/refines → contracts 空は許容）\n\n[Gate M 検証ロジック設計]\n- 検証1: チケット.contracts の全 precondition が testUnit に「setup」または「前提」として言及\n- 検証2: チケット.contracts の全 postcondition が testUnit に「assert」または「確認」として言及\n- 検証3: チケット.contracts の全 invariant が testUnit に「不変」として言及\n- 検証4: testExceptions 各項目に「テスト不能理由」と「設計欠陥でない理由」の両方のキーフレーズ",
+          "boyScoutPlan": "- verify-graph-contracts.js: 検証ロジックを1検証1関数に分割（検証1〜4で4関数）。テスト容易性確保。エラー出力は不正エッジIDでソート。\n- verify-make-contracts.js: testExceptions のキーフレーズ判定は設定可能な定数配列として定義し、将来の拡張に備える。\n- 両スクリプトとも既存の verify.js と同一の exit code 規約（0=PASS, 1=FAIL）と出力形式を採用。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 70,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Gate S — TDD Red @verifies 強制（verify-red-coverage.js）",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/70-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nverify-red-coverage.js（Gate S）を実装する。TDD Red フェーズ終了時に、テストコード内の @verifies 注釈を収集し、チケット.contracts の全契約 ID がテストでカバーされていることを機械検証する。Supreme Law §1.1（RED必須）を機械的に強制する。\n\n### Purpose\nTDD Red で書かれるテストコードが、宣言された契約を本当にカバーしているかを機械検証する。「テストを書いたつもり」と「契約がテストされたこと」の乖離を防ぐ。\n\n### Motivation\nSupreme Law は「テストを先に書け」と命じているが、現在それを強制する仕組みがない。@verifies 注釈によるトレーサビリティ強制は、契約がテストに変換されたことを可視化し、未カバーの契約を BLOCK する。\n\n### Constraints\n- @verifies 注釈は Rust: // @verifies C001、TypeScript: // @verifies C001 の形式。単一テスト関数に複数行の @verifies を許可。\n- ファイルスキャンは正規表現ベース（@verifies\\s+(C\\d+)）。AST 解析は行わない。\n- precondition/テスト setup、invariant/assertion の対応はコメントベースの近似判定。完全なコード解析は行わない。",
+          "scope": [
+            "【新規】.claude/scripts/tickets/verify-red-coverage.js — Gate S スクリプト。検証: (1) チケット.contracts の全 id が @verifies 注釈でテストファイルに出現（正規表現 /@verifies\\s+(C\\d+)/g）, (2) precondition→ @requires での setup 言及, (3) invariant→ @assert-invariant での assertion 言及, (4) カバレッジ < 100% → BLOCK + 未カバーID一覧。@verifies にチケット未登録の id → WARNING。exit 1 on failure。",
+            "【変更】start-ticket.md（PX-71で実施）— Red フェーズ終了判定に verify-red-coverage.js 呼び出し追記。Green 遷移条件に加える。",
+            "【非スコープ】テストコードの正しさ検証（@verifies 注釈の存在確認のみ。テスト内容の正しさまでは検証しない）。",
+            "【影響範囲】全テストファイル — @verifies 注釈の記述が必須になる（新規チケットから強制。既存チケットは WARNING のみ）。"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/verify-red-coverage.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** 全契約が @verifies でカバー → PASS。1関数に複数契約 → PASS。",
+            "**[Error case]** 未カバー契約あり → BLOCK + 該当ID一覧。",
+            "**[Edge case]** precondition→setup なし → WARNING（BLOCKはしない）。未知契約ID混入 → WARNING。"
+          ],
+          "notes": "依存: PX-68（チケット.contracts 存在）。\n- [Implementation steps] 1) verify-red-coverage.js 実装, 2) UT 作成・実行, 3) テストファイルの @verifies スキャン検証\n- [Risks] @verifies 注釈のフォーマットがずれると検出漏れ。AI が注釈を付け忘れるリスクは BLOCK で防止。\n- [Caveats] precondition→setup、invariant→assertion の対応判定は近似。偽陽性（WARNING が出るべきでないのに出る）より偽陰性（見逃し）を重視。",
+          "invariants": "- 【Normal establishment】チケット.contracts の全契約 ID が @verifies 注釈でテストファイルに出現。1契約に複数の @verifies 可。\n- 【Invariant on error】検証失敗時もテストファイルは一切変更されない（読み取り専用）。\n- 【Internal state invariant】verify-red-coverage.js は副作用ゼロ。ファイル読み取り＋検証＋結果出力のみ。\n- 【Boundary invariant】空の contracts 配列のチケットは検証対象外（スキーマ違反として PX-66 で BLOCK 済み）。",
+          "testUnit": [
+            "UT: [Normal] 全契約 ID が @verifies 注釈でカバー → PASS",
+            "UT: [Normal] 1テスト関数に複数 @verifies（複数行）→ PASS",
+            "UT: [Normal] precondition に対応する setup コメントあり → WARNINGなし",
+            "UT: [Error] 未カバーの契約 ID あり → BLOCK + 該当ID一覧",
+            "UT: [Error] @verifies の契約 ID がチケット.contracts に存在しない → WARNING（未知ID混入）＋ PROCEED",
+            "UT: [Boundary] @verifies が空のテストファイル → 全契約 BLOCK",
+            "UT: [Boundary] precondition に対応する setup なし → WARNING",
+            "UT: [Invariant] テストファイルの内容を一切変更しないことを確認（読み取り専用）"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] spec 作成→TDD Red（@verifies 付きテスト作成）→ verify-red-coverage（Gate S）→ PASS→ Green",
+            "IT: [Verification] 人為的に @verifies を欠落させたテストファイルで Gate S が BLOCK",
+            "IT: [Prerequisites] PX-68（merge-contracts-to-tickets 完了 = チケット.contracts 存在）",
+            "IT: [Related tickets] PX-71（start-ticket.md に Gate S 呼び出し追記）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: precondition→setup、invariant→assertion の対応判定の完全性。Reason: テストコードの構造解析（setup 関数と assertion の特定）はコメントベースの近似。完全な AST 解析は TypeScript/Rust の言語差異とテストフレームワークの多様性から現実的でない。Alternative: 「setup:」「assert:」のキーフレーズ有無で判定。不十分な場合は WARNING 出力。"
+          ],
+          "instrumentation": "- 【Logging】stdout に JSON 結果。stderr に 3-line error template。\n- 【Metrics】カバレッジ率（%）、カバー済み契約数、未カバー契約数、WARNING 数。\n- 【Error tracking】未カバー契約 ID 一覧 + WARNING 一覧。両者を分けて出力。\n- 【Health check】なし。",
+          "investigation": "[@verifies 注釈フォーマット]\n- Rust: // @verifies C001（先頭に // とスペース、@verifies、スペース、契約ID）\n- TypeScript: // @verifies C001（同上）\n- 複数契約: テスト関数内で複数行（各契約1行）\n- precondition-setup 対応: // @requires C001（precondition に対応）\n- invariant-assertion 対応: // @assert-invariant C003\n\n[スキャンロジック]\n- 正規表現: /@verifies\\s+(C\\d+)/g\n- @requires: /@requires\\s+(C\\d+)/g\n- @assert-invariant: /@assert-invariant\\s+(C\\d+)/g\n- すべてのマッチを収集 → チケット.contracts[].id と突合\n\n[BLOCK条件]\n- チケット.contracts の全 id が収集結果に含まれている → PASS\n- 1つでも欠落 → BLOCK（exit 1）\n- 収集結果にチケット.contracts にない id がある → WARNING（exit 0 だが stderr に警告）",
+          "boyScoutPlan": "- verify-red-coverage.js: 正規表現パターンをスクリプト先頭の定数として定義し、将来のフォーマット拡張に備える。\n- スキャン対象ディレクトリは --test-dir 引数で指定可能（デフォルト: src/）。\n- エラー出力は @verifies 欠落（BLOCK）と未知 ID（WARNING）を明確に区別。\n- テスト容易性のため@verifies スキャンロジックは pure function として分離（param: filePath, contractIds → result: {covered, missing, unknown}）。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 71,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Gate R + Pipeline Integration — 最終検証と既存コマンドへのゲート参照追加",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/71-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nverify-final-contracts.js（Gate R）を実装し、review-ticket 終了時に全ゲート通過記録を確認・契約充足率をレポートする。同時に graphify-rfc.md / split-to-tickets.md / make-ticket.md / start-ticket.md / review-ticket.md の5つのコマンド定義ファイルに、各ゲートスクリプトの呼び出しを最小限の改修で追記する。\n\n### Purpose\n全6チケットの最終統合。契約レイヤーの全ゲート（L1/L2/M/S/R）を既存パイプラインに結びつけ、graphify から review まで一貫した契約検証の流れを確立する。\n\n### Motivation\n各ゲートスクリプトの存在だけではパイプラインに統合されない。各コマンド定義ファイル（.md）に呼び出しを追記し、AI が graphify → split → make → start → review の各段階で自動的に契約検証を実行するようにする必要がある。\n\n### Constraints\n- 各コマンドの既存 Step 構造（Step 0〜N）は一切変更しない\n- ゲート呼び出しは Step 成功完了ブロックの末尾に追記するのみ\n- ゲート FAIL 時は既存の Error Recovery 手順（fail-step → reset-to-step）と同一パターンを使用\n- boundify-graph.md と plan-ticket.md は変更しない",
+          "scope": [
+            "【変更】graphify-rfc.md — Step 2 完了ブロック（298-301行）に以下3スクリプトを挿入（end-step 2 と cleanup の間）:\n```bash\n# Step 2 successful completion (update progress status to running)\nnode .claude/scripts/rfc-graph/update-step-status.js --graphify-status=\"$statusPath\" start-step 2\n\n# Generate edge JSON and inject it into the graph file via crud.js\nnode .claude/scripts/rfc-graph/crud.js --graph=\"$graphPath\" create-edges --file=_temp_edges.json\n\n# === Gate L1: Annotate contracts + verify ===\n# Annotate each edge with contract information (precondition/postcondition/invariant)\nnode .claude/scripts/rfc-graph/annotate-contracts.js \"$1\"\n\n# Verify contracts format (schema compliance of each contract)\nnode .claude/scripts/rfc-graph/verify-contracts-format.js --graph=\"$graphPath\"\n\n# Verify graph-level contract consistency (Gate L1)\nnode .claude/scripts/tickets/verify-graph-contracts.js --graph=\"$graphPath\"\n# === Gate L1 end ===\n\n# Step 2 successful completion (update progress status to done and advance currentStep to 3)\nnode .claude/scripts/rfc-graph/update-step-status.js --graphify-status=\"$statusPath\" end-step 2\n\n# Clean up temporary files\nnode .claude/scripts/rfc-graph/update-step-status.js --graphify-status=\"$statusPath\" cleanup\n```\nStep 構造変更なし。3つのコマンドブロックを create-edges と end-step 2 の間に追加するのみ。ゲート FAIL 時は既存の reset-to-step 2 手順を使用。",
+            "【変更】split-to-tickets.md — Step 5-2 完了ブロック（506-511行）の verify-all-ticket-coverage 直前に以下を挿入:\n```bash\n# === Gate L2: Merge edge contracts into tickets + verify closure ===\n# Merge graph edge contracts into each ticket's contracts array\nnode .claude/scripts/tickets/merge-contracts-to-tickets.js \"$TICKETS_PATH\" \"$GRAPH_PATH\"\n\n# Verify ticket-level contract closure (Gate L2)\nnode .claude/scripts/tickets/verify-ticket-closure.js --tickets=\"$TICKETS_PATH\" --graph=\"$GRAPH_PATH\"\n# === Gate L2 end ===\n\n# Verify that ticketization of all phases is complete\nnode .claude/scripts/tickets/verify-all-ticket-coverage.js \"$TICKETS_PATH\"\n```\n既存の verify-all-ticket-coverage 呼び出しは残し、その直前に2スクリプトを追加。エラーリカバリは既存の reset-to-step 5-2 を使用。",
+            "【変更】make-ticket.md — Step 6 完了ブロック（line 242-250）、status=made 更新（line 248-250）の直前に以下を挿入:\n```bash\n# === Gate M: Verify make-stage contract consistency ===\nnode .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"$ARGUMENTS\" --tickets=\"Tickets.json\"\n# === Gate M end ===\n\necho '{\"status\":\"made\"}' | node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"$ARGUMENTS\"\n```\nspec 出力（show-ticket-context.js --for-spec）の完了後、status=made 更新の前に Gate M を挿入。FAIL 時は Step 6 を再実行（spec 修正 → 再検証）。",
+            "【変更】start-ticket.md — Step 7 冒頭（line 246-247、テスト実行前に）に以下を挿入:\n```bash\n### Step 6b: Verify Red contract coverage (Gate S)\n\nBefore proceeding to Green (implementation), verify that all declared contracts in the ticket\nhave corresponding @verifies annotations in the test files.\n\n```bash\n# === Gate S: Verify @verifies coverage for all contracts ===\nnode .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"$ARGUMENTS\" --test-dir=\"src/\"\n# === Gate S end ===\n\nIf BLOCKed: return to Step 5 (Red) and add missing @verifies annotations to test files,\nthen re-run Gate S.\n```\n\n既存の Step 7 は Step 6b の後に番号シフト（既存の numbering は変更。Step 7→8, 8→9, quality check→10, review→11）。新たな sub-step として挿入。",
+            "【変更】review-ticket.md — Step 11（Transition to reviewed, line 279-285）の直前に以下を挿入:\n```bash\n### Step 10b: Verify final contract fulfillment (Gate R)\n\nBefore transitioning to reviewed, verify that all gates (L1/L2/M/S) have been passed\nand that the contract fulfillment rate is 100%.\n\n```bash\n# === Gate R: Verify final contract fulfillment ===\nnode .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"$ARGUMENTS\" --tickets=\"Tickets.json\"\n# === Gate R end ===\n\nIf BLOCKed: review the gate failure report and fix the underlying issue before re-running.\n```\n\n既存の Step 11 は Step 11（変更なし）。Step 10（Save review report）と Step 11 の間に Gate R を挿入。既存の check-final セクション内の Verification criteria にも「契約充足率 100%」を追加（line 148 に 9つ目の criteria として追記）。",
+            "【新規】.claude/scripts/tickets/verify-final-contracts.js — Gate R 検証スクリプト。検証項目: (1) Gate L1/L2/M/S の通過記録確認（L1=graphify status currentStep≥3, L2=split status currentStep≥6, M=ticket status≥made, S=@verifies 注釈存在確認）, (2) 全 acceptanceCriteria が PASS, (3) 契約充足率レポート（全契約中 N% 充足 / M% 未充足 / 理由）, (4) チケット間契約一貫性（チケット.contracts precondition/postcondition が隣接チケットと整合）。exit 1 on failure。3-line error template。",
+            "【非スコープ】graphify-rfc.md の Step 0/1/3/4/5 — 変更なし。Step 2 完了ブロック内にのみゲート追加。",
+            "【影響範囲】start-ticket.md の Step 番号 — Gate S（Step 6b）追加により既存 Step 7〜8 の番号が 8〜9 にシフト。countinue ブロックは手動修正が必要。"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/verify-final-contracts.js",
+            ".claude/commands/graphify-rfc.md",
+            ".claude/commands/split-to-tickets.md",
+            ".claude/commands/make-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** 全5コマンドファイルにゲート呼び出しが追記され、全ゲート PASS で review まで完了。verify-final-contracts が契約充足率 100% をレポート。",
+            "**[Error case]** Gate L1 未通過 → graphify-rfc.md の reset-to-step 2 でリカバリ。Gate M 未通過 → make-ticket.md の reset-to-step 6 でリカバリ。各ゲート FAIL 時に既存リカバリ手順が干渉なく動作。",
+            "**[Edge case]** 全ゲート通過しているが契約充足率が 100% 未満 → Gate R で BLOCK + 未充足契約 ID 一覧。check-final criteria に追加された「契約充足率 100%」で最終判断。"
+          ],
+          "notes": "依存: PX-69（Gate L1/M 実装済み）, PX-70（Gate S 実装済み）。このチケットが全6チケットの最終統合。boundify-graph.md と plan-ticket.md は変更不要。\n\n- [Implementation steps] 1) verify-final-contracts.js 新規作成 + UT, 2) graphify-rfc.md に Gate L1 呼び出し追記, 3) split-to-tickets.md に Gate L2 呼び出し追記, 4) make-ticket.md に Gate M 呼び出し追記, 5) start-ticket.md に Gate S 呼び出し追記, 6) review-ticket.md に Gate R 呼び出し追記, 7) 全マークダウンファイルの Step 構造維持確認, 8) 統合テスト\n- [Risks] Risk 1: 各 .md ファイルの既存構造の変更ミス。軽減策: git diff で変更箇所のみ確認。Risk 2: ゲートの呼び出し順序ミス（Step 完了前にゲートが呼ばれる）。軽減策: end-step ブロック内の末尾にのみ追記。\n- [Caveats] Caveat 1: start-ticket.md の Red フェーズ終了判定は既存の分岐に追加する形で、既存の判定条件を上書きしない。Caveat 2: review-ticket.md の check-final criteria は末尾に追記。既存 criteria は維持。\n- [Open items] Open 1: 各ゲートの呼び出し履歴を status.json のどのフィールドに記録するか未確定。graphify-status の currentStep、ticket の status、ファイルの有無を組み合わせて判定する暫定設計。\n- [Future improvements] 1) ゲート通過履歴を一元管理する status ファイルの設計。2) 全ゲートの通過状態を可視化するダッシュボードスクリプト。",
+          "invariants": "- 【Normal establishment】全5コマンドファイルでゲート呼び出しが Step 完了ブロック内に正しく配置され、Step 構造が維持されている。\n- 【Invariant on error】ゲート FAIL 時は fail-step 遷移し、reset-to-step でリカバリ可能。既存の Error Recovery 手順と干渉しない。\n- 【Internal state invariant】各ゲートスクリプトは stateless。呼び出し履歴は status.json に記録。\n- 【Boundary invariant】1コマンドファイルあたりの改修は ~10-15行。Step 構造を変えない（Step番号の変更・削除・追加はしない）。",
+          "testUnit": [
+            "UT: [Normal] verify-final-contracts.js が全ゲート通過を確認し PASS（全契約充足）",
+            "UT: [Normal] verify-final-contracts.js が契約充足率レポートを正しい JSON 形式で出力",
+            "UT: [Error] verify-final-contracts.js が Gate L1 未通過を検出し BLOCK（+ 未通過ゲート一覧）",
+            "UT: [Error] verify-final-contracts.js が契約充足率 < 100% を検出し BLOCK（+ 未充足契約 ID 一覧）",
+            "UT: [Boundary] 全ゲート通過・全契約充足の境界ケース（最低限の通過記録のみ）→ PASS",
+            "UT: [Invariant] verify-final-contracts.js は読み取り専用（副作用ゼロ）",
+            "UT: [Normal] graphify-rfc.md 改修後も Markdown の Step 構造が維持されている（Step 0〜5 の見出しが変更されていない）",
+            "UT: [Normal] split-to-tickets.md 改修後も verify-all-ticket-coverage の直前に新規呼び出しが挿入されている",
+            "UT: [Normal] make-ticket.md 改修後も Step 6 の status 更新前に Gate M 呼び出しがある",
+            "UT: [Normal] start-ticket.md 改修後も Red フェーズ終了判定に Gate S が含まれている",
+            "UT: [Normal] review-ticket.md 改修後も Completion Report 直前に Gate R 呼び出しがある"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] PX-66〜PX-70 全完了後に全パイプラインを流し、各ゲートが期待通り動作することを確認",
+            "IT: [Verification] graphify → annotate → Gate L1 → split → merge → Gate L2 → make → Gate M → start → Gate S → review → Gate R の一連フローが BLOCK なく完了",
+            "IT: [Prerequisites] PX-69 (Gate L1/M), PX-70 (Gate S) 完了済み",
+            "IT: [Related tickets] PX-69, PX-70, PX-71（このチケットが最終統合）"
+          ],
+          "testExceptions": [
+            "Exception 1 — Item: 各コマンドファイル改修の Markdown レンダリング検証。Reason: Markdown のレンダリング結果の自動検証は spec 的でない（人間が確認すべき領域）。Alternative: コマンド実行情報に基づく改修の検証は CI コマンド（make 等）の実行で代替。",
+            "Exception 2 — Item: 全パイプライン統合テストの完全自動化。Reason: PX-66〜PX-70 の完了が必要であり、PX-71 単体では全パイプライン流せない。Alternative: 各ゲートスクリプトの単体テスト + モック統合テストで代替。"
+          ],
+          "instrumentation": "- 【Logging】各ゲートスクリプトの呼び出し結果は stdout に JSON。stderr に 3-line error template。\n- 【Metrics】Gate R レポートに各ゲート通過有無・契約充足率・未充足契約 ID 一覧を含む。\n- 【Error tracking】ゲート FAIL 時は fail-step 遷移。reset-to-step でリカバリ。\n- 【Health check】なし（各ゲートは stateless なワンショット実行）。",
+          "investigation": "[Existing graphify-rfc.md]\n- Step 0〜5 の7段階制御。各 Step に start-step / end-step / reset-to-step のステータス制御\n- Step 2（Edge Assignment）: start-step 2 → crud.js create-edges → end-step 2 → cleanup\n- 変更点: end-step 2 の直前に annotate-contracts.js + verify-contracts-format.js + verify-graph-contracts.js を追記\n\n[Existing split-to-tickets.md]\n- Step 0-1〜6 の複数段階制御\n- Step 5-2（Ticket creation）: add-tickets-for-phase.js → ... → verify-all-ticket-coverage → end-step 5-2\n- 変更点: verify-all-ticket-coverage の直前に merge-contracts-to-tickets.js + verify-ticket-closure.js を追記\n\n[Existing make-ticket.md]\n- Step 6: show-ticket-context.js --for-spec → status=made 更新\n- 変更点: status=made 更新の直前に verify-make-contracts.js を追記\n\n[Existing start-ticket.md]\n- 現状: Red（テスト作成）→ Green（実装）→ Refactor の TDD ループ\n- 変更点: Red フェーズ終了判定に verify-red-coverage.js（Gate S）を追加\n\n[Existing review-ticket.md]\n- 現状: レビュー → check-final → Completion Report\n- 変更点: Completion Report 前に verify-final-contracts.js（Gate R）を追加\n- check-final criteria に「契約充足率 100%」を追加",
+          "boyScoutPlan": "- 各コマンドファイルの改修は「追加のみ」で行う。既存の Step 解説・エラーリカバリ手順・スクリプト一覧を変更しない。\n- ゲート呼び出しは Step 成功完了ブロックの末尾に「Gate N: verify-X.js 呼び出し」というコメント+シェルコマンドの形式で挿入。Step 番号を変えない。\n- Error Recovery セクションには「Gate のエラーリカバリ」節を追加せず、既存の reset-to-step N 手順をそのまま使用する旨を追記。\n- verify-final-contracts.js は他のゲートスクリプトと同様に 3-line error template を採用し、ツール間の一貫性を保つ。\n- ゲートの通過記録は各 status.json から読み取る方式。新たな通過記録管理ファイルは追加しない。",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "completedAt": "2026-07-24"
         }
       ]
     },

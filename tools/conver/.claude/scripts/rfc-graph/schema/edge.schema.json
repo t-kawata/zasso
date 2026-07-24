@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "edge.schema.json",
   "type": "object",
-  "required": ["from", "to", "type", "attributes"],
+  "required": ["from", "to", "type", "attributes", "contracts"],
   "additionalProperties": false,
   "properties": {
     "from": { "type": "string", "pattern": "^N[0-9]{4}$" },
@@ -24,6 +24,21 @@
         "strength": { "enum": ["hard", "soft"] },
         "bidirectional": { "type": "boolean" },
         "note": { "type": "string", "maxLength": 240 }
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "precondition", "postcondition", "invariant"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]{3}$" },
+          "precondition": { "type": "string", "minLength": 1 },
+          "postcondition": { "type": "string", "minLength": 1 },
+          "invariant": { "type": "string", "minLength": 1 }
+        }
       }
     }
   }

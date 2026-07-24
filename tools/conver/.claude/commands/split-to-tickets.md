@@ -504,6 +504,10 @@ After all phases are complete, verify that ticketization of all phases is comple
 If verification fails, prohibit progression to Step 6 until all phases are complete.
 
 ```bash
+# Merge edge contracts into each ticket, then verify contract chain closure
+node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH" "$GRAPH_PATH"
+node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH"
+
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
 
 # Normal end of Step 5-2 (5-2 loop complete)

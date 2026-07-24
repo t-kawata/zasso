@@ -45,6 +45,7 @@ const ALLOWED_SUBCOMMANDS = [
   'delete-node',
   'create-edges',
   'delete-edges',
+  'update-edge',
 ];
 
 /** Absolute path to the directory containing schema files */
@@ -74,6 +75,7 @@ function createEmptyGraph(sourceFile) {
  * @returns {{ graphPath: string, subcommand: string, nodeId: string|null, filePath: string|null }}
  * @throws {Error} If arguments are invalid
  */
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArguments() {
   const args = process.argv.slice(2);
 
@@ -141,7 +143,7 @@ function parseArguments() {
   }
 
   // Required argument check per subcommand
-  const subcommandsRequiringFile = ['create-nodes', 'create-edges', 'update-node', 'delete-edges'];
+  const subcommandsRequiringFile = ['create-nodes', 'create-edges', 'update-node', 'delete-edges', 'update-edge'];
   const subcommandsRequiringId = ['get-node', 'update-node', 'delete-node'];
 
   if (subcommandsRequiringFile.includes(subcommand) && !filePath) {
@@ -423,6 +425,38 @@ function executeCreateEdges(graph, edgesData) {
 }
 
 /**
+ * update-edge: Update a single edge by from+to+type
+ *
+ * Finds the edge by from+to+type composite key and updates its contracts field.
+ * The patch must contain from, to, type for edge identification, and may contain
+ * a contracts array to replace the existing one.
+ * Validates the complete updated edge against the edge schema.
+ *
+ * @param {Object} graph — Graph data
+ * @param {Object} patchData — Contains from, to, type, and optionally contracts
+ * @throws {Error} If edge not found or schema validation fails
+ */
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+function executeUpdateEdge(graph, patchData) {
+  const index = graph.edges.findIndex(
+    (e) => e.from === patchData.from && e.to === patchData.to && e.type === patchData.type
+  );
+  if (index === -1) {
+    throw new Error(
+      'Edge ' + patchData.from + '→' + patchData.to + ' (' + patchData.type + ') not found.' +
+      '\n  Edges in graph: ' + graph.edges.length
+    );
+  }
+  // Build updated edge: keep existing fields, override with patch
+  const updatedEdge = { ...graph.edges[index], ...patchData };
+  // Schema validation
+  validateWithSchema(updatedEdge, EDGE_SCHEMA_FILE, 'Updated edge ' + patchData.from + '→' + patchData.to);
+  // Execute update
+  graph.edges[index] = updatedEdge;
+  console.log(JSON.stringify({ ok: true, edge: patchData.from + '→' + patchData.to + '(' + patchData.type + ')' }, null, 2));
+}
+
+/**
  * delete-edges: Batch delete edges
  *
  * Identifies edges by from + to + type combination and removes matching edges.
@@ -467,6 +501,7 @@ function exitWithError(message, reason, action) {
 /**
  * Displays usage instructions
  */
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function printUsage() {
   console.log(`
 crud.js — Graph file CRUD operations
@@ -490,6 +525,9 @@ Usage:
   node crud.js --graph=<path> create-edges --file=<edges.json>
     Batch add edges defined in edges.json (with from/to node existence check)
 
+  node crud.js --graph=<path> update-edge --file=<patch.json>
+    Update a single edge identified by from+to+type (update contracts field)
+
 All write operations execute atomic writes after passing schema validation.
 `);
 }
@@ -503,6 +541,7 @@ All write operations execute atomic writes after passing schema validation.
  *
  * All errors are caught in this function and output to stderr in 3-section template.
  */
+// [::TICKET::] PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -560,6 +599,9 @@ function main() {
       case 'create-edges':
         executeCreateEdges(graph, inputData);
         break;
+      case 'update-edge':
+        executeUpdateEdge(graph, inputData);
+        break;
       case 'delete-edges':
         executeDeleteEdges(graph, inputData);
         break;
@@ -599,6 +641,7 @@ module.exports = {
   executeUpdateNode,
   executeDeleteNode,
   executeCreateEdges,
+  executeUpdateEdge,
   executeDeleteEdges,
   atomicWrite,
   exitWithError,

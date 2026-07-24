@@ -64,7 +64,7 @@
     },
     "ticket": {
       "type": "object",
-      "required": ["id", "phaseId", "title", "status"],
+      "required": ["id", "phaseId", "title", "status", "contracts"],
       "properties": {
         "id": { "type": "integer", "minimum": 1, "description": "フェーズ内のチケット番号（1始まり自動インクリメント）" },
         "phaseId": { "type": "integer", "minimum": -1, "description": "所属するフェーズID（-1 は PX フェーズ所属）" },
@@ -110,7 +110,23 @@
           }
         },
         "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } },
-        "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" }
+        "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" },
+        "contracts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "sourceEdge", "precondition", "postcondition", "invariant"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^C[0-9]{3}$", "description": "契約ID。グラフ内で一意なC000形式。" },
+              "sourceEdge": { "type": "string", "minLength": 1, "description": "この契約の出自エッジ（例: N0001→N0003）" },
+              "precondition": { "type": "string", "minLength": 1, "description": "このチケットの事前条件 — 開始前に満たすべき約束" },
+              "postcondition": { "type": "string", "minLength": 1, "description": "このチケットの事後条件 — 完了後に保証する約束" },
+              "invariant": { "type": "string", "minLength": 1, "description": "このチケットの不変条件 — 常に維持すべき自己整合性" }
+            }
+          }
+        }
       },
       "additionalProperties": true
     },

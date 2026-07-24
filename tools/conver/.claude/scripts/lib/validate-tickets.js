@@ -3,6 +3,7 @@ const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed'];
 
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
 function validateTickets(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
@@ -40,6 +41,26 @@ function validateTickets(data) {
       if (t.changes !== undefined) {
         if (!Array.isArray(t.changes)) errors.push(tp + '.changes: must be array');
         else for (let i = 0; i < t.changes.length; i++) { if (!t.changes[i] || typeof t.changes[i] !== 'object') errors.push(tp + '.changes[' + i + ']: must be object'); }
+      }
+      // contracts validation — each contract must be an object with required string fields
+      if (t.contracts === undefined) {
+        errors.push(tp + '.contracts: required');
+      } else if (!Array.isArray(t.contracts)) {
+        errors.push(tp + '.contracts: must be array');
+      } else if (t.contracts.length === 0) {
+        errors.push(tp + '.contracts: must not be empty');
+      } else {
+        for (let ci = 0; ci < t.contracts.length; ci++) {
+          const c = t.contracts[ci], cp = tp + '.contracts[' + ci + ']';
+          if (!c || typeof c !== 'object' || Array.isArray(c)) errors.push(cp + ': must be object');
+          else {
+            if (typeof c.id !== 'string' || !/^C\d{3}$/.test(c.id)) errors.push(cp + '.id: must match C000 format (e.g. C001)');
+            if (typeof c.sourceEdge !== 'string' || c.sourceEdge.length < 1) errors.push(cp + '.sourceEdge: must be non-empty string');
+            if (typeof c.precondition !== 'string' || c.precondition.length < 1) errors.push(cp + '.precondition: must be non-empty string');
+            if (typeof c.postcondition !== 'string' || c.postcondition.length < 1) errors.push(cp + '.postcondition: must be non-empty string');
+            if (typeof c.invariant !== 'string' || c.invariant.length < 1) errors.push(cp + '.invariant: must be non-empty string');
+          }
+        }
       }
       const strFields = ['referenceSection','specPath','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','investigation','boyScoutPlan','notes','created_at','updated_at'];
       for (const f of strFields) { if (t[f] !== undefined && typeof t[f] !== 'string') errors.push(tp + '.' + f + ': must be string'); }

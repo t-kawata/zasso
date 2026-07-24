@@ -206,6 +206,17 @@ This inserts `[::TICKET::]` annotation(s) before the specified definition(s) and
 
 **Loop**: Repeat for each reported file until `--check-ambiguous` exits with code 0. Proceeding to Step 6 with unresolved `[::AMBIGUOUS::]` markers is a defect.
 
+### Step 5b: Verify Red contract coverage
+
+Before proceeding to Green (implementation), verify all contract IDs have @verifies annotations in test files.
+
+```bash
+# Verify all contract IDs have @verifies in test files
+node .claude/scripts/tickets/verify-red-coverage.js --ticket-key="$ARGUMENTS" --test-dir="src/"
+```
+
+If BLOCKed: return to Step 5 (Red) and add missing @verifies annotations, then re-run.
+
 ### Step 6: Active search for incomplete implementations (mandatory)
 
 After completing the implementation, **scrutinize all code you changed** before declaring completion, and check for mixed-in incomplete implementations. This is an **active step to discover omissions that automated scripts cannot detect**; skipping is prohibited.

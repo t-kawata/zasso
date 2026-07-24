@@ -276,6 +276,19 @@ echo '{
 
 This makes it possible to trace "how the review was conducted and quality assured" when checking the ticket later.
 
+### Step 10b: Verify final contract fulfillment
+
+Before transitioning to reviewed, verify that all prerequisites (graph contracts annotated,
+ticket contracts merged, test plan covers contracts, @verifies present) have been completed
+and that all contracts are fulfilled.
+
+```bash
+# Verify all ticket contracts are fulfilled
+node .claude/scripts/tickets/verify-final-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+If BLOCKed: review the contract fulfillment report and fix the uncovered contracts before re-running.
+
 ### Step 11: Transition to reviewed
 
 After all checks pass, update the status together with the review completion date:

@@ -246,5 +246,8 @@ node .claude/scripts/tickets/show-ticket-context.js \
 ```
 
 ```bash
+# Verify that test plan covers all declared contracts
+node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```

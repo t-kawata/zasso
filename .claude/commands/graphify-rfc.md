@@ -294,6 +294,15 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 # Save the generated edge JSON to the temporary file _temp_edges.json first, then specify it via crud.js's --file
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
 
+# Annotate each edge with contract info: read the edge list below, then for each edge
+# run `crud.js --graph="$graphPath" update-edge --file=<patch.json>` where patch.json
+# contains: {"from":"<id>","to":"<id>","type":"<type>","contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}
+node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
+
+# Verify contract format compliance and consistency
+node .claude/scripts/rfc-graph/verify-contracts-format.js --graph="$graphPath"
+node .claude/scripts/tickets/verify-graph-contracts.js --graph="$graphPath"
+
 # Step 2 successful completion (update progress status to done and advance currentStep to 3)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" end-step 2
 
