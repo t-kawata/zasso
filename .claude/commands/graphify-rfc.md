@@ -286,15 +286,24 @@ node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusP
 
 Select appropriate relationships from the 12 edge types (depends_on / implements / refines / extends / conflicts_with / triggers / constrains / supersedes / references / precedes / part_of / validates), ensuring every node has at least one edge. Confirm that no orphan nodes exist.
 
+Each edge entry must include: from, to, type, attributes (strength + bidirectional), and contracts.
+
 ```bash
 # Start Step 2 (update progress status to running)
 node .claude/scripts/rfc-graph/update-step-status.js --graphify-status="$statusPath" start-step 2
 
 # Generate edge JSON and inject it into the graph file via crud.js
 # Save the generated edge JSON to the temporary file _temp_edges.json first, then specify it via crud.js's --file
+# Each entry in the edge JSON follows this format:
+#
+#   {"from":"N0001","to":"N0003","type":"depends_on","attributes":{"strength":"hard","bidirectional":false},"contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}
+#
+# Edge types: depends_on, implements, refines, extends, conflicts_with, triggers, constrains, supersedes, references, precedes, part_of, validates
+# Attributes: strength (hard/soft), bidirectional (true/false), optional note (max 240 chars)
+# Contracts: id (C000 format), precondition, postcondition, invariant — all non-empty strings
 node .claude/scripts/rfc-graph/crud.js --graph="$graphPath" create-edges --file=_temp_edges.json
 
-# Annotate each edge with contract info: read the edge list below, then for each edge
+# After edges exist, annotate each with contract info: read the edge list below, then for each edge
 # run `crud.js --graph="$graphPath" update-edge --file=<patch.json>` where patch.json
 # contains: {"from":"<id>","to":"<id>","type":"<type>","contracts":[{"id":"C001","precondition":"...","postcondition":"...","invariant":"..."}]}
 node .claude/scripts/rfc-graph/annotate-contracts.js "$1"
