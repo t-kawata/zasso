@@ -41,12 +41,20 @@ function parseArgs() {
  * @param {object} ticket — Ticket object with contracts, testUnit, testExceptions
  * @returns {Array<{ticket: number, contract: string|null, detail: string}>}
  */
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
 function verifyMakeContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
   const testUnit = ticket.testUnit || [];
   const testExceptions = ticket.testExceptions || [];
+
+  // Gate M: reject empty contracts — contracts must be defined before make can complete
+  // [::TICKET::] PX-73: C005 — verify-make-contracts.js rejects empty contracts
+  if (contracts.length === 0) {
+    errors.push({ ticket: ticket.id, contract: null, detail: 'contracts array is empty — contracts must be defined before make can complete' });
+    return errors;
+  }
+
   const utText = testUnit.join(' ').toLowerCase();
 
   for (const c of contracts) {

@@ -19,6 +19,7 @@
  *   --test-exceptions='["..."]'  test plan: untestable items (JSON array)
  *   --default-files='["..."]'  implementation target files (JSON array)
  *   --acceptance-criteria='["..."]'  completion criteria (JSON array)
+ *   --contracts='[{...}]'           optional contracts (JSON array of C000-format objects)
  *   --notes="..."              supplementary information (string)
  *
  * CLI: ensure-ticket.js --ticket-key=<PX-{id}> --title="..." [options] [--tickets=<Tickets.json>]
@@ -59,6 +60,7 @@ function resolveSpecPath(ticketKey, title) {
 }
 
 /** Parse command-line arguments */
+// [::TICKET::] PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-73 --for-spec --no-implementation-order`.
 function parseArgs(testArgs) {
   const args = testArgs || process.argv.slice(2);
   let ticketsPath = '';
@@ -71,6 +73,7 @@ function parseArgs(testArgs) {
   let testExceptions = null;
   let default_files = null;
   let acceptanceCriteria = null;
+  let contracts = null;
   let notes = '';
   for (const arg of args) {
     if (arg.startsWith('--tickets=')) {
@@ -93,6 +96,8 @@ function parseArgs(testArgs) {
       default_files = JSON.parse(arg.slice('--default-files='.length));
     } else if (arg.startsWith('--acceptance-criteria=')) {
       acceptanceCriteria = JSON.parse(arg.slice('--acceptance-criteria='.length));
+    } else if (arg.startsWith('--contracts=')) {
+      contracts = JSON.parse(arg.slice('--contracts='.length));
     } else if (arg.startsWith('--notes=')) {
       notes = arg.slice('--notes='.length);
     }
@@ -102,11 +107,12 @@ function parseArgs(testArgs) {
   } else {
     ticketsPath = path.resolve(ticketsPath);
   }
-  return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, notes };
+  return { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes };
 }
 
+// [::TICKET::] PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-73 --for-spec --no-implementation-order`.
 function main() {
-  const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, notes } = parseArgs();
+  const { ticketsPath, ticketKey, title, background, scope, testUnit, testIntegration, testExceptions, default_files, acceptanceCriteria, contracts, notes } = parseArgs();
 
   if (!ticketKey) {
     console.error('Error: --ticket-key is required.');
@@ -137,6 +143,7 @@ function main() {
     if (testExceptions) ticketData.testExceptions = testExceptions;
     if (default_files) ticketData.default_files = default_files;
     if (acceptanceCriteria) ticketData.acceptanceCriteria = acceptanceCriteria;
+    if (contracts) ticketData.contracts = contracts;
     if (notes) ticketData.notes = notes;
     const input = JSON.stringify(ticketData);
     const stdout = execFileSync(process.execPath, [addTicketScript, ticketsPath, 'PX'], {

@@ -3,9 +3,9 @@
  * insert-field-template.js <Tickets.json path> <ticket-key>
  *
  * Executed by AI at the start of /make-ticket Step 3. Merges templates into the
- * target ticket's 11 fields (invariants, background, scope, testUnit, testIntegration,
+ * target ticket's 12 fields (invariants, background, scope, testUnit, testIntegration,
  * testExceptions, instrumentation, notes, acceptanceCriteria,
- * investigation, boyScoutPlan).
+ * investigation, boyScoutPlan, contracts).
  *
  * Skips only fields where all [::TEMPLATE-STUB::] markers are already present.
  * For other fields, preserves existing content and appends only missing markers.
@@ -29,7 +29,7 @@ const { execFileSync } = require("child_process");
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 
-// ---- 11-field template definitions ----
+// ---- 12-field template definitions (incl. contracts) ----
 
 const TEMPLATES = {
   invariants:
@@ -79,6 +79,14 @@ const TEMPLATES = {
 
   boyScoutPlan:
     "- [::TEMPLATE-STUB::boyscout-plan::] Describe the translatability improvements planned for the code touched by this ticket. Specify which code will be refactored (function extraction, variable renaming, constant extraction) and why. Replace the stub with the actual plan.",
+
+  contracts: [
+    "- [Contract ID] [::TEMPLATE-STUB::contracts-id::] C000 format (C001, C002, ...)",
+    "- [Source edge] [::TEMPLATE-STUB::contracts-edge::] Graph edge annotation reference (e.g., N0400-N0401)",
+    "- [Precondition] [::TEMPLATE-STUB::contracts-precondition::] Input/state conditions that must hold before execution",
+    "- [Postcondition] [::TEMPLATE-STUB::contracts-postcondition::] Output/state guarantees that must hold after execution",
+    "- [Invariant] [::TEMPLATE-STUB::contracts-invariant::] Assertable predicates that must always hold before and after",
+  ],
 };
 
 /**
@@ -87,6 +95,7 @@ const TEMPLATES = {
  * @param {string} str - The string to search
  * @returns {string[]} Array of marker names
  */
+// [::TICKET::] PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-73 --for-spec --no-implementation-order`.
 function extractStubNames(str) {
   const regex = /\[::TEMPLATE-STUB::([^:]+)::\]/g;
   const names = [];
