@@ -3487,7 +3487,7 @@ cd crates/siprs-server && make migrate-fresh
 
 **決定: 既存 4 層に加え Layer 5 を新設し、全層で可能な限り網羅的なテストコードを維持する。**
 
-Layer 5 は graphify-rfc + boundify-graph-to-dirs による将来の I/O 境界分割時にテストスコープも安全に分割できるよう、モジュール境界を明確に意識して設計する。
+Layer 5 は graphify-rfc + boundify-graph による将来の I/O 境界分割時にテストスコープも安全に分割できるよう、モジュール境界を明確に意識して設計する。
 
 ### 57.1 テスト層構造（拡張版）
 
@@ -3588,7 +3588,7 @@ async fn test_ws_event_stream() {
 }
 ```
 
-### 57.3 graphify-rfc + boundify-graph-to-dirs との連携
+### 57.3 graphify-rfc + boundify-graph との連携
 
 将来本 RFC を I/O 境界で分割する際は、以下のガイドラインに従う。
 
@@ -3670,9 +3670,9 @@ let config = ClientConfig {
 
 ## 60. 既存 RFC セクションとの対応関係
 
-## 61. graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり
+## 61. graphify-rfc + boundify-graph のための参考情報 — RFC設計書が示す I/O 境界の手がかり
 
-本セクションは、後日 `/graphify-rfc + boundify-graph-to-dirs`（RFC分割）、`/formulate-tickets`（チケット策定）、`/formulate-tickets-for-next`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
+本セクションは、後日 `/graphify-rfc + boundify-graph`（RFC分割）、`/formulate-tickets`（チケット策定）、`/formulate-tickets-for-next`（次フェーズチケット策定）を実行する際に、安全な I/O 境界や実装スコープの判断材料を得るための手がかりとして、RFC 設計書自体が自然な切断面を参考情報として示すものである。「これが正しい分割である」と決めつけるものではなく、設計の記述の中に現れる境界の候補を書き留めておくことで、実際の分割作業の一助とすることを目的とする。
 
 ### 61.1 観測された自然な I/O 境界
 
@@ -3747,7 +3747,7 @@ zasso/crates/
 ### 61.6 参考: 本セクションの目的と限界
 
 - 本セクションは RFC の設計記述から**事後的に観測された**境界を書き留めたものであり、境界を**事前に設計した**ものではない。
-- 実際の分割判断は、実装が進みコードとテストが蓄積された後、`/graphify-rfc + boundify-graph-to-dirs` 実行時に行う。
+- 実際の分割判断は、実装が進みコードとテストが蓄積された後、`/graphify-rfc + boundify-graph` 実行時に行う。
 - ここに書かれた境界の候補は参考情報であり、分割時に新たな発見があればそちらを優先してよい。
 
 | grill 決定 | 関連既存セクション | 補足 |

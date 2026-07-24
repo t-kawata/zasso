@@ -1,0 +1,33 @@
+// ============================================================================
+// Initial Design Artifact — RFC-driven Implementation
+// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
+// ============================================================================
+// "Node" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.
+//
+// Graph:        ../../RFC-ROOT-GRAPH.json
+// Directory:    ../../RFC-ROOT-Dirs-Tree.json
+// Original RFC: ../../RFC-ROOT.md
+//
+// Mapped node(s):
+//   - NODE_ID=N0013:  §10 ClientConfig Full Specification
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0013 --hops=2)
+//
+// Cross-referenced design context:
+//   - requirement/§4 Compliance Requirements [NODE_ID=N0005]
+//     (part_of ← src/config/versioning_policy.rs)
+//     (depends_on ← src/config/client_config_spec.rs)
+//     (depends_on ← src/build/build_strategy_os_deps.rs)
+//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0005 --hops=2)
+//   - requirement/§42 Validation Phase [NODE_ID=N0051]
+//     (depends_on → src/config/client_config_spec.rs)
+//     → (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0051 --hops=2)
+//
+// Full graph exploration:
+//   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
+//   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
+// ============================================================================
+
+pub struct Config {}
+
+
+// TODO: [::STUB::] MUST implement NODE_ID=N0013: §10 ClientConfig Full Specification
