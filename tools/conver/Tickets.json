@@ -5976,6 +5976,120 @@
           "instrumentation": "Static quality check: 11 pre-existing issues in validate-tickets.js (single-letter vars, console.log). New code: 0 issues.\nTranslatability: All function names are verb phrases. No single-letter vars, no magic numbers.\nTests: 35/35 passed across 5 suites.",
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-24"
+        },
+        {
+          "id": 74,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "plan-ticket: mandate contract-to-test-code translation with Gate P verification",
+          "background": "### Goal\nPlan-ticket must force each Contract's Precondition/Postcondition/Invariant into concrete test code in the plan — not just described at spec level.\n\n### Purpose\nClose the gap where make-ticket Phase 1.5 defines contract-to-testable-form mapping but plan-ticket has no symmetric enforcement, leaving contract-to-test-code translation unverified until start-ticket's Gate S.\n\n### Motivation\nPX-73 added mandatory Contracts definition mechanism to make-ticket (Phase 1.5 + Gate M). The downstream plan-ticket must have symmetric enforcement to maintain the pipeline invariant: make (spec-level contract -> testable form) -> plan (testable form -> concrete test code) -> start (test code -> @verifies annotation). Without this, plans can pass with vague 'comprehensive testing' language but no actual contract-to-test-code mapping.\n\n### Constraints\nMust integrate into existing plan-ticket.md workflow without changing Tickets.json schema (no new fields). Scripts must be plain Node.js (no new npm dependencies). Gate P must verify concrete test code patterns (assert_eq!, assert!, expect, should, etc.), not just keyword overlap.",
+          "scope": [
+            "Change: .claude/commands/plan-ticket.md — Add Phase 1.5 (Contract-to-test-code translation) as mandatory step before plan formulation in Step 4",
+            "Change: .claude/commands/plan-ticket.md — Add Gate P verification after plan formulation but before status update in Step 5",
+            "Add: .claude/scripts/tickets/verify-plan-contracts.js — Gate P script that verifies each contract element has concrete test code patterns in testUnit",
+            "Non-change: Tickets.json schema — no new fields added",
+            "Non-change: make-ticket.md — no changes needed",
+            "Impact: plan-ticket.md — workflow order changes",
+            "Impact: plan-ticket.md — status=planned now requires Gate P pass"
+          ],
+          "testUnit": [
+            "UT: [Normal] verify-plan-contracts.js passes when each contract element has concrete test code (assert_eq!/expect/should patterns) in testUnit",
+            "UT: [Normal] verify-plan-contracts.js passes when contracts array is empty (no contracts to verify)",
+            "UT: [Normal] Gate P integrated in plan-ticket.md Step 5 blocks status=planned when verification fails",
+            "UT: [Normal] Gate P allows status=planned when verification passes",
+            "UT: [Error] verify-plan-contracts.js rejects when contract precondition lacks concrete test code in testUnit",
+            "UT: [Error] verify-plan-contracts.js rejects when contract postcondition lacks concrete test code in testUnit",
+            "UT: [Error] verify-plan-contracts.js rejects when contract invariant lacks concrete test code in testUnit",
+            "UT: [Error] verify-plan-contracts.js exits 1 with proper 3-line error template on any missing coverage",
+            "UT: [Boundary] verify-plan-contracts.js handles edge cases — contract with empty precondition/postcondition/invariant strings",
+            "UT: [Boundary] verify-plan-contracts.js reports all missing contracts at once (not fail-fast)",
+            "UT: [Normal] verify-plan-contracts.js passes with concrete code patterns\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C001\", precondition: \"Input valid\", postcondition: \"Returns Ok\", invariant: \"State valid\" }], testUnit: [\"let input = \\\"test\\\"; assert!(result.is_ok());\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "UT: [Normal] Empty contracts passes (C004)\n  ```javascript\n  const errors = verifyPlanContracts({ id: 1, contracts: [], testUnit: [] });\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "UT: [Error] Precondition without test code rejected\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C001\", precondition: \"Input valid\", postcondition: \"\", invariant: \"\" }], testUnit: [\"Check validation\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.some(e => e.contract === \"C001\"));\n  ```",
+            "UT: [Error] Postcondition without assertion code rejected\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C002\", precondition: \"\", postcondition: \"Returns Ok\", invariant: \"\" }], testUnit: [\"Should return ok\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.some(e => e.contract === \"C002\"));\n  ```",
+            "UT: [Error] Invariant without predicate code rejected\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C003\", precondition: \"\", postcondition: \"\", invariant: \"State consistent\" }], testUnit: [\"Consistent state\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.some(e => e.contract === \"C003\"));\n  ```",
+            "UT: [Error] All missing reported at once\n  ```javascript\n  const ticket = { id: 1, contracts: [\n    { id: \"C001\", precondition: \"Pre A\", postcondition: \"\", invariant: \"\" },\n    { id: \"C002\", precondition: \"\", postcondition: \"Post B\", invariant: \"\" },\n    { id: \"C003\", precondition: \"\", postcondition: \"\", invariant: \"Inv C\" }\n  ], testUnit: [\"Vague description\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.length >= 3);\n  ```",
+            "UT: [Boundary] Empty strings in contract elements are ignored\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C001\", precondition: \"\", postcondition: \"\", invariant: \"\" }], testUnit: [\"No code\"] };\n  const errors = verifyPlanContracts(ticket);\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "UT: [Boundary] Missing testUnit handled gracefully\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: \"C001\", precondition: \"Input valid\", postcondition: \"Returns Ok\", invariant: \"State\" }] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.length > 0);\n  ```",
+            "IT: [Integration] plan-ticket.md Phase 1.5 produces test code -> Gate P verifies\n  plan-ticket.md Step 4.5 must list Gate P before Step 5",
+            "IT: [Integration] make (Gate M) -> plan (Gate P) -> start (Gate S) contract chain\n  Each pipeline stage must have a verification gate for contracts"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] plan-ticket.md — Phase 1.5 produces test code that feeds Gate P",
+            "IT: [Integration point] start-ticket.md — Gate S @verifies annotations must match contracts defined in make and planned in plan",
+            "IT: [Verification] End-to-end: make Phase 1.5 (spec-level) -> plan Phase 1.5 (test-code-level) -> start Gate S (@verifies) — contract coverage maintained across all three phases without gaps",
+            "IT: [Prerequisites] PX-73 Phase 1.5 + Gate M must be in place (already committed)"
+          ],
+          "testExceptions": [
+            "Cannot test contract annotation presence in written test files by unit tests alone — must verify at runtime by scanning actual files. This is not a design defect; Gate S (verify-red-coverage.js) already handles runtime scanning in start-ticket Step 5b."
+          ],
+          "defaultFiles": [
+            ".claude/commands/plan-ticket.md",
+            ".claude/scripts/tickets/verify-plan-contracts.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: All contract elements (Precondition/Postcondition/Invariant) have concrete test code in testUnit -> Gate P passes -> status=planned allowed",
+            "Error case: A contract element lacks concrete test code patterns -> Gate P blocks (exit 1) -> status remains current, AI must add test code to plan before retrying",
+            "Edge case: No contracts defined (empty array) -> Gate P passes trivially — no test code required"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Spec (Contracts.Precondition) -> Plan (testUnit test code)",
+              "precondition": "Each contract's Precondition must have corresponding test input code (test data literals, input schemas, type definitions) in testUnit",
+              "postcondition": "verify-plan-contracts.js confirms testUnit contains proper test input patterns for each Precondition",
+              "invariant": "Every Precondition in tickets.json maps to at least one testUnit entry with concrete test code"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Spec (Contracts.Postcondition) -> Plan (testUnit assertion code)",
+              "precondition": "Each contract's Postcondition must have corresponding assertion code (assert_eq!, expect, should, assert!) in testUnit",
+              "postcondition": "verify-plan-contracts.js confirms testUnit contains assertion patterns for each Postcondition",
+              "invariant": "Every Postcondition in tickets.json maps to at least one testUnit entry with concrete assertion code"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Spec (Contracts.Invariant) -> Plan (testUnit predicate code)",
+              "precondition": "Each contract's Invariant must have corresponding predicate code (assert!, debug_assert!, property-based check) in testUnit",
+              "postcondition": "verify-plan-contracts.js confirms testUnit contains predicate patterns for each Invariant",
+              "invariant": "Every Invariant in tickets.json maps to at least one testUnit entry with concrete predicate code"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "No contracts = no verification needed",
+              "precondition": "ticket.contracts is an empty array or undefined",
+              "postcondition": "verify-plan-contracts.js exits 0 without scanning for test code patterns",
+              "invariant": "Empty contracts must never be treated as an error by Gate P"
+            }
+          ],
+          "notes": "test\nImplementation summary:\n- Created: .claude/scripts/tickets/verify-plan-contracts.js (Gate P)\n- Created: tests/verify-plan-contracts.test.cjs (10 tests, all pass)\n- Modified: .claude/commands/plan-ticket.md (Phase 1.5 Step 3.5 + Gate P Step 4.5)\n- Gate P: verified on PX-74 (passes with testUnit containing concrete code)\n- Gate S: all 4 contracts (C001-C004) have @verifies annotations\n- Pipeline: make (Gate M) -> plan (Phase 1.5 + Gate P) -> start (Gate S) — contract chain complete\nReview report:\n- Gate P (verify-plan-contracts.js): created, 10 tests all pass\n- plan-ticket.md: Phase 1.5 (Step 3.5) + Gate P (Step 4.5) added\n- Annotation check: passed (no missing or ambiguous markers)\n- Translatability: verb-phrase function names, no generic variables, no magic numbers\n- Stub check: 0 stubs in target code\n- Crime check: 0 crimes\n- Contracts C001-C004: all @verifies annotated, Gate P passes, Gate S passes\n- Pipeline: make (Gate M) -> plan (Gate P) -> start (Gate S) — contract chain complete",
+          "updated_at": "2026-07-24",
+          "created_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "none (new file)",
+              "after": "150 lines",
+              "description": "Create verify-plan-contracts.js — Gate P script"
+            },
+            {
+              "before": "prose-only testUnit",
+              "after": "testUnit with concrete test code blocks",
+              "description": "Update PX-74 testUnit to pass Gate P (Phase 1.5 demo)"
+            },
+            {
+              "before": "Step 3 -> Step 4 -> Step 5",
+              "after": "Step 3 -> Step 3.5 -> Step 4 -> Step 4.5 -> Step 5",
+              "description": "Add Phase 1.5 and Gate P to plan-ticket workflow"
+            },
+            {
+              "before": "none (new file)",
+              "after": "120 lines",
+              "description": "tests/verify-plan-contracts.test.cjs — 10 test cases"
+            }
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 10/10 passed",
+          "completedAt": "2026-07-24"
         }
       ]
     },
