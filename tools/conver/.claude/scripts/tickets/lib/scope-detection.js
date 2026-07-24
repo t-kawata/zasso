@@ -61,7 +61,7 @@ function detectLanguage(lines, languageHint) {
  * @param {{ inBlockComment: boolean }} state — mutated in-place
  * @returns {number} net brace depth change for this line
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function measureBraceChange(line, state) {
   let netChange = 0;
   let inString = false;
@@ -124,7 +124,7 @@ function measureBraceChange(line, state) {
  * Match a line against all DEFINITION_PATTERN_METAS and extract name + kind.
  * Returns null if no pattern matches.
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function matchDefinition(line) {
   const trimmed = line.trim();
   for (const meta of DEFINITION_PATTERN_METAS) {
@@ -161,7 +161,7 @@ function matchDefinition(line) {
  * Find containing definition using indentation tracking.
  * For Pythion "def" and "class" keywords only (Ruby "def" and "class" too).
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function findContainingDefinitionByIndent(lines, targetLine, languageHint) {
   // Indentation: first non-whitespace column
   const indentStack = []; // { startLine, name, kind, indent }
@@ -211,7 +211,7 @@ function findContainingDefinitionByIndent(lines, targetLine, languageHint) {
 /**
  * Extract startLine, name, kind from a stack entry.
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function extractResult(entry) {
   return { startLine: entry.startLine, name: entry.name, kind: entry.kind };
 }
@@ -225,7 +225,7 @@ function extractResult(entry) {
  * @param {string}   [languageHint] — optional ".rs" | ".py" etc.
  * @returns {{ startLine: number, name: string, kind: string } | null}
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function findContainingDefinition(lines, targetLine, languageHint) {
   // -- Input validation --
   if (!Array.isArray(lines) || lines.length === 0) return null;

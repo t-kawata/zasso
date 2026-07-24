@@ -4942,7 +4942,7 @@
             ".claude/commands/review-ticket.md"
           ],
           "acceptanceCriteria": [
-            "**[Happy path] — start-ticket で実装コードが生成された後、annotate-ticket-context-by-git-diff.js が自動実行され、最初の関数/構造体/class定義の直上に下記コメントが挿入される:**\n  `// Implemented or modified under the PX-59 ticket; for details, refer to the command \\`node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-59 --for-spec --no-implementation-order\\`.`",
+            "**[Happy path] — start-ticket で実装コードが生成された後、annotate-ticket-context-by-git-diff.js が自動実行され、最初の関数/構造体/class定義の直上に下記コメントが挿入される:**\n  `// [::TICKET::] PX-59 changes. Details: \\`node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-59 --for-spec --no-implementation-order\\`.`",
             "**[Error case] — git diff で変更が検出されない場合、スクリプトはファイルを一切変更せず exit 0 で終了する。stderr には「No source files to annotate」と出力する。**",
             "**[Error case] — 前方スキャンで既知の定義パターン (fn / func / class 等) が1つも見つからない場合、ファイル先頭に [::AMBIGUOUS::] マーカー＋AI委譲コメントを挿入する。**",
             "**[Edge case] — 新規ファイル (git untracked) が scope に含まれる場合、git diff --diff-filter=A で捕捉され、最初の定義直上に注釈が挿入される。**"
@@ -5015,14 +5015,14 @@
             ".claude/scripts/tickets/tests/annotate-ticket-context-by-git-diff.test.cjs"
           ],
           "acceptanceCriteria": [
-            "**[Happy path] — 同一定義に異なるチケットキーの注釈が挿入されるとき、スクリプトが自動検出しマージする:**\n  1回目: PX-59 → `// Implemented or modified under the PX-59 ticket; ...`\n  2回目: PX-61 → `// Implemented or modified under tickets: PX-59, PX-61; ...`\n  3回目: PX-62 → `// Implemented or modified under tickets: PX-59, PX-61, PX-62; ...`",
+            "**[Happy path] — 同一定義に異なるチケットキーの注釈が挿入されるとき、スクリプトが自動検出しマージする:**\n  1回目: PX-59 → `// [::TICKET::] PX-59 ticket; ...`\n  2回目: PX-61 → `// Implemented or modified under tickets: PX-59, PX-61; ...`\n  3回目: PX-62 → `// Implemented or modified under tickets: PX-59, PX-61, PX-62; ...`",
             "**[Error case] — 同一キーで再注釈 → 何も変更しない（冪等性）**",
             "**[Edge case] — マルチ形式の行にさらに別キーが追加 → 追記のみ行われフォーマットは維持される**"
           ],
           "notes": "- [Implementation steps] (1) buildMultiAnnotation() 追加 (2) detectAnnotationsAtLine() 追加 (3) mergeAnnotation() 追加 (4) processFile() の分岐ロジック変更 (5) テスト更新\n- [Risks] 既存の注釈フォーマット変更による後方互換性リスク → 単一形式は変更しない設計で回避\n- [Caveats] パイプ区切りキー --ticket-key=(PX-59|PX-61) が show-ticket-context.js で実際に解釈可能かは未確認。実装後テスト必須\n- [Open items] 10+ キーが集積したときの人間可読性\n- [Future improvements] 定義位置とは異なる場所（ファイル末尾）へのマージ済み注釈ブロック集約\nImplementation summary:\n- Changed file: .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n- Test file: tests/annotate-ticket-context-by-git-diff.test.cjs\n- All 42 tests passed\n- Quality check: 0 issues\n- Crime/stub status: 0 crimes, 0 stubs\n- Bugfix: resolveGitPath() for subdirectory cwd\n- Annotation merge: deterministic, no AI judgment needed\nReview report for PX-60:\n- Status: done → reviewed\n- Test suite: 42 tests, 0 failures (27 PX-59 + 15 new PX-60 merge tests)\n- Static quality check: passed, 0 issues\n- Translatability: passed\n- Crime/stub status: 0 crimes, 0 stubs\n- Incomplete implementation scan (7+1 patterns): clean\n- Annotation verification: 0 missing, 0 ambiguous — clean\n- Boy Scout improvement: resolveGitPath() bugfix for subdirectory git diff paths\n- Risks identified: none\n- Omissions: none\n- Contradictions: none\n- Deficiencies: none",
           "invariants": "- [Normal condition] マージされた注釈行は元の位置（定義直上）を維持する\n- [Error invariant] マージ対象行のパースに失敗した場合、既存行を変更せず新しい行を追加する（データ損失防止）\n- [Internal state invariant] マージ操作は冪等: 同一キーで再実行しても状態は変化しない\n- [Boundary invariant] キーリストが10件を超えても注釈は1行を維持する（改行せずカンマ区切り連続）",
           "instrumentation": "- [Logging] verbose モード時、マージ実行を \"Merged key X into annotation at line N\" と stderr 出力\n- [Metrics] マージ回数・スキップ回数を集計結果に含める\n- [Error tracking] パース失敗時は stderr に警告を出力し exit 0（非致命）\n- [Health check] 該当なし（ワンショット実行）\nStatic quality check: passed (0 issues)\nTranslatability: passed (all 16 functions are verb phrases, no single-char variables, one justified console.log for JSON output)\nTests: all 42/42 tests passed",
-          "investigation": "## 既存コード調査結果\n\n### 修正対象ファイル\n.claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n\n### 修正対象関数\n- buildAnnotation(ticketKey): 単一形式のみ生成 → マルチ形式 buildMultiAnnotation(ticketKeys) を追加\n- hasExistingAnnotation(lines, ticketKey): 単一キーのみチェック → 全キー検出版 detectAnnotationsAtLine(lines, defLine) に拡張\n- processFile(filePath, ticketKey, opts): skip/insert の二択 → merge/skip/insert の三択に拡張\n- insertAnnotation(): 現状維持（新規挿入）\n- 新規 mergeAnnotation(existingLine, ticketKey): 既存行をパースしキーをマージ\n\n### マージフォーマット\n単一: // Implemented or modified under the PX-59 ticket; for details...\nマルチ: // Implemented or modified under tickets: PX-59, PX-61; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.\n\n### 処理フロー変更\nBEFORE: hasExistingAnnotation(該当キーあり) → skip\nAFTER: detectAnnotationsAtLine(いずれかのキー発見) → 異なるキーなら merge、同一キーなら skip",
+          "investigation": "## 既存コード調査結果\n\n### 修正対象ファイル\n.claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n\n### 修正対象関数\n- buildAnnotation(ticketKey): 単一形式のみ生成 → マルチ形式 buildMultiAnnotation(ticketKeys) を追加\n- hasExistingAnnotation(lines, ticketKey): 単一キーのみチェック → 全キー検出版 detectAnnotationsAtLine(lines, defLine) に拡張\n- processFile(filePath, ticketKey, opts): skip/insert の二択 → merge/skip/insert の三択に拡張\n- insertAnnotation(): 現状維持（新規挿入）\n- 新規 mergeAnnotation(existingLine, ticketKey): 既存行をパースしキーをマージ\n\n### マージフォーマット\n単一: // [::TICKET::] PX-59 ticket; for details...\nマルチ: // Implemented or modified under tickets: PX-59, PX-61; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.\n\n### 処理フロー変更\nBEFORE: hasExistingAnnotation(該当キーあり) → skip\nAFTER: detectAnnotationsAtLine(いずれかのキー発見) → 異なるキーなら merge、同一キーなら skip",
           "boyScoutPlan": "annotate-ticket-context-by-git-diff.js は PX-59 で作成されたスクリプトであり、翻訳可能性に問題はない。本チケットでは新規関数 buildMultiAnnotation / detectAnnotationsAtLine / mergeAnnotation を追加するが、関数名は動詞句、変数名はドメイン概念とする。processFile() の分岐ロジックを三択に拡張する際、条件分岐のネストを深くしないよう早期 return を活用する。",
           "created_at": "2026-07-23",
           "updated_at": "2026-07-23",
@@ -5274,6 +5274,84 @@
               "before": "verifyAnnotations() — hasExistingAnnotation check",
               "after": "verifyAnnotations() — changedLinesToDefinitions per definition check",
               "description": "Verifies each changed definition has a ticket-key annotation at its startLine."
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-24"
+        },
+        {
+          "id": 63,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix detectAnnotationLine regex to match [::TICKET::] annotation format",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/63-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "PX-62 rewrote buildAnnotation() and buildMultiAnnotation() to use [::TICKET::] format. However detectAnnotationLine() still uses old regex patterns that do not match the new format, causing mergeAnnotation() to fail on future runs. This gap means stacked duplicate annotations will accumulate on subsequent executions.\n\n### Goal\nMake detectAnnotationLine() correctly parse the new [::TICKET::] annotation format so that mergeAnnotation() can detect and merge existing annotations on future runs.\n\n### Purpose\nPrevent duplicate stacked annotations from accumulating every time the annotation script runs on a previously annotated function. The merge mechanism (mergeAnnotation) only works if detectAnnotationLine can parse the existing annotation.\n\n### Motivation\nPX-62 changed the output format to [::TICKET::] but forgot to update the parser. This is a regression: the annotation system no longer detects its own annotations. Every subsequent /start-ticket execution that touches the same function will stack a new annotation line instead of merging into the existing one.\n\n### Constraints\n- Must not change buildAnnotation() or buildMultiAnnotation() output format (already correct)\n- Must not change detectAnnotationAtLine(), mergeAnnotation(), insertAnnotation() logic\n- Must maintain backward compatibility with any existing annotations still in old format (though none should exist after PX-62 commit)\n- 100% unit-testable with inline string inputs",
+          "scope": [
+            "[Change] .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js — detectAnnotationLine() at lines 80-96",
+            "[Change] modify — Replace line 85 regex `/implemented under tickets:\\s*([^;]+);/` with `/\\[::TICKET::\\]\\s+.+changes\\. Details:.*--ticket-key=\\(([^)]+)\\)/` for multi-format",
+            "[Change] Replace line 91 regex `/implemented under\\s+the\\s+(P\\d+-\\d+|PX-\\d+)\\s+ticket/` with `/\\[::TICKET::\\]\\s+(P\\d+-\\d+|PX-\\d+)\\s+changes\\. Details/` for single-format",
+            "[Change] Update lines 73-77 JSDoc comment to reflect new format examples",
+            "[Before] detectAnnotationLine matches only old format \"Implemented or modified under the PX-59 ticket\". [After] matches new format \"[::TICKET::] PX-63 changes. Details: ...\"",
+            "[Change] .claude/tests/tickets/annotate-ticket-context-by-git-diff.test.cjs — update existing detectAnnotationLine test strings from old format to new [::TICKET::] format",
+            "[Non-change] buildAnnotation(), buildMultiAnnotation() — unchanged, already correct",
+            "[Non-change] detectAnnotationAtLine(), mergeAnnotation(), insertAnnotation() — unchanged, only the regex patterns they call change",
+            "[Impact] detectAnnotationAtLine (line 103-111) now returns correct results because detectAnnotationLine returns correct results. mergeAnnotation (line 118-124) now functions correctly.",
+            "**Scope of changes (describe each change comprehensively):**\n  - .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js\n  - modify (refactor: update regex patterns)\n  - Two regex patterns in detectAnnotationLine() + JSDoc comment + test strings\n  - Before: regex matches old format \"implemented under the PX-59 ticket\". After: regex matches new format \"[::TICKET::] PX-63 changes\"\n  - N/A (internal function, no external API)\n  - N/A\n  - N/A\n  - N/A",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - Updating annotations already placed by PX-60/PX-61/PX-62 in old format: already committed; old format annotations will be invisible to merge but cause no crash. Handled by natural replacement on next touch.\n  - Changing buildAnnotation/buildMultiAnnotation output: format is already correct and intentional.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - detectAnnotationAtLine (line 103)\n  - Depends on detectAnnotationLine — when detectAnnotationLine fixes its regex, detectAnnotationAtLine automatically returns correct results\n  - N — no behavioral change needed"
+          ],
+          "testUnit": [
+            "UT: [Normal] detectAnnotationLine(\"// [::TICKET::] PX-63 changes. Details: `node ...`\") returns {ticketKeys: [\"PX-63\"]} — single format matches and extracts one key",
+            "UT: [Normal] detectAnnotationLine(\"// [::TICKET::] PX-61, PX-63 changes. Details: `node ... --ticket-key=(PX-61|PX-63)`\") returns {ticketKeys: [\"PX-61\", \"PX-63\"]} — multi format extracts all keys from parentheses",
+            "UT: [Normal] detectAnnotationLine(\"// [::TICKET::] PX-60, PX-61, PX-62 changes. Details: `node ... --ticket-key=(PX-60|PX-61|PX-62)`\") returns {ticketKeys: [\"PX-60\", \"PX-61\", \"PX-62\"]} — three-key multi format",
+            "UT: [Error] detectAnnotationLine(\"// just a regular comment\") returns null",
+            "UT: [Error] detectAnnotationLine(\"let x = 1;\") returns null (not a comment at all)",
+            "UT: [Boundary] detectAnnotationLine(\"// [::TICKET::]  changes. Details: ...\") returns null (empty ticket key)",
+            "UT: [Boundary] detectAnnotationLine(\"\") returns null (empty string)",
+            "UT: [Invariant] detectAnnotationAtLine correctly finds annotation one line above definition — given lines = [\"// [::TICKET::] PX-63 changes. Details: ...\", \"fn foo() {\"], defLine=2 returns {ticketKeys: [\"PX-63\"]}",
+            "UT: [Invariant] mergeAnnotation(\"// [::TICKET::] PX-61 changes. Details: ...\", \"PX-61\") returns the same line unchanged (idempotent)"
+          ],
+          "testIntegration": [
+            "IT: Full cycle: processFile with new format annotation -> detectAnnotationAtLine detects it -> mergeAnnotation appends a new key"
+          ],
+          "testExceptions": [
+            "No exceptions. detectAnnotationLine is a pure function (string input -> parsed result). Every code path is deterministically testable with inline string inputs."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/annotate-ticket-context-by-git-diff.js",
+            ".claude/tests/tickets/annotate-ticket-context-by-git-diff.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] Single format \"// [::TICKET::] PX-63 changes. Details: `node ...`\" returns {ticketKeys: [\"PX-63\"]}",
+            "[Happy path] Multi format \"// [::TICKET::] PX-61, PX-63 changes. Details: `node ... --ticket-key=(PX-61|PX-63)`\" returns {ticketKeys: [\"PX-61\", \"PX-63\"]}",
+            "[Error case] Regular comment \"// hello world\" returns null",
+            "[Error case] Code line \"let x = 1;\" returns null",
+            "[Edge case] Malformed \"// [::TICKET::]  changes. Details: ...\" (empty key) returns null",
+            "[Edge case] Empty string returns null"
+          ],
+          "notes": "- [Implementation steps] 1. Update the two regex patterns in detectAnnotationLine() 2. Update the JSDoc comment 3. Update test strings 4. Run all 38+9=47 tests 5. Fix any failures\n- [Risks] Minimal — two regex patterns changed within a single function. No structural risk.\n- [Caveats] The old format regex no longer matches any currently used annotation format, but any remaining old-format annotations (from pre-PX-62 era) will be silently ignored by merge. This is acceptable because the annotation system always appends, never replaces.\n- [Open items] None\n- [Future improvements] Add a formal annotation format specification in a shared constants file instead of embedding regex patterns\nImplementation summary:\n- Changed files: 1 source + 1 test\n- Key changes: 2 regex patterns + JSDoc in detectAnnotationLine()\n- Test results: 48/48 passed (10 new detectAnnotationLine tests + 38 previous)\n- Quality check: 0 issues\n- Merge confirmed working: PX-63 merged into existing annotations at 7 locations\n- Old format annotations (pre-PX-62) remain as inert comments, no longer detected by merge\nReview report PX-63:\n- Static quality check: passed (0 issues)\n- Translatability: no issues — detectAnnotationLine is a clean verb phrase, regex patterns self-document the [::TICKET::] format\n- Dependencies: detectAnnotationLine → detectAnnotationAtLine → mergeAnnotation chain verified working (confirmed via annotation injection output: 'Merged key PX-63 at line N')\n- Annotation check: 0 missing, 0 ambiguous\n- Stubs: 0 [::STUB::] markers\n- Crimes: 0 unresolved\n- Issues found and fixes applied: none — clean single-function change",
+          "invariants": "- [Normal condition] A line matching /\\[::TICKET::\\] ... changes. Details:/ always returns a non-null result with the correct ticket keys extracted\n- [Error invariant] Non-comment lines and non-annotation comments always return null. The function never throws.\n- [Internal state invariant] The two regex patterns are mutually exclusive: multi-format (parenthesized --ticket-key=(A|B)) is checked first, single-format (bare --ticket-key=KEY) is checked second\n- [Boundary invariant] Empty string and whitespace-only strings return null. Ticket key patterns (P\\d+-\\d+ and PX-\\d+) match only valid keys, not arbitrary text",
+          "instrumentation": "- [Logging] Not applicable — pure function, no I/O\n- [Metrics] Not applicable\n- [Error tracking] Not applicable — all error conditions signaled via null return\n- [Health check] Not applicable\nStatic quality check: passed (0 issues)\nTranslatability: no issues (all function names verb phrases, no single-char vars)\nTests: 48/48 passed (10 PX-63 detectAnnotationLine + 12 PX-62 + 20 PX-61 scope-detection + 6 constants)",
+          "investigation": "- [Evidence gathered from source code analysis]\n\n**Current state of detectAnnotationLine()** (annotate-ticket-context-by-git-diff.js, lines 80-96):\n\n```javascript\nfunction detectAnnotationLine(line) {\n  if (typeof line !== \"string\" || !line.trimStart().startsWith(\"//\")) {\n    return null;\n  }\n  // Multi-format: \"implemented under tickets: KEY, KEY;\"\n  const multiMatch = line.match(/implemented under tickets:\\s*([^;]+);/);\n  if (multiMatch) {\n    const keys = multiMatch[1].split(\",\").map((k) => k.trim()).filter(Boolean);\n    return keys.length > 0 ? { ticketKeys: keys } : null;\n  }\n  // Single-format: \"implemented under the KEY ticket\"\n  const singleMatch = line.match(/implemented under\\s+the\\s+(P\\\\d+-\\\\d+|PX-\\\\d+)\\s+ticket/);\n  if (singleMatch) {\n    return { ticketKeys: [singleMatch[1]] };\n  }\n  return null;\n}\n```\n\n**Current output format** (lines 49-53 and 60-67):\n- Single: `// [::TICKET::] PX-63 changes. Details: \\`node ... --ticket-key=PX-63 ...\\``\n- Multi: `// [::TICKET::] PX-61, PX-62 changes. Details: \\`node ... --ticket-key=(PX-61|PX-62) ...\\``\n\n**Key mismatch**: Single regex looks for \"implemented under the KEY ticket\" but annotations now contain \"[::TICKET::] KEY changes. Details:\". Multi regex looks for \"implemented under tickets: KEY, KEY;\" but annotations now contain \"--ticket-key=(KEY|KEY)\".\n\n**Affected callers** (all unchanged):\n- detectAnnotationAtLine (line 103) — calls detectAnnotationLine at a specific line offset\n- mergeAnnotation (line 118) — calls detectAnnotationLine to check existing annotation format",
+          "boyScoutPlan": "- **Translatability improvements:**\n  1. JSDoc comment updated to reflect actual format instead of stale old format — prevents future confusion\n  2. Regex patterns use explicit [::TICKET::] anchor which makes the annotation format self-documenting in the regex itself (no need for a separate format explanation comment)\n  3. Function is already a clean verb phrase (detectAnnotationLine) — no change needed",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "detectAnnotationLine() regex: /implemented under tickets:\\s*([^;]+);/ (old multi format)",
+              "after": "/\\[::TICKET::\\]\\s+.+changes\\. Details:.*--ticket-key=\\(([^)]+)\\)/ (new multi format)",
+              "description": "Updated multi-format regex to match [::TICKET::] annotation format"
+            },
+            {
+              "before": "detectAnnotationLine() regex: /implemented under\\s+the\\s+(P\\d+-\\d+|PX-\\d+)\\s+ticket/ (old single format)",
+              "after": "/\\[::TICKET::\\]\\s+(P\\d+-\\d+|PX-\\d+)\\s+changes\\. Details/ (new single format)",
+              "description": "Updated single-format regex to match [::TICKET::] annotation format"
+            },
+            {
+              "before": "JSDoc: old format examples",
+              "after": "JSDoc: new [::TICKET::] format examples",
+              "description": "Updated lines 73-77 to reflect actual format"
             }
           ],
           "rfcDiscrepancies": [],

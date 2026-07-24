@@ -46,10 +46,10 @@ const EXIT_FAILURE = 1;
  * Build the annotation comment for a given ticket key.
  */
 // Implemented or modified under tickets: PX-60, PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.
 function buildAnnotation(ticketKey) {
   return (
-    `// Implemented or modified under the ${ticketKey} ticket; for details, ` +
-    `refer to the command \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `// [::TICKET::] ${ticketKey} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
     `--ticket-key=${ticketKey} --for-spec --no-implementation-order\`.`
   );
 }
@@ -57,14 +57,13 @@ function buildAnnotation(ticketKey) {
 /**
  * Build the multi-ticket annotation comment for merged hot-spot functions.
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function buildMultiAnnotation(ticketKeys) {
   const keys = [...new Set(ticketKeys)];
   const keyList = keys.join(", ");
   const ticketKeyArg = keys.join("|");
   return (
-    `// Implemented or modified under tickets: ${keyList}; for details, ` +
-    `refer to the command \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `// [::TICKET::] ${keyList} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
     `--ticket-key=(${ticketKeyArg}) --for-spec --no-implementation-order\`.`
   );
 }
@@ -73,24 +72,26 @@ function buildMultiAnnotation(ticketKeys) {
  * Check if a specific line is an annotation comment and extract its ticket keys.
  *
  * Matches both single format:
- *   "implemented under the PX-59 ticket"
+ *   "// [::TICKET::] PX-63 changes. Details: ..."
  * and multi format:
- *   "implemented under tickets: PX-59, PX-61"
+ *   "// [::TICKET::] PX-61, PX-63 changes. Details: ... --ticket-key=(PX-61|PX-63)"
  *
  * Returns { ticketKeys: string[], lineIndex: number } or null.
  */
+// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.
 function detectAnnotationLine(line) {
   if (typeof line !== "string" || !line.trimStart().startsWith("//")) {
     return null;
   }
-  // Multi-format: "implemented under tickets: KEY, KEY;"
-  const multiMatch = line.match(/implemented under tickets:\s*([^;]+);/);
+  // Multi-format: "[::TICKET::] KEY1, KEY2 changes. Details: ...--ticket-key=(KEY1|KEY2)..."
+  // Extract all keys from the parenthesized --ticket-key=(...) argument.
+  const multiMatch = line.match(/\[::TICKET::\]\s+.+changes\. Details:.*--ticket-key=\(([^)]+)\)/);
   if (multiMatch) {
-    const keys = multiMatch[1].split(",").map((k) => k.trim()).filter(Boolean);
+    const keys = multiMatch[1].split("|").map((k) => k.trim()).filter(Boolean);
     return keys.length > 0 ? { ticketKeys: keys } : null;
   }
-  // Single-format: "implemented under the KEY ticket"
-  const singleMatch = line.match(/implemented under\s+the\s+(P\d+-\d+|PX-\d+)\s+ticket/);
+  // Single-format: "[::TICKET::] KEY changes. Details: ..."
+  const singleMatch = line.match(/\[::TICKET::\]\s+(P\d+-\d+|PX-\d+)\s+changes\. Details/);
   if (singleMatch) {
     return { ticketKeys: [singleMatch[1]] };
   }
@@ -152,7 +153,7 @@ function insertAnnotation(lines, lineIndex, comment) {
  *   Value: Set of 0-indexed line numbers that were changed/added, or "ALL"
  *          for new files (--- /dev/null → every line is new)
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function parseGitDiffUnified0(gitDiffStdout) {
   const result = new Map();
   let currentFile = null;
@@ -222,7 +223,7 @@ function parseGitDiffUnified0(gitDiffStdout) {
  *   Key: definition startLine (0-indexed)
  *   Value: definition metadata
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function changedLinesToDefinitions(lines, changedLines, ext) {
   const definitions = new Map();
 
@@ -271,7 +272,7 @@ function resolveGitPath(filePath, cwd) {
   return path.resolve(repoRoot, filePath);
 }
 
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
   const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
@@ -349,7 +350,7 @@ function processFile(filePath, ticketKey, opts) {
  * filter by extension, annotate each file at its changed definitions.
  * Returns a summary object.
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function annotateSourceFiles(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -424,7 +425,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
  * Verify that all changed source files have a ticket-key annotation at each
  * changed definition. Returns a verification report object.
  */
-// Implemented or modified under the PX-62 ticket; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-62 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
 function verifyAnnotations(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 

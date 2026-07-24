@@ -15,6 +15,7 @@ const assert = require("node:assert");
 const path = require("path");
 
 let parseGitDiffUnified0, changedLinesToDefinitions, annotateSourceFiles;
+let detectAnnotationLine, detectAnnotationAtLine, mergeAnnotation;
 
 before(() => {
   // The current module exports will include new functions after PX-62 rewrite.
@@ -24,6 +25,9 @@ before(() => {
   changedLinesToDefinitions = mod.changedLinesToDefinitions;
   // annotateSourceFiles is already exported — we test its pre/post behavior
   annotateSourceFiles = mod.annotateSourceFiles;
+  detectAnnotationLine = mod.detectAnnotationLine;
+  detectAnnotationAtLine = mod.detectAnnotationAtLine;
+  mergeAnnotation = mod.mergeAnnotation;
   // Must exist after PX-62 rewrite
   assert.ok(typeof parseGitDiffUnified0 === "function",
     "parseGitDiffUnified0 must be exported");
@@ -237,6 +241,74 @@ describe("changedLinesToDefinitions", () => {
   test("throws on invalid input (null/undefined lines)", () => {
     // The function should handle gracefully — pure function contract
     assert.doesNotThrow(() => changedLinesToDefinitions([], new Set(), ".rs"));
+  });
+});
+
+// =============================================================================
+// detectAnnotationLine — [::TICKET::] format (PX-63)
+// =============================================================================
+
+describe("detectAnnotationLine", () => {
+  // ── Normal ──
+  test("single format [::TICKET::] extracts one key", () => {
+    const line = "// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.";
+    const result = detectAnnotationLine(line);
+    assert.ok(result !== null, "Should detect annotation");
+    assert.deepStrictEqual(result.ticketKeys, ["PX-63"]);
+  });
+
+  test("multi format with parenthesized keys extracts all keys", () => {
+    const line = "// [::TICKET::] PX-61, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-61|PX-63) --for-spec --no-implementation-order`.";
+    const result = detectAnnotationLine(line);
+    assert.ok(result !== null, "Should detect annotation");
+    assert.deepStrictEqual(result.ticketKeys, ["PX-61", "PX-63"]);
+  });
+
+  test("multi format with three keys", () => {
+    const line = "// [::TICKET::] PX-60, PX-61, PX-62 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.";
+    const result = detectAnnotationLine(line);
+    assert.ok(result !== null, "Should detect annotation");
+    assert.deepStrictEqual(result.ticketKeys, ["PX-60", "PX-61", "PX-62"]);
+  });
+
+  // ── Error ──
+  test("regular comment returns null", () => {
+    assert.strictEqual(detectAnnotationLine("// just a regular comment"), null);
+  });
+
+  test("code line returns null", () => {
+    assert.strictEqual(detectAnnotationLine("let x = 1;"), null);
+  });
+
+  test("non-string input returns null", () => {
+    assert.strictEqual(detectAnnotationLine(42), null);
+  });
+
+  // ── Boundary ──
+  test("empty ticket key returns null", () => {
+    const line = "// [::TICKET::]  changes. Details: `node ...`.";
+    assert.strictEqual(detectAnnotationLine(line), null);
+  });
+
+  test("empty string returns null", () => {
+    assert.strictEqual(detectAnnotationLine(""), null);
+  });
+
+  // ── Invariant ──
+  test("detectAnnotationAtLine finds annotation one line above definition", () => {
+    const lines = [
+      "// [::TICKET::] PX-63 changes. Details: `node ...`.",
+      "fn foo() {",
+    ];
+    const result = detectAnnotationAtLine(lines, 2); // 1-indexed defLine
+    assert.ok(result !== null);
+    assert.ok(result.ticketKeys.includes("PX-63"));
+  });
+
+  test("mergeAnnotation idempotent — same key returns original line", () => {
+    const line = "// [::TICKET::] PX-61 changes. Details: `node ...`.";
+    const merged = mergeAnnotation(line, "PX-61");
+    assert.strictEqual(merged, line);
   });
 });
 
