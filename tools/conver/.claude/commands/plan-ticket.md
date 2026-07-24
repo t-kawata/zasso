@@ -54,7 +54,7 @@ Located under `.claude/scripts/tickets/`.
 |--------|-----------|-------------|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan]` | **Executed in Step 1**. Outputs ticket information in Markdown. With `--plan`, shows interruption message on Not Found. |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update ticket fields |
-| `verify-plan-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<PATH>` | **Executed in Step 4.5 (Gate P)**. Verifies all contracts have concrete test code patterns in testUnit. Gate M (make-ticket) verifies keyword overlap; Gate P (plan-ticket) verifies actual code patterns. |
+| `verify-plan-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<PATH>` | **Executed in Step 4.5 (Gate P)**. Verifies all contracts have concrete test code patterns in the `planTestCode` field (set by Step 3.5). Gate M (make-ticket) verifies keyword overlap in `testUnit`; Gate P (plan-ticket) verifies actual code patterns in `planTestCode`. |
 | `search-tickets.js` | `<PATH of Tickets.json> <query>` | Full-text search |
 | `scan-crimes.sh` | (none) | **Executed in Step 3**. Crime scan of Malfeasance.json. |
 | `review/find-all-stubs.js` | `<path>` | **Executed in Step 3**. Search for all `[::STUB::]` markers. |
@@ -122,17 +122,17 @@ grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep
 
 ### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)
 
-**Always execute this phase before formulating the plan.** If the ticket defines **Contracts** (Precondition/Postcondition/Invariant), translate each Contract element into concrete test code and update the `testUnit` field accordingly. This mirrors make-ticket's Phase 1.5 (spec-level translation) but takes it one step further: from "testable form" to "actual test code."
+**Always execute this phase before formulating the plan.** If the ticket defines **Contracts** (Precondition/Postcondition/Invariant), translate each Contract element into concrete test code and write to the dedicated `planTestCode` field. This mirrors make-ticket's Phase 1.5 (spec-level translation to `testUnit`) but takes it one step further: from "testable form" to "actual test code" in a separate field.
 
 For each Contract:
 
 1. **Precondition -> test input code**: Write concrete test input setup code (variable bindings, test data literals, input schema instantiations) as code blocks in testUnit entries
 2. **Postcondition -> assertion code**: Write concrete assertion code (assert_eq!, expect(...).to..., should assertions) as code blocks in testUnit entries
 3. **Invariant -> predicate code**: Write concrete invariant check code (assert!, debug_assert!, property-based predicates) as code blocks in testUnit entries
-4. **Update testUnit**: Persist the translated test code entries to Tickets.json using `update-ticket.js`:
+4. **Write to planTestCode**: Persist the translated test code to the dedicated `planTestCode` field (not `testUnit`, which remains spec-level only):
 
 ```bash
-echo '{"testUnit":["UT: [Normal] Input validation test\n  ```rust\n  let input = \"valid@example.com\";\n  let result = validate(&input);\n  assert!(result.is_ok());\n  ```"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS" --append
+echo '{"planTestCode":["UT: [Normal] Input validation test\n  ```rust\n  let input = \"valid@example.com\";\n  let result = validate(&input);\n  assert!(result.is_ok());\n  ```"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
 Each Contract element must be represented by at least one testUnit entry containing **actual code** (not prose descriptions). A Contract whose element cannot be expressed as concrete test code is not yet fully specified — return to Step 2 (investigation) to refine.
@@ -147,7 +147,7 @@ The plan must safely incorporate the information obtained from Step 1, Step 2, S
 1. **Implementation Order** is fully complied with, and comprehensive behavioral verification through exhaustive unit and integration test code is planned
 2. The plan is **significantly more concrete**, **significantly more detailed**, **based on material evidence**, and **high-density information** compared to the show-ticket-context.js output
 3. The plan includes code snippets covering implementation to the extent that there are near-zero unknowns at implementation time
-4. **Step 3.5 (Phase 1.5) must have been executed** — the plan must reference the concrete test code from Step 3.5, and testUnit in Tickets.json must have been updated with code patterns, not prose descriptions
+4. **Step 3.5 (Phase 1.5) must have been executed** — the plan must reference the concrete test code from Step 3.5, and `planTestCode` in Tickets.json must have been set with code patterns, not prose descriptions
 
 #### Reference — Implementation Order (TDD Red-Green-Refactor)
 
@@ -192,7 +192,7 @@ Green without red, green achieved by modifying tests, and green achieved through
 
 ### Step 4.5 — Gate P: Verify contract-to-test-code translation
 
-Before updating the status, verify that all contracts have been translated into concrete test code patterns in the testUnit field. This gate ensures that Step 3.5 was properly executed and that each Contract's Precondition/Postcondition/Invariant is represented by actual test code (not prose descriptions).
+Before updating the status, verify that all contracts have been translated into concrete test code patterns in the `planTestCode` field. This gate ensures that Step 3.5 was properly executed and that each Contract's Precondition/Postcondition/Invariant is represented by actual test code (not prose descriptions) in the dedicated `planTestCode` field.
 
 ```bash
 node .claude/scripts/tickets/verify-plan-contracts.js \

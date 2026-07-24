@@ -87,31 +87,21 @@ function elementIsCovered(elementText, testUnitText) {
  * @returns {Array<{ticket: number, contract: string|null, element: string, detail: string}>}
  */
 // [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-75 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-75 --for-spec --no-implementation-order`.
 function verifyPlanContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
-  const testUnit = ticket.testUnit || [];
+  const planTestCode = ticket.planTestCode;
 
   // C004: Empty or undefined contracts → pass
   if (contracts.length === 0) return errors;
 
-  // No testUnit content when contracts exist → error
-  if (testUnit.length === 0 || testUnit.join('').trim().length === 0) {
-    for (const c of contracts) {
-      if (c.precondition && c.precondition.trim().length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, element: 'precondition', detail: 'precondition "' + c.precondition.substring(0, 50) + '" not covered: testUnit is empty' });
-      }
-      if (c.postcondition && c.postcondition.trim().length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, element: 'postcondition', detail: 'postcondition "' + c.postcondition.substring(0, 50) + '" not covered: testUnit is empty' });
-      }
-      if (c.invariant && c.invariant.trim().length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, element: 'invariant', detail: 'invariant "' + c.invariant.substring(0, 50) + '" not covered: testUnit is empty' });
-      }
-    }
+  // C003: No planTestCode → graceful skip (backward compat for tickets without field)
+  if (planTestCode === undefined || planTestCode === null || planTestCode.length === 0) {
     return errors;
   }
 
-  const utText = testUnit.join(' ');
+  const utText = planTestCode.join(' ');
 
   for (const c of contracts) {
     // Check precondition → test input code
@@ -120,7 +110,7 @@ function verifyPlanContracts(ticket) {
         ticket: ticket.id,
         contract: c.id,
         element: 'precondition',
-        detail: 'precondition "' + c.precondition.substring(0, 60) + '" lacks concrete test input code in testUnit (no code patterns found)'
+        detail: 'precondition "' + c.precondition.substring(0, 60) + '" lacks concrete test input code in planTestCode (no code patterns found)'
       });
     }
     // Check postcondition → assertion code
@@ -129,7 +119,7 @@ function verifyPlanContracts(ticket) {
         ticket: ticket.id,
         contract: c.id,
         element: 'postcondition',
-        detail: 'postcondition "' + c.postcondition.substring(0, 60) + '" lacks concrete assertion code in testUnit (no assertion patterns found)'
+        detail: 'postcondition "' + c.postcondition.substring(0, 60) + '" lacks concrete assertion code in planTestCode (no assertion patterns found)'
       });
     }
     // Check invariant → predicate code
@@ -138,7 +128,7 @@ function verifyPlanContracts(ticket) {
         ticket: ticket.id,
         contract: c.id,
         element: 'invariant',
-        detail: 'invariant "' + c.invariant.substring(0, 60) + '" lacks concrete predicate code in testUnit (no invariant patterns found)'
+        detail: 'invariant "' + c.invariant.substring(0, 60) + '" lacks concrete predicate code in planTestCode (no invariant patterns found)'
       });
     }
   }

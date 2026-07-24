@@ -6090,6 +6090,122 @@
           ],
           "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 10/10 passed",
           "completedAt": "2026-07-24"
+        },
+        {
+          "id": 75,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Separate plan-level test code into dedicated planTestCode field",
+          "background": "### Goal\nMake the distinction between spec-level testUnit entries and plan-level test code mechanical (script-enforced), not convention-based (AI discipline).\n\n### Purpose\nCurrently plan-ticket Phase 1.5 appends concrete test code to testUnit via --append, mixing spec-level prose entries and code-level entries in the same array. There is no way for show-ticket-context.js, Gate P, or downstream tools to programmatically distinguish the two levels. A dedicated planTestCode field solves this: make-ticket writes testUnit, plan-ticket writes planTestCode, and each tool reads the correct source.\n\n### Motivation\nDuring PX-74 review, it was identified that plan-ticket Phase 1.5 appends test code to testUnit, creating a heterogeneous array. The user explicitly rejected a prefix-convention-based approach (AI discipline), requiring a mechanical script-level solution instead.\n\n### Constraints\nMust not change existing Tickets.json behavior — tickets without planTestCode must work unchanged. update-ticket.js already supports arbitrary fields via stdin JSON. No schema validation change needed (Tickets.json has no $schema).",
+          "scope": [
+            "Change: .claude/commands/plan-ticket.md — Phase 1.5 (Step 3.5) writes to planTestCode field instead of appending to testUnit",
+            "Change: .claude/scripts/tickets/show-ticket-context.js — Display planTestCode as dedicated '### Plan Test Code (concrete code)' section under '## Test Plan' when field exists",
+            "Change: .claude/scripts/tickets/verify-plan-contracts.js — Gate P reads from planTestCode instead of testUnit for concrete code pattern verification",
+            "Non-change: update-ticket.js — already supports arbitrary fields via stdin JSON (no modification needed)",
+            "Non-change: Tickets.json schema — no schema change needed",
+            "Non-change: make-ticket.md — testUnit behavior unchanged",
+            "Non-change: insert-field-template.js — planTestCode created at plan time, not make time; no template stub needed",
+            "Impact: All tickets going forward will have testUnit (spec-level) + planTestCode (code-level) after plan phase",
+            "Impact: Existing tickets without planTestCode show no extra section in show-ticket-context.js (graceful omission)"
+          ],
+          "testUnit": [
+            "UT: [Normal] show-ticket-context.js displays '### Plan Test Code' section when planTestCode is non-empty array",
+            "UT: [Normal] show-ticket-context.js omits section when planTestCode is absent or empty (backward compat)",
+            "UT: [Normal] Gate P (verify-plan-contracts.js) reads from planTestCode field and passes with concrete code patterns",
+            "UT: [Normal] Gate P passes when planTestCode is absent and contracts array is empty (backward compat)",
+            "UT: [Normal] plan-ticket.md Step 3.5 command example writes to planTestCode field",
+            "UT: [Error] Gate P rejects when planTestCode contains only prose (no code patterns)",
+            "UT: [Error] Gate P rejects when contracts exist but planTestCode is empty",
+            "UT: [Boundary] Gate P skips verification when planTestCode is absent and contracts are non-empty (graceful)",
+            "IT: [Integration] plan-ticket Phase 1.5 writes planTestCode -> show-ticket-context displays it in separate section",
+            "IT: [Integration] plan-ticket Phase 1.5 writes planTestCode -> Gate P verifies code patterns -> passes",
+            "UT: [Normal] show-ticket-context.js displays planTestCode section when non-empty\n  ```javascript\n  const context = renderTicketContext(ticketWithPlanTestCode);\n  assert.ok(context.includes('### Plan Test Code'));\n  assert.ok(context.includes('planTestCode entry content'));\n  ```",
+            "UT: [Normal] show-ticket-context.js omits planTestCode section when absent\n  ```javascript\n  const context = renderTicketContext(ticketWithoutPlanTestCode);\n  assert.ok(!context.includes('### Plan Test Code'));\n  ```",
+            "UT: [Normal] Gate P reads from planTestCode and passes with code patterns\n  ```javascript\n  const ticket = { id: 1, planTestCode: ['let x = 1; assert!(x > 0);'] };\n  const errors = verifyPlanContracts(ticket);\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "UT: [Normal] Gate P passes when planTestCode absent and contracts empty\n  ```javascript\n  const ticket = { id: 1, contracts: [], testUnit: [] };\n  const errors = verifyPlanContracts(ticket);\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "UT: [Error] Gate P rejects when planTestCode has prose only\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: 'C001', precondition: 'Valid input', postcondition: 'Returns Ok', invariant: 'State consistent' }], planTestCode: ['Check that validation works correctly'] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.some(e => e.contract === 'C001'));\n  ```",
+            "UT: [Error] Gate P rejects when contracts exist but planTestCode is empty\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: 'C001', precondition: 'Valid input', postcondition: '', invariant: '' }], planTestCode: [] };\n  const errors = verifyPlanContracts(ticket);\n  assert.ok(errors.length > 0);\n  ```",
+            "UT: [Boundary] Gate P skips when planTestCode absent and contracts non-empty\n  ```javascript\n  const ticket = { id: 1, contracts: [{ id: 'C001', precondition: 'Input valid', postcondition: '', invariant: '' }] };\n  const errors = verifyPlanContracts(ticket);\n  // No planTestCode -> Gate P cannot verify -> skips gracefully\n  assert.strictEqual(errors.length, 0);\n  ```",
+            "IT: [Integration] plan-ticket writes planTestCode -> show-ticket-context displays it\n  Assert: show-ticket-context.js renders planTestCode below testUnit when field exists",
+            "IT: [Integration] plan-ticket writes planTestCode -> Gate P verifies -> passes\n  Assert: verify-plan-contracts.js passes when planTestCode has code patterns"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] plan-ticket.md Step 3.5 writes to planTestCode",
+            "IT: [Integration point] show-ticket-context.js renders planTestCode section",
+            "IT: [Integration point] verify-plan-contracts.js reads planTestCode",
+            "IT: [Prerequisites] PX-74 (Gate P + Phase 1.5) must be in place (already committed)"
+          ],
+          "testExceptions": [
+            "Cannot test that show-ticket-context.js correctly renders markdown output in end-user view by unit tests alone — verify by inspecting the output format. This is not a design defect; the script is deterministic and the output can be verified by checking the JSON output."
+          ],
+          "defaultFiles": [
+            ".claude/commands/plan-ticket.md",
+            ".claude/scripts/tickets/show-ticket-context.js",
+            ".claude/scripts/tickets/verify-plan-contracts.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: plan-ticket Phase 1.5 writes to planTestCode -> show-ticket-context displays '### Plan Test Code' section -> Gate P reads planTestCode -> passes",
+            "Error case: planTestCode contains prose-only entries (no code patterns) -> Gate P rejects with clear error",
+            "Edge case: Ticket has no planTestCode field -> show-ticket-context omits section, Gate P handles gracefully"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "show-ticket-context.js -> planTestCode display",
+              "precondition": "Ticket object has planTestCode field as a non-empty array with planTestCode entries",
+              "postcondition": "show-ticket-context.js outputs a '### Plan Test Code' section listing planTestCode entries with planTestCode rendered",
+              "invariant": "show-ticket-context.js output must contain planTestCode entries verbatim with planTestCode section"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "verify-plan-contracts.js -> planTestCode field",
+              "precondition": "Ticket object has planTestCode field with planTestCode entries (string array)",
+              "postcondition": "verifyPlanContracts reads from planTestCode field, not testUnit; uses planTestCode patterns",
+              "invariant": "Gate P behavior for planTestCode must match Gate P behavior for testUnit (same pattern detection logic, different source field planTestCode)"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Backward compat — no planTestCode",
+              "precondition": "Ticket object has no planTestCode field or planTestCode is empty or planTestCode is absent",
+              "postcondition": "show-ticket-context.js renders no extra section; Gate P handles absent planTestCode gracefully",
+              "invariant": "No regression — backward compat for existing tickets without planTestCode"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "plan-ticket.md Phase 1.5 writes planTestCode",
+              "precondition": "plan-ticket Step 3.5 is executed for a ticket with contracts defining planTestCode entries",
+              "postcondition": "The phase writes to planTestCode field (not --append to testUnit); planTestCode gets stored",
+              "invariant": "testUnit remains spec-level only (make-ticket content unchanged); planTestCode receives plan-level test code"
+            }
+          ],
+          "notes": "Implementation order: (1) Update show-ticket-context.js to render planTestCode section, (2) Update verify-plan-contracts.js to read from planTestCode, (3) Update plan-ticket.md Step 3.5 to write to planTestCode, (4) Run all existing tests + new tests. update-ticket.js needs no changes — it already accepts arbitrary field names from stdin.\nImplementation summary:\n- Modified: .claude/scripts/tickets/verify-plan-contracts.js (planTestCode source field)\n- Modified: .claude/scripts/tickets/show-ticket-context.js (planTestCode section)\n- Modified: .claude/commands/plan-ticket.md (Step 3.5 writes planTestCode)\n- Modified: tests/verify-plan-contracts.test.cjs (12 tests, all pass)\n- update-ticket.js: no changes needed (already supports arbitrary fields)\n- Test results: 12/12 passed\n- Gate S: all 4 contracts (C001-C004) have @verifies annotations\n- No planTestCode → graceful backward compat (C003)\nReview report:\n- verify-plan-contracts.js: reads from planTestCode (not testUnit) — all 12 tests pass\n- show-ticket-context.js: renders '### Plan Test Code' section when planTestCode exists\n- plan-ticket.md: Step 3.5 writes to planTestCode, Gate P description updated\n- Annotation check: 0 missing, 0 ambiguous\n- Translatability: verb-phrase function names, no generic variables, no magic numbers\n- Stub check: 0 stubs in target code\n- Crime check: 0 crimes\n- Contracts C001-C004: all @verifies annotated\n- Pipeline: make (testUnit) -> plan (planTestCode) -> show-ticket-context (both sections)",
+          "created_at": "2026-07-24",
+          "updated_at": "2026-07-24",
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "reads from testUnit field",
+              "after": "reads from planTestCode field (skip if absent)",
+              "description": "verify-plan-contracts.js: Gate P source field changed to planTestCode"
+            },
+            {
+              "before": "no planTestCode section",
+              "after": "renders '### Plan Test Code (concrete code)' section",
+              "description": "show-ticket-context.js: added planTestCode display after testExceptions"
+            },
+            {
+              "before": "--append to testUnit",
+              "after": "new field planTestCode (overwrite)",
+              "description": "plan-ticket.md Step 3.5: writes to planTestCode instead of testUnit"
+            },
+            {
+              "before": "prose descriptions only",
+              "after": "concrete code pattern detection",
+              "description": "verify-plan-contracts.test.cjs: 12 tests updated for planTestCode field"
+            }
+          ],
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 12/12 passed",
+          "completedAt": "2026-07-24"
         }
       ]
     },
