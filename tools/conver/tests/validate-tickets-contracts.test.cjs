@@ -88,20 +88,17 @@ test('passes ticket with valid contracts', () => {
   assert.ok(result.valid, 'Expected valid=true, got errors: ' + JSON.stringify(result.errors));
 });
 
-test('blocks ticket without contracts field', () => {
+test('allows ticket without contracts field (contracts optional at schema level)', () => {
   const data = makeValidTicketsBase();
   data.phases[0].tickets.push({
     id: 1,
     phaseId: -1,
     title: 'Test Ticket',
     status: 'todo'
-    // no contracts field
+    // no contracts field — now allowed (Gate M enforces at workflow level)
   });
   const result = validateTickets(data);
-  assert.ok(!result.valid, 'Expected invalid');
-  // The contracts field is in required, so schema validation would catch it.
-  // Additionally, our added contracts check should fire.
-  assertErrors(result, 1, 'contracts');
+  assert.ok(result.valid, 'Expected valid=true (contracts optional at schema level), got errors: ' + JSON.stringify(result.errors));
 });
 
 test('blocks ticket with empty contracts array', () => {

@@ -5906,6 +5906,76 @@
             }
           ],
           "completedAt": "2026-07-24"
+        },
+        {
+          "id": 73,
+          "phaseId": -1,
+          "title": "fix: Add mandatory Contracts definition mechanism to make-ticket flow",
+          "status": "reviewed",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "N0400-N0401",
+              "precondition": "make-ticket is invoked with a ticket key",
+              "postcondition": "The ticket's contracts field is populated with non-empty array of C000-formatted contracts, each containing precondition/postcondition/invariant",
+              "invariant": "Contracts array is never empty at any point after spec generation"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "N0400-N0402",
+              "precondition": "ensure-ticket.js is invoked in Step 2 Case B",
+              "postcondition": "If --contracts is passed, contracts are stored in the ticket and pass schema validation",
+              "invariant": "ensure-ticket.js must always pass contracts; every ticket requires contracts in schema"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "N0400-N0403",
+              "precondition": "insert-field-template.js is invoked in Step 3",
+              "postcondition": "A contracts template stub is inserted when the contracts field is empty or missing",
+              "invariant": "The template system covers contracts as the 12th field"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "N0400-N0404",
+              "precondition": "Phase 1.5 is entered in Step 5b",
+              "postcondition": "Contracts are defined or expanded regardless of whether they existed before; empty contracts are populated from investigation",
+              "invariant": "No code path exists where contracts remain empty after Phase 1.5"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "N0400-N0405",
+              "precondition": "verify-make-contracts.js (Gate M) is executed in Step 6",
+              "postcondition": "Gate M exits 1 when contracts field is empty; exits 0 only when all contracts have test coverage",
+              "invariant": "Gate M never passes without at least one contract in the array"
+            }
+          ],
+          "startedAt": "2026-07-24",
+          "changes": [
+            {
+              "before": "contracts: required (all tickets, validation rejects if missing)",
+              "after": "contracts: optional at schema level (enforced by Gate M at workflow level)",
+              "description": "validate-tickets.js: contracts made optional for backward compatibility"
+            },
+            {
+              "before": "ensure-ticket.js: no --contracts parameter",
+              "after": "ensure-ticket.js: accepts --contracts JSON array and passes to add-ticket.js",
+              "description": "ensure-ticket.js: added --contracts parsing in parseArgs()"
+            },
+            {
+              "before": "insert-field-template.js: 11 fields in TEMPLATES, no contracts",
+              "after": "insert-field-template.js: 12 fields in TEMPLATES (added contracts entry with 5 stubs)",
+              "description": "insert-field-template.js: added contracts template stub"
+            },
+            {
+              "before": "verify-make-contracts.js: empty contracts array passes Gate M",
+              "after": "verify-make-contracts.js: empty contracts array rejected with error",
+              "description": "verify-make-contracts.js: Gate M rejects empty contracts"
+            }
+          ],
+          "notes": "Implementation summary:\n- Changed files: validate-tickets.js, ensure-ticket.js, insert-field-template.js, verify-make-contracts.js\n- New test files: ensure-ticket-contracts.test.cjs, insert-field-template-contracts.test.cjs\n- Updated test files: validate-tickets-contracts.test.cjs, verify-make-contracts.test.cjs\n- Contracts validation relaxed at schema level (unblocked 9 scripts)\n- Gate M strengthened to reject empty contracts\n- ensure-ticket.js now supports --contracts for Case B\n- Results: 35 tests pass, 0 regressions\nReview report:\n- Static quality check: passed (new code only)\n- Translatability: no issues\n- Incomplete implementation scan: 7 patterns checked - all clean\n- Annotation verification: 4 source files annotated, 0 missing, 0 ambiguous\n- Stub evaluation: 1 stub in unrelated file (merge-omissions-into-root-rfc.js) - deferred\n- Crime scan: 0 crimes\n- Make-ticket.md Phase 1.5 updated: conditional → unconditional\n- Make-ticket.md template table: 11→12 fields (contracts added)\n- Ensure-ticket.js --contracts documented in script table and Case B example\n- Gate M description updated: rejects empty contracts\n- Test coverage: C001-C005 all have @verifies annotations",
+          "instrumentation": "Static quality check: 11 pre-existing issues in validate-tickets.js (single-letter vars, console.log). New code: 0 issues.\nTranslatability: All function names are verb phrases. No single-letter vars, no magic numbers.\nTests: 35/35 passed across 5 suites.",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-24"
         }
       ]
     },

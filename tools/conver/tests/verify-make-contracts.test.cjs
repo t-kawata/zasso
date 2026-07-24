@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @verifies C005 — Gate M rejects empty contracts
 const assert = require('assert');
 let mod;
 try { mod = require('../.claude/scripts/tickets/verify-make-contracts.js'); } catch (e) { mod = null; }
@@ -30,14 +31,16 @@ if (!mod || !mod.verifyMakeContracts) {
     const errs = mod.verifyMakeContracts(t);
     assert.ok(errs.some(e => e.detail && e.detail.includes('postcondition')));
   });
-  test('detects insufficient testExceptions justification', () => {
-    const t = makeTicket(1, [], [], ['Some item cannot be tested']);
+  test('detects insufficient testExceptions justification (with valid contracts present)', () => {
+    const t = makeTicket(1, [c('C001','key loaded','token signed','mem clean')], ['UT: key loaded ut'], ['Some item cannot be tested without justification']);
     const errs = mod.verifyMakeContracts(t);
     assert.ok(errs.some(e => e.detail && e.detail.includes('testException')));
   });
-  test('passes with no contracts', () => {
+  test('blocks empty contracts array (Gate M enforcement)', () => {
     const errs = mod.verifyMakeContracts(makeTicket(1, [], [], []));
-    assert.strictEqual(errs.length, 0);
+    assert.ok(errs.length > 0, 'Expected Gate M to reject empty contracts');
+    assert.ok(errs.some(e => e.detail && e.detail.includes('contracts') && (e.detail.includes('empty') || e.detail.includes('must'))),
+      'Expected error about empty contracts, got: ' + JSON.stringify(errs));
   });
   test('handles missing testUnit field gracefully', () => {
     const t = { id:1, phaseId:0, title:'T1', status:'todo', contracts:[c('C001','prerequisite_condition','result_behavior','state_invariant')] };

@@ -44,11 +44,11 @@ Located under `.claude/scripts/tickets/`.
 | Script | Arguments | Description |
 |--------|-----------|-------------|
 | `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]` | **Executed in Step 1 / Step 6**. Outputs ticket information in Markdown. In Step 6, uses `--for-spec` to write out the spec file. |
-| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--notes=...]` | **Executed in Step 2 Case B**. Sequentially calls add-ticket.js → show-ticket-context.js. Only derives the spec path; does not create the file. |
+| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]` | **Executed in Step 2 Case B**. Sequentially calls add-ticket.js → show-ticket-context.js. Only derives the spec path; does not create the file. |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 3**. Inserts template merge markers into 11 fields. Also sets `created_at`/`updated_at` simultaneously. |
 | `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 5b loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |
 | `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | **Executed in Step 5b / Step 6**. Updates fields (overwrite). Automatically handles string/array distinction. |
-| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 6**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Exits 0 on pass, 1 on failure. |
+| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 6**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Rejects empty contracts array (exit 1). Exits 0 on pass, 1 on failure. |
 | `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Adds a ticket (called internally by ensure-ticket.js). |
 
 ## Workflow
@@ -108,6 +108,7 @@ node .claude/scripts/tickets/ensure-ticket.js \
   [--test-exceptions='["Cannot be unit-tested due to integration dependency"]'] \
   [--default-files='["src/main.rs"]'] \
   [--acceptance-criteria='["Happy path: ...","Error case: ...","Edge case: ..."]'] \
+  [--contracts='[{"id":"C001","sourceEdge":"...","precondition":"...","postcondition":"...","invariant":"..."}]'] \
   [--notes="(supplementary information)"]
 ```
 
@@ -199,7 +200,7 @@ Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>:
 
 **Phase 1 — Test first (TDD)**: Following the Implementation Order (presented in Step 4), first replace all markers in `testUnit`, `testIntegration`, and `testExceptions`. Do not start on other fields until the test plan is solidified.
 
-**Phase 1.5 — Contracts expansion (Contracts-aware)**: When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), execute this phase before replacing remaining fields. For each Contract:
+**Phase 1.5 — Contracts definition and expansion (mandatory)**: Always execute this phase before replacing remaining fields. If the ticket already defines **Contracts** (Precondition/Postcondition/Invariant), expand them with investigation findings and translate each into testable form. If the ticket has no Contracts, define them first from investigation and RFC graph analysis, then translate. For each Contract:
 
 1. **Translate Precondition** into concrete input schemas or type definitions — e.g., JSON Schema, TypeScript interface, Rust struct, or valid/invalid input enumerations
 2. **Translate Postcondition** into concrete output assertions or state-transition predicates — e.g., return type definitions, side-effect specifications, state machine transitions
@@ -216,7 +217,7 @@ The types and marker configuration for each field are as follows:
 | `invariants` | string | 4 | Normal establishment condition / Invariant on error / Internal state invariant / Boundary invariant |
 | `background` | string | 4 | Goal / Purpose / Motivation / Constraints |
 | `scope` | array | 13 | Changes (path/action/detail/before-after/api/schema/config/dep) / Non-change scope (item/why) / Impact scope (component/nature/response) |
-| `testUnit` | array | 4 + Contracts | Normal / Error / Boundary / Invariant. When Contracts are defined, each Contract's Precondition/Postcondition/Invariant must be covered by at least one `testUnit` entry — translate Precondition → input schema test, Postcondition → output assertion test, Invariant → invariant predicate test |
+| `testUnit` | array | 4 + Contracts | Normal / Error / Boundary / Invariant. Each Contract's Precondition/Postcondition/Invariant must be covered by at least one `testUnit` entry — translate Precondition → input schema test, Postcondition → output assertion test, Invariant → invariant predicate test |
 | `testIntegration` | array | 4 | Integration point / Verification / Prerequisites / Related tickets |
 | `testExceptions` | array | 3 | Item / Reason / Alternative verification |
 | `instrumentation` | string | 4 | Logging / Metrics / Error tracking / Health check |
@@ -224,6 +225,7 @@ The types and marker configuration for each field are as follows:
 | `acceptanceCriteria` | array | 3 | Happy path / Error case / Edge case |
 | `investigation` | string | 1 | Set of evidence obtained from code investigation |
 | `boyScoutPlan` | string | 1 | Translatability improvement plan |
+| `contracts` | array | 5 | Contract ID (C000 format) / Source edge / Precondition / Postcondition / Invariant. When contracts defined by Phase 1.5, each Precondition/Postcondition/Invariant must map to testUnit entries |
 
 For **string** type fields, replace the entire string per marker line. For **array** type fields, replace markers element by element:
 
