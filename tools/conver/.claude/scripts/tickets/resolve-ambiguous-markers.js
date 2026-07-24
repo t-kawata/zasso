@@ -162,38 +162,53 @@ function listDefinitions(filePath, ticketKey) {
 }
 
 /**
- * Mode 2: Inject a [::TICKET::] annotation before the specified definition line,
+ * Mode 2: Inject [::TICKET::] annotations before the specified definition lines,
  * then remove all [::AMBIGUOUS::] markers. Mutates the file.
+ *
+ * Inserts in descending line order to prevent line number shifting.
  *
  * @param {string} filePath
  * @param {string} ticketKey
- * @param {number} definitionLine — 0-indexed line number of the target definition
- * @returns {{success: boolean, error?: string, insertedAtLine?: number}}
+ * @param {number|number[]} definitionLines — 0-indexed line number(s) of target definitions
+ * @returns {{success: boolean, error?: string, insertedAtLines?: number[]}}
  */
-// [::TICKET::] PX-64 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-64 --for-spec --no-implementation-order`.
-function injectAt(filePath, ticketKey, definitionLine) {
+// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
+function injectAt(filePath, ticketKey, definitionLines) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
     let lines = content.split("\n");
 
-    // Validate definitionLine
-    if (typeof definitionLine !== "number" || definitionLine < 0 || definitionLine >= lines.length) {
-      return { success: false, error: `definition-line ${definitionLine} is out of range (file has ${lines.length} lines)` };
+    // Normalize to array and deduplicate (prevent double-insert at same line)
+    const linesToInject = [...new Set(
+      Array.isArray(definitionLines) ? definitionLines : [definitionLines]
+    )];
+
+    // Validate all line numbers
+    for (const dl of linesToInject) {
+      if (typeof dl !== "number" || dl < 0 || dl >= lines.length) {
+        return { success: false, error: `definition-line ${dl} is out of range (file has ${lines.length} lines)` };
+      }
     }
 
-    // 1. Generate TICKET comment (mechanical, format guaranteed by buildAnnotation)
-    const comment = buildAnnotation(ticketKey);
+    // Sort DESCENDING (largest first) to prevent line number shifts
+    const sorted = [...linesToInject].sort((a, b) => b - a);
 
-    // 2. Insert before definition (insertAnnotation uses 1-indexed)
-    lines = insertAnnotation(lines, definitionLine + 1, comment);
+    for (const dl of sorted) {
+      const comment = buildAnnotation(ticketKey);
+      // insertAnnotation uses 1-indexed
+      lines = insertAnnotation(lines, dl + 1, comment);
+    }
 
-    // 3. Remove all AMBIGUOUS lines (not just the first)
+    // Return inserted lines in ascending order for predictable output
+    const insertedAtLines = [...linesToInject].sort((a, b) => a - b);
+
+    // Remove all AMBIGUOUS lines (not just the first)
     lines = lines.filter((l) => !l.includes("[::AMBIGUOUS::]"));
 
-    // 4. Write back
+    // Write back
     fs.writeFileSync(filePath, lines.join("\n"), "utf8");
 
-    return { success: true, insertedAtLine: definitionLine };
+    return { success: true, insertedAtLines };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -215,8 +230,14 @@ function parseArgs() {
     else if (args[i].startsWith("--file=")) opts.file = args[i].split("=")[1];
     else if (args[i] === "--ticket-key" && i + 1 < args.length) opts.ticketKey = args[++i];
     else if (args[i].startsWith("--ticket-key=")) opts.ticketKey = args[i].split("=")[1];
-    else if (args[i] === "--definition-line" && i + 1 < args.length) opts.definitionLine = parseInt(args[++i], 10);
-    else if (args[i].startsWith("--definition-line=")) opts.definitionLine = parseInt(args[i].split("=")[1], 10);
+    else if (args[i] === "--definition-line" && i + 1 < args.length) {
+      opts.definitionLine = args[++i].split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+      if (opts.definitionLine.length === 1) opts.definitionLine = opts.definitionLine[0]; // single for backward compat
+    }
+    else if (args[i].startsWith("--definition-line=")) {
+      opts.definitionLine = args[i].split("=")[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+      if (opts.definitionLine.length === 1) opts.definitionLine = opts.definitionLine[0];
+    }
   }
 
   return opts;
@@ -243,12 +264,13 @@ function main() {
   }
 
   if (opts.mode === "inject-at") {
-    if (opts.definitionLine === null || isNaN(opts.definitionLine)) {
-      const result = { success: false, error: "inject-at mode requires --definition-line=<N>" };
+    const dl = opts.definitionLine;
+    if (dl === null || (Array.isArray(dl) && dl.length === 0) || (!Array.isArray(dl) && isNaN(dl))) {
+      const result = { success: false, error: "inject-at mode requires --definition-line=<N> or <N1,N2,...>" };
       console.log(JSON.stringify(result));
       process.exit(EXIT_FAILURE);
     }
-    const result = injectAt(opts.file, opts.ticketKey, opts.definitionLine);
+    const result = injectAt(opts.file, opts.ticketKey, dl);
     console.log(JSON.stringify(result));
     process.exit(result.success ? EXIT_SUCCESS : EXIT_FAILURE);
   }
