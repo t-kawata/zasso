@@ -24,6 +24,11 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
+// [::STUB::] N0039 (§28 Build Strategy & OS Dependencies): placeholder — will be
+// resolved in the ticket that implements the full build strategy.
+// This function is intentionally uncalled until then.
+#[allow(dead_code)]
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
 fn main() {
 	// TODO: implement build/CI entry point
 }

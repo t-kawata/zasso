@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -104,6 +105,9 @@ pub mod api;
 pub mod model;
 // [::TICKET::] P0-5: error module added — SipError, SipErrorKind, M20 error mapping.
 pub mod error;
+// [::TICKET::] P1-4: build module added — CI/CD pipeline spec, build strategy.
+pub mod build;
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-6: state module added — event conversion mappings (N0021, N0022, N0023).
 pub mod state;
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
