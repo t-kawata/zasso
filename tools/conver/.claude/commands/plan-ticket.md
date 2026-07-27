@@ -202,11 +202,21 @@ node .claude/scripts/tickets/verify-plan-contracts.js \
 - **Exit 0**: All contracts covered with concrete test code -> proceed to Step 5
 - **Exit 1**: Missing coverage -> return to Step 3.5, add concrete test code for the reported contracts, re-run Gate P
 
-### Step 5: Update status and report plan completion
+### Step 5: Spec re-export → status update → report plan completion
 
 **Prerequisite**: Gate P (Step 4.5) must have passed before executing this step.
 
-Update the status.
+Run the two sub-steps in this order: (1) re-export the spec file to reflect the latest Tickets.json state (including `planTestCode` set in Step 3.5), (2) update status.
+
+#### 5-1: Re-export spec file
+
+```bash
+mkdir -p specs && \
+node .claude/scripts/tickets/show-ticket-context.js \
+  --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
+```
+
+#### 5-2: Update ticket status
 
 ```bash
 echo '{"status":"planned"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

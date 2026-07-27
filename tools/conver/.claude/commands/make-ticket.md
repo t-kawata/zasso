@@ -245,11 +245,25 @@ node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENT
 
 As long as unfilled markers remain (exit 1), return to Step 5b and continue replacement. When all markers have been replaced (exit 0), proceed to Step 6.
 
-### Step 6: Automatic design context transcription + ticket field transfer + status update
+### Step 6: Contracts verification → spec file output → status update
 
 **About the "Design Context" block**: Design the spec being aware of the 4 sections automatically appended in this Step by dump-ticket-graph-commands.js and dump-node-context-to-spec.js.
 
-Execute `show-ticket-context.js --for-spec` to write all fields from Tickets.json to the top of the spec file. Graph information (node details, edge relationships, file paths) is automatically included in the `--for-spec` output.
+Run the three sub-steps in this order: (1) verify Contracts coverage, (2) write the spec file only after verification passes, (3) update status.
+
+#### 6-1: Contracts verification
+
+Verify that every Contract's Precondition/Postcondition/Invariant is covered by corresponding `testUnit` entries, and that `testExceptions` entries include proper justification. Exit code 0 = pass, 1 = fail.
+
+```bash
+node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+If verification fails (exit 1), return to Step 5b to fix the template markers, then re-run from Step 6-1.
+
+#### 6-2: Write spec file
+
+Execute `show-ticket-context.js --for-spec` to write all fields from Tickets.json into the spec file. Graph information (node details, edge relationships, file paths) is automatically included in the `--for-spec` output.
 
 The spec file output destination **must be `specs/$ARGUMENTS.md`** (`$ARGUMENTS` is the ticket key such as `P0-1`). Do not modify this manually; use the following command as-is.
 
@@ -259,11 +273,8 @@ node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
-```bash
-# Gate M: Verify that test plan covers all declared contracts
-# Checks each Contract's Precondition/Postcondition/Invariant is covered
-# in testUnit entries, and testExceptions have proper justification.
-node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+#### 6-3: Update ticket status
 
+```bash
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```

@@ -30,110 +30,110 @@
             {
               "id": "C001",
               "sourceEdge": "N0001→N0007 (inbound)",
-              "precondition": "RFC defines purpose",
-              "postcondition": "Purpose is implemented by functional requirements",
-              "invariant": "Purpose scope remains audio-only"
+              "precondition": "RFC defines purpose (§1) — SIP audio-only communication crate for P2P voice.",
+              "postcondition": "Purpose is implemented by 15 functional requirements (N0007) — each FR must trace back to §1 purpose statement.",
+              "invariant": "Purpose scope remains audio-only — no video, no recording, no GUI. Verified by grep for 'audio' keyword presence and absence of 'video'/'recording'/'GUI' in scope definition."
             },
             {
               "id": "C003",
               "sourceEdge": "N0002→N0001",
-              "precondition": "Purpose defined",
-              "postcondition": "M20 items prioritized",
-              "invariant": "Priority ordering does not imply dependency"
+              "precondition": "Purpose defined (§1) — crate scope established.",
+              "postcondition": "M20 items prioritized (P0-P3) with 14 design decisions (Q1:A-Q14:A) enumerated in priority map table.",
+              "invariant": "Priority ordering (P0 before P1 before P2 before P3) does not imply dependency — P1 items can be started without P0 completion. Verified by checking that no P0-P3 item description states 'blocked by higher priority item'."
             },
             {
               "id": "C004",
               "sourceEdge": "N0003→N0001",
-              "precondition": "Purpose scope known",
-              "postcondition": "Non-goals documented",
-              "invariant": "Tauri boundary respected"
+              "precondition": "Purpose scope known (§1) — SIP crate responsibilities defined.",
+              "postcondition": "Non-goals documented: no SIP server, no PBX, no RTP stack, no recording files, no GUI, no persistent config, no billing, no video. Tauri boundary documented with 4 crate responsibilities / 4 plugin responsibilities.",
+              "invariant": "Tauri boundary respected — crate must not import `tauri::ipc::Channel` or `tauri` runtime. Verified by grep for 'tauri::' in non-test source files."
             },
             {
               "id": "C005",
               "sourceEdge": "N0004→N0001",
-              "precondition": "Terms used in purpose",
-              "postcondition": "Terms defined",
-              "invariant": "Definitions stable within document"
+              "precondition": "Terms used in purpose (§1, N0007) — Client, Account, Call, Media Session, Source, Chunk Pair, Raw SIP Event.",
+              "postcondition": "All 7 domain terms defined in §3 glossary. Each definition includes: term name, Rust type mapping (if applicable), and usage context.",
+              "invariant": "Definitions stable within document — no term is redefined with a different meaning in later sections. Verified by scanning for contradictory definitions."
             },
             {
               "id": "C006",
               "sourceEdge": "N0005→N0001",
-              "precondition": "Purpose sets scope",
-              "postcondition": "Compliance requirements constrain implementation",
-              "invariant": "MSRV, PJSIP version, OS targets fixed"
+              "precondition": "Purpose sets scope (§1) — async SIP communication with PJSUA.",
+              "postcondition": "Compliance requirements constrain implementation: MSRV=1.95, PJSIP=2.17 fixed, targets=Windows x86_64/macOS arm64/Ubuntu x86_64, tokio async runtime, prebuilt-first build.",
+              "invariant": "MSRV 1.95, PJSIP version 2.17, and 3 target OS platforms are fixed and documented. Verified by checking `Cargo.toml` `rust-version` field and build strategy documentation."
             },
             {
               "id": "C007",
               "sourceEdge": "N0006→N0005 (internal)",
-              "precondition": "Compliance requirements constrain implementation",
-              "postcondition": "Compliance requirements constrain implementation",
-              "invariant": "0.x phase flexible"
+              "precondition": "Compliance requirements constrain implementation (N0005) — build and runtime constraints established.",
+              "postcondition": "Versioning policy specifies: 0.x phase allows breaking changes with CHANGELOG; 1.0+ follows strict semver; security-patch and behavior-change exceptions documented.",
+              "invariant": "0.x phase flexible — `SipEventPayload` enum marked `#[non_exhaustive]`, variant additions not considered breaking. Verified by checking for `#[non_exhaustive]` on relevant types."
             },
             {
               "id": "C008",
               "sourceEdge": "N0007→N0001",
-              "precondition": "Purpose and scope defined",
-              "postcondition": "15 functional requirements specified",
-              "invariant": "List is normative and exhaustive"
+              "precondition": "Purpose and scope defined (§1, N0005) — audio-only SIP crate.",
+              "postcondition": "15 functional requirements specified with unique IDs (FR-01 through FR-15) covering: multi-account, dynamic add/remove, register/unregister, unregistered call, UDP/TCP/TLS transports, TLS/SRTP feature flags, ICE/STUN/TURN, PCMU/Opus codecs, DTMF (3 methods), event bus, audio chunk pair delivery, resampling/mixing, Send+Sync, Result<T,SipError>.",
+              "invariant": "List is normative and exhaustive — no functional requirement exists outside the 15 items for the crate's scope. Each FR maps to at least one module path in N0008 module tree."
             },
             {
               "id": "C009",
               "sourceEdge": "N0008→N0001",
-              "precondition": "Crate architecture to be defined",
-              "postcondition": "Module structure and responsibility split documented",
-              "invariant": "Single crate with modular internal structure"
+              "precondition": "Crate architecture to be defined — SIP signalling, media bridge, audio processing, event bus.",
+              "postcondition": "Module structure documented with complete file tree (src/, ffi/, runtime/, audio/, util/ subdirectories). Single-crate rationale provided with 3 justifications for keeping all responsibilities together.",
+              "invariant": "Single crate with modular internal structure — no external crate split in P0 phase. Verified by checking that no `[dependencies]` comment references a `siprs-server` or `siprs-core` crate."
             },
             {
               "id": "C010",
               "sourceEdge": "N0009→N0008 (inbound)",
-              "precondition": "Module structure defined",
-              "postcondition": "Concurrency model fits module boundaries",
-              "invariant": "Reactor is single-threaded"
+              "precondition": "N0008 module structure defines module boundaries (ffi/, runtime/, audio/, util/).",
+              "postcondition": "P0-2 Concurrency Model (N0009) fits within N0008 module boundaries — reactor, command, handle live under runtime/ module.",
+              "invariant": "Reactor is single-threaded — documented design constraint. Verified by checking that no concurrency description mentions multi-reactor or thread-pool execution."
             },
             {
               "id": "C014",
               "sourceEdge": "N0013→N0005 (inbound)",
-              "precondition": "Compliance baseline established",
-              "postcondition": "ClientConfig fully specified",
-              "invariant": "All fields have defaults"
+              "precondition": "N0005 compliance baseline establishes MSRV, tokio, PJSIP versions.",
+              "postcondition": "ClientConfig fully specified in its own ticket with all configuration fields documented.",
+              "invariant": "All ClientConfig fields have documented default values — no mandatory unset fields. Verified by checking `src/config/client_config_spec.rs` for default implementations."
             },
             {
               "id": "C040",
               "sourceEdge": "N0039→N0005 (inbound)",
-              "precondition": "Build requirements defined",
-              "postcondition": "build.rs strategy and OS dependencies specified",
-              "invariant": "Prebuilt-first, source fallback"
+              "precondition": "N0005 compliance requirements define OS targets and build constraints.",
+              "postcondition": "Build strategy specifies prebuilt-first, source-fallback two-stage approach for PJSIP linking.",
+              "invariant": "Prebuilt-first, source fallback — `build.rs` must attempt prebuilt binary before source compilation. Verified by checking `src/build/build_strategy_os_deps.rs` for the two-stage logic."
             },
             {
               "id": "C053",
               "sourceEdge": "N0052→N0007 (inbound)",
-              "precondition": "Test strategy needed for requirements",
-              "postcondition": "4-layer test strategy defined",
-              "invariant": "Each layer has defined scope"
+              "precondition": "N0007 defines 15 functional requirements needing verification strategy.",
+              "postcondition": "4-layer test strategy defined: Layer 1 (Unit/mock), Layer 2 (Integration/PjsuaBackend), Layer 3 (E2E/Docker SIPp), Layer 4 (Manual/SIP phone).",
+              "invariant": "Each test layer has defined scope and entry criteria — no layer is undefined. Verified by checking `src/tests/test_strategy_4layer.rs` for all 4 layer definitions."
             },
             {
               "id": "C058",
               "sourceEdge": "N0057→N0007 (inbound)",
-              "precondition": "Acceptance criteria needed",
-              "postcondition": "lib.rs template and 12 acceptance criteria",
-              "invariant": "All criteria must pass for completion"
+              "precondition": "N0007 acceptance criteria define completion conditions.",
+              "postcondition": "lib.rs template provides crate facade structure, and 12 acceptance criteria document pass/fail conditions.",
+              "invariant": "All 12 acceptance criteria must pass for the crate to be considered complete. Verified by checking acceptance criteria checklist completion status."
             },
             {
               "id": "C060",
               "sourceEdge": "N0059→N0008 (inbound)",
-              "precondition": "Core crate structure defined",
-              "postcondition": "HTTP/WS API layer in separate crate",
-              "invariant": "siprs-server depends on siprs, not inverse"
+              "precondition": "N0008 establishes single-crate structure for SIP signalling + media.",
+              "postcondition": "HTTP/WS API layer defined as separate crate (`siprs-server`) with its own module structure via `extends` edge.",
+              "invariant": "siprs-server depends on siprs, not inverse — verified by checking Cargo.toml dependency direction."
             },
             {
               "id": "C067",
               "sourceEdge": "N0066→N0006 (inbound)",
-              "precondition": "Versioning policy defined",
-              "postcondition": "Semver operations and networking details added",
-              "invariant": "0.x flexible, cargo semver-checks at 1.0"
+              "precondition": "N0006 defines versioning policy (0.x flexible, 1.0+ strict).",
+              "postcondition": "Semver operations (MAJOR/MINOR/PATCH boundary rules) and SIP networking details (backward-compatible header/param additions) documented.",
+              "invariant": "0.x flexible, cargo semver-checks at 1.0 — CI pipeline includes `cargo semver-checks` only after 1.0 release."
             }
           ],
-          "background": "Phase P0 establishes the foundational specification for the siprs crate: M20 priority map (N0002), non-goals and Tauri boundary (N0003), terminology (N0004), compliance requirements (N0005), versioning policy (N0006), 15 functional requirements (N0007), and module structure (N0008). These 7 specification nodes constrain all subsequent implementation.",
+          "background": "Phase P0 establishes the foundational specification for the siprs crate: M20 priority map (N0002), non-goals and Tauri boundary (N0003), terminology (N0004), compliance requirements (N0005), versioning policy (N0006), 15 functional requirements (N0007), and module structure (N0008). These 7 specification nodes constrain all subsequent implementation.\n\n### Goal\nProduce a complete, self-contained specification document (`specs/P0-1.md`) that fully documents all 7 RFC foundation nodes (N0002-N0008) with Goal/Purpose/Motivation/Constraints per node, cross-reference consistency, and contract testability. The spec serves as the single source of truth for all downstream P0 and PX implementation tickets.\n\n### Purpose\nEstablish the normative foundation that constrains every subsequent implementation decision in the siprs crate. Without this foundation, 8 downstream tickets (P0-2 through P0-8) would operate without a shared understanding of priorities (N0002), boundaries (N0003), terminology (N0004), compliance constraints (N0005/N0006), requirements scope (N0007), and architecture (N0008). The spec ensures all implementers share the same design context.\n\n### Motivation\nThe siprs crate has 8 P0 tickets and 60+ architecture/spec files already created (under src/api/, src/config/, src/model/, src/state/, etc.), but no unified specification document that ties these fragments together and validates completeness. Without P0-1, downstream work risks inconsistencies (e.g., a module implementing a feature that N0003 excludes as a non-goal, or a codec not listed in N0007's 15 FRs). This ticket prevents that drift by committing the foundation to a reviewable, version-controlled spec.\n\n### Constraints\n- Time: P0-1 must be completed before P0-2 through P0-8 can begin implementation (dependency chain).\n- Scope: Must cover exactly N0002-N0008. N0001 (§1 Purpose) and N0009 (§7 Concurrency) are scoped to P0-3 and P0-2 respectively — P0-1 only references them as graph edges.\n- Format: Spec output is Markdown (`specs/P0-1.md`). No executable code is produced by this ticket (except the stub at `src/config/versioning_policy.rs` which is intentionally placeholder).\n- Validation: All 15 contracts must pass Gate M verification. No contract may have an untestable Precondition/Postcondition/Invariant triple.",
           "scope": [
             "M20 priority map: 15 items P0-P3 with 14 design decisions (Q1:A-Q14:A)",
             "Non-goals and Tauri integration boundary documentation",
@@ -141,25 +141,53 @@
             "Compliance: MSRV 1.95, PJSIP 2.17, target OS triple",
             "Versioning: 0.x flexible, 1.0+ strict semver",
             "15 functional requirements as normative scope",
-            "Module structure and single-crate rationale"
+            "Module structure and single-crate rationale",
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] `specs/P0-1.md` — new spec document\n  - [Action: add/modify/remove/rename/refactor] **add** — create new specification file\n  - [What specifically changes] A standalone spec document is created from Tickets.json fields, RFC graph data, and node context. No existing source code is modified (the only code file, `src/config/versioning_policy.rs`, remains as a stub — its expansion is a downstream implementation ticket)\n  - [Before → After (behavior/signature)] Before: no unified spec exists. After: `specs/P0-1.md` contains complete documentation of N0002-N0008.\n  - [API contract change (if any)] None — this ticket produces no Rust API changes.\n  - [Data schema change (if any)] None — only the Tickets.json P0-1 entry is populated with spec fields.\n  - [Config/env change (if any)] None — no Cargo.toml, env vars, or build config changes.\n  - [Dependency added/removed (if any)] None — no crate dependencies added.",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] N0001 (§1 Purpose — Responsibilities of this crate) full specification\n  - [Why excluded — separate ticket / future phase / not applicable] Scoped to P0-3 (Crate Purpose & Scope Definition). P0-1 only references N0001 as the target of graph edges from N0002-N0008.\n  - [Excluded item] N0009 (§7 Concurrency Model & Execution Contexts) detail\n  - [Why excluded — separate ticket / future phase / not applicable] Scoped to P0-2 (Concurrency Model & Execution Contexts Specification). P0-1 only documents the N0008→N0009 (depends_on) edge.\n  - [Excluded item] Code generation, build.rs changes, or runtime behavior\n  - [Why excluded — separate ticket / future phase / not applicable] This is a pure specification ticket. N0006 code stub expansion is deferred to the implementation ticket that resolves the `[::STUB::]` marker.\n  - [Excluded item] CI/CD pipeline, Docker images, or prebuilt infrastructure\n  - [Why excluded — separate ticket / future phase / not applicable] Scoped to P2/P3-phase tickets (referenced by N0039→N0005 inbound edge C040).",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] Downstream P0 tickets (P0-2 through P0-8)\n  - [Nature of impact: performance / security / API surface / data format / …] **Data format** — all downstream tickets must reference this spec as their normative foundation. The module structure (N0008) defines file paths that P0-4 through P0-8 will implement.\n  - [Corresponding change needed Y/N + details] **No code change needed** in downstream tickets at this point. However, each downstream ticket's `referenceSection` and `relatedTicketIds` must be updated during their own make phase to reference P0-1.\n  - [Affected component] `RFC-ROOT-GRAPH.json` edge relationships\n  - [Nature of impact: performance / security / API surface / data format / …] **Validation** — the spec existence validates that the edges from N0002-N0008 to N0001 are correctly documented.\n  - [Corresponding change needed Y/N + details] No — the graph is already complete for these nodes.\n  - [Affected component] Cargo.toml (`rust-version = \"1.95\"`)\n  - [Nature of impact: performance / security / API surface / data format / …] **Compliance** — MSRV 1.95 is documented as a compliance requirement (N0005).\n  - [Corresponding change needed Y/N + details] Already satisfied. No change needed."
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] Spec completeness — each of the 7 nodes (N0002 M20 priority map, N0003 Non-goals/Tauri boundary, N0004 Terminology, N0005 Compliance requirements, N0006 Versioning policy, N0007 15 Functional requirements, N0008 Module structure) is fully documented in `specs/P0-1.md`. Verified by script-based audit: each node has a dedicated section, all subsections from RFC-ROOT.md sections 1a/2/3/4/4.1/5/6 are present, and the spec file is >500 lines of substantive content covering Goal/Purpose/Motivation/Constraints/Scope/Acceptance Criteria/Invariants for each node.",
+            "UT: [Error] Spec completeness gap detection — if any of the 7 nodes is missing a required section (M20 item table incomplete, non-goal list partial, term definition omitted, compliance dimension absent, versioning rule undefined, functional requirement missing, module file path incomplete), the spec validation reports the gap. Verified via automated grep/assert for each key section anchor in `specs/P0-1.md`.",
+            "UT: [Boundary] Cross-reference consistency between all 7 nodes — every edge relationship defined in RFC-ROOT-GRAPH.json for N0002-N0008 must have a corresponding cross-reference section in the spec. Specifically: N0002 refines to N0001, N0003 constrains to N0001, N0004 references to N0001, N0005 constrains to N0001, N0006 part_of to N0005, N0007 implements from N0001, N0008 part_of to N0001. Verified via automated edge-coverage audit.",
+            "UT: [Invariant] Contract testability gate — all 15 contracts (C001/C003-C010/C014/C040/C053/C058/C060/C067) defined for P0-1 must pass Gate M verification: each Precondition must map to a concrete input schema or type, each Postcondition to an output assertion, each Invariant to an assertable predicate. Verified by verify-make-contracts.js exit 0. Additionally verify that inbound-edge contracts (C010: N0009 to N0008, C014: N0013 to N0005, C040: N0039 to N0005, C053: N0052 to N0007, C058: N0057 to N0007, C060: N0059 to N0008, C067: N0066 to N0006) whose preconditions depend on P0-1 outputs reference correct P0-1 node IDs.",
+            "UT: [Contract C040] C040 postcondition — Build strategy must specify prebuilt-first source-fallback two-stage approach for PJSIP linking. Verified by checking src/build/build_strategy_os_deps.rs for documented two-stage logic: prebuilt binary attempted first, source compilation as fallback. The spec must reference this file and describe both stages.",
+            "UT: [Contract C067] C067 invariant — Versioning policy at 0.x is flexible with non_exhaustive annotation, and cargo semver-checks are deferred until 1.0 release. Verified by checking Cargo.toml for no cargo-semver-checks CI step, and confirming non_exhaustive is documented on SipEventPayload-like types."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] N0006 (Versioning Policy) ↔ `src/config/versioning_policy.rs` — the only P0-1 node with a code mapping. Verify the Rust file exists at the specified path and its `Config` struct declaration matches the versioning policy rules defined in the spec (0.x flexible, 1.0+ strict semver, security exception).",
+            "IT: [Verification] Cross-module contract consistency — verify that the spec outputs of P0-1 (module structure N0008, compliance N0005, functional requirements N0007) are correctly referenced by downstream tickets P0-2 through P0-8. Each downstream ticket must reference at least one P0-1 node in its `relatedTicketIds` or `referenceSection`.",
+            "IT: [Prerequisites] `RFC-ROOT.md` must contain the full text for §§1a/2/3/4/4.1/5/6 before spec generation. `RFC-ROOT-GRAPH.json` must have complete edge definitions for N0002-N0008. `Tickets.json` P0-1 entry must have all 11 spec fields populated and status=made.",
+            "IT: [Related tickets] P0-2 (Concurrency Model, depends on N0008/N0009), P0-3 (Crate Purpose, depends on N0001), P0-4 (RuntimeCommand/EventBus, depends on N0008), P0-5 (Error Design, depends on N0007/N0008), P0-6 (NativeEvent Conversion, depends on N0002/N0008), P0-7 (DtmfSent, depends on N0002/N0007), P0-8 (AudioWorker/Dual Client, depends on N0008) — all must reference P0-1 as their foundation."
+          ],
+          "testExceptions": [
+            "- [Item] Automated Rust unit tests for N0006 src/config/versioning_policy.rs\n  - [Reason] The file is currently a stub (pub struct Config {} with STUB marker) and is not testable as automated Rust unit tests — it has no behavior to test until implemented with actual version-policy enforcement logic. Unit tests will be added in the implementation ticket that resolves this stub.\n  - [Why this is NOT a design defect] The stub is an intentional placeholder — this is not a design defect. The Config struct will gain behavior when the versioning policy rules are implemented in a downstream ticket. The current empty struct is a valid Rust pattern for gradual implementation. The spec (P0-1) documents the design; it does not implement runtime code.\n  - [Alternative verification] Spec presence verified by test -f src/config/versioning_policy.rs. Stub marker verified by grep STUB src/config/versioning_policy.rs. Cross-reference to N0006 verified by checking the Initial Design Artifact header contains NODE-ID N0006.",
+            "- [Item] Automated validation of spec cross-references across all 7 nodes\n  - [Reason] No validation harness exists in P0 phase, making automated cross-reference validation impossible to test via CI. Building an automated cross-reference auditor is a separate investment (P3 or later infrastructure ticket). In P0, cross-reference consistency is verified via manual review.\n  - [Why this is NOT a design defect] Absence of an automated validation tool is an infrastructure gap, not a design defect. The spec document is still testable through manual review — a proven method for specification verification. The project's RFC graph structure provides machine-readable edges that could be leveraged by a future tool.\n  - [Alternative verification] Manual review checklist: (1) each node section header matches RFC-ROOT.md anchor, (2) each graph edge documented in spec has a visible cross-reference link, (3) no orphan section references.",
+            "- [Item] End-to-end verification that all 15 functional requirements (N0007) are implementable\n  - [Reason] Implementability verification is not testable until all 8 downstream tickets (P0-2 through P0-8, PX tickets) are completed. A requirement can only be confirmed as implementable once its concrete code mapping exists.\n  - [Why this is NOT a design defect] This is a sequential dependency, not a design defect. N0007 functional requirements are intentionally documented at the specification level — their implementability is verified incrementally as each downstream ticket delivers code.\n  - [Alternative verification] Each functional requirement includes: (a) unique identifier (FR-01 through FR-15), (b) reference to implementing module path, (c) mapping to downstream ticket(s). Completeness verified by acceptance criteria checklist."
+          ],
           "acceptanceCriteria": [
             "All 15 functional requirements are enumerated and documentable",
             "M20 priority map with 14 design decisions documented",
-            "Module structure matches RFC specification"
+            "Module structure matches RFC specification",
+            "**[Happy path] The spec file `specs/P0-1.md` is generated with complete content for all 7 nodes (N0002-N0008). Each node section includes: RFC source reference, purpose statement, key data (tables/lists), cross-reference links, and contractual mappings. All 15 contracts pass Gate M. The spec is internally consistent (no contradictory statements across nodes).**\n  - All 11 Tickets.json spec fields are populated (no template stubs remain)\n  - `specs/P0-1.md` exists and is >500 lines\n  - `verify-make-contracts.js --ticket-key=P0-1` exits 0\n  - Cross-references between N0002-N0008 match RFC-ROOT-GRAPH.json edges",
+            "**[Error case] Spec generation detects incomplete or inconsistent data. For example: a contract's Invariant references a type that doesn't exist in any N0002-N0008 node, or a scope item lists a path outside the allowed module tree.**\n  - The spec generation process (`--for-spec`) handles missing data gracefully by reporting gaps\n  - Contracts with unresolved inbound edges are flagged but not rejected (since their source tickets are future work)\n  - Incomplete sections are documented as open items, not silently omitted",
+            "**[Edge case] Edge case: a spec node has no substantive content beyond its RFC reference (e.g., N0004 Terminology is a short glossary).**\n  - Minimum content standard: each node must have at least 3 substantively different sections (definition, RFC reference, relationship description)\n  - Short nodes are acceptable as long as they cover Goal/Purpose/Motivation minimally\n  - The cross-reference edges between nodes provide the substantive content even for individually short nodes"
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§1a, §2, §3, §4, §4.1, §5, §6)",
           "relatedTicketIds": "",
-          "notes": "Specification documentation ticket. All 7 nodes are design-level without direct code mappings (except N0006 versioning_policy.rs).",
+          "notes": "- [Implementation steps] (1) Investigate all 7 RFC graph nodes and existing source code → (2) Define contracts with testable Precondition/Postcondition/Invariant triples → (3) Populate all 11 spec fields in Tickets.json → (4) Generate `specs/P0-1.md` via `--for-spec` → (5) Pass Gate M contract verification → (6) Set status=made.\n- [Risks] Risk: N0001 (§1 Purpose) may need content that is technically owned by P0-3. Mitigation: P0-1 references N0001 only through graph edges; no substantive N0001 content is included. Risk: Contracts for inbound edges (C010, C014, C040, C053, C058, C060, C067) depend on downstream tickets that don't exist yet. Mitigation: these are marked as inbound and their full verification is deferred to the source ticket's make phase.\n- [Caveats] The `src/config/versioning_policy.rs` file is a stub with `[::STUB::]` marker — this is intentional for P0-1. The stub will be resolved in the implementation ticket that adds versioning policy enforcement. P0-1 only documents the versioning policy rules; it does not implement them.\n- [Open items] The 15 functional requirements (N0007) do not yet have unique FR-IDs assigned (FR-01 through FR-15) — this should be done when the spec is generated. The cross-reference audit script does not exist yet — it's listed as a test exception with manual review fallback.\n- [Future improvements] After all P0 tickets are implemented, a P3+ infrastructure ticket could build an automated cross-reference validator that checks all 7+ P0 nodes for spec consistency against RFC-ROOT-GRAPH.json edges.",
           "default_files": [
             "src/config/versioning_policy.rs"
           ],
           "id": 1,
           "phaseId": 0,
-          "status": "todo"
+          "status": "made",
+          "invariants": "- [Normal condition] All 7 RFC nodes (N0002-N0008) MUST have a corresponding section in the spec file. Each section MUST cover: purpose within crate context, RFC source reference (§§1a/2/3/4/4.1/5/6), key data (tables, lists, definitions), and cross-references to related nodes. Spec file MUST exist at `specs/P0-1.md`.\n- [Error invariant] Even if a downstream ticket or spec validation fails, the P0-1 spec document MUST remain internally consistent — deleting a section to \"pass\" validation is prohibited. Error states must be documented as open items or risks, not omitted.\n- [Internal state invariant] The Tickets.json P0-1 entry MUST have all 11 spec fields populated with content (not template stubs) when status=made. The `contracts` array MUST contain all 15 entries with expanded Precondition/Postcondition/Invariant triples linked to testUnit entries.\n- [Boundary invariant] The spec MUST NOT extend beyond the 7 assigned nodes — no N0001 (§1 Purpose) content, no N0009 (§7 Concurrency) detail, no PX-phase implementation design. Any reference to out-of-scope nodes must be explicitly marked as \"referenced but scoped to [ticket key]\".",
+          "instrumentation": "- [Logging] Spec document includes an observability section that defines what `tracing` events each component should emit. For P0-1, the spec identifies the logging categories (lifecycle: crate init/shutdown; config: versioning policy application; cross-node: verification of spec completeness). No runtime instrumentation code is implemented in this ticket.\n- [Metrics] Spec identifies which metrics are relevant to each N0002-N0008 node (e.g., N0005 compliance: PJSIP version check at build time; N0008 module structure: number of modules per category). Metrics are defined at the spec level only — no metric collection code in this ticket.\n- [Error tracking] Spec documents error states and validation failures for each node. For N0006, the `Config` struct error states are defined (unknown versioning phase, invalid semver range). Actual error type definitions (`thiserror` enums) are deferred to P0-5 (Error Design).\n- [Health check] Spec defines the completion criteria for each node (spec file existence, completeness checklist, contract gate M pass). No runtime health check endpoints — this spec ticket produces only documentation.",
+          "investigation": "- Investigation findings for P0-1 (RFC Foundation & Crate Specification):\n\n**Source code structure:** The siprs crate has no `lib.rs` or `client.rs` yet — all 40+ files under `src/` are architecture/specification documents organized by domain (api/, build/, concurrency_contexts/, config/, error/, model/, security/, state/, tests/). The only file with a direct N0006 code mapping is `src/config/versioning_policy.rs` which contains `pub struct Config {}` with a `[::STUB::]` marker.\n\n**RFC graph completeness:** The 7 nodes N0002-N0008 are fully defined in `RFC-ROOT.md` (§§1a/2/3/4/4.1/5/6) and `RFC-ROOT-GRAPH.json`. All graph edges between these nodes and N0001 are documented. Inbound edges from downstream nodes (N0009→N0008, N0013→N0005, N0039→N0005, N0052→N0007, N0057→N0007, N0059→N0008, N0066→N0006) are present with correct source/target references.\n\n**Key relationships discovered:**\n- N0002 (M20 map) → refines N0001: The 15 implementation items and 14 design decisions are the most detailed content in this group.\n- N0003 (Non-goals) → constrains N0001: 8 non-goals explicitly listed, plus 4+4 Tauri responsibility split.\n- N0005 (Compliance) → constrains N0001: MSRV=1.95 already in Cargo.toml `rust-version`, PJSIP=2.17 documented but no `build.rs` yet, 3 OS targets specified.\n- N0006 (Versioning) → part_of N0005: 0.x/1.0+ semver rules fully specified; `#[non_exhaustive]` is the key invariant mechanism.\n- N0007 (15 FRs) → implements N0001: No FR-IDs assigned yet; FRs need unique identifiers for traceability.\n- N0008 (Module structure) → part_of N0001: Complete file tree specified with 25+ files across 6 directories; single-crate rationale with 3 justifications.\n\n**No existing stub violations found** in the files examined — the `[::STUB::]` marker in versioning_policy.rs is properly placed and documented.",
+          "boyScoutPlan": "- Boy Scout Rule — Translatability improvements for P0-1:\n\n**Code touched:** `src/config/versioning_policy.rs` (the only implementation file in scope)\n\n**Current state:** The file contains `pub struct Config {}` with a `[::STUB::]` marker. It passes readability standards because its content is intentionally minimal — the struct name `Config` conveys \"configuration placeholder\" and the stub marker is properly documented.\n\n**Planned improvements for when the stub is resolved (future ticket):**\n1. Extract versioning phases into an enum: `pub enum VersioningPhase { PreRelease, Stable(Version), }` — makes versioning state machine explicit.\n2. Name the version policy rules as named constants: `const ALLOW_BREAKING_IN_0_X: bool = true` instead of magic boolean literals.\n3. Add `#[non_exhaustive]` to any enum that may gain variants in the future (aligned with N0006 invariant).\n\n**No immediate refactoring needed:** The current code is 31 lines including comments and the Initial Design Artifact header. The `Config` struct is intentionally empty. Adding premature logic or structure here would violate YAGNI.\n\n**Broader improvement (spec level):** The spec document generated by this ticket should use consistent section naming across all 7 nodes (each node section: ## Node Title → ### Purpose → ### Details → ### Cross-references → ### Contracts). This structural consistency is itself a translatability improvement — any reader can predict where to find information for any node.",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27"
         },
         {
           "title": "Concurrency Model & Execution Contexts Specification",
