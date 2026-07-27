@@ -1,4 +1,35 @@
 {
   "version": 1,
-  "records": []
+  "records": [
+    {
+      "id": 1,
+      "file": "src/security/security_platform_diffs.rs",
+      "line": 21,
+      "description": "Empty authorize() body without [::STUB::] marker",
+      "detected_at": "2026-07-27T07:49:47.531Z",
+      "status": "resolved",
+      "note": "Fixed: added [::STUB::] marker",
+      "resolved_at": "2026-07-27T07:50:39.471Z"
+    },
+    {
+      "id": 2,
+      "file": "src/security/auth_jwt_middleware.rs",
+      "line": 21,
+      "description": "Empty authorize() body without [::STUB::] marker",
+      "detected_at": "2026-07-27T07:49:47.563Z",
+      "status": "resolved",
+      "note": "Fixed: added [::STUB::] marker",
+      "resolved_at": "2026-07-27T07:50:39.501Z"
+    },
+    {
+      "id": 3,
+      "file": "src/api/event_model_payload_bus.rs",
+      "line": 168,
+      "description": "TODO marker without [::STUB::] marker",
+      "detected_at": "2026-07-27T07:56:12.529Z",
+      "status": "resolved",
+      "note": "Fixed: added [::STUB::] marker",
+      "resolved_at": "2026-07-27T07:56:16.136Z"
+    }
+  ]
 }

@@ -99,6 +99,9 @@
 
 pub mod concurrency_contexts;
 pub mod config;
+// [::TICKET::] P0-4: api/model modules added — EventBus, SipEventPayload types.
+pub mod api;
+pub mod model;
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 
@@ -178,6 +181,7 @@ mod tests {
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         // CommandSender is Send + Sync since Sender<RuntimeCommand> is Send + Sync
         assert_send::<crate::concurrency_contexts::CommandSender>();
@@ -297,15 +301,18 @@ mod tests {
 
     /// @verifies C006-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes.
+// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn dependencies_empty_in_cargo_toml() -> Result<(), String> {
+        // [::STUB::] P0-4: This test was originally written for P0-3 (zero deps).
+        // P0-4 adds tokio as the first real dependency — assertion changed.
         let cargo = include_str!("../Cargo.toml");
         // dependencies section should not contain actual crate entries (comments are fine)
         let deps_section = cargo
             .split("[dependencies]")
             .nth(1)
             .unwrap_or("")
-            .split('[')
+            .split("\n[")
             .next()
             .unwrap_or("");
         let real_deps: Vec<&str> = deps_section
@@ -313,9 +320,14 @@ mod tests {
             .map(|l| l.trim())
             .filter(|l| !l.starts_with('#') && !l.is_empty())
             .collect();
+        // P0-4+: Dependencies are no longer empty; tokio is the first.
         assert!(
-            real_deps.is_empty(),
-            "Dependencies must be empty, found: {real_deps:?}"
+            !real_deps.is_empty(),
+            "P0-4 should have at least tokio in dependencies"
+        );
+        assert!(
+            real_deps.iter().any(|d| d.contains("tokio")),
+            "tokio must be present in dependencies (added by P0-4)"
         );
         Ok(())
     }
@@ -346,10 +358,11 @@ mod tests {
     /// @verifies C009-precondition
     /// @verifies C009-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes.
+// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn all_declared_modules_exist_on_disk() {
         // Each pub mod must have a corresponding directory or file
-        for path in &["src/config", "src/concurrency_contexts"] {
+        for path in &["src/config", "src/concurrency_contexts", "src/api", "src/model"] {
             assert!(
                 std::path::Path::new(path).exists(),
                 "Module path '{path}' must exist on disk"
