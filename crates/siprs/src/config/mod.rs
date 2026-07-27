@@ -34,3 +34,6 @@
 pub mod versioning_policy;
 // [::TICKET::] P1-2: Observability — tracing spans, metrics counters/gauges, ClientCapabilities.
 pub mod observability_metrics;
+// [::TICKET::] P2-1: ClientConfig, ClientAudioConfig, TimeoutConfig, RawSipEventConfig, LogLevel.
+// Re-exported at crate root for convenience.
+pub mod client_config_spec;
