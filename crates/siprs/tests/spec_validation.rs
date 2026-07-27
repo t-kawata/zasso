@@ -113,14 +113,13 @@ fn spec_has_m20_priority_map() {
 
 #[test]
 // @verifies C003
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_m20_no_dependency_claim() {
     let content = read_spec().expect("failed to read spec file");
     // Priority ordering (P0 before P1 before P2) must not be stated
     // as a hard dependency — items are independently schedulable.
     assert!(
-        !content.contains("must be completed before P1")
-            && !content.contains("must precede P"),
+        !content.contains("must be completed before P1") && !content.contains("must precede P"),
         "priority ordering must not imply dependency between levels"
     );
 }
@@ -146,7 +145,7 @@ fn spec_has_non_goals() {
 
 #[test]
 // @verifies C004
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_tauri_boundary_respected() {
     // No crate source file may import tauri runtime — this is a
     // non-Tauri crate used via public Rust API.
@@ -155,8 +154,7 @@ fn spec_tauri_boundary_respected() {
         return;
     }
     for entry in walkdir_without_hidden(src_dir) {
-        let content = std::fs::read_to_string(&entry)
-            .unwrap_or_default();
+        let content = std::fs::read_to_string(&entry).unwrap_or_default();
         assert!(
             !content.contains("tauri::"),
             "no tauri import allowed in src/: {:?}",
@@ -194,7 +192,7 @@ fn walkdir_without_hidden(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 #[test]
 // @verifies C005
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_has_terminology() {
     let content = read_spec().expect("failed to read spec file");
     assert!(
@@ -203,10 +201,7 @@ fn spec_has_terminology() {
     );
     // At least one key domain term should be present
     let key_terms = ["Client", "Account", "Call", "Media Session", "SIP Event"];
-    let found = key_terms
-        .iter()
-        .filter(|&&t| content.contains(t))
-        .count();
+    let found = key_terms.iter().filter(|&&t| content.contains(t)).count();
     assert!(
         found >= 2,
         "spec should define at least 2 of the key domain terms, found {}",
@@ -220,10 +215,9 @@ fn spec_has_terminology() {
 
 #[test]
 // @verifies C006
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn cargo_toml_has_correct_msrv() {
-    let content =
-        std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
+    let content = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
     assert!(
         content.contains("rust-version = \"1.95\""),
         "MSRV must be 1.95 in Cargo.toml (N0005 compliance requirement)"
@@ -274,11 +268,10 @@ fn spec_has_versioning_policy() {
 
 #[test]
 // @verifies C007
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn versioning_policy_config_struct_exists() {
-    let content =
-        std::fs::read_to_string("src/config/versioning_policy.rs")
-            .expect("versioning_policy.rs must exist");
+    let content = std::fs::read_to_string("src/config/versioning_policy.rs")
+        .expect("versioning_policy.rs must exist");
     assert!(
         content.contains("struct Config"),
         "Config struct must be declared in versioning_policy.rs"
@@ -318,7 +311,7 @@ fn spec_has_functional_requirements() {
 
 #[test]
 // @verifies C009
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_has_module_structure() {
     let content = read_spec().expect("failed to read spec file");
     assert!(
@@ -327,9 +320,7 @@ fn spec_has_module_structure() {
     );
     // Key module directories should be mentioned
     assert!(
-        content.contains("ffi/")
-            || content.contains("runtime/")
-            || content.contains("audio/"),
+        content.contains("ffi/") || content.contains("runtime/") || content.contains("audio/"),
         "spec must document at least one key module directory (ffi/, runtime/, audio/)"
     );
     assert!(

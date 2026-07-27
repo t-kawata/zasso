@@ -8,4 +8,4 @@ rust-version = "1.95"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-# 本チケットでは依存 crate を追加しない（後続チケットで段階的に導入）
+# [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+

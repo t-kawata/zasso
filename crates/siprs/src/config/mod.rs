@@ -1,3 +1,4 @@
+// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation

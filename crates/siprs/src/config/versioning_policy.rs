@@ -1,3 +1,5 @@
+// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -25,6 +27,5 @@
 // ============================================================================
 
 pub struct Config {}
-
 
 // TODO: [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy
