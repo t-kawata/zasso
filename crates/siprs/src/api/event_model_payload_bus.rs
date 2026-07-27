@@ -115,7 +115,7 @@ pub enum SipEventPayload {
     OutgoingCallRinging,
     EarlyMediaReceived,
     CallConnected,
-    IncomingCall,
+    IncomingCall(super::incoming_call_refer::IncomingCall),
     CallDisconnected,
     CallCancelled,
     CallRejected,
@@ -133,7 +133,8 @@ pub enum SipEventPayload {
     // [::TICKET::] P3-1: DtmfSentInfo is pub(crate) — once promoted to pub the warning resolves.
     #[allow(private_interfaces)]
     DtmfSent(crate::api::m20_dtmfsent_twophase::DtmfSentInfo),
-    DtmfReceived,
+    /// Received a DTMF digit from the remote peer.
+    DtmfReceived(super::dtmf_spec_received::DtmfReceivedInfo),
 
     // ── ICE ──
     IceNegotiationStarted,
@@ -273,13 +274,20 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P5-2) --for-spec --no-implementation-order`.
     fn sip_event_variants_are_constructible() {
         // Every category must have at least one constructible variant
         let _registration = SipEventPayload::RegistrationStarted;
         let _call_event = SipEventPayload::CallConnected;
         let _media = SipEventPayload::MediaActive;
-        let _dtmf = SipEventPayload::DtmfReceived;
+        let _dtmf = SipEventPayload::DtmfReceived(
+            crate::api::dtmf_spec_received::DtmfReceivedInfo {
+                method: crate::api::m20_dtmfsent_twophase::DtmfMethod::Inband,
+                digit: '#',
+                duration_ms: None,
+                volume_dbm0: None,
+            },
+        );
         let _ice = SipEventPayload::IceNegotiationSucceeded;
         let _transport = SipEventPayload::TransportConnected;
         let _account = SipEventPayload::AccountAdded;

@@ -1,3 +1,4 @@
+
 // [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
 
 
@@ -26,7 +27,15 @@ pub mod standalone_server_config;
 // [::TICKET::] P5-1: call_api_semantics module — SipClient call control methods.
 pub mod call_api_semantics;
 // [::TICKET::] P5-1: audio_subscribe_bp module — AudioTapMode, AudioTapHandle, types.
+// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
 pub mod audio_subscribe_bp;
+// [::TICKET::] P5-2: dtmf_spec_received module — DtmfReceivedInfo, DtmfReceived event payload.
+pub mod dtmf_spec_received;
+// [::TICKET::] P5-2: asyncaudiosrc_adapter module — AsyncAudioSource, ErasedAudioSource,
+// SyncAudioSource, SyncSourceAdapter.
+pub mod asyncaudiosrc_adapter;
+// [::TICKET::] P5-2: incoming_call_refer module — IncomingCall, ReferRequest.
+pub mod incoming_call_refer;
 
 // Re-exports for crate-root convenience
 pub use public_api_design::{

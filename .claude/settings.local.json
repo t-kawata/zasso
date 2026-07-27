@@ -1027,7 +1027,18 @@
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec)",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P5-1\" --for-spec --plan)",
       "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0026 --hops=1)",
-      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P5-1\" --tickets=\"Tickets.json\")"
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P5-1\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P5-2\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0032 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0048 --hops=1)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P5-2\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P5-2\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P5-2\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P5-2\" --for-spec --plan)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0029 --hops=1)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P5-2\" --tickets=\"Tickets.json\")"
     ]
   }
 }

@@ -151,8 +151,15 @@ pub(crate) fn convert_native_event_to_payload(
         // ── P0: DTMF ──
         NativeEvent::DtmfDigit {
             call_id: _,
-            digit: _,
-        } => Some(SipEventPayload::DtmfReceived),
+            digit,
+        } => Some(SipEventPayload::DtmfReceived(
+            crate::api::dtmf_spec_received::DtmfReceivedInfo {
+                method: crate::api::m20_dtmfsent_twophase::DtmfMethod::Inband,
+                digit,
+                duration_ms: None,
+                volume_dbm0: None,
+            },
+        )),
 
         // ── P1: Transport / ICE ──
         // Explicitly excluded from P0 scope. Consumers may access via raw SIP bus.
@@ -316,14 +323,18 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1|P5-2) --for-spec --no-implementation-order`.
     fn dtmf_digit_converts_to_dtmf_received() {
         let event = NativeEvent::DtmfDigit {
             call_id: CallId::from_u64(1).unwrap(),
             digit: '5',
         };
         let result = convert_native_event_to_payload(event, 0);
-        assert_eq!(result, Some(SipEventPayload::DtmfReceived));
+        assert!(result.is_some(), "DtmfReceived variant should be emitted");
+        assert!(
+            matches!(result, Some(SipEventPayload::DtmfReceived(_))),
+            "expected DtmfReceived variant"
+        );
     }
 
     // -----------------------------------------------------------------------

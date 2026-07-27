@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -40,7 +41,8 @@ pub(crate) type pj_status_t = u32;
 // [::STUB::] P0-8: DtmfMethod enum is consumed by AudioWorker/Reactor for
 // SendDtmf dispatch. Only tests construct it in this phase.
 #[allow(dead_code)]
-pub(crate) enum DtmfMethod {
+pub enum DtmfMethod {
+// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     /// In-band audio tone transmission.
     Inband,
     /// SIP INFO message-based DTMF delivery.

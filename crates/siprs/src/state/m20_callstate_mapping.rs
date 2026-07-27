@@ -101,7 +101,16 @@ pub(crate) fn convert_call_state(
             // and incoming-ringing (previous was an incoming-originated state).
             match previous_state {
                 Some(PJSIP_INV_STATE_CALLING) => Some(SipEventPayload::OutgoingCallTrying),
-                Some(_) => Some(SipEventPayload::IncomingCall),
+                Some(_) => Some(SipEventPayload::IncomingCall(
+                    crate::api::incoming_call_refer::IncomingCall {
+                        from_uri: String::new(),
+                        to_uri: String::new(),
+                        display_name: None,
+                        headers: Vec::new(),
+                        offered_codecs: Vec::new(),
+                        has_early_media: false,
+                    },
+                )),
                 None => None,
             }
         }
@@ -196,13 +205,15 @@ mod tests {
 
     /// @verifies C023-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P5-2) --for-spec --no-implementation-order`.
     fn inv_state_connecting_from_incoming_returns_ringing() {
         // Use a value different from CALLING (e.g., 5) to simulate an
         // incoming-originated previous state.
-        assert_eq!(
-            convert_call_state(PJSIP_INV_STATE_CONNECTING, Some(5)),
-            Some(SipEventPayload::IncomingCall)
+        let result = convert_call_state(PJSIP_INV_STATE_CONNECTING, Some(5));
+        assert!(result.is_some(), "IncomingCall variant should be emitted");
+        assert!(
+            matches!(result, Some(SipEventPayload::IncomingCall(_))),
+            "expected IncomingCall variant"
         );
     }
 

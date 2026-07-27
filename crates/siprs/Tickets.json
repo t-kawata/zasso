@@ -4225,33 +4225,33 @@
             {
               "id": "C029",
               "sourceEdge": "N0028→N0027",
-              "precondition": "Call API supports DTMF",
-              "postcondition": "DTMF specification and DtmfReceived defined",
-              "invariant": "3 methods: Inband, SIP INFO, RFC4733"
+              "precondition": "Call API supports DTMF — SipClient::send_dtmf() accepts DtmfMethod + digits (defined in P5-1 call_api_semantics)",
+              "postcondition": "DTMF specification defined — DtmfReceivedInfo struct with method:DtmfMethod, digit:char, duration_ms:Option<u16>, volume_dbm0:Option<i8>. DtmfReceived event variant in SipEventPayload carries DtmfReceivedInfo.",
+              "invariant": "3 DtmfMethod variants always discriminable: Inband (audio stream tones), SipInfo (SIP INFO messages), Rfc4733 (RTP payload events). No additional variants may be added without updating config validation."
             },
             {
               "id": "C030",
               "sourceEdge": "N0029→N0028 (inbound)",
-              "precondition": "DTMF spec defined",
-              "postcondition": "DtmfSentInfo and two-phase design specified",
-              "invariant": "500ms timeout fallback"
+              "precondition": "DTMF spec defined — DtmfMethod enum exists, DtmfReceivedInfo struct defined, shared DtmfMethod type is re-used from api::m20_dtmfsent_twophase",
+              "postcondition": "DtmfSentInfo struct and two-phase design specified — send_dtmf() return Ok(()) means command accepted; DtmfSent event signals actual send completion (or timeout). DtmfMethod enum shared between DtmfReceivedInfo and DtmfSentInfo.",
+              "invariant": "500ms default timeout fallback — DEFAULT_SENT_TIMEOUT_MS = 500. When PJSIP on_dtmf_digit callback does not fire within the window, reactor fallback timer auto-publishes DtmfSent with status: Err(SentDtmfError::Timeout)."
             },
             {
               "id": "C033",
               "sourceEdge": "N0032→N0031",
-              "precondition": "Audio subscribe uses sources",
-              "postcondition": "AsyncAudioSource trait with RPITIT",
-              "invariant": "ErasedAudioSource auto-derived"
+              "precondition": "Audio subscribe uses sources — AudioTapHandle receives AudioChunkPair from subscribed conference ports (AudioSubscribe BP defines channel-based framing, capacity, backpressure policy)",
+              "postcondition": "AsyncAudioSource trait with RPITIT defined — pub trait AsyncAudioSource: Send { async fn next_chunk(&mut self, buf: &mut [i16]) -> usize; }. SyncAudioSource trait (fn next_chunk(&mut self, buf: &mut [i16]) -> usize) and SyncSourceAdapter<T> bridge sync-to-async. ErasedAudioSource blanket impl auto-derived for dynamic dispatch.",
+              "invariant": "ErasedAudioSource auto-derived for all T: AsyncAudioSource + Send — object-safe trait impl<T: AsyncAudioSource + Send> ErasedAudioSource for T { fn next_chunk<'a>(&'a mut self, buf: &'a mut [i16]) -> Pin<Box<dyn Future<Output=usize> + Send + 'a>> }. No manual ErasedAudioSource impls allowed."
             },
             {
               "id": "C049",
               "sourceEdge": "N0048→N0027",
-              "precondition": "Call API defined",
-              "postcondition": "Incoming call handling and REFER/transfer specified",
-              "invariant": "Blind transfer mandatory"
+              "precondition": "Call API defined — SipClient methods: answer(), hangup(), transfer(), call_state() exist (P5-1 call_api_semantics). SipEventPayload::IncomingCall variant exists as unit variant.",
+              "postcondition": "IncomingCall struct defined — IncomingCall { from_uri: String, to_uri: String, display_name: Option<String>, headers: Vec<(String,String)>, offered_codecs: Vec<Codec>, has_early_media: bool }. SipEventPayload::IncomingCall carries IncomingCall payload. ReferRequest struct for blind transfer. NOTIFY completion semantics referenced.",
+              "invariant": "Blind transfer mandatory — REFER without attended/consultation call. ReferRequest carries refer_to_uri directly. No separate attended-transfer call leg required at this stage."
             }
           ],
-          "background": "N0028 defines DtmfMethod (Inband/SipInfo/Rfc4733), DtmfReceivedInfo, and policy-based validation. N0032 defines AsyncAudioSource with RPITIT, ErasedAudioSource auto-derivation, SyncAudioSource and SyncSourceAdapter. N0048 defines IncomingCall struct with auto-reject timer and REFER/Transfer with blind transfer support.",
+          "background": "N0028 defines DtmfMethod (Inband/SipInfo/Rfc4733), DtmfReceivedInfo, and policy-based validation. N0032 defines AsyncAudioSource with RPITIT, ErasedAudioSource auto-derivation, SyncAudioSource and SyncSourceAdapter. N0048 defines IncomingCall struct with auto-reject timer and REFER/Transfer with blind transfer support.\n\n### Goal\nDefine three independent API surface areas: (1) DTMF specification with DtmfReceivedInfo struct carrying method, digit, duration_ms, volume_dbm0 + policy-based method validation, (2) AsyncAudioSource trait with RPITIT + ErasedAudioSource dynamic dispatch blanket impl + SyncSourceAdapter bridging, (3) IncomingCall struct with caller/callee metadata, codecs, auto-reject timer config + ReferRequest struct for blind transfer with NOTIFY completion.\n\n### Purpose\nEnable the SIP client to: (a) receive DTMF digits with full metadata (duration, volume) and validate against account policy, (b) accept any synchronous or asynchronous audio source via a uniform AsyncAudioSource trait interface, (c) handle incoming calls with structured caller metadata and support blind call transfer via REFER/NOTIFY.\n\n### Motivation\nThese three areas are foundational for PJSIP-based voice communication: DTMF is required for IVR menus and in-call signaling; AsyncAudioSource decouples audio source implementation (file, mic, synthesized) from the mixer pipeline; IncomingCall/Transfer is the basic call lifecycle feature required for P5-1 call control API completeness. All three are dependencies of the Media Bridge (P4-3) and Audio Subscribe (P5-1) pipelines.\n\n### Constraints\n- RPITIT requires MSRV >= 1.75 (stable since 1.75). Existing crate already targets edition 2021 with MSRV implicitly >= 1.75 via tokio dependency.\n- ErasedAudioSource must not leak into public API — it is an internal implementation detail for AudioMixer dynamic dispatch.\n- DtmfMethod variants must remain consistent between DtmfReceivedInfo (this ticket) and DtmfSentInfo (P0-7 m20_dtmfsent_twophase). Both use the shared `api::m20_dtmfsent_twophase::DtmfMethod`.\n- Attended transfer is explicitly out of scope — only blind REFER transfer.\n- Auto-reject timer config is a placeholder reference (actual timer scheduling deferred to P3-2 runtime).",
           "scope": [
             "DtmfMethod: Inband, SipInfo, Rfc4733",
             "DtmfReceivedInfo with duration_ms and volume_dbm0",
@@ -4260,19 +4260,61 @@
             "ErasedAudioSource blanket impl for dynamic dispatch",
             "SyncAudioSource trait and SyncSourceAdapter",
             "IncomingCall: from_uri, to_uri, headers, offered_codecs, auto-reject timer",
-            "REFER: blind transfer first-class, ReferRequest, NOTIFY completion"
+            "REFER: blind transfer first-class, ReferRequest, NOTIFY completion",
+            "**Scope of changes:**\n  - `src/api/dtmf_spec_received.rs` — Add DtmfReceivedInfo struct + DtmfReceived event payload integration\n  - **Action:** Replace pub trait Service {} stub with full DtmfReceivedInfo + DtmfMethod type integration\n  - **Detail:** Add `pub struct DtmfReceivedInfo { pub method: DtmfMethod, pub digit: char, pub duration_ms: Option<u16>, pub volume_dbm0: Option<i8> }`, derive Debug/Clone/PartialEq/Eq. The DtmfMethod type is re-exported from `crate::api::m20_dtmfsent_twophase::DtmfMethod`.\n  - **Before → After:** `pub trait Service {}` → real DtmfReceivedInfo struct. SipEventPayload::DtmfReceived changes from unit variant to `DtmfReceived(DtmfReceivedInfo)`.\n  - **API change:** SipEventPayload::DtmfReceived(DtmfReceivedInfo) — breaking change for event consumers matching unit variant.\n  - **Schema change:** None (no persistence).\n  - **Config change:** DtmfMethod already exists in config (account_config_spec.rs) — this ticket's DtmfReceivedInfo uses the api-layer enum, not the config-layer enum.\n  - **Dependency:** Reuses `api::m20_dtmfsent_twophase::DtmfMethod` (P0-7).",
+            "**Scope of changes (cont):**\n  - `src/api/asyncaudiosrc_adapter.rs` — Add AsyncAudioSource (RPITIT), ErasedAudioSource (blanket), SyncAudioSource, SyncSourceAdapter\n  - **Action:** Replace pub trait Service {} with 4 type definitions\n  - **Detail:** `pub trait AsyncAudioSource: Send { async fn next_chunk(&mut self, buf: &mut [i16]) -> usize; }` + `pub trait ErasedAudioSource: Send { fn next_chunk<'a>(&'a mut self, buf: &'a mut [i16]) -> Pin<Box<dyn Future<Output=usize> + Send + 'a>>; }` + blanket impl + `pub trait SyncAudioSource: Send { fn next_chunk(&mut self, buf: &mut [i16]) -> usize; }` + `pub struct SyncSourceAdapter<T> { inner: T }`\n  - **Before → After:** `pub trait Service {}` → full trait hierarchy\n  - **API change:** New public traits/structs. New type added.\n  - **Dependency:** Requires std::pin::Pin, std::future::Future (stdlib — no new crate dep)",
+            "**Scope of changes (cont):**\n  - `src/api/incoming_call_refer.rs` — Add IncomingCall, ReferRequest structs\n  - **Action:** Replace pub trait Service {} stub with IncomingCall + ReferRequest structs\n  - **Detail:** `pub struct IncomingCall { pub from_uri: String, pub to_uri: String, pub display_name: Option<String>, pub headers: Vec<(String,String)>, pub offered_codecs: Vec<Codec>, pub has_early_media: bool }` + `pub struct ReferRequest { pub refer_to_uri: String, pub referred_by_uri: Option<String>, pub call_id: CallId }`\n  - **Before → After:** `pub trait Service {}` → IncomingCall/ReferRequest structs. SipEventPayload::IncomingCall changes from unit variant to `IncomingCall(IncomingCall)`.\n  - **API change:** SipEventPayload::IncomingCall(IncomingCall) — breaking change for event consumers matching unit variant.\n  - **Dependency:** Uses `crate::api::public_api_design::Codec` (P3-1) and `crate::model::id_design_newtype::CallId` (P0-6).",
+            "**Out of scope:**\n  - Attended transfer (consultation call before REFER) — separate ticket PX-Y\n  - DTMF send (DtmfSentInfo) — already covered by P0-7 m20_dtmfsent_twophase\n  - Runtime command dispatch for IncomingCall/REFER — deferred to P3-2 runtime module\n  - Auto-reject timer implementation — struct exists, timer scheduling deferred to P3-2\n  - DtmfMethod RFC 2833 vs RFC 4733 naming — config module uses Rfc2833, API module uses Rfc4733; mapping is documented but not normalized in this ticket",
+            "**Affected areas:**\n  - `SipEventPayload` in `event_model_payload_bus.rs` — DtmfReceived variant changes from unit to `DtmfReceived(DtmfReceivedInfo)`, IncomingCall variant changes from unit to `IncomingCall(IncomingCall)` — API surface change, existing tests must be updated\n  - Codec enum in `public_api_design.rs` — IncomingCall::offered_codecs depends on Codec; no Codec changes needed\n  - AudioMixer (future) — consumes AsyncAudioSource/ErasedAudioSource for mixing — no immediate change needed\n  - AudioSubscribeBP (P5-1) — already defines AudioTapHandle that uses AudioChunkPair — AsyncAudioSource feeds into future AudioMixer pipeline\n  - Call API (P5-1 call_api_semantics.rs) — transfer() method already uses RuntimeCommand::TransferCall — ReferRequest struct complements the event side (SipEventPayload::IncomingCall, ReferReceived)"
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] DtmfReceivedInfo — construct with all DtmfMethod variants (Inband, SipInfo, Rfc4733), verify method field matches",
+            "UT: [Normal] DtmfReceivedInfo — duration_ms Some(150) and volume_dbm0 Some(-10) stored correctly",
+            "UT: [Normal] DtmfReceivedInfo — duration_ms None and volume_dbm0 None stored as None",
+            "UT: [Error] DtmfReceivedInfo — digit is char type; any valid char (including DTMF 0-9, *, #, A-D) accepted; test non-ASCII char constructible",
+            "UT: [Boundary] DtmfReceivedInfo — duration_ms = 0 (minimum), 65535 (maximum u16)",
+            "UT: [Boundary] DtmfReceivedInfo — volume_dbm0 = -128 (i8 MIN), 127 (i8 MAX), 0 (mute reference)",
+            "UT: [Invariant] DtmfReceivedInfo — implements Debug, Clone, PartialEq, Eq (compile-time assertion via fn assert_traits)",
+            "UT: [Invariant] DtmfMethod — 3 variants (Inband, SipInfo, Rfc4733) all discriminable via match; implements Debug, Clone, Copy, PartialEq, Eq",
+            "UT: [Normal] AsyncAudioSource — SyncSourceAdapter<SyncSource> compiles as AsyncAudioSource; test_next_chunk returns expected count",
+            "UT: [Normal] SyncSourceAdapter — wraps any T: SyncAudioSource, next_chunk calls inner.next_chunk",
+            "UT: [Error] SyncSourceAdapter — zero-length buffer returns immediately with Ok(0)",
+            "UT: [Boundary] SyncSourceAdapter — buffer size 0, 1, 65535 all accepted and produce correct return",
+            "UT: [Invariant] ErasedAudioSource — blanket impl exists for all T: AsyncAudioSource + Send, trait object Box<dyn ErasedAudioSource> compiles",
+            "UT: [Invariant] AsyncAudioSource — requires Send bound (compile-time check via fn assert_send<T: Send>)",
+            "UT: [Invariant] SyncAudioSource — requires Send bound; SyncSourceAdapter<T> auto-derives AsyncAudioSource for any T: SyncAudioSource + Send",
+            "UT: [Normal] IncomingCall — struct fully constructible with from_uri, to_uri, display_name, headers, offered_codecs, has_early_media",
+            "UT: [Normal] IncomingCall — from_uri and to_uri stored as String, headers as Vec<(String,String)>, offered_codecs as Vec<Codec>",
+            "UT: [Normal] ReferRequest — struct constructible with refer_to_uri, referred_by_uri, call_id",
+            "UT: [Error] IncomingCall — empty from_uri accepted (URI validation is at call processing level, not struct level)",
+            "UT: [Boundary] IncomingCall — empty headers vec accepted, empty offered_codecs vec accepted",
+            "UT: [Boundary] IncomingCall — display_name None vs Some(\"string\"), has_early_media false vs true",
+            "UT: [Invariant] IncomingCall — implements Debug, Clone (compile-time assertion)",
+            "UT: [Invariant] ReferRequest — implements Debug, Clone (compile-time assertion)",
+            "UT: [Invariant] Blind transfer — no explicit attended/call-hold required; ReferRequest carries target URI directly"
+          ],
+          "testIntegration": [
+            "IT: [N0028 ↔ N0029] DtmfReceived uses same DtmfMethod enum as DtmfSent — verify DtmfReceivedInfo.method uses the shared `api::m20_dtmfsent_twophase::DtmfMethod` type, cross-module integration compiles",
+            "IT: [N0028 ↔ N0018] SipEventPayload::DtmfReceived carries DtmfReceivedInfo — verify event_model_payload_bus::SipEventPayload can be constructed with DtmfReceivedInfo as payload, matchable via pattern",
+            "IT: [N0048 ↔ N0018] SipEventPayload::IncomingCall carries IncomingCall struct — verify event bus consumer can inspect from_uri, to_uri, offered_codecs fields",
+            "IT: [N0032 ↔ N0031] Audio subscribe pipeline — SyncSourceAdapter<T> implements AsyncAudioSource which feeds ErasedAudioSource — verify type chain compiles: SyncAudioSource → SyncSourceAdapter → AsyncAudioSource → ErasedAudioSource → Box<dyn ErasedAudioSource>"
+          ],
+          "testExceptions": [
+            "- Item: FFI-bound async DTMF receive (PJSIP on_dtmf_callback integration)\n- Reason: DtmfReceivedInfo is a pure data container. Its construction and field access are fully unit-testable. The FFI callback wiring is not testable at this layer — it belongs to P3-2 (pjsua_sys). This is clean separation of concerns and not a design defect.\n- Alternative verification: All DtmfReceivedInfo field combinations are covered by unit tests. Integration tests at P3-2 will verify callback→event conversion end-to-end.",
+            "- Item: Real-time audio source callback timing (AsyncAudioSource in AudioMixer runtime)\n- Reason: AsyncAudioSource is a trait interface. Runtime timing behavior is not testable at the trait definition layer — it depends on AudioWorker/Timer (P3-2). The trait contract is enforced at compile time (Send, RPITIT, blanket impl coherence). This is by-design decoupling and not a design defect.\n- Alternative verification: Compile-time trait bound assertions cover AsyncAudioSource. SyncSourceAdapter unit test proves sync→async bridging. Runtime timing tests deferred to P3-2.",
+            "- Item: PJSIP REFER/NOTIFY event loop integration (blind transfer completion)\n- Reason: IncomingCall and ReferRequest are pure data containers. The REFER→NOTIFY→TransferCompleted lifecycle is not testable at this layer — it depends on PJSIP callback chain (P3-2). This is a clean type/runtime separation and not a design defect.\n- Alternative verification: Unit tests cover all IncomingCall/ReferRequest field configurations. P3-2 integration tests will verify REFER→NOTIFY end-to-end flow."
+          ],
           "acceptanceCriteria": [
-            "DTMF 3-way methods defined",
-            "AsyncAudioSource with RPITIT defined",
-            "Incoming call and REFER/Transfer defined"
+            "DTMF 3-way methods defined — DtmfReceivedInfo struct compile-tested with all 3 DtmfMethod variants. SipEventPayload::DtmfReceived carries DtmfReceivedInfo (not unit variant). duration_ms and volume_dbm0 fields are Option types with correct bounds.",
+            "AsyncAudioSource with RPITIT defined — AsyncAudioSource trait with async fn next_chunk compiles. ErasedAudioSource blanket impl allows Box<dyn ErasedAudioSource>. SyncSourceAdapter<T: SyncAudioSource> bridges sync source to AsyncAudioSource. All traits require Send.",
+            "Incoming call and REFER/Transfer defined — IncomingCall struct carries from_uri, to_uri, display_name, headers, offered_codecs, has_early_media. SipEventPayload::IncomingCall carries IncomingCall payload. ReferRequest struct defined for blind transfer.",
+            "【Happy path】DtmfReceivedInfo constructed with DtmfMethod::Rfc4733, digit '5', duration_ms=Some(250), volume_dbm0=Some(-5) — all fields correctly accessible. SyncSourceAdapter wraps a SyncAudioSource returning 160 samples per chunk — AsyncAudioSource::next_chunk correctly returns 160. IncomingCall constructed with full metadata — all fields readable via dot notation.",
+            "【Error case】DtmfReceivedInfo with None duration and None volume — construction succeeds, None fields correctly handled. SyncSourceAdapter wrapping a source that returns 0 — zero-length buffer handled without panic.",
+            "【Edge case】DtmfReceivedInfo duration_ms = 0 (minimum u16) and u16::MAX — both accepted. volume_dbm0 = -128 (i8 MIN), 127 (i8 MAX), 0 (reference) — all accepted. SyncSourceAdapter buffer = [0i16; 1] (minimum non-zero) — returns correct value. IncomingCall with empty headers vec and empty offered_codecs vec — construction succeeds. has_early_media = false and true both accepted."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§20, §23, §37)",
           "relatedTicketIds": "P7-1, P2-5",
-          "notes": "",
+          "notes": "- 【Implementation steps】(1) dtmf_spec_received.rs: replace stubs with DtmfReceivedInfo struct + DtmfMethod re-import + DtmfReceived event payload variant. (2) asyncaudiosrc_adapter.rs: define AsyncAudioSource RPITIT trait, ErasedAudioSource blanket impl, SyncAudioSource trait, SyncSourceAdapter struct+impl. (3) incoming_call_refer.rs: define IncomingCall struct, ReferRequest struct. (4) event_model_payload_bus.rs: update DtmfReceived variant from unit to DtmfReceived(DtmfReceivedInfo), update IncomingCall variant from unit to IncomingCall(IncomingCall). (5) api/mod.rs: add pub mod declarations for dtmf_spec_received, asyncaudiosrc_adapter, incoming_call_refer. (6) Test: write all unit + integration tests per test plan.\n- 【Risks】RPITIT lifetime elision — async fn in trait with &mut self + &mut [i16] parameter may require explicit lifetime annotations if the compiler's default elision is insufficient. Fallback: use explicit 'a lifetime on ErasedAudioSource's next_chunk.\n- 【Caveats】DtmfMethod has dual definitions: config-layer (Rfc2833/Info/Inband in AccountMediaConfig) vs api-layer (Inband/SipInfo/Rfc4733 in m20_dtmfsent_twophase). This ticket's DtmfReceivedInfo uses the api-layer DtmfMethod only. Config validation maps from config enum to api enum at send_dtmf() call site (P5-1 call_api_semantics.rs).\n- 【Open items】None — all three modules are pure type definitions. No runtime behavior decisions needed.\n- 【Future improvements】Attended transfer (REFER with prior consultation call). DTMF method policy-based validation at account config level (currently all 3 methods are always valid for sending; per-account method allowlist deferred). Auto-reject timer with configurable timeout.\nTDD Red-Green-Refactor completed. 26 new tests, 9 source files changed, 649 all tests pass (0 failed), 0 warnings. Contracts C029/C030/C033/C049 verified 4/4 covered.\nReview report:\n- Implementation completeness: ✅ All 3 nodes (N0028 DTMF, N0032 AsyncAudioSource, N0048 IncomingCall/Refer) fully implemented\n- 9 source files changed, 26 new tests\n- Static quality check: passed (29 minor findings, all acceptable)\n- Translatability: no issues\n- Dependencies: consistency verified\n- Annotations: [::TICKET::] injected and verified on all 8 changed source files\n- Crimes: 0 open, no new crimes introduced\n- Stubs: 3 P5-2 stubs resolved (dtmf_spec_received, asyncaudiosrc_adapter, incoming_call_refer)\n- Audio config stub in client_config_spec.rs deferred (out of scope)\n- Issues found and fixes applied: DtmfMethod visibility promoted pub(crate)→pub, RPITIT Send bound added via impl Future",
           "default_files": [
             "src/api/asyncaudiosrc_adapter.rs",
             "src/api/dtmf_spec_received.rs",
@@ -4280,7 +4322,77 @@
           ],
           "id": 2,
           "phaseId": 5,
-          "status": "todo"
+          "status": "reviewed",
+          "invariants": "- 【Normal】DtmfReceivedInfo must always carry a valid DtmfMethod variant; DtmfMethod enforces exactly 3 variants (Inband/SipInfo/Rfc4733) via enum exhaustiveness.\n- 【Normal】AsyncAudioSource::next_chunk must return usize ≤ buf.len() — the implementation must never write beyond buffer bounds.\n- 【Normal】IncomingCall struct fields are public and directly accessible — no getter boilerplate needed.\n- 【Error】On erroneous input (e.g., DtmfReceivedInfo with unexpected data), the struct itself cannot fail to construct — it is a pure data container. Validation is at the point of event emission (P3-2 runtime).\n- 【Error】ErasedAudioSource blanket impl never panics — the Pin<Box<dyn Future>> wrapper delegates to the underlying AsyncAudioSource::next_chunk; any panic originates from the implementation, not from the wrapper.\n- 【State】DtmfReceivedInfo is immutable after construction (all fields are pub but the struct has no impl methods that mutate).\n- 【State】SyncSourceAdapter owns its inner T exclusively — no shared references. inner is private and accessed only via AsyncAudioSource::next_chunk.\n- 【Boundary】duration_ms is Option<u16> — valid range [0, 65535]; None means duration not reported by PJSIP callback.\n- 【Boundary】volume_dbm0 is Option<i8> — valid range [-128, 127]; None means volume not reported. 0 dBm0 is the reference tone level.\n- 【Boundary】SyncSourceAdapter buffer size ≤ usize::MAX (platform-dependent). Zero-length buffer returns Ok(0) immediately.",
+          "instrumentation": "- 【Logging】No runtime logging required in this ticket — all three modules are pure type definitions (structs, traits, blanket impls) with no runtime execution paths. Logging is deferred to the runtime modules (P3-2) that consume these types.\n- 【Metrics】DTMF event counting (DtmfReceived count per DtmfMethod) — metric definition deferred to P3-2 runtime. This ticket provides the DtmfReceivedInfo data container; counters will be implemented at the event emission point.\n- 【Error tracking】DtmfReceivedInfo has no error state — it is a pure data struct. AsyncAudioSource::next_chunk returns usize (not Result) — zero-length buffer handling is by contract (returns 0), not error. Empty offered_codecs in IncomingCall is a valid state (codec preferences pending).\n- 【Health check】No health check endpoints in this ticket. AsyncAudioSource trait is not a runtime component — it is a contract for future AudioMixer integration.\nStatic quality check: 29 findings (all acceptable: test-code unwrap + doc-comment false positives)\nTranslatability: no issues\nTests: 649 all passed, 0 failed, 0 warnings\nContracts: C029/C030/C033/C049 verified 4/4 covered",
+          "investigation": "- 【Graph node analysis】Three independent nodes: N0028 (§20 DTMF), N0032 (§23 AsyncAudioSource), N0048 (§37 Incoming Call + §38 REFER/Transfer). Each maps to an existing stub file under src/api/.\n- 【Existing code】All three files (`dtmf_spec_received.rs`, `asyncaudiosrc_adapter.rs`, `incoming_call_refer.rs`) contain only the initial stub `pub trait Service {}` plus the Initial Design Artifact header and a `[::STUB::]` marker. No real types exist yet.\n- 【DtmfMethod duality】DtmfMethod is defined twice: (a) `config/account_config_spec.rs` with variants Rfc2833/Info/Inband (config-layer, validated via AccountMediaConfig::default_send_method), (b) `api/m20_dtmfsent_twophase.rs` with variants Inband/SipInfo/Rfc4733 (api-layer, used by DtmfSentInfo tests and RuntimeCommand::SendDtmf). This ticket's DtmfReceivedInfo uses the api-layer DtmfMethod via `crate::api::m20_dtmfsent_twophase::DtmfMethod`.\n- 【Event bus】`event_model_payload_bus.rs` defines SipEventPayload with both DtmfReceived and IncomingCall as unit variants (no data). These must be changed to carry DtmfReceivedInfo and IncomingCall payloads respectively.\n- 【Public API types】Relevant existing types: CallId (model/id_design_newtype), Codec (api/public_api_design.rs with variants Pcmu/Opus). Both are pub types used by the new structs.\n- 【trait Service {}】The placeholder `pub trait Service {}` in all three stub files is a generic bound placeholder from P0-4 that has no semantic meaning for these modules. It must be removed entirely, not extended.\n- 【RPITIT MSRV】AsyncAudioSource uses async fn in trait (RPITIT), stable since Rust 1.75. Crate's Cargo.toml sets edition = 2021, which implicitly supports this. No MSRV bump needed.\n- 【test patterns】Existing test patterns in adjacent modules (m20_dtmfsent_twophase.rs, call_api_semantics.rs) use `#[cfg(test)] mod tests { use super::*; }` with construct-and-assert tests. New tests should follow the same pattern.",
+          "boyScoutPlan": "- 【Remove stub placeholder】Replace the generic `pub trait Service {}` in all three files with meaningful type definitions. The placeholder has no semantic connection to DTMF, audio sources, or call handling — it will be removed entirely.\n- 【AsyncAudioSource trait naming】Use verb-phrase method `next_chunk` (\"fetch the next chunk of audio samples\") — the name reads as an action, not a getter. The method clearly communicates that it fills a buffer and returns the count of samples written.\n- 【SyncSourceAdapter field naming】The private field `inner` is generic but acceptable — it is an implementation detail hidden from consumers. Public API surface uses `SyncSourceAdapter::new()` to construct, which reads naturally.\n- 【IncomingCall struct fields】All field names are domain-specific: `from_uri` (not `from` or `caller`) because SIP distinguishes From URI vs display name; `offered_codecs` describes the SDP offer semantics explicitly.\n- 【No error swallowing】DtmfReceivedInfo is a pure data struct — no Result type needed for construction. AsyncAudioSource::next_chunk returns usize (not Result) by design — zero-length buffer is handled by contract, not error. No unwrap() calls introduced.\n- 【Named constants】DTMF_MAX_LENGTH (32) is already defined as a named constant in call_api_semantics.rs. No additional magic numbers introduced in this ticket.",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27",
+          "planTestCode": [
+            "UT: [C029-precondition] Call API supports DTMF — DtmfMethod enum constructible with all 3 variants\n```rust\n#[test]\nfn dtmf_method_all_variants_constructible() {\n    let inband = DtmfMethod::Inband;\n    let sip_info = DtmfMethod::SipInfo;\n    let rfc4733 = DtmfMethod::Rfc4733;\n    assert_eq!(inband, DtmfMethod::Inband);\n    assert_ne!(inband, sip_info);\n    assert_ne!(inband, rfc4733);\n    assert_ne!(sip_info, rfc4733);\n}",
+            "UT: [C029-postcondition] DtmfReceivedInfo struct defined with method, digit, duration_ms, volume_dbm0\n```rust\n#[test]\nfn dtmf_received_info_all_fields_accessible() {\n    let info = DtmfReceivedInfo {\n        method: DtmfMethod::Rfc4733,\n        digit: '5',\n        duration_ms: Some(250),\n        volume_dbm0: Some(-5),\n    };\n    assert_eq!(info.method, DtmfMethod::Rfc4733);\n    assert_eq!(info.digit, '5');\n    assert_eq!(info.duration_ms, Some(250));\n    assert_eq!(info.volume_dbm0, Some(-5));\n}",
+            "UT: [C029-invariant] 3 DtmfMethod variants always discriminable via match\n```rust\n#[test]\nfn dtmf_method_three_variants_discriminable() {\n    fn assert_discriminant(m: DtmfMethod) -> &'static str {\n        match m {\n            DtmfMethod::Inband => \"inband\",\n            DtmfMethod::SipInfo => \"sipinfo\",\n            DtmfMethod::Rfc4733 => \"rfc4733\",\n        }\n    }\n    assert_eq!(assert_discriminant(DtmfMethod::Inband), \"inband\");\n    assert_eq!(assert_discriminant(DtmfMethod::SipInfo), \"sipinfo\");\n    assert_eq!(assert_discriminant(DtmfMethod::Rfc4733), \"rfc4733\");\n}",
+            "UT: [C030-precondition] DTMF spec defined — DtmfReceivedInfo struct exists, shared DtmfMethod type re-used\n```rust\n#[test]\nfn dtmf_received_info_uses_shared_dtmf_method() {\n    // DtmfReceivedInfo.method must accept the shared DtmfMethod from m20_dtmfsent_twophase\n    let _info = DtmfReceivedInfo {\n        method: crate::api::m20_dtmfsent_twophase::DtmfMethod::Inband,\n        digit: '1',\n        duration_ms: None,\n        volume_dbm0: None,\n    };\n}",
+            "UT: [C030-postcondition] DtmfSentInfo struct defined with two-phase semantics — shared DtmfMethod type\n```rust\n#[test]\nfn dtmf_sent_info_uses_same_dtmf_method() {\n    // Same DtmfMethod type used across DtmfReceivedInfo and DtmfSentInfo\n    let method = DtmfMethod::SipInfo;\n    let _sent = DtmfSentInfo {\n        method,\n        digit: '3',\n        status: Ok(()),\n        pjsip_status: None,\n    };\n    let _received = DtmfReceivedInfo {\n        method,\n        digit: '3',\n        duration_ms: None,\n        volume_dbm0: None,\n    };\n}",
+            "UT: [C030-invariant] 500ms default timeout fallback\n```rust\n#[test]\nfn default_sent_timeout_is_500() {\n    assert_eq!(DEFAULT_SENT_TIMEOUT_MS, 500);\n}",
+            "UT: [C033-precondition] Audio subscribe uses sources — type chain compiles\n```rust\n#[test]\nfn audio_source_type_chain_compiles() {\n    struct TestSource;\n    impl SyncAudioSource for TestSource {\n        fn next_chunk(&mut self, buf: &mut [i16]) -> usize {\n            buf.len()\n        }\n    }\n    let source = TestSource;\n    let adapter = SyncSourceAdapter::new(source);\n    // adapter implements AsyncAudioSource\n    fn assert_async<T: AsyncAudioSource>() {}\n    assert_async::<SyncSourceAdapter<TestSource>>();\n}",
+            "UT: [C033-postcondition] AsyncAudioSource trait with RPITIT defined\n```rust\n#[test]\nfn async_audio_source_trait_is_async() {\n    // Compile-time check: async fn in trait compiles\n    struct Impl;\n    impl AsyncAudioSource for Impl {\n        async fn next_chunk(&mut self, buf: &mut [i16]) -> usize {\n            buf.len()\n        }\n    }\n    fn assert_send<T: Send>() {}\n    assert_send::<Impl>();\n}",
+            "UT: [C033-invariant] ErasedAudioSource auto-derived for all T: AsyncAudioSource + Send\n```rust\n#[test]\nfn erased_audio_source_blanket_impl_works() {\n    struct Impl;\n    impl AsyncAudioSource for Impl {\n        async fn next_chunk(&mut self, buf: &mut [i16]) -> usize {\n            buf.len()\n        }\n    }\n    // ErasedAudioSource blanket impl should auto-derive\n    fn assert_erased<T: ErasedAudioSource>() {}\n    assert_erased::<Impl>();\n    // Trait object should compile\n    fn assert_object_safe(_obj: Box<dyn ErasedAudioSource>) {}\n}",
+            "UT: [C049-precondition] Call API defined — SipClient methods exist\n```rust\n#[test]\nfn call_api_methods_exist() {\n    // CallId type used by ReferRequest\n    let call_id = CallId::from_u64(42).unwrap();\n    let _req = ReferRequest {\n        refer_to_uri: \"sip:bob@example.com\".to_string(),\n        referred_by_uri: None,\n        call_id,\n    };\n}",
+            "UT: [C049-postcondition] IncomingCall struct defined with all fields\n```rust\n#[test]\nfn incoming_call_all_fields_accessible() {\n    let incoming = IncomingCall {\n        from_uri: \"sip:alice@example.com\".to_string(),\n        to_uri: \"sip:bob@example.com\".to_string(),\n        display_name: Some(\"Alice\".to_string()),\n        headers: vec![(\"X-Custom\".to_string(), \"value\".to_string())],\n        offered_codecs: vec![Codec::Pcmu, Codec::Opus],\n        has_early_media: false,\n    };\n    assert_eq!(incoming.from_uri, \"sip:alice@example.com\");\n    assert_eq!(incoming.to_uri, \"sip:bob@example.com\");\n    assert_eq!(incoming.display_name, Some(\"Alice\".to_string()));\n    assert_eq!(incoming.offered_codecs.len(), 2);\n    assert!(!incoming.has_early_media);\n}",
+            "UT: [C049-invariant] Blind transfer mandatory — ReferRequest carries target URI directly\n```rust\n#[test]\nfn refer_request_blind_transfer_semantics() {\n    let req = ReferRequest {\n        refer_to_uri: \"sip:carol@example.com\".to_string(),\n        referred_by_uri: None,\n        call_id: CallId::from_u64(1).unwrap(),\n    };\n    // Blind transfer: target URI directly in refer_to_uri, no consultation call\n    assert!(!req.refer_to_uri.is_empty());\n    assert_eq!(req.referred_by_uri, None);\n}"
+          ],
+          "startedAt": "2026-07-27",
+          "changes": [
+            {
+              "before": "pub trait Service {} (stub)",
+              "after": "DtmfReceivedInfo struct + 8 tests",
+              "description": "dtmf_spec_received.rs — DTMF received data container with method/digit/duration_ms/volume_dbm0 fields"
+            },
+            {
+              "before": "pub trait Service {} (stub)",
+              "after": "AsyncAudioSource + ErasedAudioSource + SyncAudioSource traits + SyncSourceAdapter<T> + 10 tests",
+              "description": "asyncaudiosrc_adapter.rs — Audio source trait hierarchy with RPITIT and dynamic dispatch blanket impl"
+            },
+            {
+              "before": "pub trait Service {} (stub)",
+              "after": "IncomingCall + ReferRequest structs + 8 tests",
+              "description": "incoming_call_refer.rs — Incoming call metadata container and blind transfer request types"
+            },
+            {
+              "before": "unit variant",
+              "after": "payload variant DtmfReceived(DtmfReceivedInfo)",
+              "description": "event_model_payload_bus.rs — DtmfReceived variant now carries DtmfReceivedInfo payload"
+            },
+            {
+              "before": "unit variant",
+              "after": "payload variant IncomingCall(IncomingCall)",
+              "description": "event_model_payload_bus.rs — IncomingCall variant now carries IncomingCall payload"
+            },
+            {
+              "before": "pub(crate) enum DtmfMethod",
+              "after": "pub enum DtmfMethod",
+              "description": "m20_dtmfsent_twophase.rs — DtmfMethod visibility promoted to pub"
+            },
+            {
+              "before": "no module decl",
+              "after": "3 pub mod declarations",
+              "description": "api/mod.rs — Module decls for 3 P5-2 modules"
+            },
+            {
+              "before": "unit variant ref",
+              "after": "payload variant ref",
+              "description": "m20_callstate_mapping.rs — Updated IncomingCall to include payload"
+            },
+            {
+              "before": "unit variant ref",
+              "after": "payload variant ref",
+              "description": "m20_native_event_conv.rs — Updated DtmfReceived to include payload"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-27"
         }
       ],
       "nodeIds": [
