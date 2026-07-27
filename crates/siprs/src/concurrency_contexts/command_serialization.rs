@@ -1,4 +1,5 @@
 
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -97,6 +98,16 @@ pub(crate) type CommandReceiver = Receiver<RuntimeCommand>;
 pub(crate) struct ReplySender<T>(Option<T>);
 
 impl<T> ReplySender<T> {
+// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    /// Creates a new `ReplySender` with no initial value.
+    ///
+    /// [::STUB::] P2: Replace with `tokio::sync::oneshot::Sender::new()` once
+    /// tokio is added as a crate dependency.
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
+        ReplySender(None)
+    }
+
     pub(crate) fn send(self, value: T) -> Result<(), T> {
         // [::STUB::] P2: Replace with actual oneshot channel send.
         // Current implementation is a placeholder — once tokio::sync::oneshot
