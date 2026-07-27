@@ -88,8 +88,48 @@ pub(crate) struct RawSipMessage {
     pub local_addr: Option<SocketAddr>,
 }
 
-// ============================================================================
-// Tests — Red Phase (TDD)
+// ---------------------------------------------------------------------------
+// Authorization redaction — P5-1
+// ---------------------------------------------------------------------------
+
+/// Sensitive SIP header names whose values should be redacted.
+const SENSITIVE_HEADERS: &[&str] = &["Authorization", "Proxy-Authorization"];
+
+/// Placeholder string used when redacting sensitive header values.
+const REDACTED_PLACEHOLDER: &str = "***REDACTED***";
+
+/// Returns `true` if `name` is a sensitive SIP header that should be redacted.
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+fn is_sensitive_header(name: &str) -> bool {
+    SENSITIVE_HEADERS.contains(&name)
+}
+
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+impl RawSipMessage {
+    /// Returns a new `RawSipMessage` with sensitive Authorization header values redacted.
+    ///
+    /// Headers named `Authorization` or `Proxy-Authorization` have their values
+    /// replaced with `***REDACTED***`. All other fields (start_line, body, text,
+    /// content_length, addresses) are preserved unchanged.
+    pub fn redact_authorization(&self) -> Self {
+        let headers = self
+            .headers
+            .iter()
+            .map(|(name, value)| {
+                if is_sensitive_header(name) {
+                    (name.clone(), REDACTED_PLACEHOLDER.to_string())
+                } else {
+                    (name.clone(), value.clone())
+                }
+            })
+            .collect();
+        Self {
+            headers,
+            ..self.clone()
+        }
+    }
+}
+
 // ============================================================================
 
 #[cfg(test)]
@@ -121,7 +161,7 @@ mod tests {
     fn raw_sip_message_is_debug_and_clone() {
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P5-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_debug::<RawSipMessage>();
         assert_clone::<RawSipMessage>();
@@ -143,5 +183,105 @@ mod tests {
         let _udp = TransportKind::Udp;
         let _tcp = TransportKind::Tcp;
         let _tls = TransportKind::Tls;
+    }
+
+    // -----------------------------------------------------------------------
+    // ── C025: redact_authorization — P5-1 ──────────────────────────────────
+    // -----------------------------------------------------------------------
+
+    /// @verifies C025-postcondition
+    /// @verifies C025-invariant
+    #[test]
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+    fn redact_authorization_removes_authorization_value() {
+        let msg = RawSipMessage {
+            direction: SipMessageDirection::Incoming,
+            transport: TransportKind::Udp,
+            start_line: "INVITE sip:user@domain SIP/2.0".into(),
+            headers: vec![
+                ("Authorization".into(), "Digest token=abc123".into()),
+                ("Content-Type".into(), "application/sdp".into()),
+            ],
+            body: None,
+            text: String::new(),
+            content_length: 0,
+            remote_addr: None,
+            local_addr: None,
+        };
+        let redacted = msg.redact_authorization();
+        // Authorization header value must be redacted
+        for (name, val) in &redacted.headers {
+            if name == "Authorization" {
+                assert_eq!(val, "***REDACTED***", "Authorization value must be redacted");
+            } else if name == "Content-Type" {
+                assert_eq!(val, "application/sdp", "non-sensitive headers must be preserved");
+            }
+        }
+    }
+
+    /// @verifies C025-invariant
+    #[test]
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+    fn redact_authorization_removes_proxy_authorization() {
+        let msg = RawSipMessage {
+            direction: SipMessageDirection::Incoming,
+            transport: TransportKind::Tcp,
+            start_line: "REGISTER sip:domain SIP/2.0".into(),
+            headers: vec![("Proxy-Authorization".into(), "Digest token=xyz".into())],
+            body: None,
+            text: String::new(),
+            content_length: 0,
+            remote_addr: None,
+            local_addr: None,
+        };
+        let redacted = msg.redact_authorization();
+        for (name, val) in &redacted.headers {
+            if name == "Proxy-Authorization" {
+                assert_eq!(val, "***REDACTED***", "Proxy-Authorization must be redacted");
+            }
+        }
+    }
+
+    /// @verifies C025-invariant
+    #[test]
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+    fn redact_authorization_empty_headers_no_panic() {
+        let msg = RawSipMessage {
+            direction: SipMessageDirection::Outgoing,
+            transport: TransportKind::Tls,
+            start_line: "BYE sip:user@domain SIP/2.0".into(),
+            headers: vec![],
+            body: None,
+            text: String::new(),
+            content_length: 0,
+            remote_addr: None,
+            local_addr: None,
+        };
+        let redacted = msg.redact_authorization();
+        assert!(redacted.headers.is_empty(), "empty headers stay empty");
+    }
+
+    /// @verifies C025-invariant
+    #[test]
+// [::TICKET::] P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-1 --for-spec --no-implementation-order`.
+    fn redact_authorization_preserves_structure_fields() {
+        let msg = RawSipMessage {
+            direction: SipMessageDirection::Incoming,
+            transport: TransportKind::Udp,
+            start_line: "INVITE sip:user@domain SIP/2.0".into(),
+            headers: vec![("Authorization".into(), "secret".into())],
+            body: Some(vec![0x00, 0x01]),
+            text: "INVITE ...".into(),
+            content_length: 2,
+            remote_addr: Some("192.168.1.1:5060".parse().unwrap()),
+            local_addr: Some("0.0.0.0:5060".parse().unwrap()),
+        };
+        let redacted = msg.redact_authorization();
+        assert_eq!(redacted.start_line, msg.start_line, "start_line preserved");
+        assert_eq!(redacted.body, msg.body, "body preserved");
+        assert_eq!(redacted.text, msg.text, "text preserved");
+        assert_eq!(redacted.content_length, msg.content_length, "content_length preserved");
+        assert_eq!(redacted.remote_addr, msg.remote_addr, "remote_addr preserved");
+        assert_eq!(redacted.local_addr, msg.local_addr, "local_addr preserved");
     }
 }

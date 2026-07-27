@@ -161,13 +161,49 @@ pub(crate) enum RuntimeCommand {
         reply: ReplySender<Result<CallId, SipError>>,
     },
 
-    /// Hangs up an active call with the given reason.
+        /// Hangs up an active call with the given reason.
     ///
-    /// [::STUB::] P2: HangupReason type is defined in N0026/N0027. Replace
-    /// the `()` placeholder once that type is available.
-    Hangup {
+    /// [::STUB::] P5-1: HangupReason resolved — now uses the real type from
+    /// audio_subscribe_bp.
+    HangupCall {
         call_id: CallId,
-        reason: (),
+        reason: crate::api::audio_subscribe_bp::HangupReason,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: AnswerCall — provisional, replaced by real dispatch in P3-2.
+    AnswerCall {
+        call_id: CallId,
+        code: u16,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: TransferCall — provisional, replaced by real dispatch in P3-2.
+    TransferCall {
+        call_id: CallId,
+        target: String,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: GetCallState — provisional, replaced by real dispatch in P3-2.
+    GetCallState {
+        call_id: CallId,
+        reply: ReplySender<Result<crate::state::call_state_model::CallState, SipError>>,
+    },
+
+    /// [::STUB::] P5-1: SubscribeAudio — provisional, replaced by real dispatch in P3-2.
+    SubscribeAudio {
+        call_id: CallId,
+        format: crate::model::audio_format_chunkpair::AudioFormat,
+        capacity: usize,
+        mode: crate::api::audio_subscribe_bp::AudioTapMode,
+        reply: ReplySender<Result<crate::api::audio_subscribe_bp::AudioTapHandle, SipError>>,
+    },
+
+    /// [::STUB::] P5-1: ConfConnect — provisional, replaced by real dispatch in P3-2.
+    ConfConnect {
+        call_id: CallId,
+        media_direction: crate::api::audio_subscribe_bp::MediaDirection,
         reply: ReplySender<Result<(), SipError>>,
     },
 
@@ -318,7 +354,7 @@ mod tests {
     ///
     /// @verifies C011
     #[test]
-    // [::TICKET::] P0-2, P0-3, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-6, P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-6|P5-1) --for-spec --no-implementation-order`.
     fn all_variants_exist() {
         // Construct an Initialize variant that exercise the enum shape.
         let (_tx, _rx) = std::sync::mpsc::channel::<Result<(), SipError>>();
@@ -334,12 +370,17 @@ mod tests {
             | RuntimeCommand::RemoveAccount { .. }
             | RuntimeCommand::SetRegistration { .. }
             | RuntimeCommand::MakeCall { .. }
-            | RuntimeCommand::Hangup { .. }
+            | RuntimeCommand::HangupCall { .. }
             | RuntimeCommand::Hold { .. }
             | RuntimeCommand::Unhold { .. }
             | RuntimeCommand::SendDtmf { .. }
             | RuntimeCommand::GetAccountInfo { .. }
-            | RuntimeCommand::Shutdown { .. } => {}
+            | RuntimeCommand::Shutdown { .. }
+            | RuntimeCommand::AnswerCall { .. }
+            | RuntimeCommand::TransferCall { .. }
+            | RuntimeCommand::GetCallState { .. }
+            | RuntimeCommand::SubscribeAudio { .. }
+            | RuntimeCommand::ConfConnect { .. } => {}
         }
     }
 

@@ -210,11 +210,12 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1, P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1|P5-1) --for-spec --no-implementation-order`.
     fn hangup_rejected_during_shutdown() {
-        let cmd = RuntimeCommand::Hangup {
+        // [::STUB::] P5-1: HangupCall replaces Hangup. Using placeholder reason.
+        let cmd = RuntimeCommand::HangupCall {
             call_id: CallId::from_u64(1).unwrap(),
-            reason: (),
+            reason: crate::api::audio_subscribe_bp::HangupReason::Normal,
             reply: ReplySender::new(),
         };
         let result = should_allow_during_shutdown(&cmd, true);

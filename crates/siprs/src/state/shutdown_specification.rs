@@ -249,7 +249,7 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-2, P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-2|P5-1) --for-spec --no-implementation-order`.
     fn shutdown_non_readonly_commands_rejected() {
         use crate::model::id_design_newtype::{AccountId, CallId};
 
@@ -262,9 +262,10 @@ mod tests {
             reply: ReplySender::new(),
         };
         assert!(!spec.should_allow_command(&make_call));
-        let hangup = RuntimeCommand::Hangup {
+        // [::STUB::] P5-1: HangupCall replaces Hangup. Using placeholder reason.
+        let hangup = RuntimeCommand::HangupCall {
             call_id: CallId::from_u64(1).unwrap(),
-            reason: (),
+            reason: crate::api::audio_subscribe_bp::HangupReason::Normal,
             reply: ReplySender::new(),
         };
         assert!(!spec.should_allow_command(&hangup));
