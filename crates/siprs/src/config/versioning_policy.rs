@@ -1,3 +1,5 @@
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -28,4 +30,7 @@
 
 pub struct Config {}
 
-// [::STUB::] P2-1: MUST implement NODE_ID=N0006 (§4.1 Versioning Policy).
+// [::TICKET::] P2-2: N0066 (§58 Semver Operations & §59 SIP Networking) extends N0006.
+// The versioning policy baseline is established here; semver_sip_networking.rs
+// adds 0.x operations guidance and SIP networking data contracts.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.

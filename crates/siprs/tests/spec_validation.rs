@@ -612,3 +612,139 @@ fn p1_4_test_dirs_mirror_api_invariant() {
         "spec must document that test dirs mirror the API module structure"
     );
 }
+
+// ===========================================================================
+// P2-2: Build Strategy & Semver/SIP Networking (N0039, N0066)
+// ===========================================================================
+
+/// Path to the P2-2 specification document.
+const P2_2_SPEC_PATH: &str = "specs/P2-2.md";
+
+/// Read the P2-2 spec file content as a String.
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn read_p2_2_spec() -> std::io::Result<String> {
+    let mut file = std::fs::File::open(P2_2_SPEC_PATH)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    Ok(content)
+}
+
+// ---------------------------------------------------------------------------
+// C040 — N0039→N0005: Build strategy & OS dependencies
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-precondition
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_file_exists() {
+    let path = std::path::Path::new(P2_2_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P2-2 spec file must exist at {}",
+        P2_2_SPEC_PATH,
+    );
+}
+
+#[test]
+// @verifies C040-precondition
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_references_n0039_n0066() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(content.contains("N0039"), "spec must reference N0039");
+    assert!(content.contains("N0066"), "spec must reference N0066");
+    assert!(content.contains("§28"), "spec must reference RFC §28");
+    assert!(content.contains("§58"), "spec must reference RFC §58");
+}
+
+// ---------------------------------------------------------------------------
+// C040-postcondition: Build strategy-specific content in spec
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_build_strategy_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("prebuilt"),
+        "spec must document prebuilt-first approach"
+    );
+    assert!(
+        content.contains("CMake") || content.contains("cmake"),
+        "spec must document CMake flags"
+    );
+    assert!(
+        content.contains("Ubuntu") || content.contains("ubuntu"),
+        "spec must document Ubuntu dependencies"
+    );
+    assert!(
+        content.contains("macOS") || content.contains("macos"),
+        "spec must document macOS dependencies"
+    );
+    assert!(
+        content.contains("Windows") || content.contains("windows"),
+        "spec must document Windows dependencies"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C067-postcondition: Semver/SIP networking content in spec
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_semver_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("0.x") || content.contains("versioning"),
+        "spec must document 0.x versioning policy"
+    );
+    assert!(
+        content.contains("TLS") || content.contains("certificate"),
+        "spec must document TLS certificate management"
+    );
+    assert!(
+        content.contains("DNS") || content.contains("SRV") || content.contains("NAPTR"),
+        "spec must document DNS SRV/NAPTR delegation"
+    );
+    assert!(
+        content.contains("multi-network") || content.contains("multi-homing"),
+        "spec must document multi-network interface configuration"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C055-invariant: CI matrix covers 3 OSes
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C055-invariant
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_ci_matrix_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("3 OS") || content.contains("target triple"),
+        "spec must document CI matrix covering 3 OS targets"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C040-invariant: Prebuilt-first invariant
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-invariant
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_prebuilt_invariant() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    // Prebuilt must appear before source-build
+    let prebuilt_pos = content.find("prebuilt").unwrap_or(usize::MAX);
+    let source_pos = content.find("source").unwrap_or(usize::MAX);
+    assert!(
+        prebuilt_pos < source_pos,
+        "Prebuilt must be documented before source-build in spec"
+    );
+}

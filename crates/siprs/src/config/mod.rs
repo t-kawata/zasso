@@ -1,3 +1,5 @@
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -37,3 +39,6 @@ pub mod observability_metrics;
 // [::TICKET::] P2-1: ClientConfig, ClientAudioConfig, TimeoutConfig, RawSipEventConfig, LogLevel.
 // Re-exported at crate root for convenience.
 pub mod client_config_spec;
+// [::TICKET::] P2-2: Semver/SIP networking — versioning extension & SIP network data contracts.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+pub mod semver_sip_networking;

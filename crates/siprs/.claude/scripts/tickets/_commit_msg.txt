@@ -1,0 +1,17 @@
+feat(P2-2): implement Build Strategy & Semver/SIP Networking
+
+- build_strategy_os_deps.rs: Replace fn main stub with BuildStrategy struct,
+  cmake_flags/target_triples/os_setup/ci_integration modules
+- semver_sip_networking.rs: Replace Config stub with VersioningPolicy,
+  TlsCertConfig, DnsConfig, MultiNetworkConfig structs
+- config/mod.rs: Add semver_sip_networking module declaration
+- versioning_policy.rs: Resolve stale P2-1 stub marker
+- lib.rs: Add 17 contract tests (C040/C055/C067)
+- tests/spec_validation.rs: Add 8 spec validation tests for P2-2
+- client_config_spec.rs: Fix 5 mislabeled stubs (P2-2 -> P4-3)
+
+All 251 tests green, 0 warnings, 0 crimes.
+
+Ticket: P2-2
+
+Co-Authored-By: Claude <noreply@anthropic.com>

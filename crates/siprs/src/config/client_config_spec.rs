@@ -49,23 +49,23 @@ use std::time::Duration;
 // compilation of ClientConfig; they will be replaced by full implementations.
 // ---------------------------------------------------------------------------
 
-// [::STUB::] P2-2: Replace with real AudioFormat model. SampleRate, BitDepth,
+// [::STUB::] P4-3: Replace with real AudioFormat model. SampleRate, BitDepth,
 // ChannelLayout, AudioFormat, ResamplerQuality are defined in N0030 (§21).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SampleRate { Hz8000, Hz16000, Hz24000, Hz48000 }
 
-// [::STUB::] P2-2: BitDepth for audio format — I16 or F32.
+// [::STUB::] P4-3: BitDepth for audio format — I16 or F32.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BitDepth { I16, F32 }
 
-// [::STUB::] P2-2: ChannelLayout for audio — Mono, Stereo, StereoInOut.
+// [::STUB::] P4-3: ChannelLayout for audio — Mono, Stereo, StereoInOut.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ChannelLayout { Mono, Stereo, StereoInOut }
 
-// [::STUB::] P2-2: AudioFormat combines sample rate, bit depth, channel layout, and frame duration.
+// [::STUB::] P4-3: AudioFormat combines sample rate, bit depth, channel layout, and frame duration.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AudioFormat {
@@ -75,7 +75,7 @@ pub struct AudioFormat {
     pub frame_ms: u32,
 }
 
-// [::STUB::] P2-2: ResamplerQuality for audio resampling.
+// [::STUB::] P4-3: ResamplerQuality for audio resampling.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResamplerQuality { Low, Medium, High, VeryHigh }

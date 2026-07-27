@@ -191,7 +191,7 @@ mod tests {
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P2-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         // CommandSender is Send + Sync since Sender<RuntimeCommand> is Send + Sync
         assert_send::<crate::concurrency_contexts::CommandSender>();
@@ -551,6 +551,232 @@ mod tests {
         assert!(
             rfc.contains("I/O Boundary") || rfc.contains("I/O"),
             "RFC must have an I/O Boundary Reference section"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // ── C040 ── N0039→N0005: Build strategy & OS dependencies
+    // ── C055 ── N0054→N0039 (inbound): CI/CD pipeline validation
+    // ── C067 ── N0066→N0006: Semver operations & SIP networking
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // C040-precondition: Build requirements defined
+    // -----------------------------------------------------------------------
+
+    /// @verifies C040-precondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn build_strategy_file_exists() -> Result<(), String> {
+        let path = std::path::Path::new("src/build/build_strategy_os_deps.rs");
+        assert!(path.exists(), "Build strategy file must exist");
+        Ok(())
+    }
+
+    /// @verifies C040-precondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn build_strategy_struct_defined() -> Result<(), String> {
+        let content = include_str!("../src/build/build_strategy_os_deps.rs");
+        assert!(
+            content.contains("BuildStrategy"),
+            "BuildStrategy struct must be defined in build_strategy_os_deps.rs"
+        );
+        assert!(
+            content.contains("vendor/prebuilt"),
+            "BuildStrategy must reference prebuilt library path"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C040-postcondition: build.rs strategy and OS dependencies specified
+    // -----------------------------------------------------------------------
+
+    /// @verifies C040-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn build_strategy_documents_all_three_oses() -> Result<(), String> {
+        let content = include_str!("../src/build/build_strategy_os_deps.rs");
+        let os_indicators = [
+            ("Ubuntu", "libasound2-dev"),
+            ("macOS", "CoreAudio"),
+            ("Windows", "MSVC"),
+        ];
+        for (os_name, keyword) in &os_indicators {
+            assert!(
+                content.contains(keyword),
+                "Build strategy must document {os_name} dependencies (missing '{keyword}')"
+            );
+        }
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C040-invariant: Prebuilt-first, source fallback
+    // -----------------------------------------------------------------------
+
+    /// @verifies C040-invariant
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn prebuilt_before_source_invariant() -> Result<(), String> {
+        let content = include_str!("../src/build/build_strategy_os_deps.rs");
+        // Extract the Strategy section (after the first "Strategy" heading)
+        let strategy_section = content
+            .split("## Strategy")
+            .nth(1)
+            .or_else(|| content.split("# Strategy").nth(1))
+            .or_else(|| {
+                // Fallback: search for the enumeration pattern (1. 2. 3. steps)
+                let step_start = content.find("1. ");
+                content.get(step_start.unwrap_or(0)..)
+            })
+            .unwrap_or(&content);
+        let prebuilt_pos = strategy_section.find("prebuilt").unwrap_or(usize::MAX);
+        let source_pos = strategy_section.find("source").unwrap_or(usize::MAX);
+        assert!(
+            prebuilt_pos < source_pos,
+            "In the strategy section, prebuilt-first must appear before source-build fallback \
+             (prebuilt_pos={prebuilt_pos}, source_pos={source_pos})"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C055-precondition: Build strategy defined
+    // -----------------------------------------------------------------------
+
+    /// @verifies C055-precondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn build_strategy_references_ci_cd() -> Result<(), String> {
+        let content = include_str!("../src/build/build_strategy_os_deps.rs");
+        assert!(
+            content.contains("CI") || content.contains("Docker"),
+            "Build strategy must reference CI/CD pipeline or Docker testing"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C055-invariant: Matrix covers 3 OSes
+    // -----------------------------------------------------------------------
+
+    /// @verifies C055-invariant
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn ci_matrix_three_target_triples() -> Result<(), String> {
+        let content = include_str!("../src/build/build_strategy_os_deps.rs");
+        let triples = [
+            "x86_64-unknown-linux-gnu",
+            "aarch64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+        ];
+        let found_count = triples.iter().filter(|t| content.contains(*t)).count();
+        assert!(
+            found_count == 3,
+            "Build strategy must document all 3 target triples, found {found_count}/3"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C067-precondition: Versioning policy defined
+    // -----------------------------------------------------------------------
+
+    /// @verifies C067-precondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn versioning_policy_file_exists() -> Result<(), String> {
+        let path = std::path::Path::new("src/config/versioning_policy.rs");
+        assert!(
+            path.exists(),
+            "Versioning policy file must exist at src/config/versioning_policy.rs"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C067-postcondition: Semver operations and networking details added
+    // -----------------------------------------------------------------------
+
+    /// @verifies C067-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_sip_networking_file_exists() -> Result<(), String> {
+        let path = std::path::Path::new("src/config/semver_sip_networking.rs");
+        assert!(
+            path.exists(),
+            "Semver/SIP networking file must exist at src/config/semver_sip_networking.rs"
+        );
+        Ok(())
+    }
+
+    /// @verifies C067-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_documents_versioning_policy() -> Result<(), String> {
+        let content = include_str!("../src/config/semver_sip_networking.rs");
+        assert!(
+            content.contains("0.x") || content.contains("pre-release") || content.contains("PreRelease"),
+            "Semver file must document 0.x versioning policy"
+        );
+        assert!(
+            content.contains("CHANGELOG"),
+            "Semver file must mention CHANGELOG.md"
+        );
+        Ok(())
+    }
+
+    /// @verifies C067-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_documents_tls_cert_management() -> Result<(), String> {
+        let content = include_str!("../src/config/semver_sip_networking.rs");
+        assert!(
+            content.contains("TlsCertificateInfo") || content.contains("TLS"),
+            "Semver file must document TLS certificate management via NativeEvent"
+        );
+        Ok(())
+    }
+
+    /// @verifies C067-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_documents_dns_resolution() -> Result<(), String> {
+        let content = include_str!("../src/config/semver_sip_networking.rs");
+        assert!(
+            content.contains("SRV") || content.contains("DnsResolutionResult"),
+            "Semver file must document DNS SRV/NAPTR delegation"
+        );
+        Ok(())
+    }
+
+    /// @verifies C067-postcondition
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_documents_multi_network() -> Result<(), String> {
+        let content = include_str!("../src/config/semver_sip_networking.rs");
+        assert!(
+            content.contains("multi-network") || content.contains("multi-homing"),
+            "Semver file must document multi-network interface configuration"
+        );
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // C067-invariant: 0.x flexible, cargo semver-checks at 1.0
+    // -----------------------------------------------------------------------
+
+    /// @verifies C067-invariant
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn semver_checks_conditional_on_stable() -> Result<(), String> {
+        let content = include_str!("../src/config/semver_sip_networking.rs");
+        assert!(
+            content.contains("1.0") || content.contains("stable"),
+            "Semver file must reference 1.0/stable transition for cargo semver-checks"
         );
         Ok(())
     }
