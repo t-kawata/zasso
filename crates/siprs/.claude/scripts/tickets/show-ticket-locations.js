@@ -98,11 +98,11 @@ function main() {
     process.exit(EXIT_FAILURE);
   }
 
-  // 1. Find all TICKET lines in tracked source files via git grep
+  // 1. Find all TICKET lines in source files (tracked + untracked) via git grep
   let grepOutput;
   try {
     grepOutput = execFileSync("git", [
-      "grep", "--cached", "-n", "--", "\\[::TICKET::\\]",
+      "grep", "--untracked", "-n", "--", "\\[::TICKET::\\]",
     ], { encoding: "utf8", timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
   } catch (e) {
     // git grep exits 1 when no matches found
