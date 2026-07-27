@@ -578,7 +578,26 @@
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P0-7\" --verify)",
       "Bash(grep -nE '[0-9]{3,}' src/api/m20_dtmfsent_twophase.rs)",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P0-7\" --tickets=\"Tickets.json\")",
-      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-7\" --no-implementation-order)"
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-7\" --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-8)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P0-8\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0034 --hops=2)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0038 --hops=2)",
+      "Read(//Users/sh01/shyme/zasso/**)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P0-8\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P0-8\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P0-8\" --for-spec)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P0-8\")",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-8\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/review/find-all-stubs.js src/)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P0-8\" --tickets=\"Tickets.json\")",
+      "Bash(cargo clippy *)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P0-8\" --append)",
+      "Bash(node -e \"const u=JSON.parse\\(require\\('fs'\\).readFileSync\\('Tickets.json','utf8'\\)\\); console.log\\(Object.keys\\(u\\)\\); console.log\\(JSON.stringify\\(u.tickets ? u.tickets[0] : null, null, 2\\).substring\\(0,300\\)\\)\")",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-8\" --for-spec --review)",
+      "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P0-8\" --verify)",
+      "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P0-8\" --tickets=\"Tickets.json\")",
+      "Bash(git commit -m 'feat\\(P0-8\\): specify AudioWorkerTask architecture and Dual Client event routing *)"
     ]
   }
 }
