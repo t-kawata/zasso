@@ -23,7 +23,7 @@
 //! State module — event conversion mappings and state machine definitions.
 //!
 //! This module contains the NativeEvent to SipEventPayload conversion logic
-//! (N0021, N0022, N0023) and future state machine definitions (N0025, N0026).
+//! (N0021, N0022, N0023) and state machine definitions (N0025, N0026, N0043).
 
 pub mod m20_callstate_mapping;
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -31,3 +31,23 @@ pub mod m20_native_event_conv;
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 pub mod m20_registr_cmd_pat;
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
+// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+pub mod registr_state_machine;
+// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+pub mod call_state_model;
+// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+pub mod shutdown_specification;
+
+// Re-export state machine types for crate-internal use.
+// The internal RegistrationState (7 variants) is distinct from the public
+// RegistrationState (4 variants) defined in api/public_api_design.rs.
+// [::STUB::] P3-2: Unused imports resolved once runtime module consumes these types.
+#[allow(unused_imports)]
+pub(crate) use registr_state_machine::RegistrationState;
+// [::STUB::] P3-2: Unused imports resolved once runtime module consumes these types.
+#[allow(unused_imports)]
+pub(crate) use call_state_model::CallState;
+// [::STUB::] P3-2: Unused imports resolved once runtime module consumes these types.
+#[allow(unused_imports)]
+pub(crate) use shutdown_specification::{ShutdownSpecification, ShutdownState};
