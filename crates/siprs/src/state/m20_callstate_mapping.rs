@@ -37,6 +37,11 @@
 //! (when transitioning from CALLING) or `IncomingCall` (when transitioning from
 //! an incoming state). The caller supplies `previous_state` to disambiguate.
 
+// [::STUB::] P0-7: CallState/CallMediaState conversion functions and their
+// PJSIP constant mirrors are design-time contracts. They trigger dead_code
+// until the runtime module (P0-7) calls them via NativeEvent conversion.
+#![allow(dead_code)]
+
 use crate::api::event_model_payload_bus::SipEventPayload;
 
 // ---------------------------------------------------------------------------

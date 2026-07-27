@@ -43,6 +43,11 @@
 //! error until a conversion arm is added, guaranteeing that every variant is
 //! explicitly handled.
 
+// [::STUB::] P0-7: NativeEvent and its conversion function are design-time
+// contracts. They trigger dead_code until the runtime module (P0-7) produces
+// NativeEvent instances from PJSIP callbacks.
+#![allow(dead_code)]
+
 use crate::api::event_model_payload_bus::SipEventPayload;
 use crate::concurrency_contexts::command_serialization::AccountId;
 use crate::concurrency_contexts::command_serialization::CallId;

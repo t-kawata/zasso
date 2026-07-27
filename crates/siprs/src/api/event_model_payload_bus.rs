@@ -34,6 +34,10 @@
 //! as a source of truth. The query API (accounts(), call_state(), etc.) is the
 //! authoritative data source.
 
+// [::STUB::] P0-7: Event types (SipEventPayload, SipEvent, EventMeta) are design-time
+// contracts. They trigger dead_code until the runtime module (P0-7) consumes them.
+#![allow(dead_code)]
+
 use std::collections::BTreeMap;
 
 use crate::concurrency_contexts::command_serialization::AccountId;

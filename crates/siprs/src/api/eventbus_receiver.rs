@@ -43,6 +43,10 @@
 //! behind. This is intentional — events are observation-only, not a source
 //! of truth (§15.7, N0020).
 
+// [::STUB::] P0-7: EventBus and AccountEventReceiver are design-time contracts.
+// They trigger dead_code until the runtime module (P0-7) instantiates them.
+#![allow(dead_code)]
+
 use crate::api::event_model_payload_bus::SipEvent;
 use crate::concurrency_contexts::command_serialization::AccountId;
 use crate::model::raw_sip_message_spec::RawSipMessage;

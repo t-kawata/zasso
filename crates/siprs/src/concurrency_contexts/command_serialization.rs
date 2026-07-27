@@ -30,6 +30,11 @@
 //! channel) because every variant's payload types are `Send`. This guarantee
 //! enables thread-safe command submission from any async task or OS thread.
 
+// [::STUB::] P0-7: All items in this module are design-time contracts for the
+// RuntimeCommand channel. They trigger dead_code until the runtime module (P0-7)
+// consumes them.
+#![allow(dead_code)]
+
 use std::sync::mpsc::{Receiver, Sender};
 
 // [::TICKET::] P0-5: SipError placeholder replaced by real type from crate::error.

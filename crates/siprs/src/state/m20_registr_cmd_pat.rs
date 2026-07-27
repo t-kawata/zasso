@@ -42,6 +42,11 @@
 //! pure conversion function directly and verify `AccountInfoSnapshot` satisfies
 //! its required traits.
 
+// [::STUB::] P0-7: AccountInfoSnapshot and convert_registration_state are
+// design-time contracts. They trigger dead_code until the runtime module
+// (P0-7) uses them to resolve RegistrationStateChanged events.
+#![allow(dead_code)]
+
 use crate::api::event_model_payload_bus::SipEventPayload;
 use crate::concurrency_contexts::command_serialization::AccountId;
 

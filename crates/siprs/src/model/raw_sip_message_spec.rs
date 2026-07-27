@@ -27,6 +27,11 @@
 //!
 //! This type is used by `EventBus` (§15.4) for the raw SIP dedicated channel.
 
+// [::STUB::] P0-7: RawSipMessage and related types are design-time contracts.
+// They trigger dead_code until the runtime module (P0-7) or EventBus raw SIP
+// channel consumes them.
+#![allow(dead_code)]
+
 use std::net::SocketAddr;
 
 // ---------------------------------------------------------------------------

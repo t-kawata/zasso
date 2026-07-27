@@ -544,7 +544,9 @@
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P0-6\" --tickets=\"Tickets.json\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-6\" --no-implementation-order)",
       "Bash(node -e \"const t=require\\('./Tickets.json'\\); const p0=t.phases[0]; const tk=p0.tickets.find\\(t=>t.id===6\\); console.log\\(tk?.title||'unknown'\\)\")",
-      "Bash(git commit -m 'feat\\(P0-6\\): implement NativeEvent to SipEventPayload Conversion Mapping *)"
+      "Bash(git commit -m 'feat\\(P0-6\\): implement NativeEvent to SipEventPayload Conversion Mapping *)",
+      "Bash(awk 'NR>=38 && NR<=41' /Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs)",
+      "Bash(xxd)"
     ]
   }
 }
