@@ -54,7 +54,6 @@ pub const TLS_VERIFY_DEFAULT: bool = true;
 /// Cloning a secret increases the window for accidental exposure; consumers
 /// must explicitly extract the content via `as_str()` if they need multiple
 /// references.
-#[derive(Debug)]
 pub struct SecretString {
     inner: String,
 }
@@ -103,15 +102,26 @@ impl SecretString {
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SecretString {
     /// Always outputs `[REDACTED]` — never reveals the inner content.
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[REDACTED]")
     }
 }
 
+// Manual Debug impl to ensure the inner value is never leaked.
+// `#[derive(Debug)]` would output `SecretString { inner: "value" }`,
+// which defeats the purpose of a secret wrapper.
+impl std::fmt::Debug for SecretString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecretString")
+            .field("inner", &"[REDACTED]")
+            .finish()
+    }
+}
+
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl From<String> for SecretString {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn from(value: String) -> Self {
         SecretString::new(value)
     }
@@ -119,7 +129,7 @@ impl From<String> for SecretString {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl From<&str> for SecretString {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn from(value: &str) -> Self {
         SecretString::new(value.to_string())
     }
@@ -127,7 +137,7 @@ impl From<&str> for SecretString {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl AsRef<str> for SecretString {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn as_ref(&self) -> &str {
         &self.inner
     }
@@ -136,7 +146,7 @@ impl AsRef<str> for SecretString {
 /// On drop, zeroize the inner buffer if the `zeroize` feature is enabled.
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl Drop for SecretString {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn drop(&mut self) {
         #[cfg(feature = "zeroize")]
         self.zeroize();
@@ -167,18 +177,15 @@ impl AuthorizationHeader {
     /// `cnonce`, and `opaque`.
     pub fn redacted(&self) -> String {
         let mut result = self.value.clone();
-        for param in &["username", "realm", "nonce", "uri", "response", "cnonce", "opaque"] {
+        for param in &[
+            "username", "realm", "nonce", "uri", "response", "cnonce", "opaque",
+        ] {
             let search = format!(r#"{param}=""#);
-            while let Some(start) = result.find(&search) {
-                let value_start = start + search.len();
-                if let Some(close) = result[value_start..].find('"') {
-                    let end = value_start + close + 1;
-                    let replacement = format!(r#"{param}="[REDACTED]""#);
-                    result.replace_range(start..end, &replacement);
-                } else {
-                    break;
-                }
-            }
+            let redacted = format!(r#"{param}="[REDACTED]""#);
+            // Use `replace` (not a `while` loop with `find`) to avoid
+            // re-matching the replacement text — the replacement also
+            // starts with `param="`, which would cause an infinite loop.
+            result = result.replace(&search, &redacted);
         }
         result
     }
@@ -186,7 +193,7 @@ impl AuthorizationHeader {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for AuthorizationHeader {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Authorization: {}", self.redacted())
     }
@@ -204,7 +211,7 @@ mod tests {
 
     /// @verifies C048-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_wraps_str() {
         let secret = SecretString::new("my_secret_password");
         assert_eq!(secret.as_str(), "my_secret_password");
@@ -212,7 +219,7 @@ mod tests {
 
     /// @verifies C048-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_from_string() {
         let owned: SecretString = String::from("turn_token").into();
         assert_eq!(owned.as_str(), "turn_token");
@@ -220,7 +227,7 @@ mod tests {
 
     /// @verifies C048-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_from_str() {
         let secret: SecretString = "password".into();
         assert_eq!(secret.as_str(), "password");
@@ -230,7 +237,7 @@ mod tests {
 
     /// @verifies C048-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_display_redacted() {
         let secret = SecretString::new("password123");
         let display = format!("{}", secret);
@@ -240,7 +247,7 @@ mod tests {
 
     /// @verifies C048-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_debug_redacted() {
         let secret = SecretString::new("debug_leak");
         let debug = format!("{:?}", secret);
@@ -252,7 +259,7 @@ mod tests {
 
     /// @verifies C048-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn tls_verify_default_is_true() {
         assert!(TLS_VERIFY_DEFAULT);
     }
@@ -261,7 +268,7 @@ mod tests {
 
     /// @verifies C048-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_does_not_impl_clone_or_copy() {
         // Compile-time verification: these should fail to compile.
         // We verify structurally — SecretString does not derive Clone or Copy.
@@ -273,7 +280,7 @@ mod tests {
 
     /// @verifies C048-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_empty() {
         let secret = SecretString::new("");
         assert_eq!(secret.len(), 0);
@@ -283,7 +290,7 @@ mod tests {
 
     /// @verifies C048-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn secret_string_len() {
         let secret = SecretString::new("hello");
         assert_eq!(secret.len(), 5);
@@ -292,7 +299,7 @@ mod tests {
 
     /// @verifies C048-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn as_ref_str_works() {
         let secret = SecretString::new("data");
         let secret_str: &str = secret.as_ref();
@@ -302,7 +309,7 @@ mod tests {
     // ── AuthorizationHeader ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn auth_header_redacted_hides_sensitive_params() {
         let header = AuthorizationHeader::new(
             r#"Digest username="alice", realm="example.com", nonce="abc123""#,

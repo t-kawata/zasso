@@ -11,9 +11,15 @@ pub mod eventbus_receiver;
 // SentDtmfError, DtmfConfig, and two-phase semantics types.
 pub mod m20_dtmfsent_twophase;
 // [::TICKET::] P3-1: public_api_design module — SipClient, SipAccountHandle,
+// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
 // OutgoingCallRequest, CallMediaPreferences, RegistrationState, Codec.
 pub mod public_api_design;
+// [::TICKET::] P3-3: standalone_server_config module — ServerConfig, AuthConfig, AuthMode.
+pub mod standalone_server_config;
 
 // Re-exports for crate-root convenience
-pub use public_api_design::{SipClient, SipAccountHandle, RegistrationState, Codec,
-    OutgoingCallRequest, CallMediaPreferences};
+pub use public_api_design::{
+    CallMediaPreferences, Codec, OutgoingCallRequest, RegistrationState, SipAccountHandle,
+    SipClient,
+};
+pub use standalone_server_config::{AuthConfig, AuthMode, ServerConfig};

@@ -1,4 +1,3 @@
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -110,6 +109,9 @@ pub mod build;
 // [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-6: state module added — event conversion mappings (N0021, N0022, N0023).
 pub mod state;
+// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2: security module — SecretString, AuthorizationHeader, TLS_VERIFY_DEFAULT.
+pub mod security;
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
@@ -118,16 +120,21 @@ pub use config::client_config_spec::ClientConfig;
 
 // [::TICKET::] P3-1: Re-export Public API types at crate root.
 // §8 Public API
-pub use api::{SipClient, SipAccountHandle, RegistrationState, Codec,
-    OutgoingCallRequest, CallMediaPreferences};
+pub use api::{
+    CallMediaPreferences, Codec, OutgoingCallRequest, RegistrationState, SipAccountHandle,
+    SipClient,
+};
 // §11 AccountConfig
-pub use config::{AccountConfig, AccountConfigPatch, AccountCodecPolicy, OpusConfig,
-    DtmfPolicy, DtmfMethod, AccountMediaConfig, AccountTransportPolicy};
+pub use config::{
+    AccountCodecPolicy, AccountConfig, AccountConfigPatch, AccountMediaConfig,
+    AccountTransportPolicy, DtmfMethod, DtmfPolicy, OpusConfig,
+};
 // §12 TransportConfig & §13 ICE/STUN/TURN
-pub use config::{TransportConfig, TransportKind, IceConfig, StunServerConfig, TurnServerConfig,
-    SrtpPolicy};
+pub use config::{
+    IceConfig, SrtpPolicy, StunServerConfig, TransportConfig, TransportKind, TurnServerConfig,
+};
 #[cfg(feature = "tls")]
-pub use config::{TlsTransportConfig, TlsConfig};
+pub use config::{TlsConfig, TlsTransportConfig};
 
 // ============================================================================
 // Tests — P0-3: Crate Purpose & Scope Definition
@@ -146,7 +153,7 @@ mod tests {
     /// @verifies C001-invariant
     #[test]
     // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn doc_comment_contains_purpose_pillars() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         let doc_lower = doc.to_lowercase();
@@ -206,7 +213,7 @@ mod tests {
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P0-4, P2-2, P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P2-2|P2-5) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4, P2-2, P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P2-2|P2-5) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         // CommandSender is Send + Sync since Sender<RuntimeCommand> is Send + Sync
         assert_send::<crate::concurrency_contexts::CommandSender>();
@@ -734,7 +741,9 @@ mod tests {
     fn semver_documents_versioning_policy() -> Result<(), String> {
         let content = include_str!("../src/config/semver_sip_networking.rs");
         assert!(
-            content.contains("0.x") || content.contains("pre-release") || content.contains("PreRelease"),
+            content.contains("0.x")
+                || content.contains("pre-release")
+                || content.contains("PreRelease"),
             "Semver file must document 0.x versioning policy"
         );
         assert!(
@@ -880,11 +889,11 @@ mod tests {
 // Include test architecture modules from src/tests/
 // ===================================================================
 #[cfg(test)]
-#[path = "tests/test_strategy_4layer.rs"]
-mod test_strategy_4layer;
-#[cfg(test)]
 #[path = "tests/test_apilayer5.rs"]
 mod test_apilayer5;
+#[cfg(test)]
+#[path = "tests/test_strategy_4layer.rs"]
+mod test_strategy_4layer;
 
 #[cfg(test)]
 pub use test_strategy_4layer::TestLayer;
