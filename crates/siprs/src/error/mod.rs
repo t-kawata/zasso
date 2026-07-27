@@ -5,6 +5,8 @@ pub mod error_design_siperror;
 pub mod m20_runtime_command_error;
 // [::TICKET::] P1-1: M20 Shutdown Command Routing — dispatch_command gate for shutdown-safe command dispatch.
 pub mod m20_shutdown_routing;
+// [::TICKET::] P1-2: Panic policy — CleanupProcedure, catch_unwind wrapper, known challenges.
+pub mod challenges_panic_policy;
 
 // Re-export core error types at the `error` module level so that
 // `siprs::error::SipError` resolves directly (required by doctests).

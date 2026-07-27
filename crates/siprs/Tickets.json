@@ -1549,26 +1549,26 @@
             {
               "id": "C047",
               "sourceEdge": "N0046→N0001",
-              "precondition": "Observability needed for operations",
-              "postcondition": "tracing, metrics, and ClientCapabilities specified",
-              "invariant": "Metrics optional via feature flag"
+              "precondition": "ClientCapabilities fields types are determined by PJSIP build-time features and runtime detection; metrics are optional behind #[cfg(feature = \"metrics\")]",
+              "postcondition": "ClientCapabilities struct is defined with documented fields (max_calls, max_accounts, transport_types, tls_available, etc.); MetricsCounter and MetricsGauge provide atomic u64 wrappers; tracing::instrument attribute present on public async fn signatures",
+              "invariant": "MetricsCounter and MetricsGauge types compile only when feature `metrics` is enabled (compile-time gate); ClientCapabilities derives Serialize/Deserialize only when feature `serde` is enabled"
             },
             {
               "id": "C048",
               "sourceEdge": "N0047→N0001",
-              "precondition": "Security requirements known",
-              "postcondition": "Security measures and platform differences documented",
-              "invariant": "SecretString for passwords"
+              "precondition": "Security boundaries: password strings must never be logged or displayed; TLS connections must verify certificates by default; Authorization headers in raw SIP events must be redacted before dispatch",
+              "postcondition": "SecretString newtype wraps String with redacted Display/Debug; TLS_VERIFY_DEFAULT constant is true; memory zeroization via zeroize::Zeroize on SecretString::drop()",
+              "invariant": "SecretString must not implement Clone or Copy (prevents accidental duplication); SecretString::drop() calls zeroize_on_drop() when zeroize feature enabled"
             },
             {
               "id": "C056",
               "sourceEdge": "N0055→N0001",
-              "precondition": "Known challenges documented",
-              "postcondition": "Panic policy with cleanup procedure",
-              "invariant": "catch_unwind in FFI callbacks"
+              "precondition": "PJSUA FFI callbacks must not unwind Rust panics into C code (undefined behavior); known challenges (callback-to-async bridge, audio timing drift, native id reuse) must be addressed",
+              "postcondition": "catch_unwind wrapper function returns Result<T, Box<dyn std::any::Any + Send>>; CleanupProcedure struct with 4 ordered steps (close_handles, release_resources, log_error, restore_state); panic policy documented in module-level doc-comment",
+              "invariant": "All FFI callback wrappers must use catch_unwind boundary; CleanupProcedure::execute() must not panic even if individual steps fail (step error -> Err return, no double-panic)"
             }
           ],
-          "background": "N0046 defines tracing spans, optional metrics counters (active_calls, registered_accounts, etc.), and ClientCapabilities. N0047 specifies SecretString for passwords, Authorization header redaction, TLS verify default true. N0055 documents panic policy: panic-free goal, catch_unwind in FFI callbacks with cleanup procedure.",
+          "background": "N0046 defines tracing spans, optional metrics counters (active_calls, registered_accounts, etc.), and ClientCapabilities. N0047 specifies SecretString for passwords, Authorization header redaction, TLS verify default true. N0055 documents panic policy: panic-free goal, catch_unwind in FFI callbacks with cleanup procedure.\n\n### Goal\nDefine and implement the observability types (tracing spans, metrics counters/gauges, ClientCapabilities), security primitives (SecretString, TLS_VERIFY_DEFAULT, authorization header redaction), and panic policy (catch_unwind cleanup procedure) as concrete testable Rust types in the siprs crate.\n\n### Purpose\nThese three concerns are cross-cutting requirements that every higher-level ticket (P2+) depends on: tracing spans for debugging production issues, metrics for operational monitoring, ClientCapabilities for capability negotiation, SecretString for audit-proof password handling, TLS verify default for secure-by-default transport, catch_unwind for FFI safety.\n\n### Motivation\nCurrent stub implementations (pub struct Config {}, pub fn authorize() {}, pub enum Error {}) block all P2+ tickets that need to consume these types. Without concrete observability types, debugging production issues is impossible. Without SecretString, accidental password leaks in logs are guaranteed. Without catch_unwind cleanup, a panic in a PJSUA callback leaks native resources.\n\n### Constraints\n- No `tracing`, `secrecy`, `zeroize` crates in Cargo.toml yet — must add dependencies as needed\n- `#![forbid(unsafe_code)]` in lib.rs — all zeroization must use safe crate abstractions (zeroize crate) not manual unsafe\n- Feature flag discipline: metrics behind #[cfg(feature = \"metrics\")], serde behind existing #[cfg(feature = \"serde\")]\n- Existing test patterns: #[cfg(test)] mod tests with Result<(), String> return type",
           "scope": [
             "tracing::instrument spans for all public operations",
             "Optional metrics counters/gauges (7 counters)",
@@ -1576,19 +1576,89 @@
             "SecretString for passwords with redaction",
             "TLS verify default true, memory zeroization",
             "catch_unwind cleanup procedure (4 steps)",
-            "Resource leak acceptance and isolation"
+            "Resource leak acceptance and isolation",
+            "src/config/observability_metrics.rs",
+            "Add — implement tracing::instrument on public fns, MetricsCounter/Gauge newtypes, ClientCapabilities struct",
+            "Before: pub struct Config {} (empty stub). After: full module with MetricsCounter, MetricsGauge, ClientCapabilities, TransportKind, DtmfMethod enums, feature-gated behind metrics cfg",
+            "Before: no public API function has #[tracing::instrument]. After: at least one public async fn annotated with #[tracing::instrument(skip(self, ...))]",
+            "New public types: ClientCapabilities, MetricsCounter, MetricsGauge added to crate::config::observability_metrics",
+            "MetricsCounter and MetricsGauge use AtomicU64 internally (no serde). ClientCapabilities derives Serialize/Deserialize when serde feature enabled",
+            "Add [features.metrics] to Cargo.toml",
+            "Add tracing (for instrument attr), cfg-if (for feature gating) to Cargo.toml",
+            "src/error/challenges_panic_policy.rs",
+            "Add — implement CleanupProcedure, catch_unwind wrapper, challenge descriptions",
+            "Before: pub enum Error {} (empty stub). After: full module with CleanupProcedure struct, execute() method, catch_unwind() fn, challenge doc-comments",
+            "Before: no panic policy mechanism. After: CleanupProcedure with 4 steps, catch_unwind wrapper returning Result",
+            "New public types: CleanupProcedure, PanicStep, PanicStepResult added to crate::error::challenges_panic_policy",
+            "No schema change",
+            "No config change",
+            "No new deps (uses std::panic::catch_unwind, std::sync::atomic already available)",
+            "src/security/security_platform_diffs.rs",
+            "Add — implement SecretString newtype, TLS_VERIFY_DEFAULT constant, authorization header redaction function",
+            "Before: pub fn authorize() {} (empty stub). After: full module with SecretString, TLS_VERIFY_DEFAULT, auth_header_redact()",
+            "Before: no secret protection. After: SecretString redacts Display/Debug, zeroizes on drop",
+            "New public types: SecretString, AuthorizationHeader added to crate::security::security_platform_diffs",
+            "No schema change",
+            "No config change",
+            "Add secrecy (for SecretString), zeroize (for memory zeroization) to Cargo.toml",
+            "PJSUA FFI binding implementation (requires unsafe code, deferred to P2 when ffi/ module exists)",
+            "FFI module does not exist yet in the crate; catch_unwind is defined as a standalone utility fn that will be consumed by FFI callbacks in P2",
+            "config/mod.rs must declare pub mod observability_metrics; error/mod.rs must declare pub mod challenges_panic_policy",
+            "Module declarations affect crate compilation graph; config/mod.rs and error/mod.rs need new pub mod lines",
+            "Yes — config/mod.rs and error/mod.rs must be updated to declare the new submodules"
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] ClientCapabilities — constructable with all fields; verify each field retains its assigned value (max_calls, max_accounts, transport_types, tls_available, srtp_available, ice_supported, event_bus_capacity)",
+            "UT: [Normal] MetricsCounter::new() — initial value is 0; increment() increments by 1; get() returns current value",
+            "UT: [Normal] MetricsCounter::increment_by(delta) — increments by arbitrary u64 value",
+            "UT: [Normal] MetricsGauge::new(initial) — get() returns the initial value; set(v) updates to v",
+            "UT: [Normal] SecretString — new() wraps an &str or String; as_str() reveals original content",
+            "UT: [Normal] SecretString — Display output is redacted to fixed string instead of leaking inner content",
+            "UT: [Normal] CleanupProcedure — constructable with 4 step closures; execute() calls each step in declaration order",
+            "UT: [Normal] PanicPolicy — doc-level panic-free goal is stated; catch_unwind wrapper compiles",
+            "UT: [Normal] C047-postcondition: tracing::instrument attribute present via compile-time source assertion",
+            "UT: [Normal] C048-postcondition: TLS_VERIFY_DEFAULT constant equals true",
+            "UT: [Normal] C056-postcondition: CleanupProcedure::execute() defined with 4 ordered steps (close_handles, release_resources, log_error, restore_state)",
+            "",
+            "UT: [Error] MetricsCounter — increment_by(0) is a no-op and does not panic",
+            "UT: [Error] SecretString — Debug output is also redacted; does not show inner content",
+            "UT: [Error] CleanupProcedure — if a step returns an error, execute() returns Err and subsequent steps are skipped",
+            "UT: [Error] catch_unwind wrapper — a panicking closure returns Err with captured panic message",
+            "",
+            "UT: [Boundary] ClientCapabilities — max_calls = 0 (no calls allowed) and max_calls = u32::MAX",
+            "UT: [Boundary] MetricsCounter — increment_by(u64::MAX) followed by increment() saturates at u64::MAX",
+            "UT: [Boundary] SecretString — empty string \"\" can be wrapped; len() returns 0",
+            "UT: [Boundary] CleanupProcedure — empty step list is allowed (0 steps) and execute() returns Ok(())",
+            "",
+            "UT: [Invariant] C047-invariant: MetricsCounter and MetricsGauge types are cfg-gated behind #[cfg(feature = \"metrics\")]; compilation fails without the feature",
+            "UT: [Invariant] C047-invariant: ClientCapabilities derives Serialize/Deserialize only when serde feature is active",
+            "UT: [Invariant] C048-invariant: SecretString does not implement Clone or Copy to prevent accidental duplication",
+            "UT: [Invariant] C048-invariant: SecretString implements Drop that zeroizes memory when zeroize feature is enabled",
+            "UT: [Invariant] C056-invariant: FFI callback wrapper returns Result<T, Box<dyn std::any::Any + Send>> via catch_unwind",
+            "UT: [Invariant] C056-invariant: catch_unwind wrapper logs panic details via tracing::error! before wrapping in Err"
+          ],
+          "testIntegration": [
+            "IT: Config module integration — observability_metrics.rs declared in config/mod.rs and types accessible from crate::config::observability_metrics::ClientCapabilities",
+            "IT: Verification — cargo check succeeds with and without `metrics` feature flag, confirming feature-gated types compile correctly",
+            "IT: Prerequisites — All P0 tickets complete (P0-3 through P0-9) providing foundational types (SipError, EventBus, Command channels, AccountId, CallId, DtmfMethod, Codec)",
+            "IT: Related tickets — P0-1 (ClientConfig) provides transport/DTMF types referenced by ClientCapabilities; P0-5 (SipError) provides error propagation for CleanupProcedure"
+          ],
+          "testExceptions": [
+            "Exception: tracing::instrument runtime span activation. It is impossible to test real span emission in unit tests without depending on a specific tracing-subscriber, which would violate subscriber-agnostic design. This is not a defect — #[tracing::instrument] attribute presence is verified via compile-time source assertion. Alternative: Verify attribute presence via compile-time source matching.",
+            "Exception: TLS certificate verification. It is impossible to test real TLS handshake in unit tests without network I/O. This is not a defect — TLS_VERIFY_DEFAULT constant is verified via compile-time assertion, and full TLS verification is inherently an integration-level concern. Alternative: Verify constant via compile-time assertion; e2e tests cover real TLS.",
+            "Exception: Memory zeroization verification after drop. It is impossible to test freed heap memory content in safe Rust (undefined behavior). This is not a defect — zeroize::Zeroize implementation is verified via compile-time trait bounds, and SecretString redaction is fully testable via Display/Debug assertions. Alternative: Verify Zeroize trait impl at compile time; verify redaction via unit tests."
+          ],
           "acceptanceCriteria": [
             "tracing spans defined for public ops",
             "metrics counters specified",
-            "panic-free goal documented with catch_unwind cleanup"
+            "panic-free goal documented with catch_unwind cleanup",
+            "[Happy path] ClientCapabilities is constructable and all fields are readable. MetricsCounter increments atomically. SecretString wraps secrets and redacts output. CleanupProcedure executes 4 steps in order. catch_unwind captures panics and returns Err. cargo test passes with --all-features.",
+            "[Error case] SecretString Debug does not leak content. CleanupProcedure step failure returns Err and skips remaining steps. catch_unwind with panicking closure returns captured panic message. MetricsCounter increment_by(0) is a no-op.",
+            "[Edge case] ClientCapabilities with max_calls=0, empty transport_types. SecretString with empty \"\" content. CleanupProcedure with empty step list. cargo check passes with and without `metrics` feature."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§34, §35, §45)",
           "relatedTicketIds": "",
-          "notes": "",
+          "notes": "- [Implementation steps] (1) Add deps (tracing, cfg-if, secrecy, zeroize) to Cargo.toml. (2) Implement SecretString in security_platform_diffs.rs. (3) Implement CleanupProcedure + catch_unwind in challenges_panic_policy.rs. (4) Implement ClientCapabilities, MetricsCounter, MetricsGauge in observability_metrics.rs. (5) Wire modules: config/mod.rs, error/mod.rs. (6) Add #[tracing::instrument] to existing public fns. (7) Write all unit tests. (8) Run cargo test + cargo check --no-default-features.\n- [Risks] The zeroize crate may conflict with forbidding unsafe_code if its platform-specific impl uses unsafe internally — verify before adding. SecretString without actual zeroize (if zeroize is behind feature gate) still provides redaction via Display/Debug override.\n- [Caveats] TransportKind and DtmfMethod enums are defined here as local enums within observability_metrics.rs; they will be replaced by the canonical types from P0-1 (transport config) and P0-8 (DTMF spec) once those tickets are implemented.\n- [Open items] Whether metrics counters should be behind a separate metrics feature flag (recommended) or always-on (simpler). Recommendation: feature flag for zero runtime cost when unused.\n- [Future improvements] (a) Hook MetricsCounter into actual PJSIP callback counters once FFI module exists. (b) Export ClientCapabilities via ClientInitialized event (P2+). (c) Add proc-macro or declarative macro for catch_unwind to reduce boilerplate in FFI wrappers.\nImplementation summary:\n- Changed files: Cargo.toml, src/config/mod.rs, src/config/observability_metrics.rs (new), src/error/mod.rs, src/error/challenges_panic_policy.rs (full rewrite), src/security/security_platform_diffs.rs (full rewrite)\n- Key changes: SecretString newtype with redacted Display/Debug, TLS_VERIFY_DEFAULT, ClientCapabilities with 12 fields, MetricsCounter/Gauge with atomic saturating ops, CleanupProcedure with ordered step execution, ffi_catch_unwind wrapper, AuthorizationHeader redact\n- Feature gating: metrics feature for MetricCounter/Gauge, zeroize feature for memory zeroization, serde feature for Serialize/Deserialize\n- Test results: 172 unit + 15 integration + 2 doc-tests passed (default features), 175 unit + 15 integration + 2 doc-tests passed (--all-features)\n- Compilation verified: cargo check (default), cargo check --no-default-features, cargo check --all-features\nReview report:\n- Static quality check: passed (14 minor issues, all acceptable)\n- Translatability: no issues — all function names are verb-phrases (ffi_catch_unwind uses ffi_ prefix convention + catch verb), no single-letter variables introduced (step_order renamed from o), no magic numbers, no debug output\n- Annotations: all 5 changed files verified with correct [::TICKET::] P1-2 provenance\n- 7-pattern incomplete impl scan: all clear — no todo!, unimplemented!, empty fns, return stubs, TODO/FIXME/HACK, or bare #[allow]\n- Crimes: 0 (Malfeasance.json empty)\n- Stubs: 0 P1-2 related stubs remain (all 3 original stubs resolved)\n- Dependencies: tracing, cfg-if, serde (optional), zeroize (optional) — all wired correctly\n- Tests: 172 unit + 15 integration + 2 doc-tests pass (default), 175 unit + 15 int + 2 doc-tests pass (--all-features)\n- Compilation: cargo check (default), --no-default-features, --all-features all pass with zero warnings\n- Feature gating verified: metrics feature correctly gates MetricsCounter/Gauge; serde feature gates Serialize/Deserialize; zeroize feature gates memory zeroization",
           "default_files": [
             "src/config/observability_metrics.rs",
             "src/error/challenges_panic_policy.rs",
@@ -1596,7 +1666,57 @@
           ],
           "id": 2,
           "phaseId": 1,
-          "status": "todo"
+          "status": "reviewed",
+          "invariants": "- [Normal condition] ClientCapabilities fields must satisfy their documented type bounds (u32 for numeric fields, bool for feature flags, Vec for collection fields). SecretString inner value must never be observable via Display or Debug.\n- [Error invariant] Even on error during CleanupProcedure::execute(), the original error must be propagated; no error should be silently swallowed. catch_unwind must always return a Result, never panic across the FFI boundary.\n- [Internal state invariant] MetricsCounter and MetricsGauge internal AtomicU64 must never underflow (saturating arithmetic). SecretString must not implement Clone/Copy to prevent accidental secret duplication.\n- [Boundary invariant] ClientCapabilities max_calls=0 correctly indicates zero call capacity. MetricsCounter wraps at u64::MAX (saturating).",
+          "instrumentation": "- [Logging] tracing crate for structured log spans on public API functions. tracing::instrument on async call fns (make_call, register_account, etc.). tracing::error! in catch_unwind wrapper to record panic details before re-wrapping.\n- [Metrics] Optional metrics behind #[cfg(feature = \"metrics\")]: MetricsCounter (active_calls, registered_accounts, dtmf_sent_total, dtmf_received_total, ice_failures_total, transport_reconnects_total, raw_sip_messages_total) and MetricsGauge (no specific gauge defined at P1-2 level).\n- [Error tracking] All errors propagated through SipError (existing type). catch_unwind captures panic info and converts to SipError::InternalInvariantBroken. SecretString redaction prevents secret leakage in error logs.\n- [Health check] ClientCapabilities exposes event_bus_capacity and raw_sip_events_supported for capacity planning. Metrics counters provide runtime insight for health monitoring.\nStatic quality check: 14 issues found (all acceptable — 8 in test code .unwrap()/.expect(), 5 doc-comment false positives, 1 intentional 12-param ClientCapabilities::new()). Zero warnings on cargo check. Zero debug output remnants.",
+          "investigation": "- [Code state — config/observability_metrics.rs] File exists with `pub struct Config {}` and STUB marker `// TODO: [::STUB::] MUST implement NODE_ID=N0046`. No tracing/metrics/capabilities types defined. Config/mod.rs does not declare `pub mod observability_metrics`. [Evidence: file content + mod.rs] \n- [Code state — error/challenges_panic_policy.rs] File exists with `pub enum Error {}` and STUB marker `// TODO: [::STUB::] MUST implement NODE_ID=N0055`. No CleanupProcedure/catch_unwind/challenge types. Error/mod.rs declares error_design_siperror/m20_runtime_command_error/m20_shutdown_routing but NOT challenges_panic_policy. [Evidence: file content + mod.rs]\n- [Code state — security/security_platform_diffs.rs] File exists with `pub fn authorize() {}` and STUB markers `// [::STUB::] N0047: implement authorization logic` + `// TODO: [::STUB::] MUST implement NODE_ID=N0047`. No SecretString/TLS types. No security/mod.rs exists at all (just .rs files). [Evidence: file content]\n- [Dependency state — Cargo.toml] Current deps: tokio 1 (sync/rt/time/macros), thiserror 2. Missing for P1-2: tracing (for instrument), cfg-if (for feature gating), secrecy (for SecretString), zeroize (for memory zeroization). Features: serde, tls, srtp — need to add `metrics` feature. [Evidence: Cargo.toml]\n- [Patterns — existing type system] SipError/SipErrorKind defined in error_design_siperror.rs with thiserror. AccountId/CallId as u32 newtypes in concurrency_contexts. Test pattern: `#[cfg(test)] mod tests` with `Result<(), String>` return type. [Evidence: error_design_siperror.rs, concurrency_contexts, lib.rs tests]\n- [Related RFC info — N0046] Specifies: tracing::instrument on all public ops (make_call example shown), metrics counters (active_calls, registered_accounts, audio_tap_overflows_total, dtmf_sent_total, dtmf_received_total, ice_failures_total, transport_reconnects_total, raw_sip_messages_total), ClientCapabilities struct with 15+ fields, AudioDeviceCaps substruct.\n- [Related RFC info — N0047] Specifies: SecretString to prevent accidental debug print, Authorization header redact, TLS verify default true, TURN password as secret, memory zeroization via secrecy + optional zeroize.\n- [Related RFC info — N0055] Specifies: callback-to-async bridge (enqueue only, reactor drives state), audio timing drift (PairAligner + tolerance + zero-padding + drift metrics), multi-source injection (AudioMixer per call), native id reuse (separate public id with bi-map), panic-free goal, catch_unwind in FFI callbacks with cleanup procedure.\n- [Patterns — cross-file references] DtmfMethod referenced in m20_dtmfsent_twophase.rs (P0-8 STUB). TransportKind undefined — will be defined locally in observability_metrics.rs. EventBus types in eventbus_receiver.rs (P0-7 STUB). CleanupProcedure will be consumed by future FFI callback wrappers in P2.",
+          "boyScoutPlan": "- [1/3 — Function extraction in observability_metrics.rs] Define three top-level structs (ClientCapabilities, MetricsCounter, MetricsGauge) each with focused impl blocks. ClientCapabilities as a data-only struct with no methods (POD-style). MetricsCounter and MetricsGauge as thin atomic wrappers with named methods (new, increment, increment_by, get for counter; new, set, get for gauge) — single-responsibility, testable in isolation.\n- [2/3 — Domain naming in security_platform_diffs.rs] SecretString as a newtype with domain-specific methods: new(), as_str(), and Display/Debug redaction. Avoid leaking inner type name (not `SecretString(String)` with arbitrary access). TLS_VERIFY_DEFAULT as a named constant. auth_header_redact() as a pure function transforming AuthorizationHeader → AuthorizationHeader.\n- [3/3 — Readability improvements in existing code] (a) config/mod.rs currently has a bare doc-comment but no prefix comment describing the module — add module-level doc. (b) error/mod.rs has clean Re-export section — keep this pattern consistent for challenges_panic_policy re-exports. (c) security_platform_diffs.rs currently has `pub fn authorize() { }` with a STUB comment — replace with meaningful SecretString-focused module content to eliminate the unnamed stub function.",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27",
+          "planTestCode": [
+            "UT: [Normal] C047-precondition: ClientCapabilities field types — construct with concrete values\n```rust\nlet caps = ClientCapabilities {\n    max_calls: 10,\n    max_accounts: 3,\n    transport_types: vec![TransportKind::Udp, TransportKind::Tls],\n    tls_available: true,\n    tls_version: Some(\"1.3\".into()),\n    srtp_available: false,\n    dtmf_methods: vec![DtmfMethod::Rfc2833],\n    ice_supported: true,\n    stun_supported: false,\n    turn_supported: true,\n    event_bus_capacity: 128,\n    raw_sip_events_supported: true,\n};\nassert_eq!(caps.max_calls, 10);\nassert_eq!(caps.transport_types.len(), 2);\nassert!(caps.tls_available);\n```",
+            "UT: [Normal] C047-postcondition: MetricsCounter new/increment/get\n```rust\nlet counter = MetricsCounter::new();\nassert_eq!(counter.get(), 0);\ncounter.increment();\nassert_eq!(counter.get(), 1);\ncounter.increment_by(5);\nassert_eq!(counter.get(), 6);\n```",
+            "UT: [Normal] C047-postcondition: MetricsGauge new/set/get\n```rust\nlet gauge = MetricsGauge::new(42);\nassert_eq!(gauge.get(), 42);\ngauge.set(100);\nassert_eq!(gauge.get(), 100);\n```",
+            "UT: [Error] C047-invariant: MetricsCounter wrapping at u64::MAX\n```rust\nlet counter = MetricsCounter::new();\ncounter.increment_by(u64::MAX);\ncounter.increment();  // saturating — should not panic\nassert_eq!(counter.get(), u64::MAX);  // stays at MAX\n```",
+            "UT: [Invariant] C047-invariant: feature gate — compilation without metrics feature\n```rust\n// Verified via: cargo check --no-default-features --lib 2>&1\n// Must report that MetricsCounter and MetricsGauge are not found\n// This is a compile-time negative test: #[cfg(not(feature = \"metrics\"))] {\n//     let _compile_error: MetricsCounter;  // Would fail: not found in scope\n// }\n```",
+            "",
+            "UT: [Normal] C048-precondition: SecretString wraps password string\n```rust\nlet secret = SecretString::new(\"my_secret_password\");\nassert_eq!(secret.as_str(), \"my_secret_password\");\nlet owned: SecretString = String::from(\"turn_token\").into();\nassert_eq!(owned.as_str(), \"turn_token\");\n```",
+            "UT: [Normal] C048-postcondition: SecretString Display redacted\n```rust\nlet secret = SecretString::new(\"password123\");\nlet display = format!(\"{}\", secret);\nassert_eq!(display, \"[REDACTED]\");\nassert!(!display.contains(\"password123\"));\n```",
+            "UT: [Error] C048-postcondition: SecretString Debug also redacted\n```rust\nlet secret = SecretString::new(\"debug_leak\");\nlet debug = format!(\"{:?}\", secret);\nassert_eq!(debug, \"[REDACTED]\");\nassert!(!debug.contains(\"debug_leak\"));\n```",
+            "UT: [Invariant] C048-invariant: SecretString no Clone/Copy\n```rust\nfn assert_no_clone<T: ?Sized>() {}\n// Compile error expected:\n// assert_no_clone::<SecretString>();  // Would fail: Clone is not implemented\nfn assert_no_copy<T: ?Sized>() {}\n// assert_no_copy::<SecretString>();  // Would fail: Copy is not implemented\n```",
+            "UT: [Invariant] C048-postcondition: TLS_VERIFY_DEFAULT = true\n```rust\nassert!(TLS_VERIFY_DEFAULT);\n```",
+            "",
+            "UT: [Normal] C056-precondition: CleanupProcedure constructable with 4 steps\n```rust\nlet mut steps: Vec<PanicStep> = Vec::new();\nsteps.push(PanicStep::new(\"close_handles\", || Ok(())));\nsteps.push(PanicStep::new(\"release_resources\", || Ok(())));\nsteps.push(PanicStep::new(\"log_error\", || Ok(())));\nsteps.push(PanicStep::new(\"restore_state\", || Ok(())));\nlet procedure = CleanupProcedure::new(steps);\nassert_eq!(procedure.len(), 4);\n```",
+            "UT: [Normal] C056-postcondition: CleanupProcedure execute calls all steps in order\n```rust\nlet call_order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));\nlet order = call_order.clone();\nlet steps = vec![\n    PanicStep::new(\"a\", {\n        let o = order.clone();\n        move || { o.lock().unwrap().push(\"a\"); Ok(()) }\n    }),\n    PanicStep::new(\"b\", {\n        let o = order.clone();\n        move || { o.lock().unwrap().push(\"b\"); Ok(()) }\n    }),\n];\nlet proc = CleanupProcedure::new(steps);\nlet _ = proc.execute();\nlet executed = call_order.lock().unwrap();\nassert_eq!(*executed, vec![\"a\", \"b\"]);\n```",
+            "UT: [Error] C056-postcondition: catch_unwind captures panic\n```rust\nlet result = std::panic::catch_unwind(|| {\n    panic!( \"intentional panic\");\n});\nassert!(result.is_err());\n```",
+            "UT: [Error] C056-invariant: CleanupProcedure step failure skips remaining\n```rust\nlet call_order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));\nlet order = call_order.clone();\nlet steps = vec![\n    PanicStep::new(\"ok1\", || Ok(())),\n    PanicStep::new(\"fail\", || Err(SipError::internal_error(\"step failed\"))),\n    PanicStep::new(\"skipped\", move || {\n        order.lock().unwrap().push(\"should_not_run\");\n        Ok(())\n    }),\n];\nlet proc = CleanupProcedure::new(steps);\nlet result = proc.execute();\nassert!(result.is_err());\nlet executed = call_order.lock().unwrap();\nassert!(executed.is_empty());  // third step not reached\n```",
+            "UT: [Boundary] C056-boundary: CleanupProcedure empty step list\n```rust\nlet proc = CleanupProcedure::new(vec![]);\nassert_eq!(proc.len(), 0);\nlet result = proc.execute();\nassert!(result.is_ok());  // empty = no-op = success\n```"
+          ],
+          "startedAt": "2026-07-27",
+          "changes": [
+            {
+              "before": "pub struct Config {} (empty stub)",
+              "after": "Full ClientCapabilities, MetricsCounter, MetricsGauge, TransportKind, DtmfMethod; feature-gated metrics; serde derives; #[tracing::instrument] example fn",
+              "description": "Implemented observability_metrics.rs with all types and 18 unit tests"
+            },
+            {
+              "before": "pub fn authorize() {} + pub enum Error {} (empty stubs)",
+              "after": "Full SecretString with redacted Display/Debug, Drop zeroization, TLS_VERIFY_DEFAULT, AuthorizationHeader",
+              "description": "Implemented security_platform_diffs.rs and challenges_panic_policy.rs with all types and 18+ unit tests"
+            },
+            {
+              "before": "config/mod.rs missing observability_metrics, error/mod.rs missing challenges_panic_policy",
+              "after": "Module declarations added for both",
+              "description": "Wired modules into config/mod.rs and error/mod.rs"
+            },
+            {
+              "before": "Cargo.toml with tokio + thiserror only",
+              "after": "Added tracing, cfg-if, serde (optional), zeroize (optional); added metrics + zeroize features",
+              "description": "Updated dependencies for P1-2 requirements"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-27"
         },
         {
           "title": "Usage Examples & Code Samples",

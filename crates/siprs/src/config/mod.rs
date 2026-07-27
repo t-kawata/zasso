@@ -32,3 +32,5 @@
 
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 pub mod versioning_policy;
+// [::TICKET::] P1-2: Observability — tracing spans, metrics counters/gauges, ClientCapabilities.
+pub mod observability_metrics;
