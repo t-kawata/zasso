@@ -113,10 +113,7 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: CallId) -> Result<
 /// - `PJ_SUCCESS` → `Ok(())`
 /// - Account not found → `NotFound`
 /// - All other PJSUA errors → `InternalError` with the status code
-pub fn convert_get_account_info_error(
-    pj_status: i32,
-    account_id: u32,
-) -> Result<(), SipError> {
+pub fn convert_get_account_info_error(pj_status: i32, account_id: u32) -> Result<(), SipError> {
     if pj_status == 0 {
         // PJ_SUCCESS
         return Ok(());
@@ -146,7 +143,7 @@ mod tests {
 
     /// @verifies C018-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn conf_connect_uses_existing_error_kinds() {
         // InvalidState (conf_port not resolved)
         let err = convert_conf_connect_error(-1, 5).unwrap_err();
@@ -161,7 +158,7 @@ mod tests {
 
     /// @verifies C018-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn conf_disconnect_uses_existing_error_kinds() {
         // InvalidState (conf_port not resolved)
         let err = convert_conf_disconnect_error(-1, 5).unwrap_err();
@@ -176,7 +173,7 @@ mod tests {
 
     /// @verifies C018-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn get_account_info_uses_existing_error_kinds() {
         // NotFound (account not found)
         let err = convert_get_account_info_error(-2, 42).unwrap_err();
@@ -192,19 +189,19 @@ mod tests {
     // ── Happy path ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn conf_connect_success_returns_ok() {
         assert!(convert_conf_connect_error(0, 1).is_ok());
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn conf_disconnect_success_returns_ok() {
         assert!(convert_conf_disconnect_error(0, 1).is_ok());
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn get_account_info_success_returns_ok() {
         assert!(convert_get_account_info_error(0, 1).is_ok());
     }
@@ -212,7 +209,7 @@ mod tests {
     // ── Error message contains operation name ─────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn error_message_contains_operation_name() {
         let err = convert_conf_connect_error(-1, 5).unwrap_err();
         assert!(err.message.contains("ConfConnect"));
@@ -227,7 +224,7 @@ mod tests {
     // ── native_status preserved ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_status_preserved_for_internal_error() {
         let err = convert_conf_connect_error(700, 5).unwrap_err();
         assert_eq!(err.native_status, Some(700));
@@ -240,16 +237,14 @@ mod tests {
 
     /// @verifies C018-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn no_m20_specific_error_kinds() {
         // This is a compile-time check: if M20-specific variants like
         // ConfConnectError or ConfDisconnectError existed, they would need
         // to be handled here. The fact that only existing variants are
         // matched confirms the invariant.
         let _ = |k: SipErrorKind| match k {
-            SipErrorKind::InvalidState
-            | SipErrorKind::NotFound
-            | SipErrorKind::InternalError => {}
+            SipErrorKind::InvalidState | SipErrorKind::NotFound | SipErrorKind::InternalError => {}
             _ => {}
         };
     }

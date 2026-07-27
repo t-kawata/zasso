@@ -66,8 +66,9 @@ pub(crate) enum EventDirection {
 ///
 /// Provides fields specified by §15.3: event_id, timestamp, account_id, call_id,
 /// direction, headers, status_code, reason_phrase, logical_context.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EventMeta {
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     pub event_id: u64,
     pub timestamp: EventTimestamp,
     pub account_id: Option<AccountId>,
@@ -87,9 +88,10 @@ pub(crate) struct EventMeta {
 ///
 /// This enum is `#[non_exhaustive]` so that adding new variants in future
 /// releases is not a breaking change for downstream consumers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub(crate) enum SipEventPayload {
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // ── Registration ──
     RegistrationStarted,
     RegistrationSucceeded,
@@ -153,8 +155,9 @@ pub(crate) enum SipEventPayload {
 ///
 /// Every event published through `EventBus` is wrapped in this struct so that
 /// consumers can inspect common metadata without matching the payload variant.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SipEvent {
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     pub meta: EventMeta,
     pub payload: SipEventPayload,
 }
@@ -173,12 +176,12 @@ mod tests {
 
     /// @verifies C020-precondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_event_payload_is_debug_and_clone() {
         // Assert: SipEventPayload implements Debug + Clone at compile time
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_debug::<SipEventPayload>();
         assert_clone::<SipEventPayload>();
@@ -190,7 +193,7 @@ mod tests {
 
     /// @verifies C020-precondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_event_payload_has_non_exhaustive() {
         let doc = include_str!("event_model_payload_bus.rs");
         assert!(
@@ -201,7 +204,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_event_wraps_payload_with_meta() {
         let meta = EventMeta {
             event_id: 42,
@@ -230,7 +233,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_event_variants_are_constructible() {
         // Every category must have at least one constructible variant
         let _registration = SipEventPayload::RegistrationStarted;
@@ -246,7 +249,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn event_direction_is_comparison_safe() {
         assert_eq!(EventDirection::Incoming, EventDirection::Incoming);
         assert_ne!(EventDirection::Incoming, EventDirection::Outgoing);

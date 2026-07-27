@@ -1,4 +1,3 @@
-
 // Module declarations for model sub-modules.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4: EventBus references RawSipMessage from raw_sip_message_spec.

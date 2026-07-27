@@ -71,10 +71,7 @@ impl EventBus {
     /// - `control_capacity`: Capacity of the control event ring buffer.
     /// - `raw_sip_capacity`: If `Some(cap)`, creates a raw SIP channel with
     ///   the given capacity. If `None`, no raw SIP channel is allocated.
-    pub(crate) fn new(
-        control_capacity: usize,
-        raw_sip_capacity: Option<usize>,
-    ) -> Self {
+    pub(crate) fn new(control_capacity: usize, raw_sip_capacity: Option<usize>) -> Self {
         let (control_tx, _) = tokio::sync::broadcast::channel(control_capacity);
         let raw_sip = raw_sip_capacity.map(|cap| {
             let (tx, _) = tokio::sync::broadcast::channel(cap);
@@ -89,9 +86,7 @@ impl EventBus {
     /// Subscribes to the control event bus.
     ///
     /// Returns a `Receiver<SipEvent>` that observes all control-plane events.
-    pub(crate) fn subscribe_control(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<SipEvent> {
+    pub(crate) fn subscribe_control(&self) -> tokio::sync::broadcast::Receiver<SipEvent> {
         self.control.subscribe()
     }
 
@@ -180,7 +175,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     /// Helper to construct a minimal SipEvent for testing.
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn make_event(event_id: u64, account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
             meta: EventMeta {
@@ -199,7 +194,7 @@ mod tests {
     }
 
     /// Helper to construct a minimal RawSipMessage for testing.
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn make_raw_sip_msg() -> RawSipMessage {
         RawSipMessage {
             direction: crate::model::raw_sip_message_spec::SipMessageDirection::Incoming,
@@ -220,7 +215,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn eventbus_new_with_both_channels() {
         let bus = EventBus::new(1024, Some(1024));
         let _rx = bus.subscribe_control();
@@ -232,7 +227,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn eventbus_new_control_only() {
         let bus = EventBus::new(1024, None);
         let _rx = bus.subscribe_control();
@@ -367,7 +362,10 @@ mod tests {
         match raw_rx.try_recv() {
             Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => { /* expected */ }
             Ok(_) => {
-                return Err("raw_sip subscriber received a message despite overflow — expected Lagged".to_string());
+                return Err(
+                    "raw_sip subscriber received a message despite overflow — expected Lagged"
+                        .to_string(),
+                );
             }
             Err(e) => {
                 return Err(format!("unexpected raw_rx error: {e}"));
@@ -381,7 +379,9 @@ mod tests {
                 assert_eq!(ev.meta.event_id, 99);
             }
             Err(e) => {
-                return Err(format!("control bus lost events after raw_sip overflow: {e}"));
+                return Err(format!(
+                    "control bus lost events after raw_sip overflow: {e}"
+                ));
             }
         }
 
@@ -425,7 +425,7 @@ mod tests {
 
     /// @verifies C021-postcondition
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn eventbus_is_clonable() {
         let bus = EventBus::new(16, None);
         let cloned = bus.clone();

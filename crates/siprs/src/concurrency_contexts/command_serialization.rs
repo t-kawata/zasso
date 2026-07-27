@@ -182,6 +182,21 @@ pub(crate) enum RuntimeCommand {
         reply: ReplySender<Result<(), SipError>>,
     },
 
+    /// Queries account information via an active PJSIP API call.
+    ///
+    /// Used internally by the registration event handler to resolve
+    /// `RegistrationStateChanged` into `RegistrationSucceeded` or
+    /// `RegistrationFailed`. Returns the `AccountInfoSnapshot` containing
+    /// the current registration status.
+    ///
+    /// [::STUB::] P0-6: placeholder AccountId type (u32) will be replaced
+    /// by the real newtype once P0-3 (N0012) is implemented.
+    GetAccountInfo {
+        account_id: AccountId,
+        reply:
+            ReplySender<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, SipError>>,
+    },
+
     /// Gracefully shuts down the PJSUA library and stops the reactor.
     ///
     /// Must be called exactly once. After shutdown, any subsequent
@@ -218,12 +233,12 @@ mod tests {
     ///
     /// @verifies C002
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn purpose_implementable_via_async_model() {
         // The RuntimeCommand enum IS the serialization mechanism that makes the
         // async model work. Its existence proves the crate can be operated
         // asynchronously without exposing PJSUA threads to the consumer.
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }
@@ -236,9 +251,9 @@ mod tests {
     /// @verifies C011
     /// @verifies C012
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn runtime_command_is_send() {
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }
@@ -250,9 +265,9 @@ mod tests {
     ///
     /// @verifies C011
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn command_sender_is_send() {
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CommandSender>();
     }
@@ -261,9 +276,9 @@ mod tests {
     ///
     /// This allows the receiver to be moved into the reactor thread.
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn command_receiver_is_send() {
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CommandReceiver>();
     }
@@ -276,7 +291,7 @@ mod tests {
     ///
     /// @verifies C010
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn module_boundary_isolation() {
         // This test verifies by construction: if concurrency_contexts imported
         // runtime/, ffi/, or audio/, the compiler would have already rejected
@@ -292,7 +307,7 @@ mod tests {
     ///
     /// @verifies C011
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-6) --for-spec --no-implementation-order`.
     fn all_variants_exist() {
         // Construct an Initialize variant that exercise the enum shape.
         let (_tx, _rx) = std::sync::mpsc::channel::<Result<(), SipError>>();
@@ -312,6 +327,7 @@ mod tests {
             | RuntimeCommand::Hold { .. }
             | RuntimeCommand::Unhold { .. }
             | RuntimeCommand::SendDtmf { .. }
+            | RuntimeCommand::GetAccountInfo { .. }
             | RuntimeCommand::Shutdown { .. } => {}
         }
     }
@@ -329,7 +345,7 @@ mod tests {
     ///
     /// @verifies C034
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn audio_rt_boundary_no_blocking() {
         // The concurrency_contexts module does not define the audio boundary —
         // that belongs to the audio module (P0-8). This test documents that
@@ -345,7 +361,7 @@ mod tests {
     ///
     /// @verifies C038
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn unsafe_isolated_to_ffi_module() {
         // No unsafe code exists in this module — verified by the crate-level
         // #![forbid(unsafe_code)] attribute in lib.rs. Once ffi/ is implemented
@@ -361,13 +377,13 @@ mod tests {
     ///
     /// @verifies C046
     #[test]
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn state_ownership_and_snapshots() {
         // The RuntimeCommand enum IS the exclusive mutation mechanism.
         // Each variant carries a oneshot reply channel, enabling the caller
         // to obtain a result (snapshot) after the mutation completes.
         // The MPSC serialization ensures exclusive reactor access.
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }

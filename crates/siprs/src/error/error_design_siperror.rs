@@ -238,7 +238,7 @@ impl SipError {
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SipErrorKind {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             SipErrorKind::InvalidConfig => "InvalidConfig",
@@ -297,7 +297,7 @@ mod tests {
 
     /// @verifies C017-precondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_error_constructable_with_all_fields() {
         let err = SipError::new(SipErrorKind::InvalidConfig, "test message");
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
@@ -310,7 +310,7 @@ mod tests {
 
     /// @verifies C017-precondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_error_full_construction() {
         let err = SipError {
             kind: SipErrorKind::InviteFailed,
@@ -332,7 +332,7 @@ mod tests {
 
     /// @verifies C017-postcondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_error_display_includes_kind_and_message() {
         let err = SipError::new(SipErrorKind::AccountNotFound, "account 42 not found");
         let display = format!("{}", err);
@@ -350,10 +350,10 @@ mod tests {
 
     /// @verifies C017-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_error_implements_std_error() {
         // thiserror::Error generates impl std::error::Error automatically
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_error<E: std::error::Error>() {}
         assert_error::<SipError>();
     }
@@ -363,17 +363,17 @@ mod tests {
     /// @verifies C018-precondition
     /// @verifies C018-postcondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_error_kind_has_required_traits() {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_copy<T: Copy>() {}
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_partial_eq<T: PartialEq>() {}
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_eq_trait<T: Eq>() {}
         assert_debug::<SipErrorKind>();
         assert_clone::<SipErrorKind>();
@@ -386,7 +386,7 @@ mod tests {
 
     /// @verifies C018-precondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn all_25_sip_error_kind_variants_constructable() {
         let all: Vec<SipErrorKind> = vec![
             SipErrorKind::InvalidConfig,
@@ -422,13 +422,16 @@ mod tests {
 
     /// @verifies C018-postcondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn helper_constructors_set_correct_kind() {
         assert_eq!(
             SipError::invalid_config("x").kind,
             SipErrorKind::InvalidConfig
         );
-        assert_eq!(SipError::invalid_state("x").kind, SipErrorKind::InvalidState);
+        assert_eq!(
+            SipError::invalid_state("x").kind,
+            SipErrorKind::InvalidState
+        );
         assert_eq!(SipError::not_found("x").kind, SipErrorKind::NotFound);
         assert_eq!(
             SipError::internal_error("x").kind,
@@ -441,10 +444,9 @@ mod tests {
 
     /// @verifies C017-postcondition
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn with_native_status_preserves_code() {
-        let err =
-            SipError::with_native_status(SipErrorKind::InviteFailed, "403 Forbidden", 403);
+        let err = SipError::with_native_status(SipErrorKind::InviteFailed, "403 Forbidden", 403);
         assert_eq!(err.native_status, Some(403));
         assert!(!err.retryable);
     }
@@ -453,7 +455,7 @@ mod tests {
 
     /// @verifies C017-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn retryable_flag_correct_for_known_kinds() {
         // Retryable kinds
         assert!(SipError::new(SipErrorKind::InvalidState, "").retryable);
@@ -471,7 +473,7 @@ mod tests {
 
     /// @verifies C017-invariant
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn optional_fields_default_to_none() {
         let err = SipError::new(SipErrorKind::InvalidConfig, "test");
         assert!(err.native_status.is_none());

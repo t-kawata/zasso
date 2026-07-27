@@ -104,6 +104,9 @@ pub mod api;
 pub mod model;
 // [::TICKET::] P0-5: error module added — SipError, SipErrorKind, M20 error mapping.
 pub mod error;
+// [::TICKET::] P0-6: state module added — event conversion mappings (N0021, N0022, N0023).
+pub mod state;
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 
@@ -123,7 +126,7 @@ mod tests {
     /// @verifies C001-postcondition
     /// @verifies C001-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn doc_comment_contains_purpose_pillars() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         let doc_lower = doc.to_lowercase();
@@ -145,7 +148,7 @@ mod tests {
     /// @verifies C001-invariant
     /// @verifies C004-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn audio_only_scope_enforced_in_docs() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         // If "video" is mentioned, it must be as an exclusion
@@ -168,7 +171,7 @@ mod tests {
     /// @verifies C002-postcondition
     /// @verifies C009-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn concurrency_contexts_module_exists() {
         // Compile-time verification: the module and its key types are accessible
         // CommandSender is a type alias for Sender<RuntimeCommand> (0 generic params)
@@ -178,12 +181,12 @@ mod tests {
 
     /// @verifies C002-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn assert_types_are_send_sync() {
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         // CommandSender is Send + Sync since Sender<RuntimeCommand> is Send + Sync
         assert_send::<crate::concurrency_contexts::CommandSender>();
@@ -192,7 +195,7 @@ mod tests {
 
     /// @verifies C002-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn concurrency_module_has_channel_factory() {
         // new_command_channel returns (CommandSender, CommandReceiver) with 0 generic params
         let (_tx, _rx) = crate::concurrency_contexts::new_command_channel();
@@ -206,7 +209,7 @@ mod tests {
     /// @verifies C003-postcondition
     /// @verifies C003-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn priority_map_in_rfc_exists() -> Result<(), String> {
         let rfc = include_str!("../RFC-ROOT.md");
         assert!(rfc.contains("## 1a."), "RFC §1a priority map must exist");
@@ -227,7 +230,7 @@ mod tests {
     /// @verifies C004-precondition
     /// @verifies C004-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn doc_comment_lists_non_goals() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         // Check for exclusion keywords
@@ -250,7 +253,7 @@ mod tests {
 
     /// @verifies C004-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn no_tauri_dependency() -> Result<(), String> {
         let cargo = include_str!("../Cargo.toml");
         assert!(!cargo.contains("tauri"), "Crate must not depend on tauri");
@@ -264,7 +267,7 @@ mod tests {
     /// @verifies C005-precondition
     /// @verifies C005-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn domain_terms_defined_in_docs() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         let doc_lower = doc.to_lowercase();
@@ -286,7 +289,7 @@ mod tests {
     /// @verifies C006-postcondition
     /// @verifies C006-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn cargo_toml_has_correct_metadata() -> Result<(), String> {
         let cargo = include_str!("../Cargo.toml");
         assert!(cargo.contains("edition = \"2021\""), "Edition must be 2021");
@@ -303,8 +306,8 @@ mod tests {
 
     /// @verifies C006-postcondition
     #[test]
-// [::TICKET::] P0-3, P0-4 changes.
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4 changes.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn dependencies_empty_in_cargo_toml() -> Result<(), String> {
         // [::STUB::] P0-4: This test was originally written for P0-3 (zero deps).
         // P0-4 adds tokio as the first real dependency — assertion changed.
@@ -342,7 +345,7 @@ mod tests {
     /// @verifies C008-postcondition
     /// @verifies C008-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn crate_purpose_documented_in_lib_rs() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         assert!(doc.contains("siprs"), "Crate-level doc must name 'siprs'");
@@ -360,11 +363,16 @@ mod tests {
     /// @verifies C009-precondition
     /// @verifies C009-postcondition
     #[test]
-// [::TICKET::] P0-3, P0-4 changes.
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4 changes.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn all_declared_modules_exist_on_disk() {
         // Each pub mod must have a corresponding directory or file
-        for path in &["src/config", "src/concurrency_contexts", "src/api", "src/model"] {
+        for path in &[
+            "src/config",
+            "src/concurrency_contexts",
+            "src/api",
+            "src/model",
+        ] {
             assert!(
                 std::path::Path::new(path).exists(),
                 "Module path '{path}' must exist on disk"
@@ -374,7 +382,7 @@ mod tests {
 
     /// @verifies C009-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn no_non_existent_pub_mod_declarations() -> Result<(), String> {
         let lib = include_str!("../src/lib.rs");
         // Non-existent modules (ffi, runtime, audio, util) must not be declared as pub mod
@@ -395,7 +403,7 @@ mod tests {
     /// @verifies C044-precondition
     /// @verifies C044-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_file_exists() -> Result<(), String> {
         let candidates = [
             "src/state/shutdown_specification.rs",
@@ -416,7 +424,7 @@ mod tests {
     /// @verifies C047-precondition
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn observability_module_exists() -> Result<(), String> {
         let candidates = [
             "src/config/observability_metrics.rs",
@@ -429,7 +437,7 @@ mod tests {
 
     /// @verifies C047-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn feature_flags_documented_in_lib_rs() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         for flag in &["serde", "tls", "srtp"] {
@@ -449,7 +457,7 @@ mod tests {
     /// @verifies C048-postcondition
     /// @verifies C048-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn security_modules_exist() -> Result<(), String> {
         let auth_exists = std::path::Path::new("src/security/auth_jwt_middleware.rs").exists()
             || std::path::Path::new("../security/auth_jwt_middleware.rs").exists();
@@ -471,7 +479,7 @@ mod tests {
     /// @verifies C051-postcondition
     /// @verifies C051-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn rfc_has_audio_device_sections() -> Result<(), String> {
         let rfc = include_str!("../RFC-ROOT.md");
         assert!(
@@ -489,7 +497,7 @@ mod tests {
     /// @verifies C056-postcondition
     /// @verifies C056-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn panic_policy_file_exists() -> Result<(), String> {
         let candidates = [
             "src/error/challenges_panic_policy.rs",
@@ -508,7 +516,7 @@ mod tests {
     /// @verifies C059-postcondition
     /// @verifies C059-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn rfc_has_all_required_sections() -> Result<(), String> {
         let rfc = include_str!("../RFC-ROOT.md");
         let required = [
@@ -532,7 +540,7 @@ mod tests {
     /// @verifies C068-postcondition
     /// @verifies C068-invariant
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn rfc_has_io_boundary_section() -> Result<(), String> {
         let rfc = include_str!("../RFC-ROOT.md");
         assert!(
@@ -548,7 +556,7 @@ mod tests {
 
     /// @verifies C048-postcondition
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn forbid_unsafe_code_is_active() {
         // If #![forbid(unsafe_code)] is set, any unsafe block inside this test
         // would fail to compile. We use a compile-time check via doc-test:
@@ -557,7 +565,7 @@ mod tests {
 
     /// Verify that the doc-comment does not contain internal debugging artifacts.
     #[test]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn doc_comments_do_not_contain_debug_artifacts() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         // Exclude code blocks that might legitimately contain these
@@ -581,7 +589,7 @@ mod tests {
     /// Marked ignored by default because it spawns a subprocess.
     #[test]
     #[ignore]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn cargo_check_passes_integration() -> Result<(), String> {
         let output = std::process::Command::new("cargo")
             .args(["check", "-q"])
@@ -594,7 +602,7 @@ mod tests {
     /// Full test suite passes — requires `cargo test` in the crate root.
     #[test]
     #[ignore]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn cargo_test_passes_integration() -> Result<(), String> {
         let output = std::process::Command::new("cargo")
             .args(["test", "-q"])
@@ -607,7 +615,7 @@ mod tests {
     /// Build with no default features.
     #[test]
     #[ignore]
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn cargo_build_no_default_features() -> Result<(), String> {
         let output = std::process::Command::new("cargo")
             .args(["build", "--no-default-features", "-q"])
