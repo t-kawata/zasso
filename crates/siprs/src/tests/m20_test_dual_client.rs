@@ -142,7 +142,8 @@ mod tests {
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
 // [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
     #[allow(unreachable_code)]
-    // [::STUB::] P3-1: Replace todo!() when SipClient/SipAccountHandle exist (Public API ticket).
+    // [::STUB::] P3-2: SipClient/SipAccountHandle now exist (P3-1 done) but require async context for construction. Replace todo!() when runtime init (P3-2) provides async-free construction or test helpers.
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn dual_client_endpoint_struct_exists() {
         // Verify the DualClientEndpoint type is inhabited
         let _endpoint = DualClientEndpoint {

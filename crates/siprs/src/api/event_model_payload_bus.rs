@@ -38,6 +38,7 @@
 // [::STUB::] P0-7: Event types (SipEventPayload, SipEvent, EventMeta) are design-time
 // contracts. They trigger dead_code until the runtime module (P0-7) consumes them.
 #![allow(dead_code)]
+#![allow(private_interfaces)]
 
 use std::collections::BTreeMap;
 
@@ -57,7 +58,8 @@ pub(crate) type EventTimestamp = u64;
 
 /// Direction of the event relative to the local endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum EventDirection {
+// [::TICKET::] P3-1: Changed from pub(crate) to pub — EventMeta::direction is public.
+pub enum EventDirection {
     Incoming,
     Outgoing,
     Internal,
@@ -72,7 +74,8 @@ pub(crate) enum EventDirection {
 /// Provides fields specified by §15.3: event_id, timestamp, account_id, call_id,
 /// direction, headers, status_code, reason_phrase, logical_context.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct EventMeta {
+// [::TICKET::] P3-1: Changed from pub(crate) to pub — SipEvent::meta is public.
+pub struct EventMeta {
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     pub event_id: u64,
     pub timestamp: EventTimestamp,
@@ -95,7 +98,8 @@ pub(crate) struct EventMeta {
 /// releases is not a breaking change for downstream consumers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub(crate) enum SipEventPayload {
+// [::TICKET::] P3-1: Changed from pub(crate) to pub — SipEvent::payload is public.
+pub enum SipEventPayload {
 // [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // ── Registration ──
@@ -127,6 +131,8 @@ pub(crate) enum SipEventPayload {
     MediaError,
 
     // ── DTMF ──
+    // [::TICKET::] P3-1: DtmfSentInfo is pub(crate) — once promoted to pub the warning resolves.
+    #[allow(private_interfaces)]
     DtmfSent(crate::api::m20_dtmfsent_twophase::DtmfSentInfo),
     DtmfReceived,
 
@@ -162,7 +168,8 @@ pub(crate) enum SipEventPayload {
 /// Every event published through `EventBus` is wrapped in this struct so that
 /// consumers can inspect common metadata without matching the payload variant.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SipEvent {
+/// [::TICKET::] P3-1: Changed from pub(crate) to pub — SipClient::subscribe() returns this type.
+pub struct SipEvent {
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     pub meta: EventMeta,
     pub payload: SipEventPayload,
@@ -183,6 +190,7 @@ mod tests {
     /// @verifies C020-precondition
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_event_payload_is_debug_and_clone() {
         // Assert: SipEventPayload implements Debug + Clone at compile time
         // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.

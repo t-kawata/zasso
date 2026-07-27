@@ -21,6 +21,10 @@
 //     (part_of ← src/config/mod.rs)
 //   - config/§10 ClientConfig Full Specification [NODE_ID=N0013]
 //     (depends_on ← src/config/mod.rs)
+//   - config/§11 AccountConfig Full Specification [NODE_ID=N0014]
+//     (depends_on ← src/config/mod.rs)
+//   - config/§12 TransportConfig & §13 ICE/STUN/TURN Spec [NODE_ID=N0015]
+//     (depends_on ← src/config/mod.rs)
 //   - config/§28 Build Strategy & OS Dependencies [NODE_ID=N0039]
 //     (depends_on ← src/config/mod.rs)
 //
@@ -42,3 +46,16 @@ pub mod client_config_spec;
 // [::TICKET::] P2-2: Semver/SIP networking — versioning extension & SIP network data contracts.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 pub mod semver_sip_networking;
+// [::TICKET::] P3-1: AccountConfig — SIP account settings with validation rules (§11).
+pub mod account_config_spec;
+// [::TICKET::] P3-1: TransportConfig & ICE/STUN/TURN — transport protocol configs (§12–§13).
+pub mod transport_ice_spec;
+
+// Re-exports for crate-root convenience
+pub use client_config_spec::ClientConfig;
+pub use account_config_spec::{AccountConfig, AccountConfigPatch, AccountCodecPolicy, OpusConfig,
+    DtmfPolicy, DtmfMethod, AccountMediaConfig, AccountTransportPolicy};
+pub use transport_ice_spec::{TransportConfig, TransportKind, UdpTransportConfig, TcpTransportConfig,
+    IceConfig, StunServerConfig, TurnServerConfig, SrtpPolicy, AuthOverride};
+#[cfg(feature = "tls")]
+pub use transport_ice_spec::{TlsTransportConfig, TlsConfig};

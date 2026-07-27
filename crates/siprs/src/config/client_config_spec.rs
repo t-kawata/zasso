@@ -41,12 +41,12 @@
 //!
 //! Stub definitions are provided here to allow compilation until those tickets land.
 
+use std::net::SocketAddr;
 use std::time::Duration;
 
 // ---------------------------------------------------------------------------
-// Forward-declared type stubs — resolved by P2-2 (audio types) and P2-3
-// (transport/ICE types). These minimal definitions exist solely to enable
-// compilation of ClientConfig; they will be replaced by full implementations.
+// Forward-declared type stubs — resolved by P4-3 (audio types).
+// Transport/ICE types are now provided by transport_ice_spec.rs (§12–§13).
 // ---------------------------------------------------------------------------
 
 // [::STUB::] P4-3: Replace with real AudioFormat model. SampleRate, BitDepth,
@@ -80,25 +80,9 @@ pub struct AudioFormat {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResamplerQuality { Low, Medium, High, VeryHigh }
 
-// [::STUB::] P2-3: TransportConfig placeholder — resolves N0015 (§12).
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TransportConfig { /* fields defined in P2-3 */ }
-
-// [::STUB::] P2-3: StunServerConfig placeholder — resolves N0015 (§13).
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct StunServerConfig { /* fields defined in P2-3 */ }
-
-// [::STUB::] P2-3: TurnServerConfig placeholder — resolves N0015 (§13).
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TurnServerConfig { /* fields defined in P2-3 */ }
-
-// [::STUB::] P2-3: IceConfig placeholder — resolves N0015 (§13).
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct IceConfig { /* fields defined in P2-3 */ }
+// [::TICKET::] P3-1: Import transport/ICE types from transport_ice_spec.rs.
+// These were previously forward-declared as stubs in this file (P2-3).
+use super::transport_ice_spec::{TransportConfig, IceConfig, StunServerConfig, TurnServerConfig};
 
 // ---------------------------------------------------------------------------
 // LogLevel — ordering: Error < Warn < Info < Debug < Trace
@@ -310,7 +294,7 @@ impl Default for ClientAudioConfig {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P3-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             user_agent: DEFAULT_USER_AGENT.to_string(),
@@ -320,12 +304,17 @@ impl Default for ClientConfig {
             raw_sip_event_capacity: DEFAULT_RAW_SIP_EVENT_CAPACITY,
             audio: ClientAudioConfig::default(),
             transports: vec![
-                TransportConfig {},  // [::STUB::] P2-3: Replace with TransportConfig::udp(5060)
-                TransportConfig {},  // [::STUB::] P2-3: Replace with TransportConfig::tcp(5060)
+                // [::TICKET::] P3-1: Resolved — real TransportConfig enum.
+                TransportConfig::Udp(crate::config::transport_ice_spec::UdpTransportConfig::new(
+                    SocketAddr::from(([0, 0, 0, 0], 5060)),
+                )),
+                TransportConfig::Tcp(crate::config::transport_ice_spec::TcpTransportConfig::new(
+                    SocketAddr::from(([0, 0, 0, 0], 5060)),
+                )),
             ],
             stun_servers: vec![],
             turn_servers: vec![],
-            ice: IceConfig {},  // [::STUB::] P2-3: Replace with IceConfig::default()
+            ice: IceConfig::default(),  // [::TICKET::] P3-1: Resolved — real IceConfig.
             raw_sip_events: RawSipEventConfig::default(),
             timeouts: TimeoutConfig::default(),
         }

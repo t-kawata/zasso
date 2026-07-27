@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -115,6 +116,19 @@ pub mod state;
 // [::TICKET::] P2-1: Re-export ClientConfig at crate root for user convenience.
 pub use config::client_config_spec::ClientConfig;
 
+// [::TICKET::] P3-1: Re-export Public API types at crate root.
+// §8 Public API
+pub use api::{SipClient, SipAccountHandle, RegistrationState, Codec,
+    OutgoingCallRequest, CallMediaPreferences};
+// §11 AccountConfig
+pub use config::{AccountConfig, AccountConfigPatch, AccountCodecPolicy, OpusConfig,
+    DtmfPolicy, DtmfMethod, AccountMediaConfig, AccountTransportPolicy};
+// §12 TransportConfig & §13 ICE/STUN/TURN
+pub use config::{TransportConfig, TransportKind, IceConfig, StunServerConfig, TurnServerConfig,
+    SrtpPolicy};
+#[cfg(feature = "tls")]
+pub use config::{TlsTransportConfig, TlsConfig};
+
 // ============================================================================
 // Tests — P0-3: Crate Purpose & Scope Definition
 // ============================================================================
@@ -132,6 +146,7 @@ mod tests {
     /// @verifies C001-invariant
     #[test]
     // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn doc_comment_contains_purpose_pillars() -> Result<(), String> {
         let doc = include_str!("../src/lib.rs");
         let doc_lower = doc.to_lowercase();
