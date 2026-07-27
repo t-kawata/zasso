@@ -41,7 +41,7 @@ Located under `.claude/scripts/tickets/`.
 
 ### Step 1: Run cargo check / cargo test and capture warnings and errors
 
-Run `cargo check` and `cargo test` with the directory specified in the argument as the current directory, and capture all warnings and errors.
+Run `cargo check` and `cargo test` in the current directory, and capture all warnings and errors.
 
 ```bash
 cargo check 2>&1
@@ -63,7 +63,7 @@ Resolve all captured warnings and errors. Resolution methods:
 
 ### Step 3: List stubs (directory-scoped)
 
-Pass the directory specified in the argument to `find-all-stubs.js` to list only stubs under that directory.
+Pass the current directory to `find-all-stubs.js` to list only stubs under the current directory.
 
 ```bash
 node .claude/scripts/tickets/review/find-all-stubs.js "."
@@ -73,7 +73,7 @@ Parse the output and verify whether each stub's `[::STUB::]` marker specifies a 
 
 ### Step 4: Register unresolved stubs as crimes
 
-For stubs under the specified directory that should have been resolved by past tickets but remain unresolved, register all of them as crimes via `malfeasance-create.js`. Crimes are recorded in the target directory's `Malfeasance.json`, so `cd` into it before executing.
+For stubs under the current directory that should have been resolved by past tickets but remain unresolved, register all of them as crimes via `malfeasance-create.js`. Crimes are recorded in the current directory's `Malfeasance.json`, so ensure the working directory is correct before executing.
 
 ```bash
 node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
@@ -96,7 +96,7 @@ For stubs that do not specify a resolution in a subsequent ticket, take the foll
 
 ### Step 6: List crimes (directory-scoped)
 
-Pass the directory specified in the argument to `scan-crimes.sh` to list only crimes under that directory.
+Pass the current directory to `scan-crimes.sh` to list only crimes under the current directory.
 
 ```bash
 .claude/scripts/tickets/scan-crimes.sh "."
@@ -126,8 +126,8 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 After resolution, re-run compilation and tests to confirm everything passes.
 
 ```bash
-cargo check 2>2>&1)1
-cargo test 2>2>&1)1
+cargo check 2>&1
+cargo test 2>&1
 ```
 
 Once verified, present a summary of the resolved items and report to the user.
