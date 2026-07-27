@@ -91,6 +91,8 @@ pub(crate) struct ClientInner {
     pub(crate) _events_tx: tokio::sync::broadcast::Sender<()>,
     pub(crate) _events_rx: tokio::sync::broadcast::Receiver<()>,
     /// Internal mutable client state protected by a read-write lock.
+    // [::STUB::] P3-2: ClientState is a placeholder — suppressed until real runtime reads it.
+    #[allow(dead_code)]
     pub(crate) state: RwLock<ClientState>,
     /// Shutdown signal sender — closing this triggers graceful shutdown.
     pub(crate) _shutdown: tokio::sync::watch::Sender<bool>,
@@ -118,6 +120,8 @@ pub(crate) struct ClientInner {
 /// `Arc` and all internal state is protected by `RwLock` or message channels.
 #[derive(Debug, Clone)]
 pub struct SipClient {
+    // [::STUB::] P3-2: inner is consumed by dispatch methods once runtime exists.
+    #[allow(dead_code)]
     inner: Arc<ClientInner>,
 }
 

@@ -60,7 +60,7 @@ impl AccountId {
     /// # Examples
     ///
     /// ```
-    /// # use siprs_crate::model::id_design_newtype::AccountId;
+    /// # use siprs::model::id_design_newtype::AccountId;
     /// let id = AccountId::from_u64(42).expect("non-zero value");
     /// assert_eq!(id.get(), 42);
     /// ```
