@@ -258,7 +258,7 @@ mod tests {
 
     /// @verifies C047-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn client_capabilities_constructable_with_all_fields() {
         let caps = ClientCapabilities {
             max_calls: 10,
@@ -292,15 +292,21 @@ mod tests {
 
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn client_capabilities_new_constructor() {
         let caps = ClientCapabilities::new(
-            5, 1,
+            5,
+            1,
             vec![TransportKind::Tcp],
-            false, None, false,
+            false,
+            None,
+            false,
             vec![DtmfMethod::Info],
-            false, false, false,
-            64, false,
+            false,
+            false,
+            false,
+            64,
+            false,
         );
         assert_eq!(caps.max_calls, 5);
         assert_eq!(caps.max_accounts, 1);
@@ -313,7 +319,7 @@ mod tests {
 
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn transport_kind_variants() {
         assert_eq!(format!("{:?}", TransportKind::Udp), "Udp");
         assert_eq!(format!("{:?}", TransportKind::Tcp), "Tcp");
@@ -322,7 +328,7 @@ mod tests {
 
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_method_variants() {
         assert_eq!(format!("{:?}", DtmfMethod::Rfc2833), "Rfc2833");
         assert_eq!(format!("{:?}", DtmfMethod::Info), "Info");
@@ -337,7 +343,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_new_is_zero() {
             let counter = MetricsCounter::new();
             assert_eq!(counter.get(), 0);
@@ -345,7 +351,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_increment() {
             let counter = MetricsCounter::new();
             counter.increment();
@@ -356,7 +362,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_increment_by() {
             let counter = MetricsCounter::new();
             counter.increment_by(5);
@@ -365,7 +371,7 @@ mod tests {
 
         /// @verifies C047-invariant
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_saturates_at_max() {
             let counter = MetricsCounter::new();
             counter.increment_by(u64::MAX);
@@ -375,7 +381,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_increment_by_zero() {
             let counter = MetricsCounter::new();
             counter.increment_by(0); // no-op
@@ -384,7 +390,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_counter_default() {
             let counter = MetricsCounter::default();
             assert_eq!(counter.get(), 0);
@@ -392,7 +398,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_gauge_new_and_get() {
             let gauge = MetricsGauge::new(42);
             assert_eq!(gauge.get(), 42);
@@ -400,7 +406,7 @@ mod tests {
 
         /// @verifies C047-postcondition
         #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
         fn metrics_gauge_set() {
             let gauge = MetricsGauge::new(0);
             gauge.set(100);
@@ -413,7 +419,7 @@ mod tests {
     #[cfg(feature = "serde")]
     /// @verifies C047-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn client_capabilities_serde_roundtrip() {
         let caps = ClientCapabilities {
             max_calls: 3,
@@ -440,7 +446,7 @@ mod tests {
 
     /// @verifies C047-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn client_capabilities_zero_calls() {
         let caps = ClientCapabilities {
             max_calls: 0,
@@ -462,7 +468,7 @@ mod tests {
 
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn client_capabilities_clone() {
         let caps_a = ClientCapabilities {
             max_calls: 10,
@@ -484,7 +490,7 @@ mod tests {
 
     /// @verifies C047-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn tracing_instrument_attribute_present_in_source() {
         let source = include_str!("../config/observability_metrics.rs");
         assert!(

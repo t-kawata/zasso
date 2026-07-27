@@ -310,21 +310,21 @@ mod tests {
 
     /// @verifies C017-precondition
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn sip_error_full_construction() {
         let err = SipError {
             kind: SipErrorKind::InviteFailed,
             message: "403 Forbidden".into(),
             native_status: Some(403),
-            account_id: Some(42),
-            call_id: Some(7),
+            account_id: Some(AccountId::from_u64(42).unwrap()),
+            call_id: Some(CallId::from_u64(7).unwrap()),
             retryable: false,
         };
         assert_eq!(err.kind, SipErrorKind::InviteFailed);
         assert_eq!(err.message, "403 Forbidden");
         assert_eq!(err.native_status, Some(403));
-        assert_eq!(err.account_id, Some(42));
-        assert_eq!(err.call_id, Some(7));
+        assert_eq!(err.account_id, Some(AccountId::from_u64(42).unwrap()));
+        assert_eq!(err.call_id, Some(CallId::from_u64(7).unwrap()));
         assert!(!err.retryable);
     }
 

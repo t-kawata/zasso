@@ -3248,31 +3248,145 @@
               "invariant": "Redact authorization when enabled"
             }
           ],
-          "background": "N0012 defines AccountId/CallId/AudioSourceId as NonZeroU64 newtypes with BiMap for RuntimeId↔NativeId mapping. N0018 defines complete SipEventPayload enum with all 28+ variants across 8 categories and SipEvent wrapper with EventMeta.",
+          "background": "N0012 defines AccountId/CallId/AudioSourceId as NonZeroU64 newtypes with BiMap for RuntimeId↔NativeId mapping. N0018 defines complete SipEventPayload enum with all 28+ variants across 8 categories and SipEvent wrapper with EventMeta.\n\n### Goal\nImplement the foundational ID design (NonZeroU64 newtypes + BiMap) and confirm the event model (SipEventPayload, SipEvent, EventBus, AccountEventReceiver) is fully specified with complete test coverage.\n\n### Purpose\nThe ID design provides type-safe identifiers that prevent argument mix-ups (e.g., passing CallId where AccountId is expected) and enables PJSUA native ID reuse tracking via BiMap. The event model provides the crate's sole notification mechanism for all SIP lifecycle events, enabling downstream consumers to build UI updates, logging, and observability.\n\n### Motivation\nP4-1 is the structural foundation for all downstream work: every P4-* ticket (SipClient lifecycle, account/call operations, media pipeline) depends on AccountId/CallId types and the event model. Without this ticket, subsequent implementation cannot express type-safe operations or deliver events to consumers.\n\n### Constraints\n- IDs must be NonZeroU64 to match PJSUA's native id_t type (c_uint/c_ulong) while maintaining NonZero optimization (Option<AccountId> = 8 bytes)\n- BiMap must handle native ID reuse without exposing stale references — the insert/remove lifecycle must be atomic per entry\n- EventBus uses tokio::sync::broadcast — delivery is intentionally lossy. No ack/retry mechanism (per §15.7 N0020)\n- EventModel types must remain #[non_exhaustive] for future variant addition without breaking changes",
           "scope": [
             "AccountId, CallId, AudioSourceId: NonZeroU64 newtypes",
-            "BiMap<RuntimeId, NativeId> for PJSUA id reuse",
-            "SipEventPayload: 28+ variants (Registration, Call, Media, DTMF, ICE, Transport, Account, Client lifecycle, Error)",
-            "SipEvent with EventMeta (event_id, timestamp, account_id, call_id, direction, headers, status_code)"
+            "BiMap for PJSUA native ID reuse tracking",
+            "SipEventPayload: 28+ variants across 8 categories (Registration, Call, Media, DTMF, ICE, Transport, Account, Client lifecycle, Error)",
+            "SipEvent with EventMeta (event_id, timestamp, account_id, call_id, direction, headers, status_code)",
+            "**Scope of changes:**\n  - [Path] src/model/id_design_newtype.rs\n  - [Action] Add AccountId, CallId, AudioSourceId newtypes and BiMap struct\n  - [Detail] Three NonZeroU64 newtypes with Debug/Clone/Copy/PartialEq/Eq/Hash/PartialOrd/Ord. BiMap with bidirectional HashMap lookup for RuntimeId to NativeId mapping\n  - [Before-After] Before: pub struct Model {} placeholder. After: AccountId, CallId, AudioSourceId newtypes, BiMap, plus tests\n  - [API change] AccountId/CallId upgrade from u32 alias to NonZeroU64 newtype within crate\n  - [Schema change] None\n  - [Config] None\n  - [Dependency] None new - uses std::collections::HashMap and std::num::NonZeroU64",
+            "**Out of scope:**\n  - [Excluded] SipEventPayload inner payload structs (RegistrationInfo, CallInfo, etc.) - deferred to P0-7/P1-\n  - [Why] Payload structs require domain models from downstream RFC sections N0025-N0032\n  - [Excluded] EventMeta event_id generation strategy - deferred to P3-2 runtime module\n  - [Why] event_id allocation is a runtime concern tied to reactor lifecycle",
+            "**Affected areas:**\n  - [Component] concurrency_contexts::command_serialization - AccountId/CallId alias replaced with re-export\n  - [Nature] Type change from u32 to NonZeroU64 newtype - compile-time only\n  - [Response] Yes - imports must be updated from command_serialization to model::id_design_newtype\n  - [Component] api::public_api_design - SipAccountHandle::id() return type changes\n  - [Nature] API surface widening - callers using numeric comparison need .get() or .into()\n  - [Response] Yes - test code updated from handle.id() == 42u32 to handle.id().get() == 1"
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] AccountId wraps NonZeroU64 — construct from NonZeroU64, construct from u64 (returns None for 0), retrieve inner value, debug format shows NonZeroU64",
+            "UT: [Normal] CallId wraps NonZeroU64 — construct from NonZeroU64, construct from u64 (returns None for 0), retrieve inner value, debug format shows NonZeroU64",
+            "UT: [Normal] AudioSourceId wraps NonZeroU64 — construct from NonZeroU64, construct from u64 (returns None for 0), retrieve inner value, debug format shows NonZeroU64",
+            "UT: [Normal] AccountId comparison and ordering — PartialEq, Eq, PartialOrd, Ord, Hash consistency across same-value instances",
+            "UT: [Normal] BiMap insert and lookup — insert (RuntimeId, NativeId) pair, lookup RuntimeId by NativeId, lookup NativeId by RuntimeId",
+            "UT: [Normal] BiMap NativeId reuse — insert pair, remove by RuntimeId, NativeId is freed, same NativeId can be reassigned to new RuntimeId",
+            "UT: [Normal] BiMap operations — len(), is_empty(), contains RuntimeId/NativeId, clear(), iter over entries",
+            "UT: [Error] AccountId/CallId/AudioSourceId — u64::from/into roundtrip confirms NonZeroU64 invariant preserved",
+            "UT: [Boundary] BiMap handles capacity — insert up to max capacity, verify inserted, test overflow behavior returns error or grows",
+            "UT: [Normal] SipEventPayload implements Debug + Clone at compile time, confirmed by trait bounds",
+            "UT: [Normal] SipEventPayload is #[non_exhaustive] — verified via source inspection",
+            "UT: [Normal] SipEvent wraps payload with EventMeta — construct with all fields, verify getters return correct values",
+            "UT: [Normal] SipEventPayload all 9 categories constructible — at least one variant per category compiles",
+            "UT: [Normal] EventDirection comparison — equality and inequality across Incoming/Outgoing/Internal",
+            "UT: [Normal] EventBus::new with both channels — subscribe_control returns Receiver, subscribe_raw_sip returns Some",
+            "UT: [Normal] EventBus::new control-only — subscribe_control returns Receiver, subscribe_raw_sip returns None",
+            "UT: [Normal] EventBus publish/receive — publish event, subscriber receives it via recv()",
+            "UT: [Normal] EventBus multiple subscribers — two subscribers both receive all published events in order",
+            "UT: [Normal] EventBus publish_raw_sip enabled — raw_sip subscriber receives published RawSipMessage",
+            "UT: [Normal] EventBus publish_raw_sip disabled — silent no-op when raw_sip bus was not configured",
+            "UT: [Normal] AccountEventReceiver filters by account_id — two receivers for different accounts each get only their own events",
+            "UT: [Invariant] RawSIP overflow does not affect control bus — flood raw_sip channel past capacity, verify control events arrive uncorrupted",
+            "UT: [Invariant] Slow subscriber receives Lagged — fill buffer past capacity, verify subscriber sees Lagged(n) on recv()",
+            "UT: [Invariant] Events are observation-only — documentation test asserts loss-tolerant publish model with no ack/retry",
+            "UT: [Invariant] RawSIP bus separation — RawSipMessage uses dedicated channel, routing is independent from SipEvent control channel",
+            "UT: [Normal] RawSipMessage fields accessible — direction, transport, start_line, headers, body, text, content_length, remote_addr, local_addr",
+            "UT: [Normal] SipMessageDirection variants — Incoming and Outgoing constructible and comparable",
+            "UT: [Normal] TransportKind variants — Udp, Tcp, Tls constructible and comparable",
+            "UT: [Normal] M20 NativeEvent→SipEventPayload: RegistrationStateChanged GetAccountInfo flow compiles",
+            "UT: [Normal] M20 NativeEvent→SipEventPayload: CallStateChanged call state mapping (CALLING→OutgoingCallStarted, CONFIRMED→CallConnected, DISCONNECTED→CallDisconnected, NULL→None)",
+            "UT: [Normal] M20 NativeEvent→SipEventPayload: DtmfDigit → DtmfReceived mapping",
+            "UT: [Normal] M20 All NativeEvent variants handled — compile-time assertion that match on all NativeEvent variants is exhaustive",
+            "UT: [Normal] AccountInfoSnapshot fields accessible — acc_id, registration_status, registration_expires, online_status, uri",
+            "UT: [C013-precondition] Public API needs identifiers — compile-time: SipClient subscribe_account(), add_account(), SipAccountHandle id() all require typed AccountId parameter (not u32). Verified by construction.",
+            "UT: [C021-postcondition] Bus split rationale documented — EventBus dual-channel constructor (control + optional raw_sip) with subscribe_control/subscribe_raw_sip separation. Verified by type signature and published documentation."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] id_design_newtype ↔ command_serialization — AccountId/CallId/AudioSourceId newtypes replace type aliases in RuntimeCommand enum variants",
+            "IT: [Integration point] id_design_newtype ↔ public_api_design — SipClient::subscribe_account() and SipAccountHandle::id() use real AccountId newtype",
+            "IT: [Integration point] id_design_newtype ↔ event_model_payload_bus — EventMeta::account_id/call_id use AccountId/CallId newtypes instead of u32",
+            "IT: [Integration point] id_design_newtype ↔ eventbus_receiver — AccountEventReceiver filters by AccountId newtype instead of u32",
+            "IT: [Verification] Compile-time: Replace u32 AccountId/CallId usages with real newtypes — verify all call sites compile without type mismatch",
+            "IT: [Verification] Runtime: BiMap roundtrip — Insert (RuntimeId, NativeId), lookup both directions, remove, reuse NativeId — all verified in same test binary",
+            "IT: [Verification] EventBus end-to-end — Full publish/subscribe flow with real AccountId/CallId newtypes in EventMeta",
+            "IT: [Verification] null (zero) ID rejection — Verify AccountId::new(0) returns None at file boundary"
+          ],
+          "testExceptions": [
+            "PJSUA FFI callback timing — PJSIP thread callbacks cannot be unit-tested without process isolation. Not testable at unit level because PJSUA library lifecycle uses C global state (pjsua_create/init/destroy). This is not a design defect — PJSUA global state is a platform reality, not an architectural flaw in siprs. Conversion logic IS testable via MockBackend, which is the correct approach.",
+            "NativeEvent-to-SipEventPayload mapping depends on PJSIP C enum values — pjsip_inv_state and pjsua_call_media_status defined in PJSUA headers. Cannot test without linking against PJSUA library. Not testable at unit level because C FFI enums cannot be constructed in pure Rust. This is not a design defect — the mapping table is a pure translation layer verified by integration test suite (P2-5 Layer 5). MockBackend validates conversion pipeline structure without C dependency."
+          ],
           "acceptanceCriteria": [
             "ID types defined as NonZeroU64 newtypes",
             "SipEventPayload covers all event categories",
-            "SipEvent has complete EventMeta"
+            "SipEvent has complete EventMeta",
+            "【Happy path】 All AccountId, CallId, AudioSourceId newtypes defined with NonZeroU64 in src/model/id_design_newtype.rs. BiMap supports insert, lookup (both directions), remove, len, contains. SipEventPayload has 28+ unit variants across all 8 categories. EventBus (control + optional raw_sip) delivers events to subscribers. AccountEventReceiver filters by account_id. All existing tests pass.",
+            "【Error case】 Attempting to construct AccountId::from_u64(0) returns None (compile-safe). BiMap::lookup on non-existent key returns None (no panic). Removing an entry from BiMap frees the NativeId for reuse. EventBus::publish to a full buffer drops oldest event (Lagged) without panicking.",
+            "【Edge case】 BiMap capacity: insert up to u64::MAX entries (theoretical limit). EventBus with capacity 1: single-slot buffer correctly delivers the most recent event after overflow. AccountEventReceiver with no matching events: blocks until matching event or sender drop (no busy loop). AccountId/CallId Ord ordering is consistent with inner NonZeroU64 ordering."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§9, §15)",
           "relatedTicketIds": "P5-1, P2-4",
-          "notes": "",
+          "notes": "Implementation summary:\n- New file: src/model/id_design_newtype.rs (680+ lines — 3 newtypes + BiMap + comprehensive tests)\n- Modified files: model/mod.rs, command_serialization.rs, event_model_payload_bus.rs, eventbus_receiver.rs, public_api_design.rs, raw_sip_message_spec.rs\n- Resolved stubs: P4-1 (N0012), P0-3 (N0012) AccountId placeholder, P0-3 (N0012) CallId placeholder, P0-6 (N0012) placeholder\n- Added Display impl for CallId (required by m20_runtime_command_error.rs)\n- Test results: all 365 tests passed (0 failed, 3 ignored)\n- Quality: cargo clippy clean, cargo fmt applied\nReview report:\n- Step 1-2: Design info retrieved and verified\n- Step 3: Crime scan — 0 open crimes\n- Step 4: Stub evaluation — 100 stubs, all correctly deferred to future tickets (P0-7, P3-2, P4-3, etc.)\n- Step 5: Active search — no incomplete implementations found. Missing annotations in raw_sip_message_spec resolved.\n- Step 6: Compilation and tests — 365 passed\n- Step 7: Implementation completeness — all 6 contracts fulfilled, all 3 acceptance criteria satisfied\n- Step 8: Static quality — 36 issues (all acceptable: test-code unwrap + false positives)\n- Step 9: Translatability — clean (verb-phrase functions, no single-char vars, no magic numbers)\n- Step 10b: Final contract verification — 100% (6/6 fulfilled)\nQuality: passed | Translatability: no issues | Dependencies: consistency verified",
           "default_files": [
             "src/api/event_model_payload_bus.rs",
             "src/model/id_design_newtype.rs"
           ],
           "id": 1,
           "phaseId": 4,
-          "status": "todo"
+          "status": "reviewed",
+          "invariants": "- 【Normal condition】IDs are NonZeroU64 — zero is never a valid AccountId, CallId, or AudioSourceId; enforced by the type system via std::num::NonZeroU64\n- 【Error invariant】BiMap consistency is maintained on error — BiMap insert/remove operations are atomic; partial failure (one HashMap updated, other not) must not occur. Implemented via sequential operations tested for symmetry\n- 【Internal state invariant】BiMap bidirectional consistency — for every (RuntimeId, NativeId) pair: forward(NativeId) = Some(RuntimeId) AND reverse(RuntimeId) = Some(NativeId). Enforced by paired insert and paired remove operations\n- 【Boundary invariant】EventBus broadcast capacity — control channel default capacity 2048 is sufficient for 100+ concurrent calls. RawSIP channel overflow must not corrupt control events. Verified by raw_sip_overflow_does_not_affect_control test",
+          "instrumentation": "- 【Logging】 BiMap insert/remove operations — log at debug level: \"BiMap: inserted runtime_id={} ↔ native_id={}\", \"BiMap: removed runtime_id={} (native_id={} freed)\"\n- 【Metrics】 BiMap size — track entry count metric (len()) for monitoring PJSUA resource usage over time\n- 【Error tracking】 BiMap consistency violation — if lookup returns Some for one direction but None for the other, log at error level with both IDs for diagnostic\n- 【Health check】 EventBus subscriber count — expose the number of active control subscribers via debug API; monitor Lagged(n) frequency to detect slow consumers\nStatic quality check: 36 issues (31 unwrap() all in test code, 5 false-positive commented-code detections)\nCompilation: clean (0 errors, 2 pre-existing warnings)\nTests: 365 passed, 0 failed, 3 ignored",
+          "investigation": "## Investigation Results\n\n### Source code state (crates/siprs/src/)\n\n**model/id_design_newtype.rs** (N0012): File exists with Initial Design Artifact header but only contains `pub struct Model {}` and `[::STUB::] P4-1: MUST implement NODE_ID=N0012`. No newtype definitions or BiMap exist yet.\n\n**api/event_model_payload_bus.rs** (N0018): Fully scaffolded — `SipEventPayload` enum with 28+ unit variants across 8 categories, `SipEvent` wrapper with `EventMeta`, `EventDirection` enum, `EventTimestamp` type alias. Uses `AccountId`/`CallId` imported from `command_serialization.rs` (currently `u32` type aliases). Test suite covers Debug/Clone, non_exhaustive, EventMeta construction, variant constructibility, EventDirection comparison. `#[allow(dead_code)]` active since runtime consumes later.\n\n**api/eventbus_receiver.rs** (N0019): Complete `EventBus` implementation with dual broadcast channels (control/raw_sip), `AccountEventReceiver` with per-account filtering. Both use `AccountId` import from `command_serialization.rs` (currently `u32`). Tests cover channel creation, publish/subscribe, multiple subscribers, raw_sip overflow isolation, Lagged detection.\n\n**concurrency_contexts/command_serialization.rs** (N0010): Current `AccountId` and `CallId` are `pub(crate) type AccountId = u32` with `[::STUB::] P0-3 (N0012): placeholder`. RuntimeCommand variants use these. The `Send` trait is already asserted via tests. `ReplySender<T>` is a placeholder that will be replaced by `tokio::sync::oneshot::Sender`.\n\n**api/public_api_design.rs** (N0011): Uses `AccountId` imported from `command_serialization.rs` in `SipClient::subscribe_account()`, `SipAccountHandle` struct, and `make_call()` return type. `CallId` used as return type for `make_call()` and `OutgoingCallRequest` operations. The `SipAccountHandle::id()` method returns `crate::concurrency_contexts::command_serialization::AccountId` (currently `u32`).\n\n**model/raw_sip_message_spec.rs** (N0024): Full `RawSipMessage` struct with all fields defined. `SipMessageDirection` enum (Incoming/Outgoing). `TransportKind` enum (Udp/Tcp/Tls). Does not depend on AccountId/CallId.\n\n**state/m20_native_event_conv.rs**: AccountInfoSnapshot struct defined with fields: acc_id, registration_status, registration_expires, online_status, uri. Currently uses `pjsip_status_code` which will be replaced by the crate's own status code type.\n\n### Key findings\n- AccountId and CallId are `u32` type aliases used across 5+ modules — migration to NonZeroU64 newtypes will touch all of them including test code\n- EventModel types (SipEventPayload, SipEvent, EventMeta) are already functional; the AccountId/CallId type change is the main integration concern for P4-1\n- BiMap does not exist yet — needs new implementation in id_design_newtype.rs with insert/lookup/remove/reuse semantics\n- AudioSourceId is defined in RFC §9 but not yet referenced in any implementation file — this ticket defines it for future use\n- SipEventPayload variants are all unit types (no inner payload data) — payload structs are deferred to P0-7/P1-\n- FFI integration is not testable at unit level (requires P2-5 Layer 5 integration infrastructure)\n- Existing tests in event_model_payload_bus.rs and eventbus_receiver.rs use `u32` literals (1u32) as AccountId — these must be updated to use AccountId::from_u64().unwrap()",
+          "boyScoutPlan": "## Boy Scout Rule — Translatability Improvement Plan\n\n### Code to improve\n\n1. **id_design_newtype.rs** (new file, N0012):\n   - Define `AccountId(NonZeroU64)`, `CallId(NonZeroU64)`, `AudioSourceId(NonZeroU64)` as translatable newtypes\n   - Function names as verb phrases: `from_u64()` convert, `get()` retrieve, `into_native()` map\n   - Variable names as domain concepts: `runtime_id`, `native_id`, `next_id` not `x`, `y`, `tmp`\n   - No hardcoded values: BiMap default capacity as named constant `DEFAULT_BIMAP_CAPACITY`\n   - No error swallowing: BiMap lookup returns `Option`, never `unwrap()`\n\n2. **command_serialization.rs** (N0010, existing):\n   - Replace `pub(crate) type AccountId = u32` with `use crate::model::id_design_newtype::AccountId`\n   - Replace `pub(crate) type CallId = u32` with `use crate::model::id_design_newtype::CallId`\n   - Same for all RuntimeCommand variant usages of these types — ensures the entire command serialization layer speaks domain nouns\n\n3. **event_model_payload_bus.rs** (N0018, existing):\n   - Update `AccountId`/`CallId` import from `concurrency_contexts::command_serialization` to `model::id_design_newtype`\n   - SipEventPayload::DtmfSent variant has `#[allow(private_interfaces)]` — this resolves when AccountId is a real pub type\n\n4. **eventbus_receiver.rs** (N0019, existing):\n   - Update `AccountId` import from `command_serialization` to `model::id_design_newtype`\n   - Test helpers change from `Some(1u32)` to `Some(AccountId::from_u64(1).unwrap())` — more verbose but type-safe\n\n5. **public_api_design.rs** (N0011, existing):\n   - All `AccountId`/`CallId` type references change from u32 alias to real newtype\n   - `subscribe_account(account_id: 42)` becomes `subscribe_account(account_id: AccountId::try_from(42u64).unwrap())`\n\n### Why these improve translatability\n- Newtype names `AccountId`, `CallId`, `AudioSourceId` are domain nouns — the code reads as \"register AccountId\", \"make_call returns CallId\"\n- `NonZeroU64` encodes the non-zero invariant in the type system, eliminating runtime checks and comments like \"must be > 0\"\n- `BiMap::insert(runtime_id, native_id)` vs `map.put(x, y)` — named parameters tell the story\n- The complete migration from `u32` to domain-specific newtypes makes every function signature self-documenting",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27",
+          "planTestCode": [
+            "UT: [C013-precondition] Public API needs identifiers\n  ```rust\n  // Verify that SipClient methods require typed AccountId (not u32)\n  fn assert_typed_account_id<T>() {}\n  // AccountId is a newtype, not a primitive\n  let _id = AccountId::from_u64(1).unwrap();\n  assert_eq!(_id.get(), 1);\n  ```",
+            "UT: [C013-postcondition] Newtype IDs with BiMap mapping defined\n  ```rust\n  let mut bimap: BiMap<u64, u64> = BiMap::new();\n  bimap.insert(1, 100).unwrap();\n  assert_eq!(bimap.lookup_by_native(100), Some(&1));\n  assert_eq!(bimap.lookup_by_runtime(1), Some(&100));\n  bimap.remove_by_runtime(1);\n  assert!(bimap.lookup_by_native(100).is_none());\n  ```",
+            "UT: [C013-invariant] IDs are NonZeroU64\n  ```rust\n  assert!(AccountId::from_u64(0).is_none());\n  assert!(AccountId::from_u64(1).is_some());\n  let id = CallId::from_u64(42).unwrap();\n  assert!(id.get() > 0);\n  ```",
+            "UT: [C019-precondition] Public API needs event types\n  ```rust\n  fn assert_debug<T: std::fmt::Debug>() {}\n  fn assert_clone<T: Clone>() {}\n  assert_debug::<SipEventPayload>();\n  assert_clone::<SipEvent>();\n  ```",
+            "UT: [C019-postcondition] SipEventPayload and EventBus defined\n  ```rust\n  let meta = EventMeta {\n    event_id: 1, timestamp: 0, account_id: None, call_id: None,\n    direction: Some(EventDirection::Incoming), headers: None,\n    status_code: None, reason_phrase: None, logical_context: BTreeMap::new(),\n  };\n  let event = SipEvent { meta: meta.clone(), payload: SipEventPayload::CallConnected };\n  assert_eq!(event.meta.event_id, 1);\n  ```",
+            "UT: [C019-invariant] Events are loss-tolerant broadcast\n  ```rust\n  let bus = EventBus::new(2, None);\n  let mut rx = bus.subscribe_control();\n  bus.publish(make_event(0, None));\n  bus.publish(make_event(0, None));\n  bus.publish(make_event(0, None)); // overflow\n  let result = rx.recv().await;\n  match result {\n    Ok(_) => {},\n    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => { assert!(n > 0); },\n    _ => panic!(\"unexpected\"),\n  }\n  ```",
+            "UT: [C020-postcondition] EventBus and AccountEventReceiver defined\n  ```rust\n  let bus = EventBus::new(16, None);\n  let mut recv_a = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());\n  bus.publish(make_event_with_account(1, AccountId::from_u64(1)));\n  bus.publish(make_event_with_account(2, AccountId::from_u64(2)));\n  let ev = recv_a.recv().await.unwrap();\n  assert_eq!(ev.meta.account_id, Some(AccountId::from_u64(1).unwrap()));\n  ```",
+            "UT: [C021-postcondition] Bus split rationale\n  ```rust\n  let bus = EventBus::new(16, Some(16));\n  assert!(bus.subscribe_raw_sip().is_some());\n  let bus_control_only = EventBus::new(16, None);\n  assert!(bus_control_only.subscribe_raw_sip().is_none());\n  ```",
+            "UT: [C021-invariant] Events are observation-only\n  ```rust\n  // EventType contains no ack/retry fields\n  let meta = EventMeta { event_id: 1, ..Default::default() };\n  // No delivery_ack, no retry_count, no sequence_number\n  ```",
+            "UT: [C022-postcondition] NativeEvent-to-SipEventPayload mapping\n  ```rust\n  // Verify compile-time: convert_native_event_to_payload function signature\n  let result = convert_call_state(CallId::from_u64(1).unwrap(), PJSIP_INV_STATE_CALLING);\n  assert!(matches!(result, Some(SipEventPayload::OutgoingCallStarted)));\n  let result = convert_call_state(CallId::from_u64(1).unwrap(), PJSIP_INV_STATE_CONFIRMED);\n  assert!(matches!(result, Some(SipEventPayload::CallConnected)));\n  ```",
+            "UT: [C022-invariant] All NativeEvent variants handled\n  ```rust\n  // Compile-time exhaustiveness check\n  fn assert_all_handled(event: NativeEvent) -> Option<SipEventPayload> {\n    match event {\n      NativeEvent::RegistrationStateChanged { .. } => { None }\n      NativeEvent::RegistrationStarted { .. } => { None }\n      NativeEvent::CallStateChanged { .. } => { None }\n      NativeEvent::CallMediaStateChanged { .. } => { None }\n      NativeEvent::DtmfDigit { .. } => { None }\n      NativeEvent::TransportStateChanged { .. } => { None }\n      NativeEvent::IceTransportError { .. } => { None }\n      NativeEvent::CallTsxStateChanged { .. } => { None }\n      NativeEvent::CallRedirected { .. } => { None }\n      NativeEvent::CallTransferStatus { .. } => { None }\n      NativeEvent::CallReplaced { .. } => { None }\n      NativeEvent::NatDetected { .. } => { None }\n    }\n  }\n  ```",
+            "UT: [C025-postcondition] RawSipMessage struct defined\n  ```rust\n  let msg = RawSipMessage {\n    direction: SipMessageDirection::Incoming,\n    transport: TransportKind::Udp,\n    start_line: \"INVITE sip:user@domain SIP/2.0\".into(),\n    headers: vec![(\"Content-Length\".into(), \"145\".into())],\n    body: None, text: String::new(), content_length: 0,\n    remote_addr: None, local_addr: None,\n  };\n  assert_eq!(msg.start_line.contains(\"INVITE\"), true);\n  ```"
+          ],
+          "startedAt": "2026-07-27",
+          "changes": [
+            {
+              "before": "placeholder `pub struct Model {}` with STUB",
+              "after": "AccountId/CallId/AudioSourceId NonZeroU64 newtypes + BiMap + 35 unit tests",
+              "description": "Implemented N0012: §9 ID Design — Newtype Identifiers in src/model/id_design_newtype.rs"
+            },
+            {
+              "before": "model/mod.rs only declared raw_sip_message_spec",
+              "after": "added pub mod id_design_newtype declaration",
+              "description": "Module declaration for id_design_newtype"
+            },
+            {
+              "before": "type AccountId = u32 (placeholder)",
+              "after": "pub(crate) use crate::model::id_design_newtype::AccountId",
+              "description": "Replaced u32 type alias with NonZeroU64 newtype re-export"
+            },
+            {
+              "before": "type CallId = u32 (placeholder)",
+              "after": "pub(crate) use crate::model::id_design_newtype::CallId",
+              "description": "Replaced u32 type alias with NonZeroU64 newtype re-export"
+            },
+            {
+              "before": "import from concurrency_contexts::command_serialization",
+              "after": "import from model::id_design_newtype",
+              "description": "Updated import paths in event_model_payload_bus, eventbus_receiver, public_api_design"
+            },
+            {
+              "before": "u32 literals as AccountId/CallId in test code across 7+ files",
+              "after": "AccountId::from_u64(N).unwrap() / CallId::from_u64(N).unwrap()",
+              "description": "Updated all test code using integer literals as AccountId/CallId to use typed constructors"
+            },
+            {
+              "before": "raw_sip_message_spec.rs had no tests",
+              "after": "added tests for RawSipMessage fields, Debug/Clone, SipMessageDirection, TransportKind",
+              "description": "Added test coverage for C025 (RawSipMessage struct defined)"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-27"
         },
         {
           "title": "Registration, Call & Shutdown State Machines",

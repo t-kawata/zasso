@@ -137,51 +137,52 @@ pub fn convert_get_account_info_error(pj_status: i32, account_id: u32) -> Result
 
 #[cfg(test)]
 mod tests {
+    use crate::model::id_design_newtype::CallId;
     use super::*;
 
     // ── C018-invariant: existing variants only ────────────────────────
 
     /// @verifies C018-invariant
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn conf_connect_uses_existing_error_kinds() {
         // InvalidState (conf_port not resolved)
-        let err = convert_conf_connect_error(-1, 5).unwrap_err();
+        let err = convert_conf_connect_error(-1, CallId::from_u64(5).unwrap()).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidState);
         assert!(err.retryable);
 
         // InternalError (other PJSUA errors)
-        let err = convert_conf_connect_error(12345, 5).unwrap_err();
+        let err = convert_conf_connect_error(12345, CallId::from_u64(5).unwrap()).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InternalError);
         assert!(!err.retryable);
     }
 
     /// @verifies C018-invariant
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn conf_disconnect_uses_existing_error_kinds() {
         // InvalidState (conf_port not resolved)
-        let err = convert_conf_disconnect_error(-1, 5).unwrap_err();
+        let err = convert_conf_disconnect_error(-1, CallId::from_u64(5).unwrap()).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidState);
         assert!(err.retryable);
 
         // InternalError (other PJSUA errors)
-        let err = convert_conf_disconnect_error(999, 5).unwrap_err();
+        let err = convert_conf_disconnect_error(999, CallId::from_u64(5).unwrap()).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InternalError);
         assert!(!err.retryable);
     }
 
     /// @verifies C018-invariant
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn get_account_info_uses_existing_error_kinds() {
         // NotFound (account not found)
-        let err = convert_get_account_info_error(-2, 42).unwrap_err();
+        let err = convert_get_account_info_error(-2, 42u32).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NotFound);
         assert!(err.retryable);
 
         // InternalError (other PJSUA errors)
-        let err = convert_get_account_info_error(999, 42).unwrap_err();
+        let err = convert_get_account_info_error(999, 42u32).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InternalError);
         assert!(!err.retryable);
     }
@@ -189,47 +190,47 @@ mod tests {
     // ── Happy path ────────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn conf_connect_success_returns_ok() {
-        assert!(convert_conf_connect_error(0, 1).is_ok());
+        assert!(convert_conf_connect_error(0, CallId::from_u64(1).unwrap()).is_ok());
     }
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn conf_disconnect_success_returns_ok() {
-        assert!(convert_conf_disconnect_error(0, 1).is_ok());
+        assert!(convert_conf_disconnect_error(0, CallId::from_u64(1).unwrap()).is_ok());
     }
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn get_account_info_success_returns_ok() {
-        assert!(convert_get_account_info_error(0, 1).is_ok());
+        assert!(convert_get_account_info_error(0, 1u32).is_ok());
     }
 
     // ── Error message contains operation name ─────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn error_message_contains_operation_name() {
-        let err = convert_conf_connect_error(-1, 5).unwrap_err();
+        let err = convert_conf_connect_error(-1, CallId::from_u64(5).unwrap()).unwrap_err();
         assert!(err.message.contains("ConfConnect"));
 
-        let err = convert_conf_disconnect_error(-1, 5).unwrap_err();
+        let err = convert_conf_disconnect_error(-1, CallId::from_u64(5).unwrap()).unwrap_err();
         assert!(err.message.contains("ConfDisconnect"));
 
-        let err = convert_get_account_info_error(-2, 42).unwrap_err();
+        let err = convert_get_account_info_error(-2, 42u32).unwrap_err();
         assert!(err.message.contains("GetAccountInfo"));
     }
 
     // ── native_status preserved ───────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_status_preserved_for_internal_error() {
-        let err = convert_conf_connect_error(700, 5).unwrap_err();
+        let err = convert_conf_connect_error(700, CallId::from_u64(5).unwrap()).unwrap_err();
         assert_eq!(err.native_status, Some(700));
 
-        let err = convert_get_account_info_error(800, 42).unwrap_err();
+        let err = convert_get_account_info_error(800, 42u32).unwrap_err();
         assert_eq!(err.native_status, Some(800));
     }
 

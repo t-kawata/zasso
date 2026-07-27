@@ -1,4 +1,3 @@
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -42,8 +41,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::concurrency_contexts::command_serialization::AccountId;
-use crate::concurrency_contexts::command_serialization::CallId;
+use crate::model::id_design_newtype::AccountId;
+use crate::model::id_design_newtype::CallId;
 
 // ---------------------------------------------------------------------------
 // EventTimestamp
@@ -100,7 +99,7 @@ pub struct EventMeta {
 #[non_exhaustive]
 // [::TICKET::] P3-1: Changed from pub(crate) to pub — SipEvent::payload is public.
 pub enum SipEventPayload {
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // ── Registration ──
     RegistrationStarted,
@@ -190,7 +189,7 @@ mod tests {
     /// @verifies C020-precondition
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_payload_is_debug_and_clone() {
         // Assert: SipEventPayload implements Debug + Clone at compile time
         // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
@@ -218,12 +217,12 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_wraps_payload_with_meta() {
         let meta = EventMeta {
             event_id: 42,
             timestamp: 1_700_000_000_000,
-            account_id: Some(1u32),
+            account_id: Some(AccountId::from_u64(1).unwrap()),
             call_id: None,
             direction: Some(EventDirection::Incoming),
             headers: None,
@@ -240,7 +239,7 @@ mod tests {
         // Verify the wrapper contains the correct data
         assert_eq!(event.meta.event_id, 42);
         assert_eq!(event.meta.timestamp, 1_700_000_000_000);
-        assert_eq!(event.meta.account_id, Some(1u32));
+        assert_eq!(event.meta.account_id, Some(AccountId::from_u64(1).unwrap()));
         assert_eq!(event.meta.direction, Some(EventDirection::Incoming));
         assert_eq!(event.meta.status_code, Some(200));
     }

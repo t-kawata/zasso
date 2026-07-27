@@ -102,6 +102,8 @@ pub(crate) fn should_allow_during_shutdown(
 
 #[cfg(test)]
 mod tests {
+    use crate::model::id_design_newtype::AccountId;
+    use crate::model::id_design_newtype::CallId;
     use super::*;
     use crate::concurrency_contexts::command_serialization::ReplySender;
 
@@ -111,7 +113,7 @@ mod tests {
 
     /// @verifies C045-precondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn should_allow_is_deterministic_pure_function() {
         let cmd = RuntimeCommand::Shutdown {
             reply: ReplySender::new(),
@@ -127,10 +129,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn get_account_info_permitted_during_shutdown() {
         let cmd = RuntimeCommand::GetAccountInfo {
-            account_id: 1,
+            account_id: AccountId::from_u64(1).unwrap(),
             reply: ReplySender::new(),
         };
         let result = should_allow_during_shutdown(&cmd, true);
@@ -147,7 +149,7 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn shutdown_rejected_during_shutdown() {
         let cmd = RuntimeCommand::Shutdown {
             reply: ReplySender::new(),
@@ -155,7 +157,9 @@ mod tests {
         let result = should_allow_during_shutdown(&cmd, true);
         assert!(result.is_err());
         match result {
-            Err(ref err) if err.kind == crate::error::error_design_siperror::SipErrorKind::InvalidState => {
+            Err(ref err)
+                if err.kind == crate::error::error_design_siperror::SipErrorKind::InvalidState =>
+            {
                 assert!(
                     err.message.contains("shutting down"),
                     "Error message should contain 'shutting down', got: {}",
@@ -168,7 +172,7 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn initialize_rejected_during_shutdown() {
         // [::STUB::] P0-3 (N0013): ClientConfig placeholder type used.
         let cmd = RuntimeCommand::Initialize {
@@ -181,7 +185,7 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn add_account_rejected_during_shutdown() {
         let cmd = RuntimeCommand::AddAccount {
             config: crate::concurrency_contexts::command_serialization::AccountConfig,
@@ -193,10 +197,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn make_call_rejected_during_shutdown() {
         let cmd = RuntimeCommand::MakeCall {
-            account_id: 1,
+            account_id: AccountId::from_u64(1).unwrap(),
             request: (),
             reply: ReplySender::new(),
         };
@@ -206,10 +210,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn hangup_rejected_during_shutdown() {
         let cmd = RuntimeCommand::Hangup {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             reason: (),
             reply: ReplySender::new(),
         };
@@ -219,10 +223,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn send_dtmf_rejected_during_shutdown() {
         let cmd = RuntimeCommand::SendDtmf {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             digits: "123".into(),
             method: crate::api::m20_dtmfsent_twophase::DtmfMethod::Inband,
             reply: ReplySender::new(),
@@ -233,10 +237,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn remove_account_rejected_during_shutdown() {
         let cmd = RuntimeCommand::RemoveAccount {
-            account_id: 1,
+            account_id: AccountId::from_u64(1).unwrap(),
             reply: ReplySender::new(),
         };
         let result = should_allow_during_shutdown(&cmd, true);
@@ -245,10 +249,10 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn set_registration_rejected_during_shutdown() {
         let cmd = RuntimeCommand::SetRegistration {
-            account_id: 1,
+            account_id: AccountId::from_u64(1).unwrap(),
             enabled: true,
             reply: ReplySender::new(),
         };
@@ -270,22 +274,22 @@ mod tests {
 
     /// @verifies C045-postcondition
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn all_commands_allowed_when_not_shutting_down() {
         let cmds: Vec<RuntimeCommand> = vec![
             RuntimeCommand::GetAccountInfo {
-                account_id: 1,
+                account_id: AccountId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
             RuntimeCommand::Shutdown {
                 reply: ReplySender::new(),
             },
             RuntimeCommand::Hold {
-                call_id: 1,
+                call_id: CallId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
             RuntimeCommand::Unhold {
-                call_id: 1,
+                call_id: CallId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
         ];
@@ -307,10 +311,10 @@ mod tests {
 
     /// @verifies C045-invariant
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn dispatch_decision_unchanged_for_identical_input() {
         let cmd = RuntimeCommand::GetAccountInfo {
-            account_id: 42,
+            account_id: AccountId::from_u64(42).unwrap(),
             reply: ReplySender::new(),
         };
         let result_a = should_allow_during_shutdown(&cmd, true);
@@ -318,7 +322,7 @@ mod tests {
         assert_eq!(format!("{:?}", result_a), format!("{:?}", result_b));
 
         let cmd2 = RuntimeCommand::Hold {
-            call_id: 7,
+            call_id: CallId::from_u64(7).unwrap(),
             reply: ReplySender::new(),
         };
         let result_a2 = should_allow_during_shutdown(&cmd2, true);
@@ -328,7 +332,7 @@ mod tests {
 
     /// @verifies C045-invariant
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P4-1) --for-spec --no-implementation-order`.
     fn no_panic_for_any_variant_during_shutdown() {
         // All current RuntimeCommand variants must not panic during dispatch
         let cmds: Vec<RuntimeCommand> = vec![
@@ -336,15 +340,15 @@ mod tests {
                 reply: ReplySender::new(),
             },
             RuntimeCommand::GetAccountInfo {
-                account_id: 1,
+                account_id: AccountId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
             RuntimeCommand::Hold {
-                call_id: 1,
+                call_id: CallId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
             RuntimeCommand::Unhold {
-                call_id: 1,
+                call_id: CallId::from_u64(1).unwrap(),
                 reply: ReplySender::new(),
             },
         ];

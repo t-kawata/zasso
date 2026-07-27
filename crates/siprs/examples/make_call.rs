@@ -1,3 +1,4 @@
+
 //! Example: Outgoing call with event-driven lifecycle.
 //!
 //! This example demonstrates how to place an outgoing SIP call, subscribe to
@@ -20,9 +21,7 @@
 // [::TICKET::] P1-3: Usage Examples & Code Samples
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec`
 
-use siprs::{
-    AccountConfig, OutgoingCallRequest, SecretString, SipClient, SipEventPayload,
-};
+use siprs::{AccountConfig, OutgoingCallRequest, SecretString, SipClient, SipEventPayload};
 
 // ── SIP account constants ────────────────────────────────────────────────────
 
@@ -81,8 +80,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Call ID: {:?}", call_id);
 
     // 5. Receive events until connected or timeout
-    let deadline = tokio::time::Instant::now()
-        + std::time::Duration::from_secs(CONNECTION_TIMEOUT_SECS);
+    let deadline =
+        tokio::time::Instant::now() + std::time::Duration::from_secs(CONNECTION_TIMEOUT_SECS);
 
     loop {
         if tokio::time::Instant::now() >= deadline {
@@ -93,31 +92,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::timeout_at(deadline, event_rx.recv()).await;
 
         match tokio::time::timeout_at(deadline, event_rx.recv()).await {
-            Ok(Ok(event)) => {
-                match event.payload {
-                    SipEventPayload::OutgoingCallRinging(ref info) => {
-                        println!("Ringing (status: {:?})", info.status_code);
-                    }
-                    SipEventPayload::CallConnected(_) => {
-                        println!("Call connected!");
-                        break;
-                    }
-                    SipEventPayload::CallRejected(ref rej) => {
-                        println!("Call rejected (status: {})", rej.status_code);
-                        break;
-                    }
-                    SipEventPayload::CallDisconnected(_) => {
-                        println!("Call disconnected.");
-                        break;
-                    }
-                    SipEventPayload::MediaActive(_) => {
-                        println!("Media stream active.");
-                    }
-                    _ => {
-                        tracing::debug!("Ignored event: {:?}", event.payload);
-                    }
+            Ok(Ok(event)) => match event.payload {
+                SipEventPayload::OutgoingCallRinging(ref info) => {
+                    println!("Ringing (status: {:?})", info.status_code);
                 }
-            }
+                SipEventPayload::CallConnected(_) => {
+                    println!("Call connected!");
+                    break;
+                }
+                SipEventPayload::CallRejected(ref rej) => {
+                    println!("Call rejected (status: {})", rej.status_code);
+                    break;
+                }
+                SipEventPayload::CallDisconnected(_) => {
+                    println!("Call disconnected.");
+                    break;
+                }
+                SipEventPayload::MediaActive(_) => {
+                    println!("Media stream active.");
+                }
+                _ => {
+                    tracing::debug!("Ignored event: {:?}", event.payload);
+                }
+            },
             Ok(Err(_)) => {
                 println!("Event stream closed.");
                 break;

@@ -207,7 +207,7 @@ impl AccountConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         // Minimal valid default: username, domain, password required.
         AccountConfig {
@@ -283,7 +283,7 @@ pub enum AccountTransportPolicy {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountTransportPolicy {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         AccountTransportPolicy::Udp
     }
@@ -309,7 +309,7 @@ pub struct AccountCodecPolicy {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountCodecPolicy {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         AccountCodecPolicy {
             enable_pcmu: true,
@@ -358,7 +358,7 @@ impl OpusConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for OpusConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         OpusConfig {
             bitrate: DEFAULT_OPUS_BITRATE,
@@ -392,7 +392,7 @@ pub struct DtmfPolicy {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for DtmfPolicy {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc2833, DtmfMethod::Info],
@@ -442,7 +442,7 @@ pub struct AccountMediaConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountMediaConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         AccountMediaConfig {
             srtp: SrtpPolicy::Disabled,
@@ -475,7 +475,7 @@ mod tests {
     /// @verifies C015-precondition
     /// @verifies C015-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_new_valid() -> Result<(), crate::error::SipError> {
         let config = AccountConfig::new("alice", "sip.example.com", "secret")?;
         assert_eq!(config.username, "alice");
@@ -491,7 +491,7 @@ mod tests {
 
     /// @verifies C015-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_valid_full() -> Result<(), crate::error::SipError> {
         let config = AccountConfig {
             display_name: Some("Alice SIP".into()),
@@ -517,7 +517,7 @@ mod tests {
 
     /// @verifies C015-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_registrar_auto_derived() -> Result<(), crate::error::SipError> {
         let config = AccountConfig::new("bob", "sip.bob.com", "pass")?;
         assert_eq!(config.effective_registrar_uri(), "sip:sip.bob.com");
@@ -531,7 +531,7 @@ mod tests {
     /// @verifies C015-postcondition
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_empty_username_rejected() {
         let result = AccountConfig::new("", "domain", "pass");
         assert!(result.is_err());
@@ -543,7 +543,7 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_empty_domain_rejected() {
         let result = AccountConfig::new("user", "", "pass");
         assert!(result.is_err());
@@ -551,7 +551,7 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_empty_password_rejected() {
         let result = AccountConfig::new("user", "domain", "");
         assert!(result.is_err());
@@ -559,7 +559,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_both_codecs_disabled_rejected() {
         let config = AccountConfig {
             codecs: AccountCodecPolicy {
@@ -575,7 +575,7 @@ mod tests {
 
     /// @verifies C041-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_pcmu_only_valid() -> Result<(), crate::error::SipError> {
         let mut config = AccountConfig::new("user", "domain", "pass")?;
         config.codecs = AccountCodecPolicy {
@@ -589,7 +589,7 @@ mod tests {
 
     /// @verifies C041-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_opus_only_valid() -> Result<(), crate::error::SipError> {
         let mut config = AccountConfig::new("user", "domain", "pass")?;
         config.codecs = AccountCodecPolicy {
@@ -607,7 +607,7 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_empty_dtmf_send_rejected() {
         let config = AccountConfig {
             dtmf: DtmfPolicy {
@@ -622,7 +622,7 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_empty_dtmf_receive_rejected() {
         let config = AccountConfig {
             dtmf: DtmfPolicy {
@@ -641,8 +641,9 @@ mod tests {
 
     /// @verifies C015-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-    fn account_config_register_on_start_false_outbound_true() -> Result<(), crate::error::SipError> {
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+    fn account_config_register_on_start_false_outbound_true() -> Result<(), crate::error::SipError>
+    {
         let mut config = AccountConfig::new("user", "domain", "pass")?;
         config.register_on_start = false;
         config.allow_outbound_without_register = true;
@@ -652,7 +653,7 @@ mod tests {
 
     /// @verifies C015-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_registration_expires_minimum() -> Result<(), crate::error::SipError> {
         let mut config = AccountConfig::new("user", "domain", "pass")?;
         config.registration_expires = Duration::from_secs(MIN_REGISTRATION_EXPIRY_SECS);
@@ -662,7 +663,7 @@ mod tests {
 
     /// @verifies C015-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_registration_expires_below_minimum_rejected() {
         let config = AccountConfig {
             registration_expires: Duration::from_secs(10),
@@ -678,7 +679,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn opus_config_default_valid() -> Result<(), crate::error::SipError> {
         let opus = OpusConfig::default();
         opus.validate()?;
@@ -687,7 +688,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn opus_config_bitrate_limits() -> Result<(), crate::error::SipError> {
         let low = OpusConfig {
             bitrate: OPUS_BITRATE_MIN,
@@ -704,7 +705,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn opus_config_bitrate_out_of_range_rejected() {
         let low = OpusConfig {
             bitrate: OPUS_BITRATE_MIN - 1,
@@ -720,7 +721,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn opus_config_complexity_bounds() -> Result<(), crate::error::SipError> {
         let min = OpusConfig {
             complexity: OPUS_COMPLEXITY_MIN,
@@ -737,7 +738,7 @@ mod tests {
 
     /// @verifies C041-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn opus_config_complexity_out_of_range_rejected() {
         let high = OpusConfig {
             complexity: OPUS_COMPLEXITY_MAX + 1,
@@ -752,7 +753,7 @@ mod tests {
 
     /// @verifies C043-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_media_config_defaults() {
         let media = AccountMediaConfig::default();
         assert_eq!(media.srtp, SrtpPolicy::Disabled);
@@ -769,9 +770,12 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_transport_policy_default_is_udp() {
-        assert_eq!(AccountTransportPolicy::default(), AccountTransportPolicy::Udp);
+        assert_eq!(
+            AccountTransportPolicy::default(),
+            AccountTransportPolicy::Udp
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -780,7 +784,7 @@ mod tests {
 
     /// @verifies C027-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_patch_default_all_none() {
         let patch = AccountConfigPatch::default();
         assert!(patch.password.is_none());
@@ -794,11 +798,11 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_implements_debug_clone() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_debug::<AccountConfig>();
         assert_clone::<AccountConfig>();
@@ -818,7 +822,7 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn account_config_serde_roundtrip() -> Result<(), crate::error::SipError> {
         let config = AccountConfig::new("alice", "sip.example.com", "secret")?;
         let json = serde_json::to_string(&config).unwrap();

@@ -1,3 +1,4 @@
+
 //! Example: SIP client initialization with UDP/TCP transports and STUN.
 //!
 //! This example demonstrates how to create a `SipClient` with transport
@@ -19,9 +20,7 @@
 // [::TICKET::] P1-3: Usage Examples & Code Samples
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec`
 
-use siprs::{
-    ClientConfig, SipClient, StunServerConfig, TransportConfig,
-};
+use siprs::{ClientConfig, SipClient, StunServerConfig, TransportConfig};
 
 // ── Port and server constants ────────────────────────────────────────────────
 

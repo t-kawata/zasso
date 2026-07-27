@@ -1,5 +1,4 @@
 
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -40,25 +39,18 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 // [::TICKET::] P0-5: SipError placeholder replaced by real type from crate::error.
-pub use crate::error::error_design_siperror::SipError;
 /// [::TICKET::] P0-7: DtmfMethod — re-exported from api::m20_dtmfsent_twophase.
 pub(crate) use crate::api::m20_dtmfsent_twophase::DtmfMethod;
+pub use crate::error::error_design_siperror::SipError;
 
 // ---------------------------------------------------------------------------
 // Placeholder types — all replaced by real definitions in downstream P0-* tickets
 // ---------------------------------------------------------------------------
 
-/// [::STUB::] P0-3 (N0012): Account ID newtype — placeholder until the ID
-/// design ticket is implemented. Real type will be a newtype wrapper.
-#[doc(hidden)]
-#[allow(dead_code)]
-pub(crate) type AccountId = u32;
-
-/// [::STUB::] P0-3 (N0012): Call ID newtype — placeholder until the ID
-/// design ticket is implemented. Real type will be a newtype wrapper.
-#[doc(hidden)]
-#[allow(dead_code)]
-pub(crate) type CallId = u32;
+// [::TICKET::] P4-1: AccountId/CallId replaced with real NonZeroU64 newtypes from model module.
+// The type aliases are kept as re-exports so downstream import paths remain unchanged.
+pub(crate) use crate::model::id_design_newtype::AccountId;
+pub(crate) use crate::model::id_design_newtype::CallId;
 
 /// [::STUB::] P0-3 (N0013): ClientConfig — placeholder until the config
 /// specification ticket is implemented.
@@ -98,7 +90,7 @@ pub(crate) type CommandReceiver = Receiver<RuntimeCommand>;
 pub(crate) struct ReplySender<T>(Option<T>);
 
 impl<T> ReplySender<T> {
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     /// Creates a new `ReplySender` with no initial value.
     ///
     /// [::STUB::] P2: Replace with `tokio::sync::oneshot::Sender::new()` once
@@ -128,7 +120,7 @@ impl<T> ReplySender<T> {
 /// `CallId` for call ops).
 #[derive(Debug)]
 pub(crate) enum RuntimeCommand {
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     /// Initializes the PJSUA library with the given client configuration.
     ///
     /// Must be called exactly once before any other command.
@@ -209,8 +201,7 @@ pub(crate) enum RuntimeCommand {
     /// `RegistrationFailed`. Returns the `AccountInfoSnapshot` containing
     /// the current registration status.
     ///
-    /// [::STUB::] P0-6: placeholder AccountId type (u32) will be replaced
-    /// by the real newtype once P0-3 (N0012) is implemented.
+    /// [::TICKET::] P4-1: AccountId is now a NonZeroU64 newtype (replaced u32 placeholder).
     GetAccountInfo {
         account_id: AccountId,
         reply:

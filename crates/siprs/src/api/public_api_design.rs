@@ -35,10 +35,12 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
+use crate::config::transport_ice_spec::AuthOverride;
 use crate::config::AccountConfig;
 use crate::config::AccountConfigPatch;
-use crate::config::transport_ice_spec::AuthOverride;
 use crate::error::SipError;
+use crate::model::id_design_newtype::AccountId;
+use crate::model::id_design_newtype::CallId;
 
 // ---------------------------------------------------------------------------
 // RuntimeHandle — placeholder (resolved by P3-2)
@@ -119,7 +121,7 @@ pub struct SipClient {
     inner: Arc<ClientInner>,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Creates a new SIP client with the given configuration.
     ///
@@ -131,7 +133,9 @@ impl SipClient {
     ///
     /// Returns `SipError` if the configuration is invalid.
     // [::STUB::] P3-2: PJSIP runtime init deferred — currently only validates config.
-    pub async fn new(_config: crate::config::client_config_spec::ClientConfig) -> Result<Self, SipError> {
+    pub async fn new(
+        _config: crate::config::client_config_spec::ClientConfig,
+    ) -> Result<Self, SipError> {
         let (_tx, _rx) = tokio::sync::broadcast::channel(16);
         let (_shutdown_tx, _shutdown_rx) = tokio::sync::watch::channel(false);
         let inner = Arc::new(ClientInner {
@@ -151,7 +155,9 @@ impl SipClient {
     // [::STUB::] P3-2: Real EventBus integration — currently returns a placeholder receiver.
     // [::STUB::] P0-4: Make pub once SipEvent is pub (currently pub(crate)).
     #[allow(dead_code)]
-    pub(crate) fn subscribe(&self) -> tokio::sync::broadcast::Receiver<crate::api::event_model_payload_bus::SipEvent> {
+    pub(crate) fn subscribe(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::api::event_model_payload_bus::SipEvent> {
         let (_tx, rx) = tokio::sync::broadcast::channel(16);
         rx
     }
@@ -192,18 +198,11 @@ impl SipClient {
     /// Returns `SipError` if the account configuration is invalid or if an
     /// account with the same credentials already exists.
     // [::STUB::] P3-2: Real account creation — currently validates config and returns a handle.
-    pub async fn add_account(
-        &self,
-        config: AccountConfig,
-    ) -> Result<SipAccountHandle, SipError> {
+    pub async fn add_account(&self, config: AccountConfig) -> Result<SipAccountHandle, SipError> {
         config.validate()?;
         // [::STUB::] P3-2: Dispatch RuntimeCommand::AddAccount to reactor.
-        let next_id = {
-            let state = self.inner.state.read().await;
-            // In P3-2 this will read the account_index
-            std::mem::drop(state);
-            1u32
-        };
+        // [::TICKET::] P4-1: AccountId is a NonZeroU64 newtype — placeholder must be non-zero.
+        let next_id = AccountId::from_u64(1).unwrap();
         Ok(SipAccountHandle {
             client: self.clone(),
             id: next_id,
@@ -235,7 +234,9 @@ impl SipClient {
         _account_id: crate::concurrency_contexts::command_serialization::AccountId,
     ) -> Result<SipAccountHandle, SipError> {
         // [::STUB::] P3-2: Look up account in ClientState.account_index.
-        Err(SipError::not_found("account not found — runtime not yet connected (P3-2)"))
+        Err(SipError::not_found(
+            "account not found — runtime not yet connected (P3-2)",
+        ))
     }
 
     /// Returns a snapshot of all currently configured accounts.
@@ -274,7 +275,7 @@ pub struct SipAccountHandle {
     id: crate::concurrency_contexts::command_serialization::AccountId,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Returns the unique identifier for this account.
     pub fn id(&self) -> crate::concurrency_contexts::command_serialization::AccountId {
@@ -330,7 +331,8 @@ impl SipAccountHandle {
     ) -> Result<crate::concurrency_contexts::command_serialization::CallId, SipError> {
         OutgoingCallRequest::validate(&request)?;
         // [::STUB::] P3-2: Dispatch RuntimeCommand::MakeCall { .. }.
-        Ok(0)
+        // [::TICKET::] P4-1: CallId is NonZeroU64 — placeholder must be non-zero.
+        Ok(CallId::from_u64(1).unwrap())
     }
 
     /// Updates a subset of this account's configuration fields.
@@ -479,7 +481,7 @@ pub struct CallMediaPreferences {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for CallMediaPreferences {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         CallMediaPreferences {
             enable_early_media: true,
@@ -518,13 +520,13 @@ mod tests {
     /// @verifies C012-postcondition
     /// @verifies C012-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn sip_client_is_send_sync_clone() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -533,13 +535,13 @@ mod tests {
 
     /// @verifies C012-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send_sync_clone() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_send::<SipAccountHandle>();
         assert_sync::<SipAccountHandle>();
@@ -574,7 +576,7 @@ mod tests {
     async fn sip_client_subscribe_account_returns_receiver() -> Result<(), SipError> {
         let config = crate::config::ClientConfig::default();
         let client = SipClient::new(config).await?;
-        let _rx = client.subscribe_account(42);
+        let _rx = client.subscribe_account(AccountId::from_u64(42).unwrap());
         Ok(())
     }
 
@@ -590,7 +592,8 @@ mod tests {
         let config = AccountConfig::new("alice", "sip.example.com", "secret")?;
         let handle = client.add_account(config).await?;
         let id = handle.id();
-        assert!(id > 0);
+        // [::TICKET::] P4-1: AccountId is NonZeroU64 newtype — use .get() for comparison.
+        assert!(id.get() > 0);
         Ok(())
     }
 
@@ -622,8 +625,9 @@ mod tests {
     async fn sip_client_methods_type_check() -> Result<(), SipError> {
         let client = create_test_client().await?;
         // These verify the methods exist with correct signatures
-        let _ = client.remove_account(1).await;
-        let _ = client.account(1).await;
+        // [::TICKET::] P4-1: AccountId is NonZeroU64 newtype — use from_u64().
+        let _ = client.remove_account(AccountId::from_u64(1).unwrap()).await;
+        let _ = client.account(AccountId::from_u64(1).unwrap()).await;
         let _ = client.accounts().await;
         let _ = client.shutdown().await;
         Ok(())
@@ -642,7 +646,8 @@ mod tests {
         let handle = client.add_account(config).await?;
         let id = handle.id();
         // id should be non-zero (assigned by add_account)
-        assert!(id > 0);
+        // [::TICKET::] P4-1: AccountId is NonZeroU64 newtype — use .get() for comparison.
+        assert!(id.get() > 0);
         Ok(())
     }
 
@@ -667,7 +672,7 @@ mod tests {
 
     /// @verifies C026-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn registration_state_all_variants() {
         let states = vec![
             RegistrationState::Unregistered,
@@ -690,7 +695,7 @@ mod tests {
 
     /// @verifies C027-precondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn outgoing_call_request_new_valid() -> Result<(), SipError> {
         let prefs = CallMediaPreferences::default();
         let request = OutgoingCallRequest::new("sip:bob@sip.example.com", prefs)?;
@@ -700,7 +705,7 @@ mod tests {
 
     /// @verifies C027-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn outgoing_call_request_empty_uri_rejected() {
         let prefs = CallMediaPreferences::default();
         let result = OutgoingCallRequest::new("", prefs);
@@ -709,7 +714,7 @@ mod tests {
 
     /// @verifies C027-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn outgoing_call_request_invalid_uri_rejected() {
         let prefs = CallMediaPreferences::default();
         let result = OutgoingCallRequest::new("not-a-sip-uri", prefs);
@@ -718,7 +723,7 @@ mod tests {
 
     /// @verifies C031-precondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn outgoing_call_request_custom_headers() -> Result<(), SipError> {
         let prefs = CallMediaPreferences::default();
         let base = OutgoingCallRequest::new("sip:bob@example.com", prefs)?;
@@ -738,7 +743,7 @@ mod tests {
 
     /// @verifies C031-precondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn call_media_preferences_defaults() {
         let prefs = CallMediaPreferences::default();
         assert!(prefs.enable_early_media);
@@ -754,7 +759,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn codec_enum_variants() {
         let _pcmu = Codec::Pcmu;
         let _opus = Codec::Opus;
@@ -770,27 +775,25 @@ mod tests {
     /// @verifies C017-postcondition
     /// @verifies C017-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn public_api_returns_result() {
         // Compile-time check that key type signatures use Result
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-        fn _assert_result_sip_client_new()
-            -> std::result::Result<SipClient, SipError> {
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+        fn _assert_result_sip_client_new() -> std::result::Result<SipClient, SipError> {
             unimplemented!("type-check only")
         }
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-        fn _assert_result_add_account()
-            -> std::result::Result<SipAccountHandle, SipError> {
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+        fn _assert_result_add_account() -> std::result::Result<SipAccountHandle, SipError> {
             unimplemented!("type-check only")
         }
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-        fn _assert_result_remove_account()
-            -> std::result::Result<(), SipError> {
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+        fn _assert_result_remove_account() -> std::result::Result<(), SipError> {
             unimplemented!("type-check only")
         }
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-        fn _assert_result_make_call()
-            -> std::result::Result<crate::concurrency_contexts::command_serialization::CallId, SipError> {
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+        fn _assert_result_make_call(
+        ) -> std::result::Result<crate::concurrency_contexts::command_serialization::CallId, SipError>
+        {
             unimplemented!("type-check only")
         }
     }
@@ -808,8 +811,9 @@ mod tests {
         let prefs = CallMediaPreferences::default();
         let request = OutgoingCallRequest::new("sip:callee@sip.test", prefs)?;
         let call_id = handle.make_call(request).await?;
-        // CallId is currently u32 (placeholder until P4-1)
-        assert_eq!(call_id, 0);
+        // [::TICKET::] P4-1: CallId is NonZeroU64 newtype. The stub returns a non-zero placeholder.
+        // [::STUB::] P3-2: make_call will return a real CallId once runtime is implemented.
+        assert!(call_id.get() > 0);
         Ok(())
     }
 

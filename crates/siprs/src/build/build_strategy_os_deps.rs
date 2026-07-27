@@ -81,7 +81,7 @@ pub struct BuildStrategy {
     pub os_dependencies: &'static [(&'static str, &'static [&'static str])],
 }
 
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P4-1) --for-spec --no-implementation-order`.
 impl BuildStrategy {
     /// The canonical build strategy with prebuilt-first approach.
     ///
@@ -110,20 +110,8 @@ impl BuildStrategy {
                     "libsrtp2-dev",
                 ],
             ),
-            (
-                "macOS arm64",
-                &[
-                    "pkg-config",
-                    "cmake",
-                ],
-            ),
-            (
-                "Windows x86_64",
-                &[
-                    "MSVC Build Tools",
-                    "vcpkg: libsrtp",
-                ],
-            ),
+            ("macOS arm64", &["pkg-config", "cmake"]),
+            ("Windows x86_64", &["MSVC Build Tools", "vcpkg: libsrtp"]),
         ],
     };
 }

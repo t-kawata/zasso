@@ -98,6 +98,7 @@ pub(crate) fn convert_registration_state(status_code: u16) -> SipEventPayload {
 
 #[cfg(test)]
 mod tests {
+    use crate::model::id_design_newtype::AccountId;
     use super::*;
 
     // -----------------------------------------------------------------------
@@ -173,16 +174,16 @@ mod tests {
 
     /// @verifies C024-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn account_info_snapshot_constructible() {
         let snapshot = AccountInfoSnapshot {
-            acc_id: 1,
+            acc_id: AccountId::from_u64(1).unwrap(),
             registration_status: 200,
             registration_expires: Some(3600),
             online_status: true,
             uri: "sip:user@domain".to_string(),
         };
-        assert_eq!(snapshot.acc_id, 1);
+        assert_eq!(snapshot.acc_id, AccountId::from_u64(1).unwrap());
         assert_eq!(snapshot.registration_status, 200);
         assert_eq!(snapshot.registration_expires, Some(3600));
         assert!(snapshot.online_status);

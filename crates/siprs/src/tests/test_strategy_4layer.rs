@@ -88,7 +88,7 @@ pub enum TestLayer {
     ApiIntegration,
 }
 
-// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
 impl TestLayer {
     /// Returns true if this layer can run without the `pjsip` feature flag.
     ///
@@ -97,7 +97,10 @@ impl TestLayer {
     // [::TICKET::] P1-4: 4-layer test strategy defined.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
     pub fn is_pjsip_free(self) -> bool {
-        matches!(self, TestLayer::Unit | TestLayer::StateMachine | TestLayer::ApiIntegration)
+        matches!(
+            self,
+            TestLayer::Unit | TestLayer::StateMachine | TestLayer::ApiIntegration
+        )
     }
 
     /// Returns true if this layer can run in CI (GitHub Actions).
@@ -149,24 +152,36 @@ mod tests {
 
     #[test]
     // @verifies C066-invariant
-    // [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
     fn layers_1_2_and_5_are_pjsip_free() {
         assert!(TestLayer::Unit.is_pjsip_free());
         assert!(TestLayer::StateMachine.is_pjsip_free());
-        assert!(TestLayer::ApiIntegration.is_pjsip_free(), "Layer 5 uses HTTP client, not PJSIP");
-        assert!(!TestLayer::SipIntegration.is_pjsip_free(), "Layer 3 requires PJSIP");
-        assert!(!TestLayer::Interop.is_pjsip_free(), "Layer 4 requires PJSIP");
+        assert!(
+            TestLayer::ApiIntegration.is_pjsip_free(),
+            "Layer 5 uses HTTP client, not PJSIP"
+        );
+        assert!(
+            !TestLayer::SipIntegration.is_pjsip_free(),
+            "Layer 3 requires PJSIP"
+        );
+        assert!(
+            !TestLayer::Interop.is_pjsip_free(),
+            "Layer 4 requires PJSIP"
+        );
     }
 
     #[test]
     // @verifies C066-invariant
-    // [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
     fn only_layer_4_is_not_ci_compatible() {
         assert!(TestLayer::Unit.is_ci_compatible());
         assert!(TestLayer::StateMachine.is_ci_compatible());
         assert!(TestLayer::SipIntegration.is_ci_compatible());
         assert!(!TestLayer::Interop.is_ci_compatible());
-        assert!(TestLayer::ApiIntegration.is_ci_compatible(), "Layer 5 API tests run in CI");
+        assert!(
+            TestLayer::ApiIntegration.is_ci_compatible(),
+            "Layer 5 API tests run in CI"
+        );
     }
 
     #[test]

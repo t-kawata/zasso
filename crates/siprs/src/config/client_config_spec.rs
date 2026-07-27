@@ -53,17 +53,29 @@ use std::time::Duration;
 // ChannelLayout, AudioFormat, ResamplerQuality are defined in N0030 (§21).
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SampleRate { Hz8000, Hz16000, Hz24000, Hz48000 }
+pub enum SampleRate {
+    Hz8000,
+    Hz16000,
+    Hz24000,
+    Hz48000,
+}
 
 // [::STUB::] P4-3: BitDepth for audio format — I16 or F32.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum BitDepth { I16, F32 }
+pub enum BitDepth {
+    I16,
+    F32,
+}
 
 // [::STUB::] P4-3: ChannelLayout for audio — Mono, Stereo, StereoInOut.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ChannelLayout { Mono, Stereo, StereoInOut }
+pub enum ChannelLayout {
+    Mono,
+    Stereo,
+    StereoInOut,
+}
 
 // [::STUB::] P4-3: AudioFormat combines sample rate, bit depth, channel layout, and frame duration.
 #[derive(Debug, Clone, PartialEq)]
@@ -78,11 +90,16 @@ pub struct AudioFormat {
 // [::STUB::] P4-3: ResamplerQuality for audio resampling.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ResamplerQuality { Low, Medium, High, VeryHigh }
+pub enum ResamplerQuality {
+    Low,
+    Medium,
+    High,
+    VeryHigh,
+}
 
 // [::TICKET::] P3-1: Import transport/ICE types from transport_ice_spec.rs.
 // These were previously forward-declared as stubs in this file (P2-3).
-use super::transport_ice_spec::{TransportConfig, IceConfig, StunServerConfig, TurnServerConfig};
+use super::transport_ice_spec::{IceConfig, StunServerConfig, TransportConfig, TurnServerConfig};
 
 // ---------------------------------------------------------------------------
 // LogLevel — ordering: Error < Warn < Info < Debug < Trace
@@ -240,7 +257,7 @@ const DEFAULT_MAX_BODY_BYTES: usize = 64 * 1024;
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for LogLevel {
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         DEFAULT_LOG_LEVEL
     }
@@ -248,7 +265,7 @@ impl Default for LogLevel {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for RawSipEventConfig {
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -261,7 +278,7 @@ impl Default for RawSipEventConfig {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for TimeoutConfig {
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             command_timeout: Duration::from_secs(DEFAULT_COMMAND_TIMEOUT_SECS),
@@ -274,7 +291,7 @@ impl Default for TimeoutConfig {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for ClientAudioConfig {
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             default_delivery_format: AudioFormat {
@@ -294,7 +311,7 @@ impl Default for ClientAudioConfig {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-// [::TICKET::] P2-1, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P3-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             user_agent: DEFAULT_USER_AGENT.to_string(),
@@ -314,7 +331,7 @@ impl Default for ClientConfig {
             ],
             stun_servers: vec![],
             turn_servers: vec![],
-            ice: IceConfig::default(),  // [::TICKET::] P3-1: Resolved — real IceConfig.
+            ice: IceConfig::default(), // [::TICKET::] P3-1: Resolved — real IceConfig.
             raw_sip_events: RawSipEventConfig::default(),
             timeouts: TimeoutConfig::default(),
         }
@@ -335,20 +352,23 @@ mod tests {
 
     /// @verifies C014-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c014_precondition_compliance_baseline() {
         // Verify versioning_policy module exists (N0005 compliance requirement)
         let policy_exists = std::path::Path::new("src/config/versioning_policy.rs").exists();
         assert!(policy_exists, "versioning_policy module must exist");
         // Verify RFC has compliance requirements section
         let rfc = include_str!("../../RFC-ROOT.md");
-        assert!(rfc.contains("§4"), "RFC must contain compliance requirements section");
+        assert!(
+            rfc.contains("§4"),
+            "RFC must contain compliance requirements section"
+        );
         assert!(rfc.contains("MSRV"), "RFC must document MSRV requirement");
     }
 
     /// @verifies C014-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c014_postcondition_client_config_fully_specified() {
         let cfg = ClientConfig::default();
         assert_eq!(cfg.user_agent, "tauri-siprs/0.1");
@@ -360,9 +380,15 @@ mod tests {
         assert!(cfg.stun_servers.is_empty());
         assert!(cfg.turn_servers.is_empty());
         // Verify audio defaults
-        assert_eq!(cfg.audio.default_delivery_format.sample_rate, SampleRate::Hz16000);
+        assert_eq!(
+            cfg.audio.default_delivery_format.sample_rate,
+            SampleRate::Hz16000
+        );
         assert_eq!(cfg.audio.default_delivery_format.bit_depth, BitDepth::I16);
-        assert_eq!(cfg.audio.default_delivery_format.channel_layout, ChannelLayout::StereoInOut);
+        assert_eq!(
+            cfg.audio.default_delivery_format.channel_layout,
+            ChannelLayout::StereoInOut
+        );
         assert_eq!(cfg.audio.default_delivery_format.frame_ms, 20);
         assert_eq!(cfg.audio.pair_buffer_ms, DEFAULT_PAIR_BUFFER_MS);
         assert_eq!(cfg.audio.jitter_buffer_ms, DEFAULT_JITTER_BUFFER_MS);
@@ -383,19 +409,31 @@ mod tests {
 
     /// @verifies C014-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c014_invariant_all_fields_have_defaults() {
         let cfg = ClientConfig::default();
         assert!(!cfg.user_agent.is_empty(), "user_agent must be non-empty");
         assert!(cfg.max_calls >= 1, "max_calls >= 1 expected (default=32)");
-        assert!(cfg.event_bus_capacity >= 1, "event_bus_capacity >= 1 expected");
-        assert!(cfg.raw_sip_event_capacity >= 1, "raw_sip_event_capacity >= 1 expected");
-        assert!(!cfg.transports.is_empty(), "at least one transport expected");
+        assert!(
+            cfg.event_bus_capacity >= 1,
+            "event_bus_capacity >= 1 expected"
+        );
+        assert!(
+            cfg.raw_sip_event_capacity >= 1,
+            "raw_sip_event_capacity >= 1 expected"
+        );
+        assert!(
+            !cfg.transports.is_empty(),
+            "at least one transport expected"
+        );
         assert!(
             cfg.timeouts.command_timeout.as_secs() > 0,
             "command_timeout must be > 0",
         );
-        assert!(cfg.raw_sip_events.enabled, "raw sip events must be enabled by default");
+        assert!(
+            cfg.raw_sip_events.enabled,
+            "raw sip events must be enabled by default"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -404,7 +442,7 @@ mod tests {
 
     /// @verifies C015-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c015_precondition_client_config_defined() {
         // ClientConfig is accessible and can be constructed — this is the
         // precondition for AccountConfig (P2-3).
@@ -413,7 +451,7 @@ mod tests {
 
     /// @verifies C015-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c015_postcondition_account_config_spec_pending() {
         // AccountConfig spec stub must exist as a placeholder for P2-3.
         let file = std::path::Path::new("src/config/account_config_spec.rs");
@@ -422,7 +460,7 @@ mod tests {
 
     /// @verifies C015-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c015_invariant_validation_rules_deferred() {
         // Validation rules are design contracts documented in N0051 (separate ticket).
         // P2-1 satisfies the invariant by defining complete data types.
@@ -435,7 +473,7 @@ mod tests {
 
     /// @verifies C016-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c016_precondition_client_config_has_transport_ice_fields() {
         // Verify ClientConfig has transport/ICE fields (stub types).
         let cfg = ClientConfig::default();
@@ -447,16 +485,19 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c016_postcondition_transport_ice_stubs_exist() {
         // TransportConfig, IceConfig stubs must exist for P2-3.
         let transport_file = std::path::Path::new("src/config/transport_ice_spec.rs");
-        assert!(transport_file.exists(), "Transport/ICE spec stub must exist (P2-3)");
+        assert!(
+            transport_file.exists(),
+            "Transport/ICE spec stub must exist (P2-3)"
+        );
     }
 
     /// @verifies C016-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c016_invariant_ice_policy_complete() {
         let rfc = include_str!("../../RFC-ROOT.md");
         assert!(rfc.contains("ICE"), "RFC must document ICE policy");
@@ -468,7 +509,7 @@ mod tests {
 
     /// @verifies C052-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c052_precondition_client_config_exists() {
         // Prerequisite for validation phase — ClientConfig type must be defined.
         let _cfg = ClientConfig::default();
@@ -476,7 +517,7 @@ mod tests {
 
     /// @verifies C052-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c052_postcondition_validation_phase_deferred() {
         // Validation phase (N0051) is a separate ticket (RFC §42).
         // P2-1 satisfies the precondition by defining ClientConfig types.
@@ -489,7 +530,7 @@ mod tests {
 
     /// @verifies C052-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c052_invariant_validation_rules_listed() {
         let _rfc = include_str!("../../RFC-ROOT.md");
         // Verification that RFC documents validation rules for future implementation.
@@ -501,7 +542,7 @@ mod tests {
 
     /// @verifies C057-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c057_precondition_ffi_layer_needs_memory_rules() {
         // RFC §27 documents that the FFI layer requires memory ownership rules.
         let rfc = include_str!("../../RFC-ROOT.md");
@@ -510,12 +551,18 @@ mod tests {
 
     /// @verifies C057-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c057_postcondition_rules_documented() {
         let content = include_str!("../../src/model/memory_ownership_defaults.rs");
         // Verify all 4 memory ownership rules are documented
-        assert!(content.contains("callback"), "Rule 1: callback scope constraint");
-        assert!(content.contains("pj_pool_t"), "Rule 3: pj_pool_t not in struct fields");
+        assert!(
+            content.contains("callback"),
+            "Rule 1: callback scope constraint"
+        );
+        assert!(
+            content.contains("pj_pool_t"),
+            "Rule 3: pj_pool_t not in struct fields"
+        );
         assert!(content.contains("pj_str_t"), "Rule 4: pj_str_t ownership");
         // Verify default policies are enumerated
         assert!(content.contains("Transport"), "Default transport policy");
@@ -524,10 +571,13 @@ mod tests {
 
     /// @verifies C057-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c057_invariant_pj_str_rust_owned() {
         let content = include_str!("../../src/model/memory_ownership_defaults.rs");
-        assert!(content.contains("pj_str_t"), "pj_str_t ownership must be documented");
+        assert!(
+            content.contains("pj_str_t"),
+            "pj_str_t ownership must be documented"
+        );
         assert!(
             content.to_lowercase().contains("rust-owned")
                 || content.to_lowercase().contains("rust owned"),
@@ -541,7 +591,7 @@ mod tests {
 
     /// @verifies C058-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c058_precondition_acceptance_criteria_needed() {
         // RFC §50 defines acceptance criteria for crate completion.
         let rfc = include_str!("../../RFC-ROOT.md");
@@ -553,13 +603,19 @@ mod tests {
 
     /// @verifies C058-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c058_postcondition_lib_rs_matches_template() {
         let lib = include_str!("../../src/lib.rs");
         // Config module must be declared
-        assert!(lib.contains("pub mod config"), "config module must be declared");
+        assert!(
+            lib.contains("pub mod config"),
+            "config module must be declared"
+        );
         // ClientConfig must be re-exported at crate root
-        assert!(lib.contains("ClientConfig"), "ClientConfig must be in lib.rs");
+        assert!(
+            lib.contains("ClientConfig"),
+            "ClientConfig must be in lib.rs"
+        );
         // Acceptance criteria must be enumerated in RFC (§50)
         let rfc = include_str!("../../RFC-ROOT.md");
         // Count acceptance criteria bullet points in §50
@@ -571,7 +627,7 @@ mod tests {
 
     /// @verifies C058-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c058_invariant_criteria_listed() {
         let _rfc = include_str!("../../RFC-ROOT.md");
         assert!(
@@ -586,7 +642,7 @@ mod tests {
 
     /// @verifies C059-precondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c059_precondition_rfc_complete() {
         let rfc = include_str!("../../RFC-ROOT.md");
         let required = ["1.", "1a.", "10.", "47.", "48.", "49.", "50.", "51.", "61."];
@@ -597,7 +653,7 @@ mod tests {
 
     /// @verifies C059-postcondition
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c059_postcondition_conclusion_declares_implementable() {
         let rfc = include_str!("../../RFC-ROOT.md");
         assert!(
@@ -608,7 +664,7 @@ mod tests {
 
     /// @verifies C059-invariant
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn c059_invariant_no_further_design_work() {
         let rfc = include_str!("../../RFC-ROOT.md");
         assert!(
@@ -623,7 +679,7 @@ mod tests {
 
     /// ClientConfig default has expected user_agent value.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn client_config_default_user_agent() {
         let cfg = ClientConfig::default();
         assert_eq!(cfg.user_agent, "tauri-siprs/0.1");
@@ -632,7 +688,7 @@ mod tests {
     /// ClientAudioConfig field isolation — mutating one field does not affect
     /// adjacent fields.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn client_audio_config_field_isolation() {
         let mut audio = ClientAudioConfig::default();
         assert_eq!(audio.pair_buffer_ms, DEFAULT_PAIR_BUFFER_MS);
@@ -643,18 +699,27 @@ mod tests {
 
     /// TimeoutConfig field isolation.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn timeout_config_field_isolation() {
         let mut timeouts = TimeoutConfig::default();
-        assert_eq!(timeouts.command_timeout, Duration::from_secs(DEFAULT_COMMAND_TIMEOUT_SECS));
+        assert_eq!(
+            timeouts.command_timeout,
+            Duration::from_secs(DEFAULT_COMMAND_TIMEOUT_SECS)
+        );
         timeouts.command_timeout = Duration::from_secs(999);
-        assert_eq!(timeouts.register_timeout, Duration::from_secs(DEFAULT_REGISTER_TIMEOUT_SECS));
-        assert_eq!(timeouts.invite_timeout, Duration::from_secs(DEFAULT_INVITE_TIMEOUT_SECS));
+        assert_eq!(
+            timeouts.register_timeout,
+            Duration::from_secs(DEFAULT_REGISTER_TIMEOUT_SECS)
+        );
+        assert_eq!(
+            timeouts.invite_timeout,
+            Duration::from_secs(DEFAULT_INVITE_TIMEOUT_SECS)
+        );
     }
 
     /// max_calls boundary: 0 is valid.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn max_calls_boundary_zero() {
         let cfg = ClientConfig {
             max_calls: 0,
@@ -665,7 +730,7 @@ mod tests {
 
     /// max_calls boundary: u32::MAX is valid.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn max_calls_boundary_max() {
         let cfg = ClientConfig {
             max_calls: u32::MAX,
@@ -676,7 +741,7 @@ mod tests {
 
     /// event_bus_capacity at minimum (1).
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn event_bus_capacity_at_minimum() {
         let cfg = ClientConfig {
             event_bus_capacity: 1,
@@ -687,7 +752,7 @@ mod tests {
 
     /// raw_sip_event_capacity at minimum (1).
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn raw_sip_event_capacity_at_minimum() {
         let cfg = ClientConfig {
             raw_sip_event_capacity: 1,
@@ -698,7 +763,7 @@ mod tests {
 
     /// TimeoutConfig with Duration::ZERO should not panic.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn timeout_config_zero() {
         let to = TimeoutConfig {
             command_timeout: Duration::ZERO,
@@ -711,7 +776,7 @@ mod tests {
 
     /// LogLevel ordering: Error < Warn < Info < Debug < Trace.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn log_level_ordering() {
         assert!(LogLevel::Error < LogLevel::Warn);
         assert!(LogLevel::Warn < LogLevel::Info);
@@ -721,7 +786,7 @@ mod tests {
 
     /// LogLevel Debug formatting displays variant name.
     #[test]
-// [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
     fn log_level_debug_format() {
         assert_eq!(format!("{:?}", LogLevel::Error), "Error");
         assert_eq!(format!("{:?}", LogLevel::Info), "Info");

@@ -1,3 +1,4 @@
+
 //! Example: Account registration with two-phase registration pattern.
 //!
 //! This example demonstrates how to add a SIP account, register it with a
@@ -68,14 +69,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .await?;
 
-    println!(
-        "Account {} added with ID: {:?}",
-        USERNAME,
-        account.id()
-    );
+    println!("Account {} added with ID: {:?}", USERNAME, account.id());
 
     // 3. Two-phase registration: explicit register call
-    println!("Registering account {} with registrar {} ...", USERNAME, REGISTRAR_URI);
+    println!(
+        "Registering account {} with registrar {} ...",
+        USERNAME, REGISTRAR_URI
+    );
     account.register().await?;
     println!("Registration initiated successfully.");
 

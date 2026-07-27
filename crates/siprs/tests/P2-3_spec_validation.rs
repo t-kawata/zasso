@@ -94,10 +94,9 @@ fn spec_dependency_direction() {
 
 #[test]
 // @verifies C060-invariant
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-1) --for-spec --no-implementation-order`.
 fn siprs_crate_has_no_http_deps() {
-    let cargo = std::fs::read_to_string("Cargo.toml")
-        .expect("Cargo.toml must exist at crate root");
+    let cargo = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist at crate root");
     assert!(
         !cargo.contains("axum"),
         "siprs crate must not depend on axum (crate split invariant)"
@@ -119,17 +118,14 @@ fn siprs_crate_has_no_http_deps() {
 
 #[test]
 // @verifies C061-precondition
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-1) --for-spec --no-implementation-order`.
 fn spec_references_license() {
     let content = read_spec().expect("failed to read P2-3 spec file");
     assert!(
         content.contains("N0060"),
         "spec must reference N0060 (License & Multi-Instance Policy)"
     );
-    assert!(
-        content.contains("MIT"),
-        "spec must mention MIT license"
-    );
+    assert!(content.contains("MIT"), "spec must mention MIT license");
     assert!(
         content.contains("Apache 2.0"),
         "spec must mention Apache 2.0 license"
@@ -304,7 +300,7 @@ fn spec_dependency_concerns() {
 
 #[test]
 // @verifies C068-invariant
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-1) --for-spec --no-implementation-order`.
 fn spec_io_reference_nature() {
     let content = read_spec().expect("failed to read P2-3 spec file");
     assert!(
@@ -312,7 +308,9 @@ fn spec_io_reference_nature() {
         "spec must describe I/O boundaries as reference information"
     );
     assert!(
-        content.contains("not prescriptive") || content.contains("reference only") || content.contains("reference information"),
+        content.contains("not prescriptive")
+            || content.contains("reference only")
+            || content.contains("reference information"),
         "spec must clearly state that I/O boundaries are reference, not prescriptive"
     );
 }

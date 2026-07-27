@@ -166,12 +166,11 @@ mod tests {
     // @verifies C055-invariant
     // [::TICKET::] P1-4: CI/CD pipeline spec tests.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
-// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
     fn ci_matrix_has_exactly_three_oses() {
         let oses = [CiRunnerOs::Windows, CiRunnerOs::MacOs, CiRunnerOs::Ubuntu];
         // Each OS maps to a distinct runner label
-        let labels: std::collections::HashSet<&str> =
-            oses.iter().map(|os| os.runs_on()).collect();
+        let labels: std::collections::HashSet<&str> = oses.iter().map(|os| os.runs_on()).collect();
         assert_eq!(labels.len(), 3, "must have exactly 3 distinct OS runners");
         assert!(labels.contains("windows-latest"));
         assert!(labels.contains("macos-14"));
@@ -182,7 +181,7 @@ mod tests {
     // @verifies C055-invariant
     // [::TICKET::] P1-4: CI/CD pipeline spec tests.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
-// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
     fn ci_matrix_has_four_feature_sets() {
         let sets = [
             FeatureSet::Default,
@@ -197,7 +196,7 @@ mod tests {
     // @verifies C055-invariant
     // [::TICKET::] P1-4: CI/CD pipeline spec tests.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
-// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
     fn total_ci_configurations_is_12() {
         assert_eq!(TOTAL_CI_CONFIGURATIONS, 3 * 4);
         assert_eq!(TOTAL_CI_CONFIGURATIONS, 12);
@@ -207,7 +206,7 @@ mod tests {
     // @verifies C055-postcondition
     // [::TICKET::] P1-4: CI/CD pipeline spec tests.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
-// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
     fn docker_config_has_defaults() {
         assert_eq!(docker::SIP_UDP_PORT, 5060);
         assert_eq!(docker::SIP_TLS_PORT, 5061);
@@ -219,7 +218,7 @@ mod tests {
     // @verifies C055-postcondition
     // [::TICKET::] P1-4: CI/CD pipeline spec tests.
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
-// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
     fn prebuilt_config_has_build_doc_path() {
         assert!(prebuilt::BUILD_DOC_PATH.contains("BUILD.md"));
         assert!(prebuilt::CMAKE_FLAGS.len() >= 4);

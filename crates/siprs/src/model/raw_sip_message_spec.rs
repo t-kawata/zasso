@@ -87,3 +87,61 @@ pub(crate) struct RawSipMessage {
     /// Local socket address.
     pub local_addr: Option<SocketAddr>,
 }
+
+// ============================================================================
+// Tests — Red Phase (TDD)
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// @verifies C025-postcondition
+    #[test]
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn raw_sip_message_fields_accessible() {
+        let msg = RawSipMessage {
+            direction: SipMessageDirection::Incoming,
+            transport: TransportKind::Udp,
+            start_line: "INVITE sip:user@domain SIP/2.0".into(),
+            headers: vec![("Content-Length".into(), "145".into())],
+            body: None,
+            text: "INVITE sip:user@domain SIP/2.0\r\nContent-Length: 145\r\n\r\n".into(),
+            content_length: 145,
+            remote_addr: None,
+            local_addr: None,
+        };
+        assert_eq!(msg.start_line.contains("INVITE"), true);
+        assert_eq!(msg.content_length, 145);
+    }
+
+    /// @verifies C025-precondition
+    #[test]
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn raw_sip_message_is_debug_and_clone() {
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        fn assert_debug<T: std::fmt::Debug>() {}
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        fn assert_clone<T: Clone>() {}
+        assert_debug::<RawSipMessage>();
+        assert_clone::<RawSipMessage>();
+    }
+
+    /// @verifies C025-postcondition
+    #[test]
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn sip_message_direction_variants() {
+        let incoming = SipMessageDirection::Incoming;
+        let outgoing = SipMessageDirection::Outgoing;
+        assert_ne!(incoming, outgoing);
+    }
+
+    /// @verifies C025-postcondition
+    #[test]
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn transport_kind_variants() {
+        let _udp = TransportKind::Udp;
+        let _tcp = TransportKind::Tcp;
+        let _tls = TransportKind::Tls;
+    }
+}

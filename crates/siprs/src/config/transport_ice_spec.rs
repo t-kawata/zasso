@@ -151,7 +151,7 @@ pub struct TlsConfig {
 #[cfg(feature = "tls")]
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for TlsConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         TlsConfig {
             verify_server: true,
@@ -184,13 +184,10 @@ pub struct IceConfig {
     pub turn_servers: Vec<TurnServerConfig>,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
 impl IceConfig {
     /// Creates a new `IceConfig` with ICE enabled and the given servers.
-    pub fn new(
-        stun_servers: Vec<StunServerConfig>,
-        turn_servers: Vec<TurnServerConfig>,
-    ) -> Self {
+    pub fn new(stun_servers: Vec<StunServerConfig>, turn_servers: Vec<TurnServerConfig>) -> Self {
         IceConfig {
             enabled: true,
             stun_servers,
@@ -210,7 +207,7 @@ impl IceConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for IceConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         IceConfig::disabled()
     }
@@ -249,14 +246,10 @@ pub struct TurnServerConfig {
     pub password: Option<String>,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
 impl TurnServerConfig {
     /// Creates a new TURN server configuration.
-    pub fn new(
-        uri: impl Into<String>,
-        username: Option<String>,
-        password: Option<String>,
-    ) -> Self {
+    pub fn new(uri: impl Into<String>, username: Option<String>, password: Option<String>) -> Self {
         TurnServerConfig {
             uri: uri.into(),
             username,
@@ -321,7 +314,7 @@ mod tests {
 
     /// @verifies C016-precondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_kind_all_variants() {
         let _udp = TransportKind::Udp;
         let _tcp = TransportKind::Tcp;
@@ -333,7 +326,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_kind_is_non_exhaustive() {
         // #[non_exhaustive] confirmed via doc-attribute presence
         let doc = include_str!("transport_ice_spec.rs");
@@ -349,7 +342,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_udp_construct() {
         let addr: SocketAddr = (Ipv4Addr::LOCALHOST, 5060).into();
         let udp = UdpTransportConfig::new(addr);
@@ -360,7 +353,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_tcp_construct() {
         let addr: SocketAddr = (Ipv4Addr::LOCALHOST, 5060).into();
         let tcp = TcpTransportConfig::new(addr);
@@ -372,7 +365,7 @@ mod tests {
     /// @verifies C016-postcondition
     #[cfg(feature = "tls")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_tls_construct() {
         let addr: SocketAddr = (Ipv4Addr::LOCALHOST, 5061).into();
         let tls_cfg = TlsConfig::default();
@@ -386,7 +379,7 @@ mod tests {
     /// @verifies C016-postcondition
     #[cfg(feature = "tls")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn tls_config_default_verify_server_true() {
         let tls = TlsConfig::default();
         assert!(tls.verify_server);
@@ -397,7 +390,7 @@ mod tests {
     /// @verifies C043-postcondition
     #[cfg(feature = "tls")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn tls_config_custom_values() {
         let tls = TlsConfig {
             verify_server: false,
@@ -416,7 +409,7 @@ mod tests {
     /// @verifies C043-invariant: SRTP feature-gated (TLS equivalent)
     #[cfg(not(feature = "tls"))]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_tls_variant_absent_without_feature() {
         // Without `tls` feature, TransportConfig::Tls should not compile.
         // This test verifies the enum has only Udp and Tcp variants.
@@ -434,7 +427,7 @@ mod tests {
 
     /// @verifies C016-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_udp_ipv6() {
         let addr: SocketAddr = (Ipv6Addr::UNSPECIFIED, 5060).into();
         let udp = UdpTransportConfig::new(addr);
@@ -443,7 +436,7 @@ mod tests {
 
     /// @verifies C016-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_tcp_ipv6() {
         let addr: SocketAddr = (Ipv6Addr::UNSPECIFIED, 5060).into();
         let tcp = TcpTransportConfig::new(addr);
@@ -456,11 +449,11 @@ mod tests {
 
     /// @verifies C016-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_types_are_send_sync() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<TransportConfig>();
         assert_sync::<TransportConfig>();
@@ -476,7 +469,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn ice_config_new() {
         let stun = StunServerConfig::new("stun:stun.example.com:3478");
         let turn = TurnServerConfig::new("turn:turn.example.com:3478", None, None);
@@ -488,7 +481,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn ice_config_disabled() {
         let ice = IceConfig::disabled();
         assert!(!ice.enabled);
@@ -498,7 +491,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn ice_config_default_is_disabled() {
         let ice = IceConfig::default();
         assert!(!ice.enabled);
@@ -506,7 +499,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn stun_server_config_construct() {
         let stun = StunServerConfig::new("stun:stun.example.com:3478");
         assert_eq!(stun.uri, "stun:stun.example.com:3478");
@@ -514,7 +507,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn turn_server_config_construct() {
         let turn = TurnServerConfig::new(
             "turn:turn.example.com:3478",
@@ -528,7 +521,7 @@ mod tests {
 
     /// @verifies C016-postcondition
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn turn_server_config_no_credentials() {
         let turn = TurnServerConfig::new("turn:turn.example.com:3478", None, None);
         assert!(turn.username.is_none());
@@ -537,7 +530,7 @@ mod tests {
 
     /// @verifies C016-boundary
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn ice_config_full_ice_trickle_optional() {
         // Full ICE support with trickle ICE as optional optimisation:
         // IceConfig has `enabled` + vec of STUN/TURN servers
@@ -557,7 +550,7 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_serde_roundtrip() {
         let addr: SocketAddr = (Ipv4Addr::LOCALHOST, 5060).into();
         let config = TransportConfig::Udp(UdpTransportConfig::new(addr));
@@ -568,7 +561,7 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn ice_config_serde_roundtrip() {
         let stun = StunServerConfig::new("stun:stun.example.com:3478");
         let ice = IceConfig::new(vec![stun], vec![]);
@@ -584,7 +577,7 @@ mod tests {
 
     /// @verifies C016-invariant
     #[test]
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
     fn transport_config_clone_equality() {
         let addr: SocketAddr = (Ipv4Addr::LOCALHOST, 5060).into();
         let config = TransportConfig::Udp(UdpTransportConfig::new(addr));

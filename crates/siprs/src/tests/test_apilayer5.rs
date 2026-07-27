@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
     fn https_endpoint_accepted() {
         let config = TestLayer5Config::new("https://api.example.com").unwrap();
         assert_eq!(config.endpoint(), "https://api.example.com");
@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
     fn whitespace_only_rejected() {
         let err = TestLayer5Config::new("   ").unwrap_err();
         assert!(matches!(err, ConfigError::InvalidEndpoint(_)));

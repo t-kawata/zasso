@@ -48,7 +48,7 @@
 #![allow(dead_code)]
 
 use crate::api::event_model_payload_bus::SipEvent;
-use crate::concurrency_contexts::command_serialization::AccountId;
+use crate::model::id_design_newtype::AccountId;
 use crate::model::raw_sip_message_spec::RawSipMessage;
 
 // ---------------------------------------------------------------------------
@@ -179,7 +179,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     /// Helper to construct a minimal SipEvent for testing.
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1: AccountId is now a NonZeroU64 newtype — use from_u64().
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn make_event(event_id: u64, account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
             meta: EventMeta {
@@ -316,19 +317,21 @@ mod tests {
     #[tokio::test]
     async fn account_event_receiver_filters_by_account_id() -> Result<(), String> {
         let bus = EventBus::new(16, None);
-        let mut recv_a = AccountEventReceiver::new(1u32, bus.subscribe_control());
-        let mut recv_b = AccountEventReceiver::new(2u32, bus.subscribe_control());
+        let acc1 = AccountId::from_u64(1).ok_or("AccountId 1")?;
+        let acc2 = AccountId::from_u64(2).ok_or("AccountId 2")?;
+        let mut recv_a = AccountEventReceiver::new(acc1, bus.subscribe_control());
+        let mut recv_b = AccountEventReceiver::new(acc2, bus.subscribe_control());
 
         // Publish events for both accounts
-        bus.publish(make_event(1, Some(1u32)));
-        bus.publish(make_event(2, Some(2u32)));
+        bus.publish(make_event(1, Some(acc1)));
+        bus.publish(make_event(2, Some(acc2)));
 
         // recv_a should get event 1 (account_id=1)
         let ev_a = tokio::time::timeout(std::time::Duration::from_millis(200), recv_a.recv())
             .await
             .map_err(|_| "timeout waiting for recv_a".to_string())?
             .map_err(|e| format!("recv_a error: {e}"))?;
-        assert_eq!(ev_a.meta.account_id, Some(1u32));
+        assert_eq!(ev_a.meta.account_id, Some(acc1));
         assert_eq!(ev_a.meta.event_id, 1);
 
         // recv_b should get event 2 (account_id=2)
@@ -336,7 +339,7 @@ mod tests {
             .await
             .map_err(|_| "timeout waiting for recv_b".to_string())?
             .map_err(|e| format!("recv_b error: {e}"))?;
-        assert_eq!(ev_b.meta.account_id, Some(2u32));
+        assert_eq!(ev_b.meta.account_id, Some(acc2));
         assert_eq!(ev_b.meta.event_id, 2);
 
         Ok(())

@@ -175,6 +175,8 @@ pub(crate) fn convert_native_event_to_payload(
 
 #[cfg(test)]
 mod tests {
+    use crate::model::id_design_newtype::AccountId;
+    use crate::model::id_design_newtype::CallId;
     use super::*;
     use crate::api::event_model_payload_bus::SipEventPayload;
 
@@ -210,20 +212,20 @@ mod tests {
 
     /// @verifies C022-precondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn native_event_all_p0_variants_constructible() {
-        let _ = NativeEvent::RegistrationStateChanged { acc_id: 1 };
+        let _ = NativeEvent::RegistrationStateChanged { acc_id: AccountId::from_u64(1).unwrap() };
         let _ = NativeEvent::RegistrationStarted {
-            acc_id: 1,
+            acc_id: AccountId::from_u64(1).unwrap(),
             renew: false,
         };
         let _ = NativeEvent::CallStateChanged {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             state: 0,
         };
-        let _ = NativeEvent::CallMediaStateChanged { call_id: 1 };
+        let _ = NativeEvent::CallMediaStateChanged { call_id: CallId::from_u64(1).unwrap() };
         let _ = NativeEvent::DtmfDigit {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             digit: '1',
         };
     }
@@ -257,10 +259,10 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn registration_started_converts_to_registration_started() {
         let event = NativeEvent::RegistrationStarted {
-            acc_id: 1,
+            acc_id: AccountId::from_u64(1).unwrap(),
             renew: false,
         };
         let result = convert_native_event_to_payload(event, 0);
@@ -269,10 +271,10 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn call_state_changed_calling_converts_to_outgoing_call_started() {
         let event = NativeEvent::CallStateChanged {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             state: 1,
         };
         let result = convert_native_event_to_payload(event, 0);
@@ -281,10 +283,10 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn call_state_changed_confirmed_converts_to_call_connected() {
         let event = NativeEvent::CallStateChanged {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             state: 3,
         };
         let result = convert_native_event_to_payload(event, 0);
@@ -293,10 +295,10 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn call_state_changed_disconnected_converts_to_call_disconnected() {
         let event = NativeEvent::CallStateChanged {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             state: 4,
         };
         let result = convert_native_event_to_payload(event, 0);
@@ -305,19 +307,19 @@ mod tests {
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn call_media_state_changed_active_converts_to_media_active() {
-        let event = NativeEvent::CallMediaStateChanged { call_id: 1 };
+        let event = NativeEvent::CallMediaStateChanged { call_id: CallId::from_u64(1).unwrap() };
         let result = convert_native_event_to_payload(event, 1);
         assert_eq!(result, Some(SipEventPayload::MediaActive));
     }
 
     /// @verifies C022-postcondition
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_digit_converts_to_dtmf_received() {
         let event = NativeEvent::DtmfDigit {
-            call_id: 1,
+            call_id: CallId::from_u64(1).unwrap(),
             digit: '5',
         };
         let result = convert_native_event_to_payload(event, 0);
@@ -411,12 +413,12 @@ mod tests {
 
     /// @verifies C024-invariant
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P4-1) --for-spec --no-implementation-order`.
     fn registration_state_changed_returns_none_without_backend() {
         // Without a backend, RegistrationStateChanged cannot resolve the
         // registration status via GetAccountInfo. This is expected behavior
         // until the backend is wired in.
-        let event = NativeEvent::RegistrationStateChanged { acc_id: 1 };
+        let event = NativeEvent::RegistrationStateChanged { acc_id: AccountId::from_u64(1).unwrap() };
         assert!(convert_native_event_to_payload(event, 0).is_none());
     }
 }

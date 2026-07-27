@@ -72,7 +72,7 @@ impl PanicStep {
     }
 
     /// Consumes the step and executes its action.
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn execute(self) -> Result<(), SipError> {
         (self.action)()
     }
@@ -80,7 +80,7 @@ impl PanicStep {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for PanicStep {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PanicStep")
             .field("name", &self.name)
@@ -135,7 +135,7 @@ impl CleanupProcedure {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for CleanupProcedure {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CleanupProcedure")
             .field("step_count", &self.steps.len())
@@ -171,12 +171,10 @@ pub fn ffi_catch_unwind<T>(
         Err(panic_payload) => {
             let message = match panic_payload.downcast_ref::<&str>() {
                 Some(s) => format!("panic in '{operation_name}': {s}"),
-                None => {
-                    match panic_payload.downcast_ref::<String>() {
-                        Some(s) => format!("panic in '{operation_name}': {s}"),
-                        None => format!("panic in '{operation_name}' (unknown payload type)"),
-                    }
-                }
+                None => match panic_payload.downcast_ref::<String>() {
+                    Some(s) => format!("panic in '{operation_name}': {s}"),
+                    None => format!("panic in '{operation_name}' (unknown payload type)"),
+                },
             };
             // Log the panic before returning
             tracing::error!("{}", message);
@@ -198,7 +196,7 @@ mod tests {
 
     /// @verifies C056-precondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn cleanup_procedure_constructable_with_steps() {
         let steps = vec![
             PanicStep::new("close_handles", || Ok(())),
@@ -215,7 +213,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn cleanup_procedure_execute_calls_all_steps_in_order() {
         let call_order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let order = call_order.clone();
@@ -245,7 +243,7 @@ mod tests {
 
     /// @verifies C056-invariant
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn cleanup_procedure_step_failure_skips_remaining() {
         let call_order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let order = call_order.clone();
@@ -268,7 +266,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn cleanup_procedure_empty_step_list() {
         let proc = CleanupProcedure::new(vec![]);
         assert_eq!(proc.len(), 0);
@@ -281,7 +279,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn catch_unwind_captures_panic_with_str() {
         let result = std::panic::catch_unwind(|| {
             panic!("intentional panic");
@@ -291,7 +289,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn ffi_catch_unwind_returns_ok_on_success() {
         let result = ffi_catch_unwind("test_ok", || Ok(42));
         assert!(result.is_ok());
@@ -300,7 +298,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn ffi_catch_unwind_captures_panic() {
         let result: Result<(), SipError> = ffi_catch_unwind("test_panic", || {
             panic!("crash");
@@ -313,7 +311,7 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn ffi_catch_unwind_propagates_error() {
         let result: Result<(), SipError> = ffi_catch_unwind("test_err", || {
             Err(SipError::internal_error("business logic error"))
@@ -326,14 +324,14 @@ mod tests {
     // ── PanicStep ─────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn panic_step_name_accessible() {
         let step = PanicStep::new("my_step", || Ok(()));
         assert_eq!(step.name(), "my_step");
     }
 
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
     fn panic_step_debug_fmt() {
         let step = PanicStep::new("test_step", || Ok(()));
         let debug = format!("{:?}", step);

@@ -1,3 +1,4 @@
+
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
@@ -52,10 +53,14 @@ pub mod account_config_spec;
 pub mod transport_ice_spec;
 
 // Re-exports for crate-root convenience
+pub use account_config_spec::{
+    AccountCodecPolicy, AccountConfig, AccountConfigPatch, AccountMediaConfig,
+    AccountTransportPolicy, DtmfMethod, DtmfPolicy, OpusConfig,
+};
 pub use client_config_spec::ClientConfig;
-pub use account_config_spec::{AccountConfig, AccountConfigPatch, AccountCodecPolicy, OpusConfig,
-    DtmfPolicy, DtmfMethod, AccountMediaConfig, AccountTransportPolicy};
-pub use transport_ice_spec::{TransportConfig, TransportKind, UdpTransportConfig, TcpTransportConfig,
-    IceConfig, StunServerConfig, TurnServerConfig, SrtpPolicy, AuthOverride};
+pub use transport_ice_spec::{
+    AuthOverride, IceConfig, SrtpPolicy, StunServerConfig, TcpTransportConfig, TransportConfig,
+    TransportKind, TurnServerConfig, UdpTransportConfig,
+};
 #[cfg(feature = "tls")]
-pub use transport_ice_spec::{TlsTransportConfig, TlsConfig};
+pub use transport_ice_spec::{TlsConfig, TlsTransportConfig};

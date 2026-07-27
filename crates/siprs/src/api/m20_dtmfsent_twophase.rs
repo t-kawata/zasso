@@ -71,7 +71,7 @@ pub(crate) enum SentDtmfError {
 
 // [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SentDtmfError {
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SentDtmfError::PjsipError(code) => {
@@ -158,19 +158,19 @@ mod tests {
 
     /// @verifies C031-precondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_method_all_variants_constructible() {
         let inband = DtmfMethod::Inband;
         let sip_info = DtmfMethod::SipInfo;
         let rfc4733 = DtmfMethod::Rfc4733;
 
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_partial_eq<T: PartialEq>() {}
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_eq_trait<T: Eq>() {}
 
         assert_debug::<DtmfMethod>();
@@ -186,7 +186,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_all_fields_accessible() {
         let info = DtmfSentInfo {
             method: DtmfMethod::SipInfo,
@@ -203,7 +203,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_with_timeout_error() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Inband,
@@ -219,11 +219,11 @@ mod tests {
     /// @verifies C031-invariant
     /// @verifies C032-invariant
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_debug_and_clone() {
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_debug::<DtmfSentInfo>();
         assert_clone::<DtmfSentInfo>();
@@ -235,7 +235,7 @@ mod tests {
 
     /// @verifies C032-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_event_payload_independent_of_return() {
         let event_payload = SipEventPayload::DtmfSent(DtmfSentInfo {
             method: DtmfMethod::Inband,
@@ -252,7 +252,7 @@ mod tests {
 
     /// @verifies C032-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn two_phase_signal_separation() {
         // Return type: Result<(), SipError> (synchronous command acceptance)
         let _return_type: Result<(), SipError> = Ok(());
@@ -272,17 +272,19 @@ mod tests {
 
     /// @verifies C033-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn default_sent_timeout_is_500() {
         assert_eq!(DEFAULT_SENT_TIMEOUT_MS, 500);
     }
 
     /// @verifies C033-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_config_sent_timeout_defaults_to_500() {
         // When sent_timeout_ms is None, effective timeout is 500ms
-        let config = DtmfConfig { sent_timeout_ms: None };
+        let config = DtmfConfig {
+            sent_timeout_ms: None,
+        };
         let effective = config.sent_timeout_ms.unwrap_or(DEFAULT_SENT_TIMEOUT_MS);
         assert_eq!(effective, 500);
 
@@ -299,7 +301,7 @@ mod tests {
 
     /// @verifies C033-invariant
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_config_zero_timeout_constructs() {
         // Edge case: sent_timeout_ms = 0 means "fire immediately"
         let config = DtmfConfig {
@@ -314,7 +316,7 @@ mod tests {
 
     /// @verifies C034-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_method_shared_across_types() {
         // DtmfMethod is used by both DtmfSentInfo and would be used by
         // DtmfReceivedInfo. Verify the enum is importable at the module level.
@@ -333,7 +335,7 @@ mod tests {
 
     /// @verifies C035-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_variant_carries_payload() {
         let dtmf_sent = SipEventPayload::DtmfSent(DtmfSentInfo {
             method: DtmfMethod::Inband,
@@ -358,7 +360,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn sent_dtmf_error_display_timeout() {
         let timeout = SentDtmfError::Timeout;
         assert_eq!(format!("{}", timeout), "DTMF send timed out");
@@ -366,7 +368,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn sent_dtmf_error_display_pjsip_error() {
         let pjsip_err = SentDtmfError::PjsipError(12345);
         let display = format!("{}", pjsip_err);
@@ -382,7 +384,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_null_digit() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Inband,
@@ -395,7 +397,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_unicode_digit() {
         let info = DtmfSentInfo {
             method: DtmfMethod::SipInfo,
@@ -408,7 +410,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_ok_status_no_pjsip_code() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Inband,
@@ -422,7 +424,7 @@ mod tests {
 
     /// @verifies C031-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_error_with_pjsip_code() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Rfc4733,
@@ -440,13 +442,13 @@ mod tests {
 
     /// @verifies C032-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn runtime_command_send_dtmf_has_dtmf_method_type() {
         // Verify that the `method` field in SendDtmf is of type DtmfMethod
         // by exhaustive pattern matching. The ReplySender field is private
         // so we can't construct the variant directly; we assert the type
         // exists at the RuntimeCommand enum level.
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
         fn assert_refutability(cmd: &RuntimeCommand) {
             match cmd {
                 RuntimeCommand::SendDtmf {
@@ -470,7 +472,7 @@ mod tests {
 
     /// @verifies C035-postcondition
     #[test]
-// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-7, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-7|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_payload_dtmf_sent_with_info() {
         let _payload = SipEventPayload::DtmfSent(DtmfSentInfo {
             method: DtmfMethod::SipInfo,
