@@ -102,6 +102,8 @@ pub mod config;
 // [::TICKET::] P0-4: api/model modules added — EventBus, SipEventPayload types.
 pub mod api;
 pub mod model;
+// [::TICKET::] P0-5: error module added — SipError, SipErrorKind, M20 error mapping.
+pub mod error;
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 

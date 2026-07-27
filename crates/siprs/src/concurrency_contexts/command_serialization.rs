@@ -32,18 +32,12 @@
 
 use std::sync::mpsc::{Receiver, Sender};
 
+// [::TICKET::] P0-5: SipError placeholder replaced by real type from crate::error.
+pub use crate::error::error_design_siperror::SipError;
+
 // ---------------------------------------------------------------------------
 // Placeholder types — all replaced by real definitions in downstream P0-* tickets
 // ---------------------------------------------------------------------------
-
-/// [::STUB::] P0-5 (N0016): SipError — placeholder error type.
-/// Real type defined in error::error_design_siperror (N0016).
-#[doc(hidden)]
-#[derive(Debug)]
-pub(crate) enum SipError {
-    #[doc(hidden)]
-    Placeholder,
-}
 
 /// [::STUB::] P0-3 (N0012): Account ID newtype — placeholder until the ID
 /// design ticket is implemented. Real type will be a newtype wrapper.
