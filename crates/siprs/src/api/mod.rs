@@ -7,3 +7,6 @@
 // will be declared in their respective tickets.
 pub mod event_model_payload_bus;
 pub mod eventbus_receiver;
+// [::TICKET::] P0-7: m20_dtmfsent_twophase module — DtmfSentInfo, DtmfMethod,
+// SentDtmfError, DtmfConfig, and two-phase semantics types.
+pub mod m20_dtmfsent_twophase;

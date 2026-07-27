@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -39,6 +40,8 @@ use std::sync::mpsc::{Receiver, Sender};
 
 // [::TICKET::] P0-5: SipError placeholder replaced by real type from crate::error.
 pub use crate::error::error_design_siperror::SipError;
+/// [::TICKET::] P0-7: DtmfMethod — re-exported from api::m20_dtmfsent_twophase.
+pub(crate) use crate::api::m20_dtmfsent_twophase::DtmfMethod;
 
 // ---------------------------------------------------------------------------
 // Placeholder types — all replaced by real definitions in downstream P0-* tickets
@@ -114,6 +117,7 @@ impl<T> ReplySender<T> {
 /// `CallId` for call ops).
 #[derive(Debug)]
 pub(crate) enum RuntimeCommand {
+// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     /// Initializes the PJSUA library with the given client configuration.
     ///
     /// Must be called exactly once before any other command.
@@ -178,12 +182,12 @@ pub(crate) enum RuntimeCommand {
 
     /// Sends DTMF digits on an active call.
     ///
-    /// [::STUB::] P2: DtmfMethod type is defined in N0028/N0029. Replace the
-    /// `()` placeholder once that type is available.
+    /// [::TICKET::] P0-7: DtmfMethod placeholder replaced by real type
+    /// from api::m20_dtmfsent_twophase.
     SendDtmf {
         call_id: CallId,
         digits: String,
-        method: (),
+        method: DtmfMethod,
         reply: ReplySender<Result<(), SipError>>,
     },
 

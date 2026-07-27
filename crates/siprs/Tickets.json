@@ -1068,37 +1068,188 @@
           ],
           "contracts": [
             {
-              "id": "C030",
+              "id": "C031",
+              "sourceEdge": "N0029→N0029 (self)",
+              "precondition": "DTMF spec defined (N0028): DtmfMethod enum exists with Inband/SipInfo/Rfc4733",
+              "postcondition": "DtmfSentInfo struct defined with method/digit/status/pjsip_status fields",
+              "invariant": "DtmfSentInfo fields accessible as public; derives Debug+Clone"
+            },
+            {
+              "id": "C032",
+              "sourceEdge": "N0029→N0029 (self)",
+              "precondition": "send_dtmf() signature known from N0027",
+              "postcondition": "Two-phase semantics: send_dtmf return=command accepted, DtmfSent event=actual completion",
+              "invariant": "Return value and event are independent signals with different timing"
+            },
+            {
+              "id": "C033",
+              "sourceEdge": "N0029→N0029 (self)",
+              "precondition": "Timeout trigger is absence of PJSIP callback within sent_timeout_ms",
+              "postcondition": "DEFAULT_SENT_TIMEOUT_MS=500 constant; DtmfConfig::sent_timeout_ms field (Option<u64>)",
+              "invariant": "Default timeout is exactly 500ms; sent_timeout_ms defaults to 500 when None"
+            },
+            {
+              "id": "C034",
               "sourceEdge": "N0029→N0028",
-              "precondition": "DTMF spec defined",
-              "postcondition": "DtmfSentInfo and two-phase design specified",
-              "invariant": "500ms timeout fallback"
+              "precondition": "DtmfMethod defined in dtmf_spec_received.rs",
+              "postcondition": "DtmfMethod shared between DtmfReceivedInfo and DtmfSentInfo",
+              "invariant": "Single DtmfMethod definition used by both received and sent DTMF types"
+            },
+            {
+              "id": "C035",
+              "sourceEdge": "N0029→N0018",
+              "precondition": "SipEventPayload::DtmfSent unit variant exists (from P0-6)",
+              "postcondition": "DtmfSent variant changed from unit to DtmfSent(DtmfSentInfo)",
+              "invariant": "Existing pattern matches on DtmfSent continue to compile with payload type"
             }
           ],
-          "background": "N0029 specifies DtmfSentInfo struct and two-phase semantics: send_dtmf() return value = command accepted by PJSIP, DtmfSent event = actual send completed or timeout at 500ms fallback.",
+          "background": "N0029 specifies DtmfSentInfo struct and two-phase semantics: send_dtmf() return value = command accepted by PJSIP, DtmfSent event = actual send completed or timeout at 500ms fallback.\n\n### Goal\nDefine DtmfSentInfo struct, SentDtmfError enum, and DtmfConfig DtmfSent-related fields; implement two-phase send semantics as PJSIP command acceptance (synchronous return) vs send completion event (async DtmfSent).\n\n### Purpose\nThe two-phase design prevents callers from mistakenly treating send_dtmf() return as \"DTMF delivered to peer.\" The synchronous return confirms local acceptance only; the DtmfSent event confirms actual network send (or timeout). This separation mirrors PJSIP own async callback model.\n\n### Motivation\nP0-7 is required before P8-1 (AudioWorker) can implement DTMF sending on the reactor. Current codebase has SipEventPayload::DtmfSent as a unit variant and RuntimeCommand::SendDtmf with method:() — both need concrete types.\n\n### Constraints\n- pj_status_t is a PJSIP FFI type; defined as type alias u32 in this phase (FFI crate not yet available).\n- ClientConfig is stub-only (P0-1) — DtmfConfig defined standalone; integration deferred.\n- DtmfMethod is shared with dtmf_spec_received.rs (N0028) to avoid duplication — single definition.",
           "scope": [
             "DtmfSentInfo struct definition",
             "Two-phase semantics (return vs event)",
             "500ms timeout fallback mechanism",
-            "DtmfConfig::sent_timeout_ms configurable"
+            "DtmfConfig::sent_timeout_ms configurable",
+            "",
+            "**Scope of changes (describe each change comprehensively):**",
+            "- [src/api/m20_dtmfsent_twophase.rs] [ADD] DtmfSentInfo struct (method/digit/status/pjsip_status), SentDtmfError enum (PjsipError/Timeout), DtmfConfig struct (sent_timeout_ms: Option<u64>), DEFAULT_SENT_TIMEOUT_MS constant (500), DtmfMethod re-export or definition",
+            "- [src/api/m20_dtmfsent_twophase.rs] [ADD] #[cfg(test)] mod tests with unit tests covering normal/error/boundary/invariant",
+            "- [src/api/event_model_payload_bus.rs] [MODIFY] SipEventPayload::DtmfSent from unit variant to DtmfSent(DtmfSentInfo)",
+            "- [src/concurrency_contexts/command_serialization.rs] [MODIFY] RuntimeCommand::SendDtmf.method from () to DtmfMethod",
+            "- [src/api/dtmf_spec_received.rs] [REFERENCE] DtmfMethod enum defined here per N0028",
+            "",
+            "**API contract changes:**",
+            "- SipEventPayload::DtmfSent from unit variant to DtmfSent(DtmfSentInfo)",
+            "- RuntimeCommand::SendDtmf.method type from () to DtmfMethod",
+            "",
+            "**Data schema changes:**",
+            "- DtmfSentInfo: new struct with method/digit/status/pjsip_status fields",
+            "- SentDtmfError: new error enum with PjsipError/Timeout variants",
+            "- DtmfConfig: new config struct with sent_timeout_ms: Option<u64>",
+            "",
+            "**Config/env changes:**",
+            "- DtmfConfig::sent_timeout_ms: Option<u64> = None (defaults to 500ms)",
+            "",
+            "**Dependencies: none added**",
+            "",
+            "**Out of scope (items intentionally excluded):**",
+            "- [500ms fallback timer spawning logic] [Separate ticket P0-8 (AudioWorker/Reactor) where tokio runtime drives tokio::time::sleep]",
+            "- [PJSIP FFI binding for pjsua_call_dial_dtmf] [P0-9 (FFI layer) requires actual FFI crate]",
+            "- [DtmfReceived event handling] [Already specified in N0028/dtmf_spec_received.rs]",
+            "",
+            "**Affected areas (components/systems impacted):**",
+            "- [event_model_payload_bus.rs] [API: DtmfSent payload unit -> DtmfSentInfo] [Y: matching code in P0-6 tests needs update]",
+            "- [command_serialization.rs] [API: SendDtmf.method () -> DtmfMethod] [Y: SendDtmf callers need DtmfMethod import]",
+            "- [call_api_semantics.rs] [API: send_dtmf signature references DtmfMethod] [N: stub-only; updated in P2]",
+            "- [dtmf_spec_received.rs] [Data: DtmfMethod shared between DtmfReceived and DtmfSent] [N: already defined; P0-7 imports]",
+            "- [config/client_config_spec.rs] [Config: ClientConfig.dtmf field needs updating] [Y: when P0-1 ClientConfig finalized]"
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] DtmfSentInfo new() constructs with method, digit, status=Ok(()), pjsip_status=None — all four fields accessible via public fields",
+            "UT: [Normal] DtmfSentInfo with Err(SentDtmfError::Timeout) — status field is Err(Timeout), pjsip_status is None",
+            "UT: [Normal] DtmfMethod enum all three variants constructible (Inband, SipInfo, Rfc4733)",
+            "UT: [Normal] SentDtmfError derives Debug + Clone + PartialEq + Eq for cmp safety",
+            "UT: [Normal] SipEventPayload::DtmfSent(DtmfSentInfo) constructible and matches on DtmfSent variant",
+            "",
+            "UT: [Error] DtmfSentInfo with Err(SentDtmfError::PjsipError(12345)) — pjsip_status is Some(12345), status is Err(PjsipError(12345))",
+            "UT: [Error] SentDtmfError::Timeout string rendering via Display shows \"DTMF send timed out\"",
+            "UT: [Error] SentDtmfError::PjsipError Display includes the pj_status_t numeric value",
+            "UT: [Error] RuntimeCommand::SendDtmf carries a reply channel — constructing with ReplySender for Result<(), SipError>",
+            "",
+            "UT: [Boundary] DtmfSentInfo with digit='\u0000' (null char) — status: Ok(()), no panic on construction",
+            "UT: [Boundary] DtmfSentInfo with digit beyond ASCII range (e.g. ☺) — struct holds any char",
+            "UT: [Boundary] DtmfSentInfo with status=Ok(()) and pjsip_status=None — validates Ok path has no error code",
+            "UT: [Boundary] sent_timeout_ms = 0 explicitly constructs and passes as field of DtmfConfig",
+            "",
+            "UT: [Invariant] DEFAULT_SENT_TIMEOUT_MS constant is 500 (matches §20 specification)",
+            "UT: [Invariant] DtmfSentInfo implements Debug + Clone for event bus compatibility",
+            "UT: [Invariant] Two-phase semantic — send_dtmf() return value and DtmfSent event are separate signals",
+            "UT: [Invariant] DtmfSentInfo digit is single char — test with digits A-D, *, #, 0-9 each producing one char DtmfSentInfo"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] EventBus::publish with SipEventPayload::DtmfSent(DtmfSentInfo) → subscriber receives through broadcast channel",
+            "IT: [Integration point] RuntimeCommand::SendDtmf (concurrency_contexts::command_serialization) uses DtmfMethod from api::m20_dtmfsent_twophase — method field type consistency",
+            "IT: [Integration point] AccountEventReceiver filtering on DtmfSent events by account_id — integration with eventbus_receiver.rs",
+            "",
+            "IT: [Verification] Subscribe via EventBus::subscribe_control(), publish DtmfSent payload, confirm recv() returns the DtmfSent variant with correct DtmfSentInfo",
+            "IT: [Verification] Construct RuntimeCommand::SendDtmf with DtmfMethod::Rfc4733 and verify method is stored and accessible",
+            "IT: [Verification] Two-phase signal separation: construct both send_dtmf() return type (Result<(), SipError>) and DtmfSent event payload independently",
+            "",
+            "IT: [Prerequisites] EventBus must be constructible (P0-4: eventbus_receiver.rs implements EventBus::new + publish)",
+            "IT: [Prerequisites] SipEventPayload::DtmfSent variant must exist and carry DtmfSentInfo payload (P0-6: event_model_payload_bus.rs)",
+            "IT: [Prerequisites] DtmfMethod enum must be defined and importable from m20_dtmfsent_twophase module",
+            "",
+            "IT: [Related tickets] P0-4 — EventBus, AccountEventReceiver, broadcast channel plumbing",
+            "IT: [Related tickets] P0-6 — SipEventPayload variant types, EventMeta, NativeEvent conversion",
+            "IT: [Related tickets] N0028 / P0-7 — DtmfSpec (DtmfMethod definition lives in dtmf_spec_received.rs)",
+            "IT: [Related tickets] P8-1 — AudioWorker (SendDtmf command dispatch from audio worker to reactor)"
+          ],
+          "testExceptions": [
+            "**[Exception: Async timeout behavior]**\n- [Item] Verifying the 500ms fallback timer fires at exactly 500ms in unit tests without a tokio runtime. [not testable] in this ticket scope because timer requires async runtime (P0-8).\n- [Justification] This is not a defect — the timeout constant is deterministically testable by asserting DEFAULT_SENT_TIMEOUT_MS == 500 at compile time. The actual timer behavior (tokio::time::sleep) requires an async runtime outside this ticket scope.\n- [Alternative] Assert DEFAULT_SENT_TIMEOUT_MS == 500 in doc-test. Timer integration tested in P0-8 with tokio::test.",
+            "**[Exception: PJSIP FFI pj_status_t error mapping]**\n- [Item] SentDtmfError::PjsipError with real PJSIP error codes from pjsua.h. [not testable] because pjsua.h/FFI crate is not yet available.\n- [Justification] This is not a defect — the error type is designed to be testable with arbitrary u32 values. What is deferred is the mapping from FFI error codes (requires pjsua.h), not the error type itself.\n- [Alternative] Construct SentDtmfError::PjsipError(12345) in unit test, verify Display output. FFI mapping deferred to P0-9.",
+            "**[Exception: DtmfConfig integration with ClientConfig]**\n- [Item] DtmfConfig::sent_timeout_ms integration into ClientConfig. [not testable] because ClientConfig is stub-only (P0-1).\n- [Justification] This is not a defect — DtmfConfig is a standalone struct with fully testable construction. Integration wiring into ClientConfig (P0-1) is a separate dependency, not a testability gap.\n- [Alternative] Unit test DtmfConfig::new() defaults. ClientConfig integration tested when P0-1 finalized."
+          ],
           "acceptanceCriteria": [
-            "DtmfSentInfo struct defined",
-            "Two-phase semantics documented",
-            "Timeout fallback specified"
+            "DtmfSentInfo struct with method/DtmfMethod, digit/char, status/Result<(),SentDtmfError>, pjsip_status/Option<pj_status_t> defined",
+            "Two-phase semantics documented: send_dtmf() return = command acceptance, DtmfSent event = actual send completion or timeout",
+            "DEFAULT_SENT_TIMEOUT_MS=500 constant defined; DtmfConfig::sent_timeout_ms configurable",
+            "",
+            "**[Happy path]** DtmfSentInfo constructed with all fields, sent via EventBus, subscriber receives DtmfSent(DtmfSentInfo) with correct method/digit/status=Ok(()). DtmfMethod enum all three variants usable. SentDtmfError::Display produces readable messages.",
+            "",
+            "**[Error case]** DtmfSentInfo with Err(SentDtmfError::PjsipError(code)) carries pjsip_status=Some(code). SentDtmfError::Timeout displays clearly. RuntimeCommand::SendDtmf with DtmfMethod compiles with reply channel.",
+            "",
+            "**[Edge case]** DtmfSentInfo digit field accepts single char including Unicode and null. sent_timeout_ms=0 or extreme values do not panic. DtmfConfig defaults to 500ms when sent_timeout_ms=None."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§20)",
           "relatedTicketIds": "P8-1",
-          "notes": "",
+          "notes": "- [Implementation steps] (1) Define DtmfMethod enum in m20_dtmfsent_twophase.rs (re-export from dtmf_spec_received.rs). (2) Define SentDtmfError enum with Display impl. (3) Define DtmfSentInfo struct. (4) Define DtmfConfig struct. (5) Define DEFAULT_SENT_TIMEOUT_MS=500 constant. (6) Update SipEventPayload::DtmfSent to carry DtmfSentInfo. (7) Update RuntimeCommand::SendDtmf.method type. (8) Write #[cfg(test)] mod tests with all test cases.\n- [Risks] DtmfMethod duplication: if dtmf_spec_received.rs (N0028) is implemented as a separate ticket, P0-7 must not duplicate the enum. Use mod-level re-export or pub use. Risk: circular dependency between api sub-modules.\n- [Caveats] pj_status_t type alias (u32) is temporary — must be replaced with actual FFI type when FFI crate is added. The #[non_exhaustive] on SipEventPayload means adding DtmfSent(DtmfSentInfo) payload is backward-compatible for consumers that use wildcard match.\n- [Open items] Should DtmfConfig be a standalone struct or a nested field within ClientConfig? Decision depends on P0-1 ClientConfig final shape. Current plan: standalone struct for testability, placed in m20_dtmfsent_twophase.rs.\n- [Future improvements] PJSIP callback-based DtmfSent (priority 1 in RFC) would replace timeout fallback when on_dtmf_digit is confirmed to fire on send completion. This is a no-code-change improvement if the types are correct now.\nP0-7 done: 4 files changed, 133+15+1 tests pass, 0 quality issues, C031-C035 all covered\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Contracts: C031-C035 all covered (verified by verify-red-coverage.js)\n- Annotation: 4/4 files annotated, 0 AMBIGUOUS\n- Stubs: 24 P0-7-related, all correctly deferred to P0-8/P0-9\n- Crimes: 0\n- Boy Scout: pub trait Service {} removed (translatability fix in m20_dtmfsent_twophase.rs), method:() -> method:DtmfMethod (command_serialization.rs)\n- Findings: none (all quality gates passed)",
           "default_files": [
             "src/api/m20_dtmfsent_twophase.rs"
           ],
           "id": 7,
           "phaseId": 0,
-          "status": "todo"
+          "status": "reviewed",
+          "invariants": "- [Normal condition] DtmfSentInfo carries valid method (one of DtmfMethod) and digit (single char).\n- [Error condition] When DtmfSentInfo.status is Err, pjsip_status is Some(pj_status_t). When status is Ok(()), pjsip_status is None.\n- [Internal state] DEFAULT_SENT_TIMEOUT_MS = 500 constant is immutable. DtmfConfig::sent_timeout_ms defaults to 500 when None.\n- [Boundary] sent_timeout_ms range: 0 (fire immediately) through u64::MAX (effectively disabled). DtmfSentInfo digit accepts any valid char.",
+          "instrumentation": "- [Logging] DtmfSent event publish: debug-level log with method/digit/status at EventBus::publish. Timeout fallback trigger: warn-level log \"DtmfSent timeout fired for call={call_id}, method={method}, digit={digit}\".\n- [Metrics] DtmfSent event delivery latency (histogram). DtmfSent total count (counter by method type). Timeout fallback count (counter).\n- [Error tracking] SentDtmfError::PjsipError: error-level log with pj_status_t code. SentDtmfError::Timeout: warn-level log with call_id and elapsed time since send_dtmf().\n- [Health check] EventBus control channel capacity: monitoring for Lagged on DtmfSent events. sent_timeout_ms value check: validate > 0 or warn at config load.\nStatic quality check: passed (0 issues)\nTranslatability: no violations (verb-function names, no single-char vars, magic numbers extracted to DEFAULT_SENT_TIMEOUT_MS)\nTests: 149 passed (133 unit + 15 integration + 1 doctest), 0 failed, 3 pre-existing ignored\nCompilation: 0 warnings",
+          "investigation": "- [Architecture] The crate follows layered architecture: api/m20_dtmfsent_twophase.rs is a spec-phase struct definition file. Target file currently contains only pub trait Service {} with a STUB marker.\n- [Existing types] SipEventPayload::DtmfSent exists as unit variant in event_model_payload_bus.rs. RuntimeCommand::SendDtmf has method:() placeholder in command_serialization.rs. Both need concrete type integration.\n- [Type dependencies] DtmfMethod (from N0028) is defined in dtmf_spec_received.rs as [::STUB::]. P0-7 must provide DtmfMethod definition or import. DtmfMethod has 3 variants: Inband, SipInfo, Rfc4733.\n- [Error types] SipErrorKind::DtmfFailed exists as variant in error_design_siperror.rs with retryable=false. SipError constructors include invalid_config(), not_initialized(), etc. Pattern: SipError::new(SipErrorKind::DtmfFailed, msg).\n- [EventBus] Dual-bus design: control (SipEvent) and raw_sip (RawSipMessage). EventBus::publish() sends to all control subscribers via tokio::sync::broadcast. AccountEventReceiver filters by account_id.\n- [Config] config/mod.rs declares only versioning_policy. ClientConfig and AccountConfig are stubs in command_serialization.rs. DtmfConfig will be defined in m20_dtmfsent_twophase.rs.\n- [Related files] call_api_semantics.rs (stub), dtmf_spec_received.rs (stub with DtmfMethod/DtmfReceivedInfo), api/mod.rs declares only event_model_payload_bus and eventbus_receiver.",
+          "boyScoutPlan": "- [m20_dtmfsent_twophase.rs] Remove pub trait Service {} stub — it is a placeholder. Replace with real type definitions (structs, enums, constants). Use named struct fields (method, digit, status, pjsip_status) for translatability of DtmfSentInfo. Use domain-typed enum variants for SentDtmfError (PjsipError, Timeout).\n- [event_model_payload_bus.rs] Change SipEventPayload::DtmfSent from unit variant to payload variant. The #[non_exhaustive] attribute means existing match arms with wildcard _ will continue to compile. Update test sip_event_variants_are_constructible to construct DtmfSent with DtmfSentInfo payload.\n- [command_serialization.rs] Replace method:() placeholder with method:DtmfMethod in RuntimeCommand::SendDtmf. The () placeholder was a translatability violation — a value of type () has no domain meaning. Named field method:DtmfMethod reads as \"method is a DTMF method\" in translatability terms.\n- [dtmf_spec_received.rs] If DtmfMethod is already defined there, re-export via pub use to avoid duplication. If not yet defined, define it in m20_dtmfsent_twophase and make it importable by dtmf_spec_received.rs in future.",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27",
+          "planTestCode": [
+            "UT: [Normal] C031-precondition: DtmfMethod enum all three variants constructible\n  ```rust\n  let inband = DtmfMethod::Inband;\n  let sip_info = DtmfMethod::SipInfo;\n  let rfc4733 = DtmfMethod::Rfc4733;\n  fn assert_debug<T: std::fmt::Debug>() {}\n  fn assert_clone<T: Clone>() {}\n  fn assert_partial_eq<T: PartialEq>() {}\n  fn assert_eq_trait<T: Eq>() {}\n  assert_debug::<DtmfMethod>();\n  assert_clone::<DtmfMethod>();\n  assert_partial_eq::<DtmfMethod>();\n  assert_eq_trait::<DtmfMethod>();\n  assert_eq!(inband, DtmfMethod::Inband);\n  assert_ne!(inband, sip_info);\n  ```",
+            "UT: [Normal] C031-postcondition: DtmfSentInfo struct with method/digit/status/pjsip_status\n  ```rust\n  let info = DtmfSentInfo {\n      method: DtmfMethod::SipInfo,\n      digit: 5,\n      status: Ok(()),\n      pjsip_status: None,\n  };\n  assert_eq!(info.method, DtmfMethod::SipInfo);\n  assert_eq!(info.digit, 5);\n  assert!(info.status.is_ok());\n  assert_eq!(info.pjsip_status, None);\n  ```",
+            "UT: [Invariant] C031-invariant: DtmfSentInfo Debug+Clone\n  ```rust\n  fn assert_debug<T: std::fmt::Debug>() {}\n  fn assert_clone<T: Clone>() {}\n  assert_debug::<DtmfSentInfo>();\n  assert_clone::<DtmfSentInfo>();\n  ```",
+            "UT: [Normal] C032-postcondition: Two-phase semantics — return vs event independent\n  ```rust\n  let event_payload = SipEventPayload::DtmfSent(DtmfSentInfo {\n      method: DtmfMethod::Inband,\n      digit: 1,\n      status: Ok(()),\n      pjsip_status: None,\n  });\n  assert!(matches!(event_payload, SipEventPayload::DtmfSent(_)));\n  if let SipEventPayload::DtmfSent(info) = &event_payload {\n      assert_eq!(info.digit, 1);\n  }\n  ```",
+            "UT: [Normal] C033-postcondition: DEFAULT_SENT_TIMEOUT_MS=500 and DtmfConfig\n  ```rust\n  assert_eq!(DEFAULT_SENT_TIMEOUT_MS, 500);\n  let config = DtmfConfig { sent_timeout_ms: None };\n  let effective = config.sent_timeout_ms.unwrap_or(DEFAULT_SENT_TIMEOUT_MS);\n  assert_eq!(effective, 500);\n  let config2 = DtmfConfig { sent_timeout_ms: Some(1000) };\n  assert_eq!(config2.sent_timeout_ms, Some(1000));\n  ```",
+            "UT: [Invariant] C033-invariant: Default exactly 500\n  ```rust\n  assert_eq!(DEFAULT_SENT_TIMEOUT_MS, 500);\n  ```",
+            "UT: [Normal] C035-postcondition: DtmfSent variant carries payload\n  ```rust\n  let dtmf_sent = SipEventPayload::DtmfSent(DtmfSentInfo {\n      method: DtmfMethod::Inband,\n      digit: 9,\n      status: Err(SentDtmfError::Timeout),\n      pjsip_status: None,\n  });\n  match dtmf_sent {\n      SipEventPayload::DtmfSent(info) => {\n          assert_eq!(info.digit, 9);\n          assert_eq!(info.status, Err(SentDtmfError::Timeout));\n      }\n      _ => panic!(\"expected DtmfSent variant\"),\n  }\n  ```",
+            "UT: [Error] SentDtmfError::Display for PjsipError and Timeout\n  ```rust\n  let timeout = SentDtmfError::Timeout;\n  assert_eq!(format!(\"{}\", timeout), \"DTMF send timed out\");\n  let pjsip_err = SentDtmfError::PjsipError(12345);\n  assert!(format!(\"{}\", pjsip_err).contains(\"12345\"));\n  ```",
+            "UT: [Integration] EventBus publish DtmfSent to subscriber\n  ```rust\n  let bus = crate::api::eventbus_receiver::EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  let info = DtmfSentInfo {\n      method: DtmfMethod::Inband,\n      digit: 5,\n      status: Ok(()),\n      pjsip_status: None,\n  };\n  bus.publish(crate::api::event_model_payload_bus::SipEvent {\n      meta: crate::api::event_model_payload_bus::EventMeta {\n          event_id: 1, timestamp: 0, account_id: None, call_id: None,\n          direction: None, headers: None, status_code: None,\n          reason_phrase: None, logical_context: std::collections::BTreeMap::new(),\n      },\n      payload: SipEventPayload::DtmfSent(info),\n  });\n  match rx.try_recv() {\n      Ok(ev) => assert!(matches!(ev.payload, SipEventPayload::DtmfSent(_))),\n      Err(e) => panic!(\"failed to receive: {e}\"),\n  }\n  ```"
+          ],
+          "startedAt": "2026-07-27",
+          "changes": [
+            {
+              "before": "pub trait Service {} stub",
+              "after": "DtmfSentInfo/SentDtmfError/DtmfMethod/DtmfConfig/const",
+              "description": "m20_dtmfsent_twophase.rs full types"
+            },
+            {
+              "before": "unit variant",
+              "after": "DtmfSent(DtmfSentInfo)",
+              "description": "event_model_payload_bus.rs payload"
+            },
+            {
+              "before": "not declared",
+              "after": "pub mod added",
+              "description": "api/mod.rs module registration"
+            },
+            {
+              "before": "method: ()",
+              "after": "method: DtmfMethod",
+              "description": "command_serialization.rs type replacement"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-27"
         },
         {
           "title": "AudioWorkerTask & Dual Client Specification",

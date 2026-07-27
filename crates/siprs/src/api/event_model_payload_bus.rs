@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -95,6 +96,7 @@ pub(crate) struct EventMeta {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub(crate) enum SipEventPayload {
+// [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // ── Registration ──
     RegistrationStarted,
@@ -125,7 +127,7 @@ pub(crate) enum SipEventPayload {
     MediaError,
 
     // ── DTMF ──
-    DtmfSent,
+    DtmfSent(crate::api::m20_dtmfsent_twophase::DtmfSentInfo),
     DtmfReceived,
 
     // ── ICE ──
