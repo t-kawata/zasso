@@ -191,7 +191,7 @@ mod tests {
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-// [::TICKET::] P0-4, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P2-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P2-2, P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P2-2|P2-5) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         // CommandSender is Send + Sync since Sender<RuntimeCommand> is Send + Sync
         assert_send::<crate::concurrency_contexts::CommandSender>();
@@ -859,3 +859,17 @@ mod tests {
         Ok(())
     }
 }
+
+// ===================================================================
+// P2-5: Layer 5 API Integration Test Infrastructure
+// Include test architecture modules from src/tests/
+// ===================================================================
+#[cfg(test)]
+#[path = "tests/test_strategy_4layer.rs"]
+mod test_strategy_4layer;
+#[cfg(test)]
+#[path = "tests/test_apilayer5.rs"]
+mod test_apilayer5;
+
+#[cfg(test)]
+pub use test_strategy_4layer::TestLayer;

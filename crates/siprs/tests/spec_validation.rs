@@ -949,3 +949,117 @@ fn p2x4_zero_http_deps_invariant() {
         "siprs must not depend on jsonwebtoken (zero HTTP deps invariant)"
     );
 }
+
+// =====================================================================
+// P2-5: Layer 5 API Integration Test Infrastructure — spec validation
+// =====================================================================
+
+const P2X5_SPEC_PATH: &str = "specs/P2-5.md";
+
+#[test]
+// @verifies C066-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_file_exists() {
+    let path = std::path::Path::new(P2X5_SPEC_PATH);
+    assert!(path.exists(), "P2-5 spec file must exist at {P2X5_SPEC_PATH}");
+}
+
+#[test]
+// @verifies C066-precondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_references_n0065() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(spec.contains("N0065"), "spec must reference N0065 node for Layer 5");
+}
+
+#[test]
+// @verifies C066-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_defines_layer5_in_test_strategy() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("ApiIntegration"),
+        "spec must mention ApiIntegration layer"
+    );
+}
+
+#[test]
+// @verifies C066-invariant
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_defines_all_three_test_dirs() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("tests/api/"),
+        "spec must document REST API test directory"
+    );
+    assert!(
+        spec.contains("tests/ws/"),
+        "spec must document WebSocket test directory"
+    );
+    assert!(
+        spec.contains("tests/integration/"),
+        "spec must document SIP+API combined test directory"
+    );
+}
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_zero_http_deps() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("zero HTTP deps"),
+        "spec must document zero HTTP deps invariant"
+    );
+}
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_siprs_server_deferral() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("siprs-server"),
+        "spec must defer runtime tests to siprs-server"
+    );
+}
+
+#[test]
+// @verifies C068-invariant
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_anthropx_pattern() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("anthropx"),
+        "spec must reference anthropx test patterns"
+    );
+}
+
+#[test]
+// @verifies C068-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_includes_axum_test_examples() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("TestServer::new(app)"),
+        "REST API code example required"
+    );
+    assert!(spec.contains("ws_stream"), "WebSocket code example required");
+    assert!(spec.contains("audio"), "audio frame code example required");
+    assert!(spec.contains("Bearer"), "JWT auth code example required");
+    assert!(
+        spec.contains("Asterisk"),
+        "SIP combined code example required"
+    );
+}
+
+#[test]
+// @verifies C068-precondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_cross_references_p2x4() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("P2-4"),
+        "spec must cross-reference P2-4 JWT Auth Model"
+    );
+}
