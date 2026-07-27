@@ -180,9 +180,10 @@ mod tests {
 
     /// Helper to construct a minimal SipEvent for testing.
     // [::TICKET::] P4-1: AccountId is now a NonZeroU64 newtype — use from_u64().
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P4-4) --for-spec --no-implementation-order`.
     fn make_event(event_id: u64, account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
+            seq: 0,
             meta: EventMeta {
                 event_id,
                 timestamp: 0,

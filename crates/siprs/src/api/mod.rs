@@ -1,3 +1,4 @@
+
 // Module declarations for api sub-modules.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4: EventBus, AccountEventReceiver, SipEventPayload, SipEvent, EventMeta.
@@ -6,6 +7,10 @@
 // Other api files (call_api_semantics, dtmf_spec_received, etc.)
 // will be declared in their respective tickets.
 pub mod event_model_payload_bus;
+// [::TICKET::] P4-4: http_ws_protocol module — REST/WS protocol types, AudioFrameHeader,
+// WsEvent, AuthRequest/AuthResponse, endpoint path constants, build_router.
+pub mod http_ws_protocol;
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
 pub mod eventbus_receiver;
 // [::TICKET::] P0-7: m20_dtmfsent_twophase module — DtmfSentInfo, DtmfMethod,
 // SentDtmfError, DtmfConfig, and two-phase semantics types.
@@ -23,3 +28,7 @@ pub use public_api_design::{
     SipClient,
 };
 pub use standalone_server_config::{AuthConfig, AuthMode, ServerConfig};
+#[cfg(feature = "serde")]
+pub use http_ws_protocol::{AuthRequest, AuthResponse};
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
+pub use http_ws_protocol::{AudioFrameHeader, WsEvent, WsEventPayloadKind};

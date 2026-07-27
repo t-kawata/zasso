@@ -1002,7 +1002,18 @@
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P4-3\" --tickets=\"Tickets.json\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P4-3\" --no-implementation-order)",
       "Bash(node -e \"const t=require\\('./Tickets.json'\\); t.phases.flatMap\\(f=>f.tickets\\).filter\\(x=>x.title.includes\\('Audio Format'\\)\\).forEach\\(x=>console.log\\(x.title\\)\\)\")",
-      "Bash(git commit -m 'feat\\(P4-3\\): implement Audio Format, PairAligner, Resampler, Codec & Media Bridge types *)"
+      "Bash(git commit -m 'feat\\(P4-3\\): implement Audio Format, PairAligner, Resampler, Codec & Media Bridge types *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P4-4\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0062 --hops=2)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0064 --hops=2)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P4-4\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P4-4\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P4-4\")",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P4-4\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P4-4\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --plan)"
     ]
   }
 }

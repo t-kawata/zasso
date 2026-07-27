@@ -1,5 +1,6 @@
 
 
+
 // Module declarations for model sub-modules.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4: EventBus references RawSipMessage from raw_sip_message_spec.
@@ -14,6 +15,9 @@ pub mod audio_format_chunkpair;
 pub mod raw_sip_message_spec;
 // [::TICKET::] P4-1: id_design_newtype module declared — AccountId, CallId, AudioSourceId.
 pub mod id_design_newtype;
+// [::TICKET::] P4-4: sqlite_schema module — SQL persistence schema constants and migration types.
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
+pub mod sqlite_schema;
 
 // Re-export audio format types at model level.
 pub use audio_format_chunkpair::{

@@ -206,6 +206,10 @@ impl AudioChunk {
 /// Both chunks share a single `SystemTime` timestamp, ensuring they are
 /// treated as a single aligned audio event. The `call_id` and `account_id`
 /// identify the call and account this pair belongs to.
+///
+/// The `first_seq` and `last_seq` fields carry the global sequence number range
+/// for event-audio correlation (§54.5). A SipEvent with `seq` in [first_seq, last_seq]
+/// corresponds to the same time window as this audio chunk pair.
 #[derive(Debug, Clone)]
 pub struct AudioChunkPair {
     /// The call this audio pair belongs to.
@@ -218,9 +222,13 @@ pub struct AudioChunkPair {
     in_chunk: AudioChunk,
     /// Audio to send to the remote peer.
     out_chunk: AudioChunk,
+    /// Global sequence number of the first sample in this chunk (§54.5).
+    first_seq: u64,
+    /// Global sequence number of the last sample in this chunk (§54.5).
+    last_seq: u64,
 }
 
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3, P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P4-4) --for-spec --no-implementation-order`.
 impl AudioChunkPair {
     /// Creates a new `AudioChunkPair`.
     pub fn new(
@@ -236,6 +244,29 @@ impl AudioChunkPair {
             timestamp,
             in_chunk,
             out_chunk,
+            first_seq: 0,
+            last_seq: 0,
+        }
+    }
+
+    /// Creates a new `AudioChunkPair` with sequence number range for event-audio correlation.
+    pub fn with_seq_range(
+        call_id: CallId,
+        account_id: AccountId,
+        timestamp: SystemTime,
+        in_chunk: AudioChunk,
+        out_chunk: AudioChunk,
+        first_seq: u64,
+        last_seq: u64,
+    ) -> Self {
+        Self {
+            call_id,
+            account_id,
+            timestamp,
+            in_chunk,
+            out_chunk,
+            first_seq,
+            last_seq,
         }
     }
 
@@ -262,6 +293,16 @@ impl AudioChunkPair {
     /// Returns a reference to the OUT (to-send) audio chunk.
     pub fn out_chunk(&self) -> &AudioChunk {
         &self.out_chunk
+    }
+
+    /// Returns the sequence number of the first sample in this chunk.
+    pub fn first_seq(&self) -> u64 {
+        self.first_seq
+    }
+
+    /// Returns the sequence number of the last sample in this chunk.
+    pub fn last_seq(&self) -> u64 {
+        self.last_seq
     }
 }
 
@@ -791,6 +832,43 @@ mod tests {
         );
         assert_eq!(pair.in_chunk().frame_len(), 0);
         assert_eq!(pair.out_chunk().frame_len(), 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // ── C063-invariant: AudioChunkPair first_seq/last_seq ──────────────────
+    // -----------------------------------------------------------------------
+
+    /// @verifies C063-invariant
+    #[test]
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
+    fn audio_chunk_pair_seq_range_defaults_to_zero() {
+        let pair = AudioChunkPair::new(
+            CallId::from_u64(6).unwrap(),
+            AccountId::from_u64(6).unwrap(),
+            SystemTime::now(),
+            AudioChunk::I16(vec![0i16; 160]),
+            AudioChunk::I16(vec![0i16; 160]),
+        );
+        assert_eq!(pair.first_seq(), 0);
+        assert_eq!(pair.last_seq(), 0);
+    }
+
+    /// @verifies C063-invariant
+    #[test]
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
+    fn audio_chunk_pair_with_seq_range_constructable() {
+        let pair = AudioChunkPair::with_seq_range(
+            CallId::from_u64(7).unwrap(),
+            AccountId::from_u64(7).unwrap(),
+            SystemTime::now(),
+            AudioChunk::I16(vec![0i16; 160]),
+            AudioChunk::I16(vec![0i16; 160]),
+            1000,
+            1010,
+        );
+        assert_eq!(pair.first_seq(), 1000);
+        assert_eq!(pair.last_seq(), 1010);
+        assert!(pair.last_seq() >= pair.first_seq());
     }
 
     // -----------------------------------------------------------------------

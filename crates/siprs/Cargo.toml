@@ -14,7 +14,7 @@ autoexamples = false
 
 [features]
 default = ["serde", "tls"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:serde_json"]
 tls = []
 srtp = []
 metrics = []
@@ -47,6 +47,8 @@ cfg-if = "1"
 zeroize = { version = "1", optional = true }
 # [::TICKET::] P1-2: serde for Serialize/Deserialize on public types (optional, behind serde feature)
 serde = { version = "1", optional = true, features = ["derive"] }
+# [::TICKET::] P4-4: serde_json for WsEvent payload type and AuthRequest/AuthResponse serde
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests

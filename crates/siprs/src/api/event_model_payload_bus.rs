@@ -169,6 +169,9 @@ pub enum SipEventPayload {
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// [::TICKET::] P3-1: Changed from pub(crate) to pub — SipClient::subscribe() returns this type.
 pub struct SipEvent {
+    /// Global monotonically increasing sequence number for event-audio correlation (§54.5).
+    /// Shared with AudioChunkPair's first_seq/last_seq fields.
+    pub seq: u64,
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     pub meta: EventMeta,
     pub payload: SipEventPayload,
@@ -194,7 +197,7 @@ mod tests {
         // Assert: SipEventPayload implements Debug + Clone at compile time
         // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P4-4) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_debug::<SipEventPayload>();
         assert_clone::<SipEventPayload>();
@@ -217,7 +220,7 @@ mod tests {
 
     /// @verifies C020-postcondition
     #[test]
-// [::TICKET::] P0-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P4-1, P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P4-1|P4-4) --for-spec --no-implementation-order`.
     fn sip_event_wraps_payload_with_meta() {
         let meta = EventMeta {
             event_id: 42,
@@ -232,16 +235,40 @@ mod tests {
         };
         let payload = SipEventPayload::ClientShutdown;
         let event = SipEvent {
+            seq: 0,
             meta: meta.clone(),
             payload: payload.clone(),
         };
 
         // Verify the wrapper contains the correct data
+        assert_eq!(event.seq, 0);
         assert_eq!(event.meta.event_id, 42);
         assert_eq!(event.meta.timestamp, 1_700_000_000_000);
         assert_eq!(event.meta.account_id, Some(AccountId::from_u64(1).unwrap()));
         assert_eq!(event.meta.direction, Some(EventDirection::Incoming));
         assert_eq!(event.meta.status_code, Some(200));
+    }
+
+    /// @verifies C063-invariant
+    #[test]
+// [::TICKET::] P4-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --no-implementation-order`.
+    fn sip_event_seq_field_type_u64() {
+        let event = SipEvent {
+            seq: 42u64,
+            meta: EventMeta {
+                event_id: 0,
+                timestamp: 0,
+                account_id: None,
+                call_id: None,
+                direction: None,
+                headers: None,
+                status_code: None,
+                reason_phrase: None,
+                logical_context: BTreeMap::new(),
+            },
+            payload: SipEventPayload::CallConnected,
+        };
+        assert_eq!(event.seq, 42u64);
     }
 
     /// @verifies C020-postcondition
