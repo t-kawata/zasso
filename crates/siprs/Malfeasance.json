@@ -30,6 +30,24 @@
       "status": "resolved",
       "note": "Fixed: added [::STUB::] marker",
       "resolved_at": "2026-07-27T07:56:16.136Z"
+    },
+    {
+      "id": 4,
+      "file": "examples/audio_tap.rs",
+      "line": 128,
+      "description": "STUB: pair_to_stereo_i16 depends on AudioChunkPair from P0-8 (N0030)",
+      "detected_at": "2026-07-27T09:22:12.645Z",
+      "status": "open",
+      "note": "Cannot resolve — AudioFormat model not yet implemented"
+    },
+    {
+      "id": 5,
+      "file": "examples/audio_tap.rs",
+      "line": 143,
+      "description": "STUB: open_default_microphone_source depends on cpal-input from N0050/§40",
+      "detected_at": "2026-07-27T09:22:13.194Z",
+      "status": "open",
+      "note": "Cannot resolve — cpal-input feature not yet implemented"
     }
   ]
 }

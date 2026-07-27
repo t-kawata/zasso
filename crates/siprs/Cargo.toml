@@ -13,12 +13,19 @@ serde = ["dep:serde"]
 tls = []
 srtp = []
 metrics = []
+# [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source
+# Full implementation requires the `cpal` crate (P1-4).
+cpal-input = []
 zeroize = ["dep:zeroize"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input"))'] }
 
 [dependencies]
 # [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+
 # P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
-tokio = { version = "1", features = ["sync", "rt", "time", "macros"] }
+# [::STUB::] P1-3: rt-multi-thread enabled for #[tokio::main] in examples
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros"] }
 # [::STUB::] P0-5: N0016 — thiserror for SipError derive macro
 thiserror = "2"
 # [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations
