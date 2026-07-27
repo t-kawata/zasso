@@ -613,7 +613,10 @@
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P1-1\" --for-spec --plan)",
       "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0040 --hops=2)",
       "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0015 --hops=2)",
-      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P1-1\" --tickets=\"Tickets.json\")"
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P1-1\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/review/find-all-stubs.js \".\")",
+      "Bash(.claude/scripts/tickets/scan-crimes.sh \".\")",
+      "Bash(git commit -m 'chore: 設定に stub スキャン用 allowlist エントリを追加 *)"
     ]
   }
 }
