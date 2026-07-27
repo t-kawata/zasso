@@ -1013,7 +1013,9 @@
       "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P4-4\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P4-4\" --for-spec --plan)",
       "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P4-4\" --tickets=\"Tickets.json\")",
-      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --plan)"
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-4 --for-spec --plan)",
+      "Bash(cat /Users/sh01/shyme/zasso/.claude/commands/Malfeasance.json 2>&1)",
+      "Bash(ls -la /Users/sh01/shyme/zasso/.claude/artifacts/ 2>&1 | head -20)"
     ]
   }
 }
