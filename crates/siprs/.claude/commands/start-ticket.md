@@ -312,6 +312,16 @@ echo '{
 
 This makes it possible to trace "how the implementation was done" when checking the ticket later.
 
+#### Re-export spec file with implementation locations
+
+Re-export the spec file to reflect the newly added `[::TICKET::]` annotations as implementation locations:
+
+```bash
+mkdir -p specs && \
+node .claude/scripts/tickets/show-ticket-context.js \
+  --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
+```
+
 ### Step 10: Transition to done
 
 After passing compilation verification, tests, and quality checks:

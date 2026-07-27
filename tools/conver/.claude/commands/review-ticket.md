@@ -276,6 +276,16 @@ echo '{
 
 This makes it possible to trace "how the review was conducted and quality assured" when checking the ticket later.
 
+#### Re-export spec file (final snapshot)
+
+Re-export the spec file to reflect any fixes applied during review (crimes resolved, AMBIGUOUS markers resolved, quality fixes):
+
+```bash
+mkdir -p specs && \
+node .claude/scripts/tickets/show-ticket-context.js \
+  --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
+```
+
 ### Step 10b: Verify final contract fulfillment
 
 Before transitioning to reviewed, verify that all prerequisites (graph contracts annotated,
