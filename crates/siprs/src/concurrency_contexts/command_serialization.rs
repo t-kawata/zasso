@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -30,32 +31,26 @@
 //! channel) because every variant's payload types are `Send`. This guarantee
 //! enables thread-safe command submission from any async task or OS thread.
 
+// [::STUB::] P0-7: All items in this module are design-time contracts for the
+// RuntimeCommand channel. They trigger dead_code until the runtime module (P0-7)
+// consumes them.
+#![allow(dead_code)]
+
 use std::sync::mpsc::{Receiver, Sender};
+
+// [::TICKET::] P0-5: SipError placeholder replaced by real type from crate::error.
+/// [::TICKET::] P0-7: DtmfMethod — re-exported from api::m20_dtmfsent_twophase.
+pub(crate) use crate::api::m20_dtmfsent_twophase::DtmfMethod;
+pub use crate::error::error_design_siperror::SipError;
 
 // ---------------------------------------------------------------------------
 // Placeholder types — all replaced by real definitions in downstream P0-* tickets
 // ---------------------------------------------------------------------------
 
-/// [::STUB::] P0-5 (N0016): SipError — placeholder error type.
-/// Real type defined in error::error_design_siperror (N0016).
-#[doc(hidden)]
-#[derive(Debug)]
-pub(crate) enum SipError {
-    #[doc(hidden)]
-    Placeholder,
-}
-
-/// [::STUB::] P0-3 (N0012): Account ID newtype — placeholder until the ID
-/// design ticket is implemented. Real type will be a newtype wrapper.
-#[doc(hidden)]
-#[allow(dead_code)]
-pub(crate) type AccountId = u32;
-
-/// [::STUB::] P0-3 (N0012): Call ID newtype — placeholder until the ID
-/// design ticket is implemented. Real type will be a newtype wrapper.
-#[doc(hidden)]
-#[allow(dead_code)]
-pub(crate) type CallId = u32;
+// [::TICKET::] P4-1: AccountId/CallId replaced with real NonZeroU64 newtypes from model module.
+// The type aliases are kept as re-exports so downstream import paths remain unchanged.
+pub(crate) use crate::model::id_design_newtype::AccountId;
+pub(crate) use crate::model::id_design_newtype::CallId;
 
 /// [::STUB::] P0-3 (N0013): ClientConfig — placeholder until the config
 /// specification ticket is implemented.
@@ -95,6 +90,16 @@ pub(crate) type CommandReceiver = Receiver<RuntimeCommand>;
 pub(crate) struct ReplySender<T>(Option<T>);
 
 impl<T> ReplySender<T> {
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    /// Creates a new `ReplySender` with no initial value.
+    ///
+    /// [::STUB::] P2: Replace with `tokio::sync::oneshot::Sender::new()` once
+    /// tokio is added as a crate dependency.
+    #[allow(dead_code)]
+    pub(crate) fn new() -> Self {
+        ReplySender(None)
+    }
+
     pub(crate) fn send(self, value: T) -> Result<(), T> {
         // [::STUB::] P2: Replace with actual oneshot channel send.
         // Current implementation is a placeholder — once tokio::sync::oneshot
@@ -115,6 +120,7 @@ impl<T> ReplySender<T> {
 /// `CallId` for call ops).
 #[derive(Debug)]
 pub(crate) enum RuntimeCommand {
+    // [::TICKET::] P0-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-7 --for-spec --no-implementation-order`.
     /// Initializes the PJSUA library with the given client configuration.
     ///
     /// Must be called exactly once before any other command.
@@ -155,13 +161,49 @@ pub(crate) enum RuntimeCommand {
         reply: ReplySender<Result<CallId, SipError>>,
     },
 
-    /// Hangs up an active call with the given reason.
+        /// Hangs up an active call with the given reason.
     ///
-    /// [::STUB::] P2: HangupReason type is defined in N0026/N0027. Replace
-    /// the `()` placeholder once that type is available.
-    Hangup {
+    /// [::STUB::] P5-1: HangupReason resolved — now uses the real type from
+    /// audio_subscribe_bp.
+    HangupCall {
         call_id: CallId,
-        reason: (),
+        reason: crate::api::audio_subscribe_bp::HangupReason,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: AnswerCall — provisional, replaced by real dispatch in P3-2.
+    AnswerCall {
+        call_id: CallId,
+        code: u16,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: TransferCall — provisional, replaced by real dispatch in P3-2.
+    TransferCall {
+        call_id: CallId,
+        target: String,
+        reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// [::STUB::] P5-1: GetCallState — provisional, replaced by real dispatch in P3-2.
+    GetCallState {
+        call_id: CallId,
+        reply: ReplySender<Result<crate::state::call_state_model::CallState, SipError>>,
+    },
+
+    /// [::STUB::] P5-1: SubscribeAudio — provisional, replaced by real dispatch in P3-2.
+    SubscribeAudio {
+        call_id: CallId,
+        format: crate::model::audio_format_chunkpair::AudioFormat,
+        capacity: usize,
+        mode: crate::api::audio_subscribe_bp::AudioTapMode,
+        reply: ReplySender<Result<crate::api::audio_subscribe_bp::AudioTapHandle, SipError>>,
+    },
+
+    /// [::STUB::] P5-1: ConfConnect — provisional, replaced by real dispatch in P3-2.
+    ConfConnect {
+        call_id: CallId,
+        media_direction: crate::api::audio_subscribe_bp::MediaDirection,
         reply: ReplySender<Result<(), SipError>>,
     },
 
@@ -179,13 +221,27 @@ pub(crate) enum RuntimeCommand {
 
     /// Sends DTMF digits on an active call.
     ///
-    /// [::STUB::] P2: DtmfMethod type is defined in N0028/N0029. Replace the
-    /// `()` placeholder once that type is available.
+    /// [::TICKET::] P0-7: DtmfMethod placeholder replaced by real type
+    /// from api::m20_dtmfsent_twophase.
     SendDtmf {
         call_id: CallId,
         digits: String,
-        method: (),
+        method: DtmfMethod,
         reply: ReplySender<Result<(), SipError>>,
+    },
+
+    /// Queries account information via an active PJSIP API call.
+    ///
+    /// Used internally by the registration event handler to resolve
+    /// `RegistrationStateChanged` into `RegistrationSucceeded` or
+    /// `RegistrationFailed`. Returns the `AccountInfoSnapshot` containing
+    /// the current registration status.
+    ///
+    /// [::TICKET::] P4-1: AccountId is now a NonZeroU64 newtype (replaced u32 placeholder).
+    GetAccountInfo {
+        account_id: AccountId,
+        reply:
+            ReplySender<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, SipError>>,
     },
 
     /// Gracefully shuts down the PJSUA library and stops the reactor.
@@ -224,12 +280,12 @@ mod tests {
     ///
     /// @verifies C002
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn purpose_implementable_via_async_model() {
         // The RuntimeCommand enum IS the serialization mechanism that makes the
         // async model work. Its existence proves the crate can be operated
         // asynchronously without exposing PJSUA threads to the consumer.
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }
@@ -242,9 +298,9 @@ mod tests {
     /// @verifies C011
     /// @verifies C012
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn runtime_command_is_send() {
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }
@@ -256,9 +312,9 @@ mod tests {
     ///
     /// @verifies C011
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn command_sender_is_send() {
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CommandSender>();
     }
@@ -267,9 +323,9 @@ mod tests {
     ///
     /// This allows the receiver to be moved into the reactor thread.
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn command_receiver_is_send() {
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CommandReceiver>();
     }
@@ -282,7 +338,7 @@ mod tests {
     ///
     /// @verifies C010
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn module_boundary_isolation() {
         // This test verifies by construction: if concurrency_contexts imported
         // runtime/, ffi/, or audio/, the compiler would have already rejected
@@ -298,7 +354,7 @@ mod tests {
     ///
     /// @verifies C011
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-6, P5-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-6|P5-1) --for-spec --no-implementation-order`.
     fn all_variants_exist() {
         // Construct an Initialize variant that exercise the enum shape.
         let (_tx, _rx) = std::sync::mpsc::channel::<Result<(), SipError>>();
@@ -314,11 +370,17 @@ mod tests {
             | RuntimeCommand::RemoveAccount { .. }
             | RuntimeCommand::SetRegistration { .. }
             | RuntimeCommand::MakeCall { .. }
-            | RuntimeCommand::Hangup { .. }
+            | RuntimeCommand::HangupCall { .. }
             | RuntimeCommand::Hold { .. }
             | RuntimeCommand::Unhold { .. }
             | RuntimeCommand::SendDtmf { .. }
-            | RuntimeCommand::Shutdown { .. } => {}
+            | RuntimeCommand::GetAccountInfo { .. }
+            | RuntimeCommand::Shutdown { .. }
+            | RuntimeCommand::AnswerCall { .. }
+            | RuntimeCommand::TransferCall { .. }
+            | RuntimeCommand::GetCallState { .. }
+            | RuntimeCommand::SubscribeAudio { .. }
+            | RuntimeCommand::ConfConnect { .. } => {}
         }
     }
 
@@ -335,7 +397,7 @@ mod tests {
     ///
     /// @verifies C034
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn audio_rt_boundary_no_blocking() {
         // The concurrency_contexts module does not define the audio boundary —
         // that belongs to the audio module (P0-8). This test documents that
@@ -351,7 +413,7 @@ mod tests {
     ///
     /// @verifies C038
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn unsafe_isolated_to_ffi_module() {
         // No unsafe code exists in this module — verified by the crate-level
         // #![forbid(unsafe_code)] attribute in lib.rs. Once ffi/ is implemented
@@ -367,13 +429,13 @@ mod tests {
     ///
     /// @verifies C046
     #[test]
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn state_ownership_and_snapshots() {
         // The RuntimeCommand enum IS the exclusive mutation mechanism.
         // Each variant carries a oneshot reply channel, enabling the caller
         // to obtain a result (snapshot) after the mutation completes.
         // The MPSC serialization ensures exclusive reactor access.
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<RuntimeCommand>();
     }

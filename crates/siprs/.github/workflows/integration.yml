@@ -1,0 +1,49 @@
+# Docker Integration Test Job — Layer 3 SIP protocol tests.
+#
+# Runs against an Asterisk 20.6.0 container with SIP UDP (5060) and
+# TCP (5061) ports exposed. Tests require the `pjsip` feature flag.
+#
+# Only runs on ubuntu-22.04 (Docker service support).
+#
+# [::TICKET::] P1-4: Docker integration workflow defined.
+#   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
+
+name: Integration Tests
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  # Run SIP integration tests against a Docker Asterisk container
+  integration:
+    runs-on: ubuntu-22.04
+
+    # Docker service: Asterisk 20.6.0 with PJSIP channel
+    services:
+      asterisk:
+        image: asterisk:20.6.0
+        ports:
+          - 5060:5060/udp
+          - 5061:5061/tcp
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install the Rust toolchain (stable)
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Step 3: Build with pjsip feature (includes FFI bindings)
+      - name: Build with pjsip
+        run: cargo build --features pjsip
+
+      # Step 4: Run integration tests (Layer 3)
+      # SIP_SERVER and SIP_PORT point to the Docker Asterisk service
+      - name: Run integration tests
+        run: cargo test --features pjsip --test integration_test
+        env:
+          SIP_SERVER: localhost
+          SIP_PORT: "5060"

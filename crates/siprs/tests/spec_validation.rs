@@ -113,14 +113,13 @@ fn spec_has_m20_priority_map() {
 
 #[test]
 // @verifies C003
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_m20_no_dependency_claim() {
     let content = read_spec().expect("failed to read spec file");
     // Priority ordering (P0 before P1 before P2) must not be stated
     // as a hard dependency — items are independently schedulable.
     assert!(
-        !content.contains("must be completed before P1")
-            && !content.contains("must precede P"),
+        !content.contains("must be completed before P1") && !content.contains("must precede P"),
         "priority ordering must not imply dependency between levels"
     );
 }
@@ -146,7 +145,7 @@ fn spec_has_non_goals() {
 
 #[test]
 // @verifies C004
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_tauri_boundary_respected() {
     // No crate source file may import tauri runtime — this is a
     // non-Tauri crate used via public Rust API.
@@ -155,8 +154,7 @@ fn spec_tauri_boundary_respected() {
         return;
     }
     for entry in walkdir_without_hidden(src_dir) {
-        let content = std::fs::read_to_string(&entry)
-            .unwrap_or_default();
+        let content = std::fs::read_to_string(&entry).unwrap_or_default();
         assert!(
             !content.contains("tauri::"),
             "no tauri import allowed in src/: {:?}",
@@ -194,7 +192,7 @@ fn walkdir_without_hidden(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 #[test]
 // @verifies C005
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_has_terminology() {
     let content = read_spec().expect("failed to read spec file");
     assert!(
@@ -203,10 +201,7 @@ fn spec_has_terminology() {
     );
     // At least one key domain term should be present
     let key_terms = ["Client", "Account", "Call", "Media Session", "SIP Event"];
-    let found = key_terms
-        .iter()
-        .filter(|&&t| content.contains(t))
-        .count();
+    let found = key_terms.iter().filter(|&&t| content.contains(t)).count();
     assert!(
         found >= 2,
         "spec should define at least 2 of the key domain terms, found {}",
@@ -220,10 +215,9 @@ fn spec_has_terminology() {
 
 #[test]
 // @verifies C006
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn cargo_toml_has_correct_msrv() {
-    let content =
-        std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
+    let content = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
     assert!(
         content.contains("rust-version = \"1.95\""),
         "MSRV must be 1.95 in Cargo.toml (N0005 compliance requirement)"
@@ -274,11 +268,10 @@ fn spec_has_versioning_policy() {
 
 #[test]
 // @verifies C007
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn versioning_policy_config_struct_exists() {
-    let content =
-        std::fs::read_to_string("src/config/versioning_policy.rs")
-            .expect("versioning_policy.rs must exist");
+    let content = std::fs::read_to_string("src/config/versioning_policy.rs")
+        .expect("versioning_policy.rs must exist");
     assert!(
         content.contains("struct Config"),
         "Config struct must be declared in versioning_policy.rs"
@@ -318,7 +311,7 @@ fn spec_has_functional_requirements() {
 
 #[test]
 // @verifies C009
-// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
 fn spec_has_module_structure() {
     let content = read_spec().expect("failed to read spec file");
     assert!(
@@ -327,9 +320,7 @@ fn spec_has_module_structure() {
     );
     // Key module directories should be mentioned
     assert!(
-        content.contains("ffi/")
-            || content.contains("runtime/")
-            || content.contains("audio/"),
+        content.contains("ffi/") || content.contains("runtime/") || content.contains("audio/"),
         "spec must document at least one key module directory (ffi/, runtime/, audio/)"
     );
     assert!(
@@ -362,4 +353,747 @@ fn spec_references_inbound_contract_targets() {
             required_node,
         );
     }
+}
+
+// ===========================================================================
+// P1-4: Test Strategy & CI/CD Pipeline (N0052, N0053, N0054)
+// ===========================================================================
+
+/// Path to the P1-4 specification document.
+const P1_4_SPEC_PATH: &str = "specs/P1-4.md";
+
+/// Read the P1-4 spec file content as a String.
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn read_p1_4_spec() -> std::io::Result<String> {
+    let mut file = std::fs::File::open(P1_4_SPEC_PATH)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    Ok(content)
+}
+
+// ---------------------------------------------------------------------------
+// C053 — N0052→N0007: 4-layer test strategy validates Functional Requirements.
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C053-precondition
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_spec_file_exists() {
+    let path = std::path::Path::new(P1_4_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P1-4 spec file must exist at {}",
+        P1_4_SPEC_PATH,
+    );
+}
+
+#[test]
+// @verifies C053-postcondition
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_spec_references_n0052_n0053_n0054() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(content.contains("N0052"), "spec must reference N0052");
+    assert!(content.contains("N0053"), "spec must reference N0053");
+    assert!(content.contains("N0054"), "spec must reference N0054");
+    assert!(content.contains("§43"), "spec must reference RFC §43");
+    assert!(content.contains("§44"), "spec must reference RFC §44");
+}
+
+#[test]
+// @verifies C055-precondition
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_spec_references_n0039() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("N0039"),
+        "spec must reference N0039 (§28 Build Strategy & OS Dependencies)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C053-postcondition: Each of the 4 layers has defined scope.
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C053-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_layer1_unit_tests_scope_defined() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("Layer 1"),
+        "spec must define Layer 1 scope"
+    );
+    assert!(
+        content.contains("MockBackend") || content.contains("PJSIP-free"),
+        "Layer 1 must mention MockBackend or PJSIP-free testing"
+    );
+    assert!(
+        content.contains("config validation")
+            || content.contains("id mapping")
+            || content.contains("BiMap"),
+        "Layer 1 must list concrete test items"
+    );
+}
+
+#[test]
+// @verifies C053-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_layer2_state_machine_scope_defined() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("Layer 2"),
+        "spec must define Layer 2 scope"
+    );
+    assert!(
+        content.contains("RegistrationState") || content.contains("CallState"),
+        "Layer 2 must mention RegistrationState or CallState transitions"
+    );
+}
+
+#[test]
+// @verifies C053-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_layer3_sip_integration_scope_defined() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("Layer 3"),
+        "spec must define Layer 3 scope"
+    );
+    assert!(
+        content.contains("Docker")
+            && (content.contains("Asterisk") || content.contains("FreeSWITCH")),
+        "Layer 3 must mention Docker-based SIP servers"
+    );
+}
+
+#[test]
+// @verifies C053-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_layer4_interop_scope_defined() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("Layer 4"),
+        "spec must define Layer 4 scope"
+    );
+    assert!(
+        content.contains("OpenSIPS") || content.contains("Kamailio") || content.contains("3CX"),
+        "Layer 4 must list PBX/Proxy targets"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C054-postcondition: M20 features mapped; placeholders have resolution paths.
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C054-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_placeholder_tests_have_resolution_conditions() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("call_reject"),
+        "spec must document the call_reject placeholder"
+    );
+    assert!(
+        content.contains("early_media_received"),
+        "spec must document the early_media_received placeholder"
+    );
+    assert!(
+        content.contains("reregister_after_unregister") || content.contains("reregister"),
+        "spec must document the reregister_after_unregister placeholder"
+    );
+    let has_resolution = content.contains("Dual Client")
+        || content.contains("SIPp")
+        || content.contains("blocking_read");
+    assert!(has_resolution, "spec must document resolution conditions");
+}
+
+#[test]
+// @verifies C054-postcondition
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_all_m20_features_have_test_layer_mapping() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    let m20_features = [
+        "NativeEvent",
+        "RegistrationStateChanged",
+        "CallStateChanged",
+        "CallMediaStateChanged",
+        "DtmfSent",
+        "SubscribeAudio",
+        "conf_connect",
+        "configure_codecs",
+        "Dual Client",
+        "low-priority",
+    ];
+    let found = m20_features
+        .iter()
+        .filter(|&&f| content.contains(f))
+        .count();
+    assert!(
+        found >= 9,
+        "spec must map at least 9 of 11 M20 features, found {}",
+        found,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C055-invariant: CI matrix covers 3 OSes x 4 features = 12 configs.
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C055-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_ci_matrix_covers_three_oses() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("windows-latest") || content.contains("windows"),
+        "CI matrix must include Windows"
+    );
+    assert!(
+        content.contains("macos-14") || content.contains("macOS"),
+        "CI matrix must include macOS (macos-14)"
+    );
+    assert!(
+        content.contains("ubuntu-22.04") || content.contains("ubuntu"),
+        "CI matrix must include Ubuntu (ubuntu-22.04)"
+    );
+}
+
+#[test]
+// @verifies C055-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_ci_matrix_feature_combos() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        (content.contains("default") && content.contains("tls") && content.contains("srtp"))
+            || content.contains("4 feature"),
+        "spec must enumerate 4 feature combinations"
+    );
+}
+
+#[test]
+// @verifies C055-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_ci_matrix_all_12_configs_implied() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    let has_12 = content.contains("12 configurations")
+        || (content.contains("3 OS") && content.contains("4 feature"));
+    assert!(has_12, "spec must document 12 total CI configurations");
+}
+
+// ---------------------------------------------------------------------------
+// C053/C054/C066 invariants.
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C053-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_layer_scopes_do_not_overlap() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(content.contains("Layer 1"), "spec must list Layer 1");
+    assert!(content.contains("Layer 2"), "spec must list Layer 2");
+    assert!(content.contains("Layer 3"), "spec must list Layer 3");
+    assert!(content.contains("Layer 4"), "spec must list Layer 4");
+}
+
+#[test]
+// @verifies C054-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_dual_client_utility_documented() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("DualClientContext") || content.contains("Dual Client"),
+        "spec must document DualClientContext"
+    );
+    assert!(
+        content.contains("client_a") && content.contains("client_b"),
+        "DualClientContext must define client_a and client_b"
+    );
+    assert!(
+        content.contains("PjsuaBackend") || content.contains("singleton"),
+        "DualClientContext must reference shared PjsuaBackend singleton"
+    );
+}
+
+#[test]
+// @verifies C066
+// @verifies C066-invariant
+// [::TICKET::] P1-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-4|P4-1) --for-spec --no-implementation-order`.
+fn p1_4_layer5_api_structure_referenced() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("Layer 5")
+            || content.contains("N0065")
+            || content.contains("API Integration"),
+        "spec must reference Layer 5 extension"
+    );
+}
+
+#[test]
+// @verifies C066
+// @verifies C066-invariant
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+fn p1_4_test_dirs_mirror_api_invariant() {
+    let content = read_p1_4_spec().expect("failed to read P1-4 spec file");
+    assert!(
+        content.contains("mirror") && (content.contains("src/api") || content.contains("tests/")),
+        "spec must document that test dirs mirror the API module structure"
+    );
+}
+
+// ===========================================================================
+// P2-2: Build Strategy & Semver/SIP Networking (N0039, N0066)
+// ===========================================================================
+
+/// Path to the P2-2 specification document.
+const P2_2_SPEC_PATH: &str = "specs/P2-2.md";
+
+/// Read the P2-2 spec file content as a String.
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn read_p2_2_spec() -> std::io::Result<String> {
+    let mut file = std::fs::File::open(P2_2_SPEC_PATH)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    Ok(content)
+}
+
+// ---------------------------------------------------------------------------
+// C040 — N0039→N0005: Build strategy & OS dependencies
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-precondition
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_file_exists() {
+    let path = std::path::Path::new(P2_2_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P2-2 spec file must exist at {}",
+        P2_2_SPEC_PATH,
+    );
+}
+
+#[test]
+// @verifies C040-precondition
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_references_n0039_n0066() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(content.contains("N0039"), "spec must reference N0039");
+    assert!(content.contains("N0066"), "spec must reference N0066");
+    assert!(content.contains("§28"), "spec must reference RFC §28");
+    assert!(content.contains("§58"), "spec must reference RFC §58");
+}
+
+// ---------------------------------------------------------------------------
+// C040-postcondition: Build strategy-specific content in spec
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_build_strategy_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("prebuilt"),
+        "spec must document prebuilt-first approach"
+    );
+    assert!(
+        content.contains("CMake") || content.contains("cmake"),
+        "spec must document CMake flags"
+    );
+    assert!(
+        content.contains("Ubuntu") || content.contains("ubuntu"),
+        "spec must document Ubuntu dependencies"
+    );
+    assert!(
+        content.contains("macOS") || content.contains("macos"),
+        "spec must document macOS dependencies"
+    );
+    assert!(
+        content.contains("Windows") || content.contains("windows"),
+        "spec must document Windows dependencies"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C067-postcondition: Semver/SIP networking content in spec
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_semver_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("0.x") || content.contains("versioning"),
+        "spec must document 0.x versioning policy"
+    );
+    assert!(
+        content.contains("TLS") || content.contains("certificate"),
+        "spec must document TLS certificate management"
+    );
+    assert!(
+        content.contains("DNS") || content.contains("SRV") || content.contains("NAPTR"),
+        "spec must document DNS SRV/NAPTR delegation"
+    );
+    assert!(
+        content.contains("multi-network") || content.contains("multi-homing"),
+        "spec must document multi-network interface configuration"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C055-invariant: CI matrix covers 3 OSes
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C055-invariant
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_ci_matrix_content() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    assert!(
+        content.contains("3 OS") || content.contains("target triple"),
+        "spec must document CI matrix covering 3 OS targets"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C040-invariant: Prebuilt-first invariant
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C040-invariant
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+fn p2_2_spec_prebuilt_invariant() {
+    let content = read_p2_2_spec().expect("failed to read P2-2 spec file");
+    // Prebuilt must appear before source-build
+    let prebuilt_pos = content.find("prebuilt").unwrap_or(usize::MAX);
+    let source_pos = content.find("source").unwrap_or(usize::MAX);
+    assert!(
+        prebuilt_pos < source_pos,
+        "Prebuilt must be documented before source-build in spec"
+    );
+}
+
+// ===========================================================================
+// P2-4: JWT Authentication Model (N0063)
+// ===========================================================================
+
+/// Path to the P2-4 specification document.
+const P2_4_SPEC_PATH: &str = "specs/P2-4.md";
+
+/// Read the P2-4 spec file content as a String.
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn read_p2_4_spec() -> std::io::Result<String> {
+    let mut file = std::fs::File::open(P2_4_SPEC_PATH)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    Ok(content)
+}
+
+// ---------------------------------------------------------------------------
+// C064 — N0063→N0062 (constrains): JWT auth model constrains HTTP/WS Protocol
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_file_exists() {
+    let path = std::path::Path::new(P2_4_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P2-4 spec file must exist at {}",
+        P2_4_SPEC_PATH,
+    );
+}
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_references_n0063() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("N0063"),
+        "Spec must reference N0063 (§55 Auth Model — JWT & Axum Middleware)"
+    );
+}
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_references_n0062() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("N0062"),
+        "Spec must reference N0062 (HTTP/WS API Protocol)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C064-postcondition: JWT auth model and middleware specified
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_defines_token_endpoint() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("POST /api/v1/auth/token"),
+        "Spec must define JWT token issuance endpoint"
+    );
+    assert!(
+        content.contains("sip_username"),
+        "Spec must document sip_username request field"
+    );
+    assert!(
+        content.contains("sip_password"),
+        "Spec must document sip_password request field"
+    );
+    assert!(
+        content.contains("sip_domain"),
+        "Spec must document sip_domain request field"
+    );
+    assert!(
+        content.contains("expires_in"),
+        "Spec must document expires_in response field"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_all_jwt_claims() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    for claim in &["sub", "username", "domain", "exp", "scope"] {
+        assert!(
+            content.contains(claim),
+            "Spec must document JWT claim field: {}",
+            claim,
+        );
+    }
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-4|P4-1) --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_all_auth_modes() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("LocalhostOnly"),
+        "Spec must document AuthMode::LocalhostOnly"
+    );
+    assert!(
+        content.contains("ApiKey"),
+        "Spec must document AuthMode::ApiKey"
+    );
+    assert!(content.contains("Jwt"), "Spec must document AuthMode::Jwt");
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_middleware() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("AxumJWTAuthLayer"),
+        "Spec must document AxumJWTAuthLayer middleware"
+    );
+    assert!(
+        content.contains("Bearer"),
+        "Spec must document Bearer token validation"
+    );
+    assert!(
+        content.contains("Authorization"),
+        "Spec must document Authorization header validation"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_ws_validation() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("WebSocket") || content.contains("websocket"),
+        "Spec must document WebSocket JWT validation"
+    );
+    assert!(
+        content.contains("query param") || content.contains("query parameter"),
+        "Spec must document query param fallback for WebSocket"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_sip_verification() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("credentials") || content.contains("password"),
+        "Spec must describe SIP credential verification"
+    );
+    assert!(
+        content.contains("sip_username") && content.contains("sip_domain"),
+        "Spec must document account lookup by username+domain"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C064-invariant: Default auth mode is LocalhostOnly
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-invariant
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_declares_localhost_default() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("127.0.0.1") || content.contains("localhost"),
+        "Spec must mention default bind address 127.0.0.1"
+    );
+    assert!(
+        content.contains("Default") && content.contains("LocalhostOnly"),
+        "Spec must declare LocalhostOnly as default auth mode"
+    );
+}
+
+#[test]
+// @verifies C064-invariant
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_zero_http_deps_invariant() {
+    let cargo = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
+    assert!(
+        !cargo.contains("axum"),
+        "siprs must not depend on axum (zero HTTP deps invariant)"
+    );
+    assert!(
+        !cargo.contains("jsonwebtoken"),
+        "siprs must not depend on jsonwebtoken (zero HTTP deps invariant)"
+    );
+}
+
+// =====================================================================
+// P2-5: Layer 5 API Integration Test Infrastructure — spec validation
+// =====================================================================
+
+const P2X5_SPEC_PATH: &str = "specs/P2-5.md";
+
+#[test]
+// @verifies C066-postcondition
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
+fn p2x5_spec_file_exists() {
+    let path = std::path::Path::new(P2X5_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P2-5 spec file must exist at {P2X5_SPEC_PATH}"
+    );
+}
+
+#[test]
+// @verifies C066-precondition
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
+fn p2x5_spec_references_n0065() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("N0065"),
+        "spec must reference N0065 node for Layer 5"
+    );
+}
+
+#[test]
+// @verifies C066-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_defines_layer5_in_test_strategy() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("ApiIntegration"),
+        "spec must mention ApiIntegration layer"
+    );
+}
+
+#[test]
+// @verifies C066-invariant
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_defines_all_three_test_dirs() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("tests/api/"),
+        "spec must document REST API test directory"
+    );
+    assert!(
+        spec.contains("tests/ws/"),
+        "spec must document WebSocket test directory"
+    );
+    assert!(
+        spec.contains("tests/integration/"),
+        "spec must document SIP+API combined test directory"
+    );
+}
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_zero_http_deps() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("zero HTTP deps"),
+        "spec must document zero HTTP deps invariant"
+    );
+}
+
+#[test]
+// @verifies C067-postcondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_siprs_server_deferral() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("siprs-server"),
+        "spec must defer runtime tests to siprs-server"
+    );
+}
+
+#[test]
+// @verifies C068-invariant
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_documents_anthropx_pattern() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("anthropx"),
+        "spec must reference anthropx test patterns"
+    );
+}
+
+#[test]
+// @verifies C068-postcondition
+// [::TICKET::] P2-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-5|P4-1) --for-spec --no-implementation-order`.
+fn p2x5_spec_includes_axum_test_examples() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("TestServer::new(app)"),
+        "REST API code example required"
+    );
+    assert!(
+        spec.contains("ws_stream"),
+        "WebSocket code example required"
+    );
+    assert!(spec.contains("audio"), "audio frame code example required");
+    assert!(spec.contains("Bearer"), "JWT auth code example required");
+    assert!(
+        spec.contains("Asterisk"),
+        "SIP combined code example required"
+    );
+}
+
+#[test]
+// @verifies C068-precondition
+// [::TICKET::] P2-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-5 --for-spec --no-implementation-order`.
+fn p2x5_spec_cross_references_p2x4() {
+    let spec = std::fs::read_to_string(P2X5_SPEC_PATH).expect("P2-5 spec must be readable");
+    assert!(
+        spec.contains("P2-4"),
+        "spec must cross-reference P2-4 JWT Auth Model"
+    );
 }
