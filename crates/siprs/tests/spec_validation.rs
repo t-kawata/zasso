@@ -748,3 +748,204 @@ fn p2_2_spec_prebuilt_invariant() {
         "Prebuilt must be documented before source-build in spec"
     );
 }
+
+// ===========================================================================
+// P2-4: JWT Authentication Model (N0063)
+// ===========================================================================
+
+/// Path to the P2-4 specification document.
+const P2_4_SPEC_PATH: &str = "specs/P2-4.md";
+
+/// Read the P2-4 spec file content as a String.
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn read_p2_4_spec() -> std::io::Result<String> {
+    let mut file = std::fs::File::open(P2_4_SPEC_PATH)?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    Ok(content)
+}
+
+// ---------------------------------------------------------------------------
+// C064 — N0063→N0062 (constrains): JWT auth model constrains HTTP/WS Protocol
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_file_exists() {
+    let path = std::path::Path::new(P2_4_SPEC_PATH);
+    assert!(
+        path.exists(),
+        "P2-4 spec file must exist at {}",
+        P2_4_SPEC_PATH,
+    );
+}
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_references_n0063() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("N0063"),
+        "Spec must reference N0063 (§55 Auth Model — JWT & Axum Middleware)"
+    );
+}
+
+#[test]
+// @verifies C064-precondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_references_n0062() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("N0062"),
+        "Spec must reference N0062 (HTTP/WS API Protocol)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C064-postcondition: JWT auth model and middleware specified
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_defines_token_endpoint() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("POST /api/v1/auth/token"),
+        "Spec must define JWT token issuance endpoint"
+    );
+    assert!(
+        content.contains("sip_username"),
+        "Spec must document sip_username request field"
+    );
+    assert!(
+        content.contains("sip_password"),
+        "Spec must document sip_password request field"
+    );
+    assert!(
+        content.contains("sip_domain"),
+        "Spec must document sip_domain request field"
+    );
+    assert!(
+        content.contains("expires_in"),
+        "Spec must document expires_in response field"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_all_jwt_claims() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    for claim in &["sub", "username", "domain", "exp", "scope"] {
+        assert!(
+            content.contains(claim),
+            "Spec must document JWT claim field: {}",
+            claim,
+        );
+    }
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_all_auth_modes() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("LocalhostOnly"),
+        "Spec must document AuthMode::LocalhostOnly"
+    );
+    assert!(
+        content.contains("ApiKey"),
+        "Spec must document AuthMode::ApiKey"
+    );
+    assert!(
+        content.contains("Jwt"),
+        "Spec must document AuthMode::Jwt"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_middleware() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("AxumJWTAuthLayer"),
+        "Spec must document AxumJWTAuthLayer middleware"
+    );
+    assert!(
+        content.contains("Bearer"),
+        "Spec must document Bearer token validation"
+    );
+    assert!(
+        content.contains("Authorization"),
+        "Spec must document Authorization header validation"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_ws_validation() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("WebSocket") || content.contains("websocket"),
+        "Spec must document WebSocket JWT validation"
+    );
+    assert!(
+        content.contains("query param") || content.contains("query parameter"),
+        "Spec must document query param fallback for WebSocket"
+    );
+}
+
+#[test]
+// @verifies C064-postcondition
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_documents_sip_verification() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("credentials") || content.contains("password"),
+        "Spec must describe SIP credential verification"
+    );
+    assert!(
+        content.contains("sip_username") && content.contains("sip_domain"),
+        "Spec must document account lookup by username+domain"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// C064-invariant: Default auth mode is LocalhostOnly
+// ---------------------------------------------------------------------------
+
+#[test]
+// @verifies C064-invariant
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_spec_declares_localhost_default() {
+    let content = read_p2_4_spec().expect("failed to read P2-4 spec file");
+    assert!(
+        content.contains("127.0.0.1") || content.contains("localhost"),
+        "Spec must mention default bind address 127.0.0.1"
+    );
+    assert!(
+        content.contains("Default") && content.contains("LocalhostOnly"),
+        "Spec must declare LocalhostOnly as default auth mode"
+    );
+}
+
+#[test]
+// @verifies C064-invariant
+// [::TICKET::] P2-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-4 --for-spec --no-implementation-order`.
+fn p2x4_zero_http_deps_invariant() {
+    let cargo = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
+    assert!(
+        !cargo.contains("axum"),
+        "siprs must not depend on axum (zero HTTP deps invariant)"
+    );
+    assert!(
+        !cargo.contains("jsonwebtoken"),
+        "siprs must not depend on jsonwebtoken (zero HTTP deps invariant)"
+    );
+}
