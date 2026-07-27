@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0015: §12 TransportConfig & §13 ICE/STUN/TURN Spec
+// [::STUB::] P3-1: MUST implement NODE_ID=N0015: §12 TransportConfig & §13 ICE/STUN/TURN Spec

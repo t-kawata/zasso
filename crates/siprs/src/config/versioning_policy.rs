@@ -28,4 +28,4 @@
 
 pub struct Config {}
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy
+// [::STUB::] P2-1: MUST implement NODE_ID=N0006 (§4.1 Versioning Policy).

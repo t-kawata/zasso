@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0062: §54 HTTP/WS API Protocol — REST & WebSocket
+// [::STUB::] P4-4: MUST implement NODE_ID=N0062: §54 HTTP/WS API Protocol — REST & WebSocket

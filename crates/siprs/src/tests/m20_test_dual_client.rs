@@ -142,7 +142,7 @@ mod tests {
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
 // [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
     #[allow(unreachable_code)]
-    // [::STUB::] MUST RESOLVE: Replace todo!() when SipClient/SipAccountHandle exist (P0-7+).
+    // [::STUB::] P3-1: Replace todo!() when SipClient/SipAccountHandle exist (Public API ticket).
     fn dual_client_endpoint_struct_exists() {
         // Verify the DualClientEndpoint type is inhabited
         let _endpoint = DualClientEndpoint {
@@ -157,7 +157,7 @@ mod tests {
     //   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
 // [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
     #[allow(unreachable_code)]
-    // [::STUB::] MUST RESOLVE: Replace todo!() when Runtime types exist (P0-7+).
+    // [::STUB::] P3-2: Replace todo!() when Runtime types exist (Runtime State ticket).
     fn dual_client_context_has_two_endpoints() {
         // Compile-time check: struct fields mirror the RFC design.
         let _ctx = DualClientContext {

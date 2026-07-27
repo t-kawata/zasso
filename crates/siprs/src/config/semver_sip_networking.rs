@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0066: §58 Semver Operations & §59 SIP Networking Details
+// [::STUB::] P2-2: MUST implement NODE_ID=N0066: §58 Semver Operations & §59 SIP Networking Details

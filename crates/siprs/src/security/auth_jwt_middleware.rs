@@ -20,8 +20,8 @@
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 
 pub fn authorize() {
-	// [::STUB::] N0063: implement JWT-based authorization middleware
+	// [::STUB::] P2-4: implement JWT-based authorization middleware (N0063)
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0063: §55 Auth Model — JWT & Axum Middleware
+// [::STUB::] P2-4: MUST implement NODE_ID=N0063: §55 Auth Model — JWT & Axum Middleware

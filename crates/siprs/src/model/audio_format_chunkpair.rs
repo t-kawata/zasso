@@ -20,4 +20,4 @@
 pub struct Model {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0030: §21 Audio Format Model & AudioChunkPair
+// [::STUB::] P4-3: MUST implement NODE_ID=N0030: §21 Audio Format Model & AudioChunkPair

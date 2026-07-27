@@ -10,6 +10,12 @@
 //! - A reachable SIP peer at the target URI
 //!
 //! Run: `cargo run --example make_call`
+//!
+//! [::STUB::] P1-3: This example references types from future tickets
+//! (SipClient, AccountConfig, OutgoingCallRequest, SecretString,
+//! SipEventPayload). It is gated behind the `spec-examples` feature in
+//! Cargo.toml — remove the feature gate once all dependency types are
+//! implemented (P0-7/P0-8+).
 
 // [::TICKET::] P1-3: Usage Examples & Code Samples
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec`

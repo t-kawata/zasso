@@ -22,8 +22,8 @@
 // ---------------------------------------------------------------------------
 
 /// PJSIP native status code. Defined as `u32` in this spec phase; replaced by
-/// the actual FFI `pj_status_t` once the FFI crate (P0-9) is available.
-// [::STUB::] P0-9: Replace with actual pj_status_t from pj_sys FFI crate.
+/// the actual FFI `pj_status_t` once the FFI crate (P3-2) is available.
+// [::STUB::] P3-2: Replace with actual pj_status_t from pj_sys FFI crate.
 #[allow(non_camel_case_types)]
 pub(crate) type pj_status_t = u32;
 

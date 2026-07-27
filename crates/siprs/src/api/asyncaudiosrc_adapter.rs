@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0032: §23 AsyncAudioSource Trait & SyncSourceAdapter
+// [::STUB::] P4-3: MUST implement NODE_ID=N0032: §23 AsyncAudioSource Trait & SyncSourceAdapter

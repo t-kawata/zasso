@@ -6,6 +6,11 @@ authors = ["Toshimi Kawata"]
 edition = "2021"
 rust-version = "1.95"
 license = "MIT OR Apache-2.0"
+# [::STUB::] P1-3: autoexamples = false gates spec examples behind
+# spec-examples feature. Remove this and the [[example]] sections once
+# all referenced types (SipClient, ClientConfig, AccountConfig, etc.) are
+# implemented in subsequent tickets (P0-7/P0-8+).
+autoexamples = false
 
 [features]
 default = ["serde", "tls"]
@@ -17,6 +22,12 @@ metrics = []
 # Full implementation requires the `cpal` crate (P1-4).
 cpal-input = []
 zeroize = ["dep:zeroize"]
+# [::STUB::] P1-3: spec-examples feature gates examples that reference types
+# from future tickets (SipClient, ClientConfig, AccountConfig, etc.).
+# These examples are spec artifacts — they describe the intended public API
+# but cannot compile until their dependency types are implemented (P0-7/P0-8+).
+# Resolve by removing this feature gate once all referenced types exist.
+spec-examples = []
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input"))'] }
@@ -40,3 +51,28 @@ serde = { version = "1", optional = true, features = ["derive"] }
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests
 serde_json = "1"
+
+# [::STUB::] P1-3: Example declarations. These examples reference types from
+# future tickets. They are gated behind the `spec-examples` feature so the
+# crate compiles without them. Remove the feature gate and required-features
+# once all dependency types (SipClient, ClientConfig, etc.) are implemented.
+
+[[example]]
+name = "client_init"
+required-features = ["spec-examples"]
+
+[[example]]
+name = "account_register"
+required-features = ["spec-examples"]
+
+[[example]]
+name = "make_call"
+required-features = ["spec-examples"]
+
+[[example]]
+name = "audio_tap"
+required-features = ["spec-examples"]
+
+[[example]]
+name = "tts_source"
+required-features = ["spec-examples"]

@@ -20,4 +20,4 @@
 pub struct Model {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0012: §9 ID Design — Newtype Identifiers
+// [::STUB::] P4-1: MUST implement NODE_ID=N0012: §9 ID Design — Newtype Identifiers
