@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -135,6 +136,9 @@ pub use config::{
 };
 #[cfg(feature = "tls")]
 pub use config::{TlsConfig, TlsTransportConfig};
+// [::TICKET::] P4-3: Re-export codec policy types — NegotiatedCodec, CodecSelectionPolicy.
+pub use config::codec_policy_fallback::{CodecSelectionPolicy, NegotiatedCodec};
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 
 // ============================================================================
 // Tests — P0-3: Crate Purpose & Scope Definition

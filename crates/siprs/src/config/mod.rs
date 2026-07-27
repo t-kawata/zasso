@@ -1,4 +1,5 @@
 
+
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
@@ -51,6 +52,13 @@ pub mod semver_sip_networking;
 pub mod account_config_spec;
 // [::TICKET::] P3-1: TransportConfig & ICE/STUN/TURN — transport protocol configs (§12–§13).
 pub mod transport_ice_spec;
+// [::TICKET::] P4-3: Codec policy & fallback rules (§29) — NegotiatedCodec, CodecSelectionPolicy.
+pub mod codec_policy_fallback;
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1: M20 codec auto-mode — CodecInfoProvider, configure_codecs.
+// Keep as pub(crate) to match its items' visibility.
+pub(crate) mod m20_codec_auto_mode;
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 
 // Re-exports for crate-root convenience
 pub use account_config_spec::{

@@ -45,49 +45,18 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 // ---------------------------------------------------------------------------
-// Forward-declared type stubs — resolved by P4-3 (audio types).
-// Transport/ICE types are now provided by transport_ice_spec.rs (§12–§13).
+// Type re-exports from N0030 (§21 Audio Format Model & AudioChunkPair).
+// Resolved by P4-3 from audio_format_chunkpair.rs definitions.
 // ---------------------------------------------------------------------------
 
-// [::STUB::] P4-3: Replace with real AudioFormat model. SampleRate, BitDepth,
-// ChannelLayout, AudioFormat, ResamplerQuality are defined in N0030 (§21).
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SampleRate {
-    Hz8000,
-    Hz16000,
-    Hz24000,
-    Hz48000,
-}
-
-// [::STUB::] P4-3: BitDepth for audio format — I16 or F32.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum BitDepth {
-    I16,
-    F32,
-}
-
-// [::STUB::] P4-3: ChannelLayout for audio — Mono, Stereo, StereoInOut.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ChannelLayout {
-    Mono,
-    Stereo,
-    StereoInOut,
-}
-
-// [::STUB::] P4-3: AudioFormat combines sample rate, bit depth, channel layout, and frame duration.
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AudioFormat {
-    pub sample_rate: SampleRate,
-    pub bit_depth: BitDepth,
-    pub channel_layout: ChannelLayout,
-    pub frame_ms: u32,
-}
+// [::TICKET::] P4-3: Re-export SampleRate from audio_format_chunkpair.rs.
+// The canonical definition lives in crate::model::audio_format_chunkpair.
+// Serde derives are feature-gated on the source definition.
+pub use crate::model::audio_format_chunkpair::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
 
 // [::STUB::] P4-3: ResamplerQuality for audio resampling.
+// ResamplerQuality is a client-config-level concept not defined in N0030.
+// [::STUB::] P5-2: Move to a dedicated audio config module once pipeline stabilizes.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResamplerQuality {
@@ -244,7 +213,7 @@ const DEFAULT_RESAMPLER_QUALITY: ResamplerQuality = ResamplerQuality::High;
 const DEFAULT_USER_DELIVERY_SAMPLE_RATE: SampleRate = SampleRate::Hz16000;
 const DEFAULT_USER_DELIVERY_BIT_DEPTH: BitDepth = BitDepth::I16;
 const DEFAULT_USER_DELIVERY_CHANNEL_LAYOUT: ChannelLayout = ChannelLayout::StereoInOut;
-const DEFAULT_USER_DELIVERY_FRAME_MS: u32 = 20;
+const DEFAULT_USER_DELIVERY_FRAME_MS: u16 = 20;
 const DEFAULT_COMMAND_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_SHUTDOWN_TIMEOUT_SECS: u64 = 15;
 const DEFAULT_REGISTER_TIMEOUT_SECS: u64 = 15;
@@ -291,15 +260,16 @@ impl Default for TimeoutConfig {
 
 // [::TICKET::] P2-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-1 --for-spec --no-implementation-order`.
 impl Default for ClientAudioConfig {
-// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1|P4-3) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
-            default_delivery_format: AudioFormat {
-                sample_rate: DEFAULT_USER_DELIVERY_SAMPLE_RATE,
-                bit_depth: DEFAULT_USER_DELIVERY_BIT_DEPTH,
-                channel_layout: DEFAULT_USER_DELIVERY_CHANNEL_LAYOUT,
-                frame_ms: DEFAULT_USER_DELIVERY_FRAME_MS,
-            },
+            default_delivery_format: AudioFormat::new(
+                DEFAULT_USER_DELIVERY_SAMPLE_RATE,
+                DEFAULT_USER_DELIVERY_BIT_DEPTH,
+                DEFAULT_USER_DELIVERY_CHANNEL_LAYOUT,
+                DEFAULT_USER_DELIVERY_FRAME_MS,
+            )
+            .expect("valid default AudioFormat"),
             pair_buffer_ms: DEFAULT_PAIR_BUFFER_MS,
             jitter_buffer_ms: DEFAULT_JITTER_BUFFER_MS,
             mixer_frame_ms: DEFAULT_MIXER_FRAME_MS,
@@ -368,7 +338,7 @@ mod tests {
 
     /// @verifies C014-postcondition
     #[test]
-// [::TICKET::] P2-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-1, P4-1, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-1|P4-1|P4-3) --for-spec --no-implementation-order`.
     fn c014_postcondition_client_config_fully_specified() {
         let cfg = ClientConfig::default();
         assert_eq!(cfg.user_agent, "tauri-siprs/0.1");
@@ -381,15 +351,15 @@ mod tests {
         assert!(cfg.turn_servers.is_empty());
         // Verify audio defaults
         assert_eq!(
-            cfg.audio.default_delivery_format.sample_rate,
+            cfg.audio.default_delivery_format.sample_rate(),
             SampleRate::Hz16000
         );
-        assert_eq!(cfg.audio.default_delivery_format.bit_depth, BitDepth::I16);
+        assert_eq!(cfg.audio.default_delivery_format.bit_depth(), BitDepth::I16);
         assert_eq!(
-            cfg.audio.default_delivery_format.channel_layout,
+            cfg.audio.default_delivery_format.channel_layout(),
             ChannelLayout::StereoInOut
         );
-        assert_eq!(cfg.audio.default_delivery_format.frame_ms, 20);
+        assert_eq!(cfg.audio.default_delivery_format.frame_ms(), 20);
         assert_eq!(cfg.audio.pair_buffer_ms, DEFAULT_PAIR_BUFFER_MS);
         assert_eq!(cfg.audio.jitter_buffer_ms, DEFAULT_JITTER_BUFFER_MS);
         assert_eq!(cfg.audio.mixer_frame_ms, DEFAULT_MIXER_FRAME_MS);

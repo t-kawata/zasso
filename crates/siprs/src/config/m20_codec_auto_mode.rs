@@ -26,18 +26,26 @@
 //! enumeration and priority setting. The real FFI calls (P0-9) implement this
 //! trait; tests use mock providers.
 
-use crate::error::error_design_siperror::{SipError, SipErrorKind};
+use crate::error::error_design_siperror::SipError;
+#[cfg(test)]
+use crate::error::error_design_siperror::SipErrorKind;
 
 // ---------------------------------------------------------------------------
 // Named constants for codec priority values
 // ---------------------------------------------------------------------------
 
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes these constants
+#[allow(dead_code)]
 /// Opus codec priority in auto mode (highest priority).
 pub(crate) const CODEC_PRIORITY_OPUS: u8 = 255;
 
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes these constants
+#[allow(dead_code)]
 /// PCMU codec priority in auto mode (fallback when Opus is unavailable).
 pub(crate) const CODEC_PRIORITY_PCMU: u8 = 254;
 
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes these constants
+#[allow(dead_code)]
 /// Priority assigned to all other codecs (disabled).
 pub(crate) const CODEC_PRIORITY_DISABLED: u8 = 0;
 
@@ -49,6 +57,8 @@ pub(crate) const CODEC_PRIORITY_DISABLED: u8 = 0;
 ///
 /// Carries the PJSIP codec ID string (e.g. "PCMU/8000/1" or "opus/48000/2").
 #[derive(Debug, Clone, PartialEq, Eq)]
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes this type
+#[allow(dead_code)]
 pub(crate) struct CodecInfo {
     /// PJSIP codec identifier string.
     pub codec_id: String,
@@ -64,13 +74,18 @@ pub(crate) struct CodecInfo {
 /// `pjsua_codec_set_priority`. Test implementations return controlled data.
 ///
 /// [::STUB::] P0-9: Replace mock provider with real FFI-based implementation.
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes this trait
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+#[allow(dead_code)]
 pub(crate) trait CodecInfoProvider {
     /// Enumerates all codecs known to PJSIP.
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn enumerate_codecs(&mut self) -> Result<Vec<CodecInfo>, SipError>;
 
     /// Sets the priority of a codec to the given value.
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn set_priority(&mut self, info: &CodecInfo, priority: u8) -> Result<(), SipError>;
 }
 
@@ -88,6 +103,8 @@ pub(crate) trait CodecInfoProvider {
 /// The return type is `Option<u8>` but currently always returns `Some`.
 /// `None` is reserved for future codec ID formats that should be skipped
 /// entirely rather than disabled.
+// [::STUB::] P0-9: dead_code resolved once FFI codec enumeration consumes this function
+#[allow(dead_code)]
 pub(crate) fn codec_priority_for_id(codec_id: &str) -> Option<u8> {
     match codec_id {
         "PCMU/8000/1" => Some(CODEC_PRIORITY_PCMU),
@@ -112,6 +129,8 @@ pub(crate) fn codec_priority_for_id(codec_id: &str) -> Option<u8> {
 /// populated `CallMediaPreferences::preferred_codecs` with 1+ entries, this
 /// function should not be called (auto mode is bypassed). The caller is
 /// responsible for that check.
+// [::STUB::] P0-9: dead_code resolved once FFI codec initialization consumes configure_codecs
+#[allow(dead_code)]
 pub(crate) fn configure_codecs(provider: &mut dyn CodecInfoProvider) -> Result<(), SipError> {
     let codec_infos = provider.enumerate_codecs()?;
     for info in &codec_infos {
