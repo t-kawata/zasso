@@ -1038,7 +1038,9 @@
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec)",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P5-2\" --for-spec --plan)",
       "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0029 --hops=1)",
-      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P5-2\" --tickets=\"Tickets.json\")"
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P5-2\" --tickets=\"Tickets.json\")",
+      "Bash(find /Users/sh01/shyme/zasso -name \"Malfeasance.json\" -o -name \"Tickets.json\" 2>/dev/null | head -20)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f'{t[\\\\\"id\\\\\"]}: {t[\\\\\"status\\\\\"]} - {t.get\\(\\\\\"title\\\\\",\\\\\"\\\\\"\\)}'\\) for t in d.get\\('tickets',[]\\)]\")"
     ]
   }
 }
