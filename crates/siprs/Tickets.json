@@ -403,128 +403,170 @@
             {
               "id": "C001",
               "sourceEdge": "N0001→N0007",
-              "precondition": "RFC defines purpose",
-              "postcondition": "Purpose is implemented by functional requirements",
-              "invariant": "Purpose scope remains audio-only"
+              "precondition": "RFC defines purpose (safe async PJSUA, audio-only, tokio-native)",
+              "postcondition": "Purpose is implemented by functional requirements (15 normative items from N0007)",
+              "invariant": "Purpose scope (audio-only) constrains all functional requirements"
             },
             {
               "id": "C002",
               "sourceEdge": "N0001→N0009",
-              "precondition": "Concurrency model defined",
-              "postcondition": "Purpose implementable via async model",
-              "invariant": "Reactor thread model unchanged"
+              "precondition": "Concurrency model (4 execution contexts) defined per N0009",
+              "postcondition": "Purpose implementable via async model — CommandSender/CommandReceiver types exist and implement Send + Sync",
+              "invariant": "Reactor thread model unchanged — single-threaded core reactor with MPSC serialization"
             },
             {
               "id": "C003",
               "sourceEdge": "N0002→N0001 (inbound)",
-              "precondition": "Purpose defined",
-              "postcondition": "M20 items prioritized",
-              "invariant": "Priority ordering does not imply dependency"
+              "precondition": "Crate purpose defined with full scope (audio-only, async, multi-account)",
+              "postcondition": "M20 items prioritized — P0-P3 priority map in RFC §1a is self-consistent and covers all functional requirements",
+              "invariant": "Priority ordering does not imply dependency — P3 items can be implemented before P0 items"
             },
             {
               "id": "C004",
               "sourceEdge": "N0003→N0001 (inbound)",
-              "precondition": "Purpose scope known",
-              "postcondition": "Non-goals documented",
-              "invariant": "Tauri boundary respected"
+              "precondition": "Purpose scope known (audio-only SIP client crate)",
+              "postcondition": "Non-goals documented — lib.rs doc-comment explicitly lists excluded features (no video, no recording files, no GUI)",
+              "invariant": "Tauri boundary respected — crate does not depend on tauri or any GUI framework"
             },
             {
               "id": "C005",
               "sourceEdge": "N0004→N0001 (inbound)",
-              "precondition": "Terms used in purpose",
-              "postcondition": "Terms defined",
-              "invariant": "Definitions stable within document"
+              "precondition": "Terms used in purpose description (SIPAccount, SipClient, RuntimeCommand, etc.)",
+              "postcondition": "All domain terms defined either in lib.rs doc-comment or in dedicated terminology module (N0004)",
+              "invariant": "Definitions stable within document — RFC glossary terms do not change meaning across sections"
             },
             {
               "id": "C006",
               "sourceEdge": "N0005→N0001 (inbound)",
-              "precondition": "Purpose sets scope",
-              "postcondition": "Compliance requirements constrain implementation",
-              "invariant": "MSRV, PJSIP version, OS targets fixed"
+              "precondition": "Purpose sets implementation scope and constraints",
+              "postcondition": "Compliance requirements (MSRV 1.95, PJSIP v2.x, OS targets, edition 2021) are set in Cargo.toml",
+              "invariant": "MSRV (1.95), PJSIP version (v2.x), OS targets (linux, macos, windows) are fixed in Cargo.toml"
             },
             {
               "id": "C008",
               "sourceEdge": "N0007→N0001 (inbound)",
-              "precondition": "Purpose and scope defined",
-              "postcondition": "15 functional requirements specified",
-              "invariant": "List is normative and exhaustive"
+              "precondition": "Crate purpose and scope defined in lib.rs doc-comment",
+              "postcondition": "15 functional requirements are specified in RFC §5, each with a distinct identifier and scope",
+              "invariant": "List is normative and exhaustive — no requirement is duplicated or omitted across sections"
             },
             {
               "id": "C009",
               "sourceEdge": "N0008→N0001 (inbound)",
-              "precondition": "Crate architecture to be defined",
-              "postcondition": "Module structure and responsibility split documented",
-              "invariant": "Single crate with modular internal structure"
+              "precondition": "Crate architecture defined (layered: config/ffi/runtime/audio/util)",
+              "postcondition": "Module structure and responsibility split documented — pub mod declarations and mod.rs re-exports follow the layered architecture",
+              "invariant": "Single crate with modular internal structure — all modules are within `crate::*` namespace; no external crate-split before I/O boundary RFC"
             },
             {
               "id": "C044",
               "sourceEdge": "N0043→N0001 (inbound)",
-              "precondition": "Lifetime management needed",
-              "postcondition": "Shutdown specification with cancellation safety",
-              "invariant": "Shutdown is idempotent"
+              "precondition": "Crate lifetime management needed (init → use → shutdown sequence)",
+              "postcondition": "Shutdown specification (idempotent, cancellation-safe) exists as src/state/shutdown_specification.rs",
+              "invariant": "Shutdown is idempotent — calling shutdown multiple times has same effect as calling once"
             },
             {
               "id": "C047",
               "sourceEdge": "N0046→N0001 (inbound)",
-              "precondition": "Observability needed for operations",
-              "postcondition": "tracing, metrics, and ClientCapabilities specified",
-              "invariant": "Metrics optional via feature flag"
+              "precondition": "Operational observability needed for production SIP client",
+              "postcondition": "tracing, metrics (ClientCapabilities), and instrumentation planned (config/observability_metrics.rs, error module)",
+              "invariant": "Metrics optional via feature flag — compile with --no-default-features removes all metric dependencies"
             },
             {
               "id": "C048",
               "sourceEdge": "N0047→N0001 (inbound)",
-              "precondition": "Security requirements known",
-              "postcondition": "Security measures and platform differences documented",
-              "invariant": "SecretString for passwords"
+              "precondition": "Security requirements known (SIP authentication, TLS, JWT, credential handling)",
+              "postcondition": "Security measures (auth_jwt_middleware.rs, security_platform_diffs.rs) and platform differences documented",
+              "invariant": "SecretString newtype used for all passwords/auth tokens — no plain String for credentials"
             },
             {
               "id": "C051",
               "sourceEdge": "N0050→N0001 (inbound)",
-              "precondition": "Usage needs documentation",
-              "postcondition": "Device policy and usage examples provided",
-              "invariant": "Microphone is optional feature"
+              "precondition": "Usage patterns need documentation for API consumers",
+              "postcondition": "Audio device policy (mic as optional) and usage examples provided in RFC §40-41",
+              "invariant": "Microphone is optional feature — crate builds and functions without audio input devices"
             },
             {
               "id": "C056",
               "sourceEdge": "N0055→N0001 (inbound)",
-              "precondition": "Known challenges documented",
-              "postcondition": "Panic policy with cleanup procedure",
-              "invariant": "catch_unwind in FFI callbacks"
+              "precondition": "Implementation challenges (FFI safety, thread safety, async bridging) documented",
+              "postcondition": "Panic policy with cleanup procedure exists (challenges_panic_policy.rs — catch_unwind in FFI callbacks)",
+              "invariant": "catch_unwind used in all FFI callbacks — any Rust panic from PJSIP callback is caught and logged"
             },
             {
               "id": "C059",
               "sourceEdge": "N0058→N0001 (inbound)",
-              "precondition": "RFC complete",
-              "postcondition": "Conclusion declaring all requirements implementable",
-              "invariant": "No further design work needed"
+              "precondition": "RFC complete with all sections specified",
+              "postcondition": "Conclusion declaring all functional requirements implementable with current design",
+              "invariant": "No further design work needed before implementation begins — RFC is self-contained"
             },
             {
               "id": "C068",
               "sourceEdge": "N0067→N0001 (inbound)",
-              "precondition": "I/O boundaries need documenting",
-              "postcondition": "Reference information for future splitting",
-              "invariant": "This is reference, not prescriptive"
+              "precondition": "I/O boundaries (FFI vs Rust async vs audio threads) exist in the architecture",
+              "postcondition": "Reference information for potential future crate-split documented in RFC §61",
+              "invariant": "This is reference, not prescriptive — future splitting decision deferred until implementation validation"
             }
           ],
-          "background": "N0001 defines the siprs crate purpose: providing safe async PJSUA access for SIP calling via tokio-native API, limited to audio only. This is the root architectural node.",
+          "background": "N0001 defines the siprs crate purpose: providing safe async PJSUA access for SIP calling via tokio-native API, limited to audio only. This is the root architectural node.\n\n### Goal\nEstablish the siprs crate as the voice communication foundation within the zasso ecosystem — a safe, async Rust wrapper around PJSUA (PJSIP) FFI bindings providing a fully asynchronous event-driven SIP client.\n\n### Purpose\nProvide Rust consumers (specifically, the zasso Tauri desktop app and AI phone agent) with a tokio-native SIP client API that abstracts away all PJSUA FFI complexity, thread safety concerns, and audio pipeline management. The crate wraps unsafe C calls behind a safe Rust layer and exposes async methods for account management, call control, DTMF, event subscriptions, and audio device configuration.\n\n### Motivation\nExisting Rust SIP libraries are either incomplete (no production-ready async wrappers), unsafe (raw FFI without safety layers), or non-existent for the PJSIP ecosystem. The zasso project requires decentralized, self-sovereign voice communication that operates independently of OS-level telephony stacks, integrating with zasso's own identity management and P2P network.\n\n### Constraints\n- Audio-only: Video, screen sharing, recording files, and GUI are explicitly excluded.\n- PJSIP v2.x: The FFI layer targets PJSIP 2.x. No custom SIP stack.\n- MSRV 1.95: Minimum supported Rust version is 1.95 (edition 2021).\n- Target OS: Linux, macOS, Windows. No mobile or embedded targets in P0-P2.\n- Single-threaded reactor: All PJSUA control API calls go through a single core reactor thread via MPSC command serialization.\n- No external crate split before I/O boundary RFC (reference §61).",
           "scope": [
-            "Safe async PJSUA wrapper definition",
-            "Audio-only scope limitation",
-            "tokio-native API surface commitment"
+            "Safe async PJSUA wrapper definition: Establish the siprs crate as a safe, async Rust wrapper around PJSUA (PJSIP) FFI bindings, providing an asynchronous event-driven SIP client API.",
+            "Audio-only scope limitation: Explicitly document that the crate is limited to audio-only SIP communication — no video, screen sharing, recording files, or GUI.",
+            "tokio-native API surface commitment: All public APIs are async (tokio-native) with a single-threaded reactor core. PJSUA-facing operations are serialized through an unbounded MPSC channel.",
+            "**Scope of changes:**\n  - `src/lib.rs` — modify doc-comment: ensure crate-level documentation fully describes purpose (safe async PJSUA, audio-only, tokio-native), module structure (config/ffi/runtime/audio/util), design constraints, feature flags, and non-goals. Add `pub mod` declarations if needed.\n  - `Cargo.toml` — verify/update metadata: edition=2021, rust-version=1.95, license=MIT OR Apache-2.0, authors. Fix Japanese comment to English.\n  - `src/concurrency_contexts/mod.rs` — no changes needed (verify only).\n  - `src/config/mod.rs` — no changes needed (verify only).\n  - Before: lib.rs doc-comment is a draft describing module structure and constraints. After: lib.rs doc-comment is the definitive specification of crate purpose, with explicit audio-only enforcement, all design constraints, and feature flag documentation.\n  - No API contract change (no runtime API yet).\n  - No data schema change.\n  - No config/env change.\n  - No dependency added or removed.",
+            "**Out of scope:**\n  - Implementation of any runtime/SIP functionality (accounts, calls, audio, DTMF, events, etc.) — these are P0-4+ tickets.\n  - FFI module creation (`src/ffi/`) — planned for P0-4.\n  - Runtime module creation (`src/runtime/`) — planned for P0-4+.\n  - Audio pipeline implementation (`src/audio/`) — planned for P1+.\n  - Adding any crate dependencies to Cargo.toml — deps added incrementally starting in P0-4.\n  - Why excluded: P0-3 is purely documentation and structural declaration. Implementation begins in P0-4.",
+            "**Affected areas:**\n  - All downstream tickets (P0-4, P0-5, P1+, etc.) — impact: P0-3 establishes the architectural vocabulary and scope boundary that all future tickets must reference. Low direct impact but foundational.\n  - RFC documentation tree — impact: documentation reference. The spec produced by P0-3 serves as the implementation entry point for all future work.\n  - CI pipeline — impact: builds must pass with no dependencies. P0-3 adds crate-level tests that become the foundation of CI test suite.\n  - N/A: No runtime behavior change, no performance impact, no security impact (beyond documentation of security constraints)."
           ],
-          "testUnit": [],
-          "testIntegration": [],
-          "testExceptions": [],
+          "testUnit": [
+            "UT: [Normal] lib.rs doc-comment declares crate purpose — verify phrases `safe`, `audio-only`, `tokio-native`. Maps to C001-precondition, C001-postcondition, C001-invariant.",
+            "UT: [Normal] lib.rs declares pub mod concurrency_contexts and pub mod config — verify modules compile. Maps to C002-precondition, C002-postcondition, C009-postcondition.",
+            "UT: [Normal] #![forbid(unsafe_code)] compile-time check. Maps to C048-postcondition.",
+            "UT: [Normal] Cargo.toml edition rust-version license. Maps to C006-precondition, C006-postcondition, C006-invariant.",
+            "UT: [Normal] Cargo.toml dependencies empty. Maps to C006-postcondition.",
+            "UT: [Error] No non-existent pub mod declarations. Maps to C009-postcondition.",
+            "UT: [Boundary] concurrency_contexts minimal content. Maps to C002-invariant.",
+            "UT: [Invariant] Audio-only compile_fail test. Maps to C001-invariant, C004-postcondition.",
+            "UT: [Normal] RFC §1a priority map. Maps to C003-invariant.",
+            "UT: [Normal] lib.rs doc-comment lists non-goals. Maps to C004-precondition, C004-postcondition.",
+            "UT: [Normal] Cargo.toml has no tauri dependency. Maps to C004-invariant.",
+            "UT: [Normal] Domain term definitions. Maps to C005-precondition, C005-postcondition.",
+            "UT: [Normal] Shutdown spec file exists. Maps to C044-precondition, C044-postcondition.",
+            "UT: [Normal] Observability module exists. Maps to C047-precondition, C047-postcondition, C047-invariant.",
+            "UT: [Normal] Security modules exist — verify SecretString for credentials. Maps to C048-precondition, C048-postcondition, C048-invariant.",
+            "UT: [Normal] Audio device policy documented — verify RFC usage and examples. Maps to C051-precondition, C051-postcondition, C051-invariant.",
+            "UT: [Normal] Panic policy documented. Maps to C056-precondition, C056-postcondition, C056-invariant.",
+            "UT: [Normal] I/O boundary reference exists — verify RFC-ROOT.md §61 is reference not prescriptive. Maps to C068-precondition, C068-postcondition, C068-invariant: prescriptive splitting validation.",
+            "UT: [Normal] RFC §1 complete with subsections — verify self-contained. Maps to C059-precondition, C059-postcondition, C059-invariant."
+          ],
+          "testIntegration": [
+            "IT: [P0-1 integration] P0-3 (purpose) + P0-1 (RFC foundation) — verify that lib.rs references all modules created under P0-1, and RFC provenance comments are correct; test that `cargo doc --no-deps` succeeds and produces documentation with the purpose description. Maps to C008-precondition (purpose and scope defined), C008-postcondition (requirements specified), C059-precondition (RFC complete).",
+            "IT: [P0-2 integration] P0-3 (purpose) + P0-2 (concurrency) — verify that concurrency_contexts::mod.rs references its purpose correctly and that CommandSender/CommandReceiver are properly re-exported from the crate root. Maps to C002-postcondition (Send+Sync types).",
+            "IT: [Versioning integration] Verify Cargo.toml version string (0.1.0) matches the declared RFC stage (pre-MVP); assert that rust-version 1.95 is the declared MSRV via compile-time check. Maps to C006-invariant.",
+            "IT: [Feature flags integration] Verify that `cargo build --no-default-features` succeeds (minimum build), and that feature flags documented in lib.rs (serde, tls, srtp) are parseable from Cargo.toml. Maps to C047-invariant.",
+            "IT: [Shutdown integration] Verify that shutdown module compiles in context of the full crate — `cargo check` includes state/shutdown_specification.rs without errors. Maps to C044-postcondition.",
+            "IT: [Build completeness] Verify `cargo check` passes across the full module tree (concurrency_contexts, config, error, security, state, model, build) — ensures all declared modules compile. Maps to C009-invariant.",
+            "IT: [RFC completeness] Verify RFC-ROOT.md contains all required sections (§1 Purpose, §2 Non-goals, §3 Terminology, §4 Compliance, §5 Functional Requirements, §6 Module Structure, §7 Concurrency, §8 Public API, §32 Shutdown, §34 Observability, §35 Security, §40 Audio Device, §45 Challenges, §51 Conclusion, §61 I/O Boundary) — grep for each heading. Maps to C059-postcondition (RFC complete), C059-invariant (no further design work)."
+          ],
+          "testExceptions": [
+            "C003 (Priority — N0002→N0001 inbound): M20 priority map internal consistency. cannot test: Priority ordering is an organizational planning artifact from RFC-ROOT.md — its internal consistency is a design review property, not a deterministic algorithm. not a defect: Planning artifacts are inherently human-reviewable; the pre/post/invariant are verified by the testUnit entry that parses and validates priority level consistency.",
+            "C059 (Conclusion — N0058→N0001 inbound): RFC conclusion declaring design complete. cannot test: The RFC conclusion is a meta-level declaration that the design is self-contained — it is a documentation commitment about the completeness of a separate document. not a defect: The testUnit entry for RFC §1 completeness verifies the foundational section has all required subsections; the IT entry verifies all 15 required RFC sections exist. Together these cover the observable aspects of RFC completeness.",
+            "C068 (I/O Boundary Reference — N0067→N0001 inbound): §61 metadata classification as reference not prescriptive. cannot test: The classification is a metadata property of the RFC section, not a functional characteristic of the code. not a defect: The testUnit entry for I/O boundary reference existence (verifying §61 section title contains `Reference`) covers the functional aspect. The reference-vs-prescriptive distinction is inherently a design-review property that does not affect code behavior."
+          ],
           "acceptanceCriteria": [
-            "Crate purpose is documented",
-            "Audio-only scope is enforced"
+            "【Happy path】A developer clones the repo, runs `cargo doc --no-deps --open`, and sees the siprs crate documentation in their browser — clearly stating the crate purpose (safe async PJSUA SIP client, audio-only, tokio-native), listing the module structure, design constraints, and feature flags. Running `cargo check` succeeds with zero errors. Running `cargo test` passes all 18+ unit tests and 7+ integration tests.",
+            "【Error case】A developer attempts to add unsafe code to a non-ffi module — the `#![forbid(unsafe_code)]` attribute at the crate root causes a compile error, preventing accidental unsafe usage. A developer adds a tauri dependency — the CI test checking for tauri in Cargo.toml fails, preventing cross-contamination.",
+            "【Edge case】A developer adds a `pub mod video` declaration to lib.rs without creating the directory — `cargo check` fails with module-not-found error. A developer changes the edition from 2021 to 2018 — the Cargo.toml parsing test fails. A developer removes the `#![forbid(unsafe_code)]` attribute — the compile_fail test for unsafe code passes (i.e., unsafe code is now allowed), which is a regression."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§1)",
           "relatedTicketIds": "P0-1",
-          "notes": "Architecture root node. All dependencies point to this node.",
+          "notes": "- 【Implementation steps】1) Update lib.rs doc-comment with full crate purpose (§1). 2) Verify all existing module declarations compile. 3) Update Cargo.toml with correct metadata (edition, rust-version, license, authors). 4) Fix Japanese comment in Cargo.toml to English. 5) Write tests for doc-comment content, module structure, Cargo.toml fields, and audio-only scope enforcement. 6) Run `cargo check` and `cargo test` — all must pass.\n- 【Risks】Low risk. P0-3 is purely documentation and structural — no runtime implementation. The main risk is scope creep: adding dependency declarations or implementation code that belongs in P0-4+. Guarded by the Boy Scout Rule — only touch what's necessary for purpose declaration.\n- 【Caveats】The lib.rs doc-comment already describes planned modules (ffi, runtime, audio, util) that don't exist yet. This is intentional forward-planning documentation, but it means `cargo doc` references non-existent modules. This is acceptable for a blueprint-stage crate.\n- 【Open items】The relationship between P0-3 (purpose definition) and P0-1 (RFC foundation) needs clarity — both tickets touch lib.rs module declarations. P0-1 created initial module scaffolding; P0-3 formalizes the purpose documentation around that scaffolding. The `relatedTicketIds` field lists P0-1 as the only related ticket.\n- 【Future improvements】When P0-4 introduces the ffi/ module, `#![forbid(unsafe_code)]` must be relaxed to `#[allow(unsafe_code)]` on specific ffi modules only. At that point, crate-level documentation must be updated to reflect the new module structure.",
           "id": 3,
           "phaseId": 0,
-          "status": "todo"
+          "status": "made",
+          "invariants": "- 【Normal establishment】The crate purpose (safe async PJSUA, audio-only, tokio-native) is documented in lib.rs doc-comment and remains consistent with RFC §1. All `pub mod` declarations compile and correspond to existing module directories.\n- 【Invariant on error】Even if a module fails to compile or a test fails, the crate-level doc-comment declaring the purpose must remain syntactically valid (valid Rust doc-comment). The `#![forbid(unsafe_code)]` attribute must not be removed or commented out — unsafe code is strictly prohibited until ffi/ module is introduced under P0-4.\n- 【Internal state invariant】Module structure (config/ffi/runtime/audio/util) is documented in lib.rs doc-comment as planned architecture. Actual `pub mod` declarations must match the currently implemented subset (config, concurrency_contexts). No module is declared without its directory existing. The Cargo.toml `[dependencies]` section remains empty until P0-4+ introduces first dependency.\n- 【Boundary invariant】Audio-only scope is enforced at the crate documentation level — any code addition referencing video, screen sharing, or GUI features must be rejected by design review. The `edition = \"2021\"` and `rust-version = \"1.95\"` in Cargo.toml must never be downgraded.",
+          "instrumentation": "- 【Logging】Crate-level tracing instrumentation is planned (P0-3 itself is foundational — no runtime code to instrument). All runtime logging will be added in P0-4+ via the `tracing` crate. The observability design is in `config/observability_metrics.rs`.\n- 【Metrics】Metrics are optional via feature flags (lib.rs doc-comment lists `serde`, `tls`, `srtp` as planned feature flags). `ClientCapabilities` specification exists in RFC §34. No metrics code in P0-3.\n- 【Error tracking】The error module (`src/error/`) defines `SipError` design (`error_design_siperror.rs`) and panic policy (`challenges_panic_policy.rs`). P0-3 verifies these files exist; actual error handling code is in later tickets.\n- 【Health check】No health check endpoints in P0-3 (no runtime yet). The health check design is part of the RFC §7 (Reactor liveness) and will be implemented in P0-4+.",
+          "investigation": "## Investigation findings for P0-3 (Crate Purpose & Scope Definition)\n\n### RFC context\n- N0001 defines the siprs crate purpose: providing safe async PJSUA access for SIP calling via tokio-native API, limited to audio only (RFC §1).\n- N0007 defines 15 functional requirements: multi-account, dynamic add/remove, register, transports, ICE, codecs, DTMF, event bus, audio pipeline, mixer, error handling (RFC §5).\n- N0009 defines 4 execution contexts: user async, core reactor, PJSIP native callbacks, audio workers (RFC §7).\n\n### Current source code state\n- `src/lib.rs`: Exists with complete Initial Design Artifact header (N0001). Declares `pub mod concurrency_contexts` (P0-2) and `pub mod config` (P0-1). Has `#![forbid(unsafe_code)]` with P0-4 STUB marker for future ffi/ module. Contains comprehensive crate-level doc-comment (≈70 lines) describing purpose, design constraints (audio-only, async-first, FFI-safe), module structure (config/ffi/runtime/audio/util), and feature flags (serde, tls, srtp).\n- `src/concurrency_contexts/`: Complete with mod.rs re-exporting CommandSender, CommandReceiver, new_command_channel. Has P0-2 TICKET markers.\n- `src/config/`: Contains mod.rs and versioning_policy.rs. Has P0-1 TICKET markers.\n- `src/api/`: 11 design artifact files (public_api_design, call_api_semantics, dtmf_spec_received, event_model_payload_bus, etc.)\n- `src/build/`: 2 files (build_strategy_os_deps, cicd_docker_prebuilt)\n- `src/error/`: 4 files (challenges_panic_policy, error_design_siperror, m20_runtime_command_error, m20_shutdown_routing)\n- `src/model/`: 5 files (audio_format_chunkpair, id_design_newtype, memory_ownership_defaults, raw_sip_message_spec, sqlite_schema)\n- `src/security/`: 2 files (auth_jwt_middleware, security_platform_diffs)\n- `src/state/`: 6 files (call_state_model, m20_callstate_mapping, m20_native_event_conv, m20_registr_cmd_pat, registr_state_machine, shutdown_specification)\n- `src/tests/`: 3 files (m20_test_dual_client, test_apilayer5, test_strategy_4layer)\n- `Cargo.toml`: version 0.1.0, edition 2021, rust-version 1.95, license MIT OR Apache-2.0. Authors: Toshimi Kawata. Dependencies: empty (no deps added yet per P0-3 scope).\n\n### Key architectural observations\n- The crate follows a layered architecture: config/ffi/runtime/audio/util (planned but not yet fully implemented).\n- Multiple design artifact files have been pre-generated with Initial Design Artifact headers.\n- These design artifacts are NOT yet wired into lib.rs via pub mod declarations (they exist as files but are not compiled).\n- The concurrency_contexts module is the only non-config module currently wired into lib.rs.\n- `#![forbid(unsafe_code)]` is active (P0-4 STUB indicates it will be relaxed when ffi/ module is added).\n\n### Contracts coverage assessment\n- 17 Contracts are defined connecting N0001 to its related nodes.\n- All contracts have been expanded with concrete pre/post/invariant predicates.\n- All 17 contracts are covered by testUnit entries or testExceptions with proper justification.",
+          "boyScoutPlan": "## Boy Scout Rule — Translatability improvements for P0-3\n\n### lib.rs improvements\n1. **Doc-comment as crate documentation**: The existing lib.rs doc-comment already follows translatability principles — it reads as prose (\"siprs provides a safe Rust async wrapper around PJSUA...\"). No structural changes needed.\n\n2. **Module declarations as paragraphs**: The current `pub mod` declarations in lib.rs are clean and follow the typical Rust pattern. They are correctly limited to declarations only (no implementation logic), adhering to the Rust Coding Style rule about lib.rs being a facade.\n\n3. **Cargo.toml readability**: The Cargo.toml section comment (`# 本チケットでは依存 crate を追加しない`) is in Japanese which violates the Language Protocol (code comments must be English). Fix: Change to English (`# [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+`).\n\n### Self-review of touched files\n- `src/lib.rs`: Already compliant. The function-like module declarations (`pub mod concurrency_contexts;`) are verb phrases. The doc-comment reads as a complete paragraph.\n- `src/concurrency_contexts/mod.rs`: The `let` bindings and `pub use` statements are declarative and readable. No mut patterns or untranslatable code.\n- `src/config/mod.rs`: Minimal mod.rs — only module declarations. Clean.\n\n### Translatability issues found outside scope\n- **P0-1_2 TICKET markers in lib.rs**: The `// [::TICKET::] P0-1 changes.` comments at the bottom of lib.rs (line 84-85) contain full `node .claude/scripts/tickets/...` commands that are too long for inline comments. These are TICKET markers (not STUB) and are acceptable per project conventions.\n- **Japanese in Cargo.toml comment**: The comment `# 本チケットでは依存 crate を追加しない` is a violation of the Language Protocol (code comments must be English). Will be fixed in this ticket.",
+          "created_at": "2026-07-27",
+          "updated_at": "2026-07-27"
         },
         {
           "title": "RuntimeCommand & EventBus Implementation",
