@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -13,6 +14,7 @@ function assert(condition, message) {
   else { failed++; process.stdout.write(`  ✗ ${message}\n`); }
 }
 
+// [::TICKET::] PX-76 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-76 --for-spec --no-implementation-order`.
 function assertEq(actual, expected, message) {
   if (actual === expected) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}\n`); }
@@ -88,7 +90,7 @@ try {
     assert(result.updated.includes('boyScoutPlan'), 'boyScoutPlan updated');
     assert(result.updated.includes('created_at'), 'created_at set');
     assert(result.updated.includes('updated_at'), 'updated_at set');
-    assertEq(result.count, 13, 'all 11 + 2 date fields updated');
+    assertEq(result.count, 14, 'all 12 + 2 date fields updated');
 
     // 実際に保存された値を確認
     const data = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));
