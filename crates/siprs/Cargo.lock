@@ -1708,6 +1708,7 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "chrono",
+ "crossbeam-queue",
  "dashmap",
  "jsonwebtoken",
  "rusqlite",

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
-use crate::runtime::backend::{Backend, MockBackend};
+use crate::runtime::backend::{SipBackend, MockBackend};
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
 use crate::runtime::state::ClientState;
@@ -43,7 +43,7 @@ impl Default for BootConfig {
 /// 5. If reactor panics, `is_terminated()` returns `true`
 pub struct CoreReactor;
 
-// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and return a handle for command submission.
     ///
@@ -65,8 +65,8 @@ impl CoreReactor {
 
         let handle = RuntimeHandle::new(tx, terminated_clone, std::sync::Weak::new());
 
-        // [::STUB::] P3-2: MockBackend is used until PjsuaBackend (P3-2) is implemented.
-        let mut backend: Box<dyn Backend> = Box::new(MockBackend::new());
+        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.
+        let mut backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
 
         let thread_join = thread::Builder::new()
             .name("siprs-reactor".into())
@@ -114,9 +114,8 @@ impl CoreReactor {
                                     source,
                                     reply,
                                 } => {
-                                    // [::STUB::] P3-2: Route to AudioMixer stored in
-                                    // ClientState. Currently returns an error indicating
-                                    // the audio source lifecycle is not yet connected.
+                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.
+                                    // [::STUB::] P4-2: Route AddAudioSource to ClientState AudioMixer.
                                     let _ = source;
                                     let _ = reply.send(Err(
                                         ReactorError::BackendError(
@@ -210,8 +209,12 @@ mod tests {
             tasks.push(tokio::spawn(async move {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 let cmd = DispatchCommand::Execute {
-                    f: Box::new(move |backend: &mut dyn Backend| {
-                        backend.add_account(&format!("test-{i}"))?;
+                    f: Box::new(move |backend: &mut dyn SipBackend| {
+                        let acct = crate::config::account_config_spec::AccountConfig {
+                            username: format!("test-{i}"),
+                            ..crate::config::account_config_spec::AccountConfig::default()
+                        };
+                        backend.add_account(&acct)?;
                         Ok(())
                     }),
                     reply: tx,

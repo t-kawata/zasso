@@ -1,3 +1,5 @@
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -76,7 +78,8 @@ pub(crate) enum CallDirection {
 // ── PJSIP native state constants ────────────────────────────────────────
 
 /// Raw pjsip_inv_state values (0-4).
-/// [::STUB::] P3-2: Replace with actual constants from pjsua.h once FFI bindings exist.
+/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.
+/// [::STUB::] P4-2: Replace with bindgen-generated constants from pjsua.h.
 pub mod pjsip_inv_state {
     pub const NULL: u32 = 0;
     pub const CALLING: u32 = 1;
@@ -86,7 +89,8 @@ pub mod pjsip_inv_state {
 }
 
 /// Raw pjsua_call_media_status values.
-/// [::STUB::] P3-2: Replace with actual constants from pjsua.h once FFI bindings exist.
+/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.
+/// [::STUB::] P4-2: Replace with bindgen-generated media status constants.
 pub mod pjsua_call_media_status {
     pub const NONE: u32 = 0;
     pub const ACTIVE: u32 = 1;

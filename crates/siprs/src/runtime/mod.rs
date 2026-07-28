@@ -1,3 +1,5 @@
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-2: runtime module — entry point for reactor, command, handle, state, backend
@@ -33,7 +35,7 @@ pub mod reactor;
 pub mod state;
 
 pub use audio_worker::{AsyncAudioSource, AudioMixer, AudioWorkerTask, MockAsyncAudioSource};
-pub use backend::Backend;
+pub use backend::SipBackend;
 pub use command::RuntimeCommand;
 pub use handle::RuntimeHandle;
 pub use reactor::CoreReactor;

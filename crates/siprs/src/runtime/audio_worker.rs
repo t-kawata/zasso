@@ -61,6 +61,61 @@ impl AsyncAudioSource for MockAsyncAudioSource {
 }
 
 // ---------------------------------------------------------------------------
+// mix_i16_frame — PCM mixing with overflow protection
+// ---------------------------------------------------------------------------
+
+/// Number of PCM samples per frame at 20ms@8kHz mono.
+pub const MIXER_FRAME_SAMPLES: usize = 160;
+
+/// Mix multiple i16 PCM sources into a single output buffer.
+///
+/// Each sample position is accumulated across all sources using i32
+/// arithmetic to prevent overflow, then saturated to i16 range.
+/// Sources with fewer samples than the output length are zero-padded.
+///
+/// # Invariants
+/// - Never panics with 0 sources (produces zero-filled output).
+/// - Output values are always clamped to [i16::MIN, i16::MAX].
+/// - Shorter input slices are implicitly zero-padded.
+pub fn mix_i16_frame(inputs: &[&[i16]], output: &mut [i16]) {
+    for (sample_idx, out_sample) in output.iter_mut().enumerate() {
+        let mut acc: i32 = 0;
+        for input in inputs {
+            acc += input.get(sample_idx).copied().unwrap_or(0) as i32;
+        }
+        *out_sample = acc.clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MixerSourceEntry — per-source state in AudioMixer
+// ---------------------------------------------------------------------------
+
+/// Per-source entry stored in the `AudioMixer`.
+pub struct MixerSourceEntry {
+    /// The underlying async audio source, guarded by a tokio Mutex.
+    pub source: tokio::sync::Mutex<Box<dyn AsyncAudioSource + Send>>,
+    /// Linear gain multiplier. Clamped to [0.0, 2.0].
+    pub gain: f32,
+    /// If true, the source is skipped during frame processing.
+    pub muted: bool,
+    /// If true, the source has been exhausted and will produce no more data.
+    pub eof: bool,
+}
+
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+impl MixerSourceEntry {
+    pub fn new(source: Box<dyn AsyncAudioSource + Send>) -> Self {
+        Self {
+            source: tokio::sync::Mutex::new(source),
+            gain: 1.0,
+            muted: false,
+            eof: false,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // AudioMixer — source of truth for active audio sources
 // ---------------------------------------------------------------------------
 
@@ -69,22 +124,44 @@ impl AsyncAudioSource for MockAsyncAudioSource {
 /// Each source is identified by a monotonically increasing `u64` source_id.
 /// Sources are stored in a `DashMap` for lock-free concurrent reads/writes.
 /// Per-source gain and mute state are stored in separate DashMaps.
+///
+/// The `out_queue` provides lock-free communication with the PJSIP RT callback
+/// (RustMediaPort) via a bounded, non-blocking `crossbeam_queue::ArrayQueue`.
 pub struct AudioMixer {
     pub sources: dashmap::DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>,
     pub gains: dashmap::DashMap<u64, f32>,
     pub mutes: dashmap::DashMap<u64, bool>,
     next_source_id: AtomicU64,
+    /// Lock-free queue for mixed OUT frames destined for the RT callback.
+    pub out_queue: crossbeam_queue::ArrayQueue<Vec<i16>>,
+    /// Lock-free queue for IN frames received from the RT callback.
+    pub in_queue: crossbeam_queue::ArrayQueue<Vec<i16>>,
 }
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+/// Default capacity for the lock-free audio queues (number of frames).
+///
+/// 64 frames at 20ms each = ~1.28 seconds of audio. This provides
+/// sufficient headroom for scheduling jitter between the AudioWorkerTask
+/// (async producer) and the PJSIP RT callback (consumer).
+pub const DEFAULT_QUEUE_CAPACITY: usize = 64;
+
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 impl AudioMixer {
-    /// Create a new empty `AudioMixer`.
+    /// Create a new empty `AudioMixer` with default queue capacity.
     pub fn new() -> Self {
+        Self::with_queue_capacity(DEFAULT_QUEUE_CAPACITY)
+    }
+
+    /// Create a new empty `AudioMixer` with a specified queue capacity.
+    pub fn with_queue_capacity(queue_capacity: usize) -> Self {
         Self {
             sources: dashmap::DashMap::new(),
             gains: dashmap::DashMap::new(),
             mutes: dashmap::DashMap::new(),
             next_source_id: AtomicU64::new(0),
+            out_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(queue_capacity),
+            in_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(queue_capacity),
         }
     }
 
@@ -163,14 +240,13 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-    // [::STUB::] P3-2: mixer stored for future state inspection API.
-    // Currently unused in AudioWorkerTask itself (passed to AudioWorkerInner at spawn).
+    // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P3-2: call_id stored for future query API.
+    // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     call_id: u64,
-    // [::STUB::] P3-2: frame_duration stored for future query API.
+    // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
@@ -237,7 +313,7 @@ struct AudioWorkerInner {
     shutdown_signal: Arc<AtomicBool>,
 }
 
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2) --for-spec --no-implementation-order`.
 impl AudioWorkerInner {
     /// Main worker loop: calls `process_frame` at `frame_duration` intervals.
     async fn run(&mut self) {
@@ -253,11 +329,15 @@ impl AudioWorkerInner {
     /// - Does not panic with 0 sources (produces an empty/silent buffer).
     /// - Source iteration uses `source_ids` snapshot to avoid DashMap
     ///   invalidation during iteration.
+    /// - Mixed frame is pushed to `out_queue` for the RT callback consumer.
     async fn process_frame(&mut self) {
         // Snapshot source IDs to avoid concurrent modification during iteration
         let source_ids: Vec<u64> = self.mixer.sources.iter().map(|e| *e.key()).collect();
 
-        let mut mixed = vec![0i16; 160]; // 20ms @ 8kHz mono
+        let mut mixed_frame = vec![0i16; MIXER_FRAME_SAMPLES];
+
+        // Collect gain-adjusted source buffers
+        let mut source_buffers: Vec<Vec<i16>> = Vec::with_capacity(source_ids.len());
 
         for id in &source_ids {
             // Skip muted sources
@@ -269,19 +349,33 @@ impl AudioWorkerInner {
 
             if let Some(entry) = self.mixer.sources.get(id) {
                 let mut guard = entry.lock().await;
-                let mut buf = vec![0i16; 160];
+                let mut buf = vec![0i16; MIXER_FRAME_SAMPLES];
                 let n = guard.next_chunk(&mut buf).await;
                 if n == 0 {
+                    // Source exhausted — skip it
                     continue;
                 }
-                let gain = self.mixer.gains.get(id).map(|r| *r).unwrap_or(1.0);
-                for (i, sample) in buf.iter().enumerate().take(n) {
-                    mixed[i] = mixed[i].saturating_add((*sample as f32 * gain) as i16);
+                // Apply gain to the source buffer
+                if let Some(gain) = self.mixer.gains.get(id) {
+                    let g = *gain;
+                    if g != 1.0 && g >= 0.0 {
+                        for sample in buf.iter_mut().take(n) {
+                            *sample = (*sample as f32 * g) as i16;
+                        }
+                    }
                 }
+                source_buffers.push(buf);
             }
         }
-        // mixed buffer is ready — P1+ will push to out_queue for RT callback
-        let _ = mixed;
+
+        // Mix all source buffers using the overflow-safe algorithm
+        {
+            let input_refs: Vec<&[i16]> = source_buffers.iter().map(|b| b.as_slice()).collect();
+            mix_i16_frame(&input_refs, &mut mixed_frame);
+        }
+
+        // Push the mixed frame to the lock-free out_queue for RT callback
+        let _ = self.mixer.out_queue.push(mixed_frame);
     }
 }
 
@@ -302,14 +396,161 @@ const _: () = {
 mod tests {
     use super::*;
 
+    // ── Normal: mix_i16_frame ─────────────────────────────────────────────
+
+    #[test]
+    // @verifies C034, C035
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_one_source_pass_through() {
+        let src = [1i16, 2i16, 3i16];
+        let mut out = [0i16; 3];
+        mix_i16_frame(&[&src], &mut out);
+        assert_eq!(out, [1i16, 2i16, 3i16], "single source must pass through");
+    }
+
+    #[test]
+    // @verifies C034, C035
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_two_sources_accumulation() {
+        let src1 = [1i16, 2i16, 3i16];
+        let src2 = [4i16, 5i16, 6i16];
+        let mut out = [0i16; 3];
+        mix_i16_frame(&[&src1, &src2], &mut out);
+        assert_eq!(out, [5i16, 7i16, 9i16], "two sources must sum");
+    }
+
+    #[test]
+    // @verifies C034
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_saturating_clamp() {
+        let src1 = [i16::MAX, i16::MIN, 10000i16];
+        let src2 = [i16::MAX, i16::MIN, 10000i16];
+        let mut out = [0i16; 3];
+        mix_i16_frame(&[&src1, &src2], &mut out);
+        assert_eq!(out[0], i16::MAX, "overflow must saturate to MAX");
+        assert_eq!(out[1], i16::MIN, "underflow must saturate to MIN");
+        assert_eq!(out[2], 20000i16, "in-range sum must be correct");
+    }
+
+    #[test]
+    // @verifies C034
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_16_sources_no_overflow() {
+        let sources: Vec<Vec<i16>> = (0..16)
+            .map(|_| vec![10000i16; MIXER_FRAME_SAMPLES])
+            .collect();
+        let input_refs: Vec<&[i16]> = sources.iter().map(|s| s.as_slice()).collect();
+        let mut out = vec![0i16; MIXER_FRAME_SAMPLES];
+        mix_i16_frame(&input_refs, &mut out);
+        // 16 * 10000 = 160000, clamped to i16::MAX = 32767
+        assert!(out.iter().all(|&s| s <= i16::MAX), "output must not overflow");
+        assert!(out.iter().all(|&s| s == i16::MAX), "16*10000 saturates at MAX");
+    }
+
+    #[test]
+    // @verifies C034, C036
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_zero_sources_produces_silence() {
+        let mut out = vec![0i16; MIXER_FRAME_SAMPLES];
+        // Fill with non-zero to verify it gets cleared
+        for s in &mut out {
+            *s = 42;
+        }
+        mix_i16_frame(&[], &mut out);
+        assert!(out.iter().all(|&s| s == 0), "zero sources must produce silence");
+    }
+
+    #[test]
+    // @verifies C036
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_mixed_source_lengths_zero_padded() {
+        let long = [1i16, 2i16, 3i16, 4i16];
+        let short = [5i16; 2];
+        let mut out = [0i16; 4];
+        mix_i16_frame(&[&long, &short], &mut out);
+        assert_eq!(out[0], 6i16); // 1 + 5
+        assert_eq!(out[1], 7i16); // 2 + 5
+        assert_eq!(out[2], 3i16); // 3 + 0 (zero-padded)
+        assert_eq!(out[3], 4i16); // 4 + 0 (zero-padded)
+    }
+
+    #[test]
+    // @verifies C037
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn mix_i16_frame_output_buffer_length_consistency() {
+        let mut out = vec![0i16; MIXER_FRAME_SAMPLES];
+        mix_i16_frame(&[], &mut out);
+        assert_eq!(out.len(), MIXER_FRAME_SAMPLES, "output length must match constant");
+    }
+
+    // ── Normal: crossbeam queue ───────────────────────────────────────
+
+    #[test]
+    // @verifies C034
+    // @verifies C050
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn audio_mixer_queue_push_non_blocking_on_full() {
+        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(2);
+        assert!(q.push(vec![0i16; 4]).is_ok());
+        assert!(q.push(vec![1i16; 4]).is_ok());
+        // Third push should fail (queue full), but NOT block
+        let result = q.push(vec![2i16; 4]);
+        assert!(result.is_err(), "push on full queue must return Err (not block)");
+        assert_eq!(q.len(), 2, "queue must still have 2 items");
+    }
+
+    #[test]
+    // @verifies C034
+    // @verifies C050
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn audio_mixer_queue_pop_returns_inserted_data() {
+        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
+        let data = vec![42i16; 160];
+        assert!(q.push(data.clone()).is_ok());
+        let popped = q.pop();
+        assert!(popped.is_some(), "pop after push must return Some");
+        assert_eq!(popped.unwrap(), data, "popped data must match pushed data");
+    }
+
+    #[test]
+    // @verifies C034
+    // @verifies C050
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn audio_mixer_queue_empty_pop_returns_none() {
+        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
+        assert!(q.pop().is_none(), "pop from empty queue must return None");
+    }
+
     // ── Normal: AudioMixer construction ─────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // @verifies C034
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn audio_mixer_new_creates_empty_sources() {
         let mixer = AudioMixer::new();
         assert_eq!(mixer.source_count(), 0, "new mixer must have 0 sources");
         assert_eq!(mixer.next_source_id(), 0, "first source_id must be 0");
+    }
+
+    #[test]
+    // @verifies C034
+    // @verifies C050
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn audio_mixer_new_initializes_lock_free_queues() {
+        let mixer = AudioMixer::new();
+        assert_eq!(mixer.out_queue.capacity(), DEFAULT_QUEUE_CAPACITY, "out_queue must have default capacity");
+        assert_eq!(mixer.in_queue.capacity(), DEFAULT_QUEUE_CAPACITY, "in_queue must have default capacity");
+        assert!(mixer.out_queue.is_empty(), "out_queue must be empty on creation");
+        assert!(mixer.in_queue.is_empty(), "in_queue must be empty on creation");
+    }
+
+    #[test]
+    // @verifies C034
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn audio_mixer_with_queue_capacity_respects_custom_size() {
+        let mixer = AudioMixer::with_queue_capacity(16);
+        assert_eq!(mixer.out_queue.capacity(), 16);
+        assert_eq!(mixer.in_queue.capacity(), 16);
     }
 
     #[test]

@@ -1,3 +1,5 @@
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -24,9 +26,8 @@ use crate::runtime::command::ReactorError;
 // ---------------------------------------------------------------------------
 // PJSUA error code constants
 //
-// [::STUB::] P3-2: Replace these manually-defined constants with the actual
-// pj_status_t values from pjsua.h once the FFI layer is integrated.
-// These values match the PJSIP documentation for each error code.
+// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
+// [::STUB::] P4-2: Replace with actual pj_status_t values from pjsua.h bindgen output.
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -296,8 +297,8 @@ impl From<ReactorError> for SipError {
 /// Returns `None` for `PJ_SUCCESS` (no error). Maps known error codes to
 /// specific variants; all unknown codes map to `NativeError`.
 ///
-/// [::STUB::] P3-2: Once the FFI layer provides actual `pj_status_t` constants
-/// from `pjsua.h`, this function should be updated to use the real values.
+/// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).
+/// [::STUB::] P4-2: Update to use real pj_status_t constants from bindgen output.
 pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
     match status {
         PJ_SUCCESS => None,

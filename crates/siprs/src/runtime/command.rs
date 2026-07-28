@@ -194,9 +194,9 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
 type BackendFn =
-    Box<dyn FnOnce(&mut dyn super::backend::Backend) -> Result<(), ReactorError> + Send>;
+    Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
 /// Internal dispatch command for the reactor's MPSC channel.
 ///
@@ -231,29 +231,27 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
         match cmd {
             RuntimeCommand::Initialize { config, reply } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.initialize()?;
-                    // [::STUB::] P0-3: store ClientConfig in ClientState
-                    let _ = config;
+                    backend.initialize(&config)?;
                     Ok(())
                 }),
                 reply,
             },
             RuntimeCommand::AddAccount { config, reply } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.add_account(&config.username)?;
+                    backend.add_account(&config)?;
                     Ok(())
                 }),
                 reply,
             },
             RuntimeCommand::RemoveAccount { account_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.remove_account(account_id)),
+                f: Box::new(move |backend| backend.remove_account(account_id as i32)),
                 reply,
             },
             RuntimeCommand::SetRegistration {
@@ -261,7 +259,7 @@ impl DispatchCommand {
                 enabled,
                 reply,
             } => Self::Execute {
-                f: Box::new(move |backend| backend.set_registration(account_id, enabled)),
+                f: Box::new(move |backend| backend.set_registration(account_id as i32, enabled)),
                 reply,
             },
             RuntimeCommand::MakeCall {
@@ -270,21 +268,25 @@ impl DispatchCommand {
                 reply,
             } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.make_call(account_id, &request.target_uri)?;
+                    backend.make_call(account_id as i32, &request)?;
                     Ok(())
                 }),
                 reply,
             },
             RuntimeCommand::Hangup { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.hangup(call_id)),
+                f: Box::new(move |backend| backend.hangup(call_id as i32)),
                 reply,
             },
-            RuntimeCommand::Hold { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.hold(call_id)),
+            RuntimeCommand::Hold { call_id: _, reply } => Self::Execute {
+                f: Box::new(move |_backend| {
+                    Err(ReactorError::BackendError("hold is not yet implemented in SipBackend (P4-2)".into()))
+                }),
                 reply,
             },
-            RuntimeCommand::Unhold { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.unhold(call_id)),
+            RuntimeCommand::Unhold { call_id: _, reply } => Self::Execute {
+                f: Box::new(move |_backend| {
+                    Err(ReactorError::BackendError("unhold is not yet implemented in SipBackend (P4-2)".into()))
+                }),
                 reply,
             },
             RuntimeCommand::SendDtmf {
@@ -292,7 +294,10 @@ impl DispatchCommand {
                 digits,
                 reply,
             } => Self::Execute {
-                f: Box::new(move |backend| backend.send_dtmf(call_id, &digits)),
+                f: Box::new(move |backend| {
+                    backend.send_dtmf(call_id as i32, &crate::config::account_config_spec::DtmfMethod::Rfc2833, &digits)?;
+                    Ok(())
+                }),
                 reply,
             },
             RuntimeCommand::GetAccountInfo {
@@ -303,11 +308,11 @@ impl DispatchCommand {
                 reply,
             },
             RuntimeCommand::ConfConnect { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.conf_connect(call_id)),
+                f: Box::new(move |backend| backend.conf_connect(call_id as i32, call_id as i32)),
                 reply,
             },
             RuntimeCommand::ConfDisconnect { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.conf_disconnect(call_id)),
+                f: Box::new(move |backend| backend.conf_disconnect(call_id as i32, call_id as i32)),
                 reply,
             },
             // [::TICKET::] P0-6: Audio source lifecycle commands are processed

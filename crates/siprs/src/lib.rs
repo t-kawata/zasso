@@ -1,3 +1,5 @@
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -64,11 +66,12 @@ pub mod api;
 pub mod event;
 pub mod state;
 
-// [::STUB::] P3-2/P4-2: audio/ — Audio processing (mixer in P3-2, format in P4-2)
+// [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
+// [::STUB::] P4-2: audio/ — Audio format types (AudioChunkPair, ResamplePipeline)
 // pub mod audio;
 
-// [::STUB::] P3-2: ffi/ — PJSIP FFI bindings
-// pub mod ffi;
+// [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)
+pub mod ffi;
 
 // [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle
 pub mod runtime;

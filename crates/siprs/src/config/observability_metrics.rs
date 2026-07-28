@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -63,10 +64,12 @@ pub struct ClientCapabilities {
     // ── Media ──
     /// Available audio codecs.
     ///
-    /// [::STUB::] P3-2: Replace with actual codec list from PJSIP FFI.
+    /// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.
+    /// [::STUB::] P4-2: Replace with actual codec list from bindgen-generated FFI.
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     pub opus_available: bool,
     /// Audio device capabilities.
     pub audio_devices: AudioDeviceCaps,

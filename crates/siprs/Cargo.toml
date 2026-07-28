@@ -57,6 +57,8 @@ dashmap = "6"
 async-trait = "0.1"
 # [::TICKET::] P2-2: jsonwebtoken for JWT encode/decode in auth_jwt_middleware
 jsonwebtoken = "9"
+# [::TICKET::] P3-2: crossbeam-queue for lock-free ArrayQueue used in AudioMixer RT boundary.
+crossbeam-queue = "0.3"
 # [::TICKET::] P2-3: rusqlite bundled for SQLite persistence (no system lib dependency)
 rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 # [::TICKET::] P2-3: sea-orm for type-safe database operations with SQLite backend

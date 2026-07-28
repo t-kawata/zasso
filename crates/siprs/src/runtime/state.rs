@@ -1,4 +1,29 @@
+// [::TICKET::] P3-2: runtime state — ClientState, AccountEntry, CallEntry (typed BTreeMap fields)
 // [::TICKET::] P0-2: runtime state — ClientState, AccountEntry, CallEntry
+
+use std::collections::BTreeMap;
+
+// [::TICKET::] P3-2: TransportRuntimeState — tracks active transport configuration.
+#[derive(Clone, Debug, Default)]
+pub struct TransportRuntimeState {
+    /// PJSIP transport_id (populated by create_transport).
+    pub transport_id: i32,
+    /// Transport type identifier (e.g., "udp", "tcp", "tls").
+    pub transport_type: String,
+    /// Port the transport is bound to.
+    pub port: u16,
+}
+
+// [::TICKET::] P3-2: ClientCapabilities — describes the capabilities of the SIP stack.
+#[derive(Clone, Debug, Default)]
+pub struct ClientCapabilities {
+    /// List of supported audio codec names.
+    pub audio_codecs: Vec<String>,
+    /// Maximum number of concurrent calls supported.
+    pub max_calls: u32,
+    /// Supported transport protocols.
+    pub transport_protocols: Vec<String>,
+}
 
 /// Source-of-truth state owned exclusively by the reactor thread.
 ///
@@ -14,6 +39,16 @@
 #[derive(Clone, Default)]
 pub struct ClientState {
     pub initialized: bool,
+    /// Active accounts keyed by logical account ID.
+    /// [::STUB::] P4-1: Replace u64 with AccountId newtype.
+    pub accounts: BTreeMap<u64, AccountEntry>,
+    /// Active calls keyed by logical call ID.
+    /// [::STUB::] P4-1: Replace u64 with CallId newtype.
+    pub calls: BTreeMap<u64, CallEntry>,
+    /// Runtime state for each created transport.
+    pub transports: Vec<TransportRuntimeState>,
+    /// Capabilities reported by the SIP backend.
+    pub capabilities: ClientCapabilities,
 }
 
 /// Per-account tracking entry held in the reactor's `ClientState`.
@@ -112,7 +147,9 @@ mod tests {
         assert!(!snapshot.read().await.initialized);
 
         // Act
-        snapshot.write(ClientState { initialized: true }).await;
+        let mut new_state = ClientState::default();
+        new_state.initialized = true;
+        snapshot.write(new_state).await;
 
         // Assert
         assert!(
@@ -155,11 +192,101 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
     fn blocking_read_is_not_used() {
         // Contract-C046 invariant: no blocking_read() calls in runtime module.
         // Verified at compile time — the Snapshot API only exposes async read().
         // This test passes trivially because blocking_read cannot compile here.
         assert!(true, "blocking_read is absent from runtime/state.rs");
+    }
+
+    // ── P3-2: ClientState typed fields ────────────────────────────────
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn client_state_default_has_empty_collections() {
+        let state = ClientState::default();
+        assert!(!state.initialized, "fresh ClientState: initialized=false");
+        assert!(state.accounts.is_empty(), "fresh ClientState: accounts empty");
+        assert!(state.calls.is_empty(), "fresh ClientState: calls empty");
+        assert!(state.transports.is_empty(), "fresh ClientState: transports empty");
+    }
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn client_state_after_account_add_accounts_populated() {
+        let mut state = ClientState::default();
+        state.accounts.insert(
+            1,
+            AccountEntry {
+                id: 1,
+                native_id: 100,
+                config: "sip:user@domain.com".into(),
+                registration: "Registered".into(),
+            },
+        );
+        state.accounts.insert(
+            2,
+            AccountEntry {
+                id: 2,
+                native_id: 101,
+                config: "sip:user2@domain.com".into(),
+                registration: "Registered".into(),
+            },
+        );
+        assert_eq!(state.accounts.len(), 2, "two accounts must be stored");
+        assert_eq!(state.accounts[&1].native_id, 100, "first account native_id correct");
+        assert_eq!(state.accounts[&2].native_id, 101, "second account native_id correct");
+    }
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn client_state_after_call_add_calls_populated() {
+        let mut state = ClientState::default();
+        state.calls.insert(
+            1,
+            CallEntry {
+                id: 1,
+                native_id: 200,
+                account_id: 1,
+                state: "Calling".into(),
+                media: "none".into(),
+            },
+        );
+        assert_eq!(state.calls.len(), 1, "one call must be stored");
+        assert_eq!(state.calls[&1].native_id, 200);
+        assert_eq!(state.calls[&1].account_id, 1);
+    }
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn client_state_capabilities_default() {
+        let state = ClientState::default();
+        assert!(state.capabilities.audio_codecs.is_empty());
+        assert_eq!(state.capabilities.max_calls, 0);
+        assert!(state.capabilities.transport_protocols.is_empty());
+    }
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn transport_runtime_state_default() {
+        let t = TransportRuntimeState::default();
+        assert_eq!(t.transport_id, 0);
+        assert!(t.transport_type.is_empty());
+        assert_eq!(t.port, 0);
+    }
+
+    #[test]
+    // @verifies C046
+// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    fn client_state_is_cloneable() {
+        let state = ClientState::default();
+        let cloned = state.clone();
+        assert_eq!(cloned.initialized, state.initialized);
+        assert_eq!(cloned.accounts.len(), state.accounts.len());
     }
 }
