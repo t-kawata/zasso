@@ -99,7 +99,7 @@
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§1a, §2, §3, §4, §5, §6)",
           "id": 1,
           "phaseId": 0,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C001",
@@ -313,7 +313,7 @@
           ],
           "id": 2,
           "phaseId": 0,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C007",
@@ -428,7 +428,7 @@
           ],
           "id": 3,
           "phaseId": 0,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C011",
@@ -541,7 +541,7 @@
           ],
           "id": 4,
           "phaseId": 0,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C017",
@@ -622,7 +622,7 @@
           ],
           "id": 1,
           "phaseId": 1,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C020",
@@ -725,7 +725,7 @@
           ],
           "id": 2,
           "phaseId": 1,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C022",
@@ -833,7 +833,7 @@
           ],
           "id": 3,
           "phaseId": 1,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C030",
@@ -902,7 +902,7 @@
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§27)",
           "id": 4,
           "phaseId": 1,
-          "status": "reviewed",
+          "status": "todo",
           "contracts": [
             {
               "id": "C039",
@@ -1015,7 +1015,7 @@
           ],
           "id": 5,
           "phaseId": 1,
-          "status": "planned",
+          "status": "todo",
           "contracts": [
             {
               "id": "C043",
