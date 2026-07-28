@@ -285,7 +285,8 @@
       "line": 40,
       "description": "# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 30,
@@ -293,7 +294,8 @@
       "line": 134,
       "description": "// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 31,
@@ -301,7 +303,8 @@
       "line": 478,
       "description": "| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 32,
@@ -309,7 +312,8 @@
       "line": 447,
       "description": "- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 33,
@@ -317,7 +321,8 @@
       "line": 35,
       "description": "// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 34,
@@ -325,7 +330,8 @@
       "line": 40,
       "description": "// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 35,
@@ -333,7 +339,8 @@
       "line": 46,
       "description": "// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 36,
@@ -341,7 +348,8 @@
       "line": 61,
       "description": "// [::STUB::] P0-9: N0012 — CallId newtype for call operations.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 37,
@@ -349,7 +357,8 @@
       "line": 69,
       "description": "// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 38,
@@ -357,7 +366,8 @@
       "line": 75,
       "description": "// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 39,
@@ -365,7 +375,8 @@
       "line": 85,
       "description": "// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 40,
@@ -373,7 +384,8 @@
       "line": 95,
       "description": "// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 41,
@@ -381,7 +393,8 @@
       "line": 136,
       "description": "// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 42,
@@ -389,7 +402,8 @@
       "line": 7,
       "description": "// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 43,
@@ -397,7 +411,8 @@
       "line": 22,
       "description": "// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 44,
@@ -405,7 +420,8 @@
       "line": 23,
       "description": "// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 45,
@@ -413,7 +429,8 @@
       "line": 14,
       "description": "// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 46,
@@ -421,7 +438,8 @@
       "line": 22,
       "description": "// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 47,
@@ -429,7 +447,8 @@
       "line": 38,
       "description": "// [::STUB::] P0-5: RoutingError, SipEvent, SipEventMeta, EventBus, CallEventRouter,",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 48,
@@ -437,7 +456,8 @@
       "line": 23,
       "description": "// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 49,
@@ -445,7 +465,8 @@
       "line": 127,
       "description": "// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     },
     {
       "id": 50,
@@ -453,7 +474,8 @@
       "line": 190,
       "description": "// [::STUB::] P0-5: Replace hardcoded media_status with backend query.",
       "detected_at": "2026-07-28T10:53:10.064Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
     }
   ]
 }
