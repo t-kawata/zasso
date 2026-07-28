@@ -56,6 +56,7 @@ function generateStubId() {
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-93: Changed final else to return null instead of targetStub.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
+function classifyStubs(targetRef, ticketsData, ownTicketKey) {
   // Normalize: handle "MUST RESOLVE" as "own ticket"
   if (targetRef === 'MUST RESOLVE') {
     return { category: 'targetStub', ticketRef: 'MUST RESOLVE' };
