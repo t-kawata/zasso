@@ -145,16 +145,11 @@ impl AccountEventReceiver {
     /// Non-matching events are silently skipped (may return `TryRecvError::Empty`).
     pub fn try_recv(&mut self) -> Result<SipEvent, broadcast::error::TryRecvError> {
         loop {
-            match self.inner.try_recv() {
-                Ok(event) => {
-                    if event.meta.account_id == Some(self.account_id) {
-                        return Ok(event);
-                    }
-                    // Non-matching: continue loop
-                    continue;
-                }
-                Err(e) => return Err(e),
+            let event = self.inner.try_recv()?;
+            if event.meta.account_id == Some(self.account_id) {
+                return Ok(event);
             }
+            // Non-matching: continue loop
         }
     }
 }

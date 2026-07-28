@@ -166,7 +166,7 @@ mod tests {
     #[test]
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn registration_state_has_seven_variants() {
-        let states = vec![
+        let states = [
             RegistrationState::Disabled,
             RegistrationState::Idle,
             RegistrationState::Registering,

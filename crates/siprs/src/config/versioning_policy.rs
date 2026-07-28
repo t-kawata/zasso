@@ -29,8 +29,8 @@
 /// Covers 0.x (flexible, CHANGELOG-based) and 1.0+ (strict semver) phases.
 /// See `specs/P0-1.md` §4.1 for full specification.
 // [::STUB::] P0-1: Struct declaration only. Full fields and methods
-// are implemented in P2-8 (Semver Operations & SIP Networking Details).
+// are implemented in P5-3 (Versioning Policy & Semver Operations).
 pub struct VersionPolicy {}
 
 
-// [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy
+// [::STUB::] P5-3: MUST implement NODE_ID=N0006: §4.1 Versioning Policy

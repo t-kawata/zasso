@@ -443,7 +443,6 @@ mod tests {
             }
         }
         let _ = assert_exhaustive;
-        assert!(true, "AuthMode has exactly 3 variants");
     }
 
     // ── Invariant: Default mode is LocalhostOnly ───────────────────────

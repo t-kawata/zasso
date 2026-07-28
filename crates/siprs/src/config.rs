@@ -79,21 +79,14 @@ pub use crate::api::standalone_server_config::ServerConfig;
 pub use self::semver_sip_networking::{TlsCertInfo, VERSIONING_POLICY};
 
 /// Logging level for internal diagnostics.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub enum LogLevel {
     Error,
     Warn,
+    #[default]
     Info,
     Debug,
     Trace,
-}
-
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-impl Default for LogLevel {
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn default() -> Self {
-        Self::Info
-    }
 }
 
 /// Configuration for the `SipClient` session.

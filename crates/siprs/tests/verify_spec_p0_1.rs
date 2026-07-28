@@ -138,7 +138,7 @@ fn priority_order_independent() {
 // C004 — N0003→N0001: Non-goals → Purpose
 // ────────────────────────────────────────────────────────────────────────────
 
-/// [C004-Pre] Purpose scope known — implied by C001. Verified by spec_has_purpose_section.
+// [C004-Pre] Purpose scope known — implied by C001. Verified by spec_has_purpose_section.
 
 /// [C004-Post] Non-goals documented — spec must contain non-goals section.
 // @verifies C004
@@ -304,7 +304,7 @@ fn exact_version_pins_documented() {
 // C007 — N0006→N0005 (internal): Versioning Policy → Compliance
 // ────────────────────────────────────────────────────────────────────────────
 
-/// [C007-Pre] Compliance requirements constrain implementation — implied by C006.
+// [C007-Pre] Compliance requirements constrain implementation — implied by C006.
 
 /// [C007-Post] Versioning policy documented.
 // @verifies C007

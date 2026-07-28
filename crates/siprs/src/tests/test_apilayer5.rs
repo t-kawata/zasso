@@ -34,18 +34,6 @@
 #[cfg(test)]
 mod tests {
     #[test]
-    // @verifies C066
-    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
-    fn test_layer5_testdir_exists() {
-        // Verify that the siprs-server tests directory has the expected structure.
-        // This is a soft check — the actual integration tests run in siprs-server crate.
-        assert!(
-            true,
-            "Layer 5 test structure declared — tests run in siprs-server crate"
-        );
-    }
-
-    #[test]
     // @verifies C061
     // [::TICKET::] P2-2: License header test for C061 — verifies MIT/Apache 2.0 declaration.
     // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.

@@ -52,7 +52,7 @@ pub fn registration_status_to_payload(snapshot: &AccountInfoSnapshot) -> Option<
     if snapshot.registration_status == 200 {
         Some(SipEventPayload::RegistrationSucceeded(RegistrationInfo {
             account_id: acc_id,
-            renew: snapshot.registration_expires.map_or(false, |e| e > 0),
+            renew: snapshot.registration_expires.is_some_and(|e| e > 0),
         }))
     } else {
         Some(SipEventPayload::RegistrationFailed(RegistrationFailure {

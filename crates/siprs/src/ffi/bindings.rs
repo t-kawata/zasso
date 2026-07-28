@@ -114,6 +114,12 @@ pub struct pjsua_call_info {
 
 /// Stub for `pjsua_call_get_info`.
 ///
+/// # Safety
+///
+/// `_info` must be non-null, properly aligned, and point to a valid,
+/// initialized `pjsua_call_info` struct. The caller is responsible for
+/// ensuring no concurrent mutable access to the pointed-to memory.
+///
 /// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when
 /// PJSIP library is linked. Current implementation returns a canned
 /// conf_slot for compilation purposes only.

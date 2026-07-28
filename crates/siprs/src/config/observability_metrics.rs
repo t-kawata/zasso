@@ -206,7 +206,7 @@ pub enum DtmfMethod {
 }
 
 /// Audio device capabilities.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct AudioDeviceCaps {
     /// Whether a default input device is available.
     pub has_default_input: bool,
@@ -220,20 +220,19 @@ pub struct AudioDeviceCaps {
     pub output_devices: Vec<String>,
 }
 
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-impl Default for AudioDeviceCaps {
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn default() -> Self {
-        Self {
-            has_default_input: false,
-            has_default_output: false,
-            input_devices: Vec::new(),
-            output_devices: Vec::new(),
-        }
+// ── Metrics ─────────────────────────────────────────────────────────────
+
+/// Error returned when a named metric (counter or gauge) is not found.
+#[derive(Debug, Clone)]
+pub struct MetricsLookupError(pub String);
+
+impl std::fmt::Display for MetricsLookupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "metric '{}' not found", self.0)
     }
 }
 
-// ── Metrics ─────────────────────────────────────────────────────────────
+impl std::error::Error for MetricsLookupError {}
 
 /// A counter metric — monotonically increasing `u64` value.
 pub struct MetricsCounter {
@@ -350,24 +349,24 @@ impl MetricsRegistry {
 
     /// Increment a counter by name.
     ///
-    /// Returns `Ok(())` if the counter exists, `Err(())` if not found.
-    pub fn increment_counter(&self, name: &str) -> Result<(), ()> {
+    /// Returns `Ok(())` if the counter exists, `Err(MetricsLookupError)` if not found.
+    pub fn increment_counter(&self, name: &str) -> Result<(), MetricsLookupError> {
         self.counters
             .iter()
             .find(|c| c.name() == name)
             .map(|c| c.increment())
-            .ok_or(())
+            .ok_or(MetricsLookupError(name.to_string()))
     }
 
     /// Set a gauge by name.
     ///
-    /// Returns `Ok(())` if the gauge exists, `Err(())` if not found.
-    pub fn set_gauge(&self, name: &str, value: i64) -> Result<(), ()> {
+    /// Returns `Ok(())` if the gauge exists, `Err(MetricsLookupError)` if not found.
+    pub fn set_gauge(&self, name: &str, value: i64) -> Result<(), MetricsLookupError> {
         self.gauges
             .iter()
             .find(|g| g.name() == name)
             .map(|g| g.set(value))
-            .ok_or(())
+            .ok_or(MetricsLookupError(name.to_string()))
     }
 }
 

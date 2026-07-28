@@ -13,20 +13,10 @@ use crate::runtime::state::ClientState;
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
 /// This is now the real `ClientConfig` type defined in `src/config.rs`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BootConfig {
     /// The client configuration that drives PJSUA initialization.
     pub config: ClientConfig,
-}
-
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-impl Default for BootConfig {
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn default() -> Self {
-        Self {
-            config: ClientConfig::default(),
-        }
-    }
 }
 
 /// The core reactor that owns the PJSUA control thread.

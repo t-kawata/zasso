@@ -443,7 +443,7 @@ mod tests {
         let mut out = vec![0i16; MIXER_FRAME_SAMPLES];
         mix_i16_frame(&input_refs, &mut out);
         // 16 * 10000 = 160000, clamped to i16::MAX = 32767
-        assert!(out.iter().all(|&s| s <= i16::MAX), "output must not overflow");
+        // All samples must saturate at i16::MAX under 16x gain overload
         assert!(out.iter().all(|&s| s == i16::MAX), "16*10000 saturates at MAX");
     }
 
@@ -453,9 +453,7 @@ mod tests {
     fn mix_i16_frame_zero_sources_produces_silence() {
         let mut out = vec![0i16; MIXER_FRAME_SAMPLES];
         // Fill with non-zero to verify it gets cleared
-        for s in &mut out {
-            *s = 42;
-        }
+        out.fill(42);
         mix_i16_frame(&[], &mut out);
         assert!(out.iter().all(|&s| s == 0), "zero sources must produce silence");
     }

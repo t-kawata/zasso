@@ -122,7 +122,7 @@ impl M20FeatureTestEntry {
 ///
 /// Provides two `SipClient` instances sharing the same `PjsuaBackend` singleton,
 /// enabling bidirectional call patterns (call_a_to_b) in Layer 3 integration tests.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DualClientContext {
     // Fields are placed here for structural definition; actual bindings
     // require the full SipClient and PjsuaBackend implementations (P2-4).
@@ -130,15 +130,6 @@ pub struct DualClientContext {
 
 // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
 impl DualClientContext {
-    /// Creates a new `DualClientContext`.
-    ///
-    /// In the final implementation this would:
-    /// 1. Create `client_a` first → spawns Reactor + PjsuaBackend singleton
-    /// 2. Create `client_b` sharing the existing singleton
-    /// 3. Add separate accounts to each client
-    pub fn new() -> Self {
-        Self {}
-    }
 
     /// Returns a description of the bidirectional call_a_to_b test pattern.
     pub const fn call_a_to_b_pattern() -> &'static str {
@@ -166,7 +157,7 @@ mod tests {
     #[test]
     // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_dual_client_context_constructs() {
-        let ctx = DualClientContext::new();
+        let ctx = DualClientContext::default();
         // Verify structural existence — no panic, no side effects.
         let _ = ctx;
     }

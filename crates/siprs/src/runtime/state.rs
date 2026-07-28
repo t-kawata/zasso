@@ -156,8 +156,7 @@ mod tests {
         assert!(!snapshot.read().await.initialized);
 
         // Act
-        let mut new_state = ClientState::default();
-        new_state.initialized = true;
+        let new_state = ClientState { initialized: true, ..Default::default() };
         snapshot.write(new_state).await;
 
         // Assert
@@ -199,14 +198,9 @@ mod tests {
         assert_eq!(entry.native_id, 7);
     }
 
-    #[test]
-    // @verifies C046
-    fn blocking_read_is_not_used() {
-        // Contract-C046 invariant: no blocking_read() calls in runtime module.
-        // Verified at compile time — the Snapshot API only exposes async read().
-        // This test passes trivially because blocking_read cannot compile here.
-        assert!(true, "blocking_read is absent from runtime/state.rs");
-    }
+    // Contract-C046 invariant: no blocking_read() calls in runtime module.
+    // Verified at compile time — the Snapshot API only exposes async read().
+    // Compile-time verification: blocking_read does not exist in this module.
 
     // ── P3-2: ClientState typed fields ────────────────────────────────
 

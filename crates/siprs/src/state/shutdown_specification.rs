@@ -17,7 +17,6 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-// [::STUB::] P4-3: RESOLVED — replaced with full ShutdownSpec implementation.
 // [::TICKET::] P4-3: §32 Shutdown Specification — idempotent 5-phase shutdown orchestrator.
 
 use std::sync::atomic::{AtomicBool, Ordering};

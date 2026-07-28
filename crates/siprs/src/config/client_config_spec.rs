@@ -32,22 +32,16 @@ use crate::error::{SipError, SipErrorKind};
 use std::time::Duration;
 
 /// Logging verbosity level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogLevel {
     Error,
     Warn,
+    #[default]
     Info,
     Debug,
     Trace,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-impl Default for LogLevel {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
-    fn default() -> Self {
-        Self::Info
-    }
-}
 
 /// Audio processing configuration for the SIP client.
 #[derive(Debug, Clone, PartialEq)]

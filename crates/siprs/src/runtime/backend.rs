@@ -254,6 +254,7 @@ impl SipBackend for MockBackend {
 /// The real implementation requires PJSIP library linkage (P4+).
 ///
 /// [::STUB::] P4-2: Replace each method body with actual PJSIP FFI calls.
+#[derive(Default)]
 pub struct PjsuaBackend;
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
