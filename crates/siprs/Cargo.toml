@@ -52,6 +52,8 @@ serde_json = { version = "1", optional = true }
 # [::TICKET::] P0-6: dashmap for lock-free AudioMixer source management.
 dashmap = "6"
 async-trait = "0.1"
+# [::TICKET::] P2-2: jsonwebtoken for JWT encode/decode in auth_jwt_middleware
+jsonwebtoken = "9"
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests

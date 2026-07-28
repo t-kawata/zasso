@@ -1,0 +1,24 @@
+[package]
+name = "siprs-server"
+version = "0.1.0"
+description = "HTTP/WebSocket API server for the siprs SIP client"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+# [::TICKET::] P2-2: siprs-server crate created with Axum-based HTTP/WS API.
+# Full route handler implementation deferred to P4-3 (N0061/N0062).
+
+[dependencies]
+siprs = { path = "../siprs", features = ["serde"] }
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+jsonwebtoken = "9"
+tokio-tungstenite = "0.21"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+
+# [::STUB::] P4-3: rusqlite, sea-orm dependencies for SQLite persistence
+# rusqlite = "0.31"
+# sea-orm = { version = "0.12", features = ["sqlite"] }
+# [::STUB::] P4-3: clap for CLI argument parsing
+# clap = { version = "4", features = ["derive"] }

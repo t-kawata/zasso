@@ -135,6 +135,321 @@
       "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
       "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
+    },
+    {
+      "id": 16,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 17,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 18,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 19,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 20,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 21,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 22,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 66,
+      "description": "/// [::STUB::] P2-4: Replace with actual codec list from PJSIP FFI.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 23,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 183,
+      "description": "/// [::STUB::] P2-4: Replace with proper FFI-defined codec types.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 24,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 25,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 26,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 27,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 28,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 29,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 30,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 59,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 31,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 73,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 32,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 33,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 34,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 35,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 36,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 37,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 38,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 39,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 40,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 41,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 42,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/security/mod.rs",
+      "line": 5,
+      "description": "// [::STUB::] P2-6: auth_jwt_middleware — JWT & Axum middleware integration.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 43,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 44,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 45,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 46,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 47,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 48,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 49,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 50,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-07-28T15:50:49.179Z",
+      "status": "false_positive",
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     }
   ]
 }

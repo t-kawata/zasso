@@ -1,4 +1,6 @@
 
+
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 
@@ -94,8 +96,13 @@ pub mod tests;
 // These re-exports form the crate's public API surface. Application code
 // should use these types via `siprs::SipClient`, `siprs::ClientConfig`, etc.
 
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 pub use client::SipClient;
-pub use config::{AuthCredentials, ClientConfig, ClientConfigBuilder, LogLevel, ServerConfig};
+pub use config::{
+    AuthConfig, AuthCredentials, AuthMode, ClientConfig, ClientConfigBuilder, ConfigError,
+    LogLevel, ServerConfig, StunServerConfig,
+};
 pub use error::SipError;
 pub use error::SipErrorKind;
 // [::TICKET::] P1-2: SecretString re-export from security module

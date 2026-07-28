@@ -39,12 +39,22 @@ pub struct AuthCredentials {
 
 /// Configuration for STUN or TURN server.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ServerConfig {
+pub struct StunServerConfig {
     /// Server hostname or IP address.
     pub host: String,
     /// Server port.
     pub port: u16,
 }
+
+// ── Re-exports from api::standalone_server_config ─────────────────────
+//
+// ServerConfig (siprs-server runtime configuration), AuthConfig, and AuthMode
+// are defined in the api module to keep config.rs focused on client config.
+
+pub use crate::api::standalone_server_config::AuthConfig;
+pub use crate::api::standalone_server_config::AuthMode;
+pub use crate::api::standalone_server_config::ConfigError;
+pub use crate::api::standalone_server_config::ServerConfig;
 
 /// Logging level for internal diagnostics.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -87,7 +97,7 @@ pub struct ClientConfig {
     /// Optional STUN server for NAT traversal.
     pub stun_server: Option<String>,
     /// Optional TURN/STUN server configuration.
-    pub turn_server: Option<ServerConfig>,
+    pub turn_server: Option<StunServerConfig>,
     /// Enable ICE (Interactive Connectivity Establishment).
     #[serde(default)]
     pub ice_enabled: bool,
@@ -172,14 +182,14 @@ pub struct ClientConfigBuilder {
     credentials: Option<AuthCredentials>,
     user_agent: Option<String>,
     stun_server: Option<String>,
-    turn_server: Option<ServerConfig>,
+    turn_server: Option<StunServerConfig>,
     ice_enabled: bool,
     srtp_enabled: bool,
     tls_enabled: bool,
     log_level: Option<LogLevel>,
 }
 
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P2-2) --for-spec --no-implementation-order`.
 impl ClientConfigBuilder {
     /// Set the SIP proxy server hostname or IP address (required).
     pub fn sip_proxy_host(mut self, host: impl Into<String>) -> Self {
@@ -212,7 +222,7 @@ impl ClientConfigBuilder {
     }
 
     /// Set optional TURN/STUN server configuration.
-    pub fn turn_server(mut self, config: ServerConfig) -> Self {
+    pub fn turn_server(mut self, config: StunServerConfig) -> Self {
         self.turn_server = Some(config);
         self
     }
@@ -284,18 +294,18 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P1-2, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2) --for-spec --no-implementation-order`.
     fn client_config_builder_sets_optional_fields() {
         let creds = AuthCredentials {
             username: "alice".into(),
             password: crate::security::SecretString::new("secret"),
             realm: Some("example.com".into()),
         };
-        let _stun = ServerConfig {
+        let _stun = StunServerConfig {
             host: "stun.example.com".into(),
             port: 3478,
         };
-        let turn = ServerConfig {
+        let turn = StunServerConfig {
             host: "turn.example.com".into(),
             port: 3478,
         };
