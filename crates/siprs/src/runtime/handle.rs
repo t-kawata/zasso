@@ -1,3 +1,4 @@
+
 // [::TICKET::] P0-2: RuntimeHandle — Send+Sync handle for submitting commands to reactor
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,7 +21,7 @@ use crate::runtime::command::{DispatchCommand, ReactorError, RuntimeCommand};
 /// let result = handle.submit(RuntimeCommand::Shutdown { reply: ... }).await;
 /// join.join().unwrap();
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,

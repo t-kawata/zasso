@@ -26,7 +26,7 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
@@ -43,12 +43,11 @@ impl std::error::Error for ReactorError {}
 #[derive(Debug)]
 pub enum RuntimeCommand {
     Initialize {
-        // [::STUB::] P0-3: config: ClientConfig
-        config: String,
+        config: crate::config::ClientConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     AddAccount {
-        // [::STUB::] P0-3: config: AccountConfig
+        // [::STUB::] P0-3: config: AccountConfig (currently String until P0-7)
         config: String,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
@@ -242,13 +241,13 @@ mod tests {
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
     fn runtime_command_variant_discriminants_are_distinct() {
         // Contract-C011: each RuntimeCommand discriminates correctly.
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let cmd_a = RuntimeCommand::Initialize {
-            config: "test".into(),
+            config: crate::config::ClientConfig::default(),
             reply: tx1,
         };
         let cmd_b = RuntimeCommand::Shutdown { reply: tx2 };

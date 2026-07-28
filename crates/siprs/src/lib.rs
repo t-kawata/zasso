@@ -1,3 +1,4 @@
+
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -41,26 +42,21 @@
 // Module declarations matching RFC §6 Module Structure (N0008).
 // Each module is stub-gated behind its responsible ticket.
 
-// [::STUB::] P0-3: client.rs — SipClient public API
-// pub mod client;
+/// Facade layer — SipClient, SipError, ClientConfig.
+/// The top-level API that application code interacts with.
+pub mod client;
+pub mod config;
+pub mod error;
 
-// [::STUB::] P0-3: config.rs — ClientConfig, AccountConfig, TransportConfig
-// pub mod config;
-
-// [::STUB::] P0-3: account.rs — SipAccount management
-// pub mod account;
-
-// [::STUB::] P0-3: call.rs — SipCall lifecycle
-// pub mod call;
-
-// [::STUB::] P0-3: transport.rs — Transport management
-// pub mod transport;
+/// Account, Call, and Transport type stubs.
+///
+/// [::STUB::] P0-7: Full implementations with lifecycle methods.
+pub mod account;
+pub mod call;
+pub mod transport;
 
 // [::STUB::] P0-5: event.rs — SipEventPayload, EventBus
 // pub mod event;
-
-// [::STUB::] P0-4: error.rs — SipError, SipErrorKind
-// pub mod error;
 
 // [::STUB::] P1+: audio/ — Audio processing (chunk, format, mixer, source, resampler, bridge)
 // pub mod audio;
@@ -73,3 +69,12 @@ pub mod runtime;
 
 // [::STUB::] P1+: util/ — ID, Time, Sync utilities
 // pub mod util;
+
+// ── Public API re-exports ──────────────────────────────────────────
+//
+// These re-exports form the crate's public API surface. Application code
+// should use these types via `siprs::SipClient`, `siprs::ClientConfig`, etc.
+
+pub use client::SipClient;
+pub use config::{AuthCredentials, ClientConfig, ClientConfigBuilder, LogLevel, ServerConfig};
+pub use error::SipError;

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+use crate::config::ClientConfig;
 use crate::runtime::backend::{Backend, MockBackend};
 use crate::runtime::command::{send_reply, DispatchCommand};
 use crate::runtime::handle::{self, RuntimeHandle};
@@ -11,12 +12,21 @@ use crate::runtime::state::ClientState;
 
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
-/// [::STUB::] P0-3: replaced with real ClientConfig.
-/// Currently holds a placeholder string representation.
-#[derive(Debug, Clone, Default)]
+/// This is now the real `ClientConfig` type defined in `src/config.rs`.
+#[derive(Debug, Clone)]
 pub struct BootConfig {
-    /// Placeholder for `ClientConfig` — replaced in P0-3.
-    pub config: String,
+    /// The client configuration that drives PJSUA initialization.
+    pub config: ClientConfig,
+}
+
+// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+impl Default for BootConfig {
+// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            config: ClientConfig::default(),
+        }
+    }
 }
 
 /// The core reactor that owns the PJSUA control thread.
