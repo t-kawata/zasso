@@ -109,8 +109,8 @@ function checkVerifiesCoverage(ticket, testDir) {
  * @returns {{valid: boolean, unresolved: string[], total: number}}
  */
 // [::TICKET::] PX-83: checkStubResolution — targetStub status check
-// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
-function checkStubResolution(targetStubs) {
+// [::TICKET::] PX-83, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-83|PX-89) --for-spec --no-implementation-order`.
+function checkStubResolution(targetStubs, ticketsData) {
   // verified_empty or undefined — no stubs to check
   if (targetStubs === 'verified_empty' || targetStubs === undefined || targetStubs === null) {
     return { valid: true, unresolved: [], total: 0 };
@@ -120,12 +120,37 @@ function checkStubResolution(targetStubs) {
     return { valid: true, unresolved: [], total: 0 };
   }
 
+  // Build set of existing ticket keys for deferredTo validation
+  const existingTicketKeys = new Set();
+  if (ticketsData && ticketsData.phases) {
+    for (const phase of ticketsData.phases) {
+      if (phase.tickets) {
+        for (const t of phase.tickets) {
+          if (t.id !== undefined && t.phaseId !== undefined) {
+            const key = 'P' + (t.phaseId === -1 ? 'X' : t.phaseId) + '-' + t.id;
+            existingTicketKeys.add(key);
+          }
+        }
+      }
+    }
+  }
+
   const unresolved = [];
   for (const stub of targetStubs) {
     const isResolved = stub.status === 'resolved';
-    const hasDeferredTo = stub.deferredTo && stub.deferredTo.length > 0;
     const isFalsePositive = stub.status === 'false_positive';
-    if (!isResolved && !hasDeferredTo && !isFalsePositive) {
+
+    // Determine if deferredTo is valid:
+    // - No deferredTo (null/undefined/empty) -> no resolution path -> unresolved
+    // - deferredTo present + ticketsData available -> validate against existing keys
+    // - deferredTo present + no ticketsData -> trust it (backward compat)
+    const hasDeferredTo = stub.deferredTo && typeof stub.deferredTo === 'string' && stub.deferredTo.length > 0;
+    let deferredToValid = hasDeferredTo;
+    if (hasDeferredTo && ticketsData && ticketsData.phases) {
+      deferredToValid = existingTicketKeys.has(stub.deferredTo);
+    }
+
+    if (!isResolved && !deferredToValid && !isFalsePositive) {
       unresolved.push(stub.id || 'unknown');
     }
   }
@@ -208,13 +233,13 @@ function verifyFinalContracts(opts) {
   };
 }
 
-// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83|PX-89) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath, testDir } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
-    process.exit(1);
+    process.exit(2);
   }
 
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));

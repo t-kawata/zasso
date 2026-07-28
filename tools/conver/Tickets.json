@@ -12075,6 +12075,140 @@
             }
           ],
           "completedAt": "2026-07-28"
+        },
+        {
+          "id": 88,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix resolve-ticket argument handling + document .claude skip reason",
+          "specPath": "./specs/PX-88.md",
+          "background": "Goal: Restore convergence loop in resolve-ticket Step 7.5\nPurpose: resolve-ticket accepts no arguments per its spec but Step 7.5a/7.5b reference  which is always empty. Also document why .claude is excluded from STUB scanning.\nMotivation: Without this fix resolve-ticket convergence loop is permanently broken.\nConstraints: Must not change resolve-ticket existing behavior (no-args mode).",
+          "scope": [
+            "[Change] resolve-ticket.md - add optional ticket-key argument to Step 7.5 usage lines",
+            "[Change] resolve-ticket.md - add branching logic: if  non-empty run Step 7.5a/7.5b else skip to 7.5c",
+            "[Non-change] resolve-ticket rejection of arguments for other steps",
+            "[Change] enumerate-ticket-targets.js - add comment explaining .claude in SKIP_DIRS (self-referencing loop avoidance)"
+          ],
+          "testUnit": [
+            "UT: [Normal] resolve-ticket with ticket-key argument runs enumerate + validate successfully",
+            "UT: [Error] resolve-ticket with ticket-key for nonexistent ticket exits 1",
+            "UT: [Edge] resolve-ticket with no arguments skips Step 7.5a/7.5b (backward compat)",
+            "UT: [Invariant] stderr HINT on error unchanged from PX-86 changes"
+          ],
+          "testIntegration": [
+            "IT: full convergence loop passes with valid ticket-key",
+            "IT: convergence loop skips enumerate/validate when no args"
+          ],
+          "testExceptions": [
+            "Item: Integration test needs execSync with mock Tickets.json\nReason: cannot test resolve-ticket directly because it is a command file, not an importable module\nNot a design defect: the command can be driven via execSync, just not imported programmatically",
+            "Item: .claude skip reason is comment-only\nReason: not testable because comment addition has no runtime effect\nNot an architectural defect: the content is verified by grep test post-commit"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: resolve-ticket PX-99 runs enumerate with --ticket-key=PX-99",
+            "Happy path: resolve-ticket with no args skips Step 7.5a/7.5b and proceeds to 7.5c",
+            "Error case: nonexistent ticket key produces exit 1 with clear stderr",
+            "Edge case: convergence loop terminates when both enumerate and validate pass"
+          ],
+          "notes": "Implementation steps:\n1. Modify resolve-ticket.md: change Step 7.5a/7.5b to use  conditionally\n2. Add comment to enumerate-ticket-targets.js SKIP_DIRS explaining .claude exclusion\n\nRisks: None - all existing tests cover no-args path which remains unchanged.\nImplementation summary:\n- Changed files: resolve-ticket.md, enumerate-ticket-targets.js, tests/resolve-ticket-args.test.js\n- Key changes: conditional branching in Step 7.5a/7.5b, .claude skip comment\n- Test results: all 5 tests passed",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "resolve-ticket guard",
+              "precondition": "resolve-ticket is called with optional $ARGUMENTS",
+              "postcondition": "Step 7.5a/7.5b execute only when $ARGUMENTS is non-empty, skip otherwise",
+              "invariant": "No-args mode behavior unchanged"
+            }
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] resolve-ticket with ticket-key runs enumerate\n  ```\n  node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=PX-99 --tickets=Tickets.json\n  assert_eq!(exit_code, 0);\n  ```",
+            "UT: [Normal] resolve-ticket with ticket-key runs validate\n  ```\n  node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=PX-99 --tickets=Tickets.json\n  assert_eq!(exit_code, 0);\n  ```",
+            "UT: [Error] nonexistent ticket key exits 1\n  ```\n  node .claude/scripts/tickets/enumerate-ticket-targets.js --ticket-key=NONEXISTENT --tickets=Tickets.json\n  assert_ne!(exit_code, 0);\n  ```",
+            "UT: [Invariant] no args skips 7.5a/7.5b\n  ```\n  skip_condition = (typeof $ARGUMENTS === \"undefined\" || $ARGUMENTS === \"\");\n  assert!(skip_condition);\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "resolve-ticket.md: unconditional  usage",
+              "after": "resolve-ticket.md: conditional branching on  (skip Step 7.5a/7.5b when empty)",
+              "description": "Fixed convergence loop - resolved-ticket now accepts optional ticket-key arg"
+            },
+            {
+              "before": "enumerate-ticket-targets.js: no .claude skip explanation",
+              "after": "enumerate-ticket-targets.js: comment explains .claude in SKIP_DIRS (self-referencing loop avoidance)",
+              "description": "Documented design rationale"
+            }
+          ],
+          "completedAt": "2026-07-28"
+        },
+        {
+          "id": 89,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Verify deferredTo exists + standardize exit codes on verify scripts",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/89-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: Fix two integrity gaps in pipeline verification\nPurpose: (1) checkStubResolution in verify-final-contracts accepts any non-empty deferredTo string without verifying the referenced ticket exists; (2) verify-make/plan/final-contracts all use exit(1) for both validation failure and crashes, making it impossible to distinguish.\nMotivation: deferredTo with garbage values silently passes Gate R. Crash vs failure ambiguity makes debugging harder.\nConstraints: Must not change the exit code semantics for callers that only check 0 vs non-zero.",
+          "scope": [
+            "[Change] verify-final-contracts.js - pass ticketsData to checkStubResolution, validate deferredTo references against Tickets.json",
+            "[Change] verify-final-contracts.js - change crash path to exit(2)",
+            "[Change] verify-make-contracts.js - change crash path to exit(2)",
+            "[Change] verify-plan-contracts.js - change crash path to exit(2)",
+            "[Non-change] caller logic in command files - all gates check exit 0 vs non-zero"
+          ],
+          "testUnit": [
+            "UT: [Normal] checkStubResolution rejects deferredTo with nonexistent ticket key",
+            "UT: [Normal] checkStubResolution accepts deferredTo with existing ticket key",
+            "UT: [Error] verify-final-contracts with crash condition exits 2",
+            "UT: [Error] verify-make-contracts with crash condition exits 2",
+            "UT: [Edge] deferredTo null/undefined still passes (backward compat)",
+            "UT: [Invariant] validation failure still exits 1 (not 2)"
+          ],
+          "testIntegration": [
+            "IT: full Gate R with valid deferredTo -> pass, invalid deferredTo -> fail"
+          ],
+          "testExceptions": [
+            "Item: verify scripts cannot be tested in isolation from Tickets.json\nReason: not testable as pure unit because they depend on Tickets.json structure\nNot a design defect: integration test via execSync with temp Tickets.json is the correct approach"
+          ],
+          "acceptanceCriteria": [
+            "Happy: deferredTo=PX-99 with PX-99 existing in Tickets.json -> passes",
+            "Happy: deferredTo=null -> passes (backward compat)",
+            "Error: deferredTo=NONEXISTENT -> exits 1 with clear error",
+            "Error: Tickets.json parse failure -> exits 2 (crash)",
+            "Invariant: existing validation failure (e.g. empty contracts) still exits 1"
+          ],
+          "notes": "Implementation steps:\n1. Modify checkStubResolution signature to accept ticketsData\n2. Add deferredTo existence validation using same logic as validate-ticket-targets.js checkDeferredToExists\n3. Add crash exit code constant to each verify script\n\nRisks: Low - callers only check exit 0 vs non-zero\nImplementation summary:\n- Changed files: verify-final-contracts.js, verify-make-contracts.js, verify-plan-contracts.js, tests/verify-exit-codes.test.js\n- Key changes: checkStubResolution takes ticketsData, deferredTo validation, exit(2) for crashes\n- Test results: all 7 tests passed, verify-final-contracts 19/19 (regression fixed)",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "verify-final-contracts deferredTo check",
+              "precondition": "checkStubResolution receives ticketsData with complete ticket list",
+              "postcondition": "deferredTo references validated against existing tickets, crash exits 2",
+              "invariant": "Validation failure still exits 1 (not 2)"
+            }
+          ],
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] checkStubResolution with ticketsData validates deferredTo\n  ```js\n  const targetStubs = [{ id: \"TS-001\", deferredTo: \"PX-88\", status: \"pending\" }];\n  const ticketsData = { phases: [{ id: -1, tickets: [{ id: 88, phaseId: -1 }] }] };\n  const result = checkStubResolution(targetStubs, ticketsData);\n  assert(result.valid === true);\n  ```",
+            "UT: [Error] deferredTo NONEXISTENT exits 1\n  ```js\n  const targetStubs = [{ id: \"TS-001\", deferredTo: \"NONEXISTENT\", status: \"pending\" }];\n  const ticketsData = { phases: [] };\n  const result = checkStubResolution(targetStubs, ticketsData);\n  assert(result.valid === false);\n  assert(result.unresolved.includes(\"TS-001\"));\n  ```",
+            "UT: [Edge] deferredTo null/undefined still passes\n  ```js\n  const r1 = checkStubResolution([{ id: \"TS-001\", deferredTo: null, status: \"pending\" }], {});\n  assert(r1.valid === true);\n  const r2 = checkStubResolution(undefined, {});\n  assert(r2.valid === true);\n  ```",
+            "UT: [Invariant] crash exits 2\n  ```js\n  try {\n    const proc = execSync(\"node verify-final-contracts.js --ticket-key=PX-89 --tickets=/nonexistent/Tickets.json\");\n  } catch (e) {\n    assert(e.status === 2);\n  }\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "checkStubResolution(targetStubs) — no deferredTo validation",
+              "after": "checkStubResolution(targetStubs, ticketsData) — validates deferredTo against existing ticket keys",
+              "description": "Fixed Gate R Layer 3 deferredTo validation gap"
+            },
+            {
+              "before": "verify scripts use exit(1) for crashes",
+              "after": "verify scripts use exit(2) for crashes (file not found)",
+              "description": "Standardized exit code separation: exit(1)=validation failure, exit(2)=crash"
+            }
+          ],
+          "completedAt": "2026-07-28"
         }
       ]
     },

@@ -142,13 +142,13 @@ function verifyPlanContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
-    process.exit(1);
+    process.exit(2);
   }
 
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));

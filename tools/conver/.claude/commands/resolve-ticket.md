@@ -22,7 +22,10 @@ description: Resolves warnings, errors, stubs, and crimes under a directory.
 
 ## Argument Interpretation
 
-No arguments accepted. If any are provided, interrupt with an error.
+- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Optional ticket key. When provided, Step 7.5a (enumerate) and Step 7.5b (validate) execute against this ticket. When omitted, they are skipped and the command runs its default workflow (Steps 1-8, excluding enumerate/validate).
+- No argument → Default mode, skips Step 7.5a/7.5b (backward compatibility)
+- Numeric only → Interrupt with error
+- Anything else → Interrupt with error
 
 ## List of Scripts Used
 
@@ -126,18 +129,26 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 Before final verification, enumerate and validate STUBs at the directory scope (not per-ticket).
 This catches STUBs that ticket-scoped phases may have missed.
 
+**Conditional execution**: Step 7.5a and 7.5b below execute **only when `$ARGUMENTS` is non-empty** (a ticket key was provided). When `$ARGUMENTS` is empty (no arguments), proceed directly to Step 7.5c. This preserves backward compatibility with the default no-args mode.
+
 **Step 7.5a — Enumerate remaining STUBs:**
 
+Run only when `$ARGUMENTS` is non-empty:
 ```bash
-node .claude/scripts/tickets/enumerate-ticket-targets.js \
-  --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+if [ -n "$ARGUMENTS" ]; then
+  node .claude/scripts/tickets/enumerate-ticket-targets.js \
+    --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+fi
 ```
 
 **Step 7.5b — Validate targets:**
 
+Run only when `$ARGUMENTS` is non-empty:
 ```bash
-node .claude/scripts/tickets/validate-ticket-targets.js \
-  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+if [ -n "$ARGUMENTS" ]; then
+  node .claude/scripts/tickets/validate-ticket-targets.js \
+    --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+fi
 ```
 
 **Step 7.5c — Directory-scoped scans:**
@@ -147,13 +158,13 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 .claude/scripts/tickets/scan-crimes.sh
 ```
 
-**Escape hatch — new ticket for truly unresolvable STUBs**: If a STUB genuinely cannot be resolved in this session (e.g., blocked on external dependency, awaiting another team), the AI MUST:
+**Escape hatch — new ticket for truly unresolvable STUBs**: If a STUB genuinely cannot be resolved in this session (e.g., blocked on external dependency, awaiting another team), the AI MUST (requires `$ARGUMENTS` to be set):
 1. Create a new ticket via `/make-ticket` with full justification in background and scope
 2. Update the STUB's `deferredTo` field to the new ticket key
-3. Re-run Step 7.5a and 7.5b to confirm validation passes
+3. Re-run Step 7.5a and 7.5b to confirm validation passes (re-run with `$ARGUMENTS` set)
 4. Record the deferred STUBs and their new ticket keys in the implementation summary
 
-**Convergence loop**: If Step 7.5b or 7.5c report issues, resolve them and re-run from Step 7.5a. **Loop until both validate-ticket-targets and scan-crimes.sh report zero remaining STUBs/crimes, OR all unresolvable items are deferred to new tickets, before proceeding to Step 8.**
+**Convergence loop**: If Step 7.5b or 7.5c report issues, resolve them and re-run from Step 7.5a. **Loop until both validate-ticket-targets and scan-crimes.sh report zero remaining STUBs/crimes, OR all unresolvable items are deferred to new tickets, before proceeding to Step 8.** When `$ARGUMENTS` is empty, the loop runs Step 7.5c only (no enumerate/validate).
 
 ### Step 8: Final verification
 

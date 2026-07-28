@@ -22,11 +22,16 @@ const TARGET_EXTENSIONS = new Set([
 ]);
 
 // [::TICKET::] PX-77: Directories to skip during scan
+// `.claude` is excluded to avoid a self-referencing loop: scanning the pipeline's
+// own scripts would detect the pipeline's own [::STUB::] markers, causing infinite
+// cross-ticket dependency chains. Pipeline internals are tracked by design-time
+// RFC analysis, not by runtime STUB scanning.
 const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'dist', 'build']);
 
 // Generate a unique STUB id
 let stubCounter = 0;
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-88, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-88|PX-89) --for-spec --no-implementation-order`.
 function generateStubId() {
   stubCounter++;
   return 'TS-' + String(stubCounter).padStart(3, '0');
