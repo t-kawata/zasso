@@ -268,13 +268,13 @@ fn spec_has_versioning_policy() {
 
 #[test]
 // @verifies C007
-// [::TICKET::] P0-1, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-1, P0-3, P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-1|P0-3|P0-2) --for-spec --no-implementation-order`.
 fn versioning_policy_config_struct_exists() {
     let content = std::fs::read_to_string("src/config/versioning_policy.rs")
         .expect("versioning_policy.rs must exist");
     assert!(
-        content.contains("struct Config"),
-        "Config struct must be declared in versioning_policy.rs"
+        content.contains("struct VersionPolicy"),
+        "VersionPolicy struct must be declared in versioning_policy.rs"
     );
     assert!(
         content.contains("N0006"),
