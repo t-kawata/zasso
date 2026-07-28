@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
 
 // [::TICKET::] PX-77: Extensions to scan for STUB markers
 const TARGET_EXTENSIONS = new Set([
@@ -30,99 +31,6 @@ function generateStubId() {
   return 'TS-' + String(stubCounter).padStart(3, '0');
 }
 
-/**
- * Find a ticket in the Tickets.json data structure.
- * @param {object} ticketsData — Parsed Tickets.json
- * @param {string} ticketKey — e.g. "PX-77" or "P3-2"
- * @returns {object|null}
- */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-function findTicket(ticketsData, ticketKey) {
-  const pxMatch = ticketKey.match(/^PX-(\d+)$/);
-  const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
-  let targetPhaseId, targetId;
-  if (pxMatch) {
-    targetPhaseId = -1;
-    targetId = parseInt(pxMatch[1], 10);
-  } else if (pMatch) {
-    targetPhaseId = parseInt(pMatch[1], 10);
-    targetId = parseInt(pMatch[2], 10);
-  } else {
-    return null;
-  }
-
-  for (const phase of ticketsData.phases || []) {
-    for (const t of phase.tickets || []) {
-      if (t.id === targetId && t.phaseId === targetPhaseId) {
-        return t;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Check if a ticket key exists in Tickets.json.
- * @param {object} ticketsData
- * @param {string} ticketKey
- * @returns {boolean}
- */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-function ticketExists(ticketsData, ticketKey) {
-  // Must handle PX-{id} and P{phase}-{id}
-  const pxMatch = ticketKey.match(/^PX-(\d+)$/);
-  const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
-  let targetPhaseId, targetId;
-  if (pxMatch) {
-    targetPhaseId = -1;
-    targetId = parseInt(pxMatch[1], 10);
-  } else if (pMatch) {
-    targetPhaseId = parseInt(pMatch[1], 10);
-    targetId = parseInt(pMatch[2], 10);
-  } else {
-    return false;
-  }
-
-  for (const phase of ticketsData.phases || []) {
-    for (const t of phase.tickets || []) {
-      if (t.id === targetId && t.phaseId === targetPhaseId) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * Check if a ticket is completed (status === "done").
- * @param {object} ticketsData
- * @param {string} ticketKey
- * @returns {boolean}
- */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-function ticketIsDone(ticketsData, ticketKey) {
-  const pxMatch = ticketKey.match(/^PX-(\d+)$/);
-  const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
-  let targetPhaseId, targetId;
-  if (pxMatch) {
-    targetPhaseId = -1;
-    targetId = parseInt(pxMatch[1], 10);
-  } else if (pMatch) {
-    targetPhaseId = parseInt(pMatch[1], 10);
-    targetId = parseInt(pMatch[2], 10);
-  } else {
-    return false;
-  }
-
-  for (const phase of ticketsData.phases || []) {
-    for (const t of phase.tickets || []) {
-      if (t.id === targetId && t.phaseId === targetPhaseId) {
-        return t.status === 'done';
-      }
-    }
-  }
-  return false;
-}
 
 /**
  * Classify a STUB marker's target ticket key.
@@ -330,7 +238,7 @@ function enumerateTargets(dirPath, ownTicketKey, ticketsData, ticketsPath) {
   return result;
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirPath, ticketKey, ticketsPath;
@@ -344,21 +252,21 @@ function main() {
   if (!dirPath || !ticketKey) {
     console.error('[ERROR] --dir=<path> and --ticket-key=<key> are required');
     console.error('Cause: Missing required arguments');
-    console.error('Action: Provide --dir=<source directory> and --ticket-key=<PX-id|P{id}-{id}>');
+    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<Tickets.json>');
     process.exit(1);
   }
 
   if (!ticketsPath) {
     console.error('[ERROR] --tickets=<Tickets.json path> is required');
     console.error('Cause: Missing --tickets argument');
-    console.error('Action: Provide --tickets=<path to Tickets.json>');
+    console.error('Action: Run: node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=<path> --ticket-key=<key> --tickets=<path>');
     process.exit(1);
   }
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
     console.error('Cause: File does not exist at specified path');
-    console.error('Action: Verify the Tickets.json path and re-run');
+    console.error('Action: Run: ls -la ' + ticketsPath + ' to verify the file exists, then re-run with --tickets=<correct-path>');
     process.exit(1);
   }
 
@@ -366,7 +274,7 @@ function main() {
   if (!fs.existsSync(resolvedDir)) {
     console.error('[ERROR] Directory not found: ' + dirPath);
     console.error('Cause: Specified directory does not exist');
-    console.error('Action: Verify the directory path and re-run');
+    console.error('Action: Run: ls -d ' + resolvedDir + ' to verify the directory exists, then re-run with --dir=<existing-path>');
     process.exit(1);
   }
 
@@ -375,8 +283,8 @@ function main() {
 
   if (!result) {
     console.error('[ERROR] enumerate failed');
-    console.error('Cause: Internal error — see above');
-    console.error('Action: Check arguments and re-run');
+    console.error('Cause: enumerateTargets() returned null — check prior stderr for the actual error');
+    console.error('Action: Read the first [ERROR] line above, fix the reported issue, then re-run');
     process.exit(1);
   }
 

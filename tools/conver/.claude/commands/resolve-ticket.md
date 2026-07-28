@@ -121,7 +121,7 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 
 **Do not declare this command complete until all crimes have been confirmed as resolved.**
 
-### Step 7.5: Directory-scoped resolution validation (mandatory — C003)
+### Step 7.5: Full scan (mandatory — C003)
 
 Before final verification, enumerate and validate STUBs at the directory scope (not per-ticket).
 This catches STUBs that ticket-scoped phases may have missed.
