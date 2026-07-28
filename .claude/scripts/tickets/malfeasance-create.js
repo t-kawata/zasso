@@ -16,7 +16,7 @@
  *   { "success": false, "error": "..." }
  */
 
-const { loadRecords, saveRecords, checkSchema, output } = require('../lib/malfeasance-utils');
+const { loadRecords, saveRecords, checkSchema, output, normalizePath } = require('../lib/malfeasance-utils');
 
 // [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
@@ -34,6 +34,10 @@ function main() {
     console.error('HINT: Provide file path, line number, and description as arguments');
     return;
   }
+
+  // PX-92: Normalize file path to project-root-relative for cross-machine portability.
+  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+  const normalizedFile = normalizePath(file);
 
   const line = Number(rawLine);
   if (!Number.isInteger(line) || line < 1) {
@@ -59,7 +63,7 @@ function main() {
   const records = loaded.data.records;
 
   // Duplicate check: open record with the same file and line
-  const duplicate = records.find(r => r.file === file && r.line === line && r.status === 'open');
+  const duplicate = records.find(r => r.file === normalizedFile && r.line === line && r.status === 'open');
   if (duplicate) {
     output({
       success: false,
@@ -77,7 +81,7 @@ function main() {
 
   const newRecord = {
     id: newId,
-    file,
+    file: normalizedFile,
     line,
     description,
     detected_at: now,

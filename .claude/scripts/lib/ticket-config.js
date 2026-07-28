@@ -57,11 +57,14 @@ function loadConfig() {
       },
 
       // File extensions subject to review (must stay in sync with enumerate-ticket-targets.js)
+      // PX-90: Only programming-language source file extensions allowed.
+      // Non-programming extensions (.json, .yaml, .yml, .toml, .md, .css, .scss)
+      // are excluded to prevent self-referential crime cascade.
+      // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
       targetExtensions: [
         '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
         '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',
         '.rb', '.php', '.cs',
-        '.css', '.scss', '.json', '.yaml', '.yml', '.toml', '.md',
       ],
     },
 
