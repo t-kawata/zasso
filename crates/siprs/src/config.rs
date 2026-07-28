@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
@@ -30,6 +31,10 @@ pub mod transport_ice_spec;
 
 /// Full ClientConfig with audio, timeouts, raw_sip_events (N0013).
 pub mod client_config_spec;
+
+/// Codec policy & fallback rules — NegotiatedCodec, CodecSelectionPolicy (N0040).
+// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+pub mod codec_policy_fallback;
 
 use crate::error::SipError;
 use crate::error::SipErrorKind;

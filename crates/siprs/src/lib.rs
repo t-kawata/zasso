@@ -69,7 +69,8 @@ pub mod event;
 pub mod state;
 
 // [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
-// [::STUB::] P4-2: audio/ — Audio format types (AudioChunkPair, ResamplePipeline)
+// [::STUB::] P4-2: Audio format types implemented under model/ (audio_format_chunkpair, audio_aligner, audio_resampler).
+// The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).
 // pub mod audio;
 
 // [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)
