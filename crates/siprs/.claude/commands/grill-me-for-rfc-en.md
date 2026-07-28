@@ -280,7 +280,7 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
 
 ### STEP 7a: I/O Boundary Reference Information
 
-Add I/O boundary reference information to the RFC so that future `/graphify-rfc` (graphing) and `/boundify-graph-to-dirs` (directory boundary generation) can safely split the document along natural seams.
+Add I/O boundary reference information to the RFC so that future `/graphify-rfc` (graphing) and `/boundify-graph` (directory boundary generation) can safely split the document along natural seams.
 
 ```bash
 # Insert template

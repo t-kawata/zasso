@@ -1718,7 +1718,7 @@
           "refId": "REF312",
           "heading": 3,
           "texts": [
-            "57.3 graphify-rfc + boundify-graph-to-dirs との連携"
+            "57.3 graphify-rfc + boundify-graph との連携"
           ]
         }
       ]
@@ -1780,7 +1780,7 @@
           "refId": "REF318",
           "heading": 2,
           "texts": [
-            "61. graphify-rfc + boundify-graph-to-dirs のための参考情報 — RFC設計書が示す I/O 境界の手がかり"
+            "61. graphify-rfc + boundify-graph のための参考情報 — RFC設計書が示す I/O 境界の手がかり"
           ]
         },
         {

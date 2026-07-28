@@ -1,4 +1,3 @@
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -17,11 +16,10 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 
 pub fn authorize() {
-	// [::STUB::] P2-4: implement JWT-based authorization middleware (N0063)
+	// TODO: implement authorization
 }
 
 
-// [::STUB::] P2-4: MUST implement NODE_ID=N0063: §55 Auth Model — JWT & Axum Middleware
+// TODO: [::STUB::] MUST implement NODE_ID=N0063: §55 Auth Model — JWT & Axum Middleware
