@@ -1,3 +1,5 @@
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
@@ -19,6 +21,15 @@ pub mod observability_metrics;
 
 /// Semver operations & SIP networking details — versioning policy, TLS, DNS (N0066).
 pub mod semver_sip_networking;
+
+/// AccountConfig, AccountCodecPolicy, OpusConfig, DtmfPolicy, AccountMediaConfig (N0014).
+pub mod account_config_spec;
+
+/// TransportConfig, TlsConfig, IceConfig, StunServerConfig, TurnServerConfig (N0015).
+pub mod transport_ice_spec;
+
+/// Full ClientConfig with audio, timeouts, raw_sip_events (N0013).
+pub mod client_config_spec;
 
 use crate::error::SipError;
 use crate::error::SipErrorKind;

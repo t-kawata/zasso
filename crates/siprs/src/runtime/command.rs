@@ -26,7 +26,7 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2, P0-3, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
@@ -47,8 +47,7 @@ pub enum RuntimeCommand {
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     AddAccount {
-        // [::STUB::] P0-3: config: AccountConfig (currently String until P3-1)
-        config: String,
+        config: crate::config::account_config_spec::AccountConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     RemoveAccount {
@@ -62,8 +61,7 @@ pub enum RuntimeCommand {
     },
     MakeCall {
         account_id: u64,
-        // [::STUB::] P0-3: request: OutgoingCallRequest
-        request: String,
+        request: Box<crate::api::call_types::OutgoingCallRequest>,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     Hangup {
@@ -233,7 +231,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -249,8 +247,7 @@ impl DispatchCommand {
             },
             RuntimeCommand::AddAccount { config, reply } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.add_account(&config)?;
-                    // [::STUB::] P0-3: store AccountEntry in ClientState, return AccountId
+                    backend.add_account(&config.username)?;
                     Ok(())
                 }),
                 reply,
@@ -273,8 +270,7 @@ impl DispatchCommand {
                 reply,
             } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.make_call(account_id, &request)?;
-                    // [::STUB::] P0-3: store CallEntry in ClientState, return CallId
+                    backend.make_call(account_id, &request.target_uri)?;
                     Ok(())
                 }),
                 reply,

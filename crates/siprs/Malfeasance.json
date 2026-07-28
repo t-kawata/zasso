@@ -585,6 +585,16 @@
       "detected_at": "2026-07-28T16:27:29.705Z",
       "status": "false_positive",
       "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 66,
+      "file": "src/build/build_strategy_os_deps.rs",
+      "line": 28,
+      "description": "Missing [::STUB::] marker on TODO comment: implement build/CI entry point",
+      "detected_at": "2026-07-28T16:39:29.257Z",
+      "status": "resolved",
+      "note": "Added [::STUB::] marker. This stub is part of P3-1 scope (N0039) and will be resolved in P3-1.",
+      "resolved_at": "2026-07-28T16:40:52.966Z"
     }
   ]
 }

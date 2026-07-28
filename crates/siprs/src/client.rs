@@ -1,3 +1,5 @@
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-3: SipClient — facade for the siprs SIP client.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
@@ -34,6 +36,7 @@ use crate::runtime::reactor::{BootConfig, CoreReactor};
 /// # Send + Sync
 /// `SipClient` is `Send + Sync` because it wraps an `Arc<RuntimeHandle>`
 /// and communicates with the reactor thread via MPSC channels.
+#[derive(Clone)]
 pub struct SipClient {
     /// Handle for submitting commands to the reactor thread.
     runtime: Arc<RuntimeHandle>,

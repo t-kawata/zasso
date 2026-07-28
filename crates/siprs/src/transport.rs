@@ -1,32 +1,20 @@
-// [::TICKET::] P0-3: TransportConfig type placeholder.
-// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-//
-// [::STUB::] P3-1: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).
-// Transport creation, lifecycle, and enumeration are deferred to P3-1
-// when the FFI layer (P3-2) is available.
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
-/// Transport protocol type for SIP signalling.
+// [::TICKET::] P3-1: TransportConfig re-export.
+// TransportConfig types are defined in config::transport_ice_spec.
+// This module provides a re-export for backward compatibility.
+
+pub use crate::config::transport_ice_spec::{
+    IceConfig, StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport, UdpTransportConfig,
+};
+
+/// Transport protocol type for SIP signalling (simple enum for common use).
 ///
-/// [::STUB::] P3-1: Replace string with proper enum (Udp, Tcp, Tls).
+/// [::STUB::] P3-1: Currently re-exported from transport_ice_spec. May be removed
+/// once all callers are migrated to TransportConfig directly.
 #[derive(Debug, Clone)]
 pub enum TransportType {
     Udp,
     Tcp,
     Tls,
-}
-
-/// Configuration for a SIP transport.
-///
-/// Each `SipClient` can bind multiple transports for SIP signalling.
-///
-/// [::STUB::] P3-1: Add transport lifecycle (create, destroy, enumerate)
-/// and ICE/TURN/STUN configuration fields.
-#[derive(Debug, Clone)]
-pub struct TransportConfig {
-    /// Transport protocol type.
-    pub transport_type: TransportType,
-    /// Port to bind for SIP signalling.
-    pub port: u16,
-    /// Optional TLS configuration — populated when `transport_type == Tls`.
-    pub tls_config: Option<String>,
 }

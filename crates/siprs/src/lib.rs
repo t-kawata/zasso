@@ -1,3 +1,5 @@
+// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
@@ -115,3 +117,18 @@ pub use event::{
 };
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1: Public API surface re-exports — account, call, transport config types
+pub use account::SipAccountHandle;
+pub use api::call_types::{AuthOverride, CallMediaPreferences, Codec, OutgoingCallRequest};
+pub use config::account_config_spec::{
+    AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, DtmfMethod,
+    DtmfPolicy, OpusConfig, SrtpPolicy,
+};
+pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
+pub use config::transport_ice_spec::{
+    IceConfig, TcpTransportConfig, TlsConfig, TransportConfig, TurnServerConfig, TurnTransport,
+    UdpTransportConfig,
+};
+// StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
+// with the existing config::StunServerConfig. Use the transport_ice_spec version
+// via `siprs::config::transport_ice_spec::StunServerConfig` for the RFC definition.
