@@ -45,14 +45,25 @@ pub(crate) struct AccountConfig;
 
 // [::STUB::] P0-9: N0012 — AccountId newtype for account operations.
 // Resolve by replacing with `use crate::model::AccountId;` once P0-9 implements it.
+// [::STUB::] P1-4: Added Hash + Display derives for use as HashMap keys in routing table
+// and thiserror Display formatting in RoutingError. Remove this note once P0-9 ships.
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct AccountId(pub(crate) u64);
+
+impl std::fmt::Display for AccountId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AccountId({})", self.0)
+    }
+}
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
 
 // [::STUB::] P0-9: N0012 — CallId newtype for call operations.
 // Resolve by replacing with `use crate::model::CallId;` once P0-9 implements it.
+// [::STUB::] P1-4: Added Hash derive for use as HashMap key in CallEventRouter.
+// Remove this note once P0-9 ships.
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct CallId(pub(crate) u64);
 
 // [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.

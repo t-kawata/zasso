@@ -13,6 +13,8 @@ pub mod m20_native_event_conv;
 pub mod m20_callstate_mapping;
 pub mod m20_registr_cmd_pat;
 pub mod m20_dtmfsent_twophase;
+// [::TICKET::] P1-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`.
+pub mod m20_dual_client_routing;
 
 // [::STUB::] P1-3: registr_state_machine module — uses RegistrationSucceeded/Failed from this ticket
 // [::STUB::] P1-4: call_state_model module — provides full CallState enum
