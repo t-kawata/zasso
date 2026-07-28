@@ -1,5 +1,18 @@
+// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+
+// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-3: ClientConfig — typed configuration for SipClient.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+
+// [::TICKET::] P1-1: Codec auto-mode and SRTP/transport modules.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+
+/// M20 explicit codec & auto-mode policy (N0041).
+pub mod m20_codec_auto_mode;
+
+/// SRTP policy & transport reconnection (N0042).
+pub mod srtp_transport_reconnect;
 
 use crate::error::SipError;
 use crate::error::SipErrorKind;

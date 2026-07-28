@@ -1,3 +1,7 @@
+// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+
+// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-4: SipError module root — re-exports from submodules.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 
@@ -8,6 +12,9 @@ pub mod error_design_siperror;
 
 /// M20 RuntimeCommand error converters (ConfConnect, ConfDisconnect, GetAccountInfo).
 pub mod m20_runtime_command_error;
+
+/// M20 shutdown command routing (N0044) — shutdown command classifier.
+pub mod m20_shutdown_routing;
 
 // ── Public API re-exports ───────────────────────────────────────────────
 
