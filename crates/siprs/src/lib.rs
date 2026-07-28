@@ -80,6 +80,12 @@ pub mod runtime;
 pub mod security;
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 
+// [::TICKET::] P1-3: build/ — CI/CD matrix, Docker Integration, Prebuilt Pipeline (N0054)
+pub mod build;
+
+// [::TICKET::] P1-3: tests/ — 4-Layer Test Strategy & Dual Client Utility (N0052, N0053)
+pub mod tests;
+
 // [::STUB::] P1+: util/ — ID, Time, Sync utilities
 // pub mod util;
 
