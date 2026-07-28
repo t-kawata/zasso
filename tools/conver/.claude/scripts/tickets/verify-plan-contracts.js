@@ -87,7 +87,7 @@ function elementIsCovered(elementText, testUnitText) {
  * @returns {Array<{ticket: number, contract: string|null, element: string, detail: string}>}
  */
 // [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-75 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-75 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-75, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-75|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function verifyPlanContracts(ticket) {
   const errors = [];
   const contracts = ticket.contracts || [];
@@ -96,8 +96,14 @@ function verifyPlanContracts(ticket) {
   // C004: Empty or undefined contracts → pass
   if (contracts.length === 0) return errors;
 
-  // C003: No planTestCode → graceful skip (backward compat for tickets without field)
+  // C001 (PX-84): Reject missing planTestCode when contracts exist — Step 3.5 required
   if (planTestCode === undefined || planTestCode === null || planTestCode.length === 0) {
+    errors.push({
+      ticket: ticket.id,
+      contract: null,
+      element: 'planTestCode',
+      detail: 'planTestCode is empty or undefined while contracts exist — Step 3.5 (contract-to-test-code translation) must be executed before plan can complete'
+    });
     return errors;
   }
 
@@ -136,7 +142,7 @@ function verifyPlanContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-74 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-74 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-74, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-74|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
@@ -183,9 +189,15 @@ function main() {
   const errors = verifyPlanContracts(targetTicket);
   if (errors.length > 0) {
     for (const err of errors) {
-      console.error('[ERROR] Ticket ' + err.ticket + ' contract ' + err.contract + ' (' + err.element + '): ' + err.detail);
-      console.error('Cause: Contract-to-test-code translation incomplete in plan');
-      console.error('Action: Add concrete test code to testUnit entries for this contract and re-run Gate P');
+      if (err.element === 'planTestCode') {
+        console.error('[ERROR] Ticket ' + err.ticket + ': ' + err.detail);
+        console.error('Cause: Step 3.5 was not executed or planTestCode was not written');
+        console.error('Action: Run Step 3.5 to translate contracts into concrete test code, then set planTestCode via update-ticket.js');
+      } else {
+        console.error('[ERROR] Ticket ' + err.ticket + ' contract ' + err.contract + ' (' + err.element + '): ' + err.detail);
+        console.error('Cause: Contract-to-test-code translation incomplete in plan');
+        console.error('Action: Add concrete test code to planTestCode entries for this contract and re-run Gate P');
+      }
     }
     process.exit(1);
   }

@@ -61,7 +61,7 @@ function formatError(id, description, cause, action) {
  * @returns {{valid: boolean, missing: string[], total: number, covered: number}}
  */
 // [::TICKET::] PX-83: checkVerifiesCoverage — @verifies annotation scan
-// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-83, PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-83|PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function checkVerifiesCoverage(ticket, testDir) {
   const contractIds = new Set();
   const contracts = ticket.contracts || [];
@@ -76,6 +76,7 @@ function checkVerifiesCoverage(ticket, testDir) {
 
   // No testDir provided — skip (status-only fallback handled by caller)
   if (!testDir || !fs.existsSync(testDir)) {
+    console.error('[WARNING] --test-dir not provided or not found. Layer 2 (@verifies coverage check) is skipped. Pass --test-dir=<path> to enable contract annotation verification.');
     return { valid: true, missing: [], total: contractIds.size, covered: 0, skipped: true };
   }
 

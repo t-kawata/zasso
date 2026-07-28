@@ -92,6 +92,11 @@ Before starting implementation, check for resolvable stubs:
 
 1. List stubs via `find-all-stubs.js`
 2. Identify stubs that have become resolvable with this ticket (e.g., dependency tickets completed)
+   ```bash
+   # List done/resolved tickets to cross-reference with STUB markers
+   node .claude/scripts/tickets/search-tickets.js Tickets.json done
+   node .claude/scripts/tickets/review/find-all-stubs.js . | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);j.stubs.filter(s=>s.content.match(/\[::STUB::\]\s+P\d+-\d+/)).forEach(s=>console.log(s.file+':'+s.line+' → '+s.content.match(/\[::STUB::\]\s+\S+/)[0]))"
+   ```
 3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
 4. Include resolvable stubs in the implementation scope and replace them with actual implementation
 5. Record unresolvable stubs in the implementation summary and hand them over to subsequent tickets
