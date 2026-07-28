@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0027: §19 Call API & Answer Semantics
+// TODO: [::STUB::] MUST implement NODE_ID=N0027 /* P6-1 */: §19 Call API & Answer Semantics

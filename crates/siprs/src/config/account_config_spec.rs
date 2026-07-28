@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0014: §11 AccountConfig Full Specification
+// TODO: [::STUB::] MUST implement NODE_ID=N0014 /* P4-1 */: §11 AccountConfig Full Specification

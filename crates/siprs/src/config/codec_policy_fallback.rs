@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0040: §29 Codec Policy & Fallback Rules
+// TODO: [::STUB::] MUST implement NODE_ID=N0040 /* P5-7 */: §29 Codec Policy & Fallback Rules

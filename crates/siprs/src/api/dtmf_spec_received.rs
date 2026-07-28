@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0028: §20 DTMF Specification & DtmfReceived
+// TODO: [::STUB::] MUST implement NODE_ID=N0028 /* P7-0 */: §20 DTMF Specification & DtmfReceived

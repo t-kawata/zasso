@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0031: §22 Audio Subscribe API & Backpressure Policy
+// TODO: [::STUB::] MUST implement NODE_ID=N0031 /* P6-2 */: §22 Audio Subscribe API & Backpressure Policy

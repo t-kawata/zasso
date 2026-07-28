@@ -20,4 +20,4 @@
 pub enum State {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0025: §17 Registration State Machine
+// TODO: [::STUB::] MUST implement NODE_ID=N0025 /* P5-2 */: §17 Registration State Machine

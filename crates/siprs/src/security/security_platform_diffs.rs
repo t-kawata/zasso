@@ -22,4 +22,4 @@ pub fn authorize() {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0047: §35 Security & §36 Platform Differences
+// TODO: [::STUB::] MUST implement NODE_ID=N0047 /* P2-1 */: §35 Security & §36 Platform Differences

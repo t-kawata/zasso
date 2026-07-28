@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0018: §15 Event Model — SipEventPayload & EventBus
+// TODO: [::STUB::] MUST implement NODE_ID=N0018 /* P5-1 */: §15 Event Model — SipEventPayload & EventBus
