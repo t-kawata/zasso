@@ -261,6 +261,28 @@ node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" 
 
 If verification fails (exit 1), return to Step 5b to fix the template markers, then re-run from Step 6-1.
 
+#### 6-1.5: STUB enumeration and validation (mandatory — C001)
+
+Before writing the spec file, enumerate all `[::STUB::]` markers in the source tree and validate that targetStubs/targetCrimes pass all structural checks. This gate ensures no STUB goes untracked at make time.
+
+**Step 6-1.5a — Enumerate STUBs:**
+
+```bash
+node .claude/scripts/tickets/enumerate-ticket-targets.js \
+  --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+On failure (exit 1 or stderr), fix the reported issues and re-run.
+
+**Step 6-1.5b — Validate targets:**
+
+```bash
+node .claude/scripts/tickets/validate-ticket-targets.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Convergence loop**: If Step 6-1.5b exits 1, read stderr guidance, resolve the reported violations, then re-run from Step 6-1.5a. **Loop until both commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
+
 #### 6-2: Write spec file
 
 Execute `show-ticket-context.js --for-spec` to write all fields from Tickets.json into the spec file. Graph information (node details, edge relationships, file paths) is automatically included in the `--for-spec` output.

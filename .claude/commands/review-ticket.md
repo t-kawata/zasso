@@ -297,7 +297,16 @@ and that all contracts are fulfilled.
 node .claude/scripts/tickets/verify-final-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-If BLOCKed: review the contract fulfillment report and fix the uncovered contracts before re-running.
+**Additionally — validate targetStubs resolution (mandatory — C002):**
+
+Confirm that all targetStubs from the start phase have been properly resolved:
+
+```bash
+node .claude/scripts/tickets/validate-ticket-targets.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Convergence loop**: If validate-ticket-targets exits 1, the ticket's start phase did not complete its obligations. Fix the reported violations (resolve remaining stubs, update statuses) and re-run the Gate. **Loop until both verify-final-contracts and validate-ticket-targets pass before proceeding to Step 11.**
 
 ### Step 11: Transition to reviewed
 

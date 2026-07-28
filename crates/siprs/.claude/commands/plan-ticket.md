@@ -199,8 +199,17 @@ node .claude/scripts/tickets/verify-plan-contracts.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-- **Exit 0**: All contracts covered with concrete test code -> proceed to Step 5
+- **Exit 0**: All contracts covered with concrete test code -> proceed to validate step below
 - **Exit 1**: Missing coverage -> return to Step 3.5, add concrete test code for the reported contracts, re-run Gate P
+
+**Additionally — validate resolutionPlan completeness (mandatory — C002):**
+
+```bash
+node .claude/scripts/tickets/validate-ticket-targets.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+If validate exits 1, return to Step 3.5 to add concrete resolutionPlan entries with code-level detail to each targetStub, then re-run Gate P. **Loop until both verify-plan-contracts and validate-ticket-targets pass before proceeding to Step 5.**
 
 ### Step 5: Spec re-export → status update → report plan completion
 

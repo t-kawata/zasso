@@ -121,6 +121,40 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 
 **Do not declare this command complete until all crimes have been confirmed as resolved.**
 
+### Step 7.5: Directory-scoped resolution validation (mandatory — C003)
+
+Before final verification, enumerate and validate STUBs at the directory scope (not per-ticket).
+This catches STUBs that ticket-scoped phases may have missed.
+
+**Step 7.5a — Enumerate remaining STUBs:**
+
+```bash
+node .claude/scripts/tickets/enumerate-ticket-targets.js \
+  --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Step 7.5b — Validate targets:**
+
+```bash
+node .claude/scripts/tickets/validate-ticket-targets.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Step 7.5c — Directory-scoped scans:**
+
+```bash
+node .claude/scripts/tickets/review/find-all-stubs.js .
+.claude/scripts/tickets/scan-crimes.sh
+```
+
+**Escape hatch — new ticket for truly unresolvable STUBs**: If a STUB genuinely cannot be resolved in this session (e.g., blocked on external dependency, awaiting another team), the AI MUST:
+1. Create a new ticket via `/make-ticket` with full justification in background and scope
+2. Update the STUB's `deferredTo` field to the new ticket key
+3. Re-run Step 7.5a and 7.5b to confirm validation passes
+4. Record the deferred STUBs and their new ticket keys in the implementation summary
+
+**Convergence loop**: If Step 7.5b or 7.5c report issues, resolve them and re-run from Step 7.5a. **Loop until both validate-ticket-targets and scan-crimes.sh report zero remaining STUBs/crimes, OR all unresolvable items are deferred to new tickets, before proceeding to Step 8.**
+
 ### Step 8: Final verification
 
 After resolution, re-run compilation and tests to confirm everything passes.
