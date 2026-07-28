@@ -1,6 +1,7 @@
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 
 // ============================================================================
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
 // ============================================================================
@@ -67,8 +68,8 @@
 // [::STUB::] P0-6: ffi/ — PJSIP FFI bindings
 // pub mod ffi;
 
-// [::STUB::] P0-2: runtime/ — Reactor, Command, Handle
-// pub mod runtime;
+// [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle
+pub mod runtime;
 
 // [::STUB::] P1+: util/ — ID, Time, Sync utilities
 // pub mod util;

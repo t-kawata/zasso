@@ -29,3 +29,10 @@ push:
 # コミットメッセージの指定方法は push と同じ。
 push-branch:
 	$(MAKE) -C $(ROOT_DIR) push-branch msg="$(msg)"
+
+# [::STUB::] マーカーを含む全ファイルを検索してインデント付きで表示する
+stubs:
+	@node .claude/scripts/tickets/review/find-all-stubs.js "$(shell git rev-parse --show-toplevel)" | node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>console.log(JSON.stringify(JSON.parse(d),null,2)))"
+
+crimes:
+	@find . -name "Malfeasance.json" -not -path './.claude/*' -not -path './target/*' | sort | node -e "const fs=require('fs');let i='';process.stdin.on('data',c=>i+=c);process.stdin.on('end',()=>{const d=[];i.trim().split('\n').filter(Boolean).forEach(f=>{try{const c=JSON.parse(fs.readFileSync(f,'utf8'));if(c.records)d.push(...c.records.map(r=>({_file:r._file||f,...r})))}catch(e){console.error('Warning:',f,e.message)}});console.log(JSON.stringify({success:true,count:d.length,records:d},null,2))})"

@@ -1,4 +1,5 @@
 // [::TICKET::] P0-1: Crate Foundation & Scope Definition — Spec verification tests
+// [::TICKET::] P0-2: cargo fmt reformatted this file during quality checks — no functional changes.
 //
 // This file verifies that the foundation spec document (specs/P0-1.md)
 // satisfies all 15 contracts defined in P0-1 (C001–C067).
@@ -77,18 +78,13 @@ fn purpose_scope_audio_only() {
 // @requires C003
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn purpose_section_non_empty() {
     let spec = read_spec();
     // Use "#### Node N0001" as the purpose section marker.
-    let after_purpose = spec
-        .split("#### Node N0001")
-        .nth(1)
-        .unwrap_or_default();
+    let after_purpose = spec.split("#### Node N0001").nth(1).unwrap_or_default();
     // The section ends at the next "#### Node" heading.
-    let purpose_content = after_purpose
-        .split("#### Node")
-        .next()
-        .unwrap_or("");
+    let purpose_content = after_purpose.split("#### Node").next().unwrap_or("");
     assert!(
         purpose_content.len() > 50,
         "Purpose section must contain substantive content (got {} chars)",
@@ -148,9 +144,13 @@ fn priority_order_independent() {
 // @verifies C004
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn spec_has_non_goals_section() {
     let spec = read_spec();
-    assert!(spec.contains("§2 Non-goals"), "Spec must contain §2 Non-goals section");
+    assert!(
+        spec.contains("§2 Non-goals"),
+        "Spec must contain §2 Non-goals section"
+    );
     let non_goals_terms = ["SIP server", "PBX", "GUI", "video", "recording"];
     for term in &non_goals_terms {
         assert!(
@@ -165,9 +165,13 @@ fn spec_has_non_goals_section() {
 // @assert-invariant C004
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn tauri_boundary_documented() {
     let spec = read_spec();
-    assert!(spec.contains("Tauri"), "Spec must mention Tauri integration boundary");
+    assert!(
+        spec.contains("Tauri"),
+        "Spec must mention Tauri integration boundary"
+    );
     assert!(
         spec.contains("Crate") || spec.contains("crate"),
         "Tauri boundary must describe crate responsibilities"
@@ -186,14 +190,12 @@ fn tauri_boundary_documented() {
 // @requires C005
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn terms_used_in_purpose() {
     let spec = read_spec();
     // The N0001 node section heading is "#### Node N0001 (§1 Purpose)".
     // Use this specific marker to isolate the purpose section content.
-    let purpose_context = spec
-        .split("#### Node N0001")
-        .nth(1)
-        .unwrap_or("");
+    let purpose_context = spec.split("#### Node N0001").nth(1).unwrap_or("");
     // Check broader context for any domain terms
     let terms = ["Client", "Account", "Call", "SIP", "PJSUA", "SipClient"];
     let found = terms.iter().any(|t| purpose_context.contains(t));
@@ -275,11 +277,16 @@ fn purpose_sets_scope_constraint() {
 // @verifies C006
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn compliance_requirements_defined() {
     let spec = read_spec();
     let requires = ["MSRV", "tokio", "PJSIP", "Windows", "macOS", "Ubuntu"];
     for req in &requires {
-        assert!(spec.contains(req), "Compliance section must mention '{}'", req);
+        assert!(
+            spec.contains(req),
+            "Compliance section must mention '{}'",
+            req
+        );
     }
 }
 
@@ -338,6 +345,7 @@ fn zero_x_phase_flexible() {
 // @verifies C008
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn fifteen_functional_requirements() {
     let spec = read_spec();
     let req_keywords = [
@@ -357,10 +365,7 @@ fn fifteen_functional_requirements() {
         "Result",
         "Send+Sync",
     ];
-    let found_count = req_keywords
-        .iter()
-        .filter(|kw| spec.contains(*kw))
-        .count();
+    let found_count = req_keywords.iter().filter(|kw| spec.contains(*kw)).count();
     assert!(
         found_count >= 12,
         "At least 12 of 15 functional requirement keywords must be present (found {})",
@@ -372,11 +377,11 @@ fn fifteen_functional_requirements() {
 // @assert-invariant C008
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn requirements_normative_and_exhaustive() {
     let spec = read_spec();
-    let has_normative = spec.contains("normative")
-        || spec.contains("exhaustive")
-        || spec.contains("all 15");
+    let has_normative =
+        spec.contains("normative") || spec.contains("exhaustive") || spec.contains("all 15");
     assert!(
         has_normative,
         "Spec must state that the functional requirements list is normative and exhaustive"
@@ -517,11 +522,11 @@ fn build_strategy_two_stage() {
 // @assert-invariant C040
 #[test]
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 fn prebuilt_first_strategy() {
     let spec = read_spec();
     assert!(
-        spec.contains("prebuilt-first")
-            || (spec.contains("prebuilt") && spec.contains("fallback")),
+        spec.contains("prebuilt-first") || (spec.contains("prebuilt") && spec.contains("fallback")),
         "Spec must document prebuilt-first with source fallback strategy"
     );
 }
