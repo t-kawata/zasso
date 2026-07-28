@@ -158,8 +158,8 @@ console.log('\n## 5. Accumulation bound\n');
   const crimes = getCrimes(ticket);
   // After PX-93 fix, only own-ticket STUBs are included. With a clean source tree
   // that has no [::STUB::] PX-93 markers, both should be 0 or small.
-  assert(stubs.length < 500, 'targetStubs < 500 (' + stubs.length + ')');
-  assert(crimes.length < 500, 'targetCrimes < 500 (' + crimes.length + ')');
+  assertEq(stubs.length, 0, 'targetStubs must be ZERO (cascade indicator)');
+  assertEq(crimes.length, 0, 'targetCrimes must be ZERO (cascade indicator)');
 })();
 
 // ======================================================================
