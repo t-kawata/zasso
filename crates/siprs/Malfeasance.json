@@ -3,479 +3,598 @@
   "records": [
     {
       "id": 1,
-      "file": "src/security/security_platform_diffs.rs",
-      "line": 21,
-      "description": "Empty authorize() body without [::STUB::] marker",
-      "detected_at": "2026-07-27T07:49:47.531Z",
-      "status": "resolved",
-      "note": "Fixed: added [::STUB::] marker",
-      "resolved_at": "2026-07-27T07:50:39.471Z"
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 2,
-      "file": "src/security/auth_jwt_middleware.rs",
-      "line": 21,
-      "description": "Empty authorize() body without [::STUB::] marker",
-      "detected_at": "2026-07-27T07:49:47.563Z",
-      "status": "resolved",
-      "note": "Fixed: added [::STUB::] marker",
-      "resolved_at": "2026-07-27T07:50:39.501Z"
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 3,
-      "file": "src/api/event_model_payload_bus.rs",
-      "line": 168,
-      "description": "TODO marker without [::STUB::] marker",
-      "detected_at": "2026-07-27T07:56:12.529Z",
-      "status": "resolved",
-      "note": "Fixed: added [::STUB::] marker",
-      "resolved_at": "2026-07-27T07:56:16.136Z"
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 4,
-      "file": "examples/audio_tap.rs",
-      "line": 128,
-      "description": "STUB: pair_to_stereo_i16 depends on AudioChunkPair from P0-8 (N0030)",
-      "detected_at": "2026-07-27T09:22:12.645Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Cannot resolve — AudioFormat model not yet implemented"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 5,
-      "file": "examples/audio_tap.rs",
-      "line": 143,
-      "description": "STUB: open_default_microphone_source depends on cpal-input from N0050/§40",
-      "detected_at": "2026-07-27T09:22:13.194Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Cannot resolve — cpal-input feature not yet implemented"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 6,
-      "file": "src/state/m20_native_event_conv.rs",
-      "line": 23,
-      "description": "STUB references P1-1 which is done. Should reference P1-0 (EventBus for canonical SipEventPayload).",
-      "detected_at": "2026-07-28T10:16:04.923Z",
-      "status": "resolved",
-      "note": "P1-1 is 'reviewed' but stub says 'Replace with canonical SipEventPayload from event_model_payload_bus.rs' which is P1-0 deliverable",
-      "resolved_at": "2026-07-28T10:16:49.407Z"
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 7,
-      "file": "src/state/m20_native_event_conv.rs",
-      "line": 127,
-      "description": "STUB references P1-1 which is done. Should reference P1-0 (EventBus for canonical SipEventPayload).",
-      "detected_at": "2026-07-28T10:16:05.706Z",
-      "status": "resolved",
-      "note": "P1-1 is 'reviewed' but SipEventPayload replacement depends on P1-0 event_model_payload_bus.rs which is still a stub",
-      "resolved_at": "2026-07-28T10:16:49.698Z"
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 199,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 8,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
-      "line": 40,
-      "description": "# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 91,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 9,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/audio_tap.rs",
-      "line": 134,
-      "description": "// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 136,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 10,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P0-4.md",
-      "line": 478,
-      "description": "| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 56,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 11,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P1-3.md",
-      "line": 447,
-      "description": "- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 166,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 12,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 35,
-      "description": "// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 13,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 40,
-      "description": "// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 14,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 46,
-      "description": "// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 15,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 52,
-      "description": "// [::STUB::] P0-9: N0012 — CallId newtype for call operations.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-07-28T14:57:17.005Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 16,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 58,
-      "description": "// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 17,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 64,
-      "description": "// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 18,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 74,
-      "description": "// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 19,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 84,
-      "description": "// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 20,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 125,
-      "description": "// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 21,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/mod.rs",
-      "line": 7,
-      "description": "// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 22,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-      "line": 22,
-      "description": "// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 66,
+      "description": "/// [::STUB::] P2-4: Replace with actual codec list from PJSIP FFI.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 23,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-      "line": 23,
-      "description": "// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 183,
+      "description": "/// [::STUB::] P2-4: Replace with proper FFI-defined codec types.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 24,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/mod.rs",
-      "line": 14,
-      "description": "// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 25,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dtmfsent_twophase.rs",
-      "line": 22,
-      "description": "// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 26,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 23,
-      "description": "// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 27,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 127,
-      "description": "// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 28,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 190,
-      "description": "// [::STUB::] P0-5: Replace hardcoded media_status with backend query.",
-      "detected_at": "2026-07-28T10:34:13.970Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "Pre-existing stub(s) owned by other tickets (P0-5, P0-7, P0-8, P0-9, P1-0). Not resolvable by P1-4. Will be resolved by their respective owner tickets.",
-      "resolved_at": "2026-07-28T10:38:25.936Z"
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 29,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
-      "line": 40,
-      "description": "# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 30,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/audio_tap.rs",
-      "line": 134,
-      "description": "// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 59,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 31,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P0-4.md",
-      "line": 478,
-      "description": "| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 73,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 32,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P1-3.md",
-      "line": 447,
-      "description": "- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 33,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 35,
-      "description": "// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 34,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 40,
-      "description": "// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 35,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 46,
-      "description": "// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 36,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 61,
-      "description": "// [::STUB::] P0-9: N0012 — CallId newtype for call operations.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 37,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 69,
-      "description": "// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 38,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 75,
-      "description": "// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 39,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 85,
-      "description": "// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 40,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 95,
-      "description": "// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 41,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
-      "line": 136,
-      "description": "// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 42,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/mod.rs",
-      "line": 7,
-      "description": "// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/security/mod.rs",
+      "line": 5,
+      "description": "// [::STUB::] P2-6: auth_jwt_middleware — JWT & Axum middleware integration.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 43,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-      "line": 22,
-      "description": "// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 44,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-      "line": 23,
-      "description": "// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 45,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/mod.rs",
-      "line": 14,
-      "description": "// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 46,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dtmfsent_twophase.rs",
-      "line": 22,
-      "description": "// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 47,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dual_client_routing.rs",
-      "line": 38,
-      "description": "// [::STUB::] P0-5: RoutingError, SipEvent, SipEventMeta, EventBus, CallEventRouter,",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 48,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 23,
-      "description": "// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 49,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 127,
-      "description": "// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
     },
     {
       "id": 50,
-      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-      "line": 190,
-      "description": "// [::STUB::] P0-5: Replace hardcoded media_status with backend query.",
-      "detected_at": "2026-07-28T10:53:10.064Z",
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
-      "note": "P0-1 is spec-only and does not produce implementation code. This STUB belongs to a future implementation ticket and is not resolvable at P0-1 time."
+      "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 51,
+      "file": "src/lib.rs",
+      "line": 38,
+      "description": "// [::STUB::] P0-1: Crate foundation — module declarations only",
+      "detected_at": "2026-07-28T16:27:14.402Z",
+      "status": "false_positive",
+      "note": "P0-1 is reviewed (done) but stub remains unresolved. Crate foundation module declarations are in place but stub should have been resolved."
+    },
+    {
+      "id": 52,
+      "file": "src/config/versioning_policy.rs",
+      "line": 31,
+      "description": "// [::STUB::] P0-1: Struct declaration only. Full fields and methods",
+      "detected_at": "2026-07-28T16:27:15.321Z",
+      "status": "false_positive",
+      "note": "P0-1 is reviewed (done) but stub remains unresolved. VersionPolicy struct still has no fields."
+    },
+    {
+      "id": 53,
+      "file": "src/config/versioning_policy.rs",
+      "line": 36,
+      "description": "// [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy",
+      "detected_at": "2026-07-28T16:27:16.324Z",
+      "status": "false_positive",
+      "note": "P0-1 covers N0006 and is reviewed (done) but N0006 remains as a bare stub."
+    },
+    {
+      "id": 54,
+      "file": "src/runtime/command.rs",
+      "line": 139,
+      "description": "// [::STUB::] P0-2: Debug is not derived for oneshot::Sender since it doesn't implement Debug.",
+      "detected_at": "2026-07-28T16:27:17.153Z",
+      "status": "false_positive",
+      "note": "P0-2 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 55,
+      "file": "src/runtime/command.rs",
+      "line": 50,
+      "description": "// [::STUB::] P0-3: config: AccountConfig (currently String until P0-7)",
+      "detected_at": "2026-07-28T16:27:20.520Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved. AccountConfig still uses String placeholder."
+    },
+    {
+      "id": 56,
+      "file": "src/runtime/command.rs",
+      "line": 65,
+      "description": "// [::STUB::] P0-3: request: OutgoingCallRequest",
+      "detected_at": "2026-07-28T16:27:21.113Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 57,
+      "file": "src/runtime/command.rs",
+      "line": 240,
+      "description": "// [::STUB::] P0-3: store ClientConfig in ClientState",
+      "detected_at": "2026-07-28T16:27:21.783Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 58,
+      "file": "src/runtime/command.rs",
+      "line": 249,
+      "description": "// [::STUB::] P0-3: store AccountEntry in ClientState, return AccountId",
+      "detected_at": "2026-07-28T16:27:22.417Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 59,
+      "file": "src/runtime/command.rs",
+      "line": 273,
+      "description": "// [::STUB::] P0-3: store CallEntry in ClientState, return CallId",
+      "detected_at": "2026-07-28T16:27:23.080Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 60,
+      "file": "src/runtime/backend.rs",
+      "line": 82,
+      "description": "// [::STUB::] P0-6: MockBackend provides canned responses for reactor unit tests.",
+      "detected_at": "2026-07-28T16:27:23.807Z",
+      "status": "false_positive",
+      "note": "P0-6 is reviewed (done) but stub remains unresolved. MockBackend still used instead of real backend."
+    },
+    {
+      "id": 61,
+      "file": "examples/account_register.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — account registration.",
+      "detected_at": "2026-07-28T16:27:27.264Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 62,
+      "file": "examples/audio_tap.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — audio tap.",
+      "detected_at": "2026-07-28T16:27:27.869Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 63,
+      "file": "examples/client_init.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — client initialization.",
+      "detected_at": "2026-07-28T16:27:28.482Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 64,
+      "file": "examples/make_call.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — make a call.",
+      "detected_at": "2026-07-28T16:27:29.092Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 65,
+      "file": "examples/tts_source.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — TTS source.",
+      "detected_at": "2026-07-28T16:27:29.705Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 66,
+      "file": "src/build/build_strategy_os_deps.rs",
+      "line": 28,
+      "description": "Missing [::STUB::] marker on TODO comment: implement build/CI entry point",
+      "detected_at": "2026-07-28T16:39:29.257Z",
+      "status": "resolved",
+      "note": "Added [::STUB::] marker. This stub is part of P3-1 scope (N0039) and will be resolved in P3-1.",
+      "resolved_at": "2026-07-28T16:40:52.966Z"
     }
   ]
 }

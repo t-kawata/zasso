@@ -24,7 +24,13 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-pub struct Config {}
+/// VersionPolicy defines the crate's semver versioning semantics.
+///
+/// Covers 0.x (flexible, CHANGELOG-based) and 1.0+ (strict semver) phases.
+/// See `specs/P0-1.md` §4.1 for full specification.
+// [::STUB::] P0-1: Struct declaration only. Full fields and methods
+// are implemented in P5-3 (Versioning Policy & Semver Operations).
+pub struct VersionPolicy {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy
+// [::STUB::] P5-3: MUST implement NODE_ID=N0006: §4.1 Versioning Policy

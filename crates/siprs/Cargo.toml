@@ -18,6 +18,10 @@ serde = ["dep:serde", "dep:serde_json"]
 tls = []
 srtp = []
 metrics = []
+# [::TICKET::] P3-3: cli feature gates clap-based CLI arg parsing for standalone binary mode.
+cli = ["dep:clap"]
+# [::TICKET::] P3-3: server feature gates Axum HTTP server deps for standalone server mode.
+server = ["dep:axum", "dep:tower-http"]
 # [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source
 # Full implementation requires the `cpal` crate (P1-4).
 cpal-input = []
@@ -28,6 +32,9 @@ zeroize = ["dep:zeroize"]
 # but cannot compile until their dependency types are implemented (P0-7/P0-8+).
 # Resolve by removing this feature gate once all referenced types exist.
 spec-examples = []
+# [::TICKET::] P2-3: sqlite-storage feature gates SeaORM/rusqlite dependencies.
+# This keeps the default crate light — SQLite deps only enabled when needed.
+sqlite-storage = ["dep:rusqlite", "dep:sea-orm", "dep:chrono"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input"))'] }
@@ -36,7 +43,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-inpu
 # [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+
 # P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
 # [::STUB::] P1-3: rt-multi-thread enabled for #[tokio::main] in examples
-tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros"] }
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net"] }
 # [::STUB::] P0-5: N0016 — thiserror for SipError derive macro
 thiserror = "2"
 # [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations
@@ -49,10 +56,32 @@ zeroize = { version = "1", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 # [::TICKET::] P4-4: serde_json for WsEvent payload type and AuthRequest/AuthResponse serde
 serde_json = { version = "1", optional = true }
+# [::TICKET::] P0-6: dashmap for lock-free AudioMixer source management.
+dashmap = "6"
+async-trait = "0.1"
+# [::TICKET::] P2-2: jsonwebtoken for JWT encode/decode in auth_jwt_middleware
+jsonwebtoken = "9"
+# [::TICKET::] P3-2: crossbeam-queue for lock-free ArrayQueue used in AudioMixer RT boundary.
+crossbeam-queue = "0.3"
+# [::TICKET::] P2-3: rusqlite bundled for SQLite persistence (no system lib dependency)
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+# [::TICKET::] P2-3: sea-orm for type-safe database operations with SQLite backend
+sea-orm = { version = "1", features = ["sqlx-sqlite", "macros", "runtime-tokio-rustls"], optional = true }
+# [::TICKET::] P2-3: chrono for SQLite TEXT timestamp handling
+chrono = { version = "0.4", optional = true }
+# [::TICKET::] P3-3: clap for optional CLI arg parsing (behind 'cli' feature).
+clap = { version = "4", optional = true }
+# [::TICKET::] P3-3: axum for optional HTTP server mode (behind 'server' feature).
+axum = { version = "0.7", optional = true }
+# [::TICKET::] P3-3: tower-http for CORS middleware (behind 'server' feature).
+tower-http = { version = "0.5", features = ["cors"], optional = true }
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests
 serde_json = "1"
+# [::TICKET::] P3-3: axum/tower-http in dev-deps for integration tests.
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
 
 # [::STUB::] P1-3: Example declarations. These examples reference types from
 # future tickets. They are gated behind the `spec-examples` feature so the
