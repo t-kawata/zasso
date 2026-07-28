@@ -1007,7 +1007,11 @@
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P5-2\" --verify)",
       "Bash(rm -f _tmp_*.json && git status --short | grep -v \"^??\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P5-2\" --no-implementation-order)",
-      "Bash(git commit -m 'feat\\(P5-2\\): DTMF specification, AsyncAudioSource adapters, incoming call types *)"
+      "Bash(git commit -m 'feat\\(P5-2\\): DTMF specification, AsyncAudioSource adapters, incoming call types *)",
+      "Bash(make check-be *)",
+      "Bash(make -C /Users/sh01/shyme/zasso/crates/siprs -p)",
+      "Bash(make -C /Users/sh01/shyme/zasso -p)",
+      "Bash(git commit -m 'style: cargo fmt 適用、設定ファイル更新、軽微なテストコード修正 *)"
     ]
   }
 }
