@@ -2,6 +2,7 @@
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
 use crate::error::SipError;
+use crate::error::SipErrorKind;
 
 /// Credentials for SIP authentication.
 ///
@@ -91,7 +92,7 @@ fn default_user_agent() -> String {
     format!("siprs/{}", env!("CARGO_PKG_VERSION"))
 }
 
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
 impl ClientConfig {
     /// Create a new `ClientConfigBuilder` for constructing a config.
     pub fn builder() -> ClientConfigBuilder {
@@ -100,22 +101,25 @@ impl ClientConfig {
 
     /// Validate all configuration fields.
     ///
-    /// Returns `Ok(())` if all fields are valid, or `Err(SipError::InvalidConfig)`
-    /// with a description of the first validation failure.
+    /// Returns `Ok(())` if all fields are valid, or `Err(SipError)` with
+    /// `SipErrorKind::InvalidConfig` and a description of the first validation failure.
     pub fn validate(&self) -> Result<(), SipError> {
         if self.sip_proxy_host.trim().is_empty() {
-            return Err(SipError::InvalidConfig(
-                "sip_proxy_host must not be empty".into(),
+            return Err(SipError::new(
+                SipErrorKind::InvalidConfig,
+                "sip_proxy_host must not be empty",
             ));
         }
         if self.sip_proxy_port == 0 {
-            return Err(SipError::InvalidConfig(
-                "sip_proxy_port must not be 0".into(),
+            return Err(SipError::new(
+                SipErrorKind::InvalidConfig,
+                "sip_proxy_port must not be 0",
             ));
         }
         if self.user_agent.len() > 256 {
-            return Err(SipError::InvalidConfig(
-                "user_agent must not exceed 256 bytes".into(),
+            return Err(SipError::new(
+                SipErrorKind::InvalidConfig,
+                "user_agent must not exceed 256 bytes",
             ));
         }
         Ok(())
@@ -316,30 +320,42 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_empty_host() {
         let config = ClientConfig::builder()
             .sip_proxy_host("")
             .build();
         let err = config.validate().unwrap_err();
-        assert!(
-            matches!(err, SipError::InvalidConfig(msg) if msg.contains("empty")),
+        assert_eq!(
+            err.kind,
+            SipErrorKind::InvalidConfig,
             "expected InvalidConfig for empty host"
+        );
+        assert!(
+            err.message.contains("empty"),
+            "message should contain 'empty': {}",
+            err.message
         );
     }
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_zero_port() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .sip_proxy_port(0)
             .build();
         let err = config.validate().unwrap_err();
-        assert!(
-            matches!(err, SipError::InvalidConfig(msg) if msg.contains("port")),
+        assert_eq!(
+            err.kind,
+            SipErrorKind::InvalidConfig,
             "expected InvalidConfig for zero port"
+        );
+        assert!(
+            err.message.contains("port"),
+            "message should contain 'port': {}",
+            err.message
         );
     }
 
@@ -359,7 +375,7 @@ mod tests {
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_long_user_agent() {
         let long_agent = "A".repeat(257);
         let config = ClientConfig::builder()
@@ -367,9 +383,15 @@ mod tests {
             .user_agent(long_agent)
             .build();
         let err = config.validate().unwrap_err();
-        assert!(
-            matches!(err, SipError::InvalidConfig(msg) if msg.contains("256")),
+        assert_eq!(
+            err.kind,
+            SipErrorKind::InvalidConfig,
             "expected InvalidConfig for user_agent > 256 bytes"
+        );
+        assert!(
+            err.message.contains("256"),
+            "message should contain '256': {}",
+            err.message
         );
     }
 

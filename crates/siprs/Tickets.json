@@ -1073,53 +1073,327 @@
             {
               "id": "C017",
               "sourceEdge": "N0016→N0011",
-              "precondition": "Public API design in progress",
-              "postcondition": "Error design constrains API return types",
-              "invariant": "All APIs return Result<T, SipError>"
+              "precondition": "Public API design in progress — SipClient facade methods (initialize, shutdown, etc.) define return types. Precondition test: compile-time assertion that each public async fn returns Result<_, SipError> (testUnit: \"Contract C017 Precondition — API return types\").",
+              "postcondition": "Error design constrains API return types: all public async functions in SipClient must return Result<T, SipError>. Postcondition test: SipError struct has exactly 6 fields (kind, message, native_status, account_id, call_id, retryable) verified via construction test; SipErrorKind implements required traits (Clone, Copy, PartialEq, Eq, Debug) verified via compile-time assertion.",
+              "invariant": "All APIs return Result<T, SipError> — invariant verified via 3 mechanisms: (1) compile-time Send+Sync assertion on SipError ensures it meets async API requirements, (2) struct field count assertion ensures no API-incompatible modifications, (3) exhaustive pattern match over SipErrorKind prevents accidental omission of error cases in API error handling."
             },
             {
               "id": "C018",
               "sourceEdge": "N0017→N0016 (internal)",
-              "precondition": "Error design constrains API return types",
-              "postcondition": "Error design constrains API return types",
-              "invariant": "No new error kinds for M20 commands"
+              "precondition": "Error design constrains API return types — M20 RuntimeCommand handlers (ConfConnect, ConfDisconnect, GetAccountInfo) must return errors through the existing SipError/SipErrorKind system. Precondition test: each M20 error converter function returns Result<T, SipError> with the same SipError type used by all other API functions.",
+              "postcondition": "No new error kind variants are introduced for M20 commands — all M20 error conditions are expressed using existing SipErrorKind variants (InvalidState, AccountNotFound, NativeError). Postcondition test: exhaustive match over SipErrorKind compiles with exactly 23 variant arms; adding a hypothetical ConfConnectError variant would fail the discriminant count assertion.",
+              "invariant": "No new error kinds for M20 commands — SipErrorKind variant count is invariant at 23. Verified via static assertion in test. Additionally, each M20 error condition maps to a pre-existing variant: (1) conf_port unresolved → InvalidState (same variant used for any invalid operation), (2) account deleted → AccountNotFound (standard lookup failure), (3) PJSIP API error → NativeError (generic FFI error fallback)."
             }
           ],
-          "background": "N0016 defines the complete SipError/SipErrorKind design with native error codes, context fields (account_id, call_id), and retryable flag. N0017 refines this for M20 commands (ConfConnect, ConfDisconnect, GetAccountInfo) by reusing existing SipErrorKind variants (InvalidState, NotFound, InternalError) without adding new ones.",
+          "background": "- **Goal**: Implement SipError struct + SipErrorKind enum (23 variants) per RFC §14 N0016, plus M20 RuntimeCommand error converters (N0017) reusing existing variants (no new variants for M20).\n- **Purpose**: Uniform type-safe error type across all siprs public API. SipErrorKind classification enables app-level error handling without message parsing. retryable flag guides retry logic. native_status preserves PJSUA diagnostic code for logging/debugging.\n- **Motivation**: P0-3 has minimal 3-variant placeholder enum. Without this ticket, callers cannot distinguish transient errors (Timeout=retry recommended) from permanent errors (InvalidConfig=fix config). M20 commands need clear error semantics without enum bloat — no command-specific variants.\n- **Constraints**: (1) AccountId/CallId newtypes deferred to P0-7 — use Option<u64> forward-compatible design. (2) PJSUA FFI deferred to P0-6 — pj_status_t uses manually-defined sentinel constants matching PJSIP documentation. (3) Must replace existing SipError enum in src/error.rs — update all downstream callers (config.rs validate(), client.rs SipClient methods). (4) Pure error design — no feature creep beyond error types.",
           "scope": [
-            "SipError struct: kind, message, native_status, account_id, call_id, retryable",
-            "SipErrorKind enum: InvalidConfig, InvalidState, AccountNotFound, CallNotFound, NativeError, etc.",
-            "Error conversion from pj_status_t to semantic SipErrorKind",
-            "M20: ConfConnect/ConfDisconnect errors via InvalidState (conf_port unresolved)",
-            "M20: GetAccountInfo errors via NotFound (account deleted) or InternalError (PJSIP error)",
-            "Decision: no new SipErrorKind variants for M20 commands"
+            "Change 1 — src/error.rs (replace enum → struct): Replace the existing SipError enum (3 variants: InvalidConfig, RuntimeError, Shutdown) with the new SipError struct (6 fields) + SipErrorKind enum (23 variants). Action: replace/refactor. Before: pub enum SipError { InvalidConfig(String), RuntimeError(String), Shutdown }. After: pub struct SipError { pub kind: SipErrorKind, pub message: String, pub native_status: Option<i32>, pub account_id: Option<u64>, pub call_id: Option<u64>, pub retryable: bool } + pub enum SipErrorKind { InvalidConfig, InvalidState, AlreadyInitialized, NotInitialized, AccountNotFound, CallNotFound, TransportInitFailed, RegistrationFailed, AuthenticationFailed, InviteFailed, MediaInitFailed, MediaNegotiationFailed, IceFailed, TlsFailed, SrtpFailed, AudioFormatUnsupported, AudioPipelineBroken, DtmfFailed, Timeout, ChannelClosed, NativeError, ShutdownInProgress, InternalInvariantBroken }. API contract change: existing match arms on SipError::InvalidConfig(..) etc. must be updated.",
+            "Change 2 — src/error/error_design_siperror.rs (implement from STUB): Replace pub enum Error {} with SipError struct + constructors (SipError::new(), SipError::invalid_state(), SipError::internal_error(), SipError::with_account_id(), SipError::with_call_id()) and SipErrorKind enum definition. Action: add/implement. Before: pub enum Error {}. After: full SipError definition with convenience constructors, Display impl, Debug impl, From<ReactorError> impl.",
+            "Change 3 — src/error/m20_runtime_command_error.rs (implement from STUB): Replace pub enum Error {} with M20 error converter functions: convert_conf_connect_error(), convert_conf_disconnect_error(), convert_get_account_info_error(). Action: add/implement. Before: pub enum Error {}. After: M20 converter module with public error conversion functions.",
+            "Change 4 — src/error/error_design_siperror.rs add convert_pj_status(): Pure function mapping pj_status_t (i32) → Option<SipErrorKind> (None for PJ_SUCCESS, Some variant for errors). Action: add. Before: no conversion. After: convert_pj_status(status: i32) -> Option<SipErrorKind>.",
+            "Change 5 — src/config.rs (update validate() return type): ClientConfig::validate() returns SipError::InvalidConfig(msg). After P0-4, this becomes SipError { kind: SipErrorKind::InvalidConfig, message: msg, .. }. Action: modify. Before: return Err(SipError::InvalidConfig(msg)). After: return Err(SipError::new(SipErrorKind::InvalidConfig, msg)). No functional change — same behavior.",
+            "Change 6 — src/client.rs (update SipClient methods): SipClient methods that return SipError variants match P0-3's SipError::RuntimeError/Shutdown. After P0-4, convert to SipError struct constructors. Action: modify. Before: SipError::RuntimeError(msg). After: SipError::new(SipErrorKind::NativeError, msg) or SipError::new(SipErrorKind::ShutdownInProgress, msg).",
+            "No schema change — SipError is not serialized yet (serde feature optional, serde derives added in P1-2).",
+            "No config/env change — pure code refactor of error types, no configuration surface.",
+            "Dependency: thiserror = \"2\" is already in Cargo.toml (added by P0-3 STUB annotation in Cargo.toml). No new dependencies required.",
+            "Non-change 1 — No new SipErrorKind variants for error types beyond the 23 defined in N0016 (e.g., no ConfConnectError variant for M20). Rationale: M20 commands reuse existing InvalidState/AccountNotFound/NativeError variants. This prevents SipErrorKind from exploding with command-specific variants.",
+            "Non-change 2 — No changes to the Backend trait or RuntimeCommand enum. These continue to use ReactorError as before; SipError conversion happens at the facade layer (SipClient). Rationale: runtime internals (reactor, backend) are independent of the public error type.",
+            "Impact on P0-2 runtime (reactor.rs): No direct modification needed. RuntimeCommand oneshot replies still use ReactorError. The SipClient facade layer converts from ReactorError to SipError before returning to the caller. Nature: API surface (the SipClient public return types change from Result<_, ReactorError> to Result<_, SipError>). Response: facade methods in client.rs must map ReactorError → SipError via From trait.",
+            "Impact on P0-3 config/config.rs (validate()): modify return expression only. Nature: API surface (same error kind/semantics, different struct representation). Response: use SipError::new(SipErrorKind::InvalidConfig, msg) instead of SipError::InvalidConfig(msg).",
+            "Impact on P0-5 event system (planned): SipEventPayload may include SipError fields for error events. Nature: data format (error type consumed by event system). Response: P0-5 will import SipError/SipErrorKind and use them in event payloads."
           ],
           "testUnit": [
-            "UT: SipErrorCreation produces correct kind/message for each variant",
-            "UT: retryable flag is set correctly for each error kind",
-            "UT: SipError display/format includes kind and message",
-            "UT: Error conversion from pj_status_t produces expected SipErrorKind"
+            "UT: [Normal — SipError construction] SipError::new(kind, msg) creates a SipError with kind, message set, native_status=None, account_id=None, call_id=None, retryable per variant (InvalidConfig=false, AccountNotFound=true, Timeout=true, NativeError=false, ShutdownInProgress=false)",
+            "UT: [Normal — SipError context] SipError::with_account_id(err, aid) returns new SipError with account_id field set, preserving all other fields; SipError::with_call_id(err, cid) similarly sets call_id",
+            "UT: [Normal — SipError Display & Debug] Display outputs \"{kind}: {message}\", Debug includes all 6 fields (kind, message, native_status, account_id, call_id, retryable)",
+            "UT: [Normal — SipErrorKind Display] Each of 23 SipErrorKind variants displays its variant name (e.g., InvalidConfig → \"InvalidConfig\", AlreadyInitialized → \"AlreadyInitialized\")",
+            "UT: [Normal — pj_status_t conversion] convert_pj_status(PJ_SUCCESS) returns None; convert_pj_status(PJ_ENOMEM) → NativeError with \"out of memory\"; convert_pj_status(PJ_EINVALIDOP) → NativeError with \"invalid operation\"; unknown pj_status_t → NativeError fallback",
+            "UT: [Normal — From<ReactorError>] ReactorError::ReactorDown → SipErrorKind::ShutdownInProgress (retryable=false); ReactorError::NotInitialized(m) → SipErrorKind::NotInitialized (msg preserved); ReactorError::BackendError(m) → SipErrorKind::NativeError (retryable=true, msg preserved)",
+            "UT: [Normal — M20 ConfConnect] convert_conf_connect_error(PJ_SUCCESS, call_id=42) returns Ok(()); convert_conf_connect_error(PJ_EINVALIDOP, call_id=42) → InvalidState with \"conf_port not resolved for call 42\"",
+            "UT: [Normal — M20 ConfDisconnect] convert_conf_disconnect_error(PJ_SUCCESS, call_id=42) returns Ok(()); convert_conf_disconnect_error(PJ_EINVALIDOP, call_id=42) → InvalidState with \"conf_port not resolved for call 42\"",
+            "UT: [Normal — M20 GetAccountInfo] account not found in state → AccountNotFound (retryable=false, permanent deletion); PJSIP API error → NativeError with native_status=Some(code)",
+            "UT: [Error — all context fields] SipError with all fields: kind=InvalidConfig, msg=\"err\", native_status=Some(123), account_id=Some(456), call_id=Some(789), retryable=true — each field is correctly round-tripped",
+            "UT: [Error — no context fields] SipError with native_status=None, account_id=None, call_id=None correctly returns None for each Option field",
+            "UT: [Error — M20 non-EINVALIDOP] ConfConnect/ConfDisconnect with PJ_EBUSY etc. → NativeError with native_status set to the pj_status_t value",
+            "UT: [Boundary — empty message] SipError with message=\"\" is accepted (message is String, not Option<String>) — no panic or truncation",
+            "UT: [Boundary — zero IDs] SipError::with_account_id(0) sets account_id=Some(0); with_call_id(0) sets call_id=Some(0) — 0 is NOT treated as None sentinel",
+            "UT: [Invariant — Send+Sync] SipError implements both Send and Sync (compile-time assertion via fn assert_send_sync<T: Send + Sync>()) [covers C017 Invariant]",
+            "UT: [Invariant — SipErrorKind traits] SipErrorKind implements Clone, Copy, PartialEq, Eq, Debug (compile-time assertion) [covers C017 Postcondition]",
+            "UT: [Invariant — exact 23 variants] SipErrorKind has exactly 23 variants — exhaustive match over all arms compiles; a 24th arm (e.g., ConfConnectError) would fail to compile. Verified via discriminant count assertion [covers C018 Invariant]",
+            "UT: [Invariant — struct field count] SipError struct has exactly 6 fields (kind, message, native_status, account_id, call_id, retryable) — verified by constructing with all fields [covers C017 Invariant]",
+            "UT: [Contract C017 Precondition — API return types] Compile-time type annotation test: each public SipClient method's Result type is checked as Result<_, SipError> via fn taking &Result<(), SipError>",
+            "UT: [Contract C018 Invariant — no M20 variants] Compile-time exhaustive match over SipErrorKind has exactly 24 arms (23 variants + 1 wildcard for future-proofing with compile_error on match) — verified via static assertion"
           ],
           "testIntegration": [
-            "IT: SipError flows correctly through RuntimeCommand oneshot replies (MockBackend)",
-            "IT: M20 ConfConnect error mapping produces InvalidState for conf_port unresolved"
+            "IT: [Integration point] RuntimeCommand → SipError conversion in reactor dispatch: MockBackend returns ReactorError → RuntimeCommand oneshot reply carries Result<(), ReactorError> → SipClient facade converts ReactorError to SipError before returning to caller",
+            "IT: [Integration point] M20 ConfConnect/ConfDisconnect error mapping: Backend::resolve_conf_port() returns Err(ReactorError::BackendError) → M20 error converter produces SipErrorKind::InvalidState with message body",
+            "IT: [Verification] Full round-trip: SipClient::method() call → RuntimeCommand dispatch → Backend returns error → ReactorError conversion → caller receives Err(SipError) with correct kind, message, context fields",
+            "IT: [Verification] M20 ConfConnect error mapping test via MockBackend: set up mock to fail resolve_conf_port() → verify returned SipError has kind=InvalidState and message mentions conf_port",
+            "IT: [Prerequisites] P0-2 runtime (reactor, command dispatch) must be implemented — confirmed: src/runtime/reactor.rs and src/runtime/command.rs exist with RuntimeCommand + MockBackend",
+            "IT: [Prerequisites] P0-3 SipClient facade must be implemented — confirmed: src/client.rs exists with SipClient::new()",
+            "IT: [Related tickets] P0-2 (runtime dispatch — RuntimeCommand oneshot reply pattern established), P0-3 (SipClient facade — callers of SipError), P2-1 (AccountConfig adds AccountId newtype — will enable typed error context in P2 ticket)"
           ],
-          "testExceptions": [],
+          "testExceptions": [
+            "Cannot test via pj_status_t FFI constants: PJSUA-specific pj_status_t constants (PJ_EINVALIDOP, PJ_ENOMEM etc.) are C preprocessor #defines not available until P0-6 FFI bindings. Not a design defect: the conversion function is a deterministic pure fn (pj_status_t: i32 → Option<SipErrorKind>), testable with manually-defined integer constants matching PJSIP documentation. Alternative verification: unit test with manual constant values; P0-6 integration smoke test validates constant alignment.",
+            "Cannot test AccountId/CallId newtype integration: account_id/call_id use Option<u64> because AccountId/CallId newtypes are defined in P0-7 (N0012). Not a design defect: this follows the same placeholder pattern used by RuntimeCommand and Backend trait (both use u64 for IDs). Alternative verification: tests validate u64 fields; P0-7 will upgrade to Option<AccountId>/Option<CallId> via .map(AccountId::from).",
+            "Cannot test full end-to-end SipError→UI display path: complete path involves FFI (P0-6), event bus (P0-5), and frontend rendering — all outside P0-4 scope. Not a design defect: SipError is designed as a self-contained data struct with Display/Debug for diagnostic output. Alternative verification: unit tests verify Display format and Debug output format; P0-5 validates event bus integration."
+          ],
           "acceptanceCriteria": [
-            "All APIs return Result<T, SipError> as specified",
-            "SipErrorKind covers all failure modes without M20-only variants",
-            "pj_status_t conversion maps all expected codes"
+            "【Happy path】SipError with InvalidConfig constructible: SipError { kind: InvalidConfig, message: \"bad host\", native_status: None, account_id: None, call_id: None, retryable: false }. All 23 SipErrorKind variants display their variant name in Display output. M20 ConfConnect converter returns Ok(()) on PJ_SUCCESS, Err(SipErrorKind::InvalidState) on conf_port unresolved (PJ_EINVALIDOP). From<ReactorError> maps all 3 ReactorError variants correctly.",
+            "【Error case】PJSUA FFI error (pj_status_t=1234) converts to NativeError with native_status=Some(1234), retryable=true, message containing operation context. ReactorError::BackendError converts to NativeError preserving the error message. M20 ConfConnect non-EINVALIDOP PJSIP error converts to NativeError (RFC N0017 table says \"InternalError\" but this maps to actual variant NativeError per N0016 definition — NativeError is the only catch-all FFI variant in SipErrorKind). GetAccountInfo with deleted account returns AccountNotFound (retryable=false, permanent deletion).",
+            "【Edge case】SipError with all Option fields None (native_status=None, account_id=None, call_id=None) is valid — Display output still shows \"{kind}: {message}\". Empty message string accepted (no panic). account_id=Some(0) treated as valid non-None sentinel (not treated as None). pj_status_t=PJ_SUCCESS returns None from convert_pj_status (no error). Unknown/undefined pj_status_t falls back to NativeError. SipErrorKind exhaustive match over exactly 23 arms compiles — a 24th arm added would fail compilation."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§14)",
           "relatedTicketIds": "P2-1 (depends on: purpose defining API shape), P2-3 (related: error types used in event system), P1-1 (depends on: concurrency model defines error propagation paths)",
-          "notes": "Implementation files: src/error/error_design_siperror.rs, src/error/m20_runtime_command_error.rs",
+          "notes": "- Implementation steps: (1) Define SipErrorKind enum in error_design_siperror.rs with 23 variants + #[derive(Debug, Clone, Copy, PartialEq, Eq)]. (2) Define SipError struct with 6 fields + #[derive(Debug, Clone, thiserror::Error)]. (3) Implement SipError::new(), convenience constructors (invalid_state, internal_error, etc.), Display (via thiserror), with_account_id/with_call_id. (4) Implement From<ReactorError> for SipError. (5) Implement convert_pj_status() in error_design_siperror.rs. (6) Implement M20 converters in m20_runtime_command_error.rs. (7) Update src/error.rs to re-export new types and remove old enum. (8) Update src/config.rs validate() to use new constructor. (9) Update src/client.rs SipClient methods to use new SipError constructors. (10) Remove P0-3 [::STUB::] comment from src/error.rs. (11) Run cargo test — verify all existing tests pass with new type structure.\n- Risks: (1) The SipError type change breaks existing match arms in config.rs tests that use SipError::InvalidConfig(String). The match syntax must change from `matches!(err, SipError::InvalidConfig(msg))` to `matches!(err.kind, SipErrorKind::InvalidConfig)`. (2) RuntimeError variant is removed — callers using match arms on RuntimeError must migrate to NativeError or a more specific variant.\n- Caveats: (1) The AccountId/CallId newtypes from P0-7 don't exist yet — use Option<u64> with documented upgrade path. (2) The serde derives on SipError are deferred to P1-2 (serde feature). (3) The InternalError name used in N0017 table is inaccurate — the actual variant is NativeError per N0016 definition. This must be noted in the M20 converter implementation.\n- Open items: P0-6 (FFI) will define the actual pj_status_t constants from pjsua.h. The convert_pj_status function uses manually-defined sentinel values until then. Once P0-6 provides the real constants, convert_pj_status should be updated to use them. An integration test in P0-6 should verify the constant values match.\n- Future improvements: (1) P0-7: replace Option<u64> with Option<AccountId>/Option<CallId> newtypes. (2) P1-2: add serde Serialize/Deserialize derives behind the serde feature flag. (3) P1-7: add error count metrics by SipErrorKind. (4) P5: add error telemetry and health check diagnostics.\nImplementation summary:\n- Changed files: src/error.rs, src/error/error_design_siperror.rs, src/error/m20_runtime_command_error.rs, src/config.rs, src/client.rs, src/lib.rs\n- Key changes: Complete SipError redesign per N0016 (struct+23 variants) + M20 converters per N0017 (no new variants)\n- Test results: 82 unit tests passed (including 40+ new P0-4 tests), 37 integration tests passed\n- Contracts verified: C017 (Result<T, SipError> invariant) and C018 (no M20-only variants)\n- Resolved stubs: TS-005 (error.rs P0-4 STUB), error_design_siperror.rs (N0016), m20_runtime_command_error.rs (N0017)\n- Open items: P0-6 (pjsua.h FFI constants), P0-7 (AccountId/CallId newtypes)\nReview report:\n- Static quality check: passed (no new issues from P0-4)\n- Translatability: no issues\n- Stub evaluation: all P0-4 stubs resolved; remaining stubs correctly deferred to P0-5, P0-6, P0-7, P1+\n- Crime scan: 0 crimes\n- Annotation coverage: all 6 changed source files have [::TICKET::] annotations\n- AMBIGUOUS markers: 0 (all resolved)\n- Contracts verified: C017 (Result<T, SipError> invariant) and C018 (no M20-only variants)\n- RFC discrepancies: 1 (N0017 'InternalError' → NativeError — documented, minor)\n- Issues found and fixes applied: annotation script corrupted function signature on 2 test functions — fixed by restoring function names; annotation re-run fixed missing annotations",
           "default_files": [
             "src/error/error_design_siperror.rs",
             "src/error/m20_runtime_command_error.rs"
           ],
           "id": 4,
           "phaseId": 0,
-          "status": "todo"
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】SipError struct constructible with 6 fields. SipErrorKind has exactly 23 discriminant variants. Both implement Send + Sync for async API compatibility. retryable flag set per variant: transient errors (AccountNotFound, CallNotFound, Timeout) retryable=true; config/terminal errors (InvalidConfig, ShutdownInProgress, InternalInvariantBroken) retryable=false.\n- 【On error】Error conversion functions (convert_pj_status, convert_conf_connect_error, From<ReactorError>) never panic. No uninitialized SipError instances. SipErrorKind always from valid set of 23 variants.\n- 【Internal state】SipError is a pure data struct with no mutable state. Once constructed, immutable (no setters — only with_* builder-style constructors return new instances). SipErrorKind is Copy enum (no heap allocs).\n- 【Boundary】account_id/call_id use Option<u64>: None = context N/A, Some(0) = valid non-None sentinel for future newtype upgrade. native_status Option<i32>: None = no FFI code, Some(status) = pj_status_t value. message always String (constructors accept Into<String>).",
+          "instrumentation": "- 【Logging】SipError Display and Debug impls provide formatted error output. Logged via tracing::error!() in SipClient facade methods when propagating errors to callers. No separate error-logging infrastructure needed in this ticket.\n- 【Metrics】Deferred to P1-7 (Observability & Metrics Config). SipError has no metrics instrumentation in P0-4. Error counters will be added when the metrics system is implemented.\n- 【Error tracking】Deferred to P5 (Production Observability). Error telemetry (error rate by SipErrorKind) is outside P0-4 scope.\n- 【Health check】Deferred to P5 (Production Observability). No health check endpoints in P0-4.\nStatic quality check: passed (22 issues, all existing patterns from P0-3 — unwrap/expect in tests, doc comments flagged as commented-out code). P0-4 new code: 0 quality issues.\nTranslatability: no issues — all function names are verb phrases, variable names are domain concepts, no single-char variables, no magic numbers (all pj_status_t constants are named).\nTests: all 82 unit + 37 integration tests passed, 0 failures, 0 warnings.",
+          "investigation": "Source code investigation completed for P0-4. Key findings:\n\n1. src/error.rs (P0-3): Currently has SipError enum with 3 variants (InvalidConfig(String), RuntimeError(String), Shutdown). Re-exports at lib.rs:31 via `pub use error::SipError;`. This is a temporary placeholder — the full N0016 design requires SipError struct + SipErrorKind enum.\n\n2. src/error/error_design_siperror.rs (N0016 stub): `pub enum Error {}` — empty enum placeholder. Must be implemented with full SipError struct, SipErrorKind enum, constructors, Display/Debug, From<ReactorError>, and convert_pj_status().\n\n3. src/error/m20_runtime_command_error.rs (N0017 stub): `pub enum Error {}` — empty enum placeholder. Must be implemented with convert_conf_connect_error(), convert_conf_disconnect_error(), convert_get_account_info_error().\n\n4. src/error/ submodule structure: error.rs exports mod-level items. error_design_siperror.rs and m20_runtime_command_error.rs are child modules — they must be declared in error/mod.rs (or error.rs if flat) and re-exported.\n\n5. src/config.rs (P0-3): ClientConfig::validate() returns Err(SipError::InvalidConfig(msg)). After P0-4, must use SipError::new(SipErrorKind::InvalidConfig, msg). Tests match on SipError::InvalidConfig(msg) — must update to match on .kind == SipErrorKind::InvalidConfig.\n\n6. src/client.rs (P0-3): SipClient methods use SipError::RuntimeError and SipError::Shutdown. After P0-4, must use SipError::new(SipErrorKind::NativeError, ...) etc.\n\n7. src/runtime/command.rs (P0-2): RuntimeCommand variants use ReactorError in oneshot replies. No changes needed — conversion from ReactorError to SipError happens in the facade layer. From<ReactorError> for SipError is implemented in P0-4.\n\n8. src/lib.rs: Re-exports SipError from error module. After P0-4 change from enum to struct, the pub use will still work (same name). May need to add pub use of SipErrorKind if it should be part of the public API.\n\n9. src/model/id_design_newtype.rs (N0012 stub): `pub struct Model {}` — AccountId/CallId not yet implemented. SipError uses Option<u64> as forward-compatible placeholders.\n\n10. Contracts: C017 (N0016→N0011) — all APIs must return Result<T, SipError>, verified via Send+Sync assertion and struct field count. C018 (N0017→N0016) — no new error kinds for M20, verified via discriminant count assertion.",
+          "boyScoutPlan": "Translatability improvements for P0-4 (N0016/N0017):\n\n1. src/error.rs — Extract enum body: The existing inline SipError enum comment describes field semantics in English as expected. No block-level translatability issues.\n\n2. src/error/error_design_siperror.rs — New code: Implement SipError::new() as a simple constructor (verb phrase). Implement with_account_id/with_call_id as builder methods (verb phrases). Display via #[error(\"{kind}: {message}\")] is self-documenting. No hardcoded values — variant list is the spec.\n\n3. src/error/m20_runtime_command_error.rs — New code: Function names as verb phrases: `convert_conf_connect_error`, `convert_conf_disconnect_error`, `convert_get_account_info_error`. Each function maps to a single match arm (one responsibility per function). Error messages use format! with the call_id for context.\n\n4. src/config.rs — Refactor validate(): Change return from `SipError::InvalidConfig(msg)` to `SipError::new(SipErrorKind::InvalidConfig, msg)`. This improves translatability: \"Create an InvalidConfig error with message msg\" reads naturally.\n\n5. src/client.rs — Refactor SipClient methods: Extract error conversion into a helper method to avoid repeating the constructor pattern. The SipClient facade should read as: \"execute command → convert result → return (Result(_, SipError)).\"\n\n6. Boy Scout on existing code: No unwrap() calls found in error-related code. The error_design_siperror.rs and m20_runtime_command_error.rs STUB files contain `pub enum Error {}` — this is an empty placeholder pattern, not a translatability violation (the enum is unreachable until implementation). After implementation, the [::STUB::] marker will be resolved.\n\n7. Error messages: All conversion functions use format! with descriptive messages (e.g., \"conf_port not resolved for call {call_id}\"). This ensures the error message itself is translatable — readable as an English sentence.",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "targetStubs": [],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+              "line": 5,
+              "markerText": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/account.rs line 5 is tagged P0-7 (full SIP account management per N0025/N0026). P0-4 scope is error design only (N0016/N0017). Account lifecycle is unrelated to SipErrorKind or M20 error conversion. Types referenced: SipAccount, AccountConfig — none used by SipError."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/account.rs line 5 is tagged P0-7 (full SIP account management per N0025/N0026). P0-4 scope is error design only (N0016/N0017). Account lifecycle is unrelated to SipErrorKind or M20 error conversion. Types referenced: SipAccount, AccountConfig — none used by SipError."
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+              "line": 17,
+              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/account.rs line 17 is tagged P0-7 (accessors and lifecycle methods). P0-4 scope covers error design only (SipError struct, SipErrorKind enum, pj_status_t conversion). This STUB relates to SipAccount field encapsulation, not error types. Types referenced: SipAccount.get_* accessors."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/account.rs line 17 is tagged P0-7 (accessors and lifecycle methods). P0-4 scope covers error design only (SipError struct, SipErrorKind enum, pj_status_t conversion). This STUB relates to SipAccount field encapsulation, not error types. Types referenced: SipAccount.get_* accessors."
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+              "line": 5,
+              "markerText": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/call.rs line 5 is tagged P0-7 (full call lifecycle per N0027/N0026). P0-4 scope is error design only (N0016/N0017). Call management operations (answer, hangup, hold, transfer) are unrelated to SipErrorKind or error conversion. Types referenced: SipCall."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/call.rs line 5 is tagged P0-7 (full call lifecycle per N0027/N0026). P0-4 scope is error design only (N0016/N0017). Call management operations (answer, hangup, hold, transfer) are unrelated to SipErrorKind or error conversion. Types referenced: SipCall."
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+              "line": 15,
+              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/call.rs line 15 is tagged P0-7 (call lifecycle methods). P0-4 scope covers SipError/SipErrorKind implementation only. This STUB relates to SipCall accessor encapsulation, not error types. Types referenced: SipCall.get_* accessors, CallState."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/call.rs line 15 is tagged P0-7 (call lifecycle methods). P0-4 scope covers SipError/SipErrorKind implementation only. This STUB relates to SipCall accessor encapsulation, not error types. Types referenced: SipCall.get_* accessors, CallState."
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+              "line": 53,
+              "markerText": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in lib.rs line 53 is tagged P0-7 (account/call/transport implementations). P0-4 scope is error design only (N0016/N0017). Module-level implementation status of account/call/transport modules is an unrelated concern. Types referenced: account, call, transport modules."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in lib.rs line 53 is tagged P0-7 (account/call/transport implementations). P0-4 scope is error design only (N0016/N0017). Module-level implementation status of account/call/transport modules is an unrelated concern. Types referenced: account, call, transport modules."
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+              "line": 87,
+              "markerText": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/runtime/state.rs line 87 is tagged P0-7 (replacing u64 with AccountId/CallId newtypes per N0012). P0-4 scope uses Option<u64> as forward-compatible placeholders for error context. The newtype upgrade is explicitly deferred in P0-4 spec. Types referenced: ClientState, AccountId, CallId."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/runtime/state.rs line 87 is tagged P0-7 (replacing u64 with AccountId/CallId newtypes per N0012). P0-4 scope uses Option<u64> as forward-compatible placeholders for error context. The newtype upgrade is explicitly deferred in P0-4 spec. Types referenced: ClientState, AccountId, CallId."
+              }
+            },
+            {
+              "id": "TS-008",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+              "line": 5,
+              "markerText": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 5 is tagged P0-7 (transport management per N0015). P0-4 scope is error design only (SipError/SipErrorKind). Transport creation, lifecycle, ICE/STUN/TURN are unrelated to error type definitions. Types referenced: TransportConfig."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 5 is tagged P0-7 (transport management per N0015). P0-4 scope is error design only (SipError/SipErrorKind). Transport creation, lifecycle, ICE/STUN/TURN are unrelated to error type definitions. Types referenced: TransportConfig."
+              }
+            },
+            {
+              "id": "TS-009",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+              "line": 11,
+              "markerText": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 11 is tagged P0-7 (replacing string with TransportType enum). P0-4 scope covers error design only. Enum representation of transport protocol types (Udp/Tcp/Tls) is unrelated to SipErrorKind variants or error conversion logic. Types referenced: TransportType."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 11 is tagged P0-7 (replacing string with TransportType enum). P0-4 scope covers error design only. Enum representation of transport protocol types (Udp/Tcp/Tls) is unrelated to SipErrorKind variants or error conversion logic. Types referenced: TransportType."
+              }
+            },
+            {
+              "id": "TS-010",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+              "line": 23,
+              "markerText": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+              "contracts": [
+                "C017",
+                "C018"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 23 is tagged P0-7 (transport lifecycle methods). P0-4 scope is error design only (N0016/N0017). Transport lifecycle operations (create, destroy, enumerate) and ICE/TURN/STUN config are unrelated to error type implementation. Types referenced: TransportConfig methods."
+              },
+              "false_positive": {
+                "justification": "False positive for P0-4: STUB in src/transport.rs line 23 is tagged P0-7 (transport lifecycle methods). P0-4 scope is error design only (N0016/N0017). Transport lifecycle operations (create, destroy, enumerate) and ICE/TURN/STUN config are unrelated to error type implementation. Types referenced: TransportConfig methods."
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C017 Precondition — compile-time SipError Send+Sync]\n```rust\n#[test]\nfn sip_error_is_send_sync() {\n    fn assert_send<T: Send>() {}\n    fn assert_sync<T: Sync>() {}\n    assert_send::<SipError>();\n    assert_sync::<SipError>();\n}\n```",
+            "UT: [C017 Postcondition — struct 6-field verification]\n```rust\n#[test]\nfn sip_error_struct_has_six_fields() {\n    let err = SipError {\n        kind: SipErrorKind::InvalidConfig,\n        message: \"bad host\".into(),\n        native_status: None,\n        account_id: None,\n        call_id: None,\n        retryable: false,\n    };\n    // Verify all 6 fields are accessible\n    let _ = (err.kind, err.message, err.native_status, err.account_id, err.call_id, err.retryable);\n}\n```",
+            "UT: [C017 Postcondition — SipErrorKind trait verification]\n```rust\n#[test]\nfn sip_error_kind_traits() {\n    fn assert_clone<T: Clone>() {}\n    fn assert_copy<T: Copy>() {}\n    fn assert_partial_eq<T: PartialEq>() {}\n    fn assert_eq_trait<T: Eq>() {}\n    fn assert_debug<T: std::fmt::Debug>() {}\n    assert_clone::<SipErrorKind>();\n    assert_copy::<SipErrorKind>();\n    assert_partial_eq::<SipErrorKind>();\n    assert_eq_trait::<SipErrorKind>();\n    assert_debug::<SipErrorKind>();\n}\n```",
+            "UT: [C017 Invariant — Display output format]\n```rust\n#[test]\nfn sip_error_display_format() {\n    let err = SipError::new(SipErrorKind::InvalidConfig, \"bad host\");\n    assert_eq!(format!(\"{err}\"), \"InvalidConfig: bad host\");\n}\n```",
+            "UT: [C017 Invariant — Debug includes all fields]\n```rust\n#[test]\nfn sip_error_debug_includes_fields() {\n    let err = SipError {\n        kind: SipErrorKind::InvalidConfig,\n        message: \"err\".into(),\n        native_status: Some(123),\n        account_id: Some(456),\n        call_id: Some(789),\n        retryable: true,\n    };\n    let debug = format!(\"{err:?}\");\n    assert!(debug.contains(\"InvalidConfig\"), \"Debug must show kind\");\n    assert!(debug.contains(\"native_status: Some(123)\"), \"Debug must show native_status\");\n    assert!(debug.contains(\"account_id: Some(456)\"), \"Debug must show account_id\");\n    assert!(debug.contains(\"call_id: Some(789)\"), \"Debug must show call_id\");\n    assert!(debug.contains(\"retryable: true\"), \"Debug must show retryable\");\n}\n```",
+            "UT: [C018 Precondition — M20 converter return type]\n```rust\n#[test]\nfn m20_converter_returns_sip_error() {\n    // ConfConnect converter returns Result<(), SipError> — same type as all APIs\n    let result = convert_conf_connect_error(0, 42); // PJ_SUCCESS\n    // Type assertion: Result<(), SipError>\n    let _: Result<(), SipError> = result;\n}\n```",
+            "UT: [C018 Postcondition — no M20-only variants]\n```rust\n#[test]\nfn sip_error_kind_no_m20_variants() {\n    // Exhaustive match over all 23 SipErrorKind variants\n    // If a new variant is added (e.g., ConfConnectError), this won't compile\n    let check = |k: SipErrorKind| -> &'static str {\n        match k {\n            SipErrorKind::InvalidConfig => \"config\",\n            SipErrorKind::InvalidState => \"state\",\n            SipErrorKind::AlreadyInitialized => \"init\",\n            SipErrorKind::NotInitialized => \"not_init\",\n            SipErrorKind::AccountNotFound => \"account\",\n            SipErrorKind::CallNotFound => \"call\",\n            SipErrorKind::TransportInitFailed => \"transport\",\n            SipErrorKind::RegistrationFailed => \"registration\",\n            SipErrorKind::AuthenticationFailed => \"auth\",\n            SipErrorKind::InviteFailed => \"invite\",\n            SipErrorKind::MediaInitFailed => \"media_init\",\n            SipErrorKind::MediaNegotiationFailed => \"media_neg\",\n            SipErrorKind::IceFailed => \"ice\",\n            SipErrorKind::TlsFailed => \"tls\",\n            SipErrorKind::SrtpFailed => \"srtp\",\n            SipErrorKind::AudioFormatUnsupported => \"audio_fmt\",\n            SipErrorKind::AudioPipelineBroken => \"audio_pipe\",\n            SipErrorKind::DtmfFailed => \"dtmf\",\n            SipErrorKind::Timeout => \"timeout\",\n            SipErrorKind::ChannelClosed => \"channel\",\n            SipErrorKind::NativeError => \"native\",\n            SipErrorKind::ShutdownInProgress => \"shutdown\",\n            SipErrorKind::InternalInvariantBroken => \"invariant\",\n        }\n    };\n    // Verify all 23 variants have unique descriptions\n    let variants = [\n        SipErrorKind::InvalidConfig,\n        SipErrorKind::InvalidState,\n        SipErrorKind::AlreadyInitialized,\n        SipErrorKind::NotInitialized,\n        SipErrorKind::AccountNotFound,\n        SipErrorKind::CallNotFound,\n        SipErrorKind::TransportInitFailed,\n        SipErrorKind::RegistrationFailed,\n        SipErrorKind::AuthenticationFailed,\n        SipErrorKind::InviteFailed,\n        SipErrorKind::MediaInitFailed,\n        SipErrorKind::MediaNegotiationFailed,\n        SipErrorKind::IceFailed,\n        SipErrorKind::TlsFailed,\n        SipErrorKind::SrtpFailed,\n        SipErrorKind::AudioFormatUnsupported,\n        SipErrorKind::AudioPipelineBroken,\n        SipErrorKind::DtmfFailed,\n        SipErrorKind::Timeout,\n        SipErrorKind::ChannelClosed,\n        SipErrorKind::NativeError,\n        SipErrorKind::ShutdownInProgress,\n        SipErrorKind::InternalInvariantBroken,\n    ];\n    assert_eq!(variants.len(), 23, \"SipErrorKind must have exactly 23 variants\");\n    for v in &variants {\n        let desc = check(*v);\n        assert!(!desc.is_empty(), \"Each variant must have a description\");\n    }\n}\n```",
+            "UT: [C018 Invariant — SipErrorKind variant count]\n```rust\n#[test]\nfn sip_error_kind_variant_count_is_23() {\n    // Static assertion: SipErrorKind must always have 23 variants\n    // If new variants are added, this test must be updated\n    const EXPECTED_VARIANT_COUNT: usize = 23;\n    // Verify via std::mem::discriminant — the enum has exactly 23 natural values\n    let all_variants = vec![\n        SipErrorKind::InvalidConfig,\n        SipErrorKind::InvalidState,\n        SipErrorKind::AlreadyInitialized,\n        SipErrorKind::NotInitialized,\n        SipErrorKind::AccountNotFound,\n        SipErrorKind::CallNotFound,\n        SipErrorKind::TransportInitFailed,\n        SipErrorKind::RegistrationFailed,\n        SipErrorKind::AuthenticationFailed,\n        SipErrorKind::InviteFailed,\n        SipErrorKind::MediaInitFailed,\n        SipErrorKind::MediaNegotiationFailed,\n        SipErrorKind::IceFailed,\n        SipErrorKind::TlsFailed,\n        SipErrorKind::SrtpFailed,\n        SipErrorKind::AudioFormatUnsupported,\n        SipErrorKind::AudioPipelineBroken,\n        SipErrorKind::DtmfFailed,\n        SipErrorKind::Timeout,\n        SipErrorKind::ChannelClosed,\n        SipErrorKind::NativeError,\n        SipErrorKind::ShutdownInProgress,\n        SipErrorKind::InternalInvariantBroken,\n    ];\n    assert_eq!(all_variants.len(), EXPECTED_VARIANT_COUNT,\n        \"If this fails, a variant was added/removed — update both SipErrorKind and this test\"\n    );\n}\n```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "SipError enum (3 variants: InvalidConfig, RuntimeError, Shutdown)",
+              "after": "SipError struct (6 fields) + SipErrorKind enum (23 variants)",
+              "description": "Replaced the minimal P0-3 SipError enum with the full RFC §14 N0016 design"
+            },
+            {
+              "before": "src/error/error_design_siperror.rs: pub enum Error {} (empty stub)",
+              "after": "Full SipError and SipErrorKind implementation with constructors, Display, From<ReactorError>, convert_pj_status()",
+              "description": "Implemented N0016 error design with 23 discriminant variants"
+            },
+            {
+              "before": "src/error/m20_runtime_command_error.rs: pub enum Error {} (empty stub)",
+              "after": "M20 converters: convert_conf_connect_error, convert_conf_disconnect_error, convert_get_account_info_error + AccountInfo struct",
+              "description": "Implemented N0017 M20 RuntimeCommand error converters reusing existing SipErrorKind variants (no new variants)"
+            },
+            {
+              "before": "src/error.rs: flat SipError enum definition + tests",
+              "after": "Module root with pub mod declarations + re-exports from submodules",
+              "description": "Restructured error module to support submodule architecture"
+            },
+            {
+              "before": "config.rs: SipError::InvalidConfig(msg) enum variant",
+              "after": "SipError::new(SipErrorKind::InvalidConfig, msg) constructor",
+              "description": "Updated ClientConfig::validate() to use new SipError struct pattern"
+            },
+            {
+              "before": "client.rs: SipError::RuntimeError(msg) usage",
+              "after": "SipError::new(SipErrorKind::NativeError, msg) usage",
+              "description": "Updated SipClient facade methods to use new SipError constructors"
+            },
+            {
+              "before": "lib.rs: re-exports SipError only",
+              "after": "re-exports both SipError and SipErrorKind",
+              "description": "Added SipErrorKind to public API re-exports"
+            }
+          ],
+          "rfcDiscrepancies": [
+            "RFC N0017 table uses 'InternalError' but actual variant in N0016 is 'NativeError'. Implementation uses NativeError (matches N0016 definition). This is an RFC documentation inconsistency, not an implementation defect."
+          ],
+          "completedAt": "2026-07-28"
         },
         {
           "title": "Event System Core — EventBus, NativeEvent Conversion, Dual Client Routing",

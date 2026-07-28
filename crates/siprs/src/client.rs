@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::config::ClientConfig;
 use crate::error::SipError;
+use crate::error::SipErrorKind;
 use crate::runtime::command::RuntimeCommand;
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::reactor::{BootConfig, CoreReactor};
@@ -54,7 +55,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -64,7 +65,7 @@ impl SipClient {
     /// # Returns
     /// - `Ok((SipClient, Receiver))` on success, with an event receiver.
     /// - `Err(SipError::InvalidConfig)` if the configuration is invalid.
-    /// - `Err(SipError::RuntimeError)` if the reactor fails to start.
+    /// - `Err(SipError::new(SipErrorKind::NativeError,)` if the reactor fails to start.
     ///
     /// # Invariant (C002)
     /// The reactor thread model must remain unchanged — `CoreReactor::spawn()`
@@ -75,7 +76,7 @@ impl SipClient {
         config.validate()?;
 
         let (handle, _join) = CoreReactor::spawn(BootConfig { config: config.clone() })
-            .map_err(|e| SipError::RuntimeError(format!("failed to spawn reactor: {e}")))?;
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("failed to spawn reactor: {e}")))?;
 
         // [::STUB::] P0-5: Replace dummy event channel with proper Receiver<SipEvent>
         // once the event system (N0018) is implemented.
@@ -95,7 +96,7 @@ impl SipClient {
                 reply: _dummy_tx,
             })
             .await
-            .map_err(|e| SipError::RuntimeError(format!("initialization failed: {e}")))?;
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("initialization failed: {e}")))?;
 
         Ok((
             Self {
@@ -124,7 +125,7 @@ impl SipClient {
     ///
     /// Sends a `Shutdown` command to the reactor and waits for it to
     /// complete. After shutdown, all subsequent operations return
-    /// `Err(SipError::Shutdown)`.
+    /// `Err(SipError::new(SipErrorKind::ShutdownInProgress, "..."))`.
     ///
     /// # Idempotency (C044)
     /// Calling `shutdown()` multiple times is safe — the second call
@@ -144,7 +145,7 @@ impl SipClient {
                 reply: _dummy_tx,
             })
             .await
-            .map_err(|e| SipError::RuntimeError(format!("shutdown failed: {e}")))?;
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("shutdown failed: {e}")))?;
 
         Ok(())
     }
@@ -222,10 +223,12 @@ mod tests {
             result.is_err(),
             "SipClient::new with empty host must return Err"
         );
-        match result.unwrap_err() {
-            SipError::InvalidConfig(_) => {} // expected
-            other => panic!("expected InvalidConfig, got {other:?}"),
-        }
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.kind,
+            SipErrorKind::InvalidConfig,
+            "expected InvalidConfig from empty host"
+        );
     }
 
     // ── Invariant ───────────────────────────────────────────────────

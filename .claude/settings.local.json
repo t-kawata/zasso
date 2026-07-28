@@ -521,7 +521,23 @@
       "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" src/client.rs src/config.rs src/error.rs src/account.rs src/call.rs src/transport.rs src/lib.rs)",
       "Bash(grep -rn '[0-9]\\\\{4,\\\\}' src/client.rs src/config.rs src/error.rs)",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-3\" --no-implementation-order)",
-      "Bash(git commit -m 'feat\\(P0-3\\): Crate Purpose & Architecture Identity — SipClient, ClientConfig, SipError *)"
+      "Bash(git commit -m 'feat\\(P0-3\\): Crate Purpose & Architecture Identity — SipClient, ClientConfig, SipError *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P0-4\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0016 --hops=2)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0017 --hops=2)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P0-4\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P0-4\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P0-4\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P0-4\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P0-4\" --tickets=\"Tickets.json\")",
+      "Bash(find /Users/sh01/shyme/zasso -name \"Tickets.json\" -not -path \"*/node_modules/*\" -not -path \"*/target/*\" 2>/dev/null)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P0-4\" --for-spec)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-4\" --for-spec --plan)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0016 --hops=3)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0017 --hops=3)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P0-4\" --tickets=\"Tickets.json\")",
+      "Bash(node -e \"const tk=require\\('./Tickets.json'\\); const t4=tk.phases[0].tickets.find\\(t=>t.id===4\\); console.log\\('Status:', t4.status, '| planTestCode entries:', \\(t4.planTestCode||[]\\).length\\);\")"
     ]
   }
 }
