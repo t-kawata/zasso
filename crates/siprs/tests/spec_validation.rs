@@ -153,7 +153,7 @@ fn spec_tauri_boundary_respected() {
     if !src_dir.is_dir() {
         return;
     }
-    for entry in walkdir_without_hidden(src_dir) {
+    for entry in walk_source_files_excluding_hidden(src_dir) {
         let content = std::fs::read_to_string(&entry).unwrap_or_default();
         assert!(
             !content.contains("tauri::"),
@@ -164,7 +164,7 @@ fn spec_tauri_boundary_respected() {
 }
 
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
-fn walkdir_without_hidden(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+fn walk_source_files_excluding_hidden(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut files = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -176,7 +176,7 @@ fn walkdir_without_hidden(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
                     .and_then(|n| n.to_str())
                     .map_or(false, |n| n.starts_with('.'))
                 {
-                    files.extend(walkdir_without_hidden(&path));
+                    files.extend(walk_source_files_excluding_hidden(&path));
                 }
             } else if path.extension().map_or(false, |e| e == "rs") {
                 files.push(path);
