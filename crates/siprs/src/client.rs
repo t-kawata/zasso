@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use tokio::sync::broadcast;
+use tracing::instrument;
 
 use crate::api::eventbus_receiver::EventBus;
 use crate::api::event_model_payload_bus::{AccountId, SipEvent};
@@ -60,7 +61,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -75,6 +76,7 @@ impl SipClient {
     /// # Invariant (C002)
     /// The reactor thread model must remain unchanged — `CoreReactor::spawn()`
     /// must always return `(RuntimeHandle, JoinHandle)`.
+    #[instrument(skip(config), fields(sip_host = %config.sip_proxy_host, sip_port = config.sip_proxy_port))]
     pub async fn new(
         config: ClientConfig,
     ) -> Result<(Self, broadcast::Receiver<SipEvent>), SipError> {
@@ -114,6 +116,7 @@ impl SipClient {
     ///
     /// This allows callers to submit commands directly to the reactor
     /// via `handle.submit(...)`.
+    #[instrument(skip(self))]
     pub fn handle(&self) -> &RuntimeHandle {
         &self.runtime
     }
@@ -122,6 +125,7 @@ impl SipClient {
     ///
     /// Returns a `broadcast::Receiver<SipEvent>` that receives all published
     /// events for this client. Use `subscribe_account()` to filter by account.
+    #[instrument(skip(self))]
     pub fn subscribe(&self) -> broadcast::Receiver<SipEvent> {
         self.events.subscribe_control()
     }
@@ -130,6 +134,7 @@ impl SipClient {
     ///
     /// Returns an `AccountEventReceiver` that only yields events matching
     /// the given `account_id`.
+    #[instrument(skip(self), fields(account_id = account_id.0))]
     pub fn subscribe_account(&self, account_id: AccountId) -> crate::api::eventbus_receiver::AccountEventReceiver {
         crate::api::eventbus_receiver::AccountEventReceiver::new(
             account_id,
@@ -138,6 +143,7 @@ impl SipClient {
     }
 
     /// Subscribe to the raw SIP message bus, if enabled.
+    #[instrument(skip(self))]
     pub fn subscribe_raw_sip(
         &self,
     ) -> Option<broadcast::Receiver<crate::api::event_model_payload_bus::RawSipMessage>> {
@@ -145,6 +151,7 @@ impl SipClient {
     }
 
     /// Check whether the reactor thread has terminated.
+    #[instrument(skip(self))]
     pub fn is_terminated(&self) -> bool {
         self.runtime.is_terminated()
     }
@@ -159,6 +166,7 @@ impl SipClient {
     /// Calling `shutdown()` multiple times is safe — the second call
     /// returns `Ok(())` immediately because the reactor is already
     /// terminated.
+    #[instrument(skip(self))]
     pub async fn shutdown(&self) -> Result<(), SipError> {
         if self.runtime.is_terminated() {
             // Idempotent: already shut down.

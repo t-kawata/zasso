@@ -1,3 +1,4 @@
+
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 
@@ -75,6 +76,10 @@ pub mod event;
 // [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle
 pub mod runtime;
 
+// [::TICKET::] P1-2: security/ — SecretString, Authorization redaction, platform build notes
+pub mod security;
+// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+
 // [::STUB::] P1+: util/ — ID, Time, Sync utilities
 // pub mod util;
 
@@ -87,6 +92,9 @@ pub use client::SipClient;
 pub use config::{AuthCredentials, ClientConfig, ClientConfigBuilder, LogLevel, ServerConfig};
 pub use error::SipError;
 pub use error::SipErrorKind;
+// [::TICKET::] P1-2: SecretString re-export from security module
+pub use security::SecretString;
+// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-5: event types and EventBus re-exports
 pub use event::{
     AccountEventReceiver, AccountInfoSnapshot, CallMediaState, CallState, ConnectedCallInfo,

@@ -14,6 +14,9 @@ pub mod m20_codec_auto_mode;
 /// SRTP policy & transport reconnection (N0042).
 pub mod srtp_transport_reconnect;
 
+/// Observability — tracing, metrics & ClientCapabilities (N0046).
+pub mod observability_metrics;
+
 use crate::error::SipError;
 use crate::error::SipErrorKind;
 
@@ -27,10 +30,9 @@ pub struct AuthCredentials {
     pub username: String,
     /// SIP authentication password, zeroed on drop.
     ///
-    /// [::STUB::] P0-3: Currently stores as String — SecretString wrapper
-    /// from the `zeroize` crate will be used once P1-2 (N0047) enables the
-    /// `zeroize` feature by default.
-    pub password: String,
+    /// Uses `SecretString` to prevent accidental leakage via Display/Debug output.
+    /// With the `zeroize` feature, memory is zeroed on drop.
+    pub password: crate::security::SecretString,
     /// Optional SIP authentication realm.
     pub realm: Option<String>,
 }
@@ -282,11 +284,11 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2) --for-spec --no-implementation-order`.
     fn client_config_builder_sets_optional_fields() {
         let creds = AuthCredentials {
             username: "alice".into(),
-            password: "secret".into(),
+            password: crate::security::SecretString::new("secret"),
             realm: Some("example.com".into()),
         };
         let _stun = ServerConfig {
@@ -412,18 +414,19 @@ mod tests {
 
     #[test]
     // @verifies C048
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn client_config_uses_string_for_password_stub() {
-        // C048 invariant: password is zeroized on drop.
-        // [::STUB::] P0-3: Currently String. P1-2 will replace with SecretString.
+// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    fn client_config_password_is_secret_string() {
+        // C048 invariant: password is zeroized on drop via SecretString.
         let creds = AuthCredentials {
             username: "alice".into(),
-            password: "s3cret!".into(),
+            password: crate::security::SecretString::new("s3cret!"),
             realm: None,
         };
-        // Password should not be visible in Debug output if SecretString
-        // is used. For now, verify the field exists.
-        assert!(!creds.password.is_empty());
+        // Password must not be visible in Debug output.
+        let debug = format!("{:?}", creds);
+        assert!(!debug.contains("s3cret!"), "password must not leak in Debug");
+        // Password value must be accessible via SecretString::as_str()
+        assert_eq!(creds.password.as_str(), "s3cret!");
     }
 
     #[test]
