@@ -54,7 +54,8 @@ function generateStubId() {
  * @returns {{category: string, ticketRef: string, crimeType?: string}}
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-function classifyStubs(targetRef, ticketsData, ownTicketKey) {
+// [::TICKET::] PX-93: Changed final else to return null instead of targetStub.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
   // Normalize: handle "MUST RESOLVE" as "own ticket"
   if (targetRef === 'MUST RESOLVE') {
     return { category: 'targetStub', ticketRef: 'MUST RESOLVE' };
@@ -74,8 +75,10 @@ function classifyStubs(targetRef, ticketsData, ownTicketKey) {
     return { category: 'crime', ticketRef: targetRef, crimeType: 'COMPLETED_TICKET_STALE' };
   }
 
-  // Target ticket exists and is not done — treat as deferred
-  return { category: 'targetStub', ticketRef: targetRef };
+  // PX-93: Other active tickets STUBs are not this tickets responsibility.
+  // Return null so scanFile skips the entry entirely.
+  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`
+  return null;
 }
 
 /**
@@ -142,6 +145,8 @@ function scanDirectory(dirPath, ticketsData, ownTicketKey) {
  * @param {Array} targetCrimes — Accumulator
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-93: Added null guard for classifyStubs returning null.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
 function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes) {
   let content;
   try {
@@ -166,6 +171,8 @@ function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes
     seenKeys.add(dedupKey);
 
     const classification = classifyStubs(targetRef, ticketsData, ownTicketKey);
+    // PX-93: Null classification means this STUB is not this tickets concern — skip.
+    if (!classification) continue;
     const entry = {
       id: generateStubId(),
       ticketRef: targetRef,

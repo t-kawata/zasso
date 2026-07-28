@@ -12474,6 +12474,84 @@
             }
           ],
           "completedAt": "2026-07-28"
+        },
+        {
+          "id": 93,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Restrict targetStubs to own-ticket STUBs only — skip other-ticket STUBs",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/93-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Restrict targetStubs to own-ticket STUBs only\n- 【Purpose】Eliminate linear duplication of other-ticket STUBs across all tickets\n- 【Motivation】Every ticket accumulates copies of all other active tickets STUBs via classifyStubs()\n- 【Constraints】Must not change MUST_RESOLVE, own-ticket, or crime classification. Only affects the else branch.",
+          "scope": [
+            "[Change] enumerate-ticket-targets.js classifyStubs(): final else branch returns null instead of targetStub",
+            "[Change] enumerate-ticket-targets.js scanFile(): handle null classification gracefully (skip entry)",
+            "[Non-change] MUST_RESOLVE/own-ticket/crime classification unchanged",
+            "[Non-change] validate-ticket-targets.js unchanged",
+            "[Non-change] syncMalfeasance unchanged",
+            "[Impact] No downstream impact — fewer entries, same processing"
+          ],
+          "testUnit": [
+            "UT: [Normal] classifyStubs with targetRef === ownTicketKey returns {category: targetStub}",
+            "UT: [Normal] classifyStubs with MUST_RESOLVE returns {category: targetStub}",
+            "UT: [Normal] classifyStubs with nonexistent targetRef returns {category: crime, crimeType: ORPHAN_TICKET_REF}",
+            "UT: [Normal] classifyStubs with done ticket ref returns {category: crime, crimeType: COMPLETED_TICKET_STALE}",
+            "UT: [Normal] classifyStubs with other active ticket ref returns null (NEW)",
+            "UT: [Boundary] classifyStubs with ownTicketKey matching an active other ticket ref still returns targetStub",
+            "UT: [Invariant] Running enumerate on ticket T produces zero other-ticket entries in T.targetStubs"
+          ],
+          "testIntegration": [
+            "IT: Run enumerate-ticket-targets.js for P0-1 — verify targetStubs has zero P1-3/P1-4 entries",
+            "IT: Run enumerate-ticket-targets.js for P1-3 — verify its targetStubs still has its own STUBs"
+          ],
+          "testExceptions": [
+            "Cannot test: every combination of ticket states (done/nonexistent/active/self) — exhaustive combinatorial. Three boundary cases (active other, self, nonexistent) cover the logic. This is not a design defect: classifyStubs is a pure function with 5 deterministic branches.",
+            "Cannot test: interaction with future classifyStubs extension points — covered by making the logic explicit in unit tests. This is not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/enumerate-ticket-targets.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy: P0-1 enumerate produces targetStubs with zero other-ticket STUBs",
+            "Happy: P1-3 enumerate still contains its own STUBs",
+            "Error: nonexistent ref still produces crime (unchanged)",
+            "Edge: MUST_RESOLVE still produces targetStub (unchanged)"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "classify-own-stubs",
+              "precondition": "classifyStubs() receives a targetRef and ownTicketKey",
+              "postcondition": "STUBs referencing other active (non-done, non-self) tickets return null (skipped)",
+              "invariant": "targetStubs for any ticket contains ONLY STUBs with targetRef === ownTicketKey or MUST_RESOLVE"
+            }
+          ],
+          "notes": "- 【Steps】1) Change classifyStubs() final else to return null 2) Change scanFile() to handle null classification 3) Write tests 4) Verify existing tests pass\n- 【Risks】Zero — purely subtractive change\n- 【Caveats】scanFile() already deduplicates by dedupKey; null classification just means the entry is not pushed to any accumulator\n- 【Open items】None\n- 【Future】None\nImplementation summary:\n- Changed file: enumerate-ticket-targets.js (2 lines: classifyStubs final else, scanFile null guard)\n- Test results: 10/10 PX-93 + 20/20 + 33/33 regression passed\n- Impact: validate-ticket-targets.js and syncMalfeasance receive fewer entries but logic unchanged\nReview report:\n- Static quality check: PASSED\n- Translatability: PASSED (return null + null guard, both verb semantics)\n- Dependencies: enumerate-ticket-targets.js categorizeStubs() final else changed from targetStub to null\n- scanFile() null guard prevents crash on null classification\n- All 10/10 PX-93 tests + 20/20 + 33/33 regression tests PASSED\n- verify-final-contracts: 100%\n- validate-ticket-targets: PASS",
+          "invariants": "- 【Normal】targetStubs contains only own-ticket and MUST_RESOLVE STUBs\n- 【On error】Null classification does not crash scanFile — entry skipped gracefully\n- 【Internal state】classifyStubs is deterministic: same input always same output\n- 【Boundary】Active other-ticket STUBs produce null (not targetStub, not crime)",
+          "instrumentation": "- 【Logging】None needed — silent skip\n- 【Metrics】None\n- 【Error tracking】N/A\n- 【Health check】N/A\nStatic quality check: PASSED (0 issues)\nTranslatability: PASSED (2 lines, clean diff)\nCrime scan: 0 open\nAnnotation check: 0 AMBIGUOUS, 0 source-file missing (test file only)\nContract verification: C001 100% fulfilled\nTarget validation: PASS",
+          "investigation": "=== Investigation ===\n\n1. enumerate-ticket-targets.js L50-72: classifyStubs() has 5 branches:\n   - L52-54: MUST_RESOLVE -> targetStub (keep)\n   - L56-58: ownTicketKey -> targetStub (keep)\n   - L61-63: nonexistent -> crime ORPHAN_TICKET_REF (keep)\n   - L66-68: done ticket -> crime COMPLETED_TICKET_STALE (keep)\n   - L71: ACTIVE other ticket -> targetStub (CHANGE: return null)\n\n2. scanFile() L159-178: uses classification.category to push to targetStubs or targetCrimes. If category is null/undefined, the entry is simply not pushed.\n\n3. scanFile() L148:  — null classification is not a scan error, just a skip decision.\n\nFix: classifyStubs() final else returns null (or {category: null}). scanFile() adds a guard to skip null entries.",
+          "boyScoutPlan": "1. Rename generic variable names in classifyStubs() if present\n2. Extract the 5-branch logic to a clear switch/if-elseif structure for readability\n3. Add JSDoc clarifying category return types: targetStub | crime | null",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "planTestCode": [
+            "UT: [Precondition C001] classifyStubs receives targetRef and ownTicketKey\n  ```js\n  const { classifyStubs } = require('./enumerate-ticket-targets');\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  const result = classifyStubs('PX-90', ticketsData, 'PX-93');\n  assert(result !== undefined, 'classifyStubs returns a value');\n  ```",
+            "UT: [Postcondition C001] Other active ticket STUB returns null\n  ```js\n  const { classifyStubs } = require('./enumerate-ticket-targets');\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  // PX-89 is a done ticket in Tickets.json — use a known active one\n  const result = classifyStubs('PX-90', ticketsData, 'PX-93');\n  assert(result === null, 'other active ticket ref returns null');\n  ```",
+            "UT: [Invariant C001] Own-ticket STUB still returns targetStub\n  ```js\n  const { classifyStubs } = require('./enumerate-ticket-targets');\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  const result = classifyStubs('PX-93', ticketsData, 'PX-93');\n  assert(result !== null, 'own-ticket ref returns non-null');\n  assert(result.category === 'targetStub', 'category is targetStub');\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "classifyStubs() returned targetStub for other active ticket STUBs",
+              "after": "classifyStubs() returns null for other active ticket STUBs (skipped)",
+              "description": "PX-93: Restricted targetStubs to own-ticket STUBs only"
+            },
+            {
+              "before": "scanFile() assumed classification is always non-null",
+              "after": "scanFile() guards against null classification with early continue",
+              "description": "PX-93: Added null guard in scanFile to skip non-owned STUBs"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-28"
         }
       ]
     },
