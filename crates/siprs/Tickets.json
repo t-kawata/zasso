@@ -342,7 +342,2102 @@
           "investigation": "## Investigation Evidence\n\n### RFC-ROOT.md §4.1 Versioning Policy (source: RFC-ROOT.md lines 103-121)\n- Complete versioning policy definition covering 0.x phase and 1.0+ phase\n- 0.x: API not strictly semver, breaking changes allowed with CHANGELOG, #[non_exhaustive] on SipEventPayload\n- 1.0+: strict semver (MAJOR for breaking API, MINOR for backward-compatible additions, PATCH for fixes)\n- Security exception: critical fixes bypass MAJOR delay (PATCH even in 1.0+)\n- Runtime behavior changes (timeouts, retries) are PATCH-level even in 1.0+\n\n### RFC-ROOT.md §58 Semantic Versioning Operations (source: RFC-ROOT.md lines 3600-3609)\n- Breaking changes documented in CHANGELOG.md unreleased section\n- 0.x: no deprecation period, immediate changes allowed\n- 1.0+: MUST introduce cargo semver-checks in CI; MUST require minimum 1 release deprecation notice before breaking changes\n\n### Source Code State (source: src/config/versioning_policy.rs)\n- File exists with Initial Design Artifact header referencing N0006\n- Contains `pub struct Config {}` placeholder (empty stub)\n- Contains TODO: [::STUB::] MUST implement NODE_ID=N0006 marker at line 30\n- Cross-reference to N0005 Compliance Requirements documented in header\n\n### Related Source: src/config/semver_sip_networking.rs\n- Exists as placeholder for N0066 (§58 Semver Operations & §59 SIP Networking Details)\n- Contains `pub struct Config {}` + STUB marker — P0-2 does NOT implement this file\n- C067 contract links N0066→N0006: P0-2 provides the policy N0066 depends on\n\n### Cargo.toml (source: line 3)\n- version = \"0.1.0\" — correctly in 0.x development phase per RFC-ROOT §4.1\n\n### Existing Test Coverage (source: tests/spec_validation.rs)\n- versioning_policy_config_struct_exists() — validates Config struct presence in versioning_policy.rs\n- spec_has_versioning_policy() — validates P0-1 spec references N0006, 0.x, and semver\n- All tests currently reference VersionPolicy data structures (C007 contract)\n\n### Contract Relationships\n- C007 (N0006→N0005): Versioning policy derived from compliance baseline. Precondition expanded to concrete MSRV/PJSIP/OS target assertions. Postcondition mapped to specific Rust types (VersionPhase, ChangeKind, classify_change, etc.).\n- C067 (N0066→N0006 inbound): Semver operations depend on versioning policy. Precondition requires VersioningPolicy struct existence. Postcondition defers semver-checks CI to P2-2.",
           "boyScoutPlan": "## Translatability Improvements\n\n### In-scope improvements (versioning_policy.rs)\n1. **Function extraction for translatability**: The classify_change() function will be structured as a series of named helper functions rather than a single match block — extract_change_intent(description) verifies non-empty input; determine_impact_severity(change_desc) classifies the change kind; verify_changelog_requirement(phase, change_kind) checks notification rules. This makes the policy logic read as prose: \"extract intent, determine severity, verify notification.\"\n2. **Named constants for magic values**: All version boundary values (MAJOR_0_THRESHOLD=0, MAJOR_1_THRESHOLD=1, SEMVER_SEGMENT_COUNT=3) will be extracted into named constants at the top of the file.\n3. **Enum-based domain modeling**: Instead of boolean flags (is_dev_phase, is_stable_phase), use VersionPhase enum with Dev/Stable variants and match statements that make state transitions explicit and impossible to represent illegal states.\n4. **Replace existing stub**: The current `pub struct Config {}` placeholder carries no semantic meaning — it will be replaced with a properly named `VersionPolicy` struct whose phase field makes the design intent self-documenting.\n\n### Existing code improvements (spec_validation.rs)\n5. **Rename versioning_policy_config_struct_exists test**: If the Config struct is renamed to VersionPolicy, the test function name should be updated to versioning_policy_struct_exists for accuracy. However, the test name refers to the current state of versioning_policy.rs — we must preserve the assertion while updating the name if needed.\n\n### Out-of-scope observation (future ticket)\n- src/config/semver_sip_networking.rs has the same empty Config {} stub pattern — P2-2 should address translatability there when implementing N0066.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28"
+          "updated_at": "2026-07-28",
+          "targetStubs": [
+            {
+              "id": "TS-001",
+              "ticketRef": "MUST RESOLVE",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/CLAUDE.md",
+              "line": 283,
+              "markerText": "// [::STUB::] MUST RESOLVE: <information known so far>",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 9,
+              "markerText": "# [::STUB::] P1-3: autoexamples = false gates spec examples behind",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 21,
+              "markerText": "# [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 25,
+              "markerText": "# [::STUB::] P1-3: spec-examples feature gates examples that reference types",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P0-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 36,
+              "markerText": "# [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P0-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 38,
+              "markerText": "# [::STUB::] P1-3: rt-multi-thread enabled for #[tokio::main] in examples",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-008",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 57,
+              "markerText": "# [::STUB::] P1-3: Example declarations. These examples reference types from",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-053",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/account_register.rs",
+              "line": 13,
+              "markerText": "//! [::STUB::] P1-3: This example references types from future tickets",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-054",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/audio_tap.rs",
+              "line": 19,
+              "markerText": "//! [::STUB::] P1-3: This example references types from future tickets",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-056",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/client_init.rs",
+              "line": 15,
+              "markerText": "//! [::STUB::] P1-3: This example references types from future tickets",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-057",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/make_call.rs",
+              "line": 15,
+              "markerText": "//! [::STUB::] P1-3: This example references types from future tickets",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-058",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/tts_source.rs",
+              "line": 14,
+              "markerText": "//! [::STUB::] P1-3: This example references types from future tickets",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-064",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 48,
+              "markerText": "// [::STUB::] P1-4: Added Hash + Display derives for use as HashMap keys in routing table",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-066",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 63,
+              "markerText": "// [::STUB::] P1-4: Added Hash derive for use as HashMap key in CallEventRouter.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-076",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+              "line": 19,
+              "markerText": "// [::STUB::] P1-4: CallState enum, pjsip_inv_state / media_status constants, and",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-077",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+              "line": 37,
+              "markerText": "// [::STUB::] P1-4: Full CallState enum defined in call_state_model.rs (N0026).",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-080",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dual_client_routing.rs",
+              "line": 129,
+              "markerText": "// [::STUB::] P1-4: anchor field is intentionally dead_code — kept alive for",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-081",
+              "ticketRef": "P1-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+              "line": 19,
+              "markerText": "// [::STUB::] P1-2: pub(crate) types here (NativeEvent, SipEventPayload) and the",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-085",
+              "ticketRef": "P1-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_registr_cmd_pat.rs",
+              "line": 19,
+              "markerText": "// [::STUB::] P1-2: AccountInfoSnapshot and registration_state_to_event are the",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-086",
+              "ticketRef": "P1-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/mod.rs",
+              "line": 19,
+              "markerText": "// [::STUB::] P1-3: registr_state_machine module — uses RegistrationSucceeded/Failed from this ticket",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-087",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/mod.rs",
+              "line": 20,
+              "markerText": "// [::STUB::] P1-4: call_state_model module — provides full CallState enum",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-088",
+              "ticketRef": "P1-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/mod.rs",
+              "line": 21,
+              "markerText": "// [::STUB::] P1-5: shutdown_specification module — standalone shutdown state",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-089",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 54,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-090",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 67,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-091",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 88,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-092",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 127,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-093",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 145,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-094",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 162,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-095",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 177,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-096",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 203,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-097",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 228,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-098",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 249,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-099",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 271,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-100",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 291,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-101",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 308,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-102",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 329,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-103",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 370,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-104",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 390,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-105",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 407,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-106",
+              "ticketRef": "P2-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/P2-3_spec_validation.rs",
+              "line": 427,
+              "markerText": "// [::STUB::] P2-3: Spec file specs/P2-3.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-3",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-107",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 379,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-108",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 393,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-109",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 407,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-110",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 424,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-111",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 447,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-112",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 464,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-113",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 482,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-114",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 503,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-115",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 528,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-116",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 562,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-117",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 583,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-118",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 597,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-119",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 613,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-120",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 626,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-121",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 647,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-122",
+              "ticketRef": "P1-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 663,
+              "markerText": "// [::STUB::] P1-4: Spec file specs/P1-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P1-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-123",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 697,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-124",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 712,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-125",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 730,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-126",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 763,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-127",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 792,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-128",
+              "ticketRef": "P2-2",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 809,
+              "markerText": "// [::STUB::] P2-2: Spec file specs/P2-2.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-2",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-129",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 845,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-130",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 859,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-131",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 872,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-132",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 889,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-133",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 918,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-134",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 934,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-135",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 952,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-136",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 973,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-137",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 990,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-138",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1011,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-139",
+              "ticketRef": "P2-4",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1028,
+              "markerText": "// [::STUB::] P2-4: Spec file specs/P2-4.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-4",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-140",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1051,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-141",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1064,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-142",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1077,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-143",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1090,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-144",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1111,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-145",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1124,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-146",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1137,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-147",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1150,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-148",
+              "ticketRef": "P2-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/tests/spec_validation.rs",
+              "line": 1173,
+              "markerText": "// [::STUB::] P2-5: Spec file specs/P2-5.md does not exist yet. Re-enable when spec is authored.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": "P2-5",
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            }
+          ],
+          "targetCrimes": [
+            {
+              "id": "TS-007",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Cargo.toml",
+              "line": 40,
+              "markerText": "# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-009",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 76,
+              "markerText": "\"description\": \"# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-010",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 86,
+              "markerText": "\"description\": \"// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-011",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 96,
+              "markerText": "\"description\": \"| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-012",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 106,
+              "markerText": "\"description\": \"- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-013",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 116,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-014",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 126,
+              "markerText": "\"description\": \"// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-015",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 136,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-016",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 146,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — CallId newtype for call operations.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-017",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 156,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-018",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 166,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-019",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 176,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-020",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 186,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-021",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 196,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-022",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 206,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-023",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 216,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-024",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 226,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-025",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 236,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-026",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 246,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-027",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 256,
+              "markerText": "\"description\": \"// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-028",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 266,
+              "markerText": "\"description\": \"// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-029",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 276,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: Replace hardcoded media_status with backend query.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-030",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 286,
+              "markerText": "\"description\": \"# [::STUB::] P0-5: N0016 — thiserror for SipError derive macro\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-031",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 294,
+              "markerText": "\"description\": \"// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-032",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 302,
+              "markerText": "\"description\": \"| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-033",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 310,
+              "markerText": "\"description\": \"- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-034",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 318,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-035",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 326,
+              "markerText": "\"description\": \"// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-036",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 334,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-037",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 342,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — CallId newtype for call operations.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-038",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 350,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-039",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 358,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-040",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 366,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-041",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 374,
+              "markerText": "\"description\": \"// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-042",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 382,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-043",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 390,
+              "markerText": "\"description\": \"// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-044",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 398,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-045",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 406,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-046",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 414,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-047",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 422,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-048",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 430,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: RoutingError, SipEvent, SipEventMeta, EventBus, CallEventRouter,\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-049",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 438,
+              "markerText": "\"description\": \"// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-050",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 446,
+              "markerText": "\"description\": \"// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-051",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Malfeasance.json",
+              "line": 454,
+              "markerText": "\"description\": \"// [::STUB::] P0-5: Replace hardcoded media_status with backend query.\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-052",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/Tickets.json",
+              "line": 848,
+              "markerText": "\"notes\": \"- Implementation steps: (1) Define DtmfSentInfo struct and SentDtmfError enum in src/api/m20_dtmfsent_twophase.rs (2) Add DTMF_SENT_TIMEOUT_MS constant (3) Write #[cfg(test)] module with all 19 UT tests (4) Verify cargo test passes (5) Run cargo clippy and cargo fmt\\n- Risks: The src/api/ directory has no mod.rs and is not declared in lib.rs — the implementation file may need to be relocated to src/state/ following P1-2 convention, or a mod.rs must be created for api/\\n- Caveats: DtmfMethod import resolution depends on whether DtmfMethod gets its canonical definition elsewhere (P0-7/N0028). Current use of command_serialization::DtmfMethod is a stub that may be replaced.\\n- Open items: Whether P1-3 should also add SipEventPayload::DtmfSent variant (currently deferred to P5-1 event_model_payload_bus.rs). The conversion function from NativeEvent::DtmfDigit currently returns DtmfReceived, not DtmfSent — these are separate events.\\n- Future improvements: When P5-1 ships, DtmfSentInfo becomes a payload struct for SipEventPayload::DtmfSent variant. When P0-5 reactor ships, the 500ms timeout timer and DtmfSent event emission are wired in. When FFI bindings exist, SentDtmfError::PjsipError uses real pj_status_t.\\nImplementation summary:\\n- Added: src/state/m20_dtmfsent_twophase.rs (359 lines)\\n- Modified: src/state/mod.rs (added module declaration)\\n- Modified: src/api/m20_dtmfsent_twophase.rs (resolved STUB, redirected to new location)\\n- Key types: DtmfSentInfo (pub(crate) struct), SentDtmfError (pub(crate) enum), DTMF_SENT_TIMEOUT_MS (pub(crate) const)\\n- Traits: DtmfSentInfo: Debug+Clone, SentDtmfError: Debug+Clone+PartialEq+Eq\\n- Tests: 12 passing, covering all C030 contract elements (precondition/postcondition/invariant)\\n- Verification: cargo check --all-targets clean, cargo test --lib 142/142 passed, quality check 0 issues\\nReview report:\\n- Static quality check: passed\\n- Translatability: no issues — all names are domain concepts (method, digit, status, pjsip_status), no generic names\\n- Dependencies: consistency verified — uses existing DtmfMethod from command_serialization, SipError from error module\\n- Crime scan: 0 crimes (clean)\\n- STUB evaluation: 0 stubs in new code; 321 P1-3 stubs resolved, 146 stubs deferred to respective tickets\\n- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference\\n- Issues found and applied: 2 quality fix (renamed 'a' to 'dtmf_sent', replaced .expect() with match), 2 test unused var prefix fix\",",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-055",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/examples/audio_tap.rs",
+              "line": 134,
+              "markerText": "// [::STUB::] P0-8: Replace with actual AudioChunkPair conversion once N0030",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-059",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P0-4.md",
+              "line": 478,
+              "markerText": "| stub struct SipError(pub(crate) String) | pub(crate) use crate::error::SipError; | src/concurrency_contexts/command_serialization.rs — Resolved [::STUB::] P0-5: replaced stub SipError with real import |",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-060",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/specs/P1-3.md",
+              "line": 447,
+              "markerText": "- #[allow(dead_code)] properly annotated with [::STUB::] P0-5 reference",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-061",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 35,
+              "markerText": "// [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-062",
+              "ticketRef": "P0-8",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 40,
+              "markerText": "// [::STUB::] P0-8: N0014 — AccountConfig for AddAccount variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-063",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 46,
+              "markerText": "// [::STUB::] P0-9: N0012 — AccountId newtype for account operations.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-065",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 61,
+              "markerText": "// [::STUB::] P0-9: N0012 — CallId newtype for call operations.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-067",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 69,
+              "markerText": "// [::STUB::] P0-7: N0027 — OutgoingCallRequest for MakeCall variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-068",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 75,
+              "markerText": "// [::STUB::] P0-7: N0028 — HangupReason for Hangup variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-069",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 85,
+              "markerText": "// [::STUB::] P0-7: N0028 — DtmfMethod for SendDtmf variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-070",
+              "ticketRef": "P0-9",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 95,
+              "markerText": "// [::STUB::] P0-9: N0012 — MediaDirection for M20 ConfConnect variant.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-071",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/command_serialization.rs",
+              "line": 136,
+              "markerText": "// [::STUB::] P0-7: The #[allow(dead_code)] on variants will be removed once the",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-072",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/concurrency_contexts/mod.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P0-7: SipClient facade uses RuntimeCommand via this re-export.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-073",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+              "line": 22,
+              "markerText": "// [::STUB::] P0-5: SipError and SipErrorKind are consumed by P0-5 reactor, P0-7 facade.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-074",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+              "line": 23,
+              "markerText": "// [::STUB::] P0-5: M20 conversion functions are consumed by P0-5 reactor.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-075",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/mod.rs",
+              "line": 14,
+              "markerText": "// [::STUB::] P0-5: SipError is consumed by reactor module (P0-5). Remove #[allow(dead_code)] once",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-078",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dtmfsent_twophase.rs",
+              "line": 22,
+              "markerText": "// [::STUB::] P0-5: DTMF_SENT_TIMEOUT_MS, DtmfSentInfo, and SentDtmfError are consumed",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-079",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_dual_client_routing.rs",
+              "line": 38,
+              "markerText": "// [::STUB::] P0-5: RoutingError, SipEvent, SipEventMeta, EventBus, CallEventRouter,",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-082",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+              "line": 23,
+              "markerText": "// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-083",
+              "ticketRef": "P1-0",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+              "line": 127,
+              "markerText": "// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-084",
+              "ticketRef": "P0-5",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+              "line": 190,
+              "markerText": "// [::STUB::] P0-5: Replace hardcoded media_status with backend query.",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null
+            }
+          ],
+          "planTestCode": [
+            "UT: [Normal] C007-precondition — Compliance baseline N0005 reference\n  ```rust\n  fn c007_precondition_compliance_baseline_referenced() {\n      let content = std::fs::read_to_string(\"src/config/versioning_policy.rs\")\n          .expect(\"versioning_policy.rs must exist\");\n      assert!(content.contains(\"N0005\"),\n          \"header must reference N0005 compliance baseline\");\n  }\n  ```",
+            "UT: [Normal] C007-postcondition — VersionPhase::Dev allows breaking changes\n  ```rust\n  fn c007_postcondition_version_phase_dev_allows_breaking() {\n      let policy = VersionPolicy::new(\"0.1.0\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Dev);\n      assert!(policy.is_breaking_change_allowed());\n  }\n  ```",
+            "UT: [Normal] C007-postcondition — VersionPhase::Stable rejects breaking changes\n  ```rust\n  fn c007_postcondition_version_phase_stable_rejects_breaking() {\n      let policy = VersionPolicy::new(\"1.0.0\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Stable);\n      assert!(!policy.is_breaking_change_allowed());\n  }\n  ```",
+            "UT: [Invariant] C007-invariant — Security fix is always PATCH\n  ```rust\n  fn c007_invariant_security_fix_is_always_patch() {\n      let result = classify_change(\"Security: fix buffer overflow in RTP parsing\")\n          .expect(\"valid description\");\n      assert_eq!(result, ChangeKind::Patch);\n  }\n  ```",
+            "UT: [Invariant] C007-invariant — Runtime behavior change is PATCH\n  ```rust\n  fn c007_invariant_runtime_behavior_change_is_patch() {\n      let result = classify_change(\"Adjust default command timeout from 10s to 15s\")\n          .expect(\"valid description\");\n      assert_eq!(result, ChangeKind::Patch);\n  }\n  ```",
+            "UT: [Normal] C067-precondition — Policy struct exists with Dev/Stable classification\n  ```rust\n  fn c067_precondition_policy_struct_exists() {\n      let dev = VersionPolicy::new(\"0.1.0\").expect(\"parse 0.1.0\");\n      assert_eq!(dev.phase(), VersionPhase::Dev);\n      let stable = VersionPolicy::new(\"2.0.0\").expect(\"parse 2.0.0\");\n      assert_eq!(stable.phase(), VersionPhase::Stable);\n      let result = classify_change(\"Add new API endpoint\");\n      assert!(result.is_ok());\n      assert_eq!(result.unwrap(), ChangeKind::Minor);\n  }\n  ```",
+            "UT: [Invariant] C067-invariant — Dev phase does NOT require semver-checks\n  ```rust\n  fn c067_invariant_dev_phase_does_not_require_semver_checks() {\n      let dev = VersionPolicy::new(\"0.1.0\").expect(\"valid\");\n      assert!(!dev.requires_semver_checks());\n      let dev_high = VersionPolicy::new(\"0.999.999\").expect(\"valid\");\n      assert!(!dev_high.requires_semver_checks());\n  }\n  ```",
+            "UT: [Invariant] C067-invariant — Stable phase requires semver-checks\n  ```rust\n  fn c067_invariant_stable_phase_requires_semver_checks() {\n      let stable = VersionPolicy::new(\"1.0.0\").expect(\"valid\");\n      assert!(stable.requires_semver_checks());\n  }\n  ```",
+            "UT: [Normal] VersionPolicy::new creates Dev for 0.x\n  ```rust\n  fn version_policy_new_creates_dev_for_0_x() {\n      let policy = VersionPolicy::new(\"0.1.0\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Dev);\n  }\n  ```",
+            "UT: [Normal] VersionPolicy::new creates Stable for 1.0.0+\n  ```rust\n  fn version_policy_new_creates_stable_for_1_0_0() {\n      let policy = VersionPolicy::new(\"1.0.0\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Stable);\n  }\n  ```",
+            "UT: [Error] Empty description returns Err\n  ```rust\n  fn classify_change_returns_err_for_empty_description() {\n      let result = classify_change(\"\");\n      assert!(result.is_err());\n      assert!(result.unwrap_err().0.contains(\"empty\"));\n  }\n  ```",
+            "UT: [Error] Invalid version segments rejected\n  ```rust\n  fn version_phase_from_semver_rejects_invalid_segments() {\n      let result = version_phase_from_semver(\"0.1.alpha\");\n      assert!(result.is_err());\n  }\n  ```",
+            "UT: [Error] Empty version string rejected\n  ```rust\n  fn version_phase_from_semver_rejects_empty_string() {\n      let result = version_phase_from_semver(\"\");\n      assert!(result.is_err());\n  }\n  ```",
+            "UT: [Boundary] 0.999.999 is still Dev\n  ```rust\n  fn version_0_999_999_is_still_dev() {\n      let policy = VersionPolicy::new(\"0.999.999\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Dev);\n      assert!(policy.is_breaking_change_allowed());\n  }\n  ```",
+            "UT: [Boundary] 1.0.0 exact transition point\n  ```rust\n  fn version_1_0_0_exact_transition_point() {\n      let policy = VersionPolicy::new(\"1.0.0\").expect(\"valid semver\");\n      assert_eq!(policy.phase(), VersionPhase::Stable);\n      assert!(!policy.is_breaking_change_allowed());\n  }\n  ```",
+            "UT: [Boundary] Pre-release and build metadata parse correctly\n  ```rust\n  fn version_parses_pre_release_and_build_metadata() {\n      let policy = VersionPolicy::new(\"0.1.0-alpha.1+build.123\")\n          .expect(\"pre-release version\");\n      assert_eq!(policy.phase(), VersionPhase::Dev);\n  }\n  ```",
+            "IT: [Integration] Spec references P2-2 for semver-checks\n  ```rust\n  fn c067_postcondition_spec_references_p2_2_for_semver_checks() {\n      let spec = std::fs::read_to_string(\"specs/P0-2.md\").expect(\"spec must exist\");\n      assert!(spec.contains(\"P2-2\"));\n      assert!(spec.contains(\"semver-checks\") || spec.contains(\"cargo semver-checks\"));\n  }\n  ```"
+          ]
         },
         {
           "title": "RuntimeCommand Enum & Command Serialization",
@@ -581,7 +2676,7 @@
       ],
       "summary": "Crate purpose, non-goals, compliance requirements, versioning policy, functional requirements, module structure, concurrency model foundation (RuntimeCommand), and comprehensive error design (SipError & M20 command error handling). Establishes the specification baseline that all other phases depend on.",
       "phaseId": 0,
-      "status": "done"
+      "status": "todo"
     },
     {
       "id": 1,

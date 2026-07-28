@@ -673,7 +673,10 @@
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P1-5\" --check-ambiguous)",
       "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P1-5\")",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P1-5\" --tickets=\"Tickets.json\")",
-      "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" src/config/srtp_transport_reconnect.rs src/config/mod.rs)"
+      "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" src/config/srtp_transport_reconnect.rs src/config/mod.rs)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P0-1\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P0-1\" --for-spec --review)",
+      "Bash(python3 -m json.tool)"
     ]
   }
 }
