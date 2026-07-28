@@ -219,6 +219,28 @@ node .claude/scripts/tickets/verify-red-coverage.js --ticket-key="$ARGUMENTS" --
 
 If BLOCKed: return to Step 5 (Red) and add missing @verifies annotations, then re-run.
 
+### Step 5c: Validate target resolution (mandatory — C001)
+
+After all crimes and stubs are resolved in Steps 3-5, validate that targetStubs/targetCrimes are clean and all contracts pass. This gate ensures the crime-first principle (C001) is enforced before proceeding to active implementation.
+
+**Step 5c-1 — Crime-first confirmation**: Verify in Tickets.json that all targetCrimes have `status: "resolved"` or `status: "false_positive"`. If any targetCrime remains `"pending"`, return to Step 3 (Emergency crime resolution) and resolve it first.
+
+**Step 5c-2 — Validate targets:**
+
+```bash
+node .claude/scripts/tickets/validate-ticket-targets.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Step 5c-3 — Verify contract coverage:**
+
+```bash
+node .claude/scripts/tickets/verify-final-contracts.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+```
+
+**Convergence loop**: If Step 5c-2 or Step 5c-3 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run from Step 5c-1. **Loop until both pass before proceeding to Step 6.** The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed.
+
 ### Step 6: Active search for incomplete implementations (mandatory)
 
 After completing the implementation, **scrutinize all code you changed** before declaring completion, and check for mixed-in incomplete implementations. This is an **active step to discover omissions that automated scripts cannot detect**; skipping is prohibited.
