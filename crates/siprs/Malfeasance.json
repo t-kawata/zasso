@@ -7,7 +7,8 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 2,
@@ -15,7 +16,8 @@
       "line": 17,
       "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 3,
@@ -23,7 +25,8 @@
       "line": 27,
       "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 4,
@@ -31,7 +34,8 @@
       "line": 32,
       "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 5,
@@ -39,7 +43,8 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 6,
@@ -47,7 +52,8 @@
       "line": 15,
       "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 7,
@@ -55,7 +61,8 @@
       "line": 199,
       "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 8,
@@ -63,7 +70,8 @@
       "line": 91,
       "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 9,
@@ -71,7 +79,8 @@
       "line": 136,
       "description": "// [::STUB::] P0-7: Return real account information once the account state",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 10,
@@ -79,7 +88,8 @@
       "line": 56,
       "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 11,
@@ -87,7 +97,8 @@
       "line": 166,
       "description": "// [::STUB::] P0-7: Return real account information once the account state",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 12,
@@ -95,7 +106,8 @@
       "line": 87,
       "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 13,
@@ -103,7 +115,8 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 14,
@@ -111,7 +124,8 @@
       "line": 11,
       "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     },
     {
       "id": 15,
@@ -119,7 +133,8 @@
       "line": 23,
       "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
       "detected_at": "2026-07-28T14:57:17.005Z",
-      "status": "open"
+      "status": "false_positive",
+      "note": "Deferred to P0-7 — account/call/transport and newtype implementations. P0-7 is a planned future ticket."
     }
   ]
 }

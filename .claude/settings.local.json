@@ -605,7 +605,8 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Status:', d.get\\('updated',{}\\).get\\('status','?'\\)\\)\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P0-6\" --for-spec --review)",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=P0-6 --verify)",
-      "Bash(git commit -m 'feat\\(P0-6\\): Runtime Infrastructure — RuntimeCommand extension, AudioWorkerTask, AsyncAudioSource *)"
+      "Bash(git commit -m 'feat\\(P0-6\\): Runtime Infrastructure — RuntimeCommand extension, AudioWorkerTask, AsyncAudioSource *)",
+      "Bash(ls /Users/sh01/shyme/zasso/Makefile 2>/dev/null && echo \"Root Makefile exists\" || echo \"No root Makefile\")"
     ]
   }
 }
