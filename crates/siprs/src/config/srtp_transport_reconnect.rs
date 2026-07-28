@@ -60,10 +60,7 @@ impl SrtpPolicy {
                 } else {
                     Err(SipError::new(
                         SipErrorKind::InvalidConfig,
-                        format!(
-                            "SRTP {:?} requires srtp feature to be enabled",
-                            self
-                        ),
+                        format!("SRTP {:?} requires srtp feature to be enabled", self),
                     ))
                 }
             }
@@ -158,9 +155,7 @@ impl ReconnectPolicy {
         if !(0.0..=1.0).contains(&jitter_ratio) {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
-                format!(
-                    "ReconnectPolicy: jitter_ratio {jitter_ratio} is not in [0.0, 1.0]"
-                ),
+                format!("ReconnectPolicy: jitter_ratio {jitter_ratio} is not in [0.0, 1.0]"),
             ));
         }
         Ok(Self {
@@ -220,14 +215,14 @@ mod tests {
     use super::*;
     use crate::error::SipError;
 
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     type TestResult = Result<(), SipError>;
 
     // ── C043-Pre: Precondition — SrtpPolicy value set, feature flag available
 
     #[test]
     // @verifies C043
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn srtp_disabled_always_valid() {
         assert!(SrtpPolicy::Disabled.validate(false).is_ok());
         assert!(SrtpPolicy::Disabled.validate(true).is_ok());
@@ -235,7 +230,7 @@ mod tests {
 
     #[test]
     // @verifies C043
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn srtp_mandatory_requires_feature_enabled() {
         assert!(SrtpPolicy::Mandatory.validate(true).is_ok());
         let err = SrtpPolicy::Mandatory.validate(false).unwrap_err();
@@ -244,7 +239,7 @@ mod tests {
 
     #[test]
     // @verifies C043
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn srtp_optional_requires_feature_enabled() {
         assert!(SrtpPolicy::Optional.validate(true).is_ok());
         let err = SrtpPolicy::Optional.validate(false).unwrap_err();
@@ -255,7 +250,7 @@ mod tests {
 
     #[test]
     // @verifies C043
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn srtp_disabled_invariant_universally_valid() {
         for flag in [true, false] {
             assert!(
@@ -268,7 +263,7 @@ mod tests {
     // ── ReconnectPolicy: Normal — use Result<(), SipError> to avoid unwrap
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_new_succeeds_with_valid_params() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.1)?;
         assert_eq!(policy.base_delay(), Duration::from_secs(1));
@@ -278,7 +273,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_next_delay_base_for_attempt_zero() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.0)?;
         let delay = policy.next_delay(0);
@@ -287,7 +282,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_next_delay_doubles_each_attempt() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.0)?;
         let d0 = policy.next_delay(0);
@@ -300,7 +295,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_next_delay_clamped_at_max_delay() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(5), 0.0)?;
         let delay = policy.next_delay(10);
@@ -311,7 +306,7 @@ mod tests {
     // ── ReconnectPolicy: Error
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_rejects_zero_base_delay() {
         let err = ReconnectPolicy::new(Duration::ZERO, Duration::from_secs(60), 0.1).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
@@ -319,7 +314,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_rejects_negative_jitter_ratio() {
         let err = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), -0.1)
             .unwrap_err();
@@ -328,18 +323,18 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_rejects_jitter_ratio_above_one() {
-        let err = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 1.5)
-            .unwrap_err();
+        let err =
+            ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 1.5).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_rejects_max_delay_less_than_base() {
-        let err = ReconnectPolicy::new(Duration::from_secs(10), Duration::from_secs(5), 0.1)
-            .unwrap_err();
+        let err =
+            ReconnectPolicy::new(Duration::from_secs(10), Duration::from_secs(5), 0.1).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
         assert!(err.message.contains("max_delay"));
     }
@@ -347,7 +342,7 @@ mod tests {
     // ── ReconnectPolicy: Boundary
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_jitter_ratio_zero_produces_deterministic_delay() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.0)?;
         let d_a = policy.next_delay(3);
@@ -357,19 +352,22 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_jitter_ratio_one_produces_variable_delay() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 1.0)?;
         let delay = policy.next_delay(5);
         assert!(delay >= Duration::ZERO);
-        assert!(delay <= Duration::from_secs(60) * 2, "jitter=1.0 may double delay");
+        assert!(
+            delay <= Duration::from_secs(60) * 2,
+            "jitter=1.0 may double delay"
+        );
         Ok(())
     }
 
     // ── TransportProtocol
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn transport_protocol_needs_reconnect() {
         assert!(!TransportProtocol::Udp.needs_reconnect());
         assert!(TransportProtocol::Tcp.needs_reconnect());
@@ -379,7 +377,7 @@ mod tests {
     // ── Invariant: fields immutable after construction
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn reconnect_policy_fields_immutable() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(2), Duration::from_secs(30), 0.2)?;
         assert_eq!(policy.base_delay(), Duration::from_secs(2));

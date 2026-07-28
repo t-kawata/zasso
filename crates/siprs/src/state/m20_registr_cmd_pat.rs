@@ -19,7 +19,9 @@
 //
 // [::TICKET::] P0-5: RegistrationStateChanged RuntimeCommand pattern — AccountInfoSnapshot
 
-use crate::api::event_model_payload_bus::{AccountId, RegistrationFailure, RegistrationInfo, SipEventPayload};
+use crate::api::event_model_payload_bus::{
+    AccountId, RegistrationFailure, RegistrationInfo, SipEventPayload,
+};
 
 /// Snapshot of account info from `pjsua_acc_get_info()`.
 ///
@@ -56,7 +58,10 @@ pub fn registration_status_to_payload(snapshot: &AccountInfoSnapshot) -> Option<
         Some(SipEventPayload::RegistrationFailed(RegistrationFailure {
             account_id: acc_id,
             status_code: snapshot.registration_status as u16,
-            reason: format!("registration failed with status {}", snapshot.registration_status),
+            reason: format!(
+                "registration failed with status {}",
+                snapshot.registration_status
+            ),
         }))
     }
 }
@@ -69,7 +74,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_info_snapshot_construction() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(1),
@@ -87,7 +92,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_info_snapshot_expired() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(2),
@@ -104,7 +109,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn status_200_maps_to_registration_succeeded() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(1),
@@ -124,7 +129,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn status_403_maps_to_registration_failed() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(1),
@@ -145,7 +150,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn status_503_maps_to_registration_failed() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(3),
@@ -166,7 +171,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn status_200_with_zero_expiry_maps_to_succeeded() {
         let snap = AccountInfoSnapshot {
             acc_id: AccountId(5),
@@ -183,7 +188,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn registration_status_always_produces_event() {
         // Both 200 and non-200 should produce Some payload
         let success = AccountInfoSnapshot {
@@ -207,9 +212,9 @@ mod tests {
     // ── Clone + Debug ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_info_snapshot_clone_and_debug() {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + std::fmt::Debug>() {}
         assert_cd::<AccountInfoSnapshot>();
     }

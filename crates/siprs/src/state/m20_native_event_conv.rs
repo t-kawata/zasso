@@ -42,51 +42,25 @@ use crate::api::event_model_payload_bus::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NativeEvent {
     // ── P0: Registration ──
-    RegistrationStateChanged {
-        acc_id: u32,
-    },
-    RegistrationStarted {
-        acc_id: u32,
-        renew: bool,
-    },
+    RegistrationStateChanged { acc_id: u32 },
+    RegistrationStarted { acc_id: u32, renew: bool },
 
     // ── P0: Call ──
-    CallStateChanged {
-        call_id: u32,
-        state: u32,
-    },
-    CallMediaStateChanged {
-        call_id: u32,
-    },
+    CallStateChanged { call_id: u32, state: u32 },
+    CallMediaStateChanged { call_id: u32 },
 
     // ── P0: DTMF ──
-    DtmfDigit {
-        call_id: u32,
-        digit: char,
-    },
+    DtmfDigit { call_id: u32, digit: char },
 
     // ── P1: Transport/ICE (deferred) ──
-    TransportStateChanged {
-        transport_id: u32,
-        state: u32,
-    },
-    IceTransportError {
-        call_id: u32,
-    },
+    TransportStateChanged { transport_id: u32, state: u32 },
+    IceTransportError { call_id: u32 },
 
     // ── P2: Supplemental (deferred) ──
-    CallTsxStateChanged {
-        call_id: u32,
-    },
-    CallRedirected {
-        call_id: u32,
-    },
-    CallTransferStatus {
-        call_id: u32,
-    },
-    CallReplaced {
-        call_id: u32,
-    },
+    CallTsxStateChanged { call_id: u32 },
+    CallRedirected { call_id: u32 },
+    CallTransferStatus { call_id: u32 },
+    CallReplaced { call_id: u32 },
     NatDetected,
 }
 
@@ -105,9 +79,7 @@ pub enum NativeEvent {
 /// * `event` - The native event to convert.
 /// * `_backend` - Backend reference for API calls (used by RegistrationStateChanged).
 ///   Currently unused because GetAccountInfo flows through RuntimeCommand.
-pub fn convert_native_event_to_payload(
-    event: NativeEvent,
-) -> Option<SipEventPayload> {
+pub fn convert_native_event_to_payload(event: NativeEvent) -> Option<SipEventPayload> {
     match event {
         // ── P0: Registration ──
         NativeEvent::RegistrationStateChanged { .. } => {
@@ -115,25 +87,20 @@ pub fn convert_native_event_to_payload(
             // and publishes after backend response. No immediate payload.
             None
         }
-        NativeEvent::RegistrationStarted {
-            acc_id,
-            renew,
-        } => Some(SipEventPayload::RegistrationStarted(RegistrationInfo {
-            account_id: AccountId(acc_id as u64),
-            renew,
-        })),
+        NativeEvent::RegistrationStarted { acc_id, renew } => {
+            Some(SipEventPayload::RegistrationStarted(RegistrationInfo {
+                account_id: AccountId(acc_id as u64),
+                renew,
+            }))
+        }
 
         // ── P0: Call ──
-        NativeEvent::CallStateChanged {
-            call_id,
-            state,
-        } => crate::state::m20_callstate_mapping::convert_call_state(
-            CallId(call_id as u64),
-            state,
-        ),
+        NativeEvent::CallStateChanged { call_id, state } => {
+            crate::state::m20_callstate_mapping::convert_call_state(CallId(call_id as u64), state)
+        }
         NativeEvent::CallMediaStateChanged { call_id } => {
             // Without the actual pjsua_call_get_info result, default to media_status=1 (ACTIVE).
-            // [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.
+            // [::STUB::] P3-2: Replace with real pjsua_call_get_info call once FFI exists.
             crate::state::m20_callstate_mapping::convert_call_media_state(
                 CallId(call_id as u64),
                 1, // default to ACTIVE
@@ -141,18 +108,16 @@ pub fn convert_native_event_to_payload(
         }
 
         // ── P0: DTMF ──
-        NativeEvent::DtmfDigit {
-            call_id: _,
-            digit,
-        } => Some(SipEventPayload::DtmfReceived(DtmfReceivedInfo {
-            digit,
-            duration_ms: None,
-            volume_dbm0: None,
-        })),
+        NativeEvent::DtmfDigit { call_id: _, digit } => {
+            Some(SipEventPayload::DtmfReceived(DtmfReceivedInfo {
+                digit,
+                duration_ms: None,
+                volume_dbm0: None,
+            }))
+        }
 
         // ── P1: Transport/ICE (deferred — returns None) ──
-        NativeEvent::TransportStateChanged { .. }
-        | NativeEvent::IceTransportError { .. } => {
+        NativeEvent::TransportStateChanged { .. } | NativeEvent::IceTransportError { .. } => {
             // P1: Transport/ICE events — deferred to later ticket.
             // Rationale: Transport monitoring is not required for audio-only calls.
             None
@@ -181,7 +146,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_registration_started_maps() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 1,
@@ -198,7 +163,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_registration_started_renew() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 5,
@@ -215,13 +180,12 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_registration_state_changed_returns_none() {
         // RegistrationStateChanged is handled via RuntimeCommand::GetAccountInfo
         // by the Reactor, not via immediate conversion.
-        let result = convert_native_event_to_payload(NativeEvent::RegistrationStateChanged {
-            acc_id: 1,
-        });
+        let result =
+            convert_native_event_to_payload(NativeEvent::RegistrationStateChanged { acc_id: 1 });
         assert!(result.is_none());
     }
 
@@ -229,7 +193,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_calling() {
         let result = convert_native_event_to_payload(NativeEvent::CallStateChanged {
             call_id: 10,
@@ -240,7 +204,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_confirmed() {
         let result = convert_native_event_to_payload(NativeEvent::CallStateChanged {
             call_id: 10,
@@ -251,7 +215,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_disconnected() {
         let result = convert_native_event_to_payload(NativeEvent::CallStateChanged {
             call_id: 10,
@@ -262,11 +226,10 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_call_media_state_changed() {
-        let result = convert_native_event_to_payload(NativeEvent::CallMediaStateChanged {
-            call_id: 10,
-        });
+        let result =
+            convert_native_event_to_payload(NativeEvent::CallMediaStateChanged { call_id: 10 });
         // Currently defaults to ACTIVE (1) — stub until P0-6
         assert!(
             matches!(result, Some(SipEventPayload::MediaActive(_))),
@@ -278,7 +241,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_dtmf_digit_maps_to_received() {
         let result = convert_native_event_to_payload(NativeEvent::DtmfDigit {
             call_id: 5,
@@ -294,7 +257,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_dtmf_digit_pound() {
         let result = convert_native_event_to_payload(NativeEvent::DtmfDigit {
             call_id: 5,
@@ -310,7 +273,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_returns_none() {
         let result = convert_native_event_to_payload(NativeEvent::TransportStateChanged {
             transport_id: 1,
@@ -321,11 +284,9 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_ice_transport_error_returns_none() {
-        let result = convert_native_event_to_payload(NativeEvent::IceTransportError {
-            call_id: 5,
-        });
+        let result = convert_native_event_to_payload(NativeEvent::IceTransportError { call_id: 5 });
         assert!(result.is_none(), "P1 ICE events must return None");
     }
 
@@ -333,37 +294,53 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_p2_variants_return_none() {
-        assert!(convert_native_event_to_payload(NativeEvent::CallTsxStateChanged { call_id: 1 }).is_none());
-        assert!(convert_native_event_to_payload(NativeEvent::CallRedirected { call_id: 1 }).is_none());
-        assert!(convert_native_event_to_payload(NativeEvent::CallTransferStatus { call_id: 1 }).is_none());
-        assert!(convert_native_event_to_payload(NativeEvent::CallReplaced { call_id: 1 }).is_none());
+        assert!(
+            convert_native_event_to_payload(NativeEvent::CallTsxStateChanged { call_id: 1 })
+                .is_none()
+        );
+        assert!(
+            convert_native_event_to_payload(NativeEvent::CallRedirected { call_id: 1 }).is_none()
+        );
+        assert!(
+            convert_native_event_to_payload(NativeEvent::CallTransferStatus { call_id: 1 })
+                .is_none()
+        );
+        assert!(
+            convert_native_event_to_payload(NativeEvent::CallReplaced { call_id: 1 }).is_none()
+        );
         assert!(convert_native_event_to_payload(NativeEvent::NatDetected).is_none());
     }
 
     // ── NativeEvent enum invariants ────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_is_clone_and_debug() {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + std::fmt::Debug>() {}
         assert_cd::<NativeEvent>();
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_variants_distinct() {
-        let ev1 = NativeEvent::CallStateChanged { call_id: 1, state: 0 };
-        let ev2 = NativeEvent::DtmfDigit { call_id: 1, digit: '1' };
+        let ev1 = NativeEvent::CallStateChanged {
+            call_id: 1,
+            state: 0,
+        };
+        let ev2 = NativeEvent::DtmfDigit {
+            call_id: 1,
+            digit: '1',
+        };
         assert_ne!(format!("{ev1:?}"), format!("{ev2:?}"));
     }
 
     // ── Edge: zero acc_id ──────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn native_event_zero_account_id() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 0,

@@ -154,7 +154,7 @@ mod tests {
     // ── C054-Precondition: MockBackend exists for DualClientContext ─
     // @verifies C054
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_dual_client_presupposes_backend() {
         // DualClientContext depends on MockBackend from runtime::backend
         let _mock = crate::runtime::backend::MockBackend::new();
@@ -164,7 +164,7 @@ mod tests {
     // ── C054-Postcondition: DualClientContext constructs cleanly ──
     // @verifies C054
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_dual_client_context_constructs() {
         let ctx = DualClientContext::new();
         // Verify structural existence — no panic, no side effects.
@@ -174,25 +174,38 @@ mod tests {
     // ── C054-Invariant: Bidirectional pattern documented ──────────
     // @verifies C054
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_dual_client_bidirectional_pattern_documented() {
         let pattern = DualClientContext::call_a_to_b_pattern();
-        assert!(!pattern.is_empty(), "Bidirectional pattern must be documented");
-        assert!(pattern.contains("client_a"), "Pattern must describe client_a");
-        assert!(pattern.contains("client_b"), "Pattern must describe client_b");
+        assert!(
+            !pattern.is_empty(),
+            "Bidirectional pattern must be documented"
+        );
+        assert!(
+            pattern.contains("client_a"),
+            "Pattern must describe client_a"
+        );
+        assert!(
+            pattern.contains("client_b"),
+            "Pattern must describe client_b"
+        );
     }
 
     // ── M20 feature mapping has 11 entries ────────────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_m20_feature_mapping_has_eleven_entries() {
         let mapping = M20FeatureTestEntry::m20_feature_mapping();
-        assert_eq!(mapping.len(), 11, "M20 feature mapping must have exactly 11 entries");
+        assert_eq!(
+            mapping.len(),
+            11,
+            "M20 feature mapping must have exactly 11 entries"
+        );
     }
 
     // ── Every M20 entry has non-empty name and description ─────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_every_m20_entry_has_name_and_description() {
         for entry in M20FeatureTestEntry::m20_feature_mapping() {
             assert!(!entry.feature_name.is_empty());
@@ -202,7 +215,7 @@ mod tests {
 
     // ── M20 entries reference valid test layers ───────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_m20_entries_use_valid_layers() {
         for entry in M20FeatureTestEntry::m20_feature_mapping() {
             match entry.layer {
@@ -213,13 +226,15 @@ mod tests {
 
     // ── Layer 3 entries note Docker requirement ──────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_layer3_entries_require_docker() {
         for entry in M20FeatureTestEntry::m20_feature_mapping() {
             if entry.layer == M20TestLayer::Layer3 {
-                assert!(!entry.notes.is_empty(),
+                assert!(
+                    !entry.notes.is_empty(),
                     "Layer 3 entry '{}' must document its Docker requirement",
-                    entry.feature_name);
+                    entry.feature_name
+                );
             }
         }
     }

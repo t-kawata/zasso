@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0011: §8 Public API Design
+// TODO: [::STUB::] P3-1: MUST implement NODE_ID=N0011: §8 Public API Design

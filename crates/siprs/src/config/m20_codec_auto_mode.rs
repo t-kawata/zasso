@@ -135,14 +135,14 @@ mod tests {
     use super::*;
     use crate::error::SipError;
 
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     type TestResult = Result<(), SipError>;
 
     // ── C042-Pre: Precondition — codecs defined, preferred_codecs empty → auto mode
 
     #[test]
     // @verifies C042
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_assigns_opus_255_and_pcmu_254_in_auto_mode() -> TestResult {
         let codecs = vec![
             CodecInfo::new("PCMU/8000/1"),
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     // @verifies C042
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_bypasses_auto_mode_when_preferred_codecs_non_empty() -> TestResult {
         let codecs = vec![
             CodecInfo::new("PCMU/8000/1"),
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     // @verifies C042
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_returns_exact_priority_values() -> TestResult {
         let codecs = vec![
             CodecInfo::new("opus/48000/2"),
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     // @verifies C042
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn opus_invariant_always_255_in_auto_mode() -> TestResult {
         let codecs = vec![
             CodecInfo::new("opus/48000/2"),
@@ -225,7 +225,7 @@ mod tests {
     // ── Error cases
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_rejects_duplicate_codec_id() {
         let codecs = vec![
             CodecInfo::new("opus/48000/2"),
@@ -241,7 +241,7 @@ mod tests {
     // ── Boundary cases
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_empty_codec_list_returns_empty_map() -> TestResult {
         let codecs: Vec<CodecInfo> = vec![];
         let preferred: Vec<String> = vec![];
@@ -253,12 +253,9 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn apply_unknown_codec_receives_priority_zero() -> TestResult {
-        let codecs = vec![
-            CodecInfo::new("G722/8000/1"),
-            CodecInfo::new("iLBC/8000/1"),
-        ];
+        let codecs = vec![CodecInfo::new("G722/8000/1"), CodecInfo::new("iLBC/8000/1")];
         let preferred: Vec<String> = vec![];
 
         let result = CodecAutoMode::apply(&codecs, &preferred)?;

@@ -56,7 +56,7 @@ pub struct AuthConfig {
 
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 impl Default for AuthConfig {
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             mode: AuthMode::LocalhostOnly,
@@ -113,15 +113,15 @@ mod tests {
     // ── Invariant: AuthMode has exactly 3 variants ─────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_mode_variant_count() {
         // Compile-time exhaustiveness check — match must cover 3 variants
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_exhaustive(mode: AuthMode) {
             match mode {
-                AuthMode::LocalhostOnly => {},
-                AuthMode::ApiKey { .. } => {},
-                AuthMode::Jwt => {},
+                AuthMode::LocalhostOnly => {}
+                AuthMode::ApiKey { .. } => {}
+                AuthMode::Jwt => {}
             }
         }
         let _ = assert_exhaustive;
@@ -131,79 +131,113 @@ mod tests {
     // ── Invariant: Default mode is LocalhostOnly ───────────────────────
 
     #[test]
-// @verifies C062
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // @verifies C062
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_default_localhost_only() {
         let config = AuthConfig::default();
-        assert_eq!(config.mode, AuthMode::LocalhostOnly,
-            "Default auth mode must be LocalhostOnly");
+        assert_eq!(
+            config.mode,
+            AuthMode::LocalhostOnly,
+            "Default auth mode must be LocalhostOnly"
+        );
     }
 
     // ── Normal: AuthConfig valid configurations ────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_localhost_valid() {
-        let config = AuthConfig { mode: AuthMode::LocalhostOnly, jwt_secret: None, jwt_expiry_secs: 3600 };
-        let bind: std::net::SocketAddr = format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
-        assert!(config.validate(&bind).is_ok(),
-            "LocalhostOnly with loopback address must be valid");
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr =
+            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        assert!(
+            config.validate(&bind).is_ok(),
+            "LocalhostOnly with loopback address must be valid"
+        );
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_apikey_valid() {
         let config = AuthConfig {
-            mode: AuthMode::ApiKey { key: crate::security::SecretString::new(String::from("test-key")) },
+            mode: AuthMode::ApiKey {
+                key: crate::security::SecretString::new(String::from("test-key")),
+            },
             jwt_secret: None,
             jwt_expiry_secs: 3600,
         };
         let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
-        assert!(config.validate(&bind).is_ok(),
-            "ApiKey mode must accept any bind address");
+        assert!(
+            config.validate(&bind).is_ok(),
+            "ApiKey mode must accept any bind address"
+        );
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_jwt_valid() {
         let config = AuthConfig {
             mode: AuthMode::Jwt,
-            jwt_secret: Some(crate::security::SecretString::new(String::from("jwt-secret"))),
+            jwt_secret: Some(crate::security::SecretString::new(String::from(
+                "jwt-secret",
+            ))),
             jwt_expiry_secs: 3600,
         };
         let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
-        assert!(config.validate(&bind).is_ok(),
-            "Jwt mode with secret must be valid");
+        assert!(
+            config.validate(&bind).is_ok(),
+            "Jwt mode with secret must be valid"
+        );
     }
 
     // ── Error: AuthConfig invalid configurations ──────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_localhost_rejects_external() {
-        let config = AuthConfig { mode: AuthMode::LocalhostOnly, jwt_secret: None, jwt_expiry_secs: 3600 };
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
         let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
         let result = config.validate(&bind);
-        assert!(result.is_err(), "LocalhostOnly must reject non-loopback address");
-        assert!(result.unwrap_err().to_string().contains("LocalhostOnly"),
-            "Error message must mention LocalhostOnly");
+        assert!(
+            result.is_err(),
+            "LocalhostOnly must reject non-loopback address"
+        );
+        assert!(
+            result.unwrap_err().to_string().contains("LocalhostOnly"),
+            "Error message must mention LocalhostOnly"
+        );
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_auth_config_jwt_requires_secret() {
-        let config = AuthConfig { mode: AuthMode::Jwt, jwt_secret: None, jwt_expiry_secs: 3600 };
-        let bind: std::net::SocketAddr = format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr =
+            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
         let result = config.validate(&bind);
         assert!(result.is_err(), "Jwt mode without secret must return error");
-        assert!(result.unwrap_err().to_string().contains("secret"),
-            "Error message must mention missing secret");
+        assert!(
+            result.unwrap_err().to_string().contains("secret"),
+            "Error message must mention missing secret"
+        );
     }
 
     // ── Normal: ServerConfig struct construction ───────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_server_config_struct_fields() {
         let config = ServerConfig {
             bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap(),
@@ -219,11 +253,11 @@ mod tests {
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();

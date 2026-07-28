@@ -53,8 +53,7 @@ impl AsyncAudioSource for MockAsyncAudioSource {
         let remaining = self.data.len() - self.position;
         let to_copy = remaining.min(buf.len());
         if to_copy > 0 {
-            buf[..to_copy]
-                .copy_from_slice(&self.data[self.position..self.position + to_copy]);
+            buf[..to_copy].copy_from_slice(&self.data[self.position..self.position + to_copy]);
             self.position += to_copy;
         }
         to_copy
@@ -149,7 +148,7 @@ impl AudioMixer {
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 impl Default for AudioMixer {
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::new()
     }
@@ -164,18 +163,18 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-    // [::STUB::] P0-7: mixer stored for future state inspection API.
+    // [::STUB::] P3-2: mixer stored for future state inspection API.
     // Currently unused in AudioWorkerTask itself (passed to AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P0-7: call_id stored for future query API.
+    // [::STUB::] P3-2: call_id stored for future query API.
     #[allow(dead_code)]
     call_id: u64,
-    // [::STUB::] P0-7: frame_duration stored for future query API.
+    // [::STUB::] P3-2: frame_duration stored for future query API.
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-    // [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.
+    // [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.
     #[allow(dead_code)]
     handle: Option<tokio::task::JoinHandle<()>>,
 }
@@ -231,7 +230,7 @@ impl AudioWorkerTask {
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 struct AudioWorkerInner {
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P0-7: call_id stored for future logging/metrics correlation.
+    // [::STUB::] P3-2: call_id stored for future logging/metrics correlation.
     #[allow(dead_code)]
     call_id: u64,
     frame_duration: Duration,
@@ -306,19 +305,15 @@ mod tests {
     // ── Normal: AudioMixer construction ─────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_new_creates_empty_sources() {
         let mixer = AudioMixer::new();
         assert_eq!(mixer.source_count(), 0, "new mixer must have 0 sources");
-        assert_eq!(
-            mixer.next_source_id(),
-            0,
-            "first source_id must be 0"
-        );
+        assert_eq!(mixer.next_source_id(), 0, "first source_id must be 0");
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_add_source_increments_source_id() {
         let mixer = AudioMixer::new();
         let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -329,7 +324,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_remove_source_removes_existing() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -341,21 +336,17 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_set_gain_updates_gain() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
         let result = mixer.set_gain(id, 0.5);
         assert!(result.is_ok(), "set_gain must succeed");
-        assert_eq!(
-            *mixer.gains.get(&id).unwrap(),
-            0.5,
-            "gain must be updated"
-        );
+        assert_eq!(*mixer.gains.get(&id).unwrap(), 0.5, "gain must be updated");
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_mute_toggles_flag() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -449,7 +440,7 @@ mod tests {
     // ── Error cases ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_remove_nonexistent_source_returns_error() {
         let mixer = AudioMixer::new();
         let result = mixer.remove_source(999);
@@ -460,15 +451,18 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_set_gain_nonexistent_source_returns_error() {
         let mixer = AudioMixer::new();
         let result = mixer.set_gain(999, 0.5);
-        assert!(result.is_err(), "set_gain on non-existent source must error");
+        assert!(
+            result.is_err(),
+            "set_gain on non-existent source must error"
+        );
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_mute_nonexistent_source_returns_error() {
         let mixer = AudioMixer::new();
         let result = mixer.mute(999, true);
@@ -478,18 +472,21 @@ mod tests {
     // ── Boundary cases ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_add_source_32_sources_works() {
         let mixer = AudioMixer::new();
         for i in 0..32u64 {
             let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![i as i16; 10])));
-            assert_eq!(id, i, "source_id must match iteration: expected {i}, got {id}");
+            assert_eq!(
+                id, i,
+                "source_id must match iteration: expected {i}, got {id}"
+            );
         }
         assert_eq!(mixer.source_count(), 32, "all 32 sources stored");
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_gain_zero_accepted() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -497,7 +494,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_gain_two_accepted() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -505,27 +502,24 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_gain_clamped_above_two() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
         let _ = mixer.set_gain(id, 5.0);
         let actual = *mixer.gains.get(&id).unwrap();
-        assert!(
-            actual <= 2.0,
-            "gain must be clamped to 2.0, got {actual}"
-        );
+        assert!(actual <= 2.0, "gain must be clamped to 2.0, got {actual}");
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_source_count_zero() {
         let mixer = AudioMixer::new();
         assert_eq!(mixer.source_count(), 0);
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_source_count_one() {
         let mixer = AudioMixer::new();
         mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -533,36 +527,33 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_duplicate_remove_second_fails() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
         assert!(mixer.remove_source(id).is_ok(), "first remove must succeed");
-        assert!(
-            mixer.remove_source(id).is_err(),
-            "second remove must fail"
-        );
+        assert!(mixer.remove_source(id).is_err(), "second remove must fail");
     }
 
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn audio_mixer_is_send_sync() {
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AudioMixer>();
         assert_sync::<AudioMixer>();
     }
 
     #[test]
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C036
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }

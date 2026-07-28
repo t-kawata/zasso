@@ -1,10 +1,9 @@
-
 // [::TICKET::] P0-3: SipCall type placeholder.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 //
-// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).
+// [::STUB::] P5-1: Full call lifecycle management (N0027, N0026).
 // This file provides the structural type skeleton. Call lifecycle
-// (make, answer, hangup, hold, transfer) is deferred to P0-7+.
+// (make, answer, hangup, hold, transfer) is deferred to P5-1.
 
 /// Represents a single SIP call session.
 ///
@@ -12,7 +11,7 @@
 /// It is created by `SipClient::make_call()` or accepted via
 /// `SipClient::answer_call()`.
 ///
-/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and
+/// [::STUB::] P5-1: Replace `pub` fields with proper accessors and
 /// add call lifecycle methods (answer, hangup, hold, transfer, send_dtmf).
 #[derive(Debug, Clone)]
 pub struct SipCall {

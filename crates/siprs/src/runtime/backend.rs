@@ -54,33 +54,33 @@ pub trait Backend: Send {
     /// Resolve `conf_port_id` for a given native call id.
     ///
     /// conf_port_id is **never** stored in `CallEntry` — it lives here.
-// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
     fn resolve_conf_port(&self, native_call_id: i32) -> Result<i32, ReactorError>;
 
     /// [::TICKET::] P0-5: Get account info for registration state retrieval.
     ///
     /// Returns an `AccountInfoSnapshot` for the given native account ID.
     /// Used by the RegistrationStateChanged RuntimeCommand pattern.
-// [::TICKET::] P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P0-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P0-6) --for-spec --no-implementation-order`.
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// [::TICKET::] P0-6: Connect a call to the conference bridge.
     ///
     /// Maps to `pjsua_conf_connect()`. The `call_id` identifies the call
     /// whose media stream should be connected to the bridge.
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, call_id: u64) -> Result<(), ReactorError>;
 
     /// [::TICKET::] P0-6: Disconnect a call from the conference bridge.
     ///
     /// Maps to `pjsua_conf_disconnect()`. The `call_id` identifies the call
     /// whose media stream should be disconnected from the bridge.
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, call_id: u64) -> Result<(), ReactorError>;
 }
 
 // [::STUB::] P0-6: MockBackend provides canned responses for reactor unit tests.
-//                    Full FFI-backed implementation in PjsuaBackend (P2-4).
+//                    Full FFI-backed implementation in PjsuaBackend (P3-2).
 #[derive(Default)]
 pub struct MockBackend {
     pub initialized: bool,
@@ -175,9 +175,9 @@ impl Backend for MockBackend {
     }
 
     // [::TICKET::] P0-5: Mock get_account_info returns canned data
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
-        // [::STUB::] P0-7: Return real account information once the account state
+        // [::STUB::] P3-1: Return real account information once the account state
         // machine (N0025) provides actual registration state. The mock returns a
         // canned "registered" response for testing event conversion logic.
         Ok(AccountInfoSnapshot {
@@ -190,13 +190,13 @@ impl Backend for MockBackend {
     }
 
     // [::TICKET::] P0-6: Mock conf_connect returns Ok for testing
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, _call_id: u64) -> Result<(), ReactorError> {
         Ok(())
     }
 
     // [::TICKET::] P0-6: Mock conf_disconnect returns Ok for testing
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, _call_id: u64) -> Result<(), ReactorError> {
         Ok(())
     }

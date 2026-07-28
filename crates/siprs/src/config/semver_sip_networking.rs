@@ -67,42 +67,56 @@ mod tests {
     // ── Normal: Versioning policy ────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_versioning_policy_is_defined() {
-        assert!(!VERSIONING_POLICY.is_empty(),
-            "Versioning policy must be a non-empty string");
-        assert!(VERSIONING_POLICY.contains("0.x"),
-            "Policy must mention 0.x flexibility");
+        assert!(
+            !VERSIONING_POLICY.is_empty(),
+            "Versioning policy must be a non-empty string"
+        );
+        assert!(
+            VERSIONING_POLICY.contains("0.x"),
+            "Policy must mention 0.x flexibility"
+        );
     }
 
     // ── Normal: DNS delegation ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_dns_delegation_is_defined() {
-        assert!(!DNS_DELEGATION.is_empty(),
-            "DNS delegation notice must be non-empty");
-        assert!(DNS_DELEGATION.contains("PJSIP"),
-            "Delegation must mention PJSIP");
+        assert!(
+            !DNS_DELEGATION.is_empty(),
+            "DNS delegation notice must be non-empty"
+        );
+        assert!(
+            DNS_DELEGATION.contains("PJSIP"),
+            "Delegation must mention PJSIP"
+        );
     }
 
     // ── Normal: TlsCertInfo construction ─────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_tls_cert_info_construct_with_all_fields() {
         let info = TlsCertInfo {
             ca_cert_path: Some(std::path::PathBuf::from("/etc/ssl/certs/ca.pem")),
             client_cert_path: Some(std::path::PathBuf::from("/etc/ssl/certs/client.pem")),
             verify_server: true,
         };
-        assert_eq!(info.ca_cert_path.as_deref(), Some(std::path::Path::new("/etc/ssl/certs/ca.pem")));
-        assert_eq!(info.client_cert_path.as_deref(), Some(std::path::Path::new("/etc/ssl/certs/client.pem")));
+        assert_eq!(
+            info.ca_cert_path.as_deref(),
+            Some(std::path::Path::new("/etc/ssl/certs/ca.pem"))
+        );
+        assert_eq!(
+            info.client_cert_path.as_deref(),
+            Some(std::path::Path::new("/etc/ssl/certs/client.pem"))
+        );
         assert!(info.verify_server, "Server verification must be enabled");
     }
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_tls_cert_info_verify_server_default() {
         let info = TlsCertInfo {
             ca_cert_path: None,
@@ -113,30 +127,33 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_tls_cert_info_verify_server_disabled() {
         let info = TlsCertInfo {
             ca_cert_path: None,
             client_cert_path: None,
             verify_server: false,
         };
-        assert!(!info.verify_server, "verify_server must respect false value");
+        assert!(
+            !info.verify_server,
+            "verify_server must respect false value"
+        );
     }
 
     // ── Normal: TlsCertInfo trait implementations ────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_tls_cert_info_traits() {
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_partial_eq<T: PartialEq>() {}
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_debug::<TlsCertInfo>();
         assert_clone::<TlsCertInfo>();
@@ -148,9 +165,9 @@ mod tests {
     // ── Normal: Constants are Send + Sync ─────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_constants_type_check() {
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_str<T: AsRef<str>>() {}
         assert_str::<&str>();
         // Verify constants are &str

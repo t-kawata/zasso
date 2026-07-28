@@ -19,5 +19,4 @@
 
 pub enum State {}
 
-
-// TODO: [::STUB::] MUST implement NODE_ID=N0043: §32 Shutdown Specification
+// TODO: [::STUB::] P4-3: MUST implement NODE_ID=N0043: §32 Shutdown Specification

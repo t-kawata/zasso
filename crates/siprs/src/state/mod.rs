@@ -10,6 +10,8 @@ pub mod registr_state_machine;
 pub mod shutdown_specification;
 
 // Re-export public types at the state level
-pub use m20_callstate_mapping::{convert_call_media_state, convert_call_state, CallMediaState, CallState};
+pub use m20_callstate_mapping::{
+    convert_call_media_state, convert_call_state, CallMediaState, CallState,
+};
 pub use m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 pub use m20_registr_cmd_pat::{registration_status_to_payload, AccountInfoSnapshot};

@@ -100,7 +100,7 @@ impl EventBus {
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for EventBus {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EventBus")
             .field("raw_sip_enabled", &self.raw_sip.is_some())
@@ -122,10 +122,7 @@ pub struct AccountEventReceiver {
 impl AccountEventReceiver {
     /// Create a new receiver that filters for `account_id`.
     pub fn new(account_id: AccountId, inner: broadcast::Receiver<SipEvent>) -> Self {
-        Self {
-            account_id,
-            inner,
-        }
+        Self { account_id, inner }
     }
 
     /// Wait for the next SipEvent matching this receiver's `account_id`.
@@ -164,7 +161,7 @@ impl AccountEventReceiver {
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for AccountEventReceiver {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AccountEventReceiver")
             .field("account_id", &self.account_id)
@@ -179,7 +176,7 @@ mod tests {
     use crate::api::event_model_payload_bus::{CallId, EventMeta, SipEventPayload};
     use tokio::sync::broadcast;
 
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn make_event(account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
             meta: EventMeta::new(1, account_id, Some(CallId(0))),
@@ -191,7 +188,7 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_new_creates_control_channel() {
         let bus = EventBus::new(16, None);
         let _rx = bus.subscribe_control();
@@ -200,7 +197,7 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_raw_sip_none_when_disabled() {
         let bus = EventBus::new(16, None);
         assert!(bus.subscribe_raw_sip().is_none());
@@ -208,7 +205,7 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_raw_sip_some_when_enabled() {
         let bus = EventBus::new(16, Some(32));
         let rx = bus.subscribe_raw_sip();
@@ -244,7 +241,7 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_publish_returns_subscriber_count() {
         let bus = EventBus::new(16, None);
         let _rx1 = bus.subscribe_control();
@@ -274,7 +271,7 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_publish_raw_sip_noop_when_disabled() {
         let bus = EventBus::new(16, None);
         let msg = RawSipMessage {
@@ -287,7 +284,7 @@ mod tests {
 
     /// @verifies C021
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_lagged_detection() {
         let bus = EventBus::new(2, None); // very small capacity
         let mut rx = bus.subscribe_control();
@@ -306,7 +303,7 @@ mod tests {
     // ── EventBus Debug ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_debug_shows_raw_sip_enabled() {
         let bus = EventBus::new(16, Some(8));
         let debug = format!("{:?}", bus);
@@ -360,7 +357,7 @@ mod tests {
     // ── AccountEventReceiver::try_recv ─────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_receiver_try_recv_skips_non_matching() {
         let bus = EventBus::new(16, None);
         let mut rx_a = AccountEventReceiver::new(AccountId(1), bus.subscribe_control());
@@ -372,7 +369,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_receiver_try_recv_empty_when_no_matching() {
         let bus = EventBus::new(16, None);
         let mut rx_a = AccountEventReceiver::new(AccountId(1), bus.subscribe_control());
@@ -385,7 +382,7 @@ mod tests {
     // ── AccountEventReceiver Debug ─────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_receiver_debug() {
         let bus = EventBus::new(16, None);
         let rx = AccountEventReceiver::new(AccountId(42), bus.subscribe_control());
@@ -411,7 +408,7 @@ mod tests {
 
     /// @verifies C021
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_publish_non_blocking() {
         let bus = EventBus::new(1, None);
         // publish returns immediately even with slow subscriber
@@ -423,7 +420,7 @@ mod tests {
     // ─── Boundary: capacity 1 ──────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn eventbus_capacity_one_behavior() {
         let bus = EventBus::new(1, None);
         // With capacity 1, a single event is buffered.
@@ -488,7 +485,8 @@ mod tests {
     fn dual_client_unknown_account_falls_back_to_default() {
         let default_bus = EventBus::new(16, None);
         let mut rx_default = default_bus.subscribe_control();
-        let buses: std::collections::HashMap<AccountId, EventBus> = std::collections::HashMap::new();
+        let buses: std::collections::HashMap<AccountId, EventBus> =
+            std::collections::HashMap::new();
 
         // Event for unknown account
         let event = make_event(Some(AccountId(99)));

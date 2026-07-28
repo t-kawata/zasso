@@ -114,7 +114,7 @@ mod tests {
     // ── C053-Precondition: Four test layers must exist ──────────────
     // @verifies C053
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_strategy_four_layers_exist() {
         let layers = [
             TestLayer::Layer1Unit,
@@ -124,7 +124,10 @@ mod tests {
         ];
         for layer in &layers {
             let desc = layer.description();
-            assert!(!desc.is_empty(), "Every layer must have a non-empty description");
+            assert!(
+                !desc.is_empty(),
+                "Every layer must have a non-empty description"
+            );
         }
         assert_eq!(layers.len(), 4, "All 4 test layers must be defined");
     }
@@ -132,7 +135,7 @@ mod tests {
     // ── C053-Postcondition: Layer 1 covers all 7 scopes ────────────
     // @verifies C053
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_layer1_covers_all_seven_scopes() {
         let scopes = Layer1Scope::all();
         assert_eq!(scopes.len(), 7);
@@ -141,7 +144,7 @@ mod tests {
     // ── C053-Invariant: Each layer has a non-empty scope ───────────
     // @verifies C053
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_each_layer_has_non_empty_scope() {
         for layer in &[
             TestLayer::Layer1Unit,
@@ -155,7 +158,7 @@ mod tests {
 
     // ── Invariant: Layer 1 and 2 are PJSIP-free ──────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_layer1_and_layer2_are_pjsip_free() {
         assert!(TestLayer::Layer1Unit.is_pjsip_free());
         assert!(TestLayer::Layer2StateMachine.is_pjsip_free());
@@ -165,7 +168,7 @@ mod tests {
 
     // ── Invariant: Layer 1-3 are CI-runnable, Layer 4 is CI-external ─
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_layers_one_to_three_are_ci_runnable() {
         assert!(TestLayer::Layer1Unit.is_ci_runnable());
         assert!(TestLayer::Layer2StateMachine.is_ci_runnable());
@@ -176,7 +179,7 @@ mod tests {
     // ── C066-Precondition: Core test strategy must define layers ──
     // @verifies C066
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_core_strategy_defines_four_layers() {
         let prerequisite = ["Layer1", "Layer2", "Layer3"];
         for layer in &prerequisite {

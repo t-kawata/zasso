@@ -61,18 +61,14 @@ impl ShutdownCommandRouter {
     /// When `is_shutting_down` is `false`, the command is always permitted
     /// (normal operation). When `true`, the command is classified according
     /// to the M20 shutdown routing rules.
-    pub fn classify(
-        cmd: &RuntimeCommand,
-        is_shutting_down: bool,
-    ) -> ShutdownCommandAction {
+    pub fn classify(cmd: &RuntimeCommand, is_shutting_down: bool) -> ShutdownCommandAction {
         if !is_shutting_down {
             return ShutdownCommandAction::Permit;
         }
 
         match cmd {
             RuntimeCommand::GetAccountInfo { .. } => ShutdownCommandAction::Permit,
-            RuntimeCommand::ConfConnect { .. }
-            | RuntimeCommand::ConfDisconnect { .. } => {
+            RuntimeCommand::ConfConnect { .. } | RuntimeCommand::ConfDisconnect { .. } => {
                 ShutdownCommandAction::Reject(SipError::new(
                     SipErrorKind::InvalidState,
                     "shutting down",
@@ -95,7 +91,7 @@ mod tests {
     use super::*;
 
     /// Helper to build a `RuntimeCommand::GetAccountInfo` for testing.
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn make_get_account_info() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::GetAccountInfo {
@@ -105,7 +101,7 @@ mod tests {
     }
 
     /// Helper to build a `RuntimeCommand::ConfConnect` for testing.
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn make_conf_connect() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::ConfConnect {
@@ -115,7 +111,7 @@ mod tests {
     }
 
     /// Helper to build a `RuntimeCommand::ConfDisconnect` for testing.
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn make_conf_disconnect() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::ConfDisconnect {
@@ -125,7 +121,7 @@ mod tests {
     }
 
     /// Helper to build a non-M20 command (e.g., Hangup) for testing.
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn make_other_command() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::Hangup {
@@ -138,7 +134,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_get_account_info_permitted_during_shutdown() {
         let cmd = make_get_account_info();
         let action = ShutdownCommandRouter::classify(&cmd, true);
@@ -147,7 +143,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_conf_connect_rejected_during_shutdown() {
         let cmd = make_conf_connect();
         let action = ShutdownCommandRouter::classify(&cmd, true);
@@ -162,7 +158,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_conf_disconnect_rejected_during_shutdown() {
         let cmd = make_conf_disconnect();
         let action = ShutdownCommandRouter::classify(&cmd, true);
@@ -179,7 +175,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_invariant_get_account_info_always_permitted() {
         let cmd = make_get_account_info();
         let action = ShutdownCommandRouter::classify(&cmd, true);
@@ -188,7 +184,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_invariant_media_always_rejected() {
         for cmd in &[make_conf_connect(), make_conf_disconnect()] {
             let action = ShutdownCommandRouter::classify(cmd, true);
@@ -202,7 +198,7 @@ mod tests {
     // ── Normal: non-shutdown operation
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_all_permitted_when_not_shutting_down() {
         let cmds: [RuntimeCommand; 3] = [
             make_get_account_info(),
@@ -221,7 +217,7 @@ mod tests {
     // ── Error: non-M20 commands during shutdown
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn classify_other_commands_rejected_during_shutdown() {
         let cmd = make_other_command();
         let action = ShutdownCommandRouter::classify(&cmd, true);
@@ -237,7 +233,7 @@ mod tests {
     // ── Invariant: SipError is Send + Sync
 
     #[test]
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
     fn shutdown_command_action_reject_contains_sip_error() {
         let cmd = make_conf_connect();
         let action = ShutdownCommandRouter::classify(&cmd, true);

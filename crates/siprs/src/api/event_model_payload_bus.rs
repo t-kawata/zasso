@@ -24,12 +24,12 @@ use std::collections::BTreeMap;
 // ── ID newtypes (minimal, stubs until P0-7) ─────────────────────────────
 
 /// Placeholder for the `AccountId` newtype defined in N0012 (§9).
-/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs
+/// [::STUB::] P4-1: Replace with proper newtype from model/id_design_newtype.rs
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AccountId(pub u64);
 
 /// Placeholder for the `CallId` newtype defined in N0012 (§9).
-/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs
+/// [::STUB::] P4-1: Replace with proper newtype from model/id_design_newtype.rs
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CallId(pub u64);
 
@@ -89,11 +89,7 @@ pub struct EventMeta {
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 impl EventMeta {
     /// Create an EventMeta with only the essential fields.
-    pub fn new(
-        event_id: u64,
-        account_id: Option<AccountId>,
-        call_id: Option<CallId>,
-    ) -> Self {
+    pub fn new(event_id: u64, account_id: Option<AccountId>, call_id: Option<CallId>) -> Self {
         Self {
             event_id,
             timestamp: EventTimestamp::now(),
@@ -241,7 +237,7 @@ impl SipEvent {
 /// `Authorization:` headers with `[REDACTED]` before logging or forwarding
 /// to untrusted consumers.
 ///
-/// [::STUB::] P1+: Full SIP message parsing — currently a minimal wrapper.
+/// [::STUB::] P5-1: Full SIP message parsing — currently a minimal wrapper.
 /// The `data` field contains the raw bytes of the SIP message.
 #[derive(Debug, Clone)]
 pub struct RawSipMessage {
@@ -267,7 +263,7 @@ impl RawSipMessage {
     }
 
     /// Core redaction logic: replaces `password="<value>"` in Authorization headers.
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_auth_header(text: &str) -> String {
         let mut result = String::with_capacity(text.len());
         let mut remaining = text;
@@ -295,7 +291,7 @@ impl RawSipMessage {
     }
 
     /// Redact `password="<value>"` in a single header line.
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_password_in_line(line: &str) -> String {
         let mut result = String::with_capacity(line.len());
         let mut pos = 0;
@@ -334,21 +330,21 @@ mod tests {
     // ── AccountId / CallId ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_id_wraps_u64() {
         let id = AccountId(42);
         assert_eq!(id.0, 42);
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_id_equality() {
         assert_eq!(AccountId(1), AccountId(1));
         assert_ne!(AccountId(1), AccountId(2));
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn account_id_is_hashable() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
@@ -358,7 +354,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn call_id_wraps_u64() {
         let id = CallId(99);
         assert_eq!(id.0, 99);
@@ -367,7 +363,7 @@ mod tests {
     // ── EventTimestamp ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_timestamp_now_creates_valid_timestamp() {
         let ts = EventTimestamp::now();
         let elapsed = ts.0.elapsed();
@@ -376,7 +372,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_timestamp_ordering() {
         let t1 = EventTimestamp(std::time::Instant::now());
         let t2 = EventTimestamp(std::time::Instant::now());
@@ -387,7 +383,7 @@ mod tests {
     // ── EventMeta ──────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_meta_new_sets_required_fields() {
         let meta = EventMeta::new(1, Some(AccountId(5)), Some(CallId(3)));
         assert_eq!(meta.event_id, 1);
@@ -398,7 +394,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_meta_optional_fields_default_to_none() {
         let meta = EventMeta::new(42, None, None);
         assert!(meta.account_id.is_none());
@@ -409,7 +405,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_meta_status_fields() {
         let mut meta = EventMeta::new(1, None, None);
         meta.status_code = Some(200);
@@ -421,7 +417,7 @@ mod tests {
     // ── SipEventPayload ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_registration_started() {
         let info = RegistrationInfo {
             account_id: AccountId(1),
@@ -438,7 +434,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_registration_succeeded() {
         let info = RegistrationInfo {
             account_id: AccountId(2),
@@ -455,7 +451,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_registration_failed() {
         let failure = RegistrationFailure {
             account_id: AccountId(3),
@@ -473,7 +469,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_call_connected() {
         let info = ConnectedCallInfo {
             call_id: CallId(10),
@@ -491,14 +487,14 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_call_disconnected() {
         let payload = SipEventPayload::CallDisconnected;
         assert!(matches!(payload, SipEventPayload::CallDisconnected));
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn payload_dtmf_received() {
         let info = DtmfReceivedInfo {
             digit: '5',
@@ -518,7 +514,7 @@ mod tests {
     // ── SipEvent ───────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_event_new_combines_meta_and_payload() {
         let meta = EventMeta::new(1, Some(AccountId(1)), None);
         let payload = SipEventPayload::CallDisconnected;
@@ -528,7 +524,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_event_meta_access() {
         let meta = EventMeta::new(5, None, Some(CallId(7)));
         let event = SipEvent::new(meta, SipEventPayload::UnregistrationSucceeded);
@@ -537,24 +533,25 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_event_clone_preserves_all_fields() {
         let meta = EventMeta::new(1, Some(AccountId(1)), Some(CallId(2)));
         let payload = SipEventPayload::OutgoingCallStarted;
         let event = SipEvent::new(meta, payload);
         let cloned = event.clone();
         assert_eq!(cloned.meta.event_id, event.meta.event_id);
-        assert!(matches!(cloned.payload, SipEventPayload::OutgoingCallStarted));
+        assert!(matches!(
+            cloned.payload,
+            SipEventPayload::OutgoingCallStarted
+        ));
     }
 
     // ── Media info ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn media_active_info() {
-        let info = MediaActiveInfo {
-            call_id: CallId(3),
-        };
+        let info = MediaActiveInfo { call_id: CallId(3) };
         let payload = SipEventPayload::MediaActive(info);
         match payload {
             SipEventPayload::MediaActive(m) => assert_eq!(m.call_id, CallId(3)),
@@ -563,7 +560,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn media_error_info_with_reason() {
         let info = MediaErrorInfo {
             call_id: CallId(4),
@@ -580,7 +577,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn media_error_info_without_reason() {
         let info = MediaErrorInfo {
             call_id: CallId(5),
@@ -599,7 +596,7 @@ mod tests {
     // ── RegistrationInfo / RegistrationFailure ────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn registration_info_fields() {
         let info = RegistrationInfo {
             account_id: AccountId(10),
@@ -610,7 +607,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn registration_failure_fields() {
         let failure = RegistrationFailure {
             account_id: AccountId(20),
@@ -624,16 +621,22 @@ mod tests {
     // ── EventDirection ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_direction_variants() {
-        assert_ne!(EventDirection::Inbound as u8, EventDirection::Outbound as u8);
-        assert_ne!(EventDirection::Outbound as u8, EventDirection::Internal as u8);
+        assert_ne!(
+            EventDirection::Inbound as u8,
+            EventDirection::Outbound as u8
+        );
+        assert_ne!(
+            EventDirection::Outbound as u8,
+            EventDirection::Internal as u8
+        );
     }
 
     // ── RawSipMessage ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn raw_sip_message_holds_bytes() {
         let msg = RawSipMessage {
             data: vec![0x53, 0x49, 0x50], // "SIP"
@@ -646,10 +649,10 @@ mod tests {
 
     /// @verifies C020, C021
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_event_payload_is_clone_and_debug() {
         // Compile-time check: SipEventPayload must implement Clone + Debug.
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<SipEventPayload>();
         assert_clone_debug::<SipEvent>();
@@ -660,11 +663,11 @@ mod tests {
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn sip_event_payload_is_non_exhaustive() {
         // Compile-time check: SipEventPayload derives Clone.
         // non_exhaustive is verified by separate crate compilation.
-// [::TICKET::] P0-5, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipEventPayload>();
     }
@@ -672,7 +675,7 @@ mod tests {
     // ── Edge: empty headers and logical_context ───────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_meta_empty_containers() {
         let meta = EventMeta::new(1, None, None);
         assert!(meta.headers.is_none());
@@ -680,7 +683,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn event_meta_populated_containers() {
         let mut meta = EventMeta::new(1, None, None);
         meta.headers = Some(vec![("X-Custom".into(), "value".into())]);
@@ -696,7 +699,7 @@ mod tests {
     // ── ConnectedCallInfo ─────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn connected_call_info_all_fields() {
         let info = ConnectedCallInfo {
             call_id: CallId(100),
@@ -712,61 +715,93 @@ mod tests {
 
     /// @verifies C048
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_authorization_replaces_password() {
         let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Digest username=\"alice\", password=\"s3cret!\", realm=\"example.com\"\r\n\r\n";
-        let raw = RawSipMessage { data: sip_msg.to_vec() };
+        let raw = RawSipMessage {
+            data: sip_msg.to_vec(),
+        };
         let redacted = raw.redact_authorization();
         let output = String::from_utf8_lossy(&redacted.data);
-        assert!(output.contains("[REDACTED]"), "redacted output must contain [REDACTED]");
-        assert!(!output.contains("s3cret!"), "redacted output must not contain original password");
+        assert!(
+            output.contains("[REDACTED]"),
+            "redacted output must contain [REDACTED]"
+        );
+        assert!(
+            !output.contains("s3cret!"),
+            "redacted output must not contain original password"
+        );
     }
 
     /// @verifies C048
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_authorization_noop_without_auth_header() {
         let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n";
-        let raw = RawSipMessage { data: sip_msg.to_vec() };
+        let raw = RawSipMessage {
+            data: sip_msg.to_vec(),
+        };
         let redacted = raw.redact_authorization();
-        assert_eq!(raw.data, redacted.data, "message without Authorization header must be unchanged");
+        assert_eq!(
+            raw.data, redacted.data,
+            "message without Authorization header must be unchanged"
+        );
     }
 
     /// @verifies C048
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_authorization_multiple_headers() {
         let sip_msg = b"MESSAGE sip:user@example.com SIP/2.0\r\nAuthorization: Digest password=\"pass1\", username=\"alice\"\r\nAuthorization: Digest password=\"pass2\", username=\"bob\"\r\n\r\n";
-        let raw = RawSipMessage { data: sip_msg.to_vec() };
+        let raw = RawSipMessage {
+            data: sip_msg.to_vec(),
+        };
         let redacted = raw.redact_authorization();
         let output = String::from_utf8_lossy(&redacted.data);
-        assert_eq!(output.matches("[REDACTED]").count(), 2, "both Authorization headers must be redacted");
+        assert_eq!(
+            output.matches("[REDACTED]").count(),
+            2,
+            "both Authorization headers must be redacted"
+        );
         assert!(!output.contains("pass1"), "first password must be redacted");
-        assert!(!output.contains("pass2"), "second password must be redacted");
+        assert!(
+            !output.contains("pass2"),
+            "second password must be redacted"
+        );
     }
 
     /// @verifies C048
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_authorization_preserves_auth_type() {
         // The Digest or Basic auth type must be preserved, only password value redacted
         let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Basic password=\"base64encoded\"\r\n\r\n";
-        let raw = RawSipMessage { data: sip_msg.to_vec() };
+        let raw = RawSipMessage {
+            data: sip_msg.to_vec(),
+        };
         let redacted = raw.redact_authorization();
         let output = String::from_utf8_lossy(&redacted.data);
-        assert!(output.contains("Basic"), "auth type 'Basic' must be preserved");
+        assert!(
+            output.contains("Basic"),
+            "auth type 'Basic' must be preserved"
+        );
         assert!(output.contains("[REDACTED]"), "password must be redacted");
     }
 
     /// @verifies C048
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn redact_authorization_clone_not_mutated() {
         // Verify the immutable pattern: original message is not modified
         let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Digest password=\"original\"\r\n\r\n";
-        let raw = RawSipMessage { data: sip_msg.to_vec() };
+        let raw = RawSipMessage {
+            data: sip_msg.to_vec(),
+        };
         let _redacted = raw.redact_authorization();
         let original_output = String::from_utf8_lossy(&raw.data);
-        assert!(original_output.contains("original"), "original message must not be mutated");
+        assert!(
+            original_output.contains("original"),
+            "original message must not be mutated"
+        );
     }
 }

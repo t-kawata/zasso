@@ -74,7 +74,7 @@ pub enum LogLevel {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for LogLevel {
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::Info
     }
@@ -159,7 +159,7 @@ impl ClientConfig {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             sip_proxy_host: String::new(),
@@ -263,9 +263,7 @@ impl ClientConfigBuilder {
     /// Panics if `sip_proxy_host` is not set. Use `build()` for a fallible version.
     pub fn build(self) -> ClientConfig {
         ClientConfig {
-            sip_proxy_host: self
-                .sip_proxy_host
-                .expect("sip_proxy_host is required"),
+            sip_proxy_host: self.sip_proxy_host.expect("sip_proxy_host is required"),
             sip_proxy_port: self.sip_proxy_port.unwrap_or(5060),
             credentials: self.credentials,
             user_agent: self.user_agent.unwrap_or_else(default_user_agent),
@@ -287,7 +285,7 @@ mod tests {
 
     #[test]
     // @verifies C001, C002
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn client_config_builder_accepts_valid_config() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -300,7 +298,7 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3, P1-2, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P1-2, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2) --for-spec --no-implementation-order`.
     fn client_config_builder_sets_optional_fields() {
         let creds = AuthCredentials {
             username: "alice".into(),
@@ -336,7 +334,7 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn client_config_default_user_agent_contains_version() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -351,11 +349,9 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_empty_host() {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("")
-            .build();
+        let config = ClientConfig::builder().sip_proxy_host("").build();
         let err = config.validate().unwrap_err();
         assert_eq!(
             err.kind,
@@ -371,7 +367,7 @@ mod tests {
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_zero_port() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -394,7 +390,7 @@ mod tests {
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn client_config_accepts_max_port() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -406,7 +402,7 @@ mod tests {
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
     fn client_config_rejects_long_user_agent() {
         let long_agent = "A".repeat(257);
         let config = ClientConfig::builder()
@@ -430,7 +426,7 @@ mod tests {
 
     #[test]
     // @verifies C048
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_config_password_is_secret_string() {
         // C048 invariant: password is zeroized on drop via SecretString.
         let creds = AuthCredentials {
@@ -440,19 +436,25 @@ mod tests {
         };
         // Password must not be visible in Debug output.
         let debug = format!("{:?}", creds);
-        assert!(!debug.contains("s3cret!"), "password must not leak in Debug");
+        assert!(
+            !debug.contains("s3cret!"),
+            "password must not leak in Debug"
+        );
         // Password value must be accessible via SecretString::as_str()
         assert_eq!(creds.password.as_str(), "s3cret!");
     }
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn client_config_builder_build_panics_without_host() {
         // This is a deliberate panic in the builder when required fields are missing.
         let result = std::panic::catch_unwind(|| {
             let _config = ClientConfig::builder().build();
         });
-        assert!(result.is_err(), "builder must panic when sip_proxy_host is missing");
+        assert!(
+            result.is_err(),
+            "builder must panic when sip_proxy_host is missing"
+        );
     }
 }

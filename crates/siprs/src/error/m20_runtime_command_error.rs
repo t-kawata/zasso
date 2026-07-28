@@ -24,7 +24,7 @@ use crate::error::error_design_siperror::{self, SipError, SipErrorKind};
 // ---------------------------------------------------------------------------
 // PJSUA error code constants (shared with error_design_siperror)
 //
-// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.
+// [::STUB::] P3-2: Replace with actual pj_status_t constants from pjsua.h.
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -90,8 +90,8 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
 ///
-/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes
-/// once P0-7 (N0012) is implemented.
+/// [::STUB::] P4-1: Replace `u64` fields with `AccountId` / `CallId` newtypes
+/// once P4-1 (N0012) is implemented.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
     /// The account's unique identifier.
@@ -135,11 +135,11 @@ pub fn convert_get_account_info_error(
             format!("GetAccountInfo failed: pjsua_acc_get_info returned {pj_status}"),
         ));
     }
-    // [::STUB::] P0-7: Return real account information once the account state
+    // [::STUB::] P3-1: Return real account information once the account state
     // system is implemented. This placeholder returns a minimal AccountInfo.
     Err(SipError::new(
         SipErrorKind::NativeError,
-        "GetAccountInfo: account state not yet available (P0-7)".to_string(),
+        "GetAccountInfo: account state not yet available (P3-1)".to_string(),
     ))
 }
 
@@ -150,14 +150,14 @@ mod tests {
     // ── ConfConnect: Normal ──────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_connect_success_returns_ok() {
         let result = convert_conf_connect_error(PJ_SUCCESS, 42);
         assert!(result.is_ok());
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_connect_einval_op_returns_invalid_state() {
         let result = convert_conf_connect_error(PJ_EINVALIDOP, 42);
         let err = result.unwrap_err();
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_connect_other_error_returns_native() {
         let result = convert_conf_connect_error(PJ_EBUSY, 42);
         let err = result.unwrap_err();
@@ -190,14 +190,14 @@ mod tests {
     // ── ConfDisconnect: Normal ────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_disconnect_success_returns_ok() {
         let result = convert_conf_disconnect_error(PJ_SUCCESS, 42);
         assert!(result.is_ok());
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_disconnect_einval_op_returns_invalid_state() {
         let result = convert_conf_disconnect_error(PJ_EINVALIDOP, 42);
         let err = result.unwrap_err();
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_disconnect_other_error_returns_native() {
         let result = convert_conf_disconnect_error(PJ_EBUSY, 42);
         let err = result.unwrap_err();
@@ -220,16 +220,19 @@ mod tests {
     // ── GetAccountInfo: Normal ────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn get_account_info_account_not_found_returns_account_not_found() {
         let result = convert_get_account_info_error(false, PJ_SUCCESS);
         let err = result.unwrap_err();
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);
-        assert!(!err.retryable, "Account deletion is permanent — not retryable");
+        assert!(
+            !err.retryable,
+            "Account deletion is permanent — not retryable"
+        );
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_returns_native() {
         let result = convert_get_account_info_error(true, PJ_EBUSY);
         let err = result.unwrap_err();
@@ -239,7 +242,7 @@ mod tests {
     // ── Error: non-standard error codes ───────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_connect_unknown_error_falls_back_to_native() {
         let result = convert_conf_connect_error(-9999, 1);
         let err = result.unwrap_err();
@@ -247,7 +250,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_disconnect_unknown_error_falls_back_to_native() {
         let result = convert_conf_disconnect_error(-9999, 1);
         let err = result.unwrap_err();
@@ -257,7 +260,7 @@ mod tests {
     // ── Boundary: zero call_id ────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn conf_connect_with_call_id_zero() {
         let result = convert_conf_connect_error(PJ_EINVALIDOP, 0);
         let err = result.unwrap_err();
@@ -272,9 +275,9 @@ mod tests {
     // ── Invariant: all converters return SipError ─────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C018
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn m20_converters_return_sip_error_type() {
         // Type assertion: all three converters must return Result<T, SipError>
         let r1: Result<(), SipError> = convert_conf_connect_error(PJ_SUCCESS, 0);

@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn sip_error_is_send_sync() {
         fn assert_send<T: Send>() {}
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipError>();
         assert_sync::<SipError>();
@@ -39,21 +39,21 @@ mod tests {
     // ── Invariant: Display format ─────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_error_invalid_config_display() {
         let err = SipError::new(SipErrorKind::InvalidConfig, "empty host");
         assert_eq!(format!("{err}"), "InvalidConfig: empty host");
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_error_runtime_error_display() {
         let err = SipError::new(SipErrorKind::NativeError, "reactor down");
         assert_eq!(format!("{err}"), "NativeError: reactor down");
     }
 
     #[test]
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     fn sip_error_shutdown_display() {
         let err = SipError::new(SipErrorKind::ShutdownInProgress, "");
         assert_eq!(format!("{err}"), "ShutdownInProgress: ");

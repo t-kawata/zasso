@@ -90,10 +90,7 @@ impl DockerIntegrationJob {
     pub const fn asterisk_job() -> Self {
         Self {
             image: "asterisk:20.6.0",
-            ports: &[
-                ("udp", 5060, 5060),
-                ("tcp", 5061, 5061),
-            ],
+            ports: &[("udp", 5060, 5060), ("tcp", 5061, 5061)],
         }
     }
 }
@@ -126,7 +123,7 @@ mod tests {
     // ── C055-Precondition: Build strategy feature combinations ──
     // @verifies C055
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_four_feature_combinations_exist() {
         let combos = FeatureCombination::all();
         assert_eq!(combos.len(), 4);
@@ -138,7 +135,7 @@ mod tests {
     // ── C055-Postcondition: CI matrix covers all 3 OSes ──────────
     // @verifies C055
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_three_os_targets_exist() {
         let os_targets = CiOsTarget::all();
         assert_eq!(os_targets.len(), 3);
@@ -151,7 +148,7 @@ mod tests {
     // ── C055-Invariant: 3 OSes × 4 combos = 12 jobs ─────────────
     // @verifies C055
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_total_ci_jobs_is_twelve() {
         let total = CiOsTarget::all().len() * FeatureCombination::all().len();
         assert_eq!(total, TOTAL_CI_JOBS);
@@ -159,7 +156,7 @@ mod tests {
 
     // ── Docker job has correct Asterisk image ──────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_docker_job_uses_asterisk_20_6_0() {
         let job = DockerIntegrationJob::asterisk_job();
         assert_eq!(job.image, "asterisk:20.6.0");
@@ -167,7 +164,7 @@ mod tests {
 
     // ── Docker job exposes expected ports ───────────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_docker_job_ports() {
         let job = DockerIntegrationJob::asterisk_job();
         let port_specs: Vec<(&str, u16, u16)> = job.ports.to_vec();
@@ -178,7 +175,7 @@ mod tests {
 
     // ── Prebuilt pipeline uses macos-14 ─────────────────────────
     #[test]
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
     fn test_prebuilt_pipeline_uses_macos_14() {
         let pipeline = PrebuiltRefreshPipeline::macos_pipeline();
         assert_eq!(pipeline.runner, "macos-14");

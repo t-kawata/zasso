@@ -1,5 +1,3 @@
-
-
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5: API-layer module — event model, EventBus, DTMF two-phase design

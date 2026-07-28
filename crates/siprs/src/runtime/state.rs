@@ -1,4 +1,3 @@
-
 // [::TICKET::] P0-2: runtime state — ClientState, AccountEntry, CallEntry
 
 /// Source-of-truth state owned exclusively by the reactor thread.
@@ -84,9 +83,9 @@ impl ClientStateSnapshot {
 mod tests {
     use super::*;
 
-    // [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.
-    // Deferred from P0-3 to P0-7 because the newtype definitions (N0012: §9 ID Design)
-    // require the FFI layer (P0-6) to resolve native_id ↔ logical_id mappings first.
+    // [::STUB::] P4-1: replaces u64 placeholders with AccountId/CallId newtypes.
+    // Deferred to P4-1 because the newtype definitions (N0012: §9 ID Design)
+    // require the FFI layer (P3-2) to resolve native_id ↔ logical_id mappings first.
 
     #[tokio::test]
     // @verifies C046

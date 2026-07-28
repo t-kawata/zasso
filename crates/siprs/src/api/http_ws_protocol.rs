@@ -110,20 +110,17 @@ impl AudioFrameHeader {
     pub fn from_bytes(bytes: &[u8; 30]) -> Self {
         Self {
             sequence_number: u64::from_be_bytes([
-                bytes[0], bytes[1], bytes[2], bytes[3],
-                bytes[4], bytes[5], bytes[6], bytes[7],
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             ]),
             timestamp_ms: u64::from_be_bytes([
-                bytes[8], bytes[9], bytes[10], bytes[11],
-                bytes[12], bytes[13], bytes[14], bytes[15],
+                bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14],
+                bytes[15],
             ]),
             frame_ms: u16::from_be_bytes([bytes[16], bytes[17]]),
             sample_rate: u16::from_be_bytes([bytes[18], bytes[19]]),
             channels: bytes[20],
             bits_per_sample: bytes[21],
-            call_id: u32::from_be_bytes([
-                bytes[22], bytes[23], bytes[24], bytes[25],
-            ]),
+            call_id: u32::from_be_bytes([bytes[22], bytes[23], bytes[24], bytes[25]]),
             reserved: [bytes[26], bytes[27], bytes[28], bytes[29]],
         }
     }
@@ -136,7 +133,7 @@ mod tests {
     // ── Normal: All 18 REST endpoint path constants ────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_rest_endpoint_constants() {
         assert_eq!(PATH_AUTH_TOKEN, "/api/v1/auth/token");
         assert_eq!(PATH_ACCOUNTS, "/api/v1/accounts");
@@ -151,15 +148,18 @@ mod tests {
     // ── Invariant: AudioFrameHeader is 30 bytes (spec-correction) ──────
 
     #[test]
-// @verifies C063
-// [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
+    // @verifies C063
+    // [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
     fn test_audio_frame_header_size() {
-        assert_eq!(std::mem::size_of::<AudioFrameHeader>(), 30,
-            "AudioFrameHeader must be exactly 30 bytes (spec-correction from 24)");
+        assert_eq!(
+            std::mem::size_of::<AudioFrameHeader>(),
+            30,
+            "AudioFrameHeader must be exactly 30 bytes (spec-correction from 24)"
+        );
     }
 
     #[test]
-// [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
     fn test_audio_frame_header_repr() {
         // Verify struct size is exactly 30 bytes (spec-correction).
         // repr(C, packed) prevents taking references to fields —
@@ -183,11 +183,14 @@ mod tests {
         // Use raw pointer with read_unaligned for verification
         let bytes: &[u8; 30] = unsafe { &*(&header as *const AudioFrameHeader as *const [u8; 30]) };
         // All bytes must be zero
-        assert!(bytes.iter().all(|&b| b == 0), "Zero-initialized AudioFrameHeader must be all zeros");
+        assert!(
+            bytes.iter().all(|&b| b == 0),
+            "Zero-initialized AudioFrameHeader must be all zeros"
+        );
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_audio_frame_header_padding_zeroed() {
         // Verify reserved field is zeroed.
         // Use raw pointer access to avoid UB on repr(C, packed) field.
@@ -209,11 +212,11 @@ mod tests {
     // ── Invariant: AudioFrameHeader is Send + Sync ─────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_audio_frame_header_send_sync() {
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AudioFrameHeader>();
         assert_sync::<AudioFrameHeader>();
@@ -222,7 +225,7 @@ mod tests {
     // ── Boundary: Sequence number wrapping ─────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_sequence_wrap_behavior() {
         let max: u64 = u64::MAX;
         let wrapped = max.wrapping_add(1);
@@ -230,20 +233,23 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_sequence_monotonicity() {
         let seqs: Vec<u64> = (0..10).collect();
         for window in seqs.windows(2) {
-            assert!(window[1] > window[0], "Sequence numbers must increase monotonically");
+            assert!(
+                window[1] > window[0],
+                "Sequence numbers must increase monotonically"
+            );
         }
     }
 
     // ── Normal: to_bytes / from_bytes round-trip ───────────────────────
 
     #[test]
-// @verifies C063
-// [::TICKET::] P2-3: AudioFrameHeader safe serialization round-trip
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // @verifies C063
+    // [::TICKET::] P2-3: AudioFrameHeader safe serialization round-trip
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_audio_header_to_from_bytes_roundtrip() {
         let header = AudioFrameHeader {
             sequence_number: 42,
@@ -257,16 +263,18 @@ mod tests {
         };
         let bytes = header.to_bytes();
         let decoded = AudioFrameHeader::from_bytes(&bytes);
-        assert_eq!(header, decoded,
-            "to_bytes/from_bytes round-trip must preserve all fields");
+        assert_eq!(
+            header, decoded,
+            "to_bytes/from_bytes round-trip must preserve all fields"
+        );
     }
 
     // ── Normal: to_bytes produces correct byte order (big-endian) ──────
 
     #[test]
-// @verifies C063
-// [::TICKET::] P2-3: AudioFrameHeader big-endian wire format
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // @verifies C063
+    // [::TICKET::] P2-3: AudioFrameHeader big-endian wire format
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_audio_header_to_bytes_big_endian() {
         let header = AudioFrameHeader {
             sequence_number: 0x0000000000000001,
@@ -296,8 +304,8 @@ mod tests {
     // ── Boundary: All-zero round-trip ──────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3: AudioFrameHeader zero-field round-trip
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3: AudioFrameHeader zero-field round-trip
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_audio_header_zero_roundtrip() {
         let header = AudioFrameHeader {
             sequence_number: 0,
@@ -313,14 +321,17 @@ mod tests {
         let decoded = AudioFrameHeader::from_bytes(&bytes);
         assert_eq!(header, decoded);
         // All bytes must be zero
-        assert!(bytes.iter().all(|&b| b == 0), "Zeroed header must produce all-zero bytes");
+        assert!(
+            bytes.iter().all(|&b| b == 0),
+            "Zeroed header must produce all-zero bytes"
+        );
     }
 
     // ── Boundary: All-max round-trip ───────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3: AudioFrameHeader max-value field round-trip
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3: AudioFrameHeader max-value field round-trip
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_audio_header_max_roundtrip() {
         let header = AudioFrameHeader {
             sequence_number: u64::MAX,
@@ -334,7 +345,6 @@ mod tests {
         };
         let bytes = header.to_bytes();
         let decoded = AudioFrameHeader::from_bytes(&bytes);
-        assert_eq!(header, decoded,
-            "MAX values must round-trip correctly");
+        assert_eq!(header, decoded, "MAX values must round-trip correctly");
     }
 }

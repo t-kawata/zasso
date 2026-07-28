@@ -1,4 +1,3 @@
-
 // [::TICKET::] P0-2: RuntimeHandle — Send+Sync handle for submitting commands to reactor
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,7 +24,7 @@ use crate::runtime::command::{DispatchCommand, ReactorError, RuntimeCommand};
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,
-    // [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.
+    // [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.
     #[allow(dead_code)]
     join_handle: Weak<JoinHandle<()>>,
 }
@@ -64,7 +63,9 @@ impl RuntimeHandle {
             DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
             // GetAccountInfo handled via separate method
-            DispatchCommand::GetAccountInfo { .. } => unreachable!("use submit_get_account_info instead"),
+            DispatchCommand::GetAccountInfo { .. } => {
+                unreachable!("use submit_get_account_info instead")
+            }
             // AddAudioSource handled via separate method
             DispatchCommand::AddAudioSource { .. } => {
                 unreachable!("use submit_add_audio_source instead")

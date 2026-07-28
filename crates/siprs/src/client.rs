@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::instrument;
 
-use crate::api::eventbus_receiver::EventBus;
 use crate::api::event_model_payload_bus::{AccountId, SipEvent};
+use crate::api::eventbus_receiver::EventBus;
 use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
@@ -52,7 +52,7 @@ use std::fmt;
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl fmt::Debug for SipClient {
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SipClient")
             .field("runtime", &self.runtime)
@@ -82,8 +82,15 @@ impl SipClient {
     ) -> Result<(Self, broadcast::Receiver<SipEvent>), SipError> {
         config.validate()?;
 
-        let (handle, _join) = CoreReactor::spawn(BootConfig { config: config.clone() })
-            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("failed to spawn reactor: {e}")))?;
+        let (handle, _join) = CoreReactor::spawn(BootConfig {
+            config: config.clone(),
+        })
+        .map_err(|e| {
+            SipError::new(
+                SipErrorKind::NativeError,
+                format!("failed to spawn reactor: {e}"),
+            )
+        })?;
 
         // Create EventBus for client lifecycle and SIP events.
         let event_bus = EventBus::new(2048, None);
@@ -100,7 +107,12 @@ impl SipClient {
                 reply: _dummy_tx,
             })
             .await
-            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("initialization failed: {e}")))?;
+            .map_err(|e| {
+                SipError::new(
+                    SipErrorKind::NativeError,
+                    format!("initialization failed: {e}"),
+                )
+            })?;
 
         Ok((
             Self {
@@ -135,7 +147,10 @@ impl SipClient {
     /// Returns an `AccountEventReceiver` that only yields events matching
     /// the given `account_id`.
     #[instrument(skip(self), fields(account_id = account_id.0))]
-    pub fn subscribe_account(&self, account_id: AccountId) -> crate::api::eventbus_receiver::AccountEventReceiver {
+    pub fn subscribe_account(
+        &self,
+        account_id: AccountId,
+    ) -> crate::api::eventbus_receiver::AccountEventReceiver {
         crate::api::eventbus_receiver::AccountEventReceiver::new(
             account_id,
             self.events.subscribe_control(),
@@ -177,11 +192,11 @@ impl SipClient {
         // A dummy channel is provided — submit() replaces it internally.
         let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
         self.runtime
-            .submit(RuntimeCommand::Shutdown {
-                reply: _dummy_tx,
-            })
+            .submit(RuntimeCommand::Shutdown { reply: _dummy_tx })
             .await
-            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("shutdown failed: {e}")))?;
+            .map_err(|e| {
+                SipError::new(SipErrorKind::NativeError, format!("shutdown failed: {e}"))
+            })?;
 
         Ok(())
     }
@@ -213,9 +228,15 @@ mod tests {
             .sip_proxy_port(5060)
             .build();
         let result = SipClient::new(config).await;
-        assert!(result.is_ok(), "SipClient::new with valid config must succeed");
+        assert!(
+            result.is_ok(),
+            "SipClient::new with valid config must succeed"
+        );
         let (client, _rx) = result.unwrap();
-        assert!(!client.is_terminated(), "client must not be terminated after new");
+        assert!(
+            !client.is_terminated(),
+            "client must not be terminated after new"
+        );
     }
 
     #[tokio::test]
@@ -237,7 +258,8 @@ mod tests {
             .build();
         let (client, _rx) = SipClient::new(config).await.unwrap();
         // C044 postcondition: Shutdown specification with cancellation safety.
-        let result = tokio::time::timeout(std::time::Duration::from_secs(5), client.shutdown()).await;
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(5), client.shutdown()).await;
         assert!(result.is_ok(), "shutdown must complete within timeout");
         assert!(
             client.is_terminated(),
@@ -251,9 +273,7 @@ mod tests {
     // @verifies C001
     async fn sip_client_rejects_empty_host() {
         // C001 invariant: InvalidConfig on empty host.
-        let config = ClientConfig::builder()
-            .sip_proxy_host("")
-            .build();
+        let config = ClientConfig::builder().sip_proxy_host("").build();
         let result = SipClient::new(config).await;
         assert!(
             result.is_err(),
@@ -271,22 +291,21 @@ mod tests {
 
     #[test]
     // @verifies C002
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn sip_client_is_send() {
         // C002 invariant: SipClient must be Send for use with tokio tasks.
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipClient>();
     }
 
     #[test]
     // @verifies C001, C009
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn no_video_types_in_public_exports() {
         // C001 invariant: crate is audio-only — no video types.
         // C009 invariant: single crate with modular structure.
-        let lib_content = std::fs::read_to_string("src/lib.rs")
-            .expect("src/lib.rs must exist");
+        let lib_content = std::fs::read_to_string("src/lib.rs").expect("src/lib.rs must exist");
         for line in lib_content.lines() {
             assert!(
                 !line.to_lowercase().contains("video"),
@@ -319,7 +338,7 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn purpose_scope_remains_audio_only() {
         // C001 invariant: Purpose scope remains audio-only.
         let rfc_path = std::path::Path::new("RFC-ROOT.md");
@@ -333,16 +352,19 @@ mod tests {
 
     #[test]
     // @verifies C004
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn no_tauri_dependency() {
         // C004 invariant: Tauri boundary respected — no tauri dep.
         let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
-        assert!(!manifest.contains("tauri"), "Cargo.toml must not depend on tauri");
+        assert!(
+            !manifest.contains("tauri"),
+            "Cargo.toml must not depend on tauri"
+        );
     }
 
     #[test]
     // @verifies C006
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn msrv_is_1_95() {
         // C006 invariant: MSRV must be 1.95.
         let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
@@ -354,7 +376,7 @@ mod tests {
 
     #[test]
     // @verifies C047
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn tracing_and_metrics_specified() {
         // C047 postcondition: tracing, metrics specified.
         let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
@@ -363,7 +385,7 @@ mod tests {
 
     #[test]
     // @verifies C056
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn catch_unwind_in_reactor() {
         // C056 invariant: catch_unwind in FFI callbacks.
         let reactor = std::fs::read_to_string("src/runtime/reactor.rs").unwrap();
@@ -375,7 +397,7 @@ mod tests {
 
     #[test]
     // @verifies C051
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn microphone_is_optional_feature() {
         // C051 invariant: Microphone is optional via cpal-input feature flag.
         let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
@@ -395,15 +417,12 @@ mod tests {
             .find(|l| l.trim().starts_with("default"))
             .map(|l| l.contains("cpal-input"))
             .unwrap_or(false);
-        assert!(
-            !has_default_mic,
-            "cpal-input must not be a default feature"
-        );
+        assert!(!has_default_mic, "cpal-input must not be a default feature");
     }
 
     #[test]
     // @verifies C059
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn conclusion_declares_all_requirements_implementable() {
         // C059 postcondition: Conclusion declaring all requirements implementable.
         let rfc = std::fs::read_to_string("RFC-ROOT.md").unwrap();
@@ -416,7 +435,7 @@ mod tests {
 
     #[test]
     // @verifies C068
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn io_boundaries_documented_as_reference() {
         // C068 invariant: I/O boundaries are reference, not prescriptive.
         let rfc = std::fs::read_to_string("RFC-ROOT.md").unwrap();

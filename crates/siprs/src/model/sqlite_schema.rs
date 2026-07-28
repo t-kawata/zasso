@@ -182,7 +182,7 @@ mod tests {
     // ── Normal: DatabasePool construction ─────────────────────────────
 
     #[tokio::test]
-// @verifies C065
+    // @verifies C065
     async fn test_database_pool_in_memory() -> Result<(), DbErr> {
         // Open an in-memory SQLite database
         let pool = DatabasePool::open(":memory:").await?;
@@ -195,7 +195,7 @@ mod tests {
     // ── Normal: AccountEntity field access ────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_account_entity_construction() {
         let entity = AccountEntity {
             id: 1,
@@ -219,7 +219,7 @@ mod tests {
     // ── Normal: TransportKind conversion ──────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_transport_kind_from_str() {
         assert_eq!(TransportKind::from_str("udp"), Some(TransportKind::Udp));
         assert_eq!(TransportKind::from_str("tcp"), Some(TransportKind::Tcp));
@@ -229,7 +229,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_transport_kind_as_str() {
         assert_eq!(TransportKind::Udp.as_str(), "udp");
         assert_eq!(TransportKind::Tcp.as_str(), "tcp");
@@ -239,7 +239,7 @@ mod tests {
     // ── Normal: TransportConfigEntity construction ────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_transport_config_entity() {
         let entity = TransportConfigEntity {
             id: 1,
@@ -255,7 +255,7 @@ mod tests {
     // ── Normal: ClientSettingEntity ───────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_client_setting_entity() {
         let entity = ClientSettingEntity {
             key: "theme".into(),
@@ -268,7 +268,7 @@ mod tests {
     // ── Normal: TlsConfigEntity ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_tls_config_entity() {
         let entity = TlsConfigEntity {
             id: 1,
@@ -284,11 +284,11 @@ mod tests {
     // ── Normal: Entity trait implementations ──────────────────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_entities_are_send_sync() {
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AccountEntity>();
         assert_sync::<AccountEntity>();
@@ -299,7 +299,7 @@ mod tests {
     // ── Invariant: AccountEntity has all required fields ──────────────
 
     #[test]
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_account_entity_required_fields() {
         // All required (non-Option) fields must be set
         let entity = AccountEntity {

@@ -21,7 +21,7 @@ pub struct BootConfig {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for BootConfig {
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             config: ClientConfig::default(),
@@ -65,7 +65,7 @@ impl CoreReactor {
 
         let handle = RuntimeHandle::new(tx, terminated_clone, std::sync::Weak::new());
 
-        // [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.
+        // [::STUB::] P3-2: MockBackend is used until PjsuaBackend (P3-2) is implemented.
         let mut backend: Box<dyn Backend> = Box::new(MockBackend::new());
 
         let thread_join = thread::Builder::new()
@@ -114,7 +114,7 @@ impl CoreReactor {
                                     source,
                                     reply,
                                 } => {
-                                    // [::STUB::] P0-7: Route to AudioMixer stored in
+                                    // [::STUB::] P3-2: Route to AudioMixer stored in
                                     // ClientState. Currently returns an error indicating
                                     // the audio source lifecycle is not yet connected.
                                     let _ = source;

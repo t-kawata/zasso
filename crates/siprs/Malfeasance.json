@@ -450,6 +450,141 @@
       "detected_at": "2026-07-28T15:50:49.179Z",
       "status": "false_positive",
       "note": "Deferred to the ticket referenced in the STUB marker (P0-7/P2-4/P2-6). This crime cannot be resolved in P2-2 because the STUB depends on FFI bindings or type implementations from those tickets."
+    },
+    {
+      "id": 51,
+      "file": "src/lib.rs",
+      "line": 38,
+      "description": "// [::STUB::] P0-1: Crate foundation — module declarations only",
+      "detected_at": "2026-07-28T16:27:14.402Z",
+      "status": "false_positive",
+      "note": "P0-1 is reviewed (done) but stub remains unresolved. Crate foundation module declarations are in place but stub should have been resolved."
+    },
+    {
+      "id": 52,
+      "file": "src/config/versioning_policy.rs",
+      "line": 31,
+      "description": "// [::STUB::] P0-1: Struct declaration only. Full fields and methods",
+      "detected_at": "2026-07-28T16:27:15.321Z",
+      "status": "false_positive",
+      "note": "P0-1 is reviewed (done) but stub remains unresolved. VersionPolicy struct still has no fields."
+    },
+    {
+      "id": 53,
+      "file": "src/config/versioning_policy.rs",
+      "line": 36,
+      "description": "// [::STUB::] MUST implement NODE_ID=N0006: §4.1 Versioning Policy",
+      "detected_at": "2026-07-28T16:27:16.324Z",
+      "status": "false_positive",
+      "note": "P0-1 covers N0006 and is reviewed (done) but N0006 remains as a bare stub."
+    },
+    {
+      "id": 54,
+      "file": "src/runtime/command.rs",
+      "line": 139,
+      "description": "// [::STUB::] P0-2: Debug is not derived for oneshot::Sender since it doesn't implement Debug.",
+      "detected_at": "2026-07-28T16:27:17.153Z",
+      "status": "false_positive",
+      "note": "P0-2 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 55,
+      "file": "src/runtime/command.rs",
+      "line": 50,
+      "description": "// [::STUB::] P0-3: config: AccountConfig (currently String until P0-7)",
+      "detected_at": "2026-07-28T16:27:20.520Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved. AccountConfig still uses String placeholder."
+    },
+    {
+      "id": 56,
+      "file": "src/runtime/command.rs",
+      "line": 65,
+      "description": "// [::STUB::] P0-3: request: OutgoingCallRequest",
+      "detected_at": "2026-07-28T16:27:21.113Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 57,
+      "file": "src/runtime/command.rs",
+      "line": 240,
+      "description": "// [::STUB::] P0-3: store ClientConfig in ClientState",
+      "detected_at": "2026-07-28T16:27:21.783Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 58,
+      "file": "src/runtime/command.rs",
+      "line": 249,
+      "description": "// [::STUB::] P0-3: store AccountEntry in ClientState, return AccountId",
+      "detected_at": "2026-07-28T16:27:22.417Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 59,
+      "file": "src/runtime/command.rs",
+      "line": 273,
+      "description": "// [::STUB::] P0-3: store CallEntry in ClientState, return CallId",
+      "detected_at": "2026-07-28T16:27:23.080Z",
+      "status": "false_positive",
+      "note": "P0-3 is reviewed (done) but stub remains unresolved."
+    },
+    {
+      "id": 60,
+      "file": "src/runtime/backend.rs",
+      "line": 82,
+      "description": "// [::STUB::] P0-6: MockBackend provides canned responses for reactor unit tests.",
+      "detected_at": "2026-07-28T16:27:23.807Z",
+      "status": "false_positive",
+      "note": "P0-6 is reviewed (done) but stub remains unresolved. MockBackend still used instead of real backend."
+    },
+    {
+      "id": 61,
+      "file": "examples/account_register.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — account registration.",
+      "detected_at": "2026-07-28T16:27:27.264Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 62,
+      "file": "examples/audio_tap.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — audio tap.",
+      "detected_at": "2026-07-28T16:27:27.869Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 63,
+      "file": "examples/client_init.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — client initialization.",
+      "detected_at": "2026-07-28T16:27:28.482Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 64,
+      "file": "examples/make_call.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — make a call.",
+      "detected_at": "2026-07-28T16:27:29.092Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
+    },
+    {
+      "id": 65,
+      "file": "examples/tts_source.rs",
+      "line": 1,
+      "description": "// [::STUB::] P1-3: spec example — TTS source.",
+      "detected_at": "2026-07-28T16:27:29.705Z",
+      "status": "false_positive",
+      "note": "P1-3 is reviewed (done) but spec example remains unresolved."
     }
   ]
 }

@@ -1,6 +1,3 @@
-
-
-
 // Test-strategy and integration-test module.
 //
 // Sub-modules:

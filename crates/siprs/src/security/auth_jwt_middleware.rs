@@ -65,7 +65,9 @@ pub struct JwtValidator {
 impl JwtValidator {
     /// Create a new JWT validator with the given secret.
     pub fn new(secret: impl Into<String>) -> Self {
-        Self { secret: secret.into() }
+        Self {
+            secret: secret.into(),
+        }
     }
 
     /// Issue a JWT token for the given claims.
@@ -87,13 +89,17 @@ impl JwtValidator {
     pub fn validate_token(&self, token: &str) -> Result<Claims, JwtError> {
         let mut validation = Validation::default();
         validation.validate_exp = true;
-        decode::<Claims>(token, &DecodingKey::from_secret(self.secret.as_ref()), &validation)
-            .map(|data| data.claims)
-            .map_err(|e| match e.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => JwtError::Expired,
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => JwtError::InvalidSignature,
-                _ => JwtError::Malformed(e.to_string()),
-            })
+        decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(self.secret.as_ref()),
+            &validation,
+        )
+        .map(|data| data.claims)
+        .map_err(|e| match e.kind() {
+            jsonwebtoken::errors::ErrorKind::ExpiredSignature => JwtError::Expired,
+            jsonwebtoken::errors::ErrorKind::InvalidSignature => JwtError::InvalidSignature,
+            _ => JwtError::Malformed(e.to_string()),
+        })
     }
 }
 
@@ -104,8 +110,8 @@ mod tests {
     // ── Normal: JWT encode/decode round-trip ───────────────────────────
 
     #[test]
-// @verifies C064
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // @verifies C064
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_roundtrip() -> Result<(), JwtError> {
         let validator = JwtValidator::new("test-secret");
         let claims = Claims {
@@ -126,7 +132,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_claims_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let claims = Claims {
             sub: "42".to_string(),
@@ -145,7 +151,7 @@ mod tests {
     // ── Error: JWT validation failures ─────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_wrong_secret_rejected() {
         let issuer = JwtValidator::new("secret1");
         let claims = Claims {
@@ -162,7 +168,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_expired_rejected() {
         let validator = JwtValidator::new("test-secret");
         let claims = Claims {
@@ -178,7 +184,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_malformed_rejected() {
         let validator = JwtValidator::new("test-secret");
         let result = validator.validate_token("not-a-jwt-token");
@@ -186,7 +192,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_expiry_zero() {
         let validator = JwtValidator::new("test-secret");
         let claims = Claims {
@@ -198,18 +204,20 @@ mod tests {
         };
         let token = validator.issue_token(&claims).unwrap();
         let result = validator.validate_token(&token);
-        assert!(matches!(result, Err(JwtError::Expired)),
-            "exp=0 must be rejected as expired");
+        assert!(
+            matches!(result, Err(JwtError::Expired)),
+            "exp=0 must be rejected as expired"
+        );
     }
 
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_jwt_validator_send_sync() {
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<JwtValidator>();
         assert_sync::<JwtValidator>();
@@ -218,7 +226,7 @@ mod tests {
     // ── Boundary: Empty username round-trips ───────────────────────────
 
     #[test]
-// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
     fn test_claims_empty_username_roundtrip() -> Result<(), JwtError> {
         let validator = JwtValidator::new("test-secret");
         let claims = Claims {

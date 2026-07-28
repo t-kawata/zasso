@@ -63,7 +63,7 @@ pub struct ClientCapabilities {
     // ── Media ──
     /// Available audio codecs.
     ///
-    /// [::STUB::] P2-4: Replace with actual codec list from PJSIP FFI.
+    /// [::STUB::] P3-2: Replace with actual codec list from PJSIP FFI.
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.
@@ -150,7 +150,7 @@ impl ClientCapabilities {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl Default for ClientCapabilities {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::new()
     }
@@ -180,7 +180,7 @@ pub enum SrtpImplementation {
 
 /// Audio codec descriptor.
 ///
-/// [::STUB::] P2-4: Replace with proper FFI-defined codec types.
+/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Codec {
     /// Codec identifier (e.g., "PCMU", "opus", "G722").
@@ -219,7 +219,7 @@ pub struct AudioDeviceCaps {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl Default for AudioDeviceCaps {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             has_default_input: false,
@@ -370,7 +370,7 @@ impl MetricsRegistry {
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 impl Default for MetricsRegistry {
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::new()
     }
@@ -384,7 +384,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_new_has_defaults() {
         let caps = ClientCapabilities::new();
         assert_eq!(caps.max_calls, u32::MAX, "max_calls defaults to MAX");
@@ -407,7 +407,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_default_trait() {
         let caps = ClientCapabilities::default();
         assert_eq!(caps.max_calls, u32::MAX);
@@ -415,7 +415,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_serde_roundtrip() {
         let caps = ClientCapabilities::new();
         let json = serde_json::to_string(&caps).unwrap();
@@ -428,7 +428,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_clone() {
         let caps = ClientCapabilities::new();
         let cloned = caps.clone();
@@ -438,7 +438,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_debug_does_not_panic() {
         let caps = ClientCapabilities::new();
         let debug = format!("{:?}", caps);
@@ -449,7 +449,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_deserialize_empty_json() {
         let json = "{}";
         let caps: ClientCapabilities = serde_json::from_str(json).unwrap();
@@ -465,7 +465,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn client_capabilities_max_calls_extreme() {
         let caps = ClientCapabilities {
             max_calls: u32::MAX,
@@ -478,7 +478,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn audio_device_caps_default() {
         let caps = AudioDeviceCaps::default();
         assert!(!caps.has_default_input);
@@ -489,7 +489,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn audio_device_caps_with_devices() {
         let caps = AudioDeviceCaps {
             has_default_input: true,
@@ -505,7 +505,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn srtp_implementation_variants() {
         assert_ne!(
             SrtpImplementation::SdesSrtp as u8,
@@ -517,7 +517,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn transport_kind_variants() {
         assert_ne!(TransportKind::Udp as u8, TransportKind::Tcp as u8);
         assert_ne!(TransportKind::Tcp as u8, TransportKind::Tls as u8);
@@ -527,7 +527,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn codec_construct() {
         let codec = Codec {
             id: "PCMU".into(),
@@ -541,16 +541,10 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn dtmf_method_variants() {
-        assert_ne!(
-            DtmfMethod::Rfc2833 as u8,
-            DtmfMethod::Info as u8
-        );
-        assert_ne!(
-            DtmfMethod::Info as u8,
-            DtmfMethod::Inband as u8
-        );
+        assert_ne!(DtmfMethod::Rfc2833 as u8, DtmfMethod::Info as u8);
+        assert_ne!(DtmfMethod::Info as u8, DtmfMethod::Inband as u8);
     }
 
     // ── Metrics (feature-gated) ───────────────────────────────────────
@@ -558,19 +552,28 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_registry_starts_at_zero() {
         let registry = MetricsRegistry::new();
-        assert_eq!(registry.get_counter("audio_tap_overflows_total").unwrap().value(), 0);
+        assert_eq!(
+            registry
+                .get_counter("audio_tap_overflows_total")
+                .unwrap()
+                .value(),
+            0
+        );
         assert_eq!(registry.get_counter("dtmf_sent_total").unwrap().value(), 0);
         assert_eq!(registry.get_gauge("active_calls").unwrap().value(), 0);
-        assert_eq!(registry.get_gauge("registered_accounts").unwrap().value(), 0);
+        assert_eq!(
+            registry.get_gauge("registered_accounts").unwrap().value(),
+            0
+        );
     }
 
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_counter_increment() {
         let registry = MetricsRegistry::new();
         registry.increment_counter("dtmf_sent_total").unwrap();
@@ -580,7 +583,7 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_gauge_set() {
         let registry = MetricsRegistry::new();
         registry.set_gauge("active_calls", 3).unwrap();
@@ -590,7 +593,7 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_gauge_add() {
         let registry = MetricsRegistry::new();
         registry.set_gauge("active_calls", 1).unwrap();
@@ -601,7 +604,7 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_counter_unknown_returns_err() {
         let registry = MetricsRegistry::new();
         assert!(registry.increment_counter("nonexistent").is_err());
@@ -610,7 +613,7 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_gauge_unknown_returns_err() {
         let registry = MetricsRegistry::new();
         assert!(registry.set_gauge("nonexistent", 5).is_err());
@@ -619,7 +622,7 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_counter_wrapping_overflow() {
         let counter = MetricsCounter::new("test", u64::MAX);
         counter.increment();
@@ -632,7 +635,7 @@ mod tests {
     /// @verifies C047
     #[cfg(not(feature = "metrics"))]
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_types_not_available_without_feature() {
         // When metrics feature is disabled, MetricsRegistry is compiled
         // but no actual metrics tests run. The #[cfg(not(feature = "metrics"))]
@@ -643,7 +646,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn metrics_counter_independent_construction() {
         // MetricsCounter and MetricsGauge can be constructed independently
         // even without the full MetricsRegistry (for standalone use).

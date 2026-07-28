@@ -66,7 +66,7 @@ mod tests {
 
     /// @verifies C030
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_ok_status() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Rfc4733,
@@ -81,7 +81,7 @@ mod tests {
 
     /// @verifies C030
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_pjsip_error() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Info,
@@ -98,7 +98,7 @@ mod tests {
 
     /// @verifies C030
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_timeout() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Rfc4733,
@@ -116,13 +116,13 @@ mod tests {
     // ── DtmfMethod ─────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_method_variants() {
         assert_ne!(DtmfMethod::Rfc4733, DtmfMethod::Info);
     }
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_method_debug() {
         let method = DtmfMethod::Rfc4733;
         assert!(!format!("{method:?}").is_empty());
@@ -131,7 +131,7 @@ mod tests {
     // ── Default timeout constant ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn default_dtmf_timeout_is_500ms() {
         assert_eq!(DEFAULT_DTMF_SENT_TIMEOUT_MS, 500);
     }
@@ -139,9 +139,9 @@ mod tests {
     // ── Clone + Debug invariants ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_is_clone_and_debug() {
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfSentInfo>();
         assert_clone_debug::<SentDtmfError>();
@@ -151,7 +151,7 @@ mod tests {
     // ── Edge: DtmfSentInfo with empty digit ───────────────────────────
 
     #[test]
-// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_empty_digit() {
         let info = DtmfSentInfo {
             method: DtmfMethod::Info,

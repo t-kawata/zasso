@@ -1,9 +1,5 @@
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
-
-
-
-
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -55,7 +51,7 @@ pub mod error;
 
 /// Account, Call, and Transport type stubs.
 ///
-/// [::STUB::] P0-7: Full implementations with lifecycle methods.
+/// [::STUB::] P3-1/P5-1: Full implementations with lifecycle methods (account/call/transport in P3-1, call API semantics in P5-1).
 pub mod account;
 pub mod call;
 pub mod transport;
@@ -63,13 +59,13 @@ pub mod transport;
 
 // [::TICKET::] P0-5: event.rs, api/, state/ — event types, bus, conversion, routing
 pub mod api;
-pub mod state;
 pub mod event;
+pub mod state;
 
-// [::STUB::] P1+: audio/ — Audio processing (chunk, format, mixer, source, resampler, bridge)
+// [::STUB::] P3-2/P4-2: audio/ — Audio processing (mixer in P3-2, format in P4-2)
 // pub mod audio;
 
-// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings
+// [::STUB::] P3-2: ffi/ — PJSIP FFI bindings
 // pub mod ffi;
 
 // [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle
@@ -85,7 +81,7 @@ pub mod build;
 // [::TICKET::] P1-3: tests/ — 4-Layer Test Strategy & Dual Client Utility (N0052, N0053)
 pub mod tests;
 
-// [::STUB::] P1+: util/ — ID, Time, Sync utilities
+// [::STUB::] P4-1: util/ — ID, Time, Sync utilities (newtype IDs in P4-1)
 // pub mod util;
 
 // [::TICKET::] P2-3: model/sqlite_schema — SQLite persistence schema & DatabasePool
