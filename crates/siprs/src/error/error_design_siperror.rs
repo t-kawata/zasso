@@ -1,3 +1,5 @@
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -199,8 +201,9 @@ pub struct SipError {
     /// `Some(status)` when the error originates from an FFI call.
     /// `None` for errors that do not involve the native stack.
     ///
-    /// [::STUB::] P4-1: Replace `Option<u64>` with `Option<AccountId>` /
-    /// `Option<CallId>` newtypes once P4-1 (N0012) is implemented.
+    /// [::STUB::] P5-1: Replace `Option<u64>` with `Option<AccountId>` /
+    /// `Option<CallId>` newtypes. AccountId/CallId types are defined in P4-1
+    /// but migrating SipError fields affects many callers — deferred to P5-1.
     pub native_status: Option<i32>,
     /// Optional account ID associated with this error.
     pub account_id: Option<u64>,

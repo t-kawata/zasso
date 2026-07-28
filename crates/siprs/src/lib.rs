@@ -1,3 +1,5 @@
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
@@ -86,12 +88,9 @@ pub mod build;
 // [::TICKET::] P1-3: tests/ — 4-Layer Test Strategy & Dual Client Utility (N0052, N0053)
 pub mod tests;
 
-// [::STUB::] P4-1: util/ — ID, Time, Sync utilities (newtype IDs in P4-1)
-// pub mod util;
-
 // [::TICKET::] P2-3: model/sqlite_schema — SQLite persistence schema & DatabasePool
-// Only compiled when `sqlite-storage` feature is enabled.
-#[cfg(feature = "sqlite-storage")]
+// model/ module is unconditionally compiled — only sqlite_schema submodule
+// is gated behind `sqlite-storage` feature inside model/mod.rs.
 pub mod model;
 
 // ── Public API re-exports ──────────────────────────────────────────
@@ -116,7 +115,7 @@ pub use event::{
     AccountEventReceiver, AccountInfoSnapshot, CallMediaState, CallState, ConnectedCallInfo,
     DtmfReceivedInfo, DtmfSentInfo, EventBus, EventDirection, EventMeta, EventTimestamp,
     MediaActiveInfo, MediaErrorInfo, NativeEvent, RegistrationFailure, RegistrationInfo,
-    SentDtmfError, SipEvent, SipEventPayload,
+    RegistrationState, SentDtmfError, SipEvent, SipEventPayload,
 };
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.

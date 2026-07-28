@@ -160,7 +160,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         _native_acc_id: i32,
@@ -170,7 +170,8 @@ impl SipBackend for MockBackend {
         let entry = CallEntry {
             id: 1,
             native_id: 1,
-            account_id: _native_acc_id as u64,
+            account_id: crate::model::AccountId::from_u64(_native_acc_id as u64)
+                .expect("mock AccountId from non-zero native acc_id"),
             state: "Calling".into(),
             media: "none".into(),
         };
@@ -217,12 +218,14 @@ impl SipBackend for MockBackend {
         Ok(1)
     }
 
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
         // [::STUB::] P3-1: Return real account information once the account state
         // machine (N0025) provides actual registration state. The mock returns a
         // canned "registered" response for testing event conversion logic.
         Ok(AccountInfoSnapshot {
-            acc_id: crate::api::event_model_payload_bus::AccountId(_native_acc_id as u64),
+            acc_id: crate::api::event_model_payload_bus::AccountId::from_u64(_native_acc_id as u64)
+                .expect("mock AccountId from non-zero native acc_id"),
             registration_status: 200,
             registration_expires: Some(3600),
             online_status: true,

@@ -21,6 +21,7 @@ use crate::api::call_types::CallMediaConstraints;
 use crate::config::account_config_spec::AccountConfig;
 use crate::error::{SipError, SipErrorKind};
 use crate::runtime::command::RuntimeCommand;
+use crate::state::registr_state_machine::RegistrationState;
 use tracing::instrument;
 
 /// Represents a SIP account handle for account-level operations.
@@ -35,7 +36,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     pub fn new(client: crate::client::SipClient, id: u64) -> Self {
@@ -99,12 +100,13 @@ impl SipAccountHandle {
 
     /// Get the current registration state.
     ///
-    /// Returns an empty string placeholder until the state machine (P4-1)
-    /// provides a proper RegistrationState enum.
+    /// Returns `RegistrationState::Idle` as a default until the real state
+    /// machine (P3-1) connects this method to the actual registration workflow.
     #[instrument(skip(self))]
-    pub async fn registration_state(&self) -> Result<String, SipError> {
-        // [::STUB::] P4-1: Replace with real RegistrationState enum when N0025 is implemented.
-        Ok("Unregistered".to_string())
+    pub async fn registration_state(&self) -> Result<RegistrationState, SipError> {
+        // [::STUB::] P3-1: Return real RegistrationState from backend once
+        // SipAccountHandle is connected to the reactor state machine.
+        Ok(RegistrationState::Idle)
     }
 
     /// Place an outgoing SIP call through this account.

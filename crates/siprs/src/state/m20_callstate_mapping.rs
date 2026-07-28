@@ -25,33 +25,10 @@
 
 use crate::api::event_model_payload_bus::{CallId, SipEventPayload};
 
-// ── CallState ───────────────────────────────────────────────────────────
+// ── CallState (canonical definition in call_state_model.rs) ─────────────
 
-/// High-level call state, mapped from PJSIP's `pjsip_inv_state`.
-///
-/// | pjsip_inv_state | value | CallState     |
-/// |-----------------|-------|---------------|
-/// | NULL            | 0     | (none)        |
-/// | CALLING         | 1     | Calling       |
-/// | CONNECTING      | 2     | Trying/Ringing|
-/// | CONFIRMED       | 3     | Active        |
-/// | DISCONNECTED    | 4     | Disconnecting |
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CallState {
-    /// Initial state — CREATE before the first event.
-    Null,
-    /// Outgoing: INVITE sent, awaiting response.
-    Calling,
-    /// Outgoing: 100 Trying received (from Calling).
-    /// Incoming: 180 Ringing received (from Incoming).
-    Trying,
-    /// Incoming: 180 Ringing received.
-    Ringing,
-    /// Call is active (media negotiated).
-    Active,
-    /// Call is being disconnected.
-    Disconnecting,
-}
+/// Re-export the canonical 13-state `CallState` from `call_state_model`.
+pub use crate::state::call_state_model::CallState;
 
 // ── CallMediaState ──────────────────────────────────────────────────────
 
@@ -117,7 +94,10 @@ pub fn convert_call_state(call_id: CallId, state: u32) -> Option<SipEventPayload
         pjsip_inv_state::CONFIRMED => Some(SipEventPayload::CallConnected(
             crate::api::event_model_payload_bus::ConnectedCallInfo {
                 call_id,
-                account_id: crate::api::event_model_payload_bus::AccountId(0),
+                // [::STUB::] P5-1: Replace with actual account_id from call context.
+                // NonZeroU64(1) is a safe default — real value comes from CallEntry.
+                account_id: crate::api::event_model_payload_bus::AccountId::from_u64(1)
+                    .expect("NonZeroU64::new(1) should never fail"),
                 remote_uri: String::new(),
             },
         )),
@@ -175,34 +155,34 @@ mod tests {
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_null_returns_none() {
-        let result = convert_call_state(CallId(1), pjsip_inv_state::NULL);
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), pjsip_inv_state::NULL);
         assert!(result.is_none());
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_calling_returns_ougoing_call_started() {
-        let result = convert_call_state(CallId(1), pjsip_inv_state::CALLING);
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), pjsip_inv_state::CALLING);
         assert!(matches!(result, Some(SipEventPayload::OutgoingCallStarted)));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_connecting_defaults_to_trying() {
-        let result = convert_call_state(CallId(1), pjsip_inv_state::CONNECTING);
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), pjsip_inv_state::CONNECTING);
         assert!(matches!(result, Some(SipEventPayload::OutgoingCallTrying)));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_connecting_outgoing_direction() {
         let result = convert_call_state_with_previous(
-            CallId(1),
+            CallId::from_u64(1).unwrap(),
             pjsip_inv_state::CONNECTING,
             CallDirection::Outgoing,
         );
@@ -211,10 +191,10 @@ mod tests {
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_connecting_incoming_direction() {
         let result = convert_call_state_with_previous(
-            CallId(1),
+            CallId::from_u64(1).unwrap(),
             pjsip_inv_state::CONNECTING,
             CallDirection::Incoming,
         );
@@ -223,25 +203,25 @@ mod tests {
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_confirmed_returns_call_connected() {
-        let result = convert_call_state(CallId(1), pjsip_inv_state::CONFIRMED);
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), pjsip_inv_state::CONFIRMED);
         assert!(matches!(result, Some(SipEventPayload::CallConnected(_))));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_disconnected_returns_call_disconnected() {
-        let result = convert_call_state(CallId(1), pjsip_inv_state::DISCONNECTED);
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), pjsip_inv_state::DISCONNECTED);
         assert!(matches!(result, Some(SipEventPayload::CallDisconnected)));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn inv_state_unknown_returns_none() {
-        let result = convert_call_state(CallId(1), 99); // invalid value
+        let result = convert_call_state(CallId::from_u64(1).unwrap(), 99); // invalid value
         assert!(result.is_none());
     }
 
@@ -249,58 +229,58 @@ mod tests {
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_none_returns_none() {
-        let result = convert_call_media_state(CallId(1), pjsua_call_media_status::NONE);
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), pjsua_call_media_status::NONE);
         assert!(result.is_none());
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_active_returns_media_active() {
-        let result = convert_call_media_state(CallId(1), pjsua_call_media_status::ACTIVE);
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), pjsua_call_media_status::ACTIVE);
         assert!(matches!(result, Some(SipEventPayload::MediaActive(_))));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_local_hold_returns_call_held() {
-        let result = convert_call_media_state(CallId(1), pjsua_call_media_status::LOCAL_HOLD);
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), pjsua_call_media_status::LOCAL_HOLD);
         assert!(matches!(result, Some(SipEventPayload::CallHeld)));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_remote_hold_returns_call_held() {
-        let result = convert_call_media_state(CallId(1), pjsua_call_media_status::REMOTE_HOLD);
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), pjsua_call_media_status::REMOTE_HOLD);
         assert!(matches!(result, Some(SipEventPayload::CallHeld)));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_error_returns_media_error() {
-        let result = convert_call_media_state(CallId(1), pjsua_call_media_status::ERROR);
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), pjsua_call_media_status::ERROR);
         assert!(matches!(result, Some(SipEventPayload::MediaError(_))));
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_state_unknown_returns_none() {
-        let result = convert_call_media_state(CallId(1), 99); // invalid value
+        let result = convert_call_media_state(CallId::from_u64(1).unwrap(), 99); // invalid value
         assert!(result.is_none());
     }
 
     // ── CallState enum ─────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn call_state_variants_are_distinct() {
-        assert_ne!(CallState::Null as u8, CallState::Calling as u8);
+        assert_ne!(CallState::New as u8, CallState::Calling as u8);
         assert_ne!(CallState::Calling as u8, CallState::Trying as u8);
         assert_ne!(CallState::Trying as u8, CallState::Ringing as u8);
         assert_ne!(CallState::Ringing as u8, CallState::Active as u8);
@@ -334,11 +314,11 @@ mod tests {
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn all_five_inv_state_values_covered() {
         // Verify all 5 pjsip_inv_state values [0..5) are handled without panic.
         for raw in 0u32..5 {
-            let _ = convert_call_state(CallId(1), raw);
+            let _ = convert_call_state(CallId::from_u64(1).unwrap(), raw);
         }
     }
 

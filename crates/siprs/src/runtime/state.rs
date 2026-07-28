@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::model::id_design_newtype::{AccountId, CallId};
+
 // [::TICKET::] P3-2: TransportRuntimeState — tracks active transport configuration.
 #[derive(Clone, Debug, Default)]
 pub struct TransportRuntimeState {
@@ -40,11 +42,9 @@ pub struct ClientCapabilities {
 pub struct ClientState {
     pub initialized: bool,
     /// Active accounts keyed by logical account ID.
-    /// [::STUB::] P4-1: Replace u64 with AccountId newtype.
-    pub accounts: BTreeMap<u64, AccountEntry>,
+    pub accounts: BTreeMap<AccountId, AccountEntry>,
     /// Active calls keyed by logical call ID.
-    /// [::STUB::] P4-1: Replace u64 with CallId newtype.
-    pub calls: BTreeMap<u64, CallEntry>,
+    pub calls: BTreeMap<CallId, CallEntry>,
     /// Runtime state for each created transport.
     pub transports: Vec<TransportRuntimeState>,
     /// Capabilities reported by the SIP backend.
@@ -76,7 +76,7 @@ pub struct CallEntry {
     /// Placeholder for `pjsua_call_id` — populated by FFI layer (P0-6).
     pub native_id: i32,
     /// The account this call belongs to.
-    pub account_id: u64,
+    pub account_id: AccountId,
     /// Placeholder for `CallState` — replaced in P4-1.
     pub state: String,
     /// Placeholder for media runtime state — replaced in P1+.
@@ -118,9 +118,18 @@ impl ClientStateSnapshot {
 mod tests {
     use super::*;
 
-    // [::STUB::] P4-1: replaces u64 placeholders with AccountId/CallId newtypes.
-    // Deferred to P4-1 because the newtype definitions (N0012: §9 ID Design)
-    // require the FFI layer (P3-2) to resolve native_id ↔ logical_id mappings first.
+    // AccountId/CallId newtypes are now used in ClientState BTreeMap keys.
+    // FFI-level native_id↔logical_id resolution is tracked in P3-2.
+
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn create_account_id(v: u64) -> AccountId {
+        AccountId::from_u64(v).expect("test AccountId")
+    }
+
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    fn create_call_id(v: u64) -> CallId {
+        CallId::from_u64(v).expect("test CallId")
+    }
 
     #[tokio::test]
     // @verifies C046
@@ -160,14 +169,14 @@ mod tests {
 
     #[test]
     // @verifies C048
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1) --for-spec --no-implementation-order`.
     fn call_entry_has_no_conf_port_id() {
         // Contract-C048: CallEntry must NOT contain a conf_port_id field.
         // Verification: construct without conf_port_id — compiler error if field existed.
         let entry = CallEntry {
             id: 1,
             native_id: 100,
-            account_id: 1,
+            account_id: create_account_id(1),
             state: "Idle".to_string(),
             media: "none".to_string(),
         };
@@ -214,11 +223,13 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
     fn client_state_after_account_add_accounts_populated() {
         let mut state = ClientState::default();
+        let acc1 = create_account_id(1);
+        let acc2 = create_account_id(2);
         state.accounts.insert(
-            1,
+            acc1,
             AccountEntry {
                 id: 1,
                 native_id: 100,
@@ -227,7 +238,7 @@ mod tests {
             },
         );
         state.accounts.insert(
-            2,
+            acc2,
             AccountEntry {
                 id: 2,
                 native_id: 101,
@@ -236,28 +247,29 @@ mod tests {
             },
         );
         assert_eq!(state.accounts.len(), 2, "two accounts must be stored");
-        assert_eq!(state.accounts[&1].native_id, 100, "first account native_id correct");
-        assert_eq!(state.accounts[&2].native_id, 101, "second account native_id correct");
+        assert_eq!(state.accounts[&create_account_id(1)].native_id, 100, "first account native_id correct");
+        assert_eq!(state.accounts[&create_account_id(2)].native_id, 101, "second account native_id correct");
     }
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
     fn client_state_after_call_add_calls_populated() {
         let mut state = ClientState::default();
+        let cid = create_call_id(1);
         state.calls.insert(
-            1,
+            cid,
             CallEntry {
                 id: 1,
                 native_id: 200,
-                account_id: 1,
+                account_id: create_account_id(1),
                 state: "Calling".into(),
                 media: "none".into(),
             },
         );
         assert_eq!(state.calls.len(), 1, "one call must be stored");
-        assert_eq!(state.calls[&1].native_id, 200);
-        assert_eq!(state.calls[&1].account_id, 1);
+        assert_eq!(state.calls[&create_call_id(1)].native_id, 200);
+        assert_eq!(state.calls[&create_call_id(1)].account_id, create_account_id(1));
     }
 
     #[test]

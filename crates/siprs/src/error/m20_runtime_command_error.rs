@@ -1,3 +1,5 @@
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -93,8 +95,9 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
 ///
-/// [::STUB::] P4-1: Replace `u64` fields with `AccountId` / `CallId` newtypes
-/// once P4-1 (N0012) is implemented.
+/// [::STUB::] P5-1: Replace `u64` fields with `AccountId` / `CallId` newtypes.
+/// AccountId/CallId types are defined in P4-1 but migrating these error
+/// conversion helpers affects many callers — deferred to P5-1.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
     /// The account's unique identifier.

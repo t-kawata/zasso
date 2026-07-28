@@ -1,3 +1,5 @@
+// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5: Public event module — facade re-exporting API and state event types
@@ -19,3 +21,4 @@ pub use crate::api::m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
 pub use crate::state::m20_callstate_mapping::{CallMediaState, CallState};
 pub use crate::state::m20_native_event_conv::NativeEvent;
 pub use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
+pub use crate::state::registr_state_machine::RegistrationState;

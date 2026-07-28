@@ -74,16 +74,16 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_info_snapshot_construction() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(1),
+            acc_id: AccountId::from_u64(1).unwrap(),
             registration_status: 200,
             registration_expires: Some(3600),
             online_status: true,
             uri: "sip:alice@example.com".into(),
         };
-        assert_eq!(snap.acc_id, AccountId(1));
+        assert_eq!(snap.acc_id, AccountId::from_u64(1).unwrap());
         assert_eq!(snap.registration_status, 200);
         assert_eq!(snap.registration_expires, Some(3600));
         assert!(snap.online_status);
@@ -92,10 +92,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_info_snapshot_expired() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(2),
+            acc_id: AccountId::from_u64(2).unwrap(),
             registration_status: 200,
             registration_expires: None,
             online_status: false,
@@ -109,10 +109,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn status_200_maps_to_registration_succeeded() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(1),
+            acc_id: AccountId::from_u64(1).unwrap(),
             registration_status: 200,
             registration_expires: Some(3600),
             online_status: true,
@@ -121,7 +121,7 @@ mod tests {
         let payload = registration_status_to_payload(&snap).unwrap();
         match &payload {
             SipEventPayload::RegistrationSucceeded(info) => {
-                assert_eq!(info.account_id, AccountId(1));
+                assert_eq!(info.account_id, AccountId::from_u64(1).unwrap());
             }
             _ => panic!("expected RegistrationSucceeded, got {payload:?}"),
         }
@@ -129,10 +129,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn status_403_maps_to_registration_failed() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(1),
+            acc_id: AccountId::from_u64(1).unwrap(),
             registration_status: 403,
             registration_expires: None,
             online_status: false,
@@ -150,10 +150,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn status_503_maps_to_registration_failed() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(3),
+            acc_id: AccountId::from_u64(3).unwrap(),
             registration_status: 503,
             registration_expires: None,
             online_status: false,
@@ -163,7 +163,7 @@ mod tests {
         match &payload {
             SipEventPayload::RegistrationFailed(failure) => {
                 assert_eq!(failure.status_code, 503);
-                assert_eq!(failure.account_id, AccountId(3));
+                assert_eq!(failure.account_id, AccountId::from_u64(3).unwrap());
             }
             _ => panic!("expected RegistrationFailed"),
         }
@@ -171,10 +171,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn status_200_with_zero_expiry_maps_to_succeeded() {
         let snap = AccountInfoSnapshot {
-            acc_id: AccountId(5),
+            acc_id: AccountId::from_u64(5).unwrap(),
             registration_status: 200,
             registration_expires: Some(0),
             online_status: false,
@@ -188,18 +188,18 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn registration_status_always_produces_event() {
         // Both 200 and non-200 should produce Some payload
         let success = AccountInfoSnapshot {
-            acc_id: AccountId(1),
+            acc_id: AccountId::from_u64(1).unwrap(),
             registration_status: 200,
             registration_expires: Some(3600),
             online_status: true,
             uri: String::new(),
         };
         let failure = AccountInfoSnapshot {
-            acc_id: AccountId(2),
+            acc_id: AccountId::from_u64(2).unwrap(),
             registration_status: 503,
             registration_expires: None,
             online_status: false,

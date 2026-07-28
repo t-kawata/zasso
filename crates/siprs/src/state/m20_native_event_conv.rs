@@ -90,24 +90,25 @@ pub fn convert_native_event_to_payload(event: NativeEvent) -> Option<SipEventPay
             None
         }
         NativeEvent::RegistrationStarted { acc_id, renew } => {
+            // acc_id=0 is PJSUA's invalid sentinel — skip silently.
+            let acc_id = AccountId::from_u64(acc_id as u64).ok()?;
             Some(SipEventPayload::RegistrationStarted(RegistrationInfo {
-                account_id: AccountId(acc_id as u64),
+                account_id: acc_id,
                 renew,
             }))
         }
 
         // ── P0: Call ──
         NativeEvent::CallStateChanged { call_id, state } => {
-            crate::state::m20_callstate_mapping::convert_call_state(CallId(call_id as u64), state)
+            let cid = CallId::from_u64(call_id as u64).ok()?;
+            crate::state::m20_callstate_mapping::convert_call_state(cid, state)
         }
         NativeEvent::CallMediaStateChanged { call_id } => {
             // Without the actual pjsua_call_get_info result, default to media_status=1 (ACTIVE).
             // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.
             // [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.
-            crate::state::m20_callstate_mapping::convert_call_media_state(
-                CallId(call_id as u64),
-                1, // default to ACTIVE
-            )
+            let cid = CallId::from_u64(call_id as u64).ok()?;
+            crate::state::m20_callstate_mapping::convert_call_media_state(cid, 1)
         }
 
         // ── P0: DTMF ──
@@ -149,7 +150,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_event_registration_started_maps() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 1,
@@ -157,7 +158,7 @@ mod tests {
         });
         match result {
             Some(SipEventPayload::RegistrationStarted(info)) => {
-                assert_eq!(info.account_id, AccountId(1));
+                assert_eq!(info.account_id, AccountId::from_u64(1).unwrap());
                 assert!(!info.renew);
             }
             _ => panic!("expected RegistrationStarted, got {result:?}"),
@@ -166,7 +167,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_event_registration_started_renew() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 5,
@@ -174,7 +175,7 @@ mod tests {
         });
         match result {
             Some(SipEventPayload::RegistrationStarted(info)) => {
-                assert_eq!(info.account_id, AccountId(5));
+                assert_eq!(info.account_id, AccountId::from_u64(5).unwrap());
                 assert!(info.renew);
             }
             _ => panic!("expected RegistrationStarted"),
@@ -343,17 +344,13 @@ mod tests {
     // ── Edge: zero acc_id ──────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    fn native_event_zero_account_id() {
+// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    fn native_event_zero_account_id_is_skipped() {
+        // acc_id=0 is PJSUA's invalid sentinel — conversion returns None.
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 0,
             renew: false,
         });
-        match result {
-            Some(SipEventPayload::RegistrationStarted(info)) => {
-                assert_eq!(info.account_id, AccountId(0));
-            }
-            _ => panic!("expected RegistrationStarted"),
-        }
+        assert!(result.is_none(), "zero acc_id should be skipped");
     }
 }
