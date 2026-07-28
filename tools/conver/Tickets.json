@@ -12209,6 +12209,271 @@
             }
           ],
           "completedAt": "2026-07-28"
+        },
+        {
+          "id": 90,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Remove non-programming-language extensions from targetExtensions and add Tickets.json/Malfeasance.json exclusion",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/90-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Eliminate self-referential crime cascade\n- 【Purpose】Restore signal-to-noise ratio\n- 【Motivation】5,411 of 5,461 records (99.1%) are self-referencing\n- 【Constraints】Must not regress .rs/.ts/.js/.py scanning",
+          "scope": [
+            "[Change] ticket-config.js — Remove non-programming extensions from targetExtensions",
+            "[Change] scan-incomplete-implementations.js — Add file-level exclusion",
+            "[Change] enumerate-ticket-targets.js — Mirror fixes",
+            "[Non-change] Source scanning preserved",
+            "[Impact] Cascade stops at source"
+          ],
+          "testUnit": [
+            "UT: [Normal] loadConfig().review.targetExtensions contains only programming-language extensions — assert zero .json/.yaml/.yml/.toml/.md/.css/.scss present",
+            "UT: [Normal] scanFile() invoked with file path Tickets.json returns empty findings (basename exclusion check)",
+            "UT: [Normal] scanFile() invoked with file path Malfeasance.json returns empty findings (basename exclusion check)",
+            "UT: [Normal] scanFile() invoked with file path src/main.rs still detects [::STUB::] patterns (backward compat)",
+            "UT: [Boundary] scanFile() with file path tickets/Tickets.json — path.basename check matches regardless of directory depth",
+            "UT: [Invariant] scanFile() never reports findings for any file whose basename matches the exclusion list"
+          ],
+          "testIntegration": [
+            "IT: Run scan-incomplete-implementations.js --dir=. — assert zero findings in Tickets.json and Malfeasance.json",
+            "IT: Run scan-incomplete-implementations.js --dir=src — TODOs in source .rs files are still reported correctly",
+            "IT: Run enumerate-ticket-targets.js --dir=. — zero stubs enumerated from Tickets.json or Malfeasance.json data files"
+          ],
+          "testExceptions": [
+            "Cannot test: every possible non-programming extension permutation (combinatorial explosion) — covered by config-boundary test + single boundary extension test. This is not a design defect: the logic space is finite and capped at the config API boundary.",
+            "Not testable: symlinked Tickets.json is handled by path.basename() which is already filesystem-agnostic at the Node.js API level — no symlink-specific test needed. This is not an architectural defect: the platform layer (path.basename) already provides the required abstraction."
+          ],
+          "default_files": [
+            ".claude/scripts/lib/ticket-config.js",
+            ".claude/scripts/tickets/scan-incomplete-implementations.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy: scan finds zero crimes in Tickets.json/Malfeasance.json",
+            "Happy: scan still finds STUBs in .rs/.ts/.js source",
+            "Error: non-programming extension in config rejected by test",
+            "Edge: deeply nested STUB strings trigger zero findings"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "config-targetExt-filter",
+              "precondition": "targetExtensions is defined as a non-empty array of strings",
+              "postcondition": "targetExtensions contains only programming-language source file extensions",
+              "invariant": "No non-programming extension is ever present in targetExtensions"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "walk-exclude-data-files",
+              "precondition": "walk() receives a directory path to scan",
+              "postcondition": "Tickets.json and Malfeasance.json are skipped during file scanning",
+              "invariant": "No crime is ever recorded against Tickets.json or Malfeasance.json"
+            }
+          ],
+          "notes": "- 【Steps】1) Fix ticket-config.js 2) Fix scan-incomplete-implementations.js 3) Fix enumerate-ticket-targets.js 4) Tests\n- 【Risks】Minimal — file exclusion only\n- 【Caveats】enumerate has its own TARGET_EXTENSIONS set; both must be fixed\n- 【Open items】Existing corrupted data cleanup (separate ticket)\n- 【Future】Unify TARGET_EXTENSIONS into ticket-config.js\nImplementation summary:\n- Changed files: ticket-config.js, scan-incomplete-implementations.js, enumerate-ticket-targets.js\n- Key changes: targetExtensions filtered, EXCLUDED_FILENAMES added\n- Tests: 8/8 PX-90 + 18/18 + 33/33 regression passed\n- Integration: scan reports 0 findings in Tickets.json/Malfeasance.json\n- Self-referential cascade: CONFIRMED STOPPED\nReview report:\n- Static quality check: PASSED\n- Translatability: PASSED\n- Dependencies: consistency verified\n- Self-referential cascade: CONFIRMED STOPPED (scan results 0 in Tickets.json/Malfeasance.json)\n- --append guard for targetStubs/targetCrimes: CONFIRMED WORKING (rejected with error)\n- Phase schema: CONFIRMED (new phases get phaseId+status)\n- Path normalization: CONFIRMED (absolute paths converted to relative)\n- All 33/33 tests passed (8+8+17)\n- verify-final-contracts: PX-90 100%, PX-91 100%, PX-92 100%",
+          "invariants": "- 【Normal】targetExtensions always contains only programming extensions\n- 【On error】No corrupted state after failed scan\n- 【Internal state】Exclusion list is immutable\n- 【Boundary】Exclusion by basename",
+          "instrumentation": "- 【Logging】WARN-level log when an excluded file is encountered during scan\n- 【Metrics】None — scan is a batch operation, not a service\n- 【Error tracking】Errors during individual file reads are silently skipped (existing behavior preserved)\n- 【Health check】N/A\nStatic quality check: PASSED (2 false positives: line 12 comment, line 130 output function)\nTranslatability: PASSED (all functions verb phrases, constants descriptive)\nCrime scan: 0 open, 0 new\nStub evaluation: 3 pre-existing, correctly deferred to other tickets\nAnnotation check: 0 missing, 0 AMBIGUOUS\nContract verification: PX-90 2/2, PX-91 1/1, PX-92 2/2 all fulfilled\nTarget validation: all clean (0 checks each)\nRegression tests: all PASSED",
+          "investigation": "=== Investigation (source: tools/conver/.claude/scripts) ===\n\n1. ticket-config.js L60-65: targetExtensions includes .json, .yaml, .yml, .toml, .md, .css, .scss (7 non-programming extensions).\n\n2. scan-incomplete-implementations.js L103-131: walk() iterates ALL files matching targetExtensions. Skips dotfiles only (L107). No exclusion for data files.\n\n3. enumerate-ticket-targets.js L18-23: Its OWN hardcoded TARGET_EXTENSIONS duplicates the same problematic extensions. L26-30 SKIP_DIRS has no individual file exclusion.\n\n4. enumerate-ticket-targets.js L98-124: walk() similarly lacks file-level exclusion.\n\nCascade: source STUB -> Tickets.json targetStubs (JSON string) -> scan scans Tickets.json -> finds STUB -> crime in Malfeasance -> next scan finds STUB in Malfeasance -> deeper escape -> repeat",
+          "boyScoutPlan": "1. Extract walk() from scanDirectory() to top-level exported function for direct testability\n2. Unify TARGET_EXTENSIONS into ticket-config.js (future ticket)\n3. Add EXCLUDED_FILENAMES = ['Tickets.json', 'Malfeasance.json'] constant for self-documenting exclusion logic",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "planTestCode": [
+            "UT: [Precondition C001] loadConfig returns non-empty targetExtensions\n  ```js\n  const { loadConfig } = require('../lib/ticket-config');\n  const config = loadConfig();\n  assert(Array.isArray(config.review.targetExtensions));\n  assert(config.review.targetExtensions.length > 0);\n  ```",
+            "UT: [Postcondition C001] No non-programming extension in targetExtensions\n  ```js\n  const { loadConfig } = require('../lib/ticket-config');\n  const config = loadConfig();\n  const banned = ['.json', '.yaml', '.yml', '.toml', '.md', '.css', '.scss'];\n  for (const ext of config.review.targetExtensions) {\n    assert(!banned.includes(ext), 'Banned ext ' + ext);\n  }\n  ```",
+            "UT: [Invariant C001] All targetExtensions are known programming extensions\n  ```js\n  const { loadConfig } = require('../lib/ticket-config');\n  const config = loadConfig();\n  const known = ['.rs','.go','.ts','.tsx','.js','.jsx','.cjs','.mjs','.vue','.py','.java','.kt','.swift','.c','.cpp','.h','.hpp','.rb','.php','.cs'];\n  for (const ext of config.review.targetExtensions) {\n    assert(known.includes(ext), 'Unknown ext ' + ext);\n  }\n  ```",
+            "UT: [Precondition C002] walk() receives a directory path\n  ```js\n  const { enumerateTargets } = require('./enumerate-ticket-targets');\n  const result = enumerateTargets('/tmp/test-dir', ticketsData, 'PX-90');\n  assert(result !== null);\n  ```",
+            "UT: [Postcondition C002] Tickets.json with STUB text returns zero findings\n  ```js\n  const { scanFile } = require('./enumerate-ticket-targets');\n  const stubs = [], crimes = [];\n  scanFile('/path/to/Tickets.json', ticketsData, 'PX-90', stubs, crimes);\n  assert(stubs.length === 0 && crimes.length === 0, 'Zero findings expected');\n  ```",
+            "UT: [Postcondition C002] Malfeasance.json with STUB text returns zero findings\n  ```js\n  const { scanFile } = require('./enumerate-ticket-targets');\n  const stubs = [], crimes = [];\n  scanFile('/path/to/Malfeasance.json', ticketsData, 'PX-90', stubs, crimes);\n  assert(stubs.length === 0 && crimes.length === 0, 'Zero findings expected');\n  ```",
+            "UT: [Invariant C002] Normal .rs file still detected (backward compat)\n  ```js\n  const { scanFile } = require('./enumerate-ticket-targets');\n  const stubs = [], crimes = [];\n  scanFile('/path/to/src/main.rs', ticketsData, 'PX-90', stubs, crimes);\n  assert(stubs.length + crimes.length > 0);\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "targetExtensions included .css, .scss, .json, .yaml, .yml, .toml, .md",
+              "after": "targetExtensions contains only programming extensions",
+              "description": "PX-90: Removed non-programming extensions from ticket-config.js"
+            },
+            {
+              "before": "scan-incomplete-implementations.js walk() had no file exclusion",
+              "after": "walk() skips Tickets.json and Malfeasance.json",
+              "description": "PX-90: Added EXCLUDED_FILENAMES to stop self-referential cascade"
+            },
+            {
+              "before": "enumerate-ticket-targets.js had own TARGET_EXTENSIONS with non-programming exts + no file exclusion",
+              "after": "TARGET_EXTENSIONS restricted; walk() checks EXCLUDED_FILENAMES",
+              "description": "PX-90: Mirror fixes in enumerate-ticket-targets.js"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-28"
+        },
+        {
+          "id": 91,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make targetStubs/targetCrimes enumeration idempotent — no accumulation across runs",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/91-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Make enumeration idempotent across runs\n- 【Purpose】Prevent unbounded growth of operational fields\n- 【Motivation】One ticket had 7,478 stubs (6.5MB) + 9,960 crimes (15.5MB)\n- 【Constraints】Preserve classification logic",
+          "scope": [
+            "[Change] update-ticket.js — Reject --append for targetStubs/targetCrimes",
+            "[Change] enumerate-ticket-targets.js — Add idempotency tests",
+            "[Non-change] Entry structure preserved",
+            "[Impact] targetStubs/targetCrimes stop growing"
+          ],
+          "testUnit": [
+            "UT: [Normal] enumerate-ticket-targets.js invoked 2nd time produces targetStubs array byte-identical to 1st run",
+            "UT: [Normal] enumerate-ticket-targets.js invoked 2nd time produces targetCrimes array byte-identical to 1st run",
+            "UT: [Normal] enumerate-ticket-targets.js with --tickets writes full replacement (not append) to Tickets.json",
+            "UT: [Error] enumerate-ticket-targets.js on empty source tree produces empty targetStubs and targetCrimes arrays",
+            "UT: [Boundary] enumerate-ticket-targets.js run 3 times sequentially — all 3 produce identical results",
+            "UT: [Invariant] Running enumerate-ticket-targets.js N times produces identical results to running it once"
+          ],
+          "testIntegration": [
+            "IT: Run enumerate-ticket-targets.js twice against real tree via --tickets, diff the two Tickets.json outputs for the ticket key — must be byte-identical in targetStubs and targetCrimes sections",
+            "IT: After removing one STUB from source and re-running, targetStubs length decreases by exactly 1 (not appended with stale data)"
+          ],
+          "testExceptions": [
+            "Cannot test: idempotency on a source tree that genuinely gains a new STUB between runs will naturally add an entry (input changed). This is correct behavior, not a violation — not a design defect.",
+            "Not testable: writeTargetsToTickets already uses assignment (=) not push/concat — verified via code review. The guard against --append in update-ticket.js is separately tested. This is not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/enumerate-ticket-targets.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy: 2nd run produces same data as 1st",
+            "Happy: arrays do not grow on re-run",
+            "Edge: after resolving STUBs, re-run shrinks",
+            "Error: --append on targetStubs is rejected"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "enumerate-idempotent-stubs",
+              "precondition": "enumerate-ticket-targets.js is invoked with a ticket key",
+              "postcondition": "targetStubs and targetCrimes arrays are fully replaced, not appended to",
+              "invariant": "Running twice with the same input produces byte-identical targetStubs and targetCrimes arrays"
+            }
+          ],
+          "notes": "- 【Steps】1) Guard in update-ticket.js 2) Idempotency tests 3) Integration test\n- 【Risks】Low — writeTargetsToTickets already uses =\n- 【Caveats】AI scripts may write these fields via stdin; guard catches it\n- 【Open items】Existing inflated data trim (separate)\n- 【Future】CI check for targetStubs growth\nappended note\nappended note test\nImplementation summary:\n- Changed file: .claude/scripts/tickets/update-ticket.js\n- Key change: added IDEMPOTENT_FIELDS = ['targetStubs', 'targetCrimes'] with guard in --append path\n- Test results: 8/8 PX-91 tests passed + 7/7 regression tests passed\n- Manual verification: --append targetStubs rejected, --append targetCrimes rejected, --append notes still works\nappended note test",
+          "invariants": "- 【Normal】Always replaces arrays, never appends\n- 【On error】Failed scan does not corrupt existing data\n- 【Internal state】Classification is deterministic\n- 【Boundary】Empty source -> verified_empty",
+          "instrumentation": "- 【Logging】Log warning when targetStubs/targetCrimes are overwritten\n- 【Metrics】None\n- 【Error tracking】N/A\n- 【Health check】N/A",
+          "investigation": "=== Investigation ===\n\n1. enumerate-ticket-targets.js L196-198: writeTargetsToTickets() already uses assignment (=), not append.\n\n2. update-ticket.js L41-53: --append flag CONCATENATES arrays. If any script uses --append on targetStubs/targetCrimes, accumulation occurs.\n\nFix: Add field-specific guard in update-ticket.js rejecting --append for targetStubs/targetCrimes.",
+          "boyScoutPlan": "1. Add IDEMPOTENT_FIELDS = ['targetStubs', 'targetCrimes'] constant in update-ticket.js\n2. Extract field-protection to guardField(fieldName, value) for testability",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "planTestCode": [
+            "UT: [Precondition C001] enumerate-ticket-targets.js invoked with ticket key returns result\n  ```js\n  const { enumerateTargets } = require('./enumerate-ticket-targets');\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  const result = enumerateTargets('.', 'PX-91', ticketsData);\n  assert(result !== null, 'enumerateTargets returns non-null');\n  assert(typeof result.targetStubs !== 'undefined', 'has targetStubs');\n  assert(typeof result.targetCrimes !== 'undefined', 'has targetCrimes');\n  ```",
+            "UT: [Postcondition C001] update-ticket.js --append rejected for targetStubs\n  ```js\n  const { spawnSync } = require('child_process');\n  const proc = spawnSync('node', ['.claude/scripts/tickets/update-ticket.js', 'Tickets.json', 'PX-91', '--append'], {\n    input: JSON.stringify({targetStubs: [{}]}),\n    encoding: 'utf8'\n  });\n  const output = JSON.parse(proc.stdout);\n  assert(output.success === false, '--append for targetStubs should fail');\n  assert(output.error.includes('targetStubs'), 'error mentions targetStubs');\n  ```",
+            "UT: [Postcondition C001] update-ticket.js --append rejected for targetCrimes\n  ```js\n  const { spawnSync } = require('child_process');\n  const proc = spawnSync('node', ['.claude/scripts/tickets/update-ticket.js', 'Tickets.json', 'PX-91', '--append'], {\n    input: JSON.stringify({targetCrimes: [{}]}),\n    encoding: 'utf8'\n  });\n  const output = JSON.parse(proc.stdout);\n  assert(output.success === false, '--append for targetCrimes should fail');\n  assert(output.error.includes('targetCrimes'), 'error mentions targetCrimes');\n  ```",
+            "UT: [Invariant C001] Twice enumerate produces identical targetStubs length\n  ```js\n  const { enumerateTargets } = require('./enumerate-ticket-targets');\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  const r1 = enumerateTargets('.', 'PX-91', ticketsData);\n  const r2 = enumerateTargets('.', 'PX-91', ticketsData);\n  assert(r1.targetStubs.length === r2.targetStubs.length, 'targetStubs length invariant');\n  assert(r1.targetCrimes.length === r2.targetCrimes.length, 'targetCrimes length invariant');\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "update-ticket.js --append mode accepted targetStubs/targetCrimes, causing unbounded accumulation",
+              "after": "targetStubs/targetCrimes --append guarded by IDEMPOTENT_FIELDS; rejected with clear error",
+              "description": "PX-91: Added IDEMPOTENT_FIELDS guard in update-ticket.js"
+            }
+          ],
+          "completedAt": "2026-07-28"
+        },
+        {
+          "id": 92,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Ensure phase schema completeness and file path normalization in crime/update records",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/92-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Ensure phaseId/status + relative paths\n- 【Purpose】Downstream depends on these fields\n- 【Motivation】18 phases had missing fields; wrong absolute paths\n- 【Constraints】Must not break existing phase creation",
+          "scope": [
+            "[Change] add-phase.js — Add phaseId and status",
+            "[Change] add-px-phase.js — Add phaseId and status",
+            "[Change] malfeasance-create.js — Normalize file arg",
+            "[Change] update-ticket.js — Normalize paths",
+            "[Non-change] Existing phases not repaired",
+            "[Impact] New phases usable by downstream"
+          ],
+          "testUnit": [
+            "UT: [Normal] add-phase.js creates a phase with non-null phaseId and status fields",
+            "UT: [Normal] add-px-phase.js creates a phase with non-null phaseId and status fields",
+            "UT: [Normal] malfeasance-create.js converts absolute path /Users/kawata/foo.rs to project-root-relative path foo.rs",
+            "UT: [Normal] malfeasance-create.js converts home-dir-relative path ~/project/file.rs to project-root-relative path",
+            "UT: [Boundary] malfeasance-create.js handles path with .. segments: /a/b/c/../d -> normalised",
+            "UT: [Boundary] update-ticket.js normalizes file paths in update JSON to project-relative",
+            "UT: [Invariant] Every phase in Tickets.json always has phaseId and status set to non-null non-empty values"
+          ],
+          "testIntegration": [
+            "IT: Create new phase via add-phase.js, read Tickets.json, verify phase has phaseId and status",
+            "IT: Create crime via malfeasance-create.js with absolute path /Users/foo/bar.rs, verify Malfeasance.json stores it as bar.rs (project-root-relative)"
+          ],
+          "testExceptions": [
+            "Cannot test: every filesystem edge case (NFS mount, cross-device symlink, case-insensitive Windows paths) — combinatorial. Tested on common Unix patterns which cover the normalization logic. This is not a design defect: the logic is deterministic and platform-agnostic.",
+            "Cannot test: path normalization depends on process.cwd() being project root at runtime. Tested with mocked cwd to verify the normalization logic independently. This is not an architectural defect."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/add-phase.js",
+            ".claude/scripts/tickets/add-px-phase.js",
+            ".claude/scripts/tickets/malfeasance-create.js",
+            ".claude/scripts/tickets/update-ticket.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy: new phase has non-null phaseId and status",
+            "Happy: new crime uses relative path",
+            "Error: normalization handles non-existent paths",
+            "Edge: root-dir file stores minimal relative"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "phase-schema-completeness",
+              "precondition": "add-phase.js or add-px-phase.js is called",
+              "postcondition": "The newly created phase has both phaseId and status fields set to non-null values",
+              "invariant": "Every phase in Tickets.json always has phaseId and status"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "path-normalization",
+              "precondition": "malfeasance-create.js receives a file path argument",
+              "postcondition": "The stored file path is always project-root-relative",
+              "invariant": "No absolute or home-dir paths exist in Malfeasance records"
+            }
+          ],
+          "notes": "- 【Steps】1) add-phase.js 2) add-px-phase.js 3) malfeasance-create.js 4) update-ticket.js 5) Tests\n- 【Risks】Low — additive/normalization only\n- 【Caveats】path.relative may produce empty string; handle as .\n- 【Open items】Existing phase repair migration (separate)\n- 【Future】CI validation for phase schema + relative paths\nImplementation summary:\n- Changed files: add-phase.js, add-px-phase.js, malfeasance-utils.js, malfeasance-create.js, update-ticket.js\n- Added normalizePath() to malfeasance-utils.js (shared utility)\n- Test results: 17/17 PX-92 tests passed\n- Existing phases not repaired (out of scope)",
+          "invariants": "- 【Normal】Every phase has phaseId and status\n- 【On error】Normalization logs warning, does not crash\n- 【Internal state】All paths are project-root-relative\n- 【Boundary】Handles ~/, ../, absolute uniformly",
+          "instrumentation": "- 【Logging】Log normalized path in malfeasance-create.js when path differs from input\n- 【Metrics】None\n- 【Error tracking】N/A\n- 【Health check】N/A",
+          "investigation": "=== Investigation ===\n\n1. add-phase.js L42-47: creates phase {id, name, externalDependencies, tickets} — MISSING phaseId, status.\n\n2. add-px-phase.js L57-63: creates phase {id, name, characteristics, tickets} — MISSING phaseId, status.\n\n3. malfeasance-create.js L23: const file = process.argv[2]; — raw, no path normalization.\n\n4. update-ticket.js: No path normalization for any field.",
+          "boyScoutPlan": "1. Extract path normalization to normalizeFilePath(file, projectRoot) in lib/malfeasance-utils.js\n2. Extract phase creation to createPhase(data) that always sets phaseId and status\n3. Add REQUIRED_PHASE_FIELDS constant for self-documenting schema",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "planTestCode": [
+            "UT: [Precondition C001] add-phase.js called with valid stdin creates a phase\n  ```js\n  const fs = require('fs');\n  const { spawnSync } = require('child_process');\n  const tmpFile = '/tmp/test-phases-' + Date.now() + '.json';\n  fs.writeFileSync(tmpFile, JSON.stringify({version:1, phases:[]}));\n  const proc = spawnSync('node', ['.claude/scripts/tickets/add-phase.js', tmpFile], {\n    input: JSON.stringify({name: 'Test Phase'}),\n    encoding: 'utf8'\n  });\n  const output = JSON.parse(proc.stdout);\n  assert(output.success === true, 'add-phase succeeds');\n  // check phaseId and status\n  const data = JSON.parse(fs.readFileSync(tmpFile, 'utf8'));\n  const phase = data.phases[0];\n  assert(phase.phaseId !== undefined && phase.phaseId !== null, 'phaseId set');\n  assert(phase.status !== undefined && phase.status !== null, 'status set');\n  fs.unlinkSync(tmpFile);\n  ```",
+            "UT: [Postcondition C001] New phase has both phaseId and status as non-null values\n  ```js\n  // (Inlined in precondition test above)\n  assert(phase.phaseId !== undefined);\n  assert(phase.status !== undefined);\n  ```",
+            "UT: [Invariant C001] Every phase in Tickets.json always has phaseId and status\n  ```js\n  const ticketsData = JSON.parse(fs.readFileSync('Tickets.json', 'utf8'));\n  for (const p of ticketsData.phases) {\n    assert(p.phaseId !== undefined && p.phaseId !== null, 'Phase ' + p.id + ' has phaseId');\n    assert(p.status !== undefined && p.status !== null, 'Phase ' + p.id + ' has status');\n  }\n  ```",
+            "UT: [Precondition C002] malfeasance-create.js receives absolute path\n  ```js\n  const { normalizePath } = require('../lib/malfeasance-utils');\n  const result = normalizePath('/Users/kawata/foo.rs', '/Users/kawata/project');\n  assert(result === 'foo.rs', 'absolute path normalized to relative');\n  ```",
+            "UT: [Postcondition C002] Stored file path is project-root-relative\n  ```js\n  const { normalizePath } = require('../lib/malfeasance-utils');\n  const result = normalizePath('/Users/kawata/project/src/main.rs', '/Users/kawata/project');\n  assert(result === 'src/main.rs', 'nested absolute to relative');\n  ```",
+            "UT: [Postcondition C002] Home-dir path normalized\n  ```js\n  const { normalizePath } = require('../lib/malfeasance-utils');\n  const result = normalizePath('~/project/file.rs', '/Users/kawata/project');\n  assert(result === 'file.rs', 'home-dir normalized');\n  ```",
+            "UT: [Invariant C002] No absolute paths stored in Malfeasance records\n  ```js\n  const data = JSON.parse(fs.readFileSync('Malfeasance.json', 'utf8'));\n  for (const r of data.records) {\n    assert(!r.file.startsWith('/'), 'Record ' + r.id + ' has relative path');\n  }\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "add-phase.js created phase without phaseId and status",
+              "after": "add-phase.js creates phase with phaseId (=id) and status ('draft')",
+              "description": "PX-92: Added phaseId and status to new phase object"
+            },
+            {
+              "before": "add-px-phase.js created PX phase without phaseId and status",
+              "after": "add-px-phase.js creates PX phase with phaseId (-1) and status ('draft')",
+              "description": "PX-92: Added phaseId and status to PX phase object"
+            },
+            {
+              "before": "malfeasance-create.js stored raw argv[2] as file path (absolute/relative as-is)",
+              "after": "malfeasance-create.js normalizes file path via normalizePath() to project-root-relative",
+              "description": "PX-92: Added normalizePath() to malfeasance-utils + used in malfeasance-create.js"
+            },
+            {
+              "before": "update-ticket.js had no file path normalization",
+              "after": "update-ticket.js normalizes file paths in targetStubs/targetCrimes and top-level file field",
+              "description": "PX-92: Added path normalization in update-ticket.js update processing"
+            }
+          ],
+          "completedAt": "2026-07-28"
         }
       ]
     },

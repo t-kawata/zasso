@@ -48,6 +48,13 @@ const PATTERN_GROUPS = {
 const STUB_MARKER_RE = /\[::STUB::\]/;
 const TARGET_EXTS = CFG.review.targetExtensions;
 
+// PX-90: Excluded data files whose content contains [::STUB::] references as
+// JSON string values. Scanning these creates a self-referential cascade —
+// crimes recorded in Malfeasance.json are detected by the next scan,
+// generating deeper-escaped records.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
+
 function parseArgs() {
   const args = process.argv.slice(2);
   let dirPath = '.';
@@ -113,6 +120,8 @@ function scanDirectory(dirPath, mode) {
     }
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
+      // PX-90: Skip data files whose JSON content contains STUB text strings.
+      if (EXCLUDED_FILENAMES.has(entry.name)) continue;
       const fullPath = path.join(currentPath, entry.name);
       if (entry.isDirectory()) {
         walk(fullPath);
