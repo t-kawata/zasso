@@ -21,12 +21,12 @@
 const WEIGHT_INFINITY = Object.freeze({
   depends_on: Infinity,
   implements: Infinity,
-  constrains: Infinity,
 });
 
 /** Weight 2: strong recommendation (reverse possible with structural changes) */
 const WEIGHT_STRONG = Object.freeze({
   precedes: 2,
+  constrains: 2,
 });
 
 /** Weight 1: weak recommendation (reverse can be substituted with mocks) */
