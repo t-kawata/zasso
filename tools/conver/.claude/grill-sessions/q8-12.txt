@@ -1,0 +1,87 @@
+Q1-R: ブロッキングゲートの機構 — 修正: conver.js は同一セッション内で make→plan→start→review を実行
+
+背景と修正: 前回私は「conver.js は各フェーズを完全に独立した ACP セッションで実行する」と誤って主張した。実際の runner.ts の実装では、make/plan/start/review は同一の withSession() ブロック内で逐次実行される（bindReviewInOneSession=true 時）。したがって、Session A 内ではシェルの exit code が伝搬可能であり、各フェーズの validate スクリプトが exit 1 すればその時点で Session A 全体が停止する。一方 resolve (Session C) と find-omissions (Session D) は別セッションなので、Session A の exit code は伝搬しない。しかし resolve は独立したエントリポイントとして呼ばれるため、独自のチェック機構は必要。
+
+以下の選択肢は、この修正された理解（Session A 内は exit code 伝搬可、Session C は独立）を前提とする。
+
+選択肢:
+- A) Session A 内の各フェーズ validate は exit code のみでブロック。resolve だけは Tickets.json にチェックポイントを書き込み、次回の resolve 実行時にチェックポイントを確認する。
+- B) 全 validate が exit code + Tickets.json チェックポイントの二重構造。Session A 内でも二重に記録する。
+- C) Tickets.json チェックポイントのみ。exit code によるブロックは行わず、すべて Tickets.json の状態で進行管理する。
+
+推奨: A。Session A 内は exit code で十分（プロセスが同じ）。Session C（resolve）のみチェックポイントが必要（別プロセス）。B は Session A 内で二重記録する意味がなく過剰。C は exit code の即時停止メリットを捨てている。
+
+Q2-R: Crime の定義と deferred の適用範囲（D05 再質問）
+
+背景: 前回の Q5 で deferred と犯罪を混同していたことが明確になったので再質問する。
+
+定義:
+- Crime: 「完了しているはずのチケットのSTUBがまだ未解決で残っている」状態。見つけ次第、当該チケットの中で完全解決しなければならない。deferred 不可。
+- Stub: 将来のチケットで解決する予定の未実装箇所。deferred_to で将来チケットを指定可能。
+
+よって deferred_to は targetStubs にのみ存在し、targetCrimes には存在しない。targetCrimes の status は "pending" → "resolved" OR "false_positive" の2択。
+
+では「このチケットではどうしても解決できない犯罪」をどう扱うか？ 例: P0-9 が存在しないために FFI の型が使えず、m20_codec_auto_mode.rs の #[allow(dead_code)] を解除できない。これは犯罪だが、真に解決不可能。
+
+選択肢:
+- A) false_positive として記録する。ただし、前回提案した falsePositiveJustification の必須項目（whyCannotResolveNow, demonstration, note）を厳格に要求。100文字未満や具体性不足はブロック。
+- B) 犯罪を「そのチケットが完了するまで pending」のままにできる。ただし pending のまま次のチケットに進むには make の承認が必要。
+- C) 犯罪は必ず解決する。解決できない犯罪は存在してはならないという原則で、新しいチケットを Tickets.json に追加して deferred_to 相当の扱いにする。
+
+推奨: A。C は理想だが、P0-9 のような存在しないチケットを参照する犯罪が現実に存在する。A であれば false_positive で記録し、将来的に P0-9 が作成された時に再評価できる。
+
+Q3-R: resolve での「後続チケットでしか解決できないもの」の扱い（D08-1 フォローアップ）
+
+背景: あなたの Q3 への回答「resolve は解決だけを担うが、後続のチケットでしか解決できないものはどう扱う予定？」に対する直接の回答。
+
+resolve は「最後の砦」で、ここで新しい STUB を作ることは禁止（Q3 確定）。しかし cargo check や cargo test を通す過程で、どうしても後続チケットでしか解決できない問題に遭遇する可能性がある。
+
+選択肢:
+- A) resolve は cargo check / test を通すためのコード修正のみを行い、STUB の追加は一切行わない。後続チケットでしか解決できない問題は、修正不能なコードにコメントで理由を記述し、該当部分に #[allow] を付けるが、[::STUB::] は付けない。その事実を標準出力に報告し、人間に知らせる。
+- B) 同じだが、#[allow] と同時に犯罪として malfeasance-create.js で登録する。犯罪として認識させる。
+- C) 後続チケットの話は resolve では扱わない。resolve で cargo check が通らないなら、上流（start または review）に差し戻す。resolve は何も修正しない。
+
+推奨: C が最も純粋だが現実的ではない（cargo check を通す最低限の修正は必要）。実質的には A と C のハイブリッド: コード修正で直せるもののみ対応。どうしても無理なものは報告のみ。A を推奨。
+
+Q4-R: 既存の契約検証スクリプト群（verify-*-contracts.js）のパイプライン統合（D04）
+
+背景とトレードオフ: 調査の結果、既に4つの契約検証スクリプトが実装済みであることが判明した。
+- verify-make-contracts.js (Gate M): 各契約の preconditions/postconditions/invariants が testUnit フィールドに keyword レベルで含まれているかを検証する。Tickets.json の testUnit 配列との突合で動作。
+- verify-plan-contracts.js (Gate P): Gate M より厳格。契約の内容が assert! や let x = 等の具体的なコードパターンに変換されているかを検証する。自然言語の記述のみでは通過できない。
+- verify-red-coverage.js (Gate S): テストコードファイルそのものをスキャンし、@verifies C001 アノテーションで全契約がカバーされているかを確認する。Gate P（計画レベル）と Gate S（実装レベル）の二重検証。
+- verify-final-contracts.js (Gate R): 全チケットの全契約が最終的に充足されているか集計レポートを生成。
+
+これらのスクリプトは各フェーズ（M=make, P=plan, S=start, R=review）に対応するゲートとして意図されており、@verifies アノテーション方式はあなたの求める「テストコード内に契約IDを記述して機械検出可能にする」要件と完全に整合する。またすでに実装済みであるため、ゼロから作る必要はない。
+
+ただし、これらの既存スクリプトが (1) 現在の各フェーズのコマンド定義から確実に呼び出されているか、(2) exit code でブロックする設計になっているか、(3) targetStubs/targetCrimes の contracts[] 参照と連携する設計か、の3点は未確認である。調査結果によればこれらのスクリプトは exit 1 でブロックする設計にはなっているが、各フェーズのコマンド定義（make-ticket.md, plan-ticket.md 等）からの呼び出し有無は別途確認が必要。
+
+トレードオフ: A は既存資産を最大活用するが、targetStubs/targetCrimes の contracts[] と既存スクリプトの期待する入力形式（Tickets.json の contracts 配列）の互換性確認が必要。B は並行運用が可能だがメンテナンスコストが倍増する。C は理想だが既存スクリプトのテストが壊れるリスクがある。
+
+選択肢:
+- A) 既存の verify-*-contracts.js を各フェーズの validate ゲートスクリプトから内部呼び出し。新しいスクリプトを作らず、既存資産を活用。互換性確認のみ行う。
+- B) 既存スクリプトは参考に留め、targetStubs/targetCrimes 専用の新しい validate スクリプトを別途作成する。既存スクリプトとの重複は許容。
+- C) 既存スクリプトを targetStubs/targetCrimes 対応にアップグレードする（入力形式の改造）。
+
+推奨: A。既存の Gate M/P/S/R スクリプト群はテストコード @verifies アノテーションを利用しており、これはあなたの要件と完全に一致する。ゼロから作る必要はない。ただし各フェーズのコマンド定義からこれらのスクリプトが現状呼び出されているかは別途確認する。
+
+Q5-R: 手編輯禁止下での enumerate の冪等性と更新戦略（D11）
+
+背景とトレードオフ: あなたの Q7 への回答で「手編集は完全に禁止。編集が必要な場合は専用スクリプトを用意し決定論的に実行」と確定した。これにより _editedByHuman フラグでの排他制御は不要になった。代わりに「Tickets.json の targetStubs/targetCrimes に対する全変更は専用スクリプト経由」が唯一の経路となる。
+
+ここで問題になるのは enumerate-ticket-targets.js の動作設計である。enumerate は「全ソースをスキャンして STUB を発見し Tickets.json に書き込む」スクリプトであり、これは「専用スクリプト経由の変更」ルールと競合する。enumerate が毎回全上書き（strict 冪等）すると、専用スクリプトで追加した補足情報（resolutionPlan 等）も上書きで失われる。一方、追記のみにすると、ソースから消えた STUB が Tickets.json に残り続ける（今回の139件の原因の一つ）。また、手編集自体を禁止しても「スクリプト経由」と「enumerate 経由」の2種類の書き込み経路が存在すること自体が問題である。
+
+トレードオフ: A は「enumerate が最後」という実行順序の制約を課す。B は制約はないが、ソースから消えた STUB の自動削除ができない。C は最もシンプルだが、補足情報を付与したい場合に不便。
+
+選択肢:
+- A) enumerate は毎回全スキャンし結果を完全上書き（strict 冪等）。補足情報の付与には add-stub-meta.js や update-resolution-plan.js 等の専用スクリプトを用意し、それらは enumerate の**前に**実行することをルール化する。enumerate が最後に実行されることで、ソースに存在しない STUB は自動削除される。
+- B) enumerate は新規発見のみ追記。削除や変更は別の専用スクリプト（remove-target-stub.js, update-target-status.js）。実行順序の制約なし。
+- C) enumerate 1本で全てを賄う。補足情報が必要な場合は enumerate の出力を直接編集（人間の責任）。
+
+推奨: A。手編集禁止 + 決定論的実行 + 自動クリーンアップ（存在しない STUB の削除）の3条件を全て満たす。
+
+選択肢:
+- A) enumerate は毎回全スキャンし、結果を完全に上書きする（strict 冪等）。専用スクリプト群（add-target-stub.js, remove-target-stub.js, update-target-status.js 等）を別途用意し、手動相当の操作はすべてスクリプト経由で行う。enumerate と専用スクリプトの実行順序は「enumerate が最後」とする。
+- B) enumerate は新規発見のみ追記する。既存エントリの削除や変更は専用スクリプトのみ。enumerate と専用スクリプトの実行順序に制約なし。
+- C) enumerate 1本で全てを賄う。スキャン結果 = 唯一の真実。他のスクリプト経由の変更は認めない。targetStubs/targetCrimes に直接手を加えたい場合は Tickets.json を直接編集（人間の責任）。
+
+推奨: A。手編集禁止 + 決定論的実行の原則に最も適合する。専用スクリプト（add, remove, update-status）と enumerate の役割分担が明確。enumerate が最後に実行されることで、専用スクリプトで加えた変更と最新のソースコード状態が常に一致する。
