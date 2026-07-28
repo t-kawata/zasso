@@ -31,7 +31,7 @@
 // Schema migration definitions and Makefile targets (gen-migration, migrate-up,
 // migrate-fresh, gen-entities) are managed in the siprs-server crate.
 
-use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr, Statement};
 
 use std::path::Path;
 use std::time::Duration;
@@ -55,7 +55,7 @@ pub struct DatabasePool {
     conn: DatabaseConnection,
 }
 
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
 impl DatabasePool {
     /// Open or create a SQLite database at the given path.
     ///
@@ -91,7 +91,107 @@ impl DatabasePool {
     pub fn into_inner(self) -> DatabaseConnection {
         self.conn
     }
+
+    /// Initialize the database schema by creating all 4 tables.
+    ///
+    /// Uses `CREATE TABLE IF NOT EXISTS` so this is safe to call on startup
+    /// even if tables already exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbErr` if any CREATE TABLE statement fails.
+    pub async fn init_schema(&self) -> Result<(), DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let statements = [
+            CREATE_TABLE_ACCOUNTS,
+            CREATE_TABLE_TRANSPORT_CONFIGS,
+            CREATE_TABLE_CLIENT_SETTINGS,
+            CREATE_TABLE_TLS_CONFIGS,
+        ];
+
+        for stmt in &statements {
+            self.conn
+                .execute(Statement::from_string(
+                    sea_orm::DatabaseBackend::Sqlite,
+                    stmt.to_string(),
+                ))
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Query the list of table names in the database.
+    ///
+    /// Returns the names of all user tables (excluding sqlite_* system tables).
+    #[cfg(test)]
+    // Test-only helper — dead_code lint suppressed since it is called from integration tests.
+    #[allow(dead_code)]
+    pub(crate) async fn query_tables(&self) -> Result<Vec<String>, DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let rows = self
+            .conn
+            .query_all(Statement::from_string(
+                sea_orm::DatabaseBackend::Sqlite,
+                String::from("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"),
+            ))
+            .await?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| row.try_get_by_index::<String>(0).ok())
+            .collect())
+    }
 }
+
+// ---------------------------------------------------------------------------
+// Migration SQL — CREATE TABLE statements matching RFC §56
+// ---------------------------------------------------------------------------
+
+/// SQL to create the `accounts` table.
+pub(crate) const CREATE_TABLE_ACCOUNTS: &str =
+    "CREATE TABLE IF NOT EXISTS accounts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    display_name  TEXT,
+    username      TEXT NOT NULL,
+    auth_username TEXT,
+    password      BLOB NOT NULL,
+    domain        TEXT NOT NULL,
+    registrar_uri TEXT,
+    transport     TEXT NOT NULL DEFAULT 'udp',
+    register_on_start INTEGER NOT NULL DEFAULT 1,
+    allow_outbound_without_register INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+)";
+
+/// SQL to create the `transport_configs` table.
+pub(crate) const CREATE_TABLE_TRANSPORT_CONFIGS: &str =
+    "CREATE TABLE IF NOT EXISTS transport_configs (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind     TEXT NOT NULL CHECK(kind IN ('udp','tcp','tls')),
+    bind_addr TEXT NOT NULL,
+    port     INTEGER NOT NULL,
+    tls_config_id INTEGER REFERENCES tls_configs(id)
+)";
+
+/// SQL to create the `client_settings` table.
+pub(crate) const CREATE_TABLE_CLIENT_SETTINGS: &str =
+    "CREATE TABLE IF NOT EXISTS client_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+)";
+
+/// SQL to create the `tls_configs` table.
+pub(crate) const CREATE_TABLE_TLS_CONFIGS: &str =
+    "CREATE TABLE IF NOT EXISTS tls_configs (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    verify_server         INTEGER NOT NULL DEFAULT 1,
+    ca_cert_path          TEXT,
+    client_cert_path      TEXT,
+    server_name           TEXT
+)";
 
 /// Account entity — stores SIP account configuration per RFC §56.
 ///
@@ -288,7 +388,7 @@ mod tests {
     fn test_entities_are_send_sync() {
         // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AccountEntity>();
         assert_sync::<AccountEntity>();
@@ -319,5 +419,61 @@ mod tests {
         assert!(!entity.username.is_empty(), "username is required");
         assert!(!entity.password.is_empty(), "password is required");
         assert!(!entity.domain.is_empty(), "domain is required");
+    }
+
+    // ── P4-3: Migration SQL constants ──────────────────────────────
+
+    #[test]
+    // @verifies C065
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_create_table_accounts_sql_is_valid() {
+        assert!(CREATE_TABLE_ACCOUNTS.starts_with("CREATE TABLE IF NOT EXISTS accounts"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("username"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("password"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("domain"));
+    }
+
+    #[test]
+    // @verifies C065
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_create_table_transport_configs_sql_is_valid() {
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.starts_with("CREATE TABLE IF NOT EXISTS transport_configs"));
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("CHECK(kind IN"));
+    }
+
+    #[test]
+    // @verifies C065
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_create_table_client_settings_sql_is_valid() {
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.starts_with("CREATE TABLE IF NOT EXISTS client_settings"));
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("key"));
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("value"));
+    }
+
+    #[test]
+    // @verifies C065
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_create_table_tls_configs_sql_is_valid() {
+        assert!(CREATE_TABLE_TLS_CONFIGS.starts_with("CREATE TABLE IF NOT EXISTS tls_configs"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("verify_server"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("ca_cert_path"));
+    }
+
+    #[test]
+    // @verifies C065
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_all_create_table_constants_are_unique() {
+        let tables = vec![
+            CREATE_TABLE_ACCOUNTS,
+            CREATE_TABLE_TRANSPORT_CONFIGS,
+            CREATE_TABLE_CLIENT_SETTINGS,
+            CREATE_TABLE_TLS_CONFIGS,
+        ];
+        assert_eq!(tables.len(), 4, "must have exactly 4 table constants");
+        // Verify each contains a distinct table name
+        assert!(CREATE_TABLE_ACCOUNTS.contains("accounts"));
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("transport_configs"));
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("client_settings"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("tls_configs"));
     }
 }

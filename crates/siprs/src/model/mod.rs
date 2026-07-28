@@ -1,4 +1,5 @@
 
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P2-3: model module — SQLite persistence schema & DatabasePool.
@@ -31,6 +32,12 @@ pub use audio_aligner::PairAligner;
 pub mod audio_resampler;
 
 pub use audio_resampler::interleave_in_out;
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+
+/// Media bridge — lock-free RT/async boundary with AudioBridge and RustMediaPort.
+pub mod media_bridge;
+
+pub use media_bridge::{AudioBridge, MediaFrame, PortDirection};
 
 /// SQLite persistence schema with SeaORM entities and DatabasePool.
 ///

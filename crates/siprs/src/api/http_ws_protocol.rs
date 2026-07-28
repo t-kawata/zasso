@@ -126,6 +126,128 @@ impl AudioFrameHeader {
     }
 }
 
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+
+// ---------------------------------------------------------------------------
+// WsTextFrame — JSON text frame for control events over WebSocket
+// ---------------------------------------------------------------------------
+
+/// WebSocket text frame for delivering control events.
+///
+/// Serialized as JSON with type discriminator, global sequence number,
+/// and the event payload.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct WsTextFrame {
+    /// Frame type discriminator: "event", "ack", "error".
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    /// Global sequence number (shared with EventBus).
+    pub seq: u64,
+    /// Event payload (varies by event kind).
+    pub payload: serde_json::Value,
+}
+
+// ---------------------------------------------------------------------------
+// WsBinaryFrame — binary audio frame for WebSocket
+// ---------------------------------------------------------------------------
+
+/// WebSocket binary frame carrying audio data.
+///
+/// Wire format: 30-byte AudioFrameHeader followed by PCM i16 samples.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WsBinaryFrame {
+    /// Fixed-size header with metadata.
+    pub header: AudioFrameHeader,
+    /// PCM audio data (i16 samples in native byte order).
+    pub data: Vec<u8>,
+}
+
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+impl WsBinaryFrame {
+    /// Encode this frame into a wire-format byte vector.
+    ///
+    /// Returns header bytes (30) + PCM data bytes.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(30 + self.data.len());
+        buf.extend_from_slice(&self.header.to_bytes());
+        buf.extend_from_slice(&self.data);
+        buf
+    }
+
+    /// Decode a frame from a wire-format byte slice.
+    ///
+    /// Returns `None` if the input is too short to contain a header.
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < 30 {
+            return None;
+        }
+        let header_bytes: [u8; 30] = bytes[..30].try_into().ok()?;
+        let header = AudioFrameHeader::from_bytes(&header_bytes);
+        let data = bytes[30..].to_vec();
+        Some(Self { header, data })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SequenceGenerator — monotonic u64 counter for event-audio correlation
+// ---------------------------------------------------------------------------
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Monotonically increasing global sequence number generator.
+///
+/// Provides unique sequence numbers across both SipEvent and AudioChunkPair
+/// domains, enabling event-audio correlation. The counter starts at 1 and
+/// wraps from `u64::MAX` to 0, maintaining uniqueness across the wrap point.
+pub struct SequenceGenerator {
+    counter: AtomicU64,
+}
+
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+impl SequenceGenerator {
+    /// Create a new generator starting at sequence 1.
+    pub fn new() -> Self {
+        Self {
+            counter: AtomicU64::new(1),
+        }
+    }
+
+    /// Create a new generator starting at the given sequence number.
+    pub fn with_start(start: u64) -> Self {
+        Self {
+            counter: AtomicU64::new(start),
+        }
+    }
+
+    /// Atomically increment and return the next sequence number.
+    ///
+    /// The counter wraps from `u64::MAX` to 0 on overflow.
+    pub fn next(&self) -> u64 {
+        self.counter.fetch_add(1, Ordering::SeqCst)
+    }
+
+    /// Read the current sequence number without incrementing.
+    pub fn current(&self) -> u64 {
+        self.counter.load(Ordering::SeqCst)
+    }
+
+    /// Reserve the next `count` sequence numbers.
+    ///
+    /// Returns the start of the reserved range. The range [start, start+count)
+    /// will not be issued by any other caller.
+    pub fn reserve(&self, count: u64) -> u64 {
+        self.counter.fetch_add(count, Ordering::SeqCst)
+    }
+}
+
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+impl Default for SequenceGenerator {
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,7 +338,7 @@ mod tests {
     fn test_audio_frame_header_send_sync() {
         // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-2, P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3|P4-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AudioFrameHeader>();
         assert_sync::<AudioFrameHeader>();
@@ -346,5 +468,178 @@ mod tests {
         let bytes = header.to_bytes();
         let decoded = AudioFrameHeader::from_bytes(&bytes);
         assert_eq!(header, decoded, "MAX values must round-trip correctly");
+    }
+
+    // ── P4-3: WsTextFrame — serde round-trip ─────────────────────────
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_ws_text_frame_serde_roundtrip() {
+        let frame = WsTextFrame {
+            msg_type: "event".into(),
+            seq: 42,
+            payload: serde_json::json!({"kind": "CallConnected", "call_id": 7}),
+        };
+        let json = serde_json::to_string(&frame).expect("WsTextFrame must serialize");
+        let decoded: WsTextFrame =
+            serde_json::from_str(&json).expect("WsTextFrame must deserialize");
+        assert_eq!(frame, decoded);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_ws_text_frame_msg_type_field() {
+        let frame = WsTextFrame {
+            msg_type: "ack".into(),
+            seq: 1,
+            payload: serde_json::json!({"status": "ok"}),
+        };
+        let json = serde_json::to_string(&frame).unwrap();
+        assert!(json.contains("\"type\":\"ack\""), "JSON must have type field");
+    }
+
+    // ── P4-3: WsBinaryFrame — encode/decode round-trip ───────────────
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_ws_binary_frame_encode_decode_roundtrip() {
+        let header = AudioFrameHeader {
+            sequence_number: 100,
+            timestamp_ms: 1748935200123,
+            frame_ms: 20,
+            sample_rate: 48000,
+            channels: 1,
+            bits_per_sample: 16,
+            call_id: 7,
+            reserved: [0u8; 4],
+        };
+        let pcm_data = vec![0u8; 320]; // 160 i16 samples = 320 bytes
+        let frame = WsBinaryFrame {
+            header: header.clone(),
+            data: pcm_data,
+        };
+        let encoded = frame.encode();
+        assert_eq!(encoded.len(), 30 + 320);
+
+        let decoded = WsBinaryFrame::decode(&encoded).expect("must decode");
+        assert_eq!(decoded.header, header);
+        assert_eq!(decoded.data.len(), 320);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_ws_binary_frame_decode_short_input() {
+        let result = WsBinaryFrame::decode(&[0u8; 10]);
+        assert!(result.is_none(), "too short input must return None");
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_ws_binary_frame_decode_empty_input() {
+        assert!(WsBinaryFrame::decode(&[]).is_none());
+    }
+
+    // ── P4-3: SequenceGenerator — monotonic counter ──────────────────
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_starts_at_one() {
+        let gen = SequenceGenerator::new();
+        assert_eq!(gen.current(), 1);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_with_start() {
+        let gen = SequenceGenerator::with_start(100);
+        assert_eq!(gen.current(), 100);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_next_increments() {
+        let gen = SequenceGenerator::new();
+        assert_eq!(gen.next(), 1);
+        assert_eq!(gen.next(), 2);
+        assert_eq!(gen.current(), 3);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_reserve_advances_by_count() {
+        let gen = SequenceGenerator::new();
+        let start = gen.reserve(5);
+        assert_eq!(start, 1);
+        // Next unreserved number is 1 + 5 = 6
+        assert_eq!(gen.next(), 6);
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_wrap_at_max() {
+        let gen = SequenceGenerator::with_start(u64::MAX);
+        assert_eq!(gen.next(), u64::MAX);
+        assert_eq!(gen.current(), 0, "must wrap to 0");
+        assert_eq!(gen.next(), 0, "post-wrap: fetch_add returns pre-increment");
+        assert_eq!(gen.current(), 1, "after next post-wrap: counter=1");
+    }
+
+    #[test]
+    // @verifies C063
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_send_sync() {
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>() {}
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>() {}
+        assert_send::<SequenceGenerator>();
+        assert_sync::<SequenceGenerator>();
+    }
+
+    // ── P4-3: REST endpoint constants (C064-Pre coverage) ───────────
+
+    #[test]
+    // @verifies C064
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    fn test_all_rest_endpoints_defined() {
+        // Verify 20 path constants are defined and non-empty
+        let paths = vec![
+            PATH_AUTH_TOKEN,
+            PATH_ACCOUNTS,
+            PATH_ACCOUNT_BY_ID,
+            PATH_ACCOUNT_REGISTER,
+            PATH_ACCOUNT_UNREGISTER,
+            PATH_ACCOUNT_CALLS,
+            PATH_CALLS,
+            PATH_CALL_BY_ID,
+            PATH_CALL_HANGUP,
+            PATH_CALL_HOLD,
+            PATH_CALL_UNHOLD,
+            PATH_CALL_DTMF,
+            PATH_CALL_TRANSFER,
+            PATH_EVENTS,
+            PATH_HEALTH,
+            PATH_SHUTDOWN,
+            PATH_WS,
+            PATH_WS_AUDIO,
+        ];
+        assert!(!paths.is_empty(), "endpoint paths must be defined");
+        for p in &paths {
+            assert!(!p.is_empty(), "each path must be non-empty");
+            assert!(p.starts_with("/api/v1/"), "path must start with /api/v1/");
+        }
+        // Verify uniqueness
+        let unique: std::collections::HashSet<&&str> = paths.iter().collect();
+        assert_eq!(unique.len(), paths.len(), "all paths must be unique");
     }
 }

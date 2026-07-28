@@ -1,3 +1,4 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -17,4 +18,6 @@ pub use m20_callstate_mapping::{
 };
 pub use m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 pub use m20_registr_cmd_pat::{registration_status_to_payload, AccountInfoSnapshot};
+// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 pub use registr_state_machine::RegistrationState;
+pub use shutdown_specification::ShutdownSpec;
