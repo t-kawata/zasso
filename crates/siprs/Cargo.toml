@@ -18,6 +18,10 @@ serde = ["dep:serde", "dep:serde_json"]
 tls = []
 srtp = []
 metrics = []
+# [::TICKET::] P3-3: cli feature gates clap-based CLI arg parsing for standalone binary mode.
+cli = ["dep:clap"]
+# [::TICKET::] P3-3: server feature gates Axum HTTP server deps for standalone server mode.
+server = ["dep:axum", "dep:tower-http"]
 # [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source
 # Full implementation requires the `cpal` crate (P1-4).
 cpal-input = []
@@ -39,7 +43,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-inpu
 # [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+
 # P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
 # [::STUB::] P1-3: rt-multi-thread enabled for #[tokio::main] in examples
-tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros"] }
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net"] }
 # [::STUB::] P0-5: N0016 — thiserror for SipError derive macro
 thiserror = "2"
 # [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations
@@ -65,10 +69,19 @@ rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 sea-orm = { version = "1", features = ["sqlx-sqlite", "macros", "runtime-tokio-rustls"], optional = true }
 # [::TICKET::] P2-3: chrono for SQLite TEXT timestamp handling
 chrono = { version = "0.4", optional = true }
+# [::TICKET::] P3-3: clap for optional CLI arg parsing (behind 'cli' feature).
+clap = { version = "4", optional = true }
+# [::TICKET::] P3-3: axum for optional HTTP server mode (behind 'server' feature).
+axum = { version = "0.7", optional = true }
+# [::TICKET::] P3-3: tower-http for CORS middleware (behind 'server' feature).
+tower-http = { version = "0.5", features = ["cors"], optional = true }
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests
 serde_json = "1"
+# [::TICKET::] P3-3: axum/tower-http in dev-deps for integration tests.
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
 
 # [::STUB::] P1-3: Example declarations. These examples reference types from
 # future tickets. They are gated behind the `spec-examples` feature so the

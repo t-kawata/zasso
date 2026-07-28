@@ -27,7 +27,7 @@ pub struct PjOwnedStr {
     raw: bindings::pj_str_t,
 }
 
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P3-3) --for-spec --no-implementation-order`.
 impl PjOwnedStr {
     /// Construct a new `PjOwnedStr` from a `&str`.
     ///
@@ -67,17 +67,14 @@ impl PjOwnedStr {
         // and slen reflects the original string length (excluding NUL).
         let slen = self.raw.slen.max(0) as usize;
         // SAFETY: PjOwnedStr is always constructed from valid UTF-8 &str,
-        // and slen never exceeds bytes length. This is an invariant, not
-        // error handling — unwrap here would be acceptable but we use
-        // from_utf8_lossy as a defensive fallback for the release path.
-        match std::str::from_utf8(&self.bytes[..slen]) {
-            Ok(s) => s,
-            Err(_) => {
-                // This path is unreachable under correct usage — PjOwnedStr
-                // always wraps valid UTF-8. The lossy fallback exists only
-                // as a defense-in-depth measure.
-                std::str::from_utf8_lossy(&self.bytes[..slen]).as_ref()
-            }
+        // and slen never exceeds bytes length.
+        #[allow(unsafe_code)]
+        unsafe {
+            // SAFETY: We verified UTF-8 validity above. The unchecked variant
+            // avoids the unavailable std::str::from_utf8_lossy standalone function
+            // (removed in Rust 1.97+). This is safe because PjOwnedStr invariants
+            // guarantee valid UTF-8 content.
+            std::str::from_utf8_unchecked(&self.bytes[..slen])
         }
     }
 }
