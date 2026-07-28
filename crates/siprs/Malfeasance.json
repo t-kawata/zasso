@@ -1,4 +1,125 @@
 {
   "version": 1,
-  "records": []
+  "records": [
+    {
+      "id": 1,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 2,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 3,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 4,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 5,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 6,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 7,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 199,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 8,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 91,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 9,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 136,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 10,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 56,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 11,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 166,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 12,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 13,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 14,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    },
+    {
+      "id": 15,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-07-28T14:57:17.005Z",
+      "status": "open"
+    }
+  ]
 }

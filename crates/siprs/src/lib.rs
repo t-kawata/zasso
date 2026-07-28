@@ -1,3 +1,5 @@
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
 
 
 
@@ -67,7 +69,7 @@ pub mod event;
 // [::STUB::] P1+: audio/ — Audio processing (chunk, format, mixer, source, resampler, bridge)
 // pub mod audio;
 
-// [::STUB::] P0-6: ffi/ — PJSIP FFI bindings
+// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings
 // pub mod ffi;
 
 // [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle

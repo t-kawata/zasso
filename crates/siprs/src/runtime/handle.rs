@@ -25,12 +25,12 @@ use crate::runtime::command::{DispatchCommand, ReactorError, RuntimeCommand};
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,
-    // [::STUB::] P0-6: join_handle reserved for future FFI thread inspection.
+    // [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.
     #[allow(dead_code)]
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -65,6 +65,10 @@ impl RuntimeHandle {
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
             // GetAccountInfo handled via separate method
             DispatchCommand::GetAccountInfo { .. } => unreachable!("use submit_get_account_info instead"),
+            // AddAudioSource handled via separate method
+            DispatchCommand::AddAudioSource { .. } => {
+                unreachable!("use submit_add_audio_source instead")
+            }
         };
 
         self.sender

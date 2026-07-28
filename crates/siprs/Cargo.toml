@@ -49,6 +49,9 @@ zeroize = { version = "1", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 # [::TICKET::] P4-4: serde_json for WsEvent payload type and AuthRequest/AuthResponse serde
 serde_json = { version = "1", optional = true }
+# [::TICKET::] P0-6: dashmap for lock-free AudioMixer source management.
+dashmap = "6"
+async-trait = "0.1"
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests

@@ -1,3 +1,5 @@
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -131,7 +133,7 @@ pub fn convert_native_event_to_payload(
         ),
         NativeEvent::CallMediaStateChanged { call_id } => {
             // Without the actual pjsua_call_get_info result, default to media_status=1 (ACTIVE).
-            // [::STUB::] P0-6: Replace with real pjsua_call_get_info call once FFI exists.
+            // [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.
             crate::state::m20_callstate_mapping::convert_call_media_state(
                 CallId(call_id as u64),
                 1, // default to ACTIVE

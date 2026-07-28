@@ -1,3 +1,5 @@
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -22,7 +24,7 @@ use crate::error::error_design_siperror::{self, SipError, SipErrorKind};
 // ---------------------------------------------------------------------------
 // PJSUA error code constants (shared with error_design_siperror)
 //
-// [::STUB::] P0-6: Replace with actual pj_status_t constants from pjsua.h.
+// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.

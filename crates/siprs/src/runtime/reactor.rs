@@ -6,7 +6,7 @@ use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
 use crate::runtime::backend::{Backend, MockBackend};
-use crate::runtime::command::{send_reply, DispatchCommand};
+use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
 use crate::runtime::state::ClientState;
 
@@ -43,7 +43,7 @@ impl Default for BootConfig {
 /// 5. If reactor panics, `is_terminated()` returns `true`
 pub struct CoreReactor;
 
-// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and return a handle for command submission.
     ///
@@ -65,7 +65,7 @@ impl CoreReactor {
 
         let handle = RuntimeHandle::new(tx, terminated_clone, std::sync::Weak::new());
 
-        // [::STUB::] P0-2: MockBackend is used until PjsuaBackend (P0-6) is implemented.
+        // [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.
         let mut backend: Box<dyn Backend> = Box::new(MockBackend::new());
 
         let thread_join = thread::Builder::new()
@@ -109,6 +109,20 @@ impl CoreReactor {
                                             break;
                                         }
                                     }
+                                }
+                                DispatchCommand::AddAudioSource {
+                                    source,
+                                    reply,
+                                } => {
+                                    // [::STUB::] P0-7: Route to AudioMixer stored in
+                                    // ClientState. Currently returns an error indicating
+                                    // the audio source lifecycle is not yet connected.
+                                    let _ = source;
+                                    let _ = reply.send(Err(
+                                        ReactorError::BackendError(
+                                            "audio source lifecycle not yet connected (P0-7)".into()
+                                        )
+                                    ));
                                 }
                                 DispatchCommand::GetAccountInfo {
                                     native_acc_id,

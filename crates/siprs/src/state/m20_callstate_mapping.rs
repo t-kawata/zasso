@@ -1,3 +1,5 @@
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -63,7 +65,7 @@ pub enum CallMediaState {
 }
 
 /// Previous call direction, used to discriminate CONNECTING → Trying vs Ringing.
-// [::STUB::] P0-6: Will be used by Reactor call processing once FFI callback bridge exists.
+// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CallDirection {
@@ -74,7 +76,7 @@ pub(crate) enum CallDirection {
 // ── PJSIP native state constants ────────────────────────────────────────
 
 /// Raw pjsip_inv_state values (0-4).
-/// [::STUB::] P0-6: Replace with actual constants from pjsua.h once FFI bindings exist.
+/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.
 pub mod pjsip_inv_state {
     pub const NULL: u32 = 0;
     pub const CALLING: u32 = 1;
@@ -84,7 +86,7 @@ pub mod pjsip_inv_state {
 }
 
 /// Raw pjsua_call_media_status values.
-/// [::STUB::] P0-6: Replace with actual constants from pjsua.h once FFI bindings exist.
+/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.
 pub mod pjsua_call_media_status {
     pub const NONE: u32 = 0;
     pub const ACTIVE: u32 = 1;
@@ -125,7 +127,7 @@ pub fn convert_call_state(call_id: CallId, state: u32) -> Option<SipEventPayload
 /// When `state == CONNECTING`:
 /// - `CallDirection::Outgoing` → `OutgoingCallTrying`
 /// - `CallDirection::Incoming` → `OutgoingCallRinging`
-// [::STUB::] P0-6: Will be used by Reactor call processing once FFI callback bridge exists.
+// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.
 #[allow(dead_code)]
 pub(crate) fn convert_call_state_with_previous(
     _call_id: CallId,

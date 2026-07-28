@@ -1,3 +1,6 @@
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+
+
 // [::TICKET::] P0-2: runtime module — entry point for reactor, command, handle, state, backend
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 
@@ -18,15 +21,19 @@
 //
 // Full graph exploration:
 //   (cd .. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 //   (cd .. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx --hops=N)
+// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 // ============================================================================
 
+pub mod audio_worker;
 pub mod backend;
 pub mod command;
 pub mod handle;
 pub mod reactor;
 pub mod state;
 
+pub use audio_worker::{AsyncAudioSource, AudioMixer, AudioWorkerTask, MockAsyncAudioSource};
 pub use backend::Backend;
 pub use command::RuntimeCommand;
 pub use handle::RuntimeHandle;
