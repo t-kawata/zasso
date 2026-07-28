@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -26,13 +27,10 @@ use tokio::sync::oneshot;
 // minimal stubs that allow RuntimeCommand to compile until the owning tickets
 // replace them with real implementations.
 
-// [::STUB::] P0-5: N0016 — SipError type for Result reply channels.
-// Resolve by replacing with `use crate::error::SipError;` once P0-5 implements it.
-// The #[allow(dead_code)] is removed once P0-5's SipError replaces this stub and
-// downstream consumers (P0-7 reactor) construct error values.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub(crate) struct SipError(pub(crate) String);
+// [::RESOLVED::] P0-4: SipError type for Result reply channels.
+// Resolved by replacing stub with `use crate::error::SipError;` — see P0-4 implementation.
+pub(crate) use crate::error::SipError;
+// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 
 // [::STUB::] P0-7: N0013 — ClientConfig for Initialize variant.
 // Resolve by replacing with `use crate::config::ClientConfig;` once P0-7 implements it.
