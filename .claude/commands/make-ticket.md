@@ -261,7 +261,7 @@ node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" 
 
 If verification fails (exit 1), return to Step 5b to fix the template markers, then re-run from Step 6-1.
 
-#### 6-1.5: STUB enumeration and validation (mandatory — C001)
+#### 6-1.5: STUB enumeration and validation (mandatory)
 
 Before writing the spec file, enumerate all `[::STUB::]` markers in the source tree and validate that targetStubs/targetCrimes pass all structural checks. This gate ensures no STUB goes untracked at make time.
 
@@ -281,7 +281,7 @@ node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Convergence loop**: If Step 6-1.5b exits 1, read stderr guidance, resolve the reported violations, then re-run from Step 6-1.5a. **Loop until both commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
+**Convergence loop**: If Step 6-1.5b exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until both commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
 
 #### 6-2: Write spec file
 

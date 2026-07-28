@@ -200,7 +200,7 @@ node .claude/scripts/tickets/verify-plan-contracts.js \
 - **Exit 0**: All contracts covered with concrete test code -> proceed to validate step below
 - **Exit 1**: Missing coverage -> return to Step 3.5, add concrete test code for the reported contracts, re-run Gate P
 
-**Additionally — validate resolutionPlan completeness (mandatory — C002):**
+**Additionally — validate resolutionPlan completeness (mandatory):**
 
 ```bash
 node .claude/scripts/tickets/validate-ticket-targets.js \

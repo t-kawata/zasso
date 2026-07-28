@@ -298,7 +298,7 @@ node .claude/scripts/tickets/verify-final-contracts.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Additionally — validate targetStubs resolution (mandatory — C002):**
+**Additionally — validate targetStubs resolution (mandatory):**
 
 Confirm that all targetStubs from the start phase have been properly resolved:
 

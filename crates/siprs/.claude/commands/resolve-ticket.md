@@ -128,7 +128,7 @@ node .claude/scripts/tickets/malfeasance-update.js "<id>" "status" "resolved"
 
 **Do not declare this command complete until all crimes have been confirmed as resolved.**
 
-### Step 7.5: Full scan (mandatory — C003)
+### Step 7.5: Full scan (mandatory)
 
 Before final verification, enumerate and validate STUBs at the directory scope (not per-ticket).
 This catches STUBs that ticket-scoped phases may have missed.
@@ -168,7 +168,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 3. Re-run Step 7.5a and 7.5b to confirm validation passes (re-run with `$ARGUMENTS` set)
 4. Record the deferred STUBs and their new ticket keys in the implementation summary
 
-**Convergence loop**: If Step 7.5b or 7.5c report issues, resolve them and re-run from Step 7.5a. **Loop until both validate-ticket-targets and scan-crimes.sh report zero remaining STUBs/crimes, OR all unresolvable items are deferred to new tickets, before proceeding to Step 8.** When `$ARGUMENTS` is empty, the loop runs Step 7.5c only (no enumerate/validate).
+**Convergence loop**: If Step 7.5b or 7.5c report issues, resolve them and re-run the Gate. **Loop until both validate-ticket-targets and scan-crimes.sh report zero remaining STUBs/crimes, OR all unresolvable items are deferred to new tickets, before proceeding to Step 8.** When `$ARGUMENTS` is empty, the loop runs Step 7.5c only (no enumerate/validate).
 
 ### Step 8: Final verification
 
