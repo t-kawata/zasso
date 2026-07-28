@@ -43,6 +43,34 @@ use crate::concurrency_contexts::command_serialization::CallId;
 use crate::error::error_design_siperror::{SipError, SipErrorKind};
 
 // ---------------------------------------------------------------------------
+// PJSUA status code constants
+// ---------------------------------------------------------------------------
+// These numeric values are hardcoded because FFI bindings (pjsua-sys) are not
+// yet available. Once bound, replace with `pjsua::PJ_EINVALIDOP` etc.
+// [::TICKET::] PX-2: Replace with FFI-generated constants.
+
+/// PJSUA success code (0).
+const PJ_SUCCESS: i32 = 0;
+/// Invalid operation — conf_port not resolved for the given call.
+const PJ_EINVALIDOP: i32 = -1;
+/// Resource not found — the specified account does not exist.
+const PJ_ENOTFOUND: i32 = -2;
+
+// ---------------------------------------------------------------------------
+// Shared helper — returns Ok on PJ_SUCCESS, delegates custom logic otherwise
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when `pj_status` is `PJ_SUCCESS`.
+///
+/// Used for early-return on success before applying function-specific
+/// error mapping for non-zero codes.
+#[inline]
+// [::TICKET::] PX-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-1 --for-spec --no-implementation-order`.
+fn is_pj_success(pj_status: i32) -> bool {
+    pj_status == PJ_SUCCESS
+}
+
+// ---------------------------------------------------------------------------
 // ConfConnect error conversion
 // ---------------------------------------------------------------------------
 
@@ -60,12 +88,10 @@ use crate::error::error_design_siperror::{SipError, SipErrorKind};
 /// * `call_id` — The call ID for which the connection was attempted.
 ///   Used in the error message for context.
 pub fn convert_conf_connect_error(pj_status: i32, call_id: CallId) -> Result<(), SipError> {
-    if pj_status == 0 {
-        // PJ_SUCCESS
+    if is_pj_success(pj_status) {
         return Ok(());
     }
-    if pj_status == -1 {
-        // PJ_EINVALIDOP — conf_port not resolved
+    if pj_status == PJ_EINVALIDOP {
         return Err(SipError::invalid_state(format!(
             "ConfConnect: conf_port not resolved for call {call_id}"
         )));
@@ -87,12 +113,10 @@ pub fn convert_conf_connect_error(pj_status: i32, call_id: CallId) -> Result<(),
 /// - `PJ_EINVALIDOP` (conf_port not resolved) → `InvalidState` (retryable)
 /// - All other PJSUA errors → `InternalError` with the status code
 pub fn convert_conf_disconnect_error(pj_status: i32, call_id: CallId) -> Result<(), SipError> {
-    if pj_status == 0 {
-        // PJ_SUCCESS
+    if is_pj_success(pj_status) {
         return Ok(());
     }
-    if pj_status == -1 {
-        // PJ_EINVALIDOP — conf_port not resolved
+    if pj_status == PJ_EINVALIDOP {
         return Err(SipError::invalid_state(format!(
             "ConfDisconnect: conf_port not resolved for call {call_id}"
         )));
@@ -114,12 +138,10 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: CallId) -> Result<
 /// - Account not found → `NotFound`
 /// - All other PJSUA errors → `InternalError` with the status code
 pub fn convert_get_account_info_error(pj_status: i32, account_id: u32) -> Result<(), SipError> {
-    if pj_status == 0 {
-        // PJ_SUCCESS
+    if is_pj_success(pj_status) {
         return Ok(());
     }
-    if pj_status == -2 {
-        // PJ_ENOTFOUND — account does not exist
+    if pj_status == PJ_ENOTFOUND {
         return Err(SipError::not_found(format!(
             "GetAccountInfo: account {account_id} not found"
         )));

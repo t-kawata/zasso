@@ -38,7 +38,7 @@
 //! 4. **Native ID reuse**: Separate public IDs with bi-map conversion, avoiding
 //!    confusion when PJSIP reuses internal IDs.
 
-use crate::error::SipError;
+use crate::error::{SipError, SipErrorKind};
 
 /// A single step in a panic-cleanup procedure.
 ///
@@ -178,7 +178,8 @@ pub fn ffi_catch_unwind<T>(
             };
             // Log the panic before returning
             tracing::error!("{}", message);
-            Err(SipError::internal_error(message))
+            // RFC §14.1: callback panic is an invariant violation, not an operational error
+            Err(SipError::new(SipErrorKind::InternalInvariantBroken, message))
         }
     }
 }
@@ -298,14 +299,14 @@ mod tests {
 
     /// @verifies C056-postcondition
     #[test]
-// [::TICKET::] P1-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P4-1, PX-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P4-1|PX-1) --for-spec --no-implementation-order`.
     fn ffi_catch_unwind_captures_panic() {
         let result: Result<(), SipError> = ffi_catch_unwind("test_panic", || {
             panic!("crash");
         });
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.kind, crate::error::SipErrorKind::InternalError);
+        assert_eq!(err.kind, crate::error::SipErrorKind::InternalInvariantBroken);
         assert!(err.message.contains("test_panic"));
     }
 
