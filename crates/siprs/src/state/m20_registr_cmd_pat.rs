@@ -16,6 +16,12 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
+// [::STUB::] P1-2: AccountInfoSnapshot and registration_state_to_event are the
+// registration-event API surface consumed by the reactor layer (P0-5).
+// Dead-code warnings are expected until consumers exist. Once P0-5 ships,
+// remove this allow.
+#![allow(dead_code)]
+// ============================================================================
 
 use crate::concurrency_contexts::command_serialization::AccountId;
 use crate::state::m20_native_event_conv::SipEventPayload;

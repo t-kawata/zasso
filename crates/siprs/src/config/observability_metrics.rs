@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0046: §34 Observability — Tracing, Metrics & Capabilities
+// TODO: [::STUB::] MUST implement NODE_ID=N0046 /* P2-1 */: §34 Observability — Tracing, Metrics & Capabilities

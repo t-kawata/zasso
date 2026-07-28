@@ -48,6 +48,26 @@
       "detected_at": "2026-07-27T09:22:13.194Z",
       "status": "false_positive",
       "note": "Cannot resolve — cpal-input feature not yet implemented"
+    },
+    {
+      "id": 6,
+      "file": "src/state/m20_native_event_conv.rs",
+      "line": 23,
+      "description": "STUB references P1-1 which is done. Should reference P1-0 (EventBus for canonical SipEventPayload).",
+      "detected_at": "2026-07-28T10:16:04.923Z",
+      "status": "resolved",
+      "note": "P1-1 is 'reviewed' but stub says 'Replace with canonical SipEventPayload from event_model_payload_bus.rs' which is P1-0 deliverable",
+      "resolved_at": "2026-07-28T10:16:49.407Z"
+    },
+    {
+      "id": 7,
+      "file": "src/state/m20_native_event_conv.rs",
+      "line": 127,
+      "description": "STUB references P1-1 which is done. Should reference P1-0 (EventBus for canonical SipEventPayload).",
+      "detected_at": "2026-07-28T10:16:05.706Z",
+      "status": "resolved",
+      "note": "P1-1 is 'reviewed' but SipEventPayload replacement depends on P1-0 event_model_payload_bus.rs which is still a stub",
+      "resolved_at": "2026-07-28T10:16:49.698Z"
     }
   ]
 }

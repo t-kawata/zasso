@@ -20,4 +20,4 @@
 pub enum Error {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0044: §32 M20 Shutdown Command Routing
+// TODO: [::STUB::] MUST implement NODE_ID=N0044 /* P2-0 */: §32 M20 Shutdown Command Routing

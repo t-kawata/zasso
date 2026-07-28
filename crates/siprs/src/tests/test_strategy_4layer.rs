@@ -33,4 +33,4 @@ mod tests {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0052: §43 Test Strategy — 4-Layer Architecture
+// TODO: [::STUB::] MUST implement NODE_ID=N0052 /* P2-2 */: §43 Test Strategy — 4-Layer Architecture

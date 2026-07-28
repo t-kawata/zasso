@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0041: §29 M20 Explicit Codec & Auto Mode Policy
+// TODO: [::STUB::] MUST implement NODE_ID=N0041 /* P1-5 */: §29 M20 Explicit Codec & Auto Mode Policy

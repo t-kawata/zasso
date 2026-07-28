@@ -16,6 +16,16 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
+// [::STUB::] P1-2: pub(crate) types here (NativeEvent, SipEventPayload) and the
+// conversion function (convert_native_event_to_payload) are the API surface for
+// the reactor layer (P0-5). Dead-code warnings are expected until the reactor
+// layer instantiates and calls these items. Once P0-5 ships, remove this allow.
+// [::STUB::] P1-0: SipEventPayload will be replaced by the canonical definition
+// in event_model_payload_bus.rs. Also covers the per-field dead_code warnings on
+// variant fields (acc_id, call_id, digit, etc.) that are read only via pattern
+// matching in the conversion function.
+#![allow(dead_code)]
+// ============================================================================
 
 use crate::concurrency_contexts::command_serialization::{AccountId, CallId};
 use crate::state::m20_callstate_mapping::{
@@ -114,7 +124,7 @@ pub(crate) enum NativeEvent {
 /// actual payload struct types (RegistrationInfo, OutgoingCallInfo, etc.) are
 /// defined in P1-1. Once P1-1 ships, the conversion functions in this module
 /// will be updated to emit the typed payload structs.
-// [::STUB::] P1-1: Replace with canonical SipEventPayload from event_model_payload_bus.rs.
+// [::STUB::] P1-0: Replace with canonical SipEventPayload from event_model_payload_bus.rs.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub(crate) enum SipEventPayload {

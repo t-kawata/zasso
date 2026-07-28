@@ -20,4 +20,4 @@
 pub enum Error {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0055: §45 Implementation Challenges & §46 Panic Policy
+// TODO: [::STUB::] MUST implement NODE_ID=N0055 /* P2-4 */: §45 Implementation Challenges & §46 Panic Policy

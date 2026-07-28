@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0042: §30 SRTP & §31 Transport Reconnection
+// TODO: [::STUB::] MUST implement NODE_ID=N0042 /* P1-4 */: §30 SRTP & §31 Transport Reconnection

@@ -30,4 +30,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0013: §10 ClientConfig Full Specification
+// TODO: [::STUB::] MUST implement NODE_ID=N0013 /* P3-1 */: §10 ClientConfig Full Specification
