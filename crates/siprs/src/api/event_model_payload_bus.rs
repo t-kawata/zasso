@@ -503,14 +503,14 @@ mod tests {
     // ── AccountId / CallId ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_id_wraps_u64() {
         let id = AccountId::from_u64(42).unwrap();
         assert_eq!(id.get().get(), 42);
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_id_equality() {
         assert_eq!(
             AccountId::from_u64(1).unwrap(),
@@ -523,7 +523,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_id_is_hashable() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn call_id_wraps_u64() {
         let id = CallId::from_u64(99).unwrap();
         assert_eq!(id.get().get(), 99);
@@ -562,9 +562,13 @@ mod tests {
     // ── EventMeta ──────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn event_meta_new_sets_required_fields() {
-        let meta = EventMeta::new(1, Some(AccountId::from_u64(1).unwrap()), Some(CallId::from_u64(1).unwrap()));
+        let meta = EventMeta::new(
+            1,
+            Some(AccountId::from_u64(1).unwrap()),
+            Some(CallId::from_u64(1).unwrap()),
+        );
         assert_eq!(meta.event_id, 1);
         assert_eq!(meta.account_id, Some(AccountId::from_u64(1).unwrap()));
         assert_eq!(meta.call_id, Some(CallId::from_u64(1).unwrap()));
@@ -596,7 +600,7 @@ mod tests {
     // ── SipEventPayload ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn payload_registration_started() {
         let info = RegistrationInfo {
             account_id: AccountId::from_u64(1).unwrap(),
@@ -613,7 +617,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn payload_registration_succeeded() {
         let info = RegistrationInfo {
             account_id: AccountId::from_u64(1).unwrap(),
@@ -630,7 +634,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn payload_registration_failed() {
         let failure = RegistrationFailure {
             account_id: AccountId::from_u64(1).unwrap(),
@@ -648,7 +652,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn payload_call_connected() {
         let info = ConnectedCallInfo {
             call_id: CallId::from_u64(1).unwrap(),
@@ -675,7 +679,7 @@ mod tests {
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     // @verifies C029
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn payload_dtmf_received() {
         let info = DtmfReceivedInfo {
             method: DtmfMethod::Rfc4733,
@@ -697,7 +701,7 @@ mod tests {
     // ── SipEvent ───────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_new_combines_meta_and_payload() {
         let meta = EventMeta::new(1, Some(AccountId::from_u64(1).unwrap()), None);
         let payload = SipEventPayload::CallDisconnected;
@@ -707,7 +711,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_meta_access() {
         let meta = EventMeta::new(5, None, Some(CallId::from_u64(1).unwrap()));
         let event = SipEvent::new(meta, SipEventPayload::UnregistrationSucceeded);
@@ -716,9 +720,13 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn sip_event_clone_preserves_all_fields() {
-        let meta = EventMeta::new(1, Some(AccountId::from_u64(1).unwrap()), Some(CallId::from_u64(1).unwrap()));
+        let meta = EventMeta::new(
+            1,
+            Some(AccountId::from_u64(1).unwrap()),
+            Some(CallId::from_u64(1).unwrap()),
+        );
         let payload = SipEventPayload::OutgoingCallStarted;
         let event = SipEvent::new(meta, payload);
         let cloned = event.clone();
@@ -732,9 +740,11 @@ mod tests {
     // ── Media info ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_active_info() {
-        let info = MediaActiveInfo { call_id: CallId::from_u64(1).unwrap() };
+        let info = MediaActiveInfo {
+            call_id: CallId::from_u64(1).unwrap(),
+        };
         let payload = SipEventPayload::MediaActive(info);
         match payload {
             SipEventPayload::MediaActive(m) => assert_eq!(m.call_id, CallId::from_u64(1).unwrap()),
@@ -743,7 +753,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_error_info_with_reason() {
         let info = MediaErrorInfo {
             call_id: CallId::from_u64(1).unwrap(),
@@ -760,7 +770,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn media_error_info_without_reason() {
         let info = MediaErrorInfo {
             call_id: CallId::from_u64(1).unwrap(),
@@ -779,7 +789,7 @@ mod tests {
     // ── RegistrationInfo / RegistrationFailure ────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn registration_info_fields() {
         let info = RegistrationInfo {
             account_id: AccountId::from_u64(1).unwrap(),
@@ -790,7 +800,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn registration_failure_fields() {
         let failure = RegistrationFailure {
             account_id: AccountId::from_u64(1).unwrap(),
@@ -882,7 +892,7 @@ mod tests {
     // ── ConnectedCallInfo ─────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn connected_call_info_all_fields() {
         let info = ConnectedCallInfo {
             call_id: CallId::from_u64(1).unwrap(),

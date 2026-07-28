@@ -50,7 +50,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_is_send_allowed_returns_true_for_allowed_method() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733, DtmfMethod::Info],
@@ -63,7 +63,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_is_send_allowed_returns_false_for_disallowed_method() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733],
@@ -78,7 +78,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_is_receive_allowed_returns_true_for_allowed_method() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733],
@@ -91,7 +91,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_is_receive_allowed_returns_false_for_disallowed_method() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733],
@@ -105,7 +105,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_empty_send_methods_no_method_is_allowed() {
         let policy = DtmfPolicy {
             send_methods: vec![],
@@ -117,7 +117,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_empty_receive_methods_no_method_is_allowed() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733],
@@ -131,7 +131,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_policy_single_method_send_and_receive() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc2833],
@@ -148,9 +148,9 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn dtmf_received_info_is_clone_debug() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<crate::api::event_model_payload_bus::DtmfReceivedInfo>();
     }

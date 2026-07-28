@@ -5,7 +5,8 @@
 // This module provides a re-export for backward compatibility.
 
 pub use crate::config::transport_ice_spec::{
-    IceConfig, StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport, UdpTransportConfig,
+    IceConfig, StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport,
+    UdpTransportConfig,
 };
 
 /// Transport protocol type for SIP signalling (simple enum for common use).

@@ -28,9 +28,13 @@ pub struct CallTransitionError {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for CallTransitionError {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid call transition: {:?} → {:?}", self.from, self.to)
+        write!(
+            f,
+            "Invalid call transition: {:?} → {:?}",
+            self.from, self.to
+        )
     }
 }
 
@@ -84,19 +88,63 @@ impl CallState {
     ///        10=Disconnecting, 11=Disconnected, 12=Failed
     const TRANSITIONS: [[bool; 13]; 13] = [
         // New → Calling (outgoing) or → Incoming (incoming)
-        /* New      */ [false, true, false, false, false, true, false, false, false, false, false, false, false],
-        /* Calling  */ [false, false, true, false, false, false, false, false, false, false, false, false, false],
-        /* Trying   */ [false, false, false, true, true, false, false, false, false, false, false, false, false],
-        /* Ringing  */ [false, false, false, false, false, false, true, false, false, false, false, false, true],
-        /* EarlyMedia*/[false, false, false, false, false, false, true, false, false, false, false, false, true],
-        /* Incoming */ [false, false, false, false, false, false, true, false, false, false, false, false, false],
-        /* Connect  */ [false, false, false, false, false, false, false, true, false, false, false, false, true],
-        /* Active   */ [false, false, false, false, false, false, false, false, true, true, true, false, false],
-        /* Held     */ [false, false, false, false, false, false, false, true, false, false, true, false, false],
-        /* Transfer */ [false, false, false, false, false, false, false, true, false, false, true, false, false],
-        /* Discon   */ [false, false, false, false, false, false, false, false, false, false, false, true, false],
-        /* Disconned*/ [false, false, false, false, false, false, false, false, false, false, false, false, false],
-        /* Failed   */ [false, false, false, false, false, false, false, false, false, false, false, false, false],
+        /* New      */
+        [
+            false, true, false, false, false, true, false, false, false, false, false, false, false,
+        ],
+        /* Calling  */
+        [
+            false, false, true, false, false, false, false, false, false, false, false, false,
+            false,
+        ],
+        /* Trying   */
+        [
+            false, false, false, true, true, false, false, false, false, false, false, false, false,
+        ],
+        /* Ringing  */
+        [
+            false, false, false, false, false, false, true, false, false, false, false, false, true,
+        ],
+        /* EarlyMedia*/
+        [
+            false, false, false, false, false, false, true, false, false, false, false, false, true,
+        ],
+        /* Incoming */
+        [
+            false, false, false, false, false, false, true, false, false, false, false, false,
+            false,
+        ],
+        /* Connect  */
+        [
+            false, false, false, false, false, false, false, true, false, false, false, false, true,
+        ],
+        /* Active   */
+        [
+            false, false, false, false, false, false, false, false, true, true, true, false, false,
+        ],
+        /* Held     */
+        [
+            false, false, false, false, false, false, false, true, false, false, true, false, false,
+        ],
+        /* Transfer */
+        [
+            false, false, false, false, false, false, false, true, false, false, true, false, false,
+        ],
+        /* Discon   */
+        [
+            false, false, false, false, false, false, false, false, false, false, false, true,
+            false,
+        ],
+        /* Disconned*/
+        [
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false,
+        ],
+        /* Failed   */
+        [
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false,
+        ],
     ];
 
     /// Attempt a transition from `self` to `target`.
@@ -132,7 +180,7 @@ impl CallState {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for CallState {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CallState::New => write!(f, "New"),
@@ -160,7 +208,7 @@ mod tests {
     /// @verifies C028
     /// @verifies C032
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn call_state_has_thirteen_variants() {
         let all: Vec<CallState> = vec![
             CallState::New,
@@ -182,7 +230,7 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn outgoing_path_new_to_calling_to_trying_to_ringing_to_connecting_to_active() {
         assert!(CallState::New.transition(CallState::Calling).is_ok());
         assert!(CallState::Calling.transition(CallState::Trying).is_ok());
@@ -193,24 +241,28 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn outgoing_early_media_path() {
         assert!(CallState::Trying.transition(CallState::EarlyMedia).is_ok());
-        assert!(CallState::EarlyMedia.transition(CallState::Connecting).is_ok());
+        assert!(CallState::EarlyMedia
+            .transition(CallState::Connecting)
+            .is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn incoming_path_new_to_incoming_to_connecting_to_active() {
         assert!(CallState::New.transition(CallState::Incoming).is_ok());
-        assert!(CallState::Incoming.transition(CallState::Connecting).is_ok());
+        assert!(CallState::Incoming
+            .transition(CallState::Connecting)
+            .is_ok());
         assert!(CallState::Connecting.transition(CallState::Active).is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn hold_unhold_cycle() {
         assert!(CallState::Active.transition(CallState::Held).is_ok());
         assert!(CallState::Held.transition(CallState::Active).is_ok());
@@ -218,73 +270,85 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transfer_success_path() {
-        assert!(CallState::Active.transition(CallState::Transferring).is_ok());
-        assert!(CallState::Transferring.transition(CallState::Active).is_ok());
+        assert!(CallState::Active
+            .transition(CallState::Transferring)
+            .is_ok());
+        assert!(CallState::Transferring
+            .transition(CallState::Active)
+            .is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transfer_failure_path() {
-        assert!(CallState::Active.transition(CallState::Transferring).is_ok());
-        assert!(CallState::Transferring.transition(CallState::Disconnecting).is_ok());
+        assert!(CallState::Active
+            .transition(CallState::Transferring)
+            .is_ok());
+        assert!(CallState::Transferring
+            .transition(CallState::Disconnecting)
+            .is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn termination_path() {
-        assert!(CallState::Active.transition(CallState::Disconnecting).is_ok());
-        assert!(CallState::Disconnecting.transition(CallState::Disconnected).is_ok());
+        assert!(CallState::Active
+            .transition(CallState::Disconnecting)
+            .is_ok());
+        assert!(CallState::Disconnecting
+            .transition(CallState::Disconnected)
+            .is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn failure_path_from_ringing() {
         assert!(CallState::Ringing.transition(CallState::Failed).is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn failure_path_from_early_media() {
         assert!(CallState::EarlyMedia.transition(CallState::Failed).is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn failure_path_from_connecting() {
         assert!(CallState::Connecting.transition(CallState::Failed).is_ok());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn invalid_transition_new_to_active() {
         assert!(CallState::New.transition(CallState::Active).is_err());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn invalid_transition_calling_to_incoming() {
         assert!(CallState::Calling.transition(CallState::Incoming).is_err());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn invalid_transition_held_to_calling() {
         assert!(CallState::Held.transition(CallState::Calling).is_err());
     }
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn terminal_states() {
         assert!(CallState::Disconnected.is_terminal());
         assert!(CallState::Failed.is_terminal());
@@ -294,7 +358,7 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn display_variants() {
         assert_eq!(format!("{}", CallState::New), "New");
         assert_eq!(format!("{}", CallState::Calling), "Calling");
@@ -313,7 +377,7 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn error_displays_message() {
         let err = CallState::New.transition(CallState::Active).unwrap_err();
         let msg = format!("{}", err);
@@ -323,9 +387,9 @@ mod tests {
 
     /// @verifies C027
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<CallState>();
         assert_traits::<CallTransitionError>();

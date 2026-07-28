@@ -89,7 +89,7 @@ pub struct IncomingCallConfig {
 
 // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
 impl Default for IncomingCallConfig {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             auto_reject_enabled: false,
@@ -106,7 +106,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_all_fields() {
         let call = IncomingCall {
             from_uri: "sip:alice@example.com".into(),
@@ -129,7 +129,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_minimal_fields() {
         let call = IncomingCall {
             from_uri: "sip:alice@example.com".into(),
@@ -150,7 +150,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_config_defaults() {
         let config = IncomingCallConfig::default();
         assert!(!config.auto_reject_enabled);
@@ -161,7 +161,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_empty_from_uri_does_not_panic() {
         let call = IncomingCall {
             from_uri: String::new(),
@@ -178,7 +178,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_empty_to_uri_does_not_panic() {
         let call = IncomingCall {
             from_uri: "sip:alice@example.com".into(),
@@ -196,7 +196,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_config_custom_values() {
         let config = IncomingCallConfig {
             auto_reject_enabled: true,
@@ -208,7 +208,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_config_zero_timeout() {
         let config = IncomingCallConfig {
             auto_reject_enabled: true,
@@ -222,7 +222,7 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_large_headers() {
         let many_headers: Vec<(String, String)> = (0..100)
             .map(|i| (format!("X-Header-{i}"), format!("value-{i}")))
@@ -242,9 +242,9 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_is_clone_and_debug() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<IncomingCall>();
         assert_clone_debug::<IncomingCallConfig>();
@@ -252,9 +252,9 @@ mod tests {
 
     /// @verifies C049
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn incoming_call_config_is_partial_eq() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_partial_eq<T: PartialEq>() {}
         assert_partial_eq::<IncomingCallConfig>();
     }

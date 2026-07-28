@@ -27,7 +27,9 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-use crate::config::transport_ice_spec::{IceConfig, StunServerConfig, TransportConfig, TurnServerConfig};
+use crate::config::transport_ice_spec::{
+    IceConfig, StunServerConfig, TransportConfig, TurnServerConfig,
+};
 use crate::error::{SipError, SipErrorKind};
 use std::time::Duration;
 
@@ -41,7 +43,6 @@ pub enum LogLevel {
     Debug,
     Trace,
 }
-
 
 /// Audio processing configuration for the SIP client.
 #[derive(Debug, Clone, PartialEq)]
@@ -62,7 +63,7 @@ pub struct ClientAudioConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for ClientAudioConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             default_delivery_format: "16000Hz/i16/stereo".into(),
@@ -90,7 +91,7 @@ pub struct RawSipEventConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for RawSipEventConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -116,7 +117,7 @@ pub struct TimeoutConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for TimeoutConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             command_timeout: Duration::from_secs(10),
@@ -162,7 +163,7 @@ pub struct ClientConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             user_agent: "tauri-siprs/0.1".into(),
@@ -230,7 +231,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_default_constructs() {
         let config = ClientConfig::default();
         assert_eq!(config.user_agent, "tauri-siprs/0.1");
@@ -242,7 +243,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_accepts_custom_values() {
         let config = ClientConfig {
             user_agent: "MyApp/1.0".into(),
@@ -262,7 +263,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_default_transports_include_udp_and_tcp() {
         let config = ClientConfig::default();
         assert_eq!(config.transports.len(), 2);
@@ -272,7 +273,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_raw_sip_event_defaults() {
         let raw = RawSipEventConfig::default();
         assert!(raw.enabled);
@@ -283,7 +284,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_timeout_defaults() {
         let t = TimeoutConfig::default();
         assert_eq!(t.command_timeout, Duration::from_secs(10));
@@ -294,7 +295,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_audio_config_defaults() {
         let audio = ClientAudioConfig::default();
         assert_eq!(audio.pair_buffer_ms, 120);
@@ -307,7 +308,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_rejects_small_event_bus_capacity() {
         let config = ClientConfig {
             event_bus_capacity: 8,
@@ -320,7 +321,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_rejects_raw_sip_capacity_less_than_event_bus() {
         let config = ClientConfig {
             event_bus_capacity: 1024,
@@ -333,12 +334,15 @@ mod tests {
         };
         let err = config.validate().unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
-        assert!(err.message.contains("raw_sip_event_capacity") || err.message.contains("event_bus_capacity"));
+        assert!(
+            err.message.contains("raw_sip_event_capacity")
+                || err.message.contains("event_bus_capacity")
+        );
     }
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_accepts_raw_sip_capacity_equal_to_event_bus() {
         let config = ClientConfig {
             event_bus_capacity: 1024,
@@ -354,7 +358,7 @@ mod tests {
 
     #[test]
     // @verifies C027, C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_rejects_zero_max_calls() {
         let config = ClientConfig {
             max_calls: 0,
@@ -367,7 +371,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_rejects_empty_transports() {
         let config = ClientConfig {
             transports: vec![],
@@ -382,7 +386,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_accepts_minimum_event_bus_capacity() {
         let config = ClientConfig {
             event_bus_capacity: 16,
@@ -393,7 +397,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn client_config_accepts_large_event_bus_capacity() {
         let config = ClientConfig {
             event_bus_capacity: 65536,

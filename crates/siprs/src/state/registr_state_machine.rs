@@ -30,7 +30,7 @@ pub struct TransitionError {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for TransitionError {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid transition: {:?} → {:?}", self.from, self.to)
     }
@@ -99,7 +99,8 @@ impl RegistrationState {
     /// 4=Unregistering, 5=Failed, 6=Expired
     const TRANSITIONS: [[bool; 7]; 7] = [
         // from\to  Dis  Idl  Reg  Rgd  Unr  Fl   Exp
-        /* Disabled   */ [false, false, true, false, false, false, false],
+        /* Disabled   */
+        [false, false, true, false, false, false, false],
         /* Idle      */ [false, false, true, false, false, false, false],
         /* Registering*/ [false, false, false, true, false, true, false],
         /* Registered */ [false, false, false, false, true, false, true],
@@ -112,7 +113,10 @@ impl RegistrationState {
     ///
     /// Returns `Ok(target)` if the transition is valid according to the
     /// 8 defined rules, or `Err(TransitionError)` if the transition is invalid.
-    pub fn transition(self, target: RegistrationState) -> Result<RegistrationState, TransitionError> {
+    pub fn transition(
+        self,
+        target: RegistrationState,
+    ) -> Result<RegistrationState, TransitionError> {
         let from_idx = self as usize;
         let to_idx = target as usize;
 
@@ -144,7 +148,7 @@ impl RegistrationState {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for RegistrationState {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RegistrationState::Disabled => write!(f, "Disabled"),
@@ -164,7 +168,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn registration_state_has_seven_variants() {
         let states = [
             RegistrationState::Disabled,
@@ -180,7 +184,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_disabled_to_registering() {
         assert_eq!(
             RegistrationState::Disabled.transition(RegistrationState::Registering),
@@ -190,7 +194,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_idle_to_registering() {
         assert_eq!(
             RegistrationState::Idle.transition(RegistrationState::Registering),
@@ -200,7 +204,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_registering_to_registered() {
         assert_eq!(
             RegistrationState::Registering.transition(RegistrationState::Registered),
@@ -210,7 +214,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_registering_to_failed() {
         assert_eq!(
             RegistrationState::Registering.transition(RegistrationState::Failed),
@@ -220,7 +224,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_registered_to_unregistering() {
         assert_eq!(
             RegistrationState::Registered.transition(RegistrationState::Unregistering),
@@ -230,7 +234,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_registered_to_expired() {
         assert_eq!(
             RegistrationState::Registered.transition(RegistrationState::Expired),
@@ -240,7 +244,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_unregistering_to_idle() {
         assert_eq!(
             RegistrationState::Unregistering.transition(RegistrationState::Idle),
@@ -250,7 +254,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_unregistering_to_failed() {
         assert_eq!(
             RegistrationState::Unregistering.transition(RegistrationState::Failed),
@@ -260,7 +264,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_expired_to_registering() {
         assert_eq!(
             RegistrationState::Expired.transition(RegistrationState::Registering),
@@ -270,7 +274,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_failed_to_registering() {
         assert_eq!(
             RegistrationState::Failed.transition(RegistrationState::Registering),
@@ -280,21 +284,33 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn invalid_transitions_return_error() {
         // Test a few representative invalid transitions
-        assert!(RegistrationState::Idle.transition(RegistrationState::Disabled).is_err());
-        assert!(RegistrationState::Disabled.transition(RegistrationState::Idle).is_err());
-        assert!(RegistrationState::Disabled.transition(RegistrationState::Unregistering).is_err());
-        assert!(RegistrationState::Registered.transition(RegistrationState::Registering).is_err());
-        assert!(RegistrationState::Idle.transition(RegistrationState::Registered).is_err());
+        assert!(RegistrationState::Idle
+            .transition(RegistrationState::Disabled)
+            .is_err());
+        assert!(RegistrationState::Disabled
+            .transition(RegistrationState::Idle)
+            .is_err());
+        assert!(RegistrationState::Disabled
+            .transition(RegistrationState::Unregistering)
+            .is_err());
+        assert!(RegistrationState::Registered
+            .transition(RegistrationState::Registering)
+            .is_err());
+        assert!(RegistrationState::Idle
+            .transition(RegistrationState::Registered)
+            .is_err());
     }
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn transition_error_displays_message() {
-        let err = RegistrationState::Idle.transition(RegistrationState::Disabled).unwrap_err();
+        let err = RegistrationState::Idle
+            .transition(RegistrationState::Disabled)
+            .unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("Idle"));
         assert!(msg.contains("Disabled"));
@@ -302,7 +318,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn can_transition_to_returns_correct_bool() {
         assert!(RegistrationState::Disabled.can_transition_to(RegistrationState::Registering));
         assert!(!RegistrationState::Disabled.can_transition_to(RegistrationState::Idle));
@@ -311,7 +327,7 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn terminal_states_are_failed_and_expired() {
         assert!(RegistrationState::Failed.is_terminal());
         assert!(RegistrationState::Expired.is_terminal());
@@ -324,22 +340,25 @@ mod tests {
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn display_variants() {
         assert_eq!(format!("{}", RegistrationState::Disabled), "Disabled");
         assert_eq!(format!("{}", RegistrationState::Idle), "Idle");
         assert_eq!(format!("{}", RegistrationState::Registering), "Registering");
         assert_eq!(format!("{}", RegistrationState::Registered), "Registered");
-        assert_eq!(format!("{}", RegistrationState::Unregistering), "Unregistering");
+        assert_eq!(
+            format!("{}", RegistrationState::Unregistering),
+            "Unregistering"
+        );
         assert_eq!(format!("{}", RegistrationState::Failed), "Failed");
         assert_eq!(format!("{}", RegistrationState::Expired), "Expired");
     }
 
     /// @verifies C026
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<RegistrationState>();
         assert_traits::<TransitionError>();

@@ -1,4 +1,3 @@
-
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -111,7 +110,7 @@ pub fn convert_native_event_to_payload(event: NativeEvent) -> Option<SipEventPay
             // [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_media_state(cid, 1)
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         }
 
         // ── P0: DTMF ──
@@ -156,7 +155,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_event_registration_started_maps() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 1,
@@ -173,7 +172,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_event_registration_started_renew() {
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {
             acc_id: 5,
@@ -350,7 +349,7 @@ mod tests {
     // ── Edge: zero acc_id ──────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn native_event_zero_account_id_is_skipped() {
         // acc_id=0 is PJSUA's invalid sentinel — conversion returns None.
         let result = convert_native_event_to_payload(NativeEvent::RegistrationStarted {

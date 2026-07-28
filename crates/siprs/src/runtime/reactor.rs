@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
-use crate::runtime::backend::{SipBackend, MockBackend};
+use crate::runtime::backend::{MockBackend, SipBackend};
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
 use crate::runtime::state::ClientState;

@@ -1,4 +1,3 @@
-
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -19,7 +18,9 @@ pub use crate::api::event_model_payload_bus::{
 pub use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus};
 pub use crate::api::m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
 // [::TICKET::] P5-2: Audio source adapter types
-pub use crate::api::asyncaudiosrc_adapter::{ErasedAudioSource, SyncAudioSource, SyncSourceAdapter};
+pub use crate::api::asyncaudiosrc_adapter::{
+    ErasedAudioSource, SyncAudioSource, SyncSourceAdapter,
+};
 // [::TICKET::] P5-2: Incoming call types
 pub use crate::api::incoming_call_refer::{IncomingCall, IncomingCallConfig};
 

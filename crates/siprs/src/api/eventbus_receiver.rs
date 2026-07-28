@@ -171,7 +171,7 @@ mod tests {
     use crate::api::event_model_payload_bus::{CallId, EventMeta, SipEventPayload};
     use tokio::sync::broadcast;
 
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn make_event(account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
             meta: EventMeta::new(1, account_id, Some(CallId::from_u64(1).unwrap())),
@@ -217,7 +217,10 @@ mod tests {
         let event = make_event(Some(AccountId::from_u64(1).unwrap()));
         bus.publish(event);
         let received = rx.recv().await.unwrap();
-        assert_eq!(received.meta.account_id, Some(AccountId::from_u64(1).unwrap()));
+        assert_eq!(
+            received.meta.account_id,
+            Some(AccountId::from_u64(1).unwrap())
+        );
     }
 
     /// @verifies C020
@@ -311,7 +314,8 @@ mod tests {
     #[tokio::test]
     async fn account_receiver_filters_by_account_id() {
         let bus = EventBus::new(256, None);
-        let mut rx_a = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
+        let mut rx_a =
+            AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
         // Publish events for different accounts
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap()))); // skipped
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap()))); // matched
@@ -337,7 +341,8 @@ mod tests {
     #[tokio::test]
     async fn account_receiver_lagged_propagated() {
         let bus = EventBus::new(2, None);
-        let mut rx_a = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
+        let mut rx_a =
+            AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
         // Overflow capacity
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap())));
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap())));
@@ -352,10 +357,11 @@ mod tests {
     // ── AccountEventReceiver::try_recv ─────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_receiver_try_recv_skips_non_matching() {
         let bus = EventBus::new(16, None);
-        let mut rx_a = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
+        let mut rx_a =
+            AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap())));
         bus.publish(make_event(Some(AccountId::from_u64(1).unwrap())));
         // First try_recv should find the matching event
@@ -364,10 +370,11 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_receiver_try_recv_empty_when_no_matching() {
         let bus = EventBus::new(16, None);
-        let mut rx_a = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
+        let mut rx_a =
+            AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
         // No matching events (published with different account_id)
         bus.publish(make_event(Some(AccountId::from_u64(2).unwrap())));
         let result = rx_a.try_recv();
@@ -377,10 +384,11 @@ mod tests {
     // ── AccountEventReceiver Debug ─────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
     fn account_receiver_debug() {
         let bus = EventBus::new(16, None);
-        let rx = AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
+        let rx =
+            AccountEventReceiver::new(AccountId::from_u64(1).unwrap(), bus.subscribe_control());
         let debug = format!("{:?}", rx);
         assert!(debug.contains("AccountEventReceiver"));
     }
@@ -431,7 +439,7 @@ mod tests {
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     /// @verifies C039
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn dual_client_dispatch_routes_to_correct_bus() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
@@ -454,7 +462,7 @@ mod tests {
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     /// @verifies C039
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn dual_client_none_account_broadcasts_to_all() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
@@ -479,7 +487,7 @@ mod tests {
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     /// @verifies C039
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn dual_client_unknown_account_falls_back_to_default() {
         let default_bus = EventBus::new(16, None);
         let mut rx_default = default_bus.subscribe_control();

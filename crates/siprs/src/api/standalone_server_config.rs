@@ -67,7 +67,7 @@ pub struct AuthConfig {
 // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
 impl Default for AuthConfig {
     // [::TICKET::] P3-3: Use DEFAULT_JWT_EXPIRY_SECS constant.
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             mode: AuthMode::LocalhostOnly,
@@ -120,7 +120,7 @@ pub struct ServerConfig {
 // [::TICKET::] P3-3: Add Default for ServerConfig using localhost:3910 and default AuthConfig.
 // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
 impl Default for ServerConfig {
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT)
@@ -241,14 +241,12 @@ impl ServerConfig {
             .get_one::<String>("bind-addr")
             .map(|s| s.as_str())
             .unwrap_or("127.0.0.1");
-        let bind_addr: SocketAddr = format!("{bind_addr_raw}:{port}")
-            .parse()
-            .map_err(|_| {
-                crate::error::SipError::new(
-                    crate::error::SipErrorKind::InvalidConfig,
-                    format!("invalid bind address: {bind_addr_raw}:{port}"),
-                )
-            })?;
+        let bind_addr: SocketAddr = format!("{bind_addr_raw}:{port}").parse().map_err(|_| {
+            crate::error::SipError::new(
+                crate::error::SipErrorKind::InvalidConfig,
+                format!("invalid bind address: {bind_addr_raw}:{port}"),
+            )
+        })?;
 
         let db_path = PathBuf::from(
             matches
@@ -257,9 +255,7 @@ impl ServerConfig {
                 .unwrap_or("~/.siprs/data.db"),
         );
 
-        let config_file = matches
-            .get_one::<String>("config-file")
-            .map(PathBuf::from);
+        let config_file = matches.get_one::<String>("config-file").map(PathBuf::from);
 
         let auth_mode_str = matches
             .get_one::<String>("auth-mode")
@@ -328,9 +324,7 @@ pub fn build_router(state: AppState) -> axum::Router {
 
 /// Health check handler — returns HTTP 200 with server uptime.
 #[cfg(feature = "server")]
-async fn health_check_handler(
-    State(state): State<Arc<AppState>>,
-) -> axum::Json<serde_json::Value> {
+async fn health_check_handler(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({
         "status": "ok",
         "uptime_secs": state.server_start_time.elapsed().as_secs()
@@ -339,9 +333,7 @@ async fn health_check_handler(
 
 /// Shutdown handler — initiates graceful shutdown via SipClient::shutdown().
 #[cfg(feature = "server")]
-async fn shutdown_handler(
-    State(state): State<Arc<AppState>>,
-) -> axum::Json<serde_json::Value> {
+async fn shutdown_handler(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
     let _ = state.sip_client.shutdown().await;
     axum::Json(serde_json::json!({
         "status": "shutting_down"
@@ -421,8 +413,6 @@ pub async fn run_server(config: ServerConfig) -> Result<(), crate::error::SipErr
 
     Ok(())
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -574,7 +564,7 @@ mod tests {
     fn test_server_config_send_sync() {
         // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2, P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
@@ -587,7 +577,7 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn test_server_config_default_values() -> Result<(), Box<dyn std::error::Error>> {
         let config = ServerConfig::default();
         assert_eq!(config.bind_addr.to_string(), "127.0.0.1:3910");
@@ -600,7 +590,7 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn test_server_config_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let config = ServerConfig::default();
         let json = serde_json::to_string(&config)?;
@@ -614,7 +604,7 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn test_default_jwt_expiry_secs() {
         assert_eq!(DEFAULT_JWT_EXPIRY_SECS, 3600);
     }
@@ -623,7 +613,7 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     fn test_auth_config_default_jwt_expiry_matches_constant() {
         let config = AuthConfig::default();
         assert_eq!(config.jwt_expiry_secs, DEFAULT_JWT_EXPIRY_SECS);
@@ -637,7 +627,7 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_default_port() -> Result<(), Box<dyn std::error::Error>> {
             let config = ServerConfig::from_args_with(&[])?;
             assert_eq!(config.bind_addr.port(), 3910);
@@ -647,19 +637,16 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_port_override() -> Result<(), Box<dyn std::error::Error>> {
-            let config = ServerConfig::from_args_with(&[
-                "--port".to_string(),
-                "3911".to_string(),
-            ])?;
+            let config = ServerConfig::from_args_with(&["--port".to_string(), "3911".to_string()])?;
             assert_eq!(config.bind_addr.port(), 3911);
             Ok(())
         }
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_db_path_override() -> Result<(), Box<dyn std::error::Error>> {
             let config = ServerConfig::from_args_with(&[
                 "--db-path".to_string(),
@@ -671,18 +658,15 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_rejects_non_numeric_port() {
-            let result = ServerConfig::from_args_with(&[
-                "--port".to_string(),
-                "abc".to_string(),
-            ]);
+            let result = ServerConfig::from_args_with(&["--port".to_string(), "abc".to_string()]);
             assert!(result.is_err(), "Non-numeric port must return error");
         }
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_rejects_invalid_bind_addr() {
             let result = ServerConfig::from_args_with(&[
                 "--bind-addr".to_string(),
@@ -695,19 +679,17 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_auth_mode_apikey() -> Result<(), Box<dyn std::error::Error>> {
-            let config = ServerConfig::from_args_with(&[
-                "--auth-mode".to_string(),
-                "apikey".to_string(),
-            ])?;
+            let config =
+                ServerConfig::from_args_with(&["--auth-mode".to_string(), "apikey".to_string()])?;
             assert!(matches!(config.auth.mode, AuthMode::ApiKey { .. }));
             Ok(())
         }
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_from_args_auth_mode_jwt_with_secret() -> Result<(), Box<dyn std::error::Error>> {
             let config = ServerConfig::from_args_with(&[
                 "--auth-mode".to_string(),
@@ -732,11 +714,11 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         fn test_app_state_send_sync() {
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
             fn assert_send<T: Send>() {}
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
             fn assert_sync<T: Sync>() {}
             assert_send::<AppState>();
             assert_sync::<AppState>();
@@ -751,7 +733,7 @@ mod tests {
             // Type-level verification: build_router() must return axum::Router
             // This test verifies the function signature compiles correctly.
             // Actual health check response is tested in P4-3 integration tests.
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
             fn _assert_type(router: axum::Router) {
                 let _ = router;
             }
@@ -760,5 +742,4 @@ mod tests {
             let _ = _assert_type;
         }
     }
-
 } // mod tests

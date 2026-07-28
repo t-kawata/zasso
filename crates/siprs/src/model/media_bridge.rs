@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_new_creates_queues_with_capacity() {
         let bridge = AudioBridge::new(8);
         assert_eq!(bridge.capacity(), 8);
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_push_out_frame_to_rt() {
         let bridge = AudioBridge::new(8);
         let frame = MediaFrame::new_silent(1, 42);
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_pop_in_frame_from_rt() {
         let bridge = AudioBridge::new(8);
         let frame = MediaFrame::new_silent(1, 42);
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_round_trip_via_both_queues() {
         let bridge = AudioBridge::new(8);
         let out_frame = MediaFrame::new(vec![100i16; 160], 10, 1);
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_overflow_on_to_rt_drops_frame_silently() {
         let bridge = AudioBridge::new(2);
         assert!(bridge.push_out_frame(MediaFrame::new_silent(1, 1)));
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_overflow_on_from_rt_drops_frame_silently() {
         let bridge = AudioBridge::new(2);
         assert!(bridge.push_in_frame(MediaFrame::new_silent(1, 1)));
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn audio_bridge_pop_from_empty_queue_returns_none() {
         let bridge = AudioBridge::new(4);
         assert!(bridge.pop_out_frame().is_none());
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn media_frame_new_silent_creates_zero_filled_frame() {
         let frame = MediaFrame::new_silent(100, 7);
         assert_eq!(frame.timestamp, 100);
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn media_frame_new_copies_samples_with_padding() {
         let short = vec![5i16; 10];
         let frame = MediaFrame::new(short, 200, 3);
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn media_frame_new_truncates_oversized_input() {
         let long = vec![7i16; MIXER_FRAME_SAMPLES * 2];
         let frame = MediaFrame::new(long, 300, 5);
@@ -307,11 +307,11 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn media_frame_is_send_sync() {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<MediaFrame>();
         assert_sync::<MediaFrame>();
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn port_direction_variants() {
         assert_eq!(PortDirection::Capture as isize, 0);
         assert_eq!(PortDirection::Playback as isize, 1);

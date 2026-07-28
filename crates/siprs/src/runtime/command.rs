@@ -279,13 +279,17 @@ impl DispatchCommand {
             },
             RuntimeCommand::Hold { call_id: _, reply } => Self::Execute {
                 f: Box::new(move |_backend| {
-                    Err(ReactorError::BackendError("hold is not yet implemented in SipBackend (P4-2)".into()))
+                    Err(ReactorError::BackendError(
+                        "hold is not yet implemented in SipBackend (P4-2)".into(),
+                    ))
                 }),
                 reply,
             },
             RuntimeCommand::Unhold { call_id: _, reply } => Self::Execute {
                 f: Box::new(move |_backend| {
-                    Err(ReactorError::BackendError("unhold is not yet implemented in SipBackend (P4-2)".into()))
+                    Err(ReactorError::BackendError(
+                        "unhold is not yet implemented in SipBackend (P4-2)".into(),
+                    ))
                 }),
                 reply,
             },
@@ -295,7 +299,11 @@ impl DispatchCommand {
                 reply,
             } => Self::Execute {
                 f: Box::new(move |backend| {
-                    backend.send_dtmf(call_id as i32, &crate::config::account_config_spec::DtmfMethod::Rfc2833, &digits)?;
+                    backend.send_dtmf(
+                        call_id as i32,
+                        &crate::config::account_config_spec::DtmfMethod::Rfc2833,
+                        &digits,
+                    )?;
                     Ok(())
                 }),
                 reply,

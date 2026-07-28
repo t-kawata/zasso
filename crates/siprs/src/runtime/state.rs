@@ -121,12 +121,12 @@ mod tests {
     // AccountId/CallId newtypes are now used in ClientState BTreeMap keys.
     // FFI-level native_id↔logical_id resolution is tracked in P3-2.
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn create_account_id(v: u64) -> AccountId {
         AccountId::from_u64(v).expect("test AccountId")
     }
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn create_call_id(v: u64) -> CallId {
         CallId::from_u64(v).expect("test CallId")
     }
@@ -156,7 +156,10 @@ mod tests {
         assert!(!snapshot.read().await.initialized);
 
         // Act
-        let new_state = ClientState { initialized: true, ..Default::default() };
+        let new_state = ClientState {
+            initialized: true,
+            ..Default::default()
+        };
         snapshot.write(new_state).await;
 
         // Assert
@@ -168,7 +171,7 @@ mod tests {
 
     #[test]
     // @verifies C048
-// [::TICKET::] P0-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1) --for-spec --no-implementation-order`.
     fn call_entry_has_no_conf_port_id() {
         // Contract-C048: CallEntry must NOT contain a conf_port_id field.
         // Verification: construct without conf_port_id — compiler error if field existed.
@@ -206,18 +209,24 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn client_state_default_has_empty_collections() {
         let state = ClientState::default();
         assert!(!state.initialized, "fresh ClientState: initialized=false");
-        assert!(state.accounts.is_empty(), "fresh ClientState: accounts empty");
+        assert!(
+            state.accounts.is_empty(),
+            "fresh ClientState: accounts empty"
+        );
         assert!(state.calls.is_empty(), "fresh ClientState: calls empty");
-        assert!(state.transports.is_empty(), "fresh ClientState: transports empty");
+        assert!(
+            state.transports.is_empty(),
+            "fresh ClientState: transports empty"
+        );
     }
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
     fn client_state_after_account_add_accounts_populated() {
         let mut state = ClientState::default();
         let acc1 = create_account_id(1);
@@ -241,13 +250,21 @@ mod tests {
             },
         );
         assert_eq!(state.accounts.len(), 2, "two accounts must be stored");
-        assert_eq!(state.accounts[&create_account_id(1)].native_id, 100, "first account native_id correct");
-        assert_eq!(state.accounts[&create_account_id(2)].native_id, 101, "second account native_id correct");
+        assert_eq!(
+            state.accounts[&create_account_id(1)].native_id,
+            100,
+            "first account native_id correct"
+        );
+        assert_eq!(
+            state.accounts[&create_account_id(2)].native_id,
+            101,
+            "second account native_id correct"
+        );
     }
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
     fn client_state_after_call_add_calls_populated() {
         let mut state = ClientState::default();
         let cid = create_call_id(1);
@@ -263,12 +280,15 @@ mod tests {
         );
         assert_eq!(state.calls.len(), 1, "one call must be stored");
         assert_eq!(state.calls[&create_call_id(1)].native_id, 200);
-        assert_eq!(state.calls[&create_call_id(1)].account_id, create_account_id(1));
+        assert_eq!(
+            state.calls[&create_call_id(1)].account_id,
+            create_account_id(1)
+        );
     }
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn client_state_capabilities_default() {
         let state = ClientState::default();
         assert!(state.capabilities.audio_codecs.is_empty());
@@ -278,7 +298,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn transport_runtime_state_default() {
         let t = TransportRuntimeState::default();
         assert_eq!(t.transport_id, 0);
@@ -288,7 +308,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn client_state_is_cloneable() {
         let state = ClientState::default();
         let cloned = state.clone();

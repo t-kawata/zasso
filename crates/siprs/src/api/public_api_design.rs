@@ -60,7 +60,12 @@ impl SipAccountHandle {
                 reply: _tx,
             })
             .await
-            .map_err(|e| SipError::new(SipErrorKind::RegistrationFailed, format!("register failed: {e}")))
+            .map_err(|e| {
+                SipError::new(
+                    SipErrorKind::RegistrationFailed,
+                    format!("register failed: {e}"),
+                )
+            })
     }
 
     /// Unregister this account from the SIP proxy/registrar.
@@ -75,7 +80,12 @@ impl SipAccountHandle {
                 reply: _tx,
             })
             .await
-            .map_err(|e| SipError::new(SipErrorKind::RegistrationFailed, format!("unregister failed: {e}")))
+            .map_err(|e| {
+                SipError::new(
+                    SipErrorKind::RegistrationFailed,
+                    format!("unregister failed: {e}"),
+                )
+            })
     }
 
     /// Enable or disable registration for this account.
@@ -111,7 +121,10 @@ impl SipAccountHandle {
 
     /// Place an outgoing SIP call through this account.
     #[instrument(skip(self, request))]
-    pub async fn make_call(&self, request: crate::api::call_types::OutgoingCallRequest) -> Result<u64, SipError> {
+    pub async fn make_call(
+        &self,
+        request: crate::api::call_types::OutgoingCallRequest,
+    ) -> Result<u64, SipError> {
         // Validate codec constraints before dispatching
         CallMediaConstraints::validate_strict(&request.media.preferred_codecs)?;
 
@@ -124,7 +137,9 @@ impl SipAccountHandle {
                 reply: _tx,
             })
             .await
-            .map_err(|e| SipError::new(SipErrorKind::InviteFailed, format!("make_call failed: {e}")))?;
+            .map_err(|e| {
+                SipError::new(SipErrorKind::InviteFailed, format!("make_call failed: {e}"))
+            })?;
         // [::STUB::] P3-2: Return real CallId once backend assigns it.
         Ok(1)
     }
@@ -145,34 +160,34 @@ mod tests {
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_clone() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_debug() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_new_structure() {
         // Structural verification: new() constructor exists and returns SipAccountHandle
         // Full test requires a running SipClient + runtime

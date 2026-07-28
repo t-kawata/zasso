@@ -150,8 +150,7 @@ impl DatabasePool {
 // ---------------------------------------------------------------------------
 
 /// SQL to create the `accounts` table.
-pub(crate) const CREATE_TABLE_ACCOUNTS: &str =
-    "CREATE TABLE IF NOT EXISTS accounts (
+pub(crate) const CREATE_TABLE_ACCOUNTS: &str = "CREATE TABLE IF NOT EXISTS accounts (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     display_name  TEXT,
     username      TEXT NOT NULL,
@@ -177,15 +176,13 @@ pub(crate) const CREATE_TABLE_TRANSPORT_CONFIGS: &str =
 )";
 
 /// SQL to create the `client_settings` table.
-pub(crate) const CREATE_TABLE_CLIENT_SETTINGS: &str =
-    "CREATE TABLE IF NOT EXISTS client_settings (
+pub(crate) const CREATE_TABLE_CLIENT_SETTINGS: &str = "CREATE TABLE IF NOT EXISTS client_settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 )";
 
 /// SQL to create the `tls_configs` table.
-pub(crate) const CREATE_TABLE_TLS_CONFIGS: &str =
-    "CREATE TABLE IF NOT EXISTS tls_configs (
+pub(crate) const CREATE_TABLE_TLS_CONFIGS: &str = "CREATE TABLE IF NOT EXISTS tls_configs (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     verify_server         INTEGER NOT NULL DEFAULT 1,
     ca_cert_path          TEXT,
@@ -388,7 +385,7 @@ mod tests {
     fn test_entities_are_send_sync() {
         // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AccountEntity>();
         assert_sync::<AccountEntity>();
@@ -425,7 +422,7 @@ mod tests {
 
     #[test]
     // @verifies C065
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_create_table_accounts_sql_is_valid() {
         assert!(CREATE_TABLE_ACCOUNTS.starts_with("CREATE TABLE IF NOT EXISTS accounts"));
         assert!(CREATE_TABLE_ACCOUNTS.contains("username"));
@@ -435,24 +432,27 @@ mod tests {
 
     #[test]
     // @verifies C065
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_create_table_transport_configs_sql_is_valid() {
-        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.starts_with("CREATE TABLE IF NOT EXISTS transport_configs"));
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS
+            .starts_with("CREATE TABLE IF NOT EXISTS transport_configs"));
         assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("CHECK(kind IN"));
     }
 
     #[test]
     // @verifies C065
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_create_table_client_settings_sql_is_valid() {
-        assert!(CREATE_TABLE_CLIENT_SETTINGS.starts_with("CREATE TABLE IF NOT EXISTS client_settings"));
+        assert!(
+            CREATE_TABLE_CLIENT_SETTINGS.starts_with("CREATE TABLE IF NOT EXISTS client_settings")
+        );
         assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("key"));
         assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("value"));
     }
 
     #[test]
     // @verifies C065
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_create_table_tls_configs_sql_is_valid() {
         assert!(CREATE_TABLE_TLS_CONFIGS.starts_with("CREATE TABLE IF NOT EXISTS tls_configs"));
         assert!(CREATE_TABLE_TLS_CONFIGS.contains("verify_server"));
@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     // @verifies C065
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_all_create_table_constants_are_unique() {
         let tables = vec![
             CREATE_TABLE_ACCOUNTS,

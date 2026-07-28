@@ -242,7 +242,7 @@ impl SequenceGenerator {
 
 // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 impl Default for SequenceGenerator {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::new()
     }
@@ -338,7 +338,7 @@ mod tests {
     fn test_audio_frame_header_send_sync() {
         // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2, P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3|P4-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P2-3|P4-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AudioFrameHeader>();
         assert_sync::<AudioFrameHeader>();
@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_ws_text_frame_serde_roundtrip() {
         let frame = WsTextFrame {
             msg_type: "event".into(),
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_ws_text_frame_msg_type_field() {
         let frame = WsTextFrame {
             msg_type: "ack".into(),
@@ -497,14 +497,17 @@ mod tests {
             payload: serde_json::json!({"status": "ok"}),
         };
         let json = serde_json::to_string(&frame).unwrap();
-        assert!(json.contains("\"type\":\"ack\""), "JSON must have type field");
+        assert!(
+            json.contains("\"type\":\"ack\""),
+            "JSON must have type field"
+        );
     }
 
     // ── P4-3: WsBinaryFrame — encode/decode round-trip ───────────────
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_ws_binary_frame_encode_decode_roundtrip() {
         let header = AudioFrameHeader {
             sequence_number: 100,
@@ -531,7 +534,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_ws_binary_frame_decode_short_input() {
         let result = WsBinaryFrame::decode(&[0u8; 10]);
         assert!(result.is_none(), "too short input must return None");
@@ -539,7 +542,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_ws_binary_frame_decode_empty_input() {
         assert!(WsBinaryFrame::decode(&[]).is_none());
     }
@@ -548,7 +551,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_starts_at_one() {
         let gen = SequenceGenerator::new();
         assert_eq!(gen.current(), 1);
@@ -556,7 +559,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_with_start() {
         let gen = SequenceGenerator::with_start(100);
         assert_eq!(gen.current(), 100);
@@ -564,7 +567,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_next_increments() {
         let gen = SequenceGenerator::new();
         assert_eq!(gen.next(), 1);
@@ -574,7 +577,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_reserve_advances_by_count() {
         let gen = SequenceGenerator::new();
         let start = gen.reserve(5);
@@ -585,7 +588,7 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_wrap_at_max() {
         let gen = SequenceGenerator::with_start(u64::MAX);
         assert_eq!(gen.next(), u64::MAX);
@@ -596,11 +599,11 @@ mod tests {
 
     #[test]
     // @verifies C063
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_sequence_generator_send_sync() {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SequenceGenerator>();
         assert_sync::<SequenceGenerator>();
@@ -610,7 +613,7 @@ mod tests {
 
     #[test]
     // @verifies C064
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn test_all_rest_endpoints_defined() {
         // Verify 20 path constants are defined and non-empty
         let paths = vec![

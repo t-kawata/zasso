@@ -66,7 +66,9 @@ impl ResamplePipeline {
         }
         // Validate channel_layout compatibility (currently only same-layout resampling)
         if _in_fmt.channel_layout != _out_fmt.channel_layout {
-            return Err("in_fmt and out_fmt have different channel_layout — resampling not supported");
+            return Err(
+                "in_fmt and out_fmt have different channel_layout — resampling not supported",
+            );
         }
 
         Ok(Self { in_rate, out_rate })
@@ -109,17 +111,19 @@ pub fn interleave_in_out(in_mono: &[i16], out_mono: &[i16]) -> Vec<i16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Debug;
     use crate::model::audio_format_chunkpair::{AudioFormat, BitDepth, ChannelLayout};
+    use std::fmt::Debug;
 
     // ── C037-Pre: ResamplePipeline construction ─────────────────────────
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn resample_pipeline_stores_format_configs() {
-        let in_fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
-        let out_fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let in_fmt =
+            AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let out_fmt =
+            AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
 
         let pipeline = ResamplePipeline::new(in_fmt, out_fmt).unwrap();
         assert_eq!(pipeline.in_rate, SampleRate::Hz48000);
@@ -128,9 +132,10 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn resample_pipeline_rejects_identical_rates() {
-        let fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let fmt =
+            AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
         let result = ResamplePipeline::new(fmt, fmt);
         assert!(result.is_err());
     }
@@ -139,7 +144,7 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_maps_in_to_l_and_out_to_r() {
         let in_mono = vec![1i16, 2, 3, 4];
         let out_mono = vec![5i16, 6, 7, 8];
@@ -150,7 +155,7 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_truncates_to_shorter_input() {
         let in_mono = vec![1i16, 2, 3];
         let out_mono = vec![10i16, 20, 30, 40];
@@ -162,7 +167,7 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_truncates_to_shorter_input_reverse() {
         let in_mono = vec![1i16, 2, 3, 4, 5];
         let out_mono = vec![10i16, 20];
@@ -174,7 +179,7 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_returns_empty_vec_when_both_empty() {
         let stereo = interleave_in_out(&[], &[]);
         assert!(stereo.is_empty());
@@ -184,7 +189,7 @@ mod tests {
 
     /// @verifies C037
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_invariant_l_is_in_r_is_out() {
         let in_mono = vec![10i16, 20, 30];
         let out_mono = vec![100i16, 200, 300];
@@ -198,9 +203,9 @@ mod tests {
     // ── Normal: trait derives ──────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn resample_pipeline_derives_debug_clone_copy() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy>() {}
         assert_traits::<ResamplePipeline>();
     }
@@ -208,18 +213,21 @@ mod tests {
     // ── Error cases ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn resample_pipeline_24000_to_8000() {
-        let in_fmt = AudioFormat::new(SampleRate::Hz24000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
-        let out_fmt = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let in_fmt =
+            AudioFormat::new(SampleRate::Hz24000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let out_fmt =
+            AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
         let pipeline = ResamplePipeline::new(in_fmt, out_fmt).unwrap();
         assert_eq!(pipeline.in_rate, SampleRate::Hz24000);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn resample_pipeline_error_string_is_descriptive() {
-        let fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let fmt =
+            AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
         let err = ResamplePipeline::new(fmt, fmt).unwrap_err();
         assert!(!err.is_empty(), "error message must not be empty");
     }
@@ -227,21 +235,21 @@ mod tests {
     // ── Boundary: single-sample inputs ────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_single_sample_per_channel() {
         let stereo = interleave_in_out(&[5], &[10]);
         assert_eq!(stereo, vec![5, 10]);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_empty_in_nonempty_out() {
         let stereo = interleave_in_out(&[], &[1i16, 2, 3]);
         assert!(stereo.is_empty());
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn interleave_nonempty_in_empty_out() {
         let stereo = interleave_in_out(&[1i16, 2, 3], &[]);
         assert!(stereo.is_empty());

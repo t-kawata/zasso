@@ -85,7 +85,7 @@ unsafe impl Send for PjOwnedStr {}
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for PjOwnedStr {
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PjOwnedStr")
             .field("slen", &self.raw.slen)
@@ -96,7 +96,7 @@ impl std::fmt::Debug for PjOwnedStr {
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for PjOwnedStr {
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -104,7 +104,7 @@ impl std::fmt::Display for PjOwnedStr {
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 impl PartialEq<str> for PjOwnedStr {
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
     }
@@ -118,18 +118,22 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_new_constructs_from_str() {
         let input = "sip:user@domain.com";
         let s = PjOwnedStr::new(input);
-        assert_eq!(s.raw.slen, input.len() as i32, "slen must match input length");
+        assert_eq!(
+            s.raw.slen,
+            input.len() as i32,
+            "slen must match input length"
+        );
         assert!(!s.raw.ptr.is_null(), "ptr must not be null");
         assert_eq!(s.as_str(), input, "content must match input");
     }
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_as_raw_returns_consistent_value() {
         let s = PjOwnedStr::new("test-value");
         let raw1 = s.as_raw();
@@ -140,17 +144,20 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_empty_string() {
         let s = PjOwnedStr::new("");
         assert_eq!(s.raw.slen, 0, "empty string must have slen=0");
-        assert!(!s.raw.ptr.is_null(), "ptr must not be null even for empty string");
+        assert!(
+            !s.raw.ptr.is_null(),
+            "ptr must not be null even for empty string"
+        );
         assert_eq!(s.as_str(), "", "content must be empty");
     }
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_owns_its_bytes() {
         let s = {
             let input = String::from("owned-test");
@@ -163,16 +170,16 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_is_send() {
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<PjOwnedStr>();
     }
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_debug_does_not_show_ptr() {
         let s = PjOwnedStr::new("hello");
         let debug = format!("{:?}", s);
@@ -182,7 +189,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_display_shows_content() {
         let s = PjOwnedStr::new("display-test");
         assert_eq!(format!("{}", s), "display-test");
@@ -190,7 +197,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_partial_eq_str() {
         let s = PjOwnedStr::new("eq-test");
         assert_eq!(s.as_str(), "eq-test");
@@ -201,7 +208,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_large_input() {
         let large = "x".repeat(4096);
         let s = PjOwnedStr::new(&large);
@@ -211,7 +218,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_unicode_content() {
         let s = PjOwnedStr::new("日本語");
         assert_eq!(s.as_str(), "日本語", "unicode content must match");
@@ -220,7 +227,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_special_characters() {
         let s = PjOwnedStr::new("user+tag@domain.org;param=value");
         assert!(s.raw.slen > 0);
@@ -231,7 +238,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_raw_ptr_invariants() {
         // raw.ptr must point to bytes backing Vec<u8> until drop
         let s = PjOwnedStr::new("verify");

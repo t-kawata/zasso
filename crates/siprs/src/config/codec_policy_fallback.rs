@@ -73,7 +73,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_pcmu_constructs() {
         let codec = NegotiatedCodec::Pcmu;
         assert_eq!(codec, NegotiatedCodec::Pcmu);
@@ -81,7 +81,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_opus_with_default_config() {
         let codec = NegotiatedCodec::Opus(OpusConfig::default());
         match codec {
@@ -95,7 +95,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_opus_with_custom_config() {
         let custom = OpusConfig {
             bitrate: 64000,
@@ -123,7 +123,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn codec_selection_policy_ordered_and_prefer_opus() {
         let ordered = CodecSelectionPolicy::Ordered;
         let prefer_opus = CodecSelectionPolicy::PreferOpusFallbackPcmu;
@@ -132,7 +132,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn codec_selection_policy_default_is_prefer_opus() {
         assert_eq!(
             CodecSelectionPolicy::default(),
@@ -144,9 +144,9 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_has_exactly_two_variants() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn discriminant(c: &NegotiatedCodec) -> u8 {
             match c {
                 NegotiatedCodec::Pcmu => 1,
@@ -163,17 +163,17 @@ mod tests {
     // ── Normal: trait derives ──────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + PartialEq>() {}
         assert_traits::<NegotiatedCodec>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn codec_selection_policy_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq + Eq>() {}
         assert_traits::<CodecSelectionPolicy>();
     }
@@ -181,13 +181,13 @@ mod tests {
     // ── Equality tests ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_pcmu_vs_pcmu_is_equal() {
         assert_eq!(NegotiatedCodec::Pcmu, NegotiatedCodec::Pcmu);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn negotiated_codec_pcmu_vs_opus_is_not_equal() {
         assert_ne!(
             NegotiatedCodec::Pcmu,

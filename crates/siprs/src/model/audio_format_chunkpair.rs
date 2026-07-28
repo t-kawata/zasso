@@ -235,7 +235,7 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_constructs_with_valid_fields() {
         let fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20);
         assert!(fmt.is_ok());
@@ -248,9 +248,14 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_all_sample_rates_construct() {
-        for rate in &[SampleRate::Hz8000, SampleRate::Hz16000, SampleRate::Hz24000, SampleRate::Hz48000] {
+        for rate in &[
+            SampleRate::Hz8000,
+            SampleRate::Hz16000,
+            SampleRate::Hz24000,
+            SampleRate::Hz48000,
+        ] {
             let fmt = AudioFormat::new(*rate, BitDepth::F32, ChannelLayout::StereoInOut, 20);
             assert!(fmt.is_ok(), "Failed for rate {rate:?}");
             assert_eq!(fmt.unwrap().sample_rate_hz(), rate.as_hz());
@@ -259,7 +264,7 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_all_valid_frame_ms_values() {
         for ms in &[10, 20, 40, 60] {
             let fmt = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, *ms);
@@ -270,9 +275,15 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_single_combination_is_copy() {
-        let fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::F32, ChannelLayout::StereoInOut, 10).unwrap();
+        let fmt = AudioFormat::new(
+            SampleRate::Hz48000,
+            BitDepth::F32,
+            ChannelLayout::StereoInOut,
+            10,
+        )
+        .unwrap();
         let copied = fmt; // Copy, not move
         assert_eq!(fmt, copied);
     }
@@ -281,7 +292,7 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_i16_wraps_data() {
         let data = vec![0i16; 160];
         let chunk = AudioChunk::I16(data.clone());
@@ -296,7 +307,7 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_f32_wraps_data() {
         let data = vec![0.0f32; 160];
         let chunk = AudioChunk::F32(data.clone());
@@ -313,7 +324,7 @@ mod tests {
 
     /// @verifies C031
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_pair_shares_single_timestamp() {
         let ts = SystemTime::now();
         let pair = AudioChunkPair {
@@ -333,49 +344,49 @@ mod tests {
     // ── Normal: trait derives ───────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn sample_rate_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq + Eq>() {}
         assert_traits::<SampleRate>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn bit_depth_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq>() {}
         assert_traits::<BitDepth>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn channel_layout_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq + Eq>() {}
         assert_traits::<ChannelLayout>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq>() {}
         assert_traits::<AudioFormat>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_pair_derives_clone_debug() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + Debug>() {}
         assert_cd::<AudioChunkPair>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_error_derives_required_traits() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Debug + Clone + Copy + PartialEq + Eq>() {}
         assert_traits::<AudioFormatError>();
     }
@@ -383,7 +394,7 @@ mod tests {
     // ── Error cases ─────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_rejects_frame_ms_zero() {
         let result = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 0);
         assert!(result.is_err());
@@ -391,21 +402,21 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_rejects_frame_ms_above_max() {
         let result = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 70);
         assert!(result.is_err());
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_rejects_frame_ms_not_divisible_by_10() {
         let result = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 17);
         assert!(result.is_err());
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_rejects_frame_ms_30() {
         // 30 is a multiple of 10 but not in the allowed set
         let result = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 30);
@@ -413,7 +424,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_error_displays_invalid_value() {
         let err = AudioFormatError::InvalidFrameMs(99);
         assert!(format!("{err:?}").contains("99"));
@@ -422,23 +433,33 @@ mod tests {
     // ── Boundary cases ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_frame_ms_min_boundary() {
-        let fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, MIN_FRAME_MS);
+        let fmt = AudioFormat::new(
+            SampleRate::Hz48000,
+            BitDepth::I16,
+            ChannelLayout::Mono,
+            MIN_FRAME_MS,
+        );
         assert!(fmt.is_ok());
         assert_eq!(fmt.unwrap().frame_ms, 10);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_frame_ms_max_boundary() {
-        let fmt = AudioFormat::new(SampleRate::Hz8000, BitDepth::F32, ChannelLayout::StereoInOut, MAX_FRAME_MS);
+        let fmt = AudioFormat::new(
+            SampleRate::Hz8000,
+            BitDepth::F32,
+            ChannelLayout::StereoInOut,
+            MAX_FRAME_MS,
+        );
         assert!(fmt.is_ok());
         assert_eq!(fmt.unwrap().frame_ms, 60);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_empty_i16() {
         let chunk = AudioChunk::I16(vec![]);
         assert!(chunk.is_empty());
@@ -446,7 +467,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_empty_f32() {
         let chunk = AudioChunk::F32(vec![]);
         assert!(chunk.is_empty());
@@ -456,7 +477,7 @@ mod tests {
     // ── SampleRate::as_hz ───────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn sample_rate_as_hz_returns_numerical_value() {
         assert_eq!(SampleRate::Hz8000.as_hz(), 8_000);
         assert_eq!(SampleRate::Hz16000.as_hz(), 16_000);
@@ -467,23 +488,25 @@ mod tests {
     // ── AudioFormat::samples_per_frame ──────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_samples_per_frame_80_for_8khz_10ms() {
-        let fmt = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 10).unwrap();
+        let fmt =
+            AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 10).unwrap();
         assert_eq!(fmt.samples_per_frame(), 80);
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_format_samples_per_frame_960_for_48khz_20ms() {
-        let fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
+        let fmt =
+            AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();
         assert_eq!(fmt.samples_per_frame(), 960);
     }
 
     // ── AudioChunkPair clone ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn audio_chunk_pair_clone_preserves_all_fields() {
         let pair = AudioChunkPair {
             call_id: CallId::from_u64(1).unwrap(),
@@ -495,7 +518,7 @@ mod tests {
         let cloned = pair.clone();
         assert_eq!(cloned.call_id, pair.call_id);
         assert_eq!(cloned.account_id, pair.account_id);
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         match (&cloned.in_chunk, &cloned.out_chunk) {
             (AudioChunk::I16(in_data), AudioChunk::F32(out_data)) => {
                 assert_eq!(in_data.len(), 160);

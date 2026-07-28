@@ -1,4 +1,3 @@
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -69,7 +68,7 @@ pub struct ClientCapabilities {
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     pub opus_available: bool,
     /// Audio device capabilities.
     pub audio_devices: AudioDeviceCaps,

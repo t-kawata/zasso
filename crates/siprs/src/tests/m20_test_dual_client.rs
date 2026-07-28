@@ -130,7 +130,6 @@ pub struct DualClientContext {
 
 // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
 impl DualClientContext {
-
     /// Returns a description of the bidirectional call_a_to_b test pattern.
     pub const fn call_a_to_b_pattern() -> &'static str {
         "client_a → account_a → make_call(target_uri: account_b.uri) → \

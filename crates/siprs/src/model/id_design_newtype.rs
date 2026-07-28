@@ -34,7 +34,7 @@ pub enum IdError {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for IdError {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             IdError::ZeroValue => write!(f, "ID value must be non-zero"),
@@ -77,9 +77,7 @@ impl AccountId {
     ///
     /// Returns `Err(IdError::ZeroValue)` if the input is `0`.
     pub fn from_u64(value: u64) -> Result<Self, IdError> {
-        NonZeroU64::new(value)
-            .map(Self)
-            .ok_or(IdError::ZeroValue)
+        NonZeroU64::new(value).map(Self).ok_or(IdError::ZeroValue)
     }
 
     /// Return the inner `NonZeroU64` value.
@@ -90,7 +88,7 @@ impl AccountId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for AccountId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AccountId({})", self.0)
     }
@@ -98,7 +96,7 @@ impl fmt::Display for AccountId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl From<NonZeroU64> for AccountId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn from(value: NonZeroU64) -> Self {
         Self(value)
     }
@@ -106,10 +104,10 @@ impl From<NonZeroU64> for AccountId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl TryFrom<u64> for AccountId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     type Error = IdError;
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn try_from(value: u64) -> Result<Self, Self::Error> {
         Self::from_u64(value)
     }
@@ -135,9 +133,7 @@ impl CallId {
     ///
     /// Returns `Err(IdError::ZeroValue)` if the input is `0`.
     pub fn from_u64(value: u64) -> Result<Self, IdError> {
-        NonZeroU64::new(value)
-            .map(Self)
-            .ok_or(IdError::ZeroValue)
+        NonZeroU64::new(value).map(Self).ok_or(IdError::ZeroValue)
     }
 
     /// Return the inner `NonZeroU64` value.
@@ -148,7 +144,7 @@ impl CallId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for CallId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CallId({})", self.0)
     }
@@ -156,7 +152,7 @@ impl fmt::Display for CallId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl From<NonZeroU64> for CallId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn from(value: NonZeroU64) -> Self {
         Self(value)
     }
@@ -164,10 +160,10 @@ impl From<NonZeroU64> for CallId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl TryFrom<u64> for CallId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     type Error = IdError;
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn try_from(value: u64) -> Result<Self, Self::Error> {
         Self::from_u64(value)
     }
@@ -193,9 +189,7 @@ impl AudioSourceId {
     ///
     /// Returns `Err(IdError::ZeroValue)` if the input is `0`.
     pub fn from_u64(value: u64) -> Result<Self, IdError> {
-        NonZeroU64::new(value)
-            .map(Self)
-            .ok_or(IdError::ZeroValue)
+        NonZeroU64::new(value).map(Self).ok_or(IdError::ZeroValue)
     }
 
     /// Return the inner `NonZeroU64` value.
@@ -206,7 +200,7 @@ impl AudioSourceId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl fmt::Display for AudioSourceId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AudioSourceId({})", self.0)
     }
@@ -214,7 +208,7 @@ impl fmt::Display for AudioSourceId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl From<NonZeroU64> for AudioSourceId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn from(value: NonZeroU64) -> Self {
         Self(value)
     }
@@ -222,10 +216,10 @@ impl From<NonZeroU64> for AudioSourceId {
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 impl TryFrom<u64> for AudioSourceId {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     type Error = IdError;
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn try_from(value: u64) -> Result<Self, Self::Error> {
         Self::from_u64(value)
     }
@@ -336,7 +330,9 @@ where
 
     /// Iterate over all (runtime_id, native_id) pairs.
     pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        self.forward.iter().map(|entry| (*entry.key(), *entry.value()))
+        self.forward
+            .iter()
+            .map(|entry| (*entry.key(), *entry.value()))
     }
 }
 
@@ -345,7 +341,7 @@ where
     K: Hash + Eq + Clone + Copy,
     V: Hash + Eq + Clone + Copy,
 {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::new()
     }
@@ -363,7 +359,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_constructs_from_non_zero_u64() {
         let nz = NonZeroU64::new(42).unwrap();
         let id = AccountId::new(nz);
@@ -372,7 +368,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_from_u64_valid() {
         let id = AccountId::from_u64(1).unwrap();
         assert_eq!(id.get(), NonZeroU64::new(1).unwrap());
@@ -380,7 +376,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_from_u64_zero_rejected() {
         let result = AccountId::from_u64(0);
         assert!(result.is_err());
@@ -389,7 +385,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_equality() {
         let a = AccountId::from_u64(1).unwrap();
         let b = AccountId::from_u64(1).unwrap();
@@ -400,7 +396,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_ordering() {
         let a = AccountId::from_u64(1).unwrap();
         let b = AccountId::from_u64(2).unwrap();
@@ -410,7 +406,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_hash() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
@@ -421,7 +417,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_display() {
         let id = AccountId::from_u64(5).unwrap();
         assert_eq!(format!("{}", id), "AccountId(5)");
@@ -429,7 +425,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_try_from_u64() {
         let id: AccountId = 42u64.try_into().unwrap();
         assert_eq!(id.get(), NonZeroU64::new(42).unwrap());
@@ -439,7 +435,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn account_id_from_non_zero_u64() {
         let nz = NonZeroU64::new(99).unwrap();
         let id = AccountId::from(nz);
@@ -450,7 +446,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn call_id_from_u64_valid() {
         let id = CallId::from_u64(10).unwrap();
         assert_eq!(id.get(), NonZeroU64::new(10).unwrap());
@@ -458,7 +454,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn call_id_from_u64_zero_rejected() {
         let result = CallId::from_u64(0);
         assert_eq!(result.unwrap_err(), IdError::ZeroValue);
@@ -466,21 +462,15 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn call_id_equality() {
-        assert_eq!(
-            CallId::from_u64(1).unwrap(),
-            CallId::from_u64(1).unwrap()
-        );
-        assert_ne!(
-            CallId::from_u64(1).unwrap(),
-            CallId::from_u64(2).unwrap()
-        );
+        assert_eq!(CallId::from_u64(1).unwrap(), CallId::from_u64(1).unwrap());
+        assert_ne!(CallId::from_u64(1).unwrap(), CallId::from_u64(2).unwrap());
     }
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn call_id_display() {
         let id = CallId::from_u64(3).unwrap();
         assert_eq!(format!("{}", id), "CallId(3)");
@@ -490,7 +480,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn audio_source_id_from_u64_valid() {
         let id = AudioSourceId::from_u64(1).unwrap();
         assert_eq!(id.get(), NonZeroU64::new(1).unwrap());
@@ -498,7 +488,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn audio_source_id_from_u64_zero_rejected() {
         let result = AudioSourceId::from_u64(0);
         assert_eq!(result.unwrap_err(), IdError::ZeroValue);
@@ -506,7 +496,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn audio_source_id_equality() {
         assert_eq!(
             AudioSourceId::from_u64(5).unwrap(),
@@ -520,7 +510,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn audio_source_id_display() {
         let id = AudioSourceId::from_u64(7).unwrap();
         assert_eq!(format!("{}", id), "AudioSourceId(7)");
@@ -530,7 +520,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn newtypes_are_distinct_types() {
         // If this compiles, the types are distinguishable at the type level.
         let acc = AccountId::from_u64(1).unwrap();
@@ -543,7 +533,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn newtypes_clone_and_copy() {
         // Compile-time check: Clone + Copy
         let a = AccountId::from_u64(1).unwrap();
@@ -553,12 +543,12 @@ mod tests {
 
     // ── BiMap ─────────────────────────────────────────────────────────────
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     type TestBiMap = BiMap<AccountId, i32>;
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_new_is_empty() {
         let map = TestBiMap::new();
         assert!(map.is_empty());
@@ -567,7 +557,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_insert_and_lookup() {
         let map = TestBiMap::new();
         let rid = AccountId::from_u64(1).unwrap();
@@ -579,7 +569,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_remove_clears_both_directions() {
         let map = TestBiMap::new();
         let rid = AccountId::from_u64(1).unwrap();
@@ -593,7 +583,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_contains_checks() {
         let map = TestBiMap::new();
         let rid = AccountId::from_u64(1).unwrap();
@@ -606,7 +596,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_handles_native_id_reuse() {
         let map = TestBiMap::new();
         let rid1 = AccountId::from_u64(1).unwrap();
@@ -627,7 +617,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_update_existing_runtime() {
         let map = TestBiMap::new();
         let rid = AccountId::from_u64(1).unwrap();
@@ -640,7 +630,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_multiple_entries() {
         let map = TestBiMap::new();
         let r1 = AccountId::from_u64(1).unwrap();
@@ -657,7 +647,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_iter_visits_all_entries() {
         let map = TestBiMap::new();
         let r1 = AccountId::from_u64(1).unwrap();
@@ -672,7 +662,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_default_is_empty() {
         let map: TestBiMap = Default::default();
         assert!(map.is_empty());
@@ -680,7 +670,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_remove_nonexistent() {
         let map = TestBiMap::new();
         let rid = AccountId::from_u64(999).unwrap();
@@ -690,7 +680,7 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn bimap_concurrent_access() {
         use std::sync::Arc;
         let map = Arc::new(TestBiMap::new());
@@ -717,16 +707,16 @@ mod tests {
 
     /// @verifies C013
     #[test]
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn newtype_traits_clone_debug() {
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + std::fmt::Debug>() {}
         assert_cd::<AccountId>();
         assert_cd::<CallId>();
         assert_cd::<AudioSourceId>();
         assert_cd::<IdError>();
         // BiMap uses dashmap internally — not Clone by design.
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<BiMap<AccountId, i32>>();
     }

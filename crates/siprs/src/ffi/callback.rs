@@ -83,10 +83,7 @@ pub unsafe extern "C" fn on_reg_state(
 /// [::STUB::] P4-2: Implement NativeEvent::CallState enqueue.
 /// Parameters: call_id, state (pjsua_call_state constant)
 #[no_mangle]
-pub unsafe extern "C" fn on_call_state(
-    _call_id: bindings::pjsua_call_id,
-    _state: u32,
-) {
+pub unsafe extern "C" fn on_call_state(_call_id: bindings::pjsua_call_id, _state: u32) {
     // [::STUB::] P4-2: Enqueue NativeEvent::CallState { call_id, state }
     let _ = (_call_id, _state);
 }
@@ -105,9 +102,7 @@ pub unsafe extern "C" fn on_call_state(
 /// [::STUB::] P4-2: Implement NativeEvent::CallMediaState enqueue.
 /// Parameters: call_id, media_state
 #[no_mangle]
-pub unsafe extern "C" fn on_call_media_state(
-    _call_id: bindings::pjsua_call_id,
-) {
+pub unsafe extern "C" fn on_call_media_state(_call_id: bindings::pjsua_call_id) {
     // [::STUB::] P4-2: Enqueue NativeEvent::CallMediaState { call_id }
     let _ = _call_id;
 }

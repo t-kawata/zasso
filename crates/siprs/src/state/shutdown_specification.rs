@@ -92,7 +92,7 @@ pub enum ShutdownError {
 
 // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 impl std::fmt::Display for ShutdownError {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::PhaseFailed { phase, source } => {
@@ -112,7 +112,7 @@ impl std::fmt::Display for ShutdownError {
 
 // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
 impl std::error::Error for ShutdownError {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::PhaseFailed { source, .. } => Some(source),
@@ -194,14 +194,12 @@ impl ShutdownSpec {
         for phase in ShutdownPhase::all() {
             tracing::info!("shutdown phase started: {}", phase.label());
 
-            let result = self.execute_phase(phase, backend, account_ids, call_ids).await;
+            let result = self
+                .execute_phase(phase, backend, account_ids, call_ids)
+                .await;
 
             if let Err(err) = result {
-                tracing::error!(
-                    "shutdown phase failed: {} — {}",
-                    phase.label(),
-                    err
-                );
+                tracing::error!("shutdown phase failed: {} — {}", phase.label(), err);
                 if first_error.is_none() {
                     first_error = Some(err);
                 }
@@ -236,10 +234,7 @@ impl ShutdownSpec {
                 for &call_id in call_ids {
                     backend
                         .hangup(call_id)
-                        .map_err(|e| ShutdownError::PhaseFailed {
-                            phase,
-                            source: e,
-                        })?;
+                        .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
                 }
                 Ok(())
             }
@@ -247,10 +242,7 @@ impl ShutdownSpec {
                 for &acc_id in account_ids {
                     backend
                         .set_registration(acc_id, false)
-                        .map_err(|e| ShutdownError::PhaseFailed {
-                            phase,
-                            source: e,
-                        })?;
+                        .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
                 }
                 Ok(())
             }
@@ -263,10 +255,7 @@ impl ShutdownSpec {
             ShutdownPhase::InvokeDestroy => {
                 backend
                     .shutdown()
-                    .map_err(|e| ShutdownError::PhaseFailed {
-                        phase,
-                        source: e,
-                    })?;
+                    .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
                 Ok(())
             }
         }
@@ -285,7 +274,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_new_returns_not_started() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
         assert!(!spec.is_shutdown_started());
@@ -293,7 +282,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_mark_started_returns_true_on_first_call() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
         assert!(spec.mark_shutdown_started(), "first call must return true");
@@ -301,7 +290,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_mark_started_returns_false_on_second_call() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
         spec.mark_shutdown_started();
@@ -315,7 +304,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_phases_all_five_in_order() {
         let phases = ShutdownPhase::all();
         assert_eq!(phases.len(), 5);
@@ -328,7 +317,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_phase_labels_are_human_readable() {
         assert_eq!(ShutdownPhase::StopCommands.label(), "stop_commands");
         assert_eq!(ShutdownPhase::CancelCalls.label(), "cancel_calls");
@@ -390,7 +379,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_error_display_formats_correctly() {
         let err = ShutdownError::PhaseFailed {
             phase: ShutdownPhase::CancelCalls,
@@ -414,7 +403,7 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_error_implements_error_trait() {
         let err = ShutdownError::PhaseFailed {
             phase: ShutdownPhase::CancelCalls,
@@ -426,9 +415,9 @@ mod tests {
 
     #[test]
     // @verifies C044
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_error_is_send() {
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<ShutdownError>();
     }
@@ -437,7 +426,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_is_started_after_mark() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
         assert!(!spec.is_shutdown_started());
@@ -447,7 +436,7 @@ mod tests {
 
     #[test]
     // @verifies C045
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
     fn shutdown_spec_mark_returns_bool() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
         assert!(spec.mark_shutdown_started());

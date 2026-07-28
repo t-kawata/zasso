@@ -1,7 +1,6 @@
 // [::TICKET::] P5-2: AsyncAudioSource adapter types — ErasedAudioSource, SyncAudioSource, SyncSourceAdapter
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
-
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
@@ -53,7 +52,7 @@ pub trait ErasedAudioSource: Send {
     ///
     /// Returns the number of samples written. `0` indicates the source is
     /// exhausted and will produce no further data.
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn next_chunk<'a>(
         &'a mut self,
         buf: &'a mut [i16],
@@ -62,7 +61,7 @@ pub trait ErasedAudioSource: Send {
 
 // Blanket impl: every AsyncAudioSource automatically becomes ErasedAudioSource.
 impl<T: AsyncAudioSource + Send> ErasedAudioSource for T {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn next_chunk<'a>(
         &'a mut self,
         buf: &'a mut [i16],
@@ -91,7 +90,7 @@ pub trait SyncAudioSource: Send {
     ///
     /// Returns the number of samples written. `0` indicates the source is
     /// exhausted and will produce no further data.
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn next_chunk(&mut self, buf: &mut [i16]) -> usize;
 }
 
@@ -151,13 +150,13 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_fills_buffer() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct TestSource(Vec<i16>, usize);
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestSource {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let remaining = self.0.len() - self.1;
                 let to_copy = remaining.min(buf.len());
@@ -180,13 +179,13 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_empty_returns_zero() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct EmptySource;
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for EmptySource {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, _buf: &mut [i16]) -> usize {
                 0
             }
@@ -202,13 +201,13 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_source_adapter_new_and_into_inner() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct TestData(Vec<i16>);
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestData {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let n = self.0.len().min(buf.len());
                 buf[..n].copy_from_slice(&self.0[..n]);
@@ -226,17 +225,16 @@ mod tests {
     #[tokio::test]
     /// @verifies C033
     async fn sync_source_adapter_delegates_next_chunk() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct FixedSource([i16; 3], usize);
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for FixedSource {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let remaining = 3 - self.1;
                 let to_copy = remaining.min(buf.len());
-                let data = [42i16, 43i16, 44i16];
                 if to_copy > 0 {
-                    buf[..to_copy].copy_from_slice(&data[self.1..self.1 + to_copy]);
+                    buf[..to_copy].copy_from_slice(&self.0[self.1..self.1 + to_copy]);
                     self.1 += to_copy;
                 }
                 to_copy
@@ -257,11 +255,11 @@ mod tests {
     /// @verifies C033
     #[tokio::test]
     async fn sync_source_adapter_exhausted_returns_zero() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct Done;
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for Done {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, _buf: &mut [i16]) -> usize {
                 0
             }
@@ -285,7 +283,10 @@ mod tests {
             Box::new(MockAsyncAudioSource::new(vec![5i16; 4]));
         let mut buf = vec![0i16; 4];
         let n = erased.next_chunk(&mut buf).await;
-        assert_eq!(n, 4, "ErasedAudioSource must delegate to inner AsyncAudioSource");
+        assert_eq!(
+            n, 4,
+            "ErasedAudioSource must delegate to inner AsyncAudioSource"
+        );
         assert_eq!(buf, vec![5i16; 4]);
     }
 
@@ -293,13 +294,13 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_source_adapter_empty_buffer_returns_zero() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct OneShot;
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for OneShot {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 if !buf.is_empty() {
                     buf[0] = 1;
@@ -321,27 +322,27 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_is_send() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<Box<dyn SyncAudioSource>>();
     }
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn erased_audio_source_is_send() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<Box<dyn ErasedAudioSource>>();
     }
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn mock_async_audio_source_is_send() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -350,41 +351,40 @@ mod tests {
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_trait_has_required_bounds() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
-        fn assert_sync_audio<T: SyncAudioSource>() {}
         // Vec<i16> is not SyncAudioSource — this checks the trait definition compiles
         assert_send::<Box<dyn SyncAudioSource>>();
     }
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn erased_audio_source_trait_is_object_safe() {
         // Compile-time check: ErasedAudioSource is object-safe via Pin<Box<dyn Future>>
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_constructible() {
-            let _erased: Box<dyn ErasedAudioSource> =
-                Box::new(MockAsyncAudioSource::new(vec![]));
+            let _erased: Box<dyn ErasedAudioSource> = Box::new(MockAsyncAudioSource::new(vec![]));
         }
         let _ = assert_constructible;
     }
 
     /// @verifies C033
     #[test]
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_source_adapter_is_send_when_inner_is_send() {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         struct TestSource;
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestSource {
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
-            fn next_chunk(&mut self, _buf: &mut [i16]) -> usize { 0 }
+            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            fn next_chunk(&mut self, _buf: &mut [i16]) -> usize {
+                0
+            }
         }
-// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SyncSourceAdapter<TestSource>>();
     }

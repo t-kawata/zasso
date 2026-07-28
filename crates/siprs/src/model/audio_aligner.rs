@@ -88,18 +88,12 @@ impl PairAligner {
 
     /// Push an IN frame (received from the network).
     pub fn push_in(&mut self, data: Vec<i16>, ts: Instant) {
-        self.in_q.push_back(TimedFrame {
-            ts_mono: ts,
-            data,
-        });
+        self.in_q.push_back(TimedFrame { ts_mono: ts, data });
     }
 
     /// Push an OUT frame (sourced from the local mixer).
     pub fn push_out(&mut self, data: Vec<i16>, ts: Instant) {
-        self.out_q.push_back(TimedFrame {
-            ts_mono: ts,
-            data,
-        });
+        self.out_q.push_back(TimedFrame { ts_mono: ts, data });
     }
 
     /// Attempt to produce a paired `(in_data, out_data)` output.
@@ -200,7 +194,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_new_initializes_empty_queues() {
         let aligner = PairAligner::new(Duration::from_millis(30));
         assert_eq!(aligner.in_q.len(), 0);
@@ -213,7 +207,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_returns_paired_frames_within_tolerance() {
         let mut aligner = PairAligner::new(Duration::from_millis(30));
         let now = Instant::now();
@@ -231,7 +225,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_returns_paired_frames_identical_timestamp() {
         let mut aligner = PairAligner::new(Duration::from_millis(20));
         let now = Instant::now();
@@ -250,7 +244,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_zero_pads_when_only_in_has_data() {
         let mut aligner = PairAligner::new(Duration::from_millis(10));
         aligner.push_in(vec![5i16; 160], Instant::now());
@@ -268,7 +262,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_zero_pads_when_only_out_has_data() {
         let mut aligner = PairAligner::new(Duration::from_millis(10));
         aligner.push_out(vec![7i16; 160], Instant::now());
@@ -288,7 +282,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_try_pair_returns_none_when_both_empty() {
         let mut aligner = PairAligner::new(Duration::from_millis(30));
         assert!(aligner.try_pair().is_none());
@@ -298,7 +292,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_drops_earlier_in_frame_when_delta_exceeds_tolerance() {
         let mut aligner = PairAligner::new(Duration::from_millis(10));
         let now = Instant::now();
@@ -315,7 +309,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_drops_earlier_out_frame_when_delta_exceeds_tolerance() {
         let mut aligner = PairAligner::new(Duration::from_millis(10));
         let now = Instant::now();
@@ -333,7 +327,7 @@ mod tests {
 
     /// @verifies C036
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_alignment_drift_increments_on_zero_pad() {
         let mut aligner = PairAligner::new(Duration::from_millis(5));
         assert_eq!(aligner.alignment_drift(), 0);
@@ -355,7 +349,7 @@ mod tests {
     // ── Normal: queuing and lengths ────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_push_increases_queue_lengths() {
         let mut aligner = PairAligner::new(Duration::from_millis(30));
         let now = Instant::now();
@@ -370,7 +364,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_queues_drain_after_successful_pair() {
         let mut aligner = PairAligner::new(Duration::from_millis(30));
         let now = Instant::now();
@@ -385,17 +379,17 @@ mod tests {
     // ── Trait derives ──────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_derives_debug() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_debug<T: Debug>() {}
         assert_debug::<PairAligner>();
     }
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn timed_frame_derives_clone_debug() {
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + Debug>() {}
         assert_traits::<TimedFrame<Vec<i16>>>();
     }
@@ -403,7 +397,7 @@ mod tests {
     // ── Edge: tolerance wall-clock elapsed ─────────────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_zero_pad_only_after_tolerance_elapsed() {
         let mut aligner = PairAligner::new(Duration::from_millis(100));
         aligner.push_in(vec![1i16; 160], Instant::now());
@@ -417,7 +411,7 @@ mod tests {
     // ── Edge: multiple frames queued consecutively ─────────────────────
 
     #[test]
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
     fn pair_aligner_multiple_frames_sequentially() {
         let mut aligner = PairAligner::new(Duration::from_millis(30));
         let now = Instant::now();
@@ -425,7 +419,10 @@ mod tests {
         // Push three pairs with increasing timestamps
         for i in 0..3 {
             aligner.push_in(vec![i as i16; 160], now + Duration::from_millis(i * 20));
-            aligner.push_out(vec![(i + 10) as i16; 160], now + Duration::from_millis(i * 20));
+            aligner.push_out(
+                vec![(i + 10) as i16; 160],
+                now + Duration::from_millis(i * 20),
+            );
         }
 
         for i in 0..3 {

@@ -123,10 +123,7 @@ pub struct pjsua_call_info {
 /// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when
 /// PJSIP library is linked. Current implementation returns a canned
 /// conf_slot for compilation purposes only.
-pub unsafe fn pjsua_call_get_info(
-    _call_id: pjsua_call_id,
-    _info: *mut pjsua_call_info,
-) -> i32 {
+pub unsafe fn pjsua_call_get_info(_call_id: pjsua_call_id, _info: *mut pjsua_call_info) -> i32 {
     if _info.is_null() {
         return PJ_EUNKNOWN;
     }
@@ -142,7 +139,7 @@ mod tests {
     use super::*;
 
     #[test]
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_str_t_null_creates_zero_length() {
         let s = pj_str_t::null();
         assert_eq!(s.slen, 0, "null pj_str_t must have slen=0");
@@ -150,7 +147,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pjsua_call_get_info_stub_returns_success() {
         let mut info = pjsua_call_info { conf_slot: 0 };
         let status = unsafe { pjsua_call_get_info(42, &mut info) };
@@ -159,14 +156,14 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pjsua_call_get_info_null_returns_error() {
         let status = unsafe { pjsua_call_get_info(42, std::ptr::null_mut()) };
         assert_eq!(status, PJ_EUNKNOWN, "null info must return error");
     }
 
     #[test]
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn call_state_constants_are_distinct() {
         let states = [
             PJSUA_CALL_NULL,
@@ -188,7 +185,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pjsua_acc_id_is_i32() {
         // Compile-time assertion: pjsua_acc_id must be i32
         let _: pjsua_acc_id = 0i32;
