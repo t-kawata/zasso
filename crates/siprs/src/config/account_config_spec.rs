@@ -17,6 +17,7 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
+use crate::api::incoming_call_refer::IncomingCallConfig;
 use crate::security::SecretString;
 use std::time::Duration;
 
@@ -178,6 +179,12 @@ pub struct AccountConfig {
     pub dtmf: DtmfPolicy,
     /// Media configuration.
     pub media: AccountMediaConfig,
+    /// Optional auto-reject timer for unanswered incoming calls.
+    ///
+    /// When `Some(config)` and `config.auto_reject_enabled` is `true`, the
+    /// call is automatically rejected if not answered within
+    /// `config.reject_timeout_ms`. `None` disables the timer.
+    pub auto_reject_timer: Option<IncomingCallConfig>,
     /// Additional SIP headers to include.
     pub headers: Vec<(String, String)>,
 }
@@ -259,7 +266,7 @@ impl AccountConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountConfig {
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             display_name: None,
@@ -280,6 +287,7 @@ impl Default for AccountConfig {
                 receive_methods: vec![DtmfMethod::Rfc2833],
                 default_send_method: DtmfMethod::Rfc2833,
             },
+            auto_reject_timer: None,
             media: AccountMediaConfig::default(),
             headers: Vec::new(),
         }
@@ -295,7 +303,7 @@ mod tests {
 
     #[test]
     // @verifies C015
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2) --for-spec --no-implementation-order`.
     fn account_config_accepts_valid_fields() {
         let config = AccountConfig {
             display_name: Some("Alice".into()),
@@ -321,6 +329,7 @@ mod tests {
                 default_send_method: DtmfMethod::Rfc2833,
             },
             media: AccountMediaConfig::default(),
+            auto_reject_timer: None,
             headers: vec![],
         };
         assert_eq!(config.username, "alice");

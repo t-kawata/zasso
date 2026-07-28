@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -26,6 +27,7 @@
 use crate::api::event_model_payload_bus::{
     AccountId, CallId, DtmfReceivedInfo, RegistrationInfo, SipEventPayload,
 };
+use crate::config::account_config_spec::DtmfMethod;
 
 // ── NativeEvent ─────────────────────────────────────────────────────────
 
@@ -109,11 +111,15 @@ pub fn convert_native_event_to_payload(event: NativeEvent) -> Option<SipEventPay
             // [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_media_state(cid, 1)
+// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         }
 
         // ── P0: DTMF ──
         NativeEvent::DtmfDigit { call_id: _, digit } => {
+            // [::TICKET::] P5-2: method field added. Defaults to Rfc4733.
+            // P5-3: method should come from PJSIP callback data.
             Some(SipEventPayload::DtmfReceived(DtmfReceivedInfo {
+                method: DtmfMethod::Rfc4733,
                 digit,
                 duration_ms: None,
                 volume_dbm0: None,

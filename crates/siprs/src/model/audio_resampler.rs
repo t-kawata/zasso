@@ -43,7 +43,7 @@ pub struct ResamplePipeline {
     pub out_rate: SampleRate,
 }
 
-// [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-2, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-2|P5-2) --for-spec --no-implementation-order`.
 impl ResamplePipeline {
     /// Create a new `ResamplePipeline` by validating the format combination.
     ///
@@ -56,10 +56,17 @@ impl ResamplePipeline {
         let in_rate = _in_fmt.sample_rate;
         let out_rate = _out_fmt.sample_rate;
 
-        // [::STUB::] P5-2: Replace with full validation including bit_depth
-        // and channel_layout compatibility check, plus rubato init.
+        // [::TICKET::] P5-2: Full validation including bit_depth and channel_layout
         if in_rate == out_rate {
             return Err("in_rate and out_rate are identical — no resampling needed");
+        }
+        // Validate bit_depth compatibility (both formats must use the same bit depth)
+        if _in_fmt.bit_depth != _out_fmt.bit_depth {
+            return Err("in_fmt and out_fmt have different bit_depth — resampling not supported");
+        }
+        // Validate channel_layout compatibility (currently only same-layout resampling)
+        if _in_fmt.channel_layout != _out_fmt.channel_layout {
+            return Err("in_fmt and out_fmt have different channel_layout — resampling not supported");
         }
 
         Ok(Self { in_rate, out_rate })

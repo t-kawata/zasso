@@ -21,6 +21,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::config::account_config_spec::DtmfMethod;
 use crate::error::SipError;
 
 // ── ID newtypes (re-exported from model/id_design_newtype) ──────────────
@@ -128,10 +129,19 @@ pub struct ConnectedCallInfo {
 }
 
 /// DTMF digit received from the remote party.
+///
+/// The `method` field indicates which DTMF transport was used (Inband, Info, or RFC 4733).
+/// DTMF method validation against account policy is handled by `DtmfPolicy` in
+/// `AccountConfig::validate()` — see `crate::config::account_config_spec::DtmfPolicy`.
 #[derive(Debug, Clone)]
 pub struct DtmfReceivedInfo {
+    /// The DTMF method used to receive this digit.
+    pub method: DtmfMethod,
+    /// The DTMF digit received ('0'-'9', '*', '#', 'A'-'D').
     pub digit: char,
+    /// Duration of the DTMF event in milliseconds, if reported by the remote endpoint.
     pub duration_ms: Option<u64>,
+    /// Signal level in dBm0, if reported by the remote endpoint.
     pub volume_dbm0: Option<i32>,
 }
 
@@ -488,6 +498,7 @@ const REDACTED: &str = "[REDACTED]";
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::account_config_spec::DtmfMethod;
 
     // ── AccountId / CallId ────────────────────────────────────────────
 
@@ -663,8 +674,11 @@ mod tests {
 
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // @verifies C029
+// [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn payload_dtmf_received() {
         let info = DtmfReceivedInfo {
+            method: DtmfMethod::Rfc4733,
             digit: '5',
             duration_ms: Some(100),
             volume_dbm0: Some(-20),
@@ -672,6 +686,7 @@ mod tests {
         let payload = SipEventPayload::DtmfReceived(info);
         match payload {
             SipEventPayload::DtmfReceived(d) => {
+                assert_eq!(d.method, DtmfMethod::Rfc4733);
                 assert_eq!(d.digit, '5');
                 assert_eq!(d.duration_ms, Some(100));
             }
