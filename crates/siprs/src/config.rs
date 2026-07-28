@@ -17,6 +17,9 @@ pub mod srtp_transport_reconnect;
 /// Observability — tracing, metrics & ClientCapabilities (N0046).
 pub mod observability_metrics;
 
+/// Semver operations & SIP networking details — versioning policy, TLS, DNS (N0066).
+pub mod semver_sip_networking;
+
 use crate::error::SipError;
 use crate::error::SipErrorKind;
 
@@ -55,6 +58,9 @@ pub use crate::api::standalone_server_config::AuthConfig;
 pub use crate::api::standalone_server_config::AuthMode;
 pub use crate::api::standalone_server_config::ConfigError;
 pub use crate::api::standalone_server_config::ServerConfig;
+
+// [::TICKET::] P2-3: Semver/networking types re-export
+pub use self::semver_sip_networking::{TlsCertInfo, VERSIONING_POLICY};
 
 /// Logging level for internal diagnostics.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

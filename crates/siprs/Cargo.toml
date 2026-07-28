@@ -28,6 +28,9 @@ zeroize = ["dep:zeroize"]
 # but cannot compile until their dependency types are implemented (P0-7/P0-8+).
 # Resolve by removing this feature gate once all referenced types exist.
 spec-examples = []
+# [::TICKET::] P2-3: sqlite-storage feature gates SeaORM/rusqlite dependencies.
+# This keeps the default crate light — SQLite deps only enabled when needed.
+sqlite-storage = ["dep:rusqlite", "dep:sea-orm", "dep:chrono"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input"))'] }
@@ -54,6 +57,12 @@ dashmap = "6"
 async-trait = "0.1"
 # [::TICKET::] P2-2: jsonwebtoken for JWT encode/decode in auth_jwt_middleware
 jsonwebtoken = "9"
+# [::TICKET::] P2-3: rusqlite bundled for SQLite persistence (no system lib dependency)
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+# [::TICKET::] P2-3: sea-orm for type-safe database operations with SQLite backend
+sea-orm = { version = "1", features = ["sqlx-sqlite", "macros", "runtime-tokio-rustls"], optional = true }
+# [::TICKET::] P2-3: chrono for SQLite TEXT timestamp handling
+chrono = { version = "0.4", optional = true }
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests

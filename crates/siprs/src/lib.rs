@@ -1,6 +1,3 @@
-
-
-
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 
 
@@ -90,6 +87,11 @@ pub mod tests;
 
 // [::STUB::] P1+: util/ — ID, Time, Sync utilities
 // pub mod util;
+
+// [::TICKET::] P2-3: model/sqlite_schema — SQLite persistence schema & DatabasePool
+// Only compiled when `sqlite-storage` feature is enabled.
+#[cfg(feature = "sqlite-storage")]
+pub mod model;
 
 // ── Public API re-exports ──────────────────────────────────────────
 //
