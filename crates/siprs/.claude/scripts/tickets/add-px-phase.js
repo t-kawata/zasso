@@ -54,8 +54,12 @@ function main() {
   }
 
   // Create PX phase and insert at the beginning
+  // PX-92: Added phaseId and status to ensure schema completeness.
+  // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
   const pxPhase = {
     id: -1,
+    phaseId: -1,
+    status: 'draft',
     name: "[X] 独立フェーズ（P0 に先行／独立）",
     characteristics:
       "P0より前、またはP0以降のどのフェーズにも属さない独立したチケットを格納する特別なフェーズ。",

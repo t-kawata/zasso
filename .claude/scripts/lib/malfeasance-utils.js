@@ -206,6 +206,29 @@ function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
   };
 }
 
+/**
+ * Normalize a file path to project-root-relative.
+ *
+ * Converts absolute paths, home-dir-relative paths, and paths with
+ * dot-segments to a clean project-root-relative path. If the resolved
+ * path equals the project root, returns the basename.
+ *
+ * PX-92: Ensures paths stored in Malfeasance records are portable
+ * across machines.
+ * Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-92 --for-spec --no-implementation-order`
+ *
+ * @param {string} filePath — Raw file path from input
+ * @param {string} [projectRoot] — Project root directory (default: process.cwd())
+ * @returns {string} — Normalized relative path
+ */
+function normalizePath(filePath, projectRoot) {
+  const root = projectRoot ? path.resolve(projectRoot) : process.cwd();
+  const resolved = path.resolve(root, filePath);
+  const relative = path.relative(root, resolved);
+  // path.relative returns empty string when filePath === root
+  return relative || path.basename(filePath);
+}
+
 module.exports = {
   getMalfeasancePath,
   getSchemaPath,
@@ -214,4 +237,5 @@ module.exports = {
   checkSchema,
   output,
   syncMalfeasance,
+  normalizePath,
 };

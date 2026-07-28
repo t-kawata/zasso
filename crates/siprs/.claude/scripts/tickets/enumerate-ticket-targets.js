@@ -14,13 +14,20 @@ const path = require('path');
 const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
 const { syncMalfeasance } = require('../lib/malfeasance-utils');
 
-// [::TICKET::] PX-77: Extensions to scan for STUB markers
+// [::TICKET::] PX-90: Extensions to scan for STUB markers
+// Only programming-language source file extensions.
+// Non-programming extensions excluded to prevent self-referential cascade.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
 const TARGET_EXTENSIONS = new Set([
   '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
   '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',
   '.rb', '.php', '.cs',
-  '.css', '.scss', '.json', '.yaml', '.yml', '.toml', '.md'
 ]);
+
+// PX-90: Excluded data files whose JSON content contains STUB text strings.
+// Scanning these creates a self-referential crime cascade.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
+const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 
 // [::TICKET::] PX-77: Directories to skip during scan
 // `.claude` is excluded to avoid a self-referencing loop: scanning the pipeline's
@@ -106,6 +113,8 @@ function scanDirectory(dirPath, ticketsData, ownTicketKey) {
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       if (SKIP_DIRS.has(entry.name)) continue;
+      // PX-90: Skip data files whose content contains STUB text strings.
+      if (EXCLUDED_FILENAMES.has(entry.name)) continue;
 
       const fullPath = path.join(currentPath, entry.name);
 
