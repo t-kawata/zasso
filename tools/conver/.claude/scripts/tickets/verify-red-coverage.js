@@ -211,4 +211,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { scanContractCoverage };
+module.exports = { scanContractCoverage, findTestFiles };

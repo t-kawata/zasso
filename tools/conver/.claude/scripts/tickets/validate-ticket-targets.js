@@ -13,9 +13,6 @@
  * 7. false_positive justification >= 100 chars with type names
  * 8. DAG cycle detection for deferred_to references
  *
- * Also invokes existing verify-make-contracts.js, verify-plan-contracts.js,
- * and verify-red-coverage.js internally.
- *
  * [::TICKET::] PX-77: Core Validation Scripts — validate-ticket-targets (C005, C006)
  */
 
@@ -34,6 +31,7 @@ const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
  * @returns {string}
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
 function formatError(id, description, cause, action) {
   return '[ERROR] [' + id + '] ' + description + '\nCause: ' + cause + '\nAction: ' + action;
 }
@@ -307,7 +305,7 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
  * Main validate function: runs all 8 checks on targetStubs/targetCrimes.
  * @param {object} ticketsData — Parsed Tickets.json
  * @param {string} ticketKey — Ticket to validate
- * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean, existingScriptsCalled?: object}}
+ * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {

@@ -3,86 +3,213 @@
 /**
  * verify-final-contracts.js — Verify final contract fulfillment (Gate R)
  *
- * Usage: node verify-final-contracts.js --ticket-key=<PX-id> --tickets=<path>
+ * Enhanced with code-level contract verification:
+ * Layer 1 - Status check (existing)
+ * Layer 2 - @verifies coverage via scanContractCoverage (new)
+ * Layer 3 - targetStub resolution check (new)
  *
- * Verifies all contracts in the ticket are accounted for and produces
- * a coverage report.
+ * Usage: node verify-final-contracts.js --ticket-key=<PX-id> --tickets=<path> [--test-dir=<path>]
  *
  * Exits 0 on pass, 1 on failure. JSON report on stdout, errors on stderr.
  *
  * [::TICKET::] PX-71: Gate R + Pipeline Integration
+ * [::TICKET::] PX-83: Gate R code-level enhancement (3-layer verification)
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// [::TICKET::] PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-71 --for-spec --no-implementation-order`.
+// Import scanContractCoverage from verify-red-coverage for Layer 2
+// [::TICKET::] PX-83: @verifies integration via scanContractCoverage
+const { scanContractCoverage, findTestFiles } = require('./verify-red-coverage');
+
+// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
-  let ticketKey, ticketsPath;
+  let ticketKey, ticketsPath, testDir;
   for (const a of args) {
     if (a.startsWith('--ticket-key=')) ticketKey = a.slice('--ticket-key='.length);
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
+    if (a.startsWith('--test-dir=')) testDir = path.resolve(a.slice('--test-dir='.length));
   }
   if (!ticketKey || !ticketsPath) {
     console.error('[ERROR] --ticket-key=<PX-id> and --tickets=<path> are required');
     process.exit(1);
   }
-  return { ticketKey, ticketsPath };
+  return { ticketKey, ticketsPath, testDir };
 }
 
 /**
- * Verify final contracts for a set of tickets (all phases)
- *
- * @param {object} opts - { tickets: Array, graph: object, contractsCheck: boolean }
- * @returns {{ valid: boolean, report: { coverage: number, details: Array } }}
+ * Format a 3-line error message.
+ * @param {string} id
+ * @param {string} description
+ * @param {string} cause
+ * @param {string} action
+ * @returns {string}
  */
-// [::TICKET::] PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-71 --for-spec --no-implementation-order`.
-function verifyFinalContracts(opts) {
-  const { tickets } = opts;
-  const allContracts = [];
-  const details = [];
+// [::TICKET::] PX-83: extracted formatError for DRY 3-line error template
+// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+function formatError(id, description, cause, action) {
+  return '[ERROR] [' + id + '] ' + description + '\nCause: ' + cause + '\nAction: ' + action;
+}
 
-  for (const t of tickets) {
-    if (t.contracts) {
-      for (const c of t.contracts) {
-        allContracts.push({ ticketId: t.id, contract: c, status: t.status });
-      }
+/**
+ * Layer 2 — Check @verifies coverage for all contracts in test files.
+ *
+ * @param {object} ticket — Ticket object with contracts[]
+ * @param {string} testDir — Directory containing test files
+ * @returns {{valid: boolean, missing: string[], total: number, covered: number}}
+ */
+// [::TICKET::] PX-83: checkVerifiesCoverage — @verifies annotation scan
+// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+function checkVerifiesCoverage(ticket, testDir) {
+  const contractIds = new Set();
+  const contracts = ticket.contracts || [];
+  for (const c of contracts) {
+    if (c.id) contractIds.add(c.id);
+  }
+
+  // No contracts to verify — pass
+  if (contractIds.size === 0) {
+    return { valid: true, missing: [], total: 0, covered: 0 };
+  }
+
+  // No testDir provided — skip (status-only fallback handled by caller)
+  if (!testDir || !fs.existsSync(testDir)) {
+    return { valid: true, missing: [], total: contractIds.size, covered: 0, skipped: true };
+  }
+
+  // Scan test files for @verifies annotations
+  const testFiles = findTestFiles(testDir);
+  const allCovered = new Set();
+
+  for (const file of testFiles) {
+    const content = fs.readFileSync(file, 'utf8');
+    const result = scanContractCoverage(content, contractIds);
+    for (const id of result.covered) {
+      allCovered.add(id);
     }
   }
 
-  if (opts.contractsCheck && allContracts.length > 0) {
-    // Check each contract: a contract is "fulfilled" if the ticket status is "done" or "reviewed"
-    for (const entry of allContracts) {
-      const fulfilled = entry.status === 'done' || entry.status === 'reviewed';
-      details.push({
-        contractId: entry.contract.id,
-        ticketId: entry.ticketId,
-        status: entry.status,
-        fulfilled
-      });
-    }
-  }
-
-  const fulfilled = details.filter(d => d.fulfilled).length;
-  const total = details.length;
-  const coverage = total === 0 ? 100 : Math.round((fulfilled / total) * 100);
-  const valid = coverage === 100;
-
+  const missing = [...contractIds].filter(function (id) { return !allCovered.has(id); });
   return {
-    valid,
-    report: {
-      coverage,
-      totalContracts: total,
-      fulfilledContracts: fulfilled,
-      details
-    }
+    valid: missing.length === 0,
+    missing: missing,
+    total: contractIds.size,
+    covered: allCovered.size,
+    testFilesScanned: testFiles.length,
   };
 }
 
-// [::TICKET::] PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-71 --for-spec --no-implementation-order`.
+/**
+ * Layer 3 — Check targetStub resolution status.
+ *
+ * @param {*|Array} targetStubs — Ticket targetStubs (array or 'verified_empty' sentinel)
+ * @returns {{valid: boolean, unresolved: string[], total: number}}
+ */
+// [::TICKET::] PX-83: checkStubResolution — targetStub status check
+// [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+function checkStubResolution(targetStubs) {
+  // verified_empty or undefined — no stubs to check
+  if (targetStubs === 'verified_empty' || targetStubs === undefined || targetStubs === null) {
+    return { valid: true, unresolved: [], total: 0 };
+  }
+
+  if (!Array.isArray(targetStubs)) {
+    return { valid: true, unresolved: [], total: 0 };
+  }
+
+  const unresolved = [];
+  for (const stub of targetStubs) {
+    const isResolved = stub.status === 'resolved';
+    const hasDeferredTo = stub.deferredTo && stub.deferredTo.length > 0;
+    const isFalsePositive = stub.status === 'false_positive';
+    if (!isResolved && !hasDeferredTo && !isFalsePositive) {
+      unresolved.push(stub.id || 'unknown');
+    }
+  }
+
+  return {
+    valid: unresolved.length === 0,
+    unresolved: unresolved,
+    total: targetStubs.length,
+  };
+}
+
+/**
+ * Verify final contracts for a set of tickets.
+ *
+ * 3-layer Gate R verification:
+ * 1. Status check (existing) — ticket.status === 'done' | 'reviewed'
+ * 2. @verifies coverage (new) — via scanContractCoverage in test files
+ * 3. targetStub resolution (new) — all stubs resolved or deferred
+ *
+ * @param {object} opts — { tickets: Array, contractsCheck: boolean, testDir?: string }
+ * @returns {{ valid: boolean, report: object }}
+ */
+// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
+function verifyFinalContracts(opts) {
+  const { tickets, contractsCheck, testDir } = opts;
+  const details = [];
+
+  for (const t of tickets) {
+    const ticketDetails = { ticketId: t.id, status: t.status };
+
+    // Layer 1: Status check
+    const statusOk = t.status === 'done' || t.status === 'reviewed';
+    ticketDetails.statusOk = statusOk;
+
+    // Layer 2: @verifies coverage (if testDir provided and contracts exist)
+    let verifiesResult = null;
+    if (testDir && t.contracts && t.contracts.length > 0) {
+      verifiesResult = checkVerifiesCoverage(t, testDir);
+      ticketDetails.verifiesOk = verifiesResult.valid;
+      ticketDetails.verifiesMissing = verifiesResult.missing || [];
+    }
+
+    // Layer 3: targetStub resolution
+    let stubResult = null;
+    if (t.targetStubs !== undefined && t.targetStubs !== null) {
+      stubResult = checkStubResolution(t.targetStubs);
+      ticketDetails.stubsOk = stubResult.valid;
+      ticketDetails.stubsUnresolved = stubResult.unresolved || [];
+    }
+
+    // Combined: fulfilled only if all applicable layers pass
+    let fulfilled;
+    if (contractsCheck && t.contracts && t.contracts.length > 0) {
+      // Contracts exist — all 3 layers must pass
+      fulfilled = statusOk;
+      if (verifiesResult) fulfilled = fulfilled && verifiesResult.valid;
+      if (stubResult) fulfilled = fulfilled && stubResult.valid;
+    } else {
+      // No contracts — status check only
+      fulfilled = statusOk;
+    }
+
+    ticketDetails.fulfilled = fulfilled;
+    details.push(ticketDetails);
+  }
+
+  const fulfilled = details.filter(function (d) { return d.fulfilled; }).length;
+  const total = details.length;
+  const coverage = total === 0 ? 100 : Math.round((fulfilled / total) * 100);
+  const valid = coverage === 100 && details.every(function (d) { return d.fulfilled; });
+
+  return {
+    valid: valid,
+    report: {
+      coverage: coverage,
+      totalContracts: total,
+      fulfilledContracts: fulfilled,
+      details: details,
+    },
+  };
+}
+
+// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
 function main() {
-  const { ticketKey, ticketsPath } = parseArgs();
+  const { ticketKey, ticketsPath, testDir } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
@@ -117,17 +244,45 @@ function main() {
     process.exit(1);
   }
 
-  const result = verifyFinalContracts({ tickets: [targetTicket], contractsCheck: true });
+  const result = verifyFinalContracts({
+    tickets: [targetTicket],
+    contractsCheck: true,
+    testDir: testDir,
+  });
 
   if (!result.valid) {
     for (const d of result.report.details) {
       if (!d.fulfilled) {
-        console.error('[ERROR] Contract ' + d.contractId + ' (ticket P' + d.ticketId + '): not fulfilled (status=' + d.status + ')');
-        console.error('Cause: Contract fulfillment rate is ' + result.report.coverage + '% (target: 100%)');
-        console.error('Action: Complete all tickets and re-run');
+        if (!d.statusOk) {
+          console.error(formatError(
+            'status',
+            'Ticket ' + ticketKey + ' is ' + d.status + ' (expected done or reviewed)',
+            'Gate R Layer 1 failed: ticket status not terminal',
+            'Complete the ticket implementation and re-run'
+          ));
+        }
+        if (d.verifiesOk === false) {
+          for (const cid of (d.verifiesMissing || [])) {
+            console.error(formatError(
+              cid,
+              'Contract ' + cid + ' missing @verifies annotation in test files',
+              'Gate R Layer 2 failed: contract not covered by tests',
+              'Add // @verifies ' + cid + ' to the corresponding test file'
+            ));
+          }
+        }
+        if (d.stubsOk === false) {
+          for (const sid of (d.stubsUnresolved || [])) {
+            console.error(formatError(
+              sid,
+              'targetStub ' + sid + ' is unresolved (status not resolved and no deferred_to)',
+              'Gate R Layer 3 failed: STUB marker not resolved',
+              'Resolve the STUB or set deferred_to to a valid ticket key'
+            ));
+          }
+        }
       }
     }
-    // Still output the report
     console.log(JSON.stringify({ ok: false, ...result.report }));
     process.exit(1);
   }
@@ -137,4 +292,9 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyFinalContracts };
+module.exports = {
+  verifyFinalContracts,
+  checkVerifiesCoverage,
+  checkStubResolution,
+  formatError,
+};

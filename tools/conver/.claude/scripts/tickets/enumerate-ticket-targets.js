@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
+const { syncMalfeasance } = require('../lib/malfeasance-utils');
 
 // [::TICKET::] PX-77: Extensions to scan for STUB markers
 const TARGET_EXTENSIONS = new Set([
@@ -238,7 +239,7 @@ function enumerateTargets(dirPath, ownTicketKey, ticketsData, ticketsPath) {
   return result;
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81, PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81|PX-82|PX-83) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirPath, ticketKey, ticketsPath;
@@ -286,6 +287,13 @@ function main() {
     console.error('Cause: enumerateTargets() returned null — check prior stderr for the actual error');
     console.error('Action: Read the first [ERROR] line above, fix the reported issue, then re-run');
     process.exit(1);
+  }
+
+  // Sync targetCrimes to Malfeasance.json for cross-store consistency
+  // [::TICKET::] PX-82: syncMalfeasance — automatic crime sync
+  if (result.writtenToTickets) {
+    const malfeasanceDir = path.dirname(ticketsPath);
+    syncMalfeasance(ticketsData, ticketKey, malfeasanceDir);
   }
 
   console.log(JSON.stringify({

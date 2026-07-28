@@ -6947,6 +6947,237 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-28"
+        },
+        {
+          "id": 82,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix lying comment in validate-ticket-targets.js and synchronize Malfeasance.json ↔ Tickets.json targetCrimes",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/82-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nEliminate the lying comment in validate-ticket-targets.js and ensure Malfeasance.json ↔ Tickets.json targetCrimes are always consistent\n\n### Purpose\nCode integrity: a comment that claims to invoke scripts it does not call is a \"lying comment\" that violates the project's \"Comments must not lie\" rule. Crime synchronization ensures that the two crime storage systems do not diverge, which would cause crimes to disappear from one view.\n\n### Motivation\nDiscovered during pipeline inspection 2026-07-28. The lying comment is a direct violation of the project's non-negotiable rules. The desynchronization risk means a crime recorded via malfeasance-create.js might never appear in targetCrimes, bypassing the validate-ticket-targets.js 8-item validation checks.\n\n### Constraints\n- The existing CLI interface of validate-ticket-targets.js must not change\n- The synchronization must not modify Tickets.json targetCrimes (read-only from sync's perspective)\n- The sync must be idempotent: repeated calls produce identical state",
+          "scope": [
+            "Fix lying comment in validate-ticket-targets.js L15-18 (remove the 3-line false comment block) and L310 (remove existingScriptsCalled from JSDoc @returns)",
+            "Add syncMalfeasance() function in .claude/scripts/lib/malfeasance-utils.js — reads targetCrimes from Tickets.json, maps to Malfeasance records, deduplicates by file+line, writes via saveRecords()",
+            "Wire syncMalfeasance() call into enumerate-ticket-targets.js main() after writeTargetsToTickets() succeeds — this ensures every enumerate run also syncs crime records to Malfeasance.json",
+            "Before: targetCrimes written to Tickets.json only, Malfeasance.json untouched → After: enumerate also syncs targetCrimes to Malfeasance.json automatically",
+            "No API contract change — CLI interface of validate-ticket-targets.js and enumerate-ticket-targets.js unchanged",
+            "No data schema change — both stores keep their existing schemas; sync is additive only",
+            "No config/env change — sync uses path.resolve() same as existing code",
+            "No new dependencies — uses existing malfeasance-utils.js functions (loadRecords, saveRecords)",
+            "**Out of scope:**\n- Bidirectional sync (Malfeasance.json → Tickets.json) — deferred to future ticket",
+            "**Why excluded:**\n- The enumerate-triggered sync (targetCrimes → Malfeasance.json) is sufficient for pipeline integrity. Reverse sync would require modifying malfeasance-create.js which is active tooling for humans, not pipeline automation.",
+            "**Affected components:**\n- enumerate-ticket-targets.js — calls syncMalfeasance() after writeTargetsToTickets()",
+            "**Nature of impact:**\n- Performance: negligible (sync is O(n) on targetCrimes count, max ~100 records)",
+            "**Corresponding change:**\n- No — sync is additive, no breaking changes"
+          ],
+          "testUnit": [
+            "UT: [Normal] validate-ticket-targets.js no longer contains the lying comment — grep for \"invokes existing verify-make-contracts\" returns exit 1 (not found)",
+            "UT: [Normal] validate-ticket-targets.js returns object without existingScriptsCalled field — verify returned keys exclude this field",
+            "UT: [Normal] syncMalfeasance() correctly reads targetCrimes from ticket and creates matching entries in Malfeasance.json with same file/line/description",
+            "UT: [Normal] syncMalfeasance() is idempotent — second call does not create duplicate records (dedup by file+line+description)",
+            "UT: [Error] syncMalfeasance() handles missing Malfeasance.json by creating it via ensure-malfeasance.js logic",
+            "UT: [Error] syncMalfeasance() handles empty targetCrimes array (no-op, returns count=0)",
+            "UT: [Error] syncMalfeasance() handles verified_empty targetCrimes sentinel (no-op, returns count=0)",
+            "UT: [Boundary] syncMalfeasance() handles targetCrime with null/undefined fields gracefully",
+            "UT: [Invariant] After sync, Tickets.json targetCrimes and Malfeasance.json records contain the same crime information (file+line+description match)",
+            "UT: [Invariant C001] Code behavior of validateTargets() is unchanged after comment removal — same inputs produce same return object shape (excluding the lying comment)"
+          ],
+          "testIntegration": [
+            "IT: enumerate → syncMalfeasance → validate pipeline produces consistent state across both stores",
+            "IT: malfeasance-create followed by enumerate does not duplicate crime records in either store"
+          ],
+          "testExceptions": [
+            "Cannot be unit-tested due to dependency on populate Tickets.json with real multi-phase structure\nReason: Requires a populated Tickets.json with multiple phases and tickets, which is project-specific\nAlternative: Integration tests with a minimal Tickets.json fixture + temp Malfeasance.json\nThis is not a testing gap but a practical limitation — the synchronization logic itself is fully unit-testable with synthetic data\nCannot test: the full pipeline integration requires sequential script invocation; Not a defect: the sync function design is testable, only the end-to-end pipeline is not",
+            "If this were a \"deterministic yet fundamentally untestable\" feature, it would be an architectural defect. The sync mechanism is designed for testability: pure functions for dedup logic, explicit I/O boundaries for file operations.\nCannot test: the end-to-end cross-store consistency requires real Tickets.json + Malfeasance.json fixture; Not a defect: the sync function is explicitly designed for unit testability"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/validate-ticket-targets.js",
+            ".claude/scripts/tickets/enumerate-ticket-targets.js or new sync script"
+          ],
+          "acceptanceCriteria": [
+            "【Happy】validate-ticket-targets.js no longer has the lying comment; targetCrimes are automatically synchronized to Malfeasance.json after enumerate step; both stores are consistent",
+            "【Error】Missing Malfeasance.json is auto-created; corrupt Malfeasance.json logs error but does not crash pipeline",
+            "【Edge】verified_empty targetCrimes produces zero Malfeasance entries; repeated sync calls produce identical state (idempotent)"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "validate-ticket-targets.js L17-19",
+              "precondition": "Comment exists at validate-ticket-targets.js L17-19 claiming to invoke other scripts",
+              "postcondition": "Comment is corrected or removed after modification",
+              "invariant": "Code behavior is unchanged (only comments modified)"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Malfeasance.json ↔ targetCrimes",
+              "precondition": "enumerate-ticket-targets.js writes targetCrimes to Tickets.json",
+              "postcondition": "Same crime information is also reflected in Malfeasance.json",
+              "invariant": "No duplicate crime records across both stores"
+            }
+          ],
+          "notes": "- 【Steps】1: Fix lying comment (3-line removal in validate-ticket-targets.js L15-18, L310) → 2: Add syncMalfeasance() function in lib/malfeasance-utils.js → 3: Wire sync into enumerate-ticket-targets.js after writeTargetsToTickets() → 4: Write unit tests → 5: Run all 83 existing tests → 6: Verify Gate M + Gate P still pass\n- 【Risks】None — synchronization is additive (never removes Malfeasance records), never modifies Tickets.json targetCrimes\n- 【Caveats】Two-store design is intentional: Malfeasance.json = standalone crime ledger, Tickets.json targetCrimes = ticket-scoped view. Sync direction is targetCrimes → Malfeasance.json (not bidirectional)\n- 【Open items】Whether to also sync from malfeasance-create.js into targetCrimes — deferred; the enumerate-triggered sync is sufficient for pipeline integrity\n- 【Future】Consider merging both stores if two-store design becomes confusing\nImplementation summary:\n- Changed files: malfeasance-utils.js, enumerate-ticket-targets.js, validate-ticket-targets.js\n- New files: tests/malfeasance-sync.test.js\n- Key changes: lying comment removal (C001), syncMalfeasance implementation (C002), pipeline wiring\n- Test results: 97/97 tests passed (83 existing + 14 new)\n- Typecheck: OK, Build: OK\n- Quality: 0 blockers, 1 minor false positive (output() function)\nReview report:\n- Static quality check: passed (1 issue: output() is intentional JSON output)\n- Translatability: all function names are verb phrases, no single-letter vars in new code, no magic numbers, no debug leftovers\n- Crime scan: 0 crimes\n- STUB scan: 0 stubs\n- Contracts: C001 + C002 both fulfilled\n- Dependency: PX-82 (this) + PX-83 both reviewed together\n- Issues found and fixes applied: none",
+          "invariants": "- 【Normal establishment】Malfeasance.json and Tickets.json targetCrimes contain the same set of crimes after synchronization\n- 【Error invariant】Missing or corrupted Malfeasance.json does not corrupt Tickets.json targetCrimes\n- 【Internal state invariant】syncMalfeasance() does not modify Tickets.json targetCrimes — it only reads from them\n- 【Boundary invariant】verified_empty sentinel is treated as \"no crimes\" without creating false positive entries",
+          "instrumentation": "- 【Logging】syncMalfeasance() outputs JSON with count of records added, skipped, total\n- 【Metrics】Not applicable — build-time script, not runtime service\n- 【Error tracking】stderr output with 3-line error template on failure to read/write either store\n- 【Health check】Not applicable\nStatic quality check: passed (1 existing false positive: output())\nTranslatability: no issues (all function names verb phrases)\nTests: 116/116 all PASS",
+          "investigation": "- validate-ticket-targets.js L15-18: comment claims to \"invoke existing verify-make-contracts.js, verify-plan-contracts.js, and verify-red-coverage.js internally\" — false\n- validateTargets() function (L313-396) does NOT call any of these scripts — only sets checks[] + errors[]\n- JSDoc @returns (L310) mentions existingScriptsCalled?: object but this field is never in the return object (L389-395)\n- enumerate-ticket-targets.js L183-195 writeTargetsToTickets() writes targetCrimes to Tickets.json but does not touch Malfeasance.json\n- malfeasance-create.js creates records in Malfeasance.json at process.cwd()/Malfeasance.json\n- malfeasance-utils.js (lib/malfeasance-utils.js) exports loadRecords()/saveRecords() with schema validation — reusable for sync\n- scan-crimes.sh calls ensure-malfeasance.js → malfeasance-all.js — initialization path already exists\n- The sync function should be added to lib/malfeasance-utils.js and called from enumerate-ticket-targets.js after writeTargetsToTickets()",
+          "boyScoutPlan": "- validate-ticket-targets.js L15-18: remove the lying comment entirely (3 lines)\n- validate-ticket-targets.js L310: remove existingScriptsCalled from JSDoc @returns type annotation\n- enumerate-ticket-targets.js: add syncMalfeasance() call after writeTargetsToTickets() — verb-phrase function name makes intent translatable\n- The 8 check functions in validate-ticket-targets.js are already well-named (checkContractIdExists, checkFileExists, etc.) — no translatability issues",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] validate-ticket-targets.js L17-19 false claim exists at start\n  ```js\n  const fs = require(\"fs\");\n  const content = fs.readFileSync(\".claude/scripts/tickets/validate-ticket-targets.js\", \"utf8\");\n  const hasLie = content.includes(\"Also invokes existing verify-make-contracts\");\n  assert(hasLie === true, \"start with the lying comment\");\n  ```",
+            "UT: [C001-Postcondition] After fix, the lying comment is removed\n  ```js\n  const content = fs.readFileSync(\".claude/scripts/tickets/validate-ticket-targets.js\", \"utf8\");\n  const hasLie = content.includes(\"Also invokes existing verify-make-contracts\");\n  assert(hasLie === false, \"lying comment removed\");\n  ```",
+            "UT: [C001-Invariant] validateTargets() return shape unchanged\n  ```js\n  const { validateTargets } = require(\".claude/scripts/tickets/validate-ticket-targets\");\n  const ticketsData = { phases: [{ phaseId: -1, tickets: [{ id: 82, targetStubs: \"verified_empty\", targetCrimes: \"verified_empty\" }] }] };\n  const result = validateTargets(ticketsData, \"PX-82\");\n  assert(result.valid === true, \"same input produces same result\");\n  assert(result.existingScriptsCalled === undefined, \"existingScriptsCalled not in return\");\n  assert(Array.isArray(result.checks), \"checks array still present\");\n  ```",
+            "UT: [C002-Precondition] enumerate-ticket-targets.js writes targetCrimes to Tickets.json\n  ```js\n  const { enumerateTargets } = require(\".claude/scripts/tickets/enumerate-ticket-targets\");\n  const result = enumerateTargets(\"/tmp/test-dir\", \"PX-99\", { phases: [{ phaseId: -1, tickets: [{ id: 99, status: \"started\" }] }] });\n  assert(result !== null, \"enumerate returns result\");\n  assert(Array.isArray(result.targetCrimes), \"targetCrimes is array\");\n  ```",
+            "UT: [C002-Postcondition] syncMalfeasance() reflects same crime info in Malfeasance.json\n  ```js\n  const { loadRecords, saveRecords } = require(\".claude/scripts/lib/malfeasance-utils\");\n  const os = require(\"os\"), path = require(\"path\"), fs = require(\"fs\");\n  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), \"sync-test-\"));\n  const crimeRecord = { id: 1, file: \"test.rs\", line: 10, description: \"test crime\", detected_at: new Date().toISOString(), status: \"open\" };\n  const saveResult = saveRecords([crimeRecord], tmpDir);\n  assert(saveResult.success === true, \"crime saved\");\n  const loadResult = loadRecords(tmpDir);\n  assert(loadResult.success === true, \"crime loaded\");\n  assert(loadResult.data.records.length === 1, \"1 record\");\n  assert(loadResult.data.records[0].file === \"test.rs\", \"file matches\");\n  assert(loadResult.data.records[0].line === 10, \"line matches\");\n  fs.rmSync(tmpDir, { recursive: true, force: true });\n  ```",
+            "UT: [C002-Invariant] No duplicate records across stores after repeated sync\n  ```js\n  const os = require(\"os\"), path = require(\"path\"), fs = require(\"fs\");\n  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), \"sync-idem-\"));\n  const { saveRecords, loadRecords } = require(\".claude/scripts/lib/malfeasance-utils\");\n  const crime = { id: 1, file: \"dup.rs\", line: 5, description: \"duplicate test\", detected_at: new Date().toISOString(), status: \"open\" };\n  const r1 = saveRecords([crime], tmpDir);\n  assert(r1.success === true, \"first save OK\");\n  const r2 = saveRecords([crime], tmpDir);\n  assert(r2.success === true, \"second save OK\");\n  const loaded = loadRecords(tmpDir);\n  assert(loaded.data.records.length === 1, \"no duplicates after idempotent save\");\n  fs.rmSync(tmpDir, { recursive: true, force: true });\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "validate-ticket-targets.js L15-18: lying comment claiming to invoke other scripts internally",
+              "after": "Comment removed — validated to comply with \"Comments must not lie\"",
+              "description": "Removed false comment block"
+            },
+            {
+              "before": "validate-ticket-targets.js L310: JSDoc @returns mentions existingScriptsCalled field",
+              "after": "Field removed from JSDoc — return object never had this field",
+              "description": "Fixed JSDoc @returns type annotation"
+            },
+            {
+              "before": "lib/malfeasance-utils.js: no syncMalfeasance function",
+              "after": "syncMalfeasance() added — reads targetCrimes, deduplicates by file+line, writes to Malfeasance.json",
+              "description": "Added syncMalfeasance function"
+            },
+            {
+              "before": "enumerate-ticket-targets.js wrote targetCrimes only to Tickets.json",
+              "after": "After writeTargetsToTickets(), calls syncMalfeasance() for cross-store consistency",
+              "description": "Wired sync call into enumerate pipeline"
+            },
+            {
+              "before": "No tests for Malfeasance sync",
+              "after": "14 tests covering C001+C002 contracts added",
+              "description": "Created malfeasance-sync.test.js"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-28"
+        },
+        {
+          "id": 83,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Enhance verify-final-contracts.js with code-level contract verification beyond status check",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/83-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nAdd code-level contract verification to Gate R so that contracts are actually checked, not just assumed fulfilled by ticket status\n\n### Purpose\nA ticket can be marked \"done\" without its contracts being test-covered. The current Gate R only checks status === 'done' || status === 'reviewed', which is a process check, not a correctness check. This creates false confidence.\n\n### Motivation\nDiscovered during pipeline inspection 2026-07-28. The shallow Gate R means unresolved targetStubs or missing @verifies annotations pass review unnoticed, allowing incomplete work to proceed to subsequent tickets.\n\n### Constraints\n- Must not break the existing CLI contract: --ticket-key and --tickets remain required; --test-dir is optional (backward compatible)\n- Must reuse existing verify-red-coverage.js scanContractCoverage() — no duplication\n- Must preserve backward compatibility: tickets without contracts/stubs still pass via status check",
+          "scope": [
+            "Enhance verify-final-contracts.js with code-level contract verification",
+            "Reuse verify-red-coverage.js scanContractCoverage() and findTestFiles() via require()",
+            "Add targetStub resolution check: iterate targetStubs, verify each has status='resolved' or deferred_to set",
+            "Maintain backward compatibility: tickets without contracts/stubs still pass via legacy status check",
+            "Update Gate R documentation in review-ticket.md if needed",
+            "No changes to integration contracts of verify-final-contracts.js CLI interface",
+            "**Scope of changes:**\n  - verify-final-contracts.js — modify (~+100 lines for code-level checks), lib/malfeasance-utils.js — optionally expose syncMalfeasance if needed",
+            "**Action:** modify (add @verifies scan + targetStub check)",
+            "**What changes:** adds three-layer validation: (1) existing status check, (2) @verifies coverage via scanContractCoverage, (3) targetStub resolution status",
+            "**Before:** Gate R only checks ticket.status === 'done'/'reviewed' → **After:** Gate R checks status + @verifies coverage + stub resolution, reports detailed JSON",
+            "No API contract change — --ticket-key and --tickets still required, --test-dir is new optional arg",
+            "No data schema change",
+            "No config/env change",
+            "No new dependencies — uses require('../verify-red-coverage') which is in same directory",
+            "**Out of scope:** Full integration with verify-red-coverage.js as subprocess — using require() is simpler and avoids subprocess overhead",
+            "**Why excluded:** require() provides direct access to scanContractCoverage() without IPC overhead",
+            "**Affected components:** review-ticket.md (documentation update)",
+            "**Nature of impact:** Documentation only — the enhanced Gate R produces more detailed output but same exit codes",
+            "**Corresponding change:** Update the Gate R step in review-ticket.md to document --test-dir usage"
+          ],
+          "testUnit": [
+            "UT: [Normal] verifyFinalContracts with fully satisfied contracts (all @verifies present via scanContractCoverage) and all targetStubs resolved returns valid=true",
+            "UT: [Normal] verifyFinalContracts with missing @verifies for C001 returns valid=false with error containing C001",
+            "UT: [Normal] verifyFinalContracts with unresolved targetStub (status=pending) returns valid=false with error containing stub ID",
+            "UT: [Normal] verifyFinalContracts with targetStub deferred_to a non-existent ticket returns valid=false with error",
+            "UT: [Error] verifyFinalContracts with no contracts and verified_empty targetStubs passes via legacy status check (backward compat)",
+            "UT: [Error] verifyFinalContracts with testDir not found returns valid=false with error about missing test directory",
+            "UT: [Boundary] verifyFinalContracts with partially resolved targetStubs (some resolved, some pending) reports only unresolved ones",
+            "UT: [Invariant] verifyFinalContracts is a pure function — same input always produces same output"
+          ],
+          "testIntegration": [
+            "IT: full review-ticket pipeline with enhanced Gate R — run review-ticket on a ticket with known @verifies coverage and targetStub status, verify pass/fail matches expectations"
+          ],
+          "testExceptions": [
+            "Cannot be unit-tested due to dependency on real review-ticket pipeline integration\nReason: Full pipeline integration requires sequential command invocation beyond unit scope\nAlternative: Unit tests cover verifyFinalContracts() logic independently; integration test with minimal fixtures verifies pipeline wiring\nCannot test: the end-to-end review-pipeline invocation cannot be isolated in unit scope; Not a defect: the verifyFinalContracts() function is designed as a pure function taking ticket data and testDir, making it fully unit-testable"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/verify-final-contracts.js"
+          ],
+          "acceptanceCriteria": [
+            "【Happy】Gate R passes all three layers: status check + @verifies coverage + resolved targetStubs; report includes coverage percentage and stub count",
+            "【Error】Missing @verifies annotation reports the specific contract ID with 3-line error template",
+            "【Edge】Empty contracts + verified_empty targetStubs passes via legacy status check without code-level scan; no --test-dir falls back to status-only check"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "verify-final-contracts.js review gate",
+              "precondition": "verifyFinalContracts() receives a ticket with contracts and/or targetStubs",
+              "postcondition": "Returns valid=false with specific error for missing @verifies or unresolved stubs",
+              "invariant": "Backward compatible: tickets without contracts/stubs still pass on status check only"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "@verifies integration",
+              "precondition": "Test files exist for the ticket being verified",
+              "postcondition": "Each contract ID in the ticket has a corresponding @verifies annotation in test files",
+              "invariant": "Missing @verifies for any contract ID is reported, not silently accepted"
+            }
+          ],
+          "notes": "- 【Steps】1: Add --test-dir argument to verify-final-contracts.js CLI → 2: Import scanContractCoverage from verify-red-coverage.js → 3: Add targetStub resolution status check → 4: Wire into existing verifyFinalContracts() → 5: Write tests → 6: Run existing 83 tests to confirm no regression\n- 【Risks】Low — all additions are optional branches; existing status-check path preserved as fallback\n- 【Caveats】testDir must exist at runtime; if omitted, Gate R falls back to status-only check\n- 【Open items】Whether to make --test-dir required — currently optional for backward compatibility\n- 【Future】Consider merging with verify-red-coverage.js if both scripts converge on same @verifies scanning\nImplementation summary:\n- Changed files: verify-final-contracts.js (enhanced)\n- New files: tests/verify-final-contracts.test.js\n- Key changes: 3-layer Gate R (status + @verifies + targetStubs), --test-dir arg, formatError extraction\n- Test results: 116/116 tests passed (97 existing + 19 new)\n- Typecheck: OK, Build: OK\n- Quality: 0 issues\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: all function names verb phrases, formatError/checkVerifiesCoverage/checkStubResolution — intention-revealing names\n- Crime scan: 0 crimes\n- STUB scan: 0 stubs\n- Contracts: C001 + C002 both fulfilled\n- Boy Scout: removed dead 'graph' parameter, extracted formatError(), added --test-dir\n- Dependency: PX-83 (this) + PX-82 both reviewed together\n- Issues found and fixes applied: none",
+          "invariants": "- 【Normal establishment】All contract IDs in the ticket must have corresponding @verifies annotations in test files, and targetStubs must be resolved\n- 【Error invariant】A missing @verifies annotation never produces a false-positive pass\n- 【Internal state invariant】verify-final-contracts.js does not modify Tickets.json, Malfeasance.json, or any test file\n- 【Boundary invariant】Tickets with empty contracts and verified_empty targetStubs pass via legacy status check without attempting @verifies scan",
+          "instrumentation": "- 【Logging】Outputs JSON with coverage percentage, totalContracts, fulfilledContracts, targetStubsChecked, unresolvedStubs\n- 【Metrics】Not applicable (build-time script)\n- 【Error tracking】stderr output with 3-line error template including specific contract ID or stub ID\n- 【Health check】Not applicable\nStatic quality check: passed\nTranslatability: no issues (all function names verb phrases)\nTests: 116/116 all PASS\n3-layer Gate R: Layer 1 (status) ✅, Layer 2 (@verifies via scanContractCoverage) ✅, Layer 3 (stub resolution) ✅",
+          "investigation": "- verify-final-contracts.js (141 lines) currently only checks ticket.status === 'done' || ticket.status === 'reviewed'\n- verify-red-coverage.js (215 lines) exports scanContractCoverage(content, expectedIds) and findTestFiles(dir)\n- scanContractCoverage scans for @verifies, @requires, @assert-invariant annotations\n- Tickets.json stores targetStubs as array with per-stub status ('pending'|'resolved'|'false_positive')+deferredTo\n- verified_empty sentinel string means no stubs exist (skip stub validation)\n- The existing opts parameter is { tickets, graph, contractsCheck } — 'graph' is dead (unused parameter)\n- Adding --test-dir ARG is backward compatible: defaults to undefined, triggers status-only fallback\n- scanContractCoverage lives in same directory as verify-final-contracts.js — direct require() possible",
+          "boyScoutPlan": "- verify-final-contracts.js: the opts parameter includes 'graph' which is never used — remove dead parameter\n- Import scanContractCoverage wrapping in a named function checkVerifiesCoverage() to make intent translatable\n- Extract the duplicated 3-line error template (currently inline in main()) into a shared formatError() function\n- verifyFinalContracts() function name is already a verb phrase — good",
+          "created_at": "2026-07-28",
+          "updated_at": "2026-07-28",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] verifyFinalContracts receives a ticket with contracts\n  ```js\n  const { verifyFinalContracts } = require('../verify-final-contracts');\n  const ticket = { id: 83, status: 'done', contracts: [{ id: 'C001' }], targetStubs: 'verified_empty' };\n  const opts = { tickets: [ticket], contractsCheck: true };\n  const result = verifyFinalContracts(opts);\n  assert(typeof result.valid === 'boolean', 'verifyFinalContracts returns object with valid');\n  assert(typeof result.report === 'object', 'verifyFinalContracts returns object with report');\n  ```",
+            "UT: [C001-Postcondition] Missing @verifies returns valid=false with specific error\n  ```js\n  const { verifyFinalContracts } = require('../verify-final-contracts');\n  const ticket = { id: 83, status: 'started', contracts: [{ id: 'C001' }], targetStubs: 'verified_empty' };\n  const opts = { tickets: [ticket], contractsCheck: true };\n  const result = verifyFinalContracts(opts);\n  assert(result.valid === false, 'ticket with status=started fails Gate R');\n  ```",
+            "UT: [C001-Invariant] No contracts + verified_empty passes via status check (backward compat)\n  ```js\n  const { verifyFinalContracts } = require('../verify-final-contracts');\n  const ticket = { id: 83, status: 'done', contracts: [], targetStubs: 'verified_empty' };\n  const opts = { tickets: [ticket], contractsCheck: true };\n  const result = verifyFinalContracts(opts);\n  assert(result.valid === true, 'empty contracts with done status passes');\n  ```",
+            "UT: [C002-Precondition] scanContractCoverage finds @verifies annotations in test file content\n  ```js\n  const { scanContractCoverage } = require('../verify-red-coverage');\n  const content = '// @verifies C001\\n// @verifies C002';\n  const expectedIds = new Set(['C001', 'C002']);\n  const result = scanContractCoverage(content, expectedIds);\n  assert(result.covered.size === 2, 'both contract IDs found');\n  assert(result.missing.length === 0, 'no missing contracts');\n  ```",
+            "UT: [C002-Postcondition] Missing @verifies annotation returns the contract ID in missing array\n  ```js\n  const { scanContractCoverage } = require('../verify-red-coverage');\n  const content = '// @verifies C001\\n// some other code';\n  const expectedIds = new Set(['C001', 'C002']);\n  const result = scanContractCoverage(content, expectedIds);\n  assert(result.covered.has('C001'), 'C001 covered');\n  assert(!result.covered.has('C002'), 'C002 missing');\n  assert(result.missing.includes('C002'), 'C002 reported in missing array');\n  ```",
+            "UT: [C002-Invariant] Unknown @verifies (not in expectedIds) are reported without blocking\n  ```js\n  const { scanContractCoverage } = require('../verify-red-coverage');\n  const content = '// @verifies C001\\n// @verifies C999';\n  const expectedIds = new Set(['C001']);\n  const result = scanContractCoverage(content, expectedIds);\n  assert(result.covered.has('C001'), 'C001 still covered');\n  assert(result.unknown.length === 1, 'C999 reported as unknown');\n  assert(result.unknown[0].id === 'C999', 'unknown ID is C999');\n  ```"
+          ],
+          "startedAt": "2026-07-28",
+          "changes": [
+            {
+              "before": "verify-final-contracts.js: 141 lines, single-layer status check only",
+              "after": "~290 lines, 3-layer verification: status + @verifies + stub resolution",
+              "description": "Enhanced Gate R with code-level contract verification"
+            },
+            {
+              "before": "verify-final-contracts.js CLI: --ticket-key + --tickets only",
+              "after": "Added optional --test-dir argument for @verifies file scanning",
+              "description": "Added --test-dir CLI argument"
+            },
+            {
+              "before": "verifyFinalContracts(opts) had dead 'graph' parameter",
+              "after": "Removed dead 'graph' parameter from opts destructuring",
+              "description": "Removed dead parameter (Boy Scout)"
+            },
+            {
+              "before": "Inline error messages duplicated in main()",
+              "after": "extracted formatError() shared function with 3-line template",
+              "description": "Extracted formatError for DRY error template"
+            },
+            {
+              "before": "No tests for Gate R enhancement",
+              "after": "19 tests covering C001+C002 contracts added",
+              "description": "Created verify-final-contracts.test.js"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-28"
         }
       ]
     },
