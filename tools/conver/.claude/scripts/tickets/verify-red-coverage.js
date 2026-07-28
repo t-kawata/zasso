@@ -24,15 +24,15 @@ const ASSERT_INV_RE = /@assert-invariant\s+(C\d+)/g;
 // [::TICKET::] PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-70|PX-71) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
-  let ticketKey, testDir;
+  let ticketKey, testDir = '.';
   for (const a of args) {
     if (a.startsWith('--ticket-key=')) ticketKey = a.slice('--ticket-key='.length);
     if (a.startsWith('--test-dir=')) testDir = path.resolve(a.slice('--test-dir='.length));
   }
-  if (!ticketKey || !testDir) {
-    console.error('[ERROR] --ticket-key=<PX-id> and --test-dir=<path> are required');
+  if (!ticketKey) {
+    console.error('[ERROR] --ticket-key=<PX-id> is required');
     console.error('Cause: Missing arguments');
-    console.error('Action: Provide both --ticket-key and --test-dir paths');
+    console.error('Action: Provide --ticket-key');
     process.exit(1);
   }
   return { ticketKey, testDir };
@@ -91,7 +91,7 @@ function findTestFiles(dir) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory() && entry.name !== 'node_modules') {
       results.push(...findTestFiles(fullPath));
-    } else if (entry.isFile() && /\.(rs|ts|js|cjs|vue)$/i.test(entry.name)) {
+    } else if (entry.isFile() && /\.(rs|go|ts|tsx|js|jsx|cjs|mjs|vue|py|java|kt|swift|c|cpp|h|hpp|rb|php|cs)$/i.test(entry.name)) {
       results.push(fullPath);
     }
   }

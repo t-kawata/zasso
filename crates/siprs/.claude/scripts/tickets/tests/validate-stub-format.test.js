@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
 
 /**
  * validate-stub-format.test.js — Tests for validate-stub-format.js
@@ -8,6 +9,7 @@
  *
  * [::TICKET::] PX-77: Core Validation Scripts — validate-stub-format
  * @verifies C001
+ * @verifies PX-80-C001
  */
 
 const path = require('path');

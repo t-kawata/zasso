@@ -111,13 +111,11 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**Active code exploration**: In the source tree targeted by the plan, grep to check whether incomplete implementations exist in the existing code. If found, add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
+**Active code exploration**: In the source tree targeted by the plan, check whether incomplete implementations exist in the existing code. If found, add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
 
 ```bash
-# Grep for incomplete implementation patterns
-grep -rE "todo!\(\)|unimplemented!\(\)|panic!\(" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
-grep -rE "TODO|FIXME|HACK|XXX" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
-grep -rE "#\[allow" . --include="*.rs" --include="*.ts" --include="*.vue" | grep -v "\[::STUB::\]" || true
+# Scan for incomplete implementations (todo!, TODO, #[allow], etc.) without [::STUB::]
+node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=.
 ```
 
 ### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)

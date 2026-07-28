@@ -294,7 +294,8 @@ and that all contracts are fulfilled.
 
 ```bash
 # Verify all ticket contracts are fulfilled
-node .claude/scripts/tickets/verify-final-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
+node .claude/scripts/tickets/verify-final-contracts.js \
+  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
 **Additionally — validate targetStubs resolution (mandatory — C002):**

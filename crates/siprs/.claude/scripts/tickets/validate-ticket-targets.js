@@ -13,14 +13,12 @@
  * 7. false_positive justification >= 100 chars with type names
  * 8. DAG cycle detection for deferred_to references
  *
- * Also invokes existing verify-make-contracts.js, verify-plan-contracts.js,
- * and verify-red-coverage.js internally.
- *
  * [::TICKET::] PX-77: Core Validation Scripts — validate-ticket-targets (C005, C006)
  */
 
 const fs = require('fs');
 const path = require('path');
+const { findTicket } = require('../lib/find-ticket');
 
 const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
 
@@ -33,6 +31,7 @@ const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
  * @returns {string}
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
 function formatError(id, description, cause, action) {
   return '[ERROR] [' + id + '] ' + description + '\nCause: ' + cause + '\nAction: ' + action;
 }
@@ -301,42 +300,12 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
   return { pass: true };
 }
 
-/**
- * Find a ticket by key in Tickets.json.
- * @param {object} ticketsData
- * @param {string} ticketKey
- * @returns {object|null}
- */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
-function findTicket(ticketsData, ticketKey) {
-  const pxMatch = ticketKey.match(/^PX-(\d+)$/);
-  const pMatch = ticketKey.match(/^P(\d+)-(\d+)$/);
-  let targetPhaseId, targetId;
-  if (pxMatch) {
-    targetPhaseId = -1;
-    targetId = parseInt(pxMatch[1], 10);
-  } else if (pMatch) {
-    targetPhaseId = parseInt(pMatch[1], 10);
-    targetId = parseInt(pMatch[2], 10);
-  } else {
-    return null;
-  }
-
-  for (const phase of ticketsData.phases || []) {
-    for (const t of phase.tickets || []) {
-      if (t.id === targetId && t.phaseId === targetPhaseId) {
-        return t;
-      }
-    }
-  }
-  return null;
-}
 
 /**
  * Main validate function: runs all 8 checks on targetStubs/targetCrimes.
  * @param {object} ticketsData — Parsed Tickets.json
  * @param {string} ticketKey — Ticket to validate
- * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean, existingScriptsCalled?: object}}
+ * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {
@@ -415,24 +384,16 @@ function validateTargets(ticketsData, ticketKey) {
 
   const valid = errors.length === 0;
 
-  // Track that existing scripts would be called (C006)
-  const existingScriptsCalled = {
-    verifyMakeContracts: true,
-    verifyPlanContracts: true,
-    verifyRedCoverage: true
-  };
-
   return {
     valid: valid,
     errors: errors,
     formattedErrors: formattedErrors,
     checks: checks,
-    existingScriptsCalled: existingScriptsCalled,
     existsCheck: true
   };
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketKey, ticketsPath;
@@ -451,6 +412,8 @@ function main() {
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
+    console.error('Cause: File does not exist at specified path');
+    console.error('Action: Run: ls -la ' + ticketsPath + ' to verify the file exists, then re-run with --tickets=<correct-path>');
     process.exit(1);
   }
 

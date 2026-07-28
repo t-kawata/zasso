@@ -346,7 +346,7 @@ function generateSlug(title) {
     .substring(0, 80);
 }
 
-// [::TICKET::] PX-72, PX-75 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-72, PX-75, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87) --for-spec --no-implementation-order`.
 function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, noImplementationOrder) {
   const lines = [];
 
@@ -684,6 +684,29 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
     lines.push(`| Pipeline Available | **${pipelineAvailable}** | - |`);
     lines.push('');
+  }
+
+  // Target Status (not output in --for-spec mode)
+  if (!forSpec) {
+    const hasTargetStubs = ticket.targetStubs && Array.isArray(ticket.targetStubs) && ticket.targetStubs.length > 0;
+    const hasTargetCrimes = ticket.targetCrimes && Array.isArray(ticket.targetCrimes) && ticket.targetCrimes.length > 0;
+    if (hasTargetStubs || hasTargetCrimes) {
+      lines.push('## Target Status');
+      lines.push('');
+      if (hasTargetStubs) {
+        const stubsByStatus = {};
+        for (const s of ticket.targetStubs) {
+          const status = s.status || 'unknown';
+          stubsByStatus[status] = (stubsByStatus[status] || 0) + 1;
+        }
+        const statusSummary = Object.entries(stubsByStatus).map(function (e) { return e[0] + ': ' + e[1]; }).join(', ');
+        lines.push('- targetStubs: ' + ticket.targetStubs.length + ' items (' + statusSummary + ')');
+      }
+      if (hasTargetCrimes) {
+        lines.push('- targetCrimes: ' + ticket.targetCrimes.length + ' items');
+      }
+      lines.push('');
+    }
   }
 
   return lines.join('\n');

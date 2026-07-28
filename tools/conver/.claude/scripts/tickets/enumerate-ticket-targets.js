@@ -16,9 +16,10 @@ const { syncMalfeasance } = require('../lib/malfeasance-utils');
 
 // [::TICKET::] PX-77: Extensions to scan for STUB markers
 const TARGET_EXTENSIONS = new Set([
-  '.rs', '.ts', '.js', '.tsx', '.jsx', '.vue', '.py', '.go', '.rb',
-  '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp', '.css', '.scss',
-  '.json', '.yaml', '.yml', '.toml', '.md'
+  '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
+  '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',
+  '.rb', '.php', '.cs',
+  '.css', '.scss', '.json', '.yaml', '.yml', '.toml', '.md'
 ]);
 
 // [::TICKET::] PX-77: Directories to skip during scan

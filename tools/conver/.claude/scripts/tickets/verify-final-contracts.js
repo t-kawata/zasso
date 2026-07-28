@@ -26,7 +26,7 @@ const { scanContractCoverage, findTestFiles } = require('./verify-red-coverage')
 // [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
-  let ticketKey, ticketsPath, testDir;
+  let ticketKey, ticketsPath, testDir = '.';
   for (const a of args) {
     if (a.startsWith('--ticket-key=')) ticketKey = a.slice('--ticket-key='.length);
     if (a.startsWith('--tickets=')) ticketsPath = path.resolve(a.slice('--tickets='.length));
@@ -175,7 +175,7 @@ function checkStubResolution(targetStubs, ticketsData) {
  */
 // [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
 function verifyFinalContracts(opts) {
-  const { tickets, contractsCheck, testDir } = opts;
+  const { tickets, contractsCheck, testDir, ticketsData } = opts;
   const details = [];
 
   for (const t of tickets) {
@@ -196,7 +196,7 @@ function verifyFinalContracts(opts) {
     // Layer 3: targetStub resolution
     let stubResult = null;
     if (t.targetStubs !== undefined && t.targetStubs !== null) {
-      stubResult = checkStubResolution(t.targetStubs);
+      stubResult = checkStubResolution(t.targetStubs, ticketsData);
       ticketDetails.stubsOk = stubResult.valid;
       ticketDetails.stubsUnresolved = stubResult.unresolved || [];
     }
@@ -274,6 +274,7 @@ function main() {
     tickets: [targetTicket],
     contractsCheck: true,
     testDir: testDir,
+    ticketsData: ticketsData,
   });
 
   if (!result.valid) {

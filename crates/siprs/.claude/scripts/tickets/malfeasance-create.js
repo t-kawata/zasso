@@ -18,6 +18,7 @@
 
 const { loadRecords, saveRecords, checkSchema, output } = require('../lib/malfeasance-utils');
 
+// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const file = process.argv[2];
   const rawLine = process.argv[3];
@@ -30,12 +31,14 @@ function main() {
       success: false,
       error: 'Usage: node malfeasance-create.js <file> <line> <description> [note]',
     });
+    console.error('HINT: Provide file path, line number, and description as arguments');
     return;
   }
 
   const line = Number(rawLine);
   if (!Number.isInteger(line) || line < 1) {
     output({ success: false, error: 'line must be a positive integer' });
+    console.error('HINT: line must be a positive integer (e.g. 10)');
     return;
   }
 
@@ -62,6 +65,7 @@ function main() {
       success: false,
       error: `Duplicate open record exists: id=${duplicate.id}, file=${file}, line=${line}`,
     });
+    console.error('HINT: Use node malfeasance-get.js ' + duplicate.id + ' to inspect the existing record');
     return;
   }
 

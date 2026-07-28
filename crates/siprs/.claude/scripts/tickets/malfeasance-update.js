@@ -25,6 +25,7 @@ const ALLOWED_FIELDS = ['status', 'resolved_at', 'resolved_by_ticket', 'note'];
 // Allowed status values
 const ALLOWED_STATUSES = ['open', 'resolved', 'false_positive'];
 
+// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
   const field = process.argv[3];
@@ -35,12 +36,14 @@ function main() {
       success: false,
       error: 'Usage: node malfeasance-update.js <id> <field> <value>',
     });
+    console.error('HINT: Provide record ID, field name, and value as arguments');
     return;
   }
 
   const id = Number(rawId);
   if (!Number.isInteger(id) || id < 1) {
     output({ success: false, error: 'id must be a positive integer' });
+    console.error('HINT: id must be a positive integer — use node malfeasance-all.js to find valid IDs');
     return;
   }
 
@@ -50,6 +53,7 @@ function main() {
       success: false,
       error: `Field "${field}" is not allowed for update. Allowed: ${ALLOWED_FIELDS.join(', ')}`,
     });
+    console.error('HINT: Allowed fields: ' + ALLOWED_FIELDS.join(', '));
     return;
   }
 
@@ -59,6 +63,7 @@ function main() {
       success: false,
       error: 'resolved_at cannot be set directly. It is auto-set when status changes to "resolved".',
     });
+    console.error('HINT: Set status="resolved" instead — resolved_at is auto-populated');
     return;
   }
 
@@ -81,6 +86,7 @@ function main() {
 
   if (!record) {
     output({ success: false, error: 'Record not found' });
+    console.error('HINT: Use node malfeasance-all.js open to list open records and find valid IDs');
     return;
   }
 
@@ -91,6 +97,7 @@ function main() {
         success: false,
         error: `Invalid status "${value}". Allowed: ${ALLOWED_STATUSES.join(', ')}`,
       });
+      console.error('HINT: Allowed statuses: ' + ALLOWED_STATUSES.join(', '));
       return;
     }
 

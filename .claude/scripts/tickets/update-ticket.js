@@ -1,6 +1,7 @@
 const fs = require("fs"),
   path = require("path");
 const { validateTickets, parseTicketKey } = require("../lib/validate-tickets");
+// [::TICKET::] PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const jp = args[0],
@@ -51,6 +52,13 @@ function main() {
             }
           }
         } else {
+          // Check for non-empty string field overwrite without --append (PX-85)
+          for (const f of Object.keys(safe)) {
+            const existing = p.tickets[i][f];
+            if (typeof existing === 'string' && existing.length > 0 && typeof safe[f] === 'string') {
+              console.error('[WARNING] Field "' + f + '" already has content (' + existing.length + ' chars). Use --append to concatenate.');
+            }
+          }
           p.tickets[i] = { ...p.tickets[i], ...safe };
         }
         found = p.tickets[i];

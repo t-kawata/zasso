@@ -20,17 +20,20 @@
 const readline = require('readline');
 const { loadRecords, saveRecords, checkSchema, output } = require('../lib/malfeasance-utils');
 
+// [::TICKET::] PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-86|PX-87) --for-spec --no-implementation-order`.
 function main() {
   const rawId = process.argv[2];
 
   if (rawId === undefined || rawId === '') {
     output({ success: false, error: 'Usage: node malfeasance-delete.js <id>' });
+    console.error('HINT: Provide a numeric record ID — use node malfeasance-all.js to list records');
     return;
   }
 
   const id = Number(rawId);
   if (!Number.isInteger(id) || id < 1) {
     output({ success: false, error: 'id must be a positive integer' });
+    console.error('HINT: id must be a positive integer — use node malfeasance-all.js to find valid IDs');
     return;
   }
 
@@ -53,6 +56,7 @@ function main() {
 
   if (recordIndex === -1) {
     output({ success: false, error: 'Record not found' });
+    console.error('HINT: Use node malfeasance-all.js open to list open records and find valid IDs');
     return;
   }
 

@@ -103,13 +103,13 @@ function verifyMakeContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
   if (!fs.existsSync(ticketsPath)) {
     console.error('[ERROR] Tickets.json not found: ' + ticketsPath);
-    process.exit(1);
+    process.exit(2);
   }
 
   const ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
@@ -150,9 +150,22 @@ function main() {
   const errors = verifyMakeContracts(targetTicket);
   if (errors.length > 0) {
     for (const err of errors) {
-      console.error('[ERROR] Ticket ' + err.ticket + (err.contract ? ' contract ' + err.contract : '') + ': ' + err.detail);
-      console.error('Cause: Contract-test plan mismatch');
-      console.error('Action: Update testUnit or testExceptions to cover the contract');
+      const isTestException = err.detail && err.detail.includes('testException');
+      const isEmptyContract = err.contract === null && err.detail && err.detail.includes('empty');
+      if (isEmptyContract) {
+        console.error('[ERROR] Ticket ' + err.ticket + ': ' + err.detail);
+        console.error('Cause: No contracts defined for this ticket');
+        console.error('Action: Define at least one contract with pre/post/invariant before proceeding');
+      } else if (isTestException) {
+        console.error('[ERROR] Ticket ' + err.ticket + ': ' + err.detail);
+        console.error('Cause: testException missing required justification');
+        console.error('Action: Include both a reason phrase ("cannot test", "not testable") AND a statement that this is not a design defect ("not a defect", "not an architectural defect")');
+      } else {
+        console.error('[ERROR] Ticket ' + err.ticket + (err.contract ? ' contract ' + err.contract : '') + ': ' + err.detail);
+        const elem = err.detail && err.detail.includes('precondition') ? 'precondition' : err.detail && err.detail.includes('postcondition') ? 'postcondition' : 'invariant';
+        console.error('Cause: Contract ' + elem + ' not covered by test plan');
+        console.error('Action: Update testUnit entries to cover the contract\'s ' + elem + ' text');
+      }
     }
     process.exit(1);
   }

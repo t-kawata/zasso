@@ -93,13 +93,13 @@ function validateStubFormat(content) {
   return { valid: true, errors: [] };
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
 function main() {
   const input = process.argv[2];
   if (!input) {
     console.error('[ERROR] Missing input string');
     console.error('Cause: No argument provided');
-    console.error('Action: Provide a STUB marker string as the first argument');
+    console.error('Action: Run: node .claude/scripts/tickets/validate-stub-format.js "<stub-marker-string>"');
     process.exit(1);
   }
 

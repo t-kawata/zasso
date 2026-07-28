@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { validateRecords, validateSchema } = require('./validate-malfeasance');
+const { findTicket } = require('./find-ticket');
 
 // .claude/ directory is 2 levels up from this file location (.claude/scripts/lib/)
 const CLAUDE_DIR = path.resolve(__dirname, '..', '..');
@@ -129,6 +130,82 @@ function output(result) {
   console.log(JSON.stringify(result));
 }
 
+/**
+ * Sync targetCrimes from a ticket into Malfeasance.json.
+ *
+ * Reads targetCrimes from the specified ticket in Tickets.json,
+ * deduplicates by file+line against existing Malfeasance records,
+ * and appends new records. Idempotent: repeated calls with same
+ * data do not create duplicates.
+ *
+ * @param {object} ticketsData — Parsed Tickets.json
+ * @param {string} ticketKey — Ticket key (e.g. "PX-82")
+ * @param {string} [malfeasanceDir] — Directory for Malfeasance.json (default: process.cwd())
+ * @returns {{added: number, skipped: number, total: number, saved: boolean}}
+ */
+// [::TICKET::] PX-82: syncMalfeasance — targetCrime → Malfeasance sync
+// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
+function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
+  const ticket = findTicket(ticketsData, ticketKey);
+  if (!ticket) {
+    return { added: 0, skipped: 0, total: 0, saved: false };
+  }
+
+  const targetCrimes = ticket.targetCrimes;
+
+  // verified_empty or empty array → no-op
+  if (targetCrimes === 'verified_empty' || !Array.isArray(targetCrimes) || targetCrimes.length === 0) {
+    return { added: 0, skipped: 0, total: 0, saved: true };
+  }
+
+  // Load existing Malfeasance records (or start fresh if not found)
+  const loaded = loadRecords(malfeasanceDir);
+  const existingRecords = loaded.success ? loaded.data.records : [];
+
+  // Build dedup key set from existing open records
+  const existingKeys = new Set();
+  for (const record of existingRecords) {
+    if (record.status === 'open') {
+      existingKeys.add(record.file + ':' + record.line);
+    }
+  }
+
+  // Determine max existing ID for auto-increment
+  let maxId = 0;
+  for (const record of existingRecords) {
+    if (record.id > maxId) maxId = record.id;
+  }
+
+  let added = 0;
+  const now = new Date().toISOString();
+
+  for (const crime of targetCrimes) {
+    const key = (crime.file || '') + ':' + (crime.line || 0);
+
+    // Skip if same file+line already exists as open
+    if (existingKeys.has(key)) continue;
+
+    maxId++;
+    existingRecords.push({
+      id: maxId,
+      file: crime.file || '',
+      line: crime.line || 0,
+      description: crime.markerText || crime.description || '',
+      detected_at: now,
+      status: 'open',
+    });
+    added++;
+  }
+
+  const saveResult = saveRecords(existingRecords, malfeasanceDir);
+  return {
+    added: added,
+    skipped: targetCrimes.length - added,
+    total: existingRecords.length,
+    saved: saveResult.success,
+  };
+}
+
 module.exports = {
   getMalfeasancePath,
   getSchemaPath,
@@ -136,4 +213,5 @@ module.exports = {
   saveRecords,
   checkSchema,
   output,
+  syncMalfeasance,
 };

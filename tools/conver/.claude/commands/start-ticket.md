@@ -95,7 +95,7 @@ Before starting implementation, check for resolvable stubs:
    ```bash
    # List done/resolved tickets to cross-reference with STUB markers
    node .claude/scripts/tickets/search-tickets.js Tickets.json done
-   node .claude/scripts/tickets/review/find-all-stubs.js . | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const j=JSON.parse(d);j.stubs.filter(s=>s.content.match(/\[::STUB::\]\s+P\d+-\d+/)).forEach(s=>console.log(s.file+':'+s.line+' → '+s.content.match(/\[::STUB::\]\s+\S+/)[0]))"
+   node .claude/scripts/tickets/review/find-stubs-with-ticket-ref.js --dir=.
    ```
 3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
 4. Include resolvable stubs in the implementation scope and replace them with actual implementation
@@ -219,7 +219,7 @@ Before proceeding to Green (implementation), verify all contract IDs have @verif
 
 ```bash
 # Verify all contract IDs have @verifies in test files
-node .claude/scripts/tickets/verify-red-coverage.js --ticket-key="$ARGUMENTS" --test-dir="src/"
+node .claude/scripts/tickets/verify-red-coverage.js --ticket-key="$ARGUMENTS"
 ```
 
 If BLOCKed: return to Step 5 (Red) and add missing @verifies annotations, then re-run.

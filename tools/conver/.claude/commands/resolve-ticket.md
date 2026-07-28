@@ -42,17 +42,21 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
-### Step 1: Run cargo check / cargo test and capture warnings and errors
+### Step 1: Run compilation check and tests, capture warnings and errors
 
-Run `cargo check` and `cargo test` in the current directory, and capture all warnings and errors.
+Run compilation check and tests in the appropriate directory. The AI determines the approach based on the situation:
+
+- **Compilation check**: If a Makefile exists in the selected directory with `check`-family targets defined, prefer `make`. If no Makefile exists or no relevant target is defined, use the language-appropriate tool (`cargo check`, `go build`, `tsc --noEmit`, `npm run build`, etc.). Add suitable flags as needed.
+- **Test execution**: Similarly, if a Makefile has a `test` target defined, prefer `make test`; otherwise use the language-appropriate test runner (`cargo test`, `go test`, `npm test`, `pytest`, etc.).
+- Capture all warnings and errors for resolution in the subsequent steps.
 
 ```bash
-cargo check 2>&1
+# Example: compilation check via Makefile
+(cd "$(git rev-parse --show-toplevel)" && make check-be)
 
-cargo test 2>&1
+# Example: compilation check via language tool
+cargo check --all-targets 2>&1
 ```
-
-**Note**: If a Makefile exists in the target directory with an appropriate target, using `make` is also acceptable, but use `cargo` directly when raw output is needed.
 
 ### Step 2: Resolve warnings and errors
 
@@ -168,11 +172,14 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 
 ### Step 8: Final verification
 
-After resolution, re-run compilation and tests to confirm everything passes.
+After resolution, re-run compilation and tests to confirm everything passes. Follow the same guidelines as Step 1 (Makefile priority, language-appropriate tool fallback).
 
 ```bash
-cargo check 2>&1
-cargo test 2>&1
+# Re-run compilation check
+(cd "$(git rev-parse --show-toplevel)" && make check-be)
+
+# Re-run tests
+(cd "$(git rev-parse --show-toplevel)" && make test)
 ```
 
 Once verified, present a summary of the resolved items and report to the user.

@@ -56,8 +56,13 @@ function loadConfig() {
         blocked: ['draft', 'reviewing', 'approved', 'implementing'],
       },
 
-      // File extensions subject to review
-      targetExtensions: ['.rs', '.js', '.ts', '.tsx', '.jsx', '.vue', '.go'],
+      // File extensions subject to review (must stay in sync with enumerate-ticket-targets.js)
+      targetExtensions: [
+        '.rs', '.go', '.ts', '.tsx', '.js', '.jsx', '.cjs', '.mjs', '.vue',
+        '.py', '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp',
+        '.rb', '.php', '.cs',
+        '.css', '.scss', '.json', '.yaml', '.yml', '.toml', '.md',
+      ],
     },
 
     // ID zero-padding digits
