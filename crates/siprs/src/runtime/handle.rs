@@ -30,7 +30,7 @@ pub struct RuntimeHandle {
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -63,6 +63,33 @@ impl RuntimeHandle {
         let dispatch = match dispatch {
             DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
+            // GetAccountInfo handled via separate method
+            DispatchCommand::GetAccountInfo { .. } => unreachable!("use submit_get_account_info instead"),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P0-5: Submit a GetAccountInfo command and await the result.
+    ///
+    /// Separate from `submit()` because the response type is
+    /// `AccountInfoSnapshot` rather than `()`.
+    pub async fn submit_get_account_info(
+        &self,
+        native_acc_id: u32,
+    ) -> Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::GetAccountInfo {
+            native_acc_id,
+            reply: tx,
         };
 
         self.sender

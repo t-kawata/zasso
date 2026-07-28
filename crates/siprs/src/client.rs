@@ -3,6 +3,10 @@
 
 use std::sync::Arc;
 
+use tokio::sync::broadcast;
+
+use crate::api::eventbus_receiver::EventBus;
+use crate::api::event_model_payload_bus::{AccountId, SipEvent};
 use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
@@ -32,12 +36,13 @@ use crate::runtime::reactor::{BootConfig, CoreReactor};
 pub struct SipClient {
     /// Handle for submitting commands to the reactor thread.
     runtime: Arc<RuntimeHandle>,
-    /// Receiver for lifecycle and error events.
+    /// Event bus for subscribing to client lifecycle and SIP events.
     ///
-    /// [::STUB::] P0-5: Replace with `tokio::sync::mpsc::Receiver<SipEvent>`
-    /// once the event system (N0018, P0-5) is implemented.
-    #[allow(dead_code)]
-    event_rx: tokio::sync::mpsc::Receiver<()>,
+    /// Use `subscribe()` to get a broadcast receiver for control events,
+    /// or `subscribe_account()` to filter by account_id.
+    ///
+    /// [::TICKET::] P0-5: EventBus replaces the previous mpsc stub.
+    events: crate::api::eventbus_receiver::EventBus,
     /// The client configuration used at construction.
     config: ClientConfig,
 }
@@ -55,7 +60,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -72,18 +77,15 @@ impl SipClient {
     /// must always return `(RuntimeHandle, JoinHandle)`.
     pub async fn new(
         config: ClientConfig,
-    ) -> Result<(Self, tokio::sync::mpsc::Receiver<()>), SipError> {
+    ) -> Result<(Self, broadcast::Receiver<SipEvent>), SipError> {
         config.validate()?;
 
         let (handle, _join) = CoreReactor::spawn(BootConfig { config: config.clone() })
             .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("failed to spawn reactor: {e}")))?;
 
-        // [::STUB::] P0-5: Replace dummy event channel with proper Receiver<SipEvent>
-        // once the event system (N0018) is implemented.
-        let (_stub_tx, stub_rx) = tokio::sync::mpsc::channel(256);
-        // Create a separate receiver for the return value, since the struct
-        // owns its own stub_rx.
-        let (_return_tx, return_rx) = tokio::sync::mpsc::channel(256);
+        // Create EventBus for client lifecycle and SIP events.
+        let event_bus = EventBus::new(2048, None);
+        let event_rx = event_bus.subscribe_control();
 
         // Send Initialize command to the reactor.
         //
@@ -101,10 +103,10 @@ impl SipClient {
         Ok((
             Self {
                 runtime: Arc::new(handle),
-                event_rx: stub_rx,
+                events: event_bus,
                 config,
             },
-            return_rx,
+            event_rx,
         ))
     }
 
@@ -114,6 +116,32 @@ impl SipClient {
     /// via `handle.submit(...)`.
     pub fn handle(&self) -> &RuntimeHandle {
         &self.runtime
+    }
+
+    /// Subscribe to the control event bus for all SIP events.
+    ///
+    /// Returns a `broadcast::Receiver<SipEvent>` that receives all published
+    /// events for this client. Use `subscribe_account()` to filter by account.
+    pub fn subscribe(&self) -> broadcast::Receiver<SipEvent> {
+        self.events.subscribe_control()
+    }
+
+    /// Subscribe to events filtered to a specific account.
+    ///
+    /// Returns an `AccountEventReceiver` that only yields events matching
+    /// the given `account_id`.
+    pub fn subscribe_account(&self, account_id: AccountId) -> crate::api::eventbus_receiver::AccountEventReceiver {
+        crate::api::eventbus_receiver::AccountEventReceiver::new(
+            account_id,
+            self.events.subscribe_control(),
+        )
+    }
+
+    /// Subscribe to the raw SIP message bus, if enabled.
+    pub fn subscribe_raw_sip(
+        &self,
+    ) -> Option<broadcast::Receiver<crate::api::event_model_payload_bus::RawSipMessage>> {
+        self.events.subscribe_raw_sip()
     }
 
     /// Check whether the reactor thread has terminated.

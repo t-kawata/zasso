@@ -3,6 +3,9 @@
 use crate::runtime::command::ReactorError;
 use crate::runtime::state::{AccountEntry, CallEntry};
 
+// [::TICKET::] P0-5: re-export needed for Backend::get_account_info
+use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
+
 /// Abstract interface for the PJSIP operations that the reactor dispatches.
 ///
 /// The reactor's event loop calls `Backend` trait methods — not raw FFI.
@@ -51,8 +54,15 @@ pub trait Backend: Send {
     /// Resolve `conf_port_id` for a given native call id.
     ///
     /// conf_port_id is **never** stored in `CallEntry` — it lives here.
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
     fn resolve_conf_port(&self, native_call_id: i32) -> Result<i32, ReactorError>;
+
+    /// [::TICKET::] P0-5: Get account info for registration state retrieval.
+    ///
+    /// Returns an `AccountInfoSnapshot` for the given native account ID.
+    /// Used by the RegistrationStateChanged RuntimeCommand pattern.
+// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 }
 
 // [::STUB::] P0-6: MockBackend provides canned responses for reactor unit tests.
@@ -69,7 +79,7 @@ impl MockBackend {
     }
 }
 
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
 impl Backend for MockBackend {
     // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self) -> Result<(), ReactorError> {
@@ -148,5 +158,20 @@ impl Backend for MockBackend {
     fn resolve_conf_port(&self, _native_call_id: i32) -> Result<i32, ReactorError> {
         // Return a fixed conf_port_id for testing
         Ok(1)
+    }
+
+    // [::TICKET::] P0-5: Mock get_account_info returns canned data
+// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
+        // [::STUB::] P0-7: Return real account information once the account state
+        // machine (N0025) provides actual registration state. The mock returns a
+        // canned "registered" response for testing event conversion logic.
+        Ok(AccountInfoSnapshot {
+            acc_id: crate::api::event_model_payload_bus::AccountId(_native_acc_id as u64),
+            registration_status: 200,
+            registration_expires: Some(3600),
+            online_status: true,
+            uri: format!("sip:user{}@mock.example.com", _native_acc_id),
+        })
     }
 }

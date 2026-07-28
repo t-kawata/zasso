@@ -1,6 +1,7 @@
 
 
 
+
 // [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -56,9 +57,12 @@ pub mod error;
 pub mod account;
 pub mod call;
 pub mod transport;
+// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 
-// [::STUB::] P0-5: event.rs — SipEventPayload, EventBus
-// pub mod event;
+// [::TICKET::] P0-5: event.rs, api/, state/ — event types, bus, conversion, routing
+pub mod api;
+pub mod state;
+pub mod event;
 
 // [::STUB::] P1+: audio/ — Audio processing (chunk, format, mixer, source, resampler, bridge)
 // pub mod audio;
@@ -81,5 +85,12 @@ pub use client::SipClient;
 pub use config::{AuthCredentials, ClientConfig, ClientConfigBuilder, LogLevel, ServerConfig};
 pub use error::SipError;
 pub use error::SipErrorKind;
+// [::TICKET::] P0-5: event types and EventBus re-exports
+pub use event::{
+    AccountEventReceiver, AccountInfoSnapshot, CallMediaState, CallState, ConnectedCallInfo,
+    DtmfReceivedInfo, DtmfSentInfo, EventBus, EventDirection, EventMeta, EventTimestamp,
+    MediaActiveInfo, MediaErrorInfo, NativeEvent, RegistrationFailure, RegistrationInfo,
+    SentDtmfError, SipEvent, SipEventPayload,
+};
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.

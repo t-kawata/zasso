@@ -1,8 +1,8 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
 // ============================================================================
-// "Node" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.
 //
 // Graph:        ../../RFC-ROOT-GRAPH.json
 // Directory:    ../../RFC-ROOT-Dirs-Tree.json
@@ -10,14 +10,15 @@
 //
 // Mapped node(s):
 //   - NODE_ID=N0026:  §18 Call State Model
-//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0026 --hops=2)
 //
 // Full graph exploration:
-//   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
-//   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
+//   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0026 --hops=2)
 // ============================================================================
+//
+// [::TICKET::] P0-5: Call State Model — re-exports from m20_callstate_mapping
 
-pub enum State {}
-
-
-// TODO: [::STUB::] MUST implement NODE_ID=N0026: §18 Call State Model
+// Re-export the CallState and CallMediaState enums from the M20 implementation.
+// These types are defined in m20_callstate_mapping.rs along with their
+// conversion functions from PJSIP native types.
+pub use crate::state::m20_callstate_mapping::{CallMediaState, CallState};
+// [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.

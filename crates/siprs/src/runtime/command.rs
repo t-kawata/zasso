@@ -26,7 +26,7 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
@@ -83,6 +83,14 @@ pub enum RuntimeCommand {
         digits: String,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
+    /// [::TICKET::] P0-5: Query the backend for registration account info.
+    ///
+    /// Used by the RegistrationStateChanged event flow to retrieve
+    /// registration status and produce RegistrationSucceeded/Failed.
+    GetAccountInfo {
+        native_acc_id: u32,
+        reply: tokio::sync::oneshot::Sender<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>>,
+    },
     Shutdown {
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
@@ -92,7 +100,7 @@ pub enum RuntimeCommand {
 // We manually implement Display for testing purposes.
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for RuntimeCommand {
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
@@ -104,6 +112,7 @@ impl std::fmt::Display for RuntimeCommand {
             Self::Hold { .. } => "Hold",
             Self::Unhold { .. } => "Unhold",
             Self::SendDtmf { .. } => "SendDtmf",
+            Self::GetAccountInfo { .. } => "GetAccountInfo",
             Self::Shutdown { .. } => "Shutdown",
         };
         write!(f, "RuntimeCommand::{variant}")
@@ -111,7 +120,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::Backend) -> Result<(), ReactorError> + Send>;
 
@@ -125,12 +134,17 @@ pub(crate) enum DispatchCommand {
         f: BackendFn,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
+    /// [::TICKET::] P0-5: Query account info with a typed response channel.
+    GetAccountInfo {
+        native_acc_id: u32,
+        reply: tokio::sync::oneshot::Sender<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>>,
+    },
     Shutdown {
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
 }
 
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -196,6 +210,13 @@ impl DispatchCommand {
                 f: Box::new(move |backend| backend.send_dtmf(call_id, &digits)),
                 reply,
             },
+            RuntimeCommand::GetAccountInfo {
+                native_acc_id,
+                reply,
+            } => Self::GetAccountInfo {
+                native_acc_id,
+                reply,
+            },
             RuntimeCommand::Shutdown { reply } => Self::Shutdown { reply },
         }
     }
@@ -203,11 +224,14 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
                 .debug_struct("DispatchCommand::Execute")
+                .finish_non_exhaustive(),
+            Self::GetAccountInfo { .. } => f
+                .debug_struct("DispatchCommand::GetAccountInfo")
                 .finish_non_exhaustive(),
             Self::Shutdown { .. } => write!(f, "DispatchCommand::Shutdown"),
         }

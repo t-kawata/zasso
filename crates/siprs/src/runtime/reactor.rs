@@ -43,7 +43,7 @@ impl Default for BootConfig {
 /// 5. If reactor panics, `is_terminated()` returns `true`
 pub struct CoreReactor;
 
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and return a handle for command submission.
     ///
@@ -101,6 +101,41 @@ impl CoreReactor {
                                                 "unknown panic".to_string()
                                             };
                                             tracing::error!(panic_msg = %msg, "reactor command panicked");
+                                            let _ = reply.send(Err(
+                                                crate::runtime::command::ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::GetAccountInfo {
+                                    native_acc_id,
+                                    reply,
+                                } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            backend.get_account_info(native_acc_id)
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(snapshot)) => {
+                                            let _ = reply.send(Ok(snapshot));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                                                s.to_string()
+                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
+                                                s.clone()
+                                            } else {
+                                                "unknown panic".to_string()
+                                            };
+                                            tracing::error!(panic_msg = %msg, "reactor get_account_info panicked");
                                             let _ = reply.send(Err(
                                                 crate::runtime::command::ReactorError::BackendError(
                                                     format!("reactor panic: {msg}")
