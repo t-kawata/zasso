@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-94, PX-95: STUB marker insertion script + ghost ticket prevention checks. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-94|PX-95) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-81 --for-spec --no-implementation-order`.
 
 /**
@@ -246,6 +247,152 @@ console.log('\n## DAG cycle detection\n');
   assertStrictEqual(cyclic.pass, false, 'cyclic deferred_to chain is rejected');
   assert(Array.isArray(cyclic.cyclePath) || cyclic.error !== undefined,
     'cycle detection provides cycle path or error message');
+})();
+
+// ================================================================
+// PX-95: Check 9 — ORPHAN_TICKET_REF false_positive must have valid deferredTo
+// ================================================================
+console.log('\n## PX-95 Check 9 — ORPHAN_TICKET_REF false_positive\n');
+
+// Normal: ORPHAN_TICKET_REF + false_positive + valid deferredTo → pass
+(function testC9PassWithValidDeferred() {
+  if (!checkStatusValid) { failed++; console.log('  ✗ module not loaded\n'); return; }
+  const item = {
+    id: 'C9-001', crimeType: 'ORPHAN_TICKET_REF',
+    status: 'false_positive', deferredTo: 'PX-77', file: existingFile,
+    markerText: '// [::STUB::] PX-77: test',
+  };
+  const ticketsData = makeTicketsData(-1, 77, [{ id: 'C001' }]);
+  const { checkOrphanTicketRefNotFp } = require('../validate-ticket-targets');
+  const result = checkOrphanTicketRefNotFp(item, ticketsData);
+  assert(result.pass === true, 'C9 pass: ORPHAN_TICKET_REF + false_positive + valid deferredTo');
+})();
+
+// Normal: ORPHAN_TICKET_REF + false_positive + no deferredTo → fail
+(function testC9FailNoDeferred() {
+  const { checkOrphanTicketRefNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C9-002', crimeType: 'ORPHAN_TICKET_REF',
+    status: 'false_positive', deferredTo: null,
+  };
+  const ticketsData = makeTicketsData(0, 1);
+  const result = checkOrphanTicketRefNotFp(item, ticketsData);
+  assert(result.pass === false, 'C9 fail: ORPHAN_TICKET_REF + false_positive + no deferredTo');
+})();
+
+// Normal: ORPHAN_TICKET_REF + resolved → pass (not false_positive)
+(function testC9PassResolved() {
+  const { checkOrphanTicketRefNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C9-003', crimeType: 'ORPHAN_TICKET_REF',
+    status: 'resolved', deferredTo: null,
+  };
+  const result = checkOrphanTicketRefNotFp(item, { phases: [] });
+  assert(result.pass === true, 'C9 pass: ORPHAN_TICKET_REF + resolved (not false_positive)');
+})();
+
+// Edge: deferredTo references existing ticket → pass
+(function testC9EdgeDeferredToExists() {
+  const { checkOrphanTicketRefNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C9-004', crimeType: 'ORPHAN_TICKET_REF',
+    status: 'false_positive', deferredTo: 'P0-1',
+  };
+  const ticketsData = {
+    phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: 'done' }] }]
+  };
+  const result = checkOrphanTicketRefNotFp(item, ticketsData);
+  assert(result.pass === true, 'C9 edge: deferredTo P0-1 exists — pass');
+})();
+
+// ================================================================
+// PX-95: Check 10 — COMPLETED_TICKET_STALE cannot be false_positive
+// ================================================================
+console.log('\n## PX-95 Check 10 — COMPLETED_TICKET_STALE false_positive\n');
+
+// Normal: COMPLETED_TICKET_STALE + false_positive → fail
+(function testC10FailFp() {
+  const { checkCompletedTicketStaleNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C10-001', crimeType: 'COMPLETED_TICKET_STALE',
+    status: 'false_positive',
+  };
+  const result = checkCompletedTicketStaleNotFp(item);
+  assert(result.pass === false, 'C10 fail: COMPLETED_TICKET_STALE + false_positive');
+})();
+
+// Normal: COMPLETED_TICKET_STALE + resolved → pass
+(function testC10PassResolved() {
+  const { checkCompletedTicketStaleNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C10-002', crimeType: 'COMPLETED_TICKET_STALE',
+    status: 'resolved',
+  };
+  const result = checkCompletedTicketStaleNotFp(item);
+  assert(result.pass === true, 'C10 pass: COMPLETED_TICKET_STALE + resolved');
+})();
+
+// Normal: NOT COMPLETED_TICKET_STALE + false_positive → pass (other crime types unaffected)
+(function testC10PassOtherType() {
+  const { checkCompletedTicketStaleNotFp } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C10-003', crimeType: 'ORPHAN_TICKET_REF',
+    status: 'false_positive',
+  };
+  const result = checkCompletedTicketStaleNotFp(item);
+  assert(result.pass === true, 'C10 pass: ORPHAN_TICKET_REF + false_positive (not COMPLETED_TICKET_STALE)');
+})();
+
+// ================================================================
+// PX-95: Check 11 — false_positive note must not reference ghost tickets
+// ================================================================
+console.log('\n## PX-95 Check 11 — false_positive note ghost ticket check\n');
+
+// Normal: false_positive with existing ticket in note → pass
+(function testC11PassValidRef() {
+  const { checkFalsePositiveNoteIsNotGhostTicket } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C11-001', status: 'false_positive',
+    note: 'Deferred to PX-77 which exists in Tickets.json',
+  };
+  const ticketsData = {
+    phases: [{ id: -1, tickets: [{ id: 77, phaseId: -1, status: 'done' }] }]
+  };
+  const result = checkFalsePositiveNoteIsNotGhostTicket(item, ticketsData);
+  assert(result.pass === true, 'C11 pass: note references existing PX-77');
+})();
+
+// Normal: false_positive with non-existent ticket in note → fail
+(function testC11FailGhostRef() {
+  const { checkFalsePositiveNoteIsNotGhostTicket } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C11-002', status: 'false_positive',
+    note: 'Deferred to P9-99 which does not exist',
+  };
+  const result = checkFalsePositiveNoteIsNotGhostTicket(item, { phases: [] });
+  assert(result.pass === false, 'C11 fail: note references non-existent P9-99');
+})();
+
+// Normal: status is NOT false_positive → pass (note not checked)
+(function testC11PassNonFp() {
+  const { checkFalsePositiveNoteIsNotGhostTicket } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C11-003', status: 'resolved',
+    note: 'Deferred to P9-99',
+  };
+  const result = checkFalsePositiveNoteIsNotGhostTicket(item, { phases: [] });
+  assert(result.pass === true, 'C11 pass: status is resolved, note not checked');
+})();
+
+// Normal: note with no ticket reference → pass
+(function testC11PassNoRef() {
+  const { checkFalsePositiveNoteIsNotGhostTicket } = require('../validate-ticket-targets');
+  const item = {
+    id: 'C11-004', status: 'false_positive',
+    note: 'This is genuinely unresolvable due to external dependency',
+  };
+  const result = checkFalsePositiveNoteIsNotGhostTicket(item, { phases: [] });
+  assert(result.pass === true, 'C11 pass: note with no ticket reference');
 })();
 
 // Cleanup

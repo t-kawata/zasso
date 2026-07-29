@@ -102,7 +102,7 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 
 1. List stubs via `find-all-stubs.js`
 2. Evaluate whether any stubs can be resolved within this ticket
-3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
+3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 4. Include resolvable stubs in the plan's implementation scope
 5. Leave unresolvable stubs in the plan as notes, clearly stating their relationship to future tickets
 
@@ -111,7 +111,7 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**Active code exploration**: In the source tree targeted by the plan, check whether incomplete implementations exist in the existing code. If found, add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
+**Active code exploration**: In the source tree targeted by the plan, check whether incomplete implementations exist in the existing code. If found, use `insert-stub.js` to add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
 
 ```bash
 # Scan for incomplete implementations (todo!, TODO, #[allow], etc.) without [::STUB::]

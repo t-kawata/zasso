@@ -12554,6 +12554,132 @@
           "completedAt": "2026-07-28",
           "targetStubs": "verified_empty",
           "targetCrimes": "verified_empty"
+        },
+        {
+          "id": 94,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "insert-stub.js — ticket-validated STUB marker insertion script",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/94-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "これまでSTUBマーカーの挿入はAIが直接ソースコードを編集して行われていた。そのため存在しないチケットID（P0-7等）を参照するマーカーが量産され、ORPHAN_TICKET_REF犯罪の原因となっていた。本チケットはSTUBマーカー挿入を必須の検証スクリプトに置き換え、挿入時にチケット参照の存在確認を強制する。",
+          "scope": [
+            "[File] .claude/scripts/tickets/insert-stub.js (新規作成)",
+            "[Action] add — 新規スクリプト作成",
+            "[Detail] --file, --line, --ticket-ref, --description, --tickets-path の5引数を受け取り、指定行に [::STUB::] マーカーを挿入する。挿入前に ticket-ref が Tickets.json に存在するか検証し、存在しない場合はエラー終了して挿入しない",
+            "[Before→After] Before: AIが直接ソースコードに任意のチケットIDを書いていた。After: 全てのSTUB挿入がこのスクリプトを経由し、存在しないチケットへの参照は物理的に不可能",
+            "[API contract change] insert-stub.js の公開関数: insertStub({file, line, ticketRef, description, ticketsPath}) → {inserted: boolean}。指定行に既存の[::STUB::]がある場合は重複エラー",
+            "[Data schema change] なし",
+            "[Config/env change] なし",
+            "[Dependency added/removed] なし",
+            "[Non-change scope] PX-94 はスクリプト作成のみ。パイプラインへの組み込みは PX-95",
+            "[Non-change scope reason] 分離により各チケットのスコープを明確にする",
+            "[Impact] .claude/scripts/tickets/ 配下のみ",
+            "[Impact nature] 新規スクリプト追加。既存コードへの影響なし",
+            "[Impact response] insert-stub.js が PX-95 で各pipelineから呼ばれることを想定した設計にする"
+          ],
+          "testUnit": [
+            "UT: [Normal] --ticket-ref が Tickets.json に存在する有効なチケット → 指定行に [::STUB::] を挿入して {inserted: true} を返す",
+            "UT: [Normal] 指定行に既存の [::STUB::] がある → 挿入せずエラー。重複防止",
+            "UT: [Normal] --description が空文字 → デフォルト説明文を生成するかエラー",
+            "UT: [Error] --ticket-ref が Tickets.json に存在しない → エラー終了、ファイルを変更しない",
+            "UT: [Error] --line がファイル行数を超えている → エラー終了",
+            "UT: [Error] --file が存在しない → エラー終了",
+            "UT: [Boundary] 指定行がファイル末尾を超える → 最終行以降への追加はエラー",
+            "UT: [Invariant] 挿入後の [::STUB::] マーカーは validate-stub-format.js のフォーマット検証を通ること"
+          ],
+          "testIntegration": [
+            "IT: insert-stub.js で挿入したマーカーが enumerate-ticket-targets.js で ORPHAN_TICKET_REF にならないことを確認",
+            "IT: 実在しないチケットを指定した場合のエラーメッセージが validate-ticket-targets.js の期待形式と一致すること"
+          ],
+          "testExceptions": [
+            "testExceptions[\"File I/O (書き込み権限) は unit test ではテスト不可。統合テストで一時ファイルを使用する\"]"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/insert-stub.js"
+          ],
+          "acceptanceCriteria": [
+            "insert-stub.js が --ticket-ref の存在を Tickets.json に対して検証し、存在しない場合は挿入を拒否してエラー終了すること",
+            "MUST RESOLVE 形式のSTUBを出力するオプションは一切持たないこと（禁止の徹底）",
+            "enumerate-ticket-targets.js が出力する ORPHAN_TICKET_REF 犯罪がこのスクリプト経由では原理的に発生しないこと"
+          ],
+          "notes": "Review report: 0 quality issues, 0 crimes, 10/10 tests passed. All acceptance criteria met.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "startedAt": "2026-07-29",
+          "instrumentation": "Static quality check: passed. Tests: 10/10 passed.",
+          "completedAt": "2026-07-29"
+        },
+        {
+          "id": 95,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "パイプライン内STUB挿入の insert-stub.js 強制 + validate-ticket-targets.js に ghost ticket 防止チェック追加",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/95-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "PX-94 で作成した insert-stub.js をパイプラインの全工程に組み込み、AIが直接ソースコードを編集してSTUBを挿入する経路を完全に絶つ。同時に validate-ticket-targets.js に3つのチェックを追加し、既存の犯罪レコードの false_positive 逃げを機械的に防止する。",
+          "scope": [
+            "[File] .claude/commands/plan-ticket.md",
+            "[Action] modify — Step 3 の「If you find a stub without [::STUB::] marker, add the marker」を「insert-stub.js を使用せよ」に修正",
+            "[Detail] AIが直接マーカーを書き込む指示を削除し、insert-stub.js の使用を強制する",
+            "[File] .claude/commands/start-ticket.md",
+            "[Action] modify — Step 6（能動的探索）と Step 7（suppression時のSTUB付与）を insert-stub.js 強制に修正",
+            "[Detail] 同様に直接編集を禁止",
+            "[File] .claude/commands/review-ticket.md",
+            "[Action] modify — Step 4（評価）と Step 7（suppression時）を insert-stub.js 強制に修正",
+            "[File] .claude/commands/resolve-ticket.md",
+            "[Action] modify — Step 2（後続チケット委譲）と Step 4（未解決stub登録）を insert-stub.js 強制に修正",
+            "[Detail] Step 2 の「planned resolution ticket ID」指定箇所も insert-stub.js の --ticket-ref で行うよう修正",
+            "[File] .claude/scripts/tickets/validate-ticket-targets.js",
+            "[Action] modify — 3つのチェック関数を追加",
+            "[Detail] Check 9: ORPHAN_TICKET_REF の false_positive 禁止。deferredTo に実在するチケットが無い限り false_positive 不可。新規チケット作成による先送りも禁止",
+            "[Detail] Check 10: COMPLETED_TICKET_STALE の false_positive 禁止。実装して解決するしかない",
+            "[Detail] Check 11: false_positive.note 内に存在しないチケット参照があればブロック",
+            "[Before→After] Before: AIが任意の文字列を ticketRef として書けていた。After: insert-stub.js 経由でなければSTUB挿入不可。存在しないチケット参照は挿入時にエラー",
+            "[API contract change] validate-ticket-targets.js の validateTargets() 戻り値に checks 配列の index 9,10,11 が追加",
+            "[Data schema change] なし",
+            "[Config/env change] なし",
+            "[Dependency added/removed] なし（validate-ticket-targets.js の依存先に find-ticket.js の ticketExists が含まれるが既存）",
+            "[Non-change scope] insert-stub.js の作成は PX-94 で完了済み。PX-95 は組み込みと検証のみ",
+            "[Non-change scope reason] 依存関係を明確にするため",
+            "[Impact] 4つの skill markdown ファイル + validate-ticket-targets.js の計5ファイル",
+            "[Impact nature] パイプラインの動作を変更する。AIのSTUB挿入方法が insert-stub.js に制限される",
+            "[Impact response] 各skillの指示変更により、AI従来の動作がエラーになる。動作確認は PX-95 の plan→start→review で行う"
+          ],
+          "testUnit": [
+            "UT: [Normal] Check 9 — ORPHAN_TICKET_REF かつ status=false_positive かつ deferredTo が実在チケット → pass",
+            "UT: [Normal] Check 9 — ORPHAN_TICKET_REF かつ status=false_positive かつ deferredTo なし → fail",
+            "UT: [Normal] Check 9 — ORPHAN_TICKET_REF かつ status=resolved → pass",
+            "UT: [Normal] Check 10 — COMPLETED_TICKET_STALE かつ status=false_positive → fail",
+            "UT: [Normal] Check 10 — COMPLETED_TICKET_STALE かつ status=resolved → pass",
+            "UT: [Normal] Check 11 — false_positive.note に実在するチケット参照 → pass",
+            "UT: [Normal] Check 11 — false_positive.note に存在しないチケット参照 → fail",
+            "UT: [Normal] Check 11 — status が false_positive 以外 → pass（note未チェック）",
+            "UT: [Edge] Check 9 — ORPHAN_TICKET_REF かつ deferredTo に実在チケット → pass（唯一許容される false_positive）",
+            "UT: [Error] ticketExists() に null/undefined を渡した場合の挙動確認"
+          ],
+          "testIntegration": [
+            "IT: plan-ticket Step 3 の指示変更後、insert-stub.js なしでSTUB挿入しようとしたAI動作がエラーになることを確認（手動レビュー）",
+            "IT: start-ticket Step 7（suppression時）の insert-stub.js 必須化により、挿入時に存在しないチケット指定がエラーになることを確認（手動レビュー）"
+          ],
+          "testExceptions": [
+            "testExceptions[\"AIの指示遵守は自動テスト不可能。コードレビューとパイプライン実行ログで検証する\"]"
+          ],
+          "default_files": [
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md",
+            ".claude/scripts/tickets/validate-ticket-targets.js"
+          ],
+          "acceptanceCriteria": [
+            "全4つのskill markdown（plan/start/review/resolve）でSTUB挿入が insert-stub.js 経由に統一されていること",
+            "validate-ticket-targets.js に3チェック（Check 9/10/11）が追加され、既存の全テストが pass すること",
+            "insert-stub.js を使用せず直接ソースコードを編集する指示が全てのskillから削除されていること"
+          ],
+          "notes": "Review report: 0 quality issues, 0 crimes, 44/44 tests passed. All acceptance criteria met.",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "startedAt": "2026-07-29",
+          "completedAt": "2026-07-29"
         }
       ]
     },

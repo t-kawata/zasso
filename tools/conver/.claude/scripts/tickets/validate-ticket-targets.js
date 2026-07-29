@@ -18,7 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findTicket } = require('../lib/find-ticket');
+const { findTicket, ticketExists } = require('../lib/find-ticket');
 
 const VALID_STATUSES = new Set(['pending', 'resolved', 'false_positive']);
 
@@ -199,6 +199,102 @@ function checkDeferredToExists(stubId, deferredTo, ticketsData) {
 }
 
 /**
+ * Check 9: ORPHAN_TICKET_REF must not be false_positive without valid deferredTo.
+ *
+ * ORPHAN_TICKET_REF crimes reference tickets that don't exist in Tickets.json.
+ * Setting status=false_positive without deferredTo to an existing ticket is forbidden,
+ * because it would silently accept a ghost ticket reference.
+ *
+ * The ONLY exception is when deferredTo references an EXISTING ticket in Tickets.json.
+ * Creating new non-existent tickets just to defer to them is also forbidden.
+ */
+// [::TICKET::] PX-95: Ghost ticket prevention checks
+// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+function checkOrphanTicketRefNotFp(item, ticketsData) {
+  if (item.crimeType === 'ORPHAN_TICKET_REF' && item.status === 'false_positive') {
+    // Allow only if deferredTo references an existing ticket
+    if (item.deferredTo && ticketExists(ticketsData, item.deferredTo)) {
+      return { pass: true };
+    }
+    return {
+      pass: false,
+      error: formatError(
+        item.id || 'unknown',
+        'ORPHAN_TICKET_REF crime cannot be false_positive without valid deferredTo',
+        'STUB marker references ticket "' + (item.ticketRef || '?') + '" which does not exist in Tickets.json. '
+        + 'Setting status to false_positive is not allowed — the missing ticket cannot be resolved by pretending it does not exist.',
+        'Valid options:\n'
+        + '  (a) Fix the STUB marker to reference an EXISTING ticket in Tickets.json\n'
+        + '  (b) Set deferredTo to an EXISTING ticket key\n'
+        + 'PROHIBITED: Creating new non-existent tickets or using MUST RESOLVE to defer. '
+        + 'Deferral to non-existent tickets is strictly forbidden.'
+      )
+    };
+  }
+  return { pass: true };
+}
+
+/**
+ * Check 10: COMPLETED_TICKET_STALE must not be false_positive.
+ *
+ * COMPLETED_TICKET_STALE crimes mean the STUB's referenced ticket is done but the
+ * stub remains unresolved. The only valid resolution is to implement the missing
+ * code and remove the [::STUB::] marker. Merely removing the marker without
+ * implementing the code is also forbidden.
+ */
+// [::TICKET::] PX-95: Ghost ticket prevention checks
+// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+function checkCompletedTicketStaleNotFp(item) {
+  if (item.crimeType === 'COMPLETED_TICKET_STALE' && item.status === 'false_positive') {
+    return {
+      pass: false,
+      error: formatError(
+        item.id || 'unknown',
+        'COMPLETED_TICKET_STALE crime cannot be false_positive',
+        'The referenced ticket is done but the STUB remains unresolved. '
+        + 'Setting false_positive is not allowed — the code still needs to be implemented.',
+        'You MUST resolve the STUB: implement the missing code, then remove the [::STUB::] marker. '
+        + 'Merely removing the marker without implementing the code is forbidden.'
+      )
+    };
+  }
+  return { pass: true };
+}
+
+/**
+ * Check 11: false_positive note must not reference non-existent tickets.
+ *
+ * When a crime's status is false_positive, the note field must not reference
+ * ticket keys (P{phase}-{id} or PX-{id}) that do not exist in Tickets.json.
+ * This prevents ghost ticket references from being smuggled into false_positive
+ * justifications.
+ */
+// [::TICKET::] PX-95: Ghost ticket prevention checks
+// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+function checkFalsePositiveNoteIsNotGhostTicket(item, ticketsData) {
+  if (item.status !== 'false_positive') return { pass: true };
+
+  const note = item.note || '';
+  // Find all P{phase}-{id} or PX-{id} references in the note
+  const refs = note.match(/P[A-Z0-9]+-\d+/g) || [];
+  for (const ref of refs) {
+    if (!ticketExists(ticketsData, ref)) {
+      return {
+        pass: false,
+        error: formatError(
+          item.id || 'unknown',
+          'false_positive note references non-existent ticket: ' + ref,
+          'The note field contains "' + ref + '" which does not exist in Tickets.json.',
+          'Remove the reference to "' + ref + '" or replace it with an existing ticket key. '
+          + 'Referencing non-existent tickets in false_positive justifications is forbidden.'
+        )
+      };
+    }
+  }
+  return { pass: true };
+}
+
+/**
  * Check 6: status is valid enum
  * @param {string} stubId
  * @param {string} status
@@ -307,7 +403,7 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
  * @param {string} ticketKey — Ticket to validate
  * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -377,6 +473,21 @@ function validateTargets(ticketsData, ticketKey) {
     const c8 = checkDagCycles(itemId, allTargetStubs, allTargets);
     checks.push({ index: 8, pass: c8.pass, itemId: itemId });
     if (!c8.pass) errors.push(c8.error);
+
+    // Check 9: ORPHAN_TICKET_REF false_positive must have valid deferredTo
+    const c9 = checkOrphanTicketRefNotFp(item, ticketsData);
+    checks.push({ index: 9, pass: c9.pass, itemId: itemId });
+    if (!c9.pass) errors.push(c9.error);
+
+    // Check 10: COMPLETED_TICKET_STALE cannot be false_positive
+    const c10 = checkCompletedTicketStaleNotFp(item);
+    checks.push({ index: 10, pass: c10.pass, itemId: itemId });
+    if (!c10.pass) errors.push(c10.error);
+
+    // Check 11: false_positive note must not reference ghost tickets
+    const c11 = checkFalsePositiveNoteIsNotGhostTicket(item, ticketsData);
+    checks.push({ index: 11, pass: c11.pass, itemId: itemId });
+    if (!c11.pass) errors.push(c11.error);
   }
 
   // Collect formatted errors
@@ -446,5 +557,8 @@ module.exports = {
   checkStatusValid,
   checkFalsePositiveJustification,
   checkDagCycles,
+  checkOrphanTicketRefNotFp,
+  checkCompletedTicketStaleNotFp,
+  checkFalsePositiveNoteIsNotGhostTicket,
   findTicket
 };
