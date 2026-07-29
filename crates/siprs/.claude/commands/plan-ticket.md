@@ -121,23 +121,20 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 #                          MUST already exist in Tickets.json.
 #                          NOT the ticket currently being worked on.
 #   --stub-reason:         Why this code is left as a stub — be specific.
+#                          Must be a single line (no newlines).
 #                          BAD:  "Dependency not ready"
-#                          GOOD: "P1-3 blocked: auth module API changed
-#                                 (User::role is now enum), current signature
-#                                 login(&str) incompatible"
+#                          GOOD: "P1-3 blocked: User::role changed to enum, login(&str) signature incompatible"
 #   --resolve-plan:        What the resolving ticket must concretely implement.
+#                          Must be a single line (no newlines).
 #                          BAD:  "Implement the actual logic"
-#                          GOOD: "Replace placeholder Ok(()) with DB query:
-#                                 INSERT INTO sessions (user_id, token)
-#                                 VALUES (?, ?); add integration test for
-#                                 session creation path"
+#                          GOOD: "Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test"
 #   --file:                Target source file path
 #   --line:                1-indexed line number to insert at
 #   --tickets-path:        Path to Tickets.json
 node .claude/scripts/tickets/insert-stub.js \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
-  --stub-reason="P1-3 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
-  --resolve-plan="Replace placeholder Ok(()) with DB query: INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test for session creation path" \
+  --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
+  --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
   --tickets-path=Tickets.json
 ```
 4. Include resolvable stubs in the plan's implementation scope
