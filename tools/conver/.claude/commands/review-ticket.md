@@ -98,7 +98,21 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
 Follow the crime resolution procedure in start-ticket.md's "Emergency crime resolution." Do not proceed with the review until all crimes are resolved.
 
 Also verify that there are no new crimes in the implementation code of this ticket (incomplete implementations without `[::STUB::]` markers). If found:
-1. Use `insert-stub.js` to add a `[::STUB::]` marker (do NOT edit source files directly)
+1. Use `insert-stub.js` to add a `[::STUB::]` marker (do NOT edit source files directly):
+
+```bash
+# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
+#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:         Target source file path
+#   --line:         1-indexed line number to insert at
+#   --description:  What the stub covers (optional)
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
+
 2. Record it as a crime via `malfeasance-create.js`
 3. Resolve the crime (complete implementation or add marker)
 

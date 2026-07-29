@@ -103,6 +103,18 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 1. List stubs via `find-all-stubs.js`
 2. Evaluate whether any stubs can be resolved within this ticket
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
+
+```bash
+# Insert a [::STUB::] marker (all args required, --description optional)
+#   --ticket-ref: Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:       Target source file path
+#   --line:       1-indexed line number to insert at
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
 4. Include resolvable stubs in the plan's implementation scope
 5. Leave unresolvable stubs in the plan as notes, clearly stating their relationship to future tickets
 

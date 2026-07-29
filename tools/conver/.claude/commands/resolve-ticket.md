@@ -64,6 +64,19 @@ Resolve all captured warnings and errors. Resolution methods:
 
 1. **Immediately resolvable**: Fix the code to eliminate the warning/error
 2. **Should be resolved by a subsequent ticket**: Use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`. The ticket referenced in `--ticket-ref` MUST already exist in Tickets.json. Do NOT write ticket IDs directly in source files.
+
+```bash
+# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
+#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:         Target source file path
+#   --line:         1-indexed line number to insert at
+#   --description:  What the stub covers (optional)
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
 3. **Suppression and marker consistency**: Verify that there is no suppression without `[::STUB::]`, and no `[::STUB::]` without suppression
 
 **Do not proceed to the next step until all warnings and errors are resolved.**
