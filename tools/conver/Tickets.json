@@ -12680,6 +12680,115 @@
           "targetCrimes": "verified_empty",
           "startedAt": "2026-07-29",
           "completedAt": "2026-07-29"
+        },
+        {
+          "id": 96,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "--ticket-ref パラメータの説明改善: 未来方向（resolve-by）の明確化とパラメータ名変更",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/96-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\ninsert-stub.js の --ticket-ref パラメータが、来歴（provenance）ではなく解決責任（resolve-by direction）を示すことが即座に理解できるようにする。誤った方向での使用による targetStubs の誤割り当てを根絶する。\n\n### Purpose\n現在の \"Existing ticket key in Tickets.json\" という説明は方向性が中立であり、開発者が「このチケットの作業中に書かれた」という過去方向と「このチケットが将来解決する」という未来方向を区別できない。この曖昧性は enumerate-ticket-targets.js の classifyStubs() が marker 内の ticketRef を ownTicketKey と比較する設計と衝突し、誤った targetStubs 割り当てを引き起こす。\n\n### Motivation\n会話中の分析で、--ticket-ref=P3-1 と書かれた STUB が P3-1 の targetStubs に登録され、P3-1 がスコープ外の解決を強制されるシナリオが確認された。これは実際に発生するとシステムの進行を止める重大な問題である。\n\n### Constraints\n- insertStub() 関数の内部シグネチャ（ticketRef パラメータ名）は変更しない（既存の全呼び出し元との互換性維持）\n- find-stubs-with-ticket-ref.js など別スクリプトの --ticket-ref とは衝突しない（別のコンテキスト）\n- 旧 --ticket-ref CLI 引数の拒否は insert-stub.js の parseArgs() 内でのみ行う（他スクリプトは変更しない）",
+          "scope": [
+            "1. 4つのcommand .md ファイルの --ticket-ref ヘルプコメントを未来方向に明確化（plan-ticket.md / start-ticket.md / review-ticket.md / resolve-ticket.md）",
+            "2. insert-stub.js のヘルプコメント（L13-18, L70付近）を未来方向に明確化",
+            "3. insert-stub.js の --ticket-ref パラメータ名を --resolve-by-ticket に変更（CLI引数名・パース処理・全command .md の参照）",
+            "3b. 旧 --ticket-ref が指定された場合は明確なエラーメッセージで新しいパラメータ名を案内するフォールバック処理",
+            "4. insert-stub.js の内部変数名 ticketRef は維持（互換性のため）",
+            "**Scope of changes:**\n  - [Path: .claude/commands/plan-ticket.md / start-ticket.md / review-ticket.md / resolve-ticket.md]\n  - [Action: modify]\n  - [Detail: insert-stub.js のヘルプコメントブロック内の --ticket-ref 説明と prose 中の --ticket-ref= 参照を --resolve-by-ticket= に変更し、説明文に「将来解決する」方向を明示]\n  - [Before: `#   --ticket-ref: Existing ticket key in Tickets.json (e.g. P0-1, PX-77)`]\n  - [After: `#   --resolve-by-ticket: Ticket key that WILL resolve this stub (e.g. P0-1, PX-77)`]\n  - [API change: CLI 引数名の変更]\n  - [Schema change: none / Config change: none / Dependency change: none]",
+            "**Out of scope:**\n  - [find-stubs-with-ticket-ref.js] — このスクリプトは STUB を ticket-ref でフィルタする別目的のスクリプトであり insert-stub.js の CLI 引数とは無関係\n  - [insert-stub.js の内部変数名 ticketRef] — 関数シグネチャは互換性維持のために変更しない\n  - [insertStub() 関数の export シグネチャ] — Node.js API としての insertStub({ticketRef}) は維持",
+            "**Affected areas:**\n  - [enumerate-ticket-targets.js] — 間接的影響: 新しい引数名で挿入された STUB は今まで通り正しく分類される（内部 marker 形式は変わらないため）\n  - [find-all-stubs.js / find-stubs-with-ticket-ref.js] — marker 形式に変更はないため影響なし\n  - [insert-stub.test.js] — テストケースで CLI 引数名を変更する必要あり\n  - [全 command .md の利用者（AI オペレーター）] — 新しい引数名に慣れる必要あり"
+          ],
+          "testUnit": [
+            "UT: [Normal] insert-stub.js を --resolve-by-ticket=PX-77 で実行すると、ticketExists 検証を通過し、[::STUB::] PX-77: ... マーカーが指定行に挿入される。Contract C002 verified: 全実行パスで新旧両方の引数名チェックが行われる",
+            "UT: [Error] insert-stub.js を旧 --ticket-ref=PX-77 で実行すると、exit code 2 で「--ticket-ref is deprecated, use --resolve-by-ticket instead」のエラーメッセージが出力される。Contract C001 precondition（旧名で呼び出し）postcondition（exit 2 + 案内）invariant（全実行パスで新旧両方の引数名チェックが行われる）全てカバー",
+            "UT: [Error] insert-stub.js を --resolve-by-ticket=INVALID で実行すると、exit code 1 で「Ticket does not exist」エラーが出力される",
+            "UT: [Error] insert-stub.js に --resolve-by-ticket と旧 --ticket-ref の両方が指定された場合、--resolve-by-ticket が優先。Contract C001 invariant: 全実行パスで新旧両方の引数名チェックが行われる",
+            "UT: [Normal] grep で確認: 4つのcommand .md の insert-stub.js パラメータ説明が「将来このSTUBを解決するチケット」であることを明示している（WILL resolve / NOT the ticket being worked on）。Contract C003 postcondition カバー",
+            "UT: [Invariant] grep で確認: 4つのcommand .md の insert-stub.js パラメータ説明文言が一致している。Contract C003 invariant: 全4ファイルのパラメータ説明文言が一致している",
+            "UT: [Normal] insert-stub.js 内部の関数シグネチャ insertStub({ticketRef}) は変更されていない（互換性維持）"
+          ],
+          "testIntegration": [
+            "IT: insert-stub.js が --resolve-by-ticket=PX-77 で挿入した [::STUB::] マーカーを、enumerate-ticket-targets.js が PX-77 の targetStubs として正しく分類する",
+            "IT: insert-stub.js が旧 --ticket-ref を拒否した後、--resolve-by-ticket で再実行すると正しくマーカーが挿入される（リカバリフロー）",
+            "IT: 全4つのcommand .md の insert-stub.js 使用例（コードブロック）を実際に実行可能であることを確認（--dry-run または等価な検証）"
+          ],
+          "testExceptions": [
+            "command .md ファイルのヘルプコメント文言変更は、実行可能なテストコードによる検証が不可能（cannot test — documentation only）。ただしこれは「決定論的だが本質的にテスト不能」なアーキテクチャ上の欠陥ではなく（not a defect）、純粋なドキュメント品質の問題である。grep による機械的文字列一致確認で代替する。UT の grep 確認でカバーする。",
+            "旧 --ticket-ref の拒否と新 --resolve-by-ticket の受け入れのテストは、insert-stub.js を子プロセスとして起動し exit code と stderr を確認する UT でカバーする（not testable as integration — covered by unit test）。これはアーキテクチャ上の欠陥ではない（not a defect）。テストフィクスチャとして Tickets.json の簡略版を用意する。",
+            "enumerate-ticket-targets.js との統合テストは、実際の Tickets.json のコピーと一時ファイルを用いて実行する。既存のテストフレームワーク（insert-stub.test.js のパターン）に準拠する（not testable in isolation — integration test required）。これはアーキテクチャ上の欠陥ではない（not a defect）。"
+          ],
+          "default_files": [
+            ".claude/commands/plan-ticket.md",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md",
+            ".claude/scripts/tickets/insert-stub.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: 全4ファイルのヘルプコメントが未来方向を明示し、insert-stub.js が --resolve-by-ticket で正しく動作する",
+            "Error case: 旧 --ticket-ref 使用時に明確なエラーメッセージが表示される",
+            "Edge case: 旧名と新名の両方が同時に指定された場合、--resolve-by-ticket が優先され --ticket-ref は警告なしで無視される"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "insert-stub.js CLI → parseArgs()",
+              "precondition": "insert-stub.js が --ticket-ref= で呼び出される",
+              "postcondition": "exit code 2 でエラーメッセージに --resolve-by-ticket への変更が案内される",
+              "invariant": "全実行パスで新旧両方の引数名チェックが行われる"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "insert-stub.js CLI → insertStub()",
+              "precondition": "insert-stub.js が --resolve-by-ticket=PX-77 で呼び出される",
+              "postcondition": "insertStub() の ticketRef パラメータに PX-77 が渡され、通常の検証（ticketExists）を通過してマーカーが挿入される",
+              "invariant": "--resolve-by-ticket= の値は関数内部で ticketRef として一貫して参照される"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "全4command .md → insert-stub.js 参照",
+              "precondition": "plan-ticket.md / start-ticket.md / review-ticket.md / resolve-ticket.md の insert-stub.js 使用例が読まれる",
+              "postcondition": "パラメータ説明が「将来このSTUBを解決するチケット」であることを明示している",
+              "invariant": "全4ファイルのパラメータ説明文言が一致している"
+            }
+          ],
+          "notes": "改善1（コメント拡充）・改善2（insert-stub.js のコメント拡充）・改善3（パラメータ名変更）の3つを1チケットに集約。内部変数名 ticketRef は変更しない。旧名 --ticket-ref の拒否は parseArgs() 内でのみ行う。\n\n【実装手順】\n1. insert-stub.js の parseArgs() に --resolve-by-ticket のパース追加\n2. insert-stub.js に旧 --ticket-ref の検出＋拒否処理追加\n3. insert-stub.js の全エラーメッセージとコメントを更新\n4. 4つの command .md ファイルのヘルプコメントブロック更新\n5. 4つの command .md ファイルの prose 中 --ticket-ref= 参照を更新\n6. insert-stub.test.js の CLI 引数名更新\n\n【リスク】\n- insert-stub.js をプログラムから呼び出しているスクリプトが --ticket-ref を使用している場合、破損する。現在は CLI からのみ使用されているためリスク低\n- find-stubs-with-ticket-ref.js のユーザーがコマンドラインオプション名と混同する可能性。ただしこのスクリプトは --ticket-ref CLI 引数を持たない\n\n【注意事項】\n- 旧 --ticket-ref 完全廃止ではなく、非推奨＋拒否。将来のチケットで削除可能\n- all 4 files must be updated together for consistency (C003 invariant)\nImplementation summary:\n- Changed files: insert-stub.js, insert-stub.test.js, plan-ticket.md, start-ticket.md, review-ticket.md, resolve-ticket.md\n- Key changes: CLI arg rename, help text clarification, prose references update\n- Test results: all 14 tests passed (10 existing + 4 PX-96 tests)\n- Quality check: 0 issues found\n- Contracts: C001 (--ticket-ref rejection), C002 (--resolve-by-ticket acceptance), C003 (4-file consistency) all verified\nReview report:\n- Status gate: passed (done)\n- Crime scan: 0 crimes\n- STUB evaluation: 0 new stubs in changed files\n- Annotation verification: 2 source files annotated, 0 ambiguous\n- 7-pattern active scan: no incomplete implementations\n- Tests: 14/14 passed\n- Static quality check: 0 issues\n- Translatability: all function names are verb phrases, no single-char vars beyond iterator, no debug output\n- C001 verified: --ticket-ref rejected with exit 2 + migration hint\n- C002 verified: --resolve-by-ticket accepted, marker inserted correctly\n- C003 verified: all 4 command files have identical help text content with future-direction semantics\n- Fixed during review: plan-ticket.md help comment indentation aligned with other 3 files",
+          "invariants": "- 【Normal establishment】insertStub() が受け取る ticketRef は、関数内部で一貫して同一の変数名（ticketRef）で参照される\n- 【Invariant on error】旧 --ticket-ref の指定時は常に exit code 2 でエラー終了し、マーカー挿入は行われない\n- 【Internal state invariant】全4つのcommand .md ファイルの insert-stub.js パラメータ説明文言が常に一致している\n- 【Boundary invariant】新旧両方の引数名が空文字列で指定された場合も、個別のバリデーション（--file is required 等）で捕捉される",
+          "instrumentation": "- 【Logging】insert-stub.js は CLI ツールであり、実行結果（成功/失敗）は exit code と stderr で伝達。新たなログ機構は不要\n- 【Metrics】変更なし。このチケットは動作変更ではなくインターフェース名の変更\n- 【Error tracking】stderr 出力のエラーメッセージ内で旧名/新名を正確に記載する\n- 【Health check】変更なし\nStatic quality check: passed\nTranslatability: no issues\nTests: all 14 tests passed (10 existing + 4 PX-96)\n7-pattern active scan: no issues found",
+          "investigation": "【調査結果】\n- insert-stub.js L177: CLI パースで `--ticket-ref=` を ticketRef にマッピング。新 `--resolve-by-ticket=` の追加と旧名の拒否が必要\n- insert-stub.js L183: エラーメッセージで `--ticket-ref` をハードコード。新名に更新\n- insert-stub.js L190: 必須引数エラーメッセージに `--ticket-ref`。新名に更新\n- insert-stub.js L4, L16: ヘッダーコメントで `ticket-ref`。新名と方向性説明に更新\n- insert-stub.js L69: InsertStubError で `--ticket-ref`。新名に更新\n- insert-stub.js L78, L83, L86, L102: 内部エラーメッセージで `ticket-ref`。内部メッセージは関数の外部インターフェースではないが、ユーザーが見る可能性があるため更新\n- command 4ファイル: ヘルプコメントブロックと prose 中の `--ticket-ref=` 参照を全て更新\n- enumerate-ticket-targets.js: marker 内の `[::STUB::] PX-77: ...` 形式に変更はないため影響なし\n- find-stubs-with-ticket-ref.js: --ticket-ref とは無関係（STUB マーカーの ticket ref をフィルタリングする別機能）",
+          "boyScoutPlan": "改善1は本質的に Boy Scout ルールの適用そのものである（コメントを明確にする）。\n\n1. insert-stub.js の parseArgs() 引数名変更に伴い、`insert-stub.test.js` のテストケースで CLI 引数名を `--resolve-by-ticket` に更新する\n2. insert-stub.js の `// [::TICKET::]` アノテーション自体は変更対象外（設計コンテキストが失われるため）\n3. find-stubs-with-ticket-ref.js は変更しない（異なる機能）",
+          "created_at": "2026-07-29",
+          "updated_at": "2026-07-29",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001-precondition-postcondition: child_process spawn test\n  ```js\n  const { spawnSync } = require('child_process');\n  const cp = spawnSync('node', ['.claude/scripts/tickets/insert-stub.js', '--ticket-ref=PX-77', '--file=test.tmp', '--line=1', '--tickets-path=Tickets.json']);\n  assert.strictEqual(cp.status, 2, 'exit code 2 for deprecated arg');\n  assert.ok(cp.stderr.toString().includes('use --resolve-by-ticket instead'), 'stderr mentions new arg name');\n  ```",
+            "C001-invariant: both arg names checked in every path\n  ```js\n  // The parseArgs() function must always check for --resolve-by-ticket first, then --ticket-ref\n  const { spawnSync } = require('child_process');\n  const cp = spawnSync('node', ['.claude/scripts/tickets/insert-stub.js', '--resolve-by-ticket=PX-77', '--ticket-ref=UNUSED', '--file=test.tmp', '--line=1', '--tickets-path=Tickets.json']);\n  assert.strictEqual(cp.status, 0, 'both args provided: --resolve-by-ticket wins, no error');\n  ```",
+            "C002-precondition-postcondition: new --resolve-by-ticket works\n  ```js\n  const fs = require('fs');\n  const path = require('path');\n  const tmpFile = path.join(__dirname, '..', 'test-stub-target.tmp');\n  fs.writeFileSync(tmpFile, 'line1\\nline2\\n');\n  const { spawnSync } = require('child_process');\n  const cp = spawnSync('node', ['.claude/scripts/tickets/insert-stub.js', '--resolve-by-ticket=PX-77', `--file=${tmpFile}`, '--line=2', '--tickets-path=Tickets.json']);\n  assert.strictEqual(cp.status, 0, 'exit 0 for valid args');\n  const content = fs.readFileSync(tmpFile, 'utf8');\n  assert.ok(content.includes('[::STUB::] PX-77:'), 'marker inserted with correct ticket ref');\n  fs.unlinkSync(tmpFile);\n  ```",
+            "C002-invariant: --resolve-by-ticket value reaches insertStub as ticketRef\n  ```js\n  // This is verified by the function signature: insertStub({ticketRef}) does not rename the parameter\n  // and the same value flows through to the marker text\n  const { insertStub } = require('.claude/scripts/tickets/insert-stub.js');\n  const tmpFile = '/tmp/test-ticketref-flow.tmp';\n  require('fs').writeFileSync(tmpFile, 'line1\\n');\n  const result = insertStub({ file: tmpFile, line: 1, ticketRef: 'PX-77', ticketsPath: require('path').resolve('Tickets.json') });\n  assert.strictEqual(result.inserted, true);\n  const content = require('fs').readFileSync(tmpFile, 'utf8');\n  assert.ok(content.includes('[::STUB::] PX-77:'));\n  require('fs').unlinkSync(tmpFile);\n  ```",
+            "C003-postcondition: all 4 files have future-direction help text\n  ```bash\n  # grep for the future-direction key phrase in all 4 command files\n  PATTERN='WILL resolve this stub'\n  for f in .claude/commands/plan-ticket.md .claude/commands/start-ticket.md .claude/commands/review-ticket.md .claude/commands/resolve-ticket.md; do\n    if ! grep -q \"$PATTERN\" \"$f\"; then\n      echo \"FAIL: $f missing future-direction text\"\n      exit 1\n    fi\n  done\n  echo \"PASS: all 4 files have future-direction text\"\n  ```",
+            "C003-invariant: all 4 files have identical help comment lines\n  ```bash\n  # Extract the help comment lines for the parameter and compare\n  REF=$(grep -n 'resolve-by-ticket.*Ticket key' .claude/commands/plan-ticket.md | head -1)\n  for f in .claude/commands/start-ticket.md .claude/commands/review-ticket.md .claude/commands/resolve-ticket.md; do\n    CURRENT=$(grep -n 'resolve-by-ticket.*Ticket key' \"$f\" | head -1)\n    if [ \"$CURRENT\" != \"$REF\" ]; then\n      echo \"FAIL: $f help text differs from plan-ticket.md\"\n      exit 1\n    fi\n  done\n  echo \"PASS: all 4 files have identical help text\"\n  ```"
+          ],
+          "startedAt": "2026-07-29",
+          "changes": [
+            {
+              "before": "--ticket-ref CLI arg (deprecated)",
+              "after": "--resolve-by-ticket CLI arg (new name)",
+              "description": "insert-stub.js parseArgs(): added --resolve-by-ticket parsing, old --ticket-ref rejected with exit 2 plus migration hint"
+            },
+            {
+              "before": "Help comment: Existing ticket key in Tickets.json",
+              "after": "Help comment: Ticket key that WILL resolve this stub. NOT the ticket currently being worked on.",
+              "description": "All help comments in insert-stub.js and 4 command .md files updated to clarify future-direction semantics"
+            },
+            {
+              "before": "--ticket-ref=P3-1 in usage examples + prose",
+              "after": "--resolve-by-ticket=P3-1 in usage examples + prose",
+              "description": "4 command .md files: all inline usage examples and prose references updated"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-29"
         }
       ]
     },

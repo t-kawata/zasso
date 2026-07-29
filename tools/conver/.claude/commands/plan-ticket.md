@@ -116,14 +116,28 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 
 ```bash
-# Insert a [::STUB::] marker (all args required, --description optional)
-#   --ticket-ref: Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
-#   --file:       Target source file path
-#   --line:       1-indexed line number to insert at
-#   --tickets-path: Path to Tickets.json
+# Insert a [::STUB::] marker (all args required)
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+#                          MUST already exist in Tickets.json.
+#                          NOT the ticket currently being worked on.
+#   --stub-reason:         Why this code is left as a stub — be specific.
+#                          BAD:  "Dependency not ready"
+#                          GOOD: "PX-90 blocked: auth module API changed
+#                                 (User::role is now enum), current signature
+#                                 login(&str) incompatible"
+#   --resolve-plan:        What the resolving ticket must concretely implement.
+#                          BAD:  "Implement the actual logic"
+#                          GOOD: "Replace placeholder Ok(()) with DB query:
+#                                 INSERT INTO sessions (user_id, token)
+#                                 VALUES (?, ?); add integration test for
+#                                 session creation path"
+#   --file:                Target source file path
+#   --line:                1-indexed line number to insert at
+#   --tickets-path:        Path to Tickets.json
 node .claude/scripts/tickets/insert-stub.js \
-  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
-  --description="Will implement in P3-1" \
+  --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
+  --stub-reason="P3-2 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
+  --resolve-plan="Replace placeholder Ok(()) with DB query: INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test for session creation path" \
   --tickets-path=Tickets.json
 ```
 4. Include resolvable stubs in the plan's implementation scope
