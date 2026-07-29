@@ -141,8 +141,7 @@ pub struct ShutdownSpec {
     /// Atomic guard — `true` once the first shutdown has been triggered.
     is_started: AtomicBool,
     /// Per-phase timeout before proceeding to the next phase.
-    // [::STUB::] P4-3: timeout used for PhaseTimeout handling — currently stored
-    // for future use in per-call timeout tracking during shutdown.
+    // [::STUB::] P4-3: ShutdownSpec.timeout stored but unused -- Implement PhaseTimeout handling for per-call timeout tracking during shutdown
     #[allow(dead_code)]
     timeout: Duration,
 }

@@ -37,14 +37,7 @@
 //   (cd .. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N>)
 // ============================================================================
 
-// [::STUB::] P0-1: Crate foundation — module declarations only.
-// Full module implementations are added incrementally in downstream tickets:
-//   P0-2: Concurrency Model (runtime/)
-//   P0-3: Crate Purpose & Architecture (client.rs, config.rs)
-//   P0-4: Error Design (error.rs)
-//   P0-5: Event System (event.rs)
-//   P0-6: Runtime Infrastructure (runtime/, ffi/)
-//   P1+: Audio processing (audio/), Util (util/), Transport (transport.rs)
+// [::STUB::] P0-1: Crate foundation with module declarations only -- Implement modules incrementally per P0-2 through P0-6 ticket pipeline
 
 // Module declarations matching RFC §6 Module Structure (N0008).
 // Each module is stub-gated behind its responsible ticket.
@@ -57,7 +50,8 @@ pub mod error;
 
 /// Account, Call, and Transport type stubs.
 ///
-/// [::STUB::] P3-1/P5-1: Full implementations with lifecycle methods (account/call/transport in P3-1, call API semantics in P5-1).
+// [::STUB::] P3-1: account/call/transport lifecycle methods (make, answer, hangup) deferred -- Implement per P3-1 account and transport configuration
+// [::STUB::] P5-1: Call API semantics (hold, transfer, send_dtmf) deferred -- Implement per P5-1 call API specification
 pub mod account;
 pub mod call;
 pub mod transport;
@@ -69,7 +63,7 @@ pub mod event;
 pub mod state;
 
 // [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
-// [::STUB::] P4-2: Audio format types implemented under model/ (audio_format_chunkpair, audio_aligner, audio_resampler).
+// [::STUB::] P4-2: audio/ module commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration once model/ types are stable
 // The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).
 // pub mod audio;
 

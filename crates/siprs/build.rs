@@ -5,13 +5,10 @@
 // constants that siprs actually needs. This keeps compile times low and
 // prevents accidental exposure of internal PJSIP symbols.
 //
-// [::STUB::] P4-2: Enable bindgen generation when `pjsua-native` feature
-// is active. The stub type aliases in `src/ffi/bindings.rs` currently
-// provide compile-time placeholders for all PJSIP types.
+// [::STUB::] P4-2: bindgen generation disabled; stub aliases in bindings.rs provide placeholders -- Enable bindgen with pjsua-native feature when PJSIP headers available in build environment
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 fn main() {
-    // [::STUB::] P4-2: Uncomment when PJSIP library headers are available
-    // in the build environment:
+    // [::STUB::] P4-2: bindgen call commented out; requires system PJSIP headers -- Uncomment #[cfg(feature = "pjsua-native")] block and configure header path once PJSIP installed
     //
     // #[cfg(feature = "pjsua-native")]
     // {

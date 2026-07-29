@@ -24,7 +24,7 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-// [::STUB::] P3-1: implement build/CI entry point
+// [::STUB::] P3-1: build/CI entry point is a no-op main function -- Implement PJSIP build detection, feature flag configuration, and CI workflow setup
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 fn main() {
 	// TODO: implement build/CI entry point

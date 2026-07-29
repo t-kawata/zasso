@@ -16,15 +16,15 @@ pub mod auth;
 
 /// Axum route definitions (handler stubs).
 ///
-/// [::STUB::] P4-3: Full route handler implementations for all 18 REST endpoints.
+// [::STUB::] P4-3: route handler module has stub functions only -- Implement all 18 REST endpoint handlers with Axum
 pub mod routes;
 
 /// WebSocket session management.
 ///
-/// [::STUB::] P4-3: Control WS + audio WS handler implementations.
+// [::STUB::] P4-3: WebSocket module has stub functions only -- Implement control WS handshake, event stream publishing, and audio binary frame handling
 pub mod ws;
 
 /// SQLite persistence with SeaORM.
 ///
-/// [::STUB::] P4-4: Full database pool and migration setup.
+// [::STUB::] P4-3: database module has no implementation -- Implement SeaORM pool setup, migration runner, and account persistence
 pub mod db;

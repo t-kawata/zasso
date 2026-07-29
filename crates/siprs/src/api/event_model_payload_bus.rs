@@ -409,8 +409,8 @@ impl SipEvent {
 /// `Authorization:` headers with `[REDACTED]` before logging or forwarding
 /// to untrusted consumers.
 ///
-/// [::STUB::] P5-1: Full SIP message parsing — currently a minimal wrapper.
 /// The `data` field contains the raw bytes of the SIP message.
+// [::STUB::] P5-1: RawSipMessage is a minimal wrapper with public Vec<u8> data -- Implement full SIP message parsing with header/sdp extraction
 #[derive(Debug, Clone)]
 pub struct RawSipMessage {
     pub data: Vec<u8>,

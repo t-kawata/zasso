@@ -220,9 +220,7 @@ impl SipBackend for MockBackend {
 
     // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
-        // [::STUB::] P3-1: Return real account information once the account state
-        // machine (N0025) provides actual registration state. The mock returns a
-        // canned "registered" response for testing event conversion logic.
+        // [::STUB::] P3-1: get_account_info returns canned mock data -- Return real account info from reactor account state machine (N0025) once implemented
         Ok(AccountInfoSnapshot {
             acc_id: crate::api::event_model_payload_bus::AccountId::from_u64(_native_acc_id as u64)
                 .expect("mock AccountId from non-zero native acc_id"),
@@ -253,7 +251,7 @@ impl SipBackend for MockBackend {
 /// All methods return `Err(ReactorError::BackendError("unimplemented"))`.
 /// The real implementation requires PJSIP library linkage (P4+).
 ///
-/// [::STUB::] P4-2: Replace each method body with actual PJSIP FFI calls.
+// [::STUB::] P4-2: PjsuaBackend method bodies return unimplemented errors -- Replace each with actual PJSIP FFI calls once pjsua-native feature and library linkage are ready
 #[derive(Default)]
 pub struct PjsuaBackend;
 

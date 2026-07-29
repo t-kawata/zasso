@@ -3,4 +3,4 @@
 
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// [::STUB::] P4-4: SeaORM database pool, migration runner, account persistence.
+// [::STUB::] P4-3: database module has no implementation -- Implement SeaORM pool setup, migration runner, and account persistence

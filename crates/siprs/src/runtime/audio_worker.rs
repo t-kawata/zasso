@@ -250,7 +250,7 @@ pub struct AudioWorkerTask {
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-    // [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.
+    // [::STUB::] P3-2: handle is Option<JoinHandle> and unused -- Replace with active JoinHandle once FFI audio capture/playback is integrated
     #[allow(dead_code)]
     handle: Option<tokio::task::JoinHandle<()>>,
 }
@@ -306,7 +306,7 @@ impl AudioWorkerTask {
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 struct AudioWorkerInner {
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P3-2: call_id stored for future logging/metrics correlation.
+    // [::STUB::] P3-2: AudioWorkerInner.call_id stored but unused -- Wire into logging/metrics correlation once call lifecycle is active
     #[allow(dead_code)]
     call_id: u64,
     frame_duration: Duration,

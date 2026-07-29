@@ -3,7 +3,7 @@
 // This file is the single entry point for bindgen. Only the headers
 // listed here are scanned for FFI declarations.
 //
-// [::STUB::] P4-2: Uncomment when PJSIP library is installed:
+// [::STUB::] P4-2: PJSIP includes commented out; requires system PJSIP installation -- Uncomment #include directives once PJSIP library headers are available in build environment
 //
 // #include <pjsua.h>
 // #include <pjmedia.h>

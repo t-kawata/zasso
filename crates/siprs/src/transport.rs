@@ -11,8 +11,7 @@ pub use crate::config::transport_ice_spec::{
 
 /// Transport protocol type for SIP signalling (simple enum for common use).
 ///
-/// [::STUB::] P3-1: Currently re-exported from transport_ice_spec. May be removed
-/// once all callers are migrated to TransportConfig directly.
+// [::STUB::] P3-1: TransportType re-exported from transport_ice_spec; may be removed -- Remove once all callers migrated to TransportConfig directly
 #[derive(Debug, Clone)]
 pub enum TransportType {
     Udp,

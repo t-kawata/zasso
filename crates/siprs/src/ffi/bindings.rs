@@ -120,9 +120,7 @@ pub struct pjsua_call_info {
 /// initialized `pjsua_call_info` struct. The caller is responsible for
 /// ensuring no concurrent mutable access to the pointed-to memory.
 ///
-/// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when
-/// PJSIP library is linked. Current implementation returns a canned
-/// conf_slot for compilation purposes only.
+// [::STUB::] P4-2: PJSIP library not linked yet; returns canned conf_slot for compilation -- Replace with actual bindgen-generated pjsua_call_get_info FFI call
 pub unsafe fn pjsua_call_get_info(_call_id: pjsua_call_id, _info: *mut pjsua_call_info) -> i32 {
     if _info.is_null() {
         return PJ_EUNKNOWN;

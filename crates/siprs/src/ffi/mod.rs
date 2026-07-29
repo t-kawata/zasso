@@ -24,9 +24,5 @@ pub mod pj_str;
 /// it copies the event parameters into a `NativeEvent` and pushes it
 /// onto the reactor's event queue.
 ///
-/// [::STUB::] P4-2: Full callback implementations require real PJSUA
-/// library linkage. The function signatures are defined now for FFI
-/// completeness; actual event enqueue logic must wait until the
-/// NativeEvent type (P0-5 event module) and reactor channel
-/// (P0-6 RuntimeHandle) are integrated at link time.
+// [::STUB::] P4-2: Callback implementations require PJSUA linkage; signatures defined for FFI completeness -- Integrate NativeEvent enqueue logic once PJSIP linked and reactor channel available
 pub mod callback;

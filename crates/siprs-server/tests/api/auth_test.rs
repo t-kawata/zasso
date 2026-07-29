@@ -4,5 +4,5 @@
 use siprs_server::auth::axum_jwt_auth_layer;
 use siprs::security::auth_jwt_middleware::JwtValidator;
 
-// [::STUB::] P4-3: Full Axum TestResponse-based integration tests.
+// [::STUB::] P4-3: auth integration tests not implemented -- Implement full Axum TestResponse-based integration tests with MockBackend
 // Prerequisites: MockBackend (P1-3 N0053) + test Router with route handlers.

@@ -7,20 +7,14 @@ use siprs::security::auth_jwt_middleware::JwtValidator;
 
 /// JWT auth middleware function.
 ///
-/// [::STUB::] P4-3: Integrate with axum::middleware::from_fn_with_state.
-/// The current implementation is a placeholder that compiles as a library
-/// entry point. Full middleware wiring requires AppState and Router setup.
+// [::STUB::] P4-3: jwt_auth_layer returns stub string -- Implement axum::middleware::from_fn_with_state wiring with AppState and Router
 pub fn jwt_auth_layer(_validator: JwtValidator) -> &'static str {
-    // [::STUB::] P4-3: Return axum::middleware::from_fn_with_state(state, auth_middleware)
-    // once route handler stubs are replaced with real handlers.
     "jwt-auth-layer-stub"
 }
 
 /// Placeholder for the actual JWT auth middleware handler.
 ///
-/// [::STUB::] P4-3: Implement async fn that extracts Bearer token,
-/// validates via JwtValidator, and passes request to next middleware.
+// [::STUB::] P4-3: validate_bearer_token returns hardcoded 401 -- Implement async fn with Bearer token extraction, JwtValidator validation, and next middleware pass-through
 pub async fn validate_bearer_token() -> (StatusCode, &'static str) {
-    // [::STUB::] P4-3: Full token extraction and validation
     (StatusCode::UNAUTHORIZED, "Authentication required")
 }

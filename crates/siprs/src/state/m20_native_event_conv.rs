@@ -107,7 +107,7 @@ pub fn convert_native_event_to_payload(event: NativeEvent) -> Option<SipEventPay
         NativeEvent::CallMediaStateChanged { call_id } => {
             // Without the actual pjsua_call_get_info result, default to media_status=1 (ACTIVE).
             // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.
-            // [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.
+            // [::STUB::] P4-2: CallMediaState conversion uses hardcoded ACTIVE -- Call pjsua_call_get_info to obtain actual media_status from PJSIP
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_media_state(cid, 1)
             // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.

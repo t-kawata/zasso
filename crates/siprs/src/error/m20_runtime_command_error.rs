@@ -29,7 +29,7 @@ use crate::error::error_design_siperror::{self, SipError, SipErrorKind};
 // PJSUA error code constants (shared with error_design_siperror)
 //
 // [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.
-// [::STUB::] P4-2: Replace with actual pj_status_t constants from bindgen output.
+// [::STUB::] P4-2: pj_status_t constants hand-coded (PJ_EINVALIDOP, PJ_EBUSY) -- Replace with bindgen-generated constants from pjsua.h once FFI is enabled
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -95,9 +95,7 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
 ///
-/// [::STUB::] P5-1: Replace `u64` fields with `AccountId` / `CallId` newtypes.
-/// AccountId/CallId types are defined in P4-1 but migrating these error
-/// conversion helpers affects many callers — deferred to P5-1.
+// [::STUB::] P5-1: AccountInfo uses u64 for account_id instead of AccountId newtype -- Migrate to AccountId/CallId newtypes once P4-1 types are stable across callers
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
     /// The account's unique identifier.
@@ -141,8 +139,7 @@ pub fn convert_get_account_info_error(
             format!("GetAccountInfo failed: pjsua_acc_get_info returned {pj_status}"),
         ));
     }
-    // [::STUB::] P3-1: Return real account information once the account state
-    // system is implemented. This placeholder returns a minimal AccountInfo.
+    // [::STUB::] P3-1: GetAccountInfo returns placeholder error -- Return real AccountInfo from reactor account state system once implemented
     Err(SipError::new(
         SipErrorKind::NativeError,
         "GetAccountInfo: account state not yet available (P3-1)".to_string(),

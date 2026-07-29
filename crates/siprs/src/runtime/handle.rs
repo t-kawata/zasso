@@ -24,7 +24,7 @@ use crate::runtime::command::{DispatchCommand, ReactorError, RuntimeCommand};
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,
-    // [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.
+    // [::STUB::] P3-2: join_handle is Weak<JoinHandle> and unused -- Upgrade to Arc for FFI thread lifecycle inspection once pjsua is linked
     #[allow(dead_code)]
     join_handle: Weak<JoinHandle<()>>,
 }

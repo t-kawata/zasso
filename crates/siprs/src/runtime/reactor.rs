@@ -105,7 +105,7 @@ impl CoreReactor {
                                     reply,
                                 } => {
                                     // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.
-                                    // [::STUB::] P4-2: Route AddAudioSource to ClientState AudioMixer.
+                                    // [::STUB::] P4-2: AddAudioSource dispatch returns BackendError -- Route to ClientState AudioMixer via sink.add_source()
                                     let _ = source;
                                     let _ = reply.send(Err(
                                         ReactorError::BackendError(

@@ -64,7 +64,7 @@ pub struct ClientCapabilities {
     /// Available audio codecs.
     ///
     /// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.
-    /// [::STUB::] P4-2: Replace with actual codec list from bindgen-generated FFI.
+    // [::STUB::] P4-2: available_codecs placeholder; actual codec list requires bindgen-generated FFI -- Replace with runtime codec enumeration via pjsua codec API
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.
@@ -182,7 +182,7 @@ pub enum SrtpImplementation {
 
 /// Audio codec descriptor.
 ///
-/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.
+// [::STUB::] P3-2: Codec struct is a simple String-based placeholder -- Replace with FFI-defined codec types once bindgen generates pjsua_codec_info
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Codec {
     /// Codec identifier (e.g., "PCMU", "opus", "G722").

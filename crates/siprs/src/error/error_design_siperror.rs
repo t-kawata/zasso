@@ -29,7 +29,7 @@ use crate::runtime::command::ReactorError;
 // PJSUA error code constants
 //
 // [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
-// [::STUB::] P4-2: Replace with actual pj_status_t values from pjsua.h bindgen output.
+// [::STUB::] P4-2: pj_status_t constants are hand-coded duplicates of pjsua.h defines -- Replace with bindgen-generated constants once pjsua-native feature enables FFI
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -201,9 +201,7 @@ pub struct SipError {
     /// `Some(status)` when the error originates from an FFI call.
     /// `None` for errors that do not involve the native stack.
     ///
-    /// [::STUB::] P5-1: Replace `Option<u64>` with `Option<AccountId>` /
-    /// `Option<CallId>` newtypes. AccountId/CallId types are defined in P4-1
-    /// but migrating SipError fields affects many callers — deferred to P5-1.
+    // [::STUB::] P5-1: native_status field uses i32 instead of AccountId/CallId newtypes -- Replace Option<i32> with AccountId/CallId once callers migrated
     pub native_status: Option<i32>,
     /// Optional account ID associated with this error.
     pub account_id: Option<u64>,
@@ -301,7 +299,7 @@ impl From<ReactorError> for SipError {
 /// specific variants; all unknown codes map to `NativeError`.
 ///
 /// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).
-/// [::STUB::] P4-2: Update to use real pj_status_t constants from bindgen output.
+// [::STUB::] P4-2: convert_pj_status uses hand-coded pj_status_t constants -- Update to use real bindgen-generated constants once pjsua-native feature enables FFI
 pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
     match status {
         PJ_SUCCESS => None,

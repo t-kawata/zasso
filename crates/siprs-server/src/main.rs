@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 fn main() {
-    // [::STUB::] P4-3: Parse CLI args via clap, read ServerConfig, initialize SipClient,
-    // build Axum router, start listening on bind_addr.
+    // [::STUB::] P4-3: main function is a no-op -- Parse CLI args via clap, read ServerConfig, initialize SipClient, build Axum router, start listening
     println!("siprs-server — ready (stub)");
 }
