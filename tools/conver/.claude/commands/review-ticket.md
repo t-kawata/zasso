@@ -64,6 +64,17 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
+### Step 0: Status gate — verify ticket is ready for review
+
+Before proceeding, verify that the ticket's current status in Tickets.json is `"done"` (i.e., `/start-ticket` has completed). If the status is not `"done"`, the command blocks with an error message.
+
+```bash
+node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=review
+```
+
+- **Exit 0** (status is `"done"`) → proceed to Step 1
+- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /review-ticket cannot proceed until the ticket status is 'done'. Run /start-ticket first." and abort.
+
 ### Step 1: Existence check + retrieve ticket information
 
 ```bash

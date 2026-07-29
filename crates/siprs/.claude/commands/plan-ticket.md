@@ -62,6 +62,17 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
+### Step 0: Status gate — verify ticket is ready for planning
+
+Before proceeding, verify that the ticket's current status in Tickets.json is `"made"` (i.e., `/make-ticket` has completed). If the status is not `"made"`, the command blocks with an error message.
+
+```bash
+node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=plan
+```
+
+- **Exit 0** (status is `"made"`) → proceed to Step 1
+- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /plan-ticket cannot proceed until the ticket status is 'made'. Run /make-ticket first." and abort.
+
 ### Step 1: Existence check + retrieve ticket information
 
 ```bash
@@ -102,7 +113,19 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 
 1. List stubs via `find-all-stubs.js`
 2. Evaluate whether any stubs can be resolved within this ticket
-3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
+3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
+
+```bash
+# Insert a [::STUB::] marker (all args required, --description optional)
+#   --ticket-ref: Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:       Target source file path
+#   --line:       1-indexed line number to insert at
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
 4. Include resolvable stubs in the plan's implementation scope
 5. Leave unresolvable stubs in the plan as notes, clearly stating their relationship to future tickets
 
@@ -111,7 +134,7 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
-**Active code exploration**: In the source tree targeted by the plan, check whether incomplete implementations exist in the existing code. If found, add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
+**Active code exploration**: In the source tree targeted by the plan, check whether incomplete implementations exist in the existing code. If found, use `insert-stub.js` to add a `[::STUB::]` marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly. Reflect the results of this exploration in the "Risks" or "Boy Scout Improvements" section of the plan.
 
 ```bash
 # Scan for incomplete implementations (todo!, TODO, #[allow], etc.) without [::STUB::]

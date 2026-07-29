@@ -57,6 +57,17 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
+### Step 0: Status gate — verify ticket is ready for implementation
+
+Before proceeding, verify that the ticket's current status in Tickets.json is `"planned"` (i.e., `/plan-ticket` has completed). If the status is not `"planned"`, the command blocks with an error message.
+
+```bash
+node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=start
+```
+
+- **Exit 0** (status is `"planned"`) → proceed to Step 1
+- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /start-ticket cannot proceed until the ticket status is 'planned'. Run /plan-ticket first." and abort.
+
 ### Step 1: Block unless /plan-ticket was executed immediately before in the same session
 
 If `/plan-ticket` was NOT executed immediately before in the same session, respond with "Prior execution of /plan-ticket is required. Interrupting." and abort.
@@ -80,7 +91,21 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
 
 1. If unresolved crimes exist, start resolving them immediately
 2. Resolution methods:
-   - If the corresponding code lacks a `[::STUB::]` marker, add the marker on the spot
+   - If the corresponding code lacks a `[::STUB::]` marker, use `insert-stub.js` to add it (do NOT edit source files directly):
+
+```bash
+# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
+#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:         Target source file path
+#   --line:         1-indexed line number to insert at
+#   --description:  What the stub covers (optional)
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
+
    - After adding the marker, change `status` to `resolved` via `malfeasance-update.js`
    - If the implementation is complete but the marker remains, remove the marker to resolve
 3. If technically unresolvable, change `status` to `false_positive` via `malfeasance-update.js` and record the reason in `note`
@@ -97,7 +122,7 @@ Before starting implementation, check for resolvable stubs:
    node .claude/scripts/tickets/search-tickets.js Tickets.json done
    node .claude/scripts/tickets/review/find-stubs-with-ticket-ref.js --dir=.
    ```
-3. If you find a stub without a `[::STUB::]` marker, add the marker and record it as a crime via `malfeasance-create.js`
+3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 4. Include resolvable stubs in the implementation scope and replace them with actual implementation
 5. Record unresolvable stubs in the implementation summary and hand them over to subsequent tickets
 
@@ -268,7 +293,7 @@ git diff "$(git merge-base HEAD origin/master)" --name-only
 7. `#[allow(...)]` — Does the suppression reason include a `[::STUB::]` marker?
 
 If an incomplete implementation is found:
-1. If no `[::STUB::]` marker → Add the marker on the spot
+1. If no `[::STUB::]` marker → Use `insert-stub.js` to add the marker (do NOT edit source files directly)
 2. Record it as a crime via `malfeasance-create.js`
 3. Resolve it immediately (complete implementation, add marker, etc.). If unresolvable, change `status` to `false_positive` via `malfeasance-update.js` and record the reason in `note`
 
@@ -303,12 +328,12 @@ the AI determines the approach based on the situation:
 **Principle of complete warning/error resolution**:
 - Warnings and errors detected by `cargo check`, `cargo test` (or via `make` commands) **must be resolved without exception**. Proceeding to the next step with unresolved items is prohibited.
 - Proceeding to the next step when **even one `cargo test` (or `make test`) fails** is prohibited. Fix until all tests pass.
-- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **add a `[::STUB::]` marker with a comment stating "which ticket (ticket ID) will resolve it and how," and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**.
+- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add a `[::STUB::]` marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**. The ticket referenced in `--ticket-ref` MUST already exist in Tickets.json. Creating new non-existent tickets or using MUST RESOLVE to defer is forbidden.
 - If the suppression is insufficient and blocks subsequent builds or tests, it is considered a bug.
 
 **Suppression and `[::STUB::]` consistency verification**:
 - After `cargo check` (or `make check-*`) passes, extract all locations where suppression mechanisms such as `#[allow(...)]` are used, and verify that each has a corresponding `[::STUB::]` marker and planned resolution ticket ID clearly stated at the same location
-- **Suppression without `[::STUB::]`** → Add the marker and write the planned resolution ticket ID and resolution method in a comment
+- **Suppression without `[::STUB::]`** → Use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker with an existing ticket reference. Do NOT write ticket IDs directly in source files.
 - **`[::STUB::]` without suppression** → Check whether compilation verification produces an error. If there is an error, add `#[allow(...)]`; if there is no error, suppression is unnecessary (it can be considered a deliberate design stub)
 - After consistency verification, **re-run compilation verification**
 

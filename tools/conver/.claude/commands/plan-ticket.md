@@ -62,6 +62,17 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
+### Step 0: Status gate — verify ticket is ready for planning
+
+Before proceeding, verify that the ticket's current status in Tickets.json is `"made"` (i.e., `/make-ticket` has completed). If the status is not `"made"`, the command blocks with an error message.
+
+```bash
+node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=plan
+```
+
+- **Exit 0** (status is `"made"`) → proceed to Step 1
+- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /plan-ticket cannot proceed until the ticket status is 'made'. Run /make-ticket first." and abort.
+
 ### Step 1: Existence check + retrieve ticket information
 
 ```bash

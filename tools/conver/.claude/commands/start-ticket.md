@@ -57,6 +57,17 @@ Located under `.claude/scripts/tickets/`.
 
 ## Workflow
 
+### Step 0: Status gate — verify ticket is ready for implementation
+
+Before proceeding, verify that the ticket's current status in Tickets.json is `"planned"` (i.e., `/plan-ticket` has completed). If the status is not `"planned"`, the command blocks with an error message.
+
+```bash
+node .claude/scripts/tickets/check-ticket-status.js --ticket-key="$ARGUMENTS" --phase=start
+```
+
+- **Exit 0** (status is `"planned"`) → proceed to Step 1
+- **Exit 1** (status mismatch or error) → follow the output message, respond with "Status gate blocked: /start-ticket cannot proceed until the ticket status is 'planned'. Run /plan-ticket first." and abort.
+
 ### Step 1: Block unless /plan-ticket was executed immediately before in the same session
 
 If `/plan-ticket` was NOT executed immediately before in the same session, respond with "Prior execution of /plan-ticket is required. Interrupting." and abort.

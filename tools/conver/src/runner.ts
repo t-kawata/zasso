@@ -29,7 +29,7 @@ import {
   sendSlackSuccess,
   sendOmissionsNotification,
 } from "./notifier.js";
-import type { ErrorContext, SuccessContext } from "./notifier.js";
+import type { SuccessContext } from "./notifier.js";
 import {
   loadPendingTickets,
   checkAllReviewed,
@@ -96,26 +96,6 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
     timeoutMs: options.timeoutMs,
     verbose: options.verbose,
   };
-}
-
-/** update-ticket.js を呼び出し、チケットの status を確定的に設定する */
-function updateStatus(ticketsPath: string, ticketId: string, status: string): void {
-  try {
-    const script = path.join(
-      process.cwd(),
-      ".claude",
-      "scripts",
-      "tickets",
-      "update-ticket.js",
-    );
-    const input = JSON.stringify({ status });
-    execSync(`echo '${input}' | node "${script}" "${ticketsPath}" "${ticketId}"`, {
-      encoding: "utf-8",
-      timeout: 5000,
-    });
-  } catch {
-    // 失敗してもループは継続
-  }
 }
 
 // --- 公開 API ---
@@ -247,23 +227,19 @@ export async function runLoop(options: LoopOptions): Promise<void> {
               printCommandHeader("/make-ticket", ticketId, ticket.title);
               await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
               console.log("\n>>> ✅ make-ticket 完了");
-              updateStatus(options.ticketsPath, ticketId, "made");
             }
             if (status !== "planned") {
               printCommandHeader("/plan-ticket", ticketId, ticket.title);
               await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
               console.log("\n>>> ✅ plan-ticket 完了");
-              updateStatus(options.ticketsPath, ticketId, "planned");
             }
             printCommandHeader("/start-ticket", ticketId, ticket.title);
             await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
             console.log("\n>>> ✅ start-ticket 完了");
-            updateStatus(options.ticketsPath, ticketId, "done");
             if (bindReview) {
               printCommandHeader("/review-ticket", ticketId, ticket.title);
               await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
               console.log("\n>>> ✅ review 完了");
-              updateStatus(options.ticketsPath, ticketId, "reviewed");
             }
           },
         );
@@ -281,7 +257,6 @@ export async function runLoop(options: LoopOptions): Promise<void> {
           },
         );
         console.log("\n>>> ✅ review 完了");
-        updateStatus(options.ticketsPath, ticketId, "reviewed");
       }
       reviewedCount++;
 

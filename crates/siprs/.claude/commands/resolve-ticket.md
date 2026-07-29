@@ -63,7 +63,20 @@ cargo check --all-targets 2>&1
 Resolve all captured warnings and errors. Resolution methods:
 
 1. **Immediately resolvable**: Fix the code to eliminate the warning/error
-2. **Should be resolved by a subsequent ticket**: Add a `[::STUB::]` marker with the planned resolution ticket ID at the relevant location, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`
+2. **Should be resolved by a subsequent ticket**: Use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`. The ticket referenced in `--ticket-ref` MUST already exist in Tickets.json. Do NOT write ticket IDs directly in source files.
+
+```bash
+# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
+#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
+#   --file:         Target source file path
+#   --line:         1-indexed line number to insert at
+#   --description:  What the stub covers (optional)
+#   --tickets-path: Path to Tickets.json
+node .claude/scripts/tickets/insert-stub.js \
+  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
+  --description="Will implement in P3-1" \
+  --tickets-path=Tickets.json
+```
 3. **Suppression and marker consistency**: Verify that there is no suppression without `[::STUB::]`, and no `[::STUB::]` without suppression
 
 **Do not proceed to the next step until all warnings and errors are resolved.**
@@ -80,7 +93,10 @@ Parse the output and verify whether each stub's `[::STUB::]` marker specifies a 
 
 ### Step 4: Register unresolved stubs as crimes
 
-For stubs under the current directory that should have been resolved by past tickets but remain unresolved, register all of them as crimes via `malfeasance-create.js`. Crimes are recorded in the current directory's `Malfeasance.json`, so ensure the working directory is correct before executing.
+For stubs under the current directory that should have been resolved by past tickets but remain unresolved:
+1. First, use `insert-stub.js` to add a proper `[::STUB::]` marker referencing an existing ticket (if one is missing)
+2. Then register all of them as crimes via `malfeasance-create.js`
+Crimes are recorded in the current directory's `Malfeasance.json`, so ensure the working directory is correct before executing.
 
 ```bash
 node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description>"
@@ -95,7 +111,7 @@ node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description
 For stubs that do not specify a resolution in a subsequent ticket, take the following actions:
 
 1. **Attempt to resolve**: If the current codebase state allows replacement with actual implementation, resolve on the spot
-2. **Unresolvable**: If the following reasons apply, specify the ticket ID for the timing of resolution in the `[::STUB::]` marker
+2. **Unresolvable**: If the following reasons apply, use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket
    - Cannot be resolved until a subsequent ticket is implemented
    - Should not be addressed now (out of scope, too risky, etc.)
 
@@ -115,7 +131,7 @@ If crimes exist, resolve all of them. **It is absolutely unacceptable for crimes
 
 Resolution methods:
 1. If the corresponding code is already implemented, remove the `[::STUB::]` marker and change `status` to `resolved` via `malfeasance-update.js`
-2. If no `[::STUB::]` marker is attached, add the marker and change `status` to `resolved` via `malfeasance-update.js`
+2. If no `[::STUB::]` marker is attached, use `insert-stub.js` to add the marker (do NOT edit source files directly) and change `status` to `resolved` via `malfeasance-update.js`
 3. Only if technically unresolvable, change to `false_positive` and record the reason in `note`. However, this is limited to cases that are truly unresolvable.
 
 ```bash
