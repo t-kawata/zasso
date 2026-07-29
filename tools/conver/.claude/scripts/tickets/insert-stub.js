@@ -24,14 +24,13 @@
  *                      MUST already exist in Tickets.json.
  *                      NOT the ticket currently being worked on.
  * --stub-reason:       Concrete reason why this code is a stub — be specific.
+ *                      Must be a single line (no newlines allowed).
  *                      BAD:  "Dependency not ready"
- *                      GOOD: "PX-90 blocked: auth module API changed (User::role is now enum),
- *                             current signature login(&str) incompatible"
+ *                      GOOD: "P1-3 blocked: User::role changed to enum, login(&str) signature incompatible"
  * --resolve-plan:      Concrete implementation required to replace this STUB.
+ *                      Must be a single line (no newlines allowed).
  *                      BAD:  "Implement the actual logic"
- *                      GOOD: "Replace placeholder Ok(()) with DB query:
- *                             INSERT INTO sessions (user_id, token) VALUES (?, ?);
- *                             add integration test for session creation path"
+ *                      GOOD: "Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test"
  *
  * IMPORTANT: Both --stub-reason and --resolve-plan must be specific enough that
  * an AI reading them can implement the resolution without additional context.
@@ -179,7 +178,24 @@ function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPat
     );
   }
 
-  // --- 11. Build and insert the marker ---
+  // --- 11. Validate single-line invariant (STUB marker must be exactly 1 line) ---
+  // [::TICKET::] PX-96: single-line STUB marker invariant.
+  if (stubReason && stubReason.includes('\n')) {
+    throw new InsertStubError(
+      '--stub-reason must not contain newlines. ' +
+      'The STUB marker must be a single comment line. ' +
+      'Use a concise description; details belong in the resolving ticket\'s spec.'
+    );
+  }
+  if (resolvePlan && resolvePlan.includes('\n')) {
+    throw new InsertStubError(
+      '--resolve-plan must not contain newlines. ' +
+      'The STUB marker must be a single comment line. ' +
+      'Use a concise description; details belong in the resolving ticket\'s spec.'
+    );
+  }
+
+  // --- 12. Build and insert the marker (exactly 1 line) ---
   const reasonClean = (stubReason || 'Implementation pending').trim();
   const planClean = (resolvePlan || 'Implement this stub').trim();
   const marker = '// [::STUB::] ' + ticketRef + ': ' + reasonClean + ' -- ' + planClean;

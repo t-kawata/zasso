@@ -327,6 +327,87 @@ process.stdout.write('\n[Invariant] File unchanged on error\n');
   }
 })();
 
+// [::TICKET::] PX-96: single-line STUB marker invariant
+// ===========================================================================
+
+process.stdout.write('\n[Invariant] Single-line STUB: --stub-reason with newline rejected\n');
+(function testStubReasonNewlineRejected() {
+  if (!insertStub) {
+    failed++; process.stdout.write('  ✗ (module not implemented)\n'); return;
+  }
+  const testFile = path.join(tmpDir, 'newline-stub-reason.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  try {
+    insertStub({
+      file: testFile,
+      line: 1,
+      ticketRef: 'P0-1',
+      stubReason: 'line1\nline2',
+      resolvePlan: 'test',
+      ticketsPath: mockTicketsPath,
+    });
+    failed++; process.stdout.write('  ✗ newline in stubReason should have thrown\n');
+  } catch (err) {
+    assert(err.message.includes('newline') || err.message.includes('newlines'),
+      'error mentions newline: ' + err.message);
+  }
+})();
+
+process.stdout.write('\n[Invariant] Single-line STUB: --resolve-plan with newline rejected\n');
+(function testResolvePlanNewlineRejected() {
+  if (!insertStub) {
+    failed++; process.stdout.write('  ✗ (module not implemented)\n'); return;
+  }
+  const testFile = path.join(tmpDir, 'newline-resolve-plan.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  try {
+    insertStub({
+      file: testFile,
+      line: 1,
+      ticketRef: 'P0-1',
+      stubReason: 'test',
+      resolvePlan: 'step1\nstep2',
+      ticketsPath: mockTicketsPath,
+    });
+    failed++; process.stdout.write('  ✗ newline in resolvePlan should have thrown\n');
+  } catch (err) {
+    assert(err.message.includes('newline') || err.message.includes('newlines'),
+      'error mentions newline: ' + err.message);
+  }
+})();
+
+process.stdout.write('\n[Invariant] Single-line STUB: marker is exactly 1 line\n');
+(function testSingleLineMarker() {
+  if (!insertStub) {
+    failed++; process.stdout.write('  ✗ (module not implemented)\n'); return;
+  }
+  const testFile = path.join(tmpDir, 'single-line-marker.rs');
+  fs.writeFileSync(testFile, '// line 1\n// line 2\n');
+  try {
+    insertStub({
+      file: testFile,
+      line: 1,
+      ticketRef: 'P0-1',
+      stubReason: 'Blocked by PX-99: auth interface returns Result<()> not bool',
+      resolvePlan: 'Replace placeholder with real auth call chain including error mapping and session creation',
+      ticketsPath: mockTicketsPath,
+    });
+    const content = fs.readFileSync(testFile, 'utf8');
+    const lines = content.split('\n');
+    const stubLine = lines[0];
+    // The marker must be a single line — count the lines inserted
+    // Original file had 2 lines + trailing newline = 3 when split
+    // After inserting 1 marker at line 1: 4 parts
+    assertStrictEqual(lines.length, 4, 'file has 4 lines (1 marker + 2 originals + trailing newline)');
+    assert(stubLine.includes('[::STUB::]'), 'line 1 is the STUB marker');
+    assert(stubLine.includes('Blocked by PX-99'), 'stub reason present on same line');
+    assert(stubLine.includes('Replace placeholder'), 'resolve plan present on same line');
+    assert(!stubLine.includes('\n'), 'marker line has no embedded newline');
+  } catch (err) {
+    failed++; process.stdout.write('  ✗ ' + err.message + '\n');
+  }
+})();
+
 // [::TICKET::] PX-96: --resolve-by-ticket CLI arg name tests
 // ===========================================================================
 
