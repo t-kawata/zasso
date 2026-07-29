@@ -72,7 +72,7 @@ Resolve all captured warnings and errors. Resolution methods:
 #                          NOT the ticket currently being worked on.
 #   --stub-reason:         Why this code is left as a stub — be specific.
 #                          BAD:  "Dependency not ready"
-#                          GOOD: "PX-90 blocked: auth module API changed
+#                          GOOD: "P1-3 blocked: auth module API changed
 #                                 (User::role is now enum), current signature
 #                                 login(&str) incompatible"
 #   --resolve-plan:        What the resolving ticket must concretely implement.
@@ -86,7 +86,7 @@ Resolve all captured warnings and errors. Resolution methods:
 #   --tickets-path:        Path to Tickets.json
 node .claude/scripts/tickets/insert-stub.js \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
-  --stub-reason="P3-2 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
+  --stub-reason="P1-3 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
   --resolve-plan="Replace placeholder Ok(()) with DB query: INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test for session creation path" \
   --tickets-path=Tickets.json
 ```
