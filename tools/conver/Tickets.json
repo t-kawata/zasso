@@ -12789,6 +12789,281 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-29"
+        },
+        {
+          "id": 97,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Tickets.json schema拡張 & tmp-omissions作成スクリプト",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/97-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "find-omissionsパイプラインの再設計に伴い、STUBが残存しているチケットと未レビューチケットを統合的に検出する仕組みが必要。本チケットでは(1) Tickets.jsonのチケットスキーマにfromStub(boolean)とstubs(配列)フィールドを追加し、(2) find-all-stubs.jsの出力からSTUB付きチケットキーを収集し、Tickets.jsonのreviewed以外の全チケットキーとマージして_tmp-omissions-<timestamp>.jsonに出力するスクリプトを作成する。\n\n### Goal\n完了済みチケットにSTUBが残存しているケースとレビュー未了チケットを統合検出し、_tmp-omissions.json として出力するパイプラインを構築する\n\n### Purpose\nfind-omissions の再設計において、「STUBが放置された完了チケット」と「そもそもレビューが通っていないチケット」の両方を一元的に把握する出発点とする\n\n### Motivation\n現在の find-all-stubs.js はSTUBマーカーのみを検出し、未レビューチケットの情報と結合できない。再設計パイプラインの Step 1 として両者を統合するスクリプトが不可欠\n\n### Constraints\n- find-all-stubs.js の出力形式（{success, count, stubs[]}）に依存する\n- Tickets.json のスキーマは変更可能だが、既存フィールドの削除・リネームは禁止\n- 出力ファイル名には実行時のタイムスタンプを YYYYMMDDhhmmss 形式で含める",
+          "scope": [
+            "[Schema] Tickets.json ticket schemaに fromStub (boolean) と stubs (array of {file, content, codes}) を追加",
+            "[Script] create-tmp-omissions.js: find-all-stubs.js の出力をchild_processで実行し結果を取得",
+            "[Script] STUB行から /\\[::STUB::\\].*?([A-Z]+-\\d+)/ の正規表現でチケットキーを重複なく収集",
+            "[Script] Tickets.json から status!=reviewed の全チケットキーを収集",
+            "[Script] 両ソースを重複なくマージ、fromStub フラグを適切に設定",
+            "[Script] codes フィールドに line+1 から3行分のソースコードを抽出",
+            "[Script] _tmp-omissions-<YYYYMMDDhhmmss>.json に Tickets.json と同一スキーマで出力",
+            "[Script] コピー時に元の phaseId/ticketId を保持",
+            "[Script] 各コピー後チケットの background 先頭に英語警告文を自動追記",
+            "[Non-change] Tickets.json の既存フィールド（title, metadataは除く）は変更しない",
+            "[Non-change] find-all-stubs.js 自体は変更しない（出力をそのまま利用）",
+            "[Non-change] Tickets.json の phase 構造（id, name, characteristics）は変更しない",
+            "**Scope of changes:**\n  - [File/module path] .claude/scripts/tickets/create-tmp-omissions.js 新規作成\n  - [Action: add] 新規スクリプト作成\n  - [What specifically changes] Tickets.json に fromStub/stubs フィールドを追加、新規スクリプトでSTUB情報と未reviewed情報を統合\n  - [Before → After] 統合チケット情報なし → _tmp-omissions-*.json で一元管理\n  - [API contract change] なし（新規スクリプトなので既存APIへの影響なし）\n  - [Data schema change] Tickets.json ticket schema に fromStub(boolean)/stubs(array) 追加\n  - [Config/env change] なし\n  - [Dependency added/removed] なし（既存の fs, path, child_process のみ使用）",
+            "**Out of scope:**\n  - [Excluded item] get-next-check-target-ticket-cmd.js の実装\n  - [Why excluded] 別チケット（PX-99 以降でスケジュール）",
+            "**Affected areas:**\n  - [Affected component] Tickets.json のスキーマ定義（暗黙的）\n  - [Nature of impact] スキーマ拡張により fromStub/stubs が全チケットに追加される\n  - [Corresponding change needed] 既存チケットは fromStub/stubs 未設定のまま動作に影響なし"
+          ],
+          "testUnit": [
+            "UT: STUB行から /[::STUB::].*?([A-Z]+-d+)/ の正規表現でチケットキーを抽出できる（形式: P3-2, PX-53）",
+            "UT: 同一チケットキーが複数STUBに出現しても重複排除される（Setによる一意性保証）",
+            "UT: Tickets.json から status!=reviewed の全チケットキーを収集できる（配列抽出）",
+            "UT: 両ソース（find-all-stubs.js出力＋Tickets.json未reviewed）のマージ結果が正しい — fromStub=true/false が適切に設定される",
+            "UT: codes が line+1 から3行分のファイル内容と一致する（fs.readFileSyncで取得）",
+            "UT: _tmp-omissions-*.json が Tickets.json と同一スキーマ構造（phases[].tickets[]）で出力される",
+            "UT: 出力に fromStub (boolean) と stubs (Array<{file, content, codes}>) フィールドが含まれる",
+            "UT: テンプレートコピー時に元の phaseId/ticketId が保持される",
+            "UT: 各コピー後チケットの background 先頭に英語警告文が追記される（This ticket has been flagged for rejection...）",
+            "UT: ファイル名が _tmp-omissions-<YYYYMMDDhhmmss>.json 形式である",
+            "UT: [Normal] find-all-stubs.js が正常実行されSTUBデータが取得されるケース — 子プロセス stdout の JSON パースが正しい",
+            "UT: [Error] find-all-stubs.js が異常終了（exit non-zero）した場合、エラー内容を報告する",
+            "UT: [Error] Tickets.json が存在しない場合、Error を throw する",
+            "UT: [Error] 指定 file path が存在しない場合でも codes が空文字列になる（errors は握らない）",
+            "UT: [Boundary] find-all-stubs.js の count=0（STUB無し）の場合、空の stubs 配列で処理継続",
+            "UT: [Boundary] Tickets.json に未reviewedチケットが0件の場合、空の配列でマージ処理継続",
+            "UT: [Boundary] 該当チケットが一切ない場合、空の phases: [] を持つ _tmp-omissions を出力",
+            "UT: [Invariant] 出力 _tmp-omissions-*.json の全チケットに fromStub フィールドが存在する",
+            "UT: [Invariant] マージ後のチケットキー集合に重複が存在しない",
+            "UT: [Invariant] コピー後の全チケット background が英語警告文で始まる",
+            "UT: [Cover C001 invariant] 抽出されたキー集合に重複は存在しない（Setによる一意性保証）",
+            "UT: [Cover C003 precondition] 2つのソース（stub由来キーリスト、未reviewedキーリスト）が配列として存在する状態でマージされる",
+            "UT: [Cover C003 postcondition] 両リストが重複なく結合され、各エントリに fromStub（boolean）フラグが設定される",
+            "UT: [Cover C003 invariant] マージ後のユニークキー数 ≤ ソースA + ソースB のキー総数",
+            "UT: [Cover C004 precondition] 各スタブエントリが有効な file（絶対パス文字列）と line（正の整数）を持つことを確認",
+            "UT: [Cover C005 precondition] マージ結果のチケットリストが配列として存在する（空配列でも可）状態で出力関数が呼ばれることを確認",
+            "UT: [Cover C005 invariant] 出力の全チケットに fromStub（boolean）フィールドと stubs（Array）フィールドが存在する",
+            "UT: [Cover C001 invariant exact] 抽出されたキー集合に重複は存在しない（Setによる一意性保証） — 契約の不変条件",
+            "UT: [Cover C003 postcondition exact] 両リストが重複なく結合され、各エントリに fromStub（boolean）フラグが設定される — 事後条件"
+          ],
+          "testIntegration": [
+            "IT: create-tmp-omissions.js が find-all-stubs.js の実際の出力を子プロセス経由で読み取り、正しい _tmp-omissions-*.json を生成する",
+            "IT: 生成された _tmp-omissions-*.json がスキーマバリデーション（phaseId, ticketId, fromStub, stubs の存在チェック）を通る",
+            "IT: [Integration point] find-all-stubs.js（stdout JSON）→ create-tmp-omissions.js（JSON parse）→ _tmp-omissions-*.json（JSON stringify）のパイプライン",
+            "IT: [Verification] 生成ファイルを再パースして全フィールドの整合性を確認",
+            "IT: [Prerequisites] find-all-stubs.js が同一プロジェクト内で実行可能であること",
+            "IT: [Related tickets] PX-98（check-target-tickets-cmds）とは独立して動作可能"
+          ],
+          "testExceptions": [
+            "[Item] 実際のプロジェクト全体でのSTUB数はビルド状態に依存するため、完全一致テストはテスト不能（試験不可能）である。これは決定論的機能がテスト不能なのではなく、テストデータが実行環境に依存するためであり、設計欠陥ではない",
+            "[Reason] テストでは fixture ディレクトリと固定STUBファイルを使用して検証（テスト可能）する。productionの全STUB網羅性はfixtureの品質に依存するため完全一致はテスト不能だが、これは設計上の欠陥ではなくテストデータ管理の方針の問題であり設計欠陥ではない",
+            "[Alternative] テスト用の固定STUBファイル（test/fixtures/stubs/）を用意し、正規表現マッチング（テスト可能）と出力形式の正確性を検証する。全STUB網羅性の確認はテスト不能だがproduction実行時に行う。これは設計欠陥ではない",
+            "[Item] codes 抽出がファイル読み取りに依存するため、ENOENT等のファイルシステムエラーの完全な再現テストはテスト不能。これはNode.jsのファイルI/OがOSレベルの状態に依存するためであり、アーキテクチャ上の設計欠陥ではない",
+            "[Reason] fs.readFileSync のエラーハンドリング自体は mock でテスト可能だが、OS レベルの全エラー種別の再現はテスト不能。テスト方法の選択の問題であり設計欠陥ではない",
+            "[Alternative] 存在しないファイルパスを与えた場合の挙動テスト（テスト可能）と、実際のファイルI/Oエラーは integration test でカバーする。OS依存エラーの完全再現はテスト不能のためユニットテストでは mock を使用する。これは設計欠陥ではない"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/create-tmp-omissions.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: find-all-stubs.js を実行し、出力JSONからSTUB付きチケットキーを全件抽出。Tickets.json の未reviewedチケットキーとマージし、_tmp-omissions-<timestamp>.json が正しいスキーマで出力される",
+            "Happy path: 各チケットの fromStub フラグが正しく設定され、stubs 配列に file/content/codes が格納されている",
+            "Error case: find-all-stubs.js が exit non-zero で失敗した場合、エラーメッセージを stderr に出力し process.exit(1) する",
+            "Error case: Tickets.json が存在しない場合、ENOENT エラーを throw する",
+            "Error case: 指定された file path が存在しないSTUBエントリがある場合、codes は空文字列とし処理継続",
+            "Edge case: 全チケットが reviewed 済みで未reviewedチケットが0件の場合、空の未reviewedリストで正常マージ",
+            "Edge case: find-all-stubs.js の count=0 の場合、STUB由来リストは空配列としてマージ",
+            "Edge case: 全ソースで該当チケットが0件の場合、{ title, metadata, phases: [] } を出力"
+          ],
+          "notes": "Review report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues (all function names are verb phrases, no single-char vars except formatTimestamp, no magic numbers)\n- Dependencies: consistency verified (both scripts use only fs, path, child_process)\n- Crimes: 0 (Malfeasance.json empty)\n- STUB markers: 3 found, all from PX-46/Deprecated — none related to PX-97/PX-98\n- AMBIGUOUS markers: none\n- Annotation verification: annotations present on all functions\n- Tests: PX-97=47/47 PASS, PX-98=30/30 PASS\n- Issues found and fixes applied: none",
+          "invariants": "- [Normal condition] find-all-stubs.js の出力は常に有効なJSONである（{success, count, stubs[]} 構造）\n- [Normal condition] Tickets.json は常に phases[].tickets[] の階層構造を持つ\n- [Error invariant] いかなるエラー時も既存の Tickets.json は変更されない（読み取り専用操作）\n- [Error invariant] 出力ファイルが既に存在する場合は上書きされるが、元データは保持される\n- [Internal state invariant] マージ処理中はメモリ上の配列のみが操作され、中間状態はファイルに書かれない\n- [Boundary invariant] ファイル名のタイムスタンプは常に YYYYMMDDhhmmss 形式の14桁である",
+          "instrumentation": "- [Logging] 出力ファイルパスを console.log に出力\n- [Metrics] 処理件数（STUB数、未reviewed数、マージ後総数）を console.error に出力\n- [Error tracking] find-all-stubs.js の exec エラーは stderr に出力して process.exit(1)\n- [Health check] なし（単発実行スクリプトのため）",
+          "investigation": "- [Evidence 1] find-all-stubs.js の出力形式を確認: { success: true, count: N, stubs: [{file, line, content}] }（scanFile 関数が各行を /\\[::STUB::\\]/ でマッチ）\n- [Evidence 2] Tickets.json のスキーマ構造: phases[].tickets[] の2階層。各チケットは id, phaseId, status, title, background, scope, testUnit, testIntegration, testExceptions, notes, startedAt, changes, instrumentation, invariants, acceptanceCriteria, investigation, boyScoutPlan, contracts, rfcDiscrepancies, completedAt のフィールドを持つ\n- [Evidence 3] update-ticket.js は stdin から JSON を受け取り、指定フィールドを上書きする設計\n- [Evidence 4] テンプレートフィールド挿入では insert-field-template.js が 11 の field に [::TEMPLATE-STUB::] をセットする\n- [Evidence 5] 既存チケット数: 133 reviewed, 2 non-reviewed（PX-96, PX-95 等が未レビュー）",
+          "boyScoutPlan": "- [Extract] find-all-stubs.js のチケットキー抽出ロジックは正規表現ベースで独立した関数に抽出可能 → create-tmp-omissions.js 内で extractTicketKeys() として分離する\n- [Name] 変数名: stubsFromFindAll → stubMarkers, nonReviewedKeys → pendingTicketKeys のようにドメイン意図を正確に命名\n- [Constant] STUB正規表現パターンは const STUB_TICKET_KEY_RE としてモジュール定数化\n- [Error handling] child_process.execSync は try-catch でラップし、エラー詳細を stderr に構造化して出力\n- [Scope] 新規スクリプトのみ対象。find-all-stubs.js 自体のリファクタリングは対象外（Non-change）",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "find-all-stubs.js stdout JSON → ticket key extraction",
+              "precondition": "find-all-stubs.js の出力が有効な JSON { success: true, stubs: [{file, line, content}] } であること",
+              "postcondition": "各STUB行の content から /\\[::STUB::\\].*?([A-Z]+-\\d+)/ でチケットキーが抽出され、重複なく収集される",
+              "invariant": "抽出されたキー集合に重複は存在しない（Setによる一意性保証）"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Tickets.json phased[].tickets[].status !== reviewed フィルタ",
+              "precondition": "Tickets.json が有効なJSONとして fs.readFileSync で読み取り可能である",
+              "postcondition": "全フェーズを走査し status !== 'reviewed' のチケットキーが配列として取得される",
+              "invariant": "reviewed ステータスのチケットは結果に含まれない"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "stub由来リスト + Tickets.json未reviewedリストのマージ",
+              "precondition": "2つのソース（stub由来キーリスト、未reviewedキーリスト）が配列として存在する",
+              "postcondition": "両リストが重複なく結合され、各エントリに fromStub（boolean）フラグが設定される",
+              "invariant": "マージ後のユニークキー数 ≤ ソースA + ソースB のキー総数"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "file path + line number → codes 抽出",
+              "precondition": "各スタブエントリが有効な file（絶対パス文字列）と line（正の整数）を持つ",
+              "postcondition": "指定ファイルの (line) 行目から3行分の内容が codes フィールドに格納される",
+              "invariant": "ファイルが存在しない場合、codes は空文字列となりエラーは throw されない"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "_tmp-omissions-<timestamp>.json 出力",
+              "precondition": "マージ結果のチケットリストが配列として存在する（空配列でも可）",
+              "postcondition": "Tickets.json と同一スキーマ構造の JSON が _tmp-omissions-<YYYYMMDDhhmmss>.json に出力される",
+              "invariant": "出力の全チケットに fromStub（boolean）フィールドと stubs（Array）フィールドが存在する"
+            }
+          ],
+          "created_at": "2026-07-29",
+          "updated_at": "2026-07-29",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition] find-all-stubs.js の出力をパース\n  ```javascript\n  const mockOutput = { success: true, count: 2, stubs: [{ file: '/tmp/test.rs', line: 42, content: '// [::STUB::] P3-2: fix validation' }, { file: '/tmp/test2.rs', line: 10, content: '// [::STUB::] PX-53: implement handler' }] };\n  const result = extractTicketKeysFromStubs(mockOutput);\n  assert(Array.isArray(result), 'extractTicketKeysFromStubs returns array');\n  ```",
+            "UT: [C001 postcondition] 正規表現でチケットキー抽出\n  ```javascript\n  const mockOutput = { success: true, count: 2, stubs: [{ file: '/tmp/test.rs', line: 42, content: '// [::STUB::] P3-2: fix validation' }, { file: '/tmp/test2.rs', line: 10, content: '// [::STUB::] PX-53: implement handler' }] };\n  const keys = extractTicketKeysFromStubs(mockOutput);\n  assert(keys.length === 2, 'extracts 2 ticket keys');\n  assert(keys.includes('P3-2'), 'contains P3-2');\n  assert(keys.includes('PX-53'), 'contains PX-53');\n  ```",
+            "UT: [C001 invariant] 重複排除の保証\n  ```javascript\n  const mockOutput = { success: true, count: 3, stubs: [{ file: '/tmp/a.rs', line: 1, content: '// [::STUB::] P3-2: fix' }, { file: '/tmp/b.rs', line: 2, content: '// [::STUB::] P3-2: also fix' }, { file: '/tmp/c.rs', line: 3, content: '// [::STUB::] PX-53: other' }] };\n  const keys = extractTicketKeysFromStubs(mockOutput);\n  assert(keys.length === 2, 'deduplicates to 2 keys');\n  assert(keys.filter(k => k === 'P3-2').length === 1, 'P3-2 appears once');\n  ```",
+            "UT: [C002 precondition] Tickets.json の読み取りとパース\n  ```javascript\n  const mockTickets = JSON.parse(fs.readFileSync('test/fixtures/minimal-tickets.json', 'utf8'));\n  assert(mockTickets.phases, 'has phases array');\n  assert(Array.isArray(mockTickets.phases), 'phases is array');\n  ```",
+            "UT: [C002 postcondition] reviewed 以外のチケットのみ収集\n  ```javascript\n  const mockTickets = { phases: [{ id: 0, tickets: [{ id: 1, status: 'reviewed', title: 'Done' }, { id: 2, status: 'todo', title: 'Pending' }] }, { id: 1, tickets: [{ id: 3, status: 'made', title: 'Made' }] }] };\n  const nonReviewed = collectNonReviewedTickets(mockTickets);\n  assert(nonReviewed.length === 2, 'collects 2 non-reviewed tickets');\n  assert(nonReviewed.every(k => !k.includes('Done')), 'no reviewed ticket keys');\n  ```",
+            "UT: [C002 invariant] reviewed チケットが結果に含まれない\n  ```javascript\n  const mockTickets = { phases: [{ id: 0, tickets: [{ id: 1, status: 'reviewed', title: 'A' }, { id: 2, status: 'reviewed', title: 'B' }] }] };\n  const nonReviewed = collectNonReviewedTickets(mockTickets);\n  assert(nonReviewed.length === 0, 'no non-reviewed tickets yields empty array');\n  ```",
+            "UT: [C003 precondition] 2つのソース配列の存在\n  ```javascript\n  const stubKeys = ['P3-2', 'PX-53'];\n  const pendingKeys = ['PX-53', 'PX-55'];\n  const merged = mergeTicketSources(stubKeys, pendingKeys, mockStubsMap);\n  assert(merged, 'mergeTicketSources returns result');\n  ```",
+            "UT: [C003 postcondition] マージ結果と fromStub フラグ\n  ```javascript\n  const stubKeys = ['P3-2'];\n  const pendingKeys = ['PX-55'];\n  const stubsMap = { 'P3-2': [{ file: '/tmp/t.rs', line: 1, content: '// [::STUB::] P3-2' }] };\n  const merged = mergeTicketSources(stubKeys, pendingKeys, stubsMap);\n  assert(merged.length === 2, 'merged count is 2');\n  const fromStub = merged.find(m => m.fromStub === true);\n  const fromPending = merged.find(m => m.fromStub === false);\n  assert(fromStub && fromStub.ticketKey === 'P3-2', 'P3-2 has fromStub=true');\n  assert(fromPending && fromPending.ticketKey === 'PX-55', 'PX-55 has fromStub=false');\n  ```",
+            "UT: [C003 invariant] マージ後のユニークキー数制約\n  ```javascript\n  const stubKeys = ['P3-2', 'PX-53'];\n  const pendingKeys = ['PX-53', 'PX-55'];\n  const merged = mergeTicketSources(stubKeys, pendingKeys, {});\n  const uniqueKeys = new Set(merged.map(m => m.ticketKey));\n  assert(uniqueKeys.size <= stubKeys.length + pendingKeys.length, 'unique <= total source keys');\n  assert(uniqueKeys.size === 3, '3 unique keys from total 4 source keys');\n  ```",
+            "UT: [C004 precondition] ファイルパスと行番号の検証\n  ```javascript\n  const tmpFile = '/tmp/test-codes.txt';\n  fs.writeFileSync(tmpFile, 'line1\\nline2\\nline3\\nline4\\n');\n  const codes = extractCodes(tmpFile, 2);\n  assert(codes === 'line2\\nline3\\nline4', 'extracts 3 lines from line 2');\n  fs.unlinkSync(tmpFile);\n  ```",
+            "UT: [C004 postcondition] 存在しないファイルのハンドリング\n  ```javascript\n  const codes = extractCodes('/tmp/nonexistent-file.xyz', 1);\n  assert(codes === '', 'non-existent file returns empty string');\n  ```",
+            "UT: [C004 invariant] エラーを throw しない\n  ```javascript\n  let threw = false;\n  try { extractCodes('/tmp/nonexistent-file.xyz', 1); } catch(e) { threw = true; }\n  assert(!threw, 'no exception thrown for non-existent file');\n  ```",
+            "UT: [C005 precondition] マージ結果からの出力構築\n  ```javascript\n  const mergedEntries = [{ ticketKey: 'P3-2', fromStub: true, stubs: [{ file: '/tmp/t.rs', line: 1, content: '// stub', codes: 'line2\\nline3\\nline4' }] }];\n  const output = buildOutputJson(mergedEntries, { title: 'tmp', phases: [] });\n  assert(output.phases, 'output has phases');\n  ```",
+            "UT: [C005 postcondition] Tickets.json と同一スキーマ\n  ```javascript\n  const mergedEntries = [{ ticketKey: 'P3-2', fromStub: true, stubs: [{ file: '/tmp/t.rs', line: 1, content: '// stub', codes: 'line2' }] }];\n  const output = buildOutputJson(mergedEntries, { title: 'Test', metadata: { source: 'test', generatedAt: '20260729', analyzedSections: '' }, phases: [] });\n  const outputStr = JSON.stringify(output);\n  assert(output.title === 'Test', 'title copied');\n  assert(output.metadata.source === 'test', 'metadata.source preserved');\n  ```",
+            "UT: [C005 invariant] fromStub と stubs フィールドの存在\n  ```javascript\n  const mergedEntries = [{ ticketKey: 'P3-2', fromStub: true, stubs: [{ file: '/tmp/t.rs', line: 1, content: '// stub', codes: 'line2' }] }, { ticketKey: 'PX-55', fromStub: false, stubs: [] }];\n  const output = buildOutputJson(mergedEntries, { title: 'T', metadata: {}, phases: [] });\n  output.phases.forEach(p => p.tickets.forEach(t => {\n    assert(typeof t.fromStub === 'boolean', 'fromStub is boolean in all output tickets');\n    assert(Array.isArray(t.stubs), 'stubs is array in all output tickets');\n  }));\n  ```"
+          ],
+          "startedAt": "2026-07-29",
+          "changes": [
+            {
+              "before": "No detection script",
+              "after": "create-tmp-omissions.js created",
+              "description": "New script: STUB+non-reviewed detection"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-29"
+        },
+        {
+          "id": 98,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "完了済み実装状況検査対象コマンドリスト生成スクリプト",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/98-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "find-omissionsパイプラインの再設計に伴い、reviewedチケットの実装が契約を満たしているかを検査する仕組みが必要。本チケットではTickets.jsonから全reviewedチケットのチケットキーを収集し、_tmp-check-target-tickets-cmds-<timestamp>.jsonに検査コマンドリストを生成するスクリプトを作成する。各エントリは {done: false, cmd: 'node ...'} の形式を持ち、初期状態は全てdone=falseとする。\n\n### Goal\nreviewed チケット全件に対応する show-ticket-context.js 呼び出しコマンドリストを生成し、Step 3 の検査パイプラインに渡す\n\n### Purpose\nStep 3（AIによる実装状況検査）の入力データを準備する。検査対象チケットの列挙とコマンド形式の標準化を自動化し、検査漏れを防止する\n\n### Motivation\n現在133件の reviewed チケットを手動で列挙することは現実的でない。また、各チケットのコマンド形式を統一しないと Step 3 の自動実行が不可能\n\n### Constraints\n- show-ticket-context.js の CLI インターフェース（--ticket-key, --for-spec）に依存する\n- 生成されるコマンドはシェルで直接実行可能な形式である必要がある\n- 出力ファイル名には YYYYMMDDhhmmss 形式のタイムスタンプが必要",
+          "scope": [
+            "[Script] create-check-target-tickets-cmds.js: Tickets.json から全 reviewed チケットを収集",
+            "[Script] 各チケットに対して show-ticket-context.js --ticket-key=KEY --for-spec のコマンド文字列を生成",
+            "[Script] {done, cmd} 形式のエントリ配列を構築（初期状態は全て done: false）",
+            "[Script] _tmp-check-target-tickets-cmds-<YYYYMMDDhhmmss>.json に書き出し",
+            "[Non-change] show-ticket-context.js 自体は変更しない",
+            "[Non-change] Tickets.json の既存フィールドは変更しない",
+            "[Non-change] PX-97 で作成される create-tmp-omissions.js の出力形式は変更しない",
+            "**Scope of changes:**\n  - [File/module path] .claude/scripts/tickets/create-check-target-tickets-cmds.js 新規作成\n  - [Action: add] 新規スクリプト作成\n  - [What specifically changes] なし（新規スクリプトのみ）\n  - [Before → After] コマンドリストなし → _tmp-check-target-tickets-cmds-*.json\n  - [API contract change] なし\n  - [Data schema change] なし\n  - [Config/env change] なし\n  - [Dependency added/removed] なし",
+            "**Out of scope:**\n  - [Excluded item] get-next-check-target-ticket-cmd.js の実装\n  - [Why excluded] 別チケットで実装予定",
+            "**Affected areas:**\n  - [Affected component] なし（新規スクリプトであり既存システムへの影響なし）\n  - [Nature of impact] なし\n  - [Corresponding change needed] なし"
+          ],
+          "testUnit": [
+            "UT: Tickets.json から status=reviewed のチケットのみを抽出できる（phases全走査、配列flat）",
+            "UT: 各エントリの cmd が node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec の正しい形式である",
+            "UT: 全エントリの done が初期状態で false である",
+            "UT: ファイル名が _tmp-check-target-tickets-cmds-<YYYYMMDDhhmmss>.json 形式である",
+            "UT: reviewed チケットが0件の場合、空配列 [] を出力する",
+            "UT: 複数の reviewed チケットがある場合、全てのエントリが正しく列挙される",
+            "UT: [Normal] reviewed チケットが3件存在する場合、3エントリのコマンドリストが生成される",
+            "UT: [Error] Tickets.json が存在しない／パース失敗の場合、エラーメッセージを表示する",
+            "UT: [Error] reviewed 以外の status（todo, in_progress, made 等）は出力に含まれない",
+            "UT: [Boundary] reviewed チケットが1件のみの場合も正しく単一エントリが生成される",
+            "UT: [Boundary] 大量（100件以上）の reviewed チケットがある場合でも正常に全件列挙される",
+            "UT: [Invariant] 全エントリが {done: boolean, cmd: string} の型に従う",
+            "UT: [Invariant] cmd 文字列が必ず show-ticket-context.js を含む",
+            "UT: [Invariant] 出力 JSON は配列のトップレベル構造を持つ（オブジェクトでラップしない）",
+            "UT: [Cover C002 precondition] 有効な ticketKey 文字列（P{phaseId}-{ticketId} 形式）が存在する場合にコマンド文字列が生成される",
+            "UT: [Cover C003 precondition] コマンドエントリの配列がメモリ上に構築されている（空配列でも可）状態で出力関数が呼ばれる"
+          ],
+          "testIntegration": [
+            "IT: 生成された _tmp-check-target-tickets-cmds-*.json の各エントリを独立して実行可能である（コマンドが正しいシェル構文）",
+            "IT: [Integration point] create-check-target-tickets-cmds.js → _tmp-check-target-tickets-cmds-*.json → get-next-check-target-ticket-cmd.js（別チケット）のパイプライン",
+            "IT: [Verification] 生成されたコマンドを1件実際に実行し、show-ticket-context.js が正常出力を返すことを確認",
+            "IT: [Prerequisites] show-ticket-context.js が --ticket-key と --for-spec フラグをサポートしていること",
+            "IT: [Related tickets] PX-97（find-all-stubs.js 実行）とは独立。ただし find-omissions 再設計全体の文脈で連携"
+          ],
+          "testExceptions": [
+            "[Item] 実際の reviewed チケット数は実行時の Tickets.json の状態に依存するため、固定値のテストはテスト不能。これは決定論的機能がテスト不能なのではなく、実行時データに依存する設計上やむを得ない理由による。設計欠陥ではない",
+            "[Reason] テストでは fixture の Tickets.json を使用し、任意の数（0, 1, 5, 100件）の reviewed チケットを設定（テスト可能）する。実データの全チケット数を固定値で検証するのはテスト不能だが、これはテストデータ管理の方針の問題であり設計欠陥ではない",
+            "[Alternative] 各fixtureでコマンド形式とdone=false初期状態をアサートする（テスト可能）。実データのチケット数はテスト不能のためproduction実行時に確認する。設計欠陥ではない",
+            "[Item] 生成されたコマンドの実行成功は show-ticket-context.js の動作に依存するため、本スクリプト単体での完全検証はテスト不能。アーキテクチャ上の責務分離であり設計欠陥ではない",
+            "[Reason] 本スクリプトの責務はコマンド文字列の生成である。コマンドの実行自体はテスト不能として別責務に分離しており、これはアーキテクチャ上の責務分離であり設計欠陥ではない",
+            "[Alternative] コマンド文字列のシンタックス検証（テスト可能）と、コマンドが実行可能であることのITでカバーする。実際のコマンド実行結果の検証はテスト不能のため別チケットで行う。設計欠陥ではない"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/create-check-target-tickets-cmds.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: reviewed チケット全件のコマンドリストが _tmp-check-target-tickets-cmds-<timestamp>.json に出力される",
+            "Happy path: 各エントリの done が全て false、cmd 形式が正しい",
+            "Error case: Tickets.json が存在しない場合、ENOENT エラーを throw する",
+            "Error case: reviewed チケットが1件もない場合、空の JSON 配列 [] を出力する",
+            "Edge case: reviewed チケットがちょうど1件の場合でも正しい単一エントリが生成される",
+            "Edge case: 133件の reviewed チケットがあった場合でも同数のエントリが生成される"
+          ],
+          "notes": "Review report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues (all function names are verb phrases, no single-char vars except formatTimestamp, no magic numbers)\n- Dependencies: consistency verified (both scripts use only fs, path)\n- Crimes: 0 (Malfeasance.json empty)\n- STUB markers: 3 found, all from PX-46/Deprecated — none related to PX-97/PX-98\n- AMBIGUOUS markers: none\n- Annotation verification: annotations present on all functions\n- Tests: 30/30 PASS\n- Issues found and fixes applied: none",
+          "invariants": "- [Normal condition] Tickets.json の全フェーズの全チケットから status フィールドが読み取り可能である\n- [Normal condition] 各チケットキーは P{phaseId}-{ticketId} 形式である\n- [Error invariant] Tickets.json 読み取りに失敗しても、出力ファイルは作成されない（未書き込み状態を保証）\n- [Error invariant] 出力ファイルが既に存在する場合、内容は完全に上書きされる\n- [Internal state invariant] 処理中の中間JSONはメモリ上のみで管理され、不完全な状態でファイルに書き出されることはない\n- [Boundary invariant] ファイル名のタイムスタンプは常に YYYYMMDDhhmmss 形式の14桁である",
+          "instrumentation": "- [Logging] 生成ファイルパスとエントリ数を console.log に出力\n- [Metrics] reviewed チケット数を console.log に出力\n- [Error tracking] Tickets.json 読み取りエラーは stderr に出力して process.exit(1)\n- [Health check] なし（単発実行スクリプトのため）",
+          "investigation": "- [Evidence 1] show-ticket-context.js の CLI インターフェースを確認: --ticket-key=<KEY> と --for-spec フラグをサポート（parseArgs 関数で解析）\n- [Evidence 2] Tickets.json の status 値の実績: reviewed (133), todo (PX-97, PX-98), made, in_progress のバリエーション\n- [Evidence 3] 既存の類似スクリプト（enumerate-ticket-targets.js, check-ticket-status.js）は同様の Tickets.json 走査パターンを使用\n- [Evidence 4] 出力先ディレクトリはカレントディレクトリ（. または process.cwd()）が基準\n- [Evidence 5] done フィールドは boolean 型で、get-next-check-target-ticket-cmd.js が処理完了後に true に更新することを前提とする",
+          "boyScoutPlan": "- [Extract] reviewed チケット収集ロジックは collectReviewedTicketKeys() として独立関数に分離する\n- [Name] 変数名: cmds → commandEntries, reviewedTickets → reviewedTicketKeys と命名\n- [Constant] コマンドテンプレートは const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec' として定数化\n- [Error handling] fs.writeFileSync のエラーは try-catch でラップし stderr に構造化エラーを出力\n- [Scope] 新規スクリプトのみ対象。show-ticket-context.js のリファクタリングは対象外",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Tickets.json phases[].tickets[].status === reviewed フィルタ",
+              "precondition": "Tickets.json が有効なJSONとして fs.readFileSync で読み取り可能である",
+              "postcondition": "全フェーズを走査し status === 'reviewed' のチケットキーのみが配列として抽出される",
+              "invariant": "reviewed 以外の status のチケットは結果に含まれない（フィルタ条件の健全性）"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "ticketKey → show-ticket-context.js コマンド文字列生成",
+              "precondition": "有効な ticketKey 文字列（P{phaseId}-{ticketId} 形式）が存在する",
+              "postcondition": "node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec 形式のコマンド文字列が生成される",
+              "invariant": "生成された全 cmd 文字列が show-ticket-context.js を含む"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "コマンドエントリ配列 → _tmp-check-target-tickets-cmds-<timestamp>.json 出力",
+              "precondition": "コマンドエントリの配列がメモリ上に構築されている（空配列でも可）",
+              "postcondition": "[{done: false, cmd: string}] 形式の JSON 配列が _tmp-check-target-tickets-cmds-<YYYYMMDDhhmmss>.json に書き込まれる",
+              "invariant": "全エントリの done が初期状態で false である"
+            }
+          ],
+          "created_at": "2026-07-29",
+          "updated_at": "2026-07-29",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 precondition] Tickets.json を読み込みパース\n  ```javascript\n  const mockTickets = { phases: [{ id: 0, tickets: [{ id: 1, status: \"reviewed\", title: \"A\" }, { id: 2, status: \"todo\", title: \"B\" }] }] };\n  const result = collectReviewedTicketKeys(mockTickets);\n  assert(Array.isArray(result), 'returns array');\n  ```",
+            "UT: [C001 postcondition] reviewed チケットのみ抽出\n  ```javascript\n  const mockTickets = { phases: [{ id: 0, tickets: [{ id: 1, status: \"reviewed\", title: \"Done\" }, { id: 2, status: \"todo\", title: \"Pending\" }, { id: 3, status: \"made\", title: \"Made\" }] }] };\n  const keys = collectReviewedTicketKeys(mockTickets);\n  assert(keys.length === 1, '1 reviewed ticket');\n  assert(keys[0] === 'P0-1', 'key is P0-1');\n  ```",
+            "UT: [C001 invariant] reviewed 以外は含まれない\n  ```javascript\n  const mockTickets = { phases: [{ id: 0, tickets: [{ id: 1, status: \"reviewed\", title: \"A\" }, { id: 2, status: \"reviewed\", title: \"B\" }] }] };\n  const keys = collectReviewedTicketKeys(mockTickets);\n  assert(keys.length === 2, '2 reviewed tickets');\n  assert(keys.every(k => typeof k === 'string'), 'all keys are strings');\n  ```",
+            "UT: [C002 precondition] ticketKey 文字列の有効性確認\n  ```javascript\n  const ticketKey = 'P3-2';\n  const cmd = buildCommand(ticketKey);\n  assert(typeof cmd === 'string', 'command is string');\n  assert(cmd.length > 0, 'command is non-empty');\n  ```",
+            "UT: [C002 postcondition] 正しいコマンド形式で生成\n  ```javascript\n  const cmd = buildCommand('P3-2');\n  assert(cmd.includes('show-ticket-context.js'), 'contains script name');\n  assert(cmd.includes('--ticket-key=P3-2'), 'contains ticket key');\n  assert(cmd.includes('--for-spec'), 'contains --for-spec flag');\n  ```",
+            "UT: [C002 invariant] 全部の cmd に show-ticket-context.js が含まれる\n  ```javascript\n  const keys = ['P0-1', 'PX-10', 'P3-2'];\n  const cmds = keys.map(k => buildCommand(k));\n  assert(cmds.every(c => c.includes('show-ticket-context.js')), 'all contain script name');\n  assert(cmds.every(c => c.includes('--for-spec')), 'all contain --for-spec');\n  ```",
+            "UT: [C003 precondition] コマンドエントリ配列の構築\n  ```javascript\n  const keys = ['P0-1', 'PX-10'];\n  const entries = buildEntries(keys);\n  assert(Array.isArray(entries), 'entries is array');\n  assert(entries.length === 2, '2 entries');\n  ```",
+            "UT: [C003 postcondition] 各エントリの形式検証\n  ```javascript\n  const entries = buildEntries(['P3-2']);\n  assert(entries[0].done === false, 'done is false');\n  assert(typeof entries[0].cmd === 'string', 'cmd is string');\n  assert(entries[0].cmd.includes('show-ticket-context.js'), 'cmd contains script');\n  ```",
+            "UT: [C003 invariant] 全エントリの done が初期状態で false\n  ```javascript\n  const keys = ['P0-1', 'P1-2', 'P3-4', 'PX-5', 'P12-6'];\n  const entries = buildEntries(keys);\n  assert(entries.every(e => e.done === false), 'all entries have done=false');\n  assert(entries.length === 5, '5 entries for 5 keys');\n  ```"
+          ],
+          "startedAt": "2026-07-29",
+          "changes": [
+            {
+              "before": "No command list generation",
+              "after": "create-check-target-tickets-cmds.js created",
+              "description": "New script: reviewed ticket command list generation"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-29"
         }
       ]
     },
