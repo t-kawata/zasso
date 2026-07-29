@@ -94,15 +94,28 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
    - If the corresponding code lacks a `[::STUB::]` marker, use `insert-stub.js` to add it (do NOT edit source files directly):
 
 ```bash
-# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
-#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
-#   --file:         Target source file path
-#   --line:         1-indexed line number to insert at
-#   --description:  What the stub covers (optional)
-#   --tickets-path: Path to Tickets.json
+# insert-stub.js: Insert [::STUB::] marker with resolve-by-ticket validation
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+#                          MUST already exist in Tickets.json.
+#                          NOT the ticket currently being worked on.
+#   --stub-reason:         Why this code is left as a stub — be specific.
+#                          BAD:  "Dependency not ready"
+#                          GOOD: "P1-3 blocked: auth module API changed
+#                                 (User::role is now enum), current signature
+#                                 login(&str) incompatible"
+#   --resolve-plan:        What the resolving ticket must concretely implement.
+#                          BAD:  "Implement the actual logic"
+#                          GOOD: "Replace placeholder Ok(()) with DB query:
+#                                 INSERT INTO sessions (user_id, token)
+#                                 VALUES (?, ?); add integration test for
+#                                 session creation path"
+#   --file:                Target source file path
+#   --line:                1-indexed line number to insert at
+#   --tickets-path:        Path to Tickets.json
 node .claude/scripts/tickets/insert-stub.js \
-  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
-  --description="Will implement in P3-1" \
+  --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
+  --stub-reason="P1-3 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
+  --resolve-plan="Replace placeholder Ok(()) with DB query: INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test for session creation path" \
   --tickets-path=Tickets.json
 ```
 
@@ -328,12 +341,12 @@ the AI determines the approach based on the situation:
 **Principle of complete warning/error resolution**:
 - Warnings and errors detected by `cargo check`, `cargo test` (or via `make` commands) **must be resolved without exception**. Proceeding to the next step with unresolved items is prohibited.
 - Proceeding to the next step when **even one `cargo test` (or `make test`) fails** is prohibited. Fix until all tests pass.
-- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add a `[::STUB::]` marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**. The ticket referenced in `--ticket-ref` MUST already exist in Tickets.json. Creating new non-existent tickets or using MUST RESOLVE to defer is forbidden.
+- If warnings or errors must unavoidably remain (e.g., scheduled for resolution in another ticket), you must **use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add a `[::STUB::]` marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]` or `#[cfg(test)]`, ensuring that other tickets' compilation and tests are not blocked**. The ticket referenced in `--resolve-by-ticket` MUST already exist in Tickets.json. Creating new non-existent tickets or using MUST RESOLVE to defer is forbidden.
 - If the suppression is insufficient and blocks subsequent builds or tests, it is considered a bug.
 
 **Suppression and `[::STUB::]` consistency verification**:
 - After `cargo check` (or `make check-*`) passes, extract all locations where suppression mechanisms such as `#[allow(...)]` are used, and verify that each has a corresponding `[::STUB::]` marker and planned resolution ticket ID clearly stated at the same location
-- **Suppression without `[::STUB::]`** → Use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker with an existing ticket reference. Do NOT write ticket IDs directly in source files.
+- **Suppression without `[::STUB::]`** → Use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add the marker with an existing ticket reference. Do NOT write ticket IDs directly in source files.
 - **`[::STUB::]` without suppression** → Check whether compilation verification produces an error. If there is an error, add `#[allow(...)]`; if there is no error, suppression is unnecessary (it can be considered a deliberate design stub)
 - After consistency verification, **re-run compilation verification**
 

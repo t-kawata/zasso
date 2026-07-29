@@ -1,28 +1,47 @@
 #!/usr/bin/env node
 
 /**
- * insert-stub.js — Insert a [::STUB::] marker with ticket-ref validation
+ * insert-stub.js — Insert a [::STUB::] marker with resolve-by-ticket validation
  *
- * Inserts a [::STUB::] marker at a specified line in a source file,
- * but ONLY if the referenced ticket exists in Tickets.json.
- * This prevents ORPHAN_TICKET_REF crimes by validating at insertion time.
+ * Inserts a [::STUB::] marker at a specified line in a source file.
+ * The marker references a ticket in Tickets.json that WILL resolve the stub.
  *
- * MUST RESOLVE form is NOT supported — every STUB must reference an existing ticket.
+ * Every STUB must reference an existing ticket — MUST RESOLVE is NOT supported.
  *
  * Usage:
  *   node insert-stub.js \
  *     --file=<path> \
  *     --line=<N> \
- *     --ticket-ref=<P{phase}-{id}> \
- *     --description=<text> \
+ *     --resolve-by-ticket=<P{phase}-{id}> \
+ *     --stub-reason="<concrete reason why this is a stub>" \
+ *     --resolve-plan="<concrete implementation required>" \
  *     --tickets-path=<Tickets.json>
  *
+ * Marker format:
+ *   // [::STUB::] <ticketKey>: <stub-reason> -- <resolve-plan>
+ *
+ * --resolve-by-ticket: Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+ *                      MUST already exist in Tickets.json.
+ *                      NOT the ticket currently being worked on.
+ * --stub-reason:       Concrete reason why this code is a stub — be specific.
+ *                      BAD:  "Dependency not ready"
+ *                      GOOD: "PX-90 blocked: auth module API changed (User::role is now enum),
+ *                             current signature login(&str) incompatible"
+ * --resolve-plan:      Concrete implementation required to replace this STUB.
+ *                      BAD:  "Implement the actual logic"
+ *                      GOOD: "Replace placeholder Ok(()) with DB query:
+ *                             INSERT INTO sessions (user_id, token) VALUES (?, ?);
+ *                             add integration test for session creation path"
+ *
+ * IMPORTANT: Both --stub-reason and --resolve-plan must be specific enough that
+ * an AI reading them can implement the resolution without additional context.
+ *
  * Exported function:
- *   insertStub({ file, line, ticketRef, description, ticketsPath })
+ *   insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPath })
  *     -> { inserted: true }
  *     throws InsertStubError on validation failure
  *
- * [::TICKET::] PX-94: insert-stub.js — ticket-validated STUB marker insertion script
+ * [::TICKET::] PX-94, PX-96: insert-stub.js — resolve-by-ticket-validated STUB marker insertion script
  */
 
 const fs = require('fs');
@@ -48,16 +67,17 @@ class InsertStubError extends Error {
  * Validate all inputs and, on success, insert a [::STUB::] marker.
  *
  * @param {object} opts
- * @param {string} opts.file         - Path to source file
- * @param {number} opts.line         - 1-indexed line number to insert at
- * @param {string} opts.ticketRef    - Ticket key (e.g. "P0-1", "PX-94")
- * @param {string} opts.description  - Description of what the stub covers
- * @param {string} opts.ticketsPath  - Path to Tickets.json
+ * @param {string} opts.file          - Path to source file
+ * @param {number} opts.line          - 1-indexed line number to insert at
+ * @param {string} opts.ticketRef     - Ticket key (e.g. "P0-1", "PX-94")
+ * @param {string} opts.stubReason    - Why this code is left as a stub
+ * @param {string} opts.resolvePlan   - What the resolving ticket must implement
+ * @param {string} opts.ticketsPath   - Path to Tickets.json
  * @returns {{inserted: boolean}}
  * @throws {InsertStubError} on validation failure
  */
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
-function insertStub({ file, line, ticketRef, description, ticketsPath }) {
+// [::TICKET::] PX-95, PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
+function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPath }) {
   // --- 1. Validate required arguments ---
   if (!file || typeof file !== 'string') {
     throw new InsertStubError('--file is required and must be a non-empty string');
@@ -66,7 +86,13 @@ function insertStub({ file, line, ticketRef, description, ticketsPath }) {
     throw new InsertStubError('--line is required and must be a positive integer');
   }
   if (!ticketRef || typeof ticketRef !== 'string') {
-    throw new InsertStubError('--ticket-ref is required and must be a non-empty string');
+    throw new InsertStubError('--resolve-by-ticket is required and must be a non-empty string');
+  }
+  if (!stubReason || typeof stubReason !== 'string') {
+    throw new InsertStubError('--stub-reason is required and must be a non-empty string');
+  }
+  if (!resolvePlan || typeof resolvePlan !== 'string') {
+    throw new InsertStubError('--resolve-plan is required and must be a non-empty string');
   }
   if (!ticketsPath || typeof ticketsPath !== 'string') {
     throw new InsertStubError('--tickets-path is required and must be a non-empty string');
@@ -154,8 +180,9 @@ function insertStub({ file, line, ticketRef, description, ticketsPath }) {
   }
 
   // --- 11. Build and insert the marker ---
-  const descriptionClean = (description || 'Implementation pending').trim();
-  const marker = '// [::STUB::] ' + ticketRef + ': ' + descriptionClean;
+  const reasonClean = (stubReason || 'Implementation pending').trim();
+  const planClean = (resolvePlan || 'Implement this stub').trim();
+  const marker = '// [::STUB::] ' + ticketRef + ': ' + reasonClean + ' -- ' + planClean;
 
   lines.splice(line - 1, 0, marker);
   fs.writeFileSync(absFile, lines.join('\n'), 'utf8');
@@ -166,28 +193,51 @@ function insertStub({ file, line, ticketRef, description, ticketsPath }) {
 // ===========================================================================
 // CLI entry point
 // ===========================================================================
-// [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-95, PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {};
+  let hasOldTicketRef = false;
+  let hasOldDescription = false;
 
   for (const a of args) {
-    if (a.startsWith('--file=')) opts.file = a.slice('--file='.length);
+    if (a.startsWith('--resolve-by-ticket=')) opts.ticketRef = a.slice('--resolve-by-ticket='.length);
+    else if (a.startsWith('--stub-reason=')) opts.stubReason = a.slice('--stub-reason='.length);
+    else if (a.startsWith('--resolve-plan=')) opts.resolvePlan = a.slice('--resolve-plan='.length);
+    else if (a.startsWith('--ticket-ref=')) hasOldTicketRef = true;
+    else if (a.startsWith('--description=')) hasOldDescription = true;
+    else if (a.startsWith('--file=')) opts.file = a.slice('--file='.length);
     else if (a.startsWith('--line=')) opts.line = parseInt(a.slice('--line='.length), 10);
-    else if (a.startsWith('--ticket-ref=')) opts.ticketRef = a.slice('--ticket-ref='.length);
-    else if (a.startsWith('--description=')) opts.description = a.slice('--description='.length);
     else if (a.startsWith('--tickets-path=')) opts.ticketsPath = a.slice('--tickets-path='.length);
     else {
       console.error('[ERROR] Unknown argument: ' + a);
       console.error('Cause: Unexpected argument format');
-      console.error('Action: Use --file=<path> --line=<N> --ticket-ref=<key> --description=<text> --tickets-path=<path>');
+      console.error('Action: Use --file=<path> --line=<N> --resolve-by-ticket=<key> --stub-reason="..." --resolve-plan="..." --tickets-path=<path>');
       process.exit(2);
     }
   }
 
-  if (!opts.file || !opts.line || !opts.ticketRef || !opts.ticketsPath) {
+  if (hasOldTicketRef && !opts.ticketRef) {
+    console.error('[ERROR] --ticket-ref is deprecated. Use --resolve-by-ticket=<key> instead.');
+    console.error('Cause: --ticket-ref has been renamed to --resolve-by-ticket to clarify it');
+    console.error('  specifies the ticket that WILL resolve this stub (future direction).');
+    console.error('Action: Replace --ticket-ref=<key> with --resolve-by-ticket=<key>');
+    process.exit(2);
+  }
+
+  if (hasOldDescription) {
+    console.error('[ERROR] --description is deprecated. Use --stub-reason and --resolve-plan instead.');
+    console.error('Cause: --description has been replaced by two required flags:');
+    console.error('  --stub-reason:  Why this code is left as a stub');
+    console.error('  --resolve-plan: What the resolving ticket must implement');
+    console.error('Action: Replace --description=<text> with --stub-reason="..." --resolve-plan="..."');
+    process.exit(2);
+  }
+
+  if (!opts.file || !opts.line || !opts.ticketRef || !opts.stubReason || !opts.resolvePlan || !opts.ticketsPath) {
     console.error('[ERROR] Missing required arguments');
-    console.error('Cause: --file, --line, --ticket-ref, and --tickets-path are required');
+    console.error('Cause: --file, --line, --resolve-by-ticket, --stub-reason, --resolve-plan, and --tickets-path are required');
     console.error('Action: Provide all required arguments');
     process.exit(2);
   }
@@ -204,7 +254,8 @@ function main() {
       file: opts.file,
       line: opts.line,
       ticketRef: opts.ticketRef,
-      description: opts.description || '',
+      stubReason: opts.stubReason,
+      resolvePlan: opts.resolvePlan,
       ticketsPath: opts.ticketsPath,
     });
     console.log(JSON.stringify(result));

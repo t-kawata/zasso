@@ -63,18 +63,31 @@ cargo check --all-targets 2>&1
 Resolve all captured warnings and errors. Resolution methods:
 
 1. **Immediately resolvable**: Fix the code to eliminate the warning/error
-2. **Should be resolved by a subsequent ticket**: Use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`. The ticket referenced in `--ticket-ref` MUST already exist in Tickets.json. Do NOT write ticket IDs directly in source files.
+2. **Should be resolved by a subsequent ticket**: Use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket, and suppress the warning/error using appropriate mechanisms such as `#[allow(...)]`. The ticket referenced in `--resolve-by-ticket` MUST already exist in Tickets.json. Do NOT write ticket IDs directly in source files.
 
 ```bash
-# insert-stub.js: Insert [::STUB::] marker with ticket-ref validation
-#   --ticket-ref:   Existing ticket key in Tickets.json (e.g. P0-1, PX-77)
-#   --file:         Target source file path
-#   --line:         1-indexed line number to insert at
-#   --description:  What the stub covers (optional)
-#   --tickets-path: Path to Tickets.json
+# insert-stub.js: Insert [::STUB::] marker with resolve-by-ticket validation
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+#                          MUST already exist in Tickets.json.
+#                          NOT the ticket currently being worked on.
+#   --stub-reason:         Why this code is left as a stub — be specific.
+#                          BAD:  "Dependency not ready"
+#                          GOOD: "P1-3 blocked: auth module API changed
+#                                 (User::role is now enum), current signature
+#                                 login(&str) incompatible"
+#   --resolve-plan:        What the resolving ticket must concretely implement.
+#                          BAD:  "Implement the actual logic"
+#                          GOOD: "Replace placeholder Ok(()) with DB query:
+#                                 INSERT INTO sessions (user_id, token)
+#                                 VALUES (?, ?); add integration test for
+#                                 session creation path"
+#   --file:                Target source file path
+#   --line:                1-indexed line number to insert at
+#   --tickets-path:        Path to Tickets.json
 node .claude/scripts/tickets/insert-stub.js \
-  --file=src/example.rs --line=5 --ticket-ref=P3-1 \
-  --description="Will implement in P3-1" \
+  --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
+  --stub-reason="P1-3 blocked: auth module API changed (User::role is now enum), current signature login(&str) incompatible" \
+  --resolve-plan="Replace placeholder Ok(()) with DB query: INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test for session creation path" \
   --tickets-path=Tickets.json
 ```
 3. **Suppression and marker consistency**: Verify that there is no suppression without `[::STUB::]`, and no `[::STUB::]` without suppression
@@ -111,7 +124,7 @@ node .claude/scripts/tickets/malfeasance-create.js "<file>" <line> "<description
 For stubs that do not specify a resolution in a subsequent ticket, take the following actions:
 
 1. **Attempt to resolve**: If the current codebase state allows replacement with actual implementation, resolve on the spot
-2. **Unresolvable**: If the following reasons apply, use `insert-stub.js --ticket-ref=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket
+2. **Unresolvable**: If the following reasons apply, use `insert-stub.js --resolve-by-ticket=<EXISTING_TICKET_KEY>` to add the marker referencing an existing ticket
    - Cannot be resolved until a subsequent ticket is implemented
    - Should not be addressed now (out of scope, too risky, etc.)
 
