@@ -1,3 +1,4 @@
+
 #!/usr/bin/env node
 // [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
 
@@ -28,7 +29,9 @@ let CB;
 
 // [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
 function assert(condition, message) {
+// [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
 }
@@ -114,6 +117,21 @@ try {
   ] };
   const keys = collectReviewedTicketKeys(mockTickets);
   assert(keys.length === 0, 'empty array when no reviewed');
+})();
+
+(function testC001Remanded() {
+  console.log('  ── C001 Remanded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'remanded', title: 'R' },
+      { id: 2, status: 'reviewed', title: 'V' },
+      { id: 3, status: 'todo', title: 'T' }
+    ] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 2, '2 tickets (reviewed + remanded)');
+  assert(keys.includes('P0-1'), 'remanded ticket included');
+  assert(keys.includes('P0-2'), 'reviewed ticket included');
 })();
 
 // ======================================================================

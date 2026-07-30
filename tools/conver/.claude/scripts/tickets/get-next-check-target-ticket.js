@@ -210,12 +210,23 @@ function removeCmdsFile() {
 }
 
 /**
- * Remove the _tmp-omissions-*.json file.
+ * Copy _tmp-omissions-*.json to OMISSIONS-<timestamp>.json, then remove the tmp file.
+ * The OMISSIONS file is the deliverable of /find-omissions.
  */
-// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103|PX-105) --for-spec --no-implementation-order`.
 function removeOmitsFile() {
   const omissions = findLatestTmpOmissions();
-  if (omissions) { try { fs.unlinkSync(omissions); } catch (e) { /* ignore */ } }
+  if (!omissions) return;
+  // Extract timestamp from _tmp-omissions-<YYYYMMDDhhmmss>.json
+  const basename = path.basename(omissions);
+  const match = basename.match(/^_tmp-omissions-(\d{14})\.json$/);
+  const timestamp = match ? match[1] : new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  // Copy to OMISSIONS-<timestamp>.json before deleting
+  const omitsPath = path.resolve('OMISSIONS-' + timestamp + '.json');
+  try {
+    fs.copyFileSync(omissions, omitsPath);
+  } catch (e) { /* ignore copy failure */ }
+  try { fs.unlinkSync(omissions); } catch (e) { /* ignore */ }
 }
 
 // -- CLI entry point --
@@ -330,7 +341,9 @@ function main() {
 module.exports = {
   popNextEntry,
   setTicketRemanded,
-  buildPrefixMessage
+  buildPrefixMessage,
+  removeOmitsFile,
+  removeCmdsFile
 };
 
 // Run as CLI

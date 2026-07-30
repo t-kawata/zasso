@@ -13761,7 +13761,7 @@
         {
           "id": 105,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "Fix evidence design: AI provides line, script auto-extracts codes from source file",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/105-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "PX-104 implemented evidence.codes but made the wrong design choice.\n\n### Goal\nFix the evidence design: AI provides line, script extracts codes from the actual source file.\n\n### Purpose\nAI naturally knows the line number from source analysis. Requiring codes forces the AI to manually copy code into JSON, which is error-prone and wasteful. The script should automate this extraction.\n\n### Motivation\nDuring real /find-omissions usage, the AI reads source files and identifies problematic lines. It should provide those line numbers, and the script should read the actual file content at those lines. This is exactly the pattern already used in create-tmp-omissions.js extractCodes().\n\n### Constraints\n- extractCodes() must match create-tmp-omissions.js behavior (read 3 lines from file at line).\n- File paths are resolved relative to CWD (same as create-tmp-omissions.js).\n- If the file does not exist or cannot be read, the script must error out — no silent fallback.",
@@ -13817,12 +13817,12 @@
               "invariant": "Explicit --tmp-omissions= flag still works as override"
             }
           ],
-          "notes": "- [Steps] 1) Add extractCodes(), 2) Update validateFoundOmissions() to accept line, reject codes, 3) Update main() to call extractCodes(), 4) Remove silent file creation fallback, 5) Update tests, 6) Update find-omissions.md.\n- [Risks] Low — contained within add-omission-ticket.js.\n- [Caveats] extractCodes() must handle file paths relative to CWD. If the source file is not found, the error message should include the resolved path.\n- [Open items] None.\n- [Future] Consider making the number of extracted lines configurable (currently 3).\nImplementation summary:\n- Modified: add-omission-ticket.js (validateFoundOmissions, +extractCodes(), main() line→codes, no silent creation)\n- Updated: tests (61 passed — 2 new extractCodes tests)\n- Test results: 61 tests passed (59 original + 2 new)",
+          "notes": "- [Steps] 1) Add extractCodes(), 2) Update validateFoundOmissions() to accept line, reject codes, 3) Update main() to call extractCodes(), 4) Remove silent file creation fallback, 5) Update tests, 6) Update find-omissions.md.\n- [Risks] Low — contained within add-omission-ticket.js.\n- [Caveats] extractCodes() must handle file paths relative to CWD. If the source file is not found, the error message should include the resolved path.\n- [Open items] None.\n- [Future] Consider making the number of extracted lines configurable (currently 3).\nImplementation summary:\n- Modified: add-omission-ticket.js (validateFoundOmissions, +extractCodes(), main() line→codes, no silent creation)\n- Updated: tests (61 passed — 2 new extractCodes tests)\n- Test results: 61 tests passed (59 original + 2 new)\nReview report:\n- Status gate: done\n- Crimes: 0\n- AMBIGUOUS markers: 0\n- Static quality check: passed\n- Translatability: all verb phrase function names (extractCodes, validateFoundOmissions, lookupTicket)\n- Tests: 61/61 passed\n- Implementation completeness: 100% (line→codes extraction, no silent file creation)",
           "invariants": "- [Normal] evidence always has line (number) at input, codes (string) at output.\n- [Error] If extractCodes fails (file not found, unreadable), nothing is written.\n- [Internal state] The input line is consumed and removed during extraction.\n- [Boundary] extractCodes returns 1-3 lines depending on available lines from start position.",
           "testExceptions": [
             "**Item:** Verifying extractCodes reads the correct 3 lines when file is concurrently modified\n  **Reason:** cannot test concurrent modification. This is not a design defect; the read is atomic at invocation time."
           ],
-          "instrumentation": "- [Logging] Console.error with prefix [add-omission-ticket].\n- [Metrics] None.\n- [Error tracking] File read errors print the file path and OS error.\n- [Health check] N/A.",
+          "instrumentation": "- [Logging] Console.error with prefix [add-omission-ticket].\n- [Metrics] None.\n- [Error tracking] File read errors print the file path and OS error.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: all 61 tests passed",
           "investigation": "- create-tmp-omissions.js already has extractCodes() at line 134. It reads 3 lines from the file using fs.readFileSync and line splitting.\n- Current validateFoundOmissions() (line 126-130) checks: e.file (string), e.codes (non-empty string). Must revert to: e.file (string), e.line (number).\n- Current main() --ticket-key validates foundOmissions then directly appends. Must add: iterate evidence[], call extractCodes() for each, replace line with codes.\n- findLatestTmpOmissions() currently falls back to generating a new filename. Must change: if no file found, exit 1 with error.\n- All changes are in add-omission-ticket.js only. No changes to other scripts.",
           "boyScoutPlan": "- extractCodes() should be a pure function that takes file path and line, returns string. Makes it testable without file I/O mocking.\n- Consistent with create-tmp-omissions.js extractCodes() — same signature, same behavior.\n- Keep the extraction logic simple: split by newline, slice 3 lines, join back.",
           "created_at": "2026-07-30",
@@ -13858,7 +13858,8 @@
               "after": "errors out with clear message",
               "description": "No silent file creation — user must run get-next-check-target-ticket.js first"
             }
-          ]
+          ],
+          "completedAt": "2026-07-30"
         }
       ]
     },

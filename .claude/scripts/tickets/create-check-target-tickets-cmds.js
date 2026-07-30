@@ -31,7 +31,7 @@ const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-conte
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
  * @returns {string[]} — Reviewed ticket key strings
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102|PX-103) --for-spec --no-implementation-order`.
 function collectReviewedTicketKeys(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];

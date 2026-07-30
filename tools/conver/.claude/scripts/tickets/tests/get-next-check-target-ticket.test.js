@@ -18,6 +18,7 @@ const os = require('os');
 let popNextEntry;
 let setTicketRemanded;
 let buildPrefixMessage;
+let removeOmitsFile;
 
 let passed = 0;
 let failed = 0;
@@ -41,6 +42,7 @@ try {
   popNextEntry = mod.popNextEntry;
   setTicketRemanded = mod.setTicketRemanded;
   buildPrefixMessage = mod.buildPrefixMessage;
+  removeOmitsFile = mod.removeOmitsFile;
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load get-next-check-target-ticket.js: ' + e.message + '\n');
@@ -196,6 +198,28 @@ try {
   popNextEntry(entries);
   assertStrictEqual(JSON.stringify(entries[0]), beforeJson, 'entry 0 unchanged');
   assertStrictEqual(JSON.stringify(entries[2]), beforeJson2, 'entry 2 unchanged');
+})();
+
+// ======================================================================
+// PX-105: removeOmitsFile copy-on-delete
+// ======================================================================
+
+(function testRemoveOmitsFileCopiesToOmits() {
+  console.log('  ── PX-105 removeOmitsFile creates OMISSIONS ──');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px105-'));
+  const cwd = process.cwd();
+  process.chdir(tmpDir);
+  const ts = '20260730120000';
+  const origContent = JSON.stringify({ phases: [{ id: -1, tickets: [{ id: 1, title: 'Omission' }] }] });
+  fs.writeFileSync('_tmp-omissions-' + ts + '.json', origContent);
+  removeOmitsFile();
+  assert(!fs.existsSync('_tmp-omissions-' + ts + '.json'), 'tmp file deleted');
+  assert(fs.existsSync('OMISSIONS-' + ts + '.json'), 'OMISSIONS file created');
+  const copied = fs.readFileSync('OMISSIONS-' + ts + '.json', 'utf8');
+  assertStrictEqual(copied, origContent, 'content preserved');
+  fs.unlinkSync('OMISSIONS-' + ts + '.json');
+  fs.rmdirSync(tmpDir);
+  process.chdir(cwd);
 })();
 
 // ======================================================================

@@ -176,8 +176,8 @@ echo '[{"evaluations":[{
   "passed": false,
   "reason": "Contract C001 precondition: input must be non-empty. Code check exists at src/validation.rs:25 but no test exercises empty input. If the check were removed, no test would fail.",
   "evidence": [
-    {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
-    {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
+    {"file": "src/validation.rs", "line": 25},
+    {"file": "tests/validation.rs", "line": 44}
   ]
 }]}]' | node .claude/scripts/tickets/add-omission-ticket.js \
   --ticket-key=P0-4
@@ -198,7 +198,7 @@ Criterion C on same contract:
 
 - `passed` must be a **boolean**. `true` = no issue found. `false` = omission found.
 - `reason` must cite **specific file + surrounding code** evidence. "The code looks correct" is forbidden.
-- `evidence` must be an array of `{file: string, codes: string}` objects — no free text, no code snippets.
+- `evidence` must be an array of `{file: string, line: number}` objects — no free text, no code snippets.
 - If `passed = false`, the `reason` must explain **what is missing** and **what should exist**, in a self-contained way.
 - **Do NOT construct a single JSON with multiple evaluations** unless you discovered them simultaneously and they share the same `severity`/`recommendation`. When in doubt, make separate calls.
 
@@ -215,38 +215,14 @@ echo '[{
     "passed": false,
     "reason": "No test passes an empty string to verify the non-empty precondition. The check exists at src/validation.rs:25 but no test would catch its removal. A test with input=\"\" should assert Err(ValidationError::EmptyInput).",
     "evidence": [
-      {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
-      {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"},
-      {"file": "tests/validation.rs", "codes": "let result = validate(&input);"}
+      {"file": "src/validation.rs", "line": 25},
+      {"file": "tests/validation.rs", "line": 44},
+      {"file": "tests/validation.rs", "line": 60}
     ]
   }]
 }]' | node .claude/scripts/tickets/add-omission-ticket.js \
   --ticket-key=P0-4
 ```
-
-**What happens:** The script looks for an existing clone of P0-4 in `_tmp-omissions-*.json`.  
-→ No clone exists → creates one with `originalTicketKey: "P0-4"`, deep-clones all P0-4 fields, attaches this foundOmission.
-
-#### Second omission found later (same ticket, contract C001, criterion A)
-
-```bash
-echo '[{
-  "evaluations": [{
-    "criterion": "A",
-    "passed": false,
-    "reason": "Contract C001 precondition says 'input ≤ 255 chars' but the test only uses 'John Doe' (8 chars). No test exercises boundary values (255, 256, 0). The precondition is not fully translated into tests.",
-    "evidence": [
-      {"file": "src/validation.rs", "codes": "fn validate(input: &str) -> Result<..>","},
-      {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
-    ]
-  }]
-}]' | node .claude/scripts/tickets/add-omission-ticket.js \
-  --ticket-key=P0-4
-```
-
-**What happens now:** The script finds the existing clone with `originalTicketKey: "P0-4"`.  
-→ Appends this second foundOmission to its `foundOmissions[]` array.  
-→ The clone now has **2 entries** in `foundOmissions[]`. The original P0-4 in Tickets.json is untouched.
 
 #### Multiple evaluations in one call (for multiple criteria on the same contract)
 
@@ -262,8 +238,8 @@ echo '[{
       "passed": false,
       "reason": "Precondition 'input must be non-empty' is checked in code (src/validation.rs:25) but no test exercises an empty string. The precondition boundary is not tested at all.",
       "evidence": [
-        {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
-        {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
+        {"file": "src/validation.rs", "line": 25},
+        {"file": "tests/validation.rs", "line": 44}
       ]
     },
     {
@@ -271,9 +247,9 @@ echo '[{
       "passed": false,
       "reason": "If the empty-string check at src/validation.rs:25 were removed, no existing test would fail. All tests pass valid inputs only.",
       "evidence": [
-        {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
-        {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"},
-        {"file": "tests/validation.rs", "codes": "let result = validate(&input);"}
+        {"file": "src/validation.rs", "line": 25},
+        {"file": "tests/validation.rs", "line": 44},
+        {"file": "tests/validation.rs", "line": 60}
       ]
     }
   ]
@@ -300,77 +276,11 @@ Run Step 1 again to get the next ticket. Continue until you see:
 All tickets inspected.
 ```
 
-### Step 7 — Finalize (after all tickets are inspected)
-
-Merge all omission tickets into Tickets.json:
-
-```bash
-node .claude/scripts/tickets/merge-omissions-to-tickets.js
-```
-
-This:
-1. Reads `_tmp-omissions-*.json`
-2. Validates all `foundOmissions` arrays
-3. Groups tickets by their target `phaseId`
-4. Assigns sequential ticket IDs (no conflicts with existing)
-5. Appends them into Tickets.json
-6. Creates any missing phases automatically
-
-### Step 8 — Clean up (optional)
+### Step 7 — Clean up
 
 ```bash
 node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 ```
 
-Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.
-
-## foundOmissions Schema Reference
-
-```typescript
-interface FoundOmission {
-  evaluations: {
-    criterion: "A" | "B" | "C";     // (required) Which criterion
-    passed: boolean;                   // (required) true = no issue, false = omission
-    reason: string;                    // (required) What is wrong, with file + codes evidence
-    evidence: {
-      file: string;                    // (required) Source file path
-      codes: string;                   // (required) Surrounding source code (3 lines recommended)
-    }[];
-  }[];
-  severity?: "critical" | "major" | "minor";  // (optional)
-  recommendation?: string;                     // (optional) How to fix
-}
-```
-
-The `add-omission-ticket.js --ticket-key` validates that all required fields are present, `passed` is boolean, `criterion` is A/B/C, and `codes` is a non-empty string.
-
-## Error Handling
-
-| Scenario | What happens |
-|----------|-------------|
-| No reviewed tickets in Tickets.json | Script exits 1 with "No reviewed or remanded tickets found" |
-| All tickets already inspected | Prints "All tickets inspected." and exits 0 |
-| Tickets.json not found | Exits 1 with error |
-| Child process fails (create-tmp-omissions, etc.) | Exits 1 with child process stderr |
-| Invalid foundOmissions (missing fields) | add-omission-ticket.js exits 1 with specific field error |
-| Invalid _tmp-omissions format | merge-omissions-to-tickets.js exits 1 with validation error |
-
-## How remanded Status Affects Re-inspection
-
-When a ticket is inspected, its status changes to `remanded`. The cmds file includes BOTH `reviewed` AND `remanded` tickets. This means:
-
-- **First pass**: All `reviewed` tickets are inspected → become `remanded`
-- **Second pass**: `remanded` tickets are inspected again (if you re-generate the cmds file)
-- **Idempotency**: Re-running the pipeline re-inspects previously inspected tickets, allowing you to verify that past omissions have been fixed
-
-If you need to re-inspect only new `reviewed` tickets, delete the existing cmds file and let it be re-created from the current Tickets.json state.
-
-## Dependencies
-
-| Script | Ticket | Purpose |
-|--------|--------|---------|
-| `create-tmp-omissions.js` | PX-97 | Collect STUB + non-reviewed tickets |
-| `create-check-target-tickets-cmds.js` | PX-98 | Build reviewed/remanded command list |
-| `add-omission-ticket.js` | PX-100 | Append validated omission tickets |
-| `get-next-check-target-ticket.js` | PX-101 | Orchestrate the inspection loop |
-| `merge-omissions-to-tickets.js` | PX-102 | Merge omissions into Tickets.json |
+Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
+Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
