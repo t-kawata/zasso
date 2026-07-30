@@ -24,7 +24,10 @@ let main;
 let passed = 0;
 let failed = 0;
 
+let CB;
+
 // [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -48,6 +51,15 @@ try {
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load create-check-target-tickets-cmds.js: ' + e.message + '\n');
+  console.log('Passed: ' + passed + '\nFailed: ' + failed + '\n');
+  process.exit(1);
+}
+
+try {
+  CB = require('../list-phases-and-tickets').CB;
+} catch (e) {
+  failed++;
+  console.log('  ✗ Failed to load list-phases-and-tickets.js: ' + e.message + '\n');
   console.log('Passed: ' + passed + '\nFailed: ' + failed + '\n');
   process.exit(1);
 }
@@ -121,6 +133,7 @@ try {
   assert(cmd.includes('show-ticket-context.js'), 'contains script name');
   assert(cmd.includes('--ticket-key=P3-2'), 'contains ticket key');
   assert(cmd.includes('--for-spec'), 'contains --for-spec flag');
+  assert(cmd.includes('--no-implementation-order'), 'contains --no-implementation-order flag');
 })();
 
 (function testC002Invariant() {
@@ -185,6 +198,33 @@ try {
   assert(typeof content[0].cmd === 'string', 'cmd is string');
   fs.unlinkSync(outFile);
   fs.rmdirSync(tmpDir);
+})();
+
+// ======================================================================
+// PX-99: CB constant — remanded status
+// ======================================================================
+
+(function testCBMembership() {
+  console.log('  ── PX-99 CB Membership ──');
+  assert(typeof CB === 'object', 'CB is an object');
+  assert(CB.remanded === '[!]', 'remanded key has [!] symbol');
+})();
+
+(function testCBExistingKeys() {
+  console.log('  ── PX-99 CB Existing Keys ──');
+  assert(CB.todo === '[ ]', 'todo unchanged');
+  assert(CB.made === '[_]', 'made unchanged');
+  assert(CB.planned === '[|]', 'planned unchanged');
+  assert(CB.done === '[/]', 'done unchanged');
+  assert(CB.reviewed === '[x]', 'reviewed unchanged');
+})();
+
+(function testCBInvariant() {
+  console.log('  ── PX-99 CB Invariant ──');
+  const keys = Object.keys(CB);
+  assert(keys.length === 6, '6 total keys (5 existing + 1 new)');
+  assert(keys.includes('remanded'), 'remanded key present');
+  assert(!keys.includes('invalid_status'), 'no extra keys');
 })();
 
 // ======================================================================

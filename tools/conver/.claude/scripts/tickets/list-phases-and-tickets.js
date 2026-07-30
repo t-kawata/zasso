@@ -1,5 +1,13 @@
 const fs = require('fs'), path = require('path');
-const CB = { todo: '[ ]', made: '[_]', planned: '[|]', done: '[/]', reviewed: '[x]' };
+const CB = {
+  todo: '[ ]',
+  made: '[_]',
+  planned: '[|]',
+  done: '[/]',
+  reviewed: '[x]',
+  remanded: '[!]'
+};
+// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
 function main() {
   const jp = process.argv[2];
   if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
@@ -16,4 +24,4 @@ function main() {
   console.log(lines.join('\n'));
 }
 if (require.main === module) main();
-module.exports = { main };
+module.exports = { main, CB };

@@ -13064,6 +13064,356 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-29"
+        },
+        {
+          "id": 99,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix existing scripts for find-omissions pipeline (cmd template + remanded status)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/99-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "For find-omissions pipeline redesign, two existing scripts need minor modifications:\n\n### Goal\nEnsure find-omissions Step 3 (now integrated Step 1) produces inspection commands with correct flags and displays remanded ticket status.\n\n### Purpose\nThe --no-implementation-order flag reduces show-ticket-context.js output by suppressing the Implementation Order reference block. The [!] symbol distinguishes remanded tickets from other statuses in the phase listing.\n\n### Motivation\nWithout --no-implementation-order, the inspected contract is obscured by 70+ lines of Implementation Order boilerplate, making AI inspection harder. Without [!], the operator cannot tell which tickets have been sent back for re-inspection.\n\n### Constraints\n- No changes to existing status symbols (todo/made/planned/done/reviewed). Only add remanded.\n- No breaking changes to existing buildCommand() output format. Only append flag.\n- Both scripts must remain CommonJS (no ESM migration).",
+          "scope": [
+            "Modify SHOW_TICKET_CMD_TEMPLATE in create-check-target-tickets-cmds.js to include --no-implementation-order",
+            "Add remanded status mapping [!] in list-phases-and-tickets.js CB constant",
+            "Update existing tests for create-check-target-tickets-cmds.js to verify the new cmd template",
+            "No breaking changes to existing behavior",
+            "**Scope of changes:**\n  - [File/module path] .claude/scripts/tickets/create-check-target-tickets-cmds.js (line 23)\n  - [Action] modify constant string\n  - [Detail] SHOW_TICKET_CMD_TEMPLATE gains --no-implementation-order flag\n  - [Before → After] buildCommand() output gains an extra CLI flag argument; existing consumers unaffected\n  - [API change] None — function signature buildCommand(ticketKey) unchanged\n  - [Schema change] None\n  - [Config change] None\n  - [Dependency] None",
+            "**Out of scope:**\n  - [Excluded] Adding --no-implementation-order to show-ticket-context.js\n  - [Why] The flag already exists. PX-101 handles actual invocation.",
+            "**Affected areas:**\n  - [Component] get-next-check-target-ticket.js (planned PX-101)\n  - [Nature] cmd strings change format — but PX-101 only forwards to child_process\n  - [Change needed] N — PX-101 consumes cmd strings as-is"
+          ],
+          "testUnit": [
+            "UT: [Normal] buildCommand(\"P1-2\") returns string containing --no-implementation-order flag",
+            "UT: [Error] collectReviewedTicketKeys() with no reviewed tickets returns empty array (unchanged contract)",
+            "UT: [Boundary] CB constant contains key remanded with value [!] and existing keys remain intact",
+            "UT: [Invariant] Existing CB status keys (todo/made/planned/done/reviewed) are not modified by adding remanded"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] create-check-target-tickets-cmds.js parses Tickets.json phases[].tickets[].status and filters by === reviewed",
+            "IT: [Integration point] list-phases-and-tickets.js reads Tickets.json and maps each ticket.status to CB constant symbol",
+            "IT: [Verification] Verify that --no-implementation-order is present in the generated cmd string",
+            "IT: [Verification] Verify that remanded ticket displays as [!] in terminal output",
+            "IT: [Prerequisites] Tickets.json must be valid JSON with phases[].tickets[] array",
+            "IT: [Prerequisites] A test Tickets.json with known reviewed count and one remanded ticket",
+            "IT: [Related tickets] PX-98 (original create-check-target-tickets-cmds implementation)",
+            "IT: [Related tickets] PX-101 (orchestrator that consumes the output)"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/create-check-target-tickets-cmds.js",
+            ".claude/scripts/tickets/list-phases-and-tickets.js",
+            ".claude/scripts/tickets/tests/create-check-target-tickets-cmds.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy: Both scripts are modified and existing tests pass",
+            "Happy: create-check-target-tickets-cmds.js outputs commands with --no-implementation-order",
+            "Happy: list-phases-and-tickets.js displays [!] for remanded status",
+            "Error: remanded status without tickets shows no regression",
+            "Edge: empty reviewed tickets array still produces valid output",
+            "**[Happy path]** Run create-check-target-tickets-cmds.js against Tickets.json; verify output cmd string contains --no-implementation-order. Run list-phases-and-tickets.js with one ticket set to remanded; verify terminal shows [!].",
+            "**[Error case]** create-check-target-tickets-cmds.js with corrupt Tickets.json exits 1 with error message (pre-existing behavior, unchanged).",
+            "**[Edge case]** Tickets.json has 0 reviewed tickets; cmds output is empty array. list-phases-and-tickets.js shows all tickets as original status symbols."
+          ],
+          "notes": "Depends on nothing. Parallel with PX-100.\n\n- [Steps] 1) Edit SHOW_TICKET_CMD_TEMPLATE, 2) Add remanded to CB, 3) Update test assertions, 4) Run tests.\n- [Risks] Minimal — single-line edits.\n- [Caveats] CB is const — must add in same object literal.\n- [Open items] None.\n- [Future] Consider making CB extensible via config.\nImplementation summary:\n- Changed files: 3\n- Key changes: SHOW_TICKET_CMD_TEMPLATE gains --no-implementation-order; CB gains remanded:[!]\n- Test results: 41 tests passed (30 existing + 1 new assertion + 10 new CB tests)\nReview report:\n- Status gate: done\n- Crimes: 0\n- STUBs: 0 in scope (3 unrelated)\n- Static quality check: passed\n- Translatability: no issues (verb phrase function names, no generic variables)\n- Tests: 41/41 passed\n- Implementation completeness: 100% (template flag, remanded status, existing tests updated)",
+          "invariants": "- [Normal] buildCommand() always returns a string containing --for-spec.\n- [Error] On parse error, scripts exit 1 with stderr. CB map is never consulted.\n- [Internal state] CB map is immutable const, never modified at runtime.\n- [Boundary] CB map has exactly one symbol per status key.",
+          "testExceptions": [
+            "**Item:** Terminal alignment of [!] symbol\n  **Reason:** cannot test with automated assertion — depends on terminal font metrics. This is not a design defect; it is a platform rendering characteristic.\n  **Alt verification:** Manual visual inspection in terminal after green tests pass.",
+            "**Item:** Regression-free behavior confirmation\n  **Reason:** impossible to test across all 135 tickets via unit test. This is not a design defect; it stems from test isolation boundaries.\n  **Alt verification:** The existing 30-test suite (unchanged) continues to pass."
+          ],
+          "instrumentation": "- [Logging] No changes.\n- [Metrics] No changes.\n- [Error tracking] No changes.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: all 41 tests passed",
+          "investigation": "- create-check-target-tickets-cmds.js line 23: SHOW_TICKET_CMD_TEMPLATE lacks --no-implementation-order. buildCommand() (line 60) does simple .replace().\n- list-phases-and-tickets.js line 2: CB = { todo: [ ], made: [_], planned: [|], done: [/], reviewed: [x] }. No remanded key. CB[t.status] fallback at line 13 uses CB.todo — remanded would show as [ ].\n- Existing test file has 30 tests. Must verify no pre-existing assertion checks exact cmd string.",
+          "boyScoutPlan": "- Extract CB const to multi-line format for readability. Use trailing commas.\n- buildCommand() .replace() is simple and readable. No refactor needed.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "buildCommand output format (create-check-target-tickets-cmds.js)",
+              "precondition": "ticketKey is a non-empty string matching P{n}-{m} or PX-{m} format",
+              "postcondition": "Returns a string starting with \"node .claude/scripts/tickets/show-ticket-context.js\" and containing both --for-spec and --no-implementation-order",
+              "invariant": "Return value is always a string; never returns null/undefined/object"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "CB map completeness (list-phases-and-tickets.js)",
+              "precondition": "Tickets.json is valid JSON with status fields",
+              "postcondition": "Every ticket.status maps to a display symbol; remanded maps to [!]",
+              "invariant": "CB map is frozen (immutable const); existing keys are never modified"
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] buildCommand(\"P3-2\") returns a string\n  ```js\n  const cmd = buildCommand(\"P3-2\");\n  assert(typeof cmd === \"string\", \"command is string\");\n  assert(cmd.length > 0, \"command is non-empty\");\n  ```",
+            "UT: [C001-Postcondition] buildCommand(\"P3-2\") contains both --for-spec and --no-implementation-order\n  ```js\n  const cmd = buildCommand(\"P3-2\");\n  assert(cmd.includes(\"--no-implementation-order\"), \"contains --no-implementation-order\");\n  assert(cmd.includes(\"--for-spec\"), \"contains --for-spec\");\n  assert(cmd.includes(\"show-ticket-context.js\"), \"contains script name\");\n  ```",
+            "UT: [C001-Invariant] buildCommand always returns string regardless of input\n  ```js\n  [\"P0-1\", \"PX-10\", \"P12-3\"].forEach(key => {\n    const cmd = buildCommand(key);\n    assert(typeof cmd === \"string\", \"returns string for \" + key);\n  });\n  ```",
+            "UT: [C002-Precondition] CB constant exists and has expected keys\n  ```js\n  const CB = { todo: \"[ ]\", made: \"[_]\", planned: \"[|]\", done: \"[/]\", reviewed: \"[x]\", remanded: \"[!]\" };\n  assert(CB.remanded === \"[!]\", \"remanded key has [!] symbol\");\n  ```",
+            "UT: [C002-Postcondition] CB maps all known statuses including remanded\n  ```js\n  const CB = { todo: \"[ ]\", made: \"[_]\", planned: \"[|]\", done: \"[/]\", reviewed: \"[x]\", remanded: \"[!]\" };\n  assert(CB.todo === \"[ ]\", \"todo mapped\");\n  assert(CB.remanded === \"[!]\", \"remanded mapped\");\n  ```",
+            "UT: [C002-Invariant] Existing CB keys are not modified by adding remanded\n  ```js\n  const CB = { todo: \"[ ]\", made: \"[_]\", planned: \"[|]\", done: \"[/]\", reviewed: \"[x]\", remanded: \"[!]\" };\n  assert(Object.keys(CB).length === 6, \"6 total keys (5 existing + 1 new)\");\n  assert(CB.todo === \"[ ]\", \"todo unchanged\");\n  assert(CB.made === \"[_]\", \"made unchanged\");\n  assert(CB.planned === \"[|]\", \"planned unchanged\");\n  assert(CB.done === \"[/]\", \"done unchanged\");\n  assert(CB.reviewed === \"[x]\", \"reviewed unchanged\");\n  ```"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "SHOW_TICKET_CMD_TEMPLATE without --no-implementation-order",
+              "after": "SHOW_TICKET_CMD_TEMPLATE with --no-implementation-order",
+              "description": "Append --no-implementation-order flag to show-ticket-context.js command template"
+            },
+            {
+              "before": "CB: one-line const with 5 entries",
+              "after": "CB: multi-line const with 6 entries including remanded",
+              "description": "Add remanded: [!] to CB status symbol map; export CB for testing"
+            }
+          ],
+          "completedAt": "2026-07-30"
+        },
+        {
+          "id": 100,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Create add-omission-ticket.js for appending omission tickets to _tmp-omissions.json",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/100-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "When AI inspection in the find-omissions pipeline finds a ticket whose contracts are not satisfied by tests (criteria A/B/C), the finding must be recorded as a new omission ticket in _tmp-omissions-*.json.\n\n### Goal\nProvide a structural quality gate for appending omission tickets — every appended ticket must match /make-ticket level precision.\n\n### Purpose\nPrevent the find loop from diverging. A sloppy omission ticket inherits the same defect it was meant to catch, so the script must validate structural completeness before writing.\n\n### Motivation\nWithout this gate, AI-inspected omission tickets would vary in quality, causing re-inspection churn and pipeline divergence.\n\n### Constraints\n- Must not modify existing tickets in _tmp-omissions. Only append.\n- Must not depend on external services (no HTTP, no AI). Pure Node.js file I/O.\n- Must preserve Tickets.json schema compatibility.",
+          "scope": [
+            "Create add-omission-ticket.js at .claude/scripts/tickets/add-omission-ticket.js",
+            "Accept --tmp-omissions=<path> and ticket JSON via stdin",
+            "Parse stdin as a ticket object and validate all required fields (title, background, scope, testUnit, acceptanceCriteria, invariants, contracts if applicable)",
+            "Append the valid ticket to the PX phase (phaseId=-1) of _tmp-omissions-*.json",
+            "If _tmp-omissions-*.json does not exist, create it from Tickets.json schema template",
+            "Reject tickets missing required fields with a clear error message",
+            "Reject empty scope/testUnit/acceptanceCriteria arrays",
+            "Preserve all existing tickets in _tmp-omissions-*.json when appending",
+            "Ensure the appended ticket has fromStub=false and stubs=[]",
+            "Output the updated file path on success",
+            "**Scope of changes:**\n  - [Path] .claude/scripts/tickets/add-omission-ticket.js (new file)\n  - [Action] create\n  - [Detail] Single Node.js script (CommonJS) that reads stdin, validates JSON schema, appends to tmp-omissions JSON file\n  - [Before → After] N/A (new file)\n  - [API] N/A (no public API — CLI stdin/stdout)\n  - [Schema] Follows Tickets.json schema with fromStub, stubs fields\n  - [Config] None\n  - [Dep] fs, path (Node built-ins only)",
+            "**Out of scope:**\n  - [Excluded] Integration with AI inspection (Step 3 logic)\n  - [Why] The AI inspection is done by the orchestrator (PX-101); this script is a pure data mutator",
+            "**Affected areas:**\n  - [Component] PX-101 orchestrator (get-next-check-target-ticket.js)\n  - [Nature] PX-101 calls this script when AI finds an omission; contract depends on add-omission-ticket rejecting invalid tickets\n  - [Change needed] N — PX-101 is designed to call this script after PX-100 is implemented"
+          ],
+          "testUnit": [
+            "UT: [Normal] Pipe valid ticket JSON with all required fields → ticket is appended to _tmp-omissions PX phase, returns updated file path",
+            "UT: [Normal] Append sequential tickets (3x) → all appear in order, no data corruption",
+            "UT: [Normal] _tmp-omissions file already exists with multiple phases → appended ticket goes to PX phase, other phases untouched",
+            "UT: [Error] Pipe empty string → rejected with Cannot parse ticket JSON from stdin error",
+            "UT: [Error] Pipe valid JSON but missing title field → rejected with Ticket missing required field: title",
+            "UT: [Error] Pipe valid JSON but scope is empty array → rejected with Ticket missing required field: scope (must have at least 1 entry)",
+            "UT: [Error] Pipe valid JSON but testUnit is [] → rejected with Ticket missing required field: testUnit",
+            "UT: [Error] Pipe valid JSON but acceptanceCriteria is [] → rejected with Ticket missing required field: acceptanceCriteria",
+            "UT: [Boundary] Pipe JSON with exactly 1 scope entry and 1 testUnit entry → accepted and appended",
+            "UT: [Boundary] Pipe JSON with null background → rejected with Ticket missing required field: background",
+            "UT: [Boundary] Pipe JSON with invariants as empty string → rejected with Ticket missing required field: invariants",
+            "UT: [Invariant] After append, fromStub is always false and stubs is always empty array",
+            "UT: [Invariant] Existing tickets in _tmp-omissions are never modified — check JSON.parse/stringify roundtrip of pre-existing tickets"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] stdin pipe → add-omission-ticket.js → _tmp-omissions-*.json file system write",
+            "IT: [Integration point] add-omission-ticket.js reads Tickets.json for template when _tmp-omissions does not exist",
+            "IT: [Verification] Pipe valid ticket then read the output file — verify PX phase contains the appended ticket with all original fields intact",
+            "IT: [Verification] Run with non-existent _tmp-omissions then verify the file was created from Tickets.json schema (has title, metadata, phases array)",
+            "IT: [Prerequisites] Tickets.json exists and is valid JSON",
+            "IT: [Prerequisites] A test Tickets.json fixture with known phase structure",
+            "IT: [Related tickets] PX-97 (create-tmp-omissions.js — schema convention)",
+            "IT: [Related tickets] PX-101 (orchestrator that calls this script)"
+          ],
+          "testExceptions": [
+            "**Item:** Verification that appended tickets prevent pipeline divergence\n  **Reason:** impossible to test statically — depends on AI inspection step. This is not a design defect; it is an architectural boundary between static validation and dynamic evaluation.\n  **Alt verification:** Structural validation of non-empty required fields provides strongest feasible static guarantee.",
+            "**Item:** Performance under very large _tmp-omissions (10,000+ tickets)\n  **Reason:** cannot test JSON.parse/writeFileSync memory pressure at extreme scale in unit test. This is not a design defect — domain constraints limit omission tickets to human-reviewable quantities (<100).\n  **Alt verification:** Performance test with 500 tickets."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/add-omission-ticket.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** Pipe valid ticket JSON via stdin → ticket appended to PX phase → file path printed to stdout",
+            "**[Happy path]** Run twice with different tickets → both appended, order preserved",
+            "**[Happy path]** _tmp-omissions missing → auto-created from Tickets.json template with one PX phase",
+            "**[Error case]** Invalid JSON stdin → rejected with Cannot parse error → file unchanged",
+            "**[Error case]** Missing title → rejected with specific field name in error → file unchanged",
+            "**[Error case]** Empty scope array → rejected → file unchanged",
+            "**[Edge case]** _tmp-omissions has existing PX phase with tickets → appended ticket gets auto-incremented ID",
+            "**[Edge case]** _tmp-omissions has no PX phase → PX phase is created",
+            "**[Edge case]** stdin JSON has extra fields beyond required → extra fields preserved, not stripped"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Input validation",
+              "precondition": "stdin contains valid JSON object",
+              "postcondition": "Ticket is written to _tmp-omissions-*.json PX phase or error is printed to stderr",
+              "invariant": "Existing tickets in _tmp-omissions-*.json are never modified or deleted"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Required fields",
+              "precondition": "Ticket has non-empty title, background, scope (array≥1), testUnit (array≥1), acceptanceCriteria (array≥1), invariants (non-empty string)",
+              "postcondition": "Ticket is accepted and appended",
+              "invariant": "fromStub is always false, stubs is always empty array"
+            }
+          ],
+          "notes": "- [Steps] 1) Create add-omission-ticket.js, 2) Write tests with mock fs, 3) Run tests, 4) Verify with real _tmp-omissions file.\n- [Risks] Low — pure file I/O, no external deps.\n- [Caveats] The --tmp-omissions= flag overrides auto-detection of latest _tmp-omissions-*.json. If not provided, auto-detect by sorting _tmp-omissions-*.json by timestamp.\n- [Open items] Should also support --tickets= for Tickets.json path. Yes, add for consistency.\n- [Future] Consider adding --dry-run flag to validate without writing.\nImplementation summary:\n- Created: add-omission-ticket.js (198 lines), add-omission-ticket.test.js (235 lines)\n- Exported functions: validateTicket(), appendTicket(), findOrCreateTmpOmissions(), formatTimestamp()\n- Validation: 6 required fields (title, background, scope, testUnit, acceptanceCriteria, invariants)\n- Test results: 34 tests passed (C001: 4, C002: 15, Edge: 12, File I/O: 3)\nReview report:\n- Status gate: done\n- Crimes: 0\n- STUBs: 0 in scope\n- Static quality check: passed\n- Translatability: no issues (verb phrase function names, immutable patterns via JSON.parse/stringify)\n- Tests: 34/34 passed\n- Implementation completeness: 100% (required-field validation, PX phase append, auto-create template, auto-increment ID)",
+          "invariants": "- [Normal] _tmp-omissions-*.json is valid JSON at all times (parseable by JSON.parse).\n- [Error] If stdin is invalid JSON or missing required fields, the output file is never touched (atomic append-or-reject).\n- [Internal state] The PX phase (phaseId=-1) always exists in _tmp-omissions. If not found on read, it is created.\n- [Boundary] Ticket IDs in PX phase auto-increment based on existing max(id) in that phase. No duplicate IDs.",
+          "instrumentation": "- [Logging] Console.error for diagnostics (similar to create-tmp-omissions.js convention).\n- [Metrics] None.\n- [Error tracking] Validation errors printed to stderr with context.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: all 34 tests passed",
+          "investigation": "- Analyzed create-tmp-omissions.js output format: phased JSON with phases[].tickets[]. Each ticket carries id, phaseId, status, title, background, scope, testUnit, etc.\n- The _tmp-omissions-*.json schema is identical to Tickets.json schema plus fromStub and stubs fields.\n- PX phase (phaseId=-1) is used for standalone/cross-cutting tickets.\n- Existing create-tmp-omissions.js enriches tickets via enrichTickets() which does deep-clone + field addition.\n- add-omission-ticket.js must NOT duplicate enrichTickets() logic — it appends raw tickets (already enriched by caller).\n- Validation target: title (non-empty string), background (non-empty string), scope (array with >=1 element), testUnit (array with >=1 element), acceptanceCriteria (array with >=1 element), invariants (non-empty string). contracts is optional but if present must be non-empty array.",
+          "boyScoutPlan": "- The script must follow the same conventions as create-tmp-omissions.js: CommonJS, no external deps, console.error for diagnostics, stdout for primary output.\n- Validation errors should be specific: print the field name that failed, not a generic error.\n- Use path.resolve() for all file paths to prevent CWD-relative bugs.\n- Use JSON.parse(JSON.stringify()) pattern for immutable read-modify-write of JSON data.",
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] Empty stdin pipe ('') is rejected\n  ```js\n  const result = processAndWrite(stdinData: \"\");\n  assert(result.error === \"Cannot parse ticket JSON from stdin\", \"empty stdin rejected\");\n  assert(result.written === false, \"no file written on empty stdin\");\n  ```",
+            "UT: [C001-Postcondition] Valid ticket JSON stdin → ticket appended to PX phase\n  ```js\n  const result = processAndWrite(stdinData: '{\"title\":\"T\",\"background\":\"B\",\"scope\":[\"s\"],\"testUnit\":[\"u\"],\"acceptanceCriteria\":[\"a\"],\"invariants\":\"i\"}');\n  assert(result.success === true, \"valid ticket accepted\");\n  assert(result.outputPhase === -1, \"appended to PX phase\");\n  ```",
+            "UT: [C001-Invariant] Existing tickets in tmp-omissions are preserved\n  ```js\n  const beforeCount = countTickets(outputJson);\n  const result = processAndWrite(validTicket);\n  const afterCount = countTickets(outputJson);\n  assert(afterCount === beforeCount + 1, \"exactly one new ticket, others unchanged\");\n  ```",
+            "UT: [C002-Precondition] Missing title field → rejected\n  ```js\n  const result = processAndWrite('{\"background\":\"B\",\"scope\":[\"s\"],\"testUnit\":[\"u\"],\"acceptanceCriteria\":[\"a\"],\"invariants\":\"i\"}');\n  assert(result.error.includes(\"title\"), \"missing title error mentions field name\");\n  assert(result.written === false, \"file not written\");\n  ```",
+            "UT: [C002-Precondition] Empty scope array → rejected\n  ```js\n  const result = processAndWrite('{\"title\":\"T\",\"background\":\"B\",\"scope\":[],\"testUnit\":[\"u\"],\"acceptanceCriteria\":[\"a\"],\"invariants\":\"i\"}');\n  assert(result.error.includes(\"scope\"), \"empty scope rejected\");\n  ```",
+            "UT: [C002-Precondition] Empty testUnit array → rejected\n  ```js\n  const result = processAndWrite('{\"title\":\"T\",\"background\":\"B\",\"scope\":[\"s\"],\"testUnit\":[],\"acceptanceCriteria\":[\"a\"],\"invariants\":\"i\"}');\n  assert(result.error.includes(\"testUnit\"), \"empty testUnit rejected\");\n  ```",
+            "UT: [C002-Postcondition] All required fields present → accepted\n  ```js\n  const ticket = {title:\"T\",background:\"B\",scope:[\"s\"],testUnit:[\"u\"],acceptanceCriteria:[\"a\"],invariants:\"i\"};\n  const result = processAndWrite(JSON.stringify(ticket));\n  assert(result.success === true, \"ticket with all fields accepted\");\n  ```",
+            "UT: [C002-Invariant] Appended ticket has fromStub=false and stubs=[]\n  ```js\n  const result = processAndWrite(validTicket);\n  assert(result.ticket.fromStub === false, \"fromStub is false\");\n  assert(Array.isArray(result.ticket.stubs) && result.ticket.stubs.length === 0, \"stubs is empty array\");\n  ```"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "(new file)",
+              "after": "add-omission-ticket.js",
+              "description": "Create script to append omission tickets to _tmp-omissions-*.json with required-field validation"
+            },
+            {
+              "before": "(new file)",
+              "after": "add-omission-ticket.test.js",
+              "description": "Create test suite with 34 tests covering C001-C002 contracts and edge cases"
+            }
+          ],
+          "completedAt": "2026-07-30"
+        },
+        {
+          "id": 101,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Create get-next-check-target-ticket.js with internal orchestration and find-omissions.md slash command",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/101-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "The find-omissions pipeline needs a unified orchestrator script that:\n\n1. Internally ensures _tmp-omissions-*.json exists (runs create-tmp-omissions.js if missing)\n2. Internally ensures _tmp-check-target-tickets-cmds-*.json exists (runs create-check-target-tickets-cmds.js if missing)\n3. Pops the first done:false entry, marks it done:true, sets ticket status to remanded in Tickets.json\n4. Actually executes show-ticket-context.js with --for-spec --no-implementation-order\n5. Prefixes stdout with progress message in English\n6. Supports --with-clean-trash flag to delete tmp files when all entries are done\n\n### Goal\nCreate a one-command entry point for AI-inspecting all reviewed tickets.\n\n### Purpose\nEliminate the need for the operator to manually orchestrate 3 separate scripts.\n\n### Motivation\nThe previous design required 3 separate steps with manual handoffs. Steps 1 and 2 are mechanical preconditions for Step 3, so they should be automatic.\n\n### Constraints\n- Must NOT modify existing scripts. Only invoke as child processes.\n- Must preserve JSON-based tmp file protocol.\n- Must remain CommonJS.\n- Flags must match existing conventions.",
+          "scope": [
+            "Create get-next-check-target-ticket.js at .claude/scripts/tickets/get-next-check-target-ticket.js",
+            "Auto-run create-tmp-omissions.js if _tmp-omissions-*.json does not exist",
+            "Auto-run create-check-target-tickets-cmds.js if _tmp-check-target-tickets-cmds-*.json does not exist",
+            "Pop first done:false entry from cmds array, mark done=true, persist",
+            "Set corresponding ticket status to remanded in Tickets.json",
+            "Actually execute show-ticket-context.js child process, capture stdout",
+            "Prefix stdout with English progress message: Total XX tickets to inspect. Inspecting ticket Y/ZZ.",
+            "Support --with-clean-trash flag to delete tmp files when all entries done",
+            "Support --tickets=<path> for custom Tickets.json path",
+            "Create find-omissions.md at .claude/commands/find-omissions.md documenting full pipeline up to integrated Step 1",
+            "Update find-omissions-step1-2-handoff.md to reflect the new unified architecture",
+            "**Scope of changes:**\n  - [Path] .claude/scripts/tickets/get-next-check-target-ticket.js (NEW)\n  - [Action] create\n  - [Detail] Single Node.js script that auto-detects missing tmp files, runs child processes, manages progress\n  - [Before] Operator manually ran create-tmp-omissions.js, then create-check-target-tickets-cmds.js, then show-ticket-context.js\n  - [After] One command drives the entire inspection loop automatically\n  - [API] CLI stdout: progress prefix + show-ticket-context.js output\n  - [Schema] cmds JSON format: [{done:boolean, cmd:string}] - unchanged\n  - [Config] --with-clean-trash flag (boolean, default false)\n  - [Dep] child_process (Node built-in)",
+            "**Out of scope:**\n  - [Excluded] AI inspection logic itself (criteria A/B/C evaluation)\n  - [Why] That is done by the human/AI operator reading the show-ticket-context.js output",
+            "**Affected areas:**\n  - [Component] create-tmp-omissions.js, create-check-target-tickets-cmds.js\n  - [Nature] These scripts gain an additional caller; no change to their own code or interfaces\n  - [Change needed] N - invoked as child processes, no code changes needed"
+          ],
+          "testUnit": [
+            "UT: [Normal] No _tmp-omissions-*.json exists → create-tmp-omissions.js child process is invoked, exits 0, and script proceeds to cmds check",
+            "UT: [Normal] No _tmp-check-target-tickets-cmds-*.json exists → create-check-target-tickets-cmds.js child process is invoked, exits 0, and script proceeds to pop",
+            "UT: [Normal] cmds file has 5 entries where first 3 have done:true and 4th has done:false → pops 4th entry, sets done:true, persists",
+            "UT: [Normal] After popping entry, Tickets.json matching ticket status is changed to remanded and persisted",
+            "UT: [Normal] show-ticket-context.js child process is invoked with --ticket-key=KEY --for-spec --no-implementation-order, stdout captured",
+            "UT: [Normal] Captured stdout is prefixed with \"Total 5 tickets to inspect. Inspecting ticket 4/5.\" (example)",
+            "UT: [Error] create-tmp-omissions.js child process exits 1 → script prints error and exits 1",
+            "UT: [Error] cmds file has all entries done:true → script prints \"All tickets inspected.\" and exits 0 without calling show-ticket-context.js",
+            "UT: [Error] --tickets=/nonexistent/path → script exits 1 with file not found error",
+            "UT: [Boundary] --with-clean-trash flag set and all entries done → removes _tmp-omissions-*.json and _tmp-check-target-tickets-cmds-*.json files",
+            "UT: [Boundary] --with-clean-trash flag set but entries remain → tmp files are NOT deleted",
+            "UT: [Boundary] Multiple _tmp-omissions-*.json files exist → picks the one with latest timestamp",
+            "UT: [Invariant] cmds file is never modified except for the single done:false → true transition per invocation",
+            "UT: [Invariant] Tickets.json is never modified except for the single status → remanded transition per invocation"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] get-next-check-target-ticket.js → child_process.execFileSync(create-tmp-omissions.js)",
+            "IT: [Integration point] get-next-check-target-ticket.js → child_process.execFileSync(create-check-target-tickets-cmds.js)",
+            "IT: [Integration point] get-next-check-target-ticket.js → child_process.execFileSync(show-ticket-context.js)",
+            "IT: [Verification] Full end-to-end: run get-next-check-target-ticket.js against a test Tickets.json with known reviewed count, verify output contains \"Total N tickets\" prefix and show-ticket-context.js output",
+            "IT: [Verification] Run with --with-clean-trash after exhausting all entries, verify tmp files are deleted",
+            "IT: [Prerequisites] Tickets.json must be valid JSON with at least one reviewed ticket",
+            "IT: [Prerequisites] No pre-existing _tmp-omissions or _tmp-check-target-tickets-cmds files (to test auto-creation)",
+            "IT: [Related tickets] PX-97 (create-tmp-omissions.js), PX-98 (create-check-target-tickets-cmds.js), PX-100 (add-omission-ticket.js)"
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/get-next-check-target-ticket.js",
+            ".claude/commands/find-omissions.md",
+            "docs/find-omissions-step1-2-handoff.md"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** Run with no pre-existing tmp files - creates both, pops first entry, displays show-ticket-context.js output with progress prefix",
+            "**[Happy path]** Run sequentially 3 times - each pops next unchecked entry, counter increments",
+            "**[Happy path]** Run with --with-clean-trash after last entry - tmp files deleted, exits 0",
+            "**[Error case]** Tickets.json has 0 reviewed tickets - prints All tickets inspected. and exits 0",
+            "**[Error case]** --tickets=/nonexistent/path - exits 1 with error",
+            "**[Edge case]** All entries already done - prints All tickets inspected. and exits 0 without calling show-ticket-context.js",
+            "**[Edge case]** --with-clean-trash but entries remain - tmp files preserved"
+          ],
+          "notes": "Depends on PX-100.\n\n- [Steps] 1) Create get-next-check-target-ticket.js, 2) Write tests, 3) Create find-omissions.md, 4) Update handoff doc, 5) Run all tests.\n- [Risks] Medium - 3 child processes, error handling per mode.\n- [Caveats] Must run from tools/conver/ directory.\n- [Open items] add-omission-ticket.js integration - done here because AI needs to record findings immediately.\n- [Future] Add --dry-run flag.\nImplementation summary:\n- Created: get-next-check-target-ticket.js (~260 lines), get-next-check-target-ticket.test.js (~200 lines)\n- Created: .claude/commands/find-omissions.md (slash command documentation)\n- Updated: docs/find-omissions-step1-2-handoff.md (architectural change)\n- Exported functions: popNextEntry(), setTicketRemanded(), buildPrefixMessage()\n- Test results: 24 tests passed (C001: 3, C002: 14, C003: 3, Edge: 4)\nReview report:\n- Status gate: done\n- Crimes: 0\n- STUBs: 0 in scope\n- Static quality check: passed\n- Translatability: no issues (self-documenting function names: ensureOmitsFileExists, popNextEntry, setTicketRemanded and others)\n- Tests: 24/24 passed\n- Implementation completeness: 100% (orchestrator pipeline, progress prefix, auto tmp-file creation, --with-clean-trash)",
+          "invariants": "- [Normal] cmds file has at most one done:false to done:true transition per invocation.\n- [Error] On child process failure, cmds file is NOT modified and Tickets.json status is NOT changed.\n- [Internal state] Progress counter Y/ZZ is 1-indexed position of popped entry.\n- [Boundary] Empty cmds array treated as all tickets inspected, exits cleanly.",
+          "testExceptions": [
+            "**Item:** Verifying --with-clean-trash file deletion\n  **Reason:** not testable in pure unit test — depends on filesystem state. This is not a design defect; it is an I/O boundary.\n  **Alt verification:** Integration test with temp directory fixture.",
+            "**Item:** Stdout prefix collision with child process\n  **Reason:** cannot test via assertion — prefix is prepended in orchestrator stdout, not injected into child. This is not a design defect; it is straightforward string concatenation.\n  **Alt verification:** Inspect stdout after running integration test."
+          ],
+          "instrumentation": "- [Logging] Console.error with prefix [get-next-check-target-ticket].\n- [Metrics] None.\n- [Error tracking] Child failures print stderr+exit code.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: all 24 tests passed",
+          "investigation": "- Analyzed create-tmp-omissions.js: produces _tmp-omissions-<YYYYMMDDhhmmss>.json with phased JSON structure.\n- Analyzed create-check-target-tickets-cmds.js: produces _tmp-check-target-tickets-cmds-<YYYYMMDDhhmmss>.json as [{done:false, cmd:string}].\n- show-ticket-context.js --ticket-key=KEY --for-spec --no-implementation-order outputs Markdown to stdout.\n- Tickets.json has 135 tickets, 133 reviewed (as of 2026-07-30). Only PX-97 and PX-98 are non-reviewed.\n- The cmds file for current Tickets.json would contain ~133 entries.\n- The handoff doc at docs/find-omissions-step1-2-handoff.md describes the old Step 1/Step 2 architecture and must be updated.",
+          "boyScoutPlan": "- get-next-check-target-ticket.js must use self-documenting function names: ensureOmitsFileExists(), ensureCmdsFileExists(), popNextEntry(), setTicketRemanded(), runShowTicketContext(), buildPrefixMessage().\n- Avoid deep nesting: use early returns for error cases.\n- Use named constants for file patterns: TMP_OMISSIONS_PATTERN, TMP_CMDS_PATTERN.\n- Error messages must include the exit code and stderr of failed child processes.\n- find-omissions.md must be readable as prose in English; use consistent section headers.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Temp file auto-creation",
+              "precondition": "_tmp-omissions-*.json does not exist in CWD",
+              "postcondition": "create-tmp-omissions.js child process is invoked; if it succeeds, script continues; if it fails, exits with error",
+              "invariant": "If create-tmp-omissions.js exits non-zero, no cmds or Tickets.json files are modified"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Cmd queue pop and progress tracking",
+              "precondition": "_tmp-check-target-tickets-cmds-*.json exists and has at least one done:false entry",
+              "postcondition": "The first done:false entry is set to done:true, persisted to file. Tickets.json status for that ticket is set to remanded.",
+              "invariant": "Exactly one entry per invocation transitions done:false to done:true"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "show-ticket-context execution",
+              "precondition": "A done:false entry was successfully popped and ticketKey is valid",
+              "postcondition": "show-ticket-context.js child process is executed with --ticket-key=KEY --for-spec --no-implementation-order. Stdout is captured.",
+              "invariant": "The popped entry always corresponds to a ticketKey that exists in Tickets.json"
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] No _tmp-omissions-*.json exists → ensureOmitsFileExists() returns null and invokes child process\n  ```js\n  const result = ensureOmitsFileExists(\"/nonexistent\");\n  assert(result === true, \"creates file via child process\");\n  ```",
+            "UT: [C001-Postcondition] ensureOmitsFileExists() success → returns true\n  ```js\n  const result = ensureOmitsFileExists(existingPath);\n  assert(result === true, \"returns true when file exists after creation\");\n  ```",
+            "UT: [C001-Invariant] ensureOmitsFileExists() child process fails → exits with error, files unmodified\n  ```js\n  assert.throws(() => ensureOmitsFileExists(\"/invalid\"), /create-tmp-omissions failed/);\n  ```",
+            "UT: [C002-Precondition] cmds file has 3 entries: done:true, done:false, done:false → popNextEntry() returns 2nd entry\n  ```js\n  const entry = popNextEntry(cmdEntries);\n  assert(entry.ticketKey === \"P1-2\", \"pops first done:false entry\");\n  ```",
+            "UT: [C002-Postcondition] popNextEntry() marks entry as done:true and persists\n  ```js\n  const result = popNextEntry(cmdEntries);\n  assert(result.entry.done === true, \"entry marked done:true\");\n  assert(modifiedCmds[1].done === true, \"file persisted with done:true\");\n  ```",
+            "UT: [C002-Postcondition] setTicketRemanded() updates Tickets.json status\n  ```js\n  const result = setTicketRemanded(ticketsData, \"P1-2\");\n  assert(result.ticket.status === \"remanded\", \"ticket status set to remanded\");\n  ```",
+            "UT: [C002-Invariant] All entries done:true → popNextEntry() returns null\n  ```js\n  const allDone = [{done:true},{done:true}];\n  const result = popNextEntry(allDone);\n  assert(result === null, \"null when no done:false entries remain\");\n  ```",
+            "UT: [C003-Precondition] Valid ticketKey → runShowTicketContext() returns stdout string\n  ```js\n  const stdout = runShowTicketContext(\"P0-1\");\n  assert(typeof stdout === \"string\", \"returns stdout string\");\n  ```",
+            "UT: [C003-Postcondition] show-ticket-context.js invoked with correct flags\n  ```js\n  const stdout = runShowTicketContext(\"P3-2\");\n  assert(stdout.includes(\"# P3-2\"), \"stdout contains ticket key heading\");\n  ```",
+            "UT: [C001/C003 Invariant] Prefix message format: Total N tickets to inspect. Inspecting ticket M/N.\n  ```js\n  const msg = buildPrefixMessage(5, 3);\n  assert(msg === \"Total 5 tickets to inspect. Inspecting ticket 3/5.\", \"correct format\");\n  ```"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "(new file)",
+              "after": "get-next-check-target-ticket.js",
+              "description": "Create orchestrator script for find-omissions pipeline with auto tmp-file creation, queue pop, and show-ticket-context execution"
+            },
+            {
+              "before": "(new file)",
+              "after": "get-next-check-target-ticket.test.js",
+              "description": "Create test suite with 24 tests covering C001-C003 pure functions"
+            },
+            {
+              "before": "(new file)",
+              "after": "find-omissions.md",
+              "description": "Create slash command documentation in .claude/commands/"
+            },
+            {
+              "before": "old 6-step architecture",
+              "after": "new single-step architecture",
+              "description": "Update handoff doc to reflect unified pipeline design"
+            }
+          ],
+          "completedAt": "2026-07-30"
         }
       ]
     },
