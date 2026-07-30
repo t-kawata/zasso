@@ -73,6 +73,7 @@ const AUTO_SIZE_DIVISOR = 7;
  * @property {boolean} dryRun         — --dry-run flag
  * @property {boolean} verbose        — --verbose flag
  * @property {boolean} rollback       — --rollback flag
+ * @property {boolean} withBackup     — --with-backup flag (create backup during rollback)
  */
 
 // ============================================================
@@ -105,6 +106,7 @@ function parseArguments(argv) {
     dryRun: false,
     verbose: false,
     rollback: false,
+    withBackup: false,
   };
 
   for (const arg of argv) {
@@ -128,9 +130,11 @@ function parseArguments(argv) {
       opts.verbose = true;
     } else if (arg === '--rollback') {
       opts.rollback = true;
+    } else if (arg === '--with-backup') {
+      opts.withBackup = true;
     } else {
       console.error('[ERROR] Unknown argument: ' + arg);
-      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--dry-run] [--verbose] [--rollback]');
+      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--dry-run] [--verbose] [--rollback] [--with-backup]');
       process.exit(2);
     }
   }
@@ -898,18 +902,20 @@ function runPhasifyOmissions(opts) {
       return;
     }
 
-    var rollbackTs = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
-    var rollbackBackup = path.join(path.dirname(opts.ticketsPath), 'tmp-Tickets-' + rollbackTs + '.json');
-    try { backupTickets(opts.ticketsPath, rollbackBackup); } catch (e) {
-      console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
-      process.exit(3);
+    if (opts.withBackup) {
+      var rollbackTs = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+      var rollbackBackup = path.join(path.dirname(opts.ticketsPath), 'tmp-Tickets-' + rollbackTs + '.json');
+      try { backupTickets(opts.ticketsPath, rollbackBackup); } catch (e) {
+        console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
+        process.exit(3);
+      }
     }
 
     try {
       atomicWrite(opts.ticketsPath, JSON.stringify(rollbackResult, null, 2) + '\n');
       console.log('');
       console.log('Rollback complete. Removed phases: ' + (mergeInfo.mergedPhaseIds || []).length);
-      console.log('Backup: ' + rollbackBackup);
+      if (opts.withBackup) console.log('Backup: ' + rollbackBackup);
     } catch (e) {
       console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
       process.exit(3);
