@@ -14685,7 +14685,7 @@
         {
           "id": 112,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "phasify-omissions move artifacts to omissions/ and tickets/ directories",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/112-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "Goal: phasify-omissions.js が生成する OMISSIONS-phasified-*.json を omissions/ に、Tickets-*.json（スナップショット）を tickets/ に移動する。\n\nPurpose: カレントディレクトリに散らばる中間生成物を整理し、プロジェクトルートを清潔に保つ。\n\nMotivation: PX-111 までで phasified 出力・Tickets スナップショットが増加。ルートが散らかる。\n\nConstraints:\n- 移動は atomicWrite 成功後のみ\n- ディレクトリなければ自動作成（recursive mkdir）\n- ベストエフォート、失敗時 console.warn\n- tmp-Tickets-*.json（rollback backup）は削除",
@@ -14721,9 +14721,9 @@
             "Error case: 移動失敗時も処理継続、console.warn 出力。",
             "Edge case: ディレクトリ既存時も正常動作。存在しないファイルの移動試行は警告なくスキップ。"
           ],
-          "notes": "- Implementation: (1) moveArtifacts() function (2) replace Step Q (3) tests\n- Risks: None — atomicWrite complete before move\n- Caveats: renameSync fails if src/dst on different filesystems. Always same FS within project.\n- Open items: None\n- Future: --keep-artifacts flag to skip move (not needed)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+moveArtifacts, replaced Step Q, exports)\n- MODIFIED: scripts.test.js (PX-112 tests)\n- Test results: 216/216 passed (5 PX-112-specific)",
+          "notes": "- Implementation: (1) moveArtifacts() function (2) replace Step Q (3) tests\n- Risks: None — atomicWrite complete before move\n- Caveats: renameSync fails if src/dst on different filesystems. Always same FS within project.\n- Open items: None\n- Future: --keep-artifacts flag to skip move (not needed)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+moveArtifacts, replaced Step Q, exports)\n- MODIFIED: scripts.test.js (PX-112 tests)\n- Test results: 216/216 passed (5 PX-112-specific)\nReview report:\n- Static quality check: 70 issues (pre-existing)\n- Translatability: no issues\n- Crimes: 0\n- Stubs: 3 (pre-existing, deferred)\n- Annotations: verified OK\n- Contracts: 100% fulfilled (1/1)\n- Tests: 216/216 PASS\n- Acceptance Criteria: phasified→omissions/, snapshot→tickets/, tmp-Tickets deleted",
           "invariants": "- [Normal condition] Source files must exist before rename. Target dir auto-created.\n- [Error invariant] Rename failure never affects Tickets.json or halts pipeline.\n- [Internal state invariant] moveArtifacts is pure I/O (no memory side effects).\n- [Boundary invariant] Non-existent source files silently skipped (already moved or not created).",
-          "instrumentation": "- Logging: each successful move logged to stdout. Failures to stderr.\n- Metrics: Count of files moved.\n- Error tracking: Console.warn per failed move.\n- Health check: Source files exist before move attempt.",
+          "instrumentation": "- Logging: each successful move logged to stdout. Failures to stderr.\n- Metrics: Count of files moved.\n- Error tracking: Console.warn per failed move.\n- Health check: Source files exist before move attempt.\nStatic quality check: 70 issues (all pre-existing). No new issues from PX-112.\nTranslatability: moveArtifacts is verb phrase. No single-letter vars.\nTests: 216/216 passed (5 PX-112-specific).\nDependencies: No new dependencies.",
           "investigation": "Key code patterns:\n\n1. Current Step Q (cleanup phase):\n   var filesToClean = [phasifiedOutputPath, backupPath];\n   cleanupFiles(filesToClean);\n   → Replace with: moveArtifacts()\n\n2. moveArtifacts() logic:\n   - mkdirSync(omissions, {recursive: true})\n   - if (phasifiedOutputPath exists) renameSync(phasifiedOutputPath, omissions/)\n   - mkdirSync(tickets, {recursive: true})\n   - if (snapshotPath exists) renameSync(snapshotPath, tickets/)\n   - if (backupPath exists) unlinkSync(backupPath)\n   - All wrapped in try-catch with console.warn\n\n3. fs.renameSync is atomic on same filesystem — src/dst share FS\n\n4. backupPath is tmp-Tickets-{ts}.json — still deleted (not moved)",
           "boyScoutPlan": "1. moveArtifacts() as a thin I/O function with best-effort semantics.\n2. Verb-prefix: moveArtifacts.\n3. All I/O failures are warnings, never crashes.\n4. mkdir recursive ensures no pre-requisite setup.\n5. Extracts hardcoded directory names to consts.",
           "contracts": [
@@ -14777,7 +14777,9 @@
               "after": "Tickets-*.json moved to tickets/ subdir",
               "description": "Project root stays clean"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-30"
         }
       ]
     },
