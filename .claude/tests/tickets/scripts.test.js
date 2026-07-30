@@ -18,6 +18,13 @@ function assertEq(actual, expected, message) {
   else { failed++; process.stdout.write(`  ✗ ${message} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}\n`); }
 }
 
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function assertOk(value, message) {
+  if (value) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
+  else { failed++; process.stdout.write(`  ✗ ${message} — got ${JSON.stringify(value)}\n`); }
+}
+
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 function runScript(scriptName, args, stdin) {
   const scriptPath = path.join(SCRIPTS_DIR, scriptName);
   const cmd = `node ${scriptPath} ${args || ''}`;
@@ -440,6 +447,143 @@ try {
     const result = runScript('resync-queue.js', '', null);
     assert(result.success === true, 'resyncs queue');
     assert(result.count >= 2, 'queue has tickets');
+  }
+
+  // ===============================================
+  // PX-106: Inspection Sentinel Idempotency — repairDuplicateSentinels / countInspectionSentinels
+  // ===============================================
+  console.log('\n## PX-106: sentinel idempotency\n');
+  // @verifies C106 — All contract elements (precondition, postcondition, invariant) tested below
+  {
+    const addOmissionPath = path.join(SCRIPTS_DIR, 'add-omission-ticket.js');
+    const createTmpPath = path.join(SCRIPTS_DIR, 'create-tmp-omissions.js');
+    const addModule = require(addOmissionPath);
+    const createTmpModule = require(createTmpPath);
+
+    // -- countInspectionSentinels --
+    const { countInspectionSentinels, repairDuplicateSentinels } = addModule;
+
+    assert(typeof countInspectionSentinels === 'function', 'countInspectionSentinels is exported function');
+    assertEq(countInspectionSentinels(''), 0, 'countInspectionSentinels("") = 0');
+    assertEq(countInspectionSentinels('plain text'), 0, 'countInspectionSentinels(no sentinel) = 0');
+    assertEq(countInspectionSentinels('[::INSPECTION_FLAGGED::]\nprefix\n\ntext'), 1, 'countInspectionSentinels(1 sentinel) = 1');
+    const two = '[::INSPECTION_FLAGGED::]\na\n\n[::INSPECTION_FLAGGED::]\nb\n\ntext';
+    assertEq(countInspectionSentinels(two), 2, 'countInspectionSentinels(2 sentinels) = 2');
+    const three = two + '\n\n[::INSPECTION_FLAGGED::]\nc\n\ntext3';
+    assertEq(countInspectionSentinels(three), 3, 'countInspectionSentinels(3 sentinels) = 3');
+
+    // -- repairDuplicateSentinels --
+    assert(typeof repairDuplicateSentinels === 'function', 'repairDuplicateSentinels is exported function');
+    assertEq(repairDuplicateSentinels(''), '', 'repairDuplicateSentinels("") = ""');
+    assertEq(repairDuplicateSentinels('plain'), 'plain', 'repairDuplicateSentinels(0 sentinel) unchanged');
+    const one = '[::INSPECTION_FLAGGED::]\nprefix\n\ntext';
+    assertEq(repairDuplicateSentinels(one), one, 'repairDuplicateSentinels(1 sentinel) unchanged');
+    const repaired = repairDuplicateSentinels(two);
+    assertEq(countInspectionSentinels(repaired), 1, 'repairDuplicateSentinels(2 sentinels) → count=1');
+    assertOk(repaired.startsWith('[::INSPECTION_FLAGGED::]'), 'repairDuplicateSentinels keeps last sentinel at position 0');
+    // N=5 property test
+    let bg = 'original';
+    for (let i = 0; i < 5; i++) bg = '[::INSPECTION_FLAGGED::]\ncycle ' + i + '\n\n' + bg;
+    assertEq(countInspectionSentinels(bg), 5, '5 stacked sentinels verified');
+    const repaired5 = repairDuplicateSentinels(bg);
+    assertOk(countInspectionSentinels(repaired5) <= 1, 'repairDuplicateSentinels(N sentinels) → count ≤ 1');
+
+    // -- appendTicket startsWith guard (idempotency) --
+    assert(typeof addModule.appendTicket === 'function', 'appendTicket is exported function');
+    const sentinelBg = '[::INSPECTION_FLAGGED::]\nflagged\n\nAlready inspected content';
+    const mockData = { title: 'test', metadata: { source: 'test', generatedAt: '2026-07-30' }, phases: [{ id: -1, name: '[X] Test', characteristics: '', tickets: [] }] };
+    const mockTicket = { title: 'Test Ticket', background: sentinelBg, scope: ['item'], testUnit: ['UT: test'], acceptanceCriteria: ['AC1'], invariants: 'test', contracts: [] };
+    const appended = addModule.appendTicket(mockData, mockTicket);
+    const addedTicket = appended.phases.find(p => p.id === -1).tickets[0];
+    assertOk(addedTicket.background !== undefined, 'appendTicket preserves background');
+    // The sentinel guard should NOT prepend a second sentinel
+    assertOk(addedTicket.background.startsWith('[::INSPECTION_FLAGGED::]'), 'appendTicket keeps sentinel at position 0');
+    const sentinelCountAfter = countInspectionSentinels(addedTicket.background);
+    assertOk(sentinelCountAfter <= 1, 'appendTicket with startsWith guard: count ≤ 1 (got ' + sentinelCountAfter + ')');
+    // Without sentinel, should prepend
+    const plainBg = 'No sentinel content';
+    const mockTicket2 = { title: 'Test Ticket 2', background: plainBg, scope: ['item'], testUnit: ['UT: test'], acceptanceCriteria: ['AC1'], invariants: 'test', contracts: [] };
+    const mockData2 = { title: 'test', metadata: { source: 'test', generatedAt: '2026-07-30' }, phases: [{ id: -1, name: '[X] Test', characteristics: '', tickets: [] }] };
+    const appended2 = addModule.appendTicket(mockData2, mockTicket2);
+    const addedTicket2 = appended2.phases.find(p => p.id === -1).tickets[0];
+    assertOk(addedTicket2.background.startsWith('[::INSPECTION_FLAGGED::]'), 'appendTicket prepends sentinel when background lacks it');
+
+    // -- enrichTickets startsWith guard (create-tmp-omissions.js) --
+    assert(typeof createTmpModule.enrichTickets === 'function', 'enrichTickets is exported function');
+    const sentinelizedBg = '[::INSPECTION_FLAGGED::]\nflagged\n\nAlready flagged';
+    const mergedEntries = [{ ticketKey: 'P0-1', fromStub: false, stubs: [] }];
+    const ticketsData = { title: 'test', metadata: { source: 'test', generatedAt: '2026-07-30' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'Test', background: sentinelizedBg, scope: ['x'], testUnit: ['UT: x'], acceptanceCriteria: ['AC'], invariants: 'x', contracts: [], status: 'todo' }] }] };
+    const ticketLookup = new Map([['P0-1', ticketsData.phases[0].tickets[0]]]);
+    const enriched = createTmpModule.enrichTickets(mergedEntries, ticketsData, ticketLookup);
+    assert(enriched.length > 0, 'enrichTickets returns at least one ticket');
+    assertOk(enriched[0].background.startsWith('[::INSPECTION_FLAGGED::]'), 'enrichTickets keeps sentinel at position 0');
+    assertOk(countInspectionSentinels(enriched[0].background) <= 1, 'enrichTickets: count ≤ 1');
+  }
+
+  // ===============================================
+  // PX-107: phasify-omissions.js — Re-phase omission tickets
+  // ===============================================
+  // @verifies C107 — All contract elements (precondition, postcondition, invariant) tested below
+  console.log('\n## PX-107: phasify-omissions\n');
+  {
+    const phasifyPath = path.join(SCRIPTS_DIR, '../rfc-graph/phasify-omissions.js');
+    assert(fs.existsSync(phasifyPath), 'phasify-omissions.js exists');
+
+    const phasifyModule = require(phasifyPath);
+
+    // -- parseArguments --
+    assert(typeof phasifyModule.parseArguments === 'function', 'parseArguments is exported');
+    assert(typeof phasifyModule.extractOmissionSubgraph === 'function', 'extractOmissionSubgraph is exported');
+    assert(typeof phasifyModule.dedupTickets === 'function', 'dedupTickets is exported');
+    assert(typeof phasifyModule.autoMinSize === 'function', 'autoMinSize is exported');
+    assert(typeof phasifyModule.computePhaseIdOffset === 'function', 'computePhaseIdOffset is exported');
+    assert(typeof phasifyModule.reassignPhaseIdsWithOffset === 'function', 'reassignPhaseIdsWithOffset is exported');
+    assert(typeof phasifyModule.assignTicketsToPhases === 'function', 'assignTicketsToPhases is exported');
+    assert(typeof phasifyModule.repairInspectionPrefixes === 'function', 'repairInspectionPrefixes is exported');
+    assert(typeof phasifyModule.validatePhasedOmissions === 'function', 'validatePhasedOmissions is exported');
+    assert(typeof phasifyModule.buildOutput === 'function', 'buildOutput is exported');
+
+    // -- autoMinSize --
+    assert(typeof phasifyModule.autoMinSize === 'function', 'autoMinSize exists');
+    assertEq(phasifyModule.autoMinSize(67), 10, 'autoMinSize(67) = 10');
+    assertEq(phasifyModule.autoMinSize(53), 8, 'autoMinSize(53) = 8');
+    assertEq(phasifyModule.autoMinSize(21), 3, 'autoMinSize(21) = 3');
+    assertEq(phasifyModule.autoMinSize(10), 3, 'autoMinSize(10) = 3');
+    assertEq(phasifyModule.autoMinSize(3), 3, 'autoMinSize(3) = 3 (lower bound)');
+    assertEq(phasifyModule.autoMinSize(100), 10, 'autoMinSize(100) = 10 (upper bound)');
+
+    // -- dedupTickets --
+    const allTickets = [
+      { id: 106, phaseId: -1, title: 'A', originalTicketKey: 'P0-3', foundOmissions: [{evaluations:[{criterion:'A',passed:false,reason:'x',evidence:[{file:'a',line:1}]}]}] },
+      { id: 1, phaseId: 0, title: 'Original P0-3', nodeIds: ['N0001'] },
+      { id: 107, phaseId: -1, title: 'B', originalTicketKey: 'P5-2', foundOmissions: [{evaluations:[{criterion:'B',passed:false,reason:'y',evidence:[{file:'b',line:2}]}]}] },
+      { id: 2, phaseId: 0, title: 'Clean ticket', nodeIds: ['N0002'] },
+    ];
+    const deduped = phasifyModule.dedupTickets(allTickets);
+    assertEq(deduped.actionTickets.length, 2, 'dedupTickets: 2 action tickets');
+    assertEq(deduped.referenceTickets.length, 2, 'dedupTickets: 2 reference tickets');
+    assertEq(deduped.actionTickets[0].originalTicketKey, 'P0-3', 'action ticket has original key');
+    assertEq(deduped.actionTicketKeys.size, 2, 'actionTicketKeys set has 2 keys');
+
+    // dedupTickets handles empty input
+    const empty = phasifyModule.dedupTickets([]);
+    assertEq(empty.actionTickets.length, 0, 'dedupTickets([]): 0 action');
+    assertEq(empty.referenceTickets.length, 0, 'dedupTickets([]): 0 reference');
+
+    // -- repairInspectionPrefixes (same logic as PX-106) --
+    const actionTickets = [
+      { title: 'T1', background: '[::INSPECTION_FLAGGED::]\nfirst\n\n[::INSPECTION_FLAGGED::]\nsecond\n\ntext', foundOmissions: [] },
+      { title: 'T2', background: '[::INSPECTION_FLAGGED::]\nsingle\n\ntext', foundOmissions: [] },
+      { title: 'T3', background: 'no sentinel', foundOmissions: [] },
+    ];
+    phasifyModule.repairInspectionPrefixes(actionTickets);
+    // T1 had 2 sentinels -> repaired to 1
+    const t1count = (actionTickets[0].background.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;
+    assertOk(t1count <= 1, 'repairInspectionPrefixes reduces T1 to ≤1 sentinel (got ' + t1count + ')');
+    // T2 was clean -> unchanged
+    assertOk(actionTickets[1].background.startsWith('[::INSPECTION_FLAGGED::]'), 'T2 keeps sentinel');
+    // T3 had no sentinel -> prepended
+    assertOk(actionTickets[2].background.startsWith('[::INSPECTION_FLAGGED::]'), 'T3 gets sentinel prepended');
   }
 
 } finally {

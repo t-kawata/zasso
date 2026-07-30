@@ -24,12 +24,32 @@ const path = require('path');
 const REQUIRED_FIELDS = ['title', 'background', 'scope', 'testUnit', 'acceptanceCriteria', 'invariants'];
 const REQUIRED_ARRAYS = ['scope', 'testUnit', 'acceptanceCriteria'];
 
+/** Sentinel string for idempotent inspection prefix detection */
+const INSPECTION_SENTINEL = '[::INSPECTION_FLAGGED::]';
+
+/** Count occurrences of INSPECTION_SENTINEL in a string */
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function countInspectionSentinels(background) {
+  if (!background || typeof background !== 'string') return 0;
+  return (background.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;
+}
+
+/** Strip all but the last occurrence of INSPECTION_SENTINEL */
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function repairDuplicateSentinels(background) {
+  const bg = background || '';
+  const count = countInspectionSentinels(bg);
+  if (count <= 1) return bg;
+  const lastIdx = bg.lastIndexOf(INSPECTION_SENTINEL);
+  return bg.slice(lastIdx);
+}
+
 /**
  * Prefix prepended to the background of every omission ticket added via add-omission-ticket.js.
  * Explains that the ticket failed ABC Inspection and must be re-implemented with all contracts fulfilled.
  */
-const ABC_INSPECTION_PREFIX =
-  'This ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle ' +
+const ABC_INSPECTION_PREFIX = INSPECTION_SENTINEL + '\n' +
+  'This ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle ' + +
   '(make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n' +
   '  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n' +
   '  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n' +
@@ -74,7 +94,7 @@ function validateTicket(ticket) {
  * @param {object} ticket — Ticket object to append
  * @returns {object} — New data object with appended ticket (immutable)
  */
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-106|PX-107) --for-spec --no-implementation-order`.
 function appendTicket(data, ticket) {
   const result = JSON.parse(JSON.stringify(data));
 
@@ -89,7 +109,15 @@ function appendTicket(data, ticket) {
   const newTicket = JSON.parse(JSON.stringify(ticket));
   newTicket.fromStub = false;
   newTicket.stubs = [];
-  newTicket.background = ABC_INSPECTION_PREFIX + '\n\n' + (newTicket.background || '');
+  // PX-106: Idempotent sentinel guard — prepend only if no sentinel exists
+  const alreadyFlagged = newTicket.background &&
+    newTicket.background.startsWith(INSPECTION_SENTINEL);
+  if (!alreadyFlagged) {
+    newTicket.background = ABC_INSPECTION_PREFIX + '\n\n' + (newTicket.background || '');
+  } else {
+    // Repair duplicate sentinels that may exist from previous cycles
+    newTicket.background = repairDuplicateSentinels(newTicket.background);
+  }
 
   // Auto-increment ID based on existing max in PX phase
   const existingIds = pxPhase.tickets.map(t => t.id).filter(id => typeof id === 'number');
@@ -519,7 +547,10 @@ module.exports = {
   appendFoundOmissions,
   findLatestTmpOmissions,
   extractCodes,
-  ABC_INSPECTION_PREFIX
+  ABC_INSPECTION_PREFIX,
+  INSPECTION_SENTINEL,
+  countInspectionSentinels,
+  repairDuplicateSentinels,
 };
 
 // Run as CLI

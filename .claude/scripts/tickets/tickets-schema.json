@@ -69,7 +69,7 @@
         "id": { "type": "integer", "minimum": 1, "description": "フェーズ内のチケット番号（1始まり自動インクリメント）" },
         "phaseId": { "type": "integer", "minimum": -1, "description": "所属するフェーズID（-1 は PX フェーズ所属）" },
         "title": { "type": "string", "minLength": 1 },
-        "status": { "type": "string", "enum": ["todo", "done", "reviewed"] },
+        "status": { "type": "string", "enum": ["todo", "made", "planned", "done", "reviewed", "remanded"] },
         "referenceSection": { "type": "string" },
         "referenceUrls": { "type": "array", "items": { "type": "string" } },
         "sourcePaths": { "type": "array", "items": { "type": "string" } },
