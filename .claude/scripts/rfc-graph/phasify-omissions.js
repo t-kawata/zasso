@@ -517,7 +517,7 @@ function consolidatePhasesByTicketCount(phases, hardEdges) {
  * @param {object[]} actionTickets — Tickets to repair
  */
 // [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
-function repairInspectionPrefixes(actionTickets) {
+function repairInspectionPrefixes(actionTickets, quiet) {
   if (!Array.isArray(actionTickets)) return;
 
   const sentinel = _repairSentinel.sentinel;
@@ -540,7 +540,7 @@ function repairInspectionPrefixes(actionTickets) {
     // sentinelCount === 1: clean, no repair needed
   }
 
-  if (repairCount > 0) {
+  if (repairCount > 0 && !quiet) {
     console.warn('[WARN] Repaired ' + repairCount + ' tickets with inspection prefix issues.');
   }
 }
@@ -955,10 +955,10 @@ function runPhasifyOmissions(opts) {
   phaseAssignments = phasify.reassignPhaseIds(phaseAssignments);
   if (opts.verbose) console.log('[VERBOSE] Phases: ' + phaseAssignments.length);
 
-  // Warn for small phases
+  // Warn for small phases (suppress in dry-run to keep output clean)
   for (const phase of phaseAssignments) {
     const size = phase.nodeIds ? phase.nodeIds.length : 0;
-    if (size < minSize && totalOmissionNodes >= minSize) {
+    if (size < minSize && totalOmissionNodes >= minSize && (!opts.dryRun || opts.verbose)) {
       console.warn('[WARN] Phase P' + phase.id + ' has ' + size + ' nodes (below minimum ' + minSize + ')');
     }
   }
@@ -998,7 +998,7 @@ function runPhasifyOmissions(opts) {
   // Step H: Repair inspection prefixes
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
-  repairInspectionPrefixes(actionTickets);
+  repairInspectionPrefixes(actionTickets, opts.dryRun);
 
   // ============================================================
   // Step H: Build output

@@ -1186,14 +1186,8 @@ function runPhasifyOmissions(opts) {
     process.exit(1);
   }
 
-  // Step O: dry-run exit (no files written)
-  if (opts.dryRun) {
-    console.log('');
-    console.log('[--dry-run mode] All checks passed. No files written.');
-    console.log('[--dry-run] Backup would be: ' + backupPath);
-    console.log('[--dry-run] Phasified file would be: ' + phasifiedOutputPath);
-    return;
-  }
+  // Step O: dry-run exit
+  if (opts.dryRun) return;
 
   // Step P: Atomic write merged Tickets.json
   if (opts.verbose) console.log('[VERBOSE] Writing merged Tickets.json...');
