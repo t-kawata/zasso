@@ -862,6 +862,48 @@ function createSnapshot(sourcePath, ts) {
 }
 
 // ============================================================
+// PX-112: Move artifacts to omissions/ and tickets/ dirs
+// ============================================================
+
+// [::TICKET::] PX-112: move artifacts. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
+function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
+  try {
+    var baseDir = path.dirname(opts.ticketsPath);
+
+    // 1. Move OMISSIONS-phasified-*.json to omissions/
+    if (phasifiedPath) {
+      fs.mkdirSync(path.join(baseDir, 'omissions'), { recursive: true });
+      if (fs.existsSync(phasifiedPath)) {
+        var dstPhasified = path.join(baseDir, 'omissions', path.basename(phasifiedPath));
+        fs.renameSync(phasifiedPath, dstPhasified);
+        console.log('Moved to omissions/: ' + path.basename(phasifiedPath));
+      }
+    }
+
+    // 2. Move Tickets-*.json (snapshot) to tickets/
+    if (snapshotPath) {
+      fs.mkdirSync(path.join(baseDir, 'tickets'), { recursive: true });
+      if (fs.existsSync(snapshotPath)) {
+        var dstSnapshot = path.join(baseDir, 'tickets', path.basename(snapshotPath));
+        fs.renameSync(snapshotPath, dstSnapshot);
+        console.log('Moved to tickets/: ' + path.basename(snapshotPath));
+      }
+    }
+
+    // 3. Delete tmp-Tickets-*.json (rollback backup, no longer needed)
+    if (ts) {
+      var backupPath = path.join(baseDir, 'tmp-Tickets-' + String(ts) + '.json');
+      if (fs.existsSync(backupPath)) {
+        fs.unlinkSync(backupPath);
+      }
+    }
+  } catch (e) {
+    console.warn('[WARN] Artifact move failed (best-effort): ' + e.message);
+  }
+}
+
+// ============================================================
 // PX-109: Rollback function
 // ============================================================
 
@@ -922,7 +964,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1367,6 +1409,7 @@ function runPhasifyOmissions(opts) {
 
   // Step P: Snapshot + auto-review (PX-111)
   var snapshotResult = createSnapshot(opts.ticketsPath, ts);
+  var snapshotPath = snapshotResult.success ? snapshotResult.snapshotPath : null;
   if (snapshotResult.success) {
     console.log('Snapshot: Tickets-' + ts + '.json');
   } else {
@@ -1402,9 +1445,8 @@ function runPhasifyOmissions(opts) {
     process.exit(3);
   }
 
-  // Step Q: Cleanup temporary files
-  var filesToClean = [phasifiedOutputPath, backupPath];
-  cleanupFiles(filesToClean);
+  // Step Q: Move artifacts to subdirectories (PX-112)
+  moveArtifacts(opts, phasifiedOutputPath, snapshotPath, ts);
 
   // Final summary line
   var totalMergedTickets = 0;
@@ -1452,6 +1494,8 @@ module.exports = {
   // PX-111: snapshot + auto-review
   markPreMergeTicketsReviewed,
   createSnapshot,
+  // PX-112: move artifacts
+  moveArtifacts,
   validateMergedTickets,
   atomicWrite,
   cleanupFiles,

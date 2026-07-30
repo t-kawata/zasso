@@ -14681,6 +14681,103 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 112,
+          "phaseId": -1,
+          "status": "done",
+          "title": "phasify-omissions move artifacts to omissions/ and tickets/ directories",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/112-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: phasify-omissions.js が生成する OMISSIONS-phasified-*.json を omissions/ に、Tickets-*.json（スナップショット）を tickets/ に移動する。\n\nPurpose: カレントディレクトリに散らばる中間生成物を整理し、プロジェクトルートを清潔に保つ。\n\nMotivation: PX-111 までで phasified 出力・Tickets スナップショットが増加。ルートが散らかる。\n\nConstraints:\n- 移動は atomicWrite 成功後のみ\n- ディレクトリなければ自動作成（recursive mkdir）\n- ベストエフォート、失敗時 console.warn\n- tmp-Tickets-*.json（rollback backup）は削除",
+          "scope": [
+            "Step Q 書き換え: cleanupFiles を moveArtifacts() に置換。phasified→omissions/ + Tickets-*→tickets/ + tmp-Tickets-*削除。",
+            "omissions/ ディレクトリ自動作成。OMISSIONS-phasified-{ts}.json を移動。",
+            "tickets/ ディレクトリ自動作成。Tickets-{ts}.json（スナップショット）を移動。",
+            "ベストエフォート: try-catch + console.warn。",
+            "テスト: ディレクトリ作成 + ファイル移動のUT。",
+            "Scope:\n  - Path: .claude/scripts/rfc-graph/phasify-omissions.js\n  - Action: modify (add moveArtifacts(), replace Step Q cleanup)\n  - Detail: Replace cleanupFiles call with moveArtifacts that moves artifacts to subdirs\n  - Before: cleanupFiles deletes OMISSIONS-phasified and tmp-Tickets. Tickets-* stays in CWD.\n  - After: phasified→omissions/, Tickets-*→tickets/, tmp-Tickets deleted\n  - API: No breaking changes. New exported function moveArtifacts().\n  - Schema: No change.\n  - Config: No change.\n  - Dep: No new dependencies.",
+            "Out of scope:\n  - Item: --keep-artifacts flag\n  - Why: Future ticket if needed",
+            "Affected:\n  - Component: Artifact file locations\n  - Impact: Files move from CWD to subdirs\n  - Response: N/A"
+          ],
+          "testUnit": [
+            "UT: [Normal] moveArtifacts() moves OMISSIONS-phasified-*.json to omissions/ dir",
+            "UT: [Normal] moveArtifacts() moves Tickets-*.json to tickets/ dir",
+            "UT: [Normal] moveArtifacts() creates target dirs if they do not exist",
+            "UT: [Edge] moveArtifacts() does not fail when dirs already exist (idempotent mkdir)",
+            "UT: [Edge] moveArtifacts() does not fail when source file is missing (already moved or skipped)",
+            "UT: [Edge] moveArtifacts() with null phasifiedPath (dry-run) does nothing"
+          ],
+          "testIntegration": [
+            "IT: phasify-omissions run → verify OMISSIONS-phasified in omissions/, Tickets-* in tickets/"
+          ],
+          "testExceptions": [
+            "Cannot test: Disk full during rename. Not a design defect."
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/phasify-omissions.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: phasify-omissions 実行後、OMISSIONS-phasified-*.json → omissions/、Tickets-*.json → tickets/。tmp-Tickets-*.json 削除。カレントに残らない。",
+            "Error case: 移動失敗時も処理継続、console.warn 出力。",
+            "Edge case: ディレクトリ既存時も正常動作。存在しないファイルの移動試行は警告なくスキップ。"
+          ],
+          "notes": "- Implementation: (1) moveArtifacts() function (2) replace Step Q (3) tests\n- Risks: None — atomicWrite complete before move\n- Caveats: renameSync fails if src/dst on different filesystems. Always same FS within project.\n- Open items: None\n- Future: --keep-artifacts flag to skip move (not needed)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+moveArtifacts, replaced Step Q, exports)\n- MODIFIED: scripts.test.js (PX-112 tests)\n- Test results: 216/216 passed (5 PX-112-specific)",
+          "invariants": "- [Normal condition] Source files must exist before rename. Target dir auto-created.\n- [Error invariant] Rename failure never affects Tickets.json or halts pipeline.\n- [Internal state invariant] moveArtifacts is pure I/O (no memory side effects).\n- [Boundary invariant] Non-existent source files silently skipped (already moved or not created).",
+          "instrumentation": "- Logging: each successful move logged to stdout. Failures to stderr.\n- Metrics: Count of files moved.\n- Error tracking: Console.warn per failed move.\n- Health check: Source files exist before move attempt.",
+          "investigation": "Key code patterns:\n\n1. Current Step Q (cleanup phase):\n   var filesToClean = [phasifiedOutputPath, backupPath];\n   cleanupFiles(filesToClean);\n   → Replace with: moveArtifacts()\n\n2. moveArtifacts() logic:\n   - mkdirSync(omissions, {recursive: true})\n   - if (phasifiedOutputPath exists) renameSync(phasifiedOutputPath, omissions/)\n   - mkdirSync(tickets, {recursive: true})\n   - if (snapshotPath exists) renameSync(snapshotPath, tickets/)\n   - if (backupPath exists) unlinkSync(backupPath)\n   - All wrapped in try-catch with console.warn\n\n3. fs.renameSync is atomic on same filesystem — src/dst share FS\n\n4. backupPath is tmp-Tickets-{ts}.json — still deleted (not moved)",
+          "boyScoutPlan": "1. moveArtifacts() as a thin I/O function with best-effort semantics.\n2. Verb-prefix: moveArtifacts.\n3. All I/O failures are warnings, never crashes.\n4. mkdir recursive ensures no pre-requisite setup.\n5. Extracts hardcoded directory names to consts.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "moveArtifacts() → artifacts moved to subdirectories",
+              "precondition": "moveArtifacts() accepts (opts, phasifiedOutputPath, snapshotPath). opts.ticketsPath exists and writable. phasifiedOutputPath and snapshotPath are absolute file paths or null.",
+              "postcondition": "Creates omissions/ and tickets/ dirs (if missing). Renames phasified file to omissions/. Renames snapshot to tickets/. Deletes tmp-Tickets-*.json. Returns void. Never throws — failures are logged to console.warn.",
+              "invariant": "Tickets.json and its atomic write are complete before moveArtifacts is called. Artifact moves never affect Tickets.json."
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "// C001-PRE: moveArtifacts moves phasified file to omissions/",
+            "const baseDir = fs.mkdtempSync('/tmp/px112-test-');",
+            "const srcPhasified = path.join(baseDir, 'OMISSIONS-phasified-20260730.json');",
+            "fs.writeFileSync(srcPhasified, '{}');",
+            "const opts = { ticketsPath: path.join(baseDir, 'Tickets.json') };",
+            "fs.writeFileSync(opts.ticketsPath, '{}');",
+            "moveArtifacts(opts, srcPhasified, null);",
+            "assert(fs.existsSync(path.join(baseDir, 'omissions', 'OMISSIONS-phasified-20260730.json')), 'phasified moved to omissions/');",
+            "assert.strictEqual(fs.existsSync(srcPhasified), false, 'original phasified removed');",
+            "",
+            "// C001-PRE: moveArtifacts moves snapshot to tickets/",
+            "const srcSnapshot = path.join(baseDir, 'Tickets-20260730.json');",
+            "fs.writeFileSync(srcSnapshot, '{}');",
+            "moveArtifacts(opts, srcPhasified, srcSnapshot);",
+            "assert(fs.existsSync(path.join(baseDir, 'tickets', 'Tickets-20260730.json')), 'snapshot moved to tickets/');",
+            "",
+            "// C001-EDGE: dirs already exist (idempotent)",
+            "moveArtifacts(opts, null, null); // should not throw",
+            "",
+            "// C001-EDGE: missing source file silently skipped",
+            "moveArtifacts(opts, '/nonexistent/path.json', null); // should not throw",
+            "",
+            "// cleanup",
+            "fs.rmSync(baseDir, { recursive: true, force: true });"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "cleanupFiles deleted phasified + tmp-Tickets",
+              "after": "moveArtifacts moves phasified to omissions/, snapshot to tickets/, deletes tmp-Tickets",
+              "description": "Cleanup replaced with organized artifact storage"
+            },
+            {
+              "before": "Tickets-*.json stayed in CWD",
+              "after": "Tickets-*.json moved to tickets/ subdir",
+              "description": "Project root stays clean"
+            }
+          ]
         }
       ]
     },
