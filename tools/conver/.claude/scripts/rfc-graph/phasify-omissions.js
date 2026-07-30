@@ -373,6 +373,7 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
       // No nodes: assign to phase 0 (or first phase)
       const firstPhase = phases.length > 0 ? phases[0].id : 0;
       if (!phaseTickets[firstPhase]) phaseTickets[firstPhase] = [];
+      ticket.phaseId = firstPhase;
       phaseTickets[firstPhase].push(ticket);
       continue;
     }
@@ -396,8 +397,10 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
     if (earliestPhase === null) {
       const firstPhase = phases.length > 0 ? phases[0].id : 0;
       if (!phaseTickets[firstPhase]) phaseTickets[firstPhase] = [];
+      ticket.phaseId = firstPhase;
       phaseTickets[firstPhase].push(ticket);
     } else {
+      ticket.phaseId = earliestPhase;
       phaseTickets[earliestPhase].push(ticket);
     }
   }
@@ -534,10 +537,14 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
  */
 // [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function buildOutput(phases, referenceTickets, metadata) {
+  // Filter to only phases that have tickets (non-empty re-implementation phases)
+  var nonEmptyPhases = phases.filter(function(p) {
+    return (p.tickets || []).length > 0;
+  });
   return {
     title: 'phasify-omissions auto-generated re-implementation plan',
     metadata: metadata,
-    phases: phases.map(function(p) {
+    phases: nonEmptyPhases.map(function(p) {
       return {
         id: p.id,
         name: p.name || 'P' + p.id,
@@ -782,10 +789,19 @@ function runPhasifyOmissions(opts) {
   const output = buildOutput(phasedTickets, referenceTickets, metadata);
 
   // ============================================================
-  // Step I: Validation
+  // Step I: Validation (against pre-filter phase structure to ensure full coverage)
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Validating output...');
-  const validateResult = validatePhasedOmissions(output, nodes, edges, omissionNodeIds);
+  // Validate against phasedTickets (includes empty reference phases) for coverage completeness
+  const preOutput = {
+    title: 'phasify-omissions auto-generated re-implementation plan',
+    metadata: metadata,
+    phases: phasedTickets.map(function(p) {
+      return { id: p.id, name: p.name, nodeIds: p.nodeIds, tickets: p.tickets || [] };
+    }),
+    referenceTickets: referenceTickets,
+  };
+  const validateResult = validatePhasedOmissions(preOutput, nodes, edges, omissionNodeIds);
 
   // ============================================================
   // Report
@@ -801,7 +817,7 @@ function runPhasifyOmissions(opts) {
   console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
   console.log('Auto minSize: ' + minSize);
   console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-  console.log('Phases: ' + offsetPhases.length);
+  console.log('Total phases: ' + offsetPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (offsetPhases.length - output.phases.length) + ')');
   console.log('Phase ID offset: ' + offset);
 
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
@@ -809,8 +825,9 @@ function runPhasifyOmissions(opts) {
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
-    offsetPhases.length + ' phases, ' +
-    (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
+    output.phases.length + ' implementation phases' +
+    (offsetPhases.length > output.phases.length ? ' (' + (offsetPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
+    ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
   console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
@@ -839,7 +856,7 @@ function runPhasifyOmissions(opts) {
   try {
     fs.writeFileSync(outputPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
     console.log('');
-    console.log('Wrote ' + offsetPhases.length + ' phases to ' + outputPath);
+    console.log('Wrote ' + output.phases.length + ' implementation phases to ' + outputPath);
   } catch (e) {
     console.error('[ERROR] Cannot write output file: ' + e.message);
     process.exit(3);
