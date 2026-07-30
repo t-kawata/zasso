@@ -833,10 +833,7 @@ function markPreMergeTicketsReviewed(mergedData, offset) {
 
     var tickets = phase.tickets || [];
     for (var ti = 0; ti < tickets.length; ti++) {
-      var t = tickets[ti];
-      if (t.status !== 'reviewed' && t.status !== 'done') {
-        t.status = 'reviewed';
-      }
+      tickets[ti].status = 'reviewed';
     }
   }
 

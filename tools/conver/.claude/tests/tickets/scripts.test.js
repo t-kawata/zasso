@@ -846,7 +846,7 @@ try {
     };
     const result = p.markPreMergeTicketsReviewed(input, 6);
     assertEq(result.phases[0].tickets[0].status, 'reviewed', 'markReviewed: pre-offset todo -> reviewed');
-    assertEq(result.phases[1].tickets[0].status, 'done', 'markReviewed: done preserved');
+    assertEq(result.phases[1].tickets[0].status, 'reviewed', 'markReviewed: done also becomes reviewed (unconditional)');
     assertEq(result.phases[2].tickets[0].status, 'todo', 'markReviewed: offset+ tickets untouched');
     assertEq(input.phases[0].tickets[0].status, 'todo', 'markReviewed: original unchanged');
     assertEq(result.phases[0].tickets[0].id, 1, 'markReviewed: id preserved');
