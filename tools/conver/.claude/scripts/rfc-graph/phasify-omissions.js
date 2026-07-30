@@ -1281,7 +1281,7 @@ function runPhasifyOmissions(opts) {
     console.log('After assigning meaningful names, rename each phase:');
     for (var cpi = 0; cpi < output.phases.length; cpi++) {
       var cp = output.phases[cpi];
-      console.log('  node .claude/scripts/tickets/rename-phases.js --tickets=' + opts.ticketsPath + ' --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
+      console.log('  node .claude/scripts/tickets/rename-phases.js --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
     }
     console.log('');
   }

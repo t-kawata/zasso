@@ -299,10 +299,6 @@ This computes optimal phase/ticket boundaries from the omissions found in Steps 
 Run the `rename-phases.js` commands printed in Step 8's stdout. Each re-implementation phase name **must** start with the prefix `"Omissions: "` to clearly mark it as omission-derived. Example:
 
 ```bash
-node .claude/scripts/tickets/rename-phases.js \
-  --tickets=Tickets.json \
-  --phase=6 --name="Omissions: Storage & Connection Layer"
-node .claude/scripts/tickets/rename-phases.js \
-  --tickets=Tickets.json \
-  --phase=7 --name="Omissions: Migration Runner"
+node .claude/scripts/tickets/rename-phases.js --phase=6 --name="Omissions: Storage & Connection Layer"
+node .claude/scripts/tickets/rename-phases.js --phase=7 --name="Omissions: Migration Runner"
 ```
