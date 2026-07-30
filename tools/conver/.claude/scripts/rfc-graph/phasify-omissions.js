@@ -1045,31 +1045,38 @@ function runPhasifyOmissions(opts) {
   // ============================================================
   // Report
   // ============================================================
-  console.log('');
-  console.log('=== phasify-omissions Phase Design Report ===');
-  console.log('Input OMISSIONS: ' + opts.omissionsPath);
-  console.log('Input GRAPH: ' + opts.graphPath);
-  console.log('Input Tickets: ' + opts.ticketsPath);
-  console.log('Omission nodes: ' + totalOmissionNodes + ' (of ' + (graphData.nodes || []).length + ' total)');
-  console.log('Subgraph hard edges: ' + hardEdges.length);
-  console.log('Cross-boundary depends_on (from omission): ' + crossFromOmission.length + ' (satisfied, no constraint)');
-  console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
-  console.log('Auto minSize: ' + minSize);
-  console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-  console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
-  console.log('Phase ID offset: ' + offset);
+  if (!opts.dryRun || opts.verbose) {
+    console.log('');
+    console.log('=== phasify-omissions Phase Design Report ===');
+    console.log('Input OMISSIONS: ' + opts.omissionsPath);
+    console.log('Input GRAPH: ' + opts.graphPath);
+    console.log('Input Tickets: ' + opts.ticketsPath);
+    console.log('Omission nodes: ' + totalOmissionNodes + ' (of ' + (graphData.nodes || []).length + ' total)');
+    console.log('Subgraph hard edges: ' + hardEdges.length);
+    console.log('Cross-boundary depends_on (from omission): ' + crossFromOmission.length + ' (satisfied, no constraint)');
+    console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
+    console.log('Auto minSize: ' + minSize);
+    console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
+    console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
+    console.log('Phase ID offset: ' + offset);
+  }
 
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
   const allCovered = validateResult.checks.allNodesCovered ? validateResult.checks.allNodesCovered.passed : false;
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
+  // Always show one-line PASS/FAIL summary
+  console.log('');
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
     output.phases.length + ' implementation phases' +
     (consolidatedPhases.length > output.phases.length ? ' (' + (consolidatedPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
     ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
-  console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
+  // Full details in non-dry-run or verbose mode
+  if (!opts.dryRun || opts.verbose) {
+    console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
+  }
 
   if (!validateResult.valid) {
     console.error('[ERROR] Validation failed. See details above.');
@@ -1148,11 +1155,16 @@ function runPhasifyOmissions(opts) {
   var mergeValidation = validateMergedTickets(mergedResult.data);
 
   // Print merge report
-  console.log('');
-  console.log('=== PX-108: Tickets.json Merge Report ===');
-  console.log('New phases to merge: ' + output.phases.length);
-  console.log('Total phases after merge: ' + mergedResult.data.phases.length);
-  console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
+  if (!opts.dryRun || opts.verbose) {
+    console.log('');
+    console.log('=== PX-108: Tickets.json Merge Report ===');
+    console.log('New phases to merge: ' + output.phases.length);
+    console.log('Total phases after merge: ' + mergedResult.data.phases.length);
+    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
+  } else {
+    // dry-run concise: one-line schema result
+    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
+  }
 
   if (!mergeValidation.valid) {
     console.error('[ERROR] Merge validation failed:');
