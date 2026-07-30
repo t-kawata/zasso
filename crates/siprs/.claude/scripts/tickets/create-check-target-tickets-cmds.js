@@ -20,7 +20,7 @@ const path = require('path');
 
 // -- Constants --
 
-const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec';
+const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-context.js --ticket-key=KEY --for-spec --no-implementation-order';
 
 // -- Pure functions (exported for testing) --
 
@@ -57,6 +57,7 @@ function collectReviewedTicketKeys(ticketsData) {
  * @returns {string} — Shell command string
  */
 // [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
 function buildCommand(ticketKey) {
   return SHOW_TICKET_CMD_TEMPLATE.replace('KEY', ticketKey);
 }
