@@ -861,6 +861,9 @@ function runPhasifyOmissions(opts) {
     }
   }
 
+  // Re-normalize phase IDs contiguous from offset after consolidation (removes gaps from merged phases)
+  consolidatedPhases = reassignPhaseIdsWithOffset(consolidatedPhases, offset);
+
   // ============================================================
   // Step H: Repair inspection prefixes
   // ============================================================
@@ -890,7 +893,14 @@ function runPhasifyOmissions(opts) {
     crossBoundaryDependsOnTo: crossToOmission.length,
   };
 
-  const output = buildOutput(consolidatedPhases, referenceTickets, metadata);
+  var rawOutput = buildOutput(consolidatedPhases, referenceTickets, metadata);
+
+  // Post-filter normalization: reassign phase IDs contiguous from offset
+  if (rawOutput.phases.length > 0) {
+    rawOutput.phases = reassignPhaseIdsWithOffset(rawOutput.phases, offset);
+  }
+
+  const output = rawOutput;
 
   // ============================================================
   // Step I: Validation (against pre-filter phase structure to ensure full coverage)
