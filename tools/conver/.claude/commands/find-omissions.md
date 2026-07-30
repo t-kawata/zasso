@@ -1,5 +1,5 @@
 ---
-description: Inspect reviewed tickets for contract-to-test gaps and record omissions (find-omissions pipeline).
+description: Inspect reviewed tickets for contract-to-test gaps and record omissions.
 ---
 
 # /find-omissions
@@ -8,10 +8,10 @@ Inspect all reviewed tickets for gaps between contracts and their test implement
 
 ## Pipeline Overview
 
-The find-omissions pipeline automates the inspection of every reviewed ticket to check whether its contracts are fully and accurately translated into test code. It runs in a single integrated step (Steps 1-3), followed by optional post-processing (Steps 4-7).
+The find-omissions pipeline automates the inspection of every reviewed ticket to check whether its contracts are fully and accurately translated into test code. Each omission found is recorded as a rigorously defined ticket — complete enough for the subsequent implementation loop (make → plan → start → review → resolve) to resolve it without divergence.
 
 ```
-Integrated Step 1 (automated):
+Step 1 (automated):
   ├─ Create _tmp-omissions-*.json (STUB + non-reviewed collection) ── if missing
   ├─ Create _tmp-check-target-tickets-cmds-*.json (reviewed command list) ── if missing
   └─ For each unchecked ticket:
@@ -20,10 +20,10 @@ Integrated Step 1 (automated):
        └─ Prefix stdout with progress: Total N tickets to inspect. Inspecting ticket M/N.
 
 Post-processing (manual / separate tickets):
-  ├─ Step 4: Group omission tickets by phase in _tmp-omissions-*.json
-  ├─ Step 5: Reassign ticket IDs
-  ├─ Step 6: Merge into Tickets.json
-  └─ Step 7: Clean up _tmp-* temporary files
+  ├─ Step 2: Group omission tickets by phase in _tmp-omissions-*.json
+  ├─ Step 3: Reassign ticket IDs
+  ├─ Step 4: Merge into Tickets.json
+  └─ Step 5: Clean up _tmp-* temporary files
 ```
 
 ## Usage
