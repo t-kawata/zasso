@@ -864,7 +864,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1246,6 +1246,45 @@ function runPhasifyOmissions(opts) {
 
   // Step N: Validate merged result
   var mergeValidation = validateMergedTickets(mergedResult.data);
+
+  // Phase info for AI naming (always shown)
+  if (output.phases.length > 0) {
+    console.log('');
+    console.log('[Re-implementation phases — assign meaningful names]');
+    // Build node title map
+    var nodeTitleMap = {};
+    for (var ni = 0; ni < (graphData.nodes || []).length; ni++) {
+      nodeTitleMap[graphData.nodes[ni].id] = graphData.nodes[ni].title || '(no title)';
+    }
+    for (var pi = 0; pi < output.phases.length; pi++) {
+      var phase = output.phases[pi];
+      var nodeIds = phase.nodeIds || [];
+      var tickets = phase.tickets || [];
+      var nodeCount = nodeIds.length;
+      var maxShown = 5;
+      var nodeSuffix = nodeCount > maxShown ? '\n    ... (' + (nodeCount - maxShown) + ' more)' : '';
+      console.log('');
+      console.log('Phase ' + phase.id + ' (' + phase.name + '): ' + tickets.length + ' ticket(s), ' + nodeCount + ' node(s)');
+      console.log('  Nodes:');
+      for (var nsi = 0; nsi < Math.min(nodeIds.length, maxShown); nsi++) {
+        var nid = nodeIds[nsi];
+        console.log('    ' + nid + '  ' + (nodeTitleMap[nid] || '(unknown)'));
+      }
+      if (nodeSuffix) console.log(nodeSuffix);
+      console.log('  Tickets:');
+      for (var ti = 0; ti < tickets.length; ti++) {
+        console.log('    P' + phase.id + '-' + tickets[ti].id + '  ' + (tickets[ti].title || '(no title)'));
+      }
+    }
+    // Generate rename command examples
+    console.log('');
+    console.log('After assigning meaningful names, rename each phase:');
+    for (var cpi = 0; cpi < output.phases.length; cpi++) {
+      var cp = output.phases[cpi];
+      console.log('  node .claude/scripts/tickets/rename-phases.js --tickets=' + opts.ticketsPath + ' --phase=' + cp.id + ' --name="<meaningful name for phase ' + cp.id + '>"');
+    }
+    console.log('');
+  }
 
   // Schema validation (always shown)
   console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));

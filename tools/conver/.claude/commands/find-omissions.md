@@ -291,3 +291,9 @@ Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timest
 ```bash
 node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 ```
+
+Tickets.json に Step 6 までで発見された omissions を最適なフェーズ及びチケット区切りに自動計算して機械的にマージする。機械的マージはフェーズ名も機械的であるため、phasify-omissions.js のstdoutの指示に従い、最適なフェーズ名に更新しなければならない。
+
+# Step 9 — フェーズ名更新
+
+Step 8 の出力の指示に従い、rename-phases.js によって全ての omissions 由来のフェーズ名を更新する。"Omissions由来: " というプレフィックスから始まるフェーズ名でなければならない。

@@ -1,5 +1,6 @@
 ---
 description: Inspect reviewed tickets for contract-to-test gaps and record omissions.
+argument-hint: </path/to/*-GRAPH.json>
 ---
 
 # /find-omissions
@@ -284,3 +285,15 @@ node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 
 Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
 Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
+
+# Step 8 — Tickets.json にマージ
+
+```bash
+node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
+```
+
+Tickets.json に Step 6 までで発見された omissions を最適なフェーズ及びチケット区切りに自動計算して機械的にマージする。機械的マージはフェーズ名も機械的であるため、phasify-omissions.js のstdoutの指示に従い、最適なフェーズ名に更新しなければならない。
+
+# Step 9 — フェーズ名更新
+
+Step 8 の出力の指示に従い、rename-phases.js によって全ての omissions 由来のフェーズ名を更新する。"Omissions由来: " というプレフィックスから始まるフェーズ名でなければならない。
