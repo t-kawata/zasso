@@ -1,5 +1,6 @@
 ---
 description: Inspect reviewed tickets for contract-to-test gaps and record omissions.
+argument-hint: </path/to/*-GRAPH.json>
 ---
 
 # /find-omissions
@@ -284,3 +285,9 @@ node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 
 Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
 Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
+
+# Step 8 — Tickets.json にマージ
+
+```bash
+node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
+```

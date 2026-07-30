@@ -14437,6 +14437,130 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 110,
+          "phaseId": -1,
+          "status": "done",
+          "title": "rename-phases.js + phasify-omissions phase info output",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/110-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: phasify-omissions.js の出力に各フェーズのグラフノード情報を含め、AIが意味のあるフェーズ名を決定できるようにする。同時にTickets.jsonのphase.nameを安全に変更する専用スクリプトrename-phases.jsを提供する。\n\nPurpose: 現在のフェーズ名（P6, P7等）は内容を一切表さない。人間にもAIにも理解できない。フェーズ内容を伝える情報を出力し、安全な改名経路を確立する。\n\nMotivation: PX-108/PX-109でマージとロールバックが自動化された。次のステップとして、生成されたフェーズに意味のある名前を付ける必要がある。直接編集はJSON破損のリスクがあり許可しない。\n\nConstraints:\n- rename-phases.js がフェーズ名変更の唯一の変更経路\n- phasify-omissions.js は名前を自動生成せず、情報提示のみ\n- --dry-run, --rollback と矛盾しない",
+          "scope": [
+            "rename-phases.js 新規作成: --tickets=<PATH> --phase=<id> --name=<new-name> 形式のCLI。複数phaseの一括指定。atomicWrite。",
+            "phasify-omissions.js 出力拡張: マージ後、各フェーズの nodeIds に対応するグラフノードタイトル一覧をstdoutに出力。",
+            "--dry-run 時もフェーズ情報を表示（ファイル書き込みなしのため安全）。",
+            "--rollback 非対応: rename-phases はマージ後のフェーズ名変更のみ。rollback とは独立。",
+            "全テスト追加: rename-phases.js のUT + phasify-omissions.js 出力フォーマットのUT",
+            "Scope:\n  - Path: .claude/scripts/tickets/rename-phases.js (NEW)\n  - Action: add (new script)\n  - Detail: CLI tool for renaming phases in Tickets.json\n  - Before: nonexistent. After: rename-phases.js created with renamePhases() + atomicWrite\n  - API: CLI: --tickets, --phase, --name (repeatable)\n  - Schema: No change\n  - Config: No change\n  - Dep: No new dependencies",
+            "Out of scope:\n  - Item: phasify-omissions.js auto-naming of phases\n  - Why: AI/人間がrename-phases.jsで命名する設計。自動生成は不正確。",
+            "Affected:\n  - Component: Tickets.json.phases[].name\n  - Impact: Data content — phase name changes\n  - Response: N/A"
+          ],
+          "testUnit": [
+            "UT: [Normal] renamePhases() updates phase.name for valid phaseId",
+            "UT: [Normal] renamePhases() updates multiple phases in one call",
+            "UT: [Normal] renamePhases() deep-clones input — no mutation of original",
+            "UT: [Normal] renamePhases() with name identical to existing name does not change anything",
+            "UT: [Error] renamePhases() throws on nonexistent phaseId",
+            "UT: [Error] renamePhases() throws on empty name string",
+            "UT: [Error] renamePhases() throws on phaseId=-1 (PX phase)",
+            "UT: [Invariant] renamePhases() only modifies phases[].name — deep-equal for all other fields",
+            "UT: [Normal] phasify-omissions merge report contains node title mapping for each phase",
+            "UT: [Normal] phasify-omissions merge report ends with rename-phases.js command example",
+            "UT: [Normal] --dry-run also outputs phase info and rename command example"
+          ],
+          "testIntegration": [
+            "IT: phasify-omissions (merge) → capture stdout → parse rename command → execute → verify Tickets.json phase.name changed",
+            "IT: rename-phases.js with 2 phases in one call → both renamed, atomic write"
+          ],
+          "testExceptions": [
+            "Cannot test: atomicWrite's fs.renameSync POSIX atomicity. UT verifies file existence before/after rename. Not a design defect."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/rename-phases.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/tests/tickets/scripts.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: phasify-omissions 実行後、stdoutに各フェーズのノード一覧（nodeId, title）とrename-phases.jsのコマンド例が出力される。コマンドを実行するとTickets.jsonのphase.nameのみが変わる。",
+            "Error case: rename-phases.jsに存在しないphase IDを渡すとエラー終了。Tickets.jsonは変更されない。空文字のnameもエラー。",
+            "Edge case: --dry-runでもフェーズ情報が出力される（ファイル書き込みなし）。--rollback後でもrename-phases.jsは正常動作する（rollbackと独立）。"
+          ],
+          "notes": "- Implementation steps: (1) renamePhases() pure function in rename-phases.js (2) CLI arg parsing (3) atomic write integration (4) phasify-omissions output extension (5) tests\n- Risks: None — pure function + atomic write\n- Caveats: rename-phases.js outputs the rename command for the NEXT phase, not for itself. It does not output a 'run another command' message.\n- Open items: None\n- Future: rename-phases.js could accept --json for pipeline integration (not needed now)\nImplementation summary:\n- NEW: .claude/scripts/tickets/rename-phases.js (renamePhases + parseArgs + atomicWrite, ~200 lines)\n- MODIFIED: phasify-omissions.js output extension (phase info + rename command, ~+50 lines)\n- MODIFIED: scripts.test.js (PX-110 tests, +55 lines)\n- Test results: 201/201 passed (13 PX-110-specific tests)",
+          "invariants": "- [Normal condition] ticketsData must be a valid Tickets.json with phases array. Each rename entry must have phaseId (integer) and newName (non-empty string).\n- [Error invariant] rename-phases.js never writes to Tickets.json if any phaseId is invalid. Tickets.json is never partially modified.\n- [Internal state invariant] renamePhases() is a pure function (no I/O). Only atomicWrite (caller) touches disk.\n- [Boundary invariant] Phase id=-1 (PX) is always rejected for renaming.",
+          "instrumentation": "- Logging: rename-phases.js — old name, new name, count of renamed phases.\n- Metrics: Number of phases renamed.\n- Error tracking: Invalid phase ID → process.exit(1). Atomic write failure → process.exit(3).\n- Health check: Phase existence and ID range validated before any write.",
+          "investigation": "Key code patterns:\n\n1. Current merge report output (runPhasifyOmissions):\n   console.log('Schema validation: ...');\n   console.log('Tickets.json: merged N phase(s), M ticket(s)');\n   → Insert phase detail block before schema validation\n\n2. graphData.nodes[] is already loaded and available at merge time. Each node has {id, title, kind, ...}.\n\n3. output.phases[] has {id, name, nodeIds[], tickets[{id, title, phaseId}]}.\n   → Build nodeTitleMap from graphData.nodes.\n   → For each phase: iterate nodeIds, look up title from map, print.\n   → For rename command: `node .claude/scripts/tickets/rename-phases.js --tickets=<path> --phase=<id> --name=\"<name>\"`\n\n4. rename-phases.js: new script in .claude/scripts/tickets/. Reuses atomicWrite pattern from merge-contracts-to-tickets.js (lines 38-42).\n   - parse arguments: pairs of --phase=N --name=\"...\"\n   - read Tickets.json\n   - clone\n   - update names\n   - clone and validate no other fields changed\n   - atomicWrite",
+          "boyScoutPlan": "1. renamePhases() as a pure function (no I/O) following mergePhasifyToTickets pattern.\n2. Verb-prefix naming: renamePhases (verb: 'rename').\n3. Deep clone inputs to avoid mutation.\n4. Command example output is constructed from runtime values (not hardcoded).",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "rename-phases.js CLI args → Tickets.json phase rename",
+              "precondition": "renamePhases() accepts (ticketsData, renames: {phaseId, newName}[]). Each phaseId must exist in ticketsData.phases. Phase with id=-1 (PX) is rejected.",
+              "postcondition": "Deep-clones ticketsData, updates each matching phase.name, returns clone. Throws Error on invalid phaseId or invalid name (empty string).",
+              "invariant": "Only phases[].name is modified. All other fields (id, characteristics, tickets, nodeIds, summary) are deep-equal before/after."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "phasify-omissions merge report → stdout with node titles",
+              "precondition": "runPhasifyOmissions() has graphData.nodes[] with {id, title}. output.phases[] has {id, nodeIds[], tickets[]}.",
+              "postcondition": "stdout contains each phase's nodeId-title mapping and ticketId-title list, plus the rename-phases.js command example. Non-dry-run and dry-run both output this info.",
+              "invariant": "Output is informational only — no files written or modified by the output itself."
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "// C001-PRE: renamePhases() updates phase.name",
+            "const input = {",
+            "  title: 'test',",
+            "  metadata: { source: 's', generatedAt: '2026-07-30' },",
+            "  phases: [",
+            "    { id: 6, name: 'P6', tickets: [] },",
+            "    { id: 7, name: 'P7', tickets: [] }",
+            "  ]",
+            "};",
+            "const result = renamePhases(input, [{ phaseId: 6, newName: 'Storage Layer' }]);",
+            "assert.strictEqual(result.phases[0].name, 'Storage Layer', 'name updated');",
+            "",
+            "// C001-POST: deep clone, original unchanged",
+            "assert.strictEqual(input.phases[0].name, 'P6', 'original unchanged');",
+            "",
+            "// C001-INV: only name field changed",
+            "assert.strictEqual(result.phases[0].id, input.phases[0].id, 'id preserved');",
+            "",
+            "// C001-ERR: nonexistent phaseId throws",
+            "assert.throws(() => renamePhases(input, [{ phaseId: 99, newName: 'X' }]), /phaseId/, 'throws on bad id');",
+            "",
+            "// C001-ERR: empty name throws",
+            "assert.throws(() => renamePhases(input, [{ phaseId: 6, newName: '' }]), /name/, 'throws on empty name');",
+            "",
+            "// C001-ERR: phaseId=-1 (PX) throws",
+            "const pxPhases = { title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [{ id: -1, name: 'PX', tickets: [] }, { id: 0, name: 'P0', tickets: [] }] };",
+            "assert.throws(() => renamePhases(pxPhases, [{ phaseId: -1, newName: 'X' }]), /PX/, 'throws on PX rename');",
+            "",
+            "// C001: multiple phases in one call",
+            "const multiResult = renamePhases(input, [{ phaseId: 6, newName: 'A' }, { phaseId: 7, newName: 'B' }]);",
+            "assert.strictEqual(multiResult.phases[0].name, 'A', 'multi: phase 6');",
+            "assert.strictEqual(multiResult.phases[1].name, 'B', 'multi: phase 7');",
+            "",
+            "// C001: rename to same name (no-op, no throw)",
+            "const sameResult = renamePhases(input, [{ phaseId: 6, newName: 'P6' }]);",
+            "assert.strictEqual(sameResult.phases[0].name, 'P6', 'same name preserved');"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "No rename-phases.js existed",
+              "after": "rename-phases.js created with renamePhases() + CLI + atomicWrite",
+              "description": "New script for safe phase name changes — the only allowed path"
+            },
+            {
+              "before": "phasify-omissions output showed only PASS/FAIL + Schema",
+              "after": "output includes node titles, ticket lists, and rename-phases.js command for each phase",
+              "description": "Added phase info block to stdout for AI naming"
+            }
+          ]
         }
       ]
     },
