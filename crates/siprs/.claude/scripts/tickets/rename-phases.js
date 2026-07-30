@@ -10,8 +10,9 @@
  * Direct editing of Tickets.json phase names is prohibited.
  *
  * Usage:
- *   node rename-phases.js --tickets=<PATH> --phase=<id> --name="<new-name>"
- *   node rename-phases.js --tickets=<PATH> --phase=6 --name="Storage" --phase=7 --name="Network"
+ *   node rename-phases.js --phase=<id> --name="<new-name>"                   # uses Tickets.json in CWD
+ *   node rename-phases.js --tickets=<PATH> --phase=<id> --name="<new-name>"  # explicit path
+ *   node rename-phases.js --phase=6 --name="Omissions: Storage Layer" --phase=7 --name="Omissions: Network"
  *
  * Exit codes:
  *   0 = Success
@@ -138,8 +139,8 @@ function parseArgs(argv) {
   }
 
   if (!opts.ticketsPath) {
-    console.error('[ERROR] --tickets=<PATH> is required');
-    process.exit(2);
+    opts.ticketsPath = path.resolve('Tickets.json');
+    console.error('[rename-phases] Default Tickets.json: ' + opts.ticketsPath);
   }
   if (opts.renames.length === 0) {
     console.error('[ERROR] At least one --phase=N --name="..." pair is required');

@@ -804,6 +804,64 @@ function cleanupFiles(paths) {
 }
 
 // ============================================================
+// PX-111: Pre-merge snapshot + auto-review
+// ============================================================
+
+/**
+ * Mark all pre-offset tickets as 'reviewed' so only omission tickets remain 'todo'.
+ * Pure function — deep-clones input, no side effects.
+ *
+ * @param {object} mergedData — Merged Tickets.json with phases[{id, tickets}]
+ * @param {number} offset — Phase ID offset; phases with id < offset are pre-merge
+ * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets set to reviewed
+ */
+// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
+function markPreMergeTicketsReviewed(mergedData, offset) {
+  if (!mergedData || typeof mergedData !== 'object') {
+    throw new Error('mergedData must be a non-null object');
+  }
+  if (typeof offset !== 'number') {
+    throw new Error('offset must be a number');
+  }
+
+  var result = JSON.parse(JSON.stringify(mergedData));
+
+  for (var pi = 0; pi < result.phases.length; pi++) {
+    var phase = result.phases[pi];
+    if (phase.id >= offset) continue; // skip new omission phases
+
+    var tickets = phase.tickets || [];
+    for (var ti = 0; ti < tickets.length; ti++) {
+      tickets[ti].status = 'reviewed';
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Create a timestamped snapshot of Tickets.json.
+ * Best-effort — never throws. Caller must handle failure gracefully.
+ *
+ * @param {string} sourcePath — Absolute path to Tickets.json
+ * @param {string} ts — Timestamp string (YYYYMMDDhhmmss)
+ * @returns {{ success: boolean, snapshotPath?: string }}
+ */
+// [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
+function createSnapshot(sourcePath, ts) {
+  try {
+    if (!fs.existsSync(sourcePath)) return { success: false };
+    var snapshotPath = path.join(path.dirname(sourcePath), 'Tickets-' + ts + '.json');
+    fs.copyFileSync(sourcePath, snapshotPath);
+    return { success: true, snapshotPath: snapshotPath };
+  } catch (e) {
+    return { success: false };
+  }
+}
+
+// ============================================================
 // PX-109: Rollback function
 // ============================================================
 
@@ -864,7 +922,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1281,7 +1339,7 @@ function runPhasifyOmissions(opts) {
     console.log('After assigning meaningful names, rename each phase:');
     for (var cpi = 0; cpi < output.phases.length; cpi++) {
       var cp = output.phases[cpi];
-      console.log('  node .claude/scripts/tickets/rename-phases.js --tickets=' + opts.ticketsPath + ' --phase=' + cp.id + ' --name="<meaningful name for phase ' + cp.id + '>"');
+      console.log('  node .claude/scripts/tickets/rename-phases.js --phase=' + cp.id + ' --name="Omissions: <meaningful name for phase ' + cp.id + '>"');
     }
     console.log('');
   }
@@ -1306,6 +1364,26 @@ function runPhasifyOmissions(opts) {
 
   // Step O: dry-run exit
   if (opts.dryRun) return;
+
+  // Step P: Snapshot + auto-review (PX-111)
+  var snapshotResult = createSnapshot(opts.ticketsPath, ts);
+  if (snapshotResult.success) {
+    console.log('Snapshot: Tickets-' + ts + '.json');
+  } else {
+    console.warn('[WARN] Snapshot creation failed (best-effort, continuing).');
+  }
+
+  mergedResult.data = markPreMergeTicketsReviewed(mergedResult.data, offset);
+  var reviewedCount = 0;
+  for (var rpi = 0; rpi < mergedResult.data.phases.length; rpi++) {
+    if (mergedResult.data.phases[rpi].id < offset) {
+      var rpt = mergedResult.data.phases[rpi].tickets || [];
+      for (var rti = 0; rti < rpt.length; rti++) {
+        if (rpt[rti].status === 'reviewed') reviewedCount++;
+      }
+    }
+  }
+  console.log('Marked ' + reviewedCount + ' existing tickets as reviewed.');
 
   // Inject merge metadata (PX-109: enables --rollback)
   mergedResult.data.metadata = mergedResult.data.metadata || {};
@@ -1371,6 +1449,9 @@ module.exports = {
   mergePhasifyToTickets,
   // PX-109: rollback
   rollbackPhasifyMerge,
+  // PX-111: snapshot + auto-review
+  markPreMergeTicketsReviewed,
+  createSnapshot,
   validateMergedTickets,
   atomicWrite,
   cleanupFiles,
