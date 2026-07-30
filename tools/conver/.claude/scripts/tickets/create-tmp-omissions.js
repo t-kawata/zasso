@@ -19,12 +19,56 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+// Import sentinel utilities from add-omission-ticket.js for idempotent prefix handling (PX-106)
+let addOmissionModule = null;
+try {
+  addOmissionModule = require('./add-omission-ticket.js');
+} catch (e) {
+  // Fallback for test environments where resolution differs
+  try {
+    addOmissionModule = require(path.resolve(__dirname, 'add-omission-ticket.js'));
+  } catch (e2) {
+    // Will use inline fallback at runtime
+  }
+}
+
 // -- Constants --
 
 // Matches ticket keys like P3-2, PX-53, P12-3 in STUB content
 const STUB_TICKET_KEY_RE = /\[::STUB::\].*?([A-Z]+[A-Z\d]*-\d+)/;
 
-const REJECTION_WARNING =
+// PX-106: Idempotent sentinel and helpers (inline fallback if add-omission-ticket.js unavailable)
+const INSPECTION_SENTINEL_FALLBACK = '[::INSPECTION_FLAGGED::]';
+
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function countSentinels(bg) {
+  return (bg || '').match(/\[::INSPECTION_FLAGGED::\]/g || []).length;
+}
+
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function repairSentinels(bg) {
+  const s = bg || '';
+  const cnt = countSentinels(s);
+  if (cnt <= 1) return s;
+  const lastIdx = s.lastIndexOf('[::INSPECTION_FLAGGED::]');
+  return s.slice(lastIdx);
+}
+
+// Resolve sentinel functions: prefer imported, fallback to local
+const _sentinel = { INSPECTION_SENTINEL: INSPECTION_SENTINEL_FALLBACK, countInspectionSentinels: countSentinels, repairDuplicateSentinels: repairSentinels };
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+function _resolveSentinels() {
+  if (addOmissionModule && typeof addOmissionModule.countInspectionSentinels === 'function') {
+    return {
+      INSPECTION_SENTINEL: addOmissionModule.INSPECTION_SENTINEL,
+      countInspectionSentinels: addOmissionModule.countInspectionSentinels,
+      repairDuplicateSentinels: addOmissionModule.repairDuplicateSentinels,
+    };
+  }
+  return _sentinel;
+}
+
+const REJECTION_WARNING = '[::INSPECTION_FLAGGED::]\n' +
   'This ticket has been flagged for rejection due to detection of implementation deficiencies, ' +
   'unresolved STUB markers, or other violations. It has been returned for re-implementation. ' +
   'A complete implementation free of all defects, STUB markers, and violations must be achieved.';
@@ -181,7 +225,9 @@ function buildTicketLookup(ticketsData) {
  * @param {Map<string, object>} ticketLookup — Map from buildTicketLookup()
  * @returns {object[]} — Array of enriched full ticket objects
  */
+// [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 function enrichTickets(mergedEntries, ticketsData, ticketLookup) {
+  const s = _resolveSentinels();
   return mergedEntries.map(entry => {
     const original = ticketLookup.get(entry.ticketKey);
     if (original) {
@@ -190,8 +236,15 @@ function enrichTickets(mergedEntries, ticketsData, ticketLookup) {
       // Add new schema fields
       cloned.fromStub = entry.fromStub;
       cloned.stubs = entry.stubs;
-      // Prepend rejection warning to background
-      cloned.background = REJECTION_WARNING + '\n\n' + (cloned.background || '');
+      // PX-106: Idempotent sentinel guard — prepend only if no sentinel exists
+      const alreadyFlagged = cloned.background &&
+        cloned.background.startsWith(s.INSPECTION_SENTINEL);
+      if (!alreadyFlagged) {
+        cloned.background = REJECTION_WARNING + '\n\n' + (cloned.background || '');
+      } else {
+        // Repair duplicate sentinels that may exist from previous cycles
+        cloned.background = s.repairDuplicateSentinels(cloned.background);
+      }
       return cloned;
     }
     // Fallback: STUB references a ticket not found in Tickets.json

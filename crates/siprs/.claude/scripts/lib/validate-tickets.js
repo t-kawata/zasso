@@ -1,7 +1,11 @@
+// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+
+// [::TICKET::] PX-106 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-106 --for-spec --no-implementation-order`.
+
 const fs = require('fs'), path = require('path');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
-const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed'];
+const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
 
 // [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
 function validateTickets(data) {
