@@ -14441,7 +14441,7 @@
         {
           "id": 110,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "rename-phases.js + phasify-omissions phase info output",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/110-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "Goal: phasify-omissions.js の出力に各フェーズのグラフノード情報を含め、AIが意味のあるフェーズ名を決定できるようにする。同時にTickets.jsonのphase.nameを安全に変更する専用スクリプトrename-phases.jsを提供する。\n\nPurpose: 現在のフェーズ名（P6, P7等）は内容を一切表さない。人間にもAIにも理解できない。フェーズ内容を伝える情報を出力し、安全な改名経路を確立する。\n\nMotivation: PX-108/PX-109でマージとロールバックが自動化された。次のステップとして、生成されたフェーズに意味のある名前を付ける必要がある。直接編集はJSON破損のリスクがあり許可しない。\n\nConstraints:\n- rename-phases.js がフェーズ名変更の唯一の変更経路\n- phasify-omissions.js は名前を自動生成せず、情報提示のみ\n- --dry-run, --rollback と矛盾しない",
@@ -14485,9 +14485,9 @@
             "Error case: rename-phases.jsに存在しないphase IDを渡すとエラー終了。Tickets.jsonは変更されない。空文字のnameもエラー。",
             "Edge case: --dry-runでもフェーズ情報が出力される（ファイル書き込みなし）。--rollback後でもrename-phases.jsは正常動作する（rollbackと独立）。"
           ],
-          "notes": "- Implementation steps: (1) renamePhases() pure function in rename-phases.js (2) CLI arg parsing (3) atomic write integration (4) phasify-omissions output extension (5) tests\n- Risks: None — pure function + atomic write\n- Caveats: rename-phases.js outputs the rename command for the NEXT phase, not for itself. It does not output a 'run another command' message.\n- Open items: None\n- Future: rename-phases.js could accept --json for pipeline integration (not needed now)\nImplementation summary:\n- NEW: .claude/scripts/tickets/rename-phases.js (renamePhases + parseArgs + atomicWrite, ~200 lines)\n- MODIFIED: phasify-omissions.js output extension (phase info + rename command, ~+50 lines)\n- MODIFIED: scripts.test.js (PX-110 tests, +55 lines)\n- Test results: 201/201 passed (13 PX-110-specific tests)",
+          "notes": "- Implementation steps: (1) renamePhases() pure function in rename-phases.js (2) CLI arg parsing (3) atomic write integration (4) phasify-omissions output extension (5) tests\n- Risks: None — pure function + atomic write\n- Caveats: rename-phases.js outputs the rename command for the NEXT phase, not for itself. It does not output a 'run another command' message.\n- Open items: None\n- Future: rename-phases.js could accept --json for pipeline integration (not needed now)\nImplementation summary:\n- NEW: .claude/scripts/tickets/rename-phases.js (renamePhases + parseArgs + atomicWrite, ~200 lines)\n- MODIFIED: phasify-omissions.js output extension (phase info + rename command, ~+50 lines)\n- MODIFIED: scripts.test.js (PX-110 tests, +55 lines)\n- Test results: 201/201 passed (13 PX-110-specific tests)\nReview report:\n- Static quality check: 66 issues (pre-existing)\n- Translatability: no issues\n- Crimes: 0\n- Stubs: 3 (pre-existing, deferred)\n- Annotations: 3 files OK (0 missing, 0 ambiguous)\n- Contracts: 100% fulfilled (2/2)\n- Tests: 201/201 PASS\n- Acceptance Criteria: rename-phases.js created, output shows node info + rename command, dry-run shows info without writes",
           "invariants": "- [Normal condition] ticketsData must be a valid Tickets.json with phases array. Each rename entry must have phaseId (integer) and newName (non-empty string).\n- [Error invariant] rename-phases.js never writes to Tickets.json if any phaseId is invalid. Tickets.json is never partially modified.\n- [Internal state invariant] renamePhases() is a pure function (no I/O). Only atomicWrite (caller) touches disk.\n- [Boundary invariant] Phase id=-1 (PX) is always rejected for renaming.",
-          "instrumentation": "- Logging: rename-phases.js — old name, new name, count of renamed phases.\n- Metrics: Number of phases renamed.\n- Error tracking: Invalid phase ID → process.exit(1). Atomic write failure → process.exit(3).\n- Health check: Phase existence and ID range validated before any write.",
+          "instrumentation": "- Logging: rename-phases.js — old name, new name, count of renamed phases.\n- Metrics: Number of phases renamed.\n- Error tracking: Invalid phase ID → process.exit(1). Atomic write failure → process.exit(3).\n- Health check: Phase existence and ID range validated before any write.\nStatic quality check: 66 issues (all pre-existing patterns). No new issues from PX-110.\nTranslatability: renamePhases is verb phrase. No single-letter vars in new code. No magic numbers.\nTests: 201/201 passed (13 PX-110-specific).\nDependencies: No new dependencies.",
           "investigation": "Key code patterns:\n\n1. Current merge report output (runPhasifyOmissions):\n   console.log('Schema validation: ...');\n   console.log('Tickets.json: merged N phase(s), M ticket(s)');\n   → Insert phase detail block before schema validation\n\n2. graphData.nodes[] is already loaded and available at merge time. Each node has {id, title, kind, ...}.\n\n3. output.phases[] has {id, name, nodeIds[], tickets[{id, title, phaseId}]}.\n   → Build nodeTitleMap from graphData.nodes.\n   → For each phase: iterate nodeIds, look up title from map, print.\n   → For rename command: `node .claude/scripts/tickets/rename-phases.js --tickets=<path> --phase=<id> --name=\"<name>\"`\n\n4. rename-phases.js: new script in .claude/scripts/tickets/. Reuses atomicWrite pattern from merge-contracts-to-tickets.js (lines 38-42).\n   - parse arguments: pairs of --phase=N --name=\"...\"\n   - read Tickets.json\n   - clone\n   - update names\n   - clone and validate no other fields changed\n   - atomicWrite",
           "boyScoutPlan": "1. renamePhases() as a pure function (no I/O) following mergePhasifyToTickets pattern.\n2. Verb-prefix naming: renamePhases (verb: 'rename').\n3. Deep clone inputs to avoid mutation.\n4. Command example output is constructed from runtime values (not hardcoded).",
           "contracts": [
@@ -14560,7 +14560,9 @@
               "after": "output includes node titles, ticket lists, and rename-phases.js command for each phase",
               "description": "Added phase info block to stdout for AI naming"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-30"
         }
       ]
     },
