@@ -958,7 +958,7 @@ function runPhasifyOmissions(opts) {
   // Warn for small phases (suppress in dry-run to keep output clean)
   for (const phase of phaseAssignments) {
     const size = phase.nodeIds ? phase.nodeIds.length : 0;
-    if (size < minSize && totalOmissionNodes >= minSize && (!opts.dryRun || opts.verbose)) {
+    if (size < minSize && totalOmissionNodes >= minSize && opts.verbose) {
       console.warn('[WARN] Phase P' + phase.id + ' has ' + size + ' nodes (below minimum ' + minSize + ')');
     }
   }
@@ -998,7 +998,7 @@ function runPhasifyOmissions(opts) {
   // Step H: Repair inspection prefixes
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
-  repairInspectionPrefixes(actionTickets, opts.dryRun);
+  repairInspectionPrefixes(actionTickets, true);
 
   // ============================================================
   // Step H: Build output
@@ -1048,29 +1048,12 @@ function runPhasifyOmissions(opts) {
   const validateResult = validatePhasedOmissions(preOutput, nodes, edges, omissionNodeIds);
 
   // ============================================================
-  // Report
+  // Report — PASS/FAIL summary (always shown)
   // ============================================================
-  if (!opts.dryRun || opts.verbose) {
-    console.log('');
-    console.log('=== phasify-omissions Phase Design Report ===');
-    console.log('Input OMISSIONS: ' + opts.omissionsPath);
-    console.log('Input GRAPH: ' + opts.graphPath);
-    console.log('Input Tickets: ' + opts.ticketsPath);
-    console.log('Omission nodes: ' + totalOmissionNodes + ' (of ' + (graphData.nodes || []).length + ' total)');
-    console.log('Subgraph hard edges: ' + hardEdges.length);
-    console.log('Cross-boundary depends_on (from omission): ' + crossFromOmission.length + ' (satisfied, no constraint)');
-    console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
-    console.log('Auto minSize: ' + minSize);
-    console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-    console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
-    console.log('Phase ID offset: ' + offset);
-  }
-
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
   const allCovered = validateResult.checks.allNodesCovered ? validateResult.checks.allNodesCovered.passed : false;
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
-  // Always show one-line PASS/FAIL summary
   console.log('');
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
     output.phases.length + ' implementation phases' +
@@ -1078,10 +1061,6 @@ function runPhasifyOmissions(opts) {
     ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
-  // Full details in non-dry-run or verbose mode
-  if (!opts.dryRun || opts.verbose) {
-    console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
-  }
 
   if (!validateResult.valid) {
     console.error('[ERROR] Validation failed. See details above.');
@@ -1092,7 +1071,7 @@ function runPhasifyOmissions(opts) {
   // Step J-Q: Write output + merge pipeline (PX-108)
   // ============================================================
 
-  // Derive output path for the phasified file (needed before dry-run decision)
+  // Derive output path for the phasified file
   var defaultPhasifiedOutput = path.join(
     path.dirname(opts.omissionsPath),
     'OMISSIONS-phasified-' + timestamp + '.json'
@@ -1103,18 +1082,11 @@ function runPhasifyOmissions(opts) {
   if (!opts.dryRun) {
     try {
       fs.writeFileSync(phasifiedOutputPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
-      console.log('');
-      console.log('Wrote ' + output.phases.length + ' implementation phases to ' + phasifiedOutputPath);
     } catch (e) {
       console.error('[ERROR] Cannot write output file: ' + e.message);
       process.exit(3);
     }
   }
-
-  // ============================================================
-  // Step K-P: Tickets.json merge pipeline
-  // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Starting Tickets.json merge pipeline...');
 
   // Step K: Compute backup path
   var ts = timestamp;
@@ -1126,8 +1098,7 @@ function runPhasifyOmissions(opts) {
   // Step L: Backup Tickets.json (skip in dry-run)
   if (!opts.dryRun) {
     try {
-      var bkResult = backupTickets(opts.ticketsPath, backupPath);
-      if (opts.verbose) console.log('[VERBOSE] Backup created: ' + bkResult.backupPath);
+      backupTickets(opts.ticketsPath, backupPath);
     } catch (e) {
       console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
       process.exit(3);
@@ -1159,17 +1130,8 @@ function runPhasifyOmissions(opts) {
   // Step N: Validate merged result
   var mergeValidation = validateMergedTickets(mergedResult.data);
 
-  // Print merge report
-  if (!opts.dryRun || opts.verbose) {
-    console.log('');
-    console.log('=== PX-108: Tickets.json Merge Report ===');
-    console.log('New phases to merge: ' + output.phases.length);
-    console.log('Total phases after merge: ' + mergedResult.data.phases.length);
-    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
-  } else {
-    // dry-run concise: one-line schema result
-    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
-  }
+  // Schema validation (always shown)
+  console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
 
   if (!mergeValidation.valid) {
     console.error('[ERROR] Merge validation failed:');
@@ -1190,12 +1152,8 @@ function runPhasifyOmissions(opts) {
   if (opts.dryRun) return;
 
   // Step P: Atomic write merged Tickets.json
-  if (opts.verbose) console.log('[VERBOSE] Writing merged Tickets.json...');
   try {
     atomicWrite(opts.ticketsPath, JSON.stringify(mergedResult.data, null, 2) + '\n');
-    console.log('');
-    console.log('Updated Tickets.json with ' + output.phases.length + ' new phase(s).');
-    console.log('Tickets.json backup: ' + backupPath);
   } catch (e) {
     console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
     console.error('Backup preserved: ' + backupPath);
@@ -1203,10 +1161,15 @@ function runPhasifyOmissions(opts) {
   }
 
   // Step Q: Cleanup temporary files
-  if (opts.verbose) console.log('[VERBOSE] Cleaning up temporary files...');
   var filesToClean = [phasifiedOutputPath, backupPath];
   cleanupFiles(filesToClean);
-  console.log('Cleaned up ' + filesToClean.length + ' temporary file(s).');
+
+  // Final summary line
+  var totalMergedTickets = 0;
+  for (var pi = 0; pi < output.phases.length; pi++) {
+    totalMergedTickets += (output.phases[pi].tickets || []).length;
+  }
+  console.log('Tickets.json: merged ' + output.phases.length + ' phase(s), ' + totalMergedTickets + ' ticket(s)');
 }
 
 // ============================================================
