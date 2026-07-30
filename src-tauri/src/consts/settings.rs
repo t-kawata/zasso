@@ -16,7 +16,7 @@
 /// アプリケーションバージョン（セマンティックバージョニング）
 /// sync-version.mjs が読み取る SOT（Rust 未参照）
 #[allow(dead_code)]
-pub(crate) const APP_VERSION: &str = "v0.24.548";
+pub(crate) const APP_VERSION: &str = "v0.24.549";
 
 /// アプリケーション表示名
 /// sync-version.mjs が読み取る SOT（Rust 未参照）
