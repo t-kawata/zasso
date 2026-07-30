@@ -333,6 +333,11 @@ function reassignPhaseIdsWithOffset(phases, offset) {
   for (const phase of normalized) {
     phase.id = phase.id + offset;
     phase.name = 'P' + phase.id;
+    // Update ticket.phaseId to match the new parent phase ID
+    const tickets = phase.tickets || [];
+    for (let ti = 0; ti < tickets.length; ti++) {
+      tickets[ti].phaseId = phase.id;
+    }
   }
   return normalized;
 }
