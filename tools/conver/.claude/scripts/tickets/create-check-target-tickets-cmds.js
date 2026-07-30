@@ -31,7 +31,7 @@ const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-conte
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
  * @returns {string[]} — Reviewed ticket key strings
  */
-// [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102) --for-spec --no-implementation-order`.
 function collectReviewedTicketKeys(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -40,7 +40,7 @@ function collectReviewedTicketKeys(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
-      if (ticket.status === 'reviewed') {
+      if (ticket.status === 'reviewed' || ticket.status === 'remanded') {
         const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
         const phasePrefix = phaseId === -1 ? 'X' : phaseId;
         keys.push('P' + phasePrefix + '-' + ticket.id);

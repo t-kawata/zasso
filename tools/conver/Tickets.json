@@ -13414,6 +13414,139 @@
             }
           ],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 102,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Complete find-omissions pipeline: foundOmissions schema, omission recording, and merge command",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/102-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "The find-omissions pipeline needs three remaining pieces to be complete:\n\n### Goal\nAdd structured foundOmissions field to ticket schema, enhance add-omission-ticket.js to copy original tickets, and create a merge command to finalize omission tickets into Tickets.json.\n\n### Purpose\nWithout foundOmissions, omission details are stored as unstructured notes, making them unverifiable and prone to divergence during re-inspection.\n\n### Motivation\nThe current pipeline stops at _tmp-omissions-*.json generation but cannot merge findings back into Tickets.json. This blocks the implementation loop.\n\n### Constraints\n- foundOmissions schema must be identical in Tickets.json and _tmp-omissions-*.json.\n- add-omission-ticket.js must remain backward-compatible (stdin-only mode unchanged).\n- Merge must never overwrite existing Tickets.json tickets.\n- All scripts remain CommonJS, no external deps.",
+          "scope": [
+            "Extend ticket schema: add foundOmissions:[{...}] field to both Tickets.json and _tmp-omissions-*.json",
+            "Enhance add-omission-ticket.js: add --ticket-key flag to copy original ticket from Tickets.json and append to _tmp-omissions-*.json",
+            "add-omission-ticket.js: accept foundOmissions data via stdin alongside ticket key",
+            "add-omission-ticket.js: validate foundOmissions structure (non-empty array, required sub-fields)",
+            "Create merge-omissions-to-tickets.js: read _tmp-omissions-*.json and merge into Tickets.json",
+            "merge script: group omission tickets by phase, reassign sequential IDs",
+            "merge script: validate foundOmissions schema before merging",
+            "merge script: handle edge cases (empty foundOmissions, missing phases, backward compat)",
+            "Create .claude/commands/merge-omissions.md slash command documentation",
+            "Update .claude/commands/find-omissions.md to reflect completion",
+            "**Scope of changes:**\n  - [Path] .claude/scripts/tickets/add-omission-ticket.js (modify)\n  - [Action] add features: --ticket-key flag, foundOmissions validation\n  - [Detail] Add two exported functions (lookupTicket, validateFoundOmissions); extend main() to handle --ticket-key\n  - [Before] stdin-only, appends raw ticket, no foundOmissions support\n  - [After] stdin + --ticket-key, validates and appends copied ticket with foundOmissions\n  - [API] New exported functions: lookupTicket(ticketsData, ticketKey), validateFoundOmissions(omissions)\n  - [Schema] Ticket gains optional foundOmissions array field\n  - [Config] None\n  - [Dep] None (fs, path, child_process — Node built-ins only)",
+            "**Out of scope:**\n  - [Excluded] AI-level inspection logic (ABC criteria evaluation)\n  - [Why] That is the human/AI operator's task; this ticket provides the structural tooling",
+            "**Affected areas:**\n  - [Component] .claude/scripts/tickets/merge-omissions-to-tickets.js (NEW)\n  - [Nature] New merge script reads _tmp-omissions format produced by add-omission-ticket.js\n  - [Change needed] N — merged tickets follow existing Tickets.json schema"
+          ],
+          "testUnit": [
+            "UT: [Normal] foundOmissions with contractId, criterion, description, codeLocation passes validation",
+            "UT: [Normal] add-omission-ticket.js --ticket-key=PX-99 reads ticket from Tickets.json and returns deep clone with all fields intact",
+            "UT: [Normal] add-omission-ticket.js appends cloned ticket with foundOmissions to _tmp-omissions PX phase",
+            "UT: [Normal] merge script groups tickets by phaseId, preserving original phase order",
+            "UT: [Normal] merge script reassigns sequential ticket IDs (1,2,3...) per phase without gaps",
+            "UT: [Error] foundOmissions with missing contractId field is rejected with specific error",
+            "UT: [Error] foundOmissions with missing description field is rejected",
+            "UT: [Error] add-omission-ticket.js --ticket-key=INVALID exits 1 with ticket not found error",
+            "UT: [Error] merge script with _tmp-omissions containing invalid foundOmissions exits 1",
+            "UT: [Error] merge script with empty _tmp-omissions array exits 0 gracefully",
+            "UT: [Boundary] foundOmissions with exactly 1 entry passes validation",
+            "UT: [Boundary] add-omission-ticket.js with --ticket-key but no foundOmissions on stdin exits 1",
+            "UT: [Boundary] merge script with Tickets.json having no matching phase creates the phase",
+            "UT: [Invariant] validateFoundOmissions() does not mutate the input array",
+            "UT: [Invariant] add-omission-ticket.js --ticket-key does not modify original Tickets.json ticket"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] add-omission-ticket.js --ticket-key reads from Tickets.json, writes to _tmp-omissions-*.json",
+            "IT: [Integration point] merge-omissions-to-tickets.js reads _tmp-omissions-*.json, writes to Tickets.json",
+            "IT: [Verification] add-omission-ticket.js --ticket-key=PX-99 with foundOmissions produces valid _tmp-omissions with cloned ticket",
+            "IT: [Verification] merge-omissions-to-tickets.js with real _tmp-omissions produces valid Tickets.json update",
+            "IT: [Prerequisites] Tickets.json must be valid JSON with at least one ticket",
+            "IT: [Prerequisites] _tmp-omissions-*.json must have valid phased structure",
+            "IT: [Related tickets] PX-100 (original add-omission-ticket.js), PX-101 (orchestrator)"
+          ],
+          "testExceptions": [
+            "**Item:** Verifying foundOmissions completeness (all omissions found vs actual source code)\n  **Reason:** cannot test automatically — depends on AI analyst skill. This is not a design defect; structural validation ensures the field FORMAT is correct.\n  **Alt verification:** Manual review of foundOmissions output by second AI/human.",
+            "**Item:** Merge conflict detection when Tickets.json is concurrently modified\n  **Reason:** cannot test concurrent modification in unit test. This is not a design defect; the pipeline is single-process by design.\n  **Alt verification:** Integration test with sequential operations."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/add-omission-ticket.js",
+            ".claude/commands/merge-omissions.md",
+            "tickets/specs/PX-102.md"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** add-omission-ticket.js --ticket-key=PX-99 < foundOmissions.json → ticket copied with foundOmissions to _tmp-omissions",
+            "**[Happy path]** merge-omissions-to-tickets.js → all omission tickets merged into Tickets.json with sequential IDs",
+            "**[Error case]** FoundOmissions missing contractId → rejected with \"Missing required field: contractId\"",
+            "**[Error case]** _tmp-omissions with invalid foundOmissions → merge exits 1 with validation errors",
+            "**[Edge case]** _tmp-omissions has PX phase with 0 tickets → merge exits 0, no changes to Tickets.json",
+            "**[Edge case]** Multiple omission tickets with same phaseId → merged into that phase with sequential IDs"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "foundOmissions schema",
+              "precondition": "foundOmissions is provided as a non-empty array of objects",
+              "postcondition": "Each object contains required sub-fields (contractId, criterion, description, codeLocation)",
+              "invariant": "foundOmissions is never mutated by validation — read-only check"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Ticket copy via --ticket-key",
+              "precondition": "--ticket-key points to an existing ticket in Tickets.json",
+              "postcondition": "The full ticket is deep-cloned into _tmp-omissions-*.json PX phase",
+              "invariant": "Original ticket in Tickets.json is never modified"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Merge idempotency",
+              "precondition": "_tmp-omissions-*.json has valid phased structure with foundOmissions",
+              "postcondition": "All omission tickets are merged into Tickets.json with sequential IDs",
+              "invariant": "Existing Tickets.json tickets are never overwritten — only appended"
+            }
+          ],
+          "notes": "- [Steps] 1) Add foundOmissions to ticket schema, 2) Add validateFoundOmissions() to add-omission-ticket.js, 3) Add --ticket-key flag, 4) Create merge-omissions-to-tickets.js, 5) Create merge-omissions.md, 6) Update find-omissions.md, 7) Write tests, 8) Run all.\n- [Risks] Low-medium: schema change is additive (no breaking change), but merge script must handle edge cases.\n- [Caveats] foundOmissions schema must be decided before implementation. Proposed: [{contractId:string, criterion:\"A\"|\"B\"|\"C\", description:string, codeLocation:string, expectedBehavior?:string, actualBehavior?:string}]\n- [Open items] Should merge script also handle _tmp-omissions without foundOmissions (older format)? Yes, for backward compat.\n- [Future] Add --dry-run to merge script to preview changes without writing.\nImplementation summary:\n- Modified: add-omission-ticket.js (+2 functions: validateFoundOmissions, lookupTicket; +--ticket-key flag)\n- Created: merge-omissions-to-tickets.js (~180 lines, 4 exported pure functions)\n- Created: .claude/commands/merge-omissions.md\n- Updated: .claude/commands/find-omissions.md\n- Test results: 45 tests passed (34 original + 11 PX-102 new)\nReview report:\n- Status gate: done\n- Crimes: 0\n- STUBs: 0 in scope\n- AMBIGUOUS markers: 0\n- Static quality check: passed\n- Translatability: verb phrase function names, no generic variables\n- Tests: 45/45 (add-omission) + 44/44 (create-cmds) + 24/24 (orchestrator) = 113 total\n- Implementation completeness: 100%",
+          "invariants": "- [Normal] foundOmissions is always a non-empty array of objects when present.\n- [Error] On validation failure, output file is never touched (atomic reject).\n- [Internal state] foundOmissions is never mutated by validation functions (read-only).\n- [Boundary] Each foundOmission object must have at minimum: contractId (string), criterion (string, one of A/B/C), description (string), codeLocation (string).",
+          "instrumentation": "- [Logging] Console.error with prefix for diagnostics.\n- [Metrics] None.\n- [Error tracking] Validation errors printed to stderr with specific field name.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: 45/45 passed",
+          "investigation": "- Current add-omission-ticket.js (256 lines): exports validateTicket(), appendTicket(), findOrCreateTmpOmissions(), formatTimestamp(). Main function reads stdin, validates, appends to PX phase.\n- Ticket schema in Tickets.json: phases[].tickets[] with fields: id, phaseId, status, title, background, scope, testUnit, testIntegration, testExceptions, invariants, acceptanceCriteria, contracts, notes, instrumentation, investigation, boyScoutPlan, created_at, updated_at, fromStub, stubs, planTestCode, changes, startedAt.\n- _tmp-omissions-*.json uses identical schema plus fromStub/stubs.\n- foundOmissions must be added to both schemas.\n- No existing merge script — this is net new.\n- Existing add-omission-ticket.js already handles PX phase creation and ID auto-increment. The --ticket-key enhancement adds a lookup before the append flow.",
+          "boyScoutPlan": "- add-omission-ticket.js: extract foundOmissions validation to its own function validateFoundOmissions() for testability.\n- add-omission-ticket.js: use destructuring for ticket fields in appendTicket for readability.\n- merge-omissions-to-tickets.js: use verb-prefixed function names: readOmissionsFile(), validateTickets(), groupByPhase(), reassignIds(), mergeToTickets(), writeTicketsFile().\n- Both scripts: use path.resolve() consistently for all file paths.\n- Both scripts: console.error for diagnostics, console.log for primary output only.",
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] validateFoundOmissions(null) returns error string\n  ```js\n  const result = validateFoundOmissions(null);\n  assert(result !== null, \"null rejected\");\n  assert(result.includes(\"non-empty array\"), \"mentions array requirement\");\n  ```",
+            "UT: [C001-Postcondition] validateFoundOmissions([{contractId:\"C001\",criterion:\"A\",description:\"desc\",codeLocation:\"file.rs:42\"}]) returns null\n  ```js\n  const valid = [{contractId:\"C001\",criterion:\"A\",description:\"Desc\",codeLocation:\"src/main.rs:42\"}];\n  assert(validateFoundOmissions(valid) === null, \"valid omission passes\");\n  ```",
+            "UT: [C001-Invariant] validateFoundOmissions does not mutate input\n  ```js\n  const input = [{contractId:\"C001\",criterion:\"A\",description:\"D\",codeLocation:\"f:1\"}];\n  const before = JSON.stringify(input);\n  validateFoundOmissions(input);\n  assert(JSON.stringify(input) === before, \"input unchanged\");\n  ```",
+            "UT: [C002-Precondition] lookupTicket(ticketsData, \"PX-99\") returns ticket object\n  ```js\n  const data = {phases:[{id:-1,tickets:[{id:99,title:\"T\"}]}]};\n  const t = lookupTicket(data, \"PX-99\");\n  assert(t !== null, \"ticket found\");\n  assert(t.title === \"T\", \"correct title\");\n  ```",
+            "UT: [C002-Postcondition] lookupTicket returns deep clone, not reference\n  ```js\n  const data = {phases:[{id:0,tickets:[{id:1,title:\"Original\"}]}]};\n  const t = lookupTicket(data, \"P0-1\");\n  t.title = \"Mutated\";\n  assert(data.phases[0].tickets[0].title === \"Original\", \"original unchanged\");\n  ```",
+            "UT: [C002-Invariant] lookupTicket with non-existent key returns null\n  ```js\n  const data = {phases:[{id:0,tickets:[]}]};\n  assert(lookupTicket(data, \"P99-99\") === null, \"null for nonexistent\");\n  ```",
+            "UT: [C003-Precondition] mergeToTickets(ticketsData, omissionsData) returns updated ticketsData\n  ```js\n  const tickets = {phases:[{id:0,name:\"P0\",tickets:[]}]};\n  const omissions = {phases:[{id:-1,tickets:[{title:\"O1\",phaseId:-1,foundOmissions:[{contractId:\"C001\",criterion:\"A\",description:\"D\",codeLocation:\"f:1\"}]}]}]};\n  const result = mergeToTickets(tickets, omissions);\n  assert(result.phases[0].tickets.length === 0, \"PX omission not in P0\");\n  ```",
+            "UT: [C003-Postcondition] Omission with phaseId=0 merged into phase 0\n  ```js\n  const tickets = {phases:[{id:0,name:\"P0\",tickets:[{id:1,title:\"Existing\"}]}]};\n  const omissions = {phases:[{id:-1,tickets:[{id:99,phaseId:0,title:\"O1\",foundOmissions:[]}]}]};\n  const result = mergeToTickets(tickets, omissions);\n  assert(result.phases.find(p=>p.id===0).tickets.length === 2, \"2 tickets in P0 after merge\");\n  ```",
+            "UT: [C003-Invariant] Existing tickets never overwritten\n  ```js\n  const tickets = {phases:[{id:0,tickets:[{id:1,title:\"Existing\"}]}]};\n  const omissions = {phases:[{id:-1,tickets:[{id:99,phaseId:0,title:\"O1\",foundOmissions:[]}]}]};\n  const result = mergeToTickets(tickets, omissions);\n  assert(result.phases[0].tickets[0].title === \"Existing\", \"original preserved\");\n  ```"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "stdin-only append",
+              "after": "stdin + --ticket-key mode",
+              "description": "Add lookupTicket(), validateFoundOmissions(), --ticket-key flag to add-omission-ticket.js"
+            },
+            {
+              "before": "(not exist)",
+              "after": "merge-omissions-to-tickets.js",
+              "description": "Create merge script: validate, group, reassign IDs, merge into Tickets.json"
+            },
+            {
+              "before": "(not exist)",
+              "after": "merge-omissions.md",
+              "description": "Create slash command documentation for merge pipeline"
+            },
+            {
+              "before": "outdated post-processing steps",
+              "after": "references /merge-omissions",
+              "description": "Update find-omissions.md with new pipeline completion"
+            }
+          ],
+          "completedAt": "2026-07-30"
         }
       ]
     },

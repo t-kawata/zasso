@@ -84,9 +84,9 @@ function setTicketRemanded(ticketsData, ticketKey) {
  * @param {number} current — 1-indexed current position
  * @returns {string} — e.g. "Total 5 tickets to inspect. Inspecting ticket 3/5."
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
 function buildPrefixMessage(total, current) {
-  return 'Total ' + total + ' tickets to inspect. Inspecting ticket ' + current + '/' + total + '.';
+  return 'Total ' + total + ' tickets to inspect. Inspecting ticket ' + current + '/' + total + '.\n';
 }
 
 /**
@@ -201,19 +201,26 @@ function runShowTicketContext(ticketKey) {
 }
 
 /**
- * Clean up tmp files: _tmp-omissions-*.json and _tmp-check-target-tickets-cmds-*.json.
+ * Remove the _tmp-check-target-tickets-cmds-*.json file.
  */
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
-function cleanTrashFiles() {
-  const omissions = findLatestTmpOmissions();
+// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+function removeCmdsFile() {
   const cmds = findLatestTmpCmds();
-  if (omissions) { try { fs.unlinkSync(omissions); } catch (e) { /* ignore */ } }
   if (cmds) { try { fs.unlinkSync(cmds); } catch (e) { /* ignore */ } }
+}
+
+/**
+ * Remove the _tmp-omissions-*.json file.
+ */
+// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+function removeOmitsFile() {
+  const omissions = findLatestTmpOmissions();
+  if (omissions) { try { fs.unlinkSync(omissions); } catch (e) { /* ignore */ } }
 }
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-101 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = 'Tickets.json';
@@ -252,12 +259,19 @@ function main() {
   }
 
   // Step 4: Pop next unchecked entry
+  // Distinguish between empty cmds (no reviewed tickets) and all entries consumed.
+  if (cmdsEntries.length === 0) {
+    console.error('[get-next-check-target-ticket] Error: No reviewed or remanded tickets found in Tickets.json.');
+    console.error('[get-next-check-target-ticket] The cmds file is left for inspection:', tmpCmdsPath);
+    process.exit(1);
+  }
   const popped = popNextEntry(cmdsEntries);
   if (!popped) {
     // All done
     console.log('All tickets inspected.');
     if (withCleanTrash) {
-      cleanTrashFiles();
+      removeCmdsFile();
+      removeOmitsFile();
     }
     process.exit(0);
   }
@@ -302,10 +316,13 @@ function main() {
   const showOutput = runShowTicketContext(ticketKey);
   process.stdout.write(showOutput);
 
-  // Step 10: Clean trash if all entries done
+  // Step 10: If all entries are done, clean up only with --with-clean-trash.
+  // Never auto-delete — doing so would cause the next run to recreate the cmds file
+  // from Tickets.json, which now includes remanded tickets, creating an infinite loop.
   const remaining = cmdsEntries.filter(e => !e.done).length;
   if (remaining === 0 && withCleanTrash) {
-    cleanTrashFiles();
+    removeCmdsFile();
+    removeOmitsFile();
   }
 }
 

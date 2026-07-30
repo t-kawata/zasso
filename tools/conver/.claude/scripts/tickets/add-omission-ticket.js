@@ -86,6 +86,62 @@ function appendTicket(data, ticket) {
 }
 
 /**
+ * Validate that a foundOmissions array has all required sub-fields.
+ * Required fields: contractId (string), criterion (string, A/B/C),
+ * description (string), codeLocation (string).
+ *
+ * @param {Array|null} omissions — foundOmissions array
+ * @returns {string|null} — Error message string, or null if valid
+ */
+// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
+function validateFoundOmissions(omissions) {
+  if (!Array.isArray(omissions) || omissions.length === 0) {
+    return 'foundOmissions must be a non-empty array';
+  }
+  const REQUIRED_FIELDS = ['contractId', 'criterion', 'description', 'codeLocation'];
+  for (let i = 0; i < omissions.length; i++) {
+    const item = omissions[i];
+    if (!item || typeof item !== 'object') {
+      return 'foundOmissions[' + i + '] is not an object';
+    }
+    for (const field of REQUIRED_FIELDS) {
+      if (!item[field] || typeof item[field] !== 'string' || item[field].trim() === '') {
+        return 'foundOmissions[' + i + '] missing required field: ' + field;
+      }
+    }
+    if (!['A', 'B', 'C'].includes(item.criterion)) {
+      return 'foundOmissions[' + i + '] criterion must be A, B, or C';
+    }
+  }
+  return null;
+}
+
+/**
+ * Look up a ticket in Tickets.json data by ticket key.
+ * Key format: P{phaseId}-{ticketId} (PX-{id} for phase -1).
+ * Returns a deep clone to prevent mutation of the original.
+ *
+ * @param {object} ticketsData — Parsed Tickets.json { phases[] }
+ * @param {string} ticketKey — e.g. "P3-2" or "PX-53"
+ * @returns {object|null} — Deep-cloned ticket object, or null
+ */
+// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
+function lookupTicket(ticketsData, ticketKey) {
+  if (!ticketsData || !Array.isArray(ticketsData.phases)) return null;
+  const match = ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
+  if (!match) return null;
+  const phaseId = match[1] === 'X' ? -1 : parseInt(match[1], 10);
+  const ticketId = parseInt(match[2], 10);
+  for (const phase of ticketsData.phases) {
+    if (phase.id === phaseId) {
+      const ticket = phase.tickets.find(t => t.id === ticketId);
+      if (ticket) return JSON.parse(JSON.stringify(ticket));
+    }
+  }
+  return null;
+}
+
+/**
  * Find or create a tmp-omissions file from Tickets.json template.
  * If the file exists, parse and return its content.
  * If not, read Tickets.json and create a minimal template with a PX phase.
@@ -157,11 +213,12 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
   let ticketsPath = 'Tickets.json';
+  let ticketKey = null;
 
   for (const arg of args) {
     if (arg.startsWith('--tmp-omissions=')) {
@@ -170,17 +227,17 @@ async function main() {
     if (arg.startsWith('--tickets=')) {
       ticketsPath = arg.slice('--tickets='.length);
     }
+    if (arg.startsWith('--ticket-key=')) {
+      ticketKey = arg.slice('--ticket-key='.length);
+    }
   }
 
   if (!tmpOmissionsPath) {
-    // Auto-detect latest _tmp-omissions-*.json in CWD
     const files = fs.readdirSync('.').filter(f => f.startsWith('_tmp-omissions-') && f.endsWith('.json'));
     if (files.length === 0) {
-      // Generate a new filename
       const timestamp = formatTimestamp();
       tmpOmissionsPath = path.resolve('_tmp-omissions-' + timestamp + '.json');
     } else {
-      // Pick the one with the latest timestamp
       files.sort().reverse();
       tmpOmissionsPath = path.resolve(files[0]);
     }
@@ -190,53 +247,96 @@ async function main() {
 
   const resolvedTicketsPath = path.resolve(ticketsPath);
 
-  // Check Tickets.json exists
   if (!fs.existsSync(resolvedTicketsPath)) {
     console.error('[add-omission-ticket] Error: Tickets.json not found:', resolvedTicketsPath);
     process.exit(1);
   }
 
-  // Read stdin
-  const stdinData = await readStdin();
+  if (ticketKey) {
+    // --ticket-key mode: copy existing ticket, add foundOmissions from stdin
+    const ticketsData = JSON.parse(fs.readFileSync(resolvedTicketsPath, 'utf8'));
+    const cloned = lookupTicket(ticketsData, ticketKey);
+    if (!cloned) {
+      console.error('[add-omission-ticket] Error: Ticket not found:', ticketKey);
+      process.exit(1);
+    }
 
-  // Parse JSON
-  let ticket;
-  try {
-    ticket = JSON.parse(stdinData);
-  } catch (parseError) {
-    console.error('[add-omission-ticket] Error: Cannot parse ticket JSON from stdin');
-    process.exit(1);
+    // Read foundOmissions from stdin
+    const stdinData = await readStdin();
+    let omissions;
+    try {
+      omissions = JSON.parse(stdinData);
+    } catch (parseError) {
+      console.error('[add-omission-ticket] Error: Cannot parse foundOmissions JSON from stdin');
+      process.exit(1);
+    }
+
+    const validationError = validateFoundOmissions(omissions);
+    if (validationError) {
+      console.error('[add-omission-ticket] Error: ' + validationError);
+      process.exit(1);
+    }
+
+    cloned.foundOmissions = omissions;
+    cloned.phaseId = -1;
+    cloned.status = 'todo';
+
+    let data;
+    try {
+      data = findOrCreateTmpOmissions(tmpOmissionsPath, resolvedTicketsPath);
+    } catch (readError) {
+      console.error('[add-omission-ticket] Error: Cannot read/create tmp-omissions file:', readError.message);
+      process.exit(1);
+    }
+
+    const updatedData = appendTicket(data, cloned);
+
+    try {
+      fs.writeFileSync(tmpOmissionsPath, JSON.stringify(updatedData, null, 2), 'utf8');
+    } catch (writeError) {
+      console.error('[add-omission-ticket] Error: Cannot write tmp-omissions file:', writeError.message);
+      process.exit(1);
+    }
+
+    console.log(tmpOmissionsPath);
+    console.error('[add-omission-ticket] Ticket copied with foundOmissions to:', tmpOmissionsPath);
+  } else {
+    // Original stdin-only mode: read and validate full ticket
+    const stdinData = await readStdin();
+    let ticket;
+    try {
+      ticket = JSON.parse(stdinData);
+    } catch (parseError) {
+      console.error('[add-omission-ticket] Error: Cannot parse ticket JSON from stdin');
+      process.exit(1);
+    }
+
+    const validationError = validateTicket(ticket);
+    if (validationError) {
+      console.error('[add-omission-ticket] Error: ' + validationError);
+      process.exit(1);
+    }
+
+    let data;
+    try {
+      data = findOrCreateTmpOmissions(tmpOmissionsPath, resolvedTicketsPath);
+    } catch (readError) {
+      console.error('[add-omission-ticket] Error: Cannot read/create tmp-omissions file:', readError.message);
+      process.exit(1);
+    }
+
+    const updatedData = appendTicket(data, ticket);
+
+    try {
+      fs.writeFileSync(tmpOmissionsPath, JSON.stringify(updatedData, null, 2), 'utf8');
+    } catch (writeError) {
+      console.error('[add-omission-ticket] Error: Cannot write tmp-omissions file:', writeError.message);
+      process.exit(1);
+    }
+
+    console.log(tmpOmissionsPath);
+    console.error('[add-omission-ticket] Ticket appended to:', tmpOmissionsPath);
   }
-
-  // Validate required fields
-  const validationError = validateTicket(ticket);
-  if (validationError) {
-    console.error('[add-omission-ticket] Error: ' + validationError);
-    process.exit(1);
-  }
-
-  // Find or create tmp-omissions file
-  let data;
-  try {
-    data = findOrCreateTmpOmissions(tmpOmissionsPath, resolvedTicketsPath);
-  } catch (readError) {
-    console.error('[add-omission-ticket] Error: Cannot read/create tmp-omissions file:', readError.message);
-    process.exit(1);
-  }
-
-  // Append ticket
-  const updatedData = appendTicket(data, ticket);
-
-  // Write output
-  try {
-    fs.writeFileSync(tmpOmissionsPath, JSON.stringify(updatedData, null, 2), 'utf8');
-  } catch (writeError) {
-    console.error('[add-omission-ticket] Error: Cannot write tmp-omissions file:', writeError.message);
-    process.exit(1);
-  }
-
-  console.log(tmpOmissionsPath);
-  console.error('[add-omission-ticket] Ticket appended to:', tmpOmissionsPath);
 }
 
 // -- Export for testing --
@@ -244,7 +344,9 @@ module.exports = {
   validateTicket,
   appendTicket,
   findOrCreateTmpOmissions,
-  formatTimestamp
+  formatTimestamp,
+  lookupTicket,
+  validateFoundOmissions
 };
 
 // Run as CLI

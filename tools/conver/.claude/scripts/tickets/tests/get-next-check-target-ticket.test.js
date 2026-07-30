@@ -55,11 +55,11 @@ try {
 (function testPrefixMessageFormat() {
   console.log('  ── C001/C003 Prefix Message ──');
   const msg1 = buildPrefixMessage(5, 3);
-  assertStrictEqual(msg1, 'Total 5 tickets to inspect. Inspecting ticket 3/5.', 'format 3/5');
+  assertStrictEqual(msg1, 'Total 5 tickets to inspect. Inspecting ticket 3/5.\n', 'format 3/5');
   const msg2 = buildPrefixMessage(1, 1);
-  assertStrictEqual(msg2, 'Total 1 tickets to inspect. Inspecting ticket 1/1.', 'format 1/1');
+  assertStrictEqual(msg2, 'Total 1 tickets to inspect. Inspecting ticket 1/1.\n', 'format 1/1');
   const msg3 = buildPrefixMessage(133, 42);
-  assertStrictEqual(msg3, 'Total 133 tickets to inspect. Inspecting ticket 42/133.', 'format 42/133');
+  assertStrictEqual(msg3, 'Total 133 tickets to inspect. Inspecting ticket 42/133.\n', 'format 42/133');
 })();
 
 // ======================================================================

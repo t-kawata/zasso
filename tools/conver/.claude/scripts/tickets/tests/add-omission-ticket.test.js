@@ -17,11 +17,14 @@ const os = require('os');
 let validateTicket;
 let appendTicket;
 let findOrCreateTmpOmissions;
+let lookupTicket;
+let validateFoundOmissions;
 
 let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -40,6 +43,8 @@ try {
   validateTicket = mod.validateTicket;
   appendTicket = mod.appendTicket;
   findOrCreateTmpOmissions = mod.findOrCreateTmpOmissions;
+  lookupTicket = mod.lookupTicket;
+  validateFoundOmissions = mod.validateFoundOmissions;
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load add-omission-ticket.js: ' + e.message + '\n');
@@ -233,6 +238,73 @@ const VALID_TICKET = {
   fs.unlinkSync(ticketsPath);
   fs.unlinkSync(tmpOmissionsPath);
   fs.rmdirSync(tmpDir);
+})();
+
+// ======================================================================
+// PX-102: foundOmissions validation
+// ======================================================================
+
+(function testFoundOmissionsNull() {
+  console.log('  ── PX-102 foundOmissions null ──');
+  const err = validateFoundOmissions(null);
+  assert(err !== null, 'null rejected');
+  assert(err.includes('array'), 'mentions array');
+})();
+
+(function testFoundOmissionsValid() {
+  console.log('  ── PX-102 foundOmissions valid ──');
+  const valid = [{ contractId: 'C001', criterion: 'A', description: 'Test missing', codeLocation: 'src/main.rs:42' }];
+  const err = validateFoundOmissions(valid);
+  assert(err === null, 'valid entry passes');
+})();
+
+(function testFoundOmissionsMissingField() {
+  console.log('  ── PX-102 foundOmissions missing field ──');
+  const bad = [{ contractId: 'C001', criterion: 'A', codeLocation: 'f:1' }]; // missing description
+  const err = validateFoundOmissions(bad);
+  assert(err !== null, 'missing description rejected');
+  assert(err.includes('description'), 'mentions description');
+})();
+
+(function testFoundOmissionsEmpty() {
+  console.log('  ── PX-102 foundOmissions empty array ──');
+  const err = validateFoundOmissions([]);
+  assert(err !== null, 'empty array rejected');
+})();
+
+(function testFoundOmissionsInvariant() {
+  console.log('  ── PX-102 foundOmissions invariant ──');
+  const input = [{ contractId: 'C001', criterion: 'A', description: 'D', codeLocation: 'f:1' }];
+  const before = JSON.stringify(input);
+  validateFoundOmissions(input);
+  assert(JSON.stringify(input) === before, 'input not mutated');
+})();
+
+// ======================================================================
+// PX-102: lookupTicket by key
+// ======================================================================
+
+(function testLookupTicketFound() {
+  console.log('  ── PX-102 lookupTicket found ──');
+  const data = { phases: [{ id: -1, tickets: [{ id: 99, title: 'Test', status: 'reviewed' }] }] };
+  const t = lookupTicket(data, 'PX-99');
+  assert(t !== null, 'ticket found');
+  assert(t.title === 'Test', 'correct title');
+})();
+
+(function testLookupTicketNotFound() {
+  console.log('  ── PX-102 lookupTicket not found ──');
+  const data = { phases: [{ id: 0, tickets: [] }] };
+  const t = lookupTicket(data, 'P99-99');
+  assert(t === null, 'null for missing ticket');
+})();
+
+(function testLookupTicketDeepClone() {
+  console.log('  ── PX-102 lookupTicket deep clone ──');
+  const data = { phases: [{ id: 0, tickets: [{ id: 1, title: 'Original' }] }] };
+  const t = lookupTicket(data, 'P0-1');
+  t.title = 'Mutated';
+  assert(data.phases[0].tickets[0].title === 'Original', 'original unchanged');
 })();
 
 // ======================================================================
