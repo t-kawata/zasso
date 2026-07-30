@@ -14284,6 +14284,157 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 109,
+          "phaseId": -1,
+          "status": "done",
+          "title": "phasify-omissions --rollback: deterministic phase rollback from Tickets.json",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/109-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: phasify-omissions.js --rollback フラグで、直前にマージしたフェーズを Tickets.json から決定論的に除去できること。\n\nPurpose: 誤マージ時の安全な復元手段を提供する。バックアップファイルからの手動復元に依存しない。\n\nMotivation: PX-108 で自動マージが可能になったが、ロールバック手段がない。決定論的アルゴリズムなら機械的ロールバックが可能。\n\nConstraints:\n- ロールバックは追加されたフェーズのみを除去。既存フェーズは一切変更しない\n- マージ情報（offset）は Tickets.json metadata に永続化する\n- --dry-run と組み合わせて削除プレビュー可能\n- ロールバック後も再マージ可能",
+          "scope": [
+            "Tickets.json metadata 拡張: phasify-omissions がマージ時に metadata.phasifyMerge に {offset, mergedPhaseIds, mergedAt} を書き込む",
+            "--rollback 解析: parseArguments() に --rollback フラグを追加",
+            "rollbackPhasifyMerge() 実装: Tickets.json を読み込み metadata.phasifyMerge.offset 以上の phase.id を phases から除去、該当 phaseId のチケットを全チケットから除去、metadata.phasifyMerge を削除",
+            "--rollback --dry-run 対応: 削除対象のフェーズ一覧を表示して終了（ファイル書き込みなし）",
+            "エラーハンドリング: metadata.phasifyMerge 不在時はエラー終了、既存フェーズとの整合性検証",
+            "全テスト追加",
+            "Scope of changes:\n  - Path: .claude/scripts/rfc-graph/phasify-omissions.js\n  - Action: modify (add rollbackPhasifyMerge(), extend runPhasifyOmissions(), extend parseArguments())\n  - Detail: Add 1 new function + --rollback CLI flag + merge metadata injection\n  - Before: merge pipeline writes Tickets.json with metadata unchanged. After: metadata.phasifyMerge written on merge; --rollback removes merged phases\n  - API: No breaking changes. New optional --rollback flag. New exported function rollbackPhasifyMerge()\n  - Schema: Tickets.json.metadata.phasifyMerge added (optional, only present after merge)\n  - Config: No change\n  - Dep: No new dependencies",
+            "Out of scope:\n  - Item: --rollback-to=<offset> partial rollback. Not needed now.\n  - Why: Separate ticket if needed",
+            "Affected areas:\n  - Component: Tickets.json.metadata\n  - Impact: Data format — metadata extended with phasifyMerge object\n  - Response: N/A (backward compatible, phasifyMerge is optional)"
+          ],
+          "testUnit": [
+            "UT: [Normal] parseArguments() parses --rollback flag as opts.rollback === true",
+            "UT: [Normal] rollbackPhasifyMerge() removes phases with id >= offset from Tickets.json clone",
+            "UT: [Normal] rollbackPhasifyMerge() removes metadata.phasifyMerge from clone",
+            "UT: [Normal] rollbackPhasifyMerge() does not mutate original input (deep clone test)",
+            "UT: [Error] rollbackPhasifyMerge() throws Error when metadata.phasifyMerge is missing",
+            "UT: [Error] rollbackPhasifyMerge() throws Error when offset removes ALL phases (integrity check: offset=-2 removes PX and everything)",
+            "UT: [Normal] rollbackPhasifyMerge() preserves phases with id < offset (offset=0 keeps PX(id=-1))",
+            "UT: [Normal] --rollback --dry-run prints rollback target phases and exits without writing files",
+            "UT: [Edge] --rollback on Tickets.json with no merged phases (empty mergedPhaseIds) exits cleanly with message",
+            "UT: [Invariant] After rollback, remaining phases list is sorted by id ascending",
+            "UT: [Invariant] After rollback, remaining tickets have phaseId values matching existing phases only"
+          ],
+          "testIntegration": [
+            "IT: Full round-trip: phasify-omissions (merge) -> --rollback. Before/after SHA of Tickets.json must match. Use temp copy of Tickets.json.",
+            "IT: --rollback --dry-run: verify stdout shows target phases, file SHA unchanged"
+          ],
+          "testExceptions": [
+            "Cannot test: Atomic rename race during rollback. Same as PX-108 — fs.renameSync is POSIX atomic. Not a design defect.",
+            "Cannot test: Multiple concurrent --rollback calls. Single-process design; second call will fail on missing metadata. Not a design defect."
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/tests/tickets/scripts.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: phasify-omissions --graph=GRAPH.json でマージ後、--rollback で完全に元の状態に戻る。git diff Tickets.json で差分ゼロ。",
+            "Error case: ロールバック対象の metadata がない Tickets.json に --rollback を実行するとエラー終了する。",
+            "Edge case: --rollback --dry-run で削除予定のフェーズ一覧が表示され、ファイルは変更されない。"
+          ],
+          "notes": "- Implementation steps: (1) metadata injection in merge pipeline (2) --rollback CLI parse (3) rollbackPhasifyMerge() pure function (4) runPhasifyOmissions rollback path (5) dry-run support (6) tests\n- Risks: None — pure function + atomic write guarantees safety\n- Caveats: Must NOT remove backup file (tmp-Tickets-*.json) as part of rollback; backup is user's safety net\n- Open items: None\n- Future: Consider --rollback-to=<offset> for partial rollback (not needed now)\nImplementation summary:\n- Changed files: phasify-omissions.js (+rollbackPhasifyMerge, +CLI, +metadata injection, ~+100 lines), scripts.test.js (PX-109 tests, +55 lines)\n- Key changes: rollbackPhasifyMerge() pure function; --rollback flag; merge metadata injection; rollback path\n- Test results: 188/188 passed (12 PX-109-specific tests)",
+          "invariants": "- [Normal condition] ticketsData.metadata.phasifyMerge must have {offset: number, mergedPhaseIds: number[], mergedAt: string}.\n- [Error invariant] If phasifyMerge is missing, rollback must fail with clear error — never silently skip.\n- [Internal state invariant] rollbackPhasifyMerge is a pure function (no I/O). Only the caller (runPhasifyOmissions) performs atomic write.\n- [Boundary invariant] offset must be > all existing pre-merge phase IDs. If offset overlaps with existing IDs, rollback is rejected.",
+          "instrumentation": "- Logging: rollback report (removed phases, tickets) to stdout. Errors to stderr.\n- Metrics: Number of phases/tickets removed.\n- Error tracking: Missing metadata → process.exit(1) with message. Atomic write failure → process.exit(3).\n- Health check: phasifyMerge metadata presence validated at start of rollback.",
+          "investigation": "Key code patterns identified:\n\n1. Current merge pipeline (runPhasifyOmissions Step P):\n   atomicWrite(opts.ticketsPath, JSON.stringify(mergedResult.data, null, 2) + '\\n');\n   → Before this line, inject: mergedResult.data.metadata.phasifyMerge = { offset, mergedPhaseIds, mergedAt }\n\n2. parseArguments() currently handles: --omissions, --graph, --tickets, --min-nodes, --output, --dry-run, --verbose\n   → Add: } else if (arg === '--rollback') { opts.rollback = true; }\n   → Add: rollback: false to CliOptions typedef and default object\n\n3. atomicWrite() function (PX-108) already provides safe tmp+rename write pattern\n\n4. validateTickets() in lib/validate-tickets.js validates full structure — should pass after rollback since existing phases unchanged",
+          "boyScoutPlan": "1. rollbackPhasifyMerge() as a pure function (no I/O) following the same pattern as mergePhasifyToTickets().\n2. Verb-prefix naming: rollbackPhasifyMerge (verb: 'rollback').\n3. Deep clone inputs to avoid mutation, matching existing mergePhasifyToTickets pattern.\n4. Extract offset/mergedPhaseIds constants from metadata at function entry for readability.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "parseArguments() --rollback flag → opts.rollback",
+              "precondition": "CLI argv contains '--rollback'. parseArguments reads it and sets opts.rollback = true.",
+              "postcondition": "opts.rollback === true. Other opts fields (dryRun, graphPath, etc.) unaffected.",
+              "invariant": "--rollback and --dry-run are independent flags; both can be true simultaneously."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "rollbackPhasifyMerge() → Tickets.json without merged phases",
+              "precondition": "Accepts (ticketsData: object). ticketsData.metadata.phasifyMerge must exist with {offset: number, mergedPhaseIds: number[], mergedAt: string}.",
+              "postcondition": "Returns deep-cloned object with: (1) all phases where id >= offset removed, (2) tickets with phaseId >= offset removed from remaining phases, (3) metadata.phasifyMerge deleted. Throws Error if phasifyMerge missing or offset invalid.",
+              "invariant": "All phases with id < offset are deep-equal before and after rollback. No mutation of input."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "--rollback --dry-run → stdout preview only",
+              "precondition": "opts.rollback === true && opts.dryRun === true. metadata.phasifyMerge exists.",
+              "postcondition": "stdout lists phases to be removed with their ticket count. No fs.writeFileSync/renameSync/unlinkSync calls. Exit 0.",
+              "invariant": "Tickets.json on disk is byte-identical before and after dry-run rollback."
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "// C001-PRE: parseArguments parses --rollback",
+            "const args1 = ['--graph=RFC-ROOT-GRAPH.json', '--rollback'];",
+            "const opts1 = parseArguments(args1);",
+            "assert.strictEqual(opts1.rollback, true, 'rollback flag set');",
+            "",
+            "// C001-PRE: --rollback coexists with --dry-run",
+            "const args2 = ['--graph=g.json', '--rollback', '--dry-run'];",
+            "const opts2 = parseArguments(args2);",
+            "assert.strictEqual(opts2.rollback, true, 'rollback with dry-run');",
+            "assert.strictEqual(opts2.dryRun, true, 'dry-run with rollback');",
+            "",
+            "// C001-INV: no --rollback means opts.rollback is false",
+            "const args3 = ['--graph=g.json'];",
+            "const opts3 = parseArguments(args3);",
+            "assert.strictEqual(opts3.rollback, false, 'default rollback is false');",
+            "",
+            "// C002-PRE: rollbackPhasifyMerge removes offset phases",
+            "const inputData = {",
+            "  title: 'test',",
+            "  metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: 6, mergedPhaseIds: [6,7], mergedAt: '2026-07-30' } },",
+            "  phases: [",
+            "    { id: -1, name: 'PX', tickets: [{ id: 1, phaseId: -1, title: 'X', status: 'todo' }] },",
+            "    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'done' }] },",
+            "    { id: 6, name: 'P6', tickets: [{ id: 1, phaseId: 6, title: 'Merged', status: 'todo' }] },",
+            "    { id: 7, name: 'P7', tickets: [{ id: 1, phaseId: 7, title: 'Merged2', status: 'todo' }] }",
+            "  ]",
+            "};",
+            "const result = rollbackPhasifyMerge(inputData);",
+            "assert.strictEqual(result.phases.length, 2, '2 remaining phases');",
+            "assert.strictEqual(result.phases[0].id, -1, 'PX preserved');",
+            "assert.strictEqual(result.phases[1].id, 0, 'P0 preserved');",
+            "",
+            "// C002-POST: metadata.phasifyMerge removed",
+            "assert.strictEqual(result.metadata.phasifyMerge, undefined, 'phasifyMerge removed from metadata');",
+            "",
+            "// C002-INV: original not mutated",
+            "assert.strictEqual(inputData.phases.length, 4, 'original input unchanged');",
+            "",
+            "// C002-ERR: throws on missing metadata",
+            "const noMeta = { title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [] };",
+            "assert.throws(() => rollbackPhasifyMerge(noMeta), /phasifyMerge/, 'throws on missing metadata');",
+            "",
+            "// C002-ERR: throws on invalid offset (overlaps existing phases < offset)",
+            "// This test: offset=0 overlaps with existing phase id=0",
+            "const badOffset = {",
+            "  title: 't',",
+            "  metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: 0, mergedPhaseIds: [0,1], mergedAt: '2026-07-30' } },",
+            "  phases: [{ id: -1, name: 'PX', tickets: [] }, { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'todo' }] }]",
+            "};",
+            "assert.throws(() => rollbackPhasifyMerge(badOffset), /offset/, 'throws on overlapping offset');",
+            "",
+            "// C003-PRE: --rollback --dry-run prints preview (test via stdout capture)",
+            "// Tested by running runPhasifyOmissions with rollback+dryRun opts",
+            "// In UT: verify rollbackPhasifyMerge result has expected removed phases list",
+            "// The dry-run printing is handled by the caller"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "runPhasifyOmissions() had no rollback capability",
+              "after": "--rollback removes merged phases by offset from metadata.phasifyMerge",
+              "description": "Added rollbackPhasifyMerge() pure function, --rollback CLI flag, merge metadata injection"
+            },
+            {
+              "before": "Tickets.json metadata had no merge tracking",
+              "after": "metadata.phasifyMerge written on every merge with offset/mergedPhaseIds/mergedAt",
+              "description": "Enables deterministic rollback via stored metadata"
+            }
+          ]
         }
       ]
     },
