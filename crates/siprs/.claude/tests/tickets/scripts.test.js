@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -19,6 +20,7 @@ function assertEq(actual, expected, message) {
 }
 
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function assertOk(value, message) {
   if (value) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — got ${JSON.stringify(value)}\n`); }
@@ -584,6 +586,106 @@ try {
     assertOk(actionTickets[1].background.startsWith('[::INSPECTION_FLAGGED::]'), 'T2 keeps sentinel');
     // T3 had no sentinel -> prepended
     assertOk(actionTickets[2].background.startsWith('[::INSPECTION_FLAGGED::]'), 'T3 gets sentinel prepended');
+  }
+
+  // ===============================================
+  // PX-108: phasify-omissions auto-merge pipeline
+  // ===============================================
+  // @verifies C108
+  console.log('\n## PX-108: phasify-omissions auto-merge\n');
+  {
+    const phasifyPath = path.join(SCRIPTS_DIR, '../rfc-graph/phasify-omissions.js');
+    assert(fs.existsSync(phasifyPath), 'phasify-omissions.js exists');
+
+    const p = require(phasifyPath);
+
+    // -- Exports existence --
+    assert(typeof p.backupTickets === 'function', 'backupTickets exported');
+    assert(typeof p.mergePhasifyToTickets === 'function', 'mergePhasifyToTickets exported');
+    assert(typeof p.validateMergedTickets === 'function', 'validateMergedTickets exported');
+    assert(typeof p.atomicWrite === 'function', 'atomicWrite exported');
+    assert(typeof p.cleanupFiles === 'function', 'cleanupFiles exported');
+
+    // -- backupTickets: normal --
+    const ts = '20260730120000';
+    const backupPath = path.join(os.tmpdir(), 'tmp-Tickets-' + ts + '.json');
+    const srcPath = path.resolve('Tickets.json');
+    const backupResult = p.backupTickets(srcPath, backupPath);
+    assertOk(backupResult.success, 'backupTickets: success');
+    assert(fs.existsSync(backupPath), 'backupTickets: file exists');
+    const srcContent = fs.readFileSync(srcPath, 'utf8');
+    const bakContent = fs.readFileSync(backupPath, 'utf8');
+    assertEq(bakContent, srcContent, 'backupTickets: content identical');
+    fs.unlinkSync(backupPath);
+
+    // -- backupTickets: error on nonexistent path --
+    let threw = false;
+    try { p.backupTickets('/nonexistent/path.json', backupPath); } catch (e) { threw = true; }
+    assertOk(threw, 'backupTickets: throws on nonexistent');
+
+    // -- mergePhasifyToTickets: normal --
+    const baseData = JSON.parse(fs.readFileSync(srcPath, 'utf8'));
+    const phasifiedData = {
+      title: 'test phasified',
+      metadata: { source: 'test', generatedAt: '2026-07-30' },
+      phases: [{ id: 22, name: 'P22', nodeIds: ['N0001'], tickets: [{ id: 1, phaseId: 22, title: 'Test', status: 'todo' }] }],
+      referenceTickets: [{ id: 99, phaseId: 0, title: 'ref' }]
+    };
+    const mergeResult = p.mergePhasifyToTickets(baseData, phasifiedData);
+    assertOk(mergeResult.success, 'mergePhasifyToTickets: success');
+    assertEq(mergeResult.data.phases.length, baseData.phases.length + 1, 'mergePhasifyToTickets: one phase added');
+    assertEq(mergeResult.data.referenceTickets, undefined, 'mergePhasifyToTickets: refTickets stripped');
+
+    // -- mergePhasifyToTickets: no mutation of original --
+    assertEq(baseData.phases.length, 1, 'mergePhasifyToTickets: original unchanged');
+
+    // -- mergePhasifyToTickets: empty phasified phases --
+    const emptyPhasified = { title: 'e', metadata: { source: 't', generatedAt: '2026-07-30' }, phases: [] };
+    const emptyResult = p.mergePhasifyToTickets(baseData, emptyPhasified);
+    assertOk(emptyResult.success, 'mergePhasifyToTickets: empty succeeds');
+    assertEq(emptyResult.data.phases.length, baseData.phases.length, 'mergePhasifyToTickets: no phases added');
+
+    // -- mergePhasifyToTickets: TypeError on null --
+    threw = false;
+    try { p.mergePhasifyToTickets(null, {}); } catch (e) { threw = true; }
+    assertOk(threw, 'mergePhasifyToTickets: throws on null');
+
+    // -- validateMergedTickets: valid passes --
+    const validData = { title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 't', status: 'todo' }] }] };
+    const validResult = p.validateMergedTickets(validData);
+    assertOk(validResult.valid, 'validateMergedTickets: valid true');
+
+    // -- validateMergedTickets: invalid fails --
+    const invalidResult = p.validateMergedTickets({});
+    assertEq(invalidResult.valid, false, 'validateMergedTickets: invalid false');
+    assertOk(invalidResult.errors.length > 0, 'validateMergedTickets: has errors');
+
+    // -- atomicWrite: normal --
+    const atomicTarget = path.join(os.tmpdir(), 'atomic-test-' + ts + '.json');
+    const atomicContent = JSON.stringify({ test: true });
+    p.atomicWrite(atomicTarget, atomicContent);
+    assert(fs.existsSync(atomicTarget), 'atomicWrite: target exists');
+    assertEq(fs.readFileSync(atomicTarget, 'utf8'), atomicContent, 'atomicWrite: content matches');
+    fs.unlinkSync(atomicTarget);
+
+    // -- cleanupFiles: normal --
+    const tmp1 = path.join(os.tmpdir(), 'cleanup-test-1');
+    const tmp2 = path.join(os.tmpdir(), 'cleanup-test-2');
+    fs.writeFileSync(tmp1, '');
+    fs.writeFileSync(tmp2, '');
+    p.cleanupFiles([tmp1, tmp2]);
+    assertEq(fs.existsSync(tmp1), false, 'cleanupFiles: tmp1 deleted');
+    assertEq(fs.existsSync(tmp2), false, 'cleanupFiles: tmp2 deleted');
+
+    // -- cleanupFiles: nonexistent silently ignored --
+    let caught = false;
+    try { p.cleanupFiles(['/nonexistent/path.tmp']); } catch (e) { caught = true; }
+    assertEq(caught, false, 'cleanupFiles: nonexistent no throw');
+
+    // -- cleanupFiles: empty array --
+    caught = false;
+    try { p.cleanupFiles([]); } catch (e) { caught = true; }
+    assertEq(caught, false, 'cleanupFiles: empty array no throw');
   }
 
 } finally {
