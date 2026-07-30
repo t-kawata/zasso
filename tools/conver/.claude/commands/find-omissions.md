@@ -286,14 +286,23 @@ node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
 Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
 
-# Step 8 — Tickets.json にマージ
+# Step 8 — Merge into Tickets.json
 
 ```bash
 node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 ```
 
-Tickets.json に Step 6 までで発見された omissions を最適なフェーズ及びチケット区切りに自動計算して機械的にマージする。機械的マージはフェーズ名も機械的であるため、phasify-omissions.js のstdoutの指示に従い、最適なフェーズ名に更新しなければならない。
+This computes optimal phase/ticket boundaries from the omissions found in Steps 1-6 and merges them mechanically into Tickets.json. Because the merge is algorithmic, phase names are generic (P6, P7, ...). The stdout lists each phase's node titles and ticket info, followed by the exact `rename-phases.js` commands to assign meaningful names. You **must** follow those instructions in Step 9.
 
-# Step 9 — フェーズ名更新
+# Step 9 — Rename phases
 
-Step 8 の出力の指示に従い、rename-phases.js によって全ての omissions 由来のフェーズ名を更新する。"Omissions由来: " というプレフィックスから始まるフェーズ名でなければならない。
+Run the `rename-phases.js` commands printed in Step 8's stdout. Each re-implementation phase name **must** start with the prefix `"Omissions: "` to clearly mark it as omission-derived. Example:
+
+```bash
+node .claude/scripts/tickets/rename-phases.js \
+  --tickets=Tickets.json \
+  --phase=6 --name="Omissions: Storage & Connection Layer"
+node .claude/scripts/tickets/rename-phases.js \
+  --tickets=Tickets.json \
+  --phase=7 --name="Omissions: Migration Runner"
+```
