@@ -72,6 +72,7 @@ const AUTO_SIZE_DIVISOR = 7;
  * @property {string} outputPath      — Output path (auto-derived if empty)
  * @property {boolean} dryRun         — --dry-run flag
  * @property {boolean} verbose        — --verbose flag
+ * @property {boolean} rollback       — --rollback flag
  */
 
 // ============================================================
@@ -93,7 +94,7 @@ function findLatestOmissions() {
   return path.resolve(matches[0]);
 }
 
-// [::TICKET::] PX-107, PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
     omissionsPath: '',
@@ -103,6 +104,7 @@ function parseArguments(argv) {
     outputPath: '',
     dryRun: false,
     verbose: false,
+    rollback: false,
   };
 
   for (const arg of argv) {
@@ -124,9 +126,11 @@ function parseArguments(argv) {
       opts.dryRun = true;
     } else if (arg === '--verbose') {
       opts.verbose = true;
+    } else if (arg === '--rollback') {
+      opts.rollback = true;
     } else {
       console.error('[ERROR] Unknown argument: ' + arg);
-      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--dry-run] [--verbose]');
+      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--dry-run] [--verbose] [--rollback]');
       process.exit(2);
     }
   }
@@ -796,6 +800,58 @@ function cleanupFiles(paths) {
 }
 
 // ============================================================
+// PX-109: Rollback function
+// ============================================================
+
+/**
+ * Roll back a phasify-omissions merge by removing phases with id >= offset.
+ * Pure function — no side effects. Deep-clones input to avoid mutation.
+ *
+ * @param {object} ticketsData — Parsed Tickets.json with metadata.phasifyMerge
+ * @returns {object} — Deep-cloned Tickets.json with merged phases removed
+ * @throws {Error} If metadata.phasifyMerge is missing or offset is invalid
+ */
+// [::TICKET::] PX-109: deterministic rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+function rollbackPhasifyMerge(ticketsData) {
+  if (!ticketsData || typeof ticketsData !== 'object') {
+    throw new Error('ticketsData must be a non-null object');
+  }
+
+  var mergeInfo = ticketsData.metadata && ticketsData.metadata.phasifyMerge;
+  if (!mergeInfo || typeof mergeInfo.offset !== 'number') {
+    throw new Error('No valid phasifyMerge metadata found in Tickets.json');
+  }
+
+  var offset = mergeInfo.offset;
+
+  // Integrity check: offset must not overlap existing non-merged phases
+  var preMergePhases = (ticketsData.phases || []).filter(function(p) { return p.id < offset; });
+  if (preMergePhases.length === 0) {
+    throw new Error('Offset ' + offset + ' would remove all phases — rollback rejected');
+  }
+
+  // Deep clone to avoid mutation
+  var result = JSON.parse(JSON.stringify(ticketsData));
+
+  // Remove merged phases (id >= offset)
+  result.phases = preMergePhases;
+
+  // Remove orphaned tickets (phaseId >= offset) from remaining phases
+  for (var i = 0; i < result.phases.length; i++) {
+    var tickets = result.phases[i].tickets || [];
+    result.phases[i].tickets = tickets.filter(function(t) {
+      return t.phaseId < offset;
+    });
+  }
+
+  // Remove rollback metadata
+  delete result.metadata.phasifyMerge;
+
+  return result;
+}
+
+// ============================================================
 // Main orchestrator
 // ============================================================
 
@@ -804,8 +860,63 @@ function cleanupFiles(paths) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
+  // ============================================================
+  // Rollback mode (PX-109)
+  // ============================================================
+  if (opts.rollback) {
+    if (opts.verbose) console.log('[VERBOSE] Rollback mode...');
+
+    var rollbackTicketsData;
+    try {
+      rollbackTicketsData = JSON.parse(fs.readFileSync(opts.ticketsPath, 'utf8'));
+    } catch (e) {
+      console.error('[ERROR] Cannot read Tickets.json: ' + e.message);
+      process.exit(3);
+    }
+
+    var mergeInfo = rollbackTicketsData.metadata && rollbackTicketsData.metadata.phasifyMerge;
+    if (!mergeInfo) {
+      console.error('[ERROR] No phasifyMerge metadata found. Nothing to roll back.');
+      process.exit(1);
+    }
+
+    var rollbackResult;
+    try {
+      rollbackResult = rollbackPhasifyMerge(rollbackTicketsData);
+    } catch (e) {
+      console.error('[ERROR] Rollback failed: ' + e.message);
+      process.exit(1);
+    }
+
+    if (opts.dryRun) {
+      console.log('');
+      console.log('=== Rollback Preview (--dry-run) ===');
+      console.log('Phases to remove: ' + (mergeInfo.mergedPhaseIds || []).join(', '));
+      console.log('No files written.');
+      return;
+    }
+
+    var rollbackTs = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    var rollbackBackup = path.join(path.dirname(opts.ticketsPath), 'tmp-Tickets-' + rollbackTs + '.json');
+    try { backupTickets(opts.ticketsPath, rollbackBackup); } catch (e) {
+      console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
+      process.exit(3);
+    }
+
+    try {
+      atomicWrite(opts.ticketsPath, JSON.stringify(rollbackResult, null, 2) + '\n');
+      console.log('');
+      console.log('Rollback complete. Removed phases: ' + (mergeInfo.mergedPhaseIds || []).length);
+      console.log('Backup: ' + rollbackBackup);
+    } catch (e) {
+      console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
+      process.exit(3);
+    }
+    return;
+  }
+
   if (opts.verbose) console.log('[VERBOSE] Loading input files...');
 
   // Validate files exist
@@ -958,7 +1069,7 @@ function runPhasifyOmissions(opts) {
   // Warn for small phases (suppress in dry-run to keep output clean)
   for (const phase of phaseAssignments) {
     const size = phase.nodeIds ? phase.nodeIds.length : 0;
-    if (size < minSize && totalOmissionNodes >= minSize && (!opts.dryRun || opts.verbose)) {
+    if (size < minSize && totalOmissionNodes >= minSize && opts.verbose) {
       console.warn('[WARN] Phase P' + phase.id + ' has ' + size + ' nodes (below minimum ' + minSize + ')');
     }
   }
@@ -998,7 +1109,7 @@ function runPhasifyOmissions(opts) {
   // Step H: Repair inspection prefixes
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
-  repairInspectionPrefixes(actionTickets, opts.dryRun);
+  repairInspectionPrefixes(actionTickets, true);
 
   // ============================================================
   // Step H: Build output
@@ -1048,29 +1159,12 @@ function runPhasifyOmissions(opts) {
   const validateResult = validatePhasedOmissions(preOutput, nodes, edges, omissionNodeIds);
 
   // ============================================================
-  // Report
+  // Report — PASS/FAIL summary (always shown)
   // ============================================================
-  if (!opts.dryRun || opts.verbose) {
-    console.log('');
-    console.log('=== phasify-omissions Phase Design Report ===');
-    console.log('Input OMISSIONS: ' + opts.omissionsPath);
-    console.log('Input GRAPH: ' + opts.graphPath);
-    console.log('Input Tickets: ' + opts.ticketsPath);
-    console.log('Omission nodes: ' + totalOmissionNodes + ' (of ' + (graphData.nodes || []).length + ' total)');
-    console.log('Subgraph hard edges: ' + hardEdges.length);
-    console.log('Cross-boundary depends_on (from omission): ' + crossFromOmission.length + ' (satisfied, no constraint)');
-    console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
-    console.log('Auto minSize: ' + minSize);
-    console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-    console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
-    console.log('Phase ID offset: ' + offset);
-  }
-
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
   const allCovered = validateResult.checks.allNodesCovered ? validateResult.checks.allNodesCovered.passed : false;
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
-  // Always show one-line PASS/FAIL summary
   console.log('');
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
     output.phases.length + ' implementation phases' +
@@ -1078,10 +1172,6 @@ function runPhasifyOmissions(opts) {
     ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
-  // Full details in non-dry-run or verbose mode
-  if (!opts.dryRun || opts.verbose) {
-    console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
-  }
 
   if (!validateResult.valid) {
     console.error('[ERROR] Validation failed. See details above.');
@@ -1092,7 +1182,7 @@ function runPhasifyOmissions(opts) {
   // Step J-Q: Write output + merge pipeline (PX-108)
   // ============================================================
 
-  // Derive output path for the phasified file (needed before dry-run decision)
+  // Derive output path for the phasified file
   var defaultPhasifiedOutput = path.join(
     path.dirname(opts.omissionsPath),
     'OMISSIONS-phasified-' + timestamp + '.json'
@@ -1103,18 +1193,11 @@ function runPhasifyOmissions(opts) {
   if (!opts.dryRun) {
     try {
       fs.writeFileSync(phasifiedOutputPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
-      console.log('');
-      console.log('Wrote ' + output.phases.length + ' implementation phases to ' + phasifiedOutputPath);
     } catch (e) {
       console.error('[ERROR] Cannot write output file: ' + e.message);
       process.exit(3);
     }
   }
-
-  // ============================================================
-  // Step K-P: Tickets.json merge pipeline
-  // ============================================================
-  if (opts.verbose) console.log('[VERBOSE] Starting Tickets.json merge pipeline...');
 
   // Step K: Compute backup path
   var ts = timestamp;
@@ -1126,8 +1209,7 @@ function runPhasifyOmissions(opts) {
   // Step L: Backup Tickets.json (skip in dry-run)
   if (!opts.dryRun) {
     try {
-      var bkResult = backupTickets(opts.ticketsPath, backupPath);
-      if (opts.verbose) console.log('[VERBOSE] Backup created: ' + bkResult.backupPath);
+      backupTickets(opts.ticketsPath, backupPath);
     } catch (e) {
       console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
       process.exit(3);
@@ -1159,17 +1241,8 @@ function runPhasifyOmissions(opts) {
   // Step N: Validate merged result
   var mergeValidation = validateMergedTickets(mergedResult.data);
 
-  // Print merge report
-  if (!opts.dryRun || opts.verbose) {
-    console.log('');
-    console.log('=== PX-108: Tickets.json Merge Report ===');
-    console.log('New phases to merge: ' + output.phases.length);
-    console.log('Total phases after merge: ' + mergedResult.data.phases.length);
-    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
-  } else {
-    // dry-run concise: one-line schema result
-    console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
-  }
+  // Schema validation (always shown)
+  console.log('Schema validation: ' + (mergeValidation.valid ? '✅ PASS' : '⚠️ FAIL'));
 
   if (!mergeValidation.valid) {
     console.error('[ERROR] Merge validation failed:');
@@ -1189,13 +1262,17 @@ function runPhasifyOmissions(opts) {
   // Step O: dry-run exit
   if (opts.dryRun) return;
 
+  // Inject merge metadata (PX-109: enables --rollback)
+  mergedResult.data.metadata = mergedResult.data.metadata || {};
+  mergedResult.data.metadata.phasifyMerge = {
+    offset: offset,
+    mergedPhaseIds: output.phases.map(function(p) { return p.id; }),
+    mergedAt: new Date().toISOString().split('T')[0]
+  };
+
   // Step P: Atomic write merged Tickets.json
-  if (opts.verbose) console.log('[VERBOSE] Writing merged Tickets.json...');
   try {
     atomicWrite(opts.ticketsPath, JSON.stringify(mergedResult.data, null, 2) + '\n');
-    console.log('');
-    console.log('Updated Tickets.json with ' + output.phases.length + ' new phase(s).');
-    console.log('Tickets.json backup: ' + backupPath);
   } catch (e) {
     console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
     console.error('Backup preserved: ' + backupPath);
@@ -1203,10 +1280,15 @@ function runPhasifyOmissions(opts) {
   }
 
   // Step Q: Cleanup temporary files
-  if (opts.verbose) console.log('[VERBOSE] Cleaning up temporary files...');
   var filesToClean = [phasifiedOutputPath, backupPath];
   cleanupFiles(filesToClean);
-  console.log('Cleaned up ' + filesToClean.length + ' temporary file(s).');
+
+  // Final summary line
+  var totalMergedTickets = 0;
+  for (var pi = 0; pi < output.phases.length; pi++) {
+    totalMergedTickets += (output.phases[pi].tickets || []).length;
+  }
+  console.log('Tickets.json: merged ' + output.phases.length + ' phase(s), ' + totalMergedTickets + ' ticket(s)');
 }
 
 // ============================================================
@@ -1242,6 +1324,8 @@ module.exports = {
   // PX-108: auto-merge pipeline
   backupTickets,
   mergePhasifyToTickets,
+  // PX-109: rollback
+  rollbackPhasifyMerge,
   validateMergedTickets,
   atomicWrite,
   cleanupFiles,

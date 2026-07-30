@@ -1,4 +1,5 @@
 
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -22,6 +23,7 @@ function assertEq(actual, expected, message) {
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function assertOk(value, message) {
+// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
   if (value) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
   else { failed++; process.stdout.write(`  ✗ ${message} — got ${JSON.stringify(value)}\n`); }
 }
@@ -686,6 +688,78 @@ try {
     caught = false;
     try { p.cleanupFiles([]); } catch (e) { caught = true; }
     assertEq(caught, false, 'cleanupFiles: empty array no throw');
+  }
+
+  // ===============================================
+  // PX-109: phasify-omissions --rollback
+  // ===============================================
+  // @verifies C109
+  console.log('\n## PX-109: phasify-omissions --rollback\n');
+  {
+    const phasifyPath = path.join(SCRIPTS_DIR, '../rfc-graph/phasify-omissions.js');
+    assert(fs.existsSync(phasifyPath), 'phasify-omissions.js exists');
+    const p = require(phasifyPath);
+
+    // -- Exports --
+    assert(typeof p.rollbackPhasifyMerge === 'function', 'rollbackPhasifyMerge exported');
+
+    // -- rollbackPhasifyMerge: normal --
+    const input = {
+      title: 'test',
+      metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: 6, mergedPhaseIds: [6, 7], mergedAt: '2026-07-30' } },
+      phases: [
+        { id: -1, name: 'PX', tickets: [{ id: 1, phaseId: -1, title: 'X', status: 'todo' }] },
+        { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'done' }] },
+        { id: 6, name: 'P6', tickets: [{ id: 1, phaseId: 6, title: 'Merged', status: 'todo' }] },
+        { id: 7, name: 'P7', tickets: [{ id: 1, phaseId: 7, title: 'Merged2', status: 'todo' }] }
+      ]
+    };
+    const result = p.rollbackPhasifyMerge(input);
+    assertEq(result.phases.length, 2, 'rollback: 2 phases remain');
+    assertEq(result.phases[0].id, -1, 'rollback: PX preserved');
+    assertEq(result.phases[1].id, 0, 'rollback: P0 preserved');
+    assertEq(result.metadata.phasifyMerge, undefined, 'rollback: phasifyMerge removed');
+    assertEq(input.phases.length, 4, 'rollback: original unchanged');
+
+    // -- rollbackPhasifyMerge: throws on missing metadata --
+    const noMeta = { title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [] };
+    let threw = false;
+    try { p.rollbackPhasifyMerge(noMeta); } catch (e) { threw = true; }
+    assertOk(threw, 'rollback: throws on missing metadata');
+
+    // -- rollbackPhasifyMerge: offset=-2 removes ALL phases (PX=-1 included) → throws --
+    const badOffset = {
+      title: 't',
+      metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: -2, mergedPhaseIds: [], mergedAt: '2026-07-30' } },
+      phases: [{ id: -1, name: 'PX', tickets: [] }, { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'todo' }] }]
+    };
+    threw = false;
+    try { p.rollbackPhasifyMerge(badOffset); } catch (e) { threw = true; }
+    assertOk(threw, 'rollback: throws when offset removes all phases');
+
+    // -- rollbackPhasifyMerge: offset=0 keeps PX(-1) -- not an error
+    const offsetZero = {
+      title: 't',
+      metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: 0, mergedPhaseIds: [0], mergedAt: '2026-07-30' } },
+      phases: [{ id: -1, name: 'PX', tickets: [] }, { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'todo' }] }]
+    };
+    const rOff0 = p.rollbackPhasifyMerge(offsetZero);
+    assertEq(rOff0.phases.length, 1, 'rollback offset=0: preserves PX');
+
+    // -- rollbackPhasifyMerge: preserves phases with id < offset --
+    const input2 = {
+      title: 't',
+      metadata: { source: 's', generatedAt: '2026-07-30', phasifyMerge: { offset: 3, mergedPhaseIds: [3, 4], mergedAt: '2026-07-30' } },
+      phases: [
+        { id: -1, name: 'PX', tickets: [] },
+        { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'done' }] },
+        { id: 3, name: 'P3', tickets: [{ id: 1, phaseId: 3, title: 'M', status: 'todo' }] }
+      ]
+    };
+    const r2 = p.rollbackPhasifyMerge(input2);
+    assertEq(r2.phases.length, 2, 'rollback offset=3: 2 phases remain');
+    assertEq(r2.phases[0].id, -1, 'rollback offset=3: PX');
+    assertEq(r2.phases[1].id, 0, 'rollback offset=3: P0');
   }
 
 } finally {
