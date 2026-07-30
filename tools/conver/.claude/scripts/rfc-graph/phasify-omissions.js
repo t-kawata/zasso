@@ -79,12 +79,19 @@ const AUTO_SIZE_DIVISOR = 7;
 // ============================================================
 
 /**
- * Parse CLI arguments and return CliOptions.
- * On error, calls process.exit(2).
- *
- * @param {string[]} argv — process.argv.slice(2)
- * @returns {CliOptions}
+ * Find the latest OMISSIONS-*.json in CWD by scanning for files matching the pattern.
+ * @returns {string|null} — Absolute path, or null if none found
  */
+function findLatestOmissions() {
+  var pattern = /^OMISSIONS-\d{14}\.json$/;
+  var files;
+  try { files = fs.readdirSync('.'); } catch (e) { return null; }
+  var matches = files.filter(function(f) { return pattern.test(f); });
+  if (matches.length === 0) return null;
+  matches.sort().reverse();
+  return path.resolve(matches[0]);
+}
+
 // [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
@@ -123,17 +130,32 @@ function parseArguments(argv) {
     }
   }
 
+  // Auto-discover OMISSIONS from CWD if not specified
   if (!opts.omissionsPath) {
-    console.error('[ERROR] Missing required argument: --omissions=<PATH>');
-    process.exit(2);
+    const found = findLatestOmissions();
+    if (!found) {
+      console.error('[ERROR] No OMISSIONS-*.json found in CWD. Use --omissions=<PATH> to specify.');
+      process.exit(2);
+    }
+    opts.omissionsPath = found;
+    console.error('[phasify-omissions] Auto-discovered OMISSIONS: ' + found);
   }
+
   if (!opts.graphPath) {
     console.error('[ERROR] Missing required argument: --graph=<PATH>');
     process.exit(2);
   }
+
+  // Default Tickets.json in CWD if not specified
   if (!opts.ticketsPath) {
-    console.error('[ERROR] Missing required argument: --tickets=<PATH>');
-    process.exit(2);
+    const defaultPath = path.resolve('Tickets.json');
+    if (fs.existsSync(defaultPath)) {
+      opts.ticketsPath = defaultPath;
+      console.error('[phasify-omissions] Default Tickets.json: ' + defaultPath);
+    } else {
+      console.error('[ERROR] No Tickets.json found in CWD. Use --tickets=<PATH> to specify.');
+      process.exit(2);
+    }
   }
 
   return opts;
