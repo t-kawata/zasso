@@ -79,12 +79,19 @@ const AUTO_SIZE_DIVISOR = 7;
 // ============================================================
 
 /**
- * Parse CLI arguments and return CliOptions.
- * On error, calls process.exit(2).
- *
- * @param {string[]} argv — process.argv.slice(2)
- * @returns {CliOptions}
+ * Find the latest OMISSIONS-*.json in CWD by scanning for files matching the pattern.
+ * @returns {string|null} — Absolute path, or null if none found
  */
+function findLatestOmissions() {
+  var pattern = /^OMISSIONS-\d{14}\.json$/;
+  var files;
+  try { files = fs.readdirSync('.'); } catch (e) { return null; }
+  var matches = files.filter(function(f) { return pattern.test(f); });
+  if (matches.length === 0) return null;
+  matches.sort().reverse();
+  return path.resolve(matches[0]);
+}
+
 // [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
@@ -123,17 +130,32 @@ function parseArguments(argv) {
     }
   }
 
+  // Auto-discover OMISSIONS from CWD if not specified
   if (!opts.omissionsPath) {
-    console.error('[ERROR] Missing required argument: --omissions=<PATH>');
-    process.exit(2);
+    const found = findLatestOmissions();
+    if (!found) {
+      console.error('[ERROR] No OMISSIONS-*.json found in CWD. Use --omissions=<PATH> to specify.');
+      process.exit(2);
+    }
+    opts.omissionsPath = found;
+    console.error('[phasify-omissions] Auto-discovered OMISSIONS: ' + found);
   }
+
   if (!opts.graphPath) {
     console.error('[ERROR] Missing required argument: --graph=<PATH>');
     process.exit(2);
   }
+
+  // Default Tickets.json in CWD if not specified
   if (!opts.ticketsPath) {
-    console.error('[ERROR] Missing required argument: --tickets=<PATH>');
-    process.exit(2);
+    const defaultPath = path.resolve('Tickets.json');
+    if (fs.existsSync(defaultPath)) {
+      opts.ticketsPath = defaultPath;
+      console.error('[phasify-omissions] Default Tickets.json: ' + defaultPath);
+    } else {
+      console.error('[ERROR] No Tickets.json found in CWD. Use --tickets=<PATH> to specify.');
+      process.exit(2);
+    }
   }
 
   return opts;
@@ -351,6 +373,7 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
       // No nodes: assign to phase 0 (or first phase)
       const firstPhase = phases.length > 0 ? phases[0].id : 0;
       if (!phaseTickets[firstPhase]) phaseTickets[firstPhase] = [];
+      ticket.phaseId = firstPhase;
       phaseTickets[firstPhase].push(ticket);
       continue;
     }
@@ -374,8 +397,10 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
     if (earliestPhase === null) {
       const firstPhase = phases.length > 0 ? phases[0].id : 0;
       if (!phaseTickets[firstPhase]) phaseTickets[firstPhase] = [];
+      ticket.phaseId = firstPhase;
       phaseTickets[firstPhase].push(ticket);
     } else {
+      ticket.phaseId = earliestPhase;
       phaseTickets[earliestPhase].push(ticket);
     }
   }
@@ -386,6 +411,97 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
   }
 
   return phases;
+}
+
+/**
+ * Consolidate phases with fewer than 3 tickets into the next phase.
+ * Right-to-left single-pass to match split-to-tickets.md Step 5-3.
+ * The final phase is excluded from consolidation.
+ *
+ * Only merges if hard constraint invariance is maintained:
+ * no depends_on/implements edge has both endpoints in the merged result.
+ *
+ * @param {Array<{id:number, nodeIds:string[], tickets:object[]}>} phases — Phases with tickets
+ * @param {Array<{from:string, to:string}>} [hardEdges] — Array of weight ∞ edges
+ * @returns {Array} — Consolidated phases (immutable, new array)
+ */
+function consolidatePhasesByTicketCount(phases, hardEdges) {
+  if (!Array.isArray(phases) || phases.length <= 1) return phases;
+
+  const MIN_TICKETS = 3;
+  var working = JSON.parse(JSON.stringify(phases));
+
+  // Build node set indices for the full working array (pre-merge)
+  var nodeToPhaseIdx = {};
+  for (var wi = 0; wi < working.length; wi++) {
+    if (!working[wi]) continue;
+    var nids = working[wi].nodeIds || [];
+    for (var wn = 0; wn < nids.length; wn++) {
+      nodeToPhaseIdx[nids[wn]] = wi;
+    }
+  }
+
+  // Scan from right to left (skip the final phase)
+  for (var i = working.length - 2; i >= 0; i--) {
+    var current = working[i];
+    if (!current) continue;
+
+    // Find the next non-null phase
+    var next = null;
+    var nextIdx = -1;
+    for (var j = i + 1; j < working.length; j++) {
+      if (working[j] !== null) { next = working[j]; nextIdx = j; break; }
+    }
+    if (!next) continue;
+
+    var ticketCount = (current.tickets || []).length;
+    if (ticketCount >= MIN_TICKETS) continue;
+
+    // Hard constraint check: merging current into next must not put
+    // both endpoints of any depends_on/implements edge in the same phase
+    var mergeSafe = true;
+    if (hardEdges && hardEdges.length > 0) {
+      var currentNodes = new Set(current.nodeIds || []);
+      var nextNodes = new Set(next.nodeIds || []);
+      for (var ei = 0; ei < hardEdges.length; ei++) {
+        var e = hardEdges[ei];
+        var fromInCurrent = currentNodes.has(e.from);
+        var toInCurrent = currentNodes.has(e.to);
+        var fromInNext = nextNodes.has(e.from);
+        var toInNext = nextNodes.has(e.to);
+        // If one endpoint is in current AND the other in next, merging creates a violation
+        if ((fromInCurrent && toInNext) || (toInCurrent && fromInNext)) {
+          mergeSafe = false;
+          break;
+        }
+      }
+    }
+
+    if (!mergeSafe) continue;
+
+    // Merge current into next: prepend tickets, union nodeIds
+    var currentTickets = current.tickets || [];
+    var nextTickets = next.tickets || [];
+    next.tickets = currentTickets.concat(nextTickets);
+
+    var currentNodes = current.nodeIds || [];
+    var nextNodes = next.nodeIds || [];
+    var mergedNodes = currentNodes.slice();
+    for (var k = 0; k < nextNodes.length; k++) {
+      if (mergedNodes.indexOf(nextNodes[k]) === -1) mergedNodes.push(nextNodes[k]);
+    }
+    next.nodeIds = mergedNodes.sort();
+
+    // Mark current as consumed and update node index
+    for (var mn = 0; mn < currentNodes.length; mn++) {
+      nodeToPhaseIdx[currentNodes[mn]] = nextIdx;
+    }
+    working[i] = null;
+  }
+
+  // Filter out consumed phases (IDs already set by reassignPhaseIdsWithOffset)
+  var result = working.filter(function(p) { return p !== null; });
+  return result;
 }
 
 /**
@@ -512,10 +628,14 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
  */
 // [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
 function buildOutput(phases, referenceTickets, metadata) {
+  // Filter to only phases that have tickets (non-empty re-implementation phases)
+  var nonEmptyPhases = phases.filter(function(p) {
+    return (p.tickets || []).length > 0;
+  });
   return {
     title: 'phasify-omissions auto-generated re-implementation plan',
     metadata: metadata,
-    phases: phases.map(function(p) {
+    phases: nonEmptyPhases.map(function(p) {
       return {
         id: p.id,
         name: p.name || 'P' + p.id,
@@ -729,7 +849,23 @@ function runPhasifyOmissions(opts) {
   const phasedTickets = assignTicketsToPhases(offsetPhases, actionTickets, finalOrder);
 
   // ============================================================
-  // Step G: Repair inspection prefixes
+  // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
+  // ============================================================
+  var phaseCountBeforeConsolidation = phasedTickets.length;
+  var consolidatedPhases = consolidatePhasesByTicketCount(phasedTickets, hardEdges);
+  if (opts.verbose) {
+    if (consolidatedPhases.length < phaseCountBeforeConsolidation) {
+      console.log('[VERBOSE] Consolidated phases: ' + phaseCountBeforeConsolidation + ' → ' + consolidatedPhases.length);
+    } else {
+      console.log('[VERBOSE] No consolidation needed (' + consolidatedPhases.length + ' phases all >= 3 tickets)');
+    }
+  }
+
+  // Re-normalize phase IDs contiguous from offset after consolidation (removes gaps from merged phases)
+  consolidatedPhases = reassignPhaseIdsWithOffset(consolidatedPhases, offset);
+
+  // ============================================================
+  // Step H: Repair inspection prefixes
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
   repairInspectionPrefixes(actionTickets);
@@ -738,7 +874,10 @@ function runPhasifyOmissions(opts) {
   // Step H: Build output
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Building output...');
-  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  // Derive timestamp from input OMISSIONS filename (OMISSIONS-YYYYMMDDHHmmss.json -> YYYYMMDDHHmmss)
+  const omissionsBasename = path.basename(opts.omissionsPath);
+  const tsMatch = omissionsBasename.match(/^OMISSIONS-(\d{14})\.json$/);
+  const timestamp = tsMatch ? tsMatch[1] : new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   const metadata = {
     source: opts.omissionsPath,
     graphSource: opts.graphPath,
@@ -754,13 +893,29 @@ function runPhasifyOmissions(opts) {
     crossBoundaryDependsOnTo: crossToOmission.length,
   };
 
-  const output = buildOutput(phasedTickets, referenceTickets, metadata);
+  var rawOutput = buildOutput(consolidatedPhases, referenceTickets, metadata);
+
+  // Post-filter normalization: reassign phase IDs contiguous from offset
+  if (rawOutput.phases.length > 0) {
+    rawOutput.phases = reassignPhaseIdsWithOffset(rawOutput.phases, offset);
+  }
+
+  const output = rawOutput;
 
   // ============================================================
-  // Step I: Validation
+  // Step I: Validation (against pre-filter phase structure to ensure full coverage)
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Validating output...');
-  const validateResult = validatePhasedOmissions(output, nodes, edges, omissionNodeIds);
+  // Validate against consolidatedPhases (includes pre-filter phases) for coverage completeness
+  const preOutput = {
+    title: 'phasify-omissions auto-generated re-implementation plan',
+    metadata: metadata,
+    phases: consolidatedPhases.map(function(p) {
+      return { id: p.id, name: p.name, nodeIds: p.nodeIds, tickets: p.tickets || [] };
+    }),
+    referenceTickets: referenceTickets,
+  };
+  const validateResult = validatePhasedOmissions(preOutput, nodes, edges, omissionNodeIds);
 
   // ============================================================
   // Report
@@ -776,7 +931,7 @@ function runPhasifyOmissions(opts) {
   console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
   console.log('Auto minSize: ' + minSize);
   console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-  console.log('Phases: ' + offsetPhases.length);
+  console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
   console.log('Phase ID offset: ' + offset);
 
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
@@ -784,8 +939,9 @@ function runPhasifyOmissions(opts) {
   const noDupes = validateResult.checks.noDuplicateNodes ? validateResult.checks.noDuplicateNodes.passed : false;
 
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
-    offsetPhases.length + ' phases, ' +
-    (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
+    output.phases.length + ' implementation phases' +
+    (consolidatedPhases.length > output.phases.length ? ' (' + (consolidatedPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
+    ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
   console.log('Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
@@ -814,7 +970,7 @@ function runPhasifyOmissions(opts) {
   try {
     fs.writeFileSync(outputPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
     console.log('');
-    console.log('Wrote ' + offsetPhases.length + ' phases to ' + outputPath);
+    console.log('Wrote ' + output.phases.length + ' implementation phases to ' + outputPath);
   } catch (e) {
     console.error('[ERROR] Cannot write output file: ' + e.message);
     process.exit(3);
@@ -847,6 +1003,7 @@ module.exports = {
   computePhaseIdOffset,
   reassignPhaseIdsWithOffset,
   assignTicketsToPhases,
+  consolidatePhasesByTicketCount,
   repairInspectionPrefixes,
   validatePhasedOmissions,
   buildOutput,
