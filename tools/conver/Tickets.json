@@ -14563,6 +14563,122 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 111,
+          "phaseId": -1,
+          "status": "done",
+          "title": "phasify-omissions pre-merge snapshot + auto-review existing tickets",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/111-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: phasify-omissions.js のマージ時に Tickets.json のスナップショット（Tickets-YYYYMMDDhhmmss.json）を永続保存し、全既存チケットを reviewed に一括変換する。\n\nPurpose: (1) マージ前後の状態比較を可能にする (2) conver.js が omission チケット（todo）のみを処理対象とできるようにする。\n\nMotivation: PX-110 までの phasify-omissions はマージのみ。既存チケット状態の保全と、conver.js の開始点を明確にする仕組みが欠けている。\n\nConstraints:\n- スナップショットは cleanupFiles で削除しない\n- 既に reviewed/done のチケットは変更しない（べき等）\n- スナップショット作成失敗は全体を止めない（ベストエフォート）",
+          "scope": [
+            "スナップショット: Tickets-{ts}.json 作成。cleanupFiles 対象外。",
+            "既存チケット一括 reviewed: offset未満の全チケットを reviewed に。reviewed/done はスキップ。",
+            "dry-run 非対応（マージ時のみ意味を持つ）。",
+            "rollback 非対応（スナップショットは残る）。",
+            "全テスト追加。",
+            "Scope:\n  - Path: .claude/scripts/rfc-graph/phasify-omissions.js\n  - Action: modify (add 2 new functions, extend runPhasifyOmissions())\n  - Detail: markPreMergeTicketsReviewed() + createSnapshot() + Step O integration\n  - Before: atomicWrite直後→cleanup. After: スナップショット→reviewed変換→atomicWrite→cleanup\n  - API: No breaking changes. 2 new exported functions.\n  - Schema: No change.\n  - Config: No change.\n  - Dep: No new dependencies.",
+            "Out of scope:\n  - Item: --no-snapshot flag\n  - Why: Future ticket if needed",
+            "Affected:\n  - Component: Tickets.json content (status fields)\n  - Impact: Pre-merge tickets status changed to reviewed\n  - Response: N/A"
+          ],
+          "testUnit": [
+            "UT: [Normal] markPreMergeTicketsReviewed() sets status=reviewed for tickets in phases with id < offset — pre-offset tickets have their status changed",
+            "UT: [Normal] Already reviewed/done tickets are not changed (idempotent) — status already reviewed or done is preserved",
+            "UT: [Normal] Tickets in phases with id >= offset (new omission tickets) are not touched — only pre-offset phases are affected",
+            "UT: [Normal] markPreMergeTicketsReviewed() deep-clones — original input is not mutated, all fields besides status are unchanged",
+            "UT: [Normal] createSnapshot() copies source to Tickets-{ts}.json — byte-for-byte identical",
+            "UT: [Edge] createSnapshot() returns {success: false} on failure when source not found (best-effort, no throw)",
+            "UT: [Invariant] Only tickets[].status field is modified by markPreMergeTicketsReviewed — all other fields (id, title, phaseId) are deep-equal before and after"
+          ],
+          "testIntegration": [
+            "IT: phasify-omissions run → verify Tickets-{ts}.json exists + all pre-offset tickets are reviewed"
+          ],
+          "testExceptions": [
+            "Cannot test: Snapshot disk full. UT verifies copy-on-write logic. Not a design defect."
+          ],
+          "default_files": [
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/tests/tickets/scripts.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: phasify-omissions 実行後、Tickets-{ts}.json が作成される。全既存チケットが reviewed に。omission チケットのみ todo。",
+            "Error case: スナップショット作成失敗 → warning 出力。atomicWrite は継続。",
+            "Edge case: 再実行でも既存チケットは reviewed のまま（べき等）。スナップショットは別名で追加作成。"
+          ],
+          "notes": "- Implementation steps: (1) markPreMergeTicketsReviewed() pure function (2) createSnapshot() via backupTickets (3) integrate into runPhasifyOmissions Step O (4) tests\n- Risks: Snapshot is best-effort; Tickets.json integrity is never at risk\n- Caveats: Large Tickets.json (1.3MB) → snapshot copy doubles I/O briefly\n- Open items: None\n- Future: --no-snapshot flag to skip snapshot (not needed now)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+2 functions: markPreMergeTicketsReviewed, createSnapshot; pipeline integration Step P)\n- MODIFIED: scripts.test.js (PX-111 tests, +40 lines)\n- Test results: 212/212 passed (12 PX-111-specific)",
+          "invariants": "- [Normal condition] mergedData must have phases array. offset must be integer.\n- [Error invariant] Snapshot failure never blocks Tickets.json atomic write.\n- [Internal state invariant] markPreMergeTicketsReviewed is pure function (no I/O).\n- [Boundary invariant] Phase id=-1 (PX) is included in pre-merge processing (offset starts from 0 or higher).",
+          "instrumentation": "- Logging: snapshot path, count of tickets converted to reviewed.\n- Metrics: Number of tickets marked reviewed.\n- Error tracking: Snapshot failure logged as warning, not error.\n- Health check: Tickets.json readability before snapshot.",
+          "investigation": "Key code patterns:\n\n1. Current pipeline (runPhasifyOmissions):\n   - Step P: mergedResult.data.metadata.phasifyMerge = {...} (PX-109)\n   → Insert snapshot + markReviewed BEFORE metadata injection\n\n2. backupTickets() (PX-108) already does file copy — reuse for snapshot\n   → Different target pattern: 'Tickets-' + ts + '.json' (not 'tmp-Tickets-' + ts + '.json')\n   → Exclude from cleanupFiles\n\n3. markPreMergeTicketsReviewed() is a pure function operating on memory data\n   → Must be called before atomicWrite\n   → Must NOT touch tickets in phases with id >= offset",
+          "boyScoutPlan": "1. markPreMergeTicketsReviewed() as pure function.\n2. Snapshot via backupTickets() reuse — minimal new code.\n3. Verb-prefix naming: markPreMergeTicketsReviewed, createSnapshot.\n4. Best-effort snapshot: wrap in try-catch, log warning on failure.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "markPreMergeTicketsReviewed(mergedData, offset) → reviewed status on pre-offset tickets",
+              "precondition": "Accepts (mergedData: {phases: [{id, tickets}]}, offset: number). mergedData must have phases array. offset must be integer > existing phase IDs.",
+              "postcondition": "Returns deep-cloned mergedData where all tickets in phases with id < offset have status='reviewed' (unless already 'reviewed' or 'done'). Tickets in phases with id >= offset are untouched.",
+              "invariant": "No mutation of input. Only tickets[].status field is modified — all other fields (id, title, phaseId, etc.) are deep-equal."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Snapshot backup → Tickets-{ts}.json",
+              "precondition": "createSnapshot(sourcePath, ts) accepts (sourcePath: string, ts: string). sourcePath must be readable JSON file.",
+              "postcondition": "Creates Tickets-{ts}.json as byte-for-byte copy of sourcePath. Does NOT throw on failure (best-effort). Returns {success, snapshotPath} or {success: false}.",
+              "invariant": "Source file (Tickets.json) is never modified by snapshot creation."
+            }
+          ],
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "// C001-PRE: markPreMergeTicketsReviewed with valid data",
+            "const input = {",
+            "  title: 'test', metadata: { source: 's', generatedAt: '2026-07-30' },",
+            "  phases: [",
+            "    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'todo' }] },",
+            "    { id: 1, name: 'P1', tickets: [{ id: 1, phaseId: 1, title: 'B', status: 'done' }] },",
+            "    { id: 6, name: 'P6', tickets: [{ id: 1, phaseId: 6, title: 'New', status: 'todo' }] }",
+            "  ]",
+            "};",
+            "const result = markPreMergeTicketsReviewed(input, 6);",
+            "assert.strictEqual(result.phases[0].tickets[0].status, 'reviewed', 'pre-offset todo -> reviewed');",
+            "",
+            "// C001-POST: already done unchanged",
+            "assert.strictEqual(result.phases[1].tickets[0].status, 'done', 'done preserved');",
+            "",
+            "// C001-POST: new omission tickets unchanged",
+            "assert.strictEqual(result.phases[2].tickets[0].status, 'todo', 'offset+ tickets untouched');",
+            "",
+            "// C001-INV: deep clone, original unchanged",
+            "assert.strictEqual(input.phases[0].tickets[0].status, 'todo', 'original unchanged');",
+            "",
+            "// C001-INV: only status field modified",
+            "assert.strictEqual(result.phases[0].tickets[0].id, 1, 'id preserved');",
+            "assert.strictEqual(result.phases[0].tickets[0].phaseId, 0, 'phaseId preserved');",
+            "",
+            "// C002-PRE: createSnapshot creates Tickets-{ts}.json",
+            "const snapResult = createSnapshot('Tickets.json', '20260730120000');",
+            "assert.ok(snapResult.success, 'snapshot created');",
+            "assert.ok(fs.existsSync('Tickets-20260730120000.json'), 'snapshot file exists');",
+            "fs.unlinkSync('Tickets-20260730120000.json');",
+            "",
+            "// C002-ERR: createSnapshot returns {success: false} on failure",
+            "const failResult = createSnapshot('/nonexistent/path.json', 'test');",
+            "assert.strictEqual(failResult.success, false, 'snapshot fails gracefully');"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "No pre-merge snapshot",
+              "after": "Tickets-{ts}.json created before atomic write",
+              "description": "createSnapshot() best-effort copy of Tickets.json before merge"
+            },
+            {
+              "before": "Pre-merge tickets keep original status",
+              "after": "All pre-offset tickets set to reviewed",
+              "description": "markPreMergeTicketsReviewed() — only omission tickets remain todo"
+            }
+          ]
         }
       ]
     },

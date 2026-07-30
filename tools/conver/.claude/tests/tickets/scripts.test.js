@@ -1,6 +1,7 @@
 
 
 
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -24,6 +25,7 @@ function assertEq(actual, expected, message) {
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function assertOk(value, message) {
+// [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
   if (value) { passed++; process.stdout.write(`  ✓ ${message}\n`); }
@@ -820,6 +822,47 @@ try {
     const p2 = require(phasifyPath);
     // Check that graphData.nodes is accessible (no crash)
     assert(typeof p2.buildOutput === 'function', 'phasify buildOutput available');
+  }
+
+  // ===============================================
+  // PX-111: pre-merge snapshot + auto-review
+  // ===============================================
+  // @verifies C111
+  console.log('\n## PX-111: snapshot + auto-review\n');
+  {
+    const phasifyPath = path.join(SCRIPTS_DIR, '../rfc-graph/phasify-omissions.js');
+    const p = require(phasifyPath);
+    assert(typeof p.markPreMergeTicketsReviewed === 'function', 'markPreMergeTicketsReviewed exported');
+    assert(typeof p.createSnapshot === 'function', 'createSnapshot exported');
+
+    // -- markPreMergeTicketsReviewed: normal --
+    const input = {
+      title: 'test', metadata: { source: 's', generatedAt: '2026-07-30' },
+      phases: [
+        { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 'A', status: 'todo' }] },
+        { id: 1, name: 'P1', tickets: [{ id: 1, phaseId: 1, title: 'B', status: 'done' }] },
+        { id: 6, name: 'P6', tickets: [{ id: 1, phaseId: 6, title: 'New', status: 'todo' }] }
+      ]
+    };
+    const result = p.markPreMergeTicketsReviewed(input, 6);
+    assertEq(result.phases[0].tickets[0].status, 'reviewed', 'markReviewed: pre-offset todo -> reviewed');
+    assertEq(result.phases[1].tickets[0].status, 'done', 'markReviewed: done preserved');
+    assertEq(result.phases[2].tickets[0].status, 'todo', 'markReviewed: offset+ tickets untouched');
+    assertEq(input.phases[0].tickets[0].status, 'todo', 'markReviewed: original unchanged');
+    assertEq(result.phases[0].tickets[0].id, 1, 'markReviewed: id preserved');
+    assertEq(result.phases[0].tickets[0].phaseId, 0, 'markReviewed: phaseId preserved');
+
+    // -- createSnapshot: normal --
+    const srcPath = path.resolve('Tickets.json');
+    const snapResult = p.createSnapshot(srcPath, '20260730120000');
+    assertOk(snapResult.success, 'snapshot: success');
+    const snapFile = path.join(path.dirname(srcPath), 'Tickets-20260730120000.json');
+    assert(fs.existsSync(snapFile), 'snapshot: file exists');
+    fs.unlinkSync(snapFile);
+
+    // -- createSnapshot: failure returns {success: false} --
+    const failResult = p.createSnapshot('/nonexistent/path.json', 'test');
+    assertEq(failResult.success, false, 'snapshot: fails gracefully');
   }
 
 } finally {
