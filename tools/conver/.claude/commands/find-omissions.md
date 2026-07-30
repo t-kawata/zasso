@@ -7,6 +7,14 @@ argument-hint: </path/to/*-GRAPH.json>
 
 Inspect every reviewed ticket to verify that its contracts are fully and accurately translated into test code. When gaps are found, record them as structured omission tickets for the subsequent implementation loop.
 
+## Pre-flight — argument validation (mandatory)
+
+Before any other step, validate the argument:
+
+```bash
+node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
+```
+
 ## Overview
 
 ```
