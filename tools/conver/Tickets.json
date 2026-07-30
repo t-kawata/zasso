@@ -14567,7 +14567,7 @@
         {
           "id": 111,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "phasify-omissions pre-merge snapshot + auto-review existing tickets",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/111-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "Goal: phasify-omissions.js のマージ時に Tickets.json のスナップショット（Tickets-YYYYMMDDhhmmss.json）を永続保存し、全既存チケットを reviewed に一括変換する。\n\nPurpose: (1) マージ前後の状態比較を可能にする (2) conver.js が omission チケット（todo）のみを処理対象とできるようにする。\n\nMotivation: PX-110 までの phasify-omissions はマージのみ。既存チケット状態の保全と、conver.js の開始点を明確にする仕組みが欠けている。\n\nConstraints:\n- スナップショットは cleanupFiles で削除しない\n- 既に reviewed/done のチケットは変更しない（べき等）\n- スナップショット作成失敗は全体を止めない（ベストエフォート）",
@@ -14605,9 +14605,9 @@
             "Error case: スナップショット作成失敗 → warning 出力。atomicWrite は継続。",
             "Edge case: 再実行でも既存チケットは reviewed のまま（べき等）。スナップショットは別名で追加作成。"
           ],
-          "notes": "- Implementation steps: (1) markPreMergeTicketsReviewed() pure function (2) createSnapshot() via backupTickets (3) integrate into runPhasifyOmissions Step O (4) tests\n- Risks: Snapshot is best-effort; Tickets.json integrity is never at risk\n- Caveats: Large Tickets.json (1.3MB) → snapshot copy doubles I/O briefly\n- Open items: None\n- Future: --no-snapshot flag to skip snapshot (not needed now)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+2 functions: markPreMergeTicketsReviewed, createSnapshot; pipeline integration Step P)\n- MODIFIED: scripts.test.js (PX-111 tests, +40 lines)\n- Test results: 212/212 passed (12 PX-111-specific)",
+          "notes": "- Implementation steps: (1) markPreMergeTicketsReviewed() pure function (2) createSnapshot() via backupTickets (3) integrate into runPhasifyOmissions Step O (4) tests\n- Risks: Snapshot is best-effort; Tickets.json integrity is never at risk\n- Caveats: Large Tickets.json (1.3MB) → snapshot copy doubles I/O briefly\n- Open items: None\n- Future: --no-snapshot flag to skip snapshot (not needed now)\nImplementation summary:\n- MODIFIED: phasify-omissions.js (+2 functions: markPreMergeTicketsReviewed, createSnapshot; pipeline integration Step P)\n- MODIFIED: scripts.test.js (PX-111 tests, +40 lines)\n- Test results: 212/212 passed (12 PX-111-specific)\nReview report:\n- Static quality check: 69 issues (all pre-existing)\n- Translatability: no issues\n- Crimes: 0\n- Stubs: 3 (pre-existing, deferred)\n- Annotations: verified OK\n- Contracts: 100% fulfilled (2/2)\n- Tests: 212/212 PASS\n- Acceptance Criteria: snapshot created, pre-merge tickets reviewed, omission tickets todo",
           "invariants": "- [Normal condition] mergedData must have phases array. offset must be integer.\n- [Error invariant] Snapshot failure never blocks Tickets.json atomic write.\n- [Internal state invariant] markPreMergeTicketsReviewed is pure function (no I/O).\n- [Boundary invariant] Phase id=-1 (PX) is included in pre-merge processing (offset starts from 0 or higher).",
-          "instrumentation": "- Logging: snapshot path, count of tickets converted to reviewed.\n- Metrics: Number of tickets marked reviewed.\n- Error tracking: Snapshot failure logged as warning, not error.\n- Health check: Tickets.json readability before snapshot.",
+          "instrumentation": "- Logging: snapshot path, count of tickets converted to reviewed.\n- Metrics: Number of tickets marked reviewed.\n- Error tracking: Snapshot failure logged as warning, not error.\n- Health check: Tickets.json readability before snapshot.\nStatic quality check: 69 issues (all pre-existing patterns). No new issues from PX-111.\nTranslatability: markPreMergeTicketsReviewed, createSnapshot are verb phrases. No single-letter vars. No magic numbers.\nTests: 212/212 passed (12 PX-111-specific).\nDependencies: No new dependencies.",
           "investigation": "Key code patterns:\n\n1. Current pipeline (runPhasifyOmissions):\n   - Step P: mergedResult.data.metadata.phasifyMerge = {...} (PX-109)\n   → Insert snapshot + markReviewed BEFORE metadata injection\n\n2. backupTickets() (PX-108) already does file copy — reuse for snapshot\n   → Different target pattern: 'Tickets-' + ts + '.json' (not 'tmp-Tickets-' + ts + '.json')\n   → Exclude from cleanupFiles\n\n3. markPreMergeTicketsReviewed() is a pure function operating on memory data\n   → Must be called before atomicWrite\n   → Must NOT touch tickets in phases with id >= offset",
           "boyScoutPlan": "1. markPreMergeTicketsReviewed() as pure function.\n2. Snapshot via backupTickets() reuse — minimal new code.\n3. Verb-prefix naming: markPreMergeTicketsReviewed, createSnapshot.\n4. Best-effort snapshot: wrap in try-catch, log warning on failure.",
           "contracts": [
@@ -14678,7 +14678,9 @@
               "after": "All pre-offset tickets set to reviewed",
               "description": "markPreMergeTicketsReviewed() — only omission tickets remain todo"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-30"
         }
       ]
     },
