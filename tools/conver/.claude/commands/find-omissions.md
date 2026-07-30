@@ -141,49 +141,156 @@ This is the **most critical step**. The quality of the entire pipeline depends o
 
 Your deliverable is not a summary of the code — it is a **verification** that each contract is enforced by test code, with specific file:line evidence.
 
-### Step 4 — Evaluate and decide
+### Step 4 — Evaluate and record (per-contract, per-criterion, immediately)
 
-For each contract, record your evaluation:
+For EACH contract defined in the ticket, evaluate ALL three criteria (A, B, C).  
+**Only record when you confirm a contract violation** — that is, when `passed = false` for any of A/B/C on any contract.  
+**Record it the moment you confirm it** — do not batch, do not rely on memory.  
+**Do NOT record vague unease, style preferences, or observations unrelated to the three criteria.**
 
-| Found | Action |
-|-------|--------|
-| No issues (A+B+C all pass) | Do nothing. Move to next ticket. |
-| Gap found (any of A/B/C fails) | Record an omission (see Step 5). |
+#### Evaluation procedure (per criterion, not per contract)
 
-### Step 5 — Record an omission (when a gap is found)
+Do NOT bundle multiple criteria into one evaluation block. **Evaluate and record one criterion at a time.**
 
-When you find a contract gap, record it using `add-omission-ticket.js --ticket-key`:
+**Step 4a — Evaluate one criterion**
 
-```bash
-# 5a: Prepare the foundOmissions JSON
-cat > /tmp/omission.json << 'EOF'
-[
-  {
-    "contractId": "C001",
-    "criterion": "A",
-    "description": "Precondition for positive rate is not tested: the function accepts values 0..100 but tests only use 50.",
-    "codeLocation": "src/rate.rs:88-92",
-    "expectedBehavior": "Test should include boundary values (0, 1, 99, 100) to verify precondition",
-    "actualBehavior": "Only middle-range value (50) is tested; precondition enforcement is untested"
-  }
-]
-EOF
+Pick one contract and one criterion (A, B, or C). Trace the code. Determine `passed`.
 
-# 5b: Pipe it to add-omission-ticket.js with the ticket key
-node .claude/scripts/tickets/add-omission-ticket.js \
-  --ticket-key=P0-4 \
-  --tmp-omissions=_tmp-omissions-<timestamp>.json \
-  --tickets=Tickets.json < /tmp/omission.json
+```
+Example thought process for Criterion B on Contract C001:
+
+  Contract says "input must be non-empty."
+  Code at src/validation.rs:25 has: if input.is_empty() { return Err(...) }
+  Test at tests/validation.rs:44 tests with input = "John Doe" (valid, 8 chars)
+  No test anywhere passes input = "".
+  If line 25 were removed, no test would fail.
+  → PASSED = false
 ```
 
-This does the following:
-1. Looks up the original ticket `P0-4` in Tickets.json
-2. Deep-clones ALL its fields (title, background, scope, contracts, testUnit, etc.)
-3. Attaches the `foundOmissions` array to the cloned ticket
-4. Appends it to `_tmp-omissions-*.json` under the PX phase (phaseId=-1)
-5. The original ticket in Tickets.json is NOT modified
+**Step 4b — If `passed = false`, record immediately**
 
-**Why deep-clone the original ticket?** So that the omission ticket carries the full context — the next implementer sees not just "what's wrong" but the entire original ticket context, making re-implementation faster and more accurate.
+```bash
+# Step 4b execution — no delay, no further analysis first
+echo '[{"evaluations":[{
+  "criterion": "B",
+  "passed": false,
+  "reason": "Contract C001 precondition: input must be non-empty. Code check exists at src/validation.rs:25 but no test exercises empty input. If the check were removed, no test would fail.",
+  "evidence": [
+    {"file": "src/validation.rs", "line": 25},
+    {"file": "tests/validation.rs", "line": 44}
+  ]
+}]}]' | node .claude/scripts/tickets/add-omission-ticket.js \
+  --ticket-key=P0-4
+```
+
+**Step 4c — Continue with the next criterion**
+
+After recording, move to the next criterion (or next contract). Do not batch.
+
+```
+Criterion C on same contract:
+  Same test at tests/validation.rs:52 uses assert_eq!(result, Err(ValidationError::EmptyInput)).
+  This is precise — it checks the exact error variant, not just is_err().
+  → PASSED = true  (no recording needed)
+```
+
+**Rules for the evaluation (applies to each individual criterion):**
+
+- `passed` must be a **boolean**. `true` = no issue found. `false` = omission found.
+- `reason` must cite **specific file:line** evidence. "The code looks correct" is forbidden.
+- `evidence` must be an array of `{file: string, line: number}` objects — no free text, no code snippets.
+- If `passed = false`, the `reason` must explain **what is missing** and **what should exist**, in a self-contained way.
+- **Do NOT construct a single JSON with multiple evaluations** unless you discovered them simultaneously and they share the same `severity`/`recommendation`. When in doubt, make separate calls.
+
+### Step 5 — Record an omission (execute the moment a gap is found)
+
+As soon as you confirm a `passed = false`, construct the foundOmissions entry and pipe it.
+
+#### Example: first omission found for contract C001, criterion B
+
+```bash
+echo '[{
+  "evaluations": [{
+    "criterion": "B",
+    "passed": false,
+    "reason": "No test passes an empty string to verify the non-empty precondition. The check exists at src/validation.rs:25 but no test would catch its removal. A test with input=\"\" should assert Err(ValidationError::EmptyInput).",
+    "evidence": [
+      {"file": "src/validation.rs", "line": 25},
+      {"file": "tests/validation.rs", "line": 44},
+      {"file": "tests/validation.rs", "line": 60}
+    ]
+  }]
+}]' | node .claude/scripts/tickets/add-omission-ticket.js \
+  --ticket-key=P0-4
+```
+
+**What happens:** The script looks for an existing clone of P0-4 in `_tmp-omissions-*.json`.  
+→ No clone exists → creates one with `originalTicketKey: "P0-4"`, deep-clones all P0-4 fields, attaches this foundOmission.
+
+#### Second omission found later (same ticket, contract C001, criterion A)
+
+```bash
+echo '[{
+  "evaluations": [{
+    "criterion": "A",
+    "passed": false,
+    "reason": "Contract C001 precondition says 'input ≤ 255 chars' but the test only uses 'John Doe' (8 chars). No test exercises boundary values (255, 256, 0). The precondition is not fully translated into tests.",
+    "evidence": [
+      {"file": "src/validation.rs", "line": 22},
+      {"file": "tests/validation.rs", "line": 44}
+    ]
+  }]
+}]' | node .claude/scripts/tickets/add-omission-ticket.js \
+  --ticket-key=P0-4
+```
+
+**What happens now:** The script finds the existing clone with `originalTicketKey: "P0-4"`.  
+→ Appends this second foundOmission to its `foundOmissions[]` array.  
+→ The clone now has **2 entries** in `foundOmissions[]`. The original P0-4 in Tickets.json is untouched.
+
+#### Multiple evaluations in one call (for multiple criteria on the same contract)
+
+When you find gaps in multiple criteria at once, include them all:
+
+```bash
+echo '[{
+  "severity": "critical",
+  "recommendation": "Add boundary tests for empty input, max-length input, and verify exact error assertions",
+  "evaluations": [
+    {
+      "criterion": "A",
+      "passed": false,
+      "reason": "Precondition 'input must be non-empty' is checked in code (src/validation.rs:25) but no test exercises an empty string. The precondition boundary is not tested at all.",
+      "evidence": [
+        {"file": "src/validation.rs", "line": 25},
+        {"file": "tests/validation.rs", "line": 44}
+      ]
+    },
+    {
+      "criterion": "B",
+      "passed": false,
+      "reason": "If the empty-string check at src/validation.rs:25 were removed, no existing test would fail. All tests pass valid inputs only.",
+      "evidence": [
+        {"file": "src/validation.rs", "line": 25},
+        {"file": "tests/validation.rs", "line": 44},
+        {"file": "tests/validation.rs", "line": 60}
+      ]
+    }
+  ]
+}]' | node .claude/scripts/tickets/add-omission-ticket.js \
+  --ticket-key=P0-4
+```
+
+**Key principles:**
+
+| Principle | Why |
+|-----------|-----|
+| **Record the moment you find it** | Your analysis context is fresh. Delaying risks losing detail. The script handles deduplication via `originalTicketKey`. |
+| **One finding = one `evaluations[]` entry** | Each evaluation is a single criterion on a single contract. If you find two gaps, include two evaluations. |
+| **`passed = false` is an omission** | The merge pipeline uses this to determine which tickets need re-implementation. |
+| **`evidence[]` must be exhaustive** | List every file:line you inspected for this evaluation. The next implementer will trace your steps. |
+| **`reason` must be self-contained** | It should make sense without reading the original ticket. Include the contract text, what you found, and what is missing. |
+| **`severity` is optional but helpful** | Use `"critical"` for missing entire contract coverage, `"major"` for partial coverage, `"minor"` for imprecise assertions. |
 
 ### Step 6 — Repeat
 

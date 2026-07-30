@@ -93,7 +93,7 @@ function appendTicket(data, ticket) {
  * @param {Array|null} omissions — foundOmissions array
  * @returns {string|null} — Error message string, or null if valid
  */
-// [::TICKET::] PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102, PX-103, PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-102|PX-103|PX-104) --for-spec --no-implementation-order`.
 function validateFoundOmissions(omissions) {
   if (!Array.isArray(omissions) || omissions.length === 0) {
     return 'foundOmissions must be a non-empty array';
@@ -125,8 +125,8 @@ function validateFoundOmissions(omissions) {
       }
       for (let k = 0; k < ev.evidence.length; k++) {
         const e = ev.evidence[k];
-        if (!e.file || typeof e.file !== 'string' || typeof e.line !== 'number') {
-          return 'foundOmissions[' + i + '].evaluations[' + j + '].evidence[' + k + '] must have file (string) and line (number)';
+        if (!e.file || typeof e.file !== 'string' || !e.codes || typeof e.codes !== 'string' || e.codes.trim() === '') {
+          return 'foundOmissions[' + i + '].evaluations[' + j + '].evidence[' + k + '] must have file (string) and codes (non-empty string)';
         }
       }
     }
@@ -227,6 +227,18 @@ function lookupTicket(ticketsData, ticketKey) {
 }
 
 /**
+ * Find the latest _tmp-omissions-*.json in CWD by scanning for files matching the pattern.
+ * @returns {string|null} — Absolute path, or null if none found
+ */
+// [::TICKET::] PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-104 --for-spec --no-implementation-order`.
+function findLatestTmpOmissions() {
+  const files = fs.readdirSync('.').filter(f => /^_tmp-omissions-\d{14}\.json$/.test(f));
+  if (files.length === 0) return null;
+  files.sort().reverse();
+  return path.resolve(files[0]);
+}
+
+/**
  * Find or create a tmp-omissions file from Tickets.json template.
  * If the file exists, parse and return its content.
  * If not, read Tickets.json and create a minimal template with a PX phase.
@@ -298,7 +310,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
@@ -317,17 +329,16 @@ async function main() {
     }
   }
 
-  if (!tmpOmissionsPath) {
-    const files = fs.readdirSync('.').filter(f => f.startsWith('_tmp-omissions-') && f.endsWith('.json'));
-    if (files.length === 0) {
+  if (tmpOmissionsPath) {
+    tmpOmissionsPath = path.resolve(tmpOmissionsPath);
+  } else {
+    const found = findLatestTmpOmissions();
+    if (found) {
+      tmpOmissionsPath = found;
+    } else {
       const timestamp = formatTimestamp();
       tmpOmissionsPath = path.resolve('_tmp-omissions-' + timestamp + '.json');
-    } else {
-      files.sort().reverse();
-      tmpOmissionsPath = path.resolve(files[0]);
     }
-  } else {
-    tmpOmissionsPath = path.resolve(tmpOmissionsPath);
   }
 
   const resolvedTicketsPath = path.resolve(ticketsPath);
@@ -450,7 +461,8 @@ module.exports = {
   lookupTicket,
   validateFoundOmissions,
   findCloneByOriginalKey,
-  appendFoundOmissions
+  appendFoundOmissions,
+  findLatestTmpOmissions
 };
 
 // Run as CLI
