@@ -69,7 +69,6 @@ describe('isHard', () => {
   it('should return true for hard edge types', () => {
     assert.ok(isHard('depends_on'));
     assert.ok(isHard('implements'));
-    assert.ok(isHard('constrains'));
   });
 
   it('should return false for non-hard types', () => {

@@ -2,6 +2,7 @@
 
 
 
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -25,6 +26,7 @@ function assertEq(actual, expected, message) {
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
 function assertOk(value, message) {
+// [::TICKET::] PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-112 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-110 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-110 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
@@ -863,6 +865,45 @@ try {
     // -- createSnapshot: failure returns {success: false} --
     const failResult = p.createSnapshot('/nonexistent/path.json', 'test');
     assertEq(failResult.success, false, 'snapshot: fails gracefully');
+  }
+
+  // ===============================================
+  // PX-112: move artifacts to omissions/ and tickets/
+  // ===============================================
+  // @verifies C112
+  console.log('\n## PX-112: move artifacts\n');
+  {
+    const phasifyPath = path.join(SCRIPTS_DIR, '../rfc-graph/phasify-omissions.js');
+    const p = require(phasifyPath);
+    assert(typeof p.moveArtifacts === 'function', 'moveArtifacts exported');
+
+    var baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px112-test-'));
+    var srcPhasified = path.join(baseDir, 'OMISSIONS-phasified-20260730.json');
+    var opts = { ticketsPath: path.join(baseDir, 'Tickets.json') };
+
+    // Create test files
+    fs.writeFileSync(srcPhasified, '{}');
+    fs.writeFileSync(opts.ticketsPath, '{}');
+
+    // Move phasified + null snapshot
+    p.moveArtifacts(opts, srcPhasified, null);
+    assert(fs.existsSync(path.join(baseDir, 'omissions', 'OMISSIONS-phasified-20260730.json')), 'move: phasified to omissions/');
+    assertEq(fs.existsSync(srcPhasified), false, 'move: original phasified removed');
+
+    // Move snapshot
+    var srcSnapshot = path.join(baseDir, 'Tickets-20260730.json');
+    fs.writeFileSync(srcSnapshot, '{}');
+    p.moveArtifacts(opts, null, srcSnapshot);
+    assert(fs.existsSync(path.join(baseDir, 'tickets', 'Tickets-20260730.json')), 'move: snapshot to tickets/');
+
+    // Edge: dirs already exist (idempotent)
+    p.moveArtifacts(opts, null, null);
+
+    // Edge: missing source file silently skipped
+    p.moveArtifacts(opts, '/nonexistent/path.json', null);
+
+    // cleanup
+    fs.rmSync(baseDir, { recursive: true, force: true });
   }
 
 } finally {

@@ -529,13 +529,14 @@ describe('KIND_PATTERNS completeness', () => {
 });
 
 describe('DEP_PATTERNS completeness', () => {
-  it('all 11 dependency patterns are defined', () => {
+  it('all 15 dependency patterns are defined', () => {
     const depLabels = DEP_PATTERNS.map(p => p.label);
-    assert.equal(depLabels.length, 11);
+    assert.equal(depLabels.length, 15);
     const expectedLabels = [
       'ファイルI/O', 'ネットワーク', 'データベース', 'LLM/API',
       '非同期ランタイム', '乱数生成', 'システム時間', 'プロセス管理',
       '外部モジュール読込', '標準入出力', '設定ファイル読込',
+      'クラウド/インフラ', 'メッセージング', '監視/可観測性', 'コンテナ/オーケストレーション',
     ];
     for (const lbl of expectedLabels) {
       assert.ok(depLabels.includes(lbl), `Dependency "${lbl}" is not defined`);

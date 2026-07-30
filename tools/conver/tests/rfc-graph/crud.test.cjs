@@ -72,6 +72,14 @@ function createTestEdge(from, to, type) {
     to,
     type,
     attributes: { strength: 'hard', bidirectional: false },
+    contracts: [
+      {
+        id: 'C001',
+        precondition: 'from and to nodes exist',
+        postcondition: 'edge is created',
+        invariant: 'from and to are connected',
+      },
+    ],
   };
 }
 
@@ -91,8 +99,8 @@ function createTestGraph(nodes = [], edges = []) {
 // ============================================================
 
 describe('crud.js — constants', () => {
-  it('ALLOWED_SUBCOMMANDS contains 7 subcommands', () => {
-    assert.equal(ALLOWED_SUBCOMMANDS.length, 7);
+  it('ALLOWED_SUBCOMMANDS contains 8 subcommands', () => {
+    assert.equal(ALLOWED_SUBCOMMANDS.length, 8);
     assert.ok(ALLOWED_SUBCOMMANDS.includes('create-nodes'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('list-nodes'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('get-node'));
@@ -100,6 +108,7 @@ describe('crud.js — constants', () => {
     assert.ok(ALLOWED_SUBCOMMANDS.includes('delete-node'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('create-edges'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('delete-edges'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('update-edge'));
   });
 });
 

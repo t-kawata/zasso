@@ -48,6 +48,14 @@ function createValidEdge(overrides) {
         strength: "hard",
         bidirectional: false,
       },
+      contracts: [
+        {
+          id: "C001",
+          precondition: "from node exists",
+          postcondition: "edge is created",
+          invariant: "from and to nodes are connected",
+        },
+      ],
     },
     overrides
   );
@@ -207,7 +215,7 @@ describe("node.schema.json — negative (missing required fields)", () => {
 });
 
 describe("edge.schema.json — negative (missing required fields)", () => {
-  const REQUIRED_FIELDS = ["from", "to", "type", "attributes"];
+  const REQUIRED_FIELDS = ["from", "to", "type", "attributes", "contracts"];
 
   for (const field of REQUIRED_FIELDS) {
     it(`validation fails when required field "${field}" is missing`, () => {

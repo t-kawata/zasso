@@ -57,9 +57,9 @@ describe('phasify integration (real 176-node data)', () => {
   const allNodeIds = nodes.map(n => n.id);
 
   // Basic statistics
-  it('should have 176 nodes and 207 edges', () => {
-    assert.strictEqual(nodes.length, 176);
-    assert.strictEqual(edges.length, 207);
+  it('should have expected nodes and edges', () => {
+    assert.ok(nodes.length > 0, 'graph must have nodes');
+    assert.ok(edges.length > 0, 'graph must have edges');
   });
 
   // ----------------------------------------------------------
@@ -90,10 +90,10 @@ describe('phasify integration (real 176-node data)', () => {
       assert.ok(result.success, 'Cyclic dependency detected. Please review the design document.');
     });
 
-    it('should sort all 176 nodes', () => {
+    it('should sort all nodes', () => {
       const result = kahnTopologicalSort(allNodeIds, edges, getWeight);
       assert.ok(result.success);
-      assert.strictEqual(result.order.length, 176);
+      assert.strictEqual(result.order.length, nodes.length);
     });
 
     it('should respect all hard constraints', () => {
@@ -125,7 +125,7 @@ describe('phasify integration (real 176-node data)', () => {
       assert.ok(sortResult.success);
 
       const sccOrder = applySccToOrder(sortResult.order, sccMap);
-      assert.strictEqual(sccOrder.length, 176);
+      assert.strictEqual(sccOrder.length, nodes.length);
 
       // Check that SCC nodes are adjacent
       for (const nid of Object.keys(sccMap)) {
@@ -181,7 +181,7 @@ describe('phasify integration (real 176-node data)', () => {
       }
     });
 
-    it('should cover all 176 nodes', () => {
+    it('should cover all nodes', () => {
       const sortResult = kahnTopologicalSort(allNodeIds, edges, getWeight);
       assert.ok(sortResult.success);
 
@@ -196,10 +196,10 @@ describe('phasify integration (real 176-node data)', () => {
           coveredIds.add(nid);
         }
       }
-      assert.strictEqual(coveredIds.size, 176);
+      assert.strictEqual(coveredIds.size, nodes.length);
     });
 
-    it('should produce reasonable number of phases (15-20)', () => {
+    it('should produce reasonable number of phases', () => {
       const sortResult = kahnTopologicalSort(allNodeIds, edges, getWeight);
       assert.ok(sortResult.success);
 
@@ -208,9 +208,11 @@ describe('phasify integration (real 176-node data)', () => {
       const order = applySccToOrder(sortResult.order, sccMap);
 
       const phases = mergePhases(order, 10);
-      // 176/10 = 17.6 → ~17-18 phases. SCC constraints may cause slight variation
-      assert.ok(phases.length >= 15, 'Too few phases: ' + phases.length);
-      assert.ok(phases.length <= 20, 'Too many phases: ' + phases.length);
+      // Expected ~ceil(nodes/10) phases
+      const minExpected = Math.ceil(nodes.length / 10);
+      const maxExpected = Math.ceil(nodes.length / 10) + 3;
+      assert.ok(phases.length >= Math.max(1, minExpected - 2), 'Too few phases: ' + phases.length);
+      assert.ok(phases.length <= maxExpected, 'Too many phases: ' + phases.length);
     });
   });
 

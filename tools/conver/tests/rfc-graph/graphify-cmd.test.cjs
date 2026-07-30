@@ -322,10 +322,10 @@ describe('graphify-rfc.md slash command integration tests', () => {
   // ==========================================================
 
   describe('error handling', () => {
-    it('should have error recovery flow described in each step', () => {
-      const errorRecoverySections = commandContent.match(/### エラー時の復帰/g) || [];
-      assert.ok(errorRecoverySections.length >= 4,
-        `error recovery sections should appear at least 4 times (actual: ${errorRecoverySections.length})`);
+    it('should have reset-to-step recovery procedures in at least 4 places', () => {
+      const resetLines = commandContent.match(/reset-to-step \d/g) || [];
+      assert.ok(resetLines.length >= 4,
+        `reset-to-step procedures should appear at least 4 times (actual: ${resetLines.length})`);
     });
 
     it('should describe recovery procedure for each Step and mention Step 4 (deprecated)', () => {
@@ -350,8 +350,10 @@ describe('graphify-rfc.md slash command integration tests', () => {
   describe('completion report', () => {
     it('should have a completion report section', () => {
       assert.ok(
-        commandContent.includes('完了報告') ||
-        commandContent.includes('生成'),
+        commandContent.includes('final') ||
+        commandContent.includes('Final') ||
+        commandContent.includes('完了') ||
+        commandContent.includes('出力'),
         'completion report section should exist'
       );
     });

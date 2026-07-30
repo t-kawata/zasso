@@ -14,7 +14,7 @@
         {
           "id": 1,
           "phaseId": -1,
-          "status": "reviewed",
+          "status": "remanded",
           "title": "conver.js 単一ファイルバンドル構築",
           "referenceSection": "tickets/specs/0015-converjs.md",
           "background": "現在のビルドは tsc によるトランスパイルのみで、dist/ に分割ファイルを出力。実行には node_modules/@agentclientprotocol/sdk が必要（外部依存はこの1パッケージのみ）。別マシンへの単一ファイル配布を可能にするため、esbuild でバンドルする。",

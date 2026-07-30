@@ -165,7 +165,7 @@ describe('ensureTicketsJsonExists', () => {
   it('should return false when Tickets.json already exists', () => {
     const testPath = path.join(tmpDir, 'Tickets.json');
     fs.writeFileSync(testPath, '{"title":"test","metadata":{"source":"","generatedAt":"2026-01-01"},"phases":[]}');
-    const result = ensureTicketsJsonExists(testPath, '/dev/null/graph.json', false);
+    const result = ensureTicketsJsonExists(testPath, '/dev/null/graph.json', '/dev/null/dirs-tree.json', false);
     assert.strictEqual(result, false);
   });
 
@@ -173,13 +173,13 @@ describe('ensureTicketsJsonExists', () => {
     const testPath = path.join(tmpDir, 'new-Tickets.json');
     // write-tickets-json-template.js is in the project root, so this cannot be
     // tested outside CI. Instead, verify the non-existent case behavior.
-    const result = ensureTicketsJsonExists(testPath, '/project/graph.json', true);
+    const result = ensureTicketsJsonExists(testPath, '/project/graph.json', '/project/dirs-tree.json', true);
     assert.strictEqual(result, true);
   });
 
   it('should return true in dry-run mode when not exists', () => {
     const testPath = path.join(tmpDir, 'dry-Tickets.json');
-    const result = ensureTicketsJsonExists(testPath, '/project/graph.json', true);
+    const result = ensureTicketsJsonExists(testPath, '/project/graph.json', '/project/dirs-tree.json', true);
     assert.strictEqual(result, true);
   });
 });

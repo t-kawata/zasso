@@ -19,7 +19,7 @@ run-conver:
 
 # test-conver: 全ユニットテストを実行する（テストファイルは tsc でコンパイル）
 test-conver:
-		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js tests/merge-omissions-into-root-rfc.test.cjs tests/dedup-omissions-by-history.test.cjs tests/materiality-filter.test.cjs tests/diminishing-returns.test.cjs tests/pipeline-merge.test.cjs tests/goal-gate-integration.test.cjs
+		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js
 
 # test-rfc-graph: rfc-graph 全スクリプトのテスト（CommonJS、tsc 不要）
 test-rfc-graph:
