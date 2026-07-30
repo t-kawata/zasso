@@ -30,10 +30,10 @@ Post-processing (manual / separate tickets):
 
 ### Inspect the next unchecked ticket
 
-Run this command repeatedly. Each invocation processes one ticket and outputs its spec context.
+Run this command repeatedly until it prints "All tickets inspected.". Each invocation processes one ticket and outputs its spec context.
 
 ```bash
-node .claude/scripts/tickets/get-next-check-target-ticket.js [--tickets=<Tickets.json>]
+node .claude/scripts/tickets/get-next-check-target-ticket.js
 ```
 
 **Output format:**
@@ -52,7 +52,7 @@ The first line is the progress prefix. The rest is the output of `show-ticket-co
 node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 ```
 
-When all entries are exhausted (`All tickets inspected.`), the `--with-clean-trash` flag removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.
+When all entries are exhausted (`All tickets inspected.`), both tmp files are kept — the cmds file preserves the inspection history, and the omissions file holds any recorded omission tickets. Use `--with-clean-trash` to remove both tmp files when you are done.
 
 ### Record an omission
 

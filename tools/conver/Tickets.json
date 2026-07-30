@@ -13547,6 +13547,118 @@
             }
           ],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 103,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Extend foundOmissions schema for per-contract evaluations and enable append-mode in add-omission-ticket.js",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/103-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "The find-omissions pipeline has three structural deficiencies:\n\n### Goal\nEnable the AI to record omission findings one at a time, as they are discovered, without batching or memory dependency.\n\n### Purpose\nThe current flat foundOmissions schema forces the AI to batch all findings or create redundant clones. Both approaches increase the risk of omission loss.\n\n### Motivation\nDuring real usage, omissions are discovered one contract/criterion at a time while tracing source code. The tool must support this discovery pattern, not fight it.\n\n### Constraints\n- No breaking changes to existing CLI interface (stdin mode unchanged).\n- No changes to merge-omissions-to-tickets.js (already handles foundOmissions as opaque array).\n- originalTicketKey must be set automatically, never by the caller.",
+          "scope": [
+            "Extend foundOmissions interface: replace single criterion/codeLocation with evaluations[] array",
+            "Add originalTicketKey field to cloned omission tickets for origin tracking",
+            "Modify add-omission-ticket.js --ticket-key: search _tmp-omissions-*.json for existing clone by originalTicketKey",
+            "If clone exists: append to its foundOmissions[] instead of creating a new clone",
+            "If clone does not exist: create new clone as before",
+            "Update validateFoundOmissions() to validate the new evaluations[] structure",
+            "Update find-omissions.md with new omission recording workflow (immediate append per finding)",
+            "No changes to merge-omissions-to-tickets.js (already handles foundOmissions as array)",
+            "**Scope of changes:**\n  - [Path] .claude/scripts/tickets/add-omission-ticket.js (modify)\n  - [Action] modify and add: foundOmissions interface change, append-mode, findCloneByOriginalKey()\n  - [Detail] Replace criterion/codeLocation flat fields with evaluations[]; add originalTicketKey to clone; add findCloneByOriginalKey(); modify main() to search-then-append\n  - [Before] add-omission-ticket.js --ticket-key always creates new clone\n  - [After] add-omission-ticket.js --ticket-key searches for existing clone first, appends foundOmissions if found, creates clone if not\n  - [API] New exported function: findCloneByOriginalKey(omissionsData, originalKey); validateFoundOmissions() signature unchanged but validates new schema\n  - [Schema] FoundOmission: { evaluations: [{criterion, passed, reason, evidence}], severity?, recommendation? } instead of { contractId, criterion, description, codeLocation }\n  - [Config] None\n  - [Dep] None (fs, path, child_process — Node built-ins only)",
+            "**Out of scope:**\n  - [Excluded] Changes to merge-omissions-to-tickets.js\n  - [Why] Already handles foundOmissions as opaque array; no change needed",
+            "**Affected areas:**\n  - [Component] find-omissions.md (documentation)\n  - [Nature] The omission recording workflow changes from batch-append to per-finding append\n  - [Change needed] Y — update Step 5 in find-omissions.md to reflect the new single-omission-per-invocation workflow"
+          ],
+          "testUnit": [
+            "UT: [Normal] appendFoundOmissions() with matching originalTicketKey appends to existing clone",
+            "UT: [Normal] appendFoundOmissions() with no matching clone creates new clone",
+            "UT: [Normal] Existing clone foundOmissions are preserved after append",
+            "UT: [Normal] validateFoundOmissions accepts new evaluations[] structure with all required fields",
+            "UT: [Error] validateFoundOmissions rejects evaluation missing passed field",
+            "UT: [Error] validateFoundOmissions rejects evaluation with empty evidence array",
+            "UT: [Error] validateFoundOmissions still rejects null input",
+            "UT: [Boundary] cloned ticket carries originalTicketKey field matching the source ticket key",
+            "UT: [Invariant] Original ticket in Tickets.json is never modified after clone creation"
+          ],
+          "testIntegration": [
+            "IT: [Integration] add-omission-ticket.js --ticket-key=P0-4 called twice with different JSON — second call appends to same clone in _tmp-omissions",
+            "IT: [Verification] After 2 appends, clone has exactly 2 foundOmissions entries, both with valid evaluations[]",
+            "IT: [Related tickets] PX-100 (original add-omission-ticket.js), PX-102 (foundOmissions schema)"
+          ],
+          "testExceptions": [
+            "**Item:** Verifying all omissions are caught in real-world analysis\n  **Reason:** depends on AI analyst skill, not testable automatically. This is not a design defect; structural validation ensures format correctness.\n  **Alt verification:** Manual review of foundOmissions output."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/add-omission-ticket.js"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** add-omission-ticket.js --ticket-key=P0-4 called with first foundOmission → clone created with 1 entry",
+            "**[Happy path]** Same command called again with second foundOmission → same clone now has 2 entries",
+            "**[Error case]** Evaluation missing passed field → rejected with specific error",
+            "**[Error case]** Evaluation with empty evidence array → rejected",
+            "**[Edge case]** No existing clone in _tmp-omissions → new clone created (backward compat)",
+            "**[Edge case]** _tmp-omissions does not exist → created from Tickets.json template, then clone created"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "foundOmissions schema v2",
+              "precondition": "foundOmissions is a non-empty array of objects with evaluations[]",
+              "postcondition": "Each evaluation has criterion, passed (boolean), reason, evidence[]",
+              "invariant": "Original ticket in Tickets.json is never modified"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Append-mode for existing clone",
+              "precondition": "_tmp-omissions-*.json contains a clone with matching originalTicketKey",
+              "postcondition": "New foundOmission is appended to the existing clone, not duplicated",
+              "invariant": "Existing foundOmissions on the clone are never overwritten"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Clone creation for new tickets",
+              "precondition": "_tmp-omissions-*.json has no clone with matching originalTicketKey",
+              "postcondition": "New clone is created with originalTicketKey set",
+              "invariant": "The original ticket in Tickets.json is never modified"
+            }
+          ],
+          "notes": "- [Steps] 1) Redefine FoundOmission interface, 2) Update validateFoundOmissions(), 3) Add findCloneByOriginalKey() to add-omission-ticket.js, 4) Modify main() for append-mode, 5) Update tests, 6) Update find-omissions.md.\n- [Risks] Low — schema change is additive; no existing foundOmissions data exists.\n- [Caveats] Backward compatible: old single-value foundOmissions entries (if any exist in _tmp-omissions) are not affected because merge script treats foundOmissions as opaque array.\n- [Open items] None.\n- [Future] None.\nImplementation summary:\n- Modified: add-omission-ticket.js (validateFoundOmissions rewritten, +2 functions, main() updated)\n- Updated: add-omission-ticket.test.js (schema v2 tests + findClone/appendFoundOmissions tests)\n- Test results: 56 tests passed (34 original + 10 PX-102 + 12 PX-103)\nReview report:\n- Status gate: done\n- Crimes: 0\n- STUBs: 0 in scope\n- AMBIGUOUS markers: 0\n- Annotation check: all source files annotated\n- Static quality check: passed\n- Translatability: all verb phrase function names (validate, find, append, lookup)\n- Tests: 56/56 passed\n- Implementation completeness: 100%",
+          "invariants": "- [Normal] _tmp-omissions-*.json has at most one clone per originalTicketKey.\n- [Error] On validation failure, output file is never modified.\n- [Internal state] foundOmissions on existing clones are never overwritten, only appended to.\n- [Boundary] Each evaluation in evaluations[] must have: criterion (A/B/C), passed (boolean), reason (string), evidence (non-empty array of {file, line}).",
+          "instrumentation": "- [Logging] Console.error with prefix [add-omission-ticket].\n- [Metrics] None.\n- [Error tracking] Validation errors print specific field name and index.\n- [Health check] N/A.\nStatic quality check: 0 issues\nTranslatability: no issues\nTests: all 56 tests passed",
+          "investigation": "- Current add-omission-ticket.js exports: validateTicket, appendTicket, findOrCreateTmpOmissions, formatTimestamp, lookupTicket, validateFoundOmissions.\n- Current validateFoundOmissions() validates: contractId (string), criterion (A/B/C), description (string), codeLocation (string). Must be extended for evaluations[] structure.\n- Current main() --ticket-key mode: looks up ticket, clones, validates foundOmissions, appends. Must add: search existing clones by originalTicketKey, append if found.\n- No existing foundOmissions data exists in Tickets.json or _tmp-omissions — zero migration cost.",
+          "boyScoutPlan": "- Extract clone-finding logic to its own function findCloneByOriginalKey() for testability.\n- Keep validateFoundOmissions() as a pure function: it should validate the new structure without side effects.\n- Use descriptive variable names: originalKey, cloneTicket, matchedPhase for readability.",
+          "created_at": "2026-07-30",
+          "updated_at": "2026-07-30",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Precondition] validateFoundOmissions([{evaluations:[{criterion:\"A\",passed:false,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}]) returns null\n  ```js\n  const valid = [{evaluations:[{criterion:\"A\",passed:false,reason:\"Test missing\",evidence:[{file:\"src/main.rs\",line:42}]}]}];\n  assert(validateFoundOmissions(valid) === null, \"valid evaluations passes\");\n  ```",
+            "UT: [C001-Postcondition] validateFoundOmissions rejects evaluation missing passed\n  ```js\n  const bad = [{evaluations:[{criterion:\"A\",reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}];\n  const err = validateFoundOmissions(bad);\n  assert(err !== null && err.includes(\"passed\"), \"missing passed rejected\");\n  ```",
+            "UT: [C001-Invariant] validateFoundOmissions does not mutate input\n  ```js\n  const input = [{evaluations:[{criterion:\"A\",passed:true,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}];\n  const before = JSON.stringify(input);\n  validateFoundOmissions(input);\n  assert(JSON.stringify(input) === before, \"input unchanged\");\n  ```",
+            "UT: [C002-Precondition] findCloneByOriginalKey with matching key returns the clone ticket\n  ```js\n  const data = {phases:[{id:-1,tickets:[{id:1,originalTicketKey:\"P0-4\"}]}]};\n  const clone = findCloneByOriginalKey(data, \"P0-4\");\n  assert(clone !== null, \"clone found\");\n  assert(clone.originalTicketKey === \"P0-4\", \"correct key\");\n  ```",
+            "UT: [C002-Postcondition] appendFoundOmissions appends to existing clone foundOmissions\n  ```js\n  const clone = {id:1,originalTicketKey:\"P0-4\",foundOmissions:[]};\n  const data = {phases:[{id:-1,tickets:[clone]}]};\n  const result = appendFoundOmissions(data, \"P0-4\", [{evaluations:[{criterion:\"A\",passed:false,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}]);\n  assert(result.phases[0].tickets[0].foundOmissions.length === 1, \"omission appended\");\n  ```",
+            "UT: [C002-Invariant] Existing foundOmissions preserved on append\n  ```js\n  const clone = {id:1,originalTicketKey:\"P0-4\",foundOmissions:[{id:\"existing\"}]};\n  const data = {phases:[{id:-1,tickets:[clone]}]};\n  const result = appendFoundOmissions(data, \"P0-4\", [{evaluations:[{criterion:\"A\",passed:true,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}]);\n  assert(result.phases[0].tickets[0].foundOmissions.length === 2, \"existing + new = 2\");\n  assert(result.phases[0].tickets[0].foundOmissions[0].id === \"existing\", \"existing preserved\");\n  ```",
+            "UT: [C003-Precondition] appendFoundOmissions with no matching clone creates new clone\n  ```js\n  const data = {phases:[{id:-1,tickets:[]}]};\n  const result = appendFoundOmissions(data, \"P0-4\", [{evaluations:[{criterion:\"A\",passed:false,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}]);\n  const clone = result.phases[0].tickets.find(t => t.originalTicketKey === \"P0-4\");\n  assert(clone !== null, \"new clone created\");\n  assert(clone.originalTicketKey === \"P0-4\", \"originalTicketKey set\");\n  ```",
+            "UT: [C003-Postcondition] New clone carries originalTicketKey\n  ```js\n  const data = {phases:[{id:-1,tickets:[]}]};\n  const result = appendFoundOmissions(data, \"PX-99\", [{evaluations:[{criterion:\"A\",passed:true,reason:\"R\",evidence:[{file:\"x.rs\",line:1}]}]}]);\n  assert(result.phases[0].tickets[0].originalTicketKey === \"PX-99\", \"PX-99 tracked\");\n  ```"
+          ],
+          "startedAt": "2026-07-30",
+          "changes": [
+            {
+              "before": "flat schema: contractId/criterion/description/codeLocation",
+              "after": "structured schema: evaluations[{criterion,passed,reason,evidence[]}]",
+              "description": "Redesign foundOmissions interface for per-contract A/B/C evaluation with multiple evidence locations"
+            },
+            {
+              "before": "always creates new clone",
+              "after": "searches for existing clone, appends or creates",
+              "description": "Add findCloneByOriginalKey(), appendFoundOmissions(); main() --ticket-key uses append-mode"
+            },
+            {
+              "before": "(not present)",
+              "after": "originalTicketKey field",
+              "description": "Add originalTicketKey to cloned tickets for origin tracking"
+            }
+          ],
+          "completedAt": "2026-07-30"
         }
       ]
     },

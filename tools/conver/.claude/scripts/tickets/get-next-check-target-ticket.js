@@ -84,7 +84,7 @@ function setTicketRemanded(ticketsData, ticketKey) {
  * @param {number} current — 1-indexed current position
  * @returns {string} — e.g. "Total 5 tickets to inspect. Inspecting ticket 3/5."
  */
-// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function buildPrefixMessage(total, current) {
   return 'Total ' + total + ' tickets to inspect. Inspecting ticket ' + current + '/' + total + '.\n';
 }
@@ -203,7 +203,7 @@ function runShowTicketContext(ticketKey) {
 /**
  * Remove the _tmp-check-target-tickets-cmds-*.json file.
  */
-// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function removeCmdsFile() {
   const cmds = findLatestTmpCmds();
   if (cmds) { try { fs.unlinkSync(cmds); } catch (e) { /* ignore */ } }
@@ -212,7 +212,7 @@ function removeCmdsFile() {
 /**
  * Remove the _tmp-omissions-*.json file.
  */
-// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function removeOmitsFile() {
   const omissions = findLatestTmpOmissions();
   if (omissions) { try { fs.unlinkSync(omissions); } catch (e) { /* ignore */ } }
@@ -220,7 +220,7 @@ function removeOmitsFile() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-101, PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-101, PX-102, PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-101|PX-102|PX-103) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let ticketsPath = 'Tickets.json';

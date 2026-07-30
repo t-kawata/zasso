@@ -116,6 +116,21 @@ try {
   assert(keys.length === 0, 'empty array when no reviewed');
 })();
 
+(function testC001Remanded() {
+  console.log('  ── C001 Remanded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'remanded', title: 'R' },
+      { id: 2, status: 'reviewed', title: 'V' },
+      { id: 3, status: 'todo', title: 'T' }
+    ] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 2, '2 tickets (reviewed + remanded)');
+  assert(keys.includes('P0-1'), 'remanded ticket included');
+  assert(keys.includes('P0-2'), 'reviewed ticket included');
+})();
+
 // ======================================================================
 // C002: Command String Generation
 // ======================================================================
