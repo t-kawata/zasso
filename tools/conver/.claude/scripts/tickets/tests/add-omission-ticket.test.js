@@ -22,12 +22,14 @@ let validateFoundOmissions;
 let findCloneByOriginalKey;
 let appendFoundOmissions;
 let findLatestTmpOmissions;
+let extractCodes;
 
 let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-105 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-104 --for-spec --no-implementation-order`.
 function assert(condition, message) {
@@ -53,6 +55,7 @@ try {
   findCloneByOriginalKey = mod.findCloneByOriginalKey;
   appendFoundOmissions = mod.appendFoundOmissions;
   findLatestTmpOmissions = mod.findLatestTmpOmissions;
+  extractCodes = mod.extractCodes;
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load add-omission-ticket.js: ' + e.message + '\n');
@@ -261,40 +264,32 @@ const VALID_TICKET = {
 
 (function testFoundOmissionsValid() {
   console.log('  ── PX-103 foundOmissions schema v2 valid ──');
-  const valid = [{ evaluations: [{ criterion: 'A', passed: false, reason: 'Test missing', evidence: [{ file: 'src/main.rs', codes: 'let input = \"test\";\nlet result = validate(input);\nassert!(result.is_ok());' }] }] }];
+  const valid = [{ evaluations: [{ criterion: 'A', passed: false, reason: 'Test missing', evidence: [{ file: 'src/main.rs', line: 42 }] }] }];
   const err = validateFoundOmissions(valid);
   assert(err === null, 'valid evaluations passes');
 })();
 
 (function testFoundOmissionsMissingPassed() {
   console.log('  ── PX-103 foundOmissions missing passed ──');
-  const bad = [{ evaluations: [{ criterion: 'A', reason: 'R', evidence: [{ file: 'x.rs', codes: '1\\n2\\n3' }] }] }];
+  const bad = [{ evaluations: [{ criterion: 'A', reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] }];
   const err = validateFoundOmissions(bad);
   assert(err !== null, 'missing passed rejected');
   assert(err.includes('passed'), 'mentions passed');
 })();
 
-(function testFoundOmissionsMissingCodes() {
-  console.log('  ── PX-104 foundOmissions missing codes ──');
+(function testFoundOmissionsMissingFile() {
+  console.log('  ── PX-105 foundOmissions missing file ──');
   const bad = [{ evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs' }] }] }];
   const err = validateFoundOmissions(bad);
-  assert(err !== null, 'missing codes rejected');
-  assert(err.includes('codes'), 'mentions codes');
+  assert(err !== null, 'missing file rejected');
+  assert(err.includes('file'), 'mentions file');
 })();
 
-(function testFoundOmissionsOldLineRejected() {
-  console.log('  ── PX-104 foundOmissions old line format rejected ──');
-  // evidence with line but no codes should be rejected
-  const bad = [{ evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] }];
-  const err = validateFoundOmissions(bad);
-  assert(err !== null, 'old line format rejected');
-})();
-
-(function testFoundOmissionsValidCodes() {
-  console.log('  ── PX-104 foundOmissions valid codes passes ──');
-  const valid = [{ evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', codes: 'let x = 1;\nlet y = 2;\nlet z = 3;' }] }] }];
+(function testFoundOmissionsLineAccepted() {
+  console.log('  ── PX-105 foundOmissions line accepted ──');
+  const valid = [{ evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] }];
   const err = validateFoundOmissions(valid);
-  assert(err === null, 'valid codes passes');
+  assert(err === null, 'line accepted');
 })();
 
 (function testFoundOmissionsEmpty() {
@@ -304,11 +299,37 @@ const VALID_TICKET = {
 })();
 
 (function testFoundOmissionsInvariant() {
-  console.log('  ── PX-104 foundOmissions invariant ──');
-  const input = [{ evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', codes: 'a\nb\nc' }] }] }];
+  console.log('  ── PX-105 foundOmissions invariant ──');
+  const input = [{ evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] }];
   const before = JSON.stringify(input);
   validateFoundOmissions(input);
   assert(JSON.stringify(input) === before, 'input not mutated');
+})();
+
+(function testExtractCodes() {
+  console.log('  ── PX-105 extractCodes ──');
+  const fs = require('fs');
+  const tmpFile = '/tmp/_px105_test.txt';
+  fs.writeFileSync(tmpFile, 'line1\nline2\nline3\nline4\nline5');
+  const codes = extractCodes(tmpFile, 2);
+  assert(codes === 'line2\nline3\nline4', 'returns 3 lines from line 2');
+  fs.unlinkSync(tmpFile);
+})();
+
+(function testExtractCodesEof() {
+  console.log('  ── PX-105 extractCodes near EOF ──');
+  const fs = require('fs');
+  const tmpFile = '/tmp/_px105_eof.txt';
+  fs.writeFileSync(tmpFile, 'line1\nline2');
+  const codes = extractCodes(tmpFile, 2);
+  assert(codes === 'line2', 'returns 1 line at EOF');
+  fs.unlinkSync(tmpFile);
+})();
+
+(function testExtractCodesMissingFile() {
+  console.log('  ── PX-105 extractCodes missing file ──');
+  const codes = extractCodes('/tmp/_nonexistent_file_xyz.txt', 1);
+  assert(codes === '', 'returns empty string for missing file');
 })();
 
 // ======================================================================
@@ -361,7 +382,7 @@ const VALID_TICKET = {
   console.log('  ── PX-103 append to existing clone ──');
   const clone = { id: 1, originalTicketKey: 'P0-4', foundOmissions: [] };
   const data = { phases: [{ id: -1, tickets: [clone] }] };
-  const omission = { evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', codes: '1\\n2\\n3' }] }] };
+  const omission = { evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] };
   const result = appendFoundOmissions(data, 'P0-4', [omission]);
   assert(result.phases[0].tickets[0].foundOmissions.length === 1, 'omission appended');
 })();
@@ -370,7 +391,7 @@ const VALID_TICKET = {
   console.log('  ── PX-103 append preserves existing ──');
   const clone = { id: 1, originalTicketKey: 'P0-4', foundOmissions: [{ id: 'existing' }] };
   const data = { phases: [{ id: -1, tickets: [clone] }] };
-  const omission = { evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', codes: '1\\n2\\n3' }] }] };
+  const omission = { evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] };
   const result = appendFoundOmissions(data, 'P0-4', [omission]);
   assert(result.phases[0].tickets[0].foundOmissions.length === 2, 'existing + new = 2');
   assert(result.phases[0].tickets[0].foundOmissions[0].id === 'existing', 'existing preserved');
@@ -379,7 +400,7 @@ const VALID_TICKET = {
 (function testAppendFoundOmissionsCreatesNewClone() {
   console.log('  ── PX-103 append creates new clone ──');
   const data = { phases: [{ id: -1, tickets: [] }] };
-  const omission = { evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', codes: '1\\n2\\n3' }] }] };
+  const omission = { evaluations: [{ criterion: 'A', passed: false, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] };
   const result = appendFoundOmissions(data, 'P0-4', [omission]);
   const clone = result.phases[0].tickets.find(t => t.originalTicketKey === 'P0-4');
   assert(clone !== null, 'new clone created');
@@ -389,7 +410,7 @@ const VALID_TICKET = {
 (function testAppendFoundOmissionsSetsOriginalKey() {
   console.log('  ── PX-103 append sets originalTicketKey ──');
   const data = { phases: [{ id: -1, tickets: [] }] };
-  const omission = { evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', codes: '1\\n2\\n3' }] }] };
+  const omission = { evaluations: [{ criterion: 'A', passed: true, reason: 'R', evidence: [{ file: 'x.rs', line: 42 }] }] };
   const result = appendFoundOmissions(data, 'PX-99', [omission]);
   assert(result.phases[0].tickets[0].originalTicketKey === 'PX-99', 'PX-99 tracked');
 })();

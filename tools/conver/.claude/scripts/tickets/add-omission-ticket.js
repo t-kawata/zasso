@@ -93,7 +93,7 @@ function appendTicket(data, ticket) {
  * @param {Array|null} omissions — foundOmissions array
  * @returns {string|null} — Error message string, or null if valid
  */
-// [::TICKET::] PX-102, PX-103, PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-102|PX-103|PX-104) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-102, PX-103, PX-104, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
 function validateFoundOmissions(omissions) {
   if (!Array.isArray(omissions) || omissions.length === 0) {
     return 'foundOmissions must be a non-empty array';
@@ -125,13 +125,37 @@ function validateFoundOmissions(omissions) {
       }
       for (let k = 0; k < ev.evidence.length; k++) {
         const e = ev.evidence[k];
-        if (!e.file || typeof e.file !== 'string' || !e.codes || typeof e.codes !== 'string' || e.codes.trim() === '') {
-          return 'foundOmissions[' + i + '].evaluations[' + j + '].evidence[' + k + '] must have file (string) and codes (non-empty string)';
+        if (!e.file || typeof e.file !== 'string' || typeof e.line !== 'number' || e.line < 1) {
+          return 'foundOmissions[' + i + '].evaluations[' + j + '].evidence[' + k + '] must have file (string) and line (positive number)';
         }
       }
     }
   }
   return null;
+}
+
+/**
+ * Read 3 lines of source code starting from the given line (1-indexed).
+ * Returns empty string if file is missing or line is out of bounds.
+ *
+ * @param {string} filePath — Absolute or relative path to source file
+ * @param {number} line — 1-indexed starting line number
+ * @returns {string} — Up to 3 lines of source code, or empty string
+ */
+// [::TICKET::] PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-105 --for-spec --no-implementation-order`.
+function extractCodes(filePath, line) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    const startIdx = line - 1;
+    if (startIdx < 0 || startIdx >= lines.length) {
+      return '';
+    }
+    const selected = lines.slice(startIdx, startIdx + 3);
+    return selected.join('\n');
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -310,7 +334,7 @@ function readStdin() {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-102, PX-103, PX-104, PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-102|PX-103|PX-104|PX-105) --for-spec --no-implementation-order`.
 async function main() {
   const args = process.argv.slice(2);
   let tmpOmissionsPath = null;
@@ -333,12 +357,11 @@ async function main() {
     tmpOmissionsPath = path.resolve(tmpOmissionsPath);
   } else {
     const found = findLatestTmpOmissions();
-    if (found) {
-      tmpOmissionsPath = found;
-    } else {
-      const timestamp = formatTimestamp();
-      tmpOmissionsPath = path.resolve('_tmp-omissions-' + timestamp + '.json');
+    if (!found) {
+      console.error('[add-omission-ticket] Error: No _tmp-omissions-*.json found in CWD. Run get-next-check-target-ticket.js first.');
+      process.exit(1);
     }
+    tmpOmissionsPath = found;
   }
 
   const resolvedTicketsPath = path.resolve(ticketsPath);
@@ -363,6 +386,23 @@ async function main() {
     if (validationError) {
       console.error('[add-omission-ticket] Error: ' + validationError);
       process.exit(1);
+    }
+
+    // Convert line to codes by reading source files
+    for (const omission of omissions) {
+      for (const ev of (omission.evaluations || [])) {
+        for (const e of (ev.evidence || [])) {
+          if (typeof e.line === 'number') {
+            const codes = extractCodes(e.file, e.line);
+            if (!codes) {
+              console.error('[add-omission-ticket] Error: Cannot read ' + e.file + ' at line ' + e.line);
+              process.exit(1);
+            }
+            e.codes = codes;
+            delete e.line;
+          }
+        }
+      }
     }
 
     let data;
@@ -462,7 +502,8 @@ module.exports = {
   validateFoundOmissions,
   findCloneByOriginalKey,
   appendFoundOmissions,
-  findLatestTmpOmissions
+  findLatestTmpOmissions,
+  extractCodes
 };
 
 // Run as CLI

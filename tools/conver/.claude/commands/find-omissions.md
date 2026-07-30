@@ -132,14 +132,14 @@ This is the **most critical step**. The quality of the entire pipeline depends o
 
 **Fundamental rules:**
 
-- **No speculation**: Every claim in your evaluation must cite a specific file and line number. "I think" or "probably" is forbidden.
+- **No speculation**: Every claim in your evaluation must cite a specific file and the surrounding source code. "I think" or "probably" is forbidden.
 - **No assumptions from names**: A function named `validate_email` may not actually validate anything. Read its body.
 - **No trust in comments**: Comments lie. The code is the only truth.
 - **Follow the trail**: If a contract says "input must be non-empty" but you don't see a check in the listed files, search the entire crate for where that check might live. It may be in a parent caller, a validation trait, or a type system constraint.
 - **Check test boundaries**: A passing test doesn't mean the contract is covered. Check whether the test inputs actually exercise the precondition boundary, whether the assertions actually verify the postcondition, and whether the invariant is ever asserted outside the implementation itself.
 - **No shortcuts**: "This looks correct" is not an evaluation. You must confirm that a violation WOULD be caught by an existing test (Criterion B).
 
-Your deliverable is not a summary of the code — it is a **verification** that each contract is enforced by test code, with specific file:line evidence.
+Your deliverable is not a summary of the code — it is a **verification** that each contract is enforced by test code, with specific source code evidence (file + codes).
 
 ### Step 4 — Evaluate and record (per-contract, per-criterion, immediately)
 
@@ -176,8 +176,8 @@ echo '[{"evaluations":[{
   "passed": false,
   "reason": "Contract C001 precondition: input must be non-empty. Code check exists at src/validation.rs:25 but no test exercises empty input. If the check were removed, no test would fail.",
   "evidence": [
-    {"file": "src/validation.rs", "line": 25},
-    {"file": "tests/validation.rs", "line": 44}
+    {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
+    {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
   ]
 }]}]' | node .claude/scripts/tickets/add-omission-ticket.js \
   --ticket-key=P0-4
@@ -197,8 +197,8 @@ Criterion C on same contract:
 **Rules for the evaluation (applies to each individual criterion):**
 
 - `passed` must be a **boolean**. `true` = no issue found. `false` = omission found.
-- `reason` must cite **specific file:line** evidence. "The code looks correct" is forbidden.
-- `evidence` must be an array of `{file: string, line: number}` objects — no free text, no code snippets.
+- `reason` must cite **specific file + surrounding code** evidence. "The code looks correct" is forbidden.
+- `evidence` must be an array of `{file: string, codes: string}` objects — no free text, no code snippets.
 - If `passed = false`, the `reason` must explain **what is missing** and **what should exist**, in a self-contained way.
 - **Do NOT construct a single JSON with multiple evaluations** unless you discovered them simultaneously and they share the same `severity`/`recommendation`. When in doubt, make separate calls.
 
@@ -215,9 +215,9 @@ echo '[{
     "passed": false,
     "reason": "No test passes an empty string to verify the non-empty precondition. The check exists at src/validation.rs:25 but no test would catch its removal. A test with input=\"\" should assert Err(ValidationError::EmptyInput).",
     "evidence": [
-      {"file": "src/validation.rs", "line": 25},
-      {"file": "tests/validation.rs", "line": 44},
-      {"file": "tests/validation.rs", "line": 60}
+      {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
+      {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"},
+      {"file": "tests/validation.rs", "codes": "let result = validate(&input);"}
     ]
   }]
 }]' | node .claude/scripts/tickets/add-omission-ticket.js \
@@ -236,8 +236,8 @@ echo '[{
     "passed": false,
     "reason": "Contract C001 precondition says 'input ≤ 255 chars' but the test only uses 'John Doe' (8 chars). No test exercises boundary values (255, 256, 0). The precondition is not fully translated into tests.",
     "evidence": [
-      {"file": "src/validation.rs", "line": 22},
-      {"file": "tests/validation.rs", "line": 44}
+      {"file": "src/validation.rs", "codes": "fn validate(input: &str) -> Result<..>","},
+      {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
     ]
   }]
 }]' | node .claude/scripts/tickets/add-omission-ticket.js \
@@ -262,8 +262,8 @@ echo '[{
       "passed": false,
       "reason": "Precondition 'input must be non-empty' is checked in code (src/validation.rs:25) but no test exercises an empty string. The precondition boundary is not tested at all.",
       "evidence": [
-        {"file": "src/validation.rs", "line": 25},
-        {"file": "tests/validation.rs", "line": 44}
+        {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
+        {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"}
       ]
     },
     {
@@ -271,9 +271,9 @@ echo '[{
       "passed": false,
       "reason": "If the empty-string check at src/validation.rs:25 were removed, no existing test would fail. All tests pass valid inputs only.",
       "evidence": [
-        {"file": "src/validation.rs", "line": 25},
-        {"file": "tests/validation.rs", "line": 44},
-        {"file": "tests/validation.rs", "line": 60}
+        {"file": "src/validation.rs", "codes": "if input.is_empty() { return Err(..); }"},
+        {"file": "tests/validation.rs", "codes": "let input = String::from(\"test\");"},
+        {"file": "tests/validation.rs", "codes": "let result = validate(&input);"}
       ]
     }
   ]
@@ -328,16 +328,21 @@ Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`
 
 ```typescript
 interface FoundOmission {
-  contractId: string;     // (required) Which contract, e.g. "C001"
-  criterion: "A"|"B"|"C";// (required) Which criterion failed
-  description: string;    // (required) What is wrong, specifically
-  codeLocation: string;   // (required) File:line of the issue
-  expectedBehavior?: string; // (optional) What should happen
-  actualBehavior?: string;   // (optional) What actually happens
+  evaluations: {
+    criterion: "A" | "B" | "C";     // (required) Which criterion
+    passed: boolean;                   // (required) true = no issue, false = omission
+    reason: string;                    // (required) What is wrong, with file + codes evidence
+    evidence: {
+      file: string;                    // (required) Source file path
+      codes: string;                   // (required) Surrounding source code (3 lines recommended)
+    }[];
+  }[];
+  severity?: "critical" | "major" | "minor";  // (optional)
+  recommendation?: string;                     // (optional) How to fix
 }
 ```
 
-The `add-omission-ticket.js --ticket-key` validates that all 4 required fields are present and non-empty before writing.
+The `add-omission-ticket.js --ticket-key` validates that all required fields are present, `passed` is boolean, `criterion` is A/B/C, and `codes` is a non-empty string.
 
 ## Error Handling
 
