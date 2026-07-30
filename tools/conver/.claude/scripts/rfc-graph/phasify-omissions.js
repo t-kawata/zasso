@@ -738,7 +738,10 @@ function runPhasifyOmissions(opts) {
   // Step H: Build output
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Building output...');
-  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  // Derive timestamp from input OMISSIONS filename (OMISSIONS-YYYYMMDDHHmmss.json -> YYYYMMDDHHmmss)
+  const omissionsBasename = path.basename(opts.omissionsPath);
+  const tsMatch = omissionsBasename.match(/^OMISSIONS-(\d{14})\.json$/);
+  const timestamp = tsMatch ? tsMatch[1] : new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   const metadata = {
     source: opts.omissionsPath,
     graphSource: opts.graphPath,
