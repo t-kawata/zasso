@@ -148,14 +148,77 @@ function extractCodes(filePath, line) {
 }
 
 /**
- * Build the output JSON object matching Tickets.json schema.
+ * Build a lookup map from Tickets.json data for fast ticket retrieval.
+ * Key format: "P{phaseId}-{ticketId}" (PX-{id} for phase -1).
+ *
+ * @param {object} ticketsData — Parsed Tickets.json { phases[] }
+ * @returns {Map<string, object>} — Map of ticketKey → ticket object
+ */
+function buildTicketLookup(ticketsData) {
+  const map = new Map();
+  if (!ticketsData || !Array.isArray(ticketsData.phases)) {
+    return map;
+  }
+  for (const phase of ticketsData.phases) {
+    if (!phase || !Array.isArray(phase.tickets)) continue;
+    for (const ticket of phase.tickets) {
+      const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
+      const phasePrefix = phaseId === -1 ? 'X' : phaseId;
+      const key = 'P' + phasePrefix + '-' + ticket.id;
+      map.set(key, ticket);
+    }
+  }
+  return map;
+}
+
+/**
+ * Enrich merged entries with full original ticket data.
+ * Deep-clones the original ticket, adds fromStub/stubs fields,
+ * and prepends the rejection warning to background.
  *
  * @param {Array} mergedEntries — Result from mergeTicketSources()
+ * @param {object} ticketsData — Parsed Tickets.json (for phase name lookup)
+ * @param {Map<string, object>} ticketLookup — Map from buildTicketLookup()
+ * @returns {object[]} — Array of enriched full ticket objects
+ */
+function enrichTickets(mergedEntries, ticketsData, ticketLookup) {
+  return mergedEntries.map(entry => {
+    const original = ticketLookup.get(entry.ticketKey);
+    if (original) {
+      // Deep-clone: preserve ALL original fields
+      const cloned = JSON.parse(JSON.stringify(original));
+      // Add new schema fields
+      cloned.fromStub = entry.fromStub;
+      cloned.stubs = entry.stubs;
+      // Prepend rejection warning to background
+      cloned.background = REJECTION_WARNING + '\n\n' + (cloned.background || '');
+      return cloned;
+    }
+    // Fallback: STUB references a ticket not found in Tickets.json
+    const keyMatch = entry.ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
+    const phaseId = keyMatch ? (keyMatch[1] === 'X' ? -1 : parseInt(keyMatch[1], 10)) : -1;
+    const ticketId = keyMatch ? parseInt(keyMatch[2], 10) : 0;
+    return {
+      id: ticketId,
+      phaseId: phaseId,
+      status: 'unknown',
+      title: '(auto-detected via STUB marker)',
+      background: REJECTION_WARNING + '\n\n(Auto-detected via STUB marker — original ticket not found in Tickets.json)',
+      fromStub: entry.fromStub,
+      stubs: entry.stubs
+    };
+  });
+}
+
+/**
+ * Build the output JSON object matching Tickets.json schema from enriched tickets.
+ *
+ * @param {object[]} enrichedTickets — Enriched ticket objects (from enrichTickets)
  * @param {object} template — Template with title and metadata from Tickets.json
  * @returns {object} — Output JSON { title, metadata, phases }
  */
 // [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
-function buildOutputJson(mergedEntries, template) {
+function buildOutputJson(enrichedTickets, template) {
   const output = {
     title: template.title || 'tmp-omissions',
     metadata: {
@@ -166,29 +229,31 @@ function buildOutputJson(mergedEntries, template) {
     phases: []
   };
 
-  if (!mergedEntries || mergedEntries.length === 0) {
+  if (!enrichedTickets || enrichedTickets.length === 0) {
     return output;
   }
 
-  // Group by phase ID (supports P{num}-{id} and PX-{id})
+  // Group enriched tickets by phaseId
   const phaseMap = new Map();
-  for (const entry of mergedEntries) {
-    const keyMatch = entry.ticketKey.match(/^P(-?\d+|X)-(\d+)$/);
-    if (!keyMatch) continue;
-    const phaseId = keyMatch[1] === 'X' ? -1 : parseInt(keyMatch[1], 10);
-    const ticketId = parseInt(keyMatch[2], 10);
-
-    if (!phaseMap.has(phaseId)) {
-      phaseMap.set(phaseId, []);
+  for (const ticket of enrichedTickets) {
+    const pid = ticket.phaseId !== undefined ? ticket.phaseId : -1;
+    if (!phaseMap.has(pid)) {
+      phaseMap.set(pid, []);
     }
-    phaseMap.get(phaseId).push({ id: ticketId, phaseId, fromStub: entry.fromStub, stubs: entry.stubs });
+    phaseMap.get(pid).push(ticket);
   }
 
-  // Convert phase map to output phases
+  // Convert phase map to output phases, preserving phase names from original
+  const phaseNames = new Map();
+  if (template.phases) {
+    for (const p of template.phases) {
+      phaseNames.set(p.id, p.name);
+    }
+  }
   for (const [phaseId, tickets] of phaseMap) {
     output.phases.push({
       id: phaseId,
-      name: 'Phase ' + phaseId,
+      name: phaseNames.get(phaseId) || 'Phase ' + phaseId,
       characteristics: '',
       tickets
     });
@@ -275,15 +340,12 @@ function main() {
   // Step 6: Merge sources
   const mergedEntries = mergeTicketSources(stubKeys, pendingKeys, stubsMap);
 
-  // Step 7: Build output JSON
-  const output = buildOutputJson(mergedEntries, ticketsData);
+  // Step 7: Build ticket lookup and enrich tickets (full deep-copy from Tickets.json)
+  const ticketLookup = buildTicketLookup(ticketsData);
+  const enrichedTickets = enrichTickets(mergedEntries, ticketsData, ticketLookup);
 
-  // Step 8: Prepend rejection warning to each ticket's background
-  for (const phase of output.phases) {
-    for (const ticket of phase.tickets) {
-      ticket.background = REJECTION_WARNING + '\n\n' + (ticket.background || '');
-    }
-  }
+  // Step 8: Build output JSON from enriched tickets
+  const output = buildOutputJson(enrichedTickets, ticketsData);
 
   // Step 9: Write output file
   const timestamp = formatTimestamp();
@@ -302,6 +364,8 @@ module.exports = {
   collectNonReviewedTickets,
   mergeTicketSources,
   extractCodes,
+  buildTicketLookup,
+  enrichTickets,
   buildOutputJson,
   main,
   STUB_TICKET_KEY_RE,
