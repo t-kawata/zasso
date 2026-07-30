@@ -14288,7 +14288,7 @@
         {
           "id": 109,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "phasify-omissions --rollback: deterministic phase rollback from Tickets.json",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/109-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "Goal: phasify-omissions.js --rollback フラグで、直前にマージしたフェーズを Tickets.json から決定論的に除去できること。\n\nPurpose: 誤マージ時の安全な復元手段を提供する。バックアップファイルからの手動復元に依存しない。\n\nMotivation: PX-108 で自動マージが可能になったが、ロールバック手段がない。決定論的アルゴリズムなら機械的ロールバックが可能。\n\nConstraints:\n- ロールバックは追加されたフェーズのみを除去。既存フェーズは一切変更しない\n- マージ情報（offset）は Tickets.json metadata に永続化する\n- --dry-run と組み合わせて削除プレビュー可能\n- ロールバック後も再マージ可能",
@@ -14333,9 +14333,9 @@
             "Error case: ロールバック対象の metadata がない Tickets.json に --rollback を実行するとエラー終了する。",
             "Edge case: --rollback --dry-run で削除予定のフェーズ一覧が表示され、ファイルは変更されない。"
           ],
-          "notes": "- Implementation steps: (1) metadata injection in merge pipeline (2) --rollback CLI parse (3) rollbackPhasifyMerge() pure function (4) runPhasifyOmissions rollback path (5) dry-run support (6) tests\n- Risks: None — pure function + atomic write guarantees safety\n- Caveats: Must NOT remove backup file (tmp-Tickets-*.json) as part of rollback; backup is user's safety net\n- Open items: None\n- Future: Consider --rollback-to=<offset> for partial rollback (not needed now)\nImplementation summary:\n- Changed files: phasify-omissions.js (+rollbackPhasifyMerge, +CLI, +metadata injection, ~+100 lines), scripts.test.js (PX-109 tests, +55 lines)\n- Key changes: rollbackPhasifyMerge() pure function; --rollback flag; merge metadata injection; rollback path\n- Test results: 188/188 passed (12 PX-109-specific tests)",
+          "notes": "- Implementation steps: (1) metadata injection in merge pipeline (2) --rollback CLI parse (3) rollbackPhasifyMerge() pure function (4) runPhasifyOmissions rollback path (5) dry-run support (6) tests\n- Risks: None — pure function + atomic write guarantees safety\n- Caveats: Must NOT remove backup file (tmp-Tickets-*.json) as part of rollback; backup is user's safety net\n- Open items: None\n- Future: Consider --rollback-to=<offset> for partial rollback (not needed now)\nImplementation summary:\n- Changed files: phasify-omissions.js (+rollbackPhasifyMerge, +CLI, +metadata injection, ~+100 lines), scripts.test.js (PX-109 tests, +55 lines)\n- Key changes: rollbackPhasifyMerge() pure function; --rollback flag; merge metadata injection; rollback path\n- Test results: 188/188 passed (12 PX-109-specific tests)\nReview report:\n- Static quality check: 53 issues (all pre-existing false positives)\n- Translatability: no issues\n- Crimes: 0\n- Stubs: 3 (all pre-existing, correctly deferred)\n- Annotations: verified OK (0 missing, 0 ambiguous)\n- Contracts: 100% fulfilled (3/3)\n- Tests: 188/188 PASS\n- Acceptance Criteria: merge metadata injection, --rollback removal, dry-run preview all implemented",
           "invariants": "- [Normal condition] ticketsData.metadata.phasifyMerge must have {offset: number, mergedPhaseIds: number[], mergedAt: string}.\n- [Error invariant] If phasifyMerge is missing, rollback must fail with clear error — never silently skip.\n- [Internal state invariant] rollbackPhasifyMerge is a pure function (no I/O). Only the caller (runPhasifyOmissions) performs atomic write.\n- [Boundary invariant] offset must be > all existing pre-merge phase IDs. If offset overlaps with existing IDs, rollback is rejected.",
-          "instrumentation": "- Logging: rollback report (removed phases, tickets) to stdout. Errors to stderr.\n- Metrics: Number of phases/tickets removed.\n- Error tracking: Missing metadata → process.exit(1) with message. Atomic write failure → process.exit(3).\n- Health check: phasifyMerge metadata presence validated at start of rollback.",
+          "instrumentation": "- Logging: rollback report (removed phases, tickets) to stdout. Errors to stderr.\n- Metrics: Number of phases/tickets removed.\n- Error tracking: Missing metadata → process.exit(1) with message. Atomic write failure → process.exit(3).\n- Health check: phasifyMerge metadata presence validated at start of rollback.\nStatic quality check: 53 issues (all pre-existing: console.log runtime output, single-letter vars in PX-106 code). No new issues from PX-109.\nTranslatability: rollbackPhasifyMerge is a verb phrase. No single-letter variables in new code. No magic numbers.\nTests: 188/188 passed (12 PX-109-specific).\nDependencies: No new dependencies.",
           "investigation": "Key code patterns identified:\n\n1. Current merge pipeline (runPhasifyOmissions Step P):\n   atomicWrite(opts.ticketsPath, JSON.stringify(mergedResult.data, null, 2) + '\\n');\n   → Before this line, inject: mergedResult.data.metadata.phasifyMerge = { offset, mergedPhaseIds, mergedAt }\n\n2. parseArguments() currently handles: --omissions, --graph, --tickets, --min-nodes, --output, --dry-run, --verbose\n   → Add: } else if (arg === '--rollback') { opts.rollback = true; }\n   → Add: rollback: false to CliOptions typedef and default object\n\n3. atomicWrite() function (PX-108) already provides safe tmp+rename write pattern\n\n4. validateTickets() in lib/validate-tickets.js validates full structure — should pass after rollback since existing phases unchanged",
           "boyScoutPlan": "1. rollbackPhasifyMerge() as a pure function (no I/O) following the same pattern as mergePhasifyToTickets().\n2. Verb-prefix naming: rollbackPhasifyMerge (verb: 'rollback').\n3. Deep clone inputs to avoid mutation, matching existing mergePhasifyToTickets pattern.\n4. Extract offset/mergedPhaseIds constants from metadata at function entry for readability.",
           "contracts": [
@@ -14434,7 +14434,9 @@
               "after": "metadata.phasifyMerge written on every merge with offset/mergedPhaseIds/mergedAt",
               "description": "Enables deterministic rollback via stored metadata"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-30"
         }
       ]
     },
