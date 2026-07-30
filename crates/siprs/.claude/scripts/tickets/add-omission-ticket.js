@@ -24,6 +24,20 @@ const path = require('path');
 const REQUIRED_FIELDS = ['title', 'background', 'scope', 'testUnit', 'acceptanceCriteria', 'invariants'];
 const REQUIRED_ARRAYS = ['scope', 'testUnit', 'acceptanceCriteria'];
 
+/**
+ * Prefix prepended to the background of every omission ticket added via add-omission-ticket.js.
+ * Explains that the ticket failed ABC Inspection and must be re-implemented with all contracts fulfilled.
+ */
+const ABC_INSPECTION_PREFIX =
+  'This ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle ' +
+  '(make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n' +
+  '  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n' +
+  '  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n' +
+  '  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\n' +
+  'One or more ABC violations were confirmed. This ticket is hereby remanded for re-implementation. ' +
+  'Every violation must be fully resolved, and every contract must be fulfilled by the final implementation. ' +
+  'Complete it this time.';
+
 // -- Pure functions (exported for testing) --
 
 /**
@@ -75,6 +89,7 @@ function appendTicket(data, ticket) {
   const newTicket = JSON.parse(JSON.stringify(ticket));
   newTicket.fromStub = false;
   newTicket.stubs = [];
+  newTicket.background = ABC_INSPECTION_PREFIX + '\n\n' + (newTicket.background || '');
 
   // Auto-increment ID based on existing max in PX phase
   const existingIds = pxPhase.tickets.map(t => t.id).filter(id => typeof id === 'number');
@@ -503,7 +518,8 @@ module.exports = {
   findCloneByOriginalKey,
   appendFoundOmissions,
   findLatestTmpOmissions,
-  extractCodes
+  extractCodes,
+  ABC_INSPECTION_PREFIX
 };
 
 // Run as CLI

@@ -56,6 +56,7 @@ try {
   appendFoundOmissions = mod.appendFoundOmissions;
   findLatestTmpOmissions = mod.findLatestTmpOmissions;
   extractCodes = mod.extractCodes;
+  ABC_INSPECTION_PREFIX = mod.ABC_INSPECTION_PREFIX;
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load add-omission-ticket.js: ' + e.message + '\n');
@@ -190,6 +191,16 @@ const VALID_TICKET = {
   assert(result.phases[0].tickets.length === 2, 'exactly 2 tickets after append');
   assertStrictEqual(result.phases[0].tickets[0].title, 'Existing', 'existing ticket preserved');
   assertStrictEqual(result.phases[0].tickets[1].title, 'Test omission', 'new ticket appended');
+})();
+
+(function testAppendPrependsAbcPrefix() {
+  console.log('  ── C002 Invariant ABC_INSPECTION_PREFIX ──');
+  const data = { phases: [{ id: -1, name: 'PX', tickets: [] }] };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1 };
+  const result = appendTicket(data, ticket);
+  const appended = result.phases[0].tickets[0];
+  assert(appended.background.startsWith(ABC_INSPECTION_PREFIX), 'background starts with ABC_INSPECTION_PREFIX');
+  assert(appended.background.includes('Found during AI inspection'), 'original background preserved after prefix');
 })();
 
 // ======================================================================
