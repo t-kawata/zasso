@@ -414,6 +414,97 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
 }
 
 /**
+ * Consolidate phases with fewer than 3 tickets into the next phase.
+ * Right-to-left single-pass to match split-to-tickets.md Step 5-3.
+ * The final phase is excluded from consolidation.
+ *
+ * Only merges if hard constraint invariance is maintained:
+ * no depends_on/implements edge has both endpoints in the merged result.
+ *
+ * @param {Array<{id:number, nodeIds:string[], tickets:object[]}>} phases — Phases with tickets
+ * @param {Array<{from:string, to:string}>} [hardEdges] — Array of weight ∞ edges
+ * @returns {Array} — Consolidated phases (immutable, new array)
+ */
+function consolidatePhasesByTicketCount(phases, hardEdges) {
+  if (!Array.isArray(phases) || phases.length <= 1) return phases;
+
+  const MIN_TICKETS = 3;
+  var working = JSON.parse(JSON.stringify(phases));
+
+  // Build node set indices for the full working array (pre-merge)
+  var nodeToPhaseIdx = {};
+  for (var wi = 0; wi < working.length; wi++) {
+    if (!working[wi]) continue;
+    var nids = working[wi].nodeIds || [];
+    for (var wn = 0; wn < nids.length; wn++) {
+      nodeToPhaseIdx[nids[wn]] = wi;
+    }
+  }
+
+  // Scan from right to left (skip the final phase)
+  for (var i = working.length - 2; i >= 0; i--) {
+    var current = working[i];
+    if (!current) continue;
+
+    // Find the next non-null phase
+    var next = null;
+    var nextIdx = -1;
+    for (var j = i + 1; j < working.length; j++) {
+      if (working[j] !== null) { next = working[j]; nextIdx = j; break; }
+    }
+    if (!next) continue;
+
+    var ticketCount = (current.tickets || []).length;
+    if (ticketCount >= MIN_TICKETS) continue;
+
+    // Hard constraint check: merging current into next must not put
+    // both endpoints of any depends_on/implements edge in the same phase
+    var mergeSafe = true;
+    if (hardEdges && hardEdges.length > 0) {
+      var currentNodes = new Set(current.nodeIds || []);
+      var nextNodes = new Set(next.nodeIds || []);
+      for (var ei = 0; ei < hardEdges.length; ei++) {
+        var e = hardEdges[ei];
+        var fromInCurrent = currentNodes.has(e.from);
+        var toInCurrent = currentNodes.has(e.to);
+        var fromInNext = nextNodes.has(e.from);
+        var toInNext = nextNodes.has(e.to);
+        // If one endpoint is in current AND the other in next, merging creates a violation
+        if ((fromInCurrent && toInNext) || (toInCurrent && fromInNext)) {
+          mergeSafe = false;
+          break;
+        }
+      }
+    }
+
+    if (!mergeSafe) continue;
+
+    // Merge current into next: prepend tickets, union nodeIds
+    var currentTickets = current.tickets || [];
+    var nextTickets = next.tickets || [];
+    next.tickets = currentTickets.concat(nextTickets);
+
+    var currentNodes = current.nodeIds || [];
+    var nextNodes = next.nodeIds || [];
+    var mergedNodes = currentNodes.slice();
+    for (var k = 0; k < nextNodes.length; k++) {
+      if (mergedNodes.indexOf(nextNodes[k]) === -1) mergedNodes.push(nextNodes[k]);
+    }
+    next.nodeIds = mergedNodes.sort();
+
+    // Mark current as consumed and update node index
+    for (var mn = 0; mn < currentNodes.length; mn++) {
+      nodeToPhaseIdx[currentNodes[mn]] = nextIdx;
+    }
+    working[i] = null;
+  }
+
+  // Filter out consumed phases (IDs already set by reassignPhaseIdsWithOffset)
+  var result = working.filter(function(p) { return p !== null; });
+  return result;
+}
+
+/**
  * Defense-in-depth repair of duplicate INSPECTION_SENTINEL in backgrounds.
  *
  * @param {object[]} actionTickets — Tickets to repair
@@ -758,7 +849,20 @@ function runPhasifyOmissions(opts) {
   const phasedTickets = assignTicketsToPhases(offsetPhases, actionTickets, finalOrder);
 
   // ============================================================
-  // Step G: Repair inspection prefixes
+  // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
+  // ============================================================
+  var phaseCountBeforeConsolidation = phasedTickets.length;
+  var consolidatedPhases = consolidatePhasesByTicketCount(phasedTickets, hardEdges);
+  if (opts.verbose) {
+    if (consolidatedPhases.length < phaseCountBeforeConsolidation) {
+      console.log('[VERBOSE] Consolidated phases: ' + phaseCountBeforeConsolidation + ' → ' + consolidatedPhases.length);
+    } else {
+      console.log('[VERBOSE] No consolidation needed (' + consolidatedPhases.length + ' phases all >= 3 tickets)');
+    }
+  }
+
+  // ============================================================
+  // Step H: Repair inspection prefixes
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Repairing inspection prefixes...');
   repairInspectionPrefixes(actionTickets);
@@ -786,17 +890,17 @@ function runPhasifyOmissions(opts) {
     crossBoundaryDependsOnTo: crossToOmission.length,
   };
 
-  const output = buildOutput(phasedTickets, referenceTickets, metadata);
+  const output = buildOutput(consolidatedPhases, referenceTickets, metadata);
 
   // ============================================================
   // Step I: Validation (against pre-filter phase structure to ensure full coverage)
   // ============================================================
   if (opts.verbose) console.log('[VERBOSE] Validating output...');
-  // Validate against phasedTickets (includes empty reference phases) for coverage completeness
+  // Validate against consolidatedPhases (includes pre-filter phases) for coverage completeness
   const preOutput = {
     title: 'phasify-omissions auto-generated re-implementation plan',
     metadata: metadata,
-    phases: phasedTickets.map(function(p) {
+    phases: consolidatedPhases.map(function(p) {
       return { id: p.id, name: p.name, nodeIds: p.nodeIds, tickets: p.tickets || [] };
     }),
     referenceTickets: referenceTickets,
@@ -817,7 +921,7 @@ function runPhasifyOmissions(opts) {
   console.log('Cross-boundary depends_on (to omission): ' + crossToOmission.length + ' (WARN: external depends on re-implemented)');
   console.log('Auto minSize: ' + minSize);
   console.log('SCC detected: ' + sccResult.length + ' multi-node cycles');
-  console.log('Total phases: ' + offsetPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (offsetPhases.length - output.phases.length) + ')');
+  console.log('Consolidated phases: ' + consolidatedPhases.length + ' (implementation: ' + output.phases.length + ', reference-only: ' + (consolidatedPhases.length - output.phases.length) + ')');
   console.log('Phase ID offset: ' + offset);
 
   const hardVio = validateResult.checks.hardConstraints ? validateResult.checks.hardConstraints.violations.length : 0;
@@ -826,7 +930,7 @@ function runPhasifyOmissions(opts) {
 
   console.log((validateResult.valid ? '✅ PASS' : '⚠️ FAIL') + ' — ' +
     output.phases.length + ' implementation phases' +
-    (offsetPhases.length > output.phases.length ? ' (' + (offsetPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
+    (consolidatedPhases.length > output.phases.length ? ' (' + (consolidatedPhases.length - output.phases.length) + ' reference-only phases filtered)' : '') +
     ', ' + (allCovered ? 'all ' + totalOmissionNodes + ' nodes covered' : 'uncovered nodes exist') + ', ' +
     'hard constraint violations: ' + hardVio + ', ' +
     'duplicate nodes: ' + (noDupes ? 'none' : 'found'));
@@ -889,6 +993,7 @@ module.exports = {
   computePhaseIdOffset,
   reassignPhaseIdsWithOffset,
   assignTicketsToPhases,
+  consolidatePhasesByTicketCount,
   repairInspectionPrefixes,
   validatePhasedOmissions,
   buildOutput,
