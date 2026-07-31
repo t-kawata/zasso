@@ -24,6 +24,7 @@ let mergeTicketSources;
 let extractCodes;
 let buildOutputJson;
 let main;
+let REJECTION_WARNING;
 
 let passed = 0;
 let failed = 0;
@@ -51,6 +52,7 @@ try {
   extractCodes = mod.extractCodes;
   buildOutputJson = mod.buildOutputJson;
   main = mod.main;
+  REJECTION_WARNING = mod.REJECTION_WARNING;
 } catch (e) {
   failed++;
   console.log('  ✗ Failed to load create-tmp-omissions.js: ' + e.message + '\n');
@@ -333,6 +335,25 @@ try {
   const template = { title: 'T', metadata: {}, phases: [{ id: -1, name: 'Escrow', characteristics: '', tickets: [] }] };
   const output = buildOutputJson(mergedEntries, template);
   assert(output.phases.length === 0, '0 phases when no entries');
+})();
+
+// C002 invariant: REJECTION_WARNING closing style
+(function testRejectionWarningClosing() {
+  console.log('  ── C002 Invariant REJECTION_WARNING closing ──');
+  // The rejection notice must close like the ABC_INSPECTION_PREFIX: it
+  // names the final implementation round and ends with the ultimatum.
+  assert(
+    REJECTION_WARNING.startsWith('[::INSPECTION_FLAGGED::]'),
+    'rejection warning starts with the inspection sentinel'
+  );
+  assert(
+    REJECTION_WARNING.includes('in this final implementation round.'),
+    'rejection warning names this final implementation round'
+  );
+  assert(
+    REJECTION_WARNING.endsWith('Complete it this time.'),
+    'rejection warning ends with the final-round ultimatum'
+  );
 })();
 
 // ======================================================================

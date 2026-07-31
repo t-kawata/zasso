@@ -203,6 +203,42 @@ const VALID_TICKET = {
   assert(appended.background.includes('Found during AI inspection'), 'original background preserved after prefix');
 })();
 
+(function testAbcInspectionPrefixContent() {
+  console.log('  ── C002 Invariant ABC_INSPECTION_PREFIX content ──');
+  // Pin the literal prefix text: the lifecycle sentence and all three
+  // criteria must survive verbatim. A regression such as the + + unary-plus
+  // bug that collapsed the lifecycle to "lifecycle NaN" fails here.
+  assert(
+    ABC_INSPECTION_PREFIX.includes('lifecycle (make → plan → start → review → resolve).'),
+    'prefix names the full lifecycle'
+  );
+  assert(!ABC_INSPECTION_PREFIX.includes('NaN'), 'prefix does not contain NaN');
+  assert(
+    ABC_INSPECTION_PREFIX.includes('three criteria:\n\n  A — Contract Translation:'),
+    'A criterion starts on its own line after the lifecycle sentence'
+  );
+  assert(
+    ABC_INSPECTION_PREFIX.includes('  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?'),
+    'A criterion text is intact'
+  );
+  assert(
+    ABC_INSPECTION_PREFIX.includes('  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?'),
+    'B criterion text is intact'
+  );
+  assert(
+    ABC_INSPECTION_PREFIX.includes('  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?'),
+    'C criterion text is intact'
+  );
+  assert(
+    ABC_INSPECTION_PREFIX.includes('in this final implementation round.'),
+    'prefix names this final implementation round'
+  );
+  assert(
+    ABC_INSPECTION_PREFIX.endsWith('Complete it this time.'),
+    'prefix ends with the remand sentence'
+  );
+})();
+
 // ======================================================================
 // Edge cases
 // ======================================================================

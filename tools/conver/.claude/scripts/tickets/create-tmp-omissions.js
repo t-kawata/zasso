@@ -71,7 +71,7 @@ function _resolveSentinels() {
 const REJECTION_WARNING = '[::INSPECTION_FLAGGED::]\n' +
   'This ticket has been flagged for rejection due to detection of implementation deficiencies, ' +
   'unresolved STUB markers, or other violations. It has been returned for re-implementation. ' +
-  'A complete implementation free of all defects, STUB markers, and violations must be achieved.';
+  'A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.';
 
 const TIMESTAMP_FORMAT_RE = /^\d{14}$/;
 

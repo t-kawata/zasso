@@ -813,6 +813,51 @@ function atomicWrite(targetPath, data) {
 }
 
 /**
+ * Undo a phasify merge on an in-memory Tickets.json object.
+ *
+ * Pure function (no I/O): removes every phase whose id is >= the recorded
+ * merge offset, deletes metadata.phasifyMerge, and returns a deep clone so
+ * the caller's original object is never mutated. Because tickets live inside
+ * phases, removing a phase drops its tickets with it.
+ *
+ * @param {object} ticketsData — Parsed Tickets.json { title, metadata, phases[] }
+ * @returns {object} — Deep clone with merged phases removed
+ * @throws {Error} When metadata.phasifyMerge is missing, its offset is not a
+ *   finite number, or the rollback would remove every phase (data loss guard).
+ */
+// [::TICKET::] PX-109: phasify-omissions --rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
+function rollbackPhasifyMerge(ticketsData) {
+  if (!ticketsData || typeof ticketsData !== 'object') {
+    throw new TypeError('ticketsData must be a non-null object');
+  }
+
+  const mergeInfo = ticketsData.metadata && ticketsData.metadata.phasifyMerge;
+  if (!mergeInfo) {
+    throw new Error('metadata.phasifyMerge is missing. Nothing to roll back.');
+  }
+
+  const offset = mergeInfo.offset;
+  if (typeof offset !== 'number' || !isFinite(offset)) {
+    throw new Error('metadata.phasifyMerge.offset must be a finite number, got: ' + offset);
+  }
+
+  // Deep clone so the original object is never mutated.
+  const result = JSON.parse(JSON.stringify(ticketsData));
+
+  result.phases = result.phases.filter(function (phase) {
+    return phase.id < offset;
+  });
+
+  if (result.phases.length === 0) {
+    throw new Error('Rollback would remove every phase (offset ' + offset + '). Refusing to continue.');
+  }
+
+  delete result.metadata.phasifyMerge;
+  return result;
+}
+
+/**
  * Delete files from disk. Silently ignores non-existent files.
  * Never throws on ENOENT.
  *
@@ -1622,6 +1667,7 @@ module.exports = {
   // PX-109/PX-115: snapshot-based rollback
   resolveSnapshotPath,
   rollbackFromSnapshot,
+  rollbackPhasifyMerge,
   // PX-111: snapshot + auto-review
   markPreMergeTicketsReviewed,
   createSnapshot,

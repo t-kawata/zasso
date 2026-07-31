@@ -49,13 +49,13 @@ function repairDuplicateSentinels(background) {
  * Explains that the ticket failed ABC Inspection and must be re-implemented with all contracts fulfilled.
  */
 const ABC_INSPECTION_PREFIX = INSPECTION_SENTINEL + '\n' +
-  'This ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle ' + +
+  'This ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle ' +
   '(make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n' +
   '  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n' +
   '  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n' +
   '  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\n' +
   'One or more ABC violations were confirmed. This ticket is hereby remanded for re-implementation. ' +
-  'Every violation must be fully resolved, and every contract must be fulfilled by the final implementation. ' +
+  'Every violation must be fully resolved, and every contract must be fulfilled in this final implementation round. ' +
   'Complete it this time.';
 
 // -- Pure functions (exported for testing) --
