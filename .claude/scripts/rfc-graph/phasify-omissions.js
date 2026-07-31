@@ -900,6 +900,16 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
         fs.unlinkSync(backupPath);
       }
     }
+
+    // 4. Move OMISSIONS-*.json (raw inspection archive) to omissions/
+    if (opts && opts.omissionsPath) {
+      var omBasename = path.basename(opts.omissionsPath);
+      if (/^OMISSIONS-\d{14}\.json$/.test(omBasename) && fs.existsSync(opts.omissionsPath)) {
+        var dstOm = path.join(baseDir, 'omissions', omBasename);
+        fs.renameSync(opts.omissionsPath, dstOm);
+        console.log('Moved to omissions/: ' + omBasename);
+      }
+    }
   } catch (e) {
     console.warn('[WARN] Artifact move failed (best-effort): ' + e.message);
   }
