@@ -16,6 +16,7 @@ const CB = {
  * @param {string} status — Ticket status
  * @returns {string} — Markdown checkbox string
  */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function resolveCheckbox(status) {
   return /^R[1-9]\d*$/.test(status) ? '[' + status + ']' : (CB[status] || CB.todo);
 }
@@ -27,6 +28,7 @@ function resolveCheckbox(status) {
  * @param {object} data — Parsed Tickets.json with phases[{id, name, tickets}]
  * @returns {string[]} — Markdown lines
  */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function renderTicketLines(data) {
   const lines = [];
   for (const p of (data.phases || [])) {
@@ -42,7 +44,7 @@ function renderTicketLines(data) {
   return lines;
 }
 
-// [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-99, PX-100, PX-101, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101|PX-114) --for-spec --no-implementation-order`.
 function main() {
   const jp = process.argv[2];
   if (!jp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }

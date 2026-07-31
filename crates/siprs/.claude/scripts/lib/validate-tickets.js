@@ -6,12 +6,14 @@ const fs = require('fs'), path = require('path');
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
+const isRoundStatus = (s) => /^R[1-9]\d*$/.test(s);
 
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114) --for-spec --no-implementation-order`.
 function validateTickets(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
   if (!data.title || typeof data.title !== 'string') errors.push('title: must be a non-empty string');
+  if (typeof data.round !== 'number' || !Number.isInteger(data.round) || data.round < 1) errors.push('round: must be a positive integer >= 1');
   if (!data.metadata || typeof data.metadata !== 'object' || Array.isArray(data.metadata)) {
     errors.push('metadata: must be an object');
   } else {
@@ -34,7 +36,7 @@ function validateTickets(data) {
       if (typeof t.phaseId !== 'number' || !Number.isInteger(t.phaseId) || t.phaseId < -1) errors.push(tp + '.phaseId: must be integer >= -1');
       if (pId >= -1 && t.phaseId !== undefined && t.phaseId !== pId) errors.push(tp + '.phaseId (' + t.phaseId + ') does not match parent phase id (' + pId + ')');
       if (!t.title || typeof t.title !== 'string') errors.push(tp + '.title: required');
-      if (!t.status || !ALLOWED.includes(t.status)) errors.push(tp + '.status: must be one of ' + ALLOWED.join(', '));
+      if (!t.status || (!ALLOWED.includes(t.status) && !isRoundStatus(t.status))) errors.push(tp + '.status: must be one of ' + ALLOWED.join(', '));
       const arrayFields = ['scope','testUnit','testIntegration','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies','acceptanceCriteria'];
       for (const f of arrayFields) {
         if (t[f] !== undefined) {
@@ -88,13 +90,14 @@ function validateTickets(data) {
   return { valid: errors.length === 0, errors };
 }
 
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function validateTicketRecord(t, prefix) {
   const errors = [];
   if (!t || typeof t !== 'object' || Array.isArray(t)) { errors.push(prefix + ': must be object'); return errors; }
   if (typeof t.id !== 'number' || !Number.isInteger(t.id) || t.id < 1) errors.push(prefix + '.id: must be integer >= 1');
   if (typeof t.phaseId !== 'number' || !Number.isInteger(t.phaseId) || t.phaseId < -1) errors.push(prefix + '.phaseId: must be integer >= -1');
   if (!t.title || typeof t.title !== 'string') errors.push(prefix + '.title: required');
-  if (!t.status || !ALLOWED.includes(t.status)) errors.push(prefix + '.status: must be one of ' + ALLOWED.join(', '));
+  if (!t.status || (!ALLOWED.includes(t.status) && !isRoundStatus(t.status))) errors.push(prefix + '.status: must be one of ' + ALLOWED.join(', '));
   return errors;
 }
 

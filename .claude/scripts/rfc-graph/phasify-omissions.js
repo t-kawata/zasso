@@ -1000,7 +1000,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)

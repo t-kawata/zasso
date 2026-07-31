@@ -248,6 +248,7 @@ function logVerbose(message, verbose) {
  *
  * @param {CliOptions} opts
  */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function runPhasify(opts) {
   logVerbose('Loading GRAPH.json...', opts.verbose);
   const graphData = JSON.parse(fs.readFileSync(opts.graphPath, 'utf8'));
@@ -355,6 +356,7 @@ function runPhasify(opts) {
     : opts.graphPath.replace(/\.json$/, '.md');
   const inMemoryTickets = {
     title: 'phasify auto-generated',
+    round: 1,
     metadata: {
       source: toHomeRelative(rfcPath),
       generatedAt: new Date().toISOString().split('T')[0],

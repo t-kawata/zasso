@@ -350,7 +350,7 @@ function processFile(filePath, ticketKey, opts) {
  * filter by extension, annotate each file at its changed definitions.
  * Returns a summary object.
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
 function annotateSourceFiles(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -359,7 +359,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
   try {
     const stdout = execFileSync("git", [
       "diff", "-U0", "--diff-filter=AM",
-    ], { cwd, encoding: "utf8", timeout: 10000, stdio: ["pipe", "pipe", "pipe"] });
+    ], { cwd, encoding: "utf8", timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
     perFileChangedLines = parseGitDiffUnified0(stdout);
   } catch (e) {
     // Not a git repo or git error
@@ -425,7 +425,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
  * Verify that all changed source files have a ticket-key annotation at each
  * changed definition. Returns a verification report object.
  */
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
 function verifyAnnotations(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -434,7 +434,7 @@ function verifyAnnotations(cwd, ticketKey, opts) {
   try {
     const stdout = execFileSync("git", [
       "diff", "-U0", "--diff-filter=AM",
-    ], { cwd, encoding: "utf8", timeout: 10000, stdio: ["pipe", "pipe", "pipe"] });
+    ], { cwd, encoding: "utf8", timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
     perFileChangedLines = parseGitDiffUnified0(stdout);
   } catch (e) {
     if (verbose) console.error(`[annotate-verify] git diff failed: ${e.message}`);
@@ -627,6 +627,54 @@ function main() {
 // Exports (for testing)
 // ---------------------------------------------------------------------------
 
+/**
+ * Find the first source-code definition (function, class, struct, interface, etc.)
+ * in an array of lines and return its 1-indexed line number, or null if none found.
+ * Pure function — no side effects.
+ *
+ * @param {string[]} lines
+ * @returns {number|null} — 1-indexed line number or null
+ */
+function detectFirstDefinition(lines) {
+  if (!Array.isArray(lines)) return null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || typeof line !== "string") continue;
+    const trimmed = line.trimStart();
+    // Rust: fn, struct, enum, trait, impl, macro_rules!, pub (fn|struct|enum|trait|impl)
+    if (/^(pub\s+)?(fn|struct|enum|trait|impl|unsafe\s+(fn|trait|impl)|macro_rules!)\b/.test(trimmed)) return i + 1;
+    if (/^(pub\s+)?(fn|struct|enum|trait|impl)\b/.test(trimmed)) return i + 1;
+    // Go: func, type
+    if (/^(func|type)\s+\w+/.test(trimmed)) return i + 1;
+    // JS/TS: function, class, export (function|class|interface|type|const|default)
+    if (/^(export\s+)?(function|class|interface|type|const|let|var|async\s+function)\b/.test(trimmed)) return i + 1;
+    if (/^export\s+default\s+(function|class|{)/.test(trimmed)) return i + 1;
+    if (/^export\s+default\s/.test(trimmed)) return i + 1;
+    // Python: def, class
+    if (/^(def|class)\s+\w+/.test(trimmed)) return i + 1;
+  }
+  return null;
+}
+
+/**
+ * Check whether any line in the given array carries an annotation for the
+ * specified ticket key. Uses detectAnnotationLine for single-line check.
+ * Pure function — no side effects.
+ *
+ * @param {string[]} lines
+ * @param {string} ticketKey — e.g. "PX-59"
+ * @returns {boolean}
+ */
+function hasExistingAnnotation(lines, ticketKey) {
+  if (!Array.isArray(lines) || !ticketKey) return false;
+  for (const line of lines) {
+    const detected = detectAnnotationLine(line);
+    if (detected && detected.ticketKeys.includes(ticketKey)) return true;
+  }
+  return false;
+}
+
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     buildAnnotation,
@@ -645,6 +693,9 @@ if (typeof module !== "undefined" && module.exports) {
     // New PX-62 functions
     parseGitDiffUnified0,
     changedLinesToDefinitions,
+    // PX-114: missing export wrappers for pre-existing test coverage
+    detectFirstDefinition,
+    hasExistingAnnotation,
   };
 }
 

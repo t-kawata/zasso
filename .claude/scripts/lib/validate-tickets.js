@@ -8,7 +8,7 @@ const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId}
 const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
 const isRoundStatus = (s) => /^R[1-9]\d*$/.test(s);
 
-// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114) --for-spec --no-implementation-order`.
 function validateTickets(data) {
   const errors = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
@@ -90,6 +90,7 @@ function validateTickets(data) {
   return { valid: errors.length === 0, errors };
 }
 
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function validateTicketRecord(t, prefix) {
   const errors = [];
   if (!t || typeof t !== 'object' || Array.isArray(t)) { errors.push(prefix + ': must be object'); return errors; }

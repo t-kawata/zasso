@@ -173,7 +173,7 @@ function checkStubResolution(targetStubs, ticketsData) {
  * @param {object} opts — { tickets: Array, contractsCheck: boolean, testDir?: string }
  * @returns {{ valid: boolean, report: object }}
  */
-// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83|PX-114) --for-spec --no-implementation-order`.
 function verifyFinalContracts(opts) {
   const { tickets, contractsCheck, testDir, ticketsData } = opts;
   const details = [];

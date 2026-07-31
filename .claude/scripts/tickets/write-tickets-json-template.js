@@ -14,6 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const { validateTickets } = require("../lib/validate-tickets");
 
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function main() {
   const jsonPath = process.argv[2];
   const dataJson = process.argv[3];
