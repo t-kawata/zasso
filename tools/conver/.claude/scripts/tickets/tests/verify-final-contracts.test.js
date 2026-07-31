@@ -16,6 +16,7 @@ let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-83 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -141,6 +142,41 @@ console.log('\n## Enhanced Gate R (checkVerifiesCoverage + checkStubResolution)\
   const { checkStubResolution } = require('../verify-final-contracts');
   const result = checkStubResolution('verified_empty');
   assert(result.valid === true, 'verified_empty passes without check');
+})();
+
+// ======================================================================
+// PX-114: Round-aware status (R<round>) passes status check
+// ======================================================================
+
+console.log('\n## PX-114 — Round-aware status (R<round>)\n');
+
+(function () {
+  // R1 status without contracts passes Gate R (status check only)
+  const { verifyFinalContracts } = require('../verify-final-contracts');
+  const ticket = { id: 83, status: 'R1', contracts: [], targetStubs: 'verified_empty' };
+  const opts = { tickets: [ticket], contractsCheck: true };
+  const result = verifyFinalContracts(opts);
+  assert(result.valid === true, 'R1 + no contracts passes');
+  assert(result.report.details[0].statusOk === true, 'R1 statusOk is true');
+})();
+
+(function () {
+  // R2 status with contracts + verified stubs passes all 3 layers
+  const { verifyFinalContracts } = require('../verify-final-contracts');
+  const ticket = { id: 84, status: 'R2', contracts: [{ id: 'C001' }], targetStubs: 'verified_empty' };
+  const opts = { tickets: [ticket], contractsCheck: true };
+  const result = verifyFinalContracts(opts);
+  assert(result.report.details[0].statusOk === true, 'R2 statusOk is true');
+})();
+
+(function () {
+  // Malformed round status (R0) does not pass status check
+  const { verifyFinalContracts } = require('../verify-final-contracts');
+  const ticket = { id: 85, status: 'R0', contracts: [], targetStubs: 'verified_empty' };
+  const opts = { tickets: [ticket], contractsCheck: true };
+  const result = verifyFinalContracts(opts);
+  assert(result.valid === false, 'R0 does not pass (round must be >= 1)');
+  assert(result.report.details[0].statusOk === false, 'R0 statusOk is false');
 })();
 
 // ======================================================================

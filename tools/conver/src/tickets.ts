@@ -35,8 +35,11 @@ export interface Phase {
 }
 
 /** Tickets.json のルート構造 */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 export interface TicketsJson {
   title?: string;
+  /** 処理ラウンド番号（新規作成時は 1、サイクル完了ごとにインクリメント） */
+  round: number;
   metadata?: {
     source: string;
     generatedAt: string;
@@ -52,6 +55,12 @@ export interface TicketsJson {
  * @param ticketsPath Tickets.json のファイルパス
  * @returns 未処理チケットの配列（空の場合は空配列）
  */
+/**
+ * Round-aware status (e.g. "R1", "R2") — records the completion round.
+ * Round numbers are integers >= 1 with no leading zeros.
+ */
+const isRoundStatus = (status: string): boolean => /^R[1-9]\d*$/.test(status);
+
 export function loadPendingTickets(ticketsPath: string): Ticket[] {
   const raw = readFileSync(ticketsPath, "utf-8");
   const data: TicketsJson = JSON.parse(raw);
@@ -59,14 +68,14 @@ export function loadPendingTickets(ticketsPath: string): Ticket[] {
     .flatMap((phase) =>
       phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
     )
-    .filter((t) => t.status !== "reviewed");
+    .filter((t) => t.status !== "reviewed" && !isRoundStatus(t.status));
 }
 
 /**
- * 全チケットの status が "reviewed" か判定する。
+ * 全チケットの status が "reviewed" または round-aware ("R<round>") か判定する。
  * チケットが1件も存在しない場合は true を返す（空の状態を「全件 review 完了」とみなす）。
  * @param ticketsPath Tickets.json のファイルパス
- * @returns 全チケットが reviewed なら true
+ * @returns 全チケットが reviewed / R<round> なら true
  */
 export function checkAllReviewed(ticketsPath: string): boolean {
   const raw = readFileSync(ticketsPath, "utf-8");
@@ -74,7 +83,7 @@ export function checkAllReviewed(ticketsPath: string): boolean {
 
   for (const phase of data.phases) {
     for (const ticket of phase.tickets) {
-      if (ticket.status !== "reviewed") {
+      if (ticket.status !== "reviewed" && !isRoundStatus(ticket.status)) {
         return false;
       }
     }

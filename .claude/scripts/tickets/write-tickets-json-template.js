@@ -44,6 +44,7 @@ function main() {
 
   const skeleton = {
     title: data.title || "",
+    round: 1,
     metadata: {
       source: data.source || "",
       generatedAt: data.generatedAt || "",

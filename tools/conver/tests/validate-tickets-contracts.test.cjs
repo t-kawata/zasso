@@ -51,6 +51,7 @@ function assertErrors(result, expectedCount, fieldHint) {
 function makeValidTicketsBase() {
   return {
     title: 'Test Project',
+    round: 1,
     metadata: { source: 'test.md', generatedAt: '2026-07-24' },
     phases: [
       {
@@ -166,6 +167,55 @@ test('passes ticket with contracts when other fields also valid', () => {
   });
   const result = validateTickets(data);
   assert.ok(result.valid, 'Expected valid=true, got errors: ' + JSON.stringify(result.errors));
+});
+
+// ============================================================
+// PX-114: R-pattern status (R<round>) validation
+// ============================================================
+
+test('accepts ticket status R1, R2, R99 (round-aware status)', () => {
+  const data = makeValidTicketsBase();
+  data.phases[0].tickets.push({
+    id: 1,
+    phaseId: -1,
+    title: 'Round Ticket',
+    status: 'R1'
+  });
+  const result = validateTickets(data);
+  assert.ok(result.valid, 'Expected valid=true for R1, got errors: ' + JSON.stringify(result.errors));
+});
+
+test('rejects malformed round-aware status R0, R-1, Rabc, R, empty', () => {
+  const badStatuses = ['R0', 'R-1', 'Rabc', 'R', ''];
+  for (const bad of badStatuses) {
+    const data = makeValidTicketsBase();
+    data.phases[0].tickets.push({
+      id: 1,
+      phaseId: -1,
+      title: 'Bad Status',
+      status: bad
+    });
+    const result = validateTickets(data);
+    assert.ok(!result.valid, 'Expected invalid for status="' + bad + '"');
+    assert.ok(
+      result.errors.some(function(e) { return e.includes('.status'); }),
+      'Expected a .status error for "' + bad + '", got: ' + JSON.stringify(result.errors)
+    );
+  }
+});
+
+test('invariant: ALLOWED statuses union R-pattern covers every status a script can write', () => {
+  // Round status requires round >= 1 (no leading zeros): R1, R2, R10, R99 valid; R0, R00 invalid
+  const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
+  const isRoundStatus = function(s) { return /^R[1-9]\d*$/.test(s); };
+  for (const s of ALLOWED) {
+    assert.ok(ALLOWED.includes(s) || isRoundStatus(s), s + ' must be covered');
+  }
+  assert.ok(isRoundStatus('R1'), 'R1 must be a valid round status');
+  assert.ok(isRoundStatus('R10'), 'R10 must be a valid round status');
+  assert.ok(!isRoundStatus('R0'), 'R0 must not be a valid round status');
+  assert.ok(!isRoundStatus('R00'), 'R00 must not be a valid round status');
+  assert.ok(!isRoundStatus('R-1'), 'R-1 must not be a valid round status');
 });
 
 // ============================================================

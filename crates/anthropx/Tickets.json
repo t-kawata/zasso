@@ -1,5 +1,6 @@
 {
   "title": "RFC-OMISSIONS-001 実装チケット分解設計書",
+  "round": 1,
   "metadata": {
     "source": "/Users/kawata/shyme/zasso/crates/anthropx/RFC-OMISSIONS-001.md",
     "generatedAt": "2026-07-01",
@@ -655,3 +656,4 @@
     }
   ]
 }
+

@@ -17,6 +17,7 @@ let dir, ticketsPath;
 
 const BASE_TICKETS = {
   title: "Test Tickets",
+  round: 1,
   phases: [{
     id: 0, name: "P0", ticketKeyPrefix: "P0",
     tickets: [{ id: 1, phaseId: 0, title: "Test", status: "todo",

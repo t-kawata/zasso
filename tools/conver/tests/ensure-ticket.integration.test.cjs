@@ -17,6 +17,7 @@ function createTicketsJson() {
   const ticketsPath = path.join(dir, "Tickets.json");
   const ticketsJson = {
     title: "Test Tickets",
+    round: 1,
     phases: [{ id: -1, name: "PX", ticketKeyPrefix: "PX", tickets: [] }],
     metadata: { source: "x", generatedAt: "2026-07-14" },
   };

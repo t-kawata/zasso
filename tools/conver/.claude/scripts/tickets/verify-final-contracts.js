@@ -173,7 +173,7 @@ function checkStubResolution(targetStubs, ticketsData) {
  * @param {object} opts — { tickets: Array, contractsCheck: boolean, testDir?: string }
  * @returns {{ valid: boolean, report: object }}
  */
-// [::TICKET::] PX-71, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-71, PX-83, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-71|PX-83|PX-114) --for-spec --no-implementation-order`.
 function verifyFinalContracts(opts) {
   const { tickets, contractsCheck, testDir, ticketsData } = opts;
   const details = [];
@@ -181,8 +181,8 @@ function verifyFinalContracts(opts) {
   for (const t of tickets) {
     const ticketDetails = { ticketId: t.id, status: t.status };
 
-    // Layer 1: Status check
-    const statusOk = t.status === 'done' || t.status === 'reviewed';
+    // Layer 1: Status check — PX-114: round-aware statuses (R1, R2, ...) count as completed
+    const statusOk = t.status === 'done' || t.status === 'reviewed' || /^R[1-9]\d*$/.test(t.status);
     ticketDetails.statusOk = statusOk;
 
     // Layer 2: @verifies coverage (if testDir provided and contracts exist)

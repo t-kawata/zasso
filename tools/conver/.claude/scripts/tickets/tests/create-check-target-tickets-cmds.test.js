@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 // [::TICKET::] PX-98: 完了済み実装状況検査対象コマンドリスト生成スクリプト. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
 
@@ -30,6 +29,7 @@ let CB;
 // [::TICKET::] PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-98 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-99, PX-100, PX-101 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-99|PX-100|PX-101) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-102 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-102 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function assert(condition, message) {
 // [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
@@ -243,6 +243,52 @@ try {
   assert(keys.length === 6, '6 total keys (5 existing + 1 new)');
   assert(keys.includes('remanded'), 'remanded key present');
   assert(!keys.includes('invalid_status'), 'no extra keys');
+})();
+
+// ======================================================================
+// PX-114: Round-aware status (R<round>) in reviewed-ticket collection
+// ======================================================================
+
+(function testC001RoundStatus() {
+  console.log('  ── C001 Round-aware status (R<round>) ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'R1', title: 'Completed round 1' },
+      { id: 2, status: 'R2', title: 'Completed round 2' },
+      { id: 3, status: 'todo', title: 'Pending' }
+    ] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 2, '2 round-aware tickets (R1 + R2)');
+  assert(keys.includes('P0-1'), 'R1 ticket key included');
+  assert(keys.includes('P0-2'), 'R2 ticket key included');
+  assert(!keys.includes('P0-3'), 'todo ticket excluded');
+})();
+
+(function testC001RoundStatusPX() {
+  console.log('  ── C001 Round-aware status in PX phase ──');
+  const mockTickets = { phases: [
+    { id: -1, tickets: [{ id: 7, status: 'R1', title: 'PX round ticket' }] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 1, '1 round-aware ticket in PX phase');
+  assert(keys[0] === 'PX-7', 'key is PX-7 (phase X)');
+})();
+
+(function testC001RoundInvariant() {
+  console.log('  ── C001 Round-aware invariant ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'reviewed', title: 'Reviewed' },
+      { id: 2, status: 'R1', title: 'Round 1' },
+      { id: 3, status: 'remanded', title: 'Remanded' }
+    ] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 3, 'reviewed + R1 + remanded all collected');
+  assert(keys.includes('P0-1'), 'reviewed included');
+  assert(keys.includes('P0-2'), 'R1 included');
+  assert(keys.includes('P0-3'), 'remanded included');
 })();
 
 // ======================================================================

@@ -469,14 +469,14 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
   }
 
   // Implementation Target Files
-  // if (ticket.default_files && ticket.default_files.length > 0) {
-  //   lines.push('## Implementation Target Files');
-  //   lines.push('');
-  //   for (const f of ticket.default_files) {
-  //     lines.push(`- \`${f}\``);
-  //   }
-  //   lines.push('');
-  // }
+  if (ticket.default_files && ticket.default_files.length > 0) {
+    lines.push('## Implementation Target Files');
+    lines.push('');
+    for (const f of ticket.default_files) {
+      lines.push(`- \`${f}\``);
+    }
+    lines.push('');
+  }
 
   // Source Paths
   if (ticket.sourcePaths && ticket.sourcePaths.length > 0) {

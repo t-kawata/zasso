@@ -106,6 +106,7 @@ describe('tickets-schema.json compatibility', () => {
     const mod = require(validatePath);
     const sample = {
       title: 'test',
+      round: 1,
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         { id: 0, name: 'P0', tickets: [], nodeIds: ['N0001'], summary: 'test summary' },
@@ -136,6 +137,7 @@ describe('tickets-schema.json compatibility', () => {
     // Should pass validation for Tickets.json without nodeIds
     const sample = {
       title: 'test',
+      round: 1,
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         { id: 0, name: 'P0', tickets: [] },
@@ -153,6 +155,7 @@ describe('tickets-schema.json compatibility', () => {
     // Should pass validation for Tickets.json with nodeIds
     const sample = {
       title: 'test',
+      round: 1,
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         { id: 0, name: 'P0', tickets: [], nodeIds: ['N0001', 'N0002'] },

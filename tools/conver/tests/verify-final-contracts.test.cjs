@@ -58,7 +58,7 @@ if (!mod || !mod.verifyFinalContracts) {
     const tickets = [mkTicket(1, [mkContract('C001','pre','post','inv'), mkContract('C002','x','y','z')], 'made')];
     const graph = { sourceFile:'t.md', mainLanguage:'rust', nodes:[], edges:[mkEdge('N1','N2','depends_on',[mkContract('C001'), mkContract('C002')])] };
     const result = mod.verifyFinalContracts({ tickets, graph, contractsCheck: true });
-    assert.strictEqual(result.report.details.length, 2);
+    assert.strictEqual(result.report.details.length, 1);
   });
 }
 console.log('\nTotal: ' + stats.total + ' Passed: ' + stats.passed + ' Failed: ' + stats.failed);

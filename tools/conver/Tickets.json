@@ -1,5 +1,6 @@
 {
   "title": "conver.js: ACP-based Ticket Processing Pipeline 実装チケット分解設計書",
+  "round": 1,
   "metadata": {
     "source": "tools/conver/RFC_ROOT.md",
     "generatedAt": "2026-06-25",
@@ -14901,6 +14902,170 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-31"
+        },
+        {
+          "id": 114,
+          "phaseId": -1,
+          "status": "done",
+          "title": "Round-aware ticket status: encode R<round> in markPreMergeTicketsReviewed and increment round",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/114-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nRecord which round each ticket was completed in by encoding ticket status as 'R' + round (R1, R2, ...) instead of erasing that information with the generic 'reviewed' value, and advance the Tickets.json round field by 1 after each phasify-omissions merge so the next round starts with an incremented round number.\n\n### Purpose\nThe round concept (1st round, 2nd round, 3rd round ...) is born from the pipeline graphify -> boundify -> split (upstream), then make -> plan -> start -> review -> resolve (implementation), then /find-omissions -> next round. When phasify-omissions merges omissions, it currently overwrites ALL pre-merge tickets' status to 'reviewed', losing which round each ticket finished in. Encoding R<round> preserves per-round completion history so a ticket finished in round 1 reads 'R1', round 2 reads 'R2', etc., while still being recognized as processed by every status consumer.\n\n### Motivation\nThe round field was added to Tickets.json (fixed value 1 on new creation) as the counter for this cycle. Without the R<round> status encoding, the round number would be dead data — nothing would ever record or consume it. This ticket makes the round field meaningful end-to-end and prepares the pipeline for multi-round operation.\n\n### Constraints\n- 'R<round>' is written ONLY by phasify-omissions during merge; interactive transitions keep the existing ALLOWED status set\n- Tickets.json is created with round: 1 fixed; edits never touch round (only the merge flow increments it)\n- All 5 project roots (root, tools/conver, crates/siprs, crates/anthropx, crates/ggufrs) carry their own copies of the affected scripts; identical changes must be applied to every copy\n- Rollback (PX-109) does not restore pre-merge statuses nor decrement round — an accepted limitation",
+          "invariants": "- [Normal condition] ticket.status is always one of the existing ALLOWED set {todo, made, planned, done, reviewed, remanded} OR matches /^R\\d+$/\n- [Error invariant] validation failure stops before any write to Tickets.json (phasify-omissions exits before atomicWrite when validateMergedTickets fails)\n- [Internal state invariant] pre-merge tickets (phase.id < offset) are uniformly marked 'R' + round while newly added omission tickets (phase.id >= offset) remain 'todo'\n- [Boundary invariant] round is always an integer >= 1 and remains >= 1 after increment",
+          "scope": [
+            "CHANGE: phasify-omissions.js markPreMergeTicketsReviewed(mergedData, offset, round) - 3 copies (root/.claude/scripts/rfc-graph, tools/conver/.claude/scripts/rfc-graph, crates/siprs/.claude/scripts/rfc-graph). Replace tickets[ti].status = 'reviewed' with tickets[ti].status = 'R' + round. Update JSDoc.",
+            "CHANGE: phasify-omissions.js runPhasifyOmissions - 3 copies. Read round from Tickets.json before marking (default 1 if missing), pass it to markPreMergeTicketsReviewed, then increment mergedResult.data.round += 1 before the atomicWrite. Both changes land in the same atomicWrite so no intermediate state is visible.",
+            "CHANGE: validate-tickets.js status ALLOWED - 5 copies (root, tools/conver, crates/siprs, crates/anthropx, crates/ggufrs; 3 byte-identical variants). Change the two status checks (validateTickets and validateTicketRecord) to accept /^R\\d+$/ in addition to ALLOWED.includes().",
+            "CHANGE: src/tickets.ts (tools/conver/src/tickets.ts only). loadPendingTickets filter t.status !== 'reviewed' becomes t.status !== 'reviewed' && !/^R\\d+$/.test(t.status); checkAllReviewed returns false only when a ticket is neither 'reviewed' nor /^R\\d+$/.",
+            "CHANGE: list-phases-and-tickets.js checkbox rendering - 5 copies (2 byte-identical variants). When /^R\\d+$/.test(t.status) render '[' + t.status + ']' (e.g. '- [R1]'), else fall back to CB[t.status] || CB.todo.",
+            "CHANGE: create-check-target-tickets-cmds.js collectReviewedTicketKeys - 3 copies (root, tools/conver, crates/siprs). Extend ticket.status === 'reviewed' || ticket.status === 'remanded' with /^R\\d+$/.test(ticket.status).",
+            "CHANGE: verify-final-contracts.js statusOk - 3 copies (root, tools/conver, crates/siprs). Extend t.status === 'done' || t.status === 'reviewed' with /^R\\d+$/.test(t.status).",
+            "CHANGE: conver.js deployed bundle (tools/conver/.claude/scripts/conver/conver.js). After changing src/tickets.ts, run make build-conver so the deployed bundle's inline loadPendingTickets/checkAllReviewed reflect the R-pattern filter.",
+            "CHANGE: round field propagation - write-tickets-json-template.js add round: 1 to skeleton (4 remaining copies: root, crates/anthropx, crates/siprs, crates/ggufrs), validate-tickets.js add round validation (4 remaining copies), phasify-graph-and-dirs-files-tree.js inMemoryTickets add round: 1 (2 remaining copies: root, crates/siprs).",
+            "NON-CHANGE: runner.ts status branch (tools/conver/src/runner.ts:214-249) - R<round> matches none of todo/made/planned/done, so an R-ticket is never re-processed. Verified by reading the branch; no code change needed.",
+            "NON-CHANGE: get-ticket-as-markdown.js fmtStatus - falls back to returning the raw status string (R1 renders as R1), which is already correct; no change needed.",
+            "NON-CHANGE: show-ticket-context.js - displays ticket.status string as-is in the H1 badge; no change needed.",
+            "NON-CHANGE: update-ticket-status.js - operates on spec frontmatter status (draft/implementing/reviewed) via ../lib/tickets CFG.review.allowedStatuses, a separate system from Tickets.json ticket status; out of scope for this ticket."
+          ],
+          "testUnit": [
+            "UT: [Normal] markPreMergeTicketsReviewed(mergedData, offset=2, round=1) sets status='R1' for tickets in phases with id < 2 and leaves phases id >= 2 untouched",
+            "UT: [Normal] markPreMergeTicketsReviewed with round=2 sets status='R2' (round value is honored, not hardcoded)",
+            "UT: [Normal] validateTickets accepts status 'R1', 'R2', 'R99' (matches /^R\\d+$/)",
+            "UT: [Error] validateTickets rejects status 'R0', 'R-1', 'Rabc', 'R', '' (does not match /^R\\d+$/)",
+            "UT: [Normal] loadPendingTickets excludes a ticket with status 'R1' (treated as processed)",
+            "UT: [Normal] loadPendingTickets still includes tickets with status 'todo', 'made', 'planned', 'done'",
+            "UT: [Normal] checkAllReviewed returns true when all tickets are 'R1' or 'reviewed'",
+            "UT: [Boundary] checkAllReviewed returns false when a ticket is 'done' or 'todo' alongside 'R1'",
+            "UT: [Normal] list-phases-and-tickets renders '- [R1]' for status 'R1' and '- [R2]' for status 'R2'",
+            "UT: [Error] list-phases-and-tickets falls back to '- [ ]' for an unknown status like 'R'",
+            "UT: [Normal] collectReviewedTicketKeys includes tickets with status 'R1' and 'R2'",
+            "UT: [Normal] verifyFinalContracts statusOk is true for status 'R1', 'done', 'reviewed'",
+            "UT: [Boundary] round increment: merging Tickets.json data with round=1 produces round=2 in the merged result",
+            "UT: [Invariant C001] after markPreMergeTicketsReviewed, every pre-offset ticket status matches /^R\\d+$/",
+            "UT: [Invariant C002] loadPendingTickets never returns a ticket whose status matches /^R\\d+$/",
+            "UT: [Invariant C003] every /^R\\d+$/ status renders a deterministic checkbox '[R<N>]'",
+            "UT: [Invariant C004] validateTickets accepts every status value that any script (add-ticket, update-ticket, phasify-omissions) writes to a Tickets.json file (including R-pattern status)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] phasify-omissions end-to-end: Tickets.json with round=1 and existing phases + OMISSIONS input -> after runPhasifyOmissions, pre-merge tickets have status 'R1', round field becomes 2, and validateMergedTickets passes",
+            "IT: [Integration point] add-ticket.js and update-ticket.js validate a Tickets.json that already contains R1 tickets (regression: ALLOWED + R-pattern must both pass)",
+            "IT: [Integration point] rebuilt conver.js bundle (deployed .claude/scripts/conver/conver.js) loadPendingTickets/checkAllReviewed handle R1 tickets correctly after make build-conver",
+            "IT: [Prerequisites] all copies of each script (root/tools/conver/crates/siprs/crates/anthropx/crates/ggufrs) receive the identical change; cross-root consistency verified by running the affected tests in each root",
+            "IT: [Related tickets] PX-107 (phasify-omissions pipeline), PX-108 (auto-merge), PX-109 (rollback), PX-111 (pre-merge snapshot + auto-review) must still pass their existing test suites"
+          ],
+          "testExceptions": [
+            "cannot test the real ACP session execution in runner.ts without a live Claude Code session; covered by runner.test.ts which mocks loadPendingTickets/checkAllReviewed. This is not a defect: the runner's behavior with R-status is a pure function of the mocked filter, and the real filter is unit-tested in tickets.test.ts.",
+            "cannot test the rollback + re-run round double-increment deterministically without a full multi-round phasify-omissions sequence; rollback (PX-109) does not decrement round. This is not an architectural defect: it is an accepted design decision documented in notes, and each step is individually unit-tested."
+          ],
+          "instrumentation": "- [Logging] phasify-omissions logs 'Marked N existing tickets as R<round>' after applying the R-status\n- [Metrics] round value, marked ticket count, and new omission ticket count are logged via console.log (existing mechanism)\n- [Error tracking] when round is missing, fall back to 1 with a [WARN] log\n- [Health check] validateMergedTickets result is always printed; Tickets.json containing R-pattern statuses must pass schema validation",
+          "notes": "- [Implementation steps] 1) validate-tickets.js ALLOWED + R-pattern (5 copies) -> 2) tickets.ts filter (tools/conver) + make build-conver -> 3) phasify-omissions markPreMergeTicketsReviewed + round increment (3 copies) -> 4) list-phases-and-tickets rendering (5 copies) -> 5) create-check-target + verify-final-contracts (3 copies each) -> 6) round field propagation to remaining copies -> 7) update/add tests, run all suites\n- [Risks] A hardcoded status === 'reviewed' comparison could exist in another script; this investigation searched all .claude/scripts across root/tools/conver/siprs/anthropx/ggufrs. conver.js is an esbuild bundle artifact and must be rebuilt after src changes.\n- [Caveats] rollback (PX-109) does not restore pre-merge statuses nor decrement round; a rollback + re-run may overwrite R1 with R2 and increment round twice. Accepted for this ticket.\n- [Open items] update-ticket-status.js and ticket-config.js operate on spec-frontmatter status (draft/implementing/reviewed), a separate system; out of scope.\n- [Future improvements] record round-to-status provenance in metadata and support querying completed tickets per round\nImplementation summary (PX-114):\n- Changed files: validate-tickets.js (5), tickets.ts (1), phasify-omissions.js (3), list-phases-and-tickets.js (5), create-check-target-tickets-cmds.js (3), verify-final-contracts.js (3), write-tickets-json-template.js (4), phasify-graph-and-dirs-files-tree.js (2), conver.js bundle (rebuilt), annotate-ticket-context-by-git-diff.js (maxBuffer fix)\n- Key changes: round-aware status 'R<round>' (regex ^R[1-9]\\d*$ enforcing round >= 1) replaces 'reviewed' in markPreMergeTicketsReviewed; round incremented after each merge; all status consumers updated\n- Test results: 146 TS tests pass, all new/modified test suites pass green (validate-tickets, tickets, phasify-omissions x3, list-phases, create-check-target x3, verify-final-contracts x3)\n- Pre-existing failures (unrelated to PX-114): annotate-ticket-context RED tests, show-ticket-context format tests, verify-final-contracts/verify-plan-contracts per-contract API tests\n- Quality checks: 81 pre-existing issues (CLI console.log output, single-letter vars in existing loops); no new issues from PX-114 changes\n- Design refinement: isRoundStatus uses ^R[1-9]\\d*$ (not /^R\\d+$/) to reject R0 per acceptance criteria\n- Rollback (PX-109) does not decrement round; documented limitation",
+          "acceptanceCriteria": [
+            "Happy path: pre-merge tickets are marked 'R<round>' (not 'reviewed'), round is incremented by 1, all schema validations pass, list-phases renders '[R1]' checkboxes, and loadPendingTickets/checkAllReviewed treat R-tickets as processed",
+            "Error case: validate-tickets rejects malformed R-pattern statuses ('R0', 'R-1', 'Rabc') with a clear error message",
+            "Edge case: when round is missing from an existing Tickets.json, phasify-omissions defaults to round=1 before marking and increments to 2 without throwing; rollback does not decrement round (documented limitation)"
+          ],
+          "investigation": "Investigation results (PX-114 design evidence):\n- markPreMergeTicketsReviewed lives at phasify-omissions.js:822-843 and overwrites ALL tickets with phase.id < offset to 'reviewed'; called at runPhasifyOmissions:1430. offset = computePhaseIdOffset returns max(phase.id)+1.\n- All hardcoded status comparisons enumerated: (a) validate-tickets.js ALLOWED 2 sites (5 copies, 3 variants), (b) src/tickets.ts loadPendingTickets:64 / checkAllReviewed:79, (c) runner.ts:214-249 does not match R-pattern (safe), (d) list-phases-and-tickets.js:18,21 (5 copies, 2 variants), (e) create-check-target-tickets-cmds.js:43 collectReviewedTicketKeys (3 copies), (f) verify-final-contracts.js:185 statusOk (3 copies).\n- get-ticket-as-markdown.js:18 fmtStatus returns m[status] || status, so R1 displays as-is (no change). show-ticket-context.js:418 displays the status string (no change).\n- conver.js is an esbuild bundle artifact (package.json build -> dist/conver.js -> Makefile build-conver copies to .claude/scripts/conver/conver.js). Must rebuild after tickets.ts changes.\n- The round field (from the earlier round: 1 change) was only updated in tools/conver; root/anthropx/siprs/ggufrs copies of write-tickets-json-template.js, validate-tickets.js, and phasify-graph-and-dirs-files-tree.js still need propagation (PX-114 includes this).",
+          "boyScoutPlan": "- Extract formatRoundStatus(round) helper in phasify-omissions.js so 'R' + round reads as a named verb phrase\n- Extract isRoundStatus(status) helper in validate-tickets.js and place it next to ALLOWED.includes for parallel readability\n- Extract resolveCheckbox(status) in list-phases-and-tickets.js to consolidate the CB fallback and R-pattern branch into one place\n- Extract incrementRound(ticketsData) in phasify-omissions.js so the round-advance intent is readable from the function name\n- The copy drift across 5 roots / 3 variants is accepted for this ticket; detecting cross-copy drift is deferred to a future ticket",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "phasify-omissions markPreMergeTicketsReviewed -> Tickets.json (pre-merge tickets)",
+              "precondition": "Tickets.json has a round field that is an integer >= 1; offset is computed as max(phase.id)+1 from existing phases",
+              "postcondition": "Every pre-merge ticket (phaseId < offset) has status 'R' + round; newly added omission tickets (phaseId >= offset) keep status 'todo'; round is incremented by 1 in the same atomic write",
+              "invariant": "Every pre-merge ticket status matches /^R\\d+$/ and round >= 1 holds after the merge"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "tickets.ts loadPendingTickets/checkAllReviewed -> runner",
+              "precondition": "Tickets.json is valid per validate-tickets",
+              "postcondition": "loadPendingTickets returns no ticket whose status matches /^R\\d+$/; checkAllReviewed returns true when all tickets are 'reviewed' or match /^R\\d+$/",
+              "invariant": "A ticket with status R<N> is never reported as pending"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "list-phases-and-tickets.js -> markdown rendering",
+              "precondition": "A ticket has status matching /^R\\d+$/",
+              "postcondition": "The markdown checkbox renders '- [R<N>] ticketKey: title'",
+              "invariant": "Every status has a deterministic checkbox representation"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "validate-tickets.js -> any Tickets.json write (add-ticket, update-ticket, phasify-omissions)",
+              "precondition": "Tickets.json is written by any script",
+              "postcondition": "A status matching /^R\\d+$/ passes validation",
+              "invariant": "ALLOWED statuses union R-pattern covers every status that any script can write"
+            }
+          ],
+          "created_at": "2026-07-31",
+          "updated_at": "2026-07-31",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] Precondition: mergedData carries round=1 and offset=2 (max phase id + 1)\n  ```js\n  const preMergeData = { round: 1, phases: [\n    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'A' }] },\n    { id: 2, name: 'P2', tickets: [{ id: 2, phaseId: 2, status: 'todo', title: 'B' }] }\n  ]};\n  const offset = 2;\n  const result = markPreMergeTicketsReviewed(JSON.parse(JSON.stringify(preMergeData)), offset, 1);\n  ```",
+            "UT: [C001-post] Postcondition: pre-merge tickets get status 'R1', new omission tickets stay 'todo', round field is preserved for the orchestrator to increment\n  ```js\n  assert.strictEqual(result.phases[0].tickets[0].status, 'R1');\n  assert.strictEqual(result.phases[1].tickets[0].status, 'todo');\n  assert.strictEqual(result.round, 1);\n  ```",
+            "UT: [C001-inv] Invariant: every pre-offset ticket status matches /^R\\d+$/ and round >= 1\n  ```js\n  for (const p of result.phases) {\n    if (p.id < offset) for (const t of p.tickets) assert.match(t.status, /^R\\d+$/);\n  }\n  assert.ok(result.round >= 1);\n  ```",
+            "UT: [C002-pre] Precondition: Tickets.json with an R1 ticket is valid per validate-tickets\n  ```js\n  const data = { title: 'T', round: 1, phases: [\n    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'R1', title: 'A' }] }\n  ]};\n  assert.ok(validateTickets(data).valid);\n  ```",
+            "UT: [C002-post] Postcondition: loadPendingTickets returns [] and checkAllReviewed returns true for all-R1\n  ```ts\n  const path = writeTempTickets({ title: 'T', round: 1, phases: [\n    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'R1', title: 'A' }] }\n  ]});\n  assert.deepStrictEqual(loadPendingTickets(path), []);\n  assert.strictEqual(checkAllReviewed(path), true);\n  ```",
+            "UT: [C002-inv] Invariant: a ticket with status R<N> is never reported as pending\n  ```ts\n  const pending = loadPendingTickets(path);\n  assert.ok(pending.every((t) => !/^R\\d+$/.test(t.status)));\n  ```",
+            "UT: [C003-pre] Precondition: a ticket has status matching /^R\\d+$/\n  ```js\n  const ticket = { id: 1, phaseId: 0, status: 'R1', title: 'A' };\n  assert.match(ticket.status, /^R\\d+$/);\n  ```",
+            "UT: [C003-post] Postcondition: markdown checkbox renders '- [R1] P0-1: A'\n  ```js\n  const resolveCheckbox = (status) => /^R\\d+$/.test(status) ? '[' + status + ']' : (CB[status] || CB.todo);\n  const line = '    - ' + resolveCheckbox('R1') + ' P0-1: A';\n  assert.strictEqual(line, '    - [R1] P0-1: A');\n  ```",
+            "UT: [C003-inv] Invariant: every /^R\\d+$/ status renders a deterministic checkbox '[R<N>]'\n  ```js\n  assert.strictEqual(resolveCheckbox('R1'), '[R1]');\n  assert.strictEqual(resolveCheckbox('R99'), '[R99]');\n  assert.strictEqual(resolveCheckbox('R'), CB.todo);\n  ```",
+            "UT: [C004-pre] Precondition: Tickets.json is written by any script (add-ticket, update-ticket, phasify-omissions)\n  ```js\n  const written = { title: 'T', round: 1, phases: [\n    { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'R1', title: 'A' }] }\n  ]};\n  ```",
+            "UT: [C004-post] Postcondition: a status matching /^R\\d+$/ passes validation\n  ```js\n  const r = validateTickets(written);\n  assert.ok(r.valid, JSON.stringify(r.errors));\n  ```",
+            "UT: [C004-inv] Invariant: ALLOWED union R-pattern covers every status any script can write\n  ```js\n  const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];\n  const isRound = (s) => /^R\\d+$/.test(s);\n  for (const s of ALLOWED) assert.ok(ALLOWED.includes(s) || isRound(s));\n  assert.ok(isRound('R1'));\n  assert.ok(!isRound('R0'));\n  ```"
+          ],
+          "startedAt": "2026-07-31",
+          "changes": [
+            {
+              "before": "markPreMergeTicketsReviewed(mergedData, offset) sets status='reviewed'",
+              "after": "markPreMergeTicketsReviewed(mergedData, offset, round) sets status='R'+round",
+              "description": "Round-aware status encoding for pre-merge tickets (3 copies: root, tools/conver, crates/siprs)"
+            },
+            {
+              "before": "No round increment in runPhasifyOmissions",
+              "after": "runPhasifyOmissions reads round (default 1), marks R<round>, then incrementRound(data) before atomicWrite",
+              "description": "Round counter advances by 1 after each omission merge (3 copies)"
+            },
+            {
+              "before": "validate-tickets ALLOWED = [todo,made,planned,done,reviewed,remanded]",
+              "after": "isRoundStatus(/^R[1-9]\\d*$/) also accepted; round field required >= 1",
+              "description": "Schema accepts round-aware statuses and validates round field (5 copies)"
+            },
+            {
+              "before": "loadPendingTickets/checkAllReviewed treat only 'reviewed' as processed",
+              "after": "R<round> statuses also treated as processed",
+              "description": "tickets.ts filters exclude round-aware statuses from pending; checkAllReviewed accepts them"
+            },
+            {
+              "before": "list-phases renders CB[t.status] || '[ ]'",
+              "after": "resolveCheckbox renders '[R<N>]' for round-aware statuses",
+              "description": "Markdown checkbox shows [R1] for round-aware tickets (5 copies, 2 variants)"
+            },
+            {
+              "before": "collectReviewedTicketKeys includes only reviewed/remanded",
+              "after": "also includes /^R[1-9]\\d*$/ round-aware statuses",
+              "description": "Check-target generation covers round-completed tickets (3 copies)"
+            },
+            {
+              "before": "verifyFinalContracts statusOk = done || reviewed",
+              "after": "statusOk also accepts /^R[1-9]\\d*$/",
+              "description": "Gate R treats round-aware statuses as completed (3 copies)"
+            },
+            {
+              "before": "conver.js bundle had stale reviewed-only filter",
+              "after": "rebuilt via make build-conver with round-aware filter",
+              "description": "Deployed bundle reflects tickets.ts changes"
+            },
+            {
+              "before": "write-tickets-json-template.js lacked round field in 4 copies",
+              "after": "all copies emit round: 1 in new Tickets.json skeleton",
+              "description": "Round field propagation to all project roots"
+            },
+            {
+              "before": "phasify-graph-and-dirs-files-tree.js inMemoryTickets lacked round in 2 copies",
+              "after": "all copies emit round: 1 in in-memory phasify data",
+              "description": "Round field propagation for phasify pipeline"
+            }
+          ]
         }
       ]
     },

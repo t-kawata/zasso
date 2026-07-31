@@ -1,5 +1,6 @@
 {
   "title": "アドホックチケット",
+  "round": 1,
   "metadata": {
     "source": "PX-1",
     "generatedAt": "2026-07-02",
@@ -84,3 +85,4 @@
     }
   ]
 }
+

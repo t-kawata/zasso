@@ -810,21 +810,26 @@ function cleanupFiles(paths) {
 // ============================================================
 
 /**
- * Mark all pre-offset tickets as 'reviewed' so only omission tickets remain 'todo'.
- * Pure function — deep-clones input, no side effects.
+ * Mark all pre-offset tickets with the round-aware status 'R' + round so only
+ * omission tickets remain 'todo'. Pure function — deep-clones input, no side effects.
  *
  * @param {object} mergedData — Merged Tickets.json with phases[{id, tickets}]
  * @param {number} offset — Phase ID offset; phases with id < offset are pre-merge
- * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets set to reviewed
+ * @param {number} round — Current round number (>= 1); pre-merge tickets get 'R' + round
+ * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets set to round-aware status
  */
 // [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-function markPreMergeTicketsReviewed(mergedData, offset) {
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+function markPreMergeTicketsReviewed(mergedData, offset, round) {
   if (!mergedData || typeof mergedData !== 'object') {
     throw new Error('mergedData must be a non-null object');
   }
   if (typeof offset !== 'number') {
     throw new Error('offset must be a number');
+  }
+  if (typeof round !== 'number' || round < 1) {
+    throw new Error('round must be a number >= 1');
   }
 
   var result = JSON.parse(JSON.stringify(mergedData));
@@ -835,10 +840,29 @@ function markPreMergeTicketsReviewed(mergedData, offset) {
 
     var tickets = phase.tickets || [];
     for (var ti = 0; ti < tickets.length; ti++) {
-      tickets[ti].status = 'reviewed';
+      tickets[ti].status = 'R' + round;
     }
   }
 
+  return result;
+}
+
+/**
+ * Advance the round counter by 1 in Tickets.json data.
+ * Pure function — deep-clones input, no side effects.
+ * A missing round field defaults to 1, then increments to 2.
+ *
+ * @param {object} ticketsData — Parsed Tickets.json
+ * @returns {object} — Deep-cloned Tickets.json with round incremented (default 1 -> 2)
+ */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+function incrementRound(ticketsData) {
+  if (!ticketsData || typeof ticketsData !== 'object') {
+    throw new Error('ticketsData must be a non-null object');
+  }
+  var result = JSON.parse(JSON.stringify(ticketsData));
+  var current = typeof result.round === 'number' && result.round >= 1 ? result.round : 1;
+  result.round = current + 1;
   return result;
 }
 
@@ -976,7 +1000,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1427,17 +1451,23 @@ function runPhasifyOmissions(opts) {
     console.warn('[WARN] Snapshot creation failed (best-effort, continuing).');
   }
 
-  mergedResult.data = markPreMergeTicketsReviewed(mergedResult.data, offset);
+  // PX-114: record the current round, mark pre-merge tickets with 'R' + round,
+  // then advance the round counter so the next cycle starts at round + 1.
+  var currentRound = typeof mergedResult.data.round === 'number' && mergedResult.data.round >= 1
+    ? mergedResult.data.round
+    : 1;
+  mergedResult.data = markPreMergeTicketsReviewed(mergedResult.data, offset, currentRound);
   var reviewedCount = 0;
   for (var rpi = 0; rpi < mergedResult.data.phases.length; rpi++) {
     if (mergedResult.data.phases[rpi].id < offset) {
       var rpt = mergedResult.data.phases[rpi].tickets || [];
       for (var rti = 0; rti < rpt.length; rti++) {
-        if (rpt[rti].status === 'reviewed') reviewedCount++;
+        if (/^R[1-9]\d*$/.test(rpt[rti].status)) reviewedCount++;
       }
     }
   }
-  console.log('Marked ' + reviewedCount + ' existing tickets as reviewed.');
+  console.log('Marked ' + reviewedCount + ' existing tickets as R' + currentRound + '.');
+  mergedResult.data = incrementRound(mergedResult.data);
 
   // Inject merge metadata (PX-109: enables --rollback)
   mergedResult.data.metadata = mergedResult.data.metadata || {};
@@ -1505,6 +1535,8 @@ module.exports = {
   // PX-111: snapshot + auto-review
   markPreMergeTicketsReviewed,
   createSnapshot,
+  // PX-114: round-aware status + round counter
+  incrementRound,
   // PX-112: move artifacts
   moveArtifacts,
   validateMergedTickets,

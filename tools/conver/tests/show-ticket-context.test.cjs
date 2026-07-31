@@ -187,7 +187,7 @@ describe("show-ticket-context — buildTicketMarkdown (normal mode)", function (
   it("Case 1: 基本セクション + ステータスバッジ", function () {
     const ticket = makeTicket();
     const out = md(ticket);
-    assert.ok(out.includes("# P0-1: Test Ticket [todo]"));
+    assert.ok(out.includes("# Target ticket is P0-1: Test Ticket [todo]"));
     assert.ok(out.includes("## Background"));
     assert.ok(out.includes("## Scope"));
     assert.ok(out.includes("## Implementation Target Files"));
@@ -348,7 +348,7 @@ describe("show-ticket-context — buildTicketMarkdown (--for-spec mode)", functi
 
   it("Implementation Order が冒頭に出力される", function () {
     const out = wsMd(makeTicket());
-    assert.ok(out.startsWith("**Reference — Implementation Order (TDD Red-Green-Refactor)**"));
+    assert.ok(out.startsWith("# Implementation Order (TDD Red-Green-Refactor)"));
     assert.ok(out.includes("Red → Green → Refactor"));
     assert.ok(out.includes("Definition of Done"));
   });

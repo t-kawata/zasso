@@ -24,6 +24,7 @@ const SAMPLE_NODE_IDS = ['N0001', 'N0002', 'N0003'];
 function createTestTicketsData(overrides) {
   const data = {
     title: 'Test Project',
+    round: 1,
     metadata: { source: 'test', generatedAt: '2026-07-10' },
     phases: [
       {
@@ -400,6 +401,7 @@ describe('schema compatibility (default_files)', () => {
   it('should pass schema validation for tickets with default_files', () => {
     const data = {
       title: 'Test Project',
+      round: 1,
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         {
@@ -426,6 +428,7 @@ describe('schema compatibility (default_files)', () => {
   it('should pass schema validation with an empty default_files array', () => {
     const data = {
       title: 'Test Project',
+      round: 1,
       metadata: { source: 'test', generatedAt: '2026-07-10' },
       phases: [
         {

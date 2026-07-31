@@ -355,6 +355,7 @@ function runPhasify(opts) {
     : opts.graphPath.replace(/\.json$/, '.md');
   const inMemoryTickets = {
     title: 'phasify auto-generated',
+    round: 1,
     metadata: {
       source: toHomeRelative(rfcPath),
       generatedAt: new Date().toISOString().split('T')[0],

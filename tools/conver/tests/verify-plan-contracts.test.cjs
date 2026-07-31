@@ -90,17 +90,17 @@ if (!mod || !mod.verifyPlanContracts) {
   });
 
   // C003: Empty planTestCode array when contracts exist → graceful skip
-  test('C003: empty planTestCode array with contracts skips gracefully', () => {
+  test('C003: empty planTestCode array with contracts is rejected', () => {
     const t = makeTicket(75, [c('C001', 'Input must be valid', 'Returns Ok', 'State consistent')], []);
     const errs = mod.verifyPlanContracts(t);
-    assert.strictEqual(errs.length, 0, 'Expected graceful skip when planTestCode is empty');
+    assert.strictEqual(errs.length, 1, 'Expected rejection when planTestCode is empty but contracts exist');
   });
 
-  // C003: Absent planTestCode — graceful skip (backward compat)
-  test('C003: absent planTestCode skips gracefully (backward compat)', () => {
+  // C003: Absent planTestCode — rejected (Gate P enforcement)
+  test('C003: absent planTestCode with contracts is rejected', () => {
     const t = { id: 75, phaseId: 0, title: 'T75', status: 'planned', contracts: [c('C001', 'Input must be valid', 'Returns Ok', 'State consistent')] };
     const errs = mod.verifyPlanContracts(t);
-    assert.strictEqual(errs.length, 0, 'Expected graceful skip, got errors: ' + JSON.stringify(errs));
+    assert.strictEqual(errs.length, 1, 'Expected rejection when planTestCode is absent but contracts exist');
   });
 
   // C003: planTestCode absent and no contracts — pass

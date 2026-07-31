@@ -181,8 +181,8 @@ function verifyFinalContracts(opts) {
   for (const t of tickets) {
     const ticketDetails = { ticketId: t.id, status: t.status };
 
-    // Layer 1: Status check
-    const statusOk = t.status === 'done' || t.status === 'reviewed';
+    // Layer 1: Status check — PX-114: round-aware statuses (R1, R2, ...) count as completed
+    const statusOk = t.status === 'done' || t.status === 'reviewed' || /^R[1-9]\d*$/.test(t.status);
     ticketDetails.statusOk = statusOk;
 
     // Layer 2: @verifies coverage (if testDir provided and contracts exist)

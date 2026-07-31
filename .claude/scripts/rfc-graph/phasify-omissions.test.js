@@ -1,4 +1,5 @@
 // [::TICKET::] PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-113 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 
 'use strict';
 
@@ -291,4 +292,102 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
   console.log('✅ testCrossPhaseDuplicateIdsRenumbered passed');
 })();
 
-console.log('\n🎉 All PX-113 tests passed!');
+// ============================================================
+// PX-114: Round-aware status (R<round>) in markPreMergeTicketsReviewed
+// ============================================================
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+(function testMarkPreMergeTicketsReviewedRoundStatus() {
+  const mergedData = {
+    round: 1,
+    phases: [
+      { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'A' }] },
+      { id: 2, name: 'P2', tickets: [{ id: 2, phaseId: 2, status: 'todo', title: 'B' }] }
+    ]
+  };
+
+  const result = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(mergedData)), 2, 1
+  );
+
+  // Pre-merge ticket (phase.id < offset) gets round-aware status R1
+  assert.strictEqual(result.phases[0].tickets[0].status, 'R1',
+    'pre-merge ticket must be marked R1 (round-aware), got: ' + result.phases[0].tickets[0].status);
+  // New omission phase (phase.id >= offset) stays todo
+  assert.strictEqual(result.phases[1].tickets[0].status, 'todo',
+    'new omission ticket must stay todo');
+  // round field preserved for the orchestrator to increment
+  assert.strictEqual(result.round, 1, 'round field must be preserved');
+  // Input not mutated
+  assert.strictEqual(mergedData.phases[0].tickets[0].status, 'todo',
+    'markPreMergeTicketsReviewed must not mutate its input');
+
+  console.log('✅ testMarkPreMergeTicketsReviewedRoundStatus passed');
+})();
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+(function testMarkPreMergeTicketsReviewedHonorsRound() {
+  const mergedData = {
+    round: 2,
+    phases: [
+      { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'done', title: 'A' }] }
+    ]
+  };
+
+  const result = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(mergedData)), 1, 2
+  );
+
+  // The round value passed in is honored (not hardcoded to 1)
+  assert.strictEqual(result.phases[0].tickets[0].status, 'R2',
+    'round=2 must produce status R2, got: ' + result.phases[0].tickets[0].status);
+
+  console.log('✅ testMarkPreMergeTicketsReviewedHonorsRound passed');
+})();
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+(function testIncrementRound() {
+  const ticketsData = { round: 1, phases: [] };
+
+  const result = phasifyOmissions.incrementRound(JSON.parse(JSON.stringify(ticketsData)));
+
+  assert.strictEqual(result.round, 2, 'round must increment from 1 to 2');
+  assert.strictEqual(ticketsData.round, 1, 'incrementRound must not mutate input');
+
+  // Missing round defaults to 1, then increments to 2
+  const noRound = phasifyOmissions.incrementRound({ phases: [] });
+  assert.strictEqual(noRound.round, 2, 'missing round defaults to 1 then increments to 2');
+
+  console.log('✅ testIncrementRound passed');
+})();
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+(function testRoundStatusInvariant() {
+  const mergedData = {
+    round: 3,
+    phases: [
+      { id: 5, name: 'P5', tickets: [{ id: 1, phaseId: 5, status: 'todo', title: 'A' }] },
+      { id: 9, name: 'P9', tickets: [{ id: 2, phaseId: 9, status: 'todo', title: 'B' }] }
+    ]
+  };
+
+  const offset = 9; // phases with id < 9 are pre-merge
+  const result = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(mergedData)), offset, 3
+  );
+
+  // Every pre-offset ticket status matches /^R[1-9]\d*$/
+  for (const phase of result.phases) {
+    if (phase.id < offset) {
+      for (const t of phase.tickets) {
+        assert.ok(/^R[1-9]\d*$/.test(t.status),
+          'pre-offset ticket status must be round-aware, got: ' + t.status);
+      }
+    }
+  }
+  assert.ok(result.round >= 1, 'round >= 1 must hold after marking');
+
+  console.log('✅ testRoundStatusInvariant passed');
+})();
+
+console.log('\n🎉 All PX-114 tests passed!');

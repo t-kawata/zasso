@@ -1,3 +1,4 @@
+
 // tickets.test.ts — tickets.ts のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -11,6 +12,7 @@ import { tmpdir } from "node:os";
 import { loadPendingTickets, checkAllReviewed, getSourceFromTickets } from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 function writeTempTickets(data: object): string {
   const dir = mkdtempSync(join(tmpdir(), "tt-"));
   const path = join(dir, "Tickets.json");
@@ -196,6 +198,104 @@ describe("checkAllReviewed", () => {
       phases: [],
     });
     assert.strictEqual(checkAllReviewed(path), true);
+  });
+});
+
+describe("round-aware status (R<round>)", () => {
+  it("loadPendingTickets は R1 チケットを処理済みとして除外する", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "R1", title: "A" },
+            { id: 2, phaseId: 0, status: "todo", title: "B" },
+          ],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].title, "B");
+  });
+
+  it("loadPendingTickets は todo/made/planned/done を引き続き含む", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 2,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "todo", title: "A" },
+            { id: 2, phaseId: 0, status: "made", title: "B" },
+            { id: 3, phaseId: 0, status: "planned", title: "C" },
+            { id: 4, phaseId: 0, status: "done", title: "D" },
+          ],
+        },
+      ],
+    });
+    assert.strictEqual(loadPendingTickets(path).length, 4);
+  });
+
+  it("checkAllReviewed は全チケットが R1 または reviewed なら true", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "R1", title: "A" },
+            { id: 2, phaseId: 0, status: "reviewed", title: "B" },
+          ],
+        },
+      ],
+    });
+    assert.strictEqual(checkAllReviewed(path), true);
+  });
+
+  it("checkAllReviewed は R1 と並んで todo/done があれば false", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "R1", title: "A" },
+            { id: 2, phaseId: 0, status: "done", title: "B" },
+          ],
+        },
+      ],
+    });
+    assert.strictEqual(checkAllReviewed(path), false);
+  });
+
+  it("不変条件: loadPendingTickets は R<N> のチケットを一切返さない", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "R1", title: "A" },
+            { id: 2, phaseId: 0, status: "todo", title: "B" },
+            { id: 3, phaseId: 0, status: "R2", title: "C" },
+          ],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.ok(result.every((t) => !/^R\d+$/.test(t.status)));
   });
 });
 

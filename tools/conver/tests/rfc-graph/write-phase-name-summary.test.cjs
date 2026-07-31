@@ -23,6 +23,7 @@ describe('write-phase-name-summary', () => {
   before(function() {
     const sample = {
       title: 'test',
+      round: 1,
       metadata: { source: '', generatedAt: '2026-01-01' },
       phases: [
         { id: 0, name: 'P0', tickets: [], nodeIds: ['N0001'] },

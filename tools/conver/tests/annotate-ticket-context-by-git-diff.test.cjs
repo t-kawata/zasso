@@ -222,7 +222,7 @@ describe("hasExistingAnnotation [RED]", () => {
   it("should return true when annotation for the same ticket key exists", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// [::TICKET::] PX-59 ticket; for details...",
+      "// [::TICKET::] PX-59 changes. Details: `...`.",
       "fn foo() {}",
     ];
     assert.strictEqual(mod.hasExistingAnnotation(lines, "PX-59"), true);
@@ -231,7 +231,7 @@ describe("hasExistingAnnotation [RED]", () => {
   it("should return false when annotation for a different ticket key exists", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// [::TICKET::] P0-1 ticket; for details...",
+      "// [::TICKET::] P0-1 changes. Details: `...`.",
       "fn foo() {}",
     ];
     assert.strictEqual(mod.hasExistingAnnotation(lines, "PX-59"), false);
@@ -255,7 +255,7 @@ describe("buildAnnotation [RED]", () => {
   it("should produce correct annotation format for P0-1", () => {
     const mod = require(SCRIPT);
     const result = mod.buildAnnotation("P0-1");
-    assert.ok(result.includes("P0-1 ticket"));
+    assert.ok(result.includes("P0-1 changes"));
     assert.ok(result.includes("show-ticket-context.js"));
     assert.ok(result.includes("--ticket-key=P0-1"));
     assert.ok(result.includes("--for-spec"));
@@ -265,7 +265,7 @@ describe("buildAnnotation [RED]", () => {
   it("should produce correct annotation format for PX-59", () => {
     const mod = require(SCRIPT);
     const result = mod.buildAnnotation("PX-59");
-    assert.ok(result.includes("PX-59 ticket"));
+    assert.ok(result.includes("PX-59 changes"));
     assert.ok(result.includes("--ticket-key=PX-59"));
   });
 });
@@ -288,7 +288,7 @@ describe("insertAnnotation [RED]", () => {
     // Result should have 5 lines (original 4 + 1 inserted)
     assert.strictEqual(result.length, 5);
     // Line 3 should now be the comment
-    assert.ok(result[2].includes("P0-1 ticket"));
+    assert.ok(result[2].includes("P0-1 changes"));
     // Line 4 should be the original definition
     assert.ok(result[3].includes("fn init"));
   });
@@ -305,7 +305,7 @@ describe("insertAnnotation [RED]", () => {
     const result = mod.insertAnnotation(lines, 2, comment);
     assert.strictEqual(result.length, 3);
     assert.ok(result[0].includes("#!/usr/bin/env node"));
-    assert.ok(result[1].includes("P0-1 ticket"));
+    assert.ok(result[1].includes("P0-1 changes"));
     assert.ok(result[2].includes("fn run()"));
   });
 });
@@ -352,7 +352,7 @@ describe("buildMultiAnnotation [RED]", () => {
   it("should produce correct multi-format for two keys", () => {
     const mod = require(SCRIPT);
     const result = mod.buildMultiAnnotation(["PX-59", "PX-61"]);
-    assert.ok(result.includes("tickets: PX-59, PX-61"));
+    assert.ok(result.includes("PX-59, PX-61 changes"));
     assert.ok(result.includes("--ticket-key=(PX-59|PX-61)"));
     assert.ok(result.includes("show-ticket-context.js"));
   });
@@ -361,7 +361,7 @@ describe("buildMultiAnnotation [RED]", () => {
     const mod = require(SCRIPT);
     const result = mod.buildMultiAnnotation(["PX-59", "PX-59", "PX-61"]);
     // Should only have PX-59 appear once
-    const match = result.match(/tickets: (.+?);/);
+    const match = result.match(/\[::TICKET::\]\s+(.+?)\s+changes\./);
     assert.ok(match);
     const keys = match[1].split(", ");
     assert.strictEqual(keys.length, 2);
@@ -372,7 +372,7 @@ describe("buildMultiAnnotation [RED]", () => {
   it("should handle single key gracefully", () => {
     const mod = require(SCRIPT);
     const result = mod.buildMultiAnnotation(["PX-59"]);
-    assert.ok(result.includes("tickets: PX-59"));
+    assert.ok(result.includes("PX-59 changes"));
   });
 });
 
@@ -397,7 +397,7 @@ describe("detectAnnotationAtLine [RED]", () => {
   it("should detect multi-format annotation line above definition", () => {
     const mod = require(SCRIPT);
     const lines = [
-      "// Implemented or modified under tickets: PX-59, PX-61; for details...",
+      "// [::TICKET::] PX-59, PX-61 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.",
       "fn target() {}",
     ];
     const result = mod.detectAnnotationAtLine(lines, 2);
@@ -430,7 +430,7 @@ describe("detectAnnotationAtLine [RED]", () => {
     const mod = require(SCRIPT);
     const lines = [
       "// unrelated comment",
-      "// [::TICKET::] PX-59 ticket; for details...",
+      "// [::TICKET::] PX-59 changes. Details: `...`.",
       "fn target() {}",
     ];
     // defLine = 3, should find annotation at line 2
@@ -451,20 +451,20 @@ describe("mergeAnnotation [RED]", () => {
     const line = "// [::TICKET::] PX-59 changes. Details: `...`.";
     const result = mod.mergeAnnotation(line, "PX-61");
     assert.ok(result !== null);
-    assert.ok(result.includes("tickets: PX-59, PX-61"));
+    assert.ok(result.includes("PX-59, PX-61 changes"));
   });
 
   it("should merge new key into multi-format line", () => {
     const mod = require(SCRIPT);
-    const line = "// Implemented or modified under tickets: PX-59, PX-61; for details...";
+    const line = "// [::TICKET::] PX-59, PX-61 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-59|PX-61) --for-spec --no-implementation-order`.";
     const result = mod.mergeAnnotation(line, "PX-62");
     assert.ok(result !== null);
-    assert.ok(result.includes("tickets: PX-59, PX-61, PX-62"));
+    assert.ok(result.includes("PX-59, PX-61, PX-62 changes"));
   });
 
   it("should NOT change line when key already exists (idempotent)", () => {
     const mod = require(SCRIPT);
-    const line = "// [::TICKET::] PX-59 ticket; for details...";
+    const line = "// [::TICKET::] PX-59 changes. Details: `...`.";
     const result = mod.mergeAnnotation(line, "PX-59");
     assert.strictEqual(result, line); // unchanged reference
   });

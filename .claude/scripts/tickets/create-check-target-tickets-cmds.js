@@ -40,7 +40,8 @@ function collectReviewedTicketKeys(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
-      if (ticket.status === 'reviewed' || ticket.status === 'remanded') {
+      // PX-114: round-aware statuses (R1, R2, ...) count as reviewed for check targeting
+      if (ticket.status === 'reviewed' || ticket.status === 'remanded' || /^R[1-9]\d*$/.test(ticket.status)) {
         const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
         const phasePrefix = phaseId === -1 ? 'X' : phaseId;
         keys.push('P' + phasePrefix + '-' + ticket.id);

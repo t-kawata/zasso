@@ -435,7 +435,7 @@ describe('dump-ticket-graph-commands.js', () => {
 
     it('should return null for nonexistent ticket key', () => {
       const ticketsPath = path.join(tmpDir, 'tickets-empty.json');
-      fs.writeFileSync(ticketsPath, JSON.stringify({ title: 'Test', phases: [] }), 'utf8');
+      fs.writeFileSync(ticketsPath, JSON.stringify({ title: 'Test', round: 1, phases: [] }), 'utf8');
 
       const result = resolveSpecPath('P999-999', ticketsPath);
       assert.equal(result, null);
@@ -443,7 +443,7 @@ describe('dump-ticket-graph-commands.js', () => {
 
     it('should return null for invalid ticket key format (no exception)', () => {
       const ticketsPath = path.join(tmpDir, 'tickets-dummy.json');
-      fs.writeFileSync(ticketsPath, JSON.stringify({ title: 'Test', phases: [] }), 'utf8');
+      fs.writeFileSync(ticketsPath, JSON.stringify({ title: 'Test', round: 1, phases: [] }), 'utf8');
 
       const result = resolveSpecPath('invalid-key', ticketsPath);
       assert.equal(result, null);

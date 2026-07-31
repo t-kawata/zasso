@@ -1,5 +1,6 @@
 {
   "title": "RFC-ROOT 実装チケット分解設計書",
+  "round": 1,
   "metadata": {
     "source": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
     "generatedAt": "2026-07-09",
@@ -7,3 +8,4 @@
   },
   "phases": []
 }
+
