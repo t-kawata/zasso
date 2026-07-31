@@ -267,4 +267,28 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
   console.log('✅ testExtractOmissionSubgraph passed');
 })();
 
+// ============================================================
+// Test 9: Cross-phase duplicate ticket IDs are re-numbered
+// ============================================================
+(function testCrossPhaseDuplicateIdsRenumbered() {
+  // Simulate tickets from different original phases both having id=1
+  const phases = [{ id: 6, name: 'P6', nodeIds: ['N0001', 'N0002'], tickets: [] }];
+  const tickets = [
+    { id: 1, phaseId: 0, title: 'From Phase 0', nodeIds: ['N0001'] },
+    { id: 1, phaseId: 1, title: 'From Phase 1', nodeIds: ['N0002'] }
+  ];
+  const nodeOrder = ['N0001', 'N0002'];
+
+  const result = phasifyOmissions.assignTicketsToPhases(phases, tickets, nodeOrder);
+
+  // Both land in phase 6, must have unique sequential IDs
+  const assignedPhase = result[0];
+  assert.strictEqual(assignedPhase.tickets.length, 2, 'Both tickets must be assigned');
+  assert.strictEqual(assignedPhase.tickets[0].id, 1, 'First ticket gets id=1');
+  assert.strictEqual(assignedPhase.tickets[1].id, 2, 'Second ticket gets id=2 (not duplicate id=1)');
+  assert.notStrictEqual(assignedPhase.tickets[0].id, assignedPhase.tickets[1].id, 'IDs must be unique');
+
+  console.log('✅ testCrossPhaseDuplicateIdsRenumbered passed');
+})();
+
 console.log('\n🎉 All PX-113 tests passed!');

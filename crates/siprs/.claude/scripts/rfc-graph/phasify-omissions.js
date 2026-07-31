@@ -419,6 +419,17 @@ function assignTicketsToPhases(phases, actionTickets, nodeOrder) {
     }
   }
 
+  // PX-113: Re-number ticket IDs sequentially within each phase.
+  // Original t.id is only unique within its source phase; after reallocation
+  // multiple tickets from different source phases may share the same id.
+  // Sequential re-numbering guarantees uniqueness in the target phase.
+  for (const phase of phases) {
+    const tickets = phaseTickets[phase.id] || [];
+    for (let ti = 0; ti < tickets.length; ti++) {
+      tickets[ti].id = ti + 1;
+    }
+  }
+
   // Attach tickets to phases
   for (const phase of phases) {
     phase.tickets = phaseTickets[phase.id] || [];
