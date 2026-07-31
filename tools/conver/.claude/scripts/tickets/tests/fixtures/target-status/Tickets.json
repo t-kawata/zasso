@@ -1,0 +1,128 @@
+{
+  "metadata": {
+    "source": ""
+  },
+  "phases": [
+    {
+      "id": -1,
+      "phaseId": -1,
+      "tickets": [
+        {
+          "id": 100,
+          "title": "Target Status detailed sections fixture",
+          "status": "todo",
+          "targetStubs": [
+            {
+              "id": "TS-012",
+              "ticketRef": "P0-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/command.rs",
+              "line": 174,
+              "markerText": "// [::STUB::] P0-3: store CallEntry in ClientState, return CallId",
+              "contracts": [
+                "C001",
+                "C006"
+              ],
+              "deferredTo": null,
+              "status": "resolved",
+              "resolutionPlan": "STUB marker replaced with actual implementation.",
+              "falsePositive": null
+            },
+            {
+              "id": "TS-013",
+              "ticketRef": "P0-3",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/call.rs",
+              "line": 42,
+              "markerText": "// [::STUB::] P0-3: wire CallId into CallEntry lookup",
+              "contracts": [
+                "C007"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            }
+          ],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P0-7",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+              "line": 4,
+              "markerText": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+              "contracts": [
+                "C001",
+                "C009"
+              ],
+              "deferredTo": "P3-1",
+              "status": "pending",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": null,
+              "note": "DEFERRED to P0-7: account.rs SipAccount struct is a structural skeleton requiring AccountId newtype design (N0012) and FFI layer (P0-6) for registration logic. The STUB marker explicitly documents the deferral target and reason."
+            }
+          ],
+          "foundOmissions": [
+            {
+              "severity": "major",
+              "recommendation": "Add compile-time assert_sync::<SipClient>() static assertion (e.g. fn assert_sync<T: Sync>() {}; assert_sync::<SipClient>();), matching the acceptance criteria 'SipClient is Send+Sync'.",
+              "evaluations": [
+                {
+                  "criterion": "A",
+                  "passed": false,
+                  "reason": "Contract C002 invariant / acceptance criteria requires 'SipClient is Send+Sync'. src/client.rs:212 _assert_send_sync only constrains SipClient: Send, and the test src/client.rs:298 sip_client_is_send only calls assert_send::<SipClient>() at src/client.rs:301. No assert_sync::<SipClient>() exists anywhere in src/ or tests/.",
+                  "evidence": [
+                    {
+                      "file": "src/client.rs",
+                      "codes": "fn _assert_send_sync()\nwhere\n    SipClient: Send,"
+                    },
+                    {
+                      "file": "src/client.rs",
+                      "codes": "        fn assert_send<T: Send>() {}\n        assert_send::<SipClient>();\n    }"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "severity": "minor",
+              "recommendation": "Add a type assertion that CoreReactor::spawn returns std::thread::JoinHandle<()> (e.g. let _: std::thread::JoinHandle<()> = join;), as planned by UT reactor_thread_model_unchanged.",
+              "evaluations": [
+                {
+                  "criterion": "C",
+                  "passed": false,
+                  "reason": "Contract C002 invariant 'Reactor thread model unchanged' (std::thread::spawn model). Test reactor_spawn_creates_thread (src/runtime/reactor.rs:178) only calls join.join() at src/runtime/reactor.rs:186; both std::thread::JoinHandle and tokio::task::JoinHandle expose join().",
+                  "evidence": [
+                    {
+                      "file": "src/runtime/reactor.rs",
+                      "codes": "        let _ = join.join();\n    }"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 101,
+          "title": "Target Status stubs-only fixture",
+          "status": "todo",
+          "targetStubs": [
+            {
+              "id": "TS-020",
+              "ticketRef": "P1-1",
+              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/registry.rs",
+              "line": 8,
+              "markerText": "// [::STUB::] P1-1: register CallEntry in the runtime registry",
+              "contracts": [
+                "C010"
+              ],
+              "deferredTo": null,
+              "status": "pending",
+              "resolutionPlan": "",
+              "falsePositive": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

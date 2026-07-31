@@ -47,6 +47,7 @@ const ticketsPath = path.join(tmpDir, 'Tickets.json');
 function makeTestTicket(notesValue) {
   const data = {
     title: 'test',
+    round: 1,
     metadata: { source: 'test', generatedAt: '2026-07-28' },
     phases: [{
       id: -1, name: 'PX',

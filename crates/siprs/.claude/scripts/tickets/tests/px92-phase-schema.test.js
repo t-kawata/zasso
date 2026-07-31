@@ -37,7 +37,7 @@ console.log('## C001 — phase schema completeness\n');
 (function testC001PhaseIdStatusInAddPhase() {
   // Pre/Post: add-phase.js creates phase with phaseId and status
   const tmpFile = '/tmp/test-px92-' + Date.now() + '.json';
-  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
+  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", round: 1, metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
   const proc = spawnSync('node', ['.claude/scripts/tickets/add-phase.js', tmpFile], {
     input: JSON.stringify({name: 'Test Phase'}),
     encoding: 'utf8',
@@ -57,7 +57,7 @@ console.log('## C001 — phase schema completeness\n');
 (function testC001PhaseIdStatusInAddPxPhase() {
   // Pre/Post: add-px-phase.js creates phase with phaseId and status
   const tmpFile = '/tmp/test-px92-px-' + Date.now() + '.json';
-  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
+  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", round: 1, metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
   const proc = spawnSync('node', ['.claude/scripts/tickets/add-px-phase.js', tmpFile], {
     encoding: 'utf8',
     cwd: path.resolve(__dirname, '../../../../')
@@ -78,7 +78,7 @@ console.log('## C001 — phase schema completeness\n');
   // Invariant: newly created phases have phaseId and status (scope: new phases only)
   // Existing phases pre-PX-92 may lack these fields.
   const tmpFile = '/tmp/test-px92-invariant-' + Date.now() + '.json';
-  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
+  fs.writeFileSync(tmpFile, JSON.stringify({title: "test", round: 1, metadata: {source: "test", generatedAt: "2026-07-28"}, version: 1, phases: []}));
   const proc = spawnSync('node', ['.claude/scripts/tickets/add-phase.js', tmpFile], {
     input: JSON.stringify({name: 'Invariant Test Phase'}),
     encoding: 'utf8',

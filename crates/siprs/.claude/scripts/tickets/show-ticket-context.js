@@ -16,12 +16,24 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execFileSync } = require('child_process');
 const { resolveTicketSpecPath } = require('../lib/tickets');
 const { fromHomeRelative } = require('../lib/path-utils');
 
 const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
+
+/**
+ * Short labels for the ABC Inspection Pipeline criteria.
+ * The full criteria definitions appear in the [::INSPECTION_FLAGGED::]
+ * background block that add-omission-ticket.js prepends to flagged tickets.
+ */
+const ABC_CRITERION_LABELS = {
+  A: 'Contract Translation',
+  B: 'Violation Detection',
+  C: 'Test Precision',
+};
 
 /** Parse command line arguments */
 function parseArgs(testArgs) {
@@ -129,57 +141,222 @@ function resolveRfcPaths(rawSource, ticketsDir, resolvedPaths) {
   return { rfcPath: '', graphPath: '', dirsTreePath: '', rfcPathSource: 'unknown' };
 }
 
-/** Convert absolute path to relative from ticketsDir (keep absolute if can't shorten) */
+/**
+ * Convert an absolute path to its shortest readable display form.
+ *
+ * Priority:
+ *   1. If the path passes through a real `src` directory, keep only the part
+ *      from `src` onwards (e.g. .../crates/siprs/src/runtime/command.rs
+ *      → src/runtime/command.rs).
+ *   2. If the path lives inside `base` (the tickets directory), use the
+ *      relative form.
+ *   3. If the path lives under the user's home directory, prefix it with `~`.
+ *   4. Otherwise keep the absolute path unchanged.
+ */
 function makeRelative(absPath, base) {
   try {
+    const fromSrc = keepFromSrcDir(absPath);
+    if (fromSrc !== null) return fromSrc;
+
     const rel = path.relative(base, absPath);
-    return rel.startsWith('..') ? absPath : rel;
+    if (!rel.startsWith('..')) return rel;
+
+    const fromHome = replaceHomeWithTilde(absPath);
+    if (fromHome !== null) return fromHome;
+
+    return absPath;
   } catch {
     return absPath;
   }
 }
 
-/** Parse relatedTicketIds string into an array of { relation, ticket, description } */
+/**
+ * Return absPath shortened to start at its `src` directory segment, or null
+ * when absPath has no `src` directory that actually exists on disk.
+ */
+function keepFromSrcDir(absPath) {
+  const segments = absPath.split(path.sep);
+  const srcIndex = segments.indexOf('src');
+  if (srcIndex === -1) return null;
+  const srcDirPath = segments.slice(0, srcIndex + 1).join(path.sep) || path.sep;
+  try {
+    if (fs.statSync(srcDirPath).isDirectory()) {
+      return segments.slice(srcIndex).join(path.sep);
+    }
+  } catch {
+    // not a real src directory on disk — fall through to the other rules
+  }
+  return null;
+}
+
+/**
+ * Return absPath with its home-directory prefix replaced by `~`, or null when
+ * absPath is not inside the user's home directory.
+ */
+function replaceHomeWithTilde(absPath) {
+  const home = os.homedir();
+  if (absPath === home) return '~';
+  if (absPath.startsWith(home + path.sep)) {
+    return '~' + absPath.slice(home.length);
+  }
+  return null;
+}
+
+/**
+ * Format a single targetStub as a detailed markdown block.
+ * targetStubs are [::STUB::] markers that this ticket must fully implement.
+ */
+function formatTargetStub(stub, ticketsDir) {
+  const location = makeRelative(stub.file, ticketsDir);
+  const status = stub.status || 'unknown';
+  const detailLines = ['### ' + (stub.id || '?') + ' — `' + location + ' — ' + status, ''];
+  if (stub.markerText) detailLines.push('- **Marker**: `' + stub.markerText + '`');
+  if (stub.contracts && stub.contracts.length > 0) detailLines.push('- **Contracts**: ' + stub.contracts.join(', '));
+  if (stub.resolutionPlan) detailLines.push('- **Resolution Plan**: ' + stub.resolutionPlan);
+  detailLines.push('');
+  return detailLines.join('\n');
+}
+
+/** Build a "field: count" summary string (e.g. status or severity breakdown) */
+function summarizeByField(items, field) {
+  const counts = {};
+  for (const item of items) {
+    const value = item[field] || 'unknown';
+    counts[value] = (counts[value] || 0) + 1;
+  }
+  return Object.entries(counts).map(function (e) { return e[0] + ': ' + e[1]; }).join(', ');
+}
+
+/**
+ * Format a single foundOmission as a detailed markdown block.
+ * Each omission carries a severity, a fix recommendation, and evaluations
+ * (criterion / passed / reason) backed by code evidence.
+ */
+function formatFoundOmission(omission, index) {
+  const id = 'O-' + String(index + 1).padStart(3, '0');
+  const severity = omission.severity || 'unknown';
+  const detailLines = ['### ' + id + ' — ' + severity, ''];
+  if (omission.recommendation) detailLines.push('- **Recommendation**: ' + omission.recommendation);
+  for (const evaluation of (Array.isArray(omission.evaluations) ? omission.evaluations : [])) {
+    const status = evaluation.passed ? 'PASSED' : 'FAILED';
+    const criterion = evaluation.criterion || '?';
+    const label = ABC_CRITERION_LABELS[evaluation.criterion] ? ' (' + ABC_CRITERION_LABELS[evaluation.criterion] + ')' : '';
+    detailLines.push('- **Evaluation ' + criterion + label + ' — ' + status + '**: ' + (evaluation.reason || '(no reason)'));
+    for (const item of (Array.isArray(evaluation.evidence) ? evaluation.evidence : [])) {
+      detailLines.push('');
+      detailLines.push('Evidence (`' + item.file + '`):');
+      detailLines.push('```');
+      detailLines.push(item.codes || '');
+      detailLines.push('```');
+    }
+  }
+  detailLines.push('');
+  return detailLines.join('\n');
+}
+
+/**
+ * Format a single targetCrime as a detailed markdown block.
+ * targetCrimes are unresolved crimes (orphan/stale STUB references) that this
+ * ticket must resolve 100%.
+ */
+function formatTargetCrime(crime, ticketsDir) {
+  const location = makeRelative(crime.file, ticketsDir);
+  const status = crime.status || 'unknown';
+  const crimeType = crime.crimeType ? ' (' + crime.crimeType + ')' : '';
+  const detailLines = ['### ' + (crime.id || '?') + ' — `' + location + ' — ' + status + crimeType, ''];
+  if (crime.markerText) detailLines.push('- **Marker**: `' + crime.markerText + '`');
+  if (crime.contracts && crime.contracts.length > 0) detailLines.push('- **Contracts**: ' + crime.contracts.join(', '));
+  if (crime.note) detailLines.push('- **Note**: ' + crime.note);
+  detailLines.push('');
+  return detailLines.join('\n');
+}
+
+/**
+ * Parse relatedTicketIds prose into an array of { relation, ticket, description }.
+ *
+ * Supported comma-separated entry formats:
+ *   - "P0-1 (scope), P1-1 (concurrency)"                     — hand-written in Tickets.json
+ *   - "P2-1 (depends on: purpose), P2-3 (related: events)"   — hand-written, keyword prefix
+ *   - "[depends_on] P1-2 (Dependency: Error type ...)"       — generator format (backward compatible)
+ *
+ * An explicit [relation] tag wins; otherwise a leading "keyword:" in the
+ * description becomes the relation. Entries are split on top-level commas so
+ * commas inside (nested) parentheses never break an entry.
+ */
 function parseRelatedTicketIds(raw) {
   if (!raw) return [];
   const items = [];
   const seen = new Set();
-  // relation と ticket のみ正規表現で抽出（description は括弧ネスト深度追跡で別途取得）
-  const regex = /\[(\w+)\]\s+(\S+)/g;
-  let m;
-  while ((m = regex.exec(raw)) !== null) {
-    const key = `${m[2]}|${m[1]}`;
+
+  for (const entry of splitRelatedTicketEntries(raw)) {
+    // Optional [relation] tag prefix, e.g. "[depends_on] P1-2 (...)"
+    const tagMatch = entry.match(/^\[(\w+)\]\s*(.*)$/);
+    const taggedRelation = tagMatch ? tagMatch[1] : '';
+    const body = tagMatch ? tagMatch[2] : entry;
+
+    // Ticket key with a required parenthesized description, e.g. "P0-1 (scope)".
+    // Full-width and no-space parens are accepted, e.g. "P6-2(時間窓判定)".
+    // Requiring the parens keeps prose fragments (e.g. a bare "P7-1" inside an
+    // I/O flow note) from leaking into the table as empty rows.
+    const bodyMatch = body.match(/^(\S+?)\s*[(（]([\s\S]*)[)）]$/);
+    if (!bodyMatch) continue;
+
+    const ticket = bodyMatch[1];
+    const rawDescription = (bodyMatch[2] || '').trim();
+
+    const { relation, description } = resolveRelation(taggedRelation, rawDescription);
+
+    const key = `${ticket}|${relation}|${description}`;
     if (seen.has(key)) continue;
     seen.add(key);
-
-    const relation = m[1];
-    const ticket = m[2];
-
-    // m[0] の直後にある ( を見つけ、ネスト深度を追跡して対応する ) までを description とする
-    const openParen = raw.indexOf('(', m.index + m[0].length);
-    if (openParen === -1) continue;
-    let depth = 0;
-    let closeParen = -1;
-    for (let i = openParen; i < raw.length; i++) {
-      if (raw[i] === '(' || raw[i] === '（') depth++;
-      if (raw[i] === ')' || raw[i] === '）') depth--;
-      if (depth === 0) { closeParen = i; break; }
-    }
-    if (closeParen === -1) continue;
-
-    // relation/ticket 部分を除去 → trim → 外側の括弧を除去 → trim
-    const fullEntry = raw.substring(m.index, closeParen + 1);
-    const prefix = `[${relation}] ${ticket}`;
-    const description = fullEntry
-      .replace(prefix, '')
-      .trim()
-      .replace(/^[(（]/, '')
-      .replace(/[)）]$/, '')
-      .trim();
 
     items.push({ relation, ticket, description });
   }
   return items;
+}
+
+/** Split comma-separated entries, ignoring commas inside (nested) parentheses. */
+function splitRelatedTicketEntries(raw) {
+  const entries = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '(' || ch === '（') depth++;
+    else if (ch === ')' || ch === '）') depth = Math.max(0, depth - 1);
+    else if ((ch === ',' || ch === '，') && depth === 0) {
+      entries.push(raw.slice(start, i));
+      start = i + 1;
+    }
+  }
+  entries.push(raw.slice(start));
+  return entries.map((entry) => entry.trim()).filter(Boolean);
+}
+
+/**
+ * Prefer an explicit [relation] tag; otherwise a leading "keyword:" in the
+ * description (e.g. "depends on:", "related:", "前提:") becomes the relation
+ * and the rest of the description is kept. Without a "keyword:" prefix the
+ * whole parenthesized text is the relation (e.g. "P0-1 (scope)"), and the
+ * description is resolved from the target ticket's title by the renderer.
+ */
+function resolveRelation(taggedRelation, rawDescription) {
+  if (taggedRelation) {
+    return { relation: taggedRelation, description: rawDescription };
+  }
+  const keywordMatch = rawDescription.match(/^([^:：]+?)\s*[:：]\s*([\s\S]*)$/);
+  if (keywordMatch) {
+    return { relation: keywordMatch[1].trim(), description: keywordMatch[2].trim() };
+  }
+  return { relation: rawDescription, description: '' };
+}
+
+/** Resolve a related ticket key (e.g. "P0-1") to its title in Tickets.json. */
+function resolveRelatedTicketTitle(tickets, ticketKey) {
+  const parsed = parseTicketKey(ticketKey);
+  if (!parsed) return '';
+  const target = findTicket(tickets, parsed);
+  return target ? target.title || '' : '';
 }
 
 /** Load GRAPH.json and Dirs-Tree.json */
@@ -488,6 +665,44 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  const hasTargetStubs = ticket.targetStubs && Array.isArray(ticket.targetStubs) && ticket.targetStubs.length > 0;
+  const hasTargetCrimes = ticket.targetCrimes && Array.isArray(ticket.targetCrimes) && ticket.targetCrimes.length > 0;
+  const hasFoundOmissions = ticket.foundOmissions && Array.isArray(ticket.foundOmissions) && ticket.foundOmissions.length > 0;
+
+  // Target status: STUBs this ticket must fully implement and crimes it must resolve.
+  // Always shown when values exist (also in --for-spec mode).
+  if (hasTargetStubs || hasTargetCrimes) {
+    if (hasTargetStubs) {
+      const summaryStr = ticket.targetStubs.length + ' items — ' + summarizeByField(ticket.targetStubs, 'status');
+      lines.push('## STUBs — Must Be Fully Implemented in This Ticket' + ` (${summaryStr})`);
+      lines.push('');
+      for (const stub of ticket.targetStubs) {
+        lines.push(formatTargetStub(stub, ticketsDir));
+      }
+    }
+    if (hasTargetCrimes) {
+      const summaryStr = ticket.targetCrimes.length + ' items — ' + summarizeByField(ticket.targetCrimes, 'status')
+      lines.push('## Crimes — Must Be 100% Resolved in This Ticket' + ` (${summaryStr})`);
+      lines.push('');
+      for (const crime of ticket.targetCrimes) {
+        lines.push(formatTargetCrime(crime, ticketsDir));
+      }
+    }
+  }
+
+  // Omissions found by review (find-omissions) that this ticket must resolve.
+  // Always shown when values exist (also in --for-spec mode).
+  if (hasFoundOmissions) {
+    const summaryStr = ticket.foundOmissions.length + ' items — ' + summarizeByField(ticket.foundOmissions, 'severity');
+    lines.push('## Omissions found in Prior Implementation Rounds — Must Be 100% Resolved in This Ticket' + ` (${summaryStr})`);
+    lines.push('');
+    let omissionIndex = 0;
+    for (const omission of ticket.foundOmissions) {
+      lines.push(formatFoundOmission(omission, omissionIndex));
+      omissionIndex++;
+    }
+  }
+
   // Graph section (only when pipelineAvailable and nodeIds exist)
   // Triggers the first investigation action (node exploration) AI should perform in Step 4a.
   if (pipelineAvailable && ticket.nodeIds && ticket.nodeIds.length > 0) {
@@ -603,9 +818,31 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // Changes (implementation before/after recorded by start-ticket)
+  // Related Tickets
+  if (ticket.relatedTicketIds) {
+    const rows = parseRelatedTicketIds(ticket.relatedTicketIds);
+    if (rows.length > 0) {
+      lines.push('## Related Tickets');
+      lines.push('');
+      lines.push('| Ticket KEY | Relation | Description |');
+      lines.push('|--------|----------|-------------|');
+      for (const row of rows) {
+        const description = row.description || resolveRelatedTicketTitle(tickets, row.ticket);
+        lines.push(`| ${row.ticket} | ${row.relation} | ${description} |`);
+      }
+      lines.push('');
+      lines.push('### To show related tickets details');
+      lines.push('');
+      lines.push('```');
+      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order');
+      lines.push('```');
+      lines.push('');
+    }
+  }
+
+  // Changes from prior implementation rounds (before/after recorded by start-ticket)
   if (ticket.changes && ticket.changes.length > 0) {
-    lines.push('## Changes');
+    lines.push('## Changes in Prior Implementation Rounds');
     lines.push('');
     lines.push('| Before | After | Description |');
     lines.push('|--------|-------|-------------|');
@@ -618,19 +855,9 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // Reference URLs
-  if (ticket.referenceUrls && ticket.referenceUrls.length > 0) {
-    lines.push('## Reference URLs');
-    lines.push('');
-    for (const u of ticket.referenceUrls) {
-      lines.push(`- ${u}`);
-    }
-    lines.push('');
-  }
-
   // RFC Discrepancies
   if (ticket.rfcDiscrepancies && ticket.rfcDiscrepancies.length > 0) {
-    lines.push('## RFC Discrepancies');
+    lines.push('## RFC Discrepancies found in Prior Implementation Rounds');
     lines.push('');
     for (const d of ticket.rfcDiscrepancies) {
       lines.push(`- ${d}`);
@@ -638,30 +865,9 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
-  // Related Tickets
-  if (ticket.relatedTicketIds) {
-    const rows = parseRelatedTicketIds(ticket.relatedTicketIds);
-    if (rows.length > 0) {
-      lines.push('## Related Tickets');
-      lines.push('');
-      lines.push('| Ticket KEY | Relation | Description |');
-      lines.push('|--------|----------|-------------|');
-      for (const row of rows) {
-        lines.push(`| ${row.ticket} | ${row.relation} | ${row.description} |`);
-      }
-      lines.push('');
-      lines.push('### To show related tickets details');
-      lines.push('');
-      lines.push('```');
-      lines.push('node .claude/scripts/tickets/show-ticket-context.js --ticket-key=<Ticket KEY to show (e.g. P0-1)> --for-spec --no-implementation-order');
-      lines.push('```');
-      lines.push('');
-    }
-  }
-
   // Notes
   if (ticket.notes) {
-    lines.push('## Notes');
+    lines.push('## Notes in Prior Implementation Rounds');
     lines.push('');
     lines.push(ticket.notes);
     lines.push('');
@@ -684,29 +890,6 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push(`| Spec-File | \`${makeRelative(specPath, ticketsDir)}\` | ${specExists} |`);
     lines.push(`| Pipeline Available | **${pipelineAvailable}** | - |`);
     lines.push('');
-  }
-
-  // Target Status (not output in --for-spec mode)
-  if (!forSpec) {
-    const hasTargetStubs = ticket.targetStubs && Array.isArray(ticket.targetStubs) && ticket.targetStubs.length > 0;
-    const hasTargetCrimes = ticket.targetCrimes && Array.isArray(ticket.targetCrimes) && ticket.targetCrimes.length > 0;
-    if (hasTargetStubs || hasTargetCrimes) {
-      lines.push('## Target Status');
-      lines.push('');
-      if (hasTargetStubs) {
-        const stubsByStatus = {};
-        for (const s of ticket.targetStubs) {
-          const status = s.status || 'unknown';
-          stubsByStatus[status] = (stubsByStatus[status] || 0) + 1;
-        }
-        const statusSummary = Object.entries(stubsByStatus).map(function (e) { return e[0] + ': ' + e[1]; }).join(', ');
-        lines.push('- targetStubs: ' + ticket.targetStubs.length + ' items (' + statusSummary + ')');
-      }
-      if (hasTargetCrimes) {
-        lines.push('- targetCrimes: ' + ticket.targetCrimes.length + ' items');
-      }
-      lines.push('');
-    }
   }
 
   return lines.join('\n');
@@ -758,4 +941,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, buildTicketNotFoundMarkdown, buildTicketMarkdown, parseRelatedTicketIds, resolveRfcPaths, isValidTicketKey, parseTicketKey, findTicket, main };
+module.exports = { parseArgs, buildTicketNotFoundMarkdown, buildTicketMarkdown, parseRelatedTicketIds, resolveRfcPaths, makeRelative, isValidTicketKey, parseTicketKey, findTicket, main };
