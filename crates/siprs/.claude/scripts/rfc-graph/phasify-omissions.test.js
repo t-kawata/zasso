@@ -1,3 +1,9 @@
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+
 // [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 
 
@@ -6,14 +12,15 @@
 'use strict';
 
 /**
- * phasify-omissions.test.js — Tests for phasify-omissions.js PX-113 fixes
+ * phasify-omissions.test.js — Tests for phasify-omissions.js PX-115 fixes
  *
  * Verifies:
  * 1. buildOutput deep clone preserves all fields
  * 2. All tickets assigned to phases (no dedupTickets separation)
- * 3. No phase consolidation (ticket count preserved)
+ * 3. Phase consolidation by ticket count with re-index IDs (split-to-tickets.md Step 5-3)
  * 4. Phase ID offset works
  * 5. validatePhasedOmissions passes
+ * 6. Snapshot-based --rollback (resolveSnapshotPath / rollbackFromSnapshot)
  */
 
 const assert = require('assert');
@@ -147,19 +154,78 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
 })();
 
 // ============================================================
-// Test 3: Ticket count preserved (no consolidation)
+// Test 3: Phase consolidation by ticket count (split-to-tickets.md Step 5-3)
 // ============================================================
-(function testConsolidationRemoved() {
-  // verify consolidatePhasesByTicketCount still exists but can be bypassed
-  assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
-    'consolidatePhasesByTicketCount must still exist for backward compatibility');
+assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
+  'consolidatePhasesByTicketCount must be a function');
 
-  // Test with empty input to verify it doesn't crash
-  const result = phasifyOmissions.consolidatePhasesByTicketCount([]);
-  assert.ok(Array.isArray(result));
-  assert.strictEqual(result.length, 0);
+(function testConsolidationMergesAndReindexes() {
+  // @verifies C001 — phases with fewer than 3 tickets are merged; all phases end >= 3
+  // @verifies C002 — merged phase ticket IDs are re-indexed 1..N (unique)
+  // P6(3), P7(3), P8(1), P9(1), P10(1), P11(1) → P6, P7, merged phase with 4 tickets
+  const phases = [6, 7, 8, 9, 10, 11].map(function(id) {
+    return { id: id, name: 'P' + id, nodeIds: ['N' + id], tickets: [{ id: 1, phaseId: id, status: 'todo', title: 'T' + id }] };
+  });
+  phases[0].tickets = [1, 2, 3].map(function(ticketId) {
+    return { id: ticketId, phaseId: 6, status: 'todo', title: 'A' + ticketId };
+  });
+  phases[1].tickets = [1, 2, 3].map(function(ticketId) {
+    return { id: ticketId, phaseId: 7, status: 'todo', title: 'B' + ticketId };
+  });
 
-  console.log('✅ testConsolidationRemoved passed');
+  const consolidated = phasifyOmissions.consolidatePhasesByTicketCount(phases);
+
+  // P6(3) and P7(3) survive; P8..P11 (1 ticket each) consolidate into one phase
+  assert.strictEqual(consolidated.length, 3, 'four one-ticket phases must consolidate into one');
+  const mergedPhase = consolidated[consolidated.length - 1];
+  assert.strictEqual(mergedPhase.tickets.length, 4, 'merged phase must hold 4 tickets');
+
+  // Re-index is a separate step (split-to-tickets.md Step 5-3 substep 5-3-5)
+  const result = phasifyOmissions.renumberTicketIdsInPhases(consolidated);
+  const ids = result[result.length - 1].tickets.map(function(ticket) { return ticket.id; });
+  assert.deepStrictEqual(ids, [1, 2, 3, 4], 'merged phase ticket IDs must be re-indexed 1..N');
+  assert.strictEqual(new Set(ids).size, ids.length, 'ticket IDs must be unique in the merged phase');
+
+  console.log('✅ testConsolidationMergesAndReindexes passed');
+})();
+
+(function testConsolidationSkipsUnsafeHardEdgeMerge() {
+  // @verifies C003 — a merge that would place both endpoints of a depends_on edge in one phase is skipped
+  // depends_on edge between the two phases → merge would put both endpoints in one phase
+  const phases = [
+    { id: 6, name: 'P6', nodeIds: ['N0001'], tickets: [{ id: 1, phaseId: 6, status: 'todo', title: 'a' }] },
+    { id: 7, name: 'P7', nodeIds: ['N0002'], tickets: [{ id: 1, phaseId: 7, status: 'todo', title: 'b' }] }
+  ];
+  const hardEdges = [{ from: 'N0001', to: 'N0002', type: 'depends_on' }];
+
+  const result = phasifyOmissions.consolidatePhasesByTicketCount(phases, hardEdges);
+
+  // Unsafe merge must be skipped (C003): both endpoints stay in separate phases
+  assert.strictEqual(result.length, 2, 'unsafe merge must be skipped');
+  const nodePhase = {};
+  for (const phase of result) for (const nid of (phase.nodeIds || [])) nodePhase[nid] = phase.id;
+  assert.notStrictEqual(nodePhase['N0001'], nodePhase['N0002'],
+    'hard edge endpoints must remain in different phases');
+
+  console.log('✅ testConsolidationSkipsUnsafeHardEdgeMerge passed');
+})();
+
+(function testRenumberTicketIdsInPhases() {
+  // @verifies C002 — re-index assigns sequential unique ids 1..N within each phase
+  const phases = [
+    { id: 6, name: 'P6', nodeIds: ['N0001'], tickets: [{ id: 9, phaseId: 6, title: 'x' }, { id: 3, phaseId: 6, title: 'y' }] }
+  ];
+
+  const result = phasifyOmissions.renumberTicketIdsInPhases(phases);
+
+  assert.deepStrictEqual(result[0].tickets.map(function(ticket) { return ticket.id; }), [1, 2],
+    'ticket IDs must be re-numbered sequentially 1..N');
+  assert.ok(result[0].tickets.every(function(ticket) { return ticket.phaseId === 6; }),
+    'phaseId must match the parent phase after renumbering');
+  // Input immutability
+  assert.strictEqual(phases[0].tickets[0].id, 9, 'renumber must not mutate its input');
+
+  console.log('✅ testRenumberTicketIdsInPhases passed');
 })();
 
 // ============================================================
@@ -417,9 +483,9 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
   // Every pre-offset ticket status matches /^R[1-9]\d*$/
   for (const phase of result.phases) {
     if (phase.id < offset) {
-      for (const t of phase.tickets) {
-        assert.ok(/^R[1-9]\d*$/.test(t.status),
-          'pre-offset ticket status must be round-aware, got: ' + t.status);
+      for (const ticket of phase.tickets) {
+        assert.ok(/^R[1-9]\d*$/.test(ticket.status),
+          'pre-offset ticket status must be round-aware, got: ' + ticket.status);
       }
     }
   }
@@ -428,4 +494,110 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
   console.log('✅ testRoundStatusInvariant passed');
 })();
 
-console.log('\n🎉 All PX-114 tests passed!');
+// ============================================================
+// PX-115: Snapshot-based --rollback (resolveSnapshotPath / rollbackFromSnapshot)
+// ============================================================
+
+(function testResolveSnapshotPath() {
+  // @verifies C005 — rollback resolves the snapshot recorded in phasifyMerge metadata
+  // snapshotPath is preferred
+  const data = { metadata: { phasifyMerge: { snapshotPath: 'tickets/Tickets-20260731115931.json', timestamp: '20260731115931' } } };
+  assert.strictEqual(phasifyOmissions.resolveSnapshotPath(data, '/tmp/proj'),
+    '/tmp/proj/tickets/Tickets-20260731115931.json', 'snapshotPath must be preferred');
+
+  // timestamp fallback when snapshotPath is absent
+  const data2 = { metadata: { phasifyMerge: { timestamp: '20260731115931' } } };
+  assert.strictEqual(phasifyOmissions.resolveSnapshotPath(data2, '/tmp/proj'),
+    '/tmp/proj/tickets/Tickets-20260731115931.json', 'timestamp must resolve tickets/Tickets-<ts>.json');
+
+  // No phasifyMerge metadata → throw (prevents accidental rollback)
+  assert.throws(function() { phasifyOmissions.resolveSnapshotPath({ metadata: {} }, '/tmp/proj'); },
+    /No phasifyMerge metadata/, 'missing phasifyMerge metadata must throw');
+
+  console.log('✅ testResolveSnapshotPath passed');
+})();
+
+(function testRollbackFromSnapshot() {
+  // @verifies C005 — rollback overwrites Tickets.json with the pre-merge snapshot
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'px115-rollback-'));
+  try {
+    const snapshot = { round: 1, metadata: {}, phases: [] };
+    fs.mkdirSync(path.join(tmp, 'tickets'));
+    fs.writeFileSync(path.join(tmp, 'tickets', 'Tickets-20260731115931.json'), JSON.stringify(snapshot));
+    fs.writeFileSync(path.join(tmp, 'Tickets.json'), JSON.stringify({
+      round: 2,
+      metadata: { phasifyMerge: { snapshotPath: 'tickets/Tickets-20260731115931.json', timestamp: '20260731115931' } },
+      phases: []
+    }));
+
+    phasifyOmissions.rollbackFromSnapshot(path.join(tmp, 'Tickets.json'), false);
+
+    // Tickets.json must equal the pre-merge snapshot (full state restore, C005)
+    const restored = JSON.parse(fs.readFileSync(path.join(tmp, 'Tickets.json'), 'utf8'));
+    assert.deepStrictEqual(restored, snapshot, 'Tickets.json must equal the snapshot after rollback');
+    assert.strictEqual(restored.metadata.phasifyMerge, undefined,
+      'restored state must not carry phasifyMerge metadata');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  console.log('✅ testRollbackFromSnapshot passed');
+})();
+
+(function testResolveSnapshotPathLegacyFallback() {
+  // @verifies C005 — legacy pre-PX-115 merge metadata (no snapshotPath/timestamp)
+  // falls back to the tickets/ archive when it holds exactly one snapshot
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'px115-legacy-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'tickets'));
+    fs.writeFileSync(path.join(tmp, 'tickets', 'Tickets-20260731115931.json'), '{}');
+    const legacyData = { metadata: { phasifyMerge: { offset: 6, mergedPhaseIds: [6, 7, 8, 9, 10, 11] } } };
+    assert.strictEqual(phasifyOmissions.resolveSnapshotPath(legacyData, tmp),
+      path.join(tmp, 'tickets', 'Tickets-20260731115931.json'),
+      'legacy merge with a single snapshot must resolve to it');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  console.log('✅ testResolveSnapshotPathLegacyFallback passed');
+})();
+
+(function testResolveSnapshotPathLegacyAmbiguous() {
+  // @verifies C005 — multiple snapshots with no pointer are ambiguous and must throw
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'px115-ambig-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'tickets'));
+    fs.writeFileSync(path.join(tmp, 'tickets', 'Tickets-20260731115931.json'), '{}');
+    fs.writeFileSync(path.join(tmp, 'tickets', 'Tickets-20260731235959.json'), '{}');
+    const legacyData = { metadata: { phasifyMerge: { offset: 6 } } };
+    assert.throws(function() { phasifyOmissions.resolveSnapshotPath(legacyData, tmp); },
+      /Ambiguous legacy merge/, 'multiple snapshots without a pointer must throw');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  console.log('✅ testResolveSnapshotPathLegacyAmbiguous passed');
+})();
+
+(function testConsolidationPreservesNodeCoverage() {
+  // @verifies C004 — all O_NODES remain covered after consolidation (no loss, no duplicates)
+  const phases = [
+    { id: 6, name: 'P6', nodeIds: ['N0001', 'N0002'], tickets: [{ id: 1, phaseId: 6, title: 'a' }, { id: 2, phaseId: 6, title: 'b' }, { id: 3, phaseId: 6, title: 'c' }] },
+    { id: 7, name: 'P7', nodeIds: ['N0003'], tickets: [{ id: 1, phaseId: 7, title: 'd' }] },
+    { id: 8, name: 'P8', nodeIds: ['N0004'], tickets: [{ id: 1, phaseId: 8, title: 'e' }] }
+  ];
+  const omissionNodeIds = ['N0001', 'N0002', 'N0003', 'N0004'];
+
+  const consolidated = phasifyOmissions.consolidatePhasesByTicketCount(phases);
+
+  // Merging P7 into P8 unions nodeIds — every O_NODE must stay covered exactly once
+  const covered = new Set(consolidated.flatMap(function(phase) { return phase.nodeIds || []; }));
+  for (const nid of omissionNodeIds) {
+    assert.ok(covered.has(nid), 'node ' + nid + ' must remain covered after consolidation');
+  }
+  assert.strictEqual(covered.size, omissionNodeIds.length, 'no duplicate or missing nodes after consolidation');
+
+  console.log('✅ testConsolidationPreservesNodeCoverage passed');
+})();
+
+console.log('\n🎉 All PX-115 tests passed!');

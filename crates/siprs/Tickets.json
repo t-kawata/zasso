@@ -15,12 +15,11 @@
       "mergedPhaseIds": [
         6,
         7,
-        8,
-        9,
-        10,
-        11
+        8
       ],
-      "mergedAt": "2026-07-31"
+      "mergedAt": "2026-07-31",
+      "timestamp": "20260731115931",
+      "snapshotPath": "tickets/Tickets-20260731115931.json"
     }
   },
   "phases": [
@@ -11406,14 +11405,31 @@
     },
     {
       "id": 8,
-      "name": "Omissions: Runtime Infrastructure & AudioWorkerTask",
+      "name": "Omissions: Runtime Infrastructure & AudioWorkerTask → Observability, Security & Platform Config → ID Design, Event Model & State Machines → DTMF, AsyncAudioSource & Incoming Call/Transfer",
       "characteristics": "",
       "nodeIds": [
         "N0010",
+        "N0012",
+        "N0018",
         "N0022",
         "N0023",
+        "N0025",
+        "N0026",
+        "N0028",
         "N0029",
-        "N0038"
+        "N0032",
+        "N0034",
+        "N0038",
+        "N0046",
+        "N0047",
+        "N0048",
+        "N0050",
+        "N0057",
+        "N0058",
+        "N0062",
+        "N0064",
+        "N0066",
+        "N0067"
       ],
       "tickets": [
         {
@@ -12365,21 +12381,7 @@
           "originalTicketKey": "P0-6",
           "fromStub": false,
           "stubs": []
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "name": "Omissions: Observability, Security & Platform Config",
-      "characteristics": "",
-      "nodeIds": [
-        "N0034",
-        "N0046",
-        "N0047",
-        "N0050",
-        "N0057"
-      ],
-      "tickets": [
+        },
         {
           "title": "Observability, Security & Platform Configuration",
           "nodeIds": [
@@ -12497,8 +12499,8 @@
             "src/config/observability_metrics.rs",
             "src/security/security_platform_diffs.rs"
           ],
-          "id": 1,
-          "phaseId": 9,
+          "id": 2,
+          "phaseId": 8,
           "status": "todo",
           "invariants": "- 【Normal establishment】tracing-subscriber test harness captures span enter/exit for all instrumented public methods. SecretString::new() wraps any input string. ClientCapabilities fields initialized to safe defaults (max_calls: u32::MAX, max_accounts: u32::MAX, tls_available: cfg!(feature = \"tls\")). Metrics counters start at zero.\n\n- 【Invariant on error】SecretString never leaks inner value even if Debug is called during error handling (e.g., via anyhow::Error chain). MetricsRegistry never panics on unknown counter increment. ClientCapabilities deserialization fallback uses #[serde(default)] — no crash on malformed input.\n\n- 【Internal state invariant】SecretString inner value is zeroized on drop when #[cfg(feature = \"zeroize\")] is active. MetricsRegistry counter/gauges are behind #[cfg(feature = \"metrics\")] and compile to zero-size when disabled. ClientCapabilities is Send + Sync (all field types are atomic or Vec of Clone types).\n\n- 【Boundary invariant】SecretString capacity: maximum inner length is usize::MAX (limited by allocator). Password with 0 bytes wraps without panic. Authorization header regex matches SIP Authorization: header format (starts with \"Authorization:\" case-insensitive, line up to CRLF or end-of-string). ClientCapabilities deserialization with extreme numeric values (u32::MAX, u16::MAX) saturates or overflows safely via wrapping semantics.",
           "instrumentation": "- [Logging] tracing::instrument spans on all public SipClient and SipAccountHandle methods. Span fields include function arguments (account_id, call_id, config fields) with skip(self) for Arc-wrapped runtime handles. Error cases captured via tracing::error inside instrumented methods.\n\n- [Metrics] Optional metrics feature provides 8 counters/gauges in MetricsRegistry: active_calls (gauge), registered_accounts (gauge), audio_tap_overflows_total (counter), dtmf_sent_total (counter), dtmf_received_total (counter), ice_failures_total (counter), transport_reconnects_total (counter), raw_sip_messages_total (counter). All behind #[cfg(feature = \"metrics\")].\n\n- [Error tracking] Errors propagate as SipError (SipErrorKind) via Result — never swallowed. SecretString zeroization errors are not applicable (type-level guarantee via Zeroize impl). Metrics counter overflow uses wrapping semantics (AtomicU64 wrapping_add).\n\n- [Health check] ClientCapabilities advertised in ClientInitialized event serves as a health indicator — consumer can verify all expected capabilities are available. is_terminated() on RuntimeHandle provides basic liveness check.\nStatic quality check: 38 findings (all test-code unwrap or false-positive doc comments — acceptable per project rules)\nTranslatability: no issues — all function names are verb phrases, no debug output, no generic variable names in production code\nCrime check: 0 unresolved crimes\nAnnotation check: 7/7 files annotated with P1-2 ticket-key, 0 AMBIGUOUS markers\nTests: all 281 lib tests passed (0 failures, 0 ignored)",
@@ -13264,21 +13266,7 @@
           "originalTicketKey": "P1-2",
           "fromStub": false,
           "stubs": []
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "name": "Omissions: ID Design, Event Model & State Machines",
-      "characteristics": "",
-      "nodeIds": [
-        "N0012",
-        "N0018",
-        "N0058",
-        "N0066",
-        "N0067"
-      ],
-      "tickets": [
+        },
         {
           "title": "ID Design, Event Model & State Machines",
           "nodeIds": [
@@ -13472,8 +13460,8 @@
             "src/state/call_state_model.rs",
             "src/state/registr_state_machine.rs"
           ],
-          "id": 1,
-          "phaseId": 10,
+          "id": 3,
+          "phaseId": 8,
           "status": "todo",
           "invariants": "- [Normal condition] Newtype ID construction: AccountId::from_u64(x) succeeds iff x > 0, returns ZeroValue error iff x == 0. BiMap insert/lookup round-trip: insert(r, n) guarantees get_native(r) == Some(n) and get_runtime(n) == Some(r) until remove(r) is called. RegistrationState transitions: every transition follows exactly one of the 8 defined rules; no implicit transitions exist. CallState transitions: every transition follows the DAG defined in §18.1; all non-terminal states can reach Disconnected or Failed.\n- [Error invariant] Zero-value ID construction (from_u64(0)) never succeeds — returns Err(SipErrorKind::ZeroValue). BiMap never loses data on concurrent access — dashmap interior mutability guarantees crash-consistency. Invalid state machine transitions never mutate internal state — Err is returned, state unchanged. RegistrationState::Failed and Expired do not prevent make_call() — this invariant is enforced by the absence of registration checks in the Call API.\n- [Internal state invariant] BiMap internal state: for all (r, n) pairs, r is unique (RuntimeId is the primary key). NativeId n may be reused; the newest (r, n) pair wins on insert. RegistrationState machine: internal transition table enumerates exactly (7 states × 7 targets) = 49 boolean predicates, of which exactly 10 are true (the 8 rules plus 2 reflexive). CallState machine: transition table enumerates exactly (13 states × 13 targets) = 169 boolean predicates, covering all outgoing/incoming/hold/transfer paths.\n- [Boundary invariant] AccountId/CallId/AudioSourceId NonZeroU64 domain: [1, u64::MAX]. BiMap capacity: unbounded (backed by dashmap). EventBus capacity impact: AccountId/CallId size is 8 bytes each, negligible on bus capacity. RegistrationState transitions: Failed→Registering retry must not cause infinite loop — controlled by ClientConfig::registration_retry_count (P3-1 scope). CallState: max_calls concurrent limit enforced by Call API (P3-1 scope), not by state machine itself.",
           "instrumentation": "Static quality check: 55 minor issues (unwrap in tests, test-only single-letter vars, 1 false-positive comment detection)\nTranslatability: all functions are verb phrases, no magic numbers in production code\nTests: all 37 unit + integration + verification tests passed, 0 failed\nContracts: all 10 contracts verified (C013-C032)\nCrimes: 0\nSTUB resolution: 9/11 resolved in P4-1, 2 deferred to future tickets",
@@ -13638,23 +13626,7 @@
           "originalTicketKey": "P4-1",
           "fromStub": false,
           "stubs": []
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "name": "Omissions: DTMF, AsyncAudioSource & Incoming Call/Transfer",
-      "characteristics": "",
-      "nodeIds": [
-        "N0025",
-        "N0026",
-        "N0028",
-        "N0032",
-        "N0048",
-        "N0062",
-        "N0064"
-      ],
-      "tickets": [
+        },
         {
           "title": "DTMF Specification, AsyncAudioSource & Incoming Call/Transfer",
           "nodeIds": [
@@ -13792,8 +13764,8 @@
             "src/api/dtmf_spec_received.rs",
             "src/api/incoming_call_refer.rs"
           ],
-          "id": 1,
-          "phaseId": 11,
+          "id": 4,
+          "phaseId": 8,
           "status": "todo",
           "invariants": "- 【Normal establishment】DtmfPolicy always has >=1 send_method and >=1 receive_method (validated in AccountConfig::validate()). DtmfReceivedInfo always has at least `method` and `digit` populated by construction. AsyncAudioSource::next_chunk returns 0 when exhausted, never panics. SyncSourceAdapter delegates all calls to inner source without adding logic.\n- 【Invariant on error】DTMF method validation returns InvalidConfig error — never panics. SyncSourceAdapter with exhausted inner source returns 0, never produces garbage. IncomingCall construction with empty from_uri/to_uri does not panic.\n- 【Internal state invariant】ErasedAudioSource blanket impl compiles for all T: AsyncAudioSource + Send — no manual impl per type. DtmfReceivedInfo types always implement Clone + Debug + PartialEq. SyncSourceAdapter<T> implements Send when T: Send.\n- 【Boundary invariant】duration_ms range [0, u16::MAX] accepted without truncation. volume_dbm0 range [i8::MIN, i8::MAX] accepted. SyncAudioSource buf size at extremes (0, 65535) handled without overflow. IncomingCall offered_codecs empty vec accepted (pre-negotiation state).",
           "instrumentation": "- 【Logging】DTMF send/receive events logged at info level with method, digit, duration. IncomingCall event logged with from_uri, call_id. ReferRequest logged with refer_to URI. Use tracing::info! for structured logging with span per call_id.\n- 【Metrics】Counters: dtmf_sent_total{method}, dtmf_received_total{method}, incoming_call_total, transfer_completed_total. Timer: auto_reject_delay_ms (histogram).\n- 【Error tracking】DtmfPolicy validation errors logged as warnings (SipErrorKind::InvalidConfig). SyncSourceAdapter exhausted (returns 0) is INFO-level — normal termination. IncomingCall auto-reject timer expiry logged at debug level.\n- 【Health check】No health check — pure data type definitions and adapter implementations with no background state.\nStatic quality check: passed (62 minor issues — all pre-existing test code or P5-2 test code)\nTranslatability: no issues — all function names are verb phrases, variable names use domain concepts\nTests: all 647 tests passed\nAnnotations: 9/9 files verified with proper [::TICKET::] provenance\nSTUBs: 3 resolved (TS-001, TS-002, TS-004), 0 remaining P5-2 STUBs",

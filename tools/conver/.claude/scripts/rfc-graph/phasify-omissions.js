@@ -38,14 +38,14 @@ try {
   _repairSentinel = {
     sentinel: addOmissionModule.INSPECTION_SENTINEL || '[::INSPECTION_FLAGGED::]',
     repair: addOmissionModule.repairDuplicateSentinels || function(bg) {
-      const s = bg || ''; const c = (s.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;
-      if (c <= 1) return s; const li = s.lastIndexOf('[::INSPECTION_FLAGGED::]'); return s.slice(li);
+      const text = bg || ''; const count = (text.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;
+      if (count <= 1) return text; const lastIndex = text.lastIndexOf('[::INSPECTION_FLAGGED::]'); return text.slice(lastIndex);
     },
   };
 } catch (e) {
   _repairSentinel = {
     sentinel: '[::INSPECTION_FLAGGED::]',
-    repair: function(bg) { const s = bg || ''; const c = (s.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length; if (c <= 1) return s; const li = s.lastIndexOf('[::INSPECTION_FLAGGED::]'); return s.slice(li); },
+    repair: function(bg) { const text = bg || ''; const count = (text.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length; if (count <= 1) return text; const lastIndex = text.lastIndexOf('[::INSPECTION_FLAGGED::]'); return text.slice(lastIndex); },
   };
 }
 
@@ -95,7 +95,7 @@ function findLatestOmissions() {
   return path.resolve(matches[0]);
 }
 
-// [::TICKET::] PX-107, PX-108, PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-115) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
     omissionsPath: '',
@@ -139,6 +139,24 @@ function parseArguments(argv) {
     }
   }
 
+  // Default Tickets.json in CWD if not specified
+  if (!opts.ticketsPath) {
+    const defaultPath = path.resolve('Tickets.json');
+    if (fs.existsSync(defaultPath)) {
+      opts.ticketsPath = defaultPath;
+      console.error('[phasify-omissions] Default Tickets.json: ' + defaultPath);
+    } else {
+      console.error('[ERROR] No Tickets.json found in CWD. Use --tickets=<PATH> to specify.');
+      process.exit(2);
+    }
+  }
+
+  // Rollback mode is self-contained: it restores Tickets.json from a snapshot and
+  // does not need OMISSIONS or GRAPH inputs.
+  if (opts.rollback) {
+    return opts;
+  }
+
   // Auto-discover OMISSIONS from CWD if not specified
   if (!opts.omissionsPath) {
     const found = findLatestOmissions();
@@ -153,18 +171,6 @@ function parseArguments(argv) {
   if (!opts.graphPath) {
     console.error('[ERROR] Missing required argument: --graph=<PATH>');
     process.exit(2);
-  }
-
-  // Default Tickets.json in CWD if not specified
-  if (!opts.ticketsPath) {
-    const defaultPath = path.resolve('Tickets.json');
-    if (fs.existsSync(defaultPath)) {
-      opts.ticketsPath = defaultPath;
-      console.error('[phasify-omissions] Default Tickets.json: ' + defaultPath);
-    } else {
-      console.error('[ERROR] No Tickets.json found in CWD. Use --tickets=<PATH> to specify.');
-      process.exit(2);
-    }
   }
 
   return opts;
@@ -528,6 +534,29 @@ function consolidatePhasesByTicketCount(phases, hardEdges) {
   // Filter out consumed phases (IDs already set by reassignPhaseIdsWithOffset)
   var result = working.filter(function(p) { return p !== null; });
   return result;
+}
+
+/**
+ * Reassign ticket id and phaseId after phase consolidation.
+ * id: sequential within phaseId (1-based integer, per tickets-schema.json).
+ * Mirrors consolidate-phase-tickets.js renumberTicketIds — the re-index IDs
+ * substep (5-3-5) of split-to-tickets.md Step 5-3. Without this, tickets merged
+ * from multiple source phases would collide on id (all 1).
+ *
+ * @param {Array<{id:number, nodeIds:string[], tickets:object[]}>} phases — Phases with tickets
+ * @returns {Array} — New phases with tickets renumbered (immutable)
+ */
+// [::TICKET::] PX-115: re-index IDs after consolidation. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+function renumberTicketIdsInPhases(phases) {
+  if (!Array.isArray(phases)) return [];
+
+  return phases.map(function(phase) {
+    var newTickets = (phase.tickets || []).map(function(ticket, index) {
+      return Object.assign({}, ticket, { id: index + 1, phaseId: phase.id });
+    });
+    return Object.assign({}, phase, { tickets: newTickets });
+  });
 }
 
 /**
@@ -960,51 +989,104 @@ function moveArtifacts(opts, phasifiedPath, snapshotPath, ts) {
 // ============================================================
 
 /**
- * Roll back a phasify-omissions merge by removing phases with id >= offset.
- * Pure function — no side effects. Deep-clones input to avoid mutation.
+ * Resolve the snapshot to restore for a phasify-omissions merge rollback.
+ * Priority: metadata.phasifyMerge.snapshotPath, then timestamp-derived
+ * tickets/Tickets-<ts>.json, then — for legacy pre-PX-115 merge metadata that
+ * carries neither field — the tickets/ archive when it holds exactly one snapshot
+ * (unambiguous). The current Tickets.json's phasifyMerge metadata acts as the
+ * "HEAD" pointer of an undo stack: each rollback restores the merge's own pre-merge
+ * snapshot, and the restored state carries the previous merge's metadata so repeated
+ * rollbacks unwind one merge per invocation. Multiple snapshots with no pointer are
+ * ambiguous and are never auto-picked (that would break multi-rollback unwinding).
  *
  * @param {object} ticketsData — Parsed Tickets.json with metadata.phasifyMerge
- * @returns {object} — Deep-cloned Tickets.json with merged phases removed
- * @throws {Error} If metadata.phasifyMerge is missing or offset is invalid
+ * @param {string} ticketsDir — Directory containing Tickets.json
+ * @returns {string} — Absolute path of the snapshot to restore
+ * @throws {Error} If metadata.phasifyMerge is missing or has no resolvable pointer
  */
-// [::TICKET::] PX-109: deterministic rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-109 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-109 --for-spec --no-implementation-order`.
-function rollbackPhasifyMerge(ticketsData) {
-  if (!ticketsData || typeof ticketsData !== 'object') {
-    throw new Error('ticketsData must be a non-null object');
-  }
-
+// [::TICKET::] PX-115: snapshot-based rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+function resolveSnapshotPath(ticketsData, ticketsDir) {
   var mergeInfo = ticketsData.metadata && ticketsData.metadata.phasifyMerge;
-  if (!mergeInfo || typeof mergeInfo.offset !== 'number') {
-    throw new Error('No valid phasifyMerge metadata found in Tickets.json');
+  if (!mergeInfo) {
+    throw new Error('No phasifyMerge metadata found. Nothing to roll back.');
   }
-
-  var offset = mergeInfo.offset;
-
-  // Integrity check: offset must not overlap existing non-merged phases
-  var preMergePhases = (ticketsData.phases || []).filter(function(p) { return p.id < offset; });
-  if (preMergePhases.length === 0) {
-    throw new Error('Offset ' + offset + ' would remove all phases — rollback rejected');
+  if (mergeInfo.snapshotPath) {
+    return path.resolve(ticketsDir, mergeInfo.snapshotPath);
   }
-
-  // Deep clone to avoid mutation
-  var result = JSON.parse(JSON.stringify(ticketsData));
-
-  // Remove merged phases (id >= offset)
-  result.phases = preMergePhases;
-
-  // Remove orphaned tickets (phaseId >= offset) from remaining phases
-  for (var i = 0; i < result.phases.length; i++) {
-    var tickets = result.phases[i].tickets || [];
-    result.phases[i].tickets = tickets.filter(function(t) {
-      return t.phaseId < offset;
+  if (mergeInfo.timestamp) {
+    return path.resolve(ticketsDir, 'tickets', 'Tickets-' + mergeInfo.timestamp + '.json');
+  }
+  // Legacy merge metadata (pre-PX-115) carries only offset/mergedPhaseIds.
+  var ticketsDirPath = path.join(ticketsDir, 'tickets');
+  if (fs.existsSync(ticketsDirPath)) {
+    var snapshots = fs.readdirSync(ticketsDirPath).filter(function(f) {
+      return /^Tickets-\d{14}\.json$/.test(f);
     });
+    if (snapshots.length === 1) {
+      return path.resolve(ticketsDirPath, snapshots[0]);
+    }
+    if (snapshots.length > 1) {
+      throw new Error('Ambiguous legacy merge: multiple snapshots in tickets/ (' + snapshots.join(', ') + '). Add snapshotPath/timestamp to phasifyMerge metadata to disambiguate.');
+    }
+  }
+  throw new Error('No phasifyMerge snapshotPath or timestamp. Nothing to roll back.');
+}
+
+/**
+ * Roll back a phasify-omissions merge by restoring the pre-merge snapshot.
+ * Overwrites Tickets.json with the snapshot content via atomicWrite — a full state
+ * restore (round, statuses, phases all revert to the pre-merge state). When the
+ * primary snapshotPath is missing, falls back to the timestamp-derived snapshot;
+ * if neither exists, aborts with a listing of available tickets/ snapshots rather
+ * than blindly picking the newest one (which would break multi-rollback unwinding).
+ *
+ * @param {string} ticketsPath — Absolute path to Tickets.json
+ * @param {boolean} withBackup — Back up the current Tickets.json before restoring
+ * @returns {{ success: boolean, snapshotPath: string }}
+ * @throws {Error} When no resolvable snapshot exists or the restore fails
+ */
+// [::TICKET::] PX-115: snapshot-based rollback. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-115 --for-spec --no-implementation-order`.
+function rollbackFromSnapshot(ticketsPath, withBackup) {
+  var ticketsDir = path.dirname(ticketsPath);
+  var ticketsData;
+  try {
+    ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+  } catch (e) {
+    throw new Error('Cannot read Tickets.json: ' + e.message);
   }
 
-  // Remove rollback metadata
-  delete result.metadata.phasifyMerge;
+  var snapshotPath = resolveSnapshotPath(ticketsData, ticketsDir);
+  if (!fs.existsSync(snapshotPath)) {
+    // Fallback: timestamp-derived snapshot when snapshotPath points to a missing file
+    var mergeInfo = ticketsData.metadata && ticketsData.metadata.phasifyMerge;
+    var tsCandidate = mergeInfo && mergeInfo.timestamp
+      ? path.resolve(ticketsDir, 'tickets', 'Tickets-' + mergeInfo.timestamp + '.json')
+      : null;
+    if (tsCandidate && tsCandidate !== snapshotPath && fs.existsSync(tsCandidate)) {
+      snapshotPath = tsCandidate;
+    } else {
+      var ticketsListing = '(none)';
+      var ticketsDirPath = path.join(ticketsDir, 'tickets');
+      if (fs.existsSync(ticketsDirPath)) {
+        var snapshots = fs.readdirSync(ticketsDirPath).filter(function(f) {
+          return /^Tickets-\d{14}\.json$/.test(f);
+        });
+        ticketsListing = snapshots.length > 0 ? snapshots.join(', ') : '(none)';
+      }
+      throw new Error('Snapshot not found: ' + snapshotPath + '. Available tickets/: ' + ticketsListing);
+    }
+  }
 
-  return result;
+  if (withBackup) {
+    var tsMatch = snapshotPath.match(/Tickets-(\d{14})\.json$/);
+    var ts = tsMatch ? tsMatch[1] : new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    backupTickets(ticketsPath, path.join(ticketsDir, 'tmp-Tickets-' + ts + '.json'));
+  }
+
+  atomicWrite(ticketsPath, fs.readFileSync(snapshotPath, 'utf8'));
+  return { success: true, snapshotPath: snapshotPath };
 }
 
 // ============================================================
@@ -1016,61 +1098,46 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
   // ============================================================
   if (opts.rollback) {
-    if (opts.verbose) console.log('[VERBOSE] Rollback mode...');
+    if (opts.verbose) console.log('[VERBOSE] Rollback mode (snapshot restore)...');
 
-    var rollbackTicketsData;
+    var snapshotPath;
     try {
-      rollbackTicketsData = JSON.parse(fs.readFileSync(opts.ticketsPath, 'utf8'));
+      snapshotPath = resolveSnapshotPath(
+        JSON.parse(fs.readFileSync(opts.ticketsPath, 'utf8')),
+        path.dirname(opts.ticketsPath)
+      );
     } catch (e) {
-      console.error('[ERROR] Cannot read Tickets.json: ' + e.message);
-      process.exit(3);
-    }
-
-    var mergeInfo = rollbackTicketsData.metadata && rollbackTicketsData.metadata.phasifyMerge;
-    if (!mergeInfo) {
-      console.error('[ERROR] No phasifyMerge metadata found. Nothing to roll back.');
-      process.exit(1);
-    }
-
-    var rollbackResult;
-    try {
-      rollbackResult = rollbackPhasifyMerge(rollbackTicketsData);
-    } catch (e) {
-      console.error('[ERROR] Rollback failed: ' + e.message);
+      console.error('[ERROR] ' + e.message);
       process.exit(1);
     }
 
     if (opts.dryRun) {
       console.log('');
       console.log('=== Rollback Preview (--dry-run) ===');
-      console.log('Phases to remove: ' + (mergeInfo.mergedPhaseIds || []).join(', '));
+      console.log('Snapshot to restore: ' + snapshotPath);
       console.log('No files written.');
       return;
     }
 
-    if (opts.withBackup) {
-      var rollbackTs = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
-      var rollbackBackup = path.join(path.dirname(opts.ticketsPath), 'tmp-Tickets-' + rollbackTs + '.json');
-      try { backupTickets(opts.ticketsPath, rollbackBackup); } catch (e) {
-        console.error('[ERROR] Cannot backup Tickets.json: ' + e.message);
-        process.exit(3);
-      }
+    var rollbackResult;
+    try {
+      rollbackResult = rollbackFromSnapshot(opts.ticketsPath, !!opts.withBackup);
+    } catch (e) {
+      console.error('[ERROR] Rollback failed: ' + e.message);
+      process.exit(1);
     }
 
-    try {
-      atomicWrite(opts.ticketsPath, JSON.stringify(rollbackResult, null, 2) + '\n');
-      console.log('');
-      console.log('Rollback complete. Removed phases: ' + (mergeInfo.mergedPhaseIds || []).length);
-      if (opts.withBackup) console.log('Backup: ' + rollbackBackup);
-    } catch (e) {
-      console.error('[ERROR] Cannot write Tickets.json: ' + e.message);
-      process.exit(3);
+    console.log('');
+    console.log('Rollback complete. Restored snapshot: ' + rollbackResult.snapshotPath);
+    if (opts.withBackup) {
+      var rollbackTsMatch = rollbackResult.snapshotPath.match(/Tickets-(\d{14})\.json$/);
+      if (rollbackTsMatch) console.log('Backup: tmp-Tickets-' + rollbackTsMatch[1] + '.json');
     }
     return;
   }
@@ -1254,12 +1321,15 @@ function runPhasifyOmissions(opts) {
   // ============================================================
   // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
   // ============================================================
-  var phaseCountBeforeConsolidation = phasedTickets.length;
-  // PX-113: No phase consolidation — ticket merging/consolidation is prohibited.
-  // Phase splitting and reordering only.
-  var consolidatedPhases = phasedTickets;
+  if (opts.verbose) console.log('[VERBOSE] Phases before consolidation: ' + phasedTickets.length);
+  // PX-115: Restore Step 5-3 consolidation (PX-113 disabled it). Phases with fewer
+  // than 3 tickets are merged backward into the following phase, then ticket IDs
+  // are re-indexed 1..N within each phase (re-index IDs substep 5-3-5).
+  var consolidatedPhases = renumberTicketIdsInPhases(
+    consolidatePhasesByTicketCount(phasedTickets, hardEdges)
+  );
   if (opts.verbose) {
-    console.log('[VERBOSE] Phases (no consolidation): ' + consolidatedPhases.length);
+    console.log('[VERBOSE] Phases (consolidated): ' + consolidatedPhases.length);
   }
 
   // ============================================================
@@ -1485,12 +1555,14 @@ function runPhasifyOmissions(opts) {
   console.log('Round-aware status present on ' + reviewedCount + ' pre-merge tickets (current round R' + currentRound + ').');
   mergedResult.data = incrementRound(mergedResult.data);
 
-  // Inject merge metadata (PX-109: enables --rollback)
+  // Inject merge metadata (PX-109: enables --rollback; PX-115: snapshotPath + timestamp)
   mergedResult.data.metadata = mergedResult.data.metadata || {};
   mergedResult.data.metadata.phasifyMerge = {
     offset: offset,
     mergedPhaseIds: output.phases.map(function(p) { return p.id; }),
-    mergedAt: new Date().toISOString().split('T')[0]
+    mergedAt: new Date().toISOString().split('T')[0],
+    timestamp: ts,
+    snapshotPath: 'tickets/Tickets-' + ts + '.json'
   };
 
   // Step P: Atomic write merged Tickets.json
@@ -1540,14 +1612,16 @@ module.exports = {
   reassignPhaseIdsWithOffset,
   assignTicketsToPhases,
   consolidatePhasesByTicketCount,
+  renumberTicketIdsInPhases,
   repairInspectionPrefixes,
   validatePhasedOmissions,
   buildOutput,
   // PX-108: auto-merge pipeline
   backupTickets,
   mergePhasifyToTickets,
-  // PX-109: rollback
-  rollbackPhasifyMerge,
+  // PX-109/PX-115: snapshot-based rollback
+  resolveSnapshotPath,
+  rollbackFromSnapshot,
   // PX-111: snapshot + auto-review
   markPreMergeTicketsReviewed,
   createSnapshot,
