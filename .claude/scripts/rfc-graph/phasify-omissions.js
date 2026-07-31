@@ -1190,6 +1190,10 @@ function runPhasifyOmissions(opts) {
   if (opts.verbose) console.log('[VERBOSE] Assigning tickets to phases...');
   const phasedTickets = assignTicketsToPhases(offsetPhases, actionTickets, finalOrder);
 
+  // ============================================================
+  // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
+  // ============================================================
+  var phaseCountBeforeConsolidation = phasedTickets.length;
   // PX-113: No phase consolidation — ticket merging/consolidation is prohibited.
   // Phase splitting and reordering only.
   var consolidatedPhases = phasedTickets;

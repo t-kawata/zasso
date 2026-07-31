@@ -641,9 +641,9 @@ function validatePhasedOmissions(inMemoryTickets, nodes, edges, omissionNodeIds)
  * @param {object} metadata — Metadata object
  * @returns {object} — Full output JSON
  */
-// [::TICKET::] PX-107, PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-113) --for-spec --no-implementation-order`.
 function buildOutput(phases, referenceTickets, metadata) {
-  // Filter to only phases that have tickets (non-empty re-implementation phases)
+  // PX-113: Deep clone preserves ALL fields — no whitelist, no field loss
   var nonEmptyPhases = phases.filter(function(p) {
     return (p.tickets || []).length > 0;
   });
@@ -657,23 +657,14 @@ function buildOutput(phases, referenceTickets, metadata) {
         characteristics: '',
         nodeIds: (p.nodeIds || []).sort(),
         tickets: (p.tickets || []).map(function(t) {
-          // Include originalTicketKey and foundOmissions in output
-          var out = { id: t.id, phaseId: t.phaseId, title: t.title, status: 'todo' };
-          if (t.originalTicketKey) out.originalTicketKey = t.originalTicketKey;
-          if (t.foundOmissions) out.foundOmissions = t.foundOmissions;
-          if (t.nodeIds) out.nodeIds = t.nodeIds;
-          if (t.background) out.background = t.background;
-          if (t.scope) out.scope = t.scope;
-          if (t.acceptanceCriteria) out.acceptanceCriteria = t.acceptanceCriteria;
-          if (t.contracts) out.contracts = t.contracts;
-          if (t.notes) out.notes = t.notes;
+          var out = JSON.parse(JSON.stringify(t));
+          out.status = 'todo';
           return out;
         }),
       };
     }),
     referenceTickets: referenceTickets.map(function(t) {
-      var out = { id: t.id, phaseId: t.phaseId, title: t.title };
-      if (t.nodeIds) out.nodeIds = t.nodeIds;
+      var out = JSON.parse(JSON.stringify(t));
       out.note = 'No ABC violations found. Included for dependency completeness. Does not require re-implementation.';
       return out;
     }),
@@ -964,7 +955,7 @@ function rollbackPhasifyMerge(ticketsData) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1054,9 +1045,13 @@ function runPhasifyOmissions(opts) {
     console.warn('[WARN] No tickets found in OMISSIONS file.');
   }
 
-  const { actionTickets, referenceTickets, actionTicketKeys } = dedupTickets(allTickets);
+  // PX-113: No dedupTickets separation — all tickets processed uniformly
+  // reference tickets must not be excluded from phase reallocation
+  const actionTickets = allTickets;
+  const referenceTickets = [];
+  const actionTicketKeys = new Set();
   if (opts.verbose) {
-    console.log('[VERBOSE] Action tickets: ' + actionTickets.length + ', Reference tickets: ' + referenceTickets.length);
+    console.log('[VERBOSE] All tickets: ' + actionTickets.length);
   }
 
   // Step B: Extract subgraph
@@ -1199,17 +1194,12 @@ function runPhasifyOmissions(opts) {
   // Step G: Consolidate phases by ticket count (min 3 tickets per phase, per split-to-tickets.md Step 5-3)
   // ============================================================
   var phaseCountBeforeConsolidation = phasedTickets.length;
-  var consolidatedPhases = consolidatePhasesByTicketCount(phasedTickets, hardEdges);
+  // PX-113: No phase consolidation — ticket merging/consolidation is prohibited.
+  // Phase splitting and reordering only.
+  var consolidatedPhases = phasedTickets;
   if (opts.verbose) {
-    if (consolidatedPhases.length < phaseCountBeforeConsolidation) {
-      console.log('[VERBOSE] Consolidated phases: ' + phaseCountBeforeConsolidation + ' → ' + consolidatedPhases.length);
-    } else {
-      console.log('[VERBOSE] No consolidation needed (' + consolidatedPhases.length + ' phases all >= 3 tickets)');
-    }
+    console.log('[VERBOSE] Phases (no consolidation): ' + consolidatedPhases.length);
   }
-
-  // Re-normalize phase IDs contiguous from offset after consolidation (removes gaps from merged phases)
-  consolidatedPhases = reassignPhaseIdsWithOffset(consolidatedPhases, offset);
 
   // ============================================================
   // Step H: Repair inspection prefixes
