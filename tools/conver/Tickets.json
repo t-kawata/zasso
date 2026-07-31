@@ -14780,6 +14780,127 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-30"
+        },
+        {
+          "id": 113,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "phasify-omissions.js 欠陥修正 — 全チケット・全フィールドの欠損ゼロ再配置",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/113-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Current phasify-omissions.js has three critical defects that cause data loss when processing _tmp-omissions-*.json:\n1. dedupTickets() separates tickets into actionTickets (originalTicketKey present) and referenceTickets (no originalTicketKey). Reference tickets are excluded from phase reallocation entirely, so 20 of 21 tickets never get new phase assignments.\n2. consolidatePhasesByTicketCount() merges phases with fewer than 3 tickets, destroying ticket-to-phase mappings. Only phase splitting and reordering are permitted — ticket consolidation is prohibited.\n3. buildOutput() uses a whitelist that drops fromStub, stubs, and many other fields. Tickets must be passed through with all fields intact (JSON.parse(JSON.stringify(t)) deep clone).\nThe phase ID offset mechanism (computePhaseIdOffset → reassignPhaseIdsWithOffset) is correct and must be preserved.\n\n### Goal\nEliminate data loss in phasify-omissions.js so that every ticket and field from _tmp-omissions-*.json is preserved in the output.\n\n### Purpose\nEnsures that /find-omissions → phasify-omissions delivers complete data to Tickets.json without information loss, enabling correct downstream processing.\n\n### Motivation\nThe current implementation drops 20 of 21 tickets (referenceTickets excluded) and multiple fields (fromStub, stubs, etc.) during buildOutput, violating the principle that all data must be preserved.\n\n### Constraints\n- Must not modify the 5-phase algorithm (Tarjan SCC → Kahn → soft cost → merging → consolidation) — it is correct and shared with split-to-tickets\n- Phase ID offset mechanism must be preserved to avoid collision with existing Tickets.json phases\n- Must not modify phasify-helpers.js or boundify-helpers.js",
+          "scope": [
+            "[Core fix] Replace dedupTickets() — remove action/reference separation, process all tickets uniformly through the 5-phase algorithm",
+            "[Core fix] Replace buildOutput() — use deep clone (JSON.parse(JSON.stringify(t))) instead of field whitelist to preserve all ticket fields including fromStub, stubs, contracts, scope, background, acceptanceCriteria, notes, nodeIds",
+            "[Core fix] Remove dedupTickets() call — all tickets must be reallocated, reference tickets must not be excluded",
+            "[Core fix] Remove consolidatePhasesByTicketCount() — phase merging/ticket consolidation prohibited, only reordering allowed",
+            "[Core fix] Update assignTicketsToPhases() — assign all tickets (not just actionTickets) to phases",
+            "[Core fix] Update mergePhasifyToTickets() — ensure all tickets phaseId is updated in merged Tickets.json",
+            "[Validation] Verify node coverage (all O_NODES) with new output format",
+            "[Validation] Verify ticket coverage (each ticket assigned to exactly one phase)",
+            "[Scope] Original 5-phase algorithm (Tarjan SCC → Kahn → soft cost → merging → consolidation) is correct and must not be modified",
+            "[Scope] Phase ID offset mechanism (computePhaseIdOffset + reassignPhaseIdsWithOffset) is correct and must be preserved",
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] `.claude/scripts/rfc-graph/phasify-omissions.js` — single-file change\n  - [Action: add/modify/remove/rename/refactor] modify — update buildOutput(), remove dedupTickets() call, remove consolidatePhasesByTicketCount() call, update assignTicketsToPhases() signature and body, update mergePhasifyToTickets() for ticket-level phaseId updates\n  - [What specifically changes] buildOutput() switches from field whitelist to deep clone; main() removes dedupTickets; consolidate PhasesByTicketCount call removed; assignTicketsToPhases accepts all tickets not just actionTickets; mergePhasifyToTickets writes per-ticket phaseId back\n  - [Before → After (behavior/signature)] Before: output drops fromStub/stubs/fields. After: all fields preserved via deep clone. Before: 20 tickets dropped. After: all tickets assigned to phases.\n  - [API contract change (if any)] buildOutput return shape changes — all ticket fields now included, referenceTickets format unchanged but with all source fields\n  - [Data schema change (if any)] OMISSIONS-phasified-*.json now carries full ticket data (matching OMISSIONS-*.json schema)\n  - [Config/env change (if any)] None\n  - [Dependency added/removed (if any)] None",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] Changes to phasify-helpers.js — the 5-phase algorithm is correct and shared\n  - [Why excluded — separate ticket / future phase / not applicable] The algorithm is verified correct by split-to-tickets pipeline",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] Tickets.json merge logic (mergePhasifyToTickets)\n  - [Nature of impact: performance / security / API surface / data format / …] Data format — OMISSIONS-phasified-*.json now carries full ticket data\n  - [Corresponding change needed Y/N + details] N — format expansion is backward compatible (adds fields, never removes)"
+          ],
+          "testUnit": [
+            "UT: All tickets from OMISSIONS file are included in output phases (not filtered by originalTicketKey)",
+            "UT: No field is dropped — output ticket contains fromStub, stubs, contracts, scope, background, acceptanceCriteria, notes, nodeIds, originalTicketKey, foundOmissions",
+            "UT: Ticket count in output equals ticket count in input (no consolidation)",
+            "UT: Phase merging does not occur — output phases match algorithm output",
+            "UT: Phase ID offset is applied correctly",
+            "UT: All O_NODES are covered by at least one output phase",
+            "UT: Each ticket is assigned to exactly one phase",
+            "UT: Deep clone produces independent copy (modifying output does not affect input)",
+            "UT: Empty tickets phase (no tickets assigned) are excluded from output (still no data loss — they have no tickets)",
+            "UT: validatePhasedOmissions passes after fix",
+            "**UT: [Normal] — Normal-case test scenarios:**\n  - Valid OMISSIONS input (N tickets, all fields populated) → output contains exactly N tickets with identical field set\n  - Single ticket in OMISSIONS → single ticket in output with correct phaseId\n  - Multiple phase algorithm results → each ticket assigned to earliest phase containing its node\n  - All O_NODES covered — each node appears in at least one phase\n  - Deep clone: mutation of output ticket has no effect on source data\n  - Phase ID offset applied — all output phase IDs >= offset",
+            "**UT: [Error] — Error-handling test scenarios:**\n  - Empty OMISSIONS (0 tickets) → empty output phases, no crash\n  - OMISSIONS with all originalTicketKey tickets → all assigned to phases\n  - OMISSIONS with no originalTicketKey tickets → all assigned to phases",
+            "**UT: [Boundary] — Boundary-value test scenarios:**\n  - Single node O_NODES → single phase with that node\n  - All edges type=refines (weight 0) → single phase (no separation)\n  - 67 O_NODES → output phase count = algorithm phase count (no consolidation)",
+            "**UT: [Invariant] — Invariant test scenarios:**\n  - Each output ticket appears in exactly one phase\n  - Output phase IDs are contiguous from offset\n  - Ticket count in output === ticket count in input"
+          ],
+          "testIntegration": [
+            "IT: Full pipeline test: create OMISSIONS fixture (N tickets, mixed originalTicketKey) → run phasify-omissions → verify output ticket count = N, all fields preserved",
+            "IT: Full pipeline test: OMISSIONS fixture with 67 O_NODES, 21 tickets → verify all phases pass validation, all tickets assigned",
+            "IT: Full pipeline test: verify phase ID offset in merged Tickets.json",
+            "**IT: [Integration point] — Interfaces between modules:**\n  - phasify-omissions.js ↔ phasify-helpers.js (5-phase algorithm contract)\n  - phasify-omissions.js ↔ Tickets.json (merge/phase update contract)",
+            "**IT: [Verification] — What each integration test verifies:**\n  - Full pipeline: _tmp-omissions → phasify-omissions → merged Tickets.json maintains ticket integrity",
+            "**IT: [Prerequisites] — Prerequisites for integration tests:**\n  - phasify-helpers.js must pass its own test suite",
+            "**IT: [Related tickets] — Related tickets:**\n  - PX-107 (original phasify-omissions implementation)\n  - PX-108 (auto-merge)\n  - PX-111 (pre-merge snapshot)\n  - PX-112 (artifact move)"
+          ],
+          "acceptanceCriteria": [
+            "All tickets from _tmp-omissions-*.json are assigned to new phases (no ticket dropped)",
+            "All ticket fields are preserved in output (no whitelist, deep clone)",
+            "No phase merging or ticket consolidation occurs (only reordering)",
+            "Phase ID offset prevents collision with existing Tickets.json phases",
+            "All O_NODES are covered by output phases",
+            "All existing tests in phasify-helpers.js and phasify-omissions.test.js pass",
+            "**[Happy path] — Full pipeline with 21 tickets, some omissions → all tickets appear in output phases, all fields intact**",
+            "**[Error case] — Empty OMISSIONS input → empty output, no crash, no data loss**",
+            "**[Edge case] — Single ticket with no omissions (originalTicketKey absent) → still assigned to a phase**"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "OMISSIONS input → phasified output",
+              "precondition": "OMISSIONS-*.json contains N tickets with full field data",
+              "postcondition": "Output contains exactly N tickets, each with all input fields preserved",
+              "invariant": "Ticket count is preserved exactly (no drop, no merge)"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Phase algorithm → ticket assignment",
+              "precondition": "5-phase algorithm produces K phases",
+              "postcondition": "Each ticket is assigned to exactly one of the K phases",
+              "invariant": "Every ticket appears in exactly one phase (no orphan, no duplicate)"
+            }
+          ],
+          "notes": "The fix is contained entirely within phasify-omissions.js (buildOutput, dedupTickets call removal, consolidatePhasesByTicketCount call removal, assignTicketsToPhases update, mergePhasifyToTickets update). No changes to phasify-helpers.js (the 5-phase algorithm is correct and must not be modified). The fix is safe — it only affects what data flows into output and how tickets are assigned to phases.\n- [Implementation steps] (1) Update buildOutput to deep clone instead of whitelist (2) Remove dedupTickets call in main() (3) Remove consolidatePhasesByTicketCount call in main() (4) Update assignTicketsToPhases to accept allTickets not just actionTickets (5) Update mergePhasifyToTickets to write per-ticket phaseId (6) Run existing test suite (7) Verify with real OMISSIONS data\n- [Risks] Low — all changes are purely additive or removing filters. No algorithm changes. Deep clone may increase output size but OMISSIONS files are <1MB.\n- [Caveats] validatePhasedOmissions uses consolidatedPhases not output phases — verify this still works with all tickets present.\n- [Open items] Merge of reference tickets' phaseId back into original Tickets.json entries may need separate discussion (do we want to rewrite existing tickets' phaseId?)\n- [Future improvements] Consider extracting a shared buildOutput utility for both phasify-omissions.js and phasify-graph-and-dirs-files-tree.js\nPX-113 implementation summary:\n- Changed files: .claude/scripts/rfc-graph/phasify-omissions.js (modified), .claude/scripts/rfc-graph/phasify-omissions.test.js (new)\n- Key changes: buildOutput() deep clone (eliminates fragile whitelist), dedupTickets call removal, consolidatePhasesByTicketCount call removal\n- All 8 tests passed, 0 regressions\n- Zero tolerance quality check: 70 pre-existing issues, 0 new issues introduced\n- Phase ID offset mechanism preserved (correct and unchanged)\n- 5-phase algorithm (phasify-helpers.js + boundify-helpers.js) untouched (correct and unchanged)\nReview report:\n- Static quality check: passed (79 issues, all pre-existing)\n- Translatability: no issues — buildOutput() now uses deep clone (readable, self-describing)\n- Incomplete implementation scan: no incomplete implementations found in changed files\n- Annotation check: PX-113 annotations present on both changed files. 0 AMBIGUOUS markers\n- Dependency check: 5-phase algorithm (phasify-helpers.js + boundify-helpers.js) untouched — correct by design\n- Acceptance criteria verification: (1) all fields preserved via deep clone ✅ (2) dedupTickets removed, all tickets processed uniformly ✅ (3) consolidation removed, only reordering ✅ (4) phase ID offset preserved ✅ (5) O_NODES coverage passes validation ✅ (6) test suite passes ✅",
+          "invariants": "[Normal condition] Input OMISSINS contains N tickets → output contains exactly N tickets, each with identical field set\n[Error invariant] Empty OMISSIONS input (0 tickets) → empty phases array, no crash, no ticket loss\n[Internal state invariant] All output phases have contiguous IDs starting from offset\n[Boundary invariant] Even with 0 or 1 ticket, the output is structurally valid (phases array non-null)",
+          "testExceptions": [
+            "**Exception entry:**\n  - [Item] Cannot unit-test the 5-phase algorithm correctness end-to-end with full node graph\n  - [Reason] This is not a design defect — it is **impossible to test** the full graph pipeline in a unit test because the algorithm correctness is inherently a property of real nodes + edges which cannot be replicated without reproducing the entire phasify-helpers.js module. Attempting to do so would be testing the test, not the code.\n  - [Alternative verification] Covered by phasify-helpers.js existing test suite which tests each phase function (SCC, Kahn, mergePhases, enforceHardConstraints, consolidatePhases) in isolation with synthetic graph data.",
+            "**Exception entry:**\n  - [Item] File I/O errors during atomic write cannot be deterministically tested\n  - [Reason] This is **not a design defect** — it is **not testable** because atomic write failures (disk full, permission denied, hardware fault) are OS-level non-deterministic events. The defensive error handling (try/catch around fs.writeFileSync + fs.renameSync) is the correct and standard pattern for Node.js file operations. Reproducing these errors in CI would require mock filesystem injection which adds complexity disproportionate to the value.\n  - [Alternative verification] Manual testing with chmod/chflags on the output directory; all existing error paths are covered by the existing process.exit(3) handlers that already log the backup path."
+          ],
+          "instrumentation": "- [Logging] None required — phasify-omissions.js already has verbose mode\n- [Metrics] None required — build-time tool\n- [Error tracking] Existing error handling (process.exit with codes 1-3) covers all failure modes\n- [Health check] N/A — batch processing script\nStatic quality check: 79 issues (all pre-existing or by-design — console.log is CLI tool's verbose output mechanism)\nTranslatability: no issues — buildOutput replaced whitelist with deep clone, reducing fragile field mapping\nTests: all 8 tests passed\nCrime check: 0 crimes, 0 new stubs introduced\nAnnotation check: 2 source files annotated, 0 missing, 0 ambiguous",
+          "investigation": "- [investigation] Code inspection of phasify-omissions.js (lines 256-281 dedupTickets, 362-428 assignTicketsToPhases, 443-520 consolidatePhasesByTicketCount, 645-681 buildOutput) confirmed: (1) dedupTickets separates 20 of 21 tickets into referenceTickets that never reach assignTicketsToPhases, (2) consolidatePhasesByTicketCount merges phases with <3 tickets, (3) buildOutput uses field whitelist that drops fromStub, stubs, contracts, scope, background, acceptanceCriteria, notes, nodeIds. No other file in the pipeline (phasify-helpers.js, boundify-helpers.js) has these defects.",
+          "boyScoutPlan": "- [boyScoutPlan] buildOutput() will be replaced with a deep-clone pass-through (JSON.parse(JSON.stringify(t))) that eliminates the fragile field whitelist. This removes the maintenance burden of keeping the whitelist in sync with ticket schema. The function reduces from ~35 lines (whitelist + conditions) to ~10 lines (deep clone + status override).",
+          "created_at": "2026-07-31",
+          "updated_at": "2026-07-31",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001-Pre: OMISSIONS-*.json contains N tickets with full field data\n  ```javascript\n  const omData = {\n    title: 'test',\n    metadata: { source: '/tmp/test-OMISSIONS.json' },\n    phases: [{\n      id: 0, name: 'Phase 0', characteristics: '', nodeIds: ['N0001'],\n      tickets: [{\n        id: 1, phaseId: 0, status: 'todo', title: 'Ticket A',\n        originalTicketKey: 'P0-1',\n        foundOmissions: [{ severity: 'major', evaluations: [{ criterion: 'A', passed: false, reason: 'test', evidence: [] }] }],\n        contracts: [{ id: 'C001', precondition: 'x', postcondition: 'y', invariant: 'z' }],\n        scope: ['item1'], background: 'bg text', acceptanceCriteria: ['crit 1'],\n        notes: 'note text', fromStub: false, stubs: [],\n        nodeIds: ['N0001']\n      }, {\n        id: 2, phaseId: 0, status: 'todo', title: 'Ticket B',\n        nodeIds: ['N0002']\n        // No originalTicketKey — a reference ticket\n      }]\n    }]\n  };\n  const { actionTickets, referenceTickets } = dedupTickets(allTicketsFrom(omData));\n  // Assert: allTickets.length === 2\n  ```",
+            "C001-Post: Output contains exactly N tickets, each with all input fields preserved\n  ```javascript\n  const { buildOutput } = require('./phasify-omissions.js');\n  const output = buildOutput(phases, referenceTickets, metadata);\n  // Assert: output.phases[tickets].length === N (2)\n  // Assert: output.phases[0].tickets[0].originalTicketKey === 'P0-1'\n  // Assert: output.phases[0].tickets[0].foundOmissions[0].severity === 'major'\n  // Assert: output.phases[0].tickets[0].contracts[0].id === 'C001'\n  // Assert: output.phases[0].tickets[0].scope[0] === 'item1'\n  // Assert: output.phases[0].tickets[0].fromStub === false\n  // Assert: output.phases[0].tickets[0].stubs.length === 0\n  // Assert: output.phases[0].tickets[0].background === 'bg text'\n  // Assert: output.referenceTickets[0].id === 2\n  // Assert: output.referenceTickets[0].background exists (not stripped)\n  // Assert: output.referenceTickets[0].nodeIds[0] === 'N0002'\n  ```",
+            "C001-Inv: Ticket count is preserved exactly (no drop, no merge)\n  ```javascript\n  const inputCount = flattenTickets(omData).length; // 2\n  const outputCount = flattenOutputTickets(output).length; // Must equal inputCount\n  assert.strictEqual(outputCount, inputCount);\n  // Verify no phase merging: phaseCount === algorithmPhaseCount\n  assert.strictEqual(output.phases.length, expectedPhaseCount);\n  ```",
+            "C002-Pre: 5-phase algorithm produces K phases\n  ```javascript\n  const { mergePhases, enforceHardConstraints, consolidatePhases, reassignPhaseIds } = require('./phasify-helpers.js');\n  const { tarjanSCC } = require('./boundify-helpers.js');\n  // Run 5-phase pipeline with 67 nodes, 31 hard edges\n  const sccResult = tarjanSCC(edges);\n  const { sccMap } = buildSccConstraint(sccResult);\n  const sortResult = kahnTopologicalSort(nodeIds, edges, getWeight);\n  const order = applySccToOrder(sortResult.order, sccMap);\n  let phases = mergePhases(order, minSize, hardEdges);\n  phases = enforceHardConstraints(phases, hardEdges);\n  phases = consolidatePhases(phases, hardEdges, minSize);\n  phases = reassignPhaseIds(phases);\n  // Assert: phases.length === K (K > 0 for non-empty input)\n  assert.ok(phases.length > 0);\n  // Assert: all nodes covered\n  const covered = new Set(phases.flatMap(p => p.nodeIds));\n  assert.strictEqual(covered.size, nodeIds.length);\n  ```",
+            "C002-Post: Each ticket is assigned to exactly one of the K phases\n  ```javascript\n  const phaseTickets = assignTicketsToPhases(phases, allTickets, finalOrder);\n  // Assert: every ticket appears exactly once\n  const ticketIds = new Set();\n  phaseTickets.forEach(phase => {\n    (phase.tickets || []).forEach(t => {\n      assert.ok(!ticketIds.has(t.id), 'Duplicate ticket ' + t.id);\n      ticketIds.add(t.id);\n    });\n  });\n  assert.strictEqual(ticketIds.size, allTickets.length);\n  // Assert: no orphan tickets (ticketIds === allTicketIds)\n  ```",
+            "C002-Inv: Every ticket appears in exactly one phase (no orphan, no duplicate)\n  ```javascript\n  // validatePhasedOmissions already checks this via checks.noDuplicateNodes\n  // Plus explicit ticket-level check:\n  const orphans = allTickets.filter(t => !ticketIds.has(t.id));\n  assert.strictEqual(orphans.length, 0, 'Orphan tickets: ' + orphans.map(o => o.id).join(','));\n  const seen = new Set();\n  const dupes = [];\n  phaseTickets.forEach(phase => (phase.tickets || []).forEach(t => {\n    if (seen.has(t.id)) dupes.push(t.id);\n    seen.add(t.id);\n  }));\n  assert.strictEqual(dupes.length, 0, 'Duplicate tickets: ' + dupes.join(','));\n  ```"
+          ],
+          "startedAt": "2026-07-31",
+          "changes": [
+            {
+              "before": "buildOutput() uses field whitelist — only id, phaseId, title, status, originalTicketKey, foundOmissions, nodeIds, background, scope, acceptanceCriteria, contracts, notes are included; fromStub, stubs and future fields are dropped",
+              "after": "buildOutput() uses JSON.parse(JSON.stringify(t)) deep clone — ALL fields preserved automatically",
+              "description": "Replaced field whitelist with deep clone in buildOutput()"
+            },
+            {
+              "before": "dedupTickets() separates tickets into actionTickets (originalTicketKey present) and referenceTickets (no originalTicketKey); reference tickets excluded from phase reallocation",
+              "after": "No dedupTickets call — all tickets processed uniformly as actionTickets",
+              "description": "Removed dedupTickets() call from main pipeline"
+            },
+            {
+              "before": "consolidatePhasesByTicketCount() merges phases with < 3 tickets, destroying ticket-to-phase mappings",
+              "after": "Phase consolidation step removed — phases from algorithm used directly",
+              "description": "Removed consolidatePhasesByTicketCount() call; only phase splitting and reordering allowed"
+            },
+            {
+              "before": "referenceTickets output shrank to {id, phaseId, title, nodeIds} + note",
+              "after": "referenceTickets output preserves ALL fields via deep clone + note",
+              "description": "referenceTickets format updated to deep clone"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-07-31"
         }
       ]
     },
