@@ -348,6 +348,42 @@ assert(typeof phasifyOmissions.dedupTickets === 'function', 'dedupTickets functi
 })();
 
 // [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+(function testMarkPreMergeTicketsReviewedPreservesExistingRoundMarker() {
+  const mergedData = {
+    round: 2,
+    phases: [
+      {
+        id: 0, name: 'P0',
+        tickets: [
+          { id: 1, phaseId: 0, status: 'R1', title: 'already-marked' },
+          { id: 2, phaseId: 0, status: 'todo', title: 'not-yet-marked' }
+        ]
+      },
+      { id: 2, name: 'P2', tickets: [{ id: 3, phaseId: 2, status: 'todo', title: 'new-omission' }] }
+    ]
+  };
+
+  const result = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(mergedData)), 2, 2
+  );
+
+  // A ticket already marked R1 keeps its original round information
+  assert.strictEqual(result.phases[0].tickets[0].status, 'R1',
+    'already round-marked ticket must not be overwritten, got: ' + result.phases[0].tickets[0].status);
+  // A pre-merge ticket without a round marker gets the current round
+  assert.strictEqual(result.phases[0].tickets[1].status, 'R2',
+    'unmarked pre-merge ticket must be marked R2, got: ' + result.phases[0].tickets[1].status);
+  // New omission phase (phase.id >= offset) stays todo
+  assert.strictEqual(result.phases[1].tickets[0].status, 'todo',
+    'new omission ticket must stay todo');
+  // Input not mutated
+  assert.strictEqual(mergedData.phases[0].tickets[0].status, 'R1',
+    'markPreMergeTicketsReviewed must not mutate its input');
+
+  console.log('✅ testMarkPreMergeTicketsReviewedPreservesExistingRoundMarker passed');
+})();
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 (function testIncrementRound() {
   const ticketsData = { round: 1, phases: [] };
 

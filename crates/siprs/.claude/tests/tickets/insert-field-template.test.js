@@ -45,6 +45,7 @@ function runScript(scriptName, args, stdin) {
 
 function createMinimalTicketsJson(overrides) {
   const defaultTickets = {
+    round: 1,
     title: 'test',
     metadata: { source: 'test', generatedAt: '2026-07-15' },
     phases: [{ id: -1, name: '[X] Test', tickets: [] }],

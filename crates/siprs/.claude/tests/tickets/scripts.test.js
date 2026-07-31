@@ -63,6 +63,7 @@ process.chdir(TEST_TICKETS_DIR);
 try {
   // テストに必要な最小限の Tickets.json を作成（search-tickets.js 等が参照する）
   fs.writeFileSync('Tickets.json', JSON.stringify({
+    round: 1,
     title: 'test',
     metadata: { source: 'test', generatedAt: '2026-07-15' },
     phases: [{ id: -1, name: '[X] Test', tickets: [] }],
@@ -659,7 +660,7 @@ try {
     assertOk(threw, 'mergePhasifyToTickets: throws on null');
 
     // -- validateMergedTickets: valid passes --
-    const validData = { title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 't', status: 'todo' }] }] };
+    const validData = { round: 1, title: 't', metadata: { source: 's', generatedAt: '2026-07-30' }, phases: [{ id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, title: 't', status: 'todo' }] }] };
     const validResult = p.validateMergedTickets(validData);
     assertOk(validResult.valid, 'validateMergedTickets: valid true');
 
@@ -837,7 +838,7 @@ try {
     assert(typeof p.markPreMergeTicketsReviewed === 'function', 'markPreMergeTicketsReviewed exported');
     assert(typeof p.createSnapshot === 'function', 'createSnapshot exported');
 
-    // -- markPreMergeTicketsReviewed: normal --
+    // -- markPreMergeTicketsReviewed: normal (PX-114 round-aware contract) --
     const input = {
       title: 'test', metadata: { source: 's', generatedAt: '2026-07-30' },
       phases: [
@@ -846,9 +847,9 @@ try {
         { id: 6, name: 'P6', tickets: [{ id: 1, phaseId: 6, title: 'New', status: 'todo' }] }
       ]
     };
-    const result = p.markPreMergeTicketsReviewed(input, 6);
-    assertEq(result.phases[0].tickets[0].status, 'reviewed', 'markReviewed: pre-offset todo -> reviewed');
-    assertEq(result.phases[1].tickets[0].status, 'reviewed', 'markReviewed: done also becomes reviewed (unconditional)');
+    const result = p.markPreMergeTicketsReviewed(input, 6, 1);
+    assertEq(result.phases[0].tickets[0].status, 'R1', 'markReviewed: pre-offset todo -> R1 (round-aware)');
+    assertEq(result.phases[1].tickets[0].status, 'R1', 'markReviewed: done also becomes R1');
     assertEq(result.phases[2].tickets[0].status, 'todo', 'markReviewed: offset+ tickets untouched');
     assertEq(input.phases[0].tickets[0].status, 'todo', 'markReviewed: original unchanged');
     assertEq(result.phases[0].tickets[0].id, 1, 'markReviewed: id preserved');

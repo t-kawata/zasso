@@ -810,13 +810,27 @@ function cleanupFiles(paths) {
 // ============================================================
 
 /**
- * Mark all pre-offset tickets with the round-aware status 'R' + round so only
- * omission tickets remain 'todo'. Pure function — deep-clones input, no side effects.
+ * Return true when a ticket status is a round-aware marker such as 'R1' or 'R10'.
+ * Existing markers must be preserved so the round in which a ticket was marked
+ * remains observable after later phasify-omissions runs.
+ *
+ * @param {string} status — Ticket status value
+ * @returns {boolean} — True when status already carries a round marker
+ */
+function isRoundMarked(status) {
+  return typeof status === 'string' && /^R[1-9]\d*$/.test(status);
+}
+
+/**
+ * Mark pre-offset tickets that do not yet carry a round marker with the
+ * round-aware status 'R' + round, preserving tickets already marked R<round> so
+ * the round in which each ticket was processed is retained. New omission tickets
+ * (phase.id >= offset) remain 'todo'. Pure function — deep-clones input, no side effects.
  *
  * @param {object} mergedData — Merged Tickets.json with phases[{id, tickets}]
  * @param {number} offset — Phase ID offset; phases with id < offset are pre-merge
- * @param {number} round — Current round number (>= 1); pre-merge tickets get 'R' + round
- * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets set to round-aware status
+ * @param {number} round — Current round number (>= 1); unmarked pre-merge tickets get 'R' + round
+ * @returns {object} — Deep-cloned Tickets.json with pre-offset tickets round-aware
  */
 // [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
@@ -840,7 +854,9 @@ function markPreMergeTicketsReviewed(mergedData, offset, round) {
 
     var tickets = phase.tickets || [];
     for (var ti = 0; ti < tickets.length; ti++) {
-      tickets[ti].status = 'R' + round;
+      if (!isRoundMarked(tickets[ti].status)) {
+        tickets[ti].status = 'R' + round;
+      }
     }
   }
 
@@ -1462,11 +1478,11 @@ function runPhasifyOmissions(opts) {
     if (mergedResult.data.phases[rpi].id < offset) {
       var rpt = mergedResult.data.phases[rpi].tickets || [];
       for (var rti = 0; rti < rpt.length; rti++) {
-        if (/^R[1-9]\d*$/.test(rpt[rti].status)) reviewedCount++;
+        if (isRoundMarked(rpt[rti].status)) reviewedCount++;
       }
     }
   }
-  console.log('Marked ' + reviewedCount + ' existing tickets as R' + currentRound + '.');
+  console.log('Round-aware status present on ' + reviewedCount + ' pre-merge tickets (current round R' + currentRound + ').');
   mergedResult.data = incrementRound(mergedResult.data);
 
   // Inject merge metadata (PX-109: enables --rollback)

@@ -294,12 +294,17 @@ console.log('\n## archiveExpiredEntries\n');
   try {
     const queuePath = path.join(tmpDir, 'queue.md');
     const archivePath = path.join(tmpDir, 'queue-archive.md');
-    const oldDate = '2026-05-31'; // 45 days ago from now
-    const recentDate = '2026-07-09'; // 6 days ago
+    // Dates are computed relative to the run date so the archival threshold
+    // stays deterministic no matter when the suite executes.
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const fmtDate = (d) => d.toISOString().split('T')[0];
+    const nowMs = Date.now();
+    const oldDate = fmtDate(new Date(nowMs - 45 * DAY_MS)); // > 14-day threshold → archived
+    const recentDate = fmtDate(new Date(nowMs - 6 * DAY_MS)); // < 14-day threshold → kept
     fs.writeFileSync(queuePath, '# Ticket Queue\n\n' +
-      '- [x] #10 Old | specs/010-old.md | 2026-03-15 | 2026-03-20 | ' + oldDate + '\n' +
-      '- [x] #11 Recent | specs/011-recent.md | 2026-05-01 | 2026-05-05 | ' + recentDate + '\n' +
-      '- [ ] #12 Active | specs/012-active.md | 2026-05-10\n'
+      '- [x] #10 Old | specs/010-old.md | ' + fmtDate(new Date(nowMs - 90 * DAY_MS)) + ' | ' + fmtDate(new Date(nowMs - 70 * DAY_MS)) + ' | ' + oldDate + '\n' +
+      '- [x] #11 Recent | specs/011-recent.md | ' + fmtDate(new Date(nowMs - 40 * DAY_MS)) + ' | ' + fmtDate(new Date(nowMs - 20 * DAY_MS)) + ' | ' + recentDate + '\n' +
+      '- [ ] #12 Active | specs/012-active.md | ' + fmtDate(new Date(nowMs - 3 * DAY_MS)) + '\n'
     );
     const result = tickets.archiveExpiredEntries(queuePath, archivePath, 14);
     assertEq(result.archived, 1, 'archives 1 expired entry');
