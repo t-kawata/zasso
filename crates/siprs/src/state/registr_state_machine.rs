@@ -36,7 +36,7 @@ impl fmt::Display for TransitionError {
     }
 }
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
 impl std::error::Error for TransitionError {}
 
 /// The registration state of a SIP account.
@@ -53,7 +53,7 @@ impl std::error::Error for TransitionError {}
 /// | `Failed` | Last registration attempt failed |
 /// | `Expired` | Registration period expired |
 ///
-/// # Transition rules (8 total)
+/// # Transition edges (10 total)
 ///
 /// ```text
 /// Disabled → Registering        (on register() or set_enabled(true))
@@ -90,7 +90,7 @@ pub enum RegistrationState {
     Expired,
 }
 
-// [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
 impl RegistrationState {
     /// Transition table indexed by (from_state, to_state).
     ///
@@ -112,7 +112,7 @@ impl RegistrationState {
     /// Attempt a transition from `self` to `target`.
     ///
     /// Returns `Ok(target)` if the transition is valid according to the
-    /// 8 defined rules, or `Err(TransitionError)` if the transition is invalid.
+    /// 10 defined edges, or `Err(TransitionError)` if the transition is invalid.
     pub fn transition(
         self,
         target: RegistrationState,
@@ -358,9 +358,131 @@ mod tests {
     #[test]
     // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<RegistrationState>();
         assert_traits::<TransitionError>();
+    }
+
+    /// @verifies C026
+    /// All 7 variants in discriminant order — used to enumerate the full 7x7 matrix.
+    const ALL_STATES: [RegistrationState; 7] = [
+        RegistrationState::Disabled,
+        RegistrationState::Idle,
+        RegistrationState::Registering,
+        RegistrationState::Registered,
+        RegistrationState::Unregistering,
+        RegistrationState::Failed,
+        RegistrationState::Expired,
+    ];
+
+    /// @verifies C026
+    /// The 10 RFC §17.1 transition edges as an executable copy of the rule list.
+    const EXPECTED_EDGES: [(RegistrationState, RegistrationState); 10] = [
+        (RegistrationState::Disabled, RegistrationState::Registering),
+        (RegistrationState::Idle, RegistrationState::Registering),
+        (RegistrationState::Registering, RegistrationState::Registered),
+        (RegistrationState::Registering, RegistrationState::Failed),
+        (RegistrationState::Registered, RegistrationState::Unregistering),
+        (RegistrationState::Registered, RegistrationState::Expired),
+        (RegistrationState::Unregistering, RegistrationState::Idle),
+        (RegistrationState::Unregistering, RegistrationState::Failed),
+        (RegistrationState::Expired, RegistrationState::Registering),
+        (RegistrationState::Failed, RegistrationState::Registering),
+    ];
+
+    /// @verifies C026
+    /// Exhaustive 7x7 transition-table check: exactly the 10 RFC §17.1 edges
+    /// are valid, all other 39 (from,to) pairs are rejected. A spurious extra
+    /// true cell (e.g. Failed->Registered, Expired->Failed) fails this suite.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn transition_table_matches_rfc_edges() {
+        for from in ALL_STATES {
+            for to in ALL_STATES {
+                let is_expected = EXPECTED_EDGES.contains(&(from, to));
+                if is_expected {
+                    assert_eq!(from.transition(to), Ok(to), "missing valid edge {from:?}->{to:?}");
+                } else {
+                    assert!(
+                        from.transition(to).is_err(),
+                        "spurious implicit edge {from:?}->{to:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// @verifies C026
+    /// `can_transition_to()` must agree with `transition()` on every cell of the
+    /// 7x7 matrix — both read the same transition table constant.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn can_transition_to_matches_transition_table() {
+        for from in ALL_STATES {
+            for to in ALL_STATES {
+                let expected = EXPECTED_EDGES.contains(&(from, to));
+                assert_eq!(
+                    from.can_transition_to(to),
+                    expected,
+                    "can_transition_to({from:?}, {to:?}) disagrees with transition()"
+                );
+            }
+        }
+    }
+
+    /// @verifies C026
+    /// Boundary: the two retry edges (Expired->Registering, Failed->Registering)
+    /// are valid, and exactly 4 states can enter Registering: Disabled, Idle,
+    /// Expired, Failed. No other state may transition into Registering.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn retry_edges_reach_registering() {
+        assert_eq!(
+            RegistrationState::Expired.transition(RegistrationState::Registering),
+            Ok(RegistrationState::Registering)
+        );
+        assert_eq!(
+            RegistrationState::Failed.transition(RegistrationState::Registering),
+            Ok(RegistrationState::Registering)
+        );
+        let incoming_to_registering: Vec<RegistrationState> = ALL_STATES
+            .iter()
+            .copied()
+            .filter(|from| from.can_transition_to(RegistrationState::Registering))
+            .collect();
+        assert_eq!(incoming_to_registering.len(), 4);
+        for expected in [
+            RegistrationState::Disabled,
+            RegistrationState::Idle,
+            RegistrationState::Expired,
+            RegistrationState::Failed,
+        ] {
+            assert!(
+                incoming_to_registering.contains(&expected),
+                "missing incoming edge to Registering from {expected:?}"
+            );
+        }
+    }
+
+    /// @verifies C026
+    /// O-001 — C026 invariant: RegistrationState is independent of call ability.
+    /// Every variant is a data-free unit variant, so the enum cannot carry any
+    /// call-related payload. (The make_call signature independence is verified
+    /// by the integration test in tests/verify_spec_p8_3.rs.)
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn registration_state_variants_are_unit_variants() {
+        for state in ALL_STATES {
+            match state {
+                RegistrationState::Disabled
+                | RegistrationState::Idle
+                | RegistrationState::Registering
+                | RegistrationState::Registered
+                | RegistrationState::Unregistering
+                | RegistrationState::Failed
+                | RegistrationState::Expired => {}
+            }
+        }
     }
 }

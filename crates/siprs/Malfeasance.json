@@ -879,7 +879,8 @@
       "line": 27,
       "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T09:43:30.093Z"
     },
     {
       "id": 98,
@@ -887,7 +888,8 @@
       "line": 32,
       "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T09:43:30.127Z"
     },
     {
       "id": 99,
