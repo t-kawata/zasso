@@ -25,6 +25,12 @@
 // for backward compatibility. Downstream crates can use siprs::AsyncAudioSource.
 pub use crate::runtime::audio_worker::{AsyncAudioSource, MockAsyncAudioSource};
 
+// Imports are only needed by the cpal-input-gated `open_default_microphone_source`.
+#[cfg(feature = "cpal-input")]
+use crate::error::{SipError, SipErrorKind};
+#[cfg(feature = "cpal-input")]
+use crate::model::audio_format_chunkpair::AudioFormat;
+
 // ---------------------------------------------------------------------------
 // ErasedAudioSource — object-safe wrapper for dynamic dispatch
 // ---------------------------------------------------------------------------
@@ -141,6 +147,32 @@ const _: () = {
     const fn assert_send<T: Send>() {}
     assert_send::<Box<dyn ErasedAudioSource>>();
 };
+
+// ---------------------------------------------------------------------------
+// open_default_microphone_source — optional microphone source (RFC §40)
+// ---------------------------------------------------------------------------
+
+/// Open the platform's default microphone as an `AsyncAudioSource`.
+///
+/// RFC §40: the microphone is one kind of audio source; the crate exposes the
+/// device abstraction behind the optional `cpal-input` feature. When the
+/// feature is disabled, any type implementing `AsyncAudioSource` can still be
+/// injected — the trait abstraction is complete without the microphone.
+///
+/// # Contract (C051)
+/// The signature is the RFC-specified API surface. The body is deferred to
+/// P8-4 (AsyncAudioSource ticket) and currently returns a typed error.
+// [::STUB::] P8-4: open_default_microphone_source body returns a typed error; real capture requires the cpal crate, deferred to the AsyncAudioSource ticket (P8-4) -- Implement real microphone capture with the cpal crate and return a device-backed AsyncAudioSource
+#[cfg(feature = "cpal-input")]
+pub async fn open_default_microphone_source(
+    format: AudioFormat,
+) -> Result<Box<dyn AsyncAudioSource>, SipError> {
+    let _ = format;
+    Err(SipError::new(
+        SipErrorKind::NativeError,
+        "cpal microphone source not yet integrated (P8-4)",
+    ))
+}
 
 #[cfg(test)]
 mod tests {
@@ -384,8 +416,41 @@ mod tests {
                 0
             }
         }
-        // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P5-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SyncSourceAdapter<TestSource>>();
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn open_default_microphone_source_has_correct_signature() {
+        // O-007 closure: C051 precondition — the RFC §40 signature
+        // `open_default_microphone_source(format: AudioFormat) ->
+        // Result<Box<dyn AsyncAudioSource>, SipError>` must exist behind the
+        // cpal-input feature. The generic bound fails to compile if the output
+        // type drifts (wrong error type, wrong source trait object, wrong arity).
+        use crate::error::SipError;
+        use crate::model::audio_format_chunkpair::{
+            AudioFormat, BitDepth, ChannelLayout, SampleRate,
+        };
+        use crate::runtime::audio_worker::AsyncAudioSource;
+
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+        fn assert_microphone_future<F>(fut: F)
+        where
+            F: std::future::Future<Output = Result<Box<dyn AsyncAudioSource>, SipError>>,
+        {
+            // The future is dropped without polling — this is a signature
+            // contract check, not an execution of the microphone source.
+            drop(fut);
+        }
+
+        let format = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20)
+            .expect("48000/I16/Mono/20ms is a valid AudioFormat");
+        assert_microphone_future(crate::api::asyncaudiosrc_adapter::open_default_microphone_source(
+            format,
+        ));
     }
 }

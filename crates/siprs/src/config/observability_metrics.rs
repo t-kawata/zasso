@@ -24,6 +24,8 @@
 //! - `MetricsRegistry` — optional counters/gauges (behind `#[cfg(feature = "metrics")]`).
 //! - Supporting types: `AudioDeviceCaps`, `SrtpImplementation`, `TransportKind`, `Codec`, `DtmfMethod`.
 
+// The atomics are only referenced by the metrics types (O-003 feature-gated).
+#[cfg(feature = "metrics")]
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
 // ── ClientCapabilities ──────────────────────────────────────────────────
@@ -222,24 +224,32 @@ pub struct AudioDeviceCaps {
 // ── Metrics ─────────────────────────────────────────────────────────────
 
 /// Error returned when a named metric (counter or gauge) is not found.
+#[cfg(feature = "metrics")]
 #[derive(Debug, Clone)]
 pub struct MetricsLookupError(pub String);
 
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for MetricsLookupError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "metric '{}' not found", self.0)
     }
 }
 
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl std::error::Error for MetricsLookupError {}
 
 /// A counter metric — monotonically increasing `u64` value.
+#[cfg(feature = "metrics")]
 pub struct MetricsCounter {
     name: String,
     value: AtomicU64,
 }
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl MetricsCounter {
     /// Create a new counter with the given name and initial value.
     pub fn new(name: impl Into<String>, initial: u64) -> Self {
@@ -266,12 +276,15 @@ impl MetricsCounter {
 }
 
 /// A gauge metric — signed `i64` value that can go up and down.
+#[cfg(feature = "metrics")]
 pub struct MetricsGauge {
     name: String,
     value: AtomicI64,
 }
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl MetricsGauge {
     /// Create a new gauge with the given name and initial value.
     pub fn new(name: impl Into<String>, initial: i64) -> Self {
@@ -309,12 +322,15 @@ impl MetricsGauge {
 ///
 /// # Feature gate
 /// This type is only available when `#[cfg(feature = "metrics")]` is active.
+#[cfg(feature = "metrics")]
 pub struct MetricsRegistry {
     counters: Vec<MetricsCounter>,
     gauges: Vec<MetricsGauge>,
 }
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl MetricsRegistry {
     /// Create a new `MetricsRegistry` with default metrics.
     ///
@@ -346,6 +362,21 @@ impl MetricsRegistry {
         self.gauges.iter().find(|g| g.name() == name)
     }
 
+    /// Number of counters in the registry.
+    ///
+    /// Added for the O-005 closure — lets the default-metrics test assert the
+    /// exact registry shape rather than a sampled subset.
+    pub fn counters_len(&self) -> usize {
+        self.counters.len()
+    }
+
+    /// Number of gauges in the registry.
+    ///
+    /// Added for the O-005 closure — pairs with `counters_len`.
+    pub fn gauges_len(&self) -> usize {
+        self.gauges.len()
+    }
+
     /// Increment a counter by name.
     ///
     /// Returns `Ok(())` if the counter exists, `Err(MetricsLookupError)` if not found.
@@ -370,6 +401,8 @@ impl MetricsRegistry {
 }
 
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "metrics")]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl Default for MetricsRegistry {
     // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
@@ -553,22 +586,36 @@ mod tests {
     /// @verifies C047
     #[cfg(feature = "metrics")]
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P8-2) --for-spec --no-implementation-order`.
     fn metrics_registry_starts_at_zero() {
+        // O-005 closure: assert ALL 8 default metrics start at zero, plus the
+        // exact registry shape (6 counters + 2 gauges). The prior version only
+        // checked 4, so a mis-initialized dtmf_received_total/ice_failures_total/
+        // transport_reconnects_total/raw_sip_messages_total would pass.
         let registry = MetricsRegistry::new();
-        assert_eq!(
-            registry
-                .get_counter("audio_tap_overflows_total")
-                .unwrap()
-                .value(),
-            0
-        );
-        assert_eq!(registry.get_counter("dtmf_sent_total").unwrap().value(), 0);
-        assert_eq!(registry.get_gauge("active_calls").unwrap().value(), 0);
-        assert_eq!(
-            registry.get_gauge("registered_accounts").unwrap().value(),
-            0
-        );
+        for name in [
+            "audio_tap_overflows_total",
+            "dtmf_sent_total",
+            "dtmf_received_total",
+            "ice_failures_total",
+            "transport_reconnects_total",
+            "raw_sip_messages_total",
+        ] {
+            assert_eq!(
+                registry.get_counter(name).expect(name).value(),
+                0,
+                "{name} must start at 0"
+            );
+        }
+        for name in ["active_calls", "registered_accounts"] {
+            assert_eq!(
+                registry.get_gauge(name).expect(name).value(),
+                0,
+                "{name} must start at 0"
+            );
+        }
+        assert_eq!(registry.counters_len(), 6, "exactly 6 counters");
+        assert_eq!(registry.gauges_len(), 2, "exactly 2 gauges");
     }
 
     /// @verifies C047
@@ -634,20 +681,66 @@ mod tests {
     // ── Metrics compile check (invariant) ──────────────────────────────
 
     /// @verifies C047
-    #[cfg(not(feature = "metrics"))]
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn metrics_types_not_available_without_feature() {
-        // When metrics feature is disabled, MetricsRegistry is compiled
-        // but no actual metrics tests run. The #[cfg(not(feature = "metrics"))]
-        // guard ensures these test variants are never compiled together.
-        // This test passes trivially — the real invariant is that
-        // consumer code cannot use metrics types when disabled.
+    // [::TICKET::] P1-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P8-2) --for-spec --no-implementation-order`.
+    fn metrics_types_are_feature_gated() {
+        // O-003 closure: C047 invariant — metrics optional via feature flag.
+        // The prior `metrics_types_not_available_without_feature` was an empty
+        // no-op; this source-inspection test asserts the `#[cfg(feature =
+        // "metrics")]` attribute structurally precedes each metrics type.
+        let src = std::fs::read_to_string("src/config/observability_metrics.rs")
+            .expect("source file must exist");
+        for ty in [
+            "MetricsLookupError",
+            "MetricsCounter",
+            "MetricsGauge",
+            "MetricsRegistry",
+        ] {
+            let needle = format!("pub struct {ty}");
+            let (idx, _) = src
+                .lines()
+                .enumerate()
+                .find(|(_, l)| l.contains(&needle))
+                .unwrap_or_else(|| panic!("{ty} struct must exist in observability_metrics.rs"));
+            // The `#[cfg(feature = "metrics")]` attribute may be separated from
+            // the struct by derives (e.g. #[derive(Debug, Clone)]), so scan the
+            // up-to-4 lines preceding the struct definition.
+            let context: Vec<&str> = src
+                .lines()
+                .skip(idx.saturating_sub(4))
+                .take(4)
+                .map(str::trim)
+                .collect();
+            assert!(
+                context.contains(&"#[cfg(feature = \"metrics\")]"),
+                "{ty} (line {}) must be feature-gated with #[cfg(feature = \"metrics\")]; context: {context:?}",
+                idx + 1
+            );
+        }
+    }
+
+    /// @verifies C001, C047
+    #[test]
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn no_video_fields_in_client_capabilities() {
+        // C001/C047 invariant: audio-only scope — ClientCapabilities must not
+        // expose any video capability fields. Extends the no_video_types_in_public_exports
+        // pattern to the capability matrix.
+        let src = std::fs::read_to_string("src/config/observability_metrics.rs")
+            .expect("source file must exist");
+        // Only inspect the production portion — the test module below necessarily
+        // names "video" in its own assertions.
+        let production = src.split("#[cfg(test)]").next().unwrap_or(&src);
+        assert!(
+            !production.to_lowercase().contains("video"),
+            "observability_metrics.rs must not define video capability fields"
+        );
     }
 
     /// @verifies C047
+    #[cfg(feature = "metrics")]
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P8-2) --for-spec --no-implementation-order`.
     fn metrics_counter_independent_construction() {
         // MetricsCounter and MetricsGauge can be constructed independently
         // even without the full MetricsRegistry (for standalone use).

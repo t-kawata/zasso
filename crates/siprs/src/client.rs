@@ -8,8 +8,9 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::instrument;
 
-use crate::api::event_model_payload_bus::{AccountId, SipEvent};
+use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
 use crate::api::eventbus_receiver::EventBus;
+use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
@@ -64,7 +65,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -116,6 +117,14 @@ impl SipClient {
                     format!("initialization failed: {e}"),
                 )
             })?;
+
+        // Advertise capabilities once initialization succeeds (C047 postcondition,
+        // O-002 closure). The event receiver returned below was subscribed before
+        // this publish, so the first control event is ClientInitialized.
+        event_bus.publish(SipEvent::new(
+            EventMeta::new(0, None, None),
+            SipEventPayload::ClientInitialized(ClientCapabilities::new()),
+        ));
 
         Ok((
             Self {
@@ -480,7 +489,7 @@ mod tests {
         // ABC O-001 closure: without these type-annotations, changing shutdown() to
         // Result<(), String> or new() to Result<_, OtherError> would pass the whole
         // suite (existing tests only call .is_ok() or read err.kind).
-        // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P6-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2) --for-spec --no-implementation-order`.
         fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
         // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
@@ -666,5 +675,103 @@ mod tests {
             rfc.contains("I/O") || rfc.contains("IO") || rfc.contains("入出力"),
             "RFC must document I/O boundaries"
         );
+    }
+
+    #[test]
+    // @verifies C047
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
+        // O-001 closure: C047 postcondition — tracing spans specified for all
+        // public operations. This source-inspection test asserts every public
+        // SipClient/SipAccountHandle method is immediately preceded by a
+        // `#[instrument(...)]` attribute. The prior `tracing_and_metrics_specified`
+        // only checked Cargo.toml for the substring 'tracing' — removing every
+        // #[instrument] would have left all tests green.
+        let checks: [(&str, &[&str]); 2] = [
+            (
+                "src/client.rs",
+                &[
+                    "new",
+                    "handle",
+                    "subscribe",
+                    "subscribe_account",
+                    "subscribe_raw_sip",
+                    "accounts",
+                    "call_state",
+                    "is_terminated",
+                    "shutdown",
+                ],
+            ),
+            (
+                "src/api/public_api_design.rs",
+                &[
+                    "register",
+                    "unregister",
+                    "set_registration_enabled",
+                    "registration_state",
+                    "make_call",
+                    "update_config",
+                ],
+            ),
+        ];
+        for (path, methods) in checks {
+            let src = std::fs::read_to_string(path)?;
+            for method in methods {
+                // Match both `pub async fn name(` and `pub fn name(` — the
+                // "fn name(" fragment covers both forms.
+                let (idx, _) = src
+                    .lines()
+                    .enumerate()
+                    .find(|(_, l)| {
+                        let trimmed_line = l.trim_start();
+                        trimmed_line.starts_with("pub ")
+                            && trimmed_line.contains(&format!("fn {method}("))
+                    })
+                    .unwrap_or_else(|| panic!("{path} must define a public fn {method}("));
+                // Scan the up-to-6 lines before the method for the attribute.
+                let context: Vec<&str> = src
+                    .lines()
+                    .skip(idx.saturating_sub(6))
+                    .take(6)
+                    .collect();
+                assert!(
+                    context.iter().any(|l| l.contains("#[instrument")),
+                    "{path}: pub fn {method} must be preceded by #[instrument]; context: {context:?}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C051
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn spec_examples_reference_public_api_types() -> Result<(), std::io::Error> {
+        // O-007 closure: C051 postcondition — usage examples provided. The
+        // prior examples were empty `fn main() {}` stubs demonstrating nothing.
+        // This test asserts each example references at least one public API type.
+        let api_tokens = [
+            "SipClient",
+            "ClientConfig",
+            "AccountConfig",
+            "SipAccountHandle",
+            "OutgoingCallRequest",
+            "AsyncAudioSource",
+            "AudioFormat",
+        ];
+        for example in [
+            "client_init",
+            "account_register",
+            "make_call",
+            "audio_tap",
+            "tts_source",
+        ] {
+            let content = std::fs::read_to_string(format!("examples/{example}.rs"))?;
+            assert!(
+                api_tokens.iter().any(|t| content.contains(t)),
+                "examples/{example}.rs must reference a public API type; content: {content:?}"
+            );
+        }
+        Ok(())
     }
 }

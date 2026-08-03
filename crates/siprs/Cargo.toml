@@ -23,7 +23,7 @@ cli = ["dep:clap"]
 # [::TICKET::] P3-3: server feature gates Axum HTTP server deps for standalone server mode.
 server = ["dep:axum", "dep:tower-http"]
 # [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source
-# Full implementation requires the `cpal` crate (P1-4).
+# Full implementation requires the `cpal` crate (P8-4).
 cpal-input = []
 zeroize = ["dep:zeroize"]
 # [::STUB::] P1-3: spec-examples feature gates examples that reference types

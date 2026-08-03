@@ -156,6 +156,22 @@ pub enum AudioFormatError {
     InvalidFrameMs(u16),
 }
 
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+impl std::fmt::Display for AudioFormatError {
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidFrameMs(ms) => write!(
+                f,
+                "invalid frame duration: {ms} ms (must be 10, 20, 40, or 60)"
+            ),
+        }
+    }
+}
+
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+impl std::error::Error for AudioFormatError {}
+
 // ---------------------------------------------------------------------------
 // AudioChunk
 // ---------------------------------------------------------------------------

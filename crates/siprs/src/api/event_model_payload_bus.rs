@@ -1,3 +1,6 @@
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -22,6 +25,7 @@
 use std::collections::BTreeMap;
 
 use crate::config::account_config_spec::DtmfMethod;
+use crate::config::observability_metrics::ClientCapabilities;
 use crate::error::SipError;
 
 // ── ID newtypes (re-exported from model/id_design_newtype) ──────────────
@@ -258,16 +262,6 @@ pub struct AccountSnapshot {
     pub registered: bool,
 }
 
-/// Client capabilities reported at initialization.
-#[derive(Debug, Clone)]
-pub struct ClientCapabilities {
-    pub max_calls: u32,
-    pub codecs: Vec<String>,
-    pub udp_enabled: bool,
-    pub tcp_enabled: bool,
-    pub tls_enabled: bool,
-}
-
 // ── SipEventPayload ─────────────────────────────────────────────────────
 
 /// Event payload enum defining all observable SIP event types.
@@ -284,6 +278,7 @@ pub struct ClientCapabilities {
 /// with documented rationale.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 pub enum SipEventPayload {
     // ── Registration (P0) ──
     /// Registration process started (initial REGISTER sent).
