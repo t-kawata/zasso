@@ -3,6 +3,10 @@ const path = require('path');
 const { CFG } = require('../../lib/tickets');
 
 const STUB_RE = /\[::STUB::\]/;
+// Data reference: [::STUB::] inside a quoted string (e.g. a test assertion
+// checking for the absence of a marker) is not an actual stub marker.
+// Real markers live in comments and are never inside quotes.
+const STUB_IN_QUOTES_RE = /['"`][^'"`]*\[::STUB::\][^'"`]*['"`]/;
 const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude']);
 
 function main() {
@@ -53,7 +57,7 @@ function scanFile(filePath, results) {
   }
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    if (STUB_RE.test(lines[i])) {
+    if (STUB_RE.test(lines[i]) && !STUB_IN_QUOTES_RE.test(lines[i])) {
       results.push({
         file: filePath,
         line: i + 1,

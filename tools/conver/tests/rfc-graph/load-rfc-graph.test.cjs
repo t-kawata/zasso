@@ -1,5 +1,5 @@
 /**
- * load-rfc-graph.test.cjs — Tests for load-rfc-graph.js [::STUB::] Deprecated
+ * load-rfc-graph.test.cjs — Tests for load-rfc-graph.js (Deprecated)
  *
  * load-rfc-graph.js has been merged into show-graph-summary-markdown.js.
  * This test file is maintained for backward compatibility, but new feature tests
