@@ -614,7 +614,22 @@
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P7-3\" --for-spec --review)",
       "Bash(node .claude/scripts/tickets/review/find-all-stubs.js src/api/http_ws_protocol.rs src/api/standalone_server_config.rs src/model/sqlite_schema.rs tests/verify_spec_p7_3.rs)",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P7-3\" --verify)",
-      "Bash(grep -nE \"assert_eq!\\\\\\([^\\)]*[0-9]{4,}\" tests/verify_spec_p7_3.rs)"
+      "Bash(grep -nE \"assert_eq!\\\\\\([^\\)]*[0-9]{4,}\" tests/verify_spec_p7_3.rs)",
+      "Bash(git commit -m 'feat\\(P7-3\\): close ABC inspection gaps in standalone server config and persistence *)",
+      "Bash(node .claude/scripts/tickets/review/find-all-stubs.js \".\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js P5-1)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js P4-2)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js P3-1)",
+      "Bash(node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json)",
+      "Bash(node .claude/scripts/tickets/validate-stub-format.js)",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js src build.rs wrapper.h)",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('Total issues:',j.totalIssues\\);for\\(const [k,v] of Object.entries\\(j.checks\\)\\){console.log\\('CHECK:',v.label,'\\('+k+'\\)'\\);for\\(const f of v.findings\\)console.log\\('  ',f.file+':'+f.line, f.match||f.message\\);}}\\)\")",
+      "Bash(node .claude/scripts/tickets/remove-stub.js --help)",
+      "Bash(node .claude/scripts/tickets/remove-stub.js --file=src/lib.rs --line=40)",
+      "Bash(node .claude/scripts/tickets/remove-stub.js --file=src/security/mod.rs --line=4)",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('Stub count:',j.count\\);const noTicket=j.stubs.filter\\(s=>!/\\\\[::STUB::\\\\]\\\\s+P\\\\d+-\\\\d+/.test\\(s.content\\)\\);console.log\\('Stubs without P-ticket ref:',noTicket.length\\);for\\(const s of noTicket\\)console.log\\('  ',s.file+':'+s.line,s.content.substring\\(0,80\\)\\);}\\)\")",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('7.5c find-all-stubs:', j.count, 'stubs'\\);}\\)\")",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('STUB count:', j.count\\);}\\)\")"
     ]
   }
 }
