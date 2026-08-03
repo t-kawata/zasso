@@ -1183,6 +1183,15 @@
       "detected_at": "2026-08-03T10:21:11.076Z",
       "status": "resolved",
       "resolved_at": "2026-08-03T10:32:20.540Z"
+    },
+    {
+      "id": 128,
+      "file": "src/api/asyncaudiosrc_adapter.rs",
+      "line": 165,
+      "description": "STALE: [::STUB::] marker referenced P8-1 (reviewed/completed) but the stub remained unresolved; re-scoped to MUST RESOLVE per P8-4 documented intent",
+      "detected_at": "2026-08-03T10:55:07.030Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P8-1 marker at src/api/asyncaudiosrc_adapter.rs:165 re-scoped to MUST RESOLVE. open_default_microphone_source requires adding the cpal crate (new dependency = planning-mandatory) and implementing device-backed capture with a device-dependent integration test, which is not resolvable in a batch cleanup session. P8-1 was verified_empty at closure; the reference was a P8-4 stopgap. P8-4 investigation item 6 explicitly documents that real microphone capture needs a cpal-authorized ticket and that the marker must be MUST RESOLVE with the reason, not deleted. Recommended resolution: create a cpal-authorized ticket via /make-ticket and re-point this marker to it."
     }
   ]
 }
