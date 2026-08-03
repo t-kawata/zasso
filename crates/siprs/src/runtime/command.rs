@@ -26,7 +26,7 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1|P7-2) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
@@ -91,6 +91,13 @@ pub enum RuntimeCommand {
             Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
         >,
     },
+    /// [::TICKET::] P7-2: O-004 — query the reactor's authoritative `ClientState`.
+    ///
+    /// Backs the `SipClient::accounts()` / `SipClient::call_state()` query API,
+    /// which is the source of truth per C021 (events are observation-only).
+    QueryState {
+        reply: tokio::sync::oneshot::Sender<Result<crate::runtime::state::ClientState, ReactorError>>,
+    },
     /// [::TICKET::] P0-6: Connect a call to the conference bridge.
     ///
     /// Delegates to `Backend::conf_connect()`. Used for M20 conference
@@ -139,7 +146,7 @@ pub enum RuntimeCommand {
 // [::STUB::] P0-2: Debug manually implemented for RuntimeCommand because oneshot::Sender !Debug -- Can derive Debug after migrating to a Debug-friendly sender wrapper
 // [::TICKET::] P0-2, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-6) --for-spec --no-implementation-order`.
 impl std::fmt::Debug for RuntimeCommand {
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Manual Debug — skips non-Debug fields like Box<dyn AsyncAudioSource>
         let variant = match self {
@@ -153,6 +160,7 @@ impl std::fmt::Debug for RuntimeCommand {
             Self::Unhold { .. } => "Unhold",
             Self::SendDtmf { .. } => "SendDtmf",
             Self::GetAccountInfo { .. } => "GetAccountInfo",
+            Self::QueryState { .. } => "QueryState",
             Self::ConfConnect { .. } => "ConfConnect",
             Self::ConfDisconnect { .. } => "ConfDisconnect",
             Self::AddAudioSource { .. } => "AddAudioSource",
@@ -167,7 +175,7 @@ impl std::fmt::Debug for RuntimeCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for RuntimeCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
@@ -180,6 +188,7 @@ impl std::fmt::Display for RuntimeCommand {
             Self::Unhold { .. } => "Unhold",
             Self::SendDtmf { .. } => "SendDtmf",
             Self::GetAccountInfo { .. } => "GetAccountInfo",
+            Self::QueryState { .. } => "QueryState",
             Self::ConfConnect { .. } => "ConfConnect",
             Self::ConfDisconnect { .. } => "ConfDisconnect",
             Self::AddAudioSource { .. } => "AddAudioSource",
@@ -193,7 +202,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -225,12 +234,24 @@ pub(crate) enum DispatchCommand {
             Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
         >,
     },
+    /// [::TICKET::] P7-2: O-004 — add an account and update the reactor's ClientState.
+    ///
+    /// Dedicated variant so the reactor loop can insert the returned `AccountEntry`
+    /// into its authoritative `client_state.accounts` (backing the query API).
+    AddAccount {
+        config: crate::config::account_config_spec::AccountConfig,
+        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+    },
+    /// [::TICKET::] P7-2: O-004 — clone the reactor's authoritative ClientState.
+    QueryState {
+        reply: tokio::sync::oneshot::Sender<Result<crate::runtime::state::ClientState, ReactorError>>,
+    },
     Shutdown {
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -242,13 +263,7 @@ impl DispatchCommand {
                 }),
                 reply,
             },
-            RuntimeCommand::AddAccount { config, reply } => Self::Execute {
-                f: Box::new(move |backend| {
-                    backend.add_account(&config)?;
-                    Ok(())
-                }),
-                reply,
-            },
+            RuntimeCommand::AddAccount { config, reply } => Self::AddAccount { config, reply },
             RuntimeCommand::RemoveAccount { account_id, reply } => Self::Execute {
                 f: Box::new(move |backend| backend.remove_account(account_id as i32)),
                 reply,
@@ -314,6 +329,7 @@ impl DispatchCommand {
                 native_acc_id,
                 reply,
             },
+            RuntimeCommand::QueryState { reply } => Self::QueryState { reply },
             RuntimeCommand::ConfConnect { call_id, reply } => Self::Execute {
                 f: Box::new(move |backend| backend.conf_connect(call_id as i32, call_id as i32)),
                 reply,
@@ -372,7 +388,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -383,6 +399,12 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::GetAccountInfo { .. } => f
                 .debug_struct("DispatchCommand::GetAccountInfo")
+                .finish_non_exhaustive(),
+            Self::AddAccount { .. } => f
+                .debug_struct("DispatchCommand::AddAccount")
+                .finish_non_exhaustive(),
+            Self::QueryState { .. } => f
+                .debug_struct("DispatchCommand::QueryState")
                 .finish_non_exhaustive(),
             Self::Shutdown { .. } => write!(f, "DispatchCommand::Shutdown"),
         }

@@ -95,6 +95,35 @@ pub enum LogLevel {
     Trace,
 }
 
+/// Configuration for DTMF transmission behavior (N0029).
+///
+/// [::TICKET::] P7-2: O-002 — `sent_timeout_ms` drives the DtmfSent two-phase
+/// fallback timer: if PJSIP does not fire the send-complete callback within
+/// this window, a `DtmfSent { Err(Timeout) }` event is published.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DtmfConfig {
+    /// Timeout in milliseconds for the DtmfSent fallback when the PJSIP
+    /// send-complete callback does not arrive. Defaults to 500ms.
+    #[serde(default = "default_dtmf_sent_timeout_ms")]
+    pub sent_timeout_ms: u64,
+}
+
+/// The default DtmfSent fallback timeout in milliseconds.
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+fn default_dtmf_sent_timeout_ms() -> u64 {
+    crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS
+}
+
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+impl Default for DtmfConfig {
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            sent_timeout_ms: default_dtmf_sent_timeout_ms(),
+        }
+    }
+}
+
 /// Configuration for the `SipClient` session.
 ///
 /// Passed to `SipClient::new()` to configure the SIP stack, transports,
@@ -131,6 +160,9 @@ pub struct ClientConfig {
     /// Logging verbosity level.
     #[serde(default)]
     pub log_level: LogLevel,
+    /// DTMF transmission configuration (DtmfSent timeout fallback).
+    #[serde(default)]
+    pub dtmf: DtmfConfig,
 }
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
@@ -176,7 +208,7 @@ impl ClientConfig {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P7-2) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             sip_proxy_host: String::new(),
@@ -189,6 +221,7 @@ impl Default for ClientConfig {
             srtp_enabled: false,
             tls_enabled: false,
             log_level: LogLevel::default(),
+            dtmf: DtmfConfig::default(),
         }
     }
 }
@@ -210,9 +243,10 @@ pub struct ClientConfigBuilder {
     srtp_enabled: bool,
     tls_enabled: bool,
     log_level: Option<LogLevel>,
+    dtmf_sent_timeout_ms: Option<u64>,
 }
 
-// [::TICKET::] P0-3, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P2-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P2-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P2-2|P7-2) --for-spec --no-implementation-order`.
 impl ClientConfigBuilder {
     /// Set the SIP proxy server hostname or IP address (required).
     pub fn sip_proxy_host(mut self, host: impl Into<String>) -> Self {
@@ -274,6 +308,12 @@ impl ClientConfigBuilder {
         self
     }
 
+    /// Set the DtmfSent fallback timeout in milliseconds (O-002).
+    pub fn dtmf_sent_timeout_ms(mut self, ms: u64) -> Self {
+        self.dtmf_sent_timeout_ms = Some(ms);
+        self
+    }
+
     /// Build the `ClientConfig`, applying defaults for unset optional fields.
     ///
     /// # Panics
@@ -290,6 +330,11 @@ impl ClientConfigBuilder {
             srtp_enabled: self.srtp_enabled,
             tls_enabled: self.tls_enabled,
             log_level: self.log_level.unwrap_or(LogLevel::Info),
+            dtmf: DtmfConfig {
+                sent_timeout_ms: self
+                    .dtmf_sent_timeout_ms
+                    .unwrap_or_else(default_dtmf_sent_timeout_ms),
+            },
         }
     }
 }
@@ -462,6 +507,34 @@ mod tests {
             "message should contain '256': {}",
             err.message
         );
+    }
+
+    // ── O-002: DtmfConfig::sent_timeout_ms ────────────────────────────
+
+    /// @verifies C030
+    #[test]
+    // [::TICKET::] P7-2: O-002 — default DtmfConfig::sent_timeout_ms is 500ms
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn client_config_dtmf_sent_timeout_default_500() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        assert_eq!(
+            config.dtmf.sent_timeout_ms,
+            crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS
+        );
+    }
+
+    /// @verifies C030
+    #[test]
+    // [::TICKET::] P7-2: O-002 — dtmf_sent_timeout_ms builder overrides the default
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn client_config_dtmf_sent_timeout_configurable() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .dtmf_sent_timeout_ms(250)
+            .build();
+        assert_eq!(config.dtmf.sent_timeout_ms, 250);
     }
 
     // ── Contract ────────────────────────────────────────────────────

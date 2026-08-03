@@ -43,7 +43,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-inpu
 # [::STUB::] P0-3: No dependencies added in this foundational ticket; deps added incrementally in P0-4+
 # P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
 # [::STUB::] P1-3: rt-multi-thread enabled for #[tokio::main] in examples
-tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net"] }
+# [::TICKET::] P7-2: test-util enables tokio::time::pause()/advance() for the deterministic DtmfSent timeout test (O-002)
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net", "test-util"] }
 # [::STUB::] P0-5: N0016 — thiserror for SipError derive macro
 thiserror = "2"
 # [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations

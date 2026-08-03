@@ -93,7 +93,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -105,9 +105,16 @@ pub trait SipBackend: Send {
 ///
 /// All methods return deterministic canned responses without side effects.
 /// The `initialized` flag tracks whether `initialize()` was called.
+///
+/// [::TICKET::] P7-2: O-001 — `get_account_info_result` lets tests configure the
+/// RegistrationStateChanged flow (Ok(200) by default, or Err to exercise the
+/// failure publication path).
 #[derive(Default)]
 pub struct MockBackend {
     pub initialized: bool,
+    /// Configurable result for `get_account_info`. `None` yields the canned
+    /// status-200 snapshot.
+    pub get_account_info_result: Option<Result<AccountInfoSnapshot, ReactorError>>,
 }
 
 impl MockBackend {
@@ -218,17 +225,25 @@ impl SipBackend for MockBackend {
         Ok(1)
     }
 
-    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
-    fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
-        // [::STUB::] P3-1: get_account_info returns canned mock data -- Return real account info from reactor account state machine (N0025) once implemented
-        Ok(AccountInfoSnapshot {
-            acc_id: crate::api::event_model_payload_bus::AccountId::from_u64(_native_acc_id as u64)
-                .expect("mock AccountId from non-zero native acc_id"),
-            registration_status: 200,
-            registration_expires: Some(3600),
-            online_status: true,
-            uri: format!("sip:user{}@mock.example.com", _native_acc_id),
-        })
+// [::TICKET::] P4-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P7-2) --for-spec --no-implementation-order`.
+    fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
+        // [::TICKET::] P7-2: O-001 — tests can inject a failure via get_account_info_result.
+        match &self.get_account_info_result {
+            Some(result) => result.clone(),
+            None => {
+                // [::STUB::] P3-1: get_account_info returns canned mock data -- Return real account info from reactor account state machine (N0025) once implemented
+                Ok(AccountInfoSnapshot {
+                    acc_id: crate::api::event_model_payload_bus::AccountId::from_u64(
+                        native_acc_id as u64,
+                    )
+                    .expect("mock AccountId from non-zero native acc_id"),
+                    registration_status: 200,
+                    registration_expires: Some(3600),
+                    online_status: true,
+                    uri: format!("sip:user{}@mock.example.com", native_acc_id),
+                })
+            }
+        }
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -399,6 +414,7 @@ impl SipBackend for PjsuaBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::event_model_payload_bus::AccountId;
 
     // ── SipBackend trait ──────────────────────────────────────────
 
@@ -478,6 +494,39 @@ mod tests {
     fn mock_backend_configure_codecs_returns_ok() {
         let mut backend = MockBackend::new();
         assert!(backend.configure_codecs().is_ok());
+    }
+
+    // ── O-001: MockBackend::get_account_info ─────────────────────────
+
+    /// @verifies C024
+    #[test]
+    // [::TICKET::] P7-2: O-001 — MockBackend::get_account_info returns the controllable snapshot shape
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn mock_backend_get_account_info_returns_snapshot() {
+        let backend = MockBackend::new();
+        let snapshot = backend.get_account_info(1).expect("mock must succeed");
+        assert_eq!(snapshot.acc_id, AccountId::from_u64(1).unwrap());
+        assert_eq!(snapshot.registration_status, 200);
+        assert_eq!(snapshot.registration_expires, Some(3600));
+        assert!(snapshot.online_status);
+        assert_eq!(snapshot.uri, "sip:user1@mock.example.com");
+    }
+
+    /// @verifies C024
+    #[test]
+    // [::TICKET::] P7-2: O-001 — get_account_info_result lets tests configure the Err path
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn mock_backend_get_account_info_result_configurable() {
+        let mut backend = MockBackend::new();
+        backend.get_account_info_result =
+            Some(Err(ReactorError::BackendError("mock backend down".into())));
+
+        let result = backend.get_account_info(1);
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "expected configured Err, got {:?}",
+            result
+        );
     }
 
     #[test]

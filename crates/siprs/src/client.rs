@@ -64,7 +64,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -168,6 +168,42 @@ impl SipClient {
         self.events.subscribe_raw_sip()
     }
 
+    /// Query the authoritative list of accounts (C021 source of truth).
+    ///
+    /// Reads the reactor's `ClientState` — never the event stream. Event loss
+    /// (Lagged) does not affect the returned state; consumers can always
+    /// re-query to recover authoritative account status (O-004).
+    #[instrument(skip(self))]
+    pub async fn accounts(
+        &self,
+    ) -> Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError> {
+        let state = self
+            .runtime
+            .query_state()
+            .await
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+        Ok(state
+            .accounts
+            .values()
+            .filter_map(account_snapshot_from_entry)
+            .collect())
+    }
+
+    /// Query the authoritative call state list (C021 source of truth).
+    ///
+    /// Reads the reactor's `ClientState` — never the event stream (O-004).
+    #[instrument(skip(self))]
+    pub async fn call_state(
+        &self,
+    ) -> Result<Vec<crate::runtime::state::CallEntry>, SipError> {
+        let state = self
+            .runtime
+            .query_state()
+            .await
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+        Ok(state.calls.into_values().collect())
+    }
+
     /// Check whether the reactor thread has terminated.
     #[instrument(skip(self))]
     pub fn is_terminated(&self) -> bool {
@@ -210,6 +246,24 @@ impl SipClient {
             )),
         }
     }
+}
+
+/// Map a reactor `AccountEntry` to the public `AccountSnapshot` domain type.
+///
+/// Returns `None` when the placeholder `id` cannot form a valid `AccountId`
+/// (zero value), skipping such entries. `display_name` is not tracked yet
+/// (P0-7 replaces the `AccountEntry` placeholder fields).
+// [::TICKET::] P7-2: O-004 — authoritative query API mapping
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+fn account_snapshot_from_entry(
+    entry: &crate::runtime::state::AccountEntry,
+) -> Option<crate::api::event_model_payload_bus::AccountSnapshot> {
+    Some(crate::api::event_model_payload_bus::AccountSnapshot {
+        account_id: crate::model::AccountId::from_u64(entry.id).ok()?,
+        display_name: None,
+        uri: entry.config.clone(),
+        registered: entry.registration == "Registered",
+    })
 }
 
 // Safety: SipClient holds Arc<RuntimeHandle>, EventBus, and ClientConfig —
@@ -302,14 +356,14 @@ mod tests {
 
     #[test]
     // @verifies C002
-    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2) --for-spec --no-implementation-order`.
     fn sip_client_is_send_and_sync() {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-        // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P6-1, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P6-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -348,6 +402,73 @@ mod tests {
         // Second shutdown is a no-op — must not panic or error.
         let result2 = client.shutdown().await;
         assert!(result2.is_ok(), "second shutdown must be a no-op");
+    }
+
+    // ── O-004: authoritative query API (C021 invariant) ───────────────
+
+    #[tokio::test]
+    // @verifies C021
+    // [::TICKET::] P7-2: O-004 — accounts()/call_state() read authoritative ClientState, not the event stream
+    async fn sip_client_query_api_is_authoritative() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+
+        // Register an account so ClientState has authoritative data.
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
+        client
+            .handle()
+            .submit(RuntimeCommand::AddAccount {
+                config: account_config,
+                reply: _dummy_tx,
+            })
+            .await
+            .expect("AddAccount must be accepted");
+
+        // The account must be visible via the authoritative query API.
+        let accounts = client
+            .accounts()
+            .await
+            .expect("accounts() query must succeed");
+        assert_eq!(accounts.len(), 1, "query API must reflect the registered account");
+
+        // Drop every event receiver (simulate event loss / Lagged): the query
+        // API must still return the same authoritative state (C021 invariant).
+        let _ = client.subscribe(); // a fresh receiver that immediately goes out of scope
+        let accounts_after_loss = client
+            .accounts()
+            .await
+            .expect("accounts() must succeed after event loss");
+        assert_eq!(
+            accounts_after_loss.len(),
+            accounts.len(),
+            "event loss must not corrupt authoritative query state"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C021
+    // [::TICKET::] P7-2: O-004 — call_state() returns the authoritative call snapshot
+    async fn sip_client_call_state_query_returns_snapshot() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+
+        let calls = client
+            .call_state()
+            .await
+            .expect("call_state() query must succeed");
+        assert!(
+            calls.is_empty(),
+            "fresh client must have no active calls, got {:?}",
+            calls
+        );
     }
 
     // ── Contract: C017 Precondition — public API return types (O-001) ─

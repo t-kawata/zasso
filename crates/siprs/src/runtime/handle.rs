@@ -29,7 +29,7 @@ pub struct RuntimeHandle {
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -62,6 +62,9 @@ impl RuntimeHandle {
         let dispatch = match dispatch {
             DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
+            DispatchCommand::AddAccount { config, .. } => {
+                DispatchCommand::AddAccount { config, reply: tx }
+            }
             // GetAccountInfo handled via separate method
             DispatchCommand::GetAccountInfo { .. } => {
                 unreachable!("use submit_get_account_info instead")
@@ -69,6 +72,10 @@ impl RuntimeHandle {
             // AddAudioSource handled via separate method
             DispatchCommand::AddAudioSource { .. } => {
                 unreachable!("use submit_add_audio_source instead")
+            }
+            // QueryState handled via separate method
+            DispatchCommand::QueryState { .. } => {
+                unreachable!("use query_state instead")
             }
         };
 
@@ -96,6 +103,28 @@ impl RuntimeHandle {
             native_acc_id,
             reply: tx,
         };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P7-2: O-004 — query the reactor's authoritative `ClientState`.
+    ///
+    /// Backs `SipClient::accounts()` / `SipClient::call_state()`. The query reads
+    /// the reactor's local state clone — it never blocks the reactor thread and
+    /// is independent of the event stream (C021 source-of-truth invariant).
+    pub async fn query_state(
+        &self,
+    ) -> Result<crate::runtime::state::ClientState, ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::QueryState { reply: tx };
 
         self.sender
             .send(dispatch)

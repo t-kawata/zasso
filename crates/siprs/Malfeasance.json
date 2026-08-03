@@ -459,6 +459,114 @@
       "detected_at": "2026-08-03T06:06:27.449Z",
       "status": "false_positive",
       "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 51,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 52,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 53,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 54,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 55,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 199,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 56,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 91,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 57,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 136,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 58,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 55,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 59,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 60,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 61,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 62,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
     }
   ]
 }

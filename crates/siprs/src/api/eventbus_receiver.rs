@@ -280,20 +280,28 @@ mod tests {
 
     // ── EventBus Lagged detection ──────────────────────────────────────
 
-    /// @verifies C021
+    /// @verifies C020, C021
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2: O-005 — assert exact Lagged count n (2) instead of a wildcard
+// [::TICKET::] P0-5, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P7-2) --for-spec --no-implementation-order`.
     fn eventbus_lagged_detection() {
         let bus = EventBus::new(2, None); // very small capacity
         let mut rx = bus.subscribe_control();
-        // Publish 3 events without consuming — capacity is 2, so third event drops
+        // Publish 4 events without consuming. With capacity 2, the buffer keeps
+        // only the last two (C, D); the first two (A, B) are dropped. The
+        // receiver subscribed before any publish therefore skips exactly 2
+        // messages → Lagged(2). This asserts n == the number of skipped messages.
         bus.publish(make_event(None));
         bus.publish(make_event(None));
-        bus.publish(make_event(None)); // overflows capacity
+        bus.publish(make_event(None)); // drops A
+        bus.publish(make_event(None)); // drops B
         let result = rx.try_recv();
         assert!(
-            matches!(result, Err(broadcast::error::TryRecvError::Lagged(_))),
-            "expected Lagged but got {:?}",
+            matches!(
+                result,
+                Err(broadcast::error::TryRecvError::Lagged(2))
+            ),
+            "expected Lagged(2) but got {:?}",
             result
         );
     }
@@ -435,74 +443,12 @@ mod tests {
     }
 
     // ── Dual Client dispatch ────────────────────────────────────────
-
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    /// @verifies C039
-    #[test]
-    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
-    fn dual_client_dispatch_routes_to_correct_bus() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let mut buses = std::collections::HashMap::new();
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_a.clone());
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_b.clone());
-
-        let mut rx_b = bus_b.subscribe_control();
-
-        // Simulate dispatch: event for account 2 goes to bus_b only
-        let event = make_event(Some(AccountId::from_u64(1).unwrap()));
-        if let Some(client_bus) = buses.get(&AccountId::from_u64(1).unwrap()) {
-            client_bus.publish(event);
-        }
-
-        let ev = rx_b.try_recv().unwrap();
-        assert_eq!(ev.meta.account_id, Some(AccountId::from_u64(1).unwrap()));
-    }
-
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    /// @verifies C039
-    #[test]
-    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
-    fn dual_client_none_account_broadcasts_to_all() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let mut buses = std::collections::HashMap::new();
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_a.clone());
-        buses.insert(AccountId::from_u64(2).unwrap(), bus_b.clone());
-
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_b = bus_b.subscribe_control();
-
-        // Simulate dispatch: None account_id → publish to all
-        let mut event = make_event(None);
-        event.meta.account_id = None;
-        for bus in buses.values() {
-            bus.publish(event.clone());
-        }
-
-        assert!(rx_a.try_recv().is_ok());
-        assert!(rx_b.try_recv().is_ok());
-    }
-
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    /// @verifies C039
-    #[test]
-    // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
-    fn dual_client_unknown_account_falls_back_to_default() {
-        let default_bus = EventBus::new(16, None);
-        let mut rx_default = default_bus.subscribe_control();
-        let buses: std::collections::HashMap<AccountId, EventBus> =
-            std::collections::HashMap::new();
-
-        // Event for unknown account
-        let event = make_event(Some(AccountId::from_u64(1).unwrap()));
-        if let Some(client_bus) = buses.get(&AccountId::from_u64(1).unwrap()) {
-            client_bus.publish(event);
-        } else {
-            // Fallback to default bus
-            default_bus.publish(event);
-        }
-
-        assert!(rx_default.try_recv().is_ok());
-    }
+    //
+    // [::TICKET::] P7-2 review: The old inline-routing tests
+    // (dual_client_dispatch_routes_to_correct_bus / none_account_broadcasts /
+    // unknown_account_falls_back_to_default) re-implemented the dispatch logic
+    // inside the test bodies and the first one had a same-AccountId-key bug
+    // (bus_b overwrote bus_a), so they never proved the C039 isolation
+    // invariant. Production dispatch_event tests now live in
+    // src/runtime/reactor.rs and exercise the real routing function.
 }
