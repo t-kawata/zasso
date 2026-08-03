@@ -5,7 +5,13 @@
  * insert-stub.test.js — Tests for insert-stub.js
  *
  * Covers: ticket-ref existence validation, file/line bounds, duplicate detection,
- * output format compliance with validate-stub-format.js, CLI arg name (PX-96).
+ * output format compliance with validate-stub-format.js, CLI arg name (PX-96),
+ * and PX-119 contracts C001-C004 (todo condition, ordering, PX ban).
+ *
+ * @verifies C001
+ * @verifies C002
+ * @verifies C003
+ * @verifies C004
  *
  * [::TICKET::] PX-94, PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
  */
@@ -22,6 +28,7 @@ let failed = 0;
 
 // [::TICKET::] PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-95|PX-94) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-96 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-96 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -81,7 +88,9 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'insert-stub-test-'));
 const mockTicketsPath = path.join(tmpDir, 'Tickets.json');
 const mockSourcePath = path.join(tmpDir, 'test.rs');
 
-// Create mock Tickets.json with phase 0 having P0-1
+// Create mock Tickets.json with phase 0 having P0-1 (todo) and P0-2 (reviewed).
+// P0-1 is the valid future resolve target; P0-2 is a past (non-todo) ticket that
+// the todo condition must reject (PX-119 C002).
 const mockTickets = {
   title: 'test',
   phases: [
@@ -89,7 +98,8 @@ const mockTickets = {
       id: 0,
       name: 'Test Phase',
       tickets: [
-        { id: 1, phaseId: 0, status: 'reviewed', title: 'Test Ticket' }
+        { id: 1, phaseId: 0, status: 'todo', title: 'Test Ticket' },
+        { id: 2, phaseId: 0, status: 'reviewed', title: 'Past Ticket' }
       ]
     }
   ]
@@ -495,6 +505,120 @@ process.stdout.write('\n[PX-96] Both args: --resolve-by-ticket wins\n');
 
 // [::TICKET::] PX-96: end CLI tests
 // ===========================================================================
+
+// [::TICKET::] PX-119: todo condition (C002), ordering (C003), PX ban (C004)
+// ===========================================================================
+
+// C002-Pre: existing non-todo ticket rejected with redo instruction
+process.stdout.write('\n[C002] Non-todo existing ticket rejected\n');
+(function testNonTodoRejected() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c002-nontodo.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  try {
+    insertStub({ file: testFile, line: 1, ticketRef: 'P0-2', stubReason: 'b', resolvePlan: 'p', ticketsPath: mockTicketsPath });
+    failed++; process.stdout.write('  ✗ P0-2 (reviewed) should be rejected by the todo condition\n');
+  } catch (err) {
+    assert(err.message.includes('todo'), 'message names the todo condition: ' + err.message);
+    assert(/re-run|redo|retry/i.test(err.message), 'message instructs redo: ' + err.message);
+  }
+})();
+
+// C002-Boundary: ticket with no status field treated as todo
+process.stdout.write('\n[C002] Missing status treated as todo\n');
+(function testMissingStatusTreatedAsTodo() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c002-nostatus.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  const noStatus = JSON.parse(fs.readFileSync(mockTicketsPath, 'utf8'));
+  noStatus.phases[0].tickets.push({ id: 3, phaseId: 0, title: 'No Status' });
+  const noStatusPath = path.join(tmpDir, 'Tickets-nostatus.json');
+  fs.writeFileSync(noStatusPath, JSON.stringify(noStatus, null, 2));
+  try {
+    const result = insertStub({ file: testFile, line: 1, ticketRef: 'P0-3', stubReason: 'b', resolvePlan: 'p', ticketsPath: noStatusPath });
+    assertStrictEqual(result.inserted, true, 'status-missing ticket treated as todo');
+  } catch (err) {
+    failed++; process.stdout.write('  ✗ status-missing ticket should be accepted: ' + err.message + '\n');
+  }
+})();
+
+// C003-Pre: --ticket-key with earlier-phase target rejected
+process.stdout.write('\n[C003] --ticket-key with earlier-phase target rejected\n');
+(function testOrderingEarlierPhaseRejected() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c003-earlier.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  const ord = { phases: [
+    { id: 4, tickets: [{ id: 1, phaseId: 4, status: 'todo', title: 'earlier' }] },
+    { id: 5, tickets: [{ id: 2, phaseId: 5, status: 'started', title: 'current' }, { id: 3, phaseId: 5, status: 'todo', title: 'future' }] }
+  ] };
+  const ordPath = path.join(tmpDir, 'Tickets-ordering.json');
+  fs.writeFileSync(ordPath, JSON.stringify(ord, null, 2));
+  try {
+    insertStub({ file: testFile, line: 1, ticketRef: 'P4-1', stubReason: 'b', resolvePlan: 'p', ticketsPath: ordPath, ticketKey: 'P5-2' });
+    failed++; process.stdout.write('  ✗ earlier-phase target should be rejected\n');
+  } catch (err) {
+    assert(/earlier|before/i.test(err.message), 'ordering message names the earlier target: ' + err.message);
+  }
+})();
+
+// C003-Post: --ticket-key with later-id target accepted
+process.stdout.write('\n[C003] --ticket-key with later-id target accepted\n');
+(function testOrderingLaterIdAccepted() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c003-later.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  const ord = { phases: [
+    { id: 5, tickets: [{ id: 2, phaseId: 5, status: 'started', title: 'current' }, { id: 3, phaseId: 5, status: 'todo', title: 'future' }] }
+  ] };
+  const ordPath = path.join(tmpDir, 'Tickets-ordering2.json');
+  fs.writeFileSync(ordPath, JSON.stringify(ord, null, 2));
+  try {
+    const result = insertStub({ file: testFile, line: 1, ticketRef: 'P5-3', stubReason: 'b', resolvePlan: 'p', ticketsPath: ordPath, ticketKey: 'P5-2' });
+    assertStrictEqual(result.inserted, true, 'later-id target accepted');
+  } catch (err) {
+    failed++; process.stdout.write('  ✗ later-id target should be accepted: ' + err.message + '\n');
+  }
+})();
+
+// C003-Invariant: no --ticket-key skips the ordering check
+process.stdout.write('\n[C003] No --ticket-key skips ordering check\n');
+(function testOrderingSkippedWithoutTicketKey() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c003-nokey.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  const ord = { phases: [
+    { id: 4, tickets: [{ id: 1, phaseId: 4, status: 'todo', title: 'earlier' }] }
+  ] };
+  const ordPath = path.join(tmpDir, 'Tickets-ordering3.json');
+  fs.writeFileSync(ordPath, JSON.stringify(ord, null, 2));
+  try {
+    const result = insertStub({ file: testFile, line: 1, ticketRef: 'P4-1', stubReason: 'b', resolvePlan: 'p', ticketsPath: ordPath });
+    assertStrictEqual(result.inserted, true, 'no ticketKey => no ordering check');
+  } catch (err) {
+    failed++; process.stdout.write('  ✗ no-ticketKey insert should succeed: ' + err.message + '\n');
+  }
+})();
+
+// C004-Pre: PX resolve-by-ticket rejected
+process.stdout.write('\n[C004] PX resolve-by-ticket rejected\n');
+(function testPxRejected() {
+  if (!insertStub) { failed++; process.stdout.write('  ✗ (module not implemented)\n'); return; }
+  const testFile = path.join(tmpDir, 'c004-px.rs');
+  fs.writeFileSync(testFile, '// line 1\n');
+  const pxData = { phases: [
+    { id: -1, tickets: [{ id: 10, phaseId: -1, status: 'todo', title: 'px' }] },
+    { id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo', title: 'a' }] }
+  ] };
+  const pxPath = path.join(tmpDir, 'Tickets-px.json');
+  fs.writeFileSync(pxPath, JSON.stringify(pxData, null, 2));
+  try {
+    insertStub({ file: testFile, line: 1, ticketRef: 'PX-10', stubReason: 'b', resolvePlan: 'p', ticketsPath: pxPath });
+    failed++; process.stdout.write('  ✗ PX-10 should be rejected\n');
+  } catch (err) {
+    assert(/PX/.test(err.message), 'PX-ban message names PX: ' + err.message);
+  }
+})();
 
 // ===========================================================================
 // Summary

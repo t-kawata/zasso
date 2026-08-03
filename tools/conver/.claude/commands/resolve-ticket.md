@@ -68,9 +68,10 @@ Resolve all captured warnings and errors. Resolution methods:
 
 ```bash
 # insert-stub.js: Insert [::STUB::] marker with resolve-by-ticket validation
-#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1).
 #                          MUST already exist in Tickets.json.
-#                          NOT the ticket currently being worked on.
+#                          MUST have effective status 'todo' (missing status = 'todo').
+#                          MUST NOT be a PX-{id} ticket.
 #   --stub-reason:         Why this code is left as a stub — be specific.
 #                          Must be a single line (no newlines).
 #                          BAD:  "Dependency not ready"
@@ -88,6 +89,8 @@ node .claude/scripts/tickets/insert-stub.js \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
   --tickets-path=Tickets.json
 ```
+> **Retry until success**: If `insert-stub.js` exits non-zero, read the error (problem / blocking reason / redo instruction), fix the arguments, and re-run. Never abort this command because of an `insert-stub.js` failure.
+
 3. **Suppression and marker consistency**: Verify that there is no suppression without `[::STUB::]`, and no `[::STUB::]` without suppression
 
 **Do not proceed to the next step until all warnings and errors are resolved.**
@@ -190,7 +193,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
 **Escape hatch — new ticket for truly unresolvable STUBs**: If a STUB genuinely cannot be resolved in this session (e.g., blocked on external dependency, awaiting another team), the AI MUST (requires `$ARGUMENTS` to be set):
-1. Create a new ticket via `/make-ticket` with full justification in background and scope
+1. Create a new ticket via `/make-ticket` with full justification in background and scope. **The new deferral ticket MUST be a non-PX ticket in the max phase** — `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB.
 2. Update the STUB's `deferredTo` field to the new ticket key
 3. Re-run Step 7.5a and 7.5b to confirm validation passes (re-run with `$ARGUMENTS` set)
 4. Record the deferred STUBs and their new ticket keys in the implementation summary

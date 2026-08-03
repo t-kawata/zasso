@@ -12352,7 +12352,7 @@
               "invariant": "Running twice with the same input produces byte-identical targetStubs and targetCrimes arrays"
             }
           ],
-          "notes": "- 【Steps】1) Guard in update-ticket.js 2) Idempotency tests 3) Integration test\n- 【Risks】Low — writeTargetsToTickets already uses =\n- 【Caveats】AI scripts may write these fields via stdin; guard catches it\n- 【Open items】Existing inflated data trim (separate)\n- 【Future】CI check for targetStubs growth\nappended note\nappended note test\nImplementation summary:\n- Changed file: .claude/scripts/tickets/update-ticket.js\n- Key change: added IDEMPOTENT_FIELDS = ['targetStubs', 'targetCrimes'] with guard in --append path\n- Test results: 8/8 PX-91 tests passed + 7/7 regression tests passed\n- Manual verification: --append targetStubs rejected, --append targetCrimes rejected, --append notes still works\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test",
+          "notes": "- 【Steps】1) Guard in update-ticket.js 2) Idempotency tests 3) Integration test\n- 【Risks】Low — writeTargetsToTickets already uses =\n- 【Caveats】AI scripts may write these fields via stdin; guard catches it\n- 【Open items】Existing inflated data trim (separate)\n- 【Future】CI check for targetStubs growth\nappended note\nappended note test\nImplementation summary:\n- Changed file: .claude/scripts/tickets/update-ticket.js\n- Key change: added IDEMPOTENT_FIELDS = ['targetStubs', 'targetCrimes'] with guard in --append path\n- Test results: 8/8 PX-91 tests passed + 7/7 regression tests passed\n- Manual verification: --append targetStubs rejected, --append targetCrimes rejected, --append notes still works\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test\nappended note test",
           "invariants": "- 【Normal】Always replaces arrays, never appends\n- 【On error】Failed scan does not corrupt existing data\n- 【Internal state】Classification is deterministic\n- 【Boundary】Empty source -> verified_empty",
           "instrumentation": "- 【Logging】Log warning when targetStubs/targetCrimes are overwritten\n- 【Metrics】None\n- 【Error tracking】N/A\n- 【Health check】N/A",
           "investigation": "=== Investigation ===\n\n1. enumerate-ticket-targets.js L196-198: writeTargetsToTickets() already uses assignment (=), not append.\n\n2. update-ticket.js L41-53: --append flag CONCATENATES arrays. If any script uses --append on targetStubs/targetCrimes, accumulation occurs.\n\nFix: Add field-specific guard in update-ticket.js rejecting --append for targetStubs/targetCrimes.",
@@ -15691,6 +15691,148 @@
               "before": "resolve-ticket.md Step 5: \"Remove the marker from resolved stubs.\"",
               "after": "Instructions run remove-stub.js (single/batch)",
               "description": "Edited resolve-ticket.md Step 5"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-03"
+        },
+        {
+          "id": 119,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "insert-stub.js validation hardening and ticket-add path PX removal",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/119-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nHarden insert-stub.js so STUB markers can only resolve to genuine future work (existing todo non-PX tickets), and route new omission tickets to the max phase so deferred STUBs always reference real, future work.\n\n### Purpose\nPrevent the pipeline timeline from being corrupted by STUB markers that reference already-processed tickets (non-todo status) or the ambiguous PX phase; keep every deferred STUB pointing at work that the next round will actually process.\n\n### Motivation\nDesign review for PX-119 determined that the existing existence-only validation (ticketExists) is insufficient: it permits references to past tickets and to PX, both of which break the timeline. The todo condition, optional ordering check, PX ban, and max-phase append make the deferral path safe and mechanically verifiable.\n\n### Constraints\nNo change to the phasify-omissions R<round> round-marking or to the runner loadPendingTickets semantics (verified safe via create-tmp-omissions.js non-reviewed pickup). --ticket-key stays optional. Error output must never halt the slash command (retry-until-success).",
+          "scope": [
+            "path: tools/conver/.claude/scripts/tickets/insert-stub.js",
+            "action: add optional --ticket-key argument and three validation gates (always-mandatory todo condition, ordering condition when --ticket-key is given, PX ban); rework every InsertStubError message to the problem/blocking-reason/redo-instruction form",
+            "detail: effective status read as (ticket.status || todo); ordering computed by (phaseId,id) lexicographic comparison where phaseId is taken from phase.id (tickets.ts L78); PX-{id} resolve targets rejected; all existing validations (existence, file, line, duplicate, single-line) preserved",
+            "before/after: before — only ticketExists is checked, so past-ticket and PX references are allowed; after — existing + effective-todo + (if --ticket-key) not-earlier + non-PX, each failure returning an actionable message",
+            "api: insertStub() gains an optional ticketKey parameter; CLI gains --ticket-key=<P{phase}-{id}|PX-{id}>; backward compatible because the option is optional",
+            "schema: no Tickets.json schema change; a missing status field is treated as todo (show-ticket-context.js L595 convention)",
+            "config: no config/env change",
+            "dep: reuses lib/find-ticket.js (findTicket/ticketExists); no new dependencies",
+            "non-change item: phasify-omissions.js R<round> round-marking and the round counter are NOT changed",
+            "non-change why: verified safe — create-tmp-omissions.js (run by find-omissions Step 1 via get-next-check-target-ticket.js) collects ALL non-reviewed tickets (status !== reviewed) and re-queues them as new todo tickets, so no pending work is dropped at phasify",
+            "impact component: plan-ticket.md / start-ticket.md / review-ticket.md / resolve-ticket.md plus add-omission-ticket.js",
+            "impact nature: insert-stub.js call sites gain --ticket-key; add-omission-ticket.js PX append becomes max-phase append; error messages become self-explanatory retry guidance",
+            "impact response: update insert-stub.js and add-omission-ticket.js tests; add the retry-until-success instruction to the four command docs"
+          ],
+          "testUnit": [
+            "UT: [Normal] insertStub() with --resolve-by-ticket=P5-2 (existing, status todo, non-PX) inserts a single-line [::STUB::] marker at the given file:line",
+            "UT: [Error] --resolve-by-ticket referencing a non-existent ticket throws InsertStubError (insert-stub.js L137-141, ticketExists false)",
+            "UT: [Error] --resolve-by-ticket referencing an existing non-todo ticket (reviewed / remanded / done / R-round) throws InsertStubError with problem + blocking-reason + redo-instruction (new todo condition C002)",
+            "UT: [Error] --resolve-by-ticket matching PX-{id} throws InsertStubError with a PX-ban message (C004)",
+            "UT: [Boundary] ticket with no status field is treated as todo and insertion succeeds (show-ticket-context.js L595 convention: status||todo) (C002)",
+            "UT: [Normal] --ticket-key given and resolve-by-ticket in a later phase (P6-1 vs current P5-2) succeeds (C003)",
+            "UT: [Normal] --ticket-key given and resolve-by-ticket in the same phase with a later id (P5-3 vs P5-2) succeeds (C003)",
+            "UT: [Error] --ticket-key given and resolve-by-ticket in an earlier phase (P4-1 vs P5-2) throws InsertStubError with ordering message (C003)",
+            "UT: [Error] --ticket-key given and resolve-by-ticket in the same phase with an earlier id (P5-1 vs P5-2) throws InsertStubError with ordering message (C003)",
+            "UT: [Error] --ticket-key given and resolve-by-ticket equals the current ticket (non-todo) is rejected via the todo condition (self-reference impossible, intended) (C002)",
+            "UT: [Invariant] every InsertStubError message contains problem + blocking-reason + redo-instruction (retry contract)",
+            "UT: [Normal] addOmissionTicket() appends the new omission ticket to the phase with max(id), id = max-in-phase+1, status todo, phaseId = maxPhaseId (C005)",
+            "UT: [Invariant] addOmissionTicket() never appends to the PX phase (phaseId=-1) (C005)"
+          ],
+          "testIntegration": [
+            "IT: Integration point — plan-ticket.md / start-ticket.md / review-ticket.md pass --ticket-key=$ARGUMENTS to insert-stub.js",
+            "IT: Verify — resolve-ticket.md passes --ticket-key only when $ARGUMENTS is set; the todo condition applies even without it",
+            "IT: Prerequisites — Tickets.json with phases P0..Pn plus a PX phase; add-omission-ticket.js computes the max phase from Tickets.json",
+            "IT: Related tickets — end-to-end: a STUB deferred to a future todo ticket (max-phase) survives the next phasify-omissions round because create-tmp-omissions.js re-queues non-reviewed tickets as new todo tickets"
+          ],
+          "testExceptions": [
+            "Item: slash command never halts on insert-stub.js failure. Reason: it is an orchestration property spanning command docs and the session loop, so it is not testable inside the insert-stub.js unit. This is not a defect; the docs are verified by a text scan.",
+            "Reason: the retry-until-success loop is not testable as a unit because insert-stub.js only returns an exit code and message while the loop lives in the slash command. This is not an architectural defect; the alternative verification is a docs text-scan assertion.",
+            "Alternative verification: a text scan test asserts the retry instruction (成功するまで再実行せよ / コマンドを中止してはならない) exists in each of plan/start/review/resolve-ticket.md. This alternative is required because the property cannot test inside the script, which is not a defect."
+          ],
+          "default_files": [
+            "tools/conver/.claude/scripts/tickets/insert-stub.js",
+            "tools/conver/.claude/scripts/tickets/add-omission-ticket.js",
+            "tools/conver/.claude/commands/plan-ticket.md",
+            "tools/conver/.claude/commands/start-ticket.md",
+            "tools/conver/.claude/commands/review-ticket.md",
+            "tools/conver/.claude/commands/resolve-ticket.md",
+            "tools/conver/.claude/scripts/tickets/tests/insert-stub.test.js",
+            "tools/conver/.claude/scripts/tickets/tests/add-omission-ticket.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: insert-stub.js inserts a [::STUB::] marker when --resolve-by-ticket is an existing todo non-PX ticket; add-omission-ticket.js appends new omission tickets to the max phase",
+            "Error case: invalid --resolve-by-ticket (non-existent / non-todo / PX / earlier-than-current) produces a blocking InsertStubError containing problem + blocking-reason + redo-instruction, and the slash command continues via retry (never halts)",
+            "Edge case: --ticket-key absent means only the todo condition applies; status-missing tickets are treated as todo; resolve-ticket.md passes --ticket-key only when $ARGUMENTS is set"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "insert-stub.js:ticketExists",
+              "precondition": "--resolve-by-ticket matches P{phase}-{id} or PX-{id}",
+              "postcondition": "if the ticket does not exist in Tickets.json, InsertStubError is thrown",
+              "invariant": "no STUB marker ever references a non-existent ticket"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "insert-stub.js:todo-condition",
+              "precondition": "--resolve-by-ticket references an existing non-PX ticket",
+              "postcondition": "if (status||todo) !== todo, InsertStubError is thrown with a message containing problem + blocking-reason + redo-instruction",
+              "invariant": "every inserted STUB resolves to a ticket whose effective status is todo"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "insert-stub.js:ordering-condition",
+              "precondition": "--ticket-key is provided and references an existing non-PX ticket",
+              "postcondition": "if resolve-by-ticket is strictly before --ticket-key in (phaseId,id) lexicographic order, InsertStubError is thrown",
+              "invariant": "when --ticket-key is given, a STUB never resolves to a ticket earlier than the current ticket"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "insert-stub.js:px-ban",
+              "precondition": "--resolve-by-ticket matches PX-{id}",
+              "postcondition": "InsertStubError is thrown",
+              "invariant": "no STUB marker ever references a PX ticket"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "add-omission-ticket.js:max-phase-append",
+              "precondition": "Tickets.json contains at least one phase",
+              "postcondition": "the new omission ticket is appended to the phase with max(id), id = max-in-phase+1, status todo, phaseId = maxPhaseId",
+              "invariant": "new omission tickets are never placed in the PX phase (phaseId=-1)"
+            }
+          ],
+          "notes": "- 【Implementation steps】TDD Red→Green→Refactor per contract: C001 (existence, already green) → C002 (todo condition) → C004 (PX ban) → C003 (ordering when --ticket-key given) → C005 (add-omission-ticket.js max-phase append). Implement each as a pure function first, then wire into insertStub().\n- 【Risks】Changing add-omission-ticket.js target phase may break existing PX-based tests; the resolve-ticket Step 7.5 escape hatch (/make-ticket) must create deferral tickets in the max phase, otherwise they sit pre-offset and get R<round>-marked at the next phasify.\n- 【Caveats】phaseId for ordering must come from phase.id (tickets.ts L78), not the raw ticket.phaseId field; self-reference (resolve-by-ticket == current ticket) is impossible under the todo condition and is intended; a status-missing ticket defaults to todo.\n- 【Open items】None.\n- 【Future improvements】None.\nImplementation summary:\n- insert-stub.js: optional --ticket-key, todo condition (effective status defaults to todo), ordering check (phase.id), PX ban, 3-part English error messages.\n- add-omission-ticket.js: appendTicket targets the max non-PX phase; PX_PHASE_ID constant; never writes to PX.\n- Commands plan/start/review/resolve-ticket.md: --ticket-key + retry-until-success (never halt the slash command).\n- resolve-ticket.md escape hatch: deferral tickets must be non-PX max-phase.\n- Tests: insert-stub.test.js 30 passed, add-omission-ticket.test.js 78 passed; all 29 tickets test files exit 0; make typecheck passes; quality check 0 issues.\nReview report:\n- Static quality check: passed (run-quality-checks 0 issues)\n- Translatability: new code uses domain-named functions/variables (findTicketPosition, validateTodoCondition gates, PX_PHASE_ID constant); no new generic names or magic numbers\n- Dependencies: consistency verified (find-ticket.js reused, no new deps)\n- Annotation: 4 changed source files verified, 0 AMBIGUOUS\n- Tests: insert-stub 30 passed, add-omission 78 passed, all 29 tickets test files exit 0, make typecheck passed\n- Issues found and fixes applied: none",
+          "invariants": "- 【Normal establishment】Every [::STUB::] marker inserted by insert-stub.js references a ticket that exists in Tickets.json, whose effective status is todo, and which is not a PX ticket. No STUB can point to a past or PX ticket.\n- 【Invariant on error】On any validation failure insert-stub.js throws InsertStubError and does NOT modify any file; Tickets.json and the target source file remain byte-identical to their pre-call state.\n- 【Internal state】add-omission-ticket.js always computes the target phase as max(phase.id) and the ticket id as max(id in that phase)+1; the PX phase (phaseId=-1) is never a write target for new omission tickets.\n- 【Boundary】Ordering comparisons use the phase object id (tickets.ts L78 convention: ticket.phaseId is overridden from phase.id), never the raw ticket.phaseId field, so PX(-1) and phase ids are compared consistently.",
+          "instrumentation": "- 【Logging】insert-stub.js keeps logging {ok:true, marker, file, line} on success and the structured InsertStubError message to stderr on validation failure, exiting non-zero (insertion blocked, command continues via retry).\n- 【Metrics】No new metrics; the validation outcome is observable via exit code (0 = inserted, 1 = validation failure).\n- 【Error tracking】InsertStubError carries the three-part message (problem / blocking-reason / redo-instruction); add-omission-ticket.js logs the computed target phase (max phase id) on append.\n- 【Health check】enumerate-ticket-targets / validate-ticket-targets (make-time gates) already scan STUB markers; the new gates enforce at insert time, so a STUB with an invalid resolve target cannot be created.\nStatic quality check: passed\nTranslatability: no new issues (pre-existing generic param names in add-omission-ticket.js noted)\nTests: all 29 tickets test files passed + make typecheck passed",
+          "investigation": "Evidence gathered: insert-stub.js L79 insertStub({file,line,ticketRef,stubReason,resolvePlan,ticketsPath}) currently validates required args (L88-97), ticket-ref format (L108-111), Tickets.json existence (L120-123), JSON parse (L130), ticketExists (L137-141), source file existence (L145-146), line range (L164-176), duplicate STUB at target line (L174), and single-line invariant (L181-190). lib/find-ticket.js provides findTicket / ticketExists / ticketIsDone; PX-{id} maps to phaseId -1. add-omission-ticket.js appends new omission tickets to the PX phase (phaseId=-1) of _tmp-omissions-*.json (L8-9, L89-125, L484) and writes at L344/L466/L490/L527. tickets.ts L78 overrides ticket.phaseId from phase.id; loadPendingTickets (L80) treats status !== reviewed && !isRoundStatus as pending. create-tmp-omissions.js L103-121 collectNonReviewedTickets() collects every ticket with status !== reviewed (todo, in_progress, made, planned, done, remanded, R-round), so mid-run todo tickets are re-queued as new todo tickets at the next phasify-omissions merge — no pending work is lost. Command call sites invoking insert-stub.js (plan/start/review/resolve-ticket.md) currently pass --file/--line/--resolve-by-ticket/--stub-reason/--resolve-plan/--tickets-path and do NOT pass --ticket-key.",
+          "boyScoutPlan": "Extract the new validation gates into pure functions — validateTodoCondition(resolveTargetTicket), validateNotEarlierThan(resolveTarget, currentTicket), validateNonPx(ticketRef) — in insert-stub.js (or a small lib module) so insertStub() reads as executable prose. Introduce named constant PX_PHASE_ID = -1 to replace the magic -1. Rename generic variables to domain concepts (currentTicket, resolveTargetTicket, effectiveStatus). Ensure every InsertStubError carries the three-part message (problem / blocking-reason / redo-instruction) so the CLI output is self-explanatory. Proactively refactor the existing insertStub() monolith by extracting each validation step into a verb-named function, leaving the touched code cleaner than found.",
+          "created_at": "2026-08-03",
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] resolve-by-ticket that does not exist throws InsertStubError\n  ```js\n  const data = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"A\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  let msg = \"\";\n  try { insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P0-99\", stubReason: \"blocked\", resolvePlan: \"fix\", ticketsPath }); } catch (e) { msg = e.message; }\n  assertStrictEqual(true, msg.includes(\"does not exist\"), \"C001-Pre: non-existent ticket rejected\");\n  ```",
+            "UT: [C001-Post] existing todo ticket passes the existence gate\n  ```js\n  const data = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"A\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  const out = insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P0-1\", stubReason: \"blocked\", resolvePlan: \"fix\", ticketsPath });\n  assertStrictEqual(true, out.ok, \"C001-Post: existing ticket accepted\");\n  ```",
+            "UT: [C002-Pre] existing non-todo ticket (reviewed) throws blocking InsertStubError with problem/reason/redo\n  ```js\n  const data = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: \"reviewed\", title: \"A\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  let msg = \"\";\n  try { insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P0-1\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath }); } catch (e) { msg = e.message; }\n  assert(/todo/.test(msg), \"C002-Pre: message names the todo condition\");\n  assert(/やり直せ|再実行|redo|retry/.test(msg), \"C002-Pre: message instructs redo\");\n  ```",
+            "UT: [C002-Boundary] ticket with no status field is treated as todo, insertion succeeds\n  ```js\n  const data = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, title: \"A\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  const out = insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P0-1\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath });\n  assertStrictEqual(true, out.ok, \"C002-Boundary: missing status defaults to todo\");\n  ```",
+            "UT: [C003-Pre] --ticket-key=P5-2 with resolve-by-ticket=P4-1 (earlier phase) throws InsertStubError\n  ```js\n  const data = { phases: [{ id: 4, tickets: [{ id: 1, phaseId: 4, status: \"todo\", title: \"earlier\" }] }, { id: 5, tickets: [{ id: 1, phaseId: 5, status: \"todo\", title: \"x\" }, { id: 2, phaseId: 5, status: \"started\", title: \"current\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  let msg = \"\";\n  try { insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P4-1\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath, ticketKey: \"P5-2\" }); } catch (e) { msg = e.message; }\n  assert(/前|earlier|before/.test(msg), \"C003-Pre: earlier-phase target rejected\");\n  ```",
+            "UT: [C003-Post] --ticket-key=P5-2 with resolve-by-ticket=P5-3 (later id in same phase) succeeds\n  ```js\n  const data = { phases: [{ id: 5, tickets: [{ id: 2, phaseId: 5, status: \"started\", title: \"current\" }, { id: 3, phaseId: 5, status: \"todo\", title: \"future\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  const out = insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P5-3\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath, ticketKey: \"P5-2\" });\n  assertStrictEqual(true, out.ok, \"C003-Post: later-id target accepted\");\n  ```",
+            "UT: [C003-Invariant] --ticket-key absent => ordering check skipped, todo condition only\n  ```js\n  const data = { phases: [{ id: 4, tickets: [{ id: 1, phaseId: 4, status: \"todo\", title: \"earlier\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  const out = insertStub({ file: \"x.rs\", line: 5, ticketRef: \"P4-1\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath });\n  assertStrictEqual(true, out.ok, \"C003-Invariant: no ticketKey => no ordering check\");\n  ```",
+            "UT: [C004-Pre] resolve-by-ticket=PX-10 throws InsertStubError with PX-ban message\n  ```js\n  const data = { phases: [{ id: -1, tickets: [{ id: 10, phaseId: -1, status: \"todo\", title: \"px\" }] }] };\n  const ticketsPath = writeTempTickets(data);\n  let msg = \"\";\n  try { insertStub({ file: \"x.rs\", line: 5, ticketRef: \"PX-10\", stubReason: \"b\", resolvePlan: \"p\", ticketsPath }); } catch (e) { msg = e.message; }\n  assert(/PX/.test(msg), \"C004-Pre: PX target rejected\");\n  ```",
+            "UT: [C005-Post] appendTicket() appends to the max phase with id=max-in-phase+1, status todo, phaseId=maxPhaseId\n  ```js\n  const data = { phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, status: \"todo\" }] }, { id: 22, tickets: [{ id: 1, phaseId: 22, status: \"reviewed\" }, { id: 2, phaseId: 22, status: \"reviewed\" }] }] };\n  const out = appendTicket(data, { title: \"new\", background: \"bg\", scope: [\"s\"], testUnit: [\"UT: t\"], testIntegration: [\"IT: t\"], testExceptions: [\"E\"], acceptanceCriteria: [\"AC\"], status: \"todo\" });\n  const maxPhase = out.phases.find(p => p.id === 22);\n  const added = maxPhase.tickets.find(t => t.title === \"new\");\n  assertStrictEqual(3, added.id, \"C005-Post: id = max-in-phase+1\");\n  assertStrictEqual(22, added.phaseId, \"C005-Post: phaseId = maxPhaseId\");\n  assertStrictEqual(\"todo\", added.status, \"C005-Post: status todo\");\n  ```",
+            "UT: [C005-Invariant] appendTicket() never writes to the PX phase (id=-1)\n  ```js\n  const data = { phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, status: \"todo\" }] }, { id: 0, tickets: [{ id: 1, phaseId: 0, status: \"todo\" }] }] };\n  const out = appendTicket(data, { title: \"new\", background: \"bg\", scope: [\"s\"], testUnit: [\"UT: t\"], testIntegration: [\"IT: t\"], testExceptions: [\"E\"], acceptanceCriteria: [\"AC\"], status: \"todo\" });\n  const pxPhase = out.phases.find(p => p.id === -1);\n  assertStrictEqual(true, pxPhase.tickets.every(t => t.title !== \"new\"), \"C005-Invariant: PX phase unchanged\");\n  ```"
+          ],
+          "startedAt": "2026-08-03",
+          "changes": [
+            {
+              "before": "insertStub validated only ticket existence",
+              "after": "insertStub validates todo condition, ordering (when --ticket-key), PX ban, and emits 3-part English error messages (problem/cause/action)",
+              "description": "insert-stub.js hardening (PX-119 C002-C004)"
+            },
+            {
+              "before": "appendTicket appended to PX phase (id=-1)",
+              "after": "appendTicket appends to the max real phase with id=max-in-phase+1, phaseId=maxPhaseId, status todo",
+              "description": "add-omission-ticket.js max-phase append (PX-119 C005)"
+            },
+            {
+              "before": "insert-stub invocations lacked --ticket-key and retry guidance",
+              "after": "plan/start/review/resolve-ticket.md pass --ticket-key=$ARGUMENTS (resolve: only when set) and instruct retry-until-success",
+              "description": "command docs update"
             }
           ],
           "rfcDiscrepancies": [],
