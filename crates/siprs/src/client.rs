@@ -64,7 +64,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -194,14 +194,21 @@ impl SipClient {
         // Submit Shutdown command via RuntimeHandle's internal oneshot.
         // A dummy channel is provided — submit() replaces it internally.
         let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
-        self.runtime
+        match self
+            .runtime
             .submit(RuntimeCommand::Shutdown { reply: _dummy_tx })
             .await
-            .map_err(|e| {
-                SipError::new(SipErrorKind::NativeError, format!("shutdown failed: {e}"))
-            })?;
-
-        Ok(())
+        {
+            Ok(()) => Ok(()),
+            // C044 idempotency: a concurrent shutdown may win the race and drop
+            // the reactor before this submit lands — the reactor being down is
+            // exactly the desired end state, so treat it as success.
+            Err(crate::runtime::command::ReactorError::ReactorDown) => Ok(()),
+            Err(e) => Err(SipError::new(
+                SipErrorKind::NativeError,
+                format!("shutdown failed: {e}"),
+            )),
+        }
     }
 }
 

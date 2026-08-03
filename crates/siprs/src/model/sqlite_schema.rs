@@ -229,10 +229,13 @@ pub enum TransportKind {
     Tls,
 }
 
-// [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-1) --for-spec --no-implementation-order`.
 impl TransportKind {
     /// Create from a string value (as stored in the database).
-    pub fn from_str(s: &str) -> Option<Self> {
+    ///
+    /// Named `from_db_value` rather than `from_str` to avoid colliding with the
+    /// `std::str::FromStr::from_str` trait method (clippy::should_implement_trait).
+    pub fn from_db_value(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "udp" => Some(Self::Udp),
             "tcp" => Some(Self::Tcp),
@@ -316,13 +319,25 @@ mod tests {
     // ── Normal: TransportKind conversion ──────────────────────────────
 
     #[test]
-    // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
-    fn test_transport_kind_from_str() {
-        assert_eq!(TransportKind::from_str("udp"), Some(TransportKind::Udp));
-        assert_eq!(TransportKind::from_str("tcp"), Some(TransportKind::Tcp));
-        assert_eq!(TransportKind::from_str("tls"), Some(TransportKind::Tls));
-        assert_eq!(TransportKind::from_str("UDP"), Some(TransportKind::Udp));
-        assert_eq!(TransportKind::from_str("unknown"), None);
+    // [::TICKET::] P2-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-1) --for-spec --no-implementation-order`.
+    fn test_transport_kind_from_db_value() {
+        assert_eq!(
+            TransportKind::from_db_value("udp"),
+            Some(TransportKind::Udp)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("tcp"),
+            Some(TransportKind::Tcp)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("tls"),
+            Some(TransportKind::Tls)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("UDP"),
+            Some(TransportKind::Udp)
+        );
+        assert_eq!(TransportKind::from_db_value("unknown"), None);
     }
 
     #[test]
@@ -461,9 +476,9 @@ mod tests {
 
     #[test]
     // @verifies C065
-    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P7-1) --for-spec --no-implementation-order`.
     fn test_all_create_table_constants_are_unique() {
-        let tables = vec![
+        let tables = [
             CREATE_TABLE_ACCOUNTS,
             CREATE_TABLE_TRANSPORT_CONFIGS,
             CREATE_TABLE_CLIENT_SETTINGS,

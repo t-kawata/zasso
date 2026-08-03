@@ -32,6 +32,9 @@ pub const DEFAULT_SIPRS_PORT: u16 = 3910;
 /// Default JWT expiry in seconds.
 pub const DEFAULT_JWT_EXPIRY_SECS: u64 = 3600;
 
+/// Default SQLite database path (home-directory expansion is the caller's responsibility).
+pub const DEFAULT_DB_PATH: &str = "~/.siprs/data.db";
+
 /// Configuration error for siprs-server startup validation.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ConfigError {
@@ -120,13 +123,13 @@ pub struct ServerConfig {
 // [::TICKET::] P3-3: Add Default for ServerConfig using localhost:3910 and default AuthConfig.
 // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
 impl Default for ServerConfig {
-    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT)
                 .parse()
                 .expect("static default bind address must be valid"),
-            db_path: PathBuf::from("~/.siprs/data.db"),
+            db_path: PathBuf::from(DEFAULT_DB_PATH),
             config_file: None,
             allowed_origins: vec![],
             auth: AuthConfig::default(),
@@ -154,7 +157,7 @@ pub struct AppState {
 ///
 /// - `cli` feature: enables `from_args()` and `from_args_with()` for CLI arg parsing via clap.
 /// - `server` feature: enables `build_router()` and HTTP handler functions.
-// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
 impl ServerConfig {
     /// Parse server config from CLI arguments.
     ///
@@ -194,7 +197,7 @@ impl ServerConfig {
             .arg(
                 Arg::new("db-path")
                     .long("db-path")
-                    .default_value("~/.siprs/data.db")
+                    .default_value(DEFAULT_DB_PATH)
                     .help("Path to SQLite database file"),
             )
             .arg(
@@ -248,12 +251,17 @@ impl ServerConfig {
             )
         })?;
 
-        let db_path = PathBuf::from(
-            matches
-                .get_one::<String>("db-path")
-                .map(|s| s.as_str())
-                .unwrap_or("~/.siprs/data.db"),
-        );
+        let db_path_raw = matches
+            .get_one::<String>("db-path")
+            .map(|s| s.as_str())
+            .unwrap_or(DEFAULT_DB_PATH);
+        if db_path_raw.trim().is_empty() {
+            return Err(crate::error::SipError::new(
+                crate::error::SipErrorKind::InvalidConfig,
+                "db-path must not be empty".to_string(),
+            ));
+        }
+        let db_path = PathBuf::from(db_path_raw);
 
         let config_file = matches.get_one::<String>("config-file").map(PathBuf::from);
 
@@ -431,17 +439,38 @@ mod tests {
         let _ = assert_exhaustive;
     }
 
+    // ── Invariant: ConfigError has exactly 2 variants ──────────────────
+
+    #[test]
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_config_error_variant_count() {
+        // Compile-time exhaustiveness check — match must cover both variants.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn assert_exhaustive(err: ConfigError) {
+            match err {
+                ConfigError::LocalhostRequiresLoopback(_) => {}
+                ConfigError::JwtRequiresSecret => {}
+            }
+        }
+        let _ = assert_exhaustive;
+    }
+
     // ── Invariant: Default mode is LocalhostOnly ───────────────────────
 
     #[test]
     // @verifies C062
-    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
     fn test_auth_config_default_localhost_only() {
         let config = AuthConfig::default();
         assert_eq!(
             config.mode,
             AuthMode::LocalhostOnly,
             "Default auth mode must be LocalhostOnly"
+        );
+        // C062 invariant (O-002): jwt_secret must default to None — LocalhostOnly requires no secret.
+        assert!(
+            config.jwt_secret.is_none(),
+            "Default jwt_secret must be None"
         );
     }
 
@@ -461,6 +490,19 @@ mod tests {
             config.validate(&bind).is_ok(),
             "LocalhostOnly with loopback address must be valid"
         );
+    }
+
+    #[test]
+    // O-003: IPv6 loopback ::1 must be accepted by LocalhostOnly validation.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_ipv6_loopback_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig::default();
+        let bind: std::net::SocketAddr = format!("[::1]:{}", DEFAULT_SIPRS_PORT).parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "IPv6 loopback ::1 must be accepted by LocalhostOnly"
+        );
+        Ok(())
     }
 
     #[test]
@@ -495,6 +537,46 @@ mod tests {
             config.validate(&bind).is_ok(),
             "Jwt mode with secret must be valid"
         );
+    }
+
+    // ── Boundary (O-004): port 0 (OS auto-assign) ─────────────────────
+
+    #[test]
+    // O-004: Port 0 (OS auto-assign) must be accepted by AuthConfig validation in ApiKey mode.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_apikey_port_zero_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::ApiKey {
+                key: crate::security::SecretString::new(String::from("test-key")),
+            },
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = "0.0.0.0:0".parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "ApiKey mode must accept port 0 (OS auto-assign)"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // O-004: Port 0 (OS auto-assign) must be accepted by AuthConfig validation in Jwt mode.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_port_zero_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: Some(crate::security::SecretString::new(String::from(
+                "jwt-secret",
+            ))),
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = "0.0.0.0:0".parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "Jwt mode must accept port 0 (OS auto-assign)"
+        );
+        Ok(())
     }
 
     // ── Error: AuthConfig invalid configurations ──────────────────────
@@ -556,17 +638,22 @@ mod tests {
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
-        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-2, P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
         assert_send::<AuthConfig>();
         assert_sync::<AuthConfig>();
-        assert_send::<AuthConfig>();
+        // Invariant: AuthMode and ConfigError are also Send + Sync (used across
+        // the tokio reactor boundary and axum handler threads).
+        assert_send::<AuthMode>();
+        assert_sync::<AuthMode>();
+        assert_send::<ConfigError>();
+        assert_sync::<ConfigError>();
     }
 
     // ── P3-3: ServerConfig default values ────────────────────────────────
@@ -600,9 +687,15 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
     fn test_default_jwt_expiry_secs() {
         assert_eq!(DEFAULT_JWT_EXPIRY_SECS, 3600);
+    }
+
+    #[test]
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_default_siprs_port_matches_constant() {
+        assert_eq!(DEFAULT_SIPRS_PORT, 3910);
     }
 
     // ── P3-3: AuthConfig uses DEFAULT_JWT_EXPIRY_SECS ────────────────────
@@ -660,6 +753,31 @@ mod tests {
             assert!(result.is_err(), "Non-numeric port must return error");
         }
 
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        #[test]
+        // O-004: Numeric but out-of-range port (u16 overflow) must be rejected.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_out_of_range_port() {
+            let result = ServerConfig::from_args_with(&["--port".to_string(), "70000".to_string()]);
+            assert!(
+                result.is_err(),
+                "Out-of-range port must return error (u16 parse overflow)"
+            );
+        }
+
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        #[test]
+        // O-005: Empty db-path must be rejected with a descriptive error.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_empty_db_path() {
+            let result = ServerConfig::from_args_with(&["--db-path".to_string(), "".to_string()]);
+            assert!(result.is_err(), "Empty db-path must return error");
+            assert!(
+                result.unwrap_err().to_string().contains("db-path"),
+                "Error message must mention db-path"
+            );
+        }
+
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
@@ -699,10 +817,12 @@ mod tests {
         }
     }
 
-    // ── P3-3: AppState + build_router tests (feature-gated) ──────────────
+    // ── P7-1: AppState + build_router behavioral tests (feature-gated) ──
     //
-    // Full health check response test requires a running SipClient (needs PJSIP).
-    // Verified separately in integration tests (P4-3).
+    // The reactor runs on MockBackend (src/runtime/reactor.rs), so a real
+    // SipClient can be constructed in tests without PJSIP native init.
+    // ClientConfig::default() fails validate() (empty sip_proxy_host), so the
+    // helper builds a valid config explicitly.
 
     #[cfg(all(test, feature = "server"))]
     mod server_tests {
@@ -710,32 +830,119 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
         fn test_app_state_send_sync() {
-            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
             fn assert_send<T: Send>() {}
-            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
             fn assert_sync<T: Sync>() {}
             assert_send::<AppState>();
             assert_sync::<AppState>();
         }
 
-        // [::TEST_EXCEPTION::] P3-3: Health check response test requires SipClient initialization.
-        // Full PJSIP backend integration test — deferred to P4-3.
-        // Alternative: Verify build_router() returns axum::Router via type-check.
-        #[test]
-        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
-        fn test_build_router_returns_router_type() {
-            // Type-level verification: build_router() must return axum::Router
-            // This test verifies the function signature compiles correctly.
-            // Actual health check response is tested in P4-3 integration tests.
-            // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
-            fn _assert_type(router: axum::Router) {
-                let _ = router;
-            }
-            // Can't construct AppState without SipClient — the router construction
-            // is verified at compile time via the type assertion above.
-            let _ = _assert_type;
+        /// Build a real AppState backed by a MockBackend reactor (no PJSIP).
+        ///
+        /// With `sqlite-storage`, opens an in-memory DatabasePool for the `db` field.
+        #[cfg(feature = "sqlite-storage")]
+        async fn build_test_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
+            use crate::client::SipClient;
+            use crate::config::ClientConfig;
+            use crate::model::sqlite_schema::DatabasePool;
+
+            let client_config = ClientConfig::builder()
+                .sip_proxy_host("sip.example.com")
+                .sip_proxy_port(5060)
+                .build();
+            let (sip_client, _rx) = SipClient::new(client_config).await?;
+            let db = DatabasePool::open(":memory:").await?;
+            Ok(AppState {
+                sip_client: Arc::new(sip_client),
+                db: Arc::new(db),
+                server_start_time: Instant::now(),
+            })
+        }
+
+        /// Build a real AppState backed by a MockBackend reactor (no PJSIP).
+        #[cfg(not(feature = "sqlite-storage"))]
+        async fn build_test_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
+            use crate::client::SipClient;
+            use crate::config::ClientConfig;
+
+            let client_config = ClientConfig::builder()
+                .sip_proxy_host("sip.example.com")
+                .sip_proxy_port(5060)
+                .build();
+            let (sip_client, _rx) = SipClient::new(client_config).await?;
+            Ok(AppState {
+                sip_client: Arc::new(sip_client),
+                server_start_time: Instant::now(),
+            })
+        }
+
+        // O-001 (critical): Behavioral health check — GET /api/v1/health must
+        // return HTTP 200 with {"status":"ok"} before any account is registered.
+        #[tokio::test]
+        async fn test_health_check_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use tower::ServiceExt;
+
+            let app = build_router(build_test_app_state().await?);
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/health")
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            let body: serde_json::Value = serde_json::from_slice(&bytes)?;
+            assert_eq!(body["status"], "ok", "health body must contain status:ok");
+            Ok(())
+        }
+
+        // Shutdown endpoint — POST /api/v1/shutdown must return HTTP 200 with
+        // {"status":"shutting_down"} and call the idempotent SipClient::shutdown().
+        #[tokio::test]
+        async fn test_shutdown_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use tower::ServiceExt;
+
+            let app = build_router(build_test_app_state().await?);
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/shutdown")
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            let body: serde_json::Value = serde_json::from_slice(&bytes)?;
+            assert_eq!(body["status"], "shutting_down");
+            Ok(())
+        }
+
+        // run_server must surface a typed SipError (never panic) when startup fails.
+        // SipClient::new(ClientConfig::default()) fails validate() (empty sip_proxy_host),
+        // so run_server returns Err(InvalidConfig) before any port binding.
+        // NOTE: run_server's ClientConfig source is an open design item (P4-3).
+        #[tokio::test]
+        async fn test_run_server_returns_typed_error_on_invalid_client_config(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let result = run_server(ServerConfig::default()).await;
+            let err = result.expect_err("run_server must return a typed error");
+            assert_eq!(
+                err.kind,
+                crate::error::SipErrorKind::InvalidConfig,
+                "startup failure must be InvalidConfig"
+            );
+            Ok(())
         }
     }
 } // mod tests

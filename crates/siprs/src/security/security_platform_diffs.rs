@@ -142,8 +142,9 @@ mod tests {
 
     #[test]
     #[cfg(feature = "zeroize")]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P7-1) --for-spec --no-implementation-order`.
     fn secret_string_zeroize_clears_memory() {
+        use zeroize::Zeroize;
         let mut secret = SecretString::new("sensitive_data".to_string());
         secret.zeroize();
         // After zeroize, the inner string should be zeroed (empty or zero-filled)
@@ -201,13 +202,13 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P7-1) --for-spec --no-implementation-order`.
     fn secret_string_partial_eq() {
-        let a = SecretString::new("same_value");
-        let b = SecretString::new("same_value");
-        let c = SecretString::new("different");
-        assert_eq!(a, b);
-        assert_ne!(a, c);
+        let first = SecretString::new("same_value");
+        let second = SecretString::new("same_value");
+        let different = SecretString::new("different");
+        assert_eq!(first, second);
+        assert_ne!(first, different);
     }
 
     #[test]

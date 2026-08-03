@@ -82,6 +82,8 @@ serde_json = "1"
 # [::TICKET::] P3-3: axum/tower-http in dev-deps for integration tests.
 axum = "0.7"
 tower-http = { version = "0.5", features = ["cors"] }
+# [::TICKET::] P7-1: tower for axum::test oneshot requests (ServiceExt::oneshot on Router).
+tower = { version = "0.5", features = ["util"] }
 
 # [::STUB::] P1-3: Example declarations. These examples reference types from
 # future tickets. They are gated behind the `spec-examples` feature so the
