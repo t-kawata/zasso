@@ -27,6 +27,9 @@ const REQUIRED_ARRAYS = ['scope', 'testUnit', 'acceptanceCriteria'];
 /** Sentinel string for idempotent inspection prefix detection */
 const INSPECTION_SENTINEL = '[::INSPECTION_FLAGGED::]';
 
+/** PX phase id (-1). New omission tickets are never appended here (PX-119 C005). */
+const PX_PHASE_ID = -1;
+
 /** Count occurrences of INSPECTION_SENTINEL in a string */
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
 function countInspectionSentinels(background) {
@@ -86,23 +89,32 @@ function validateTicket(ticket) {
 }
 
 /**
- * Append a ticket to the PX phase of the given data object.
+ * Append a ticket to the phase with the maximum id (never the PX phase).
  * Deep-clones the data, adds fromStub=false and stubs=[] to the ticket,
- * assigns auto-incremented ID, and appends to PX phase (phaseId=-1).
+ * assigns auto-incremented ID within the max phase, and appends there.
+ *
+ * PX-119 C005: new omission tickets are appended to the max real phase so a
+ * deferred STUB always references a future position, and are never placed in
+ * the PX phase (phaseId = -1).
  *
  * @param {object} data — Parsed tmp-omissions JSON { phases[] }
  * @param {object} ticket — Ticket object to append
  * @returns {object} — New data object with appended ticket (immutable)
  */
-// [::TICKET::] PX-100, PX-101, PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-100|PX-101|PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-100, PX-101, PX-106, PX-107, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function appendTicket(data, ticket) {
   const result = JSON.parse(JSON.stringify(data));
 
-  // Find or create PX phase
-  let pxPhase = result.phases.find(p => p.id === -1);
-  if (!pxPhase) {
-    pxPhase = { id: -1, name: '[X] Independent Phase', characteristics: '', tickets: [] };
-    result.phases.push(pxPhase);
+  // Target the phase with the max id among non-PX phases; create phase 0 if none.
+  const nonPxPhases = result.phases.filter(p => p.id !== PX_PHASE_ID);
+  let targetPhase;
+  if (nonPxPhases.length > 0) {
+    const maxPhaseId = Math.max(...nonPxPhases.map(p => p.id));
+    targetPhase = nonPxPhases.find(p => p.id === maxPhaseId);
+  } else {
+    targetPhase = { id: 0, name: 'P0', characteristics: '', tickets: [] };
+    result.phases.push(targetPhase);
   }
 
   // Deep-clone ticket and add required fields
@@ -119,12 +131,12 @@ function appendTicket(data, ticket) {
     newTicket.background = repairDuplicateSentinels(newTicket.background);
   }
 
-  // Auto-increment ID based on existing max in PX phase
-  const existingIds = pxPhase.tickets.map(t => t.id).filter(id => typeof id === 'number');
+  // Auto-increment ID based on existing max in the target phase
+  const existingIds = targetPhase.tickets.map(t => t.id).filter(id => typeof id === 'number');
   newTicket.id = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
-  newTicket.phaseId = -1;
+  newTicket.phaseId = targetPhase.id;
 
-  pxPhase.tickets.push(newTicket);
+  targetPhase.tickets.push(newTicket);
   return result;
 }
 

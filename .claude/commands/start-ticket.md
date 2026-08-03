@@ -96,9 +96,13 @@ Read Malfeasance.json. If unresolved crimes (`open`) exist, resolve them **with 
 
 ```bash
 # insert-stub.js: Insert [::STUB::] marker with resolve-by-ticket validation
-#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1).
 #                          MUST already exist in Tickets.json.
-#                          NOT the ticket currently being worked on.
+#                          MUST have effective status 'todo' (missing status = 'todo').
+#                          MUST NOT be a PX-{id} ticket.
+#   --ticket-key:          REQUIRED current ticket key ($ARGUMENTS). Omitting it is
+#                          forbidden in this command — --resolve-by-ticket must not
+#                          be earlier than it.
 #   --stub-reason:         Why this code is left as a stub — be specific.
 #                          Must be a single line (no newlines).
 #                          BAD:  "Dependency not ready"
@@ -114,8 +118,11 @@ node .claude/scripts/tickets/insert-stub.js \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
   --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
-  --tickets-path=Tickets.json
+  --tickets-path=Tickets.json \
+  --ticket-key="$ARGUMENTS"
 ```
+
+> **Retry until success**: If `insert-stub.js` exits non-zero, read the error (problem / blocking reason / redo instruction), fix the arguments, and re-run. Never abort this command because of an `insert-stub.js` failure.
 
    - After adding the marker, change `status` to `resolved` via `malfeasance-update.js`
    - If the implementation is complete but the marker remains, remove the marker to resolve

@@ -5,9 +5,11 @@
  * add-omission-ticket.test.js — Tests for add-omission-ticket.js
  *
  * Covers C001-C002 contracts with: precondition, postcondition, invariant tests.
+ * PX-119 C005: max-phase append (never PX).
  *
  * @verifies C001
  * @verifies C002
+ * @verifies C005
  */
 
 const fs = require('fs');
@@ -32,6 +34,7 @@ let failed = 0;
 // [::TICKET::] PX-105 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-105 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-104 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-104 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -173,8 +176,9 @@ const VALID_TICKET = {
 
 (function testC002InvariantFromStub() {
   console.log('  ── C002 Invariant fromStub ──');
-  const data = { phases: [{ id: -1, name: 'PX', tickets: [] }] };
-  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1 };
+  // PX-119 C005: appendTicket targets the max real phase (never PX)
+  const data = { phases: [{ id: 0, name: 'P0', tickets: [] }] };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: 0 };
   const result = appendTicket(data, ticket);
   const appended = result.phases[0].tickets[0];
   assert(appended.fromStub === false, 'fromStub is false');
@@ -184,9 +188,9 @@ const VALID_TICKET = {
 
 (function testC002InvariantPreserve() {
   console.log('  ── C002 Invariant preserve existing ──');
-  const existing = { id: 99, title: 'Existing', phaseId: -1 };
-  const data = { phases: [{ id: -1, name: 'PX', tickets: [existing] }] };
-  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1 };
+  const existing = { id: 99, title: 'Existing', phaseId: 0 };
+  const data = { phases: [{ id: 0, name: 'P0', tickets: [existing] }] };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: 0 };
   const result = appendTicket(data, ticket);
   assert(result.phases[0].tickets.length === 2, 'exactly 2 tickets after append');
   assertStrictEqual(result.phases[0].tickets[0].title, 'Existing', 'existing ticket preserved');
@@ -195,8 +199,8 @@ const VALID_TICKET = {
 
 (function testAppendPrependsAbcPrefix() {
   console.log('  ── C002 Invariant ABC_INSPECTION_PREFIX ──');
-  const data = { phases: [{ id: -1, name: 'PX', tickets: [] }] };
-  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1 };
+  const data = { phases: [{ id: 0, name: 'P0', tickets: [] }] };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: 0 };
   const result = appendTicket(data, ticket);
   const appended = result.phases[0].tickets[0];
   assert(appended.background.startsWith(ABC_INSPECTION_PREFIX), 'background starts with ABC_INSPECTION_PREFIX');
@@ -245,27 +249,27 @@ const VALID_TICKET = {
 
 (function testAppendAutoIncrement() {
   console.log('  ── Edge: auto-increment ID ──');
-  const data = { phases: [{ id: -1, name: 'PX', tickets: [{ id: 5, title: 'A' }, { id: 10, title: 'B' }] }] };
-  const ticket = { ...VALID_TICKET, id: 0, phaseId: -1 };
+  const data = { phases: [{ id: 0, name: 'P0', tickets: [{ id: 5, title: 'A' }, { id: 10, title: 'B' }] }] };
+  const ticket = { ...VALID_TICKET, id: 0, phaseId: 0 };
   const result = appendTicket(data, ticket);
   const last = result.phases[0].tickets[result.phases[0].tickets.length - 1];
   assert(last.id === 11, 'auto-incremented to max+1 (11)');
 })();
 
-(function testAppendCreatesPxPhase() {
-  console.log('  ── Edge: create PX phase if missing ──');
+(function testAppendDoesNotCreatePxPhase() {
+  console.log('  ── Edge: PX phase not created (PX-119 C005) ──');
   const data = { phases: [{ id: 0, name: 'P0', tickets: [] }] };
-  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1 };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: 0 };
   const result = appendTicket(data, ticket);
   const pxPhase = result.phases.find(p => p.id === -1);
-  assert(pxPhase !== undefined, 'PX phase created');
-  assert(pxPhase.tickets.length === 1, 'ticket in PX phase');
+  assert(pxPhase === undefined, 'PX phase not created');
+  assert(result.phases[0].tickets.length === 1, 'ticket appended to max real phase');
 })();
 
 (function testExtraFieldsPreserved() {
   console.log('  ── Edge: extra fields preserved ──');
-  const data = { phases: [{ id: -1, name: 'PX', tickets: [] }] };
-  const ticket = { ...VALID_TICKET, id: 1, phaseId: -1, extraField: 'should survive', anotherExtra: 42 };
+  const data = { phases: [{ id: 0, name: 'P0', tickets: [] }] };
+  const ticket = { ...VALID_TICKET, id: 1, phaseId: 0, extraField: 'should survive', anotherExtra: 42 };
   const result = appendTicket(data, ticket);
   const appended = result.phases[0].tickets[0];
   assert(appended.extraField === 'should survive', 'extraField preserved');
@@ -467,6 +471,42 @@ const VALID_TICKET = {
   const result = findLatestTmpOmissions();
   // May be null if no tmp files exist — that's OK, just verify no crash
   assert(result === null || typeof result === 'string', 'returns null or string path');
+})();
+
+// ======================================================================
+// PX-119 C005: max-phase append (never PX)
+// ======================================================================
+
+(function testC005AppendsToMaxPhase() {
+  console.log('  ── C005 Postcondition: max-phase append ──');
+  const data = { phases: [
+    { id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo' }] },
+    { id: 22, tickets: [{ id: 1, phaseId: 22, status: 'reviewed' }, { id: 2, phaseId: 22, status: 'reviewed' }] }
+  ] };
+  const ticket = { ...VALID_TICKET, status: 'todo' };
+  const result = appendTicket(data, ticket);
+  const maxPhase = result.phases.find(p => p.id === 22);
+  const added = maxPhase.tickets.find(t => t.title === VALID_TICKET.title);
+  assertStrictEqual(added.id, 3, 'id = max-in-phase+1');
+  assertStrictEqual(added.phaseId, 22, 'phaseId = maxPhaseId');
+  assertStrictEqual(added.status, 'todo', 'status is todo');
+  const pxPhase = result.phases.find(p => p.id === -1);
+  assert(pxPhase === undefined, 'no PX phase created');
+})();
+
+(function testC005NeverWritesToPx() {
+  console.log('  ── C005 Invariant: never PX ──');
+  const data = { phases: [
+    { id: -1, tickets: [{ id: 1, phaseId: -1, status: 'todo', title: 'px existing' }] },
+    { id: 0, tickets: [{ id: 1, phaseId: 0, status: 'todo' }] }
+  ] };
+  const ticket = { ...VALID_TICKET, status: 'todo' };
+  const result = appendTicket(data, ticket);
+  const pxPhase = result.phases.find(p => p.id === -1);
+  assertStrictEqual(pxPhase.tickets.length, 1, 'PX phase unchanged (no new ticket)');
+  assert(pxPhase.tickets.every(t => t.title !== VALID_TICKET.title), 'new ticket not placed in PX');
+  const maxPhase = result.phases.find(p => p.id === 0);
+  assert(maxPhase.tickets.some(t => t.title === VALID_TICKET.title), 'new ticket placed in max real phase');
 })();
 
 // ======================================================================

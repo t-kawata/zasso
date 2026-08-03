@@ -117,10 +117,14 @@ Additionally, verify whether `[::STUB::]` markers affect the plan:
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
 
 ```bash
-# Insert a [::STUB::] marker (all args required)
-#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1, PX-77).
+# Insert a [::STUB::] marker (all args required, including --ticket-key)
+#   --resolve-by-ticket:   Ticket key that WILL resolve this stub (e.g. P0-1).
 #                          MUST already exist in Tickets.json.
-#                          NOT the ticket currently being worked on.
+#                          MUST have effective status 'todo' (missing status = 'todo').
+#                          MUST NOT be a PX-{id} ticket.
+#   --ticket-key:          REQUIRED current ticket key ($ARGUMENTS). Omitting it is
+#                          forbidden in this command — --resolve-by-ticket must not
+#                          be earlier than it.
 #   --stub-reason:         Why this code is left as a stub — be specific.
 #                          Must be a single line (no newlines).
 #                          BAD:  "Dependency not ready"
@@ -136,8 +140,12 @@ node .claude/scripts/tickets/insert-stub.js \
   --file=src/example.rs --line=5 --resolve-by-ticket=P3-2 \
   --stub-reason="P1-3 blocked: User::role changed to enum, login(&str) signature incompatible" \
   --resolve-plan="Replace Ok(()) with INSERT INTO sessions (user_id, token) VALUES (?, ?); add integration test" \
-  --tickets-path=Tickets.json
+  --tickets-path=Tickets.json \
+  --ticket-key="$ARGUMENTS"
 ```
+
+> **Retry until success**: If `insert-stub.js` exits non-zero, read the error (problem / blocking reason / redo instruction), fix the arguments, and re-run. Never abort this command because of an `insert-stub.js` failure.
+
 4. Include resolvable stubs in the plan's implementation scope
 5. Leave unresolvable stubs in the plan as notes, clearly stating their relationship to future tickets
 
