@@ -1,4 +1,5 @@
 
+
 // tickets.test.ts — tickets.ts のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -7,12 +8,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { loadPendingTickets, checkAllReviewed, getSourceFromTickets } from "./tickets.js";
+import path, { join } from "node:path";
+import os, { tmpdir } from "node:os";
+import { loadPendingTickets, checkAllReviewed, getGraphPathFromTickets } from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
 // [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
 function writeTempTickets(data: object): string {
   const dir = mkdtempSync(join(tmpdir(), "tt-"));
   const path = join(dir, "Tickets.json");
@@ -299,30 +301,44 @@ describe("round-aware status (R<round>)", () => {
   });
 });
 
-describe("getSourceFromTickets", () => {
-  it("metadata.source あり → その値を返す", () => {
-    const path = writeTempTickets({
+describe("getGraphPathFromTickets", () => {
+  // @verifies C002
+  it("resolvedPaths.graphPath あり → チルダ展開済み絶対パスを返す", () => {
+    const ticketsPath = writeTempTickets({
       title: "Test",
-      metadata: { source: "tools/conver/RFC.md", generatedAt: "2026-06-25" },
+      metadata: {
+        source: "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+        resolvedPaths: { graphPath: "~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json" },
+        generatedAt: "2026-07-28",
+      },
       phases: [],
     });
-    assert.strictEqual(getSourceFromTickets(path), "tools/conver/RFC.md");
+    const expected = path.resolve(os.homedir(), "shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json");
+    assert.strictEqual(getGraphPathFromTickets(ticketsPath), expected);
+    assert.ok(!getGraphPathFromTickets(ticketsPath).includes("~"));
   });
 
-  it("metadata なし → 引数そのまま返す", () => {
-    const path = writeTempTickets({
+  // @verifies C003
+  it("resolvedPaths なし + source あり → <source .md 除去>-GRAPH.json を導出", () => {
+    const ticketsPath = writeTempTickets({
       title: "Test",
+      metadata: { source: "tools/conver/RFC_ROOT.md", generatedAt: "2026-06-25" },
       phases: [],
     });
-    assert.strictEqual(getSourceFromTickets(path), path);
+    const expected = path.resolve("tools/conver/RFC_ROOT-GRAPH.json");
+    assert.strictEqual(getGraphPathFromTickets(ticketsPath), expected);
   });
 
-  it("metadata はあるが source なし → 引数そのまま返す", () => {
-    const path = writeTempTickets({
-      title: "Test",
-      metadata: { generatedAt: "2026-06-25" } as { source: string; generatedAt: string },
-      phases: [],
-    });
-    assert.strictEqual(getSourceFromTickets(path), path);
+  // @verifies C004
+  it("resolvedPaths.graphPath も metadata.source もない → ticketsPath を返す", () => {
+    const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
+    assert.strictEqual(getGraphPathFromTickets(ticketsPath), ticketsPath);
+    assert.notStrictEqual(getGraphPathFromTickets(ticketsPath), undefined);
+  });
+
+  // @verifies C002 C003 C004
+  it("戻り値は常に非空文字列", () => {
+    const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
+    assert.ok(getGraphPathFromTickets(ticketsPath).length > 0);
   });
 });

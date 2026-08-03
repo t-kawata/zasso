@@ -1,3 +1,4 @@
+
 // runner.test.ts — runner.ts のユニットテスト
 //
 // テスト方針:
@@ -20,6 +21,10 @@ import type { LoopOptions } from "./runner.js";
 const mockState = {
   runCommandImpl: async (_cmd: string): Promise<string> => "ok",
   slackCalls: [] as Array<{ ticketId: string; phase: string }>,
+  /** checkAllReviewed の戻り値制御 — true で find-omissions 分岐を発火させる */
+  allReviewed: false,
+  /** getGraphPathFromTickets の戻り値 — /find-omissions の引数になる */
+  graphPath: "/abs/RFC-ROOT-GRAPH.json",
 };
 
 /** step-timer モックの制御状態 */
@@ -110,14 +115,11 @@ describe("runLoop", () => {
             )
             .filter((t: { status: string }) => t.status !== "reviewed");
         },
-        checkAllReviewed: (ticketsPath: string) => {
-          const raw = readFileSync(ticketsPath, "utf-8");
-          const data = JSON.parse(raw);
-          return data.phases
-            .flatMap((phase: { tickets: Array<{ status: string }> }) => phase.tickets)
-            .every((t: { status: string }) => t.status === "reviewed");
-        },
-        getSourceFromTickets: async (path: string) => path,
+        checkAllReviewed: (_ticketsPath: string) => mockState.allReviewed,
+        // getGraphPathFromTickets は同期関数（readFileSync + JSON.parse）なので
+        // モックも同期で string を返す。async にすると runner 側が
+        // Promise を連結して "… [object Promise]" になってしまう。
+        getGraphPathFromTickets: (_path: string) => mockState.graphPath,
       },
     });
 
@@ -136,6 +138,7 @@ describe("runLoop", () => {
   });
 
   /** Tickets.json を作成する */
+// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
   function writeTickets(phases: Array<{
     id: number;
     name: string;
@@ -305,6 +308,34 @@ describe("runLoop", () => {
 
     assert.strictEqual(exitMock.calledWith.length, 0);
     assert.ok(commands.some((c) => c.startsWith("/jpush-branch")));
+    exitMock.restore();
+  });
+
+  // @verifies C001
+  it("checkAllReviewed=true かつ noFind=false → /find-omissions <graphPath> を実行", async () => {
+    mockStepTimerState.deadlineResult = true;
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.allReviewed = true;
+    mockState.graphPath = "/abs/RFC-ROOT-GRAPH.json";
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));
+
+    const findCmd = commands.find((c) => c.startsWith("/find-omissions "));
+    assert.ok(findCmd, "expected /find-omissions command");
+    assert.ok(findCmd!.startsWith("/find-omissions /abs/RFC-ROOT-GRAPH.json"));
+    assert.ok(!findCmd!.includes("/find-omissions-for-next-rfc"));
+    mockState.allReviewed = false;
     exitMock.restore();
   });
 

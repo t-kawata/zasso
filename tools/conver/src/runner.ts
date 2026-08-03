@@ -1,3 +1,4 @@
+
 // runner.ts — チケット実行ループ制御
 //
 // 責務:
@@ -11,13 +12,13 @@
 //   3. [Session B] /review-ticket
 //   4. reviewedCount % resolveEvery === 0 → [Session C] /resolve-ticket
 //      → pushEnabled → /jpush-branch
-//   5. 全件 reviewed → [Session D] /find-omissions-for-next-rfc
+//   5. 全件 reviewed → [Session D] /find-omissions
 //   6. 次のチケットへ（ループ継続）
 //
 // 参照: RFC_ROOT.md §3（内部ループ制御）
 // 依存: P3-1 (session.ts — withSession/runCommand),
 //       P2-1 (notifier.ts — sendSlackError),
-//       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getSourceFromTickets)
+//       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getGraphPathFromTickets)
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -33,7 +34,7 @@ import type { SuccessContext } from "./notifier.js";
 import {
   loadPendingTickets,
   checkAllReviewed,
-  getSourceFromTickets,
+  getGraphPathFromTickets,
 } from "./tickets.js";
 import type { WatcherConfig } from "./watcher.js";
 import { checkStepDeadline } from "./step-timer.js";
@@ -127,6 +128,7 @@ function printCommandHeader(
 }
 
 /** Tickets.json から処理済みチケットをフェーズ別に整形する */
+// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
 function buildProcessedText(
   ticketsPath: string,
   processed: Array<{ id: string; title: string; phaseId: number }>,
@@ -141,10 +143,10 @@ function buildProcessedText(
 
     // phaseId 順にグループ化
     const byPhase = new Map<number, typeof processed>();
-    for (const t of processed) {
-      const list = byPhase.get(t.phaseId) ?? [];
-      list.push(t);
-      byPhase.set(t.phaseId, list);
+    for (const ticket of processed) {
+      const list = byPhase.get(ticket.phaseId) ?? [];
+      list.push(ticket);
+      byPhase.set(ticket.phaseId, list);
     }
 
     const lines: string[] = [];
@@ -153,8 +155,8 @@ function buildProcessedText(
       const pname = phaseNames.get(pid) ?? "";
       const phaseLabel = pid === -1 ? "PX" : `P${pid}`;
       lines.push(`${phaseLabel}: ${pname}`);
-      for (const t of byPhase.get(pid)!) {
-        lines.push(`    * ${t.id}: ${t.title}`);
+      for (const ticket of byPhase.get(pid)!) {
+        lines.push(`    * ${ticket.id}: ${ticket.title}`);
       }
     }
     return lines;
@@ -164,6 +166,7 @@ function buildProcessedText(
 }
 
 /** カレントディレクトリの `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
+// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
 function buildProgressText(ticketsPath: string): string {
   try {
     const script = path.join(
@@ -319,8 +322,8 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         // Step 4: 全チケット reviewed チェック → Session D: find-omissions
         // noFind が true の場合はスキップする
         if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
-          printCommandHeader("/find-omissions-for-next-rfc");
-          const source = getSourceFromTickets(options.ticketsPath);
+          printCommandHeader("/find-omissions");
+          const graphPath = getGraphPathFromTickets(options.ticketsPath);
           await withSession(
             cwd,
             options.apiKey,
@@ -328,7 +331,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             async (session) => {
               await runCommand(
                 session,
-                `/find-omissions-for-next-rfc ${source}`,
+                `/find-omissions ${graphPath}`,
                 runOptions,
               );
             },

@@ -15239,6 +15239,148 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-07-31"
+        },
+        {
+          "id": 116,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js /find-omissions 呼び出しを現行コマンドと GRAPH パスへ修正",
+          "specPath": "specs/PX-116.md",
+          "background": "src/runner.ts の Session D が、アーカイブ済みの旧コマンド /find-omissions-for-next-rfc を実行し、引数にも getSourceFromTickets() が返す metadata.source（RFC markdown パス）を渡している。現行コマンドは /find-omissions で、</path/to/*-GRAPH.json> 形式の引数を validate-graph-arg.js が存在検証する。正しい GRAPH パスは metadata.resolvedPaths.graphPath に格納されており（siprs 実例: ~/…/RFC-ROOT-GRAPH.json）、実行時は常にこのパイプラインが通らないため修正する。\n\n### Goal\nconver.js 実行時に、全チケットの review 完了後、Session D が現行コマンド /find-omissions を正確な GRAPH パス引数で実行できるようにする。\n\n### Purpose\n旧コマンド /find-omissions-for-next-rfc は .claude/archive/commands/ にアーカイブ済みで実行不能。現行 /find-omissions は </path/to/*-GRAPH.json> 引数を必須とし validate-graph-arg.js が存在検証する。現状は RFC markdown パスを渡すため常に失敗し、find 工程（次ラウンドの omission 生成）が実行できない。この欠陥を解消する。\n\n### Motivation\nconver パイプラインの最終工程 find（RFC ADDITION-002 の Goal Gate・機械的フィルタリングによる収束機構）を実際に回すには、現行コマンドへの移行が必須。\n\n### Constraints\n- 外部インターフェース（.claude/commands/find-omissions.md・validate-graph-arg.js）は変更しない。runner 側が正しい引数を渡すことに専念する。\n- metadata.resolvedPaths.graphPath を主経路、metadata.source からの -GRAPH.json 導出を fallback とする。\n- アーカイブ済み旧コマンドファイルには触れない。\n- 既存の make/plan/start/review/resolve 工程の挙動を変えない。",
+          "scope": [
+            "src/tickets.ts: getSourceFromTickets を getGraphPathFromTickets に置き換え（resolvedPaths.graphPath を主、metadata.source からの -GRAPH.json 導出を fallback、チルダ展開＋絶対パス化）",
+            "src/runner.ts: import と Session D のコマンド文字列・引数を更新（/find-omissions ${graphPath}）、関連コメントを現行コマンド名に更新",
+            "src/tickets.test.ts: getSourceFromTickets テストを getGraphPathFromTickets テストに置き換え",
+            "src/runner.test.ts: find-omissions モック更新 + /find-omissions 呼び出しの新規テスト追加",
+            "非変更: .claude/archive/commands/find-omissions-for-next-rfc.md（アーカイブは触らない）",
+            "非変更: .claude/commands/find-omissions.md（現行コマンドは既存のまま）",
+            "影響範囲: conver.js 実行時の Session D（find-omissions）のみ。make/plan/start/review/resolve には影響なし",
+            "**Scope of changes:** [src/tickets.ts] modify/refactor — getSourceFromTickets を削除し getGraphPathFromTickets を追加",
+            "**Action:** replace + add — 旧関数削除、新関数と補助関数（deriveGraphPath / expandTilde）を追加",
+            "**Detail:** 優先順位 (1) metadata.resolvedPaths.graphPath (2) metadata.source から .md 除去 + '-GRAPH.json' 導出 (3) ticketsPath。チルダ展開（os.homedir()）と path.resolve で絶対パス化",
+            "**Before → After:** getSourceFromTickets('Tickets.json') → '~/shyme/zasso/crates/siprs/RFC-ROOT.md' ／ getGraphPathFromTickets('Tickets.json') → '/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json'",
+            "**API contract change:** 内部モジュール関数の名前と戻り値意味が変更（利用者は src/runner.ts とテストのみで、外部公開 API なし）",
+            "**Data schema change:** なし — 読み取り専用。metadata.resolvedPaths.graphPath は既存 Tickets.json スキーマに準拠",
+            "**Config/env change:** なし — 新規依存なし（node:os / node:path は標準モジュール）",
+            "**Dependency added/removed:** なし",
+            "**Out of scope:** .claude/commands/find-omissions.md 本体・validate-graph-arg.js の修正、notifier.ts の変更",
+            "**Why excluded:** 現行コマンドは仕様どおり。問題は runner 側の呼び出しにあり、コマンド側は変更不要",
+            "**Affected areas:** conver.js の Session D（find-omissions 工程）",
+            "**Nature:** 挙動修正（コマンド名・引数）。外部 API・データ形式・性能・セキュリティへの影響なし",
+            "**Corresponding change:** N — 現行コマンド・notifier・getCurrentPhase は変更不要"
+          ],
+          "testUnit": [
+            "UT: [Normal] metadata.resolvedPaths.graphPath がある場合、そのチルダ展開済み絶対パスを返す",
+            "UT: [Normal] resolvedPaths がなく metadata.source がある場合、<source .md 除去>-GRAPH.json を導出して返す",
+            "UT: [Error] resolvedPaths も metadata.source もない場合、ticketsPath を返す",
+            "UT: [Boundary] ~/ チルダ付きパスが os.homedir() で展開され、path.resolve で絶対パスになる",
+            "UT: [Invariant] getGraphPathFromTickets の戻り値は常に非空文字列",
+            "UT: [Normal] checkAllReviewed()=true かつ noFind=false のとき、runCommand に /find-omissions <graphPath> が渡される",
+            "UT: [Invariant] find 時に実行されるコマンド文字列は /find-omissions で始まり、旧名 /find-omissions-for-next-rfc を含まない",
+            "**UT: [Normal]** writeTempTickets で metadata.resolvedPaths.graphPath='~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json' を設定 → getGraphPathFromTickets が '/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json'（チルダ展開・絶対パス）を返すことを assert.strictEqual で検証",
+            "**UT: [Error]** metadata を完全に省略した writeTempTickets → getGraphPathFromTickets が ticketsPath 自身を返す。null/undefined を返さないことを assert.notStrictEqual(v, undefined) で検証",
+            "**UT: [Boundary]** metadata.source='tools/conver/RFC_ROOT.md'（resolvedPaths なし）→ 'tools/conver/RFC_ROOT-GRAPH.json' を導出。さらに source の ~ を含むパスが絶対パスに正規化されることを検証",
+            "**UT: [Invariant]** runner.test.ts の mock で getGraphPathFromTickets を固定値にし、checkAllReviewed=true 時に runCommand へ渡る文字列が /find-omissions で始まり、旧名 '/find-omissions-for-next-rfc' を文字列比較で含まないことを検証",
+            "UT: [Invariant] 戻り値は非空文字列であり、~ を含まない絶対パスであることを検証（C002 invariant）",
+            "UT: [Invariant] 関数は常に非空文字列を返すことを検証（C004 invariant）"
+          ],
+          "testIntegration": [
+            "IT: runner.ts + tickets.ts 統合 — getGraphPathFromTickets の返り値がそのまま /find-omissions の引数になる",
+            "IT: 実データ検証 — crates/siprs/Tickets.json の metadata.resolvedPaths.graphPath が実在の RFC-ROOT-GRAPH.json を指す絶対パスになる",
+            "IT: 前提: make test-conver（tsc + node --test）が全 green",
+            "**IT: [Integration point]** runner.ts の Session D → tickets.ts の getGraphPathFromTickets。runCommand の第2引数が getGraphPathFromTickets の戻り値と完全一致する",
+            "**IT: [Verification]** mock.module で getGraphPathFromTickets を '/abs/RFC-ROOT-GRAPH.json' に固定し、checkAllReviewed=true の Tickets.json で runLoop 実行 → runCommand が '/find-omissions /abs/RFC-ROOT-GRAPH.json' を受け取ることを検証",
+            "**IT: [Prerequisites]** make test-conver（npx tsc → node --test）で全テスト green。runner テストは session.js/tickets.js/notifier.js/step-timer.js を mock.module でモック",
+            "**IT: [Related tickets]** PX-116（本チケット）。設計参照: RFC ADDITION-002（find の収束問題と Goal Gate）"
+          ],
+          "testExceptions": [
+            "Item: 実際の ACP セッションで /find-omissions が完全実行されること / Reason: claude-agent-acp 外部プロセス・DeepSeek API キー・ネットワーク接続に依存するため CI 単体テストでは実行不可 / Alternative: validate-graph-arg.js の引数検証ロジック（実在 GRAPH ファイル + /find-omissions <graphPath> 形式）をユニットテストで担保する。これはテスト不能ではあるが設計欠陥ではない。外部実行環境依存によるもの",
+            "**Exception entry:**\n- [Item] 実 ACP セッションで /find-omissions が完走し OMISSIONS-*.json が生成されること\n- [Reason] claude-agent-acp 外部プロセス、DeepSeek API キー、ネットワーク接続が必要で、CI 単体テスト環境では起動できない\n- [Alternative verification] validate-graph-arg.js の検証ロジック（実在 GRAPH ファイル + /find-omissions <path> 形式）と、runner が正しい引数を生成することをユニットテストで模擬検証する。これはテスト不能ではあるが設計欠陥ではない。外部実行環境依存によるもの"
+          ],
+          "default_files": [
+            "src/tickets.ts",
+            "src/runner.ts",
+            "src/tickets.test.ts",
+            "src/runner.test.ts"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: 全チケット reviewed 時、Session D で /find-omissions <resolvedPaths.graphPath の絶対パス> が実行される",
+            "Error case: resolvedPaths 欠落時も metadata.source からの導出で fallback し、旧コマンド名・空文字にはならない",
+            "Edge case: metadata.source も欠落した場合、ticketsPath を fallback として返し validate-graph-arg で fail-fast する",
+            "**[Happy path]** crates/siprs/Tickets.json（metadata.resolvedPaths.graphPath あり）を対象に全チケット reviewed 状態で runLoop 実行 → runCommand が '/find-omissions /Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json' を受理する",
+            "**[Error case]** resolvedPaths 欠落の Tickets.json → metadata.source からの -GRAPH.json 導出で fallback し、旧コマンド名 '/find-omissions-for-next-rfc' や空文字にはならない",
+            "**[Edge case]** metadata.source も欠落 → ticketsPath を fallback として返す。validate-graph-arg.js 相当の存在検証で fail-fast（exit 2）するため、不正確な引数で先へ進まない"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "runner.ts:331 — /find-omissions コマンド文字列",
+              "precondition": "checkAllReviewed(ticketsPath) === true かつ noFind !== true",
+              "postcondition": "runCommand に /find-omissions <graphPath> の文字列が渡される",
+              "invariant": "コマンド名は /find-omissions であり、アーカイブ済み旧名 /find-omissions-for-next-rfc を含まない"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "tickets.ts — getGraphPathFromTickets の resolvedPaths 主経路",
+              "precondition": "Tickets.json の metadata.resolvedPaths.graphPath が存在する",
+              "postcondition": "チルダ展開済み絶対パスの graphPath を返す",
+              "invariant": "戻り値は非空文字列であり、~ を含まない絶対パス"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "tickets.ts — fallback 導出経路",
+              "precondition": "resolvedPaths が存在せず metadata.source が存在する",
+              "postcondition": "<source から .md を除いた文字列>-GRAPH.json を返す",
+              "invariant": "fallback は resolvedPaths 欠落時のみ使用される"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "tickets.ts — 最終 fallback",
+              "precondition": "resolvedPaths.graphPath も metadata.source も存在しない",
+              "postcondition": "ticketsPath を返す",
+              "invariant": "関数は常に非空文字列を返す"
+            }
+          ],
+          "notes": "実装手順: (1) tickets.ts に getGraphPathFromTickets 追加・getSourceFromTickets 削除 (2) runner.ts の import・Session D コマンド文字列・引数・コメント更新 (3) tickets.test.ts テスト置き換え (4) runner.test.ts モック更新 + find 分岐テスト追加 (5) npm run typecheck (6) make test-conver。リスク: validate-graph-arg.js は path.resolve(arg) のみで ~ を展開しないためチルダ付きパスを素通しすると存在チェック失敗 → exit 2。必ず展開済み絶対パスを渡す。注意: getCurrentPhase (runner.ts:86) は message.includes('find-omissions') で新旧どちらにもマッチするため変更不要。sendOmissionsNotification は cwd の OMISSIONS-*.json をスキャンするためコマンド名変更の影響なし。dist/conver.js は tsc と esbuild が共有するためテスト実行後に make run-conver が no-op になる既知問題は本チケットのスコープ外。\n\n- [Implementation steps] (1) src/tickets.ts: getGraphPathFromTickets 追加・getSourceFromTickets 削除 (2) src/runner.ts: import・Session D の printCommandHeader/runCommand 文字列・引数変数・関連コメント更新 (3) src/tickets.test.ts: getSourceFromTickets テストを置き換え (4) src/runner.test.ts: モック更新 + checkAllReviewed=true 時の /find-omissions 呼び出しテスト追加 (5) npm run typecheck (6) make test-conver\n- [Risks] validate-graph-arg.js は path.resolve(arg) のみで ~ を展開しないため、チルダ付きパスを渡すと存在チェックに失敗して exit 2 になる。必ず os.homedir() 展開済み絶対パスを渡す。\n- [Caveats] getCurrentPhase (runner.ts:86) は message.includes('find-omissions') で新旧どちらにもマッチするため変更不要。sendOmissionsNotification は cwd の OMISSIONS-*.json をスキャンするためコマンド名変更の影響なし。dist/conver.js が tsc と esbuild で共有され、テスト実行後に make run-conver が no-op になる既知問題は本チケットのスコープ外。\n- [Open items] なし。\n- [Future improvements] fallback 導出時に GRAPH ファイルの実在チェックを runner 側で行い、存在しなければ明確なエラーで fail-fast する拡張が考えられる。\nImplementation summary:\n- Changed files: src/tickets.ts, src/runner.ts, src/tickets.test.ts, src/runner.test.ts\n- Key changes: getGraphPathFromTickets added (resolvedPaths primary, derivation fallback, tilde expansion + path.resolve); runner Session D uses /find-omissions <graphPath>; tests updated + C001 find test added\n- Test results: 148/148 passed (make test-conver), typecheck clean\n- Quality check: single-letter vars resolved (p→ticketsPath, t→ticket). 13 pre-existing console.log findings remain in runner.ts — these are the CLI's intentional output channel (printCommandHeader progress headers and '>>> ✅' completion logs), not debug leftovers; no new console.log introduced by this ticket.\nReview report:\n- Step 5: 7-pattern scan clean (one false positive: 'todo' ticket status in test data)\n- Step 5 #8: annotation verify — missing buildProcessedText annotation fixed via inject-at line 130; missing=0, ambiguous=0\n- Step 6: typecheck clean, 148/148 tests pass\n- Step 7: contracts C001-C004 fully satisfied; no risks/omissions/contradictions/deficiencies\n- Step 8: quality check passed (13 console.log are pre-existing CLI output channel, no new findings)\n- Step 9: translatability no issues\n- Stubs: 3 found in tests/ (pre-existing, unrelated to PX-116); 0 crimes\n- Boy Scout: buildProcessedText t→ticket rename, p→ticketsPath rename applied",
+          "invariants": "- [Normal condition] Tickets.json が存在し、metadata.resolvedPaths.graphPath があればそれを正規化して返す（非空・絶対パス・チルダなし）。\n- [Error invariant] resolvedPaths 欠落時も導出または ticketsPath で常に非空文字列を返し、null/undefined を返さない。\n- [Internal state invariant] getGraphPathFromTickets は読み取り専用で副作用を持たない（Tickets.json を書き換えない）。\n- [Boundary invariant] パスはチルダ（~）を含まない絶対パスに正規化され、相対パスやチルダ付きのまま返されない。",
+          "instrumentation": "- [Logging] 変更なし。既存の printCommandHeader / console.log が実行コマンド名と引数（graphPath）を可視化する。\n- [Metrics] 変更なし。conver はメトリクス出力を持たない。\n- [Error tracking] getCurrentPhase() の 'find-omissions' 部分一致により Slack エラー通知が新旧どちらのコマンド名でも従来どおり動作する（変更不要）。\n- [Health check] 変更なし。\nStatic quality check: passed (13 console.log findings are the CLI output channel, not debug leftovers)\nTranslatability: no issues (no new single-char vars; p→ticketsPath, t→ticket renames applied)\nTests: 148/148 passed (make test-conver), typecheck clean",
+          "investigation": "■ コード調査の証跡\n- src/runner.ts:322-331 — Session D が /find-omissions-for-next-rfc ${source} を実行。旧コマンドは .claude/archive/commands/find-omissions-for-next-rfc.md にアーカイブ済みで、現行 .claude/commands/ には存在しない。\n- src/runner.ts:323 — 引数は getSourceFromTickets()（= metadata.source）＝ RFC markdown パス。現行コマンドは GRAPH パス必須。\n- .claude/commands/find-omissions.md:3 — argument-hint は </path/to/*-GRAPH.json>。:14-16 で node .claude/scripts/tickets/validate-graph-arg.js \"$ARGUMENTS\" が引数を検証。\n- .claude/scripts/tickets/validate-graph-arg.js — path.resolve(arg) + fs.existsSync。~ を展開しないため、チルダ付きパスは存在チェックに失敗（exit 2）。\n- src/tickets.ts:102-111 — getSourceFromTickets は metadata.source のみ参照し、metadata.resolvedPaths.graphPath は参照していない。\n- crates/siprs/Tickets.json metadata — source: '~/shyme/zasso/crates/siprs/RFC-ROOT.md'、resolvedPaths.graphPath: '~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json'（実在・80651 bytes）。\n- src/runner.ts:86 — getCurrentPhase は 'find-omissions' 部分一致で新旧どちらにも対応するため変更不要。\n- src/notifier.ts:296-307 — sendOmissionsNotification は cwd の OMISSIONS-*.json をスキャンするためコマンド名非依存。\n- graphify 命名規約: <source の .md 除去>-GRAPH.json（RFC-ROOT.md → RFC-ROOT-GRAPH.json、RFC_ROOT.md → RFC_ROOT-GRAPH.json）が resolvedPaths.graphPath と一致することを確認済み。",
+          "boyScoutPlan": "- src/tickets.ts: getSourceFromTickets を getGraphPathFromTickets に置き換え、関数名を返り値の意味（graph path）に合わせて明確化。deriveGraphPath と expandTilde の補助関数を抽出して1関数1責務を維持する。\n- src/runner.ts: Session D の変数名 source → graphPath に改名し、find-omissions 呼び出しが自己記述的になるようコメントを現行コマンド名に更新する。\n- ハードコードされた導出規則 '-GRAPH.json' を名前付き定数に抽出する。\n- 陳腐化したコメント（/find-omissions-for-next-rfc）を現行に更新し、コメントとコードの乖離を解消する。",
+          "created_at": "2026-08-03",
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] checkAllReviewed()=true かつ noFind=false のとき、/find-omissions <graphPath> が runCommand に渡る（runner.test.ts 追加）\n  ```ts\n  it(\"checkAllReviewed=true かつ noFind=false → /find-omissions <graphPath> を実行\", async () => {\n    mockState.allReviewed = true;                        // Precondition: 全チケット reviewed\n    mockState.graphPath = \"/abs/RFC-ROOT-GRAPH.json\";    // getGraphPathFromTickets の戻り値\n    writeTickets([{ id: 0, name: \"P0\", tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"T1\" }] }]);\n    const commands: string[] = [];\n    mockState.runCommandImpl = async (cmd) => { commands.push(cmd); return \"ok\"; };\n    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));\n    const findCmd = commands.find((c) => c.startsWith(\"/find-omissions \"));\n    assert.ok(findCmd);                                  // Postcondition: /find-omissions が実行される\n    assert.ok(findCmd!.startsWith(\"/find-omissions /abs/RFC-ROOT-GRAPH.json\"));\n    assert.ok(!findCmd!.includes(\"/find-omissions-for-next-rfc\")); // Invariant: 旧名を含まない\n  });\n  ```",
+            "UT: [Normal] metadata.resolvedPaths.graphPath がある場合、チルダ展開済み絶対パスを返す（tickets.test.ts 追加）\n  ```ts\n  it(\"resolvedPaths.graphPath あり → チルダ展開済み絶対パスを返す\", () => {\n    const p = writeTempTickets({\n      title: \"Test\",\n      metadata: {\n        source: \"~/shyme/zasso/crates/siprs/RFC-ROOT.md\",\n        resolvedPaths: { graphPath: \"~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\" },\n        generatedAt: \"2026-07-28\",\n      },\n      phases: [],\n    });\n    const expected = path.resolve(os.homedir(), \"shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\");\n    assert.strictEqual(getGraphPathFromTickets(p), expected); // Postcondition\n    assert.ok(!getGraphPathFromTickets(p).includes(\"~\"));      // Invariant: ~ を含まない絶対パス\n  });\n  ```",
+            "UT: [Normal] resolvedPaths なし + metadata.source あり → <source .md 除去>-GRAPH.json を導出（tickets.test.ts 追加）\n  ```ts\n  it(\"resolvedPaths なし + source あり → .md 除去 + '-GRAPH.json' を導出\", () => {\n    const p = writeTempTickets({\n      title: \"Test\",\n      metadata: { source: \"tools/conver/RFC_ROOT.md\", generatedAt: \"2026-06-25\" },\n      phases: [],\n    });\n    const expected = path.resolve(\"tools/conver/RFC_ROOT-GRAPH.json\");\n    assert.strictEqual(getGraphPathFromTickets(p), expected); // Postcondition: 導出パス\n  });\n  ```",
+            "UT: [Error] resolvedPaths.graphPath も metadata.source もない場合、ticketsPath を返す（tickets.test.ts 追加）\n  ```ts\n  it(\"両方なし → ticketsPath を返す\", () => {\n    const p = writeTempTickets({ title: \"Test\", phases: [] });\n    assert.strictEqual(getGraphPathFromTickets(p), p);             // Postcondition: ticketsPath\n    assert.notStrictEqual(getGraphPathFromTickets(p), undefined);  // Invariant: 非空文字列\n  });\n  ```"
+          ],
+          "startedAt": "2026-08-03",
+          "changes": [
+            {
+              "before": "getSourceFromTickets returns metadata.source (RFC markdown path)",
+              "after": "getGraphPathFromTickets returns resolvedPaths.graphPath (tilde-expanded absolute path) with derivation fallback",
+              "description": "tickets.ts: replaced source-only resolver with GRAPH-path resolver"
+            },
+            {
+              "before": "runner.ts Session D runs /find-omissions-for-next-rfc ${source} (archived command, markdown arg)",
+              "after": "runner.ts Session D runs /find-omissions ${graphPath} (current command, exact GRAPH path)",
+              "description": "runner.ts: command name + argument fixed"
+            },
+            {
+              "before": "tickets.test.ts tested getSourceFromTickets (3 cases)",
+              "after": "tickets.test.ts tests getGraphPathFromTickets (resolvedPaths/derivation/fallback/non-empty)",
+              "description": "tickets.test.ts: contract-to-code tests for C002/C003/C004"
+            },
+            {
+              "before": "runner.test.ts mocked getSourceFromTickets (async)",
+              "after": "runner.test.ts mocks getGraphPathFromTickets (sync) + checkAllReviewed controllable + C001 find test",
+              "description": "runner.test.ts: mock updated + /find-omissions invocation test added"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-03"
         }
       ]
     },
