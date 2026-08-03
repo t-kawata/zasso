@@ -12,7 +12,7 @@
 // [::STUB::] P5-1: SipCall fields are pub placeholder -- Add private fields with accessors and lifecycle methods (answer, hangup, hold, transfer, send_dtmf)
 #[derive(Debug, Clone)]
 pub struct SipCall {
-    /// Placeholder for `CallId` newtype — replaced in P0-7.
+    /// Placeholder for `CallId` newtype — replaced in P5-1.
     pub id: u64,
     /// The account this call belongs to.
     pub account_id: u64,

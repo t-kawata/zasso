@@ -863,7 +863,9 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:56.948Z",
+      "note": "Stub removed; account.rs now re-exports SipAccountHandle from api::public_api_design"
     },
     {
       "id": 96,
@@ -871,7 +873,9 @@
       "line": 17,
       "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.013Z",
+      "note": "Stub removed; account.rs now re-exports SipAccountHandle from api::public_api_design"
     },
     {
       "id": 97,
@@ -897,7 +901,9 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.080Z",
+      "note": "Stub marker now references existing ticket P5-1 (call lifecycle deferred)"
     },
     {
       "id": 100,
@@ -905,7 +911,9 @@
       "line": 15,
       "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.148Z",
+      "note": "Stub marker now references existing ticket P5-1 (pub field accessors deferred)"
     },
     {
       "id": 101,
@@ -913,7 +921,9 @@
       "line": 27,
       "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.215Z",
+      "note": "Stub marker now references existing ticket P4-2 (pj_status_t constants deferred)"
     },
     {
       "id": 102,
@@ -921,7 +931,9 @@
       "line": 201,
       "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.283Z",
+      "note": "Stub marker now references existing ticket P5-1 (AccountId/CallId migration deferred)"
     },
     {
       "id": 103,
@@ -929,7 +941,9 @@
       "line": 304,
       "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.348Z",
+      "note": "Stub marker now references existing ticket P4-2 (convert_pj_status deferred)"
     },
     {
       "id": 104,
@@ -937,7 +951,9 @@
       "line": 27,
       "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.413Z",
+      "note": "Stub marker now references existing ticket P4-2 (pj_status_t constants deferred)"
     },
     {
       "id": 105,
@@ -945,7 +961,9 @@
       "line": 93,
       "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.481Z",
+      "note": "Stub marker now references existing ticket P5-1 (AccountId/CallId newtypes deferred)"
     },
     {
       "id": 106,
@@ -953,7 +971,9 @@
       "line": 138,
       "description": "// [::STUB::] P0-7: Return real account information once the account state",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.549Z",
+      "note": "Stub marker now references existing ticket P3-1 (real account info deferred)"
     },
     {
       "id": 107,
@@ -961,7 +981,9 @@
       "line": 58,
       "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.615Z",
+      "note": "Stub markers now reference existing tickets P3-1/P5-1 (lifecycle methods deferred)"
     },
     {
       "id": 108,
@@ -969,7 +991,9 @@
       "line": 72,
       "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.682Z",
+      "note": "Stub marker now references existing ticket P4-2 (FFI bindings deferred)"
     },
     {
       "id": 109,
@@ -977,7 +1001,9 @@
       "line": 167,
       "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.747Z",
+      "note": "Stub marker now references existing ticket P3-2 (mixer accessor deferred)"
     },
     {
       "id": 110,
@@ -985,7 +1011,9 @@
       "line": 171,
       "description": "// [::STUB::] P0-7: call_id stored for future query API.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.815Z",
+      "note": "Stub marker now references existing ticket P3-2 (call_id accessor deferred)"
     },
     {
       "id": 111,
@@ -993,7 +1021,9 @@
       "line": 174,
       "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.883Z",
+      "note": "Stub marker now references existing ticket P3-2 (frame_duration accessor deferred)"
     },
     {
       "id": 112,
@@ -1001,7 +1031,9 @@
       "line": 178,
       "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.949Z",
+      "note": "Stub marker now references existing ticket P3-2 (JoinHandle deferred)"
     },
     {
       "id": 113,
@@ -1009,7 +1041,9 @@
       "line": 234,
       "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.015Z",
+      "note": "Stub marker now references existing ticket P3-2 (logging/metrics correlation deferred)"
     },
     {
       "id": 114,
@@ -1017,7 +1051,9 @@
       "line": 180,
       "description": "// [::STUB::] P0-7: Return real account information once the account state",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.080Z",
+      "note": "Stub markers now reference existing tickets P3-1/P4-2 (account info deferred)"
     },
     {
       "id": 115,
@@ -1025,7 +1061,9 @@
       "line": 28,
       "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.148Z",
+      "note": "Stub marker now references existing ticket P3-2 (join_handle deferred)"
     },
     {
       "id": 116,
@@ -1033,7 +1071,9 @@
       "line": 68,
       "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.217Z",
+      "note": "Stub marker now references existing ticket P3-2 (MockBackend/PjsuaBackend deferred)"
     },
     {
       "id": 117,
@@ -1041,7 +1081,9 @@
       "line": 117,
       "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.282Z",
+      "note": "Stub markers now reference existing ticket P3-2 (AudioMixer routing deferred)"
     },
     {
       "id": 118,
@@ -1049,7 +1091,9 @@
       "line": 87,
       "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.347Z",
+      "note": "Stub removed; state.rs now uses AccountId/CallId newtypes"
     },
     {
       "id": 119,
@@ -1057,7 +1101,9 @@
       "line": 68,
       "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.412Z",
+      "note": "Stub marker now references existing ticket P4-2 (call state constants deferred)"
     },
     {
       "id": 120,
@@ -1065,7 +1111,9 @@
       "line": 79,
       "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.479Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua.h constants deferred)"
     },
     {
       "id": 121,
@@ -1073,7 +1121,9 @@
       "line": 89,
       "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.546Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua.h constants deferred)"
     },
     {
       "id": 122,
@@ -1081,7 +1131,9 @@
       "line": 130,
       "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.613Z",
+      "note": "Stub markers now reference existing tickets P3-2/P4-2/P5-1 (call processing deferred)"
     },
     {
       "id": 123,
@@ -1089,7 +1141,9 @@
       "line": 136,
       "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.679Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua_call_get_info deferred)"
     },
     {
       "id": 124,
@@ -1097,7 +1151,9 @@
       "line": 5,
       "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.746Z",
+      "note": "Stub marker now references existing ticket P3-1 (transport management deferred)"
     },
     {
       "id": 125,
@@ -1105,7 +1161,9 @@
       "line": 11,
       "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.812Z",
+      "note": "Stub marker now references existing ticket P3-1 (enum replacement deferred)"
     },
     {
       "id": 126,
@@ -1113,7 +1171,9 @@
       "line": 23,
       "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
       "detected_at": "2026-08-03T09:03:20.140Z",
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.880Z",
+      "note": "Stub marker now references existing ticket P3-1 (transport lifecycle deferred)"
     }
   ]
 }

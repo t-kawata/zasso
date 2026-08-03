@@ -94,7 +94,7 @@ impl PanicPolicy {
     /// Returns true if `catch_unwind` is mandatory for all FFI callbacks.
     ///
     /// This invariant MUST hold for every PJSIP callback registered through
-    /// the FFI layer (P2-4). Violating this can cause undefined behaviour
+    /// the FFI layer (P4-2). Violating this can cause undefined behaviour
     /// from panics unwinding across C ABI boundaries.
     pub const fn catch_unwind_mandatory() -> bool {
         true

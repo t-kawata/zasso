@@ -261,7 +261,7 @@ impl SipClient {
 ///
 /// Returns `None` when the placeholder `id` cannot form a valid `AccountId`
 /// (zero value), skipping such entries. `display_name` is not tracked yet
-/// (P0-7 replaces the `AccountEntry` placeholder fields).
+/// (P3-1 replaces the `AccountEntry` placeholder fields via the reactor account state machine).
 // [::TICKET::] P7-2: O-004 — authoritative query API mapping
 // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
 fn account_snapshot_from_entry(

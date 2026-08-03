@@ -42,7 +42,7 @@ pub struct CoreReactor;
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
 // [::TICKET::] P6-1, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1) --for-spec --no-implementation-order`.
 impl CoreReactor {
-    /// Spawn a new reactor thread and return a handle for command submission.
+    /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
     /// The reactor thread runs a loop that:
     /// 1. Receives commands from the MPSC channel (FIFO)
@@ -226,8 +226,11 @@ impl CoreReactor {
                                 }
                                 DispatchCommand::Shutdown { reply } => {
                                     let _ = backend.shutdown();
-                                    send_reply(reply, Ok(()));
+                                    // C044 postcondition: publish the terminated flag before
+                                    // replying, so shutdown() callers observe is_terminated() == true
+                                    // the moment shutdown() returns Ok (oneshot send orders the store).
                                     terminated.store(true, Ordering::Release);
+                                    send_reply(reply, Ok(()));
                                     break;
                                 }
                             }

@@ -2,7 +2,7 @@
 
 // [::TICKET::] P2-3: model module — SQLite persistence schema & DatabasePool.
 // The model/ directory also contains AudioChunkPair, ID design, and memory/ownership
-// stubs for future tickets (P1+, P0-7).
+// stubs deferred to future tickets (P3-2 memory/ownership, P5-1 raw SIP message).
 
 /// ID newtypes — unconditionally compiled (not behind sqlite-storage feature)
 /// since AccountId, CallId, AudioSourceId are used across the entire crate.
