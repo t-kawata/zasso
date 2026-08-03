@@ -1174,6 +1174,15 @@
       "status": "resolved",
       "resolved_at": "2026-08-03T10:06:58.880Z",
       "note": "Stub marker now references existing ticket P3-1 (transport lifecycle deferred)"
+    },
+    {
+      "id": 127,
+      "file": "src/config/versioning_policy.rs",
+      "line": 36,
+      "description": "// [::STUB::] P5-3: MUST implement NODE_ID=N0006: §4.1 Versioning Policy",
+      "detected_at": "2026-08-03T10:21:11.076Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:32:20.540Z"
     }
   ]
 }

@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
@@ -21,6 +22,10 @@ pub mod observability_metrics;
 
 /// Semver operations & SIP networking details — versioning policy, TLS, DNS (N0066).
 pub mod semver_sip_networking;
+
+/// §4.1 Versioning Policy — semver phase classification and CHANGELOG policy (N0006).
+pub mod versioning_policy;
+// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
 
 /// AccountConfig, AccountCodecPolicy, OpusConfig, DtmfPolicy, AccountMediaConfig (N0014).
 pub mod account_config_spec;
@@ -360,16 +365,12 @@ mod tests {
 
     #[test]
     // @verifies C001
-    // [::TICKET::] P0-3, P1-2, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2) --for-spec --no-implementation-order`.
-    fn client_config_builder_sets_optional_fields() {
+// [::TICKET::] P0-3, P1-2, P2-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2|P8-4) --for-spec --no-implementation-order`.
+    fn client_config_builder_sets_optional_fields() -> Result<(), &'static str> {
         let creds = AuthCredentials {
             username: "alice".into(),
             password: crate::security::SecretString::new("secret"),
             realm: Some("example.com".into()),
-        };
-        let _stun = StunServerConfig {
-            host: "stun.example.com".into(),
-            port: 3478,
         };
         let turn = StunServerConfig {
             host: "turn.example.com".into(),
@@ -387,11 +388,13 @@ mod tests {
             .tls_enabled(true)
             .log_level(LogLevel::Debug)
             .build();
-        assert_eq!(config.credentials.unwrap().username, "alice");
+        let credentials = config.credentials.ok_or("missing credentials")?;
+        assert_eq!(credentials.username, "alice");
         assert_eq!(config.user_agent, "MyApp/1.0");
         assert!(config.ice_enabled);
         assert!(config.srtp_enabled);
         assert!(config.tls_enabled);
+        Ok(())
     }
 
     #[test]
