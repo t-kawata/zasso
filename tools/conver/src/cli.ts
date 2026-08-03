@@ -30,7 +30,7 @@ Options:
   -t, --tickets <path>       Tickets.json path (default: ./Tickets.json)
   -c, --count <number>       Max tickets to process (default: 999999)
   -r, --resolve-every <num>  Resolve interval (default: 3)
-  -p, --push <0|1>           Auto jpush-branch after resolve (default: 1)
+  -p, --push <0|1>           Auto epush-branch after resolve (default: 1)
   -m, --model <name>         AI model (default: deepseek-v4-flash)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 1)

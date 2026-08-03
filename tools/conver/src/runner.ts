@@ -12,7 +12,7 @@
 //   2. [Session A] /make-ticket → /plan-ticket → /start-ticket
 //   3. [Session B] /review-ticket
 //   4. reviewedCount % resolveEvery === 0 → [Session C] /resolve-ticket
-//      → pushEnabled → /jpush-branch
+//      → pushEnabled → /epush-branch
 //   5. 全件 reviewed → [Session D] /find-omissions
 //   6. 次のチケットへ（ループ継続）
 //
@@ -87,7 +87,7 @@ function getCurrentPhase(error: unknown): string {
   if (message.includes("review-ticket")) return "review-ticket";
   if (message.includes("resolve-ticket")) return "resolve-ticket";
   if (message.includes("find-omissions")) return "find-omissions";
-  if (message.includes("jpush-branch")) return "jpush-branch";
+  if (message.includes("epush-branch")) return "epush-branch";
   return "unknown";
 }
 
@@ -282,23 +282,23 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         );
         console.log("\n>>> ✅ resolve 完了");
 
-        // Step 3b: オプション — jpush-branch（pushEnabled が true の場合のみ）
+        // Step 3b: オプション — epush-branch（pushEnabled が true の場合のみ）
         if (options.pushEnabled) {
           try {
-            printCommandHeader("/jpush-branch");
+            printCommandHeader("/epush-branch");
             await withSession(
               cwd,
               options.apiKey,
               options.model,
               async (session) => {
-                await runCommand(session, "/jpush-branch", runOptions);
+                await runCommand(session, "/epush-branch", runOptions);
               },
             );
-            console.log("\n>>> ✅ jpush-branch 完了");
+            console.log("\n>>> ✅ epush-branch 完了");
           } catch (pushError) {
             await sendSlackError(options.slackWebhookUrl, {
               ticketId,
-              phase: "jpush-branch",
+              phase: "epush-branch",
               error: pushError as Error,
               ticketsPath: options.ticketsPath,
             });

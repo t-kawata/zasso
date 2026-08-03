@@ -328,7 +328,7 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
-  it("pushEnabled=true: resolve 後に jpush-branch が呼ばれる", async () => {
+  it("pushEnabled=true: resolve 後に epush-branch が呼ばれる", async () => {
     mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([
@@ -346,7 +346,7 @@ describe("runLoop", () => {
     await runLoop(baseOptions({ ticketsPath: ticketPath, pushEnabled: true }));
 
     assert.strictEqual(exitMock.calledWith.length, 0);
-    assert.ok(commands.some((c) => c.startsWith("/jpush-branch")));
+    assert.ok(commands.some((c) => c.startsWith("/epush-branch")));
     exitMock.restore();
   });
 
@@ -511,15 +511,15 @@ describe("runLoop", () => {
     assert.strictEqual(exitCode, 1);
   });
 
-  it("jpush-branch エラー時に sendSlackError + exit(1)", async () => {
+  it("epush-branch エラー時に sendSlackError + exit(1)", async () => {
     const { slackPhase, exitCode } = await runErrorTest(
       async (cmd) => {
-        if (cmd.startsWith("/jpush-branch")) throw new Error("/jpush-branch failed");
+        if (cmd.startsWith("/epush-branch")) throw new Error("/epush-branch failed");
         return "ok";
       },
       { pushEnabled: true },
     );
-    assert.strictEqual(slackPhase, "jpush-branch");
+    assert.strictEqual(slackPhase, "epush-branch");
     assert.strictEqual(exitCode, 1);
   });
 });
