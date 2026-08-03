@@ -9,9 +9,8 @@
 // 依存: P0-2 (CommandTimeoutError — classifyError で error.name を参照)
 import http from "node:http";
 import https from "node:https";
-import path from "node:path";
 import { execSync } from "node:child_process";
-import { readdirSync, readFileSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 
 /** エラー通知に必要なコンテキスト情報 */
 export interface ErrorContext {
@@ -227,111 +226,44 @@ export async function sendSlackSuccess(
   await sendSlackWithRetry(webhookUrl, payload);
 }
 
-// severity → 絵文字のマッピング
-const SEVERITY_EMOJI: Record<string, string> = {
-  high: "🔴",
-  medium: "🟡",
-  low: "🔵",
-};
-
-// omission type → 日本語ラベル（convert-omissions-to-markdown.js から移植）
-const TYPE_LABEL: Record<string, string> = {
-  missing_implementation: "実装漏れ",
-  incomplete_implementation: "実装不足",
-  design_deviation: "設計不一致",
-  bug: "バグ",
-  stub_remaining: "スタブ残存",
-  test_missing: "テスト欠落",
-  inconsistency: "不整合",
-};
-
-/** OMISSIONS 配列の各要素をコードブロック用の文字列に整形する */
-export function buildOmissionsBlocks(
-  omissions: Array<{
-    id?: string;
-    type?: string;
-    severity?: string;
-    rfcSection?: string;
-    description?: string;
-    details?: string;
-    affectedFiles?: string[];
-    suggestedResolution?: string;
-  }>,
-): string {
-  if (omissions.length === 0) {
-    return "🔍 設計との乖離は見つかりませんでした。\n";
-  }
-
-  const lines: string[] = [`🔍 ${omissions.length}件の設計との乖離が見つかりました。`];
-  for (const o of omissions) {
-    const emoji = SEVERITY_EMOJI[o.severity ?? ""] ?? "⚪";
-    const tl = TYPE_LABEL[o.type ?? ""] ?? o.type ?? "?";
-    const sec = o.rfcSection ? " §" + o.rfcSection : "";
-    lines.push("");
-    lines.push(`### ${o.id ?? "(no-id)"} ${emoji} [${tl}]${sec}`);
-    lines.push("");
-    lines.push(o.description ?? "");
-    if (o.details) {
-      lines.push("");
-      lines.push(`**詳細**: ${o.details}`);
-    }
-    if (o.affectedFiles && o.affectedFiles.length > 0) {
-      lines.push("");
-      lines.push("**該当ファイル**:");
-      for (const af of o.affectedFiles) {
-        lines.push("- `" + af + "`");
-      }
-    }
-    if (o.suggestedResolution) {
-      lines.push("");
-      lines.push(`**解決方法**: ${o.suggestedResolution}`);
-    }
-    lines.push("");
-    lines.push("---");
-  }
-  return lines.join("\n") + "\n";
+/** find 完了後通知の引数 */
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+export interface FindOutcomeContext {
+  /** list-phases-and-tickets.js の出力（find 後・統合後の進捗一覧） */
+  progress: string;
+  /** Tickets.json への統合が発生したか（フェーズ/チケット数の増加で判定） */
+  integrationSucceeded: boolean;
+  /** 統合で増加したフェーズ数 */
+  mergedPhases: number;
+  /** 統合で増加したチケット数 */
+  mergedTickets: number;
 }
 
 /**
- * カレントディレクトリの OMISSIONS-XXX.json を検索し、
- * その内容を Slack に通知する。
+ * find 完了後の Slack 通知を送信する。
+ * 進捗一覧（list-phases-and-tickets.js の出力）と、Tickets.json への統合成否を送る。
+ * @param webhookUrl Slack Incoming Webhook URL
+ * @param context find 完了後の状態
  */
-export async function sendOmissionsNotification(
+export async function sendFindOutcomeNotification(
   webhookUrl: string,
-  cwd: string,
+  context: FindOutcomeContext,
 ): Promise<void> {
-  let text: string;
-  let summaryLine: string = "";
-
-  try {
-    const files = readdirSync(cwd).filter((f) => /^OMISSIONS-\d+\.json$/.test(f));
-    if (files.length === 0) {
-      text = "OMISSIONS は生成されませんでした（ファイルが見つかりません）。";
-    } else {
-      const latest = files.sort().pop()!;
-      const latestPath = path.join(cwd, latest);
-      const raw = readFileSync(latestPath, "utf-8");
-      const data = JSON.parse(raw);
-      const count = (data.omissions ?? []).length;
-      summaryLine = `---\n漏れ・矛盾・不足が、${count}件見つかりました（ \`${latestPath}\` ）。`;
-      const header = [
-        `# ${path.basename(latest, ".json")}`,
-        `> 生成元: \`${latestPath}\``,
-        data.parentRfcTitle ? `- **タイトル**: ${data.parentRfcTitle}` : "",
-        data.summary ? `- **サマリ**: ${data.summary}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-      text = header + "\n\n" + buildOmissionsBlocks(data.omissions ?? []);
-    }
-  } catch {
-    text = "OMISSIONS の読み取り中にエラーが発生しました。";
-  }
+  const status = context.integrationSucceeded
+    ? `✅ find 完了: Tickets.json への統合成功（+${context.mergedPhases} フェーズ / +${context.mergedTickets} チケット）`
+    : "⚠️ find 完了: Tickets.json への統合は発生しませんでした（omissions なし または 統合失敗）";
+  const text = [
+    `---\n${status}`,
+    "現在の進捗状況は以下のとおりです。",
+    "```",
+    context.progress,
+    "```",
+  ].join("\n");
 
   const payload = {
     username: "conver",
     icon_emoji: ":mag:",
-    text: summaryLine ? `${summaryLine}\n\`\`\`\n${text}\`\`\`` : `\`\`\`\n${text}\`\`\``,
+    text,
   };
 
   await sendSlackWithRetry(webhookUrl, payload);

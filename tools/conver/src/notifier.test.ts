@@ -6,7 +6,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { sendSlackError, ErrorContext } from "./notifier.js";
+import {
+  sendSlackError,
+  sendFindOutcomeNotification,
+  FindOutcomeContext,
+  ErrorContext,
+} from "./notifier.js";
 
 // HTTP サーバーモック: 指定したステータスコードで応答するローカルサーバーを起動する
 function createMockServer(
@@ -180,5 +185,66 @@ describe("sendSlackError エラー種別", () => {
     // 正常完了すれば OK（エラー種別は内部ロジックに委ねる）
     await sendSlackError(url, context);
     server.close();
+  });
+});
+
+// sendFindOutcomeNotification のペイロード検証（HTTP サーバーで受信内容を捕捉）
+describe("sendFindOutcomeNotification", () => {
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+  async function capturePayload(
+    ctx: FindOutcomeContext,
+  ): Promise<{ text: string; statusCode: number }> {
+    let receivedBody = "";
+    let statusCode = 0;
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        receivedBody = body;
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end("ok");
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const url = `http://localhost:${port}`;
+
+    await sendFindOutcomeNotification(url, ctx);
+    server.close();
+
+    // Slack 送信は application/x-www-form-urlencoded の payload=<urlencoded JSON>。
+    // URLSearchParams はスペースを '+' にエンコードするため、まず '+' を %20 に戻してから
+    // decodeURIComponent する（リテラル '+' は %2B として残り、誤って空白にならない）。
+    const formDecoded = receivedBody.replace(/\+/g, "%20").replace(/^payload=/, "");
+    const parsed = JSON.parse(decodeURIComponent(formDecoded));
+    return { text: parsed.text as string, statusCode };
+  }
+
+  // @verifies C002 C003
+  it("統合成功の文言と進捗一覧を含むペイロードを送信する", async () => {
+    const ctx: FindOutcomeContext = {
+      progress: "P6: Omissions\n  * 1: contract gap",
+      integrationSucceeded: true,
+      mergedPhases: 1,
+      mergedTickets: 1,
+    };
+    const { text } = await capturePayload(ctx);
+    assert.ok(text.includes("統合成功"));
+    assert.ok(text.includes("+1 フェーズ / +1 チケット"));
+    assert.ok(text.includes("P6: Omissions"));  // list-phases-and-tickets.js の出力
+  });
+
+  // @verifies C003
+  it("統合なし/失敗の文言を含む", async () => {
+    const ctx: FindOutcomeContext = {
+      progress: "P5: done\n  * 1: closed",
+      integrationSucceeded: false,
+      mergedPhases: 0,
+      mergedTickets: 0,
+    };
+    const { text } = await capturePayload(ctx);
+    assert.ok(text.includes("統合は発生しませんでした"));
+    assert.ok(text.includes("P5: done"));
   });
 });

@@ -1,4 +1,5 @@
 
+
 // runner.ts — チケット実行ループ制御
 //
 // 責務:
@@ -28,13 +29,14 @@ import type { RunCommandOptions } from "./session.js";
 import {
   sendSlackError,
   sendSlackSuccess,
-  sendOmissionsNotification,
+  sendFindOutcomeNotification,
 } from "./notifier.js";
 import type { SuccessContext } from "./notifier.js";
 import {
   loadPendingTickets,
   checkAllReviewed,
   getGraphPathFromTickets,
+  countPhasesAndTickets,
 } from "./tickets.js";
 import type { WatcherConfig } from "./watcher.js";
 import { checkStepDeadline } from "./step-timer.js";
@@ -167,6 +169,7 @@ function buildProcessedText(
 
 /** カレントディレクトリの `.claude/scripts/tickets/list-phases-and-tickets.js` を実行して進捗一覧を取得する */
 // [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function buildProgressText(ticketsPath: string): string {
   try {
     const script = path.join(
@@ -324,6 +327,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
           printCommandHeader("/find-omissions");
           const graphPath = getGraphPathFromTickets(options.ticketsPath);
+          const before = countPhasesAndTickets(options.ticketsPath);
           await withSession(
             cwd,
             options.apiKey,
@@ -337,10 +341,17 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             },
           );
           console.log("\n>>> ✅ find-omissions 完了");
-          // find-omissions の結果を Slack 通知
-          sendOmissionsNotification(options.slackWebhookUrl, cwd).catch(
-            () => {},
-          );
+          // find 後の統合成否を決定的に判定し、進捗一覧と共に通知する
+          const after = countPhasesAndTickets(options.ticketsPath);
+          const mergedPhases = after.phaseCount - before.phaseCount;
+          const mergedTickets = after.ticketCount - before.ticketCount;
+          const progress = buildProgressText(options.ticketsPath);
+          sendFindOutcomeNotification(options.slackWebhookUrl, {
+            progress,
+            integrationSucceeded: mergedPhases > 0 || mergedTickets > 0,
+            mergedPhases,
+            mergedTickets,
+          }).catch(() => {});
         }
       }
     } catch (error) {

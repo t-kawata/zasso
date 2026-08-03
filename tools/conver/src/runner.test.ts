@@ -18,14 +18,45 @@ import type { LoopOptions } from "./runner.js";
 // mock.module() は各モジュールに1度しか呼べないため、
 // テスト間で挙動を切り替えるために共有オブジェクトを使用する。
 
-const mockState = {
-  runCommandImpl: async (_cmd: string): Promise<string> => "ok",
-  slackCalls: [] as Array<{ ticketId: string; phase: string }>,
+/** sendFindOutcomeNotification が受け取るペイロードの型（テスト用） */
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+interface FindOutcomeMock {
+  progress: string;
+  integrationSucceeded: boolean;
+  mergedPhases: number;
+  mergedTickets: number;
+}
+
+/** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+interface MockState {
+  runCommandImpl: (cmd: string) => Promise<string>;
+  slackCalls: Array<{ ticketId: string; phase: string }>;
+  allReviewed: boolean;
+  graphPath: string;
+  findOutcome: FindOutcomeMock | undefined;
+  countSnapshots: Array<{ phaseCount: number; ticketCount: number }>;
+}
+
+const mockState: MockState = {
+  runCommandImpl: async (_cmd: string) => "ok",
+  slackCalls: [],
   /** checkAllReviewed の戻り値制御 — true で find-omissions 分岐を発火させる */
   allReviewed: false,
   /** getGraphPathFromTickets の戻り値 — /find-omissions の引数になる */
   graphPath: "/abs/RFC-ROOT-GRAPH.json",
+  /** sendFindOutcomeNotification が受け取ったペイロード（C001-C003 検証用） */
+  findOutcome: undefined,
+  /** countPhasesAndTickets の戻り値キュー — find 前後でシフトして統合成否を検証する */
+  countSnapshots: [],
 };
+
+/** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+function resetFindState(): void {
+  mockState.findOutcome = undefined;
+  mockState.countSnapshots = [];
+}
 
 /** step-timer モックの制御状態 */
 const mockStepTimerState = {
@@ -100,7 +131,12 @@ describe("runLoop", () => {
           mockState.slackCalls.push(ctx);
         },
         sendSlackSuccess: async () => {},
-        sendOmissionsNotification: async () => {},
+        sendFindOutcomeNotification: async (
+          _url: string,
+          ctx: { progress: string; integrationSucceeded: boolean; mergedPhases: number; mergedTickets: number },
+        ) => {
+          mockState.findOutcome = ctx;
+        },
       },
     });
 
@@ -120,6 +156,9 @@ describe("runLoop", () => {
         // モックも同期で string を返す。async にすると runner 側が
         // Promise を連結して "… [object Promise]" になってしまう。
         getGraphPathFromTickets: (_path: string) => mockState.graphPath,
+        // find 前後で 2 回呼ばれる想定 — キューをシフトして前後差分を検証する
+        countPhasesAndTickets: (_path: string) =>
+          mockState.countSnapshots.shift() ?? { phaseCount: 0, ticketCount: 0 },
       },
     });
 
@@ -311,8 +350,8 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
-  // @verifies C001
-  it("checkAllReviewed=true かつ noFind=false → /find-omissions <graphPath> を実行", async () => {
+  // @verifies C001 C002 C003
+  it("checkAllReviewed=true かつ noFind=false → /find-omissions 実行後に統合成否通知が飛ぶ", async () => {
     mockStepTimerState.deadlineResult = true;
     const exitMock = mockProcessExit();
     writeTickets([
@@ -322,6 +361,11 @@ describe("runLoop", () => {
     const commands: string[] = [];
     mockState.allReviewed = true;
     mockState.graphPath = "/abs/RFC-ROOT-GRAPH.json";
+    resetFindState();
+    mockState.countSnapshots = [
+      { phaseCount: 5, ticketCount: 10 },   // find 前
+      { phaseCount: 6, ticketCount: 12 },   // find 後（統合成功）
+    ];
     mockState.runCommandImpl = async (cmd) => {
       commands.push(cmd);
       return "ok";
@@ -335,6 +379,46 @@ describe("runLoop", () => {
     assert.ok(findCmd, "expected /find-omissions command");
     // 末尾スペース込みの正の照合がコマンド名の回帰を排除するため、負の assert は不要。
     assert.ok(findCmd!.startsWith("/find-omissions /abs/RFC-ROOT-GRAPH.json"));
+    // C001 postcondition: sendFindOutcomeNotification が呼ばれる（sendOmissionsNotification は廃止）
+    assert.ok(mockState.findOutcome, "sendFindOutcomeNotification should be called");
+    // C002: progress（list-phases-and-tickets.js 出力）が含まれる
+    assert.ok(mockState.findOutcome!.progress.length > 0);
+    // C003: フェーズ/チケット増加 → 統合成功
+    assert.strictEqual(mockState.findOutcome!.integrationSucceeded, true);
+    assert.strictEqual(mockState.findOutcome!.mergedPhases, 1);
+    assert.strictEqual(mockState.findOutcome!.mergedTickets, 2);
+    mockState.allReviewed = false;
+    exitMock.restore();
+  });
+
+  // @verifies C003
+  it("find 後もフェーズ/チケット数が不変 → 統合なし/失敗として通知", async () => {
+    mockStepTimerState.deadlineResult = true;
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.allReviewed = true;
+    resetFindState();
+    mockState.countSnapshots = [
+      { phaseCount: 5, ticketCount: 10 },
+      { phaseCount: 5, ticketCount: 10 },   // 統合なし/失敗
+    ];
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));
+
+    assert.ok(mockState.findOutcome, "sendFindOutcomeNotification should be called");
+    assert.strictEqual(mockState.findOutcome!.integrationSucceeded, false);
+    assert.strictEqual(mockState.findOutcome!.mergedPhases, 0);
+    assert.strictEqual(mockState.findOutcome!.mergedTickets, 0);
     mockState.allReviewed = false;
     exitMock.restore();
   });

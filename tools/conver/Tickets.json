@@ -15381,6 +15381,151 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-03"
+        },
+        {
+          "id": 117,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js find 後の Slack 通知を list-phases-and-tickets.js 結果＋統合成否へ変更",
+          "specPath": "specs/PX-117.md",
+          "background": "現状、find 実行完了後は sendOmissionsNotification が生の OMISSIONS-*.json を Slack 通知するが、list-phases-and-tickets.js の結果（sendSlackSuccess、find 前）が既に飛んでおり OMISSIONS の二重通知は冗長。提案（受け入れ済み）: sendOmissionsNotification を廃止し、find 後に list-phases-and-tickets.js の結果（phasify 統合後の Tickets.json を反映）を送信する。さらに通知には『Tickets.json への統合まで全て成功したか、どこで失敗したか』を載せる。\n\n### Goal\nfind 完了後の Slack 通知を、冗長な OMISSIONS 通知から『list-phases-and-tickets.js の結果＋統合成否』へ置き換える。\n\n### Purpose\nsendOmissionsNotification は find 前の sendSlackSuccess（list-phases-and-tickets.js 結果）と重複する冗長通知。さらに統合成否が通知に載らないため、find → phasify-omissions.js → Tickets.json 統合の成否を Slack 上で一瞥できない。\n\n### Motivation\nパイプラインの実行状態（特に find の統合成否）を Slack で確認できるようにするため。\n\n### Constraints\n- find 工程そのもの（.claude/commands/find-omissions.md・phasify-omissions.js）は変更しない。\n- 通知送信は best-effort（失敗時もループを停止しない）。\n- 統合成否の判定は決定的で副作用がないこと。",
+          "scope": [
+            "src/notifier.ts: sendOmissionsNotification を廃止し、find 後通知関数 sendFindOutcomeNotification(webhookUrl, FindOutcomeContext) を追加",
+            "src/runner.ts: find 完了後の通知を sendFindOutcomeNotification に置換。buildProgressText の再実行と統合成否判定を組み込む",
+            "src/tickets.ts: 統合成否判定用の決定的ヘルパー countPhasesAndTickets(ticketsPath) を追加（副作用なし・読み取り専用）",
+            "src/runner.test.ts: find 後通知のテスト更新（sendOmissionsNotification が呼ばれない・新関数が progress＋統合成否で呼ばれる）",
+            "src/notifier.test.ts: sendFindOutcomeNotification のペイロードテスト追加",
+            "src/tickets.test.ts: countPhasesAndTickets のテスト追加",
+            "非変更: .claude/commands/find-omissions.md・phasify-omissions.js（find 工程そのものは変更しない）",
+            "**Scope of changes:** [src/notifier.ts] modify — sendOmissionsNotification 削除、sendFindOutcomeNotification 追加",
+            "**Action:** remove + add — 旧通知関数削除、新通知関数と FindOutcomeContext 型を追加",
+            "**Detail:** FindOutcomeContext{progress: string, integrationSucceeded: boolean, mergedPhases: number, mergedTickets: number}。runner が find 後に countPhasesAndTickets で前後差分を判定し、buildProgressText の結果と共に送信",
+            "**Before → After:** sendOmissionsNotification(webhookUrl, cwd) → sendFindOutcomeNotification(webhookUrl, FindOutcomeContext)。runner の find 後ブロックが再構築",
+            "**API contract change:** notifier.ts の公開関数の変更（sendOmissionsNotification 削除・sendFindOutcomeNotification 追加）。利用者は runner.ts とテストのみ",
+            "**Data schema change:** なし（Tickets.json の読み取りのみ）",
+            "**Config/env change:** なし",
+            "**Dependency added/removed:** なし",
+            "**Out of scope:** find 工程（find-omissions.md・phasify-omissions.js）・sendSlackSuccess・sendSlackError の変更",
+            "**Why excluded:** 冗長なのは find 後通知のみ。find 工程は現行仕様どおり動作させ、成功/失敗通知の構造は維持する",
+            "**Affected areas:** conver.js の find 完了後通知",
+            "**Nature:** 挙動修正（通知内容・タイミング）。外部 API・データ形式・性能への影響なし",
+            "**Corresponding change:** N — find 工程・sendSlackSuccess/sendSlackError は変更不要"
+          ],
+          "testUnit": [
+            "UT: [Normal] find 完了後、sendOmissionsNotification は呼ばれず sendFindOutcomeNotification が progress＋統合成否付きで呼ばれる",
+            "UT: [Normal] 統合成否判定: Tickets.json のフェーズ/チケット数が増加 → 統合成功（+N フェーズ/+M チケット）",
+            "UT: [Error] 統合成否判定: フェーズ/チケット数が不変 → 統合なし/失敗",
+            "UT: [Boundary] progress（list-phases-and-tickets.js）生成失敗時はフォールバック文言",
+            "UT: [Invariant] 通知送信失敗時もループは停止しない（best-effort catch）",
+            "UT: [Invariant] countPhasesAndTickets は読み取り専用で副作用なし",
+            "**UT: [Normal]** runner.test.ts のモックを sendFindOutcomeNotification に追加し、find 分岐発火時に (1) sendOmissionsNotification が mockState に記録されない (2) sendFindOutcomeNotification が { progress: string, integrationSucceeded: boolean } を含むペイロードで呼ばれる ことを assert する",
+            "**UT: [Error]** countPhasesAndTickets の前後比較で phaseCount/ticketCount が不変のとき integrationSucceeded=false になることをテスト。notifier のペイロードに『統合なし/失敗』が含まれる",
+            "**UT: [Boundary]** buildProgressText が失敗（list-phases-and-tickets.js 不在）時にフォールバック文言を返し、通知が送出されることをテスト",
+            "**UT: [Invariant]** sendFindOutcomeNotification の送信失敗（webhook 例外）が runLoop を中断しないことを mock で検証。countPhasesAndTickets が Tickets.json を書き換えないことを読み取り前後の内容比較で検証",
+            "UT: [Normal] checkAllReviewed(ticketsPath) === true かつ noFind !== true かつ /find-omissions が完了した後、sendOmissionsNotification は呼ばれない（C001）",
+            "UT: [Normal] フェーズ/チケット数が増加していれば統合成功、不変なら統合なし/失敗として通知される（C003）",
+            "UT: [Invariant] 成功/失敗のいずれかの状態を必ず含む通知ペイロードになる（C003）",
+            "UT: [Invariant] countPhasesAndTickets は副作用なし（読み取り専用）で Tickets.json を書き換えない（C004）"
+          ],
+          "testIntegration": [
+            "IT: runner → notifier 統合 — find 後通知ペイロードに buildProgressText 出力と統合成否が含まれる",
+            "IT: runner → tickets 統合 — countPhasesAndTickets の前後比較で統合成否が判定できる",
+            "IT: 前提: make test-conver が全 green",
+            "**IT: [Integration point]** runner.ts の find 後ブロック → notifier.ts の sendFindOutcomeNotification。ペイロードが FindOutcomeContext と一致する",
+            "**IT: [Verification]** mock.module で sendFindOutcomeNotification を捕捉し、progress に buildProgressText の出力、integrationSucceeded に件数比較結果が渡ることを検証",
+            "**IT: [Prerequisites]** make test-conver（npx tsc → node --test）。runner テストは session.js/tickets.js/notifier.js/step-timer.js をモック",
+            "**IT: [Related tickets]** PX-117（本チケット）。関連: PX-116（find コマンド/GRAPH パス修正）"
+          ],
+          "testExceptions": [
+            "Item: 実際の Slack HTTP 送信（Webhook URL 到達性）/ Reason: 外部 HTTP エンドポイントと認証トークンに依存し CI 単体テストでは実行不可 / Alternative: ペイロード構築（進捗一覧・統合成否の文字列）をユニットテストで検証。これはテスト不能な設計欠陥ではなく外部環境依存によるもの",
+            "**Exception entry:**\n- [Item] phasify-omissions.js の実際の統合成功/失敗を exit コードで判定すること\n- [Reason] phasify は /find-omissions コマンド内（ACP セッション内）で実行され、runner はその exit コードを直接受け取れないためテスト不能\n- [Alternative verification] 統合成否は Tickets.json の件数比較（countPhasesAndTickets の前後差分）で決定的に判定する。これは設計欠陥ではなく、実行環境（ACP セッション内）の制約によるもの"
+          ],
+          "default_files": [
+            "src/notifier.ts",
+            "src/runner.ts",
+            "src/tickets.ts",
+            "src/runner.test.ts",
+            "src/notifier.test.ts",
+            "src/tickets.test.ts"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: find 完了後、list-phases-and-tickets.js の結果と『統合成功（+N フェーズ）』を含む通知が飛ぶ",
+            "Error case: Tickets.json 統合が発生しなかった場合（フェーズ不変）は『統合なし/失敗』を通知に載せる",
+            "Edge case: list-phases-and-tickets.js 実行失敗時もフォールバック文言で通知は送信される",
+            "**[Happy path]** checkAllReviewed=true・noFind=false で find 完了 → sendFindOutcomeNotification が progress（list-phases-and-tickets.js 出力）と integrationSucceeded=true で呼ばれる",
+            "**[Error case]** find 後もフェーズ/チケット数が不変 → integrationSucceeded=false として『統合なし/失敗』を含む通知が送信される",
+            "**[Edge case]** list-phases-and-tickets.js 不在で buildProgressText がフォールバック文言を返しても、通知は送出されループは停止しない"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "runner.ts — find 後通知",
+              "precondition": "checkAllReviewed(ticketsPath) === true かつ noFind !== true かつ /find-omissions が完了",
+              "postcondition": "runCommand 完了後、sendOmissionsNotification は呼ばれない",
+              "invariant": "find 後通知は best-effort（catch でループを止めない）"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "runner.ts — find 後通知ペイロード",
+              "precondition": "find 完了後",
+              "postcondition": "通知ペイロードの progress は buildProgressText（list-phases-and-tickets.js）の出力",
+              "invariant": "生成失敗時はフォールバック文言"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "runner.ts/tickets.ts — 統合成否判定",
+              "precondition": "find 前後の Tickets.json を比較可能",
+              "postcondition": "フェーズ/チケット数が増加していれば統合成功、不変なら統合なし/失敗として通知",
+              "invariant": "成功/失敗のいずれかの状態を必ず含む"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "tickets.ts — countPhasesAndTickets",
+              "precondition": "Tickets.json が読み取り可能",
+              "postcondition": "{ phaseCount, ticketCount } を返す",
+              "invariant": "副作用なし（読み取り専用）"
+            }
+          ],
+          "notes": "実装手順: (1) tickets.ts に countPhasesAndTickets 追加 (2) notifier.ts に sendFindOutcomeNotification 追加・sendOmissionsNotification 廃止 (3) runner.ts で find 後に progress 再取得＋統合成否判定＋新通知 (4) テスト更新・追加 (5) npm run typecheck + make test-conver。\n\n- [Implementation steps] (1) src/tickets.ts: countPhasesAndTickets(ticketsPath) 追加 (2) src/notifier.ts: FindOutcomeContext 型・sendFindOutcomeNotification 追加、sendOmissionsNotification 削除 (3) src/runner.ts: find 直前にフェーズ/チケット数スナップショット、find 完了後に countPhasesAndTickets で再取得→差分判定→buildProgressText→sendFindOutcomeNotification (4) src/runner.test.ts / src/notifier.test.ts / src/tickets.test.ts 更新 (5) npm run typecheck (6) make test-conver\n- [Risks] 統合成否は件数比較で判定するため、omissions 0 件の正常ケースと統合失敗を件数のみで区別できない → 通知文言で『統合なし（omissions なし または 統合失敗）』と併記する\n- [Caveats] sendOmissionsNotification は notifier.ts の export として残すと未使用コードになるため削除する。新通知は find コマンド成功後のみ発火（失敗時は既存 sendSlackError が担当）\n- [Open items] なし\n- [Future improvements] 統合成否を件数ではなく phasify-omissions.js の exit コードや出力マーカーで判定する拡張\nImplementation summary:\n- Changed files: src/notifier.ts, src/runner.ts, src/tickets.ts, src/notifier.test.ts, src/runner.test.ts, src/tickets.test.ts\n- Key changes: sendOmissionsNotification 廃止 → find 後に list-phases-and-tickets.js 結果（buildProgressText）＋統合成否（countPhasesAndTickets 前後比較）を sendFindOutcomeNotification で送信\n- Test results: 153/153 passed (make test-conver), typecheck clean\n- Quality: 13 console.log は既存 CLI 出力チャネル。新規単一文字変数なし（p→ticketsPath 適用）\nReview report:\n- Step 3: 0 crimes\n- Step 4: 3 stubs in tests/ (pre-existing, unrelated to PX-117)\n- Step 5: 7-pattern scan clean (false positives: 'todo' test data status); annotations verified (6 files, missing=0, ambiguous=0)\n- Step 6: typecheck clean, 153/153 tests pass\n- Step 7: contracts C001-C004 fully satisfied; no risks/omissions/contradictions/deficiencies\n- Step 8: quality check passed (13 console.log pre-existing CLI output)\n- Step 9: translatability no issues\n- Boy Scout: sendOmissionsNotification 削除で未使用コード除去、countPhasesAndTickets を1関数1責務で実装",
+          "invariants": "- [Normal condition] find 完了後は必ず新通知関数 sendFindOutcomeNotification が呼ばれ、sendOmissionsNotification は呼ばれない。\n- [Error invariant] 通知送信失敗・progress 生成失敗時もループは停止しない（best-effort・フォールバック文言）。\n- [Internal state invariant] countPhasesAndTickets は読み取り専用で副作用を持たない（Tickets.json を書き換えない）。\n- [Boundary invariant] 統合成否判定はフェーズ/チケット数比較で決定的（増加 → 成功、不変 → 統合なし/失敗）。",
+          "instrumentation": "- [Logging] 既存の printCommandHeader / console.log が find 実行と通知内容を可視化する。\n- [Metrics] 変更なし。conver はメトリクス出力を持たない。\n- [Error tracking] 通知送信失敗は .catch(() => {}) で握りつぶす（既存方針）。find コマンド自体の失敗は既存の sendSlackError（phase=find-omissions）が通知。\n- [Health check] 変更なし。\nStatic quality check: passed (13 console.log are the CLI output channel, not debug leftovers)\nTranslatability: no issues (no new single-char vars)\nTests: 153/153 passed (make test-conver), typecheck clean",
+          "investigation": "■ コード調査の証跡\n- src/runner.ts:308-319 — sendSlackSuccess が find 前に buildProgressText（list-phases-and-tickets.js）を含めて送信（count/processed/progress）\n- src/runner.ts:341 — sendOmissionsNotification が find 後に cwd の OMISSIONS-*.json を送信（冗長）\n- src/notifier.ts:296-329 — sendOmissionsNotification は readdirSync(cwd) で OMISSIONS-*.json をスキャンし内容を送信\n- src/notifier.ts:206-217 — sendSlackSuccess は SuccessContext{count, processed, progress} を送信\n- src/runner.ts:170-185 — buildProgressText は list-phases-and-tickets.js を execSync で実行、失敗時はフォールバック文言を返す（try/catch 済み）\n- .claude/commands/find-omissions.md:298-300 — Step 8 で phasify-omissions.js --graph=\"$ARGUMENTS\" が OMISSIONS を Tickets.json に統合\n- src/tickets.ts — countPhasesAndTickets は未実装（新規追加）",
+          "boyScoutPlan": "- src/runner.ts: find 後通知の処理（スナップショット・判定・送信）を独立関数 notifyFindOutcome() として抽出し、runLoop を読みやすく保つ。\n- src/notifier.ts: sendOmissionsNotification を削除して未使用コードを除去する。\n- src/tickets.ts: countPhasesAndTickets を『フェーズ/チケット数を返す』名詞的関数として明確にし、1関数1責務を維持する。\n- ハードコードのない一般化（ファイルパス・閾値の定数化）。",
+          "created_at": "2026-08-03",
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] find 完了後、sendOmissionsNotification は呼ばれず sendFindOutcomeNotification が呼ばれる（C001）\n  ```ts\n  it(\"checkAllReviewed=true かつ noFind=false → sendOmissionsNotification は呼ばれない\", async () => {\n    mockState.allReviewed = true;                       // Precondition: 全チケット reviewed\n    mockState.omissionsCalled = false;\n    mockState.findOutcome = undefined;\n    writeTickets([{ id: 0, name: \"P0\", tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"T1\" }] }]);\n    const commands: string[] = [];\n    mockState.runCommandImpl = async (cmd) => { commands.push(cmd); return \"ok\"; };\n    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));\n    const findCmd = commands.find((c) => c.startsWith(\"/find-omissions \"));\n    assert.ok(findCmd);                                 // /find-omissions は実行される\n    assert.strictEqual(mockState.omissionsCalled, false); // Postcondition: sendOmissionsNotification は呼ばれない\n    assert.ok(mockState.findOutcome);                   // 新通知が呼ばれる\n    mockState.allReviewed = false;\n  });\n  ```",
+            "UT: [Normal] 通知ペイロードに list-phases-and-tickets.js の結果が含まれる（C002）\n  ```ts\n  it(\"sendFindOutcomeNotification の progress に buildProgressText 出力が含まれる\", async () => {\n    mockState.findOutcome = undefined;\n    mockState.allReviewed = true;\n    writeTickets([{ id: 0, name: \"P0\", tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"T1\" }] }]);\n    mockState.runCommandImpl = async (cmd) => \"ok\";\n    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));\n    assert.ok(typeof mockState.findOutcome.progress === \"string\"); // Postcondition: progress 文字列\n    assert.ok(mockState.findOutcome.progress.length > 0);          // list-phases-and-tickets.js 出力\n    mockState.allReviewed = false;\n  });\n  ```",
+            "UT: [Normal/Error] 統合成否判定 — フェーズ/チケット数増加なら成功、不変なら失敗（C003）\n  ```ts\n  it(\"countPhasesAndTickets の前後比較で integrationSucceeded が決まる\", () => {\n    const p = writeTempTickets({ title: \"Test\", phases: [] });\n    const before = countPhasesAndTickets(p);           // { phaseCount: 0, ticketCount: 0 }\n    writeFileSync(p, JSON.stringify({ title: \"Test\", phases: [{ id: 0, name: \"P6\", tickets: [{ id: 1, phaseId: 0, status: \"todo\", title: \"O1\" }] }] }), \"utf-8\");\n    const after = countPhasesAndTickets(p);            // 統合後: +1 フェーズ\n    const succeeded = after.phaseCount > before.phaseCount || after.ticketCount > before.ticketCount;\n    assert.strictEqual(succeeded, true);               // Postcondition: 増加 → 統合成功\n    const invariant = typeof succeeded === \"boolean\";  // Invariant: 成功/失敗のいずれか\n    assert.ok(invariant);\n  });\n  ```",
+            "UT: [Invariant] countPhasesAndTickets は副作用なし（C004）\n  ```ts\n  it(\"countPhasesAndTickets は読み取り専用で Tickets.json を書き換えない\", () => {\n    const p = writeTempTickets({ title: \"Test\", phases: [{ id: 0, name: \"P0\", tickets: [] }] });\n    const before = readFileSync(p, \"utf-8\");\n    const result = countPhasesAndTickets(p);           // Postcondition: { phaseCount, ticketCount }\n    assert.deepStrictEqual(result, { phaseCount: 1, ticketCount: 0 });\n    const after = readFileSync(p, \"utf-8\");\n    assert.strictEqual(before, after);                 // Invariant: 副作用なし\n  });\n  ```"
+          ],
+          "startedAt": "2026-08-03",
+          "changes": [
+            {
+              "before": "runner.ts find 後: sendOmissionsNotification(webhookUrl, cwd) が OMISSIONS-*.json を送信",
+              "after": "runner.ts find 後: countPhasesAndTickets の前後比較で統合成否を判定し sendFindOutcomeNotification(webhookUrl, FindOutcomeContext) を送信",
+              "description": "find 後通知を進捗一覧＋統合成否に置換"
+            },
+            {
+              "before": "notifier.ts: sendOmissionsNotification / buildOmissionsBlocks / SEVERITY_EMOJI / TYPE_LABEL",
+              "after": "notifier.ts: sendFindOutcomeNotification + FindOutcomeContext を追加、旧コード削除",
+              "description": "冗長通知の廃止と新通知の追加"
+            },
+            {
+              "before": "tickets.ts: 件数取得なし",
+              "after": "tickets.ts: countPhasesAndTickets 追加",
+              "description": "統合成否判定用の決定的ヘルパー"
+            },
+            {
+              "before": "テスト: sendOmissionsNotification モック・find 通知テストなし",
+              "after": "テスト: sendFindOutcomeNotification モック・C001-C003 find 後通知テスト・C004 countPhasesAndTickets テスト追加",
+              "description": "契約ベースのテスト追加"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-03"
         }
       ]
     },

@@ -1,3 +1,4 @@
+
 // tickets.ts — Tickets.json 読み込み・状態確認（ファイルI/Oモジュール）
 //
 // 責務: node:fs.readFileSync で Tickets.json を読み込み、以下の操作を提供する
@@ -121,6 +122,7 @@ function expandTilde(p: string): string {
  * @returns 導出したパス。source が無ければ undefined
  */
 // [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function deriveGraphPath(source?: string): string | undefined {
   if (!source) return undefined;
   return source.replace(/\.md$/, "") + GRAPH_FILE_SUFFIX;
@@ -143,4 +145,25 @@ export function getGraphPathFromTickets(ticketsPath: string): string {
     data.metadata?.resolvedPaths?.graphPath ??
     deriveGraphPath(data.metadata?.source);
   return path.resolve(expandTilde(graphPath ?? ticketsPath));
+}
+
+/**
+ * Tickets.json のフェーズ数とチケット数を返す。
+ * find 後の統合成否判定（フェーズ/チケット数の前後比較）に使う。
+ * 読み取り専用で副作用を持たない。
+ * @param ticketsPath Tickets.json のファイルパス
+ * @returns フェーズ数とチケット数
+ */
+export function countPhasesAndTickets(
+  ticketsPath: string,
+): { phaseCount: number; ticketCount: number } {
+  const raw = readFileSync(ticketsPath, "utf-8");
+  const data: TicketsJson = JSON.parse(raw);
+  return {
+    phaseCount: data.phases.length,
+    ticketCount: data.phases.reduce(
+      (total, phase) => total + (phase.tickets?.length ?? 0),
+      0,
+    ),
+  };
 }

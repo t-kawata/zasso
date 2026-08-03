@@ -1,5 +1,6 @@
 
 
+
 // tickets.test.ts — tickets.ts のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -7,14 +8,20 @@
 // ENOENT や JSON パースエラーは readFileSync / JSON.parse の throw がそのまま伝播することを確認する。
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdtempSync } from "node:fs";
 import path, { join } from "node:path";
 import os, { tmpdir } from "node:os";
-import { loadPendingTickets, checkAllReviewed, getGraphPathFromTickets } from "./tickets.js";
+import {
+  loadPendingTickets,
+  checkAllReviewed,
+  getGraphPathFromTickets,
+  countPhasesAndTickets,
+} from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
 // [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
 function writeTempTickets(data: object): string {
   const dir = mkdtempSync(join(tmpdir(), "tt-"));
   const path = join(dir, "Tickets.json");
@@ -340,5 +347,29 @@ describe("getGraphPathFromTickets", () => {
   it("戻り値は常に非空文字列", () => {
     const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
     assert.ok(getGraphPathFromTickets(ticketsPath).length > 0);
+  });
+});
+
+describe("countPhasesAndTickets", () => {
+  // @verifies C004
+  it("フェーズ/チケット数を返す（読み取り専用・副作用なし）", () => {
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      phases: [
+        { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "A" }] },
+        { id: 1, name: "P1", tickets: [{ id: 2, phaseId: 1, status: "reviewed", title: "B" }] },
+      ],
+    });
+    const before = readFileSync(ticketsPath, "utf-8");
+    const result = countPhasesAndTickets(ticketsPath);
+    assert.deepStrictEqual(result, { phaseCount: 2, ticketCount: 2 });
+    // Invariant: 読み取り専用 — Tickets.json の内容が変わらない
+    assert.strictEqual(readFileSync(ticketsPath, "utf-8"), before);
+  });
+
+  // @verifies C004
+  it("空の phases → { phaseCount: 0, ticketCount: 0 }", () => {
+    const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
+    assert.deepStrictEqual(countPhasesAndTickets(ticketsPath), { phaseCount: 0, ticketCount: 0 });
   });
 });
