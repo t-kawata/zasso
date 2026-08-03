@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use crate::error::SipError;
 
 // ---------------------------------------------------------------------------
-// Constants — codec priority values for auto mode
+// Constants — codec auto-mode matching and priority values
 // ---------------------------------------------------------------------------
 
 /// Opus codec priority in auto mode — always 255 (highest).
@@ -30,6 +30,12 @@ const OPUS_PRIORITY: u8 = 255;
 
 /// PCMU codec priority in auto mode — always 254 (fallback).
 const PCMU_PRIORITY: u8 = 254;
+
+/// Prefix that identifies an Opus codec id (e.g. "opus/48000/2").
+const OPUS_CODEC_PREFIX: &str = "opus/";
+
+/// Exact codec id of PCMU (G.711 μ-law) — the Opus-incapable fallback.
+const PCMU_CODEC_ID: &str = "PCMU/8000/1";
 
 // ---------------------------------------------------------------------------
 // CodecInfo — lightweight native codec descriptor
@@ -59,27 +65,27 @@ impl CodecInfo {
 // CodecAutoMode — auto-mode priority assignment
 // ---------------------------------------------------------------------------
 
-/// Pure-function codec auto-mode implementation.
+/// Pure codec auto-mode implementation.
 ///
 /// When `preferred_codecs` is empty, assigns Opus=255, PCMU=254, and all
 /// other codecs=0 (disabled). When `preferred_codecs` is non-empty, the
 /// auto mode is bypassed and no priorities are changed (returns empty map).
 ///
-/// This function is a pure computation with no side effects, FFI calls,
-/// or mutable state. The returned `HashMap<String, u8>` maps each codec_id
-/// to its assigned priority value.
+/// This computation is pure — no side effects, FFI calls, or mutable state.
+/// The returned `HashMap<String, u8>` maps each codec_id to its assigned
+/// priority value.
 ///
 /// # Errors
 /// Returns `Err(SipError)` with `SipErrorKind::NativeError` if the input
 /// codec list is internally inconsistent (e.g., duplicate codec_id entries).
 pub struct CodecAutoMode;
 
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P6-3) --for-spec --no-implementation-order`.
 impl CodecAutoMode {
     /// Apply auto-mode priority assignment.
     ///
     /// - `codecs` — the list of native codecs enumerated from the stack
-    /// - `preferred_codecs` — user-specified codec IDs; empty => auto mode
+    /// - `preferred_codecs` — user-specified codec IDs; empty slice selects auto mode
     ///
     /// Returns a map of `{ codec_id → priority }` with priority values as
     /// defined by the auto-mode invariants. Returns an empty map if
@@ -112,14 +118,14 @@ impl CodecAutoMode {
 
 /// Assign the auto-mode priority for a single codec identifier.
 ///
-/// - Codecs starting with "opus/" => 255 (highest)
-/// - "PCMU/8000/1" => 254 (fallback for Opus-incapable peers)
-/// - Everything else => 0 (disabled)
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+/// - Codecs starting with "opus/" receive 255 (highest)
+/// - "PCMU/8000/1" receives 254 (fallback for Opus-incapable peers)
+/// - Everything else receives 0 (disabled)
+// [::TICKET::] P1-1, P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P6-3) --for-spec --no-implementation-order`.
 fn assign_auto_priority(codec_id: &str) -> u8 {
-    if codec_id.starts_with("opus/") {
+    if codec_id.starts_with(OPUS_CODEC_PREFIX) {
         OPUS_PRIORITY
-    } else if codec_id == "PCMU/8000/1" {
+    } else if codec_id == PCMU_CODEC_ID {
         PCMU_PRIORITY
     } else {
         0

@@ -21,6 +21,10 @@ use crate::error::SipError;
 use crate::error::SipErrorKind;
 use crate::runtime::command::RuntimeCommand;
 
+/// Error message carried by `Reject` actions during shutdown. Shared by the
+/// media-command arms and the catch-all so the diagnostic is consistent.
+const SHUTDOWN_REJECT_MESSAGE: &str = "shutting down";
+
 // ---------------------------------------------------------------------------
 // ShutdownCommandAction — routing result for commands during shutdown
 // ---------------------------------------------------------------------------
@@ -33,15 +37,15 @@ use crate::runtime::command::RuntimeCommand;
 pub enum ShutdownCommandAction {
     /// The command is permitted during shutdown — forward for execution.
     Permit,
-    /// The command is rejected during shutdown — return the error to the caller.
+    /// The command is rejected during shutdown — the error is handed to the caller.
     Reject(SipError),
 }
 
 // ---------------------------------------------------------------------------
-// ShutdownCommandRouter — pure routing function
+// ShutdownCommandRouter — pure shutdown routing
 // ---------------------------------------------------------------------------
 
-/// Pure-function classifier for `RuntimeCommand` variants during shutdown.
+/// Pure classifier for `RuntimeCommand` variants during shutdown.
 ///
 /// Provides a single static method `classify()` that returns the appropriate
 /// `ShutdownCommandAction` based on the command variant and shutdown state.
@@ -50,11 +54,11 @@ pub enum ShutdownCommandAction {
 /// - `ConfConnect`, `ConfDisconnect` — always Rejected (media mutation)
 /// - All other commands — Rejected with InvalidState
 ///
-/// This function is stateless and has no side effects, making it fully
+/// This classifier is stateless and has no side effects, making it fully
 /// testable without a running reactor.
 pub struct ShutdownCommandRouter;
 
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P6-3) --for-spec --no-implementation-order`.
 impl ShutdownCommandRouter {
     /// Classify a `RuntimeCommand` during the shutdown phase.
     ///
@@ -71,12 +75,12 @@ impl ShutdownCommandRouter {
             RuntimeCommand::ConfConnect { .. } | RuntimeCommand::ConfDisconnect { .. } => {
                 ShutdownCommandAction::Reject(SipError::new(
                     SipErrorKind::InvalidState,
-                    "shutting down",
+                    SHUTDOWN_REJECT_MESSAGE,
                 ))
             }
             _ => ShutdownCommandAction::Reject(SipError::new(
                 SipErrorKind::InvalidState,
-                "shutting down",
+                SHUTDOWN_REJECT_MESSAGE,
             )),
         }
     }

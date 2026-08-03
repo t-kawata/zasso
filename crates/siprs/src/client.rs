@@ -8,8 +8,9 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tracing::instrument;
 
-use crate::api::event_model_payload_bus::{AccountId, SipEvent};
+use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
 use crate::api::eventbus_receiver::EventBus;
+use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
@@ -64,7 +65,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -117,6 +118,14 @@ impl SipClient {
                 )
             })?;
 
+        // Advertise capabilities once initialization succeeds (C047 postcondition,
+        // O-002 closure). The event receiver returned below was subscribed before
+        // this publish, so the first control event is ClientInitialized.
+        event_bus.publish(SipEvent::new(
+            EventMeta::new(0, None, None),
+            SipEventPayload::ClientInitialized(ClientCapabilities::new()),
+        ));
+
         Ok((
             Self {
                 runtime: Arc::new(handle),
@@ -168,6 +177,42 @@ impl SipClient {
         self.events.subscribe_raw_sip()
     }
 
+    /// Query the authoritative list of accounts (C021 source of truth).
+    ///
+    /// Reads the reactor's `ClientState` — never the event stream. Event loss
+    /// (Lagged) does not affect the returned state; consumers can always
+    /// re-query to recover authoritative account status (O-004).
+    #[instrument(skip(self))]
+    pub async fn accounts(
+        &self,
+    ) -> Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError> {
+        let state = self
+            .runtime
+            .query_state()
+            .await
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+        Ok(state
+            .accounts
+            .values()
+            .filter_map(account_snapshot_from_entry)
+            .collect())
+    }
+
+    /// Query the authoritative call state list (C021 source of truth).
+    ///
+    /// Reads the reactor's `ClientState` — never the event stream (O-004).
+    #[instrument(skip(self))]
+    pub async fn call_state(
+        &self,
+    ) -> Result<Vec<crate::runtime::state::CallEntry>, SipError> {
+        let state = self
+            .runtime
+            .query_state()
+            .await
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+        Ok(state.calls.into_values().collect())
+    }
+
     /// Check whether the reactor thread has terminated.
     #[instrument(skip(self))]
     pub fn is_terminated(&self) -> bool {
@@ -194,24 +239,50 @@ impl SipClient {
         // Submit Shutdown command via RuntimeHandle's internal oneshot.
         // A dummy channel is provided — submit() replaces it internally.
         let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
-        self.runtime
+        match self
+            .runtime
             .submit(RuntimeCommand::Shutdown { reply: _dummy_tx })
             .await
-            .map_err(|e| {
-                SipError::new(SipErrorKind::NativeError, format!("shutdown failed: {e}"))
-            })?;
-
-        Ok(())
+        {
+            Ok(()) => Ok(()),
+            // C044 idempotency: a concurrent shutdown may win the race and drop
+            // the reactor before this submit lands — the reactor being down is
+            // exactly the desired end state, so treat it as success.
+            Err(crate::runtime::command::ReactorError::ReactorDown) => Ok(()),
+            Err(e) => Err(SipError::new(
+                SipErrorKind::NativeError,
+                format!("shutdown failed: {e}"),
+            )),
+        }
     }
 }
 
-// Safety: SipClient wraps Arc<RuntimeHandle> which is Send + Sync.
-// The event_rx (mpsc::Receiver) is Send but not Sync — we only access it
-// from a single task, so Sync is not required for the Receiver field.
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+/// Map a reactor `AccountEntry` to the public `AccountSnapshot` domain type.
+///
+/// Returns `None` when the placeholder `id` cannot form a valid `AccountId`
+/// (zero value), skipping such entries. `display_name` is not tracked yet
+/// (P3-1 replaces the `AccountEntry` placeholder fields via the reactor account state machine).
+// [::TICKET::] P7-2: O-004 — authoritative query API mapping
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+fn account_snapshot_from_entry(
+    entry: &crate::runtime::state::AccountEntry,
+) -> Option<crate::api::event_model_payload_bus::AccountSnapshot> {
+    Some(crate::api::event_model_payload_bus::AccountSnapshot {
+        account_id: crate::model::AccountId::from_u64(entry.id).ok()?,
+        display_name: None,
+        uri: entry.config.clone(),
+        registered: entry.registration == "Registered",
+    })
+}
+
+// Safety: SipClient holds Arc<RuntimeHandle>, EventBus, and ClientConfig —
+// all of which are Send + Sync. Both auto-traits are required invariants
+// (RFC §5 requirement #15) so the facade can cross `.await` points and be
+// moved into `tokio::spawn` tasks.
+// [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
 fn _assert_send_sync()
 where
-    SipClient: Send,
+    SipClient: Send + Sync,
 {
 }
 
@@ -294,12 +365,17 @@ mod tests {
 
     #[test]
     // @verifies C002
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn sip_client_is_send() {
-        // C002 invariant: SipClient must be Send for use with tokio tasks.
-        // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2) --for-spec --no-implementation-order`.
+    fn sip_client_is_send_and_sync() {
+        // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
+        // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
+        // field (e.g. RefCell) would have passed every test.
+// [::TICKET::] P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
+// [::TICKET::] P6-1, P6-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2) --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
+        assert_sync::<SipClient>();
     }
 
     #[test]
@@ -335,6 +411,97 @@ mod tests {
         // Second shutdown is a no-op — must not panic or error.
         let result2 = client.shutdown().await;
         assert!(result2.is_ok(), "second shutdown must be a no-op");
+    }
+
+    // ── O-004: authoritative query API (C021 invariant) ───────────────
+
+    #[tokio::test]
+    // @verifies C021
+    // [::TICKET::] P7-2: O-004 — accounts()/call_state() read authoritative ClientState, not the event stream
+    async fn sip_client_query_api_is_authoritative() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+
+        // Register an account so ClientState has authoritative data.
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
+        client
+            .handle()
+            .submit(RuntimeCommand::AddAccount {
+                config: account_config,
+                reply: _dummy_tx,
+            })
+            .await
+            .expect("AddAccount must be accepted");
+
+        // The account must be visible via the authoritative query API.
+        let accounts = client
+            .accounts()
+            .await
+            .expect("accounts() query must succeed");
+        assert_eq!(accounts.len(), 1, "query API must reflect the registered account");
+
+        // Drop every event receiver (simulate event loss / Lagged): the query
+        // API must still return the same authoritative state (C021 invariant).
+        let _ = client.subscribe(); // a fresh receiver that immediately goes out of scope
+        let accounts_after_loss = client
+            .accounts()
+            .await
+            .expect("accounts() must succeed after event loss");
+        assert_eq!(
+            accounts_after_loss.len(),
+            accounts.len(),
+            "event loss must not corrupt authoritative query state"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C021
+    // [::TICKET::] P7-2: O-004 — call_state() returns the authoritative call snapshot
+    async fn sip_client_call_state_query_returns_snapshot() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+
+        let calls = client
+            .call_state()
+            .await
+            .expect("call_state() query must succeed");
+        assert!(
+            calls.is_empty(),
+            "fresh client must have no active calls, got {:?}",
+            calls
+        );
+    }
+
+    // ── Contract: C017 Precondition — public API return types (O-001) ─
+
+    #[tokio::test]
+    // @verifies C017
+    async fn sip_client_new_and_shutdown_return_sip_error() {
+        // Contract C017 Precondition: each public async fn must return Result<_, SipError>.
+        // ABC O-001 closure: without these type-annotations, changing shutdown() to
+        // Result<(), String> or new() to Result<_, OtherError> would pass the whole
+        // suite (existing tests only call .is_ok() or read err.kind).
+// [::TICKET::] P6-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2) --for-spec --no-implementation-order`.
+        fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
+        // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+        fn assert_shutdown_result(_: &Result<(), SipError>) {}
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let new_result = SipClient::new(config).await;
+        assert_new_result(&new_result);
+        if let Ok((client, _rx)) = new_result {
+            let shutdown_result = client.shutdown().await;
+            assert_shutdown_result(&shutdown_result);
+        }
     }
 
     // ── Contract tests ──────────────────────────────────────────────
@@ -379,11 +546,78 @@ mod tests {
 
     #[test]
     // @verifies C047
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn tracing_and_metrics_specified() {
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+    fn tracing_and_metrics_specified() -> Result<(), std::io::Error> {
         // C047 postcondition: tracing, metrics specified.
-        let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
         assert!(manifest.contains("tracing"), "tracing must be a dependency");
+        // ABC O-002 closure: metrics feature presence was previously untested —
+        // deleting `metrics = []` from Cargo.toml would have passed the suite.
+        assert!(
+            manifest.contains("metrics"),
+            "metrics feature flag must exist"
+        );
+        Ok(())
+    }
+
+    /// Parse the `[features]` section of a Cargo.toml manifest, returning the
+    /// raw text between the `[features]` header and the next section header.
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn parse_feature_section(manifest: &str) -> &str {
+        manifest
+            .split_once("[features]")
+            .map(|(_, rest)| rest)
+            .and_then(|rest| rest.split("\n[").next())
+            .unwrap_or("")
+    }
+
+    #[test]
+    // @verifies C047
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn metrics_optional_feature() -> Result<(), std::io::Error> {
+        // C047 invariant: metrics must be an optional feature, not a default one.
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
+        let features_section = parse_feature_section(&manifest);
+        assert!(
+            features_section.contains("metrics"),
+            "metrics must be declared as an optional feature"
+        );
+        let default_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("default"))
+            .unwrap_or("");
+        assert!(
+            !default_line.contains("metrics"),
+            "metrics must not be a default feature"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C003
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn features_independently_selectable() -> Result<(), std::io::Error> {
+        // ABC O-003 closure: tls and srtp must not depend on each other,
+        // so priority ordering never implies a feature dependency (RFC §1a).
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
+        let features_section = parse_feature_section(&manifest);
+        let tls_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("tls"))
+            .unwrap_or("");
+        let srtp_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("srtp"))
+            .unwrap_or("");
+        assert!(
+            !tls_line.contains("srtp"),
+            "tls must not depend on srtp: {tls_line}"
+        );
+        assert!(
+            !srtp_line.contains("tls"),
+            "srtp must not depend on tls: {srtp_line}"
+        );
+        Ok(())
     }
 
     #[test]
@@ -400,27 +634,22 @@ mod tests {
 
     #[test]
     // @verifies C051
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn microphone_is_optional_feature() {
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+    fn microphone_is_optional_feature() -> Result<(), std::io::Error> {
         // C051 invariant: Microphone is optional via cpal-input feature flag.
-        let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
         assert!(
             manifest.contains("cpal-input"),
             "cpal-input feature must exist"
         );
-        let features_section = manifest
-            .split("[features]")
-            .nth(1)
-            .unwrap_or("")
-            .split('[')
-            .next()
-            .unwrap_or("");
+        let features_section = parse_feature_section(&manifest);
         let has_default_mic = features_section
             .lines()
             .find(|l| l.trim().starts_with("default"))
             .map(|l| l.contains("cpal-input"))
             .unwrap_or(false);
         assert!(!has_default_mic, "cpal-input must not be a default feature");
+        Ok(())
     }
 
     #[test]
@@ -446,5 +675,103 @@ mod tests {
             rfc.contains("I/O") || rfc.contains("IO") || rfc.contains("入出力"),
             "RFC must document I/O boundaries"
         );
+    }
+
+    #[test]
+    // @verifies C047
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
+        // O-001 closure: C047 postcondition — tracing spans specified for all
+        // public operations. This source-inspection test asserts every public
+        // SipClient/SipAccountHandle method is immediately preceded by a
+        // `#[instrument(...)]` attribute. The prior `tracing_and_metrics_specified`
+        // only checked Cargo.toml for the substring 'tracing' — removing every
+        // #[instrument] would have left all tests green.
+        let checks: [(&str, &[&str]); 2] = [
+            (
+                "src/client.rs",
+                &[
+                    "new",
+                    "handle",
+                    "subscribe",
+                    "subscribe_account",
+                    "subscribe_raw_sip",
+                    "accounts",
+                    "call_state",
+                    "is_terminated",
+                    "shutdown",
+                ],
+            ),
+            (
+                "src/api/public_api_design.rs",
+                &[
+                    "register",
+                    "unregister",
+                    "set_registration_enabled",
+                    "registration_state",
+                    "make_call",
+                    "update_config",
+                ],
+            ),
+        ];
+        for (path, methods) in checks {
+            let src = std::fs::read_to_string(path)?;
+            for method in methods {
+                // Match both `pub async fn name(` and `pub fn name(` — the
+                // "fn name(" fragment covers both forms.
+                let (idx, _) = src
+                    .lines()
+                    .enumerate()
+                    .find(|(_, l)| {
+                        let trimmed_line = l.trim_start();
+                        trimmed_line.starts_with("pub ")
+                            && trimmed_line.contains(&format!("fn {method}("))
+                    })
+                    .unwrap_or_else(|| panic!("{path} must define a public fn {method}("));
+                // Scan the up-to-6 lines before the method for the attribute.
+                let context: Vec<&str> = src
+                    .lines()
+                    .skip(idx.saturating_sub(6))
+                    .take(6)
+                    .collect();
+                assert!(
+                    context.iter().any(|l| l.contains("#[instrument")),
+                    "{path}: pub fn {method} must be preceded by #[instrument]; context: {context:?}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C051
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    fn spec_examples_reference_public_api_types() -> Result<(), std::io::Error> {
+        // O-007 closure: C051 postcondition — usage examples provided. The
+        // prior examples were empty `fn main() {}` stubs demonstrating nothing.
+        // This test asserts each example references at least one public API type.
+        let api_tokens = [
+            "SipClient",
+            "ClientConfig",
+            "AccountConfig",
+            "SipAccountHandle",
+            "OutgoingCallRequest",
+            "AsyncAudioSource",
+            "AudioFormat",
+        ];
+        for example in [
+            "client_init",
+            "account_register",
+            "make_call",
+            "audio_tap",
+            "tts_source",
+        ] {
+            let content = std::fs::read_to_string(format!("examples/{example}.rs"))?;
+            assert!(
+                api_tokens.iter().any(|t| content.contains(t)),
+                "examples/{example}.rs must reference a public API type; content: {content:?}"
+            );
+        }
+        Ok(())
     }
 }

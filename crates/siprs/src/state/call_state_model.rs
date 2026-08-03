@@ -389,9 +389,167 @@ mod tests {
     #[test]
     // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-        // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<CallState>();
         assert_traits::<CallTransitionError>();
+    }
+
+    /// @verifies C027
+    /// All 13 variants in discriminant order — used to enumerate the full 13x13 matrix.
+    const ALL_STATES: [CallState; 13] = [
+        CallState::New,
+        CallState::Calling,
+        CallState::Trying,
+        CallState::Ringing,
+        CallState::EarlyMedia,
+        CallState::Incoming,
+        CallState::Connecting,
+        CallState::Active,
+        CallState::Held,
+        CallState::Transferring,
+        CallState::Disconnecting,
+        CallState::Disconnected,
+        CallState::Failed,
+    ];
+
+    /// @verifies C027
+    /// The 20 RFC §18.1 DAG edges as an executable copy of the transition diagram.
+    const EXPECTED_EDGES: [(CallState, CallState); 20] = [
+        (CallState::New, CallState::Calling),
+        (CallState::New, CallState::Incoming),
+        (CallState::Calling, CallState::Trying),
+        (CallState::Trying, CallState::Ringing),
+        (CallState::Trying, CallState::EarlyMedia),
+        (CallState::Ringing, CallState::Connecting),
+        (CallState::Ringing, CallState::Failed),
+        (CallState::EarlyMedia, CallState::Connecting),
+        (CallState::EarlyMedia, CallState::Failed),
+        (CallState::Incoming, CallState::Connecting),
+        (CallState::Connecting, CallState::Active),
+        (CallState::Connecting, CallState::Failed),
+        (CallState::Active, CallState::Held),
+        (CallState::Active, CallState::Transferring),
+        (CallState::Active, CallState::Disconnecting),
+        (CallState::Held, CallState::Active),
+        (CallState::Held, CallState::Disconnecting),
+        (CallState::Transferring, CallState::Active),
+        (CallState::Transferring, CallState::Disconnecting),
+        (CallState::Disconnecting, CallState::Disconnected),
+    ];
+
+    /// @verifies C027
+    /// O-003 — Exhaustive 13x13 transition-table check: exactly the 20 RFC §18.1
+    /// DAG edges are valid, all other 149 (from,to) pairs are rejected. A spurious
+    /// extra true cell (e.g. New->Active, Held->Calling, Disconnected->New) fails
+    /// this suite.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn transition_table_has_no_implicit_edges() {
+        for from in ALL_STATES {
+            for to in ALL_STATES {
+                let is_expected = EXPECTED_EDGES.contains(&(from, to));
+                if is_expected {
+                    assert_eq!(from.transition(to), Ok(to), "missing valid edge {from:?}->{to:?}");
+                } else {
+                    assert!(
+                        from.transition(to).is_err(),
+                        "spurious implicit edge {from:?}->{to:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// @verifies C027
+    /// O-003 — `can_transition_to()` must agree with `transition()` on every cell
+    /// of the 13x13 matrix. This predicate was previously completely untested.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn can_transition_to_matches_transition_table() {
+        for from in ALL_STATES {
+            for to in ALL_STATES {
+                let expected = EXPECTED_EDGES.contains(&(from, to));
+                assert_eq!(
+                    from.can_transition_to(to),
+                    expected,
+                    "can_transition_to({from:?}, {to:?}) disagrees with transition()"
+                );
+            }
+        }
+    }
+
+    /// @verifies C027
+    /// O-003 — Termination edge while held: Held->Disconnecting->Disconnected is a
+    /// valid path (BYE/hangup during a held call). The prior termination_path test
+    /// only covered Active->Disconnecting->Disconnected, so this edge was untested.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn held_to_disconnecting_termination_edge() {
+        assert_eq!(
+            CallState::Held.transition(CallState::Disconnecting),
+            Ok(CallState::Disconnecting)
+        );
+        assert_eq!(
+            CallState::Disconnecting.transition(CallState::Disconnected),
+            Ok(CallState::Disconnected)
+        );
+    }
+
+    /// @verifies C027
+    /// Boundary — terminal states Disconnected and Failed are absorbing: they have
+    /// no self-loop and no outgoing edge (their transition rows are all-false).
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn terminal_states_are_absorbing() {
+        for from in [CallState::Disconnected, CallState::Failed] {
+            assert!(from.is_terminal());
+            for to in ALL_STATES {
+                assert!(
+                    from.transition(to).is_err(),
+                    "terminal {from:?} must have no outgoing edge to {to:?}"
+                );
+            }
+        }
+        for from in ALL_STATES {
+            let is_terminal = matches!(from, CallState::Disconnected | CallState::Failed);
+            assert_eq!(from.is_terminal(), is_terminal, "is_terminal({from:?})");
+        }
+    }
+
+    /// @verifies C027
+    /// Reachability — every non-terminal state has a valid path to Disconnected or
+    /// Failed within the 20-edge DAG. This is the "complete DAG, no dead cycles"
+    /// invariant asserted by construction.
+    #[test]
+// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    fn all_non_terminal_states_reach_terminal() {
+        for start in ALL_STATES {
+            if start.is_terminal() {
+                continue;
+            }
+            let mut stack = vec![start];
+            let mut seen: Vec<CallState> = Vec::new();
+            let mut reached_terminal = false;
+            while let Some(state) = stack.pop() {
+                if state.is_terminal() {
+                    reached_terminal = true;
+                    break;
+                }
+                if seen.contains(&state) {
+                    continue;
+                }
+                seen.push(state);
+                for (from, to) in EXPECTED_EDGES {
+                    if from == state {
+                        stack.push(to);
+                    }
+                }
+            }
+            assert!(
+                reached_terminal,
+                "non-terminal state {start:?} cannot reach Disconnected or Failed"
+            );
+        }
     }
 }

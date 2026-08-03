@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### P7-3 — Standalone Server Mode, HTTP/WS Protocol, SQLite Persistence & Reference Info (ABC closure)
+
+- Test hardening: pinned all 20 REST/WS path constants to their exact RFC S54 values (O-003).
+- Test hardening: SequenceGenerator monotonicity and uniqueness verified over 1M iterations (O-004).
+- Test hardening: AuthConfig::validate() error kind asserted as the exact ConfigError variant (O-005).
+- Test hardening: SQLite CREATE TABLE column types pinned to RFC S56 (O-006).
+- Test hardening: DatabasePool::open() invalid-path error and init_schema()/query_tables() 4-table creation covered (O-002).
+- Added spec-verification integration tests reading specs/P7-3.md (O-001) and crate-root re-export checks (O-008).
+
 ## [0.x] — 開発フェーズ
 
 ### 運用ルール

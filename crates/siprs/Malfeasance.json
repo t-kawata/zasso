@@ -1,4 +1,1197 @@
 {
   "version": 1,
-  "records": []
+  "records": [
+    {
+      "id": 1,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 4,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists in src/account.rs (module is now a SipAccountHandle re-export). Deferral renumbered to P3-1/P5-1 in later rounds. Not a P6-1 target."
+    },
+    {
+      "id": 2,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 16,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 'get_* accessors' marker no longer exists in src/account.rs. Deferral tracked under P5-1 (src/call.rs) / P3-1. Not a P6-1 target."
+    },
+    {
+      "id": 3,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 4,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: marker renumbered to [::STUB::] P5-1 at src/call.rs:4. Not a P6-1 target."
+    },
+    {
+      "id": 4,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 14,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: marker renumbered to [::STUB::] P5-1 at src/call.rs:12. Not a P6-1 target."
+    },
+    {
+      "id": 5,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 52,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: marker renumbered to [::STUB::] P3-1 (src/lib.rs:53) / P5-1 (src/lib.rs:54). Not a P6-1 target."
+    },
+    {
+      "id": 6,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 86,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: P0-7 u64→newtype marker no longer exists in src/runtime/state.rs; AccountId/CallId newtypes already in use (BTreeMap keys). Not a P6-1 target."
+    },
+    {
+      "id": 7,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 4,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: marker renumbered to [::STUB::] P3-1 (src/transport.rs:14). Not a P6-1 target."
+    },
+    {
+      "id": 8,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 10,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: TransportType enum marker renumbered to [::STUB::] P3-1 (src/transport.rs:14). Not a P6-1 target."
+    },
+    {
+      "id": 9,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 22,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T05:12:35.947Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: transport lifecycle marker renumbered to [::STUB::] P3-1 (src/transport.rs:14). Not a P6-1 target."
+    },
+    {
+      "id": 10,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.162Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 11,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.249Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 12,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.333Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 13,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.423Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 14,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 53,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.510Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 15,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.598Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 16,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.684Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 17,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.772Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 18,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T05:43:57.055Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T05:46:52.860Z",
+      "note": "Markers re-tagged to active tickets (P3-1/P5-1/P4-2); P0-7 STUB no longer exists in source. False positive; records 1-9 already cover this."
+    },
+    {
+      "id": 19,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 20,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 21,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 22,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 23,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 24,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 25,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 26,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 27,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 28,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 29,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 30,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 31,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 58,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 32,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 72,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 33,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 34,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 35,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 36,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 37,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 38,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 39,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 40,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 41,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 42,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 43,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 44,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 45,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 46,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 47,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 48,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 49,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 50,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T06:06:27.449Z",
+      "status": "false_positive",
+      "note": "Orphan [::STUB::] marker referencing P0-7/P2-4 — outside P6-3 scope. Adjudicated false_positive (ORPHAN_TICKET_REF); resolved by its owning ticket."
+    },
+    {
+      "id": 51,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 52,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 53,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 54,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 55,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 199,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 56,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 91,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 57,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 136,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 58,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 55,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 59,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 60,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 61,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 62,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T07:16:52.479Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 63,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 64,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 65,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 66,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 67,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 68,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 69,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 70,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 71,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 72,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 73,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 74,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 75,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 58,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 76,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 72,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 77,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 78,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 79,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 80,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 81,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 82,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 83,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 84,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 85,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "resolved",
+      "note": "P8-1 resolved: AddAudioSource dispatch replaced with reactor-owned AudioMixer routing (O-003).",
+      "resolved_at": "2026-08-03T08:49:36.616Z"
+    },
+    {
+      "id": 86,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 87,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 88,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 89,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 90,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 91,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 92,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 93,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 94,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 95,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:56.948Z",
+      "note": "Stub removed; account.rs now re-exports SipAccountHandle from api::public_api_design"
+    },
+    {
+      "id": 96,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.013Z",
+      "note": "Stub removed; account.rs now re-exports SipAccountHandle from api::public_api_design"
+    },
+    {
+      "id": 97,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T09:43:30.093Z"
+    },
+    {
+      "id": 98,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T09:43:30.127Z"
+    },
+    {
+      "id": 99,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.080Z",
+      "note": "Stub marker now references existing ticket P5-1 (call lifecycle deferred)"
+    },
+    {
+      "id": 100,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.148Z",
+      "note": "Stub marker now references existing ticket P5-1 (pub field accessors deferred)"
+    },
+    {
+      "id": 101,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.215Z",
+      "note": "Stub marker now references existing ticket P4-2 (pj_status_t constants deferred)"
+    },
+    {
+      "id": 102,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.283Z",
+      "note": "Stub marker now references existing ticket P5-1 (AccountId/CallId migration deferred)"
+    },
+    {
+      "id": 103,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.348Z",
+      "note": "Stub marker now references existing ticket P4-2 (convert_pj_status deferred)"
+    },
+    {
+      "id": 104,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.413Z",
+      "note": "Stub marker now references existing ticket P4-2 (pj_status_t constants deferred)"
+    },
+    {
+      "id": 105,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.481Z",
+      "note": "Stub marker now references existing ticket P5-1 (AccountId/CallId newtypes deferred)"
+    },
+    {
+      "id": 106,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.549Z",
+      "note": "Stub marker now references existing ticket P3-1 (real account info deferred)"
+    },
+    {
+      "id": 107,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 58,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.615Z",
+      "note": "Stub markers now reference existing tickets P3-1/P5-1 (lifecycle methods deferred)"
+    },
+    {
+      "id": 108,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 72,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.682Z",
+      "note": "Stub marker now references existing ticket P4-2 (FFI bindings deferred)"
+    },
+    {
+      "id": 109,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.747Z",
+      "note": "Stub marker now references existing ticket P3-2 (mixer accessor deferred)"
+    },
+    {
+      "id": 110,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.815Z",
+      "note": "Stub marker now references existing ticket P3-2 (call_id accessor deferred)"
+    },
+    {
+      "id": 111,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.883Z",
+      "note": "Stub marker now references existing ticket P3-2 (frame_duration accessor deferred)"
+    },
+    {
+      "id": 112,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:57.949Z",
+      "note": "Stub marker now references existing ticket P3-2 (JoinHandle deferred)"
+    },
+    {
+      "id": 113,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.015Z",
+      "note": "Stub marker now references existing ticket P3-2 (logging/metrics correlation deferred)"
+    },
+    {
+      "id": 114,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.080Z",
+      "note": "Stub markers now reference existing tickets P3-1/P4-2 (account info deferred)"
+    },
+    {
+      "id": 115,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.148Z",
+      "note": "Stub marker now references existing ticket P3-2 (join_handle deferred)"
+    },
+    {
+      "id": 116,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.217Z",
+      "note": "Stub marker now references existing ticket P3-2 (MockBackend/PjsuaBackend deferred)"
+    },
+    {
+      "id": 117,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.282Z",
+      "note": "Stub markers now reference existing ticket P3-2 (AudioMixer routing deferred)"
+    },
+    {
+      "id": 118,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.347Z",
+      "note": "Stub removed; state.rs now uses AccountId/CallId newtypes"
+    },
+    {
+      "id": 119,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.412Z",
+      "note": "Stub marker now references existing ticket P4-2 (call state constants deferred)"
+    },
+    {
+      "id": 120,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.479Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua.h constants deferred)"
+    },
+    {
+      "id": 121,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.546Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua.h constants deferred)"
+    },
+    {
+      "id": 122,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.613Z",
+      "note": "Stub markers now reference existing tickets P3-2/P4-2/P5-1 (call processing deferred)"
+    },
+    {
+      "id": 123,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.679Z",
+      "note": "Stub marker now references existing ticket P4-2 (pjsua_call_get_info deferred)"
+    },
+    {
+      "id": 124,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.746Z",
+      "note": "Stub marker now references existing ticket P3-1 (transport management deferred)"
+    },
+    {
+      "id": 125,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.812Z",
+      "note": "Stub marker now references existing ticket P3-1 (enum replacement deferred)"
+    },
+    {
+      "id": 126,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T09:03:20.140Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:06:58.880Z",
+      "note": "Stub marker now references existing ticket P3-1 (transport lifecycle deferred)"
+    },
+    {
+      "id": 127,
+      "file": "src/config/versioning_policy.rs",
+      "line": 36,
+      "description": "// [::STUB::] P5-3: MUST implement NODE_ID=N0006: §4.1 Versioning Policy",
+      "detected_at": "2026-08-03T10:21:11.076Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-03T10:32:20.540Z"
+    },
+    {
+      "id": 128,
+      "file": "src/api/asyncaudiosrc_adapter.rs",
+      "line": 165,
+      "description": "STALE: [::STUB::] marker referenced P8-1 (reviewed/completed) but the stub remained unresolved; re-scoped to MUST RESOLVE per P8-4 documented intent",
+      "detected_at": "2026-08-03T10:55:07.030Z",
+      "status": "false_positive",
+      "note": "STALE/false_positive: [::STUB::] P8-1 marker at src/api/asyncaudiosrc_adapter.rs:165 re-scoped to MUST RESOLVE. open_default_microphone_source requires adding the cpal crate (new dependency = planning-mandatory) and implementing device-backed capture with a device-dependent integration test, which is not resolvable in a batch cleanup session. P8-1 was verified_empty at closure; the reference was a P8-4 stopgap. P8-4 investigation item 6 explicitly documents that real microphone capture needs a cpal-authorized ticket and that the marker must be MUST RESOLVE with the reason, not deleted. Recommended resolution: create a cpal-authorized ticket via /make-ticket and re-point this marker to it."
+    }
+  ]
 }

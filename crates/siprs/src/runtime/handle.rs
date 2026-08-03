@@ -29,7 +29,7 @@ pub struct RuntimeHandle {
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -62,13 +62,42 @@ impl RuntimeHandle {
         let dispatch = match dispatch {
             DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
+            DispatchCommand::AddAccount { config, .. } => {
+                DispatchCommand::AddAccount { config, reply: tx }
+            }
+            // Audio-lifecycle commands with a Result<()> reply are handled directly;
+            // the dedicated submit_*_audio_* methods are typed conveniences.
+            DispatchCommand::RemoveAudioSource { source_id, .. } => {
+                DispatchCommand::RemoveAudioSource {
+                    source_id,
+                    reply: tx,
+                }
+            }
+            DispatchCommand::SetAudioSourceGain { source_id, gain, .. } => {
+                DispatchCommand::SetAudioSourceGain {
+                    source_id,
+                    gain,
+                    reply: tx,
+                }
+            }
+            DispatchCommand::MuteAudioSource { source_id, muted, .. } => {
+                DispatchCommand::MuteAudioSource {
+                    source_id,
+                    muted,
+                    reply: tx,
+                }
+            }
             // GetAccountInfo handled via separate method
             DispatchCommand::GetAccountInfo { .. } => {
                 unreachable!("use submit_get_account_info instead")
             }
-            // AddAudioSource handled via separate method
+            // AddAudioSource handled via separate method (Result<u64> reply)
             DispatchCommand::AddAudioSource { .. } => {
                 unreachable!("use submit_add_audio_source instead")
+            }
+            // QueryState handled via separate method
+            DispatchCommand::QueryState { .. } => {
+                unreachable!("use query_state instead")
             }
         };
 
@@ -104,6 +133,122 @@ impl RuntimeHandle {
         rx.await.map_err(|_| ReactorError::ReactorDown)?
     }
 
+    /// [::TICKET::] P7-2: O-004 — query the reactor's authoritative `ClientState`.
+    ///
+    /// Backs `SipClient::accounts()` / `SipClient::call_state()`. The query reads
+    /// the reactor's local state clone — it never blocks the reactor thread and
+    /// is independent of the event stream (C021 source-of-truth invariant).
+    pub async fn query_state(
+        &self,
+    ) -> Result<crate::runtime::state::ClientState, ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::QueryState { reply: tx };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    // [::TICKET::] P8-1: O-003 — audio-lifecycle submit methods. Each follows the
+    // submit_get_account_info / query_state pattern: build the DispatchCommand with a
+    // fresh oneshot, enqueue on the MPSC channel, await the typed reply.
+
+    /// Submit an `AddAudioSource` command and await the assigned `source_id`.
+    ///
+    /// # Errors
+    /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
+    /// reactor's backend error if the source could not be added.
+    pub async fn submit_add_audio_source(
+        &self,
+        source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+    ) -> Result<u64, ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::AddAudioSource { source, reply: tx };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// Submit a `RemoveAudioSource` command and await its completion.
+    pub async fn submit_remove_audio_source(&self, source_id: u64) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::RemoveAudioSource {
+            source_id,
+            reply: tx,
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// Submit a `SetAudioSourceGain` command and await its completion.
+    pub async fn submit_set_audio_source_gain(
+        &self,
+        source_id: u64,
+        gain: f32,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::SetAudioSourceGain {
+            source_id,
+            gain,
+            reply: tx,
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// Submit a `MuteAudioSource` command and await its completion.
+    pub async fn submit_mute_audio_source(
+        &self,
+        source_id: u64,
+        muted: bool,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::MuteAudioSource {
+            source_id,
+            muted,
+            reply: tx,
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
     /// Returns `true` if the reactor thread has terminated (panic or graceful shutdown).
     pub fn is_terminated(&self) -> bool {
         self.terminated.load(Ordering::Acquire)
@@ -121,6 +266,7 @@ pub(crate) fn create_channel() -> (
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::audio_worker::MockAsyncAudioSource;
 
     /// @verifies C012: RuntimeHandle must be Send + Sync.
     const _: () = {
@@ -165,5 +311,111 @@ mod tests {
         assert!(!handle.is_terminated());
         terminated.store(true, Ordering::Release);
         assert!(handle.is_terminated());
+    }
+
+    // ── O-003: audio-lifecycle submit methods ──────────────────────────
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-003 — submit_add_audio_source must send DispatchCommand::AddAudioSource
+    // and deliver the reply (source_id) to the caller.
+    async fn submit_add_audio_source_returns_source_id() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::AddAudioSource { source, reply }) => {
+                    drop(source);
+                    reply.send(Ok(42u64)).unwrap();
+                }
+                other => panic!("expected AddAudioSource, got {other:?}"),
+            }
+        });
+
+        let source = Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));
+        let result = handle.submit_add_audio_source(source).await;
+        assert_eq!(result.unwrap(), 42, "source_id must be delivered via oneshot");
+        consumer.await.unwrap();
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-003 — submit_remove_audio_source must send DispatchCommand::RemoveAudioSource.
+    async fn submit_remove_audio_source_sends_typed_command() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::RemoveAudioSource { source_id, reply }) => {
+                    assert_eq!(source_id, 7);
+                    reply.send(Ok(())).unwrap();
+                }
+                other => panic!("expected RemoveAudioSource, got {other:?}"),
+            }
+        });
+
+        let result = handle.submit_remove_audio_source(7).await;
+        assert!(result.is_ok(), "remove must complete with Ok");
+        consumer.await.unwrap();
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-003 — submit_set_audio_source_gain must send DispatchCommand::SetAudioSourceGain.
+    async fn submit_set_audio_source_gain_sends_typed_command() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::SetAudioSourceGain {
+                    source_id,
+                    gain,
+                    reply,
+                }) => {
+                    assert_eq!(source_id, 3);
+                    assert!((gain - 0.5).abs() < f32::EPSILON);
+                    reply.send(Ok(())).unwrap();
+                }
+                other => panic!("expected SetAudioSourceGain, got {other:?}"),
+            }
+        });
+
+        let result = handle.submit_set_audio_source_gain(3, 0.5).await;
+        assert!(result.is_ok(), "set_gain must complete with Ok");
+        consumer.await.unwrap();
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-003 — submit_mute_audio_source must send DispatchCommand::MuteAudioSource.
+    async fn submit_mute_audio_source_sends_typed_command() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::MuteAudioSource {
+                    source_id,
+                    muted,
+                    reply,
+                }) => {
+                    assert_eq!(source_id, 5);
+                    assert!(muted);
+                    reply.send(Ok(())).unwrap();
+                }
+                other => panic!("expected MuteAudioSource, got {other:?}"),
+            }
+        });
+
+        let result = handle.submit_mute_audio_source(5, true).await;
+        assert!(result.is_ok(), "mute must complete with Ok");
+        consumer.await.unwrap();
     }
 }

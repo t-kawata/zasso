@@ -37,8 +37,6 @@
 //   (cd .. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N>)
 // ============================================================================
 
-// [::STUB::] P0-1: Crate foundation with module declarations only -- Implement modules incrementally per P0-2 through P0-6 ticket pipeline
-
 // Module declarations matching RFC §6 Module Structure (N0008).
 // Each module is stub-gated behind its responsible ticket.
 

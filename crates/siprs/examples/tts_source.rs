@@ -1,4 +1,21 @@
-// [::STUB::] P1-3: spec example only; no runnable implementation -- Implement full TTS source example with PJSIP backend, CLI args, and integration test
-// Full implementation requires AsyncAudioSource from P5-2.
-// [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
-fn main() {}
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+
+// [::STUB::] P1-3: example documents the TTS-source surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full TTS source example with PJSIP backend, CLI args, and integration test
+// [::TICKET::] P0-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P8-2) --for-spec --no-implementation-order`.
+use siprs::model::audio_format_chunkpair::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
+use siprs::runtime::audio_worker::{AsyncAudioSource, MockAsyncAudioSource};
+
+/// A TTS engine implements `AsyncAudioSource` at the requested `AudioFormat`;
+/// the format describes the expected PCM delivery (RFC §41.5).
+// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+fn _assert_tts_source<S: AsyncAudioSource>() {}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let format = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20)?;
+    // A real TTS source would stream synthesized speech into `next_chunk`; the
+    // mock satisfies the `AsyncAudioSource` contract for demonstration.
+    _assert_tts_source::<MockAsyncAudioSource>();
+    let _ = format;
+    Ok(())
+}

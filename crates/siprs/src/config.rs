@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
@@ -22,6 +23,10 @@ pub mod observability_metrics;
 /// Semver operations & SIP networking details — versioning policy, TLS, DNS (N0066).
 pub mod semver_sip_networking;
 
+/// §4.1 Versioning Policy — semver phase classification and CHANGELOG policy (N0006).
+pub mod versioning_policy;
+// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+
 /// AccountConfig, AccountCodecPolicy, OpusConfig, DtmfPolicy, AccountMediaConfig (N0014).
 pub mod account_config_spec;
 
@@ -37,6 +42,13 @@ pub mod codec_policy_fallback;
 
 use crate::error::SipError;
 use crate::error::SipErrorKind;
+
+/// Minimum acceptable SIP proxy port (inclusive lower bound of the valid range).
+pub const MIN_SIP_PORT: u16 = 1;
+/// Maximum acceptable SIP proxy port — the `u16` type makes values above this unrepresentable.
+pub const MAX_SIP_PORT: u16 = 65535;
+/// Maximum length of the `user_agent` header value in bytes.
+pub const MAX_USER_AGENT_BYTES: usize = 256;
 
 /// Credentials for SIP authentication.
 ///
@@ -88,6 +100,35 @@ pub enum LogLevel {
     Trace,
 }
 
+/// Configuration for DTMF transmission behavior (N0029).
+///
+/// [::TICKET::] P7-2: O-002 — `sent_timeout_ms` drives the DtmfSent two-phase
+/// fallback timer: if PJSIP does not fire the send-complete callback within
+/// this window, a `DtmfSent { Err(Timeout) }` event is published.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DtmfConfig {
+    /// Timeout in milliseconds for the DtmfSent fallback when the PJSIP
+    /// send-complete callback does not arrive. Defaults to 500ms.
+    #[serde(default = "default_dtmf_sent_timeout_ms")]
+    pub sent_timeout_ms: u64,
+}
+
+/// The default DtmfSent fallback timeout in milliseconds.
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+fn default_dtmf_sent_timeout_ms() -> u64 {
+    crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS
+}
+
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+impl Default for DtmfConfig {
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            sent_timeout_ms: default_dtmf_sent_timeout_ms(),
+        }
+    }
+}
+
 /// Configuration for the `SipClient` session.
 ///
 /// Passed to `SipClient::new()` to configure the SIP stack, transports,
@@ -124,6 +165,9 @@ pub struct ClientConfig {
     /// Logging verbosity level.
     #[serde(default)]
     pub log_level: LogLevel,
+    /// DTMF transmission configuration (DtmfSent timeout fallback).
+    #[serde(default)]
+    pub dtmf: DtmfConfig,
 }
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
@@ -131,7 +175,7 @@ fn default_user_agent() -> String {
     format!("siprs/{}", env!("CARGO_PKG_VERSION"))
 }
 
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
 impl ClientConfig {
     /// Create a new `ClientConfigBuilder` for constructing a config.
     pub fn builder() -> ClientConfigBuilder {
@@ -149,13 +193,15 @@ impl ClientConfig {
                 "sip_proxy_host must not be empty",
             ));
         }
-        if self.sip_proxy_port == 0 {
+        // The `u16` type already bounds the port to [0, MAX_SIP_PORT]; validation
+        // only needs the lower bound because port 0 is never a valid SIP port.
+        if self.sip_proxy_port < MIN_SIP_PORT {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
-                "sip_proxy_port must not be 0",
+                "sip_proxy_port must be in the range [1, 65535]",
             ));
         }
-        if self.user_agent.len() > 256 {
+        if self.user_agent.len() > MAX_USER_AGENT_BYTES {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
                 "user_agent must not exceed 256 bytes",
@@ -167,7 +213,7 @@ impl ClientConfig {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P7-2) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             sip_proxy_host: String::new(),
@@ -180,6 +226,7 @@ impl Default for ClientConfig {
             srtp_enabled: false,
             tls_enabled: false,
             log_level: LogLevel::default(),
+            dtmf: DtmfConfig::default(),
         }
     }
 }
@@ -201,9 +248,10 @@ pub struct ClientConfigBuilder {
     srtp_enabled: bool,
     tls_enabled: bool,
     log_level: Option<LogLevel>,
+    dtmf_sent_timeout_ms: Option<u64>,
 }
 
-// [::TICKET::] P0-3, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P2-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P2-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P2-2|P7-2) --for-spec --no-implementation-order`.
 impl ClientConfigBuilder {
     /// Set the SIP proxy server hostname or IP address (required).
     pub fn sip_proxy_host(mut self, host: impl Into<String>) -> Self {
@@ -265,6 +313,12 @@ impl ClientConfigBuilder {
         self
     }
 
+    /// Set the DtmfSent fallback timeout in milliseconds (O-002).
+    pub fn dtmf_sent_timeout_ms(mut self, ms: u64) -> Self {
+        self.dtmf_sent_timeout_ms = Some(ms);
+        self
+    }
+
     /// Build the `ClientConfig`, applying defaults for unset optional fields.
     ///
     /// # Panics
@@ -281,6 +335,11 @@ impl ClientConfigBuilder {
             srtp_enabled: self.srtp_enabled,
             tls_enabled: self.tls_enabled,
             log_level: self.log_level.unwrap_or(LogLevel::Info),
+            dtmf: DtmfConfig {
+                sent_timeout_ms: self
+                    .dtmf_sent_timeout_ms
+                    .unwrap_or_else(default_dtmf_sent_timeout_ms),
+            },
         }
     }
 }
@@ -306,16 +365,12 @@ mod tests {
 
     #[test]
     // @verifies C001
-    // [::TICKET::] P0-3, P1-2, P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2) --for-spec --no-implementation-order`.
-    fn client_config_builder_sets_optional_fields() {
+// [::TICKET::] P0-3, P1-2, P2-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2|P8-4) --for-spec --no-implementation-order`.
+    fn client_config_builder_sets_optional_fields() -> Result<(), &'static str> {
         let creds = AuthCredentials {
             username: "alice".into(),
             password: crate::security::SecretString::new("secret"),
             realm: Some("example.com".into()),
-        };
-        let _stun = StunServerConfig {
-            host: "stun.example.com".into(),
-            port: 3478,
         };
         let turn = StunServerConfig {
             host: "turn.example.com".into(),
@@ -333,11 +388,13 @@ mod tests {
             .tls_enabled(true)
             .log_level(LogLevel::Debug)
             .build();
-        assert_eq!(config.credentials.unwrap().username, "alice");
+        let credentials = config.credentials.ok_or("missing credentials")?;
+        assert_eq!(credentials.username, "alice");
         assert_eq!(config.user_agent, "MyApp/1.0");
         assert!(config.ice_enabled);
         assert!(config.srtp_enabled);
         assert!(config.tls_enabled);
+        Ok(())
     }
 
     #[test]
@@ -398,21 +455,46 @@ mod tests {
 
     #[test]
     // @verifies C006
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
     fn client_config_accepts_max_port() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
-            .sip_proxy_port(65535)
+            .sip_proxy_port(MAX_SIP_PORT)
             .build();
-        assert_eq!(config.sip_proxy_port, 65535);
+        assert_eq!(config.sip_proxy_port, MAX_SIP_PORT);
         assert!(config.validate().is_ok());
     }
 
     #[test]
     // @verifies C006
-    // [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
+    fn client_config_user_agent_256_bytes_boundary() {
+        // C006 boundary: exactly MAX_USER_AGENT_BYTES passes, one more fails.
+        let ok_config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .user_agent("A".repeat(MAX_USER_AGENT_BYTES))
+            .build();
+        assert!(
+            ok_config.validate().is_ok(),
+            "a {MAX_USER_AGENT_BYTES}-byte user_agent must pass validation"
+        );
+
+        let bad_config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .user_agent("A".repeat(MAX_USER_AGENT_BYTES + 1))
+            .build();
+        assert!(
+            bad_config.validate().is_err(),
+            "a {}-byte user_agent must fail validation",
+            MAX_USER_AGENT_BYTES + 1
+        );
+    }
+
+    #[test]
+    // @verifies C006
+    // [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
     fn client_config_rejects_long_user_agent() {
-        let long_agent = "A".repeat(257);
+        let long_agent = "A".repeat(MAX_USER_AGENT_BYTES + 1);
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .user_agent(long_agent)
@@ -428,6 +510,34 @@ mod tests {
             "message should contain '256': {}",
             err.message
         );
+    }
+
+    // ── O-002: DtmfConfig::sent_timeout_ms ────────────────────────────
+
+    /// @verifies C030
+    #[test]
+    // [::TICKET::] P7-2: O-002 — default DtmfConfig::sent_timeout_ms is 500ms
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn client_config_dtmf_sent_timeout_default_500() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        assert_eq!(
+            config.dtmf.sent_timeout_ms,
+            crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS
+        );
+    }
+
+    /// @verifies C030
+    #[test]
+    // [::TICKET::] P7-2: O-002 — dtmf_sent_timeout_ms builder overrides the default
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    fn client_config_dtmf_sent_timeout_configurable() {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .dtmf_sent_timeout_ms(250)
+            .build();
+        assert_eq!(config.dtmf.sent_timeout_ms, 250);
     }
 
     // ── Contract ────────────────────────────────────────────────────

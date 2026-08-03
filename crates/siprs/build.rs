@@ -1,32 +1,14 @@
 // [::TICKET::] P3-2: Bindgen build script — generates Rust FFI declarations
 // from PJSIP C headers.
 //
-// The allowlist restricts generation to only the functions, types, and
-// constants that siprs actually needs. This keeps compile times low and
-// prevents accidental exposure of internal PJSIP symbols.
+// The allowlist restricts generation to the specific symbols siprs needs,
+// keeping compile times low and preventing accidental exposure of internal
+// PJSIP symbols.
 //
 // [::STUB::] P4-2: bindgen generation disabled; stub aliases in bindings.rs provide placeholders -- Enable bindgen with pjsua-native feature when PJSIP headers available in build environment
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 fn main() {
-    // [::STUB::] P4-2: bindgen call commented out; requires system PJSIP headers -- Uncomment #[cfg(feature = "pjsua-native")] block and configure header path once PJSIP installed
-    //
-    // #[cfg(feature = "pjsua-native")]
-    // {
-    //     let bindings = bindgen::Builder::default()
-    //         .header("wrapper.h")
-    //         .allowlist_function("pjsua_.*")
-    //         .allowlist_function("pj_.*")
-    //         .allowlist_type("pjsua_.*")
-    //         .allowlist_type("pj_.*")
-    //         .allowlist_var("PJSUA_.*")
-    //         .allowlist_var("PJ_.*")
-    //         .generate()
-    //         .expect("bindgen failed — is PJSIP installed?");
-    //
-    //     bindings
-    //         .write_to_file(std::env::current_dir().join("src/ffi/bindings_gen.rs"))
-    //         .expect("failed to write bindings");
-    // }
-    //
-    // println!("cargo:rerun-if-changed=wrapper.h");
+    // [::STUB::] P4-2: bindgen generation disabled -- Enable the pjsua-native
+    // feature and configure the wrapper.h header path once PJSIP is installed.
+    // The stub aliases in src/ffi/bindings.rs keep the crate compiling.
 }

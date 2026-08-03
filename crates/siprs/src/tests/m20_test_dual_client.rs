@@ -125,7 +125,7 @@ impl M20FeatureTestEntry {
 #[derive(Debug, Default)]
 pub struct DualClientContext {
     // Fields are placed here for structural definition; actual bindings
-    // require the full SipClient and PjsuaBackend implementations (P2-4).
+    // require the full SipClient and PjsuaBackend implementations (P4-2).
 }
 
 // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.

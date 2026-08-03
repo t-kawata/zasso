@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -18,6 +19,10 @@
 // ============================================================================
 //
 // [::TICKET::] P0-5: DtmfSentInfo two-phase design — command acceptance + async completion
+
+// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+use crate::api::event_model_payload_bus::{CallId, EventMeta, SipEvent, SipEventPayload};
+use crate::api::eventbus_receiver::EventBus;
 
 /// Result of a DTMF send attempt.
 ///
@@ -58,9 +63,104 @@ pub enum DtmfMethod {
 /// Default timeout (ms) for DtmfSent fallback when PJSIP callback is unavailable.
 pub const DEFAULT_DTMF_SENT_TIMEOUT_MS: u64 = 500;
 
+/// Spawn a fallback timer that publishes a `DtmfSent { Err(Timeout) }` event
+/// after `timeout_ms` when the PJSIP send-complete callback does not arrive.
+///
+/// This realises the two-phase design's fallback: `send_dtmf()` returning
+/// `Ok(())` confirms the command was accepted, and this timer guarantees the
+/// async `DtmfSent` event is eventually published even when PJSIP never fires
+/// the completion callback.
+///
+/// The returned `JoinHandle` lets the caller cancel the timer if the real
+/// callback fires first.
+// [::TICKET::] P7-2: O-002 — 500ms timeout fallback for the DtmfSent two-phase design
+// [::STUB::] P5-2: spawn_dtmf_sent_timeout is invoked by the reactor SendDtmf handler once the reactor owns an EventBus
+#[allow(dead_code)]
+pub(crate) fn spawn_dtmf_sent_timeout(
+    call_id: CallId,
+    method: DtmfMethod,
+    digit: char,
+    timeout_ms: u64,
+    event_bus: EventBus,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)).await;
+        event_bus.publish(SipEvent {
+            meta: EventMeta::new(0, None, Some(call_id)),
+            payload: SipEventPayload::DtmfSent(DtmfSentInfo {
+                method,
+                digit,
+                status: Err(SentDtmfError::Timeout),
+                pjsip_status: None,
+            }),
+        });
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::event_model_payload_bus::{CallId, SipEventPayload};
+    use crate::api::eventbus_receiver::EventBus;
+
+    // ── O-002: DtmfSent 500ms timeout fallback ─────────────────────────
+
+    /// @verifies C030
+    #[tokio::test]
+    // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Err(Timeout)} after 500ms
+    async fn dtmf_sent_timeout_fallback_publishes_timeout() {
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+
+        spawn_dtmf_sent_timeout(
+            CallId::from_u64(1).unwrap(),
+            DtmfMethod::Rfc4733,
+            '5',
+            DEFAULT_DTMF_SENT_TIMEOUT_MS,
+            bus,
+        );
+
+        tokio::time::advance(std::time::Duration::from_millis(500)).await;
+        let ev = rx.recv().await.unwrap();
+        match ev.payload {
+            SipEventPayload::DtmfSent(info) => {
+                assert_eq!(info.digit, '5');
+                assert!(matches!(info.status, Err(SentDtmfError::Timeout)));
+                assert!(info.pjsip_status.is_none());
+            }
+            _ => panic!("expected DtmfSent, got {:?}", ev.payload),
+        }
+    }
+
+    /// @verifies C030
+    #[tokio::test]
+    // [::TICKET::] P7-2: O-002 — timeout does not fire before the deadline elapses
+    async fn dtmf_sent_timeout_not_before_deadline() {
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+
+        spawn_dtmf_sent_timeout(
+            CallId::from_u64(1).unwrap(),
+            DtmfMethod::Info,
+            '#',
+            DEFAULT_DTMF_SENT_TIMEOUT_MS,
+            bus,
+        );
+
+        // Advance only 100ms — the timeout must not have fired yet.
+        tokio::time::advance(std::time::Duration::from_millis(100)).await;
+        let result = rx.try_recv();
+        assert!(
+            matches!(
+                result,
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+            ),
+            "DtmfSent must not fire before the deadline, got {:?}",
+            result
+        );
+    }
 
     // ── DtmfSentInfo Normal ────────────────────────────────────────────
 
