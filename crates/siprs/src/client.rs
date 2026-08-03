@@ -205,13 +205,14 @@ impl SipClient {
     }
 }
 
-// Safety: SipClient wraps Arc<RuntimeHandle> which is Send + Sync.
-// The event_rx (mpsc::Receiver) is Send but not Sync — we only access it
-// from a single task, so Sync is not required for the Receiver field.
-// [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+// Safety: SipClient holds Arc<RuntimeHandle>, EventBus, and ClientConfig —
+// all of which are Send + Sync. Both auto-traits are required invariants
+// (RFC §5 requirement #15) so the facade can cross `.await` points and be
+// moved into `tokio::spawn` tasks.
+// [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
 fn _assert_send_sync()
 where
-    SipClient: Send,
+    SipClient: Send + Sync,
 {
 }
 
@@ -294,12 +295,17 @@ mod tests {
 
     #[test]
     // @verifies C002
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn sip_client_is_send() {
-        // C002 invariant: SipClient must be Send for use with tokio tasks.
-        // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+    fn sip_client_is_send_and_sync() {
+        // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
+        // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
+        // field (e.g. RefCell) would have passed every test.
+        // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
+        // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
+        assert_sync::<SipClient>();
     }
 
     #[test]
@@ -379,11 +385,78 @@ mod tests {
 
     #[test]
     // @verifies C047
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn tracing_and_metrics_specified() {
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+    fn tracing_and_metrics_specified() -> Result<(), std::io::Error> {
         // C047 postcondition: tracing, metrics specified.
-        let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
         assert!(manifest.contains("tracing"), "tracing must be a dependency");
+        // ABC O-002 closure: metrics feature presence was previously untested —
+        // deleting `metrics = []` from Cargo.toml would have passed the suite.
+        assert!(
+            manifest.contains("metrics"),
+            "metrics feature flag must exist"
+        );
+        Ok(())
+    }
+
+    /// Parse the `[features]` section of a Cargo.toml manifest, returning the
+    /// raw text between the `[features]` header and the next section header.
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn parse_feature_section(manifest: &str) -> &str {
+        manifest
+            .split_once("[features]")
+            .map(|(_, rest)| rest)
+            .and_then(|rest| rest.split("\n[").next())
+            .unwrap_or("")
+    }
+
+    #[test]
+    // @verifies C047
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn metrics_optional_feature() -> Result<(), std::io::Error> {
+        // C047 invariant: metrics must be an optional feature, not a default one.
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
+        let features_section = parse_feature_section(&manifest);
+        assert!(
+            features_section.contains("metrics"),
+            "metrics must be declared as an optional feature"
+        );
+        let default_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("default"))
+            .unwrap_or("");
+        assert!(
+            !default_line.contains("metrics"),
+            "metrics must not be a default feature"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C003
+    // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+    fn features_independently_selectable() -> Result<(), std::io::Error> {
+        // ABC O-003 closure: tls and srtp must not depend on each other,
+        // so priority ordering never implies a feature dependency (RFC §1a).
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
+        let features_section = parse_feature_section(&manifest);
+        let tls_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("tls"))
+            .unwrap_or("");
+        let srtp_line = features_section
+            .lines()
+            .find(|l| l.trim().starts_with("srtp"))
+            .unwrap_or("");
+        assert!(
+            !tls_line.contains("srtp"),
+            "tls must not depend on srtp: {tls_line}"
+        );
+        assert!(
+            !srtp_line.contains("tls"),
+            "srtp must not depend on tls: {srtp_line}"
+        );
+        Ok(())
     }
 
     #[test]
@@ -400,27 +473,22 @@ mod tests {
 
     #[test]
     // @verifies C051
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn microphone_is_optional_feature() {
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+    fn microphone_is_optional_feature() -> Result<(), std::io::Error> {
         // C051 invariant: Microphone is optional via cpal-input feature flag.
-        let manifest = std::fs::read_to_string("Cargo.toml").unwrap();
+        let manifest = std::fs::read_to_string("Cargo.toml")?;
         assert!(
             manifest.contains("cpal-input"),
             "cpal-input feature must exist"
         );
-        let features_section = manifest
-            .split("[features]")
-            .nth(1)
-            .unwrap_or("")
-            .split('[')
-            .next()
-            .unwrap_or("");
+        let features_section = parse_feature_section(&manifest);
         let has_default_mic = features_section
             .lines()
             .find(|l| l.trim().starts_with("default"))
             .map(|l| l.contains("cpal-input"))
             .unwrap_or(false);
         assert!(!has_default_mic, "cpal-input must not be a default feature");
+        Ok(())
     }
 
     #[test]

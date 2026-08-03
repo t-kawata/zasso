@@ -34,6 +34,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and return a handle for command submission.
     ///
@@ -176,13 +177,16 @@ mod tests {
     #[tokio::test]
     // @verifies C002
     async fn reactor_spawn_creates_thread() {
-        // Contract-C002: CoreReactor::spawn() creates a thread.
+        // Contract-C002: CoreReactor::spawn() creates a std::thread.
         let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();
         assert!(
             !handle.is_terminated(),
             "reactor must be running after spawn"
         );
         drop(handle);
+        // ABC O-004 closure: type-assert the std::thread model (not tokio::task)
+        // so a reactor refactor to tokio::spawn fails compilation.
+        let join: std::thread::JoinHandle<()> = join;
         let _ = join.join();
     }
 

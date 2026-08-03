@@ -38,6 +38,13 @@ pub mod codec_policy_fallback;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
 
+/// Minimum acceptable SIP proxy port (inclusive lower bound of the valid range).
+pub const MIN_SIP_PORT: u16 = 1;
+/// Maximum acceptable SIP proxy port — the `u16` type makes values above this unrepresentable.
+pub const MAX_SIP_PORT: u16 = 65535;
+/// Maximum length of the `user_agent` header value in bytes.
+pub const MAX_USER_AGENT_BYTES: usize = 256;
+
 /// Credentials for SIP authentication.
 ///
 /// The `password` field uses `SecretString` (via `zeroize`) to ensure
@@ -131,7 +138,7 @@ fn default_user_agent() -> String {
     format!("siprs/{}", env!("CARGO_PKG_VERSION"))
 }
 
-// [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
 impl ClientConfig {
     /// Create a new `ClientConfigBuilder` for constructing a config.
     pub fn builder() -> ClientConfigBuilder {
@@ -149,13 +156,15 @@ impl ClientConfig {
                 "sip_proxy_host must not be empty",
             ));
         }
-        if self.sip_proxy_port == 0 {
+        // The `u16` type already bounds the port to [0, MAX_SIP_PORT]; validation
+        // only needs the lower bound because port 0 is never a valid SIP port.
+        if self.sip_proxy_port < MIN_SIP_PORT {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
-                "sip_proxy_port must not be 0",
+                "sip_proxy_port must be in the range [1, 65535]",
             ));
         }
-        if self.user_agent.len() > 256 {
+        if self.user_agent.len() > MAX_USER_AGENT_BYTES {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
                 "user_agent must not exceed 256 bytes",
@@ -398,21 +407,46 @@ mod tests {
 
     #[test]
     // @verifies C006
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
     fn client_config_accepts_max_port() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
-            .sip_proxy_port(65535)
+            .sip_proxy_port(MAX_SIP_PORT)
             .build();
-        assert_eq!(config.sip_proxy_port, 65535);
+        assert_eq!(config.sip_proxy_port, MAX_SIP_PORT);
         assert!(config.validate().is_ok());
     }
 
     #[test]
     // @verifies C006
-    // [::TICKET::] P0-3, P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
+    fn client_config_user_agent_256_bytes_boundary() {
+        // C006 boundary: exactly MAX_USER_AGENT_BYTES passes, one more fails.
+        let ok_config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .user_agent("A".repeat(MAX_USER_AGENT_BYTES))
+            .build();
+        assert!(
+            ok_config.validate().is_ok(),
+            "a {MAX_USER_AGENT_BYTES}-byte user_agent must pass validation"
+        );
+
+        let bad_config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .user_agent("A".repeat(MAX_USER_AGENT_BYTES + 1))
+            .build();
+        assert!(
+            bad_config.validate().is_err(),
+            "a {}-byte user_agent must fail validation",
+            MAX_USER_AGENT_BYTES + 1
+        );
+    }
+
+    #[test]
+    // @verifies C006
+    // [::TICKET::] P0-3, P0-4, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P6-1) --for-spec --no-implementation-order`.
     fn client_config_rejects_long_user_agent() {
-        let long_agent = "A".repeat(257);
+        let long_agent = "A".repeat(MAX_USER_AGENT_BYTES + 1);
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .user_agent(long_agent)

@@ -411,7 +411,22 @@
       "Bash(make -qp)",
       "Bash(git add *)",
       "Bash(git commit -m 'feat: 全headingRefs一括解決検証 test-query-all.js + query-fix-hints.js を新設し Step 4 を機械的ゲート化 *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P6-1\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0001 --hops=2)",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P6-1\" --tickets=\"Tickets.json\")",
+      "Bash(make test *)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P6-1\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(python3 -c \" *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('success:', d.get\\('success'\\)\\); c=d['updated'].get\\('contracts',[]\\); print\\('contracts:', len\\(c\\)\\); print\\('sample C001:', json.dumps\\(c[0], ensure_ascii=False\\)[:160]\\)\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P6-1\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P6-1\" --tickets=\"Tickets.json\")",
+      "Bash(mkdir -p specs)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P6-1\" --for-spec)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('success:', d.get\\('success'\\)\\); print\\('status:', d['updated'].get\\('status'\\)\\)\")",
+      "Bash(python3 -c \"import json; json.load\\(open\\('Tickets.json'\\)\\); print\\('Tickets.json: valid JSON'\\)\")"
     ]
   }
 }
