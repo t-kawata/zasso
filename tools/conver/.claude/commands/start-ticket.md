@@ -133,7 +133,7 @@ Before starting implementation, check for resolvable stubs:
    node .claude/scripts/tickets/review/find-stubs-with-ticket-ref.js --dir=.
    ```
 3. If you find a stub without a `[::STUB::]` marker, use `insert-stub.js` to add the marker and record it as a crime via `malfeasance-create.js`. Do NOT edit source files directly.
-4. Include resolvable stubs in the implementation scope and replace them with actual implementation
+4. Include resolvable stubs in the implementation scope, replace them with actual implementation, then remove the resolved marker via `remove-stub.js`
 5. Record unresolvable stubs in the implementation summary and hand them over to subsequent tickets
 
 ```bash
@@ -194,6 +194,8 @@ Code must justify itself. If you need a paragraph-long comment to explain why a 
 #### **MANDATORY STUB RESOLUTION**
 
 If you encounter a `[::STUB::]` marker whose dependencies have been resolved during implementation, **resolve it immediately (replace with real implementation) even if it was not in the plan**. If resolution is impossible, leave the `[::STUB::]` marker with the reason and record it in the implementation summary.
+
+After replacing the stub code, remove the resolved marker by running `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>` (or `--lines=<N1,N2,...>` for multiple). Do NOT delete the marker line by hand — let `remove-stub.js` verify and remove it.
 
 #### **ABSOLUTE PROHIBITION — NEVER DELETE OR EDIT THE `Initial Design Artifact` HEADER**
 

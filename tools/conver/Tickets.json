@@ -15526,6 +15526,175 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-03"
+        },
+        {
+          "id": 118,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Add remove-stub.js for fail-safe STUB marker removal and wire usage into start/review/resolve commands",
+          "specPath": "specs/PX-118.md",
+          "background": "### Goal\nProvide a deterministic, fail-safe script (remove-stub.js) that removes a single resolved [::STUB::] marker line from a source file — and update the three pipeline commands (start-ticket / review-ticket / resolve-ticket) to instruct its use, so that marker removal is scripted and verifiable instead of manual and error-prone.\n\n### Purpose\nIn the make→plan→start→review→resolve pipeline, resolving a STUB means (a) replacing the stub code with real implementation and (b) deleting the [::STUB::] marker comment line. Today (b) is done by hand-editing source files. There is no removal script, no wrong-line protection, no idempotency guard, and no test. Because find-all-stubs.js reports any line containing [::STUB::], a forgotten or botched manual removal leaves an orphan marker that fails later gates; a wrongly targeted deletion can destroy real code. remove-stub.js exists to make (b) mechanical, validated, and testable.\n\n### Motivation\nA repository audit (PX-118 investigation) found: (1) insert-stub.js is defensive (argument validation, ticket-exists check, duplicate-at-line guard, single-line invariant) but removal has no scripted counterpart; (2) the three command files instruct the AI to \"remove the [::STUB::] marker\" with no tool to do it safely; (3) no test anywhere covers marker removal. The pipeline First-Class Rule and gates already punish unmarked stubs, so the tooling must not be the weak link.\n\n### Constraints\n- remove-stub.js is Node.js CommonJS (project standard for .claude/scripts), no new dependencies.\n- It must never write Tickets.json or Malfeasance.json; it only edits source files.\n- It must never delete a non-marker line (wrong-line guard) nor a line carrying executable code.\n- Removal targets only single-line // comments: marker format is \"// [::STUB::] <ticket>: <reason> -- <plan>\" per validate-stub-format.js / insert-stub.js.\n- Follows existing defensive script patterns: insert-stub.js validation style, resolve-ambiguous-markers.js bottom-up editing.\n- TDD Red→Green→Refactor is mandatory.",
+          "scope": [
+            "CHANGE(path): .claude/scripts/tickets/remove-stub.js (new) — ACTION: add — DETAIL: deterministic STUB-marker-line removal CLI exporting removeStub({file, line, lines}) → {removed:true, file, line} and RemoveStubError; validates file exists, line range, marker presence, comment-only line; batch removal in descending order; never writes Tickets.json/Malfeasance.json.",
+            "CHANGE(path): .claude/scripts/tickets/tests/remove-stub.test.js (new) — ACTION: add — DETAIL: self-contained test suite mirroring insert-stub.test.js conventions (assert/assertRejects helpers, mkdtempSync fixtures, mock source file, RED-mode fallback, exit 1 on failure); covers all contracts C001–C005 plus boundary cases.",
+            "CHANGE(path): .claude/commands/start-ticket.md — ACTION: modify — DETAIL: Step 4 item \"Include resolvable stubs in the implementation scope and replace them with actual implementation\" gains \"then remove the marker via remove-stub.js\"; MANDATORY STUB RESOLUTION section gains an explicit remove-stub.js invocation after replacing resolved stub code.",
+            "CHANGE(path): .claude/commands/review-ticket.md — ACTION: modify — DETAIL: Step 4 category 1 \"Implement on the spot and remove the [::STUB::] marker\" becomes \"Implement on the spot, then remove the marker via remove-stub.js --file=<path> --line=<N>\".",
+            "CHANGE(path): .claude/commands/resolve-ticket.md — ACTION: modify — DETAIL: Step 5 \"Remove the [::STUB::] marker from resolved stubs.\" becomes an explicit remove-stub.js invocation.",
+            "BEFORE→AFTER: marker removal = manual AI source edit (non-atomic, unverified) → marker removal = remove-stub.js (validated, fail-loud, byte-exact).",
+            "API: new removeStub({file, line, lines, ticketsPath?}) → {removed:true, file, line} ",
+            " throws RemoveStubError; insert-stub.js API unchanged.",
+            "SCHEMA: none — Tickets.json and Malfeasance.json schemas unchanged; no new config file.",
+            "CONFIG: none — no env vars; CLI args are the only interface.",
+            "DEP: none — Node.js built-ins only (fs, path).",
+            "NON-CHANGE(item): insert-stub.js behavior and interface unchanged.",
+            "NON-CHANGE(why): insertion is already validated; changing it would destabilize existing markers and the ticket-ref invariant.",
+            "IMPACT(component): start/review/resolve command files — the workflow contract for the STUB lifecycle.",
+            "IMPACT(nature): STUB removal becomes scripted and verifiable; misuse remains detectable via scan-incomplete-implementations.js (crime) and validate-ticket-targets.js (COMPLETED_TICKET_STALE).",
+            "IMPACT(response): pipeline operators and AI sessions follow the updated command instructions; no data migration or schema change."
+          ],
+          "testUnit": [
+            "UT: [C001 Normal] Removing a marker at an existing line deletes exactly that line; all other lines preserved byte-identical in content and relative order",
+            "UT: [C001 Normal] Successful removal returns structured result {removed:true, file, line}",
+            "UT: [C001 Error] Nonexistent --file throws RemoveStubError with file-not-found message; nothing written",
+            "UT: [C001 Error] Out-of-range --line (0, negative, > lineCount) throws RemoveStubError",
+            "UT: [C001 Error] Missing required args (--file / --line) throws RemoveStubError",
+            "UT: [C002 Error] Target line without [::STUB::] throws RemoveStubError mentioning no marker; file unchanged",
+            "UT: [C002 Boundary] Blank/whitespace-only target line throws RemoveStubError; file unchanged",
+            "UT: [C003 Error] Marker inline with code (e.g. const x = 1; // [::STUB::] ...) throws RemoveStubError; code preserved",
+            "UT: [C003 Error] Marker inside a block comment (/* [::STUB::] ... */) throws RemoveStubError — only // marker lines removable",
+            "UT: [C004 Error] Second removal call on the same line throws RemoveStubError (fail-loud; never silent no-op)",
+            "UT: [C005 Normal] Batch --lines=[2,5] removes both markers; lines 1,3,4,6+ preserved",
+            "UT: [C005 Normal] Ascending --lines=[2,5] input processed internally in descending order; no line-shift mis-removal",
+            "UT: [C005 Error] Batch with one invalid line fails the whole call; file unchanged (atomicity)",
+            "UT: [Boundary] File whose only content is the marker line becomes empty after removal",
+            "UT: [Boundary] File without trailing newline stays free of an added trailing newline after removal",
+            "UT: [Normal] Direct single removal: 5-line file with marker at line 3 → result lines 1,2,4,5 with identical content",
+            "UT: [Error] --file pointing to a directory throws RemoveStubError",
+            "UT: [Invariant] After removal, re-scan confirms the marker line is absent at the target position and every other line equals the pre-removal content minus the marker"
+          ],
+          "testIntegration": [
+            "IT: start-ticket flow — after MANDATORY STUB RESOLUTION replaces stub code with real implementation, remove-stub.js removes the marker; subsequent find-all-stubs.js run no longer lists that location",
+            "IT: review-ticket flow — resolvable stub (category 1) implemented and removed via remove-stub.js; find-stubs-with-ticket-ref.js count drops by exactly the number removed",
+            "IT: resolve-ticket flow — Step 5 on-spot resolution followed by remove-stub.js; scan-crimes.sh reports no crime for that location",
+            "IT: remove-stub.js removes a marker referencing a ticket key existing in Tickets.json (preserves the ticket-ref invariant enforced by insert-stub.js)",
+            "IT: End-to-end marker lifecycle — insert-stub.js inserts at line N, remove-stub.js removes at line N, final file matches the pre-insert original exactly",
+            "IT: [Integration point] remove-stub.js CLI ↔ find-all-stubs.js scanner — after removal the scanner reports the location absent",
+            "IT: [Verification] each command file contains the documented remove-stub.js invocation text, and running that invocation exits 0",
+            "IT: [Prerequisites] Tickets.json present; a marker inserted by insert-stub.js referencing an existing ticket; the source file committed",
+            "IT: [Related tickets] PX-94/95/96 (insert-stub.js), PX-77–81 (validate-stub-format), PX-90/93 (enumerate-ticket-targets / scan-incomplete-implementations)"
+          ],
+          "testExceptions": [
+            "ITEM: remove-stub.js cannot itself verify that the underlying stub code is genuinely resolved — resolution is a semantic judgment. REASON: this check is not testable inside the script because the script is intentionally mechanical; it only guarantees the marker line is removed when invoked. ALTERNATIVE VERIFICATION: the missing semantic check is delegated to existing deterministic gates — scan-incomplete-implementations.js flags any incomplete implementation left without a [::STUB::] marker as a crime, and validate-ticket-targets.js blocks stale targetStubs. This is NOT an architectural defect: the safety contract is \"invoke only after the code is really implemented\", enforced by the command messages added in this ticket.",
+            "ITEM: Exact wording of CLI usage/error messages is not asserted character-for-character. REASON: full message wording is not testable without making the suite brittle; only RemoveStubError presence and key substrings are contractually meaningful. ALTERNATIVE VERIFICATION: assertRejects checks substrings that carry the contract (e.g. \"no STUB marker\"). This is not a design defect — message wording is cosmetic and outside the functional contract.",
+            "ITEM: Concurrent invocation of remove-stub.js on the same file from two processes is not tested (no file locking). REASON: concurrent behavior is not testable deterministically in this CLI and matches existing insert-stub.js behavior; a CLI is always invoked sequentially by one AI session. ALTERNATIVE VERIFICATION: deterministic single-process tests cover all observable behavior; concurrency would be flaky rather than meaningful. This is not an architectural defect — it is consistent with the existing tooling and out of scope."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/remove-stub.js",
+            ".claude/scripts/tickets/tests/remove-stub.test.js",
+            ".claude/commands/start-ticket.md",
+            ".claude/commands/review-ticket.md",
+            ".claude/commands/resolve-ticket.md"
+          ],
+          "acceptanceCriteria": [
+            "HAPPY: node remove-stub.js --file=<src> --line=<N> on a valid marker line removes exactly that line and returns {removed:true, file, line}; all other lines byte-identical",
+            "HAPPY: start-ticket.md, review-ticket.md, resolve-ticket.md each contain an explicit instruction to run remove-stub.js after a stub is genuinely resolved",
+            "ERROR: calling on a non-marker line, out-of-range line, or marker-inline-with-code line fails with RemoveStubError and leaves the file untouched",
+            "ERROR: calling on an already-removed marker fails loudly (never a silent no-op or false success)",
+            "EDGE: batch removal processes lines in descending order so earlier line numbers stay valid; a marker-only file becomes empty",
+            "EDGE: after removal, find-all-stubs.js / find-stubs-with-ticket-ref.js no longer report the removed location",
+            "EDGE: [Boundary] --line == lineCount (last line) and --line == 1 (first line) are both removable; a file without a trailing newline stays free of an appended newline"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "resolved stub → marker line removal",
+              "precondition": "removeStub is called with an existing --file and a 1-indexed --line whose content is a single-line // [::STUB::] <ticket>: <reason> -- <plan> comment",
+              "postcondition": "After removal the marker line is gone; every other line (code, comments, blank lines) is byte-identical in content and relative order",
+              "invariant": "The file line count decreases by exactly the number of removed markers; no non-marker line is ever modified"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "target line without marker → fail loudly",
+              "precondition": "The target --line does not contain [::STUB::]",
+              "postcondition": "removeStub throws RemoveStubError, the file is not written, and no line is deleted",
+              "invariant": "A line is deleted only if its trimmed content starts with // and contains [::STUB::]"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "code + marker on same line → refuse",
+              "precondition": "The target --line contains [::STUB::] but also non-comment code (e.g. `const x = 1; // [::STUB::] ...` or inside a block comment)",
+              "postcondition": "removeStub throws RemoveStubError and the file is left unchanged; no executable code is deleted",
+              "invariant": "remove-stub.js never removes a line that is not a // comment-only marker line"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "already-removed marker → deterministic result",
+              "precondition": "The target --line no longer contains [::STUB::] because a previous call already removed it",
+              "postcondition": "removeStub throws RemoveStubError reporting no marker exists at that line — a loud failure, never a silent no-op",
+              "invariant": "Repeated invocation never corrupts the file and never reports a false success"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "multiple markers in one file → bottom-up removal",
+              "precondition": "--lines accepts an array of 1-indexed line numbers, each holding a [::STUB::] marker, in any order",
+              "postcondition": "All specified markers are removed in descending line order so earlier line numbers stay valid; remaining lines keep content and relative order",
+              "invariant": "After removal none of the specified lines contains [::STUB::]; atomicity holds — if any line is invalid, no line is removed"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) Write remove-stub.test.js covering all UT/IT (RED — all fail, module not implemented). 2) Implement remove-stub.js (GREEN) with removeStub({file, line, lines}) → {removed:true} and RemoveStubError. 3) Refactor for translatability; keep tests green. 4) Edit start-ticket.md (Step 4 + MANDATORY STUB RESOLUTION), review-ticket.md (Step 4 category 1), resolve-ticket.md (Step 5) to instruct remove-stub.js. 5) Verify: node .claude/scripts/tickets/tests/remove-stub.test.js (exit 0).\n- [Risks] Premature removal of still-stubbed code → caught by scan-incomplete-implementations.js as a crime (existing net). Forgotten removal → orphan marker still reported by find-all-stubs.js; gates fail loudly. Both failure modes are detectable, not silent. Batch atomicity: any invalid line aborts the whole call so no partial state.\n- [Caveats] remove-stub.js is mechanical; it never judges whether code is real. The judgment stays with the AI, gated by the command messages. The wrong-line guard prevents deletion of the Initial Design Artifact header or any non-marker line. It never writes Tickets.json or Malfeasance.json.\n- [Open items] Whether batch --lines mode is needed immediately or single-line suffices — spec includes both via C005. Whether a --dry-run preview mode is desired.\n- [Future improvements] Add a verify-removal mode that re-scans a file and reports remaining markers; or integrate removal with enumerate-ticket-targets.js to auto-clean targetStubs after resolution.\nImplementation summary:\n- Added: .claude/scripts/tickets/remove-stub.js (removeStub + RemoveStubError + CLI)\n- Added: .claude/scripts/tickets/tests/remove-stub.test.js (57 assertions, all green)\n- Modified: start-ticket.md, review-ticket.md, resolve-ticket.md (remove-stub.js usage instructions)\n- Test results: node .claude/scripts/tickets/tests/remove-stub.test.js → 57 passed, 0 failed\n- Regression: insert-stub.test.js → 23 passed, 0 failed; validate-stub-format.test.js → 30 passed\n- Quality: run-quality-checks.js → 0 issues\n- Annotation: [::TICKET::] PX-118 injected into both new files; 0 [::AMBIGUOUS::] remaining\nReview report (PX-118):\n- Step 3: crimes 0, stubs 0\n- Step 5: annotation verified (2 files, 0 missing, 0 AMBIGUOUS); 7 incomplete-implementation patterns: none found\n- Step 6: node --check OK; remove-stub 60/60, insert-stub 23/23, validate-stub-format 30/30\n- Step 7: completeness against Goal/Purpose/Motivation/Constraints/Scope/Acceptance Criteria/Invariants + contracts C001-C005 — found 1 deficiency and fixed it: removeStub({file, lines: []}) returned a false success; added guard throwing RemoveStubError and a regression test (57→60 assertions)\n- Step 8: run-quality-checks 0 issues\n- Step 9: translatability greps clean\n- Dependencies: none added (fs/path built-ins only)",
+          "invariants": "- [Normal condition] Inputs must pass validation before any mutation: --file is a non-empty existing path; --line (or each --lines entry) is a 1-indexed integer within [1, lineCount]. Only then may a line be removed.\n- [Error invariant] On any RemoveStubError the target source file is never written — its bytes are untouched. A failed call has zero side effects.\n- [Internal state invariant] Line numbers are resolved against a single snapshot read of the file; batch removal processes lines in strictly descending order so earlier line numbers remain valid after each deletion; a marker line is recognized only as a comment-only line (trimmed content starts with \"//\" and contains \"[::STUB::]\").\n- [Boundary invariant] line 1 and line == lineCount are both valid targets; line 0, negative, NaN, and line > lineCount are rejected; a marker-only file (single marker line) is allowed and its removal yields an empty file; a file ending without a trailing newline is preserved without appending one.",
+          "instrumentation": "- [Logging] remove-stub.js is a deterministic CLI invoked by the AI; it prints a structured JSON result {removed:true, file, line} on success and a JSON error to stderr on failure. No log file is written (matches insert-stub.js).\n- [Metrics] None — a state-transforming helper has no runtime metrics. The observable metric is the file diff: exactly one marker line removed per single call.\n- [Error tracking] RemoveStubError carries the specific failing contract (file-not-found / line-out-of-range / no-marker / code-on-line / already-removed). Errors exit non-zero so gate scripts and the AI can react; they never silently pass.\n- [Health check] Not applicable to a one-shot CLI; correctness is verified by the test suite and by post-removal re-scan (find-all-stubs.js) in the pipeline.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase functions, domain-named vars, no magic numbers, no debug leftovers)\nTests: remove-stub 60 passed / insert-stub 23 passed / validate-stub-format 30 passed",
+          "investigation": "- INSERT-SIDE (defensive): insert-stub.js validates --file/--line/ticket format (TICKET_REF_RE /^P[A-Z0-9]+-d+$/), rejects MUST RESOLVE, requires the ticket to exist in Tickets.json (ticketExists), checks file existence and line range (line > lines.length), blocks duplicate marker at the target line (\"A [::STUB::] marker already exists at line N\"), enforces the single-line invariant (rejects newlines in --stub-reason/--resolve-plan), then splice(line-1, 0, marker) + writeFileSync. Marker format: \"// [::STUB::] <ticket>: <reason> -- <plan>\".\n- FORMAT CONTRACT: validate-stub-format.js STUB_REGEX = /^\\/\\/\\s*\\[::STUB::\\]\\s+(P[A-Z0-9]+-\\d+|MUST\\s+RESOLVE):\\s*\\S.*$/ — a single-line // comment; multi-line markers are rejected.\n- DETECTION: find-all-stubs.js STUB_RE /\\[::STUB::\\]/ per line, skipping quoted-string references (STUB_IN_QUOTES_RE) and dirs node_modules/target/.git/.claude; targetExtensions from lib/tickets CFG.review. find-stubs-with-ticket-ref.js filters stubs whose content matches /\\[::STUB::\\]\\s+(P[A-Z0-9]+-\\d+)/.\n- NO REMOVAL EXISTS: grep across .claude/scripts for removeStub/remove-stub/deleteStub/unmark/erase/strip → 0 hits. insert-stub.js is insert-only (exports { insertStub, InsertStubError }). malfeasance-update.js has no source-file access (only Malfeasance.json). Gate scripts enumerate-ticket-targets.js / validate-ticket-targets.js write only Tickets.json and instruct the AI to remove markers manually.\n- COMMAND GAPS (exact edit locations): start-ticket.md ~line 136 \"Include resolvable stubs in the implementation scope and replace them with actual implementation\" and MANDATORY STUB RESOLUTION section (\"resolve it immediately (replace with real implementation)\"); review-ticket.md Step 4 category 1 \"Implement on the spot and remove the [::STUB::] marker\"; resolve-ticket.md Step 5 \"Remove the [::STUB::] marker from resolved stubs.\"\n- SAFETY-NET: scan-incomplete-implementations.js flags incomplete implementations without a [::STUB::] marker (STUB_MARKER_RE, skips lines already marked) — a premature removal becomes a detectable crime. validate-ticket-targets.js reports COMPLETED_TICKET_STALE when the referenced ticket is done but the STUB remains.\n- TEST CONVENTIONS: insert-stub.test.js is self-contained (assert/assertStrictEqual/assertRejects helpers, mkdtempSync tmp dir, mock Tickets.json + mock source, RED-mode warning when the module is missing, summary + process.exit(1) on failure). Tests run individually: node .claude/scripts/tickets/tests/insert-stub.test.js. .claude/tests/run-all.js discovers .claude/tests/** and tests/** — the tickets tests are NOT auto-discovered and are run by path.\n- EDIT PATTERN PRECEDENT: resolve-ambiguous-markers.js mutates files by injecting in descending line order to prevent line-number shifts.",
+          "boyScoutPlan": "- [Translatability plan] New code (remove-stub.js) follows the project readability standard: functions as verb phrases (validateInputs, assertMarkerAtLine, assertCommentOnly, removeLinesDescending, verifyRemoval), one function one responsibility, domain-named variables (sourceLines, markerLine, removedCount), named constants (TICKET_MARKER_RE, COMMENT_ONLY_RE) instead of magic regexes, and no error swallowing — every failure surfaces as a RemoveStubError with a concrete message.\n- The command-file edits keep the existing prose style and add short imperative instructions (\"Run: node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>\") so an AI can translate each step.\n- No existing code needs refactoring for translatability as part of this ticket beyond the three command-file instruction lines.",
+          "created_at": "2026-08-03",
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001] Precondition -> test input code (marker at line 2 of a 3-line file)\n  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), \"remove-stub-test-\"));\n  const mockFile = path.join(tmpDir, \"sample.rs\");\n  fs.writeFileSync(mockFile, [\"fn main() {}\", \"// [::STUB::] P0-1: pending -- replace with real logic\", \"fn helper() {}\"].join(\"\\n\") + \"\\n\");\n  const result = removeStub({ file: mockFile, line: 2 });",
+            "UT: [C001] Postcondition -> assertion code (marker gone, others byte-identical)\n  const after = fs.readFileSync(mockFile, \"utf8\").split(\"\\n\");\n  assertStrictEqual(after[0], \"fn main() {}\", \"first line preserved\");\n  assertStrictEqual(after[1], \"fn helper() {}\", \"third line preserved\");\n  assert(result.removed === true && result.line === 2, \"structured result returned\");",
+            "UT: [C001] Invariant -> predicate code (line count decreases by exactly 1)\n  assert(after.length === 2, \"line count decreased by exactly 1\");\n  assert(!after.some((l) => l.includes(\"[::STUB::]\")), \"no marker remains in file\");",
+            "UT: [C002] Precondition -> target line without marker\n  const untouched = fs.readFileSync(mockFile, \"utf8\");\n  assertRejects(() => removeStub({ file: mockFile, line: 1 }), \"no STUB marker\");",
+            "UT: [C002] Postcondition/Invariant -> fails loudly, file unchanged\n  assertStrictEqual(fs.readFileSync(mockFile, \"utf8\"), untouched, \"file bytes untouched on error\");",
+            "UT: [C003] Precondition -> marker inline with code\n  const inlineFile = path.join(tmpDir, \"inline.rs\");\n  fs.writeFileSync(inlineFile, \"const x = 1; // [::STUB::] P0-1: pending -- replace\\n\");\n  assertRejects(() => removeStub({ file: inlineFile, line: 1 }), \"comment-only\");",
+            "UT: [C003] Postcondition/Invariant -> code preserved, nothing deleted\n  assert(fs.readFileSync(inlineFile, \"utf8\").includes(\"const x = 1;\"), \"executable code preserved\");",
+            "UT: [C004] Precondition -> marker already removed by a previous call\n  const r1 = removeStub({ file: mockFile, line: 2 });\n  assertRejects(() => removeStub({ file: mockFile, line: 2 }), \"no STUB marker\");",
+            "UT: [C004] Postcondition/Invariant -> second call fails loudly, never silent no-op\n  assert(r1.removed === true, \"first removal succeeded\");\n  assert(!fs.readFileSync(mockFile, \"utf8\").includes(\"[::STUB::]\"), \"file not corrupted by retry\");",
+            "UT: [C005] Precondition -> multiple markers, ascending input order\n  const batchFile = path.join(tmpDir, \"batch.rs\");\n  fs.writeFileSync(batchFile, [\"// line 1\", \"// [::STUB::] P0-1: a -- x\", \"// line 3\", \"// [::STUB::] P0-1: b -- y\", \"// line 5\"].join(\"\\n\") + \"\\n\");\n  const r5 = removeStub({ file: batchFile, lines: [2, 4] });",
+            "UT: [C005] Postcondition -> both markers removed in descending internal order, others preserved\n  const batchAfter = fs.readFileSync(batchFile, \"utf8\").split(\"\\n\");\n  assertStrictEqual(batchAfter[0], \"// line 1\");\n  assertStrictEqual(batchAfter[1], \"// line 3\");\n  assertStrictEqual(batchAfter[2], \"// line 5\");",
+            "UT: [C005] Invariant/atomicity -> none of the specified lines holds a marker\n  assert(batchAfter.every((l) => !l.includes(\"[::STUB::]\")), \"no marker remains\");\n  assertRejects(() => removeStub({ file: batchFile, lines: [1, 999] }), \"out of range\");\n  assert(fs.readFileSync(batchFile, \"utf8\").includes(\"// line 1\"), \"failed batch leaves file unchanged\")",
+            "UT: [Boundary] marker-only file and no-trailing-newline preservation\n  const onlyFile = path.join(tmpDir, \"only.rs\");\n  fs.writeFileSync(onlyFile, \"// [::STUB::] P0-1: pending -- replace\");\n  removeStub({ file: onlyFile, line: 1 });\n  assertStrictEqual(fs.readFileSync(onlyFile, \"utf8\"), \"\", \"marker-only file becomes empty\");\n  const noNl = path.join(tmpDir, \"nonl.rs\");\n  fs.writeFileSync(noNl, \"a\\n// [::STUB::] P0-1: pending -- replace\");\n  removeStub({ file: noNl, line: 2 });\n  assertStrictEqual(fs.readFileSync(noNl, \"utf8\"), \"a\", \"no trailing newline appended\")"
+          ],
+          "startedAt": "2026-08-03",
+          "changes": [
+            {
+              "before": "No STUB marker removal script existed (insert-only insert-stub.js)",
+              "after": "remove-stub.js provides validated marker-line removal",
+              "description": "Created .claude/scripts/tickets/remove-stub.js with removeStub({file,line,lines}) API, RemoveStubError, comment-only guard, bottom-up batch removal, fail-loud errors"
+            },
+            {
+              "before": "No test coverage for marker removal",
+              "after": "remove-stub.test.js: 57 assertions covering C001–C005 + boundary cases",
+              "description": "Created self-contained test suite following insert-stub.test.js conventions"
+            },
+            {
+              "before": "start-ticket.md Step 4 + MANDATORY STUB RESOLUTION instructed manual marker removal",
+              "after": "Both sections instruct running remove-stub.js --file=<path> --line=<N>",
+              "description": "Edited start-ticket.md (2 spots)"
+            },
+            {
+              "before": "review-ticket.md Step 4 category 1: \"Implement on the spot and remove the marker\"",
+              "after": "Instructions run remove-stub.js after implementing",
+              "description": "Edited review-ticket.md Step 4 category 1"
+            },
+            {
+              "before": "resolve-ticket.md Step 5: \"Remove the marker from resolved stubs.\"",
+              "after": "Instructions run remove-stub.js (single/batch)",
+              "description": "Edited resolve-ticket.md Step 5"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-03"
         }
       ]
     },
