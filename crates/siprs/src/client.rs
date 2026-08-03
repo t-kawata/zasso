@@ -302,7 +302,7 @@ mod tests {
         // field (e.g. RefCell) would have passed every test.
         // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -341,6 +341,30 @@ mod tests {
         // Second shutdown is a no-op — must not panic or error.
         let result2 = client.shutdown().await;
         assert!(result2.is_ok(), "second shutdown must be a no-op");
+    }
+
+    // ── Contract: C017 Precondition — public API return types (O-001) ─
+
+    #[tokio::test]
+    // @verifies C017
+    async fn sip_client_new_and_shutdown_return_sip_error() {
+        // Contract C017 Precondition: each public async fn must return Result<_, SipError>.
+        // ABC O-001 closure: without these type-annotations, changing shutdown() to
+        // Result<(), String> or new() to Result<_, OtherError> would pass the whole
+        // suite (existing tests only call .is_ok() or read err.kind).
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+        fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+        fn assert_shutdown_result(_: &Result<(), SipError>) {}
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let new_result = SipClient::new(config).await;
+        assert_new_result(&new_result);
+        if let Ok((client, _rx)) = new_result {
+            let shutdown_result = client.shutdown().await;
+            assert_shutdown_result(&shutdown_result);
+        }
     }
 
     // ── Contract tests ──────────────────────────────────────────────

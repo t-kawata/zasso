@@ -23,7 +23,7 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-use crate::error::error_design_siperror::{self, SipError, SipErrorKind};
+use crate::error::error_design_siperror::{SipError, SipErrorKind};
 
 // ---------------------------------------------------------------------------
 // PJSUA error code constants (shared with error_design_siperror)
@@ -36,13 +36,28 @@ use crate::error::error_design_siperror::{self, SipError, SipErrorKind};
 const PJ_SUCCESS: i32 = 0;
 /// PJ_EINVALIDOP — invalid operation.
 const PJ_EINVALIDOP: i32 = 150002;
-/// PJ_EBUSY — resource busy.
-#[allow(dead_code)]
-const PJ_EBUSY: i32 = 150003;
 
 // ---------------------------------------------------------------------------
 // M20 RuntimeCommand error converters
 // ---------------------------------------------------------------------------
+
+/// Build a `NativeError` `SipError` that preserves the PJSUA diagnostic code.
+///
+/// Unlike `SipError::internal_error()` (which leaves `native_status` as `None`),
+/// this constructor keeps the FFI status in `native_status` so callers can log
+/// the exact PJSUA code. FFI errors are treated as retryable (`retryable=true`)
+/// because most PJSUA failures are transient (resource contention, network).
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+fn native_error_with_status(pj_status: i32, message: impl Into<String>) -> SipError {
+    SipError {
+        kind: SipErrorKind::NativeError,
+        message: message.into(),
+        native_status: Some(pj_status),
+        retryable: true,
+        account_id: None,
+        call_id: None,
+    }
+}
 
 /// Convert the result of a `ConfConnect` PJSIP operation into a `SipError`.
 ///
@@ -64,9 +79,10 @@ pub fn convert_conf_connect_error(pj_status: i32, call_id: u64) -> Result<(), Si
             "ConfConnect: conf_port not resolved for call {call_id}"
         )));
     }
-    Err(error_design_siperror::SipError::internal_error(format!(
-        "ConfConnect failed: pjsua_conf_connect returned {pj_status}"
-    )))
+    Err(native_error_with_status(
+        pj_status,
+        format!("ConfConnect failed: pjsua_conf_connect returned {pj_status}"),
+    ))
 }
 
 /// Convert the result of a `ConfDisconnect` PJSIP operation into a `SipError`.
@@ -88,9 +104,10 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
             "ConfDisconnect: conf_port not resolved for call {call_id}"
         )));
     }
-    Err(SipError::internal_error(format!(
-        "ConfDisconnect failed: pjsua_conf_disconnect returned {pj_status}"
-    )))
+    Err(native_error_with_status(
+        pj_status,
+        format!("ConfDisconnect failed: pjsua_conf_disconnect returned {pj_status}"),
+    ))
 }
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
@@ -134,8 +151,8 @@ pub fn convert_get_account_info_error(
         });
     }
     if pj_status != PJ_SUCCESS {
-        return Err(SipError::new(
-            SipErrorKind::NativeError,
+        return Err(native_error_with_status(
+            pj_status,
             format!("GetAccountInfo failed: pjsua_acc_get_info returned {pj_status}"),
         ));
     }
@@ -149,6 +166,11 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // PJ_EBUSY is a test-only constant here: the production converters branch on
+    // PJ_SUCCESS / PJ_EINVALIDOP only, so the busy sentinel lives in the test module
+    // (this removes the production dead-code suppression that used to accompany it).
+    const PJ_EBUSY: i32 = 150003;
 
     // ── ConfConnect: Normal ──────────────────────────────────────────
 
@@ -242,6 +264,60 @@ mod tests {
         assert_eq!(err.kind, SipErrorKind::NativeError);
     }
 
+    // ── Error: native_status / retryable preservation (O-003) ────────
+
+    #[test]
+    // @verifies C018
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    fn conf_connect_other_error_keeps_native_status_and_retryable() {
+        // ABC O-003 closure: a non-EINVALIDOP PJSIP error must preserve the FFI
+        // diagnostic code in native_status and be marked retryable. This failed RED
+        // before the fix because convert_conf_connect_error delegated to
+        // SipError::internal_error(), which hardcodes native_status=None.
+        let err = convert_conf_connect_error(PJ_EBUSY, 42).unwrap_err();
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.native_status, Some(PJ_EBUSY));
+        assert!(err.retryable);
+    }
+
+    #[test]
+    // @verifies C018
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    fn conf_disconnect_other_error_keeps_native_status_and_retryable() {
+        let err = convert_conf_disconnect_error(PJ_EBUSY, 42).unwrap_err();
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.native_status, Some(PJ_EBUSY));
+        assert!(err.retryable);
+    }
+
+    #[test]
+    // @verifies C018
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    fn get_account_info_pjsip_error_keeps_native_status_and_retryable() {
+        let err = convert_get_account_info_error(true, PJ_EBUSY).unwrap_err();
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.native_status, Some(PJ_EBUSY));
+        assert!(err.retryable);
+    }
+
+    #[test]
+    // @verifies C018
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    fn m20_converter_distinguishes_state_error_from_ffi_error() {
+        // Semantic boundary: an unresolved conf_port (PJ_EINVALIDOP) is a state error
+        // (native_status=None, retryable=false); any other non-zero code is an FFI
+        // error (native_status=Some(code), retryable=true).
+        let state_err = convert_conf_connect_error(PJ_EINVALIDOP, 42).unwrap_err();
+        assert_eq!(state_err.kind, SipErrorKind::InvalidState);
+        assert_eq!(state_err.native_status, None);
+        assert!(!state_err.retryable);
+
+        let ffi_err = convert_conf_connect_error(-9999, 1).unwrap_err();
+        assert_eq!(ffi_err.kind, SipErrorKind::NativeError);
+        assert_eq!(ffi_err.native_status, Some(-9999));
+        assert!(ffi_err.retryable);
+    }
+
     // ── Error: non-standard error codes ───────────────────────────────
 
     #[test]
@@ -280,11 +356,14 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C018
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
     fn m20_converters_return_sip_error_type() {
         // Type assertion: all three converters must return Result<T, SipError>
+        // ABC O-004 closure: convert_get_account_info_error (Result<AccountInfo, SipError>)
+        // was previously unasserted — only its error kind was checked indirectly.
         let r1: Result<(), SipError> = convert_conf_connect_error(PJ_SUCCESS, 0);
         let r2: Result<(), SipError> = convert_conf_disconnect_error(PJ_SUCCESS, 0);
-        let _ = (r1, r2);
+        let r3: Result<AccountInfo, SipError> = convert_get_account_info_error(true, PJ_SUCCESS);
+        let _ = (r1, r2, r3);
     }
 }

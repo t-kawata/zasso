@@ -409,6 +409,45 @@ mod tests {
         );
     }
 
+    // ── Normal: SipErrorKind Display for all 23 variants (O-002) ────
+
+    #[test]
+    // @verifies C017
+// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    fn sip_error_kind_display_shows_variant_name_for_all_23() {
+        // ABC O-002 closure: previously only 3 kinds (InvalidConfig, NativeError,
+        // ShutdownInProgress) were pinned by SipError-level Display tests. The other
+        // 20 Display arms could drift from their variant names without any test failing.
+        const CASES: [(SipErrorKind, &str); 23] = [
+            (SipErrorKind::InvalidConfig, "InvalidConfig"),
+            (SipErrorKind::InvalidState, "InvalidState"),
+            (SipErrorKind::AlreadyInitialized, "AlreadyInitialized"),
+            (SipErrorKind::NotInitialized, "NotInitialized"),
+            (SipErrorKind::AccountNotFound, "AccountNotFound"),
+            (SipErrorKind::CallNotFound, "CallNotFound"),
+            (SipErrorKind::TransportInitFailed, "TransportInitFailed"),
+            (SipErrorKind::RegistrationFailed, "RegistrationFailed"),
+            (SipErrorKind::AuthenticationFailed, "AuthenticationFailed"),
+            (SipErrorKind::InviteFailed, "InviteFailed"),
+            (SipErrorKind::MediaInitFailed, "MediaInitFailed"),
+            (SipErrorKind::MediaNegotiationFailed, "MediaNegotiationFailed"),
+            (SipErrorKind::IceFailed, "IceFailed"),
+            (SipErrorKind::TlsFailed, "TlsFailed"),
+            (SipErrorKind::SrtpFailed, "SrtpFailed"),
+            (SipErrorKind::AudioFormatUnsupported, "AudioFormatUnsupported"),
+            (SipErrorKind::AudioPipelineBroken, "AudioPipelineBroken"),
+            (SipErrorKind::DtmfFailed, "DtmfFailed"),
+            (SipErrorKind::Timeout, "Timeout"),
+            (SipErrorKind::ChannelClosed, "ChannelClosed"),
+            (SipErrorKind::NativeError, "NativeError"),
+            (SipErrorKind::ShutdownInProgress, "ShutdownInProgress"),
+            (SipErrorKind::InternalInvariantBroken, "InternalInvariantBroken"),
+        ];
+        for (kind, expected) in CASES {
+            assert_eq!(format!("{kind}"), expected, "Display mismatch for {kind:?}");
+        }
+    }
+
     // ── Normal: Convenience constructors ──────────────────────────────
 
     #[test]
@@ -541,15 +580,17 @@ mod tests {
     // ── Invariant: Send + Sync ────────────────────────────────────────
 
     #[test]
-    #[allow(clippy::extra_unused_type_parameters)]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
     fn sip_error_is_send_sync() {
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-        fn assert_send<T: Send>() {}
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-        fn assert_sync<T: Sync>() {}
-        assert_send::<SipError>();
-        assert_sync::<SipError>();
+        // Value-parameter form: the type parameter is used in the argument type,
+        // so no clippy suppression is required.
+// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>(_value: &T) {}
+// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>(_value: &T) {}
+        let err = SipError::new(SipErrorKind::InvalidConfig, "");
+        assert_send(&err);
+        assert_sync(&err);
     }
 
     // ── Invariant: SipErrorKind traits ────────────────────────────────
