@@ -333,8 +333,8 @@ describe("runLoop", () => {
 
     const findCmd = commands.find((c) => c.startsWith("/find-omissions "));
     assert.ok(findCmd, "expected /find-omissions command");
+    // 末尾スペース込みの正の照合がコマンド名の回帰を排除するため、負の assert は不要。
     assert.ok(findCmd!.startsWith("/find-omissions /abs/RFC-ROOT-GRAPH.json"));
-    assert.ok(!findCmd!.includes("/find-omissions-for-next-rfc"));
     mockState.allReviewed = false;
     exitMock.restore();
   });
