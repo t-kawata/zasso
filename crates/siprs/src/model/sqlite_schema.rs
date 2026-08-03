@@ -55,7 +55,7 @@ pub struct DatabasePool {
     conn: DatabaseConnection,
 }
 
-// [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
 impl DatabasePool {
     /// Open or create a SQLite database at the given path.
     ///
@@ -124,9 +124,8 @@ impl DatabasePool {
     /// Query the list of table names in the database.
     ///
     /// Returns the names of all user tables (excluding sqlite_* system tables).
+    /// Test-only helper exercised by the O-002 schema-init tests.
     #[cfg(test)]
-    // [::STUB::] P4-3: query_tables reserved for integration test use but currently uncalled -- Wire into standalone-server persistence tests once SQLite schema is testable
-    #[allow(dead_code)]
     pub(crate) async fn query_tables(&self) -> Result<Vec<String>, DbErr> {
         use sea_orm::ConnectionTrait;
 
@@ -398,9 +397,9 @@ mod tests {
     #[test]
     // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_entities_are_send_sync() {
-        // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-3, P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AccountEntity>();
         assert_sync::<AccountEntity>();
@@ -490,5 +489,97 @@ mod tests {
         assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("transport_configs"));
         assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("client_settings"));
         assert!(CREATE_TABLE_TLS_CONFIGS.contains("tls_configs"));
+    }
+
+    // ── P7-3 O-002: DatabasePool schema-init + invalid-path error paths ──
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P7-3: O-002 — init_schema() + query_tables() must produce the 4 RFC S56 tables.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    async fn init_schema_creates_4_tables() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        let tables: std::collections::HashSet<String> = pool
+            .query_tables()
+            .await?
+            .into_iter()
+            .collect();
+        for want in ["accounts", "transport_configs", "client_settings", "tls_configs"] {
+            assert!(
+                tables.contains(want),
+                "table {} must exist after init_schema()",
+                want
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P7-3: O-002 — DatabasePool::open() on an invalid path returns Err, never panics.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    async fn open_invalid_path_returns_err() {
+        let result = DatabasePool::open("/nonexistent-dir/nope.db").await;
+        assert!(
+            result.is_err(),
+            "open on a nonexistent directory must return Err, never panic"
+        );
+    }
+
+    // ── P7-3 O-006: Exact CREATE TABLE column types (RFC S56) ───────────
+
+    /// Normalize SQL whitespace so column-type assertions are robust to the
+    /// aligned formatting used in the CREATE TABLE constants.
+// [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn normalize_sql_whitespace(sql: &str) -> String {
+        sql.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P7-3: O-006 — pin the accounts column types exactly (TEXT/BLOB/NOT NULL).
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_create_table_accounts_column_types_exact() {
+        let accounts = normalize_sql_whitespace(CREATE_TABLE_ACCOUNTS);
+        // A type change (e.g. username TEXT -> username INTEGER) must fail.
+        assert!(
+            accounts.contains("username TEXT NOT NULL"),
+            "accounts.username must be TEXT NOT NULL"
+        );
+        assert!(
+            accounts.contains("password BLOB NOT NULL"),
+            "accounts.password must be BLOB NOT NULL"
+        );
+        assert!(
+            accounts.contains("domain TEXT NOT NULL"),
+            "accounts.domain must be TEXT NOT NULL"
+        );
+    }
+
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P7-3: O-006 — pin the remaining table column types exactly.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_create_table_other_column_types_exact() {
+        let transport = normalize_sql_whitespace(CREATE_TABLE_TRANSPORT_CONFIGS);
+        assert!(
+            transport.contains("kind TEXT NOT NULL CHECK(kind IN ('udp','tcp','tls'))"),
+            "transport_configs.kind must be TEXT NOT NULL with udp/tcp/tls CHECK"
+        );
+        let settings = normalize_sql_whitespace(CREATE_TABLE_CLIENT_SETTINGS);
+        assert!(
+            settings.contains("key TEXT PRIMARY KEY"),
+            "client_settings.key must be TEXT PRIMARY KEY"
+        );
+        assert!(
+            settings.contains("value TEXT NOT NULL"),
+            "client_settings.value must be TEXT NOT NULL"
+        );
+        let tls = normalize_sql_whitespace(CREATE_TABLE_TLS_CONFIGS);
+        assert!(
+            tls.contains("verify_server INTEGER NOT NULL DEFAULT 1"),
+            "tls_configs.verify_server must be INTEGER NOT NULL DEFAULT 1"
+        );
     }
 }

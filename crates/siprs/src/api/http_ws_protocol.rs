@@ -603,7 +603,7 @@ mod tests {
     fn test_sequence_generator_send_sync() {
         // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SequenceGenerator>();
         assert_sync::<SequenceGenerator>();
@@ -644,5 +644,70 @@ mod tests {
         // Verify uniqueness
         let unique: std::collections::HashSet<&&str> = paths.iter().collect();
         assert_eq!(unique.len(), paths.len(), "all paths must be unique");
+    }
+
+    // ── P7-3 O-003: All 18 path constants pinned to exact RFC S54 values ──
+
+    #[test]
+    // @verifies C063
+    // [::TICKET::] P7-3: O-003 — pin every path constant to its exact RFC S54 value.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_all_path_constants_exact() {
+        // (actual, expected) pairs from the RFC §54 endpoint table.
+        let expected: [(&str, &str); 18] = [
+            (PATH_AUTH_TOKEN, "/api/v1/auth/token"),
+            (PATH_ACCOUNTS, "/api/v1/accounts"),
+            (PATH_ACCOUNT_BY_ID, "/api/v1/accounts/:id"),
+            (PATH_ACCOUNT_REGISTER, "/api/v1/accounts/:id/register"),
+            (PATH_ACCOUNT_UNREGISTER, "/api/v1/accounts/:id/unregister"),
+            (PATH_ACCOUNT_CALLS, "/api/v1/accounts/:id/calls"),
+            (PATH_CALLS, "/api/v1/calls"),
+            (PATH_CALL_BY_ID, "/api/v1/calls/:id"),
+            (PATH_CALL_HANGUP, "/api/v1/calls/:id/hangup"),
+            (PATH_CALL_HOLD, "/api/v1/calls/:id/hold"),
+            (PATH_CALL_UNHOLD, "/api/v1/calls/:id/unhold"),
+            (PATH_CALL_DTMF, "/api/v1/calls/:id/dtmf"),
+            (PATH_CALL_TRANSFER, "/api/v1/calls/:id/transfer"),
+            (PATH_EVENTS, "/api/v1/events"),
+            (PATH_HEALTH, "/api/v1/health"),
+            (PATH_SHUTDOWN, "/api/v1/shutdown"),
+            (PATH_WS, "/api/v1/ws"),
+            (PATH_WS_AUDIO, "/api/v1/ws/audio"),
+        ];
+        for (actual, want) in expected {
+            assert_eq!(
+                actual, want,
+                "path constant must match RFC S54 value"
+            );
+        }
+    }
+
+    // ── P7-3 O-004: SequenceGenerator monotonic + unique over 1M iterations ──
+
+    #[test]
+    // @verifies C063
+    // [::TICKET::] P7-3: O-004 — run the production SequenceGenerator 1M times.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_sequence_generator_1m_iterations() {
+        let gen = SequenceGenerator::new();
+        let mut seen = std::collections::HashSet::with_capacity(1_000_001);
+        let mut prev = gen.next();
+        seen.insert(prev);
+        for _ in 0..1_000_000 {
+            let next = gen.next();
+            assert!(
+                seen.insert(next),
+                "duplicate sequence number {}",
+                next
+            );
+            assert!(
+                next > prev,
+                "sequence must be strictly increasing: {} then {}",
+                prev,
+                next
+            );
+            prev = next;
+        }
+        assert_eq!(seen.len(), 1_000_001, "all 1M+1 sequences must be unique");
     }
 }

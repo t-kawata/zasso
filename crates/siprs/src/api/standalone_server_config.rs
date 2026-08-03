@@ -619,6 +619,49 @@ mod tests {
         );
     }
 
+    // ── P7-3 O-005: Exact ConfigError variant assertions ──────────────
+
+    #[test]
+    // @verifies C064
+    // [::TICKET::] P7-3: O-005 — assert the exact ConfigError variant, not a message substring.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_exact_variant() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse()?;
+        // ConfigError derives PartialEq — exact-variant equality proves the
+        // error kind (a wrong-kind error with the same Display would fail).
+        assert_eq!(
+            config.validate(&bind),
+            Err(ConfigError::LocalhostRequiresLoopback(bind)),
+            "LocalhostOnly + non-loopback must yield the exact LocalhostRequiresLoopback variant"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C064
+    // [::TICKET::] P7-3: O-005 — assert the exact ConfigError variant, not a message substring.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_exact_variant() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr =
+            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse()?;
+        assert_eq!(
+            config.validate(&bind),
+            Err(ConfigError::JwtRequiresSecret),
+            "Jwt + None secret must yield the exact JwtRequiresSecret variant"
+        );
+        Ok(())
+    }
+
     // ── Normal: ServerConfig struct construction ───────────────────────
 
     #[test]
