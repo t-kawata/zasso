@@ -24,7 +24,7 @@ conver は **「RFC設計書への収束」** に集中する二層ループ開�
                 ▼
              実装ループ（実装収束ループ・conver.js 自動実行）
  ┌──────────────────────────────────────────────────────────────────┐
- │  make → plan → start → review ──(全reviewed)──→ find-omissions     │
+ │  make → plan → start → review → resolve → find-omissions     │
  │     ▲                                             │               │
  │     │ ギャップが実装起因なら omission を            │ 設計vs実装     │
  │     │ Tickets.json にマージして再実装（収束）       │ のギャップ計測  │
