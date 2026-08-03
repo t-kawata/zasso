@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
+use crate::runtime::audio_worker::AudioMixer;
 use crate::runtime::backend::{MockBackend, SipBackend};
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
@@ -39,7 +40,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and return a handle for command submission.
     ///
@@ -63,6 +64,10 @@ impl CoreReactor {
 
         // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.
         let mut backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
+        // [::TICKET::] P8-1: O-003 — the reactor owns a default-call AudioMixer. Audio
+        // lifecycle commands (AddAudioSource / RemoveAudioSource / SetAudioSourceGain /
+        // MuteAudioSource) mutate this mixer on the reactor thread (single-writer rule).
+        let audio_mixer: Arc<AudioMixer> = Arc::new(AudioMixer::new());
 
         let thread_join = thread::Builder::new()
             .name("siprs-reactor".into())
@@ -112,14 +117,34 @@ impl CoreReactor {
                                     source,
                                     reply,
                                 } => {
-                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.
-                                    // [::STUB::] P4-2: AddAudioSource dispatch returns BackendError -- Route to ClientState AudioMixer via sink.add_source()
-                                    let _ = source;
-                                    let _ = reply.send(Err(
-                                        ReactorError::BackendError(
-                                            "audio source lifecycle not yet connected (P0-7)".into()
-                                        )
-                                    ));
+                                    // [::TICKET::] P8-1: O-003 — the reactor owns the
+                                    // AudioMixer; audio lifecycle commands mutate it here
+                                    // on the reactor thread (single-writer rule).
+                                    let source_id = audio_mixer.add_source(source);
+                                    let _ = reply.send(Ok(source_id));
+                                }
+                                DispatchCommand::RemoveAudioSource {
+                                    source_id,
+                                    reply,
+                                } => {
+                                    let result = audio_mixer.remove_source(source_id);
+                                    let _ = reply.send(result);
+                                }
+                                DispatchCommand::SetAudioSourceGain {
+                                    source_id,
+                                    gain,
+                                    reply,
+                                } => {
+                                    let result = audio_mixer.set_gain(source_id, gain);
+                                    let _ = reply.send(result);
+                                }
+                                DispatchCommand::MuteAudioSource {
+                                    source_id,
+                                    muted,
+                                    reply,
+                                } => {
+                                    let result = audio_mixer.mute(source_id, muted);
+                                    let _ = reply.send(result);
                                 }
                                 DispatchCommand::GetAccountInfo {
                                     native_acc_id,

@@ -567,6 +567,295 @@
       "detected_at": "2026-08-03T07:16:52.479Z",
       "status": "false_positive",
       "note": "STALE/false_positive: [::STUB::] P0-7 marker no longer exists at this line (source has evolved; module is now a re-export or the marker was renumbered to P3-1/P5-1 etc. in later rounds). ORPHAN_TICKET_REF to non-existent P0-7. Not a P7-2 target (targetCrimes=verified_empty)."
+    },
+    {
+      "id": 63,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 64,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
+      "line": 17,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 65,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 27,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 66,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 32,
+      "description": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 67,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 68,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 15,
+      "description": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 69,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 70,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 201,
+      "description": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 71,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 304,
+      "description": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 72,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 27,
+      "description": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 73,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 93,
+      "description": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 74,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 138,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 75,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 58,
+      "description": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 76,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 72,
+      "description": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 77,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 167,
+      "description": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 78,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 171,
+      "description": "// [::STUB::] P0-7: call_id stored for future query API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 79,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 174,
+      "description": "// [::STUB::] P0-7: frame_duration stored for future query API.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 80,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 178,
+      "description": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 81,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 234,
+      "description": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 82,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 180,
+      "description": "// [::STUB::] P0-7: Return real account information once the account state",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 83,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 28,
+      "description": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 84,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 85,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 117,
+      "description": "// [::STUB::] P0-7: Route to AudioMixer stored in",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "resolved",
+      "note": "P8-1 resolved: AddAudioSource dispatch replaced with reactor-owned AudioMixer routing (O-003).",
+      "resolved_at": "2026-08-03T08:49:36.616Z"
+    },
+    {
+      "id": 86,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
+      "line": 87,
+      "description": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 87,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 68,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 88,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 79,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 89,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 89,
+      "description": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 90,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 130,
+      "description": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 91,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 136,
+      "description": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P2-4 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 92,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 5,
+      "description": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 93,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 11,
+      "description": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
+    },
+    {
+      "id": 94,
+      "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 23,
+      "description": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
+      "detected_at": "2026-08-03T08:27:44.062Z",
+      "status": "false_positive",
+      "note": "STALE: [::STUB::] P0-7 marker re-tagged to active tickets (P3-2/P4-2/P5-1) or removed in later rounds. Pre-existing stub outside P8-1 scope; not a P8-1 target."
     }
   ]
 }

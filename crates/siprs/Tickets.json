@@ -10541,740 +10541,205 @@
               "id": "C011",
               "sourceEdge": "N0010→N0009",
               "precondition": "Concurrency model established (P0-2): unbounded MPSC channel created, CoreReactor thread running, RuntimeHandle available",
-              "postcondition": "RuntimeCommand enum defined with all 17 variants incl. M20 (ConfConnect, ConfDisconnect) and audio source lifecycle (AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource). Each variant carries typed oneshot::Sender. DispatchCommand::from_runtime_command maps every variant to a backend execution closure.",
-              "invariant": "All PJSUA calls go through MPSC channel — no direct FFI call outside reactor thread. oneshot sender is resolved exactly once per command dispatch."
+              "postcondition": "RuntimeCommand enum defined with all 18 variants (the 12 pre-existing + P0-6 M20 ConfConnect/ConfDisconnect + 4 audio-source lifecycle AddAudioSource/RemoveAudioSource/SetAudioSourceGain/MuteAudioSource). Each variant carries a typed oneshot::Sender. DispatchCommand::from_runtime_command maps every variant to a backend execution closure or a dedicated reactor dispatch arm.",
+              "invariant": "All PJSUA calls go through the MPSC channel — no direct FFI call outside the reactor thread. oneshot sender is resolved exactly once per command dispatch."
             },
             {
               "id": "C035",
               "sourceEdge": "N0034→N0033",
               "precondition": "AudioMixer defined with: sources DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>, next_source_id AtomicU64, per-source gain map, per-source muted flags",
-              "postcondition": "AudioWorkerTask struct defined with spawn() (creates Tokio blocking task), shutdown() (terminates gracefully), and frame processing loop. Source lifecycle API defined as RuntimeCommand variants: add_audio_source (returns source_id), remove_audio_source (removes by id), set_audio_source_gain (updates gain), mute_audio_source (toggles flag).",
-              "invariant": "Sources added/removed at frame boundaries — AudioWorker processes pending lifecycle commands between process_frame iterations. source_id monotonically increases. Concurrent add/remove does not corrupt source iteration."
+              "postcondition": "AudioWorkerTask struct defined with spawn() (creates a Tokio blocking task), shutdown() (terminates gracefully), and a frame processing loop. Source lifecycle API defined as RuntimeCommand variants and functional through the reactor-owned AudioMixer: add_audio_source (returns source_id), remove_audio_source (removes by id), set_audio_source_gain (updates clamped gain), mute_audio_source (toggles flag).",
+              "invariant": "Sources added/removed at frame boundaries — AudioWorker processes pending lifecycle commands between process_frame iterations. source_id monotonically increases (wraps correctly at u64::MAX). Concurrent add/remove does not corrupt source iteration."
             },
             {
               "id": "C036",
               "sourceEdge": "N0034→N0032",
               "precondition": "AsyncAudioSource trait defined: trait AsyncAudioSource: Send { async fn next_chunk(&mut self, buf: &mut [i16]) -> usize; }",
-              "postcondition": "AudioMixer stores Box<dyn AsyncAudioSource + Send> per source_id. AudioWorker calls next_chunk on each source during process_frame. MockAsyncAudioSource implements AsyncAudioSource for testing.",
-              "invariant": "next_chunk returns 0 for exhausted source without panicking. next_chunk fills buffer partially (returns < buf.len()) for end-of-stream. Implementation is Send + Sync safe."
+              "postcondition": "AudioMixer stores Box<dyn AsyncAudioSource + Send> per source_id. AudioWorker calls next_chunk on each source during process_frame and pushes the mixed frame to out_queue. MockAsyncAudioSource implements AsyncAudioSource for testing.",
+              "invariant": "next_chunk returns 0 for an exhausted source without panicking. next_chunk fills the buffer partially (returns < buf.len()) for end-of-stream. Implementation is Send + Sync safe."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle (make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\nOne or more ABC violations were confirmed. This ticket is hereby remanded for re-implementation. Every violation must be fully resolved, and every contract must be fulfilled in this final implementation round. Complete it this time.\n\n### Goal\nComplete the runtime infrastructure layer: (1) extend RuntimeCommand to cover all 17 variants including M20 conference commands and audio source lifecycle, (2) define AudioWorkerTask with Tokio blocking-pool frame processing loop, (3) define the AsyncAudioSource trait and minimal AudioMixer with DashMap-backed source management.\n\n### Purpose\nThe RuntimeCommand enum is the universal command interface that SipClient uses to drive the SIP stack. Every async public API call on SipClient eventually becomes a RuntimeCommand variant submitted via MPSC. The AudioWorkerTask enables per-call audio processing on dedicated Tokio blocking tasks, keeping audio computation off the reactor thread and the async runtime. Source lifecycle (add/remove/gain/mute) becomes a first-class RuntimeCommand capability.\n\n### Motivation\nP0-2 established the concurrency model with 11 basic RuntimeCommand variants. P0-4 added the SipError type and M20 error converters. P0-5 added the EventBus and GetAccountInfo variant. To support conference calls (M20 requirement), the ConfConnect/ConfDisconnect variants are needed. To support the audio pipeline (P1+), the source lifecycle model and AudioWorkerTask must be defined now as the foundation.\n\n### Constraints\n- Must not break existing RuntimeCommand API (backward-compatible extension).\n- AudioMixer uses dashmap::DashMap (not std::sync::Mutex<HashMap>) for lock-free concurrent reads.\n- AudioWorkerTask runs on Tokio blocking pool — no tokio::spawn on the reactor thread.\n- No real PJSIP FFI calls in this ticket — all backend operations use MockBackend.\n- AsyncAudioSource trait uses i16 (PCM S16LE), not f32 (migration is a future concern).",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle (make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\nSix omissions were confirmed — O-001..O-006 (3 major, 3 minor). Every omission must be fully resolved, and every contract (C011, C035, C036) must be fulfilled in this final implementation round. Complete it this time.\n\n### Goal\nClose the ABC Inspection gaps and make the runtime infrastructure layer provably correct: (1) RuntimeCommand covers all 18 variants (incl. QueryState from P7-2, M20 ConfConnect/ConfDisconnect, and the 4 audio-source lifecycle commands), (2) RuntimeHandle exposes working audio-lifecycle submit methods that route through the reactor to a reactor-owned AudioMixer, (3) AudioWorkerTask's process_frame is test-verified end-to-end (next_chunk → gain/mute → mix → out_queue), and (4) MockBackend.conf_connect/conf_disconnect record observable side effects so the ConfConnect/ConfDisconnect dispatch path is provably wired.\n\n### Purpose\nThe RuntimeCommand enum is the universal command interface that SipClient uses to drive the SIP stack. Every async public API call on SipClient eventually becomes a RuntimeCommand variant submitted via MPSC. The AudioWorkerTask enables per-call audio processing on dedicated Tokio blocking tasks, keeping audio computation off the reactor thread and the async runtime. Source lifecycle (add/remove/gain/mute) becomes a first-class RuntimeCommand capability.\n\n### Motivation\nP0-2 established the concurrency model with the base RuntimeCommand variants. P0-4 added the SipError type and M20 error converters. P0-5 added the EventBus and GetAccountInfo variant. P7-2 added QueryState. P0-6 extended the enum with M20 conference commands and the audio-source lifecycle. The ABC Inspection confirmed that although the implementation exists, the test suite does not detect regressions in the ConfConnect/ConfDisconnect dispatch path (O-001), the AudioWorker mix pipeline (O-002), or the audio-lifecycle reactor path (O-003). This re-implementation exists to close those detection gaps.\n\n### Constraints\n- Must not break existing RuntimeCommand API (backward-compatible extension).\n- AudioMixer uses dashmap::DashMap (not std::sync::Mutex<HashMap>) for lock-free concurrent reads.\n- AudioWorkerTask runs on Tokio blocking pool — no tokio::spawn on the reactor thread.\n- No real PJSIP FFI calls in this ticket — all backend operations use MockBackend.\n- AsyncAudioSource trait uses i16 (PCM S16LE), not f32 (migration is a future concern).\n- The reactor must own the AudioMixer instance that audio-lifecycle commands mutate (single-writer rule on the reactor thread).",
           "scope": [
-            "RuntimeCommand enum: Initialize, AddAccount, RemoveAccount, SetRegistration, MakeCall, Hangup, Hold, Unhold, SendDtmf, Shutdown (+ M20: ConfConnect, ConfDisconnect, GetAccountInfo)",
-            "RuntimeCommand with oneshot::Sender reply channel per variant",
-            "Unbounded MPSC: SipClient sends, Reactor receives in single-threaded loop",
-            "AudioWorkerTask: Tokio blocking pool, AudioMixer per call, periodic process_frame loop",
-            "Source lifecycle: add_audio_source, remove_audio_source, set_audio_source_gain, mute_audio_source via RuntimeCommand",
-            "Box<dyn AsyncAudioSource> managed in AudioMixer::sources DashMap",
-            "Future slab-based optimization note for >32 sources",
-            "CHANGES — src/runtime/command.rs: Add 6 new RuntimeCommand variants (ConfConnect, ConfDisconnect, AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource). Update DispatchCommand, from_runtime_command(), Display impl.",
-            "CHANGES — src/runtime/audio_worker.rs (NEW): AudioMixer, AudioWorkerTask, AsyncAudioSource trait, MockAsyncAudioSource.",
-            "CHANGES — src/runtime/mod.rs: Add pub mod audio_worker; re-exports.",
-            "CHANGES — src/runtime/handle.rs: Add audio lifecycle submit methods.",
-            "CHANGES — src/runtime/backend.rs: Add conf_connect() + conf_disconnect() to Backend trait + MockBackend.",
-            "CHANGES — src/api/asyncaudiosrc_adapter.rs: Replace stub trait Service {} with real AsyncAudioSource trait.",
-            "CHANGES — Cargo.toml: Add dashmap = \"6\", crossbeam = \"0.8\" deps.",
-            "NON-CHANGES — Real PJSIP FFI conference port integration (P2-4). Audio resampling/stereo/pair alignment (P1+). CPAL/microphone capture (P1-4). Slab-based source allocation (P1+).",
-            "IMPACT — runtime/command.rs: Enum grows 11→17 variants. runtime/backend.rs: Backend trait gains 2 methods (breaking for implementors). runtime/handle.rs: New DispatchCommand match arms.",
-            "DEP — dashmap, crossbeam added behind audio-worker feature."
+            "**Scope of changes (describe each change comprehensively):**",
+            "- [src/runtime/command.rs] Action: modify — RuntimeCommand already has all 18 variants (12 pre-existing + 6 P0-6 additions); verify/keep them. Before → After: DispatchCommand::from_runtime_command no longer maps RemoveAudioSource/SetAudioSourceGain/MuteAudioSource to Execute closures returning hardcoded Err(BackendError(\"audio source lifecycle not yet connected (P0-7)\")) (command.rs:349-383); instead they map to new dedicated DispatchCommand variants carrying typed oneshot replies.",
+            "- [src/runtime/command.rs] Action: add — new DispatchCommand variants: RemoveAudioSource { source_id: u64, reply: oneshot::Sender<Result<(), ReactorError>> }, SetAudioSourceGain { source_id: u64, gain: f32, reply: ... }, MuteAudioSource { source_id: u64, muted: bool, reply: ... }. API: each carries the mixer-mutation payload + reply. Update Debug/Display and from_runtime_command.",
+            "- [src/runtime/handle.rs] Action: add — 4 public async submit methods: submit_add_audio_source(source: Box<dyn AsyncAudioSource + Send>) -> Result<u64, ReactorError>, submit_remove_audio_source(source_id: u64) -> Result<(), ReactorError>, submit_set_audio_source_gain(source_id: u64, gain: f32) -> Result<(), ReactorError>, submit_mute_audio_source(source_id: u64, muted: bool) -> Result<(), ReactorError>. Before → After: the unreachable!(\"use submit_add_audio_source instead\") branch (handle.rs:73-75) becomes a real dispatch; all four follow the submit → DispatchCommand → reactor → oneshot-reply pattern.",
+            "- [src/runtime/reactor.rs] Action: add — reactor owns an Arc<AudioMixer> (default-call mixer) alongside client_state. DispatchCommand::AddAudioSource arm (reactor.rs:111-123) calls mixer.add_source(source) and replies Ok(source_id). New arms for RemoveAudioSource/SetAudioSourceGain/MuteAudioSource call mixer.remove_source/set_gain/mute and reply Ok/Err. Before → After: the BackendError stub is replaced with real mixer routing.",
+            "- [src/runtime/backend.rs] Action: modify — MockBackend gains observable conf_connect/conf_disconnect side effects (e.g., pub conf_connect_calls: Vec<(i32, i32)> and conf_disconnect_calls: Vec<(i32, i32)> recording (source, sink)). SipBackend trait signature unchanged (no implementor breakage). Before → After: tests can assert the from_runtime_command closure actually invoked backend.conf_connect/conf_disconnect.",
+            "- [src/runtime/audio_worker.rs] Action: add — #[cfg(test)] test hook for AudioMixer::next_source_id (e.g., fn set_next_source_id(&self, id: u64) behind #[cfg(test)]) so the u64::MAX wrap invariant is exercisable. No production behavior change.",
+            "- [src/runtime/audio_worker.rs] Action: verify — AudioWorkerInner::process_frame (audio_worker.rs:336-382) is directly invokable from the same-file #[cfg(test)] module; add process_frame tests with sources present asserting out_queue content.",
+            "- [src/runtime/mod.rs] Action: verify — pub use re-exports (AsyncAudioSource, AudioMixer, AudioWorkerTask, MockAsyncAudioSource) already present; add any newly public DispatchCommand variants if tests require crate-internal access.",
+            "- [src/api/asyncaudiosrc_adapter.rs] Action: verify — AsyncAudioSource, ErasedAudioSource, SyncAudioSource, SyncSourceAdapter already implemented (P5-2); no change required.",
+            "- [Cargo.toml] Action: verify — dashmap = \"6\", async-trait = \"0.1\", crossbeam-queue = \"0.3\" already present; no dependency change required.",
+            "- [tests/] Action: add — integration test file tests/runtime_audio_lifecycle.rs submitting ConfConnect/ConfDisconnect and the 4 audio-lifecycle commands through a live CoreReactor + MockBackend and asserting oneshot replies.",
+            "**Out of scope (items intentionally excluded, with justification):**",
+            "- Real PJSIP FFI conference-port integration (pjsua_conf_connect / pjsua_conf_disconnect) — deferred to P2-4; requires FFI binding, this ticket uses MockBackend only.",
+            "- Audio resampling, stereo/pair alignment, dynamic frame_duration — deferred to P1+ (AudioMixer is mono 8kHz 20ms i16).",
+            "- CPAL/microphone capture and real hardware audio I/O — deferred to P1-4.",
+            "- Slab-based source allocation for >32 sources — deferred to P1+ (documented future optimization).",
+            "- f32 sample-type migration of AsyncAudioSource — deferred to a future round (i16 is the current contract).",
+            "**Affected areas (components/systems impacted, even without direct modification):**",
+            "- src/runtime/command.rs — DispatchCommand gains up to 3 variants; Display/Debug/from_runtime_command matches must stay exhaustive.",
+            "- src/runtime/handle.rs — public API surface gains 4 submit methods; submit() match on DispatchCommand becomes total (no unreachable!()).",
+            "- src/runtime/reactor.rs — reactor loop gains mixer-backed dispatch arms; AddAudioSource stub replaced.",
+            "- src/runtime/backend.rs — MockBackend gains observable counters; SipBackend trait unchanged (no implementor breakage).",
+            "- src/runtime/audio_worker.rs — test hook for wrap invariant; no production logic change."
           ],
           "testUnit": [
-            "UT: [Normal] ConfConnect variant constructs with valid call_id and oneshot::Sender — verify Debug output shows variant name and call_id is stored",
-            "UT: [Normal] ConfDisconnect variant constructs with valid call_id and oneshot::Sender — verify Display output includes variant name",
-            "UT: [Normal] AddAudioSource variant wraps Box<dyn AsyncAudioSource> and returns source_id via oneshot::Sender",
-            "UT: [Normal] RemoveAudioSource variant constructs with valid source_id and oneshot::Sender",
-            "UT: [Normal] SetAudioSourceGain variant stores gain as f32 in [0.0, 2.0] range",
-            "UT: [Normal] MuteAudioSource variant stores muted boolean correctly",
-            "UT: [Normal] AudioMixer::new() creates empty sources DashMap with next_source_id=0",
-            "UT: [Normal] AudioMixer::add_source() increments source_id and stores AsyncAudioSource",
-            "UT: [Normal] AudioMixer::remove_source() removes existing source and returns Ok(())",
-            "UT: [Normal] AudioMixer::set_gain() updates gain for existing source_id",
-            "UT: [Normal] AudioMixer::mute() toggles muted flag for existing source_id",
-            "UT: [Normal] AsyncAudioSource next_chunk with valid buffer fills buffer and returns sample count",
-            "UT: [Normal] MockAsyncAudioSource returns canned data for testing AudioWorker",
-            "UT: [Normal] RuntimeCommand Display includes new M20 and source lifecycle variant names (ConfConnect, ConfDisconnect, AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource)",
-            "UT: [Normal] DispatchCommand::from_runtime_command converts ConfConnect variant correctly",
-            "UT: [Normal] DispatchCommand::from_runtime_command converts ConfDisconnect variant correctly",
-            "UT: [Normal] send_reply with ReactorError delivers error correctly via oneshot channel",
-            "UT: [Normal] AudioWorkerTask::spawn() creates Tokio blocking task and returns JoinHandle",
-            "UT: [Normal] AudioWorkerTask::shutdown() terminates the worker gracefully within timeout",
-            "UT: [Normal] AudioMixer::add_source with 1 source works correctly (boundary min)",
-            "UT: [Normal] AudioMixer::add_source with 32 sources works correctly (below slab limit)",
-            "UT: [Normal] Source lifecycle through RuntimeCommand dispatch: add → set_gain → mute → remove sequence preserves ordering",
-            "",
-            "UT: [Error] ConfConnect with disconnected receiver logs warning without panic (send_reply pattern)",
-            "UT: [Error] ConfDisconnect with disconnected receiver logs warning without panic",
-            "UT: [Error] AudioMixer::remove_source with non-existent source_id returns ReactorError",
-            "UT: [Error] AudioMixer::set_gain with non-existent source_id returns ReactorError",
-            "UT: [Error] AudioMixer::mute with non-existent source_id returns ReactorError",
-            "UT: [Error] AudioMixer::add_source with duplicate source_id (reuse after remove) succeeds — IDs are unique across lifecycle",
-            "UT: [Error] AsyncAudioSource next_chunk returns 0 for exhausted source (empty stream)",
-            "UT: [Error] AudioWorker handles source that panics in next_chunk without crashing worker",
-            "",
-            "UT: [Boundary] AudioMixer add_source wraps around u64 MAX — next_source_id overflow handling",
-            "UT: [Boundary] gain == 0.0 f32 (mute via gain, not mute flag) accepted by SetAudioSourceGain",
-            "UT: [Boundary] gain == 2.0 f32 (max amplification) accepted by SetAudioSourceGain",
-            "UT: [Boundary] AudioMixer::source_count returns 0 for empty mixer",
-            "UT: [Boundary] AudioMixer::source_count with 1 source (minimum non-empty)",
-            "UT: [Boundary] AudioWorker spawn multiple workers (concurrent calls) — each has independent AudioMixer",
-            "",
-            "UT: [Invariant] RuntimeCommand is Send + Sync (compile-time assertion)",
-            "UT: [Invariant] AudioMixer is Send + Sync (required for Arc sharing across runtime boundary)",
-            "UT: [Invariant] AsyncAudioSource trait requires Send (cross-thread source management)",
-            "UT: [Invariant] Every RuntimeCommand variant appears in Display match — compile-time exhaustive check via match on new variants",
-            "UT: [Invariant] oneshot Sender is consumed exactly once — verify via construction that reply cannot be used twice",
-            "UT: [Invariant] source_id monotonically increases across add operations (sequential allocation)"
+            "**UT: [Normal] — RuntimeCommand / DispatchCommand surface:**",
+            "UT: [Normal] RuntimeCommand::ConfConnect { call_id: u64, reply: oneshot::Sender<Result<(), ReactorError>> } constructs; Debug and Display render \"RuntimeCommand::ConfConnect\" (command.rs).",
+            "UT: [Normal] RuntimeCommand::ConfDisconnect { call_id: u64, reply } constructs; Display renders \"RuntimeCommand::ConfDisconnect\".",
+            "UT: [Normal] RuntimeCommand::AddAudioSource { source: Box<dyn AsyncAudioSource + Send>, reply: oneshot::Sender<Result<u64, ReactorError>> } wraps a MockAsyncAudioSource; Display renders \"RuntimeCommand::AddAudioSource\".",
+            "UT: [Normal] RuntimeCommand::RemoveAudioSource { source_id: u64, reply } constructs; Display renders \"RuntimeCommand::RemoveAudioSource\".",
+            "UT: [Normal] RuntimeCommand::SetAudioSourceGain { source_id: u64, gain: f32, reply } stores gain; Display renders \"RuntimeCommand::SetAudioSourceGain\".",
+            "UT: [Normal] RuntimeCommand::MuteAudioSource { source_id: u64, muted: bool, reply } stores muted flag; Display renders \"RuntimeCommand::MuteAudioSource\".",
+            "UT: [Normal] DispatchCommand::from_runtime_command maps ConfConnect → DispatchCommand::Execute with a Box<dyn FnOnce(&mut dyn SipBackend) -> Result<(), ReactorError> + Send> closure.",
+            "UT: [Normal] [O-004] DispatchCommand::from_runtime_command maps ConfDisconnect → DispatchCommand::Execute — mirror the existing ConfConnect conversion test (command.rs:562) for ConfDisconnect (command.rs:598 missing arm).",
+            "UT: [Normal] [O-001] Executing the from_runtime_command ConfConnect closure against a MockBackend invokes backend.conf_connect(source, sink) — assert MockBackend.conf_connect_calls recorded (source, sink) == (call_id, call_id).",
+            "UT: [Normal] [O-001] Executing the from_runtime_command ConfDisconnect closure against a MockBackend invokes backend.conf_disconnect(source, sink) — assert MockBackend.conf_disconnect_calls recorded.",
+            "UT: [Normal] DispatchCommand::from_runtime_command maps AddAudioSource → DispatchCommand::AddAudioSource (dedicated variant with Result<u64> reply).",
+            "UT: [Normal] DispatchCommand::from_runtime_command maps RemoveAudioSource → DispatchCommand::RemoveAudioSource, SetAudioSourceGain → DispatchCommand::SetAudioSourceGain, MuteAudioSource → DispatchCommand::MuteAudioSource (new dedicated variants).",
+            "UT: [Normal] send_reply(sender, Ok(())) delivers value when receiver alive; send_reply with dropped receiver logs a warning without panicking (command.rs:415-423).",
+            "**UT: [Normal] — AudioMixer:**",
+            "UT: [Normal] AudioMixer::new() creates empty sources DashMap, gains/mutes empty, next_source_id() == 0, out_queue/in_queue capacity == DEFAULT_QUEUE_CAPACITY (64).",
+            "UT: [Normal] AudioMixer::add_source(Box<dyn AsyncAudioSource + Send>) assigns monotonically increasing u64 source_id starting at 0, stores source in sources DashMap with gain 1.0 and muted false.",
+            "UT: [Normal] AudioMixer::remove_source(existing_source_id) removes the entry from sources/gains/mutes and returns Ok(()); source_count decreases.",
+            "UT: [Normal] AudioMixer::set_gain(existing_source_id, 0.5) stores 0.5 in gains DashMap.",
+            "UT: [Normal] AudioMixer::mute(existing_source_id, true) then mute(existing_source_id, false) toggles the muted flag in mutes DashMap.",
+            "UT: [Normal] mix_i16_frame: single-source passthrough, two-source accumulation (1+4=5, 2+5=7, 3+6=9), saturating clamp (i16::MAX+i16::MAX → MAX, i16::MIN+i16::MIN → MIN), 16×10000 overload → all MAX, mixed-length zero-padding, output length == MIXER_FRAME_SAMPLES (160).",
+            "**UT: [Normal] — AsyncAudioSource:**",
+            "UT: [Normal] MockAsyncAudioSource::new(vec![1,2,3,4]).next_chunk(&mut buf[4]) fills buffer and returns 4; buf == [1,2,3,4].",
+            "UT: [Normal] MockAsyncAudioSource partial fill: 2-sample source + 160-sample buffer returns 2; buf[0..2] filled, rest untouched.",
+            "UT: [Normal] MockAsyncAudioSource multi-chunk: sequential next_chunk calls drain the canned data, returning 0 once exhausted.",
+            "**UT: [Normal] — AudioWorkerTask:**",
+            "UT: [Normal] AudioWorkerTask::spawn(mixer, call_id, frame_duration) creates a Tokio blocking-pool task (spawn_blocking) and returns Self with is_running() == true.",
+            "UT: [Normal] AudioWorkerTask::shutdown() sets shutdown_signal true and awaits the JoinHandle; is_running() == false afterward.",
+            "UT: [Normal] [O-002] AudioWorkerInner::process_frame with one MockAsyncAudioSource (constant 100i16 frame) pushes a mixed frame Vec<i16> of length MIXER_FRAME_SAMPLES to mixer.out_queue; pop returns the frame with all samples == 100i16.",
+            "UT: [Normal] [O-002] AudioWorkerInner::process_frame with two sources (100i16 and 50i16) mixes to 150i16 per sample (i32 accumulation), saturating at i16::MAX for overload.",
+            "UT: [Normal] [O-002] AudioWorkerInner::process_frame with a muted source skips it — the muted source contributes nothing and the output equals the unmuted sources' mix.",
+            "UT: [Normal] [O-002] AudioWorkerInner::process_frame applies per-source gain before mixing: gain=2.0 doubles the sample values (saturating).",
+            "**UT: [Normal] — RuntimeHandle / reactor audio lifecycle (O-003):**",
+            "UT: [Normal] [O-003] RuntimeHandle::submit_add_audio_source(Box<dyn AsyncAudioSource + Send>) against a live CoreReactor returns Ok(source_id: u64) via oneshot; reactor AudioMixer::source_count() reflects the addition.",
+            "UT: [Normal] [O-003] RuntimeHandle::submit_remove_audio_source(source_id), submit_set_audio_source_gain(source_id, gain), submit_mute_audio_source(source_id, muted) each submit and await Ok(()) replies.",
+            "UT: [Normal] [O-003] Reactor DispatchCommand::AddAudioSource arm calls the reactor-owned AudioMixer::add_source and replies Ok(source_id); next_source_id() advances.",
+            "UT: [Error] ConfConnect/ConfDisconnect with a dropped oneshot receiver — send_reply logs warn, no panic.",
+            "UT: [Error] AudioMixer::remove_source(nonexistent) returns Err(ReactorError::BackendError(\"source N not found\")); sources/gains/mutes unchanged.",
+            "UT: [Error] AudioMixer::set_gain(nonexistent) and AudioMixer::mute(nonexistent) return Err(ReactorError::BackendError).",
+            "UT: [Error] MockAsyncAudioSource::next_chunk on an exhausted (empty) source returns 0 without panicking.",
+            "UT: [Error] [O-002] AudioWorkerInner::process_frame with 0 sources pushes a zero-filled silence frame to out_queue and does not panic (out_queue.pop() returns Some(all zeros)).",
+            "UT: [Error] Reactor dispatch of a panicking Execute closure is caught by catch_unwind, sets terminated, and replies Err(ReactorError::BackendError(\"reactor panic: ...\")) (reactor.rs:80-109).",
+            "UT: [Error] RuntimeHandle::submit when is_terminated() returns Err(ReactorError::ReactorDown) (handle.rs:53-56).",
+            "UT: [Boundary] [O-005] AudioMixer add_source wraps at u64::MAX: the #[cfg(test)] setter sets next_source_id to u64::MAX; add_source returns u64::MAX, then the next add_source returns 0 (fetch_add wraps).",
+            "UT: [Boundary] AudioMixer::add_source with 32 sources: all stored, source_id 0..31, source_count == 32 (below the slab limit).",
+            "UT: [Boundary] gain == 0.0 accepted (silent source) by SetAudioSourceGain.",
+            "UT: [Boundary] gain == 2.0 accepted (max amplification) by SetAudioSourceGain.",
+            "UT: [Boundary] [O-006] AudioMixer::set_gain(id, -1.0) clamps to 0.0 (lower bound) and set_gain(id, 5.0) clamps to 2.0 (upper bound) — both bounds of the gain clamp invariant.",
+            "UT: [Boundary] AudioMixer::source_count returns 0 for an empty mixer and 1 for a single-source mixer.",
+            "UT: [Boundary] Multiple AudioWorkerTask instances (per-call) each with an independent AudioMixer — no cross-call interference (mixer1.source_count()==1, mixer2.source_count()==0).",
+            "UT: [Invariant] RuntimeCommand is Send + Sync (compile-time assertion).",
+            "UT: [Invariant] AudioMixer is Send + Sync (DashMap + crossbeam ArrayQueue) — compile-time assertion.",
+            "UT: [Invariant] AsyncAudioSource requires Send; MockAsyncAudioSource and Box<dyn ErasedAudioSource> are Send (compile-time).",
+            "UT: [Invariant] Every RuntimeCommand variant appears in Display/Debug match — exhaustive match over all 18 variants (a missing arm is a compile error).",
+            "UT: [Invariant] oneshot Sender is consumed exactly once per dispatch — the reactor sends exactly one result (Ok or Err) per command.",
+            "UT: [Invariant] source_id monotonically increases across add operations (sequential allocation).",
+            "UT: [C011-Postcondition] All 18 RuntimeCommand variants defined with typed oneshot::Sender — compile-time exhaustive match verifies no variant lacks a reply channel.",
+            "UT: [C011-Invariant] All PJSUA calls go through the MPSC channel — RuntimeCommand is converted to DispatchCommand and sent via handle.sender; no direct FFI outside the reactor thread.",
+            "UT: [C035-Postcondition] Source lifecycle API defined as RuntimeCommand variants (AddAudioSource/RemoveAudioSource/SetAudioSourceGain/MuteAudioSource); AudioWorkerTask::spawn/shutdown/process_frame exist.",
+            "UT: [C035-Invariant] source_id monotonically increases; concurrent add/remove does not corrupt source iteration (process_frame snapshots source_ids).",
+            "UT: [C036-Precondition] AsyncAudioSource trait defined with Send + async fn next_chunk(&mut self, buf: &mut [i16]) -> usize.",
+            "UT: [C036-Postcondition] AudioMixer stores Box<dyn AsyncAudioSource + Send> per source_id; AudioWorker calls next_chunk on each source during process_frame.",
+            "UT: [C036-Invariant] next_chunk returns 0 for an exhausted source; partial fill (< buf.len()) for end-of-stream; implementation is Send + Sync safe."
           ],
           "testIntegration": [
-            "IT: [RuntimeCommand → Reactor] Submit ConfConnect via RuntimeHandle.submit() → DispatchCommand::Execute dispatches to Backend → oneshot reply delivered — verify end-to-end with MockBackend",
-            "IT: [RuntimeCommand → Reactor] Submit ConfDisconnect via RuntimeHandle.submit() → DispatchCommand dispatches → oneshot reply delivered — verify end-to-end",
-            "IT: [RuntimeCommand → Reactor] Submit AddAudioSource via RuntimeHandle.submit() → RuntimeCommand converted to DispatchCommand → audio source lifecycle command processed — verify source_id returned via oneshot",
-            "IT: [RuntimeCommand → Reactor] Submit RemoveAudioSource via RuntimeHandle.submit() → source lifecycle command processed — verify result returned",
-            "IT: [RuntimeCommand → Reactor] Submit SetAudioSourceGain via RuntimeHandle.submit() → source lifecycle command processed — verify gain change reflected",
-            "IT: [RuntimeCommand → Reactor] Submit MuteAudioSource via RuntimeHandle.submit() → source lifecycle command processed — verify muted flag changed",
-            "IT: [AudioWorker → AudioMixer] AudioWorkerTask spawns, adds source via add_audio_source command, runs process_frame loop, verifies mixed output produced — end-to-end with MockAsyncAudioSource (Layer 2, in-memory only)",
-            "IT: [AudioWorker → AudioMixer] Multiple AudioWorker instances (per-call) each manage independent AudioMixer — verify no cross-call interference",
-            "",
+            "**IT: [RuntimeCommand → Reactor] — ConfConnect/ConfDisconnect (O-001):**",
+            "IT: [RuntimeCommand → Reactor] Submit RuntimeCommand::ConfConnect via RuntimeHandle::submit() against a live CoreReactor + MockBackend → DispatchCommand::Execute closure executes backend.conf_connect → oneshot reply Ok; MockBackend.conf_connect_calls records (call_id, call_id).",
+            "IT: [RuntimeCommand → Reactor] Submit RuntimeCommand::ConfDisconnect via RuntimeHandle::submit() → same flow → reply Ok; MockBackend.conf_disconnect_calls records (call_id, call_id).",
+            "**IT: [RuntimeCommand → Reactor] — Audio source lifecycle (O-003):**",
+            "IT: [RuntimeCommand → Reactor] Submit AddAudioSource via RuntimeHandle::submit_add_audio_source(source) → DispatchCommand::AddAudioSource → reactor AudioMixer.add_source → reply Ok(source_id); verify reactor source_count == 1.",
+            "IT: [RuntimeCommand → Reactor] Submit RemoveAudioSource via RuntimeHandle::submit_remove_audio_source(source_id) → reactor AudioMixer.remove_source → reply Ok; source_count decrements.",
+            "IT: [RuntimeCommand → Reactor] Submit SetAudioSourceGain via RuntimeHandle::submit_set_audio_source_gain(source_id, 0.5) → reactor AudioMixer.set_gain → reply Ok; mixer.gains[source_id] == 0.5.",
+            "IT: [RuntimeCommand → Reactor] Submit MuteAudioSource via RuntimeHandle::submit_mute_audio_source(source_id, true) → reactor AudioMixer.mute → reply Ok; mixer.mutes[source_id] == true.",
+            "IT: [RuntimeCommand → Reactor] Error path: submit_remove_audio_source/ set_audio_source_gain/ mute_audio_source with a non-existent source_id → reply Err(ReactorError::BackendError) (no panic, reply always sent).",
+            "**IT: [AudioWorker → AudioMixer] (O-002):**",
+            "IT: [AudioWorker → AudioMixer] AudioWorkerTask spawns with an AudioMixer, add a MockAsyncAudioSource, run the process_frame loop, and verify out_queue yields the expected mixed i16 frame.",
+            "IT: [AudioWorker → AudioMixer] Multiple AudioWorker instances (per-call) each manage an independent AudioMixer — verify no cross-call interference.",
             "**IT: [Integration point] — Interface between:**",
-            "  - RuntimeCommand::ConfConnect → DispatchCommand execution → Backend trait (conf_connect method)",
-            "  - RuntimeCommand::ConfDisconnect → DispatchCommand execution → Backend trait (conf_disconnect method)",
-            "  - RuntimeCommand audio source variants → DispatchCommand execution → AudioMixer mutex-protected state",
-            "  - AudioWorkerTask → AudioMixer::sources DashMap (lock-free concurrent access)",
-            "",
+            "  - RuntimeCommand::ConfConnect / ConfDisconnect → DispatchCommand::Execute closure → SipBackend::conf_connect / conf_disconnect",
+            "  - RuntimeCommand::AddAudioSource → DispatchCommand::AddAudioSource → reactor-owned AudioMixer::add_source",
+            "  - RuntimeCommand::RemoveAudioSource / SetAudioSourceGain / MuteAudioSource → dedicated DispatchCommand variants → AudioMixer::remove_source / set_gain / mute",
+            "  - AudioWorkerTask → AudioMixer::sources DashMap (lock-free concurrent access) → out_queue ArrayQueue",
             "**IT: [Verification] — Each integration test verifies:**",
             "  - Command variant is correctly converted from RuntimeCommand to DispatchCommand",
-            "  - MPSC channel delivers command to reactor thread (or blocking pool for AudioWorker)",
-            "  - Result propagates back through oneshot channel to caller",
-            "  - Error path: command failure returns ReactorError via oneshot, not panic",
-            "  - AudioWorker produces mixed output from multiple MockAsyncAudioSource inputs",
-            "",
+            "  - MPSC channel delivers the command to the reactor thread (or blocking pool for AudioWorker)",
+            "  - Result propagates back through the oneshot channel to the caller",
+            "  - Error path: command failure returns ReactorError via oneshot, never a panic",
+            "  - AudioWorker produces the expected mixed output from MockAsyncAudioSource inputs (exact i16 sample values)",
             "**IT: [Prerequisites] — For integration testing:**",
-            "  - MockBackend with conf_connect/conf_disconnect stub methods (return Ok(()))",
+            "  - MockBackend with observable conf_connect/conf_disconnect invocation counters",
             "  - MockAsyncAudioSource implementing AsyncAudioSource with canned frame data",
             "  - Test Tokio runtime (multi-thread for AudioWorker blocking tasks)",
-            "  - RuntimeHandle connected to live CoreReactor (not mock reactor)",
-            "",
+            "  - RuntimeHandle connected to a live CoreReactor (not a mock reactor)",
             "**IT: [Related tickets] — Related integration tickets:**",
-            "  - P0-2 (Concurrency Model — MPSC channel + reactor loop already tested)",
+            "  - P0-2 (Concurrency Model — MPSC channel + reactor loop)",
             "  - P0-4 (Error Design — SipError conversion path from ReactorError)",
-            "  - P2-? (FFI Backend — PjsuaBackend test with real conf_connect/conf_disconnect)"
+            "  - P2-4 (FFI Backend — PjsuaBackend with real conf_connect/conf_disconnect)"
           ],
           "testExceptions": [
-            "Item: AudioWorkerTask real-time frame processing with actual PJSIP media pipeline — cannot test because the process_frame loop depends on PJSUA conference bridge ports (pjsua_conf_port_id) which require a fully initialized PJSUA instance with active media. This is a Layer 3 integration dependency that cannot be satisfied in isolation. Not a design defect: the AudioWorkerTask is designed with a mockable AsyncAudioSource interface precisely to enable Layer 2 testing without the real PJSIP pipeline. Alternative verification: Layer 2 test with MockAsyncAudioSource feeding canned PCM frames into AudioMixer, verifying output buffer is non-empty and mixing formula (i32 accumulation -> saturating i16) produces correct values. See IT: [AudioWorker -> AudioMixer] integration tests.",
-            "Item: Real audio hardware timing and latency measurement — not testable because frame_duration (e.g. 20ms) scheduling accuracy depends on OS timer resolution and Tokio runtime latency. Unit-testing real-time scheduling guarantees requires real hardware or RTOS primitives not available in CI. Not a design defect: the frame_duration is documented as a minimum expected interval (not a hard deadline), and production monitoring via tracing spans provides real-time validation. Alternative verification: Document frame_duration as minimum expected interval. Add tracing span for actual-to-expected frame timing delta in production. Mock the timer in unit tests with tokio::time::advance().",
-            "Item: AsyncAudioSource trait cannot be fully tested for all possible implementations (Send + async correctness) — not testable in general because the trait is designed for external implementations (TTS engines, file readers, microphone captures). The crate cannot enumerate or test all possible implementations. Not a design defect: the trait contract is intentionally minimal (Send + next_chunk) and the crate provides a reference MockAsyncAudioSource implementation that contract-tests the trait boundary. Alternative verification: Exhaustive contract tests for MockAsyncAudioSource. Document required trait invariants (Send, next_chunk non-blocking, best-effort buffer fill). Compile-time Send + Sync assertions on the trait object."
+            "Item: AudioWorkerTask real-time frame processing with the actual PJSIP media pipeline — cannot test because process_frame's production sink is the PJSUA conference bridge (pjsua_conf_port_id), which requires a fully initialized PJSUA instance with active media. This is a Layer 3 integration dependency that cannot be satisfied in isolation. Not a design defect: the AudioWorkerTask is designed with a mockable AsyncAudioSource interface precisely to enable Layer 2 testing without the real PJSIP pipeline. Alternative verification: Layer 2 test with MockAsyncAudioSource feeding canned PCM frames into AudioMixer, asserting out_queue is non-empty and the mixing formula (i32 accumulation → saturating i16) produces exact values. See IT: [AudioWorker → AudioMixer].",
+            "Item: Real audio hardware timing and latency measurement — not testable because frame_duration (e.g. 20ms) scheduling accuracy depends on OS timer resolution and Tokio runtime latency. Unit-testing real-time scheduling guarantees requires real hardware or RTOS primitives not available in CI. Not a design defect: frame_duration is documented as a minimum expected interval (not a hard deadline), and production monitoring via tracing spans provides real-time validation. Alternative verification: document frame_duration as a minimum expected interval, add a tracing span for actual-to-expected frame timing delta, and mock the timer in unit tests with tokio::time::pause()/advance().",
+            "Item: AsyncAudioSource trait cannot be fully tested for all possible implementations (Send + async correctness) — impossible to test in general because the trait is designed for external implementations (TTS engines, file readers, microphone captures) that the crate cannot enumerate. Not an architectural defect: the trait contract is intentionally minimal (Send + next_chunk) and the crate provides a reference MockAsyncAudioSource that contract-tests the trait boundary. Alternative verification: exhaustive contract tests for MockAsyncAudioSource (full fill, partial fill, exhausted, multi-chunk), compile-time Send + Sync assertions on the trait object, and documented trait invariants."
           ],
           "acceptanceCriteria": [
-            "[Happy] All 17 RuntimeCommand variants compile, display correctly, and convert via from_runtime_command() without missing arms.",
-            "[Happy] ConfConnect/ConfDisconnect flow through MPSC to Backend and return oneshot reply with correct result.",
-            "[Happy] AddAudioSource → RemoveAudioSource → SetAudioSourceGain → MuteAudioSource sequence completes with correct typed responses.",
-            "[Happy] AudioWorkerTask::spawn() creates Tokio blocking task; process_frame iterates sources; mixed output buffer is non-empty with i16 samples.",
-            "[Error] RemoveAudioSource/SetAudioSourceGain/MuteAudioSource with non-existent source_id returns ReactorError.",
-            "[Error] ConfConnect/ConfDisconnect with invalid parameters returns Backend error via oneshot.",
-            "[Error] AudioWorker::process_frame with 0 sources: non-panicking, empty output buffer, continues next frame.",
-            "[Edge] AudioMixer::add_source with 32 sources: all stored, source_id increments correctly.",
-            "[Edge] gain=0.0 accepted (silent source). gain=2.0 accepted (max amplification).",
-            "[Edge] Duplicate remove on same source_id: first Ok, subsequent SourceNotFound.",
-            "[Edge] Multiple AudioWorker for concurrent calls: independent AudioMixer per call.",
-            "[Edge] AsyncAudioSource next_chunk returns 0 for exhausted source without panic."
+            "[Happy] All 18 RuntimeCommand variants compile, Display/Debug correctly, and convert via from_runtime_command() without missing arms (exhaustive match).",
+            "[Happy] ConfConnect/ConfDisconnect flow through MPSC to Backend: RuntimeHandle::submit() → DispatchCommand::Execute → backend.conf_connect/conf_disconnect → oneshot reply Ok, with MockBackend recording the invocation (O-001).",
+            "[Happy] AddAudioSource → RemoveAudioSource → SetAudioSourceGain → MuteAudioSource sequence via RuntimeHandle submit methods completes with correct typed responses (Ok(source_id) / Ok(())) (O-003).",
+            "[Happy] AudioWorkerTask::spawn() creates a Tokio blocking task; process_frame iterates sources; out_queue receives a non-empty i16 mixed frame with the exact expected sample values (O-002).",
+            "[Error] RemoveAudioSource/SetAudioSourceGain/MuteAudioSource with non-existent source_id returns ReactorError::BackendError via oneshot.",
+            "[Error] ConfConnect/ConfDisconnect backend failure returns BackendError via oneshot (no panic; reply always sent).",
+            "[Error] AudioWorker::process_frame with 0 sources: non-panicking, pushes a zero-filled silence frame, continues to the next frame.",
+            "[Edge] AudioMixer::add_source with 32 sources: all stored, source_id increments 0..31, source_count == 32.",
+            "[Edge] gain=0.0 accepted (silent source). gain=2.0 accepted (max amplification). gain=-1.0 clamps to 0.0; gain=5.0 clamps to 2.0 (O-006).",
+            "[Edge] Duplicate remove on the same source_id: first Ok, subsequent Err(SourceNotFound).",
+            "[Edge] Multiple AudioWorker for concurrent calls: independent AudioMixer per call, no cross-call interference.",
+            "[Edge] AsyncAudioSource next_chunk returns 0 for an exhausted source without panic; partial fill < buf.len() for end-of-stream.",
+            "[Edge] AudioMixer add_source wraps at u64::MAX → the next assigned id is 0 (fetch_add wrap) (O-005)."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§7.2, §24.3)",
           "relatedTicketIds": "P1-1 (depends on: concurrency model defines MPSC pattern), P2-3 (related: events trigger from command completions), P5-? (depends on: FFI backend implements actual PJSUA calls)",
-          "notes": "- [Implementation steps] 1) Add conf_connect/conf_disconnect to Backend trait + MockBackend (backend.rs). 2) Add 6 new RuntimeCommand variants (command.rs). 3) Update DispatchCommand and from_runtime_command (command.rs). 4) Update Display impls (command.rs). 5) Create audio_worker.rs with AsyncAudioSource trait, AudioMixer struct, AudioWorkerTask struct, MockAsyncAudioSource. 6) Update runtime/mod.rs with new module. 7) Update handle.rs for new submit methods. 8) Update tests.\n- [Risks] DashMap iteration + mutation in AudioWorker::process_frame may cause inconsistent iteration if sources are added/removed during iteration. Mitigation: collect source IDs before iteration loop. AsyncAudioSource next_chunk is async — must use tokio::select! or similar to avoid deadlock.\n- [Caveats] RuntimeCommand::AddAccount still uses String for config (P0-7 stub). Reply type remains Result<(), ReactorError> — SipError conversion happens at the public API boundary (SipClient), not inside RuntimeCommand.\n- [Open items] Should AudioWorkerTask::spawn() take frame_duration parameter or read from config? Current decision: parameter (config integration deferred to P1+). Should AddAudioSource resolve source_id internally or accept caller-provided ID? Current decision: internal sequential allocation.\n- [Future improvements] Slab-based source allocation (P1+). Per-source priority mixing (P2+). AsyncAudioSource f32 migration. AudioWorker dynamic frame_duration adjustment.\nImplementation summary:\n- Changed files: audio_worker.rs (NEW), command.rs, backend.rs, handle.rs, reactor.rs, mod.rs, Cargo.toml, asyncaudiosrc_adapter.rs\n- Key changes:\n  * Backend trait: added conf_connect() + conf_disconnect() methods and MockBackend stubs\n  * RuntimeCommand: added 6 new variants (ConfConnect, ConfDisconnect, AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource) = 17 total\n  * DispatchCommand: added AddAudioSource variant for typed source_id reply\n  * AsyncAudioSource trait: defined with #[async_trait] + Send bound\n  * AudioMixer: DashMap-based source management with add/remove/set_gain/mute/source_count\n  * AudioWorkerTask: Tokio blocking-pool worker with process_frame loop and graceful shutdown\n  * MockAsyncAudioSource: test double for AsyncAudioSource with canned PCM data\n  * Cargo.toml: added dashmap, async-trait deps\n- Test results: all 218 unit tests passed\n- Remaining STUBs: audio source lifecycle (P0-7), FFI constants (P2-4), PjsuaBackend (P2-4)\nReview report:\n- Static quality check: passed\n- Translatability: 2 minor items noted (n variable, 160 constant)\n- Dependencies: dashmap 6, async-trait 0.1 — consistency verified\n- Annotations: all 12 changed source files verified with ticket-key provenance\n- AMBIGUOUS markers: all 9 resolved\n- STUB references: P0-6 → P2-4 corrected in 7 files\n- Issues found and fixes applied: yes (STUB ticket refs, annotation injection)",
+          "notes": "- [Implementation steps] 1) Add observable conf_connect/conf_disconnect invocation counters to MockBackend (backend.rs). 2) Add dedicated DispatchCommand variants RemoveAudioSource/SetAudioSourceGain/MuteAudioSource (command.rs) and update from_runtime_command/Debug/Display. 3) Add a reactor-owned Arc<AudioMixer>; wire the AddAudioSource arm to mixer.add_source and the three new arms to mixer ops (reactor.rs). 4) Add RuntimeHandle::submit_add_audio_source / submit_remove_audio_source / submit_set_audio_source_gain / submit_mute_audio_source (handle.rs). 5) Add a #[cfg(test)] next_source_id setter to AudioMixer (audio_worker.rs). 6) Add the O-001..O-006 unit + integration tests. 7) Run make test.\n- [Risks] The reactor Execute closure only receives &mut dyn SipBackend, not the mixer — audio-lifecycle commands that mutate the mixer cannot be handled inside a plain Execute closure; they need dedicated DispatchCommand variants processed by the reactor loop (single-writer rule). DashMap iteration in process_frame must snapshot source_ids (already done) to avoid invalidation.\n- [Caveats] The reactor mixer is a single default-call mixer for now; per-call routing of audio-lifecycle commands (call_id scoping) is a P2+ concern and requires adding a call_id field to the variants. Reply type remains Result<_, ReactorError> — SipError conversion happens at the public API boundary (SipClient).\n- [Open items] Should the audio-lifecycle commands carry call_id for per-call routing? Current decision: no — a single reactor-owned default mixer is in scope; per-call routing is P2+. Should AddAudioSource resolve source_id internally or accept a caller-provided ID? Current decision: internal sequential allocation via AtomicU64.\n- [Future improvements] Slab-based source allocation (P1+). Per-source priority mixing (P2+). AsyncAudioSource f32 migration. AudioWorker dynamic frame_duration adjustment. Per-call AudioMixer routing from the reactor.\nImplementation summary (P8-1 round 2):\n- Changed files: runtime/command.rs, runtime/handle.rs, runtime/reactor.rs, runtime/backend.rs, runtime/audio_worker.rs, tests/runtime_audio_lifecycle.rs (NEW), specs/P8-1.md\n- Key changes:\n  * DispatchCommand gained RemoveAudioSource / SetAudioSourceGain / MuteAudioSource dedicated variants (O-003)\n  * RuntimeHandle gained 4 submit_*_audio_* methods; submit() handles the new variants (no unreachable for audio)\n  * Reactor owns Arc<AudioMixer>; AddAudioSource/RemoveAudioSource/SetAudioSourceGain/MuteAudioSource arms mutate it\n  * MockBackend records conf_connect_calls / conf_disconnect_calls (O-001)\n  * AudioMixer gained #[cfg(test)] set_next_source_id (O-005)\n  * process_frame extracted apply_gain_to_frame helper; renamed n->samples_written, g->gain_value\n  * Integration tests: tests/runtime_audio_lifecycle.rs (6 tests: ConfConnect/ConfDisconnect E2E, audio lifecycle sequence + error path, AudioWorker mixed output, independent mixers)\n- Test results: make test all green (694 lib + 6 new integration + 37 spec + 8 other + 1 doc)\n- Quality check: 80 findings, all in test code (unwrap/expect per existing convention) or false positives (provenance markers/doc comments); production code has no new unwraps\n- Crimes: 32 stale P0-7/P2-4 records classified false_positive; record 85 (reactor AddAudioSource) resolved\n- Remaining STUBs: audio_worker/handle/reactor P3-2/P4-2 query-API & FFI stubs (out of scope, deferred to owning tickets)\nReview report (P8-1 round 2):\n- Static quality check: passed\n- Translatability: no blocking issues — production code clean (apply_gain_to_frame extraction, n->samples_written, g->gain_value)\n- Dependencies: dashmap 6, crossbeam-queue 0.3, async-trait 0.1 — consistency verified (no new deps)\n- Annotations: all 6 changed source files verified with P8-1 ticket-key provenance; 0 AMBIGUOUS markers\n- STUB references: reactor.rs AddAudioSource P4-2 stub resolved and removed; 12 remaining runtime stubs correctly deferred to P3-2/P3-1/P4-2/P0-2\n- Crimes: 0 open (32 stale P0-7/P2-4 records classified false_positive; record 85 resolved)\n- O-001..O-006 ABC gaps: all closed with behavioral tests (closure-invocation, process_frame mix pipeline, audio-lifecycle reactor routing, ConfDisconnect conversion, u64 wrap, gain lower clamp)\n- Issues found and fixes applied: none blocking — test-code unwraps follow existing convention",
           "default_files": [
             "src/concurrency_contexts/command_serialization.rs"
           ],
           "id": 1,
           "phaseId": 8,
-          "status": "todo",
-          "invariants": "[Normal condition] RuntimeCommand variants are all distinct enum discriminants. oneshot::Sender exists per variant and is not consumed before dispatch (reply channel is discarded and replaced by RuntimeHandle::submit() — this is expected). AudioMixer source_id starts at 0 and increments monotonically.\n[Error invariant] oneshot::Sender is always resolved (send() called) in every code path of reactor dispatch — even on panic, the reply channel receives ReactorError::BackendError. AudioMixer state is never partially modified: add_source either fully inserts or is a no-op.\n[Internal state invariant] AudioMixer::sources DashMap is the single source of truth for active sources. AudioWorker holds the only Arc reference to AudioMixer (no dangling references). RuntimeCommand reply channels are consumed exactly once by the reactor.\n[Boundary invariant] u64 source_id wraps correctly from MAX to 0+1 (next available). Max 32 sources documented for slab optimization (future P1+). AudioWorker::process_frame must handle 0 sources (empty mix) and 1 source (passthrough). gain clamped to [0.0, 2.0] range.",
-          "instrumentation": "- [Logging] RuntimeCommand dispatch logged at trace level (variant name, command ID). AudioWorker process_frame logged at trace (frame count, source count, duration). Source lifecycle operations logged at debug level (operation, source_id, result).\n- [Metrics] Command dispatch latency histogram (tracing::span). AudioWorker process_frame duration per call. Source count gauge per AudioMixer.\n- [Error tracking] oneshot send failure logged at warn level (receiver dropped expected on cancellation). AudioWorker panic caught and logged at error level with source_id and call_id context. ReactorError::BackendError wraps backend failure with diagnostic message.\n- [Health check] AudioWorker terminated flag via atomic. Worker join handle monitored. process_frame deadline exceeded warning.\nStatic quality check: passed (25 findings: all in test code or intentional comments)\nTranslatability: no blocking issues (minor: single-letter n for sample count, hardcoded 160 = 20ms@8kHz — deferred to P1+)\nTests: all 255 tests passed (218 unit + 37 spec + 0 doc)\nCrimes: 0 unresolved\nSTUBs: 12 P0-6-related, all deferred to P2-4 correctly",
-          "investigation": "Evidence gathered from source code investigation:\n\n1. RuntimeCommand (runtime/command.rs, lines 44-97): 11 existing variants with oneshot::Sender<Result<(), ReactorError>>. Missing: ConfConnect, ConfDisconnect, AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource. GetAccountInfo exists with typed AccountInfoSnapshot response. All variants use ReactorError, not SipError.\n\n2. DispatchCommand (runtime/command.rs, lines 132-145): 3 internal variants (Execute, GetAccountInfo, Shutdown). ConfConnect/ConfDisconnect would map through Execute. Audio source commands need a new DispatchCommand variant or Execute closure.\n\n3. Backend trait (runtime/backend.rs, lines 16-66): 12 methods. Missing conf_connect(conf_port_id: i32) and conf_disconnect(conf_port_id: i32). MockBackend (lines 71-177) returns canned responses.\n\n4. SipError (error/error_design_siperror.rs): 23 variants. M20 error converters (m20_runtime_command_error.rs) exist for ConfConnect/ConfDisconnect/GetAccountInfo — these convert pj_status to SipErrorKind.\n\n5. audio_worker: No existing implementation. Stub files (asyncaudiosrc_adapter.rs, audio_subscribe_bp.rs) contain only trait Service {}. AsyncAudioSource trait not defined.\n\n6. Cargo.toml: No dashmap or crossbeam dependency. serde available behind feature flag.\n\n7. command_serialization.rs (concurrency_contexts/): Deprecated stub — marked for removal in P0-6.\n\n8. AudioMixer: Not implemented anywhere. RFC defines sources: DashMap, gain: HashMap, out_queue: SegQueue, in_queue: SegQueue design.\n\n9. N0032 (Section 23 AsyncAudioSource) is a prerequisite for N0034 (Section 24.3 AudioWorkerTask) — must define AsyncAudioSource trait before AudioWorker can use it.\n\n10. Test pattern: Existing tests use tokio::test, oneshot channel verification, compile-time Send+Sync assertions. New tests should follow same patterns.",
-          "boyScoutPlan": "1. runtime/command.rs (modified): Replace trivial comment on DispatchCommand::Execute with \"Execute a command closure against the reactor-owned Backend\". Add doc on why ConfConnect/ConfDisconnect map through Execute rather than dedicated DispatchCommand variants.\n\n2. runtime/backend.rs (modified): Extract doc comment block explaining Backend trait design rationale (Testability via MockBackend, FFI encapsulation). Document conf_connect/conf_disconnect conference port semantics.\n\n3. runtime/handle.rs (modified): Replace unreachable!() for GetAccountInfo with compile-time verification. Add doc comments for new audio lifecycle submit methods explaining oneshot channel creation pattern.\n\n4. api/asyncaudiosrc_adapter.rs (replaced): Replace stub trait Service {} with correct AsyncAudioSource trait, #[async_trait], and contract documentation (Send, next_chunk behavior, buffer semantics).\n\n5. concurrency_contexts/command_serialization.rs (deprecated): The stub claims \"kept for reference\" with no actual references — this is misleading. Add explicit deprecation message referencing all callers (currently none) so removal is verifiable.",
+          "status": "reviewed",
+          "invariants": "[Normal condition] RuntimeCommand has 18 distinct enum discriminants, each carrying a typed oneshot::Sender; reply channels are always created at construction and replaced by RuntimeHandle::submit()'s fresh channel (never reused). AudioMixer source_id starts at 0 and increments monotonically; per-source gain defaults to 1.0 and muted to false on add_source.\n[Error invariant] oneshot::Sender is always resolved (send() called) in every code path of reactor dispatch — including the panic path, which replies Err(ReactorError::BackendError) before setting terminated. AudioMixer state is never partially modified: add_source fully inserts source+gain+mute or is a no-op; remove_source removes all three maps together.\n[Internal state invariant] The reactor's AudioMixer is the single source of truth for the default-call audio sources; AudioWorkerTask holds its own Arc<AudioMixer> per call. RuntimeCommand reply channels are consumed exactly once by the reactor. process_frame snapshots source_ids before iteration so concurrent add/remove cannot corrupt iteration.\n[Boundary invariant] u64 source_id wraps correctly from MAX to 0 (fetch_add wraps; the next available id after MAX is 0). Max 32 sources documented for slab optimization (future P1+). AudioWorker::process_frame must handle 0 sources (zero-filled silence) and 1 source (passthrough). gain clamped to [0.0, 2.0] on both bounds (negative clamps to 0.0, above 2.0 clamps to 2.0).",
+          "instrumentation": "- [Logging] RuntimeCommand dispatch logged at trace level (variant name via Display). AudioWorker process_frame logged at trace (source_count, mixed frame seq). Source lifecycle ops logged at debug (operation, source_id, gain/muted, result). Reactor panic logged at error with panic payload.\n- [Metrics] Command dispatch latency via tracing::span (submit → reply). AudioWorker process_frame duration per call. Source-count gauge per AudioMixer (source_count()). out_queue fill ratio for RT-callback backpressure observation.\n- [Error tracking] oneshot send failure logged at warn (receiver dropped on caller cancellation). Reactor catch_unwind replies Err(BackendError) and logs error with panic_msg. AudioMixer source-not-found errors surface as ReactorError::BackendError with source_id in the message.\n- [Health check] AudioWorkerTask::is_running() atomic flag; shutdown() awaits the JoinHandle. process_frame must never panic on 0 sources (zero-filled silence frame). Reactor is_terminated() flag set on shutdown and panic.\nStatic quality check: passed (80 findings — all in test code unwrap/expect per existing convention, or false positives on provenance markers/doc comments; production code has no new unwraps)\nTranslatability: no blocking issues (production code clean; single-letter vars and 160 literals confined to test code)\nTests: all 746 tests passed (694 lib + 6 integration + 37 spec + 8 other + 1 doc)",
+          "investigation": "Evidence from source-code investigation (round 2 — post P0-6/P7-2 implementation, pre-ABC rework):\n\n1. RuntimeCommand (src/runtime/command.rs:44-144) — all 18 variants present: Initialize, AddAccount, RemoveAccount, SetRegistration, MakeCall, Hangup, Hold, Unhold, SendDtmf, GetAccountInfo, QueryState, ConfConnect, ConfDisconnect, AddAudioSource, RemoveAudioSource, SetAudioSourceGain, MuteAudioSource, Shutdown. The ticket's earlier \"17 variants\" count predates QueryState (P7-2) and must be corrected to 18.\n\n2. DispatchCommand (command.rs:217-252) — 6 variants: Execute, AddAudioSource, GetAccountInfo, AddAccount, QueryState, Shutdown. RemoveAudioSource/SetAudioSourceGain/MuteAudioSource map to Execute closures that return a hardcoded Err(BackendError(\"audio source lifecycle not yet connected (P0-7)\")) (command.rs:349-383). These closures only receive &mut dyn SipBackend, so they cannot mutate a mixer — they must become dedicated reactor-loop dispatch arms.\n\n3. RuntimeHandle (handle.rs:24-140) — submit() has unreachable!(\"use submit_add_audio_source instead\") for AddAudioSource (handle.rs:73-75) but NO submit_add_audio_source method exists anywhere in the crate (O-003). The four audio-lifecycle submit methods must be added.\n\n4. Reactor (reactor.rs:55-220) — DispatchCommand::AddAudioSource arm (reactor.rs:111-123) is a stub replying Err(BackendError). The reactor owns client_state: ClientState (state.rs:42-52) which has NO AudioMixer field. The reactor must own an Arc<AudioMixer> to route audio-lifecycle commands.\n\n5. Backend trait (backend.rs:16-98) — SipBackend already has conf_connect(&mut self, source: i32, sink: i32) and conf_disconnect (backend.rs:91-98). MockBackend.conf_connect/conf_disconnect (backend.rs:250-257) return Ok(()) with NO observable side effect — tests cannot verify the from_runtime_command closure actually invokes them (O-001).\n\n6. AudioMixer (audio_worker.rs:130-224) — sources: DashMap<u64, Arc<tokio::sync::Mutex<Box<dyn AsyncAudioSource + Send>>>>, gains/mutes DashMaps, next_source_id: AtomicU64, out_queue/in_queue: crossbeam_queue::ArrayQueue<Vec<i16>>. add_source uses fetch_add(1) (audio_worker.rs:172-178) — the u64::MAX wrap is untestable without a test hook (O-005). set_gain clamps to [0.0, 2.0] (audio_worker.rs:193-202) — only the upper clamp is tested (O-006).\n\n7. AudioWorkerTask/AudioWorkerInner (audio_worker.rs:242-383) — spawn uses tokio::task::spawn_blocking with Handle::current().block_on; run() loops process_frame + sleep(frame_duration). process_frame (audio_worker.rs:336-382) snapshots source_ids, calls next_chunk per source, mixes via mix_i16_frame, pushes to out_queue. No test exercises process_frame with sources present and asserts out_queue content (O-002).\n\n8. asyncaudiosrc_adapter.rs — AsyncAudioSource (re-exported), ErasedAudioSource blanket impl, SyncAudioSource, SyncSourceAdapter all implemented (P5-2). MockAsyncAudioSource (audio_worker.rs:37-61) provides canned data.\n\n9. Cargo.toml — dashmap = \"6\", async-trait = \"0.1\", crossbeam-queue = \"0.3\" already present.\n\n10. Malfeasance.json — 94 records (53 false_positive, 9 resolved, 32 open). The 32 open crimes match the ticket's targetCrimes (TS-001..TS-033 minus resolved TS-020), all ORPHAN_TICKET_REF stubs owned by P0-7/P2-4 with false-positive justifications already recorded.\n\n11. The implementation target file src/concurrency_contexts/command_serialization.rs (N0010's mapped file) does not exist — the runtime implementation lives in src/runtime/ (mod.rs re-exports). The spec reflects the actual file layout.",
+          "boyScoutPlan": "1. src/runtime/command.rs (modified): The three audio-lifecycle Execute closures that return hardcoded BackendError (\"audio source lifecycle not yet connected (P0-7)\") are untranslatable dead-ends — replace them with real dedicated DispatchCommand variants handled by the reactor. Add a doc comment explaining why audio-lifecycle commands need dedicated dispatch variants (they mutate reactor-owned mixer state, which a &mut dyn SipBackend closure cannot reach).\n2. src/runtime/handle.rs (modified): Replace the unreachable!() arms for AddAudioSource/GetAccountInfo/QueryState with real methods (submit_add_audio_source etc.) and a doc comment explaining the oneshot-channel creation pattern (submit → DispatchCommand → reactor → reply).\n3. src/runtime/reactor.rs (modified): Replace the AddAudioSource stub arm with a real mixer.add_source call; add mixer-backed arms for the other three lifecycle commands. Document the single-writer rule (reactor thread owns the mixer).\n4. src/runtime/backend.rs (modified): MockBackend gains observable conf_connect/conf_disconnect counters; document the rationale (a backend method with no observable side effect is untestable). Document conference-port semantics (source/sink are pjsua_conf_port_id).\n5. src/runtime/audio_worker.rs (modified): Add a #[cfg(test)] next_source_id setter so the u64::MAX wrap invariant is testable — an untestable invariant is an architectural (testability) defect per the Implementation Order. Extract the gain-application loop into a named function (apply_gain_to_frame) for translatability.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-020",
-              "ticketRef": "P0-6",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 82,
-              "markerText": "// [::STUB::] P0-6: MockBackend provides canned responses for reactor unit tests.",
-              "contracts": [
-                "C011"
-              ],
-              "status": "resolved",
-              "resolutionPlan": ""
-            }
-          ],
-          "targetCrimes": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 17,
-              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
-              "line": 27,
-              "markerText": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
-              "line": 32,
-              "markerText": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
-              "line": 15,
-              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 201,
-              "markerText": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 304,
-              "markerText": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 93,
-              "markerText": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 138,
-              "markerText": "// [::STUB::] P0-7: Return real account information once the account state",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 58,
-              "markerText": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 72,
-              "markerText": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 167,
-              "markerText": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 171,
-              "markerText": "// [::STUB::] P0-7: call_id stored for future query API.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 174,
-              "markerText": "// [::STUB::] P0-7: frame_duration stored for future query API.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 178,
-              "markerText": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 234,
-              "markerText": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 180,
-              "markerText": "// [::STUB::] P0-7: Return real account information once the account state",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 28,
-              "markerText": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-023",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-024",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "// [::STUB::] P0-7: Route to AudioMixer stored in",
-              "contracts": [
-                "C011",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-025",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
-              "line": 87,
-              "markerText": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-026",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-027",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-028",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-029",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-030",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 136,
-              "markerText": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
-              "contracts": [
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-031",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-032",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 11,
-              "markerText": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            },
-            {
-              "id": "TS-033",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 23,
-              "markerText": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
-              "contracts": [
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "pending",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "Pre-existing stub for FFI layer (P2-4). P0-6 correctly deferred after extending RuntimeCommand and Backend interfaces. Resolution requires real PJSIP FFI integration (P2-4)."
-              },
-              "false_positive": true
-            }
-          ],
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [C011-Precondition] Concurrency model established\n  ```rust\n  // Precondition: MPSC channel exists, CoreReactor thread running\n  let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();\n  let terminated = Arc::new(AtomicBool::new(false));\n  let handle = RuntimeHandle::new(tx, terminated.clone(), Weak::new());\n  assert!(!handle.is_terminated(), \"reactor must be running\");\n  ```",
-            "UT: [C011-Postcondition] RuntimeCommand all 17 variants defined with oneshot\n  ```rust\n  // Postcondition: Each variant has typed oneshot::Sender\n  let (tx, _rx) = tokio::sync::oneshot::channel();\n  let cmd = RuntimeCommand::ConfConnect { call_id: 42, reply: tx };\n  let display = format!(\"{cmd}\");\n  assert_eq!(display, \"RuntimeCommand::ConfConnect\");\n  ```",
-            "UT: [C011-Invariant] All PJSUA calls go through MPSC\n  ```rust\n  // Invariant: RuntimeCommand converted to DispatchCommand, sent via MPSC\n  let cmd = RuntimeCommand::ConfConnect { call_id: 1, reply: tokio::sync::oneshot::channel().0 };\n  let dispatch = DispatchCommand::from_runtime_command(cmd);\n  let sent = handle.sender.send(dispatch);\n  assert!(sent.is_ok(), \"command must be sendable via MPSC channel\");\n  ```",
-            "UT: [C035-Precondition] AudioMixer defined with DashMap sources\n  ```rust\n  // Precondition: AudioMixer exists with DashMap\n  let mixer = AudioMixer::new();\n  assert!(mixer.source_count() == 0, \"empty sources\");\n  assert!(mixer.next_source_id() == 0, \"first source_id starts at 0\");\n  ```",
-            "UT: [C035-Postcondition] AudioWorkerTask spawn with process_frame\n  ```rust\n  // Postcondition: Worker spawns on Tokio blocking pool\n  let mixer = Arc::new(AudioMixer::new());\n  let worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));\n  assert!(worker.is_running(), \"worker must be running after spawn\");\n  worker.shutdown().await;\n  assert!(!worker.is_running(), \"worker must stop after shutdown\");\n  ```",
-            "UT: [C035-Invariant] Sources added/removed at frame boundaries\n  ```rust\n  // Invariant: source_id monotonically increases\n  let mut mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  assert!(id2 > id1, \"source_id must increase: {id1} < {id2}\");\n  ```",
-            "UT: [C036-Precondition] AsyncAudioSource trait defined\n  ```rust\n  // Precondition: Trait exists with Send + next_chunk\n  fn assert_send<T: Send>() {}\n  fn assert_next_chunk<T: AsyncAudioSource>(src: &mut T, buf: &mut [i16]) -> usize {\n      src.next_chunk(buf)\n  }\n  let mut mock = MockAsyncAudioSource::new(vec![1i16, 2i16, 3i16]);\n  assert_send::<MockAsyncAudioSource>();\n  ```",
-            "UT: [C036-Postcondition] AudioMixer stores Box<dyn AsyncAudioSource>\n  ```rust\n  // Postcondition: source stored and next_chunk returns data\n  let mut mixer = AudioMixer::new();\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![5i16; 160])));\n  let mut buf = vec![0i16; 160];\n  let n = mixer.next_chunk_from(id, &mut buf).unwrap();\n  assert!(n > 0, \"must read samples from source\");\n  assert_eq!(buf[0], 5i16, \"sample value matches mock data\");\n  ```",
-            "UT: [C036-Invariant] next_chunk returns 0 for exhausted source\n  ```rust\n  // Invariant: exhausted source returns 0 without panic\n  let mut source = MockAsyncAudioSource::new(vec![]); // empty = exhausted\n  let mut buf = vec![0i16; 160];\n  let n = source.next_chunk(&mut buf).await;\n  assert_eq!(n, 0, \"exhausted source must return 0\");\n  ```",
-            "UT: [C036-Invariant] next_chunk partial fill for end-of-stream\n  ```rust\n  // Invariant: source with fewer samples than buffer returns actual count\n  let mut source = MockAsyncAudioSource::new(vec![1i16, 2i16]); // 2 samples\n  let mut buf = vec![0i16; 160];\n  let n = source.next_chunk(&mut buf).await;\n  assert_eq!(n, 2, \"partial fill returns actual sample count\");\n  assert_eq!(buf[0], 1i16, \"first sample correct\");\n  assert_eq!(buf[1], 2i16, \"second sample correct\");\n  ```"
+            "UT: [C011-Postcondition] RuntimeCommand all 18 variants defined with oneshot\n  ```rust\n  // Postcondition: each variant has a typed oneshot::Sender (18 exhaustive arms)\n  let (tx, _rx) = tokio::sync::oneshot::channel();\n  let cmd = RuntimeCommand::ConfConnect { call_id: 42, reply: tx };\n  let display = format!(\"{cmd}\");\n  assert_eq!(display, \"RuntimeCommand::ConfConnect\");\n  ```",
+            "UT: [C011-Postcondition] Every variant has a DispatchCommand mapping\n  ```rust\n  // Postcondition: from_runtime_command is total over all 18 variants\n  let (tx, rx) = tokio::sync::oneshot::channel();\n  let cmd = RuntimeCommand::ConfDisconnect { call_id: 7, reply: tx };\n  match DispatchCommand::from_runtime_command(cmd) {\n      DispatchCommand::Execute { .. } => {}\n      _ => panic!(\"ConfDisconnect must map to Execute\"),\n  }\n  drop(rx);\n  ```",
+            "UT: [O-001] from_runtime_command ConfConnect closure invokes backend.conf_connect\n  ```rust\n  // O-001: execute the closure and assert the backend method is called\n  let mut backend = MockBackend::new();\n  let (tx, _rx) = tokio::sync::oneshot::channel();\n  let cmd = RuntimeCommand::ConfConnect { call_id: 9, reply: tx };\n  let dispatch = DispatchCommand::from_runtime_command(cmd);\n  match dispatch {\n      DispatchCommand::Execute { f, .. } => { let r = f(&mut backend); assert!(r.is_ok()); }\n      _ => panic!(),\n  }\n  assert_eq!(backend.conf_connect_calls, vec![(9i32, 9i32)]);\n  ```",
+            "UT: [O-002] process_frame pushes a mixed frame to out_queue\n  ```rust\n  // O-002: run the worker internals with a source and assert the mixed frame\n  let mixer = Arc::new(AudioMixer::new());\n  mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  let mut inner = AudioWorkerInner {\n      mixer: mixer.clone(), call_id: 1, frame_duration: Duration::from_millis(20),\n      shutdown_signal: Arc::new(AtomicBool::new(false)),\n  };\n  inner.process_frame().await;\n  let frame = mixer.out_queue.pop().expect(\"mixed frame\");\n  assert_eq!(frame.len(), 160);\n  assert!(frame.iter().all(|&s| s == 100i16));\n  ```",
+            "UT: [O-002] process_frame with 0 sources pushes zero-filled silence\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  let mut inner = AudioWorkerInner { mixer: mixer.clone(), call_id: 1, frame_duration: Duration::from_millis(20), shutdown_signal: Arc::new(AtomicBool::new(false)) };\n  inner.process_frame().await; // must not panic\n  let frame = mixer.out_queue.pop().expect(\"silence frame\");\n  assert!(frame.iter().all(|&s| s == 0));\n  ```",
+            "UT: [O-003] RuntimeHandle audio-lifecycle submit methods\n  ```rust\n  let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n  let id = handle.submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160]))).await.unwrap();\n  assert_eq!(id, 0);\n  handle.submit_set_audio_source_gain(id, 0.5).await.unwrap();\n  handle.submit_mute_audio_source(id, true).await.unwrap();\n  handle.submit_remove_audio_source(id).await.unwrap();\n  drop(handle); let _ = join.join();\n  ```",
+            "UT: [O-005] AudioMixer add_source wraps at u64::MAX\n  ```rust\n  let mixer = AudioMixer::new();\n  mixer.set_next_source_id(u64::MAX); // #[cfg(test)] hook\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  assert_eq!(id1, u64::MAX);\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  assert_eq!(id2, 0, \"fetch_add wraps to 0\");\n  ```",
+            "UT: [O-006] set_gain clamps both bounds\n  ```rust\n  let mixer = AudioMixer::new();\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  mixer.set_gain(id, -1.0).unwrap();\n  assert_eq!(*mixer.gains.get(&id).unwrap(), 0.0);\n  mixer.set_gain(id, 5.0).unwrap();\n  assert_eq!(*mixer.gains.get(&id).unwrap(), 2.0);\n  ```",
+            "UT: [C035-Precondition] AudioMixer defined with DashMap sources, AtomicU64 next_source_id, gain/mute maps\n  ```rust\n  let mixer = AudioMixer::new();\n  assert_eq!(mixer.source_count(), 0, \"empty sources\");\n  assert_eq!(mixer.next_source_id(), 0, \"first source_id starts at 0\");\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  assert_eq!(id, 0);\n  assert!(mixer.sources.contains_key(&0));\n  assert_eq!(*mixer.gains.get(&0).unwrap(), 1.0);\n  assert!(!*mixer.mutes.get(&0).unwrap());\n  ```",
+            "UT: [C035-Postcondition] AudioWorkerTask::spawn/shutdown and source-lifecycle API on the reactor-owned mixer\n  ```rust\n  let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n  let source_id = handle.submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160]))).await.unwrap();\n  assert_eq!(source_id, 0, \"reactor mixer assigns source_id 0\");\n  handle.submit_set_audio_source_gain(source_id, 0.5).await.unwrap();\n  handle.submit_mute_audio_source(source_id, true).await.unwrap();\n  handle.submit_remove_audio_source(source_id).await.unwrap();\n  drop(handle); let _ = join.join();\n  ```",
+            "UT: [C035-Invariant] source_id monotonically increases; concurrent add/remove does not corrupt iteration\n  ```rust\n  let mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  assert!(id2 > id1, \"source_id must increase: {id1} < {id2}\");\n  // process_frame snapshots source_ids before iterating (no DashMap invalidation)\n  let mixer = Arc::new(mixer);\n  let mut inner = AudioWorkerInner { mixer: mixer.clone(), call_id: 1, frame_duration: Duration::from_millis(20), shutdown_signal: Arc::new(AtomicBool::new(false)) };\n  inner.process_frame().await;\n  assert!(mixer.out_queue.pop().is_some(), \"frame produced after concurrent-style mutation\");\n  ```",
+            "UT: [C036-Precondition] AsyncAudioSource trait defined: Send + async fn next_chunk(&mut self, buf: &mut [i16]) -> usize\n  ```rust\n  fn assert_send<T: Send>() {}\n  assert_send::<MockAsyncAudioSource>();\n  let mut src = MockAsyncAudioSource::new(vec![5i16, 6i16]);\n  let mut buf = vec![0i16; 160];\n  let n = src.next_chunk(&mut buf).await;\n  assert_eq!(n, 2, \"partial fill returns actual sample count\");\n  assert_eq!(buf[0], 5i16);\n  assert_eq!(buf[1], 6i16);\n  ```",
+            "UT: [C036-Postcondition] AudioMixer stores Box<dyn AsyncAudioSource + Send>; AudioWorker calls next_chunk during process_frame\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  let mut inner = AudioWorkerInner { mixer: mixer.clone(), call_id: 1, frame_duration: Duration::from_millis(20), shutdown_signal: Arc::new(AtomicBool::new(false)) };\n  inner.process_frame().await;\n  let frame = mixer.out_queue.pop().expect(\"mixed frame must be pushed\");\n  assert_eq!(frame.len(), 160);\n  assert!(frame.iter().all(|&s| s == 100i16), \"next_chunk data flows to out_queue\");\n  ```",
+            "UT: [C036-Invariant] next_chunk returns 0 for exhausted source; partial fill < buf.len(); Send + Sync safe\n  ```rust\n  let mut exhausted = MockAsyncAudioSource::new(vec![]);\n  let mut buf = vec![0i16; 160];\n  let n = exhausted.next_chunk(&mut buf).await;\n  assert_eq!(n, 0, \"exhausted source returns 0 without panic\");\n  let mut partial = MockAsyncAudioSource::new(vec![1i16, 2i16]);\n  let n = partial.next_chunk(&mut buf).await;\n  assert!(n < buf.len(), \"partial fill returns actual count\");\n  fn assert_send<T: Send>() {}\n  fn assert_sync<T: Sync>() {}\n  assert_send::<AudioMixer>();\n  assert_sync::<AudioMixer>();\n  ```"
           ],
-          "startedAt": "2026-07-28",
-          "completedAt": "2026-07-28",
+          "startedAt": "2026-08-03",
+          "completedAt": "2026-08-03",
           "foundOmissions": [
             {
               "severity": "major",
@@ -11478,7 +10943,39 @@
           ],
           "originalTicketKey": "P0-6",
           "fromStub": false,
-          "stubs": []
+          "stubs": [],
+          "changes": [
+            {
+              "before": "DispatchCommand had only Execute/AddAudioSource for audio lifecycle",
+              "after": "Dedicated RemoveAudioSource/SetAudioSourceGain/MuteAudioSource variants",
+              "description": "O-003: audio lifecycle commands route to reactor-owned AudioMixer"
+            },
+            {
+              "before": "RuntimeHandle.submit() had unreachable!() for AddAudioSource; no submit_add_audio_source existed",
+              "after": "4 submit_*_audio_* methods (submit_add_audio_source / submit_remove_audio_source / submit_set_audio_source_gain / submit_mute_audio_source) + real submit() arms",
+              "description": "O-003: typed audio lifecycle submit API"
+            },
+            {
+              "before": "Reactor AddAudioSource dispatch arm returned Err(BackendError) stub (P4-2 marker)",
+              "after": "Reactor owns Arc<AudioMixer>; all 4 audio commands mutate it on the reactor thread",
+              "description": "O-003: reactor-owned AudioMixer routing; P4-2 stub removed"
+            },
+            {
+              "before": "MockBackend.conf_connect/conf_disconnect had no observable side effect",
+              "after": "conf_connect_calls/conf_disconnect_calls record every (source, sink)",
+              "description": "O-001: dispatch-path observability"
+            },
+            {
+              "before": "AudioMixer.next_source_id was private AtomicU64, untestable at u64::MAX",
+              "after": "#[cfg(test)] set_next_source_id hook",
+              "description": "O-005: wrap invariant testability"
+            },
+            {
+              "before": "process_frame not exercised with sources; out_queue content untested",
+              "after": "process_frame tests (1-source passthrough, 2-source mix, 0-source silence, muted skip, gain apply) verify out_queue",
+              "description": "O-002: end-to-end mix pipeline verified"
+            }
+          ]
         },
         {
           "title": "Observability, Security & Platform Configuration",

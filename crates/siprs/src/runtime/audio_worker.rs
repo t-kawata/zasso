@@ -87,6 +87,20 @@ pub fn mix_i16_frame(inputs: &[&[i16]], output: &mut [i16]) {
     }
 }
 
+/// Multiply the first `written` samples of `frame` by `gain`, saturating to i16 range.
+///
+/// A gain of 1.0 (or an out-of-range negative gain) is a no-op, matching the
+/// per-source gain contract (`gain` clamped to `[0.0, 2.0]`).
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+fn apply_gain_to_frame(frame: &mut [i16], gain: f32, written: usize) {
+    if gain == 1.0 || gain < 0.0 {
+        return;
+    }
+    for sample in frame.iter_mut().take(written) {
+        *sample = (*sample as f32 * gain) as i16;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // MixerSourceEntry — per-source state in AudioMixer
 // ---------------------------------------------------------------------------
@@ -146,7 +160,7 @@ pub struct AudioMixer {
 /// (async producer) and the PJSIP RT callback (consumer).
 pub const DEFAULT_QUEUE_CAPACITY: usize = 64;
 
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1) --for-spec --no-implementation-order`.
 impl AudioMixer {
     /// Create a new empty `AudioMixer` with default queue capacity.
     pub fn new() -> Self {
@@ -220,6 +234,15 @@ impl AudioMixer {
     /// Return the next source_id that will be assigned.
     pub fn next_source_id(&self) -> u64 {
         self.next_source_id.load(Ordering::Relaxed)
+    }
+
+    /// Test-only hook to drive `next_source_id` to a boundary value.
+    ///
+    /// The `u64::MAX` wrap invariant (fetch_add wrapping to 0) is not reachable
+    /// through `add_source` alone, so the Red phase needs this setter to exercise it.
+    #[cfg(test)]
+    pub fn set_next_source_id(&self, id: u64) {
+        self.next_source_id.store(id, Ordering::Relaxed);
     }
 }
 
@@ -316,7 +339,7 @@ struct AudioWorkerInner {
     shutdown_signal: Arc<AtomicBool>,
 }
 
-// [::TICKET::] P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P3-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1) --for-spec --no-implementation-order`.
 impl AudioWorkerInner {
     /// Main worker loop: calls `process_frame` at `frame_duration` intervals.
     async fn run(&mut self) {
@@ -353,19 +376,14 @@ impl AudioWorkerInner {
             if let Some(entry) = self.mixer.sources.get(id) {
                 let mut guard = entry.lock().await;
                 let mut buf = vec![0i16; MIXER_FRAME_SAMPLES];
-                let n = guard.next_chunk(&mut buf).await;
-                if n == 0 {
+                let samples_written = guard.next_chunk(&mut buf).await;
+                if samples_written == 0 {
                     // Source exhausted — skip it
                     continue;
                 }
                 // Apply gain to the source buffer
-                if let Some(gain) = self.mixer.gains.get(id) {
-                    let g = *gain;
-                    if g != 1.0 && g >= 0.0 {
-                        for sample in buf.iter_mut().take(n) {
-                            *sample = (*sample as f32 * g) as i16;
-                        }
-                    }
+                if let Some(gain_value) = self.mixer.gains.get(id) {
+                    apply_gain_to_frame(&mut buf, *gain_value, samples_written);
                 }
                 source_buffers.push(buf);
             }
@@ -802,6 +820,149 @@ mod tests {
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
         assert!(mixer.remove_source(id).is_ok(), "first remove must succeed");
         assert!(mixer.remove_source(id).is_err(), "second remove must fail");
+    }
+
+    // ── O-005: source_id u64::MAX wrap ─────────────────────────────────
+
+    #[test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-005 — add_source must wrap at u64::MAX (fetch_add wraps to 0).
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn audio_mixer_add_source_wraps_at_u64_max() {
+        let mixer = AudioMixer::new();
+        // #[cfg(test)] hook lets the boundary invariant be exercised.
+        mixer.set_next_source_id(u64::MAX);
+        let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert_eq!(id1, u64::MAX, "first add after MAX must return MAX");
+        let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert_eq!(id2, 0, "fetch_add must wrap to 0 after u64::MAX");
+        assert_eq!(mixer.source_count(), 2, "both sources stored after wrap");
+    }
+
+    // ── O-006: gain lower-bound clamp ──────────────────────────────────
+
+    #[test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-006 — negative gain must clamp to 0.0 (lower bound).
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn audio_mixer_set_gain_clamps_below_zero() {
+        let mixer = AudioMixer::new();
+        let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        mixer.set_gain(id, -1.0).unwrap();
+        assert_eq!(
+            *mixer.gains.get(&id).unwrap(),
+            0.0,
+            "negative gain must clamp to 0.0"
+        );
+    }
+
+    // ── O-002: process_frame end-to-end mix → out_queue ────────────────
+
+    /// Build an AudioWorkerInner bound to the given mixer for direct process_frame tests.
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn test_worker_inner(mixer: Arc<AudioMixer>) -> AudioWorkerInner {
+        AudioWorkerInner {
+            mixer,
+            call_id: 1,
+            frame_duration: Duration::from_millis(20),
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    #[tokio::test]
+    // @verifies C036
+    // [::TICKET::] P8-1: O-002 — process_frame must pull next_chunk and push a mixed frame to out_queue.
+    async fn process_frame_pushes_mixed_frame() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer
+            .out_queue
+            .pop()
+            .expect("process_frame must push a mixed frame");
+        assert_eq!(frame.len(), MIXER_FRAME_SAMPLES, "frame length must match");
+        assert!(
+            frame.iter().all(|&s| s == 100i16),
+            "single source must pass through unchanged"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C036
+    // [::TICKET::] P8-1: O-002 — two sources must be summed (i32 accumulation).
+    async fn process_frame_two_sources_mixes() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![50i16; 160])));
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+        assert!(
+            frame.iter().all(|&s| s == 150i16),
+            "two sources must sum: 100 + 50 = 150"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-002 — process_frame with 0 sources must push zero-filled silence, not panic.
+    async fn process_frame_zero_sources_silence() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer
+            .out_queue
+            .pop()
+            .expect("0-source process_frame must still push a silence frame");
+        assert_eq!(frame.len(), MIXER_FRAME_SAMPLES);
+        assert!(
+            frame.iter().all(|&s| s == 0),
+            "0 sources must produce all-zero silence"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-002 — a muted source must be skipped during process_frame.
+    async fn process_frame_skips_muted_source() {
+        let mixer = Arc::new(AudioMixer::new());
+        let muted_id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![50i16; 160])));
+        mixer.mute(muted_id, true).unwrap();
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+        assert!(
+            frame.iter().all(|&s| s == 50i16),
+            "muted source must contribute nothing"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-002 — per-source gain must be applied before mixing.
+    async fn process_frame_applies_gain() {
+        let mixer = Arc::new(AudioMixer::new());
+        let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        mixer.set_gain(id, 2.0).unwrap();
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+        assert!(
+            frame.iter().all(|&s| s == i16::MAX || s == 200i16),
+            "gain=2.0 doubles 100 to 200 (or saturates at i16::MAX)"
+        );
     }
 
     // ── Invariant: Send + Sync ─────────────────────────────────────────

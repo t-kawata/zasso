@@ -93,7 +93,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -109,12 +109,21 @@ pub trait SipBackend: Send {
 /// [::TICKET::] P7-2: O-001 — `get_account_info_result` lets tests configure the
 /// RegistrationStateChanged flow (Ok(200) by default, or Err to exercise the
 /// failure publication path).
+///
+/// [::TICKET::] P8-1: O-001 — `conf_connect_calls` / `conf_disconnect_calls` record
+/// every `(source, sink)` invocation so tests can prove the from_runtime_command
+/// closure actually dispatched to the backend (a backend method with no observable
+/// side effect is untestable).
 #[derive(Default)]
 pub struct MockBackend {
     pub initialized: bool,
     /// Configurable result for `get_account_info`. `None` yields the canned
     /// status-200 snapshot.
     pub get_account_info_result: Option<Result<AccountInfoSnapshot, ReactorError>>,
+    /// Recorded `(source, sink)` pairs from every `conf_connect` invocation.
+    pub conf_connect_calls: Vec<(i32, i32)>,
+    /// Recorded `(source, sink)` pairs from every `conf_disconnect` invocation.
+    pub conf_disconnect_calls: Vec<(i32, i32)>,
 }
 
 impl MockBackend {
@@ -123,6 +132,7 @@ impl MockBackend {
     }
 }
 
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
 impl SipBackend for MockBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -247,12 +257,20 @@ impl SipBackend for MockBackend {
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn conf_connect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
+    // [::TICKET::] P8-1: O-001 — record the invocation so dispatch-path tests can
+    // assert the backend method was actually reached.
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError> {
+        self.conf_connect_calls.push((source, sink));
         Ok(())
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn conf_disconnect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
+    // [::TICKET::] P8-1: O-001 — record the invocation so dispatch-path tests can
+    // assert the backend method was actually reached.
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError> {
+        self.conf_disconnect_calls.push((source, sink));
         Ok(())
     }
 }
@@ -461,6 +479,36 @@ mod tests {
         let mut backend = MockBackend::new();
         assert!(backend.conf_connect(1, 2).is_ok());
         assert!(backend.conf_disconnect(1, 2).is_ok());
+    }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P8-1: O-001 — conf_connect must record the (source, sink) pair so
+    // tests can prove the from_runtime_command closure actually invoked it.
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn mock_backend_conf_connect_records_invocation() {
+        let mut backend = MockBackend::new();
+        backend.conf_connect(3, 4).unwrap();
+        backend.conf_connect(5, 6).unwrap();
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(3i32, 4i32), (5i32, 6i32)],
+            "conf_connect must record each (source, sink)"
+        );
+    }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P8-1: O-001 — conf_disconnect must record the (source, sink) pair.
+// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    fn mock_backend_conf_disconnect_records_invocation() {
+        let mut backend = MockBackend::new();
+        backend.conf_disconnect(7, 8).unwrap();
+        assert_eq!(
+            backend.conf_disconnect_calls,
+            vec![(7i32, 8i32)],
+            "conf_disconnect must record each (source, sink)"
+        );
     }
 
     #[test]
