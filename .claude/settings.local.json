@@ -752,7 +752,26 @@
       "Bash(tee /tmp/p8-4-check.log)",
       "Bash(node \".claude/scripts/tickets/review/run-quality-checks.js\" src/api/asyncaudiosrc_adapter.rs src/api/event_model_payload_bus.rs src/config.rs src/config/versioning_policy.rs)",
       "Bash(pwd && ls -la && echo \"---ROOT---\" && ls -la /Users/sh01/shyme/zasso/.claude/scripts/tickets/ 2>/dev/null | head -50)",
-      "Bash(grep -n \"reviewed\\\\|done\\\\|COMPLETED_TICKET_STALE\\\\|crime\" .claude/scripts/tickets/validate-ticket-targets.js | head -30; echo \"=== main flow ===\"; sed -n '/function main/,/^}/p' .claude/scripts/tickets/validate-ticket-targets.js | head -80)"
+      "Bash(grep -n \"reviewed\\\\|done\\\\|COMPLETED_TICKET_STALE\\\\|crime\" .claude/scripts/tickets/validate-ticket-targets.js | head -30; echo \"=== main flow ===\"; sed -n '/function main/,/^}/p' .claude/scripts/tickets/validate-ticket-targets.js | head -80)",
+      "Bash(git commit -m 'chore: re-scope microphone source stub marker to MUST RESOLVE *)",
+      "Bash(node .claude/scripts/tickets/validate-graph-arg.js \"/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\")",
+      "Bash(exit 2)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js)",
+      "Bash(node .claude/scripts/tickets/add-omission-ticket.js --ticket-key=P0-1)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/add-omission-ticket.js --ticket-key=P0-2)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/add-omission-ticket.js --ticket-key=P0-3)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p05-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p05-context.txt; head -30 /tmp/p05-context.txt)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p11-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p11-context.txt; head -20 /tmp/p11-context.txt)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p13-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p13-context.txt; head -12 /tmp/p13-context.txt *)",
+      "Bash(echo \"=== siprs-server test structure ===\" && ls ../../siprs-server/tests/ 2>/dev/null || echo \"no siprs-server/tests dir\" *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p22-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p22-context.txt; head -8 /tmp/p22-context.txt *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p31-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p31-context.txt; head -8 /tmp/p31-context.txt *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p33-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p33-context.txt; head -8 /tmp/p33-context.txt *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p42-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p42-context.txt; head -8 /tmp/p42-context.txt *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p51-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p51-context.txt; head -8 /tmp/p51-context.txt *)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js > /tmp/p61-context.txt 2>&1; echo \"exit=$?\"; wc -l /tmp/p61-context.txt; head -8 /tmp/p61-context.txt *)"
     ]
   }
 }
