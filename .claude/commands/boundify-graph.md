@@ -1,6 +1,7 @@
 ---
 description: Generates a directory tree and Dirs-Tree.json from graph JSON produced by /graphify-rfc.
 argument-hint: </path/to/*-GRAPH.json>
+disable-model-invocation: true
 ---
 
 # /boundify-graph <graph-file-path>

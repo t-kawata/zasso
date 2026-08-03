@@ -1,6 +1,7 @@
 ---
 description: Analyzes a design document and decomposes it into phases and individual tickets based on dependencies.
 argument-hint: </path/to/RFC-*.md> </path/to/*-GRAPH.json> </path/to/*-Dirs-Tree.json>
+disable-model-invocation: true
 ---
 
 # /split-to-tickets

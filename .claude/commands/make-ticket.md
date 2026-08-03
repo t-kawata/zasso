@@ -1,6 +1,7 @@
 ---
 description: Creates and details an implementation specification (spec) document.
 argument-hint: <P{phaseID}-{ticketID}>
+disable-model-invocation: true
 ---
 
 # /make-ticket

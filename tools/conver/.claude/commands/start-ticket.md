@@ -1,6 +1,7 @@
 ---
 description: Executes the implementation of a ticket.
 argument-hint: <P{phaseID}-{ticketID}>
+disable-model-invocation: true
 ---
 
 # /start-ticket

@@ -1,6 +1,7 @@
 ---
 description: Formulates an implementation plan for a ticket.
 argument-hint: <P{phaseID}-{ticketID}>
+disable-model-invocation: true
 ---
 
 # /plan-ticket

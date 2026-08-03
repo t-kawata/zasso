@@ -1,6 +1,7 @@
 ---
 description: Inspect reviewed tickets for contract-to-test gaps and record omissions.
 argument-hint: </path/to/*-GRAPH.json>
+disable-model-invocation: true
 ---
 
 # /find-omissions

@@ -1,7 +1,7 @@
 ---
 description: Executes graph conversion via 7-step Step progress control (heading deduplication → node splitting → edge assignment → machine verification → self-verification → final quality verification).
 argument-hint: </path/to/RFC-doc.md>
-allowed-tools: Read, Write, Bash
+disable-model-invocation: true
 ---
 
 # /graphify-rfc <source-file-path>

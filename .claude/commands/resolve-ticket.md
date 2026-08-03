@@ -1,5 +1,6 @@
 ---
 description: Resolves warnings, errors, stubs, and crimes under a directory.
+disable-model-invocation: true
 ---
 
 # /resolve-ticket
@@ -125,7 +126,7 @@ For stubs that do not specify a resolution in a subsequent ticket, take the foll
    - Cannot be resolved until a subsequent ticket is implemented
    - Should not be addressed now (out of scope, too risky, etc.)
 
-**Remove the `[::STUB::]` marker from resolved stubs.**
+**Remove the `[::STUB::]` marker from resolved stubs by running `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>` (or `--lines=<N1,N2,...>` for multiple). Do NOT edit source files directly.**
 
 ### Step 6: List crimes (directory-scoped)
 

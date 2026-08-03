@@ -1,5 +1,6 @@
 ---
 description: Resolves warnings, errors, stubs, and crimes under a directory.
+disable-model-invocation: true
 ---
 
 # /resolve-ticket

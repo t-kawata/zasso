@@ -1,6 +1,7 @@
 ---
 description: Executes quality review of completed tickets.
 argument-hint: <P{phaseID}-{ticketID}>
+disable-model-invocation: true
 ---
 
 # /review-ticket

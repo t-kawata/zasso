@@ -1,6 +1,7 @@
 ---
 description: Executes quality review of completed tickets.
 argument-hint: <P{phaseID}-{ticketID}>
+disable-model-invocation: true
 ---
 
 # /review-ticket
@@ -149,7 +150,7 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 **Classification criteria**:
 
 1. **Resolvable stubs** — Dependency tickets are complete, and can now be replaced with actual implementation
-   → **Implement on the spot and remove the `[::STUB::]` marker**
+   → **Implement on the spot, then remove the marker via `node .claude/scripts/tickets/remove-stub.js --file=<path> --line=<N>`**
 
 2. **Stubs requiring a separate ticket** — Resolution requires a new ticket
    → **Propose creating a new ticket to the user**

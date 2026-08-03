@@ -1,6 +1,7 @@
 ---
 description: Fill gaps in consideration and design deficiencies in existing RFCs through grill-style questioning. Append-only. Destructive changes prohibited.
 argument-hint: </path/to/RFC-*.md>
+disable-model-invocation: true
 ---
 
 # /drill-rfc-down
