@@ -8896,104 +8896,107 @@
             {
               "id": "C042",
               "sourceEdge": "N0041→N0040",
-              "precondition": "Codec policy is defined in ClientConfig — either preferred_codecs non-empty (explicit mode) or empty (auto mode). enumerate_codecs() returns available native codecs from PJSIP.",
-              "postcondition": "After configure_codecs_auto_mode(), each codec in the system has a priority assigned: Opus=255, PCMU=254, all others=0. When preferred_codecs is non-empty, auto mode is bypassed and no priorities are changed.",
-              "invariant": "Opus always receives priority 255 in auto mode; PCMU always receives priority 254. These values are immutable constants. The priority assignment is a pure function of codec_id alone (no state dependence)."
+              "precondition": "Codec policy is defined in ClientConfig — either preferred_codecs non-empty (explicit mode) or empty (auto mode). Input schema: `codecs: &[CodecInfo]` where `CodecInfo { codec_id: String }` (e.g. \"PCMU/8000/1\", \"opus/48000/2\", \"G722/8000/1\") and `preferred_codecs: &[String]`. enumerate_codecs() returns the available native codecs from PJSIP. Testable form: build a `Vec<CodecInfo>` + `Vec<String>` fixture; empty preferred slice = auto mode.",
+              "postcondition": "After `CodecAutoMode::apply()`, each codec in the system has a priority assigned in the returned `HashMap<String, u8>`: Opus=255, PCMU=254, all others=0. When `preferred_codecs` is non-empty, auto mode is bypassed and an empty map is returned (no priorities changed). Duplicate codec_id in the enumeration yields Err(SipErrorKind::NativeError) with message containing \"duplicate\". Testable form: assert exact map values per codec id; assert empty-map bypass; assert duplicate rejection.",
+              "invariant": "Opus always receives priority 255 in auto mode; PCMU always receives priority 254. These values are immutable named constants (OPUS_PRIORITY=255, PCMU_PRIORITY=254). The priority assignment is a pure function of codec_id alone (no state dependence). Priority values are u8: 255=max valid, 254=fallback, 0=disabled. Testable form: iterate the returned map and assert every `opus/*` == 255 and every `PCMU/8000/1` == 254."
             },
             {
               "id": "C043",
               "sourceEdge": "N0042→N0015",
-              "precondition": "Transport configuration is defined (TransportConfig enum with UDP/TCP/TLS variants). SrtpPolicy has one of three values (Disabled/Optional/Mandatory).",
-              "postcondition": "SrtpPolicy::validate() returns Ok(()) when: (a) policy is Disabled (feature state irrelevant), or (b) policy is Mandatory/Optional AND srtp feature flag is enabled. Returns Err(InvalidConfig) when Mandatory/Optional AND feature flag is disabled.",
-              "invariant": "SrtpPolicy Disabled is universally valid. Mandatory and Optional are gated by #[cfg(feature = \"srtp\")] — at the API level, the validate function receives a bool feature_enabled flag that enforces this gate."
+              "precondition": "Transport configuration is defined (TransportConfig enum with UDP/TCP/TLS variants per N0015). SrtpPolicy has one of three values (Disabled/Optional/Mandatory). validate() signature: `SrtpPolicy::validate(&self, feature_enabled: bool) -> Result<(), SipError>` where feature_enabled is the runtime srtp feature flag. Testable form: instantiate each variant and call validate with both flag states.",
+              "postcondition": "SrtpPolicy::validate() returns Ok(()) when: (a) policy is Disabled (feature state irrelevant), or (b) policy is Mandatory/Optional AND srtp feature flag is enabled. Returns Err(InvalidConfig) with message containing the policy variant (e.g. \"SRTP Mandatory requires srtp feature to be enabled\") when Mandatory/Optional AND feature flag is disabled. Never panics — always returns Result. Testable form: assert Ok/Err per variant × flag; assert err.kind == InvalidConfig and message context.",
+              "invariant": "SrtpPolicy Disabled is universally valid. Mandatory and Optional are gated by the srtp feature — at the API level, the validate function receives a bool feature_enabled flag that enforces this gate (no #[cfg] in the function body, enabling testability without conditional compilation). Testable form: loop both flag states for Disabled and assert Ok; assert Mandatory/Optional are rejected exactly when feature_enabled=false."
             },
             {
               "id": "C045",
               "sourceEdge": "N0044→N0043",
-              "precondition": "Reactor shutdown sequence has started (is_shutting_down == true). A RuntimeCommand is submitted to the reactor for dispatch.",
-              "postcondition": "ShutdownCommandRouter::classify() returns Permit for GetAccountInfo (command is forwarded to execute_get_account_info). Returns Reject(InvalidState) with message containing 'shutting down' for ConfConnect and ConfDisconnect. Returns Reject(InvalidState) for all other commands.",
-              "invariant": "GetAccountInfo is always Permitted during shutdown. ConfConnect and ConfDisconnect are always Rejected during shutdown. This classification is invariant per variant — no state or context changes the routing decision during shutdown."
+              "precondition": "Reactor shutdown sequence has started (is_shutting_down == true). A RuntimeCommand is submitted to the reactor for dispatch. Command schema (src/runtime/command.rs, P0-6): `GetAccountInfo { native_acc_id: u32, reply: oneshot }`, `ConfConnect { call_id: u64, reply: oneshot }`, `ConfDisconnect { call_id: u64, reply: oneshot }`. Testable form: build commands with tokio::sync::oneshot channels; pass is_shutting_down=true/false.",
+              "postcondition": "ShutdownCommandRouter::classify() returns Permit for GetAccountInfo (command forwarded to execute_get_account_info). Returns Reject(SipError::invalid_state(\"shutting down\")) with kind=InvalidState and message containing 'shutting down' for ConfConnect and ConfDisconnect. Returns Reject(InvalidState) for all other commands (catch-all). When is_shutting_down=false, all commands are Permitted. Testable form: assert Permit/Reject per command × shutdown state; assert err.kind == InvalidState and message contains 'shutting down'.",
+              "invariant": "GetAccountInfo is always Permitted during shutdown. ConfConnect and ConfDisconnect are always Rejected during shutdown. This classification is invariant per variant — no state or context changes the routing decision during shutdown. ShutdownCommandRouter is stateless; classify() is a pure function of (cmd, is_shutting_down). Testable form: exhaustive match over the 3 M20 variants + a non-M20 variant (e.g. Hangup) asserting the per-variant outcome is constant."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle (make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\nOne or more ABC violations were confirmed. This ticket is hereby remanded for re-implementation. Every violation must be fully resolved, and every contract must be fulfilled in this final implementation round. Complete it this time.\n\n### Goal\nImplement three independent policy modules within the siprs media/lifecycle layer: (1) two-layer codec selection (explicit vs auto mode) that assigns Opus=255, PCMU=254 when preferred_codecs is empty, (2) SRTP policy with feature-flag gating (Disabled/Optional/Mandatory), and (3) M20 shutdown command routing that permits GetAccountInfo while rejecting ConfConnect/ConfDisconnect during shutdown. Each module is a standalone, testable unit that integrates with existing configuration and reactor infrastructure.\n\n### Purpose\nThese policies form the core control layer for media configuration and lifecycle management in the M20 extension. Without them: (a) codecs default to PJSIP's built-in ordering instead of Opus-first prioritization, (b) SRTP cannot be controlled via config (always enabled or always disabled), and (c) shutdown behavior for M20 commands is undefined (the reactor would attempt to dispatch media operations during teardown, causing undefined PJSIP behavior). Each policy closes a gap between raw PJSIP capability and intentional application-level control.\n\n### Motivation\nP1-1 is the first M20-spec ticket after the P0 infrastructure (P0-1 through P0-6) established the crate foundation. The three nodes (N0041, N0042, N0044) were identified as highest-priority M20 additions because: codec auto-mode is required for every call session, SRTP policy directly affects security posture and cannot default to Mandatory without feature-gating, and shutdown routing prevents reactor crashes during teardown. These are preconditions for P1-2 (Security & Platform) and P1-3 (Audio Pipeline).\n\n### Constraints\n1. No FFI dependency: configure_codecs_auto_mode must produce a priority map (pure function) rather than calling pjsua_codec_set_priority directly — the FFI binding is deferred to P2-4. 2. SrtpPolicy validate receives a bool feature_enabled flag rather than using #[cfg(feature = \"srtp\")] directly in the function body, enabling testability without conditional compilation. 3. ShutdownCommandRouter::classify must be a pure function — no reactor state access, no async, no side effects. 4. No new dependencies beyond the existing crate's Cargo.toml (no random crate for jitter — use deterministic seed based on attempt number).",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged by the ABC Inspection Pipeline after completing the implementation lifecycle (make → plan → start → review → resolve). The actual source code was rigorously analyzed against three criteria:\n\n  A — Contract Translation:   Are all Precondition/Postcondition/Invariant contracts accurately translated into test code?\n  B — Violation Detection:    Can every contract violation be detected by an existing test assertion?\n  C — Test Precision:         Are tests precise and unambiguous (no broad assertions, no missing edge cases)?\n\nOne or more ABC violations were confirmed. This ticket is hereby remanded for re-implementation. Every violation must be fully resolved, and every contract must be fulfilled in this final implementation round. Complete it this time.\n\n### Goal\nDeliver three independent, fully-tested policy modules in the siprs media/lifecycle layer, all of which already have a concrete implementation from the prior P1-1 round and are remanded solely to close the ABC test-precision gaps: (1) two-layer codec selection (explicit vs auto mode) where auto mode assigns Opus=255, PCMU=254, and all other codecs=0 whenever preferred_codecs is empty — `CodecAutoMode::apply` in src/config/m20_codec_auto_mode.rs; (2) SRTP policy with runtime feature-flag gating (Disabled/Optional/Mandatory) plus a transport-reconnection backoff policy — `SrtpPolicy`, `ReconnectPolicy`, `TransportProtocol` in src/config/srtp_transport_reconnect.rs; and (3) M20 shutdown command routing that permits GetAccountInfo while rejecting ConfConnect/ConfDisconnect — `ShutdownCommandRouter::classify` in src/error/m20_shutdown_routing.rs. The specific deliverable of this round is a corrected test suite that resolves omission O-001 (deterministic-jitter test for jitter_ratio > 0) and O-002 (tightened jitter_ratio=1.0 bound to [0, 2*computed]), while keeping all 3 contracts (C042/C043/C045) at 100% test coverage.\n\n### Purpose\nThese policies form the core control layer for media configuration and lifecycle management in the M20 extension. Without them: (a) codecs default to PJSIP's built-in ordering instead of Opus-first prioritization, (b) SRTP cannot be controlled via config (always enabled or always disabled), and (c) shutdown behavior for M20 commands is undefined — the reactor would attempt to dispatch media operations during teardown, causing undefined PJSIP behavior. Each policy closes a gap between raw PJSIP capability and intentional application-level control. The purpose of this re-implementation round is specifically to make the *tests* precise enough that a regression in the deterministic-jitter contract or the jitter bound is actually detectable (violation detection: B, test precision: C).\n\n### Motivation\nThe ABC Inspection Pipeline (criterion B — Violation Detection, criterion C — Test Precision) proved that the prior test suite could not distinguish a compliant implementation from a defective one: (1) O-001 — the only determinism test used jitter_ratio=0.0, which the implementation short-circuits to 0.0, so an RNG substitution in the jitter>0 branch would pass every existing test; (2) O-002 — the jitter_ratio=1.0 test asserted delay <= 2*max_delay (120s for base=1s/max=60s/attempt=5) when the acceptance-criterion bound is 2*computed = 64s, so a delay in (64s, 120s] would violate the spec yet pass the test. These are test-design defects, not implementation defects; they must be corrected in this final round. The underlying modules are preconditions for P1-2 (Security & Platform) and P1-3 (Audio Pipeline).\n\n### Constraints\n1. No FFI dependency: configure_codecs_auto_mode must produce a priority map (pure function) rather than calling pjsua_codec_set_priority directly — the FFI binding is deferred to P2-4. 2. SrtpPolicy::validate receives a bool feature_enabled flag rather than using #[cfg(feature = \"srtp\")] directly in the function body, enabling testability without conditional compilation. 3. ShutdownCommandRouter::classify must be a pure function — no reactor state access, no async, no side effects. 4. No new dependencies beyond the existing crate's Cargo.toml (no random crate for jitter — use a deterministic seed based on attempt number). 5. The `Initial Design Artifact` header in each target file must never be deleted or edited. 6. All 32 targetCrimes are false positives (ORPHAN_TICKET_REF belonging to P0-7/P2-4) and must remain resolved as false positives; the 2 foundOmissions (O-001, O-002) must be resolved by adding/tightening test assertions, never by weakening the implementation or existing tests.",
           "scope": [
-            "[src/config/m20_codec_auto_mode.rs] Add: CodecAutoMode struct with apply(codecs: &[CodecInfo], preferred_codecs: &[Codec]) -> Result<HashMap<String, u8>, SipError>",
-            "[src/config/m20_codec_auto_mode.rs] Add: CodecInfo struct (codec_id: String) — lightweight native codec representation without FFI",
-            "[src/config/m20_codec_auto_mode.rs] Add: CONSTANTS: OPUS_PRIORITY = 255, PCMU_PRIORITY = 254 as named constants",
-            "[src/config/srtp_transport_reconnect.rs] Add: SrtpPolicy enum with Disabled/Optional/Mandatory variants and validate(feature_enabled: bool) -> Result<(), SipError>",
-            "[src/config/srtp_transport_reconnect.rs] Add: ReconnectPolicy struct with base_delay/max_delay/jitter_ratio fields, new() constructor with validation, next_delay(attempt: u32) -> Duration",
-            "[src/config/srtp_transport_reconnect.rs] Add: TransportProtocol enum (Udp/Tcp/Tls) and reconnection strategy documentation as per RFC §31",
-            "[src/error/m20_shutdown_routing.rs] Add: ShutdownCommandAction enum with Permit and Reject(SipError) variants",
-            "[src/error/m20_shutdown_routing.rs] Add: ShutdownCommandRouter::classify(cmd: &RuntimeCommand, is_shutting_down: bool) -> ShutdownCommandAction — pure routing function",
-            "",
-            "Before: All three files are stub structs (pub struct Config {}, pub enum Error {}) with STUB markers. After: Each file exports the full types, constructors, validation, and pure computation functions described above.",
-            "",
-            "API change: ShutdownCommandRouter::classify is a new error_policy module — no existing API is modified. SrtpPolicy::validate integrates into ClientConfig::validate() call chain (no signature change to ClientConfig).",
-            "",
-            "Schema change: None — no serialization boundaries crossed. All types are internal to the crate.",
-            "",
-            "Config change: None — preferred_codecs is already part of CallMediaPreferences (defined in N0040 parent). P1-1 adds the auto-mode function that reads this field; it does not add new config fields.",
-            "",
+            "[src/config/m20_codec_auto_mode.rs] Add (already implemented in P1-1 round): `CodecAutoMode` unit struct with `pub fn apply(codecs: &[CodecInfo], preferred_codecs: &[String]) -> Result<HashMap<String, u8>, SipError>`; `CodecInfo { pub codec_id: String }` with `new(impl Into<String>)`; private `assign_auto_priority(codec_id: &str) -> u8`; constants `OPUS_PRIORITY: u8 = 255`, `PCMU_PRIORITY: u8 = 254`.",
+            "Add: the full type surface for `CodecAutoMode`/`CodecInfo` (module was an empty stub `pub struct Config {}` in the original skeleton).",
+            "Behavior: when `preferred_codecs` is empty, each enumerated `CodecInfo` maps to a priority (opus/*→255, PCMU/8000/1→254, others→0); when non-empty, returns `HashMap::new()`; duplicate codec_id returns `Err(SipErrorKind::NativeError)`.",
+            "Before: `pub struct Config {}` stub with `[::STUB::]` marker. After: `CodecAutoMode` + `CodecInfo` with the pure-function `apply` and 7 unit tests in `#[cfg(test)] mod tests`.",
+            "API change: new `pub` types added to `src/config` — no existing signature is modified. Re-export surface in `src/lib.rs` is unchanged.",
+            "Schema change: None — no serialization boundaries crossed; all types are internal to the crate.",
+            "Config change: None — `preferred_codecs` is part of `CallMediaPreferences` (N0040 parent); this ticket adds the auto-mode computation that reads the field, not new config fields.",
+            "Dependency change: None — no new crates required (deterministic jitter uses a multiply-hash of the attempt number, no `rand` crate).",
+            "[src/config/srtp_transport_reconnect.rs] Add (already implemented in P1-1 round): `SrtpPolicy` enum (Disabled/Optional/Mandatory) with `validate(feature_enabled: bool) -> Result<(), SipError>`; `ReconnectPolicy` struct (base_delay/max_delay/jitter_ratio private fields) with `new()` validation and `next_delay(attempt: u32) -> Duration`; `TransportProtocol` enum (Udp/Tcp/Tls) with `needs_reconnect() -> bool`.",
+            "Add: full type surface for SRTP policy, reconnect backoff, and transport protocol (module was an empty stub).",
+            "Behavior: `validate` gates Mandatory/Optional on the runtime feature flag; `next_delay` computes `min(base_delay * 2^attempt, max_delay) * (1 + deterministic_jitter(attempt))`; `needs_reconnect` is false for Udp, true for Tcp/Tls.",
+            "Before: `pub struct Config {}` stub. After: `SrtpPolicy` + `ReconnectPolicy` + `TransportProtocol` with 13 unit tests (including the O-001 determinism fix and O-002 tightened bound).",
+            "API change: new `pub` types added to `src/config` — no existing API modified. `SrtpPolicy::validate` is designed to slot into the `ClientConfig::validate()` chain (P0-3) without a signature change.",
+            "Schema change: None — no serialization boundaries crossed.",
+            "Config change: None — SRTP policy and reconnect parameters are internal to the module; wiring into ClientConfig is tracked by P0-3.",
             "Dependency change: None — no new crates required.",
-            "",
-            "Excluded: Actual PJSIP FFI binding for pjsua_codec_set_priority — deferred to P2-4.",
-            "Excluded: Transport reconnection lifecycle (socket create, retry timer, TLS handshake) — deferred to P2-4+.",
-            "Excluded: ClientConfig::validate integration — the SrtpPolicy validate function is tested standalone; wiring it into ClientConfig is trivial and tracked by P0-3.",
-            "",
-            "Affected: src/config/codec_policy_fallback.rs (N0040 parent) — will consume CodecAutoMode output but P1-1 only provides the module.",
-            "Affected: src/error/m20_runtime_command_error.rs (P0-6) — shares RuntimeCommand enum variants that ShutdownCommandRouter classifies.",
-            "Affected: src/runtime/command.rs — the RuntimeCommand enum variants (GetAccountInfo, ConfConnect, ConfDisconnect) are already defined in P0-6; P1-1 adds routing for them.",
-            "",
-            "Impact nature: Safety — shutdown routing prevents undefined reactor behavior. Security — SRTP feature gate prevents silent downgrade. No performance or API surface impact.",
-            "",
-            "Response: codec_policy_fallback.rs: N — integration deferred. m20_runtime_command_error.rs: N — P0-6 already defines the types. runtime/command.rs: N — P0-6 already defines the variants."
+            "[src/error/m20_shutdown_routing.rs] Add (already implemented in P1-1 round): `ShutdownCommandAction` enum (`Permit` / `Reject(SipError)`) and `ShutdownCommandRouter` unit struct with `pub fn classify(cmd: &RuntimeCommand, is_shutting_down: bool) -> ShutdownCommandAction`.",
+            "Add: full routing type surface (module was an empty stub `pub enum Error {}`).",
+            "Behavior: `classify` returns `Permit` when not shutting down or for `GetAccountInfo`; `Reject(SipError::invalid_state(\"shutting down\"))` for `ConfConnect`/`ConfDisconnect` and all other commands during shutdown.",
+            "Before: `pub enum Error {}` stub. After: `ShutdownCommandAction` + `ShutdownCommandRouter` with 8 unit tests.",
+            "API change: new `pub` types added to `src/error` — no existing API modified. Placed in the `error_policy` module per the RFC graph.",
+            "Schema change: None — no serialization boundaries crossed.",
+            "Config change: None — routing is a pure function of the command variant and shutdown flag.",
+            "Dependency change: None — reuses `SipError`/`SipErrorKind` and `RuntimeCommand` from existing modules.",
+            "Excluded item: Actual PJSIP FFI binding for `pjsua_codec_set_priority` — deferred to P2-4.",
+            "Why excluded: FFI requires the PJSIP build + bindings; the pure-function design keeps the priority computation testable now and the FFI call a thin later integration layer (P2-4).",
+            "Excluded item: Transport reconnection lifecycle (socket create, retry timer, TLS handshake) — deferred to P2-4+.",
+            "Why excluded: the reconnection orchestration belongs to N0015's transport domain and requires the FFI transport layer; `ReconnectPolicy::next_delay` is the only testable-in-isolation piece.",
+            "Affected component: `src/config/codec_policy_fallback.rs` (N0040 parent) — will consume `CodecAutoMode` output; integration deferred to P2-4.",
+            "Affected component: `src/error/m20_runtime_command_error.rs` (P0-6) — shares the `RuntimeCommand` variants that `ShutdownCommandRouter` classifies; no change needed (types already defined).",
+            "Affected component: `src/runtime/command.rs` — `RuntimeCommand` enum already defines GetAccountInfo/ConfConnect/ConfDisconnect (P0-6); this ticket adds routing for them, no enum change.",
+            "Impact nature: Safety — shutdown routing prevents undefined reactor behavior during teardown. Security — SRTP feature gate prevents silent downgrade. No performance or API surface impact.",
+            "Response: codec_policy_fallback.rs: N — integration deferred to P2-4. m20_runtime_command_error.rs: N — P0-6 already defines the types. runtime/command.rs: N — P0-6 already defines the variants."
           ],
           "testUnit": [
-            "UT: [Normal] `CodecAutoMode::apply` assigns Opus=255, PCMU=254, and other codecs=0 from an enumerated codec list (empty preferred_codecs triggers auto mode)",
-            "UT: [Normal] `CodecAutoMode::apply` bypasses auto-mode priority assignment when `preferred_codecs` is non-empty (explicit user selection takes precedence)",
-            "UT: [Normal] `SrtpPolicy::validate` accepts Mandatory when the srtp feature flag is enabled → Ok(())",
-            "UT: [Normal] `SrtpPolicy::validate` accepts Optional when srtp feature is enabled → Ok(())",
-            "UT: [Normal] `SrtpPolicy::validate` accepts Disabled regardless of feature flag state → Ok(())",
-            "UT: [Normal] `ReconnectPolicy::next_delay` returns base_delay for attempt=0, doubles each attempt, clamped at max_delay with jitter_ratio applied",
-            "UT: [Normal] `ShutdownCommandRouter::classify` returns `Permit` for `GetAccountInfo` when is_shutting_down=true (read-only, final state check)",
-            "UT: [Normal] `ShutdownCommandRouter::classify` returns `Reject(InvalidState)` for `ConfConnect` during shutdown",
-            "UT: [Normal] `ShutdownCommandRouter::classify` returns `Reject(InvalidState)` for `ConfDisconnect` during shutdown",
-            "",
-            "UT: [Error] `SrtpPolicy::validate` returns Err(InvalidConfig) for Mandatory when srtp feature flag is disabled",
-            "UT: [Error] `SrtpPolicy::validate` returns Err(InvalidConfig) for Optional when srtp feature flag is disabled",
-            "UT: [Error] `ReconnectPolicy::new` returns Err(InvalidConfig) when base_delay is zero (backoff cannot start)",
-            "UT: [Error] `ReconnectPolicy::new` returns Err(InvalidConfig) when jitter_ratio is not in [0.0, 1.0]",
-            "UT: [Error] `ShutdownCommandRouter::classify` returns `Reject(InvalidState)` for non-media, non-GetAccountInfo commands during shutdown (catch-all fallback)",
-            "",
-            "UT: [Boundary] `CodecAutoMode::apply` with an empty enumerated codec list returns Ok(()) with no changes (no-op safe)",
-            "UT: [Boundary] `ReconnectPolicy::next_delay` with jitter_ratio=0.0 produces deterministic delay (no jitter, strict exponential backoff)",
-            "UT: [Boundary] `ReconnectPolicy::next_delay` with jitter_ratio=1.0 produces delay in [0, computed] range (maximum jitter)",
-            "UT: [Boundary] `ShutdownCommandRouter::classify` with is_shutting_down=false passes GetAccountInfo through (normal operation unaffected)",
-            "",
-            "UT: [Invariant] Opus always receives priority 255 in auto mode, PCMU always receives 254 — these values are invariant across all auto-mode invocations",
-            "UT: [Invariant] SrtpPolicy Disabled is the only variant valid when srtp feature is off — Mandatory and Optional must always be rejected",
-            "UT: [Invariant] GetAccountInfo is always Permitted during shutdown; ConfConnect and ConfDisconnect are always Rejected — the classification is immutable per variant",
-            "UT: [Invariant] ReconnectPolicy field accessors return construction-time values (base_delay, max_delay, jitter_ratio are immutable after construction)"
+            "UT: [Normal] C042-Pre — `CodecAutoMode::apply(codecs: &[CodecInfo], preferred_codecs: &[String])` with empty `preferred_codecs` enters auto mode. Input schema: `CodecInfo { codec_id: String }` with e.g. [\"PCMU/8000/1\", \"opus/48000/2\", \"G722/8000/1\"]. Asserts the priority map contains all enumerated ids. Tests: `apply_assigns_opus_255_and_pcmu_254_in_auto_mode` (src/config/m20_codec_auto_mode.rs), `apply_returns_exact_priority_values` (also verifies multiple opus variants opus/48000/2 and opus/48000/1 both map to 255).",
+            "UT: [Normal] C042-Post — Non-empty `preferred_codecs` bypasses auto mode entirely: `apply` returns an empty `HashMap<String, u8>` and changes no priorities (explicit user selection takes precedence). Test: `apply_bypasses_auto_mode_when_preferred_codecs_non_empty`.",
+            "UT: [Normal] C042-Inv — Opus always receives 255 and PCMU always receives 254 in auto mode; the mapping is a pure function of codec_id with no state dependence. Test: `opus_invariant_always_255_in_auto_mode` iterates the returned map and asserts every `opus/*` entry == 255 and every `PCMU/8000/1` entry == 254.",
+            "UT: [Error] C042-Error — Duplicate `codec_id` in the enumeration returns `Err(SipErrorKind::NativeError)` with message containing \"duplicate\"; assignment stops before emitting a partial priority map. Test: `apply_rejects_duplicate_codec_id`.",
+            "UT: [Boundary] C042-Boundary — Empty enumerated codec list + empty `preferred_codecs` → `Ok(empty map)` (no-op safe; auto mode over an empty stack must not panic). Test: `apply_empty_codec_list_returns_empty_map`.",
+            "UT: [Boundary] C042-Boundary — Unknown/unlisted codecs (G722/8000/1, iLBC/8000/1) receive priority 0 (disabled) in auto mode. Test: `apply_unknown_codec_receives_priority_zero`.",
+            "UT: [Invariant] C042-Inv — Priority values are immutable named constants `OPUS_PRIORITY = 255`, `PCMU_PRIORITY = 254` (u8), not magic numbers; Opus=255 is the max valid priority, PCMU=254 the fallback, all others=0 (disabled).",
+            "UT: [Normal] C043-Pre — `SrtpPolicy` variants `Disabled`/`Optional`/`Mandatory` are constructible and derive Debug/Clone/Copy/PartialEq/Eq. Test setup constructs all three and passes them to `validate`.",
+            "UT: [Normal] C043-Post — `SrtpPolicy::validate(feature_enabled: bool) -> Result<(), SipError>` returns `Ok(())` for: `Disabled` with feature_enabled both true and false, `Mandatory`+true, `Optional`+true. Tests: `srtp_disabled_always_valid`, `srtp_mandatory_requires_feature_enabled`, `srtp_optional_requires_feature_enabled` (src/config/srtp_transport_reconnect.rs).",
+            "UT: [Normal] C043-Inv — `SrtpPolicy::Disabled` is universally valid regardless of the feature flag; Mandatory/Optional are gated. Test: `srtp_disabled_invariant_universally_valid` loops both flag states.",
+            "UT: [Error] C043-Error — `validate(false)` returns `Err(InvalidConfig)` for `Mandatory` and `Optional`; the error message contains the policy variant name and \"SRTP\" (e.g. \"SRTP Mandatory requires srtp feature to be enabled\"). Test: `srtp_mandatory_requires_feature_enabled` / `srtp_optional_requires_feature_enabled` assert `err.kind == SipErrorKind::InvalidConfig`.",
+            "UT: [Normal] ReconnectPolicy construction succeeds with valid params (base_delay>0, max_delay>=base_delay, jitter_ratio in [0.0, 1.0]); accessors `base_delay()`/`max_delay()`/`jitter_ratio()` return construction-time values. Tests: `reconnect_policy_new_succeeds_with_valid_params`, `reconnect_policy_fields_immutable`.",
+            "UT: [Normal] `ReconnectPolicy::next_delay(attempt: u32) -> Duration` returns `base_delay` for attempt=0 and doubles per attempt (1s, 2s, 4s) when jitter_ratio=0.0. Tests: `reconnect_policy_next_delay_base_for_attempt_zero`, `reconnect_policy_next_delay_doubles_each_attempt`.",
+            "UT: [Normal] `TransportProtocol::needs_reconnect()` — `Udp`→false (stateless), `Tcp`→true, `Tls`→true (connection-oriented). Test: `transport_protocol_needs_reconnect`.",
+            "UT: [Error] ReconnectPolicy::new rejects invalid parameters at construction time (never at next_delay call time): zero base_delay, max_delay < base_delay, jitter_ratio < 0, jitter_ratio > 1 — all `Err(InvalidConfig)` with a diagnostic message. Tests: `reconnect_policy_rejects_zero_base_delay`, `reconnect_policy_rejects_max_delay_less_than_base`, `reconnect_policy_rejects_negative_jitter_ratio`, `reconnect_policy_rejects_jitter_ratio_above_one`.",
+            "UT: [Boundary] `ReconnectPolicy::next_delay` with jitter_ratio=0.0 produces deterministic delays (no jitter, strict exponential backoff) and clamps at max_delay. Tests: `reconnect_policy_jitter_ratio_zero_produces_deterministic_delay` (next_delay(3) twice, assert_eq!), `reconnect_policy_next_delay_clamped_at_max_delay` (base=1s, max=5s, attempt=10 → delay ≤ 5s).",
+            "UT: [Boundary] O-001 FIX — `ReconnectPolicy` jitter is deterministic for jitter_ratio > 0: call `next_delay(3)` twice with jitter_ratio=0.5 and assert_eq!. The previous test only covered jitter_ratio=0.0 (short-circuited to 0.0), so an RNG substitution in the jitter>0 branch would have gone undetected. NEW TEST: `reconnect_policy_jitter_ratio_positive_is_deterministic` (constraint #4: deterministic seed based on attempt number).",
+            "UT: [Boundary] O-002 FIX — `ReconnectPolicy::next_delay` with jitter_ratio=1.0 produces a delay in [0, 2*computed] where `computed = min(base_delay * 2^attempt, max_delay)`. For base=1s, max=60s, attempt=5: computed=32s, spec bound=64s (NOT the loose 2*max_delay=120s). The assertion must compute the bound from the inputs. UPDATED TEST: `reconnect_policy_jitter_ratio_one_produces_variable_delay` asserts `delay <= computed*2` (64s) and `delay >= computed`.",
+            "UT: [Invariant] ReconnectPolicy fields (base_delay, max_delay, jitter_ratio) are immutable after construction — no setter methods provided; accessors return construction-time values. Test: `reconnect_policy_fields_immutable`.",
+            "UT: [Normal] C045-Pre — `RuntimeCommand` M20 variants are constructible with oneshot reply channels: `GetAccountInfo { native_acc_id: u32, reply }`, `ConfConnect { call_id: u64, reply }`, `ConfDisconnect { call_id: u64, reply }`. Test helpers: `make_get_account_info`, `make_conf_connect`, `make_conf_disconnect` (src/error/m20_shutdown_routing.rs).",
+            "UT: [Normal] C045-Post — `ShutdownCommandRouter::classify(&RuntimeCommand, is_shutting_down: bool) -> ShutdownCommandAction` returns `Permit` for `GetAccountInfo` when is_shutting_down=true; returns `Reject(InvalidState)` for `ConfConnect` and `ConfDisconnect` with message containing \"shutting down\". Tests: `classify_get_account_info_permitted_during_shutdown`, `classify_conf_connect_rejected_during_shutdown`, `classify_conf_disconnect_rejected_during_shutdown`.",
+            "UT: [Normal] C045-Inv — During shutdown, `GetAccountInfo` is always Permitted and media commands are always Rejected per-variant (no context dependence). Tests: `classify_invariant_get_account_info_always_permitted`, `classify_invariant_media_always_rejected`.",
+            "UT: [Error] C045-Error — Non-M20 commands (e.g. `Hangup`) are Rejected with `InvalidState` during shutdown via the catch-all branch. Test: `classify_other_commands_rejected_during_shutdown` (helper `make_other_command`).",
+            "UT: [Boundary] C045-Boundary — `classify(cmd, false)` permits ALL commands during normal operation (shutdown not started) — the routing gate is only active when is_shutting_down=true. Test: `classify_all_permitted_when_not_shutting_down` covers GetAccountInfo, ConfConnect, ConfDisconnect.",
+            "UT: [Invariant] C045-Inv — The classification is immutable per variant during shutdown; `SipError::invalid_state(\"shutting down\")` yields kind=InvalidState, retryable=false. Test: `shutdown_command_action_reject_contains_sip_error` verifies SipError properties (kind/message/retryable) are accessible on the Reject payload."
           ],
           "testIntegration": [
-            "IT: [Integration point] CodecAutoMode::apply to SipClient::configure_codecs — the auto-mode result feeds into the per-account codec configuration pipeline where pjsua_codec_set_priority FFI calls apply the priority map",
-            "IT: [Integration point] SrtpPolicy::validate to ClientConfig::validate — SRTP validation is invoked during ClientConfig::validate() to enforce feature-gating before transport initialization",
-            "IT: [Integration point] ShutdownCommandRouter::classify to CoreReactor::dispatch_command — the router output drives reactor behavior: Permit routes to execute_get_account_info, Reject routes to reject_command with error",
-            "IT: [Integration point] ReconnectPolicy to TransportManager::reconnect — the delay calculation feeds into transport-layer retry timer scheduling"
+            "IT: [Integration point] CodecAutoMode::apply → SipClient::configure_codecs — the auto-mode priority map (`HashMap<String, u8>`) feeds into the per-account codec configuration pipeline where pjsua_codec_set_priority FFI calls apply the map. Verify: apply's output keys exactly match the enumerate_codecs output and priorities are Opus=255/PCMU=254/others=0. Prerequisites: P0-6 reactor dispatch + P2-4 FFI layer. Related tickets: P2-4, P5-? (FFI configure_codecs needs backend).",
+            "IT: [Integration point] SrtpPolicy::validate → ClientConfig::validate — SRTP validation is invoked during ClientConfig::validate() to enforce feature-gating before transport initialization. Verify: a config with Mandatory/Optional SRTP and the srtp feature flag disabled is rejected at config-validation time with InvalidConfig. Prerequisites: ClientConfig::validate chain (P0-3) + srtp feature flag plumbing. Related tickets: P0-3.",
+            "IT: [Integration point] ShutdownCommandRouter::classify → CoreReactor::dispatch_command — the router output drives reactor behavior: `Permit` routes to execute_get_account_info, `Reject` routes to reject_command(cmd, SipError). Verify: during shutdown, GetAccountInfo returns AccountInfoSnapshot and ConfConnect/ConfDisconnect produce InvalidState errors to the oneshot reply. Prerequisites: Reactor shutdown state machine (N0043), P0-6 dispatch_command. Related tickets: P0-6, P6-2.",
+            "IT: [Integration point] ReconnectPolicy → TransportManager::reconnect — the delay calculation feeds into transport-layer retry timer scheduling (UDP: no reconnect per TransportProtocol::needs_reconnect; TCP/TLS: reconnect using next_delay(attempt)). Verify: the reconnect delay sequence follows exponential backoff with max_delay clamp and deterministic jitter. Prerequisites: N0015 transport lifecycle (P2-4+). Related tickets: P2-4."
           ],
           "testExceptions": [
-            "Exception — CodecAutoMode::apply FFI call to pjsua_codec_set_priority: Reason: The actual FFI binding (pjsua_codec_set_priority) is not available until P2-4 when the FFI layer is built. The FFI side-effect call cannot test — it requires a working PJSIP installation and FFI bindings. However, the codec priority assignment logic (mapping codec_id to priority value) is fully testable without FFI. This is not a design defect — the pure function design intentionally separates computation from side effects so that the priority mapping is testable now and the FFI binding can be added later as a thin integration layer. Alternative verification: The apply function returns the priority map as a HashMap<String, u8> which is fully asserted in unit tests across all codec combinations.",
-            "Exception — ShutdownCommandRouter::classify integrating with CoreReactor: Reason: The dispatcher integration requires a running reactor with shutdown state machine, which makes end-to-end testing impossible to test in pure unit context. This is not a design defect — the pure function design of classify() allows exhaustive unit testing of all routing decisions independently of reactor state. The reactor integration is a thin dispatch wrapper. Alternative verification: The pure function classify() is covered exhaustively by unit tests (all RuntimeCommand variants x 2 shutdown states). Reactor dispatch integration is tested via existing dispatch_command tests in runtime/reactor.rs.",
-            "Exception — Transport reconnection integration with PJSIP transport layer: Reason: ReconnectPolicy produces delay values, but actual reconnection orchestration (socket creation, TLS handshake retry, timer scheduling) requires PJSIP transport lifecycle which is not testable until P2-4+. This is not a design defect — the computation of retry delays is independent of transport lifecycle, and the pure function design allows full testing of the delay algorithm now. Alternative verification: ReconnectPolicy::next_delay is fully validated as a pure function across all attempt/jitter combinations."
+            "Exception — CodecAutoMode::apply FFI call to pjsua_codec_set_priority: Reason: The FFI side-effect call is not testable in this crate — it requires a working PJSIP installation and FFI bindings that only arrive with the P2-4 FFI layer. However, the codec priority assignment logic (mapping codec_id to priority value) is fully testable without FFI. This is not a design defect — the pure function design intentionally separates computation from side effects, so the priority mapping is testable now and the FFI binding can be added later as a thin integration layer. Alternative verification: apply returns the priority map as HashMap<String, u8> which is fully asserted in unit tests across all codec combinations (C042 pre/post/invariant: 7 tests).",
+            "Exception — ShutdownCommandRouter::classify integrating with CoreReactor: Reason: The dispatcher integration is not testable in a pure unit context — it requires a running reactor with an active shutdown state machine. This is not a design defect — the pure function design of classify() allows exhaustive unit testing of all routing decisions independently of reactor state; the reactor integration is a thin dispatch wrapper. Alternative verification: classify() is covered exhaustively by unit tests (all RuntimeCommand variants × 2 shutdown states, C045: 8 tests). Reactor dispatch integration is covered by existing dispatch_command tests in runtime/reactor.rs.",
+            "Exception — Transport reconnection integration with PJSIP transport layer: Reason: ReconnectPolicy produces delay values, but actual reconnection orchestration (socket creation, TLS handshake retry, timer scheduling) is not testable until P2-4+ — it requires the PJSIP transport lifecycle. This is not a design defect — the computation of retry delays is independent of transport lifecycle, and the pure function design allows full testing of the delay algorithm now (including the O-001 determinism check and the O-002 tightened [0, 2*computed] bound). Alternative verification: ReconnectPolicy::next_delay is fully validated as a pure function across all attempt/jitter combinations (12 tests)."
           ],
           "acceptanceCriteria": [
-            "Happy path: A SipClient is created with default config (preferred_codecs empty). configure_codecs_auto_mode assigns Opus=255, PCMU=254, others=0. All SrtpPolicy::validate calls with feature enabled pass. During shutdown, GetAccountInfo is permitted and returns AccountInfoSnapshot. ConfConnect and ConfDisconnect are rejected with InvalidState.",
-            "Error case: SrtpPolicy::validate is called with Mandatory when srtp feature flag is disabled — returns Err(InvalidConfig). ShutdownCommandRouter::classify is called with ConfConnect during shutdown — returns Reject(InvalidState) with message containing 'shutting down'.",
-            "Edge case: preferred_codecs contains an explicitly-specified codec but is non-empty — CodecAutoMode::apply produces an empty priority map (auto mode bypassed). preferred_codecs is empty and enumerate_codecs returns an empty list — apply returns Ok(()) with empty map. ReconnectPolicy::next_delay with attempt=0 and base_delay=1s returns exactly 1s (no backoff yet). jitter_ratio=1.0 produces delay in [0, 2*computed] range."
+            "Happy path: A `SipClient` is created with default config (preferred_codecs empty). `CodecAutoMode::apply` assigns Opus=255, PCMU=254, others=0 from the enumerated codec list. All `SrtpPolicy::validate` calls with feature_enabled=true pass (Disabled/Mandatory/Optional). During shutdown, `ShutdownCommandRouter::classify` permits `GetAccountInfo` (returns `AccountInfoSnapshot`) and rejects `ConfConnect`/`ConfDisconnect` with `InvalidState`. All tests pass green via `make test`.",
+            "Error case: `SrtpPolicy::validate(Mandatory, false)` returns `Err(InvalidConfig)`. `ShutdownCommandRouter::classify(ConfConnect, true)` returns `Reject(InvalidState)` with message containing 'shutting down'. `ReconnectPolicy::new(Duration::ZERO, …)` returns `Err(InvalidConfig)` at construction. `CodecAutoMode::apply` with duplicate codec_id returns `Err(NativeError)`.",
+            "Edge case: `preferred_codecs` non-empty → `CodecAutoMode::apply` returns an empty map (auto mode bypassed). Empty codec list + empty preferred → `Ok(empty map)`. `ReconnectPolicy::next_delay(0)` with base=1s returns exactly 1s. jitter_ratio=1.0 produces a delay in [0, 2*computed] where computed = min(base*2^attempt, max) — for base=1s/max=60s/attempt=5 the bound is 64s (O-002 fix). jitter_ratio=0.5 produces identical delays for identical attempts (O-001 fix — determinism for jitter>0)."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§29, §30, §32)",
           "relatedTicketIds": "P2-4 (depends on: reactor dispatch_command pattern), P5-? (depends on: FFI configure_codecs needs backend)",
-          "notes": "Implementation summary:\n- Changed files: src/config.rs, src/config/m20_codec_auto_mode.rs, src/config/srtp_transport_reconnect.rs, src/error.rs, src/error/m20_shutdown_routing.rs\n- Key changes: Replaced 3 stub files with full implementations. CodecAutoMode::apply is a pure function returning HashMap<String, u8>. SrtpPolicy::validate is feature-gated via runtime bool. ReconnectPolicy uses deterministic jitter (no RNG dep). ShutdownCommandRouter::classify is stateless pure routing.\n- All 3 contracts (C042, C043, C045) covered by @verifies annotations and concrete test code in planTestCode.\n- No new crate dependencies added.\n- Test results: all 249 existing tests + 31 new tests passed (7+16+8).\nReview report:\n- Static quality check: passed (12 false positives, all documented)\n- Translatability: no issues (production functions: apply/validate/classify/next_delay/needs_reconnect)\n- Dependencies: consistency verified — no new crate deps\n- Contracts verified: C042 (7 tests with @verifies C042), C043 (5 tests with @verifies C043), C045 (6 tests with @verifies C045)\n- Crimes/stubs: 0 crimes, P1-1 target stubs fully resolved (3 STUB markers removed from target files)\n- Annotation verification: 5 files annotated, 2 AMBIGUOUS resolved\n- Issues found and fixes applied: Converted test functions to use Result<(), SipError> + ? instead of .unwrap() to comply with Rust testing rules (m20_codec_auto_mode.rs: 5 functions, srtp_transport_reconnect.rs: 8 functions)",
+          "notes": "Implementation steps:\n1. Verify the 3 target files already contain the full implementations from the P1-1 round (CodecAutoMode, SrtpPolicy/ReconnectPolicy/TransportProtocol, ShutdownCommandRouter) with the `Initial Design Artifact` header intact.\n2. Add the O-001 test `reconnect_policy_jitter_ratio_positive_is_deterministic` in src/config/srtp_transport_reconnect.rs: construct `ReconnectPolicy::new(1s, 60s, 0.5)`, call `next_delay(3)` twice, assert_eq! both results (catches RNG substitution in the jitter>0 branch).\n3. Tighten the O-002 test `reconnect_policy_jitter_ratio_one_produces_variable_delay`: compute `computed = min(1s * 2^5, 60s) = 32s` from the inputs and assert `computed <= delay <= computed * 2` (64s), replacing the loose `delay <= 2 * max_delay` (120s) bound.\n4. Re-run the full test suite via `make test`; confirm all existing + new tests pass green.\n5. Run quality checks (`run-quality-checks.js`) and resolve any findings by fixing code only.\n\nRisks:\n- The deterministic jitter formula (`(attempt * 0x9E3779B9) >> 32` as a fraction) is intentionally non-cryptographic; it must remain a pure function of attempt for the O-001 determinism test to hold. Any move to a real RNG must be rejected by the new test.\n- The tightened O-002 bound depends on the exact exponential formula `min(base * 2^attempt, max)`; changing the formula (e.g. full-jitter) requires updating the bound computation, not just the assertion constant.\n\nCaveats:\n- `SrtpPolicy::validate` is gated by a runtime bool, not `#[cfg(feature = \"srtp\")]`, per constraint #2 — the actual feature-gate wiring lives in ClientConfig (P0-3) and is out of scope here.\n- The `GetAccountInfo` M20 variant uses `native_acc_id: u32` (not u64) in src/runtime/command.rs — test fixtures must match this exact type.\n- The enumerate/validate target gates (Step 6-1.5) re-scanned the current source tree and confirmed the P6-3 target files contain no untracked STUBs: targetStubs/targetCrimes are `verified_empty`. The 32 crimes recorded by the prior P1-1 ABC inspection were all false positives (ORPHAN_TICKET_REF belonging to P0-7/P2-4) and required no action in this ticket; the actionable findings are the 2 foundOmissions (O-001, O-002), both resolved by the test changes above.\n\nOpen items:\n- FFI integration (`pjsua_codec_set_priority`, transport reconnection lifecycle) is deferred to P2-4 / P2-4+.\n- Wiring `SrtpPolicy::validate` and `ReconnectPolicy` into `ClientConfig::validate` / `TransportManager` is tracked by P0-3 and P2-4 respectively.\n\nFuture improvements:\n- When observability (N0046) lands, add metrics for shutdown rejections, codec auto-mode invocations, and reconnect-delay distribution.\n- Consider extracting the deterministic-jitter hash into a shared utility once a second consumer exists (currently a private implementation detail of ReconnectPolicy).\nImplementation summary (P6-3 re-implementation round):\n- Changed files: src/config/srtp_transport_reconnect.rs, src/config/m20_codec_auto_mode.rs, src/error/m20_shutdown_routing.rs (+ cargo fmt normalization of pre-existing misindented [::TICKET::] annotations in client.rs, error_design_siperror.rs, m20_runtime_command_error.rs)\n- Key changes: (1) O-001 — added reconnect_policy_jitter_ratio_positive_is_deterministic (next_delay(3) twice with jitter_ratio=0.5, assert_eq!) to close the ABC violation-detection gap: the previous determinism test only covered jitter_ratio=0.0 which short-circuits. (2) O-002 — tightened reconnect_policy_jitter_ratio_one_produces_variable_delay to compute bound = min(base*2^attempt, max) and assert [computed, 2*computed] (64s for base=1s/max=60s/attempt=5), replacing the loose 2*max_delay (120s). (3) Boy Scout: extracted JITTER_HASH_MULTIPLIER (0x9E3779B9), OPUS_CODEC_PREFIX, PCMU_CODEC_ID, SHUTDOWN_REJECT_MESSAGE constants.\n- Mutation validation: O-001 test FAILS against a non-deterministic (counter-based) jitter mutation; O-002 test FAILS against a jitter that inflates delay beyond 2*computed. Both prove the tests are not green-by-accident.\n- Test results: make test — 657 lib tests passed (was 656; +1 new O-001 test), 37 integration tests passed, 1 doc test passed, 1 ignored. cargo check --all-targets: 0 warnings/errors. Quality check: 0 issues (reworded 11 doc-comment false positives to avoid the findCommentedCode heuristic).\n- Contracts: C042/C043/C045 verified (@verifies present; verify-red-coverage 3/3 covered).\nReview report (P6-3):\n- Static quality check: passed — 0 issues (reworded 11 doc-comment false positives from the findCommentedCode heuristic in the start phase; re-verified after final edits).\n- Translatability: no issues — function names are verb phrases (apply/validate/classify/next_delay/needs_reconnect), no single-char/generic variables in code, magic numbers extracted to named constants (JITTER_HASH_MULTIPLIER, OPUS_CODEC_PREFIX, PCMU_CODEC_ID, SHUTDOWN_REJECT_MESSAGE), no debug output. Boy Scout plan items all implemented.\n- Tests: make test — 657 lib + 37 integration + 1 doc passed (0 failed, 1 ignored). cargo check --all-targets: 0 warnings/errors.\n- Annotation verification: annotate-ticket-context-by-git-diff --verify — 3 files, 0 missing, 0 ambiguous (exit 0). Fixed a gap: merged P6-3 into the impl CodecAutoMode annotation for the constants change.\n- Dependencies: consistency verified — no new crate dependencies added.\n- Contracts: C042/C043/C045 verified — verify-red-coverage 3/3 covered; verify-final-contracts coverage 100%; @verifies annotations present.\n- Mutation validation (start phase): O-001 test fails against a non-deterministic jitter mutation; O-002 test fails against a jitter that exceeds 2*computed — both prove the tests are not green-by-accident.\n- Issues found and fixes applied: (1) Annotation gap in m20_codec_auto_mode.rs constants section → merged P6-3 key into impl CodecAutoMode annotation. (2) cargo fmt had reindented pre-existing P6-1/P6-2 [::TICKET::] annotations in client.rs / error_design_siperror.rs / m20_runtime_command_error.rs (column 0 → 4 spaces); this created cross-ticket diff noise and annotation-verify false positives, so those fmt-only changes were reverted to HEAD to keep the P6-3 diff focused on the 3 target files. The pre-existing fmt non-compliance in those files is tracked as a known debt (not P6-3 scope).\n- Stub/crime evaluation: 0 open crimes in Malfeasance.json; 51 stubs all carry [::STUB::] markers with owning tickets (P5-1/P3-1/P3-2/P4-2/P4-3/P0-1/P0-2/P2-2); 0 stubs in P6-3 target files; none introduced by this ticket.",
           "default_files": [
             "src/config/m20_codec_auto_mode.rs",
             "src/config/srtp_transport_reconnect.rs",
@@ -9001,624 +9004,15 @@
           ],
           "id": 3,
           "phaseId": 6,
-          "status": "todo",
-          "invariants": "- 【Normal establishment】When preferred_codecs is empty, CodecAutoMode::apply assigns Opus=255, PCMU=254, and all other codecs=0. When preferred_codecs is non-empty, auto mode is bypassed (no priorities changed).\n- 【Normal establishment】SrtpPolicy::validate returns Ok(()) when: Disabled (always valid) or Mandatory/Optional with srtp feature enabled.\n- 【Normal establishment】During shutdown, ShutdownCommandRouter::classify returns Permit for GetAccountInfo and Reject(InvalidState) for media commands.\n- 【On error】SrtpPolicy::validate must never panic or crash — it always returns Result<(), SipError> with InvalidConfig kind for feature violations.\n- 【On error】If enumerate_codecs() fails, CodecAutoMode::apply must propagate the error without partial priority assignment.\n- 【On error】ReconnectPolicy::new must reject invalid parameters (zero base_delay, out-of-range jitter_ratio) at construction time, never at next_delay call time.\n- 【Internal state】ReconnectPolicy fields (base_delay, max_delay, jitter_ratio) are immutable after construction — no setter methods provided.\n- 【Internal state】ShutdownCommandRouter has no mutable state — classify() is a pure function of (cmd, is_shutting_down).\n- 【Boundary】Codec priority values are u8: Opus=255 (max valid priority), PCMU=254, others=0 (disabled). These exact values are invariants.\n- 【Boundary】jitter_ratio must be in [0.0, 1.0] — values outside this range are rejected at construction.",
-          "instrumentation": "- [Logging] CodecAutoMode::apply: trace-level log of each codec_id → priority mapping. SrtpPolicy::validate: debug log when validation fails (\"SRTP Mandatory rejected — feature disabled\"). ShutdownCommandRouter::classify: info log on Permit (\"GetAccountInfo permitted during shutdown\") and warn on Reject (\"ConfConnect rejected during shutdown\").\n- [Metrics] None in P1-1 — all three modules are pure functions with no runtime state. Future metrics (counter of shutdown rejections, codec auto-mode invocations) should be added when observability (N0046) is implemented.\n- [Error tracking] All failures are returned as Result<_, SipError> — no panics, no unwraps, no silent error swallowing. Error kinds: InvalidConfig (SRTP validation), InvalidState (shutdown rejection), NativeError (codec enumeration propagation).\n- [Health check] No health check endpoints in P1-1. Shutdown routing correctness is implicitly verified by the reactor's shutdown state machine (tested via ShutdownCommandRouter::classify exhaustive match).\nStatic quality check: 12 issues found — all false positives (8 = doc comments misidentified as commented-out code, 2 = existing P0-3 code not P1-1, 2 = Rust testing rule exempt).\nTranslatability: no issues — all function names are verb phrases, no single-char vars, no magic numbers, no debug output, named constants used.\nTests: all 249 unit + 37 integration tests passed.",
-          "investigation": "Investigation evidence gathered from RFC graph (N0041, N0042, N0044, N0040, N0043, N0015) and source code (src/config/m20_codec_auto_mode.rs, src/config/srtp_transport_reconnect.rs, src/error/m20_shutdown_routing.rs, src/config/codec_policy_fallback.rs, src/runtime/command.rs, src/error/error_design_siperror.rs, src/error/m20_runtime_command_error.rs, src/config.rs, src/lib.rs):\n\n1. N0041 (Codec Auto Mode): Two-layer selection — preferred_codecs non-empty = explicit mode, empty = auto mode (Opus=255, PCMU=254). The configure_codecs() function in RFC uses pjsua_codec_set_priority FFI. Parent N0040 defines CodecSelectionPolicy (Ordered/PreferOpusFallbackPcmu) and NegotiatedCodec enum. The CallMediaPreferences struct is defined in N0040 parent but not yet implemented — P1-1 only implements the auto-mode computation, not the full CallMediaPreferences struct.\n\n2. N0042 (SRTP & Transport Reconnection): SrtpPolicy enum (Disabled/Optional/Mandatory) with feature-gating via bool flag (not #[cfg] in function body). ReconnectPolicy with exponential backoff: base_delay * 2^attempt, clamped by max_delay, with jitter_ratio randomization. Transport protocol distinction: UDP stateless (no reconnect), TCP/TLS connection-oriented (reconnect needed). Parent N0015 defines TransportConfig enum with Udp/Tcp/Tls variants. The actual transport lifecycle (create, reconnect, destroy) is in N0015's domain and deferred to P2-4.\n\n3. N0044 (Shutdown Routing): Three M20 RuntimeCommand variants: GetAccountInfo (permitted — read-only), ConfConnect (rejected — media mutation), ConfDisconnect (rejected — media mutation). Pure routing function with no reactor state dependence. Uses SipError::invalid_state(\"shutting down\") from error_design_siperror. Parent N0043 defines the shutdown state machine (idempotent, cancels calls, unregisters, drains audio, destroys). The RuntimeCommand enum is already defined in src/runtime/command.rs (P0-6) with all three variants. The error converters (convert_conf_connect_error, convert_conf_disconnect_error, convert_get_account_info_error) are already implemented in src/error/m20_runtime_command_error.rs (P0-4).\n\n4. Existing source state: All three target files are stubs (pub struct Config {}, pub enum Error {}) with [::STUB::] markers. The files have the Initial Design Artifact header. Module declarations exist in src/config.rs and src/error.rs with pub mod statements. No existing implementations to modify.\n\n5. Key architecture decision: ShutdownCommandRouter is placed in src/error/m20_shutdown_routing.rs (error_policy module per the graph), not in runtime/. This keeps routing logic separate from reactor mechanics. The Reactor's dispatch_command calls classify() and acts on the ShutdownCommandAction result — this is the integration point tested in testIntegration.",
-          "boyScoutPlan": "Translatability improvements for P1-1 (applied to code touched by this ticket):\n\n1. Function names as verb phrases: apply() for CodecAutoMode (applies auto-mode priorities), validate() for SrtpPolicy (validates policy against feature flag), classify() for ShutdownCommandRouter (classifies command during shutdown), next_delay() for ReconnectPolicy (computes next retry delay). All are imperative verbs describing the action.\n\n2. Variable names as domain concepts: codec_id (not \"id\" or \"codec\"), preferred_codecs (not \"pc\" or \"list\"), jitter_ratio (not \"j\" or \"r\"), native_acc_id (matches existing RuntimeCommand field name), is_shutting_down (boolean flag with is_ prefix per coding standards).\n\n3. One function, one responsibility: CodecAutoMode::apply only computes priority map (no FFI, no state mutation). SrtpPolicy::validate only validates (no side effects). ShutdownCommandRouter::classify only routes (no execution). ReconnectPolicy::next_delay only computes delay (no timer scheduling).\n\n4. Named constants: OPUS_PRIORITY = 255, PCMU_PRIORITY = 254 extracted as constants rather than magic numbers. No hardcoded values in function bodies.\n\n5. No error swallowing: All functions return Result<_, SipError> (not Result<_, ()>). Error messages include diagnostic context (codec_id for FFI errors, policy variant for validation errors, cmd variant for shutdown routing).\n\n6. Existing code left cleaner: The three stub files currently have `pub struct Config {}` and `pub enum Error {}` with generic names and no real content. P1-1 replaces these with properly named types. No additional existing code is touched.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】When `preferred_codecs` is empty, `CodecAutoMode::apply` assigns Opus=255, PCMU=254, and all other codecs=0 for every enumerated `CodecInfo`. When `preferred_codecs` is non-empty, auto mode is bypassed and the returned map is empty (no priorities changed).\n- 【Normal establishment】`SrtpPolicy::validate` returns `Ok(())` when: `Disabled` (always, regardless of feature_enabled) or `Mandatory`/`Optional` with feature_enabled=true.\n- 【Normal establishment】During shutdown (is_shutting_down=true), `ShutdownCommandRouter::classify` returns `Permit` for `GetAccountInfo` and `Reject(InvalidState)` for `ConfConnect`/`ConfDisconnect`; during normal operation (is_shutting_down=false) every command is `Permit`.\n- 【On error】`SrtpPolicy::validate` must never panic or crash — it always returns `Result<(), SipError>` with `InvalidConfig` kind for feature violations.\n- 【On error】`CodecAutoMode::apply` with a duplicate codec_id in the enumeration must return `Err(NativeError)` without partial priority assignment (no map is produced).\n- 【On error】`ReconnectPolicy::new` must reject invalid parameters (zero base_delay, max_delay < base_delay, jitter_ratio outside [0.0, 1.0]) at construction time with `InvalidConfig`, never at `next_delay` call time.\n- 【Internal state】`ReconnectPolicy` fields (base_delay, max_delay, jitter_ratio) are immutable after construction — no setter methods provided; accessors return construction-time values.\n- 【Internal state】`ShutdownCommandRouter` has no mutable state — `classify()` is a pure function of (cmd, is_shutting_down) with no side effects.\n- 【Internal state】`CodecAutoMode` is a stateless unit struct; `apply` has no side effects and no dependence on ambient state.\n- 【Boundary】Codec priority values are u8: Opus=255 (max valid priority), PCMU=254 (fallback), others=0 (disabled). These exact values are invariants backed by named constants `OPUS_PRIORITY` and `PCMU_PRIORITY`.\n- 【Boundary】jitter_ratio must be in [0.0, 1.0] — values outside this range are rejected at construction.\n- 【Boundary】`ReconnectPolicy::next_delay(attempt)` with jitter_ratio=1.0 produces a delay in [0, 2*computed] where `computed = min(base_delay * 2^attempt, max_delay)`; the same (attempt, policy) pair always produces the same delay (deterministic jitter even when jitter_ratio > 0).",
+          "instrumentation": "- [Logging] `CodecAutoMode::apply`: no runtime logging (pure function, called at config time). `SrtpPolicy::validate`: debug-level log when validation fails (e.g. \"SRTP Mandatory rejected — feature disabled\") so misconfiguration is visible at startup. `ShutdownCommandRouter::classify`: info-level log on `Permit` (\"GetAccountInfo permitted during shutdown\") and warn-level log on `Reject` (\"ConfConnect rejected during shutdown\") to make teardown routing observable.\n- [Metrics] None in this ticket — all three modules are pure functions with no runtime state. Future metrics (counter of shutdown rejections per command variant, codec auto-mode invocation count, reconnect delay distribution) should be added when observability (N0046) is implemented.\n- [Error tracking] All failures are returned as `Result<_, SipError>` — no panics, no unwraps, no silent error swallowing. Error kinds: `InvalidConfig` (SRTP validation, ReconnectPolicy construction), `InvalidState` (shutdown rejection), `NativeError` (duplicate codec_id in enumeration). Every error message carries the offending context (policy variant, parameter name, command variant).\n- [Health check] No health-check endpoints in this ticket. Shutdown-routing correctness is verified via the reactor's shutdown state machine (N0043) and the exhaustive `ShutdownCommandRouter::classify` unit tests; SRTP/codec policy health is validated at config-validation time.\nReview: Static quality check: passed (0 issues) | Translatability: no issues | Tests: 657 lib + 37 integration + 1 doc passed | Annotation verify: 3 files, 0 missing, 0 ambiguous | Contracts: C042/C043/C045 verified",
+          "investigation": "Evidence gathered from the RFC graph (N0041, N0042, N0044 + parents N0040, N0043, N0015) and source inspection (src/config/m20_codec_auto_mode.rs, src/config/srtp_transport_reconnect.rs, src/error/m20_shutdown_routing.rs, src/config/codec_policy_fallback.rs, src/runtime/command.rs, src/error/error_design_siperror.rs, src/error/m20_runtime_command_error.rs, src/config.rs, src/error.rs):\n\n1. Current source state — all three target files are FULLY IMPLEMENTED from the P1-1 round (not stubs): m20_codec_auto_mode.rs (267 lines, 7 tests), srtp_transport_reconnect.rs (389 lines, 13 tests), m20_shutdown_routing.rs (247 lines, 8 tests). Each carries the `Initial Design Artifact` header. Module declarations exist: `pub mod m20_codec_auto_mode; pub mod srtp_transport_reconnect;` in src/config.rs and `pub mod m20_shutdown_routing;` in src/error.rs.\n\n2. RFC N0041 (§29 Codec Auto Mode): two-layer selection — preferred_codecs non-empty = explicit mode (bypass), empty = auto mode (Opus=255, PCMU=254, others=0). RFC code calls `ffi::pjsua_codec_set_priority`; constraint #1 defers FFI to P2-4. Parent N0040 (codec_policy_fallback.rs, already implemented) defines `NegotiatedCodec` (Pcmu/Opus) and `CodecSelectionPolicy` (Ordered/PreferOpusFallbackPcmu). `CallMediaPreferences.preferred_codecs: Vec<Codec>` is the config field consumed by auto mode.\n\n3. RFC N0042 (§30 SRTP & §31 Transport Reconnection): SrtpPolicy (Disabled/Optional/Mandatory), feature flag default OFF, feature-disabled → Mandatory/Optional = InvalidConfig. ReconnectPolicy = exponential backoff `min(base * 2^attempt, max) * (1 + jitter)`. Transport: UDP stateless (no reconnect), TCP/TLS connection-oriented (reconnect). Parent N0015 defines TransportConfig (Udp/Tcp/Tls). Actual transport lifecycle deferred to P2-4.\n\n4. RFC N0044 (§32 Shutdown Command Routing): three M20 RuntimeCommand variants — GetAccountInfo (permitted, read-only), ConfConnect (rejected), ConfDisconnect (rejected). Uses `SipError::invalid_state(\"shutting down\")`. Parent N0043 defines the idempotent shutdown state machine (stop accepting commands, BYE/CANCEL calls, unregister, drain audio, pjsua_destroy).\n\n5. Supporting types (verified): `RuntimeCommand` in src/runtime/command.rs has `GetAccountInfo { native_acc_id: u32, reply: oneshot }`, `ConfConnect { call_id: u64, reply }`, `ConfDisconnect { call_id: u64, reply }`. `SipError { pub kind, pub message, pub native_status, pub account_id, pub call_id, pub retryable }` with `new(kind, msg)`, `invalid_state(msg)`, `internal_error(msg)`. `SipErrorKind` includes InvalidConfig, InvalidState, NativeError.\n\n6. ABC violations to resolve (foundOmissions): O-001 — determinism is only tested at jitter_ratio=0.0 (short-circuited to 0.0 at srtp_transport_reconnect.rs:181), so an RNG in the jitter>0 branch is undetectable; the fix is a new test calling next_delay(3) twice with jitter_ratio=0.5 and asserting equality. O-002 — the jitter=1.0 test (line 356) asserts delay <= 2*max_delay (120s) when the spec bound for base=1s/max=60s/attempt=5 is 2*computed=64s; the fix computes the bound from the inputs.\n\n7. Verification command: `make test` (Makefile `test:` target). Quality gates: `run-quality-checks.js`; stub/crime scan via `.claude/scripts/tickets/scan-crimes.sh`.",
+          "boyScoutPlan": "Translatability improvements applied to code touched by this ticket (verified against the current implementation):\n\n1. Function names as verb phrases: `apply()` (applies auto-mode priorities), `validate()` (validates policy against the feature flag), `classify()` (classifies a command during shutdown), `next_delay()` (computes the next retry delay), `needs_reconnect()` (answers whether the protocol requires reconnection). All are imperative verbs that read as sentences at call sites.\n\n2. Variable names as domain concepts: `codec_id` (not \"id\" or \"codec\"), `preferred_codecs` (not \"pc\" or \"list\"), `jitter_ratio` (not \"j\" or \"r\"), `base_delay`/`max_delay` (backoff parameters), `native_acc_id` (matches the existing RuntimeCommand field), `is_shutting_down` (boolean with is_ prefix per coding standards).\n\n3. One function, one responsibility: `CodecAutoMode::apply` only computes the priority map (no FFI, no state mutation); `SrtpPolicy::validate` only validates (no side effects); `ShutdownCommandRouter::classify` only routes (no execution); `ReconnectPolicy::next_delay` only computes a delay (no timer scheduling). `assign_auto_priority` is extracted as a single-codec mapping helper so `apply` reads as \"for each codec, assign its auto priority\".\n\n4. Named constants: `OPUS_PRIORITY = 255` and `PCMU_PRIORITY = 254` replace magic numbers; the priority semantics (255=max, 254=fallback, 0=disabled) are documented at the constant site.\n\n5. No error swallowing: all fallible functions return `Result<_, SipError>`; error messages carry diagnostic context (policy variant for validation, parameter name for ReconnectPolicy::new, \"duplicate\" + codec_id for enumeration errors, \"shutting down\" for routing rejects).\n\n6. Omissions-driven cleanups this round: (a) the O-002 test must compute its assertion bound from the inputs (`min(base * 2^attempt, max)`) rather than hardcoding a loose 2*max_delay, so the bound and the implementation formula cannot drift apart; (b) the O-001 test documents why jitter must stay a pure function of attempt (deterministic seed) at the test site. Existing code outside these files is left untouched (Boy Scout within reasonable scope).",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [],
-          "targetCrimes": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full SIP account management implementation (N0025, N0026).",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Full SIP account management imp...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 17,
-              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper `get_*` accessors",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace `pub` fields with prop...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
-              "line": 27,
-              "markerText": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace with proper newtype fr...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
-              "line": 32,
-              "markerText": "/// [::STUB::] P0-7: Replace with proper newtype from model/id_design_newtype.rs",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace with proper newtype fr...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full call lifecycle management (N0027, N0026).",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Full call lifecycle management ...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/call.rs",
-              "line": 15,
-              "markerText": "/// [::STUB::] P0-7: Replace `pub` fields with proper accessors and",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace `pub` fields with prop...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P2-4: Replace these manually-defined constants with the actual",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Replace these manually-defined ...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 201,
-              "markerText": "/// [::STUB::] P0-7: Replace `Option<u64>` with `Option<AccountId>` /",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace `Option<u64>` with `Op...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 304,
-              "markerText": "/// [::STUB::] P2-4: Once the FFI layer provides actual `pj_status_t` constants",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: /// P2-4: Once the FFI layer provides ac...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P2-4: Replace with actual pj_status_t constants from pjsua.h.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Replace with actual pj_status_t...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 93,
-              "markerText": "/// [::STUB::] P0-7: Replace `u64` fields with `AccountId` / `CallId` newtypes",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace `u64` fields with `Acc...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 138,
-              "markerText": "// [::STUB::] P0-7: Return real account information once the account state",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Return real account information...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 58,
-              "markerText": "/// [::STUB::] P0-7: Full implementations with lifecycle methods.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Full implementations with life...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 72,
-              "markerText": "// [::STUB::] P2-4: ffi/ — PJSIP FFI bindings",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: ffi/ — PJSIP FFI bindings...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 167,
-              "markerText": "// [::STUB::] P0-7: mixer stored for future state inspection API.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: mixer stored for future state i...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 171,
-              "markerText": "// [::STUB::] P0-7: call_id stored for future query API.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: call_id stored for future query...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 174,
-              "markerText": "// [::STUB::] P0-7: frame_duration stored for future query API.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: frame_duration stored for futur...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 178,
-              "markerText": "// [::STUB::] P2-4: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Replace with JoinHandle once FF...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 234,
-              "markerText": "// [::STUB::] P0-7: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: call_id stored for future loggi...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 180,
-              "markerText": "// [::STUB::] P0-7: Return real account information once the account state",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Return real account information...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 28,
-              "markerText": "// [::STUB::] P2-4: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: join_handle reserved for future...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P2-4: MockBackend is used until PjsuaBackend (P0-6/P2-4) is implemented.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: MockBackend is used until Pjsua...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-023",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "// [::STUB::] P0-7: Route to AudioMixer stored in",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Route to AudioMixer stored in...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-024",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/state.rs",
-              "line": 87,
-              "markerText": "// [::STUB::] P0-7: replaces u64 placeholders with AccountId/CallId newtypes.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: replaces u64 placeholders with ...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-025",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Will be used by Reactor call pr...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-026",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: /// P2-4: Replace with actual constants ...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-027",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::STUB::] P2-4: Replace with actual constants from pjsua.h once FFI bindings exist.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: /// P2-4: Replace with actual constants ...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-028",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P2-4: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Will be used by Reactor call pr...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-029",
-              "ticketRef": "P2-4",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 136,
-              "markerText": "// [::STUB::] P2-4: Replace with real pjsua_call_get_info call once FFI exists.",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P2-4 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P2-4 (types: // P2-4: Replace with real pjsua_call_ge...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P2-4.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-030",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 5,
-              "markerText": "// [::STUB::] P0-7: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: // P0-7: Full transport management (N001...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-031",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 11,
-              "markerText": "/// [::STUB::] P0-7: Replace string with proper enum (Udp, Tcp, Tls).",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Replace string with proper enu...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            },
-            {
-              "id": "TS-032",
-              "ticketRef": "P0-7",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 23,
-              "markerText": "/// [::STUB::] P0-7: Add transport lifecycle (create, destroy, enumerate)",
-              "contracts": [
-                "C042",
-                "C043",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "false_positive",
-              "crimeType": "ORPHAN_TICKET_REF",
-              "falsePositive": {
-                "justification": "This [::STUB::] marker belongs to ticket P0-7 and is outside the scope of P1-1. P1-1 implements the M20 codec auto-mode (N0041), SRTP/transport reconnection (N0042), and shutdown routing (N0044) modules. This STUB references functionality from P0-7 (types: /// P0-7: Add transport lifecycle (creat...). The referenced types (u64 placeholders, FFI constants, module declarations) are not resolved by P1-1 and must be addressed by P0-7.",
-                "approvedBy": "auto-ticket-make"
-              }
-            }
-          ],
+          "updated_at": "2026-08-03",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
             "# C042 — N0041→N0040: Codec Auto Mode",
             "UT: [C042-Pre] Precondition: Codec policy defined (preferred_codecs empty → auto mode)",
@@ -9729,9 +9123,28 @@
             "  let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(5), 0.0).unwrap();",
             "  let d10 = policy.next_delay(10);",
             "  assert!(d10 <= Duration::from_secs(5), \"clamped at max_delay\");",
+            "  ```",
+            "# O-001 FIX — deterministic jitter for jitter_ratio > 0 (ABC violation B)",
+            "UT: [Boundary] ReconnectPolicy::next_delay(3) twice with jitter_ratio=0.5 returns identical delays",
+            "  ```rust",
+            "  let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.5)?;",
+            "  let d_a = policy.next_delay(3);",
+            "  let d_b = policy.next_delay(3);",
+            "  assert_eq!(d_a, d_b, \"jitter>0 must be deterministic per attempt (constraint #4)\");",
+            "  // If the jitter formula were replaced with an RNG, this test fails.",
+            "  ```",
+            "# O-002 FIX — jitter_ratio=1.0 delay bound is [computed, 2*computed] (ABC violation C)",
+            "UT: [Boundary] ReconnectPolicy::next_delay(5) with jitter_ratio=1.0, base=1s, max=60s → delay in [32s, 64s]",
+            "  ```rust",
+            "  let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 1.0)?;",
+            "  let attempt = 5;",
+            "  let computed = Duration::from_secs(1).saturating_mul(1u32 << attempt).min(Duration::from_secs(60)); // = 32s",
+            "  let delay = policy.next_delay(attempt);",
+            "  assert!(delay >= computed, \"jitter adds non-negative delay; lower bound is computed\");",
+            "  assert!(delay <= computed * 2, \"jitter=1.0 upper bound is 2*computed (64s), NOT 2*max_delay (120s)\");",
             "  ```"
           ],
-          "startedAt": "2026-07-29",
+          "startedAt": "2026-08-03",
           "changes": [
             {
               "before": "pub struct Config {} (stub)",
@@ -9757,10 +9170,25 @@
               "before": "(not declared)",
               "after": "pub mod m20_shutdown_routing",
               "description": "Module declaration added to src/error.rs"
+            },
+            {
+              "before": "srtp_transport_reconnect.rs: only jitter_ratio=0.0 determinism test (short-circuited); jitter=1.0 test asserted loose 2*max_delay (120s) bound",
+              "after": "Added reconnect_policy_jitter_ratio_positive_is_deterministic (O-001); tightened jitter_ratio_one test to [computed, 2*computed] (64s) (O-002); extracted JITTER_HASH_MULTIPLIER constant",
+              "description": "P6-3 ABC closure: ReconnectPolicy test precision (O-001 determinism for jitter>0, O-002 exact bound)"
+            },
+            {
+              "before": "m20_codec_auto_mode.rs: magic strings \"opus/\" and \"PCMU/8000/1\" inline in assign_auto_priority",
+              "after": "Extracted OPUS_CODEC_PREFIX and PCMU_CODEC_ID named constants",
+              "description": "P6-3 Boy Scout: magic string extraction"
+            },
+            {
+              "before": "m20_shutdown_routing.rs: \"shutting down\" message duplicated in two match arms",
+              "after": "Extracted SHUTDOWN_REJECT_MESSAGE named constant",
+              "description": "P6-3 Boy Scout: DRY + translatability"
             }
           ],
           "rfcDiscrepancies": [],
-          "completedAt": "2026-07-29",
+          "completedAt": "2026-08-03",
           "foundOmissions": [
             {
               "severity": "minor",

@@ -103,6 +103,11 @@ impl TransportProtocol {
 // ReconnectPolicy — exponential backoff with jitter
 // ---------------------------------------------------------------------------
 
+/// Golden-ratio hash multiplier used to derive deterministic jitter from the
+/// attempt number. Kept as a named constant so the jitter derivation stays a
+/// pure computation on the attempt, without importing a random number generator.
+const JITTER_HASH_MULTIPLIER: u64 = 0x9E37_79B9;
+
 /// Exponential backoff policy for transport reconnection.
 ///
 /// Computes retry delays using the formula:
@@ -126,7 +131,7 @@ pub struct ReconnectPolicy {
     jitter_ratio: f64,
 }
 
-// [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P6-3) --for-spec --no-implementation-order`.
 impl ReconnectPolicy {
     /// Create a new `ReconnectPolicy` with the given parameters.
     ///
@@ -181,7 +186,7 @@ impl ReconnectPolicy {
         let jitter_factor = if self.jitter_ratio == 0.0 {
             0.0
         } else {
-            let hash = (attempt as u64).wrapping_mul(0x9E3779B9u64) >> 32;
+            let hash = (attempt as u64).wrapping_mul(JITTER_HASH_MULTIPLIER) >> 32;
             let fraction = (hash as f64) / (u32::MAX as f64);
             self.jitter_ratio * fraction
         };
@@ -215,7 +220,7 @@ mod tests {
     use super::*;
     use crate::error::SipError;
 
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1, P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P6-3) --for-spec --no-implementation-order`.
     type TestResult = Result<(), SipError>;
 
     // ── C043-Pre: Precondition — SrtpPolicy value set, feature flag available
@@ -352,14 +357,42 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // O-001 FIX (ABC violation B): determinism must hold for jitter_ratio > 0.
+    // The zero-jitter test above short-circuits to 0.0, so an RNG in the
+    // jitter>0 branch would have gone undetected. This test asserts the same
+    // (attempt, policy) pair always yields the same delay (constraint #4:
+    // deterministic seed based on attempt number).
+    // [::TICKET::] P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-3 --for-spec --no-implementation-order`.
+    fn reconnect_policy_jitter_ratio_positive_is_deterministic() -> TestResult {
+        let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 0.5)?;
+        let d_a = policy.next_delay(3);
+        let d_b = policy.next_delay(3);
+        assert_eq!(
+            d_a, d_b,
+            "jitter>0 must be deterministic per attempt (constraint #4)"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // O-002 FIX (ABC violation C): the jitter=1.0 delay bound is [computed, 2*computed]
+    // where computed = min(base_delay * 2^attempt, max_delay). The bound must be
+    // derived from the inputs, not a loose 2*max_delay (which accepts violations).
+    // [::TICKET::] P6-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-3 --for-spec --no-implementation-order`.
     fn reconnect_policy_jitter_ratio_one_produces_variable_delay() -> TestResult {
         let policy = ReconnectPolicy::new(Duration::from_secs(1), Duration::from_secs(60), 1.0)?;
-        let delay = policy.next_delay(5);
-        assert!(delay >= Duration::ZERO);
+        let attempt = 5;
+        let computed = Duration::from_secs(1)
+            .saturating_mul(1u32 << attempt)
+            .min(Duration::from_secs(60)); // min(1s * 2^5, 60s) = 32s
+        let delay = policy.next_delay(attempt);
         assert!(
-            delay <= Duration::from_secs(60) * 2,
-            "jitter=1.0 may double delay"
+            delay >= computed,
+            "jitter adds non-negative delay; lower bound is computed"
+        );
+        assert!(
+            delay <= computed * 2,
+            "jitter=1.0 upper bound is 2*computed (64s), NOT 2*max_delay (120s)"
         );
         Ok(())
     }
