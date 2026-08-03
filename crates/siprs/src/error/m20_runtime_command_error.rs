@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     // @verifies C018
-// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
     fn conf_connect_other_error_keeps_native_status_and_retryable() {
         // ABC O-003 closure: a non-EINVALIDOP PJSIP error must preserve the FFI
         // diagnostic code in native_status and be marked retryable. This failed RED
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     // @verifies C018
-// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
     fn conf_disconnect_other_error_keeps_native_status_and_retryable() {
         let err = convert_conf_disconnect_error(PJ_EBUSY, 42).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     // @verifies C018
-// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_keeps_native_status_and_retryable() {
         let err = convert_get_account_info_error(true, PJ_EBUSY).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     // @verifies C018
-// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
     fn m20_converter_distinguishes_state_error_from_ffi_error() {
         // Semantic boundary: an unresolved conf_port (PJ_EINVALIDOP) is a state error
         // (native_status=None, retryable=false); any other non-zero code is an FFI
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C018
-// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
     fn m20_converters_return_sip_error_type() {
         // Type assertion: all three converters must return Result<T, SipError>
         // ABC O-004 closure: convert_get_account_info_error (Result<AccountInfo, SipError>)

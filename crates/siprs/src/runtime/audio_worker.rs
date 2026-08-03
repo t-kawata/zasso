@@ -240,12 +240,15 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
+    // [::STUB::] P3-2: mixer stored but unread -- Expose via state inspection accessor once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
+    // [::STUB::] P3-2: call_id stored but unread -- Expose via query accessor once call lifecycle is active
     // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     call_id: u64,
+    // [::STUB::] P3-2: frame_duration stored but unread -- Expose via query accessor once call lifecycle is active
     // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     frame_duration: Duration,

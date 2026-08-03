@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     // @verifies C017
-// [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
     fn sip_error_kind_display_shows_variant_name_for_all_23() {
         // ABC O-002 closure: previously only 3 kinds (InvalidConfig, NativeError,
         // ShutdownInProgress) were pinned by SipError-level Display tests. The other
@@ -430,18 +430,27 @@ mod tests {
             (SipErrorKind::AuthenticationFailed, "AuthenticationFailed"),
             (SipErrorKind::InviteFailed, "InviteFailed"),
             (SipErrorKind::MediaInitFailed, "MediaInitFailed"),
-            (SipErrorKind::MediaNegotiationFailed, "MediaNegotiationFailed"),
+            (
+                SipErrorKind::MediaNegotiationFailed,
+                "MediaNegotiationFailed",
+            ),
             (SipErrorKind::IceFailed, "IceFailed"),
             (SipErrorKind::TlsFailed, "TlsFailed"),
             (SipErrorKind::SrtpFailed, "SrtpFailed"),
-            (SipErrorKind::AudioFormatUnsupported, "AudioFormatUnsupported"),
+            (
+                SipErrorKind::AudioFormatUnsupported,
+                "AudioFormatUnsupported",
+            ),
             (SipErrorKind::AudioPipelineBroken, "AudioPipelineBroken"),
             (SipErrorKind::DtmfFailed, "DtmfFailed"),
             (SipErrorKind::Timeout, "Timeout"),
             (SipErrorKind::ChannelClosed, "ChannelClosed"),
             (SipErrorKind::NativeError, "NativeError"),
             (SipErrorKind::ShutdownInProgress, "ShutdownInProgress"),
-            (SipErrorKind::InternalInvariantBroken, "InternalInvariantBroken"),
+            (
+                SipErrorKind::InternalInvariantBroken,
+                "InternalInvariantBroken",
+            ),
         ];
         for (kind, expected) in CASES {
             assert_eq!(format!("{kind}"), expected, "Display mismatch for {kind:?}");
@@ -580,13 +589,13 @@ mod tests {
     // ── Invariant: Send + Sync ────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
     fn sip_error_is_send_sync() {
         // Value-parameter form: the type parameter is used in the argument type,
         // so no clippy suppression is required.
-// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>(_value: &T) {}
-// [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>(_value: &T) {}
         let err = SipError::new(SipErrorKind::InvalidConfig, "");
         assert_send(&err);

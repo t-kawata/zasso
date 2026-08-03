@@ -125,7 +125,7 @@ impl DatabasePool {
     ///
     /// Returns the names of all user tables (excluding sqlite_* system tables).
     #[cfg(test)]
-    // Test-only helper — dead_code lint suppressed since it is called from integration tests.
+    // [::STUB::] P4-3: query_tables reserved for integration test use but currently uncalled -- Wire into standalone-server persistence tests once SQLite schema is testable
     #[allow(dead_code)]
     pub(crate) async fn query_tables(&self) -> Result<Vec<String>, DbErr> {
         use sea_orm::ConnectionTrait;
