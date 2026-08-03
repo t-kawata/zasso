@@ -37,6 +37,10 @@ try {
 // Matches ticket keys like P3-2, PX-53, P12-3 in STUB content
 const STUB_TICKET_KEY_RE = /\[::STUB::\].*?([A-Z]+[A-Z\d]*-\d+)/;
 
+// Round-aware status marker (R1, R2, ...). Such tickets record a completed past
+// round and must never be re-queued as new work (PX-119 divergence prevention).
+const ROUND_STATUS_RE = /^R[1-9]\d*$/;
+
 // PX-106: Idempotent sentinel and helpers (inline fallback if add-omission-ticket.js unavailable)
 const INSPECTION_SENTINEL_FALLBACK = '[::INSPECTION_FLAGGED::]';
 
@@ -100,13 +104,16 @@ function extractTicketKeysFromStubs(findAllOutput) {
 }
 
 /**
- * Collect ticket keys of all non-reviewed tickets from Tickets.json data.
- * Non-reviewed = status !== 'reviewed' (todo, in_progress, made, planned, done, etc.)
+ * Collect ticket keys of tickets that must be re-queued into the next round:
+ * non-reviewed tickets (todo, in_progress, made, planned, done, remanded, etc.)
+ * EXCEPT round-aware statuses (R1, R2, ...). R<round> is a past-round completion
+ * record — re-queueing it every round would diverge and never converge.
  *
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
  * @returns {string[]} — Ticket keys in "P{phaseId}-{ticketId}" format
  */
 // [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
 function collectNonReviewedTickets(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -115,7 +122,8 @@ function collectNonReviewedTickets(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
-      if (ticket.status !== 'reviewed') {
+      // Re-queue non-reviewed tickets except R<round> past-round records.
+      if (ticket.status !== 'reviewed' && !ROUND_STATUS_RE.test(ticket.status || '')) {
         const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
         const phasePrefix = phaseId === -1 ? 'X' : phaseId;
         keys.push('P' + phasePrefix + '-' + ticket.id);

@@ -246,11 +246,13 @@ try {
 })();
 
 // ======================================================================
-// PX-114: Round-aware status (R<round>) in reviewed-ticket collection
+// Round-aware status (R<round>) is EXCLUDED from the check queue.
+// R<round> records a completed past round; re-inspecting it every round
+// would grow the workload divergently and never converge.
 // ======================================================================
 
-(function testC001RoundStatus() {
-  console.log('  ── C001 Round-aware status (R<round>) ──');
+(function testRoundStatusExcluded() {
+  console.log('  ── Round-aware status (R<round>) excluded ──');
   const mockTickets = { phases: [
     { id: 0, tickets: [
       { id: 1, status: 'R1', title: 'Completed round 1' },
@@ -259,24 +261,22 @@ try {
     ] }
   ] };
   const keys = collectReviewedTicketKeys(mockTickets);
-  assert(keys.length === 2, '2 round-aware tickets (R1 + R2)');
-  assert(keys.includes('P0-1'), 'R1 ticket key included');
-  assert(keys.includes('P0-2'), 'R2 ticket key included');
-  assert(!keys.includes('P0-3'), 'todo ticket excluded');
+  assert(keys.length === 0, 'R1/R2/todo all excluded (only reviewed/remanded are targets)');
+  assert(!keys.includes('P0-1'), 'R1 ticket key excluded');
+  assert(!keys.includes('P0-2'), 'R2 ticket key excluded');
 })();
 
-(function testC001RoundStatusPX() {
-  console.log('  ── C001 Round-aware status in PX phase ──');
+(function testRoundStatusPxExcluded() {
+  console.log('  ── Round-aware status in PX phase excluded ──');
   const mockTickets = { phases: [
     { id: -1, tickets: [{ id: 7, status: 'R1', title: 'PX round ticket' }] }
   ] };
   const keys = collectReviewedTicketKeys(mockTickets);
-  assert(keys.length === 1, '1 round-aware ticket in PX phase');
-  assert(keys[0] === 'PX-7', 'key is PX-7 (phase X)');
+  assert(keys.length === 0, 'R1 round-aware ticket in PX phase excluded');
 })();
 
-(function testC001RoundInvariant() {
-  console.log('  ── C001 Round-aware invariant ──');
+(function testRoundMixedReviewedRemandedOnly() {
+  console.log('  ── Invariant: reviewed/remanded only, R1 excluded ──');
   const mockTickets = { phases: [
     { id: 0, tickets: [
       { id: 1, status: 'reviewed', title: 'Reviewed' },
@@ -285,9 +285,9 @@ try {
     ] }
   ] };
   const keys = collectReviewedTicketKeys(mockTickets);
-  assert(keys.length === 3, 'reviewed + R1 + remanded all collected');
+  assert(keys.length === 2, 'reviewed + remanded collected, R1 excluded');
   assert(keys.includes('P0-1'), 'reviewed included');
-  assert(keys.includes('P0-2'), 'R1 included');
+  assert(!keys.includes('P0-2'), 'R1 excluded');
   assert(keys.includes('P0-3'), 'remanded included');
 })();
 

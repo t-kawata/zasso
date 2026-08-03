@@ -176,6 +176,39 @@ try {
   assert(keys.length === 0, 'empty array when all reviewed');
 })();
 
+// R<round> is a past-round completion record and must NOT be re-queued as new
+// work; re-queueing it every round would diverge and never converge.
+(function testC002RoundStatusExcluded() {
+  console.log('  ── C002 Round-aware (R<round>) excluded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'R1', title: 'Round 1' },
+      { id: 2, status: 'R2', title: 'Round 2' },
+      { id: 3, status: 'reviewed', title: 'Reviewed' }
+    ] }
+  ] };
+  const keys = collectNonReviewedTickets(mockTickets);
+  assert(keys.length === 0, 'R1/R2/reviewed all excluded');
+  assert(!keys.includes('P0-1'), 'R1 excluded');
+  assert(!keys.includes('P0-2'), 'R2 excluded');
+})();
+
+(function testC002MixedRoundExcluded() {
+  console.log('  ── C002 Mixed: todo/remanded collected, R1 excluded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'todo', title: 'Pending' },
+      { id: 2, status: 'R1', title: 'Round 1' },
+      { id: 3, status: 'remanded', title: 'Remanded' }
+    ] }
+  ] };
+  const keys = collectNonReviewedTickets(mockTickets);
+  assert(keys.length === 2, 'todo + remanded collected, R1 excluded');
+  assert(keys.includes('P0-1'), 'todo included');
+  assert(!keys.includes('P0-2'), 'R1 excluded');
+  assert(keys.includes('P0-3'), 'remanded included');
+})();
+
 // ======================================================================
 // C003: Merge and Dedup
 // ======================================================================

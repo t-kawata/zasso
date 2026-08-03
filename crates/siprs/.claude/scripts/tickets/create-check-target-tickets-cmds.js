@@ -25,11 +25,14 @@ const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-conte
 // -- Pure functions (exported for testing) --
 
 /**
- * Collect ticket keys of all reviewed tickets from Tickets.json data.
+ * Collect ticket keys of tickets that are inspection targets: only those with
+ * status 'reviewed' or 'remanded'. Round-aware statuses (R1, R2, ...) are
+ * deliberately EXCLUDED — they record a completed past round, and re-inspecting
+ * them every round would grow the workload divergently and never converge.
  * Keys are in "P{phaseId}-{ticketId}" format (PX-{id} for phase -1).
  *
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
- * @returns {string[]} — Reviewed ticket key strings
+ * @returns {string[]} — Reviewed/remanded ticket key strings
  */
 // [::TICKET::] PX-98, PX-102, PX-103, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102|PX-103|PX-114) --for-spec --no-implementation-order`.
 function collectReviewedTicketKeys(ticketsData) {
@@ -40,8 +43,9 @@ function collectReviewedTicketKeys(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
-      // PX-114: round-aware statuses (R1, R2, ...) count as reviewed for check targeting
-      if (ticket.status === 'reviewed' || ticket.status === 'remanded' || /^R[1-9]\d*$/.test(ticket.status)) {
+      // Inspection target = reviewed or remanded ONLY. R<round> is a past-round
+      // completion record and must never be re-inspected (convergence).
+      if (ticket.status === 'reviewed' || ticket.status === 'remanded') {
         const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
         const phasePrefix = phaseId === -1 ? 'X' : phaseId;
         keys.push('P' + phasePrefix + '-' + ticket.id);
