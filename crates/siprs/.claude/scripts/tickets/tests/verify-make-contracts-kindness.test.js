@@ -13,10 +13,12 @@
  */
 
 let verifyMakeContracts;
+let buildTestExceptionErrorLines;
 let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-84, PX-85, PX-86, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-84|PX-85|PX-86|PX-87) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -27,6 +29,7 @@ console.log('\n━━━ verify-make-contracts-kindness.test.js (PX-84) ━━�
 try {
   const mod = require('../verify-make-contracts');
   verifyMakeContracts = mod.verifyMakeContracts;
+  buildTestExceptionErrorLines = mod.buildTestExceptionErrorLines;
 } catch (e) {
   failed++; console.log('  ✗ Failed to load: ' + e.message + '\n');
   console.log('Passed: ' + passed + '\nFailed: ' + failed + '\n');
@@ -65,6 +68,25 @@ console.log('## Error format consistency\n');
     testExceptions: ['No justification']
   });
   assert(e3.some(e => e.detail && e.detail.includes('testException')), 'testException error mentions testException');
+})();
+
+// ======================================================================
+// testException message — must explain why the check exists and
+// what is prohibited
+// ======================================================================
+
+console.log('\n## testException message: reason + prohibition\n');
+
+(function () {
+  const lines = buildTestExceptionErrorLines({
+    ticket: 84,
+    detail: 'testException lacks justification: "No justification..."'
+  });
+  const all = lines.join('\n');
+  assert(lines.length === 3, 'produces [ERROR]/Cause/Action 3 lines');
+  assert(/supreme law|design defect to redesign|deterministic/.test(all), 'explains why the check exists (supreme law rationale)');
+  assert(/prohibited/.test(all), 'states what is prohibited');
+  assert(/not a design defect|not an architectural defect/.test(all), 'names the required confirmation phrase');
 })();
 
 // ======================================================================

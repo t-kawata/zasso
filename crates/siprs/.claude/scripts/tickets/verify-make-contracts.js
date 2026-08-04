@@ -103,7 +103,28 @@ function verifyMakeContracts(ticket) {
   return errors;
 }
 
-// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89) --for-spec --no-implementation-order`.
+/**
+ * Build the 3-line [ERROR]/Cause/Action template for a testException
+ * justification failure.
+ *
+ * The Cause line states why the gate exists: the supreme law treats a
+ * deterministic yet fundamentally untestable item as a design defect to
+ * redesign, not a testing gap to exempt. The Action line names what is
+ * prohibited: a testException must never be used to exempt a design defect.
+ *
+ * @param {{ticket: number, detail: string}} err — testException error object
+ * @returns {string[]} — [errorLine, causeLine, actionLine]
+ */
+// [::TICKET::] PX-69, PX-84, PX-123, PX-124, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-84|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
+function buildTestExceptionErrorLines(err) {
+  return [
+    '[ERROR] Ticket ' + err.ticket + ': ' + err.detail,
+    'Cause: The supreme law treats a deterministic yet fundamentally untestable item as a design defect to redesign, not a testing gap to exempt. This check rejects testExceptions that do not prove the item is untestable for a non-defect reason (external dependency, non-determinism, E2E/manual).',
+    'Action: Rewrite the testException to state (1) why the item cannot be tested and (2) that it is not a design defect ("not a design defect" / "not an architectural defect"). Using a testException to exempt a design defect is prohibited — redesign the item to be testable.'
+  ];
+}
+
+// [::TICKET::] PX-69, PX-70, PX-71, PX-84, PX-85, PX-86, PX-87, PX-89, PX-123, PX-124, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-69|PX-70|PX-71|PX-84|PX-85|PX-86|PX-87|PX-89|PX-123|PX-124|PX-127) --for-spec --no-implementation-order`.
 function main() {
   const { ticketKey, ticketsPath } = parseArgs();
 
@@ -157,9 +178,9 @@ function main() {
         console.error('Cause: No contracts defined for this ticket');
         console.error('Action: Define at least one contract with pre/post/invariant before proceeding');
       } else if (isTestException) {
-        console.error('[ERROR] Ticket ' + err.ticket + ': ' + err.detail);
-        console.error('Cause: testException missing required justification');
-        console.error('Action: Include both a reason phrase ("cannot test", "not testable") AND a statement that this is not a design defect ("not a defect", "not an architectural defect")');
+        for (const line of buildTestExceptionErrorLines(err)) {
+          console.error(line);
+        }
       } else {
         console.error('[ERROR] Ticket ' + err.ticket + (err.contract ? ' contract ' + err.contract : '') + ': ' + err.detail);
         const elem = err.detail && err.detail.includes('precondition') ? 'precondition' : err.detail && err.detail.includes('postcondition') ? 'postcondition' : 'invariant';
@@ -175,4 +196,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { verifyMakeContracts };
+module.exports = { verifyMakeContracts, buildTestExceptionErrorLines };

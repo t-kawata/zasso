@@ -95,7 +95,7 @@ function findLatestOmissions() {
   return path.resolve(matches[0]);
 }
 
-// [::TICKET::] PX-107, PX-108, PX-109, PX-115, PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-115|PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const opts = {
     omissionsPath: '',
@@ -125,7 +125,9 @@ function parseArguments(argv) {
     } else if (arg.startsWith('--output=')) {
       opts.outputPath = path.resolve(arg.slice('--output='.length));
     } else if (arg.startsWith('--src-dir=')) {
-      opts.srcDir = path.resolve(arg.slice('--src-dir='.length));
+      // Abolished in PX-125: source markers are always rewritten in CWD. Accepted
+      // and ignored so a stale caller passing the flag does not crash.
+      opts.srcDir = undefined;
     } else if (arg === '--dry-run') {
       opts.dryRun = true;
     } else if (arg === '--verbose') {
@@ -136,7 +138,7 @@ function parseArguments(argv) {
       opts.withBackup = true;
     } else {
       console.error('[ERROR] Unknown argument: ' + arg);
-      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--src-dir=PATH] [--dry-run] [--verbose] [--rollback] [--with-backup]');
+      console.error('Usage: node phasify-omissions.js --omissions=<PATH> --graph=<PATH> --tickets=<PATH> [--min-nodes=N] [--output=PATH] [--dry-run] [--verbose] [--rollback] [--with-backup]');
       process.exit(2);
     }
   }
@@ -731,15 +733,17 @@ function formatTicketKey(phaseId, ticketId) {
 
 /**
  * Rewrite the old ticket keys inside every cloned ticket's stubs[].content to the
- * clone's new key, and (given --src-dir) rewrite the actual source marker lines.
- * Defense-in-depth: reject the merge if any stub still carries a terminal excuse.
+ * clone's new key, and rewrite the actual source marker lines under the current
+ * directory (phasify always runs from the Tickets.json root, so CWD is the source
+ * root). Defense-in-depth: reject the merge if any stub still carries a terminal
+ * excuse.
  *
  * @param {object} output — buildOutput() result { phases[] }
- * @param {string|null} srcDir — Source tree root for rewriting marker lines, or null
  * @returns {object} — Same output object, mutated with rewritten stub contents
  */
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-function rewriteOutputStubKeys(output, srcDir) {
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+function rewriteOutputStubKeys(output) {
   const helpers = require('./phasify-helpers.js');
   const validator = require('../tickets/validate-no-external-excuses.js');
   const allTickets = [];
@@ -756,7 +760,7 @@ function rewriteOutputStubKeys(output, srcDir) {
       if (Object.keys(oldToNew).length === 0) continue;
       const rewritten = helpers.rewriteStubKeys(ticket, oldToNew);
       Object.assign(ticket, rewritten);
-      if (srcDir) rewriteSourceMarkerLines(ticket.stubs, oldToNew, srcDir);
+      rewriteSourceMarkerLines(ticket.stubs, oldToNew);
     }
   }
   helpers.guardExcuseMerge(allTickets);
@@ -770,14 +774,14 @@ function rewriteOutputStubKeys(output, srcDir) {
  *
  * @param {Array<{file:string,line:number,content:string}>} stubs — Stub entries
  * @param {object} oldToNew — { oldKey: newKey }
- * @param {string} srcDir — Source tree root
  */
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-function rewriteSourceMarkerLines(stubs, oldToNew, srcDir) {
+// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+function rewriteSourceMarkerLines(stubs, oldToNew) {
   const fs = require('fs');
   for (const stub of stubs) {
     if (!stub.file || !stub.line) continue;
-    const filePath = path.isAbsolute(stub.file) ? stub.file : path.resolve(srcDir, stub.file);
+    const filePath = path.isAbsolute(stub.file) ? stub.file : path.resolve(process.cwd(), stub.file);
     if (!fs.existsSync(filePath)) continue;
     const lines = fs.readFileSync(filePath, 'utf8').split('\n');
     const line = lines[stub.line - 1];
@@ -1224,7 +1228,7 @@ function rollbackFromSnapshot(ticketsPath, withBackup) {
  *
  * @param {CliOptions} opts
  */
-// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-107, PX-108, PX-109, PX-110, PX-111, PX-112, PX-113, PX-114, PX-115, PX-120, PX-121, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-107|PX-108|PX-109|PX-110|PX-111|PX-112|PX-113|PX-114|PX-115|PX-120|PX-121|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
 function runPhasifyOmissions(opts) {
   // ============================================================
   // Rollback mode (PX-109)
@@ -1503,7 +1507,7 @@ function runPhasifyOmissions(opts) {
   // every marker key to the clone's new key so provenance points forward, and
   // reject the merge if any terminal-excuse stub survived preflight.
   if (opts.verbose) console.log('[VERBOSE] Rewriting STUB keys on cloned tickets...');
-  rewriteOutputStubKeys(output, opts.srcDir || null);
+  rewriteOutputStubKeys(output);
 
   // ============================================================
   // Step I: Validation (against pre-filter phase structure to ensure full coverage)

@@ -6,12 +6,16 @@
  * preflight-stub-cleanup.test.js — RED tests for preflight-stub-cleanup.js
  *
  * @verifies C003 (stub plus Tickets.json to class)
+ * @verifies C001 (resolvedCandidates [ACTION] both branches)
+ * @verifies C002 (NOT-resolved branch names create-resolving-ticket.js)
+ * @verifies C004 (test asserts the message)
  */
 
 let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-126|PX-127) --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) {
     passed++;
@@ -125,6 +129,25 @@ console.log('## C003 — exactly-one classification\n');
   const a = classifyStubs(stubs, tickets);
   const b = classifyStubs(stubs, tickets);
   assert(JSON.stringify(a) === JSON.stringify(b), 'same input yields identical classification');
+})();
+
+// ============================================================
+// PX-126: resolvedCandidates [ACTION] NOT-resolved branch
+// ============================================================
+
+(function testResolvedCandidatesActionMessage() {
+  let msg;
+  try {
+    ({ RESOLVED_CANDIDATES_ACTION_MESSAGE: msg } = require('../preflight-stub-cleanup.js'));
+  } catch (e) {
+    assert(false, 'PX-126: RESOLVED_CANDIDATES_ACTION_MESSAGE export — ' + e.message);
+    return;
+  }
+  assert(typeof msg === 'string', 'PX-126: message is exported as a string');
+  assert(msg.includes('remove-stub.js'), 'PX-126: resolved branch names remove-stub.js');
+  assert(msg.includes('create-resolving-ticket.js'), 'PX-126: NOT-resolved branch names create-resolving-ticket.js');
+  assert(msg.includes('rewrite the marker key'), 'PX-126: NOT-resolved branch directs the marker-key rewrite');
+  assert(!msg.includes('\n'), 'PX-126: message is a single self-contained line (Output message convention)');
 })();
 
 // ============================================================

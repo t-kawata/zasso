@@ -855,6 +855,17 @@ function buildTicketMarkdown(ticketKey, ticket, tickets, ticketsDir, forSpec, no
     lines.push('');
   }
 
+  // Reference URLs
+  // [::TICKET::] PX-72, PX-75, PX-87 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-72|PX-75|PX-87) --for-spec --no-implementation-order`.
+  if (ticket.referenceUrls && ticket.referenceUrls.length > 0) {
+    lines.push('## Reference URLs');
+    lines.push('');
+    for (const u of ticket.referenceUrls) {
+      lines.push(`- ${u}`);
+    }
+    lines.push('');
+  }
+
   // RFC Discrepancies
   if (ticket.rfcDiscrepancies && ticket.rfcDiscrepancies.length > 0) {
     lines.push('## RFC Discrepancies found in Prior Implementation Rounds');
