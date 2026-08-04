@@ -451,14 +451,20 @@ node .claude/scripts/tickets/ensure-malfeasance.js "crates/ggufrs"
 
 ### 14. `scan-crimes.sh`
 
-**用途**: Malfeasance.json が存在しない場合に `ensure-malfeasance.js` で自動初期化し、未解決の犯罪一覧を表示する共通ラッパー。全 make/plan/start/review コマンドから犯罪点検・犯罪解決の最初のステップとして呼び出される。
+**用途**: Malfeasance.json が存在しない場合に `ensure-malfeasance.js` で自動初期化し、犯罪一覧を表示する共通ラッパー。全 make/plan/start/review コマンドから犯罪点検・犯罪解決の最初のステップとして呼び出される。デフォルトでは open のみを表示し、`--all` 指定時は resolved / false_positive を含む全件を表示する。
 
-**引数**: なし
+**引数**:
+- `--all` … 全ステータス（open / resolved / false_positive）を表示
+- `[directory]` … 対象ディレクトリの Malfeasance.json を表示（省略時は CWD）。`--all` と併用可能
 
 **使用例**:
 ```bash
-# 犯罪スキャンを実行（初回時は自動初期化）
+# 犯罪スキャンを実行（open のみ・初回時は自動初期化）
 "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh"
+# 全件表示（resolved / false_positive を含む）
+"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh" --all
+# 指定ディレクトリを対象に全件表示
+"$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh" . --all
 ```
 
 **出力**:
