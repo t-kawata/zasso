@@ -292,7 +292,24 @@ node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Convergence loop**: If Step 5c-2 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run the Gate. **Loop until it passes before proceeding to Step 6.** The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed. If a targetCrime genuinely cannot be resolved (blocked on external dependency, awaiting another team), the AI MUST create a new ticket via `/make-ticket` with full justification and record the deferral — the original ticket must not proceed with unresolved crimes.
+**Convergence loop**: If Step 5c-2 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run the Gate. **Loop until it passes before proceeding to Step 6.**
+
+> **Deferral policy — forbidden in principle, punishable if shirking**: Deferral is
+> **forbidden as a principle** — resolve every blocker on the spot. Deferral is
+> permitted **only as an extremely exceptional measure when continuing poses a clear,
+> demonstrated danger** (e.g. unrecoverable state corruption or a pipeline-wide
+> deadlock with no safe recovery). Every deferral is later audited by a human; a
+> deferral judged to be **shirking** (an avoidable postponement) incurs **penalty**.
+> When in doubt, resolve — do not defer.
+
+**Crime deferral — create an AI-executable ticket for an unresolved targetCrime**: The AI MAY defer a targetCrime **only when the Deferral policy's clear-danger condition is met**. If a targetCrime genuinely cannot be resolved safely in this session without a separate AI-executable ticket, create that ticket via `create-crime-deferral-ticket.js`. The script deep-clones the ticket being started (`$ARGUMENTS`) as the template, applies the work-item seed, and appends a **non-PX ticket in the max phase** (status `todo`), setting the matching `targetCrime`'s `deferredTo` to the new key — satisfying `validate-ticket-targets.js` Check 9 (ORPHAN_TICKET_REF requires a valid deferredTo):
+
+```bash
+echo '{"title":"(work item)","scope":["..."],"background":"..."}' | node .claude/scripts/tickets/create-crime-deferral-ticket.js \
+  --source-key="$ARGUMENTS" --crime-id=<crimeId> --tickets="Tickets.json"
+```
+
+Follow the script's stdout — the Markdown Action-directive tells you to rewrite the OLD content into the NEW work item one field at a time (max 3 per `update-ticket.js` call) while preserving `nodeIds`/`relatedTicketIds`/`referenceSection` and the other relational fields. Then record the deferral and re-run the Gate. **Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification** — every blocker is internal AI work. The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed, and the original ticket must not proceed with unresolved crimes.
 
 > **Note**: Final contract fulfillment is verified by `/review-ticket` Step 10b (`verify-final-contracts.js`), where the ticket is already `done`. Running it at Step 5c would fail because the ticket is still `planned` and the implementation is not yet complete.
 

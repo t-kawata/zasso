@@ -16856,56 +16856,128 @@
         {
           "id": 128,
           "phaseId": -1,
-          "status": "todo",
+          "status": "reviewed",
           "title": "create-crime-deferral-ticket.js + start-ticket.md crime deferral escape hatch",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/128-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
-          "background": "start-ticket.md Step 5c convergence loop tells the AI to defer an unresolvable targetCrime via /make-ticket — which is non-executable mid-pipeline (nested heavyweight workflow, ensure-ticket.js PX hardcode, unknown key) AND allows 'blocked on external dependency / awaiting another team' justifications that the no-external-excuse rule (resolve-ticket.md:227, find-omissions.md:105, memory) explicitly FORBIDS. This ticket creates a dedicated create-crime-deferral-ticket.js (analogous to create-deferral-ticket.js but setting a targetCrime's deferredTo to the new key, since targetCrimes have a deferredTo field — enumerate-ticket-targets.js:184) and rewrites start-ticket.md:296 to reference it with the correct no-external-excuse language.\n\n### Goal\n[::TEMPLATE-STUB::background-goal::] What specific outcome does this ticket achieve?\n\n### Purpose\n[::TEMPLATE-STUB::background-purpose::] Why does this functionality exist? What problem does it solve?\n\n### Motivation\n[::TEMPLATE-STUB::background-motivation::] Why now? (user demand, tech debt, requirement change, …)\n\n### Constraints\n[::TEMPLATE-STUB::background-constraints::] What technical/business/time boundaries limit the implementation?",
+          "background": "Goal: give start-ticket.md Step 5c an AI-executable, no-external-excuse-compliant way to defer an unresolvable targetCrime to a new ticket.\nPurpose: The current convergence-loop text says 'create a new ticket via /make-ticket' and allows deferral for 'blocked on external dependency, awaiting another team' — both are defects: /make-ticket is not reliably AI-executable mid-pipeline, and external-excuse language directly violates the no-external-excuse rule (resolve-ticket.md:227, find-omissions.md:105, memory).\nMotivation: find (create-resolving-ticket.js) and resolve (create-deferral-ticket.js) each got a dedicated entry script over lib/create-ticket-from-source.js. start-ticket's targetCrime deferral is the same shape but needs to set deferredTo on a targetCrime (which has a deferredTo field — enumerate-ticket-targets.js:184), which create-deferral-ticket.js does not handle (setStubDeferredTo searches only targetStubs).\nConstraints: (1) The new script must create a non-PX max-phase todo ticket via createTicketFromSource. (2) With --crime-id, set the matching targetCrime's deferredTo to the new key; unmatched crimeId fails loudly. (3) start-ticket.md must reference the script (not /make-ticket) and FORBID external-excuse language. (4) Prohibition-style: only append a new ticket, never mutate existing tickets' status.",
           "default_files": [
             "tools/conver/.claude/scripts/tickets/create-crime-deferral-ticket.js",
             "tools/conver/.claude/tests/tickets/create-crime-deferral-ticket.test.js",
             "tools/conver/.claude/commands/start-ticket.md"
           ],
-          "invariants": "- [Normal condition] [::TEMPLATE-STUB::invariants-normal::] Preconditions that must hold for correct behavior\n- [Error invariant] [::TEMPLATE-STUB::invariants-error::] Invariants that must never be violated even on error\n- [Internal state invariant] [::TEMPLATE-STUB::invariants-state::] Invariants the module's internal state must always satisfy\n- [Boundary invariant] [::TEMPLATE-STUB::invariants-boundary::] Invariants related to boundary values / thresholds",
+          "invariants": "- Normal establishment: the matching targetCrime's deferredTo equals the new deferral ticket key; all other targetCrimes unchanged\n- Invariant on error: unmatched crimeId → exit non-zero, Tickets.json not written\n- Internal state invariant: no existing ticket's status or fields are mutated (append-only + deferredTo set on one crime)\n- Boundary invariant: deferredTo is set exactly once on exactly the matching targetCrime",
           "scope": [
-            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] [::TEMPLATE-STUB::scope-changes-path::]\n  - [Action: add/modify/remove/rename/refactor] [::TEMPLATE-STUB::scope-changes-action::]\n  - [What specifically changes] [::TEMPLATE-STUB::scope-changes-detail::]\n  - [Before → After (behavior/signature)] [::TEMPLATE-STUB::scope-changes-before-after::]\n  - [API contract change (if any)] [::TEMPLATE-STUB::scope-changes-api::]\n  - [Data schema change (if any)] [::TEMPLATE-STUB::scope-changes-schema::]\n  - [Config/env change (if any)] [::TEMPLATE-STUB::scope-changes-config::]\n  - [Dependency added/removed (if any)] [::TEMPLATE-STUB::scope-changes-dep::]",
-            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] [::TEMPLATE-STUB::scope-non-changes-item::]\n  - [Why excluded — separate ticket / future phase / not applicable] [::TEMPLATE-STUB::scope-non-changes-why::]",
-            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] [::TEMPLATE-STUB::scope-impact-component::]\n  - [Nature of impact: performance / security / API surface / data format / …] [::TEMPLATE-STUB::scope-impact-nature::]\n  - [Corresponding change needed Y/N + details] [::TEMPLATE-STUB::scope-impact-response::]"
+            "CHANGE: Add tools/conver/.claude/scripts/tickets/create-crime-deferral-ticket.js (entry over lib/create-ticket-from-source.js; sets targetCrime deferredTo)",
+            "CHANGE: createCrimeDeferralTicket({ ticketsData, sourceKey, seed, crimeId }) — create + set deferredTo on the matching targetCrime; unmatched crimeId → { success:false, error }",
+            "CHANGE: setCrimeDeferredTo(ticketsData, crimeId, newKey) — scan all phases/tickets' targetCrimes, set deferredTo, return true/false",
+            "CHANGE: parseArgs with --source-key / --crime-id / --tickets; main() reads Tickets.json, writes back, prints Markdown guidance",
+            "CHANGE: Add tests/tickets/create-crime-deferral-ticket.test.js covering C001-C005",
+            "CHANGE: start-ticket.md:296 — replace 'create a new ticket via /make-ticket ... blocked on external dependency, awaiting another team' with create-crime-deferral-ticket.js instruction + FORBIDDEN external-excuse language (align resolve-ticket.md:227)",
+            "NO-CHANGE: lib/create-ticket-from-source.js and create-deferral-ticket.js are untouched (targetStub behavior preserved)",
+            "NO-CHANGE: resolve-ticket.md / find-omissions.md are untouched",
+            "IMPACT: start-ticket's crime deferral becomes AI-executable and no-external-excuse compliant",
+            "IMPACT: validate-ticket-targets.js Check 9 (ORPHAN_TICKET_REF needs valid deferredTo) can now be satisfied for deferred crimes",
+            "IMPACT: The /make-ticket non-executability pattern is fully removed from the pipeline (find/resolve/start)",
+            "IMPACT: Markdown guidance mirrors create-deferral-ticket.js (old-content warning, field-by-field rewrite, preserve list)"
           ],
           "testUnit": [
-            "**UT: [Normal] — Describe each normal-case test scenario:**\n  - [::TEMPLATE-STUB::testunit-normal::]",
-            "**UT: [Error] — Describe each error-handling test scenario:**\n  - [::TEMPLATE-STUB::testunit-error::]",
-            "**UT: [Boundary] — Describe each boundary-value test scenario:**\n  - [::TEMPLATE-STUB::testunit-boundary::]",
-            "**UT: [Invariant] — Describe each invariant test scenario:**\n  - [::TEMPLATE-STUB::testunit-invariant::]"
+            "UT: [Normal] createCrimeDeferralTicket with a matching targetCrime id sets that crime's deferredTo to the new key",
+            "UT: [Normal] non-matching targetCrimes keep their original deferredTo",
+            "UT: [Error] --crime-id provided but no matching targetCrime → success false, actionable error",
+            "UT: [Error] no --crime-id → deferredTo untouched (backward compatible), ticket still created",
+            "UT: [Invariant] no existing ticket's status/fields are mutated",
+            "UT: [Invariant] the created ticket is non-PX, max real phase, status='todo'",
+            "UT: [Postcondition C004] unmatched crimeId → { success:false, error:'targetCrime not found: <id>' } and Tickets.json is not written (no partial write on failure)",
+            "UT: [Invariant C004] unmatched crimeId leaves the input data unchanged — no partial write on failure",
+            "UT: [Precondition C005] start-ticket.md Step 5c escape hatch exists and is the invocation context",
+            "UT: [Postcondition C005] start-ticket.md references create-crime-deferral-ticket.js (not /make-ticket) and FORBIDS external-excuse language",
+            "UT: [Invariant C005] the phrases 'blocked on external dependency' and 'awaiting another team' are not used as a valid deferral justification in start-ticket.md"
           ],
           "testIntegration": [
-            "**IT: [Integration point] — Specify each interface between modules:**\n  - [::TEMPLATE-STUB::testintegration-point::]",
-            "**IT: [Verification] — Describe what each integration test verifies:**\n  - [::TEMPLATE-STUB::testintegration-verify::]",
-            "**IT: [Prerequisites] — State each prerequisite for integration tests:**\n  - [::TEMPLATE-STUB::testintegration-prereq::]",
-            "**IT: [Related tickets] — List each related ticket:**\n  - [::TEMPLATE-STUB::testintegration-tickets::]"
+            "IT: create-crime-deferral-ticket.js + validate-ticket-targets.js — after the script sets deferredTo, validate-ticket-targets passes (deferredTo references an existing ticket)",
+            "IT: start-ticket.md:296 — references create-crime-deferral-ticket.js and forbids external-excuse language",
+            "Prerequisites: PX-122 (createTicketFromSource)",
+            "Related tickets: PX-122, PX-124, PX-127"
           ],
           "testExceptions": [
-            "**Exception entry (copy this block for each non-testable item):**\n  - [Item] [::TEMPLATE-STUB::exception-item::]\n  - [Reason] [::TEMPLATE-STUB::exception-reason::]\n  - [Alternative verification] [::TEMPLATE-STUB::exception-alternative::]"
+            "Item: the full start-ticket Step 5c convergence loop cannot test here as a single unit.\nReason: it requires the entire start-ticket command flow (enumerate → validate → defer); this is not an architectural defect — the script's contract (create + set deferredTo) is unit-testable and validate-ticket-targets.js has its own tests.\nAlternative verification: unit-test the script's contract and rely on the existing validate-ticket-targets.js / enumerate-ticket-targets.js tests."
           ],
-          "instrumentation": "- [Logging] [::TEMPLATE-STUB::instrumentation-log::]\n- [Metrics] [::TEMPLATE-STUB::instrumentation-metrics::]\n- [Error tracking] [::TEMPLATE-STUB::instrumentation-errors::]\n- [Health check] [::TEMPLATE-STUB::instrumentation-health::]",
-          "notes": "- [Implementation steps] [::TEMPLATE-STUB::notes-steps::]\n- [Risks] [::TEMPLATE-STUB::notes-risks::]\n- [Caveats] [::TEMPLATE-STUB::notes-caveats::]\n- [Open items] [::TEMPLATE-STUB::notes-open::]\n- [Future improvements] [::TEMPLATE-STUB::notes-future::]",
+          "instrumentation": "Logging: [create-crime-deferral-ticket] created <key>; set targetCrime <crimeId> deferredTo=<key>\nMetrics: none\nError tracking: stderr actionable messages + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) add setCrimeDeferredTo; (2) createCrimeDeferralTicket with crimeId param; (3) parseArgs --crime-id; (4) main() wiring + Markdown guidance; (5) tests; (6) start-ticket.md:296 rewrite.\nRisks: targetCrime id must be unambiguous (from enumerate-ticket-targets.js); keep backward compat without --crime-id.\nCaveats: the Markdown guidance must be field-by-field (max 3 per update-ticket.js call) and forbid external-excuse language.\nOpen items: none.\nFuture improvements: surface the crime deferral in the implementation summary automatically.\nImplementation summary:\n- Changed files: create-crime-deferral-ticket.js, tests/tickets/create-crime-deferral-ticket.test.js, start-ticket.md\n- Key changes: setCrimeDeferredTo (targetCrime deferredTo), createCrimeDeferralTicket crimeId param, --crime-id CLI, start-ticket.md escape hatch rewrite\n- Test results: 16/0 assertions; CLI smoke test set TC-1 deferredTo=P0-2\nPost-implementation enhancement:\n- start-ticket.md Step 5c escape hatch expanded to match find/resolve depth: descriptive paragraph + code block with create-crime-deferral-ticket.js command + follow-the-stdout guidance + FORBIDDEN external-excuse language\n- Verified: PX-128 test 16/0 still passes (C005 checks start-ticket.md references the script, not /make-ticket, and FORBIDDEN)\nDeferral policy added (resolve-ticket.md escape hatch + start-ticket.md Step 5c crime deferral):\n- Deferral FORBIDDEN as a principle — resolve on the spot\n- Permitted ONLY as an extremely exceptional measure under clear, demonstrated danger\n- Later human audit; a deferral judged as shirking incurs penalty\n- 'When in doubt, resolve — do not defer.'\nVerified: PX-128 test 16/0 still passes\nMINOR-P2 fix:\n- resolve-ticket.md escape hatch trigger now requires 'only when the Deferral policy's clear-danger condition is met AND the no-excuse gate'\n- start-ticket.md crime deferral trigger now requires 'only when the Deferral policy's clear-danger condition is met'\n- Verified: PX-128 test 16/0 still passes\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers)\n- Tests: 16/16 assertions passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: deferral policy added to start/resolve; MINOR-P2 (clear-danger trigger) fixed during review\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0\n- Annotation: verified, no AMBIGUOUS",
           "acceptanceCriteria": [
-            "**[Happy path] — Describe the scenario that confirms this ticket is complete:**\n  - [::TEMPLATE-STUB::acceptance-happy::]",
-            "**[Error case] — Describe an error scenario the feature must handle:**\n  - [::TEMPLATE-STUB::acceptance-error::]",
-            "**[Edge case] — Describe any boundary or exception to verify:**\n  - [::TEMPLATE-STUB::acceptance-edge::]"
+            "Happy path: with --crime-id, the matching targetCrime's deferredTo becomes the new ticket key; validate-ticket-targets passes",
+            "Error case: unmatched crimeId → exit 1, no write",
+            "Edge case: no --crime-id → ticket created, deferredTo untouched (backward compatible)"
           ],
-          "investigation": "- [::TEMPLATE-STUB::investigation::] Record all evidence gathered during code investigation — architecture, patterns, potential issues, specific file contents relevant to this ticket. Replace the stub with the actual investigation findings.",
-          "boyScoutPlan": "- [::TEMPLATE-STUB::boyscout-plan::] Describe the translatability improvements planned for the code touched by this ticket. Specify which code will be refactored (function extraction, variable renaming, constant extraction) and why. Replace the stub with the actual plan.",
+          "investigation": "start-ticket.md:295-296 convergence loop currently instructs 'create a new ticket via /make-ticket' and allows 'blocked on external dependency, awaiting another team' deferral — both defects. resolve-ticket.md:227 FORBIDS that exact external-excuse language. find-omissions.md:105 states 'no external, no awaiting approval'. enumerate-ticket-targets.js:184 gives targetCrimes a deferredTo:null field (same shape as targetStubs). validate-ticket-targets.js Check 9 (ORPHAN_TICKET_REF) requires a valid deferredTo when a crime is false_positive — so deferred crimes must set deferredTo. create-deferral-ticket.js:45-65 setStubDeferredTo searches only ticket.targetStubs — does not cover targetCrimes, hence a dedicated script is needed. lib/create-ticket-from-source.js (PX-122) provides createTicketFromSource (deep-clone → non-PX max phase → todo → key).",
+          "boyScoutPlan": "Functions as verbs: setCrimeDeferredTo, createCrimeDeferralTicket, findTargetCrimeById.\nOne responsibility per function.\nNamed constant for the targetCrimes field path.\nNo error swallowing: unmatched crimeId fails loudly.\nReuse createTicketFromSource (PX-122) rather than re-implementing clone/append/validate.",
           "contracts": [
             {
-              "id": "C000",
-              "sourceEdge": "[::TEMPLATE-STUB::contracts-edge::]",
-              "precondition": "[::TEMPLATE-STUB::contracts-precondition::]",
-              "postcondition": "[::TEMPLATE-STUB::contracts-postcondition::]",
-              "invariant": "[::TEMPLATE-STUB::contracts-invariant::]"
+              "id": "C001",
+              "sourceEdge": "non-PX max-phase todo",
+              "precondition": "createCrimeDeferralTicket is called with sourceKey + seed",
+              "postcondition": "a non-PX max real phase ticket with status='todo' is created and the key returned",
+              "invariant": "the new ticket is never appended to the PX phase"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "deferredTo set on matching crime",
+              "precondition": "createCrimeDeferralTicket is invoked with --crime-id matching a targetCrime",
+              "postcondition": "that targetCrime's deferredTo equals the new deferral ticket key",
+              "invariant": "deferredTo is set exactly once on exactly the matching crime"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "non-matching crimes untouched",
+              "precondition": "multiple targetCrimes exist; only one matches --crime-id",
+              "postcondition": "all non-matching targetCrimes keep their original deferredTo",
+              "invariant": "no other crime is mutated"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "unmatched crimeId fails loudly",
+              "precondition": "--crime-id is provided but no targetCrime matches",
+              "postcondition": "{ success:false, error:'targetCrime not found: <id>' } and Tickets.json is not written",
+              "invariant": "no partial write on failure"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "start-ticket.md no-external-excuse wiring",
+              "precondition": "start-ticket.md Step 5c escape hatch exists",
+              "postcondition": "it references create-crime-deferral-ticket.js (not /make-ticket) and FORBIDS external-excuse language",
+              "invariant": "the same phrases ('blocked on external dependency', 'awaiting another team') that resolve-ticket.md:227 forbids are not used as a valid deferral justification"
             }
           ],
           "created_at": "2026-08-04",
-          "updated_at": "2026-08-04"
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] createCrimeDeferralTicket creates a non-PX max-phase todo ticket\n  const data = makeData(); // source P0-1, max phase 2\n  const res = createCrimeDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });\n  assert(res.success === true, 'C001: created');\n  assertStrictEqual(res.ticket.phaseId, 2, 'C001: non-PX max phase');\n  assertStrictEqual(res.ticket.status, 'todo', 'C001: status todo');",
+            "UT: [C002-post] with matching crimeId, the targetCrime's deferredTo = new key\n  const data = makeData(); // source has targetCrimes [{id:'TC-1',deferredTo:null},{id:'TC-2',deferredTo:'P9-9'}]\n  const res = createCrimeDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, crimeId: 'TC-1' });\n  assert(res.success === true, 'C002: created');\n  assertStrictEqual(res.data.phases[0].tickets[0].targetCrimes[0].deferredTo, res.key, 'C002: matching crime deferredTo = new key');",
+            "UT: [C003-post] non-matching targetCrimes keep their deferredTo\n  const data = makeData();\n  const res = createCrimeDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, crimeId: 'TC-1' });\n  assertStrictEqual(res.data.phases[0].tickets[0].targetCrimes[1].deferredTo, 'P9-9', 'C003: non-matching crime untouched');",
+            "UT: [C004-post] unmatched crimeId → success false, error names it, no partial write\n  const data = makeData();\n  const before = JSON.stringify(data);\n  const res = createCrimeDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, crimeId: 'TC-NOPE' });\n  assert(res.success === false, 'C004: unmatched crimeId fails loudly');\n  assert(typeof res.error === 'string' && res.error.includes('TC-NOPE'), 'C004: actionable error names the crime');\n  assertStrictEqual(JSON.stringify(data), before, 'C004: input unchanged (no partial write)');",
+            "UT: [C005-post] start-ticket.md references create-crime-deferral-ticket.js, not /make-ticket, and FORBIDS external-excuse language\n  const fs = require('fs');\n  const md = fs.readFileSync('.claude/commands/start-ticket.md', 'utf8');\n  assert(md.includes('create-crime-deferral-ticket.js'), 'C005: script referenced in start-ticket.md');\n  assert(!md.includes('create a new ticket via `/make-ticket`'), 'C005: /make-ticket removed from the escape hatch');\n  assert(md.includes('FORBIDDEN'), 'C005: external-excuse language forbidden');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "(none)",
+              "after": "create-crime-deferral-ticket.js",
+              "description": "Added start-ticket targetCrime deferral entry script (create + setCrimeDeferredTo + Markdown guidance)"
+            },
+            {
+              "before": "(none)",
+              "after": "tests/tickets/create-crime-deferral-ticket.test.js",
+              "description": "Added 16-assertion test suite covering C001-C005"
+            },
+            {
+              "before": "start-ticket.md: 'create a new ticket via /make-ticket ... blocked on external dependency'",
+              "after": "start-ticket.md: 'create via create-crime-deferral-ticket.js ... FORBIDDEN external-excuse language'",
+              "description": "Replaced non-executable /make-ticket + external-excuse deferral with the dedicated script"
+            }
+          ],
+          "completedAt": "2026-08-04"
         }
       ]
     },

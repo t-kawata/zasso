@@ -223,7 +223,15 @@ node .claude/scripts/tickets/review/find-all-stubs.js .
 node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 ```
 
-**Escape hatch — no-excuse conditional deferral**: If a STUB cannot be resolved in this session, the AI MAY defer it ONLY when the deferral passes the no-excuse gate (requires `$ARGUMENTS` to be set):
+> **Deferral policy — forbidden in principle, punishable if shirking**: Deferral is
+> **forbidden as a principle** — resolve every blocker on the spot. Deferral is
+> permitted **only as an extremely exceptional measure when continuing poses a clear,
+> demonstrated danger** (e.g. unrecoverable state corruption or a pipeline-wide
+> deadlock with no safe recovery). Every deferral is later audited by a human; a
+> deferral judged to be **shirking** (an avoidable postponement) incurs **penalty**.
+> When in doubt, resolve — do not defer.
+
+**Escape hatch — no-excuse conditional deferral**: The AI MAY defer a STUB **only when the Deferral policy's clear-danger condition is met** (continuing poses a clear, demonstrated danger with no safe recovery) **AND** the deferral passes the no-excuse gate (requires `$ARGUMENTS` to be set):
 1. **Convert the blocker into an AI-executable work item (Check B)** — the new ticket's scope must contain the internal implementation work (e.g. "Vendor and build PJSIP in build.rs", "Add cpal as an optional dependency"). Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification — every blocker is internal AI work.
 2. Create a new deferral ticket via `create-deferral-ticket.js` with that work item in background and scope. The script deep-clones the resolved ticket (`$ARGUMENTS`) as the template and appends a **non-PX ticket in the max phase** (status `todo`) — `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB:
 ```bash
