@@ -12,18 +12,18 @@ const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude']);
 function main() {
   const dir = process.argv[2];
   if (!dir) {
-    console.log(JSON.stringify({ success: false, error: 'Usage: node find-all-stubs.js <directory>' }));
+    console.log(JSON.stringify({ success: false, error: 'Usage: node find-all-stubs.js <directory>' }, null, 2));
     process.exit(1);
   }
   if (!fs.existsSync(dir)) {
-    console.log(JSON.stringify({ success: false, error: `Directory not found: ${dir}` }));
+    console.log(JSON.stringify({ success: false, error: `Directory not found: ${dir}` }, null, 2));
     process.exit(1);
   }
 
   const stubs = [];
   scanDirectory(path.resolve(dir), stubs);
 
-  console.log(JSON.stringify({ success: true, count: stubs.length, stubs }));
+  console.log(JSON.stringify({ success: true, count: stubs.length, stubs }, null, 2));
 }
 
 function scanDirectory(dirPath, results) {

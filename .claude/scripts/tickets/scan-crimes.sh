@@ -37,9 +37,11 @@ fi
 # Initialize Malfeasance.json if it does not exist
 node "$_R/scripts/tickets/ensure-malfeasance.js" > /dev/null
 
-# Display crimes: every record with --all, open-only otherwise (reads Malfeasance.json in CWD)
+# Display crimes: every record with --all, open-only otherwise (reads Malfeasance.json in CWD).
+# The raw JSON from malfeasance-all.js is piped through format-json.js so the
+# output is readable 2-space-indented JSON instead of a single line.
 if [ "$ALL_MODE" = "1" ]; then
-  node "$_R/scripts/tickets/malfeasance-all.js"
+  node "$_R/scripts/tickets/malfeasance-all.js" | node "$_R/scripts/tickets/format-json.js"
 else
-  node "$_R/scripts/tickets/malfeasance-all.js" "open"
+  node "$_R/scripts/tickets/malfeasance-all.js" "open" | node "$_R/scripts/tickets/format-json.js"
 fi

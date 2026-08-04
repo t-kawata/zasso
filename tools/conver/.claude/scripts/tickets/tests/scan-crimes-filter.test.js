@@ -194,6 +194,46 @@ console.log('\n## --all — every record shown\n');
 })();
 
 // ======================================================================
+// Output formatting — 2-space indented pretty JSON
+// ======================================================================
+
+console.log('\n## output formatting — 2-space indented pretty JSON\n');
+
+/**
+ * Assert that a scan-crimes.sh run produced exactly the 2-space-indented
+ * canonical JSON of its own content. This fails for single-line output and
+ * for any indentation other than 2 spaces.
+ * @param {{ stdout: string, exitCode: number }} r
+ */
+function assertPrettyPrinted(r) {
+  const parsed = parseOutput(r.stdout);
+  assert(parsed !== null, 'formatting: stdout remains valid JSON');
+  if (parsed === null) return;
+  const canonical = JSON.stringify(parsed, null, 2) + '\n';
+  assertStrictEqual(r.stdout, canonical, 'formatting: stdout is the 2-space-indented canonical form');
+}
+
+(function () {
+  const dir = createFixtureDir();
+  try {
+    const r = runScanCrimes(['--all'], dir);
+    assertPrettyPrinted(r);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+})();
+
+(function () {
+  const dir = createFixtureDir();
+  try {
+    const r = runScanCrimes([], dir);
+    assertPrettyPrinted(r);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+})();
+
+// ======================================================================
 // Summary
 // ======================================================================
 

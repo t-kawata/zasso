@@ -406,12 +406,24 @@ _R="$(git rev-parse --show-toplevel)/.claude"
 node "$_R/scripts/tickets/review/find-all-stubs.js" "$(git rev-parse --show-toplevel)/src"
 ```
 
-**出力**:
+**出力**（2スペースインデントの整形JSON）:
 ```json
-{ "success": true, "count": 2, "stubs": [
-  { "file": "/path/to/src/main.rs", "line": 42, "content": "// [::STUB::] M3-1 で置き換え" },
-  { "file": "/path/to/src/lib.rs", "line": 15, "content": "// [::STUB::] 要解決: レジストリ実装未完了" }
-] }
+{
+  "success": true,
+  "count": 2,
+  "stubs": [
+    {
+      "file": "/path/to/src/main.rs",
+      "line": 42,
+      "content": "// [::STUB::] M3-1 で置き換え"
+    },
+    {
+      "file": "/path/to/src/lib.rs",
+      "line": 15,
+      "content": "// [::STUB::] 要解決: レジストリ実装未完了"
+    }
+  ]
+}
 ```
 
 **いつ使うか**: `/review-ticket` での品質チェックで全スタブの把握と評価に使用する。`/make-ticket`、`/plan-ticket`、`/start-ticket` でもスタブ解決機会の特定に使用する。
@@ -467,9 +479,13 @@ node .claude/scripts/tickets/ensure-malfeasance.js "crates/ggufrs"
 "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/scan-crimes.sh" . --all
 ```
 
-**出力**:
+**出力**（2スペースインデントの整形JSON）:
 ```json
-{ "success": true, "count": 0, "records": [] }
+{
+  "success": true,
+  "count": 0,
+  "records": []
+}
 ```
 
 **いつ使うか**: 各コマンドファイル（make-ticket.md, plan-ticket.md, start-ticket.md, review-ticket.md）の犯罪点検・犯罪解決セクションで使用する。直接手動で実行することも可能。
