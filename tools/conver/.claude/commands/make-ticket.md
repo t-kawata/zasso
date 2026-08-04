@@ -44,12 +44,12 @@ Located under `.claude/scripts/tickets/`.
 
 | Script | Arguments | Description |
 |--------|-----------|-------------|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]` | **Executed in Step 1 / Step 6**. Outputs ticket information in Markdown. In Step 6, uses `--for-spec` to write out the spec file. |
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]` | **Executed in Step 1 / Step 9**. Outputs ticket information in Markdown. In Step 9, uses `--for-spec` to write out the spec file. |
 | `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]` | **Executed in Step 2 Case B**. Sequentially calls add-ticket.js → show-ticket-context.js. Only derives the spec path; does not create the file. |
 | `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 3**. Inserts template merge markers into 11 fields. Also sets `created_at`/`updated_at` simultaneously. |
-| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 5b loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | **Executed in Step 5b / Step 6**. Updates fields (overwrite). Automatically handles string/array distinction. |
-| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 6**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Rejects empty contracts array (exit 1). Exits 0 on pass, 1 on failure. |
+| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 6 loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |
+| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | **Executed in Step 6 / Step 10**. Updates fields (overwrite). Automatically handles string/array distinction. |
+| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 7**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Rejects empty contracts array (exit 1). Exits 0 on pass, 1 on failure. |
 | `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Adds a ticket (called internally by ensure-ticket.js). |
 
 ## Workflow
@@ -73,7 +73,7 @@ The output Markdown includes all fields that have values in the ticket (no displ
 | `## Background` | Background and purpose |
 | `## Scope` | Bullet list of implementation scope |
 | `## Implementation Target Files` | List of implementation target files |
-| `## To show related RFC graph details` | Usage of query.js and NODE-IDs (only when pipelineAvailable). Investigation entry point referenced first in Step 4a |
+| `## To show related RFC graph details` | Usage of query.js and NODE-IDs (only when pipelineAvailable). Investigation entry point referenced first in Step 5 |
 | `## Investigation` | Material evidence obtained from investigation |
 | `## Acceptance Criteria` | Pass conditions (Happy path / Error case / Edge case) |
 | `## Invariants` | Invariant conditions (normal establishment / on error / internal state / boundary values) |
@@ -90,11 +90,11 @@ If the ticket does not exist, a Not Found message is displayed.
 
 Branch based on the output of Step 1.
 
-#### Case A: Ticket exists
+**Case A: Ticket exists**
 
 Keep the Markdown displayed in Step 1 as context and **proceed to Step 3**. No interaction required.
 
-#### Case B: Ticket does not exist + prior conversation exists
+**Case B: Ticket does not exist + prior conversation exists**
 
 If you have already conversed with the user and reached agreement on this ticket's content, execute the following command.
 
@@ -117,7 +117,7 @@ node .claude/scripts/tickets/ensure-ticket.js \
 
 This script internally executes add-ticket.js → show-ticket-context.js sequentially, finally displaying the ticket information in Markdown. Keep that output as context and **proceed to Step 3**.
 
-#### Case C: Ticket does not exist + no prior conversation
+**Case C: Ticket does not exist + no prior conversation**
 
 Respond to the user with "No prior information available to create ticket & spec, so /make-ticket is interrupted." and exit.
 
@@ -131,7 +131,7 @@ node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMEN
 
 ### Step 4: Full understanding of Universal Implementation Order
 
-As stated in the Reference — Implementation Order section below, TDD is an absolute obligation. This rule serves as the law when filling in the testUnit / testIntegration / testExceptions stubs in Step 5b. During the investigation in Step 5, you must always reason in compliance with the Implementation Order.
+As stated in the Reference — Implementation Order section below, TDD is an absolute obligation. This rule serves as the law when filling in the testUnit / testIntegration / testExceptions stubs in Step 6. During the investigation in Step 5, you must always reason in compliance with the Implementation Order.
 
 #### Reference — Implementation Order (TDD Red-Green-Refactor)
 
@@ -184,16 +184,14 @@ Green without red, green achieved by modifying tests, and green achieved through
 
 `UT:` and `IT:` are automated test code, not manual tests. Together they must enable verification of the correctness of all implementation code. `testExceptions` is a supplement to this, not a substitute.
 
-### Step 5: Investigation + template filling
-
-#### 5a: Design and source code investigation
+### Step 5: Design and source code investigation
 
 Choose the investigation method based on the requirements of each field defined in the template.
 
 - **pipelineAvailable is true**: Conduct investigation utilizing the output information from show-ticket-context.js and the related graph node information obtained via query.js usage. Reference all NODE-IDs in "Related RFC graph NODE-IDs to check" within the output using the script execution commands presented in "Usage of query.js," and after obtaining all design information, begin the concrete source code investigation.
 - **pipelineAvailable is false**: Spot investigation (in addition to prior conversation with the user, directly grep / read source code to gather information).
 
-#### 5b: Replace template markers
+### Step 6: Replace template markers
 
 Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>::]` markers in the 11 fields with actual content.
 
@@ -207,7 +205,7 @@ Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>:
 2. **Translate Postcondition** into concrete output assertions or state-transition predicates — e.g., return type definitions, side-effect specifications, state machine transitions
 3. **Translate Invariant** into assertable predicates — e.g., `assert!()`, `debug_assert!()`, property-based testing invariants
 
-Each translated element must map to at least one `testUnit` entry. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified — return to Step 2 (investigation) to refine the Contract definition.
+Each translated element must map to at least one `testUnit` entry. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified — return to Step 5 (investigation) to refine the Contract definition.
 
 **Phase 2 — All remaining fields**: Replace all remaining markers in `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria`.
 
@@ -244,15 +242,11 @@ echo '{"testUnit":["UT: [Normal] Valid input returns correct result","UT: [Error
 node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-As long as unfilled markers remain (exit 1), return to Step 5b and continue replacement. When all markers have been replaced (exit 0), proceed to Step 6.
+As long as unfilled markers remain (exit 1), return to Step 6 and continue replacement. When all markers have been replaced (exit 0), proceed to Step 7.
 
-### Step 6: Contracts verification → spec file output → status update
+### Step 7: Contracts verification
 
-**About the "Design Context" block**: Design the spec being aware of the 4 sections automatically appended in this Step by dump-ticket-graph-commands.js and dump-node-context-to-spec.js.
-
-Run the three sub-steps in this order: (1) verify Contracts coverage, (2) write the spec file only after verification passes, (3) update status.
-
-#### 6-1: Contracts verification
+Run these steps in this order: (1) verify Contracts coverage, (2) validate STUB targets, (3) write the spec file only after verification passes, (4) update status.
 
 Verify that every Contract's Precondition/Postcondition/Invariant is covered by corresponding `testUnit` entries, and that `testExceptions` entries include proper justification. Exit code 0 = pass, 1 = fail.
 
@@ -260,13 +254,13 @@ Verify that every Contract's Precondition/Postcondition/Invariant is covered by 
 node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-If verification fails (exit 1), return to Step 5b to fix the template markers, then re-run from Step 6-1.
+If verification fails (exit 1), return to Step 6 to fix the template markers, then re-run from Step 7.
 
-#### 6-1.5: STUB enumeration and validation (mandatory)
+### Step 8: STUB enumeration and validation (mandatory)
 
 Before writing the spec file, enumerate all `[::STUB::]` markers in the source tree and validate that targetStubs/targetCrimes pass all structural checks. This gate ensures no STUB goes untracked at make time.
 
-**Step 6-1.5a — Enumerate STUBs:**
+**Step 8a — Enumerate STUBs:**
 
 ```bash
 node .claude/scripts/tickets/enumerate-ticket-targets.js \
@@ -275,14 +269,14 @@ node .claude/scripts/tickets/enumerate-ticket-targets.js \
 
 On failure (exit 1 or stderr), fix the reported issues and re-run.
 
-**Step 6-1.5b — Validate targets:**
+**Step 8b — Validate targets:**
 
 ```bash
 node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Step 6-1.5c — No-excuse gate:**
+**Step 8c — No-excuse gate:**
 
 ```bash
 node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
@@ -290,9 +284,11 @@ node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 
 The ticket being made must not own a terminal-excuse stub (Check A/B) or a stale-key stub (Check C). A ticket that absorbs an excuse stub at make time turns its implementation into "solving the excuse" and never converges.
 
-**Convergence loop**: If Step 6-1.5b or 6-1.5c exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until all three commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
+**Convergence loop**: If Step 8b or 8c exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until all three commands exit 0 before proceeding to Step 9.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
 
-#### 6-2: Write spec file
+### Step 9: Write spec file
+
+**About the "Design Context" block**: Design the spec being aware of the 4 sections automatically appended in this Step by dump-ticket-graph-commands.js and dump-node-context-to-spec.js.
 
 Execute `show-ticket-context.js --for-spec` to write all fields from Tickets.json into the spec file. Graph information (node details, edge relationships, file paths) is automatically included in the `--for-spec` output.
 
@@ -304,7 +300,7 @@ node .claude/scripts/tickets/show-ticket-context.js \
   --ticket-key="$ARGUMENTS" --for-spec > "specs/$ARGUMENTS.md"
 ```
 
-#### 6-3: Update ticket status
+### Step 10: Update ticket status
 
 ```bash
 echo '{"status":"made"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

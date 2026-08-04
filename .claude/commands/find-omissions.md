@@ -98,7 +98,37 @@ Check for:
 
 ## Step-by-Step Inspection Procedure
 
-### Step 1 — Run the script
+### Step 1 — Preflight self-healing gate (mandatory)
+
+Before inspecting any ticket, sweep and validate every `[::STUB::]` marker under the target directory. The preflight gate enforces the absolute rule: there is no "external" and no "awaiting approval" — every blocker is an AI-executable work item.
+
+**Loop until zero failures — the command never aborts on failures.**
+
+```bash
+node .claude/scripts/tickets/preflight-stub-cleanup.js
+```
+
+Classify the four classes and act on each:
+
+| Class | Meaning | Action |
+|-------|---------|--------|
+| `resolvedCandidates` | Marker key references a COMPLETED ticket (reviewed/done/R<round>) | Verify in code that the defect is resolved, then `remove-stub.js --file=<path> --line=<N>` |
+| `pendingObligations` | Marker key references an ACTIVE ticket (todo/in_progress/planned/remanded) | Legitimate pending work — leave for the phasify key rewrite |
+| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create the resolving ticket and rewrite the marker key, or remove if dead |
+| `excuses` | Terminal-excuse language without a work item | Convert the resolution plan to an AI-executable work item, or remove |
+
+Then run the validator as the loop condition:
+
+```bash
+node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+```
+
+- **exit 0** → zero failures, proceed to Step 2.
+- **exit 1** → read each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line, fix the marker (remove / rewrite the plan / rewrite the key), and re-run the gate. **Loop until exit 0.** A round that makes no progress is a hard-stop diagnostic — do not proceed with unresolved excuses.
+
+**Output message convention**: every stdout/stderr line from these scripts is English, self-contained, and Action-directive. A fresh session must be able to act on a message alone.
+
+### Step 2 — Run the script
 
 ```bash
 node .claude/scripts/tickets/get-next-check-target-ticket.js
@@ -112,7 +142,7 @@ Total 133 tickets to inspect. Inspecting ticket 4/133.
 ...
 ```
 
-### Step 2 — Understand the ticket
+### Step 3 — Understand the ticket
 
 Read the entire output carefully. Key sections to extract:
 
@@ -127,7 +157,7 @@ Read the entire output carefully. Key sections to extract:
 | `## Invariants` | Invariant conditions the system must always satisfy |
 | `## Notes` | Known risks, caveats, open items |
 
-### Step 3 — Analyze source code (core of the pipeline)
+### Step 4 — Analyze source code (core of the pipeline)
 
 This is the **most critical step**. The quality of the entire pipeline depends on the rigor of this analysis. Superficial analysis produces sloppy omissions, which cause the implementation loop to diverge rather than converge.
 
@@ -151,7 +181,7 @@ This is the **most critical step**. The quality of the entire pipeline depends o
 
 Your deliverable is not a summary of the code — it is a **verification** that each contract is enforced by test code, with specific source code evidence (file + codes).
 
-### Step 4 — Evaluate and record (per-contract, per-criterion, immediately)
+### Step 5 — Evaluate and record (per-contract, per-criterion, immediately)
 
 For EACH contract defined in the ticket, evaluate ALL three criteria (A, B, C).  
 **Only record when you confirm a contract violation** — that is, when `passed = false` for any of A/B/C on any contract.  
@@ -162,7 +192,7 @@ For EACH contract defined in the ticket, evaluate ALL three criteria (A, B, C).
 
 Do NOT bundle multiple criteria into one evaluation block. **Evaluate and record one criterion at a time.**
 
-**Step 4a — Evaluate one criterion**
+**Step 5a — Evaluate one criterion**
 
 Pick one contract and one criterion (A, B, or C). Trace the code. Determine `passed`.
 
@@ -177,10 +207,10 @@ Example thought process for Criterion B on Contract C001:
   → PASSED = false
 ```
 
-**Step 4b — If `passed = false`, record immediately**
+**Step 5b — If `passed = false`, record immediately**
 
 ```bash
-# Step 4b execution — no delay, no further analysis first
+# Step 5b execution — no delay, no further analysis first
 echo '[{"evaluations":[{
   "criterion": "B",
   "passed": false,
@@ -193,7 +223,7 @@ echo '[{"evaluations":[{
   --ticket-key=P0-4
 ```
 
-**Step 4c — Continue with the next criterion**
+**Step 5c — Continue with the next criterion**
 
 After recording, move to the next criterion (or next contract). Do not batch.
 
@@ -212,7 +242,7 @@ Criterion C on same contract:
 - If `passed = false`, the `reason` must explain **what is missing** and **what should exist**, in a self-contained way.
 - **Do NOT construct a single JSON with multiple evaluations** unless you discovered them simultaneously and they share the same `severity`/`recommendation`. When in doubt, make separate calls.
 
-### Step 5 — Record an omission (execute the moment a gap is found)
+### Step 6 — Record an omission (execute the moment a gap is found)
 
 As soon as you confirm a `passed = false`, construct the foundOmissions entry and pipe it.
 
@@ -278,15 +308,15 @@ echo '[{
 | **`reason` must be self-contained** | It should make sense without reading the original ticket. Include the contract text, what you found, and what is missing. |
 | **`severity` is optional but helpful** | Use `"critical"` for missing entire contract coverage, `"major"` for partial coverage, `"minor"` for imprecise assertions. |
 
-### Step 6 — Repeat
+### Step 7 — Repeat
 
-Run Step 1 again to get the next ticket. Continue until you see:
+Run Step 2 again to get the next ticket. Continue until you see:
 
 ```
 All tickets inspected.
 ```
 
-### Step 7 — Clean up
+### Step 8 — Clean up
 
 ```bash
 node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
@@ -295,17 +325,19 @@ node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
 Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
 
-# Step 8 — Merge into Tickets.json
+# Step 9 — Merge into Tickets.json
 
 ```bash
 node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 ```
 
-This computes optimal phase/ticket boundaries from the omissions found in Steps 1-6 and merges them mechanically into Tickets.json. Because the merge is algorithmic, phase names are generic (P6, P7, ...). The stdout lists each phase's node titles and ticket info, followed by the exact `rename-phases.js` commands to assign meaningful names. You **must** follow those instructions in Step 9.
+This computes optimal phase/ticket boundaries from the omissions found in Steps 2-7 and merges them mechanically into Tickets.json. Because the merge is algorithmic, phase names are generic (P6, P7, ...). The stdout lists each phase's node titles and ticket info, followed by the exact `rename-phases.js` commands to assign meaningful names. You **must** follow those instructions in Step 10.
 
-# Step 9 — Rename phases
+**STUB key rewrite (built into phasify)**: when a cloned ticket carries `stubs[]` from a marker that referenced an OLD ticket key, phasify rewrites every marker key to the clone's new key (`P{newPhase}-{newId}`). With `--src-dir=<root>`, the actual source marker lines are rewritten too. The merge is REJECTED (exit non-zero) if any stub still carries a terminal excuse — run Step 1 again and clear all excuses before re-running.
 
-Run the `rename-phases.js` commands printed in Step 8's stdout. Each re-implementation phase name **must** start with the prefix `"Omissions: "` to clearly mark it as omission-derived. Example:
+# Step 10 — Rename phases
+
+Run the `rename-phases.js` commands printed in Step 9's stdout. Each re-implementation phase name **must** start with the prefix `"Omissions: "` to clearly mark it as omission-derived. Example:
 
 ```bash
 node .claude/scripts/tickets/rename-phases.js --phase=6 --name="Omissions: Storage & Connection Layer"

@@ -149,6 +149,16 @@ Before starting implementation, check for resolvable stubs:
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
+**Pre-cleanup sweep** (before implementation): run the preflight classification to remove resolved-but-stale markers and surface terminal excuses:
+
+```bash
+node .claude/scripts/tickets/preflight-stub-cleanup.js
+```
+
+- `resolvedCandidates` → verify in code, then `remove-stub.js`
+- `pendingObligations` → leave (legitimate active-key work)
+- `orphans` / `excuses` → fix before implementation (rewrite the plan / rewrite the key / remove)
+
 ### Step 5: Implementation
 
 Begin implementation based on the plan from the immediately preceding `/plan-ticket` execution.
@@ -396,7 +406,13 @@ node .claude/scripts/tickets/show-ticket-context.js \
 
 ### Step 10: Transition to done
 
-After passing compilation verification, tests, and quality checks:
+After passing compilation verification, tests, and quality checks, run the **no-excuse gate** — a ticket must not be marked `done` while a terminal-excuse stub referencing it survives:
+
+```bash
+node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+```
+
+If it exits non-zero, fix each reported marker (remove / rewrite the plan / rewrite the key) and re-run until exit 0. Then:
 
 ```bash
 echo '{"status":"done"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"

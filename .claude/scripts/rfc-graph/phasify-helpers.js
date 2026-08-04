@@ -677,6 +677,105 @@ function phasesToTicketsFormat(phases) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// PX-120: STUB key rewrite and no-excuse merge guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewrite the ticket keys inside stubs[].content of a cloned ticket.
+ * Pure function — returns a new clone, never mutates the input.
+ *
+ * The marker key is a forward declaration of which future ticket resolves the
+ * stub. When phasify re-keys a clone into a new phase, every stale key must be
+ * rewritten so provenance points at the new resolving ticket.
+ *
+ * @param {object} clone — Deep-cloned ticket { id, phaseId, stubs: [{content}] }
+ * @param {object} oldToNewMap — { oldKey: newKey } mapping
+ * @returns {object} — New clone with rewritten stub contents
+ */
+// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+function rewriteStubKeys(clone, oldToNewMap) {
+  const stubs = (clone.stubs || []).map(function (stub) {
+    let content = stub.content;
+    for (const oldKey of Object.keys(oldToNewMap)) {
+      content = content.replace(
+        new RegExp('\\[::STUB::\\]\\s+' + oldKey + '\\b'),
+        '[::STUB::] ' + oldToNewMap[oldKey]
+      );
+    }
+    return Object.assign({}, stub, { content: content });
+  });
+  return Object.assign({}, clone, { stubs: stubs });
+}
+
+/**
+ * Guard that rejects a merge when any clone still carries a terminal-excuse stub.
+ * Defense-in-depth: the find-omissions Step 1 preflight is the primary gate; this
+ * guard ensures an excuse never enters Tickets.json through the phasify merge.
+ *
+ * @param {Array<{id:number, stubs:Array}>} clones — Phasified clones
+ * @throws {Error} — EXCUSE_MERGE_REJECTED when an excuse stub is present
+ */
+// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+function guardExcuseMerge(clones) {
+  const { EXCUSE_PATTERNS, WORK_ITEM_VERB_RE } = require('../tickets/validate-no-external-excuses.js');
+  for (const clone of clones) {
+    for (const stub of (clone.stubs || [])) {
+      const content = stub.content || '';
+      const excuseHit = EXCUSE_PATTERNS.some(function (re) { return re.test(content); });
+      const workItem = WORK_ITEM_VERB_RE.test(content);
+      if (excuseHit && !workItem) {
+        const location = (stub.file || 'unknown') + ':' + (stub.line || '?');
+        const err = new Error('[phasify] REJECTED merge: excuse stub in clone ' + clone.id + ' at ' + location +
+          ' — Action: resolve via find-omissions Step 1 preflight before re-running');
+        err.code = 'EXCUSE_MERGE_REJECTED';
+        throw err;
+      }
+    }
+  }
+}
+
+/**
+ * Run the find-omissions self-healing loop: validate -> fix -> revalidate until
+ * zero failures. Never aborts on failures; a zero-progress round is a hard-stop
+ * diagnostic (the AI failed to make progress, which is a behavior failure).
+ *
+ * @param {Array<{content:string}>} stubs — Stub entries to validate
+ * @param {Function} fixStub — (stub) => fixed stub; must change the stub or the loop hard-stops
+ * @param {object} opts — { ticketsData, maxRounds }
+ * @returns {{failures: number, proceeded: boolean, rounds: number, stubs: Array}}
+ * @throws {Error} — on zero-progress round or non-convergence
+ */
+// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+function runSelfHealingLoop(stubs, fixStub, opts) {
+  const { classifyVerdict } = require('../tickets/validate-no-external-excuses.js');
+  const ticketsData = (opts && opts.ticketsData) || {};
+  const maxRounds = (opts && opts.maxRounds) || 100;
+  let current = stubs.map(function (s) { return Object.assign({}, s); });
+
+  for (let round = 0; round < maxRounds; round++) {
+    const failures = current.filter(function (s) {
+      return !classifyVerdict(s.content, ticketsData).passed;
+    });
+    if (failures.length === 0) {
+      return { failures: 0, proceeded: true, rounds: round, stubs: current };
+    }
+
+    const fixed = current.map(function (s) {
+      return classifyVerdict(s.content, ticketsData).passed ? s : fixStub(s);
+    });
+    const madeProgress = JSON.stringify(fixed) !== JSON.stringify(current);
+    current = fixed;
+
+    if (!madeProgress) {
+      throw new Error('[phasify] self-healing loop made no progress in round ' + (round + 1) +
+        ' — hard-stop diagnostic: ' + failures.length + ' excuses remain — Action: rewrite each to an AI-executable work item or remove the marker');
+    }
+  }
+
+  throw new Error('[phasify] self-healing loop did not converge within ' + maxRounds + ' rounds');
+}
+
 module.exports = {
   // Weight table
   WEIGHT_MAP,
@@ -704,4 +803,8 @@ module.exports = {
   buildSccConstraint,
   applySccToOrder,
   phasesToTicketsFormat,
+  // PX-120: STUB key rewrite + no-excuse merge guard + self-healing loop
+  rewriteStubKeys,
+  guardExcuseMerge,
+  runSelfHealingLoop,
 };

@@ -154,6 +154,12 @@ Extract all stubs via `find-all-stubs.js` and evaluate them in the following 3 c
 node .claude/scripts/tickets/review/find-all-stubs.js .
 ```
 
+**No-excuse gate**: run the validator over the review scope — a `done` ticket's code must not carry a terminal-excuse stub or a stale-key stub. If it exits non-zero, the implementation did not complete its obligations; report the failures and return the ticket for re-implementation.
+
+```bash
+node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+```
+
 **Classification criteria**:
 
 1. **Resolvable stubs** — Dependency tickets are complete, and can now be replaced with actual implementation

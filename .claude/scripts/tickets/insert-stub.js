@@ -60,6 +60,10 @@
 const fs = require('fs');
 const path = require('path');
 
+// PX-121: reuse the no-excuse lexicon so a terminal-excuse plan can never be
+// written into the codebase (the creation-time gate of the resolve pipeline).
+const { EXCUSE_PATTERNS, WORK_ITEM_VERB_RE } = require('./validate-no-external-excuses.js');
+
 // Regex: must match P{phase}-{id} format (e.g. P0-1, PX-94)
 const TICKET_REF_RE = /^P[A-Z0-9]+-\d+$/;
 
@@ -131,7 +135,7 @@ function findTicketPosition(ticketsData, ticketKey) {
  * @throws {InsertStubError} on validation failure
  */
 // [::TICKET::] PX-95, PX-94, PX-96, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-121) --for-spec --no-implementation-order`.
 function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPath, ticketKey }) {
   // --- 1. Validate required arguments ---
   if (!file || typeof file !== 'string') {
@@ -168,6 +172,21 @@ function insertStub({ file, line, ticketRef, stubReason, resolvePlan, ticketsPat
       'The STUB marker must state what the resolving ticket will implement.',
       'Provide --resolve-plan="<concrete implementation>" and re-run.'
     ));
+  }
+  // PX-121: reject terminal-excuse resolution plans at creation time. The marker
+  // reads "// [::STUB::] <ticket>: <reason> -- <plan>"; if the combined text is a
+  // terminal excuse without an imperative work item, no marker may be written.
+  {
+    const markerText = '// [::STUB::] ' + (ticketRef || 'MUST RESOLVE') + ': ' + stubReason + ' -- ' + resolvePlan;
+    const excuseHit = EXCUSE_PATTERNS.some(function (re) { return re.test(markerText); });
+    const workItem = WORK_ITEM_VERB_RE.test(markerText);
+    if (excuseHit && !workItem) {
+      throw new InsertStubError(buildBlockingMessage(
+        '--resolve-plan contains a terminal excuse without an AI-executable work item.',
+        'The project forbids "external dependency" / "awaiting approval" as terminal states; every blocker is internal AI work.',
+        'Rewrite --resolve-plan with an imperative verb plus deliverable, e.g. "Vendor and build PJSIP in build.rs", and re-run.'
+      ));
+    }
   }
   if (!ticketsPath || typeof ticketsPath !== 'string') {
     throw new InsertStubError(buildBlockingMessage(
