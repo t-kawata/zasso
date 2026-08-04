@@ -282,7 +282,15 @@ node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Convergence loop**: If Step 6-1.5b exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until both commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
+**Step 6-1.5c — No-excuse gate:**
+
+```bash
+node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+```
+
+The ticket being made must not own a terminal-excuse stub (Check A/B) or a stale-key stub (Check C). A ticket that absorbs an excuse stub at make time turns its implementation into "solving the excuse" and never converges.
+
+**Convergence loop**: If Step 6-1.5b or 6-1.5c exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until all three commands exit 0 before proceeding to 6-2.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
 
 #### 6-2: Write spec file
 
