@@ -19,6 +19,8 @@ node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
 ## Overview
 
 ```
+Step 1 (preflight): a marker needing a new resolving ticket → create-resolving-ticket.js (auto, never ask the human)
+
 Inspection loop — one command, repeated per ticket:
 
   node get-next-check-target-ticket.js
@@ -112,10 +114,19 @@ Classify the four classes and act on each:
 
 | Class | Meaning | Action |
 |-------|---------|--------|
-| `resolvedCandidates` | Marker key references a COMPLETED ticket (reviewed/done/R<round>) | Verify in code that the defect is resolved, then `remove-stub.js --file=<path> --line=<N>` |
+| `resolvedCandidates` | Marker key references a COMPLETED ticket (reviewed/done/R<round>) | Verify in code that the defect is resolved. **If resolved** → `remove-stub.js --file=<path> --line=<N>`. **If NOT resolved** → create a resolving ticket (below) and rewrite the marker key |
 | `pendingObligations` | Marker key references an ACTIVE ticket (todo/in_progress/planned/remanded) | Legitimate pending work — leave for the phasify key rewrite |
-| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create the resolving ticket and rewrite the marker key, or remove if dead |
+| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create a resolving ticket via `create-resolving-ticket.js` (requires a valid source ticket to clone) and rewrite the marker key, or remove if dead |
 | `excuses` | Terminal-excuse language without a work item | Convert the resolution plan to an AI-executable work item, or remove |
+
+**Resolving-ticket creation (auto — never pause to ask the human)**: Any marker that needs a new resolving ticket — a NOT-resolved reference to a completed ticket, or any Check C failure where the marker references an existing ticket — is handled immediately by `create-resolving-ticket.js`. The script deep-clones the marker's referenced ticket as the template, applies the marker's work item, embeds `stubs[]` (for phasify's re-rewrite), and appends a non-PX ticket in the max phase (status `todo`). **Follow the script's stdout** — the Markdown Action-directive tells you to rewrite the OLD content into the NEW work item one field at a time (max 3 per `update-ticket.js` call) while preserving `nodeIds`/`relatedTicketIds`/`referenceSection` and the other relational fields. Rewrite the marker key to the returned key, then re-run the gate. **Keyless MUST-RESOLVE markers (no cloneable source) cannot use the script** — remove them if the defect is dead in code, or record them as a crime if the work is live. **Do not stop to ask the human** — this is the AI's work item, per the no-external-excuse rule.
+
+```bash
+echo '{"title":"(work item)","scope":["..."],"background":"..."}' | node .claude/scripts/tickets/create-resolving-ticket.js \
+  --source-key=<referenced-ticket-key> \
+  --stubs='[{"file":"<marker-file>","line":<line>,"content":"[::STUB::] <old-key>: -- <work item>"}]' \
+  --tickets="Tickets.json"
+```
 
 Then run the validator as the loop condition:
 
@@ -333,7 +344,7 @@ node .claude/scripts/rfc-graph/phasify-omissions.js --graph="$ARGUMENTS"
 
 This computes optimal phase/ticket boundaries from the omissions found in Steps 2-7 and merges them mechanically into Tickets.json. Because the merge is algorithmic, phase names are generic (P6, P7, ...). The stdout lists each phase's node titles and ticket info, followed by the exact `rename-phases.js` commands to assign meaningful names. You **must** follow those instructions in Step 10.
 
-**STUB key rewrite (built into phasify)**: when a cloned ticket carries `stubs[]` from a marker that referenced an OLD ticket key, phasify rewrites every marker key to the clone's new key (`P{newPhase}-{newId}`). With `--src-dir=<root>`, the actual source marker lines are rewritten too. The merge is REJECTED (exit non-zero) if any stub still carries a terminal excuse — run Step 1 again and clear all excuses before re-running.
+**STUB key rewrite (built into phasify)**: when a cloned ticket carries `stubs[]` from a marker that referenced an OLD ticket key, phasify rewrites every marker key to the clone's new key (`P{newPhase}-{newId}`). The actual source marker lines are always rewritten relative to the current directory (the Tickets.json root). The merge is REJECTED (exit non-zero) if any stub still carries a terminal excuse — run Step 1 again and clear all excuses before re-running.
 
 # Step 10 — Rename phases
 

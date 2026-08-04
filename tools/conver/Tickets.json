@@ -16117,6 +16117,741 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-04"
+        },
+        {
+          "id": 122,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Shared function createTicketFromSource for dedicated ticket-creation scripts",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/122-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: Provide the shared core used by create-resolving-ticket.js (find) and create-deferral-ticket.js (resolve) to create a quality NEW ticket from a source ticket's deep clone.\nPurpose: A new ticket must inherit the source ticket's structural/relational identity (nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies) with ZERO loss, while its content fields are reset so the AI can rewrite them to the NEW work item — never a retry of the past ticket.\nMotivation: add-omission-ticket.js already deep-clones (JSON.parse(JSON.stringify) in appendTicket, line 121) and targets the max real phase (lines 113-114), but it writes to _tmp-omissions-*.json, not directly to Tickets.json. find Step 1 and resolve deferral need direct Tickets.json creation (immediate known key for marker rewrite + Check C), non-PX max phase. A shared function avoids duplicating the clone/edit/append/validate logic across two entry scripts.\nConstraints: (1) Must never lose relational fields (PRESERVE set: nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies). (2) New ticket must be non-PX max real phase, status='todo'. (3) Must validate via validate-tickets.js before writing (atomic, no partial write). (4) Must return the actual new key. (5) Must strip completed-ticket residue (startedAt/completedAt/round status).",
+          "default_files": [
+            "tools/conver/.claude/scripts/lib/create-ticket-from-source.js"
+          ],
+          "invariants": "- Normal establishment: deep clone preserves PRESERVE fields (nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies) exactly; no relational field is dropped or emptied\n- Invariant on error: Tickets.json is unchanged on any failure (validate before write; no partial write)\n- Internal state invariant: new ticket has status='todo', no completedAt/startedAt, no round-aware status\n- Boundary invariant: append targets the max real phase (id=N); never the PX phase (id=-1); creates phase 0 when no non-PX phase exists",
+          "scope": [
+            "CHANGE: Add tools/conver/.claude/scripts/lib/create-ticket-from-source.js (new shared module exporting createTicketFromSource)",
+            "CHANGE: Deep-clone source ticket via JSON.parse(JSON.stringify()) preserving PRESERVE fields with zero loss",
+            "CHANGE: Strip completed-ticket residue: status→'todo', delete completedAt/startedAt, no round-aware R<round> status",
+            "CHANGE: Apply caller seed edits to content fields (title/scope/background); other content fields stay as clone (old content) for the entry script's field-by-field rewrite guidance",
+            "CHANGE: Determine the non-PX max real phase; create phase 0 if none exists (mirrors add-omission-ticket.js:113-114)",
+            "CHANGE: Append with auto-incremented id (maxId+1 within target phase) and set phaseId=targetPhase.id",
+            "CHANGE: Validate the merged Tickets.json via validate-tickets.js before writing; reject with exit 1 and no write on failure",
+            "CHANGE: Return { key, ticket } where key = (P{phaseId}|PX)-{id}",
+            "NO-CHANGE: Do NOT modify add-omission-ticket.js (its _tmp-omissions-*.json write path stays for find Steps 5-6)",
+            "NO-CHANGE: Do NOT modify phasify-omissions.js or the ticket schema",
+            "IMPACT: Entry scripts PX-123 (create-resolving-ticket.js) and PX-124 (create-deferral-ticket.js) depend on this function's signature",
+            "IMPACT: Marker-key rewrite and Check C (active key) depend on the returned key being the real key",
+            "IMPACT: R<round> freezing by phasify (markPreMergeTicketsReviewed) later marks the ORIGINAL Step-1 tickets as past, so the returned key must be used for markers, not the source key"
+          ],
+          "testUnit": [
+            "UT: [Normal] deep clone preserves nodeIds/relatedTicketIds/referenceSection/referenceUrls/sourcePaths/rfcDiscrepancies exactly (byte-identical to source)",
+            "UT: [Normal] append targets the non-PX max real phase with id=maxId+1 and phaseId=targetPhase.id; returned key matches the actual ticket",
+            "UT: [Normal] seed edits (title/scope/background) are applied to the new ticket's content fields",
+            "UT: [Error] source ticket not found (key parses but ticket absent) → exit 1, Tickets.json unchanged",
+            "UT: [Error] invalid seed (missing required title) → validateTicket-style rejection, exit 1, no write",
+            "UT: [Boundary] no non-PX phases exist (only PX phase) → creates phase 0 and appends there",
+            "UT: [Boundary] empty Tickets.json (no phases at all) → creates phase 0",
+            "UT: [Invariant] residue stripped: status='todo', completedAt/startedAt absent, no R<round> status",
+            "UT: [Invariant] validate-tickets.js passes on the merged Tickets.json after append",
+            "UT: [Invariant] PRESERVE fields are never emptied by the append (immutability of relational identity)"
+          ],
+          "testIntegration": [
+            "IT: createTicketFromSource + validate-tickets.js — the created ticket passes full schema validation (id, phaseId, title, status required)",
+            "IT: createTicketFromSource + add-ticket.js phase/id convention — auto-increment id matches the existing per-phase id sequence",
+            "Prerequisites: PX-122 is the foundation; entry scripts PX-123/PX-124 consume its returned key",
+            "Related tickets: PX-123, PX-124"
+          ],
+          "testExceptions": [
+            "Item: phasify's STUB-key re-rewrite (rewriteOutputStubKeys) cannot test here because it is phasify behavior, not this function's.\nReason: It lives in phasify-omissions.js and requires a full phasify merge pipeline; this is not a design defect — the behavior is genuinely external to this function.\nAlternative verification: covered by the integration contract in PX-123 (stubs[] embedding) and the existing phasify-omissions tests."
+          ],
+          "instrumentation": "Logging: [create-ticket-from-source] created <newKey> from source <sourceKey> (phase <id>, status todo)\nMetrics: none (CLI helper, no counters)\nError tracking: stderr error lines with actionable message + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) define PRESERVE/REWRITE/REGENERATE field taxonomy as named constants; (2) deep-clone source; (3) strip completed residue; (4) apply seed edits; (5) resolve max real phase; (6) append with auto-id; (7) validate whole Tickets.json; (8) return { key, ticket }.\nRisks: entry scripts MUST use the returned key (not the requested key) for marker rewrite — the requested key may be a placeholder phase target.\nCaveats: content fields not in the seed intentionally carry the SOURCE's old content; the entry scripts' Markdown output tells the AI to rewrite them field-by-field via update-ticket.js.\nOpen items: none.\nFuture improvements: add a post-creation field-density check (check-field-density.js) once content rewrite is complete.\nImplementation summary:\n- Changed files: .claude/scripts/lib/create-ticket-from-source.js, .claude/tests/lib/create-ticket-from-source.test.js\n- Key changes: PRESERVE/STRIP/PX constants; findTicket/stripCompletedResidue/applySeedEdits/resolveMaxRealPhase/appendTicketToPhase helpers; seed-title enforcement\n- Test results: all 38 assertions passed (RED confirmed before implementation)\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 38 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: given an existing source ticket and seed edits, creates a todo non-PX max-phase ticket preserving all relational fields, returns the real key",
+            "Error case: source ticket not found or invalid seed → exit 1, Tickets.json unchanged",
+            "Edge case: no non-PX phase → phase 0 created; PX-only Tickets.json → phase 0; max-phase id collision → auto-increment avoids duplicate"
+          ],
+          "investigation": "add-omission-ticket.js:121 deep-clone pattern (JSON.parse(JSON.stringify(ticket))); :113-114 max real phase targeting (filter p.id !== -1, Math.max, find); :24 REQUIRED_FIELDS (title/background/scope/testUnit/acceptanceCriteria/invariants); :130-141 appendTicket sets id=maxId+1 and phaseId=targetPhase.id. add-ticket.js:52 phase resolution (phaseArg==='PX' ? -1 : data.phases.length); :62-64 ticket construction with status='todo' then validateTickets; :85 returns ticketKey 'P'+id+'-'+newId. validate-tickets.js:36-39 hard-required id/phaseId/title/status; :40 arrayFields; :72 strFields; :9 isRoundStatus /^R[1-9]\\d*$/. phasify-omissions.js:1013 markPreMergeTicketsReviewed freezes pre-merge phases (id < offset) to 'R'+round — the source of the residue-stripping requirement. ensure-ticket.js:124 hardcodes 'PX' phase for make-ticket Case B — the reason the dedicated scripts must create in a real max phase.",
+          "boyScoutPlan": "Functions as verbs: createTicketFromSource, stripCompletedResidue, applySeedEdits, resolveMaxRealPhase, appendTicketToPhase, validateAndWrite.\nOne responsibility per function — no mixed concerns.\nNamed constants for the PRESERVE / REWRITE / REGENERATE field sets instead of inline arrays.\nNo error swallowing: every failure path returns { success:false, error } or exits 1 with an actionable stderr message.\nReuse add-ticket.js/validate-tickets.js rather than re-implementing validation.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "deep-clone preservation",
+              "precondition": "Source ticket exists in Tickets.json with nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies",
+              "postcondition": "New ticket carries identical values for all PRESERVE fields (zero loss)",
+              "invariant": "No PRESERVE field is dropped, emptied, or mutated in the clone"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "residue stripping",
+              "precondition": "Source ticket has a completed status (reviewed, done, or R<round>) and/or completedAt/startedAt",
+              "postcondition": "New ticket has status='todo', no completedAt/startedAt, no round-aware status",
+              "invariant": "The new ticket is always an active obligation (ACTIVE_STATUSES member)"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "max real phase append",
+              "precondition": "Tickets.json has phases with a maximum non-PX phase id N (or none)",
+              "postcondition": "New ticket phaseId = N (or 0 when none exists), id = maxId+1 within that phase, key returned",
+              "invariant": "The new ticket is never appended to the PX phase (id=-1)"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "schema validation",
+              "precondition": "New ticket assembled with all schema-required fields (id, phaseId, title, status)",
+              "postcondition": "validate-tickets.js passes on the merged Tickets.json; Tickets.json written only on success",
+              "invariant": "A failing validation leaves Tickets.json byte-identical (no partial write)"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "seed edits",
+              "precondition": "Caller supplies title and optionally scope/background as seed edits",
+              "postcondition": "New ticket's title/scope/background equal the provided seeds; other content fields carry the clone's values",
+              "invariant": "The returned key always matches the actually-created ticket (phaseId-id tuple)"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001 deep-clone preservation]\n  const source = { id: 1, phaseId: 0, title: 'S', status: 'todo', nodeIds: ['N0001','N0002'], relatedTicketIds: 'P0-2', referenceSection: 'RFC §3', referenceUrls: ['https://x'], sourcePaths: ['src/a.rs'], rfcDiscrepancies: [] };\n  const data = { title: 'T', phases: [{ id: 0, name: 'P0', tickets: [source] }] };\n  const res = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' } });\n  assert.strictEqual(res.success, true);\n  assert.deepStrictEqual(res.ticket.nodeIds, source.nodeIds);\n  assert.strictEqual(res.ticket.relatedTicketIds, source.relatedTicketIds);\n  assert.strictEqual(res.ticket.referenceSection, source.referenceSection);\n  assert.deepStrictEqual(res.ticket.referenceUrls, source.referenceUrls);\n  assert.deepStrictEqual(res.ticket.sourcePaths, source.sourcePaths);\n  assert.deepStrictEqual(res.ticket.rfcDiscrepancies, source.rfcDiscrepancies);",
+            "UT: [C002 residue stripping]\n  const source = { id: 1, phaseId: 0, title: 'S', status: 'reviewed', completedAt: '2026-08-01', startedAt: '2026-07-01' };\n  const data = { title: 'T', phases: [{ id: 0, name: 'P0', tickets: [source] }] };\n  const res = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' } });\n  assert.strictEqual(res.ticket.status, 'todo');\n  assert.strictEqual(res.ticket.completedAt, undefined);\n  assert.strictEqual(res.ticket.startedAt, undefined);\n  assert.ok(!/^R[1-9]\\d*$/.test(res.ticket.status || ''));",
+            "UT: [C003 max real phase append]\n  const source = { id: 1, phaseId: 0, title: 'S', status: 'todo' };\n  const data = { title: 'T', phases: [{ id: 0, name: 'P0', tickets: [source] }, { id: 2, name: 'P2', tickets: [{ id: 1, title: 'x', status: 'todo' }, { id: 2, title: 'y', status: 'todo' }] }] };\n  const res = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' } });\n  assert.strictEqual(res.ticket.phaseId, 2);\n  assert.strictEqual(res.ticket.id, 3);\n  assert.strictEqual(res.key, 'P2-3');\n  assert.strictEqual(res.data.phases[1].tickets.length, 3);",
+            "UT: [C004 schema validation]\n  const source = { id: 1, phaseId: 0, title: 'S', status: 'todo' };\n  const data = { title: 'T', phases: [{ id: 0, name: 'P0', tickets: [source] }] };\n  const res = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' } });\n  const validation = validateTickets(res.data);\n  assert.strictEqual(validation.valid, true);\n  const bad = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: {} });\n  assert.strictEqual(bad.success, false);",
+            "UT: [C005 seed edits + key match]\n  const source = { id: 1, phaseId: 0, title: 'S', status: 'todo', background: 'old', scope: ['old1'] };\n  const data = { title: 'T', phases: [{ id: 0, name: 'P0', tickets: [source] }] };\n  const res = createTicketFromSource({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New', background: 'new-bg', scope: ['new1'] } });\n  assert.strictEqual(res.ticket.title, 'New');\n  assert.strictEqual(res.ticket.background, 'new-bg');\n  assert.deepStrictEqual(res.ticket.scope, ['new1']);\n  assert.strictEqual(res.key, 'P' + res.ticket.phaseId + '-' + res.ticket.id);"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "(none)",
+              "after": "lib/create-ticket-from-source.js",
+              "description": "Added shared pure function createTicketFromSource (deep-clone → residue strip → seed edits → non-PX max phase append → validate → return key)"
+            },
+            {
+              "before": "(none)",
+              "after": "tests/lib/create-ticket-from-source.test.js",
+              "description": "Added 38-assertion test suite covering C001-C005 + boundary cases"
+            }
+          ],
+          "completedAt": "2026-08-04"
+        },
+        {
+          "id": 123,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "create-resolving-ticket.js + find-omissions.md Step 1 auto-creation",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/123-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: find-omissions.md Step 1 (preflight gate) must auto-create resolving tickets via a dedicated create-resolving-ticket.js, never pausing to ask the human.\nPurpose: The gate's Check C failure (markers referencing completed tickets, e.g. the 63-stub scenario) requires new resolving tickets so markers can reference active obligations. The AI must execute this via the dedicated script — not present the human a menu of options.\nMotivation: The current Step 1 table says Create the resolving ticket and rewrite the marker key (find-omissions.md:117) but names no script, so the AI stopped and asked the human. The script deep-clones the marker's referenced ticket as a template (structure preserved, content reset), embeds stubs[] so phasify's rewriteOutputStubKeys can re-rewrite markers to the phasify duplicates after the Step 9 merge (phasify-omissions.js:742-760), and outputs a Markdown Action-directive.\nConstraints: (1) Must never pause to ask the human — every blocker is an AI-executable work item (no-external-excuse rule). (2) Must embed stubs[] (with the marker content + rewritten key) so phasify can re-rewrite markers to duplicates after markPreMergeTicketsReviewed freezes originals as R<round>. (3) Must output the Markdown guidance (old-content warning, field-by-field update-ticket.js rewrite, preserve list). (4) Must return the real new key on stdout. (5) find-omissions.md Step 1 resolvedCandidates NOT-resolved branch and orphans row must reference the script.",
+          "default_files": [
+            "tools/conver/.claude/scripts/tickets/create-resolving-ticket.js",
+            "tools/conver/.claude/commands/find-omissions.md"
+          ],
+          "invariants": "- Normal establishment: a resolving ticket is created via the script with a real new key and the marker is rewritten to it, so Check C passes\n- Invariant on error: script failure exits non-zero with an actionable stderr message; no ticket is created without the stubs[] embedding\n- Internal state invariant: the created ticket is todo, non-PX, max phase, with stubs[] embedded; the marker key references the new active ticket\n- Boundary invariant: the script is invoked per-marker-group (or per-stub), one ticket at a time; never a batch that loses per-stub stubs[] association",
+          "scope": [
+            "CHANGE: Add tools/conver/.claude/scripts/tickets/create-resolving-ticket.js (find entry over lib/create-ticket-from-source.js)",
+            "CHANGE: Parse --source-key (marker's referenced ticket) + stdin ticket JSON (seed edits) + --stubs='[{\"file\":\"...\",\"line\":N,\"content\":\"...\"}]'",
+            "CHANGE: Call createTicketFromSource with sourceKey + seed edits; embed stubs[] on the created ticket (from the --stubs arg) so phasify rewriteOutputStubKeys can re-rewrite markers to the phasify duplicates",
+            "CHANGE: Output Markdown Action-directive to stdout: ticket key heading, old-content warning (show-ticket-context.js --for-spec), field-by-field update-ticket.js rewrite instructions (max 3 per call, suggested order), PRESERVE list (do not touch)",
+            "CHANGE: Output the new key machine-readably (stdout first line or key in the Markdown heading)",
+            "CHANGE: Modify .claude/commands/find-omissions.md Step 1: resolvedCandidates row gains the NOT-resolved branch (create resolving ticket via the script); orphans row references create-resolving-ticket.js; add a Resolving-ticket creation (auto, never pause to ask the human) block",
+            "CHANGE: Add a never-ask directive to the Step 1 gate loop: when a resolving ticket is required, create it via the script and rewrite the key, then re-run the gate",
+            "NO-CHANGE: Do NOT change Step 9 phasify command semantics or the 4-class classification script behavior",
+            "NO-CHANGE: Do NOT change resolve-ticket.md (covered by PX-124)",
+            "IMPACT: Resolves the original stoppage (AI asking the human for gate direction)",
+            "IMPACT: Relies on PX-122's createTicketFromSource for the clone/append/validate/return-key core",
+            "IMPACT: The stubs[] embedding + phasify rewriteOutputStubKeys + markPreMergeTicketsReviewed (existing) together ensure markers end up referencing the phasify duplicates (active), not the frozen originals (R<round>)"
+          ],
+          "testUnit": [
+            "UT: [Normal] given --source-key + seed edits + --stubs, createTicketFromSource is invoked and stubs[] is embedded on the created ticket",
+            "UT: [Normal] stdout contains the real new key and the Markdown guidance sections (old-content warning, field-by-field rewrite, PRESERVE list)",
+            "UT: [Normal] the Markdown guidance shows a single-field update-ticket.js example and the suggested rewrite order",
+            "UT: [Error] missing --source-key or empty --stubs → exit 1 with actionable stderr",
+            "UT: [Error] source ticket not found → exit 1, no ticket created",
+            "UT: [Boundary] zero stubs passed → still creates the ticket but emits a warning that no marker rewrite will be driven by phasify",
+            "UT: [Invariant] the returned key matches the actually-created ticket (phaseId-id tuple)",
+            "UT: [Invariant] PRESERVE fields from the clone are listed in the Markdown output as do-not-touch",
+            "UT: [Invariant C001] the AI never pauses to present the human a menu — every blocker is an AI-executable work item; the resolving-ticket path is the only route in the gate loop",
+            "UT: [Precondition C004] the script returns a key on stdout that matches the actually-created ticket (phaseId-id tuple)",
+            "UT: [Precondition C005] find-omissions.md Step 1 exists and is the invocation context for the gate loop",
+            "UT: [Postcondition C005] find-omissions.md Step 1 resolvedCandidates NOT-resolved branch and orphans row reference create-resolving-ticket.js; a Resolving-ticket creation (auto, never pause to ask the human) block is present",
+            "UT: [Invariant C005] the Step 1 table and gate loop consistently direct to the script; the command file is the single source of the never-ask rule",
+            "UT: [Invariant C003] the Markdown guidance is English, self-contained, and actionable by a fresh session — every section can be acted on alone"
+          ],
+          "testIntegration": [
+            "IT: create-resolving-ticket.js + createTicketFromSource — end-to-end ticket creation with stubs[] embedding",
+            "IT: create-resolving-ticket.js + phasify-omissions.js rewriteOutputStubKeys — given a ticket with stubs[] referencing an old key, phasify rewrites the marker to the new key (existing phasify test covers the mechanism; this verifies the stubs[] shape matches)",
+            "IT: find-omissions.md Step 1 gate → validate-no-external-excuses.js — after the script + marker rewrite, Check C passes (active key)",
+            "Prerequisites: PX-122 (common function)",
+            "Related tickets: PX-122, PX-124"
+          ],
+          "testExceptions": [
+            "Item: the full find Step 1 → Step 9 loop (create-tmp-omissions seeding → phasify freeze → re-rewrite) cannot test here.\nReason: It requires the entire find pipeline (get-next, create-tmp-omissions, phasify), which is exercised by the existing phasify-omissions tests; this is not an architectural defect — the scenario is inherently an end-to-end integration.\nAlternative verification: unit-test the stubs[] shape contract against phasify's rewriteOutputStubKeys trigger condition (ticket.stubs non-empty), and rely on the existing phasify tests."
+          ],
+          "instrumentation": "Logging: [create-resolving-ticket] created <key> from source <sourceKey> with N stubs\nMetrics: none\nError tracking: stderr actionable messages + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) parse --source-key/--stubs/stdin; (2) call createTicketFromSource; (3) embed stubs[]; (4) write the Markdown guidance to stdout; (5) print the new key.\nRisks: the marker rewrite must use the REAL returned key, and phasify's re-rewrite requires stubs[] content to contain the marker's old key (extractTicketKey pattern).\nCaveats: the Markdown guidance must NOT be a one-shot giant update-ticket.js call — one field at a time (max 3).\nOpen items: whether find-omissions.md Step 9 must pass --src-dir for source-marker rewrite — verify against rewriteSourceMarkerLines.\nFuture improvements: add a post-create density gate (check-field-density.js) in the find loop.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/create-resolving-ticket.js, .claude/tests/tickets/create-resolving-ticket.test.js, .claude/commands/find-omissions.md\n- Key changes: createResolvingTicket (deep-clone via PX-122 + stubs[] embedding), buildMarkdownGuidance (one-at-a-time rewrite guidance), Step 1 never-ask directive\n- Test results: all 23 assertions passed; CLI smoke test created P0-2 with stubs=1 and nodeIds preserved\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 23 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: find Step 1 encountering a NOT-resolved completed-ticket stub auto-creates a resolving ticket via the script, rewrites the marker key, and the gate exits 0 without human input",
+            "Error case: script fails (bad source, missing args) → exit 1, actionable stderr, no partial ticket",
+            "Edge case: keyless MUST RESOLVE marker (no source key) → the script uses a generic template path or the AI removes the marker if dead; the gate must still converge"
+          ],
+          "investigation": "find-omissions.md Step 1 (lines 101-129): preflight gate, 4-class table, resolvedCandidates row action 'Verify in code that the defect is resolved, then remove-stub.js'; orphans row 'Create the resolving ticket and rewrite the marker key'; gate loop exit-1 → fix marker → re-run; Output message convention (English, self-contained, Action-directive). preflight-stub-cleanup.js:175-179 prints [ACTION] orphans / MUST RESOLVE — create the resolving ticket now, then rewrite the marker key. validate-no-external-excuses.js:66 ACTIVE_STATUSES={todo,in_progress,planned,remanded}; :107-121 Check C key validity; :155-159 Check C action 'Rewrite the marker key to the new resolving ticket'; extractTicketKey exported. create-tmp-omissions.js:126 seeds non-reviewed (incl todo) tickets into _tmp-omissions → phasify duplicates Step-1 tickets; phasify-omissions.js:1013 markPreMergeTicketsReviewed freezes originals to R<round>; :742-760 rewriteOutputStubKeys only processes tickets with non-empty stubs[] and rewrites marker keys; :758 rewriteSourceMarkerLines requires --src-dir. find-omissions.md:331 Step 9 command does NOT pass --src-dir (open item).",
+          "boyScoutPlan": "Functions as verbs: buildMarkdownGuidance, embedStubReferences, parseStubList, printActionDirective.\nOne responsibility per function.\nNamed constant for the suggested rewrite field order.\nNo error swallowing.\nFollow the find-omissions.md Output message convention: every stdout/stderr line is English, self-contained, and Action-directive.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "auto-creation, never ask",
+              "precondition": "find Step 1 detects a marker requiring a new resolving ticket (NOT-resolved completed-ticket reference, orphan, or Check C failure)",
+              "postcondition": "A resolving ticket is created via create-resolving-ticket.js and the marker key is rewritten; the gate loops without human input",
+              "invariant": "The AI never pauses to present the human a menu; every blocker is an AI-executable work item"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "stubs[] embedding",
+              "precondition": "The script is invoked with --source-key (marker's referenced ticket) and --stubs (marker entries with old keys)",
+              "postcondition": "The created ticket carries stubs[] (non-empty when stubs passed) so phasify rewriteOutputStubKeys can re-rewrite markers to the phasify duplicates after the merge",
+              "invariant": "stubs[] is never dropped when the ticket is created"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Markdown Action-directive",
+              "precondition": "Ticket creation succeeds",
+              "postcondition": "stdout contains: the new key, an old-content warning (show-ticket-context.js --for-spec), field-by-field update-ticket.js rewrite instructions (max 3 per call, suggested order), and the PRESERVE list (do not touch)",
+              "invariant": "The guidance is English, self-contained, and actionable by a fresh session"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "real key for Check C",
+              "precondition": "The script returns a key",
+              "postcondition": "The returned key matches the actually-created ticket and is used for the marker rewrite, so Check C (active key) passes",
+              "invariant": "The marker never references a frozen or non-existent key"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "find-omissions.md wiring",
+              "precondition": "find-omissions.md Step 1 exists",
+              "postcondition": "resolvedCandidates NOT-resolved branch and orphans row reference create-resolving-ticket.js; a Resolving-ticket creation (auto, never pause to ask the human) block is present",
+              "invariant": "The Step 1 table and gate loop consistently direct to the script"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] find Step 1 detects a NOT-resolved completed-ticket stub → resolving ticket created\n  const source = { id: 1, phaseId: 0, title: 'Old', status: 'reviewed', nodeIds: ['N0001'], relatedTicketIds: 'P0-2' };\n  const data = { title: 'T', round: 1, metadata: { source: 'test', generatedAt: '2026-08-04' }, phases: [{ id: 0, name: 'P0', tickets: [source] }] };\n  const stubs = [{ file: 'src/a.rs', line: 5, content: '[::STUB::] P0-1: -- Vendor lib' }];\n  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' }, stubs });\n  assert(res.success === true, 'C001: resolving ticket auto-created');",
+            "UT: [C002-post] created ticket carries stubs[] for phasify re-rewrite\n  const stubs = [{ file: 'src/a.rs', line: 5, content: '[::STUB::] P0-1: -- Vendor lib' }];\n  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' }, stubs });\n  assert(Array.isArray(res.ticket.stubs), 'C002: stubs[] is an array');\n  assertStrictEqual(res.ticket.stubs.length, stubs.length, 'C002: all stubs embedded');",
+            "UT: [C003-post] Markdown Action-directive includes old-content warning + field-by-field rewrite + preserve list\n  const md = buildMarkdownGuidance({ key: 'P2-1', sourceKey: 'P0-1' });\n  assert(md.includes('show-ticket-context.js'), 'C003: old-content warning command present');\n  assert(md.includes('update-ticket.js'), 'C003: field-by-field rewrite instructions present');\n  assert(md.includes('ONE FIELD AT A TIME') || md.includes('one field at a time'), 'C003: one-at-a-time guidance present');\n  assert(md.includes('nodeIds'), 'C003: preserve list present');",
+            "UT: [C004-inv] returned key matches the actually-created ticket (Check C active key)\n  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' }, stubs });\n  const expected = 'P' + res.ticket.phaseId + '-' + res.ticket.id;\n  assertStrictEqual(res.key, expected, 'C004: real key for marker rewrite');",
+            "UT: [C005-post] find-omissions.md Step 1 references create-resolving-ticket.js\n  const md = fs.readFileSync('.claude/commands/find-omissions.md', 'utf8');\n  assert(md.includes('create-resolving-ticket.js'), 'C005: Step 1 resolvedCandidates/orphans reference the script');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "(none)",
+              "after": "create-resolving-ticket.js",
+              "description": "Added find entry script: createResolvingTicket + buildMarkdownGuidance + parseArgs; embeds stubs[] for phasify re-rewrite, prints Markdown Action-directive"
+            },
+            {
+              "before": "(none)",
+              "after": "tests/tickets/create-resolving-ticket.test.js",
+              "description": "Added 23-assertion test suite covering C001-C005 + parseArgs"
+            },
+            {
+              "before": "find-omissions.md Step 1: 'Create the resolving ticket' (no script named)",
+              "after": "find-omissions.md Step 1: resolvedCandidates NOT-resolved branch + orphans reference create-resolving-ticket.js + Resolving-ticket creation (auto, never pause to ask) block",
+              "description": "find-omissions.md wiring so the AI auto-creates resolving tickets"
+            }
+          ],
+          "completedAt": "2026-08-04"
+        },
+        {
+          "id": 124,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "create-deferral-ticket.js + resolve-ticket.md escape hatch rewrite",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/124-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: resolve-ticket.md Step 9 escape hatch must create deferral tickets via a dedicated create-deferral-ticket.js, replacing the non-executable /make-ticket instruction.\nPurpose: The escape hatch (resolve-ticket.md:227) currently says Create a new ticket via /make-ticket, but the AI cannot reliably execute /make-ticket mid-pipeline (nested heavyweight workflow, ensure-ticket.js hardcodes the PX phase at :124, ticket key unknown until add-ticket.js assigns it). A dedicated script creates the deferral ticket directly in the non-PX max phase with an immediately-known key, sets deferredTo, and outputs a Markdown Action-directive.\nMotivation: insert-stub.js rejects PX-* resolve targets and non-todo targets, so the deferral ticket MUST be a non-PX max-phase todo ticket. The script deep-clones the resolved ticket ($ARGUMENTS) as a structural template, applies the work item seed, and returns the real key for the marker rewrite + deferredTo update.\nConstraints: (1) The created ticket MUST be non-PX, max real phase, status='todo'. (2) Must set/return deferredTo for the STUB. (3) Must output the Markdown guidance (old-content warning, field-by-field update-ticket.js rewrite, PRESERVE list). (4) Must not change any existing ticket's status (resolve-ticket.md Prohibition). (5) resolve-ticket.md L227 and the List of Scripts table must reference the script.",
+          "default_files": [
+            "tools/conver/.claude/scripts/tickets/create-deferral-ticket.js",
+            "tools/conver/.claude/commands/resolve-ticket.md"
+          ],
+          "invariants": "- Normal establishment: a deferral ticket is created via the script in the non-PX max phase with status='todo'; the marker key and deferredTo reference the new key\n- Invariant on error: script failure exits non-zero with an actionable stderr message; Tickets.json unchanged for existing tickets\n- Internal state invariant: no existing ticket's status is changed (Prohibition); only a NEW ticket is appended\n- Boundary invariant: the created ticket is never PX (phaseId=-1) and never a past phase — insert-stub.js must accept it",
+          "scope": [
+            "CHANGE: Add tools/conver/.claude/scripts/tickets/create-deferral-ticket.js (resolve entry over lib/create-ticket-from-source.js)",
+            "CHANGE: Parse --source-key (=$ARGUMENTS, the resolved ticket) + --deferred-to=<stub-target-key> + stdin ticket JSON (seed edits)",
+            "CHANGE: Call createTicketFromSource with sourceKey + seed edits; set the STUB's deferredTo field to the new ticket key",
+            "CHANGE: Output Markdown Action-directive to stdout: new key, old-content warning (show-ticket-context.js --for-spec), field-by-field update-ticket.js rewrite (max 3 per call, suggested order), PRESERVE list (do not touch)",
+            "CHANGE: Modify .claude/commands/resolve-ticket.md escape hatch step 2: replace Create a new ticket via /make-ticket with the create-deferral-ticket.js command; keep the non-PX max-phase requirement",
+            "CHANGE: Add create-deferral-ticket.js to resolve-ticket.md List of Scripts Used table",
+            "NO-CHANGE: Do NOT change resolve-ticket.md's Prohibition (never change an existing ticket's status) or steps 1/3/4/5 of the escape hatch",
+            "NO-CHANGE: Do NOT change find-omissions.md (covered by PX-123)",
+            "IMPACT: resolve's deferral no longer depends on the AI nesting the full /make-ticket workflow",
+            "IMPACT: Relies on PX-122's createTicketFromSource for the clone/append/validate/return-key core",
+            "IMPACT: The marker rewrite + deferredTo update use the real returned key so insert-stub.js accepts the target (non-PX todo)"
+          ],
+          "testUnit": [
+            "UT: [Normal] given --source-key + --deferred-to + seed edits, createTicketFromSource is invoked and deferredTo is set to the new key",
+            "UT: [Normal] stdout contains the real new key and the Markdown guidance sections (old-content warning, field-by-field rewrite, PRESERVE list)",
+            "UT: [Normal] the created ticket is non-PX (phaseId >= 0), max phase, status='todo'",
+            "UT: [Error] missing --source-key → exit 1 with actionable stderr",
+            "UT: [Error] source ticket not found → exit 1, no ticket created, existing tickets unchanged",
+            "UT: [Boundary] Tickets.json has only the PX phase → creates phase 0 (deferral still lands in a real phase)",
+            "UT: [Invariant] no existing ticket's status/fields are mutated by the script",
+            "UT: [Invariant] the returned key matches the actually-created ticket (phaseId-id tuple)"
+          ],
+          "testIntegration": [
+            "IT: create-deferral-ticket.js + createTicketFromSource — end-to-end deferral ticket creation with deferredTo",
+            "IT: create-deferral-ticket.js + insert-stub.js — the created non-PX todo ticket is an accepted resolve target (insert-stub rejects PX/non-todo)",
+            "IT: resolve-ticket.md escape hatch → validate-no-external-excuses.js — after the script + marker rewrite + deferredTo, Check C (active key) passes",
+            "Prerequisites: PX-122 (common function)",
+            "Related tickets: PX-122, PX-123"
+          ],
+          "testExceptions": [
+            "Item: the full resolve convergence loop (Step 9a/9b/9c → Step 10) cannot test here.\nReason: It requires a live compilation/test environment and a full Tickets.json crime/stub state; this is not an architectural defect — the loop logic lives in resolve-ticket.md and the validator scripts.\nAlternative verification: unit-test the script's contract (non-PX todo creation + deferredTo + returned key) and rely on the existing validate-no-external-excuses.js and insert-stub.js tests."
+          ],
+          "instrumentation": "Logging: [create-deferral-ticket] created <key> from source <sourceKey>; deferredTo=<targetKey>\nMetrics: none\nError tracking: stderr actionable messages + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) parse --source-key/--deferred-to/stdin; (2) call createTicketFromSource; (3) set deferredTo on the STUB record; (4) write the Markdown guidance to stdout; (5) print the new key.\nRisks: the marker rewrite + deferredTo must use the REAL returned key; the ticket must be non-PX todo or insert-stub.js rejects it.\nCaveats: the resolve-ticket.md Prohibition (never change an existing ticket's status) must be respected — the script only appends a new ticket.\nOpen items: confirm how deferredTo is represented on the STUB (marker content vs Tickets.json field) before implementing the setter.\nFuture improvements: surface the deferral in the implementation summary automatically.\nImplementation summary:\n- Changed files: .claude/scripts/tickets/create-deferral-ticket.js, .claude/tests/tickets/create-deferral-ticket.test.js, .claude/commands/resolve-ticket.md\n- Key changes: createDeferralTicket (deep-clone via PX-122, non-PX max-phase todo), buildMarkdownGuidance (deferredTo + one-at-a-time rewrite), Prohibition compliance (append-only)\n- Test results: all 23 assertions passed; CLI smoke test created P2-2 in temp Tickets.json\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 32 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: resolve's escape hatch creates a deferral ticket via the script (non-PX, max phase, todo), rewrites the marker key, sets deferredTo, and Check C passes",
+            "Error case: script fails → exit 1, actionable stderr, no existing ticket mutated",
+            "Edge case: no real phase exists (only PX) → phase 0 created; deferral still valid for insert-stub"
+          ],
+          "investigation": "resolve-ticket.md L225-231 escape hatch: step 2 'Create a new ticket via /make-ticket with that work item in background and scope. The new deferral ticket MUST be a non-PX ticket in the max phase — insert-stub.js rejects PX-* resolve targets and non-todo targets'; step 3 'Rewrite the marker key to the new ticket and update the STUB's deferredTo field'; Prohibition 'never change the status of any ticket in Tickets.json'. List of Scripts Used table (resolve-ticket.md:44-53). ensure-ticket.js:124 hardcodes 'PX' phase — why /make-ticket cannot create a non-PX max-phase deferral. add-ticket.js:52 phase handling (PX→-1 else data.phases.length); :62 status='todo'; :85 returns ticketKey. validate-no-external-excuses.js:66 ACTIVE_STATUSES={todo,in_progress,planned,remanded}. insert-stub.js rejects PX-* resolve targets (referenced by resolve-ticket.md:227). update-ticket.js handles string/array field overwrite. validate-tickets.js:36-39 required id/phaseId/title/status.",
+          "boyScoutPlan": "Functions as verbs: createDeferralTicket, setDeferredTo, buildMarkdownGuidance, printActionDirective.\nOne responsibility per function.\nNamed constants for the suggested rewrite field order and the PRESERVE/REWRITE/REGENERATE sets.\nNo error swallowing.\nRespect the resolve-ticket.md Prohibition: the script appends a new ticket, never mutates existing statuses.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "deferral via dedicated script",
+              "precondition": "resolve-ticket.md escape hatch decides to defer a STUB (requires $ARGUMENTS set)",
+              "postcondition": "A deferral ticket is created via create-deferral-ticket.js (not /make-ticket); the marker key and deferredTo reference the new key",
+              "invariant": "resolve-ticket.md L227 no longer instructs /make-ticket for deferral"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "non-PX max-phase todo",
+              "precondition": "Tickets.json has a non-PX max phase N",
+              "postcondition": "The deferral ticket lands in phase N (or phase 0 if none), status='todo', non-PX",
+              "invariant": "insert-stub.js accepts the deferral target (never PX, never non-todo)"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "deferredTo handling",
+              "precondition": "The script is invoked with --deferred-to=<stub-target-key>",
+              "postcondition": "The STUB's deferredTo field is set to the new ticket key",
+              "invariant": "deferredTo always references the actually-created ticket key"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "Markdown Action-directive",
+              "precondition": "Ticket creation succeeds",
+              "postcondition": "stdout contains: the new key, an old-content warning, field-by-field update-ticket.js rewrite instructions (max 3 per call), and the PRESERVE list",
+              "invariant": "The guidance is English, self-contained, and actionable by a fresh session"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "Prohibition compliance",
+              "precondition": "The script runs during a resolve session",
+              "postcondition": "No existing ticket's status or fields are mutated; only a new ticket is appended",
+              "invariant": "resolve-ticket.md's Prohibition (never change the status of any ticket) is respected"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] resolve-ticket.md escape hatch references create-deferral-ticket.js (not /make-ticket)\n  const md = fs.readFileSync('.claude/commands/resolve-ticket.md', 'utf8');\n  assert(md.includes('create-deferral-ticket.js'), 'C001: escape hatch references the dedicated script');\n  const deferralSection = md.slice(md.indexOf('Escape hatch'), md.indexOf('Convergence loop'));\n  assert(!deferralSection.includes('/make-ticket'), 'C001: deferral no longer instructs /make-ticket');",
+            "UT: [C002-post] deferral ticket is non-PX max-phase todo\n  const source = { id: 1, phaseId: 0, title: 'Old', status: 'todo' };\n  const data = { title: 'T', round: 1, metadata: { source: 'test', generatedAt: '2026-08-04' }, phases: [{ id: 0, name: 'P0', tickets: [source] }, { id: 2, name: 'P2', tickets: [{ id: 1, phaseId: 2, title: 'x', status: 'todo' }] }] };\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });\n  assert(res.success === true, 'C002: deferral created');\n  assertStrictEqual(res.ticket.phaseId, 2, 'C002: non-PX max phase');\n  assertStrictEqual(res.ticket.status, 'todo', 'C002: status todo');\n  assert(res.ticket.phaseId >= 0, 'C002: never PX');",
+            "UT: [C003-post] returned key is usable as deferredTo (matches created ticket)\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });\n  const expected = 'P' + res.ticket.phaseId + '-' + res.ticket.id;\n  assertStrictEqual(res.key, expected, 'C003: deferredTo target = actually-created ticket key');\n  const md = buildMarkdownGuidance({ key: res.key, sourceKey: 'P0-1' });\n  assert(md.includes('deferredTo'), 'C003: guidance mentions deferredTo update');",
+            "UT: [C004-post] Markdown Action-directive includes old-content warning + one-at-a-time rewrite + preserve\n  const md = buildMarkdownGuidance({ key: 'P2-1', sourceKey: 'P0-1' });\n  assert(md.includes('show-ticket-context.js'), 'C004: old-content warning present');\n  assert(md.includes('update-ticket.js'), 'C004: rewrite instructions present');\n  assert(/one field at a time/i.test(md), 'C004: one-at-a-time guidance');\n  assert(md.includes('nodeIds'), 'C004: preserve list');",
+            "UT: [C005-inv] Prohibition compliance — no existing ticket status/field mutated\n  const before = JSON.stringify(data);\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });\n  const after = JSON.stringify(data);\n  assertStrictEqual(before, after, 'C005: input Tickets.json not mutated (existing tickets untouched)');\n  assert(res.success === true, 'C005: deferral created');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "(none)",
+              "after": "create-deferral-ticket.js",
+              "description": "Added resolve entry script: createDeferralTicket + buildMarkdownGuidance (with deferredTo step) + parseArgs"
+            },
+            {
+              "before": "(none)",
+              "after": "tests/tickets/create-deferral-ticket.test.js",
+              "description": "Added 23-assertion test suite covering C001-C005 + parseArgs"
+            },
+            {
+              "before": "resolve-ticket.md L227: 'Create a new ticket via /make-ticket'",
+              "after": "resolve-ticket.md L227: create-deferral-ticket.js command + List of Scripts entry",
+              "description": "Replaced non-executable /make-ticket deferral with the dedicated script"
+            }
+          ],
+          "completedAt": "2026-08-04"
+        },
+        {
+          "id": 125,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Abolish phasify --src-dir: always rewrite source markers in CWD",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/125-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: phasify-omissions.js must always rewrite source marker lines to the phasify-duplicate ticket keys after a merge, so the find end-to-end flow (markers → active duplicates) works.\nPurpose: The --src-dir flag is never passed by find-omissions.md Step 9 (phasify-omissions.js --graph=$ARGUMENTS), so rewriteSourceMarkerLines (which requires srcDir) never runs — source markers keep referencing the original Step-1 resolving tickets, which phasify freezes as R<round>. Check C then fails on the next gate run.\nMotivation: phasify always runs from the Tickets.json directory (CWD), and source markers are always under CWD. The flag has no real use case in the pipeline. Abolishing it and using process.cwd() removes the wiring gap without adding a parameter to the Step 9 command.\nConstraints: (1) rewriteOutputStubKeys must pass process.cwd() to rewriteSourceMarkerLines. (2) The --src-dir CLI option must be removed from phasify-omissions.js. (3) find-omissions.md Step 9 description must no longer present --src-dir as an option. (4) Existing phasify tests (phasify-omissions.test.js, phasify-key-rewrite.test.js) must be updated if they reference --src-dir and keep passing.",
+          "default_files": [
+            "tools/conver/.claude/scripts/rfc-graph/phasify-omissions.js",
+            "tools/conver/.claude/scripts/rfc-graph/phasify-helpers.js",
+            "tools/conver/.claude/scripts/rfc-graph/phasify-omissions.test.js",
+            "tools/conver/.claude/scripts/tickets/tests/phasify-key-rewrite.test.js",
+            "tools/conver/.claude/commands/find-omissions.md"
+          ],
+          "invariants": "- Normal establishment: after phasify merge, source markers are rewritten to the duplicate ticket keys in CWD\n- Invariant on error: a phasify failure leaves source markers untouched and Tickets.json unchanged (atomic behavior preserved)\n- Internal state invariant: rewriteSourceMarkerLines always resolves stub.file relative to process.cwd()\n- Boundary invariant: files outside CWD are not touched (CWD is the Tickets.json root, which contains all source)",
+          "scope": [
+            "CHANGE: phasify-omissions.js — remove --src-dir from parseArguments (opts.srcDir no longer set)",
+            "CHANGE: phasify-omissions.js — rewriteOutputStubKeys(output, srcDir) → rewriteOutputStubKeys(output) and call rewriteSourceMarkerLines(ticket.stubs, oldToNew, process.cwd())",
+            "CHANGE: find-omissions.md Step 9 — update the STUB key rewrite note: source marker lines are always rewritten relative to the current directory (no --src-dir option)",
+            "CHANGE: phasify-omissions.test.js — update any --src-dir fixture/assertion to the new always-CWD behavior",
+            "CHANGE: phasify-key-rewrite.test.js — update any srcDir-dependent assertion",
+            "NO-CHANGE: The Step 9 command itself (phasify-omissions.js --graph=$ARGUMENTS) stays unchanged — CWD is implicit",
+            "NO-CHANGE: rewriteStubKeys (phasify-helpers.js in-memory rewrite) behavior unchanged",
+            "IMPACT: find's end-to-end marker re-rewrite completes — markers reference phasify duplicates (active), not frozen originals",
+            "IMPACT: The stubs[] embedding from create-resolving-ticket.js (PX-123) finally reaches the source markers",
+            "IMPACT: Removes the last gap in the find gate loop after a phasify merge",
+            "IMPACT: No external behavior depends on --src-dir (grep shows it is never passed in commands)",
+            "IMPACT: Any caller that passed --src-dir explicitly must be updated (none found in .claude/commands)"
+          ],
+          "testUnit": [
+            "UT: [Normal] rewriteOutputStubKeys with a ticket carrying stubs[] rewrites the in-memory stubs content (old key → new key)",
+            "UT: [Normal] when source markers exist under CWD, rewriteSourceMarkerLines updates the marker line's ticket key in the file",
+            "UT: [Error] a stub whose file does not exist under CWD is skipped without failure",
+            "UT: [Boundary] a marker line without [::STUB::] prefix is left unchanged",
+            "UT: [Invariant] the in-memory ticket.stubs and the source file stay consistent after the rewrite",
+            "UT: [Invariant] no --src-dir option remains in parseArguments (opts.srcDir is undefined)",
+            "UT: [Precondition C001] phasify-omissions.js parseArguments accepts --src-dir today; after the change opts.srcDir is always undefined",
+            "UT: [Postcondition C001] parseArguments no longer sets opts.srcDir; the --src-dir option is removed from the parser",
+            "UT: [Invariant C002] stub.file is resolved against process.cwd(); only source marker files under CWD are rewritten",
+            "UT: [Precondition C003] a phasify merge produces duplicates and freezes originals as R<round>; source markers must reference the duplicate keys",
+            "UT: [Postcondition C003] after the merge, source markers reference the duplicate (active) keys so Check C passes on the next gate",
+            "UT: [Postcondition C004] find-omissions.md Step 9 note no longer presents --src-dir as an option and states CWD is always used",
+            "UT: [Postcondition C005] any --src-dir-dependent fixture/assertion in the phasify tests is updated and all phasify tests pass"
+          ],
+          "testIntegration": [
+            "IT: phasify-omissions.js full merge on a fixture — after merge, source markers under CWD reference the duplicate keys (Check C active)",
+            "IT: find-omissions.md Step 9 description no longer mentions --src-dir as an option",
+            "Prerequisites: PX-123's stubs[] embedding provides the marker info for the rewrite",
+            "Related tickets: PX-123, PX-126"
+          ],
+          "testExceptions": [
+            "Item: the full find pipeline (Step 1 resolving-ticket creation → Step 9 phasify merge → marker rewrite → Check C re-pass) cannot test here as a single unit.\nReason: it spans create-resolving-ticket.js, create-tmp-omissions.js, phasify, and the find command flow; this is not a design defect — the existing phasify tests cover the merge/freeze/rewrite mechanics, and this ticket only verifies the always-CWD wiring.\nAlternative verification: unit-test rewriteOutputStubKeys/rewriteSourceMarkerLines with CWD fixtures and rely on the existing phasify tests for the merge."
+          ],
+          "instrumentation": "Logging: [phasify-omissions] rewrote marker <file>:<line> oldKey→newKey (CWD)\nMetrics: none\nError tracking: stderr actionable messages + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) remove --src-dir from parseArguments; (2) change rewriteOutputStubKeys to use process.cwd(); (3) update find-omissions.md Step 9 note; (4) update tests.\nRisks: ensure no command passes --src-dir (grep .claude/commands and scripts).\nCaveats: process.cwd() must be the Tickets.json root — the pipeline always runs from there.\nOpen items: none.\nFuture improvements: none.\nImplementation summary:\n- Changed files: phasify-omissions.js, find-omissions.md, phasify-srcdir.test.js\n- Key changes: --src-dir parsing removed (no-op for backward compat), rewriteSourceMarkerLines uses process.cwd(), Step 9 doc updated\n- Test results: 6/6 new assertions + existing phasify tests pass\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 6 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: phasify merge rewrites source markers in CWD to the duplicate keys; find's next gate passes Check C",
+            "Error case: missing stub file under CWD → skipped, no crash, exit code preserved",
+            "Edge case: marker line already references the target key → no spurious rewrite"
+          ],
+          "investigation": "phasify-omissions.js:742-760 rewriteOutputStubKeys — iterates tickets with non-empty stubs[], extracts oldKey via validator.extractTicketKey, rewrites via helpers.rewriteStubKeys, and calls rewriteSourceMarkerLines(ticket.stubs, oldToNew, srcDir) ONLY if srcDir (line 758). rewriteSourceMarkerLines (~line 780) resolves stub.file against srcDir and rewrites the [::STUB::] line. phasify-omissions.js parseArguments (line 99-139) parses --src-dir into opts.srcDir; main passes opts.srcDir||null to rewriteOutputStubKeys. find-omissions.md:333 runs phasify-omissions.js --graph=$ARGUMENTS (no --src-dir); :336 documents 'With --src-dir=<root>, the actual source marker lines are rewritten too'. No command in .claude/commands passes --src-dir.",
+          "boyScoutPlan": "Functions as verbs: rewriteOutputStubKeys, rewriteSourceMarkerLines, resolveSourceMarkerPath.\nOne responsibility per function.\nRemove the dead --src-dir parameter instead of keeping an unused branch.\nNo error swallowing: stub file read failures are skipped with a clear log line.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "--src-dir flag removal",
+              "precondition": "phasify-omissions.js parseArguments accepts --src-dir",
+              "postcondition": "parseArguments no longer sets opts.srcDir; no --src-dir option remains",
+              "invariant": "opts.srcDir is always undefined after parsing"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "always-CWD source rewrite",
+              "precondition": "rewriteOutputStubKeys runs with a ticket carrying stubs[]",
+              "postcondition": "rewriteSourceMarkerLines is invoked with process.cwd(); source markers under CWD are rewritten",
+              "invariant": "stub.file is resolved against process.cwd()"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find end-to-end marker rewrite",
+              "precondition": "a phasify merge produces duplicates and freezes originals as R<round>",
+              "postcondition": "source markers reference the duplicate (active) keys, so Check C passes on the next gate",
+              "invariant": "no marker references a frozen original key after the merge"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "find-omissions.md Step 9 documentation",
+              "precondition": "find-omissions.md Step 9 describes the STUB key rewrite",
+              "postcondition": "the note no longer presents --src-dir as an option; it states CWD is always used",
+              "invariant": "the Step 9 command text is unchanged"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "test regression",
+              "precondition": "phasify tests exist (phasify-omissions.test.js, phasify-key-rewrite.test.js)",
+              "postcondition": "any --src-dir-dependent fixture/assertion is updated and all phasify tests pass",
+              "invariant": "no test references the removed --src-dir flag"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] parseArguments no longer sets opts.srcDir even when --src-dir is passed\n  const opts = parseArguments(['--graph=G','--omissions=O','--tickets=T','--src-dir=/tmp']);\n  assert.strictEqual(opts.srcDir, undefined, 'C001: --src-dir arg no longer parsed');",
+            "UT: [C002-post] rewriteOutputStubKeys rewrites source markers under CWD to the new key\n  fs.writeFileSync('_px125_marker.rs', '// [::STUB::] P0-1: -- Vendor lib\\n');\n  const output = { phases: [{ id: 6, tickets: [{ id: 1, stubs: [{ file: '_px125_marker.rs', line: 1, content: '[::STUB::] P0-1: -- Vendor lib' }] }] }] };\n  rewriteOutputStubKeys(output);\n  const rewritten = fs.readFileSync('_px125_marker.rs', 'utf8');\n  assert(rewritten.includes('[::STUB::] P6-1'), 'C002: source marker rewritten to duplicate key');\n  fs.unlinkSync('_px125_marker.rs');",
+            "UT: [C003-post] after the merge, the rewritten marker references the duplicate (active) key so Check C passes\n  // same fixture as C002 — assert the rewritten marker key is P{phase}-{id} of the output ticket\n  assert(rewritten.includes('P6-1'), 'C003: marker references the active duplicate');",
+            "UT: [C004-post] find-omissions.md Step 9 note no longer presents --src-dir as an option\n  const md = fs.readFileSync('.claude/commands/find-omissions.md', 'utf8');\n  const step9 = md.slice(md.indexOf('# Step 9'), md.indexOf('# Step 10'));\n  assert(!step9.includes('--src-dir'), 'C004: Step 9 no longer mentions --src-dir as an option');\n  assert(step9.includes('current directory') || step9.includes('CWD'), 'C004: Step 9 states CWD is always used');",
+            "UT: [C005-post] phasify tests no longer reference the removed --src-dir flag\n  const phasifyTest = fs.readFileSync('.claude/scripts/rfc-graph/phasify-omissions.test.js', 'utf8');\n  const keyRewriteTest = fs.readFileSync('.claude/scripts/tickets/tests/phasify-key-rewrite.test.js', 'utf8');\n  assert(!phasifyTest.includes('--src-dir') && !keyRewriteTest.includes('--src-dir'), 'C005: tests updated to the always-CWD behavior');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "--src-dir flag parsed into opts.srcDir; rewriteSourceMarkerLines called only with srcDir",
+              "after": "--src-dir accepted-and-ignored (opts.srcDir undefined); rewriteSourceMarkerLines always uses process.cwd()",
+              "description": "Abolished --src-dir so source markers are always rewritten in CWD"
+            },
+            {
+              "before": "find-omissions.md Step 9: 'With --src-dir=<root>...'",
+              "after": "find-omissions.md Step 9: 'always rewritten relative to the current directory'",
+              "description": "Step 9 documentation updated"
+            },
+            {
+              "before": "(none)",
+              "after": "tests/tickets/phasify-srcdir.test.js",
+              "description": "Added 6-assertion test suite covering C001-C005"
+            }
+          ],
+          "completedAt": "2026-08-04"
+        },
+        {
+          "id": 126,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "preflight-stub-cleanup.js resolvedCandidates ACTION: add NOT-resolved branch",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/126-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: preflight-stub-cleanup.js's resolvedCandidates [ACTION] output must direct the AI to create a resolving ticket when the completed-ticket-referencing marker is NOT resolved in code.\nPurpose: find-omissions.md Step 1 now has a NOT-resolved branch (create a resolving ticket via create-resolving-ticket.js and rewrite the marker key), but the script's [ACTION] line only says verify + remove. A fresh session acting on the [ACTION] alone (Output message convention) will not create a resolving ticket — reproducing the original 63-stub stoppage.\nMotivation: The Output message convention requires every stdout/stderr line to be self-contained and Action-directive. The [ACTION] must reflect both branches (resolved → remove; NOT resolved → create resolving ticket + rewrite key).\nConstraints: (1) The [ACTION] must keep the resolved branch (remove-stub.js) intact. (2) The NOT-resolved branch must reference create-resolving-ticket.js and the key rewrite. (3) Output stays English, self-contained, Action-directive. (4) The preflight test must be updated to assert the new message.",
+          "default_files": [
+            "tools/conver/.claude/scripts/tickets/preflight-stub-cleanup.js",
+            "tools/conver/.claude/scripts/tickets/tests/preflight-stub-cleanup.test.js"
+          ],
+          "invariants": "- Normal establishment: the resolvedCandidates [ACTION] contains both the remove branch and the create-resolving-ticket branch\n- Invariant on error: the classification JSON output is unchanged (message-only change)\n- Internal state invariant: no classification logic changes — only the printed directive text\n- Boundary invariant: orphans and excuses [ACTION] messages remain byte-identical",
+          "scope": [
+            "CHANGE: preflight-stub-cleanup.js resolvedCandidates [ACTION] — add the NOT-resolved branch: 'If NOT resolved → create a resolving ticket via create-resolving-ticket.js and rewrite the marker key'",
+            "CHANGE: preflight-stub-cleanup.test.js — assert the resolvedCandidates [ACTION] message contains both branches",
+            "NO-CHANGE: The 4-class classification logic and the orphans/excuses [ACTION] lines stay unchanged",
+            "NO-CHANGE: find-omissions.md Step 1 (already updated with the NOT-resolved branch) stays as-is",
+            "IMPACT: A fresh session acting on the [ACTION] alone will create a resolving ticket for NOT-resolved stubs — the original stoppage is prevented",
+            "IMPACT: The [ACTION] message now matches the Step 1 table instruction",
+            "IMPACT: The script's output remains consistent with the create-resolving-ticket.js flow (PX-123)"
+          ],
+          "testUnit": [
+            "UT: [Normal] resolvedCandidates [ACTION] message contains 'remove-stub.js' (resolved branch)",
+            "UT: [Normal] resolvedCandidates [ACTION] message contains 'create-resolving-ticket.js' (NOT-resolved branch)",
+            "UT: [Normal] resolvedCandidates [ACTION] message contains 'rewrite the marker key'",
+            "UT: [Boundary] orphans [ACTION] message unchanged (still references create-resolving-ticket.js and MUST RESOLVE)",
+            "UT: [Boundary] excuses [ACTION] message unchanged",
+            "UT: [Invariant] the classification JSON (stdout) structure is unchanged",
+            "UT: [Precondition C001] a resolvedCandidates stub is classified; the [ACTION] contains both branches",
+            "UT: [Postcondition C001] the [ACTION] message contains remove-stub.js and create-resolving-ticket.js and 'rewrite the marker key'",
+            "UT: [Precondition C002] a marker references a completed ticket whose defect is NOT resolved in code; the [ACTION] directs create-resolving-ticket.js",
+            "UT: [Postcondition C003] the line is English, self-contained, and Action-directive — a fresh session can act on it alone",
+            "UT: [Precondition C004] preflight-stub-cleanup.test.js exists and asserts the resolvedCandidates [ACTION] message"
+          ],
+          "testIntegration": [
+            "IT: preflight-stub-cleanup.js on a fixture with a completed-ticket-referencing stub — the [ACTION] line for resolvedCandidates includes the NOT-resolved directive",
+            "IT: find-omissions.md Step 1 table and the [ACTION] message are consistent (both reference create-resolving-ticket.js for NOT-resolved)",
+            "Prerequisites: PX-123 (create-resolving-ticket.js exists)",
+            "Related tickets: PX-123, PX-125"
+          ],
+          "testExceptions": [
+            "Item: the full find Step 1 → gate loop cannot test here as a single unit.\nReason: it requires the entire find command flow (preflight → validate-no-external-excuses → create-resolving-ticket), which is covered by the existing preflight test and the command's own flow; this is not an architectural defect — the change is a message-only addition to one [ACTION] line.\nAlternative verification: unit-test the [ACTION] message content and rely on the existing preflight classification tests for behavior."
+          ],
+          "instrumentation": "Logging: (unchanged) [preflight-stub-cleanup] classified: N resolvedCandidates, ...\nMetrics: none\nError tracking: (unchanged)\nHealth check: n/a",
+          "notes": "Implementation steps: (1) edit the resolvedCandidates [ACTION] string; (2) update the test; (3) run the preflight test.\nRisks: keep the message single-line and self-contained per the Output message convention.\nCaveats: the NOT-resolved branch must reference the exact script name create-resolving-ticket.js so the AI finds it.\nOpen items: none.\nFuture improvements: none.\nImplementation summary:\n- Changed files: preflight-stub-cleanup.js, tests/preflight-stub-cleanup.test.js\n- Key changes: RESOLVED_CANDIDATES_ACTION_MESSAGE (both branches), export, main() uses it\n- Test results: 19/0 passed; check-ambiguous 0\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 19 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: the resolvedCandidates [ACTION] directs the AI to remove when resolved and to create a resolving ticket when NOT resolved",
+            "Error case: classification unchanged (message-only edit)",
+            "Edge case: orphans/excuses messages byte-identical"
+          ],
+          "investigation": "preflight-stub-cleanup.js:172-174 prints '[ACTION] resolvedCandidates — verify in code that the defect is resolved, then remove:' followed by buildRemoveCommand(stub). find-omissions.md:115 resolvedCandidates row now says 'If NOT resolved → create a resolving ticket (below) and rewrite the marker key'. preflight-stub-cleanup.test.js exists at .claude/scripts/tickets/tests/ and asserts classification behavior; the [ACTION] message assertions live there.",
+          "boyScoutPlan": "Keep the [ACTION] message as a single self-contained directive per the Output message convention.\nName the two branches explicitly (resolved / NOT resolved) to avoid ambiguity.\nNo error swallowing in the message path.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "resolvedCandidates ACTION branches",
+              "precondition": "a resolvedCandidates stub is classified",
+              "postcondition": "the [ACTION] message contains both the resolved branch (remove-stub.js) and the NOT-resolved branch (create-resolving-ticket.js + rewrite the marker key)",
+              "invariant": "both branches are present in the single [ACTION] line"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "NOT-resolved directive",
+              "precondition": "a marker references a completed ticket whose defect is NOT resolved in code",
+              "postcondition": "the [ACTION] directs create-resolving-ticket.js and the key rewrite",
+              "invariant": "the directive names the exact script create-resolving-ticket.js"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Output message convention",
+              "precondition": "the [ACTION] line is printed",
+              "postcondition": "the line is English, self-contained, and Action-directive (a fresh session can act on it alone)",
+              "invariant": "the message stays single-line and self-contained"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "test coverage",
+              "precondition": "preflight-stub-cleanup.test.js exists",
+              "postcondition": "the test asserts the resolvedCandidates [ACTION] contains both branches",
+              "invariant": "the classification JSON structure is unchanged"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] RESOLVED_CANDIDATES_ACTION_MESSAGE contains both branches\n  const { RESOLVED_CANDIDATES_ACTION_MESSAGE } = require('../../scripts/tickets/preflight-stub-cleanup.js');\n  assert(RESOLVED_CANDIDATES_ACTION_MESSAGE.includes('remove-stub.js'), 'C001: resolved branch present');\n  assert(RESOLVED_CANDIDATES_ACTION_MESSAGE.includes('create-resolving-ticket.js'), 'C001: NOT-resolved branch present');\n  assert(RESOLVED_CANDIDATES_ACTION_MESSAGE.includes('rewrite the marker key'), 'C001: rewrite instruction present');",
+            "UT: [C002-post] the message directs create-resolving-ticket.js for NOT-resolved\n  assert(RESOLVED_CANDIDATES_ACTION_MESSAGE.includes('create-resolving-ticket.js'), 'C002: NOT-resolved directive names the script');",
+            "UT: [C003-inv] the message is English, self-contained, Action-directive\n  assert(typeof RESOLVED_CANDIDATES_ACTION_MESSAGE === 'string' && !RESOLVED_CANDIDATES_ACTION_MESSAGE.includes('\\n'), 'C003: single self-contained line');",
+            "UT: [C004-post] preflight-stub-cleanup.test.js asserts the resolvedCandidates [ACTION] message\n  const fs = require('fs');\n  const testContent = fs.readFileSync('.claude/scripts/tickets/tests/preflight-stub-cleanup.test.js', 'utf8');\n  assert(testContent.includes('RESOLVED_CANDIDATES_ACTION_MESSAGE'), 'C004: test asserts the message');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "resolvedCandidates [ACTION] only says 'verify + remove'",
+              "after": "RESOLVED_CANDIDATES_ACTION_MESSAGE with both branches (remove-stub.js / create-resolving-ticket.js + rewrite the marker key)",
+              "description": "Added NOT-resolved branch to the resolvedCandidates [ACTION] so a fresh session creates a resolving ticket"
+            },
+            {
+              "before": "message hardcoded inline in main()",
+              "after": "RESOLVED_CANDIDATES_ACTION_MESSAGE constant exported and used in main()",
+              "description": "Extracted the message for testability"
+            },
+            {
+              "before": "preflight test asserted classification only",
+              "after": "preflight test asserts the [ACTION] message (both branches, single line)",
+              "description": "Added PX-126 test coverage"
+            }
+          ],
+          "completedAt": "2026-08-04"
+        },
+        {
+          "id": 127,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "DeferredTo setter for resolve-ticket escape hatch (Prohibition-compliant)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/127-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "Goal: create-deferral-ticket.js must set the deferred STUB's deferredTo field to the new deferral ticket key when it writes Tickets.json, giving the resolve-ticket escape hatch a Prohibition-compliant deferredTo setter.\nPurpose: resolve-ticket.md Prohibition forbids calling update-ticket.js, but escape hatch step 3 requires updating the STUB's deferredTo (a targetStubs field in Tickets.json). No compliant setter exists — enumerate-ticket-targets.js only initializes deferredTo to null, and verify-final-contracts.js / validate-ticket-targets.js treat a stub without a valid deferredTo as unresolved.\nMotivation: create-deferral-ticket.js already writes the whole Tickets.json (res.data). Extending it to also set the matching targetStub's deferredTo to the new key makes step 3 actionable without update-ticket.js and without mutating any existing ticket's status (append-only).\nConstraints: (1) Must set deferredTo only on the matching targetStub (identified by the stub's file/line or a --stub-id arg), never on other stubs. (2) Must not call update-ticket.js or change any existing ticket's status (Prohibition). (3) Must accept the stub identifier via a new option (e.g. --stub-id or --stub-file/--stub-line). (4) The escape hatch step 3 text stays valid (the script now performs the deferredTo part).",
+          "default_files": [
+            "tools/conver/.claude/scripts/tickets/create-deferral-ticket.js",
+            "tools/conver/.claude/tests/tickets/create-deferral-ticket.test.js"
+          ],
+          "invariants": "- Normal establishment: the matching targetStub's deferredTo equals the new deferral ticket key; all other targetStubs unchanged\n- Invariant on error: no targetStub match → exit non-zero, Tickets.json not written\n- Internal state invariant: no existing ticket's status or fields are mutated (append-only + deferredTo set on one stub)\n- Boundary invariant: deferredTo is set exactly once on exactly the matching stub",
+          "scope": [
+            "CHANGE: create-deferral-ticket.js — add --stub-id=<stubId> (targetStub id) option to parseArgs",
+            "CHANGE: create-deferral-ticket.js — after creating the ticket, find the targetStub by stubId in res.data.phases and set its deferredTo = new key before writing",
+            "CHANGE: create-deferral-ticket.js — if --stub-id is provided but no matching targetStub is found, exit non-zero with an actionable message (no silent success)",
+            "CHANGE: create-deferral-ticket.test.js — add C006 coverage for deferredTo setting (matching stub gets deferredTo = new key; non-matching stubs unchanged)",
+            "CHANGE: resolve-ticket.md escape hatch step 3 — clarify that create-deferral-ticket.js sets deferredTo (AI rewrites the marker key only)",
+            "NO-CHANGE: createTicketFromSource (PX-122) is untouched — the deferredTo set is an entry-script concern",
+            "NO-CHANGE: update-ticket.js is NOT used (Prohibition respected)",
+            "IMPACT: escape hatch step 3 becomes fully actionable under the Prohibition",
+            "IMPACT: verify-final-contracts.js / validate-ticket-targets.js now see a valid deferredTo on the deferred stub",
+            "IMPACT: Only the deferral script's write path changes — no other script affected"
+          ],
+          "testUnit": [
+            "UT: [Normal] createDeferralTicket with a matching targetStub id sets that stub's deferredTo to the new key",
+            "UT: [Normal] non-matching targetStubs keep their original deferredTo (null or prior value)",
+            "UT: [Error] --stub-id provided but no matching targetStub → success false, actionable error",
+            "UT: [Error] no --stub-id → deferredTo not set (backward compatible), ticket still created",
+            "UT: [Invariant] no existing ticket's status/fields are mutated",
+            "UT: [Invariant] update-ticket.js is never invoked (no require/exec of update-ticket)",
+            "UT: [Precondition C001] create-deferral-ticket.js is invoked with --stub-id matching a targetStub; that stub's deferredTo equals the new key",
+            "UT: [Postcondition C002] all non-matching targetStubs keep their original deferredTo",
+            "UT: [Precondition C003] the script runs during a resolve session; the resolve-ticket.md Prohibition is respected",
+            "UT: [Invariant C003] the resolve-ticket.md Prohibition is respected — no existing ticket's status/fields mutated, no update-ticket.js",
+            "UT: [Precondition C005] resolve-ticket.md escape hatch step 3 is followed; the script sets deferredTo and the AI rewrites the marker key"
+          ],
+          "testIntegration": [
+            "IT: create-deferral-ticket.js + validate-ticket-targets.js — after the script sets deferredTo, validate-ticket-targets passes (deferredTo references an existing ticket)",
+            "IT: resolve-ticket.md escape hatch — step 3 text and the script behavior are consistent (script sets deferredTo, AI rewrites marker key)",
+            "Prerequisites: PX-122 (createTicketFromSource)",
+            "Related tickets: PX-122, PX-124"
+          ],
+          "testExceptions": [
+            "Item: the full resolve convergence loop (Step 9a/9b/9c → Step 10) cannot test here as a single unit.\nReason: it requires a live compilation/test environment and a full crime/stub state; this is not an architectural defect — the loop logic lives in resolve-ticket.md and the validator scripts, which have their own tests.\nAlternative verification: unit-test the deferredTo set on the script's result data and rely on the existing validate-ticket-targets.js / verify-final-contracts.js tests."
+          ],
+          "instrumentation": "Logging: [create-deferral-ticket] created <key>; set targetStub <stubId> deferredTo=<key>\nMetrics: none\nError tracking: stderr actionable messages + exit 1\nHealth check: n/a",
+          "notes": "Implementation steps: (1) add --stub-id to parseArgs; (2) after createTicketFromSource, locate the targetStub in res.data and set deferredTo; (3) update tests; (4) clarify resolve-ticket.md step 3.\nRisks: the targetStub identifier must be unambiguous — use the targetStubs id (stubId) which enumerate-ticket-targets.js assigns.\nCaveats: keep backward compatibility — without --stub-id the script behaves exactly as before (no deferredTo set).\nOpen items: how stubId is surfaced to the AI (from enumerate-ticket-targets.js output).\nFuture improvements: surface the deferredTo in the implementation summary.\nImplementation summary:\n- Changed files: create-deferral-ticket.js, tests/tickets/create-deferral-ticket.test.js, resolve-ticket.md\n- Key changes: setStubDeferredTo (id search, deferredTo=newKey), createDeferralTicket stubId param (unmatched → failure), --stub-id CLI, escape hatch step 3 clarification\n- Test results: 32/0 assertions; CLI smoke test set TS-1 deferredTo=P0-2\nReview report:\n- Static quality check: passed (0 issues on changed source)\n- Translatability: no issues (verb-phrase function names, no magic numbers, no debug debris)\n- Tests: 32 assertions passed; phasify regression all passed\n- Dependencies: consistency verified\n- Issues found and fixes applied: none introduced by this ticket; cross-ticket annotation verified, AMBIGUOUS 0\n- Contracts: C001-C005 fulfilled (verify-final-contracts exit 0)\n- Targets: validate-ticket-targets exit 0",
+          "acceptanceCriteria": [
+            "Happy path: with --stub-id, the matching targetStub's deferredTo becomes the new ticket key; validate-ticket-targets passes",
+            "Error case: unmatched stubId → exit 1, no write",
+            "Edge case: no --stub-id → ticket created, deferredTo untouched (backward compatible)"
+          ],
+          "investigation": "resolve-ticket.md:13 Prohibition 'You must NOT call update-ticket.js'; escape hatch step 3 'update the STUB's deferredTo field to the new ticket key'. enumerate-ticket-targets.js:184 initializes targetStubs with deferredTo: null. verify-final-contracts.js:143-150 treats a stub without valid deferredTo as unresolved; validate-ticket-targets.js:159-195 checks deferredTo exists and references an existing ticket. create-deferral-ticket.js (PX-124) main() writes res.data via fs.writeFileSync — the write path where deferredTo can be set.",
+          "boyScoutPlan": "Functions as verbs: setStubDeferredTo, findTargetStubById, buildMarkdownGuidance.\nOne responsibility per function.\nNamed constant for the targetStubs field path.\nNo error swallowing: unmatched stubId fails loudly.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "deferredTo set on matching stub",
+              "precondition": "create-deferral-ticket.js is invoked with --stub-id matching a targetStub",
+              "postcondition": "that targetStub's deferredTo equals the new deferral ticket key",
+              "invariant": "deferredTo is set exactly once on exactly the matching stub"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "non-matching stubs untouched",
+              "precondition": "multiple targetStubs exist; only one matches --stub-id",
+              "postcondition": "all non-matching targetStubs keep their original deferredTo",
+              "invariant": "no other stub is mutated"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "Prohibition compliance",
+              "precondition": "the script runs during a resolve session",
+              "postcondition": "no existing ticket's status or fields are mutated; update-ticket.js is never invoked",
+              "invariant": "the resolve-ticket.md Prohibition is respected"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "backward compatibility",
+              "precondition": "create-deferral-ticket.js is invoked WITHOUT --stub-id",
+              "postcondition": "the ticket is still created and no deferredTo is set",
+              "invariant": "the no-arg behavior matches PX-124's original contract"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "escape hatch actionable",
+              "precondition": "resolve-ticket.md escape hatch step 3 is followed",
+              "postcondition": "the script sets deferredTo and the AI only rewrites the marker key",
+              "invariant": "step 3 is executable under the Prohibition (no update-ticket.js)"
+            }
+          ],
+          "created_at": "2026-08-04",
+          "updated_at": "2026-08-04",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] createDeferralTicket with a matching targetStub id sets that stub's deferredTo to the new key\n  const data = makeDataWithStubs();\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, stubId: 'TS-1' });\n  assert(res.success === true, 'C001: deferral created');\n  assertStrictEqual(res.data.phases[0].tickets[0].targetStubs[0].deferredTo, res.key, 'C001: matching stub deferredTo = new key');",
+            "UT: [C002-post] non-matching targetStubs keep their original deferredTo\n  const data = makeDataWithStubs(); // TS-1 deferredTo:null, TS-2 deferredTo:'P9-9'\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, stubId: 'TS-1' });\n  assertStrictEqual(res.data.phases[0].tickets[0].targetStubs[1].deferredTo, 'P9-9', 'C002: non-matching stub untouched');",
+            "UT: [C003-inv] Prohibition compliance — input Tickets.json not mutated\n  const before = JSON.stringify(data);\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, stubId: 'TS-1' });\n  assertStrictEqual(JSON.stringify(data), before, 'C003: input Tickets.json not mutated');",
+            "UT: [C004-post] without --stub-id, deferredTo untouched (backward compatible)\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });\n  assert(res.success === true, 'C004: ticket still created');\n  assertStrictEqual(res.data.phases[0].tickets[0].targetStubs[0].deferredTo, null, 'C004: deferredTo untouched without stubId');",
+            "UT: [C005-post] unmatched stubId → success false with actionable error\n  const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' }, stubId: 'TS-NOPE' });\n  assert(res.success === false, 'C005: unmatched stubId fails loudly');\n  assert(typeof res.error === 'string' && res.error.includes('TS-NOPE'), 'C005: actionable error names the stub');"
+          ],
+          "startedAt": "2026-08-04",
+          "changes": [
+            {
+              "before": "createDeferralTicket had no stubId support",
+              "after": "setStubDeferredTo helper + --stub-id option; matching targetStub's deferredTo set to the new key",
+              "description": "Added Prohibition-compliant deferredTo setter"
+            },
+            {
+              "before": "resolve-ticket.md step 3: 'update the STUB's deferredTo field'",
+              "after": "step 2 command passes --stub-id; step 3 clarifies the script sets deferredTo",
+              "description": "Escape hatch wiring updated"
+            },
+            {
+              "before": "tests covered creation only",
+              "after": "create-deferral-ticket.test.js +9 assertions (C001-C005 deferredTo)",
+              "description": "Added deferredTo contract tests"
+            }
+          ],
+          "completedAt": "2026-08-04"
         }
       ]
     },

@@ -48,6 +48,15 @@ const CLASS_NAMES = ['resolvedCandidates', 'pendingObligations', 'orphans', 'exc
 // so a surviving marker is a candidate for the resolved-but-stale sweep.
 const COMPLETED_STATUS_RE = /^(reviewed|done|R[1-9]\d*)$/;
 
+// [::TICKET::] PX-126: resolvedCandidates [ACTION] message. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-126 --for-spec --no-implementation-order`.
+// Directs both branches of the resolved-but-stale sweep: a resolved defect is
+// removed, a NOT-resolved defect gets a new resolving ticket (create-resolving-ticket.js).
+// Kept single-line and self-contained per the find-omissions.md Output message convention.
+const RESOLVED_CANDIDATES_ACTION_MESSAGE =
+  '[ACTION] resolvedCandidates — verify in code that the defect is resolved. If resolved → ' +
+  'run remove-stub.js; if NOT resolved → create a resolving ticket via create-resolving-ticket.js ' +
+  'and rewrite the marker key:';
+
 // -- Pure functions --
 
 /**
@@ -159,7 +168,7 @@ function readTickets() {
   }
 }
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-126|PX-127) --for-spec --no-implementation-order`.
 function main() {
   // The pipeline always runs from the directory containing Tickets.json, so the
   // scan root and the Tickets.json path are fixed to the current directory.
@@ -168,7 +177,7 @@ function main() {
   console.log(JSON.stringify(classification, null, 2));
 
   for (const stub of classification.resolvedCandidates) {
-    console.error('[ACTION] resolvedCandidates — verify in code that the defect is resolved, then remove:');
+    console.error(RESOLVED_CANDIDATES_ACTION_MESSAGE);
     console.error('  ' + buildRemoveCommand(stub));
   }
   for (const stub of classification.excuses) {
@@ -195,5 +204,6 @@ module.exports = {
   buildRemoveCommand,
   preflight,
   CLASS_NAMES,
-  COMPLETED_STATUS_RE
+  COMPLETED_STATUS_RE,
+  RESOLVED_CANDIDATES_ACTION_MESSAGE
 };

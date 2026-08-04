@@ -44,6 +44,7 @@ Located under `.claude/scripts/tickets/`.
 | `malfeasance-update.js` | `<id> <key> <val>` | Update a crime record (resolve, etc.) |
 | `review/run-quality-checks.js` | `<files...>` | Static quality check |
 | `review/generate-report.js` | (via stdin) | Generate quality report |
+| `create-deferral-ticket.js` | `--source-key=<KEY> [--deferred-to=<KEY>]` (stdin: ticket JSON) | Deferral ticket creation (Step 9 escape hatch) — deep-clones source, appends non-PX max-phase todo |
 
 ## Workflow
 
@@ -224,8 +225,11 @@ node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 
 **Escape hatch — no-excuse conditional deferral**: If a STUB cannot be resolved in this session, the AI MAY defer it ONLY when the deferral passes the no-excuse gate (requires `$ARGUMENTS` to be set):
 1. **Convert the blocker into an AI-executable work item (Check B)** — the new ticket's scope must contain the internal implementation work (e.g. "Vendor and build PJSIP in build.rs", "Add cpal as an optional dependency"). Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification — every blocker is internal AI work.
-2. Create a new ticket via `/make-ticket` with that work item in background and scope. **The new deferral ticket MUST be a non-PX ticket in the max phase** — `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB.
-3. Rewrite the marker key to the new ticket and update the STUB's `deferredTo` field to the new ticket key.
+2. Create a new deferral ticket via `create-deferral-ticket.js` with that work item in background and scope. The script deep-clones the resolved ticket (`$ARGUMENTS`) as the template and appends a **non-PX ticket in the max phase** (status `todo`) — `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB:
+```bash
+echo '{"title":"(work item)","scope":["..."],"background":"..."}' | node .claude/scripts/tickets/create-deferral-ticket.js --source-key="$ARGUMENTS" --stub-id=<stubId> --tickets="Tickets.json"
+```
+3. Rewrite the marker key to the new ticket. The script already set the STUB's `deferredTo` to the new ticket key (when `--stub-id` was passed); verify it if `--stub-id` was omitted.
 4. Re-run Step 9a and 9b (with `$ARGUMENTS` set) and the Step 9c validator — Check C (active key) must pass.
 5. Record the deferred STUBs and their new ticket keys in the implementation summary.
 
