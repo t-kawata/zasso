@@ -1,0 +1,31 @@
+{
+  "title": "mini-px2",
+  "round": 1,
+  "metadata": {
+    "source": "fixture",
+    "generatedAt": "2026-08-04"
+  },
+  "phases": [
+    {
+      "id": 4,
+      "name": "P4",
+      "tickets": [
+        {
+          "id": 2,
+          "phaseId": 4,
+          "title": "P4-2 source ticket",
+          "status": "reviewed",
+          "contracts": [
+            { "id": "C001", "sourceEdge": "n->m", "precondition": "p", "postcondition": "q", "invariant": "i" }
+          ],
+          "targetStubs": [
+            { "id": "TS-1", "ticketRef": "P4-2", "file": "x", "line": 1, "contracts": ["C001"], "status": "pending" }
+          ],
+          "targetCrimes": [
+            { "id": "TC-1", "file": "x", "line": 1, "description": "crime", "status": "pending" }
+          ]
+        }
+      ]
+    }
+  ]
+}

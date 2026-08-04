@@ -1,0 +1,25 @@
+{
+  "title": "mini-fixture",
+  "round": 1,
+  "metadata": {
+    "source": "fixture",
+    "generatedAt": "2026-08-04"
+  },
+  "phases": [
+    {
+      "id": 4,
+      "name": "P4",
+      "tickets": [
+        {
+          "id": 2,
+          "phaseId": 4,
+          "title": "P4-2 source ticket",
+          "status": "reviewed",
+          "contracts": [
+            { "id": "C001", "sourceEdge": "n1->n2", "precondition": "pre", "postcondition": "post", "invariant": "inv" }
+          ]
+        }
+      ]
+    }
+  ]
+}

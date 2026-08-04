@@ -1,3 +1,5 @@
+
+
 const fs = require('fs');
 const path = require('path');
 const { CFG } = require('../../lib/tickets');
@@ -7,7 +9,12 @@ const STUB_RE = /\[::STUB::\]/;
 // checking for the absence of a marker) is not an actual stub marker.
 // Real markers live in comments and are never inside quotes.
 const STUB_IN_QUOTES_RE = /['"`][^'"`]*\[::STUB::\][^'"`]*['"`]/;
-const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude']);
+// 'fixtures' is the conventional test-data directory: [::STUB::] markers inside
+// it are test INPUTS (fixture files) that the tool under test reads, not real
+// code stubs. Skipping them prevents false positives in the preflight gate.
+// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'fixtures']);
+// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
 
 function main() {
   const dir = process.argv[2];
