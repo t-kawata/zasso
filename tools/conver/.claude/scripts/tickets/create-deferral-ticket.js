@@ -95,7 +95,7 @@ function createDeferralTicket({ ticketsData, sourceKey, seed, stubId = null }) {
  * @returns {string} — Markdown guidance
  */
 // [::TICKET::] PX-124: buildMarkdownGuidance. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-123 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-123) --for-spec --no-implementation-order`.
 function buildMarkdownGuidance({ key, sourceKey }) {
   return [
     '## Created: ' + key,
@@ -122,9 +122,9 @@ function buildMarkdownGuidance({ key, sourceKey }) {
     'echo \'{"title":"..."}\' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "' + key + '"',
     '```',
     '',
-    '### 3. Set deferredTo and rewrite the marker key',
+    '### 3. deferredTo set by the script; rewrite the marker key',
     '',
-    'Set the STUB\'s `deferredTo` field to **' + key + '** and rewrite the marker key to **' + key + '**, then re-run the Step 9 validator (Check C active key).',
+    'The script set the STUB\'s `deferredTo` to **' + key + '** (when `--stub-id` was passed). Verify it if `--stub-id` was omitted, then rewrite the marker key to **' + key + '** and re-run the Step 9 validator (Check C active key).',
     '',
     '### 4. PRESERVE — do not touch',
     '',

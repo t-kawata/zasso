@@ -46,7 +46,13 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
 function createResolvingTicket({ ticketsData, sourceKey, seed, stubs = [] }) {
   const res = createTicketFromSource({ ticketsData, sourceKey, seed });
   if (!res.success) return res;
-  res.ticket.stubs = stubs;
+  // The stubs[] content must reference the NEW ticket key: after Step 1 rewrites
+  // the source marker to the returned key, phasify's rewriteSourceMarkerLines
+  // matches the source key against stubs[].content — both must be the new key.
+  res.ticket.stubs = stubs.map(s => ({
+    ...s,
+    content: (s.content || '').replace(/\[::STUB::\]\s+[^\s:]+/, '[::STUB::] ' + res.key)
+  }));
   return res;
 }
 

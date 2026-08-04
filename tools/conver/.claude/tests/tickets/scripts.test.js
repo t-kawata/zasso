@@ -505,7 +505,10 @@ try {
     const mockData = { title: 'test', metadata: { source: 'test', generatedAt: '2026-07-30' }, phases: [{ id: -1, name: '[X] Test', characteristics: '', tickets: [] }] };
     const mockTicket = { title: 'Test Ticket', background: sentinelBg, scope: ['item'], testUnit: ['UT: test'], acceptanceCriteria: ['AC1'], invariants: 'test', contracts: [] };
     const appended = addModule.appendTicket(mockData, mockTicket);
-    const addedTicket = appended.phases.find(p => p.id === -1).tickets[0];
+    // PX-119: appendTicket appends to the max real phase (creates phase 0 when only the PX
+    // phase exists) — locate the ticket by title instead of assuming the PX phase.
+    // [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+    const addedTicket = appended.phases.flatMap(p => p.tickets).find(t => t.title === 'Test Ticket');
     assertOk(addedTicket.background !== undefined, 'appendTicket preserves background');
     // The sentinel guard should NOT prepend a second sentinel
     assertOk(addedTicket.background.startsWith('[::INSPECTION_FLAGGED::]'), 'appendTicket keeps sentinel at position 0');
@@ -516,7 +519,7 @@ try {
     const mockTicket2 = { title: 'Test Ticket 2', background: plainBg, scope: ['item'], testUnit: ['UT: test'], acceptanceCriteria: ['AC1'], invariants: 'test', contracts: [] };
     const mockData2 = { title: 'test', metadata: { source: 'test', generatedAt: '2026-07-30' }, phases: [{ id: -1, name: '[X] Test', characteristics: '', tickets: [] }] };
     const appended2 = addModule.appendTicket(mockData2, mockTicket2);
-    const addedTicket2 = appended2.phases.find(p => p.id === -1).tickets[0];
+    const addedTicket2 = appended2.phases.flatMap(p => p.tickets).find(t => t.title === 'Test Ticket 2');
     assertOk(addedTicket2.background.startsWith('[::INSPECTION_FLAGGED::]'), 'appendTicket prepends sentinel when background lacks it');
 
     // -- enrichTickets startsWith guard (create-tmp-omissions.js) --

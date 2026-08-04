@@ -292,14 +292,9 @@ node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Step 5c-3 — Verify contract coverage:**
+**Convergence loop**: If Step 5c-2 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run the Gate. **Loop until it passes before proceeding to Step 6.** The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed. If a targetCrime genuinely cannot be resolved (blocked on external dependency, awaiting another team), the AI MUST create a new ticket via `/make-ticket` with full justification and record the deferral — the original ticket must not proceed with unresolved crimes.
 
-```bash
-node .claude/scripts/tickets/verify-final-contracts.js \
-  --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
-```
-
-**Convergence loop**: If Step 5c-2 or Step 5c-3 exits 1, fix the reported violations (resolve remaining crimes/stubs, update contracts), then re-run the Gate. **Loop until both pass before proceeding to Step 6.** The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed. If a targetCrime genuinely cannot be resolved (blocked on external dependency, awaiting another team), the AI MUST create a new ticket via `/make-ticket` with full justification and record the deferral — the original ticket must not proceed with unresolved crimes.
+> **Note**: Final contract fulfillment is verified by `/review-ticket` Step 10b (`verify-final-contracts.js`), where the ticket is already `done`. Running it at Step 5c would fail because the ticket is still `planned` and the implementation is not yet complete.
 
 ### Step 6: Active search for incomplete implementations (mandatory)
 

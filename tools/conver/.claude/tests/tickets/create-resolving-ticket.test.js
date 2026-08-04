@@ -21,6 +21,7 @@ let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-123 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-123 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -88,6 +89,17 @@ function makeData() {
   assert(Array.isArray(res.ticket.stubs), 'C002: stubs[] is an array');
   assertStrictEqual(res.ticket.stubs.length, stubs.length, 'C002: all stubs embedded');
   assertStrictEqual(res.ticket.stubs[0].file, 'src/a.rs', 'C002: stub file preserved');
+})();
+
+(function testC002PostconditionStubContentKeyIsNewTicketKey() {
+  // MAJOR-7: the embedded stubs[] content must reference the NEW ticket key so
+  // phasify's rewriteSourceMarkerLines can match the source after Step 1 rewrites
+  // the marker to the returned key (source key === stubs[] key).
+  const data = makeData();
+  const stubs = [{ file: 'src/a.rs', line: 5, content: '[::STUB::] P0-1: -- Vendor lib' }];
+  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' }, stubs });
+  assert(res.success === true, 'C002: resolving ticket created');
+  assert(res.ticket.stubs[0].content.includes('[::STUB::] ' + res.key), 'C002: stubs content references the new ticket key ' + res.key);
 })();
 
 (function testC002InvariantEmptyStubsAllowed() {

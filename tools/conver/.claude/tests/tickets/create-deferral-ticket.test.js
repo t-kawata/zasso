@@ -21,6 +21,7 @@ let passed = 0;
 let failed = 0;
 
 // [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
 function assert(condition, message) {
   if (condition) { passed++; process.stdout.write('  ✓ ' + message + '\n'); }
   else { failed++; process.stdout.write('  ✗ ' + message + '\n'); }
@@ -132,6 +133,15 @@ function makeDataWithStubs() {
   const res = createDeferralTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'Defer' } });
   const md = buildMarkdownGuidance({ key: res.key, sourceKey: 'P0-1' });
   assert(md.includes('deferredTo'), 'C003: guidance instructs deferredTo update to the new key');
+})();
+
+(function testC003InvariantGuidanceSaysScriptSetDeferredTo() {
+  // MINOR-8: since PX-127 the script sets deferredTo when --stub-id is passed.
+  // The guidance must reflect that (and not tell the AI to set it manually via
+  // update-ticket.js, which resolve-ticket.md's Prohibition forbids).
+  const md = buildMarkdownGuidance({ key: 'P2-2', sourceKey: 'P0-1' });
+  assert(md.includes('set') || md.includes('set by the script'), 'C003: guidance reflects the script sets deferredTo');
+  assert(!md.includes('Set the STUB\'s `deferredTo` field to'), 'C003: guidance no longer instructs manual deferredTo setting');
 })();
 
 // ======================================================================
