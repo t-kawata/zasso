@@ -13,12 +13,13 @@
  *
  * Usage:
  *   echo '{"title":"(work item)","scope":[...],"background":"..."}' | node create-crime-deferral-ticket.js \
- *     --source-key=<started ticket> [--crime-id=<targetCrime id>] --tickets=Tickets.json
+ *     --source-key=<started ticket> [--crime-id=<targetCrime id>]
  */
 
 const fs = require('fs');
 const path = require('path');
-const { createTicketFromSource } = require('../lib/create-ticket-from-source.js');
+// [::TICKET::] PX-2: delegate ticket creation to the shared core (generic-ticket-creation.js).
+const { createTickets, setCrimeDeferredTo } = require('../lib/generic-ticket-creation.js');
 
 // -- Constants --
 
@@ -38,20 +39,7 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
  * @param {string} newKey — New deferral ticket key
  * @returns {boolean} — true if the crime was found and updated
  */
-// [::TICKET::] PX-128: setCrimeDeferredTo. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
-function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
-  for (const phase of ticketsData.phases) {
-    for (const ticket of phase.tickets || []) {
-      const crime = (ticket.targetCrimes || []).find(c => c.id === crimeId);
-      if (crime) {
-        crime.deferredTo = newKey;
-        return true;
-      }
-    }
-  }
-  return false;
-}
+// [::TICKET::] PX-128, PX-2: setCrimeDeferredTo moved to the shared core (generic-ticket-creation.js) and re-exported for backward compatibility.
 
 /**
  * Create a deferral ticket (non-PX max-phase todo) from the started ticket's clone,
@@ -66,16 +54,19 @@ function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
  *          |{ success: false, error: string, errors?: string[] }}
  */
 // [::TICKET::] PX-128: createCrimeDeferralTicket. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-128|PX-2) --for-spec --no-implementation-order`.
 function createCrimeDeferralTicket({ ticketsData, sourceKey, seed, crimeId = null }) {
-  const res = createTicketFromSource({ ticketsData, sourceKey, seed });
-  if (!res.success) return res;
-  if (crimeId) {
-    if (!setCrimeDeferredTo(res.data, crimeId, res.key)) {
-      return { success: false, error: 'targetCrime not found: ' + crimeId };
-    }
+  // [::TICKET::] PX-2: route through the shared core (generic-ticket-creation.js) with a crimeDeferral seed.
+  const res = createTickets({
+    ticketsData,
+    seeds: [{ type: 'crimeDeferral', sourceKey, seed, crimeId }],
+    sourceRoot: null,
+  });
+  if (!res.success) {
+    return { success: false, error: res.errors[0] ? res.errors[0].error : 'crime deferral failed', errors: res.errors };
   }
-  return res;
+  const created = res.created[0];
+  return { success: true, key: created.newKey, ticket: created.ticket, data: res.data };
 }
 
 /**
@@ -127,17 +118,16 @@ function buildMarkdownGuidance({ key, sourceKey }) {
  * @returns {{ sourceKey: string|null, crimeId: string|null, tickets: string }}
  */
 // [::TICKET::] PX-128: parseArgs. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-128|PX-2) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv || process.argv.slice(2);
-  const parsed = { sourceKey: null, crimeId: null, tickets: 'Tickets.json' };
+  // --tickets is removed: Tickets.json is always ./Tickets.json (cwd).
+  const parsed = { sourceKey: null, crimeId: null };
   for (const arg of args) {
     if (arg.startsWith('--source-key=')) {
       parsed.sourceKey = arg.slice('--source-key='.length);
     } else if (arg.startsWith('--crime-id=')) {
       parsed.crimeId = arg.slice('--crime-id='.length);
-    } else if (arg.startsWith('--tickets=')) {
-      parsed.tickets = arg.slice('--tickets='.length);
     }
   }
   return parsed;
@@ -155,15 +145,16 @@ function readStdin() {
   });
 }
 
-// [::TICKET::] PX-128 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-128 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-128, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-128|PX-2) --for-spec --no-implementation-order`.
 async function main() {
-  const { sourceKey, crimeId, tickets } = parseArgs();
+  const { sourceKey, crimeId } = parseArgs();
   if (!sourceKey) {
     process.stderr.write('[create-crime-deferral-ticket] Error: --source-key is required.\n');
     process.exit(1);
   }
 
-  const ticketsPath = path.resolve(tickets);
+  // --tickets removed: Tickets.json is always ./Tickets.json (cwd).
+  const ticketsPath = path.resolve(process.cwd(), 'Tickets.json');
   let ticketsData;
   try {
     ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));

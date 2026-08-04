@@ -302,14 +302,30 @@ node .claude/scripts/tickets/validate-ticket-targets.js \
 > deferral judged to be **shirking** (an avoidable postponement) incurs **penalty**.
 > When in doubt, resolve — do not defer.
 
-**Crime deferral — create an AI-executable ticket for an unresolved targetCrime**: The AI MAY defer a targetCrime **only when the Deferral policy's clear-danger condition is met**. If a targetCrime genuinely cannot be resolved safely in this session without a separate AI-executable ticket, create that ticket via `create-crime-deferral-ticket.js`. The script deep-clones the ticket being started (`$ARGUMENTS`) as the template, applies the work-item seed, and appends a **non-PX ticket in the max phase** (status `todo`), setting the matching `targetCrime`'s `deferredTo` to the new key — satisfying `validate-ticket-targets.js` Check 9 (ORPHAN_TICKET_REF requires a valid deferredTo):
+**Crime deferral — create an AI-executable ticket for an unresolved targetCrime**:
+
+*When to use*: The AI MAY defer a targetCrime **only when the Deferral policy's clear-danger condition is met** — continuing poses a clear, demonstrated danger (e.g. unrecoverable state corruption or a pipeline-wide deadlock with no safe recovery). If a targetCrime genuinely cannot be resolved safely in this session without a separate AI-executable ticket, defer it by creating that ticket. This is the **exception**, not the default — resolve on the spot whenever possible.
+
+*What the flow does*: `create-crime-deferral-ticket.js` routes through the **shared creation core** (`generic-ticket-creation.js`, PX-2). `createCrimeDeferralTicket` calls `createTickets` with a **`crimeDeferral` seed**, which:
+1. deep-clones the ticket being started (`$ARGUMENTS`) via `createTicketFromSource`,
+2. appends a **non-PX ticket in the max phase** (status `todo`),
+3. sets the matching `targetCrime`'s `deferredTo` to the new key — satisfying `validate-ticket-targets.js` Check 9 (ORPHAN_TICKET_REF requires a valid deferredTo),
+4. commits atomically — or aborts with **zero writes** on any failure (C002).
+
+The seed shape the core receives is `{ type: "crimeDeferral", sourceKey: <started ticket>, seed: { title, scope, background }, crimeId: <targetCrime id> }`. Run it — the CLI builds that seed from your arguments:
 
 ```bash
-echo '{"title":"(work item)","scope":["..."],"background":"..."}' | node .claude/scripts/tickets/create-crime-deferral-ticket.js \
-  --source-key="$ARGUMENTS" --crime-id=<crimeId> --tickets="Tickets.json"
+# Example (replace $ARGUMENTS with the started ticket key and TC-1 with the real crimeId):
+echo '{"title":"Port PJMEDIA to the conver crate","scope":["vendor/pjmedia","src/media"],"background":"Blocked by FFI linkage; needs a dedicated implementation ticket"}' \
+  | node .claude/scripts/tickets/create-crime-deferral-ticket.js \
+      --source-key="$ARGUMENTS" --crime-id="TC-1"
 ```
 
-Follow the script's stdout — the Markdown Action-directive tells you to rewrite the OLD content into the NEW work item one field at a time (max 3 per `update-ticket.js` call) while preserving `nodeIds`/`relatedTicketIds`/`referenceSection` and the other relational fields. Then record the deferral and re-run the Gate. **Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification** — every blocker is internal AI work. The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed, and the original ticket must not proceed with unresolved crimes.
+*On success*: stdout prints a Markdown Action-directive starting with `## Created: <new key>`. The new ticket carries the SOURCE's **OLD content** — rewrite it into the NEW work item **one field at a time (max 3 fields per `update-ticket.js` call)**, in this order: `title` → `background` → `scope` → `acceptanceCriteria` → `invariants` → `testUnit` → `testIntegration` → `testExceptions` → `contracts` → `investigation` → `boyScoutPlan` → `instrumentation` → `notes`. **PRESERVE** `nodeIds`/`relatedTicketIds`/`referenceSection`/`referenceUrls`/`sourcePaths`/`rfcDiscrepancies` — they are already correct from the clone; add to arrays, never overwrite.
+
+*On failure*: the script exits non-zero and writes nothing — Tickets.json is untouched (atomic all-or-nothing). Read the stderr error (e.g. a wrong `--crime-id`), fix the argument, and re-run.
+
+*Then*: re-run the Gate (`validate-ticket-targets.js` / Step 5c) so Check 9 passes. **Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification** — every blocker is internal AI work. The crime-first invariant is absolute: targetCrimes must be resolved before targetStubs are addressed, and the original ticket must not proceed with unresolved crimes.
 
 > **Note**: Final contract fulfillment is verified by `/review-ticket` Step 10b (`verify-final-contracts.js`), where the ticket is already `done`. Running it at Step 5c would fail because the ticket is still `planned` and the implementation is not yet complete.
 

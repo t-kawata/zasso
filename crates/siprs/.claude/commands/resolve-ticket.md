@@ -231,13 +231,21 @@ node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 > deferral judged to be **shirking** (an avoidable postponement) incurs **penalty**.
 > When in doubt, resolve — do not defer.
 
-**Escape hatch — no-excuse conditional deferral**: The AI MAY defer a STUB **only when the Deferral policy's clear-danger condition is met** (continuing poses a clear, demonstrated danger with no safe recovery) **AND** the deferral passes the no-excuse gate (requires `$ARGUMENTS` to be set):
+**Escape hatch — no-excuse conditional deferral**:
+
+*When to use*: The AI MAY defer a STUB **only when the Deferral policy's clear-danger condition is met** (continuing poses a clear, demonstrated danger with no safe recovery) **AND** the deferral passes the no-excuse gate (requires `$ARGUMENTS` to be set). Deferral is the **exception**, not the default — resolve on the spot whenever possible.
+
 1. **Convert the blocker into an AI-executable work item (Check B)** — the new ticket's scope must contain the internal implementation work (e.g. "Vendor and build PJSIP in build.rs", "Add cpal as an optional dependency"). Terminal-excuse language ("blocked on external dependency", "awaiting another team") is FORBIDDEN as a justification — every blocker is internal AI work.
-2. Create a new deferral ticket via `create-deferral-ticket.js` with that work item in background and scope. The script deep-clones the resolved ticket (`$ARGUMENTS`) as the template and appends a **non-PX ticket in the max phase** (status `todo`) — `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB:
+2. **Create the deferral ticket** via `create-deferral-ticket.js`. The script routes through the **shared creation core** (`generic-ticket-creation.js`, PX-2): `createDeferralTicket` calls `createTickets` with a **`deferral` seed**, which deep-clones the resolved ticket (`$ARGUMENTS`) via `createTicketFromSource`, appends a **non-PX ticket in the max phase** (status `todo`), and sets the targetStub's `deferredTo` to the new key. `insert-stub.js` rejects `PX-*` resolve targets and non-todo targets, so a PX or past-phase ticket could never receive the deferred STUB. The seed shape the core receives is `{ type: "deferral", sourceKey: <resolved ticket>, seed: { title, scope, background }, stubId: <targetStub id> }`. Run it:
 ```bash
-echo '{"title":"(work item)","scope":["..."],"background":"..."}' | node .claude/scripts/tickets/create-deferral-ticket.js --source-key="$ARGUMENTS" --stub-id=<stubId> --tickets="Tickets.json"
+# Example (replace $ARGUMENTS with the resolved ticket key and TS-1 with the real stubId):
+echo '{"title":"Vendor and build PJSIP in build.rs","scope":["build.rs","wrapper.h"],"background":"Blocked on FFI linkage; needs a dedicated implementation ticket"}' \
+  | node .claude/scripts/tickets/create-deferral-ticket.js \
+      --source-key="$ARGUMENTS" --stub-id="TS-1"
 ```
-3. Rewrite the marker key to the new ticket. The script already set the STUB's `deferredTo` to the new ticket key (when `--stub-id` was passed); verify it if `--stub-id` was omitted.
+   *On success*: stdout prints a Markdown Action-directive starting with `## Created: <new key>`. The script already set the STUB's `deferredTo` to the new key (when `--stub-id` was passed) — verify it if `--stub-id` was omitted. The new ticket carries the SOURCE's **OLD content** — rewrite it into the NEW work item **one field at a time (max 3 fields per `update-ticket.js` call)**, in this order: `title` → `background` → `scope` → `acceptanceCriteria` → `invariants` → `testUnit` → `testIntegration` → `testExceptions` → `contracts` → `investigation` → `boyScoutPlan` → `instrumentation` → `notes`. **PRESERVE** `nodeIds`/`relatedTicketIds`/`referenceSection`/`referenceUrls`/`sourcePaths`/`rfcDiscrepancies` (add to arrays, never overwrite).
+   *On failure*: the script exits non-zero and writes nothing — Tickets.json is untouched (atomic all-or-nothing, C002). Read the stderr error (e.g. a wrong `--stub-id`), fix the argument, and re-run.
+3. Rewrite the marker key to the new ticket.
 4. Re-run Step 9a and 9b (with `$ARGUMENTS` set) and the Step 9c validator — Check C (active key) must pass.
 5. Record the deferred STUBs and their new ticket keys in the implementation summary.
 

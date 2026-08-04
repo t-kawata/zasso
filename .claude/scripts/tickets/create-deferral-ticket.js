@@ -13,12 +13,13 @@
  *
  * Usage:
  *   echo '{"title":"(work item)","scope":[...],"background":"..."}' | node create-deferral-ticket.js \
- *     --source-key=<resolved ticket> [--deferred-to=<stub target>] --tickets=Tickets.json
+ *     --source-key=<resolved ticket> [--deferred-to=<stub target>]
  */
 
 const fs = require('fs');
 const path = require('path');
-const { createTicketFromSource } = require('../lib/create-ticket-from-source.js');
+// [::TICKET::] PX-2: delegate ticket creation to the shared core (generic-ticket-creation.js).
+const { createTickets, setStubDeferredTo } = require('../lib/generic-ticket-creation.js');
 
 // -- Constants --
 
@@ -40,29 +41,8 @@ const PRESERVE_LIST = '`nodeIds`, `relatedTicketIds`, `referenceSection`, `refer
  *          |{ success: false, error: string, errors?: string[] }}
  */
 // [::TICKET::] PX-124: createDeferralTicket. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126) --for-spec --no-implementation-order`.
-/**
- * Set the deferredTo field of the targetStub identified by stubId to newKey.
- * Scans all phases/tickets for the stub; returns true when found and updated.
- * @param {object} ticketsData — Parsed/merged Tickets.json
- * @param {string} stubId — targetStub id (e.g. "TS-001")
- * @param {string} newKey — New deferral ticket key
- * @returns {boolean} — true if the stub was found and updated
- */
-// [::TICKET::] PX-127: setStubDeferredTo. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-127 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-127 --for-spec --no-implementation-order`.
-function setStubDeferredTo(ticketsData, stubId, newKey) {
-  for (const phase of ticketsData.phases) {
-    for (const ticket of phase.tickets || []) {
-      const stub = (ticket.targetStubs || []).find(s => s.id === stubId);
-      if (stub) {
-        stub.deferredTo = newKey;
-        return true;
-      }
-    }
-  }
-  return false;
-}
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2: setStubDeferredTo moved to the shared core (generic-ticket-creation.js) and re-exported for backward compatibility.
 
 /**
  * Create a deferral ticket (non-PX max-phase todo) from a resolved ticket's clone,
@@ -76,16 +56,19 @@ function setStubDeferredTo(ticketsData, stubId, newKey) {
  * @returns {{ success: true, key: string, ticket: object, data: object }
  *          |{ success: false, error: string, errors?: string[] }}
  */
-// [::TICKET::] PX-124, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-127|PX-2) --for-spec --no-implementation-order`.
 function createDeferralTicket({ ticketsData, sourceKey, seed, stubId = null }) {
-  const res = createTicketFromSource({ ticketsData, sourceKey, seed });
-  if (!res.success) return res;
-  if (stubId) {
-    if (!setStubDeferredTo(res.data, stubId, res.key)) {
-      return { success: false, error: 'targetStub not found: ' + stubId };
-    }
+  // [::TICKET::] PX-2: route through the shared core (generic-ticket-creation.js) with a deferral seed.
+  const res = createTickets({
+    ticketsData,
+    seeds: [{ type: 'deferral', sourceKey, seed, stubId }],
+    sourceRoot: null,
+  });
+  if (!res.success) {
+    return { success: false, error: res.errors[0] ? res.errors[0].error : 'deferral failed', errors: res.errors };
   }
-  return res;
+  const created = res.created[0];
+  return { success: true, key: created.newKey, ticket: created.ticket, data: res.data };
 }
 
 /**
@@ -138,10 +121,11 @@ function buildMarkdownGuidance({ key, sourceKey }) {
  * @returns {{ sourceKey: string|null, deferredTo: string|null, tickets: string }}
  */
 // [::TICKET::] PX-124: parseArgs. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-124 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv || process.argv.slice(2);
-  const parsed = { sourceKey: null, deferredTo: null, stubId: null, tickets: 'Tickets.json' };
+  // --tickets is removed: Tickets.json is always ./Tickets.json (cwd).
+  const parsed = { sourceKey: null, deferredTo: null, stubId: null };
   for (const arg of args) {
     if (arg.startsWith('--source-key=')) {
       parsed.sourceKey = arg.slice('--source-key='.length);
@@ -149,8 +133,6 @@ function parseArgs(argv) {
       parsed.deferredTo = arg.slice('--deferred-to='.length);
     } else if (arg.startsWith('--stub-id=')) {
       parsed.stubId = arg.slice('--stub-id='.length);
-    } else if (arg.startsWith('--tickets=')) {
-      parsed.tickets = arg.slice('--tickets='.length);
     }
   }
   return parsed;
@@ -168,15 +150,16 @@ function readStdin() {
   });
 }
 
-// [::TICKET::] PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-124, PX-125, PX-126, PX-127, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-124|PX-125|PX-126|PX-127|PX-2) --for-spec --no-implementation-order`.
 async function main() {
-  const { sourceKey, deferredTo, stubId, tickets } = parseArgs();
+  const { sourceKey, deferredTo, stubId } = parseArgs();
   if (!sourceKey) {
     process.stderr.write('[create-deferral-ticket] Error: --source-key is required.\n');
     process.exit(1);
   }
 
-  const ticketsPath = path.resolve(tickets);
+  // --tickets removed: Tickets.json is always ./Tickets.json (cwd).
+  const ticketsPath = path.resolve(process.cwd(), 'Tickets.json');
   let ticketsData;
   try {
     ticketsData = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
