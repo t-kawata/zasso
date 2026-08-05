@@ -162,7 +162,7 @@ const _: () = {
 /// # Contract (C051)
 /// The signature is the RFC-specified API surface. Real capture requires the
 /// `cpal` crate, which the AsyncAudioSource ticket's no-new-dependencies
-// [::STUB::] MUST RESOLVE: open_default_microphone_source real capture requires the cpal crate, which is blocked by the AsyncAudioSource ticket no-new-deps constraint; P8-4 documented that a cpal-authorized ticket is required -- Add cpal as an optional dependency behind the cpal-input feature and implement device-backed capture returning Result<Box<dyn AsyncAudioSource>, SipError> with an integration test
+// [::STUB::] P8-4: open_default_microphone_source returns a placeholder because real device capture is not yet wired -- Add cpal as an optional dependency behind the cpal-input feature and implement device-backed capture returning Result<Box<dyn AsyncAudioSource>, SipError> with an integration test
 /// constraint prohibits; the body currently returns a typed error.
 #[cfg(feature = "cpal-input")]
 pub async fn open_default_microphone_source(

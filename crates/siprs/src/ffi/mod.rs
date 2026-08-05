@@ -24,5 +24,5 @@ pub mod pj_str;
 /// it copies the event parameters into a `NativeEvent` and pushes it
 /// onto the reactor's event queue.
 ///
-// [::STUB::] P4-2: Callback implementations require PJSUA linkage; signatures defined for FFI completeness -- Integrate NativeEvent enqueue logic once PJSIP linked and reactor channel available
+// [::STUB::] P4-2: PJSIP is not yet linked; callbacks are no-ops and NativeEvent enqueue is deferred -- Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked
 pub mod callback;

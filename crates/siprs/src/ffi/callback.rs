@@ -13,7 +13,7 @@
 // pre-allocated NativeEvent and enqueuing it on a lock-free queue
 // or MPSC channel.
 //
-// [::STUB::] P4-2: PJSUA not linked yet; callbacks are no-ops -- Register callbacks via pjsua_config.cb, enqueue NativeEvent via reactor channel
+// [::STUB::] P4-2: PJSIP is not yet linked; callbacks are no-ops and NativeEvent enqueue is deferred (covers callback.rs:16,30,51,74,91,97) -- Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked
 
 use crate::ffi::bindings;
 
@@ -27,7 +27,6 @@ use crate::ffi::bindings;
 /// `rdata` is valid only within this callback's scope. Data
 /// referenced by `rdata` is copied to Rust-owned types immediately.
 ///
-// [::STUB::] P4-2: on_incoming_call callback body is a no-op -- Enqueue NativeEvent::IncomingCall { acc_id, call_id } via reactor channel
 #[no_mangle]
 pub unsafe extern "C" fn on_incoming_call(
     _acc_id: bindings::pjsua_acc_id,
@@ -48,7 +47,6 @@ pub unsafe extern "C" fn on_incoming_call(
 /// on PJSUA's real-time thread and must not block, allocate, or call into
 /// PJSUA.
 ///
-// [::STUB::] P4-2: on_reg_state callback body is a no-op -- Enqueue NativeEvent::RegState { acc_id, is_registering, code, reason } via reactor channel
 #[no_mangle]
 pub unsafe extern "C" fn on_reg_state(
     _acc_id: bindings::pjsua_acc_id,
@@ -71,7 +69,6 @@ pub unsafe extern "C" fn on_reg_state(
 /// only for the duration of this callback and must be copied to Rust-owned
 /// storage if needed later.
 ///
-// [::STUB::] P4-2: on_call_state callback body is a no-op -- Enqueue NativeEvent::CallState { call_id, state } via reactor channel
 #[no_mangle]
 pub unsafe extern "C" fn on_call_state(_call_id: bindings::pjsua_call_id, _state: u32) {
     let _ = (_call_id, _state);
@@ -88,10 +85,8 @@ pub unsafe extern "C" fn on_call_state(_call_id: bindings::pjsua_call_id, _state
 /// allocate, or call back into PJSUA. The `call_id` parameter is valid
 /// only for the duration of this callback.
 ///
-// [::STUB::] P4-2: on_call_media_state callback body is a no-op -- Enqueue NativeEvent::CallMediaState { call_id } via reactor channel
 #[no_mangle]
 pub unsafe extern "C" fn on_call_media_state(_call_id: bindings::pjsua_call_id) {
     let _ = _call_id;
 }
 
-// [::STUB::] P4-2: Additional callbacks (on_reg_started, on_call_redirected, on_dtmf_digit, on_call_transfer_status) deferred -- Register with pjsua_config.cb when needed

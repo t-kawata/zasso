@@ -143,7 +143,7 @@ pub enum RuntimeCommand {
     },
 }
 
-// [::STUB::] P0-2: Debug manually implemented for RuntimeCommand because oneshot::Sender !Debug -- Can derive Debug after migrating to a Debug-friendly sender wrapper
+// [::STUB::] P0-2: Debug is manually implemented for RuntimeCommand because oneshot::Sender is not Debug -- Migrate to a Debug-friendly sender wrapper and derive Debug for RuntimeCommand
 // [::TICKET::] P0-2, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-6) --for-spec --no-implementation-order`.
 impl std::fmt::Debug for RuntimeCommand {
 // [::TICKET::] P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2) --for-spec --no-implementation-order`.

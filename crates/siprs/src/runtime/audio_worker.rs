@@ -263,20 +263,18 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-    // [::STUB::] P3-2: mixer stored but unread -- Expose via state inspection accessor once call lifecycle is active
+// [::STUB::] P3-2: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P3-2: call_id stored but unread -- Expose via query accessor once call lifecycle is active
     // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     call_id: u64,
-    // [::STUB::] P3-2: frame_duration stored but unread -- Expose via query accessor once call lifecycle is active
     // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-    // [::STUB::] P3-2: handle is Option<JoinHandle> and unused -- Replace with active JoinHandle once FFI audio capture/playback is integrated
+// [::STUB::] P3-2: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
     #[allow(dead_code)]
     handle: Option<tokio::task::JoinHandle<()>>,
 }
@@ -332,7 +330,6 @@ impl AudioWorkerTask {
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 struct AudioWorkerInner {
     mixer: Arc<AudioMixer>,
-    // [::STUB::] P3-2: AudioWorkerInner.call_id stored but unused -- Wire into logging/metrics correlation once call lifecycle is active
     #[allow(dead_code)]
     call_id: u64,
     frame_duration: Duration,

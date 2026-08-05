@@ -257,7 +257,7 @@ impl CoreReactor {
 /// This is the production dual-client dispatch: the Reactor calls it whenever a
 /// NativeEvent has been converted to a `SipEvent` (O-003).
 // [::TICKET::] P7-2: O-003 — production account_id-based EventBus dispatch
-// [::STUB::] P3-2: dispatch_event is wired into the reactor loop once the FFI callback bridge (P3-2) delivers NativeEvents
+// [::STUB::] P3-2: NativeEvent dispatch and processing are not yet wired into the reactor loop (covers reactor.rs:260,294,335) -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed
 #[allow(dead_code)]
 pub(crate) fn dispatch_event(
     client_event_buses: &std::collections::HashMap<AccountId, EventBus>,
@@ -291,7 +291,6 @@ pub(crate) fn dispatch_event(
 /// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
 /// convert to `None` and are silently not published (documented rationale).
 // [::TICKET::] P7-2: O-001 — production NativeEvent → SipEvent publication flow
-// [::STUB::] P3-2: process_native_event is wired into the reactor loop once the FFI callback bridge (P3-2) delivers NativeEvents
 #[allow(dead_code)]
 pub(crate) fn process_native_event(
     backend: &dyn SipBackend,
@@ -332,7 +331,6 @@ pub(crate) fn process_native_event(
 /// Call/DTMF events carry only a `call_id`; the `account_id` is resolved from
 /// the reactor's call-state table once call tracking lands (P4-1). Registration
 /// events carry the `acc_id`.
-// [::STUB::] P3-2: helper for process_native_event — wired into the reactor loop with it
 #[allow(dead_code)]
 // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {

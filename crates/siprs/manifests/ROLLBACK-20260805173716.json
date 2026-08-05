@@ -1,0 +1,321 @@
+{
+  "edited": [
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/build.rs",
+      "line": 8,
+      "oldContent": "// [::STUB::] P4-2: bindgen generation disabled; stub aliases in bindings.rs provide placeholders -- Enable bindgen with pjsua-native feature when PJSIP headers available in build environment"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/wrapper.h",
+      "line": 6,
+      "oldContent": "// [::STUB::] P4-2: PJSIP includes commented out; requires system PJSIP installation -- Uncomment #include directives once PJSIP library headers are available in build environment"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 16,
+      "oldContent": "// [::STUB::] P4-2: PJSUA not linked yet; callbacks are no-ops -- Register callbacks via pjsua_config.cb, enqueue NativeEvent via reactor channel"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/mod.rs",
+      "line": 27,
+      "oldContent": "// [::STUB::] P4-2: Callback implementations require PJSUA linkage; signatures defined for FFI completeness -- Integrate NativeEvent enqueue logic once PJSIP linked and reactor channel available"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/bindings.rs",
+      "line": 123,
+      "oldContent": "// [::STUB::] P4-2: PJSIP library not linked yet; returns canned conf_slot for compilation -- Replace with actual bindgen-generated pjsua_call_get_info FFI call"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 287,
+      "oldContent": "// [::STUB::] P4-2: PjsuaBackend method bodies return unimplemented errors -- Replace each with actual PJSIP FFI calls once pjsua-native feature and library linkage are ready"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
+      "line": 110,
+      "oldContent": "            // [::STUB::] P4-2: CallMediaState conversion uses hardcoded ACTIVE -- Call pjsua_call_get_info to obtain actual media_status from PJSIP"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 32,
+      "oldContent": "// [::STUB::] P4-2: pj_status_t constants are hand-coded duplicates of pjsua.h defines -- Replace with bindgen-generated constants once pjsua-native feature enables FFI"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 32,
+      "oldContent": "// [::STUB::] P4-2: pj_status_t constants hand-coded (PJ_EINVALIDOP, PJ_EBUSY) -- Replace with bindgen-generated constants from pjsua.h once FFI is enabled"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 59,
+      "oldContent": "// [::STUB::] P4-2: pjsip_inv_state constants duplicated from ffi::bindings stubs -- Remove and import from bindgen-generated pjsua.h constants"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 69,
+      "oldContent": "    // [::STUB::] P4-2: available_codecs placeholder; actual codec list requires bindgen-generated FFI -- Replace with runtime codec enumeration via pjsua codec API"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 260,
+      "oldContent": "// [::STUB::] P3-2: NativeEvent dispatch and processing are not yet wired into the reactor loop -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 47,
+      "oldContent": "// [::STUB::] P3-2: CallDirection enum not yet consumed by Reactor -- Wire CallDirection into on_incoming_call FFI callback to discriminate Trying vs Ringing"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 266,
+      "oldContent": "    // [::STUB::] P3-2: mixer stored but unread -- Expose via state inspection accessor once call lifecycle is active"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 279,
+      "oldContent": "    // [::STUB::] P3-2: handle is Option<JoinHandle> and unused -- Replace with active JoinHandle once FFI audio capture/playback is integrated"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/handle.rs",
+      "line": 27,
+      "oldContent": "    // [::STUB::] P3-2: join_handle is Weak<JoinHandle> and unused -- Upgrade to Arc for FFI thread lifecycle inspection once pjsua is linked"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/backend.rs",
+      "line": 244,
+      "oldContent": "                // [::STUB::] P3-1: get_account_info returns canned mock data -- Return real account info from reactor account state machine (N0025) once implemented"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 159,
+      "oldContent": "    // [::STUB::] P3-1: GetAccountInfo returns placeholder error -- Return real AccountInfo from reactor account state system once implemented"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
+      "line": 117,
+      "oldContent": "        // [::STUB::] P3-1: RegistrationState hardcoded to Idle -- Return real RegistrationState from backend reactor once SipAccountHandle is connected to state machine"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
+      "line": 142,
+      "oldContent": "        // [::STUB::] P3-2: CallId hardcoded to 1 -- Return real CallId assigned by backend reactor from MakeCall reply"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
+      "line": 148,
+      "oldContent": "    // [::STUB::] P4-2: update_config is a no-op -- Implement with AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 51,
+      "oldContent": "// [::STUB::] P3-1: account/call/transport lifecycle methods (make, answer, hangup) deferred -- Implement per P3-1 account and transport configuration"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 64,
+      "oldContent": "// [::STUB::] P4-2: audio/ module commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration once model/ types are stable"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/transport.rs",
+      "line": 14,
+      "oldContent": "// [::STUB::] P3-1: TransportType re-exported from transport_ice_spec; may be removed -- Remove once all callers migrated to TransportConfig directly"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/build/build_strategy_os_deps.rs",
+      "line": 27,
+      "oldContent": "// [::STUB::] P3-1: build/CI entry point is a no-op main function -- Implement PJSIP build detection, feature flag configuration, and CI workflow setup"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/command.rs",
+      "line": 146,
+      "oldContent": "// [::STUB::] P0-2: Debug manually implemented for RuntimeCommand because oneshot::Sender !Debug -- Can derive Debug after migrating to a Debug-friendly sender wrapper"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/asyncaudiosrc_adapter.rs",
+      "line": 165,
+      "oldContent": "// [::STUB::] MUST RESOLVE: open_default_microphone_source real capture requires the cpal crate, which is blocked by the AsyncAudioSource ticket no-new-deps constraint; P8-4 documented that a cpal-authorized ticket is required -- Add cpal as an optional dependency behind the cpal-input feature and implement device-backed capture returning Result<Box<dyn AsyncAudioSource>, SipError> with an integration test"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/standalone_server_config.rs",
+      "line": 382,
+      "oldContent": "    // [::STUB::] P4-3: Saved accounts not restored from DatabasePool -- Load accounts via db.load_accounts() and call sip_client.add_account() for each on startup"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/shutdown_specification.rs",
+      "line": 144,
+      "oldContent": "    // [::STUB::] P4-3: ShutdownSpec.timeout stored but unused -- Implement PhaseTimeout handling for per-call timeout tracking during shutdown"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/tests/test_apilayer5.rs",
+      "line": 25,
+      "oldContent": "// [::STUB::] P4-3: Layer 5 integration tests not yet implemented -- Implement with MockBackend (P1-3) for isolated testing, Axum TestResponse for routes, and WS test helpers for event handlers"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 4,
+      "oldContent": "// [::STUB::] P5-1: Call lifecycle methods (make, answer, hangup, hold, transfer) deferred -- Implement SipCall methods for call lifecycle management"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/lib.rs",
+      "line": 52,
+      "oldContent": "// [::STUB::] P5-1: Call API semantics (hold, transfer, send_dtmf) deferred -- Implement per P5-1 call API specification"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/call_api_semantics.rs",
+      "line": 23,
+      "oldContent": "// [::STUB::] P5-1: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/event_model_payload_bus.rs",
+      "line": 420,
+      "oldContent": "// [::STUB::] P5-1: RawSipMessage is a minimal wrapper with public Vec<u8> data -- Implement full SIP message parsing with header/sdp extraction"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/model/raw_sip_message_spec.rs",
+      "line": 23,
+      "oldContent": "// [::STUB::] P5-1: RawSipMessage is a minimal wrapper with public Vec<u8> data; the raw SIP message spec is not yet implemented -- Implement full SIP message parsing per the Raw SIP Message Specification (NODE_ID=N0024) with header/sdp extraction and parsed-field accessors"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/audio_subscribe_bp.rs",
+      "line": 23,
+      "oldContent": "// [::STUB::] P5-1: Audio Subscribe API and backpressure policy are not yet implemented -- Implement the Audio Subscribe API and backpressure policy per node N0031 (Section 22)"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/model/memory_ownership_defaults.rs",
+      "line": 23,
+      "oldContent": "// [::STUB::] P3-2: Memory ownership model and default policies are not yet implemented -- Implement memory ownership and default policies per node N0056 (Sections 47 & 48)"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 97,
+      "oldContent": "                // [::STUB::] P5-1: account_id hardcoded to NonZeroU64(1) -- Replace with actual account_id from CallEntry context"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 204,
+      "oldContent": "    // [::STUB::] P5-1: native_status field uses i32 instead of AccountId/CallId newtypes -- Replace Option<i32> with AccountId/CallId once callers migrated"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
+      "line": 115,
+      "oldContent": "// [::STUB::] P5-1: AccountInfo uses u64 for account_id instead of AccountId newtype -- Migrate to AccountId/CallId newtypes once P4-1 types are stable across callers"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/m20_dtmfsent_twophase.rs",
+      "line": 77,
+      "oldContent": "// [::STUB::] P5-2: spawn_dtmf_sent_timeout is not yet invoked; the reactor does not yet own an EventBus -- Wire spawn_dtmf_sent_timeout into the reactor SendDtmf handler and implement the two-phase DTMF-sent timeout once the reactor owns an EventBus"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/examples/account_register.rs",
+      "line": 5,
+      "oldContent": "// [::STUB::] P1-3: example documents the account-registration surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full account registration example with PJSIP backend, CLI args, and integration test"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/examples/audio_tap.rs",
+      "line": 5,
+      "oldContent": "// [::STUB::] P1-3: example documents the audio-tap surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full audio tap example with PJSIP backend, CLI args, and integration test"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/examples/client_init.rs",
+      "line": 5,
+      "oldContent": "// [::STUB::] P1-3: example documents the client-init surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full client initialization example with PJSIP backend, CLI args, and integration test"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/examples/make_call.rs",
+      "line": 5,
+      "oldContent": "// [::STUB::] P1-3: example documents the make-call surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full make a call example with PJSIP backend, CLI args, and integration test"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/examples/tts_source.rs",
+      "line": 3,
+      "oldContent": "// [::STUB::] P1-3: example documents the TTS-source surface (P8-2 O-007); full CLI/PJSIP runtime still deferred -- Implement full TTS source example with PJSIP backend, CLI args, and integration test"
+    }
+  ],
+  "removed": [
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/build.rs",
+      "line": 11,
+      "oldContent": "    // [::STUB::] P4-2: bindgen generation disabled -- Enable the pjsua-native"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 30,
+      "oldContent": "// [::STUB::] P4-2: on_incoming_call callback body is a no-op -- Enqueue NativeEvent::IncomingCall { acc_id, call_id } via reactor channel"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 51,
+      "oldContent": "// [::STUB::] P4-2: on_reg_state callback body is a no-op -- Enqueue NativeEvent::RegState { acc_id, is_registering, code, reason } via reactor channel"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 74,
+      "oldContent": "// [::STUB::] P4-2: on_call_state callback body is a no-op -- Enqueue NativeEvent::CallState { call_id, state } via reactor channel"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 91,
+      "oldContent": "// [::STUB::] P4-2: on_call_media_state callback body is a no-op -- Enqueue NativeEvent::CallMediaState { call_id } via reactor channel"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/ffi/callback.rs",
+      "line": 97,
+      "oldContent": "// [::STUB::] P4-2: Additional callbacks (on_reg_started, on_call_redirected, on_dtmf_digit, on_call_transfer_status) deferred -- Register with pjsua_config.cb when needed"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
+      "line": 302,
+      "oldContent": "// [::STUB::] P4-2: convert_pj_status uses hand-coded pj_status_t constants -- Update to use real bindgen-generated constants once pjsua-native feature enables FFI"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 70,
+      "oldContent": "// [::STUB::] P4-2: pjsua_call_media_status constants duplicated from ffi::bindings stubs -- Remove and import from bindgen-generated pjsua.h media status constants"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
+      "line": 187,
+      "oldContent": "// [::STUB::] P3-2: Codec struct is a simple String-based placeholder -- Replace with FFI-defined codec types once bindgen generates pjsua_codec_info"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 294,
+      "oldContent": "// [::STUB::] P3-2: NativeEvent dispatch and processing are not yet wired into the reactor loop -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
+      "line": 335,
+      "oldContent": "// [::STUB::] P3-2: NativeEvent dispatch and processing are not yet wired into the reactor loop -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
+      "line": 113,
+      "oldContent": "// [::STUB::] P3-2: convert_call_state_with_previous not yet called by Reactor -- Wire into Reactor call processing once FFI callback bridge delivers CallDirection"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 270,
+      "oldContent": "    // [::STUB::] P3-2: call_id stored but unread -- Expose via query accessor once call lifecycle is active"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 274,
+      "oldContent": "    // [::STUB::] P3-2: frame_duration stored but unread -- Expose via query accessor once call lifecycle is active"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
+      "line": 335,
+      "oldContent": "    // [::STUB::] P3-2: AudioWorkerInner.call_id stored but unused -- Wire into logging/metrics correlation once call lifecycle is active"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/build/build_strategy_os_deps.rs",
+      "line": 32,
+      "oldContent": "// [::STUB::] P3-1: Build/CI entry point is a no-op; the Build Strategy & OS Dependencies spec is not yet implemented -- Implement PJSIP build detection, feature flag configuration, and CI workflow setup per the Build Strategy & OS Dependencies spec (NODE_ID=N0039)"
+    },
+    {
+      "file": "/Users/kawata/shyme/zasso/crates/siprs/src/call.rs",
+      "line": 12,
+      "oldContent": "// [::STUB::] P5-1: SipCall fields are pub placeholder -- Add private fields with accessors and lifecycle methods (answer, hangup, hold, transfer, send_dtmf)"
+    }
+  ]
+}

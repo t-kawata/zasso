@@ -29,7 +29,7 @@ use crate::runtime::command::ReactorError;
 // PJSUA error code constants
 //
 // [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
-// [::STUB::] P4-2: pj_status_t constants are hand-coded duplicates of pjsua.h defines -- Replace with bindgen-generated constants once pjsua-native feature enables FFI
+// [::STUB::] P4-2: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers error_design_siperror.rs:32,302) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -201,7 +201,7 @@ pub struct SipError {
     /// `Some(status)` when the error originates from an FFI call.
     /// `None` for errors that do not involve the native stack.
     ///
-    // [::STUB::] P5-1: native_status field uses i32 instead of AccountId/CallId newtypes -- Replace Option<i32> with AccountId/CallId once callers migrated
+// [::STUB::] P5-1: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
     pub native_status: Option<i32>,
     /// Optional account ID associated with this error.
     pub account_id: Option<u64>,
@@ -299,7 +299,6 @@ impl From<ReactorError> for SipError {
 /// specific variants; all unknown codes map to `NativeError`.
 ///
 /// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).
-// [::STUB::] P4-2: convert_pj_status uses hand-coded pj_status_t constants -- Update to use real bindgen-generated constants once pjsua-native feature enables FFI
 pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
     match status {
         PJ_SUCCESS => None,

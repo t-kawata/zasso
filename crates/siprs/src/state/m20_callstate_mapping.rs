@@ -44,7 +44,7 @@ pub enum CallMediaState {
 }
 
 /// Previous call direction, used to discriminate CONNECTING → Trying vs Ringing.
-// [::STUB::] P3-2: CallDirection enum not yet consumed by Reactor -- Wire CallDirection into on_incoming_call FFI callback to discriminate Trying vs Ringing
+// [::STUB::] P3-2: CallDirection and previous-state conversion are not yet consumed by the Reactor (covers m20_callstate_mapping.rs:47,113) -- Wire CallDirection into the on_incoming_call FFI callback and call convert_call_state_with_previous from Reactor call processing to discriminate Trying vs Ringing once the FFI callback bridge delivers CallDirection
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CallDirection {
@@ -56,7 +56,7 @@ pub(crate) enum CallDirection {
 
 /// Raw pjsip_inv_state values (0-4).
 /// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.
-// [::STUB::] P4-2: pjsip_inv_state constants duplicated from ffi::bindings stubs -- Remove and import from bindgen-generated pjsua.h constants
+// [::STUB::] P4-2: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers m20_callstate_mapping.rs:59,70) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
 pub mod pjsip_inv_state {
     pub const NULL: u32 = 0;
     pub const CALLING: u32 = 1;
@@ -67,7 +67,6 @@ pub mod pjsip_inv_state {
 
 /// Raw pjsua_call_media_status values.
 /// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.
-// [::STUB::] P4-2: pjsua_call_media_status constants duplicated from ffi::bindings stubs -- Remove and import from bindgen-generated pjsua.h media status constants
 pub mod pjsua_call_media_status {
     pub const NONE: u32 = 0;
     pub const ACTIVE: u32 = 1;
@@ -94,7 +93,7 @@ pub fn convert_call_state(call_id: CallId, state: u32) -> Option<SipEventPayload
         pjsip_inv_state::CONFIRMED => Some(SipEventPayload::CallConnected(
             crate::api::event_model_payload_bus::ConnectedCallInfo {
                 call_id,
-                // [::STUB::] P5-1: account_id hardcoded to NonZeroU64(1) -- Replace with actual account_id from CallEntry context
+// [::STUB::] P5-1: account_id is hardcoded to NonZeroU64(1) -- Replace the hardcoded account_id with the actual account_id from CallEntry context
                 account_id: crate::api::event_model_payload_bus::AccountId::from_u64(1)
                     .expect("NonZeroU64::new(1) should never fail"),
                 remote_uri: String::new(),
@@ -110,7 +109,6 @@ pub fn convert_call_state(call_id: CallId, state: u32) -> Option<SipEventPayload
 /// When `state == CONNECTING`:
 /// - `CallDirection::Outgoing` → `OutgoingCallTrying`
 /// - `CallDirection::Incoming` → `OutgoingCallRinging`
-// [::STUB::] P3-2: convert_call_state_with_previous not yet called by Reactor -- Wire into Reactor call processing once FFI callback bridge delivers CallDirection
 #[allow(dead_code)]
 pub(crate) fn convert_call_state_with_previous(
     _call_id: CallId,

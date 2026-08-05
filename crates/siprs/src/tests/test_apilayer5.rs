@@ -22,7 +22,7 @@
 // siprs-server/tests/api/ and siprs-server/tests/ws/ respectively.
 // These tests run in the siprs-server crate context, not siprs.
 
-// [::STUB::] P4-3: Layer 5 integration tests not yet implemented -- Implement with MockBackend (P1-3) for isolated testing, Axum TestResponse for routes, and WS test helpers for event handlers
+// [::STUB::] P4-3: Layer 5 integration tests are not yet implemented -- Implement Layer 5 integration tests with MockBackend (P1-3) for isolated testing, Axum TestResponse for routes, and WS test helpers for event handlers
 
 /// Compile-time verification: Layer 5 test files exist at expected paths.
 ///
