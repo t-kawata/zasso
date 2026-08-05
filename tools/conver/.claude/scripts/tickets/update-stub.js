@@ -131,7 +131,7 @@ function validateResolvePlan(markerText) {
  * @param {string} params.ticketsPath — Path to Tickets.json
  * @returns {{success: boolean, error?: string, file?: string, line?: number, content?: string}}
  */
-// [::TICKET::] PX-130, PX-131, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131|PX-132) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-130, PX-131, PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131|PX-132|PX-135) --for-spec --no-implementation-order`.
 function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unitId, ticketsPath, dryRun = false }) {
   if (!file || !Number.isInteger(line) || line < 1) {
     return { success: false, error: "--file and a positive integer --line are required" };
@@ -179,6 +179,14 @@ function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unit
     .replace(/\s*\[::UNIT::[^\]]*::\]/, "")
     .trim();
   const plan = (resolvePlan !== undefined ? resolvePlan : parsed.plan).trim();
+  // PX-135: refuse to write a marker with a blank reason or plan — the batch
+  // decision validator already rejects empty strings, this guards direct callers.
+  if (reason === "") {
+    return { success: false, error: "resolve reason must be a non-empty string when provided" };
+  }
+  if (plan === "") {
+    return { success: false, error: "resolve plan must be a non-empty string when provided" };
+  }
   const effectiveUnitId = unitId !== undefined && unitId !== "" ? unitId : extractUnitId(current);
   const markerText = buildMarkerLine(current, key, reason, plan, effectiveUnitId);
   const planCheck = validateResolvePlan(markerText);

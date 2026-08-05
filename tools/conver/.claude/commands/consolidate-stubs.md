@@ -23,7 +23,7 @@ STUB markers often accumulate as sub-ticket fragments — wiring hooks, accessor
 
 ## Workflow
 
-Run from the directory containing `Tickets.json` (the target source tree is the current directory or a subdirectory passed as the argument).
+Run from the directory containing `Tickets.json` (the target source tree is always the current directory — the Tickets.json root).
 
 ### Step 1 — Enumerate
 
@@ -92,7 +92,7 @@ Each field means:
 | Field | What it is | Required? |
 |---|---|---|
 | `unitId` | A unique identifier for this unit (e.g. `"U1"`, `"U2"`, …). It is what the manifest printer uses to group this unit's markers back together, so it must be **unique across the whole file**. | **Required** |
-| `resolveByTicket` | The one resolve key for this unit — the ticket the consolidated work belongs to (an active future todo, or the original completed ticket). **Omit it to let the tool derive the key from the markers' existing keys.** | Optional |
+| `resolveByTicket` | The one resolve key for this unit — the ticket the consolidated work belongs to (an active future todo, or the original completed ticket). **Omit it to let the tool derive the key from the FIRST marker's existing key only** — a unit whose first marker is `MUST RESOLVE` or `PX-*` requires an explicit `resolveByTicket`. | Optional |
 | `reason` | The merged "why this stays a stub" text, written once for the whole unit. **Omit it to keep each marker's existing reason.** | Optional |
 | `plan` | The merged resolution plan — what the resolving ticket must concretely implement, as an AI-executable deliverable. **Omit it to keep each marker's existing plan.** | Optional |
 | `markerLines` | Every marker in this unit, as `"<file>:<line>"` taken from Step 1's enumeration (e.g. `"src/call.rs:23"`). A marker may belong to **exactly one** unit. | **Required** |
@@ -119,7 +119,7 @@ Confirm the grouping (and that the `UNASSIGNED` list is expected), then apply:
 node .claude/scripts/tickets/batch-update-stub.js "$UNITS_JSON"
 ```
 
-The tool validates every edit first (atomic — any failure aborts with zero writes), then re-points all listed markers to their unit key, merges true duplicates, runs the gates, emits the manifest, strips the `[::UNIT::]` tags, writes a **rollback backup** (`manifests/ROLLBACK-<ts>.json`), and consumes the decision file.
+The tool validates every edit first (atomic — any failure aborts with zero writes), then writes a **rollback backup** (`manifests/ROLLBACK-<ts>.json`), re-points all listed markers to their unit key, merges true duplicates, emits the manifest, strips the `[::UNIT::]` tags, and consumes the decision file.
 
 It reports:
 - the manifest path + `N markers -> M units`,
@@ -136,12 +136,13 @@ node .claude/scripts/tickets/batch-update-stub.js --rollback manifests/ROLLBACK-
 
 ### Step 5 — Verify the result (blocking gate)
 
-The batch tool has already run the gates and emitted the manifest. Run the three-part blocking gate. The first runs in **consolidation mode** — `--for-consolidate` makes the validator accept completed-key references (the find-omissions re-ticketization handoff) while still failing on terminal excuses and malformed markers. The third confirms the manifest is actually consumable by `/find-omissions` (one ticket per unit, valid source keys, no duplicate markers):
+The batch tool has already emitted the manifest. Run the three-part blocking gate. The first runs in **consolidation mode** — `--for-consolidate` makes the validator accept completed-key references (the find-omissions re-ticketization handoff) while still failing on terminal excuses and malformed markers. The third confirms the manifest is actually consumable by `/find-omissions` (one ticket per unit, valid source keys, no duplicate markers):
 
 ```bash
 node .claude/scripts/tickets/validate-no-external-excuses.js --for-consolidate
-node .claude/scripts/tickets/validate-stub-format.js
-cat manifests/CONSOLIDATED-MANIFEST-*.json \
+node .claude/scripts/tickets/validate-stub-format.js --scan .
+MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && \
+cat "$MANIFEST" \
   | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write
 ```
 

@@ -135,6 +135,8 @@ Resolving-seed manifest format — one entry per marker (pipe this JSON via stdi
 ```
 If you prefer to prepare the manifest as a file for a large batch, write it under `/tmp` with a collision-free name (e.g. `mktemp` / `$TMPDIR/manifest-<random>.json`) — never a fixed name inside the repo.
 
+> **`/consolidate-stubs` handoff**: `/consolidate-stubs` Step 5 writes the grouped manifest to `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` in exactly the grouped shape below (`{sourceKey, stubs:[{file,line,content}]}`). Pipe it straight into the tool with `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
+
 Run the tool (pipe the manifest JSON built per the format above; Tickets.json is always `./Tickets.json` and the source root is cwd):
 ```bash
 # Review first (validates the whole manifest, writes nothing)

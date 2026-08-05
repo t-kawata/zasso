@@ -48,9 +48,11 @@ function scanStubs(dir) {
  * @param {string} content — Marker line
  * @returns {string} — Clean marker line
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-131|PX-135) --for-spec --no-implementation-order`.
 function stripUnitTag(content) {
-  return content.replace(UNIT_TAG_RE, "").replace(/\s{2,}/, " ").trim();
+  // Collapse every 2+ whitespace run (the tag removal leaves a gap before the
+  // covers annotation) — not just the first, which would be the leading indent.
+  return content.replace(UNIT_TAG_RE, "").replace(/\s{2,}/g, " ").trim();
 }
 
 /**

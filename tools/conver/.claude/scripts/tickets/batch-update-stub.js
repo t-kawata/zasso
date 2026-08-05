@@ -49,7 +49,7 @@ function markerKey(file, line, root) {
  * @param {Array} units — Parsed decision file
  * @returns {Array} — [{where, unitId?, ref?, problem, cause, fix}]
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function validateDecisionUnits(units) {
   const problems = [];
   const seenUnitIds = new Set();
@@ -119,6 +119,27 @@ function validateDecisionUnits(units) {
           seenMarkerRefs.add(key);
         }
       }
+    }
+
+    // PX-135: an empty reason/plan would blank the marker — reject when present
+    // but empty so no marker is ever written without its why/plan text.
+    if (unit.reason !== undefined && (typeof unit.reason !== "string" || unit.reason.trim() === "")) {
+      problems.push({
+        where,
+        unitId: unit.unitId,
+        problem: "reason must be a non-empty string when present",
+        cause: "an empty reason would blank the marker's why-this-stays text",
+        fix: "omit reason to keep each marker's existing reason, or provide a non-empty reason",
+      });
+    }
+    if (unit.plan !== undefined && (typeof unit.plan !== "string" || unit.plan.trim() === "")) {
+      problems.push({
+        where,
+        unitId: unit.unitId,
+        problem: "plan must be a non-empty string when present",
+        cause: "an empty plan would produce a marker with no resolution plan",
+        fix: "omit plan to keep each marker's existing plan, or provide a non-empty plan",
+      });
     }
   }
   return problems;
@@ -213,18 +234,64 @@ function prepareAllEdits(units, ticketsPath) {
   return { ok: true, edits };
 }
 
-/** Commit prepared edits, rewriting each file in descending line order. */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
-function commitEdits(edits) {
-  const byFile = {};
+/**
+ * Split prepared edits into dedup survivors (kept) and merged-away duplicates
+ * (removed). Markers sharing the same file and reason within a unit collapse to
+ * the lowest-line survivor, which enumerates the covered lines.
+ * @param {Array} edits — Prepared edits [{file, line, newContent, unitId, key}]
+ * @returns {{kept: Array, removed: Array}}
+ */
+// [::TICKET::] PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-135 --for-spec --no-implementation-order`.
+function mergeUnitDuplicates(edits) {
+  const byUnit = {};
   for (const e of edits) {
-    if (!byFile[e.file]) byFile[e.file] = [];
-    byFile[e.file].push(e);
+    if (!byUnit[e.unitId]) byUnit[e.unitId] = [];
+    byUnit[e.unitId].push(e);
   }
-  for (const [file, entries] of Object.entries(byFile)) {
-    entries.sort((a, b) => b.line - a.line);
+  const kept = [];
+  const removed = [];
+  for (const unitId of Object.keys(byUnit)) {
+    const unitEdits = byUnit[unitId];
+    const markers = unitEdits.map((e) => ({ file: e.file, line: e.line, content: e.newContent }));
+    const merged = mergeTrueDuplicates(markers);
+    const removedKeys = new Set(merged.removed.map((m) => m.file + ":" + m.line));
+    for (const e of unitEdits) {
+      if (removedKeys.has(e.file + ":" + e.line)) {
+        removed.push(e);
+      } else {
+        const survivor = merged.kept.find((m) => m.file === e.file && m.line === e.line);
+        kept.push({ ...e, newContent: survivor ? survivor.content : e.newContent });
+      }
+    }
+  }
+  return { kept, removed };
+}
+
+/**
+ * Commit a consolidation: replace survivor lines and delete merged-away lines.
+ * Both operations are processed per file in descending line order so deletions
+ * never shift an earlier replacement's target line.
+ * @param {Array} keptEdits — Survivor edits [{file, line, newContent}]
+ * @param {Array} removedEdits — Merged-away edits [{file, line}]
+ */
+// [::TICKET::] PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-135 --for-spec --no-implementation-order`.
+function commitConsolidated(keptEdits, removedEdits) {
+  const byFile = {};
+  for (const e of keptEdits) {
+    if (!byFile[e.file]) byFile[e.file] = [];
+    byFile[e.file].push({ line: e.line, kind: "replace", content: e.newContent });
+  }
+  for (const e of removedEdits) {
+    if (!byFile[e.file]) byFile[e.file] = [];
+    byFile[e.file].push({ line: e.line, kind: "delete" });
+  }
+  for (const [file, operations] of Object.entries(byFile)) {
+    operations.sort((a, b) => b.line - a.line);
     const lines = fs.readFileSync(file, "utf8").split("\n");
-    for (const e of entries) lines[e.line - 1] = e.newContent;
+    for (const op of operations) {
+      if (op.kind === "delete") lines.splice(op.line - 1, 1);
+      else lines[op.line - 1] = op.content;
+    }
     fs.writeFileSync(file, lines.join("\n"), "utf8");
   }
 }
@@ -240,17 +307,23 @@ function rollbackTimestamp() {
 /**
  * Write a precise rollback backup (the pre-edit marker contents) under manifests/,
  * so the applied consolidation can be undone without destructive git commands.
- * @param {Array} edits — [{file, line, oldContent, newContent}]
+ * The backup records edited (survivor) entries for replacement and removed
+ * (merged-away) entries for reinsertion on rollback.
+ * @param {Array} keptEdits — Survivor edits [{file, line, oldContent}]
+ * @param {Array} removedEdits — Merged-away edits [{file, line, oldContent}]
  * @param {string} root — Target tree root
  * @returns {{ok: boolean, rollbackPath?: string, error?: string}}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
-function writeRollbackFile(edits, root) {
+// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
+function writeRollbackFile(keptEdits, removedEdits, root) {
   const manifestsDir = path.join(root, "manifests");
   try {
     fs.mkdirSync(manifestsDir, { recursive: true });
     const rollbackPath = path.join(manifestsDir, "ROLLBACK-" + rollbackTimestamp() + ".json");
-    const backup = edits.map((e) => ({ file: e.file, line: e.line, oldContent: e.oldContent }));
+    const backup = {
+      edited: keptEdits.map((e) => ({ file: e.file, line: e.line, oldContent: e.oldContent })),
+      removed: removedEdits.map((e) => ({ file: e.file, line: e.line, oldContent: e.oldContent })),
+    };
     fs.writeFileSync(rollbackPath, JSON.stringify(backup, null, 2) + "\n", "utf8");
     return { ok: true, rollbackPath };
   } catch (e) {
@@ -260,11 +333,13 @@ function writeRollbackFile(edits, root) {
 
 /**
  * Restore the edited markers from a rollback backup — precise, no git involved.
+ * Accepts both the legacy flat-array format (every entry is an edited line) and
+ * the PX-135 structured format { edited: [...], removed: [...] }.
  * @param {object} params
  * @param {string} params.backupPath — Path to the ROLLBACK-*.json file
  * @returns {{ok: boolean, restored?: number, error?: string}}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function runRollback({ backupPath }) {
   if (!backupPath) return { ok: false, error: "--rollback requires a backup path" };
   let backup;
@@ -273,22 +348,46 @@ function runRollback({ backupPath }) {
   } catch (e) {
     return { ok: false, error: "cannot read rollback backup: " + e.message };
   }
-  if (!Array.isArray(backup)) return { ok: false, error: "rollback backup must be an array" };
-  const byFile = {};
-  for (const b of backup) {
-    if (!b.file || !Number.isInteger(b.line) || typeof b.oldContent !== "string") {
-      return { ok: false, error: "malformed rollback entry: " + JSON.stringify(b) };
-    }
-    if (!byFile[b.file]) byFile[b.file] = [];
-    byFile[b.file].push(b);
+
+  // Normalize both backup shapes to a single entry list with a restore kind.
+  let editedEntries;
+  let removedEntries;
+  if (Array.isArray(backup)) {
+    editedEntries = backup;
+    removedEntries = [];
+  } else if (backup && Array.isArray(backup.edited)) {
+    editedEntries = backup.edited;
+    removedEntries = backup.removed || [];
+  } else {
+    return { ok: false, error: "malformed rollback backup: expected an array or { edited, removed }" };
   }
+
+  const byFile = {};
+  const collect = (entries, kind) => {
+    for (const b of entries) {
+      if (!b.file || !Number.isInteger(b.line) || typeof b.oldContent !== "string") {
+        return { ok: false, error: "malformed rollback entry: " + JSON.stringify(b) };
+      }
+      if (!byFile[b.file]) byFile[b.file] = [];
+      byFile[b.file].push({ line: b.line, kind, oldContent: b.oldContent });
+    }
+    return { ok: true };
+  };
+  const editedCollect = collect(editedEntries, "replace");
+  if (!editedCollect.ok) return editedCollect;
+  const removedCollect = collect(removedEntries, "insert");
+  if (!removedCollect.ok) return removedCollect;
+
   for (const [file, entries] of Object.entries(byFile)) {
     entries.sort((a, b) => b.line - a.line);
     const lines = fs.readFileSync(file, "utf8").split("\n");
-    for (const e of entries) lines[e.line - 1] = e.oldContent;
+    for (const e of entries) {
+      if (e.kind === "insert") lines.splice(e.line - 1, 0, e.oldContent);
+      else lines[e.line - 1] = e.oldContent;
+    }
     fs.writeFileSync(file, lines.join("\n"), "utf8");
   }
-  return { ok: true, restored: backup.length };
+  return { ok: true, restored: editedEntries.length + removedEntries.length };
 }
 
 /**
@@ -301,7 +400,7 @@ function runRollback({ backupPath }) {
  * @param {string} [params.ticketsPath] — Tickets.json (defaults to cwd)
  * @returns {{ok: boolean, manifestPath?: string, markers?: number, units?: number, unassigned?: Array, problems?: Array, failures?: Array, error?: string}}
  */
-// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-132|PX-135) --for-spec --no-implementation-order`.
 function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = false }) {
   const root = dir ? path.resolve(dir) : process.cwd();
   const tickets = ticketsPath || path.resolve("Tickets.json");
@@ -344,6 +443,11 @@ function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = fal
   // Omissions (C004): report scanned markers that were not assigned to any unit.
   const unassigned = findUnassigned(scanned, assigned, root);
 
+  // PX-135: split the prepared edits into dedup survivors and merged-away
+  // duplicates before any write, so the rollback backup and the manifest both
+  // reflect the consolidated result.
+  const { kept, removed } = mergeUnitDuplicates(prepared.edits);
+
   // Dry-run: show the full edit plan with zero side effects so the AI can confirm
   // the grouping before anything is applied.
   if (dryRun) {
@@ -353,16 +457,18 @@ function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = fal
       plan: prepared.edits.map((e) => ({ file: e.file, line: e.line, oldContent: e.oldContent, newContent: e.newContent, unitId: e.unitId, key: e.key })),
       unassigned,
       units: resolved.length,
+      merged: removed.length,
     };
   }
 
-  // Write a precise rollback backup BEFORE committing, so an approved-but-wrong
+  // Write a precise rollback backup BEFORE committing (edited survivors to
+  // restore in place, removed duplicates to reinsert), so an approved-but-wrong
   // apply can be undone without destructive git commands.
-  const rollback = writeRollbackFile(prepared.edits, root);
+  const rollback = writeRollbackFile(kept, removed, root);
   if (!rollback.ok) return { ok: false, error: rollback.error };
 
-  // Atomic commit.
-  commitEdits(prepared.edits);
+  // Atomic commit: replace survivor lines and delete merged-away lines.
+  commitConsolidated(kept, removed);
 
   // Emit manifest + strip [::UNIT::] tags (print-manifest). Debris (C005).
   const printed = runPrinter(root);
@@ -371,7 +477,7 @@ function runBatchUpdate({ decision, decisionPath, dir, ticketsPath, dryRun = fal
   // Consume the decision file.
   if (decisionPath) { try { fs.unlinkSync(path.resolve(decisionPath)); } catch { /* already gone */ } }
 
-  return { ok: true, manifestPath: printed.manifestPath, rollbackPath: rollback.rollbackPath, markers: prepared.edits.length, units: resolved.length, unassigned };
+  return { ok: true, manifestPath: printed.manifestPath, rollbackPath: rollback.rollbackPath, markers: prepared.edits.length, units: resolved.length, merged: removed.length, unassigned };
 }
 
 /**
@@ -480,4 +586,4 @@ function groupPlanByUnit(plan) {
 
 if (require.main === module) main();
 
-module.exports = { runBatchUpdate, runRollback, writeRollbackFile, validateDecisionUnits, parseMarkerReference, resolveMarkerLines, findUnassigned, deriveResolveKey, prepareAllEdits, commitEdits };
+module.exports = { runBatchUpdate, runRollback, writeRollbackFile, validateDecisionUnits, parseMarkerReference, resolveMarkerLines, findUnassigned, deriveResolveKey, prepareAllEdits, commitConsolidated, mergeUnitDuplicates };

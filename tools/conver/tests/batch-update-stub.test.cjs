@@ -286,3 +286,103 @@ describe("C006 manifest output", function () {
     assert.strictEqual(manifest.length, 1, "one unit");
   });
 });
+
+// ---------------------------------------------------------------------------
+// PX-135 — dedup (mergeTrueDuplicates wiring) + empty-string validation
+// ---------------------------------------------------------------------------
+
+// @verifies C001 (PX-135 contract)
+describe("C001 dedup merge (PX-135)", function () {
+  it("merges two same-file same-reason markers into one survivor annotated '(covers ...)'", () => {
+    const ws = makeWorkspace();
+    fs.writeFileSync(ws.srcA, "// a\npub fn demo() {\n    let x = 1;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n    let _ = x;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n}\n");
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", resolveByTicket: "P4-2", markerLines: ["src/a.rs:4", "src/a.rs:6"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.ok, true, JSON.stringify(res.error));
+    assert.strictEqual(res.merged, 1, "one duplicate merged");
+    const lines = fs.readFileSync(ws.srcA, "utf8").split("\n");
+    assert.strictEqual(lines.filter((l) => l.includes("[::STUB::]")).length, 1, "one survivor remains");
+    const survivor = lines.find((l) => l.includes("[::STUB::]")) || "";
+    assert.ok(survivor.includes("covers a.rs:4,6"), "survivor enumerates covered lines");
+    assert.ok(!/  /.test(survivor), "survivor has no double-space debris from tag stripping");
+  });
+});
+
+// @verifies C002 (PX-135 contract)
+describe("C002 distinct reasons (PX-135)", function () {
+  it("does not merge two same-file markers with different reasons", () => {
+    const ws = makeWorkspace();
+    fs.writeFileSync(ws.srcA, "// a\npub fn demo() {\n    let x = 1;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n    let _ = x;\n    // [::STUB::] P4-2: audio worker -- Implement audio worker\n}\n");
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", resolveByTicket: "P4-2", markerLines: ["src/a.rs:4", "src/a.rs:6"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.ok, true, JSON.stringify(res.error));
+    assert.strictEqual(res.merged, 0, "different reasons never merge");
+    assert.strictEqual(fs.readFileSync(ws.srcA, "utf8").split("\n").filter((l) => l.includes("[::STUB::]")).length, 2, "both markers remain");
+  });
+});
+
+// @verifies C003 (PX-135 contract)
+describe("C003 dedup rollback (PX-135)", function () {
+  it("restores merged-away markers byte-for-byte via --rollback", () => {
+    const ws = makeWorkspace();
+    fs.writeFileSync(ws.srcA, "// a\npub fn demo() {\n    let x = 1;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n    let _ = x;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n}\n");
+    const before = fs.readFileSync(ws.srcA, "utf8");
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", resolveByTicket: "P4-2", markerLines: ["src/a.rs:4", "src/a.rs:6"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.merged, 1, "dedup must run before rollback");
+    const restored = runRollback({ backupPath: res.rollbackPath });
+    assert.strictEqual(restored.ok, true, JSON.stringify(restored.error));
+    assert.strictEqual(fs.readFileSync(ws.srcA, "utf8"), before, "byte-for-byte restore including the removed line");
+  });
+});
+
+// @verifies C004 (PX-135 contract)
+describe("C004 empty reason/plan (PX-135)", function () {
+  it("rejects an empty reason with zero writes", () => {
+    const ws = makeWorkspace();
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", reason: "", markerLines: ["src/a.rs:4"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.ok, false, "empty reason must abort");
+    assert.ok(res.problems.some((p) => /reason/.test(p.problem)), "problem names the reason field");
+    assert.ok(fs.readFileSync(ws.srcA, "utf8").includes("// [::STUB::] P4-2: codec deferred"), "no marker edited");
+  });
+  it("rejects an empty plan with zero writes", () => {
+    const ws = makeWorkspace();
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", plan: "", markerLines: ["src/a.rs:4"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.ok, false, "empty plan must abort");
+    assert.ok(res.problems.some((p) => /plan/.test(p.problem)), "problem names the plan field");
+  });
+});
+
+// @verifies C005 (PX-135 contract)
+describe("C005 manifest survivor-only (PX-135)", function () {
+  it("emits a manifest with each survivor exactly once", () => {
+    const ws = makeWorkspace();
+    fs.writeFileSync(ws.srcA, "// a\npub fn demo() {\n    let x = 1;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n    let _ = x;\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\n}\n");
+    const res = runBatchUpdate({
+      decision: [{ unitId: "U1", resolveByTicket: "P4-2", markerLines: ["src/a.rs:4", "src/a.rs:6"] }],
+      dir: ws.dir,
+      ticketsPath: ws.ticketsPath,
+    });
+    assert.strictEqual(res.merged, 1, "dedup must run before the manifest");
+    const manifest = JSON.parse(fs.readFileSync(res.manifestPath, "utf8"));
+    const stubRefs = manifest.flatMap((e) => e.stubs.map((s) => s.file + ":" + s.line));
+    assert.strictEqual(stubRefs.length, 1, "one survivor in the manifest");
+  });
+});

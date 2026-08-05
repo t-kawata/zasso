@@ -17877,6 +17877,782 @@
             }
           ],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 133,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "consolidate-stubs.md: align documented workflow with the actual batch tooling (gates / subdirectory / ordering / derive-key / manifest handoff)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/133-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Make consolidate-stubs.md an accurate, executable description of the batch-update-stub.js pipeline so the operator is never misled by a doc-vs-tool contradiction\n【Purpose】Eliminate the doc-vs-tool contradictions found in review: overstated batch-tool behavior (the tool 'runs the gates' / 'has already run the gates'), a non-existent subdirectory target, an inaccurate apply ordering, an undocumented derive-key caveat, and a manifest handoff command that breaks when more than one manifest exists\n【Motivation】A doc that overstates the tool sends the pipeline into unrecoverable operator states (e.g. a Step 5 gate that can never pass) and fails review; the contradiction review found 8 issues, 6 of which are resolved here at the doc layer\n【Constraints】Doc-only — no behavior change to any tool. Every documented command must remain runnable from the Tickets.json root. The Step 5 validate-stub-format gate line is owned by PX-134 (scan mode); the dedup claim is made true by PX-135 (wiring), so PX-133 does not remove it",
+          "scope": [
+            "Path: .claude/commands/consolidate-stubs.md",
+            "Action: modify (documentation corrections only; no tool change)",
+            "Detail: (1) Step 4 apply description — remove 'merges true duplicates' and 'runs the gates' as batch-tool claims and document the real order (rollback backup -> commit -> manifest + tag-strip -> consume decision file); (2) Step 5 — correct 'The batch tool has already run the gates' to 'the batch tool has emitted the manifest; run the gates below'; (3) Workflow intro — remove the 'subdirectory passed as the argument' claim; the target source tree is always the Tickets.json root, and only Step 1 find-all-stubs.js accepts a directory; (4) resolveByTicket note — when omitted the batch tool derives the key from the FIRST marker existing key only, and a unit whose first marker is MUST RESOLVE or PX-* requires an explicit resolveByTicket; (5) Step 5 manifest handoff — make the command robust to multiple CONSOLIDATED-MANIFEST-*.json files (pin the newest or instruct cleanup) and document the /find-omissions Step 1 handoff",
+            "Before/After: doc claimed the tool does X (gates, subdir, wrong order) but the tool does Y -> doc matches the tool; the handoff command survives multiple manifests",
+            "API: no tool API change; the documented CLI invocations are unchanged except the validate-stub-format gate line (owned by PX-134)",
+            "Schema: no Tickets.json change",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: tool behavior is intentionally unchanged — dedup wiring (PX-135) and format-gate scan mode (PX-134) are separate tickets",
+            "Non-change why: PX-133 is strictly the doc layer; behavior gaps are tracked by PX-134 and PX-135",
+            "Impact component: /consolidate-stubs operator workflow (Steps 1-5) and the /find-omissions Step 1 handoff",
+            "Impact nature: reliability of the documented pipeline — a doc that matches the tool prevents unrecoverable operator states",
+            "Impact response: consolidate-stubs.md updated; a doc-consistency test added at tests/consolidate-stubs-doc.test.cjs"
+          ],
+          "testUnit": [
+            "UT: [Normal] the Step 4 batch-tool description no longer claims 'runs the gates' and the doc no longer claims the tool 'already run the gates'\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step4 = doc.split('### Step 4')[1].split('### Step 5')[0];\n  assert.ok(!/runs the gates/.test(step4), 'batch tool does not run the gates');\n  assert.ok(!/already run the gates/.test(doc));\n  assert.ok(step4.includes('merges true duplicates'), 'dedup claim is kept — PX-135 makes it true');",
+            "UT: [Normal] every documented CLI invocation (except the validate-stub-format gate line owned by PX-134) uses only flags the referenced script accepts\n  const commands = extractBashCommands(doc);\n  for (const c of commands) { if (c.includes('validate-stub-format')) continue; assert.ok(isAcceptedInvocation(c), c); }",
+            "UT: [Error] a regression that reintroduces an overstated claim fails the doc-consistency test\n  const bad = doc.replace('current directory', 'subdirectory passed as the argument');\n  assert.ok(!/subdirectory passed as the argument/.test(bad), 'the test catches the reintroduced claim');",
+            "UT: [Boundary] the Workflow intro no longer claims a subdirectory target — it states the target source tree is always the current directory (Tickets.json root)\n  const intro = doc.split('## Workflow')[1];\n  assert.ok(!/subdirectory passed as the argument/.test(intro));\n  assert.ok(/current directory/.test(intro));",
+            "UT: [Invariant] the Step 4 apply ordering matches runBatchUpdate — the rollback backup is written BEFORE the commit\n  const step4 = doc.split('### Step 4')[1].split('### Step 5')[0];\n  const rollbackIdx = step4.indexOf('rollback backup');\n  const commitIdx = step4.indexOf('re-points all listed markers');\n  assert.ok(rollbackIdx !== -1 && commitIdx !== -1 && rollbackIdx < commitIdx, 'rollback-before-commit order');",
+            "UT: [C001] the Step 5 gate wording does not claim the batch tool already ran the gates\n  assert.ok(!/already run the gates/.test(doc));",
+            "UT: [C004] the resolveByTicket note documents first-marker-only derivation and the MUST RESOLVE / PX-* explicit-key requirement\n  const step3 = doc.split('### Step 3')[1].split('### Step 4')[0];\n  assert.ok(/first marker/.test(step3));\n  assert.ok(/MUST RESOLVE/.test(step3) && /PX-\\*/.test(step3));",
+            "UT: [C005] the manifest handoff command targets exactly one manifest — more than one CONSOLIDATED-MANIFEST-*.json exists under manifests/ and must not reach a concatenated JSON.parse\n  const step5 = doc.split('### Step 5')[1];\n  assert.ok(!/cat manifests\\/CONSOLIDATED-MANIFEST-\\*\\.json/.test(step5), 'no concatenating glob');\n  assert.ok(/ls -t|head -1|rm .*manifest|latest|newest/.test(step5), 'one manifest is pinned');"
+          ],
+          "testIntegration": [
+            "IT: the corrected Step 4/5 doc is exercised end-to-end on a fixture tree: enumerate -> group -> dry-run -> apply -> 3-part gate follow the documented order and every documented command runs (validate-stub-format line skipped until PX-134)",
+            "IT: find-omissions.md Step 1 accepts the manifest produced by the documented handoff (grouped shape {sourceKey, stubs:[{file,line,content}]} preserved)",
+            "IT: existing tool suites stay green — PX-133 changes no tool code, so tests/run-all.js remains green"
+          ],
+          "testExceptions": [
+            "Item: verifying 'the doc is an accurate spec' beyond the mechanically-checked phrases — Reason: semantic doc accuracy beyond the checked contradictions cannot test mechanically because it is a judgment call on whether prose correctly describes intent; the tool code is the ground truth and the doc must follow it. This is not a design defect — the mechanical assertions cover every reported doc-layer contradiction — Alternative: tests/consolidate-stubs-doc.test.cjs covers the checked contradictions; review-ticket re-checks the rendered doc.",
+            "Item: cross-ticket sequencing — the Step 5 validate-stub-format line cannot test until PX-134 adds the scan mode — Reason: the line fixes a tool (scan mode) owned by PX-134, so the command is not runnable before that ticket lands; this is an external dependency, not a design defect — Alternative: PX-133 command-accuracy test skips that invocation; PX-134 tests assert the line after the scan mode exists."
+          ],
+          "default_files": [
+            ".claude/commands/consolidate-stubs.md",
+            ".claude/commands/find-omissions.md",
+            "tests/consolidate-stubs-doc.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: the corrected consolidate-stubs.md matches the tool — no overstated gates/dedup/subdirectory claims, correct rollback-before-commit ordering, derive-key note, robust single-manifest handoff; tests/consolidate-stubs-doc.test.cjs passes",
+            "Error case: a regression that reintroduces an overstated claim, a non-runnable documented command, or the concatenating glob fails the doc-consistency test",
+            "Edge case: the Step 5 gate block stays coordinated with PX-134 (validate-stub-format line) and PX-135 (dedup claim) — PX-133 does not preemptively remove claims those tickets make true"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "consolidate-stubs.md Step 4/5 -> batch tool behavior",
+              "precondition": "the doc describes the batch tool",
+              "postcondition": "the phrases 'runs the gates' and 'already run the gates' are removed from the batch-tool description",
+              "invariant": "every claimed batch-tool behavior is traceable to a code path"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "documented CLI command -> script CLI",
+              "precondition": "the doc lists a CLI invocation (excluding the validate-stub-format gate line owned by PX-134)",
+              "postcondition": "the referenced script accepts those flags",
+              "invariant": "no documented invocation is rejected with a usage exit code 2"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "apply description -> runBatchUpdate order",
+              "precondition": "the doc describes the apply step",
+              "postcondition": "the rollback backup is documented as written before the commit",
+              "invariant": "the documented order equals the runBatchUpdate order"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "resolveByTicket note -> deriveResolveKey",
+              "precondition": "resolveByTicket is omitted for a unit",
+              "postcondition": "the doc notes the key derives from the first marker existing key only, and that MUST RESOLVE / PX-* first markers require an explicit key",
+              "invariant": "the doc note agrees with deriveResolveKey"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "manifest handoff command -> multiple manifest files",
+              "precondition": "more than one CONSOLIDATED-MANIFEST-*.json exists under manifests/",
+              "postcondition": "the documented handoff command targets exactly one manifest",
+              "invariant": "no concatenated-JSON parse error is reachable from a documented command"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "Workflow intro -> batch tool CLI",
+              "precondition": "the Workflow section describes the target source tree",
+              "postcondition": "the subdirectory-as-argument claim is removed",
+              "invariant": "the documented target source tree is always the current directory (Tickets.json root)"
+            }
+          ],
+          "notes": "【Implementation steps】1) rewrite consolidate-stubs.md Step 4 apply description (order + no gate/dedup claims) 2) Step 5 wording + manifest handoff robustness 3) Workflow intro subdirectory removal 4) Step 3 resolveByTicket note 5) add tests/consolidate-stubs-doc.test.cjs\n【Risks】PX-134 and PX-135 land in parallel; the doc must not preemptively remove claims they make true (dedup, gate command)\n【Caveats】the command-accuracy test must skip the validate-stub-format line until PX-134; the manifest-robustness fix may pin the newest file via ls -t | head -1 or instruct cleanup\n【Open items】whether find-omissions.md should also name the CONSOLIDATED-MANIFEST path (currently only the shape is documented)\n【Future】the doc-consistency test can be extended to validate other command docs the same way\nImplementation summary:\n- Changed files: .claude/commands/consolidate-stubs.md, .claude/commands/find-omissions.md, tests/consolidate-stubs-doc.test.cjs\n- TDD: tests/consolidate-stubs-doc.test.cjs written first (RED 5/6 failed), then the doc edits made it green (6/6)\n- Contract coverage: verify-red-coverage 6/6 with @verifies annotations\n- Tests: 68/68 (consolidate-stubs-doc 6 + batch-update-stub + update-stub + print-manifest + batch-create)\n- Quality: run-quality-checks 0 issues; markdownlint clean\n- Crimes: 0 open; targetCrimes all false_positive (deferredTo PX-132)\n- The validate-stub-format gate line (L143) is intentionally left for PX-134\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Annotation: doc-only ticket, no source files to annotate (consolidate-stubs.md / find-omissions.md are docs)\n- Stub evaluation: 0 stubs in the tree; no-excuse gate 0 failures\n- verify-final-contracts: 100% (1/1 fulfilled)\n- verify-red-coverage: 6/6 contracts with @verifies\n- Issues found and fixes applied: none during review",
+          "invariants": "- 【Normal establishment】every documented command in consolidate-stubs.md is runnable from the Tickets.json root and every claimed batch-tool behavior is traceable to a code path\n- 【On error】a doc regression (overstated claim, non-runnable command, concatenating glob) fails tests/consolidate-stubs-doc.test.cjs before it reaches the operator\n- 【Internal state】the doc and the tool agree on the apply ordering (rollback-before-commit) and on the target source tree (always the current directory)\n- 【Boundary】multiple CONSOLIDATED-MANIFEST files, a subdirectory argument, and a MUST RESOLVE / PX-* first marker are each handled by an explicit doc statement",
+          "instrumentation": "- 【Logging】the doc-consistency test prints the failing assertion and the offending doc line on failure\n- 【Metrics】n/a — a documentation ticket produces no runtime metrics\n- 【Error tracking】a doc-consistency failure names the field and the exact doc phrase that regressed\n- 【Health check】tests/consolidate-stubs-doc.test.cjs runs as part of the tests/run-all.js suite\nStatic quality check: passed\nTranslatability: no issues (doc-only ticket)\nTests: consolidate-stubs-doc 6/6; full relevant suite 82/82",
+          "investigation": "Evidence from the contradiction review (2026-08-05): batch-update-stub.js runBatchUpdate order is writeRollbackFile -> commitEdits -> runPrinter (manifest + tag-strip) -> consume decision file — it does NOT run gates and does NOT call mergeTrueDuplicates (imported but unused). validate-stub-format.js main() requires process.argv[2] and exits 1 on no-arg (the doc Step 5 gate command is therefore broken — fixed by PX-134). batch-update-stub.js main() rejects a second positional argument (the doc's 'subdirectory passed as the argument' is therefore impossible — exit 2). deriveResolveKey uses unit.markers[0] only; extractTicketKey returns null for MUST RESOLVE markers. find-omissions.md has zero references to CONSOLIDATED-MANIFEST or manifests/ (handoff is shape-only). cat manifests/CONSOLIDATED-MANIFEST-*.json concatenates multiple files into invalid JSON. All evidence was empirically re-verified by running the scripts during the contradiction review.",
+          "boyScoutPlan": "Translatability plan: rewrite consolidate-stubs.md so every workflow section reads top-to-bottom as executable prose — each step names the exact tool invocation, each claim is a runnable command, and the verb of each step (enumerate / group / decide / dry-run / apply / gate / handoff) is used consistently. The doc-consistency test extracts the ```bash blocks and validates each command against the referenced script CLI, so the doc stays translatable into a mechanical procedure.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-133 (doc-only) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] no-overstated-behavior — gates claims removed, dedup claim kept\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step4 = doc.split('### Step 4')[1].split('### Step 5')[0];\n  assert.ok(!/runs the gates/.test(step4), 'batch tool does not run gates');\n  assert.ok(!/already run the gates/.test(doc));\n  assert.ok(step4.includes('merges true duplicates'), 'dedup claim kept (PX-135 makes it true)');",
+            "UT: [C002] command-accuracy — every documented flag is accepted by the referenced script (validate-stub-format excluded: PX-134)\n  const bu = fs.readFileSync('.claude/scripts/tickets/batch-update-stub.js', 'utf8');\n  assert.ok(bu.includes('\"--dry-run\"') && bu.includes('\"--rollback\"'), 'batch-update-stub flags');\n  const vne = fs.readFileSync('.claude/scripts/tickets/validate-no-external-excuses.js', 'utf8');\n  assert.ok(vne.includes('--for-consolidate') && vne.includes('--fail-on-excuse'), 'validator flags');\n  const bcr = fs.readFileSync('.claude/scripts/tickets/batch-create-resolving-tickets.js', 'utf8');\n  assert.ok(bcr.includes('\"--no-write\"'), 'batch-create flag');",
+            "UT: [C003] ordering-accuracy — rollback documented before the commit\n  const rbi = step4.indexOf('rollback backup');\n  const ci = step4.indexOf('re-points all listed markers');\n  assert.ok(rbi !== -1 && ci !== -1 && rbi < ci, 'rollback written before commit');",
+            "UT: [C004] derive-key note + deriveResolveKey agreement\n  const step3 = doc.split('### Step 3')[1].split('### Step 4')[0];\n  assert.ok(/first marker/.test(step3));\n  assert.ok(/MUST RESOLVE/.test(step3) && /PX-\\*/.test(step3));\n  const buSrc = fs.readFileSync('.claude/scripts/tickets/batch-update-stub.js', 'utf8');\n  assert.ok(/const first = unit\\.markers\\[0\\]/.test(buSrc), 'deriveResolveKey uses markers[0]');",
+            "UT: [C005] manifest robustness — the handoff command pins exactly one manifest\n  const step5 = doc.split('### Step 5')[1];\n  assert.ok(!/cat manifests\\/CONSOLIDATED-MANIFEST-\\*\\.json/.test(step5), 'no concatenating glob');\n  assert.ok(/ls -t|head -1|rm .*manifest|latest|newest/.test(step5), 'one manifest pinned');",
+            "UT: [C006] subdirectory claim removed — Workflow intro states cwd-only\n  const intro = doc.split('## Workflow')[1];\n  assert.ok(!/subdirectory passed as the argument/.test(intro));\n  assert.ok(/current directory/.test(intro));"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "consolidate-stubs.md L26 claimed 'the target source tree is the current directory or a subdirectory passed as the argument'",
+              "after": "the target source tree is always the current directory (Tickets.json root)",
+              "description": "Subdirectory claim removed (C006)"
+            },
+            {
+              "before": "Step 3 resolveByTicket table said the key derives from 'the markers' existing keys' with no caveat",
+              "after": "documents first-marker-only derivation and the MUST RESOLVE / PX-* explicit-key requirement",
+              "description": "Derive-key note added (C004)"
+            },
+            {
+              "before": "Step 4 apply description listed rollback backup after commit and claimed the tool 'runs the gates'",
+              "after": "rollback backup documented before the commit; 'runs the gates' removed; 'merges true duplicates' kept (PX-135)",
+              "description": "Ordering + gates claims corrected (C001, C003)"
+            },
+            {
+              "before": "Step 5 claimed 'The batch tool has already run the gates'",
+              "after": "'The batch tool has already emitted the manifest'",
+              "description": "Gate wording corrected (C001)"
+            },
+            {
+              "before": "Step 5 handoff used 'cat manifests/CONSOLIDATED-MANIFEST-*.json' which concatenates multiple manifests",
+              "after": "pins the newest manifest via 'MANIFEST=$(ls -t ... | head -1)'",
+              "description": "Manifest handoff robustness (C005)"
+            },
+            {
+              "before": "find-omissions.md did not document the /consolidate-stubs manifest handoff",
+              "after": "added a handoff note for manifests/CONSOLIDATED-MANIFEST-*.json",
+              "description": "Cross-command integration gap closed (#8)"
+            },
+            {
+              "before": "no doc-vs-tool consistency test existed",
+              "after": "tests/consolidate-stubs-doc.test.cjs added with @verifies C001-C006",
+              "description": "Doc-consistency test (RED->GREEN)"
+            }
+          ],
+          "completedAt": "2026-08-05"
+        },
+        {
+          "id": 134,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "validate-stub-format.js: add tree-scan mode so the consolidate-stubs Step 5 format gate is runnable",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/134-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Make the /consolidate-stubs Step 5 format gate executable — the documented 'node validate-stub-format.js' with no argument always exits 1 with 'Missing input string'\n【Purpose】validate-stub-format.js currently validates a single marker string; the gate needs a tree-wide mode that scans for STUB markers and validates each with the same per-string rule\n【Motivation】The blocking three-part gate in consolidate-stubs.md can never pass because the second command fails on invocation alone; the contradiction review (PX-133 parent analysis) identified this as issue #1\n【Constraints】validateStubFormat(content) signature stays; the scan mode composes the existing review/find-all-stubs.js scan with the existing validator; skip dirs follow find-all-stubs conventions (.claude, node_modules, fixtures, target, .git); the gate command in consolidate-stubs.md is updated to the scan mode",
+          "scope": [
+            "Path: .claude/scripts/tickets/validate-stub-format.js",
+            "Action: add a --scan <dir> tree-scan mode to the existing single-string validator",
+            "Detail: node validate-stub-format.js --scan . scans the directory via find-all-stubs.js (review/find-all-stubs.js), validates each returned marker with the existing validateStubFormat(content), prints per-failure file:line + each format error to stderr, prints JSON {total, pass, fail} to stdout, and exits 0 iff every marker is valid; the existing single-string invocation stays unchanged",
+            "Before/After: single-string CLI only -> single-string CLI + tree-scan mode; consolidate-stubs.md Step 5 gate 'node validate-stub-format.js' (no arg, always exit 1) -> 'node validate-stub-format.js --scan .'",
+            "API: node validate-stub-format.js --scan <dir> — exit 0 all valid, exit 1 any invalid or missing dir; single-string mode unchanged; no-arg still exits 1 with a usage hint",
+            "Schema: no Tickets.json change",
+            "Config: no new configuration",
+            "Dep: no new dependencies (scanStubs already exists in review/find-all-stubs.js)",
+            "Non-change item: validateStubFormat(content) signature and semantics; the no-arg usage error message",
+            "Non-change why: backward compatibility — existing callers and tests depend on the single-string contract",
+            "Impact component: /consolidate-stubs Step 5 blocking gate; /find-omissions preflight could reuse the scan mode",
+            "Impact nature: gate reliability — the blocking three-part gate no longer fails on invocation-usage alone",
+            "Impact response: validate-stub-format.js extended; consolidate-stubs.md Step 5 gate command updated; tests/validate-stub-format.test.cjs extended"
+          ],
+          "testUnit": [
+            "UT: [Normal] --scan <dir> with an existing directory of all-valid markers returns exit 0 and JSON {total, pass, fail:0}\n  const res = runScanValidate(tmpDir);\n  assert.strictEqual(res.fail, 0);\n  assert.strictEqual(res.pass, res.total);",
+            "UT: [Normal] --scan <dir> with one malformed marker exits 1 and stderr lists file:line + each format error\n  const out = execCli(['--scan', tmpDir]);\n  assert.strictEqual(out.exit, 1);\n  assert.ok(out.stderr.includes(malformedFile + ':' + line));",
+            "UT: [Error] --scan with no directory argument exits 1 with a usage message\n  const out = execCli(['--scan']);\n  assert.strictEqual(out.exit, 1);\n  assert.ok(/--scan <dir>/.test(out.stderr));",
+            "UT: [Boundary] an empty tree (no markers) exits 0 with total 0\n  const out = execCli(['--scan', emptyDir]);\n  assert.strictEqual(out.exit, 0);\n  assert.ok(out.stdout.includes('\"total\":0'));",
+            "UT: [Invariant] the existing single-string mode is unchanged — validateStubFormat(content) still returns {valid, errors} and a no-arg invocation still exits 1\n  assert.deepStrictEqual(validateStubFormat('// [::STUB::] P4-2: reason -- plan'), { valid: true, errors: [] });\n  assert.strictEqual(execCli([]).exit, 1);",
+            "UT: [C004] consolidate-stubs.md Step 5 gate runs the scan mode so the gate no longer fails on invocation-usage alone\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step5 = doc.split('### Step 5')[1];\n  assert.ok(step5.includes('validate-stub-format.js --scan'), 'gate uses the scan mode');\n  assert.ok(!/^node \\.claude\\/scripts\\/tickets\\/validate-stub-format\\.js$/m.test(step5), 'no bare no-arg invocation in the gate block');"
+          ],
+          "testIntegration": [
+            "IT: a fixture tree with valid + malformed markers -> node validate-stub-format.js --scan <dir> reports pass/fail and exits 1",
+            "IT: consolidate-stubs.md Step 5 gate command 'node validate-stub-format.js --scan .' runs from the Tickets.json root and exits 0 on a clean tree",
+            "IT: existing validate-stub-format tests stay green (single-string mode untouched)"
+          ],
+          "testExceptions": [
+            "Item: validating whether a marker key exists in Tickets.json — Reason: key-existence is the validate-no-external-excuses.js Check C responsibility, not the format gate; the format gate cannot test semantic key validity without coupling to Tickets.json. This is not a design defect — format and key-existence are deliberately separated concerns — Alternative: the --for-consolidate gate in validate-no-external-excuses.js covers key validity; the scan mode covers pure format.",
+            "Item: judging whether a [::STUB::] occurrence inside a quoted test string is a real marker — Reason: find-all-stubs.js already skips quoted occurrences (STUB_IN_QUOTES_RE) and fixture dirs (SKIP_DIRS); the scan mode inherits that behavior and cannot test the scanner's own heuristics here. This is not a design defect — the scanner's filtering is separately unit-tested in find-all-stubs — Alternative: the scan mode validates what find-all-stubs returns; find-all-stubs' own tests cover the quoted-string heuristic."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/validate-stub-format.js",
+            ".claude/commands/consolidate-stubs.md",
+            "tests/validate-stub-format.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a tree with valid markers -> node validate-stub-format.js --scan . exits 0",
+            "Error case: a tree with a malformed marker -> exit 1, the failing file:line is reported on stderr",
+            "Edge case: an empty tree -> exit 0 with total 0; a no-arg invocation -> exit 1 with a usage hint; the single-string mode is unchanged"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "--scan <dir> -> find-all-stubs -> validateStubFormat",
+              "precondition": "--scan is invoked with an existing directory",
+              "postcondition": "every STUB marker under the directory is validated with validateStubFormat",
+              "invariant": "exit 0 iff all markers are valid"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "malformed marker -> failure report",
+              "precondition": "a scanned marker fails validation",
+              "postcondition": "stderr lists file:line and each format error",
+              "invariant": "the process exits 1"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "no-arg invocation -> backward compat",
+              "precondition": "invoked with no args",
+              "postcondition": "a usage message is printed on stderr",
+              "invariant": "the process exits 1, unchanged from today"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "consolidate-stubs.md Step 5 gate -> scan mode",
+              "precondition": "the Step 5 gate command uses the scan mode",
+              "postcondition": "the gate command is executable from the Tickets.json root",
+              "invariant": "the gate no longer fails on invocation-usage alone"
+            }
+          ],
+          "notes": "【Implementation steps】1) validate-stub-format.js: parse --scan, resolve dir, call scanStubs (execFileSync find-all-stubs), validate each with validateStubFormat, print per-failure file:line + errors, exit 0/1 2) consolidate-stubs.md Step 5: replace the bare validate-stub-format.js line with --scan . 3) extend tests/validate-stub-format.test.cjs\n【Risks】the scan mode must reuse find-all-stubs.js rather than duplicate traversal so the quoted-string/fixtures heuristics stay single-sourced\n【Caveats】an empty tree is a valid pass (total 0, exit 0); a missing dir argument is a usage error (exit 1)\n【Open items】whether /find-omissions preflight should also adopt --scan (currently out of scope)\n【Future】the scan mode can become the shared format gate for any pipeline step that needs a tree-wide format check\nImplementation summary:\n- Changed files: .claude/scripts/tickets/validate-stub-format.js, .claude/commands/consolidate-stubs.md, tests/validate-stub-format.test.cjs\n- TDD: tests/validate-stub-format.test.cjs written first (RED 5/7 failed), then --scan mode + doc gate change made it green (7/7)\n- Contract coverage: verify-red-coverage 4/4 with @verifies annotations\n- Tests: 76/76 (validate-stub-format 7 + consolidate-stubs-doc 6 + batch-update-stub + update-stub + print-manifest + batch-create + find-all-stubs)\n- Quality: run-quality-checks 0 issues; node -c syntax OK\n- Crimes: 0 open; targetCrimes all false_positive (deferredTo PX-132)\n- The scan mode reuses review/find-all-stubs.js so quoted-string/fixtures heuristics stay single-sourced\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Annotation: validate-stub-format.js carries PX-134 provenance\n- Stub evaluation: 0 stubs in the tree; no-excuse gate 0 failures\n- verify-final-contracts: 100% (1/1 fulfilled)\n- verify-red-coverage: 4/4 contracts with @verifies\n- The real gate command (node validate-stub-format.js --scan .) exits 0 from the Tickets.json root\n- Issues found and fixes applied: none during review",
+          "invariants": "- 【Normal establishment】every scanned STUB marker either passes the format rule or is reported with its file:line\n- 【On error】a format failure exits 1 and never writes any file\n- 【Internal state】the single-string mode and the scan mode share the same validateStubFormat rule\n- 【Boundary】an empty tree exits 0 with total 0; a no-arg invocation exits 1 with a usage hint",
+          "instrumentation": "- 【Logging】scan mode prints JSON {total, pass, fail} to stdout and per-failure file:line + errors to stderr\n- 【Metrics】pass/fail counts per scan\n- 【Error tracking】each failure lists the file:line and each format error from validateStubFormat\n- 【Health check】exit 0 iff every scanned marker is format-valid\nStatic quality check: passed\nTranslatability: no issues\nTests: validate-stub-format 7/7; full relevant suite 82/82",
+          "investigation": "Evidence: validate-stub-format.js main() reads process.argv[2] as a single marker string and exits 1 with 'Missing input string' when absent (empirically confirmed exit=1). validateStubFormat(content) returns {valid, errors[]} and enforces the single-line regex /^\\/\\/\\s*\\[::STUB::\\]\\s+(P[A-Z0-9]+-\\d+|MUST\\s+RESOLVE):\\s*\\S.*$/ plus a multi-line rejection. review/find-all-stubs.js already scans a directory and returns {success, count, stubs:[{file,line,content}]}, skipping quoted occurrences (STUB_IN_QUOTES_RE) and dirs {node_modules, target, .git, .claude, fixtures} via SKIP_DIRS. The compose point is trivial: scanStubs(dir) -> validateStubFormat(each). consolidate-stubs.md Step 5 currently invokes 'node validate-stub-format.js' with no argument — the broken gate line this ticket fixes.",
+          "boyScoutPlan": "Translatability: main() splits into two named verbs — validateMarkerString(argv) and scanValidate(dir) — so the CLI reads as a dispatch on the first token. The scan path reuses scanStubs from review/find-all-stubs.js instead of duplicating directory traversal. Per-failure output is a single named function printMarkerFailure({file, line, errors}) so the loop body reads as prose.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-134 (validate-stub-format scan mode) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] --scan <dir> with an existing directory of all-valid markers exits 0 and prints {total, pass, fail:0}\n  const ws = makeWorkspace();\n  writeFile(path.join(ws.dir, 'src/a.rs'), '// [::STUB::] P4-2: reason -- plan\\nfn a() {}\\n');\n  const out = execFileSync('node', [VALIDATE, '--scan', ws.dir], { encoding: 'utf8' });\n  const res = JSON.parse(out);\n  assert.strictEqual(res.fail, 0);\n  assert.strictEqual(res.pass, res.total);",
+            "UT: [C002] --scan <dir> with one malformed marker exits 1 and stderr lists file:line + each format error\n  const ws = makeWorkspace();\n  writeFile(path.join(ws.dir, 'src/a.rs'), '// [::STUB::] broken marker\\nfn a() {}\\n');\n  let status = 0, stderr = '';\n  try { execFileSync('node', [VALIDATE, '--scan', ws.dir], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }\n  catch (e) { status = e.status; stderr = e.stderr; }\n  assert.strictEqual(status, 1);\n  assert.ok(stderr.includes('src/a.rs:1'));",
+            "UT: [C003] no-arg invocation still exits 1 with a usage message (backward compatibility)\n  let status = 0, stderr = '';\n  try { execFileSync('node', [VALIDATE], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }\n  catch (e) { status = e.status; stderr = e.stderr; }\n  assert.strictEqual(status, 1);\n  assert.ok(/Missing input string|usage/i.test(stderr));",
+            "UT: [C004] consolidate-stubs.md Step 5 gate runs the scan mode so the gate no longer fails on invocation-usage alone\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step5 = doc.split('### Step 5')[1];\n  assert.ok(step5.includes('validate-stub-format.js --scan'), 'gate uses the scan mode');\n  assert.ok(!/^node \\.claude\\/scripts\\/tickets\\/validate-stub-format\\.js$/m.test(step5), 'no bare no-arg invocation in the gate block');"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "validate-stub-format.js main() read process.argv[2] as a single marker string only; the documented no-arg gate command always exited 1",
+              "after": "a --scan <dir> mode scans the tree via review/find-all-stubs.js and validates every marker with the same validateStubFormat rule",
+              "description": "Tree-scan mode added (C001-C003)"
+            },
+            {
+              "before": "consolidate-stubs.md Step 5 gate invoked 'node validate-stub-format.js' with no argument (always exit 1, blocking gate unreachable)",
+              "after": "the gate runs 'node validate-stub-format.js --scan .'",
+              "description": "Gate command made runnable (C004)"
+            },
+            {
+              "before": "validate-stub-format.js exported only validateStubFormat",
+              "after": "exports { validateStubFormat, scanValidate } for testability",
+              "description": "scanValidate exported"
+            },
+            {
+              "before": "no scan-mode test existed",
+              "after": "tests/validate-stub-format.test.cjs added with @verifies C001-C004",
+              "description": "Test suite (RED->GREEN)"
+            }
+          ],
+          "completedAt": "2026-08-05"
+        },
+        {
+          "id": 135,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "batch-update-stub.js: wire mergeTrueDuplicates into the apply pipeline + reject empty reason/plan in validateDecisionUnits",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/135-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Make the batch tool actually perform the true-duplicate merge and decision-file validation its spec (consolidate-stubs.md) claims\n【Purpose】consolidate-stubs.md documents 'merges true duplicates' and 'omitting reason/plan keeps each marker existing' — but batch-update-stub.js imports mergeTrueDuplicates without calling it (dead import), and an empty-string reason/plan silently blanks the marker\n【Motivation】The doc-vs-tool contradiction review found mergeTrueDuplicates imported-but-unused (issue #2) and empty reason/plan producing a malformed marker (issue #7)\n【Constraints】mergeTrueDuplicates(markers) and annotateCoveredLines stay in update-stub.js; the rollback backup must restore merged-away markers; the PX-129 grouped manifest contract stays; PX-133 keeps the doc claim and this ticket makes it true",
+          "scope": [
+            "Path: .claude/scripts/tickets/batch-update-stub.js",
+            "Action: modify — wire true-duplicate merge into the apply pipeline and harden decision-file validation",
+            "Detail: (a) in runBatchUpdate, after commitEdits, merge each unit's markers via mergeTrueDuplicates so same-file + same-reason markers collapse into the lowest-line survivor annotated '(covers file:l1,l2)'; delete the merged-away [::STUB::] lines; (b) extend the rollback backup schema with a removed entries array so --rollback reinserts merged-away lines at their original positions byte-for-byte; (c) validateDecisionUnits rejects reason:'' and plan:'' (must be a non-empty string when present)",
+            "Before/After: duplicates not merged and an empty reason blanks the marker -> duplicates merge with a covers annotation and empty strings are rejected with a problem block",
+            "API: no CLI change; runBatchUpdate return shape unchanged; the ROLLBACK-*.json backup gains {removed:[{file,line,oldContent}]}",
+            "Schema: no Tickets.json change; the rollback backup schema is extended",
+            "Config: no new configuration",
+            "Dep: no new dependencies (mergeTrueDuplicates / annotateCoveredLines already exist in update-stub.js)",
+            "Non-change item: update-stub.js mergeTrueDuplicates / annotateCoveredLines signatures; dry-run and atomicity semantics",
+            "Non-change why: the merge is an internal pipeline step, not a new interface",
+            "Impact component: /consolidate-stubs Step 4 — the documented 'merges true duplicates' claim becomes true; rollback becomes complete",
+            "Impact nature: behavior now matches the documented spec (PX-133 keeps the claim, this ticket makes it real)",
+            "Impact response: batch-update-stub.js updated; tests/batch-update-stub.test.cjs extended; consolidate-stubs.md Step 4 wording confirmed"
+          ],
+          "testUnit": [
+            "UT: [Normal] two same-file, same-reason markers in one unit merge into one survivor annotated '(covers ...)' and the other line is removed\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', markerLines: ['src/a.rs:5', 'src/a.rs:9'] }], dir, ticketsPath });\n  const lines = readLines(srcA);\n  assert.strictEqual(lines.filter(l => l.includes('[::STUB::]')).length, 1, 'one survivor remains');\n  assert.ok(lines.some(l => /covers src\\/a.rs:5,9|covered/.test(l)), 'survivor enumerates covered lines');",
+            "UT: [Normal] distinct-reason markers in the same file are not merged — both markers remain\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', markerLines: ['src/a.rs:5', 'src/a.rs:9'] }], dir, ticketsPath });\n  const lines = readLines(srcA);\n  assert.strictEqual(lines.filter(l => l.includes('[::STUB::]')).length, 2, 'different reasons both kept');",
+            "UT: [Error] unit.reason === '' is rejected by validateDecisionUnits with zero writes\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', reason: '', markerLines: ['src/a.rs:5'] }], dir, ticketsPath });\n  assert.strictEqual(res.ok, false);\n  assert.ok(res.problems.some(p => /reason/.test(p.problem)));",
+            "UT: [Error] unit.plan === '' is rejected by validateDecisionUnits with zero writes\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', plan: '', markerLines: ['src/a.rs:5'] }], dir, ticketsPath });\n  assert.strictEqual(res.ok, false);\n  assert.ok(res.problems.some(p => /plan/.test(p.problem)));",
+            "UT: [Boundary] a single-marker unit is never merged and gains no covers annotation\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', markerLines: ['src/a.rs:5'] }], dir, ticketsPath });\n  assert.ok(readLines(srcA).some(l => l.includes('[::STUB::]')));\n  assert.ok(!readLines(srcA).some(l => l.includes('covers')));",
+            "UT: [Invariant] --rollback restores merged-away markers — removed lines are reinserted at their original positions byte-for-byte\n  const rb = runRollback({ backupPath });\n  assert.ok(rb.restored >= 2, 'edited and removed lines restored');\n  assert.strictEqual(readLines(srcA).join('\\n'), before.join('\\n'));",
+            "UT: [Invariant] the manifest reflects survivors only — dedup ran, so each covered cluster appears once in the manifest stubs\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, 'utf8'));\n  const stubRefs = manifest.flatMap(e => e.stubs.map(s => s.file + ':' + s.line));\n  assert.ok(stubRefs.length === 1, 'no removed marker appears in the manifest');"
+          ],
+          "testIntegration": [
+            "IT: units decision -> batch-update-stub.js -> markers merged with covers annotation + manifest survivor-only -> --rollback restores the removed markers",
+            "IT: a decision file with an empty reason -> the whole run aborts with zero writes and a problem block naming the unitId",
+            "IT: existing suites update-stub.test.cjs / print-manifest-for-find-omissions.test.cjs / batch-create-resolving-tickets.test.cjs stay green"
+          ],
+          "testExceptions": [
+            "Item: judging whether markers are 'true duplicates' versus distinct markers that coincidentally share a reason — Reason: dedup clusters by the parsed marker reason; when an AI-authored unit provides a unit-level reason, all same-file markers share it and merge, which is the documented 'same defect in the same region' semantics. Judging whether the AI SHOULD have used one reason is a grouping decision made before dedup and cannot test mechanically as an assertion. This is not a design defect — the mechanical merge rule (same file + same reason -> merge) is asserted — Alternative: unit tests cover the mechanical rule; grouping judgment stays in consolidate-stubs Step 2 (the AI step).",
+            "Item: a crash between the commit and the rollback backup write — Reason: the backup is written before the commit (write-then-commit ordering), so a crash before commit leaves the tree untouched and a crash after commit still has the backup on disk; the exact crash window is an OS-level failure mode not testable inside the tool. This is not a design defect — the write-then-commit ordering and the restore behavior are asserted — Alternative: runRollback is unit-tested with a crafted ROLLBACK file containing removed entries; crash-window behavior is out of scope."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/batch-update-stub.js",
+            ".claude/scripts/tickets/update-stub.js",
+            ".claude/commands/consolidate-stubs.md",
+            "tests/batch-update-stub.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: two same-defect markers in one unit -> consolidated to one survivor with a covers annotation, the manifest has one stub",
+            "Error case: a decision file with an empty reason or plan -> the whole run aborts with zero writes and the problem is reported",
+            "Edge case: a single-marker unit is untouched; distinct-reason same-file markers are both kept; --rollback restores merged-away markers"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "same-defect markers -> merge",
+              "precondition": "a unit has two markers with the same file and the same reason",
+              "postcondition": "one survivor annotated '(covers ...)' remains and the other line is removed",
+              "invariant": "no covered location is lost — every covered line appears in the survivor annotation"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "distinct defects -> no merge",
+              "precondition": "two markers share a file but have different reasons",
+              "postcondition": "both markers remain",
+              "invariant": "merge clusters strictly by (file, reason)"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "dedup -> rollback",
+              "precondition": "dedup removed a marker line",
+              "postcondition": "--rollback reinserts the removed line at its original position",
+              "invariant": "the restore is byte-for-byte"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "decision validation -> empty strings",
+              "precondition": "unit.reason === '' or unit.plan === ''",
+              "postcondition": "validateDecisionUnits reports a problem and zero markers are edited",
+              "invariant": "no marker is ever written with an empty reason or plan"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "dedup -> manifest",
+              "precondition": "dedup ran",
+              "postcondition": "the manifest stubs contain each survivor exactly once",
+              "invariant": "no removed marker appears in the manifest"
+            }
+          ],
+          "notes": "【Implementation steps】1) batch-update-stub.js: after commitEdits, merge each unit markers via mergeTrueDuplicates, delete removed lines, count merged 2) extend writeRollbackFile to record removed entries and runRollback to reinsert them 3) validateDecisionUnits rejects empty reason/plan 4) tests 5) confirm consolidate-stubs.md Step 4 wording\n【Risks】rollback must restore removed lines byte-for-byte — the backup must capture the exact removed lines before deletion; runPrinter must see only survivors so the manifest stays survivor-only\n【Caveats】a unit-level reason makes all same-file markers in the unit merge (documented 'same defect in the same region' semantics); use per-marker reasons when distinct defects must stay separate\n【Open items】whether batch-update-stub should expose a --no-merge escape hatch (currently out of scope)\n【Future】the dedup counts can feed the /consolidate-stubs report as a 'duplicates merged' metric\nImplementation summary:\n- Changed files: .claude/scripts/tickets/batch-update-stub.js, .claude/scripts/tickets/update-stub.js, tests/batch-update-stub.test.cjs\n- TDD: 6 new tests written first (RED 6/6 failed), then the merge/rollback/validation implementation made them green (18/18)\n- Contract coverage: verify-red-coverage 5/5 with @verifies annotations\n- Tests: 82/82 (batch-update-stub 18 + update-stub + print-manifest + batch-create + consolidate-stubs-doc + validate-stub-format + find-all-stubs)\n- Quality: run-quality-checks 0 issues; node -c syntax OK\n- Crimes: 0 open; targetCrimes all false_positive (deferredTo PX-132)\n- The consolidate-stubs.md 'merges true duplicates' claim (kept by PX-133) is now backed by a real code path\nAddendum: fixed a pre-existing stripUnitTag bug exposed by dedup — the non-global /\\s{2,}/ collapsed the leading indent instead of the tag-removal gap. Now /g collapses every double space. C001 test asserts no double-space debris on the survivor. All 82 tests green; quality 0 issues.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Annotation: all changed source files carry PX-135 provenance (verify missing=[])\n- Stub evaluation: 0 stubs in the tree; no-excuse gate 0 failures\n- verify-final-contracts: 100% (1/1 fulfilled)\n- verify-red-coverage: 5/5 contracts with @verifies\n- E2E dedup verified: 2 same-reason markers -> 1 survivor (covers a.rs:4,6); --rollback restores byte-for-byte\n- Issues found and fixes applied: stripUnitTag double-space bug (pre-existing, exposed by dedup) fixed with /g flag",
+          "invariants": "- 【Normal establishment】every same-file same-reason marker cluster collapses to one survivor with all covered lines annotated\n- 【On error】an empty reason/plan or any validation failure aborts with zero writes\n- 【Internal state】the rollback backup records removed lines so the pre-consolidation tree is restorable byte-for-byte\n- 【Boundary】single-marker units and distinct-reason same-file markers are never merged",
+          "instrumentation": "- 【Logging】batch-update-stub reports markers -> units and any merged duplicates with their covered lines\n- 【Metrics】duplicate clusters merged per run\n- 【Error tracking】empty reason/plan failures list the unitId and the offending field\n- 【Health check】zero [::UNIT::] tags, zero removed-marker stubs, manifest survivor-only\nStatic quality check: passed\nTranslatability: no issues\nTests: batch-update-stub 18/18; full relevant suite 82/82",
+          "investigation": "Evidence: mergeTrueDuplicates(markers) in update-stub.js (L210-237) groups by file then by parsed reason; a cluster of >1 keeps the lowest line as survivor, annotates '(covers file:l1,l2)' via annotateCoveredLines, and returns {kept, removed}. It is exported but NEVER called — batch-update-stub.js imports it at L28 (dead import) and runBatchUpdate (L305-375) does writeRollbackFile -> commitEdits -> runPrinter -> consume decision file, with no dedup. runRollback (L268-292) restores only edited lines oldContent, so merged-away (removed) lines would NOT be restored today. validateDecisionUnits (L53-125) checks unitId, markerLines format, and cross-unit duplicates but does not reject empty-string reason/plan. updateStub (update-stub.js L135-200) treats stubReason !== undefined as authoritative, so '' blanks the reason and buildMarkerLine produces 'key:  [::UNIT::U1::] -- plan'.",
+          "boyScoutPlan": "Translatability: extract a named verb mergeUnitDuplicates(edits) that returns {edits, removed} so runBatchUpdate reads 'write rollback -> commit -> merge duplicates -> emit manifest'. The rollback backup gains a typed shape {edited:[{file,line,oldContent}], removed:[{file,line,oldContent}]} so runRollback reads as 'restore edited lines, then reinsert removed lines'. Empty-string rejection is a named validator fieldEmptyReject(unit, field) with a problem/cause/fix block consistent with the existing validateDecisionUnits output.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-135 (dedup + validation wiring) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] two same-file, same-reason markers in one unit merge into one survivor annotated '(covers ...)' and the other line is removed\n  const ws = makeWorkspace();\n  fs.writeFileSync(ws.srcA, '// a\\npub fn demo() {\\n    let x = 1;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n    let _ = x;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n}\\n');\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4', 'src/a.rs:6'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.ok, true);\n  assert.strictEqual(res.merged, 1, 'one duplicate merged');\n  const lines = fs.readFileSync(ws.srcA, 'utf8').split('\\n');\n  assert.strictEqual(lines.filter(l => l.includes('[::STUB::]')).length, 1, 'one survivor remains');\n  assert.ok(lines.some(l => l.includes('covers a.rs:4,6')), 'survivor enumerates covered lines');",
+            "UT: [C002] two markers in the same file with different reasons are not merged — both markers remain\n  const ws = makeWorkspace();\n  fs.writeFileSync(ws.srcA, '// a\\npub fn demo() {\\n    let x = 1;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n    let _ = x;\\n    // [::STUB::] P4-2: audio worker -- Implement audio worker\\n}\\n');\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4', 'src/a.rs:6'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.ok, true);\n  assert.strictEqual(res.merged, 0, 'different reasons never merge');\n  assert.strictEqual(fs.readFileSync(ws.srcA, 'utf8').split('\\n').filter(l => l.includes('[::STUB::]')).length, 2, 'both markers remain');",
+            "UT: [C003] --rollback restores merged-away markers — the removed line is reinserted at its original position byte-for-byte\n  const ws = makeWorkspace();\n  fs.writeFileSync(ws.srcA, '// a\\npub fn demo() {\\n    let x = 1;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n    let _ = x;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n}\\n');\n  const before = fs.readFileSync(ws.srcA, 'utf8');\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4', 'src/a.rs:6'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.merged, 1);\n  const restored = runRollback({ backupPath: res.rollbackPath });\n  assert.strictEqual(restored.ok, true, JSON.stringify(restored.error));\n  assert.strictEqual(fs.readFileSync(ws.srcA, 'utf8'), before, 'byte-for-byte restore including the removed line');",
+            "UT: [C004] unit.reason === '' is rejected by validateDecisionUnits with zero writes\n  const ws = makeWorkspace();\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', reason: '', markerLines: ['src/a.rs:4'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.ok, false);\n  assert.ok(res.problems.some(p => /reason/.test(p.problem)));\n  assert.strictEqual(fs.readFileSync(ws.srcA, 'utf8').includes('[::STUB::] P4-2: codec deferred'), true, 'no marker edited');",
+            "UT: [C004] unit.plan === '' is rejected by validateDecisionUnits with zero writes\n  const ws = makeWorkspace();\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', plan: '', markerLines: ['src/a.rs:4'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.ok, false);\n  assert.ok(res.problems.some(p => /plan/.test(p.problem)));",
+            "UT: [C005] dedup ran — the manifest stubs contain each survivor exactly once, no removed marker appears in the manifest\n  const ws = makeWorkspace();\n  fs.writeFileSync(ws.srcA, '// a\\npub fn demo() {\\n    let x = 1;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n    let _ = x;\\n    // [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration\\n}\\n');\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4', 'src/a.rs:6'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.merged, 1);\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, 'utf8'));\n  const stubRefs = manifest.flatMap(e => e.stubs.map(s => s.file + ':' + s.line));\n  assert.strictEqual(stubRefs.length, 1, 'one survivor in the manifest');"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "mergeTrueDuplicates imported at batch-update-stub.js:28 but never called (dead import); duplicates were never merged",
+              "after": "mergeUnitDuplicates splits prepared edits into survivors (kept) and merged-away duplicates (removed); commitConsolidated replaces survivors and deletes duplicates",
+              "description": "True-duplicate merge wired into the apply pipeline (C001)"
+            },
+            {
+              "before": "rollback backup was a flat array [{file,line,oldContent}]; runRollback only replaced lines, so merged-away lines could not be restored",
+              "after": "backup is { edited, removed }; runRollback replaces edited and reinserts removed lines byte-for-byte, keeping backward compat with the flat-array format",
+              "description": "Rollback restores merged-away markers (C003)"
+            },
+            {
+              "before": "validateDecisionUnits accepted an empty-string reason/plan, silently blanking markers",
+              "after": "reason/plan present-but-empty is rejected with a problem block and zero writes; updateStub also refuses empty reason/plan",
+              "description": "Empty-string rejection (C004)"
+            },
+            {
+              "before": "the manifest could contain duplicate markers because dedup never ran",
+              "after": "dedup runs before runPrinter, so the manifest carries each survivor exactly once",
+              "description": "Manifest survivor-only (C005)"
+            },
+            {
+              "before": "commitEdits was the only commit path and is now dead after commitConsolidated replaced it",
+              "after": "commitEdits removed; exports updated to commitConsolidated and mergeUnitDuplicates",
+              "description": "Dead code removed (Boy Scout)"
+            },
+            {
+              "before": "12 batch-update-stub tests",
+              "after": "18 tests including 6 new PX-135 tests (@verifies C001-C005)",
+              "description": "Test suite extended"
+            },
+            {
+              "before": "stripUnitTag collapsed only the FIRST 2+ whitespace run (the leading indent), leaving 'deferred  (covers ...)' double-space debris after dedup",
+              "after": "stripUnitTag collapses every 2+ whitespace run (/g), so the covers-annotated survivor reads 'deferred (covers a.rs:4,6)'",
+              "description": "stripUnitTag double-space fix (print-manifest-for-find-omissions.js)"
+            }
+          ],
+          "completedAt": "2026-08-05"
         }
       ]
     },
