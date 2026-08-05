@@ -156,7 +156,7 @@ function stripUnitTags(taggedMarkers) {
  * @param {string|null} [dir] — Directory to scan (defaults to cwd)
  * @returns {{ok: boolean, manifestPath?: string, markers?: number, units?: number, error?: string}}
  */
-// [::TICKET::] PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-131 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-131, PX-137 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-131|PX-137) --for-spec --no-implementation-order`.
 function runPrinter(dir) {
   const root = dir ? path.resolve(dir) : process.cwd();
   let tagged;
@@ -170,7 +170,13 @@ function runPrinter(dir) {
   }
 
   const grouped = groupByUnitId(tagged);
-  const manifest = grouped.map(({ sourceKey, stubs }) => ({ sourceKey, stubs }));
+  // Emit stubs[].file relative to the Tickets.json root (the documented
+  // cwd-relative contract) so the manifest is relocatable and survives macOS
+  // /var -> /private/var resolution differences between generator and consumer.
+  const manifest = grouped.map(({ sourceKey, stubs }) => ({
+    sourceKey,
+    stubs: stubs.map((s) => ({ ...s, file: path.relative(root, s.file) })),
+  }));
 
   const write = writeManifestFile(manifest, root);
   if (!write.ok) return { ok: false, error: write.error };

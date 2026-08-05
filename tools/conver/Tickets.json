@@ -18893,6 +18893,244 @@
             }
           ],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 137,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "consolidated manifest: emit cwd-relative file paths + fix the find-omissions grouped-shape example",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/137-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Align the generated consolidated manifest with the documented cwd-relative file-path contract and fix the find-omissions grouped-shape example\n【Purpose】print-manifest emits absolute stubs[].file paths while batch-create-resolving-tickets.js:23 documents 'manifest file paths are cwd-relative'; find-omissions.md's handoff note points to a legacy single-marker example\n【Motivation】A schema review (follow-up to PX-133-136) found the manifest is functionally consumable (gate passes) but the documented contract and the generated output differ; absolute paths bind the manifest to the generation machine\n【Constraints】batch-create keeps accepting both absolute and relative paths (backward compat); find-all-stubs keeps returning absolute paths for its other consumers; the manifest shape {sourceKey, stubs[]} stays",
+          "scope": [
+            "Path: .claude/scripts/tickets/print-manifest-for-find-omissions.js",
+            "Action: modify — emit stubs[].file as a path RELATIVE to the Tickets.json root (cwd) instead of the absolute path from find-all-stubs",
+            "Detail: in groupByUnitId / runPrinter, relativize each marker's file against root via path.relative(root, file); the manifest then matches the documented 'manifest file paths are cwd-relative' contract (batch-create-resolving-tickets.js L23)",
+            "Before/After: manifest stubs[].file = '/abs/path/to/src/a.rs' -> 'src/a.rs'; the generated manifest matches the documented contract and becomes relocatable",
+            "API: no CLI change; the manifest file path format changes from absolute to cwd-relative",
+            "Schema: manifest shape stays {sourceKey, stubs:[{file,line,content}]}; only the file value format changes",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: find-all-stubs.js keeps returning absolute paths (other consumers: validate-no-external-excuses, validate-stub-format scan); batch-create keeps accepting BOTH absolute and relative paths (resolveEntryPath)",
+            "Non-change why: find-all-stubs is a shared scanner; the manifest format is owned by print-manifest; batch-create backward-compat avoids breaking legacy/hand-authored manifests",
+            "Impact component: /consolidate-stubs Step 5 gate (batch-create --no-write), /find-omissions Step 1",
+            "Impact nature: the generated manifest matches its documented contract and is no longer bound to the generation machine's absolute paths",
+            "Impact response: print-manifest-for-find-omissions.js modified; find-omissions.md handoff example corrected; tests extended"
+          ],
+          "testUnit": [
+            "UT: [C001] a consolidation emits manifest stubs[].file as a cwd-relative path (no leading /, no '..')\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, 'utf8'));\n  const file = manifest[0].stubs[0].file;\n  assert.ok(!path.isAbsolute(file), 'file is relative');\n  assert.ok(!file.startsWith('..'), 'file stays under the root');\n  assert.strictEqual(file, path.join('src', 'a.rs'), 'relative to the Tickets.json root');",
+            "UT: [C002] the generated relative-path manifest passes batch-create --no-write (exit 0)\n  const out = execFileSync('node', [BATCH_CREATE, '--no-write'], { cwd: ws.dir, input: fs.readFileSync(res.manifestPath, 'utf8'), encoding: 'utf8' });\n  assert.ok(JSON.parse(out).createdTickets >= 1, 'manifest is consumable');",
+            "UT: [C003] find-omissions.md handoff note shows a grouped-shape example with sourceKey and stubs[]\n  const doc = fs.readFileSync(path.resolve(__dirname, '../.claude/commands/find-omissions.md'), 'utf8');\n  const handoff = doc.split('**`/consolidate-stubs` handoff**')[1] || '';\n  assert.ok(/sourceKey/.test(handoff) && /stubs/.test(handoff), 'handoff shows the grouped shape');\n  assert.ok(!/the grouped shape below/.test(handoff), 'no misleading below pointer');",
+            "UT: [C004] an absolute-path legacy manifest still passes batch-create --no-write (backward compat)\n  const absManifest = JSON.stringify([{ sourceKey: 'P4-2', stubs: [{ file: ws.srcA, line: 4, content: '// [::STUB::] P4-2: reason -- Implement' }] }]);\n  const out = execFileSync('node', [BATCH_CREATE, '--no-write'], { cwd: ws.dir, input: absManifest, encoding: 'utf8' });\n  assert.ok(JSON.parse(out).createdTickets >= 1, 'absolute path still accepted');",
+            "UT: [Invariant] the manifest shape stays {sourceKey, stubs:[{file,line,content}]}\n  assert.ok(manifest.every(e => typeof e.sourceKey === 'string' && Array.isArray(e.stubs) && e.stubs.every(s => s.file && Number.isInteger(s.line) && typeof s.content === 'string')));"
+          ],
+          "testIntegration": [
+            "IT: consolidate a fixture tree -> the generated manifest is piped to batch-create --no-write -> exit 0 (the gate passes end-to-end with relative paths)",
+            "IT: find-omissions.md's documented grouped example matches the generated manifest shape ({sourceKey, stubs:[{file,line,content}]})",
+            "IT: existing suites stay green — print-manifest, batch-create, batch-update-stub, consolidate-stubs-gate are unchanged in behavior"
+          ],
+          "testExceptions": [
+            "Item: whether find-all-stubs should also return relative paths — Reason: find-all-stubs is a shared scanner used by validate-no-external-excuses and validate-stub-format --scan, so the cross-consumer impact of changing its output cannot test mechanically as a single unit assertion; the relativization belongs to print-manifest (the manifest generator owns the manifest format). This is not a design defect — the generator-side relativization is unit-tested — Alternative: print-manifest relativizes; find-all-stubs stays absolute for its other consumers.",
+            "Item: verifying actual portability across a filesystem tree relocation — Reason: relocating the tree after generation is an OS-level operation, so simulating a real relocation cannot test mechanically as a unit assertion inside the tool; the cwd-relative fix makes the manifest relocatable by construction. This is not a design defect — the relative-path assertion covers the fix — Alternative: the relative-path unit test asserts the format; relocation is a manual/ops concern."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/print-manifest-for-find-omissions.js",
+            ".claude/commands/find-omissions.md",
+            "tests/print-manifest-for-find-omissions.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a consolidation emits cwd-relative manifest file paths, and the generated manifest passes batch-create --no-write",
+            "Error case: none (no new failure mode) — the generator change must not break the Step 5 gate",
+            "Edge case: absolute-path legacy manifests still pass batch-create (backward compat); find-omissions.md shows the grouped-shape example"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "print-manifest -> manifest file paths",
+              "precondition": "print-manifest writes a consolidated manifest under the Tickets.json root",
+              "postcondition": "every stubs[].file is relative to the Tickets.json root (no leading /, no '..')",
+              "invariant": "the manifest file paths resolve under sourceRoot"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "generated manifest -> batch-create --no-write",
+              "precondition": "the generated manifest is piped to batch-create --no-write from the Tickets.json root",
+              "postcondition": "validateManifestShape, resolveSourceKey, and checkOnDiskMarker all pass",
+              "invariant": "exit 0 on a valid tree"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find-omissions.md handoff note -> grouped shape",
+              "precondition": "the /consolidate-stubs handoff note is read",
+              "postcondition": "it shows a grouped-shape example with sourceKey and stubs[] (not the legacy example)",
+              "invariant": "the example matches the generated manifest shape"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "legacy absolute-path manifest -> backward compat",
+              "precondition": "an absolute-path manifest is piped to batch-create --no-write",
+              "postcondition": "it still passes (resolveEntryPath accepts absolute paths under sourceRoot)",
+              "invariant": "no regression for legacy or hand-authored manifests"
+            }
+          ],
+          "notes": "【Implementation steps】1) print-manifest-for-find-omissions.js: relativize stubs[].file against root in groupByUnitId/runPrinter 2) find-omissions.md: correct the handoff note to show a real grouped-shape example and drop the misleading 'below' pointer 3) extend tests/print-manifest-for-find-omissions.test.cjs\n【Risks】relativization must happen against the same root batch-create uses as sourceRoot (the Tickets.json root); find-all-stubs absolute paths must not leak into the manifest\n【Caveats】batch-create accepts both path forms; the fix only changes what print-manifest emits\n【Open items】whether validate-stub-format --scan output should also be relative (out of scope)\n【Future】the manifest becomes relocatable; the gate can run from a copied tree\nImplementation summary:\n- Changed files: .claude/scripts/tickets/print-manifest-for-find-omissions.js, .claude/commands/find-omissions.md, tests/print-manifest-for-find-omissions.test.cjs\n- TDD: C001-C004 tests written first (RED 4/4 failed), then runPrinter relativization + doc fix made them green (8/8)\n- Root cause discovered: macOS /var -> /private/var symlink made generated absolute paths escape the child process's resolved sourceRoot — the cwd-relative fix eliminates this\n- Contract coverage: verify-red-coverage 4/4 with @verifies\n- Tests: 93/93 (print-manifest 8 + batch-update-stub + batch-create + consolidate-stubs-gate + consolidate-stubs-doc + validate-stub-format + update-stub + find-all-stubs)\n- Quality: run-quality-checks 0 issues; node -c syntax OK\n- Crimes: 0 open",
+          "invariants": "- 【Normal establishment】every manifest stubs[].file is cwd-relative and resolves under sourceRoot\n- 【On error】a manifest with escaping paths is refused by resolveEntryPath (unchanged)\n- 【Internal state】the manifest shape stays {sourceKey, stubs:[{file,line,content}]}\n- 【Boundary】both relative (generated) and absolute (legacy/hand-authored) file paths pass batch-create",
+          "instrumentation": "- 【Logging】n/a — the manifest is a data artifact, not a runtime service\n- 【Metrics】n/a\n- 【Error tracking】a manifest with escaping file paths fails resolveEntryPath with a clear reason\n- 【Health check】the Step 5 gate (batch-create --no-write) is the manifest's health check",
+          "investigation": "Evidence from the schema review (2026-08-05): print-manifest-for-find-omissions.js groupByUnitId emits stubs[].file = find-all-stubs' absolute path (scanFile uses path.join(path.resolve(dir), ...)); batch-create-resolving-tickets.js:23 documents 'manifest file paths are cwd-relative'; resolveEntryPath accepts both absolute (under sourceRoot) and relative paths; an E2E confirmed absolute paths pass the gate (exit 0). find-omissions.md L138 handoff note says 'in exactly the grouped shape below' but the JSON example at L124-137 is the legacy single-marker shape (top-level file/line/content/sourceKey/seed).",
+          "boyScoutPlan": "Translatability: extract a named verb relativizeToRoot(file, root) so groupByUnitId reads as 'map each marker to a root-relative stub'. The find-omissions.md handoff note becomes a concrete grouped-shape JSON example the reader can compare against the generated output, so the doc and the generator agree.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-137 (manifest path alignment) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] runPrinter emits manifest stubs[].file as a cwd-relative path (no leading /, no '..')\n  const ws = makeWorkspace();\n  const res = runBatchUpdate({ decision: [{ unitId: 'U1', resolveByTicket: 'P4-2', markerLines: ['src/a.rs:4'] }], dir: ws.dir, ticketsPath: ws.ticketsPath });\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, 'utf8'));\n  const file = manifest[0].stubs[0].file;\n  assert.ok(!path.isAbsolute(file), 'file is relative');\n  assert.ok(!file.startsWith('..'), 'file stays under the root');\n  assert.strictEqual(file, path.join('src', 'a.rs'), 'relative to the Tickets.json root');",
+            "UT: [C002] the generated relative-path manifest passes batch-create --no-write\n  const out = execFileSync('node', [BATCH_CREATE, '--no-write'], { cwd: ws.dir, input: fs.readFileSync(res.manifestPath, 'utf8'), encoding: 'utf8' });\n  assert.ok(JSON.parse(out).createdTickets >= 1, 'manifest is consumable');",
+            "UT: [C003] find-omissions.md handoff note shows a grouped-shape example and drops the misleading 'below' pointer\n  const doc = fs.readFileSync(path.resolve(__dirname, '../.claude/commands/find-omissions.md'), 'utf8');\n  const handoff = doc.split('**`/consolidate-stubs` handoff**')[1] || '';\n  assert.ok(handoff.includes('\"sourceKey\"') && handoff.includes('\"stubs\"'), 'handoff shows a grouped JSON example');\n  assert.ok(!/the grouped shape below/.test(handoff), 'no misleading below pointer');",
+            "UT: [C004] an absolute-path legacy manifest still passes batch-create --no-write\n  const absManifest = JSON.stringify([{ sourceKey: 'P4-2', stubs: [{ file: ws.srcA, line: 4, content: '// [::STUB::] P4-2: reason -- Implement' }] }]);\n  const out = execFileSync('node', [BATCH_CREATE, '--no-write'], { cwd: ws.dir, input: absManifest, encoding: 'utf8' });\n  assert.ok(JSON.parse(out).createdTickets >= 1, 'absolute path still accepted');"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "print-manifest emitted stubs[].file as absolute paths while batch-create documents 'cwd-relative'",
+              "after": "runPrinter relativizes stubs[].file against the Tickets.json root (path.relative)",
+              "description": "cwd-relative manifest paths (C001)"
+            },
+            {
+              "before": "macOS /var -> /private/var resolution difference could make a generated absolute-path manifest escape the sourceRoot",
+              "after": "relative paths resolve under any sourceRoot; the generated manifest is relocatable",
+              "description": "Portability fix validated by C001/C002"
+            },
+            {
+              "before": "find-omissions.md handoff note said 'the grouped shape below' but pointed at a legacy single-marker example",
+              "after": "the handoff note shows a real grouped JSON example ({sourceKey, stubs[]}) with cwd-relative file",
+              "description": "find-omissions grouped-shape example fixed (C003)"
+            },
+            {
+              "before": "no test asserted the manifest path format or backward compatibility",
+              "after": "C001-C004 tests added (relative generation, consumability, doc example, absolute-path backward compat)",
+              "description": "Test suite extended (RED->GREEN)"
+            }
+          ],
+          "completedAt": "2026-08-05"
         }
       ]
     },
